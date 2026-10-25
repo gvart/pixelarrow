@@ -19,6 +19,8 @@ import { columnTops, type MassifDef, type Massifs } from './massifs';
 import { buildFineArt, SmoothFrames, type CliffRoles, type FineArt } from './fineArt';
 import { HH, HW, IsoMap, LH, ZBASE } from './iso';
 import type { BakeOpts } from './terrain';
+import { FOAM_H, FOAM_NX, FOAM_NY, FOAM_PX, FOAM_PY, FOAM_W, foamSprite, relief, RELIEF_FILL, SHADOW_H, SHADOW_W, treeShadow } from './relief';
+import { relightTree } from './treeLight';
 
 export interface ObjDef { id: string; kind: string; file: string; w: number; h: number; metres: number; anchor: { x: number; y: number }; footprint?: [number, number]; massif?: string; role?: string }
 /** A tile set: the global sheets plus one biome's (its variants replace the global ones per terrain), as indices into WarArt's merged lists. */
@@ -76,13 +78,21 @@ export async function loadArt(base = 'war/'): Promise<WarArt> {
     Promise.all(cliffs.map((c) => img(c.file))),
     Promise.all(defs.map((d) => img(d.file))),
   ]);
-  const objImg = new Map(defs.map((d, i) => [d.id, oi[i]]));
+  // trees relit for the NW light (./treeLight.ts), back as images so every user keeps one kind of source
+  const lit = await Promise.all(defs.map((d, i) => (d.kind === 'tree' ? reimage(relightTree(oi[i])) : oi[i])));
+  const objImg = new Map(defs.map((d, i) => [d.id, lit[i]]));
   return {
     tiles: { sheets, variants, fallback: metas[0][0].fallback }, sheets: si, variants: vi, defs, objImg, sets,
     cliffs: Object.fromEntries(cliffs.map((c, i) => [c.id, ci[i]])),
     cliffMeta: Object.fromEntries(cliffs.filter((c) => c.frames).map((c) => [c.id, { frames: c.frames, roles: c.roles }])),
     massifs: defs.filter((d) => d.kind === 'massif' && d.footprint).map((d) => ({ ...d, footprint: d.footprint!, top: columnTops(objImg.get(d.id)!) })),
   };
+}
+/** A canvas as a decoded image. */
+function reimage(c: HTMLCanvasElement): Promise<HTMLImageElement> {
+  const im = new Image();
+  im.src = c.toDataURL('image/png');
+  return im.decode().then(() => im);
 }
 interface Placed { def: ObjDef; img: HTMLImageElement; sx: number; sy: number; shade?: number }
 
@@ -92,33 +102,6 @@ const SNOWY = new Set([KINDS.indexOf('snow'), KINDS.indexOf('drift')]);
 const WET = new Set([KINDS.indexOf('shallow'), KINDS.indexOf('deep')]);
 /** Zoomed out (the baked levels) objects shorter than this (m) are left out, but crops (a sown plot reads as a field). */
 export const LOD_METRES = 2;
-
-/** W-52 relief light step (alpha per step of ArtBaker.shade). */
-const SHADE = 0.04;
-
-/**
- * W-52 relief light per visual cell, so tiers read at every zoom: ground above the region's median level a little
- * lighter, below it darker (about 4 % per 2 m tier), and the ground at the foot of a wall that faces away from the NW
- * light (toward +x) in its shadow, deepest right under it, as far out as the wall is tall.
- */
-export function reliefShade(iso: IsoMap): Int8Array {
-  const { fw, fh, fz } = iso, n = fw * fh, out = new Int8Array(n);
-  const hist = new Uint32Array(256);
-  for (let j = 0; j < n; j++) hist[Math.max(0, Math.min(255, Math.round(fz[j])))]++;
-  let med = 0;
-  for (let acc = 0; med < 255 && (acc += hist[med]) < n / 2; med++);
-  for (let y = 0; y < fh; y++) for (let x = 0; x < fw; x++) {
-    const j = y * fw + x, z = fz[j];
-    let sh = 0;
-    for (let d = 1; d <= 24 && d <= x; d++) {
-      const rise = fz[j - d] - z - 0.5 * d; // the wall's top over the light's ray at this distance
-      if (rise > sh) sh = rise;
-    }
-    const v = Math.max(-0.2, Math.min(0.16, (z - med) * 0.005)) - Math.min(0.36, sh * 0.03);
-    out[j] = Math.round(v / SHADE);
-  }
-  return out;
-}
 
 export class ArtBaker {
   /** Per visual cell: atlas frame (sheet * 64 + mask * 4 + quadrant, or VARIANT + variant * 64 + frame * 4 + quadrant), -1 none. */
@@ -137,8 +120,12 @@ export class ArtBaker {
   private tmp: HTMLCanvasElement | null = null;
   /** Canvas px per world px of the bake in progress (the tint's line width). */
   private scale = 1;
-  /** W-52 per visual cell: relief light in SHADE steps (negative: shadow; ./art.ts reliefShade). */
-  private shade: Int8Array;
+  /** Per visual cell: its baked light (./relief.ts RELIEF_FILL code, 0 none). */
+  private shade: Uint8Array;
+  /** Per visual cell: the sides a shore water cell meets land on (./relief.ts FOAM_*). */
+  private foam: Uint8Array;
+  /** Tree shadows by the row they are drawn after (world px rects of ./relief.ts treeShadow). */
+  private shadows: { x: number; y: number; w: number; h: number }[][];
 
   constructor(readonly r: RegionData, readonly iso: IsoMap, readonly art: WarArt, massifs: Massifs | null = null) {
     this.fine = buildFineArt(art);
@@ -150,7 +137,6 @@ export class ArtBaker {
     }
     this.code = this.fineCodes();
     this.corners = this.cornerValues();
-    this.shade = reliefShade(iso);
     this.zone = new Uint8Array(r.w * r.h);
     const mark = (b: { x: number; y: number; w: number; h: number }, k: number) => {
       for (let y = b.y; y < b.y + b.h; y++) for (let x = b.x; x < b.x + b.w; x++) this.zone[y * r.w + x] = k;
@@ -176,6 +162,18 @@ export class ArtBaker {
       maxH = Math.max(maxH, m.def.h);
     }
     this.reach = Math.ceil(maxH / FH) + 2;
+    // tree shadows on the ground at every zoom (the live tree sprites stand over the baked ground), drawn after the row
+    // of their front edge so the ground in front does not cut them
+    this.shadows = Array.from({ length: nRows }, () => []);
+    for (const o of r.objects ?? []) {
+      const def = defs.get(o.id);
+      if (!def || (def.kind !== 'tree' && def.kind !== 'bush') || def.metres < 1 || massifs?.covers(o.x, o.y, def.metres)) continue;
+      const cw = def.w * (def.kind === 'tree' ? 0.85 : 0.7), L = (cw / 64) * 0.5, w = cw * 1.5, h = (w * SHADOW_H) / SHADOW_W;
+      const sx = iso.sx(o.x + L, o.y), sy = iso.sy(o.x + L, o.y, iso.zAt(o.x, o.y));
+      const v = Math.min(nRows - 1, Math.floor(2 * (o.x + o.y + L) + w / 40));
+      this.shadows[v].push({ x: Math.round(sx - w / 2), y: Math.round(sy - h / 2), w: Math.round(w), h: Math.round(h) });
+    }
+    ({ code: this.shade, foam: this.foam } = relief(iso.fw, iso.fh, iso.fk, iso.fz));
   }
 
   /**
@@ -317,6 +315,8 @@ export class ArtBaker {
     const sets = this.art.sets.map((s) => { const crag = pick(s.crag, 'rock', 'earth'), snow = pick(s.snow, crag); return [crag, pick(s.earth), snow, pick(s.ice, snow)]; });
     // with a view mode's tint: the ground, the tint over it, then the objects over both
     const split = !!o.tint && objects;
+    const sprite = treeShadow();
+    const faces = new Faces();
     const drawObjects = (v: number) => {
       for (const p of this.rows[v] ?? []) {
         const d = p.def, ox = p.sx - d.anchor.x, oy = p.sy - d.anchor.y;
@@ -359,9 +359,13 @@ export class ArtBaker {
             const g = this.corners[i], [img, sx, sy] = this.smooth.frame(c >> 6, (c & 63) >> 2, c & 3, [g & 15, (g >> 4) & 15, (g >> 8) & 15, g >> 12]);
             ctx.drawImage(img, sx, sy, 32, 32, tx, ty, 32, 32);
           } else ctx.drawImage(fine.sheets[c >> 6], (c & 63) * 32, 0, 32, 32, tx, ty, 32, 32);
+          const dE = z - zt(x + 1, y), dS = z - zt(x, y + 1);
+          if (dE >= 2 || dS >= 2) faces.add(x, y, tx, ty, dE, dS, z);
         }
+        faces.fill(ctx);
       }
       this.shadeRow(ctx, v, umin, umax, y0, h);
+      for (const t of this.shadows[v] ?? []) if (t.x < x0 + w && t.x + t.w > x0 && t.y < y0 + h && t.y + t.h > y0) ctx.drawImage(sprite, t.x, t.y, t.w, t.h);
       if (objects && !split) drawObjects(v);
     }
     if (o.tint && o.map) o.map.drawTint(ctx, iso, o.tint, x0, y0, w, h, this.scale);
@@ -369,26 +373,54 @@ export class ArtBaker {
     if (o.zones || o.grid) this.lines(ctx, Math.floor(umin / 2) - 1, Math.ceil(umax / 2) + 1, Math.floor(vmin / 2) - 1, Math.ceil(vmax / 2) + 1, o);
   }
 
-  /** W-52 the relief light over row v's cells (high ground lighter, the ground under a wall in its shadow), one fill per step. */
+  /** The baked light over row v's cells (./relief.ts), one fill per code. */
   private shadeRow(ctx: CanvasRenderingContext2D, v: number, umin: number, umax: number, y0: number, h: number): void {
     const { iso, shade, code } = this, { fw, fh, fz } = iso;
     let u = Math.max(umin, -v, v - 2 * (fh - 1));
     if ((u + v) & 1) u++;
     const paths = new Map<number, Path2D>();
+    let foam: Path2D | null = null, wave: Path2D | null = null;
+    const blobs: number[] = [];
     for (; u <= Math.min(umax, v, 2 * (fw - 1) - v); u += 2) {
       const x = (u + v) / 2, y = (v - u) / 2, i = y * fw + x, s = shade[i];
-      if (!s || code[i] < 0) continue;
+      if ((!s && !this.foam[i]) || code[i] < 0) continue;
       const ty = Math.round(iso.OY + v * FH - fz[i] * LH);
       if (ty > y0 + h || ty + 2 * FH < y0) continue;
       const tx = iso.OX + u * FW - FW;
+      const fb = this.foam[i];
+      if (fb) {
+        foam ??= new Path2D(); wave ??= new Path2D();
+        const T = [tx + FW, ty], R = [tx + 2 * FW, ty + FH], B = [tx + FW, ty + 2 * FH], L = [tx, ty + FH], C = [tx + FW, ty + FH];
+        const edge = (a: number[], b: number[], k: number) => {
+          // jittered a pixel off the edge into the water; the wave line about a third of the way to the cell's middle
+          const j = ((hash(x, y, k) & 7) - 3.5) * 0.3, ox = (C[0] - (a[0] + b[0]) / 2) * 0.12, oy = (C[1] - (a[1] + b[1]) / 2) * 0.12;
+          foam!.moveTo(a[0] + ox, a[1] + oy + j); foam!.lineTo(b[0] + ox, b[1] + oy - j);
+          blobs.push((a[0] + b[0]) / 2 + ox * 1.5 + j * 3, (a[1] + b[1]) / 2 + oy * 1.5);
+          if (hash(x, y, k + 4) % 3) { const q = 3.2; wave!.moveTo(a[0] + ox * q + (b[0] - a[0]) * 0.15, a[1] + oy * q + (b[1] - a[1]) * 0.15); wave!.lineTo(b[0] + ox * q - (b[0] - a[0]) * 0.2, b[1] + oy * q - (b[1] - a[1]) * 0.2); }
+        };
+        if (fb & FOAM_PX) edge(R, B, 1);
+        if (fb & FOAM_NX) edge(T, L, 2);
+        if (fb & FOAM_PY) edge(B, L, 3);
+        if (fb & FOAM_NY) edge(T, R, 4);
+      }
+      if (!s) continue;
       let p = paths.get(s);
       if (!p) paths.set(s, (p = new Path2D()));
       p.moveTo(tx + FW, ty); p.lineTo(tx + 2 * FW, ty + FH); p.lineTo(tx + FW, ty + 2 * FH); p.lineTo(tx, ty + FH); p.closePath();
     }
     for (const [s, p] of paths) {
-      ctx.fillStyle = s < 0 ? `rgba(24,18,12,${(-s * SHADE).toFixed(3)})` : `rgba(255,244,214,${(s * SHADE).toFixed(3)})`;
+      ctx.fillStyle = RELIEF_FILL[s];
       ctx.fill(p);
     }
+    // surf: a foam line along each shore edge and a broken wave line a little out in the water
+    if (!foam) return;
+    ctx.lineCap = 'round';
+    // soft spray blobs over the edge midpoints hide the cell staircase of the shore; a thin line keeps its edge
+    const fs = foamSprite();
+    for (let k = 0; k < blobs.length; k += 2) ctx.drawImage(fs, blobs[k] - FOAM_W / 2, blobs[k + 1] - FOAM_H / 2);
+    ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(236,244,236,0.4)'; ctx.stroke(foam);
+    ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(220,236,236,0.3)'; ctx.stroke(wave!);
+    ctx.lineCap = 'butt';
   }
 
   /** Zone borders and the tile grid over the art. */
@@ -419,5 +451,86 @@ export class ArtBaker {
       }
       ctx.stroke();
     }
+  }
+}
+
+/**
+ * Light on the walls of one row of cells, filled after the row (the cells of a row never overlap each other's walls; the
+ * rows in front, painted later, cover what they should). Light from the NW: the SE faces (toward +x) in shadow, the SW
+ * faces (toward +y) catch a little light; tall walls darker toward the foot, with cracks down them and broken ledges
+ * along levels shared by the whole wall, so a long cliff does not read as one repeated strip.
+ */
+class Faces {
+  private se = new Path2D(); private sw = new Path2D(); private foot = new Path2D();
+  private dark = new Path2D(); private lit = new Path2D(); private rim = new Path2D();
+  private streakLit = new Path2D(); private streakDark = new Path2D(); private upper = new Path2D();
+  private any = false;
+
+  add(x: number, y: number, tx: number, ty: number, dE: number, dS: number, z: number): void {
+    this.any = true;
+    const rx = tx + 2 * FW, ry = ty + FH, bx = tx + FW, by = ty + 2 * FH, lx = tx, ly = ty + FH;
+    const quad = (p: Path2D, ax: number, ay: number, bx2: number, by2: number, d0: number, d1: number) => {
+      p.moveTo(ax, ay + d0); p.lineTo(bx2, by2 + d0); p.lineTo(bx2, by2 + d1); p.lineTo(ax, ay + d1); p.closePath();
+    };
+    if (dE >= 2) {
+      const d = dE * LH;
+      quad(this.se, rx, ry, bx, by, 0, d);
+      this.rim.moveTo(rx, ry + 0.5); this.rim.lineTo(bx, by + 0.5);
+      if (dE >= 3) { quad(this.foot, rx, ry, bx, by, d * 0.6, d); quad(this.upper, rx, ry, bx, by, 0, d * 0.25); }
+      if (dE >= 3) this.detail(x, y, rx, ry, bx, by, dE, z, 0);
+    }
+    if (dS >= 2) {
+      const d = dS * LH;
+      quad(this.sw, bx, by, lx, ly, 0, d);
+      this.rim.moveTo(bx, by + 0.5); this.rim.lineTo(lx, ly + 0.5);
+      if (dS >= 3) { quad(this.foot, bx, by, lx, ly, d * 0.6, d); quad(this.upper, bx, by, lx, ly, 0, d * 0.25); }
+      if (dS >= 3) this.detail(x, y, bx, by, lx, ly, dS, z, 1);
+    }
+  }
+
+  /** Cracks and ledges on the face under the edge a -> b, d levels tall. */
+  private detail(x: number, y: number, ax: number, ay: number, bx: number, by: number, d: number, z: number, side: number): void {
+    const h = hash(x, y, 11 + side);
+    // weathering streaks: thin vertical runs of light or shade from the lip down, across the strip seams
+    for (let q = 0; q < 2; q++) {
+      const hq = hash(x, y, 31 + side * 2 + q), t = ((hq & 255) / 255) * 0.85 + 0.05, sx = ax + (bx - ax) * t, sy = ay + (by - ay) * t;
+      const sw = 2 + (hq >>> 8) % 4, len = d * LH * (0.3 + ((hq >>> 12) % 70) / 100), p = (hq >>> 20) & 1 ? this.streakLit : this.streakDark;
+      p.rect(Math.round(sx), sy + 2, sw, len);
+    }
+    if (h % 2 === 0) { // a crack from near the top most of the way down, wandering a pixel or two
+      const t = 0.2 + ((h >>> 4) % 60) / 100, cx = ax + (bx - ax) * t, cy = ay + (by - ay) * t, len = d * LH * (0.45 + ((h >>> 10) % 40) / 100);
+      let px = cx, py = cy + 3;
+      this.dark.moveTo(px, py); this.lit.moveTo(px - 1, py);
+      for (let s = 6; s < len; s += 6) {
+        px += (((h >>> (s % 24)) & 3) - 1.5) * 0.9;
+        py = cy + s;
+        this.dark.lineTo(px, py); this.lit.lineTo(px - 1, py);
+      }
+    }
+    // ledges at the levels the whole wall shares (phase by wall section), broken per cell
+    const ph = hash(x >> 3, y >> 3, 13) % 5;
+    for (let lv = Math.floor(z) - 2; lv > z - d + 1; lv--) {
+      if ((lv + ph) % 5 !== 0 || hash(x, y, lv) % 10 < 3) continue;
+      const o = (z - lv) * LH;
+      this.lit.moveTo(ax, ay + o); this.lit.lineTo(bx, by + o);
+      this.dark.moveTo(ax, ay + o + 1.5); this.dark.lineTo(bx, by + o + 1.5);
+    }
+  }
+
+  fill(ctx: CanvasRenderingContext2D): void {
+    if (!this.any) return;
+    ctx.fillStyle = 'rgba(14,16,30,0.17)'; ctx.fill(this.se);
+    ctx.fillStyle = 'rgba(255,238,200,0.08)'; ctx.fill(this.sw);
+    ctx.fillStyle = 'rgba(10,10,20,0.15)'; ctx.fill(this.foot);
+    ctx.strokeStyle = 'rgba(255,242,214,0.3)'; ctx.lineWidth = 1.5; ctx.stroke(this.rim);
+    ctx.fillStyle = 'rgba(255,238,200,0.07)'; ctx.fill(this.upper);
+    ctx.fillStyle = 'rgba(255,240,214,0.09)'; ctx.fill(this.streakLit);
+    ctx.fillStyle = 'rgba(10,10,18,0.14)'; ctx.fill(this.streakDark);
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = 'rgba(12,10,8,0.55)'; ctx.stroke(this.dark);
+    ctx.strokeStyle = 'rgba(255,240,210,0.22)'; ctx.stroke(this.lit);
+    this.se = new Path2D(); this.sw = new Path2D(); this.foot = new Path2D(); this.dark = new Path2D(); this.lit = new Path2D(); this.rim = new Path2D();
+    this.streakLit = new Path2D(); this.streakDark = new Path2D(); this.upper = new Path2D();
+    this.any = false;
   }
 }
