@@ -1,0 +1,30 @@
+src/war/regions/elaia-w.json
+  s_cfc22b058125c4::t_482c130a8ea68f 1
+scripts/war/regions/elaia-w.ts
+  s_cfc22b058125c4::t_beee177ac00679 55
+  s_cfc22b058125c4::t_510c9f3047b232 42
+  s_cfc22b058125c4::t_60c1620f143c59 34-37,43
+  s_cfc22b058125c4::t_2af0484c71ac5d 6-13,17-18,30,32,38-40,45-53,59,64,66-67,69,73-75
+  s_cfc22b058125c4::t_e5b90c382a2844 29,33
+  s_cfc22b058125c4::t_81976601cea35f 54
+  s_cfc22b058125c4::t_9f558837d7ac61 28
+  s_cfc22b058125c4::t_482c130a8ea68f 41,44
+src/war/regions/elaia-w.spots.ts
+  s_cfc22b058125c4::t_28c5d8d5c269bb 14
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "9f1fd4c9094edf25c29dd5fd0383835580df05fa",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
