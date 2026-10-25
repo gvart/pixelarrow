@@ -16,6 +16,8 @@ export interface Keep {
   siteBand?: number;
   /** Units kept each side of every road's centre line (default 3.5). */
   roadBand?: number;
+  /** Units kept round every region-edge entry point (default 20; smaller where the set pieces reach the edge, so no low bowl of draft ground is left round the entry). */
+  entryBand?: number;
 }
 
 export function composeOnDraft(id: string, keep: Keep, compose: (k: Kit) => void, style?: Partial<Style>): RegionDef {
@@ -37,7 +39,7 @@ export function composeOnDraft(id: string, keep: Keep, compose: (k: Kit) => void
         ...Object.values(k.spots).map((p): [Pt, number] => [p, 12]),
         ...k.lairReqs.map((l): [Pt, number] => [l.at, 10]),
         ...k.claimReqs.map((c): [Pt, number] => [c.at, 10]),
-        ...k.sides.map((s): [Pt, number] => [k.entry(s.id, 10), 20]),
+        ...k.sides.map((s): [Pt, number] => [k.entry(s.id, 10), keep.entryBand ?? 20]),
       ];
       // the staging point's way in: the segment to the nearest site's centre
       const seg = boxes.length ? (() => { const b = boxes.slice().sort((p, q) => Math.hypot(p[4] - st[0], p[5] - st[1]) - Math.hypot(q[4] - st[0], q[5] - st[1]))[0]; return [st, [b[4], b[5]] as Pt] as const; })() : null;

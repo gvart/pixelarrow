@@ -18,7 +18,9 @@ import { fbm } from './kit.ts';
 import { composeOnDraft } from './draftCompose.ts';
 import { relief } from './setpieces.ts';
 
-export default composeOnDraft('canyons', { staging: [163, 196] }, (k: Kit) => {
+const hash = (x: number, y: number, s: number) => { const v = Math.sin(x * 127.1 + y * 311.7 + s * 74.7) * 43758.5453; return v - Math.floor(v); };
+
+export default composeOnDraft('canyons', { staging: [163, 196], entryBand: 6 }, (k: Kit) => {
   const { W, H, K } = k, h0 = k.height.slice();
   // the hold's quarter: the high ground (h2+) joined to the hold, between the north canyon and the slot
   const bench = new Uint8Array(W * H), hold: Pt = [80, 73], st = [k.at(hold)];
@@ -45,7 +47,7 @@ export default composeOnDraft('canyons', { staging: [163, 196] }, (k: Kit) => {
     const i = k.at([x, y]);
     if (i < 0 || h0[i] < 4 || bench[i]) return NaN;
     const d = dist[i] / K;
-    if (d < 2.6 + 2 * fbm(x, y, 6, s) && fbm(x, y, 26, s + 1) > -0.05) return 3;
+    if (d < 2.4 + 2 * fbm(x, y, 6, s) && fbm(x, y, 26, s + 1) > -0.4) return 3;
     return 6.4 + 0.7 * fbm(x, y, 22, s + 2) + 0.3 * fbm(x, y, 6, s + 3);
   });
   k.patchWhere('kyrene', 'redrock', (x, y) => { const i = k.at([x, y]); return i >= 0 && k.height[i] >= 3; }, ['sand']);
@@ -71,4 +73,21 @@ export default composeOnDraft('canyons', { staging: [163, 196] }, (k: Kit) => {
   for (const p of [[30, 160], [40, 220], [200, 200], [220, 40], [180, 30], [230, 170], [100, 240], [24, 40]] as Pt[]) k.piece('kyrene/boulder-red', p, { r: 10, n: 2, gap: 4 });
   for (const b of [[40, 170, 16, 12, 0.3], [70, 230, 14, 10, 0], [200, 190, 18, 12, -0.2], [220, 60, 14, 12, 0.2], [180, 40, 12, 8, 0], [30, 30, 10, 8, 0]] as const)
     k.rows(['kyrene/thorn-tree', 'kyrene/camelthorn', 'kyrene/dry-grass', 'kyrene/acacia-old'], [...b], { dx: 6, dy: 5, on: ['redrock', 'sand'] });
+  // the tableland as in the reference: scrub, dry grass, rocks and boulders over all of it in loose drifts (denser in
+  // the hollows of the noise), and fallen blocks along the foot of every canyon wall
+  const ds = k.seed(), cliffAt = (i: number, x: number, y: number) => [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => { const j = k.at([x + dx, y + dy]); return j >= 0 && k.height[j] >= k.height[i] + 2; });
+  const TOP = ['kyrene/dry-grass', 'kyrene/camelthorn', 'kyrene/rocks-red', 'kyrene/dry-grass', 'kyrene/broom', 'kyrene/boulder-red', 'kyrene/camelthorn', 'kyrene/thorn-tree', 'kyrene/rocks-red', 'kyrene/saltbush'];
+  k.rowsAt((x, y) => TOP[Math.floor(hash(x, y, ds) * TOP.length)], (x, y) => {
+    const i = k.at([x, y]);
+    return i >= 0 && k.height[i] >= 3 && !k.inSite(x, y) && hash(x, y, ds + 1) < 0.3 + 0.35 * Math.max(0, fbm(x, y, 12, ds + 2));
+  }, ['redrock'], 3);
+  // boulder fields and the odd rock pillar on the top (off the hold's quarter, which the raid crosses)
+  k.rowsAt((x, y) => (hash(x, y, ds + 5) < 0.04 ? 'kyrene/rock-pillar' : hash(x, y, ds + 6) < 0.6 ? 'kyrene/boulder-red' : 'kyrene/rocks-red'), (x, y) => {
+    const i = k.at([x, y]);
+    return i >= 0 && k.height[i] >= 5 && fbm(x, y, 7, ds + 7) > 0.35 && hash(x, y, ds + 8) < 0.5;
+  }, ['redrock'], 2);
+  k.rowsAt((x, y) => (hash(x, y, ds + 3) < 0.6 ? 'kyrene/talus-red' : 'kyrene/rocks-red'), (x, y) => {
+    const i = k.at([x, y]);
+    return i >= 0 && k.height[i] <= 3 && k.roadDist[i] > 6 && hash(x, y, ds + 4) < 0.45 && cliffAt(i, x, y); // blocks stay off the ways through
+  }, ['sand', 'redrock', 'dirt', 'dune', 'hardpan', 'reg', 'gravel'], 2);
 }, { bushes: 0.5 });
