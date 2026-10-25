@@ -28,6 +28,7 @@ import { IsoMap } from './iso';
 import { Massifs } from './massifs';
 import { LIVE_ZOOM, ObjectLayer } from './objects';
 import { CHUNK_PX, OVERVIEW_SCALE, TerrainBaker, type BakeOpts } from './terrain';
+import { WaterGlints } from './water';
 import { ShotLayer } from './shots';
 import { BODY, SPRITE_ZOOM, UnitLayer } from './units';
 import { NeutralLayer } from './neutral';
@@ -103,6 +104,7 @@ export class SandboxScene extends Phaser.Scene {
   private art: WarArt | null = null;
   private artBaker: ArtBaker | null = null;
   private objects: ObjectLayer | null = null;
+  private glints: WaterGlints | null = null;
   massifs: Massifs | null = null;
   /** The view mode (./mapModes.ts: F2-F7 or the HUD's mode bar), baked over the ground of the chunks and the overview. */
   mode: MapMode = 'normal';
@@ -154,6 +156,7 @@ export class SandboxScene extends Phaser.Scene {
     if (this.art) {
       this.artBaker = new ArtBaker(r, this.iso, this.art, this.massifs);
       this.objects = new ObjectLayer(this, this.iso, r, this.art, this.massifs);
+      this.glints = new WaterGlints(this, this.iso);
     }
     const { W, H } = this.iso;
     this.overviewTex = this.textures.createCanvas('overview', Math.ceil(W * OVERVIEW_SCALE), Math.ceil(H * OVERVIEW_SCALE))!;
@@ -268,9 +271,17 @@ export class SandboxScene extends Phaser.Scene {
   }
 
   private bake(ctx: CanvasRenderingContext2D, x0: number, y0: number, w: number, h: number, scale: number, cx = 0, cy = 0): void {
+    const t0 = performance.now();
     if (this.artBaker) this.artBaker.bake(ctx, x0, y0, w, h, scale, this.opts, cx, cy, baked(scale));
     else this.baker.bake(ctx, x0, y0, w, h, scale, this.opts, cx, cy);
+    // bake times per scale (ms: count, mean, max), for the perf scripts
+    const st = (this.bakeStats[String(scale)] ??= { n: 0, mean: 0, max: 0 }), dt = performance.now() - t0;
+    st.mean = (st.mean * st.n + dt) / ++st.n;
+    st.max = Math.max(st.max, dt);
   }
+
+  /** Per bake scale: count, mean and max ms. */
+  readonly bakeStats: Record<string, { n: number; mean: number; max: number }> = {};
 
   /** Centre the camera on a tile point (at its level), optionally zooming. */
   focus(x: number, y: number, zoom?: number): void {
@@ -495,6 +506,7 @@ export class SandboxScene extends Phaser.Scene {
     // a live mode follows the sim (influence, nodes, lairs, walls): checked twice a second
     if (this.mode !== 'normal' && this.frame % 30 === 0) this.retint();
     this.updateChunks(view, cam.zoom);
+    this.glints?.draw(view, cam.zoom, this.time.now, this.iso);
     // the ground under the cursor follows the camera too (pan, zoom), not just pointer moves
     if (this.moved && (vx || vy || this.frame % 4 === 0)) this.pointerTile = this.world(p);
 
