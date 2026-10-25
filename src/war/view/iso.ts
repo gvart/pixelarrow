@@ -16,6 +16,10 @@
  * cells, 2 x 2 per tile, drawn as 32 x 16 diamonds, whose levels may rise far above the sim's 0..15
  * on impassable mountains (up to ZMAX). Picking, occlusion and the objects use those cells; units
  * stand on them too but never more than a level off their tile's sim height.
+ *
+ * One-level steps between land cells (the generator's eased slopes) are drawn as smooth ramps, not risers: each cell
+ * has four corner levels (cornerLevels), its diamond warped through them, and zAt is that surface. Steps of two levels
+ * or more are cliffs: the cells along them, and water, stay flat at their own level.
  */
 import type { RegionData } from '../types';
 import { decodeVisual, KINDS, ZVIS } from '../regions/visual';
@@ -91,6 +95,57 @@ function lower(z: Float32Array, w: number, low: (j: number) => boolean): void {
   }
 }
 
+/**
+ * Corner levels of the visual cells, 4 per cell (N, E, S, W: the lattice points (x, y), (x + 1, y), (x + 1, y + 1),
+ * (x, y + 1)), and per cell 1 if they are not all its own level (a ramp cell). At each lattice point the cells joined by
+ * flat edges or one-level land steps share one level: the level of a flat cell among them (a cliff's or water's), else
+ * their mean. A cell is flat when it is water or a 4-neighbour lies two or more levels off (a cliff top or foot).
+ */
+function cornerLevels(fw: number, fh: number, fz: Float32Array, wet: (j: number) => boolean): { fc: Float32Array; ramp: Uint8Array } {
+  const n = fw * fh, fc = new Float32Array(4 * n), ramp = new Uint8Array(n), hard = new Uint8Array(n);
+  for (let j = 0; j < n; j++) {
+    const x = j % fw, z = fz[j];
+    fc[4 * j] = fc[4 * j + 1] = fc[4 * j + 2] = fc[4 * j + 3] = z;
+    if (wet(j) || (x > 0 && Math.abs(fz[j - 1] - z) >= 2) || (x < fw - 1 && Math.abs(fz[j + 1] - z) >= 2)
+      || (j >= fw && Math.abs(fz[j - fw] - z) >= 2) || (j + fw < n && Math.abs(fz[j + fw] - z) >= 2)) hard[j] = 1;
+  }
+  const link = (a: number, b: number) => {
+    const d = Math.abs(fz[a] - fz[b]);
+    return d === 0 || (d <= 1 && !(hard[a] && hard[b]) && !wet(a) && !wet(b));
+  };
+  // the cells round a point: 0 (X-1, Y-1), 1 (X, Y-1), 2 (X-1, Y), 3 (X, Y), and which corner of each the point is
+  const c = [0, 0, 0, 0], g = [0, 0, 0, 0], Q = [2, 3, 1, 0], E = [[0, 1], [0, 2], [1, 3], [2, 3]];
+  for (let Y = 0; Y <= fh; Y++) for (let X = 0; X <= fw; X++) {
+    let lo = Infinity, hi = -Infinity;
+    for (let k = 0; k < 4; k++) {
+      const x = X - 1 + (k & 1), y = Y - 1 + (k >> 1);
+      c[k] = x < 0 || y < 0 || x >= fw || y >= fh ? -1 : y * fw + x;
+      g[k] = k;
+      if (c[k] >= 0) { lo = Math.min(lo, fz[c[k]]); hi = Math.max(hi, fz[c[k]]); }
+    }
+    if (hi === lo) continue;
+    for (let it = 0; it < 2; it++) for (const [a, b] of E) {
+      if (c[a] < 0 || c[b] < 0 || g[a] === g[b] || !link(c[a], c[b])) continue;
+      const from = Math.max(g[a], g[b]), to = Math.min(g[a], g[b]);
+      for (let k = 0; k < 4; k++) if (g[k] === from) g[k] = to;
+    }
+    for (let k = 0; k < 4; k++) {
+      if (g[k] !== k) continue;
+      let sum = 0, cnt = 0, fixed = -Infinity, mixed = false;
+      for (let m = 0; m < 4; m++) if (g[m] === k && c[m] >= 0) {
+        const z = fz[c[m]];
+        sum += z; cnt++;
+        if (hard[c[m]]) fixed = Math.max(fixed, z);
+        if (z !== fz[c[k] >= 0 ? c[k] : c[m]]) mixed = true;
+      }
+      if (!mixed) continue;
+      const v = fixed > -Infinity ? fixed : sum / cnt;
+      for (let m = 0; m < 4; m++) if (g[m] === k && c[m] >= 0 && !hard[c[m]] && fz[c[m]] !== v) { fc[4 * c[m] + Q[m]] = v; ramp[c[m]] = 1; }
+    }
+  }
+  return { fc, ramp };
+}
+
 const SHALLOW = KINDS.indexOf('shallow'), DEEP = KINDS.indexOf('deep');
 
 export class IsoMap {
@@ -111,6 +166,9 @@ export class IsoMap {
   readonly fh: number;
   readonly fk: Uint8Array;
   readonly fz: Float32Array;
+  /** Per visual cell its four corner levels (N, E, S, W; cornerLevels), and 1 where they are not all its level (a ramp). */
+  readonly fc: Float32Array;
+  readonly ramp: Uint8Array;
   /** Highest surface level. */
   readonly top: number;
   readonly OX: number;
@@ -158,6 +216,7 @@ export class IsoMap {
         if ((kind[j] === GRASS || kind[j] === MEADOW) && scree[((j / fw / 2) | 0) * r.w + ((j % fw) >> 1)]) kind[j] = SCREE;
       }
     }
+    ({ fc: this.fc, ramp: this.ramp } = cornerLevels(fw, fh, this.fz, (j) => kind[j] === SHALLOW || kind[j] === DEEP));
     this.zu = this.z.slice();
     this.zh = this.z.slice();
     for (let i = 0; i < this.zu.length; i++) {
@@ -192,29 +251,28 @@ export class IsoMap {
     return fx < 0 || fy < 0 || fx >= this.fw || fy >= this.fh ? ZBASE : this.fz[fy * this.fw + fx];
   }
 
-  /** Visual surface level under a fractional tile point. */
+  /**
+   * Visual surface level under a fractional tile point: the drawn ground, flat on a cell or, on a ramp cell, linear
+   * over each half of its diamond (split along its W-E diagonal, as ./art.ts warps it); ZBASE off the map.
+   */
   zAt(x: number, y: number): number {
-    return this.zf(Math.floor(2 * x), Math.floor(2 * y));
+    const X = 2 * x, Y = 2 * y, cx = Math.floor(X), cy = Math.floor(Y);
+    if (cx < 0 || cy < 0 || cx >= this.fw || cy >= this.fh) return ZBASE;
+    const j = cy * this.fw + cx;
+    if (!this.ramp[j]) return this.fz[j];
+    const a = X - cx, b = Y - cy, c = this.fc, k = 4 * j;
+    return a + b <= 1 ? c[k] + a * (c[k + 1] - c[k]) + b * (c[k + 3] - c[k]) : c[k + 2] + (1 - a) * (c[k + 3] - c[k + 2]) + (1 - b) * (c[k + 1] - c[k + 2]);
   }
 
   /**
-   * Level a unit is drawn at: its cell's level, eased toward a neighbour one level up or down (a
-   * walkable step) over the half cell next to the shared edge, so a man walking a slope rises
-   * smoothly and meets the neighbour's value halfway up the riser. Cliffs and water stay hard. Kept
-   * within a level of the tile's sim height (the cells follow finer curves than the sim), or of its drawn relief (zu).
+   * Level a unit is drawn at: the ground surface under it (zAt: a man walking a ramp rises with it), kept within a
+   * level of its tile's drawn relief (zu..zh; the cells follow finer curves than the sim).
    */
   zDraw(x: number, y: number): number {
-    const X = 2 * x, Y = 2 * y, cx = Math.floor(X), cy = Math.floor(Y), z = this.zf(cx, cy);
-    const tx = Math.floor(x), ty = Math.floor(y), out = tx < 0 || ty < 0 || tx >= this.w || ty >= this.h;
-    const lo = out ? ZBASE : this.zu[ty * this.w + tx], hi = out ? ZBASE : this.zh[ty * this.w + tx];
-    if (cx < 0 || cy < 0 || cx >= this.fw || cy >= this.fh) return z;
-    const fx = X - cx - 0.5, fy = Y - cy - 0.5;
-    const ease = (nx: number, ny: number, f: number) => {
-      const n = this.zf(nx, ny), d = n - z;
-      return d !== 0 && Math.abs(d) <= 1 ? d * Math.abs(f) : 0;
-    };
-    const d = z + ease(cx + Math.sign(fx), cy, fx) + ease(cx, cy + Math.sign(fy), fy);
-    return Math.max(lo - 1, Math.min(hi + 1, d));
+    const tx = Math.floor(x), ty = Math.floor(y);
+    if (tx < 0 || ty < 0 || tx >= this.w || ty >= this.h) return ZBASE;
+    const i = ty * this.w + tx;
+    return Math.max(this.zu[i] - 1, Math.min(this.zh[i] + 1, this.zAt(x, y)));
   }
 
   sx(x: number, y: number): number {
@@ -234,7 +292,7 @@ export class IsoMap {
     for (let z = this.top; z >= ZBASE; z -= 2 / LH) { // 2 px steps along the ray
       const v = (wy - this.OY + z * LH) / HH, x = (u + v) / 2, y = (v - u) / 2;
       if (x < 0 || y < 0 || x >= this.w || y >= this.h) continue;
-      if (this.fz[Math.floor(2 * y) * this.fw + Math.floor(2 * x)] >= z - 1e-4) return { x, y };
+      if (this.zAt(x, y) >= z - 1e-4) return { x, y };
     }
     const v = (wy - this.OY) / HH;
     return { x: Math.max(0, Math.min(this.w - 0.01, (u + v) / 2)), y: Math.max(0, Math.min(this.h - 0.01, (v - u) / 2)) };
@@ -246,8 +304,8 @@ export class IsoMap {
     for (let z = this.top; z > z0; z -= 4 / LH) { // 4 px steps
       const v = (wy - this.OY + z * LH) / HH;
       if (v <= v0 + 0.25) return false;
-      const x = Math.floor(u + v), y = Math.floor(v - u); // visual cells
-      if (x >= 0 && y >= 0 && x < this.fw && y < this.fh && this.fz[y * this.fw + x] >= z) return true;
+      const x = (u + v) / 2, y = (v - u) / 2;
+      if (x >= 0 && y >= 0 && x < this.w && y < this.h && this.zAt(x, y) >= z) return true;
     }
     return false;
   }

@@ -195,12 +195,13 @@ export class BuildingLayer {
 
   /**
    * Ground level a building's art stands on: a wall piece its centre's (it joins the tiles beside it); any other building
-   * the lowest visual cell under its footprint, so its flat floor never floats over the low side of a step.
+   * the lowest ground under the centres of the visual cells of its footprint (on the smoothed ramps, IsoMap.zAt), so its
+   * flat floor never floats over the low side of a slope.
    */
   private z(b: { x: number; y: number; type?: BuildingType; tiles?: readonly number[] }): number {
     if (!b.tiles || !b.type || BUILDINGS[b.type].wall) return this.iso.zAt(b.x, b.y);
     let z = Infinity;
-    for (let i = 0; i < b.tiles.length; i += 2) for (const [dx, dy] of CELLS) z = Math.min(z, this.iso.zf(2 * b.tiles[i] + dx, 2 * b.tiles[i + 1] + dy));
+    for (let i = 0; i < b.tiles.length; i += 2) for (const [dx, dy] of CELLS) z = Math.min(z, this.iso.zAt(b.tiles[i] + (dx + 0.5) / 2, b.tiles[i + 1] + (dy + 0.5) / 2));
     return z;
   }
 

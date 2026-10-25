@@ -35,9 +35,11 @@ export interface Autotile { code: Int16Array; missing: number; approx: number }
 
 /**
  * `z`: surface level per cell (the art draws all water at one level). Returns the frame code of
- * every tile, row-major.
+ * every tile, row-major. `zc` (optional): the level of each tile corner (k: 0 NW, 1 NE, 2 SW, 3 SE) where the ground is
+ * ramped (src/war/view/iso.ts IsoMap.fc): corners meet on one surface when their levels match, and a vertex's
+ * neighbours count as on its surface within a level per vertex step (a ramp, not a cliff).
  */
-export function autotile(r: RegionData, z: ArrayLike<number>, T: TilesMeta): Autotile {
+export function autotile(r: RegionData, z: ArrayLike<number>, T: TilesMeta, zc?: (c: number, k: number) => number): Autotile {
   const order = T.fallback.order, K = order.length;
   const BUF = order.indexOf(T.fallback.buffer?.land ?? 'grass'); // terrains this set does not know draw as the buffer
   const id = (t: string) => { const i = order.indexOf(t); return i < 0 ? BUF : i; };
@@ -68,8 +70,9 @@ export function autotile(r: RegionData, z: ArrayLike<number>, T: TilesMeta): Aut
       const x = vx + dx, y = vy + dy;
       if (x < 0 || y < 0 || x >= w || y >= h) continue;
       const c = y * w + x, k = (dx ? 1 : 0) + (dy ? 2 : 0);
-      let j = lz.indexOf(z[c]);
-      if (j < 0) { j = lz.length; lz.push(z[c]); lc.push([]); }
+      const zk = zc ? zc(c, k) : z[c];
+      let j = lz.indexOf(zk);
+      if (j < 0) { j = lz.length; lz.push(zk); lc.push([]); }
       lc[j].push(c * 4 + k);
     }
     for (let j = 0; j < lz.length; j++) {
@@ -84,6 +87,8 @@ export function autotile(r: RegionData, z: ArrayLike<number>, T: TilesMeta): Aut
     }
   }
   vStart[vw * (h + 1)] = vGroups.length;
+  /** Groups a and b, d vertex steps apart, on one surface. */
+  const same = zc ? (a: number, b: number, d: number) => Math.abs(GZ[a] - GZ[b]) <= d + 1e-4 : (a: number, b: number) => GZ[a] === GZ[b];
 
   // smoothing: a vertex outvoted by its 3 x 3 neighbourhood on its level joins the majority, so the
   // cells' steps and single-tile teeth become runs of straight and diagonal edges
@@ -98,7 +103,7 @@ export function autotile(r: RegionData, z: ArrayLike<number>, T: TilesMeta): Aut
         for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) {
           const x = vx + dx, y = vy + dy;
           if (x < 0 || y < 0 || x > w || y > h || dx * dx + dy * dy > R * R + 1) continue;
-          for (let b = vStart[y * vw + x]; b < vStart[y * vw + x + 1]; b++) if (GZ[vGroups[b]] === GZ[g]) { cnt[prev[vGroups[b]]]++; all++; }
+          for (let b = vStart[y * vw + x]; b < vStart[y * vw + x + 1]; b++) if (same(vGroups[b], g, Math.max(Math.abs(dx), Math.abs(dy)))) { cnt[prev[vGroups[b]]]++; all++; }
         }
         let best = prev[g];
         for (let t = 0; t < K; t++) if (t !== ROAD && t !== PAVING && cnt[t] > cnt[best]) best = t;
@@ -117,7 +122,7 @@ export function autotile(r: RegionData, z: ArrayLike<number>, T: TilesMeta): Aut
       for (let dy = -1; dy <= 1 && !land; dy++) for (let dx = -1; dx <= 1 && !land; dx++) {
         const x = vx + dx, y = vy + dy;
         if (x < 0 || y < 0 || x > w || y > h) continue;
-        for (let b = vStart[y * vw + x]; b < vStart[y * vw + x + 1]; b++) if (GZ[vGroups[b]] === GZ[g] && !isWater(V0[vGroups[b]])) land = true;
+        for (let b = vStart[y * vw + x]; b < vStart[y * vw + x + 1]; b++) if (same(vGroups[b], g, 0) && !isWater(V0[vGroups[b]])) land = true;
       }
       if (land) GV[g] = SHALLOW;
     }
