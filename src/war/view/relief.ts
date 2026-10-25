@@ -129,7 +129,7 @@ export function relief(fw: number, fh: number, fk: Uint8Array, fz: Float32Array)
     P[j] += A[j] * (1.2 * noise(x, y, 24, 7) + 0.5 * noise(x, y, 10, 8) + (DUNE.has(fk[j]) ? 1.4 * ridged(x, y, 14, 9) ** 3 : 0));
     if (!e) continue;
     const m = Math.min(1, e / 7);
-    P[j] += m * (3.2 * noise(x, y, 28, 3) + 2.2 * ridged(x, y, 12, 1) ** 2 + 0.6 * ridged(x, y, 5, 2)) + Math.min(e, 12) * 0.3;
+    P[j] += m * (5 * noise(x, y, 44, 4) + 3 * noise(x, y, 20, 3) + 2.4 * ridged(x, y, 12, 1) ** 2 + 0.6 * ridged(x, y, 5, 2)) + Math.min(e, 12) * 0.3;
   }
   // slope: clamped differences over 1..3 cells each way (a wall counts as a slope of 1.5 levels per cell)
   const gx = new Float32Array(n), gy = new Float32Array(n);

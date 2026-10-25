@@ -463,6 +463,7 @@ export class ArtBaker {
 class Faces {
   private se = new Path2D(); private sw = new Path2D(); private foot = new Path2D();
   private dark = new Path2D(); private lit = new Path2D(); private rim = new Path2D();
+  private streakLit = new Path2D(); private streakDark = new Path2D(); private upper = new Path2D();
   private any = false;
 
   add(x: number, y: number, tx: number, ty: number, dE: number, dS: number, z: number): void {
@@ -475,22 +476,28 @@ class Faces {
       const d = dE * LH;
       quad(this.se, rx, ry, bx, by, 0, d);
       this.rim.moveTo(rx, ry + 0.5); this.rim.lineTo(bx, by + 0.5);
-      if (dE >= 3) quad(this.foot, rx, ry, bx, by, d * 0.6, d);
-      if (dE >= 4) this.detail(x, y, rx, ry, bx, by, dE, z, 0);
+      if (dE >= 3) { quad(this.foot, rx, ry, bx, by, d * 0.6, d); quad(this.upper, rx, ry, bx, by, 0, d * 0.25); }
+      if (dE >= 3) this.detail(x, y, rx, ry, bx, by, dE, z, 0);
     }
     if (dS >= 2) {
       const d = dS * LH;
-      quad(this.sw, bx, by, lx, ly, 0, Math.min(d, 2 * LH));
+      quad(this.sw, bx, by, lx, ly, 0, d);
       this.rim.moveTo(bx, by + 0.5); this.rim.lineTo(lx, ly + 0.5);
-      if (dS >= 3) quad(this.foot, bx, by, lx, ly, d * 0.6, d);
-      if (dS >= 4) this.detail(x, y, bx, by, lx, ly, dS, z, 1);
+      if (dS >= 3) { quad(this.foot, bx, by, lx, ly, d * 0.6, d); quad(this.upper, bx, by, lx, ly, 0, d * 0.25); }
+      if (dS >= 3) this.detail(x, y, bx, by, lx, ly, dS, z, 1);
     }
   }
 
   /** Cracks and ledges on the face under the edge a -> b, d levels tall. */
   private detail(x: number, y: number, ax: number, ay: number, bx: number, by: number, d: number, z: number, side: number): void {
     const h = hash(x, y, 11 + side);
-    if (h % 3 === 0) { // a crack from near the top most of the way down, wandering a pixel or two
+    // weathering streaks: thin vertical runs of light or shade from the lip down, across the strip seams
+    for (let q = 0; q < 2; q++) {
+      const hq = hash(x, y, 31 + side * 2 + q), t = ((hq & 255) / 255) * 0.85 + 0.05, sx = ax + (bx - ax) * t, sy = ay + (by - ay) * t;
+      const sw = 2 + (hq >>> 8) % 4, len = d * LH * (0.3 + ((hq >>> 12) % 70) / 100), p = (hq >>> 20) & 1 ? this.streakLit : this.streakDark;
+      p.rect(Math.round(sx), sy + 2, sw, len);
+    }
+    if (h % 2 === 0) { // a crack from near the top most of the way down, wandering a pixel or two
       const t = 0.2 + ((h >>> 4) % 60) / 100, cx = ax + (bx - ax) * t, cy = ay + (by - ay) * t, len = d * LH * (0.45 + ((h >>> 10) % 40) / 100);
       let px = cx, py = cy + 3;
       this.dark.moveTo(px, py); this.lit.moveTo(px - 1, py);
@@ -516,10 +523,14 @@ class Faces {
     ctx.fillStyle = 'rgba(255,238,200,0.08)'; ctx.fill(this.sw);
     ctx.fillStyle = 'rgba(10,10,20,0.15)'; ctx.fill(this.foot);
     ctx.strokeStyle = 'rgba(255,242,214,0.3)'; ctx.lineWidth = 1.5; ctx.stroke(this.rim);
+    ctx.fillStyle = 'rgba(255,238,200,0.07)'; ctx.fill(this.upper);
+    ctx.fillStyle = 'rgba(255,240,214,0.09)'; ctx.fill(this.streakLit);
+    ctx.fillStyle = 'rgba(10,10,18,0.14)'; ctx.fill(this.streakDark);
     ctx.lineWidth = 1;
-    ctx.strokeStyle = 'rgba(12,10,8,0.5)'; ctx.stroke(this.dark);
-    ctx.strokeStyle = 'rgba(255,240,210,0.16)'; ctx.stroke(this.lit);
+    ctx.strokeStyle = 'rgba(12,10,8,0.55)'; ctx.stroke(this.dark);
+    ctx.strokeStyle = 'rgba(255,240,210,0.22)'; ctx.stroke(this.lit);
     this.se = new Path2D(); this.sw = new Path2D(); this.foot = new Path2D(); this.dark = new Path2D(); this.lit = new Path2D(); this.rim = new Path2D();
+    this.streakLit = new Path2D(); this.streakDark = new Path2D(); this.upper = new Path2D();
     this.any = false;
   }
 }
