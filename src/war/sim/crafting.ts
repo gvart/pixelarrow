@@ -154,20 +154,23 @@ export function createCrafting(deps: CraftDeps) {
   };
 
   /**
-   * One civilian-loop batch at workplace b with the civilians at work there (in id order): the first `level` take and
-   * work orders. Returns the crafters busy on an order this batch, with the XP each earned.
+   * One civilian-loop batch at workplace b with the civilians at work there (in id order): `level` of them take and
+   * work orders, those on an order first, then those who may make a waiting one (a smith beside an engineer at a
+   * workshop leaves the slot to the engineer). Returns the crafters busy on an order this batch, with the XP each earned.
    */
   const work = (b: Placed, crafters: readonly Crafter[], sec: number, tick: number): Map<number, number> => {
     const busy = new Map<number, number>();
     const q = queues.get(b.id);
     if (!q?.length) return busy;
-    const slots = crafters.slice(0, b.def.workplace!.level);
+    const may = (c: Crafter, o: QOrder) => (o.kind === 'craft' ? !crafterRefusal(c, o.recipe) : c.prof === o.recipe.prof);
+    const rank = (c: Crafter) => (q.some((o) => o.by === c.id) ? 0 : q.some((o) => o.by < 0 && may(c, o)) ? 1 : 2);
+    const slots = [...crafters].sort((x, y) => rank(x) - rank(y)).slice(0, b.def.workplace!.level);
     const here = new Set(slots.map((c) => c.id));
     for (const x of q) if (x.by >= 0 && !here.has(x.by)) x.by = -1; // he left: the order waits for another
     for (const c of slots) {
       let x = q.find((o) => o.by === c.id);
       if (!x) {
-        x = q.find((o) => o.by < 0 && (o.kind === 'craft' ? !crafterRefusal(c, o.recipe) : c.prof === o.recipe.prof) && (o.recipe.kind !== 'cart' || !!deps.cart?.(b, c.owner, o.recipe.out.engine!, true))
+        x = q.find((o) => o.by < 0 && may(c, o) && (o.recipe.kind !== 'cart' || !!deps.cart?.(b, c.owner, o.recipe.out.engine!, true))
           && (o.taken || deps.takeAt(b.team, b.x, b.y, (o.taken = inputsOf(o, c))) || ((o.taken = null), false)));
         if (!x) continue;
         x.by = c.id;
