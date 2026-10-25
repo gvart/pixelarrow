@@ -35,6 +35,6 @@ export const WORLD_REGIONS = [
   { id: 'saddle', name: "Eagle Saddle", role: 'neutral', draft: false },
   { id: 'erymanthos', name: "Erymanthos Wood", role: 'neutral', draft: false },
   { id: 'gorge', name: "Gorge of the Falls", role: 'neutral', draft: false },
-  { id: 'canyons', name: "Red Canyons", role: 'neutral', draft: true },
+  { id: 'canyons', name: "Red Canyons", role: 'neutral', draft: false },
   { id: 'omphalos', name: "Omphalos Plateau", role: 'center', draft: false },
 ] as const;
