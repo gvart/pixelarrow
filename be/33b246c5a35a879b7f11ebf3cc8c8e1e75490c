@@ -1,0 +1,23 @@
+tests/war/loop.test.ts
+  s_fcb7475e0b5395::t_8cbdfcbf3f16f3 1-110
+server/test/war/tradeLoop.test.ts
+  s_fcb7475e0b5395::t_a7e31fbeadd329 54
+  s_fcb7475e0b5395::t_13ca6f998bf96f 1-25,29-53,55-77,79-86,89-110
+  s_fcb7475e0b5395::t_4dd96f158d93a7 26-28,78,87-88
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "be33b246c5a35a879b7f11ebf3cc8c8e1e75490c",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
