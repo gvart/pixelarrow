@@ -25,6 +25,20 @@ describe('peaks', () => {
     expect(f.S[k]).toBeCloseTo(5 + f.P[k]);
   });
 
+  it('never rises over a road or a pre-built piece, nor hides one behind it', () => {
+    const w = 120, h = 120, r = region(w, h, ['mountains']), m = box(w, h, 10, 10, 110, 110);
+    // a road across the range (row 40) and a house in it (60, 70): both cut out of the mask's rock
+    for (let x = 0; x < w; x++) { r.terrain[40 * w + x] = 'road'; m[40 * w + x] = 0; }
+    r.prebuilt = [{ type: 'house', x: 60, y: 70 }];
+    const f = peakField(r, m, () => 5), W = w + 1;
+    expect(peakAt(f, 30.5, 40.5)).toBe(0);
+    expect(peakAt(f, 60.5, 70.5)).toBe(0);
+    // every lattice point j tiles in front of the house's foot, down its screen column, stands under it on screen
+    for (let j = 0; j < 50; j++) expect(f.S[(71 + j) * W + 61 + j]).toBeLessThanOrEqual(5 + j + 0.5);
+    // the range still rises tall where nothing stands behind it
+    expect(f.top - 5).toBeGreaterThan(60);
+  });
+
   it('snow in the mountains, red rock without snow in a desert region', () => {
     const w = 40, h = 40, m = box(w, h, 5, 5, 35, 35);
     const alp = peakField(region(w, h, ['mountains']), m, () => 0), des = peakField(region(w, h, ['kyrene']), m, () => 0);

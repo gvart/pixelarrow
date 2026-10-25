@@ -15,6 +15,7 @@ import { decodeBiomes } from '../regions/visual';
 import { hash } from './autotile';
 import { noise } from './relief';
 import { peakTexture } from './rockFace';
+import { BUILDINGS } from '../sim/economy';
 
 export interface PeakField {
   w: number;
@@ -62,14 +63,55 @@ function chamfer(W: number, H: number, src: (X: number, Y: number) => boolean, c
 }
 
 /**
+ * Per tile: the foot level of a place the player needs in sight (Infinity: none): pre-built pieces (their footprint and a
+ * tile round), spots (claim points, lairs, guardian posts, market courts and yards), roads. Visual only.
+ */
+export function keepFeet(r: RegionData, ground: (x: number, y: number) => number): Float32Array {
+  const { w, h } = r, T = new Float32Array(w * h).fill(Infinity);
+  // a tile's foot: its lowest corner
+  const foot = (x: number, y: number) => Math.min(ground(x, y), ground(x + 1, y), ground(x, y + 1), ground(x + 1, y + 1));
+  const put = (x0: number, y0: number, x1: number, y1: number) => {
+    for (let y = Math.max(0, Math.floor(y0)); y <= Math.min(h - 1, Math.floor(y1)); y++) for (let x = Math.max(0, Math.floor(x0)); x <= Math.min(w - 1, Math.floor(x1)); x++) {
+      T[y * w + x] = Math.min(T[y * w + x], foot(x, y));
+    }
+  };
+  for (const p of r.prebuilt ?? []) {
+    if (p.tiles?.length) for (const t of p.tiles) put((t % w) - 1, ((t / w) | 0) - 1, (t % w) + 1, ((t / w) | 0) + 1);
+    else { const d = BUILDINGS[p.type], hw = (p.rot ? d.h : d.w) / 2 + 1, hh = (p.rot ? d.w : d.h) / 2 + 1; put(p.x - hw, p.y - hh, p.x + hw, p.y + hh); }
+  }
+  for (const s of [...(r.claimPoints ?? []), ...(r.lairs ?? []), ...(r.guardians ?? [])]) put(s.x - 3, s.y - 3, s.x + 3, s.y + 3);
+  for (const q of [...(r.safe ?? []), ...(r.yard ?? [])]) put(q.x, q.y, q.x + q.w - 1, q.y + q.h - 1);
+  for (let i = 0; i < w * h; i++) if (r.terrain[i] === 'road') T[i] = Math.min(T[i], foot(i % w, (i / w) | 0));
+  return T;
+}
+
+/**
+ * Per lattice point: the highest surface level the peaks may reach there without hiding a kept tile behind it
+ * (keepFeet). A tile's centre stands (v - v') / 2 levels' worth of screen above a point v' = X + Y rows in front of it
+ * (a level 32 px, a row 16 px): the tiles W and E of the point (same row) cap it at their foot, the tile N of it at its
+ * foot + 1/2, those a column aside at + 1; each step back along its screen column adds a level. A quarter level spare.
+ */
+export function peakCap(w: number, h: number, T: Float32Array): Float32Array {
+  const W = w + 1, C = new Float32Array(W * (h + 1)).fill(Infinity);
+  const t = (x: number, y: number) => (x < 0 || y < 0 || x >= w || y >= h ? Infinity : T[y * w + x]);
+  for (let Y = 0; Y <= h; Y++) for (let X = 0; X <= w; X++) {
+    const k = Math.min(t(X - 1, Y), t(X, Y - 1), t(X - 1, Y - 1) + 0.5, t(X - 2, Y - 1) + 1, t(X - 1, Y - 2) + 1) - 0.25;
+    C[Y * W + X] = X && Y ? Math.min(k, C[(Y - 1) * W + X - 1] + 1) : k;
+  }
+  return C;
+}
+
+/**
  * The peak field over `mask` (per tile 1 = mountain rock drawn flat), `ground(X, Y)` the flat ground's level at a lattice
- * point. Null when nothing rises.
+ * point. Null when nothing rises. The peaks rise only over the mask's impassable rock, never over a kept tile (keepFeet:
+ * pre-built pieces, spots, roads), and never so high that they hide one behind them.
  */
 export function peakField(r: RegionData, mask: Uint8Array, ground: (X: number, Y: number) => number): PeakField {
   const { w, h } = r, W = w + 1, H = h + 1;
+  const T = keepFeet(r, ground), cap = peakCap(w, h, T);
   // a lattice point is inside when all four tiles round it are mountain; past the back edges the range runs on, the
   // front edges (toward the viewer) close it a few tiles in (the slab's cut face stays low)
-  const m = (x: number, y: number) => (x >= w || y >= h ? 0 : mask[Math.max(0, y) * w + Math.max(0, x)]);
+  const m = (x: number, y: number) => (x >= w || y >= h ? 0 : mask[Math.max(0, y) * w + Math.max(0, x)] && T[Math.max(0, y) * w + Math.max(0, x)] === Infinity ? 1 : 0);
   const inside = (X: number, Y: number) => m(X - 1, Y - 1) && m(X, Y - 1) && m(X - 1, Y) && m(X, Y);
   const d = chamfer(W, H, (X, Y) => !inside(X, Y), 160);
   // material per tile: the biome's snowline; a desert region's (mostly kyrene) mountains are red rock without snow
@@ -97,6 +139,7 @@ export function peakField(r: RegionData, mask: Uint8Array, ground: (X: number, Y
       p = Math.min(env * (0.22 + 0.78 * R), 1.1 * e ** 1.5);
       // red rock (the desert's kopjes and inselbergs): rounded domes of stacked boulders, not spires
       if (red[Math.min(h - 1, Y) * w + Math.min(w - 1, X)]) p = Math.min(REDMAX * (1 - Math.exp(-e / 5)) * (0.75 + 0.25 * ridged(X, Y, 9, 24)), 2.4 * e);
+      p = Math.max(0, Math.min(p, cap[i] - ground(X, Y)));
     }
     P[i] = p;
     S[i] = ground(X, Y) + p;
