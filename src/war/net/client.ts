@@ -1,9 +1,9 @@
 /**
  * Browser side of the live region (./protocol.ts), used by the sandbox worker's net mode (src/war/view/worker.ts):
  * signs in as a dev player (POST /api/auth/telegram { dev } on the page's origin, which the vite dev server proxies to
- * `wrangler dev`; needs DEV_AUTH=1), loads the player's war roster (GET /api/war/roster; M5e) and, when fewer than a
- * squad of fit soldiers are at home (or `seed` is set), seeds a dev roster (POST /api/war/dev/seed). Opens the region
- * socket with the bearer token in the WebSocket protocol, decodes every binary frame into a Snapshot and hands it on.
+ * `wrangler dev`; needs DEV_AUTH=1), loads the player's war roster (GET /api/war/roster; M5e) and, when he has no
+ * one alive anywhere (a fresh dev id) or `seed` is set, seeds a dev roster (POST /api/war/dev/seed); with men in the
+ * field or a few at home he joins with what he has (the seed would replace his men at home). Opens the region socket with the bearer token in the WebSocket protocol, decodes every binary frame into a Snapshot and hands it on.
  * A spawn becomes a join with person ids: fit soldiers at home of the asked class first, then any. Joins wait until
  * the socket is open and the roster is in. Every order goes up as is (the server checks the squad is ours and fills in
  * our team for squad-less site orders); placement checks go up as `check` and come back as `checked`.
@@ -63,9 +63,11 @@ export function createNet(url: string, region: string, devId: number | undefined
     const auth = { authorization: `Bearer ${s.token}`, 'content-type': 'application/json' };
     signedIn(auth);
     const fit = (p: RosterPerson) => (p.state === 'active' || p.state === 'reserve') && !p.region;
-    const load = async () => ((await (await fetch('/api/war/roster', { headers: auth })).json()) as { persons: RosterPerson[] }).persons.filter(fit);
-    home = await load();
-    if (seed || home.length < MAX_SQUAD) {
+    const all = async () => ((await (await fetch('/api/war/roster', { headers: auth })).json()) as { persons: RosterPerson[] }).persons;
+    const load = async () => (await all()).filter(fit);
+    const roster = await all();
+    home = roster.filter(fit);
+    if (seed || !roster.some((p) => p.state !== 'dead')) {
       const r = await fetch('/api/war/dev/seed', { method: 'POST', headers: auth, body: '{}' });
       if (!r.ok) console.warn('[net] seed roster failed', r.status, await r.text());
       home = await load();

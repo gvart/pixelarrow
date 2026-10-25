@@ -4,8 +4,14 @@
 npm run play:war            # migrate local D1, start wrangler dev (DEV_AUTH=1) + vite, seed, print URLs
 npm run play:war -- --reset # wipe local state first: a fresh world, season and roster
 npm run play:war -- --bots  # + 3 bot players (Skythia, Kyrene, Elaia), 12 militia each standing at home
-node scripts/war/play-smoke.mjs   # headless check of the loop below (servers running; system Chrome)
+npm run play:war -- --fast  # world travel x0.05 (WAR_TRAVEL_SCALE, dev only): transits take seconds
+node scripts/war/play-smoke.mjs   # headless run of the whole loop below (servers up with --reset --fast; ~15 min)
 ```
+
+The smoke drives one page as dev player 1 and a raw socket as a second dev player (Skythia, the buyer and the
+palisade's owner). It runs in Playwright's bundled Chromium in the new headless mode (`channel: 'chromium'`; `--chrome`
+for the system Chrome). The old headless shell (Playwright's default) runs the page far too slowly under software GL
+to start a region.
 
 The first start packs the sprite sheets (a few minutes). You play dev player 1 in Dodona with the design's start:
 12 militia recruited at home for food, the rest of the start food (120) in the strongroom, no coin. Open
@@ -78,9 +84,17 @@ has no dev panel; `npm run play:war -- --reset` gives a fresh world.
 
 ## Known gaps
 
-- Entering a region again with fewer than 12 fit men at home makes the client seed the **dev roster** (veterans,
-  archers, 500 coin; src/war/net/client.ts), or refuses the join when your men are all in the field. `--reset` restores
-  the design start.
+- The smoke loop passes from the world map through the caravan's arrival in Kleisoura (gather, camp, storehouse,
+  recruit / train, a sword forged into a chest, a handcart made, loaded, crewed and hauled over two borders). It stops
+  at the market court: a handcart that arrives at Kleisoura's west entry does not roll when its crew is ordered to the
+  court. Stall, sale, buyer, lair raid, claim and ram siege are scripted after it but not yet seen passing live.
+- A chained haul (H planner, transfer `path`) leaves the cart behind after the first leg: send one leg at a time.
+- Right after the start the home recruit pool is empty (the start's 12 militia took it; it refills 6 an hour).
+- A crafted item lands in the maker's chest by the workplace; with no chest it goes into the team's reserve in the
+  region, which the stash does not list. Place a chest first.
+- Entering a region again with men at home brings them as a fresh squad beside the ones standing there; the dev
+  roster is seeded only for a dev id with no one alive.
 - The world map follows your roster every 5 s: men show in a region a few seconds after you enter it.
 - Bots are passive: they stand at home and give the map other alliances' presence; nobody attacks you.
-- Under software GL (headless, VMs) a region renders at 2-3 frames per second; play in a normal browser.
+- Under software GL (headless, VMs) a region renders at 2-3 frames per second; play in a normal browser. Melee blows
+  struck between rendered frames still sound.

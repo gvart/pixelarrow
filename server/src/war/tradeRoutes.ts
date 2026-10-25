@@ -102,7 +102,7 @@ trade.post('/offers/:id/cancel', requirePlayable, async (c) => {
   return c.json({ ok: true });
 });
 
-const goods = z.record(good, z.number().positive().max(100_000));
+const goods = z.partialRecord(good, z.number().positive().max(100_000));
 
 trade.post('/:town/deals', requirePlayable, async (c) => {
   const t = town(c.req.param('town'));
@@ -110,7 +110,7 @@ trade.post('/:town/deals', requirePlayable, async (c) => {
   const d = db(c.env), pid = c.get('session').pid;
   await seen(c);
   await contractRefusal(d, pid, b.with, Date.now());
-  return c.json({ deal: await postDeal(d, pid, t, b.broker, b.with, b.give, b.get, Date.now()) });
+  return c.json({ deal: await postDeal(d, pid, t, b.broker, b.with, b.give as Record<string, number>, b.get as Record<string, number>, Date.now()) });
 });
 
 trade.post('/deals/:id/drop', requirePlayable, async (c) => c.json({ state: await dropHalf(db(c.env), c.get('session').pid, num(c.req.param('id')), Date.now()) }));

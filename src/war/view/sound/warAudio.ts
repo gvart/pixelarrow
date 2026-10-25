@@ -22,7 +22,7 @@ import type { SfxId } from '../../../audio/sfx';
 import type { BuildingSnap, SiegeSnap, Snapshot, UnitSnap, WarEvent } from '../../types';
 import type { SandboxScene } from '../SandboxScene';
 import { NEUTRAL_TEAM } from '../../sim/economy';
-import { ambienceFor, cueSfx, gatherSfx, loadSound, MusicDirector, saveSound, shotSfx, spatial, STATE_TRACK, strikeSfx, type AmbSample, type WarSoundSettings } from './mix';
+import { ambienceFor, cueSfx, gatherSfx, loadSound, MusicDirector, saveSound, shotSfx, spatial, STATE_TRACK, strikeSfx, struckSince, type AmbSample, type WarSoundSettings } from './mix';
 
 /** Field sounds started per snapshot at most (10 Hz). */
 const BUDGET = 8;
@@ -99,8 +99,10 @@ export class WarAudio {
     const cur = this.s.sim.cur;
     if (!cur || !this.engine.ctx) return;
     if (cur.tick !== this.tick) {
+      // snapshots skipped since the last one taken (a slow frame): their blows still sound
+      const gap = this.tick >= 0 && cur.tick > this.tick ? Math.min(10, cur.tick - this.tick) : 1;
       this.tick = cur.tick;
-      this.snapshot(cur);
+      this.snapshot(cur, gap);
       this.flush();
     }
     const now = performance.now();
@@ -142,14 +144,14 @@ export class WarAudio {
     return this.rnd / 4294967296;
   }
 
-  private snapshot(cur: Snapshot): void {
+  private snapshot(cur: Snapshot, gap: number): void {
     const tick = cur.tick;
     // units: blows, work
     const next = new Map<number, UnitSnap>();
     let work = 0;
     for (const u of cur.units) {
       next.set(u.id, u);
-      if (u.state === 'attack' && u.swing === 0) {
+      if (u.state === 'attack' && struckSince(u.swing, gap)) {
         const id = strikeSfx(u.cls, this.roll());
         if (id) this.want(id, u.x, u.y);
       } else if ((u.state === 'gather' || u.state === 'build') && (tick + u.id) % 9 === 0 && work < 4) {
@@ -179,7 +181,7 @@ export class WarAudio {
     for (const g of cur.sieges ?? []) {
       sieges.set(g.id, g);
       const was = this.sieges.get(g.id);
-      if ((g.type === 'ram' || g.type === 'coveredRam') && g.state === 'attack' && g.swing === 0) this.want('ramHit', g.x, g.y, 3);
+      if ((g.type === 'ram' || g.type === 'coveredRam') && g.state === 'attack' && struckSince(g.swing, gap)) this.want('ramHit', g.x, g.y, 3);
       if (g.state === 'raising' && was && was.state !== 'raising') this.want('ladderRaise', g.x, g.y, 2);
       if (g.state === 'destroyed' && was && was.state !== 'destroyed') this.want('splinter', g.x, g.y, 4);
       if ((g.burning ?? 0) > 0 && !((was?.burning ?? 0) > 0) && was) this.want('fireWhoosh', g.x, g.y, 2);

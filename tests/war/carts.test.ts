@@ -43,6 +43,29 @@ function withCarts(n: number, owner = 'a', seed = 1): WarBuildSim {
   return sim;
 }
 
+describe('M6b a mixed civilian squad at a workshop', () => {
+  it('the engineer takes the slot a smith beside him cannot use', () => {
+    const sim = createSim(flat(96), 1);
+    sim.claim(0, 40, 40, 40);
+    const types: BuildingType[] = ['camp', 'workshop'];
+    for (const t of types) for (const [r, v] of Object.entries(BUILDINGS[t].cost)) sim.addStock(0, r as never, v);
+    const ss = types.map((t, i) => {
+      const s = sim.spawnSquad('a', 0, 'militia', 12, 30 + i * 10, 46);
+      sim.order({ kind: 'placeBuilding', squad: s, type: t, x: 30 + i * 10, y: 40 });
+      return s;
+    });
+    run(sim, 8000, () => types.every((_, i) => building(sim, i)?.state === 'done'));
+    for (const s of ss) sim.order({ kind: 'move', squad: s, x: 10, y: 80 + s });
+    for (const [r, v] of Object.entries(RECIPES.handcart.inputs)) sim.addStock(0, r as never, v);
+    // the smith comes first in id order: on a level 1 workshop he used to hold its one slot, and nothing was made
+    const civ = sim.spawnSquad('a', 0, 'civ_smith', 2, 40, 45, [makePerson('a-smith', 'civ_smith'), makePerson('a-eng', 'civ_engineer')]);
+    sim.order({ kind: 'civWork', squad: civ, building: 1 });
+    sim.order({ kind: 'craft', team: 0, building: 1, recipe: 'handcart' });
+    run(sim, 1800, () => carts(sim).length > 0);
+    expect(carts(sim)).toHaveLength(1);
+  });
+});
+
 describe('M6b ground rules', () => {
   const region = (terrain: TerrainKind[], water: (0 | 1 | 2)[] = terrain.map(() => 0), height = terrain.map(() => 1)): RegionData =>
     ({ id: 'g', name: 'g', w: terrain.length, h: 1, height, terrain, water, entries: [], noBuild: [] });

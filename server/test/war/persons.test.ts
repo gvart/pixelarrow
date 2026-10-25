@@ -5,6 +5,7 @@ import { setGood } from './goods';
 import { api, devLogin } from '../helpers';
 import { applyFight, claimForJoin, personOf, ROSTER_MAX, START, type PersonRow } from '../../src/war/persons';
 import { SQUAD_MAX } from '../../../src/war/sim/soldiers';
+import { warStatsOf } from '../../../src/war/sim/classes';
 import type { FightReport } from '../../../src/war/types';
 
 const DB = () => env.DB!;
@@ -126,6 +127,16 @@ describe('war roster API', () => {
     expect(await claimForJoin(DB(), me.playerId, 'elsewhere', [ids.slice(0, 2)], new Set(), Date.now())).toMatch(/already in the field/);
     expect(await claimForJoin(DB(), me.playerId, 'test-ridge', [['nobody']], new Set(), Date.now())).toMatch(/no soldier/);
     expect(await claimForJoin(DB(), me.playerId, 'test-ridge', [[ids[0], ids[0]]], new Set(), Date.now())).toMatch(/twice/);
+  });
+
+  it('reads a civilian back as a civilian (his class and tool, stats the sim can bake)', async () => {
+    const me = await devLogin(7399);
+    await post(me.token, '/dev/seed', { squad: [{ cls: 'civ_smith', level: 5 }], reserve: [] });
+    const smith = (await roster(me.token)).persons.find((p) => p.cls === 'civ_smith')!;
+    const got = await claimForJoin(DB(), me.playerId, 'test-ridge', [[smith.id]], new Set(), Date.now());
+    const p = Array.isArray(got) ? got[0][0] : null;
+    expect(p?.hero).toMatchObject({ cls: 'civ_smith', level: 5, equip: { weapon: { def: 'stone_hammer' } } });
+    expect(() => warStatsOf(p!)).not.toThrow();
   });
 });
 

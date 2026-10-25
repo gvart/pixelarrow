@@ -18,6 +18,8 @@ export interface Env {
   WAR_WORLD: DurableObjectNamespace<WarWorldDO>;
   /** Live soldier cap per war region (W-06, default 600), split evenly between the 4 alliances. */
   WAR_CAP?: string;
+  /** Dev only (with DEV_AUTH=1): world travel times x this (e.g. 0.05), for scripted playtests (scripts/war/play.mjs --fast). */
+  WAR_TRAVEL_SCALE?: string;
   ASSETS?: Fetcher;
   /** The game's URL, play.pixelarrow.app (wrangler.jsonc vars; server/src/urls.ts). */
   GAME_URL?: string;

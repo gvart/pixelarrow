@@ -220,11 +220,22 @@ export class WarRegionDO extends DurableObject<Env> {
       if (typeof got === 'string') return send(ws, { t: 'refused', reason: 'army', detail: got });
       persons = got;
     }
-    const res = room.join(pid, m, persons);
+    const here = persons ? null : room.personsHere();
+    let res: ReturnType<WarRoom['join']>;
+    try {
+      res = room.join(pid, m, persons);
+    } catch (e) {
+      // a spawn that threw leaves no squad: the men claimed for it go home, not stay listed in the region
+      if (persons) this.write('release', () => release(this.env.DB!, region, m.squads!.flat()));
+      throw e;
+    }
     send(ws, res.msg);
     if (res.msg.t === 'refused' && persons) this.write('release', () => release(this.env.DB!, region, m.squads!.flat()));
     this.save();
     this.start();
+    // a rejoin that also names men not here (entering again with some at home): they follow as a fresh squad
+    const fresh = here && res.msg.t === 'welcome' ? m.squads?.map((g) => g.filter((id) => id !== 'none' && !here.has(id))).filter((g) => g.length) : undefined;
+    if (fresh?.length && room.spawnsNew(pid)) await this.join(ws, pid, room, { ...m, squads: fresh });
   }
 
   /** M5h4: the stash item goes to the workplace (D1), then into the room's queue; refused: straight back. */
