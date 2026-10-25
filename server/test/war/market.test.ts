@@ -188,3 +188,12 @@ describe('the stow bridge in the room', () => {
     expect(r.takeCargo(1, { squad: sq }, { iron: 15 })).toEqual({ lots: [{ r: 'iron', n: 10, o: 'dodona' }, { r: 'iron', n: 5, o: 'dodona' }], items: [] });
   });
 });
+
+describe('stow and hand-off messages on the wire', () => {
+  it('parse with only the goods they name', async () => {
+    const { parseClientMsg } = await import('../../../src/war/net/protocol');
+    expect(parseClientMsg(JSON.stringify({ t: 'stow', dir: 'in', site: 'stall', cart: 0, goods: { wood: 10 } }))).toMatchObject({ goods: { wood: 10 } });
+    expect(parseClientMsg(JSON.stringify({ t: 'handoff', op: 'offer', with: 2, squad: 1, goods: { iron: 2 } }))).toMatchObject({ goods: { iron: 2 } });
+    expect(parseClientMsg(JSON.stringify({ t: 'stow', dir: 'in', site: 'stall', cart: 0, goods: { gold: 1 } }))).toBeNull();
+  });
+});

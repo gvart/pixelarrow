@@ -165,12 +165,12 @@ const baseMsgSchema = z.discriminatedUnion('t', [
   // a market town's court, his home strongroom at home; `in` from the field into the site, `out` back
   z.object({
     t: z.literal('stow'), dir: z.enum(['in', 'out']), site: z.enum(['stall', 'warehouse', 'strongroom', 'contract']), squad: id.optional(), cart: id.optional(),
-    goods: z.record(goodSchema, amount).optional(), uids: z.array(z.string().min(1).max(120)).max(20).optional(), contract: id.optional(),
+    goods: z.partialRecord(goodSchema, amount).optional(), uids: z.array(z.string().min(1).max(120)).max(20).optional(), contract: id.optional(),
   }).refine((o) => (o.squad === undefined) !== (o.cart === undefined), 'squad or cart').refine((o) => (o.site === 'contract') === (o.contract !== undefined), 'a contract site names its contract'),
   // M6g: the hand-off window with player `with` (both here, carriers within 4 tiles): offer (or change) my half, confirm, cancel
   z.object({
     t: z.literal('handoff'), op: z.enum(['offer', 'confirm', 'cancel']), with: z.number().int().positive(),
-    squad: id.optional(), cart: id.optional(), goods: z.record(goodSchema, amount).optional(), uids: z.array(z.string().min(1).max(120)).max(20).optional(),
+    squad: id.optional(), cart: id.optional(), goods: z.partialRecord(goodSchema, amount).optional(), uids: z.array(z.string().min(1).max(120)).max(20).optional(),
   }).refine((o) => o.op !== 'offer' || (o.squad === undefined) !== (o.cart === undefined), 'an offer names its squad or cart'),
 ]);
 /** Dev helpers (the F1 panel); the region refuses them unless the server runs with DEV_AUTH=1. */
