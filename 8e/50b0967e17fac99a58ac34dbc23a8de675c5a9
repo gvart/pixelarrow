@@ -1,0 +1,21 @@
+src/war/view/relief.ts
+  s_cfc22b058125c4::t_b19e08c36b74d5 132
+src/war/view/art.ts
+  s_cfc22b058125c4::t_82d88a70a204ed 466,479-480,484,486-487,494-500,526-528,530-531,533
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "8e50b0967e17fac99a58ac34dbc23a8de675c5a9",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "unknown"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
