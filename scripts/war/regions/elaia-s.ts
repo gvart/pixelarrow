@@ -3,14 +3,15 @@
  * two other entries at the south ends of the side edges, the sea (S). Strategic purpose: a fortress over the Delta
  * approach, room on its slopes. Depth 1: boars in the scrub, brigands watching the Delta road from the steps.
  * Layout (Gemini reference shots/war/regions/proto/elaia-s.png; W-52 set pieces): the whole cape is one massif that
- * climbs from sheer sea cliffs in four tiers on pale limestone walls (h5, h8, h11) to a wide flat summit (h14) in the
+ * climbs from sheer sea cliffs in four rolling tiers on pale limestone walls (h5-6, h9-10, h12-13) to a wide summit (h14-15) in the
  * north-west with the ruined fort. Only two paths reach
  * the top: the road up from Elaia and the road down toward the Delta, each by ramps through every wall. A small sand
  * beach lies at the cape's foot in the south; goat terraces and scrub on the steps; the coast track joins Elaia's other
  * entries along the lowest tier, the claim point where it meets the Delta road.
  */
 import type { Kit, Pt, RegionDef } from './kit.ts';
-import { massif } from './setpieces.ts';
+import { fbm } from './kit.ts';
+import { massif, profile, relief } from './setpieces.ts';
 
 const def: RegionDef = {
   id: 'elaia-s',
@@ -21,11 +22,18 @@ const def: RegionDef = {
     k.zone('elaia', () => 99);
     // the sea along the south first, so the cape's lowest tier stands on it as sheer cliffs
     k.waterBody([128, 280, 250, 44, 0], { shore: 4, beach: 0, rough: 6 });
-    massif(k, {
+    const cape = massif(k, {
       outline: [[-12, -12], [268, -12], [268, 176], [232, 214], [176, 232], [110, 238], [50, 236], [-12, 230]],
       crown: [[-12, -12], [96, -12], [100, 44], [72, 82], [-12, 92]],
       base: 2, tiers: 4, step: 3, wobble: 0.22,
     });
+    // the cape's relief over the massif's contours (setpieces.ts relief): a four-level sea cliff, each tier rolling a
+    // level or two up to its next wall (2-3 levels of pale limestone), the summit table at h14-15
+    relief(k, (x, y, s) => {
+      const t = cape.t(x, y);
+      if (t < 0) return NaN;
+      return profile([[0, 5], [0.85, 6.6], [1, 9], [1.85, 10.4], [2, 12], [2.8, 12.6], [3, 14.6], [4, 15]], t) + 0.45 * fbm(x, y, 10, s) + (t < 1 ? 0.5 * fbm(x, y, 4, s + 1) : 0);
+    }, { cliffs: [[6.6, 9], [10.4, 12], [12.6, 14.6]] });
     k.spot('fortress', [42, 40]);
     // a strand of fallen rock at the cliffs' foot (h1, 2-3 units), so the sea lies low under the walls
     {
@@ -47,6 +55,7 @@ const def: RegionDef = {
     k.road([[80, 46], [104, 86], [136, 116], [170, 142], hub, [222, 150], [244, 132], E], { w: 1.2, grade: 2, fill: true });
     k.road([SW, [30, 214], [70, 206], [110, 200], [150, 192], hub, [222, 200], [244, 212], SE], { w: 1.1, grade: 2, fill: true });
     k.road([[150, 192], [156, 210], [160, 222]], { w: 1, grade: 1.5 });
+    k.road([[136, 116], [150, 106], [158, 102]], { w: 0.9, grade: 1.5 }); // the brigands' step
     // the ruined fort on the summit, the goats' terraces, scrub and pines
     k.piece('wall-ruin', [42, 40], { r: 12, n: 6, gap: 5 });
     k.piece('watchtower', [36, 34], { r: 4 });

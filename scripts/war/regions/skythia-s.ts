@@ -3,14 +3,15 @@
  * Kimmerian Hills (W) off it, Skythia's two other entries at the south ends of the side edges. Strategic purpose: the
  * Desert Road's buffer and a breadbasket. Depth 1: wild horses on the grass, wolves in the gullies.
  * Layout (Gemini reference shots/war/regions/proto/skythia-s.png; W-52 set pieces, ./setpieces.ts): five chieftains'
- * kurgans dominate the map, each a great round grass mound (h10) on a broad cliff-rimmed bench (h6) some 60 units
- * across, ringed with stones; two of them stand right over the road. One long grassy ridge (h7) crosses the middle; the
+ * kurgans dominate the map, each a great round grass mound (to h13-14) on a broad bench (h7-8) behind a five-level wall some 60 units
+ * across, ringed with stones; two of them stand right over the road. One long grassy ridge (h8) crosses the middle; the
  * Desert Road climbs over it through a cut saddle. Dry gullies with stony beds wind beside the road on both flanks
  * (ways for a flank march). In the south-east a brook runs down a valley with ploughed fields and the farm village;
  * the claim point at the saddle.
  */
 import type { Kit, Pt, RegionDef } from './kit.ts';
-import { massif } from './setpieces.ts';
+import { fbm } from './kit.ts';
+import { massif, relief, type Massif } from './setpieces.ts';
 
 /** A round loop of n points about c, radius r, wobbled. */
 const round = (c: Pt, r: number, n = 9, wob = 0.12, ph = 0): Pt[] =>
@@ -23,16 +24,25 @@ const def: RegionDef = {
     const N = k.entry('skythia'), S = k.entry('ammos'), W = k.entry('kimmeria'), SW = k.entry('skythia-w'), SE = k.entry('skythia-e');
     k.fill(3);
     k.zone('elaia', [128, 128, 150, 150, 0], 12);
+    relief(k, (x, y, s) => 3.2 + 1.5 * fbm(x, y, 28, s)); // the grass rolls a level or two
     // the ridge across the middle (the road cuts its saddle)
-    k.ridge([[-6, 112], [50, 126], [100, 140], [160, 134], [210, 146], [262, 156]], { crest: 7, step: 3, top: 3, reach: 18, base: 3 });
+    k.ridge([[-6, 112], [50, 126], [100, 140], [160, 134], [210, 146], [262, 156]], { crest: 8, step: 3, top: 3, reach: 18, base: 3 });
     k.spot('ridge', [180, 138]);
-    // the kurgans: a broad cliff-rimmed bench (h6), the round mound (h10) on it, stone rings round them
+    // the kurgans: a broad cliff-rimmed bench, the round mound on it, stone rings round them
     const mounds: [Pt, number][] = [[[46, 44], 32], [[214, 52], 30], [[36, 206], 30], [[96, 100], 24], [[170, 184], 26]];
+    const benches: Massif[] = [], domes: Massif[] = [];
     mounds.forEach(([p, r], n) => {
-      massif(k, { outline: round(p, r, 9, 0.14, n), crown: p, base: 3, tiers: 1, step: 3, wobble: 0.1 });
-      massif(k, { outline: round(p, r * 0.55, 9, 0.06, n + 1), crown: p, base: 6, tiers: 4, step: 1, wobble: 0.08 });
+      benches.push(massif(k, { outline: round(p, r, 9, 0.14, n), crown: p, base: 3, tiers: 1, step: 3, wobble: 0.1 }));
+      domes.push(massif(k, { outline: round(p, r * 0.55, 9, 0.06, n + 1), crown: p, base: 6, tiers: 4, step: 1, wobble: 0.08 }));
       k.spot(`kurgan${n}`, p);
       k.piece('mountains/cairn', p, { r: r * 0.7, n: 4, gap: 6 });
+    });
+    // their relief (setpieces.ts relief): each bench a five-level wall over the grass, rolling a level, the mound rising
+    // from it a level at a time to h13-14
+    relief(k, (x, y, s) => {
+      const d = Math.max(...domes.map((m) => m.t(x, y))), b = Math.max(...benches.map((m) => m.t(x, y)));
+      if (d >= 0) return 8.6 + 1.3 * d + 0.3 * fbm(x, y, 6, s);
+      return b >= 0 ? 8 + 0.6 * fbm(x, y, 10, s + 1) : NaN;
     });
     // the gullies on both flanks of the road
     k.cut([[84, -6], [92, 30], [76, 64], [70, 130], [84, 170], [100, 230], [96, 262]], { h: 1, half: 2.4, bank: 0, t: 'dirt' });

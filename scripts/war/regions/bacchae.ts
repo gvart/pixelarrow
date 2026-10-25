@@ -5,14 +5,15 @@
  * round the ruined round temple; boars and bandits.
  * Layout (Gemini reference shots/war/regions/proto/bacchae.png; W-52 set pieces, ./setpieces.ts): one great stepped
  * hill fills the north-west half of the map and falls to the south-east in five curving terraces behind retaining walls
- * (h5 to the h14 crown over the h2 plain), vines in rows along every terrace's contour. The crown is the sacred grove,
+ * (a four-level wall off the h2 plain, rolling terraces to the h14-15 crown), vines in rows along every terrace's contour. The crown is the sacred grove,
  * dark cypresses round the ruined round temple. A deep white marble quarry is cut in benches into the hill's east
  * flank; olive rows on its gentle east foot; the ploughed fields fill the plain along the stream that runs down the
  * east edge; the farm village with its well in the south-west. The two roads climb the terraces by cut ramps and cross
  * at the claim point at the hill's foot.
  */
 import type { Kit, Pt, RegionDef } from './kit.ts';
-import { massif, pit, terraceRows } from './setpieces.ts';
+import { fbm } from './kit.ts';
+import { massif, pit, profile, relief, terraceRows } from './setpieces.ts';
 import { pocketBoss } from './tiers.ts';
 
 const def: RegionDef = {
@@ -28,6 +29,13 @@ const def: RegionDef = {
       crown: [[20, 18], [58, 14], [64, 40], [40, 56], [16, 48]],
       base: 2, tiers: 5, steps: [3, 2, 2, 2, 3], wobble: 0.22,
     });
+    // its relief over the massif's contours (setpieces.ts relief): a four-level wall off the plain, each vine terrace
+    // rolling a level behind a 1-2 level retaining wall, a two-level wall under the crown (h14-15)
+    relief(k, (x, y, s) => {
+      const t = hill.t(x, y);
+      if (t < 0) return 2 + 0.5 * fbm(x, y, 24, s);
+      return profile([[0, 6], [0.9, 6.8], [1, 8.4], [1.9, 9], [2, 10.4], [2.9, 11], [3, 12.2], [3.9, 12.8], [4, 14.6], [5, 15]], t) + 0.3 * fbm(x, y, 9, s + 1);
+    }, { cliffs: [[2.6, 6], [6.8, 8.4], [9, 10.4], [11, 12.2], [12.8, 14.6]] });
     // the quarry cut into the east flank in benches; the stream down the east edge
     pit(k, [150, 64], { r: 20, ry: 15, rot: 0.5, depth: 6, benches: 3, marble: true });
     k.river([[214, -6], [226, 60], [234, 120], [222, 180], [236, 230], [262, 250]], { half: 1.6, deep: false, bed: 1, bank: 2 });

@@ -4,14 +4,15 @@
  * and silver lifeline to Ammon, long sight lines. Depth 1: wild horses on the downs, boars in the combes; the faces
  * of those who leapt rather than fade cut in the cliffs.
  * Layout (Gemini reference shots/war/regions/proto/skythia-e.png; W-52 set pieces, ./setpieces.ts): the coastal
- * upland fills the east half in two great tiers behind cliffs (h6, then the h9 cliff-top) and drops sheer in white
+ * upland fills the east half in two great tiers behind four- and three-level walls (h7-8, then the h11-12 cliff-top) and drops sheer in white
  * chalk into the sea along the east edge, broken by one cove with a beach and a sea cave under its north wall. A
- * stepped chalk mesa (h6, h9) fills the north-west corner; one long cliff-sided ridge (h9) runs from the downs to the
+ * stepped chalk mesa (h7-8, h11-12) fills the north-west corner; one long cliff-sided ridge (h11-12) runs from the downs to the
  * upland across the middle; the road from Skythia climbs over it and runs south along the cliff top to Ammon. Chalk
  * figures cut in the turf of the low downs; a few hawthorns.
  */
 import type { Kit, Pt, RegionDef } from './kit.ts';
-import { massif } from './setpieces.ts';
+import { fbm } from './kit.ts';
+import { massif, profile, relief } from './setpieces.ts';
 
 const def: RegionDef = {
   id: 'skythia-e',
@@ -21,12 +22,19 @@ const def: RegionDef = {
     k.fill(3);
     k.zone('elaia', () => 99);
     // the coastal upland: two tiers, the cliff-top along the sea
-    massif(k, { outline: [[124, -12], [268, -12], [268, 268], [112, 268], [136, 200], [156, 132], [140, 60]], crown: [[198, -12], [268, -12], [268, 268], [194, 268], [188, 130]], base: 3, tiers: 2, step: 3, wobble: 0.15 });
+    const up = massif(k, { outline: [[124, -12], [268, -12], [268, 268], [112, 268], [136, 200], [156, 132], [140, 60]], crown: [[198, -12], [268, -12], [268, 268], [194, 268], [188, 130]], base: 3, tiers: 2, step: 3, wobble: 0.15 });
     // the stepped chalk mesa in the north-west corner
-    massif(k, { outline: [[-12, -12], [118, -12], [108, 26], [72, 52], [24, 62], [-12, 70]], crown: [4, 2], base: 3, tiers: 2, step: 3, wobble: 0.15 });
+    const mesa = massif(k, { outline: [[-12, -12], [118, -12], [108, 26], [72, 52], [24, 62], [-12, 70]], crown: [4, 2], base: 3, tiers: 2, step: 3, wobble: 0.15 });
     // the long ridge from the downs up to the upland
-    massif(k, { outline: [[60, 86], [92, 88], [132, 100], [176, 136], [168, 150], [128, 118], [90, 106], [58, 100]], crown: [[80, 94], [130, 108], [166, 140], [128, 112]], base: 3, tiers: 2, step: 3, wobble: 0.1, keepHigher: true });
+    const ridge = massif(k, { outline: [[60, 86], [92, 88], [132, 100], [176, 136], [168, 150], [128, 118], [90, 106], [58, 100]], crown: [[80, 94], [130, 108], [166, 140], [128, 112]], base: 3, tiers: 2, step: 3, wobble: 0.1, keepHigher: true });
     k.spot('ridge', [126, 108]);
+    // the relief over their contours (setpieces.ts relief): the low downs barely rolling, each set piece a four-level
+    // wall off them, its lower tier rolling up to a three-level wall and the top (h11-12)
+    relief(k, (x, y, s) => {
+      const t = Math.max(up.t(x, y), mesa.t(x, y), ridge.t(x, y));
+      if (t < 0) return 3 + 0.9 * fbm(x, y, 26, s);
+      return profile([[0, 7], [0.9, 8], [1, 11], [2, 12.4]], t) + 0.45 * fbm(x, y, 11, s + 1);
+    }, { cliffs: [[4, 7], [8, 11]] });
     // the sea under the cliffs, a strip of shingle at their foot
     k.waterBody([274, 128, 52, 210, 0], { shore: 4, beach: 3, rough: 4 });
     // the cove: a cut down to the water, its beach, the cave mouth (dark rock) under its north wall

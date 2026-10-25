@@ -4,7 +4,7 @@
  * the River Road's west bridgehead and a breadbasket (olives, food). Depth 1: boars and wolves in the cypress.
  * Layout (Gemini reference shots/war/regions/proto/elaia-e.png; W-52 set pieces, ./setpieces.ts): the deep river fills
  * the east edge. The west two thirds are one great hillside rising toward the north-west corner in three curving
- * terraces behind stone retaining walls (h5, h8, h11), vines in rows along their contours, olives on the top one with
+ * terraces behind stone retaining walls (each rolling up from h4, h9 and h13), vines in rows along their contours, olives on the top one with
  * the press and a farmhouse looking down on the river. At the water the walled bridgehead town (h2)
  * spreads either side of its paved square (W-03 keeps the road's band clear: the houses stand in two quarters north
  * and south of it), its jetty and a ruined old span beside the stone bridge that carries the River Road over the
@@ -12,7 +12,8 @@
  * on their sandbars. The road climbs the terraces west by ramps through the walls; a road north to the Bacchae.
  */
 import type { Kit, Pt, RegionDef } from './kit.ts';
-import { massif, terraceRows } from './setpieces.ts';
+import { fbm } from './kit.ts';
+import { massif, relief, terraceRows } from './setpieces.ts';
 
 const def: RegionDef = {
   id: 'elaia-e',
@@ -27,6 +28,16 @@ const def: RegionDef = {
       crown: [[-12, -12], [50, -12], [58, 40], [40, 110], [16, 170], [-12, 190]],
       base: 2, tiers: 3, step: 3, wobble: 0.2,
     });
+    // the hillside's relief over the massif's contours (setpieces.ts relief): each terrace rolls up four levels one level
+    // at a time, its retaining wall 2-3 levels at the next terrace's edge (h4-6, h9-10, h13-15), the foot a wall off the
+    // low ground; a bluff over the river north of the town
+    relief(k, (x, y, s) => {
+      const t = hill.t(x, y);
+      if (t < 0) {
+        return x > 150 && y + 6 * fbm(x, y, 8, s) < 70 ? 6 + 0.6 * fbm(x, y, 9, s + 3) : 2;
+      }
+      return 3 + 4 * t + 0.5 * fbm(x, y, 12, s + 1) + (t > 2 ? 0.8 * fbm(x, y, 5, s + 2) : 0);
+    }, { cliffs: [[2.4, 4], [6.4, 8.6], [10.4, 12.6]] });
     k.lift((x) => (x > 244 ? 1 : NaN), true);
     k.lift((x, y) => (x > 164 && x < 212 && y > 78 && y < 182 ? 2 : NaN), true);
     // the Great River along the east edge, narrowing at the bridge; the side channels round the town

@@ -3,14 +3,15 @@
  * on the way to its iron, Skythia's two other entries at the north ends of the side edges, the sea (N). Strategic
  * purpose: a buffer on the way to Krios and a coast. Depth 1: wolves, and the masterless herds of riders who never
  * woke grazing the frozen ponds.
- * Layout (Gemini reference shots/war/regions/proto/skythia-n.png): the flat frost-brown steppe (h2) runs to a low
- * coastal bluff (h4) over the sea, broken by one pebble beach; in the north-west it climbs in two stepped terraces (h6,
- * h9) under the Krios side. Frozen shallow ponds lie scattered over the steppe (they slow), snow patches and cairns
- * round them; one long low ridge (h5) crosses the steppe south-west to north-east, the Krios road running along its
+ * Layout (Gemini reference shots/war/regions/proto/skythia-n.png): the flat frost-brown steppe (h2) runs to a
+ * coastal bluff (h5, a three-level wall) over the sea, broken by one pebble beach; in the north-west it climbs in two stepped terraces (h8-9,
+ * h11-12) under the Krios side. Frozen shallow ponds lie scattered over the steppe (they slow), snow patches and cairns
+ * round them; one long low ridge (h5-7) crosses the steppe south-west to north-east, the Krios road running along its
  * foot. The claim point where Skythia's road meets it.
  */
 import type { Kit, Pt, RegionDef } from './kit.ts';
-import { massif } from './setpieces.ts';
+import { fbm } from './kit.ts';
+import { massif, profile, relief } from './setpieces.ts';
 
 const def: RegionDef = {
   id: 'skythia-n',
@@ -21,16 +22,23 @@ const def: RegionDef = {
     k.zone('elaia', () => 99);
     k.zone('mountains', [40, 50, 70, 50, 0.3], 10);
     // the coastal bluff, the north-west terraces
-    k.lift((x, y, s) => (y + 6 * Math.sin(x / 19 + s) < 64 ? 4 : NaN), true);
-    massif(k, { outline: [[-12, -12], [150, -12], [132, 36], [92, 74], [40, 98], [-12, 104]], crown: [[-12, -12], [70, -12], [60, 30], [24, 52], [-12, 56]], base: 4, tiers: 2, step: 3, wobble: 0.15 });
+    const nw = massif(k, { outline: [[-12, -12], [150, -12], [132, 36], [92, 74], [40, 98], [-12, 104]], crown: [[-12, -12], [70, -12], [60, 30], [24, 52], [-12, 56]], base: 4, tiers: 2, step: 3, wobble: 0.15 });
     // the sea under the bluff, the pebble beach
     k.waterBody([128, -18, 230, 34, 0], { shore: 3, beach: 0, rough: 6 });
     k.basin([170, 22, 22, 9, 0.1], 1, 0, 2);
     k.waterBody([170, 10, 24, 8, 0.1], { shore: 2, beach: 6, rough: 2 });
     k.spot('beach', [170, 22]);
     // the long low ridge
-    massif(k, { outline: [[24, 236], [70, 196], [130, 160], [190, 130], [244, 96], [252, 112], [200, 148], [140, 180], [80, 216], [34, 250]], crown: [[40, 236], [130, 170], [240, 104], [140, 174]], base: 2, tiers: 2, steps: [3, 1], wobble: 0.1 });
+    const ridge = massif(k, { outline: [[24, 236], [70, 196], [130, 160], [190, 130], [244, 96], [252, 112], [200, 148], [140, 180], [80, 216], [34, 250]], crown: [[40, 236], [130, 170], [240, 104], [140, 174]], base: 2, tiers: 2, steps: [3, 1], wobble: 0.1 });
     k.spot('ridge', [136, 170]);
+    // the relief (setpieces.ts relief): the steppe barely rolling, the coastal bluff a three-level wall over it, the
+    // north-west terraces on four- and three-level walls to h11-12, the ridge a three-level wall to its rolling crest
+    relief(k, (x, y, s) => {
+      const a = nw.t(x, y), b = ridge.t(x, y);
+      if (a >= 0) return profile([[0, 8], [0.9, 8.8], [1, 11], [2, 12.4]], a) + 0.45 * fbm(x, y, 10, s);
+      if (b >= 0) return profile([[0, 5.2], [2, 6.8]], b) + 0.4 * fbm(x, y, 9, s + 1);
+      return (y + 6 * Math.sin(x / 19 + s) + 3 * fbm(x, y, 7, s + 2) < 64 ? 5.2 : 2) + 0.6 * fbm(x, y, 24, s + 3);
+    }, { cliffs: [[2.8, 5], [5.8, 8], [8.8, 11]] });
     // the frost-browned steppe: bare earth in wide drifts over the grass
     for (const b of [[150, 110, 80, 40, 0.5], [80, 200, 60, 36, -0.3], [214, 214, 50, 40, 0.2], [190, 60, 50, 22, 0], [40, 130, 30, 24, 0]] as const) k.paint('dirt', [...b], { rough: 10 });
     // the frozen ponds (shallow), snow round them

@@ -6,11 +6,12 @@
  * coast, 5 tiles wide at its waist between the deep lagoon and the surf, curving north-west at its head to the Ammon
  * road; behind it the wide lagoon, deep in the middle, shallow along its west shore where the salt pans are cut (low
  * mud walls, white heaps) with the bandits' palisade camp beside them. The ochre dune plateau fills the west and
- * north-west (W-52 set piece), stepping down to the lagoon in three curving sandstone cliff tiers (h5, h8, h11). The road comes down from Kyrene to the pans, rounds the lagoon's south end onto the bar's
+ * north-west (W-52 set piece), stepping down to the lagoon in three curving sandstone walls of three levels, each tier rolling (h5-6, h9-10, h13-15). The road comes down from Kyrene to the pans, rounds the lagoon's south end onto the bar's
  * root, where the ruined salt-cutters' huts stand, and runs up the bar to Ammon.
  */
 import type { Kit, Pt, RegionDef } from './kit.ts';
-import { massif } from './setpieces.ts';
+import { fbm } from './kit.ts';
+import { massif, profile, relief } from './setpieces.ts';
 
 /** The sand bar's line: x over y. */
 const barX = (y: number) => (y > 40 ? 190 + 4 * Math.sin(y / 23) : 190 - (40 - y) * 1.3);
@@ -25,12 +26,19 @@ const def: RegionDef = {
     k.paint('sand', [50, 110, 86, 190, 0], { rough: 8 }); // the cliff tiers' sand; the coastal flat stays green
     // W-52 set piece (./setpieces.ts): the ochre dune plateau fills the west and north-west, stepping down toward the
     // lagoon in three sandstone cliff tiers that follow its curving edge (h5, h8, h11)
-    massif(k, {
+    const dunes = massif(k, {
       outline: [[-12, -12], [136, -12], [124, 30], [104, 66], [96, 108], [88, 138], [58, 150], [70, 196], [62, 236], [36, 268], [-12, 268]],
       crown: [[-12, -12], [60, -12], [42, 60], [30, 130], [18, 200], [-12, 230]],
       base: 2, tiers: 3, step: 3, wobble: 0.25,
     });
-    for (const b of [[22, 80, 12, 10, 0.4], [26, 180, 14, 10, -0.3]] as const) k.hill([...b], 13, 3, 2);
+    // its relief over the massif's contours (setpieces.ts relief): a three-level sandstone wall off the coastal flat, each
+    // tier rolling a level or two to the next 3-level wall, rolling dunes over the top tier
+    relief(k, (x, y, s) => {
+      const t = dunes.t(x, y);
+      if (t < 0) return NaN;
+      return profile([[0, 5], [0.8, 6.4], [1, 9], [1.8, 10.4], [2, 13], [3, 14.4]], t) + 0.45 * fbm(x, y, 10, s) + (t > 2 ? 0.9 * fbm(x, y, 16, s + 1) : 0);
+    }, { cliffs: [[2, 5], [6.4, 9], [10.4, 13]] });
+    for (const b of [[22, 80, 12, 10, 0.4], [26, 180, 14, 10, -0.3]] as const) k.hill([...b], 15, 3, 2);
     // the sea, the lagoon (deep core, shallow west shore), the bar between
     k.waterBody([246, 128, 60, 210, 0], { shore: 5, beach: 0, rough: 2 });
     k.waterBody([156, 112, 40, 92, 0.05], { shore: 6, beach: 1.5, rough: 3 });

@@ -7,11 +7,12 @@
  * bridge over its narrows stands the bridgehead town (h1) round its square, its mudbrick quarters north and south of
  * the road band, a jetty and a ruined old span. East of it the flat floodplain (h1) is cut by shallow winding channels
  * with reeds, wide flax and grain strips between them, unfenced, mudbrick farm huts by the fields; the River Road
- * crosses it on a raised bank, fording the channels. The east third (W-52 set piece) rises in two sand cliff tiers
- * (h4, h6) along a bold curving front to the dry palm ground of Kyrene, the road climbing them by ramps.
+ * crosses it on a raised bank, fording the channels. The east third (W-52 set piece) rises in two sand walls
+ * (a four-level front to h5-6, a two-level upper wall to h8-10) along a bold curving front to the dry palm ground of Kyrene, the road climbing them by ramps.
  */
 import type { Kit, Pt, RegionDef } from './kit.ts';
-import { massif } from './setpieces.ts';
+import { fbm } from './kit.ts';
+import { massif, profile, relief } from './setpieces.ts';
 
 const def: RegionDef = {
   id: 'kyrene-w',
@@ -22,12 +23,22 @@ const def: RegionDef = {
     k.zone('kyrene', [236, 128, 80, 170, 0], 10);
     // the desert-edge tier behind its sand cliff
     // W-52 set piece (./setpieces.ts): the desert edge fills the east third, rising from the floodplain in two sand
-    // cliff tiers (h4, h6) along a bold curving front
-    massif(k, {
+    // walls (h5-6, h8-10) along a bold curving front
+    const edge = massif(k, {
       outline: [[268, -12], [204, -12], [180, 40], [192, 84], [172, 128], [186, 176], [170, 222], [196, 268], [268, 268]],
       crown: [[268, -12], [240, -12], [228, 60], [236, 128], [226, 200], [244, 268], [268, 268]],
       base: 1, tiers: 2, steps: [3, 2], wobble: 0.25,
     });
+    // the relief (setpieces.ts relief): the floodplain low and barely rolling, the desert edge's front a four-level sand
+    // wall, its upper tier a two-level wall higher and rolling; two bluffs of old river terrace over the east bank at the
+    // map's north and south ends
+    relief(k, (x, y, s) => {
+      const t = edge.t(x, y);
+      if (t >= 0) return profile([[0, 5], [0.9, 6.2], [1, 8], [2, 10]], t) + 0.5 * fbm(x, y, 10, s) + (t > 1 ? 0.8 * fbm(x, y, 20, s + 1) : 0);
+      let v = 1 + 0.4 * fbm(x, y, 30, s + 2);
+      for (const [cx, cy, r] of [[62, 8, 22], [64, 250, 20]]) if (Math.hypot(x - cx, (y - cy) * 1.3) + 5 * fbm(x, y, 7, s + 3) < r) v = 5 + 0.5 * fbm(x, y, 8, s + 4);
+      return v;
+    }, { cliffs: [[6.2, 8]] });
     k.paint('sand', [226, 128, 54, 170, 0], { rough: 8 });
     k.paint('marsh', [52, 128, 14, 130, 0], { rough: 8 });
     k.paint('marsh', [90, 60, 16, 10, 0.4], { rough: 4 });
