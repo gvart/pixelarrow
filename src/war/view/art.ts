@@ -9,7 +9,9 @@
  * anchored at the top vertex. Painted back to front (x + y ascending), each cell's own side covers a
  * SIDE (16 px) of a riser; the rest of it (a level is LH = 32 px) gets cliff strips (earth, crag rock under rock and
  * snow) every 16 px below it, their columns and shades varied so tall mountain walls do not band. Any overflow below
- * the wall's foot lands on cells in front, which are painted later. Water lies flush with its banks.
+ * the wall's foot lands on cells in front, which are painted later. Water lies flush with its banks. One-level steps
+ * are ramps (IsoMap.fc): a ramp cell's frame is drawn in two affine halves (above and below its W-E diagonal, the side
+ * sheared with the lower one) through its corner levels, so the ground and its light run on across the slope unbroken.
  * Scaled-down bakes paint at 1:1 into a scratch canvas and downscale it, so no seams open.
  */
 import { autotile, hash, VARIANT, type TilesMeta } from './autotile';
@@ -127,6 +129,8 @@ export class ArtBaker {
   private tmp: HTMLCanvasElement | null = null;
   /** Canvas px per world px of the bake in progress (the tint's line width). */
   private scale = 1;
+  /** The paint's own transform (a translation), restored after each warped frame. */
+  private base: DOMMatrix | null = null;
   /** Per visual cell: its baked light (./relief.ts RELIEF_FILL code, 0 none). */
   private shade: Uint8Array;
   /** Per visual cell: the sides a shore water cell meets land on (./relief.ts FOAM_*). */
@@ -207,7 +211,9 @@ export class ArtBaker {
         z[c] = iso.fz[j];
       }
       const cells: RegionData = { id: 'cells', name: 'cells', w: cw, h: ch, height: [], terrain, water, entries: [], noBuild: [] };
-      const sub = autotile(cells, z, set.tiles).code;
+      // corners on the ramps' surface (NW, NE, SW, SE: IsoMap.fc's N, E, W, S)
+      const Q = [0, 1, 3, 2], zc = (c: number, k: number) => iso.fc[4 * ((fy0 + ((c / cw) | 0)) * fw + fx0 + (c % cw)) + Q[k]];
+      const sub = autotile(cells, z, set.tiles, zc).code;
       for (let y = 0; y < ch; y++) for (let x = 0; x < cw; x++) {
         const fx = fx0 + x, fy = fy0 + y;
         if (setOf[(fy >> 1) * r.w + (fx >> 1)] !== si) continue;
@@ -309,8 +315,11 @@ export class ArtBaker {
 
   /** Paint the world rect at 1:1 (ctx is translated so world px are canvas px). */
   private paint(ctx: CanvasRenderingContext2D, x0: number, y0: number, w: number, h: number, o: BakeOpts, objects: boolean): void {
-    const { iso, code, fine } = this, { fw, fh, fz, fk } = iso;
+    const { iso, code, fine } = this, { fw, fh, fz, fk, fc, ramp } = iso;
     ctx.imageSmoothingEnabled = false;
+    this.base = ctx.getTransform();
+    // corner q (N, E, S, W) of cell (x, y); ZBASE off the map
+    const cn = (x: number, y: number, q: number) => (x < 0 || y < 0 || x >= fw || y >= fh ? ZBASE : fc[4 * (y * fw + x) + q]);
     const umin = Math.floor((x0 - iso.OX) / FW) - 1, umax = Math.ceil((x0 + w - iso.OX) / FW) + 1;
     const vmin = Math.floor((y0 - iso.OY - 4 * FH + ZBASE * LH) / FH) - 1;
     const vmax = Math.ceil((y0 + h - iso.OY + iso.top * LH) / FH) + 2;
@@ -339,9 +348,9 @@ export class ArtBaker {
           const x = (u + v) / 2, y = (v - u) / 2, i = y * fw + x, c = code[i];
           if (c < 0) continue;
           const z = fz[i], ty = Math.round(iso.OY + v * FH - z * LH);
-          if (ty > y0 + h) continue;
+          if (ty - 2 * LH > y0 + h) continue;
           const drop = z - Math.min(zt(x + 1, y), zt(x, y + 1));
-          if (ty + 2 * LH + Math.max(0, drop - 1) * LH < y0) continue;
+          if (ty + 3 * LH + Math.max(0, drop - 1) * LH < y0) continue;
           const tx = iso.OX + u * FW - FW;
           if (drop > 1) { // a cliff: the cell's own side covers SIDE px of the riser, strips tile the rest (never stretched)
             const m = sets[this.setOf[(y >> 1) * this.r.w + (x >> 1)]], kd = fk[i], n = Math.ceil((drop * LH) / SIDE) - 1;
@@ -367,10 +376,15 @@ export class ArtBaker {
             const g = this.corners[i];
             [img, sx, sy] = this.smooth.frame(c >> 6, (c & 63) >> 2, c & 3, [g & 15, (g >> 4) & 15, (g >> 8) & 15, g >> 12]);
           } else { img = fine.sheets[c >> 6]; sx = (c & 63) * 32; }
-          // a one-level (walkable) step: the cell's own side tiled down the rest of the riser (its frame redrawn SIDE px
-          // lower, its top hidden under the side above), so slopes keep their earth and grass instead of cliff strips
-          if (drop > 0 && drop <= 1) for (let k = Math.ceil((drop * LH) / SIDE) - 1; k >= 1; k--) ctx.drawImage(img, sx, sy, 32, 32, tx, ty + SIDE * k, 32, 32);
-          ctx.drawImage(img, sx, sy, 32, 32, tx, ty, 32, 32);
+          // a step under the front edges the ramps do not close (a bank over water, two cliff cells a level apart): the
+          // cell's own side tiled down it (its frame redrawn SIDE px lower, its top hidden under the side above)
+          const k4 = 4 * i, rise = drop > 1 ? 0 : Math.max(fc[k4 + 1] - cn(x + 1, y, 0), fc[k4 + 2] - cn(x + 1, y, 3), fc[k4 + 3] - cn(x, y + 1, 0), fc[k4 + 2] - cn(x, y + 1, 1));
+          const nr = rise > 0.01 ? Math.ceil((rise * LH) / SIDE) - 1 : 0;
+          if (ramp[i]) this.warp(ctx, img, sx, sy, tx, ty, z, k4, nr);
+          else {
+            for (let k = nr; k >= 1; k--) ctx.drawImage(img, sx, sy, 32, 32, tx, ty + SIDE * k, 32, 32);
+            ctx.drawImage(img, sx, sy, 32, 32, tx, ty, 32, 32);
+          }
           const dE = z - zt(x + 1, y), dS = z - zt(x, y + 1);
           if (dE >= 2 || dS >= 2) faces.add(x, y, tx, ty, dE, dS, z);
         }
@@ -385,6 +399,29 @@ export class ArtBaker {
     if (o.zones || o.grid) this.lines(ctx, Math.floor(umin / 2) - 1, Math.ceil(umax / 2) + 1, Math.floor(vmin / 2) - 1, Math.ceil(vmax / 2) + 1, o);
   }
 
+  /**
+   * A ramp cell's 32 x 32 frame at (tx, ty) (drawn for level z) warped through its corner levels (IsoMap.fc at k): the
+   * half above the W-E diagonal by the affine map through N, W and E, the half below and the side under it by the one
+   * through W, E and S (x kept, so only columns shift), with `nr` copies of the lower half SIDE px apart under it.
+   */
+  private warp(ctx: CanvasRenderingContext2D, img: CanvasImageSource, sx: number, sy: number, tx: number, ty: number, z: number, k: number, nr: number): void {
+    const c = this.iso.fc, m = this.base!, X = m.e + tx, Y = m.f + ty;
+    const dN = (z - c[k]) * LH, dE = (z - c[k + 1]) * LH, dS = (z - c[k + 2]) * LH, dW = (z - c[k + 3]) * LH;
+    const B = (dE - dW) / (2 * FW), A1 = dN - FW * B, C1 = (dW - A1) / FH, C2 = (dS - dW - FW * B) / FH, A2 = dW - FH * C2;
+    // a half folded over (ground rising toward the viewer steeper than the view ray) faces away: the ground in front,
+    // painted later, covers where it lies, but its side would stick up past that ground's rim, so it is left out
+    if (C2 > -1) for (let r = nr; r >= 1; r--) { ctx.setTransform(1, B, 0, 1 + C2, X, Y + A2 + SIDE * r); ctx.drawImage(img, sx, sy + FH, 32, 32 - FH, 0, FH, 32, 32 - FH); }
+    if (C1 > -1) {
+      ctx.setTransform(1, B, 0, 1 + C1, X, Y + A1);
+      ctx.drawImage(img, sx, sy, 32, FH + 1, 0, 0, 32, FH + 1); // a row past the diagonal, under the lower half
+    }
+    if (C2 > -1) {
+      ctx.setTransform(1, B, 0, 1 + C2, X, Y + A2);
+      ctx.drawImage(img, sx, sy + FH, 32, 32 - FH, 0, FH, 32, 32 - FH);
+    }
+    ctx.setTransform(m);
+  }
+
   /** The baked light over row v's cells (./relief.ts), one fill per code. */
   private shadeRow(ctx: CanvasRenderingContext2D, v: number, umin: number, umax: number, y0: number, h: number): void {
     const { iso, shade, code } = this, { fw, fh, fz } = iso;
@@ -397,7 +434,7 @@ export class ArtBaker {
       const x = (u + v) / 2, y = (v - u) / 2, i = y * fw + x, s = shade[i];
       if ((!s && !this.foam[i]) || code[i] < 0) continue;
       const ty = Math.round(iso.OY + v * FH - fz[i] * LH);
-      if (ty > y0 + h || ty + 2 * FH < y0) continue;
+      if (ty - 2 * LH > y0 + h || ty + 2 * FH + 2 * LH < y0) continue;
       const tx = iso.OX + u * FW - FW;
       const fb = this.foam[i];
       if (fb) {
@@ -418,7 +455,10 @@ export class ArtBaker {
       if (!s) continue;
       let p = paths.get(s);
       if (!p) paths.set(s, (p = new Path2D()));
-      p.moveTo(tx + FW, ty); p.lineTo(tx + 2 * FW, ty + FH); p.lineTo(tx + FW, ty + 2 * FH); p.lineTo(tx, ty + FH); p.closePath();
+      if (iso.ramp[i]) { // through the ramp's corners
+        const c = iso.fc, k = 4 * i, z = fz[i];
+        p.moveTo(tx + FW, ty + (z - c[k]) * LH); p.lineTo(tx + 2 * FW, ty + FH + (z - c[k + 1]) * LH); p.lineTo(tx + FW, ty + 2 * FH + (z - c[k + 2]) * LH); p.lineTo(tx, ty + FH + (z - c[k + 3]) * LH); p.closePath();
+      } else { p.moveTo(tx + FW, ty); p.lineTo(tx + 2 * FW, ty + FH); p.lineTo(tx + FW, ty + 2 * FH); p.lineTo(tx, ty + FH); p.closePath(); }
     }
     for (const [s, p] of paths) {
       ctx.fillStyle = RELIEF_FILL[s];
@@ -451,14 +491,17 @@ export class ArtBaker {
         if ((u + v) & 1) u++;
         for (; u <= Math.min(umax, v, 2 * (r.w - 1) - v); u += 2) {
           const x = (u + v) / 2, y = (v - u) / 2, i = y * r.w + x;
-          const tx = iso.OX + u * HW, ty = Math.round(iso.OY + v * HH - iso.zf(2 * x, 2 * y) * LH) + 0.5;
-          if (pass === 0) { seg(tx - HW, ty + HH, tx, ty); seg(tx, ty, tx + HW, ty + HH); continue; }
+          // the tile's corners on the ground (a hair inside the tile, so a ramp corner takes this tile's level)
+          const tx = iso.OX + u * HW, e = 1e-3, at = (dx: number, dy: number) => Math.round(iso.OY + (v + dx + dy) * HH - iso.zAt(x + (dx ? 1 - e : e), y + (dy ? 1 - e : e)) * LH) + 0.5;
+          const tN = at(0, 0), tE = at(1, 0), tW = at(0, 1);
+          if (pass === 0) { seg(tx - HW, tW, tx, tN); seg(tx, tN, tx + HW, tE); continue; }
           const k = zone[i];
           if (k !== pass) continue;
-          if (zn(x - 1, y) !== k) seg(tx - HW, ty + HH, tx, ty);
-          if (zn(x, y - 1) !== k) seg(tx, ty, tx + HW, ty + HH);
-          if (zn(x + 1, y) !== k) seg(tx + HW, ty + HH, tx, ty + 2 * HH);
-          if (zn(x, y + 1) !== k) seg(tx, ty + 2 * HH, tx - HW, ty + HH);
+          const tS = at(1, 1);
+          if (zn(x - 1, y) !== k) seg(tx - HW, tW, tx, tN);
+          if (zn(x, y - 1) !== k) seg(tx, tN, tx + HW, tE);
+          if (zn(x + 1, y) !== k) seg(tx + HW, tE, tx, tS);
+          if (zn(x, y + 1) !== k) seg(tx, tS, tx - HW, tW);
         }
       }
       ctx.stroke();
