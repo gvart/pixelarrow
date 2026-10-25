@@ -1,0 +1,22 @@
+src/war/sim/crafting.ts
+  s_cfc22b058125c4::t_03447693a57833 157-159,165-167,173
+tests/war/carts.test.ts
+  s_cfc22b058125c4::t_345087640ed139 46-49,59,65-68
+  s_cfc22b058125c4::t_0a4f711b81a336 50-58,60-64
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "37044b1f05e7a421c5b65438c9871e69673050ff",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "unknown"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
