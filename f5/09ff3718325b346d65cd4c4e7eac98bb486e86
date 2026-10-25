@@ -1,0 +1,95 @@
+scripts/war/regions/checks.ts
+  s_cfc22b058125c4::t_5c64a7b721e752 216-237
+scripts/war/regions/kit.ts
+  s_cfc22b058125c4::t_2847e1481d115b 1361,1376-1377,1380,1382-1384
+  s_cfc22b058125c4::t_3426d695a0fad9 41,126,1446,1984
+  s_cfc22b058125c4::t_09b6e0bb345997 1443
+  s_cfc22b058125c4::t_b03352a0ffa510 127,147,1447
+  s_cfc22b058125c4::t_e06b6bbddeb801 1362-1375,1378-1379,1381,1385-1391,2014,2017-2042
+  s_cfc22b058125c4::t_6b7c3d4aa76c3d 128,321,2015-2016
+  s_cfc22b058125c4::t_91a6679a040e00 129,148
+  s_cfc22b058125c4::t_d8d40876ba0c7c 1999
+  s_cfc22b058125c4::t_0ca148b200cc31 2043-2044
+src/war/regions/erymanthos.json
+  s_cfc22b058125c4::t_8d892aac6af798 1
+src/war/regions/elaia-n.json
+  s_cfc22b058125c4::t_8d892aac6af798 1
+src/war/regions/skythia-n.json
+  s_cfc22b058125c4::t_ba02a5a7f667e9 1
+src/war/regions/kimmeria.json
+  s_cfc22b058125c4::t_8d892aac6af798 1
+src/war/regions/delta.json
+  s_cfc22b058125c4::t_8d892aac6af798 1
+src/war/regions/moors.json
+  s_cfc22b058125c4::t_8d892aac6af798 1
+src/war/regions/achelous.json
+  s_cfc22b058125c4::t_8d892aac6af798 1
+src/war/regions/kyrene-w.json
+  s_cfc22b058125c4::t_09b6e0bb345997 1
+src/war/regions/omphalos.json
+  s_cfc22b058125c4::t_09b6e0bb345997 1
+src/war/regions/siren.json
+  s_cfc22b058125c4::t_09b6e0bb345997 1
+src/war/regions/ammon.json
+  s_cfc22b058125c4::t_831edead5bcd1d 1
+src/war/regions/kyrene-e.json
+  s_cfc22b058125c4::t_ba02a5a7f667e9 1
+src/war/regions/gorge.json
+  s_cfc22b058125c4::t_09b6e0bb345997 1
+src/war/regions/skythia.json
+  s_cfc22b058125c4::t_1e67e26c26abaf 1
+src/war/regions/kleisoura.json
+  s_cfc22b058125c4::t_09b6e0bb345997 1
+src/war/regions/kyrene.json
+  s_cfc22b058125c4::t_1e67e26c26abaf 1
+src/war/regions/elaia-s.json
+  s_cfc22b058125c4::t_ba02a5a7f667e9 1
+src/war/regions/dodona-w.json
+  s_cfc22b058125c4::t_8d892aac6af798 1
+src/war/regions/krios.json
+  s_cfc22b058125c4::t_09b6e0bb345997 1
+src/war/regions/elaia-w.json
+  s_cfc22b058125c4::t_ba02a5a7f667e9 1
+src/war/regions/dodona-n.json
+  s_cfc22b058125c4::t_09b6e0bb345997 1
+src/war/regions/kyrene-s.json
+  s_cfc22b058125c4::t_ba02a5a7f667e9 1
+src/war/regions/savanna.json
+  s_cfc22b058125c4::t_8d892aac6af798 1
+src/war/regions/bacchae.json
+  s_cfc22b058125c4::t_8d892aac6af798 1
+src/war/regions/dodona-s.json
+  s_cfc22b058125c4::t_8d892aac6af798 1
+src/war/regions/elaia.json
+  s_cfc22b058125c4::t_09b6e0bb345997 1
+src/war/regions/dodona.json
+  s_cfc22b058125c4::t_09b6e0bb345997 1
+src/war/regions/stymphalia.json
+  s_cfc22b058125c4::t_8d892aac6af798 1
+src/war/regions/skythia-e.json
+  s_cfc22b058125c4::t_09b6e0bb345997 1
+src/war/regions/skythia-s.json
+  s_cfc22b058125c4::t_8d892aac6af798 1
+src/war/regions/dodona-e.json
+  s_cfc22b058125c4::t_ba02a5a7f667e9 1
+src/war/regions/elaia-e.json
+  s_cfc22b058125c4::t_09b6e0bb345997 1
+src/war/regions/skythia-w.json
+  s_cfc22b058125c4::t_8d892aac6af798 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "f509ff3718325b346d65cd4c4e7eac98bb486e86",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
