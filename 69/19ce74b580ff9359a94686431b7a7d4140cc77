@@ -1,0 +1,45 @@
+public/war/biomes/dodona/objects.json
+  s_cfc22b058125c4::t_2bcf252f854951 603-612,633-642
+scripts/war/art/biomes/mountains.mjs
+  s_cfc22b058125c4::t_2bcf252f854951 172
+  s_cfc22b058125c4::t_cf04417156800e 173-174
+scripts/war/art/biomes/kyrene.mjs
+  s_cfc22b058125c4::t_2bcf252f854951 101-103
+scripts/war/art/biomes/elaia.mjs
+  s_cfc22b058125c4::t_2bcf252f854951 87
+  s_cfc22b058125c4::t_cf04417156800e 88
+scripts/war/art/qa.mjs
+  s_cfc22b058125c4::t_2c3597be9caeb2 243
+  s_cfc22b058125c4::t_d6d44cd9ddb030 248-268
+  s_cfc22b058125c4::t_b9ea463b1c6c5f 244-247
+public/war/biomes/mountains/objects.json
+  s_cfc22b058125c4::t_cf04417156800e 1475-1484,1504-1513
+  s_cfc22b058125c4::t_2bcf252f854951 1445-1454
+docs/playbook/PROMPTS_ART.md
+  s_cfc22b058125c4::t_260b71b8ec8d6b 3022-3049
+public/war/biomes/kyrene/objects.json
+  s_cfc22b058125c4::t_2bcf252f854951 665-674,695-704,724-733
+scripts/war/art/biomes/dodona.mjs
+  s_cfc22b058125c4::t_2bcf252f854951 86-87
+src/war/view/objects.ts
+  s_cfc22b058125c4::t_d559b4a2622d85 9-10,29-40,74,87-88,93,97-113,130,168-171,174
+public/war/biomes/elaia/objects.json
+  s_cfc22b058125c4::t_2bcf252f854951 672-681
+  s_cfc22b058125c4::t_cf04417156800e 702-711
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "6919ce74b580ff9359a94686431b7a7d4140cc77",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
