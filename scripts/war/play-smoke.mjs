@@ -444,7 +444,7 @@ try {
   await order({ kind: 'move', squad: sap0.id, x: rx, y: ry });
   const sapAt = await until(async () => {
     const p = await squadAt(sap0.id);
-    if (p && Math.hypot(p.x - rx, p.y - ry) < 8) return p;
+    if (p && Math.hypot(p.x - rx, p.y - ry) < 14) return p; // the gate in sight
     if (p && p.states === 'idle') await order({ kind: 'move', squad: sap0.id, x: rx, y: ry });
     return null;
   }, 30, 300);
