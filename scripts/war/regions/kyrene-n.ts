@@ -2,20 +2,28 @@
  * Thornscrub Rise (docs/WAR.md): dry thornscrub hills between the Ammos Dunes (N) and Kyrene (S), the Lion Savanna (W)
  * off it, Kyrene's two other entries at the north ends of the side edges. Strategic purpose: the Desert Road's wadi
  * chokepoint and a copper outcrop. Depth 1: lions and scorpions.
- * Layout (Gemini reference shots/war/regions/proto/kyrene-n.png; W-52 set pieces): a broad band of red cliffs crosses
- * the map west to east as one great wall, a sheer five-level skirt (h8-9) over the rolling scrub (h2-7, low benches) under a rolling top (h12-14) four levels higher; the Desert
- * Road goes through it in one dry wadi, a gravel slot 8 tiles wide between the walls, the throat where an army died of
- * thirst. On the east block beside the slot's lip a rocky crest (h15) carries a ruined tower over it, reached by one path up from the south mouth. The copper crops out at the cliff
- * foot east of the mouth, the lions' lair by it. The band ends short of the west edge: the long slow way round by
- * the Savanna road. Thornscrub hills on both sides; the claim point south of the slot on Kyrene's side.
+ * Layout (Gemini reference shots/war/regions/proto/kyrene-n.png; W-52 cliffed relief, ./setpieces.ts relief): three great
+ * flat-topped red mesas cross the map west to east, the west block, the tower block by the slot and the east block (a
+ * narrow canyon between the last two), sheer walls of five or six levels from a talus shelf (h7) over the rolling scrub
+ * (h2-7, low benches) to crowns at h12-15; four buttes stand off them in the scrub. The Desert Road goes through in one
+ * dry wadi, a gravel slot between the west and tower blocks' walls, the throat where an army died of thirst. On the
+ * tower block beside the slot's lip a rocky crest (h15) carries a ruined tower, reached by one path up the canyon from
+ * the south mouth. The copper crops out at the cliff foot east of the mouth, the lions' lair by it. The west block ends
+ * short of the west edge: the long slow way round by the Savanna road. Thornscrub hills on both sides; the claim point south of the slot on Kyrene's side.
  */
 import type { Kit, Pt, RegionDef } from './kit.ts';
 import { fbm } from './kit.ts';
 import { relief } from './setpieces.ts';
 
-/** The band's centre line and half-width. */
+/** The mesa line's centre (the set pieces sit along it). */
 const by = (x: number) => 126 + 9 * Math.sin(x / 31) + 4 * Math.cos(x / 13);
-const bw = (x: number) => 24 + 4 * Math.sin(x / 23);
+/** The mesas and buttes: blob (centre, radii, turn) and crown level. */
+const MESAS: [number, number, number, number, number, number][] = [
+  [86, 128, 37, 24, -0.15, 13], [58, 114, 18, 16, 0.3, 13.6], // the west block
+  [148, by(148) - 2, 16, 21, 0.1, 13.4], // the tower block by the slot
+  [214, by(212) + 4, 36, 25, 0.2, 12.8], [234, 104, 16, 14, 0.4, 13.4], // the east block
+  [98, 74, 8, 6, 0.3, 12], [162, 76, 9, 6, -0.2, 12], [198, 180, 8, 6, 0.4, 12], [60, 178, 7, 5, 0, 12], // buttes
+];
 
 const def: RegionDef = {
   id: 'kyrene-n',
@@ -28,21 +36,36 @@ const def: RegionDef = {
     // the scrub's ground: hardpan and gravel flats between the hills
     for (const b of [[100, 60, 40, 22, 0.3], [180, 210, 40, 20, -0.2], [40, 140, 22, 40, 0], [224, 120, 24, 30, 0.2]] as const) k.patch('kyrene', 'hardpan', [...b], ['sand']);
     for (const b of [[150, 70, 30, 16, 0.2], [100, 220, 30, 18, 0]] as const) k.patch('kyrene', 'reg', [...b], ['sand']);
-    // the cliff band (its west end short of the edge), the crest by the slot, the slot cut through it
-    // W-52 set piece (./setpieces.ts): the band is one great red-rock wall (setpieces.ts relief), a sheer skirt (h8-9) under
-    // a rolling top (h12-14), ending short of the west edge; the slot is cut through it
+    // W-52 cliffed relief (./setpieces.ts relief): three great flat-topped red mesas cross the map west to east, the west
+    // block, the tower block by the slot and the east block, a canyon between the last two, buttes standing off them in
+    // the scrub; sheer walls of five or six levels from a talus shelf (h7) to crowns at h12-15. The slot is cut through.
+    const mesa = (x: number, y: number, s: number) => {
+      let q = -Infinity, top = 13;
+      for (const [cx, cy, rx, ry, rot, t] of MESAS) {
+        const c = Math.cos(rot), sn = Math.sin(rot), u = (x - cx) * c + (y - cy) * sn, v = (y - cy) * c - (x - cx) * sn;
+        const d = (1 - ((u / rx) ** 4 + (v / ry) ** 4) ** 0.25) * Math.min(rx, ry); // squarish blocks
+        if (d > q) { q = d; top = t; }
+      }
+      q += 5 * fbm(x, y, 22, s + 10) + 3 * fbm(x, y, 9, s) + 1.5 * fbm(x, y, 3.5, s + 1);
+      q = Math.min(q, Math.abs(x - 128) - 3.2 + 0.4 * fbm(x, y, 6, s + 8), Math.abs(x - 170 - 4 * Math.sin(y / 9)) - 3.5 + fbm(x, y, 5, s + 9));
+      return [q, top] as const;
+    };
+    let ms = 0;
     relief(k, (x, y, s) => {
-      const q = Math.min(bw(x) - Math.abs(y - by(x)), x - 52) + 3 * fbm(x, y, 9, s) + 1.5 * fbm(x, y, 3.5, s + 1);
-      if (q < 0) return 3.6 + 2.4 * fbm(x, y, 30, s + 2) + 0.5 * fbm(x, y, 7, s + 6);
-      return q < 7 ? 8.4 + 0.5 * fbm(x, y, 8, s + 3) : 13 + 0.8 * fbm(x, y, 14, s + 4) + 0.6 * fbm(x, y, 4, s + 5);
-    }, { cliffs: [[4.4, 6.6]] }); // low scrub benches stand two levels over the flats
+      ms = s;
+      const [q, top] = mesa(x, y, s);
+      if (q >= 0) return top + 0.9 * fbm(x, y, 14, s + 4) + 0.7 * fbm(x, y, 4, s + 5);
+      let g = 3.6 + 2.4 * fbm(x, y, 30, s + 2) + 0.5 * fbm(x, y, 7, s + 6);
+      if (q > -9) g = Math.max(g, 7 + 0.45 * q); // the talus shelf round each mesa's foot
+      return g;
+    }, { cliffs: [[4.4, 6.6], [7, 11.5]] }); // low scrub benches and the shelf stand over the flats; the mesa walls
     // thornscrub hills both sides of the band
     for (const b of [[60, 56, 34, 18, 0.4], [200, 58, 36, 16, -0.3], [62, 214, 34, 16, 0.2], [204, 212, 34, 18, -0.4], [150, 26, 16, 8, 0]] as const) k.hill([...b], 7, 4, 3);
     k.plateau([146, by(146) - 2, 9, 5, 0.2], 15, { rough: 1 });
     k.spot('crest', [146, by(146) - 2]);
     k.cut([[128, by(128) - 44], [129, by(128) - 8], [128, by(128)], [127, by(128) + 8], [128, by(128) + 44]], { h: 3, half: 2, bank: 0, t: 'dirt' });
     k.spot('narrows', [128, by(128)]);
-    k.patch('kyrene', 'redrock', [150, by(150), 130, 40, 0], ['sand'], undefined, 7);
+    k.patchWhere('kyrene', 'redrock', (x, y) => mesa(x, y, ms)[0] > -2, ['sand']);
     k.patch('kyrene', 'reg', [128, by(128), 3, 42, 0], ['dirt', 'sand']);
     // roads: the Desert Road down the slot; the path up the crest from the south mouth; the side tracks; the Savanna
     // road round the band's west end
