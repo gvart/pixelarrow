@@ -1,0 +1,24 @@
+tests/war/peaks.test.ts
+  s_cfc22b058125c4::t_3346f54e02062d 28-41
+src/war/view/peaks.ts
+  s_cfc22b058125c4::t_df887866375c85 90-92,97-99
+  s_cfc22b058125c4::t_a10fb6beaaf365 18,65,68,74,76-78,81,85-88,93-95,100-103,142
+  s_cfc22b058125c4::t_28e3b97b2a94c4 71-72,75,84
+  s_cfc22b058125c4::t_a06aae26effab0 66-67,69-70,73,79-80,82-83,89,96,106-107,111,114
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "e19c6ded69eae308d86dac41ccbcd6e3768ec095",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
