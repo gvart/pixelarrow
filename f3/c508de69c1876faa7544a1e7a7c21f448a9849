@@ -1,0 +1,24 @@
+server/test/war/market.test.ts
+  s_cfc22b058125c4::t_b002e0aa3cd17c 191-199
+server/src/war/tradeRoutes.ts
+  s_cfc22b058125c4::t_ffad7354110e99 105
+  s_cfc22b058125c4::t_06185c9cc36615 113
+src/war/net/protocol.ts
+  s_cfc22b058125c4::t_ffad7354110e99 168,173
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "f3c508de69c1876faa7544a1e7a7c21f448a9849",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
