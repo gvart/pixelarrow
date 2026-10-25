@@ -1,0 +1,25 @@
+server/src/war/persons.ts
+  s_cfc22b058125c4::t_e4e8b7b5713a8d 38,117-118
+server/test/war/persons.test.ts
+  s_cfc22b058125c4::t_d793cf2c9e0574 8,131-132,134-139
+  s_cfc22b058125c4::t_855d235850ddd6 133
+  s_cfc22b058125c4::t_64cc0b59df4d5f 140
+server/src/war/regionDO.ts
+  s_cfc22b058125c4::t_6c33d3ba98d9ef 224-231
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "a543315b5408c52280b1e20bf6925d0f27c12d28",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "unknown"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
