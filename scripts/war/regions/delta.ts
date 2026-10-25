@@ -7,8 +7,8 @@
  * mud islands with dead trees and reeds) laid round it (./draftCompose.ts keeps what the raids and the purpose use as
  * drafted):
  *   the river terrace   the old flood terrace north of the great river east of the fields, two bluffs over its north bank;
- *   the fens            west and east of the lagoon: reed marsh cut by creeks, pools and mud islands with dead trees,
- *                       down to the sea.
+ *   the fens            west and east of the lagoon and across the middle between the two rivers: reed marsh cut by
+ *                       creeks, pools and mud islands with dead trees, down to the sea.
  */
 import type { Blob, Kit, Pt } from './kit.ts';
 import { composeOnDraft } from './draftCompose.ts';
@@ -35,4 +35,16 @@ export default composeOnDraft('delta', { staging: [236, 373] }, (k: Kit) => {
     [[212, 150, 9, 5, 0.4], [240, 170, 10, 6, -0.3], [218, 214, 11, 5, 0.2], [244, 222, 8, 5, 0], [236, 140, 7, 4, 0], [204, 192, 6, 4, 0.6], [250, 246, 8, 4, 0]],
     [[226, 160], [246, 196], [206, 230]],
     [[[262, 140], [232, 158], [226, 190], [240, 220], [230, 262]], [[200, 170], [222, 200], [258, 206]]]);
+  fen([60, 104, 50, 20, 0.05],
+    [[30, 96, 9, 4, 0.2], [62, 112, 10, 4, -0.2], [96, 100, 7, 3, 0.4], [44, 118, 6, 3, 0]],
+    [[48, 104], [84, 110], [20, 108]],
+    [[[4, 90], [40, 104], [76, 98], [104, 112]]]);
+  fen([150, 104, 22, 16, 0.1],
+    [[146, 98, 7, 4, 0.3], [160, 112, 6, 3, -0.3]],
+    [[150, 106]],
+    []);
+  fen([228, 100, 30, 18, 0],
+    [[236, 94, 8, 4, 0.2], [220, 110, 7, 3, -0.4], [250, 108, 6, 4, 0]],
+    [[230, 104], [248, 96]],
+    [[[262, 98], [236, 104], [204, 112]]]);
 }, { trees: 0.4, bushes: 0.4 });
