@@ -193,6 +193,8 @@ export class ArtBaker {
   private foam: Uint8Array;
   /** Per visual cell: its ground tint (./relief.ts TINT_FILL code, 0 none). */
   private tint: Uint8Array;
+  /** The tile set whose walls are basalt (the mountains' in a desert region), -1 none. */
+  private basalt = -1;
   /** Per visual cell: how its rock wall's front is smoothed (CUT_*), 0 none. */
   private cut: Uint8Array;
   /** Tree shadows by the row they are drawn after (world px rects of ./relief.ts treeShadow). */
@@ -253,14 +255,24 @@ export class ArtBaker {
       this.shadows[v].push({ x: Math.round(sx - w / 2), y: Math.round(sy - h / 2), w: Math.round(w), h: Math.round(h) });
     }
     ({ code: this.shade, foam: this.foam } = relief(iso.fw, iso.fh, iso.fk, iso.fz));
-    this.tint = groundTint(iso.fw, iso.fh, iso.fk);
+    // a desert region's mountains are its dark volcanic stone (canyons' obsidian mesa): basalt walls and near-black ground
+    // (the peaks over flat mountain stay red rock, ./peaks.ts)
+    const names = r.biomes?.names ?? [], cnt = new Map<string, number>();
+    if (r.biomes) for (const b of decodeBiomes(r.biomes.rle, r.w * r.h)) if (names[b] !== 'mountains') cnt.set(names[b], (cnt.get(names[b]) ?? 0) + 1);
+    const dom = [...cnt].sort((a, b) => b[1] - a[1])[0]?.[0];
+    this.basalt = art.sets.findIndex((s) => s.name === 'mountains' && dom === 'kyrene');
+    this.tint = groundTint(iso.fw, iso.fh, iso.fk, (j) => {
+      const x = j % iso.fw, y = (j / iso.fw) | 0;
+      return this.setOf[(y >> 1) * r.w + (x >> 1)] === this.basalt && !iso.peakAt((x >> 1) + 0.5, (y >> 1) + 0.5);
+    });
     this.cut = this.cuts();
   }
 
   /** The stone of the rock wall under visual cell i (one of `drop` levels), null: no rock wall (a strip cliff or none). */
   private stoneAt(i: number, drop: number): Stone | null {
-    const { fw, fk } = this.iso, x = i % fw, y = (i / fw) | 0;
-    return drop > 1 ? wallStone(this.art.sets[this.setOf[(y >> 1) * this.r.w + (x >> 1)]].name, KINDS[fk[i]]) : null;
+    const { fw, fk } = this.iso, x = i % fw, y = (i / fw) | 0, si = this.setOf[(y >> 1) * this.r.w + (x >> 1)];
+    const st = drop > 1 ? wallStone(this.art.sets[si].name, KINDS[fk[i]]) : null;
+    return st && si === this.basalt ? 'basalt' : st;
   }
 
   /**

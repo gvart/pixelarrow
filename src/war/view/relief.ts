@@ -200,28 +200,34 @@ export function relief(fw: number, fh: number, fk: Uint8Array, fz: Float32Array)
  * Ground tints: broad patches laid over the tile art of a kind, so a floor of one kind is not one repeated sheet (the
  * tiles repeat every 2 m). Per visual cell a code into TINT_FILL (0 none), filled by ./art.ts under the relief light:
  *  - salt: the pale sand the salt pans lie in (the salt tiles bleached white at load, ./art.ts bleach), about half of it;
- *  - redrock: ochre, rust-dark and dusty patches of a few tens of metres over the red tableland.
+ *  - redrock: ochre, rust-dark and dusty patches of a few tens of metres over the red tableland;
+ *  - basalt: the ground on the desert's dark volcanic stone (./art.ts), near black.
  */
 const TINTS: [string, number[]][] = [
   ['214,193,150', [0.62, 0.46, 0.28, 0.14]], // pale sand over salt
   ['204,128,62', [0.2, 0.13, 0.07]], // ochre over red rock
-  ['58,20,12', [0.26, 0.17, 0.09]], // rust-dark over red rock
+  ['86,32,18', [0.2, 0.13, 0.07]], // rust-dark over red rock
   ['236,184,146', [0.16, 0.1, 0.05]], // dust over red rock
+  ['12,10,13', [0.78, 0.7, 0.62]], // basalt: rock, then other ground, a little dithered
 ];
 /** Fill per code (index 0 unused); the first code of each tint in TINT0. */
 export const TINT_FILL: string[] = [''];
 const TINT0: number[] = [];
 for (const [rgb, as] of TINTS) { TINT0.push(TINT_FILL.length); for (const a of as) TINT_FILL.push(`rgba(${rgb},${a})`); }
-const SALT = K('salt'), REDROCK = K('redrock');
+const ROCK = K('rock'), SALT = K('salt'), REDROCK = K('redrock'), PAVED = new Set(['road', 'paving', 'shallow', 'deep'].map(K));
 
-/** The tint code of every visual cell (fw x fh, kinds fk): an index into TINT_FILL, 0 none. */
-export function groundTint(fw: number, fh: number, fk: Uint8Array): Uint8Array {
+/**
+ * The tint code of every visual cell (fw x fh, kinds fk): an index into TINT_FILL, 0 none. `basalt`: the cells on the
+ * desert's dark volcanic stone (./art.ts), their ground darkened to near black (roads and water kept).
+ */
+export function groundTint(fw: number, fh: number, fk: Uint8Array, basalt: (j: number) => boolean = () => false): Uint8Array {
   const out = new Uint8Array(fw * fh);
   // a graded edge: the strongest step deepest in the patch
   const step = (t: number, v: number, w: number) => { const n = TINTS[t][1].length, k = Math.floor(v / w); return k >= n ? TINT0[t] : k >= 0 ? TINT0[t] + n - 1 - k : 0; };
   for (let y = 0; y < fh; y++) for (let x = 0; x < fw; x++) {
     const j = y * fw + x, k = fk[j];
-    if (k === SALT) {
+    if (!PAVED.has(k) && basalt(j)) out[j] = TINT0[4] + (k === ROCK ? 0 : 1) + (hash(x, y, 79) % 3 === 0 ? 1 : 0);
+    else if (k === SALT) {
       const v = 0.65 * noise(x, y, 44, 71) + 0.35 * noise(x, y, 14, 72) + 0.15 + ((hash(x, y, 73) & 255) / 255 - 0.5) * 0.04;
       out[j] = step(0, v, 0.05);
     } else if (k === REDROCK) {

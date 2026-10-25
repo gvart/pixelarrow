@@ -6,12 +6,12 @@
  *   jutting as ledges with a lit top and the shadow of their overhang under them; columns of varied width split by
  *   joints, rounded (lit middle, dark edges) and often running on through several bands; crevices wandering down
  *   the face; a dither over all. One palette per stone: oxblood sandstone (kyrene), pale limestone (elaia),
- *   grey granite (mountains, crags).
+ *   grey granite (mountains, crags), near-black columnar basalt (the mountains' stone in a desert region).
  * - peakTexture: rgba marks laid over the flat-shaded peak triangles (./peaks.ts) at the near zooms, sheared so their
  *   rows follow the triangle's contour lines: broken strata with lit ledge tops, joints and crevices down the fall
  *   line, mottling; wind ripples on snow; even pebbles on scree.
  */
-export type Stone = 'sandstone' | 'limestone' | 'granite';
+export type Stone = 'sandstone' | 'limestone' | 'granite' | 'basalt';
 
 /** The wall stone per tile set / biome (./art.ts): the others' walls are granite under rock only, strip cliffs else. */
 export const STONES: Record<string, Stone> = { kyrene: 'sandstone', elaia: 'limestone', mountains: 'granite' };
@@ -36,6 +36,11 @@ const PAL: Record<Stone, string[][]> = {
     ['#3e3c3a', '#54514d', '#6b6761', '#827d75', '#99938a', '#aea89d', '#c1bcb0', '#d3cfc4', '#e3e0d7'],
     ['#44403a', '#5a554d', '#716b60', '#888174', '#9e9787', '#b2ab9a', '#c4bead', '#d5d0c0', '#e4e0d2'],
   ],
+  // the desert's dark volcanic stone (the mountains' walls in a desert region, ./art.ts): near black, a cold and a warm ramp
+  basalt: [
+    ['#0a0a0d', '#101015', '#16161c', '#1d1c23', '#24232b', '#2c2a33', '#35333c', '#3f3c46', '#4a4651'],
+    ['#0d0b0b', '#141110', '#1b1716', '#221d1b', '#2a2421', '#322b27', '#3b332e', '#453c36', '#50463f'],
+  ],
   granite: [
     ['#22242a', '#30333a', '#3f424a', '#4f525b', '#60636c', '#72757d', '#868890', '#9a9ca2', '#afb0b4'],
     ['#26252a', '#353339', '#444248', '#545158', '#646168', '#757279', '#87848a', '#9a979c', '#adaaae'],
@@ -48,6 +53,8 @@ const KIT: Record<Stone, { band: [number, number]; ledge: number; col: [number, 
   sandstone: { band: [10, 44], ledge: 0.2, col: [12, 52], carry: 0.85, crev: 30, alt: 0.07, base: 3.6, stripe: 0.45 },
   limestone: { band: [5, 22], ledge: 0.4, col: [14, 60], carry: 0.45, crev: 30, alt: 0.25, base: 3.9, stripe: 1 },
   granite: { band: [14, 52], ledge: 0.25, col: [10, 46], carry: 0.45, crev: 34, alt: 0.25, base: 4, stripe: 1 },
+  // columnar basalt: narrow columns running on through few, thick bands
+  basalt: { band: [30, 90], ledge: 0.12, col: [7, 18], carry: 0.95, crev: 18, alt: 0.2, base: 3.4, stripe: 0.4 },
 };
 
 /** A small seeded generator (mulberry32). */
