@@ -13,6 +13,15 @@
  */
 export type Stone = 'sandstone' | 'limestone' | 'granite';
 
+/** The wall stone per tile set / biome (./art.ts): the others' walls are granite under rock only, strip cliffs else. */
+export const STONES: Record<string, Stone> = { kyrene: 'sandstone', elaia: 'limestone', mountains: 'granite' };
+
+/** The stone of a rock wall under a cell of visual kind `kind` in biome (tile set) `biome`, null: a strip cliff (snow, earth). */
+export function wallStone(biome: string, kind: string): Stone | null {
+  if (kind === 'snow' || kind === 'drift') return null;
+  return STONES[biome] ?? (kind === 'rock' ? 'granite' : null);
+}
+
 /** Wall texture size (px): 32 cells along the wall, 24 levels down it. */
 export const WALL_W = 512, WALL_H = 768;
 
