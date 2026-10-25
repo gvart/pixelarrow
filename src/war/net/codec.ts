@@ -13,11 +13,12 @@
  *                      | s active skill ('' none) [| v ready tick | v buff end tick + 1 (absolute; the decoder counts down)]
  *   v n, n x shot:     u16 x0 y0 x1 y1 | v tick - t0 | u8 t1 - t0 | u8 z0 | u8 z1 | u8 kind | fire<<2 | siege<<3 | z by [| v siege]
  *   v n, n bytes:      JSON { u: BuildingSnap[], r: id[] } of changed / gone buildings (n = 0: none)
+ *   v n, n bytes:      JSON { u: SiegeSnap[], r: id[] } of changed / gone engines and carts (n = 0: none)
  * Unit fields: POS u16 x*QUANT, u16 y*QUANT | FACE u8 (turns * 256) | HP u16 hp*10 | STATE u8 (state | 8 wounded set | 16 wounded)
  *   | Z u8 | ANIM u8 swing, u8 ready (255 none) | META v squad, u16 maxHp*10, s cls, s person id ('' none), u8 level
  *   | EXTRA v on+1, u8 task, u8 carry, u8 load, v combat tag end tick (absolute; 0 none, the decoder counts down)
  */
-import type { BuildingSnap, ResourceKind, ShotSnap, Snapshot, SquadSnap, UnitSnap, WarSkillId } from '../types';
+import type { BuildingSnap, ResourceKind, ShotSnap, SiegeSnap, Snapshot, SquadSnap, UnitSnap, WarSkillId } from '../types';
 import { NET_VERSION, QUANT } from './protocol';
 
 const POS = 1, FACE = 2, HP = 4, STATE = 8, Z = 16, ANIM = 32, META = 64, EXTRA = 128;
@@ -103,7 +104,7 @@ class Reader {
 }
 
 /** What one client sees this tick (already filtered, ./interest.ts). `shots`: the ones to send (new ones; all on a keyframe). */
-export interface FrameInput { tick: number; units: UnitSnap[]; squads: SquadSnap[]; shots: ShotSnap[]; buildings: BuildingSnap[] }
+export interface FrameInput { tick: number; units: UnitSnap[]; squads: SquadSnap[]; shots: ShotSnap[]; buildings: BuildingSnap[]; sieges?: SiegeSnap[] }
 
 /** Squad active as absolute ticks (ready at, buff over at): changes only when it fires. */
 const activeAbs = (s: SquadSnap, tick: number) => (s.active ? [s.active.skill, s.active.ready ? tick + s.active.ready : 0, s.active.on ? tick + s.active.on : 0] as const : null);
@@ -116,11 +117,12 @@ export class DeltaEncoder {
   private units = new Map<number, { q: Q; meta: string }>();
   private squads = new Map<number, string>();
   private buildings = new Map<number, string>();
+  private sieges = new Map<number, string>();
   private seen = new Set<number>();
 
   /** key: a keyframe (full resend, the client starts over). */
   encode(f: FrameInput, key: boolean): Uint8Array {
-    if (key) { this.units.clear(); this.squads.clear(); this.buildings.clear(); }
+    if (key) { this.units.clear(); this.squads.clear(); this.buildings.clear(); this.sieges.clear(); }
     const w = new Writer();
     w.u8(key ? 2 : 1);
     w.u8(NET_VERSION);
@@ -198,19 +200,25 @@ export class DeltaEncoder {
       w.z(s.by);
       if (s.siege !== undefined) w.v(s.siege);
     }
-    // buildings: whole records, changed ones only (few, and they change rarely)
-    const bu: BuildingSnap[] = [], br: number[] = [], bseen = new Set<number>();
-    for (const b of f.buildings) {
-      bseen.add(b.id);
-      const k = JSON.stringify(b);
-      if (this.buildings.get(b.id) !== k) { this.buildings.set(b.id, k); bu.push(b); }
-    }
-    if (!key) for (const id of this.buildings.keys()) if (!bseen.has(id)) br.push(id);
-    for (const id of br) this.buildings.delete(id);
-    if (bu.length || br.length) w.bytes(enc.encode(JSON.stringify({ u: bu, r: br })));
-    else w.v(0);
+    // buildings, then engines and carts: whole records, changed ones only (few)
+    records(w, this.buildings, f.buildings, key);
+    records(w, this.sieges, f.sieges ?? [], key);
     return w.done();
   }
+}
+
+/** A JSON block of the records that changed since `sent` (and the ids gone), or 0 bytes for none. */
+function records(w: Writer, sent: Map<number, string>, now: readonly { id: number }[], key: boolean): void {
+  const u: { id: number }[] = [], r: number[] = [], seen = new Set<number>();
+  for (const b of now) {
+    seen.add(b.id);
+    const k = JSON.stringify(b);
+    if (sent.get(b.id) !== k) { sent.set(b.id, k); u.push(b); }
+  }
+  if (!key) for (const id of sent.keys()) if (!seen.has(id)) r.push(id);
+  for (const id of r) sent.delete(id);
+  if (u.length || r.length) w.bytes(enc.encode(JSON.stringify({ u, r })));
+  else w.v(0);
 }
 
 /** Client side: applies frames, keeps the visible world, hands out Snapshots. */
@@ -221,6 +229,7 @@ export class DeltaDecoder {
   actives = new Map<number, [WarSkillId, number, number]>();
   shots: ShotSnap[] = [];
   buildings = new Map<number, BuildingSnap>();
+  sieges = new Map<number, SiegeSnap>();
   /** Combat tag end ticks by unit (absolute; snapshot() counts down). */
   tags = new Map<number, number>();
   tick = 0;
@@ -230,7 +239,7 @@ export class DeltaDecoder {
     const kind = r.u8(), v = r.u8();
     if (v !== NET_VERSION) throw new Error(`net version ${v}, expected ${NET_VERSION}`);
     const tick = r.u32();
-    if (kind === 2) { this.units.clear(); this.squads.clear(); this.actives.clear(); this.shots = []; this.buildings.clear(); this.tags.clear(); }
+    if (kind === 2) { this.units.clear(); this.squads.clear(); this.actives.clear(); this.shots = []; this.buildings.clear(); this.sieges.clear(); this.tags.clear(); }
     this.tick = tick;
     for (let n = r.v(); n > 0; n--) {
       const id = r.v(), m = r.u8();
@@ -283,11 +292,12 @@ export class DeltaDecoder {
       if (k & 8) s.siege = r.v();
       this.shots.push(s);
     }
-    const b = r.bytes();
-    if (b.length) {
-      const j = JSON.parse(dec.decode(b)) as { u: BuildingSnap[]; r: number[] };
-      for (const x of j.u) this.buildings.set(x.id, x);
-      for (const id of j.r) this.buildings.delete(id);
+    for (const into of [this.buildings, this.sieges] as Map<number, { id: number }>[]) {
+      const b = r.bytes();
+      if (!b.length) continue;
+      const j = JSON.parse(dec.decode(b)) as { u: { id: number }[]; r: number[] };
+      for (const x of j.u) into.set(x.id, x);
+      for (const id of j.r) into.delete(id);
     }
     return this.snapshot();
   }
@@ -309,6 +319,6 @@ export class DeltaDecoder {
       const active = a ? { active: { skill: a[0], ready: Math.max(0, a[1] - this.tick), on: Math.max(0, a[2] - this.tick) } } : {};
       return { ...s, ...active, units: lists.get(s.id) ?? [] };
     });
-    return { tick: this.tick, units, squads, shots: this.shots.map((s) => ({ ...s })), buildings: [...this.buildings.values()] };
+    return { tick: this.tick, units, squads, shots: this.shots.map((s) => ({ ...s })), buildings: [...this.buildings.values()], ...(this.sieges.size ? { sieges: [...this.sieges.values()] } : {}) };
   }
 }

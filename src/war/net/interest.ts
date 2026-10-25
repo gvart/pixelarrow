@@ -3,10 +3,11 @@
  * teams (bit `team` of a cell is set within VISION tiles of a living unit or a standing building of that team: the
  * alliance shares sight), then each client gets:
  *   - its own squads' units, always (selection, minimap);
- *   - any other unit, building or new shot that its team sees AND that lies inside its camera rect plus CAMERA_MARGIN.
+ *   - its team's buildings and engines (and carts of his), always;
+ *   - any other unit, building, engine or new shot that its team sees AND that lies inside its camera rect plus CAMERA_MARGIN.
  * No camera rect yet: the camera counts as the whole map.
  */
-import type { BuildingSnap, ShotSnap, Snapshot, SquadSnap, UnitSnap } from '../types';
+import type { BuildingSnap, ShotSnap, SiegeSnap, Snapshot, SquadSnap, UnitSnap } from '../types';
 import { CAMERA_MARGIN, VISION } from './protocol';
 
 /** Vision cell size in tiles. */
@@ -81,7 +82,7 @@ export function interestRect(cam: Rect | null, margin = CAMERA_MARGIN): Rect | n
   return cam ? { x0: Math.min(cam.x0, cam.x1) - margin, y0: Math.min(cam.y0, cam.y1) - margin, x1: Math.max(cam.x0, cam.x1) + margin, y1: Math.max(cam.y0, cam.y1) + margin } : null;
 }
 
-export interface Visible { units: UnitSnap[]; squads: SquadSnap[]; shots: ShotSnap[]; buildings: BuildingSnap[] }
+export interface Visible { units: UnitSnap[]; squads: SquadSnap[]; shots: ShotSnap[]; buildings: BuildingSnap[]; sieges: SiegeSnap[] }
 
 /**
  * What one client (owner string, team) gets this tick. `newShots`: shots loosed since the last frame (all in-flight
@@ -104,5 +105,6 @@ export function visibleTo(snap: Snapshot, vision: TeamVision, owner: string, tea
   const ok = (x: number, y: number) => vision.sees(team, x, y) && inRect(r, x, y);
   const shots = newShots.filter((s) => ok(s.x0, s.y0) || ok(s.x1, s.y1));
   const buildings = (snap.buildings ?? []).filter((b) => b.team === team || ok(b.x, b.y));
-  return { units, squads, shots, buildings };
+  const sieges = (snap.sieges ?? []).filter((e) => e.team === team || e.owner === owner || ok(e.x, e.y));
+  return { units, squads, shots, buildings, sieges };
 }

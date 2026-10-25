@@ -35,7 +35,7 @@ import type { NodeRow } from './economy';
 import type { BridgePlan, BuildingType, Order, PlaceResult, ResourceKind, SquadId, WallPlan } from '../types';
 
 /** Bumped on any wire change (messages or the binary frame layout). */
-export const NET_VERSION = 8;
+export const NET_VERSION = 9;
 /** Positions go out in 1/QUANT tile steps. */
 export const QUANT = 8;
 /** Ticks between keyframes (a full frame of what the client sees; deltas in between). */
