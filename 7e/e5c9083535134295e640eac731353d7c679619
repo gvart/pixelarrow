@@ -1,0 +1,26 @@
+tests/war/biomeKeep.test.ts
+  s_fcb7475e0b5395::t_709e7a90c95e76 1-4,6-33
+  s_fcb7475e0b5395::t_1c1030ee0c4f71 5
+scripts/war/art/keepForeign.mjs
+  s_fcb7475e0b5395::t_88773c593bf871 1-17
+scripts/war/art/build.mjs
+  s_fcb7475e0b5395::t_bfba38690f4bc9 22,407-411
+docs/playbook/PROMPTS_ART.md
+  s_fcb7475e0b5395::t_447acba366277b 2963-2965
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "7ee5c9083535134295e640eac731353d7c679619",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
