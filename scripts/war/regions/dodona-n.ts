@@ -59,7 +59,7 @@ const def: RegionDef = {
     k.road([[166, 200], [168, 196], [170, 192]], { w: 0.9, grade: 1, fill: true });
     // pines on the headlands, the wreck on the beach, a hamlet by the hub
     k.forest([30, 40, 30, 26, 0.3], [138, 70, 16, 40, 0.05], [236, 50, 16, 26, 0], [60, 220, 30, 20, 0.2], [214, 232, 14, 16, 0], [30, 170, 22, 24, 0.3], [228, 160, 16, 20, 0]);
-    k.piece('dodona/hut-ruin', [96, 124], { r: 6, n: 2, gap: 4 });
+    k.piece('dodona/hut-ruin', [108, 126], { r: 8, n: 2, gap: 4 }); // on the beach's dry east side (the bay's head is all shallows)
     k.piece('dodona/timber-stand', [140, 90], { r: 10, n: 2 });
     k.piece('dodona/charcoal-pile', [70, 214], { r: 6 });
     k.piece('watchtower', [150, 150], { r: 4 });
