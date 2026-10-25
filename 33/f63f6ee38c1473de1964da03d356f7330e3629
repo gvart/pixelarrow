@@ -1,0 +1,38 @@
+src/war/regions/bacchae.json
+  s_fcb7475e0b5395::t_ccd410d9bf8f93 1
+src/war/regions/krios.json
+  s_fcb7475e0b5395::t_a75c093bc7668c 1
+scripts/war/regions/canyons.ts
+  s_fcb7475e0b5395::t_a9934874718e39 96
+  s_fcb7475e0b5395::t_3b15798173d353 97
+  s_fcb7475e0b5395::t_d81e94065f050b 62-63,65-81,83-86,88-89,91-95,99
+  s_fcb7475e0b5395::t_507bd310cd57c3 64,87,90
+  s_fcb7475e0b5395::t_52d1c396047ce3 9-11,13-16
+  s_fcb7475e0b5395::t_3b8962f015e8a9 100
+scripts/war/regions/landmarks.ts
+  s_fcb7475e0b5395::t_a75c093bc7668c 194-195
+scripts/war/regions/bacchae.ts
+  s_fcb7475e0b5395::t_98f68df4a4714d 16,49-50
+src/war/regions/canyons.json
+  s_fcb7475e0b5395::t_1ebe32fe7d3f7b 1
+scripts/war/regions/setpieces.ts
+  s_fcb7475e0b5395::t_9032b14549938e 11-12
+  s_fcb7475e0b5395::t_d721d90bd907e9 165-215
+  s_fcb7475e0b5395::t_320342c7327e40 164,216-217
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "33f63f6ee38c1473de1964da03d356f7330e3629",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
