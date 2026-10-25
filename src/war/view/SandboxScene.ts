@@ -2,7 +2,7 @@
  * The region sandbox in true iso with raised height (W-16) at real scale (W-18: 64 x 32 tiles of
  * 2 m, a 512-tile region is ~33k px wide): PixelLab terrain (./art.ts; ?art=grey: the greybox of
  * ./terrain.ts) baked into 512 px chunks on demand (LRU pools, culled to the camera) at 1x zoomed
- * in, 1/2 and 1/4 at mid zoom, mountains as massif sprites (./massifs.ts; ?mountains=terrace: stacked levels), over a 1/8 overview baked in bands (shown while chunks bake; the minimap and full map use it); the camera stops at MIN_ZOOM 1/4; map
+ * in, 1/2 and 1/4 at mid zoom, mountains as procedural peaks (./peaks.ts; ?mountains=massifs: massif sprites, ?mountains=terrace: stacked levels), over a 1/8 overview baked in bands (shown while chunks bake; the minimap and full map use it); the camera stops at MIN_ZOOM 1/4; map
  * objects as live sprites sorted with the units down to 1/3 (./objects.ts), baked in below that; 10 Hz sim snapshots drawn interpolated as PixelLab
  * soldier sprites with dot and banner LOD (./units.ts); RTS camera and squad controls picking
  * through the height field (./iso.ts).
@@ -146,10 +146,12 @@ export class SandboxScene extends Phaser.Scene {
 
   create(): void {
     const r = this.region;
-    // mountains as massif sprites over flat rock (?mountains=terrace: the stacked cliff levels of the visual layer)
-    const mask = this.art && new URLSearchParams(location.search).get('mountains') !== 'terrace' ? Massifs.maskOf(r) : null;
-    this.iso = new IsoMap(r, mask, mask && Massifs.screeOf(r, mask));
-    this.massifs = mask && this.art ? new Massifs(r, mask, this.art.massifs) : null;
+    // mountains as procedural peaks over flat rock (./peaks.ts; ?mountains=massifs: massif sprites, ?mountains=terrace: the
+    // stacked cliff levels of the visual layer)
+    const mode = new URLSearchParams(location.search).get('mountains');
+    const mask = this.art && mode !== 'terrace' ? Massifs.maskOf(r) : null;
+    this.iso = new IsoMap(r, mask, mask && Massifs.screeOf(r, mask), mode !== 'massifs');
+    this.massifs = mask && this.art && mode === 'massifs' ? new Massifs(r, mask, this.art.massifs) : null;
     this.baker = new TerrainBaker(r, this.iso);
     this.map = new MapData(r);
     this.opts.map = this.map;

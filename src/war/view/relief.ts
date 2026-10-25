@@ -51,7 +51,7 @@ const DUNE = new Set(['dune', 'sand'].map(K));
 const AMP: Record<number, number> = Object.fromEntries([['road', 0.3], ['paving', 0], ['ruin', 0.4], ['forest', 1.2], ['dune', 1.6], ['sand', 0.8], ['snow', 1.4], ['drift', 1.4], ['salt', 0.4], ['marsh', 0.5]].map(([k, v]) => [K(k as string), v as number]));
 
 /** Gradient noise in about [-1, 1] on a lattice of `s` cells (8 hashed gradient directions), rotated off the cell axes. */
-function noise(x: number, y: number, s: number, k: number): number {
+export function noise(x: number, y: number, s: number, k: number): number {
   const fx = (x * 0.8 + y * 0.6) / s, fy = (y * 0.8 - x * 0.6) / s, ix = Math.floor(fx), iy = Math.floor(fy), tx = fx - ix, ty = fy - iy;
   const t00 = ((hash(ix, iy, k) >>> 4) & 7) * 2, t10 = ((hash(ix + 1, iy, k) >>> 4) & 7) * 2;
   const t01 = ((hash(ix, iy + 1, k) >>> 4) & 7) * 2, t11 = ((hash(ix + 1, iy + 1, k) >>> 4) & 7) * 2;
