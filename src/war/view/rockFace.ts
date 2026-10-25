@@ -5,26 +5,41 @@
  *   level down it), so the strata stay level round corners and across cells. Strata bands of varied thickness, some
  *   jutting as ledges with a lit top and the shadow of their overhang under them; columns of varied width split by
  *   joints, rounded (lit middle, dark edges) and often running on through several bands; crevices wandering down
- *   the face; a dither over all. One palette per stone: red and ochre sandstone (kyrene), pale limestone (elaia),
- *   grey granite (mountains, crags).
+ *   the face; a dither over all. One palette per stone: oxblood sandstone (kyrene), pale limestone (elaia),
+ *   grey granite (mountains, crags), near-black columnar basalt (the mountains' stone in a desert region).
  * - peakTexture: rgba marks laid over the flat-shaded peak triangles (./peaks.ts) at the near zooms, sheared so their
  *   rows follow the triangle's contour lines: broken strata with lit ledge tops, joints and crevices down the fall
  *   line, mottling; wind ripples on snow; even pebbles on scree.
  */
-export type Stone = 'sandstone' | 'limestone' | 'granite';
+export type Stone = 'sandstone' | 'limestone' | 'granite' | 'basalt';
+
+/** The wall stone per tile set / biome (./art.ts): the others' walls are granite under rock only, strip cliffs else. */
+export const STONES: Record<string, Stone> = { kyrene: 'sandstone', elaia: 'limestone', mountains: 'granite' };
+
+/** The stone of a rock wall under a cell of visual kind `kind` in biome (tile set) `biome`, null: a strip cliff (snow, earth). */
+export function wallStone(biome: string, kind: string): Stone | null {
+  if (kind === 'snow' || kind === 'drift') return null;
+  return STONES[biome] ?? (kind === 'rock' ? 'granite' : null);
+}
 
 /** Wall texture size (px): 32 cells along the wall, 24 levels down it. */
 export const WALL_W = 512, WALL_H = 768;
 
 /** Palettes, dark to light; sandstone's second ramp is its ochre bands. */
 const PAL: Record<Stone, string[][]> = {
+  // the deep oxblood red of the references (shots/war/regions/proto/kyrene-*.png), its second ramp a rust barely off it
   sandstone: [
-    ['#2a0f0c', '#40160f', '#581e14', '#70281a', '#883321', '#9d3f27', '#b04f30', '#c4663d', '#d6804f'],
-    ['#30140d', '#461f12', '#5e2c18', '#773b1f', '#8e4b27', '#a25c30', '#b46e3a', '#c48347', '#d29a58'],
+    ['#220e0c', '#33130f', '#461a14', '#5a2119', '#6d281e', '#7f3024', '#8f3a2c', '#9d4636', '#aa5541'],
+    ['#26110d', '#381811', '#4b2016', '#5f291b', '#713221', '#823b27', '#91462f', '#9e5239', '#aa6044'],
   ],
   limestone: [
     ['#3e3c3a', '#54514d', '#6b6761', '#827d75', '#99938a', '#aea89d', '#c1bcb0', '#d3cfc4', '#e3e0d7'],
     ['#44403a', '#5a554d', '#716b60', '#888174', '#9e9787', '#b2ab9a', '#c4bead', '#d5d0c0', '#e4e0d2'],
+  ],
+  // the desert's dark volcanic stone (the mountains' walls in a desert region, ./art.ts): near black, a cold and a warm ramp
+  basalt: [
+    ['#0a0a0d', '#101015', '#16161c', '#1d1c23', '#24232b', '#2c2a33', '#35333c', '#3f3c46', '#4a4651'],
+    ['#0d0b0b', '#141110', '#1b1716', '#221d1b', '#2a2421', '#322b27', '#3b332e', '#453c36', '#50463f'],
   ],
   granite: [
     ['#22242a', '#30333a', '#3f424a', '#4f525b', '#60636c', '#72757d', '#868890', '#9a9ca2', '#afb0b4'],
@@ -33,10 +48,13 @@ const PAL: Record<Stone, string[][]> = {
 };
 
 /** Per stone: band thickness range (px), ledge share, column width range, share of bands whose joints carry on from the band above, crevices. */
-const KIT: Record<Stone, { band: [number, number]; ledge: number; col: [number, number]; carry: number; crev: number; alt: number; base: number }> = {
-  sandstone: { band: [6, 30], ledge: 0.3, col: [12, 52], carry: 0.75, crev: 30, alt: 0.16, base: 3.7 },
-  limestone: { band: [5, 22], ledge: 0.4, col: [14, 60], carry: 0.45, crev: 30, alt: 0.25, base: 3.9 },
-  granite: { band: [14, 52], ledge: 0.25, col: [10, 46], carry: 0.45, crev: 34, alt: 0.25, base: 4 },
+/** `stripe`: how strongly each band darkens toward its bedding plane (the sandstone's bands stay faint, its columns lead). */
+const KIT: Record<Stone, { band: [number, number]; ledge: number; col: [number, number]; carry: number; crev: number; alt: number; base: number; stripe: number }> = {
+  sandstone: { band: [10, 44], ledge: 0.2, col: [12, 52], carry: 0.85, crev: 30, alt: 0.07, base: 3.6, stripe: 0.45 },
+  limestone: { band: [5, 22], ledge: 0.4, col: [14, 60], carry: 0.45, crev: 30, alt: 0.25, base: 3.9, stripe: 1 },
+  granite: { band: [14, 52], ledge: 0.25, col: [10, 46], carry: 0.45, crev: 34, alt: 0.25, base: 4, stripe: 1 },
+  // columnar basalt: narrow columns running on through few, thick bands
+  basalt: { band: [30, 90], ledge: 0.12, col: [7, 18], carry: 0.95, crev: 18, alt: 0.2, base: 3.4, stripe: 0.4 },
 };
 
 /** A small seeded generator (mulberry32). */
@@ -79,9 +97,9 @@ export function wallTexture(stone: Stone): HTMLCanvasElement {
     for (let y = y0; y < y0 + t; y++) {
       const dy = y - y0;
       // within the band: lit top, darker toward its bedding plane; under a ledge above, its overhang's shadow
-      let vb = 0.5 - (dy / t) * 1.1;
+      let vb = (0.5 - (dy / t) * 1.1) * K.stripe;
       if (dy === 0 && ledge) vb += 2;
-      if (dy === t - 1) vb -= 1.3;
+      if (dy === t - 1) vb -= 1.3 * K.stripe;
       if (prevLedge && dy < 3) vb -= 2.2 - dy * 0.6;
       let c = 0;
       for (let x = 0; x < W; x++) {

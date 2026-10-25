@@ -19,11 +19,13 @@
  *
  * One-level steps between land cells (the generator's eased slopes) are drawn as smooth ramps, not risers: each cell
  * has four corner levels (cornerLevels), its diamond warped through them, and zAt is that surface. Steps of two levels
- * or more are cliffs: the cells along them, and water, stay flat at their own level.
+ * or more are cliffs: the cells along them, and water, stay flat at their own level, but for rock walls (./rockFace.ts
+ * wallStone): their rim cells a level apart ramp into each other, so a wall's top runs up a slope instead of in steps.
  */
 import type { RegionData } from '../types';
-import { decodeVisual, KINDS, ZVIS } from '../regions/visual';
+import { decodeBiomes, decodeVisual, KINDS, ZVIS } from '../regions/visual';
 import { peakAt, peakField, stubField, type PeakField } from './peaks';
+import { wallStone } from './rockFace';
 
 export const HW = 32;
 export const HH = 16;
@@ -100,9 +102,10 @@ function lower(z: Float32Array, w: number, low: (j: number) => boolean): void {
  * Corner levels of the visual cells, 4 per cell (N, E, S, W: the lattice points (x, y), (x + 1, y), (x + 1, y + 1),
  * (x, y + 1)), and per cell 1 if they are not all its own level (a ramp cell). At each lattice point the cells joined by
  * flat edges or one-level land steps share one level: the level of a flat cell among them (a cliff's or water's), else
- * their mean. A cell is flat when it is water or a 4-neighbour lies two or more levels off (a cliff top or foot).
+ * their mean. A cell is flat when it is water or a 4-neighbour lies two or more levels off (a cliff top or foot), but two
+ * such cells of a rock wall (`rock`) a level apart join: the lower one's corner rises to the higher (the wall's rim slopes).
  */
-function cornerLevels(fw: number, fh: number, fz: Float32Array, wet: (j: number) => boolean): { fc: Float32Array; ramp: Uint8Array } {
+function cornerLevels(fw: number, fh: number, fz: Float32Array, wet: (j: number) => boolean, rock: (j: number) => boolean = () => false): { fc: Float32Array; ramp: Uint8Array } {
   const n = fw * fh, fc = new Float32Array(4 * n), ramp = new Uint8Array(n), hard = new Uint8Array(n);
   for (let j = 0; j < n; j++) {
     const x = j % fw, z = fz[j];
@@ -112,7 +115,7 @@ function cornerLevels(fw: number, fh: number, fz: Float32Array, wet: (j: number)
   }
   const link = (a: number, b: number) => {
     const d = Math.abs(fz[a] - fz[b]);
-    return d === 0 || (d <= 1 && !(hard[a] && hard[b]) && !wet(a) && !wet(b));
+    return d === 0 || (d <= 1 && (!(hard[a] && hard[b]) || (rock(a) && rock(b))) && !wet(a) && !wet(b));
   };
   // the cells round a point: 0 (X-1, Y-1), 1 (X, Y-1), 2 (X-1, Y), 3 (X, Y), and which corner of each the point is
   const c = [0, 0, 0, 0], g = [0, 0, 0, 0], Q = [2, 3, 1, 0], E = [[0, 1], [0, 2], [1, 3], [2, 3]];
@@ -141,7 +144,7 @@ function cornerLevels(fw: number, fh: number, fz: Float32Array, wet: (j: number)
       }
       if (!mixed) continue;
       const v = fixed > -Infinity ? fixed : sum / cnt;
-      for (let m = 0; m < 4; m++) if (g[m] === k && c[m] >= 0 && !hard[c[m]] && fz[c[m]] !== v) { fc[4 * c[m] + Q[m]] = v; ramp[c[m]] = 1; }
+      for (let m = 0; m < 4; m++) if (g[m] === k && c[m] >= 0 && (!hard[c[m]] || rock(c[m])) && fz[c[m]] !== v) { fc[4 * c[m] + Q[m]] = v; ramp[c[m]] = 1; }
     }
   }
   return { fc, ramp };
@@ -229,7 +232,10 @@ export class IsoMap {
         if ((kind[j] === GRASS || kind[j] === MEADOW) && scree[((j / fw / 2) | 0) * r.w + ((j % fw) >> 1)]) kind[j] = SCREE;
       }
     }
-    ({ fc: this.fc, ramp: this.ramp } = cornerLevels(fw, fh, this.fz, (j) => kind[j] === SHALLOW || kind[j] === DEEP));
+    // rock walls' rims ramp (cornerLevels): the cells whose walls are drawn as stone faces (./art.ts)
+    const biome = r.biomes ? decodeBiomes(r.biomes.rle, r.w * r.h) : null, names = r.biomes?.names ?? [];
+    const rock = (j: number) => wallStone(biome ? names[biome[((j / fw / 2) | 0) * r.w + ((j % fw) >> 1)]] : 'global', KINDS[kind[j]]) !== null;
+    ({ fc: this.fc, ramp: this.ramp } = cornerLevels(fw, fh, this.fz, (j) => kind[j] === SHALLOW || kind[j] === DEEP, rock));
     this.zu = this.z.slice();
     this.zh = this.z.slice();
     for (let i = 0; i < this.zu.length; i++) {
