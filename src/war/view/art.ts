@@ -164,12 +164,17 @@ export class ArtBaker {
   private foam: Uint8Array;
   /** Tree shadows by the row they are drawn after (world px rects of ./relief.ts treeShadow). */
   private shadows: { x: number; y: number; w: number; h: number }[][];
-  /** The procedural peaks over the flat mountain (./peaks.ts), painted with the rows. */
-  private peaks: PeakPainter | null;
+  /** The procedural peaks over the flat mountain (./peaks.ts), painted with the rows; their stubs while the iso map is cut. */
+  private full: PeakPainter | null;
+  private stubs: PeakPainter | null = null;
+  private get peaks(): PeakPainter | null {
+    if (!this.iso.cut || !this.iso.stub) return this.full;
+    return (this.stubs ??= new PeakPainter(this.iso.stub, this.iso.OX, this.iso.OY));
+  }
 
   constructor(readonly r: RegionData, readonly iso: IsoMap, readonly art: WarArt, massifs: Massifs | null = null) {
     this.fine = buildFineArt(art);
-    this.peaks = iso.peaks ? new PeakPainter(iso.peaks, iso.OX, iso.OY) : null;
+    this.full = iso.peaks ? new PeakPainter(iso.peaks, iso.OX, iso.OY) : null;
     this.smooth = new SmoothFrames(art);
     this.setOf = new Uint8Array(r.w * r.h);
     if (r.biomes) {

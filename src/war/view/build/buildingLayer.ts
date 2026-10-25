@@ -136,7 +136,7 @@ export class BuildingLayer {
   hovered = -1;
   /** Build mode: every footprint shows its grid. */
   grids = false;
-  /** Cutaway (V): every wall, tower and gate drawn as a low stub, so the inside of a fort shows. */
+  /** Cutaway (V): every wall, tower and gate drawn as a low stub, so the inside of a fort shows (and the peaks cut to stubs: SandboxScene). */
   cutaway = false;
   /** Build mode's cursor tile: the walls near it are cut away too (null: none). */
   cutNear: { x: number; y: number } | null = null;
@@ -1042,10 +1042,14 @@ export class BuildingLayer {
     return img.setTexture(texture, frame).setScale(1).setFlipX(false).clearTint().setVisible(true);
   }
 
-  /** Ring and amount label on a hovered resource node; null hides them. */
+  /** Where a resource node's sprite meets the ground, from its anchor (sprite px; ./objects.ts baseOf); unset: the anchor. */
+  nodeBase: ((n: NodeSnap) => { dx: number; dy: number } | undefined) | null = null;
+
+  /** Ring and amount label on a hovered resource node, round the base of its sprite (drawn as ./objects.ts places it); null hides them. */
   node(n: NodeSnap | null, zoom: number): void {
     if (!n) { this.nodeLabel.setVisible(false); return; }
-    const p = this.pt(n.x, n.y, this.iso.zAt(n.x, n.y)), g = this.gGhost;
+    const iso = this.iso, b = this.nodeBase?.(n), g = this.gGhost;
+    const p = { x: Math.round(iso.sx(n.x, n.y)) + (b?.dx ?? 0), y: Math.round(iso.sy(n.x, n.y, iso.zAt(n.x, n.y))) + (b?.dy ?? 0) };
     g.lineStyle(Math.max(1.5, 2 / zoom), n.amount >= 1 ? 0xffe070 : 0x808080, 1).strokeEllipse(p.x, p.y, 44, 22);
     this.nodeLabel.setText(`${n.res} ${Math.floor(n.amount)}/${n.max}`).setScale(1 / zoom).setPosition(p.x, p.y - 14 / zoom).setVisible(true);
   }

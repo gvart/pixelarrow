@@ -15,6 +15,7 @@ import type { ObjDef, WarArt } from './art';
 import { HH, LH, type IsoMap } from './iso';
 import type { Massifs } from './massifs';
 import { peakHorizon } from './peaks';
+import { baseOffset } from './objBase';
 import type { DrawUnit } from './simClient';
 
 /** Objects are live sprites from this zoom up (the unit sprites' zoom). */
@@ -31,7 +32,7 @@ interface Idle { file: string; frames: number; w: number; h: number; anchor: { x
 interface Anim { key: string; n: number; ox: number; oy: number; fps: number; ready: boolean }
 interface Def extends ObjDef { key: string; mask: Uint8Array; mw: number; mh: number; fades: boolean; hides: boolean; anim?: Anim }
 /** ph, sp: an animal's loop phase (frames) and speed factor, so a herd does not move in step. */
-interface Obj { def: Def; sx: number; sy: number; v: number; alpha: number; tint?: number; ph: number; sp: number }
+interface Obj { def: Def; sx: number; sy: number; v: number; alpha: number; tint?: number; ph: number; sp: number; /** Wholly behind the peaks: shown only while they are cut or in a hole. */ behind?: boolean }
 
 /** 0..1 from a point (an animal's phase and speed). */
 const hash = (x: number, y: number) => {
@@ -48,6 +49,8 @@ export class ObjectLayer {
   private pool: Phaser.GameObjects.Image[] = [];
   private filter = -1;
   private cells = new Map<number, number[]>();
+  /** Per object def id: its base's centre from the anchor, sprite px (./objBase.ts). */
+  private bases = new Map<string, { dx: number; dy: number }>();
 
   constructor(private scene: Phaser.Scene, private iso: IsoMap, r: RegionData, art: WarArt, private massifs: Massifs | null = null) {
     const defs = new Map<string, Def>(), used = new Set([...(r.objects ?? []).map((o) => o.id), ...(massifs?.list ?? []).map((m) => m.def.id)]);
@@ -62,6 +65,7 @@ export class ObjectLayer {
       g.drawImage(img, 0, 0);
       const px = g.getImageData(0, 0, d.w, d.h).data, mw = Math.ceil(d.w / MASK), mh = Math.ceil(d.h / MASK), mask = new Uint8Array(mw * mh);
       for (let y = 0; y < d.h; y++) for (let x = 0; x < d.w; x++) if (px[(y * d.w + x) * 4 + 3] > 128) mask[((y / MASK) | 0) * mw + ((x / MASK) | 0)] = 1;
+      this.bases.set(d.id, baseOffset(px, d.w, d.h, d.anchor.x, d.anchor.y));
       if (d.kind === 'massif' && !scene.textures.exists(key + '-half')) {
         const h = document.createElement('canvas');
         h.width = Math.ceil(d.w / 2); h.height = Math.ceil(d.h / 2);
@@ -76,16 +80,17 @@ export class ObjectLayer {
     this.bw = Math.ceil(r.w / BUCKET);
     this.bh = Math.ceil(r.h / BUCKET);
     this.buckets = Array.from({ length: this.bw * this.bh }, () => []);
-    // with peaks (./peaks.ts): none on the mountain, none wholly behind it (the baked ground does not sort with sprites)
+    // with peaks (./peaks.ts): none on the mountain; those wholly behind it only while the peaks are cut or holed there (the baked ground does not sort with sprites)
     const horizon = iso.peaks && peakHorizon(iso.peaks, iso.OY);
     for (const o of r.objects ?? []) {
       const def = defs.get(o.id), tx = Math.floor(o.x), ty = Math.floor(o.y);
       if (!def || def.kind === 'massif' || tx < 0 || ty < 0 || tx >= r.w || ty >= r.h || massifs?.covers(o.x, o.y, def.metres)) continue;
-      if (horizon && (iso.peakAt(o.x, o.y) > 0.3 || horizon[ty * r.w + tx] < iso.sy(o.x, o.y, iso.zAt(o.x, o.y)) - def.anchor.y)) continue;
+      if (horizon && iso.peakAt(o.x, o.y) > 0.3) continue;
+      const behind = !!horizon && horizon[ty * r.w + tx] < iso.sy(o.x, o.y, iso.zAt(o.x, o.y)) - def.anchor.y;
       this.buckets[((ty / BUCKET) | 0) * this.bw + ((tx / BUCKET) | 0)].push(this.objs.length);
       // ties (one depth) break by list order, never by which pooled image a sprite got
       const h = hash(o.x, o.y);
-      this.objs.push({ def, sx: Math.round(iso.sx(o.x, o.y)), sy: Math.round(iso.sy(o.x, o.y, iso.zAt(o.x, o.y))), v: (massifs ? massifs.depth(o.x, o.y) : o.x + o.y) + this.objs.length * TIE, alpha: 1, ph: h * 64, sp: 0.8 + 0.4 * hash(o.y, o.x) });
+      this.objs.push({ def, sx: Math.round(iso.sx(o.x, o.y)), sy: Math.round(iso.sy(o.x, o.y, iso.zAt(o.x, o.y))), v: (massifs ? massifs.depth(o.x, o.y) : o.x + o.y) + this.objs.length * TIE, alpha: 1, ph: h * 64, sp: 0.8 + 0.4 * hash(o.y, o.x), ...(behind ? { behind } : {}) });
     }
     // massifs just before their south vertex row, in the region's order (as the baked levels draw them)
     massifs?.list.forEach((m, k) => {
@@ -109,6 +114,11 @@ export class ObjectLayer {
       im.src = img.src.replace(/[^/]*$/, idle.file);
     }
     return a;
+  }
+
+  /** Where object def `id`'s sprite meets the ground, from its anchor (sprite px); undefined for an unknown def. */
+  baseOf(id: string): { dx: number; dy: number } | undefined {
+    return this.bases.get(id);
   }
 
   /** Depth key of a point: x + y, past the massifs it stands in front of. */
@@ -143,6 +153,7 @@ export class ObjectLayer {
       }
       const show = (o: Obj) => {
         const d = o.def, ox = o.sx - d.anchor.x, oy = o.sy - d.anchor.y;
+        if (o.behind && this.iso.drawnPeaks(o.sx, o.sy) === this.iso.peaks) return;
         if (ox > view.right || ox + d.w < view.x || oy > view.bottom || oy + d.h < view.y) return;
         let covers = false;
         if (d.fades || d.hides) {
