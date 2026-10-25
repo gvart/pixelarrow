@@ -745,8 +745,8 @@ export class Site {
   readonly vrock = new Map<number, number>();
   /** The skirt's visual kinds: `a` where the noise is over `cut`, else `b` (a drifted crag: drift over rock). */
   skirtKinds: { a: Kind; b: Kind; cut: number } = { a: 'rock', b: 'rock', cut: 0 };
-  /** W-51 a visual ground for the site's tiles where `inside` holds (sim terrain kept): `ground` on open land, `pave` on its streets. */
-  look: { ground: Kind; pave: Kind; inside: (x: number, y: number) => boolean; rough?: Kind } | null = null;
+  /** W-51 a visual ground for the site's tiles where `inside` holds (sim terrain kept): `ground` on open land, `pave` on its streets and `court` tiles. */
+  look: { ground: Kind; pave: Kind; inside: (x: number, y: number) => boolean; rough?: Kind; court?: (x: number, y: number) => boolean } | null = null;
   /** Site tiles round a ruin (within 1, most of them): its rubble ground (look.rough). */
   private rubbleAt: Set<number> | null = null;
   roughAt(x: number, y: number): boolean {
@@ -1438,7 +1438,7 @@ function visualLayer(k: Kit): Out {
         if (tx < s.x0 || ty < s.y0 || tx >= s.x0 + s.w || ty >= s.y0 + s.h) continue;
         const sx = tx - s.x0, sy = ty - s.y0;
         if (terrain[i] === 'rock' && s.vrock.has(sy * 4096 + sx)) kind[i] = KINDS.indexOf(fbm(x, y, 2.5, 53) > s.skirtKinds.cut ? s.skirtKinds.a : s.skirtKinds.b);
-        else if (s.look && terrain[i] !== 'rock' && s.look.inside(sx, sy)) kind[i] = KINDS.indexOf(terrain[i] === 'road' ? s.look.pave : s.look.rough && s.roughAt(sx, sy) ? s.look.rough : s.look.ground);
+        else if (s.look && terrain[i] !== 'rock' && s.look.inside(sx, sy)) kind[i] = KINDS.indexOf(terrain[i] === 'road' || s.look.court?.(sx, sy) ? s.look.pave : s.look.rough && s.roughAt(sx, sy) ? s.look.rough : s.look.ground);
       }
     }
   });
