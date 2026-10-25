@@ -1,0 +1,34 @@
+scripts/war/regions/moors.ts
+  s_cfc22b058125c4::t_e99d68f7eb2501 6-9,17-18,37,40,42-47,51-52,54-58,65
+scripts/war/regions/savanna.ts
+  s_cfc22b058125c4::t_470970b1c6b299 7,14-15,26-27,32-38,40,53
+scripts/war/regions/bacchae.ts
+  s_cfc22b058125c4::t_7d6321e4cd0560 8,15-16,32-38
+src/war/regions/kimmeria.json
+  s_cfc22b058125c4::t_ba2d454062b98a 1
+scripts/war/regions/kimmeria.ts
+  s_cfc22b058125c4::t_ba2d454062b98a 40-41
+  s_cfc22b058125c4::t_d1595b8ba7a325 7-8,15-16,28-29,34,36-39,42-45
+src/war/regions/bacchae.json
+  s_cfc22b058125c4::t_7d6321e4cd0560 1
+src/war/regions/savanna.json
+  s_cfc22b058125c4::t_470970b1c6b299 1
+src/war/regions/moors.json
+  s_cfc22b058125c4::t_e99d68f7eb2501 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "e02de9f767d5222f7eda87c0e44f8503d0faa4f7",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
