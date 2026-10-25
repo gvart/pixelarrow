@@ -1,0 +1,40 @@
+src/war/view/objects.ts
+  s_cfc22b058125c4::t_282b35f339c047 71
+  s_cfc22b058125c4::t_ed27aa9892668a 29,76-77,80,126
+src/war/view/SandboxScene.ts
+  s_cfc22b058125c4::t_ed27aa9892668a 34,648
+  s_cfc22b058125c4::t_85e10442df7429 68-69,123-124,517-518,537,581,599-647,649-655
+  s_cfc22b058125c4::t_4c28a5b1a7c8b5 70
+  s_cfc22b058125c4::t_b0e378aa59942b 656-657
+src/war/view/build/buildingLayer.ts
+  s_cfc22b058125c4::t_29054cc0816eb6 139
+src/war/view/art.ts
+  s_cfc22b058125c4::t_69d7ab3b17c6a3 167-173,177
+src/war/view/iso.ts
+  s_cfc22b058125c4::t_f6c0f483f085d5 26,179-184,251,291-295,298-303,305-306,332,337,350
+  s_cfc22b058125c4::t_85e10442df7429 344
+src/war/view/peaks.ts
+  s_cfc22b058125c4::t_f6c0f483f085d5 151-161
+src/war/view/devPanel.ts
+  s_cfc22b058125c4::t_282b35f339c047 82
+  s_cfc22b058125c4::t_5ad71154551163 35
+tests/war/peaks.test.ts
+  s_cfc22b058125c4::t_13fb84554a485e 2,42-49
+  s_cfc22b058125c4::t_6e514a3decdb78 50-51
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "8e7871e6e96ca9c8d98fae4f9a3a228fa279b14e",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
