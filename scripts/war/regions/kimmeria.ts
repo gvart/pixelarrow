@@ -4,15 +4,16 @@
  * and horses. Depth 2: the Griffin (tier 1) nesting in the fort's broken heart, keeping the vanished Kimmerians' gold;
  * bandits and wild horses on the slopes.
  * Layout (Gemini reference shots/war/regions/proto/kimmeria.png; W-52 set pieces, ./setpieces.ts): one great hill
- * north-west of the crossroads (some 110 units across) carries the ruined fort: three rampart tiers stepping up it (h5,
- * h7, top h10) and one gate path spiralling round it, a cut ramp through each rampart on a different side, so the top
+ * north-west of the crossroads (some 110 units across) carries the ruined fort: three rampart tiers stepping up it (a four-level
+ * foot wall to h7, h10, the top at h12-13) and one gate path spiralling round it, a cut ramp through each rampart on a different side, so the top
  * has one way up. Ruined round houses inside, the griffin's nest in the middle. Rounded chalk downs fill the north and
  * south-west corners (a chalk scarp under the north one) and the south-east; two chalk streams wind through the hills
  * either side; a benched chalk quarry is cut into the south-east slope; open grass, a few hawthorns. The marble arm of
  * the Sacred Way runs west-east below the fort, the north-south road crosses it at the claim point.
  */
 import type { Kit, Pt, RegionDef } from './kit.ts';
-import { massif, pit } from './setpieces.ts';
+import { fbm } from './kit.ts';
+import { massif, pit, profile, relief } from './setpieces.ts';
 import { pocketBoss } from './tiers.ts';
 
 const def: RegionDef = {
@@ -24,13 +25,24 @@ const def: RegionDef = {
     k.zone('elaia', () => 99);
     // the downs: rounded hills in the north and south-west corners and the south-east (soft slopes), a chalk scarp
     // under the north one
-    massif(k, { outline: [[-12, -12], [96, -12], [80, 14], [44, 30], [10, 52], [-12, 60]], crown: [6, 4], base: 3, tiers: 2, steps: [2, 1], wobble: 0.3 });
+    relief(k, (x, y, s) => 3.2 + 1.1 * fbm(x, y, 28, s)); // the open grass rolls a level or two
+    const north = massif(k, { outline: [[-12, -12], [96, -12], [80, 14], [44, 30], [10, 52], [-12, 60]], crown: [6, 4], base: 3, tiers: 2, steps: [2, 1], wobble: 0.3 });
     massif(k, { outline: [[-12, 150], [24, 140], [62, 166], [70, 214], [44, 268], [-12, 268]], crown: [6, 222], base: 3, tiers: 6, step: 1, wobble: 0.3 });
     massif(k, { outline: [[200, 196], [240, 186], [268, 200], [268, 268], [214, 268], [196, 236]], crown: [250, 240], base: 3, tiers: 5, step: 1, wobble: 0.3 });
     // the fort hill: three rampart tiers round the crown
     const F: Pt = [110, 96];
-    massif(k, { outline: [[110, 38], [150, 50], [168, 92], [156, 136], [112, 154], [66, 140], [50, 98], [66, 54]], crown: [[110, 82], [124, 96], [110, 110], [96, 96]], base: 3, tiers: 3, steps: [2, 2, 3], wobble: 0.12 });
+    const fort = massif(k, { outline: [[110, 38], [150, 50], [168, 92], [156, 136], [112, 154], [66, 140], [50, 98], [66, 54]], crown: [[110, 82], [124, 96], [110, 110], [96, 96]], base: 3, tiers: 3, steps: [2, 2, 3], wobble: 0.12 });
     k.spot('fortress', [F[0] + 2, F[1] - 2]);
+    // the relief over the fort hill's and the north down's contours (setpieces.ts relief): the fort's foot a four-level
+    // earth wall, two-level ramparts between rolling tiers to the h12-13 top; the north down's chalk scarp three levels
+    relief(k, (x, y, s) => {
+      const t = fort.t(x, y);
+      return t < 0 ? NaN : profile([[0, 6.8], [0.9, 7.4], [1, 9.6], [1.9, 10.2], [2, 13], [3, 13]], t) + (t < 2 ? 0.3 * fbm(x, y, 7, s) : 0);
+    }, { cliffs: [[4.2, 6.8], [7.4, 9.6], [10.2, 13]] });
+    relief(k, (x, y, s) => {
+      const t = north.t(x, y);
+      return t < 0 ? NaN : profile([[0, 6.6], [1, 7.4], [2, 9]], t) + 0.5 * fbm(x, y, 12, s);
+    }, { cliffs: [[4.2, 6.6]] });
     // the chalk streams, white banks; the quarry
     const streams = [
       k.river([[60, -6], [52, 40], [34, 96], [28, 140], [-6, 200]], { half: 1.3, deep: false, bed: 2, bank: 2 }),
