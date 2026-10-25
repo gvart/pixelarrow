@@ -164,11 +164,12 @@ export function terraceRows(k: Kit, m: Massif, o: { tiers?: number[]; every?: nu
 /**
  * Vine rows along the terraces as they were built (the final height field, not a massif's field): on the cells where
  * `planted` holds, lines `every` units apart parallel to the retaining wall below (its top edge: a drop of 2+ levels),
- * kept `margin` units off it and off the wall above, a row piece turned along the line (`ids`, default the Elaia vines).
+ * kept `margin` units off it and off the wall above, a row piece turned along the line (`ids`, default the Elaia vines;
+ * trees `gap` tiles apart, default packed).
  * Read after the whole build (roads, pits, water), so the rows follow the walls the player sees; vineyard soil (`soil`,
  * a biome terrain) under the planted cells. The sim ground stays as it is.
  */
-export function contourRows(k: Kit, planted: (x: number, y: number) => boolean, o: { every?: number; margin?: number; ids?: [string, string]; soil?: Kind; biome?: BiomeName } = {}) {
+export function contourRows(k: Kit, planted: (x: number, y: number) => boolean, o: { every?: number; margin?: number; ids?: [string, string]; soil?: Kind; biome?: BiomeName; gap?: number } = {}) {
   const every = o.every ?? 1.6, margin = o.margin ?? 1, half = 0.3, [idY, idX] = o.ids ?? ['elaia/vines', 'elaia/vines-x'];
   let low: Float32Array | null = null, high: Float32Array | null = null;
   // units from the nearest wall top below (low) and wall foot above (high), two-pass chamfer over the cells
@@ -212,7 +213,7 @@ export function contourRows(k: Kit, planted: (x: number, y: number) => boolean, 
     return Math.abs(f(x + s, y) - f(x - s, y)) > Math.abs(f(x, y + s) - f(x, y - s)) ? idY : idX;
   };
   if (o.soil) k.patchWhere(o.biome ?? 'elaia', o.soil, planted, ['grass']);
-  k.rowsAt(idAt, row, [o.soil ?? 'rossa', 'grass', 'dry', 'dirt'], 1);
+  k.rowsAt(idAt, row, [o.soil ?? 'rossa', 'grass', 'dry', 'dirt'], o.gap ?? 1);
 }
 
 /**

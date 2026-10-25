@@ -13,7 +13,7 @@
  */
 import type { Kit, Pt, RegionDef } from './kit.ts';
 import { fbm } from './kit.ts';
-import { massif, relief, terraceRows } from './setpieces.ts';
+import { contourRows, massif, relief } from './setpieces.ts';
 
 const def: RegionDef = {
   id: 'elaia-e',
@@ -56,8 +56,9 @@ const def: RegionDef = {
     k.spot('narrows', [228, 128]);
     k.spot('bridge', [228, 128]);
     // the terraces: vines on the two lower ones, olives on the top one, cypress and a shrine
-    terraceRows(k, hill, { tiers: [1, 2], every: 1.6, margin: 1.4, soil: 'dirt' });
-    k.rows(['elaia/olive-orchard', 'elaia/olive-tall', 'elaia/olive-ancient'], [24, 80, 18, 70, 0.1], { dx: 5, dy: 5 });
+    // (both along the walls as built, ./setpieces.ts contourRows, like Elaia's olive terraces)
+    contourRows(k, (x, y) => { const n = hill.tier(x, y); return n >= 1 && n <= 2; }, { every: 1.6, margin: 1.2, soil: 'dirt' });
+    contourRows(k, (x, y) => hill.tier(x, y) === 3 && Math.hypot(x - 44, y - 128) > 10, { every: 3, margin: 1.5, ids: ['elaia/olive-orchard', 'elaia/olive-tall'], gap: 3 });
     k.spot('olives', [34, 90]);
     k.forest([60, 20, 18, 8, 0.4], [70, 236, 18, 8, -0.3], [118, 128, 4, 10, 0]);
     k.resource('food', [92, 186], 3, 12);
