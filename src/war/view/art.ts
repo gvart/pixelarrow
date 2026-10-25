@@ -23,6 +23,7 @@ import { HH, HW, IsoMap, LH, SIDE, ZBASE } from './iso';
 import type { BakeOpts } from './terrain';
 import { FOAM_H, FOAM_NX, FOAM_NY, FOAM_PX, FOAM_PY, FOAM_W, foamSprite, relief, RELIEF_FILL, SHADOW_H, SHADOW_W, treeShadow } from './relief';
 import { relightTree } from './treeLight';
+import { PeakPainter } from './peaks';
 
 export interface ObjDef { id: string; kind: string; file: string; w: number; h: number; metres: number; anchor: { x: number; y: number }; footprint?: [number, number]; massif?: string; role?: string }
 /** A tile set: the global sheets plus one biome's (its variants replace the global ones per terrain), as indices into WarArt's merged lists. */
@@ -137,9 +138,12 @@ export class ArtBaker {
   private foam: Uint8Array;
   /** Tree shadows by the row they are drawn after (world px rects of ./relief.ts treeShadow). */
   private shadows: { x: number; y: number; w: number; h: number }[][];
+  /** The procedural peaks over the flat mountain (./peaks.ts), painted with the rows. */
+  private peaks: PeakPainter | null;
 
   constructor(readonly r: RegionData, readonly iso: IsoMap, readonly art: WarArt, massifs: Massifs | null = null) {
     this.fine = buildFineArt(art);
+    this.peaks = iso.peaks ? new PeakPainter(iso.peaks, iso.OX, iso.OY) : null;
     this.smooth = new SmoothFrames(art);
     this.setOf = new Uint8Array(r.w * r.h);
     if (r.biomes) {
@@ -160,7 +164,7 @@ export class ArtBaker {
     const defs = new Map(art.defs.map((d) => [d.id, d]));
     for (const o of r.objects ?? []) {
       const def = defs.get(o.id), tx = Math.floor(o.x), ty = Math.floor(o.y);
-      if (!def || def.kind === 'massif' || (def.metres < LOD_METRES && def.kind !== 'crop') || tx < 0 || ty < 0 || tx >= r.w || ty >= r.h || massifs?.covers(o.x, o.y, def.metres)) continue;
+      if (!def || def.kind === 'massif' || (def.metres < LOD_METRES && def.kind !== 'crop') || tx < 0 || ty < 0 || tx >= r.w || ty >= r.h || massifs?.covers(o.x, o.y, def.metres) || iso.peakAt(o.x, o.y) > 0.3) continue;
       // past the massifs it stands in front of
       const v = massifs ? Math.max(Math.floor(2 * o.x) + Math.floor(2 * o.y), Math.floor(2 * massifs.depth(o.x, o.y))) : Math.floor(2 * o.x) + Math.floor(2 * o.y);
       this.rows[Math.min(nRows - 1, v)].push({ def, img: art.objImg.get(o.id)!, sx: Math.round(iso.sx(o.x, o.y)), sy: Math.round(iso.sy(o.x, o.y, iso.zAt(o.x, o.y))) });
@@ -178,7 +182,7 @@ export class ArtBaker {
     this.shadows = Array.from({ length: nRows }, () => []);
     for (const o of r.objects ?? []) {
       const def = defs.get(o.id);
-      if (!def || (def.kind !== 'tree' && def.kind !== 'bush') || def.metres < 1 || massifs?.covers(o.x, o.y, def.metres)) continue;
+      if (!def || (def.kind !== 'tree' && def.kind !== 'bush') || def.metres < 1 || massifs?.covers(o.x, o.y, def.metres) || iso.peakAt(o.x, o.y) > 0.3) continue;
       const cw = def.w * (def.kind === 'tree' ? 0.85 : 0.7), L = (cw / 64) * 0.5, w = cw * 1.5, h = (w * SHADOW_H) / SHADOW_W;
       const sx = iso.sx(o.x + L, o.y), sy = iso.sy(o.x + L, o.y, iso.zAt(o.x, o.y));
       const v = Math.min(nRows - 1, Math.floor(2 * (o.x + o.y + L) + w / 40));
@@ -346,7 +350,7 @@ export class ArtBaker {
         if ((u + v) & 1) u++;
         for (; u <= Math.min(umax, v, 2 * (fw - 1) - v); u += 2) {
           const x = (u + v) / 2, y = (v - u) / 2, i = y * fw + x, c = code[i];
-          if (c < 0) continue;
+          if (c < 0 || this.peaks?.covers(x >> 1, y >> 1)) continue; // under the peaks
           const z = fz[i], ty = Math.round(iso.OY + v * FH - z * LH);
           if (ty - 2 * LH > y0 + h) continue;
           const drop = z - Math.min(zt(x + 1, y), zt(x, y + 1));
@@ -392,6 +396,8 @@ export class ArtBaker {
       }
       this.shadeRow(ctx, v, umin, umax, y0, h);
       for (const t of this.shadows[v] ?? []) if (t.x < x0 + w && t.x + t.w > x0 && t.y < y0 + h && t.y + t.h > y0) ctx.drawImage(sprite, t.x, t.y, t.w, t.h);
+      // a tile row's peaks after the cells of its front corner
+      if (this.peaks && v >= 2 && !(v & 1) && v <= vmax) this.peaks.paintRow(ctx, (v - 2) / 2, Math.floor(umin / 2) - 1, Math.ceil(umax / 2) + 1, y0, h, this.scale);
       if (objects && !split) drawObjects(v);
     }
     if (o.tint && o.map) o.map.drawTint(ctx, iso, o.tint, x0, y0, w, h, this.scale);
@@ -432,7 +438,7 @@ export class ArtBaker {
     const blobs: number[] = [];
     for (; u <= Math.min(umax, v, 2 * (fw - 1) - v); u += 2) {
       const x = (u + v) / 2, y = (v - u) / 2, i = y * fw + x, s = shade[i];
-      if ((!s && !this.foam[i]) || code[i] < 0) continue;
+      if ((!s && !this.foam[i]) || code[i] < 0 || this.peaks?.covers(x >> 1, y >> 1)) continue;
       const ty = Math.round(iso.OY + v * FH - fz[i] * LH);
       if (ty - 2 * LH > y0 + h || ty + 2 * FH + 2 * LH < y0) continue;
       const tx = iso.OX + u * FW - FW;

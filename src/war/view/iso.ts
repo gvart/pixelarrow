@@ -23,6 +23,7 @@
  */
 import type { RegionData } from '../types';
 import { decodeVisual, KINDS, ZVIS } from '../regions/visual';
+import { peakAt, peakField, type PeakField } from './peaks';
 
 export const HW = 32;
 export const HH = 16;
@@ -169,8 +170,12 @@ export class IsoMap {
   /** Per visual cell its four corner levels (N, E, S, W; cornerLevels), and 1 where they are not all its level (a ramp). */
   readonly fc: Float32Array;
   readonly ramp: Uint8Array;
-  /** Highest surface level. */
+  /** Highest surface level (the peaks' included). */
   readonly top: number;
+  /** Highest ground level (the cells'). */
+  readonly groundTop: number;
+  /** The visual-only peaks over the flat mountain (./peaks.ts), null without. */
+  readonly peaks: PeakField | null = null;
   readonly OX: number;
   readonly OY: number;
   /** World size in px. */
@@ -179,9 +184,10 @@ export class IsoMap {
 
   /**
    * `flat`: per tile, 1 = mountain drawn flat at its foot height under massif sprites (./massifs.ts);
-   * `scree`: per tile, 1 = its grass and meadow cells drawn as scree (the ring round the massifs).
+   * `scree`: per tile, 1 = its grass and meadow cells drawn as scree (the ring round the massifs);
+   * `peaks`: raise procedural peaks over the flat mountain (./peaks.ts) instead of leaving it to massif sprites.
    */
-  constructor(r: RegionData, flat: Uint8Array | null = null, scree: Uint8Array | null = null) {
+  constructor(r: RegionData, flat: Uint8Array | null = null, scree: Uint8Array | null = null, peaks = false) {
     this.w = r.w;
     this.h = r.h;
     this.z = flush(r.w, r.h, r.height, (i) => r.water[i] > 0);
@@ -227,6 +233,17 @@ export class IsoMap {
     }
     let top = 0;
     for (let j = 0; j < n; j++) if (this.fz[j] > top) top = this.fz[j];
+    this.groundTop = top;
+    if (flat && peaks) {
+      // the flat ground under a lattice point: the mean of the cells round it
+      const fz = this.fz, ground = (X: number, Y: number) => {
+        let s = 0;
+        for (let k = 0; k < 4; k++) s += fz[Math.max(0, Math.min(fh - 1, 2 * Y - 1 + (k >> 1))) * fw + Math.max(0, Math.min(fw - 1, 2 * X - 1 + (k & 1)))];
+        return s / 4;
+      };
+      this.peaks = peakField(r, flat, ground);
+      top = Math.max(top, this.peaks.top);
+    }
     this.top = top;
     // room above the map for its highest ground and the tallest sprite on it (~650 px); not ZMAX levels, which at 32 px
     // a level would be ~4000 px of empty sky
@@ -264,6 +281,16 @@ export class IsoMap {
     return a + b <= 1 ? c[k] + a * (c[k + 1] - c[k]) + b * (c[k + 3] - c[k]) : c[k + 2] + (1 - a) * (c[k + 3] - c[k + 2]) + (1 - b) * (c[k + 1] - c[k + 2]);
   }
 
+  /** The drawn surface under a fractional tile point: the ground (zAt) and the peaks over it. */
+  zSurf(x: number, y: number): number {
+    return this.peaks ? this.zAt(x, y) + peakAt(this.peaks, x, y) : this.zAt(x, y);
+  }
+
+  /** Peak levels over the ground at a fractional tile point (0 off the mountain). */
+  peakAt(x: number, y: number): number {
+    return this.peaks ? peakAt(this.peaks, x, y) : 0;
+  }
+
   /**
    * Level a unit is drawn at: the ground surface under it (zAt: a man walking a ramp rises with it), kept within a
    * level of its tile's drawn relief (zu..zh; the cells follow finer curves than the sim).
@@ -292,7 +319,7 @@ export class IsoMap {
     for (let z = this.top; z >= ZBASE; z -= 2 / LH) { // 2 px steps along the ray
       const v = (wy - this.OY + z * LH) / HH, x = (u + v) / 2, y = (v - u) / 2;
       if (x < 0 || y < 0 || x >= this.w || y >= this.h) continue;
-      if (this.zAt(x, y) >= z - 1e-4) return { x, y };
+      if (this.zSurf(x, y) >= z - 1e-4) return { x, y };
     }
     const v = (wy - this.OY) / HH;
     return { x: Math.max(0, Math.min(this.w - 0.01, (u + v) / 2)), y: Math.max(0, Math.min(this.h - 0.01, (v - u) / 2)) };
@@ -301,11 +328,11 @@ export class IsoMap {
   /** Is the world point (wx, wy), standing at x + y = v0 and level z0, hidden by ground in front of it? */
   hidden(wx: number, wy: number, v0: number, z0: number): boolean {
     const u = (wx - this.OX) / HW;
-    for (let z = this.top; z > z0; z -= 4 / LH) { // 4 px steps
+    for (let z = this.top; z > z0; z -= (z > this.groundTop ? 8 : 4) / LH) { // 4 px steps (8 over the peaks alone)
       const v = (wy - this.OY + z * LH) / HH;
       if (v <= v0 + 0.25) return false;
       const x = (u + v) / 2, y = (v - u) / 2;
-      if (x >= 0 && y >= 0 && x < this.w && y < this.h && this.zAt(x, y) >= z) return true;
+      if (x >= 0 && y >= 0 && x < this.w && y < this.h && this.zSurf(x, y) >= z) return true;
     }
     return false;
   }

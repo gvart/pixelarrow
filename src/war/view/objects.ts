@@ -12,6 +12,7 @@ import type { RegionData } from '../types';
 import type { ObjDef, WarArt } from './art';
 import { HH, LH, type IsoMap } from './iso';
 import type { Massifs } from './massifs';
+import { peakHorizon } from './peaks';
 import type { DrawUnit } from './simClient';
 
 /** Objects are live sprites from this zoom up (the unit sprites' zoom). */
@@ -63,9 +64,12 @@ export class ObjectLayer {
     this.bw = Math.ceil(r.w / BUCKET);
     this.bh = Math.ceil(r.h / BUCKET);
     this.buckets = Array.from({ length: this.bw * this.bh }, () => []);
+    // with peaks (./peaks.ts): none on the mountain, none wholly behind it (the baked ground does not sort with sprites)
+    const horizon = iso.peaks && peakHorizon(iso.peaks, iso.OY);
     for (const o of r.objects ?? []) {
       const def = defs.get(o.id), tx = Math.floor(o.x), ty = Math.floor(o.y);
       if (!def || def.kind === 'massif' || tx < 0 || ty < 0 || tx >= r.w || ty >= r.h || massifs?.covers(o.x, o.y, def.metres)) continue;
+      if (horizon && (iso.peakAt(o.x, o.y) > 0.3 || horizon[ty * r.w + tx] < iso.sy(o.x, o.y, iso.zAt(o.x, o.y)) - def.anchor.y)) continue;
       this.buckets[((ty / BUCKET) | 0) * this.bw + ((tx / BUCKET) | 0)].push(this.objs.length);
       // ties (one depth) break by list order, never by which pooled image a sprite got
       this.objs.push({ def, sx: Math.round(iso.sx(o.x, o.y)), sy: Math.round(iso.sy(o.x, o.y, iso.zAt(o.x, o.y))), v: (massifs ? massifs.depth(o.x, o.y) : o.x + o.y) + this.objs.length * TIE, alpha: 1 });
