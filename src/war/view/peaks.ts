@@ -5,8 +5,9 @@
  * crests run through the range with peaks where they meet, a gentle scree foot and steep upper faces.
  *
  * The field lives on the tile lattice ((w + 1) x (h + 1) points), each tile a quad split along its W-E diagonal as the
- * ramps are (./iso.ts zAt). ./art.ts paints the quads back to front with the ground rows: each triangle one flat colour
- * from its material's ramp by the NW light (lit NW faces, dark SE faces), snow above the biome's snowline (none in a
+ * ramps are (./iso.ts zAt). ./art.ts paints the quads back to front with the ground rows: each triangle coloured
+ * from its material's ramp by the NW light (lit NW faces, dark SE faces; far one flat shade, near shaded across by its
+ * corners' smoothed light so the faces read as one rock mass), snow above the biome's snowline (none in a
  * desert region: red rock there), scree at the foot, a speckle texture over all and light crest lines along the ridges.
  * IsoMap.zSurf includes the field, so picking and the units' occlusion see the peaks as they see cliffs.
  */
@@ -190,13 +191,24 @@ const CREST = ['rgba(196,190,178,0.55)', 'rgba(255,255,255,0.8)', 'rgba(190,182,
 const LX = -1, LY = -0.35, LZ = 1.05, LN = Math.hypot(LX, LY, LZ);
 
 /** Per triangle: its fill index (material * NSH + shade). */
-function shadeOf(nx: number, ny: number, nz: number, mat: number, h: number, soft = false): number {
+function shadeOf(nx: number, ny: number, nz: number, mat: number, h: number): number {
   const l = Math.max(0, (nx * LX + ny * LY + nz * LZ) / (Math.hypot(nx, ny, nz) * LN));
   // flat ground l ~0.72; steep NW faces near 1, SE faces to 0
-  let b = 0.12 + 0.98 * l + ((h & 255) / 255 - 0.5) * (soft ? 0.04 : 0.1);
-  // near, snow keeps a narrower range: one soft drift, its facets left to the ripples over it
-  if (soft && mat === 1) b = 0.62 + (b - 0.62) * 0.55;
+  const b = 0.12 + 0.98 * l + ((h & 255) / 255 - 0.5) * 0.1;
   return mat * NSH + Math.max(0, Math.min(NSH - 1, Math.floor(b * NSH)));
+}
+
+/** The light of a surface normal (0 dark .. ~1.1 lit), as shadeOf scales it, without its rounding to a shade. */
+function lightOf(nx: number, ny: number, nz: number): number {
+  return 0.12 + 0.98 * Math.max(0, (nx * LX + ny * LY + nz * LZ) / (Math.hypot(nx, ny, nz) * LN));
+}
+
+const RGB = RAMPS.map((r) => r.map((c) => [parseInt(c.slice(1, 3), 16), parseInt(c.slice(3, 5), 16), parseInt(c.slice(5, 7), 16)]));
+/** Material m's colour at light b, blended between its ramp's shades (near, snow keeps a narrower range: one soft drift, its facets left to the ripples over it). */
+function rampColour(m: number, b: number): string {
+  if (m === 1) b = 0.62 + (b - 0.62) * 0.55;
+  const f = Math.max(0, Math.min(NSH - 1, b * NSH - 0.5)), i = Math.floor(f), k = f - i, r = RGB[m], a = r[i], c = r[Math.min(NSH - 1, i + 1)];
+  return `rgb(${Math.round(a[0] + (c[0] - a[0]) * k)},${Math.round(a[1] + (c[1] - a[1]) * k)},${Math.round(a[2] + (c[2] - a[2]) * k)})`;
 }
 
 let speckle: HTMLCanvasElement | null = null;
@@ -224,19 +236,18 @@ export class PeakPainter {
   /** Tiles with peaks, by row x + y. */
   private rows: number[][];
   private fill: Uint8Array;
-  /** Per triangle near: its fill shaded by normals smoothed over the lattice, so the facets melt into one painted face. */
-  private soft: Uint8Array;
   private crest: Uint8Array;
   private mat: Uint8Array;
   /** Per triangle: the screen slope bucket of its contour lines (0..2 * SLOPES), the shear of its rock marks. */
   private slope: Uint8Array;
   private pattern: CanvasPattern | null = null;
+  /** Per lattice point near: the light of the surface's smoothed normal there (lightOf), shaded across each triangle. */
+  private lit: Float32Array;
 
   constructor(readonly f: PeakField, private OX: number, private OY: number) {
     const { w, h, P, S } = f, W = w + 1;
     this.rows = Array.from({ length: w + h - 1 }, () => []);
     this.fill = new Uint8Array(2 * w * h);
-    this.soft = new Uint8Array(2 * w * h);
     // per lattice point: the surface's slope (levels per tile) by central differences
     const GX = new Float32Array(W * (h + 1)), GY = new Float32Array(W * (h + 1));
     for (let Y = 0; Y <= h; Y++) for (let X = 0; X <= w; X++) {
@@ -244,6 +255,8 @@ export class PeakPainter {
       GX[k] = (S[Y * W + Math.min(w, X + 1)] - S[Y * W + Math.max(0, X - 1)]) / (Math.min(w, X + 1) - Math.max(0, X - 1));
       GY[k] = (S[Math.min(h, Y + 1) * W + X] - S[Math.max(0, Y - 1) * W + X]) / (Math.min(h, Y + 1) - Math.max(0, Y - 1));
     }
+    this.lit = new Float32Array(W * (h + 1));
+    for (let k = 0; k < this.lit.length; k++) this.lit[k] = lightOf(-2 * GX[k], -2 * GY[k], 4);
     this.crest = new Uint8Array(w * h);
     this.mat = new Uint8Array(w * h);
     this.slope = new Uint8Array(2 * w * h);
@@ -272,9 +285,6 @@ export class PeakPainter {
       // normals in metres (tile 2 m, level 1 m): upper (-2 dE, -2 dW, 4), lower (2 (W - S), 2 (E - S), 4)
       this.fill[2 * t] = shadeOf(-2 * (e - n), -2 * (wv - n), 4, m, hz);
       this.fill[2 * t + 1] = shadeOf(2 * (wv - s), 2 * (e - s), 4, m2, hz >>> 8);
-      const B = 0.4, sgx = (a: number, b: number, c: number) => (GX[a] + GX[b] + GX[c]) / 3, sgy = (a: number, b: number, c: number) => (GY[a] + GY[b] + GY[c]) / 3;
-      this.soft[2 * t] = shadeOf(-2 * (B * (e - n) + (1 - B) * sgx(k, k + 1, k + W)), -2 * (B * (wv - n) + (1 - B) * sgy(k, k + 1, k + W)), 4, m, hz, true);
-      this.soft[2 * t + 1] = shadeOf(-2 * (B * (s - wv) + (1 - B) * sgx(k + 1, k + W, k + W + 1)), -2 * (B * (s - e) + (1 - B) * sgy(k + 1, k + W, k + W + 1)), 4, m2, hz >>> 8, true);
       // contour lines: world direction (-gy, gx), on screen (dx - dy) * HW, (dx + dy) * HH
       const bucket = (gx: number, gy: number) => {
         const dx = -gy, dy = gx, sx = (dx - dy) * 32, sy = (dx + dy) * 16;
@@ -304,6 +314,7 @@ export class PeakPainter {
     const { f, OX, OY } = this, { w, S } = f, W = w + 1, HW = 32, HH = 16, LH = 32;
     const paths = new Map<number, Path2D>(), crests = new Map<number, Path2D>(), all = new Path2D(), marks = new Map<number, Path2D>();
     const fine = scale >= 0.5;
+    const smooth: [number, number[], number[], number[], number, number, number][] = [];
     let any = false;
     for (const t of row) {
       const x = t % w, y = (t / w) | 0, u = x - y;
@@ -318,9 +329,13 @@ export class PeakPainter {
         if (!p) paths.set(c, (p = new Path2D()));
         p.moveTo(a[0], a[1]); p.lineTo(b[0], b[1]); p.lineTo(d[0], d[1]); p.closePath();
       };
-      const fl = fine ? this.soft : this.fill;
-      tri(fl[2 * t], N, E, Wp);
-      tri(fl[2 * t + 1], E, Sx, Wp);
+      if (fine) { // near: each triangle shaded across by its corners' smoothed light, so the faces read as one rock mass
+        const L = this.lit, hz = ((hash(x, y, 47) & 255) / 255 - 0.5) * 0.05;
+        smooth.push([this.fill[2 * t] >> 3, N, E, Wp, L[k] + hz, L[k + 1] + hz, L[k + W] + hz], [this.fill[2 * t + 1] >> 3, E, Sx, Wp, L[k + 1] + hz, L[k + W + 1] + hz, L[k + W] + hz]);
+      } else {
+        tri(this.fill[2 * t], N, E, Wp);
+        tri(this.fill[2 * t + 1], E, Sx, Wp);
+      }
       if (fine) for (let q = 0; q < 2; q++) {
         const key = Math.floor(this.fill[2 * t + q] / NSH) * 32 + this.slope[2 * t + q];
         let p = marks.get(key);
@@ -342,6 +357,23 @@ export class PeakPainter {
     // a hair of stroke in the fill's colour closes the seams between triangles
     ctx.lineWidth = 1 / scale;
     for (const [c, p] of paths) { ctx.fillStyle = FILL[c]; ctx.strokeStyle = FILL[c]; ctx.fill(p); ctx.stroke(p); }
+    for (const [m, a, b, c, la, lb, lc] of smooth) {
+      // the light is linear over the triangle: a gradient along its steepest change, from its least to its most
+      const dx1 = b[0] - a[0], dy1 = b[1] - a[1], dx2 = c[0] - a[0], dy2 = c[1] - a[1], det = dx1 * dy2 - dx2 * dy1;
+      const p = new Path2D();
+      p.moveTo(a[0], a[1]); p.lineTo(b[0], b[1]); p.lineTo(c[0], c[1]); p.closePath();
+      let fill: string | CanvasGradient = rampColour(m, (la + lb + lc) / 3);
+      if (Math.abs(det) > 1e-6 && Math.max(la, lb, lc) - Math.min(la, lb, lc) > 0.01) {
+        const gx = ((lb - la) * dy2 - (lc - la) * dy1) / det, gy = ((lc - la) * dx1 - (lb - la) * dx2) / det, g2 = gx * gx + gy * gy;
+        const lo = Math.min(la, lb, lc), hi = Math.max(la, lb, lc);
+        // points where the light is lo and hi along the gradient through a
+        const s0 = (lo - la) / g2, s1 = (hi - la) / g2;
+        const gr = ctx.createLinearGradient(a[0] + gx * s0, a[1] + gy * s0, a[0] + gx * s1, a[1] + gy * s1);
+        for (const q of [0, 0.5, 1]) gr.addColorStop(q, rampColour(m, lo + (hi - lo) * q));
+        fill = gr;
+      }
+      ctx.fillStyle = fill; ctx.strokeStyle = fill; ctx.fill(p); ctx.stroke(p);
+    }
     if (scale >= 0.5) {
       this.pattern ??= ctx.createPattern(speckleTile(), 'repeat');
       if (this.pattern) { ctx.fillStyle = this.pattern; ctx.fill(all); }
