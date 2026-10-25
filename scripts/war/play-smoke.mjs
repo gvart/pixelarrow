@@ -4,9 +4,11 @@
 //   world map -> enter home -> march -> home influence and nodes -> gather wood into a store -> camp and storehouse
 //   built at home -> recruit and train at home -> a smith and an engineer join, a sword forged at a forge, a handcart
 //   made at a workshop -> the cart loaded and crewed, a caravan dodona -> dodona-e -> kleisoura (a frontier town) ->
-//   a stall rented, goods stowed from the cart, a sell offer listed -> a second dev player (Skythia) present in the
-//   town buys it (fill) -> transfer kleisoura -> dodona-e -> moors -> the bear lair raided -> its claim point claimed
-//   -> a ram built and crewed against the second player's palisade gate -> a last transfer moors -> dodona-e.
+//   a stall rented, goods stowed from the cart, a sell offer listed -> a second dev player (Skythia) brings coin from
+//   his strongroom in his men's packs (skythia -> skythia-w -> kleisoura), stows it into a warehouse and buys it (fill)
+//   -> transfer kleisoura -> dodona-e -> moors (the buyer's camp and palisade raised there first) -> the bear lair and
+//   the moors' guardian raided (the server's /stats says so) -> claim point 2 claimed -> a ram built and crewed against
+//   the buyer's palisade gate -> a last transfer moors -> dodona-e.
 //
 // Playwright's bundled Chromium in the new headless mode (channel 'chromium'; the old headless shell can't run the page:
 // software GL there is far too slow). `--chrome` uses the system Chrome instead.
@@ -62,10 +64,10 @@ const until = async (cond, rounds = 20, n = 300) => {
   }
   return cond();
 };
-/** Our squads standing in the region: id, men, centre, classes. */
+/** Our squads standing in the region (the player's own: not an ally's or an earlier dev player's): id, men, centre, classes. */
 const ours = () => page.evaluate(() => {
-  const s = window.__sandbox, team = Number(new URLSearchParams(location.search).get('team'));
-  return s.sim.cur.squads.filter((q) => q.team === team).map((q) => {
+  const s = window.__sandbox, team = Number(new URLSearchParams(location.search).get('team')), me = s.sim.playerId;
+  return s.sim.cur.squads.filter((q) => q.team === team && (me === null || q.owner === `p:${me}`)).map((q) => {
     const us = s.sim.cur.units.filter((u) => q.units.includes(u.id) && u.state !== 'dead');
     return us.length ? { id: q.id, men: us.length, x: us.reduce((t, u) => t + u.x, 0) / us.length, y: us.reduce((t, u) => t + u.y, 0) / us.length, cls: [...new Set(us.map((u) => u.cls))], civ: !!q.civ, states: [...new Set(us.map((u) => u.state))].join(','), carry: us.filter((u) => u.carry).length } : null;
   }).filter(Boolean);
@@ -73,8 +75,10 @@ const ours = () => page.evaluate(() => {
 const squadAt = async (id) => (await ours()).find((q) => q.id === id) ?? null;
 /** Open region `id` live as the world screen does (world=1: take over our squads there, or join with men from home). */
 async function enter(id) {
+  const ready = () => page.waitForFunction(() => window.__sandbox?.sim?.cur?.squads?.some((q) => q.team === Number(new URLSearchParams(location.search).get('team')) && q.units.length > 0), null, { timeout: 180_000 });
   await page.goto(`${URL_}/sandbox.html?region=${id}&world=1&net=${encodeURIComponent(`/ws/war/${id}`)}&dev=${DEV}&team=${team}`, { waitUntil: 'commit', timeout: 120_000 });
-  await page.waitForFunction(() => window.__sandbox?.sim?.cur?.squads?.some((q) => q.team === Number(new URLSearchParams(location.search).get('team')) && q.units.length > 0), null, { timeout: 180_000 });
+  // under software GL on a loaded machine a region can take minutes to start: one reload before giving up
+  await ready().catch(async () => (step(`     (${id} slow to start: reloading)`), await page.reload({ waitUntil: 'commit', timeout: 120_000 }), await ready()));
   await page.evaluate(() => {
     window.__smoke = [];
     const s = window.__sandbox.sim, prev = s.onServer;
@@ -82,10 +86,10 @@ async function enter(id) {
   });
   await page.waitForTimeout(2000);
 }
-const serverMsgs = () => page.evaluate(() => window.__smoke.splice(0));
-/** A world transfer by REST; then wait until the men stand in `dest` (their roster region). */
+const serverMsgs = () =>page.evaluate(() => window.__smoke.splice(0));
+/** A world transfer by REST (a room squad id, or person ids); then wait until the men stand in `dest` (their roster region). */
 async function transfer(from, to, squad, path = []) {
-  const res = await api('POST', 'world/transfer', { from, to, squad, ...(path.length ? { path } : {}) });
+  const res = await api('POST', 'world/transfer', { from, to, ...(Array.isArray(squad) ? { ids: squad } : { squad }), ...(path.length ? { path } : {}) });
   if (!res || res.error) return { res };
   const dest = path.at(-1) ?? to;
   for (let i = 0; i < 90; i++) {
@@ -134,14 +138,15 @@ async function login(id, name) {
     const j = await res.json().catch(() => ({}));
     return res.ok ? j : { error: j.error?.message ?? j.error ?? `HTTP ${res.status}`, status: res.status };
   };
-  return { pid: s.player.id, token: s.token, call };
+  return { pid: s.player.id, token: s.token, ip: `10.9.1.${id % 250}`, call };
 }
 const ROOT = new URL('../..', import.meta.url);
 const SIM_V = Number(/SIM_VERSION = (\d+)/.exec(readFileSync(new URL('src/sim/version.ts', ROOT), 'utf8'))[1]);
 const NET_V = Number(/NET_VERSION = (\d+)/.exec(readFileSync(new URL('src/war/net/protocol.ts', ROOT), 'utf8'))[1]);
 /** A raw region socket for a player: join with person ids, then send messages and read the JSON answers. */
 async function socket(p, region, team, ids) {
-  const ws = new WebSocket(`${API.replace(/^http/, 'ws')}/ws/war/${region}?sim=${SIM_V}`, ['pixelarrow.v1', p.token]);
+  // his own address (Node's WebSocket takes headers): else he shares the page's and counts as a linked account (M6i)
+  const ws = new WebSocket(`${API.replace(/^http/, 'ws')}/ws/war/${region}?sim=${SIM_V}`, { protocols: ['pixelarrow.v1', p.token], headers: { 'cf-connecting-ip': p.ip } });
   const inbox = [];
   ws.onmessage = (e) => typeof e.data === 'string' && inbox.push(JSON.parse(e.data));
   await new Promise((ok, fail) => ((ws.onopen = ok), (ws.onerror = () => fail(new Error('socket error')))));
@@ -304,27 +309,69 @@ try {
   must(!offer?.error && offer?.offer, `sell offer listed: ${JSON.stringify(offer).slice(0, 160)}`);
   await shot('6-market.png');
 
-  // 12. the buyer: another dev player (Skythia) joins kleisoura with men from home, rents a warehouse, fills the offer
+  // the seller's men go on at once (the offer stays open; the coin of a fill lands in his stall): kleisoura -> dodona-e
+  // -> moors. Lingering, they meet the bandits' raid on the cart outside the court, and no squad leaves with a foe near.
+  const pre = await ours();
+  const moversId = (pre.find((q) => !q.civ) ?? pre[0]).id;
+  const hop2 = await transfer('kleisoura', 'dodona-e', moversId, ['moors']);
+  must(hop2.arrived, `transfer kleisoura -> dodona-e -> moors: ${JSON.stringify(hop2.res).slice(0, 160)}${hop2.arrived ? ', arrived' : ', never arrived'}`);
+
+  // 12. the buyer: another dev player (Skythia) brings coin to kleisoura physically (strongroom -> packs at home, a
+  // haul skythia -> skythia-w -> kleisoura), stows it into a rented warehouse in the court and fills the offer
   const b = await login(BUYER, 'Buyer');
   const bw = await b.call('GET', '/api/war/world');
   if (bw.you?.alliance === null) await b.call('POST', '/api/war/world/dev/alliance', { alliance: 1 });
   await b.call('POST', '/api/war/dev/seed', {});
   const bros = await b.call('GET', '/api/war/roster');
   const bids = bros.persons.filter((p) => p.state === 'active' && !p.region).map((p) => p.id);
+  const coin0 = bros.stock?.coin ?? 0, PURSE = 60;
+  const hs = await socket(b, 'skythia', 1, bids);
+  const hsq = hs.hello?.squads?.[0];
+  must(hs.hello?.t === 'welcome' && hsq !== undefined, `buyer ${b.pid} joined skythia (home): ${hs.hello?.t} ${hs.hello?.detail ?? hs.hello?.reason ?? ''}`);
+  hs.send({ t: 'stow', dir: 'out', site: 'strongroom', squad: hsq, goods: { coin: PURSE } });
+  const out = await hs.wait((m) => m.t === 'stowed' || m.t === 'error');
+  const coin1 = (await b.call('GET', '/api/war/roster')).stock?.coin ?? 0;
+  must(out?.t === 'stowed' && out.goods?.coin === PURSE && coin1 === coin0 - PURSE, `buyer's purse: ${PURSE} coin out of his strongroom into packs: ${JSON.stringify(out).slice(0, 120)}, strongroom ${coin0} -> ${coin1}`);
+  await sleep(1500); // the room saves the packs before they leave
+  hs.close();
+  const bt = await b.call('POST', '/api/war/world/transfer', { from: 'skythia', to: 'skythia-w', ids: bids, path: ['kleisoura'] });
+  let bArrived = false;
+  for (let i = 0; i < 90 && !bt.error && !bArrived; i++) {
+    bArrived = (await b.call('GET', '/api/war/roster')).persons?.some((p) => p.region === 'kleisoura');
+    if (!bArrived) await sleep(2000);
+  }
+  must(bArrived, `buyer's haul skythia -> skythia-w -> kleisoura: ${JSON.stringify(bt).slice(0, 120)}${bArrived ? ', arrived' : ', never arrived'}`);
   const bs = await socket(b, 'kleisoura', 1, bids);
-  check(bs.hello?.t === 'welcome', `buyer ${b.pid} joined kleisoura: ${bs.hello?.t} ${bs.hello?.detail ?? bs.hello?.reason ?? ''}`);
-  await sleep(1500);
+  const bsq0 = bs.hello?.squads?.[0];
+  must(bs.hello?.t === 'welcome' && bsq0 !== undefined, `buyer ${b.pid} took his squad over in kleisoura: ${bs.hello?.t} ${bs.hello?.detail ?? bs.hello?.reason ?? ''}`);
   const wh = await b.call('POST', '/api/war/trade/kleisoura/rent', { kind: 'warehouse' });
   check(!wh.error, `buyer rented a warehouse: ${JSON.stringify(wh).slice(0, 120)}`);
+  // into the court (the server's own check: a stow refused `not_in_court` until a man of his stands inside)
+  bs.send({ t: 'order', o: { kind: 'move', squad: bsq0, x: k.court.x + 2, y: k.court.y + 2 } });
+  let stowIn = null;
+  for (let i = 0; i < 25; i++) {
+    bs.send({ t: 'dev', op: 'skip', ticks: 200 });
+    await sleep(1500);
+    bs.send({ t: 'stow', dir: 'in', site: 'warehouse', squad: bsq0, goods: { coin: PURSE } });
+    const r = await bs.wait((m) => m.t === 'stowed' || m.t === 'error');
+    if (r?.t === 'stowed') { stowIn = r; break; }
+    if (!/not_in_court/.test(r?.detail ?? '')) { stowIn = r; break; }
+  }
+  const whGoods = () => b.call('GET', '/api/war/trade/kleisoura/mine').then((m) => m.sites?.find((s) => s.kind === 'warehouse')?.goods ?? {});
+  const wg0 = await whGoods();
+  must(stowIn?.t === 'stowed' && (wg0.coin ?? 0) === PURSE, `buyer's purse stowed into his warehouse: ${JSON.stringify(stowIn).slice(0, 120)}, warehouse ${JSON.stringify(wg0)}`);
   const board = await b.call('GET', '/api/war/trade/kleisoura/board');
   const oid = typeof offer.offer === 'number' ? offer.offer : offer.offer?.id;
+  const stall0 = ((await api('GET', 'trade/kleisoura/mine')).sites?.find((s) => s.kind === 'stall')?.goods?.coin) ?? 0;
   const f = await b.call('POST', `/api/war/trade/offers/${oid}/fill`, { n: 10, key: `smoke-${Date.now()}` });
-  check(!f.error && f.n > 0, `buyer filled the offer ${oid}: ${JSON.stringify(f).slice(0, 160)} (board ${JSON.stringify(board).slice(0, 80)})`);
-  const mine = await api('GET', 'trade/kleisoura/mine');
-  check(/coin/.test(JSON.stringify(mine)), `the stall holds the coin: ${JSON.stringify(mine).slice(0, 160)}`);
+  check(!f.error && f.n === 10, `buyer filled the offer ${oid}: ${JSON.stringify(f).slice(0, 160)} (board ${JSON.stringify(board).slice(0, 80)})`);
+  const wg1 = await whGoods();
+  check(wg1.wood === 10 && wg1.coin === PURSE - 30, `the wood in the buyer's warehouse, 30 coin paid from it: ${JSON.stringify(wg0)} -> ${JSON.stringify(wg1)}`);
+  const stall1 = ((await api('GET', 'trade/kleisoura/mine')).sites?.find((s) => s.kind === 'stall')?.goods?.coin) ?? 0;
+  check(stall1 > stall0, `the stall holds the coin: ${stall0} -> ${stall1}`);
   bs.close();
 
-  // 13. on to the moors (kleisoura -> dodona-e -> moors), the buyer's palisade raised there first (a foe's to siege)
+  // 13. the buyer's palisade raised in the moors (a foe's to siege), where the seller's men already stand
   const bros2 = await b.call('GET', '/api/war/roster');
   const left = bros2.persons.filter((p) => (p.state === 'active' || p.state === 'reserve') && !p.region).map((p) => p.id).slice(0, 12);
   const ms = await socket(b, 'moors', 1, left);
@@ -334,74 +381,100 @@ try {
   ms.send({ t: 'dev', op: 'claim', x: PAL.x, y: PAL.y, r: 24 });
   ms.send({ t: 'dev', op: 'stock', res: 'wood', n: 400 });
   await sleep(1500);
-  const wall = { material: 'wood', points: [[PAL.x - 8, PAL.y - 6], [PAL.x + 8, PAL.y - 6]], gates: [[PAL.x, PAL.y - 6]] };
+  // a camp behind the line first: a store of his here, through which the builders fetch the wall's wood
+  let campAt = null;
+  for (const [dx, dy] of [[0, 2], [6, 2], [-6, 2], [0, 7], [6, 7], [-6, 7]]) {
+    ms.send({ t: 'check', id: 2, kind: 'building', type: 'camp', x: PAL.x + dx, y: PAL.y + dy, rot: 0 });
+    const c = await ms.wait((m) => m.t === 'checked' && m.id === 2);
+    if (c?.result?.ok) { campAt = { x: PAL.x + dx, y: PAL.y + dy }; break; }
+  }
+  must(!!campAt, `buyer's camp by his claim in the moors: ${JSON.stringify(campAt)}`);
+  ms.send({ t: 'order', o: { kind: 'placeBuilding', squad: bsq, type: 'camp', ...campAt, rot: 0 } });
+  for (let i = 0; i < 4; i++) ms.send({ t: 'dev', op: 'skip', ticks: 600 });
+  await sleep(2000);
+  const wall ={ material: 'wood', points: [PAL.x - 8, PAL.y - 6, PAL.x + 8, PAL.y - 6], gates: [PAL.x, PAL.y - 6] };
   ms.send({ t: 'check', id: 1, kind: 'wall', ...wall });
-  const wc = await ms.wait((m) => m.t === 'checked');
-  check(wc?.result?.ok !== false, `buyer's palisade line checks: ${JSON.stringify(wc?.result ?? wc).slice(0, 160)}`);
+  const wc = await ms.wait((m) => m.t === 'checked' || m.t === 'error');
+  must(wc?.t === 'checked' && wc.result?.ok === true, `buyer's palisade line checks: ${JSON.stringify(wc?.result ?? wc).slice(0, 160)}`);
   ms.send({ t: 'order', o: { kind: 'placeWall', squad: bsq, ...wall } });
   for (let i = 0; i < 12; i++) ms.send({ t: 'dev', op: 'skip', ticks: 600 });
   await sleep(4000);
   ms.close();
 
-  const pre = await ours();
-  const moversId = (pre.find((q) => !q.civ) ?? pre[0]).id;
-  const hop2 = await transfer('kleisoura', 'dodona-e', moversId, ['moors']);
-  must(hop2.arrived, `transfer kleisoura -> dodona-e -> moors: ${JSON.stringify(hop2.res).slice(0, 160)}${hop2.arrived ? ', arrived' : ', never arrived'}`);
-
   // 14. raid the bear lair that guards the moors' third claim point, then claim it
   await enter('moors');
   const R = await page.evaluate(() => ({ lair: window.__sandbox.region.lairs?.[4], cp: window.__sandbox.region.claimPoints?.[2] }));
   must(R.lair && R.cp, `moors lair 4 and claim point 2: ${JSON.stringify(R)}`);
-  // the militia alone lose to bears: dev reinforcements (two squads of hoplites) beside them
+  // the militia alone lose to bears, and the Great Bear (5000 hp) can maul two squads of hoplites with them: dev
+  // reinforcements, three squads of hoplites, beside them
   const m0 = (await ours())[0];
-  for (let i = 0; i < 2; i++) await page.evaluate(({ team, x, y }) => window.__sandbox.sim.devSpawn(team, 'hoplite', 12, x, y), { team, x: m0.x + 3 * i, y: m0.y + 3 });
+  for (let i = 0; i < 3; i++) await page.evaluate(({ team, x, y }) => window.__sandbox.sim.devSpawn(team, 'hoplite', 12, x, y), { team, x: m0.x + 3 * i, y: m0.y + 3 });
   await page.waitForTimeout(3000);
-  for (const q of await ours()) await order({ kind: 'attackMove', squad: q.id, x: R.lair.x, y: R.lair.y });
-  const lairFoes = () => page.evaluate(({ lair }) => {
-    const s = window.__sandbox.sim.full, q = new Map(s.squads.map((x) => [x.id, x]));
-    return s.units.filter((u) => u.state !== 'dead' && q.get(u.squad)?.team === 6 && Math.hypot(u.x - lair.x, u.y - lair.y) < 30).length;
-  }, R);
-  const cleared = await until(async () => {
-    const n = await lairFoes(), near = (await ours()).some((q) => Math.hypot(q.x - R.lair.x, q.y - R.lair.y) < 20);
-    return near && n === 0 ? true : null;
-  }, 30, 300);
-  check(cleared, `the bear lair raided: ${cleared ? 'no beasts left' : `${await lairFoes()} beasts left, squads ${JSON.stringify(await ours())}`}`);
-  const claimer = (await ours())[0];
+  // the server's own neutral state (dev /stats; fog hides beasts from the page): lair 4, the guardian, claim point 2
+  const wild = async () => (await fetch(`${API}/api/war/moors/stats`).then((r) => r.json()).catch(() => ({}))).wild ?? null;
+  const w0 = await wild();
+  const lair0 = w0?.lairs?.[4], boss0 = w0?.bosses?.[0];
+  must(lair0?.alive > 0 && lair0.state !== 'cleared' && boss0 && boss0.state !== 'slain' && w0.claims?.[2]?.state === 'locked', `moors before the raid: lair 4 ${JSON.stringify(lair0)}, guardian ${JSON.stringify(boss0)}, claim point 2 ${JSON.stringify(w0?.claims?.[2])}`);
+  /** Attack-move every squad of ours onto `at` until the server reports `done(wild)`. */
+  const raid = async (at, done) => {
+    for (const q of await ours()) await order({ kind: 'attackMove', squad: q.id, x: at.x, y: at.y });
+    return until(async () => { const w = await wild(); return w && done(w) ? w : null; }, 30, 300);
+  };
+  const lr = await raid(R.lair, (w) => w.lairs[4].state === 'cleared');
+  check(!!lr, `the bear lair raided: ${JSON.stringify(lair0)} -> ${JSON.stringify((lr ?? (await wild()))?.lairs?.[4])}`);
+  // the region's guardian (the Great Bear of the Moors) sleeps on claim point 2 and keeps every claim point shut
+  const G = await page.evaluate(() => window.__sandbox.region.guardians?.[0] ?? null);
+  const gr = await raid(G ?? R.cp, (w) => w.bosses[0].state === 'slain');
+  check(!!gr && gr.claims[2].state === 'open', `the Great Bear slain, claim point 2 open: ${JSON.stringify(boss0)} -> ${JSON.stringify((gr ?? (await wild()))?.bosses?.[0])}, claim ${JSON.stringify((gr ?? (await wild()))?.claims?.[2])}`);
+  const claimer = (await ours()).sort((a, b) => b.men - a.men)[0];
+  const oursAt = () => page.evaluate(({ cp, team }) => { const m = window.__sandbox.sim.influence; return m && (m.mask[Math.floor(cp.y) * m.w + Math.floor(cp.x)] & (1 << team)) ? true : null; }, { cp: R.cp, team });
+  const before = await oursAt();
   await order({ kind: 'claimRegion', squad: claimer.id, point: 2 });
-  const claimed = await until(() => page.evaluate(({ cp, team }) => { const m = window.__sandbox.sim.influence; return m && (m.mask[Math.floor(cp.y) * m.w + Math.floor(cp.x)] & (1 << team)) ? true : null; }, { cp: R.cp, team }), 25, 300);
-  check(claimed, `claim point 2 claimed: ${claimed ? 'its radius is our influence' : JSON.stringify(await squadAt(claimer.id))}`);
+  const claimed = !before && (await until(async () => { const w = await wild(); return w?.claims[2].state === 'claimed' && w.claims[2].team === team && (await oursAt()) ? w.claims[2] : null; }, 25, 300));
+  check(!!claimed, `claim point 2 claimed: ${claimed ? `${JSON.stringify(claimed)}, its radius turned our influence` : `influence before ${before}, claim ${JSON.stringify((await wild())?.claims?.[2])}, ${JSON.stringify(await squadAt(claimer.id))}`}`);
   await shot('7-claim.png');
 
-  // 15. siege: a ram built next to the buyer's palisade, crewed, battering his gate
+  // 15. siege: a ram built in front of the buyer's palisade gate, crewed, battering it (fog hides it until we are there)
+  // a hoplite squad (the dev reinforcements) works the ram; the militia go home in step 16
+  const sap0 = (await ours()).filter((q) => !q.civ).sort((a, b) => Number(b.cls.includes('hoplite')) - Number(a.cls.includes('hoplite')) || b.men - a.men)[0];
+  // five tiles out from the gate (the line at PAL.y - 6), in the open between the wall and the hamlet's houses at
+  // PAL.y - 17: among the houses the crew's standing points are blocked, too few men count as beside it and it stalls
+  const rx = PAL.x, ry = PAL.y - 11;
+  // a long march over the moors can go idle partway (seen at ~175,145): the order is given again while it stands short
+  await order({ kind: 'move', squad: sap0.id, x: rx, y: ry });
+  const sapAt = await until(async () => {
+    const p = await squadAt(sap0.id);
+    if (p && Math.hypot(p.x - rx, p.y - ry) < 8) return p;
+    if (p && p.states === 'idle') await order({ kind: 'move', squad: sap0.id, x: rx, y: ry });
+    return null;
+  }, 30, 300);
+  check(!!sapAt, `squad ${sap0.id} before the buyer's palisade: ${JSON.stringify(sapAt ?? (await squadAt(sap0.id)))}`);
   const gate = await page.evaluate(({ PAL }) => {
     const s = window.__sandbox.sim.full;
     return s.buildings.filter((b) => b.team === 1 && Math.hypot(b.x - PAL.x, b.y - PAL.y) < 20).map((b) => ({ id: b.id, type: b.type, state: b.state, x: b.x, y: b.y, hp: b.hp })).sort((a, b) => (/gate/i.test(b.type) ? 1 : 0) - (/gate/i.test(a.type) ? 1 : 0));
   }, { PAL });
   const g = gate[0];
   const anyFoe = await page.evaluate(() => window.__sandbox.sim.full.buildings.filter((b) => b.team === 1).map((b) => `${b.id}:${b.type}:${b.state}`).slice(0, 8));
-  if (check(!!g && /gate/i.test(g.type), `the buyer's palisade gate in the moors: ${JSON.stringify(g ?? anyFoe)}`)) {
-    page.evaluate(({ team }) => window.__sandbox.sim.addStock(team, 'wood', 200), { team });
-    const sappers = (await ours()).filter((q) => !q.civ).sort((a, b) => Math.hypot(a.x - g.x, a.y - g.y) - Math.hypot(b.x - g.x, b.y - g.y));
-    const rx = g.x, ry = g.y - 10;
-    await order({ kind: 'move', squad: sappers[0].id, x: rx, y: ry });
-    await until(async () => { const p = await squadAt(sappers[0].id); return p && Math.hypot(p.x - rx, p.y - ry) < 6; }, 20, 300);
-    await order({ kind: 'buildSiege', squad: sappers[0].id, type: 'ram', x: rx, y: ry });
-    const ram = await until(async () => { const r = await nearestOf('s', 'ram', { x: rx, y: ry }, team); return r && r.state !== 'building' && r.state !== 'site' && (r.progress ?? 1) >= 1 ? r : null; }, 20, 300);
+  if (check(!!g && /gate/i.test(g.type) && g.state === 'done', `the buyer's palisade gate in the moors, built: ${JSON.stringify(g ?? anyFoe)}`)) {
+    await page.evaluate(({ team }) => window.__sandbox.sim.addStock(team, 'wood', 200), { team });
+    await order({ kind: 'buildSiege', squad: sap0.id, type: 'ram', x: rx, y: ry });
+    const ram = await until(async () => { const r = await nearestOf('s', 'ram', { x: rx, y: ry }, team); return r && r.state !== 'building' && r.hp >= r.maxHp ? r : null; }, 20, 300);
     const ramNow = ram ?? (await nearestOf('s', 'ram', { x: rx, y: ry }, team));
     if (check(!!ram, `a ram built by the gate: ${JSON.stringify(ramNow).slice(0, 160)}`)) {
-      await order({ kind: 'crew', squad: sappers[0].id, siege: ram.id });
-      await until(() => page.evaluate(({ c, q }) => window.__sandbox.sim.full.sieges?.find((s) => s.id === c)?.crew === q, { c: ram.id, q: sappers[0].id }), 10, 100);
-      await order({ kind: 'attackBuilding', squad: sappers[0].id, building: g.id });
+      await order({ kind: 'crew', squad: sap0.id, siege: ram.id });
+      const crewedRam = await until(() => page.evaluate(({ c, q }) => { const e = window.__sandbox.sim.full.sieges?.find((s) => s.id === c); return e?.crew === q && e.crewHere >= e.crewNeed ? e : null; }, { c: ram.id, q: sap0.id }), 25, 300);
+      check(!!crewedRam, `squad ${sap0.id} crews the ram: ${JSON.stringify(crewedRam ?? (await nearestOf('s', 'ram', { x: rx, y: ry }, team))).slice(0, 200)}`);
+      await order({ kind: 'attackBuilding', squad: sap0.id, building: g.id });
       const hp = () => page.evaluate((id) => { const b = window.__sandbox.sim.full.buildings.find((x) => x.id === id); return b ? { hp: b.hp, state: b.state } : null; }, g.id);
       const hp0 = await hp();
-      const hit = await until(async () => { const h = await hp(); return !h || h.state === 'destroyed' || h.hp < hp0.hp ? h ?? { gone: true } : null; }, 20, 200);
+      const hit = await until(async () => { const h = await hp(); return h && (h.state === 'destroyed' || h.hp < hp0.hp) ? h : null; }, 20, 200);
       check(!!hit, `the ram batters the gate: ${JSON.stringify(hp0)} -> ${JSON.stringify(hit ?? (await hp()))}`);
     }
   }
   await shot('8-siege.png');
 
-  // 16. a last transfer between regions: the militia, moors -> dodona-e
-  const back = (await ours()).find((q) => q.cls.includes('militia')) ?? (await ours())[0];
+  // 16. a last transfer between regions: the militia (away from the siege: no foe within 20 tiles), moors -> dodona-e
+  const back = (await ours()).find((q) => q.cls.includes('militia')) ?? (await ours()).find((q) => q.id !== sap0.id) ?? (await ours())[0];
   const hop3 = await transfer('moors', 'dodona-e', back.id);
   check(hop3.arrived, `transfer moors -> dodona-e: ${JSON.stringify(hop3.res).slice(0, 160)}${hop3.arrived ? ', arrived' : ', never arrived'}`);
 } catch (e) {
