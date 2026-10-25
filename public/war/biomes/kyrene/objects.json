@@ -662,7 +662,16 @@
    ],
    "blocksMovement": false,
    "fauna": "camel",
-   "animateLater": true,
+   "idle": {
+    "file": "camels-idle.png",
+    "frames": 6,
+    "w": 81,
+    "h": 68,
+    "anchor": {
+     "x": 37,
+     "y": 67
+    }
+   },
    "source": "map_object 7d986561"
   },
   {
@@ -683,7 +692,16 @@
    "blocksMovement": false,
    "fauna": "jackal",
    "mob": true,
-   "animateLater": true,
+   "idle": {
+    "file": "jackal-idle.png",
+    "frames": 6,
+    "w": 22,
+    "h": 22,
+    "anchor": {
+     "x": 6,
+     "y": 21
+    }
+   },
    "source": "map_object 6212438c"
   },
   {
@@ -703,7 +721,16 @@
    ],
    "blocksMovement": false,
    "fauna": "gazelle",
-   "animateLater": true,
+   "idle": {
+    "file": "gazelle-idle.png",
+    "frames": 6,
+    "w": 37,
+    "h": 44,
+    "anchor": {
+     "x": 16,
+     "y": 43
+    }
+   },
    "source": "map_object acc6c5b8"
   },
   {

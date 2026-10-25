@@ -169,9 +169,9 @@ export const OBJECTS = [
   { id: 'iron-ore', raw: 'iron', ...stone, footprint: [2, 1], metres: 2.4, base: { y0: 40, drop: [['#473538', 30], ['#342325', 30], ['#998378', 40]] }, grade: { sat: 0.7, val: 0.85 }, extra: { resource: 'iron' }, source: 'map_object 5b6d418d' },
   { id: 'tin-ore', raw: 'tin-b', ...stone, footprint: [2, 1], metres: 2.5, grade: { sat: 0.7, val: 0.8 }, extra: { resource: 'tin' }, source: 'map_object 4581ab3f (11410032 had no visible veins)' },
   // fauna (static props, animate later)
-  { id: 'ibex', raw: 'ibex', kind: 'fauna', blocks: false, footprint: [1, 1], metres: 1.2, scale: 0.8, grade: { sat: 0.65, val: 0.8 }, extra: { fauna: 'ibex', animateLater: true }, source: 'map_object b70f2d24' },
-  { id: 'bear', raw: 'bear', kind: 'fauna', blocks: false, footprint: [1, 1], metres: 1.6, grade: { sat: 0.65, val: 0.8 }, extra: { fauna: 'bear', mob: true, animateLater: true }, source: 'map_object 177ad7da' },
-  { id: 'eagle-nest', raw: 'eagle-nest', ...stone, footprint: [1, 1], metres: 2.5, grade: { sat: 0.6, val: 0.8 }, extra: { fauna: 'eagle', animateLater: true }, source: 'map_object d88753c5' },
+  { id: 'ibex', raw: 'ibex', kind: 'fauna', blocks: false, footprint: [1, 1], metres: 1.2, scale: 0.8, grade: { sat: 0.65, val: 0.8 }, extra: { fauna: 'ibex', idle: { file: 'ibex-idle.png', frames: 6, w: 37, h: 43, anchor: { x: 16, y: 42 } } }, source: 'map_object b70f2d24' },
+  { id: 'bear', raw: 'bear', kind: 'fauna', blocks: false, footprint: [1, 1], metres: 1.6, grade: { sat: 0.65, val: 0.8 }, extra: { fauna: 'bear', mob: true, idle: { file: 'bear-idle.png', frames: 6, w: 73, h: 55, anchor: { x: 30, y: 54 } } }, source: 'map_object 177ad7da' },
+  { id: 'eagle-nest', raw: 'eagle-nest', ...stone, footprint: [1, 1], metres: 2.5, grade: { sat: 0.6, val: 0.8 }, extra: { fauna: 'eagle', idle: { file: 'eagle-nest-idle.png', frames: 6, w: 66, h: 82, anchor: { x: 36, y: 81 } } }, source: 'map_object d88753c5' },
   // W-51 crag kit overlays (PROMPTS_ART.md 40h): drifts on ledges and at a cliff foot, ice on the glacier, talus under the faces
   { id: 'snow-drift', raw: 'snow-drift-a', kind: 'prop', blocks: false, footprint: [1, 1], metres: 1.67, grade: { sat: 0.55, val: 0.8 }, extra: { overlay: 'snow' }, source: 'map_object 6fc586f7 (W-51)' },
   { id: 'ice-patch', raw: 'ice-patch', kind: 'prop', blocks: false, footprint: [1, 1], metres: 1.76, grade: { sat: 0.5, val: 0.78 }, extra: { overlay: 'ice' }, source: 'map_object c43d1267 (W-51)' },

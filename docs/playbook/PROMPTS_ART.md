@@ -3019,3 +3019,31 @@ road. (4) A pocket's tier-1 boss is a small guardian site of no pieces (`pocketB
 **Lesson:** "no ground, no soil, no base" does not stop PixelLab drawing a slab under a crop patch; key it out by colour.
 Do not rebuild a biome with `build.mjs --biome` to add one object: it rewrites objects.json without the town pieces
 (built by town.mjs) and re-snaps every sprite to a new palette; snap the new sprite to the existing palette instead.
+
+### 40k Fauna idle loops
+
+Owner playtest: the animal props (camels by the Bedouin tents, goats, ...) stood frozen. Every `kind: fauna` prop now has an
+idle strip (`<id>-idle.png`, objects.json `idle: { file, frames, w, h, anchor }`). Tool: `animate_image`, first frame = the
+built still sprite padded 6 px (sides and top) and upscaled 2x nearest, `last_frame` = the same image (so the loop closes),
+`frame_count: 6`. Kept: the input + generated frames 1-5 (the 6th is the pinned last frame), 2x2 block mode back down to 1x,
+hard alpha, snapped to the biome palette, cropped to the union box; frame 0 is the still sprite pixel for pixel, so the baked
+far levels (still frame) and the live sprite match. qa.mjs checks it (size, alpha, palette, no empty frame, frame 0 = still).
+In game (src/war/view/objects.ts) each live animal plays at its own phase and 0.8-1.2x of 5 fps. 17 generations, all kept.
+
+Motion prompts (one job each; each line starts `subtle idle loop, standing in place:` unless noted):
+
+| id | job | motion | notes |
+|---|---|---|---|
+| kyrene/camels | `86b0d2c0` | `the camels slowly chew cud, heads bob gently on their long necks, a tail flick; bodies and legs stay planted, no walking` | kept |
+| kyrene/jackal | `d8256449` | `the jackal sniffs, ears twitch, the bushy tail sways; legs stay planted, no walking` | kept, small motion |
+| kyrene/gazelle | `bde142d0` | `the gazelle's ears twitch, head turns slightly and lowers a little, tail flicks; legs stay planted, no walking` | kept |
+| elaia/goats | `18783bc2` | `the goats graze, heads dip to nibble and lift, ears twitch, a short tail flick; bodies and legs stay planted, no walking` | kept |
+| elaia/boar | `6fd8e59c` | `the boar roots and snuffles, snout dips and lifts, ears twitch, little tail flicks; legs stay planted, no walking` | kept |
+| dodona/red-deer | `6bb10329` | `the red deer stag breathes, lifts and turns his antlered head slightly, ears flick, tail twitch; legs stay planted, no walking` | kept |
+| dodona/owl | `7fa893a6` | (no prefix) `gliding owl, a slow wing flap loop: the spread wings beat down and back up once, head steady, stays in place` | kept, full flap |
+| mountains/ibex | `56c24cbf` | `the ibex chews, head with big horns bobs gently, ear twitch, short tail flick; legs stay planted, no walking` | kept |
+| mountains/bear | `1a602264` | `the bear breathes heavily, its head sways and lowers to sniff and lifts again, fur shifts; paws stay planted, no walking` | kept |
+| mountains/eagle-nest | `6da7d526` | (no prefix) `subtle idle loop: only the eagle on the nest rim moves, it turns its pale head side to side and ruffles its wings slightly; the nest and rock stay perfectly still` | kept; rows 30+ (rock, nest base) pasted back from the still frame, the model redrew them |
+
+Lesson: pin `last_frame` to the input for a loop that closes; animate the built sprite (not the raw) so palette and anchor
+hold; a sprite under ~40 px animates better from a 2x upscale.

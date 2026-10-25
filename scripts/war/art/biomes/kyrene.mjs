@@ -98,9 +98,9 @@ export const OBJECTS = [
   { id: 'nomad-tent', raw: 'tent', ...stone, footprint: [2, 2], metres: 2.6, grade: mud, source: 'map_object 38218516' },
   { id: 'copper-ore', raw: 'copper', ...stone, footprint: [2, 1], metres: 2.2, grade: { sat: 0.7, val: 0.8 }, extra: { resource: 'copper' }, source: 'map_object 9a64c0ca' },
   { id: 'oasis-spring', raw: 'spring', kind: 'prop', blocks: true, footprint: [2, 1], metres: 2, grade: { sat: 0.65, val: 0.75 }, extra: { resource: 'water' }, source: 'map_object ff6716cd' },
-  { id: 'camels', raw: 'camels', kind: 'fauna', blocks: false, footprint: [2, 1], metres: 2.1, grade: { sat: 0.65, val: 0.8 }, extra: { fauna: 'camel', animateLater: true }, source: 'map_object 7d986561' },
-  { id: 'jackal', raw: 'jackal', kind: 'fauna', blocks: false, footprint: [1, 1], metres: 0.65, scale: 0.7, grade: { sat: 0.65, val: 0.8 }, extra: { fauna: 'jackal', mob: true, animateLater: true }, source: 'map_object 6212438c' },
-  { id: 'gazelle', raw: 'gazelle', kind: 'fauna', blocks: false, footprint: [1, 1], metres: 1.3, grade: { sat: 0.65, val: 0.8 }, extra: { fauna: 'gazelle', animateLater: true }, source: 'map_object acc6c5b8' },
+  { id: 'camels', raw: 'camels', kind: 'fauna', blocks: false, footprint: [2, 1], metres: 2.1, grade: { sat: 0.65, val: 0.8 }, extra: { fauna: 'camel', idle: { file: 'camels-idle.png', frames: 6, w: 81, h: 68, anchor: { x: 37, y: 67 } } }, source: 'map_object 7d986561' },
+  { id: 'jackal', raw: 'jackal', kind: 'fauna', blocks: false, footprint: [1, 1], metres: 0.65, scale: 0.7, grade: { sat: 0.65, val: 0.8 }, extra: { fauna: 'jackal', mob: true, idle: { file: 'jackal-idle.png', frames: 6, w: 22, h: 22, anchor: { x: 6, y: 21 } } }, source: 'map_object 6212438c' },
+  { id: 'gazelle', raw: 'gazelle', kind: 'fauna', blocks: false, footprint: [1, 1], metres: 1.3, grade: { sat: 0.65, val: 0.8 }, extra: { fauna: 'gazelle', idle: { file: 'gazelle-idle.png', frames: 6, w: 37, h: 44, anchor: { x: 16, y: 43 } } }, source: 'map_object acc6c5b8' },
   // W-51 (PROMPTS_ART.md 40h): talus under the sandstone faces, the Dead City's ruin dressing and street life
   { id: 'talus-red', raw: 'talus-red', kind: 'stone', blocks: true, footprint: [2, 1], metres: 1.97, grade: { sat: 0.6, val: 0.68 }, extra: { overlay: 'talus', cliff: 'sandstone' }, source: 'map_object e6bb6166 (W-51)' },
   { id: 'debris-mud', raw: 'debris-mud', kind: 'prop', blocks: false, footprint: [1, 1], metres: 1.27, grade: mud, extra: { overlay: 'debris' }, source: 'map_object f875b4f1 (W-51)' },

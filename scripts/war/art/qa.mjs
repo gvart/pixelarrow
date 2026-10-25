@@ -240,6 +240,32 @@ export function qaObjects(O, tilePalette, dir = join(ROOT, 'public/war/objects')
     }
     const g = groundPatch(im, an, o.kind);
     if (g) fail.push(`${id}: ground patch at row ${g.y}: ${g.run} px wide ground-coloured run (limit ${g.min})`);
+    if (o.idle) fail.push(...qaIdle(o, dir, pal)); // an animal's idle loop
+  }
+  return fail;
+}
+
+// An idle strip (objects.json `idle`: frames x w by h, own anchor): size, binary alpha, palette, no empty frame; frame 0 is
+// the still sprite pixel for pixel at the same foot anchor (the baked far levels draw that one, so nothing jumps).
+function qaIdle(o, dir, pal) {
+  const t = o.idle, tag = `${o.id} idle`, fail = [], f = join(dir, t.file ?? '');
+  if (!t.file || !existsSync(f)) return [`${tag}: missing ${t.file}`];
+  const { w, h, data: d } = readImage(f), s = readImage(join(dir, o.file));
+  if (w !== t.w * t.frames || h !== t.h || t.frames < 2) return [`${tag}: ${w}x${h}, want ${t.w * t.frames}x${t.h} (${t.frames} frames)`];
+  let soft = 0, off = 0; for (let i = 0; i < d.length; i += 4) { if (d[i + 3] && d[i + 3] < 255) soft++; if (d[i + 3] && !pal.has(key(d, i))) off++; }
+  if (soft) fail.push(`${tag}: ${soft} semi-transparent px`);
+  if (off) fail.push(`${tag}: ${off} px outside the shared palette`);
+  for (let n = 0; n < t.frames; n++) { let any = false; for (let y = 0; y < h && !any; y++) for (let x = n * t.w; x < (n + 1) * t.w; x++) if (d[(y * w + x) * 4 + 3]) { any = true; break; } if (!any) fail.push(`${tag}: frame ${n} empty`); }
+  const dx = t.anchor.x - o.anchor.x, dy = t.anchor.y - o.anchor.y;
+  if (t.anchor.y !== t.h - 1 || dx < 0 || dy < 0 || dx + s.w > t.w || dy + s.h > t.h) fail.push(`${tag}: anchor (${t.anchor.x}, ${t.anchor.y}) does not hold the still sprite at its foot`);
+  else {
+    let diff = 0;
+    for (let y = 0; y < t.h; y++) for (let x = 0; x < t.w; x++) {
+      const i = (y * w + x) * 4, sx = x - dx, sy = y - dy, j = sx >= 0 && sy >= 0 && sx < s.w && sy < s.h ? (sy * s.w + sx) * 4 : -1;
+      const sa = j >= 0 ? s.data[j + 3] : 0;
+      if (d[i + 3] !== sa || (sa && key(d, i) !== key(s.data, j))) diff++;
+    }
+    if (diff) fail.push(`${tag}: frame 0 differs from ${o.file} in ${diff} px`);
   }
   return fail;
 }
