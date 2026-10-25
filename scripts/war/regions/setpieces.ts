@@ -12,6 +12,9 @@
  *   valley        a corridor along a line: a floor at one level between rims raised over the land round it (cliff
  *                 walls or banks), for river valleys, defiles and sunken roads.
  *   townAlong     a dense village strung along a road line: a village (well, claim point) and houses packed along it.
+ *   relief        a whole-map height field from a continuous elevation: whole levels (walkable one-level slopes) except
+ *                 inside cliff bands, where it snaps to the band's ends along a noisy contour (walls of 3-6 levels);
+ *                 `profile` turns a hand-drawn cross-section into the elevation's backbone.
  */
 import { curveField, fbm, spline, type Pt } from '../shapes.ts';
 import type { BiomeName, Kit } from './kit.ts';
@@ -212,4 +215,37 @@ export function townAlong(k: Kit, pts: Pt[], o: { n?: number; every?: number; de
     if (Math.hypot(q.x - mid[0], q.y - mid[1]) < 8) continue;
     k.houses([q.x, q.y], 3, 2, o.depth ?? 9);
   }
+}
+
+/** Piecewise-linear lookup of `u` in sorted [u, value] pairs (clamped at both ends): a hand-drawn cross-section. */
+export function profile(pts: [number, number][], u: number): number {
+  if (u <= pts[0][0]) return pts[0][1];
+  for (let n = 1; n < pts.length; n++) if (u <= pts[n][0]) {
+    const [a, va] = pts[n - 1], [b, vb] = pts[n];
+    return va + ((vb - va) * (u - a)) / (b - a);
+  }
+  return pts[pts.length - 1][1];
+}
+
+/**
+ * Cliffed relief: `elev` gives a continuous height in levels per unit point (NaN: leave the tile; its own seed passed in).
+ * Rounded to whole levels the land steps one level at a time (walkable slopes along organic contours); inside each cliff
+ * band [lo, hi] it snaps to lo or hi instead, at a contour bent by noise (`jitter` of the band's height, default 0.35):
+ * one wall of hi - lo levels, and bands close together stack into multi-level drops. Water and rock are left;
+ * `keepHigher` keeps higher ground. Lay coves, ravines and roads over it afterwards.
+ */
+export function relief(k: Kit, elev: (x: number, y: number, seed: number) => number, o: { cliffs?: [number, number][]; jitter?: number; keepHigher?: boolean } = {}) {
+  const s = k.seed(), j = o.jitter ?? 0.35, bands = o.cliffs ?? [];
+  k.each((i, x, y) => {
+    if (k.water[i] || k.terrain[i] === 'rock') return;
+    let v = elev(x, y, s);
+    if (Number.isNaN(v)) return;
+    for (const [lo, hi] of bands) if (v > lo && v < hi) {
+      const mid = (lo + hi) / 2 + j * (hi - lo) * fbm(x, y, 11, s + 7);
+      v = v < mid ? lo : hi;
+      break;
+    }
+    const h = Math.max(0, Math.min(MAX_HEIGHT, Math.round(v)));
+    k.height[i] = o.keepHigher ? Math.max(k.height[i], h) : h;
+  });
 }

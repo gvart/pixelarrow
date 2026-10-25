@@ -106,6 +106,8 @@ W-52 dominant set pieces: 2 m visual levels; every region with a reference in sh
 3. Live play polish from playtests (docs/PLAYTEST.md known gaps); melee clash SFX in big fights; bundled Playwright Chromium can't load the page (captures use system Chrome).
 4. Tests that time out only under heavy machine load (timing budgets in tests/war) — rerun in small groups before trusting a failure.
 
+W-52 cliffed relief (elaia-w pilot): author the whole height field as one continuous elevation (`profile` cross-section bent by fbm, coves/bays as `min` bowls) through setpieces.ts `relief` with cliff bands (e.g. [2,8], [10,13]): values inside a band snap to its ends along a noisy contour, so walls of 3-6 levels and stacked drops come out organic while the rest steps one level at a time (walkable). Keep plateaus out of the bands (else they snap flat), add stronger fine noise on crowns, lay valleys/roads/coves' water after it and crags (`rockMass`, `foot: 0`) last so they stand over the ground. At 2 m levels the overview still reads flatter than a Gemini diorama; the walls show from 1/2 zoom in.
+
 ## Work items
 
 ### M1 Region sandbox
