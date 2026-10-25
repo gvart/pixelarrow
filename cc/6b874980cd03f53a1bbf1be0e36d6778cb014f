@@ -1,0 +1,32 @@
+scripts/war/regions/erymanthos.ts
+  s_fcb7475e0b5395::t_1bdae806694980 40,55,59,73
+  s_fcb7475e0b5395::t_98f5bc6d6e2293 43-44
+  s_fcb7475e0b5395::t_4942ebc06064e2 21-27,31,33-34,38,60-61
+  s_fcb7475e0b5395::t_863828bbb069e3 1-20,28-30,32,35-37,39,41-42,45-54,56-58,62-72
+scripts/war/regions/drafts.ts
+  s_fcb7475e0b5395::t_69a6324b7ef9b0 359
+src/war/regions/erymanthos.json
+  s_fcb7475e0b5395::t_1bdae806694980 1
+src/war/regions/erymanthos.spots.ts
+  s_fcb7475e0b5395::t_69a6324b7ef9b0 1
+src/war/regions/index.ts
+  s_fcb7475e0b5395::t_69a6324b7ef9b0 36
+scripts/war/regions/build.ts
+  s_fcb7475e0b5395::t_69a6324b7ef9b0 58,60
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "cc6b874980cd03f53a1bbf1be0e36d6778cb014f",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
