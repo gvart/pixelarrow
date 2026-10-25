@@ -26,7 +26,7 @@ const FADE = 0.35;
 const TIE = 1e-8;
 
 interface Def extends ObjDef { key: string; mask: Uint8Array; mw: number; mh: number; fades: boolean; hides: boolean }
-interface Obj { def: Def; sx: number; sy: number; v: number; alpha: number; tint?: number }
+interface Obj { def: Def; sx: number; sy: number; v: number; alpha: number; tint?: number; /** Wholly behind the peaks: shown only while they are cut or in a hole. */ behind?: boolean }
 
 export class ObjectLayer {
   private objs: Obj[] = [];
@@ -68,15 +68,16 @@ export class ObjectLayer {
     this.bw = Math.ceil(r.w / BUCKET);
     this.bh = Math.ceil(r.h / BUCKET);
     this.buckets = Array.from({ length: this.bw * this.bh }, () => []);
-    // with peaks (./peaks.ts): none on the mountain, none wholly behind it (the baked ground does not sort with sprites)
+    // with peaks (./peaks.ts): none on the mountain; those wholly behind it only while the peaks are cut or holed there (the baked ground does not sort with sprites)
     const horizon = iso.peaks && peakHorizon(iso.peaks, iso.OY);
     for (const o of r.objects ?? []) {
       const def = defs.get(o.id), tx = Math.floor(o.x), ty = Math.floor(o.y);
       if (!def || def.kind === 'massif' || tx < 0 || ty < 0 || tx >= r.w || ty >= r.h || massifs?.covers(o.x, o.y, def.metres)) continue;
-      if (horizon && (iso.peakAt(o.x, o.y) > 0.3 || horizon[ty * r.w + tx] < iso.sy(o.x, o.y, iso.zAt(o.x, o.y)) - def.anchor.y)) continue;
+      if (horizon && iso.peakAt(o.x, o.y) > 0.3) continue;
+      const behind = !!horizon && horizon[ty * r.w + tx] < iso.sy(o.x, o.y, iso.zAt(o.x, o.y)) - def.anchor.y;
       this.buckets[((ty / BUCKET) | 0) * this.bw + ((tx / BUCKET) | 0)].push(this.objs.length);
       // ties (one depth) break by list order, never by which pooled image a sprite got
-      this.objs.push({ def, sx: Math.round(iso.sx(o.x, o.y)), sy: Math.round(iso.sy(o.x, o.y, iso.zAt(o.x, o.y))), v: (massifs ? massifs.depth(o.x, o.y) : o.x + o.y) + this.objs.length * TIE, alpha: 1 });
+      this.objs.push({ def, sx: Math.round(iso.sx(o.x, o.y)), sy: Math.round(iso.sy(o.x, o.y, iso.zAt(o.x, o.y))), v: (massifs ? massifs.depth(o.x, o.y) : o.x + o.y) + this.objs.length * TIE, alpha: 1, ...(behind ? { behind } : {}) });
     }
     // massifs just before their south vertex row, in the region's order (as the baked levels draw them)
     massifs?.list.forEach((m, k) => {
@@ -122,6 +123,7 @@ export class ObjectLayer {
       }
       const show = (o: Obj) => {
         const d = o.def, ox = o.sx - d.anchor.x, oy = o.sy - d.anchor.y;
+        if (o.behind && this.iso.drawnPeaks(o.sx, o.sy) === this.iso.peaks) return;
         if (ox > view.right || ox + d.w < view.x || oy > view.bottom || oy + d.h < view.y) return;
         let covers = false;
         if (d.fades || d.hides) {

@@ -32,7 +32,7 @@ export function devPanel(game: Phaser.Game, s: SandboxScene, sc: Scenario | null
     <div class="row"><button id="brawl">600 brawl</button> <button id="clear">Restart</button></div>
     ${s.region.id === 'test-ridge' ? `<div class="row">go to <select id="spot">${Object.keys(s.spots).map((k) => `<option>${k}</option>`).join('')}</select></div>` : ''}
     <div class="row"><button id="pause">Pause</button> speed <select id="speed"><option>0.5</option><option selected>1</option><option>2</option><option>4</option></select> <button id="skip">Skip 1 min</button></div>
-    <div class="row"><button id="cut">Walls: full (V)</button></div>
+    <div class="row"><button id="cut">Walls & peaks: full (V)</button></div>
     <div class="row"><button id="b500">+500 resources</button> <button id="bclaim">Claim here</button></div>
     <div class="row"><label><input type="checkbox" id="grid">tile grid</label> <label><input type="checkbox" id="fog" checked>fog</label> <span class="dim">view modes: F2-F7, M full map</span></div>
     <pre id="score"></pre>
@@ -79,7 +79,7 @@ export function devPanel(game: Phaser.Game, s: SandboxScene, sc: Scenario | null
   const perf = $('perf'), score = $('score'), t0 = s.sim.cur?.tick ?? 0;
   let end: number | null = null;
   setInterval(() => {
-    $('cut').textContent = `Walls: ${s.build.layer.cutaway ? 'cut away' : 'full'} (V)`;
+    $('cut').textContent = `Walls & peaks: ${s.build.layer.cutaway ? 'cut away' : 'full'} (V)`;
     const r = tally(s);
     if (r.rows.length) {
       const live = r.rows.filter((q) => q.alive);

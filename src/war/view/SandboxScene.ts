@@ -31,6 +31,7 @@ import { CHUNK_PX, OVERVIEW_SCALE, TerrainBaker, type BakeOpts } from './terrain
 import { WaterGlints } from './water';
 import { ShotLayer } from './shots';
 import { BODY, SPRITE_ZOOM, UnitLayer } from './units';
+import { peakAt } from './peaks';
 import { NeutralLayer } from './neutral';
 import { BuildMode } from './build/buildMode';
 import { workClip } from './build/work';
@@ -64,6 +65,9 @@ const LEVELS = [{ scale: 1, zoom: 1 / 2 }, { scale: 1 / 2, zoom: 1 / 3 }, { scal
 /** Bakes at this scale show below LIVE_ZOOM only (the 1/4 level and the overview), so they carry the objects. */
 const baked = (scale: number) => scale < LIVE_ZOOM;
 const POOL = 48;
+/** See-through holes in the peaks (./peaks.ts): at most this many (the cursor's, then the selected units'), this many screen px across. */
+const HOLES = 4;
+const HOLE_PX = 200;
 /** Terrain baking per frame (ms); at least one bake runs. */
 const BAKE_MS = 6;
 /** World px per overview band (one band bakes per frame until the overview is done). */
@@ -116,6 +120,8 @@ export class SandboxScene extends Phaser.Scene {
   private opts: BakeOpts = { tint: null, map: null, grid: false, zones: false };
   private ver = 0; // bumps when opts change: chunks baked earlier are stale
   private chunks: Chunk[][] = LEVELS.map(() => []);
+  /** The see-through holes' windows: the ground behind the peaks (their stubs), baked round a point and faded at the rim. */
+  private windows: { tex: Phaser.Textures.CanvasTexture; img: Phaser.GameObjects.Image; at: string }[] = [];
   private overviewTex!: Phaser.Textures.CanvasTexture;
   private band = 0;
   private units!: UnitLayer;
@@ -508,6 +514,8 @@ export class SandboxScene extends Phaser.Scene {
     if (this.frame % 15 === 0) this.sim.camera([{ x: 0, y: 0 }, { x: cam.width, y: 0 }, { x: 0, y: cam.height }, { x: cam.width, y: cam.height }].map((c) => this.world(c)));
     // a live mode follows the sim (influence, nodes, lairs, walls): checked twice a second
     if (this.mode !== 'normal' && this.frame % 30 === 0) this.retint();
+    // V: the peaks cut down to stubs too (the chunks rebake, the stale ones shown meanwhile)
+    if (this.iso.stub && this.build.layer.cutaway !== this.iso.cut) { this.iso.cut = this.build.layer.cutaway; this.rebake(); }
     this.updateChunks(view, cam.zoom);
     this.glints?.draw(view, cam.zoom, this.time.now, this.iso);
     // the ground under the cursor follows the camera too (pan, zoom), not just pointer moves
@@ -526,6 +534,7 @@ export class SandboxScene extends Phaser.Scene {
     }
     // buildings first: this frame's walks, stairs and ladders lift the units
     this.build.update(this.wpx(p.x, p.y), cam.zoom, view);
+    this.updateHoles(cam.zoom, this.moved && this.input.isOver ? this.wpx(p.x, p.y) : null);
     const at = this.sim.time(this.time.now), shots = this.sim.cur?.shots ?? [];
     this.siegeLayer.draw(this.sim.cur?.sieges ?? [], this.sim.cur?.buildings ?? [], this.drawn, at, this.sim.cur?.tick ?? 0, view);
     const cur0 = this.sim.cur, sel = this.trade.selected;
@@ -569,7 +578,7 @@ export class SandboxScene extends Phaser.Scene {
           const at = `${cx},${cy}`;
           let c = this.chunks[l].find((q) => q.at === at);
           if (!c || c.ver !== this.ver) {
-            if (baked && performance.now() - t0 > BAKE_MS) continue;
+            if (baked && performance.now() - t0 > BAKE_MS) { if (c) (c.used = this.frame), c.img.setVisible(true); continue; } // stale shown till rebaked
             baked++;
             c ??= this.claimChunk(l, at);
             // 1 canvas px of overlap all round: no seams between neighbours (or the overview showing through)
@@ -585,6 +594,65 @@ export class SandboxScene extends Phaser.Scene {
       }
     }
     if (!this.overviewReady) this.bakeOverviewBand();
+  }
+
+  /**
+   * See-through holes in the peaks: round the cursor when a range stands over walkable ground behind it, and round the
+   * selected units a range hides. Each is a window baked with the peaks cut to stubs (one bake a frame, moved in steps of
+   * a quarter of its size), faded at its rim, over the chunks and under the sprites; IsoMap.holes makes picking and the
+   * units' occlusion see the same ground.
+   */
+  private updateHoles(zoom: number, wp: { x: number; y: number } | null): void {
+    const iso = this.iso, full = iso.peaks, stub = iso.stub, l = LEVELS.findIndex((v) => zoom >= v.zoom);
+    const want: { x: number; y: number }[] = [];
+    if (full && stub && !iso.cut && l >= 0) {
+      const R = HOLE_PX / 2 / zoom;
+      if (wp) {
+        const a = iso.pick(wp.x, wp.y, full), b = iso.pick(wp.x, wp.y, stub);
+        if (peakAt(full, a.x, a.y) > 1 && peakAt(full, b.x, b.y) === 0) want.push(wp);
+      }
+      for (const d of this.drawn) {
+        if (want.length >= HOLES) break;
+        if (d.u.state === 'dead' || !this.selected.has(d.u.squad)) continue;
+        const f = this.units.feet(d), q = { x: f.x, y: f.y - BODY / 2 };
+        if (want.some((h) => (h.x - q.x) ** 2 + (h.y - q.y) ** 2 < (R * 0.7) ** 2)) continue;
+        if (iso.hidden(f.x, f.y - BODY, d.x + d.y, iso.zAt(d.x, d.y), full) && !iso.hidden(f.x, f.y - BODY, d.x + d.y, iso.zAt(d.x, d.y), stub)) want.push(q);
+      }
+    }
+    const holes: { x: number; y: number; r: number }[] = [];
+    let baked = false;
+    want.forEach((q, i) => {
+      const { scale } = LEVELS[l], R = HOLE_PX / 2 / zoom, step = R / 2;
+      const cx = Math.round(q.x / step) * step, cy = Math.round(q.y / step) * step, at = `${cx},${cy},${scale},${R},${this.ver}`;
+      let w = this.windows[i];
+      if (!w) {
+        const key = `peak-window-${i}`, n = Math.ceil(4 * HOLE_PX);
+        const tex = this.textures.createCanvas(key, n, n)!;
+        this.windows.push((w = { tex, img: this.add.image(0, 0, key).setOrigin(0).setDepth(1.5), at: '' }));
+      }
+      if (w.at !== at && !baked) {
+        baked = true;
+        const ctx = w.tex.context, n = Math.ceil(2 * R * scale);
+        ctx.clearRect(0, 0, w.tex.width, w.tex.height);
+        iso.cut = true;
+        this.bake(ctx, cx - R, cy - R, 2 * R, 2 * R, scale);
+        iso.cut = false;
+        // faded at the rim: opaque to 60% of the radius, gone at its edge
+        const g = ctx.createRadialGradient(n / 2, n / 2, n * 0.3, n / 2, n / 2, n / 2);
+        g.addColorStop(0, 'rgba(0,0,0,1)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.save(); ctx.globalCompositeOperation = 'destination-in'; ctx.fillStyle = g; ctx.fillRect(0, 0, w.tex.width, w.tex.height); ctx.restore();
+        w.tex.refresh();
+        w.img.setPosition(cx - R, cy - R).setScale(1 / scale);
+        w.at = at;
+      }
+      if (w.at) {
+        w.img.setVisible(true);
+        const [ax, ay] = w.at.split(',').map(Number);
+        holes.push({ x: ax, y: ay, r: R * 0.8 });
+      }
+    });
+    for (let i = want.length; i < this.windows.length; i++) { this.windows[i].img.setVisible(false); this.windows[i].at = ''; }
+    iso.holes = holes;
   }
 
   private filterFor(level: number): Phaser.Textures.FilterMode {

@@ -136,7 +136,7 @@ export class BuildingLayer {
   hovered = -1;
   /** Build mode: every footprint shows its grid. */
   grids = false;
-  /** Cutaway (V): every wall, tower and gate drawn as a low stub, so the inside of a fort shows. */
+  /** Cutaway (V): every wall, tower and gate drawn as a low stub, so the inside of a fort shows (and the peaks cut to stubs: SandboxScene). */
   cutaway = false;
   /** Build mode's cursor tile: the walls near it are cut away too (null: none). */
   cutNear: { x: number; y: number } | null = null;

@@ -148,6 +148,17 @@ export function peakField(r: RegionData, mask: Uint8Array, ground: (X: number, Y
   return { w, h, P, S, top, snow, red };
 }
 
+/** The cut-away peaks (the V key, a see-through hole): each lowered to a stub of rock this many levels tall at most. */
+export const STUB = 1.5;
+
+/** The field with every peak lowered to its STUB (the flat foot rock with a low stub over it). */
+export function stubField(f: PeakField): PeakField {
+  const P = f.P.map((p) => Math.min(p, STUB)), S = f.S.map((s, i) => s - f.P[i] + P[i]);
+  let top = 0;
+  for (const v of S) if (v > top) top = v;
+  return { ...f, P, S, top };
+}
+
 /** Peak levels at a fractional tile point (the quad's two triangles, as IsoMap.zAt splits a ramp). */
 export function peakAt(f: PeakField, x: number, y: number): number {
   const cx = Math.floor(x), cy = Math.floor(y);

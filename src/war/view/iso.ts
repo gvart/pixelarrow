@@ -23,7 +23,7 @@
  */
 import type { RegionData } from '../types';
 import { decodeVisual, KINDS, ZVIS } from '../regions/visual';
-import { peakAt, peakField, type PeakField } from './peaks';
+import { peakAt, peakField, stubField, type PeakField } from './peaks';
 
 export const HW = 32;
 export const HH = 16;
@@ -176,6 +176,12 @@ export class IsoMap {
   readonly groundTop: number;
   /** The visual-only peaks over the flat mountain (./peaks.ts), null without. */
   readonly peaks: PeakField | null = null;
+  /** The peaks cut down to stubs (./peaks.ts stubField): drawn and picked while `cut`, and inside the `holes`. */
+  readonly stub: PeakField | null = null;
+  /** The peaks are cut away (the V key): the ground behind them is drawn, picked and hides nothing. */
+  cut = false;
+  /** See-through holes in the peaks (world px circles round the cursor and the selected units behind a range). */
+  holes: { x: number; y: number; r: number }[] = [];
   readonly OX: number;
   readonly OY: number;
   /** World size in px. */
@@ -242,6 +248,7 @@ export class IsoMap {
         return s / 4;
       };
       this.peaks = peakField(r, flat, ground);
+      this.stub = stubField(this.peaks);
       top = Math.max(top, this.peaks.top);
     }
     this.top = top;
@@ -281,14 +288,22 @@ export class IsoMap {
     return a + b <= 1 ? c[k] + a * (c[k + 1] - c[k]) + b * (c[k + 3] - c[k]) : c[k + 2] + (1 - a) * (c[k + 3] - c[k + 2]) + (1 - b) * (c[k + 1] - c[k + 2]);
   }
 
-  /** The drawn surface under a fractional tile point: the ground (zAt) and the peaks over it. */
-  zSurf(x: number, y: number): number {
-    return this.peaks ? this.zAt(x, y) + peakAt(this.peaks, x, y) : this.zAt(x, y);
+  /** The peaks as drawn at world px (wx, wy): their stubs while cut or inside a hole (none given: the cut alone). */
+  drawnPeaks(wx?: number, wy?: number): PeakField | null {
+    if (this.cut) return this.stub;
+    if (wx !== undefined && wy !== undefined) for (const h of this.holes) if ((wx - h.x) ** 2 + (wy - h.y) ** 2 < h.r * h.r) return this.stub;
+    return this.peaks;
   }
 
-  /** Peak levels over the ground at a fractional tile point (0 off the mountain). */
+  /** The drawn surface under a fractional tile point: the ground (zAt) and the peaks over it (`f`: the peaks as drawn). */
+  zSurf(x: number, y: number, f = this.drawnPeaks()): number {
+    return f ? this.zAt(x, y) + peakAt(f, x, y) : this.zAt(x, y);
+  }
+
+  /** Peak levels over the ground at a fractional tile point (0 off the mountain), as drawn (cut or not). */
   peakAt(x: number, y: number): number {
-    return this.peaks ? peakAt(this.peaks, x, y) : 0;
+    const f = this.drawnPeaks();
+    return f ? peakAt(f, x, y) : 0;
   }
 
   /**
@@ -314,25 +329,25 @@ export class IsoMap {
    * World px -> the tile point on the front-most surface under it (a cliff face picks the tile on
    * top of it). Off the map: the point on the base plane, clamped to the map.
    */
-  pick(wx: number, wy: number): { x: number; y: number } {
+  pick(wx: number, wy: number, f = this.drawnPeaks(wx, wy)): { x: number; y: number } {
     const u = (wx - this.OX) / HW;
     for (let z = this.top; z >= ZBASE; z -= 2 / LH) { // 2 px steps along the ray
       const v = (wy - this.OY + z * LH) / HH, x = (u + v) / 2, y = (v - u) / 2;
       if (x < 0 || y < 0 || x >= this.w || y >= this.h) continue;
-      if (this.zSurf(x, y) >= z - 1e-4) return { x, y };
+      if (this.zSurf(x, y, f) >= z - 1e-4) return { x, y };
     }
     const v = (wy - this.OY) / HH;
     return { x: Math.max(0, Math.min(this.w - 0.01, (u + v) / 2)), y: Math.max(0, Math.min(this.h - 0.01, (v - u) / 2)) };
   }
 
   /** Is the world point (wx, wy), standing at x + y = v0 and level z0, hidden by ground in front of it? */
-  hidden(wx: number, wy: number, v0: number, z0: number): boolean {
+  hidden(wx: number, wy: number, v0: number, z0: number, f = this.drawnPeaks(wx, wy)): boolean {
     const u = (wx - this.OX) / HW;
     for (let z = this.top; z > z0; z -= (z > this.groundTop ? 8 : 4) / LH) { // 4 px steps (8 over the peaks alone)
       const v = (wy - this.OY + z * LH) / HH;
       if (v <= v0 + 0.25) return false;
       const x = (u + v) / 2, y = (v - u) / 2;
-      if (x >= 0 && y >= 0 && x < this.w && y < this.h && this.zSurf(x, y) >= z) return true;
+      if (x >= 0 && y >= 0 && x < this.w && y < this.h && this.zSurf(x, y, f) >= z) return true;
     }
     return false;
   }
