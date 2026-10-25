@@ -3,8 +3,8 @@
  * coast, Dodona's two other entries at the east edge's ends, the sea (W). Strategic purpose: Dodona's salt and silver
  * lifeline to Siren and room for a field battle. Depth 1: wolves and boars; the oath-breakers' lanterns on the bogs.
  * Layout (Gemini reference shots/war/regions/proto/dodona-w.png; W-52 set pieces, ./setpieces.ts): the high heath, a
- * broad L-shaped tableland, fills the west coast and the north edge in two tiers (h5, h7) and ends in one long grey
- * cliff over the sunken heath, the open brown lowland (h3) of the centre and south-east, room for a field battle.
+ * broad L-shaped tableland, fills the west coast and the north edge in two tiers (h7-8, h10-11) and ends in one long grey
+ * cliff over the sunken heath, the open brown lowland (h2-4) of the centre and south-east, room for a field battle.
  * Grey sea cliffs drop from the tableland straight into the sea along the west edge, broken once by a small cove beach;
  * the coast track runs along their tops, dark peat bogs with black pools beside it. Down in the sunken heath one long
  * spine of grey rock (h6, h8) runs north-south, the Dodona road cutting through it at a saddle; black pools and
@@ -12,7 +12,8 @@
  * road meets the coast track.
  */
 import type { Kit, Pt, RegionDef } from './kit.ts';
-import { massif } from './setpieces.ts';
+import { fbm } from './kit.ts';
+import { massif, profile, relief } from './setpieces.ts';
 
 const def: RegionDef = {
   id: 'dodona-w',
@@ -24,11 +25,18 @@ const def: RegionDef = {
     k.zone('mountains', [30, 128, 34, 170, 0], 8);
     k.zone('dodona', [244, 128, 22, 150, 0], 8);
     // the high heath: an L along the west coast and the north edge, two tiers over the sunken heath
-    massif(k, {
+    const high = massif(k, {
       outline: [[-12, -12], [268, -12], [268, 44], [206, 58], [146, 54], [112, 84], [94, 140], [84, 200], [70, 268], [-12, 268]],
       crown: [[-12, -12], [212, -12], [190, 22], [128, 28], [74, 70], [54, 150], [44, 268], [-12, 268]],
       base: 3, tiers: 2, steps: [2, 2], wobble: 0.3,
     });
+    // the relief over its contours (setpieces.ts relief): the sunken heath barely rolling, the tableland's long grey
+    // wall four levels over it, its lower tier rolling up to a two-level wall and the upper heath at h10-11
+    relief(k, (x, y, s) => {
+      const t = high.t(x, y);
+      if (t < 0) return 2.9 + 0.8 * fbm(x, y, 26, s);
+      return profile([[0, 7], [0.9, 8.2], [1, 10], [2, 11.4]], t) + 0.5 * fbm(x, y, 12, s + 1);
+    }, { cliffs: [[3.8, 7], [8.2, 10]] });
     // the sea under the cliffs, the cove cut into them
     k.waterBody([-22, 128, 44, 200, 0], { shore: 3, beach: 0, rough: 4 });
     k.basin([28, 64, 22, 16, 0.3], 1, 0, 2);

@@ -6,12 +6,13 @@
  * deep fjord arms cut south from it between
  * six-level (12 m) sheer cliffs. The west one ends at a pebble beach with a rotting longship; the east one runs far inland, its head
  * against the rock spur of the Teeth foothills, and the one land bridge between them, 10 tiles wide with cliffs on
- * both sides, carries the road to Krios and the Teeth. Pine headlands rise in tiers (h6, h8, h10; the east one to h12) over the fjords; the
+ * both sides, carries the road to Krios and the Teeth. Pine headlands rise in tiers on 2-3 level walls (h8, h11, h14; the east one to h15) over the fjords; the
  * western headland's top looks down on the bridge. The road from Dodona climbs to the claim point on the moor west of
  * the bridge, the coast track runs west to the Heath.
  */
 import type { Kit, Pt, RegionDef } from './kit.ts';
-import { massif } from './setpieces.ts';
+import { fbm } from './kit.ts';
+import { massif, profile, relief } from './setpieces.ts';
 
 const def: RegionDef = {
   id: 'dodona-n',
@@ -21,10 +22,18 @@ const def: RegionDef = {
     k.fill(6);
     k.zone('dodona', [100, 170, 150, 110, 0], 10);
     k.zone('mountains', [226, 90, 50, 120, 0], 10);
-    // the headlands: tiered cliffs over the fjords (h8, h10, the east one up to h12 under snow)
-    massif(k, { outline: [[-12, -12], [66, -12], [72, 40], [62, 90], [30, 120], [-12, 124]], crown: [[4, 10], [40, 6], [44, 40], [10, 60]], base: 6, tiers: 2, steps: [2, 2], wobble: 0.2 });
-    massif(k, { outline: [[108, -12], [160, -12], [166, 60], [168, 120], [158, 160], [138, 166], [118, 120], [112, 60]], crown: [[124, 20], [150, 20], [154, 120], [130, 110]], base: 6, tiers: 2, steps: [2, 2], wobble: 0.15 });
-    massif(k, { outline: [[214, -12], [270, -12], [270, 116], [232, 110], [214, 60]], crown: [252, 20], base: 6, tiers: 3, steps: [2, 2, 2], wobble: 0.2 });
+    // the headlands: tiered cliffs over the fjords (h8, h11, the east one up to h15 under snow)
+    const hw = massif(k, { outline: [[-12, -12], [66, -12], [72, 40], [62, 90], [30, 120], [-12, 124]], crown: [[4, 10], [40, 6], [44, 40], [10, 60]], base: 6, tiers: 2, steps: [2, 2], wobble: 0.2 });
+    const hm = massif(k, { outline: [[108, -12], [160, -12], [166, 60], [168, 120], [158, 160], [138, 166], [118, 120], [112, 60]], crown: [[124, 20], [150, 20], [154, 120], [130, 110]], base: 6, tiers: 2, steps: [2, 2], wobble: 0.15 });
+    const he = massif(k, { outline: [[214, -12], [270, -12], [270, 116], [232, 110], [214, 60]], crown: [252, 20], base: 6, tiers: 3, steps: [2, 2, 2], wobble: 0.2 });
+    // their relief over the massifs' contours (setpieces.ts relief): each headland stands on a wall over the rolling moor
+    // and climbs in tiers behind 2-3 level walls, each tier rolling a level (h7-8, h10-11, h13-15)
+    relief(k, (x, y, s) => {
+      const t = Math.max(hw.t(x, y), hm.t(x, y), he.t(x, y)), gap = Math.hypot(x - NW[0], y - NW[1]);
+      if (gap < 16) return 2 + gap * 0.28; // the coast track's way in from the Heath: a gentle hollow
+      if (t < 0) return 6 + 0.9 * fbm(x, y, 24, s);
+      return profile([[0, 8.2], [0.06, 9], [0.85, 9.4], [1, 11], [1.85, 11.6], [2, 14], [3, 15]], t) + 0.4 * fbm(x, y, 9, s + 1) + (t > 2 ? 0.6 * fbm(x, y, 4, s + 2) : 0);
+    }, { cliffs: [[6.8, 8.2], [9.4, 11], [11.6, 14]] });
     k.spot('headland', [150, 150]);
     k.spot('ridge', [150, 150]);
     // the sea, the two fjords (deep, six levels of sheer cliff), the beach at the west one's head

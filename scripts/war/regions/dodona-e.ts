@@ -11,6 +11,8 @@
  * side cleft; oak lowland and a woodcutters' hamlet by Dodona in the south-west.
  */
 import type { Kit, Pt, RegionDef } from './kit.ts';
+import { fbm } from './kit.ts';
+import { relief } from './setpieces.ts';
 
 /** The ravine's centre line (unit y over x) and half-width: wide by Dodona, the narrows at x 128. */
 const cy = (x: number) => 128 + 8 * Math.sin(x / 41) - 4 * Math.sin(x / 17);
@@ -28,19 +30,20 @@ const def: RegionDef = {
     k.fill(3);
     k.zone('mountains', () => 99);
     k.zone('dodona', [40, 200, 70, 70, 0.3], 10);
-    // the land: the shoulders six over the floor along the ravine, the south falling in steps to the moors road,
+    // the land (setpieces.ts relief): the shoulders, rolling, six over the floor along the ravine, the south falling in steps to the moors road,
     // the oak lowland by Dodona low (h2)
-    k.lift((x, y) => {
-      const d = Math.abs(y - cy(x)) - half(x);
-      if (d <= 0) return floor(Math.max(0, Math.min(255, x))) as number;
-      if (y < cy(x)) return tier(x, y) + (d < 34 + 6 * Math.sin(x / 19) ? 6 : 8); // north shoulder, a tier more under the Teeth
-      return d < 30 + 5 * Math.sin(x / 15) ? tier(x, y) + 6 : d < 56 + 6 * Math.cos(x / 23) ? tier(x, y) + 3 : NaN;
-    }, true);
+    relief(k, (x, y, s) => {
+      const d0 = Math.abs(y - cy(x)) - half(x);
+      if (d0 <= 0) return floor(Math.max(0, Math.min(255, x))) as number;
+      const d = d0 + 5 * fbm(x, y, 9, s) + 2 * fbm(x, y, 3.5, s + 1), roll = 0.9 * fbm(x, y, 16, s + 2);
+      if (y < cy(x)) return tier(x, y) + (d < 34 + 6 * Math.sin(x / 19) ? 6 : 8.4) + roll; // north shoulder, a tier more under the Teeth
+      return d < 30 + 5 * Math.sin(x / 15) ? tier(x, y) + 6 + roll : d < 56 + 6 * Math.cos(x / 23) ? tier(x, y) + 3 + roll : 3 + 0.8 * fbm(x, y, 20, s + 3);
+    });
     k.basin([30, 214, 50, 46, 0.3], 2, 6, 4);
     // the Teeth: snowy massifs along the north-east edge, spurs down to the north shoulder
-    k.mountains([[60, -24], [150, -4], [220, 10], [256, 44], [276, 96]], { width: 42, spurs: [[176, 58, 18, 12, 0.4], [104, 30, 16, 10, 0.3]] });
-    k.rockMass([40, 10, 26, 14, 0.2], { rough: 2 });
-    k.rockMass([250, 190, 22, 30, 0.2], { rough: 2 });
+    k.mountains([[60, -24], [150, -4], [220, 10], [256, 44], [276, 96]], { width: 42, spurs: [[176, 58, 18, 12, 0.4], [104, 30, 16, 10, 0.3]], foot: 0 });
+    k.rockMass([40, 10, 26, 14, 0.2], { rough: 2, foot: 0 });
+    k.rockMass([250, 190, 22, 30, 0.2], { rough: 2, foot: 0 });
     // the side cleft south to the moors: a cut from the ravine floor down the shoulders
     k.cut([[158, cy(158) + 8], [150, 176], [134, 212], [128, 262]], { h: 4, half: 5, bank: 3 });
     // the stream down the ravine (shallow), over the first step as a fall
