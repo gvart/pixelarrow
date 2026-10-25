@@ -8,6 +8,8 @@
  *                 by their grade (Kit.road). Returns the field for contour rows.
  *   terraceRows   vine or olive rows on a massif's terraces, laid along its contours (dirt strips with plants on them),
  *                 not in blobs.
+ *   contourRows   vine rows along the retaining walls as built (the final height field), so each row follows the wall
+ *                 below it rather than the massif's noisy field (bacchae).
  *   pit           a deep quarry or crater: benches cut down toward a floor, cliff-faced, organic rim.
  *   valley        a corridor along a line: a floor at one level between rims raised over the land round it (cliff
  *                 walls or banks), for river valleys, defiles and sunken roads.
@@ -157,6 +159,60 @@ export function terraceRows(k: Kit, m: Massif, o: { tiers?: number[]; every?: nu
   // the row piece runs along y (vines) or x (vines-x): whichever lies closer to the contour
   const idAt = (x: number, y: number) => { const [gx, gy] = grad(x, y); return Math.abs(gx) > Math.abs(gy) ? idY : idX; };
   k.rowsAt(idAt, (x, y) => row(x, y), [o.soil ?? 'rossa', 'grass', 'dry'], o.gap ?? 1);
+}
+
+/**
+ * Vine rows along the terraces as they were built (the final height field, not a massif's field): on the cells where
+ * `planted` holds, lines `every` units apart parallel to the retaining wall below (its top edge: a drop of 2+ levels),
+ * kept `margin` units off it and off the wall above, a row piece turned along the line (`ids`, default the Elaia vines).
+ * Read after the whole build (roads, pits, water), so the rows follow the walls the player sees; vineyard soil (`soil`,
+ * a biome terrain) under the planted cells. The sim ground stays as it is.
+ */
+export function contourRows(k: Kit, planted: (x: number, y: number) => boolean, o: { every?: number; margin?: number; ids?: [string, string]; soil?: Kind; biome?: BiomeName } = {}) {
+  const every = o.every ?? 1.6, margin = o.margin ?? 1, half = 0.3, [idY, idX] = o.ids ?? ['elaia/vines', 'elaia/vines-x'];
+  let low: Float32Array | null = null, high: Float32Array | null = null;
+  // units from the nearest wall top below (low) and wall foot above (high), two-pass chamfer over the cells
+  const fields = () => {
+    const { W, H, K, height } = k, N = W * H;
+    const chamfer = (seed: (i: number, x: number, y: number) => boolean) => {
+      const d = new Float32Array(N).fill(1e9);
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (seed(y * W + x, x, y)) d[y * W + x] = 0;
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+        const i = y * W + x;
+        if (x > 0) d[i] = Math.min(d[i], d[i - 1] + 1);
+        if (y > 0) d[i] = Math.min(d[i], d[i - W] + 1, x > 0 ? d[i - W - 1] + 1.414 : 1e9, x < W - 1 ? d[i - W + 1] + 1.414 : 1e9);
+      }
+      for (let y = H - 1; y >= 0; y--) for (let x = W - 1; x >= 0; x--) {
+        const i = y * W + x;
+        if (x < W - 1) d[i] = Math.min(d[i], d[i + 1] + 1);
+        if (y < H - 1) d[i] = Math.min(d[i], d[i + W] + 1, x < W - 1 ? d[i + W + 1] + 1.414 : 1e9, x > 0 ? d[i + W - 1] + 1.414 : 1e9);
+      }
+      for (let i = 0; i < N; i++) d[i] /= K;
+      return d;
+    };
+    const step = (i: number, x: number, y: number, s: number) => [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => {
+      const nx = x + dx, ny = y + dy;
+      return nx >= 0 && ny >= 0 && nx < W && ny < H && s * (height[ny * W + nx] - height[i]) >= 2;
+    });
+    low = chamfer((i, x, y) => step(i, x, y, -1));
+    high = chamfer((i, x, y) => step(i, x, y, 1));
+  };
+  const at = (x: number, y: number) => { if (!low) fields(); return k.at([x, y]); };
+  const row = (x: number, y: number) => {
+    if ((Math.round(2 * x) + Math.round(2 * y)) & 1) return false; // a row piece spans two tiles: every other one
+    if (!planted(x, y)) return false;
+    const i = at(x, y);
+    if (i < 0) return false;
+    const d = low![i], e = high![i];
+    if (d < margin || e < margin || d > 1e6) return false;
+    return Math.abs(d / every - Math.round(d / every)) * every < half;
+  };
+  const idAt = (x: number, y: number) => {
+    const s = 0.5, f = (u: number, v: number) => { const j = at(u, v); return j < 0 ? 0 : low![j]; };
+    return Math.abs(f(x + s, y) - f(x - s, y)) > Math.abs(f(x, y + s) - f(x, y - s)) ? idY : idX;
+  };
+  if (o.soil) k.patchWhere(o.biome ?? 'elaia', o.soil, planted, ['grass']);
+  k.rowsAt(idAt, row, [o.soil ?? 'rossa', 'grass', 'dry', 'dirt'], 1);
 }
 
 /**
