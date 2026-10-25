@@ -21,7 +21,7 @@ import { columnTops, type MassifDef, type Massifs } from './massifs';
 import { buildFineArt, SmoothFrames, type CliffRoles, type FineArt } from './fineArt';
 import { HH, HW, IsoMap, LH, SIDE, ZBASE } from './iso';
 import type { BakeOpts } from './terrain';
-import { FOAM_H, FOAM_NX, FOAM_NY, FOAM_PX, FOAM_PY, FOAM_W, foamSprite, relief, RELIEF_FILL, SHADOW_H, SHADOW_W, treeShadow } from './relief';
+import { FOAM_H, FOAM_NX, FOAM_NY, FOAM_PX, FOAM_PY, FOAM_W, foamSprite, groundTint, relief, RELIEF_FILL, SHADOW_H, SHADOW_W, TINT_FILL, treeShadow } from './relief';
 import { relightTree } from './treeLight';
 import { PeakPainter } from './peaks';
 import { wallStone, wallTexture, type Stone } from './rockFace';
@@ -89,8 +89,9 @@ export async function loadArt(base = 'war/'): Promise<WarArt> {
     Promise.all(cliffs.map((c) => img(c.file))),
     Promise.all(defs.map((d) => img(d.file))),
   ]);
-  // the desert's red rock warmed from mud brown to the red and ochre of its walls (./rockFace.ts sandstone)
-  const warm = (file: string, im: HTMLImageElement) => (file.startsWith('biomes/kyrene/') && file.includes('redrock') ? reimage(redden(im)) : im);
+  // the desert's red rock warmed from mud brown to the red and ochre of its walls (./rockFace.ts sandstone); its salt
+  // bleached from slate grey to a white crust
+  const warm = (file: string, im: HTMLImageElement) => (!file.startsWith('biomes/kyrene/') ? im : file.includes('redrock') ? reimage(redden(im)) : file.includes('salt') ? reimage(bleach(im)) : im);
   const [si, vi] = await Promise.all([Promise.all(si0.map((im, i) => warm(sheets[i].file, im))), Promise.all(vi0.map((im, i) => warm(variants[i].file, im)))]);
   // trees relit for the NW light (./treeLight.ts), back as images so every user keeps one kind of source
   const lit = await Promise.all(defs.map((d, i) => (d.kind === 'tree' ? reimage(relightTree(oi[i])) : oi[i])));
@@ -116,6 +117,27 @@ function redden(im: HTMLImageElement): HTMLCanvasElement {
     p[o] = Math.min(255, r * 1.32 + 14);
     p[o + 1] = Math.min(255, gr * (1.0 + 0.25 * t) + 4);
     p[o + 2] = Math.min(255, b * 0.9);
+  }
+  g.putImageData(d, 0, 0);
+  return c;
+}
+/**
+ * The salt of a sheet or variant strip (64 x 48 frames) bleached: the grey pixels of each frame's top diamond to a white
+ * crust (light ones near white, the cracks a warm grey); the sand beside it, and the frames' sides, kept.
+ */
+function bleach(im: HTMLImageElement): HTMLCanvasElement {
+  const c = document.createElement('canvas');
+  c.width = im.width; c.height = im.height;
+  const g = c.getContext('2d')!;
+  g.drawImage(im, 0, 0);
+  const d = g.getImageData(0, 0, c.width, c.height), p = d.data;
+  for (let y = 0; y < c.height; y++) for (let x = 0; x < c.width; x++) {
+    const fx = x % 64, fy = y % 48, o = 4 * (y * c.width + x);
+    if (!p[o + 3] || Math.abs(fx - 31.5) / 32 + Math.abs(fy - 15.5) / 16 > 1) continue;
+    const r = p[o], gr = p[o + 1], b = p[o + 2];
+    if (Math.max(r, gr, b) - Math.min(r, gr, b) > 24) continue; // sand, not salt
+    const l = (r + gr + b) / 3, v = Math.max(150, Math.min(246, 206 + (l - 105) * 0.9));
+    p[o] = v; p[o + 1] = v - 2; p[o + 2] = v - 8;
   }
   g.putImageData(d, 0, 0);
   return c;
@@ -169,6 +191,8 @@ export class ArtBaker {
   private shade: Uint8Array;
   /** Per visual cell: the sides a shore water cell meets land on (./relief.ts FOAM_*). */
   private foam: Uint8Array;
+  /** Per visual cell: its ground tint (./relief.ts TINT_FILL code, 0 none). */
+  private tint: Uint8Array;
   /** Per visual cell: how its rock wall's front is smoothed (CUT_*), 0 none. */
   private cut: Uint8Array;
   /** Tree shadows by the row they are drawn after (world px rects of ./relief.ts treeShadow). */
@@ -229,6 +253,7 @@ export class ArtBaker {
       this.shadows[v].push({ x: Math.round(sx - w / 2), y: Math.round(sy - h / 2), w: Math.round(w), h: Math.round(h) });
     }
     ({ code: this.shade, foam: this.foam } = relief(iso.fw, iso.fh, iso.fk, iso.fz));
+    this.tint = groundTint(iso.fw, iso.fh, iso.fk);
     this.cut = this.cuts();
   }
 
@@ -537,17 +562,17 @@ export class ArtBaker {
     lips.length = 0;
   }
 
-  /** The baked light over row v's cells (./relief.ts), one fill per code. */
+  /** The ground tints and baked light over row v's cells (./relief.ts), one fill per code, the tints first. */
   private shadeRow(ctx: CanvasRenderingContext2D, v: number, umin: number, umax: number, y0: number, h: number): void {
-    const { iso, shade, code } = this, { fw, fh, fz } = iso;
+    const { iso, shade, code, tint } = this, { fw, fh, fz } = iso;
     let u = Math.max(umin, -v, v - 2 * (fh - 1));
     if ((u + v) & 1) u++;
     const paths = new Map<number, Path2D>();
     let foam: Path2D | null = null, wave: Path2D | null = null;
     const blobs: number[] = [];
     for (; u <= Math.min(umax, v, 2 * (fw - 1) - v); u += 2) {
-      const x = (u + v) / 2, y = (v - u) / 2, i = y * fw + x, s = shade[i];
-      if ((!s && !this.foam[i]) || code[i] < 0 || this.peaks?.covers(x >> 1, y >> 1)) continue;
+      const x = (u + v) / 2, y = (v - u) / 2, i = y * fw + x, s = shade[i], t = tint[i];
+      if ((!s && !t && !this.foam[i]) || code[i] < 0 || this.peaks?.covers(x >> 1, y >> 1)) continue;
       const ty = Math.round(iso.OY + v * FH - fz[i] * LH);
       if (ty - 2 * LH > y0 + h || ty + 2 * FH + 2 * LH < y0) continue;
       const tx = iso.OX + u * FW - FW;
@@ -567,18 +592,20 @@ export class ArtBaker {
         if (fb & FOAM_PY) edge(B, L, 3);
         if (fb & FOAM_NY) edge(T, R, 4);
       }
-      if (!s) continue;
-      let p = paths.get(s);
-      if (!p) paths.set(s, (p = new Path2D()));
+      if (!s && !t) continue;
+      // the cell's diamond into its light's path and its tint's (tints keyed past the light codes)
+      const p = new Path2D();
       if (iso.ramp[i]) { // through the ramp's corners
         const c = iso.fc, k = 4 * i, z = fz[i];
         p.moveTo(tx + FW, ty + (z - c[k]) * LH); p.lineTo(tx + 2 * FW, ty + FH + (z - c[k + 1]) * LH); p.lineTo(tx + FW, ty + 2 * FH + (z - c[k + 2]) * LH); p.lineTo(tx, ty + FH + (z - c[k + 3]) * LH); p.closePath();
       } else if (this.cut[i] & CUT_TIP) { // its front tip cut off by the wall (ArtBaker.cuts)
         p.moveTo(tx + FW, ty); p.lineTo(tx + 2 * FW, ty + FH); p.lineTo(tx + FW + FW / 2, ty + 2 * FH - CUT); p.lineTo(tx + FW / 2, ty + 2 * FH - CUT); p.lineTo(tx, ty + FH); p.closePath();
       } else { p.moveTo(tx + FW, ty); p.lineTo(tx + 2 * FW, ty + FH); p.lineTo(tx + FW, ty + 2 * FH); p.lineTo(tx, ty + FH); p.closePath(); }
+      for (const key of [t ? 256 + t : 0, s]) if (key) { let q = paths.get(key); if (!q) paths.set(key, (q = new Path2D())); q.addPath(p); }
     }
-    for (const [s, p] of paths) {
-      ctx.fillStyle = RELIEF_FILL[s];
+    for (const pass of [1, 0]) for (const [s, p] of paths) {
+      if ((s >= 256 ? 1 : 0) !== pass) continue;
+      ctx.fillStyle = s >= 256 ? TINT_FILL[s - 256] : RELIEF_FILL[s];
       ctx.fill(p);
     }
     // surf: a foam line along each shore edge and a broken wave line a little out in the water
