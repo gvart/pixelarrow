@@ -1,0 +1,34 @@
+src/war/view/autotile.ts
+  s_cfc22b058125c4::t_efceb034daa104 90-91
+  s_cfc22b058125c4::t_bde58baec6e37f 38-40,42
+  s_cfc22b058125c4::t_f83397e62b77b3 106
+  s_cfc22b058125c4::t_f454b9ea8be35c 125
+  s_cfc22b058125c4::t_b604e4e0228696 73-75
+src/war/view/iso.ts
+  s_cfc22b058125c4::t_5c2a4b97339894 19-22,98-148,169-171,219,254-257,259-264,268-269,272-275,295,307-308
+tests/war/isoPick.test.ts
+  s_cfc22b058125c4::t_9cae38de270213 58,63,70-73
+  s_cfc22b058125c4::t_53f131a54442a5 57,59-62,64-69,74-97
+src/war/view/build/buildingLayer.ts
+  s_cfc22b058125c4::t_f351ed69976137 198-199,204
+src/war/view/art.ts
+  s_cfc22b058125c4::t_8f9b18ab8f6a6c 411-421
+  s_cfc22b058125c4::t_5c2a4b97339894 12-14,132-133,318,320-322,351,353,379-387,402-410,422-424,437,458-461,494-497,500-504
+  s_cfc22b058125c4::t_0bbdbd66a598a6 214-216
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "80234a334b42aec57a193c2410f49c51721393ce",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
