@@ -81,8 +81,8 @@ const def: RegionDef = {
     k.piece('mountains/watch-post', [160, 110], { r: 5 });
     k.piece('mountains/cairn', [138, 52], { r: 6, n: 2 });
     k.piece('mountains/rockfall', [70, 98], { r: 8, onRock: true, n: 2 });
-    // fauna (bandits in the gorge and at the mine, bears in the east woods) and the claim point at the fort
-    k.lair('bandit', [66, 116], { as: 'bandits' });
+    // fauna (bandits in the valley woods and at the mine, bears in the east woods) and the claim point at the fort
+    k.lair('bandit', [44, 136], { as: 'bandits' }); // in the lower valley's woods, off the Tin Road (a caravan from the west reaches the court)
     k.lair('bandit', [172, 92], { as: 'bandits' });
     k.lair('bear', [222, 128], { as: 'bears' });
     k.lair('bear', [238, 92], { as: 'bears' });

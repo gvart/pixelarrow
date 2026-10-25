@@ -78,6 +78,37 @@ describe('haul', () => {
     expect(f.arrived.map((x) => x.to)).toEqual([mid, next]);
     expect(w.st.transit).toEqual([]);
   });
+
+  it('the next leg takes the cart along: it is crewed on arrival, before any tick', () => {
+    const region = warRegion('test-ridge')!, side = region.entries[0].side;
+    const men = Array.from({ length: 2 }, (_, i) => makePerson(`hc-${i}`, 'militia'));
+    const room = new WarRoom({ region, seed: 3, cap: 600 });
+    const cart: TransitCargo = { packs: {}, cart: { type: 'handcart', lots: [{ r: 'wood', n: 30, o: 'dodona' }], items: [] } };
+    const r = room.arrive(1, 0, men, side, {}, cart);
+    if ('error' in r) throw new Error(r.error);
+    // the world sends the haul's next leg in the same pass as the arrival (World.due): by person ids, no tick between
+    const out = room.depart(1, men.map((m) => m.id), side, 0);
+    if ('error' in out) throw new Error(out.error);
+    expect(out.cargo?.cart).toMatchObject({ type: 'handcart', lots: [{ r: 'wood', n: 30 }] });
+  });
+});
+
+describe('kleisoura', () => {
+  it('a caravan in from the west (dodona-e) rolls its cart into the market court', () => {
+    const region = warRegion('kleisoura')!;
+    const men = Array.from({ length: 4 }, (_, i) => makePerson(`kl-${i}`, 'militia'));
+    const room = new WarRoom({ region, seed: 1, cap: 600, wild: true }); // its lairs awake, as the region DO has them
+    const r = room.arrive(1, 0, men, 'W', {}, { packs: {}, cart: { type: 'handcart', lots: [{ r: 'wood', n: 30, o: 'dodona' }], items: [] } });
+    if ('error' in r) throw new Error(r.error);
+    const join: JoinMsg = { t: 'join', v: NET_VERSION, region: 'kleisoura', playerId: 1, team: 0, squads: [men.map((m) => m.id)] };
+    room.join(1, join, [men]);
+    for (let i = 0; i < 5; i++) room.tick();
+    const ct = region.safe![0], court = { x: Math.round(ct.x + ct.w / 2), y: Math.round(ct.y + ct.h / 2) };
+    expect(room.order(1, { kind: 'move', squad: r.squad, x: court.x, y: court.y })).toBeNull();
+    for (let i = 0; i < 3000; i++) room.tick();
+    const c = room.snapshot().sieges!.find((s) => s.type === 'handcart')!;
+    expect(Math.hypot(c.x - court.x, c.y - court.y)).toBeLessThan(6);
+  });
 });
 
 describe('convoys on the world map', () => {

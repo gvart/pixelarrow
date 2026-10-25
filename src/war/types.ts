@@ -506,8 +506,8 @@ export interface WarBuildSim extends WarSim {
   damageBuilding(id: number, dmg: number): void;
   /** Scenarios: the team's unfinished bridge pieces done at once (standing bridges at the start). */
   finishBridges(team: number): void;
-  /** M6b scenarios and benches: a finished, empty cart of `owner` (team `team`) at (x,y); its siege id. */
-  spawnCart(team: number, owner: string, type: 'handcart' | 'wagon', x: number, y: number): number;
+  /** M6b scenarios and benches: a finished, empty cart of `owner` (team `team`) at (x,y); its siege id. `crew`: squad crewing it at once. */
+  spawnCart(team: number, owner: string, type: 'handcart' | 'wagon', x: number, y: number, crew?: number): number;
   /** Spawn the region's lairs (neutral play; once). */
   spawnMobs(): void;
   /** M7a (src/war/sim/prebuilt.ts): the region's towns; a team's recruit pool (an hour) and cap from its houses; its favour and prestige (score an hour, capped); the upkeep multiplier of its squad resting at (x,y) (a well near). */

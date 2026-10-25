@@ -888,7 +888,8 @@ pile); it moves only by being carried and changes hands only by a hand-off, a fi
 | cart | see Carts | its driver's player | captured with its cargo |
 | a man | his worn kit | – | an item is worn or in a holder, nowhere else |
 
-A crafted item lands in the workplace's output chest for the crafter's player; equipping needs the man and the item in
+A crafted item lands in the workplace's output chest for the crafter's player (no chest of his with room: in the
+maker's pack); equipping needs the man and the item in
 the same region within 4 tiles.
 
 ### Carts
