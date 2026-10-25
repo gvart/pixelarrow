@@ -5,7 +5,7 @@ vi.mock('phaser', () => ({ default: {} }));
 import { RECIPES } from '../../src/audio/sfx';
 import { TRACKS } from '../../src/audio/music';
 import { CUES } from '../../src/war/view/bossFx';
-import { ambienceFor, cueSfx, DEFAULT_SOUND, gatherSfx, HOLD_S, MusicDirector, parseSound, shotSfx, spatial, STATE_TRACK, strikeSfx, wantState } from '../../src/war/view/sound/mix';
+import { ambienceFor, cueSfx, DEFAULT_SOUND, gatherSfx, HOLD_S, MusicDirector, parseSound, shotSfx, spatial, STATE_TRACK, strikeSfx, struckSince, wantState } from '../../src/war/view/sound/mix';
 
 describe('war sound: spatial', () => {
   it('is full and centred in the middle of the view, panned and fading towards and past the edges', () => {
@@ -50,6 +50,16 @@ describe('war sound: what plays', () => {
     expect(cueSfx('boss.roar', 'drakon')).toBe('dragonRoar');
     expect(cueSfx('boss.horn', 'bandit_king')).toBe('banditHorn');
     expect(cueSfx('boss.smash', 'brontes')).toBe('anvil');
+  });
+});
+
+describe('war sound: blows between snapshots', () => {
+  it('hears a blow struck in any snapshot skipped since the last one taken, once', () => {
+    expect(struckSince(0, 1)).toBe(true);
+    expect(struckSince(1, 1)).toBe(false);
+    expect(struckSince(undefined, 3)).toBe(false);
+    // a slow frame took every third snapshot: blows 0, 1 and 2 ticks old landed since, 3 was heard last time
+    expect([0, 1, 2, 3].map((s) => struckSince(s, 3))).toEqual([true, true, true, false]);
   });
 });
 

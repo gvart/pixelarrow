@@ -39,6 +39,16 @@ export function strikeSfx(cls: string, roll: number): SfxId | null {
   return cls.startsWith('mob_') ? 'clashHeavy' : 'clash';
 }
 
+/**
+ * Did a unit (or engine) strike since the last snapshot the sound layer took? `swing` is the ticks since its last blow
+ * (0: this tick), `gap` the ticks since that snapshot. The view takes one snapshot per render frame, so under load (a
+ * 600-man brawl at a few frames a second) it skips some; a blow is heard if it landed in any of them, not only when
+ * `swing` is exactly 0 in the one it took.
+ */
+export function struckSince(swing: number | undefined, gap: number): boolean {
+  return swing !== undefined && swing >= 0 && swing < Math.max(1, gap);
+}
+
 /** A missile's release and landing. */
 export function shotSfx(kind: 'arrow' | 'stone' | 'javelin' | 'bolt', siege: boolean): { release: SfxId; land: SfxId } {
   if (siege) return { release: 'throwRelease', land: 'boulder' };
