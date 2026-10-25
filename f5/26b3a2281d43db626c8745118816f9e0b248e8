@@ -1,0 +1,25 @@
+server/test/war/holders.test.ts
+  s_cfc22b058125c4::t_7022e041f3edda 101-111
+  s_cfc22b058125c4::t_c5669571e9bd74 19
+server/src/war/room.ts
+  s_cfc22b058125c4::t_02fbd632570021 622-623
+  s_cfc22b058125c4::t_3320625a1a62d3 635-637
+docs/WAR.md
+  s_cfc22b058125c4::t_3e08a7929b5274 891-892
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "f526b3a2281d43db626c8745118816f9e0b248e8",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
