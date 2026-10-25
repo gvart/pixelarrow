@@ -45,6 +45,7 @@ const ROCKY = new Set(['rock', 'snow', 'drift', 'scree', 'gravel', 'redrock', 'm
 const SNOWY = new Set(['snow', 'drift', 'salt'].map(K));
 const SANDY = new Set(['sand', 'dune', 'reg', 'hardpan'].map(K));
 const SHALLOW = K('shallow'), DEEP = K('deep');
+const BRIGHT = new Set(['marble', 'snow', 'drift'].map(K));
 const DUNE = new Set(['dune', 'sand'].map(K));
 /** Undulation per kind (1 = grass). */
 const AMP: Record<number, number> = Object.fromEntries([['road', 0.3], ['paving', 0], ['ruin', 0.4], ['forest', 1.2], ['dune', 1.6], ['sand', 0.8], ['snow', 1.4], ['drift', 1.4], ['salt', 0.4], ['marsh', 0.5]].map(([k, v]) => [K(k as string), v as number]));
@@ -127,7 +128,7 @@ export function relief(fw: number, fh: number, fk: Uint8Array, fz: Float32Array)
     const x = j % fw, y = (j / fw) | 0, e = edge[j];
     P[j] += A[j] * (1.2 * noise(x, y, 24, 7) + 0.5 * noise(x, y, 10, 8) + (DUNE.has(fk[j]) ? 1.4 * ridged(x, y, 14, 9) ** 3 : 0));
     if (!e) continue;
-    const m = Math.min(1, e / 7);
+    const m = Math.min(1, e / 7) * (BRIGHT.has(fk[j]) ? 0.45 : 1); // bright stone shows every fold: less of it
     P[j] += m * (5 * noise(x, y, 44, 4) + 3 * noise(x, y, 20, 3) + 2.4 * ridged(x, y, 12, 1) ** 2 + 0.6 * ridged(x, y, 5, 2)) + Math.min(e, 12) * 0.3;
   }
   // slope: clamped differences over 1..3 cells each way (a wall counts as a slope of 1.5 levels per cell)
