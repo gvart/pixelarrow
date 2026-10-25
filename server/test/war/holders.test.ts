@@ -16,6 +16,7 @@ import { lotsOf, pay, planTake, putStmt, strongroom } from '../../src/war/holder
 import { RECRUIT_FOOD, START } from '../../src/war/persons';
 import { BUILDINGS } from '../../../src/war/sim/economy';
 import type { Item } from '../../../src/data/items';
+import { makePerson } from '../../../src/war/sim/roster';
 
 const DB = () => env.DB!;
 const post = (token: string, path: string, json: unknown = {}) => api(`/api/war${path}`, { method: 'POST', token, json });
@@ -96,6 +97,17 @@ describe('crafted items are physical', () => {
     expect(r.order(2, { kind: 'load', squad: s, from: { building: chest.id } })).toBe('notOwner');
     expect(orderSchema.safeParse({ kind: 'load', squad: 1, from: { building: 1, cart: 2 } }).success).toBe(false);
     expect(orderSchema.safeParse({ kind: 'unload', squad: 1, to: { cart: 2 }, res: 'coin' }).success).toBe(true);
+  });
+
+  it('no chest of his: the maker carries it in his pack, and the stash lists it there', () => {
+    const r = new WarRoom({ region, seed: 1, cap: 600 });
+    const men = [makePerson('mk-1', 'civ_smith')];
+    r.join(3, { t: 'join', v: NET_VERSION, region: 'test-ridge', playerId: 3, team: 0, squads: [men.map((m) => m.id)] }, [men]);
+    r.tick();
+    r.deposit({ ...crafted(7, 'p:3', -1), pid: 'mk-1' });
+    expect(r.sim.cargo({ reserve: 0 })!.slots[0].hold.items).toEqual([]);
+    r.tick();
+    expect(r.holdRows().find((h) => h.kind === 'packs' && h.pid === 3)).toMatchObject({ items: [{ def: 'xiphos', uid: `c:${craftKey('test-ridge', r.run, 7)}` }] });
   });
 });
 

@@ -619,7 +619,8 @@ export class WarRoom {
 
   /**
    * M6e: a crafted item goes in the workplace's output chest: its owner's chest (of the team) nearest the workplace
-   * with room for it, else the team's home strongroom in the region. Its uid is the event's key (`c:<key>`).
+   * with room for it, else the maker's pack, else the team's home strongroom in the region. Its uid is the event's key
+   * (`c:<key>`).
    */
   deposit(e: Crafted): void {
     e.item = { ...e.item, uid: `c:${craftKey(this.region.id, this.run, e.order)}` };
@@ -631,6 +632,9 @@ export class WarRoom {
       const at = this.sim.cargo({ building: c.id });
       if (at && freeLoads(at.slots) >= 0.2 - 1e-6 && !fill(at.slots, { lots: [], items: [e.item] }).items.length) return;
     }
+    // no chest with room: the maker carries it in his pack (the stash lists packs)
+    const maker = e.pid ? this.sim.cargo({ persons: [e.pid] }) : null;
+    if (maker && maker.owner === e.owner && !fill(maker.slots, { lots: [], items: [e.item] }).items.length) return;
     this.sim.cargo({ reserve: e.team })!.slots[0].hold.items.push(e.item);
   }
 
