@@ -405,8 +405,10 @@ export class ArtBaker {
       const A = KINDS.indexOf(s.first as never), B = KINDS.indexOf(s.second as never), w = new Float32Array(KINDS.length);
       w[A] = 1; w[B] = -1;
       if (A === SH && B === DP) { for (let t = 0; t < KINDS.length; t++) if (t !== SH && t !== DP) w[t] = SHORE; }
-      else if (B === SH) w[DP] = -1;
-      else if (A === SH) w[DP] = 1;
+      // a shore sheet (land against water): every land kind counts as its land, so the shore follows the coast's real line
+      // (the autotiler lays the shore band on grass, scree... too) and a staircase coast is not one water pocket per cell
+      else if (B === SH) { w[DP] = -1; for (let t = 0; t < KINDS.length; t++) if (!w[t]) w[t] = 1; }
+      else if (A === SH) { w[DP] = 1; for (let t = 0; t < KINDS.length; t++) if (!w[t]) w[t] = -1; }
       return w;
     });
     const W: number[] = [];
