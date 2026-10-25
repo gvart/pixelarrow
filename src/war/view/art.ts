@@ -49,7 +49,14 @@ interface TilesJson extends TilesMeta { cliffs?: { id: string; file: string; fra
 /** Fetch the global and every biome's tiles.json and objects.json and every image they name (relative to the page: public/war/). */
 export async function loadArt(base = 'war/'): Promise<WarArt> {
   const json = (p: string) => fetch(base + p).then((r) => r.json());
-  const img = (p: string) => { const im = new Image(); im.src = base + p; return im.decode().then(() => im); };
+  // load events, not decode(): decoding hundreds of images at once rejects spuriously ("The source image cannot be
+  // decoded"), always so in Playwright's bundled headless Chromium
+  const img = (p: string) => new Promise<HTMLImageElement>((ok, fail) => {
+    const im = new Image();
+    im.onload = () => ok(im);
+    im.onerror = () => fail(new Error(`${p} failed to load`));
+    im.src = base + p;
+  });
   const libs = [{ name: 'global', tiles: 'tiles/', objs: 'objects/' }, ...BIOMES.map((b) => ({ name: b as string, tiles: `biomes/${b}/`, objs: `biomes/${b}/` }))];
   const metas = await Promise.all(libs.map((l) => Promise.all([json(l.tiles + 'tiles.json') as Promise<TilesJson>, json(l.objs + 'objects.json') as Promise<{ objects: ObjDef[] }>])));
   const sheets: TilesMeta['sheets'] = [], variants: NonNullable<TilesMeta['variants']> = [], cliffs: { id: string; file: string; frames?: number; roles?: CliffRoles }[] = [], defs: ObjDef[] = [];
