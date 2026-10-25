@@ -1,0 +1,23 @@
+src/war/view/relief.ts
+  s_cfc22b058125c4::t_847bd312d67a0a 55-58,60,140-144
+  s_cfc22b058125c4::t_ea9a13731c12f0 164,185
+  s_cfc22b058125c4::t_c002a12b3181d2 167-168,184
+tests/war/relief.test.ts
+  s_cfc22b058125c4::t_58adc7d1a1f96b 1-32
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "f4e86ee58b511f42650b18487ba20915a3022445",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "unknown"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
