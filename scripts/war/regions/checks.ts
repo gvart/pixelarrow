@@ -213,5 +213,27 @@ export function runChecks(c: CheckIn): Check[] {
 }
 
 
+/**
+ * Water levels on the drawn (visual) layer: a water surface is level within a stretch (a step between water cells only
+ * at a marked fall), and no bank is lower than the water beside it. Returns the defect counts and their first cells.
+ */
+export function waterChecks(W: number, H: number, z: ArrayLike<number>, wet: (i: number) => boolean, fall: ArrayLike<number>) {
+  let steps = 0, banks = 0;
+  const at: [number, number, string][] = [];
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const i = y * W + x;
+    if (!wet(i)) continue;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nx = x + dx, ny = y + dy;
+      if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+      const j = ny * W + nx;
+      if (z[j] >= z[i]) continue;
+      if (wet(j)) { if (fall[i] || fall[j]) continue; steps++; if (at.length < 4000) at.push([x, y, 'step']); }
+      else { banks++; if (at.length < 4000) at.push([x, y, 'bank']); }
+    }
+  }
+  return { steps, banks, at };
+}
+
 // shared borders line up (build.ts runs it over all 37 built regions; tests/war/worldRegions.test.ts too)
 export { mirrorChecks, type Borders } from '../../../src/war/region/borders.ts';

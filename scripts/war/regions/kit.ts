@@ -38,7 +38,7 @@ import { REGION_DEPTH } from '../../../src/war/sim/depth.ts';
 import { readImage } from '../../art/lib/png.mjs';
 import { BRIEF, byId, sideOf, type Side, type WorldRegion } from './world.ts';
 import { TRADE_ZONES } from '../../../src/war/region/zones.ts';
-import { runChecks, type Check } from './checks.ts';
+import { runChecks, waterChecks, type Check } from './checks.ts';
 
 export type { Pt, Sample };
 export { fbm };
@@ -123,6 +123,10 @@ export class Kit {
   readonly roads: Sample[][] = [];
   /** Cells of a landmark's paved streets and plazas: sim terrain road, drawn as flagstones (visual kind 'paving'). */
   readonly paved: Uint8Array;
+  /** Water cells at a fall: where a river's course really descends (its bed steps down), drawn as a waterfall. */
+  readonly fallCell: Uint8Array;
+  /** Water cells of a river() whose bed steps down along its course (`bed` a function); all other water lies level. */
+  readonly riverCell: Uint8Array;
 
   readonly def: RegionDef;
   readonly K: number;
@@ -140,6 +144,8 @@ export class Kit {
     this.roadDist = new Float32Array(this.N).fill(Infinity);
     this.zoneOverride = new Uint8Array(this.N);
     this.paved = new Uint8Array(this.N);
+    this.fallCell = new Uint8Array(this.N);
+    this.riverCell = new Uint8Array(this.N);
     this.style = { ...STYLE, ...def.style };
     const w = byId.get(def.id);
     if (!w) throw new Error(`unknown region ${def.id} (scripts/war/regions/world.ts)`);
@@ -312,6 +318,7 @@ export class Kit {
         const shallow = !(o.deep ?? true) || atFord;
         this.water[i] = shallow ? 1 : 2;
         this.terrain[i] = shallow ? 'sand' : 'dirt';
+        if (typeof o.bed === 'function') this.riverCell[i] = 1;
       } else {
         if (this.water[i]) return;
         const lim = bed + 1 + Math.floor((d - half) / bank);
@@ -1351,6 +1358,37 @@ function visualLayer(k: Kit): Out {
       rise[i] = zv[i] - r0;
     }
   }
+  // water as drawn: each stretch (joined water cells of one level) lies at the low quarter of its banks, never under its own bed, and
+  // a bank under that is filled up to it (the land round it eased down a level per cell), so no water stands over its
+  // banks; stretches meet only at falls (settleWater)
+  {
+    const st = new Int32Array(N).fill(-1), q = new Int32Array(N), fill: number[] = [];
+    const nb = (i: number, f: (j: number) => void) => {
+      const x = i % W;
+      if (x > 0) f(i - 1);
+      if (x < W - 1) f(i + 1);
+      if (i >= W) f(i - W);
+      if (i + W < N) f(i + W);
+    };
+    for (let s0 = 0; s0 < N; s0++) {
+      if (!water[s0] || st[s0] >= 0) continue;
+      const z0 = zv[s0];
+      let qt = 0;
+      const shore: number[] = [];
+      q[qt++] = s0; st[s0] = s0;
+      for (let qh = 0; qh < qt; qh++) nb(q[qh], (j) => {
+        if (!water[j]) shore.push(zv[j]); else if (st[j] < 0 && zv[j] === z0) { st[j] = s0; q[qt++] = j; }
+      });
+      // the low quarter of its banks (a stray low cell, a ford or a cut, is filled up rather than sinking the water)
+      shore.sort((a, b) => a - b);
+      const lo = shore.length ? shore[Math.floor(shore.length / 4)] : z0, level = Math.max(z0, lo);
+      for (let n = 0; n < qt; n++) { zv[q[n]] = level; nb(q[n], (j) => { if (!water[j] && zv[j] < level) { zv[j] = level; fill.push(j); } }); }
+    }
+    while (fill.length) {
+      const i = fill.pop()!;
+      nb(i, (j) => { if (!water[j] && zv[j] < zv[i] - 1) { zv[j] = zv[i] - 1; fill.push(j); } });
+    }
+  }
   const inBlob = (x: number, y: number, b: Blob, seed: number) => blob(x, y, b[0], b[1], b[2], b[3], b[4] ?? 0, 1.2, seed) > 0;
   const sandAll = (i: number) => {
     const tx = i % W, ty = Math.floor(i / W), r = 2 * (k.K / 2);
@@ -1402,8 +1440,11 @@ export function build(def: RegionDef): Built {
   // ---- the fine run: visual layer
   const fk = new Kit(def, 4);
   def.build(fk);
+  settleWater(fk); // drawn water only: the sim keeps its beds (walking, fords, bridges unchanged)
   autoZones(fk);
   const fine = visualLayer(fk);
+  const SH = KINDS.indexOf('shallow'), DP = KINDS.indexOf('deep');
+  const wq = waterChecks(fk.W, fk.H, fine.z, (i) => fine.kind[i] === SH || fine.kind[i] === DP, fk.fallCell);
   // ---- the sim run
   const k = new Kit(def, 2);
   def.build(k);
@@ -1940,6 +1981,7 @@ export function build(def: RegionDef): Built {
   claimPoints.forEach((c, n) => { if (!reach(c.x, c.y)) cut.push(`claim ${n}`); });
   if (cut.length) log.push(`UNREACHABLE from ${k.sides[0].id}: ${cut.join(', ')}`);
   const checks: Check[] = [
+    { need: 'water', ok: !wq.steps && !wq.banks, why: wq.steps || wq.banks ? `${wq.steps} water steps off a fall, ${wq.banks} banks under the water` : 'level water, banks over it' },
     { need: 'reach', ok: !cut.length, why: cut.length ? `unreachable ${cut.join(', ')}` : 'all reachable' },
     ...runChecks({ world: k.world, W, H, height, terrain, water, walk, seen, roadDist: k.roadDist, spots: k.spots, toTile: k.toTile, objects, lairs, entries, sides: k.sides }),
   ];
@@ -1954,7 +1996,7 @@ export function build(def: RegionDef): Built {
     adjacent: k.sides.map((s) => ({ id: s.id, side: s.side })), fauna: w.fauna.map((f) => f.as), resources: w.resources,
     ...(BRIEF[w.id].goods ? { goods: BRIEF[w.id].goods } : {}),
     purpose: BRIEF[w.id].purpose,
-    mustHave: Object.fromEntries(checks.filter((c) => !c.need.startsWith('road ') && c.need !== 'reach').map((c) => [c.need, c.ok])),
+    mustHave: Object.fromEntries(checks.filter((c) => !c.need.startsWith('road ') && c.need !== 'reach' && c.need !== 'water').map((c) => [c.need, c.ok])),
     routes: Object.fromEntries(checks.filter((c) => c.need.startsWith('road ')).map((c) => [c.need.slice(5), c.ok])),
   };
   const json = {
@@ -1967,6 +2009,37 @@ export function build(def: RegionDef): Built {
   for (const s of k.sides) spots[`entry_${s.id}`] = k.entry(s.id, 5);
   Object.assign(spots, k.spots);
   return { json, spots, claims: claimPoints, log, checks, bytes: 0 };
+}
+
+/**
+ * Water lies level: joined water cells take the lowest level among them, except along a river whose bed really steps
+ * down (river() `bed` a function), where it may fall; those steps are marked falls (Kit.fallCell).
+ */
+function settleWater(k: Kit): void {
+  const { W, N, height, water, riverCell, fallCell } = k;
+  const seen = new Uint8Array(N), q = new Int32Array(N);
+  const nb = (i: number, f: (j: number) => void) => {
+    const x = i % W;
+    if (x > 0) f(i - 1);
+    if (x < W - 1) f(i + 1);
+    if (i >= W) f(i - W);
+    if (i + W < N) f(i + W);
+  };
+  for (let s = 0; s < N; s++) {
+    if (!water[s] || seen[s]) continue;
+    let qt = 0, lo = height[s];
+    q[qt++] = s; seen[s] = 1;
+    for (let qh = 0; qh < qt; qh++) {
+      const i = q[qh];
+      nb(i, (j) => {
+        if (!water[j] || seen[j] || (height[j] !== height[i] && (riverCell[i] || riverCell[j]))) return;
+        seen[j] = 1; q[qt++] = j;
+        if (height[j] < lo) lo = height[j];
+      });
+    }
+    for (let n = 0; n < qt; n++) height[q[n]] = lo;
+  }
+  for (let i = 0; i < N; i++) if (water[i]) nb(i, (j) => { if (water[j] && height[j] !== height[i]) fallCell[i] = fallCell[j] = 1; });
 }
 
 /** The mountains library over the rock and a band round it (later zones of the script keep theirs). */
