@@ -35,7 +35,7 @@ const def: RegionDef = {
     // the plunge pool under the falls (the rim stays a cliff there: the falls are no way up)
     k.basin([112, 221, 8, 6, 0], 1, 0, 1);
     k.waterBody([112, 221, 4, 3, 0], { deep: true, shore: 1, beach: 0 });
-    k.fall([111.5, 216.5], [112, 220], true); // down the Temple City's lifted rim (landmarks.ts templeCity)
+    // the falls themselves: the water sheet down the Temple City's lifted rim (src/war/view/water.ts), no sprite
     k.spot('fortress', [128, 92]);
     // M7d / W-48: the Temple City of the Navel over the whole mesa top: the ramp gate forts, the processional ways to
     // the Great Fair and the precinct, the Titan in his arena, the Minotaur in the labyrinth
