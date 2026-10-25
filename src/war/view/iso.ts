@@ -203,7 +203,8 @@ export class IsoMap {
       }
     }
     this.fk = kind;
-    this.fz = flush(fw, fh, height, (j) => kind[j] === SHALLOW || kind[j] === DEEP);
+    // a built visual layer has its water levelled already (scripts/war/regions/kit.ts visualLayer)
+    this.fz = r.visual ? Float32Array.from(height) : flush(fw, fh, height, (j) => kind[j] === SHALLOW || kind[j] === DEEP);
     if (flat) {
       // the mountain's tiles, and rock cells on the tiles round them (the cells' curves overhang the tiles')
       const SNOW = KINDS.indexOf('snow'), ROCK = KINDS.indexOf('rock'), near = new Uint8Array(flat.length);
