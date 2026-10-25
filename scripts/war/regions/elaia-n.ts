@@ -5,12 +5,14 @@
  * Layout (Gemini reference shots/war/regions/proto/elaia-n.png; W-52 set pieces): the deep lake fills the north third; the Lake Road comes
  * over it on a single causeway, 8 tiles wide, and lands on a firm grassy tongue in the middle of a wide reed marsh cut by
  * shallow channels. Low islands (h3) flank the landfall a bowshot off the causeway, one with a ruined watch tower:
- * archers' ground over the narrows. South of the marsh the firm farmland stands a cliff tier up (h5), the region's
+ * archers' ground over the narrows. South of the marsh the firm farmland stands a four-level wall up (h7, rolling), the region's
  * second set piece: a grid of wide fields round the farm village at the crossroads (the claim point), a higher bench
- * (h8) along the west edge, and the table's south rim a cliff down to the lowland meadows (h2) toward Elaia. Dry tracks on the side benches lead north to Elaia's other entries, a road east
+ * (h12-13) along the west edge, and the table's south rim a wall down to the lowland meadows (h2) toward Elaia. Dry tracks on the side benches lead north to Elaia's other entries, a road east
  * to the Bacchae.
  */
 import type { Kit, Pt, RegionDef } from './kit.ts';
+import { fbm } from './kit.ts';
+import { profile, relief } from './setpieces.ts';
 
 const def: RegionDef = {
   id: 'elaia-n',
@@ -19,19 +21,25 @@ const def: RegionDef = {
     const N = k.entry('stymphalia'), S = k.entry('elaia'), E = k.entry('bacchae'), NW = k.entry('elaia-w'), NE = k.entry('elaia-e');
     k.fill(2);
     k.zone('elaia', () => 99);
-    // the marsh and the lake; channels through the reeds; reed pools
+    // the marsh and the lake
     k.paint('marsh', [128, 100, 124, 40, 0], { rough: 8 });
     k.waterBody([134, 14, 112, 70, 0.02], { shore: 4, beach: 1, rough: 7 });
+    // the land (setpieces.ts relief): the marsh low by the lake, a four-level wall up to the rolling farm table, the west
+    // bench a wall higher again, the side benches over the marsh at the north ends, the table's south rim a wall down to
+    // the lowland meadows toward Elaia
+    relief(k, (x, y, s) => {
+      const t = y + 8 * Math.sin(x / 17 + s) + 4 * Math.sin(x / 6) + 4 * fbm(x, y, 9, s + 1);
+      let v = profile([[112, 1.6], [124, 2.2], [130, 7], [200, 7.6], [220, 7.2], [228, 2], [256, 2.4]], t) + 1.1 * fbm(x, y, 22, s + 2) + (y > 130 && y < 220 ? 1.0 * Math.max(0, 1 - x / 160) : 0);
+      const w = x + 5 * Math.sin(y / 11 + s) + 3 * fbm(x, y, 6, s + 3);
+      const south = Math.max(0, Math.min(1, (y - 120) / 20));
+      v = Math.max(v, south * profile([[16, 13.4], [26, 12.6], [34, 10], [44, 7.6], [45, 0]], w) + 0.8 * fbm(x, y, 7, s + 4));
+      const side = Math.min(w, 256 - x + 5 * Math.sin(y / 9 + s));
+      if (y < 140) v = Math.max(v, profile([[12, 6], [20, 5], [26, 2]], side) + 0.4 * fbm(x, y, 5, s + 5));
+      return v;
+    }, { cliffs: [[2, 6.5], [9.5, 12]] });
+    // channels through the reeds; a brook over the farmland down to the south edge
     for (const c of [[[30, 84], [56, 100], [80, 96], [100, 116], [96, 134]], [[232, 80], [204, 98], [180, 94], [164, 112], [170, 134]], ] as Pt[][]) k.river(c, { half: 1.1, deep: false, bed: 1, bank: 2 });
-    // the firm land a cliff tier up south of the marsh, the bench higher still along the south and west edges, the side
-    // benches the tracks run on (after the marsh channels, so the tier's wall stays sheer)
-    k.lift((x, y, s) => (y + 8 * Math.sin(x / 17 + s) + 4 * Math.sin(x / 6) > 130 ? 5 : NaN));
-    k.lift((x, y, s) => (x + 5 * Math.sin(y / 11 + s) < 24 && y > 136 ? 8 : NaN));
-    // the table's south rim: a cliff down to the lowland meadows along the south edge (Elaia's road ramps down it)
-    k.lift((x, y, s) => (y + 6 * Math.sin(x / 13 + s) + 3 * Math.sin(x / 5) > 226 ? 2 : NaN), true);
-    k.lift((x) => (x < 18 || x > 238 ? 4 : NaN));
-    // a brook over the farmland down to the south edge
-    k.river([[92, 140], [80, 172], [62, 198], [56, 214]], { half: 1.1, deep: false, bed: 4, bank: 3 });
+    k.river([[92, 140], [80, 172], [62, 198], [56, 214]], { half: 1.1, deep: false, bed: 5, bank: 3 });
     for (const b of [[60, 84, 6, 3, 0.4], [186, 84, 7, 3, -0.3], [100, 104, 4, 2, 0], [210, 108, 5, 3, 0.2], [40, 104, 4, 3, 0]] as const) k.waterBody([...b], { deep: false, beach: 0, rough: 1 });
     // the causeway and its landfall tongue; the islands over it
     k.causeway([[128, -6], [128, 30], [126, 62], [122, 82]], 2, 1);
@@ -49,6 +57,7 @@ const def: RegionDef = {
     k.road([hub, [70, 146], [30, 120], [12, 80], NW], { w: 1.1, grade: 3 });
     k.road([[208, 134], [240, 100], [246, 60], NE], { w: 1.1, grade: 3 });
     k.road([[158, 104], [142, 100], [124, 96]], { w: 0.8, grade: 2 });
+    k.road([[70, 182], [40, 200], [28, 224]], { w: 0.9, grade: 2 }); // a track up onto the west bench
     // the farmland: fields and flax by the channels, olive and herb gardens on the bench
     k.fields([176, 176, 40, 22, 0], 0, { plot: 16, wide: 12 });
     k.fields([66, 182, 40, 26, 0], 0, { plot: 16, wide: 12 });
