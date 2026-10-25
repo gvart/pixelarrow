@@ -1,0 +1,49 @@
+scripts/war/play-smoke.mjs
+  s_fcb7475e0b5395::t_e19c7ad49ec283 465
+  s_fcb7475e0b5395::t_887218d8d5c331 476
+  s_fcb7475e0b5395::t_a5d9429b391049 437,444,451
+  s_fcb7475e0b5395::t_d009a8f4613823 408-409
+  s_fcb7475e0b5395::t_a90d56137ca775 312-317
+  s_fcb7475e0b5395::t_9f18b577dbdcb0 67,69-70
+  s_fcb7475e0b5395::t_ea2aeb1f145c4a 89
+  s_fcb7475e0b5395::t_5fb16d8c2dee9b 420
+  s_fcb7475e0b5395::t_a124214aaa7c76 397-398
+  s_fcb7475e0b5395::t_a7827d4d6ed330 430-431
+  s_fcb7475e0b5395::t_12d55b2c6ff745 374
+  s_fcb7475e0b5395::t_974c35efb4d78e 384-395
+  s_fcb7475e0b5395::t_fb4eddc8af3e2a 7-11
+  s_fcb7475e0b5395::t_ac987177149423 141
+  s_fcb7475e0b5395::t_a6376dca4cbb16 438-439
+  s_fcb7475e0b5395::t_b96197b71f0075 440-442
+  s_fcb7475e0b5395::t_850dbade6e6036 458-459
+  s_fcb7475e0b5395::t_24abb835c8db1c 460-461,464,467,470,477
+  s_fcb7475e0b5395::t_ef1ed039f4d299 90,92
+  s_fcb7475e0b5395::t_3a939b7e3deb50 422,425-426
+  s_fcb7475e0b5395::t_adc858fa58b8ac 466
+  s_fcb7475e0b5395::t_50c3faf2e242a9 443,445-450
+  s_fcb7475e0b5395::t_70b7cd6568f32f 411
+  s_fcb7475e0b5395::t_1730ef308ae0fa 148-149
+  s_fcb7475e0b5395::t_5bb492805719a3 413-419,421,423-424,427-429,433-434
+  s_fcb7475e0b5395::t_34f8e2b653a147 319-320,327-343,345-346,349-362,365,367-371
+  s_fcb7475e0b5395::t_d2c2353afc7294 78,80-81
+  s_fcb7475e0b5395::t_e7ff2effa3ff72 318
+docs/PLAYTEST.md
+  s_fcb7475e0b5395::t_573a170255f041 95-97
+  s_fcb7475e0b5395::t_90a5f3271bb79c 89-94,98-99
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "aa6fa1320f417614bc98ffedeb31f25d9d21d3fc",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
