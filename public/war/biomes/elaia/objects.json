@@ -1994,6 +1994,96 @@
    "state": "ruined",
    "rubble": true,
    "source": "stone-wall kit ruined frames (mask 10), 2 tiles"
+  },
+  {
+   "id": "old-bridge-deck",
+   "kind": "prop",
+   "file": "old-bridge-deck.png",
+   "w": 136,
+   "h": 88,
+   "metres": 2.67,
+   "anchor": {
+    "x": 68,
+    "y": 33
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "source": "bridge-stone-diag v3-deck (done), composed (scripts/war/art/old-bridge.mjs)"
+  },
+  {
+   "id": "old-bridge-endp",
+   "kind": "prop",
+   "file": "old-bridge-endp.png",
+   "w": 136,
+   "h": 69,
+   "metres": 2.09,
+   "anchor": {
+    "x": 68,
+    "y": 46
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "source": "bridge-stone-diag v3-end+ (done), composed (scripts/war/art/old-bridge.mjs)"
+  },
+  {
+   "id": "old-bridge-endm",
+   "kind": "prop",
+   "file": "old-bridge-endm.png",
+   "w": 136,
+   "h": 88,
+   "metres": 2.67,
+   "anchor": {
+    "x": 68,
+    "y": 65
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "source": "bridge-stone-diag v3-end- (done), composed (scripts/war/art/old-bridge.mjs)"
+  },
+  {
+   "id": "old-bridge-outp",
+   "kind": "prop",
+   "file": "old-bridge-outp.png",
+   "w": 136,
+   "h": 50,
+   "metres": 1.52,
+   "anchor": {
+    "x": 68,
+    "y": 27
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "source": "bridge-stone-diag v3-out+ (done), composed (scripts/war/art/old-bridge.mjs)"
+  },
+  {
+   "id": "old-bridge-outm",
+   "kind": "prop",
+   "file": "old-bridge-outm.png",
+   "w": 136,
+   "h": 68,
+   "metres": 2.06,
+   "anchor": {
+    "x": 68,
+    "y": 45
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "source": "bridge-stone-diag v3-out- (done), composed (scripts/war/art/old-bridge.mjs)"
   }
  ],
  "borderMax": 0.75

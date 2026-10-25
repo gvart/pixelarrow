@@ -127,6 +127,8 @@ export class Kit {
   readonly fallCell: Uint8Array;
   /** Water cells of a river() whose bed steps down along its course (`bed` a function); all other water lies level. */
   readonly riverCell: Uint8Array;
+  /** Deep water a road bridge decked over (road `bridges`): cell -> its height, water and terrain before. */
+  readonly deckWas = new Map<number, [number, number, string]>();
 
   readonly def: RegionDef;
   readonly K: number;
@@ -397,6 +399,7 @@ export class Kit {
       if (this.water[i] === 1) return; // a ford stays a sandy shallow
       if (this.water[i] === 2) {
         if (!bridgeS.some((s) => Math.abs(f.s[i] - s) <= span)) return;
+        if (!this.deckWas.has(i)) this.deckWas.set(i, [this.height[i], this.water[i], this.terrain[i]]);
         this.water[i] = 0;
       } else if (this.terrain[i] === 'rock' && o.pass === undefined) return;
       this.height[i] = h;
@@ -502,6 +505,14 @@ export class Kit {
   /** W-48: a waterfall where a river falls over a cliff step, its foot at `at`, the foam on its plunge pool at `pool` (units). */
   readonly falls: { at: Pt; pool: Pt; tall: boolean }[] = [];
   fall(at: Pt, pool: Pt, tall = false) { this.falls.push({ at, pool, tall }); }
+  /**
+   * W-52 an old stone bridge drawn over a road's bridge (road `bridges`) along a grid diagonal from bank `a` to bank `b`
+   * (units, the line's ends on dry land): the visual layer keeps the water the deck covers and lifts the deck a level
+   * over it, the rows of the elaia library's old-bridge sprites stand on it (scripts/war/art/old-bridge.mjs). Visual
+   * only: the sim keeps the road's deck.
+   */
+  readonly oldBridges: { a: Pt; b: Pt }[] = [];
+  oldBridge(a: Pt, b: Pt) { this.oldBridges.push({ a, b }); }
   piece(id: string, at: Pt, o: { r?: number; onRock?: boolean; n?: number; gap?: number } = {}) {
     this.reqs.push({ kind: 'piece', id, at, r: o.r ?? 12, onRock: o.onRock ?? false, n: o.n ?? 1, gap: o.gap ?? 4 });
   }
@@ -1441,6 +1452,14 @@ export function build(def: RegionDef): Built {
   // ---- the fine run: visual layer
   const fk = new Kit(def, 4);
   def.build(fk);
+  // old bridges (Kit.oldBridge): the water their road decked over drawn on under them
+  for (const ob of fk.oldBridges) {
+    const mx = (ob.a[0] + ob.b[0]) / 2, my = (ob.a[1] + ob.b[1]) / 2, r = Math.hypot(ob.b[0] - ob.a[0], ob.b[1] - ob.a[1]) / 2 + 4;
+    for (const [i, [h, wt, t]] of fk.deckWas) {
+      if (Math.hypot(fk.toUnit(i % fk.W) - mx, fk.toUnit(Math.floor(i / fk.W)) - my) > r) continue;
+      fk.height[i] = h; fk.water[i] = wt; fk.terrain[i] = t;
+    }
+  }
   settleWater(fk); // drawn water only: the sim keeps its beds (walking, fords, bridges unchanged)
   autoZones(fk);
   const fine = visualLayer(fk);
@@ -1789,6 +1808,40 @@ export function build(def: RegionDef): Built {
       guardians.push(e);
     }
     log.push(`landmark ${L.id}: ${n} pieces (${ruins} ruined${skipped ? `, ${skipped} blocked` : ''}), ${L.guardians.map((g) => g.boss).join(' + ')}`);
+  }
+  // old bridges (Kit.oldBridge): rows of the diagonal stone kit along the line (as src/war/sim/works.ts plans a v or h
+  // bridge 3 wide: a staircase band of 5 tiles a row), two ramp rows on each bank; the deck rows' cells lifted a level
+  // over the water so men on it walk the deck; each row's sprite 0.2 tiles back of its centre so men on the row draw over it
+  for (const ob of k.oldBridges) {
+    const [p, q2] = ob.a[0] <= ob.b[0] ? [ob.a, ob.b] : [ob.b, ob.a];
+    const [sx, sy] = tileOf(p).map(Math.floor), [ex, ey] = tileOf(q2).map(Math.floor), dx = 1, dy = 1;
+    if (ey - sy !== ex - sx) throw new Error('oldBridge: only along (1, 1) (screen-vertical v rows)');
+    const len = Math.abs(ex - sx) + 1, offs: Pt[] = [[1, -1], [1, 0], [0, 0], [0, 1], [-1, 1]];
+    const row = (q: number): Pt[] => offs.map(([ox, oy]) => [sx + dx * q + ox, sy + dy * q + oy]);
+    const wet = (q: number) => row(q).some(([x, y]) => { const i = at(x, y); return i >= 0 && (water[i] > 0 || k.deckWas.has(i)); });
+    let k0 = 0;
+    while (k0 < len && !wet(k0)) k0++;
+    let k1 = k0;
+    while (k1 + 1 < len && wet(k1 + 1)) k1++;
+    if (k0 < 2 || k1 + 2 >= len) throw new Error(`oldBridge ${ob.a} -> ${ob.b}: no bank for the ramps (wet rows ${k0}..${k1} of ${len})`);
+    let level = -1;
+    for (let q = k0; q <= k1 && level < 0; q++) for (const [x, y] of row(q)) {
+      const j = fAt(2 * x, 2 * y);
+      if (j >= 0 && (fine.kind[j] === SH || fine.kind[j] === DP)) { level = fine.z[j]; break; }
+    }
+    for (let q = k0 - 2; q <= k1 + 2; q++) {
+      const deck = q >= k0 && q <= k1, ramp0 = q < k0, outer = q === k0 - 2 || q === k1 + 2;
+      // (only the cells under the sprite: within 3 cells across the screen of the row's centre line)
+      const mid = 2 * (sx - sy);
+      if (deck) for (const [x, y] of row(q)) for (let c = 0; c < 4; c++) {
+        const fx = 2 * x + (c & 1), fy = 2 * y + (c >> 1), j = fAt(fx, fy);
+        if (j >= 0 && Math.abs(fx - fy - mid) <= 3) { fine.z[j] = level + 1; fine.kind[j] = KINDS.indexOf('road'); }
+      }
+      // the kit names its ramps by the way they rise along x: '+' rising with dx (the start bank's), '-' against it
+      const piece = deck ? 'deck' : `${outer ? 'out' : 'end'}${ramp0 === dx > 0 ? 'p' : 'm'}`;
+      put(`elaia/old-bridge-${piece}`, sx + dx * q + 0.5, sy + dy * q + 0.5);
+    }
+    log.push(`old bridge: ${k1 - k0 + 1} deck rows`);
   }
   // W-48 waterfalls: the fall at the cliff's foot, the foam of its plunge pool (on the water, as placed)
   for (const f of k.falls) {
