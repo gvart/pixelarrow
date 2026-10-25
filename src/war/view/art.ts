@@ -7,8 +7,8 @@
  * The ground is the visual layer's 1 m cells (IsoMap.fk / fz), autotiled on their own grid and drawn
  * as 32 x 32 frames (a 32 x 16 diamond over a 16 px side) cut from the 2 m tiles (./fineArt.ts),
  * anchored at the top vertex. Painted back to front (x + y ascending), each cell's own side covers a
- * one-level step; a deeper drop gets cliff strips (earth, crag rock under rock and snow) every 16 px
- * below it, their columns and shades varied so tall mountain walls do not band. Any overflow below
+ * SIDE (16 px) of a riser; the rest of it (a level is LH = 32 px) gets cliff strips (earth, crag rock under rock and
+ * snow) every 16 px below it, their columns and shades varied so tall mountain walls do not band. Any overflow below
  * the wall's foot lands on cells in front, which are painted later. Water lies flush with its banks.
  * Scaled-down bakes paint at 1:1 into a scratch canvas and downscale it, so no seams open.
  */
@@ -17,7 +17,7 @@ import type { RegionData, TerrainKind } from '../types';
 import { decodeBiomes, KINDS } from '../regions/visual';
 import { columnTops, type MassifDef, type Massifs } from './massifs';
 import { buildFineArt, SmoothFrames, type CliffRoles, type FineArt } from './fineArt';
-import { HH, HW, IsoMap, LH, ZBASE } from './iso';
+import { HH, HW, IsoMap, LH, SIDE, ZBASE } from './iso';
 import type { BakeOpts } from './terrain';
 import { FOAM_H, FOAM_NX, FOAM_NY, FOAM_PX, FOAM_PY, FOAM_W, foamSprite, relief, RELIEF_FILL, SHADOW_H, SHADOW_W, treeShadow } from './relief';
 import { relightTree } from './treeLight';
@@ -343,8 +343,8 @@ export class ArtBaker {
           const drop = z - Math.min(zt(x + 1, y), zt(x, y + 1));
           if (ty + 2 * LH + Math.max(0, drop - 1) * LH < y0) continue;
           const tx = iso.OX + u * FW - FW;
-          if (drop > 1) {
-            const m = sets[this.setOf[(y >> 1) * this.r.w + (x >> 1)]], kd = fk[i], n = Math.ceil(drop) - 1;
+          if (drop > 1) { // a cliff: the cell's own side covers SIDE px of the riser, strips tile the rest (never stretched)
+            const m = sets[this.setOf[(y >> 1) * this.r.w + (x >> 1)]], kd = fk[i], n = Math.ceil((drop * LH) / SIDE) - 1;
             const foot = Math.min(zt(x + 1, y), zt(x, y + 1)) === zt(x + 1, y) ? fk[Math.min(fw * fh - 1, i + 1)] : fk[Math.min(fw * fh - 1, i + fw)];
             const id = SNOWY.has(kd) ? m[2] : ROCKY.has(kd) ? m[0] : m[1], low = SNOWY.has(kd) && (WET.has(foot) || SNOWY.has(foot)) ? m[3] : id;
             for (let k = n; k >= 1; k--) {
@@ -356,16 +356,21 @@ export class ArtBaker {
               // W-51 multi-frame cliffs: the lip under the edge, faces down the wall, the low frames at its foot
               const fr = R ? (k === 1 ? R.lip : bottom ? R.low : R.face) : null;
               const f = (t < 0.4 ? 0 : t < 0.75 ? 1 : 2) * ci.n + (fr ? fr[(h >>> 3) % fr.length] : h % ci.n);
-              ctx.drawImage(cl[c], f * 32, 0, 32, 24, tx, ty + FH + LH * k, 32, 24);
+              ctx.drawImage(cl[c], f * 32, 0, 32, 24, tx, ty + FH + SIDE * k, 32, 24);
             }
           }
+          let img: CanvasImageSource, sx: number, sy = 0;
           if (c >= VARIANT * 64) {
-            const r = c - VARIANT * 64, vi = Math.floor(r / 1024);
-            ctx.drawImage(fine.variants[vi], (r % 1024) * 32, 0, 32, 32, tx, ty, 32, 32);
+            const r = c - VARIANT * 64;
+            img = fine.variants[Math.floor(r / 1024)]; sx = (r % 1024) * 32;
           } else if (this.corners[i] !== 0xffff) {
-            const g = this.corners[i], [img, sx, sy] = this.smooth.frame(c >> 6, (c & 63) >> 2, c & 3, [g & 15, (g >> 4) & 15, (g >> 8) & 15, g >> 12]);
-            ctx.drawImage(img, sx, sy, 32, 32, tx, ty, 32, 32);
-          } else ctx.drawImage(fine.sheets[c >> 6], (c & 63) * 32, 0, 32, 32, tx, ty, 32, 32);
+            const g = this.corners[i];
+            [img, sx, sy] = this.smooth.frame(c >> 6, (c & 63) >> 2, c & 3, [g & 15, (g >> 4) & 15, (g >> 8) & 15, g >> 12]);
+          } else { img = fine.sheets[c >> 6]; sx = (c & 63) * 32; }
+          // a one-level (walkable) step: the cell's own side tiled down the rest of the riser (its frame redrawn SIDE px
+          // lower, its top hidden under the side above), so slopes keep their earth and grass instead of cliff strips
+          if (drop > 0 && drop <= 1) for (let k = Math.ceil((drop * LH) / SIDE) - 1; k >= 1; k--) ctx.drawImage(img, sx, sy, 32, 32, tx, ty + SIDE * k, 32, 32);
+          ctx.drawImage(img, sx, sy, 32, 32, tx, ty, 32, 32);
           const dE = z - zt(x + 1, y), dS = z - zt(x, y + 1);
           if (dE >= 2 || dS >= 2) faces.add(x, y, tx, ty, dE, dS, z);
         }

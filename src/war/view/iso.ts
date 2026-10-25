@@ -6,10 +6,11 @@
  *   world.y = OY + (x + y) * HH - z * LH      z: the tile's surface level (height; water flush with its banks)
  *
  * Real scale (W-18): a tile is 2 m, drawn as a 64 x 32 diamond at zoom 1 next to 58 px (1.76 m)
- * soldier sprites. One height level lifts a tile by LH = 16 px (about 1 m at the tile's ground
- * scale), the earth side of a PixelLab iso tile, so tile sides stack exactly. LH = HH, so a screen
- * pixel's view ray steps one level up for every unit of x + y toward the viewer: picking marches
- * down that ray from the highest level and takes the first solid column it meets.
+ * soldier sprites. One visual level lifts a cell by LH = 32 px, 1 m next to the 33 px/m soldiers and
+ * buildings (W-52 amendment: RELIEF = 4 visual levels per sim level, so a sim level reads 4 m). The
+ * PixelLab tile sides and cliff strips are 16 px (SIDE): taller risers stack them. LH = 2 * HH, so a
+ * screen pixel's view ray steps one level up for every two units of x + y toward the viewer: picking
+ * marches down that ray from the highest level and takes the first solid column it meets.
  *
  * The ground is drawn from the visual layer (RegionData.visual, src/war/regions/visual.ts): 1 m
  * cells, 2 x 2 per tile, drawn as 32 x 16 diamonds, whose levels may rise far above the sim's 0..15
@@ -21,7 +22,10 @@ import { decodeVisual, KINDS, ZVIS } from '../regions/visual';
 
 export const HW = 32;
 export const HH = 16;
-export const LH = 16;
+/** Px per visual level: the single source of the drawn level height (W-52 amendment). */
+export const LH = 32;
+/** Px of the art's own riser: a fine frame's side and the pitch of the cliff strips (./art.ts), tiled down taller faces. */
+export const SIDE = 16;
 /** Highest visual level. */
 export const ZMAX = ZVIS;
 /** The slab's underside: walls along the map edge drop to this level. */
@@ -110,7 +114,7 @@ export class IsoMap {
   /** Highest surface level. */
   readonly top: number;
   readonly OX: number;
-  readonly OY = (ZMAX + 1) * LH;
+  readonly OY: number;
   /** World size in px. */
   readonly W: number;
   readonly H: number;
@@ -165,6 +169,9 @@ export class IsoMap {
     let top = 0;
     for (let j = 0; j < n; j++) if (this.fz[j] > top) top = this.fz[j];
     this.top = top;
+    // room above the map for its highest ground and the tallest sprite on it (~650 px); not ZMAX levels, which at 32 px
+    // a level would be ~4000 px of empty sky
+    this.OY = (Math.ceil(top) + 1) * LH + 1024;
     this.OX = r.h * HW;
     this.W = (r.w + r.h) * HW;
     this.H = this.OY + (r.w + r.h) * HH - ZBASE * LH + 4;
@@ -224,7 +231,7 @@ export class IsoMap {
    */
   pick(wx: number, wy: number): { x: number; y: number } {
     const u = (wx - this.OX) / HW;
-    for (let z = this.top; z >= ZBASE; z -= 0.125) {
+    for (let z = this.top; z >= ZBASE; z -= 2 / LH) { // 2 px steps along the ray
       const v = (wy - this.OY + z * LH) / HH, x = (u + v) / 2, y = (v - u) / 2;
       if (x < 0 || y < 0 || x >= this.w || y >= this.h) continue;
       if (this.fz[Math.floor(2 * y) * this.fw + Math.floor(2 * x)] >= z - 1e-4) return { x, y };
@@ -236,7 +243,7 @@ export class IsoMap {
   /** Is the world point (wx, wy), standing at x + y = v0 and level z0, hidden by ground in front of it? */
   hidden(wx: number, wy: number, v0: number, z0: number): boolean {
     const u = (wx - this.OX) / HW;
-    for (let z = this.top; z > z0; z -= 0.25) {
+    for (let z = this.top; z > z0; z -= 4 / LH) { // 4 px steps
       const v = (wy - this.OY + z * LH) / HH;
       if (v <= v0 + 0.25) return false;
       const x = Math.floor(u + v), y = Math.floor(v - u); // visual cells

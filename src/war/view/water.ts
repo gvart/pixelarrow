@@ -5,7 +5,7 @@
  */
 import Phaser from 'phaser';
 import { hash } from './autotile';
-import type { IsoMap } from './iso';
+import { LH, type IsoMap } from './iso';
 import { KINDS } from '../regions/visual';
 
 const GAP = 9;
@@ -26,7 +26,7 @@ export class WaterGlints {
     const wet = (x: number, y: number) => x >= 0 && y >= 0 && x < fw && y < fh && (fk[y * fw + x] === SHALLOW || fk[y * fw + x] === DEEP);
     for (let y = 0; y < fh; y++) for (let x = 0; x < fw; x++) {
       if (hash(x, y, 21) % GAP || !wet(x, y) || !wet(x - 2, y) || !wet(x + 2, y) || !wet(x, y - 2) || !wet(x, y + 2)) continue;
-      const wx = iso.OX + (x - y + 0.5 * ((hash(x, y, 22) & 15) / 15)) * 16, wy = iso.OY + (x + y + 1) * 8 - fz[y * fw + x] * 16;
+      const wx = iso.OX + (x - y + 0.5 * ((hash(x, y, 22) & 15) / 15)) * 16, wy = iso.OY + (x + y + 1) * 8 - fz[y * fw + x] * LH;
       this.buckets[((y / BUCKET) | 0) * this.bw + ((x / BUCKET) | 0)].push(wx, wy, (hash(x, y, 23) & 1023) / 1023 * Math.PI * 2);
     }
     if (!scene.textures.exists('war-glint')) {
@@ -44,7 +44,7 @@ export class WaterGlints {
     if (zoom >= 1 / 4) {
       // visual cell bounds of the view (water lies low: allow its level)
       const u0 = (view.x - iso.OX) / 16 - 2, u1 = (view.right - iso.OX) / 16 + 2;
-      const v0 = (view.y - iso.OY) / 8 - 2, v1 = (view.bottom - iso.OY) / 8 + iso.top * 2 + 2;
+      const v0 = (view.y - iso.OY) / 8 - 2, v1 = (view.bottom - iso.OY) / 8 + (iso.top * LH) / 8 + 2;
       const bx0 = Math.max(0, Math.floor((u0 + v0) / 2 / BUCKET)), bx1 = Math.min(this.bw - 1, Math.floor((u1 + v1) / 2 / BUCKET));
       const nb = this.buckets.length / this.bw;
       const by0 = Math.max(0, Math.floor((v0 - u1) / 2 / BUCKET)), by1 = Math.min(nb - 1, Math.floor((v1 - u0) / 2 / BUCKET));
