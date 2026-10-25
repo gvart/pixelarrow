@@ -19,6 +19,7 @@ import { fileURLToPath } from 'node:url';
 import { readImage, writeImage } from '../../art/lib/png.mjs';
 import { blank, crop, paste, alphaBox, snapToPalette, rgbToHex, hexToRgb, resizeArea } from '../../art/lib/ops.mjs';
 import { runQa } from './qa.mjs';
+import { keepForeign } from './keepForeign.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '../../..');
 const argv = process.argv.slice(2), bi = argv.indexOf('--biome');
@@ -403,7 +404,11 @@ for (const [o, im, foot] of objImages.filter(([o]) => !o.part)) {
   writeImage(join(OUT_O, `${o.id}.png`), snapToPalette(im, [...palette, ...objPalette]));
   objJson.objects.push({ id: o.id, kind: o.kind, file: `${o.id}.png`, w: im.w, h: im.h, metres: o.metres, anchor: foot, footprint: o.footprint, blocksMovement: o.blocks, ...o.extra, source: o.source });
 }
-writeFileSync(join(OUT_O, 'objects.json'), JSON.stringify(objJson, null, 1) + '\n');
+// a biome keeps the sprites other scripts put in its objects.json (town.mjs, hand-composed pieces): ./keepForeign.mjs
+const prevO = BIOME && existsSync(join(OUT_O, 'objects.json')) ? JSON.parse(readFileSync(join(OUT_O, 'objects.json'))) : null;
+const { json: outO, kept } = keepForeign(prevO, objJson);
+if (kept.length) console.log(`objects kept from the previous objects.json (made elsewhere): ${kept.length} (${kept.slice(0, 4).join(', ')}${kept.length > 4 ? ', ...' : ''})`);
+writeFileSync(join(OUT_O, 'objects.json'), JSON.stringify(outO, null, 1) + '\n');
 
 console.log(`tiles: ${built.length} sets, ${variants.length} variant fills, palette ${palette.length}; objects: ${objImages.length}`);
 if (errors.length) { console.error('BUILD FAIL\n  ' + errors.join('\n  ')); process.exit(1); }

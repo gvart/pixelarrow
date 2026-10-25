@@ -2960,8 +2960,9 @@ grass, no ground`; `extra.overlay` / `ruin` / `dressing` names the role):
 real cliff faces; cut them 1:1, do not stretch them. (2) A crag reads as a crag only with 3-4 tiers of cliff, with talus
 and drifts at each foot; one tall step reads as a box. (3) Heights are compressed: a level is 16 px per 2 m (8 px/m) while
 sprites are 33 px/m, so a 9 m curtain wall stands taller on screen than a 15-level (30 m) crag, and walls on the crag
-edge hide its cliffs. Keep near-side walls low or ruined, and give a crag its full 0-15 range. (4) Rebuilding Elaia drops
-the town objects from its `objects.json`: run `node scripts/war/art/town.mjs` after `build.mjs --biome elaia`. (5) Left to
+edge hide its cliffs. Keep near-side walls low or ruined, and give a crag its full 0-15 range. (4) `build.mjs --biome` keeps
+the entries other scripts wrote into the biome's `objects.json` (town.mjs's `town-*`, the composed `waterfall-tall`;
+`keepForeign.mjs`), but it re-snaps every biome PNG, so rerun the idle strips and town.mjs after a palette change. (5) Left to
 wire in the view and regions: the kinds `drift`, `rubble`, `ruin` (`src/war/regions/visual.ts` KINDS) and the cliff
 `roles` (the lip on a cliff's top level, faces below, `src/war/view/art.ts`).
 
