@@ -1,0 +1,28 @@
+scripts/war/regions/kyrene-n.ts
+  s_cfc22b058125c4::t_81d99255710485 50
+  s_cfc22b058125c4::t_4fec3a62f67195 20-21,25-26,39-45,47-48,51-53,55-61,68
+  s_cfc22b058125c4::t_6105fd0cac7dc7 49
+  s_cfc22b058125c4::t_de6996ec84dfe7 22-24
+  s_cfc22b058125c4::t_581ea36562bc85 11-12
+  s_cfc22b058125c4::t_903050236923ef 46
+  s_cfc22b058125c4::t_aefae02ce52efb 18
+  s_cfc22b058125c4::t_6c468e006e9297 5-10
+src/war/regions/kyrene-n.json
+  s_cfc22b058125c4::t_76af6b290e6e74 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "6f8801c79513ab1e6e29926c1040ef04b443dd01",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
