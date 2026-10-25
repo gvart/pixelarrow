@@ -14,6 +14,7 @@ import type { RegionData } from '../types';
 import { decodeBiomes } from '../regions/visual';
 import { hash } from './autotile';
 import { noise } from './relief';
+import { peakTexture } from './rockFace';
 
 export interface PeakField {
   w: number;
@@ -125,16 +126,22 @@ const RAMPS = [
   ['#3a261b', '#4c3224', '#5f3f2d', '#734d37', '#875c42', '#9a6c4f', '#ad7e5f', '#bf9171'],
 ];
 const FILL = RAMPS.flat();
+/** Contour slope buckets each side of level (./rockFace.ts peakTexture sheared by bucket / SLOPES). */
+const SLOPES = 4;
+/** The rock-mark patterns per material and slope bucket. */
+const MARKS: Record<number, CanvasPattern> = {};
 /** Crest line colour per material. */
 const CREST = ['rgba(196,190,178,0.55)', 'rgba(255,255,255,0.8)', 'rgba(190,182,166,0.4)', 'rgba(236,170,120,0.55)', 'rgba(220,172,136,0.4)'];
 // toward the light: from the NW (-x, a little -y) and above
 const LX = -1, LY = -0.35, LZ = 1.05, LN = Math.hypot(LX, LY, LZ);
 
 /** Per triangle: its fill index (material * NSH + shade). */
-function shadeOf(nx: number, ny: number, nz: number, mat: number, h: number): number {
+function shadeOf(nx: number, ny: number, nz: number, mat: number, h: number, soft = false): number {
   const l = Math.max(0, (nx * LX + ny * LY + nz * LZ) / (Math.hypot(nx, ny, nz) * LN));
   // flat ground l ~0.72; steep NW faces near 1, SE faces to 0
-  const b = 0.12 + 0.98 * l + ((h & 255) / 255 - 0.5) * 0.1;
+  let b = 0.12 + 0.98 * l + ((h & 255) / 255 - 0.5) * (soft ? 0.04 : 0.1);
+  // near, snow keeps a narrower range: one soft drift, its facets left to the ripples over it
+  if (soft && mat === 1) b = 0.62 + (b - 0.62) * 0.55;
   return mat * NSH + Math.max(0, Math.min(NSH - 1, Math.floor(b * NSH)));
 }
 
@@ -163,16 +170,34 @@ export class PeakPainter {
   /** Tiles with peaks, by row x + y. */
   private rows: number[][];
   private fill: Uint8Array;
+  /** Per triangle near: its fill shaded by normals smoothed over the lattice, so the facets melt into one painted face. */
+  private soft: Uint8Array;
   private crest: Uint8Array;
   private mat: Uint8Array;
+  /** Per triangle: the screen slope bucket of its contour lines (0..2 * SLOPES), the shear of its rock marks. */
+  private slope: Uint8Array;
   private pattern: CanvasPattern | null = null;
 
   constructor(readonly f: PeakField, private OX: number, private OY: number) {
     const { w, h, P, S } = f, W = w + 1;
     this.rows = Array.from({ length: w + h - 1 }, () => []);
     this.fill = new Uint8Array(2 * w * h);
+    this.soft = new Uint8Array(2 * w * h);
+    // per lattice point: the surface's slope (levels per tile) by central differences
+    const GX = new Float32Array(W * (h + 1)), GY = new Float32Array(W * (h + 1));
+    for (let Y = 0; Y <= h; Y++) for (let X = 0; X <= w; X++) {
+      const k = Y * W + X;
+      GX[k] = (S[Y * W + Math.min(w, X + 1)] - S[Y * W + Math.max(0, X - 1)]) / (Math.min(w, X + 1) - Math.max(0, X - 1));
+      GY[k] = (S[Math.min(h, Y + 1) * W + X] - S[Math.max(0, Y - 1) * W + X]) / (Math.min(h, Y + 1) - Math.max(0, Y - 1));
+    }
     this.crest = new Uint8Array(w * h);
     this.mat = new Uint8Array(w * h);
+    this.slope = new Uint8Array(2 * w * h);
+    const pmAt = (X: number, Y: number) => {
+      if (X < 0 || Y < 0 || X >= w || Y >= h) return 0;
+      const k = Y * W + X;
+      return (P[k] + P[k + 1] + P[k + W] + P[k + W + 1]) / 4;
+    };
     for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
       const k = y * W + x, t = y * w + x;
       const pn = P[k], pe = P[k + 1], ps = P[k + W + 1], pw = P[k + W];
@@ -182,13 +207,28 @@ export class PeakPainter {
       // material: snow above the snowline (ragged, fingers down the gullies), scree at the foot, rock between
       const red = f.red[t], hz = hash(x, y, 43);
       const sl = f.snow[t] + 16 * noise(x, y, 9, 44) - 10 * ridged(x, y, 5, 45);
-      const steep = Math.max(Math.abs(e - wv), Math.abs(s - n)) / 2;
-      const scree = pm < 4 + 3 * noise(x, y, 6, 46) + (hz & 3);
-      const m = scree ? (red ? 4 : 2) : red ? 3 : pm > sl + steep * 0.6 ? 1 : 0;
+      const scree = pm < 5 + 3 * noise(x, y, 6, 46);
+      // snow lies on ledges and fills the gullies (a hollow: the neighbours stand over the tile), the steep faces and
+      // the spurs between gullies shed it; per triangle, so its edge is not the tile grid
+      const hollow = (pmAt(x - 1, y) + pmAt(x + 1, y) + pmAt(x, y - 1) + pmAt(x, y + 1)) / 4 - pm;
+      const upTri = Math.max(Math.abs(e - n), Math.abs(wv - n)), loTri = Math.max(Math.abs(s - wv), Math.abs(s - e));
+      const snowy = (tri: number) => pm > sl - 8 + tri * 0.9 - Math.max(-4, Math.min(14, hollow * 4.5));
+      const m = scree ? (red ? 4 : 2) : red ? 3 : snowy(upTri) ? 1 : 0, m2 = scree ? m : red ? 3 : snowy(loTri) ? 1 : 0;
       this.mat[t] = m;
       // normals in metres (tile 2 m, level 1 m): upper (-2 dE, -2 dW, 4), lower (2 (W - S), 2 (E - S), 4)
       this.fill[2 * t] = shadeOf(-2 * (e - n), -2 * (wv - n), 4, m, hz);
-      this.fill[2 * t + 1] = shadeOf(2 * (wv - s), 2 * (e - s), 4, m, hz >>> 8);
+      this.fill[2 * t + 1] = shadeOf(2 * (wv - s), 2 * (e - s), 4, m2, hz >>> 8);
+      const B = 0.4, sgx = (a: number, b: number, c: number) => (GX[a] + GX[b] + GX[c]) / 3, sgy = (a: number, b: number, c: number) => (GY[a] + GY[b] + GY[c]) / 3;
+      this.soft[2 * t] = shadeOf(-2 * (B * (e - n) + (1 - B) * sgx(k, k + 1, k + W)), -2 * (B * (wv - n) + (1 - B) * sgy(k, k + 1, k + W)), 4, m, hz, true);
+      this.soft[2 * t + 1] = shadeOf(-2 * (B * (s - wv) + (1 - B) * sgx(k + 1, k + W, k + W + 1)), -2 * (B * (s - e) + (1 - B) * sgy(k + 1, k + W, k + W + 1)), 4, m2, hz >>> 8, true);
+      // contour lines: world direction (-gy, gx), on screen (dx - dy) * HW, (dx + dy) * HH
+      const bucket = (gx: number, gy: number) => {
+        const dx = -gy, dy = gx, sx = (dx - dy) * 32, sy = (dx + dy) * 16;
+        if (Math.abs(sx) < 1e-6) return SLOPES + (sy === 0 ? 0 : SLOPES);
+        return SLOPES + Math.round(Math.max(-1, Math.min(1, sy / sx)) * SLOPES);
+      };
+      this.slope[2 * t] = bucket(e - n, wv - n);
+      this.slope[2 * t + 1] = bucket(s - wv, s - e);
       // crests: an edge whose two ends both stand over their neighbours across it
       const at = (X: number, Y: number) => (X < 0 || Y < 0 || X > w || Y > h ? -1 : P[Y * W + X]);
       const crestY = (X: number, Y: number) => { const p = at(X, Y); return p > 6 && p > at(X, Y - 1) && p >= at(X, Y + 1); };
@@ -208,7 +248,8 @@ export class PeakPainter {
     const row = this.rows[v];
     if (!row?.length) return;
     const { f, OX, OY } = this, { w, S } = f, W = w + 1, HW = 32, HH = 16, LH = 32;
-    const paths = new Map<number, Path2D>(), crests = new Map<number, Path2D>(), all = new Path2D();
+    const paths = new Map<number, Path2D>(), crests = new Map<number, Path2D>(), all = new Path2D(), marks = new Map<number, Path2D>();
+    const fine = scale >= 0.5;
     let any = false;
     for (const t of row) {
       const x = t % w, y = (t / w) | 0, u = x - y;
@@ -223,8 +264,16 @@ export class PeakPainter {
         if (!p) paths.set(c, (p = new Path2D()));
         p.moveTo(a[0], a[1]); p.lineTo(b[0], b[1]); p.lineTo(d[0], d[1]); p.closePath();
       };
-      tri(this.fill[2 * t], N, E, Wp);
-      tri(this.fill[2 * t + 1], E, Sx, Wp);
+      const fl = fine ? this.soft : this.fill;
+      tri(fl[2 * t], N, E, Wp);
+      tri(fl[2 * t + 1], E, Sx, Wp);
+      if (fine) for (let q = 0; q < 2; q++) {
+        const key = Math.floor(this.fill[2 * t + q] / NSH) * 32 + this.slope[2 * t + q];
+        let p = marks.get(key);
+        if (!p) marks.set(key, (p = new Path2D()));
+        const [a, b, d] = q ? [E, Sx, Wp] : [N, E, Wp];
+        p.moveTo(a[0], a[1]); p.lineTo(b[0], b[1]); p.lineTo(d[0], d[1]); p.closePath();
+      }
       all.moveTo(N[0], N[1]); all.lineTo(E[0], E[1]); all.lineTo(Sx[0], Sx[1]); all.lineTo(Wp[0], Wp[1]); all.closePath();
       const cr = this.crest[t];
       if (cr) {
@@ -243,8 +292,18 @@ export class PeakPainter {
       this.pattern ??= ctx.createPattern(speckleTile(), 'repeat');
       if (this.pattern) { ctx.fillStyle = this.pattern; ctx.fill(all); }
     }
+    // painted rock: each material's marks sheared along the triangle's contour lines (rows) and fall line (columns)
+    for (const [key, p] of marks) {
+      const m = key >> 5, b = (key & 31) - SLOPES;
+      const pat = (MARKS[key] ??= ctx.createPattern(peakTexture(m), 'repeat')!);
+      pat.setTransform(new DOMMatrix([1, b / SLOPES, 0, 1, 0, 0]));
+      ctx.fillStyle = pat; ctx.fill(p);
+    }
     ctx.lineWidth = Math.max(1.5, 1.2 / scale);
+    // crests broken into runs (a ridge is notched, not ruled), solid when far
+    if (fine) ctx.setLineDash([9, 3, 5, 6, 14, 4]);
     for (const [m, p] of crests) { ctx.strokeStyle = CREST[m]; ctx.stroke(p); }
+    if (fine) ctx.setLineDash([]);
     ctx.lineWidth = 1;
   }
 }
