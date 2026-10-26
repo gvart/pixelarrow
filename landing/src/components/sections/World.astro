@@ -1,0 +1,150 @@
+---
+// "One world, four alliances": the game's own world map (public/war/world: the painted continent with
+// its inked borders, as the world view draws it), the four homes washed in their alliance colours from
+// regions.json, and a chip per alliance with its specialty (docs/WAR.md "Alliances").
+import world from '../../../../public/war/world/regions.json';
+
+type Region = { name: string; polygon: [number, number][]; label: [number, number] };
+const regions = world.regions as unknown as Record<string, Region>;
+const [W, H] = world.size;
+const ALLIANCES = [
+  { key: 'dodona', specialty: 'Iron' },
+  { key: 'skythia', specialty: 'Horses' },
+  { key: 'kyrene', specialty: 'Copper' },
+  { key: 'elaia', specialty: 'Marble' },
+] as const;
+const homes = ALLIANCES.map((a) => {
+  const r = regions[a.key];
+  const { name, color } = (world.alliances as Record<string, { name: string; color: string }>)[a.key];
+  return { ...a, name, color, points: r.polygon.map((p) => p.join(',')).join(' '), x: (r.label[0] / W) * 100, y: (r.label[1] / H) * 100 };
+});
+const centre = regions.omphalos;
+---
+<section class="world" id="world" aria-labelledby="world-title">
+  <div class="container">
+    <h2 class="heading" id="world-title">One world, four alliances</h2>
+    <p class="world__lead">37 regions on one continent at the edge of the Abyss. Pick an alliance, hold its roads, passes and market towns, and march on Omphalos at the heart.</p>
+    <figure class="world__map frame-band">
+      <div class="world__art">
+        <picture>
+          <source media="(max-width: 767px)" srcset="/art/world-960.webp" />
+          <img src="/art/world-1600.webp" width="1600" height="1200" alt="The world map of Metaxy: one continent ringed by mist and sea monsters, its regions inked over forests, steppe, red canyons and a central plateau." loading="lazy" decoding="async" />
+        </picture>
+        <svg viewBox={`0 0 ${W} ${H}`} aria-hidden="true" focusable="false">
+          {homes.map((h) => <polygon points={h.points} fill={h.color} fill-opacity="0.32" stroke={h.color} stroke-width="5" />)}
+        </svg>
+        <ul class="world__labels" aria-hidden="true">
+          {homes.map((h) => <li style={`left:${h.x}%;top:${h.y}%;--c:${h.color}`}>{h.name}</li>)}
+          <li class="world__centre" style={`left:${(centre.label[0] / W) * 100}%;top:${(centre.label[1] / H) * 100}%`}>Omphalos</li>
+        </ul>
+      </div>
+      <figcaption class="visually-hidden">The four alliance homes: Dodona in the north-west, Skythia in the north-east, Kyrene in the south-east and Elaia in the south-west, with Omphalos in the centre.</figcaption>
+    </figure>
+    <ul class="world__allies" role="list">
+      {homes.map((h) => (
+        <li class="ally" style={`--c:${h.color}`}>
+          <img class="pixel" src={`/ui/banner-${h.key}.png`} width="30" height="42" alt="" loading="lazy" />
+          <span class="ally__name">{h.name}</span>
+          <span class="ally__spec">{h.specialty}</span>
+        </li>
+      ))}
+    </ul>
+  </div>
+</section>
+
+<style is:global>
+  .world {
+    padding-block: clamp(48px, 7vw, 88px);
+    background:
+      radial-gradient(ellipse 70% 60% at 50% 55%, rgb(122 52 24 / 0.16), transparent 70%),
+      var(--night);
+  }
+  .world__lead {
+    max-width: 42rem;
+    margin: 14px auto 28px;
+    color: var(--ink);
+    text-align: center;
+  }
+  .world__map {
+    max-width: 1100px;
+    margin: 0 auto;
+    box-shadow: 0 16px 48px rgb(0 0 0 / 0.5);
+  }
+  .world__art {
+    position: relative;
+    aspect-ratio: 4 / 3;
+    overflow: hidden;
+  }
+  .world__art img,
+  .world__art svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+  .world__labels {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .world__labels li {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    padding: 3px 10px;
+    border: 1px solid var(--c);
+    background: rgb(14 9 7 / 0.82);
+    color: var(--ink);
+    font-family: var(--font-display);
+    font-size: clamp(0.6875rem, 1.4vw, 1rem);
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .world__labels .world__centre {
+    border-color: var(--title);
+    color: var(--title);
+  }
+  .world__allies {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+    max-width: 1100px;
+    margin: 20px auto 0;
+    padding: 0;
+    list-style: none;
+  }
+  .ally {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    grid-template-rows: auto auto;
+    align-items: center;
+    column-gap: 12px;
+    padding: 8px 14px;
+    border: 2px solid var(--c);
+    background: color-mix(in srgb, var(--c) 18%, var(--panel));
+  }
+  .ally img {
+    grid-row: span 2;
+  }
+  .ally__name {
+    color: var(--ink);
+    font-family: var(--font-display);
+    font-size: 1.125rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .ally__spec {
+    color: var(--muted);
+    font-size: var(--fs-caption);
+  }
+  @media (max-width: 767px) {
+    .world__allies {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .world__labels li {
+      padding: 2px 6px;
+    }
+  }
+</style>

@@ -28,7 +28,7 @@ concurrency:
 #              -> server (types, tests in workerd; wrangler.jsonc's assets need dist/)
 #              -> deploy (D1 migrations, game Worker)
 #   landing: landing-build (types, Worker tests in workerd, astro build, landing-dist)
-#              -> landing-test (hero and sections checks in Chromium)
+#              -> landing-test (page checks in Chromium)
 #              -> landing-deploy (landing Worker)
 # When both changed, they go live together: the game deploy also waits for the
 # landing gates, and the landing deploys right after the game (V6-023: the
@@ -229,8 +229,8 @@ jobs:
           retention-days: 3
 
   landing-test:
-    # The hero and sections checks serve landing/dist themselves (ports 6141 and
-    # 6143) and use Playwright from the repository root's node_modules.
+    # The page check serves landing/dist itself (port 6143) and uses Playwright
+    # from the repository root's node_modules.
     needs: landing-build
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -263,8 +263,6 @@ jobs:
       - name: Install Chromium
         if: steps.pw-cache.outputs.cache-hit != 'true'
         run: bash .github/actions/browser-setup/bounded-retry.sh 240 120 npx playwright install --only-shell chromium
-      - run: npm run test:hero
-        working-directory: landing
       - run: npm run test:sections
         working-directory: landing
 

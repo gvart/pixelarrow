@@ -1,5 +1,5 @@
-/* Base, buttons, focus, section shell and divider for pixelarrow.app. Components keep their own
-   scoped styles; only what several sections share lives here. */
+/* Base, the HUD kit's frames and the Play button for pixelarrow.app. Components keep their own styles;
+   only what several sections share lives here. */
 @import './tokens.css';
 
 *,
@@ -12,17 +12,16 @@ html {
   background: var(--night);
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
-  scroll-padding-top: calc(var(--nav-h) + var(--s4));
+  scroll-padding-top: var(--header-h);
 }
 
 body {
   margin: 0;
   background: var(--night);
-  color: var(--cream-sec);
+  color: var(--ink);
   font-family: var(--font-text);
   font-size: var(--fs-body);
   line-height: 1.5;
-  font-optical-sizing: auto;
   -webkit-font-smoothing: antialiased;
   overflow-x: clip;
 }
@@ -31,11 +30,11 @@ h1,
 h2,
 h3 {
   margin: 0;
-  color: var(--cream);
+  color: var(--title);
   font-family: var(--font-display);
   font-weight: 700;
   line-height: 1.1;
-  letter-spacing: var(--track-display);
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   text-wrap: balance;
 }
@@ -46,27 +45,24 @@ p {
 }
 
 a {
-  color: var(--cream);
-  text-decoration-color: rgb(240 227 194 / 0.4);
+  color: var(--ink);
   text-underline-offset: 0.2em;
 }
 
 img,
-picture {
+picture,
+video {
   display: block;
   max-width: 100%;
 }
 
-/* Pixel art stays pixel art (ART_DIRECTION L3). */
 .pixel {
   image-rendering: pixelated;
 }
 
-/* Focus: a 2 px lattice ring with a 2 px dark gap on every focusable element, never removed. */
 :focus-visible {
-  outline: 2px solid var(--lattice);
+  outline: 2px solid var(--title);
   outline-offset: 2px;
-  box-shadow: 0 0 0 2px var(--night);
 }
 
 .visually-hidden {
@@ -82,180 +78,99 @@ picture {
 }
 
 .container {
-  width: min(100% - 2 * var(--gutter), var(--page-max) - 2 * var(--gutter));
+  width: 100%;
+  max-width: var(--page-max);
   margin-inline: auto;
+  padding-inline: var(--gutter);
 }
 
-/* Buttons (ART_DIRECTION §3): primary is a terracotta slab, secondary a cream outline. Both 48 px. */
-.btn {
+/* The HUD kit's frames as ornament around a solid panel (kit.ts frame()): the @2x sprite drawn at 2x,
+   so one art pixel is two CSS pixels. The meander rounds to whole periods along the long edges. */
+.frame-band {
+  border-style: solid;
+  border-width: 20px 12px;
+  border-image: url('/ui/band@2x.png') 20 12 / 20px 12px round stretch;
+  background: var(--panel);
+  background-clip: padding-box;
+  image-rendering: pixelated;
+}
+.frame-card {
+  border-style: solid;
+  border-width: 20px 12px 8px;
+  border-image: url('/ui/card@2x.png') 20 12 8 / 20px 12px 8px round stretch;
+  background: var(--panel);
+  background-clip: padding-box;
+  image-rendering: pixelated;
+}
+
+/* Play: the kit's active button (a 9-slice), Cinzel caps in the title colour. */
+.play {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: var(--btn-h);
-  padding: 0 var(--s6);
-  border: 1px solid transparent;
-  border-radius: var(--radius);
+  min-height: 52px;
+  min-width: 168px;
+  padding: 0 32px;
+  border-style: solid;
+  border-width: 6px;
+  border-image: url('/ui/button-active@2x.png') 6 fill / 6px stretch;
+  color: #fff0d8;
   font-family: var(--font-display);
-  font-size: 0.9375rem;
+  font-size: 1.375rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   line-height: 1;
-  text-transform: uppercase;
   text-decoration: none;
-  white-space: nowrap;
-  color: var(--cream);
-  transition: background-color var(--dur-micro) var(--ease-out), border-color var(--dur-micro) var(--ease-out),
-    box-shadow var(--dur-micro) var(--ease-out);
+  text-transform: uppercase;
+  image-rendering: pixelated;
+  text-shadow: 0 1px 0 #0e0907;
 }
-.btn--primary {
-  position: relative;
-  isolation: isolate; /* the hover light passes behind the letters */
-  overflow: hidden;
-  background: var(--terra);
-  border-color: #c25a3a;
-  box-shadow: inset 0 -2px 0 rgb(0 0 0 / 0.28);
+.play--small {
+  min-height: 38px;
+  min-width: 0;
+  padding: 0 18px;
+  font-size: 0.9375rem;
 }
-/* Pressed: the bevel flips and the slab sinks a pixel, then springs back (V6-LAND-06). */
-.btn:active {
-  transform: translateY(1px);
+.play--big {
+  min-height: 64px;
+  min-width: 240px;
+  font-size: 1.75rem;
 }
-.btn--primary:active {
-  box-shadow: inset 0 2px 0 rgb(0 0 0 / 0.28);
-}
-.btn--secondary {
-  background: rgb(16 13 11 / 0.35);
-  border-color: rgb(240 227 194 / 0.75);
-}
-.btn--small {
-  min-height: 40px;
-  padding: 0 var(--s4);
-  font-size: 0.8125rem;
+.play:active {
+  border-image-source: url('/ui/button-pressed@2x.png');
+  padding-top: 2px;
 }
 @media (hover: hover) and (pointer: fine) {
-  .btn--primary:hover {
-    background: var(--terra-hi);
-    box-shadow: inset 0 0 0 1px rgb(127 208 224 / 0.55), inset 0 -2px 0 rgb(0 0 0 / 0.28);
-  }
-  .btn--secondary:hover {
-    border-color: var(--cream);
-    box-shadow: inset 0 0 0 1px rgb(127 208 224 / 0.45);
-  }
-}
-/* Hover on the primary: lamplight runs once across the slab, like light along bronze. */
-@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
-  .btn--primary::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    z-index: -1;
-    background: linear-gradient(100deg, transparent 35%, rgb(var(--lamp) / 0.2) 50%, transparent 65%);
-    transform: translateX(-110%);
-    pointer-events: none;
-  }
-  .btn--primary:hover::after {
-    transform: translateX(110%);
-    transition: transform 650ms var(--ease-out);
+  .play:hover {
+    border-image-source: url('/ui/button-hover@2x.png');
+    filter: brightness(1.12);
   }
 }
 
-/* Section shell. The sections stack on alternating night and basalt ground, joined by a lattice
-   divider: a 1 px cyan line at 25% with one diamond node in the middle (ART_DIRECTION §3). */
-.section {
-  position: relative;
-  padding-block: var(--section-pad);
-  background: var(--basalt);
-}
-.section--night {
-  background: var(--night);
-}
-.section__head {
-  display: grid;
-  justify-items: center;
-  gap: var(--s4);
-  margin-bottom: var(--s12);
+/* A section heading in the game's style: Cinzel caps between two short meander rules. */
+.heading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  font-size: var(--fs-title);
   text-align: center;
 }
-.section__title {
-  font-size: var(--fs-title);
-}
-.section__lead {
-  max-width: var(--measure);
-  font-size: var(--fs-lead);
-  color: var(--cream-sec);
-}
-
-.divider {
-  position: relative;
-  height: 1px;
-}
-.divider::before {
+.heading::before,
+.heading::after {
   content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(90deg, transparent, var(--lattice-line) 12%, var(--lattice-line) 88%, transparent);
-}
-.divider::after {
-  content: '';
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 9px;
-  height: 9px;
-  border: 1px solid var(--lattice);
-  background: var(--night);
-  opacity: 0.7;
-  transform: translate(-50%, -50%) rotate(45deg);
+  flex: 0 1 72px;
+  height: 6px;
+  border-block: 2px solid var(--line);
 }
 
-/* The dividers draw themselves (V6-015 (2)): the line grows out from the centre node as it scrolls
-   into view, then the node settles. Scroll-driven, compositor-only, and only where both the timeline
-   and motion are allowed; everywhere else the divider is simply there (ADR-0011 Decision 2). */
-@supports (animation-timeline: view()) {
-  @media (prefers-reduced-motion: no-preference) {
-    .divider {
-      view-timeline: --divider block;
-    }
-    .divider::before {
-      /* longhands: the minifier would fold a shorthand together with the timeline, which Chromium drops */
-      animation-name: divider-draw;
-      animation-timing-function: linear;
-      animation-fill-mode: both;
-      animation-timeline: --divider;
-      animation-range: entry 10% cover 40%;
-    }
-    .divider::after {
-      animation-name: divider-node;
-      animation-timing-function: linear;
-      animation-fill-mode: both;
-      animation-timeline: --divider;
-      animation-range: entry 0% cover 30%;
-    }
-  }
-}
-@keyframes divider-draw {
-  from {
-    transform: scaleX(0);
-  }
-  to {
-    transform: scaleX(1);
-  }
-}
-@keyframes divider-node {
-  from {
-    opacity: 0;
-    transform: translate(-50%, -50%) rotate(45deg) scale(0.4);
-  }
-  60% {
-    opacity: 1;
-    transform: translate(-50%, -50%) rotate(45deg) scale(1.25);
-  }
-  to {
-    opacity: 0.7;
-    transform: translate(-50%, -50%) rotate(45deg) scale(1);
+@media (max-width: 599px) {
+  .heading::before,
+  .heading::after {
+    flex-basis: 24px;
   }
 }
 
-/* The skip link's target takes focus without drawing a ring around the whole page. */
 main:focus {
   outline: none;
 }

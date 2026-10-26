@@ -17,7 +17,7 @@ import { ACCOUNT_RU } from './strings.ru';
 import { legalUrl } from '../src/ui/legal';
 import type { HumanCheck, HumanCheckAction, HumanCheckWidget } from '../src/platform/core/auth';
 import type { PlatformEnv } from '../src/platform/core/env';
-import { conflictView, fmt, guestSave, pageLang, PW_MAX, PW_MIN, readToken, resetView, savedLangSetting, variantOf, verifyView, type Lang, type Reply, type Variant, type View } from './logic';
+import { conflictView, fmt, pageLang, PW_MAX, PW_MIN, readToken, resetView, savedLangSetting, variantOf, verifyView, type Lang, type Reply, type Variant, type View } from './logic';
 
 /** A string table entry: plain, or plural forms (as in the game's old i18n tables). */
 type Entry = string | { one?: string; few?: string; many?: string; other: string };
@@ -26,6 +26,8 @@ type Key = keyof typeof ACCOUNT_EN;
 type Params = Record<string, string | number>;
 
 const TABLES: Record<Lang, Record<Key, Entry>> = { en: ACCOUNT_EN, ru: ACCOUNT_RU };
+/** The game's main menu (play.pixelarrow.app, same origin): signed out, it opens on sign in, with "Forgot the password?". */
+const MENU = '/';
 const AUTO_MS = 3000;
 
 const doc = document;
@@ -164,11 +166,11 @@ function verifying(): void {
 async function verify(): Promise<void> {
   verifying();
   const r = await call('POST', '/api/auth/verify', { token });
-  render(verifyView(variant, r, guestSave(storage)));
+  render(verifyView(variant, r));
 }
 
 /** Play, plus the 3 s auto-continue that any key or tap stops (WCAG 2.2.1). */
-function playRow(lines: HTMLElement[], to = '/'): void {
+function playRow(lines: HTMLElement[], to = MENU): void {
   const play = linkButton('auth.page.play', to, true);
   const count = p('auth.page.autoIn', { s: AUTO_MS / 1000 }, 'muted');
   show('ok', [...lines, count], [play], play);
@@ -198,7 +200,7 @@ function playRow(lines: HTMLElement[], to = '/'): void {
 
 async function success(v: Extract<View, { kind: 'success' }>): Promise<void> {
   if (v.purpose === 'signup') {
-    playRow([p('auth.page.welcome', undefined, 'lead'), p('auth.page.signedInAs', { name: v.name }), p(v.campaign === 'comes' ? 'auth.page.campaignComes' : 'auth.page.otherDevice')]);
+    playRow([p('auth.page.welcome', undefined, 'lead'), p('auth.page.signedInAs', { name: v.name })]);
   } else if (v.purpose === 'add_email') {
     playRow([p('auth.page.emailAdded', { name: v.name }, 'lead'), ...(v.removedEmpty ? [p('auth.page.removedEmpty')] : [])]);
   } else {
@@ -221,23 +223,23 @@ function render(v: View): void {
       playRow([p('auth.reset.done', undefined, 'lead')]);
       return;
     case 'expired': {
-      const login = linkButton('auth.login.submit', '/#login', true);
+      const login = linkButton('auth.login.submit', MENU, true);
       if (v.variant === 'signup') show('warn', [p('auth.page.expired', undefined, 'lead'), p('auth.page.expiredHint')], [login, button('auth.page.newLink', false, () => newLinkForm('resend'))], login);
       else if (v.variant === 'reset') show('warn', [p('auth.reset.expired', undefined, 'lead')], [login, button('auth.page.newLink', false, () => newLinkForm('reset'))], login);
       // add_email and change_email: a new link is asked for from Settings in the game.
-      else show('warn', [p('auth.page.expired', undefined, 'lead'), p('auth.page.expiredHint')], [login, linkButton('auth.page.toGame', '/', false)], login);
+      else show('warn', [p('auth.page.expired', undefined, 'lead'), p('auth.page.expiredHint')], [login, linkButton('auth.page.toGame', MENU, false)], login);
       return;
     }
     case 'taken': {
-      const login = linkButton('auth.login.submit', '/#login', true);
-      show('warn', [p('auth.page.taken', undefined, 'lead')], [login, linkButton('auth.login.forgot', '/#forgot', false)], login);
+      const login = linkButton('auth.login.submit', MENU, true);
+      show('warn', [p('auth.page.taken', undefined, 'lead')], [login, linkButton('auth.login.forgot', MENU, false)], login);
       return;
     }
     case 'conflict':
       conflictForm();
       return;
     case 'banned': {
-      const go = linkButton('auth.page.toGame', '/', false);
+      const go = linkButton('auth.page.toGame', MENU, false);
       show('warn', [p('auth.banned.title', undefined, 'lead'), p('auth.banned.body')], [go], go);
       return;
     }
@@ -260,7 +262,7 @@ function render(v: View): void {
 }
 
 function noToken(): void {
-  const go = linkButton('auth.page.toGame', '/', false);
+  const go = linkButton('auth.page.toGame', MENU, false);
   show('warn', [p('auth.page.noToken', undefined, 'lead')], [go], go);
 }
 
@@ -422,7 +424,7 @@ function resetForm(): void {
 function conflictForm(): void {
   const pw = field('currentPassword', 'auth.field.password');
   const forgot = el('a', 'link', 'auth.login.forgot');
-  forgot.href = '/#forgot';
+  forgot.href = MENU;
   forgot.rel = 'noreferrer';
   const f = makeForm([pw.wrap], 'auth.page.continue', async () => {
     pw.error(null);
@@ -492,7 +494,7 @@ function newLinkForm(action: Extract<HumanCheckAction, 'resend' | 'reset'>): voi
     const code = (r?.body as { error?: { code?: string } } | null)?.error?.code;
     if (r?.status === 202) {
       (await widget).remove();
-      const go = linkButton('auth.page.toGame', '/', false);
+      const go = linkButton('auth.page.toGame', MENU, false);
       show('ok', [action === 'resend' ? p('auth.check.resent', undefined, 'lead') : p('auth.check.reset', { email: addr }, 'lead')], [go], go);
     } else if (!r) f.banner('auth.err.offline');
     else if (r.status === 429) f.banner('auth.page.rate');
