@@ -23,9 +23,10 @@ export interface BoardRow { ask: number | null; bid: number | null; askDepth: nu
 /** An open goods offer on the board (server/src/war/market.ts BoardOffer): `n` left, its stall and owner; best first. */
 export interface BoardOffer { offer: number; side: 'sell' | 'buy'; res: string; n: number; price: number; stall: string; player: number }
 export interface Board { town: string; goods: Record<string, BoardRow>; offers: BoardOffer[]; items: { offer: number; uid: string; price: number }[]; fills: { res: string | null; n: number; price: number; at: number }[] }
-export type ContractKind = 'carry' | 'supply' | 'escort';
-export interface Contract { id: number; kind: ContractKind; town: string; to_town: string; poster: number; taker: number | null; reward: number; res: string | null; n: number; delivered: number; value: number; deposit: number; state: string; deadline: number }
-export interface ContractIn { kind: ContractKind; toTown: string; reward: number; res?: string; n?: number; value?: number; loads?: number; deadline: number }
+export type ContractKind = 'carry' | 'supply' | 'escort' | 'build' | 'guard';
+/** W-61 build: `n` worker-seconds on site `site` in `region`; guard: `n` hours with `men` men in the poster's town in `region`; `paid` so far. */
+export interface Contract { id: number; kind: ContractKind; town: string; to_town: string; poster: number; taker: number | null; reward: number; res: string | null; n: number; delivered: number; value: number; deposit: number; state: string; deadline: number; region?: string | null; site?: number | null; men?: number; paid?: number }
+export interface ContractIn { kind: ContractKind; toTown: string; reward: number; res?: string; n?: number; value?: number; loads?: number; deadline: number; region?: string; site?: number; hours?: number; men?: number }
 export interface Letter { id: number; town: string; toTown: string; amount: number; fee: number; state: 'offered' | 'sold' | 'redeemed'; mine: 'banker' | 'buyer' }
 export interface Handoff { with: number; state: 'open' | 'done' | 'closed'; halves: Record<number, { goods: Goods; uids: string[] }>; ok: number[]; until?: number; why?: string }
 export type Res<T> = T | { error: string };
@@ -243,7 +244,9 @@ export class LocalMarket implements Market {
   post(town: string, c: ContractIn) {
     if (!this.pay(c.reward)) return no(`the reward (${c.reward} coin) is escrowed from your strongroom`);
     const id = ++this.seq;
-    this.cs.push({ id, kind: c.kind, town, to_town: c.toTown, poster: this.me, taker: null, reward: c.reward, res: c.res ?? null, n: c.n ?? c.loads ?? 0, delivered: 0, value: c.value ?? 0, deposit: c.kind === 'carry' ? Math.round((c.value ?? 0) * DEPOSIT) : 0, state: 'open', deadline: c.deadline });
+    const work = c.kind === 'build' || c.kind === 'guard';
+    const n = c.kind === 'build' ? (c.hours ?? 0) * 3600 : c.kind === 'guard' ? (c.hours ?? 0) : (c.n ?? c.loads ?? 0);
+    this.cs.push({ id, kind: c.kind, town, to_town: work ? town : c.toTown, poster: this.me, taker: null, reward: c.reward, res: c.res ?? null, n, delivered: 0, value: c.value ?? 0, deposit: c.kind === 'carry' ? Math.round((c.value ?? 0) * DEPOSIT) : 0, state: 'open', deadline: c.deadline, ...(work ? { region: c.region ?? town, site: c.site ?? null, men: c.men ?? 0, paid: 0 } : {}) });
     return ok({ contract: id });
   }
 
