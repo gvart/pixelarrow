@@ -48,7 +48,7 @@ export const ACTION_IDS = [
   'form.line', 'form.column', 'form.wedge', 'form.loose',
   'build.mode', 'build.rotate', 'build.confirm', 'build.undo', 'build.flip', 'build.narrower', 'build.wider', 'build.gate', 'build.tower',
   'view.cutaway', 'view.map', 'view.normal', 'view.altitude', 'view.movement', 'view.ownership', 'view.biomes', 'view.resources', 'view.bossCam',
-  'panel.roster', 'panel.market', 'panel.guardian', 'panel.sound', 'go.world',
+  'panel.roster', 'panel.chest', 'panel.market', 'panel.guardian', 'panel.sound', 'go.world',
   'world.enter', 'world.routes', 'world.haul', 'world.fit', 'world.zoomIn', 'world.zoomOut',
   'back', 'menu.settings', 'help.keys', 'dev.panel',
 ] as const;
@@ -113,6 +113,7 @@ const DEFS: ActionDef[] = [
   def('view.resources', 'region', 'View and panels', 'Map mode: resources', [k('F7')]),
   def('view.bossCam', 'region', 'View and panels', 'Boss camera on or off', [k('KeyG')]),
   def('panel.roster', 'region', 'View and panels', 'Roster', [k('KeyR')]),
+  def('panel.chest', 'region', 'View and panels', 'Squad chest: what your men carry, the town store', [k('KeyI')]),
   def('panel.market', 'region', 'View and panels', 'Market', [k('KeyK')]),
   def('panel.guardian', 'region', 'View and panels', 'Landmark panel', [k('KeyL')]),
   def('panel.sound', 'region', 'View and panels', 'Sound panel', [k('KeyN')]),
