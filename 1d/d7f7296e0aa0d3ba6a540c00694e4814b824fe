@@ -1,0 +1,25 @@
+src/war/view/interact.ts
+  s_fcb7475e0b5395::t_0f628b1a613478 18,35-36,206-208
+  s_fcb7475e0b5395::t_623ad3aadf6588 209
+src/war/view/hud/souls.ts
+  s_fcb7475e0b5395::t_0f628b1a613478 5,46-53,55-67,78,110
+  s_fcb7475e0b5395::t_bb6131d1a5d46a 54
+docs/WAR.md
+  s_fcb7475e0b5395::t_2b7c3e6f79dfd4 805-806
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "1dd7f7296e0aa0d3ba6a540c00694e4814b824fe",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
