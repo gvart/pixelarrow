@@ -647,9 +647,11 @@ a region.
 
 | Surface | Content |
 | --- | --- |
-| Roster panel | field squad, reserve, household; state chips (wound timer, captive where); drag to swap |
-| Soldier card | paper doll, class and elite, level bar, 4 attributes, 2 skills, gear slots, honours, kills and battles |
-| Level-up | toast on the squad card; at levels 3 and 7 a choice of 2 skills with a stat preview (as the campaign perk preview) |
+| Roster panel | field squad, reserve, household; one state mark per man (HP bar, tent, bleeding heart, lock, skull), level disc, gold star for a waiting level-up; drag to swap |
+| Soldier card | paper doll (empty slots show a faint outline), class and elite, level disc and XP bar, 4 attributes with pips, battle numbers with icons, 2 skill medallions, honours, stash, kills and battles |
+| Level-up | toast on the squad card; a gold banner on the card opens the tree; at levels 3 and 7 a choice of 2 skills with a stat preview |
+| Skill tree | no legend: taken lit gold, open a breathing bronze ring with a cost badge, locked dark iron with a lock and the level it opens at |
+| Descriptions | CK3-style cards (`src/war/view/hud/codex.ts`): icon, kind, a flavour line, effects as coloured values with icons; terms are nested tooltips (a held tooltip takes the pointer). Numbers come from the sim data |
 | Live | squad active on the command card; veteran pips on unit bars; capture and ransom notices |
 
 ### Reuse and drop
