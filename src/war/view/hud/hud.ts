@@ -86,7 +86,7 @@ const cartTool = (t: 'handcart' | 'wagon'): ToolDef => {
   return { name: nice(t), icon: SIEGE_ICON[t], tool: { kind: 'siege', type: t }, cost: r.inputs as Cost, labour: r.secs, note: `${t === 'handcart' ? '6 loads, 2 pull it' : '12 loads, a driver and two mules'} · queued at your workshop L${lvl}`, craft: t };
 };
 const TABS: Record<'Camp' | 'Walls' | 'Craft' | 'Siege' | 'Trade', ToolDef[]> = {
-  Camp: TOOLBAR.filter((t) => !BUILDINGS[t].prebuilt).map((t) => bTool(t)), // W-60: no barracks (pre-built only)
+  Camp: TOOLBAR.map((t) => bTool(t)),
   Craft: WORKPLACES.map(([t, name]) => bTool(t, '', name)),
   Walls: [
     // W-57: walls drawn by drag or click-click; towers and gates placed like any building, onto a wall or beside it

@@ -51,7 +51,7 @@ export type Cost = Partial<Record<ResourceKind, number>>;
 
 export const RESOURCES: ResourceKind[] = ['food', 'wood', 'stone', 'marble', 'copper', 'tin', 'iron', 'bronze', 'silver', 'salt'];
 /** Buildings on the toolbar (walls, towers and gates sit on the Walls tab). */
-export const TOOLBAR: BuildingType[] = ['camp', 'storehouse', 'outpost', 'fort', 'barracks', 'farm', 'olivePress'];
+export const TOOLBAR: BuildingType[] = ['camp', 'storehouse', 'outpost', 'fort', 'farm', 'olivePress']; // W-60: no barracks (pre-built only)
 export const WALL_NAME: Record<WallMaterial, string> = { wood: 'palisade', timber: 'timber rampart', stone: 'stone wall' };
 const REASON: Partial<Record<PlaceReason, string>> = {
   bounds: 'off the map', noBuild: 'no-build zone', water: 'water', rock: 'rock', blocked: 'blocked', overlap: 'overlaps a building',
