@@ -3,13 +3,15 @@
  * tests straight onto createSim (headlessHost). Both run the same steps in the same order, so a seed plays the same.
  */
 import type { Behaviour, Bots } from '../sim/bots';
-import type { Order, ResourceKind, WarBuildSim, WarSim } from '../types';
-import type { Scenario, ScenarioGo, ScenarioSquad } from './types';
-import { BUILDINGS } from '../sim/economy';
+import type { Order, RegionData, ResourceKind, WarBuildSim, WarSim } from '../types';
+import type { Scenario, ScenarioGo, ScenarioOrder, ScenarioSquad } from './types';
+import { BUILDINGS, RESOURCE_NODES } from '../sim/economy';
 import { put } from '../sim/holders';
 
 /** What applying a scenario needs of a sim (the sandbox's SimClient has these). */
 export interface ScenarioHost {
+  /** The region played on (gatherNear orders find their node in it). */
+  readonly region: RegionData;
   spawn(owner: string, team: number, cls: string, count: number, x: number, y: number, bot?: Behaviour, go?: ScenarioGo): void;
   claim(team: number, x: number, y: number, r?: number): void;
   addStock(team: number, res: ResourceKind, n: number): void;
@@ -26,6 +28,26 @@ export interface ScenarioHost {
   /** W-60: food or rations into squad `squad`'s packs, or (null) the first standing store of `team`. */
   feed(team: number, squad: number | null, res: 'food' | 'ration', n: number): void;
 }
+
+/**
+ * The id of the `res` node nearest (x, y) in `region` (-1: none): the sim makes a node of each resource object, in the
+ * region's object order, before any building's (../sim/works.ts createWorks).
+ */
+export function nearestNode(region: RegionData, res: ResourceKind, x: number, y: number): number {
+  let id = -1, best = Infinity, n = 0;
+  for (const o of region.objects ?? []) {
+    const d = RESOURCE_NODES[o.id];
+    if (!d) continue;
+    const r = (o.x - x) ** 2 + (o.y - y) ** 2;
+    if (d.res === res && r < best) [id, best] = [n, r];
+    n++;
+  }
+  return id;
+}
+
+/** A scenario order as the sim takes it (a gatherNear goes to its node). */
+export const resolveOrder = (region: RegionData, o: ScenarioOrder): Order =>
+  o.kind === 'gatherNear' ? { kind: 'gather', squad: o.squad, node: nearestNode(region, o.res, o.x, o.y) } : o;
 
 /** The player's team in a scenario (?team= on the page wins; ../view/main.ts sets it). */
 export const playerTeam = (sc: Scenario): number => sc.team ?? 0;
@@ -56,17 +78,17 @@ export function applyScenario(h: ScenarioHost, sc: Scenario, around?: (q: Scenar
     for (const t of new Set(e.bridges.map((b) => b.team))) h.finishBridges(t);
   }
   for (const c of sc.carts ?? []) h.spawnCart(c.team, c.owner, c.type, c.x, c.y);
-  for (const o of sc.after?.orders ?? []) h.order(o);
+  for (const o of sc.after?.orders ?? []) h.order(resolveOrder(h.region, o));
   if (sc.after?.settle) h.skip(sc.after.settle);
   for (const q of sc.after?.squads ?? []) {
     const spawn = () => h.spawn(q.team === me ? 'you' : q.bot ? 'bot' : 'raiders', q.team, q.cls, q.count, q.x, q.y, q.bot, q.go);
     if (around) around(q, spawn);
     else spawn();
   }
-  for (const o of sc.after?.then ?? []) h.order(o);
+  for (const o of sc.after?.then ?? []) h.order(resolveOrder(h.region, o));
   for (const b of sc.bosses ?? []) h.hurtBossTo(b.boss, b.to); // M7d
   if (sc.after?.later) h.skip(sc.after.later.settle);
-  for (const o of sc.after?.later?.orders ?? []) h.order(o);
+  for (const o of sc.after?.later?.orders ?? []) h.order(resolveOrder(h.region, o));
   // W-60, last (the men stand where the after-steps put them): souls, hunger, food in packs and the store
   for (const so of sc.souls ?? []) h.spawnSoul(so.x, so.y, so.cls, so.level, so.site);
   for (const hg of sc.hunger ?? []) h.hunger(hg.squad, hg.sat);
@@ -127,6 +149,7 @@ export function hurtBossTo(sim: WarBuildSim, boss: string, to: number): void {
  */
 export function headlessHost(sim: WarBuildSim, bots: Bots, cap = Infinity): ScenarioHost {
   return {
+    region: sim.region,
     spawn: (owner, team, cls, count, x, y, bot, go) => {
       const id = sim.spawnSquad(owner, team, cls, count, x, y);
       if (id < 0) return;

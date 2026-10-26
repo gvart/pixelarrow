@@ -4,6 +4,7 @@ import { BRIDGE } from '../../src/war/sim/economy';
 import { parseRegion } from '../../src/war/region/schema';
 import ridgeJson from '../../src/war/regions/test-ridge.json';
 import { BRIDGE_DRAG, BRIDGE_STONE, scenarioById } from '../../src/war/scenarios';
+import { resolveOrder } from '../../src/war/scenarios/run';
 import type { BuildingSnap, RegionData, ResourceKind, WarBuildSim } from '../../src/war/types';
 
 /**
@@ -327,7 +328,7 @@ describe('bridge-test scenario (test-ridge)', () => {
     prebuild(e.prebuild!);
     for (const { squad, phase: _, ...w } of e.walls ?? []) sim.order({ kind: 'placeWall', squad, ...w });
     prebuild(e.prebuild!);
-    for (const o of sc.after!.orders) sim.order(o);
+    for (const o of sc.after!.orders) sim.order(resolveOrder(sim.region, o));
     expect(sim.snapshot().buildings!.every((b) => b.state === 'done')).toBe(true);
     // the standing bridges (as the sandbox: laid out, then done at once)
     for (const { team, ...b } of e.bridges ?? []) sim.order({ kind: 'placeBridge', team, ...b });

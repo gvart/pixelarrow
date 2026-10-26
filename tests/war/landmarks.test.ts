@@ -8,6 +8,7 @@ import { MOB_TEAM } from '../../src/war/sim/mobs';
 import { RARE_NODES } from '../../src/data/warLandmarks';
 import type { RegionData } from '../../src/war/types';
 import { SCENARIOS } from '../../src/war/scenarios';
+import { resolveOrder } from '../../src/war/scenarios/run';
 
 const files = import.meta.glob('../../src/war/regions/*.json', { eager: true, import: 'default' });
 const region = (id: string): RegionData => parseRegion(files[`../../src/war/regions/${id}.json`]);
@@ -72,7 +73,7 @@ describe('M7d landmark scenarios', () => {
     const sim = createSim(region(sc.region!), 1);
     sim.spawnMobs();
     for (const q of sc.squads) sim.spawnSquad('you', q.team, q.cls, q.count, q.x, q.y);
-    for (const o of sc.after!.orders) sim.order(o);
+    for (const o of sc.after!.orders) sim.order(resolveOrder(sim.region, o));
     return sim;
   };
 

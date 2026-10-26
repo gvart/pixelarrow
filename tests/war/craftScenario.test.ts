@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import ridgeJson from '../../src/war/regions/test-ridge.json';
 import { parseRegion } from '../../src/war/region/schema';
 import { scenarioById } from '../../src/war/scenarios';
+import { resolveOrder } from '../../src/war/scenarios/run';
 import { createSim } from '../../src/war/sim';
 import { makePerson } from '../../src/war/sim/roster';
 import type { ResourceKind, WarEvent, WarPerson } from '../../src/war/types';
@@ -23,12 +24,12 @@ function crafting() {
     if (open && open.id !== on) sim.order({ kind: 'build', squad: 0, site: (on = open.id) });
     sim.step();
   }
-  for (const o of a.orders) sim.order(o);
+  for (const o of a.orders) sim.order(resolveOrder(sim.region, o));
   for (let t = 0; t < (a.settle ?? 0); t++) sim.step();
   const smith = makePerson('you-smith', 'civ_smith', { level: 4 });
   const persons: Record<string, WarPerson[]> = { civ_smith: [{ ...smith, hero: { ...smith.hero, perks: ['bladesmith'] as unknown as typeof smith.hero.perks } }, makePerson('you-smith2', 'civ_smith')] };
   for (const q of a.squads) sim.spawnSquad('you', q.team, q.cls, q.count, q.x, q.y, persons[q.cls]);
-  for (const o of a.then ?? []) sim.order(o);
+  for (const o of a.then ?? []) sim.order(resolveOrder(sim.region, o));
   return sim;
 }
 
