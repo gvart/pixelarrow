@@ -1,0 +1,24 @@
+scripts/war/regions/kit.ts
+  s_fcb7475e0b5395::t_b454663b42b14c 1596-1597
+scripts/war/regions/kyrene.ts
+  s_fcb7475e0b5395::t_297e44299f70b8 15,86-96,100-103
+  s_fcb7475e0b5395::t_ce46df546c9966 97-99
+src/war/regions/kyrene.json
+  s_fcb7475e0b5395::t_b454663b42b14c 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "7d2d9f10d2a77b760f8fcd97fcd7f3537a5700eb",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
