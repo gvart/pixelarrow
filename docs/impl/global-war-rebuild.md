@@ -111,10 +111,11 @@ Since resume (2026-10-25): baked terrain shading, 4 m visual levels, one-level s
 
 Next, in order:
 1. Owner playtest of the current build; route feedback per area.
-2. Home regions (elaia, dodona, skythia): Gemini references, then W-52 + `relief`; ammon/canyons/erymanthos drafts likewise.
+2. Done: Gemini references (playbook 40l) and W-52 + `relief` for elaia, dodona, skythia, ammon, canyons and erymanthos.
 3. Done: the loop past the market is in seeded vitest scenarios (tests/war/loop.test.ts, server/test/war/tradeLoop.test.ts); the live smoke is a short wiring check (docs/PLAYTEST.md).
-4. Look polish: peaks up close (faceted), kyrene walls brighter/stripier than ref, pale elaia limestone lost its grass lip, sawtooth wall fronts, dodona brook banks as walls, elaia bay far-shore strip, waterfalls unchecked in-game (dodona-e/omphalos), unplaced pieces (elaia-e temple/jetty, kyrene-w, dodona-n hut-ruin, skythia-w rockfall), landmark look gaps (Citadel crag, Obsidian mesa, contour vineyards, `build.mjs --biome` wipes town objects).
+4. Done: shaded peaks, smoothed wall fronts and shore edges, calmer kyrene strata, limestone grass lip, falls as clipped water sheets (dodona-e, omphalos), salt/sand/basalt ground tints, bolder elaia terraces and readable skythia, missing pieces placed, Obsidian mesa (ramps, basalt top), contour vineyards, `build.mjs --biome` keeps the town set. Open: Citadel crag (a wider skirt fails Drakon's balance; needs a raid re-tune or face art), mesa houses still red-roofed (no dark building art), thin old fall sprites inside skythia-w's sheets, coast foam steps on the grid.
 5. Perf on an idle GPU machine: ≥50 fps with 600 units at 1/2 and 1/4 zoom; bake-time A/B; V toggle rebake (~5 s choppy).
+6. Offline world (`world.html?offline=1`) starts with one squad of 12 and spawns it on entry; still open: world and region don't share offline state, no first-step hint, home town far from the north entry, region fog always team 0.
 
 W-52 cliffed relief (elaia-w pilot): author the whole height field as one continuous elevation (`profile` cross-section bent by fbm, coves/bays as `min` bowls) through setpieces.ts `relief` with cliff bands (e.g. [2,8], [10,13]): values inside a band snap to its ends along a noisy contour, so walls of 3-6 levels and stacked drops come out organic while the rest steps one level at a time (walkable). Keep plateaus out of the bands (else they snap flat), add stronger fine noise on crowns, lay valleys/roads/coves' water after it and crags (`rockMass`, `foot: 0`) last so they stand over the ground. At 4 m levels (W-52 amendment) the sea walls and the ravine read from the overview.
 
