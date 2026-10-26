@@ -1,0 +1,73 @@
+src/war/view/hud/roster/card.ts
+  s_fcb7475e0b5395::t_ce841fc5e6712a 28,108-109,115
+src/war/view/units.ts
+  s_fcb7475e0b5395::t_bc473b514cff0e 18,136-139,355,386-412
+  s_fcb7475e0b5395::t_91e1b5c0a7464d 413-414
+src/war/scenarios/limits.ts
+  s_fcb7475e0b5395::t_37805565a14930 11
+src/war/view/hud/hunger.ts
+  s_fcb7475e0b5395::t_a54f0c32395260 1-8,10-38,40,47-55
+  s_fcb7475e0b5395::t_ce841fc5e6712a 9,39,41-46
+src/war/view/hud/souls.ts
+  s_fcb7475e0b5395::t_7f502314127275 1-128
+src/war/view/hud/codex.ts
+  s_fcb7475e0b5395::t_b703f78ea03a81 220-221,226,245-246,249-251,255
+src/war/view/hud/craft/index.ts
+  s_fcb7475e0b5395::t_16bd2ade1cbe06 30,107
+src/war/view/hud/buildingCard.ts
+  s_fcb7475e0b5395::t_b703f78ea03a81 27-29,34-35,41-42
+src/war/scenarios/index.ts
+  s_fcb7475e0b5395::t_37805565a14930 25,622
+src/war/view/hud/hud.ts
+  s_fcb7475e0b5395::t_e4c6fadb1f79f4 66-67
+  s_fcb7475e0b5395::t_114ee50fc016b1 52,87,317,404
+  s_fcb7475e0b5395::t_f0b38942ec9ebd 53,358
+src/war/view/hud/roster/panel.ts
+  s_fcb7475e0b5395::t_32af5def071bbe 5,18,63
+src/war/view/hud/goods.ts
+  s_fcb7475e0b5395::t_22b8871bdc0e01 17-18,50
+src/war/net/client.ts
+  s_fcb7475e0b5395::t_f0b38942ec9ebd 93
+src/war/scenarios/run.ts
+  s_fcb7475e0b5395::t_7e2afb128aa24c 8-9,26-27,110-117,147
+  s_fcb7475e0b5395::t_42124823d19428 23-25,145-146
+  s_fcb7475e0b5395::t_6834ca692d1414 70-73
+src/war/scenarios/types.ts
+  s_fcb7475e0b5395::t_7e2afb128aa24c 63-64
+  s_fcb7475e0b5395::t_42124823d19428 59-62
+src/war/view/worker.ts
+  s_fcb7475e0b5395::t_42124823d19428 35-36,168,170
+  s_fcb7475e0b5395::t_7e2afb128aa24c 15,37,169
+src/war/view/simClient.ts
+  s_fcb7475e0b5395::t_42124823d19428 151-155,161-165
+  s_fcb7475e0b5395::t_7e2afb128aa24c 156-160
+src/war/view/hud/mapDraw.ts
+  s_fcb7475e0b5395::t_91af8dfdbdb497 230-245
+tests/war/localStore.test.ts
+  s_fcb7475e0b5395::t_23a431959f977c 1-22,24,26-44
+  s_fcb7475e0b5395::t_f165837e0b6b26 23,25
+src/war/view/hud/chest.ts
+  s_fcb7475e0b5395::t_396fa1e10a15f8 215
+  s_fcb7475e0b5395::t_3d9035154be031 7-8,11,26-29,44-45,52-75,78-89,122-127,129-130,200-201,211,214,217-218
+src/war/scenarios/souls.ts
+  s_fcb7475e0b5395::t_6834ca692d1414 22-25
+  s_fcb7475e0b5395::t_faea7a1b3c33b7 1-21,26-46
+tests/war/soulScenarios.test.ts
+  s_fcb7475e0b5395::t_1df33a1df2a323 1-51
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "5b62fc44dd98554ec5acbe5192b656c62921deb6",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
