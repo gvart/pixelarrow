@@ -1,0 +1,44 @@
+src/war/regions/stymphalia.json
+  s_fcb7475e0b5395::t_741a9182237285 1
+src/war/regions/dodona-n.json
+  s_fcb7475e0b5395::t_7f61e099cde16e 1
+src/war/regions/delta.json
+  s_fcb7475e0b5395::t_7f61e099cde16e 1
+scripts/war/regions/stymphalia.ts
+  s_fcb7475e0b5395::t_04ece1645f23a4 16,79,81-83
+  s_fcb7475e0b5395::t_741a9182237285 80
+src/war/regions/ammon.json
+  s_fcb7475e0b5395::t_7f61e099cde16e 1
+src/war/regions/kyrene-s.json
+  s_fcb7475e0b5395::t_7f61e099cde16e 1
+src/war/regions/kyrene-e.json
+  s_fcb7475e0b5395::t_7f61e099cde16e 1
+src/war/regions/dodona.json
+  s_fcb7475e0b5395::t_1bd7058531ffda 1
+src/war/regions/skythia.json
+  s_fcb7475e0b5395::t_1bd7058531ffda 1
+src/war/regions/siren.json
+  s_fcb7475e0b5395::t_7f61e099cde16e 1
+src/war/regions/canyons.json
+  s_fcb7475e0b5395::t_7f61e099cde16e 1
+scripts/war/regions/kit.ts
+  s_fcb7475e0b5395::t_d9e4d50021b189 1648
+src/war/regions/elaia.json
+  s_fcb7475e0b5395::t_1bd7058531ffda 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "d287e3b3464d1936e628ec04bc3bf9fb856cd4c0",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
