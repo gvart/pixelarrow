@@ -46,7 +46,7 @@ import { warStats, warStatsOf, type WarStats } from './classes';
 import { afterArmour, blockChance, COMBAT, heightRange, hitChance, meleeHeight, missileHeight } from './combat';
 import { formationOffsets, type Shape } from './formation';
 import { BRAZIER, BUILDINGS, FIELD, WORK_DEFENCE } from './economy';
-import { BOG, buildGrid, canEnter, DECK, findPath, flushSectors, FOREST, lineClear, nearestOpen, tileAt, UPHILL, type Grid } from './grid';
+import { BOG, buildGrid, canEnter, DECK, findPath, flushSectors, FOREST, lineClear, nearestOpen, pullPath, stepCost, tileAt, UPHILL, walkClear, type Grid } from './grid';
 import { createWorks, type Worker } from './works';
 import { createSiege, LADDER } from './siege';
 import { createMobs, MOB_OWNER, MOB_TEAM, mobClass } from './mobs';
@@ -88,6 +88,13 @@ const CATCH_UP = 1.35; // units may outpace the anchor to reach their slot
 const RADIUS = 0.35; // units closer than 2*RADIUS are pushed apart
 const PUSH = 0.5; // fraction of the overlap resolved per tick
 const TURN = 0.35; // max anchor turn per tick (rad)
+const WHEEL = 0.6; // W-55: ... and at most this share of the march speed for its outermost slot (a big block wheels slower)
+const LOOK = 2.5; // W-55: tiles ahead along the path the anchor faces (it starts a turn before the corner)
+const FACE_RATE = 0.5; // W-55: rad per tick a walking man turns his facing
+const SHOVE = 0.35; // W-55: ... share of a stride under which a step (a shove, a sidestep) leaves his facing alone
+const PASS = 2; // W-55: a walker this far or more from his mark shoves friends at ease aside (nearer, he goes round them)
+const INERTIA = 0.4; // W-55: share of last tick's heading a walker keeps (smooths the steering; not within a tile of his mark)
+const SNAP_TURN = Math.PI / 4; // W-55: a new path heading this far off: face it at once and re-fit the slots
 const ARRIVE = 0.05;
 const STALL = 10; // squad at rest: a unit that gets no nearer its slot this many ticks settles where it stands
 const WAKE = 0.5; // a settled unit walks again when its slot moves this much further off
@@ -114,6 +121,8 @@ const HOLD_OFF = 2.5; // an attack path that cannot reach its foe (cut off): mel
 const YIELD = 0.08; // keep-right sidestep per tick when meeting another squad head-on
 const YIELD_R = 1.2; // ... felt this far ahead (bodies never touch, see `separate`)
 const STUCK_TICKS = 8;
+const STUCK_WINDOW = 30; // W-55: ticks over which a walker must get STUCK_NET tiles on, else he re-paths on his own
+const STUCK_NET = 0.5;
 const CLIMB_LOOK = 1.5; // tiles ahead a climb is felt
 const FACE = 18; // a standing squad turns to face enemies this near
 const FACE_TURN = 0.08; // rad per tick
@@ -159,6 +168,8 @@ interface Unit extends Worker {
   vx: number; // unit direction it wants to walk (0,0 standing)
   vy: number;
   stuck: number;
+  wx: number; // W-55: where he stood at the start of his stuck window
+  wy: number;
   own: number[]; // personal detour (flat x,y) when stuck
   oi: number;
   ownReq: boolean;
@@ -680,14 +691,61 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     const goal = tileAt(grid, gx, gy);
     const tiles = findPath(grid, tileAt(grid, x0, y0), goal);
     const pts = [x0, y0];
+    // W-55: the tile path's cost to each corner (for string pulling), and the corners that must stay (on or off a stair or
+    // deck, on a bridge: those keep their own straight-step and lane rules)
+    const cost = [0], keep = [fixedTile(tiles[0])];
+    let acc = 0;
     for (let i = 1; i < tiles.length - 1; i++) {
       const a = tiles[i - 1], b = tiles[i], c = tiles[i + 1];
-      if (b - a !== c - b || grid.deck[a] !== grid.deck[b] || grid.deck[c] !== grid.deck[b]) pts.push((b % grid.w) + 0.5, Math.floor(b / grid.w) + 0.5); // corners, and both ends of a step on or off a stair or deck
+      acc += stepCostOf(a, b);
+      if (b - a !== c - b || grid.deck[a] !== grid.deck[b] || grid.deck[c] !== grid.deck[b]) {
+        pts.push((b % grid.w) + 0.5, Math.floor(b / grid.w) + 0.5); // corners, and both ends of a step on or off a stair or deck
+        cost.push(acc);
+        keep.push(fixedTile(a) || fixedTile(b) || fixedTile(c));
+      }
     }
     const last = tiles[tiles.length - 1];
+    if (tiles.length > 1) acc += stepCostOf(tiles[tiles.length - 2], last);
     if (last === goal) pts.push(gx, gy);
     else pts.push((last % grid.w) + 0.5, Math.floor(last / grid.w) + 0.5);
-    return pts;
+    cost.push(acc);
+    keep.push(false);
+    return pullPath(grid, pts, cost, keep, RADIUS);
+  };
+  /** A tile whose path corners string pulling leaves alone: a stair, deck or ladder, a bridge. */
+  const fixedTile = (t: number) => t >= 0 && (grid.deck[t] !== 0 || grid.span[t] !== 0 || !!works.bridgeAt(t));
+  /** The A* cost of the step between adjacent tiles a and b. */
+  const stepCostOf = (a: number, b: number) => stepCost(grid, a, b) * ((a % grid.w) !== (b % grid.w) && Math.floor(a / grid.w) !== Math.floor(b / grid.w) ? Math.SQRT2 : 1);
+
+  /**
+   * W-55 (AoE-style re-forming): a formation squad's living men take the slots that keep their order in the block's own
+   * frame, so on a new heading, a new shape or a thinned rank nobody walks across the block to a slot on its far side.
+   * Slots are cut into ranks (front first); the men, sorted front to back, fill the ranks in turn, and within a rank they
+   * pair off with its slots left to right. Squads on fixed points, a column, an engine or a task keep their slots.
+   */
+  const fitSlots = (s: Squad) => {
+    if (s.fixed || s.col || s.siege >= 0 || s.task || s.order === 'gather' || s.order === 'build') return;
+    const us = s.units.filter((u) => u.alive);
+    const n = us.length;
+    if (n < 2 || s.offsets.length < n * 2) return;
+    const c = Math.cos(s.facing), sn = Math.sin(s.facing);
+    const mf = us.map((u) => (u.x - s.ax) * c + (u.y - s.ay) * sn), mr = us.map((u) => -(u.x - s.ax) * sn + (u.y - s.ay) * c);
+    const so = Array.from({ length: n }, (_, k) => k).sort((a, b) => s.offsets[b * 2] - s.offsets[a * 2] || a - b);
+    const mo = Array.from({ length: n }, (_, i) => i).sort((a, b) => mf[b] - mf[a] || us[a].id - us[b].id);
+    for (let a = 0; a < n; ) {
+      let b = a + 1;
+      while (b < n && s.offsets[so[b - 1] * 2] - s.offsets[so[b] * 2] < 0.5) b++; // one rank: slots less than half a pace apart front to back
+      const ks = so.slice(a, b).sort((p, q) => s.offsets[p * 2 + 1] - s.offsets[q * 2 + 1] || p - q);
+      const ms = mo.slice(a, b).sort((p, q) => mr[p] - mr[q] || us[p].id - us[q].id);
+      for (let j = 0; j < ks.length; j++) us[ms[j]].slot = ks[j];
+      a = b;
+    }
+  };
+
+  /** Heading of squad s's path LOOK tiles on from its anchor, NaN at the end of it. */
+  const pathHeading = (s: Squad) => {
+    const [x, y] = alongPath(s, LOOK);
+    return Math.hypot(x - s.ax, y - s.ay) < 0.3 ? NaN : Math.atan2(y - s.ay, x - s.ax);
   };
 
   const pathTo = (s: Squad, x: number, y: number) => {
@@ -701,6 +759,13 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       u.wp = 0;
       u.own = [];
     }
+    // W-55: a new heading well off the old one: the block faces it at once and the men re-fit their slots in order
+    // (AoE re-forms on the order; wheeling a 6-wide line round 180 degrees has the flanks run across each other)
+    const h = pathHeading(s);
+    if (!Number.isNaN(h) && Math.abs(Math.atan2(Math.sin(h - s.facing), Math.cos(h - s.facing))) > SNAP_TURN) {
+      s.facing = h;
+      fitSlots(s);
+    }
   };
 
   const requestPath = (s: Squad, x: number, y: number) => {
@@ -713,6 +778,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     let k = 0;
     for (const u of s.units) if (u.alive) u.slot = k++;
     if (k > 0) s.offsets = formationOffsets(s.shape, k, rng);
+    fitSlots(s); // W-55: close ranks by where the men stand, not by roster order
     let minSpeed = Infinity;
     let ranged = 0;
     for (const u of s.units) {
@@ -1386,18 +1452,22 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     }
     lag = n ? lag / n : 0;
     let budget = SPEED * s.speed * (s.flee ? CIV.fleeSpeed : 1) * (s.laden ? PORTER.slow : 1) * DT * Math.min(1, Math.max(0.25, 1.25 - lag / 6));
+    // W-55: face a point a little way along the path (the turn starts before the corner), wheeling no faster than the
+    // outermost slot can follow
+    const want = pathHeading(s);
+    if (!Number.isNaN(want)) {
+      let reach = 0.5;
+      for (let i = 0; i < s.offsets.length; i += 2) reach = Math.max(reach, Math.hypot(s.offsets[i], s.offsets[i + 1]));
+      const rate = Math.min(TURN, (WHEEL * budget) / reach);
+      const turn = Math.atan2(Math.sin(want - s.facing), Math.cos(want - s.facing));
+      s.facing += Math.max(-rate, Math.min(rate, turn));
+    }
     while (budget > 0 && s.pi < s.path.length / 2) {
       const tx = s.path[s.pi * 2];
       const ty = s.path[s.pi * 2 + 1];
       const dx = tx - s.ax;
       const dy = ty - s.ay;
       const d = Math.hypot(dx, dy);
-      if (d > 1e-6) {
-        const want = Math.atan2(dy, dx);
-        let turn = want - s.facing;
-        turn = Math.atan2(Math.sin(turn), Math.cos(turn));
-        s.facing += Math.max(-TURN, Math.min(TURN, turn));
-      }
       const cost = moveCost(s.ax, s.ay, dx / (d || 1), dy / (d || 1));
       const step = budget / cost;
       if (step >= d) {
@@ -1437,7 +1507,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       u.own = [];
     }
     const [sx, sy] = slotPos(s, u.slot);
-    if (lineClear(grid, u.x, u.y, sx, sy)) return [sx, sy];
+    if (walkClear(grid, u.x, u.y, sx, sy)) return [sx, sy];
     if (s.fixed && !u.ownReq) {
       // a wall-walk point out of sight (up a stair, round a tower): a way of its own there
       u.ownReq = true;
@@ -1445,7 +1515,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     }
     const last = Math.min(s.pi, s.path.length / 2 - 1);
     for (let j = last; j > u.wp; j--) {
-      if (lineClear(grid, u.x, u.y, s.path[j * 2], s.path[j * 2 + 1])) {
+      if (walkClear(grid, u.x, u.y, s.path[j * 2], s.path[j * 2 + 1])) {
         u.wp = j;
         break;
       }
@@ -1473,6 +1543,9 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       const t = tileAt(grid, x, y);
       if (t === from) return true;
       if (t < 0 || !canEnter(grid, from, t)) return false;
+      // W-55: no slipping through the pinch where two closed tiles meet corner to corner
+      const fx = from % grid.w, fy = (from / grid.w) | 0, tx = t % grid.w, ty = (t / grid.w) | 0;
+      if (fx !== tx && fy !== ty && !(grid.span[from] && grid.span[t]) && !canEnter(grid, from, fy * grid.w + tx) && !canEnter(grid, from, ty * grid.w + fx)) return false;
       if (anySafe && safeMask[t] && !safeMask[from] && !safeEntry(u)) return false; // M6d: the gate refuses him
       const p = grid.plat[t];
       return p < 0 || p === pf || (platLoad.get(p) ?? 0) < works.platCap(p);
@@ -1686,12 +1759,17 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
         continue;
       }
       let pending = false, moved = 0;
+      const out: Unit[] = [], spare: Unit[] = [];
+      /** W-55: he still has something to move here (goods to put down, room to take more). */
+      const busy = (u: Unit) => (load ? !u.pack || loads(u.pack) < PORTER.loads - 1e-9 : !!u.pack && loads(u.pack) > 1e-9);
       for (const u of s.units) {
         if (!u.alive) continue;
         if (!byHolder(h, u.x, u.y, PILE.reach + 0.5)) {
           pending = true;
+          if (busy(u)) out.push(u);
           continue;
         }
+        if (!busy(u)) spare.push(u);
         const pack = (u.pack ??= newHold());
         if (load) {
           const amt = Math.min(PORTER.loads - loads(pack), x.n / perLoad(x.res));
@@ -1708,6 +1786,16 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
         } else moved += moveHold(pack, h.hold, Math.min(loads(pack), h.cap - loads(h.hold)), x.res, Infinity, true);
       }
       if (!pending && moved <= 1e-9) end();
+      // W-55: a man with goods kept off the holder by the crowd at its ring swaps standing points with one beside it who
+      // has nothing left to move
+      if (s.fixed)
+        for (let k = 0; k < Math.min(out.length, spare.length); k++) {
+          const a = out[k], b = spare[k];
+          [a.slot, b.slot] = [b.slot, a.slot];
+          a.settled = b.settled = false;
+          a.best = b.best = Infinity;
+          a.stall = b.stall = 0;
+        }
     }
   };
 
@@ -2131,6 +2219,14 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
   /** Two men meeting head-on in a bridge's lane squeeze past each other (else a footbridge jams for good). */
   const meet = (a: Unit, b: Unit) => a.vx * b.vx + a.vy * b.vy < -0.3 && !!works.bridgeAt(tileAt(grid, a.x, a.y)) && !!works.bridgeAt(tileAt(grid, b.x, b.y));
 
+  /** Settled in his slot and doing nothing else (not striking, at work, on a fixed point or a task). */
+  const atEase = (u: Unit) => u.settled && !u.striking && !u.working && !u.job && !u.squad.fixed && !u.squad.task && u.squad.siege < 0;
+
+  /** u walks on through o, a friend at ease (`separate` shoves o aside). */
+  const shoves = (u: Unit, o: Unit) => u.squad.team === o.squad.team && u.squad !== o.squad && atEase(o) && passing(u);
+  /** On his way through, not arriving: his squad still marching and his mark further off than PASS (arriving men settle round each other). */
+  const passing = (u: Unit) => (u.vx !== 0 || u.vy !== 0) && u.toSlot && u.want > PASS && u.squad.pi < u.squad.path.length / 2;
+
   const separate = () => {
     head.fill(-1);
     for (let i = 0; i < units.length; i++) {
@@ -2162,8 +2258,14 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
               ey /= e;
             }
             // a man standing on a bridge gives way along the file (it has no room to go round him)
-            const uFix = (u.settled && !works.bridgeAt(tileAt(grid, u.x, u.y))) || u.striking || u.working;
-            const oFix = (o.settled && !works.bridgeAt(tileAt(grid, o.x, o.y))) || o.striking || o.working;
+            let uFix = (u.settled && !works.bridgeAt(tileAt(grid, u.x, u.y))) || u.striking || u.working;
+            let oFix = (o.settled && !works.bridgeAt(tileAt(grid, o.x, o.y))) || o.striking || o.working;
+            // W-55 (SC2-style): a man standing at ease is shoved aside by a friend walking through, and walks back to his
+            // slot after; the walker keeps his line instead of going round the whole block
+            if (u.squad.team === o.squad.team && u.squad !== o.squad && uFix !== oFix) {
+              if (uFix && atEase(u) && passing(o)) uFix = false, oFix = true;
+              else if (oFix && atEase(o) && passing(u)) oFix = false, uFix = true;
+            }
             const k = u.pin ? 0 : o.pin ? 1 : uFix === oFix ? 0.5 : uFix ? 0 : 1;
             if (u.pin && o.pin) continue;
             const gap = MIN - e;
@@ -2551,8 +2653,17 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       if (d > ARRIVE) {
         const cost = moveCost(u.x, u.y, dx / d, dy / d);
         const step = Math.min(d, (SPEED * u.st.speed * (u.squad.flee ? CIV.fleeSpeed : 1) * (u.squad.laden ? PORTER.slow : 1) * CATCH_UP * DT) / cost);
-        u.vx = dx / d;
-        u.vy = dy / d;
+        let hx = dx / d, hy = dy / d;
+        // W-55 steering inertia: a walker bends his way gradually (not on a sharp turn, not near his mark, not in a fight)
+        if (d > 1 && !u.fighting && (u.vx || u.vy) && hx * u.vx + hy * u.vy > 0) {
+          hx += (u.vx - hx) * INERTIA;
+          hy += (u.vy - hy) * INERTIA;
+          const l = Math.hypot(hx, hy);
+          hx /= l;
+          hy /= l;
+        }
+        u.vx = hx;
+        u.vy = hy;
         dx = u.vx * step;
         dy = u.vy * step;
       } else {
@@ -2572,7 +2683,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
           for (let j = head[yy * grid.w + xx]; j !== -1; j = next[j]) {
             if (j === i) continue;
             const o = units[j];
-            if (ghost(u, o)) continue;
+            if (ghost(u, o) || shoves(u, o)) continue;
             const ex = u.x - o.x;
             const ey = u.y - o.y;
             const e2 = ex * ex + ey * ey;
@@ -2607,7 +2718,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
               const px = u.x + dx - o.x;
               const py = u.y + dy - o.y;
               const p2 = px * px + py * py;
-              if (p2 >= R2 || p2 < 1e-8 || (u.fighting && o.fighting) || ghost(u, o)) continue;
+              if (p2 >= R2 || p2 < 1e-8 || (u.fighting && o.fighting) || ghost(u, o) || shoves(u, o)) continue;
               const now = Math.hypot(u.x - o.x, u.y - o.y);
               const p = Math.sqrt(p2);
               if (p >= now) continue;
@@ -2635,7 +2746,15 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       const mx = u.x - u.ox;
       const my = u.y - u.oy;
       u.moving = mx * mx + my * my > 1e-4;
-      if (u.want >= 0 && !(u.civAt && !u.moving)) u.facing = u.moving && u.want > ARRIVE ? Math.atan2(my, mx) : u.squad.facing; // a civilian at work keeps facing his station
+      if (u.want >= 0 && !(u.civAt && !u.moving)) {
+        // a civilian at work keeps facing his station. W-55: a walker turns to his way at most FACE_RATE a tick, and a
+        // small shove or sidestep (under SHOVE of a stride) does not turn him at all: no twitching sprite in a crowd
+        if (!(u.moving && u.want > ARRIVE)) u.facing = u.squad.facing;
+        else if (mx * mx + my * my > (SHOVE * SPEED * u.st.speed * DT) ** 2) {
+          const turn = Math.atan2(Math.sin(Math.atan2(my, mx) - u.facing), Math.cos(Math.atan2(my, mx) - u.facing));
+          u.facing += Math.max(-FACE_RATE, Math.min(FACE_RATE, turn));
+        }
+      }
       // walled in on the way to its slot: find a detour of its own
       if (u.toSlot && u.want > 0.5 && !u.moving) {
         if (++u.stuck > STUCK_TICKS && !u.ownReq && !u.own.length) {
@@ -2646,6 +2765,17 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
         // a worker caught on a corner of its path (a cliff edge): it searches again from where it stands
         if (++u.stuck > STUCK_TICKS) (u.stuck = 0), (u.wgx = u.wgy = -1);
       } else u.stuck = 0;
+      // W-55: caught for good though not standing still (shoved to and fro on a corner, in a jam): over a STUCK_WINDOW
+      // he got nowhere while wanting to go on, so he looks for a way of his own from where he stands
+      if ((tick + u.id) % STUCK_WINDOW === 0) {
+        if (u.toSlot && u.want > 0.5 && !u.ownReq && (u.x - u.wx) ** 2 + (u.y - u.wy) ** 2 < STUCK_NET * STUCK_NET) {
+          u.own = [];
+          u.ownReq = true;
+          unitPathQueue.push(u);
+        }
+        u.wx = u.x;
+        u.wy = u.y;
+      }
     }
     if (tick % STAKES_EVERY === 0) stakes();
     land();
@@ -2754,7 +2884,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
         const ust = sts?.[k] ?? st;
         const u: Unit = {
           id: units.length, squad: s, slot: k, x: px, y: py, facing: 0, hp: ust.maxHp, maxHp: ust.maxHp, cls: ps?.[k].hero.cls ?? cls, st: ust, moving: false, wp: 0,
-          alive: true, wounded: false, fighting: false, striking: false, swingAt: -1, cd: 0, ammo: ust.ammo, tgt: null, vx: 0, vy: 0, stuck: 0, own: [], oi: 0, ownReq: false,
+          alive: true, wounded: false, fighting: false, striking: false, swingAt: -1, cd: 0, ammo: ust.ammo, tgt: null, vx: 0, vy: 0, stuck: 0, wx: px, wy: py, own: [], oi: 0, ownReq: false,
           crossing: false, settled: false, settleD: 0, best: Infinity, stall: 0, ox: px, oy: py, want: 0, toSlot: false,
           job: null, carry: null, load: 0, wnode: -1, wsite: -1, wslot: -1, wfor: -1, working: false, wgx: -1, wgy: -1, wpath: [], wpi: 0, wreq: false, doing: null, person: ps?.[k] ?? null,
           dealt: 0, kills: 0, obj: 0, engaged: false, reported: false, civ: civJob(ps?.[k].hero.cls ?? cls), civT: 0, civAt: false, repaired: false, venomUntil: -1, venom: false, beast: false, fieldR: 0,
