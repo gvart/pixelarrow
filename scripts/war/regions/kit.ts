@@ -1396,9 +1396,17 @@ function visualLayer(k: Kit): Out {
       const lo = shore.length ? shore[Math.floor(shore.length / 4)] : z0, level = Math.max(z0, lo);
       for (let n = 0; n < qt; n++) { zv[q[n]] = level; nb(q[n], (j) => { if (!water[j] && zv[j] < level) { zv[j] = level; fill.push(j); } }); }
     }
+    // a bank a sim level under the water is raised flush with it for a few cells (else a dry trench runs along the
+    // water, under its level), then eased down a level per cell
+    const BANK = 6 * k.K, near = new Uint8Array(N).fill(255);
+    for (const i of fill) near[i] = 0;
     while (fill.length) {
       const i = fill.pop()!;
-      nb(i, (j) => { if (!water[j] && zv[j] < zv[i] - 1) { zv[j] = zv[i] - 1; fill.push(j); } });
+      nb(i, (j) => {
+        if (water[j]) return;
+        if (near[i] < BANK && zv[j] < zv[i] && zv[j] >= zv[i] - RELIEF && near[j] > near[i] + 1) { zv[j] = zv[i]; near[j] = near[i] + 1; fill.push(j); }
+        else if (zv[j] < zv[i] - 1) { zv[j] = zv[i] - 1; fill.push(j); }
+      });
     }
   }
   const inBlob = (x: number, y: number, b: Blob, seed: number) => blob(x, y, b[0], b[1], b[2], b[3], b[4] ?? 0, 1.2, seed) > 0;
