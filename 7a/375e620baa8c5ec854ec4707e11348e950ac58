@@ -1,0 +1,60 @@
+src/war/view/hud/craft/index.ts
+  s_fcb7475e0b5395::t_9fd225091b386d 26,172
+src/war/world-view/main.ts
+  s_fcb7475e0b5395::t_3bac643fbd4700 337
+  s_fcb7475e0b5395::t_77f3135a54df3a 30,387,389-396
+src/war/view/SandboxScene.ts
+  s_fcb7475e0b5395::t_ff778701003762 53,209-211,213-215,461,554,561-562
+src/war/view/hud/hud.ts
+  s_fcb7475e0b5395::t_9fd225091b386d 56,343-345,347-348
+src/war/input/bindingStore.ts
+  s_fcb7475e0b5395::t_fb1be0ed7cd3e7 1-27
+tests/war/keys.test.ts
+  s_fcb7475e0b5395::t_d6b5973fdc1f2d 1-107
+src/war/view/hud/modes.ts
+  s_fcb7475e0b5395::t_9fd225091b386d 10-11,76,93-95
+src/war/input/actions.ts
+  s_fcb7475e0b5395::t_b231aa1332b02d 2-131
+  s_fcb7475e0b5395::t_82342beaa30ead 1
+  s_fcb7475e0b5395::t_ceb0430d827f67 132-134
+src/war/view/interact.ts
+  s_fcb7475e0b5395::t_b5e88d1ac7bc32 36,68-70,73-74
+src/war/input/keys.ts
+  s_fcb7475e0b5395::t_f2356ae4b87498 1-21,24-92
+  s_fcb7475e0b5395::t_9d7ac705ec1517 22-23
+src/war/view/siege/siegeControls.ts
+  s_fcb7475e0b5395::t_9fd225091b386d 17,40-44
+src/war/view/select.ts
+  s_fcb7475e0b5395::t_ffe1c53f92ab54 25-26
+  s_fcb7475e0b5395::t_b5e88d1ac7bc32 19-20,135-139,142,145-149
+src/war/view/hud/guardianBar.ts
+  s_fcb7475e0b5395::t_9fd225091b386d 27,79
+src/war/view/hud/market.ts
+  s_fcb7475e0b5395::t_9fd225091b386d 27,296
+src/war/view/hud/soundPanel.ts
+  s_fcb7475e0b5395::t_9fd225091b386d 8,54
+src/war/input/bindings.ts
+  s_fcb7475e0b5395::t_fb1be0ed7cd3e7 1-247
+src/war/view/hud/fullMap.ts
+  s_fcb7475e0b5395::t_9fd225091b386d 17,126-128
+src/war/view/build/buildMode.ts
+  s_fcb7475e0b5395::t_9fd225091b386d 35,104-107,109-114
+src/war/view/hud/roster/index.ts
+  s_fcb7475e0b5395::t_9fd225091b386d 26,133-135
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "7a375e620baa8c5ec854ec4707e11348e950ac58",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
