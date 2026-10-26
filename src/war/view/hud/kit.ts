@@ -147,6 +147,39 @@ export const CSS = TOKENS + CURSORS + `
 .rf-seg button .key,.rf-btn .key{position:absolute;right:2px;bottom:1px;font:700 9px/1 Inter,sans-serif;color:var(--rf-ink);text-shadow:0 1px 0 #0e0907,0 0 2px #0e0907}
 .rf-chip{display:inline-block;margin-top:3px;padding:1px 5px;font:700 10.5px/14px Inter,sans-serif;color:var(--rf-bad);background:var(--rf-sunk);border:1px solid var(--rf-line);white-space:nowrap}
 .rf input{font:600 12px/1 Inter,sans-serif;width:30px;height:23px;background:var(--rf-sunk);color:var(--rf-ink);border:1px solid var(--rf-line);padding:0 3px}
+.rf select{font:600 12px/1 Inter,sans-serif;height:23px;background:var(--rf-sunk);color:var(--rf-ink);border:1px solid var(--rf-line);padding:0 2px}
+/* panels: a title bar (icon, title and subtitle, close), section captions with a rule, a sunk well */
+.rf-ph{display:flex;align-items:center;gap:7px;padding:2px 0 6px;margin-bottom:6px;border-bottom:1px solid var(--rf-line);box-shadow:0 1px 0 var(--rf-sunk)}
+.rf-ph .rf-name{font-size:16px}
+.rf-ph .sub{font:600 11px/1.2 Inter,sans-serif;color:var(--rf-muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rf-sec{display:flex;align-items:center;gap:6px;font:700 11px/1 Cinzel,serif;color:var(--rf-accent);letter-spacing:.06em;text-transform:uppercase;margin:8px 0 4px}
+.rf-sec::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,var(--rf-line),transparent)}
+.rf-sec .rf-dim{font:600 11px/1 Inter,sans-serif;text-transform:none;letter-spacing:0}
+.rf-well{background:var(--rf-sunk);border:1px solid var(--rf-rule);box-shadow:inset 0 1px 3px rgba(0,0,0,.6)}
+.rf-scroll{overflow-y:auto;scrollbar-width:thin;scrollbar-color:#7a3418 #0e0907}
+/* a cost chip against what the player has: red with "/have" when short */
+.rf-need{display:inline-flex;align-items:center;gap:2px;height:22px;padding:0 5px 0 2px;margin:0 3px 3px 0;background:var(--rf-raised);border:1px solid var(--rf-rule);font:700 12px/1 Inter,sans-serif;white-space:nowrap}
+.rf-need b{color:var(--rf-ink)}.rf-need i{font-style:normal;font-weight:600;color:var(--rf-bad)}
+.rf-need.short{border-color:#8a3a26;background:#2a120c}.rf-need.short b{color:var(--rf-bad)}
+.rf-hint{font:600 11.5px/1.3 Inter,sans-serif;color:var(--rf-bad)}
+/* a small pill: a status or a tag (good, gold, bad, dim) */
+.rf-pill{display:inline-flex;align-items:center;gap:3px;height:16px;padding:0 5px;font:700 9.5px/1 Inter,sans-serif;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--rf-rule);background:var(--rf-sunk);color:var(--rf-muted);white-space:nowrap}
+.rf-pill.good{color:var(--rf-good);border-color:#3f5a2c}.rf-pill.gold{color:var(--rf-gold);border-color:#6a5326}.rf-pill.bad{color:var(--rf-bad);border-color:#6a2c1c}
+/* an inventory slot: icon, count in the corner, rarity edge */
+.rf-cell{position:relative;width:38px;height:38px;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 40%,#2a1b13,#120b08);border:1px solid #3a2418;box-shadow:inset 0 0 0 1px #0e0907}
+.rf-cell:hover{border-color:var(--rf-accent);background:radial-gradient(circle at 50% 40%,#3a2516,#160d09)}
+.rf-cell .n{position:absolute;right:2px;bottom:1px;font:700 10.5px/1 Inter,sans-serif;color:var(--rf-ink);text-shadow:0 1px 0 #0e0907,0 0 2px #0e0907,0 0 2px #0e0907}
+.rf-cell .w{position:absolute;left:2px;top:2px;width:5px;height:5px;background:var(--rf-bad);box-shadow:0 0 0 1px #0e0907}
+.rf-cell.empty{background:#0f0907;border-color:#24160f}
+.rf-cell.empty:hover{border-color:#24160f}
+/* a quantity stepper: − n + */
+.rf-step{display:inline-flex;align-items:center}
+.rf-step button{width:22px;padding:0}.rf-step input{width:46px;text-align:center;border-left:0;border-right:0}
+.rf-lv{display:inline-block;vertical-align:2px;margin-left:3px;padding:2px 4px 1px;font:700 9.5px/1 Inter,sans-serif;letter-spacing:.04em;color:var(--rf-gold);border:1px solid #6a5326;background:var(--rf-sunk)}
+.bk-stat{display:flex;align-items:center;gap:5px;margin-top:4px;font:600 11.5px/14px Inter,sans-serif;color:var(--rf-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bk-stat::before{content:'';flex:none;width:6px;height:6px;border-radius:50%;background:currentColor;box-shadow:0 0 4px currentColor}
+.bk-stat.good{color:var(--rf-good)}.bk-stat.bad{color:var(--rf-bad)}.bk-stat.gold{color:var(--rf-gold)}
+.rf-tbtn.big{height:30px;padding:0 16px;font:700 14px/1 Cinzel,serif;letter-spacing:.04em}
 `;
 
 /** Keep a top-anchored panel inside the window: it scrolls past the bottom edge (4 art px margin). */

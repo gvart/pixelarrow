@@ -1,14 +1,13 @@
 /**
- * M7g building card (docs/WAR.md "Pre-built structures"; src/war/sim/prebuilt.ts, economy.ts REPAIR and RUIN): the
- * card at the bottom centre (over the command card) for the selected building, else a pre-built piece under the
- * pointer. It names the piece, what it does, its owner, its hp and state (intact, damaged, ruined, a fouled well, under repair, burning), what
- * mending it costs (every REPAIR.step of hp REPAIR.cost of its build cost and REPAIR.labour of its labour) and, for a ruin,
- * what rebuilding it costs (RUIN.rebuild of both; a landmark piece only by the landmark's restore). A landmark piece adds
- * the landmark's restore bill and the engineer who leads it (src/data/warLandmarks.ts). The orders sit on the command
- * card (./hud.ts: repair, rebuild) and the E menu (../interact.ts).
+ * M7g building texts (docs/WAR.md "Pre-built structures"; src/war/sim/prebuilt.ts, economy.ts REPAIR and RUIN) for the
+ * one building panel on the command card (./hud.ts): its purpose in a line, its status in plain words, and the long
+ * CK3-style card behind them (role, flavour, what it is for, owner, state, what mending, rebuilding or restoring costs:
+ * every REPAIR.step of hp REPAIR.cost of its build cost and REPAIR.labour of its labour; a ruin RUIN.rebuild of both; a
+ * landmark piece only by the landmark's restore, led by its engineer). An unselected pre-built piece under the pointer
+ * shows the same card at the cursor. The orders sit on the command card and the E menu (../interact.ts).
  */
 import type { BuildingSnap, BuildingType, ResourceKind } from '../../types';
-import { BUILD_TEXT } from './codex';
+import { BUILD_LINE, BUILD_TEXT, buildingFacts, card } from './codex';
 import type { SandboxScene } from '../SandboxScene';
 import { BUILDINGS, NEUTRAL_TEAM, REPAIR, RUIN } from '../../sim/economy';
 import { MOB_TEAM } from '../../sim/mobs';
@@ -16,7 +15,8 @@ import { PREBUILT, WELL } from '../../sim/prebuilt';
 import { ALLIANCES } from '../../world/alliances';
 import { landmarkOfRegion, type Landmark } from '../../../data/warLandmarks';
 import { labourText } from '../build/buildMode';
-import { bar } from './kit';
+import { BUILDING_ICON, icon } from './kit';
+import { nameOf } from './craft/state';
 import { myTeam } from '../side';
 
 type Mk = (id: string, css: string, html?: string) => HTMLElement;
@@ -105,58 +105,80 @@ export const leadText = (lm: Landmark) => lm.engineer === 10
   ? 'an engineer of level 10 with Fortifier, Master Builder and Poliorcetes or Archimedes'
   : 'an engineer of level 8 with Fortifier and Master Builder';
 
-/** The card's html for building b in region `region`. */
-export function buildingHtml(b: BuildingSnap, region: string): string {
-  const text = BUILD_TEXT[b.type.replace(/\d$/, '') as BuildingType];
-  const fn = PRE_FUNCTION[b.type] ?? (text ? `${text.for.charAt(0).toUpperCase()}${text.for.slice(1)}` : '');
-  const share = b.ruin ? 0 : b.hp / Math.max(1, b.maxHp);
-  const lm = b.landmark ? landmarkOfRegion(region) : undefined;
-  const name = b.landmark && b.art ? nice(b.art.replace(/-/g, ' ')) : nice(b.type);
-  const rows: string[] = [];
-  rows.push(`<span>Owner</span><span>${ownerText(b)}</span>`);
-  rows.push(`<span>State</span><span>${stateText(b)}</span>`);
-  if (!b.ruin && b.hp < b.maxHp - 1e-6) {
-    const r = repairBill(b);
-    rows.push(`<span>Repair</span><span>${billText(r.step)} <span class="rf-dim">per ${Math.round(REPAIR.step * 100)}%</span><br>${billText(r.all)} <span class="rf-dim">to full (${r.steps} steps), labour ${labourText(r.labour)}</span></span>`);
-  }
-  if (b.ruin) {
-    if (b.landmark) rows.push('<span>Rebuild</span><span class="rf-dim">restore only (the landmark\'s rule)</span>');
-    else {
-      const r = rebuildBill(b);
-      rows.push(`<span>Rebuild</span><span>${billText(r.cost)} <span class="rf-dim">labour ${labourText(r.labour)} · ${Math.round(RUIN.rebuild * 100)}% of new</span></span>`);
-    }
-  }
-  if (lm) rows.push(`<span>Restore</span><span>${billText(lm.restore.bulk)} + ${billText(lm.restore.rare)}<br><span class="rf-dim">${lm.name}: led by ${leadText(lm)}</span></span>`);
-  return `<div class="rf-head"><span class="rf-name">${name}</span><span class="rf-dim" style="margin-left:auto">${b.pre ? (b.landmark ? 'landmark' : 'pre-built') : ''}</span></div>
-${text?.flavour ? `<div class="cx-flav" style="margin:4px 0 0">${text.flavour}</div>` : ''}${fn ? `<div style="margin-top:3px">${fn}</div>` : ''}
-<div style="display:flex;align-items:center;gap:6px;margin-top:5px">${bar(b.burning ? 'burn' : 'hp', share, 150)}<span class="rf-num rf-dim">${b.ruin ? 'ruin' : `${Math.ceil(b.hp)}/${b.maxHp}`}</span></div>
-<div class="bc-kv">${rows.join('')}</div>`;
+/** The level of a building type: forge2 -> 2 (1 when it has none). */
+export const levelOf = (t: BuildingType) => BUILDINGS[t]?.workplace?.level ?? (/\d$/.test(t) ? Number(t.slice(-1)) : 1);
+/** A building's name without its level: forge2 -> Forge, a landmark piece by its art. */
+export const nameOfBuilding = (b: BuildingSnap) => (b.landmark && b.art ? nice(b.art.replace(/-/g, ' ')) : nice(b.type.replace(/\d$/, '')));
+
+/** Its purpose in one line (BUILD_LINE, else the pre-built function, else its description without the term marks). */
+export function purposeOf(b: BuildingSnap): string {
+  const base = b.type.replace(/\d$/, '') as BuildingType;
+  const p = BUILD_LINE[base] ?? PRE_FUNCTION[b.type] ?? BUILD_TEXT[base]?.for.replace(/<[^>]+>/g, '') ?? '';
+  return p.charAt(0).toUpperCase() + p.slice(1);
 }
 
-const CSS = `
-#rfBld{width:300px;padding:6px 9px 8px;font-size:11.5px;line-height:1.35;pointer-events:none}
-#rfBld .bc-kv{display:grid;grid-template-columns:52px 1fr;gap:2px 6px;margin-top:5px}
-#rfBld .bc-kv>:nth-child(odd){color:var(--rf-muted)}
-`;
+export interface Status { tone: 'good' | 'bad' | 'gold' | 'dim'; text: string }
+/** What it is doing now, in plain words: burning, ruined, being mended, damaged, a workplace's work, or standing. */
+export function statusOf(b: BuildingSnap): Status {
+  if (b.burning) return { tone: 'bad', text: 'On fire: send men to beat it out (E on it)' };
+  if (b.ruin) return { tone: 'bad', text: 'Ruined: does nothing until rebuilt' };
+  if (b.fouled) return { tone: 'bad', text: 'Fouled: no water for 30 min' };
+  if (b.mend) return { tone: 'gold', text: 'Being repaired' };
+  const share = b.hp / Math.max(1, b.maxHp);
+  if (b.state === 'damaged') return { tone: 'bad', text: `Damaged (${Math.round(share * 100)}%): repair it` };
+  const wp = BUILDINGS[b.type]?.workplace;
+  if (wp && b.team === myTeam()) {
+    const q = b.queue ?? [], on = q.find((o) => o.by >= 0);
+    if (on) return { tone: 'good', text: `Working: ${on.kind === 'craft' ? '' : on.kind + ' '}${nameOf(on.recipe).toLowerCase()} ${Math.round(on.progress * 100)}%${q.length > 1 ? ` · ${q.length - 1} waiting` : ''}` };
+    if (q.length) return { tone: 'gold', text: `${q.length} queued, nobody at work: send a crafter` };
+    return { tone: 'dim', text: 'Idle: nothing queued' };
+  }
+  if (share < 0.999) return { tone: 'gold', text: `Worn (${Math.round(share * 100)}%)` };
+  if (BUILDINGS[b.type]?.store && b.team === myTeam()) return { tone: 'good', text: 'Standing · stores your goods' };
+  return { tone: b.team === myTeam() ? 'good' : 'dim', text: b.team === myTeam() ? 'Standing' : ownerText(b).replace(/^./, (c) => c.toUpperCase()) };
+}
 
-/** Mount the card; it follows the selected building (a ruin too), else the pre-built piece under the pointer, at 5 Hz. */
+/** The long description (the CK3 card): role, flavour, what it is for, its facts, owner and state, repair, rebuild, restore. */
+export function buildingTip(b: BuildingSnap, region: string): string {
+  const base = b.type.replace(/\d$/, '') as BuildingType, text = BUILD_TEXT[base], fn = PRE_FUNCTION[b.type];
+  const lm = b.landmark ? landmarkOfRegion(region) : undefined;
+  const rows: string[] = [`<span>Owner</span><span>${ownerText(b)}</span>`, `<span>State</span><span>${stateText(b)}</span>`];
+  if (!b.ruin && b.hp < b.maxHp - 1e-6) {
+    const r = repairBill(b);
+    rows.push(`<span>Repair</span><span>${billText(r.step)} per ${Math.round(REPAIR.step * 100)}%; ${billText(r.all)} to full, labour ${labourText(r.labour)}</span>`);
+  }
+  if (b.ruin) {
+    const r = rebuildBill(b);
+    rows.push(`<span>Rebuild</span><span>${b.landmark ? 'restore only (the landmark\'s rule)' : `${billText(r.cost)}, labour ${labourText(r.labour)} · ${Math.round(RUIN.rebuild * 100)}% of new`}</span>`);
+  }
+  if (lm) rows.push(`<span>Restore</span><span>${billText(lm.restore.bulk)} + ${billText(lm.restore.rare)}; led by ${leadText(lm)}</span>`);
+  const lv = levelOf(b.type);
+  return card({
+    icon: icon(BUILDING_ICON[b.type] ?? 'bld-storehouse', 32), rawIcon: true, name: nameOfBuilding(b) + (lv > 1 ? ` ${'I'.repeat(lv)}` : ''),
+    kind: [text?.role, b.pre ? (b.landmark ? 'landmark' : 'pre-built') : ''].filter(Boolean).join(' · ') || undefined, flavour: text?.flavour, w: 270,
+    fx: [...(text ? [`<div><span class="cx-tag">For</span>${text.for}</div>`] : fn ? [`<div>${fn}</div>`] : []), ...(BUILDINGS[b.type] ? buildingFacts(b.type) : [])],
+    more: `<div class="cx-tab">${rows.join('')}</div>`,
+  });
+}
+
+/**
+ * Mount the hover card of an unselected pre-built piece (its codex card at the cursor). A selected building shows on the
+ * command card (./hud.ts): one panel. Pieces that hold goods leave the hover to the holder card (./holder.ts).
+ */
 export function mountBuildingCard(s: SandboxScene, mk: Mk): void {
-  const style = document.createElement('style');
-  style.textContent = CSS;
-  document.head.appendChild(style);
-  // bottom centre, over the command card (the landmark panel holds the right edge)
-  const el = mk('rfBld', 'left:50%;bottom:4px;transform:translateX(-50%);display:none');
-  el.className = 'rf rf-card';
+  const el = mk('rfBld', 'display:none;z-index:6;pointer-events:none');
+  el.className = 'rf rf-tip';
   let shown = '';
-  setInterval(() => {
-    const sel = s.build.selectedBuilding();
-    const hov = sel ? undefined : s.build.pieceAt(s.pointerTile);
-    const b = sel && (sel.pre || sel.state !== 'destroyed') ? sel : hov?.pre ? hov : undefined;
-    if (!b || s.build.active) { if (shown) { el.style.display = 'none'; shown = ''; } return; }
-    const html = buildingHtml(b, s.region.id);
+  s.events.on('postupdate', () => {
+    const p = s.input.activePointer;
+    const hov = s.build.selectedBuilding() || s.build.active || !s.input.isOver || s.interact.open ? undefined : s.build.pieceAt(s.pointerTile);
+    const b = hov?.pre && hov.goods === undefined ? hov : undefined;
+    if (!b) { if (shown) { el.style.display = 'none'; shown = ''; } return; }
+    const st = statusOf(b), html = buildingTip(b, s.region.id) + `<div class="cx-state ${st.tone}"><span>${st.text}</span></div>`;
     if (html !== shown) el.innerHTML = shown = html;
-    const cc = document.getElementById('rfCard');
-    el.style.bottom = cc && cc.style.display !== 'none' ? `${cc.offsetHeight + 8}px` : '4px';
     el.style.display = '';
-  }, 200);
+    const r = s.game.canvas.getBoundingClientRect(), z = Number(el.style.zoom) || 1, t = el.getBoundingClientRect();
+    el.style.left = `${Math.round(Math.max(4, Math.min(r.left + p.x + 18, innerWidth - t.width - 4)) / z)}px`;
+    el.style.top = `${Math.round(Math.max(4, Math.min(r.top + p.y + 22, innerHeight - t.height - 4)) / z)}px`;
+  });
 }

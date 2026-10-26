@@ -22,7 +22,9 @@ import { sandboxCraft } from './state';
 import { profTree } from './tree';
 import { GRAPH_CSS, markGraph, panelWidth, paintGraph, type TreeView } from '../tree/graph';
 import { soldierTree, takeSoldier } from '../roster/skillTree';
-import { WP_CSS, WP_PROF, WP_W, workplaceHtml, type Crafter, type Idle, type WpView } from './workplace';
+import { WP_CSS, WP_PROF, WP_W, workplaceHtml, type Crafter, type Idle, type Man, type WpView } from './workplace';
+
+const CLASS_WORD: Record<string, string> = { militia: 'militia', hoplite: 'hoplite', celt_sword: 'swordsman', archer: 'archer', slinger: 'slinger', javelineer: 'javelineer' };
 import { keys } from '../../../input/keys';
 import { myTeam } from '../../side';
 
@@ -33,7 +35,8 @@ export function mountCraft(s: SandboxScene, mk: Mk, roster: RosterHooks): void {
   const style = document.createElement('style');
   style.textContent = GRAPH_CSS + PANEL_CSS + WP_CSS;
   document.head.appendChild(style);
-  const wpEl = mk('cfWp', `top:66px;right:4px;width:${WP_W}px;display:none;pointer-events:auto`);
+  // top left, clear of the corner buttons, the command card at the bottom centre and the minimap under it
+  const wpEl = mk('cfWp', `top:4px;left:4px;width:${WP_W}px;display:none;pointer-events:auto`);
   const treeEl = mk('cfTree', 'top:50px;left:4px;display:none;pointer-events:auto');
   draggable(wpEl);
   draggable(treeEl);
@@ -75,26 +78,41 @@ export function mountCraft(s: SandboxScene, mk: Mk, roster: RosterHooks): void {
     return { crafters, idle };
   };
 
+  /** Who a made piece may be for: the selected squads' soldiers first, then every other fit soldier (local roster only). */
+  const soldiers = (): Man[] => {
+    if (s.sim.net) return [];
+    const sel = new Set(s.siege.own()), rows = R.rows().filter((r) => !isCivClass(r.p.hero.cls) && (r.where === 'field' || r.where === 'away'));
+    rows.sort((a, b2) => Number(sel.has(b2.squad ?? -1)) - Number(sel.has(a.squad ?? -1)) || b2.p.hero.level - a.p.hero.level);
+    return rows.map(({ p }) => ({ pid: p.id, name: p.hero.name, cls: CLASS_WORD[p.hero.cls ?? ''] ?? p.hero.cls ?? '', level: p.hero.level, equip: p.hero.equip, block: (it) => C.equipBlock(p, it) }));
+  };
+  wpEl.addEventListener('change', (e) => {
+    const t = e.target as HTMLSelectElement;
+    if (t.matches('[data-for]')) { view.for = t.value; render(); }
+  });
+
   // no re-render between a press and its click (the stock ticks on, and a row replaced under the pointer eats the click)
   let pressed = false;
   for (const el of [wpEl, treeEl]) el.addEventListener('pointerdown', () => (pressed = true));
   addEventListener('pointerup', () => setTimeout(() => (pressed = false), 0), true);
   const render = () => {
-    if (pressed) return;
+    // an open "for" picker would close under a re-render
+    if (pressed || (document.activeElement?.tagName === 'SELECT' && wpEl.contains(document.activeElement))) return;
     const b = workplace();
     if (b?.id !== wpId) { wpId = b?.id ?? -1; view.recipe = null; view.tab = ''; }
     wpEl.style.display = b ? '' : 'none';
     if (b) {
       if (s.sim.net) void C.pull();
       const { crafters, idle } = crew(b);
-      const html = workplaceHtml(C, b, crafters, idle, view, s.sim.cur?.stock?.[myTeam()] ?? {});
+      const html = workplaceHtml(C, b, crafters, idle, view, s.sim.cur?.stock?.[myTeam()] ?? {}, soldiers());
       if (html !== lastW) {
         const list = wpEl.querySelector<HTMLElement>('.wp-list'), top = list?.scrollTop ?? 0;
         wpEl.innerHTML = lastW = html;
         const l2 = wpEl.querySelector<HTMLElement>('.wp-list');
         if (l2) l2.scrollTop = top;
       }
+      // down to the minimap (168 art px and its margin), scrolling past it
       fitHeight(wpEl);
+      wpEl.style.maxHeight = `${Math.max(240, Math.floor(innerHeight / (Number(wpEl.style.zoom) || 1)) - 4 - 176)}px`;
     }
     const v = treePid ? treeView(treePid) : null;
     treeEl.style.display = v ? '' : 'none';
@@ -157,6 +175,7 @@ export function mountCraft(s: SandboxScene, mk: Mk, roster: RosterHooks): void {
     const a = d('act');
     if (a === 'closeWp') s.build.selected = -1;
     else if (a === 'all') view.all = !view.all;
+    else if (a === 'mend') view.mend = !view.mend;
     else if (d('tab')) view.tab = d('tab')!;
     else if (d('queue')) C.craft(b, d('queue')!);
     else if (d('recipe')) view.recipe = view.recipe === d('recipe') ? null : d('recipe')!;

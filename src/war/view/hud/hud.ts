@@ -1,7 +1,8 @@
 /**
  * The player HUD in the red-figure kit (W-32; art: public/war/ui/, ./kit.ts). HTML over the canvas, anchored:
  *
- *   top centre     resource band: the 11 resources (icon + own stock), runner and horse at its ends
+ *   (no top band)  what the men carry and the town's store are in the squad chest (I, bottom right: ./chest.ts); a cost
+ *                  shows "needs 6 wood (you have 2)" where it is asked (build bar, upgrade, forge, market: ./goods.ts)
  *   bottom left    round minimap (./minimap.ts), the view mode switcher in its corner (F2-F7) and the mode's legend over it (./modes.ts)
  *   centre         the full map on M (./fullMap.ts)
  *   bottom centre  command card, shown with a selection (a selected building or site wins over men), in groups:
@@ -10,10 +11,11 @@
  *                  cooldown ring, ./cardActive.ts; deploy / pack Y, let go while crewing). The orders go to the selected
  *                  men (W-53, ../select.ts); the control group bar 1-9 sits over the card (./groups.ts).
  *                  site: progress, workers, materials | stop work, cancel (refund); send men by selecting them and E on it
- *                  building: hp (and burning) | upgrade with its cost
+ *                  building: one panel: icon, name and level, hp; its purpose in a line (hover: the long card,
+ *                  ./buildingCard.ts) and its status in plain words | upgrade, repair, rebuild, fortify with their costs
  *                  Situational orders (ladders, ignite, extinguish, crew, fire arrows) are context only: E / right
  *                  click, or hold either for the radial menu (../interact.ts).
- *   bottom right   the Build (hammer, B) button; the build bar (tabs Camp / Walls / Siege, a tool per building, a
+ *   bottom right   the squad chest (I), roster (R) and Build (hammer, B) buttons; the build bar (tabs Camp / Walls / Siege, a tool per building, a
  *                  tooltip with cost and labour; walls, towers and gates are plain tools on the Walls tab (W-57), the
  *                  status line above) opens bottom centre, over the card, only in build mode: B / Esc close it
  *   top right      World, Market (K: ./market.ts), DEV (F1) and the UI scale (auto by window / 0.75x / 1x / 1.25x / 1.5x / 2x, kept in localStorage; ./kit.ts)
@@ -25,14 +27,14 @@
 import { draggable } from './drag';
 import '@fontsource/inter/600.css';
 import '@fontsource/cinzel/700.css';
-import { BUILDINGS, NEUTRAL_TEAM } from '../../sim/economy';
+import { BUILDINGS } from '../../sim/economy';
 import { SIEGE } from '../../sim/siege';
 import { FORT } from '../../sim/works';
-import type { BuildingType, FortKind, ResourceKind, SiegeType } from '../../types';
+import type { BuildingType, FortKind, SiegeType } from '../../types';
 import type { SandboxScene } from '../SandboxScene';
 import { costText, isSite, labourText, TOOLBAR, WALL_NAME, type BuildMode, type Cost, type Tool } from '../build/buildMode';
 import { SIEGE_NAME } from '../siege/siegeControls';
-import { bar, BUILDING_ICON, cursor, CSS, icon, placeTip, setUiScale, SIEGE_ICON, snapW, UI, UI_SCALES, uiScale, uiZoom, UNIT_ICON } from './kit';
+import { bar, BUILDING_ICON, cursor, CSS, icon, placeTip, setUiScale, SIEGE_ICON, snapW, UI_SCALES, uiScale, uiZoom, UNIT_ICON } from './kit';
 import { Minimap } from './minimap';
 import { ModeBar } from './modes';
 import { FullMap } from './fullMap';
@@ -42,11 +44,12 @@ import { mountCraft } from './craft';
 import { sandboxCraft } from './craft/state';
 import { sandboxRoster } from './roster/state';
 import { PROF_NODES } from '../../../data/professions';
-import { WP_NAME } from './craft/workplace';
 import { mountTrade } from './holder';
 import { mountMarket } from './market';
 import { mountGuardians } from './guardianBar';
-import { billText, mountBuildingCard, rebuildBill, rebuildWhy, repairBill, repairWhy } from './buildingCard';
+import { billText, buildingTip, levelOf, mountBuildingCard, nameOfBuilding, purposeOf, rebuildBill, rebuildWhy, repairBill, repairWhy, statusOf } from './buildingCard';
+import { needChips, shortText } from './goods';
+import { mountChest } from './chest';
 import { RECIPES } from '../../../data/recipes';
 import { allCivilians, civBuild, civGather, civInfo, civName, civTips, civWork } from './cardCiv';
 import { buildCard, term } from './codex';
@@ -58,10 +61,6 @@ import type { ActionId } from '../../input/actions';
 import { myTeam } from '../side';
 import { activityText, waitText } from './activity';
 
-const RES: string[] = ['food', 'wood', 'stone', 'marble', 'copper', 'tin', 'iron', 'bronze', 'silver', 'salt', 'olives', 'coin'];
-/** M5h: the band's second page (its toggle under the right end): crafting goods, pitch, and the remedies in the team supplies (p:). */
-const CRAFT_RES: string[] = ['hides', 'flax', 'herbs', 'charcoal', 'leather', 'linen', 'oil', 'pitch', 'p:bandage', 'p:salve', 'p:theriac'];
-const RES_ICON: Record<string, string> = { 'p:bandage': 'res-bandages', 'p:salve': 'res-salves', 'p:theriac': 'res-theriac' };
 const SHAPES = ['line', 'column', 'wedge', 'loose'] as const;
 const CLASS_NAME: Record<string, string> = { militia: 'Militia', hoplite: 'Hoplites', celt_sword: 'Swordsmen', archer: 'Archers', slinger: 'Slingers', javelineer: 'Javelineers' };
 const nice = (t: string) => t.replace(/[A-Z]/g, (c) => ' ' + c.toLowerCase()).replace(/^./, (c) => c.toUpperCase());
@@ -109,9 +108,7 @@ const TABS: Record<'Camp' | 'Walls' | 'Craft' | 'Siege' | 'Trade', ToolDef[]> = 
 type Tab = keyof typeof TABS;
 const SLOT = 32; // 30 px button + 2 gap
 
-/** A cost as resource icons with numbers. */
 const ceilBill = (c: Cost): Cost => Object.fromEntries(Object.entries(c).map(([r, v]) => [r, Math.ceil(v ?? 0)]));
-const costHtml = (c: Cost) => Object.entries(c).map(([r, v]) => `<span style="display:inline-flex;align-items:center;gap:2px;margin-right:6px">${icon('res-' + r)}<span class="rf-num">${v}</span></span>`).join('') || '<span class="rf-dim">free</span>';
 
 export function hud(s: SandboxScene): void {
   const m: BuildMode = s.build, sc = s.siege, C = sandboxCraft(s, sandboxRoster(s));
@@ -134,30 +131,6 @@ export function hud(s: SandboxScene): void {
     els.push(el);
     return el;
   };
-
-  // ---------- top resource band ----------
-  const cell = (r: string) => `<div style="display:flex;align-items:center;gap:2px;width:50px" title="${r.replace('p:', '')}">${icon(RES_ICON[r] ?? 'res-' + r)}<span class="rf-num" data-r="${r}">0</span></div>`;
-  const cells = `<div id="rfRes" style="display:flex">${RES.map(cell).join('')}</div><div id="rfResCraft" style="display:none">${CRAFT_RES.map(cell).join('')}</div>`;
-  const topW = snapW(23 + 6 + RES.length * 50 + 26 + 8);
-  const top = mk('rfTop', `top:0;left:50%;transform:translateX(-50%);width:${topW}px;height:46px;pointer-events:auto`,
-    `<div class="rf-band" style="position:absolute;inset:0;display:flex;align-items:center;padding:0 1px"><img src="${UI}accents/runner.png" srcset="${UI}accents/runner@2x.png 2x" width="23" height="26" alt="" style="margin-right:6px">${cells}<img src="${UI}accents/horse.png" srcset="${UI}accents/horse@2x.png 2x" width="26" height="26" alt="" style="margin-left:auto"></div>`);
-  const counts = [...top.querySelectorAll<HTMLElement>('[data-r]')];
-  // the second page swaps in place, so the band keeps its width; the tab hangs under its right end
-  const resTab = document.createElement('button');
-  resTab.className = 'rf-tbtn';
-  resTab.id = 'rfResTab';
-  resTab.style.cssText = 'position:absolute;right:30px;top:100%;margin-top:-1px;height:20px;font-size:11.5px';
-  resTab.textContent = 'crafting ▾';
-  resTab.title = 'show the crafting goods and remedies (again: the base resources)';
-  let craftPage = false;
-  resTab.onclick = () => {
-    craftPage = !craftPage;
-    top.querySelector<HTMLElement>('#rfRes')!.style.display = craftPage ? 'none' : 'flex';
-    top.querySelector<HTMLElement>('#rfResCraft')!.style.display = craftPage ? 'flex' : 'none';
-    resTab.textContent = craftPage ? 'resources ▾' : 'crafting ▾';
-    resTab.classList.toggle('on', craftPage);
-  };
-  top.appendChild(resTab);
 
   // ---------- minimap ----------
   const mini = new Minimap(s);
@@ -198,6 +171,7 @@ export function hud(s: SandboxScene): void {
       </div>
       <div id="cBars" style="margin-top:5px;display:flex;flex-direction:column;gap:2px"></div>
       <div class="rf-dim" id="cInfo" style="margin-top:4px;font-size:11.5px;line-height:14px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden"></div>
+      <div id="cStat" class="bk-stat" style="display:none"></div>
     </div>
     <div class="rf-sep" id="cSep1"></div>
     <div id="cOrders" style="display:flex;flex-direction:column;justify-content:center;gap:3px"></div>
@@ -287,15 +261,21 @@ export function hud(s: SandboxScene): void {
     $('cSep2').style.display = slots.length ? '' : 'none';
     $('cSel').style.width = `${selW}px`;
   };
-  const setHead = (ic: string, name: string, count: string, bars: string, info: string) => {
+  /** The selection head: icon, name (HTML: a level pill may follow), a count line, bars, an info line, a status line. */
+  const setHead = (ic: string, name: string, count: string, bars: string, info: string, stat?: { tone: string; text: string }) => {
     if ($('cIcon').dataset.ic !== ic) { $('cIcon').dataset.ic = ic; $('cIcon').innerHTML = icon(ic, 32); }
-    $('cName').textContent = name;
+    if ($('cName').innerHTML !== name) $('cName').innerHTML = name;
     $('cCount').textContent = count;
-    $('cBars').innerHTML = bars;
+    if ($('cBars').innerHTML !== bars) $('cBars').innerHTML = bars;
     $('cInfo').textContent = info;
-    $('cInfo').title = info;
+    $('cInfo').title = stat ? '' : info;
+    $('cStat').style.display = stat ? '' : 'none';
+    if (stat) { $('cStat').className = `bk-stat ${stat.tone}`; $('cStat').textContent = stat.text; }
   };
-  const SEL_SQUAD = 112, SEL_BLD = 156;
+  const SEL_SQUAD = 112, SEL_BLD = 236;
+  // the building panel's long description (the CK3 card) on its name plate
+  $('cSel').addEventListener('pointerenter', () => { const b = m.selectedBuilding(); if (b && !chain.isHeld()) showTip($('cSel'), buildingTip(b, s.region.id)); });
+  $('cSel').addEventListener('pointerleave', (e) => { if (tipAt === $('cSel') && !chain.isHeld() && !chain.holds(e.relatedTarget)) hideTip(); });
 
   // ---------- build: hammer button (B) opens the tabbed bar; B / Esc close it ----------
   const hammer = mk('rfHammer', 'right:4px;bottom:4px;pointer-events:auto');
@@ -331,7 +311,7 @@ export function hud(s: SandboxScene): void {
   const renderTools = () => {
     toolBtns.length = 0;
     bTools.replaceChildren(...TABS[tab].map((d, i) => {
-      const b = btn('bt-' + tab + i, d.icon, () => buildCard(d.tool?.kind === 'siege' ? 'siege' : 'building', d.tool?.kind === 'siege' ? d.tool.type : d.type ?? '', d.name, icon(d.icon, 32), `<div style="display:flex;align-items:center;flex-wrap:wrap;row-gap:2px">${costHtml(d.cost)}</div><div class="rf-dim" style="margin-top:3px;font-size:11px">${d.craft ? `${d.labour} s an engineer` : `${term('labour')} ${labourText(d.labour, d.type ? BUILDINGS[d.type].workers : undefined)}`}${d.note ? ' · ' + d.note : ''}</div>`, nodeWhy(d)), '', () => { if (d.craft) return craftCart(d.craft); if (!nodeWhy(d)) m.setTool(JSON.stringify(m.tool) === JSON.stringify(d.tool) ? null : d.tool); });
+      const b = btn('bt-' + tab + i, d.icon, () => buildCard(d.tool?.kind === 'siege' ? 'siege' : 'building', d.tool?.kind === 'siege' ? d.tool.type : d.type ?? '', d.name, icon(d.icon, 32), `<div style="display:flex;align-items:center;flex-wrap:wrap">${needChips(d.cost, s.sim.cur?.stock?.[myTeam()] ?? {})}</div>${shortText(d.cost, s.sim.cur?.stock?.[myTeam()] ?? {}) ? `<div class="rf-hint">${shortText(d.cost, s.sim.cur?.stock?.[myTeam()] ?? {})}</div>` : ''}<div class="rf-dim" style="margin-top:3px;font-size:11px">${d.craft ? `${d.labour} s an engineer` : `${term('labour')} ${labourText(d.labour, d.type ? BUILDINGS[d.type].workers : undefined)}`}${d.note ? ' · ' + d.note : ''}</div>`, nodeWhy(d)), '', () => { if (d.craft) return craftCart(d.craft); if (!nodeWhy(d)) m.setTool(JSON.stringify(m.tool) === JSON.stringify(d.tool) ? null : d.tool); });
       b.dataset.tool = String(i);
       toolBtns.push([b, d]);
       return b;
@@ -371,6 +351,7 @@ export function hud(s: SandboxScene): void {
 
   // ---------- soldiers: roster panel (R), soldier card, toasts, veteran pips (./roster, M5g) ----------
   mountCraft(s, mk, mountRoster(s, mk)); // M5h5: workplace panel, profession trees, stash (./craft)
+  mountChest(s, mk, tipOn); // the squad chest (I) beside the roster button: what the men carry, the town store
   const groups = mountGroups(s, mk, tipOn); // W-53: the control group bar over the card, numbers on the map
 
   // ---------- scale ----------
@@ -410,47 +391,51 @@ export function hud(s: SandboxScene): void {
     if (tipAt && (!tipAt.isConnected || !tipAt.offsetParent) && !chain.isHeld()) { tipAt = null; hideTip(); }
     modes.refresh();
     trade.refresh();
-    const st = s.sim.cur?.stock?.[myTeam()] ?? {}, sup = (s.sim.cur?.supplies?.[myTeam()] ?? {}) as Record<string, number>;
-    counts.forEach((el) => { const r = el.dataset.r!, v = Math.floor(r.startsWith('p:') ? sup[r.slice(2)] ?? 0 : st[r as ResourceKind] ?? 0); el.textContent = String(v); el.classList.toggle('rf-dim', !v); });
 
     const sq = m.squad(), q = sq === null ? undefined : s.sim.squads.get(sq), own = sc.own();
     const b = m.selectedBuilding();
     if (b && (b.state !== 'destroyed' || b.ruin)) {
       card.style.display = '';
       $('cTag').style.display = 'none';
-      const wpd = BUILDINGS[b.type].workplace, site = isSite(b), name = (wpd ? `${WP_NAME[wpd.kind]} L${wpd.level}` : nice(b.type)) + (site ? (b.upgradeFrom ? ' upgrade' : ' site') : '');
+      const site = isSite(b), stock = s.sim.cur?.stock?.[myTeam()] ?? {}, lv = levelOf(b.type);
+      const name = `${nameOfBuilding(b)}${site ? (b.upgradeFrom ? ' upgrade' : ' site') : ''}${lv > 1 || BUILDINGS[b.type].workplace ? ` <span class="rf-lv">L${lv}</span>` : ''}${b.ruin ? ' <span class="rf-pill bad">ruin</span>' : ''}`;
       const BAR_W = SEL_BLD;
+      /** A button's tooltip: its title, the cost against your stock, plain notes, and why it is off (red). */
+      const actTip = (title: string, cost: Record<string, number | undefined> | null, note: string, why?: string) =>
+        `<div class="rf-name" style="margin-bottom:4px">${title}</div>${cost ? `<div style="display:flex;flex-wrap:wrap;max-width:240px">${needChips(cost, stock)}</div>` : ''}<div class="rf-dim" style="margin-top:2px;white-space:normal;max-width:240px">${note}</div>${why || (cost && shortText(cost, stock)) ? `<div class="rf-hint" style="margin-top:3px;white-space:normal;max-width:240px">${why ?? shortText(cost!, stock)}</div>` : ''}`;
       if (site) {
         const need = Object.entries(m.need(b)), planned = b.progress === 0 && b.delivered === 0 && b.workers === 0, wait = waitText(b);
         const mats = need.map(([r, v]) => `${r} ${Math.floor(v! * b.delivered)}/${Math.ceil(v!)}`).join(' · ');
-        setHead(BUILDING_ICON[b.type], name, `${Math.round(b.progress * 100)}% · ${b.workers}/${b.maxWorkers} at work`, bar('construction', b.progress, BAR_W),
-          `${wait ? `${wait}${b.stalled === 'noWorkers' && !b.waiting ? ': select men, E on it' : ''}` : planned ? 'planned' : b.state}${mats ? ' · ' + mats : ''}`);
+        const short = shortText(Object.fromEntries(need.map(([r, v]) => [r, Math.ceil(v! * (1 - b.delivered))])), stock);
+        setHead(BUILDING_ICON[b.type], name, `${Math.round(b.progress * 100)}% built · ${b.workers}/${b.maxWorkers} at work`, bar('construction', b.progress, BAR_W),
+          mats ? `materials ${mats}` : purposeOf(b),
+          short ? { tone: 'bad', text: short.replace(/^./, (c) => c.toUpperCase()) } : { tone: wait ? 'gold' : 'dim', text: `${wait ? `${wait}${b.stalled === 'noWorkers' && !b.waiting ? ': select men, E on it' : ''}` : planned ? 'Planned: send men to build it' : 'Being built'}` });
         setCard(false, siteSlots, SEL_BLD);
         sStop.disabled = !m.squadsAt(b).length;
         const refund = m.refund(b);
-        sCancel.dataset.tip = tipK('Cancel site', `refunds ${Object.keys(refund).length ? costText(refund) : 'nothing'}`, '');
+        sCancel.dataset.tip = tipK('Cancel and tear down', `refunds ${Object.keys(refund).length ? costText(refund) : 'nothing'}`, '');
       } else {
-        setHead(BUILDING_ICON[b.type], name + (b.ruin ? ' (ruin)' : ''), b.ruin ? 'ruin' : `${Math.ceil(b.hp)}/${b.maxHp}`, bar('hp', b.ruin ? 0 : b.hp / b.maxHp, BAR_W) + (b.burning ? bar('burn', 1, BAR_W) : ''),
-          `${b.team === myTeam() ? 'yours' : b.team === NEUTRAL_TEAM ? 'neutral' : 'enemy'} · ${b.ruin ? 'ruined' : b.state}${b.burning ? ' · burning' : ''}${b.mend ? ' · under repair' : ''}`);
+        setHead(BUILDING_ICON[b.type], name, b.ruin ? '' : `${Math.ceil(b.hp)} / ${b.maxHp}`, bar(b.burning ? 'burn' : 'hp', b.ruin ? 0 : b.hp / b.maxHp, BAR_W), purposeOf(b), statusOf(b));
         const up = b.team === myTeam() && !b.ruin ? m.upgradeOf(b) : null, def = BUILDINGS[b.type], own = b.team === myTeam() && b.state === 'done';
         const iron = own && def.wall === 'gate', wet = own && !!def.burnable && !def.field;
         // M7g: repair (a hurt standing building), rebuild (a pre-built ruin)
         const hurt = !b.ruin && b.hp < b.maxHp - 1e-6 && b.state !== 'foundation' && b.state !== 'scaffold' && !def.brazier, ruin = !!b.ruin;
-        setCard(false, [...(up ? [bUp] : []), ...(iron ? [bIron] : []), ...(wet ? [bWet] : []), ...(hurt ? [bRepair] : []), ...(ruin ? [bRebuild] : [])], SEL_BLD);
+        setCard(false, [...(up ? [bUp] : []), ...(hurt ? [bRepair] : []), ...(ruin ? [bRebuild] : []), ...(iron ? [bIron] : []), ...(wet ? [bWet] : [])], SEL_BLD);
+        const who = sq === null ? 'planned: select a squad to send it' : `squad #${sq} does the work`;
         if (hurt) {
           const r = repairBill(b), why = repairWhy(b, sq);
           bRepair.disabled = !!why;
-          bRepair.dataset.tip = `<div class="rf-name" style="margin-bottom:4px">Repair</div><div style="display:flex;align-items:center">${costHtml(ceilBill(r.all))}</div><div class="rf-dim" style="margin-top:3px">${billText(r.step)} per 10% · labour ${labourText(r.labour)} · any squad, engineers x1.5</div>${why ? `<div class="rf-dim" style="margin-top:3px;color:#ff7a5c">${why}</div>` : ''}`;
+          bRepair.dataset.tip = actTip('Repair', ceilBill(r.all), `${billText(r.step)} per 10% · labour ${labourText(r.labour)} · any squad, engineers ×1.5`, why);
         }
         if (ruin) {
           const r = rebuildBill(b), why = rebuildWhy(b);
           bRebuild.disabled = !!why;
-          bRebuild.dataset.tip = `<div class="rf-name" style="margin-bottom:4px">Rebuild</div>${b.landmark ? '' : `<div style="display:flex;align-items:center">${costHtml(ceilBill(r.cost))}</div><div class="rf-dim" style="margin-top:3px">labour ${labourText(r.labour)} · ${sq === null ? 'planned: send a squad' : `squad #${sq} builds it`}</div>`}${why ? `<div class="rf-dim" style="margin-top:3px;color:#ff7a5c">${why}</div>` : ''}`;
+          bRebuild.dataset.tip = actTip('Rebuild', b.landmark ? null : ceilBill(r.cost), b.landmark ? 'restore the landmark' : `labour ${labourText(r.labour)} · ${who}`, why);
         }
-        const tiles = b.tiles.length / 2, stock = s.sim.cur?.stock?.[myTeam()] ?? {};
-        if (iron) { bIron.dataset.tip = `<div class="rf-name" style="margin-bottom:4px">Iron-bind the gate</div><div style="display:flex;align-items:center">${costHtml(FORT.ironCost)}</div><div class="rf-dim" style="margin-top:3px">hp ×${FORT.iron}, once · Fortifier engineer's work, paid at once</div>`; bIron.disabled = (stock.iron ?? 0) < FORT.ironCost.iron || (stock.charcoal ?? 0) < FORT.ironCost.charcoal; }
-        if (wet) { bWet.dataset.tip = `<div class="rf-name" style="margin-bottom:4px">Wet hides</div><div style="display:flex;align-items:center">${costHtml({ hides: FORT.wetCost * tiles })}</div><div class="rf-dim" style="margin-top:3px">catches fire at ×${FORT.wet} the chance for ${FORT.wetTicks / 600} min</div>`; bWet.disabled = (stock.hides ?? 0) < FORT.wetCost * tiles; }
-        if (up) bUp.dataset.tip = `<div class="rf-name" style="margin-bottom:4px">Upgrade to ${nice(up.to)}</div><div style="display:flex;align-items:center">${costHtml(up.cost)}</div><div class="rf-dim" style="margin-top:3px">labour ${labourText(up.labour)} · ${sq === null ? 'planned: send a squad' : `squad #${sq} builds it`}</div>`;
+        const tiles = b.tiles.length / 2;
+        if (iron) { bIron.dataset.tip = actTip('Iron-bind the gate', FORT.ironCost, `hp ×${FORT.iron}, once · a Fortifier engineer's work, paid at once`); bIron.disabled = (stock.iron ?? 0) < FORT.ironCost.iron || (stock.charcoal ?? 0) < FORT.ironCost.charcoal; }
+        if (wet) { bWet.dataset.tip = actTip('Wet hides', { hides: FORT.wetCost * tiles }, `catches fire at ×${FORT.wet} the chance for ${FORT.wetTicks / 600} min`); bWet.disabled = (stock.hides ?? 0) < FORT.wetCost * tiles; }
+        if (up) bUp.dataset.tip = actTip(`Upgrade to level ${levelOf(up.to)}`, up.cost, `${BUILDINGS[up.to].workplace ? 'more recipes, one more crafter · ' : ''}labour ${labourText(up.labour)} · ${who}`);
       }
     } else if (q && own.length) {
       card.style.display = '';

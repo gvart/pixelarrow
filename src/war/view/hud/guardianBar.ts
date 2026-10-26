@@ -1,7 +1,7 @@
 /**
  * M7d HUD: the guardian bar and the landmark panel (docs/WAR.md "Landmarks"; src/war/sim/bosses.ts, src/data/warLandmarks.ts).
  *
- *   top centre, under the resource band   each living guardian of the region: its name, an hp bar with a pip at every
+ *   top centre                           each living guardian of the region: its name, an hp bar with a pip at every
  *                                          phase threshold (lit once passed), the phase it is in and what it does (on
  *                                          the roof, in flight, running for the postern), its linked targets alive
  *                                          (Scylla's heads, the Chimera's heads) and the raid it faces; slain or away:

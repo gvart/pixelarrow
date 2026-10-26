@@ -20,22 +20,24 @@ import { MARKET_TOWNS } from '../../world-view/geo';
 import type { SandboxScene } from '../SandboxScene';
 import {
   failed, LocalMarket, netMarket, RENT, SITE_LOADS, siteLoads, STALL_OFFERS, STALL_UPGRADE,
-  type Board, type BoardOffer, type Contract, type ContractKind, type Goods, type Handoff, type Market, type Mine, type Res,
+  type Board, type Contract, type ContractKind, type Goods, type Handoff, type Market, type Mine, type Res,
 } from '../trade/market';
 import { draggable } from './drag';
+import { goodCard, goodName } from './goods';
+import { esc, tipper } from './roster/ui';
 import { bar, fitHeight, icon } from './kit';
 import { keys } from '../../input/keys';
 import { myTeam } from '../side';
 
 type Mk = (id: string, css: string, html?: string) => HTMLElement;
-type Tab = 'Stall' | 'Offers' | 'Board' | 'Contracts' | 'Letters';
-const TABS: Tab[] = ['Stall', 'Offers', 'Board', 'Contracts', 'Letters'];
-const W = 340;
+type Tab = 'Trade' | 'Offers' | 'Stall' | 'Contracts' | 'Letters';
+const TABS: Tab[] = ['Trade', 'Offers', 'Stall', 'Contracts', 'Letters'];
+const TAB_NAME: Record<Tab, string> = { Trade: 'Trade', Offers: 'My offers', Stall: 'Stall', Contracts: 'Contracts', Letters: 'Letters' };
+const W = 452;
 const ICONED = new Set(['food', 'wood', 'stone', 'marble', 'copper', 'tin', 'iron', 'bronze', 'silver', 'salt', 'pitch', 'hides', 'flax', 'herbs', 'charcoal', 'leather', 'linen', 'oil', 'coin']);
 const gi = (r: string | null) => (r && ICONED.has(r) ? icon('res-' + r) : '');
 const fmt = (n: number) => (Math.abs(n) >= 100 ? String(Math.round(n)) : String(Math.round(n * 10) / 10));
 const town = (t: string) => t.replace(/(^|-)([a-z])/g, (_, d, c) => (d ? ' ' : '') + c.toUpperCase());
-const ago = (ms: number) => { const m = Math.max(0, Math.round(ms / 60_000)); return m < 60 ? `${m} min ago` : `${Math.round(m / 60)} h ago`; };
 const inH = (ms: number) => { const h = ms / 3_600_000; return h <= 0 ? 'expired' : h < 1 ? `${Math.round(h * 60)} min` : `${Math.round(h)} h`; };
 const goodsLine = (g: Goods) => Object.entries(g).filter(([, n]) => n > 0.05).map(([r, n]) => `<span style="display:inline-flex;align-items:center;gap:2px;margin-right:6px">${gi(r)}<span class="rf-num">${fmt(n)}</span>${gi(r) ? '' : ` ${r}`}</span>`).join('') || '<span class="rf-dim">empty</span>';
 const opts = (list: readonly string[], cur: string) => list.map((x) => `<option value="${x}"${x === cur ? ' selected' : ''}>${x}</option>`).join('');
@@ -59,6 +61,34 @@ const CSS = `
 #rfMarket td:first-child,#rfMarket th:first-child{text-align:left}
 #rfHandoff .mk-half{flex:1;min-width:0;padding:4px;background:var(--rf-sunk);border:1px solid var(--rf-rule)}
 #rfHandoff .mk-half.ok{border-color:var(--rf-good)}
+#rfMarket .mk-cols{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px}
+#rfMarket .mk-colh{display:grid;grid-template-columns:1fr 40px 40px;gap:4px;align-items:end;padding:0 6px 3px;border-bottom:1px solid var(--rf-line);font:700 9.5px/1 Inter,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--rf-muted)}
+#rfMarket .mk-colh span{text-align:right}
+#rfMarket .mk-colh span:first-child{font:700 12px/1 Cinzel,serif;letter-spacing:.04em;text-transform:none;color:var(--rf-accent);text-align:left}
+#rfMarket .mk-list{height:146px;background:var(--rf-sunk);border:1px solid var(--rf-rule);border-top:0}
+#rfMarket .mk-g{display:grid;grid-template-columns:24px 1fr 40px 40px;gap:4px;align-items:center;height:28px;padding:0 6px 0 3px;border-bottom:1px solid #1d130e}
+#rfMarket .mk-g .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11.5px}
+#rfMarket .mk-mark{font-size:9px;margin-left:2px;vertical-align:1px}#rfMarket .mk-mark.good{color:var(--rf-good)}#rfMarket .mk-mark.gold{color:var(--rf-gold)}
+#rfMarket .mk-g .v,#rfMarket .mk-g .p{text-align:right;font-size:12px}
+#rfMarket .mk-g .v.z{color:var(--rf-disabled)}#rfMarket .mk-g .v.z2{color:var(--rf-muted)}
+#rfMarket .mk-g .p.buy{color:var(--rf-gold)}#rfMarket .mk-g .p.sell{color:var(--rf-good)}
+#rfMarket .mk-none{padding:10px 8px;white-space:normal;line-height:1.4}
+#rfMarket .mk-deal{margin-top:6px;padding:6px 8px 7px}
+#rfMarket .mk-dh{display:flex;align-items:center;gap:6px}
+#rfMarket .mk-dh b{font:700 14px/1 Cinzel,serif;color:var(--rf-title)}
+#rfMarket .mk-side{display:flex;gap:2px}#rfMarket .mk-side .rf-tbtn{width:auto;height:22px;padding:0 10px}
+#rfMarket .mk-dr{display:flex;align-items:center;gap:6px;margin-top:6px}
+#rfMarket .mk-dr .rf-step .rf-tbtn{width:23px;height:23px;padding:0}
+#rfMarket .mk-dr input[type=number]{width:52px}
+#rfMarket .mk-x{display:inline-flex;align-items:center;gap:3px;margin-left:auto;font-size:13px}
+#rfMarket .mk-x .ic{width:16px;height:16px}
+#rfMarket .mk-tot{font-size:16px;color:var(--rf-gold)}
+#rfMarket .mk-cap{display:flex;align-items:center;gap:6px;margin-top:6px;font-size:11px}
+#rfMarket .mk-cap>span:first-child{color:var(--rf-muted)}
+#rfMarket .mk-go{display:flex;gap:6px;margin-top:7px}#rfMarket .mk-go .big{flex:1}
+#rfMarket .mk-why{margin-top:4px;font-size:11px;text-align:center}
+#rfMarket .mk-rent{display:flex;align-items:center;gap:6px;margin-top:6px;padding:5px 6px;font-size:11.5px;white-space:normal}
+#rfMarket .mk-rent span{flex:1}
 `;
 
 export interface MarketHud { open(tab?: Tab): void; refresh(): void }
@@ -72,16 +102,19 @@ export function mountMarket(s: SandboxScene, mk: Mk): MarketHud {
   const isTown = MARKET_TOWNS.has(T) || (s.region.safe?.length ?? 0) > 0;
 
   // ---------- state ----------
-  let tab: Tab = 'Stall';
+  let tab: Tab = 'Trade';
   let mine: Mine = { sites: [], offers: [] }, board: Board | null = null, contracts: Contract[] = [];
   let msg = '', bad = false;
-  const form = { side: 'sell' as 'sell' | 'buy', res: 'tin', n: 10, price: 10, standing: false, stowRes: 'iron', stowN: 10, stowSite: 'stall' as 'stall' | 'warehouse', take: 5,
+  const form = { pick: 'tin', dSide: 'buy' as 'buy' | 'sell', dn: 10, side: 'sell' as 'sell' | 'buy', res: 'tin', n: 10, price: 10, standing: false, stowRes: 'iron', stowN: 10, stowSite: 'stall' as 'stall' | 'warehouse', take: 5,
     cKind: 'carry' as ContractKind, cTo: 'stymphalia', cReward: 50, cRes: 'iron', cN: 20, cValue: 300, cLoads: 4, cHours: 24, lTo: 'stymphalia', lAmount: 200, lFee: 10, lId: 0 };
 
   // ---------- the windows ----------
-  const win = mk('rfMarket', `top:92px;left:4px;width:${W}px;display:none;pointer-events:auto;padding:4px 8px 8px`);
+  const win = mk('rfMarket', `top:4px;left:4px;width:${W}px;display:none;pointer-events:auto;padding:4px 8px 8px`);
   win.classList.add('rf-card');
   draggable(win, '.rf-head');
+  const tip = mk('mkTip', 'display:none;z-index:7');
+  tip.className = 'rf rf-tip';
+  const unTip = tipper(win, tip);
   const hand = mk('rfHandoff', `top:92px;left:${W + 12}px;width:300px;display:none;pointer-events:auto;padding:4px 8px 8px`);
   hand.classList.add('rf-card');
   draggable(hand, '.rf-head');
@@ -152,24 +185,61 @@ export function mountMarket(s: SandboxScene, mk: Mk): MarketHud {
       ${rows || '<div class="rf-dim" style="padding:2px">none open</div>'}`;
   };
 
-  const boardTab = () => {
-    if (!board) return '<div class="rf-dim" style="margin:6px 0">loading the board…</div>';
-    const g = Object.entries(board.goods).sort((a, b) => b[1].askDepth + b[1].bidDepth - a[1].askDepth - a[1].bidDepth);
-    // the best offer on each side that is not mine (the board lists them best first); a take is at most what is left
-    const best = (r: string, side: 'sell' | 'buy') => board!.offers.find((o) => o.res === r && o.side === side && o.player !== M.me);
-    const take = (o: BoardOffer | undefined, label: string) => btn('fill', label, !!o, o ? `data-id="${o.offer}" data-left="${o.n}"` : '', !o ? 'none listed but yours'
-      : o.side === 'sell' ? `buy up to ${fmt(o.n)} at ${o.price} from #${o.player}'s stall: coin from your warehouse, then stall` : `sell up to ${fmt(o.n)} at ${o.price} into #${o.player}'s order: goods from your stall, then warehouse`);
-    const rows = g.map(([r, x]) => `<tr class="rf-row"><td><span style="display:inline-flex;align-items:center;gap:3px">${gi(r)}${r}</span></td><td class="mk-buy">${x.bid ?? '–'} <span class="rf-dim">${x.bidDepth ? fmt(x.bidDepth) : ''}</span></td><td>${take(best(r, 'buy'), 'Sell')}</td><td class="mk-sell">${x.ask ?? '–'} <span class="rf-dim">${x.askDepth ? fmt(x.askDepth) : ''}</span></td><td>${take(best(r, 'sell'), 'Buy')}</td></tr>`).join('');
-    const offers = board.offers.map((o) => `<div class="mk-row rf-row"><span class="mk-pill ${o.side === 'sell' ? 'mk-sell' : 'mk-buy'}">${o.side === 'sell' ? 'ASK' : 'BID'}</span>${gi(o.res)}<span style="flex:1">${o.res} <span class="rf-dim">${o.player === M.me ? 'yours' : `#${o.player}'s stall`}</span></span><span class="rf-num">${fmt(o.n)}</span><span class="rf-num" style="width:44px;text-align:right">@${o.price}</span>${o.player === M.me ? '' : take(o, o.side === 'sell' ? 'Buy' : 'Sell')}</div>`).join('');
-    const items = board.items.map((it) => `<div class="mk-row rf-row"><span style="flex:1">${it.uid}</span><span class="rf-num">${it.price}</span>${icon('res-coin')}${btn('fill', 'Buy', true, `data-id="${it.offer}" data-n="1"`)}</div>`).join('');
-    const fills = board.fills.map((f) => `<div class="mk-row" style="min-height:18px">${gi(f.res)}<span style="flex:1">${fmt(f.n)} ${f.res ?? 'item'} @ ${f.price}</span><span class="rf-dim">${ago(Date.now() - f.at)}</span></div>`).join('');
-    return `<div class="rf-dim" style="margin:4px 0">Player offers only · take <input type="number" data-f="take" min="1" value="${form.take}" style="width:44px"> of the best</div>
-      <table><tr><th>Good</th><th>Bid</th><th></th><th>Ask</th><th></th></tr>${rows || '<tr><td colspan="5" class="rf-dim">no offers listed</td></tr>'}</table>
-      ${offers ? `<div class="rf-cap" style="margin-top:6px">Offers <span class="rf-dim">each one, best first</span></div>${offers}` : ''}
-      ${items ? `<div class="rf-cap" style="margin-top:6px">Items</div>${items}` : ''}
-      <div class="rf-cap" style="margin-top:6px">Last fills</div>${fills || '<div class="rf-dim">none yet</div>'}`;
+  // ---------- trade: what you have against what the market asks and bids (Mount & Blade, Patrician) ----------
+  /** The average price of a good's recent sales here (null: none yet). */
+  const usual = (r: string) => { const f = board?.fills.filter((x) => x.res === r) ?? []; return f.length ? f.reduce((a, x) => a + x.price, 0) / f.length : null; };
+  /** A good's tag: wanted (buyers here pay at or over its usual price), cheap (offered under it). */
+  const tagOf = (r: string, x: { ask: number | null; bid: number | null; bidDepth: number } | undefined, mark = false) => {
+    const u = usual(r);
+    const t = !x ? null : x.bid !== null && (u === null ? x.bidDepth >= 20 : x.bid >= u) ? { c: 'good', w: 'sells well', m: '▲', tip: 'buyers here pay well for it: a good place to sell' }
+      : x.ask !== null && u !== null && x.ask < u * 0.97 ? { c: 'gold', w: 'cheap', m: '▼', tip: 'offered under its usual price here: a good buy' } : null;
+    if (!t) return '';
+    return mark ? `<span class="mk-mark ${t.c}" data-tip="${t.w}: ${t.tip}">${t.m}</span>` : `<span class="rf-pill ${t.c}" data-tip="${t.tip}">${t.w}</span>`;
   };
+  let dealMax = 1, dealOffer: number | null = null;
+  const best = (r: string, side: 'sell' | 'buy') => board?.offers.find((o) => o.res === r && o.side === side && o.player !== M.me);
+  const tradeTab = () => {
+    const st = stall(), sg = st?.goods ?? {}, home = (s.sim.cur?.stock?.[myTeam()] ?? {}) as Record<string, number>;
+    const rows = board?.goods ?? {};
+    const names = [...new Set([...Object.keys(rows), ...Object.keys(sg), ...Object.keys(home).filter((r) => home[r] >= 1)])].filter((r) => r !== 'coin' && GOODS.includes(r as never));
+    names.sort((a, b) => Number(!rows[a]) - Number(!rows[b]) || a.localeCompare(b));
+    if (!names.includes(form.pick)) form.pick = names[0] ?? 'tin';
+    const pick = form.pick;
+    const mine = names.filter((r) => (sg[r] ?? 0) > 0.05 || (home[r] ?? 0) >= 1);
+    const have = mine.map((r) => `<div class="mk-g rf-row${r === pick ? ' on' : ''}" data-act="pick" data-r="${r}" data-tip="${esc(goodCard(r))}">${gi(r)}<span class="nm">${goodName(r)}</span><span class="rf-num v${(sg[r] ?? 0) > 0.05 ? '' : ' z'}">${fmt(sg[r] ?? 0)}</span><span class="rf-num v z2">${fmt(Math.floor(home[r] ?? 0))}</span></div>`).join('')
+      || '<div class="rf-dim mk-none">Nothing here yet: bring goods in packs or a cart.</div>';
+    const market = names.filter((r) => rows[r]).map((r) => { const x = rows[r]; return `<div class="mk-g rf-row${r === pick ? ' on' : ''}" data-act="pick" data-r="${r}">${gi(r)}<span class="nm">${goodName(r)} ${tagOf(r, x, true)}</span><span class="rf-num p buy" data-tip="${esc(x.ask === null ? 'nobody sells it here' : `buy at ${x.ask} coin each · ${fmt(x.askDepth)} offered`)}">${x.ask ?? '–'}</span><span class="rf-num p sell" data-tip="${esc(x.bid === null ? 'nobody buys it here' : `sell at ${x.bid} coin each · ${fmt(x.bidDepth)} wanted`)}">${x.bid ?? '–'}</span></div>`; }).join('')
+      || `<div class="rf-dim mk-none">${board ? 'Nobody trades here yet: list an offer (My offers).' : 'Reading the price board…'}</div>`;
 
+    // the deal for the picked good
+    const side = form.dSide, o = side === 'buy' ? best(pick, 'sell') : best(pick, 'buy'), price = o?.price ?? null;
+    dealMax = !o ? 1 : Math.max(1, side === 'buy' ? Math.min(o.n, price ? Math.floor((sg.coin ?? 0) / price) || o.n : o.n) : Math.min(o.n, Math.floor(sg[pick] ?? 0) || o.n));
+    dealOffer = o?.offer ?? null;
+    const n = Math.max(1, Math.min(form.dn, Math.max(1, o?.n ?? 1)));
+    const total = price !== null ? n * price : 0, loads = siteLoads(sg), after = side === 'buy' ? loads + n / 100 - total / 200 : loads - n / 100 + total / 200;
+    const short = !st ? 'rent a stall first: goods and coin change hands there'
+      : !o ? (side === 'buy' ? `nobody sells ${goodName(pick).toLowerCase()} here` : `nobody buys ${goodName(pick).toLowerCase()} here`)
+      : side === 'buy' && (sg.coin ?? 0) < total ? `needs ${total} coin in your stall (you have ${Math.floor(sg.coin ?? 0)})`
+      : side === 'sell' && (sg[pick] ?? 0) < n ? `needs ${n} ${goodName(pick).toLowerCase()} in your stall (you have ${Math.floor(sg[pick] ?? 0)})`
+      : after > SITE_LOADS + 1e-6 ? `the stall holds ${SITE_LOADS} loads` : '';
+    const canStow = st && side === 'sell' && (sg[pick] ?? 0) < n && (home[pick] ?? 0) >= 1;
+    const stowN = Math.min(Math.floor(home[pick] ?? 0), Math.max(1, Math.ceil(n - (sg[pick] ?? 0))));
+    const deal = `<div class="mk-deal rf-well">
+      <div class="mk-dh">${gi(pick)}<b>${goodName(pick)}</b>${tagOf(pick, rows[pick])}<span class="rf-dim">${usual(pick) !== null ? `usually ${fmt(usual(pick)!)} here` : 'no sales here yet'}</span><span style="flex:1"></span>
+        <span class="rf-seg mk-side">${btn('dside', 'Buy', true, 'data-v="buy"', '', `rf-tbtn mk-b${side === 'buy' ? ' on' : ''}`)}${btn('dside', 'Sell', true, 'data-v="sell"', '', `rf-tbtn mk-b${side === 'sell' ? ' on' : ''}`)}</span></div>
+      <div class="mk-dr"><span class="rf-step">${btn('dstep', '−', n > 1, 'data-d="-1"', '', 'rf-tbtn')}<input type="number" data-f="dn" min="1" value="${n}">${btn('dstep', '+', !!o && n < o.n, 'data-d="1"', '', 'rf-tbtn')}</span>
+        ${btn('dmax', 'Max', !!o, '', side === 'buy' ? 'as many as this offer has and your stall\'s coin pays' : 'as many as your stall holds, up to what is wanted', 'rf-tbtn mk-b')}
+        <span class="mk-x">× <b>${price ?? '–'}</b> ${icon('res-coin')} = <b class="mk-tot">${price !== null ? total : '–'}</b> ${icon('res-coin')}</span></div>
+      <div class="mk-cap"><span>Stall</span>${bar(after > SITE_LOADS ? 'burn' : 'ok', Math.min(1, after / SITE_LOADS), 140)}<span class="rf-num">${fmt(loads)} → ${fmt(Math.max(0, after))} / ${SITE_LOADS} loads</span><span class="rf-dim">· ${fmt(sg.coin ?? 0)} coin in it</span></div>
+      <div class="mk-go">${btn('deal', `${side === 'buy' ? 'Buy' : 'Sell'} ${n} ${goodName(pick).toLowerCase()}`, !short, '', '', 'rf-tbtn pri big')}${canStow ? btn('stowPick', `Move ${stowN} into the stall`, true, `data-n="${stowN}"`, 'from your store into the stall, then sell', 'rf-tbtn') : ''}</div>
+      ${short ? `<div class="rf-hint mk-why">${short}</div>` : `<div class="rf-dim mk-why">${side === 'buy' ? `from ${o ? `#${o.player || 'trader'}'s stall` : ''}: into your stall, then haul it out` : 'out of your stall; the coin lands in it (5% tax)'}</div>`}
+    </div>`;
+    const rent = st ? '' : `<div class="mk-rent rf-well">${icon('trade-rent')}<span>You need a stall here to trade: goods and coin change hands in it.</span>${btn('rent', `Rent · ${RENT} ${icon('res-coin')}/day`, isTown, 'data-k="stall"', 'rent a stall here (the first day\'s rent from your home strongroom)', 'rf-tbtn pri mk-b')}</div>`;
+    return `${rent}<div class="mk-cols">
+      <div><div class="mk-colh"><span>You have</span><span title="in your stall here">stall</span><span title="in your store at home">store</span></div><div class="mk-list rf-scroll">${have}</div></div>
+      <div><div class="mk-colh"><span>Market</span><span title="what you pay a unit">buy</span><span title="what you get a unit">sell</span></div><div class="mk-list rf-scroll">${market}</div></div>
+    </div>${deal}`;
+  };
   const contractsTab = () => {
     const now = Date.now(), me = M.me;
     const rows = contracts.map((c) => {
@@ -194,16 +264,17 @@ export function mountMarket(s: SandboxScene, mk: Mk): MarketHud {
       <div class="mk-form"><span class="rf-dim">letter #</span>${num('lId', 60, 0)}${btn('buyL', 'Buy', true, 'data-id="form"')}${btn('redeemL', 'Redeem', true, 'data-id="form"')}</div>`;
   };
 
-  const BODY: Record<Tab, () => string> = { Stall: stallTab, Offers: offersTab, Board: boardTab, Contracts: contractsTab, Letters: lettersTab };
+  const BODY: Record<Tab, () => string> = { Stall: stallTab, Offers: offersTab, Trade: tradeTab, Contracts: contractsTab, Letters: lettersTab };
   const render = () => {
     if (win.style.display === 'none') return;
     const scroll = win.scrollTop;
-    win.innerHTML = `<div class="rf-head">${icon('node-merchant-trader', 32)}<div style="flex:1;min-width:0"><div class="rf-name">Market · ${town(T)}</div><div class="rf-dim" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${M.live ? 'live' : 'offline stub'} · <span style="color:var(--rf-gold)">${Math.floor(s.sim.cur?.stock?.[myTeam()]?.coin ?? 0)}</span> coin at home</div></div>${btn('handoff', 'Hand-off', true, '', 'trade with a player here, both present: each puts in a half, both confirm')}<button class="rf-tbtn x" data-act="close" title="close (K)">×</button></div>
-      <div class="mk-tabs">${TABS.map((t) => `<button class="rf-tab${t === tab ? ' on' : ''}" data-tab="${t}">${t}</button>`).join('')}</div>
+    win.innerHTML = `<div class="rf-head rf-ph">${icon('node-merchant-trader', 32)}<div style="flex:1;min-width:0"><div class="rf-name">Market of ${town(T)}</div><div class="sub">${isTown ? 'players\' offers only' : 'no market here'}${M.live ? '' : ' · offline'} · <span style="color:var(--rf-gold)">${Math.floor(s.sim.cur?.stock?.[myTeam()]?.coin ?? 0)}</span> coin at home</div></div>${btn('handoff', 'Hand-off', true, '', 'trade with a player here, both present: each puts in a half, both confirm')}<button class="rf-tbtn x" data-act="close" title="close (K)">×</button></div>
+      <div class="mk-tabs">${TABS.map((t) => `<button class="rf-tab${t === tab ? ' on' : ''}" data-tab="${t}">${TAB_NAME[t]}</button>`).join('')}</div>
       ${BODY[tab]()}<div class="mk-msg rf-dim${bad ? ' bad' : ''}">${msg}</div>`;
     win.scrollTop = scroll;
     fitHeight(win);
     win.style.overflowX = 'hidden';
+    unTip();
   };
 
   // ---------- events ----------
@@ -214,6 +285,8 @@ export function mountMarket(s: SandboxScene, mk: Mk): MarketHud {
     f[k] = el instanceof HTMLInputElement && el.type === 'checkbox' ? el.checked : el instanceof HTMLInputElement && el.type === 'number' ? Number(el.value) : el.value;
     if (k === 'cKind' || k === 'side' || k === 'res' || k === 'n' || k === 'price') { if (el instanceof HTMLSelectElement) render(); else upd(); }
   });
+  // the trade quantity: the totals follow once it is typed (Enter or leaving the field)
+  win.addEventListener('change', (e) => { if ((e.target as HTMLElement).dataset.f === 'dn') { form.dn = Math.max(1, Math.floor(form.dn) || 1); render(); } });
   /** Refresh the escrow line without losing the field being typed in. */
   const upd = () => {
     const sp = win.querySelector<HTMLElement>('.mk-form span.rf-dim[style*="flex:1"] span');
@@ -227,6 +300,18 @@ export function mountMarket(s: SandboxScene, mk: Mk): MarketHud {
     if (a === 'close') return toggle(false);
     if (a === 'handoff') return openHand();
     if (a === 'side') { form.side = t.dataset.v as 'sell' | 'buy'; render(); return; }
+    // the trade screen: pick a good, buy or sell, how many, then the deal (a fill of the best offer that is not yours)
+    if (a === 'pick') { form.pick = t.dataset.r!; render(); return; }
+    if (a === 'dside') { form.dSide = t.dataset.v as 'buy' | 'sell'; render(); return; }
+    if (a === 'dstep') { form.dn = Math.max(1, form.dn + Number(t.dataset.d)); render(); return; }
+    if (a === 'dmax') { form.dn = dealMax; render(); return; }
+    if (a === 'deal' && dealOffer !== null) { const n = form.dn; void run(M.fill(dealOffer, n), (r) => `${form.dSide === 'buy' ? 'bought' : 'sold'} ${fmt(r.n)} ${form.pick} at ${r.price}${r.tax ? ` (tax ${fmt(r.tax)})` : ''}`); return; }
+    if (a === 'stowPick') {
+      M.stow('in', 'stall', own()[0] ?? 0, { [form.pick]: Number(t.dataset.n) }, (r) => {
+        if (failed(r)) { say(r.error, true); render(); } else { say(`moved ${goodsText(r.goods)} into the stall`); void load(); }
+      });
+      return;
+    }
     if (a === 'rent') void run(M.rent(T, t.dataset.k as 'stall' | 'warehouse'), () => `${t.dataset.k} rented: ${RENT} coin a day`);
     else if (a === 'upgrade') void run(M.upgrade(T), (r) => `stall now level ${r.level}`);
     else if (a === 'list') void run(M.list(T, { side: form.side, res: form.res, n: form.n, price: form.price, ...(form.standing ? { standing: true } : {}) }), (r) => `${form.side === 'sell' ? 'offer' : 'buy order'} #${r.offer} listed; its escrow left the stall`);

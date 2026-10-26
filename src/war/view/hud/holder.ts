@@ -136,8 +136,6 @@ export function mountTrade(s: SandboxScene, mk: Mk, btn: (id: string, ic: string
     } else {
       const next = render(h);
       if (next !== html) { html = next; panel.innerHTML = next; }
-      const wp = document.getElementById('cfWp');
-      panel.style.top = wp && wp.style.display !== 'none' ? `${wp.offsetTop + wp.offsetHeight + 6}px` : `${TOP}px`;
       panel.style.display = '';
       fitHeight(panel);
     }
@@ -151,10 +149,16 @@ export function mountTrade(s: SandboxScene, mk: Mk, btn: (id: string, ic: string
     if (!h || inPanel || (h.kind === 'store' && !T.hasAny(h))) { if (hover.style.display !== 'none') hover.style.display = 'none'; shown = ''; return; }
     const body = `<div style="display:flex;align-items:center;gap:5px;margin-bottom:2px">${icon(iconOf(h))}<b style="color:var(--rf-title)">${h.name[0].toUpperCase() + h.name.slice(1)}</b><span class="rf-dim">${whose(h)}</span></div>${holderSummary(h)}`;
     if (body !== shown) { shown = body; hover.innerHTML = body; }
-    const r = s.game.canvas.getBoundingClientRect(), z = Number(hover.style.zoom) || 1;
-    hover.style.left = `${Math.round((r.left + p.x + 16) / z)}px`;
-    hover.style.top = `${Math.round((r.top + p.y + 44) / z)}px`;
+    // beside the cursor, kept on screen and off the command card at the bottom (above the cursor when it would cover it)
     hover.style.display = '';
+    const r = s.game.canvas.getBoundingClientRect(), z = Number(hover.style.zoom) || 1, t = hover.getBoundingClientRect();
+    const card = document.getElementById('rfCard'), c = card && card.style.display !== 'none' ? card.getBoundingClientRect() : null;
+    let x = Math.min(r.left + p.x + 16, innerWidth - t.width - 4), y = r.top + p.y + 24;
+    const hits = (yy: number) => !!c && x < c.right && x + t.width > c.left && yy + t.height > c.top && yy < c.bottom;
+    if (y + t.height > innerHeight - 4 || hits(y)) y = r.top + p.y - t.height - 12;
+    if (hits(y)) x = c!.left - t.width - 8 > 4 ? c!.left - t.width - 8 : c!.right + 8;
+    hover.style.left = `${Math.round(Math.max(4, x) / z)}px`;
+    hover.style.top = `${Math.round(Math.max(4, y) / z)}px`;
   });
 
   return { slots, refresh };
