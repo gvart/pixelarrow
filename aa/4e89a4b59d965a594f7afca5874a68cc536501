@@ -1,0 +1,31 @@
+src/war/view/main.ts
+  s_fcb7475e0b5395::t_7cfc8451910524 30-31
+src/war/view/SandboxScene.ts
+  s_fcb7475e0b5395::t_be9a55f2931259 73,75,137,286,300-302,308,311-315,320-330
+  s_fcb7475e0b5395::t_ada012490ab175 138-139,656
+  s_fcb7475e0b5395::t_265cd36368ba2d 331-332
+src/war/view/bakeWorker.ts
+  s_fcb7475e0b5395::t_7cfc8451910524 3-4,9-10,20,23,39,46-49,52-54
+src/war/view/bakeClient.ts
+  s_fcb7475e0b5395::t_7cfc8451910524 2-3,21,31,34-35,37
+src/war/view/units.ts
+  s_fcb7475e0b5395::t_b1788ea6318295 246-247,249,253,255
+  s_fcb7475e0b5395::t_27a33df99cd1ad 198-199,216,228-230,233-236,240-241,244-245,254,256-257,337,341
+  s_fcb7475e0b5395::t_296b5bbf9fec2b 223-227,231-232,237-239,242-243,248,250-252,400-401
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "aa4e89a4b59d965a594f7afca5874a68cc536501",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
