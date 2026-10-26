@@ -1,0 +1,25 @@
+tests/war/hudGoods.test.ts
+  s_fcb7475e0b5395::t_b8c5c2fa73cbbe 1-21
+src/war/view/hud/craft/workplace.ts
+  s_fcb7475e0b5395::t_3a0c6c01d84e5e 139
+docs/PLAYTEST.md
+  s_fcb7475e0b5395::t_a5adbc5178305a 54
+src/war/view/hud/guardianBar.ts
+  s_fcb7475e0b5395::t_5e779c9352a886 4
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "16db44309faa1917249399d18b01428cbe241863",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
