@@ -308,7 +308,7 @@ Numbers in `SOURCES` (`src/game/sources.ts`) and `SPOILS` (`src/duel/rules.ts`).
   (`salvageValue`): gold in the campaign (town market sell button), gold on
   the war map (army screen, `POST /api/online/salvage`), Glory in duels
   (`POST /api/duel/shop/salvage`, a quarter of the shop price).
-- **Stashes stay separate** (docs/DUELS.md): duel sources fill the duel
+- **Stashes stay separate**: duel sources fill the duel
   stash, war and campaign sources the war or campaign stash.
 - Server item rows carry `aff` and `pow`; only the server creates them
   (clients never send stats); marketplace escrow keeps them. Server code:

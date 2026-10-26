@@ -14,7 +14,7 @@ load average is high.
 | `{MAIN_WT}` | the worktree that has `{MAIN}` checked out |
 | `{ROOT}` | the repo root: `/Users/v.gladis/Workspace/Personal/pixelarrow` |
 | `{F}` | where `.claude/` lives: `{ROOT}/.claude` (untracked, so pass absolute paths) |
-| `{DOCS}` | the run's state folder (`docs/v6`) |
+| `{DOCS}` | the run's state folder (e.g. `docs/impl`) |
 | `{SIZES}` | the screen matrix from [director-brief.md](director-brief.md) "Hard constraints" |
 
 The disk lines (symlinked `node_modules`, `--no-shots`) are for a machine short of disk; drop them elsewhere.

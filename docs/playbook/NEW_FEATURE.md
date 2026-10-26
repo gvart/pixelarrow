@@ -101,7 +101,7 @@ ASSESSED, never a guessed PASS.
 | --- | --- |
 | G-ALL | `npx tsc --noEmit`, `npx vitest run`, server vitest if `server/` changed, `npx vite build`, layout check 0 new, the smokes, regression, replay-hash. Semantic commits, no AI co-author trailer, never push. Report ends with **Skills applied**. |
 | G-UI | Screenshots across the screen matrix ([director-brief.md](director-brief.md)), en and ru, looked at. Every listed element present or its removal cited. No colour-only state, targets ≥ 44 pt. |
-| G-MECH | GDD referenced; `balance-check` plus `npm run balance -- 400` **before and after** in `docs/<ver>/balance/<story>.md`; targets met or the miss logged; the player doc updated (`docs/GAMEPLAY.md`, `DESIGN_V2.md`, `DUELS.md`, `ITEMS.md`); played in the browser. |
+| G-MECH | GDD referenced; `balance-check` plus `npm run balance:war` **before and after** in `docs/<ver>/balance/<story>.md`; targets met or the miss logged; the player doc updated (`docs/GAMEPLAY.md`, `DESIGN_V2.md`, `DUELS.md`, `ITEMS.md`); played in the browser. |
 | G-GUARD | Presentation that touches battle: `npm run balance` before and after, within noise. |
 | G-ONLINE | Client **and** `server/` in the same story, tests on both sides. |
 | G-TRAIN | Sim rules: replay fixtures and hash parity (§7). |
@@ -143,29 +143,15 @@ npx tsc --noEmit
 npx vitest run
 (cd server && npx vitest run)                 # when server/ or shared rules changed
 npx vite build
-npx vite preview --port <free port> --strictPort &   # never the dev server for gates
-node scripts/layout-check.mjs http://localhost:<port>/ --no-shots
-node scripts/{smoke,tutorial-smoke,duel-smoke,fullscreen-smoke,audio-smoke,online-smoke}.mjs http://localhost:<port>/
-npm run regression -- --port <another free port>
-node scripts/online-e2e.mjs ...               # online code only; wrangler dev with DEV_AUTH and VITE_DEV_AUTH=1
-node scripts/replay-hash.mjs chromium          # sim changes; add webkit with PW_WEBKIT_PATH set
-npm run balance -- 400                         # mechanic changes
+npm run balance:war                            # mechanic changes
+node scripts/war/play-smoke.mjs ...            # a short live wiring check (war code); wrangler dev with DEV_AUTH
 # stop the servers you started; rm -rf dist shots
 ```
 
-Never run layout-check, regression and online-e2e at the same time. A failure that passes alone is a flake: report
-both runs in [docs/FLAKY.md](../FLAKY.md) and give it to a fixer.
+A failure that passes alone is a flake: report both runs in [docs/FLAKY.md](../FLAKY.md) and give it to a fixer.
+(The legacy layout check, smokes and regression suite were removed with the campaign and duels.)
 
-**Sim rules changes (ADR-0001)** either stay inside the current rules train, with fixtures re-recorded on purpose
-and the diff reviewed:
-
-```bash
-RECORD_REPLAY_V2=1 npx vitest run tests/trainReplay.test.ts
-node scripts/replay-hash.mjs          # every engine must print "13/13 battles match"; NOT RUN is not a pass
-PW_WEBKIT_PATH=~/Library/Caches/ms-playwright/webkit-2242/pw_run.sh node scripts/replay-hash.mjs webkit
-```
-
-or bump `SIM_VERSION` and record new fixtures ([docs/OPS.md](../OPS.md) "The next rules change").
+**Sim rules changes:** bump `SIM_VERSION` (src/sim/version.ts) so stale clients reload.
 
 ## 8. Balance
 
@@ -192,16 +178,7 @@ needs another story gets an owner (V5-037, V5-069).
 
 ## 9. Regression additions
 
-Every bug class fixed gets a check, and **every control must answer a tap** (F-07 dropped `setInteractive` and
-nothing but luck caught it). When you add a control, sheet or door:
-
-- a tap check for a sample of the new control type in `scripts/regression/controls.mjs`;
-- the screen in `scripts/layout-check.mjs` fixtures or the sheet in `scripts/regression/sheet-layout.mjs`
-  (`tests/regression/sheetFixtures.test.ts` fails if a sheet opener has neither);
-- a door in `scripts/regression/doors.mjs` if it opens a screen (`tests/regression/doors.test.ts` checks it against
-  `src/platform/nav.ts`);
-- the script or test in [tests/regression/SUITE.md](../../tests/regression/SUITE.md) and `run.mjs`
-  (`suite.test.ts` checks the manifest).
+Every bug class fixed gets a check (a seeded vitest scenario for war logic, tests/war).
 
 Wait on real conditions, never fixed sleeps (`settled()`, `steadyBtn` in `scripts/regression/lib.mjs`).
 
