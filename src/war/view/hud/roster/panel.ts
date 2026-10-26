@@ -43,12 +43,12 @@ function stateCell(r: Row, captor: number | undefined): string {
   return `<span class="rr-mark" ${tip(termCard('fallen'))}>${glyph('ui:skull', 17)}</span>`;
 }
 
-function row(r: Row, sel: string | null, pending: boolean, captor: number | undefined): string {
+function row(r: Row, sel: string | null, pending: boolean, captor: number | undefined, picked: ReadonlySet<number>): string {
   const h = r.p.hero, need = xpToNext(h.level), rank = rankOf(h.cls, h.level);
   const crest = rank === 'elite' ? `<span ${tip(termCard('elite'))}>${glyph('ui:captain', 13)}</span>` : rank === 'veteran' ? `<span ${tip(card({ icon: 'ui:star', name: 'Veteran', w: 170, more: '<div>Level 3 or more.</div>' }))}>${glyph('ui:star', 11)}</span>` : '';
   const hon = (r.p.honours ?? []).length ? `<span ${tip(card({ icon: 'ui:laurel', name: 'Honours', w: 190, more: (r.p.honours ?? []).map((x) => `<div>${esc(x.name)}</div>`).join('') }))}>${glyph('ui:laurel', 13)}</span>` : '';
   const up = pending ? `<span class="rr-lvup" ${tip(card({ icon: 'ui:tgstar', name: 'Level up', w: 190, more: '<div>A choice waits: open his card, then his tree.</div>' }))}>${glyph('ui:tgstar', 15)}</span>` : '';
-  return `<div class="rr-row${sel === r.p.id ? ' on' : ''}${r.where === 'dead' ? ' dead' : ''}" data-pid="${r.p.id}">
+  return `<div class="rr-row${sel === r.p.id ? ' on' : ''}${r.unit && picked.has(r.unit.id) ? ' picked' : ''}${r.where === 'dead' ? ' dead' : ''}" data-pid="${r.p.id}">
     <div style="width:24px;height:24px;flex:none"><img src="war/ui/icons/24/${UNIT_ICON[h.cls ?? ''] ?? 'unit-militia'}.png" srcset="war/ui/icons/24/${UNIT_ICON[h.cls ?? ''] ?? 'unit-militia'}@2x.png 2x" width="24" height="24" alt=""></div>
     <div style="flex:1;min-width:0">
       <div style="display:flex;align-items:center;gap:3px"><span class="rr-nm">${esc(h.name)}</span>${crest}${hon}<span style="flex:1"></span>${up}</div>
@@ -59,20 +59,20 @@ function row(r: Row, sel: string | null, pending: boolean, captor: number | unde
   </div>`;
 }
 
-/** listH: the list's height in art px (the panel stops above the minimap). */
-export function panelHtml(R: SandboxRoster, filter: Filter, sort: Sort, sel: string | null, listH = 380, dev = false): string {
+/** listH: the list's height in art px (the panel stops above the minimap). picked: the men selected in the world (W-53). */
+export function panelHtml(R: SandboxRoster, filter: Filter, sort: Sort, sel: string | null, listH = 380, dev = false, picked: ReadonlySet<number> = new Set()): string {
   const rows = R.rows().filter((r) => filter === 'all' || (filter === 'field' ? r.where === 'field' : filter === 'reserve' ? r.where === 'reserve' : r.where === 'wounded' || r.where === 'captive' || r.where === 'dead'));
-  const groups = new Map<string, { icon: string; rs: Row[] }>();
+  const groups = new Map<string, { icon: string; rs: Row[]; squad?: number }>();
   const bySquad = (a: Row, b: Row) => (a.squad ?? 0) - (b.squad ?? 0);
   for (const w of ORDER)
     for (const r of rows.filter((x) => x.where === w).sort((a, b) => bySquad(a, b) || CMP[sort](a, b))) {
       const k = w === 'field' ? `Squad #${r.squad} · ${SandboxRoster.className(r.p.hero.cls)}` : GROUP[w][0];
-      const g = groups.get(k) ?? { icon: w === 'field' ? 'ui:banner' : GROUP[w][1], rs: [] };
+      const g = groups.get(k) ?? { icon: w === 'field' ? 'ui:banner' : GROUP[w][1], rs: [], squad: w === 'field' ? r.squad : undefined };
       g.rs.push(r);
       groups.set(k, g);
     }
   const all = R.rows(), fit = all.filter((r) => r.where === 'field' || r.where === 'reserve').length;
-  const body = [...groups].map(([k, g]) => `<div class="rf-cap rr-cap rr-grp">${glyph(g.icon, 13)}${esc(k)} <span class="rf-dim">${g.rs.length}</span></div>${g.rs.map((r) => row(r, sel, R.offers(r.p.id).length > 0, R.captorOf(r.p.id))).join('')}`).join('');
+  const body = [...groups].map(([k, g]) => `<div class="rf-cap rr-cap rr-grp"${g.squad !== undefined ? ` data-squad="${g.squad}" data-tip="select these men in the field (shift adds)" style="cursor:pointer"` : ''}>${glyph(g.icon, 13)}${esc(k)} <span class="rf-dim">${g.rs.length}</span></div>${g.rs.map((r) => row(r, sel, R.offers(r.p.id).length > 0, R.captorOf(r.p.id), picked)).join('')}`).join('');
   return `<div class="rf-card" style="padding:4px 4px 5px">
     <div class="rf-head" style="padding:0 2px 4px">
       <span class="rf-name" style="font-size:16px">Roster</span><span class="rf-dim rf-num" ${tip(card({ icon: 'ui:people', name: `${fit} fit of ${all.length}`, w: 190, more: '<div>Fit: in the field or in reserve. The rest are wounded, captive or fallen.</div>' }))}>${fit} / ${all.length}</span>

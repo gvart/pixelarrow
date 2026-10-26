@@ -541,6 +541,8 @@ export class WarRoom {
     const me = ownerOf(pid);
     const squad = 'squad' in o ? o.squad : undefined;
     if (squad !== undefined && this.owners[squad] !== me) return 'notOwner';
+    // W-53: every man named must be his (in any of his squads), as the last snapshot shows him
+    if (o.units?.some((id) => { const u = this.snap.units[id]?.id === id ? this.snap.units[id] : this.snap.units.find((x) => x.id === id); return !u || this.owners[u.squad] !== me; })) return 'notOwner';
     if (squad === undefined && o.kind !== 'cancelSite' && o.kind !== 'placeBuilding' && o.kind !== 'placeWall' && o.kind !== 'placeBridge' && o.kind !== 'upgrade' && o.kind !== 'craft' && o.kind !== 'cancelCraft' && o.kind !== 'fortify') return 'bad';
     const inside = (x: number, y: number) => x >= 0 && y >= 0 && x < this.region.w && y < this.region.h;
     const allIn = (a?: number[]) => !a || a.every((v, i) => (i % 2 ? v < this.region.h : v < this.region.w) && v >= 0);

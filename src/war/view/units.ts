@@ -422,7 +422,7 @@ export class UnitLayer {
           r.clear().setDepth(l.depth - 1e-7).setVisible(true);
         }
         const k = sheet.scale; // a guardian's shadow and ring at its size
-        const sel = selected.has(u.squad), w = Math.max(1.5, 1.5 / zoom); // a ring at least 1.5 screen px wide
+        const sel = selected.has(u.id), w = Math.max(1.5, 1.5 / zoom); // a ring at least 1.5 screen px wide
         if (r === g && k === 1) { // a man on the ground: pooled images, batched (a Graphics ellipse is re-triangulated every frame)
           if (!l?.climb) this.under('war-shadow', 0, f.x, f.y).setTint(0x000000).setAlpha(0.28);
           this.under(this.ringTex(sel ? w + 0.5 : w), 1, f.x, f.y).setTint(sel ? 0xffffff : team).setAlpha(sel ? 1 : 0.85);
@@ -446,7 +446,7 @@ export class UnitLayer {
       if (hidden) img.setVisible(false);
       else this.load(d, sheet, q.row, p.clip, p.frame, img);
       const mk = u.state !== 'dead' ? this.mark?.(u.id) : undefined;
-      if (mk !== undefined || ((hidden || occluded.has(u.id)) && (d.team === 0 || selected.has(u.squad)))) {
+      if (mk !== undefined || ((hidden || occluded.has(u.id)) && (d.team === 0 || selected.has(u.id)))) {
         let gh = this.ghosts[this.nGhost];
         if (!gh) {
           this.ghosts.push((gh = this.scene.add.image(0, 0, key).setDepth(10.8)));

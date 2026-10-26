@@ -9,7 +9,8 @@
  *                    (class + count) instead is a dev-only join (the server allows it only with DEV_AUTH=1).
  *   client -> order  { t, o }                                 an Order for one of the player's own squads (squad control,
  *                    work, building, walls, bridges, upgrades, siege, civilians, actives); squad-less orders (a planned
- *                    site, cancelSite, upgrade) act for the player's team
+ *                    site, cancelSite, upgrade) act for the player's team. W-53: `o.units` sends it to any of his men
+ *                    instead (every id must be his), gathered into one squad first
  *   client -> check  { t, id, ... }                            a placement check for the player's team -> checked
  *   client -> mend   { t, kind, building, uid }                M5h4: repair or salvage stash item `uid` at a workplace of
  *                    the player's team (the server loads the item; queue state rides on BuildingSnap.queue)
@@ -80,36 +81,38 @@ const amount = z.number().finite().positive().max(1e6);
 const target = { building: id.optional(), siege: id.optional() };
 const oneTarget = (o: { building?: number; siege?: number }) => (o.building === undefined) !== (o.siege === undefined);
 
+/** W-53: an order to these men of the player's (any of his squads), gathered into one squad first (src/war/types.ts Order). */
+const U = { units: z.array(id).min(1).max(MAX_SQUAD * (MAX_SQUADS + 1)).optional() };
 /**
  * The orders a player may send (W-08 squad control, M2 work and building, M2c siege, M5c actives, M5f civilians). The
  * room checks the squad is the player's own; squad-less site orders act for the player's team; the sim checks the rest
  * (placement, stock, engine team, targets) as it does for a local player.
  */
 export const orderSchema = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('move'), squad: id, x: num, y: num }),
-  z.object({ kind: z.literal('attack'), squad: id, target: id }),
-  z.object({ kind: z.literal('hold'), squad: id }),
-  z.object({ kind: z.literal('attackMove'), squad: id, x: num, y: num }),
-  z.object({ kind: z.literal('stop'), squad: id }),
-  z.object({ kind: z.literal('formation'), squad: id, shape: z.enum(['line', 'column', 'wedge', 'loose']) }),
-  z.object({ kind: z.literal('stopWork'), squad: id }),
-  z.object({ kind: z.literal('fireArrows'), squad: id, on: z.boolean() }),
-  z.object({ kind: z.literal('detach'), squad: id, count: z.number().int().min(1).max(MAX_SQUAD).optional(), unitIds: z.array(id).min(1).max(MAX_SQUAD).optional() }),
-  z.object({ kind: z.literal('merge'), squad: id, into: id }),
-  z.object({ kind: z.literal('active'), squad: id }),
+  z.object({ kind: z.literal('move'), squad: id, ...U, x: num, y: num }),
+  z.object({ kind: z.literal('attack'), squad: id, ...U, target: id }),
+  z.object({ kind: z.literal('hold'), squad: id, ...U }),
+  z.object({ kind: z.literal('attackMove'), squad: id, ...U, x: num, y: num }),
+  z.object({ kind: z.literal('stop'), squad: id, ...U }),
+  z.object({ kind: z.literal('formation'), squad: id, ...U, shape: z.enum(['line', 'column', 'wedge', 'loose']) }),
+  z.object({ kind: z.literal('stopWork'), squad: id, ...U }),
+  z.object({ kind: z.literal('fireArrows'), squad: id, ...U, on: z.boolean() }),
+  z.object({ kind: z.literal('detach'), squad: id, ...U, count: z.number().int().min(1).max(MAX_SQUAD).optional(), unitIds: z.array(id).min(1).max(MAX_SQUAD).optional() }),
+  z.object({ kind: z.literal('merge'), squad: id, ...U, into: id }),
+  z.object({ kind: z.literal('active'), squad: id, ...U }),
   // work and building
-  z.object({ kind: z.literal('gather'), squad: id, node: id }),
-  z.object({ kind: z.literal('build'), squad: id, site: id }),
-  z.object({ kind: z.literal('civWork'), squad: id, building: id }),
-  z.object({ kind: z.literal('placeBuilding'), squad: id.optional(), type: z.enum(BUILDING_TYPES), x: num, y: num, rot }),
-  z.object({ kind: z.literal('placeWall'), squad: id.optional(), material: z.enum(['wood', 'timber', 'stone']), points: pts(32), towers: pts(16).optional(), gates: pts(16).optional(), inside: pts(1).optional() }),
-  z.object({ kind: z.literal('placeBridge'), squad: id.optional(), material: z.enum(['wood', 'stone']), points: pts(2), width: z.number().int().min(1).max(3).optional() }),
-  z.object({ kind: z.literal('upgrade'), building: id, squad: id.optional() }),
+  z.object({ kind: z.literal('gather'), squad: id, ...U, node: id }),
+  z.object({ kind: z.literal('build'), squad: id, ...U, site: id }),
+  z.object({ kind: z.literal('civWork'), squad: id, ...U, building: id }),
+  z.object({ kind: z.literal('placeBuilding'), squad: id.optional(), ...U, type: z.enum(BUILDING_TYPES), x: num, y: num, rot }),
+  z.object({ kind: z.literal('placeWall'), squad: id.optional(), ...U, material: z.enum(['wood', 'timber', 'stone']), points: pts(32), towers: pts(16).optional(), gates: pts(16).optional(), inside: pts(1).optional() }),
+  z.object({ kind: z.literal('placeBridge'), squad: id.optional(), ...U, material: z.enum(['wood', 'stone']), points: pts(2), width: z.number().int().min(1).max(3).optional() }),
+  z.object({ kind: z.literal('upgrade'), building: id, squad: id.optional(), ...U }),
   z.object({ kind: z.literal('cancelSite'), site: id }),
-  z.object({ kind: z.literal('claimRegion'), squad: id, point: id }),
+  z.object({ kind: z.literal('claimRegion'), squad: id, ...U, point: id }),
   // M7a: mend a damaged building of the player's team; rebuild a ruin on its ground
-  z.object({ kind: z.literal('repairBuilding'), squad: id, building: id }),
-  z.object({ kind: z.literal('rebuild'), building: id, squad: id.optional() }),
+  z.object({ kind: z.literal('repairBuilding'), squad: id, ...U, building: id }),
+  z.object({ kind: z.literal('rebuild'), building: id, squad: id.optional(), ...U }),
   // M5h crafting: queue a recipe at (or cancel an order of) a workplace of the player's team; repair and salvage carry a
   // stash item and come from the server (M5h4)
   z.object({ kind: z.literal('craft'), building: id, recipe: z.string().regex(/^[a-z_]+(:[a-z0-9_]+)?$/).max(48) }),
@@ -117,21 +120,21 @@ export const orderSchema = z.discriminatedUnion('kind', [
   // M5h3 Fortifier: iron-bind a gate or hang wet hides on a done building of the player's team (the sim checks the node)
   z.object({ kind: z.literal('fortify'), building: id, fort: z.enum(['ironGate', 'wetHides']) }),
   // siege
-  z.object({ kind: z.literal('buildSiege'), squad: id, type: z.enum(['ram', 'stoneThrower', 'siegeLadder', 'mantlet', 'coveredRam', 'oxybeles', 'siegeTower']), x: num, y: num }),
-  z.object({ kind: z.literal('crew'), squad: id, siege: id }),
-  z.object({ kind: z.literal('uncrew'), squad: id }),
-  z.object({ kind: z.literal('deploy'), squad: id, pack: z.boolean().optional() }),
-  z.object({ kind: z.literal('raiseLadder'), squad: id, wallTile: pts(1).refine((a) => a.length === 2, 'one tile') }),
-  z.object({ kind: z.literal('pushLadder'), squad: id, ladder: id }),
-  z.object({ kind: z.literal('attackBuilding'), squad: id, ...target }).refine(oneTarget, 'building or siege'),
-  z.object({ kind: z.literal('ignite'), squad: id, ...target }).refine(oneTarget, 'building or siege'),
-  z.object({ kind: z.literal('extinguish'), squad: id, ...target }).refine(oneTarget, 'building or siege'),
+  z.object({ kind: z.literal('buildSiege'), squad: id, ...U, type: z.enum(['ram', 'stoneThrower', 'siegeLadder', 'mantlet', 'coveredRam', 'oxybeles', 'siegeTower']), x: num, y: num }),
+  z.object({ kind: z.literal('crew'), squad: id, ...U, siege: id }),
+  z.object({ kind: z.literal('uncrew'), squad: id, ...U }),
+  z.object({ kind: z.literal('deploy'), squad: id, ...U, pack: z.boolean().optional() }),
+  z.object({ kind: z.literal('raiseLadder'), squad: id, ...U, wallTile: pts(1).refine((a) => a.length === 2, 'one tile') }),
+  z.object({ kind: z.literal('pushLadder'), squad: id, ...U, ladder: id }),
+  z.object({ kind: z.literal('attackBuilding'), squad: id, ...U, ...target }).refine(oneTarget, 'building or siege'),
+  z.object({ kind: z.literal('ignite'), squad: id, ...U, ...target }).refine(oneTarget, 'building or siege'),
+  z.object({ kind: z.literal('extinguish'), squad: id, ...U, ...target }).refine(oneTarget, 'building or siege'),
   // M6 trade (src/war/sim/trade.ts): porters and carts load from and unload into holders, escort a cart, a smith breaks
   // up a pile's item; the room checks the holder exists and the squad may use it, the sim the rest
-  z.object({ kind: z.literal('load'), squad: id, from: holderRef, res: goodSchema.optional(), n: amount.optional() }),
-  z.object({ kind: z.literal('unload'), squad: id, to: holderRef, res: goodSchema.optional() }),
-  z.object({ kind: z.literal('escort'), squad: id, cart: id }),
-  z.object({ kind: z.literal('salvagePile'), squad: id, pile: id, uid: z.string().min(1).max(120) }),
+  z.object({ kind: z.literal('load'), squad: id, ...U, from: holderRef, res: goodSchema.optional(), n: amount.optional() }),
+  z.object({ kind: z.literal('unload'), squad: id, ...U, to: holderRef, res: goodSchema.optional() }),
+  z.object({ kind: z.literal('escort'), squad: id, ...U, cart: id }),
+  z.object({ kind: z.literal('salvagePile'), squad: id, ...U, pile: id, uid: z.string().min(1).max(120) }),
 ]);
 /** A sim order as it comes over the wire: the room fills in `team` for squad-less orders (the player's team). */
 type Teamless<O> = O extends { team: number } ? Omit<O, 'team'> & { team?: number } : O;

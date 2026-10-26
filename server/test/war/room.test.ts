@@ -84,6 +84,24 @@ describe('WarRoom orders', () => {
     expect(r.order(1, { kind: 'hold', squad: 2 })).toBeNull();
   });
 
+  it('W-53: an order to named men needs every one of them to be his', () => {
+    const r = room();
+    r.join(1, join(1, 0));
+    r.join(2, join(2, 1));
+    steps(r, 1);
+    const mine = r.snapshot().units.filter((u) => u.squad === 0).map((u) => u.id), theirs = r.snapshot().units.filter((u) => u.squad === 1).map((u) => u.id);
+    expect(r.order(1, { kind: 'move', squad: 0, units: [mine[0], theirs[0]], x: 200, y: 40 })).toBe('notOwner');
+    expect(r.order(1, { kind: 'move', squad: 0, units: [mine[0], 9999], x: 200, y: 40 })).toBe('notOwner');
+    expect(r.order(1, { kind: 'move', squad: 0, units: mine.slice(0, 3), x: 200, y: 40 })).toBeNull();
+    steps(r, 1);
+    const q = r.snapshot().units[mine[0]].squad;
+    expect(q).not.toBe(0);
+    expect(r.squadsOf(1)).toContain(q);
+    expect(r.snapshot().units.filter((u) => u.squad === q).map((u) => u.id).sort()).toEqual(mine.slice(0, 3).sort());
+    // the men of player 2 never moved squads
+    expect(r.snapshot().units.filter((u) => theirs.includes(u.id)).every((u) => u.squad === 1)).toBe(true);
+  });
+
   it('checks ownership and targets of work, building and siege orders; squad-less site orders act for the team', () => {
     const r = room();
     r.join(1, join(1, 0, 12, 'militia'));

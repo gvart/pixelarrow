@@ -10,6 +10,9 @@ describe('war net protocol', () => {
     expect(parseClientMsg('{"t":"order","o":{"kind":"formation","squad":0,"shape":"wedge"}}')).not.toBeNull();
     expect(parseClientMsg('{"t":"view","x0":0,"y0":0,"x1":40,"y1":30}')).not.toBeNull();
     expect(parseClientMsg('{"t":"ping","c":1}')).not.toBeNull();
+    // W-53: any order with a squad may name the men it goes to
+    expect(parseClientMsg('{"t":"order","o":{"kind":"move","squad":3,"units":[4,9,17],"x":10.5,"y":4}}')).toMatchObject({ o: { units: [4, 9, 17] } });
+    expect(parseClientMsg('{"t":"order","o":{"kind":"gather","squad":0,"units":[1],"node":2}}')).toMatchObject({ o: { units: [1] } });
   });
 
   it('rejects bad, oversized and out-of-slice messages', () => {
@@ -25,6 +28,8 @@ describe('war net protocol', () => {
     expect(parseClientMsg('{"t":"order","o":{"kind":"placeWall","squad":0,"material":"wood","points":[1,2,3]}}')).toBeNull();
     expect(parseClientMsg('{"t":"order","o":{"kind":"raiseLadder","squad":0,"wallTile":[1,2,3,4]}}')).toBeNull();
     expect(parseClientMsg('{"t":"order","o":{"kind":"move","squad":-1,"x":1,"y":1}}')).toBeNull();
+    expect(parseClientMsg('{"t":"order","o":{"kind":"move","squad":0,"units":[],"x":1,"y":1}}')).toBeNull();
+    expect(parseClientMsg(`{"t":"order","o":{"kind":"hold","squad":0,"units":[${Array.from({ length: 49 }, (_, i) => i)}]}}`)).toBeNull();
     expect(parseClientMsg('{"t":"order","o":{"kind":"fortify","building":1,"fort":"greekFire"}}')).toBeNull();
     expect(parseClientMsg(`{"t":"ping","c":1,"pad":"${'x'.repeat(MAX_CLIENT_MSG)}"}`)).toBeNull();
   });

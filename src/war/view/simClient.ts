@@ -32,6 +32,8 @@ export class SimClient {
   onEvents: ((ev: WarEvent[]) => void) | null = null;
   /** M6 net mode: the region server's trade answers (stowed, handoff, error) for the trade panels (../hud/market.ts). */
   onServer: ((m: ServerMsg) => void) | null = null;
+  /** W-53 (../select.ts): names the selected men on an order to the selection's lead squad (they gather into one squad). */
+  address: ((o: Order) => Order) | null = null;
   /** Net mode: our player id once the region welcomed us (hand-off halves are keyed by it). */
   playerId: number | null = null;
   private asks = new Map<number, (r: unknown) => void>();
@@ -124,7 +126,7 @@ export class SimClient {
   }
 
   order(o: Order): void {
-    this.send({ t: 'order', o });
+    this.send({ t: 'order', o: this.address?.(o) ?? o });
   }
 
   /** The camera's ground rect in tiles (corner tiles): the live server sends what lies near it (net mode only). */

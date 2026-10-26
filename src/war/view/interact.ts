@@ -1,5 +1,6 @@
 /**
- * The context action (W-30, W-34): E and right click both act on the hovered target for the selected own squads, and a
+ * The context action (W-30, W-34): E and right click both act on the hovered target for the selected own men (W-53:
+ * sent to the selection's lead squad, ./select.ts names the men on it so they go as one squad), and a
  * label by the cursor names the recommended action first ("E: <action>"). A quick tap runs it; holding E or the right
  * button for HOLD_MS opens a radial menu of every action for that target (disabled ones greyed with the reason), and
  * releasing over one runs it. By target, first match wins (the recommended action is the first enabled option):
@@ -178,17 +179,16 @@ export class Interact {
     const act = (label: string, ic: string, at: P, colour: number, run: () => void, off?: string): Option => ({ label, icon: ic, off, run: () => { run(); s.mark(at.x, at.y, colour); sc.status = label; } });
     const g = s.target(p);
     const move: Option = { label: g.px ? 'move up' : 'move', icon: 'act-move', run: () => s.moveTo(g) };
-    /** Fire arrows at an enemy building or engine: the archers among the selection loose them. */
+    /** Fire arrows at an enemy building or engine: the archers among the selected men loose them (W-53: as one squad). */
     const fire = (target: { building?: number; siege?: number }, at: P, name: string): Option => {
-      const archers = own.filter((q) => s.drawn.some((d) => d.u.squad === q && d.u.cls === 'archer'));
-      const fs = archers.map((q) => (s.sim.squads.get(q) as (SquadSnap & { fireArrows?: FireSnap }) | undefined)?.fireArrows).find((f) => f && !f.available);
+      const archers = s.sel.men().filter((d) => d.u.cls === 'archer'), qs = [...new Set(archers.map((d) => d.u.squad))];
+      const fs = qs.map((q) => (s.sim.squads.get(q) as (SquadSnap & { fireArrows?: FireSnap }) | undefined)?.fireArrows).find((f) => f && !f.available);
       const off = !archers.length ? 'needs archers' : fs ? (FIRE_WHY[fs.reason ?? ''] ?? 'not available') : undefined;
       return act(`fire arrows at ${name}`, 'act-fire-arrows', at, 0xff8030, () => {
-        for (const q of archers) {
-          s.sim.order({ kind: 'fireArrows', squad: q, on: true });
-          sc.fire.add(q as SquadId);
-          s.sim.order({ kind: 'attackBuilding', squad: q, ...target });
-        }
+        const squad = qs[0], units = archers.map((d) => d.u.id);
+        s.sim.order({ kind: 'fireArrows', squad, units, on: true });
+        sc.fire.add(squad as SquadId);
+        s.sim.order({ kind: 'attackBuilding', squad, units, ...target });
       }, off);
     };
 
