@@ -30,7 +30,7 @@ import { bannedError } from '../ban';
 import { b64urlEncode } from '../crypto';
 import { forgetSessions, hashToken, type Session } from '../auth/sessions';
 import { hitThrottle } from '../auth/throttle';
-import { deleteAccount, isBusy, notBusySql, startDeletion } from './delete';
+import { deleteAccount, startDeletion } from './delete';
 import { noticeTargets, type Notifier } from './notices';
 import type { IdentityKind } from './banTombstone';
 import type { PlayerRow } from '../players';
@@ -162,7 +162,6 @@ export async function hasProgress(db: D1Database, pid: number): Promise<boolean>
   return (await facts(db, pid))?.progress ?? false;
 }
 
-const busyError = () => new ApiError(409, 'busy_try_later', 'That account is in a live match, queue or battle. Try again when it has finished');
 const contactSupport = () => new ApiError(409, 'contact_support', 'Both accounts have purchases. Contact support to resolve this');
 const conflictExpired = () => new ApiError(410, 'conflict_expired', 'This choice timed out. Start the link again');
 const linkCancelled = () => new ApiError(410, 'link_cancelled', 'The link was cancelled in Telegram');
@@ -186,20 +185,17 @@ export interface Proof {
  * Moves to `survivor` every identity kind it lacks from `loser` (with the
  * mirror), starts the loser's deletion and revokes its sessions, spends the
  * proof, then runs the deletion. Returns the kinds that moved; throws
- * busy_try_later (nothing changed) or `gone()` when the proof was spent
- * meanwhile.
+ * `gone()` when the proof was spent meanwhile.
  */
 async function transfer(env: Env, survivor: number, loser: number, proof: Proof, gone: () => ApiError, now: number): Promise<IdentityKind[]> {
   const db = env.DB!;
-  // The duel queue (a Durable Object) is checked here; the D1 half is also inside the batch's guard.
-  if (await isBusy(env, db, loser, now)) throw busyError();
   const [mine, theirs] = await db.batch([
     db.prepare('SELECT kind FROM auth_identities WHERE player_id = ?1').bind(survivor),
     db.prepare('SELECT id, kind, subject FROM auth_identities WHERE player_id = ?1').bind(loser),
   ]);
   const have = new Set((mine.results as { kind: IdentityKind }[]).map((r) => r.kind));
   const moving = (theirs.results as { id: number; kind: IdentityKind; subject: string }[]).filter((i) => !have.has(i.kind));
-  const g = `${proof.guard} AND ${notBusySql(loser, now)}`;
+  const g = proof.guard;
   const stmts: D1PreparedStatement[] = [];
   for (const m of moving) {
     if (m.kind === 'telegram') stmts.push(db.prepare(`UPDATE players SET telegram_id = NULL WHERE id = ?1 AND ${g}`).bind(loser));
@@ -210,11 +206,8 @@ async function transfer(env: Env, survivor: number, loser: number, proof: Proof,
   const res = await db.batch(stmts);
   forgetSessions(loser);
   forgetSessions(survivor);
-  if ((res[res.length - 1].meta.changes ?? 0) !== 1) {
-    if (await isBusy(env, db, loser, now)) throw busyError();
-    throw gone();
-  }
-  // The job is started: this resumes it (its leave step also drops the loser from the duel queue), and the daily cron finishes a run that stops.
+  if ((res[res.length - 1].meta.changes ?? 0) !== 1) throw gone();
+  // The job is started: this resumes it, and the daily cron finishes a run that stops.
   await deleteAccount(env, loser, 'conflict', now);
   return moving.map((m) => m.kind);
 }

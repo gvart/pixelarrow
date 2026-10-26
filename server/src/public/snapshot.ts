@@ -6,9 +6,7 @@
  * as is, so nothing here ever runs per request.
  */
 import type { Env } from '../env';
-import { seasonEnd, seasonId } from '../../../src/duel/season';
 import { BOARD_MAX, BOARD_MIN, BODY_MAX_BYTES, CHAMPIONS_MAX, PublicSummaryV1 } from './schema';
-import { ELIGIBLE, publicDuelTop } from './duelTop';
 import { ALLIANCES, WAR_SEASON } from '../../../src/war/world/alliances';
 import { worldRegion } from '../../../src/war/world/graph';
 import { WAR_BOSSES } from '../../../src/data/warBosses';
@@ -16,6 +14,12 @@ import { worldStub } from '../war/world/routes';
 import { logError } from '../telemetry/log';
 
 const DAY = 86_400_000;
+
+/**
+ * SQL condition on `players p`: may this player appear on a public board?
+ * Never deleted, never banned, not opted out, and named.
+ */
+export const ELIGIBLE = 'p.deleted_at IS NULL AND p.banned_at IS NULL AND p.public_boards = 1 AND p.display_name IS NOT NULL';
 
 
 /** What the boards read of the war world (WarWorldDO.standings); null: the world could not be reached. */
@@ -34,23 +38,19 @@ async function standings(env: Env): Promise<Standings | null> {
 export async function buildPublicSnapshot(env: Env, now: number): Promise<PublicSummaryV1> {
   const db = env.DB;
   if (!db) throw new Error('public snapshot: no DB binding');
-  const duelSeason = seasonId(now);
   const onlineSeason = await db.prepare("SELECT id FROM online_seasons WHERE status = 'active' ORDER BY id DESC LIMIT 1").first<{ id: number }>();
   const world = await standings(env);
   const snap: PublicSummaryV1 = {
     v: 1,
     generatedAt: now,
     totals: await totals(db, now, onlineSeason?.id ?? null),
-    duels: {
-      season: { id: duelSeason, endsAt: seasonEnd(duelSeason) },
-      live: board(await publicDuelTop(db, 'live', duelSeason, BOARD_MAX)),
-      async: board(await publicDuelTop(db, 'async', duelSeason, BOARD_MAX)),
-    },
+    // Duels are gone; schema v1 keeps the (empty) section for the landing.
+    duels: { season: null, live: [], async: [] },
     war: {
       season: world ? { id: world.season.id, endsAt: world.season.endAt } : null,
       ...(await warBoards(db, world)),
     },
-    champions: await champions(db, duelSeason),
+    champions: await champions(db),
     bossSlayers: board(await bossSlayers(db)),
     bosses: await bosses(db),
   };
@@ -70,7 +70,6 @@ function board<T>(rows: T[]): T[] {
 
 async function totals(db: D1Database, now: number, warSeason: number | null): Promise<PublicSummaryV1['totals']> {
   const war = await advanceCounter(db, COUNTERS.war, now);
-  const duels = (await advanceCounter(db, COUNTERS.duelMatches, now)) + (await advanceCounter(db, COUNTERS.duelAttacks, now));
   const p = await db
     .prepare(`SELECT COUNT(*) AS players, SUM(last_seen_at >= ?1) AS active FROM players WHERE banned_at IS NULL AND deleted_at IS NULL`)
     .bind(now - 7 * DAY)
@@ -78,8 +77,8 @@ async function totals(db: D1Database, now: number, warSeason: number | null): Pr
   return {
     players: p?.players ?? 0,
     activePlayers7d: p?.active ?? 0,
-    onlineBattles: war + duels,
-    duelsFought: duels,
+    onlineBattles: war,
+    duelsFought: 0,
     warBattles: war,
     bossesSlain: (await db.prepare('SELECT COUNT(*) AS n FROM war_boss_kills').first<{ n: number }>())?.n ?? 0,
     clans: warSeason === null ? 0 : ((await db.prepare('SELECT COUNT(DISTINCT clan_id) AS n FROM clan_members WHERE season_id = ?1').bind(warSeason).first<{ n: number }>())?.n ?? 0),
@@ -146,10 +145,10 @@ async function bosses(db: D1Database): Promise<PublicSummaryV1['bosses']> {
 
 /**
  * Past champions, newest first: the best eligible shard winner of each ended
- * war season, and the highest peak of each past duel season and ladder. A
- * season with no eligible champion is left out.
+ * war season (duels are gone: always []). A season with no eligible
+ * champion is left out.
  */
-async function champions(db: D1Database, duelSeason: number): Promise<PublicSummaryV1['champions']> {
+async function champions(db: D1Database): Promise<PublicSummaryV1['champions']> {
   const war = await db
     .prepare(
       `SELECT season, name, title FROM (
@@ -161,18 +160,7 @@ async function champions(db: D1Database, duelSeason: number): Promise<PublicSumm
     )
     .bind(CHAMPIONS_MAX)
     .all<{ season: number; name: string; title: string }>();
-  const duel = await db
-    .prepare(
-      `SELECT season, ladder, name FROM (
-         SELECT r.season, r.ladder, p.display_name AS name,
-                ROW_NUMBER() OVER (PARTITION BY r.season, r.ladder ORDER BY r.peak DESC, r.player_id) AS k
-         FROM duel_season_rewards r JOIN players p ON p.id = r.player_id
-         WHERE r.season < ?1 AND r.ladder IN ('live', 'async') AND ${ELIGIBLE})
-       WHERE k = 1 ORDER BY season DESC, ladder DESC LIMIT ?2`,
-    )
-    .bind(duelSeason, CHAMPIONS_MAX)
-    .all<{ season: number; ladder: 'live' | 'async'; name: string }>();
-  return { war: war.results, duel: duel.results };
+  return { war: war.results, duel: [] };
 }
 
 /** Eligible players by region bosses slain this war season (each killer of a boss counts it). */
@@ -203,8 +191,6 @@ interface Counter {
 
 const COUNTERS = {
   war: { name: 'war_battles', table: 'battle_log', counted: '1', pending: null },
-  duelMatches: { name: 'duel_matches', table: 'duel_matches', counted: "status = 'done'", pending: "status = 'live'" },
-  duelAttacks: { name: 'duel_attacks', table: 'duel_attacks', counted: "status = 'used'", pending: "status = 'open'" },
 } satisfies Record<string, Counter>;
 
 const PENDING_MAX_MS = DAY;

@@ -16,7 +16,6 @@ export default defineConfig({
         d1Databases: ['MIGRATE_DB'],
         bindings: {
           TELEGRAM_BOT_TOKEN: '123456:TEST-TOKEN',
-          TELEGRAM_WEBHOOK_SECRET: 'test-webhook-secret',
           DEV_AUTH: '1',
           // Test-only pepper values (ADR-0008 §2); production peppers are Worker secrets.
           PASSWORD_PEPPER: btoa('test-pepper-0123456789abcdefghij'),
@@ -39,7 +38,6 @@ export default defineConfig({
   test: {
     include: ['test/**/*.test.ts'],
     setupFiles: ['./test/setup.ts'],
-    globalSetup: ['./test/globalSetup.ts'],
     // Generous bounds: under CPU load (busy CI runners) socket round trips and
     // background work are slow; tests wait on conditions, these only cap a hang.
     testTimeout: 120_000,

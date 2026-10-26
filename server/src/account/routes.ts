@@ -49,7 +49,6 @@ import { requireLimit } from '../rateLimit';
 import { accountSummary, nameStatus } from './summary';
 import { cancelLink, completeLinkCode, confirmLink, createLinkCode, deepLinkFor, linkStatus, peekLinkCode } from './link';
 import { cancelFromTelegram, chooseFromTelegram, conflictView, resolveConflict, telegramConflicts } from './conflicts';
-import { resolveBot } from '../online/clans';
 
 export const account = new Hono<AppEnv>();
 account.use('*', requireSession);
@@ -176,8 +175,7 @@ account.delete('/', async (c) => {
     },
   });
   // The chat id was read before the run; the bot can still reach it once.
-  if (result !== 'busy' && to.telegramId !== null) d.defer(sendNoticeBot(c.env, 'account_deleted', to.telegramId, to.languageCode).catch(() => undefined));
-  if (result === 'busy') throw new ApiError(409, 'busy_try_later', "You're in a live match, queue or battle. Finish it, then try again");
+  if (to.telegramId !== null) d.defer(sendNoticeBot(c.env, 'account_deleted', to.telegramId, to.languageCode).catch(() => undefined));
   if (s.transport === 'cookie') c.header('set-cookie', clearSessionCookie());
   return c.json({ status: result });
 });
@@ -192,7 +190,7 @@ account.post('/link/telegram', async (c) => {
   const s = c.get('session');
   requireReauth(s);
   const out = await createLinkCode(db(c.env), s, Date.now());
-  const deepLink = deepLinkFor(await resolveBot(c.env), c.env.TELEGRAM_APP_NAME || 'play', out.code);
+  const deepLink = deepLinkFor(c.env.TELEGRAM_BOT_USERNAME?.replace(/^@/, '') || null, c.env.TELEGRAM_APP_NAME || 'play', out.code);
   c.header('cache-control', 'no-store');
   return c.json({ ...out, deepLink });
 });

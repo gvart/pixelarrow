@@ -140,9 +140,6 @@ const JS = `'use strict';
       show(h('h1', {}, 'Overview'), h('div', { class: 'cards' },
         card('Players', o.players.total, (o.players.new24h || 0) + ' new in 24 h'),
         card('Active 24 h', o.players.active24h), card('Active 7 d', o.players.active7d),
-        card('Purchases 24 h', o.purchases.n24h, (o.purchases.stars24h || 0) + ' Stars'),
-        card('Purchases 7 d', o.purchases.n7d, (o.purchases.stars7d || 0) + ' Stars, ' + (o.purchases.refunds7d || 0) + ' refunds'),
-        card('Drachmae held', o.drachmae.circulating, (o.drachmae.negative || 0) + ' negative wallets'),
         card('Client errors 24 h', o.errors.events, (o.errors.groups || 0) + ' distinct'),
         card('Banned', o.banned),
         card('Season', o.season ? '#' + o.season.id : 'none', o.season ? 'ends ' + fmtTime(o.season.ends_at) : ''),
@@ -169,12 +166,7 @@ const JS = `'use strict';
         h('fieldset', {}, h('legend', {}, 'Manual controls'),
           actionForm('End the active season', [h('label', {}, h('input', { type: 'checkbox', id: 'startNext' }), ' start the next one now')], (reason, requestId) => api('POST', '/season/end', { requestId, reason, startNext: document.getElementById('startNext').checked }), true),
           actionForm('Start a new season', [], (reason, requestId) => api('POST', '/season/start', { requestId, reason }))),
-        h('h2', {}, 'Shards'), table(r.shards),
         h('h2', {}, 'Recent seasons'), table(r.seasons));
-    },
-    Tickets: async () => {
-      const r = await api('GET', '/tickets');
-      show(h('h1', {}, '/paysupport tickets'), r.available ? table(r.tickets) : h('p', { class: 'muted' }, 'No support tickets table yet (it comes with the /paysupport bot command).'));
     },
     Audit: async () => {
       const r = await api('GET', '/audit');
@@ -187,8 +179,6 @@ const JS = `'use strict';
     await guard(async () => {
       const r = await api('GET', '/players/' + id);
       const p = r.player;
-      const delta = h('input', { type: 'number', step: 1, placeholder: '+/- amount', required: true, size: 10 });
-      const cur = h('select', {}, h('option', { value: 'drachmae' }, 'Drachmae'), h('option', { value: 'gold' }, 'season gold'));
       const reload = () => openPlayer(id);
       show(
         h('p', {}, h('button', { onclick: () => select('Players') }, '< Players')),
@@ -198,18 +188,8 @@ const JS = `'use strict';
           p.banned_at
             ? actionForm('Unban', [], (reason, requestId) => api('POST', '/players/' + id + '/unban', { requestId, reason }).then((x) => (setTimeout(reload, 800), x)))
             : actionForm('Ban', [], (reason, requestId) => api('POST', '/players/' + id + '/ban', { requestId, reason }).then((x) => (setTimeout(reload, 800), x)), true),
-          actionForm('Reset name (locks renames for 7 days)', [], (reason, requestId) => api('POST', '/players/' + id + '/rename', { requestId, reason }).then((x) => (setTimeout(reload, 800), x)), true),
-          actionForm('Adjust balance', [cur, delta], (reason, requestId) => api('POST', '/players/' + id + '/adjust', { requestId, reason, currency: cur.value, delta: Number(delta.value) }))),
-        h('h2', {}, 'Wallet: ' + (r.wallet.drachmae ?? 0) + ' Drachmae'), table(r.ledger),
-        h('h2', {}, 'Stars purchases'),
-        table(r.purchases.map((x) => Object.assign({}, x)), ['created_at', 'product_id', 'stars_amount', 'refunded', 'refunded_at', 'telegram_payment_charge_id']),
-        r.purchases.filter((x) => !x.refunded).map((x) => actionForm('Refund ' + x.product_id + ' (' + x.stars_amount + ' Stars, ' + fmtTime(x.created_at) + ')', [], (reason, requestId) => api('POST', '/purchases/' + encodeURIComponent(x.telegram_payment_charge_id) + '/refund', { requestId, reason }), true)),
-        h('h2', {}, 'Entitlements'), table(r.entitlements),
-        h('h2', {}, 'Online season #' + r.season), r.online ? table([r.online], ['shard_id', 'gold', 'food', 'wood', 'bronze', 'recruits', 'energy', 'battles', 'wins', 'home_loc', 'army_loc', 'updated_at']) : h('p', { class: 'muted' }, 'Not joined.'),
-        h('p', {}, 'Clan: ', r.clan ? r.clan.name + ' [' + r.clan.tag + '] (' + r.clan.role + ')' : 'none', ' / pass: ', r.pass ? r.pass.xp + ' XP' + (r.pass.premium ? ', premium' : '') : 'none'),
-        h('h2', {}, 'Army (' + r.heroes.length + ' heroes)'), table(r.heroes),
-        h('h2', {}, 'Stash (' + r.stash.length + ' items)'), table(r.stash),
-        h('h2', {}, 'Campaign save'), r.campaign ? table([r.campaign]) : h('p', { class: 'muted' }, 'No cloud save.'),
+          actionForm('Reset name (locks renames for 7 days)', [], (reason, requestId) => api('POST', '/players/' + id + '/rename', { requestId, reason }).then((x) => (setTimeout(reload, 800), x)), true)),
+        h('p', {}, 'Season #' + r.season + ' clan: ', r.clan ? r.clan.name + ' [' + r.clan.tag + '] (' + r.clan.role + ')' : 'none'),
         h('h2', {}, 'Milestones'), table(r.milestones),
         h('h2', {}, 'Admin actions on this player'), table(r.audit, ['created_at', 'actor', 'action', 'detail', 'result']),
       );

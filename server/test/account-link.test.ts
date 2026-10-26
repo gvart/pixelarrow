@@ -149,14 +149,6 @@ describe('re-auth (ADR-0009 §1, accounts-v6.md §14 Q1)', () => {
     expect(await errorOf(r)).toBe('no_password');
   });
 
-  it('a Telegram session started from initData older than 10 minutes is not a fresh proof', async () => {
-    const id = ++tg;
-    const res = await api('/api/auth/telegram', { method: 'POST', json: { initData: await initDataFor(id, 30 * 60) }, headers: { 'cf-connecting-ip': ip() } });
-    expect(res.status).toBe(200);
-    const { token } = await res.json<{ token: string }>();
-    const r = await api('/api/account', { method: 'DELETE', token, json: { confirm: 'DELETE' } });
-    expect(await errorOf(r)).toBe('reauth_required');
-  });
 });
 
 const addEmail = (a: Auth, email: string, password = PW) => api('/api/account/email', { method: 'POST', ...a, json: { email, password } });
@@ -409,19 +401,4 @@ describe('DELETE /api/account (ADR-0009 §7)', () => {
     expect((await api('/api/account', { token: me.token })).status).toBe(401);
   });
 
-  it('a busy player gets 409 busy_try_later and nothing changes', async () => {
-    const me = await tgAccount();
-    const now = Date.now();
-    await DB()
-      .prepare(
-        `INSERT INTO duel_tickets (id, player_id, floor, seed, setup, team, created_at, expires_at)
-         VALUES (?1, ?2, 1, 1, '{}', '[]', ?3, ?4)`,
-      )
-      .bind(`bl${me.pid}`, me.pid, now, now + 60_000)
-      .run();
-    const r = await api('/api/account', { method: 'DELETE', token: me.token, json: { confirm: 'DELETE' } });
-    expect(r.status).toBe(409);
-    expect(await errorOf(r)).toBe('busy_try_later');
-    expect((await api('/api/account', { token: me.token })).status).toBe(200);
-  });
 });

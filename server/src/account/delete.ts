@@ -25,14 +25,13 @@ import type { Env } from '../env';
 import { peppersFromEnv } from '../auth/password';
 import { forgetSessions } from '../auth/sessions';
 import { emailKeyHash } from '../auth/throttle';
-import { liveMatchOf, MATCH_STALE_MS } from '../duel/live';
 import { NAME_HOLD_MS } from '../players';
 import { log, logError } from '../telemetry/log';
 import { BAN_TOMBSTONE_MS, banIdentityHash, type IdentityKind } from './banTombstone';
 import { purgeTables } from './deletionMap';
 
 type DeletionReason = 'self' | 'conflict' | 'admin';
-type DeletionResult = 'done' | 'busy' | 'resumable';
+type DeletionResult = 'done' | 'resumable';
 
 /** What other players see in place of a deleted player's name. */
 export const DELETED_NAME = 'Deleted player';
@@ -64,8 +63,7 @@ interface Ctx {
 const getJob = (db: D1Database, pid: number) => db.prepare('SELECT player_id, step, finished_at FROM deletion_jobs WHERE player_id = ?1').bind(pid).first<Job>();
 
 /**
- * Deletes the player (ADR-0009 §7). 'busy' when the player is in a live duel,
- * the duel queue or an open battle (nothing is changed then); 'resumable' when
+ * Deletes the player (ADR-0009 §7). 'resumable' when
  * the run stopped before the end (the cron finishes it). Calling it again on a
  * started or finished deletion resumes or does nothing.
  */
@@ -75,7 +73,6 @@ export async function deleteAccount(env: Env, pid: number, reason: DeletionReaso
   let job = await getJob(db, pid);
   if (!job) {
     if (!(await db.prepare('SELECT 1 FROM players WHERE id = ?1').bind(pid).first())) throw new Error(`no player ${pid}`);
-    if (await isBusy(env, db, pid, now)) return 'busy';
     await db.batch(startDeletion(db, pid, reason, now));
     forgetSessions(pid);
     log('info', 'account_deletion', { pid, reason });
@@ -95,35 +92,6 @@ export function startDeletion(db: D1Database, pid: number, reason: DeletionReaso
     db.prepare(`INSERT INTO deletion_jobs (player_id, reason, step, started_at) SELECT ?1, ?2, 0, ?3 WHERE ${guard} ON CONFLICT (player_id) DO NOTHING`).bind(pid, reason, now),
     db.prepare(`UPDATE players SET deleted_at = COALESCE(deleted_at, ?2) WHERE id = ?1 AND ${guard}`).bind(pid, now),
   ];
-}
-
-/**
- * The D1 half of isBusy as an SQL condition that is true while the player is
- * NOT busy, for a guard inside a batch (V6-LINK-03: no gap between the check
- * and the write). The duel queue lives in a Durable Object and can't be in a
- * batch; the deletion's leave step removes the player from it either way.
- */
-export function notBusySql(pid: number, now: number): string {
-  const p = Math.trunc(pid);
-  const t = Math.trunc(now);
-  return `(NOT EXISTS (SELECT 1 FROM duel_matches WHERE (player_a = ${p} OR player_b = ${p}) AND status = 'live' AND created_at > ${t - MATCH_STALE_MS})
-    AND NOT EXISTS (SELECT 1 FROM duel_tickets WHERE player_id = ${p} AND status = 'open' AND expires_at > ${t})
-    AND NOT EXISTS (SELECT 1 FROM duel_attacks WHERE attacker = ${p} AND status = 'open' AND expires_at > ${t}))`;
-}
-
-/** Busy (ADR-0009 §5.4): a live duel match, the duel queue, an open duel or arena ticket. */
-export async function isBusy(env: Env, db: D1Database, pid: number, now: number): Promise<boolean> {
-  if (await liveMatchOf(db, pid, now)) return true;
-  const open = await db
-    .prepare(
-      `SELECT EXISTS (SELECT 1 FROM duel_tickets WHERE player_id = ?1 AND status = 'open' AND expires_at > ?2)
-           OR EXISTS (SELECT 1 FROM duel_attacks WHERE attacker = ?1 AND status = 'open' AND expires_at > ?2) AS busy`,
-    )
-    .bind(pid, now)
-    .first<{ busy: number }>();
-  if (open?.busy) return true;
-  const queue = await env.MATCHMAKER.get(env.MATCHMAKER.idFromName('global')).waiting();
-  return queue.some((w) => w.pid === pid);
 }
 
 async function runJob(x: Ctx, from: number): Promise<DeletionResult> {
@@ -197,14 +165,7 @@ async function revoke(x: Ctx): Promise<D1PreparedStatement[]> {
 }
 
 async function leave(x: Ctx): Promise<D1PreparedStatement[]> {
-  const { env, db, pid } = x;
-  // Close the player's sockets and drop them from the duel queue (each call is idempotent).
-  const matches = (await db.prepare("SELECT id FROM duel_matches WHERE (player_a = ?1 OR player_b = ?1) AND status = 'live'").bind(pid).all<{ id: string }>()).results;
-  await Promise.all([
-    ...matches.map((m) => env.DUEL.get(env.DUEL.idFromName(m.id)).kick(pid)),
-    env.MATCHMAKER.get(env.MATCHMAKER.idFromName('global')).remove(pid),
-  ]);
-
+  const { db, pid } = x;
   const stmts: D1PreparedStatement[] = [];
   const clans = (await db.prepare('SELECT season_id, clan_id, role FROM clan_members WHERE player_id = ?1').bind(pid).all<{ season_id: number; clan_id: number; role: string }>()).results;
   for (const m of clans) {
@@ -224,7 +185,7 @@ async function leave(x: Ctx): Promise<D1PreparedStatement[]> {
     const empty = 'NOT EXISTS (SELECT 1 FROM clan_members WHERE clan_id = ?1)';
     stmts.push(db.prepare(`DELETE FROM clans WHERE id = ?1 AND ${empty}`).bind(m.clan_id));
   }
-  stmts.push(db.prepare('DELETE FROM clan_invites WHERE created_by = ?1').bind(pid), db.prepare('DELETE FROM duel_queue_state WHERE player_id = ?1').bind(pid));
+  stmts.push(db.prepare('DELETE FROM clan_invites WHERE created_by = ?1').bind(pid));
   return stmts;
 }
 

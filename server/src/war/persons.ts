@@ -43,7 +43,7 @@ import { HONOURS_MAX } from '../../../src/war/sim/honours';
 import { WAR_SEASON } from '../../../src/war/world/alliances';
 import type { FightReport, HonourStat, WarPerson, WarSkillId } from '../../../src/war/types';
 import { ApiError } from '../errors';
-import { randomToken } from '../online/store';
+import { randomToken } from './store';
 import { batch, ensureHolder, goodsOf, HOME, itemsIn, lotsOf, pay as payFrom, placeItemStmt, planTake, putStmt, strongroom } from './holders';
 
 export type PersonState = 'active' | 'reserve' | 'wounded' | 'captive' | 'dead' | 'training' | 'retired';

@@ -7,7 +7,7 @@
 import { WAR_SEASON } from '../../../../src/war/world/alliances';
 import type { AllianceId } from '../../../../src/war/world/types';
 import { ApiError } from '../../errors';
-import { currentSeason, membership } from '../../online/store';
+import { currentSeason, membership } from '../store';
 
 export async function allianceOf(db: D1Database, pid: number, season = WAR_SEASON.id): Promise<AllianceId | null> {
   const r = await db.prepare('SELECT alliance FROM war_alliance_members WHERE season = ?1 AND player_id = ?2').bind(season, pid).first<{ alliance: number }>();

@@ -60,9 +60,5 @@ export function mockTelegram(results: Record<string, unknown> = {}): BotCall[] {
   return calls;
 }
 
-export const WEBHOOK_SECRET = env.TELEGRAM_WEBHOOK_SECRET!;
 export const BOT_TOKEN = env.TELEGRAM_BOT_TOKEN!;
 
-export function webhook(update: unknown, secret = WEBHOOK_SECRET): Promise<Response> {
-  return api('/api/telegram/webhook', { method: 'POST', json: update, headers: { 'x-telegram-bot-api-secret-token': secret } });
-}

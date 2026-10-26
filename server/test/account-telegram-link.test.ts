@@ -345,26 +345,6 @@ describe('conflicts (ADR-0009 §5 as amended by V6-053; M-LK-5..8, N-LK-1, N-LK-
     expect(day1Only({ hours: -1, won: 0, fought: 0 })).toBe(false);
   });
 
-  it('a busy other account is 409 busy_try_later and nothing changes', async () => {
-    const w = await webAccount();
-    const t = await tgAccount();
-    await linkUpTo(w, t);
-    const now = Date.now();
-    await DB()
-      .prepare(
-        `INSERT INTO duel_tickets (id, player_id, floor, seed, setup, team, created_at, expires_at)
-         VALUES (?1, ?2, 1, 1, '{}', '[]', ?3, ?4)`,
-      )
-      .bind(`l3busy${t.pid}`, t.pid, now, now + 60_000)
-      .run();
-    const r = await confirm({ cookie: w.cookie });
-    expect(r.status).toBe(409);
-    expect(await errorOf(r)).toBe('busy_try_later');
-    expect(await telegramOf(t.pid)).toBe(String(t.tgId));
-    expect(await deletedAt(t.pid)).toBeNull();
-    expect(await (await status({ cookie: w.cookie })).json()).toMatchObject({ status: 'awaiting_web' });
-  });
-
   /** Web player W (progress) and Telegram player T (progress) up to an open conflict. */
   async function openConflict(wWon = 9, tWon = 4): Promise<{ w: Awaited<ReturnType<typeof webAccount>>; t: Awaited<ReturnType<typeof tgAccount>>; conflict: string }> {
     const w = await webAccount();
@@ -588,46 +568,6 @@ describe('conflicts (ADR-0009 §5 as amended by V6-053; M-LK-5..8, N-LK-1, N-LK-
     expect(await deletedAt(t2.pid)).toBeNull();
   });
 
-  it('resolve needs a fresh re-auth, refuses a busy loser inside the batch, and a conflict expires after 15 minutes', async () => {
-    const { w, t, conflict } = await openConflict();
-    expect((await tgChoose(t, conflict, 'web')).status).toBe(200);
-    const now = Date.now();
-    await DB()
-      .prepare(
-        `INSERT INTO duel_tickets (id, player_id, floor, seed, setup, team, created_at, expires_at)
-         VALUES (?1, ?2, 1, 1, '{}', '[]', ?3, ?4)`,
-      )
-      .bind(`l3busy2${t.pid}`, t.pid, now, now + 60_000)
-      .run();
-    const busy = await resolve({ cookie: w.cookie }, conflict, 'this', t.name);
-    expect(busy.status).toBe(409);
-    expect(await errorOf(busy)).toBe('busy_try_later');
-    expect(await deletedAt(t.pid)).toBeNull();
-    expect(await telegramOf(w.pid)).toBeNull();
-    await staleReauth(w.pid);
-    expect(await errorOf(await resolve({ cookie: w.cookie }, conflict, 'this', t.name))).toBe('reauth_required');
-    await DB().prepare('UPDATE sessions SET reauth_at = ?2 WHERE player_id = ?1').bind(w.pid, Date.now()).run();
-    forgetSessions(w.pid);
-    await DB().prepare('UPDATE link_conflicts SET expires_at = ?2 WHERE id = ?1').bind(conflict, Date.now() - 1).run();
-    expect(await errorOf(await resolve({ cookie: w.cookie }, conflict, 'this', t.name))).toBe('conflict_expired');
-  });
-
-  it('the busy guard is part of the batch: a ticket opened after the check still stops the transfer', async () => {
-    const { notBusySql } = await import('../src/account/delete');
-    const { w, t } = await openConflict();
-    const now = Date.now();
-    const free = await DB().prepare(`SELECT ${notBusySql(t.pid, now)} AS ok`).first<{ ok: number }>();
-    expect(free!.ok).toBe(1);
-    await DB()
-      .prepare(
-        `INSERT INTO duel_tickets (id, player_id, floor, seed, setup, team, created_at, expires_at)
-         VALUES (?1, ?2, 1, 1, '{}', '[]', ?3, ?4)`,
-      )
-      .bind(`l3race${t.pid}`, t.pid, now, now + 60_000)
-      .run();
-    expect((await DB().prepare(`SELECT ${notBusySql(t.pid, now)} AS ok`).first<{ ok: number }>())!.ok).toBe(0);
-    expect(await deletedAt(w.pid)).toBeNull();
-  });
 });
 
 describe('email conflicts (ADR-0009 §5.2: the live email_conflict link plus the other account password)', () => {

@@ -8,11 +8,10 @@ import { describe, expect, it } from 'vitest';
 import { api } from './helpers';
 
 const PLAY = 'https://play.pixelarrow.app';
-const TELEGRAM = 'https://web.telegram.org';
 const APEX = 'https://pixelarrow.app';
 /** The dev origin set in server/vitest.config.ts (DEV_ORIGINS, as .dev.vars would). */
 const DEV = 'http://localhost:6160';
-const FRAMING = "frame-ancestors 'self' https://web.telegram.org";
+const FRAMING = "frame-ancestors 'self'";
 const COOKIE = '__Host-pa_sid=test-session';
 
 function preflight(origin: string): Promise<Response> {
@@ -20,7 +19,7 @@ function preflight(origin: string): Promise<Response> {
 }
 
 describe('CORS', () => {
-  it.each([PLAY, TELEGRAM, DEV])('allows %s, never with credentials', async (origin) => {
+  it.each([PLAY, DEV])('allows %s, never with credentials', async (origin) => {
     const pre = await preflight(origin);
     expect(pre.status).toBe(204);
     expect(pre.headers.get('access-control-allow-origin')).toBe(origin);
@@ -30,7 +29,7 @@ describe('CORS', () => {
     expect(res.headers.get('access-control-allow-credentials')).toBeNull();
   });
 
-  it.each([APEX, 'https://www.pixelarrow.app', 'https://evil.example', 'null'])('refuses %s', async (origin) => {
+  it.each([APEX, 'https://www.pixelarrow.app', 'https://web.telegram.org', 'https://evil.example', 'null'])('refuses %s', async (origin) => {
     const pre = await preflight(origin);
     expect(pre.headers.get('access-control-allow-origin')).toBeNull();
     const res = await api('/api/health', { headers: { origin } });
@@ -39,7 +38,7 @@ describe('CORS', () => {
 });
 
 describe('framing', () => {
-  it('lets Telegram Web frame play, with no X-Frame-Options', async () => {
+  it('lets only play frame play, with no X-Frame-Options', async () => {
     for (const path of ['/api/health', '/api/nope']) {
       const res = await api(path);
       expect(res.headers.get('content-security-policy')).toBe(FRAMING);

@@ -13,12 +13,9 @@ import { banIdentityHash } from '../src/account/banTombstone';
 import { peppersFromEnv } from '../src/auth/password';
 import { emailKeyHash } from '../src/auth/throttle';
 import { nameKeyHeld } from '../src/players';
-import { playerNames } from '../src/online/store';
-import { leaderboard } from '../src/duel/season';
-import { seasonId } from '../../src/duel/season';
+import { playerNames } from '../src/war/store';
 import { resetRateLimits } from '../src/rateLimit';
 import { api, devLogin } from './helpers';
-import { openDuellist, wsPath } from './onlineHelpers';
 
 const DB = () => env.DB!;
 const DAY = 86_400_000;
@@ -209,32 +206,6 @@ describe('deleteAccount (ADR-0009 §7)', () => {
     expect(await deleteAccount(env, s.pid, 'self')).toBe('done');
   });
 
-  it('refuses a busy player and changes nothing', async () => {
-    const me = await devLogin(++tg);
-    const other = await devLogin(++tg);
-    const now = Date.now();
-    await DB()
-      .prepare(`INSERT INTO duel_matches (id, mode, seed, player_a, player_b, setup, teams, status, created_at) VALUES (?1, 'ranked', 1, ?2, ?3, '{}', '[]', 'live', ?4)`)
-      .bind(`m${++uniq}`, me.playerId, other.playerId, now)
-      .run();
-    expect(await deleteAccount(env, me.playerId, 'self', now)).toBe('busy');
-    expect(await DB().prepare('SELECT deleted_at FROM players WHERE id = ?1').bind(me.playerId).first()).toEqual({ deleted_at: null });
-    expect(await count('deletion_jobs WHERE player_id = ?1', me.playerId)).toBe(0);
-    expect((await api('/api/me', { token: me.token })).status).toBe(200);
-  });
-
-  it('refuses a player with an open duel ticket', async () => {
-    const me = await devLogin(++tg);
-    const now = Date.now();
-    await DB()
-      .prepare(
-        `INSERT INTO duel_tickets (id, player_id, floor, seed, setup, team, created_at, expires_at)
-         VALUES (?1, ?2, 1, 1, '{}', '[]', ?3, ?4)`,
-      )
-      .bind(`b${++uniq}`, me.playerId, now, now + 60_000)
-      .run();
-    expect(await deleteAccount(env, me.playerId, 'self', now)).toBe('busy');
-  });
 });
 
 describe('leaving shared structures', () => {
@@ -272,20 +243,6 @@ describe('leaving shared structures', () => {
     expect(await count('clans WHERE id = ?1', clan)).toBe(1);
     expect(await count('clans WHERE id = ?1', solo)).toBe(0);
     expect(await count('clan_invites WHERE clan_id = ?1', solo)).toBe(0);
-  });
-});
-
-describe('live connections', () => {
-  it('a player waiting in the duel queue is busy', async () => {
-    const d = await openDuellist(++tg, { level5: true });
-    const mm = await wsPath(d.token, '/ws/duel');
-    await mm.next('mm_welcome');
-    mm.send({ type: 'queue', mode: 'unranked' });
-    await mm.next('queued');
-    expect(await deleteAccount(env, d.pid, 'self')).toBe('busy');
-    mm.send({ type: 'cancel' });
-    await mm.next('unqueued');
-    expect(await deleteAccount(env, d.pid, 'self')).toBe('done');
   });
 });
 
@@ -422,27 +379,5 @@ describe('admin deletion', () => {
     const me = await devLogin(++tg);
     expect((await api(`/api/admin/players/${me.playerId}/delete`, { method: 'POST', token: me.token, json: { requestId: 'req_abcdefgh', reason: 'nope' } })).status).toBe(401);
     expect(await count('deletion_jobs WHERE player_id = ?1', me.playerId)).toBe(0);
-  });
-});
-
-describe('in-game duel boards (V6-041)', () => {
-  it('leave out banned and deleted players, in the rows and in the player’s own rank', async () => {
-    const [banned, deleting, me] = await Promise.all([devLogin(++tg), devLogin(++tg), devLogin(++tg)]);
-    const now = Date.now();
-    const cur = seasonId(now);
-    // Far above anyone else in this file, so they would rank first and second.
-    for (const [pid, rating] of [[banned.playerId, 9100], [deleting.playerId, 9000], [me.playerId, 8900]])
-      await DB()
-        .prepare("INSERT INTO duel_ratings (player_id, ladder, rating, rd, vol, games, updated_at, season, played_at) VALUES (?1, 'live', ?2, 60, 0.06, 20, 0, ?3, 0)")
-        .bind(pid, rating, cur)
-        .run();
-    await DB().batch([
-      DB().prepare('UPDATE players SET banned_at = ?2 WHERE id = ?1').bind(banned.playerId, now),
-      DB().prepare('UPDATE players SET deleted_at = ?2 WHERE id = ?1').bind(deleting.playerId, now),
-    ]);
-    const board = await leaderboard(DB(), 'live', me.playerId, now);
-    expect(board.rows[0].pid).toBe(me.playerId);
-    expect(board.rows.some((r) => r.pid === banned.playerId || r.pid === deleting.playerId)).toBe(false);
-    expect(board.me?.rank).toBe(1);
   });
 });

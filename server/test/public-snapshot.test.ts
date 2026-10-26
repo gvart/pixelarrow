@@ -1,12 +1,9 @@
 import { createExecutionContext, createScheduledController, env, waitOnExecutionContext } from 'cloudflare:test';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { buildPublicSnapshot } from '../src/public/snapshot';
 import { BODY_MAX_BYTES, PublicSummaryV1 } from '../src/public/schema';
-import { publicDuelTop } from '../src/public/duelTop';
-import { seasonId } from '../../src/duel/season';
-import { RANKED } from '../../src/duel/rating';
-import { fresh, join, type Player } from './onlineHelpers';
-import { mockTelegram } from './helpers';
+import { devLogin } from './helpers';
+import { currentSeason, forgetSeasonCache } from '../src/war/store';
 import worker from '../src/index';
 
 const db = env.DB!;
@@ -53,40 +50,12 @@ function spyDb(): { db: D1Database; sql: string[] } {
   return { db: spy, sql };
 }
 
-let rowSeq = 0;
 async function warBattle(): Promise<void> {
   await db
     .prepare("INSERT INTO battle_log (season_id, shard_id, kind, winner, ticks, verified, created_at) VALUES (1, 1, 'attack', 0, 100, 1, ?1)")
     .bind(NOW)
     .run();
 }
-async function duelMatch(a: number, b: number, status: 'live' | 'done' | 'void', createdAt = NOW - 3_600_000): Promise<string> {
-  const id = `m${++rowSeq}`;
-  await db
-    .prepare("INSERT INTO duel_matches (id, mode, seed, player_a, player_b, setup, teams, status, created_at) VALUES (?1, 'ranked', 1, ?2, ?3, '{}', '[]', ?4, ?5)")
-    .bind(id, a, b, status, createdAt)
-    .run();
-  return id;
-}
-async function duelAttack(a: number, d: number, status: 'open' | 'used' | 'rejected' | 'abandoned', createdAt = NOW - 3_600_000): Promise<string> {
-  const id = `a${++rowSeq}`;
-  await db
-    .prepare("INSERT INTO duel_attacks (id, attacker, defender, day, seed, setup, team, defence, status, created_at, expires_at) VALUES (?1, ?2, ?3, 1, 1, '{}', '[]', '[]', ?4, ?5, ?6)")
-    .bind(id, a, d, status, createdAt, createdAt + 3_600_000)
-    .run();
-  return id;
-}
-
-const DUEL_SEASON = seasonId(NOW);
-const LEGEND = RANKED.leagues[RANKED.leagues.length - 1].min;
-
-async function rate(pid: number, ladder: 'live' | 'async', rating: number, games: number = RANKED.placements, season = DUEL_SEASON): Promise<void> {
-  await db
-    .prepare('INSERT INTO duel_ratings (player_id, ladder, rating, games, season, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)')
-    .bind(pid, ladder, rating, games, season, NOW)
-    .run();
-}
-
 /** A seeded player with a public display name (and the given privacy state). */
 async function named(o: { banned?: boolean; deleted?: boolean; optedOut?: boolean } = {}): Promise<{ id: number; tg: number; first: string; user: string; name: string }> {
   const p = await seedPlayer({ banned: o.banned });
@@ -116,91 +85,34 @@ describe('public snapshot (ADR-0010 §2)', () => {
     expect(row?.generated_at).toBe(NOW);
     expect(PublicSummaryV1.parse(JSON.parse(row!.body))).toEqual(snap);
   });
-  it('counts online battles incrementally, finished duels only, and never goes down across a prune', async () => {
-    const [a, b] = [await seedPlayer(), await seedPlayer()];
+  it('counts war battles incrementally and never goes down across a prune; duels are always 0', async () => {
     const base = (await buildPublicSnapshot(env, NOW)).totals;
     await warBattle();
     await warBattle();
-    await duelMatch(a.id, b.id, 'done');
-    await duelMatch(a.id, b.id, 'void');
-    const live = await duelMatch(a.id, b.id, 'live');
-    await duelAttack(a.id, b.id, 'used');
-    await duelAttack(a.id, b.id, 'rejected');
-    const open = await duelAttack(a.id, b.id, 'open');
     let t = (await buildPublicSnapshot(env, NOW)).totals;
     expect(t.warBattles - base.warBattles).toBe(2);
-    expect(t.duelsFought - base.duelsFought).toBe(2);
-    expect(t.onlineBattles - base.onlineBattles).toBe(4);
-    // The live match and the open attack finish after the run: still counted once.
-    await db.prepare("UPDATE duel_matches SET status = 'done' WHERE id = ?1").bind(live).run();
-    await db.prepare("UPDATE duel_attacks SET status = 'used' WHERE id = ?1").bind(open).run();
-    t = (await buildPublicSnapshot(env, NOW)).totals;
-    expect(t.duelsFought - base.duelsFought).toBe(4);
+    expect(t.onlineBattles - base.onlineBattles).toBe(2);
+    expect(t.duelsFought).toBe(0);
     // A prune of every source row lowers no total; new rows keep counting.
-    await db.batch([db.prepare('DELETE FROM battle_log'), db.prepare('DELETE FROM duel_attacks')]);
+    await db.prepare('DELETE FROM battle_log').run();
     await warBattle();
     t = (await buildPublicSnapshot(env, NOW)).totals;
     expect(t.warBattles - base.warBattles).toBe(3);
-    expect(t.duelsFought - base.duelsFought).toBe(4);
-    expect(t.onlineBattles - base.onlineBattles).toBe(7);
     // A run with nothing new adds nothing.
     expect((await buildPublicSnapshot(env, NOW)).totals).toEqual(t);
-    // duel_attacks has no AUTOINCREMENT: emptied, it reuses rowids below the high water. They still count.
-    await duelAttack(a.id, b.id, 'used');
-    t = (await buildPublicSnapshot(env, NOW)).totals;
-    expect(t.duelsFought - base.duelsFought).toBe(5);
   });
 
-  it('stops waiting for a duel stuck unfinished for over a day', async () => {
-    const [a, b] = [await seedPlayer(), await seedPlayer()];
-    const base = (await buildPublicSnapshot(env, NOW)).totals;
-    await duelMatch(a.id, b.id, 'live', NOW - 2 * DAY);
-    await duelMatch(a.id, b.id, 'done');
-    expect((await buildPublicSnapshot(env, NOW)).totals.duelsFought - base.duelsFought).toBe(1);
-  });
-  it('duel boards: placed, eligible players by rating; banned, deleted and opted-out players absent but counted', async () => {
-    const before = (await buildPublicSnapshot(env, NOW)).totals.players;
-    const top = await named();
-    const second = await named();
-    const third = await named();
-    const banned = await named({ banned: true });
-    const deleted = await named({ deleted: true });
-    const optedOut = await named({ optedOut: true });
-    const unplaced = await named();
-    await rate(top.id, 'live', LEGEND + 40.6);
-    await rate(banned.id, 'live', LEGEND + 500);
-    await rate(deleted.id, 'live', LEGEND + 400);
-    await rate(optedOut.id, 'live', LEGEND + 300);
-    await rate(unplaced.id, 'live', LEGEND + 200, RANKED.placements - 1);
-    await rate(second.id, 'live', 1500);
-    await rate(third.id, 'live', 1400);
-    await rate(third.id, 'async', 1700, RANKED.placements, DUEL_SEASON - 1); // a past season
+  it('the duel section stays in schema v1, empty', async () => {
     const snap = await buildPublicSnapshot(env, NOW);
-    expect(snap.duels.live.slice(0, 3)).toEqual([
-      { rank: 1, name: top.name, league: 'legend', rating: Math.round(LEGEND + 40.6), games: RANKED.placements },
-      { rank: 2, name: second.name, league: expect.not.stringMatching(/^legend$/), rating: null, games: RANKED.placements },
-      { rank: 3, name: third.name, league: expect.any(String), rating: null, games: RANKED.placements },
-    ]);
-    const names = snap.duels.live.map((r) => r.name);
-    for (const p of [banned, deleted, optedOut, unplaced]) expect(names).not.toContain(p.name);
-    expect(snap.duels.async).toEqual([]);
-    // Totals: the opted-out and unplaced players count; banned and deleted ones do not.
-    expect(snap.totals.players - before).toBe(5);
+    expect(snap.duels).toEqual({ season: null, live: [], async: [] });
+    expect(snap.champions.duel).toEqual([]);
   });
 
-  it('a board with fewer than 3 eligible rows is empty', async () => {
-    await rate((await named()).id, 'async', 1500);
-    await rate((await named()).id, 'async', 1450);
-    await rate((await named({ optedOut: true })).id, 'async', 1400);
-    expect((await buildPublicSnapshot(env, NOW)).duels.async).toEqual([]);
-    await rate((await named()).id, 'async', 1300);
-    expect((await buildPublicSnapshot(env, NOW)).duels.async).toHaveLength(3);
-  });
   it('war boards: alliances by season score, players by kills, held regions, bosses slain; clans are counted', async () => {
-    fresh();
-    const ps: Player[] = [];
-    for (let i = 1; i <= 3; i++) ps.push(await join(8_800_000 + i));
-    const season = ps[0].profile.season.id;
+    forgetSeasonCache();
+    const ps: { playerId: number }[] = [];
+    for (let i = 1; i <= 3; i++) ps.push(await devLogin(8_800_000 + i));
+    const season = (await currentSeason(db)).id;
     for (const [i, p] of ps.entries()) {
       const c = await db
         .prepare('INSERT INTO clans (season_id, shard_id, name, tag, created_by, created_at) VALUES (?1, 0, ?2, ?3, ?4, ?5) RETURNING id')
@@ -238,35 +150,18 @@ describe('public snapshot (ADR-0010 §2)', () => {
   });
 
   it('champions: eligible players only, newest seasons first', async () => {
-    const [a, b, c] = [await named(), await named(), await named()];
+    const [a, b] = [await named(), await named()];
     const gone = await named({ deleted: true });
     const reward = (season: number, pid: number, score: number, title: string) =>
       db.prepare('INSERT INTO season_rewards (season_id, player_id, shard_id, rank, score, title, created_at) VALUES (?1, ?2, 1, 1, ?3, ?4, ?5)').bind(season, pid, score, title, NOW).run();
     await reward(901, a.id, 50, 'Basileus');
     await reward(901, b.id, 80, 'Archon'); // the best shard winner of season 901
     await reward(902, gone.id, 90, 'Archon'); // deleted: season 902 is left out
-    const duelReward = (season: number, ladder: string, pid: number, peak: number) =>
-      db
-        .prepare("INSERT INTO duel_season_rewards (player_id, season, ladder, league, peak, glory, cosmetic, created_at) VALUES (?1, ?2, ?3, 'gold', ?4, 0, 'x', ?5)")
-        .bind(pid, season, ladder, peak, NOW)
-        .run();
-    await duelReward(DUEL_SEASON - 1, 'live', a.id, 1800);
-    await duelReward(DUEL_SEASON - 1, 'live', c.id, 1900);
-    await duelReward(DUEL_SEASON - 1, 'async', b.id, 1700);
-    await duelReward(DUEL_SEASON, 'live', b.id, 2500); // the running season: not a champion yet
     const snap = await buildPublicSnapshot(env, NOW);
     expect(snap.champions.war).toEqual([{ season: 901, name: b.name, title: 'Archon' }]);
-    expect(snap.champions.duel).toEqual([
-      { season: DUEL_SEASON - 1, ladder: 'live', name: c.name },
-      { season: DUEL_SEASON - 1, ladder: 'async', name: b.name },
-    ]);
+    expect(snap.champions.duel).toEqual([]);
   });
-  it('publicDuelTop performs no writes, and the build writes only public_snapshot and stats_counters (D1 spy)', async () => {
-    const top = spyDb();
-    await publicDuelTop(top.db, 'live', DUEL_SEASON, 10);
-    expect(top.sql.length).toBeGreaterThan(0);
-    for (const q of top.sql) expect(q).toMatch(/^SELECT\b/i);
-
+  it('the build writes only public_snapshot and stats_counters (D1 spy)', async () => {
     const build = spyDb();
     await buildPublicSnapshot({ ...env, DB: build.db }, NOW);
     const writes = build.sql.filter((q) => !/^(SELECT|WITH)\b/i.test(q));
@@ -276,7 +171,7 @@ describe('public snapshot (ADR-0010 §2)', () => {
 
   it('a recursive scan of the snapshot finds no seeded id, Telegram id, Telegram name or email', async () => {
     const snap = await buildPublicSnapshot(env, NOW);
-    expect(snap.duels.live.length + snap.war.players.length + snap.bossSlayers.length).toBeGreaterThan(0); // the scan sees real rows
+    expect(snap.war.players.length + snap.bossSlayers.length).toBeGreaterThan(0); // the scan sees real rows
     const ids = new Set(seeded.flatMap((p) => [p.id, p.tg]));
     const texts = seeded.flatMap((p) => [p.first, p.user, String(p.tg), String(p.id)]);
     const tgPlayers = (await db.prepare('SELECT id, telegram_id, first_name, username FROM players').all<{ id: number; telegram_id: number; first_name: string | null; username: string | null }>()).results;
@@ -334,7 +229,6 @@ describe('public snapshot (ADR-0010 §2)', () => {
     expect(new TextEncoder().encode(JSON.stringify(full)).length).toBeLessThanOrEqual(BODY_MAX_BYTES);
   });
   it('the 5-minute cron builds the snapshot; the daily housekeeping cron does not', async () => {
-    mockTelegram({ getMe: { username: 'pixelarrow_bot' } });
     const run = async (cron: string, scheduledTime: number) => {
       const ctx = createExecutionContext();
       worker.scheduled(createScheduledController({ cron, scheduledTime }), env, ctx);
@@ -344,6 +238,5 @@ describe('public snapshot (ADR-0010 §2)', () => {
     expect((await stored())?.generated_at).not.toBe(NOW + 1);
     await run('*/5 * * * *', NOW + 2);
     expect((await stored())?.generated_at).toBe(NOW + 2);
-    vi.restoreAllMocks();
   });
 });

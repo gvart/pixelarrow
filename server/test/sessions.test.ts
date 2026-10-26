@@ -6,7 +6,6 @@ import { env, SELF } from 'cloudflare:test';
 import { afterEach, describe, expect, it } from 'vitest';
 import { CACHE_TTL_MS, createSession, forgetSessions, hashToken, LIFETIME, lookupSession, pruneAuth, TOUCH_EVERY_MS } from '../src/auth/sessions';
 import { sessionCookie, clearSessionCookie } from '../src/auth/cookies';
-import { recordPayment } from '../src/payments';
 import { generateDisplayName } from '../src/names/generate';
 import { nameKey } from '../src/names/validate';
 import { api, BASE, devLogin, GAME_ORIGIN } from './helpers';
@@ -274,13 +273,6 @@ describe('Telegram log-in', () => {
     expect(again.token).not.toBe(body.token);
   });
 
-  it('a Stars payment from an unseen Telegram user creates the player through the identity module', async () => {
-    const from = { id: 610402, first_name: 'Payer' };
-    await recordPayment(DB(), from, { currency: 'XTR', total_amount: 1, invoice_payload: 'x', telegram_payment_charge_id: `ch-${Date.now()}` } as never);
-    const ident = await DB().prepare("SELECT p.telegram_id FROM auth_identities i JOIN players p ON p.id = i.player_id WHERE i.kind = 'telegram' AND i.subject = '610402'").first();
-    expect(ident).toEqual({ telegram_id: 610402 });
-  });
-
   it('generated names are well-formed and fold to their key', () => {
     let x = 0.123;
     const rng = () => (x = (x * 9301 + 0.49297) % 1);
@@ -290,11 +282,11 @@ describe('Telegram log-in', () => {
 });
 
 describe('online gate (requirePlayable)', () => {
-  it('a session without an identity may use /api/me and saves but not online play', async () => {
+  it('a session without an identity may use /api/me but not the war', async () => {
     const pid = await bareSessionPlayer();
     const { token } = await createSession(DB(), pid, 'cookie', 'email_link', null);
     expect((await api('/api/me', { cookie: token })).status).toBe(200);
-    for (const [method, path] of [['GET', '/api/online/status'], ['GET', '/api/duel/profile'], ['POST', '/api/battle/verify']] as const) {
+    for (const [method, path] of [['GET', '/api/war/roster'], ['POST', '/api/war/recruit']] as const) {
       const res = await api(path, { method, cookie: token, ...(method === 'POST' ? { json: {} } : {}) });
       expect(res.status, path).toBe(403);
       expect(await res.json()).toMatchObject({ error: { code: 'not_playable' } });

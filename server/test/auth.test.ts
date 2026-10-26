@@ -1,4 +1,3 @@
-import { env } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
 import type { Env } from '../src/env';
 import { db, secret } from '../src/middleware';
@@ -43,29 +42,7 @@ describe('initData validation', () => {
   });
 });
 
-describe('POST /api/auth/telegram', () => {
-  it('logs in with valid initData (JSON or raw body), upserts the player', async () => {
-    const res = await api('/api/auth/telegram', { method: 'POST', json: { initData: await initData() } });
-    expect(res.status).toBe(200);
-    const body = await res.json<{ token: string; player: { telegramId: number; firstName: string } }>();
-    expect(body.player).toMatchObject({ telegramId: user.id, firstName: 'Leonidas' });
-
-    const raw = await api('/api/auth/telegram', { method: 'POST', body: await initData(), headers: { 'content-type': 'text/plain' } });
-    expect(raw.status).toBe(200);
-    const rows = await env.DB!.prepare('SELECT COUNT(*) AS n FROM players WHERE telegram_id = ?').bind(user.id).first<{ n: number }>();
-    expect(rows?.n).toBe(1);
-
-    const me = await api('/api/me', { token: body.token });
-    expect(me.status).toBe(200);
-    expect((await me.json<{ player: { username: string } }>()).player.username).toBe('leo');
-  });
-
-  it('rejects bad initData with the standard error shape', async () => {
-    const res = await api('/api/auth/telegram', { method: 'POST', json: { initData: 'auth_date=1&hash=00' } });
-    expect(res.status).toBe(401);
-    expect(await res.json()).toMatchObject({ error: { code: 'invalid_init_data' } });
-  });
-
+describe('POST /api/auth/telegram (dev sign-in)', () => {
   it('requires a session for /api/me', async () => {
     expect((await api('/api/me')).status).toBe(401);
     expect((await api('/api/me', { token: 'pa2_' + 'A'.repeat(43) })).status).toBe(401);
@@ -75,23 +52,12 @@ describe('POST /api/auth/telegram', () => {
     const { token } = await devLogin(42);
     expect((await api('/api/me', { token })).status).toBe(200);
   });
-
-  it('rate-limits logins per IP through the RL_TG_AUTH_IP binding (30 / 60 s)', async () => {
-    const headers = { 'cf-connecting-ip': '203.0.113.9' };
-    const statuses: number[] = [];
-    for (let i = 0; i < 32; i++) {
-      const r = await api('/api/auth/telegram', { method: 'POST', json: { dev: { id: 5000 + i } }, headers });
-      statuses.push(r.status);
-    }
-    expect(statuses.slice(0, 30).every((s) => s === 200)).toBe(true);
-    expect(statuses.at(-1)).toBe(429);
-  });
 });
 
 describe('health', () => {
   it('reports configuration without leaking secrets', async () => {
     const res = await api('/api/health');
-    expect(await res.json()).toMatchObject({ ok: true, db: true, secrets: { telegramBotToken: true } });
+    expect(await res.json()).toMatchObject({ ok: true, db: true, secrets: { adminToken: true } });
   });
   it('unknown API routes are JSON 404s', async () => {
     const res = await api('/api/nope');
@@ -111,7 +77,7 @@ describe('missing configuration', () => {
 describe('entry module', () => {
   it('exports only handlers, Durable Object classes and entrypoints (workerd rejects anything else)', async () => {
     const mod = await import('../src/index');
-    expect(Object.keys(mod).sort()).toEqual(['DuelDO', 'MatchmakerDO', 'PublicApi', 'WarRegionDO', 'WarWorldDO', 'default']);
+    expect(Object.keys(mod).sort()).toEqual(['PublicApi', 'WarRegionDO', 'WarWorldDO', 'default']);
     const { WorkerEntrypoint } = await import('cloudflare:workers');
     expect(mod.PublicApi.prototype).toBeInstanceOf(WorkerEntrypoint);
   });

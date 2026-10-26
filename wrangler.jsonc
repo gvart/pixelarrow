@@ -1,6 +1,6 @@
 // The game Worker (ADR-0007): serves the built game (dist/) as static assets on
 // the play.pixelarrow.app custom domain AND the backend API (server/, see
-// server/README.md), for the web and the Telegram Mini App. Only /api/*, /ws/*
+// server/README.md). Only /api/*, /ws/*
 // and /admin reach the Worker code; everything else is plain static hosting
 // with the SPA fallback (headers from public/_headers). The landing site on
 // pixelarrow.app and www is a separate Worker (landing/wrangler.jsonc).
@@ -28,13 +28,13 @@
   ],
   "vars": {
     "GAME_URL": "https://play.pixelarrow.app",
-    // The landing, which serves the legal pages linked from bot texts.
+    // The landing, which serves the legal pages.
     "LANDING_URL": "https://pixelarrow.app",
     // The sender of account emails (ADR-0008 §4); must be on the domain
     // onboarded in Email Service (docs/v6/OWNER_ACTIONS.md).
     "MAIL_FROM": "noreply@pixelarrow.app"
-    // Secrets (wrangler secret put, never here): TELEGRAM_BOT_TOKEN,
-    // TELEGRAM_WEBHOOK_SECRET, ADMIN_TOKEN, PASSWORD_PEPPER, PASSWORD_PEPPER_ID,
+    // Secrets (wrangler secret put, never here): TELEGRAM_BOT_TOKEN (account
+    // links to Telegram identities), ADMIN_TOKEN, PASSWORD_PEPPER, PASSWORD_PEPPER_ID,
     // TURNSTILE_SECRET. DEV_AUTH and DEV_EMAIL are local-only (.dev.vars);
     // deploy-config.mjs refuses a config that sets either.
   },
@@ -46,8 +46,6 @@
   "ratelimits": [
     // <route>:<ip> for signup, verify, resend, login, reset; also rename:<pid>
     { "name": "RL_AUTH_IP", "namespace_id": "6001", "simple": { "limit": 10, "period": 60 } },
-    // tg:<ip> for /api/auth/telegram (initData is HMAC-signed, so no Turnstile)
-    { "name": "RL_TG_AUTH_IP", "namespace_id": "6002", "simple": { "limit": 30, "period": 60 } },
     // public:<ip> for GET/HEAD /api/public/v1/summary (ADR-0010 §4). The landing
     // reaches the snapshot through the PublicApi entrypoint instead, never this.
     { "name": "RL_PUBLIC_IP", "namespace_id": "6003", "simple": { "limit": 60, "period": 60 } }
@@ -71,8 +69,6 @@
   ],
   "durable_objects": {
     "bindings": [
-      { "name": "MATCHMAKER", "class_name": "MatchmakerDO" },
-      { "name": "DUEL", "class_name": "DuelDO" },
       // one live war region per object (M3, server/src/war/regionDO.ts)
       { "name": "WAR_REGION", "class_name": "WarRegionDO" },
       // the one strategic war world (M4, server/src/war/world/worldDO.ts)
@@ -88,7 +84,9 @@
     // the war world (docs/impl/global-war-rebuild.md M4)
     { "tag": "v4", "new_sqlite_classes": ["WarWorldDO"] },
     // the old shard rooms of the route-graph war (W-01: deleted with M4)
-    { "tag": "v5", "deleted_classes": ["RegionDO"] }
+    { "tag": "v5", "deleted_classes": ["RegionDO"] },
+    // duels removed with the campaign and the Telegram Mini App
+    { "tag": "v6", "deleted_classes": ["MatchmakerDO", "DuelDO"] }
   ],
   // Analytics Engine (docs/OPS.md "Analytics"): product events and client
   // error counts. deploy-config.mjs can drop these (ANALYTICS_ENGINE=off);
@@ -97,10 +95,9 @@
     { "binding": "ANALYTICS", "dataset": "pixelarrow_events" },
     { "binding": "CLIENT_ERRORS", "dataset": "pixelarrow_client_errors" }
   ],
-  // Every 5 minutes: bot notifications that wait (rate limits, coalescing,
-  // quiet hours), the season-ending and full-treasury notices, bot command
-  // setup (server/src/notify/jobs.ts). Daily at 03:17 UTC: housekeeping
-  // (prunes client error reports after 30 days). Cron triggers are free.
+  // Every 5 minutes: the public stats snapshot (server/src/public/snapshot.ts).
+  // Daily at 03:17 UTC: housekeeping (prunes client error reports after 30
+  // days, expired sessions and links). Cron triggers are free.
   "triggers": { "crons": ["*/5 * * * *", "17 3 * * *"] },
   // Workers Logs: console output (structured JSON, server/src/telemetry/log.ts)
   // is kept and searchable in the dashboard (Workers > pixelarrow > Logs).
