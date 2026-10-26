@@ -1558,7 +1558,12 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       while (u.oi < u.own.length / 2 - 1 && Math.hypot(u.own[u.oi * 2] - u.x, u.own[u.oi * 2 + 1] - u.y) < (s.fixed ? 0.5 : 0.3)) u.oi++; // wall-walk climbers: a looser hold on waypoints at a crowded stair foot
       const ox = u.own[u.oi * 2];
       const oy = u.own[u.oi * 2 + 1];
-      if (u.oi < u.own.length / 2 - 1 || Math.hypot(ox - u.x, oy - u.y) > 0.3) return [ox, oy];
+      const last = u.oi >= u.own.length / 2 - 1;
+      // a moving slot (a crew point by its rolling engine) left the way's end behind: make for the slot itself, not the
+      // stale end, which he may never reach (just short of it his stuck checks do not fire, and he stood there for good)
+      const end = last && s.fixed ? slotPos(s, u.slot) : null;
+      const stale = !!end && Math.hypot(end[0] - ox, end[1] - oy) > 0.3;
+      if (!stale && (!last || Math.hypot(ox - u.x, oy - u.y) > 0.3)) return [ox, oy];
       u.own = [];
     }
     const [sx, sy] = slotPos(s, u.slot);
@@ -2674,8 +2679,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       let dy = 0;
       let d = 0;
       if (act !== u) {
-        const [tx, ty] = (act as [number, number] | null) ?? unitTarget(u);
-        dx = tx - u.x;
+        const [tx, ty] = (act as [number, number] | null) ?? unitTarget(u);        dx = tx - u.x;
         dy = ty - u.y;
         d = Math.hypot(dx, dy);
         // squad at rest: settle in the slot, or as near as it gets when another unit stands on it
