@@ -2,7 +2,7 @@
  * A new player's start (/api/war/start/*; docs/WAR.md "Starting a game"; rules in src/war/world/start.ts). Three steps,
  * once per player and season: an alliance, a free home region of it, a squad of up to SQUAD_MAX men of the classes with
  * war sprites. The squad is his first men (active, in slot order) and comes out of his home recruit pool, so it replaces
- * recruiting militia for a new player. Kept in D1 on war_alliance_members (migrations/0036_war_start.sql).
+ * recruiting militia for a new player. Kept in D1 on war_alliance_members (migrations/0037_war_start.sql).
  *
  *   GET  /                     the step (alliance | home | squad | done), the alliances with their players, the home
  *                              choices of his alliance (players, men there, quota, why not free), the classes
