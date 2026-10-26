@@ -11,6 +11,7 @@
  * shades, so a tall wall does not repeat one band.
  */
 import type { WarArt } from './art';
+import { canvas } from './canvas';
 
 const TW = 64, CW = 32, CH = 32;
 /** Cliff strip choices per material: OFFS column offsets x SHADES shades. */
@@ -43,8 +44,7 @@ const tops = (w: number, hw: number, hh: number) => Array.from({ length: w }, (_
 const TOP_C = tops(TW, 32, 16), TOP_F = tops(CW, 16, 8);
 
 function pixels(img: HTMLImageElement): ImageData {
-  const c = document.createElement('canvas');
-  c.width = img.width; c.height = img.height;
+  const c = canvas(img.width, img.height);
   const g = c.getContext('2d')!;
   g.drawImage(img, 0, 0);
   return g.getImageData(0, 0, img.width, img.height);
@@ -59,7 +59,7 @@ function sideSrc(x: number, y: number, off = 0): [number, number] | null {
 }
 
 export function buildFineArt(art: WarArt): FineArt {
-  const out = (n: number, h = CH) => { const c = document.createElement('canvas'); c.width = n * CW; c.height = h; return c; };
+  const out = (n: number, h = CH) => canvas(n * CW, h);
   const sheets = art.tiles.sheets.map((s, si) => {
     const src = pixels(art.sheets[si]), d = src.data, W = src.width;
     const at = (f: number, x: number, y: number) => (y * W + f * TW + x) * 4;
@@ -176,7 +176,7 @@ export class SmoothFrames {
 
   private build(s: number, m: number, q: number, g: number[]): number {
     const slot = this.n++;
-    if ((slot & 1023) === 0) { const c = document.createElement('canvas'); c.width = c.height = 1024; this.pages.push(c); }
+    if ((slot & 1023) === 0) this.pages.push(canvas(1024, 1024));
     const { d, W, F1, F0, edge, m2f } = this.src[s], f = m2f[m];
     const qx = q & 1, qy = q >> 1, ox = (qx - qy) * 16 + 16, oy = (qx + qy) * 8;
     const v = g.map((k) => k / 8);

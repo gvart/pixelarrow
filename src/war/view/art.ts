@@ -25,6 +25,7 @@ import { FOAM_H, FOAM_NX, FOAM_NY, FOAM_PX, FOAM_PY, FOAM_W, foamSprite, groundT
 import { relightTree } from './treeLight';
 import { PeakPainter } from './peaks';
 import { wallStone, wallTexture, type Stone } from './rockFace';
+import { canvas } from './canvas';
 
 export interface ObjDef { id: string; kind: string; file: string; w: number; h: number; metres: number; anchor: { x: number; y: number }; footprint?: [number, number]; massif?: string; role?: string }
 /** A tile set: the global sheets plus one biome's (its variants replace the global ones per terrain), as indices into WarArt's merged lists. */
@@ -52,17 +53,22 @@ const PIECE = 2048;
 
 interface TilesJson extends TilesMeta { cliffs?: { id: string; file: string; frames?: number; roles?: CliffRoles }[] }
 
-/** Fetch the global and every biome's tiles.json and objects.json and every image they name (relative to the page: public/war/). */
+/**
+ * Fetch the global and every biome's tiles.json and objects.json and every image they name (relative to the page:
+ * public/war/). In a worker (./bakeWorker.ts; `base` absolute) the images are ImageBitmaps typed as images.
+ */
 export async function loadArt(base = 'war/'): Promise<WarArt> {
   const json = (p: string) => fetch(base + p).then((r) => r.json());
   // load events, not decode(): decoding hundreds of images at once rejects spuriously ("The source image cannot be
   // decoded"), always so in Playwright's bundled headless Chromium
-  const img = (p: string) => new Promise<HTMLImageElement>((ok, fail) => {
-    const im = new Image();
-    im.onload = () => ok(im);
-    im.onerror = () => fail(new Error(`${p} failed to load`));
-    im.src = base + p;
-  });
+  const img = (p: string) => typeof Image === 'undefined'
+    ? fetch(base + p).then((r) => { if (!r.ok) throw new Error(`${p} failed to load`); return r.blob(); }).then((b) => createImageBitmap(b) as unknown as Promise<HTMLImageElement>)
+    : new Promise<HTMLImageElement>((ok, fail) => {
+      const im = new Image();
+      im.onload = () => ok(im);
+      im.onerror = () => fail(new Error(`${p} failed to load`));
+      im.src = base + p;
+    });
   const libs = [{ name: 'global', tiles: 'tiles/', objs: 'objects/' }, ...BIOMES.map((b) => ({ name: b as string, tiles: `biomes/${b}/`, objs: `biomes/${b}/` }))];
   const metas = await Promise.all(libs.map((l) => Promise.all([json(l.tiles + 'tiles.json') as Promise<TilesJson>, json(l.objs + 'objects.json') as Promise<{ objects: ObjDef[] }>])));
   const sheets: TilesMeta['sheets'] = [], variants: NonNullable<TilesMeta['variants']> = [], cliffs: { id: string; file: string; frames?: number; roles?: CliffRoles }[] = [], defs: ObjDef[] = [];
@@ -100,13 +106,16 @@ export async function loadArt(base = 'war/'): Promise<WarArt> {
     tiles: { sheets, variants, fallback: metas[0][0].fallback }, sheets: si, variants: vi, defs, objImg, sets,
     cliffs: Object.fromEntries(cliffs.map((c, i) => [c.id, ci[i]])),
     cliffMeta: Object.fromEntries(cliffs.filter((c) => c.frames).map((c) => [c.id, { frames: c.frames, roles: c.roles }])),
-    massifs: defs.filter((d) => d.kind === 'massif' && d.footprint).map((d) => ({ ...d, footprint: d.footprint!, top: columnTops(objImg.get(d.id)!) })),
+    // the column tops read on first use (only ?mountains=massifs draws massif sprites)
+    massifs: defs.filter((d) => d.kind === 'massif' && d.footprint).map((d) => {
+      let top: Int16Array | null = null;
+      return { ...d, footprint: d.footprint!, get top() { return (top ??= columnTops(objImg.get(d.id)!)); } };
+    }),
   };
 }
 /** Red-brown pixels pushed toward terracotta red, their light ones toward ochre; sand, scrub and shade kept. */
 function redden(im: HTMLImageElement): HTMLCanvasElement {
-  const c = document.createElement('canvas');
-  c.width = im.width; c.height = im.height;
+  const c = canvas(im.width, im.height);
   const g = c.getContext('2d')!;
   g.drawImage(im, 0, 0);
   const d = g.getImageData(0, 0, c.width, c.height), p = d.data;
@@ -126,8 +135,7 @@ function redden(im: HTMLImageElement): HTMLCanvasElement {
  * crust (light ones near white, the cracks a warm grey); the sand beside it, and the frames' sides, kept.
  */
 function bleach(im: HTMLImageElement): HTMLCanvasElement {
-  const c = document.createElement('canvas');
-  c.width = im.width; c.height = im.height;
+  const c = canvas(im.width, im.height);
   const g = c.getContext('2d')!;
   g.drawImage(im, 0, 0);
   const d = g.getImageData(0, 0, c.width, c.height), p = d.data;
@@ -142,8 +150,9 @@ function bleach(im: HTMLImageElement): HTMLCanvasElement {
   g.putImageData(d, 0, 0);
   return c;
 }
-/** A canvas as a decoded image. */
+/** A canvas as a decoded image (in a worker: an ImageBitmap). */
 function reimage(c: HTMLCanvasElement): Promise<HTMLImageElement> {
+  if (typeof Image === 'undefined') return createImageBitmap(c) as unknown as Promise<HTMLImageElement>;
   const im = new Image();
   im.src = c.toDataURL('image/png');
   return im.decode().then(() => im);
@@ -370,8 +379,7 @@ export class ArtBaker {
       ctx.translate(cx - x0, cy - y0);
       this.paint(ctx, x0, y0, w, h, o, objects);
     } else {
-      const t = (this.tmp ??= document.createElement('canvas'));
-      if (t.width !== PIECE) { t.width = PIECE; t.height = PIECE; }
+      const t = (this.tmp ??= canvas(PIECE, PIECE));
       const tc = t.getContext('2d')!;
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = 'high';

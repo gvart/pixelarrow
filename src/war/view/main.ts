@@ -20,15 +20,19 @@ import { sandboxRoster } from './hud/roster/state';
 import { SandboxScene } from './SandboxScene';
 import { loadSheetImages } from './units';
 import { WarAudio } from './sound/warAudio';
+import { BakeClient } from './bakeClient';
 import { mountSoundPanel } from './hud/soundPanel';
 
 const q = new URLSearchParams(location.search);
 // M7d: a scenario may name its own region (the landmark raids)
 const want = scenarioById(q.get('scenario'));
 const id = q.get('region') ?? want?.region ?? 'test-ridge';
+// the terrain bake worker starts now: its art loads and its baker builds while the page loads its own
+const baker = BakeClient.start(q);
 
 // no top-level await: the build targets es2020
 void Promise.all([id === 'fake' ? Promise.resolve(fakeRegion()) : loadRegion(id), q.get('art') === 'grey' ? null : loadArt(), loadSheetImages()]).then(([region, art, sheets]) => {
+  baker?.region(region);
   const scene = new SandboxScene();
   const game = new Phaser.Game({
     type: Phaser.WEBGL,
@@ -40,7 +44,7 @@ void Promise.all([id === 'fake' ? Promise.resolve(fakeRegion()) : loadRegion(id)
   const sc = want && (want.region ?? 'test-ridge') === id ? want : id === 'test-ridge' ? SCENARIOS.find((s) => s.id === 'free')! : null;
   // M6k: a scenario's safe, yard and ambush rects join the region's before the sim starts
   if (sc?.zones) for (const k of ['safe', 'yard', 'ambush'] as const) if (sc.zones[k]) region[k] = [...(region[k] ?? []), ...sc.zones[k]!];
-  game.scene.add('Sandbox', scene, true, { region, art, sheets });
+  game.scene.add('Sandbox', scene, true, { region, art, sheets, baker });
   // once create() ran (the sim client exists only then)
   const ready = () => {
     if (!scene.sim) return;

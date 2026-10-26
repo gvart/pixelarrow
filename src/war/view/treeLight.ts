@@ -4,14 +4,14 @@
  * light, pixels near its lower-right edge fall into shadow, and the crown grades from lit (upper left) to shaded
  * (lower right) across its width. The trunk keeps most of its colour (the change fades toward the foot).
  */
+import { canvas } from './canvas';
 
 /** Px searched toward and away from the light for the silhouette edge. */
 const REACH = 7;
 const LX = -0.8, LY = -0.6; // toward the light, screen px (up and left)
 
 export function relightTree(img: HTMLImageElement): HTMLCanvasElement {
-  const w = img.width, h = img.height, c = document.createElement('canvas');
-  c.width = w; c.height = h;
+  const w = img.width, h = img.height, c = canvas(w, h);
   const g = c.getContext('2d')!;
   g.drawImage(img, 0, 0);
   const id = g.getImageData(0, 0, w, h), d = id.data;
