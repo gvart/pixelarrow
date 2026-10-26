@@ -2,7 +2,7 @@
  * Scenes for the landing page's gameplay clips (scripts/landing/war-shots.mjs records them): seeded sandbox
  * scenarios like the rest of ./index.ts, built to look at rather than to play. `sandbox.html?scenario=clip-<id>`.
  */
-import type { Scenario, ScenarioSquad } from './index';
+import type { Scenario, ScenarioSquad } from './types';
 import { SPOTS as S } from '../regions/test-ridge.spots';
 import { SQUAD_MAX } from '../sim/soldiers';
 

@@ -1870,6 +1870,16 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
         finish(b);
       }
     },
+    /** Dev: site `id` (any team, not a bridge piece's neighbours) done at once, materials and labour free; false: no such open site. */
+    finishSite(id: number): boolean {
+      const b = buildings[id];
+      if (!b || (b.state !== 'foundation' && b.state !== 'scaffold')) return false;
+      b.delivered = { ...b.cost };
+      if (b.state === 'foundation') (b.state = 'scaffold'), close(b);
+      b.labour = b.need;
+      finish(b);
+      return true;
+    },
     damage,
     setJob,
     release,

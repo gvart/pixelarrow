@@ -1,63 +1,31 @@
 /**
- * Sandbox scenario presets for test-ridge (M1d): `sandbox.html?scenario=<id>`. Each places the
- * player's squads (team 0, yours to order) and bot squads (team 1) with a behaviour from
- * ../sim/bots.ts, and sets the camera. Points are tile coords, mostly named spots.
+ * Sandbox scenario catalogue (M1d; the dev console's picker): `sandbox.html?scenario=<id>&seed=<n>`. Each places the
+ * player's squads (team 0, yours to order) and bot squads (team 1) with a behaviour from ../sim/bots.ts, and sets the
+ * camera. Points are tile coords, mostly named spots. The classic presets are here; the per-feature ones (each isolating
+ * one feature, grouped as the picker shows them) in ./movement.ts, ./combat.ts, ./economy.ts, ./building.ts, ./siege.ts,
+ * ./mobs.ts, ./bosses.ts, ./civilians.ts, ./fog.ts and ./limits.ts; how one is played: ./run.ts.
  */
 import type { Behaviour } from '../sim/bots';
-import type { BridgeOrder, BuildingType, Order, ResourceKind, SafeRect, TileRect, WallOrder } from '../types';
+import type { Order, TileRect } from '../types';
 import { CLAIM_POINT as ridgeClaim, SPOTS } from '../regions/test-ridge.spots';
 import { SQUAD_MAX } from '../sim/soldiers';
 import { CLIP_SCENARIOS } from './clips';
 import { TRAILER_SCENARIOS } from './trailer';
+import type { Scenario, ScenarioSquad } from './types';
+import { MOVEMENT_SCENARIOS } from './movement';
+import { COMBAT_SCENARIOS } from './combat';
+import { ECONOMY_SCENARIOS } from './economy';
+import { BUILDING_SCENARIOS } from './building';
+import { SIEGE_SCENARIOS } from './siege';
+import { MOB_SCENARIOS } from './mobs';
+import { BOSS_SCENARIOS } from './bosses';
+import { CIVILIAN_SCENARIOS } from './civilians';
+import { FOG_SCENARIOS } from './fog';
+import { LIMIT_SCENARIOS } from './limits';
+import { brawlSquads } from './kit';
 
-/** count: at most SQUAD_MAX (the sim clamps it). owner: the spawn's owner (default you / bot); a team-1 squad without a bot and with an owner other than `bot` stands idle. */
-export interface ScenarioSquad { team: 0 | 1; cls: string; count: number; x: number; y: number; bot?: Behaviour; owner?: string;
-  /** M5h3, own civilians: the persons' level and profession nodes (src/data/professions.ts ids), set on the sandbox roster. */
-  level?: number; nodes?: string[] }
-
-export interface Scenario {
-  id: string;
-  name: string;
-  goal: string;
-  /** M7d: the world region it plays on (src/war/regions/<id>.json; default test-ridge). */
-  region?: string;
-  /** M7d: guardians hurt to this share of their hp at the start (a raid joined late, a phase to look at). */
-  bosses?: { boss: string; to: number }[];
-  squads: ScenarioSquad[];
-  camera: { x: number; y: number; zoom: number };
-  /** Neutral play (W-12): spawn the region's lairs (src/war/sim/mobs.ts); no claim anchor, the claim point gives the first. */
-  neutral?: true;
-  /** Economy start (M2b): claim anchors, own stock, and sites a squad (index into squads) lays out and builds. */
-  economy?: {
-    claims: { team: number; x: number; y: number; r?: number }[];
-    stock?: Partial<Record<ResourceKind, number>>;
-    /** Team 1's stockpile (its walls, its siege bots' engines). */
-    foeStock?: Partial<Record<ResourceKind, number>>;
-    /** Wall lines a squad lays out (before the sites, so stairs and ladders find their wall). */
-    walls?: (Omit<WallOrder, 'kind' | 'squad'> & { squad: number; phase?: number })[];
-    sites?: { squad: number; type: BuildingType; x: number; y: number; rot?: 0 | 1; phase?: number }[];
-    /** Bridges standing at the start: laid out for `team` after the prebuild and done at once. */
-    bridges?: (Omit<BridgeOrder, 'kind' | 'squad' | 'team'> & { team: number })[];
-    /**
-     * Fast-forward up to this many ticks per phase before play, each team's squads building its sites (a standing
-     * base): walls and sites go down by `phase` (default 0), each phase built before the next is laid out.
-     */
-    prebuild?: number;
-  };
-  /** M6k: carts standing ready after the prebuild (ids from 0 in this order, after any engine built before). */
-  carts?: { team: number; owner: string; type: 'handcart' | 'wagon'; x: number; y: number }[];
-  /** M6k: zones merged into the region before the sim starts (RegionData safe, yard, ambush). */
-  zones?: { safe?: SafeRect[]; yard?: TileRect[]; ambush?: TileRect[] };
-  /**
-   * After the prebuild: orders, `settle` ticks stepped at once (squads take post), then more squads (ids go on from
-   * `squads`) and the orders `then`.
-   */
-  after?: {
-    orders: Order[]; settle?: number; squads: ScenarioSquad[]; then?: Order[];
-    /** Then `settle` more ticks at once (engines get built) and these orders. */
-    later?: { settle: number; orders: Order[] };
-  };
-}
+export type { Scenario, ScenarioGo, ScenarioGroup, ScenarioSquad } from './types';
+export { GROUPS, GROUP_NAME } from './types';
 
 type P = readonly [number, number];
 const at = (p: P, dx = 0, dy = 0): [number, number] => [p[0] + dx, p[1] + dy];
@@ -116,10 +84,20 @@ export const BRIDGE_STONE = [282.5, 370.5, 306.5, 346.5] as const;
 export const BRIDGE_FOOT = [297.5, 400.5, 317.5, 380.5] as const;
 const BRIDGE_HOME = [289, 393] as const;
 
+/** The trailer's landmark raids (./trailer.ts) in the Bosses group: what to check. */
+const LANDMARK_CHECK: Record<string, string[]> = {
+  'landmark-forge': ['P1: Gyges chained, three blows at once at men in reach 6', 'P2 (under 50%): he breaks his chains (knock 2)', 'G: the boss camera; L: the landmark panel'],
+  'landmark-hold': ['Three heads, each a target: lion (melee), goat (fire breath), serpent (venom)', 'Kill the goat: no more fire; the serpent: no more venom', 'She falls when all three do'],
+  'landmark-watchtower': ['Six heads strike from the cave; one snatches a man near the water every 10 s', 'Her body opens only with two heads or fewer left', 'At 50% she drags herself onto the flats'],
+  'landmark-temple': ['P1: boulders from the arena (range 6-30), breaking wood', 'P2 (under 50%): he stomps (knock 3) and tears the ramp gates', 'The Minotaur stands to the north (boss-minotaur)'],
+};
+
 export const SCENARIOS: Scenario[] = [
   {
     id: 'pass-ambush',
     name: 'Pass ambush',
+    group: 'combat',
+    check: ["Archers loose from the saddle as the column climbs", "Hoplites hold the narrow ground; the column bunches", "Score panel: alive / wounded / killed per team"],
     goal: 'Hold the switchback pass: the enemy column marches from passN to passS. Stop it.',
     squads: [
       you('hoplite', at(S.passSaddle, 0, 4)),
@@ -135,6 +113,8 @@ export const SCENARIOS: Scenario[] = [
   {
     id: 'ford-crossing',
     name: 'Ford crossing',
+    group: 'combat',
+    check: ["Men slow in the ford water", "The far bank holds (hold bots) until you close", "Archers on both banks trade shots"],
     goal: 'Force the ford: the enemy holds the far (east) bank. Get across and break them.',
     squads: [
       you('hoplite', at(S.fordW, -10, -4)),
@@ -154,6 +134,8 @@ export const SCENARIOS: Scenario[] = [
   {
     id: 'hill-assault',
     name: 'Hill assault',
+    group: 'combat',
+    check: ["Men climb the ramp in column, slower uphill", "Defenders on the plateau get the high-ground edge", "A flank round the hill works too"],
     goal: 'Take the plateau: the enemy holds the top. Storm the ramp or flank round the hill.',
     squads: [
       // in column halfway up the ramp
@@ -174,6 +156,8 @@ export const SCENARIOS: Scenario[] = [
   {
     id: 'bridge-vs-ford',
     name: 'Bridge or ford',
+    group: 'movement',
+    check: ["Two bot columns route by bridge and by ford", "Their paths split at the river", "Block one: see the other arrive"],
     goal: 'Two enemy columns head for fieldW, one over the bridge, one through the ford. Pick where to block.',
     squads: [
       you('hoplite', at(S.marsh, -26, -4)),
@@ -192,13 +176,17 @@ export const SCENARIOS: Scenario[] = [
   {
     id: 'brawl-600',
     name: '600 brawl',
+    group: 'combat',
+    check: ["600 men fight without the fps falling off (Perf section)", "Sim ms/step stays readable", "The score settles on one winner"],
     goal: '300 v 300 across the ford: the bots attack the nearest squad. Win the melee.',
-    squads: [], // built by devPanel brawl()
+    squads: brawlSquads(),
     camera: { x: S.ford[0], y: S.ford[1], zoom: 1 / 3 },
   },
   {
     id: 'build-test',
     name: 'Build test',
+    group: 'building',
+    check: ["The camp goes up from the start", "B opens the build bar: place a storehouse, a wall", "Gatherers carry wood and stone to the camp"],
     goal: 'Build up a base: your militia raise a camp on the claimed ground; gather wood and stone, place buildings and walls (B).',
     squads: [
       you('militia', at(HOME, -4, 4)),
@@ -217,6 +205,8 @@ export const SCENARIOS: Scenario[] = [
   {
     id: 'wall-defense',
     name: 'Wall defense',
+    group: 'siege',
+    check: ["Archers stand on the south wall-walk", "Raiders raise two ladders and climb", "P pushes a ladder off"],
     goal: 'Hold the walled camp: your archers man the south wall-walk, spears wait inside the gate. The enemy comes from the south and raises ladders.',
     squads: [
       you('hoplite', at(RC, -3, -3)),
@@ -269,6 +259,8 @@ export const SCENARIOS: Scenario[] = [
   {
     id: 'siege',
     name: 'Siege',
+    group: 'siege',
+    check: ["Ram crewed: E on the ram, then E on the gate", "Ladder raised on the wall face", "Stone thrower shells the towers", "Fire: torches or Q fire arrows on the palisade"],
     goal: 'Take the stone fort: batter the gate with the ram (E on the ram to crew it, then E on the gate), raise the ladder on the wall (E on the wall face), shell the towers with the stone thrower, burn the palisade (E with torches, or fire arrows: Q), then storm the breach. Your engineer (behind the archers) holds the designs: build a mantlet, covered ram, oxybeles or siege tower from the Siege tab (B), and stakes or a ditch from Walls.',
     squads: [
       // the garrison's builders (they raise the fort before play, then stand inside)
@@ -327,6 +319,8 @@ export const SCENARIOS: Scenario[] = [
   {
     id: 'siege-defend',
     name: 'Siege defend',
+    group: 'siege',
+    check: ["The bots build a ram and ladders, shoot fire arrows", "P pushes ladders off, I sallies to burn the ram, O beats out fires", "They storm when a breach or ladder opens"],
     goal: 'Hold the stone fort: the enemy builds a ram and ladders, shoots fire arrows and storms when a breach or a ladder opens. Man the walls, push ladders off (P), sally out to burn the ram (I), beat out fires (O).',
     squads: [
       you('hoplite', at(RC, -3, -3)),
@@ -362,6 +356,8 @@ export const SCENARIOS: Scenario[] = [
   {
     id: 'bridge-test',
     name: 'Bridge test',
+    group: 'building',
+    check: ["Hoplites march over the stone and wood bridges", "B: drag a bridge of your own across the free reach", "[ ] change its width 1-3"],
     goal: 'Cross the river: the old road crossing is walled off, but a stone road bridge spans the wide reach to the north and a wood footbridge the narrow one. March the hoplites over, or build a bridge of your own (B, wood or stone bridge: drag from your bank across the water, along the grid or screen-straight; [ ] width 1-3; wood spans 12 tiles, stone 24).',
     squads: [
       you('militia', at(BRIDGE_HOME, 2, 4)),
@@ -392,6 +388,8 @@ export const SCENARIOS: Scenario[] = [
   {
     id: 'neutral-clear',
     name: 'Neutral clear',
+    group: 'mobs',
+    check: ["Mobs overlay (Resources view, F7) shows aggro and leash rings", "Gathering near a living lair is blocked", "Right-click the banner to claim it (30 s, no foes near)"],
     goal: 'Clear the region: kill the wolves, boars, bears and bandits round the claim banner (the mobs overlay shows aggro and leash), then right-click the banner with a squad to claim it (30 s, no foes near). Gathering near a living lair is blocked.',
     squads: [
       you('hoplite', at(CLAIM, -6, 6)),
@@ -408,6 +406,8 @@ export const SCENARIOS: Scenario[] = [
     // round the camp) fights
     id: 'village',
     name: 'Village',
+    group: 'civilians',
+    check: ["Cooks, smith, merchants, physician work at the camp", "The wolves come: civilians run, the hoplite guard fights", "Work goes on after the raid"],
     goal: 'A claimed camp at work: cooks, a smith, merchants and a physician at the camp, engineers raise a storehouse, foragers fell wood. A wolf pack raids from the south: the civilians run, the hoplite guard (scripted to hold round the camp) fights them off, then work goes on.',
     squads: [you('militia', at(HOME, -4, 4)), { ...you('hoplite', at(HOME, 6, 2)), bot: { kind: 'hold', x: HOME[0] + 1, y: HOME[1] - 5, radius: 16 } }],
     camera: { x: HOME[0] + 2, y: HOME[1] + 2, zoom: 1 / 2 },
@@ -437,6 +437,8 @@ export const SCENARIOS: Scenario[] = [
     // first (the L4 smith holds Bladesmith), the smiths, cook and physician on civWork at their workplaces
     id: 'crafting',
     name: 'Crafting',
+    group: 'economy',
+    check: ["Click the forge: queue a Xiphos, watch the odds", "The item lands in the stash (R)", "Repair or salvage worn gear at the forge"],
     goal: 'A claimed camp with a forge, a cookhouse and an infirmary, stock and a civilian of every trade. Click the forge: queue a Xiphos (Weapons) and watch the odds; when it is made it lands in your stash (roster R, any soldier card): put it on. Pick a crafter for his profession tree; repair or salvage the worn gear in the stash at the forge.',
     squads: [you('militia', at(HOME, -4, 4))],
     camera: { x: HOME[0] - 1, y: HOME[1] - 2, zoom: 1 },
@@ -472,6 +474,8 @@ export const SCENARIOS: Scenario[] = [
     // (the court's cap), your hoplites and a handcart in the yard south; coin and goods at home for rent and trade
     id: 'market',
     name: 'Market',
+    group: 'economy',
+    check: ["K opens the market: rent a stall, stow goods", "List an offer and a buy order; take from the board", "Post or take a contract; hand-off trade"],
     goal: 'Open the market (K): rent a stall, stow goods in, list an offer or a buy order, take from the board, post or take a contract, offer a letter; Hand-off trades with a trader here.',
     squads: [you('militia', at(MARKET_COURT, 6, 5), 6)],
     camera: { x: MARKET_COURT[0] + 6, y: MARKET_COURT[1] + 8, zoom: 1 },
@@ -489,6 +493,8 @@ export const SCENARIOS: Scenario[] = [
     // trader lets go of the cart and walks off, and your hoplites (3), smiths (4) and militia porters (5) come up.
     id: 'loot',
     name: 'Loot',
+    group: 'economy',
+    check: ["Loot piles fall after the skirmish: E on a pile", "The smith salvages gear", "Capture the trader's handcart: stand by it 5 s"],
     goal: 'After the skirmish: pick up the loot piles (E on a pile), let the smith salvage gear, and capture the foe trader\'s handcart (stand beside it 5 s with none of theirs near), then load it.',
     squads: [{ team: 1, cls: 'civ_merchant', count: 2, x: LOOT_FOE[0] - 4, y: LOOT_FOE[1] + 5, owner: 'trader' }],
     camera: { x: LOOT[0] + 2, y: LOOT[1] + 2, zoom: 1 / 2 },
@@ -520,6 +526,8 @@ export const SCENARIOS: Scenario[] = [
     // over the road half way: raider bots (M6j) that go for the wagon if its escort is weak, else fight it in the rect.
     id: 'caravan',
     name: 'Caravan',
+    group: 'economy',
+    check: ["The wagon is loaded at the camp and drives east", "The escort keeps round it and takes on the ambush", "The wagon halts while foes are near"],
     goal: 'Get the loaded wagon down the east road to the entry. Foes wait in the ambush (red rect) over the road: the escort keeps round the wagon and takes them on; the wagon halts while foes are near.',
     squads: [you('militia', at(CARAVAN_HOME, -2, -6))],
     camera: { x: CARAVAN_HOME[0] + 10, y: CARAVAN_HOME[1] + 6, zoom: 1 / 2 },
@@ -546,6 +554,8 @@ export const SCENARIOS: Scenario[] = [
   {
     id: 'landmark-citadel',
     name: "Drakon's Citadel",
+    group: 'bosses',
+    check: ["Drakon fights in the yard, then takes the keep roof below 60%", "Archers bring him off the roof", "Under 30% he crashes down; drakes come from the bone pit"],
     goal: "A 4-squad raid at the barbican of Drakon's Citadel on the Krios glacier, up the switchbacks from the ruined village. Drakon comes out into the yard (claw, tail sweep); under 60% he takes the keep roof and the towers, out of melee reach, breathing fire on the yard and the gate: archers bring him off it; under 30% he crashes down enraged and the drakes come from the bone pit. Kill him to open the claim.",
     region: 'krios',
     squads: [
@@ -569,6 +579,8 @@ export const SCENARIOS: Scenario[] = [
   {
     id: 'landmark-deadcity',
     name: 'Dead City of Ammon',
+    group: 'bosses',
+    check: ["The Bandit King holds the palace street with his guard", "Under 30% he runs for the lake postern", "Cut him off before he escapes"],
     goal: "A 3-squad raid storms the Dead City up the butte from the salt flats, toward the palace street where the Bandit King and his guard stand (the host's lairs hold the quarters, its captain's men the towers). Under 30% he runs for the lake postern: cut him off, or he is back in an hour with half his guard.",
     region: 'ammon',
     squads: [
@@ -590,12 +602,23 @@ export const SCENARIOS: Scenario[] = [
   {
     id: 'free',
     name: 'Free',
+    group: 'sandbox',
+    check: ["Spawn squads of any class and team at the cursor", "Teleport, overlays and time controls from the console"],
     goal: 'Empty map: place squads and bots from the panel.',
     squads: [],
     camera: { x: S.ford[0], y: S.ford[1], zoom: 1 / 2 },
   },
-  ...CLIP_SCENARIOS,
-  ...TRAILER_SCENARIOS,
+  ...MOVEMENT_SCENARIOS,
+  ...COMBAT_SCENARIOS,
+  ...ECONOMY_SCENARIOS,
+  ...BUILDING_SCENARIOS,
+  ...SIEGE_SCENARIOS,
+  ...MOB_SCENARIOS,
+  ...BOSS_SCENARIOS,
+  ...CIVILIAN_SCENARIOS,
+  ...FOG_SCENARIOS,
+  ...LIMIT_SCENARIOS,
+  ...[...CLIP_SCENARIOS, ...TRAILER_SCENARIOS].map((sc): Scenario => ({ group: sc.id.startsWith('landmark-') ? 'bosses' : 'clips', ...(LANDMARK_CHECK[sc.id] ? { check: LANDMARK_CHECK[sc.id] } : {}), ...sc })),
 ];
 
 export const scenarioById = (id: string | null): Scenario | undefined => SCENARIOS.find((s) => s.id === id);

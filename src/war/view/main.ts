@@ -1,6 +1,6 @@
 /**
- * War region sandbox: open /sandbox.html?region=<id>&sim=<real|fake>&scenario=<id> on the dev server
- * (scenarios: src/war/scenarios, on test-ridge or their own region; default free). Loads and
+ * War region sandbox: open /sandbox.html?region=<id>&sim=<real|fake>&scenario=<id>&seed=<n> on the dev server
+ * (scenarios: src/war/scenarios, on test-ridge or their own region; default free; the dev console, F1: ./devPanel.ts). Loads and
  * validates src/war/regions/<id>.json (default test-ridge); ?region=fake is the built-in fake valley
  * (src/war/fake/region.ts). ?sim=fake runs the straight-line fake sim instead of src/war/sim.
  * ?art=grey draws the greybox terrain instead of the PixelLab art (public/war/).
@@ -24,11 +24,14 @@ import { BakeClient } from './bakeClient';
 import { mountSoundPanel } from './hud/soundPanel';
 import { mountGameMenu } from '../menu/gameMenu';
 import { saveSound } from './sound/mix';
-import { myTeam } from './side';
+import { myTeam, setMyTeam } from './side';
 
 const q = new URLSearchParams(location.search);
 // M7d: a scenario may name its own region (the landmark raids)
 const want = scenarioById(q.get('scenario'));
+// a scenario's own seed and side unless the URL names them (the dev console restarts with &seed=; ?team= wins)
+if (want?.seed && !q.has('seed')) { q.set('seed', String(want.seed)); history.replaceState(null, '', `?${q}`); }
+if (want?.team !== undefined && !q.has('team')) setMyTeam(want.team);
 const id = q.get('region') ?? want?.region ?? 'test-ridge';
 // Esc with nothing to close: the in-game menu; F10: settings (src/war/menu). Before the scene's own key handlers.
 let audio: WarAudio | null = null, live: SandboxScene | null = null;

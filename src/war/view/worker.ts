@@ -12,6 +12,8 @@ import { createSim as createFakeSim } from '../fake/sim';
 import { createSim } from '../sim';
 import { bossPile } from '../sim/bossLoot';
 import { createBots, type Behaviour, type Bots } from '../sim/bots';
+import { goOrder, prebuildSim } from '../scenarios/run';
+import type { ScenarioGo } from '../scenarios/types';
 import { createNet, type Net } from '../net/client';
 import { MAX_SQUAD, type HandoffMsg, type StowMsg } from '../net/protocol';
 import { decodeInfluence, unpackNode } from '../net/economy';
@@ -20,7 +22,7 @@ import type { BridgeOrder, BuildingType, InfluenceMap, NodeSnap, Order, RegionDa
 export type ToWorker =
   | { t: 'init'; region: RegionData; team: number; seed: number; sim: 'real' | 'fake'; net?: string; dev?: number }
   | { t: 'view'; x0: number; y0: number; x1: number; y1: number } // camera rect in tiles (net mode: interest management)
-  | { t: 'spawn'; owner: string; team: number; cls: string; count: number; x: number; y: number; bot?: Behaviour; persons?: WarPerson[] }
+  | { t: 'spawn'; owner: string; team: number; cls: string; count: number; x: number; y: number; bot?: Behaviour; persons?: WarPerson[]; go?: ScenarioGo }
   | { t: 'devSpawn'; team: number; cls: string; count: number; x: number; y: number } // dev panel: a squad at a point (net mode: the server's dev spawn)
   | { t: 'order'; o: Order }
   | { t: 'speed'; scale: number } // 0 pauses
@@ -33,6 +35,8 @@ export type ToWorker =
   | { t: 'takeRegion'; team: number } // M7g dev and scripts: every claim point to the team (a landmark takes its capture damage)
   | { t: 'skip'; ticks: number } // scenarios: step this many ticks at once
   | { t: 'damage'; id: number; dmg: number } // dev: damage a building (scripts: a breach)
+  | { t: 'finishSite'; id: number } // dev console: a site done at once
+  | { t: 'devUnits'; ids: number[]; op: 'kill' | 'hurt' | 'heal' } // dev console: strike down, hurt or heal men
   | { t: 'finishBridges'; team: number } // scenarios: standing bridges
   | { t: 'cart'; team: number; owner: string; type: 'handcart' | 'wagon'; x: number; y: number } // scenarios (M6k): a ready cart
   | { t: 'check'; id: number; team: number; type: BuildingType; x: number; y: number; rot: 0 | 1 }
@@ -106,28 +110,9 @@ function bots(s: WarSim, snap: ReturnType<WarSim['snapshot']>): void {
   }
 }
 
-/**
- * Step the sim (and bots) up to `max` ticks at once: every 20 ticks each idle squad of `team` (see below) is sent to the
- * unfinished site of the team nearest it; stops when none is left. One snapshot is posted at the end.
- */
+/** Scenarios: prebuild the team's sites (../scenarios/run.ts), then post one snapshot. */
 function prebuild(s: WarSim, team: number, max: number): void {
-  for (let t = 0; t < max; t++) {
-    s.step();
-    brains!.tick();
-    if (t % 20) continue;
-    const snap = s.snapshot(), open = (snap.buildings ?? []).filter((b) => b.team === team && (b.state === 'foundation' || b.state === 'scaffold'));
-    if (!open.length) break;
-    const units = new Map(snap.units.map((u) => [u.id, u]));
-    for (const q of snap.squads) {
-      const us = q.units.map((id) => units.get(id)!).filter((v) => v && v.state !== 'dead'), u = us[0];
-      // idle builders: not on a build order, or on one with nobody labouring, hauling or walking to it
-      // (every 400 ticks all of them again: a squad can get stuck on a site it cannot reach)
-      if (q.team !== team || !u || (t % 400 && q.order === 'build' && us.some((v) => v.state === 'build' || v.carry || v.state === 'move'))) continue;
-      if (q.order === 'build') s.order({ kind: 'stopWork', squad: q.id });
-      const site = open.reduce((a, b) => (Math.hypot(b.x - u.x, b.y - u.y) < Math.hypot(a.x - u.x, a.y - u.y) ? b : a));
-      s.order({ kind: 'build', squad: q.id, site: site.id });
-    }
-  }
+  prebuildSim(s, brains!, team, max);
   tick();
 }
 
@@ -165,7 +150,8 @@ onmessage = (e: MessageEvent<ToWorker>) => {
   else if (m.t === 'devSpawn') sim.spawnSquad(m.team === me ? 'you' : 'bot', m.team, m.cls, m.count, m.x, m.y);
   else if (m.t === 'spawn') {
     const id = sim.spawnSquad(m.owner, m.team, m.cls, m.count, m.x, m.y, m.persons);
-    if (m.bot) { brains!.set(id, m.bot); scripted.add(id); }
+    if (id >= 0 && m.bot) { brains!.set(id, m.bot); scripted.add(id); }
+    if (id >= 0 && m.go) sim.order(goOrder(id, m.go));
   }
   else if (m.t === 'order') sim.order(m.o);
   else if (m.t === 'claim') { build(sim)?.claim(m.team, m.x, m.y, m.r); }
@@ -181,6 +167,8 @@ onmessage = (e: MessageEvent<ToWorker>) => {
     if (b) { const mem = b.memory(); mem.claims = mem.claims.map(() => m.team); b.recall(mem, 0); }
   }
   else if (m.t === 'damage') build(sim)?.damageBuilding(m.id, m.dmg);
+  else if (m.t === 'finishSite') { build(sim)?.finishSite(m.id); tick(); }
+  else if (m.t === 'devUnits') { build(sim)?.devUnits(m.ids, m.op); tick(); }
   else if (m.t === 'finishBridges') build(sim)?.finishBridges(m.team);
   else if (m.t === 'cart') build(sim)?.spawnCart(m.team, m.owner, m.type, m.x, m.y);
   else if (m.t === 'prebuild') prebuild(sim, m.team, m.max);
