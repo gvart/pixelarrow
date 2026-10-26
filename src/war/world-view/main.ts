@@ -18,7 +18,9 @@ import '@fontsource/cinzel/700.css';
 import type { RegionState } from '../net/world';
 import { ALLIANCES } from '../world/alliances';
 import { worldRegion, WORLD_IDS } from '../world/graph';
-import { bar, CSS, uiZoom } from '../view/hud/kit';
+import { bar, CSS, placeTip, uiZoom } from '../view/hud/kit';
+import { loadGlyphs } from '../view/hud/glyph';
+import { medal, titleTip, TITLES, TITLE_ORDER } from '../view/hud/titles';
 import { draggable } from '../view/hud/drag';
 import { convoySeen, FRONTIER_TOWNS, HAUL_LOADS, inSight, isChokepoint, MARKET_TOWNS, planHaul, PURPOSE, seasonStandings, TRADE_CAP, type HaulKind } from './geo';
 import { allianceColor, ART, clock, WorldMap, type MapState } from './map';
@@ -49,6 +51,11 @@ style.textContent = CSS + `
 .wv-depth i{width:9px;height:9px;border-radius:50%;border:1.5px solid var(--rf-gold)}
 .wv-depth i.on{background:var(--rf-gold)}
 #wvToast{left:50%;bottom:16px;transform:translateX(-50%);display:none;pointer-events:none}
+.wt-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+.wt-t{display:flex;align-items:center;gap:5px;padding:3px;background:var(--rf-sunk);border:1px solid var(--rf-rule)}
+.wt-t:hover{border-color:var(--rf-accent)}
+.wt-who{display:flex;align-items:center;gap:3px;font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.wt-who .wv-sw{width:7px;height:7px}
+.wt-n{font:700 9px/1.2 Cinzel,serif;color:var(--rf-accent);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 `;
 document.head.appendChild(style);
 
@@ -71,10 +78,21 @@ const card = mk('wvCard', 'rf-card wv-panel', 'display:none;pointer-events:none;
 const order = mk('wvOrder', 'rf-card wv-panel', 'display:none;left:50%;bottom:16px;transform:translateX(-50%);width:300px');
 const haulEl = mk('wvHaul', 'rf-card wv-panel', 'display:none;left:50%;bottom:12px;transform:translateX(-50%);width:264px');
 const toast = mk('wvToast', 'rf-label', '');
+const tip = mk('wvTip', 'rf-tip', 'display:none;z-index:8');
 /** The kit's scale a step smaller: the map is the screen here, the panels sit beside it. */
 const zoom = () => Math.max(1, Math.round(uiZoom() * 0.8 * 4) / 4);
 const scale = () => { const z = String(zoom()); for (const el of els) el.style.zoom = z; };
 scale();
+void loadGlyphs();
+// W-61: the season panel's emblems carry their words in a kit tooltip
+seasonEl.addEventListener('pointerover', (e) => {
+  const el = (e.target as HTMLElement).closest<HTMLElement>('[data-tip]');
+  if (!el) return void (tip.style.display = 'none');
+  tip.innerHTML = el.dataset.tip!;
+  tip.style.display = '';
+  placeTip(tip, el);
+});
+seasonEl.addEventListener('pointerleave', () => (tip.style.display = 'none'));
 addEventListener('resize', scale);
 
 const name = (id: string) => worldRegion(id)?.name ?? id;
@@ -164,9 +182,19 @@ function peaceHtml(ids: number[], peace: Record<string, number[]> | undefined): 
     ${ids.map((a) => `<div class="wv-row" style="padding:1px 4px">${swatch(a)}<span style="flex:1">${aName(a)}</span><span class="rf-dim" style="font-size:11px" title="trade volume · contracts filled · works raised">${['volume', 'contracts', 'works'].map((k) => peace[k]?.[a] ?? 0).join(' · ')}</span><span class="rf-num" style="width:34px;text-align:right">${sum(a)}</span></div>`).join('')}`;
 }
 
-/** W-61: the season's titles, each holder with his alliance's banner and home. */
+/** W-61: the season's titles: an emblem and holder each (his alliance's colour), the words in the tooltip. */
 function titlesHtml(t: WorldTitle[]): string {
-  return `<div class="rf-cap" style="margin-top:6px">Titles</div>${t.length ? t.map((x) => `<div class="wv-row" style="padding:1px 4px">${x.alliance >= 0 ? swatch(x.alliance) : ''}<b style="width:112px">${x.name}</b><span style="flex:1">${x.player}</span><span class="rf-dim">${x.home ?? ''}</span></div>`).join('') : '<div class="rf-dim" style="padding:1px 4px">none claimed yet</div>'}`;
+  const cell = (id: string) => {
+    const x = t.find((y) => y.id === id);
+    return `<div class="wt-t" data-tip="${(x ? titleTip(x) : `<b class="k">${TITLES[id].name}</b> · unclaimed`).replace(/"/g, '&quot;')}">${medal(id, 24)}<div style="min-width:0"><div class="wt-who">${x ? `${x.alliance >= 0 ? swatch(x.alliance) : ''}${x.player}` : '<span class="rf-dim">unclaimed</span>'}</div><div class="wt-n">${TITLES[id].name}</div></div></div>`;
+  };
+  return `<div class="rf-cap" style="margin-top:6px">Titles</div><div class="wt-grid">${TITLE_ORDER.map(cell).join('')}</div>`;
+}
+/** W-61: the map's emblems: each holder's home region gets his titles' icons after its name. */
+function emblems(t: WorldTitle[]): Map<string, string[]> {
+  const m = new Map<string, string[]>();
+  for (const x of t) if (x.home && TITLES[x.id]) m.set(x.home, [...(m.get(x.home) ?? []), TITLES[x.id].icon]);
+  return m;
 }
 
 /** M6l: today's trade score per alliance against the daily cap. */
@@ -363,6 +391,7 @@ function apply(v: WorldView): void {
   st.squads = new Map(v.squads.map((s) => [s.region, s.men]));
   st.you = v.snap.you.alliance;
   st.convoys = (v.convoys ?? []).filter((c) => convoySeen(c, st.you as 0 | null, st.regions, ownSquadsIn()));
+  st.emblems = emblems(v.titles ?? []);
   if (haul.open) renderHaul();
   if (st.squadAt && !st.squads.has(st.squadAt)) selectRegion(st.selected);
   renderBand();

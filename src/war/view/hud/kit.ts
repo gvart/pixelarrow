@@ -180,7 +180,26 @@ export const CSS = TOKENS + CURSORS + `
 .bk-stat::before{content:'';flex:none;width:6px;height:6px;border-radius:50%;background:currentColor;box-shadow:0 0 4px currentColor}
 .bk-stat.good{color:var(--rf-good)}.bk-stat.bad{color:var(--rf-bad)}.bk-stat.gold{color:var(--rf-gold)}
 .rf-tbtn.big{height:30px;padding:0 16px;font:700 14px/1 Cinzel,serif;letter-spacing:.04em}
+/* W-61: a level ring (gold fill to the next level), an icon chip with a number, a checklist row, a big bar, a medallion */
+.rf-ring{position:relative;flex:none;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;background:conic-gradient(var(--rf-gold) calc(var(--p) * 1turn),#2c1c15 0);box-shadow:0 0 0 1px #0e0907}
+.rf-ring::before{content:'';position:absolute;inset:3px;border-radius:50%;background:radial-gradient(circle at 50% 35%,#3a2516,#120b08);box-shadow:0 0 0 1px #6a5326}
+.rf-ring b{position:relative;font:700 13px/1 Cinzel,serif;color:var(--rf-title)}
+.rf-ichip{display:inline-flex;align-items:center;gap:2px;height:26px;padding:0 6px 0 1px;background:var(--rf-raised);border:1px solid var(--rf-rule);font:700 12px/1 Inter,sans-serif;color:var(--rf-ink);white-space:nowrap}
+.rf-ichip.good{color:var(--rf-good);border-color:#3f5a2c}.rf-ichip.gold{color:var(--rf-gold);border-color:#6a5326}
+.rf-ichip.dim{color:var(--rf-disabled);background:var(--rf-sunk);border-style:dashed}.rf-ichip.dim .ic,.rf-ichip.dim .gl{opacity:.45;filter:grayscale(1)}
+.rf-ichip .up{color:var(--rf-gold);font-size:9px;margin-left:1px}
+.rf-check{display:grid;grid-template-columns:24px 1fr 46px 16px;align-items:center;gap:0 6px;min-height:30px;padding:1px 4px 1px 2px;border-bottom:1px solid #1d130e}
+.rf-check .l{font:600 11.5px/1.2 Inter,sans-serif;color:var(--rf-ink)}.rf-check .rf-bar{margin-top:3px}
+.rf-check .v{text-align:right;font:700 12px/1 Inter,sans-serif}
+.rf-check.ok .v{color:var(--rf-good)}.rf-check.no .v{color:var(--rf-bad)}
+.rf-bar.big{height:12px}.rf-bar.big i{top:2px;height:8px;background-size:2px 8px}
+.rf-medal{position:relative;flex:none;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;background:radial-gradient(circle at 50% 35%,#4a3018,#1a100a);box-shadow:0 0 0 1px #0e0907,inset 0 0 0 1.5px var(--rf-gold)}
+.rf-tip .tip-w{display:block;white-space:normal;width:max-content;max-width:240px}
+.rf-medal.me{box-shadow:0 0 0 1px #0e0907,inset 0 0 0 1.5px var(--rf-gold),0 0 6px rgba(224,184,103,.7)}
 `;
+
+/** A level ring: `p` 0..1 of the way to the next level in gold round `inner` (the level numeral), `px` across. */
+export const ring = (p: number, px: number, inner: string) => `<span class="rf-ring" style="--p:${Math.max(0, Math.min(1, p)).toFixed(3)};width:${px}px;height:${px}px">${inner}</span>`;
 
 /** Keep a top-anchored panel inside the window: it scrolls past the bottom edge (4 art px margin). */
 export function fitHeight(el: HTMLElement): void {
