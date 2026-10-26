@@ -6,7 +6,7 @@
  * asked once the IP limit refuses, and never on the Telegram route.
  */
 import { env } from 'cloudflare:test';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { emailKeyHash } from '../src/auth/throttle';
 import { SITEVERIFY_URL } from '../src/auth/turnstile';
 import { api, GAME_ORIGIN } from './helpers';
@@ -35,7 +35,20 @@ function siteverifySpy() {
 
 afterEach(() => vi.restoreAllMocks());
 
+/**
+ * Miniflare's rate limiter counts in 60 s windows aligned to the wall clock (epoch = floor(now / 60 s)), so every
+ * bucket empties at the top of each minute. A test that spends RL_AUTH_IP's 10 and expects the 11th to be refused
+ * starts with at least 30 s of its window left (waiting for the next window if not), so its calls can't straddle a
+ * rollover however slow a loaded machine makes them (FLAKY.md F2).
+ */
+async function freshWindow(): Promise<void> {
+  const left = 60_000 - (Date.now() % 60_000);
+  if (left < 30_000) await new Promise((r) => setTimeout(r, left + 50));
+}
+
 describe('the IP limit runs first', () => {
+  beforeEach(freshWindow);
+
   it('signup: the 11th request from one IP in a minute is 429, with no Turnstile call and no hash', async () => {
     const ip = freshIp();
     for (let i = 0; i < 10; i++) expect((await post('/api/auth/signup', { email: fresh(), password: PW, turnstile: DUMMY_TOKEN }, ip)).status).toBe(202);
