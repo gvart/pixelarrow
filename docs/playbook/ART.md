@@ -7,7 +7,7 @@ What exists and at which size: [docs/v5/art/ASSET_LIST.md](../v5/art/ASSET_LIST.
 
 ```
 manifest row → prompt (template + seed) → Gemini (one job at a time) → raw in docs/<ver>/gemini/<job>/
-  → process.mjs → check.mjs → wire the slot in code → preview.mjs (real game, 3 sizes) → read the sheets
+  → process.mjs → check.mjs → wire the slot in code → look at it in the game (Playwright screenshots)
   → promote.mjs --looked → check.mjs --shipped → asset log entry
 ```
 
@@ -60,7 +60,7 @@ An early hub mockup invented a "Quests" tile (owner's rule: verify generated moc
   gradient or floor on the magenta, or magenta inside the subject.
 - New features appear in a mockup only once they have a GDD and a story.
 
-## 4. Process, check, preview, look, promote
+## 4. Process, check, look, promote
 
 All scripts are in `scripts/art/` (Node 20, no extra dependencies; JPEG and WebP through macOS `sips`).
 
@@ -69,8 +69,7 @@ node scripts/art/process.mjs ART-013 <raw> [--ax 0.5 --ay 0.25] [--tol 60] [--fr
 node scripts/art/check.mjs ART-013                 # audit the staged file (docs/v5/art/staging/, gitignored)
 node scripts/art/atlas.mjs icons_ui                # icons: rebuild the atlas from current + staged
 npm run dev -- --port <free port>
-node scripts/art/preview.mjs ART-013 http://localhost:<port>/   # 390x844, 360x780, 320x640
-node scripts/art/promote.mjs ART-013 --looked      # after READING every contact sheet
+node scripts/art/promote.mjs ART-013 --looked      # after looking at it in the game
 node scripts/art/promote.mjs --atlas icons_ui --looked
 node scripts/art/check.mjs --shipped ART-013       # size budget
 node scripts/art/contrast.mjs                      # palette pairs: text ≥ 4.5, UI ≥ 3
@@ -87,14 +86,12 @@ node scripts/art/appicons.mjs <raw>                # app icon and favicon set fr
 | `frame` | Key out, exact cover; then `nineslice.mjs`. |
 | `pixel` | Hard key, detect the fake-pixel block (`--grid n` above 32), unscale by majority colour, snap to PA-WORLD, binary alpha, pad into the canvas. **Never scaled to fit**: too big means regenerate. |
 
-`preview.mjs` reports **NOT ASSESSED** (exit 3) when no slot loads the file yet, and `promote.mjs` refuses without
-a preview of this exact file (sha256), a layout exit 0 and `--looked`. So the story that **wires the slot** (a
-`RASTERS` key in `src/ui/mosaic/raster.ts` or an atlas frame) previews and promotes.
+`promote.mjs` refuses unless `check.mjs` passes and you pass `--looked` (the v5 `preview.mjs` and its layout check
+are gone). So the story that **wires the slot** looks at it in the game and promotes.
 
-**Reading a sheet:** the slot is filled (no parchment fallback); no blur or shimmer at DPR 3; faces and helmets not
-cropped at the narrowest crop; no clash with chrome or text; matches its family; pixel art crisp at an integer
-scale. For slots the fixtures don't reach, look in the game itself (a scratch Playwright run, or placing a sprite
-into a live battle). Contact sheets go to `docs/<ver>/art/<job>-contact.jpg` (about 140 KB).
+**Looking:** a scratch Playwright run (system Chrome) of the screen that shows it: the slot is filled (no fallback);
+no blur or shimmer at DPR 3; faces and helmets not cropped at the narrowest crop; no clash with chrome or text;
+matches its family; pixel art crisp at an integer scale.
 
 ## 5. Sizes and budgets
 

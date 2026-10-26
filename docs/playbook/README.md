@@ -13,7 +13,7 @@ GDDs and ADRs of those runs are no longer in the repo; this playbook keeps the m
 | 1 | [NEW_FEATURE.md](NEW_FEATURE.md) | Idea → GDD → decisions → story card → agent → review → merge → balance → regression → localization, with a checklist | Every new feature |
 | 2 | [LESSONS.md](LESSONS.md) | The hard rules learned the expensive way (disk, flakes, taps, fonts, servers) | Before you dispatch anything |
 | 3 | [PROMPTS_AGENTS.md](PROMPTS_AGENTS.md) | Fill-in prompts for the implementation agent, integrator, flake fixer, QA playthrough and the Director's review loop | When you write an agent prompt |
-| 4 | [ART.md](ART.md) | The image pipeline: art bible essentials, Gemini workflow, process → check → preview → promote, sizes and budgets | Before any art job |
+| 4 | [ART.md](ART.md) | The image pipeline: art bible essentials, Gemini workflow, process → check → look in game → promote, sizes and budgets | Before any art job |
 | 5 | [PROMPTS_ART.md](PROMPTS_ART.md) | The Gemini and PixelLab prompt templates and the prompts behind shipped art | When you write an image prompt |
 | 6 | [SCENARIOS.md](SCENARIOS.md) | How game content is authored: event cards, the campaign arc, ladder floors, doctrines, names | When you add content |
 | — | [director-brief.md](director-brief.md) | The Director brief as a fill-in template (v5 + v6) | When you start a new multi-agent run |

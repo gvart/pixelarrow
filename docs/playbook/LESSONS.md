@@ -5,10 +5,11 @@ The rules that cost the most to learn, one or two lines each, with the decision 
 ## Running many agents on one machine
 
 - **Disk guard.** ENOSPC at about 0.7 GB free broke gates: symlink `node_modules` (root and `server/`) instead of
-  `npm ci`, run layout-check with `--no-shots`, `rm -rf dist shots` after gates, remove merged worktrees at once;
+  `npm ci`, run layout-check with `--no-shots` (v5; that check is gone), `rm -rf dist shots` after gates, remove merged worktrees at once;
   pause new code agents under 2 GB free (V5-057, V5-058).
 - **Load guard.** At load 27–50 everything was slow and flaky (layout check about 50 min, `npm run balance -- 400`
-  74 min): at most 3 code agents plus 1 integrator; never run layout-check, regression and online-e2e together.
+  74 min): at most 3 code agents plus 1 integrator; never run the long live checks together (v5: layout-check, regression, online-e2e; all
+  three are gone, gameplay logic is now tested in fast seeded vitest scenarios).
 - **Stale servers.** Finished agents left 15 vite/vitest processes and a foreign vite held 5173: every agent uses
   its own port and stops only the servers it started.
 - **Serve gates with `vite preview`.** With a symlinked `node_modules` the dev server returns 403 for the bundled
@@ -42,8 +43,8 @@ The rules that cost the most to learn, one or two lines each, with the decision 
 ## Taps and controls
 
 - **A refactor dropped a hit box.** F-07 kept `setSize` and dropped `setInteractive`: every switch drew and none
-  took a tap; layout checks can't see it. Every control type has a tap check in `scripts/regression/controls.mjs`
-  (7575ce6, 96baec0).
+  took a tap; layout checks can't see it. v5 gave every control type a tap check in `scripts/regression/controls.mjs`
+  (7575ce6, 96baec0; removed with the campaign).
 - **The entry fade ate taps** while a container was at alpha 0; FL-02 fixed the game and `hub-flows.mjs` taps on
   the first frame of the fade (V5-067, 38a3aa9).
 - **ScrollArea hit-clip.** Masked rows below the viewport stayed interactive under the tab bar and won every tab

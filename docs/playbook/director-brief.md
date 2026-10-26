@@ -94,8 +94,8 @@ design first").}
   dashboard changes). `.github/workflows/deploy.yml` ships `main`. Local commits on `{VER}` only.
 - The game is Phaser + TypeScript + Vite (check the version in `package.json`); use `phaser-core` and Context7 for
   the API.
-- **Screen matrix.** Every game screen passes at all of these, and `scripts/layout-check.mjs` plus every story's
-  screenshots cover them: phone portrait 390x844 (design size), 360x780, 320 wide (Telegram); phone landscape
+- **Screen matrix.** Every game screen passes at all of these, and every story's Playwright screenshots cover
+  them (the v5 `scripts/layout-check.mjs` is gone): phone portrait 390x844 (design size), 360x780, 320 wide (Telegram); phone landscape
   844x390; tablet portrait 768x1024, 820x1180; landscape 1024x768, 1280x800, 1440x900, 1920x1080. The landing page
   passes at 320, 390, 768, 1280, 1440, 1920 wide.
 - **Users and compatibility:** {while there are no live users (V5-074): no save migrations or old-client
@@ -127,7 +127,7 @@ design first").}
   branches or Chrome tabs you didn't create.
 - **Disk:** integrators delete `shots/`, `dist/` and video scratch after gates; worktrees are removed promptly;
   raw video takes are pruned once encoded. Under 5 GB free, apply the disk guard (V5-057, V5-058): symlink
-  `node_modules` from `{ROOT}` instead of `npm ci`, layout checks with `--no-shots`.
+  `node_modules` from `{ROOT}` instead of `npm ci`.
 
 ## Skills are mandatory
 
@@ -174,9 +174,9 @@ If a listed skill or agent file doesn't exist under `{F}`, use the closest one a
   webm + mp4 with posters (ffmpeg if present, otherwise an owner action), and logs each clip in `ASSET_LOG.md`.
 - **Verification:** Playwright MCP against `npm run dev` / `npm run preview`. Before a story is done, screenshots
   across the screen matrix, looked at; for controls, play it with touch and with mouse and keyboard. Gates as CI:
-  `npx tsc --noEmit`, `npx vitest run`, `npx vite build`, the server tests, `node scripts/layout-check.mjs` across
-  the matrix, the smoke scripts, `npm run regression`, and for web pages their build plus Lighthouse against the
-  budget.
+  `npx tsc --noEmit`, `npx vitest run`, `npx vite build`, the server tests, a short `scripts/war/play-smoke.mjs`
+  wiring check, and for web pages their build plus Lighthouse against the budget. Gameplay logic is tested in fast
+  seeded vitest scenarios, not long live runs.
 
 ## Phases
 

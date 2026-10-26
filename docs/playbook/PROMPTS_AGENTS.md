@@ -37,7 +37,7 @@ DISK, PORTS AND LOAD (the machine is shared and loaded):
 - Serve with `npx vite build && npx vite preview --port {PORT} --strictPort`, not the dev server (it returns 403 for
   fonts when node_modules is a symlink). Your ports: {PORT_RANGE}. Check a port is free first
   (`lsof -nP -iTCP:<port> -sTCP:LISTEN`).
-- Run the layout check with --no-shots unless you need the screenshots.
+- Screenshots: Playwright with system Chrome (`channel: 'chrome'`), saved outside the repo, looked at.
 - Record the PIDs you start and stop only those before you finish (never pkill by name). Then `rm -rf dist shots`.
 
 SETUP: `git merge-base --is-ancestor {MAIN} HEAD || git reset --hard {MAIN}`.
@@ -58,8 +58,8 @@ Decide yourself. Pick the simplest option that is easy to undo and note it, with
 {DOCS}/stories/{STORY_ID}/NOTES.md. Do not ask.
 
 RULES:
-- Edit only the files your story owns: {FILES_OWNED}. Shared append-only files: src/i18n/index.ts (one line), your
-  own fixture entries in scripts/layout-check.mjs, your own section of the docs named in the card.
+- Edit only the files your story owns: {FILES_OWNED}. Shared append-only files: your own section of the docs named in
+  the card.
 - Running in parallel with you: {OTHER_AGENTS_AND_THEIR_FILES}. Do not touch their files.
 - No platform checks in game code: go through the src/platform/core interfaces.
 - No new npm dependencies, no package.json scripts, no .github/workflows changes (unless the card says so).
@@ -69,9 +69,9 @@ VERIFY before you report (all must pass):
 - npx tsc --noEmit
 - npx vitest run      (and `cd server && npx vitest run` if you touched server/ or shared rules)
 - npx vite build
-- node scripts/layout-check.mjs http://localhost:{PORT}/ --no-shots   → 0 new violations
-- node scripts/{smoke,tutorial-smoke,duel-smoke,fullscreen-smoke,audio-smoke,online-smoke}.mjs http://localhost:{PORT}/
-- npm run regression -- --port {OTHER_PORT}
+- gameplay logic: fast seeded vitest scenarios, not long live runs
+- war wiring changed: a short `node scripts/war/play-smoke.mjs` against the local stack (`npm run play:war`)
+- UI changed: Playwright screenshots of the screens touched, looked at
 - node scripts/replay-hash.mjs chromium   (sim changes: fixtures must match, or re-record on purpose and say so)
 - mechanic changes: npm run balance -- 400 before and after → {DOCS}/balance/{STORY_ID}.md
 - screenshots of every screen and state you touched, at the sizes your card names, in en and ru, saved to
@@ -102,17 +102,14 @@ CONFLICT RULES:
 - scripts/layout-allowlist/<story>.json: the union, minus entries the merged code no longer produces.
 - Anything else not trivial: stop and report the conflict; do not guess.
 
-GATES, in order, after all merges (never layout-check, regression and online-e2e at the same time):
+GATES, in order, after all merges (the v5 layout check, smokes, regression suite, online-e2e and replay-hash are
+gone):
 1. npx tsc --noEmit
 2. npx vitest run ; (cd server && npx vitest run)
-3. npx vite build ; npx vite preview --port {PORT} --strictPort
-4. node scripts/layout-check.mjs http://localhost:{PORT}/ --no-shots   → 0 new
-5. the six smokes against http://localhost:{PORT}/
-6. npm run regression -- --port {OTHER_PORT}
-7. online-e2e / account-e2e if online code changed (wrangler dev with DEV_AUTH=1, VITE_DEV_AUTH=1 on vite,
-   API_PROXY as a full URL; delete server/.dev.vars afterwards)
-8. node scripts/replay-hash.mjs chromium (and webkit with PW_WEBKIT_PATH if installed)
-9. npm run balance -- 400 if any merged story changed rules or data
+3. npx vite build
+4. node scripts/war/play-smoke.mjs against the local stack (`npm run play:war`; a short wiring check)
+5. Playwright screenshots (system Chrome) of the changed screens, looked at
+6. npm run balance:war if any merged story changed rules or data
 
 A failure that passes when re-run alone is a flake: re-run it alone once, record BOTH results in docs/FLAKY.md, and
 name it for a fixer. Never raise a timeout or add a retry to make it pass.
@@ -133,7 +130,7 @@ You are fixer-{N}. These checks failed under load and passed alone (docs/FLAKY.m
 - {SCRIPT}: "{CHECK NAME}" — {how often, under which load, the two runs}
 
 Find the ROOT CAUSE of each. Do not raise timeouts, add blind retries or add fixed sleeps.
-- Reproduce under load (beside a layout check or a balance run) before you change anything.
+- Reproduce under load (beside a balance run) before you change anything.
 - Wait on real conditions: `settled()` scenes, `steadyBtn` (two equal reads two frames apart, inside its list's
   window), a state the game itself reports. Helpers: scripts/regression/lib.mjs, scripts/lib/.
 - Below 5 fps the game clock runs slow: wait on the game's own clock, not wall time.
