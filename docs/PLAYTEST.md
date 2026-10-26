@@ -95,7 +95,9 @@ steps it 50 ticks and checks a seed plays the same. Region test-ridge unless nam
 | move-formations |  | Four hoplite squads on open grass, each in another formation: line, column, wedge, loose. |
 | move-groups |  | Eight squads of every class on open grass: box-select, shift-add, make control groups (Ctrl+1-9) and recall them. |
 | move-ford |  | Two squads wade the ford from the west bank to the east, no foes about. |
+| move-ford-both-ways |  | One squad wades the ford west to east while another wades it east to west: they meet in the water. |
 | move-pass |  | A column of three squads climbs the switchback pass from passS to passN. |
+| move-pass-both-ways |  | One squad climbs the switchback pass from passS while another comes down it from passN: they meet on the switchbacks. |
 | move-cliffs |  | One squad at the cliff foot is sent to the ridge crest above it; another climbs the ramp to the plateau. |
 | **Combat** (9) | | |
 | pass-ambush |  | Hold the switchback pass: the enemy column marches from passN to passS. |

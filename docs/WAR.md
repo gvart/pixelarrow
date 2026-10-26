@@ -680,6 +680,25 @@ What we took from established RTS games (`src/war/sim/grid.ts` `pullPath`, `src/
 - Not taken: flow fields (Supreme Commander 2, Planetary Annihilation) pay off for hundreds of units sharing one goal; with
   squads of ≤ 12 one A* per squad plus slot steering is cheaper and keeps formations.
 
+W-59 fixes (`src/war/sim/index.ts` `formSlot`, `unitTarget`, `reachIn` / `tryMove`, `meet`; tests/war/movementStuck.test.ts):
+
+- **Blocked slots** (Total War): a formation slot is pulled in along the line from the anchor to the furthest point where a
+  body stands clear and walks to it straight from the anchor. No slot lies in a wall, in deep water or across a wall, river
+  or bank from the anchor, so nobody makes for the wrong side; the block squeezes into a gap or ford and opens out after.
+- **Body clearance** (configuration space): a man's body keeps RADIUS off walls, cliffs and deep water; a step that would
+  brush an edge or corner is pushed back out of it, so he slides along and round it instead of pressing into it or stopping
+  dead. "In sight" checks use the body's width, as the squad's paths are pulled (a centre line grazing a corner is no way).
+  Decks, stairs, ladders and bridges keep their own lanes and points (centre line, no clearance).
+- **Guide when out of sight of the slot**: the furthest corner of the squad's way he sees, else the anchor, else a path of
+  his own to his slot (A*, two a tick). Never a corner he no longer sees: the way's start was a long run back.
+  Detours end when the slot is in sight again, a corner counts as passed once the next is in sight (two men on one corner
+  shoved each other off it for good), and a detour whose slot has moved on is dropped.
+- **Squeezing past** (SC2-style soft collisions, narrow places only): friends walking head-on where a wall or bank is within
+  2 tiles of both pass through each other, as on a bridge lane; in the open they still keep right round each other.
+- Not taken: RVO/ORCA (velocity obstacles pay off for crowds in the open, where keep-right and separation already work);
+  Theta* proper (the A* path plus string pulling gives the same any-angle paths); flow fields (as above); a column for every
+  narrow place (tried: no faster than squeezed slots, and it folded blocks at every corner).
+
 ### Unit control (W-53)
 
 Every soldier is a unit: the player selects any of his men and orders them alone or in any mix

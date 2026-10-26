@@ -46,7 +46,7 @@ import { warStats, warStatsOf, type WarStats } from './classes';
 import { afterArmour, blockChance, COMBAT, heightRange, hitChance, meleeHeight, missileHeight } from './combat';
 import { formationOffsets, type Shape } from './formation';
 import { BRAZIER, BUILDINGS, FIELD, WORK_DEFENCE } from './economy';
-import { BOG, buildGrid, canEnter, DECK, findPath, flushSectors, FOREST, lineClear, nearestOpen, pullPath, stepCost, tileAt, UPHILL, walkClear, type Grid } from './grid';
+import { BOG, buildGrid, canEnter, DECK, findPath, flushSectors, FOREST, lineClear, lineCost, nearestOpen, pullPath, stepCost, tileAt, UPHILL, walkClear, type Grid } from './grid';
 import { createWorks, type Worker } from './works';
 import { createSiege, LADDER } from './siege';
 import { createMobs, MOB_OWNER, MOB_TEAM, mobClass } from './mobs';
@@ -126,6 +126,8 @@ const STUCK_NET = 0.5;
 const CLIMB_LOOK = 1.5; // tiles ahead a climb is felt
 const FACE = 18; // a standing squad turns to face enemies this near
 const FACE_TURN = 0.08; // rad per tick
+const NX = [1, -1, 0, 0, 1, 1, -1, -1]; // the 8 neighbours of a tile
+const NY = [0, 0, 1, -1, 1, -1, 1, -1];
 const EVICT_R = 4; // a closing site moves the units on it to the nearest open tile on their level this near
 const TASK_AT = 1.6; // a man this near a target's footprint tile (or engine) works on it
 const BUILDING_MELEE = 0.08; // share of a blow's damage a building or engine takes
@@ -680,11 +682,54 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
         return [e.x + Math.cos(a) * r, e.y + Math.sin(a) * r];
       }
     }
-    const f = s.offsets[slot * 2];
-    const r = s.offsets[slot * 2 + 1];
-    const c = Math.cos(s.facing);
-    const sn = Math.sin(s.facing);
-    return [s.ax + c * f - sn * r, s.ay + sn * f + c * r];
+    return formSlot(s, slot);
+  };
+
+  /**
+   * W-59 blocked slots (Total War): a formation slot is pulled in along the line from the anchor until a body stands
+   * there in the open and walks to it straight from the anchor. So no slot lies in a wall, in deep water or on the
+   * far side of a wall, a river or a ford's bank from the anchor: the block squeezes into a gap or a ford and opens
+   * out again after it. Cached per squad until its anchor, facing or shape changes (not saved: a pure function of them).
+   */
+  const slotCache = new Map<Squad, { ax: number; ay: number; f: number; off: number[]; pts: Float64Array }>();
+  const formSlot = (s: Squad, slot: number): [number, number] => {
+    let e = slotCache.get(s);
+    if (!e || e.ax !== s.ax || e.ay !== s.ay || e.f !== s.facing || e.off !== s.offsets) {
+      if (!e || e.pts.length < s.offsets.length) e = { ax: 0, ay: 0, f: 0, off: s.offsets, pts: new Float64Array(s.offsets.length) };
+      e.ax = s.ax;
+      e.ay = s.ay;
+      e.f = s.facing;
+      e.off = s.offsets;
+      slotCache.set(s, e);
+      layOut(s, e.pts);
+    }
+    return [e.pts[slot * 2], e.pts[slot * 2 + 1]];
+  };
+  const layOut = (s: Squad, pts: Float64Array) => {
+    const n = s.offsets.length / 2, c = Math.cos(s.facing), sn = Math.sin(s.facing), team = grid.team;
+    grid.team = s.team;
+    // a body stands at (x,y) and walks there straight from the anchor
+    const fits = (x: number, y: number) => {
+      const t = tileAt(grid, x, y);
+      return t >= 0 && sees(false, s.ax, s.ay, x, y) && reachIn(t, x, y) <= 0;
+    };
+    for (let i = 0; i < n; i++) {
+      const f = s.offsets[i * 2], r = s.offsets[i * 2 + 1], ex = c * f - sn * r, ey = sn * f + c * r;
+      let lo = 1;
+      if (!fits(s.ax + ex, s.ay + ey)) {
+        // blocked: pulled in to the furthest point that fits (bisection)
+        let hi = 1;
+        lo = 0;
+        for (let k = 0; k < 6; k++) {
+          const m = (lo + hi) / 2;
+          if (fits(s.ax + ex * m, s.ay + ey * m)) lo = m;
+          else hi = m;
+        }
+      }
+      pts[i * 2] = s.ax + ex * lo;
+      pts[i * 2 + 1] = s.ay + ey * lo;
+    }
+    grid.team = team;
   };
 
   /** Tile path from (x0,y0) to (x1,y1) as flat corner points, ending at the goal (or as near as it gets). */
@@ -714,6 +759,13 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     keep.push(false);
     return pullPath(grid, pts, cost, keep, RADIUS);
   };
+  /**
+   * W-59: a body walks straight from (x0,y0) to (x1,y1): its whole width passes clear of walls, cliffs and deep water,
+   * as the squad's paths are pulled (a centre line that grazes a corner is no way for a man). On a wall walk, a stair,
+   * a deck or a bridge (their own lanes and points) and for `thin` callers: the centre line.
+   */
+  const sees = (thin: boolean, x0: number, y0: number, x1: number, y1: number) =>
+    thin || fixedTile(tileAt(grid, x0, y0)) || fixedTile(tileAt(grid, x1, y1)) ? walkClear(grid, x0, y0, x1, y1) : lineCost(grid, x0, y0, x1, y1, RADIUS) < Infinity;
   /** A tile whose path corners string pulling leaves alone: a stair, deck or ladder, a bridge. */
   const fixedTile = (t: number) => t >= 0 && (grid.deck[t] !== 0 || grid.span[t] !== 0 || !!works.bridgeAt(t));
   /** The A* cost of the step between adjacent tiles a and b. */
@@ -1554,34 +1606,53 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
         return [L.ex * na + L.nx * c, L.ey * na + L.ny * c];
       }
     } else u.crossing = false;
+    // W-59: a marching man who sees his slot goes to it (a detour of his own is only for getting it back in sight)
+    const [sx, sy] = slotPos(s, u.slot);
+    const slotSeen = sees(!!s.fixed, u.x, u.y, sx, sy);
+    if (slotSeen && !s.fixed) {
+      u.own = [];
+      return [sx, sy];
+    }
     if (u.own.length) {
       while (u.oi < u.own.length / 2 - 1 && Math.hypot(u.own[u.oi * 2] - u.x, u.own[u.oi * 2 + 1] - u.y) < (s.fixed ? 0.5 : 0.3)) u.oi++; // wall-walk climbers: a looser hold on waypoints at a crowded stair foot
+      // W-59: a corner is done once the next one is in sight (two men making for one corner shove each other off it for
+      // good; they need not stand on it, only get round it). Not on a wall walk: its stair and deck steps are straight.
+      if (!s.fixed && u.oi < u.own.length / 2 - 1 && sees(false, u.x, u.y, u.own[u.oi * 2 + 2], u.own[u.oi * 2 + 3])) u.oi++;
       const ox = u.own[u.oi * 2];
       const oy = u.own[u.oi * 2 + 1];
       const last = u.oi >= u.own.length / 2 - 1;
       // a moving slot (a crew point by its rolling engine) left the way's end behind: make for the slot itself, not the
       // stale end, which he may never reach (just short of it his stuck checks do not fire, and he stood there for good)
-      const end = last && s.fixed ? slotPos(s, u.slot) : null;
+      // (W-59: any moving slot, a marching one too: the end of a detour taken to a slot that has since gone on)
+      const end = last ? slotPos(s, u.slot) : null;
       const stale = !!end && Math.hypot(end[0] - ox, end[1] - oy) > 0.3;
       if (!stale && (!last || Math.hypot(ox - u.x, oy - u.y) > 0.3)) return [ox, oy];
       u.own = [];
     }
-    const [sx, sy] = slotPos(s, u.slot);
-    if (walkClear(grid, u.x, u.y, sx, sy)) return [sx, sy];
+    if (slotSeen) return [sx, sy];
     if (s.fixed && !u.ownReq) {
       // a wall-walk point out of sight (up a stair, round a tower): a way of its own there
       u.ownReq = true;
       unitPathQueue.push(u);
     }
+    // the furthest corner of the squad's way he sees, up to the one its anchor makes for
     const last = Math.min(s.pi, s.path.length / 2 - 1);
     for (let j = last; j > u.wp; j--) {
-      if (walkClear(grid, u.x, u.y, s.path[j * 2], s.path[j * 2 + 1])) {
+      if (sees(!!s.fixed, u.x, u.y, s.path[j * 2], s.path[j * 2 + 1])) {
         u.wp = j;
-        break;
+        return [s.path[j * 2], s.path[j * 2 + 1]];
       }
     }
-    if (u.wp < s.path.length / 2) return [s.path[u.wp * 2], s.path[u.wp * 2 + 1]];
-    return [s.ax, s.ay];
+    // W-59: else the anchor, which is on the way ahead of every corner behind it; never a corner he no longer sees (the
+    // way's start, maybe a long walk back, after a shove round a corner or out of a file)
+    if (sees(!!s.fixed, u.x, u.y, s.ax, s.ay)) return [s.ax, s.ay];
+    if (!s.fixed && !u.ownReq && !u.own.length) {
+      // lost sight of the whole squad: a way of his own to his slot (meanwhile he leans towards it, sliding along what
+      // is in the way)
+      u.ownReq = true;
+      unitPathQueue.push(u);
+    }
+    return [sx, sy];
   };
 
   /** Units on each tower platform (tower id -> count), kept up to date as units step on and off. */
@@ -1595,14 +1666,52 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     }
   };
 
+  /**
+   * W-59 body clearance: how far a body of RADIUS at (x,y) in open tile t reaches into a tile next to t that it may not
+   * step into (a wall, a cliff, deep water); <= 0 clear. On a deck, stair, ladder or bridge tile: 0 (lanes and wall walks
+   * have their own rules and points).
+   */
+  const reachIn = (t: number, x: number, y: number): number => {
+    if (fixedTile(t)) return 0;
+    const w = grid.w, tx = t % w, ty = (t / w) | 0;
+    let pen = -Infinity;
+    for (let k = 0; k < 8; k++) {
+      const nx = tx + NX[k], ny = ty + NY[k];
+      const fx = x - tx, fy = y - ty; // 0..1 inside t
+      // distance from the body's centre to that neighbour's square
+      const ex = NX[k] > 0 ? 1 - fx : NX[k] < 0 ? fx : 0, ey = NY[k] > 0 ? 1 - fy : NY[k] < 0 ? fy : 0;
+      const d = Math.hypot(ex, ey);
+      if (d >= RADIUS || RADIUS - d <= pen) continue;
+      const n = nx < 0 || ny < 0 || nx >= w || ny >= grid.h ? -1 : ny * w + nx;
+      if (n >= 0 && (canEnter(grid, t, n) || fixedTile(n))) continue;
+      pen = RADIUS - d;
+      // the way out of it: from the nearest point of that tile to the centre
+      const vx = NX[k] > 0 ? -ex : NX[k] < 0 ? ex : 0, vy = NY[k] > 0 ? -ey : NY[k] < 0 ? ey : 0;
+      const l = Math.hypot(vx, vy);
+      if (l > 1e-9) (outX = vx / l), (outY = vy / l);
+      else (outX = -NX[k]), (outY = -NY[k]);
+    }
+    return pen;
+  };
+  let outX = 0, outY = 0; // set by reachIn: the unit normal out of the edge it reaches into furthest
+
   /** Move by (dx,dy), sliding along blocked tiles and cliffs; a full tower platform takes no one else. */
   const tryMove = (u: Unit, dx: number, dy: number) => {
     const from = tileAt(grid, u.x, u.y);
     const pf = grid.plat[from];
+    // W-59: never further into a wall's or a bank's edge than he stands now (a body keeps RADIUS off them, sliding along)
+    const pen0 = Math.max(0, reachIn(from, u.x, u.y)) + 1e-6;
+    /** The step to (x,y) is refused only for coming too near an edge: how much nearer (outX/outY the way out), else 0. */
+    const slide = (x: number, y: number) => {
+      const t = tileAt(grid, x, y);
+      return t >= 0 && (t === from || canEnter(grid, from, t)) ? Math.max(0, reachIn(t, x, y) - pen0 + 1e-4) : 0;
+    };
     const ok = (x: number, y: number) => {
       const t = tileAt(grid, x, y);
+      if (t < 0) return false;
+      if (t !== from && !canEnter(grid, from, t)) return false;
+      if (reachIn(t, x, y) > pen0) return false;
       if (t === from) return true;
-      if (t < 0 || !canEnter(grid, from, t)) return false;
       // W-55: no slipping through the pinch where two closed tiles meet corner to corner
       const fx = from % grid.w, fy = (from / grid.w) | 0, tx = t % grid.w, ty = (t / grid.w) | 0;
       if (fx !== tx && fy !== ty && !(grid.span[from] && grid.span[t]) && !canEnter(grid, from, fy * grid.w + tx) && !canEnter(grid, from, ty * grid.w + fx)) return false;
@@ -1610,9 +1719,15 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       const p = grid.plat[t];
       return p < 0 || p === pf || (platLoad.get(p) ?? 0) < works.platCap(p);
     };
+    let tx = 0, ty = 0, pen = 0;
     if (ok(u.x + dx, u.y + dy)) {
       u.x += dx;
       u.y += dy;
+    } else if ((pen = slide(u.x + dx, u.y + dy)) > 0 && ((tx = dx + outX * pen), (ty = dy + outY * pen), ok(u.x + tx, u.y + ty))) {
+      // W-59: brushing a wall's edge or corner: the step, pushed back out of the edge (so he slides along it and round a
+      // corner, not stopped dead on it)
+      u.x += tx;
+      u.y += ty;
     } else if (ok(u.x + dx, u.y)) u.x += dx;
     else if (ok(u.x, u.y + dy)) u.y += dy;
     else return;
@@ -2276,8 +2391,25 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
   const ghost = (a: Unit, b: Unit) =>
     (a.squad.team === b.squad.team && (a.job !== null || b.job !== null || grid.deck[tileAt(grid, a.x, a.y)] > DECK || grid.deck[tileAt(grid, b.x, b.y)] > DECK)) ||
     meet(a, b);
-  /** Two men meeting head-on in a bridge's lane squeeze past each other (else a footbridge jams for good). */
-  const meet = (a: Unit, b: Unit) => a.vx * b.vx + a.vy * b.vy < -0.3 && !!works.bridgeAt(tileAt(grid, a.x, a.y)) && !!works.bridgeAt(tileAt(grid, b.x, b.y));
+  /**
+   * Two men meeting head-on in a bridge's lane squeeze past each other (else a footbridge jams for good). W-59: so do two
+   * friends walking head-on in a narrow place (a pass, a gap, a ford: a wall or bank within 2 tiles of both), where two
+   * files meeting have no room to step aside; in the open they still keep to their right round each other.
+   */
+  const meet = (a: Unit, b: Unit) =>
+    a.vx * b.vx + a.vy * b.vy < -0.3 &&
+    ((!!works.bridgeAt(tileAt(grid, a.x, a.y)) && !!works.bridgeAt(tileAt(grid, b.x, b.y))) || (a.squad.team === b.squad.team && a.toSlot && b.toSlot && tight(a) && tight(b)));
+  /** A tile within 2 of where u stands that he may not step on from his own. */
+  const tight = (u: Unit) => {
+    const t = tileAt(grid, u.x, u.y), tx = t % grid.w, ty = (t / grid.w) | 0;
+    for (let y = ty - 2; y <= ty + 2; y++)
+      for (let x = tx - 2; x <= tx + 2; x++) {
+        if (x < 0 || y < 0 || x >= grid.w || y >= grid.h) return true;
+        const n = y * grid.w + x;
+        if (grid.cost[n] <= 0 || Math.abs(grid.height[n] - grid.height[t]) >= 2) return true;
+      }
+    return false;
+  };
 
   /** Settled in his slot and doing nothing else (not striking, at work, on a fixed point or a task). */
   const atEase = (u: Unit) => u.settled && !u.striking && !u.working && !u.job && !u.squad.fixed && !u.squad.task && u.squad.siege < 0;
@@ -2617,7 +2749,8 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       u.ownReq = false;
       if (!u.alive) continue;
       grid.team = u.squad.team;
-      const [tx, ty] = u.squad.fixed ? slotPos(u.squad, u.slot) : unitTarget(u);
+      // W-59: always to his slot (the corner he was making for may be the one he cannot get past, or far behind)
+      const [tx, ty] = slotPos(u.squad, u.slot);
       u.own = cornerPath(u.x, u.y, tx, ty);
       if (u.squad.fixed) (u.settled = false), (u.best = Infinity), (u.stall = 0); // walk it, however long it stood
       u.oi = 1;
