@@ -1,0 +1,22 @@
+scripts/war/regions/savanna.ts
+  s_fcb7475e0b5395::t_8c7719edf04f95 20,81-85,89-94
+  s_fcb7475e0b5395::t_a0c55253432ca6 86-88
+src/war/regions/savanna.json
+  s_fcb7475e0b5395::t_a0c55253432ca6 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "7ef7929eab96f37a85d1fe6b8e3be96d0f4386f8",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
