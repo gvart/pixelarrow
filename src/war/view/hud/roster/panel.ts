@@ -24,6 +24,18 @@ export const SORTS: Sort[] = ['level', 'name', 'class', 'hp'];
 const SORT_NAME: Record<Sort, string> = { level: 'Level', name: 'Name', class: 'Class', hp: 'Health' };
 export const PANEL_W = snapW(236);
 
+/**
+ * The head's army count, "n / 12 men"; never over the cap: a sandbox scenario that spawns more of your men than the
+ * cap reads "sandbox" (its tooltip gives the count).
+ */
+export function armyHead(army: { men: number; max: number }): string {
+  const over = army.men > army.max;
+  const more = over
+    ? `<div>This scenario spawns ${army.men} of your men, more than the cap of ${army.max}: a sandbox test, not a real army. In a game your whole army is at most ${army.max} men.</div>`
+    : `<div>Your whole army: at most ${army.max} men, split across your regions as you like. The wounded and captive count; the fallen free their place.</div>`;
+  return `<span class="rf-dim rf-num" style="white-space:nowrap" ${tip(card({ icon: 'ui:people', name: over ? 'Sandbox army' : `${army.men} of ${army.max} men`, w: 210, more }))}>${over ? 'sandbox' : `${army.men} / ${army.max} men`}</span>`;
+}
+
 const GROUP: Record<Exclude<Where, 'field' | 'away'>, [string, string]> = { wounded: ['Wounded', 'power:blood_price'], captive: ['Captive', 'ui:lock'], dead: ['Fallen', 'ui:skull'] };
 const ORDER: Where[] = ['field', 'away', 'wounded', 'captive', 'dead'];
 const hpOf = (r: Row) => (r.unit ? r.unit.hp / Math.max(1, r.unit.maxHp) : r.where === 'away' ? 1 : 0);
@@ -89,7 +101,7 @@ export function panelHtml(R: SandboxRoster, filter: Filter, sort: Sort, sel: str
   const body = [...groups].map(([k, g]) => `<div class="rf-cap rr-cap rr-grp"${g.squad !== undefined ? ` data-squad="${g.squad}" data-tip="select these men in the field (shift adds)" style="cursor:pointer"` : ''}>${glyph(g.icon, 13)}${esc(k)} <span class="rf-dim">${g.rs.length}</span></div>${g.rs.map((r) => row(r, sel, R.offers(r.p.id).length > 0, R.captorOf(r.p.id), picked)).join('')}`).join('');
   return `<div class="rf-card" style="padding:4px 4px 5px">
     <div class="rf-head" style="padding:0 2px 4px">
-      <span class="rf-name" style="font-size:16px">Roster</span><span class="rf-dim rf-num" style="white-space:nowrap" ${tip(card({ icon: 'ui:people', name: `${army.men} of ${army.max} men`, w: 210, more: `<div>Your whole army: at most ${army.max} men, split across your regions as you like. The wounded and captive count; the fallen free their place.</div>` }))}>${army.men} / ${army.max} men</span>
+      <span class="rf-name" style="font-size:16px">Roster</span>${armyHead(army)}
       <span style="flex:1"></span>
       <button class="rf-tbtn" data-sort="1" data-tip="sort by: level, name, class, health (click to change)">${glyph('ui:scales', 13)} ${SORT_NAME[sort]}</button>
       <button class="rf-tbtn x" data-act="close" data-tip="close (R)">✕</button>
