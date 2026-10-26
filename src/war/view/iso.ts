@@ -337,10 +337,10 @@ export class IsoMap {
    * top of it). Off the map: the point on the base plane, clamped to the map.
    */
   pick(wx: number, wy: number, f = this.drawnPeaks(wx, wy)): { x: number; y: number } {
-    const u = (wx - this.OX) / HW;
+    const u = (wx - this.OX) / HW, zm = this.zmax();
     for (let z = this.top; z >= ZBASE; z -= 2 / LH) { // 2 px steps along the ray
       const v = (wy - this.OY + z * LH) / HH, x = (u + v) / 2, y = (v - u) / 2;
-      if (x < 0 || y < 0 || x >= this.w || y >= this.h) continue;
+      if (x < 0 || y < 0 || x >= this.w || y >= this.h || zm[(y | 0) * this.w + (x | 0)] < z - 1e-4) continue;
       if (this.zSurf(x, y, f) >= z - 1e-4) return { x, y };
     }
     const v = (wy - this.OY) / HH;
@@ -349,13 +349,34 @@ export class IsoMap {
 
   /** Is the world point (wx, wy), standing at x + y = v0 and level z0, hidden by ground in front of it? */
   hidden(wx: number, wy: number, v0: number, z0: number, f = this.drawnPeaks(wx, wy)): boolean {
-    const u = (wx - this.OX) / HW;
+    const u = (wx - this.OX) / HW, zm = this.zmax();
     for (let z = this.top; z > z0; z -= (z > this.groundTop ? 8 : 4) / LH) { // 4 px steps (8 over the peaks alone)
       const v = (wy - this.OY + z * LH) / HH;
       if (v <= v0 + 0.25) return false;
       const x = (u + v) / 2, y = (v - u) / 2;
-      if (x >= 0 && y >= 0 && x < this.w && y < this.h && this.zSurf(x, y, f) >= z) return true;
+      if (x >= 0 && y >= 0 && x < this.w && y < this.h && zm[(y | 0) * this.w + (x | 0)] >= z && this.zSurf(x, y, f) >= z) return true;
     }
     return false;
   }
+
+  /**
+   * Per tile, a level no point of its drawn surface rises above (its cells' corners, the full peaks' over them): the
+   * rays of pick() and hidden() pass a tile below it without sampling the surface.
+   */
+  private zmax(): Float32Array {
+    if (this.zm) return this.zm;
+    const { w, h, fw, fc, fz } = this, out = new Float32Array(w * h), f = this.peaks;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      let m = -Infinity;
+      for (let k = 0; k < 4; k++) {
+        const j = (2 * y + (k >> 1)) * fw + 2 * x + (k & 1);
+        m = Math.max(m, fz[j], fc[4 * j], fc[4 * j + 1], fc[4 * j + 2], fc[4 * j + 3]);
+      }
+      if (f) { const W = f.w + 1, q = y * W + x; m += Math.max(0, f.P[q], f.P[q + 1], f.P[q + W], f.P[q + W + 1]); }
+      out[y * w + x] = m;
+    }
+    return (this.zm = out);
+  }
+
+  private zm: Float32Array | null = null;
 }

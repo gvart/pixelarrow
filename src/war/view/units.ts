@@ -282,6 +282,7 @@ export class UnitLayer {
     this.nGhost = 0;
     this.nRing = 0;
     this.nLoad = 0;
+    this.nUnder[0] = this.nUnder[1] = 0;
     this.anim.frame(units, squads, at.now);
     if (this.ids !== units.length) { this.ids = units.length; this.anim.prune(new Set(units.map((d) => d.u.id))); }
     used = this.sprites(units, view, zoom, selected, at, shots, under, occluded);
@@ -290,6 +291,7 @@ export class UnitLayer {
     for (let i = this.nGhost; i < this.ghosts.length; i++) this.ghosts[i].setVisible(false);
     for (let i = this.nLoad; i < this.loadPool.length; i++) this.loadPool[i].setVisible(false);
     for (let i = this.nRing; i < this.rings.length; i++) this.rings[i].setVisible(false);
+    this.unders.forEach((pool, k) => { for (let i = this.nUnder[k]; i < pool.length; i++) pool[i].setVisible(false); });
   }
 
   /** M7d: slain guardians the sim no longer holds: their die clip played where they fell, held, then faded. */
@@ -317,6 +319,36 @@ export class UnitLayer {
 
   private nGhost = 0;
   private nRing = 0;
+  /** Shadows (0) and rings (1) of the men on the ground as pooled images under every wall (gUnder's depth), and how many are shown. */
+  private unders: Phaser.GameObjects.Image[][] = [[], []];
+  private nUnder = [0, 0];
+
+  /** The next pooled shadow (0) or ring (1) image, `key` centred on world px (x, y). */
+  private under(key: string, kind: 0 | 1, x: number, y: number): Phaser.GameObjects.Image {
+    const pool = this.unders[kind];
+    let im = pool[this.nUnder[kind]];
+    if (!im) pool.push((im = this.scene.add.image(0, 0, key).setDepth(9)));
+    this.nUnder[kind]++;
+    if (im.texture.key !== key) im.setTexture(key);
+    return im.setPosition(x, y).setVisible(true);
+  }
+
+  /** A white ring texture (30 x 14 world px, `lw` wide) as the Graphics ring drew it, made on first use; and the shadow's. */
+  private ringTex(lw: number): string {
+    const key = `war-ring-${lw}`;
+    if (this.scene.textures.exists(key)) return key;
+    const m = Math.ceil(lw / 2) + 1, t = this.scene.textures.createCanvas(key, 30 + 2 * m, 14 + 2 * m)!, c = t.context;
+    c.strokeStyle = '#fff'; c.lineWidth = lw;
+    c.beginPath(); c.ellipse(15 + m, 7 + m, 15, 7, 0, 0, Math.PI * 2); c.stroke();
+    t.refresh();
+    if (!this.scene.textures.exists('war-shadow')) {
+      const sh = this.scene.textures.createCanvas('war-shadow', 28, 14)!;
+      sh.context.fillStyle = '#fff';
+      sh.context.beginPath(); sh.context.ellipse(14, 7, 13, 6, 0, 0, Math.PI * 2); sh.context.fill();
+      sh.refresh();
+    }
+    return key;
+  }
   /** Depth key of a tile point (x + y; the scene sorts past massifs with ./massifs.ts). */
   depthOf: (x: number, y: number) => number = (x, y) => x + y;
 
@@ -352,9 +384,14 @@ export class UnitLayer {
           r.clear().setDepth(l.depth - 1e-7).setVisible(true);
         }
         const k = sheet.scale; // a guardian's shadow and ring at its size
-        if (!l?.climb) r.fillStyle(0x000000, 0.28).fillEllipse(f.x, f.y, 26 * k, 12 * k); // no shadow in mid-air on a ladder
         const sel = selected.has(u.squad), w = Math.max(1.5, 1.5 / zoom); // a ring at least 1.5 screen px wide
-        r.lineStyle(sel ? w + 0.5 : w, sel ? 0xffffff : team, sel ? 1 : 0.85).strokeEllipse(f.x, f.y, 30 * k, 14 * k);
+        if (r === g && k === 1) { // a man on the ground: pooled images, batched (a Graphics ellipse is re-triangulated every frame)
+          if (!l?.climb) this.under('war-shadow', 0, f.x, f.y).setTint(0x000000).setAlpha(0.28);
+          this.under(this.ringTex(sel ? w + 0.5 : w), 1, f.x, f.y).setTint(sel ? 0xffffff : team).setAlpha(sel ? 1 : 0.85);
+        } else {
+          if (!l?.climb) r.fillStyle(0x000000, 0.28).fillEllipse(f.x, f.y, 26 * k, 12 * k); // no shadow in mid-air on a ladder
+          r.lineStyle(sel ? w + 0.5 : w, sel ? 0xffffff : team, sel ? 1 : 0.85).strokeEllipse(f.x, f.y, 30 * k, 14 * k);
+        }
       }
       let img = this.pool[n];
       if (!img) this.pool.push((img = this.scene.add.image(0, 0, key)));
