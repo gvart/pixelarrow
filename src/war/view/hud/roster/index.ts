@@ -3,7 +3,7 @@
  *
  *   left, under the band   the roster panel (R, or the roster button bottom right beside the hammer)
  *   right of the panel     the soldier card of the picked row (Esc closes the card, then the panel)
- *   top centre             toasts: level-ups, captures, the fallen (click: the card)
+ *   top centre             toasts: level-ups, captures, the fallen (click: the card); right of the card when it is under them
  *   on the map             veteran / elite pips under the selected men (./markers.ts)
  *   W-53                   a click on a field row selects that man in the world too, on a squad's heading its men
  *                          (shift adds); the selected men's rows carry a gold edge
@@ -18,7 +18,7 @@ import { markers } from './markers';
 import { FILTERS, panelHtml, PANEL_W, SORTS, type Filter, type Sort } from './panel';
 import { portrait, PORTRAIT_H, PORTRAIT_W } from './portrait';
 import { sandboxRoster } from './state';
-import { toaster } from './toast';
+import { placeToasts, toaster } from './toast';
 import { loadItemAtlas, ROSTER_CSS, tipper } from './ui';
 import { loadGlyphs } from '../glyph';
 import { sandboxCraft } from '../craft/state';
@@ -63,6 +63,7 @@ export function mountRoster(s: SandboxScene, mk: Mk): RosterHooks {
     panel.style.display = open ? '' : 'none';
     const row = sel ? R.rows().find((r) => r.p.id === sel) : undefined;
     card.style.display = row ? '' : 'none';
+    placeToasts(toasts, card);
     if (!card.dataset.moved) card.style.left = open ? `${PANEL_W + 8}px` : '4px';
     if (open) {
       // above the minimap (bottom left, about 190 art px) and below the band
@@ -135,7 +136,7 @@ export function mountRoster(s: SandboxScene, mk: Mk): RosterHooks {
     else if (a === 'back' && (sel || open)) { if (sel) sel = null; else open = false; render(); }
   });
 
-  R.onNote = toaster(toasts, (pid) => { open = true; show(pid); });
+  R.onNote = toaster(toasts, (pid) => { open = true; show(pid); }, () => placeToasts(toasts, card));
   R.onChange = render;
   markers(s);
   void Promise.all([loadItemAtlas(), loadGlyphs()]).then(() => { lastP = lastC = ''; render(); });

@@ -6,7 +6,8 @@
  *  - Skin: one of SKIN_TONES, a natural Mediterranean / Celtic / Thracian ramp (weights by the class's folk).
  *  - Hair and beard: one of HAIR_COLOURS, on sheets whose manifest names a `hair` or `beard` colour group.
  *  - Cloak, crest and trim: a small hue / saturation / value step (CLOAK_STEPS, CREST_STEPS, TRIM_STEPS) after the
- *    team's colour, so a cloak stays in its team's family (blue reads as the player's side at a glance).
+ *    team's dye (its alliance's colour: Dodona blue, Skythia gold, Kyrene the art's red, Elaia purple; DYE), so a cloak
+ *    stays in its team's family and matches the world map.
  *  - Tier: the manifest's `tiers` recolour (basic, veteran, elite) from his worn gear (gearTier) or else his level.
  *
  * Colours follow docs/v5/art/STYLE_LOCK.md: dark, desaturated, warm; no step brightens a cloth past the art's range.
@@ -167,18 +168,41 @@ const smooth = (a: number, z: number, x: number) => {
   const t = Math.max(0, Math.min(1, (x - a) / (z - a)));
   return t * t * (3 - 2 * t);
 };
+type Dye = (r: number, g: number, b: number) => [number, number, number];
 /**
- * The player's side (colour slot 0): saturated red cloth turned blue, skin, bronze and leather kept (the TEAM_SWAP
- * formula of ./units.ts and ./lookShader.ts, which apply it to every pixel no colour group claims).
+ * Each team's dye of the art's saturated red cloth, by team id (its alliance's colour, ../world/palette.ts): Dodona blue,
+ * Skythia gold, Kyrene keeps the red, Elaia purple. DYE_GLSL is the same in GLSL (./units.ts and ./lookShader.ts apply
+ * it to every pixel no colour group claims); keep the two in step.
  */
-export function swapRed(c: number): number {
+const DYE: readonly (Dye | null)[] = [
+  (r, g, b) => [b * 0.6, g * 0.8 + r * 0.3, r * 1.2 + 0.06],
+  (r, g, b) => [r * 1.15 + 0.06, r * 0.85 + g * 0.2, b * 0.5],
+  null,
+  (r, g, b) => [r * 0.55 + b * 0.3, g * 0.6, r * 0.9 + 0.05],
+];
+export const DYE_GLSL: readonly (string | null)[] = [
+  'vec3(c.b * 0.6, c.g * 0.8 + c.r * 0.3, c.r * 1.2 + 0.06)',
+  'vec3(c.r * 1.15 + 0.06, c.r * 0.85 + c.g * 0.2, c.b * 0.5)',
+  null,
+  'vec3(c.r * 0.55 + c.b * 0.3, c.g * 0.6, c.r * 0.9 + 0.05)',
+];
+/** How much of a colour is red cloth to dye (skin, bronze and leather, green well above blue, are kept): GLSL RED_W. */
+export const RED_W_GLSL = 'smoothstep(0.3, 0.55, (c.r - max(c.g, c.b)) / max(c.r, 0.001)) * (1.0 - smoothstep(0.1, 0.25, (c.g - c.b) / max(c.r, 0.001)))';
+
+/** Team `team`'s dye of colour c (red cloth only; skin, bronze and leather kept). */
+export function dyeRed(c: number, team: number): number {
+  const d = DYE[team & 3];
+  if (!d) return c;
   const [r, g, b] = rgb(c), rr = Math.max(r, 0.001);
   const w = smooth(0.3, 0.55, (r - Math.max(g, b)) / rr) * (1 - smooth(0.1, 0.25, (g - b) / rr));
   if (w <= 0) return c;
-  return pack(r + (b * 0.6 - r) * w, g + (g * 0.8 + r * 0.3 - g) * w, b + (r * 1.2 + 0.06 - b) * w);
+  const [dr, dg, db] = d(r, g, b);
+  return pack(r + (dr - r) * w, g + (dg - g) * w, b + (db - b) * w);
 }
-/** A dyed colour in team slot `team`'s family: slot 0 blue (swapRed); the others keep the art's red (tinted by the view). */
-export const teamColor = (c: number, team: number): number => (team === 0 ? swapRed(c) : c);
+/** Dodona's dye (blue): red cloth turned blue. */
+export const swapRed = (c: number): number => dyeRed(c, 0);
+/** A dyed colour in team `team`'s family (its alliance's colour). */
+export const teamColor = (c: number, team: number): number => dyeRed(c, team);
 
 /** The variant index of a colour group for a look. */
 export function variantOf(group: string, look: Look): number {

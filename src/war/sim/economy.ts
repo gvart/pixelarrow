@@ -182,6 +182,8 @@ export const CARRY = 10; // a worker's load
 export const CLAIM_RADIUS = 20; // default influence of a claim anchor
 /** cancelSite: share of the materials already delivered that goes back to the stockpile (loads still on the way: all). */
 export const CANCEL_REFUND = 0.75;
+/** demolish: an own finished building comes down after `ticks` (5 s), `refund` of its materials back to the nearest store of its network. */
+export const DEMOLISH = { refund: 0.25, ticks: 50 };
 export const WORK_DEFENCE = 1.5; // a gathering or building squad takes this much more damage and never blocks
 
 /** regrow, rate: per second; rare (M7e): a landmark's rare-good node (no depth yield; only the region's holder gathers it). */

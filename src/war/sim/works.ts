@@ -32,7 +32,7 @@
  * tiles go back to water and `fall` drops the men on them.
  */
 import type { BridgeAxis, BridgeOrder, BridgePlan, BuildingSnap, BuildingType, BuildState, GoodKind, InfluenceMap, NodeSnap, PlaceReason, PlaceResult, RegionData, ResourceKind, WallOrder, WallPlan } from '../types';
-import { BRAZIER, BRIDGE, BUILDINGS, CHEST, FIELD, KILN, PINES, CANCEL_REFUND, CARRY, CLAIM_RADIUS, lineTiles, NEUTRAL_TEAM, rectTiles, REPAIR, RESOURCE_NODES, rotated, RUIN, SEGMENT, WALL_KIT, type BuildingDef, type Spot } from './economy';
+import { BRAZIER, BRIDGE, BUILDINGS, CHEST, FIELD, KILN, PINES, CANCEL_REFUND, DEMOLISH, CARRY, CLAIM_RADIUS, lineTiles, NEUTRAL_TEAM, rectTiles, REPAIR, RESOURCE_NODES, rotated, RUIN, SEGMENT, WALL_KIT, type BuildingDef, type Spot } from './economy';
 import { DECK, LADDER, lineClear, STAIR, tileAt, type Grid } from './grid';
 import { amount, empty, itemList, newHold, put, take, takeFrom, totals, type Cost, type Hold } from './holders';
 import { depthRule } from './depth';
@@ -124,6 +124,8 @@ interface Building {
   hold: Hold | null; owner: string;
   /** M7a: a pre-built piece (null: built by a team); the team that hit it last (-1 none); under a repair order, hp paid for. */
   pre: Pre | null; lastBy: number; mend: boolean; credit: number;
+  /** Demolish ordered: the tick it comes down (0 none). */
+  raze: number;
 }
 /**
  * M7a pre-built state: its entry (index into region.prebuilt), the claim point whose holder owns it (-1: influence), a
@@ -485,7 +487,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
       hp: def.hp, maxHp: def.hp, saved: [], users: 0, node: -1, slots: [], slotUser: [], cancelled: false,
       base: [grid.height[t]], inside: [tiles[0], tiles[1]], decked: false, attach: under && under.decked ? under.id : -1, door: -1, prev: null,
       burn: 0, kindle: 0, rubble: false, siege: -1, push: 0, bridge: null, fuel: BRAZIER.life, iron: false, wet: 0, hold: null, owner: '',
-      pre: null, lastBy: -1, mend: false, credit: 0,
+      pre: null, lastBy: -1, mend: false, credit: 0, raze: 0,
     };
     buildings.push(b);
     braziers.push(b);
@@ -616,7 +618,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
       base: [], inside: inside ?? homeOf(team), decked: false, attach, door: -1, prev: null,
       burn: 0, kindle: 0, rubble: false, siege: -1, push: 0, bridge: null, fuel: 0, iron: false, wet: 0,
       hold: def.store || def.chest || def.cache ? newHold() : null, owner,
-      pre: null, lastBy: -1, mend: false, credit: 0,
+      pre: null, lastBy: -1, mend: false, credit: 0, raze: 0,
     };
     if (def.store) storeList.push(b);
     for (let i = 0; i < tiles.length; i += 2) {
@@ -1117,7 +1119,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
     if (b.def.store) storeVer++;
   };
 
-  const destroy = (b: Building) => {
+  const destroy = (b: Building, razed = false) => {
     if (b.def.brazier) {
       // knocked over: not in occ, nothing to open
       b.state = 'destroyed';
@@ -1138,7 +1140,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
     b.hp = 0;
     b.prev = null;
     b.burn = 0;
-    b.rubble = closed && !!b.def.wall; // a breach
+    b.rubble = closed && !!b.def.wall && !razed; // a breach (a piece its own team takes down leaves none)
     lowerDeck(b);
     for (const [i, t] of b.ti.entries()) {
       occ[t] = -1;
@@ -1195,6 +1197,20 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
     if (wasDone && b.def.influence > 0) repaint();
     if (b.def.store) storeVer++;
     if (spill) hooks.razed?.(b, b.lastBy);
+  };
+
+  /** A demolished piece comes down: gone (no rubble), its goods and DEMOLISH.refund of its materials to the nearest store of its network. */
+  const razeNow = (b: Building) => {
+    b.raze = 0;
+    if (b.state !== 'done' && b.state !== 'damaged') return; // burnt or battered down meanwhile
+    // a store's goods move to the next store of its network (items alone fall as a pile)
+    const lots = b.hold?.lots ?? [];
+    if (b.hold) b.hold = { lots: [], items: b.hold.items };
+    destroy(b, true);
+    b.cancelled = true;
+    // after it is gone: a store taken down refunds into the next store of the network, not into itself
+    for (const l of lots) addAt(b.team, b.x, b.y, l.r, l.n, l.o);
+    for (const [r, v] of Object.entries(b.cost) as [ResourceKind, number][]) if (v > 0) addAt(b.team, b.x, b.y, r, v * DEMOLISH.refund);
   };
 
   const damage = (id: number, dmg: number, by = -1) => {
@@ -1970,6 +1986,18 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
       return true;
     },
     /**
+     * Demolish a finished (or damaged) building of `team` that it built (not a pre-built piece, not mid-upgrade): its
+     * workers leave and after DEMOLISH.ticks it comes down, DEMOLISH.refund of its materials back. False if it cannot.
+     */
+    demolish(id: number, team: number): boolean {
+      const b = buildings[id];
+      if (!b || b.cancelled || b.team !== team || b.pre || b.prev || b.raze || (b.state !== 'done' && b.state !== 'damaged')) return false;
+      b.raze = tick + DEMOLISH.ticks;
+      b.mend = false;
+      for (const u of active) if (u.wsite === b.id) leave(u);
+      return true;
+    },
+    /**
      * A done wall piece of `team` with a next tier becomes a site for it in place: new materials and labour, the old piece
      * standing meanwhile (state scaffold, upgradeFrom in the snapshot). False if it cannot.
      */
@@ -2207,6 +2235,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
         detour(u);
       }
       fireTick();
+      for (const b of buildings) if (b.raze && tick >= b.raze) razeNow(b);
       if (++tick % REGROW_TICKS === 0)
         for (const n of regrowing) {
           if (n.amount >= n.max) continue;
@@ -2254,6 +2283,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
           ...(b.owner ? { owner: b.owner } : {}),
           ...(b.pre ? { pre: true as const, ...(b.pre.landmark ? { landmark: true as const } : {}), ...(region.prebuilt?.[b.pre.i]?.art ? { art: region.prebuilt[b.pre.i].art } : {}), ...(b.pre.ruin ? { ruin: true as const } : {}), ...(b.pre.fouled > tick ? { fouled: true as const } : {}) } : {}),
           ...(b.mend ? { mend: true as const } : {}),
+          ...(b.raze ? { razing: Math.min(1, 1 - (b.raze - tick) / DEMOLISH.ticks) } : {}),
           ...waitOf(b),
           ...(b.type === 'stoa' ? { stalls: 2 } : {}),
         };

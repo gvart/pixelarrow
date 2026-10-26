@@ -7,9 +7,11 @@
  * Units are depth sorted by x + y (with the map objects, ./objects.ts); the player's own men hidden
  * behind higher ground, a wall or a stone object show as a team-coloured outline over it; hidden
  * foes are simply hidden.
- * The sheets wear red; the player's side (colour slot 0, blue: ./side.ts) wears blue. A class whose manifest has colour
- * groups draws through LOOK (./lookShader.ts): each man's own look (./look.ts: skin, cloak, crest, trim, hair, gear tier)
- * in his team's colours; other sheets draw through TEAM_SWAP, a shader that turns the red cloth blue.
+ * The sheets wear red; every team wears its alliance's colour, as on the world map (../world/palette.ts; ./side.ts):
+ * Dodona blue, Skythia gold, Kyrene red, Elaia purple. A class whose manifest has colour groups draws through LOOK
+ * (./lookShader.ts): each man's own look (./look.ts: skin, cloak, crest, trim, hair, gear tier) in his team's colours;
+ * other sheets draw through a dye shader per team that turns the red cloth to its colour (Kyrene keeps the red).
+ * The player's own men stand out by a full, wider foot ring; foes' rings are fainter.
  * A man walking with a load (./anim.ts loadOf) carries its sprite (src/assets/loads) at his sheet's per-frame
  * `loads` anchor: on the shoulder over him, held at the chest under him in the north facings (his back to us).
  */
@@ -23,25 +25,28 @@ import type { DrawUnit } from './simClient';
 import { LH, type IsoMap } from './iso';
 import type { Lift } from './build/buildingLayer';
 import { myTeam, slot } from './side';
-import { lookCode, lookHero, lookHeroesVersion, lookOf, type Look } from './look';
+import { DYE_GLSL, RED_W_GLSL, lookCode, lookHero, lookHeroesVersion, lookOf, type Look } from './look';
+import { TEAM_INT } from '../world/palette';
 import { LOOK, addLookPipeline } from './lookShader';
 
-export const TEAM_COLOR = [0x4aa3ff, 0xe0503c, 0xe8c040, 0xb070e0];
-/** A light multiply per colour slot on the sprites (slot 0 is also hue-swapped, see TEAM_SWAP). */
-const TEAM_TINT = [0xd0e4ff, 0xffd4c8, 0xfff0c0, 0xecd8ff];
+/** Each team's marker colour (rings, outlines, flags): its alliance's, as the world map draws it. */
+export const TEAM_COLOR = TEAM_INT;
+/** A light multiply per team on the sprites, in its alliance's family (the cloth is also dyed, see TEAM_DYE). */
+const TEAM_TINT = [0xd0e4ff, 0xfff0c0, 0xffd4c8, 0xecd8ff];
 /** Sprites show from this zoom up: always, now the camera stops at 1/2 (SandboxScene MIN_ZOOM); other layers still ask. */
 export const SPRITE_ZOOM = 1 / 3;
 /** World px from the feet to a man's middle (a sprite is ~58 px tall). */
 export const BODY = 28;
 const FALLBACK_CLASS = 'militia';
-const TEAM_SWAP = 'WarTeamBlue';
+/** The dye pipeline per team (none: Kyrene keeps the art's red). */
+const TEAM_DYE = DYE_GLSL.map((d, t) => (d ? `WarTeamDye${t}` : null));
 
 /**
- * Phaser's single-texture sprite shader plus a red -> blue swap of saturated red pixels (cloaks,
- * crests, shield paint); skin, bronze and leather (green well above blue) keep their colours.
- * Textures are premultiplied, so the swap runs on un-premultiplied colour.
+ * Phaser's single-texture sprite shader plus a dye of saturated red pixels (cloaks, crests, shield paint) to a team's
+ * colour (./look.ts DYE_GLSL); skin, bronze and leather (green well above blue) keep their colours.
+ * Textures are premultiplied, so the dye runs on un-premultiplied colour.
  */
-const SWAP_FRAG = `
+const SWAP_FRAG = (dye: string) => `
 precision mediump float;
 uniform sampler2D uMainSampler;
 varying vec2 outTexCoord;
@@ -50,9 +55,8 @@ varying vec4 outTint;
 void main() {
   vec4 t = texture2D(uMainSampler, outTexCoord);
   vec3 c = t.a > 0.0 ? t.rgb / t.a : t.rgb;
-  float r = max(c.r, 0.001);
-  float w = smoothstep(0.3, 0.55, (c.r - max(c.g, c.b)) / r) * (1.0 - smoothstep(0.1, 0.25, (c.g - c.b) / r));
-  c = mix(c, vec3(c.b * 0.6, c.g * 0.8 + c.r * 0.3, c.r * 1.2 + 0.06), w);
+  float w = ${RED_W_GLSL};
+  c = mix(c, ${dye}, w);
   t.rgb = c * t.a;
   vec4 texel = vec4(outTint.bgr * outTint.a, outTint.a);
   vec4 color = t * texel;
@@ -64,7 +68,10 @@ void main() {
 function addSwapPipeline(scene: Phaser.Scene): boolean {
   const r = scene.renderer;
   if (!(r instanceof Phaser.Renderer.WebGL.WebGLRenderer)) return false;
-  if (!r.pipelines.has(TEAM_SWAP)) r.pipelines.add(TEAM_SWAP, new Phaser.Renderer.WebGL.Pipelines.SinglePipeline({ game: scene.game, fragShader: SWAP_FRAG }));
+  DYE_GLSL.forEach((d, t) => {
+    const name = TEAM_DYE[t];
+    if (d && name && !r.pipelines.has(name)) r.pipelines.add(name, new Phaser.Renderer.WebGL.Pipelines.SinglePipeline({ game: scene.game, fragShader: SWAP_FRAG(d) }));
+  });
   return true;
 }
 
@@ -480,13 +487,14 @@ export class UnitLayer {
           r.clear().setDepth(l.depth - 1e-7).setVisible(true);
         }
         const k = sheet.scale; // a guardian's shadow and ring at its size
-        const sel = selected.has(u.id), w = Math.max(1.5, 1.5 / zoom); // a ring at least 1.5 screen px wide
+        // a ring at least 1.5 screen px wide; your own men's full and wider (their colour is their alliance's, not yours)
+        const sel = selected.has(u.id), own = d.team === myTeam(), w = Math.max(1.5, 1.5 / zoom);
         if (r === g && k === 1) { // a man on the ground: pooled images, batched (a Graphics ellipse is re-triangulated every frame)
           if (!l?.climb) this.under('war-shadow', 0, f.x, f.y).setTint(0x000000).setAlpha(0.28);
-          this.under(this.ringTex(sel ? w + 0.5 : w), 1, f.x, f.y).setTint(sel ? 0xffffff : team).setAlpha(sel ? 1 : 0.85);
+          this.under(this.ringTex(sel || own ? w + 0.5 : w), 1, f.x, f.y).setTint(sel ? 0xffffff : team).setAlpha(sel || own ? 1 : 0.7);
         } else {
           if (!l?.climb) r.fillStyle(0x000000, 0.28).fillEllipse(f.x, f.y, 26 * k, 12 * k); // no shadow in mid-air on a ladder
-          r.lineStyle(sel ? w + 0.5 : w, sel ? 0xffffff : team, sel ? 1 : 0.85).strokeEllipse(f.x, f.y, 30 * k, 14 * k);
+          r.lineStyle(sel || own ? w + 0.5 : w, sel ? 0xffffff : team, sel || own ? 1 : 0.7).strokeEllipse(f.x, f.y, 30 * k, 14 * k);
         }
       }
       let img = this.pool[n];
@@ -499,7 +507,8 @@ export class UnitLayer {
         img.setPipeline(LOOK).setTint(code.tint).setAlpha(1);
         img.tintFill = code.fx as unknown as boolean; // the look's tint effect (lookCode), passed through to the shader as is
       } else {
-        if (this.swap && slot(d.team) === 0) img.setPipeline(TEAM_SWAP);
+        const dye = TEAM_DYE[slot(d.team) & 3];
+        if (this.swap && dye) img.setPipeline(dye);
         else if (this.swap) img.resetPipeline();
         img.setTint(TEAM_TINT[slot(d.team)] ?? 0xffffff).setAlpha(1);
       }

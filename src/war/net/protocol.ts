@@ -113,6 +113,8 @@ export const orderSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('placeBridge'), squad: id.optional(), ...U, material: z.enum(['wood', 'stone']), points: pts(2), width: z.number().int().min(1).max(3).optional() }),
   z.object({ kind: z.literal('upgrade'), building: id, squad: id.optional(), ...U }),
   z.object({ kind: z.literal('cancelSite'), site: id }),
+  // tear down a finished building of the player's team (a quarter of its materials back; the sim checks the rest)
+  z.object({ kind: z.literal('demolish'), building: id }),
   z.object({ kind: z.literal('claimRegion'), squad: id, ...U, point: id }),
   // W-60: walk to soul `soul` and claim him (the room's gate: fewer than ARMY_MAX men across all regions)
   z.object({ kind: z.literal('claimSoul'), squad: id, ...U, soul: id }),

@@ -5,7 +5,7 @@
 import type { Behaviour, Bots } from '../sim/bots';
 import type { Order, RegionData, ResourceKind, WarBuildSim, WarSim } from '../types';
 import type { Scenario, ScenarioGo, ScenarioOrder, ScenarioSquad } from './types';
-import { BUILDINGS, RESOURCE_NODES } from '../sim/economy';
+import { BUILDINGS, RESOURCE_NODES, rectTiles, rotated } from '../sim/economy';
 import { put } from '../sim/holders';
 
 /** What applying a scenario needs of a sim (the sandbox's SimClient has these). */
@@ -45,9 +45,32 @@ export function nearestNode(region: RegionData, res: ResourceKind, x: number, y:
   return id;
 }
 
-/** A scenario order as the sim takes it (a gatherNear goes to its node). */
+/**
+ * The building id of the region's pre-built `type` piece nearest (x, y) (-1: none): the sim raises the pre-built pieces
+ * first, in region.prebuilt order, skipping one off the map or on an earlier piece (../sim/works.ts prebuild).
+ */
+export function nearestPrebuilt(region: RegionData, type: string, x: number, y: number): number {
+  const occ = new Set<number>(), { w, h } = region;
+  let id = -1, best = Infinity, n = 0;
+  for (const e of region.prebuilt ?? []) {
+    if (!BUILDINGS[e.type]) continue;
+    const [fw, fh] = rotated(e.type, e.rot ?? 0), t = e.tiles?.length ? e.tiles : rectTiles(e.x, e.y, fw, fh);
+    let ok = true;
+    for (let k = 0; k < t.length && ok; k += 2) ok = t[k] >= 0 && t[k + 1] >= 0 && t[k] < w && t[k + 1] < h && !occ.has(t[k + 1] * w + t[k]);
+    if (!ok) continue;
+    for (let k = 0; k < t.length; k += 2) occ.add(t[k + 1] * w + t[k]);
+    const r = (e.x + fw / 2 - x) ** 2 + (e.y + fh / 2 - y) ** 2;
+    if (e.type === type && r < best) [id, best] = [n, r];
+    n++;
+  }
+  return id;
+}
+
+/** A scenario order as the sim takes it (a gatherNear goes to its node, an attackBuildingNear to its piece). */
 export const resolveOrder = (region: RegionData, o: ScenarioOrder): Order =>
-  o.kind === 'gatherNear' ? { kind: 'gather', squad: o.squad, node: nearestNode(region, o.res, o.x, o.y) } : o;
+  o.kind === 'gatherNear' ? { kind: 'gather', squad: o.squad, node: nearestNode(region, o.res, o.x, o.y) }
+  : o.kind === 'attackBuildingNear' ? { kind: 'attackBuilding', squad: o.squad, building: nearestPrebuilt(region, o.type, o.x, o.y) }
+  : o;
 
 /** The player's team in a scenario (?team= on the page wins; ../view/main.ts sets it). */
 export const playerTeam = (sc: Scenario): number => sc.team ?? 0;

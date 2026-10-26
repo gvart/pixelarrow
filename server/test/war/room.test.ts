@@ -133,6 +133,13 @@ describe('WarRoom orders', () => {
     expect(r.check(1, { t: 'check', id: 5, kind: 'building', type: 'storehouse', x: sx, y: sy })).toMatchObject({ t: 'checked', id: 5, result: { ok: false } });
     expect(r.check(9, { t: 'check', id: 6, kind: 'building', type: 'camp', x: cx, y: cy })).toEqual({ t: 'checked', id: 6, result: null });
     expect(r.order(1, { kind: 'cancelSite', site: site.id })).toBeNull();
+    // demolish: only the owner's team; it goes to his team and the camp comes down after the tear-down
+    expect(r.order(2, { kind: 'demolish', building: site.id })).toBe('badTarget');
+    expect(r.order(1, { kind: 'demolish', building: site.id, team: 1 } as never)).toBeNull();
+    steps(r, 2);
+    expect(r.snapshot().buildings!.find((b) => b.id === site.id)!.razing).toBeGreaterThanOrEqual(0);
+    steps(r, 60);
+    expect(r.snapshot().buildings!.some((b) => b.id === site.id)).toBe(false);
   });
 
   it('offline squads stay, hold with the bot AI and are handed back on rejoin', () => {

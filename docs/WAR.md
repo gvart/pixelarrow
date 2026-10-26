@@ -57,6 +57,11 @@ marsh, scree and forest slow; roads are fast; high ground gives + range and + da
 | Kyrene | SE | desert-edge oasis on a river terrace, red cliffs | copper | Ammos dunes (N), Great River (W) |
 | Elaia | SW | terraced olive hills round a bay, marble | marble | Stymphalia (N), Great River (E) |
 
+Each alliance has one colour everywhere, the world map's and the region's alike (`src/war/world/palette.ts`, from
+`ALLIANCES` and matching the world art): Dodona blue, Skythia gold, Kyrene red, Elaia purple. In a region a team's men
+wear it (the art's red cloth dyed per team, Kyrene keeps the red), and its rings, flags, building marks and land wear
+it too; your own men stand out by a full, wider foot ring (foes' are fainter), and the ownership mode names your land.
+
 Each home sums to 9 resource points; through its entries each home reaches exactly one tin region, one silver
 region and one of Krios/Achelous Delta, all two transfers away. Bronze = copper + tin, so tin and copper force trade
 or war.
@@ -566,6 +571,7 @@ win over the region's while it is on.
 | Orders | right click or E context action (hold E: all actions), H hold, X stop work, F squad active, Q fire arrows, Y deploy engine |
 | Formations | Alt+1 line, Alt+2 column, Alt+3 wedge, Alt+4 loose |
 | Build mode | B on or off; R rotate, F flip a wall's inside, [ ] bridge width, G gate tool, T tower tool, Backspace drop the wall's start; walls: drag or click start and end, Shift chains |
+| Buildings | with one of yours selected (its keys win over the region's): U upgrade, R repair, Del demolish (Del again or the card's button confirms, Esc keeps it) |
 | View and panels | V cut walls down, M full map, F2-F7 map modes, G boss camera, R roster, K market, L landmark, N sound, Shift+W world map |
 | World map | Enter enter or send, T routes, H haul planner, F fit, + - zoom |
 | General | Esc back (fixed; with nothing open: the menu), F10 settings, ? controls, F1 dev panel |
@@ -586,6 +592,7 @@ Build mode (B) places sites on own influence; the selected men build them, else 
 | Joins | a line starting or ending on an own wall, tower or gate joins it there (those tiles are not counted as overlap) |
 | Towers and gates | normal build tools; a gate dropped on an own wall replaces that stretch (and the inner row behind it on a 2-deep wall: the passage); a tower takes the wall tiles under it; the gate turns along the wall under the cursor |
 | Stalled sites | `BuildingSnap.waiting` (goods the store network lacks), `stalled` (`noWorkers`, `noStore`); the site card and a floating note say "Waiting for 6 wood" |
+| Demolish | an own finished building (not a pre-built piece): the card's Demolish asks in the card (Demolish / Keep), then it comes down in 5 s (`DEMOLISH`), no rubble; its goods and 25% of its materials go to the nearest store of its network |
 | Activity | the squad card says what the men do (`activityText` in `src/war/view/hud/activity.ts`): Marching to …, Building palisade (62%), Waiting for wood, Gathering wood, Fighting, Holding |
 | Placement view | while placing, buildings within 4 tiles of the cursor go see-through; the ghost is never cut (V still cuts walls down) |
 
@@ -802,7 +809,8 @@ tells him `soul` claimed or refused; the DO writes the new man (`claimSoul`: an 
 two regions claiming at once cannot pass 12; a refused insert takes the man off the field). A soul draws as a pale,
 glowing ghost of his class sheet (tinted, see-through, an additive glow; no new art) and shows on the minimap and the
 full map; with men selected near one, a prompt names him (class, level, site, fade timer) and its Claim button sends
-them, or reads "Army full 12/12".
+them, or reads "Army full 12/12"; right click or E on the soul gives the same claim order (greyed in the radial while
+the army is full).
 
 ### Anti-oversaturation
 
@@ -1263,4 +1271,4 @@ Each season the leader in each stat (war_season_stats) holds a title, shown as a
 the roster's tabs, in the Works panel's Titles tab (the standings, with your own run at each), on the world map's season
 panel and after the holder's home on the map: **Merchant Prince** (coin sold at his stalls), **Master Builder** (man-hours sold
 under build contracts or given to works), **Warden** (hours held under guard contracts), **Warlord** (foes his men
-struck down).
+struck down this season, war_player_stats; not the men's lifetime kills).

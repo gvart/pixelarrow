@@ -2,8 +2,8 @@
  * Scenes for the war trailer (scripts/landing/trailer-shots.mjs records them, scripts/landing/trailer.mjs cuts them):
  * seeded sandbox scenarios like ./clips.ts, staged for the camera. `sandbox.html?scenario=<id>`; the recorder seeds
  * Math.random per shot, so a take repeats frame for frame. Squad ids follow the spawn order (neutral regions: their
- * lairs and guardians first); the foragers' nodes are the nearest of their kind to a point (gatherNear), building ids
- * the region's own order (tests/war/trailer.test.ts checks them).
+ * lairs and guardians first); the foragers' nodes and the fire arrows' cottage are the nearest of their kind to a point
+ * (gatherNear, attackBuildingNear; tests/war/trailer.test.ts checks them).
  */
 import type { Scenario, ScenarioOrder, ScenarioSquad } from './types';
 import type { Order } from '../types';
@@ -29,9 +29,9 @@ const back = (from: P, to: P, d = 5): P => {
 export const WOOD = [286.4, 272.5] as const, MARBLE = E.marbleKnoll, OLIVE = E.olives;
 /** The woodcutters come at the cypress from the front (screen-below), so they stand before it, not behind it. */
 const WOOD_FRONT = [WOOD[0] + 3, WOOD[1] + 3] as const;
-/** The column's halt on the terrace top above the olive grove, and the cottage the fire arrows go for (building 25). */
+/** The column's halt on the terrace top above the olive grove, and the cottage the fire arrows go for (the one nearest this point). */
 export const RIDGE = [318, 176] as const;
-export const COTTAGE = 25;
+export const COTTAGE = [257, 345] as const;
 const COLUMN = ['celt_sword', 'celt_sword', 'javelineer', 'archer'] as const;
 
 /** The town at peace (squads 0..6, team 0) and the column on the ridge (7..10, team 1, idle). */
@@ -92,7 +92,7 @@ export const TRAILER_SCENARIOS: Scenario[] = [
       squads: [{ team: 1, cls: 'archer', count: SQUAD_MAX, x: 268, y: 336, owner: 'raiders' }],
       then: [{ kind: 'placeBuilding', squad: 11, type: 'brazier', x: 270, y: 338 }],
       // once the brazier burns: fire arrows on, at the cottage
-      later: { settle: 2, orders: [{ kind: 'fireArrows', squad: 11, on: true }, { kind: 'attackBuilding', squad: 11, building: COTTAGE }] },
+      later: { settle: 2, orders: [{ kind: 'fireArrows', squad: 11, on: true }, { kind: 'attackBuildingNear', squad: 11, type: 'cottage', x: COTTAGE[0], y: COTTAGE[1] }] },
     },
   },
   {

@@ -3,7 +3,8 @@
  * smithing, Battle Brothers' gear compare): the crew strip on top; a recipe list grouped by gear slot (a forge) or by
  * kind, each with its icon, tier and time; the picked recipe on the right with who it is for (a man of the selected
  * squad), its stats against what he wears now, the inputs as have/need chips, time and the odds, and a big Forge
- * button; the queue as slots along the foot; mending the stash's gear folds away under it. Pure HTML; ./index.ts
+ * button; the queue as slots under the list; mending the stash's gear folds away under it (unfolded, it takes the
+ * recipes' place, so the panel fits a 1440x900 window without scrolling). Pure HTML; ./index.ts
  * mounts it and routes data-* clicks. Rows are data (RECIPES, ITEMS, itemMods): new recipes and stats slot in.
  */
 import { CIV_CLASSES, type CivClassId } from '../../../../data/classes';
@@ -156,17 +157,17 @@ export function workplaceHtml(C: SandboxCraft, b: BuildingSnap, crafters: Crafte
       <div class="wp-in" style="margin-top:6px">${needChips(sel.inputs, stock)}<span class="wp-time" data-tip="${esc(maker ? `${maker.civ!.name} L${maker.civ!.level} works ×${maker.rate.toFixed(2)}` : 'at a crafter\'s base rate')}">${glyph('ui:hourglass', 14)}<b>${secs(sel.secs / (maker?.rate ?? 1))}</b></span></div>
       ${maker ? oddsHtml(C, maker, sel, level) : ''}
       <button class="rf-tbtn pri big wp-go" data-queue="${sel.id}" ${why ? 'disabled' : ''}>${wp.kind === 'forge' ? 'Forge' : wp.kind === 'cookhouse' ? 'Cook' : 'Make'}</button>
-      ${why || short ? `<div class="wp-why rf-hint">${esc(why || `${short}: it waits in the queue until the store holds them`)}</div>` : ''}
+      ${why || short ? `<div class="wp-why rf-hint" data-tip="${esc(why || `${short}: it waits in the queue until the store holds them`)}">${esc(why || `${short}: it waits in the queue`)}</div>` : ''}
     </div>`;
   }
 
-  // the queue: CRAFT.queue slots along the foot
+  // the queue: CRAFT.queue slots under the recipe list
   const queue = Array.from({ length: CRAFT.queue }, (_, i) => {
     const o = q[i];
     if (!o) return '<div class="wp-qs empty"></div>';
     const r = o.kind === 'craft' ? RECIPES[o.recipe] : null, c = unit.get(o.by);
     const name = o.kind === 'craft' ? nameOf(r ? outId(r) : o.recipe) : `${o.kind} ${nameOf(o.recipe)}`;
-    return `<div class="wp-qs${o.by >= 0 ? ' on' : ''}" data-tip="${esc(`<b>${name}</b><br>${o.by >= 0 ? `${c?.civ?.name ?? 'at work'}: ${Math.round(o.progress * 100)}%` : 'waiting for a free crafter or its goods'}<br><span class='rf-dim'>✕ cancels: the goods taken come back</span>`)}">${r ? outIcon(r, 24) : `<span class="wp-lt" style="width:24px;height:24px">${esc(o.kind.slice(0, 3))}</span>`}${bar(o.by >= 0 ? 'construction' : 'ok', o.progress, 40)}<button class="x" data-cancel="${o.id}">✕</button></div>`;
+    return `<div class="wp-qs${o.by >= 0 ? ' on' : ''}" data-tip="${esc(`<b>${name}</b><br>${o.by >= 0 ? `${c?.civ?.name ?? 'at work'}: ${Math.round(o.progress * 100)}%` : 'waiting for a free crafter or its goods'}<br><span class='rf-dim'>✕ cancels: the goods taken come back</span>`)}">${r ? outIcon(r, 24) : `<span class="wp-lt" style="width:24px;height:24px">${esc(o.kind.slice(0, 3))}</span>`}${bar(o.by >= 0 ? 'construction' : 'ok', o.progress, 28)}<button class="x" data-cancel="${o.id}">✕</button></div>`;
   }).join('');
 
   // mending: stash items made here
@@ -181,17 +182,19 @@ export function workplaceHtml(C: SandboxCraft, b: BuildingSnap, crafters: Crafte
   }).join('');
 
   const working = q.filter((o) => o.by >= 0).length;
+  // unfolded, the stash's gear takes the recipes' place (the queue stays): the panel keeps one height and fits 1440x900
+  const mend = !!mendRows && !!v.mend;
   return `<div class="rf-card" style="padding:5px 8px 8px">
     <div class="rf-ph"><span class="rf-cell" style="width:36px;height:36px">${icon(BUILDING_ICON[b.type] ?? 'bld-storehouse', 32)}</span><div style="flex:1;min-width:0"><div class="rf-name">${WP_NAME[wp.kind]} <span class="rf-lv">L${level}</span></div><div class="sub">${level} crafter${level > 1 ? 's' : ''} at a time · ${working ? `${working} at work` : q.length ? `${q.length} queued, nobody at work` : 'idle'}</div></div><button class="rf-tbtn x" data-act="closeWp" data-tip="close (Esc)">✕</button></div>
     <div class="wp-crew">${crew}${assign}</div>
     <div class="wp-main">
-      <div class="wp-side"><div class="wp-list rf-scroll rf-well">${rows}</div>
-        <button class="rf-tbtn${v.all ? ' on' : ''} wp-all" data-act="all" data-tip="list what this crew cannot make yet, and why">${v.all ? 'Hide locked' : `Show locked${lockedN ? ` (${lockedN})` : ''}`}</button></div>
-      ${detail}
+      <div class="wp-side">${mend ? '' : `<div class="wp-list rf-scroll rf-well">${rows}</div>
+        <button class="rf-tbtn${v.all ? ' on' : ''} wp-all" data-act="all" data-tip="list what this crew cannot make yet, and why">${v.all ? 'Hide locked' : `Show locked${lockedN ? ` (${lockedN})` : ''}`}</button>`}
+        <div class="rf-sec" style="margin:${mend ? 0 : 5}px 0 1px">Queue<span class="rf-dim">${q.length} / ${CRAFT.queue}</span></div>
+        <div class="wp-queue">${queue}</div></div>
+      ${mend ? `<div class="wp-det wp-mends rf-scroll">${mendRows}</div>` : detail}
     </div>
-    <div class="rf-sec">Queue<span class="rf-dim">${q.length} / ${CRAFT.queue}</span></div>
-    <div class="wp-queue">${queue}</div>
-    ${mendRows ? `<div class="rf-sec wp-fold" data-act="mend">${v.mend ? '▾' : '▸'} Mend gear<span class="rf-dim">${mends.length} in your stash</span></div>${v.mend ? mendRows : ''}` : ''}
+    ${mendRows ? `<div class="rf-sec wp-fold" data-act="mend">${mend ? '▾' : '▸'} Mend gear<span class="rf-dim">${mends.length} in your stash${mend ? ' · click: back to the recipes' : ''}</span></div>` : ''}
   </div>`;
 }
 
@@ -230,12 +233,13 @@ export const WP_CSS = `
 .wp-odds{display:flex;height:6px;box-shadow:0 0 0 1px #0e0907}.wp-odds i{display:block;height:6px}
 .wp-go{width:100%;margin-top:auto;margin-bottom:0}
 .wp-det .wp-go{margin-top:8px}
-.wp-why{font-size:11px;margin-top:3px;text-align:center;white-space:normal}
+.wp-why{font-size:11px;margin-top:3px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .wp-queue{display:grid;grid-template-columns:repeat(${CRAFT.queue},1fr);gap:3px}
 .wp-qs{position:relative;height:36px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;background:radial-gradient(circle at 50% 35%,#2a1b13,#120b08);border:1px solid #3a2418}
 .wp-qs.on{border-color:#6a5326;box-shadow:0 0 6px rgba(224,184,103,.25)}
 .wp-qs.empty{background:#0f0907;border:1px dashed #2a1a12}
 .wp-qs .x{position:absolute;right:1px;top:1px;width:14px;height:14px;padding:0;border:0;background:none;color:var(--rf-muted);font-size:10px;line-height:14px}.wp-qs .x:hover{color:var(--rf-bad)}
 .wp-fold{cursor:pointer}
+.wp-mends{height:280px;overflow-y:auto;display:block;padding:3px 8px}
 .wp-m{display:flex;align-items:center;gap:5px;padding:3px 0}
 `;

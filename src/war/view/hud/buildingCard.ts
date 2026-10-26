@@ -124,6 +124,7 @@ export function statusOf(b: BuildingSnap): Status {
   if (b.ruin) return { tone: 'bad', text: 'Ruined: does nothing until rebuilt' };
   if (b.fouled) return { tone: 'bad', text: 'Fouled: no water for 30 min' };
   if (b.mend) return { tone: 'gold', text: 'Being repaired' };
+  if (b.razing !== undefined) return { tone: 'bad', text: `Being torn down (${Math.round(b.razing * 100)}%)` };
   const share = b.hp / Math.max(1, b.maxHp);
   if (b.state === 'damaged') return { tone: 'bad', text: `Damaged (${Math.round(share * 100)}%): repair it` };
   const wp = BUILDINGS[b.type]?.workplace;
