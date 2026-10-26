@@ -749,9 +749,12 @@ export function obsidianHold(k: Kit, at: Pt, hm: number): Landmark {
   for (const [x, y] of [[50, 12], [56, 12], [62, 12]]) s.put('@town-storehouse', x, y);
   s.put('arch-barracks', 12, 50); s.put('arch-barracks', 12, 58); s.put('arch-forge', 40, 22);
   yard(s, 44, 40, 76, 70);
-  scatter(s, ['@town-storehouse', 'arch-workshop', 'obsidian-hall', 'arch-tenement', 'arch-cistern'], 10, 10, 110, 82, 24, 162, { hp: 0.6, margin: 1 });
+  // (rock-cut halls and flat mudbrick stores: the red-tiled workshops and tenements read as a town dropped on the basalt)
+  scatter(s, ['@town-storehouse', 'ammon-block-c', 'obsidian-hall', 'ammon-block-d', 'arch-cistern'], 10, 10, 110, 82, 24, 162, { hp: 0.6, margin: 1 });
   capHomes(s, 4, 60, 50);
   s.dress(['kyrene/rocks-red', 'kyrene/boulder-red', 'kyrene/talus-red'], (x, y) => (x < 6 || x >= 114 || y < 6 || y >= 86), 40, 163, { gap: 4 });
   s.dress(['kyrene/debris-mud', 'kyrene/rocks-red'], (x, y) => x > 8 && x < 112 && y > 8 && y < 84 && !s.streets.has(y * 4096 + x), 40, 164, { gap: 4 });
+  // the chimera's yard, a bare paved square: scorched rubble, fallen blocks and bones round its edges (walkable)
+  s.dress(['kyrene/rubble-heap-mud', 'elaia/debris-stone', 'kyrene/rocks-red', 'elaia/wall-fallen-stone', 'kyrene/debris-mud'], (x, y) => x > 44 && x < 76 && y > 40 && y < 70 && Math.hypot(x - 60, y - 52) > 8, 22, 165, { gap: 4, streets: true });
   return { site: s, host: [], gates: G.map((g) => out(s, g, 8)), spots: { hold: s.u(60, 50) } };
 }

@@ -17,7 +17,7 @@
  */
 import type { Kit, Pt } from './kit.ts';
 import { fbm } from './kit.ts';
-import { composeOnDraft } from './draftCompose.ts';
+import { composeOnDraft, marketGoods } from './draftCompose.ts';
 import { relief } from './setpieces.ts';
 
 const hash = (x: number, y: number, s: number) => { const v = Math.sin(x * 127.1 + y * 311.7 + s * 74.7) * 43758.5453; return v - Math.floor(v); };
@@ -138,4 +138,6 @@ export default composeOnDraft('canyons', { staging: [163, 196], entryBand: 6 }, 
   }, ['sand', 'redrock', 'dirt', 'dune', 'hardpan', 'reg', 'gravel'], 2);
   // (last: the seeds above stay as they were) the canyon floors: pale sand washes all through (no dark reg or brown dune blotches the desert's sand rule lays)
   k.patchWhere('kyrene', 'sand', (x, y) => { const i = k.at([x, y]); return i >= 0 && k.height[i] <= 1; }, ['sand']);
+  // the market at the canyons' crossing, bare sand round its flag
+  marketGoods(k, [139.6, 111.2], 'kyrene');
 }, { bushes: 0.5 });
