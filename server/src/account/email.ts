@@ -124,8 +124,8 @@ const uniqueOn = (e: unknown, cols: string) => /UNIQUE/i.test(String((e as Error
 
 /**
  * POST /api/auth/verify, purpose add_email: inserts the password identity and
- * its hash for the player. 409 `email_conflict` (the token stays live, for
- * V6-LINK-03) when the address belongs to another account.
+ * its hash for the player. 409 `email_conflict` when the address belongs to
+ * another account (accounts are never merged).
  */
 export async function verifyAddEmail(d: FlowDeps, notify: Notifier, token: string): Promise<PlayerRow> {
   const { th, row, player } = await liveToken(d, 'add_email', token);

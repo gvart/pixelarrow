@@ -78,7 +78,7 @@ const COPY: Record<Lang, Record<Template, Copy>> = {
     },
     email_conflict: {
       subject: 'This email already has a Pixelarrow account',
-      lines: ['Someone, probably you, asked to add this email to another Pixelarrow account (a Telegram one).', 'This address already has its own account, so nothing was changed. If both accounts are yours, open this link to choose what to do. It works for 24 hours.'],
+      lines: ['Someone, probably you, asked to add this email to another Pixelarrow account.', 'This address already has its own account, so nothing was changed. Accounts are not merged: to play this one, sign in with this email.'],
       button: 'Open Pixelarrow',
       after: ["If this wasn't you, ignore this email. Your account is unchanged."],
     },
@@ -166,7 +166,7 @@ const COPY: Record<Lang, Record<Template, Copy>> = {
     },
     email_conflict: {
       subject: 'У этой почты уже есть аккаунт Pixelarrow',
-      lines: ['Кто-то, вероятно вы, попросил добавить эту почту к другому аккаунту Pixelarrow (аккаунту Telegram).', 'У этого адреса уже есть свой аккаунт, поэтому ничего не изменилось. Если оба аккаунта ваши, откройте ссылку и выберите, что делать. Она действует 24 часа.'],
+      lines: ['Кто-то, вероятно вы, попросил добавить эту почту к другому аккаунту Pixelarrow.', 'У этого адреса уже есть свой аккаунт, поэтому ничего не изменилось. Аккаунты не объединяются: чтобы играть в этот, войдите с этой почтой.'],
       button: 'Открыть Pixelarrow',
       after: ['Если это были не вы, проигнорируйте письмо. С аккаунтом ничего не произошло.'],
     },

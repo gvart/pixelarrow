@@ -27,7 +27,6 @@ export const ACCOUNT_EN = {
   'auth.err.turnstileLoad': "The security check didn't load.",
   'auth.err.unavailable': 'Accounts are unavailable right now. Try again in a few minutes.',
   'auth.err.offline': 'No connection. Check your internet and try again.',
-  'auth.err.creds': "That email and password don't match. Check both, or reset your password.",
   // check your email (§5.3)
   'auth.check.resent': 'If that email is waiting for confirmation, a new link is on its way.',
   'auth.check.sendAgain': 'Send again',
@@ -53,10 +52,7 @@ export const ACCOUNT_EN = {
   'auth.page.emailChanged': 'Your email is now {email}. We told your old address.',
   'auth.page.emailChangedPlain': 'Your email is changed. We told your old address.',
   'auth.page.conflict': 'This email already has a Pixelarrow account.',
-  'auth.page.conflictHint': "To add it to this account, first prove it's yours: enter that address's password.",
-  'auth.page.continue': 'Link this email',
-  'auth.page.removedEmpty': 'An empty Pixelarrow account that only had this email was removed.',
-  'auth.page.handover': 'Opening the game to choose which account to keep…',
+  'auth.page.conflictHint': 'Nothing was changed. To play that account, sign in with this email.',
   'auth.page.stopped': 'Stopped. Press Play when you are ready.',
   // log in (§6.4)
   'auth.login.submit': 'Sign in',

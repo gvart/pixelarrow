@@ -16,8 +16,6 @@ export type Lang = 'en' | 'ru';
 
 /** Email tokens are 32 random bytes in base64url (server/src/auth/flows.ts newToken); the server caps them at 128. */
 const TOKEN_RE = /^#t=([A-Za-z0-9_-]{16,128})$/;
-/** Conflict ids, as the game's #account/conflict/<id> route accepts them (src/online/deeplink.ts). */
-const CONFLICT_RE = /^[A-Za-z0-9_-]{22}$/;
 
 /** The token from the address fragment (`#t=…`), or null when the link is incomplete or malformed. */
 export function readToken(hash: string): string | null {
@@ -33,10 +31,10 @@ export function variantOf(pathname: string): Variant | null {
 export type Reply = { status: number; body: unknown } | null;
 
 /** Message keys of auth/strings.*.ts the views name. */
-export type PageKey = 'auth.err.pwShort' | 'auth.err.pwLong' | 'auth.err.pwCommon' | 'auth.err.pwEmail' | 'auth.err.creds' | 'auth.page.rate' | 'auth.page.offline' | 'auth.err.unavailable';
+export type PageKey = 'auth.err.pwShort' | 'auth.err.pwLong' | 'auth.err.pwCommon' | 'auth.err.pwEmail' | 'auth.page.rate' | 'auth.page.offline' | 'auth.err.unavailable';
 
 export type View =
-  | { kind: 'success'; purpose: Purpose; name: string; removedEmpty?: true }
+  | { kind: 'success'; purpose: Purpose; name: string }
   | { kind: 'resetDone' }
   | { kind: 'expired'; variant: Variant }
   | { kind: 'taken' }
@@ -45,7 +43,6 @@ export type View =
   | { kind: 'rate' }
   | { kind: 'offline' }
   | { kind: 'unavailable' }
-  | { kind: 'handover'; to: string }
   /** A form stays open: a message under its password field, or in its banner. */
   | { kind: 'field'; key: PageKey }
   | { kind: 'banner'; key: PageKey };
@@ -103,23 +100,6 @@ export function resetView(r: Reply): View {
   const code = codeOf(r);
   if (POLICY[code]) return { kind: 'field', key: POLICY[code] };
   if (code === 'invalid_token') return { kind: 'expired', variant: 'reset' };
-  return { kind: 'banner', key: 'auth.err.unavailable' };
-}
-
-/** POST /api/auth/verify/conflict (V6-LINK-03): the add_email token plus the password of the address's own account. */
-export function conflictView(r: Reply): View {
-  if (r && r.status === 200) {
-    const b = r.body as { conflict?: unknown; removedEmpty?: unknown };
-    if (typeof b.conflict === 'string' && CONFLICT_RE.test(b.conflict)) return { kind: 'handover', to: `/#account/conflict/${b.conflict}` };
-    const v: View = { kind: 'success', purpose: 'add_email', name: nameOf(r) };
-    if (b.removedEmpty === true) v.removedEmpty = true;
-    return v;
-  }
-  const c = formCommon(r);
-  if (c) return c;
-  const code = codeOf(r);
-  if (code === 'invalid_credentials') return { kind: 'field', key: 'auth.err.creds' };
-  if (code === 'invalid_token') return { kind: 'expired', variant: 'add_email' };
   return { kind: 'banner', key: 'auth.err.unavailable' };
 }
 

@@ -570,61 +570,6 @@ describe('conflicts (ADR-0009 §5 as amended by V6-053; M-LK-5..8, N-LK-1, N-LK-
 
 });
 
-describe('email conflicts (ADR-0009 §5.2: the live email_conflict link plus the other account password)', () => {
-  const addEmail = (a: Auth, email: string) => api('/api/account/email', { method: 'POST', ...a, json: { email, password: 'another-password-77' } });
-  const proveOther = (token: string | null, password: string) =>
-    api('/api/auth/verify/conflict', { method: 'POST', json: { token, password }, headers: { origin: GAME_ORIGIN, 'cf-connecting-ip': ip() } });
-
-  async function conflictLink(t: { token: string }, w: { email: string }): Promise<string> {
-    expect((await addEmail({ token: t.token }, w.email)).status).toBe(202);
-    const mails = await mailTo(w.email, 2);
-    expect(mails[1].subject).toMatch(/already has/i);
-    return linkToken(mails[1])!;
-  }
-
-  it('the email link plus the other password opens a conflict; it resolves only when the Telegram owner agrees in the Mini App', async () => {
-    const w = await webAccount();
-    await giveProgress(w.pid, 3);
-    const t = await tgAccount();
-    await giveProgress(t.pid, 8);
-    const token = await conflictLink(t, w);
-    const bad = await proveOther(token, 'not-the-password-1');
-    expect(bad.status).toBe(401);
-    expect(await errorOf(bad)).toBe('invalid_credentials');
-    const r = await proveOther(token, PW);
-    expect(r.status).toBe(200);
-    const body = await r.json<{ conflict: string; player: { id: number } }>();
-    expect(body.player.id).toBe(t.pid);
-    const cookie = sidOf(r)!;
-    expect((await proveOther(token, PW)).status).toBe(400);
-    const v = await (await conflictOf({ cookie }, body.conflict)).json<Record<string, unknown>>();
-    expect(v).toMatchObject({ kind: 'email', this: { displayName: t.name, signIn: ['telegram'] }, other: { displayName: w.name, signIn: ['password'] } });
-    // The Telegram player's own Mini App session is not the bound web side.
-    expect((await conflictOf({ token: t.token }, body.conflict)).status).toBe(404);
-    expect((await resolve({ cookie }, body.conflict, 'this', w.name)).status).toBe(202);
-    expect(await deletedAt(w.pid)).toBeNull();
-    expect(await (await tgChoose(t, body.conflict, 'telegram')).json()).toEqual({ status: 'waiting_web' });
-    const ok = await resolve({ cookie }, body.conflict, 'this', w.name);
-    expect(await ok.json()).toEqual({ status: 'resolved', kept: 'this', switched: false });
-    expect(await deletedAt(w.pid)).not.toBeNull();
-    const login = await form('/api/auth/login', { email: w.email, password: PW });
-    expect((await login.json<{ player: { id: number } }>()).player.id).toBe(t.pid);
-  });
-
-  it('an empty email account is removed automatically', async () => {
-    const w = await webAccount();
-    const t = await tgAccount();
-    await giveProgress(t.pid);
-    const token = await conflictLink(t, w);
-    const r = await proveOther(token, PW);
-    expect(r.status).toBe(200);
-    expect(await r.json()).toMatchObject({ purpose: 'add_email', removedEmpty: true, player: { id: t.pid } });
-    expect(await deletedAt(w.pid)).not.toBeNull();
-    const login = await form('/api/auth/login', { email: w.email, password: PW });
-    expect((await login.json<{ player: { id: number } }>()).player.id).toBe(t.pid);
-  });
-});
-
 describe('housekeeping', () => {
   it('prunes spent and expired link codes and expired conflicts', async () => {
     const w = await webAccount();

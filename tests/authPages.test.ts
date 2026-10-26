@@ -1,7 +1,7 @@
 // The standalone email-link pages /auth/* (V6-ACCT-06, design/ux/accounts-v6.md §5.4, §7.2, §8.3, §8.4):
 // what each server reply shows, where the token comes from and the language.
 import { describe, expect, it } from 'vitest';
-import { conflictView, pageLang, readToken, resetView, savedLangSetting, variantOf, verifyView } from '../auth/logic';
+import { pageLang, readToken, resetView, savedLangSetting, variantOf, verifyView } from '../auth/logic';
 import { PW_MAX, PW_MIN } from '../auth/logic';
 import headers from '../public/_headers?raw';
 import { readText } from './support/nodeIo.js';
@@ -69,23 +69,6 @@ describe('resetView (POST /api/auth/reset/confirm)', () => {
     expect(resetView(err(429, 'rate_limited'))).toEqual({ kind: 'banner', key: 'auth.page.rate' });
     expect(resetView(null)).toEqual({ kind: 'banner', key: 'auth.page.offline' });
     expect(resetView(err(403, 'banned'))).toEqual({ kind: 'banned' });
-  });
-});
-
-describe('conflictView (POST /api/auth/verify/conflict)', () => {
-  it('hands a live conflict over to the game, else confirms the email', () => {
-    expect(conflictView(ok({ conflict: 'c0ffeec0ffeec0ffeec0ff', player }))).toEqual({ kind: 'handover', to: '/#account/conflict/c0ffeec0ffeec0ffeec0ff' });
-    expect(conflictView(ok({ removedEmpty: true, player }))).toEqual({ kind: 'success', purpose: 'add_email', name: 'SwiftArcher4821', removedEmpty: true });
-    expect(conflictView(ok({ player }))).toEqual({ kind: 'success', purpose: 'add_email', name: 'SwiftArcher4821' });
-  });
-  it('a wrong password stays on the form; a spent token is the expired card', () => {
-    expect(conflictView(err(401, 'invalid_credentials'))).toEqual({ kind: 'field', key: 'auth.err.creds' });
-    expect(conflictView(err(400, 'invalid_token'))).toEqual({ kind: 'expired', variant: 'add_email' });
-    expect(conflictView(err(429, 'rate_limited'))).toEqual({ kind: 'banner', key: 'auth.page.rate' });
-    expect(conflictView(null)).toEqual({ kind: 'banner', key: 'auth.page.offline' });
-  });
-  it('never builds a hand-over URL out of a malformed conflict id', () => {
-    expect(conflictView(ok({ conflict: '../../evil', player }))).toEqual({ kind: 'success', purpose: 'add_email', name: 'SwiftArcher4821' });
   });
 });
 
