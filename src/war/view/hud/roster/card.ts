@@ -2,7 +2,7 @@
  * The soldier card (M5g, W-55; docs/WAR.md "UI touchpoints"), laid out after the RPG character sheets (Battle Brothers'
  * paper doll, Darkest Dungeon's icon-led stats, Bannerlord's attribute pips):
  *
- *   head      name, rank crest (veteran / elite), close; class, where he is (squad, reserve, wounded...) as icons
+ *   head      name, rank crest (veteran / elite), close; class, what he is doing and in which region (./doing.ts)
  *   level     the level disc, the XP bar; HP in the field; a pending level-up as a gold banner that opens the tree
  *   doll      portrait between the gear slots (empty slots show a faint outline of what goes there), beside it the four
  *             attributes with their value and 15 pips
@@ -24,6 +24,7 @@ import { snapW, UNIT_ICON } from '../kit';
 import { rankOf } from './markers';
 import { SandboxRoster, type Row } from './state';
 import { esc, itemBadges, itemIcon, itemTip, statRows } from './ui';
+import { doingText } from './doing';
 import { isCivClass } from '../../../../data/classes';
 import { pointsAt, profOf, PROF_NODES } from '../../../../data/professions';
 import type { SandboxCraft } from '../craft/state';
@@ -74,11 +75,12 @@ function offers(R: SandboxRoster, p: WarPerson): string {
   return `<button class="rr-pending" data-act="tree" ${tip(card({ icon: 'ui:tgstar', name: 'Level up', w: 200, more: '<div>Open his tree: what he may take now glows.</div>' }))}>${glyph('ui:tgstar', 16)}<span>${head}</span><span class="go">Open tree ›</span></button>`;
 }
 
-/** Where he is: squad, reserve, wounded, captive, fallen; an icon with its term. */
+/** What he is doing and where: squad and activity in the field, the region he is in, wounded, captive, fallen. */
 function whereHtml(R: SandboxRoster, r: Row): string {
-  const h = r.p.hero;
-  if (r.where === 'field') return `${glyph('ui:banner', 14)}<span>Squad #${r.squad}, in the field</span>`;
-  const t = { reserve: 'reserve', wounded: 'wounded', captive: 'captive', dead: 'fallen' }[r.where];
+  const h = r.p.hero, now = doingText(r);
+  if (r.where === 'field') return `${glyph('ui:banner', 14)}<span>Squad #${r.squad} · ${esc(now.startsWith('In ') ? now : `${now} in ${r.region}`)}</span>`;
+  if (r.where === 'away') return `${glyph('ui:flag', 14)}<span>${esc(now)}</span>`;
+  const t = { wounded: 'wounded', captive: 'captive', dead: 'fallen' }[r.where];
   const extra = r.where === 'captive' ? `, held by team ${R.captorOf(r.p.id) ?? '?'} · ransom ${30 * h.level} silver` : '';
   return `<span class="rr-where" ${tip(termCard(t))}>${glyph(TERMS[t].icon, 14)}<span>${TERMS[t].name}${extra}</span></span>`;
 }

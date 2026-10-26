@@ -573,7 +573,7 @@ Built on the single-player hero (`src/data/units.ts` `Hero`, `src/sim/stats.ts` 
 sees the baked stat block. Numbers are first-pass targets for balance tests. **N** = fighters per player (below);
 every other cap is written in terms of N.
 
-### Army size N (proposal, owner to confirm)
+### Army size N (W-58: N = 12 is the whole army)
 
 | N | Players per region (600 cap) | With the 10% civilian quota | Attachment (a) | Formations (b) | Verdict |
 | --- | --- | --- | --- | --- | --- |
@@ -585,8 +585,13 @@ every other cap is written in terms of N.
 Recommendation: **N = 12 fighters per player**, every one of them a unit the player can command on his own (W-53,
 "Unit control" below): any man or any mix of his men takes an order, so there are no fixed detachments. (d) Civilians
 count toward the 600 cap inside a 10% quota, so 12 gives 45–50 players per region,
-inside the owner's 50–60 hope. Changing N later is one constant (`SQUAD_MAX`, today `MAX_ARMY` 20) plus re-tuned
-scenarios.
+inside the owner's 50–60 hope.
+
+**Decided (W-58):** a player has at most N = 12 fighters **in total**, counted across all regions. There is no reserve
+and no barracks pool; the 12 may be split across regions as he likes. Wounded, captive and training men count; the
+dead and the retired free their place; civilians are the household, outside the cap. Recruiting fills only up to 12
+(`army_full` past it), the start squad is up to 12, a transfer moves at most 12. One constant: `ARMY_MAX`
+(`src/war/sim/soldiers.ts`; `SQUAD_MAX`, `MAX_SQUAD` and `TRANSFER_MAX` follow it).
 
 ### Record (server-side, one row per person)
 
@@ -697,7 +702,7 @@ player's (`notOwner` otherwise); the field is optional, so the wire stays additi
 | Capture | a wounded man on a tile the enemy holds when the fight ends (no friendly within 15 tiles) becomes `captive` in the captor's nearest fort (≤ 20 per fort, extra are freed) |
 | Prisoners | captor pays 1 food/h each; ransom = 30 × level silver, the owner pays or declines; a raid reaching the fort frees all; after 24 h they walk home. No execution or conversion |
 | Veterans | survivors keep XP, gear and honours; gear wears per fight (`cond`), a smith repairs it |
-| Roster | N in the field + N/2 reserve (barracks, healing, captive) + household; at the cap a recruit needs a retirement |
+| Roster | N = 12 men in total across all regions (fit, wounded, captive, training; W-58) + household; no reserve; at the cap a recruit is refused until a man falls or retires |
 | Retire | returns half the gear value and leaves one honour on the alliance memorial; a level-10 soldier may retire into a civilian class at level 5 |
 
 Household: separate from the N fighters, size `min(4, 1 + fit soldiers ÷ 4)` (with N = 12: 4). Separate so the
@@ -727,7 +732,7 @@ a region.
 
 | Surface | Content |
 | --- | --- |
-| Roster panel | field squad, reserve, household; one state mark per man (HP bar, tent, bleeding heart, lock, skull), level disc, gold star for a waiting level-up; drag to swap |
+| Roster panel | "n / 12 men" in the head; squads in the field, men in other regions, household; under each man what he is doing and where (Marching, Building, Gathering, Fighting, Holding, Wounded, In <region>); one state mark per man (HP bar, flag, bleeding heart, lock, skull), level disc, gold star for a waiting level-up; drag to swap |
 | Soldier card | paper doll (empty slots show a faint outline), class and elite, level disc and XP bar, 4 attributes with pips, battle numbers with icons, 2 skill medallions, honours, stash, kills and battles |
 | Level-up | toast on the squad card; a gold banner on the card opens the tree; at levels 3 and 7 a choice of 2 skills with a stat preview |
 | Skill tree | no legend: taken lit gold, open a breathing bronze ring with a cost badge, locked dark iron with a lock and the level it opens at |

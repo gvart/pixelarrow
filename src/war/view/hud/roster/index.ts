@@ -103,7 +103,7 @@ export function mountRoster(s: SandboxScene, mk: Mk): RosterHooks {
     else if (so) sort = SORTS[(SORTS.indexOf(sort) + 1) % SORTS.length];
     else if (a?.dataset.act === 'close') open = false;
     else if (a?.dataset.act === 'xpAll') {
-      for (const x of R.rows()) if (x.where === 'field' || x.where === 'reserve') R.devXp(x.p.id);
+      for (const x of R.rows()) if (x.where === 'field' || x.where === 'away') R.devXp(x.p.id);
     } else if (a?.dataset.act === 'endFight') R.endFight();
     else if (r) {
       // W-53: a man in the field is selected in the world too (shift adds or drops him)

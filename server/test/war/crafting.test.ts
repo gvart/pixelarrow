@@ -18,7 +18,7 @@ import { api, devLogin } from '../helpers';
 
 const DB = () => env.DB!;
 const seedCiv = async (who: { token: string; playerId: number }, level: number) => {
-  const r = await api('/api/war/dev/seed', { method: 'POST', token: who.token, json: { squad: [{ cls: 'hoplite' }], reserve: [{ cls: 'civ_smith', level }] } });
+  const r = await api('/api/war/dev/seed', { method: 'POST', token: who.token, json: { squad: [{ cls: 'hoplite' }, { cls: 'civ_smith', level }] } });
   expect(r.status).toBe(200);
   const { ids } = (await r.json()) as { ids: string[] };
   return { hoplite: ids[0], smith: ids[1] };
@@ -231,14 +231,14 @@ describe('migration 0023 over rows', () => {
     await applyD1Migrations(db, all.slice(0, at));
     await db.batch([
       db.prepare("INSERT INTO players (id, telegram_id, name) VALUES (90001, 90001, 'm')"),
-      db.prepare("INSERT INTO war_persons (id, player_id, cls, state) VALUES ('wp1', 90001, 'civ_smith', 'reserve')"),
+      db.prepare("INSERT INTO war_persons (id, player_id, cls, state) VALUES ('wp1', 90001, 'civ_smith', 'active')"),
       db.prepare("INSERT INTO war_items (uid, player_id, item) VALUES ('wi1', 90001, '{}')"),
     ]).catch(async () => {
       // players columns differ by migration: fall back to the minimum the table needs
       const cols = (await db.prepare('SELECT name, "notnull", dflt_value FROM pragma_table_info(?)').bind('players').all<{ name: string; notnull: number; dflt_value: unknown }>()).results;
       const need = cols.filter((c) => c.notnull && c.dflt_value === null && c.name !== 'id');
       await db.prepare(`INSERT INTO players (id${need.map((c) => `, ${c.name}`).join('')}) VALUES (90001${need.map(() => ", 'x'").join('')})`).run();
-      await db.prepare("INSERT INTO war_persons (id, player_id, cls, state) VALUES ('wp1', 90001, 'civ_smith', 'reserve')").run();
+      await db.prepare("INSERT INTO war_persons (id, player_id, cls, state) VALUES ('wp1', 90001, 'civ_smith', 'active')").run();
       await db.prepare("INSERT INTO war_items (uid, player_id, item) VALUES ('wi1', 90001, '{}')").run();
     });
     await applyD1Migrations(db, all.slice(at, at + 1));

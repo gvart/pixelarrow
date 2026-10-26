@@ -86,7 +86,7 @@ async function player(id, name, alliance) {
   const snap = await p.api('GET', '/api/war/world');
   if (snap.you.alliance === null) await p.api('POST', '/api/war/world/dev/alliance', { alliance });
   let ros = await p.api('GET', '/api/war/roster');
-  const home = (r) => r.persons.filter((x) => (x.state === 'active' || x.state === 'reserve') && !x.region);
+  const home = (r) => r.persons.filter((x) => x.state === 'active' && !x.region);
   const want = 12 - home(ros).length;
   if (want > 0 && ros.persons.filter((x) => x.state !== 'dead').length === 0) {
     await p.api('POST', '/api/war/recruit', { town: 'home', count: want });

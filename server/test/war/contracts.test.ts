@@ -20,7 +20,7 @@ const code = async (p: Promise<unknown>) => p.then(() => 'ok', (e: { code?: stri
 const give = (holder: string, res: string, n: number, origin = 'dodona') => DB().batch([putStmt(DB(), holder, res, n, origin)]);
 const present = (pid: number, town: string) => DB().prepare("INSERT OR REPLACE INTO war_persons (id, player_id, state, region) VALUES (?1, ?2, 'active', ?3)").bind(`pr-${pid}-${town}`, pid, town).run();
 const merchant = (pid: number, perks: string[]) =>
-  DB().prepare("INSERT INTO war_persons (id, player_id, cls, state, perks) VALUES (?1, ?2, 'merchant', 'reserve', ?3)").bind(`m-${pid}`, pid, JSON.stringify(perks)).run();
+  DB().prepare("INSERT INTO war_persons (id, player_id, cls, state, perks) VALUES (?1, ?2, 'merchant', 'active', ?3)").bind(`m-${pid}`, pid, JSON.stringify(perks)).run();
 const MASTER = ['trader', 'packer', 'contracts', 'broker', 'banker'];
 
 async function trader(n: number) {

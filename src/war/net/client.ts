@@ -61,7 +61,7 @@ export function createNet(url: string, region: string, devId: number | undefined
     pid = s.pid;
     const auth = s.headers;
     signedIn(auth);
-    const fit = (p: RosterPerson) => (p.state === 'active' || p.state === 'reserve') && !p.region;
+    const fit = (p: RosterPerson) => p.state === 'active' && !p.region;
     const all = async () => ((await (await fetch('/api/war/roster', { headers: auth })).json()) as { persons: RosterPerson[] }).persons;
     const load = async () => (await all()).filter(fit);
     const roster = await all();
@@ -102,10 +102,10 @@ export function createNet(url: string, region: string, devId: number | undefined
       checks.clear();
     };
   })().catch((e) => console.error(e));
-  /** Take up to n soldiers from home for a squad: his field squad in slot order first, then the class asked for. */
+  /** Take up to n soldiers from home for a squad: his men with a squad slot in slot order first, then the class asked for. */
   const pick = (cls: string, n: number): string[] => {
-    const squad = home.filter((p) => p.state === 'active').sort((a, b) => (a.slot ?? 99) - (b.slot ?? 99));
-    const rest = home.filter((p) => p.state !== 'active');
+    const squad = home.filter((p) => p.slot != null).sort((a, b) => a.slot! - b.slot!);
+    const rest = home.filter((p) => p.slot == null);
     const order = [...squad, ...rest.filter((p) => p.cls === cls), ...rest.filter((p) => p.cls !== cls)].slice(0, Math.min(n, MAX_SQUAD));
     home = home.filter((p) => !order.includes(p));
     return order.map((p) => p.id);

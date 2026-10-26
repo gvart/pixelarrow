@@ -1,14 +1,14 @@
 /**
  * A new player's start (/api/war/start/*; docs/WAR.md "Starting a game"; rules in src/war/world/start.ts). Three steps,
- * once per player and season: an alliance, a free home region of it, a squad of up to SQUAD_MAX men of the classes with
- * war sprites. The squad is his first men (active, in slot order) and comes out of his home recruit pool, so it replaces
+ * once per player and season: an alliance, a free home region of it, a squad of up to ARMY_MAX men (his whole army, W-58) of the
+ * classes with war sprites. The squad is his first men (active, in slot order) and comes out of his home recruit pool, so it replaces
  * recruiting militia for a new player. Kept in D1 on war_alliance_members (migrations/0037_war_start.sql).
  *
  *   GET  /                     the step (alliance | home | squad | done), the alliances with their players, the home
  *                              choices of his alliance (players, men there, quota, why not free), the classes
  *   POST /alliance { alliance }  join 0..3 (Dodona, Skythia, Kyrene, Elaia); again before the squad changes it (home reset)
  *   POST /home     { region }    a free home of his alliance
- *   POST /squad    { classes }   1..SQUAD_MAX men of START_CLASSES: the start is done
+ *   POST /squad    { classes }   1..ARMY_MAX men of START_CLASSES: the start is done
  *
  * Refusals (409): started (the start is done), no_alliance, no_home, home_refused, bad_squad; 400 for a bad body.
  * Players who came in by the dev routes (DEV_AUTH: /world/dev/alliance and /dev/seed) count as started once they have men.
@@ -20,7 +20,7 @@ import type { AppEnv, Env } from '../env';
 import { ApiError } from '../errors';
 import { db, requirePlayable } from '../middleware';
 import { makePerson } from '../../../src/war/sim/roster';
-import { SQUAD_MAX } from '../../../src/war/sim/soldiers';
+import { ARMY_MAX } from '../../../src/war/sim/soldiers';
 import { DEFAULT_CAP, splitQuota } from '../../../src/war/net/protocol';
 import { ALLIANCES, WAR_SEASON } from '../../../src/war/world/alliances';
 import { homeChoices, homeRefusal, squadRefusal, START_CLASSES } from '../../../src/war/world/start';
@@ -74,7 +74,7 @@ export async function startView(env: Env, pid: number): Promise<StartView> {
     }));
   }
   const home = r?.home ?? (step === 'done' && alliance !== null ? ALLIANCES[alliance].home : null);
-  return { step, alliance, home, alliances: ALLIANCES.map((a) => ({ id: a.id, name: a.name, members: counts.members[a.id] })), homes, classes: START_CLASSES, squadMax: SQUAD_MAX };
+  return { step, alliance, home, alliances: ALLIANCES.map((a) => ({ id: a.id, name: a.name, members: counts.members[a.id] })), homes, classes: START_CLASSES, squadMax: ARMY_MAX };
 }
 
 const started = () => new ApiError(409, 'started', 'Your start is made: your men are in the war');

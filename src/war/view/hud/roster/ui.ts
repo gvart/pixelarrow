@@ -165,7 +165,7 @@ export const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;')
 
 export const ROSTER_CSS = `
 .rr-list{overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;scrollbar-color:#7a3418 #140c08;border-top:1px solid var(--rf-line)}
-.rr-row{display:flex;align-items:center;gap:6px;height:31px;padding:0 4px 0 6px;cursor:pointer;box-shadow:inset 3px 0 0 transparent;border-bottom:1px solid #1e140e}
+.rr-row{display:flex;align-items:center;gap:6px;height:40px;padding:0 4px 0 6px;cursor:pointer;box-shadow:inset 3px 0 0 transparent;border-bottom:1px solid #1e140e}
 .rr-row:hover{background:var(--rf-hover)}
 .rr-row.on{background:var(--rf-sel);box-shadow:inset 3px 0 0 var(--rf-title)}
 .rr-row.dead{opacity:.5}
@@ -174,6 +174,7 @@ export const ROSTER_CSS = `
 .rr-nm{font:600 12.5px/1 Inter,sans-serif;color:var(--rf-ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rr-xp{height:2px;background:#2a1a12;margin-top:4px;position:relative}
 .rr-xp i{position:absolute;left:0;top:0;height:2px;background:linear-gradient(90deg,#a8802f,#e0b867)}
+.rr-doing{font:500 10.5px/1 Inter,sans-serif;color:var(--rf-muted);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rr-lvup{display:flex;animation:rr-glow 1.8s ease-in-out infinite}
 @keyframes rr-glow{0%,100%{filter:drop-shadow(0 0 1px rgba(224,184,103,.5))}50%{filter:drop-shadow(0 0 4px rgba(224,184,103,1))}}
 .rr-st{width:40px;display:flex;justify-content:center;align-items:center}

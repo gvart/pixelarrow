@@ -193,7 +193,7 @@ export async function cancelOffer(db: D1Database, pid: number, id: number, now: 
 
 /** Is the player present in town (men of his deployed there)? */
 export async function presentIn(db: D1Database, pid: number, town: string): Promise<boolean> {
-  return !!(await db.prepare("SELECT 1 FROM war_persons WHERE player_id = ?1 AND region = ?2 AND state IN ('active', 'reserve') LIMIT 1").bind(pid, town).first());
+  return !!(await db.prepare("SELECT 1 FROM war_persons WHERE player_id = ?1 AND region = ?2 AND state = 'active' LIMIT 1").bind(pid, town).first());
 }
 
 export interface FillResult { id: string; offer: number; n: number; price: number; tax: number; seller: number; buyer: number; score: number }

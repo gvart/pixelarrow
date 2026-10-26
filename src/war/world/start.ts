@@ -1,9 +1,10 @@
 /**
  * A new player's start (docs/WAR.md "Starting a game"): one of the four alliances, then a free home region of that
- * alliance, then a squad of up to SQUAD_MAX men picked freely from the classes that have war sprites. Pure rules shared
- * by the server (server/src/war/start.ts, the one that decides) and the menu (src/war/menu, which shows the same).
+ * alliance, then a squad of up to ARMY_MAX men (his whole army) picked freely from the classes that have war sprites.
+ * Pure rules shared by the server (server/src/war/start.ts, the one that decides) and the menu (src/war/menu, which
+ * shows the same).
  */
-import { SQUAD_MAX } from '../sim/soldiers';
+import { ARMY_MAX } from '../sim/soldiers';
 import { joinRefusal, type HeldRegion } from './access';
 import { ALLIANCES } from './alliances';
 import { WORLD_REGIONS } from './regions';
@@ -23,21 +24,21 @@ export interface HomeState extends HeldRegion { live: number[] }
 
 /**
  * null: `id` is a free home for a new player of `alliance` (one of its home choices, fresh men may come in, and the
- * alliance's quota there has room for a full squad); else why not.
+ * alliance's quota there has room for a whole army); else why not.
  */
 export function homeRefusal(id: string, alliance: AllianceId, st: HomeState | null, quota: number): string | null {
   const r = homeChoices(alliance).find((x) => x.id === id);
   if (!r) return `${id} is not a home of ${ALLIANCES[alliance].name}`;
   const why = joinRefusal(id, alliance, st);
   if (why) return why;
-  if ((st?.live[alliance] ?? 0) + SQUAD_MAX > quota) return `${r.name} is full: ${ALLIANCES[alliance].name}'s ${quota} men already stand there`;
+  if ((st?.live[alliance] ?? 0) + ARMY_MAX > quota) return `${r.name} is full: ${ALLIANCES[alliance].name}'s ${quota} men already stand there`;
   return null;
 }
 
-/** null: `classes` is a legal start squad (1..SQUAD_MAX men of START_CLASSES); else why not. */
+/** null: `classes` is a legal start squad (1..ARMY_MAX men of START_CLASSES); else why not. */
 export function squadRefusal(classes: readonly string[]): string | null {
   if (!classes.length) return 'pick at least one man';
-  if (classes.length > SQUAD_MAX) return `a squad is at most ${SQUAD_MAX} men`;
+  if (classes.length > ARMY_MAX) return `an army is at most ${ARMY_MAX} men`;
   const bad = classes.find((c) => !(START_CLASSES as readonly string[]).includes(c));
   return bad ? `${bad} cannot be picked at the start` : null;
 }

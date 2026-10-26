@@ -17,10 +17,11 @@
  * there is full. They hold where they arrive; the player takes them over by joining `to`'s room (a rejoin).
  */
 import { z } from 'zod';
+import { ARMY_MAX } from '../sim/soldiers';
 import type { AllianceId } from '../world/types';
 
-/** Most men one transfer moves (they arrive as one squad: MAX_SQUAD). */
-export const TRANSFER_MAX = 12;
+/** Most men one transfer moves: the whole army (they arrive as one squad). */
+export const TRANSFER_MAX = ARMY_MAX;
 
 const transferFields = z.object({
   from: z.string().regex(/^[a-z0-9_-]{1,40}$/),

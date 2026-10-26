@@ -6,7 +6,7 @@
  *   POST /recruit       { town, count }        L1 militia from the town's pool (food)
  *   POST /persons/:id/equip { slot, uid|null } put on a strongroom item, or take one off
  *   POST /persons/:id/level { attrs?, skill? } spend points, take a skill at levels 3 / 7
- *   POST /squad         { ids }                the field squad in slot order (<= SQUAD_MAX)
+ *   POST /squad         { ids }                the squad order of his fit men at home (<= ARMY_MAX)
  *   POST /persons/:id/train  { cls }          train at a town's barracks / range (10 min, a kit's coin)
  *   POST /persons/:id/promote { cls }        promote to an elite of his family at a fortress (30 min, the elite rare kit's coin)
  *   POST /persons/:id/ransom                  pay a captive's ransom (coin to his captor's strongroom): he comes home
@@ -22,7 +22,7 @@
  *                                             (chests, carts, packs) as saved; equip from the strongroom with
  *                                             /persons/:id/equip; repair and salvage go over the region socket (`mend`)
  *   /start/*                                  a new player's start: alliance, home region, squad (./start.ts)
- *   POST /dev/seed      { squad?, reserve? }   DEV_AUTH=1 only: a full roster to test with
+ *   POST /dev/seed      { squad? }             DEV_AUTH=1 only: a whole army (and civilians) to test with
  */
 import { Hono } from 'hono';
 import { z } from 'zod';
@@ -33,13 +33,13 @@ import { db, requirePlayable } from '../middleware';
 import { SLOTS } from '../../../src/data/items';
 import { ATTR_IDS, ATTR_MAX } from '../../../src/data/perks';
 import { SKILLS } from '../../../src/war/sim/skills';
-import { SQUAD_MAX } from '../../../src/war/sim/soldiers';
+import { ARMY_MAX } from '../../../src/war/sim/soldiers';
 import type { WarSkillId } from '../../../src/war/types';
 import { pickNode, respec, stash } from './crafting';
 import { deposit, payRansomFromTreasury, treasury } from './treasury';
 import { trade } from './tradeRoutes';
 import { start } from './start';
-import { equip, formSquad, levelUp, payRansom, promote, recruit, releaseCaptive, retire, roster, ROSTER_MAX, seed, train } from './persons';
+import { equip, formSquad, levelUp, payRansom, promote, recruit, releaseCaptive, retire, roster, seed, train } from './persons';
 
 export const war = new Hono<AppEnv>();
 // per route, not war.use('/*'): /api/war/:region/stats (dev, index.ts) shares the prefix
@@ -51,12 +51,12 @@ const idParam = (s: string) => {
   return s;
 };
 const skillId = z.string().refine((s): s is WarSkillId => s in SKILLS, 'unknown skill');
-const group = z.array(z.object({ cls: z.string().regex(/^[a-z_]{1,24}$/), level: z.number().int().min(1).max(10).optional() })).max(ROSTER_MAX);
+const group = z.array(z.object({ cls: z.string().regex(/^[a-z_]{1,24}$/), level: z.number().int().min(1).max(10).optional() })).max(2 * ARMY_MAX); // fighters (seed checks ARMY_MAX) and civilians
 
 war.get('/roster', requirePlayable, async (c) => c.json(await roster(db(c.env), c.get('session').pid, Date.now())));
 
 war.post('/recruit', requirePlayable, async (c) => {
-  const b = await readJson(c, z.object({ town: z.string().regex(/^[a-z0-9_-]{1,40}$/), count: z.number().int().min(1).max(ROSTER_MAX).default(1) }), MAX_BODY);
+  const b = await readJson(c, z.object({ town: z.string().regex(/^[a-z0-9_-]{1,40}$/), count: z.number().int().min(1).max(ARMY_MAX).default(1) }), MAX_BODY);
   const ids = await recruit(db(c.env), c.get('session').pid, b.town, b.count, Date.now());
   return c.json({ ids });
 });
@@ -77,7 +77,7 @@ war.post('/persons/:id/level', requirePlayable, async (c) => {
 });
 
 war.post('/squad', requirePlayable, async (c) => {
-  const b = await readJson(c, z.object({ ids: z.array(personId).max(SQUAD_MAX) }), MAX_BODY);
+  const b = await readJson(c, z.object({ ids: z.array(personId).max(ARMY_MAX) }), MAX_BODY);
   await formSquad(db(c.env), c.get('session').pid, b.ids, Date.now());
   return c.json({ ok: true });
 });
@@ -141,7 +141,7 @@ war.route('/start', start);
 
 war.post('/dev/seed', requirePlayable, async (c) => {
   if (c.env.DEV_AUTH !== '1') throw new ApiError(404, 'not_found', 'No such endpoint');
-  const b = await readJson(c, z.object({ squad: group.max(SQUAD_MAX).optional(), reserve: group.optional() }), MAX_BODY * 2);
+  const b = await readJson(c, z.object({ squad: group.optional() }), MAX_BODY * 2);
   const ids = await seed(db(c.env), c.get('session').pid, Date.now(), b);
   return c.json({ ids });
 });
