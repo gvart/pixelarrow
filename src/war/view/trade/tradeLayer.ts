@@ -16,6 +16,7 @@
 import Phaser from 'phaser';
 import type { BuildingSnap, PileSnap, RegionData, ResourceKind, SiegeSnap, TileRect } from '../../types';
 import type { IsoMap } from '../iso';
+import type { Lift } from '../build/buildingLayer';
 import type { DrawUnit } from '../simClient';
 import { facingOf, type SiegeArt } from '../siege/siegeArt';
 import { SPRITE_ZOOM, TEAM_COLOR } from '../units';
@@ -50,6 +51,11 @@ export class TradeLayer {
   siegeArt: () => SiegeArt | null = () => null;
   /** A holder to ring: a cart, pile or building id. */
   ring: { cart?: number; pile?: number; building?: number } | null = null;
+  /** Men pulling a handcart this frame (they play the carry clip, else walk). */
+  readonly pulling = new Set<number>();
+  /** Porters whose pack ../units.ts drew on his walk last frame (on his stride's anchor): no sack mark here. */
+  packed: (id: number) => boolean = () => false;
+  private lifts = new Map<number, Lift>();
   private imgs: Phaser.GameObjects.Image[] = [];
   private ni = 0;
   private g: Phaser.GameObjects.Graphics;
@@ -90,12 +96,19 @@ export class TradeLayer {
     this.ni = 0;
     const g = this.g.clear(), k = 1 / zoom;
     this.drawZones(zoom);
-    for (const e of sieges) if (isCart(e) && this.visible(v, e.x, e.y)) this.cart(e, now, k);
+    this.lifts.clear();
+    this.pulling.clear();
+    const crews = new Map<number, DrawUnit[]>();
+    for (const d of units) if (d.u.task === 'crew' && d.u.state !== 'dead') {
+      const l = crews.get(d.u.squad);
+      if (l) l.push(d); else crews.set(d.u.squad, [d]);
+    }
+    for (const e of sieges) if (isCart(e) && this.visible(v, e.x, e.y)) this.cart(e, now, k, crews.get(e.crew) ?? []);
     for (const p of piles) if (this.visible(v, p.x, p.y)) this.pile(p, k);
     for (const b of buildings) if (b.type === 'chest' && b.state !== 'destroyed' && this.visible(v, b.x, b.y)) this.chest(b);
     // porters' loads
     for (const d of units) {
-      if (!d.u.pack || d.u.state === 'dead') continue;
+      if (!d.u.pack || d.u.state === 'dead' || this.packed(d.u.id)) continue;
       const f = this.feet(d);
       if (f.x < v.x - 40 || f.x > v.right + 40 || f.y < v.y - 80 || f.y > v.bottom + 40) continue;
       if (zoom >= SPRITE_ZOOM) {
@@ -146,13 +159,26 @@ export class TradeLayer {
     }
   }
 
-  private cart(e: SiegeSnap, now: number, k: number): void {
+  /** Cart crews: drawn on the art's crew points (null: as the sim has them). */
+  lift(d: { x: number; y: number; u?: { id: number } }): Lift | null {
+    return d.u ? this.lifts.get(d.u.id) ?? null : null;
+  }
+
+  private cart(e: SiegeSnap, now: number, k: number, crew: DrawUnit[]): void {
     const art = this.art, f = facingOf(e.facing) as Facing, z = this.iso.zAt(e.x, e.y), base = this.D(e.x, e.y), g = this.g;
     const j = art?.carts.get(e.type);
     const [w, h] = j?.footprint[f] ?? (f === 'e' || f === 'w' ? [2, 1] : [1, 2]);
     const x0 = e.x - w / 2, y0 = e.y - h / 2;
     const wrecked = e.state === 'destroyed', moving = !wrecked && e.state === 'move' && !e.halted;
     const owner = TEAM_COLOR[slot(e.team)] ?? 0xcccccc;
+    // the crew at the art's crew points facing the way it is pulled (a handcart's pullers between the shafts, ahead of
+    // the box: in front of it on screen facing e / s, behind it facing w / n), sorted with it by their own points
+    const offs = !wrecked ? j?.crew?.[f] ?? [] : [];
+    crew.filter((d) => Math.hypot(d.x - e.x, d.y - e.y) < 3).sort((a, b) => a.u.id - b.u.id).slice(0, offs.length).forEach((d, i) => {
+      const px = x0 + offs[i][0], py = y0 + offs[i][1];
+      this.lifts.set(d.u.id, { x: px, y: py, z, px: 0, depth: this.D(px, py) + (i + 1) * IN, facing: e.facing });
+      if (e.type === 'handcart') this.pulling.add(d.u.id);
+    });
     // the owner's ring on the ground (a selected / hovered cart: white)
     const c = this.pt(e.x, e.y, z), rw = (w + h) * 18;
     const ringed = this.ring?.cart === e.id;

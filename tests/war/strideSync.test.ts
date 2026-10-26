@@ -29,7 +29,7 @@ describe('stride-synced walk cycle', () => {
   it.each([0.3, 1, 2])('at %fx the march pace the cycle runs at that rate, in order, no frame cut', (k) => {
     const f = frames(PACE.walk * k, 3000);
     // cycles played in 3 s = 3k (one per second at 1x)
-    const wraps = steps(f).filter((s, i) => f[i + 1] < f[i]).length;
+    const wraps = f.slice(1).filter((x, i) => x < f[i]).length;
     expect(wraps).toBe(Math.floor(3 * k));
     // frames only move forward, never skipping one (at 2x: 32 frames/s at 60 fps)
     for (const s of steps(f)) expect(s).toBeLessThanOrEqual(1);

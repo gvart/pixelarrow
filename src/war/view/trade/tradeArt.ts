@@ -14,6 +14,8 @@ export interface CartJson {
   states: Record<Facing, Record<string, string>>; cargo: Record<Facing, Record<string, string>>;
   moving: Record<Facing, { file: string; frames: number; fps: number; frame: { w: number; h: number }; tileOrigin: { x: number; y: number } }>;
   team?: Record<Facing, [number, number][]>;
+  /** Where its crew walk (tile offsets from the footprint NW corner): a handcart's two pullers at the shafts, a wagon's driver. */
+  crew?: Record<Facing, [number, number][]>;
   fx?: Record<Facing, Record<string, { id: string; at: { x: number; y: number }; alpha?: number }[]>>;
 }
 interface MuleJson { file: string; frame: { w: number; h: number }; rows: string[]; anims: Record<string, { col: number; frames: number; fps?: number }>; anchors: Record<string, { x: number; y: number }>; facingRow: Record<Facing, string>; scale?: number }

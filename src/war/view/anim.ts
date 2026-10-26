@@ -45,7 +45,7 @@ const RUN_UP = 2.05, RUN_DOWN = 1.7;
 /** Tiles/s under which a moving man counts as still, over which he walks again; still this long (ms): he idles. */
 const STILL = 0.12, GO = 0.25, STOP_MS = 300;
 /** Tiles/s a clip is authored for (one cycle = pace x clip length): walk at the march pace, run and charge faster. */
-export const PACE: Record<string, number> = { walk: 1.5, run: 2.4, charge: 2.4 };
+export const PACE: Record<string, number> = { walk: 1.5, carry: 1.5, run: 2.4, charge: 2.4 };
 /** Most tiles a frame's move adds to the phase (a jump: a respawn, a skipped frame). */
 const MAX_STEP = 0.5;
 /** Gap between squads (tiles) under which foes count as near. */
@@ -248,7 +248,9 @@ export class Animator {
     const stopped = m.still >= 0 && now - m.still > STOP_MS;
     if (work && !(work in PACE)) { m.loco = ''; return this.loop(m, clips, work, now, u.id); }
     const s = this.squads.get(u.squad);
-    if (work) return this.stride(m, clips, work, step); // a carrier keeps his walk (his load is drawn on it), held when still
+    // a loaded man keeps his walk when still (his load is drawn on it), held mid-stride; a puller or bearer stands
+    if (work && (!stopped || loadOf(u))) return this.stride(m, clips, work, step);
+    if (work) return this.idle(m, clips, now, u.id);
     if (u.state === 'move' && !stopped) {
       const name = s?.order === 'attack' ? pickClip(clips, 'charge') : m.run ? pickClip(clips, 'run') : pickClip(clips, 'walk');
       return this.stride(m, clips, name, step);
