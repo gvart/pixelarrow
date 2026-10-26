@@ -25,6 +25,7 @@ import {
 import { draggable } from './drag';
 import { bar, fitHeight, icon } from './kit';
 import { keys } from '../../input/keys';
+import { myTeam } from '../side';
 
 type Mk = (id: string, css: string, html?: string) => HTMLElement;
 type Tab = 'Stall' | 'Offers' | 'Board' | 'Contracts' | 'Letters';
@@ -85,7 +86,7 @@ export function mountMarket(s: SandboxScene, mk: Mk): MarketHud {
   hand.classList.add('rf-card');
   draggable(hand, '.rf-head');
 
-  // the corner's Market button (K)
+  // the corner's Market button (K), in dev only
   const corner = document.getElementById('rfDev');
   const mBtn = document.createElement('button');
   mBtn.className = 'rf-tbtn';
@@ -93,7 +94,7 @@ export function mountMarket(s: SandboxScene, mk: Mk): MarketHud {
   mBtn.textContent = 'Market K';
   mBtn.title = 'the market here: stall, offers, price board, contracts, letters (K)';
   mBtn.onclick = () => toggle();
-  corner?.insertBefore(mBtn, corner.children[1] ?? null);
+  if (import.meta.env.DEV) corner?.insertBefore(mBtn, corner.children[1] ?? null); // players open it with K
 
   const say = (t: string, isBad = false) => { msg = t; bad = isBad; };
   const run = async <T>(p: Promise<Res<T>>, okText: (v: T) => string): Promise<boolean> => {
@@ -114,7 +115,7 @@ export function mountMarket(s: SandboxScene, mk: Mk): MarketHud {
   /** Own living men inside the town's safe court(s). */
   const inCourt = () => {
     const safe = s.region.safe ?? [];
-    return (s.sim.cur?.units ?? []).filter((u) => u.state !== 'dead' && s.sim.squads.get(u.squad)?.team === 0 && safe.some((r) => u.x >= r.x && u.x < r.x + r.w && u.y >= r.y && u.y < r.y + r.h)).length;
+    return (s.sim.cur?.units ?? []).filter((u) => u.state !== 'dead' && s.sim.squads.get(u.squad)?.team === myTeam() && safe.some((r) => u.x >= r.x && u.x < r.x + r.w && u.y >= r.y && u.y < r.y + r.h)).length;
   };
   const stall = () => mine.sites.find((x) => x.kind === 'stall') ?? null;
   const btn = (act: string, label: string, okay = true, extra = '', title = '', cls = 'rf-tbtn mk-b') => `<button class="${cls}" data-act="${act}" ${extra} ${okay ? '' : 'disabled'} title="${title}">${label}</button>`;
@@ -197,7 +198,7 @@ export function mountMarket(s: SandboxScene, mk: Mk): MarketHud {
   const render = () => {
     if (win.style.display === 'none') return;
     const scroll = win.scrollTop;
-    win.innerHTML = `<div class="rf-head">${icon('node-merchant-trader', 32)}<div style="flex:1;min-width:0"><div class="rf-name">Market · ${town(T)}</div><div class="rf-dim" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${M.live ? 'live' : 'offline stub'} · <span style="color:var(--rf-gold)">${Math.floor(s.sim.cur?.stock?.[0]?.coin ?? 0)}</span> coin at home</div></div>${btn('handoff', 'Hand-off', true, '', 'trade with a player here, both present: each puts in a half, both confirm')}<button class="rf-tbtn x" data-act="close" title="close (K)">×</button></div>
+    win.innerHTML = `<div class="rf-head">${icon('node-merchant-trader', 32)}<div style="flex:1;min-width:0"><div class="rf-name">Market · ${town(T)}</div><div class="rf-dim" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${M.live ? 'live' : 'offline stub'} · <span style="color:var(--rf-gold)">${Math.floor(s.sim.cur?.stock?.[myTeam()]?.coin ?? 0)}</span> coin at home</div></div>${btn('handoff', 'Hand-off', true, '', 'trade with a player here, both present: each puts in a half, both confirm')}<button class="rf-tbtn x" data-act="close" title="close (K)">×</button></div>
       <div class="mk-tabs">${TABS.map((t) => `<button class="rf-tab${t === tab ? ' on' : ''}" data-tab="${t}">${t}</button>`).join('')}</div>
       ${BODY[tab]()}<div class="mk-msg rf-dim${bad ? ' bad' : ''}">${msg}</div>`;
     win.scrollTop = scroll;

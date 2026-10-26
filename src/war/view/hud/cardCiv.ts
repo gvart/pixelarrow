@@ -8,8 +8,8 @@ import { CIV_CLASSES, isCivClass } from '../../../data/classes';
 import { BUILDINGS } from '../../sim/economy';
 import type { BuildingSnap, NodeSnap, Order, SquadId } from '../../types';
 import type { SandboxScene } from '../SandboxScene';
+import { myTeam } from '../side';
 
-const TEAM = 0;
 
 /** All the selected own squads are civilians (and there is one). */
 export function allCivilians(s: SandboxScene, own: SquadId[]): boolean {
@@ -36,8 +36,8 @@ const nearest = <T extends { x: number; y: number }>(xs: T[], p: [number, number
   }
   return best;
 };
-const stores = (s: SandboxScene): BuildingSnap[] => (s.sim.cur?.buildings ?? []).filter((b) => b.team === TEAM && BUILDINGS[b.type].store && (b.state === 'done' || b.state === 'damaged'));
-const sites = (s: SandboxScene): BuildingSnap[] => (s.sim.cur?.buildings ?? []).filter((b) => b.team === TEAM && b.state !== 'done' && b.state !== 'destroyed');
+const stores = (s: SandboxScene): BuildingSnap[] => (s.sim.cur?.buildings ?? []).filter((b) => b.team === myTeam() && BUILDINGS[b.type].store && (b.state === 'done' || b.state === 'damaged'));
+const sites = (s: SandboxScene): BuildingSnap[] => (s.sim.cur?.buildings ?? []).filter((b) => b.team === myTeam() && b.state !== 'done' && b.state !== 'destroyed');
 const nodes = (s: SandboxScene): NodeSnap[] => s.sim.nodes.filter((n) => n.amount > 0 && !n.guarded);
 
 /** One order per selected civilian squad, to its nearest target (none: nothing sent). */

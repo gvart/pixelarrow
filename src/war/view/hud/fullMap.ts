@@ -15,6 +15,7 @@ import { icon, uiZoom } from './kit';
 import { swatch } from './modes';
 import { drawIcon, drawMap, explored, fogAt, FOG_SWATCH, ISO_ROT, squads, TEAM, toPx, toTile, type MapXf } from './mapDraw';
 import { keys } from '../../input/keys';
+import { myTeam } from '../side';
 
 const CLASS: Record<string, string> = { militia: 'Militia', hoplite: 'Hoplites', celt_sword: 'Swordsmen', archer: 'Archers', slinger: 'Slingers', javelineer: 'Javelineers' };
 const nice = (t: string) => t.replace(/[A-Z]/g, (c) => ' ' + c.toLowerCase()).replace(/^./, (c) => c.toUpperCase());
@@ -320,15 +321,15 @@ export class FullMap {
     const lair = l.lairs.find((q) => near(q.x, q.y, Math.max(2, pick)) && explored(s, q.x, q.y));
     if (lair) items.push([`${BEAST[lair.kind] ?? nice(lair.kind)} lair`, fog < 2 ? 'Out of sight' : lair.state === 'cleared' ? 'Cleared' : `${lair.alive} of ${lair.count} left · guards ${lair.guard} tiles`]);
     const b = l.buildings.find((q) => q.state !== 'destroyed' && Math.abs(q.x - t.x) <= Math.max(q.w / 2, pick / 2) && Math.abs(q.y - t.y) <= Math.max(q.h / 2, pick / 2));
-    if (b) items.push([nice(b.type), `${b.team === 0 ? 'Yours' : 'Enemy'} · ${b.state}`]);
+    if (b) items.push([nice(b.type), `${b.team === myTeam() ? 'Yours' : 'Enemy'} · ${b.state}`]);
     const c = l.claims.find((q) => near(q.x, q.y, Math.max(2, pick)) && explored(s, q.x, q.y));
-    if (c) items.push(['Claim point', c.state === 'claimed' ? (c.team === 0 ? 'Claimed by you' : 'Claimed by the enemy') : c.state === 'locked' ? 'Locked: clear the lairs first' : nice(c.state)]);
+    if (c) items.push(['Claim point', c.state === 'claimed' ? (c.team === myTeam() ? 'Claimed by you' : 'Claimed by the enemy') : c.state === 'locked' ? 'Locked: clear the lairs first' : nice(c.state)]);
     const nd = l.nodes.find((q) => near(q.x, q.y, Math.max(1, pick / 2)) && explored(s, q.x, q.y));
     if (nd) items.push([nice(nd.res), `${Math.floor(nd.amount)} of ${nd.max} left${nd.guarded ? ' · guarded by a lair' : ''}`]);
     const q = squads(s).find((v) => v.team !== MOB_TEAM && near(v.x, v.y, Math.max(2, pick)));
     if (q) {
       const u = s.drawn.find((d) => d.u.squad === q.id);
-      items.push([`${q.team === 0 ? 'Your' : 'Enemy'} ${CLASS[u?.u.cls ?? ''] ?? 'squad'}`, `${q.n} men`]);
+      items.push([`${q.team === myTeam() ? 'Your' : 'Enemy'} ${CLASS[u?.u.cls ?? ''] ?? 'squad'}`, `${q.n} men`]);
     }
     const ground = s.map.describe(t.x, t.y, l);
     this.place(e, items[0]?.[0] ?? nice(ground[0].split(' · ')[0]));

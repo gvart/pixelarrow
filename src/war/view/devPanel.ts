@@ -37,7 +37,7 @@ export function devPanel(game: Phaser.Game, s: SandboxScene, sc: Scenario | null
     <div class="row"><label><input type="checkbox" id="grid">tile grid</label> <label><input type="checkbox" id="fog" checked>fog</label> <span class="dim">view modes: F2-F7, M full map</span></div>
     <pre id="score"></pre>
     <pre id="perf"></pre>
-    <div class="dim">L click/box select, shift add · E or R click: the context action shown at the cursor<br>H hold · X stop · Ctrl + right click attack-move · F squad active · 1-4 line/column/wedge/loose<br>${SIEGE_HELP}<br>WASD, edge, middle or space+drag pan · wheel zoom</div>`;
+    <div class="dim">L click/box select, shift add · E or R click: the context action shown at the cursor<br>H hold · X stop · Ctrl + right click attack-move · F squad active · Alt+1-4 line/column/wedge/loose<br>${SIEGE_HELP}<br>WASD, edge, middle or space+drag pan · wheel zoom</div>`;
   document.body.appendChild(el);
   const $ = <T extends HTMLElement>(id: string) => el.querySelector<T>('#' + id)!;
   const val = (id: string) => $<HTMLInputElement>(id).value;

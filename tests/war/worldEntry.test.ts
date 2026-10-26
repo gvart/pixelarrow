@@ -28,8 +28,8 @@ describe('world entry', () => {
         { squad: 1, x: 500, y: 500, state: 'dead' },
       ],
     } as unknown as Snapshot;
-    expect(ownCentre(s)).toEqual({ x: 20, y: 30 });
-    expect(ownCentre({ ...s, squads: [{ id: 0, team: 1 }] } as unknown as Snapshot)).toBeNull();
-    expect(ownCentre(null)).toBeNull();
+    expect(ownCentre(s, 0)).toEqual({ x: 20, y: 30 });
+    expect(ownCentre({ ...s, squads: [{ id: 0, team: 1 }] } as unknown as Snapshot, 0)).toBeNull();
+    expect(ownCentre(null, 0)).toBeNull();
   });
 });

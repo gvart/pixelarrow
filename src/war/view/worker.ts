@@ -18,7 +18,7 @@ import { decodeInfluence, unpackNode } from '../net/economy';
 import type { BridgeOrder, BuildingType, InfluenceMap, NodeSnap, Order, RegionData, Snapshot, ResourceKind, WallOrder, WarBuildSim, WarPerson, WarSim } from '../types';
 
 export type ToWorker =
-  | { t: 'init'; region: RegionData; seed: number; sim: 'real' | 'fake'; net?: string; dev?: number }
+  | { t: 'init'; region: RegionData; team: number; seed: number; sim: 'real' | 'fake'; net?: string; dev?: number }
   | { t: 'view'; x0: number; y0: number; x1: number; y1: number } // camera rect in tiles (net mode: interest management)
   | { t: 'spawn'; owner: string; team: number; cls: string; count: number; x: number; y: number; bot?: Behaviour; persons?: WarPerson[] }
   | { t: 'devSpawn'; team: number; cls: string; count: number; x: number; y: number } // dev panel: a squad at a point (net mode: the server's dev spawn)
@@ -58,6 +58,8 @@ const scripted = new Set<number>();
 let timer = 0;
 let inflSent = -1;
 let fogSent = -1;
+/** The player's team (init): its fog goes to the view, its dev squads are 'you'. */
+let me = 0;
 const build = (s: WarSim | null): WarBuildSim | null => (s && 'checkPlacement' in s ? (s as WarBuildSim) : null);
 
 function tick(): void {
@@ -70,8 +72,8 @@ function tick(): void {
   const b = build(sim), infl = b && snap.influenceVersion !== inflSent ? b.influence() : null;
   if (infl) inflSent = infl.version;
   const nodes = b && snap.tick % NODES_EVERY === 0 ? b.resourceNodes() : undefined;
-  // fog of war (W-39) of the player's team (0) when it changed: the grid and the foe buildings as last seen
-  const g = b?.teamGrid(0), fog = g && g.version !== fogSent ? { ...g, state: g.state.slice() } : undefined;
+  // fog of war (W-39) of the player's team when it changed: the grid and the foe buildings as last seen
+  const g = b?.teamGrid(me), fog = g && g.version !== fogSent ? { ...g, state: g.state.slice() } : undefined;
   if (g) fogSent = g.version;
   // M5d event log (falls, captures, level-ups) when there is any
   const ev = b?.events();
@@ -80,7 +82,7 @@ function tick(): void {
     const p = bossPile(b.region.id, 'sandbox', e);
     b.dropPile(p.x, p.y, p.lots, p.items);
   }
-  postMessage({ snap, stats: sim.stats(), events: ev?.length ? ev : undefined, nodes, influence: infl ? { ...infl, mask: infl.mask.slice() } : undefined, fog, seen: fog ? b!.lastSeen(0) : undefined });
+  postMessage({ snap, stats: sim.stats(), events: ev?.length ? ev : undefined, nodes, influence: infl ? { ...infl, mask: infl.mask.slice() } : undefined, fog, seen: fog ? b!.lastSeen(me) : undefined });
 }
 
 function bots(s: WarSim, snap: ReturnType<WarSim['snapshot']>): void {
@@ -155,11 +157,12 @@ onmessage = (e: MessageEvent<ToWorker>) => {
   }
   if (net) return netMessage(net, m);
   if (m.t === 'init') {
+    me = m.team;
     sim = (m.sim === 'fake' ? createFakeSim : createSim)(m.region, m.seed);
     brains = createBots(sim);
     tick();
   } else if (!sim) return;
-  else if (m.t === 'devSpawn') sim.spawnSquad(m.team === 0 ? 'you' : 'bot', m.team, m.cls, m.count, m.x, m.y);
+  else if (m.t === 'devSpawn') sim.spawnSquad(m.team === me ? 'you' : 'bot', m.team, m.cls, m.count, m.x, m.y);
   else if (m.t === 'spawn') {
     const id = sim.spawnSquad(m.owner, m.team, m.cls, m.count, m.x, m.y, m.persons);
     if (m.bot) { brains!.set(id, m.bot); scripted.add(id); }

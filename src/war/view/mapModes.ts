@@ -9,6 +9,7 @@ import { buildGrid } from '../sim/grid';
 import { CLAIM } from '../sim/mobs';
 import { decodeBiomes, decodeVisual, KINDS } from '../regions/visual';
 import type { BuildingSnap, BuildingType, ClaimSnap, InfluenceMap, LairSnap, NodeSnap, RegionData, ResourceKind } from '../types';
+import { slot } from './side';
 import { IsoMap, LH } from './iso';
 
 export type MapMode = 'normal' | 'altitude' | 'movement' | 'ownership' | 'biomes' | 'resources';
@@ -159,7 +160,7 @@ export class MapData {
       const m = l.influence;
       if (m && m.w === w) for (let i = 0; i < nt; i++) {
         const v = m.mask[i];
-        if (v) at[i] = v & 1 ? 0 : v & 2 ? 1 : v & 4 ? 2 : 3;
+        if (v) at[i] = slot(v & 1 ? 0 : v & 2 ? 1 : v & 4 ? 2 : 3); // ours in slot 0 (./side.ts)
       }
       const pal: RGB[] = [...TEAM_RGB, [226, 178, 84], [138, 120, 106], [110, 86, 70], [240, 192, 80]];
       return { mode, pal, alpha: 0.42, at, fine: false, line: 'color', hatch: [4, 5, 6],

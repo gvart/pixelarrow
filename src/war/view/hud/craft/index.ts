@@ -24,9 +24,9 @@ import { GRAPH_CSS, markGraph, panelWidth, paintGraph, type TreeView } from '../
 import { soldierTree, takeSoldier } from '../roster/skillTree';
 import { WP_CSS, WP_PROF, WP_W, workplaceHtml, type Crafter, type Idle, type WpView } from './workplace';
 import { keys } from '../../../input/keys';
+import { myTeam } from '../../side';
 
 type Mk = (id: string, css: string, html?: string) => HTMLElement;
-const TEAM = 0;
 
 export function mountCraft(s: SandboxScene, mk: Mk, roster: RosterHooks): void {
   const R = sandboxRoster(s), C = sandboxCraft(s, R);
@@ -48,7 +48,7 @@ export function mountCraft(s: SandboxScene, mk: Mk, roster: RosterHooks): void {
 
   const workplace = (): BuildingSnap | undefined => {
     const b = s.build.selectedBuilding();
-    return b && b.team === TEAM && BUILDINGS[b.type]?.workplace && (b.state === 'done' || b.state === 'damaged') ? b : undefined;
+    return b && b.team === myTeam() && BUILDINGS[b.type]?.workplace && (b.state === 'done' || b.state === 'damaged') ? b : undefined;
   };
   const centre = (q: number): [number, number] | null => {
     let x = 0, y = 0, n = 0;
@@ -60,7 +60,7 @@ export function mountCraft(s: SandboxScene, mk: Mk, roster: RosterHooks): void {
     const prof = WP_PROF[BUILDINGS[b.type].workplace!.kind], cls = prof ? `civ_${prof}` : '';
     const units = s.sim.cur?.units ?? [], crafters: Crafter[] = [], idle: Idle[] = [];
     for (const q of s.sim.cur?.squads ?? []) {
-      if (q.team !== TEAM || !q.civ) continue;
+      if (q.team !== myTeam() || !q.civ) continue;
       const men = q.units.map((id) => units[id]).filter((u) => u && u.state !== 'dead' && u.cls === cls);
       if (!men.length) continue;
       const c = centre(q.id), near = c && Math.hypot(c[0] - b.x, c[1] - b.y) <= Math.max(b.w, b.h) / 2 + 5;
@@ -87,7 +87,7 @@ export function mountCraft(s: SandboxScene, mk: Mk, roster: RosterHooks): void {
     if (b) {
       if (s.sim.net) void C.pull();
       const { crafters, idle } = crew(b);
-      const html = workplaceHtml(C, b, crafters, idle, view, s.sim.cur?.stock?.[TEAM] ?? {});
+      const html = workplaceHtml(C, b, crafters, idle, view, s.sim.cur?.stock?.[myTeam()] ?? {});
       if (html !== lastW) {
         const list = wpEl.querySelector<HTMLElement>('.wp-list'), top = list?.scrollTop ?? 0;
         wpEl.innerHTML = lastW = html;

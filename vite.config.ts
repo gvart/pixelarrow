@@ -1,7 +1,6 @@
 import { defineConfig } from 'vite';
 // @ts-ignore -- node built-in; the browser tsconfig has no @types/node
 import { execSync } from 'node:child_process';
-import { sheetPackPlugin } from './scripts/art/pack/vite-plugin.mjs';
 
 // `process` without pulling in @types/node for the browser tsconfig.
 const penv = (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env ?? {};
@@ -19,19 +18,14 @@ function appVersion(): string {
   }
 }
 
-/** Heavy test files (see test.projects below): tests/war plus the root files with a test over ~2 s. */
-const SCENARIO = [
-  'tests/war/**/*.test.ts',
-  ...['aiDoctrines', 'crafting', 'eventCard', 'eventDeck', 'events', 'feint', 'itemSources', 'opening', 'orders', 'qafixWorld', 'sheetPacked', 'simTypes', 'sources', 'terrain'].map((f) => `tests/${f}.test.ts`),
-];
+/** Heavy test files (see test.projects below): tests/war. */
+const SCENARIO = ['tests/war/**/*.test.ts'];
 
 // Relative base: the build works at a domain root, under a sub-path such as
 // https://gvart.github.io/pixelarrow/ and inside Telegram's webview alike.
 // All art is generated in code, so there are no runtime asset URLs to fix up.
 export default defineConfig({
   base: './',
-  // class sprite sheets ship packed (scripts/art/pack/, docs/v5/art/SHEET_FORMAT.md)
-  plugins: [sheetPackPlugin()],
   define: { __APP_VERSION__: JSON.stringify(appVersion()) },
   build: {
     target: 'es2020',
@@ -61,8 +55,8 @@ export default defineConfig({
   },
   // The suite is seeded simulation: results never depend on time (wall-clock budgets live in
   // tests/perf, npm run perf:war), so timeouts only catch hangs. Two projects:
-  //  - scenario: whole battles and region runs (tests/war and the heavy campaign files, each with a
-  //    test over ~2 s on a quiet machine). A generous timeout, and at most half the cores, so they
+  //  - scenario: whole battles and region runs (tests/war, each with a test over ~2 s on a quiet
+  //    machine). A generous timeout, and at most half the cores, so they
   //    don't starve each other or the fast tests on a busy machine.
   //  - unit: the rest; every test there is well under 2 s, so 30 s is wide headroom.
   test: {

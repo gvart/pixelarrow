@@ -16,10 +16,10 @@ export function entrySpot(r: Pick<RegionData, 'w' | 'h' | 'entries'>, team: numb
   return { x: e.x + e.w / 2, y: e.y + e.h / 2 };
 }
 
-/** The middle of the player's (team 0) living men in a snapshot; null while he has none here. */
-export function ownCentre(s: Pick<Snapshot, 'units' | 'squads'> | null): { x: number; y: number } | null {
+/** The middle of the living men of the player's team in a snapshot; null while he has none here. */
+export function ownCentre(s: Pick<Snapshot, 'units' | 'squads'> | null, team: number): { x: number; y: number } | null {
   if (!s) return null;
-  const mine = new Set(s.squads.filter((q) => q.team === 0).map((q) => q.id));
+  const mine = new Set(s.squads.filter((q) => q.team === team).map((q) => q.id));
   const us = s.units.filter((u) => mine.has(u.squad) && u.state !== 'dead');
   if (!us.length) return null;
   return { x: us.reduce((a, u) => a + u.x, 0) / us.length, y: us.reduce((a, u) => a + u.y, 0) / us.length };

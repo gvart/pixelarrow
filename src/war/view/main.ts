@@ -4,8 +4,8 @@
  * validates src/war/regions/<id>.json (default test-ridge); ?region=fake is the built-in fake valley
  * (src/war/fake/region.ts). ?sim=fake runs the straight-line fake sim instead of src/war/sim.
  * ?art=grey draws the greybox terrain instead of the PixelLab art (public/war/).
- * ?world=1: opened from the world map (world.html); with ?net it takes over the squads standing in the region (?team=
- * alliance). The HUD's World button (Shift+W) goes back.
+ * ?world=1: opened from the world map (world.html); with ?net it takes over the squads standing in the region.
+ * ?team=<alliance>: the player's side (./side.ts; the live region's welcome confirms it). The HUD's World button (Shift+W) goes back.
  * `window.__sandbox` is the scene, for scripts/war/sandbox-shots.mjs.
  */
 import Phaser from 'phaser';
@@ -24,6 +24,7 @@ import { BakeClient } from './bakeClient';
 import { mountSoundPanel } from './hud/soundPanel';
 import { mountGameMenu } from '../menu/gameMenu';
 import { saveSound } from './sound/mix';
+import { myTeam } from './side';
 
 const q = new URLSearchParams(location.search);
 // M7d: a scenario may name its own region (the landmark raids)
@@ -74,7 +75,7 @@ void Promise.all([loading, q.get('art') === 'grey' ? null : loadArt(), loadSheet
     // M4c, opened from the world map: in net mode take over the squads standing here (a rejoin; else a squad from home,
     // the server places it on the team's entry); offline the player's one squad of 12 walks in at the same entry
     else if (q.has('world')) {
-      const team = q.has('net') ? Number(q.get('team')) || 0 : 0, at = entrySpot(region, team);
+      const team = myTeam(), at = entrySpot(region, team);
       scene.sim.spawn('you', team, 'hoplite', 12, at.x, at.y);
       game.events.on('poststep', toSquad);
     }
@@ -87,7 +88,7 @@ void Promise.all([loading, q.get('art') === 'grey' ? null : loadArt(), loadSheet
   };
   // world entry: the camera opens on the player's men once they stand in the region (not the map's middle)
   const toSquad = () => {
-    const own = ownCentre(scene.sim.cur);
+    const own = ownCentre(scene.sim.cur, myTeam());
     if (!own) return;
     game.events.off('poststep', toSquad);
     scene.focus(own.x, own.y, 1); // close enough to know his men
@@ -95,7 +96,7 @@ void Promise.all([loading, q.get('art') === 'grey' ? null : loadArt(), loadSheet
     // (once they are drawn: the selection takes only men on screen)
     let tries = 0;
     const pick = () => {
-      const cur = scene.sim.cur, me = scene.sim.playerId, mine = new Set(cur?.squads.filter((sq) => sq.team === 0 && (me ? sq.owner === `p:${me}` : sq.owner === 'you')).map((sq) => sq.id));
+      const cur = scene.sim.cur, me = scene.sim.playerId, mine = new Set(cur?.squads.filter((sq) => sq.team === myTeam() && (me ? sq.owner === `p:${me}` : sq.owner === 'you')).map((sq) => sq.id));
       scene.sel?.set(cur?.units.filter((u) => mine.has(u.squad) && u.state !== 'dead').map((u) => u.id) ?? []);
       if ((scene.sel?.units.size ?? 0) > 0 || ++tries > 120) game.events.off('poststep', pick);
     };

@@ -23,6 +23,7 @@ import type { BuildingSnap, SiegeSnap, Snapshot, UnitSnap, WarEvent } from '../.
 import type { SandboxScene } from '../SandboxScene';
 import { NEUTRAL_TEAM } from '../../sim/economy';
 import { ambienceFor, cueSfx, gatherSfx, loadSound, MusicDirector, saveSound, shotSfx, spatial, STATE_TRACK, strikeSfx, struckSince, type AmbSample, type WarSoundSettings } from './mix';
+import { myTeam } from '../side';
 
 /** Field sounds started per snapshot at most (10 Hz). */
 const BUDGET = 8;
@@ -229,7 +230,7 @@ export class WarAudio {
         if (u) this.at('standardFall', u.x, u.y, 4);
       } else if (e.kind === 'landmark') this.ui('chime');
       else if (e.kind === 'wardenStrike') this.at('thunder', e.x + e.w / 2, e.y + e.h / 2, 5);
-      else if (e.kind === 'cartCaptured' && e.team === 0) this.ui('coin');
+      else if (e.kind === 'cartCaptured' && e.team === myTeam()) this.ui('coin');
     }
   }
 
@@ -244,7 +245,7 @@ export class WarAudio {
       const p = this.place(u.x, u.y);
       if (p.vol <= 0) continue;
       if (u.state === 'attack') fighting++;
-      if (team !== undefined && team !== 0 && team !== NEUTRAL_TEAM && !sq.get(u.squad)?.civ) foes++;
+      if (team !== undefined && team !== myTeam() && team !== NEUTRAL_TEAM && !sq.get(u.squad)?.civ) foes++;
     }
     let boss = false;
     for (const b of cur.bosses ?? []) if ((b.state === 'fight' || b.state === 'flight' || (b.state === 'perch' && b.raid > 0)) && this.place(b.x, b.y).vol > 0) boss = true;

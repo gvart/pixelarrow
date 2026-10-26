@@ -15,9 +15,9 @@ import { SIEGE } from '../../sim/siege';
 import type { BuildingSnap, SiegeSnap, SiegeType, SquadId } from '../../types';
 import type { SandboxScene } from '../SandboxScene';
 import { keys } from '../../input/keys';
+import { myTeam } from '../side';
 
 export type Armed = 'raise' | 'push' | 'ignite' | 'extinguish' | 'move' | 'attack' | 'attackMove';
-const TEAM = 0;
 const PICK_R = 1.6;
 const CREW_FIND = 14;
 const ARMED_TEXT: Record<Armed, string> = {
@@ -48,7 +48,7 @@ export class SiegeControls {
   /** The squad orders to the selection go to: its lead (W-53, ../select.ts names the selected men on them), or none. */
   own(): SquadId[] {
     const q = this.s.sel.lead();
-    return q !== null && this.s.sim.squads.get(q)?.team === TEAM ? [q] : [];
+    return q !== null && this.s.sim.squads.get(q)?.team === myTeam() ? [q] : [];
   }
 
   private sieges(): SiegeSnap[] {
@@ -85,7 +85,7 @@ export class SiegeControls {
       if (!c) continue;
       let best: SiegeSnap | null = null, bd = CREW_FIND;
       for (const e of this.sieges()) {
-        if (e.team !== TEAM || e.crew >= 0 || taken.has(e.id) || e.state === 'building' || e.state === 'destroyed' || e.state === 'raised') continue;
+        if (e.team !== myTeam() || e.crew >= 0 || taken.has(e.id) || e.state === 'building' || e.state === 'destroyed' || e.state === 'raised') continue;
         const d = Math.hypot(e.x - c.x, e.y - c.y);
         if (d < bd) (bd = d), (best = e);
       }
@@ -139,11 +139,11 @@ export class SiegeControls {
     return t.x >= 1 && t.y >= 1 && t.x < r.w - 1 && t.y < r.h - 1 && !this.s.build.buildingAt(t) && !r.water[Math.floor(t.y) * r.w + Math.floor(t.x)];
   }
 
-  /** The engine nearest t within PICK_R (enemy: team != 0, else own), not destroyed. */
+  /** The engine nearest t within PICK_R (enemy: not the player's team, else own), not destroyed. */
   engineAt(t: { x: number; y: number }, enemy: boolean): SiegeSnap | undefined {
     let best: SiegeSnap | undefined, bd = PICK_R;
     for (const e of this.sieges()) {
-      if ((e.team !== TEAM) !== enemy || e.state === 'destroyed' || e.state === 'raised') continue;
+      if ((e.team !== myTeam()) !== enemy || e.state === 'destroyed' || e.state === 'raised') continue;
       const d = Math.hypot(e.x - t.x, e.y - t.y);
       if (d < bd) (bd = d), (best = e);
     }
@@ -179,19 +179,19 @@ export class SiegeControls {
       return true;
     }
     if (a === 'raise') {
-      const w = this.tileNear(t, (b) => b.team !== TEAM && !!BUILDINGS[b.type].walk && !BUILDINGS[b.type].access && (b.state === 'done' || b.state === 'damaged'));
+      const w = this.tileNear(t, (b) => b.team !== myTeam() && !!BUILDINGS[b.type].walk && !BUILDINGS[b.type].access && (b.state === 'done' || b.state === 'damaged'));
       if (!w) { this.status = 'raise ladder: no enemy walkway wall or tower there'; return true; }
       for (const q of qs) this.s.sim.order({ kind: 'raiseLadder', squad: q, wallTile: [w.x, w.y] });
       this.s.mark(w.x + 0.5, w.y + 0.5, 0xffe070);
       this.status = 'ladder: carried to the wall';
     } else if (a === 'push') {
-      const l = this.tileNear(t, (b) => b.siege !== undefined && b.team !== TEAM);
+      const l = this.tileNear(t, (b) => b.siege !== undefined && b.team !== myTeam());
       if (!l) { this.status = 'push ladder: no enemy ladder there'; return true; }
       for (const q of qs) this.s.sim.order({ kind: 'pushLadder', squad: q, ladder: l.b.id });
       this.s.mark(l.x + 0.5, l.y + 0.5, 0xffe070);
     } else {
       const enemy = a === 'ignite', e = this.engineAt(t, enemy);
-      const b = e ? null : this.tileNear(t, (q) => (q.team !== TEAM) === enemy && BUILDINGS[q.type].material === 'wood' && (enemy || !!q.burning));
+      const b = e ? null : this.tileNear(t, (q) => (q.team !== myTeam()) === enemy && BUILDINGS[q.type].material === 'wood' && (enemy || !!q.burning));
       const target = e ? { siege: e.id } : b ? { building: b.b.id } : null;
       if (!target) { this.status = `${a}: ${enemy ? 'no enemy wood building or engine there' : 'nothing of yours burning there'}`; return true; }
       for (const q of qs) this.s.sim.order({ kind: a, squad: q, ...target });

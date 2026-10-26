@@ -7,7 +7,7 @@
  * Units are depth sorted by x + y (with the map objects, ./objects.ts); the player's own men hidden
  * behind higher ground, a wall or a stone object show as a team-coloured outline over it; hidden
  * foes are simply hidden.
- * The sheets wear red; team 0 (blue) draws through TEAM_SWAP, a shader that turns the red cloth blue.
+ * The sheets wear red; the player's side (colour slot 0, blue: ./side.ts) draws through TEAM_SWAP, a shader that turns the red cloth blue.
  * A man walking with a load (./anim.ts loadOf) carries its sprite (src/assets/loads) at his sheet's per-frame
  * `loads` anchor: on the shoulder over him, held at the chest under him in the north facings (his back to us).
  */
@@ -20,9 +20,10 @@ import loadsUrl from '../../assets/loads/loads.png?url';
 import type { DrawUnit } from './simClient';
 import { LH, type IsoMap } from './iso';
 import type { Lift } from './build/buildingLayer';
+import { myTeam, slot } from './side';
 
 export const TEAM_COLOR = [0x4aa3ff, 0xe0503c, 0xe8c040, 0xb070e0];
-/** A light multiply per team on the sprites (team 0 is also hue-swapped, see TEAM_SWAP). */
+/** A light multiply per colour slot on the sprites (slot 0 is also hue-swapped, see TEAM_SWAP). */
 const TEAM_TINT = [0xd0e4ff, 0xffd4c8, 0xfff0c0, 0xecd8ff];
 /** Sprites show from this zoom up: always, now the camera stops at 1/2 (SandboxScene MIN_ZOOM); other layers still ask. */
 export const SPRITE_ZOOM = 1 / 3;
@@ -410,7 +411,7 @@ export class UnitLayer {
       if (po?.hold && this.held.has(u.id)) [key, frame] = this.held.get(u.id)!;
       else if (po) this.held.set(u.id, [key, frame]);
       else this.held.delete(u.id);
-      const team = TEAM_COLOR[d.team] ?? 0xcccccc;
+      const team = TEAM_COLOR[slot(d.team)] ?? 0xcccccc;
       const hidden = u.state !== 'dead' && iso.hidden(f.x, f.y - BODY, d.x + d.y, l ? l.z + l.px / LH : iso.zAt(d.x, d.y));
       const depth = l?.depth ?? Math.max(10 + this.depthOf(d.x, d.y) / 4096 + (u.state === 'dead' ? 0 : 0.25), (u.state === 'dead' ? 0 : this.ground?.(d)) || 0);
       if (!hidden && u.state !== 'dead') {
@@ -436,9 +437,9 @@ export class UnitLayer {
       n++;
       img.setTexture(key, frame).setOrigin(q.ox, q.oy).setPosition(Math.round(f.x), Math.round(f.y)).setScale(sheet.scale * (po?.sx ?? 1), sheet.scale * (po?.sy ?? 1)).setVisible(true);
       img.setDepth(depth);
-      if (this.swap && d.team === 0) img.setPipeline(TEAM_SWAP);
+      if (this.swap && slot(d.team) === 0) img.setPipeline(TEAM_SWAP);
       else if (this.swap) img.resetPipeline();
-      img.setTint(TEAM_TINT[d.team] ?? 0xffffff).setAlpha(1);
+      img.setTint(TEAM_TINT[slot(d.team)] ?? 0xffffff).setAlpha(1);
       if (po?.flash) img.setTintFill(0xfff4e0);
       // hidden behind higher ground (the sprite would draw over the baked terrain: not drawn) or behind a wall or object
       // (drawn under it): the player's own men (and the selected) get a thin team-coloured outline over everything, no
@@ -446,7 +447,7 @@ export class UnitLayer {
       if (hidden) img.setVisible(false);
       else this.load(d, sheet, q.row, p.clip, p.frame, img);
       const mk = u.state !== 'dead' ? this.mark?.(u.id) : undefined;
-      if (mk !== undefined || ((hidden || occluded.has(u.id)) && (d.team === 0 || selected.has(u.id)))) {
+      if (mk !== undefined || ((hidden || occluded.has(u.id)) && (d.team === myTeam() || selected.has(u.id)))) {
         let gh = this.ghosts[this.nGhost];
         if (!gh) {
           this.ghosts.push((gh = this.scene.add.image(0, 0, key).setDepth(10.8)));

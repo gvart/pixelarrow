@@ -54,6 +54,8 @@ import { loadGlyphs } from './glyph';
 import { TIP_CSS, tipChain } from './tooltip';
 import { GROUPS_CSS, mountGroups } from './groups';
 import { keys } from '../../input/keys';
+import type { ActionId } from '../../input/actions';
+import { myTeam } from '../side';
 
 const RES: string[] = ['food', 'wood', 'stone', 'marble', 'copper', 'tin', 'iron', 'bronze', 'silver', 'salt', 'olives', 'coin'];
 /** M5h: the band's second page (its toggle under the right end): crafting goods, pitch, and the remedies in the team supplies (p:). */
@@ -220,7 +222,16 @@ export function hud(s: SandboxScene): void {
   sqAtkMove.insertAdjacentHTML('beforeend', `<span class="badge">${icon('act-move')}</span>`);
   const sqHold = btn('cHold', 'act-hold', tipK('Hold', 'stand and fight here', 'H'), 'H', () => s.orderSelected((squad) => ({ kind: 'hold', squad })));
   const sqStop = btn('cStop', 'act-stop', tipK('Stop', 'halt and form up where they stand', 'X'), 'X', stop);
-  const shapes = SHAPES.map((sh, i) => btn('cF' + sh, 'act-' + sh, tipK('Formation: ' + sh, 'the selected men form up as one', 'Alt+' + (i + 1)), String(i + 1), () => { s.orderSelected((squad) => ({ kind: 'formation', squad, shape: sh })); lastShape = sh; }, ''));
+  // the key hints are the formation actions' current bindings (src/war/input; Alt+1-4 by default, rebindable); the
+  // corner badge writes the Mac modifiers as symbols to fit
+  const formKey = (sh: string) => keys.label(`form.${sh}` as ActionId);
+  const badge = (sh: string) => formKey(sh).replace(/Option\+/g, '⌥').replace(/Cmd\+/g, '⌘').replace(/Shift\+/g, '⇧');
+  const shapes = SHAPES.map((sh) => btn('cF' + sh, 'act-' + sh, () => tipK('Formation: ' + sh, 'the selected men form up as one', formKey(sh)), badge(sh), () => { s.orderSelected((squad) => ({ kind: 'formation', squad, shape: sh })); lastShape = sh; }, ''));
+  keys.onChange(() => shapes.forEach((b, i) => {
+    const k = b.querySelector('.key'), label = badge(SHAPES[i]);
+    if (k) k.textContent = label;
+    else if (label) b.insertAdjacentHTML('beforeend', `<span class="key">${label}</span>`);
+  }));
   const orders = [row('', sqMove, sqAtk, sqAtkMove, sqHold, sqStop), row('rf-seg', ...shapes)];
   orders[1].style.gap = '0';
   // civilian squads (M5f): work orders only, their jobs instead of the attack orders
@@ -244,7 +255,7 @@ export function hud(s: SandboxScene): void {
   // building
   const bUp = btn('bup', 'act-upgrade', '', '', () => m.upgrade());
   // M5h3 fortify (Fortifier, paid at once): iron-bind a gate, hang wet hides on a wood piece
-  const fortify = (fort: FortKind) => { const b = m.selectedBuilding(); if (b) s.sim.order({ kind: 'fortify', team: 0, building: b.id, fort }); };
+  const fortify = (fort: FortKind) => { const b = m.selectedBuilding(); if (b) s.sim.order({ kind: 'fortify', team: myTeam(), building: b.id, fort }); };
   const bIron = btn('biron', 'bld-gate', '', '', () => fortify('ironGate'));
   const bWet = btn('bwet', 'act-extinguish', '', '', () => fortify('wetHides'));
   // M7g: repair a damaged building with the selected squads; rebuild an own ruin (the selected squad builds it, else planned)
@@ -257,7 +268,7 @@ export function hud(s: SandboxScene): void {
   const bRebuild = btn('brebuild', 'act-upgrade', '', '', () => {
     const b = m.selectedBuilding(), q = m.squad();
     if (!b) return;
-    s.sim.order(q === null ? { kind: 'rebuild', building: b.id, team: 0 } : { kind: 'rebuild', building: b.id, squad: q });
+    s.sim.order(q === null ? { kind: 'rebuild', building: b.id, team: myTeam() } : { kind: 'rebuild', building: b.id, squad: q });
     s.mark(b.x, b.y, 0x60d060);
   });
   let shownSlots: HTMLElement[] = [], shownOrders: HTMLElement[] | null = null;
@@ -305,10 +316,10 @@ export function hud(s: SandboxScene): void {
   /** M6k: queue a cart at your finished workshop of its level (the nearest to the camera's centre). */
   const craftCart = (id: string) => {
     const lvl = RECIPES[id].lv, cam = s.cameras.main, c = s.tileAt({ x: cam.width / 2, y: cam.height / 2 });
-    const shops = (s.sim.cur?.buildings ?? []).filter((b) => b.team === 0 && (b.state === 'done' || b.state === 'damaged') && BUILDINGS[b.type].workplace?.kind === 'workshop' && BUILDINGS[b.type].workplace!.level >= lvl);
+    const shops = (s.sim.cur?.buildings ?? []).filter((b) => b.team === myTeam() && (b.state === 'done' || b.state === 'damaged') && BUILDINGS[b.type].workplace?.kind === 'workshop' && BUILDINGS[b.type].workplace!.level >= lvl);
     const w = shops.sort((a, b) => Math.hypot(a.x - c.x, a.y - c.y) - Math.hypot(b.x - c.x, b.y - c.y))[0];
     if (!w) { m.status = `${id}: needs a finished workshop L${lvl} of yours`; return; }
-    s.sim.order({ kind: 'craft', team: 0, building: w.id, recipe: id });
+    s.sim.order({ kind: 'craft', team: myTeam(), building: w.id, recipe: id });
     s.mark(w.x, w.y, 0x60d060);
     m.status = `${id} queued at the workshop (an engineer makes it)`;
   };
@@ -326,7 +337,7 @@ export function hud(s: SandboxScene): void {
   const tb = (label: string, tipText: string, run: () => void) => { const b = document.createElement('button'); b.className = 'rf-tbtn'; b.textContent = label; b.title = tipText; b.onclick = run; return b; };
   bWall.append(tb('+ gate G', 'insert a gate on the line', () => (m.insert = 'gate')), tb('+ tower T', 'insert a tower on the line', () => (m.insert = 'tower')), tb('Order ⏎', 'order the walls built', () => m.confirmWall()), tb('Undo ⌫', 'remove the last line', () => m.removeLine(m.lines.length - 1)), tb('Flip F', 'flip the inside', () => m.flipInside()));
 
-  // ---------- top right: dev panel (F1) and the UI scale ----------
+  // ---------- top right: World; in dev also the dev panel (F1) and the UI scale (players set it in Settings, F10) ----------
   const corner = mk('rfDev', 'top:4px;right:4px;pointer-events:auto;display:flex;flex-direction:column;align-items:flex-end;gap:2px', '');
   const dbtn = tb('DEV', 'dev panel (F1)', () => setDev(dev?.style.display === 'none'));
   const sbtn = tb('', 'UI scale: auto (by window) / 0.75x / 1x / 1.25x / 1.5x / 2x', () => { const v = UI_SCALES[(UI_SCALES.indexOf(uiScale()) + 1) % UI_SCALES.length]; setUiScale(v); scale(); });
@@ -335,13 +346,13 @@ export function hud(s: SandboxScene): void {
   const goWorld = () => { const q = new URLSearchParams(location.search), w = new URLSearchParams(); if (q.has('net')) { if (q.get('dev')) w.set('dev', q.get('dev')!); } else w.set('offline', '1'); location.href = `world.html?${w}`; };
   const wbtn = tb('World', 'world map (Shift+W; plain W pans the camera)', goWorld);
   wbtn.id = 'rfWorld';
-  corner.append(wbtn, dbtn, sbtn);
+  corner.append(wbtn, ...(import.meta.env.DEV ? [dbtn, sbtn] : []));
   const dev = document.getElementById('dev');
   const setDev = (on: boolean) => { if (dev) dev.style.display = on ? '' : 'none'; dbtn.classList.toggle('on', on); };
-  setDev(new URLSearchParams(location.search).has('dev'));
+  setDev(import.meta.env.DEV && new URLSearchParams(location.search).has('dev'));
   addEventListener('keydown', (e: KeyboardEvent) => {
     const a = keys.act(e);
-    if (a === 'dev.panel') { e.preventDefault(); setDev(dev?.style.display === 'none'); }
+    if (a === 'dev.panel') { if (import.meta.env.DEV) { e.preventDefault(); setDev(dev?.style.display === 'none'); } }
     else if (a === 'go.world') goWorld();
     else if (m.active || m.tool) return;
     else if (a === 'order.stop') stop();
@@ -395,7 +406,7 @@ export function hud(s: SandboxScene): void {
     if (tipAt && (!tipAt.isConnected || !tipAt.offsetParent) && !chain.isHeld()) { tipAt = null; hideTip(); }
     modes.refresh();
     trade.refresh();
-    const st = s.sim.cur?.stock?.[0] ?? {}, sup = (s.sim.cur?.supplies?.[0] ?? {}) as Record<string, number>;
+    const st = s.sim.cur?.stock?.[myTeam()] ?? {}, sup = (s.sim.cur?.supplies?.[myTeam()] ?? {}) as Record<string, number>;
     counts.forEach((el) => { const r = el.dataset.r!, v = Math.floor(r.startsWith('p:') ? sup[r.slice(2)] ?? 0 : st[r as ResourceKind] ?? 0); el.textContent = String(v); el.classList.toggle('rf-dim', !v); });
 
     const sq = m.squad(), q = sq === null ? undefined : s.sim.squads.get(sq), own = sc.own();
@@ -416,8 +427,8 @@ export function hud(s: SandboxScene): void {
         sCancel.dataset.tip = tipK('Cancel site', `refunds ${Object.keys(refund).length ? costText(refund) : 'nothing'}`, '');
       } else {
         setHead(BUILDING_ICON[b.type], name + (b.ruin ? ' (ruin)' : ''), b.ruin ? 'ruin' : `${Math.ceil(b.hp)}/${b.maxHp}`, bar('hp', b.ruin ? 0 : b.hp / b.maxHp, BAR_W) + (b.burning ? bar('burn', 1, BAR_W) : ''),
-          `${b.team === 0 ? 'yours' : b.team === NEUTRAL_TEAM ? 'neutral' : 'enemy'} · ${b.ruin ? 'ruined' : b.state}${b.burning ? ' · burning' : ''}${b.mend ? ' · under repair' : ''}`);
-        const up = b.team === 0 && !b.ruin ? m.upgradeOf(b) : null, def = BUILDINGS[b.type], own = b.team === 0 && b.state === 'done';
+          `${b.team === myTeam() ? 'yours' : b.team === NEUTRAL_TEAM ? 'neutral' : 'enemy'} · ${b.ruin ? 'ruined' : b.state}${b.burning ? ' · burning' : ''}${b.mend ? ' · under repair' : ''}`);
+        const up = b.team === myTeam() && !b.ruin ? m.upgradeOf(b) : null, def = BUILDINGS[b.type], own = b.team === myTeam() && b.state === 'done';
         const iron = own && def.wall === 'gate', wet = own && !!def.burnable && !def.field;
         // M7g: repair (a hurt standing building), rebuild (a pre-built ruin)
         const hurt = !b.ruin && b.hp < b.maxHp - 1e-6 && b.state !== 'foundation' && b.state !== 'scaffold' && !def.brazier, ruin = !!b.ruin;
@@ -432,14 +443,14 @@ export function hud(s: SandboxScene): void {
           bRebuild.disabled = !!why;
           bRebuild.dataset.tip = `<div class="rf-name" style="margin-bottom:4px">Rebuild</div>${b.landmark ? '' : `<div style="display:flex;align-items:center">${costHtml(ceilBill(r.cost))}</div><div class="rf-dim" style="margin-top:3px">labour ${labourText(r.labour)} · ${sq === null ? 'planned: send a squad' : `squad #${sq} builds it`}</div>`}${why ? `<div class="rf-dim" style="margin-top:3px;color:#ff7a5c">${why}</div>` : ''}`;
         }
-        const tiles = b.tiles.length / 2, stock = s.sim.cur?.stock?.[0] ?? {};
+        const tiles = b.tiles.length / 2, stock = s.sim.cur?.stock?.[myTeam()] ?? {};
         if (iron) { bIron.dataset.tip = `<div class="rf-name" style="margin-bottom:4px">Iron-bind the gate</div><div style="display:flex;align-items:center">${costHtml(FORT.ironCost)}</div><div class="rf-dim" style="margin-top:3px">hp ×${FORT.iron}, once · Fortifier engineer's work, paid at once</div>`; bIron.disabled = (stock.iron ?? 0) < FORT.ironCost.iron || (stock.charcoal ?? 0) < FORT.ironCost.charcoal; }
         if (wet) { bWet.dataset.tip = `<div class="rf-name" style="margin-bottom:4px">Wet hides</div><div style="display:flex;align-items:center">${costHtml({ hides: FORT.wetCost * tiles })}</div><div class="rf-dim" style="margin-top:3px">catches fire at ×${FORT.wet} the chance for ${FORT.wetTicks / 600} min</div>`; bWet.disabled = (stock.hides ?? 0) < FORT.wetCost * tiles; }
         if (up) bUp.dataset.tip = `<div class="rf-name" style="margin-bottom:4px">Upgrade to ${nice(up.to)}</div><div style="display:flex;align-items:center">${costHtml(up.cost)}</div><div class="rf-dim" style="margin-top:3px">labour ${labourText(up.labour)} · ${sq === null ? 'planned: send a squad' : `squad #${sq} builds it`}</div>`;
       }
     } else if (q && own.length) {
       card.style.display = '';
-      // W-53: the selected men, named by the class most of them are (+ how many other classes)
+      // W-53: the selected men, named by their class (several classes: mixed; the icon is the class most are)
       const men = s.sel.men(), byCls = new Map<string, number>();
       for (const d of men) byCls.set(d.u.cls, (byCls.get(d.u.cls) ?? 0) + 1);
       const cls = [...byCls].sort((a, b) => b[1] - a[1])[0]?.[0] ?? '';
@@ -450,7 +461,7 @@ export function hud(s: SandboxScene): void {
       const tag = men.reduce((a, d) => Math.max(a, d.u.tag ?? 0), 0);
       $('cTag').style.display = tag ? '' : 'none';
       if (tag) $('cTag').textContent = `⚔ tagged ${Math.ceil(tag / 10)} s`;
-      setHead(UNIT_ICON[cls] ?? 'unit-militia', (CLASS_NAME[cls] ?? civName(cls) ?? nice(cls)) + (byCls.size > 1 ? ` +${byCls.size - 1}` : ''), `${men.length} ${men.length === 1 ? 'man' : 'men'}`, bar('hp', hp / max, SEL_SQUAD),
+      setHead(UNIT_ICON[cls] ?? 'unit-militia', byCls.size > 1 ? 'Mixed' : CLASS_NAME[cls] ?? civName(cls) ?? nice(cls), `${men.length} ${men.length === 1 ? 'man' : 'men'}${byCls.size > 1 ? `, ${byCls.size} classes` : ''}`, bar('hp', hp / max, SEL_SQUAD),
         civ ? civInfo(s, own[0]) : e ? `crews ${SIEGE_NAME[e.type]} · ${e.state}${e.burning ? ' · burning' : ''}` : `${q.order}${q.fed ? ' · fed' : ''}${sc.status ? ' · ' + sc.status : ''}`);
       const slots: HTMLElement[] = [];
       const act = activesOf(s, own)[0];

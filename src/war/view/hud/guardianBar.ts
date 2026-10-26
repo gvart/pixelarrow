@@ -25,6 +25,7 @@ import { sandboxRoster } from './roster/state';
 import { leadText } from './buildingCard';
 import { LANDMARK_FUNCTION } from '../../../data/warLore';
 import { keys } from '../../input/keys';
+import { myTeam } from '../side';
 export { LANDMARK_FUNCTION };
 
 type Mk = (id: string, css: string, html?: string) => HTMLElement;
@@ -134,12 +135,12 @@ export function restoreWhy(s: SandboxScene, lm: Landmark, snap?: LandmarkSnap): 
     return n.has('fortifier') && n.has('masterBuilder') && (lm.engineer < 10 || n.has('poliorcetes') || n.has('archimedes'));
   });
   if (!lead) return `needs ${leadText(lm)} in the squad`;
-  const stock = (cur?.stock?.[0] ?? {}) as Record<string, number>;
+  const stock = (cur?.stock?.[myTeam()] ?? {}) as Record<string, number>;
   const short = Object.entries({ ...lm.restore.bulk, ...lm.restore.rare }).filter(([r, v]) => (stock[r] ?? 0) < (v ?? 0)).map(([r]) => r.replace(/[A-Z]/g, (x) => ' ' + x.toLowerCase()));
   return short.length ? `goods short: ${short.join(', ')}` : undefined;
 }
 
-const SIDE = (team: number) => (team === 0 ? 'you' : ALLIANCES[team]?.name ?? TEAM_NAME[team] ?? `team ${team}`);
+const SIDE = (team: number) => (team === myTeam() ? 'you' : ALLIANCES[team]?.name ?? TEAM_NAME[team] ?? `team ${team}`);
 
 /** The landmark panel: holder, state, patch and restore costs, function; `snap` (M7f) when the sim sends it, else derived from the pieces. */
 export function landmarkHtml(lm: Landmark, pieces: BuildingSnap[], bosses: BossSnap[], snap?: LandmarkSnap, why?: string): string {

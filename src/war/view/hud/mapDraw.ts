@@ -4,7 +4,7 @@
  * the iso camera (tile +x runs down-right, +y down-left), and the markers over it: buildings by owner (footprints; the
  * main ones as an icon badge on the full map), lairs by beast, claim banners, own squads, enemy squads only where own men
  * or buildings see them, and the camera's view (a rectangle: the screen in tile space, turned back upright).
- * Fog of war (W-39, ../fog.ts): team 0's fog grid shades the map in the black glaze (dark unexplored, dimmed explored,
+ * Fog of war (W-39, ../fog.ts): the player's team's fog grid shades the map in the black glaze (dark unexplored, dimmed explored,
  * soft edges), rebuilt only when the grid's version changes; the sim client already hides foes out of sight and keeps foe
  * buildings as last seen; lairs, claim points and resource badges show once their ground is explored.
  */
@@ -13,6 +13,7 @@ import type { BuildingSnap, FogGrid } from '../../types';
 import type { SandboxScene } from '../SandboxScene';
 import { hex, TEAM_RGB } from '../mapModes';
 import { BUILDING_ICON, UI } from './kit';
+import { myTeam, slot } from '../side';
 
 /** How far own men and buildings see, in tiles (enemies beyond are not marked). */
 export const VISION = 24;
@@ -60,7 +61,7 @@ const fogged = new WeakMap<SandboxScene, { ver: number; cv: HTMLCanvasElement }>
 /** The fog's shade: the black glaze; alpha over unexplored and explored cells (visible: clear). */
 const GLAZE = [14, 9, 7], FOG_DARK = 232, FOG_DIM = 120;
 
-/** Team 0's fog, one px per vision cell (cached per version); null with fog off or none yet. */
+/** The player's team's fog, one px per vision cell (cached per version); null with fog off or none yet. */
 function fogCanvas(s: SandboxScene): { cv: HTMLCanvasElement; g: FogGrid } | null {
   const g = s.sim.fog;
   if (!g || !s.sim.fogOn) return null;
@@ -84,14 +85,14 @@ function fogCanvas(s: SandboxScene): { cv: HTMLCanvasElement; g: FogGrid } | nul
   return { cv: p.cv, g };
 }
 
-/** Team 0's fog at tile point (x, y): 0 unexplored, 1 explored, 2 visible (always 2 with fog off or no grid yet). */
+/** The player's team's fog at tile point (x, y): 0 unexplored, 1 explored, 2 visible (always 2 with fog off or no grid yet). */
 export function fogAt(s: SandboxScene, x: number, y: number): 0 | 1 | 2 {
   const g = s.sim.fog;
   if (!g || !s.sim.fogOn) return 2;
   const cx = Math.floor(x / g.cell), cy = Math.floor(y / g.cell);
   return cx >= 0 && cy >= 0 && cx < g.w && cy < g.h ? (g.state[cy * g.w + cx] as 0 | 1 | 2) : 0;
 }
-/** Team 0 has explored tile point (x, y) (always with fog off). */
+/** The player's team has explored tile point (x, y) (always with fog off). */
 export const explored = (s: SandboxScene, x: number, y: number): boolean => fogAt(s, x, y) !== 0;
 /** The fog key's swatches (CSS colours of the shade over a mid ground). */
 export const FOG_SWATCH = { dark: `rgba(${GLAZE},${FOG_DARK / 255})`, dim: `rgba(${GLAZE},${FOG_DIM / 255})` };
@@ -122,12 +123,12 @@ export function squads(s: SandboxScene): { team: number; x: number; y: number; n
   const eye = (x: number, y: number) => seen.add(cell(x, y));
   for (const d of s.drawn) {
     if (d.u.state === 'dead') continue;
-    if (d.team === 0) eye(d.x, d.y);
+    if (d.team === myTeam()) eye(d.x, d.y);
     let q = by.get(d.u.squad);
     if (!q) by.set(d.u.squad, (q = { team: d.team, x: 0, y: 0, n: 0, id: d.u.squad }));
     q.x += d.x; q.y += d.y; q.n++;
   }
-  for (const b of s.sim.cur?.buildings ?? []) if (b.team === 0 && b.state !== 'destroyed') eye(b.x, b.y);
+  for (const b of s.sim.cur?.buildings ?? []) if (b.team === myTeam() && b.state !== 'destroyed') eye(b.x, b.y);
   const sees = (x: number, y: number) => {
     const cx = (x / VISION) | 0, cy = (y / VISION) | 0;
     for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (seen.has((cy + dy) * 4096 + cx + dx)) return true;
@@ -136,7 +137,7 @@ export function squads(s: SandboxScene): { team: number; x: number; y: number; n
   const out = [];
   for (const q of by.values()) {
     q.x /= q.n; q.y /= q.n;
-    if (q.team === 0 || s.sim.fog || sees(q.x, q.y)) out.push(q); // with a fog grid the client already hid the unseen
+    if (q.team === myTeam() || s.sim.fog || sees(q.x, q.y)) out.push(q); // with a fog grid the client already hid the unseen
   }
   return out;
 }
@@ -200,19 +201,19 @@ export function drawMap(g: CanvasRenderingContext2D, s: SandboxScene, f: MapXf, 
     const hw = Math.max(b.w / 2, 1.2 * m / f.k), hh = Math.max(b.h / 2, 1.2 * m / f.k);
     poly([P(b.x - hw, b.y - hh), P(b.x + hw, b.y - hh), P(b.x + hw, b.y + hh), P(b.x - hw, b.y + hh)]);
     g.lineWidth = 2 * m; g.strokeStyle = INK; g.stroke();
-    g.fillStyle = TEAM[b.team] ?? '#ccc'; g.fill();
+    g.fillStyle = TEAM[slot(b.team)] ?? '#ccc'; g.fill();
     if (full && BADGE.has(b.type)) { const [x, y] = P(b.x, b.y); badges.push({ x, y, b }); }
   }
   for (const { x, y, b } of badges) {
     const r = 8 * m;
-    badge(g, x, y, r, TEAM[b.team] ?? '#ccc', m);
+    badge(g, x, y, r, TEAM[slot(b.team)] ?? '#ccc', m);
     drawIcon(g, BUILDING_ICON[b.type] ?? 'bld-camp', x, y, 13 * m);
   }
   // claim points: the banner icon on a disc ringed in the owner's colour (cream open, grey locked)
   for (const cl of cur?.claims ?? []) {
     if (!explored(s, cl.x, cl.y)) continue;
     const [x, y] = P(cl.x, cl.y), r = (full ? 8 : 5.5) * m;
-    const ring = cl.state === 'claimed' ? TEAM[cl.team] ?? '#ccc' : cl.state === 'locked' ? '#8a786a' : '#f6d48a';
+    const ring = cl.state === 'claimed' ? TEAM[slot(cl.team)] ?? '#ccc' : cl.state === 'locked' ? '#8a786a' : '#f6d48a';
     badge(g, x, y, r, ring, m);
     if (!drawIcon(g, 'mk-claim', x, y, r * 1.7)) { g.fillStyle = ring; g.fillRect(x - m, y - r * 0.6, 2 * m, r * 1.2); }
   }
@@ -230,13 +231,13 @@ export function drawMap(g: CanvasRenderingContext2D, s: SandboxScene, f: MapXf, 
   if (full && f.k >= 2 * m) for (const d of s.drawn) {
     if (d.u.state === 'dead' || d.team === MOB_TEAM) continue;
     const [x, y] = P(d.x, d.y);
-    g.fillStyle = TEAM[d.team] ?? '#ccc';
+    g.fillStyle = TEAM[slot(d.team)] ?? '#ccc';
     g.fillRect(x - 0.6 * m, y - 0.6 * m, 1.2 * m, 1.2 * m);
   }
   for (const q of squads(s)) {
     if (q.team === MOB_TEAM) continue; // the lair marks them
     const [x, y] = P(q.x, q.y);
-    shield(g, x, y, (full ? 4.5 : 3.4) * m, TEAM[q.team] ?? '#ccc', s.selected.has(q.id), m);
+    shield(g, x, y, (full ? 4.5 : 3.4) * m, TEAM[slot(q.team)] ?? '#ccc', s.selected.has(q.id), m);
   }
   // the camera's view
   poly(frustum(s).map((p) => P(p.x, p.y)));

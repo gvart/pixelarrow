@@ -10,6 +10,7 @@ import Phaser from 'phaser';
 import type { SandboxScene } from '../SandboxScene';
 import { icon, UNIT_ICON } from './kit';
 import { SPRITE_ZOOM } from '../units';
+import { myTeam } from '../side';
 
 type Mk = (id: string, css: string, html?: string) => HTMLElement;
 type TipOn = (el: HTMLElement, html: () => string) => void;
@@ -60,7 +61,7 @@ export function mountGroups(s: SandboxScene, mk: Mk, tipOn: TipOn): { refresh(bo
     const z = s.cameras.main.zoom;
     if (z >= SPRITE_ZOOM && s.sel.groups.size) {
       for (const d of s.drawn) {
-        if (d.team !== 0 || d.u.state === 'dead') continue;
+        if (d.team !== myTeam() || d.u.state === 'dead') continue;
         const n = s.sel.groupOf(d.u.id);
         if (!n) continue;
         const t = texts[k] ?? texts[texts.push(s.add.text(0, 0, '', { fontFamily: 'Inter, sans-serif', fontStyle: '700', fontSize: '20px', color: '#e0b867', stroke: '#0e0907', strokeThickness: 5 }).setOrigin(0.5, 0.5).setDepth(10.9)) - 1];

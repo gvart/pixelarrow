@@ -37,6 +37,7 @@ import type { DrawUnit } from '../simClient';
 import { BODY, TEAM_COLOR } from '../units';
 import type { BuildArt, BuildSprite, KitSprite } from './buildArt';
 import { frontDepth, type Back } from './wallDepth';
+import { slot } from '../side';
 
 /** Ground overlays: over the terrain chunks (1) and the influence area (2), under objects and units (10+). */
 const GROUND = 2.5;
@@ -497,7 +498,7 @@ export class BuildingLayer {
       const site = b.state === 'foundation' || b.state === 'scaffold';
       if (b.id === this.selected && !site) this.ring(ground, b, zoom);
       else if (b.id === this.selected || b.id === this.hovered) this.grid(ground, b.tiles, 0xffffff, 0.9, lw);
-      else if (this.grids && b.state !== 'destroyed') this.grid(ground, b.tiles, TEAM_COLOR[b.team] ?? 0xcccccc, 0.45, lw);
+      else if (this.grids && b.state !== 'destroyed') this.grid(ground, b.tiles, TEAM_COLOR[slot(b.team)] ?? 0xcccccc, 0.45, lw);
       if (!view(v, c.x, c.y, Math.max(b.w, b.h) * HW + 300)) continue;
       if (this.skip?.(b)) continue;
       const x1 = b.x + b.w / 2, y1 = b.y + b.h / 2, depth = this.D(x1 - 0.5, y1 - 0.5);
@@ -793,7 +794,7 @@ export class BuildingLayer {
   private ring(g: Phaser.GameObjects.Graphics, b: BuildingSnap, zoom: number): void {
     const c = this.pt(b.x, b.y, this.z(b)), rw = (b.w + b.h) * HW * 0.6;
     g.lineStyle(Math.max(1.5, 2 / zoom), 0xffffff, 0.5).strokeEllipse(c.x, c.y, rw * 2, rw);
-    g.lineStyle(Math.max(1, 1 / zoom), TEAM_COLOR[b.team] ?? 0xcccccc, 0.8).strokeEllipse(c.x, c.y, rw * 2 + 8 / zoom, rw + 4 / zoom);
+    g.lineStyle(Math.max(1, 1 / zoom), TEAM_COLOR[slot(b.team)] ?? 0xcccccc, 0.8).strokeEllipse(c.x, c.y, rw * 2 + 8 / zoom, rw + 4 / zoom);
   }
 
   private img(i: number, texture: string, frame?: number): Phaser.GameObjects.Image {
@@ -818,14 +819,14 @@ export class BuildingLayer {
     }
     g.fillStyle(0x3a2a1a, 1).fillRect(c.x - 2, y - 14, 4, 14);
     g.fillStyle(0x5a4030, 1).fillEllipse(c.x, y - 14, 14, 5);
-    g.lineStyle(1, TEAM_COLOR[b.team] ?? 0xcccccc, 1).strokeEllipse(c.x, y - 14, 14, 5);
+    g.lineStyle(1, TEAM_COLOR[slot(b.team)] ?? 0xcccccc, 1).strokeEllipse(c.x, y - 14, 14, 5);
     if (!b.lit) return;
     g.fillStyle(0xff7a20, 0.9).fillEllipse(c.x, y - 20, 9, 12);
     g.fillStyle(0xffe070, 1).fillEllipse(c.x, y - 18, 4, 6);
   }
 
   private placeholder(g: Phaser.GameObjects.Graphics, b: BuildingSnap, units: readonly DrawUnit[], zoom: number): void {
-    const def = BUILDINGS[b.type], team = TEAM_COLOR[b.team] ?? 0xcccccc, z = this.z(b), lw = Math.max(1, 1 / zoom);
+    const def = BUILDINGS[b.type], team = TEAM_COLOR[slot(b.team)] ?? 0xcccccc, z = this.z(b), lw = Math.max(1, 1 / zoom);
     const col = b.state === 'damaged' ? shade(MAT[def.material], 0.62) : MAT[def.material];
     const H = HEIGHT[b.type] ?? 60;
     // wall segments: one box per tile; others: the footprint rect
@@ -1088,7 +1089,7 @@ export class BuildingLayer {
     if (!tiles.length) return;
     const s = Math.min(0.5, 4096 / (x1 - x0), 4096 / (y1 - y0));
     const tex = this.scene.textures.createCanvas('influence', Math.ceil((x1 - x0) * s) + 2, Math.ceil((y1 - y0) * s) + 2)!;
-    const ctx = tex.context, col = TEAM_COLOR[team] ?? 0xcccccc, rgb = `${(col >> 16) & 255},${(col >> 8) & 255},${col & 255}`;
+    const ctx = tex.context, col = TEAM_COLOR[slot(team)] ?? 0xcccccc, rgb = `${(col >> 16) & 255},${(col >> 8) & 255},${col & 255}`;
     ctx.lineWidth = 1.5;
     for (const [x, y] of pairs(tiles)) {
       const px = (iso.sx(x, y) - x0) * s, py = (iso.sy(x, y, iso.ztop(x, y)) - y0) * s, hw = HW * s, hh = HH * s;
