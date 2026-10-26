@@ -43,7 +43,13 @@ The first start packs the sprite sheets (a few minutes). You play dev player 1 i
 10. **Siege a palisade.** Build a ram or ladders (build bar, Siege tab), crew with E, batter the gate.
 11. **Landmark raid.** Krios (Drakon's Citadel) or Ammon (Dead City); far easier from the sandbox scenarios below.
 
-Steps 7-11 are the parts the live server has least coverage for (see Known gaps); each has a sandbox scenario to try
+12. **Peaceful play (W-61).** The town badge (top centre) shows your town's level here; click it for the perks and what
+    the next level needs. **Works** (top right) feeds your alliance's temple, road and beacon line from your strongroom;
+    men standing at the site labour on it. In a market town's Contracts tab post a **build** contract (an ally's men raise
+    one of your sites, paid as they labour) or a **guard** contract (an ally holds your town for some hours, paid an hour
+    at a time). R shows the season's titles; the world map's season panel the peace score.
+
+Steps 7-12 are the parts the live server has least coverage for (see Known gaps); each has a sandbox scenario to try
 the same mechanics offline.
 
 ## Controls
@@ -110,7 +116,7 @@ steps it 50 ticks and checks a seed plays the same. Region test-ridge unless nam
 | combat-skirmish |  | Your javelineers and slingers face a militia charge. |
 | combat-flank |  | Their two squads hold a line facing south; your hoplites pin them from the front while your swordsmen wait off their east flank. |
 | combat-wounded |  | A short melee with a physician behind your line. |
-| **Economy** (12) | | |
+| **Economy** (16) | | |
 | crafting |  | A claimed camp with a forge, a cookhouse and an infirmary, stock and a civilian of every trade. |
 | market |  | Open the market (K): rent a stall, stow goods in, list an offer or a buy order, take from the board, post or take a contract, offer a letter; Hand-off trades with a trader here. |
 | loot |  | After the skirmish: pick up the loot piles (E on a pile), let the smith salvage gear, and capture the foe trader's handcart (stand beside it 5 s with none of theirs near), then load it. |
@@ -124,7 +130,11 @@ steps it 50 ticks and checks a seed plays the same. Region test-ridge unless nam
 | eco-handcart |  | A crew of three takes up the handcart by the first camp and loads it there; then pull it to the second town and unload into its store. |
 | food-hunger |  | By the camp: hungry hoplites (its store holds food), slingers with rations in their packs. Out in the woods: starving archers with nothing to eat. |
 | eco-trade |  | A loaded wagon leaves the first town for the trading post down the road, an escort with it. |
-| **Building** (8) | | |
+| peace-works |  | Your men stand at the town. Open Works (top right): the temple, the road and bridge and the beacon line with their needs; online, give goods and send men to the site. |
+| peace-build-contract |  | Your camp stands; an ally of your alliance lays out a storehouse beside it and builds it. Post a build contract in the market's Contracts tab. |
+| peace-score |  | A levelled village of yours stands: its level scores an hour; trade volume, contracts and works score too (the world map's season panel). |
+| peace-titles |  | The season's titles (Merchant Prince, Master Builder, Warden, Warlord) under the roster's tabs, in the Works panel and on the world map. |
+| **Building** (9) | | |
 | build-test |  | Build up a base: your militia raise a camp on the claimed ground; gather wood and stone, place buildings and walls (B). |
 | bridge-test |  | Cross the river: the old road crossing is walled off, but a stone road bridge spans the wide reach to the north and a wood footbridge the narrow one. |
 | build-each |  | A claimed camp with stock of everything, three militia squads and an engineer holding every design. |
@@ -133,7 +143,8 @@ steps it 50 ticks and checks a seed plays the same. Region test-ridge unless nam
 | build-wall-gate |  | A palisade line stands; a wood gate is dropped on it. |
 | build-stalled |  | The militia lay a palisade with 6 wood in stock (it needs 24). |
 | build-no-workers |  | A storehouse is planned with no squad on it. |
-| **Siege** (7) | | |
+| peace-town-level |  | A village of six kinds stands round your camp (level 3); the militia raise a stone ring round it: once it closes, the town is level 4. |
+| **Siege** (9) | | |
 | wall-defense |  | Hold the walled camp: your archers man the south wall-walk, spears wait inside the gate. |
 | siege |  | Take the stone fort: batter the gate with the ram (E on the ram to crew it, then E on the gate), raise the ladder on the wall (E on the wall face), shell the towers with the stone thrower, burn the palisade (E with torches, or fire arrows: Q), then storm the breach. |
 | siege-defend |  | Hold the stone fort: the enemy builds a ram and ladders, shoots fire arrows and storms when a breach or a ladder opens. |
@@ -141,6 +152,8 @@ steps it 50 ticks and checks a seed plays the same. Region test-ridge unless nam
 | siege-ladders |  | A timber rampart with a walkway, an archer squad on it. |
 | siege-fire |  | A palisade and a wood tower. |
 | siege-thrower |  | A palisade with a wood tower behind it. |
+| peace-guard |  | An ally's hoplites stand guard in your village while a raid of 8 comes up; post a guard contract: hold your town with n men for h hours. |
+| peace-walls |  | A closed stone ring with a stone gate; eleven swordsmen with no ram come at it: the stone gate barely marks. |
 | **Mobs** (7) | | |
 | neutral-clear |  | Clear the region: kill the wolves, boars, bears and bandits round the claim banner (the mobs overlay shows aggro and leash), then right-click the banner with a squad to claim it (30 s, no foes near). |
 | mob-wolf |  | A wolf pack runs in fast and bites. |
@@ -197,5 +210,7 @@ steps it 50 ticks and checks a seed plays the same. Region test-ridge unless nam
   roster is seeded only for a dev id with no one alive.
 - The world map follows your roster every 5 s: men show in a region a few seconds after you enter it.
 - Bots are passive: they stand at home and give the map other alliances' presence; nobody attacks you.
+- W-61: build and guard contracts are taken only within the poster's alliance (a foe's men in your town would fight
+  yours: no truce yet). Alliance works stand in the alliance's home region; their labour is men standing at the site.
 - Under software GL (headless, VMs) a region renders at 2-3 frames per second; play in a normal browser. Melee blows
   struck between rendered frames still sound.
