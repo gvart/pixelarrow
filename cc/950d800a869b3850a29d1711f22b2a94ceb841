@@ -1,0 +1,26 @@
+src/war/scenarios/trailer.ts
+  s_fcb7475e0b5395::t_623d45e174f46a 20
+  s_fcb7475e0b5395::t_b3921a9a9d9ff8 19,40
+  s_fcb7475e0b5395::t_ab7948d0698bbf 21-31,39,42,54-55
+scripts/landing/record-war-clips.mjs
+  s_fcb7475e0b5395::t_642901d724ba32 169-170
+scripts/landing/trailer-shots.mjs
+  s_fcb7475e0b5395::t_8bbf8997990e37 26
+  s_fcb7475e0b5395::t_642901d724ba32 25
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "cc950d800a869b3850a29d1711f22b2a94ceb841",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
