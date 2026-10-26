@@ -28,6 +28,7 @@ import { LANDMARK_FUNCTION, REGION_LORE } from '../../data/warLore';
 import { landmarkOfRegion } from '../../data/warLandmarks';
 import { bossesOfRegion } from '../../data/warBosses';
 import { keys } from '../input/keys';
+import { mountGameMenu } from '../menu/gameMenu';
 
 const q = new URLSearchParams(location.search);
 const offline = q.has('offline');
@@ -384,6 +385,8 @@ canvas.addEventListener('pointerup', (e) => {
 });
 canvas.addEventListener('dblclick', (e) => enter(map.regionAt(...map.toMap(e.clientX, e.clientY))));
 canvas.addEventListener('wheel', (e) => { e.preventDefault(); map.zoom(e.deltaY > 0 ? 1 / 1.15 : 1.15, e.clientX, e.clientY); placeCard(); }, { passive: false });
+// Esc with nothing selected or open: the in-game menu; F10: settings (src/war/menu)
+mountGameMenu({ idle: () => !ordering && !st.selected && !haul.open });
 keys.setContexts(() => ['world', 'global']);
 addEventListener('keydown', (e: KeyboardEvent) => {
   const a = keys.act(e);

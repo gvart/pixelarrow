@@ -22,11 +22,29 @@ import { loadSheetImages } from './units';
 import { WarAudio } from './sound/warAudio';
 import { BakeClient } from './bakeClient';
 import { mountSoundPanel } from './hud/soundPanel';
+import { mountGameMenu } from '../menu/gameMenu';
+import { saveSound } from './sound/mix';
 
 const q = new URLSearchParams(location.search);
 // M7d: a scenario may name its own region (the landmark raids)
 const want = scenarioById(q.get('scenario'));
 const id = q.get('region') ?? want?.region ?? 'test-ridge';
+// Esc with nothing to close: the in-game menu; F10: settings (src/war/menu). Before the scene's own key handlers.
+let audio: WarAudio | null = null, live: SandboxScene | null = null;
+mountGameMenu({
+  idle: () => {
+    const s = live;
+    if (!s?.sel) return true;
+    return !s.build.active && !s.build.tool && !s.interact.open && !s.siege.armed && !s.mapOpen && s.sel.units.size === 0
+      && !document.querySelector('#rfModes.open');
+  },
+  world: q.has('world') ? () => document.getElementById('rfWorld')?.click() : undefined,
+  hooks: {
+    onScale: () => dispatchEvent(new Event('resize')),
+    sound: () => audio?.settings ?? (undefined as never),
+    onSound: (v) => (audio ? audio.apply(v) : saveSound(v)),
+  },
+});
 // the terrain bake worker starts now: its art loads while the page loads its own (it gets the region once loaded)
 const baker = BakeClient.start(q);
 
@@ -35,6 +53,7 @@ const loading = id === 'fake' ? Promise.resolve(fakeRegion()) : loadRegion(id);
 if (baker) void loading.then((r) => baker.region(r), () => {});
 void Promise.all([loading, q.get('art') === 'grey' ? null : loadArt(), loadSheetImages()]).then(([region, art, sheets]) => {
   const scene = new SandboxScene();
+  live = scene;
   const game = new Phaser.Game({
     type: Phaser.WEBGL,
     parent: 'game',
@@ -62,7 +81,7 @@ void Promise.all([loading, q.get('art') === 'grey' ? null : loadArt(), loadSheet
     devPanel(game, scene, sc);
     hud(scene);
     // the war's sound (./sound): settings card in the HUD corner, then the hooks (after the HUD's own event taps)
-    const audio = new WarAudio(scene);
+    audio = new WarAudio(scene);
     mountSoundPanel(audio);
     audio.install();
   };
