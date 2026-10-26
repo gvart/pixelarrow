@@ -146,7 +146,7 @@ if (SERVE) {
 }
 try {
   await up(`${API}/api/health`);
-  log('waiting for vite (the first start packs the sprite sheets: a few minutes)');
+  log('waiting for vite');
   await up(`${WEB}/world.html`, 600_000);
   log('both servers are up');
   const you = await login(DEV_ID, 'Playtester');

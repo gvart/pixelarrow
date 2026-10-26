@@ -204,52 +204,6 @@ Shield paint, cloak and crest cosmetics, hair and beard, `Look` body variation
 
 ## Packed sheets (v3)
 
-Art is committed as v2; the build never ships the v2 image. `scripts/art/pack/`
-packs each `src/assets/sheets/<class>/` into `src/generated/sheets/<class>/`
-(git-ignored), which the registry reads. Vite build and dev server run it
-first (`sheetPackPlugin`, `vite.config.ts`); `npm run sheets:pack` by hand
-(with dev placeholders). A class repacks only when its manifest, image or the
-packer changed.
-
-The packer, losslessly:
-
-1. Trims every frame to its opaque box, keeping the offset (`anchor`, `anchors`, `portrait` stay exact).
-2. Stores identical trimmed frames once.
-3. Shelf-packs into pages of at most 2048 x 2048 per group: `core` (everything a battle shows) and `extra` (`look`, `adjust`, `cheer`, `win`). A frame both use is on a core page.
-4. Writes each page as the smallest PNG: indexed (tRNS) at ≤256 colours, else RGBA; no colour chunks. Fully transparent pixels become 0,0,0,0; all others are exact. Every frame is verified against the source after decoding; a mismatch fails the build.
-
-Packed manifest = v2 with `version: 3`, no `image` or `wrap`, plus:
-
-```json
-"packed": {
-  "pages": [{ "file": "hoplite.0.png", "w": 611, "h": 273, "group": "core" },
-            { "file": "hoplite.1.png", "w": 147, "h": 100, "group": "extra" }],
-  "rects": [0, 0, 0, 30, 49, ...],
-  "cells": [0, 6, 2, ...],
-  "source": { "image": "hoplite.png", "w": 2982, "h": 216, "sha1": "..." }
-}
-```
-
-| field | meaning |
-| --- | --- |
-| `pages` | page images, relative to the manifest, with size and group |
-| `rects` | stored frames, 5 numbers each: page, x, y, w, h |
-| `cells` | 3 numbers per frame, index `col * rows.length + row`: stored frame (`-1`: empty) and offset `dx, dy` |
-| `source` | what it was packed from (`sha1` covers manifest, image and packer) |
-
-`idle` must be on core pages. A class draws from its sheet once its core pages
-load; frames are read and recoloured from their rect only. An extra page loads
-the first time one of its clips is asked for; until then the clip shows its
-fallback. v2 manifests still load unchanged.
-
-**Memory.** A decoded page is w x h x 4 bytes. The battle atlas sweep
-(`src/ui/sprites.ts`, once a second) bounds the caches:
-
-- An extra page unread for 6 s (`PAGE_TTL_MS`) is dropped and reloads from the browser cache.
-- While all core pages exceed 48 MB (`CORE_BUDGET`), classes unused for 60 s (`CLASS_IDLE_MS`) lose theirs, oldest first, and are procedural until asked for again.
-- Colour maps are an LRU of 256 (`PALETTE_CAP`, ≈1 KB each).
-- Battle atlases hold only on-screen frames (6 s TTL), so looks do not grow GPU memory.
-
-`sheetMemoryStats()` reports decoded bytes (`window.__sheetMem()` in dev).
-Art with more than 256 colours per page packs as RGBA (larger download, same
-decoded size).
+The v3 packer (`scripts/art/pack/`, `sheetPackPlugin`) is gone: the war view
+(`src/war/view/units.ts`) loads the committed v2 sheets directly. `version: 3`
+and `packed` stay readable in `src/art/sheetManifest.ts`.
