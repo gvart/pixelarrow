@@ -1,0 +1,27 @@
+src/war/view/hud/hud.ts
+  s_fcb7475e0b5395::t_d9f69a0ba85372 54,360
+src/war/view/hud/peace.ts
+  s_fcb7475e0b5395::t_d9f69a0ba85372 92-100,102-104
+  s_fcb7475e0b5395::t_dd147ef7ca8fea 1-91,101,105-177
+src/war/view/hud/market.ts
+  s_fcb7475e0b5395::t_65a8aa2269cd00 46-49,114-115,252-255,257,260-267,270,301,337-345
+  s_fcb7475e0b5395::t_ca12b5b1ae457c 13-15
+src/war/view/trade/market.ts
+  s_fcb7475e0b5395::t_65a8aa2269cd00 26-29,247-249
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "0916da4f2306fa1e0ab74d02c47510c043db02ea",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
