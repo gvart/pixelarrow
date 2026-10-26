@@ -25,6 +25,8 @@ const STEP = 0.02;
 const NS = 24;
 const WATER0 = 1 + 2 * NS + 1, NWATER = 15;
 const WET0 = WATER0 + NWATER, NWET = 6;
+/** The codes of the water at the shore and of the wet ground at the water's edge (./art.ts splits shore cells between them). */
+export const SHORE_WATER = WATER0, SHORE_WET = WET0 + 3;
 
 /** Fill per code (index 0 unused). */
 export const RELIEF_FILL: string[] = (() => {

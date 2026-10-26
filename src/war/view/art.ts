@@ -21,7 +21,7 @@ import { columnTops, type MassifDef, type Massifs } from './massifs';
 import { buildFineArt, SmoothFrames, type CliffRoles, type FineArt } from './fineArt';
 import { HH, HW, IsoMap, LH, SIDE, ZBASE } from './iso';
 import type { BakeOpts } from './terrain';
-import { FOAM_H, FOAM_NX, FOAM_NY, FOAM_PX, FOAM_PY, FOAM_W, foamSprite, groundTint, relief, RELIEF_FILL, SHADOW_H, SHADOW_W, TINT_FILL, treeShadow } from './relief';
+import { FOAM_H, FOAM_NX, FOAM_NY, FOAM_PX, FOAM_PY, FOAM_W, foamSprite, groundTint, relief, RELIEF_FILL, SHADOW_H, SHORE_WATER, SHORE_WET, SHADOW_W, TINT_FILL, treeShadow } from './relief';
 import { relightTree } from './treeLight';
 import { PeakPainter } from './peaks';
 import { wallStone, wallTexture, type Stone } from './rockFace';
@@ -173,6 +173,7 @@ const FLAT: Lift = [0, 0, 0];
 const WALL_PAT: Partial<Record<Stone, CanvasPattern>> = {};
 const ROCKY = new Set([KINDS.indexOf('rock'), KINDS.indexOf('snow'), KINDS.indexOf('drift')]);
 const SNOWY = new Set([KINDS.indexOf('snow'), KINDS.indexOf('drift')]);
+const SHALLOW_K = KINDS.indexOf('shallow'), DEEP_K = KINDS.indexOf('deep');
 const WET = new Set([KINDS.indexOf('shallow'), KINDS.indexOf('deep')]);
 /** Zoomed out (the baked levels) objects shorter than this (m) are left out, but crops (a sown plot reads as a field). */
 export const LOD_METRES = 2;
@@ -586,7 +587,7 @@ export class ArtBaker {
 
   /** The ground tints and baked light over row v's cells (./relief.ts), one fill per code, the tints first. */
   private shadeRow(ctx: CanvasRenderingContext2D, v: number, umin: number, umax: number, y0: number, h: number): void {
-    const { iso, shade, code, tint } = this, { fw, fh, fz } = iso;
+    const { iso, shade, code, tint } = this, { fw, fh, fz, fk } = iso;
     let u = Math.max(umin, -v, v - 2 * (fh - 1));
     if ((u + v) & 1) u++;
     const paths = new Map<number, Path2D>();
@@ -643,7 +644,26 @@ export class ArtBaker {
         p.moveTo(tx + FW, ty + (z - c[k]) * LH); p.lineTo(tx + 2 * FW, ty + FH + (z - c[k + 1]) * LH); p.lineTo(tx + FW, ty + 2 * FH + (z - c[k + 2]) * LH); p.lineTo(tx, ty + FH + (z - c[k + 3]) * LH); p.closePath();
       } else if (this.cut[i] & CUT_TIP) { // its front tip cut off by the wall (ArtBaker.cuts)
         p.moveTo(tx + FW, ty); p.lineTo(tx + 2 * FW, ty + FH); p.lineTo(tx + FW + FW / 2, ty + 2 * FH - CUT); p.lineTo(tx + FW / 2, ty + 2 * FH - CUT); p.lineTo(tx, ty + FH); p.closePath();
-      } else { p.moveTo(tx + FW, ty); p.lineTo(tx + 2 * FW, ty + FH); p.lineTo(tx + FW, ty + 2 * FH); p.lineTo(tx, ty + FH); p.closePath(); }
+      } else {
+        // a shore cell drawn half water, half land (./fineArt.ts SmoothFrames): its light split along the drawn waterline,
+        // the shore water's on its water side and the wet ground's on its land side, so the light follows the coast's
+        // curve and not the cell's diamond (the teeth of a coast running across the grid)
+        const halves = this.shoreHalves(i, tx, ty);
+        if (halves) {
+          const [wet, dry] = halves, add = (key: number, q: Path2D | null) => { if (!key || !q) return; let o = paths.get(key); if (!o) paths.set(key, (o = new Path2D())); o.addPath(q); };
+          // each half in the light of the cell or a neighbour of its own side
+          const isWet = (j: number) => fk[j] === SHALLOW_K || fk[j] === DEEP_K, own = isWet(i);
+          const side = (w: boolean, dflt: number) => {
+            if (own === w) return s;
+            for (const j of [i - 1, i + 1, i - fw, i + fw]) if (j >= 0 && j < shade.length && isWet(j) === w && shade[j]) return shade[j];
+            return dflt;
+          };
+          add(side(true, SHORE_WATER), wet); add(side(false, SHORE_WET), dry);
+          if (t) add(256 + t, dry);
+          continue;
+        }
+        p.moveTo(tx + FW, ty); p.lineTo(tx + 2 * FW, ty + FH); p.lineTo(tx + FW, ty + 2 * FH); p.lineTo(tx, ty + FH); p.closePath();
+      }
       for (const key of [t ? 256 + t : 0, s]) if (key) { let q = paths.get(key); if (!q) paths.set(key, (q = new Path2D())); q.addPath(p); }
     }
     for (const pass of [1, 0]) for (const [s, p] of paths) {
@@ -663,6 +683,37 @@ export class ArtBaker {
     ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(236,244,236,0.45)'; ctx.stroke(foam);
     ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(220,236,236,0.3)'; ctx.stroke(wave!);
     ctx.lineCap = 'butt';
+  }
+
+  /**
+   * A flat shore cell's water and land halves on screen (its diamond at (tx, ty) cut along the drawn waterline: the 0.5
+   * contour of its corner values, ./fineArt.ts SmoothFrames, as a straight cut per edge), or null when it is not a
+   * smoothed cell of a land-water sheet.
+   */
+  private shoreHalves(i: number, tx: number, ty: number): [Path2D | null, Path2D | null] | null {
+    const c = this.code[i], g = this.corners[i];
+    if (g === 0xffff || c < 0 || c >= VARIANT * 64) return null;
+    const sh = this.art.tiles.sheets[c >> 6], wetK = (k: string) => k === 'shallow' || k === 'deep';
+    if (wetK(sh.first) === wetK(sh.second)) return null;
+    // corners round the diamond N, E, S, W with the share of the sheet's first terrain (SmoothFrames' v: NW, NE, SW, SE)
+    const P = [[tx + FW, ty], [tx + 2 * FW, ty + FH], [tx + FW, ty + 2 * FH], [tx, ty + FH]];
+    const v = [g & 15, (g >> 4) & 15, g >> 12, (g >> 8) & 15].map((k) => k / 8);
+    const half = (first: boolean): Path2D | null => {
+      const pts: number[][] = [];
+      for (let k = 0; k < 4; k++) {
+        const a = v[k], b = v[(k + 1) & 3], A = P[k], B = P[(k + 1) & 3];
+        if ((a >= 0.5) === first) pts.push(A);
+        if ((a >= 0.5) !== (b >= 0.5)) { const f = (0.5 - a) / (b - a); pts.push([A[0] + (B[0] - A[0]) * f, A[1] + (B[1] - A[1]) * f]); }
+      }
+      if (pts.length < 3) return null;
+      const q = new Path2D();
+      q.moveTo(pts[0][0], pts[0][1]);
+      for (let k = 1; k < pts.length; k++) q.lineTo(pts[k][0], pts[k][1]);
+      q.closePath();
+      return q;
+    };
+    const firstWet = wetK(sh.first);
+    return [half(firstWet), half(!firstWet)];
   }
 
   /** Zone borders and the tile grid over the art. */
