@@ -34,7 +34,8 @@ const town: ScenarioSquad[] = [
 ];
 const column = (bots: boolean): ScenarioSquad[] => COLUMN.map((cls, i) => ({
   team: 1, cls, count: SQUAD_MAX, x: RIDGE[0] + (i % 2) * 4 - 2, y: RIDGE[1] - Math.floor(i / 2) * 5, owner: 'raiders',
-  ...(bots && cls !== 'archer' ? { bot: { kind: 'attackMove' as const, x: E.market[0], y: E.market[1] } } : {}),
+  // the swordsmen make for the agora, the javelineers through the olive grove (the pickers there run)
+  ...(bots && cls !== 'archer' ? { bot: { kind: 'attackMove' as const, x: cls === 'javelineer' ? E.olives[0] : E.market[0], y: cls === 'javelineer' ? E.olives[1] + 4 : E.market[1] } } : {}),
 }));
 /** The day's work: the hoplites meet at the well, the merchants stand their stall, the foragers fell, quarry and pick. */
 const work: Order[] = [
@@ -89,8 +90,8 @@ export const TRAILER_SCENARIOS: Scenario[] = [
     goal: 'Eight archers below the north-east ibex herd of the Kimmerian hills loose on it; the herd bolts.',
     region: 'kimmeria',
     neutral: true,
-    squads: [you('archer', [454, 96], 8)],
-    camera: { x: 454, y: 88, zoom: 1 },
+    squads: [you('archer', [454, 92], 8)],
+    camera: { x: 454, y: 86, zoom: 1 },
     after: { orders: [], settle: 10, squads: [], then: [{ kind: 'attack', squad: 6, target: 3 }] },
   },
   {

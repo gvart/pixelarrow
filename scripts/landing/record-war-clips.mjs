@@ -25,11 +25,12 @@
 //   audio       false (default: silent) or true: the game's sound, rendered in step with the frames
 //               (an OfflineAudioContext stands in for the page's AudioContext), saved as audio.wav
 //   fog         keep the fog of war (default off: the whole scene is lit)
-//   setup       page-side JS (a function source run with the scene / world state) after the scenario
+//   setup       page-side JS (a function source run with the scene / world state) after the scenario, before the lead
 //   camera      keyframes [{ t, x, y, zoom, ease }] in tiles (sandbox) or map px (world: zoom = map scale k),
 //               eased between (ease: 'linear' | 'inOut', default inOut). Instead of x, y a key may `track`:
 //               page-side JS returning {x, y} (e.g. the wagon), plus dx, dy; the camera eases onto it.
 //               Zoom is for a 720 px tall frame; other sizes scale it, so the framing stays the same.
+//   fps         frames a second for this shot (default: the list's FPS); e.g. 60 played back at 30 is a 0.5 slow-mo
 //   poster      seconds into the shot of the poster frame
 //   loop        seconds of the end cross-faded into the start by the encoder (0: no loop)
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
@@ -45,7 +46,7 @@ const only = opt('--only')?.split(',');
 const sizes = opt('--sizes', '1280x720,1920x1080').split(',').map((s) => s.split('x').map(Number));
 const still = args.includes('--still'); // only the poster frame of each shot (to look at a scene quickly)
 const OUT = resolve(opt('--out', join(ROOT, 'shots', 'war-clips')));
-const { SHOTS, FPS = 30 } = await import(pathToFileURL(resolve(opt('--shots', join(ROOT, 'scripts/landing/war-shots.mjs')))).href);
+const { SHOTS, FPS: LIST_FPS = 30 } = await import(pathToFileURL(resolve(opt('--shots', join(ROOT, 'scripts/landing/war-shots.mjs')))).href);
 
 // System Chrome with its GPU: SwiftShader is far too slow for big battles and blends differently.
 const browser = await chromium.launch({ channel: 'chrome', args: ['--use-angle=metal', '--ignore-gpu-blocklist', '--enable-gpu', '--autoplay-policy=no-user-gesture-required'] });
@@ -149,7 +150,7 @@ async function settleView(page) {
 }
 
 async function record(shot, [w, h]) {
-  const kind = shot.page ?? 'sandbox', seconds = shot.seconds, k = h / 720;
+  const kind = shot.page ?? 'sandbox', seconds = shot.seconds, k = h / 720, FPS = shot.fps ?? LIST_FPS;
   const keys = shot.camera.map((c) => ({ ...c, zoom: c.zoom * k }));
   const ctx = await browser.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 1 });
   await ctx.addInitScript(initPage, { hud: shot.hud ?? 'none', audio: !!shot.audio, seconds, seed: shot.seed ?? 20261026 });
@@ -166,10 +167,12 @@ async function record(shot, [w, h]) {
   } else {
     await page.waitForFunction(() => window.__sandbox?.sim?.cur && window.__simWorker && window.__warAudio, null, { timeout: 120000 });
     await ev(page, (fog) => { const s = window.__sandbox; s.setFog(fog); s.sel?.set([]); }, !!shot.fog);
+    // setup before the lead: orders it gives play out over the lead
+    if (shot.setup) await ev(page, `(${shot.setup})(window.__sandbox)`);
     const lead = Number(opt('--lead', shot.lead ?? 0)); // --lead: try a scene at another moment
     if (lead) await step(page, Math.round(lead * 10));
   }
-  if (shot.setup) await ev(page, `(${shot.setup})(window.__sandbox ?? window.__world)`);
+  if (shot.setup && kind === 'world') await ev(page, `(${shot.setup})(window.__world)`);
   // bake the terrain along the camera path first (the clock flowing), so no frame shows a chunk missing
   if (kind !== 'world') {
     for (let t = 0; t <= seconds; t += 0.5) {

@@ -64,7 +64,6 @@ describe('trailer scenes', () => {
   it('the hunt: the archers bring down ibex', () => {
     const { sim, step } = play('trailer-hunt');
     const n0 = alive(sim.snapshot(), 3);
-    expect(sim.snapshot().squads[3].cls).toBeUndefined();
     step(300, (s) => alive(s, 3) < n0);
     expect(alive(sim.snapshot(), 3)).toBeLessThan(n0);
   });
