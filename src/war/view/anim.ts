@@ -256,7 +256,7 @@ export class Animator {
     const s = this.squads.get(u.squad);
     // a loaded man keeps his walk when still (his load is drawn on it), held mid-stride; a puller or bearer stands
     if (work && (!stopped || loadOf(u))) return this.stride(m, clips, work, step);
-    if (work) return this.idle(m, clips, now, u.id);
+    if (work) { m.loco = ''; return this.idle(m, clips, now, u.id); }
     if (u.state === 'move' && !stopped) {
       const name = s?.order === 'attack' ? pickClip(clips, 'charge') : m.run ? pickClip(clips, 'run') : pickClip(clips, 'walk');
       return this.stride(m, clips, name, step);
