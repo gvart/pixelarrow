@@ -96,6 +96,9 @@ export interface SeasonState {
   ended: SeasonResult | null;
   /** M6h: trade score per alliance (also in `scores`). */
   trade?: number[];
+  /** W-61: peace score per kind and alliance (also in `scores`); transfer time share per alliance (its road work). */
+  peace?: Record<string, number[]>;
+  travel?: number[];
 }
 
 export interface WorldState {
@@ -115,6 +118,8 @@ export interface RegionReport {
   landmark?: { id: string; holder: number; guardian: 'alive' | 'slain' | 'away'; back?: number; state: LandmarkWorld['state']; hp: number; garrisoned: boolean };
   prestige?: number[];
   ruined?: boolean;
+  /** W-61: the best town level per alliance here (WarRoom.summary). */
+  town?: number[];
 }
 
 export type DepartResult = { ids: string[]; off: number; lost?: Record<string, number>; cargo?: TransitCargo } | { error: TransferError; detail?: string };
@@ -233,6 +238,7 @@ export class World {
     }
     if (rep.prestige?.some((v) => v > 0)) next.prestige = Array.from({ length: N }, (_, i) => rep.prestige![i] ?? 0);
     if (rep.ruined) next.ruined = true;
+    if (rep.town?.some((v) => v > 0)) next.town = Array.from({ length: N }, (_, i) => rep.town![i] ?? 0);
     const changed = JSON.stringify(next) !== JSON.stringify(cur);
     this.st.regions[id] = next;
     if (changed) this.checkHegemony(now);
@@ -256,6 +262,21 @@ export class World {
     (s.trade ??= zeros())[a] += pts;
   }
 
+  /** W-61: peace score `pts` of `kind` (volume, contracts, works) to alliance `a`. */
+  addPeace(a: AllianceId, kind: string, pts: number, now: number): void {
+    this.advance(now);
+    const s = this.st.season;
+    if (s.ended || !(pts > 0) || a < 0 || a >= N) return;
+    s.scores[a] += pts;
+    ((s.peace ??= {})[kind] ??= zeros())[a] += pts;
+  }
+
+  /** W-61: alliance `a`'s transfers take `k` of the time (its road work) for the rest of the season. */
+  setTravel(a: AllianceId, k: number): void {
+    if (a < 0 || a >= N) return;
+    (this.st.season.travel ??= Array<number>(N).fill(1))[a] = k;
+  }
+
   /** Start a transfer for player `pid` of `alliance` (`safe`: his convoy rides under Safe Roads). */
   async transfer(pid: number, alliance: AllianceId | null, o: TransferOrder, now: number, ports: Ports, safe = false): Promise<Transit | { error: TransferError; detail?: string }> {
     if (alliance === null) return { error: 'noAlliance', detail: 'join an alliance first' };
@@ -269,7 +290,7 @@ export class World {
       return { error: 'unavailable', detail: o.from };
     }
     if ('error' in out) return out;
-    const ms = Math.round((e.ms * this.season.travelScale + out.off * this.season.offExitMsPerTile) * cargoFactor(out.cargo));
+    const ms = Math.round((e.ms * this.season.travelScale + out.off * this.season.offExitMsPerTile) * cargoFactor(out.cargo) * (this.st.season.travel?.[alliance] ?? 1));
     const t: Transit = {
       id: ++this.st.seq, pid, alliance, from: o.from, to: o.to, side: e.sideB, ids: out.ids, ...(out.lost && Object.keys(out.lost).length ? { lost: out.lost } : {}), men: out.ids.length, departAt: now, arriveAt: now + ms, state: 'moving',
       ...(out.cargo ? { cargo: out.cargo } : {}), ...(o.path?.length ? { path: [...o.path] } : {}), ...(safe ? { safe } : {}),
@@ -389,6 +410,7 @@ export class World {
       hegemony: s.hegemony && !s.ended ? { ...s.hegemony, endsAt: s.hegemony.since + HEGEMONY.ms } : null,
       ended: s.ended,
       trade: (s.trade ?? zeros()).map(Math.floor),
+      ...(s.peace ? { peace: Object.fromEntries(Object.entries(s.peace).map(([k, v]) => [k, v.map(Math.floor)])) } : {}),
     };
   }
 }

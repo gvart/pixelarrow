@@ -148,6 +148,10 @@ export interface WorksHooks {
   immune?(b: Piece): boolean;
   /** M7a: men beating out its fire do so this much faster (a well near). */
   douse?(b: Piece): number;
+  /** W-61: worker u put `secs` worker-seconds of labour (building, mending) into b. */
+  laboured?(u: Worker, b: Piece, secs: number): void;
+  /** W-61: repairs of b go this much faster (a levelled town) and cost this share (an alliance work). */
+  repairK?(b: Piece): { speed: number; cost: number };
 }
 
 /** M7a: what stands for `team` in the gate grid: its own (team + 1), or open to all (0) for the neutral team. */
@@ -1436,7 +1440,8 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
   /** M7a: the full build cost and labour of b (a rebuilt ruin's repairs are priced as new). */
   const fullCost = (b: Building): Cost => {
     const k = b.def.perTile ? b.ti.length : 1, out: Cost = {};
-    for (const [r, v] of Object.entries(b.def.cost) as [ResourceKind, number][]) out[r] = v * k * REPAIR.cost;
+    const c = hooks.repairK?.(b).cost ?? 1;
+    for (const [r, v] of Object.entries(b.def.cost) as [ResourceKind, number][]) out[r] = v * k * REPAIR.cost * c;
     return out;
   };
   /** M7a repair: a worker at his slot mends b; every REPAIR.step of max hp is paid from the network first. */
@@ -1447,7 +1452,10 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
     }
     u.working = true;
     const k = b.def.perTile ? b.ti.length : 1;
-    const add = Math.min(b.credit, b.maxHp - b.hp, ((b.maxHp * REPAIR.step) / (b.def.labour * k * REPAIR.labour || 1)) * DT * (u.brate ?? 1));
+    const rate = DT * (u.brate ?? 1) * (hooks.repairK?.(b).speed ?? 1);
+    const full = ((b.maxHp * REPAIR.step) / (b.def.labour * k * REPAIR.labour || 1)) * rate;
+    const add = Math.min(b.credit, b.maxHp - b.hp, full);
+    if (add > 0) hooks.laboured?.(u, b, (rate * add) / full);
     b.hp += add;
     b.credit -= add;
     if (b.state === 'damaged' && b.hp >= b.maxHp / 2) b.state = 'done';
@@ -1640,7 +1648,9 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
     u.facing = Math.atan2(b.y - u.y, b.x - u.x);
     if (b.state === 'damaged') {
       u.working = true;
-      b.hp = Math.min(b.maxHp, b.hp + (b.maxHp / b.need) * DT * (u.brate ?? 1));
+      const rate = DT * (u.brate ?? 1) * (hooks.repairK?.(b).speed ?? 1);
+      hooks.laboured?.(u, b, rate);
+      b.hp = Math.min(b.maxHp, b.hp + (b.maxHp / b.need) * rate);
       if (b.hp >= b.maxHp / 2) b.state = 'done';
       return 'here';
     }
@@ -1651,7 +1661,9 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
       b.state = 'scaffold';
       if (!b.def.field) close(b); // M5h3: a field tile never closes
     } else if (b.saved.length < b.ti.length && !b.def.field) close(b); // an upgrade's new inner row
+    const was = b.labour;
     b.labour = Math.min(cap, b.labour + DT * (u.brate ?? 1));
+    if (b.labour > was) hooks.laboured?.(u, b, b.labour - was);
     b.hp = b.prev ? b.prev.hp + (b.maxHp - b.prev.hp) * (b.labour / b.need) : b.maxHp * Math.max(0.1, b.labour / b.need);
     if (b.labour >= b.need - 1e-9) finish(b);
     return 'here';
@@ -2211,6 +2223,8 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
         }
       for (const b of braziers) if (b.fuel > 0 && b.state !== 'destroyed') b.fuel = Math.max(0, b.fuel - DT);
     },
+    /** W-61: every building (read-only; the town level measures them). */
+    all: (): readonly Piece[] => buildings,
     resourceNodes: (): NodeSnap[] =>
       nodes.map((n) => ({ id: n.id, res: n.res, x: n.x, y: n.y, amount: n.amount, max: n.max, ...(n.obj !== undefined ? { obj: n.obj } : {}), ...(n.building !== undefined ? { building: n.building } : {}), ...(n.locked ? { guarded: true as const } : {}), ...(n.rare ? { rare: true as const } : {}) })),
     buildingSnaps: (): BuildingSnap[] =>

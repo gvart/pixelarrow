@@ -271,6 +271,10 @@ gorge – bacchae – erymanthos) is as short as the road through Omphalos but r
 | Temples, shrines, statues held intact | 0.25 / 0.1 / 0.1 an hour | ≤ 2 an hour an alliance; razing a temple or shrine −10 |
 | Trade sale of goods from ≥ 3 transfers away ("Trade") | 1 per 100 coin of price, ≤ 60 a day | traders score, not only armies |
 | Razing an enemy home building | 5 | homes never fall (W-09) |
+| Town level (W-61, "Peaceful play") | 0.25 / 0.5 / 1 / 1.5 an hour for Hamlet / Village / Town / City | each region's best town of the alliance; ≤ 3 an hour an alliance |
+| Trade volume (W-61) | 1 per 200 coin sold through a player's stall to another alliance | ≤ 40 a day an alliance |
+| Contract filled (W-61) | 2 + reward / 100 | carry, supply, build, guard; ≤ 30 a day an alliance |
+| Alliance work raised (W-61) | 30 once | temple, road and bridge, beacon line |
 
 Victory: **hegemony** ends the season early when one alliance holds Omphalos and 3 of the 4 frontier towns for 24 h;
 otherwise the highest score at the season's end wins. The old war (DESIGN_V2) ranked by capitals; here homes cannot
@@ -1119,6 +1123,7 @@ an unheld town charges nothing.
 | Hand-off | anywhere both players have a unit within 4 tiles: both confirm one window (cart, chest or porter loads, items, coin) within 60 s; swapped at once, nothing in flight |
 | Escrowed hand-off (Broker) | each side drops its half at the broker's stall when it can; collected once both are in; refunded after 48 h |
 | Contract (2 open, Broker 4) | posted at a stall, coin escrowed: **carry** (take these sealed loads from A to B; the carrier escrows 50% of the declared value), **supply** (deliver n of a good to my warehouse by a time), **escort** (paid when my cart arrives with ≥ 75% of its cargo); sealed loads unload only at B |
+| Work contracts (W-61) | **build** (an ally's men raise one of my sites, paid as they labour) and **guard** (an ally holds my town for n hours, paid an hour at a time): "Peaceful play" |
 | Letter of credit (Banker, stall L3) | the banker escrows coin in his strongbox at town B and sells at A a letter for his own fee; the letter is an item named to its buyer, redeemable only by him at B, so a stolen one is worthless |
 
 ### Loot piles (W-46, every fight)
@@ -1185,3 +1190,69 @@ touched only on load, unload, pick-up, capture or loot. Bench: 600 units with 40
 | Sim (`src/war/sim`, deterministic) | Server (`server/src/war`) | World (`WarWorldDO`) |
 | --- | --- | --- |
 | carts, porters' loads, store networks, chests, piles and decay, capture and loot, safe-zone rules and combat tag, `escort`, raider and escort bots | holder contents with the room, item places, offers and buy orders (D1 `war_offers`), rent, tax, escrow, contracts, letters, origin stamps, anti-abuse, trade score | transits with cargo, `haul` chains, Safe Roads visibility |
+
+## Peaceful play (W-61)
+
+A player can spend a whole season trading or building and still matter. Weights live in code: `src/war/sim/townLevel.ts`
+(levels, perks), `src/war/net/works.ts` (works), `src/war/world/season.ts` PEACE (score), `server/src/war/contracts.ts`
+GUARD and BUILD, `src/war/sim/economy.ts` WALLS.
+
+### Town level
+
+A team's town in a region is the ground within 24 tiles of its first standing camp or fort (else its first store). Every
+5 s the sim measures the team's own standing pieces there (pre-built pieces do not count): kinds of building (a forge of
+any level is one kind; wall segments, towers, gates, stairs one each), the stone share of their footprint, whether the
+walls close it (a walk from the centre over open ground, own gates shut and walkways no way out, reaches neither the
+map's edge nor 3000 tiles) and whether every wall piece is stone.
+
+| Level | Needs | Perks for the team's men and things inside (cumulative) |
+| --- | --- | --- |
+| 1 Camp | a store | none |
+| 2 Hamlet | 4 kinds | chests +2 loads; repairs ×1.1 |
+| 3 Village | 6 kinds, 25% stone | hunger 10% slower (food keeps); souls at sites in it ×1.25 |
+| 4 Town | 8 kinds, 40% stone, walls closed | chests +4; hunger 15% slower; souls ×1.5; repairs ×1.25 |
+| 5 City | 10 kinds, 60% stone, closed, every wall piece stone | chests +6; hunger 25% slower; souls ×2; repairs ×1.4 |
+
+The badge at the top centre of the HUD shows it; its card lists the measures, the perks and what the next level needs.
+The season score reads each region's best town level per alliance (table above).
+
+### Alliance works
+
+Big shared projects each alliance raises once a season at fixed sites of its home region (the temple at its first
+temple or shrine, the road where the way toward the world's centre leaves it, the beacons on the highest ground near the
+middle). Members give goods from their home strongrooms (at most what a work still lacks); men of the alliance standing
+within 10 tiles of the site labour on it (counted every 10 s). Done: the whole alliance has the bonus for the season, and
+30 score.
+
+| Work | Goods | Labour | Bonus |
+| --- | --- | --- | --- |
+| Temple at the shrine | stone 600, marble 120, coin 300 | 24 man-hours | repairs cost 40% less |
+| Road and bridge | stone 400, wood 500 | 20 man-hours | transfers 15% faster |
+| Beacon line | wood 300, stone 200, pitch 60 | 12 man-hours | men see 2 tiles further, towers and outposts 4 |
+
+The Works panel (top right) shows each with its bars and who gave what (war_work_gifts).
+
+### Build and guard contracts
+
+Posted in a market town's Contracts tab like the others, the reward escrowed from the stall; they need only the stall
+(no merchant node), count against the 2 open contracts, and are taken only by a member of the poster's alliance (his
+men stand among the poster's on the field; a truce for hired foes is not built).
+
+| Kind | Terms | Paid |
+| --- | --- | --- |
+| build | one of the poster's open sites in a region, man-hours of labour (≤ 48) | the reward pro rata as the region room reports the taker's men's labour on that site; all of it when the labour is in |
+| guard | the poster's town in a region, men (1-12), hours (≤ 24) | each whole hour with at least that many of the taker's fighters inside the town pays reward / hours; out of bounds or fallen for 120 s: broken, the rest back to the poster |
+
+### Walls that matter
+
+A man's blow or an arrow on a stone wall, gate or tower counts a quarter (`WALLS.stoneMelee`). A raid with no ram (the
+whole army is at most 12) needs over 20 minutes at a stone gate or tower, while a crewed ram breaks the gate in a few
+minutes and ladders raise as before: walls stop raids, not sieges. Wood stays cheap and weak (a wooden gate falls to the
+same raid in under 5 minutes). Seeded in tests/war/wallsMatter.test.ts.
+
+### Titles
+
+Each season the leader in each stat (war_season_stats) holds a title, shown under the roster's tabs, in the Works panel
+and on the world map's season panel: **Merchant Prince** (coin sold at his stalls), **Master Builder** (man-hours sold
+under build contracts or given to works), **Warden** (hours held under guard contracts), **Warlord** (foes his men
+struck down).

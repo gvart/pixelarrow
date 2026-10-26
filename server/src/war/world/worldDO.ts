@@ -96,6 +96,20 @@ export class WarWorldDO extends DurableObject<Env> {
     await this.commit(w);
   }
 
+  /** W-61: peace score to an alliance (volume, contracts, works: server/src/war/peace.ts). */
+  async addPeace(alliance: AllianceId, kind: string, pts: number): Promise<void> {
+    const w = await this.ensure();
+    w.addPeace(alliance, kind, pts, Date.now());
+    await this.commit(w);
+  }
+
+  /** W-61: an alliance work stood: its transfer bonus (a road) for the rest of the season. */
+  async setTravel(alliance: AllianceId, k: number): Promise<void> {
+    const w = await this.ensure();
+    w.setTravel(alliance, k);
+    await this.commit(w);
+  }
+
   /** M7f: alliance `alliance` razed a temple or shrine (WarRegionDO). */
   async sacrilege(alliance: AllianceId): Promise<void> {
     const w = await this.ensure();

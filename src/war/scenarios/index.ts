@@ -17,6 +17,7 @@ import { COMBAT_SCENARIOS } from './combat';
 import { ECONOMY_SCENARIOS } from './economy';
 import { BUILDING_SCENARIOS } from './building';
 import { SIEGE_SCENARIOS } from './siege';
+import { PEACE_SCENARIOS } from './peace';
 import { MOB_SCENARIOS } from './mobs';
 import { BOSS_SCENARIOS } from './bosses';
 import { CIVILIAN_SCENARIOS } from './civilians';
@@ -614,6 +615,7 @@ export const SCENARIOS: Scenario[] = [
   ...ECONOMY_SCENARIOS,
   ...BUILDING_SCENARIOS,
   ...SIEGE_SCENARIOS,
+  ...PEACE_SCENARIOS,
   ...MOB_SCENARIOS,
   ...BOSS_SCENARIOS,
   ...CIVILIAN_SCENARIOS,

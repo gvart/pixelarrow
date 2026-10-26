@@ -304,7 +304,20 @@ export interface Snapshot {
   supplies?: Record<number, Partial<Record<Product, number>>>;
   /** W-60: souls waiting to be claimed (src/war/sim/souls.ts). */
   souls?: SoulSnap[];
+  /** W-61: each team's town level here (src/war/sim/townLevel.ts). */
+  townLevels?: TownLevelSnap[];
 }
+/**
+ * W-61: a team's town in the region (src/war/sim/townLevel.ts): its level (0 none .. 5 City) and name, centre and
+ * radius, what it measured (kinds of building, stone share of the footprint, walls closed, every wall piece stone) and
+ * what the next level still needs.
+ */
+export interface TownLevelSnap {
+  team: number; level: number; name: string; x: number; y: number; r: number;
+  variety: number; stone: number; closed: boolean; stoneWalls: boolean; next: string[];
+}
+/** W-61 alliance works done (server/src/war/works.ts): lasting bonuses the region's sim applies to a team. */
+export interface TeamBonus { repairCost?: number; sight?: number }
 /**
  * W-60: a soul (a newly dead warrior) at a shrine, ruin, old battlefield or lair: the class and level he joins as, where
  * he woke (`site`), ticks before he fades, the claim under way (0..1, by `team`) or contested by more than one side.
@@ -548,6 +561,12 @@ export interface WarBuildSim extends WarSim {
   spawnMobs(): void;
   /** M7a (src/war/sim/prebuilt.ts): the region's towns; a team's recruit pool (an hour) and cap from its houses; its favour and prestige (score an hour, capped); the upkeep multiplier of its squad resting at (x,y) (a well near). */
   towns(): TownSnap[];
+  /** W-61 (src/war/sim/townLevel.ts): every team's town level here (measured every few seconds; `measure` now). */
+  townLevels(measure?: boolean): TownLevelSnap[];
+  /** W-61: the alliance works' lasting bonuses for a team (the server sets them; {} clears). */
+  setBonus(team: number, b: TeamBonus): void;
+  /** W-61: labour (worker-seconds) men of each owner put into each site since the last call (build contracts, works). */
+  takeLabour(): { owner: string; site: number; secs: number }[];
   population(team: number): { rate: number; cap: number };
   prestige(team: number): number;
   upkeepAt(team: number, x: number, y: number): number;

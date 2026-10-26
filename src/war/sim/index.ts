@@ -45,7 +45,7 @@ import { salvageValue, type Item } from '../../data/items';
 import { warStats, warStatsOf, type WarStats } from './classes';
 import { afterArmour, blockChance, COMBAT, heightRange, hitChance, meleeHeight, missileHeight } from './combat';
 import { formationOffsets, type Shape } from './formation';
-import { BRAZIER, BUILDINGS, FIELD, WORK_DEFENCE } from './economy';
+import { BRAZIER, BUILDINGS, FIELD, WALLS, WORK_DEFENCE } from './economy';
 import { BOG, buildGrid, canEnter, DECK, findPath, flushSectors, FOREST, lineClear, lineCost, nearestOpen, pullPath, stepCost, tileAt, UPHILL, walkClear, type Grid } from './grid';
 import { createWorks, type Worker } from './works';
 import { createSiege, LADDER } from './siege';
@@ -76,7 +76,8 @@ import { makePerson } from './roster';
 import { ARMY_MAX } from './soldiers';
 import { CLASSES, isClassId } from '../../data/classes';
 import { freeName } from '../../data/names';
-import type { HolderRef } from '../types';
+import type { HolderRef, TeamBonus } from '../types';
+import { createTownLevels } from './townLevel';
 
 /** Save and restore: the constants a sim's state points at (named, not copied) and a fresh sim's root per region (typed-array diffs). */
 const exts = new WeakMap<RegionData, Map<object, string>>();
@@ -405,6 +406,14 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       razed: (b, by) => note({ t: tick, kind: 'razed', building: b.id, type: b.type, owner: b.team, by, ...(b.type === 'temple' || b.type === 'shrine' ? { sacrilege: true as const } : {}) }),
       immune: (b) => anySafe && b.ti.some((t) => safeMask[t] === 1), // M7b: a court's corner towers stand half outside it
       douse: (b) => towns.douse(b),
+      // W-61: labour by owner (build contracts, alliance works); a levelled town mends faster, an alliance temple cheaper
+      laboured: (u, b, secs) => {
+        const owner = (u as unknown as Unit).squad.owner;
+        if (!owner || b.team !== (u as unknown as Unit).squad.team) return;
+        const k = `${owner}|${b.id}`;
+        labourLog.set(k, (labourLog.get(k) ?? 0) + secs);
+      },
+      repairK: (b) => ({ speed: townLv.perkAt(b.team, b.x, b.y).repair, cost: bonuses.get(b.team)?.repairCost ?? 1 }),
     },
   );
 
@@ -657,6 +666,12 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
 
   // M7a: the region's pre-built pieces and their functions (./prebuilt.ts)
   const towns = createTowns(works, { squads, units, mob: MOB_TEAM });
+  // W-61: each team's town level here (./townLevel.ts), the alliance works' bonuses, labour by owner and site
+  const townLv = createTownLevels(grid, works.all, MOB_TEAM);
+  const bonuses = new Map<number, TeamBonus>();
+  const labourLog = new Map<string, number>();
+  /** A chest's loads: its own, plus its owner's town perk where it stands. */
+  const chestCap = (b: { def: { chest?: number }; team: number; x: number; y: number }) => (b.def.chest ?? 0) + townLv.perkAt(b.team, b.x, b.y).store;
   works.prebuild(NEUTRAL_TEAM);
   // M7f: the region's landmark (./landmarks.ts): holder, capture damage, restore, garrison
   const landmarks = createLandmarks(region.id, works, {
@@ -667,7 +682,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     note: (e) => note(e),
   });
 
-  const vision = createVision(grid, { units: () => units, buildings: () => works.buildingSnaps() });
+  const vision = createVision(grid, { units: () => units, buildings: () => works.buildingSnaps(), sightAdd: (team) => bonuses.get(team)?.sight ?? 0 });
 
   const hAt = (x: number, y: number) => grid.height[tileAt(grid, x, y)];
   const groundAt = (x: number, y: number) => grid.ground[tileAt(grid, x, y)];
@@ -1823,8 +1838,9 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
   };
   /** Damage building b for squad s; its fall is an objective of s. */
   const hitBuilding = (s: Squad, b: number, dmg: number) => {
-    const was = works.piece(b)?.state;
-    works.damage(b, dmg, s.team);
+    const p = works.piece(b), was = p?.state;
+    // W-61 walls that matter: blows and arrows barely mark a stone wall, gate or tower (a ram or a thrower brings it down)
+    works.damage(b, p?.def.wall && p.def.material === 'stone' ? dmg * WALLS.stoneMelee : dmg, s.team);
     if (was !== undefined && was !== 'destroyed' && works.piece(b)?.state === 'destroyed') objective(s, 'building');
   };
 
@@ -1837,7 +1853,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
   const holderAt = (ref: HolderRef): HolderAt | null => {
     if (ref.building !== undefined) {
       const b = works.piece(ref.building), hd = works.holdOf(ref.building);
-      return b && hd ? { hold: hd, x: b.x, y: b.y, kind: b.def.chest ? 'chest' : 'store', team: b.team, owner: b.owner, cap: b.def.chest ?? Infinity, id: b.id } : null;
+      return b && hd ? { hold: hd, x: b.x, y: b.y, kind: b.def.chest ? 'chest' : 'store', team: b.team, owner: b.owner, cap: b.def.chest ? chestCap(b) : Infinity, id: b.id } : null;
     }
     if (ref.cart !== undefined) {
       const e = siege.get(ref.cart);
@@ -2750,7 +2766,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     for (const u of units) {
       if (!u.alive || u.squad.team === MOB_TEAM || u.squad.team === NEUTRAL_TEAM) continue;
       const was = hungerStage(u.sat);
-      u.sat = Math.max(0, u.sat - HUNGER.decay * sec);
+      u.sat = Math.max(0, u.sat - HUNGER.decay * sec * townLv.perkAt(u.squad.team, u.x, u.y).hunger); // W-61: a levelled town's food keeps
       if (u.sat < HUNGER.eatAt && !biteFrom(u, u.pack)) biteFrom(u, works.storeNear(u.squad.team, u.x, u.y, HUNGER.storeR));
       const now = hungerStage(u.sat);
       if (now === 2 && u.hp > u.maxHp * HUNGER.floor) u.hp = Math.max(u.maxHp * HUNGER.floor, u.hp - u.maxHp * HUNGER.drain * sec);
@@ -2760,6 +2776,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
   // W-60 souls (./souls.ts): the gate the server may set; default: his fighters on this field
   let soulGate: ((owner: string) => { ok: boolean; have: number }) | null = null;
   const souls = createSouls(region, seed, {
+    chanceAt: (x, y) => townLv.soulsAt(x, y),
     *men() {
       for (const u of units) if (u.alive) yield { x: u.x, y: u.y, team: u.squad.team, squad: u.squad.id, claim: u.squad.soul, owner: u.squad.owner, civ: !!u.civ };
     },
@@ -2815,6 +2832,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     mobs.tick(tick);
     bosses.tick(tick);
     towns.tick(tick);
+    townLv.tick(tick);
     landmarks.tick(tick);
     for (const s of squads) {
       if (s.alive === 0) continue;
@@ -3072,6 +3090,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     grid, rng, squads, units, queue, pathQueue, unitPathQueue, missiles, shots, reslotQueue, tick, loot, log, civs, dresser, souls: souls.saveRoot(),
     crafting: crafting.saveRoot(), works: works.saveRoot(), siege: siege.saveRoot(), mobs: mobs.saveRoot(), vision: vision.saveRoot(), piles: piles.saveRoot(),
     towns: towns.saveRoot(), bosses: bosses.saveRoot(), landmarks: landmarks.saveRoot(),
+    townLv: townLv.saveRoot(), bonuses, labourLog,
   });
 
   const api: WarBuildSim = {
@@ -3249,6 +3268,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
         ...(region.prebuilt?.length ? { towns: towns.towns() } : {}),
         ...(landmarks.any() ? { landmark: landmarks.snap() } : {}),
         ...(souls.any() ? { souls: souls.snaps(tick) } : {}),
+        ...((tl) => (tl.length ? { townLevels: tl } : {}))(townLv.snaps()),
         ...(crafting.supplies.size ? { supplies: crafting.suppliesSnap() } : {}),
         ...(piles.piles.length ? { piles: piles.piles.map((p) => ({ id: p.id, x: p.x, y: p.y, goods: totals(p.hold), items: p.hold.items.length, ...(p.hold.items.length ? { list: itemList(p.hold) } : {}), loads: loads(p.hold), left: p.until - tick, ...(p.salv > 0 ? { salvage: p.salv / PILE.salvage } : {}) })) } : {}),
       };
@@ -3299,6 +3319,20 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     },
     hurtBoss: (id, dmg, owner, part) => bosses.hurtBoss(id, dmg, owner, part),
     towns: () => towns.towns(),
+    townLevels(measure = false) {
+      if (measure) townLv.measure();
+      return townLv.snaps();
+    },
+    setBonus: (team, b) => void (Object.keys(b).length ? bonuses.set(team, { ...b }) : bonuses.delete(team)),
+    takeLabour() {
+      const out: { owner: string; site: number; secs: number }[] = [];
+      for (const [k, secs] of labourLog) {
+        const i = k.lastIndexOf('|');
+        out.push({ owner: k.slice(0, i), site: Number(k.slice(i + 1)), secs });
+      }
+      labourLog.clear();
+      return out;
+    },
     population: (team) => towns.population(team),
     prestige: (team) => towns.prestige(team),
     upkeepAt: (team, x, y) => towns.upkeepAt(team, x, y),
@@ -3320,7 +3354,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       if (ref.reserve !== undefined) return { slots: [{ hold: works.reserveOf(ref.reserve), cap: Infinity, x: -1, y: -1 }], team: ref.reserve, owner: '' };
       if (ref.building !== undefined) {
         const b = works.piece(ref.building), hd = works.holdOf(ref.building);
-        return b && hd ? { slots: [{ hold: hd, cap: b.def.chest ?? Infinity, x: b.x, y: b.y }], team: b.team, owner: b.owner } : null;
+        return b && hd ? { slots: [{ hold: hd, cap: b.def.chest ? chestCap(b) : Infinity, x: b.x, y: b.y }], team: b.team, owner: b.owner } : null;
       }
       if (ref.cart !== undefined) {
         const e = siege.get(ref.cart);

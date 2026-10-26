@@ -13,7 +13,9 @@
  *   POST /:town/deals    { broker, with, give, get }   an escrowed hand-off at a Broker's stall
  *   POST /deals/:id/drop                      drop my half from my sites there (both in: swapped)
  *   GET  /:town/contracts                     open and taken contracts posted at or bound for the town
- *   POST /:town/contracts { kind, toTown, reward, res?, n?, value?, loads?, deadline }   post (reward escrowed)
+ *   POST /:town/contracts { kind, toTown, reward, res?, n?, value?, loads?, deadline, region?, site?, hours?, men? }
+ *                                             post (reward escrowed); W-61 build (region, site, man-hours) and guard
+ *                                             (region, hours, men) need only the stall
  *   POST /contracts/:id/take                  take one (a carry escrows half its value); loads and deliveries go
  *                                             over the region socket (`stow` site `contract`)
  *   POST /:town/letters  { toTown, amount, fee }   a Banker's letter of credit (coin escrowed at toTown)
@@ -122,8 +124,10 @@ trade.post('/:town/contracts', requirePlayable, async (c) => {
   const b = await readJson(
     c,
     z.object({
-      kind: z.enum(['carry', 'supply', 'escort']), toTown: z.string().regex(/^[a-z0-9_-]{1,40}$/), reward: z.number().int().min(1).max(100_000), res: good.optional(),
+      kind: z.enum(['carry', 'supply', 'escort', 'build', 'guard']), toTown: z.string().regex(/^[a-z0-9_-]{1,40}$/), reward: z.number().int().min(1).max(100_000), res: good.optional(),
       n: z.number().positive().max(100_000).optional(), value: z.number().int().min(1).max(1_000_000).optional(), loads: z.number().positive().max(100).optional(), deadline: z.number().int().positive(),
+      // W-61 build and guard
+      region: z.string().regex(/^[a-z0-9_-]{1,40}$/).optional(), site: z.number().int().min(0).max(1_000_000).optional(), hours: z.number().positive().max(48).optional(), men: z.number().int().min(1).max(12).optional(),
     }),
     MAX_BODY,
   );
@@ -163,7 +167,9 @@ trade.post('/offers/:id/fill', requirePlayable, async (c) => {
   await seen(c);
   const row = await d.prepare('SELECT town FROM war_offers WHERE id = ?1').bind(id).first<{ town: string }>();
   const holder = row ? await holderOf(c.env, row.town) : -1;
-  const f = await fill(d, pid, id, b.n, b.key, holder, Date.now(), fillHook(c.env));
+  const peace = { alliance: null as number | null, volume: 0 };
+  const f = await fill(d, pid, id, b.n, b.key, holder, Date.now(), fillHook(c.env, peace));
+  if (peace.alliance !== null && peace.volume > 0) await worldStub(c.env).addPeace(peace.alliance as AllianceId, 'volume', peace.volume); // W-61
   if (row) {
     const bd = await board(d, row.town);
     for (const p of [f.seller, f.buyer]) await recordBoard(d, p, bd, Date.now());

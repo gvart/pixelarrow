@@ -138,6 +138,12 @@ export const NEUTRAL_TEAM = 6;
  */
 export const RUIN = { slow: 2, spill: 0.5, rebuild: 0.75 };
 export const REPAIR = { step: 0.1, cost: 0.05, labour: 0.05 };
+/**
+ * W-61 walls that matter (docs/WAR.md "Walls that matter"): a stone wall, gate or tower takes `stoneMelee` of a man's blow
+ * and of an arrow, so a raid without a ram (at most ARMY_MAX men) needs half an hour at a stone gate while a ram, a stone
+ * thrower or ladders still open it in minutes.
+ */
+export const WALLS = { stoneMelee: 0.25 };
 
 /** M6a chests: most a player places in a region; an enemy loots one only with no unit of its owner within `guard` tiles. */
 export const CHEST = { cap: 4, guard: 10 };

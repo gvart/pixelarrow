@@ -1,6 +1,7 @@
 /**
  * The player HUD in the red-figure kit (W-32; art: public/war/ui/, ./kit.ts). HTML over the canvas, anchored:
  *
+ *   top centre     W-61: the town level badge (click: the town card; ./peace.ts)
  *   (no top band)  what the men carry and the town's store are in the squad chest (I, bottom right: ./chest.ts); a cost
  *                  shows "needs 6 wood (you have 2)" where it is asked (build bar, upgrade, forge, market: ./goods.ts)
  *   bottom left    round minimap (./minimap.ts), the view mode switcher in its corner (F2-F7) and the mode's legend over it (./modes.ts)
@@ -18,7 +19,7 @@
  *   bottom right   the squad chest (I), roster (R) and Build (hammer, B) buttons; the build bar (tabs Camp / Walls / Siege, a tool per building, a
  *                  tooltip with cost and labour; walls, towers and gates are plain tools on the Walls tab (W-57), the
  *                  status line above) opens bottom centre, over the card, only in build mode: B / Esc close it
- *   top right      World, Market (K: ./market.ts), DEV (F1) and the UI scale (auto by window / 0.75x / 1x / 1.25x / 1.5x / 2x, kept in localStorage; ./kit.ts)
+ *   top right      World, Works (W-61 alliance works and titles: ./peace.ts), Market (K: ./market.ts), DEV (F1) and the UI scale (auto by window / 0.75x / 1x / 1.25x / 1.5x / 2x, kept in localStorage; ./kit.ts)
  *   at the cursor  the E context label (../interact.ts) and the kit's cursors
  *
  * The dev panel (../devPanel.ts) hides behind F1 and the DEV corner button. It only calls BuildMode, SiegeControls and
@@ -51,6 +52,7 @@ import { billText, buildingTip, levelOf, mountBuildingCard, nameOfBuilding, purp
 import { needChips, shortText } from './goods';
 import { localGoods, mountChest, storeNear } from './chest';
 import { mountSouls } from './souls';
+import { mountPeace } from './peace';
 import { RECIPES } from '../../../data/recipes';
 import { allCivilians, civBuild, civGather, civInfo, civName, civTips, civWork } from './cardCiv';
 import { buildCard, term } from './codex';
@@ -356,6 +358,7 @@ export function hud(s: SandboxScene): void {
   mountCraft(s, mk, mountRoster(s, mk)); // M5h5: workplace panel, profession trees, stash (./craft)
   mountChest(s, mk, tipOn); // the squad chest (I) beside the roster button: what the men carry, the town store
   mountSouls(s, mk, tipOn); // W-60: souls to claim (the prompt, notes; ghosts drawn by ../units.ts)
+  mountPeace(s, mk); // W-61: the town level badge and card, alliance works and titles (./peace.ts)
   const groups = mountGroups(s, mk, tipOn); // W-53: the control group bar over the card, numbers on the map
 
   // ---------- scale ----------

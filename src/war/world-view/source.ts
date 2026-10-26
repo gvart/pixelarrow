@@ -37,7 +37,11 @@ export interface WorldView {
   convoys?: ConvoySnap[];
   boards?: Record<string, BoardSeen>;
   trade?: number[];
+  /** W-61: the season's titles (GET /api/war/titles; the mock's offline), shown on the season panel and the map. */
+  titles?: WorldTitle[];
 }
+/** W-61: a title holder (server/src/war/peace.ts Title). */
+export interface WorldTitle { id: string; name: string; player: string; alliance: number; home: string | null; value: number }
 
 export type TransferResult = { ok: TransitSnap[] } | { error: string };
 
@@ -100,7 +104,7 @@ export class NetSource implements WorldSource {
   constructor(private q = new URLSearchParams(location.search)) {}
 
   private view(): void {
-    if (this.snap) this.emit({ snap: this.snap, squads: this.squads, scores: this.snap.score.scores, endsAt: this.snap.at + this.snap.score.left, quota: QUOTA, status: this.status, ...liveTrade(this.snap) });
+    if (this.snap) this.emit({ snap: this.snap, squads: this.squads, scores: this.snap.score.scores, endsAt: this.snap.at + this.snap.score.left, quota: QUOTA, status: this.status, ...liveTrade(this.snap), titles: this.titles });
   }
 
   private async api<T>(method: 'GET' | 'POST', path: string, body?: unknown): Promise<T> {
@@ -135,8 +139,15 @@ export class NetSource implements WorldSource {
     setInterval(() => void this.loadRoster().then(() => this.view()).catch(() => undefined), 5000);
   }
 
+  private titles: WorldTitle[] = [];
+  private titlesAt = 0;
   private async loadRoster(): Promise<void> {
     this.squads = fieldSquads((await this.api<{ persons: RosterPerson[] }>('GET', '/api/war/roster')).persons);
+    // W-61: the titles, once a minute
+    if (Date.now() - this.titlesAt > 60_000) {
+      this.titlesAt = Date.now();
+      this.titles = (await this.api<{ titles: WorldTitle[] }>('GET', '/api/war/titles').catch(() => ({ titles: [] as WorldTitle[] }))).titles ?? [];
+    }
   }
 
   /** The world socket; while it is down, poll the snapshot every 5 s and retry the socket. */
@@ -244,6 +255,7 @@ export function mockWorld(now: number): { snap: WorldSnapshot; squads: FieldSqua
   const score: SeasonSnap = {
     id: WAR_SEASON.id, startAt: now + left - WAR_SEASON.lengthMs, endAt: now + left, left, scores, rates: allianceRates(regions),
     omphalos: owner(OMPHALOS), towns: Object.fromEntries(FRONTIER_TOWNS.map((t) => [t, owner(t)])), hegemony: null, ended: null,
+    peace: { volume: [22, 9, 31, 40], contracts: [14, 6, 3, 11], works: [30, 0, 0, 30] }, // W-61
   };
   // M6l: convoys on the road (yours, a seen foe cart, a Safe Roads foe wagon to a town you stand in, one out of sight)
   const leg = (from: string, to: string, f: number, mul: number) => { const ms = travelMs(from, to) * mul; return { departAt: now - ms * f, arriveAt: now + ms * (1 - f) }; };
@@ -262,6 +274,14 @@ export function mockWorld(now: number): { snap: WorldSnapshot; squads: FieldSqua
   return { snap: { season: WAR_SEASON.id, score, at: now, you: { id: 1, alliance: 0 }, alliances, regions, transit }, squads, scores, endsAt: now + left, convoys, boards, trade: [34, 18, 60, 9] };
 }
 
+/** W-61: the mock's titles. */
+const MOCK_TITLES: WorldTitle[] = [
+  { id: 'merchantPrince', name: 'Merchant Prince', player: 'Kallias', alliance: 3, home: 'elaia', value: 4210 },
+  { id: 'masterBuilder', name: 'Master Builder', player: 'Iktinos', alliance: 0, home: 'dodona', value: 61.5 },
+  { id: 'warden', name: 'Warden', player: 'Phylax', alliance: 1, home: 'skythia', value: 38 },
+  { id: 'warlord', name: 'Warlord', player: 'Brasidas', alliance: 2, home: 'kyrene', value: 214 },
+];
+
 export class MockSource implements WorldSource {
   readonly mode = 'offline';
   readonly devId = null;
@@ -274,7 +294,7 @@ export class MockSource implements WorldSource {
     const now = Date.now();
     // convoys that arrived set off again the other way (the mock keeps the roads busy)
     for (const c of this.w.convoys) if (c.arriveAt <= now) { const ms = c.arriveAt - c.departAt; [c.from, c.to] = [c.to, c.from]; c.departAt = now; c.arriveAt = now + ms; }
-    this.emit({ snap: this.w.snap, squads: this.w.squads, scores: this.w.scores, endsAt: this.w.endsAt, quota: QUOTA, status: 'offline (mock world)', convoys: this.w.convoys, boards: this.w.boards, trade: this.w.trade });
+    this.emit({ snap: this.w.snap, squads: this.w.squads, scores: this.w.scores, endsAt: this.w.endsAt, quota: QUOTA, status: 'offline (mock world)', convoys: this.w.convoys, boards: this.w.boards, trade: this.w.trade, titles: MOCK_TITLES });
   }
 
   async start(onChange: (v: WorldView) => void): Promise<void> {

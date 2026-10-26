@@ -73,6 +73,9 @@ export const DELETION_MAP: Record<string, TableRule> = {
   war_region_holds: { rule: 'delete', pid: ['player_id'] },
   war_crafts: { rule: 'delete', pid: ['player_id'] },
   war_alliance_members: { rule: 'delete', pid: ['player_id'] },
+  // W-61: his season stats and his gifts to alliance works
+  war_season_stats: { rule: 'delete', pid: ['player_id'] },
+  war_work_gifts: { rule: 'delete', pid: ['player_id'] },
   war_player_stats: { rule: 'delete', pid: ['player_id'] },
   display_name_history: { rule: 'delete', pid: ['player_id'], via: 'one row is written back at the tombstone step so the freed name stays held 30 days' },
 
@@ -105,6 +108,8 @@ export const DELETION_MAP: Record<string, TableRule> = {
   war_goods: { rule: 'not_player_keyed' },
   war_trade_score: { rule: 'not_player_keyed' },
   war_board_seen: { rule: 'not_player_keyed' },
+  war_works: { rule: 'not_player_keyed' },
+  war_peace_score: { rule: 'not_player_keyed' },
   war_alliance_clans: { rule: 'not_player_keyed' },
   war_region_state: { rule: 'not_player_keyed' },
   public_snapshot: { rule: 'derived' },
