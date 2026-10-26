@@ -2,7 +2,7 @@
  * The roster panel (M5g, R; W-55, W-58): the player's army, "n / ARMY_MAX men" in the head (every man stands in some
  * region), grouped by squad in the field, by the other region he is in, wounded, captive and fallen. A row: class
  * icon, name with his rank crest and a gold star when a level-up waits, the XP line, what he is doing and where
- * (./doing.ts), his level as a disc, and his state as one mark: the HP bar in the field, a flag in another region, a
+ * (./doing.ts), his hunger mark in the field (W-60, ../hunger.ts), his level as a disc, and his state as one mark: the HP bar in the field, a flag in another region, a
  * bleeding heart when wounded, a lock when captive, a skull when fallen (each with its card). Filter tabs and a sort.
  * Dev buttons show only while the dev panel is open. Pure HTML from the rows; ./index.ts mounts it and routes the clicks (data-pid, data-filter,
  * data-sort, data-act).
@@ -15,6 +15,7 @@ import { esc } from './ui';
 import { doingText } from './doing';
 import { glyph } from '../glyph';
 import { card, termCard } from '../codex';
+import { hungerBadge } from '../hunger';
 
 export type Filter = 'all' | 'field' | 'hurt';
 export type Sort = 'level' | 'name' | 'class' | 'hp';
@@ -59,7 +60,7 @@ function row(r: Row, sel: string | null, pending: boolean, captor: number | unde
   return `<div class="rr-row${sel === r.p.id ? ' on' : ''}${r.unit && picked.has(r.unit.id) ? ' picked' : ''}${r.where === 'dead' ? ' dead' : ''}" data-pid="${r.p.id}">
     <div style="width:24px;height:24px;flex:none"><img src="war/ui/icons/24/${UNIT_ICON[h.cls ?? ''] ?? 'unit-militia'}.png" srcset="war/ui/icons/24/${UNIT_ICON[h.cls ?? ''] ?? 'unit-militia'}@2x.png 2x" width="24" height="24" alt=""></div>
     <div style="flex:1;min-width:0">
-      <div style="display:flex;align-items:center;gap:3px"><span class="rr-nm">${esc(h.name)}</span>${crest}${hon}<span style="flex:1"></span>${up}</div>
+      <div style="display:flex;align-items:center;gap:3px"><span class="rr-nm">${esc(h.name)}</span>${crest}${hon}<span style="flex:1"></span>${r.where === 'field' ? hungerBadge(r.unit?.sat, 13) : ''}${up}</div>
       <div class="rr-xp" ${tip(card({ icon: 'ui:xp', name: `${h.xp} / ${need} XP`, kind: `to level ${h.level + 1}`, w: 170 }))}><i style="width:${Math.round(100 * Math.min(1, h.xp / need))}%"></i></div>
       <div class="rr-doing">${esc(doing(r))}</div>
     </div>

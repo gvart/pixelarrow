@@ -49,7 +49,8 @@ import { mountMarket } from './market';
 import { mountGuardians } from './guardianBar';
 import { billText, buildingTip, levelOf, mountBuildingCard, nameOfBuilding, purposeOf, rebuildBill, rebuildWhy, repairBill, repairWhy, statusOf } from './buildingCard';
 import { needChips, shortText } from './goods';
-import { mountChest } from './chest';
+import { localGoods, mountChest, storeNear } from './chest';
+import { mountSouls } from './souls';
 import { RECIPES } from '../../../data/recipes';
 import { allCivilians, civBuild, civGather, civInfo, civName, civTips, civWork } from './cardCiv';
 import { buildCard, term } from './codex';
@@ -62,6 +63,8 @@ import { myTeam } from '../side';
 import { activityText, waitText } from './activity';
 
 const SHAPES = ['line', 'column', 'wedge', 'loose'] as const;
+/** W-60: a building's cost hints count the store of its area (the nearest store of yours this near), never a total. */
+const LOCAL_R = 24;
 const CLASS_NAME: Record<string, string> = { militia: 'Militia', hoplite: 'Hoplites', celt_sword: 'Swordsmen', archer: 'Archers', slinger: 'Slingers', javelineer: 'Javelineers' };
 const nice = (t: string) => t.replace(/[A-Z]/g, (c) => ' ' + c.toLowerCase()).replace(/^./, (c) => c.toUpperCase());
 
@@ -81,7 +84,7 @@ const cartTool = (t: 'handcart' | 'wagon'): ToolDef => {
   return { name: nice(t), icon: SIEGE_ICON[t], tool: { kind: 'siege', type: t }, cost: r.inputs as Cost, labour: r.secs, note: `${t === 'handcart' ? '6 loads, 2 pull it' : '12 loads, a driver and two mules'} · queued at your workshop L${lvl}`, craft: t };
 };
 const TABS: Record<'Camp' | 'Walls' | 'Craft' | 'Siege' | 'Trade', ToolDef[]> = {
-  Camp: TOOLBAR.map((t) => bTool(t)),
+  Camp: TOOLBAR.filter((t) => !BUILDINGS[t].prebuilt).map((t) => bTool(t)), // W-60: no barracks (pre-built only)
   Craft: WORKPLACES.map(([t, name]) => bTool(t, '', name)),
   Walls: [
     // W-57: walls drawn by drag or click-click; towers and gates placed like any building, onto a wall or beside it
@@ -311,7 +314,7 @@ export function hud(s: SandboxScene): void {
   const renderTools = () => {
     toolBtns.length = 0;
     bTools.replaceChildren(...TABS[tab].map((d, i) => {
-      const b = btn('bt-' + tab + i, d.icon, () => buildCard(d.tool?.kind === 'siege' ? 'siege' : 'building', d.tool?.kind === 'siege' ? d.tool.type : d.type ?? '', d.name, icon(d.icon, 32), `<div style="display:flex;align-items:center;flex-wrap:wrap">${needChips(d.cost, s.sim.cur?.stock?.[myTeam()] ?? {})}</div>${shortText(d.cost, s.sim.cur?.stock?.[myTeam()] ?? {}) ? `<div class="rf-hint">${shortText(d.cost, s.sim.cur?.stock?.[myTeam()] ?? {})}</div>` : ''}<div class="rf-dim" style="margin-top:3px;font-size:11px">${d.craft ? `${d.labour} s an engineer` : `${term('labour')} ${labourText(d.labour, d.type ? BUILDINGS[d.type].workers : undefined)}`}${d.note ? ' · ' + d.note : ''}</div>`, nodeWhy(d)), '', () => { if (d.craft) return craftCart(d.craft); if (!nodeWhy(d)) m.setTool(JSON.stringify(m.tool) === JSON.stringify(d.tool) ? null : d.tool); });
+      const b = btn('bt-' + tab + i, d.icon, () => buildCard(d.tool?.kind === 'siege' ? 'siege' : 'building', d.tool?.kind === 'siege' ? d.tool.type : d.type ?? '', d.name, icon(d.icon, 32), `<div style="display:flex;align-items:center;flex-wrap:wrap">${needChips(d.cost, localGoods(s))}</div>${shortText(d.cost, localGoods(s)) ? `<div class="rf-hint">${shortText(d.cost, localGoods(s))}</div>` : ''}<div class="rf-dim" style="margin-top:3px;font-size:11px">${d.craft ? `${d.labour} s an engineer` : `${term('labour')} ${labourText(d.labour, d.type ? BUILDINGS[d.type].workers : undefined)}`}${d.note ? ' · ' + d.note : ''}</div>`, nodeWhy(d)), '', () => { if (d.craft) return craftCart(d.craft); if (!nodeWhy(d)) m.setTool(JSON.stringify(m.tool) === JSON.stringify(d.tool) ? null : d.tool); });
       b.dataset.tool = String(i);
       toolBtns.push([b, d]);
       return b;
@@ -352,6 +355,7 @@ export function hud(s: SandboxScene): void {
   // ---------- soldiers: roster panel (R), soldier card, toasts, veteran pips (./roster, M5g) ----------
   mountCraft(s, mk, mountRoster(s, mk)); // M5h5: workplace panel, profession trees, stash (./craft)
   mountChest(s, mk, tipOn); // the squad chest (I) beside the roster button: what the men carry, the town store
+  mountSouls(s, mk, tipOn); // W-60: souls to claim (the prompt, notes; ghosts drawn by ../units.ts)
   const groups = mountGroups(s, mk, tipOn); // W-53: the control group bar over the card, numbers on the map
 
   // ---------- scale ----------
@@ -397,7 +401,7 @@ export function hud(s: SandboxScene): void {
     if (b && (b.state !== 'destroyed' || b.ruin)) {
       card.style.display = '';
       $('cTag').style.display = 'none';
-      const site = isSite(b), stock = s.sim.cur?.stock?.[myTeam()] ?? {}, lv = levelOf(b.type);
+      const site = isSite(b), stock = (storeNear(s.sim.cur, myTeam(), b.x, b.y, LOCAL_R)?.goods ?? {}) as Record<string, number>, lv = levelOf(b.type); // W-60: the store of its area, no totals
       const name = `${nameOfBuilding(b)}${site ? (b.upgradeFrom ? ' upgrade' : ' site') : ''}${lv > 1 || BUILDINGS[b.type].workplace ? ` <span class="rf-lv">L${lv}</span>` : ''}${b.ruin ? ' <span class="rf-pill bad">ruin</span>' : ''}`;
       const BAR_W = SEL_BLD;
       /** A button's tooltip: its title, the cost against your stock, plain notes, and why it is off (red). */

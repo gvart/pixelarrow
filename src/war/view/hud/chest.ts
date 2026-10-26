@@ -4,10 +4,11 @@
  *
  *   Squad        what the selected men (none selected: all your men here) have: goods in their hands, the packs' fill,
  *                a crewed cart's cargo, the gear they wear, and your loot and spare gear (the stash)
- *   Town store   your store network's stock and the remedies, only while those men stand by a store of yours
+ *   Town store   W-60: only while those men stand next to a store of yours (STORE_NEAR), and only that store's goods
+ *                and items: no network or team total (what is here is what the men can eat and take)
  *
  * Filter (all, goods, gear, loot) and sort (amount, name, kind); every cell has its codex card. The sections are rows of
- * SOURCES, each a function of the view's context, so new things a squad carries (rations, recruits) slot in as a row.
+ * SOURCES, each a function of the view's context, so new things a squad carries slot in as a row (W-60: their hunger).
  */
 import { ITEMS, type Item } from '../../../data/items';
 import { BUILDINGS } from '../../sim/economy';
@@ -22,6 +23,10 @@ import { GOOD_INFO, goodCard, goodIcon, goodName } from './goods';
 import { sandboxRoster } from './roster/state';
 import { nameOf, sandboxCraft } from './craft/state';
 import { esc, itemBadges, itemIcon, itemTip, rarityHex, tipper } from './roster/ui';
+import { hungerBadge } from './hunger';
+import { glyph } from './glyph';
+import { HUNGER, hungerStage } from '../../sim/food';
+import type { BuildingSnap, Snapshot } from '../../types';
 
 type Mk = (id: string, css: string, html?: string) => HTMLElement;
 type Filter = 'all' | 'goods' | 'gear' | 'loot';
@@ -36,16 +41,52 @@ export interface ChestCtx { s: SandboxScene; squads: SquadId[] }
 
 const COLS = 8;
 const W = COLS * 40 + 34;
-/** A store of yours this close to the men counts as "in town" (tiles). */
-const TOWN_R = 20;
+/** W-60: a store of yours this close to the men's centre (tiles from its middle) opens the Town store tab. */
+export const STORE_NEAR = 8;
 const RARITY_RANK: Record<string, number> = { common: 0, uncommon: 1, rare: 2, epic: 3, legendary: 4 };
 const fmt = (n: number) => (n >= 10 ? String(Math.floor(n)) : n >= 1 ? String(Math.floor(n * 10) / 10).replace(/\.0$/, '') : n > 0.05 ? n.toFixed(1) : '0');
 
 /** The living men of these squads. */
 const menOf = (c: ChestCtx) => (c.s.sim.cur?.units ?? []).filter((u) => c.squads.includes(u.squad) && u.state !== 'dead');
 
+/** W-60: the nearest standing store of yours within STORE_NEAR of (x,y) (null: none so near). */
+export function storeNear(cur: Snapshot | null | undefined, team: number, x: number, y: number, r = STORE_NEAR): BuildingSnap | null {
+  let best: BuildingSnap | null = null, bd = r * r;
+  for (const b of cur?.buildings ?? []) {
+    if (b.team !== team || !BUILDINGS[b.type]?.store || (b.state !== 'done' && b.state !== 'damaged')) continue;
+    const d = (b.x - x) ** 2 + (b.y - y) ** 2;
+    if (d <= bd) (bd = d), (best = b);
+  }
+  return best;
+}
+/** W-60: the store these men stand next to (their centre), null when they are away from every store of yours. */
+export function storeOfMen(s: SandboxScene, qs: SquadId[]): BuildingSnap | null {
+  const men = (s.sim.cur?.units ?? []).filter((u) => qs.includes(u.squad) && u.state !== 'dead');
+  if (!men.length) return null;
+  const cx = men.reduce((a, u) => a + u.x, 0) / men.length, cy = men.reduce((a, u) => a + u.y, 0) / men.length;
+  return storeNear(s.sim.cur, myTeam(), cx, cy);
+}
+/** W-60: the goods a player has at hand for a cost hint: the store his selected men (else all his men) stand next to; {} away from every store. */
+export function localGoods(s: SandboxScene): Record<string, number> {
+  const sel = s.siege.own();
+  const qs = sel.length ? sel : (s.sim.cur?.squads ?? []).filter((q) => q.team === myTeam() && q.units.length).map((q) => q.id);
+  return (storeOfMen(s, qs)?.goods ?? {}) as Record<string, number>;
+}
+
 /** What the squad view lists, in order. Add a row here for anything new a squad carries. */
 export const SOURCES: ((c: ChestCtx) => Section | null)[] = [
+  // W-60: how fed the men are (icons by stage) and what feeds them
+  (c) => {
+    const men = menOf(c).filter((u) => u.sat !== undefined);
+    if (!men.length) return null;
+    const by = [0, 0, 0];
+    for (const u of men) by[hungerStage(u.sat!)]++;
+    const worst = Math.min(...men.map((u) => u.sat!));
+    const parts = [['fed', 0, 80], ['hungry', 1, (HUNGER.hungry + HUNGER.starving) / 2], ['starving', 2, 0]] as const;
+    const line = parts.filter(([, i]) => by[i]).map(([n, i, sat]) => `<span style="display:inline-flex;align-items:center;gap:3px;margin-right:8px">${hungerBadge(sat, 14)}<b class="rf-num">${by[i]}</b><span class="rf-dim">${n}</span></span>`).join('');
+    const foot = `<div class="ch-cap" style="flex-wrap:wrap">${line}</div><div class="ch-cap rf-dim">${glyph('goods:march_rations', 14)}<span style="width:auto">a ration (+${HUNGER.ration}) or ${glyph('ui:food', 14)} food (+${HUNGER.food}) from their packs, else from a store within ${HUNGER.storeR} tiles</span></div>`;
+    return { id: 'food', label: `Food ${hungerBadge(worst, 13)}`, filter: 'goods', cells: [], foot, empty: '' };
+  },
   // goods in hand (gatherers' loads) and in a crewed cart
   (c) => {
     const g: Record<string, number> = {};
@@ -78,14 +119,15 @@ export const SOURCES: ((c: ChestCtx) => Section | null)[] = [
   },
 ];
 
-/** The town store: your network's stock and the remedies in the team supplies. */
-function townSections(s: SandboxScene): Section[] {
-  const st = (s.sim.cur?.stock?.[myTeam()] ?? {}) as Record<string, number>, sup = (s.sim.cur?.supplies?.[myTeam()] ?? {}) as Record<string, number>;
-  const goods: Cell[] = Object.entries(st).filter(([, n]) => n > 0.05).map(([res, n]) => ({ kind: 'good', res, n }));
-  const rem: Cell[] = Object.entries(sup).filter(([, n]) => n > 0.05).map(([r, n]) => ({ kind: 'good', res: 'p:' + r, n }));
+/** W-60: the town store: this one store's goods (rations and food first) and the first of its items; no totals. */
+function townSections(store: BuildingSnap): Section[] {
+  const st = (store.goods ?? {}) as Record<string, number>;
+  const rank = (r: string) => (r === 'ration' ? 0 : r === 'food' ? 1 : 2);
+  const goods: Cell[] = Object.entries(st).filter(([, n]) => n > 0.05).sort((a, b) => rank(a[0]) - rank(b[0])).map(([res, n]) => ({ kind: 'good', res, n, ...(rank(res) < 2 ? { note: `your men within ${HUNGER.storeR} tiles eat from it` } : {}) }));
+  const items: Cell[] = (store.list ?? []).map((i) => ({ kind: 'item', item: { uid: i.uid, def: i.def, rarity: i.rarity, cond: 100, ...(i.q !== undefined ? { q: i.q } : {}) } as Item, note: 'in this store' }));
   return [
-    { id: 'store', label: 'In store', filter: 'goods', cells: goods, empty: 'the store is empty' },
-    { id: 'remedies', label: 'Remedies', filter: 'goods', cells: rem, empty: 'none made yet' },
+    { id: 'store', label: 'In this store', filter: 'goods', cells: goods, empty: 'the store is empty' },
+    ...(items.length ? [{ id: 'items', label: 'Its items', filter: 'gear' as const, cells: items }] : []),
   ];
 }
 
@@ -155,13 +197,8 @@ export function mountChest(s: SandboxScene, mk: Mk, tipOn: (el: HTMLElement, htm
     if (sel.length) return sel;
     return (s.sim.cur?.squads ?? []).filter((q) => q.team === myTeam() && q.units.length).map((q) => q.id);
   };
-  /** A finished store of yours within TOWN_R of these men (null: they are away). */
-  const townStore = (qs: SquadId[]) => {
-    const men = (s.sim.cur?.units ?? []).filter((u) => qs.includes(u.squad) && u.state !== 'dead');
-    if (!men.length) return null;
-    const cx = men.reduce((a, u) => a + u.x, 0) / men.length, cy = men.reduce((a, u) => a + u.y, 0) / men.length;
-    return (s.sim.cur?.buildings ?? []).find((b) => b.team === myTeam() && BUILDINGS[b.type]?.store && (b.state === 'done' || b.state === 'damaged') && Math.hypot(b.x - cx, b.y - cy) <= TOWN_R) ?? null;
-  };
+  /** W-60: the store of yours these men stand next to (null: they are away). */
+  const townStore = (qs: SquadId[]) => storeOfMen(s, qs);
 
   const render = () => {
     el.style.display = open ? '' : 'none';
@@ -171,14 +208,14 @@ export function mountChest(s: SandboxScene, mk: Mk, tipOn: (el: HTMLElement, htm
     const ctx: ChestCtx = { s, squads: qs };
     const men = (s.sim.cur?.units ?? []).filter((u) => qs.includes(u.squad) && u.state !== 'dead').length;
     const who = sel ? (qs.length === 1 ? `Squad #${qs[0]}` : `${qs.length} squads`) : 'All your men here';
-    const sections = tab === 'squad' ? SOURCES.map((f) => f(ctx)).filter((x): x is Section => !!x) : store ? townSections(s) : [];
+    const sections = tab === 'squad' ? SOURCES.map((f) => f(ctx)).filter((x): x is Section => !!x) : store ? townSections(store) : [];
     const shown = sections.filter((x) => filter === 'all' || x.filter === filter);
     const body = tab === 'town' && !store
-      ? `<div class="ch-away rf-well rf-dim">Your men are away from your stores. Walk them back to a camp, storehouse or fort of yours to see what the town holds.</div>`
-      : shown.map((x) => `<div class="rf-sec">${x.label}<span class="rf-dim">${x.cells.length || ''}</span></div>${grid(sorted(x.cells, sort), x.empty ?? 'empty')}${x.foot ?? ''}`).join('') || '<div class="ch-empty rf-dim">nothing of this kind</div>';
+      ? `<div class="ch-away rf-well rf-dim">${glyph('ui:lock', 14)} Your men are away from your stores. Walk them next to a camp, storehouse or fort of yours to see what that store holds.</div>`
+      : shown.map((x) => `<div class="rf-sec">${x.label}<span class="rf-dim">${x.cells.length || ''}</span></div>${x.cells.length || x.empty !== '' ? grid(sorted(x.cells, sort), x.empty ?? 'empty') : ''}${x.foot ?? ''}`).join('') || '<div class="ch-empty rf-dim">nothing of this kind</div>';
     const fBtn = (f: Filter, t: string) => `<button class="rf-tbtn${filter === f ? ' on' : ''}" data-filter="${f}">${t}</button>`;
-    const html = `<div class="rf-ph">${icon('trade-chest', 32)}<div style="flex:1;min-width:0"><div class="rf-name">${tab === 'squad' ? 'Squad chest' : 'Town store'}</div><div class="sub">${tab === 'squad' ? `${who} · ${men} ${men === 1 ? 'man' : 'men'}` : store ? `your ${BUILDINGS[store.type] ? store.type.replace(/[A-Z]/g, (c) => ' ' + c.toLowerCase()) : 'store'} and every store joined to it` : 'not in town'}</div></div><button class="rf-tbtn x" data-act="close" data-tip="close (${label()})">✕</button></div>
-      <div class="ch-tabs"><button class="rf-tab${tab === 'squad' ? ' on' : ''}" data-tab="squad">Squad</button><button class="rf-tab${tab === 'town' ? ' on' : ''}" data-tab="town" ${store ? '' : 'data-tip="your men are away from your stores"'}>Town store${store ? '' : ' ·  away'}</button></div>
+    const html = `<div class="rf-ph">${icon('trade-chest', 32)}<div style="flex:1;min-width:0"><div class="rf-name">${tab === 'squad' ? 'Squad chest' : 'Town store'}</div><div class="sub">${tab === 'squad' ? `${who} · ${men} ${men === 1 ? 'man' : 'men'}` : store ? `this ${BUILDINGS[store.type] ? store.type.replace(/[A-Z]/g, (c) => ' ' + c.toLowerCase()) : 'store'} only` : 'not next to a store'}</div></div><button class="rf-tbtn x" data-act="close" data-tip="close (${label()})">✕</button></div>
+      <div class="ch-tabs"><button class="rf-tab${tab === 'squad' ? ' on' : ''}" data-tab="squad">Squad</button><button class="rf-tab${tab === 'town' ? ' on' : ''}" data-tab="town" ${store ? 'data-tip="this store only: what is here, no totals"' : 'data-tip="stand your men next to a store of yours to open it"'}>Town store${store ? '' : ' ·  away'}</button></div>
       <div class="ch-tools">${tab === 'squad' ? fBtn('all', 'All') + fBtn('goods', 'Goods') + fBtn('gear', 'Gear') + fBtn('loot', 'Loot') : ''}<span style="flex:1"></span><button class="rf-tbtn" data-act="sort" data-tip="sort by amount, name or kind">Sort: ${sort}</button></div>
       <div class="ch-body rf-scroll">${body}</div>`;
     if (html !== last) {

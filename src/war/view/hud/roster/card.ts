@@ -25,6 +25,7 @@ import { rankOf } from './markers';
 import { SandboxRoster, type Row } from './state';
 import { esc, itemBadges, itemIcon, itemTip, statRows } from './ui';
 import { doingText } from './doing';
+import { hungerCard, hungerLine } from '../hunger';
 import { isCivClass } from '../../../../data/classes';
 import { pointsAt, profOf, PROF_NODES } from '../../../../data/professions';
 import type { SandboxCraft } from '../craft/state';
@@ -104,11 +105,14 @@ export function cardHtml(R: SandboxRoster, r: Row, C?: SandboxCraft, dev = false
   ].join('');
   const crest = rank === 'recruit' ? '' : `<span class="rr-rank ${rank}" ${tip(rank === 'elite' ? termCard('elite') : card({ icon: 'ui:star', name: 'Veteran', w: 200, more: '<div>Level 3 or more: a terracotta pip under him on the map.</div>' }))}>${glyph(rank === 'elite' ? 'ui:captain' : 'ui:star', 13)}${rank === 'elite' ? 'Elite' : 'Veteran'}</span>`;
   const hp = r.unit && r.where === 'field' ? `<div class="rr-line" ${tip(statCard('HP', `${Math.ceil(r.unit.hp)} / ${r.unit.maxHp}`))}>${glyph('ui:heart', 16)}<div class="rr-bar hp"><i style="width:${Math.round(100 * Math.max(0, Math.min(1, r.unit.hp / Math.max(1, r.unit.maxHp))))}%"></i></div><span class="rf-dim">${Math.ceil(r.unit.hp)} / ${r.unit.maxHp}</span></div>` : '';
+  // W-60: how fed he is, icon first (../hunger.ts)
+  const fed = r.unit && r.where === 'field' && r.unit.sat !== undefined ? `<div class="rr-line" ${tip(hungerCard(r.unit.sat))}>${hungerLine(r.unit.sat)}</div>` : '';
   return `<div class="rf-card rr-card">
     <div class="rf-head"><span class="rf-name" style="font-size:16px">${esc(h.name)}</span>${crest}<span style="flex:1"></span><button class="rf-tbtn x" data-act="closeCard" data-tip="close (Esc)">✕</button></div>
     <div class="rr-sub">${unitIcon(h.cls ?? 'militia', 16)}<span>${SandboxRoster.className(h.cls)}</span><span class="dot">·</span>${whereHtml(R, r)}</div>
     <div class="rr-line" ${tip(card({ icon: 'ui:xp', name: `Level ${h.level}`, kind: `${h.xp} of ${need} XP to level ${h.level + 1}`, w: 210, more: `<div>${TERMS.xp.text()}</div>` }))}><span class="rr-lv">${h.level}</span><div class="rr-bar xp"><i style="width:${Math.round(100 * Math.min(1, h.xp / need))}%"></i></div><span class="rf-dim">${h.xp} / ${need} XP</span></div>
     ${hp}
+    ${fed}
     ${offers(R, p)}
     <div class="rr-top">
       <div class="rr-doll">

@@ -14,7 +14,8 @@ interface GoodInfo { name: string; kind: GoodKind; flavour: string }
 
 /** Every good the HUD names, in display order (the chest sorts by it). Remedies sit in the team supplies (p:). */
 export const GOOD_INFO: Record<string, GoodInfo> = {
-  food: { name: 'Food', kind: 'raw', flavour: 'Barley, beans, olives and whatever the hunters bring.' },
+  food: { name: 'Food', kind: 'raw', flavour: 'Barley, onions, olives and whatever the hunters bring. A hungry man eats it as it is.' },
+  ration: { name: 'Rations', kind: 'refined', flavour: 'Grain and onions cooked down at a cookhouse: twice the meal of plain food at half the weight.' },
   wood: { name: 'Wood', kind: 'raw', flavour: 'Pine and oak, felled and split.' },
   stone: { name: 'Stone', kind: 'raw', flavour: 'Rough-cut blocks from the nearest outcrop.' },
   marble: { name: 'Marble', kind: 'raw', flavour: 'White stone for temples and the proud.' },
@@ -46,7 +47,7 @@ export const GOOD_INFO: Record<string, GoodInfo> = {
 };
 export const KIND_LABEL: Record<GoodKind, string> = { raw: 'Raw good', metal: 'Metal', refined: 'Refined good', remedy: 'Remedy', coin: 'Money', rare: 'Rare good' };
 
-const ICON_FILE: Record<string, string> = { 'p:bandage': 'res-bandages', 'p:salve': 'res-salves', 'p:theriac': 'res-theriac', nereidPearl: 'res-nereid-pearl', starIron: 'res-star-iron', titanBronze: 'res-titan-bronze' };
+const ICON_FILE: Record<string, string> = { ration: 'node-cook-quartermaster', 'p:bandage': 'res-bandages', 'p:salve': 'res-salves', 'p:theriac': 'res-theriac', nereidPearl: 'res-nereid-pearl', starIron: 'res-star-iron', titanBronze: 'res-titan-bronze' };
 /** The kit icon id of a good. */
 export const goodIcon = (r: string) => ICON_FILE[r] ?? 'res-' + r;
 export const goodName = (r: string) => GOOD_INFO[r]?.name ?? r.replace(/^p:/, '').replace(/[A-Z]/g, (c) => ' ' + c.toLowerCase()).replace(/^./, (c) => c.toUpperCase());

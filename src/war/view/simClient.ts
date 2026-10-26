@@ -148,6 +148,21 @@ export class SimClient {
 
   /** Neutral play: spawn the region's lairs. */
   /** M7d dev and scenarios: hurt guardian `boss` down to `to` of its hp (its phases follow); `part`: kill that head. */
+  /** W-60 dev and scenarios: a soul waits at (x,y). */
+  spawnSoul(x: number, y: number, cls: string, level?: number, site?: 'shrine' | 'ruin' | 'battlefield' | 'lair'): void {
+    this.send({ t: 'soul', x, y, cls, level, site });
+  }
+
+  /** W-60 scenarios: food or rations into a squad's packs, or (null) the first standing store of `team`. */
+  feed(team: number, squad: number | null, res: 'food' | 'ration', n: number): void {
+    this.send({ t: 'feed', team, squad, res, n });
+  }
+
+  /** W-60 dev and scenarios: squad `squad`'s men at satiety `sat`. */
+  hunger(squad: number, sat: number): void {
+    this.send({ t: 'hunger', squad, sat });
+  }
+
   hurtBossTo(boss: string, to: number, part?: number): void {
     this.send({ t: 'hurtBoss', boss, to, part });
   }

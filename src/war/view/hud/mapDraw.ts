@@ -227,6 +227,22 @@ export function drawMap(g: CanvasRenderingContext2D, s: SandboxScene, f: MapXf, 
     g.globalAlpha = 1;
     if (gone) { g.beginPath(); g.moveTo(x - r * 0.7, y + r * 0.7); g.lineTo(x + r * 0.7, y - r * 0.7); g.lineWidth = 1.5 * m; g.strokeStyle = '#a8907a'; g.stroke(); }
   }
+  // W-60 souls: a pale ghost glow, its ring gold while one of ours claims him, red when contested; fading ones dimmer
+  const pulse = 0.75 + 0.25 * Math.sin(performance.now() / 300);
+  for (const so of cur?.souls ?? []) {
+    const [x, y] = P(so.x, so.y), r = (full ? 6 : 4.2) * m;
+    g.globalAlpha = so.left < 600 ? 0.35 + 0.65 * (so.left / 600) : 1;
+    const glow = g.createRadialGradient(x, y, 0, x, y, r * 2.2);
+    glow.addColorStop(0, `rgba(205,235,255,${0.55 * pulse})`); glow.addColorStop(1, 'rgba(205,235,255,0)');
+    g.fillStyle = glow; g.beginPath(); g.arc(x, y, r * 2.2, 0, Math.PI * 2); g.fill();
+    g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fillStyle = 'rgba(14,9,7,0.7)'; g.fill();
+    g.lineWidth = 1.4 * m; g.strokeStyle = so.contested ? '#e05a4a' : so.claim && so.team === myTeam() ? '#f6d48a' : '#cfe8ff'; g.stroke();
+    // a little ghost: head and a tapering robe
+    g.fillStyle = '#e6f3ff';
+    g.beginPath(); g.arc(x, y - r * 0.28, r * 0.32, 0, Math.PI * 2); g.fill();
+    g.beginPath(); g.moveTo(x - r * 0.42, y + r * 0.55); g.quadraticCurveTo(x, y - r * 0.4, x + r * 0.42, y + r * 0.55); g.closePath(); g.fill();
+    g.globalAlpha = 1;
+  }
   // men (zoomed in), then the squads
   if (full && f.k >= 2 * m) for (const d of s.drawn) {
     if (d.u.state === 'dead' || d.team === MOB_TEAM) continue;
