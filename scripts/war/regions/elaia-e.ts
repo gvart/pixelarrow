@@ -13,6 +13,7 @@
  */
 import type { Kit, Pt, RegionDef } from './kit.ts';
 import { fbm } from './kit.ts';
+import { marketGoods } from './draftCompose.ts';
 import { contourRows, massif, relief } from './setpieces.ts';
 
 const def: RegionDef = {
@@ -76,6 +77,8 @@ const def: RegionDef = {
     k.lair('boar', [146, 60], { as: 'boars' });
     k.lair('wolf', [62, 22], { as: 'wolves' });
     k.lair('wolf', [70, 236], { as: 'wolves' });
+    // the market crossing (only its flag stood there): stalls, amphorae, carts, potted palms
+    marketGoods(k, hub, 'elaia');
     k.claim(hub, 140);
   },
 };

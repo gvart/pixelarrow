@@ -64,8 +64,10 @@ export interface Style {
   trees: number; bushes: number;
   /** Share of open grass tiles with a low tuft (dry grass, alpine grass, herbs): steppe and pasture that reads as grown. */
   tufts: number;
+  /** A wayside at every claim point away from a town and a landmark (a cairn or shrine, a cart, stones, scrub by its biome), so a bare crossing with only the flag reads as a place. */
+  wayside: boolean;
 }
-const STYLE: Style = { dry: 0.05, dryHigh: true, meadow: 0.1, dune: 0.3, trees: 1, bushes: 1, tufts: 0 };
+const STYLE: Style = { dry: 0.05, dryHigh: true, meadow: 0.1, dune: 0.3, trees: 1, bushes: 1, tufts: 0, wayside: false };
 
 /** Biome libraries a region may name (public/war/biomes/<name>; 'global' is the base set). */
 export const BIOMES = ['global', 'elaia', 'kyrene', 'mountains', 'dodona'] as const;
@@ -1904,6 +1906,15 @@ export function build(def: RegionDef): Built {
       put('elaia/waterfall', x + 0.5, y + 0.5);
     }
     put('elaia/falls-foam', fx + 0.5, fy + 0.5);
+  }
+  if (k.style.wayside) for (const c of k.claimReqs) {
+    if (k.towns.some((t) => Math.hypot(t.at[0] - c.at[0], t.at[1] - c.at[1]) < 14) || k.inSite(c.at[0], c.at[1])) continue;
+    const i = k.at(c.at), b = i >= 0 ? BIOMES[biome[i]] : 'global';
+    const set = b === 'kyrene' ? ['mountains/cairn', 'kyrene/handcart', 'kyrene/rocks-red', 'kyrene/camelthorn', 'kyrene/amphora-stack', 'kyrene/saltbush']
+      : b === 'mountains' ? ['mountains/cairn', 'elaia/handcart', 'mountains/boulder-field', 'mountains/juniper', 'elaia/wall-fallen-stone', 'mountains/alpine-grass']
+        : b === 'dodona' ? ['elaia/shrine', 'elaia/handcart', 'dodona/boulder-moss-a', 'dodona/stump-moss', 'dodona/log-fallen', 'dodona/fern-a']
+          : ['elaia/shrine', 'elaia/handcart', 'elaia/wall-fallen-stone', 'elaia/maquis-a', 'elaia/amphora-stack', 'elaia/herbs'];
+    for (const [n, [dx, dy]] of ([[-6, -5], [6, -6], [-6, 6], [7, 5], [-9, 0], [0, 9]] as const).entries()) k.piece(set[n], [c.at[0] + dx, c.at[1] + dy], { r: 3, n: n < 2 ? 1 : 2, gap: 2 });
   }
   for (const r of k.reqs) {
     if (r.kind === 'piece') {

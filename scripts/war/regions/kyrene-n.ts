@@ -27,7 +27,7 @@ const MESAS: [number, number, number, number, number, number][] = [
 
 const def: RegionDef = {
   id: 'kyrene-n',
-  style: { dry: 0.2, trees: 0.3, bushes: 0.8 },
+  style: { wayside: true, dry: 0.2, trees: 0.3, bushes: 0.8 },
   build(k: Kit) {
     const N = k.entry('ammos'), S = k.entry('kyrene'), W = k.entry('savanna'), NW = k.entry('kyrene-w'), NE = k.entry('kyrene-e');
     k.fill(3);

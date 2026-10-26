@@ -28,7 +28,7 @@ const ledge = (x: number, y: number) => x > 63 && x < 88 && y < ledgeFront(x);
 
 const def: RegionDef = {
   id: 'dodona-e',
-  style: { meadow: 0.25, trees: 0.45, bushes: 0.1 },
+  style: { wayside: true, meadow: 0.25, trees: 0.45, bushes: 0.1 },
   build(k: Kit) {
     const W = k.entry('dodona'), WN = k.entry('dodona-n'), WS = k.entry('dodona-s'), E = k.entry('kleisoura'), S = k.entry('moors');
     k.fill(3);

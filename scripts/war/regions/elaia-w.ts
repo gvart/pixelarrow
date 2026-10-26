@@ -19,7 +19,7 @@ import { profile, relief, valley } from './setpieces.ts';
 
 const def: RegionDef = {
   id: 'elaia-w',
-  style: { dry: 0.35, dryHigh: false, meadow: 0.2, trees: 0.6, bushes: 0.5 },
+  style: { wayside: true, dry: 0.35, dryHigh: false, meadow: 0.2, trees: 0.6, bushes: 0.5 },
   build(k: Kit) {
     const E = k.entry('elaia'), NE = k.entry('elaia-n'), SE = k.entry('elaia-s'), N = k.entry('siren');
     k.fill(3);

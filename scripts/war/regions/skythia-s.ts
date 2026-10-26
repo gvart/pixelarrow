@@ -19,7 +19,7 @@ const round = (c: Pt, r: number, n = 9, wob = 0.12, ph = 0): Pt[] =>
 
 const def: RegionDef = {
   id: 'skythia-s',
-  style: { dry: 0.3, dryHigh: false, trees: 0.04, bushes: 0.06 },
+  style: { wayside: true, dry: 0.3, dryHigh: false, trees: 0.04, bushes: 0.06 },
   build(k: Kit) {
     const N = k.entry('skythia'), S = k.entry('ammos'), W = k.entry('kimmeria'), SW = k.entry('skythia-w'), SE = k.entry('skythia-e');
     k.fill(3);

@@ -16,7 +16,7 @@ import { profile, relief } from './setpieces.ts';
 
 const def: RegionDef = {
   id: 'elaia-n',
-  style: { trees: 0.06, bushes: 0.1, dry: 0.4 },
+  style: { wayside: true, trees: 0.06, bushes: 0.1, dry: 0.4 },
   build(k: Kit) {
     const N = k.entry('stymphalia'), S = k.entry('elaia'), E = k.entry('bacchae'), NW = k.entry('elaia-w'), NE = k.entry('elaia-e');
     k.fill(2);

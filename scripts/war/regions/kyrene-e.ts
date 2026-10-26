@@ -18,7 +18,7 @@ const barX = (y: number) => (y > 40 ? 190 + 4 * Math.sin(y / 23) : 190 - (40 - y
 
 const def: RegionDef = {
   id: 'kyrene-e',
-  style: { dry: 0.2, trees: 0.12, bushes: 0.4 },
+  style: { wayside: true, dry: 0.2, trees: 0.12, bushes: 0.4 },
   build(k: Kit) {
     const W = k.entry('kyrene'), NW = k.entry('kyrene-n'), SW = k.entry('kyrene-s'), N = k.entry('ammon');
     k.fill(2);
