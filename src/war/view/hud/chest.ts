@@ -26,7 +26,9 @@ import { esc, itemBadges, itemIcon, itemTip, rarityHex, tipper } from './roster/
 import { hungerBadge } from './hunger';
 import { glyph } from './glyph';
 import { HUNGER, hungerStage } from '../../sim/food';
-import type { BuildingSnap, Snapshot } from '../../types';
+import type { BuildingSnap } from '../../types';
+import { storeNear } from '../../net/economy';
+export { STORE_NEAR, storeNear } from '../../net/economy'; // W-60: shared with the server's `stock` message
 
 type Mk = (id: string, css: string, html?: string) => HTMLElement;
 type Filter = 'all' | 'goods' | 'gear' | 'loot';
@@ -41,24 +43,12 @@ export interface ChestCtx { s: SandboxScene; squads: SquadId[] }
 
 const COLS = 8;
 const W = COLS * 40 + 34;
-/** W-60: a store of yours this close to the men's centre (tiles from its middle) opens the Town store tab. */
-export const STORE_NEAR = 8;
 const RARITY_RANK: Record<string, number> = { common: 0, uncommon: 1, rare: 2, epic: 3, legendary: 4 };
 const fmt = (n: number) => (n >= 10 ? String(Math.floor(n)) : n >= 1 ? String(Math.floor(n * 10) / 10).replace(/\.0$/, '') : n > 0.05 ? n.toFixed(1) : '0');
 
 /** The living men of these squads. */
 const menOf = (c: ChestCtx) => (c.s.sim.cur?.units ?? []).filter((u) => c.squads.includes(u.squad) && u.state !== 'dead');
 
-/** W-60: the nearest standing store of yours within STORE_NEAR of (x,y) (null: none so near). */
-export function storeNear(cur: Snapshot | null | undefined, team: number, x: number, y: number, r = STORE_NEAR): BuildingSnap | null {
-  let best: BuildingSnap | null = null, bd = r * r;
-  for (const b of cur?.buildings ?? []) {
-    if (b.team !== team || !BUILDINGS[b.type]?.store || (b.state !== 'done' && b.state !== 'damaged')) continue;
-    const d = (b.x - x) ** 2 + (b.y - y) ** 2;
-    if (d <= bd) (bd = d), (best = b);
-  }
-  return best;
-}
 /** W-60: the store these men stand next to (their centre), null when they are away from every store of yours. */
 export function storeOfMen(s: SandboxScene, qs: SquadId[]): BuildingSnap | null {
   const men = (s.sim.cur?.units ?? []).filter((u) => qs.includes(u.squad) && u.state !== 'dead');

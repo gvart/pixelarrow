@@ -34,7 +34,7 @@ import { createBots, type Bots } from '../../../src/war/sim/bots';
 import { isClassId } from '../../../src/data/classes';
 import { DeltaEncoder } from '../../../src/war/net/codec';
 import { visibleTo, type Rect, type TeamVision } from '../../../src/war/net/interest';
-import { EconomyFeed, encodeInfluence, NODES_EVERY } from '../../../src/war/net/economy';
+import { EconomyFeed, encodeInfluence, NODES_EVERY, storeByMen } from '../../../src/war/net/economy';
 import { ALLIANCES, KEYFRAME_EVERY, MAX_SQUAD, MAX_SQUADS, NET_VERSION, splitQuota, type CheckMsg, type DevMsg, type JoinMsg, type NetOrder, type OrderError, type Quota, type Refusal, type ServerMsg } from '../../../src/war/net/protocol';
 import type { SimState } from '../../../src/war/sim/state';
 import type { Item } from '../../../src/data/items';
@@ -1016,7 +1016,7 @@ export class WarRoom {
   }
 
   /**
-   * The economy view per online player (src/war/net/economy.ts): his team's influence and stock when they changed, and every
+   * The economy view per online player (src/war/net/economy.ts): his team's influence and the store at hand when they changed, and every
    * NODES_EVERY ticks (or at once after a join) the resource nodes his team sees that changed.
    */
   private economy(): Map<number, ServerMsg[]> {
@@ -1032,8 +1032,10 @@ export class WarRoom {
       if (c?.v !== infl.version) this.inflRuns.set(p.team, (c = { v: infl.version, runs: encodeInfluence(infl.mask, p.team) }));
       const r = feed.influence(c.runs);
       if (r) push(p.pid, { t: 'influence', team: p.team, w: infl.w, h: infl.h, v: infl.version, runs: r });
-      const g0 = feed.stock(this.snap.stock?.[p.team]);
-      if (g0) push(p.pid, { t: 'stock', team: p.team, goods: g0 });
+      // W-60: the store his men stand next to, only it (src/war/net/economy.ts storeByMen)
+      const mine = new Set(this.squadsOf(p.pid));
+      const g0 = feed.stock(storeByMen(this.snap, p.team, this.snap.units.filter((u) => mine.has(u.squad) && u.state !== 'dead')));
+      if (g0) push(p.pid, { t: 'stock', team: p.team, ...g0 });
       // W-61: his team's town level here, when it changed
       const town = this.snap.townLevels?.find((t) => t.team === p.team) ?? null, tk = JSON.stringify(town);
       if (this.townSent.get(p.pid) !== tk) (this.townSent.set(p.pid, tk), push(p.pid, { t: 'town', team: p.team, town }));

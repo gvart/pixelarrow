@@ -1,8 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 import { DeltaDecoder } from '../../../src/war/net/codec';
 import { CELL, VisionMap } from '../../../src/war/net/interest';
-import { decodeInfluence, encodeInfluence, NODES_EVERY, packNode, unpackNode } from '../../../src/war/net/economy';
-import { NET_VERSION, VISION, type JoinMsg } from '../../../src/war/net/protocol';
+import { decodeInfluence, encodeInfluence, NODES_EVERY, packNode, STORE_NEAR, unpackNode } from '../../../src/war/net/economy';
+import { NET_VERSION, VISION, type JoinMsg, type ServerMsg } from '../../../src/war/net/protocol';
+import { put } from '../../../src/war/sim/holders';
 import { createSim } from '../../../src/war/sim';
 import { CORPSE_TICKS, HOME_CLAIM_R, homeAnchor, WarRoom } from '../../src/war/room';
 import { warRegion } from '../../src/war/regions';
@@ -303,6 +304,35 @@ describe('WarRoom economy view (nodes, influence)', () => {
   });
 });
 
+describe('W-60 the stock message is the store at hand', () => {
+  it('two players by two stores of one team in different areas are told different goods, never the team total', () => {
+    const r = room();
+    const north = r.region.entries.find((e) => e.side === 'N')!, x0 = north.x + north.w / 2;
+    const a = r.join(1, join(1, 0, 6, 'militia')).msg as { squads: number[] }, b = r.join(2, join(2, 0, 6, 'militia')).msg as { squads: number[] };
+    const [ax, ay] = spot(r, x0 - 30, north.y), [bx, by] = spot(r, x0 + 30, north.y);
+    expect(Math.hypot(ax - bx, ay - by)).toBeGreaterThan(STORE_NEAR * 3);
+    expect(r.order(1, { kind: 'placeBuilding', squad: a.squads[0], type: 'camp', x: ax, y: ay })).toBeNull();
+    expect(r.order(2, { kind: 'placeBuilding', squad: b.squads[0], type: 'camp', x: bx, y: by })).toBeNull();
+    const camps = () => (r.snapshot().buildings ?? []).filter((x) => x.type === 'camp' && x.state === 'done');
+    for (let t = 0; t < 6000 && camps().length < 2; t++) r.tick();
+    const near = (cx: number, cy: number) => camps().find((c) => Math.hypot(c.x - cx, c.y - cy) < 4)!;
+    const ca = near(ax, ay), cb = near(bx, by);
+    put(r.sim.cargo({ building: ca.id })!.slots[0].hold, 'food', 10, 't');
+    put(r.sim.cargo({ building: cb.id })!.slots[0].hold, 'ration', 6, 't');
+    r.sim.addStock(0, 'coin', 500); // the home strongroom: in the team total, never in the message
+    const last = new Map<number, Extract<ServerMsg, { t: 'stock' }>>();
+    const tick = () => { for (const [pid, ms] of r.tick().msgs) for (const m of ms) if (m.t === 'stock') last.set(pid, m); };
+    for (let t = 0; t < 3; t++) tick();
+    expect(r.snapshot().stock![0]).toMatchObject({ food: 10, ration: 6, coin: 500 });
+    expect(last.get(1)).toEqual({ t: 'stock', team: 0, store: ca.id, goods: { food: 10 } });
+    expect(last.get(2)).toEqual({ t: 'stock', team: 0, store: cb.id, goods: { ration: 6 } });
+    // walked away from every store: none at hand, no goods
+    expect(r.order(1, { kind: 'move', squad: a.squads[0], x: x0, y: north.y + 2 })).toBeNull();
+    for (let t = 0; t < 600 && last.get(1)?.store !== null; t++) tick();
+    expect(last.get(1)).toEqual({ t: 'stock', team: 0, store: null, goods: {} });
+  });
+});
+
 describe('WarRoom dev helpers', () => {
   it('stock, claim, spawn and skip act for the player team; refused without dev rights', () => {
     const r = room();
@@ -313,7 +343,7 @@ describe('WarRoom dev helpers', () => {
     expect(r.dev(1, { t: 'dev', op: 'stock', res: 'wood', n: 500 })).toBeNull();
     const sent = steps(r, 1).msgs.get(1) ?? [];
     expect(wood()).toBe(w0 + 500);
-    expect(sent.some((m) => m.t === 'stock' && m.team === 0 && m.goods.wood === Math.floor(w0 + 500))).toBe(true); // his stock goes out on change
+    expect(sent.some((m) => m.t === 'stock' && m.goods.wood)).toBe(false); // W-60: the strongroom is no store at hand
     expect(r.dev(1, { t: 'dev', op: 'claim', x: 100.5, y: 100.5, r: 10 })).toBeNull();
     expect(r.sim.influence().mask[100 * region.w + 100] & 1).toBe(1);
     expect(r.dev(1, { t: 'dev', op: 'spawn', team: 0, cls: 'archer', count: 8, x: 120, y: 60 })).toBeNull();

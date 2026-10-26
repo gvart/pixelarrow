@@ -220,8 +220,8 @@ export type ServerMsg =
   | { t: 'nodes'; rows: NodeRow[]; gone?: number[] }
   /** His team's influence: bit `team` of the w x h mask as alternating runs (outside first); v the sim's version. */
   | { t: 'influence'; team: number; w: number; h: number; v: number; runs: number[] }
-  /** His team's stockpile (its stores and home strongroom here, Snapshot.stock), whole units, when it changed. */
-  | { t: 'stock'; team: number; goods: Record<string, number> }
+  /** W-60: the store his men stand next to (building id; null: none within STORE_NEAR) and its goods, whole units, when either changed. Never a team total. */
+  | { t: 'stock'; team: number; store: number | null; goods: Record<string, number> }
   /** W-61: his team's town level here (Snapshot.townLevels; null: none), when it changed. */
   | { t: 'town'; team: number; town: TownLevelSnap | null }
   /**

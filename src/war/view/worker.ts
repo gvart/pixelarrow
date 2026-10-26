@@ -138,7 +138,7 @@ onmessage = (e: MessageEvent<ToWorker>) => {
         for (const id of server.gone ?? []) nodes.delete(id);
         nodesNew = true;
       } else if (server.t === 'influence') infl = decodeInfluence(server.w, server.h, server.team, server.runs, server.v);
-      else if (server.t === 'stock') stock = { [server.team]: server.goods };
+      else if (server.t === 'stock') stock = { [server.team]: server.goods }; // W-60: the store his men stand next to only ({} away from every store)
       else if (server.t === 'town') town = server.town ? [server.town] : []; // W-61: his team's town level
       else postMessage({ server });
     });
