@@ -174,6 +174,7 @@ export const ROSTER_CSS = `
 .rr-nm{font:600 12.5px/1 Inter,sans-serif;color:var(--rf-ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rr-xp{height:2px;background:#2a1a12;margin-top:4px;position:relative}
 .rr-xp i{position:absolute;left:0;top:0;height:2px;background:linear-gradient(90deg,#a8802f,#e0b867)}
+.rr-doing{font:500 10.5px/1 Inter,sans-serif;color:var(--rf-muted);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rr-lvup{display:flex;animation:rr-glow 1.8s ease-in-out infinite}
 @keyframes rr-glow{0%,100%{filter:drop-shadow(0 0 1px rgba(224,184,103,.5))}50%{filter:drop-shadow(0 0 4px rgba(224,184,103,1))}}
 .rr-st{width:40px;display:flex;justify-content:center;align-items:center}

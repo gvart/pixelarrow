@@ -1,7 +1,7 @@
 /**
  * The sandbox's soldier roster (M5g): the local in-memory roster of M5b (../../../sim/roster.ts) until the server keeps
- * persons (M5e). The player's (team 0, not bot) squads spawn with its persons: fit men of the class from the reserve
- * first, then new recruits with names. The sim's event log comes in as it happens; a fight ends 5 s after the player's
+ * persons (M5e). The player's (team 0, not bot) squads spawn with its persons: fit men of the class not on this map
+ * (in his home region) first, then new recruits with names. The sim's event log comes in as it happens; a fight ends 5 s after the player's
  * last blow or fall (or on End fight), and its report is written back. Changes off the field (a level-up choice, dev XP)
  * go to the live man too (setPerson), so the next report does not undo them.
  */
@@ -9,14 +9,17 @@ import { CIV_CLASSES, CLASSES, isCivClass, isClassId } from '../../../../data/cl
 import { freeName } from '../../../../data/names';
 import { xpToNext } from '../../../../data/units';
 import { applyOffer, createRoster, grantXp, levelOffers, makePerson, type LevelOffer, type Roster } from '../../../sim/roster';
-import { SQUAD_MAX } from '../../../sim/soldiers';
-import type { FightReport, PersonResult, UnitSnap, WarEvent, WarPerson } from '../../../types';
+import { ARMY_MAX, SQUAD_MAX } from '../../../sim/soldiers';
+import { ALLIANCES } from '../../../world/alliances';
+import { WORLD_REGIONS } from '../../../world/regions';
+import type { FightReport, Order, PersonResult, UnitSnap, WarEvent, WarPerson } from '../../../types';
 import type { SandboxScene } from '../../SandboxScene';
 import { myTeam } from '../../side';
 
-export type Where = 'field' | 'reserve' | 'wounded' | 'captive' | 'dead';
-/** A person as the panel shows him: where he is, his live man (in the field) and his squad. */
-export interface Row { p: WarPerson; where: Where; unit?: UnitSnap; squad?: number }
+/** away: fit, in another region (no reserve, W-58: every man stands in some region). */
+export type Where = 'field' | 'away' | 'wounded' | 'captive' | 'dead';
+/** A person as the panel shows him: where he is, his live man (in the field), his squad and its order, the region's name. */
+export interface Row { p: WarPerson; where: Where; unit?: UnitSnap; squad?: number; order?: Order['kind']; region: string }
 export interface Note { kind: 'levelUp' | 'capture' | 'dead' | 'info'; pid?: string; text: string }
 
 /** A fight ends this many ticks after the player's last blow or fall. */
@@ -50,7 +53,7 @@ export class SandboxRoster {
     setInterval(() => this.watch(), 250);
   }
 
-  /** A veteran reserve to browse before any fight: one of each trained class, levels 2..7, a pending level-up among them. */
+  /** Veterans to browse before any fight (in the home region): one of each trained class, levels 2..7, a pending level-up among them. */
   private seed(): void {
     const seed: [string, number, number, string?][] = [
       ['hoplite', 6, 1, 'Held the Ford'], ['hoplite', 4, 1], ['archer', 7, 2, 'Veteran of Kleisoura'], ['celt_sword', 3, 0], ['slinger', 2, 0], ['javelineer', 5, 1],
@@ -82,7 +85,7 @@ export class SandboxRoster {
     return p;
   }
 
-  /** n persons of cls for a spawn: fit reserve men of the class first, then recruits. */
+  /** n persons of cls for a spawn: fit men of the class not on this map first, then recruits. */
   private take(cls: string, n: number): WarPerson[] {
     const out = this.roster.fit().filter((p) => p.hero.cls === (isClassId(cls) || isCivClass(cls) ? cls : 'militia') && !this.sent.has(p.id)).slice(0, n);
     while (out.length < n) out.push(this.recruit(cls));
@@ -91,17 +94,24 @@ export class SandboxRoster {
     return out;
   }
 
-  /** Every person, where he is now. */
+  /** Every person, where he is now: on this map, or (fit, not sent) in the player's home region. */
   rows(): Row[] {
     const live = new Map<string, UnitSnap>();
     for (const u of this.s.sim.cur?.units ?? []) if (u.pid) live.set(u.pid, u);
+    const here = this.s.region?.name ?? 'this region', homeId = ALLIANCES[myTeam()]?.home;
+    const home = WORLD_REGIONS.find((w) => w.id === homeId)?.name ?? 'your home';
     return this.roster.all().map((p) => {
       const st = this.roster.state(p.id), unit = live.get(p.id);
-      if (st !== 'fit') return { p, where: st === 'captive' ? 'captive' : st };
-      if (!unit || !this.sent.has(p.id)) return { p, where: 'reserve' };
-      if (unit.state === 'dead') return { p, where: unit.wounded ? 'wounded' : 'dead', unit, squad: unit.squad };
-      return { p, where: 'field', unit, squad: unit.squad };
+      if (st !== 'fit') return { p, where: st === 'captive' ? 'captive' : st, region: here };
+      if (!unit || !this.sent.has(p.id)) return { p, where: 'away', region: home };
+      if (unit.state === 'dead') return { p, where: unit.wounded ? 'wounded' : 'dead', unit, squad: unit.squad, region: here };
+      return { p, where: 'field', unit, squad: unit.squad, order: this.s.sim.squads.get(unit.squad)?.order, region: here };
     });
+  }
+
+  /** The army (W-58): his fighters counted against ARMY_MAX (civilians are the household; the fallen do not count). */
+  army(): { men: number; max: number } {
+    return { men: this.roster.all().filter((p) => !isCivClass(p.hero.cls) && this.roster.state(p.id) !== 'dead').length, max: ARMY_MAX };
   }
 
   captorOf(pid: string): number | undefined {
