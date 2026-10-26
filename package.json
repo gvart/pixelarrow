@@ -13,7 +13,8 @@
     "perf:war": "vitest run --config vitest.perf.config.ts",
     "balance:war": "node scripts/war/balance.mjs",
     "play:war": "node scripts/war/play.mjs",
-    "clips:war": "node scripts/landing/record-war-clips.mjs && bash scripts/landing/encode-war-clips.sh"
+    "clips:war": "node scripts/landing/record-war-clips.mjs && bash scripts/landing/encode-war-clips.sh",
+    "trailer:war": "node scripts/landing/record-war-clips.mjs --shots scripts/landing/trailer-shots.mjs --sizes 1920x1080 --out shots/trailer/raw && node scripts/landing/trailer-music.mjs && node scripts/landing/trailer.mjs"
   },
   "dependencies": {
     "@fontsource/cinzel": "^5.3.0",

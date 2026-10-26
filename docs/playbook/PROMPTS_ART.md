@@ -3152,3 +3152,29 @@ carries a number. (3) A 1:3 page comes back as a 339 px wide preview, too small 
 and three phone screens on 16:9. (4) Making the key art first and then asking for "the key art you just made" as the
 hero gives the most finished page (D). (5) "One-eyed cyclops" needs "a single eye in the middle of his forehead";
 castles come with medieval battlements unless excluded.
+
+## 42. War trailer (YouTube, 60 s)
+
+Not art prompts but the same kind of recipe: the owner approved a 22-shot script (peace in Elaia, the raid, then an
+escalation montage of the landmark guardians, end card "Coming soon · pixelarrow.app"); `npm run trailer:war` (dev
+server up) rebuilds the whole film. Output `shots/trailer/pixelarrow-trailer.mp4` (git-ignored).
+
+- **Scenes:** seeded sandbox scenarios in `src/war/scenarios/trailer.ts` (`trailer-elaia`, `trailer-elaia-raid`,
+  `trailer-hunt`, `landmark-forge`, `-hold`, `-watchtower`, `-temple`), each checked headless in
+  `tests/war/trailer.test.ts` (node and building ids, the cottage catches fire, each raid meets its guardian inside
+  60 s). Recipe: neutral regions spawn their lairs and guardians first, so the raid's squad ids start after them;
+  start a raid ~25 tiles from the guardian so the lead stays short; a brazier needs only stock (no claim); town pieces
+  (team 6) take `attackBuilding` and fire arrows but not `civWork`. Existing scenes reused: `clip-caravan`,
+  `clip-build`, `siege-defend`, `pass-ambush`, `ford-crossing` (the player's squads ordered over by the shot's
+  `setup`), `landmark-citadel`, `landmark-deadcity`.
+- **Takes:** `scripts/landing/trailer-shots.mjs` for `record-war-clips.mjs` at 1920x1080, HUD hidden, the game's
+  effects and ambience recorded with the frames (music muted in `setup`), zoom 1/2 at the widest (720 p framing),
+  `lead` found from `--still` probes at a few leads. Slow-mo is a 60 fps take played at 30.
+- **Music and cards:** `scripts/landing/trailer-music.mjs` renders the cue sheet from `src/audio/music.ts` (explore,
+  a frame-drum dum at the turn, deploy, battle heat 1, boss, a low-passed boss drone, battle, the victory stinger and
+  an explore tail) in OfflineAudioContexts, and the title cards as transparent PNGs in Cinzel 700 (this ffmpeg has no
+  drawtext).
+- **Edit:** `scripts/landing/trailer.mjs`: an EDL of slots (trim, fade from black, white flashes as `fade` to/from
+  white, a dip through black), cards overlaid with alpha fades, the end card on the last Temple City frame at 40 %
+  light; sound = takes in their slots + music on bar lines, sidechain ducking, two-pass `loudnorm` to -14 LUFS /
+  -1 dBTP; H.264 High CRF 16, yuv420p, 30 fps, AAC 320k.
