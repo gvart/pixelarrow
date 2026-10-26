@@ -27,12 +27,13 @@ const def: RegionDef = {
     k.hill([200, 54, 34, 18, -0.3], 5, 5);
     k.basin([128, 250, 120, 30, 0], 3, 6, 4);
     // the river on the rim and the falls, the gorge (floor h1, cliff walls) and the deep river in it with the ford
-    k.river([[110, -6], [111, 30], [108, 64]], { half: 2.6, deep: false, bed: 3, bank: 2 });
+    k.river([[110, -6], [111, 30], [108, 64], [108, 66]], { half: 2.6, deep: false, bed: 3, bank: 2 });
     const G: [number, number][] = [[108, 60], [106, 84], [104, 120], [100, 160], [102, 192], [100, 226], [98, 262]];
     k.cut(G, { h: 1, half: 11, bank: 0, t: 'sand' });
-    k.river(G.slice(1), { half: 4.5, bed: 0, bank: 0.5, fords: [[102, 192]], fordHalf: 1.8, name: 'gorge' });
+    // (the gorge river starts in the plunge pool at the falls' foot, a dry ledge from the rim pool so the two stay apart: it began 7 tiles down the floor, the foam on dry sand)
+    k.river([[107.6, 74.5], ...G.slice(1)], { half: 4.5, bed: 0, bank: 0.5, fords: [[102, 192]], fordHalf: 1.8, name: 'gorge' });
     k.spot('falls', [108, 64]);
-    k.fall([108, 66.5], [107.5, 70]);
+    k.fall([108, 69], [107.5, 75], true);
     // the gorge walls: crags along both rims (massifs over them), the falls' lip at the head
     for (const dx of [-15, 15]) k.mountains(G.slice(1).map(([x, y]) => [x + dx, y] as [number, number]), { width: 3.2, wave: 1, foot: 4 });
     k.rockMass([96, 60, 8, 6, 0.3], { rough: 1, foot: 4 });
