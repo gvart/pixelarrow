@@ -1889,7 +1889,20 @@ export function build(def: RegionDef): Built {
         if (fzAt(2 * qx, 2 * qy) < z0 - 6) { px = qx; py = qy; break; }
       }
       put('elaia/waterfall-tall', px + 0.5, py + 0.5);
-    } else put('elaia/waterfall', x + 0.5, y + 0.5);
+    } else {
+      // where the drawn water already falls here (two wet fine cells a level apart: src/war/view/water.ts draws the
+      // sheet and its foam) the old thin sprite would stand in front of the sheet: leave both sprites out
+      const wetF = (j: number) => j >= 0 && (fine.kind[j] === KINDS.indexOf('shallow') || fine.kind[j] === KINDS.indexOf('deep'));
+      let sheet = false;
+      const y0 = Math.floor(2 * Math.min(y, fy)) - 6, y1 = Math.ceil(2 * Math.max(y, fy)) + 6, x0 = Math.floor(2 * Math.min(x, fx)) - 6, x1 = Math.ceil(2 * Math.max(x, fx)) + 6;
+      for (let fy2 = y0; fy2 <= y1 && !sheet; fy2++) for (let fx2 = x0; fx2 <= x1 && !sheet; fx2++) {
+        const i = fAt(fx2, fy2);
+        if (!wetF(i)) continue;
+        for (const [dx, dy] of [[1, 0], [0, 1]]) { const j = fAt(fx2 + dx, fy2 + dy); if (wetF(j) && fine.z[j] + 2 <= fine.z[i]) sheet = true; }
+      }
+      if (sheet) continue;
+      put('elaia/waterfall', x + 0.5, y + 0.5);
+    }
     put('elaia/falls-foam', fx + 0.5, fy + 0.5);
   }
   for (const r of k.reqs) {
