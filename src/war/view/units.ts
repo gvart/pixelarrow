@@ -10,8 +10,6 @@
  * The sheets wear red; team 0 (blue) draws through TEAM_SWAP, a shader that turns the red cloth blue.
  * A man walking with a load (./anim.ts loadOf) carries its sprite (src/assets/loads) at his sheet's per-frame
  * `loads` anchor: on the shoulder over him, held at the chest under him in the north facings (his back to us).
- *
- * LOD by zoom: sprites from SPRITE_ZOOM up, team-coloured dots below (down to the camera's floor, SandboxScene MIN_ZOOM).
  */
 import Phaser from 'phaser';
 import type { SheetManifest } from '../../art/sheetManifest';
@@ -26,6 +24,7 @@ import type { Lift } from './build/buildingLayer';
 export const TEAM_COLOR = [0x4aa3ff, 0xe0503c, 0xe8c040, 0xb070e0];
 /** A light multiply per team on the sprites (team 0 is also hue-swapped, see TEAM_SWAP). */
 const TEAM_TINT = [0xd0e4ff, 0xffd4c8, 0xfff0c0, 0xecd8ff];
+/** Sprites show from this zoom up: always, now the camera stops at 1/2 (SandboxScene MIN_ZOOM); other layers still ask. */
 export const SPRITE_ZOOM = 1 / 3;
 /** World px from the feet to a man's middle (a sprite is ~58 px tall). */
 export const BODY = 28;
@@ -285,8 +284,7 @@ export class UnitLayer {
     this.nLoad = 0;
     this.anim.frame(units, squads, at.now);
     if (this.ids !== units.length) { this.ids = units.length; this.anim.prune(new Set(units.map((d) => d.u.id))); }
-    if (zoom >= SPRITE_ZOOM) used = this.sprites(units, view, zoom, selected, at, shots, under, occluded);
-    else this.dots(units, view, zoom, selected, under);
+    used = this.sprites(units, view, zoom, selected, at, shots, under, occluded);
     used = this.drawCorpses(used, at.now);
     for (let i = used; i < this.pool.length; i++) this.pool[i].setVisible(false);
     for (let i = this.nGhost; i < this.ghosts.length; i++) this.ghosts[i].setVisible(false);
@@ -402,16 +400,6 @@ export class UnitLayer {
     const behind = f.at === 'chest' && rowName.startsWith('north');
     im.setTexture(LOADS_KEY, name).setOrigin(f.ox / f.w, f.oy / f.h).setPosition(body.x + at[0], body.y + at[1]).setVisible(true);
     im.setDepth(body.depth + (behind ? -1e-6 : 1e-6)).setTint(body.tintTopLeft);
-  }
-
-  private dots(units: DrawUnit[], view: { x: number; y: number; right: number; bottom: number }, zoom: number, selected: Set<number>, g: Phaser.GameObjects.Graphics): void {
-    const s = 3 / zoom, half = s / 2;
-    for (const d of units) {
-      const f = this.feet(d);
-      if (f.x < view.x || f.x > view.right || f.y < view.y || f.y > view.bottom + 40) continue;
-      if (d.u.state === 'dead') { g.fillStyle(0x222222, 0.5).fillRect(f.x - half, f.y - half, s, s); continue; }
-      g.fillStyle(selected.has(d.u.squad) ? 0xffffff : (TEAM_COLOR[d.team] ?? 0xcccccc), 1).fillRect(f.x - half, f.y - s, s, s);
-    }
   }
 }
 

@@ -1,11 +1,11 @@
 /**
  * The region sandbox in true iso with raised height (W-16) at real scale (W-18: 64 x 32 tiles of
  * 2 m, a 512-tile region is ~33k px wide): PixelLab terrain (./art.ts; ?art=grey: the greybox of
- * ./terrain.ts) baked into 512 px chunks on demand (LRU pools, culled to the camera) at 1x zoomed
- * in, 1/2 and 1/4 at mid zoom, mountains as procedural peaks (./peaks.ts; ?mountains=massifs: massif sprites, ?mountains=terrace: stacked levels), over a 1/8 overview baked in bands (shown while chunks bake; the minimap and full map use it); the camera stops at MIN_ZOOM 1/4; map
- * objects as live sprites sorted with the units down to 1/3 (./objects.ts), baked in below that; 10 Hz sim snapshots drawn interpolated as PixelLab
- * soldier sprites with dot and banner LOD (./units.ts); RTS camera and squad controls picking
- * through the height field (./iso.ts).
+ * ./terrain.ts) baked into 512 px chunks at 1x on demand (an LRU pool, culled to the camera), mountains as procedural
+ * peaks (./peaks.ts; ?mountains=massifs: massif sprites, ?mountains=terrace: stacked levels), over a 1/8 overview baked
+ * in bands (shown while chunks bake); the camera stops at MIN_ZOOM 1/2 (W-54: the minimap and the full map give the
+ * overview); map objects as live sprites sorted with the units (./objects.ts); 10 Hz sim snapshots drawn interpolated as
+ * PixelLab soldier sprites (./units.ts); RTS camera and squad controls picking through the height field (./iso.ts).
  *
  *   drag / middle-drag / space+drag pan, WASD/arrows, screen-edge pan; wheel zooms to the cursor
  *   left click / box: select own squads (shift adds)
@@ -26,7 +26,7 @@ import { SimClient, type DrawUnit } from './simClient';
 import { ArtBaker, type WarArt } from './art';
 import { IsoMap } from './iso';
 import { Massifs } from './massifs';
-import { LIVE_ZOOM, ObjectLayer } from './objects';
+import { ObjectLayer } from './objects';
 import { CHUNK_PX, OVERVIEW_SCALE, TerrainBaker, type BakeOpts } from './terrain';
 import { WaterGlints } from './water';
 import { ShotLayer } from './shots';
@@ -52,19 +52,15 @@ const CLIMB = ['climb', 'walk'] as const;
 const CARRY = ['carry', 'walk'] as const;
 /** Torching, beating out a fire, pushing a ladder off: a work swing. */
 const TASK = ['build', 'thrust', 'attack'] as const;
-/** The camera's zoom floor: never the whole region in view (the full map, M, is for that), and far less to draw. */
-export const MIN_ZOOM = 1 / 4;
-/** Pixel-clean zoom ladder (as regionMapView.zoomStep): 1/n below 1, whole numbers above; from MIN_ZOOM. */
-const LADDER = [1 / 4, 1 / 3, 1 / 2, 1, 2, 3];
+/** The camera's zoom floor (W-54): never far out (the minimap and the full map, M, give the overview), and far less to draw. */
+export const MIN_ZOOM = 1 / 2;
+/** Pixel-clean zoom ladder (as regionMapView.zoomStep): 1/2, then whole numbers; from MIN_ZOOM. */
+const LADDER = [1 / 2, 1, 2, 3];
 /**
- * Chunk levels, finest first: canvas px per world px and the lowest zoom each shows at. Down to
- * MIN_ZOOM the 1/4 level is the coarsest shown. Each pool keeps 48 canvases (1 MB each): a 1440x900 view
- * at a level's lowest zoom needs ~35. Map objects are baked in where they are not live sprites.
+ * Chunk canvases kept (1 MB each, LRU): a 1440x900 view at MIN_ZOOM shows ~35, the rest keep the ground just panned
+ * over. Chunks are baked at 1x without the map objects (live sprites); the overview carries them.
  */
-const LEVELS = [{ scale: 1, zoom: 1 / 2 }, { scale: 1 / 2, zoom: 1 / 3 }, { scale: 1 / 4, zoom: MIN_ZOOM }] as const;
-/** Bakes at this scale show below LIVE_ZOOM only (the 1/4 level and the overview), so they carry the objects. */
-const baked = (scale: number) => scale < LIVE_ZOOM;
-const POOL = 48;
+const POOL = 96;
 /** See-through holes in the peaks (./peaks.ts): at most this many (the cursor's, then the selected units'), this many screen px across. */
 const HOLES = 4;
 const HOLE_PX = 200;
@@ -119,7 +115,7 @@ export class SandboxScene extends Phaser.Scene {
   private modeKey = '';
   private opts: BakeOpts = { tint: null, map: null, grid: false, zones: false };
   private ver = 0; // bumps when opts change: chunks baked earlier are stale
-  private chunks: Chunk[][] = LEVELS.map(() => []);
+  private chunks: Chunk[] = [];
   /** The see-through holes' windows: the ground behind the peaks (their stubs), baked round a point and faded at the rim. */
   private windows: { tex: Phaser.Textures.CanvasTexture; img: Phaser.GameObjects.Image; at: string }[] = [];
   private overviewTex!: Phaser.Textures.CanvasTexture;
@@ -281,7 +277,7 @@ export class SandboxScene extends Phaser.Scene {
 
   private bake(ctx: CanvasRenderingContext2D, x0: number, y0: number, w: number, h: number, scale: number, cx = 0, cy = 0): void {
     const t0 = performance.now();
-    if (this.artBaker) this.artBaker.bake(ctx, x0, y0, w, h, scale, this.opts, cx, cy, baked(scale));
+    if (this.artBaker) this.artBaker.bake(ctx, x0, y0, w, h, scale, this.opts, cx, cy, scale === OVERVIEW_SCALE);
     else this.baker.bake(ctx, x0, y0, w, h, scale, this.opts, cx, cy);
     // bake times per scale (ms: count, mean, max), for the perf scripts
     const st = (this.bakeStats[String(scale)] ??= { n: 0, mean: 0, max: 0 }), dt = performance.now() - t0;
@@ -555,42 +551,38 @@ export class SandboxScene extends Phaser.Scene {
   }
 
   /**
-   * Show baked chunks of the level for this zoom over the view; bake missing / stale ones within
-   * the frame's budget (the overview fills in meanwhile), then one overview band if it is not done.
+   * Show baked chunks over the view; bake missing / stale ones within the frame's budget (the overview fills in
+   * meanwhile), then one overview band if it is not done.
    */
   private updateChunks(view: View, zoom: number): void {
     const t0 = performance.now();
     if (zoom !== this.filterZoom) {
       this.filterZoom = zoom;
       // crisp tiles (and no seams between chunks) zoomed in, smooth zoomed out
-      for (const [l, pool] of this.chunks.entries()) for (const c of pool) c.tex.setFilter(this.filterFor(l));
+      for (const c of this.chunks) c.tex.setFilter(this.filter());
       this.overviewTex.setFilter(zoom >= 1 / OVERVIEW_SCALE ? Phaser.Textures.FilterMode.NEAREST : Phaser.Textures.FilterMode.LINEAR);
     }
-    for (const pool of this.chunks) for (const c of pool) c.img.setVisible(false);
-    const l = LEVELS.findIndex((v) => zoom >= v.zoom);
-    if (l >= 0) {
-      const { scale } = LEVELS[l], span = CHUNK_PX / scale, { W, H } = this.iso;
-      const cx0 = Math.max(0, Math.floor(view.x / span)), cx1 = Math.min(Math.ceil(W / span) - 1, Math.floor(view.right / span));
-      const cy0 = Math.max(0, Math.floor(view.y / span)), cy1 = Math.min(Math.ceil(H / span) - 1, Math.floor(view.bottom / span));
-      let baked = 0;
-      for (let cy = cy0; cy <= cy1; cy++) {
-        for (let cx = cx0; cx <= cx1; cx++) {
-          const at = `${cx},${cy}`;
-          let c = this.chunks[l].find((q) => q.at === at);
-          if (!c || c.ver !== this.ver) {
-            if (baked && performance.now() - t0 > BAKE_MS) { if (c) (c.used = this.frame), c.img.setVisible(true); continue; } // stale shown till rebaked
-            baked++;
-            c ??= this.claimChunk(l, at);
-            // 1 canvas px of overlap all round: no seams between neighbours (or the overview showing through)
-            const m = 1 / scale;
-            this.bake(c.tex.context, cx * span - m, cy * span - m, span + 2 * m, span + 2 * m, scale);
-            c.tex.refresh();
-            c.img.setPosition(cx * span - m, cy * span - m).setScale(1 / scale);
-            c.ver = this.ver;
-          }
-          c.used = this.frame;
-          c.img.setVisible(true);
+    for (const c of this.chunks) c.img.setVisible(false);
+    const span = CHUNK_PX, { W, H } = this.iso;
+    const cx0 = Math.max(0, Math.floor(view.x / span)), cx1 = Math.min(Math.ceil(W / span) - 1, Math.floor(view.right / span));
+    const cy0 = Math.max(0, Math.floor(view.y / span)), cy1 = Math.min(Math.ceil(H / span) - 1, Math.floor(view.bottom / span));
+    let baked = 0;
+    for (let cy = cy0; cy <= cy1; cy++) {
+      for (let cx = cx0; cx <= cx1; cx++) {
+        const at = `${cx},${cy}`;
+        let c = this.chunks.find((q) => q.at === at);
+        if (!c || c.ver !== this.ver) {
+          if (baked && performance.now() - t0 > BAKE_MS) { if (c) (c.used = this.frame), c.img.setVisible(true); continue; } // stale shown till rebaked
+          baked++;
+          c ??= this.claimChunk(at);
+          // 1 px of overlap all round: no seams between neighbours (or the overview showing through)
+          this.bake(c.tex.context, cx * span - 1, cy * span - 1, span + 2, span + 2, 1);
+          c.tex.refresh();
+          c.img.setPosition(cx * span - 1, cy * span - 1);
+          c.ver = this.ver;
         }
+        c.used = this.frame;
+        c.img.setVisible(true);
       }
     }
     if (!this.overviewReady) this.bakeOverviewBand();
@@ -603,9 +595,9 @@ export class SandboxScene extends Phaser.Scene {
    * units' occlusion see the same ground.
    */
   private updateHoles(zoom: number, wp: { x: number; y: number } | null): void {
-    const iso = this.iso, full = iso.peaks, stub = iso.stub, l = LEVELS.findIndex((v) => zoom >= v.zoom);
+    const iso = this.iso, full = iso.peaks, stub = iso.stub;
     const want: { x: number; y: number }[] = [];
-    if (full && stub && !iso.cut && l >= 0) {
+    if (full && stub && !iso.cut) {
       const R = HOLE_PX / 2 / zoom;
       if (wp) {
         const a = iso.pick(wp.x, wp.y, full), b = iso.pick(wp.x, wp.y, stub);
@@ -622,8 +614,8 @@ export class SandboxScene extends Phaser.Scene {
     const holes: { x: number; y: number; r: number }[] = [];
     let baked = false;
     want.forEach((q, i) => {
-      const { scale } = LEVELS[l], R = HOLE_PX / 2 / zoom, step = R / 2;
-      const cx = Math.round(q.x / step) * step, cy = Math.round(q.y / step) * step, at = `${cx},${cy},${scale},${R},${this.ver}`;
+      const R = HOLE_PX / 2 / zoom, step = R / 2;
+      const cx = Math.round(q.x / step) * step, cy = Math.round(q.y / step) * step, at = `${cx},${cy},${R},${this.ver}`;
       let w = this.windows[i];
       if (!w) {
         const key = `peak-window-${i}`, n = Math.ceil(4 * HOLE_PX);
@@ -632,17 +624,17 @@ export class SandboxScene extends Phaser.Scene {
       }
       if (w.at !== at && !baked) {
         baked = true;
-        const ctx = w.tex.context, n = Math.ceil(2 * R * scale);
+        const ctx = w.tex.context, n = Math.ceil(2 * R);
         ctx.clearRect(0, 0, w.tex.width, w.tex.height);
         iso.cut = true;
-        this.bake(ctx, cx - R, cy - R, 2 * R, 2 * R, scale);
+        this.bake(ctx, cx - R, cy - R, 2 * R, 2 * R, 1);
         iso.cut = false;
         // faded at the rim: opaque to 60% of the radius, gone at its edge
         const g = ctx.createRadialGradient(n / 2, n / 2, n * 0.3, n / 2, n / 2, n / 2);
         g.addColorStop(0, 'rgba(0,0,0,1)'); g.addColorStop(1, 'rgba(0,0,0,0)');
         ctx.save(); ctx.globalCompositeOperation = 'destination-in'; ctx.fillStyle = g; ctx.fillRect(0, 0, w.tex.width, w.tex.height); ctx.restore();
         w.tex.refresh();
-        w.img.setPosition(cx - R, cy - R).setScale(1 / scale);
+        w.img.setPosition(cx - R, cy - R);
         w.at = at;
       }
       if (w.at) {
@@ -655,18 +647,18 @@ export class SandboxScene extends Phaser.Scene {
     iso.holes = holes;
   }
 
-  private filterFor(level: number): Phaser.Textures.FilterMode {
-    return this.filterZoom / LEVELS[level].scale >= 1 ? Phaser.Textures.FilterMode.NEAREST : Phaser.Textures.FilterMode.LINEAR;
+  private filter(): Phaser.Textures.FilterMode {
+    return this.filterZoom >= 1 ? Phaser.Textures.FilterMode.NEAREST : Phaser.Textures.FilterMode.LINEAR;
   }
 
-  /** A canvas for the chunk at `at` of a level: a new one while the pool has room, else the least recently shown. */
-  private claimChunk(level: number, at: string): Chunk {
-    const pool = this.chunks[level];
+  /** A canvas for the chunk at `at`: a new one while the pool has room, else the least recently shown. */
+  private claimChunk(at: string): Chunk {
+    const pool = this.chunks;
     let c: Chunk | undefined;
     if (pool.length < POOL) {
-      const key = `chunk-${level}-${pool.length}`;
+      const key = `chunk-${pool.length}`;
       const tex = this.textures.createCanvas(key, CHUNK_PX + 2, CHUNK_PX + 2)!;
-      tex.setFilter(this.filterFor(level));
+      tex.setFilter(this.filter());
       c = { key, tex, img: this.add.image(0, 0, key).setOrigin(0).setDepth(1), at, ver: -1, used: 0 };
       pool.push(c);
     } else {

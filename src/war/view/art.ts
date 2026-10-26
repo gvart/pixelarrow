@@ -1,7 +1,7 @@
 /**
  * PixelLab region art (W-20) baked into the same chunk canvases as the greybox (./terrain.ts):
  * autotiled terrain (./autotile.ts) stacked by height, cliff strips under drops of more than one
- * level, and, for the zoomed-out levels, the map objects baked in depth order. Zoomed in, objects
+ * level, and, for the overview, the map objects baked in depth order. On the chunks, objects
  * are live sprites (./objects.ts) so units sort and fade with them.
  *
  * The ground is the visual layer's 1 m cells (IsoMap.fk / fz), autotiled on their own grid and drawn
@@ -358,7 +358,7 @@ export class ArtBaker {
     return code;
   }
 
-  /** As TerrainBaker.bake; `objects` bakes the map objects in too (the zoomed-out levels). */
+  /** As TerrainBaker.bake; `objects` bakes the map objects in too (the overview). */
   bake(ctx: CanvasRenderingContext2D, x0: number, y0: number, w: number, h: number, scale: number, o: BakeOpts, cx = 0, cy = 0, objects = false): void {
     this.scale = scale;
     ctx.save();
