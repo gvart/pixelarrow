@@ -1,0 +1,23 @@
+src/war/regions/siren.json
+  s_fcb7475e0b5395::t_901a2c04cbb8ad 1
+src/war/regions/delta.json
+  s_fcb7475e0b5395::t_0874c0a908bacb 1
+scripts/war/regions/kit.ts
+  s_fcb7475e0b5395::t_4680695ae932d3 2032-2046
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "be93fed2b089973390d98ecae9344ee9c2cbe288",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
