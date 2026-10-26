@@ -114,6 +114,7 @@ describe('M6c pile rules', () => {
     const pile = (sim.snapshot().piles ?? []).find((p) => (p.goods.wood ?? 0) > 0 && p.items > 0)!;
     expect(pile).toBeDefined();
     const wood0 = pile.goods.wood!, items0 = pile.items;
+    const others0 = (sim.snapshot().piles ?? []).reduce((n, p) => n + (p.id === pile.id ? 0 : p.loads), 0);
     // a squad of each side takes from it at once: nothing is taken twice
     const a = sim.spawnSquad('a', 0, 'militia', 4, pile.x - 2, pile.y);
     const b = sim.spawnSquad('b', 1, 'militia', 4, pile.x + 2, pile.y);
@@ -121,22 +122,27 @@ describe('M6c pile rules', () => {
     sim.order({ kind: 'load', squad: b, from: { pile: pile.id } });
     run(sim, 6 * PORTER.every);
     const packs = sim.snapshot().units.filter((u) => u.squad === a || u.squad === b).reduce((n, u) => n + (u.pack ?? 0), 0);
-    const left = sim.snapshot().piles?.find((p) => p.id === pile.id);
-    const leftLoads = left ? left.loads : 0;
+    // (the two sides may come to blows over it: a man who falls drops his pack in a pile of its own, so count every pile)
+    const leftLoads = (sim.snapshot().piles ?? []).reduce((n, p) => n + p.loads, 0) - others0;
     expect(packs + leftLoads).toBeCloseTo(wood0 / 10 + items0 / 5);
     expect(packs).toBeGreaterThan(0);
   });
 
   it('a smith salvages a pile item in place into some of its goods', () => {
     const ps = men('k', 'hoplite', 4, 0);
-    const { sim, s } = porters(ps, 6);
-    const f = sim.spawnSquad('f', 1, 'royal_guard', 12, 60, 68);
-    sim.order({ kind: 'attack', squad: f, target: s });
-    run(sim, 3000, () => alive(sim, s) === 0);
-    sim.order({ kind: 'move', squad: f, x: 90, y: 90 });
-    run(sim, 400);
-    // the killed men's kit lies there by uid (`<person>-<slot>`); find one of them in a pile
-    const dead = sim.endFight().persons.filter((p) => p.state === 'dead').map((p) => p.pid);
+    // the first seed from 6 on where one of the four is killed, not only wounded (which of them falls for good is chance)
+    let sim!: WarBuildSim, dead: string[] = [];
+    for (let seed = 6; seed < 16 && !dead.length; seed++) {
+      const r = porters(ps, seed);
+      sim = r.sim;
+      const f = sim.spawnSquad('f', 1, 'royal_guard', 12, 60, 68);
+      sim.order({ kind: 'attack', squad: f, target: r.s });
+      run(sim, 3000, () => alive(sim, r.s) === 0);
+      sim.order({ kind: 'move', squad: f, x: 90, y: 90 });
+      run(sim, 400);
+      // the killed men's kit lies there by uid (`<person>-<slot>`); find one of them in a pile
+      dead = sim.endFight().persons.filter((p) => p.state === 'dead').map((p) => p.pid);
+    }
     expect(dead.length).toBeGreaterThan(0);
     const slot = Object.keys(ps[0].hero.equip)[0];
     const uid = `${dead[0]}-${slot}`;

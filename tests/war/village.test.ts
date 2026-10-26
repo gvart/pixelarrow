@@ -76,10 +76,13 @@ describe('M5f village scenario', () => {
     step(300, (x) => (civSquads.filter((q) => x.squads[q].flee).forEach((q) => fled.add(q)), false));
     expect(fled.size).toBeGreaterThanOrEqual(3);
     // the guard deals with the pack; all go back to work
-    step(3000, (x) => men(x, 8).every((u) => u.state === 'dead') && civSquads.every((q) => !x.squads[q].flee));
+    // (a squad the wolves caught on the run is gone; every squad left alive stops running)
+    const living = (x: Snapshot, q: number) => men(x, q).some((u) => u.state !== 'dead');
+    step(3000, (x) => men(x, 8).every((u) => u.state === 'dead') && civSquads.every((q) => !living(x, q) || !x.squads[q].flee));
     s = sim.snapshot();
     expect(men(s, 8).every((u) => u.state === 'dead')).toBe(true);
-    expect(civSquads.every((q) => !s.squads[q].flee)).toBe(true);
+    expect(civSquads.every((q) => !living(s, q) || !s.squads[q].flee)).toBe(true);
+    expect(civSquads.filter((q) => living(s, q)).length).toBeGreaterThanOrEqual(5);
     expect([2, 3, 4, 5].every((q) => s.squads[q].order === 'civWork')).toBe(true);
   });
 });
