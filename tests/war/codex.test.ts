@@ -30,7 +30,7 @@ describe('codex', () => {
   it('describes every buildable building and engine', () => {
     const wp = ['forge', 'cookhouse', 'infirmary', 'workshop', 'stall', 'sortingFloor'];
     const walls = ['palisade', 'rampart', 'stoneWall', 'woodStairs', 'stoneStairs', 'ladder', 'woodBridge', 'stoneBridge', 'stakes', 'ditch', 'chest'];
-    const camp = ['camp', 'storehouse', 'outpost', 'fort', 'barracks', 'farm', 'olivePress', 'woodTower', 'stoneTower']; // the build bar's Camp tab (TOOLBAR)
+    const camp = ['camp', 'storehouse', 'outpost', 'fort', 'barracks', 'farm', 'olivePress', 'woodTower', 'stoneTower']; // the build bar's Camp tab (TOOLBAR) and the pre-built barracks
     for (const t of [...camp, ...wp, ...walls] as BuildingType[]) {
       expect(BUILDINGS[t], t).toBeTruthy();
       expect(BUILD_TEXT[t]?.for, t).toBeTruthy();
