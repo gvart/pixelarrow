@@ -440,7 +440,7 @@ export function hud(s: SandboxScene): void {
       }
     } else if (q && own.length) {
       card.style.display = '';
-      // W-53: the selected men, named by the class most of them are (+ how many other classes)
+      // W-53: the selected men, named by their class (several classes: mixed; the icon is the class most are)
       const men = s.sel.men(), byCls = new Map<string, number>();
       for (const d of men) byCls.set(d.u.cls, (byCls.get(d.u.cls) ?? 0) + 1);
       const cls = [...byCls].sort((a, b) => b[1] - a[1])[0]?.[0] ?? '';
@@ -451,7 +451,7 @@ export function hud(s: SandboxScene): void {
       const tag = men.reduce((a, d) => Math.max(a, d.u.tag ?? 0), 0);
       $('cTag').style.display = tag ? '' : 'none';
       if (tag) $('cTag').textContent = `⚔ tagged ${Math.ceil(tag / 10)} s`;
-      setHead(UNIT_ICON[cls] ?? 'unit-militia', (CLASS_NAME[cls] ?? civName(cls) ?? nice(cls)) + (byCls.size > 1 ? ` +${byCls.size - 1}` : ''), `${men.length} ${men.length === 1 ? 'man' : 'men'}`, bar('hp', hp / max, SEL_SQUAD),
+      setHead(UNIT_ICON[cls] ?? 'unit-militia', byCls.size > 1 ? 'Mixed' : CLASS_NAME[cls] ?? civName(cls) ?? nice(cls), `${men.length} ${men.length === 1 ? 'man' : 'men'}${byCls.size > 1 ? `, ${byCls.size} classes` : ''}`, bar('hp', hp / max, SEL_SQUAD),
         civ ? civInfo(s, own[0]) : e ? `crews ${SIEGE_NAME[e.type]} · ${e.state}${e.burning ? ' · burning' : ''}` : `${q.order}${q.fed ? ' · fed' : ''}${sc.status ? ' · ' + sc.status : ''}`);
       const slots: HTMLElement[] = [];
       const act = activesOf(s, own)[0];
