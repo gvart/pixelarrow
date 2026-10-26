@@ -1645,7 +1645,7 @@ export function build(def: RegionDef): Built {
       const wall = Math.max(fzAt(fx - 1, fy), fzAt(fx, fy - 1), fzAt(fx - 1, fy - 1)) - z >= 3;
       // the talus of the cliff's own stone (art.ts draws the biome's cliff material over the face)
       const b = B(i), tal = b === 'elaia' ? 'elaia/talus-lime' : b === 'mountains' ? 'mountains/talus-granite' : b === 'kyrene' ? 'kyrene/talus-red' : 'scree';
-      if (wall && p < 0.12 && footSeen(ox, oy)) put(tal, ox, oy);
+      if (wall && p < 0.12 && footSeen(ox, oy) && !ring(x, y, (j) => water[j] > 0)) put(tal, ox, oy); // not on a shore (it stood in the water)
     }
   }
   for (let n = objects.length - 1; n >= 0; n--) {

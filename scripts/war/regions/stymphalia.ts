@@ -13,7 +13,7 @@ import type { Kit, RegionDef } from './kit.ts';
 
 const def: RegionDef = {
   id: 'stymphalia',
-  style: { trees: 0.5, bushes: 0.6 },
+  style: { trees: 0.5, bushes: 0.6, tufts: 0.05 },
   build(k: Kit) {
     const N = k.entry('dodona-s'), S = k.entry('elaia-n'), E = k.entry('erymanthos'), W = k.entry('siren');
     k.fill(2);
@@ -76,6 +76,11 @@ const def: RegionDef = {
     k.jetty([172, 112], 16);
     k.village([90, 214], 4);
     k.piece('elaia/beehives', [158, 140], { r: 6 });
+    // the island town's open grass: olives and stone pines, carts and goods by the houses, nets of reeds on the shore
+    for (const [x, y] of [[132, 114], [128, 124], [138, 110], [154, 108], [126, 134], [134, 120]] as [number, number][]) {
+      k.piece(['elaia/olive-tall', 'elaia/stone-pine', 'elaia/olive-orchard'][(x + y) % 3], [x, y], { r: 5, n: 2, gap: 3 });
+      k.piece(['elaia/handcart', 'elaia/amphora-stack'][(x + y) % 2], [x + 3, y + 2], { r: 4 });
+    }
     k.piece('dodona/timber-stand', [166, 116], { r: 5 });
     k.piece('elaia/goats', [166, 126], { r: 4 });
     k.piece('watchtower', [158, 60], { r: 6 });
