@@ -1,0 +1,38 @@
+docs/playbook/PROMPTS_AGENTS.md
+  s_fcb7475e0b5395::t_79aaddddd2e8ac 17
+docs/playbook/NEW_FEATURE.md
+  s_fcb7475e0b5395::t_79aaddddd2e8ac 104
+  s_fcb7475e0b5395::t_77341e016703eb 146-147,151-152,181
+  s_fcb7475e0b5395::t_90deb2db672658 154
+docs/ITEMS.md
+  s_fcb7475e0b5395::t_79aaddddd2e8ac 311
+docs/playbook/README.md
+  s_fcb7475e0b5395::t_79aaddddd2e8ac 27
+README.md
+  s_fcb7475e0b5395::t_c023162415ded3 3-9,13-16,21-22,31-37,40-41,43,46,52,55-57,70-73,76,82,87,94-99,101-103,106-107,113-116
+  s_fcb7475e0b5395::t_d97e8822c21855 88
+docs/impl/global-war-rebuild.md
+  s_fcb7475e0b5395::t_79aaddddd2e8ac 43
+server/README.md
+  s_fcb7475e0b5395::t_bdb967f430035a 5-11,16-18,25-26,29-42,44-47,49,59-61,66-67,69-76,88-90,95-96,99-100,104-107,117,123,148,163-166,169,175-176
+docs/playbook/director-brief.md
+  s_fcb7475e0b5395::t_79aaddddd2e8ac 111-112
+docs/ROADMAP.md
+  s_fcb7475e0b5395::t_79aaddddd2e8ac 5-6,97,168,193,216-217
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "7a834168fe0cb0efc017e4b28b49f7ca1801af9b",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
