@@ -60,3 +60,12 @@ export function composeOnDraft(id: string, keep: Keep, compose: (k: Kit) => void
     },
   };
 }
+
+/**
+ * A drafted hub's market square dressed (the draft leaves only its flag on the crossing): stalls, amphorae, handcarts
+ * and potted palms on the ground between the roads, `lib` the biome library of the goods (units, walkable props).
+ */
+export function marketGoods(k: Kit, hub: Pt, lib: 'elaia' | 'kyrene') {
+  const ids = ['stall-awning', 'amphora-stack', 'handcart', 'palm-pot', 'amphora-stack'].map((id) => `${lib}/${id}`);
+  for (const [n, [dx, dy]] of ([[-5, -4], [5, -5], [-5, 5], [6, 4], [-1, -6], [-7, 0], [7, 0]] as const).entries()) k.piece(ids[n % ids.length], [hub[0] + dx, hub[1] + dy], { r: 3, n: 2, gap: 2 });
+}

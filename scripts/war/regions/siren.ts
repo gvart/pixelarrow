@@ -14,7 +14,7 @@
  *                    crossing it on their old raised beds.
  */
 import type { Kit } from './kit.ts';
-import { composeOnDraft } from './draftCompose.ts';
+import { composeOnDraft, marketGoods } from './draftCompose.ts';
 import { massif } from './setpieces.ts';
 
 export default composeOnDraft('siren', { staging: [47, 312] }, (k: Kit) => {
@@ -42,4 +42,7 @@ export default composeOnDraft('siren', { staging: [47, 312] }, (k: Kit) => {
   k.paint('sand', [214, 222, 40, 30, -0.3], { on: ['marsh'], rough: 6 });
   for (const [x, y, rx, ry, a] of [[160, 172, 9, 4, 0.3], [222, 160, 12, 5, -0.2], [176, 226, 10, 4, 0.5], [236, 200, 9, 6, 0], [208, 244, 12, 4, 0.1], [150, 236, 8, 4, -0.3], [244, 240, 7, 4, 0.4], [196, 152, 6, 3, 0]] as const) k.waterBody([x, y, rx, ry, a], { deep: false, beach: 1, rough: 1.5 });
   for (const c of [[[262, 176], [230, 186], [210, 212], [184, 238], [170, 262]], [[150, 150], [170, 190], [160, 214]]] as const) k.river(c.map((p) => [p[0], p[1]] as [number, number]), { half: 1, deep: false, bed: 0, bank: 1 });
-}, { trees: 0.25, bushes: 0.3 });
+  marketGoods(k, [142, 108], 'elaia');
+  // the harbour town's bare lots between its streets: amphorae, handcarts and potted palms (stalls away from a square read as litter, §40m)
+  for (const [n, [x, y]] of ([[42, 150], [50, 148], [56, 156], [44, 162], [54, 166], [38, 156], [60, 150], [48, 156], [52, 160], [46, 152]] as const).entries()) k.piece(['elaia/amphora-stack', 'elaia/handcart', 'elaia/palm-pot'][n % 3], [x, y], { r: 3, n: 2, gap: 2 });
+}, { trees: 0.25, bushes: 0.3, tufts: 0.03 });

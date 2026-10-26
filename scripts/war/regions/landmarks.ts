@@ -564,6 +564,8 @@ export function rimWatch(k: Kit, at: Pt, hb: number): Landmark {
   s.skirtKinds = { a: 'rock', b: 'rock', cut: 0 };
   const sk = s.skirt(stack, hb + 2, 6, { steps: 2, seed: 83, foot: hb, lo: 0.3, hi: 0.6, open: [[sx + 46, 40], [sx + 50, 52], [sx + 60, 30]], openR: 9 });
   s.dress(['elaia/debris-stone', 'elaia/wall-fallen-stone', 'elaia/talus-lime'], (x, y) => !sk.has(y * 4096 + x) && s.hAt(x, y) <= hb && [[2, 0], [0, 2], [-2, 0], [0, -2]].some(([dx, dy]) => sk.has((y + dy) * 4096 + x + dx)), 30, 84, { gap: 3 });
+  // the fort's yard on the stack, a bare floor round the beacon: stores, carts and fallen stone (walkable)
+  s.dress(['elaia/amphora-stack', 'elaia/handcart', 'elaia/debris-stone', 'elaia/amphora-stack', 'elaia/wall-fallen-stone'], (x, y) => x > sx + 2 && x < sx + 38 && y > 10 && y < 46 && s.hAt(x, y) === hb + 3, 26, 85, { gap: 4 });
   s.look = { ground: 'rock', pave: 'paving', inside: (x, y) => s.hAt(x, y) > hb }; // the stack's bare rock top: crag faces under it
   return { site: s, host: [], gates: [s.u(149, 80), s.u(sx + 74, 129)], spots: { landmark: s.u(sx + 20, 28), harbour: s.u(sx + 60, 80) } };
 }
