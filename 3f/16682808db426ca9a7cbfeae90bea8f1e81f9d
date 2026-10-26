@@ -1,0 +1,35 @@
+package.json
+  s_fcb7475e0b5395::t_3408869f001200 15-16
+scripts/landing/record-war-clips.mjs
+  s_fcb7475e0b5395::t_5e878d5c15d0ab 7,169-170
+  s_fcb7475e0b5395::t_94f23703480e8b 1-6,8-45,47-93,95-100,105,108-109,111-168,171-190,193-199,201,206-207,209-237
+  s_fcb7475e0b5395::t_ff513ba94477ac 101-104,106-107,110
+  s_fcb7475e0b5395::t_a889fc0c67a925 94
+  s_fcb7475e0b5395::t_5081f3880ea6ca 200,202-205
+  s_fcb7475e0b5395::t_f7dc70f1ba565f 46,191-192,208
+scripts/landing/encode-war-clips.sh
+  s_fcb7475e0b5395::t_3408869f001200 13,72
+  s_fcb7475e0b5395::t_7f1d2a648ee6dd 1-12,14-71,73-88
+scripts/landing/war-shots.mjs
+  s_fcb7475e0b5395::t_7124c78e07115d 1-13,15-16,18,21-39,41-43,46-52,54-56,59-62,64,67-69,72-84,87-90
+  s_fcb7475e0b5395::t_3fc49070486e7b 44-45
+  s_fcb7475e0b5395::t_a8d2eb34a1565b 17,19-20,40,53,57-58,63,65,70-71
+  s_fcb7475e0b5395::t_b057d5ffc04ddc 14,66
+  s_fcb7475e0b5395::t_904229e535ee43 85-86
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "3f16682808db426ca9a7cbfeae90bea8f1e81f9d",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
