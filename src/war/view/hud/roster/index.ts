@@ -18,10 +18,13 @@ import { portrait, PORTRAIT_H, PORTRAIT_W } from './portrait';
 import { sandboxRoster } from './state';
 import { toaster } from './toast';
 import { loadItemAtlas, ROSTER_CSS, tipper } from './ui';
+import { loadGlyphs } from '../glyph';
 import { sandboxCraft } from '../craft/state';
 import type { Slot } from '../../../../data/items';
 
 type Mk = (id: string, css: string, html?: string) => HTMLElement;
+/** The dev panel (F1, ../hud.ts) is open: the cards show their dev buttons. */
+const devOn = () => { const d = document.getElementById('dev'); return !!d && d.style.display !== 'none'; };
 
 /** What the craft views (../craft) hook into: open a civilian's tree (pid), re-render, show a card. */
 export interface RosterHooks { tree: ((pid: string) => void) | null; render: () => void; card: (pid: string | null) => void; selected: () => string | null }
@@ -61,16 +64,16 @@ export function mountRoster(s: SandboxScene, mk: Mk): RosterHooks {
     if (open) {
       // above the minimap (bottom left, about 190 art px) and below the band
       const z = Number(panel.style.zoom) || 1, listH = Math.max(120, Math.min(420, Math.floor(innerHeight / z) - 50 - 200 - 96));
-      const html = panelHtml(R, filter, sort, sel, listH);
+      const html = panelHtml(R, filter, sort, sel, listH, devOn());
       if (html !== lastP) {
-        const list = panel.querySelector<HTMLElement>('[style*="overflow-y"]'), top = list?.scrollTop ?? 0;
+        const list = panel.querySelector<HTMLElement>('.rr-list'), top = list?.scrollTop ?? 0;
         panel.innerHTML = lastP = html;
-        const l2 = panel.querySelector<HTMLElement>('[style*="overflow-y"]');
+        const l2 = panel.querySelector<HTMLElement>('.rr-list');
         if (l2) l2.scrollTop = top;
       }
     }
     if (row) {
-      const html = cardHtml(R, row, C);
+      const html = cardHtml(R, row, C, devOn());
       if (html !== lastC) {
         card.innerHTML = lastC = html;
         const c = card.querySelector<HTMLCanvasElement>('#rrPort'), img = portrait(s, row.p.hero.cls ?? 'militia');
@@ -123,7 +126,7 @@ export function mountRoster(s: SandboxScene, mk: Mk): RosterHooks {
   R.onNote = toaster(toasts, (pid) => { open = true; show(pid); });
   R.onChange = render;
   markers(s);
-  void loadItemAtlas().then(() => { lastP = lastC = ''; render(); });
+  void Promise.all([loadItemAtlas(), loadGlyphs()]).then(() => { lastP = lastC = ''; render(); });
   setInterval(() => { if (open || sel) render(); }, 250);
   render();
   // scripts (scripts/war, Playwright): open the panel or a card
