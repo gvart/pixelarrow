@@ -27,11 +27,13 @@ const q = new URLSearchParams(location.search);
 // M7d: a scenario may name its own region (the landmark raids)
 const want = scenarioById(q.get('scenario'));
 const id = q.get('region') ?? want?.region ?? 'test-ridge';
-// the terrain bake worker starts now: its region and art load and its baker builds while the page loads its own
-const baker = BakeClient.start(q, id);
+// the terrain bake worker starts now: its art loads while the page loads its own (it gets the region once loaded)
+const baker = BakeClient.start(q);
 
 // no top-level await: the build targets es2020
-void Promise.all([id === 'fake' ? Promise.resolve(fakeRegion()) : loadRegion(id), q.get('art') === 'grey' ? null : loadArt(), loadSheetImages()]).then(([region, art, sheets]) => {
+const loading = id === 'fake' ? Promise.resolve(fakeRegion()) : loadRegion(id);
+if (baker) void loading.then((r) => baker.region(r), () => {});
+void Promise.all([loading, q.get('art') === 'grey' ? null : loadArt(), loadSheetImages()]).then(([region, art, sheets]) => {
   const scene = new SandboxScene();
   const game = new Phaser.Game({
     type: Phaser.WEBGL,
