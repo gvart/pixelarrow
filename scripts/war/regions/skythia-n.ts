@@ -15,7 +15,7 @@ import { massif, profile, relief } from './setpieces.ts';
 
 const def: RegionDef = {
   id: 'skythia-n',
-  style: { dry: -1, dryHigh: false, trees: 0.03, bushes: 0.04, meadow: 0.4 },
+  style: { wayside: true, dry: -1, dryHigh: false, trees: 0.03, bushes: 0.04, meadow: 0.4 },
   build(k: Kit) {
     const S = k.entry('skythia'), W = k.entry('krios'), NW = k.entry('skythia-w'), NE = k.entry('skythia-e');
     k.fill(2);

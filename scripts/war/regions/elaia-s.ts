@@ -15,7 +15,7 @@ import { massif, profile, relief } from './setpieces.ts';
 
 const def: RegionDef = {
   id: 'elaia-s',
-  style: { dry: 0.15, dryHigh: false, trees: 0.08, bushes: 0.12 },
+  style: { wayside: true, dry: 0.15, dryHigh: false, trees: 0.08, bushes: 0.12 },
   build(k: Kit) {
     const N = k.entry('elaia'), E = k.entry('delta'), SW = k.entry('elaia-w'), SE = k.entry('elaia-e');
     k.fill(2);

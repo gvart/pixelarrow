@@ -16,7 +16,7 @@
  */
 import type { Kit, Pt } from './kit.ts';
 import { fbm } from './kit.ts';
-import { composeOnDraft } from './draftCompose.ts';
+import { composeOnDraft, marketGoods } from './draftCompose.ts';
 import { profile, relief } from './setpieces.ts';
 
 /**
@@ -72,4 +72,7 @@ export default composeOnDraft('erymanthos', { staging: [162, 410], entryBand: 6,
   }
   k.piece('dodona/boulder-moss-b', [spring[0] + 6, spring[1] + 5], { r: 4, n: 2 });
   k.piece('dodona/stump-moss', [134, 108], { r: 6, n: 3 });
+  // the woodcutters' market at the hub, four bare dirt corners: goods, a cart, a timber stand and logs
+  marketGoods(k, [139, 115.5], 'elaia');
+  for (const [n, [dx, dy]] of ([[-9, -7], [9, 8], [-9, 8], [10, -7]] as const).entries()) k.piece(['dodona/timber-stand', 'dodona/log-fallen', 'dodona/charcoal-pile', 'dodona/log-fallen'][n], [139 + dx, 115.5 + dy], { r: 3, n: 1, gap: 2 });
 }, { trees: 0.7 });

@@ -17,7 +17,7 @@ import { massif, profile, relief } from './setpieces.ts';
 
 const def: RegionDef = {
   id: 'dodona-s',
-  style: { trees: 0.4, bushes: 0.08 },
+  style: { wayside: true, trees: 0.4, bushes: 0.08 },
   build(k: Kit) {
     const N = k.entry('dodona'), S = k.entry('stymphalia'), E = k.entry('moors'), SW = k.entry('dodona-w'), SE = k.entry('dodona-e');
     k.fill(5);

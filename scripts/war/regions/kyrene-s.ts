@@ -16,7 +16,7 @@ import { massif, profile, relief } from './setpieces.ts';
 
 const def: RegionDef = {
   id: 'kyrene-s',
-  style: { dry: 0.1, trees: 0.1, bushes: 0.3 },
+  style: { wayside: true, dry: 0.1, trees: 0.1, bushes: 0.3 },
   build(k: Kit) {
     const N = k.entry('kyrene'), W = k.entry('delta'), SW = k.entry('kyrene-w'), SE = k.entry('kyrene-e');
     k.fill(2);

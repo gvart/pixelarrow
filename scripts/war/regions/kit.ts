@@ -64,8 +64,10 @@ export interface Style {
   trees: number; bushes: number;
   /** Share of open grass tiles with a low tuft (dry grass, alpine grass, herbs): steppe and pasture that reads as grown. */
   tufts: number;
+  /** A wayside at every claim point away from a town and a landmark (a cairn or shrine, a cart, stones, scrub by its biome), so a bare crossing with only the flag reads as a place. */
+  wayside: boolean;
 }
-const STYLE: Style = { dry: 0.05, dryHigh: true, meadow: 0.1, dune: 0.3, trees: 1, bushes: 1, tufts: 0 };
+const STYLE: Style = { dry: 0.05, dryHigh: true, meadow: 0.1, dune: 0.3, trees: 1, bushes: 1, tufts: 0, wayside: false };
 
 /** Biome libraries a region may name (public/war/biomes/<name>; 'global' is the base set). */
 export const BIOMES = ['global', 'elaia', 'kyrene', 'mountains', 'dodona'] as const;
@@ -1055,13 +1057,15 @@ export class Site {
    */
   ramp(pts: Pt[], w: number, h0: number, h1: number, o: { run?: number; flat?: number; t?: string } = {}): Pt {
     const run = o.run ?? 5, flat = o.flat ?? 0, c = spline(pts, 0.5), r = w / 2, R = Math.ceil(r), lv = new Map<number, number>();
+    // drawn: one even slope over the whole curve (a switchback's lower legs climb too, not a flat road and a face at its top)
+    const vrun = Math.max(run * (h0 - h1), c[c.length - 1].s - flat) / Math.max(1, h0 - h1);
     for (const p of c) {
       const h = Math.max(h1, h0 - Math.max(0, Math.ceil((p.s - flat) / run)));
       for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) {
         const x = Math.floor(p.x + dx), y = Math.floor(p.y + dy), k = y * 4096 + x;
         if (x < 0 || y < 0 || x >= this.w || y >= this.h || (x + 0.5 - p.x) ** 2 + (y + 0.5 - p.y) ** 2 > r * r) continue;
         lv.set(k, Math.max(lv.get(k) ?? -1, h));
-        this.vz.set(k, Math.max(this.vz.get(k) ?? -1, Math.max(h1, h0 - Math.max(0, (p.s - flat) / run))));
+        this.vz.set(k, Math.max(this.vz.get(k) ?? -1, Math.max(h1, h0 - Math.max(0, (p.s - flat) / vrun))));
       }
     }
     this.levelBy((x, y) => lv.get(y * 4096 + x));
@@ -1343,9 +1347,11 @@ function visualLayer(k: Kit): Out {
       const tx = k.tileOfUnit(x), ty = k.tileOfUnit(y);
       for (const s of lifted) {
         const pd = s.liftPad;
-        if (tx < s.x0 - pd || ty < s.y0 - pd || tx >= s.x0 + s.w + pd || ty >= s.y0 + s.h + pd || height[i] <= s.base) continue;
-        if (s.liftOnly && !s.liftOnly(tx - s.x0, ty - s.y0)) continue;
+        if (tx < s.x0 - pd || ty < s.y0 - pd || tx >= s.x0 + s.w + pd || ty >= s.y0 + s.h + pd) continue;
+        // a ramp's lower run stands at the base in the sim but climbs by its smooth level (vz), so it is drawn rising to the gate
         const hv = s.vz.get((ty - s.y0) * 4096 + tx - s.x0) ?? height[i];
+        if (hv <= s.base) continue;
+        if (s.liftOnly && !s.liftOnly(tx - s.x0, ty - s.y0)) continue;
         z = Math.min(ZVIS, Math.max(Math.round(RELIEF * hv), Math.round(s.vis(hv, terrain[i] === 'road') + (RELIEF - 1) * s.base)));
         soft[i] = 0;
       }
@@ -1885,8 +1891,30 @@ export function build(def: RegionDef): Built {
         if (fzAt(2 * qx, 2 * qy) < z0 - 6) { px = qx; py = qy; break; }
       }
       put('elaia/waterfall-tall', px + 0.5, py + 0.5);
-    } else put('elaia/waterfall', x + 0.5, y + 0.5);
+    } else {
+      // where the drawn water already falls here (two wet fine cells a level apart: src/war/view/water.ts draws the
+      // sheet and its foam) the old thin sprite would stand in front of the sheet: leave both sprites out
+      const wetF = (j: number) => j >= 0 && (fine.kind[j] === KINDS.indexOf('shallow') || fine.kind[j] === KINDS.indexOf('deep'));
+      let sheet = false;
+      const y0 = Math.floor(2 * Math.min(y, fy)) - 6, y1 = Math.ceil(2 * Math.max(y, fy)) + 6, x0 = Math.floor(2 * Math.min(x, fx)) - 6, x1 = Math.ceil(2 * Math.max(x, fx)) + 6;
+      for (let fy2 = y0; fy2 <= y1 && !sheet; fy2++) for (let fx2 = x0; fx2 <= x1 && !sheet; fx2++) {
+        const i = fAt(fx2, fy2);
+        if (!wetF(i)) continue;
+        for (const [dx, dy] of [[1, 0], [0, 1]]) { const j = fAt(fx2 + dx, fy2 + dy); if (wetF(j) && fine.z[j] + 2 <= fine.z[i]) sheet = true; }
+      }
+      if (sheet) continue;
+      put('elaia/waterfall', x + 0.5, y + 0.5);
+    }
     put('elaia/falls-foam', fx + 0.5, fy + 0.5);
+  }
+  if (k.style.wayside) for (const c of k.claimReqs) {
+    if (k.towns.some((t) => Math.hypot(t.at[0] - c.at[0], t.at[1] - c.at[1]) < 14) || k.inSite(c.at[0], c.at[1])) continue;
+    const i = k.at(c.at), b = i >= 0 ? BIOMES[biome[i]] : 'global';
+    const set = b === 'kyrene' ? ['mountains/cairn', 'kyrene/handcart', 'kyrene/rocks-red', 'kyrene/camelthorn', 'kyrene/amphora-stack', 'kyrene/saltbush']
+      : b === 'mountains' ? ['mountains/cairn', 'elaia/handcart', 'mountains/boulder-field', 'mountains/juniper', 'elaia/wall-fallen-stone', 'mountains/alpine-grass']
+        : b === 'dodona' ? ['elaia/shrine', 'elaia/handcart', 'dodona/boulder-moss-a', 'dodona/stump-moss', 'dodona/log-fallen', 'dodona/fern-a']
+          : ['elaia/shrine', 'elaia/handcart', 'elaia/wall-fallen-stone', 'elaia/maquis-a', 'elaia/amphora-stack', 'elaia/herbs'];
+    for (const [n, [dx, dy]] of ([[-6, -5], [6, -6], [-6, 6], [7, 5], [-9, 0], [0, 9]] as const).entries()) k.piece(set[n], [c.at[0] + dx, c.at[1] + dy], { r: 3, n: n < 2 ? 1 : 2, gap: 2 });
   }
   for (const r of k.reqs) {
     if (r.kind === 'piece') {
@@ -2012,6 +2040,21 @@ export function build(def: RegionDef): Built {
   }
   // the pre-built pieces: their town's claim point, and the town's condition by depth and lore (a court stays whole)
   const prebuilt: PrebuiltEntry[] = [];
+  // a jetty left standing on dry ground (the shore laid after it moved out, e.g. a sea's beach) slides across its
+  // length to the nearest run of water within a few tiles
+  for (const e of pre) {
+    if (e.type !== 'jetty' || !e.tiles) continue;
+    const t = e.tiles, alongY = t.length > 2 && t[0] === t[2], wet = (d: number) => {
+      for (let n = 0; n < t.length; n += 2) { const x = t[n] + (alongY ? d : 0), y = t[n + 1] + (alongY ? 0 : d); if (x < 0 || y < 0 || x >= W || y >= H || !water[y * W + x]) return false; }
+      return true;
+    };
+    if ([0, 1, -1].some((d) => wet(d))) continue;
+    const d = [-2, 2, -3, 3, -4, 4, -5, 5, -6, 6, -7, 7, -8, 8].find(wet);
+    if (d === undefined) continue;
+    for (let n = 0; n < t.length; n += 2) t[n + (alongY ? 0 : 1)] += d;
+    if (alongY) e.x += d; else e.y += d;
+    log.push(`jetty moved ${d} onto the water`);
+  }
   {
     const cond = CONDITION[k.world.id] ?? CONDITION_BY_DEPTH[REGION_DEPTH[k.world.id] ?? 1];
     const homes = new Map<number, number>(), ruins = new Map<number, number>();

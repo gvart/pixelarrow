@@ -3125,6 +3125,35 @@ waterwheel). (3) Shared-art points (tile textures, sprite shading, colonnade len
 the prompt which art is out of scope. (4) Verify each point in the data: two of the worst faults (the water strip
 through the agora, the jetty on dry land) were not in Gemini's lists.
 
+### 40n Region polish, second pass: landmark, pocket and entry regions
+
+Same recipe as 40m (sandbox shots at 1x and 1/2, own critique first, every point checked in the data with a probe
+before a fix). Gemini (Pro, 3 JPEGs, the 40m prompt with "tile textures and the cliff-face texture are shared art, out
+of scope") answered for krios and siren; the Chrome extension dropped after that, so the rest is own critique only.
+
+| Region | Critique (own unless marked) | Fixed | Rejected (why) |
+| --- | --- | --- | --- |
+| krios | switchback ramp drawn flat on the glacier with a sheer step at the barbican; the ruined village in rows on blank snow (its dirt lanes snowed over); Gemini: "unfinished gate ramp", "grid-aligned copy-paste ruins", "empty village terrain" | kit: a site ramp's whole curve drawn as one even slope, its lower run lifted, the snow between the legs filled to the lower leg (visual only); village lanes as road, litter (stones, drifts, dead trees, snowed firs), fewer cottages | Gemini's "scale up the pines 150-200%" (shared sprite scale); Drakon's skirt left as is (a wider one fails his raid) |
+| siren | the market hub only a flag; harbour lots and the fort yard bare; Gemini: "empty market hub", "barren fort courtyard", "zigzag river bank" | `marketGoods` (draftCompose.ts); goods in the lots and the yard; kit: a jetty left on dry sand slides onto the water (siren, delta) | "reroute the grid streets" (the landmark plan) |
+| ammon | the fort butte's top an empty red table; the market crossing a flag | red stones, mudbrick rubble; `marketGoods` | |
+| delta | the temple precinct inside the colonnade a bare lawn; the market a flag | fallen stones, reeds, dead trees on it; `marketGoods` | |
+| moors | the east tor's broad top a lone watchtower; the hub bare | fallen fort courses, boulders, junipers; a drovers' halt; tufts | |
+| kimmeria | the hill fort's huts in a row on bare lawn | fallen ramparts, broom, dead trees; a waymark at the crossing | |
+| savanna | the dry wash's bed blotted with orange dune and black reg (the kyrene sand rule); kopje tops bare | plain sand in the wash; boulders and acacias on the kopjes; game and reeds at the waterhole | |
+| bacchae | grove clearing, quarry benches, village bare | amphorae, vines, herbs; marble blocks and spoil; carts, hives, goats | a stall by the well (stalls away from a square read as litter, 40m) |
+| saddle | the cyclops ward a bare scree yard | fallen blocks, boulders, stone carts, stores | |
+| erymanthos | the market hub's four dirt corners empty | `marketGoods`, timber stand, logs, charcoal | an odd wall fragment at the road cut is the scarp's drawn cliff end |
+| gorge | the falls: the rim river stopped short of the lip, the gorge river began 7 tiles down the floor (fall sprite on a dry ledge, foam on sand) | rim pool to the lip, a plunge pool at the cliff foot, the tall fall sheet | |
+| canyons | red-tiled tenements and workshops on the basalt hold (the "red-roofed mesa houses"); the chimera's yard bare | rock-cut halls and mudbrick blocks; rubble round the yard's edge; `marketGoods` | |
+| skythia-w | the old thin fall sprites and foam rocks in front of the drawn water sheets | kit: no fall sprite where the drawn water already drops a level | |
+| all coasts | surf drawn as a staircase along each cell edge | art.ts: the surf line through the edge midpoints with a soft band | the cell teeth of the water fill itself (a renderer change, open) |
+| entry regions (15) | every claim crossing outside a town a flag on bare road | `Style.wayside`: a shrine or cairn, a cart, stones, scrub by biome; `marketGoods` at elaia-e and kyrene-w | |
+
+**Lessons:** (1) Gemini spots emptiness well and joins poorly: none of the three real joins this pass (the ramp step, the
+dry falls, the jetty on sand) came from it. (2) A raid-tuned landmark can still be dressed: walkable props and visual-only
+levels left every raid at 8/8 (`npm run balance:war`, tests/war/landmarkBalance.test.ts). (3) Drafted hubs and claim
+points are the commonest empty spots; dress them in the kit, not per region.
+
 ## 41. Landing page references (pixelarrow.app, "Play your way")
 
 Design references for the new marketing site in `landing/`, not assets: nothing is built until the owner approves

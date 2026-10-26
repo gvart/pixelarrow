@@ -25,7 +25,7 @@ const bx = (y: number) => 176 - 0.42 * y + 8 * Math.sin(y / 19);
 
 const def: RegionDef = {
   id: 'moors',
-  style: { meadow: 0.3, dry: -0.2, trees: 0.06, bushes: 0.5 },
+  style: { meadow: 0.3, dry: -0.2, trees: 0.06, bushes: 0.5, tufts: 0.04 },
   build(k: Kit) {
     const N = k.entry('dodona-e'), W = k.entry('dodona-s'), E = k.entry('saddle'), S = k.entry('erymanthos');
     k.fill(4);
@@ -79,6 +79,10 @@ const def: RegionDef = {
     k.piece('mountains/cairn', [196, 150], { r: 9, n: 2, gap: 6 });
     k.piece('watchtower', [192, 146], { r: 4 });
     k.village([90, 150], 3);
+    // the east tor's flat top round the watchtower: a fallen fort (stones, wall courses), heather and junipers, boulders
+    for (const [n, [dx, dy]] of ([[-8, -6], [7, -8], [-10, 4], [9, 6], [0, 10], [-3, -11], [12, -1], [-13, -3]] as const).entries()) k.piece(['elaia/wall-fallen-stone', 'mountains/boulder-field', 'mountains/juniper', 'elaia/debris-stone'][n % 4], [196 + dx, 150 + dy], { r: 3, n: 2, gap: 2 });
+    // the drovers' halt at the hub where Dodona's roads meet: goats, a cart, a fallen fold wall, junipers
+    for (const [n, [dx, dy]] of ([[-6, -5], [6, -6], [-6, 6], [7, 5], [-9, 0]] as const).entries()) k.piece(['elaia/goats', 'elaia/handcart', 'elaia/wall-fallen-stone', 'mountains/juniper', 'elaia/goats'][n], [hub[0] + dx, hub[1] + dy], { r: 3, n: 2, gap: 2 });
     // iron at the east tor's foot, stone on the rim
     k.resource('iron', [160, 180], 3, 6);
     k.resource('stone', [40, 220], 3, 10);
