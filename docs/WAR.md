@@ -546,9 +546,9 @@ every other cap is written in terms of N.
 | 10 | 60 | 54 | very good | line 5×2, thin wedge | fallback if 50 players feels empty |
 | 8 | 75 | 67 | best | 4×2 reads as a blob; lines and flanks lose meaning | no |
 
-Recommendation: **N = 12, one squad per player**, which can split into two detachments of ≥ 4 (flank, guard a site,
-work, as W-26 detaching already does). Several small squads per player multiply orders and UI without adding
-tactics at this size. (d) Civilians count toward the 600 cap inside a 10% quota, so 12 gives 45–50 players per region,
+Recommendation: **N = 12 fighters per player**, every one of them a unit the player can command on his own (W-53,
+"Unit control" below): any man or any mix of his men takes an order, so there are no fixed detachments. (d) Civilians
+count toward the 600 cap inside a 10% quota, so 12 gives 45–50 players per region,
 inside the owner's 50–60 hope. Changing N later is one constant (`SQUAD_MAX`, today `MAX_ARMY` 20) plus re-tuned
 scenarios.
 
@@ -622,6 +622,32 @@ What we took from established RTS games (`src/war/sim/grid.ts` `pullPath`, `src/
 - Not taken: flow fields (Supreme Commander 2, Planetary Annihilation) pay off for hundreds of units sharing one goal; with
   squads of ≤ 12 one A* per squad plus slot steering is cheaper and keeps formations.
 
+### Unit control (W-53)
+
+Every soldier is a unit: the player selects any of his men and orders them alone or in any mix
+(`src/war/view/select.ts`, the sim's `units` on an order, `src/war/sim/index.ts` `regroup`).
+
+| Input | Does |
+| --- | --- |
+| click, shift+click | select a man; shift adds him or drops him; a click on open ground clears |
+| drag a box, shift+box | select every man of yours inside; shift adds |
+| double-click a man | every man of his class on screen |
+| Ctrl+A, Esc | all your men; nobody (Esc first closes a tool, the radial or an armed button) |
+| Ctrl+1–9, 1–9 | store the selection as control group n; select group n, a second tap centres the camera on it |
+| Alt+1–4 | formation line, column, wedge, loose |
+| right click, E | the context action for the selected men (move, attack, gather, build, …) |
+| roster | a field row selects that man in the world, a squad heading its men (shift adds); selected rows carry a gold edge |
+
+On the HUD the group bar (1–9, main class icon, count) sits over the command card, which shows the selection (main
+class, men, hp). Group numbers are drawn by the feet of grouped men.
+
+Orders: men ordered together march as one formation (Movement above); a man ordered alone walks alone. In the sim, an
+order naming `units` gathers them first: a squad given whole keeps its id and takes the rest in, else the men leave
+as a new squad; soldiers and civilians go apart, at most N a squad; orders that lay something out go once. Men left
+behind keep their old order. Squads emptied this way are reused for the next new squad of the same player, so
+regrouping never grows the squad list. Bandages split by men. Online the room checks every named man is the
+player's (`notOwner` otherwise); the field is optional, so the wire stays additive.
+
 ### Lifecycle
 
 | Stage | Rule |
@@ -677,7 +703,7 @@ a region.
 | Reuse | Drop (war only) |
 | --- | --- |
 | `Hero`, `computeStats`, attributes, `xpToNext`, items, rarity, affixes, sets, requirements, `salvageValue`, traits shape, class defs and kits | morale, rout, stamina, auras, per-unit abilities, 5-tier perk trees (now 2 skill slots), medallions, campaign rest and physician gold |
-| `warStats` (`src/war/sim/classes.ts`) stays the class baseline (and clamp base) and the mob path; new `warStatsOf(hero)` bakes a person | `MAX_ARMY` 20 as the war squad size (becomes `SQUAD_MAX` = N) |
+| `warStats` (`src/war/sim/classes.ts`) stays the class baseline (and clamp base) and the mob path; new `warStatsOf(hero)` bakes a person | `MAX_ARMY` 20 as the war squad size (becomes `SQUAD_MAX` = N); fixed two-detachment splits (W-53: any mix of men) |
 
 ## Crafting and professions
 
