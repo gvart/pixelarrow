@@ -99,7 +99,7 @@ ASSESSED, never a guessed PASS.
 
 | Code | Means |
 | --- | --- |
-| G-ALL | `npx tsc --noEmit`, `npx vitest run`, server vitest if `server/` changed, `npx vite build`, the war play-smoke when war wiring changed, replay-hash. Semantic commits, no AI co-author trailer, never push. Report ends with **Skills applied**. |
+| G-ALL | `npx tsc --noEmit`, `npx vitest run`, server vitest if `server/` changed, `npx vite build`, the war play-smoke when war wiring changed. Semantic commits, no AI co-author trailer, never push. Report ends with **Skills applied**. |
 | G-UI | Screenshots across the screen matrix ([director-brief.md](director-brief.md)), en and ru, looked at. Every listed element present or its removal cited. No colour-only state, targets ≥ 44 pt. |
 | G-MECH | GDD referenced; `balance-check` plus `npm run balance:war` **before and after** in `docs/<ver>/balance/<story>.md`; targets met or the miss logged; the player doc updated (`docs/GAMEPLAY.md`, `DESIGN_V2.md`, `DUELS.md`, `ITEMS.md`); played in the browser. |
 | G-GUARD | Presentation that touches battle: `npm run balance` before and after, within noise. |
