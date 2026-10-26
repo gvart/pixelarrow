@@ -17,7 +17,7 @@ import { ACCOUNT_RU } from './strings.ru';
 import { legalUrl } from '../src/ui/legal';
 import type { HumanCheck, HumanCheckAction, HumanCheckWidget } from '../src/platform/core/auth';
 import type { PlatformEnv } from '../src/platform/core/env';
-import { conflictView, fmt, pageLang, PW_MAX, PW_MIN, readToken, resetView, savedLangSetting, variantOf, verifyView, type Lang, type Reply, type Variant, type View } from './logic';
+import { fmt, pageLang, PW_MAX, PW_MIN, readToken, resetView, savedLangSetting, variantOf, verifyView, type Lang, type Reply, type Variant, type View } from './logic';
 
 /** A string table entry: plain, or plural forms (as in the game's old i18n tables). */
 type Entry = string | { one?: string; few?: string; many?: string; other: string };
@@ -202,7 +202,7 @@ async function success(v: Extract<View, { kind: 'success' }>): Promise<void> {
   if (v.purpose === 'signup') {
     playRow([p('auth.page.welcome', undefined, 'lead'), p('auth.page.signedInAs', { name: v.name })]);
   } else if (v.purpose === 'add_email') {
-    playRow([p('auth.page.emailAdded', { name: v.name }, 'lead'), ...(v.removedEmpty ? [p('auth.page.removedEmpty')] : [])]);
+    playRow([p('auth.page.emailAdded', { name: v.name }, 'lead')]);
   } else {
     // The masked new address comes from the account summary, which the fresh cookie session can read.
     verifying();
@@ -235,9 +235,12 @@ function render(v: View): void {
       show('warn', [p('auth.page.taken', undefined, 'lead')], [login, linkButton('auth.login.forgot', MENU, false)], login);
       return;
     }
-    case 'conflict':
-      conflictForm();
+    case 'conflict': {
+      // The address has its own account; accounts are never merged, so it is played by signing in with it.
+      const login = linkButton('auth.login.submit', MENU, true);
+      show('warn', [p('auth.page.conflict', undefined, 'lead'), p('auth.page.conflictHint')], [login, linkButton('auth.login.forgot', MENU, false)], login);
       return;
+    }
     case 'banned': {
       const go = linkButton('auth.page.toGame', MENU, false);
       show('warn', [p('auth.banned.title', undefined, 'lead'), p('auth.banned.body')], [go], go);
@@ -251,10 +254,6 @@ function render(v: View): void {
       show('warn', [p(v.kind === 'rate' ? 'auth.page.rate' : v.kind === 'offline' ? 'auth.page.offline' : 'auth.err.unavailable', undefined, 'lead')], [again], again);
       return;
     }
-    case 'handover':
-      show('wait', [p('auth.page.handover', undefined, 'lead')]);
-      location.replace(v.to);
-      return;
     case 'field':
     case 'banner':
       return; // handled by the form that asked
@@ -418,34 +417,6 @@ function resetForm(): void {
     }
   }, [p('auth.reset.note', undefined, 'muted center')]);
   show(null, [f.form], [], coarse() ? null : pw.input);
-}
-
-/** §8.3: the add_email address has its own account; its password proves the address is the player's. */
-function conflictForm(): void {
-  const pw = field('currentPassword', 'auth.field.password');
-  const forgot = el('a', 'link', 'auth.login.forgot');
-  forgot.href = MENU;
-  forgot.rel = 'noreferrer';
-  const f = makeForm([pw.wrap], 'auth.page.continue', async () => {
-    pw.error(null);
-    f.banner(null);
-    if (!pw.input.value) {
-      pw.error('auth.err.creds');
-      pw.input.focus();
-      return;
-    }
-    const v = conflictView(await call('POST', '/api/auth/verify/conflict', { token, password: pw.input.value }));
-    if (v.kind === 'field') {
-      pw.input.value = '';
-      pw.error(v.key);
-      pw.input.focus();
-    } else if (v.kind === 'banner') f.banner(v.key);
-    else {
-      pw.input.value = '';
-      render(v);
-    }
-  }, [forgot]);
-  show('warn', [p('auth.page.conflict', undefined, 'lead'), p('auth.page.conflictHint'), f.form], [], coarse() ? null : pw.input);
 }
 
 /**

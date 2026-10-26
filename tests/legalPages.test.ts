@@ -37,16 +37,14 @@ describe('legal pages', () => {
     }
   });
 
-  it('cover what the store and Telegram ask for', () => {
+  it('cover the email account, the game server and the data it keeps, with no Telegram left', () => {
     const privacy = page('privacy.html');
-    for (const s of ['Telegram user id', 'username', 'language', 'Purchases', 'How long we keep it', '/delete_my_data', 'privacy@pixelarrow.app']) expect(privacy).toContain(s);
+    for (const s of ['email address', 'Cloudflare D1', 'How long we keep it', 'Deleting your account', 'privacy@pixelarrow.app']) expect(privacy).toContain(s);
     const terms = page('terms.html');
-    for (const s of ['digital goods', 'cannot be cashed out', 'https://telegram.org/tos/stars', '/paysupport']) expect(terms).toContain(s);
-    const refunds = page('refunds.html');
-    for (const s of ['refundStarPayment', 'taken back', '/paysupport', 'https://telegram.org/tos/stars']) expect(refunds).toContain(s);
-    const ru = page('ru/refunds.html');
-    for (const s of ['refundStarPayment', 'списываются обратно', '/paysupport']) expect(ru).toContain(s);
-    expect(page('ru/privacy.html')).toContain('/delete_my_data');
+    for (const s of ['email address and a password', 'no monetary value', 'cannot be cashed out']) expect(terms).toContain(s);
+    expect(page('refunds.html')).toContain('Nothing is for sale');
     expect(page('ru/terms.html')).toContain('не подлежат выводу');
+    expect(page('ru/privacy.html')).toContain('Cloudflare D1');
+    for (const html of Object.values(FILES)) expect(html).not.toMatch(/telegram|campaign|кампани|stars|\/paysupport|\/delete_my_data/i);
   });
 });

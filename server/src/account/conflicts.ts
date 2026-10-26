@@ -33,9 +33,6 @@ import { hitThrottle } from '../auth/throttle';
 import { deleteAccount, startDeletion } from './delete';
 import { noticeTargets, type Notifier } from './notices';
 import type { IdentityKind } from './banTombstone';
-import type { PlayerRow } from '../players';
-import { invalidCredentials, invalidToken, login, type FlowDeps } from '../auth/flows';
-import { liveToken, ownerOf, verifyAddEmail } from './email';
 import { validateInitData, INIT_DATA_MAX_AGE_SEC, type TelegramUser } from '../telegramAuth';
 import { REAUTH_WINDOW_MS } from './reauth';
 import { maskEmail } from './summary';
@@ -484,41 +481,4 @@ export async function cancelFromTelegram(db: D1Database, botToken: string, notif
     notify('link_cancelled', await noticeTargets(db, pid));
   }
   return { cancelled: codes.results.length + conflicts.results.length };
-}
-
-/** The email flow opens the conflict before the browser's session exists; this binds the web side to it. */
-export async function bindWebSession(db: D1Database, id: string, sid: string): Promise<void> {
-  await db.prepare('UPDATE link_conflicts SET web_session = ?2 WHERE id = ?1 AND web_session IS NULL').bind(id, sid).run();
-}
-
-/**
- * POST /api/auth/verify/conflict {token, password} (ADR-0009 §5.2, V6-049):
- * the add_email link that answered 409 email_conflict (it stays live), plus
- * the password of the account that owns the address. The link proves the
- * mailbox and the Telegram player's request; the password proves the other
- * account (the log-in lockout applies). Then the empty-side or conflict rules
- * run for the Telegram player ("this"), who gets a cookie session here; the
- * Telegram owner must still choose in the Mini App.
- */
-export async function proveEmailConflict(
-  env: Env,
-  d: FlowDeps,
-  notify: Notifier,
-  token: string,
-  password: string,
-): Promise<{ player: PlayerRow; removedEmpty?: true; conflict?: string }> {
-  const { th, row, player } = await liveToken(d, 'add_email', token);
-  const owner = await ownerOf(d.db, row.email_norm);
-  // No conflict any more (the address was freed, or already added): the plain link does it.
-  if (owner === null || owner === player.id) return { player: await verifyAddEmail(d, notify, token) };
-  const other = await login(d, row.email, password);
-  if (other.id !== owner) throw invalidCredentials();
-  const tg = await d.db.prepare(`SELECT subject FROM auth_identities WHERE player_id = ?1 AND kind = 'telegram'`).bind(player.id).first<{ subject: string }>();
-  if (!tg) throw invalidToken();
-  const proof: Proof = {
-    guard: `EXISTS (SELECT 1 FROM email_tokens WHERE token_hash = ${lit(th)} AND used_at IS NULL AND expires_at > ${lit(d.now)})`,
-    spend: (g) => d.db.prepare(`UPDATE email_tokens SET used_at = ?2 WHERE token_hash = ?1 AND ${g}`).bind(th, d.now),
-  };
-  const out = await settle(env, notify, 'email', player.id, other.id, proof, invalidToken, d.now, { webSession: null, tgId: Number(tg.subject), tgInitHash: null });
-  return { player, ...out };
 }

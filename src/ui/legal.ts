@@ -1,4 +1,4 @@
-/** The legal pages (public/*.html, served at pixelarrow.app/terms etc.; Russian under /ru/). */
+/** The legal pages (landing/public/*.html, served at pixelarrow.app/terms etc.; Russian under /ru/). */
 export type LegalPage = 'terms' | 'privacy' | 'refunds';
 
 const LEGAL_BASE = 'https://pixelarrow.app';
