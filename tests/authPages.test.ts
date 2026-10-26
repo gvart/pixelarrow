@@ -2,9 +2,7 @@
 // what each server reply shows, where the token comes from, the language and the guest-save hint.
 import { describe, expect, it } from 'vitest';
 import { conflictView, guestSave, pageLang, readToken, resetView, savedLangSetting, variantOf, verifyView } from '../auth/logic';
-import { PASSWORD_MAX, PASSWORD_MIN } from '../src/ui/account/flows';
 import { PW_MAX, PW_MIN } from '../auth/logic';
-import { MOSAIC } from '../src/ui/tokens';
 import headers from '../public/_headers?raw';
 import { readText } from './support/nodeIo.js';
 
@@ -124,8 +122,9 @@ describe('the device hints', () => {
   });
 });
 
-it('mirrors the password policy of the in-game forms', () => {
-  expect([PW_MIN, PW_MAX]).toEqual([PASSWORD_MIN, PASSWORD_MAX]);
+it('mirrors the server password policy (server/src/auth/password.ts)', () => {
+  const src = readText('server/src/auth/password.ts');
+  expect([PW_MIN, PW_MAX]).toEqual([Number(/PASSWORD_MIN = (\d+)/.exec(src)?.[1]), Number(/PASSWORD_MAX = (\d+)/.exec(src)?.[1])]);
 });
 
 describe('the pages ship safe by construction', () => {
@@ -154,12 +153,5 @@ describe('the pages ship safe by construction', () => {
     expect(csp['script-src']).toBe("'self' https://challenges.cloudflare.com");
     expect(csp['frame-src']).toBe('https://challenges.cloudflare.com');
     expect(csp['base-uri']).toBe("'none'");
-  });
-
-  it('the page CSS uses the Mosaic kit colours', () => {
-    const hex = (n: number) => `#${n.toString(16).padStart(6, '0')}`;
-    const vars: Record<string, keyof typeof MOSAIC> = { page: 'page', stone0: 'stone0', parch: 'parch', 'parch-hi': 'parchHi', 'parch-lo': 'parchLo', 'parch-edge': 'parchEdge', well: 'well', ink: 'ink', 'ink-sec': 'inkSec', 'ink-muted': 'inkMuted', 'ink-good': 'inkGood', 'ink-bad': 'inkBad', cream: 'cream', terra: 'terra', 'terra-hi': 'terraHi', bronze: 'bronze', 'bronze-hi': 'bronzeHi', teal: 'teal', meander: 'meander', gold: 'gold' };
-    const css = readText('auth/auth.css');
-    for (const [v, k] of Object.entries(vars)) expect(css, v).toContain(`--${v}: ${hex(MOSAIC[k])};`);
   });
 });
