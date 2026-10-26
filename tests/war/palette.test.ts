@@ -1,11 +1,11 @@
 /** One team palette (src/war/world/palette.ts): the region draws each team in the colour the world art paints its alliance. */
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
 import { ALLIANCES } from '../../src/war/world/alliances';
 import { TEAM_CSS, TEAM_INT, TEAM_RGB } from '../../src/war/world/palette';
 import { TEAM_RGB as REGION_RGB } from '../../src/war/view/mapModes';
+import regions from '../../public/war/world/regions.json';
 
-const art = JSON.parse(readFileSync(new URL('../../public/war/world/regions.json', import.meta.url), 'utf8')) as { alliances: Record<string, { color: string }> };
+const art = regions as unknown as { alliances: Record<string, { color: string }> };
 
 describe('team palette', () => {
   it('each team is its alliance\'s world-map colour, in the region too', () => {
