@@ -28,7 +28,7 @@
 import { draggable } from './drag';
 import '@fontsource/inter/600.css';
 import '@fontsource/cinzel/700.css';
-import { BUILDINGS } from '../../sim/economy';
+import { BUILDINGS, DEMOLISH } from '../../sim/economy';
 import { SIEGE } from '../../sim/siege';
 import { FORT } from '../../sim/works';
 import type { BuildingType, FortKind, SiegeType } from '../../types';
@@ -256,6 +256,14 @@ export function hud(s: SandboxScene): void {
     s.sim.order(q === null ? { kind: 'rebuild', building: b.id, team: myTeam() } : { kind: 'rebuild', building: b.id, squad: q });
     s.mark(b.x, b.y, 0x60d060);
   });
+  // demolish: two steps, the confirm sits in the card itself (never a browser dialog)
+  let razeArmed = -1;
+  const bDemolish = btn('bdemolish', 'act-cancel', '', '', () => { const b = m.selectedBuilding(); if (b && !m.demolishWhy(b)) razeArmed = b.id; });
+  const razeBox = document.createElement('div');
+  razeBox.id = 'bRazeConfirm';
+  razeBox.style.cssText = 'display:flex;align-items:center;gap:4px;font-size:12px;white-space:nowrap;padding:0 2px';
+  const confirmRaze = (yes: boolean) => { if (yes) m.demolish(); razeArmed = -1; refresh(); };
+  razeBox.addEventListener('click', (e) => { const a = (e.target as HTMLElement).closest<HTMLElement>('[data-raze]')?.dataset.raze; if (a) confirmRaze(a === 'yes'); });
   let shownSlots: HTMLElement[] = [], shownOrders: HTMLElement[] | null = null;
   const setCard = (ord: boolean, slots: HTMLElement[], selW: number, list = orders) => {
     const want = ord ? list : null;
@@ -427,12 +435,23 @@ export function hud(s: SandboxScene): void {
         const iron = own && def.wall === 'gate', wet = own && !!def.burnable && !def.field;
         // M7g: repair (a hurt standing building), rebuild (a pre-built ruin)
         const hurt = !b.ruin && b.hp < b.maxHp - 1e-6 && b.state !== 'foundation' && b.state !== 'scaffold' && !def.brazier, ruin = !!b.ruin;
-        setCard(false, [...(up ? [bUp] : []), ...(hurt ? [bRepair] : []), ...(ruin ? [bRebuild] : []), ...(iron ? [bIron] : []), ...(wet ? [bWet] : [])], SEL_BLD);
+        const raze = b.team === myTeam() && !b.pre && (b.state === 'done' || b.state === 'damaged'), razeWhy = m.demolishWhy(b);
+        if (razeArmed !== b.id || razeWhy) razeArmed = -1;
+        if (razeArmed >= 0) {
+          const back = m.demolishRefund(b), html = `<span>Tear down the ${nameOfBuilding(b).toLowerCase()}?</span><span class="rf-dim">back ${Object.keys(back).length ? costText(back) : 'nothing'}</span>
+            <button class="rf-tbtn pri" data-raze="yes" data-tip="tear it down">Demolish</button><button class="rf-tbtn" data-raze="no">Keep</button>`;
+          if (razeBox.dataset.h !== html) { razeBox.dataset.h = html; razeBox.innerHTML = html; }
+          setCard(false, [razeBox], SEL_BLD);
+        } else setCard(false, [...(up ? [bUp] : []), ...(hurt ? [bRepair] : []), ...(ruin ? [bRebuild] : []), ...(iron ? [bIron] : []), ...(wet ? [bWet] : []), ...(raze ? [bDemolish] : [])], SEL_BLD);
+        if (raze) {
+          bDemolish.disabled = !!razeWhy;
+          bDemolish.dataset.tip = actTip(`Demolish`, null, `tear it down in ${DEMOLISH.ticks / 10} s; ${Math.round(DEMOLISH.refund * 100)}% of its materials back to the nearest store (${Object.keys(m.demolishRefund(b)).length ? costText(m.demolishRefund(b)) : 'nothing'}) · asks first`, razeWhy);
+        }
         const who = sq === null ? 'planned: select a squad to send it' : `squad #${sq} does the work`;
         if (hurt) {
           const r = repairBill(b), why = repairWhy(b, sq);
           bRepair.disabled = !!why;
-          bRepair.dataset.tip = actTip('Repair', ceilBill(r.all), `${billText(r.step)} per 10% · labour ${labourText(r.labour)} · any squad, engineers ×1.5`, why);
+          bRepair.dataset.tip = actTip(`Repair`, ceilBill(r.all), `${billText(r.step)} per 10% · labour ${labourText(r.labour)} · any squad, engineers ×1.5`, why);
         }
         if (ruin) {
           const r = rebuildBill(b), why = rebuildWhy(b);

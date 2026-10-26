@@ -566,6 +566,7 @@ win over the region's while it is on.
 | Orders | right click or E context action (hold E: all actions), H hold, X stop work, F squad active, Q fire arrows, Y deploy engine |
 | Formations | Alt+1 line, Alt+2 column, Alt+3 wedge, Alt+4 loose |
 | Build mode | B on or off; R rotate, F flip a wall's inside, [ ] bridge width, G gate tool, T tower tool, Backspace drop the wall's start; walls: drag or click start and end, Shift chains |
+| Buildings | with one of yours selected (its keys win over the region's): U upgrade, R repair, Del demolish (Del again or the card's button confirms, Esc keeps it) |
 | View and panels | V cut walls down, M full map, F2-F7 map modes, G boss camera, R roster, K market, L landmark, N sound, Shift+W world map |
 | World map | Enter enter or send, T routes, H haul planner, F fit, + - zoom |
 | General | Esc back (fixed; with nothing open: the menu), F10 settings, ? controls, F1 dev panel |
@@ -586,6 +587,7 @@ Build mode (B) places sites on own influence; the selected men build them, else 
 | Joins | a line starting or ending on an own wall, tower or gate joins it there (those tiles are not counted as overlap) |
 | Towers and gates | normal build tools; a gate dropped on an own wall replaces that stretch (and the inner row behind it on a 2-deep wall: the passage); a tower takes the wall tiles under it; the gate turns along the wall under the cursor |
 | Stalled sites | `BuildingSnap.waiting` (goods the store network lacks), `stalled` (`noWorkers`, `noStore`); the site card and a floating note say "Waiting for 6 wood" |
+| Demolish | an own finished building (not a pre-built piece): the card's Demolish asks in the card (Demolish / Keep), then it comes down in 5 s (`DEMOLISH`), no rubble; its goods and 25% of its materials go to the nearest store of its network |
 | Activity | the squad card says what the men do (`activityText` in `src/war/view/hud/activity.ts`): Marching to …, Building palisade (62%), Waiting for wood, Gathering wood, Fighting, Holding |
 | Placement view | while placing, buildings within 4 tiles of the cursor go see-through; the ghost is never cut (V still cuts walls down) |
 

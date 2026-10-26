@@ -27,7 +27,7 @@
  *   builds / resumes it (../interact.ts); left click a building selects it (panel: stop work, cancel; upgrade a finished
  *   wall, tower or gate to its next tier)
  */
-import { BRIDGE, BUILDINGS, CANCEL_REFUND, rectTiles, rotated, WALL_KIT } from '../../sim/economy';
+import { BRIDGE, BUILDINGS, CANCEL_REFUND, DEMOLISH, rectTiles, rotated, WALL_KIT } from '../../sim/economy';
 import type { BridgeAxis, BridgePlan, BuildingSnap, BuildingType, NodeSnap, PlaceReason, PlaceResult, ResourceKind, SiegeType, WallPlan } from '../../types';
 import { SIEGE } from '../../sim/siege';
 import { SIEGE_NAME } from '../siege/siegeControls';
@@ -248,6 +248,30 @@ export class BuildMode {
     const b = this.selectedBuilding();
     if (!this.upgradeOf(b) || !b) return;
     this.s.sim.order({ kind: 'upgrade', building: b.id, ...this.builder() });
+  }
+
+  /** Why the selected building may not be demolished (undefined: it may): only a finished one your team built. */
+  demolishWhy(b: BuildingSnap): string | undefined {
+    if (b.team !== myTeam()) return 'not yours';
+    if (b.pre) return 'a piece of the region: it can only fall or be rebuilt';
+    if (b.razing !== undefined) return 'already being torn down';
+    if (b.state !== 'done' && b.state !== 'damaged') return 'not finished';
+    return undefined;
+  }
+
+  /** What tearing b down gives back: DEMOLISH.refund of its materials (cost x tiles for wall segments). */
+  demolishRefund(b: BuildingSnap): Cost {
+    const d = BUILDINGS[b.type], k = d.perTile ? b.tiles.length / 2 : 1, c: Cost = {};
+    for (const [r, v] of Object.entries(d.cost) as [ResourceKind, number][]) if (v * k * DEMOLISH.refund >= 0.5) c[r] = Math.floor(v * k * DEMOLISH.refund);
+    return c;
+  }
+
+  /** Tear the selected finished building down (DEMOLISH.ticks; the sim refunds DEMOLISH.refund of it). */
+  demolish(): void {
+    const b = this.selectedBuilding();
+    if (!b || this.demolishWhy(b)) return;
+    this.s.sim.order({ kind: 'demolish', building: b.id, team: myTeam() });
+    this.s.mark(b.x, b.y, 0xff8040);
   }
 
   /** Materials a site needs in all (cost x tiles for wall segments). */
