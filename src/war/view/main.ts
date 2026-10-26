@@ -13,6 +13,7 @@ import { fakeRegion } from '../fake/region';
 import { loadRegion } from '../region/loader';
 import { scenarioById, SCENARIOS } from '../scenarios';
 import { loadArt } from './art';
+import { entrySpot, ownCentre } from './entry';
 import { applyScenario, devPanel } from './devPanel';
 import { hud } from './hud/hud';
 import { sandboxRoster } from './hud/roster/state';
@@ -46,14 +47,26 @@ void Promise.all([id === 'fake' ? Promise.resolve(fakeRegion()) : loadRegion(id)
     game.events.off('poststep', ready);
     sandboxRoster(scene); // before the scenario spawns: the player's squads take its persons
     if (sc) applyScenario(scene, sc);
-    // M4c, opened from the world map in net mode: take over the squads standing here (a rejoin; else a squad from home)
-    else if (q.has('net') && q.has('world')) scene.sim.spawn('you', Number(q.get('team')) || 0, 'hoplite', 12, 0, 0);
+    // M4c, opened from the world map: in net mode take over the squads standing here (a rejoin; else a squad from home,
+    // the server places it on the team's entry); offline the player's one squad of 12 walks in at the same entry
+    else if (q.has('world')) {
+      const team = q.has('net') ? Number(q.get('team')) || 0 : 0, at = entrySpot(region, team);
+      scene.sim.spawn('you', team, 'hoplite', 12, at.x, at.y);
+      game.events.on('poststep', toSquad);
+    }
     devPanel(game, scene, sc);
     hud(scene);
     // the war's sound (./sound): settings card in the HUD corner, then the hooks (after the HUD's own event taps)
     const audio = new WarAudio(scene);
     mountSoundPanel(audio);
     audio.install();
+  };
+  // world entry: the camera opens on the player's men once they stand in the region (not the map's middle)
+  const toSquad = () => {
+    const own = ownCentre(scene.sim.cur);
+    if (!own) return;
+    game.events.off('poststep', toSquad);
+    scene.focus(own.x, own.y, 1 / 2);
   };
   game.events.on('poststep', ready);
   (window as unknown as { __sandbox: SandboxScene }).__sandbox = scene;

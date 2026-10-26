@@ -194,7 +194,7 @@ export function liveTrade(snap: WorldSnapshot): Pick<WorldView, 'convoys' | 'boa
   return { convoys, boards, ...(snap.score.trade ? { trade: snap.score.trade } : {}) };
 }
 
-/** A made-up world mid-season: owners, fights and the player's men (alliance Dodona). */
+/** A made-up world mid-season: owners and fights round the player, who has the design's start (alliance Dodona). */
 export function mockWorld(now: number): { snap: WorldSnapshot; squads: FieldSquad[]; scores: number[]; endsAt: number; convoys: ConvoySnap[]; boards: Record<string, BoardSeen>; trade: number[] } {
   const owners: Record<string, AllianceId> = {
     krios: 0, moors: 0, saddle: 0, stymphalia: 0, siren: 3, 'dodona-s': 0,
@@ -226,18 +226,12 @@ export function mockWorld(now: number): { snap: WorldSnapshot; squads: FieldSqua
     gorge: { id: 'titans_forge', holder: 2, guardian: 'slain', state: 'restored', hp: 1, garrisoned: true },
   };
   for (const r of regions) if (lms[r.id]) r.landmark = lms[r.id];
-  const squads: FieldSquad[] = [
-    { region: 'dodona', men: 12, classes: { hoplite: 8, archer: 4 }, ids: [] },
-    { region: 'dodona-e', men: 10, classes: { hoplite: 6, slinger: 4 }, ids: [] },
-    { region: 'moors', men: 12, classes: { celt_sword: 8, javelineer: 4 }, ids: [] },
-  ];
-  const transit: TransitSnap[] = [
-    { id: 1, from: 'dodona-s', to: 'stymphalia', men: 9, departAt: now - 60_000, arriveAt: now - 60_000 + travelMs('dodona-s', 'stymphalia'), state: 'moving' },
-    { id: 2, from: 'saddle', to: 'omphalos', men: 12, departAt: now - 200_000, arriveAt: now - 80_000, state: 'queued' },
-  ];
+  // the player's start (docs/WAR.md Army size: N = 12, one squad per player): one squad of 12 at home, none on the road
+  const squads: FieldSquad[] = [{ region: 'dodona', men: 12, classes: { hoplite: 12 }, ids: [] }];
+  const transit: TransitSnap[] = [];
   const alliances = ALLIANCES.map((a) => ({
     id: a.id, members: 40 + a.id * 3, clans: 6 + a.id, regions: regions.filter((r) => r.owner === a.id).length,
-    soldiers: regions.reduce((s, r) => s + r.live[a.id], 0), inTransit: a.id === 0 ? 21 : 6,
+    soldiers: regions.reduce((s, r) => s + r.live[a.id], 0), inTransit: a.id === 0 ? 0 : 6,
   }));
   const scores = [412, 377, 498, 365], left = (9 * 24 + 4) * 3600_000;
   const owner = (id: string) => regions.find((r) => r.id === id)!.owner;
