@@ -136,8 +136,6 @@ export function mountTrade(s: SandboxScene, mk: Mk, btn: (id: string, ic: string
     } else {
       const next = render(h);
       if (next !== html) { html = next; panel.innerHTML = next; }
-      const wp = document.getElementById('cfWp');
-      panel.style.top = wp && wp.style.display !== 'none' ? `${wp.offsetTop + wp.offsetHeight + 6}px` : `${TOP}px`;
       panel.style.display = '';
       fitHeight(panel);
     }
