@@ -197,7 +197,7 @@ export function hud(s: SandboxScene): void {
         <div style="min-width:0;flex:1"><div class="rf-name" id="cName" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div><div class="rf-num" id="cCount" style="margin-top:4px"></div><div class="rf-chip" id="cTag" style="display:none" title="combat tag: no entry to a safe court until it runs out"></div></div>
       </div>
       <div id="cBars" style="margin-top:5px;display:flex;flex-direction:column;gap:2px"></div>
-      <div class="rf-dim" id="cInfo" style="margin-top:4px;font-size:11.5px;line-height:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
+      <div class="rf-dim" id="cInfo" style="margin-top:4px;font-size:11.5px;line-height:14px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden"></div>
     </div>
     <div class="rf-sep" id="cSep1"></div>
     <div id="cOrders" style="display:flex;flex-direction:column;justify-content:center;gap:3px"></div>
