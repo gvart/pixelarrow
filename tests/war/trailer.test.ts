@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { parseRegion } from '../../src/war/region/schema';
 import { scenarioById } from '../../src/war/scenarios';
-import { nearestNode, resolveOrder } from '../../src/war/scenarios/run';
+import { nearestNode, nearestPrebuilt, resolveOrder } from '../../src/war/scenarios/run';
 import { COTTAGE, MARBLE, OLIVE, RIDGE, WOOD } from '../../src/war/scenarios/trailer';
 import { createSim } from '../../src/war/sim';
 import { createBots } from '../../src/war/sim/bots';
@@ -62,9 +62,10 @@ describe('trailer scenes', () => {
 
   it('Elaia raided: the fire arrows set the cottage alight', () => {
     const { sim, step } = play('trailer-elaia-raid');
-    const t = step(300, (s) => (s.buildings![COTTAGE].burning ?? 0) > 0);
+    const id = nearestPrebuilt(region('elaia'), 'cottage', COTTAGE[0], COTTAGE[1]);
+    expect(sim.snapshot().buildings![id].type).toBe('cottage');
+    const t = step(300, (s) => (s.buildings![id].burning ?? 0) > 0);
     expect(t).toBeLessThan(300);
-    expect(sim.snapshot().buildings![COTTAGE].type).toBe('cottage');
   });
 
   it('the hunt: the archers bring down ibex', () => {

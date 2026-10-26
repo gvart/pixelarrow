@@ -10,7 +10,12 @@ export interface ScenarioGo { kind: 'move' | 'attackMove'; x: number; y: number 
  * order, so they shift whenever the region is re-dressed; a point and a kind do not.
  */
 export interface GatherNear { kind: 'gatherNear'; squad: number; res: ResourceKind; x: number; y: number }
-export type ScenarioOrder = Order | GatherNear;
+/**
+ * An attack on the region's pre-built `type` piece nearest (x, y) (./run.ts nearestPrebuilt): building ids are the
+ * region's pre-built order, so they shift whenever the region is re-dressed; a point and a kind do not.
+ */
+export interface AttackBuildingNear { kind: 'attackBuildingNear'; squad: number; type: BuildingType; x: number; y: number }
+export type ScenarioOrder = Order | GatherNear | AttackBuildingNear;
 
 /** count: at most SQUAD_MAX (the sim clamps it). owner: the spawn's owner (default you / bot); a team-1 squad without a bot and with an owner other than `bot` stands idle. */
 export interface ScenarioSquad { team: number; cls: string; count: number; x: number; y: number; bot?: Behaviour; owner?: string;
