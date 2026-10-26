@@ -1,0 +1,65 @@
+src/war/net/protocol.ts
+  s_fcb7475e0b5395::t_21c8308007d267 29-30,225
+  s_fcb7475e0b5395::t_5ed51667a75783 227
+  s_fcb7475e0b5395::t_d5bfdee53471b3 38,41,74-76,117-118,222-224,226
+server/test/war/codec.test.ts
+  s_fcb7475e0b5395::t_f26c21f26bd8da 82-83,94,106,117
+  s_fcb7475e0b5395::t_823440e521e733 6,123-139
+  s_fcb7475e0b5395::t_1b5eda368e0f50 140
+server/test/war/persons.test.ts
+  s_fcb7475e0b5395::t_09070cc097c837 1,5-6,21-23,30,41,47-50,53-65,79,93,96,98
+server/src/war/start.ts
+  s_fcb7475e0b5395::t_26d305ea4a33d6 4-5,102
+src/war/types.ts
+  s_fcb7475e0b5395::t_b835ea7f88586e 150-151,537
+server/src/war/persons.ts
+  s_fcb7475e0b5395::t_d5c41fa12761bc 3-4,8-14,21-23,55-56,65-66,120,122-123,170,214,240,279-304,434-435
+  s_fcb7475e0b5395::t_8a2be6c260212d 39
+server/src/war/routes.ts
+  s_fcb7475e0b5395::t_8a2be6c260212d 5-6,10,41
+server/test/war/holders.test.ts
+  s_fcb7475e0b5395::t_0a1fd275436d56 16,24
+server/test/sessions.test.ts
+  s_fcb7475e0b5395::t_77651e9fdf63b2 289
+src/war/net/codec.ts
+  s_fcb7475e0b5395::t_ec47929984a908 17,20-21,23,35,48,109,123,128,153,167,209-210,238-239,249,280-281,304,331-334
+server/test/war/start.test.ts
+  s_fcb7475e0b5395::t_9b75d7131ac61c 9-10
+  s_fcb7475e0b5395::t_77651e9fdf63b2 44,70,76-78
+server/test/war/room.test.ts
+  s_fcb7475e0b5395::t_900b86070406df 354-386
+src/war/sim/index.ts
+  s_fcb7475e0b5395::t_117a00b1f947aa 43,228
+src/war/sim/works.ts
+  s_fcb7475e0b5395::t_117a00b1f947aa 1891
+src/war/net/interest.ts
+  s_fcb7475e0b5395::t_ec47929984a908 85,109-110
+  s_fcb7475e0b5395::t_75af1942b86a68 10
+server/test/war/lifecycle.test.ts
+  s_fcb7475e0b5395::t_c0d9d5bb94121e 1,6-7,50-51,53-56,101,104,108-114,118-119,121,125-126,138,160
+server/src/war/room.ts
+  s_fcb7475e0b5395::t_5ed51667a75783 61,221-222,239-246,498-502,870,936-948,950
+  s_fcb7475e0b5395::t_ef3d429cbf0ad4 183-185
+server/src/war/regionDO.ts
+  s_fcb7475e0b5395::t_e0eba590a59653 49,234-235,584-590,605
+server/migrations/0038_war_souls.sql
+  s_fcb7475e0b5395::t_fdf77f00a0e5e0 1-3
+server/test/war/promotion.test.ts
+  s_fcb7475e0b5395::t_77651e9fdf63b2 6,54,57
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "ff014e4ff7e6b1c46b0f51fda30009aefb885f5c",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
