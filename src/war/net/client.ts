@@ -1,16 +1,17 @@
 /**
  * Browser side of the live region (./protocol.ts), used by the sandbox worker's net mode (src/war/view/worker.ts):
- * signs in as a dev player (POST /api/auth/telegram { dev } on the page's origin, which the vite dev server proxies to
- * `wrangler dev`; needs DEV_AUTH=1), loads the player's war roster (GET /api/war/roster; M5e) and, when he has no
+ * plays as the page's player (./session.ts: the menu's email session cookie, else a dev player: POST /api/auth/telegram
+ * { dev } on the page's origin, which the vite dev server proxies to `wrangler dev`; needs DEV_AUTH=1), loads the player's war roster (GET /api/war/roster; M5e) and, when he has no
  * one alive anywhere (a fresh dev id) or `seed` is set, seeds a dev roster (POST /api/war/dev/seed); with men in the
- * field or a few at home he joins with what he has (the seed would replace his men at home). Opens the region socket with the bearer token in the WebSocket protocol, decodes every binary frame into a Snapshot and hands it on.
- * A spawn becomes a join with person ids: fit soldiers at home of the asked class first, then any. Joins wait until
+ * field or a few at home he joins with what he has (the seed would replace his men at home). Opens the region socket (the session cookie, or the dev bearer token in the WebSocket protocol), decodes every binary frame into a Snapshot and hands it on.
+ * A spawn becomes a join with person ids: his field squad (active, slot order) first, then fit men of the asked class, then any. Joins wait until
  * the socket is open and the roster is in. Every order goes up as is (the server checks the squad is ours and fills in
  * our team for squad-less site orders); placement checks go up as `check` and come back as `checked`.
  */
 import { SIM_VERSION } from '../../sim/version';
 import type { BridgePlan, Order, PlaceResult, Snapshot, WallPlan } from '../types';
 import { DeltaDecoder } from './codec';
+import { devAuth, warAuth } from './session';
 import { MAX_SQUAD, NET_VERSION, type CheckMsg, type DevMsg, type HandoffMsg, type ServerMsg, type StowMsg } from './protocol';
 
 export interface Net {
@@ -37,7 +38,7 @@ export type DevBody = DevMsg extends infer D ? (D extends unknown ? Omit<D, 't'>
 /** A check message without its envelope (t, id). */
 export type CheckBody = CheckMsg extends infer C ? (C extends unknown ? Omit<C, 't' | 'id'> : never) : never;
 
-interface RosterPerson { id: string; cls: string; state: string; region: string | null }
+interface RosterPerson { id: string; cls: string; state: string; region: string | null; slot?: number | null }
 
 export function createNet(url: string, region: string, devId: number | undefined, onSnap: (s: Snapshot, stats: { stepMs: number; units: number }) => void, seed = false, onMsg: (m: ServerMsg) => void = () => undefined): Net {
   const dec = new DeltaDecoder();
@@ -54,27 +55,26 @@ export function createNet(url: string, region: string, devId: number | undefined
     if (ready && ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify(m()));
     else pending.push(m);
   };
-  const id = devId ?? 700000 + Math.floor(Math.random() * 100000);
   void (async () => {
-    const res = await fetch('/api/auth/telegram', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ dev: { id, first_name: `Sandbox${id}` } }) });
-    if (!res.ok) throw new Error(`net: dev login failed (${res.status}); is wrangler dev running with DEV_AUTH=1?`);
-    const s = (await res.json()) as { token: string; player: { id: number } };
-    pid = s.player.id;
-    const auth = { authorization: `Bearer ${s.token}`, 'content-type': 'application/json' };
+    // the page's player (the menu's email session, a dev id), else a fresh dev player (local sandbox)
+    const s = (await warAuth(devId)) ?? (await devAuth(700000 + Math.floor(Math.random() * 100000), 'Sandbox'));
+    pid = s.pid;
+    const auth = s.headers;
     signedIn(auth);
     const fit = (p: RosterPerson) => (p.state === 'active' || p.state === 'reserve') && !p.region;
     const all = async () => ((await (await fetch('/api/war/roster', { headers: auth })).json()) as { persons: RosterPerson[] }).persons;
     const load = async () => (await all()).filter(fit);
     const roster = await all();
     home = roster.filter(fit);
-    if (seed || !roster.some((p) => p.state !== 'dead')) {
+    // a dev player with nobody (a fresh dev id) gets a dev roster; an email account makes his start in the menu
+    if (s.dev && (seed || !roster.some((p) => p.state !== 'dead'))) {
       const r = await fetch('/api/war/dev/seed', { method: 'POST', headers: auth, body: '{}' });
       if (!r.ok) console.warn('[net] seed roster failed', r.status, await r.text());
       home = await load();
     }
     console.info(`[net] roster: ${home.length} soldiers at home`, home.map((p) => p.cls).join(' '));
     const abs = /^wss?:/.test(url) ? url : `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}${url}`;
-    ws = new WebSocket(`${abs}${abs.includes('?') ? '&' : '?'}sim=${SIM_VERSION}`, ['pixelarrow.v1', s.token]);
+    ws = new WebSocket(`${abs}${abs.includes('?') ? '&' : '?'}sim=${SIM_VERSION}`, s.protocols);
     ws.binaryType = 'arraybuffer';
     ws.onopen = () => {
       ready = true;
@@ -102,9 +102,11 @@ export function createNet(url: string, region: string, devId: number | undefined
       checks.clear();
     };
   })().catch((e) => console.error(e));
-  /** Take up to n soldiers from home for a squad: the class asked for first. */
+  /** Take up to n soldiers from home for a squad: his field squad in slot order first, then the class asked for. */
   const pick = (cls: string, n: number): string[] => {
-    const order = [...home.filter((p) => p.cls === cls), ...home.filter((p) => p.cls !== cls)].slice(0, Math.min(n, MAX_SQUAD));
+    const squad = home.filter((p) => p.state === 'active').sort((a, b) => (a.slot ?? 99) - (b.slot ?? 99));
+    const rest = home.filter((p) => p.state !== 'active');
+    const order = [...squad, ...rest.filter((p) => p.cls === cls), ...rest.filter((p) => p.cls !== cls)].slice(0, Math.min(n, MAX_SQUAD));
     home = home.filter((p) => !order.includes(p));
     return order.map((p) => p.id);
   };

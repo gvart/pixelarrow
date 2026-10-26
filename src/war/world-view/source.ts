@@ -1,15 +1,17 @@
 /**
  * Where the world screen gets its state from.
  *
- *  - NetSource: the live world (wrangler dev with DEV_AUTH=1, through the vite proxy). Signs in as dev player `?dev=`
- *    (else one kept in localStorage, so the region sandbox opened from here is the same player), joins alliance
- *    `?alliance=` (default Dodona) when it has none, follows /ws/war/world (polls GET /api/war/world when the socket is
+ *  - NetSource: the live world. Plays as the page's player (../net/session.ts: the menu's email session, else dev
+ *    player `?dev=` or the one kept in localStorage, so the region view opened from here is the same player); a dev
+ *    player with no alliance joins `?alliance=` (default Dodona) by the dev route, anyone else makes his start in the
+ *    menu (index.html); follows /ws/war/world (polls GET /api/war/world when the socket is
  *    down) and the roster (GET /api/war/roster) for the player's men per region. A transfer sends the roster's person
  *    ids of his men in the region over POST /api/war/world/transfer, TRANSFER_MAX at a time (each arrives as a squad).
  *  - MockSource (?offline=1): a made-up mid-season world in memory, transfers run on local timers, so the map can be
  *    browsed with no server.
  */
 import { SIM_VERSION } from '../../sim/version';
+import { devAuth, warAuth } from '../net/session';
 import { DEFAULT_CAP, splitQuota } from '../net/protocol';
 import { TRANSFER_MAX, type LandmarkWorld, type RegionState, type SeasonSnap, type TransitSnap, type WorldSnapshot } from '../net/world';
 import { ALLIANCES, WAR_SEASON } from '../world/alliances';
@@ -41,6 +43,7 @@ export type TransferResult = { ok: TransitSnap[] } | { error: string };
 
 export interface WorldSource {
   readonly mode: 'net' | 'offline';
+  /** The dev player's id (null: an email account, or offline). */
   readonly devId: number | null;
   start(onChange: (v: WorldView) => void): Promise<void>;
   transfer(from: string, to: string): Promise<TransferResult>;
@@ -86,17 +89,15 @@ const wsBase = () => `${location.protocol === 'https:' ? 'wss' : 'ws'}://${locat
 
 export class NetSource implements WorldSource {
   readonly mode = 'net';
-  readonly devId: number;
-  private token = '';
+  devId: number | null = null;
+  private protocols: string[] = [];
   private auth: Record<string, string> = {};
   private snap: WorldSnapshot | null = null;
   private squads: FieldSquad[] = [];
   private status = 'signing in';
   private emit: (v: WorldView) => void = () => undefined;
 
-  constructor(private q = new URLSearchParams(location.search)) {
-    this.devId = devPlayerId(q);
-  }
+  constructor(private q = new URLSearchParams(location.search)) {}
 
   private view(): void {
     if (this.snap) this.emit({ snap: this.snap, squads: this.squads, scores: this.snap.score.scores, endsAt: this.snap.at + this.snap.score.left, quota: QUOTA, status: this.status, ...liveTrade(this.snap) });
@@ -111,12 +112,17 @@ export class NetSource implements WorldSource {
 
   async start(onChange: (v: WorldView) => void): Promise<void> {
     this.emit = onChange;
-    const res = await fetch('/api/auth/telegram', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ dev: { id: this.devId, first_name: `World${this.devId}` } }) });
-    if (!res.ok) throw new Error(`dev login failed (${res.status}): is wrangler dev running with DEV_AUTH=1? Or open ?offline=1`);
-    const s = (await res.json()) as { token: string };
-    this.token = s.token;
-    this.auth = { authorization: `Bearer ${s.token}`, 'content-type': 'application/json' };
+    const asked = Number(this.q.get('dev')) || null;
+    // the menu's player; with none, a local dev player (kept in localStorage) as before the menu
+    const s = (await warAuth(asked)) ?? (await devAuth(devPlayerId(this.q), 'World'));
+    this.devId = s.dev ? (asked ?? devPlayerId(this.q)) : null;
+    this.protocols = s.protocols;
+    this.auth = s.headers;
     let snap = await this.api<WorldSnapshot>('GET', '/api/war/world');
+    if (snap.you.alliance === null && !s.dev) {
+      location.href = 'index.html';
+      return;
+    }
     if (snap.you.alliance === null) {
       await this.api('POST', '/api/war/world/dev/alliance', { alliance: Math.max(0, Math.min(3, Number(this.q.get('alliance')) || 0)) });
       snap = await this.api<WorldSnapshot>('GET', '/api/war/world');
@@ -135,7 +141,7 @@ export class NetSource implements WorldSource {
 
   /** The world socket; while it is down, poll the snapshot every 5 s and retry the socket. */
   private follow(): void {
-    const ws = new WebSocket(`${wsBase()}/ws/war/world?sim=${SIM_VERSION}`, ['pixelarrow.v1', this.token]);
+    const ws = new WebSocket(`${wsBase()}/ws/war/world?sim=${SIM_VERSION}`, this.protocols);
     let poll: ReturnType<typeof setInterval> | null = null;
     ws.onmessage = (e) => {
       if (typeof e.data !== 'string') return;
