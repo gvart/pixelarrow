@@ -1839,8 +1839,10 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
   /** Damage building b for squad s; its fall is an objective of s. */
   const hitBuilding = (s: Squad, b: number, dmg: number) => {
     const p = works.piece(b), was = p?.state;
-    // W-61 walls that matter: blows and arrows barely mark a stone wall, gate or tower (a ram or a thrower brings it down)
-    works.damage(b, p?.def.wall && p.def.material === 'stone' ? dmg * WALLS.stoneMelee : dmg, s.team);
+    // W-61 walls that matter: blows and arrows barely mark a player's stone wall, gate or tower (a ram or a thrower brings
+    // it down); a guardian's landmark (neutral or the wild's) keeps its own tuning (docs/WAR.md "Balance")
+    const held = p && p.team !== NEUTRAL_TEAM && p.team !== MOB_TEAM;
+    works.damage(b, held && p.def.wall && p.def.material === 'stone' ? dmg * WALLS.stoneMelee : dmg, s.team);
     if (was !== undefined && was !== 'destroyed' && works.piece(b)?.state === 'destroyed') objective(s, 'building');
   };
 
