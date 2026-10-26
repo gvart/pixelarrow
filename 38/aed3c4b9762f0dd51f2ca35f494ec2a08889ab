@@ -1,0 +1,21 @@
+src/war/view/hud/roster/toast.ts
+  s_fcb7475e0b5395::t_4ab3b9c90441b4 2-4,14-26,36
+src/war/view/hud/roster/index.ts
+  s_fcb7475e0b5395::t_63272718ad592e 6,21,66,139
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "38aed3c4b9762f0dd51f2ca35f494ec2a08889ab",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
