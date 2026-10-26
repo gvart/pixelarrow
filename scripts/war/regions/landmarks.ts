@@ -650,6 +650,8 @@ export function cyclopsGate(k: Kit, at: Pt, h: number): Landmark {
   s.node('landmark/eagle-crater', 136, 20);
   s.dress(['mountains/talus-granite', 'mountains/boulder-field', 'mountains/talus-granite'], (x, y) => y >= 49 && !s.streets.has(y * 4096 + x), 24, 103, { gap: 4 });
   s.dress(['mountains/alpine-grass', 'mountains/juniper'], (x, y) => y < 44 && !s.streets.has(y * 4096 + x), 40, 104, { gap: 3 });
+  // the ward's wide scree floor: the giants' fallen blocks, spoil, carts of stone, stores by the halls (walkable)
+  s.dress(['elaia/debris-stone', 'mountains/boulder-field', 'elaia/handcart', 'elaia/amphora-stack', 'mountains/talus-granite', 'elaia/wall-fallen-stone'], (x, y) => x > 46 && x < 122 && y > 4 && y < 40 && !s.streets.has(y * 4096 + x), 44, 105, { gap: 4 });
   return { site: s, host: [], gates: [], spots: { gatehouse: s.u(84, 46), ward: s.u(70, 22) } };
 }
 
