@@ -1,0 +1,20 @@
+landing/src/components/sections/World.astro
+  s_fcb7475e0b5395::t_47d2de5c510265 30-50
+  s_fcb7475e0b5395::t_71e2f3caaca207 4-6,29,51,77-82,85-88,91-92,161-166
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "8ca94c936ab0bbb33cc21661a61243e852a5692b",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
