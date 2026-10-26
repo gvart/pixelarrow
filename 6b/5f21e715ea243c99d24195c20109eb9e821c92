@@ -1,0 +1,28 @@
+scripts/war/w60-shots.mjs
+  s_fcb7475e0b5395::t_638d0e3453ff78 1-25,31-46,49-58
+  s_fcb7475e0b5395::t_7b8acf776ba81a 47-48
+  s_fcb7475e0b5395::t_8f2436d0eac467 26-30
+src/war/view/hud/souls.ts
+  s_fcb7475e0b5395::t_56e7b370b709c7 56,58,60
+  s_fcb7475e0b5395::t_7b8acf776ba81a 102-104,107,112,115
+tests/war/soulScenarios.test.ts
+  s_fcb7475e0b5395::t_0068ad6fe1dbeb 13-14
+src/war/view/units.ts
+  s_fcb7475e0b5395::t_8f2436d0eac467 408-409
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "6b5f21e715ea243c99d24195c20109eb9e821c92",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
