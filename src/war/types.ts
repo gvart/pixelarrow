@@ -118,6 +118,9 @@ type SquadOrder =
   // becomes a site at RUIN.rebuild of its cost and labour (landmark pieces: never); with a squad it builds it.
   | { kind: 'repairBuilding'; squad: SquadId; building: number }
   | { kind: 'rebuild'; building: number; squad?: SquadId; team?: number }
+  // demolish: a finished building the team built comes down after DEMOLISH.ticks, DEMOLISH.refund of its materials back
+  // to the nearest store of its network (src/war/sim/works.ts demolish)
+  | { kind: 'demolish'; building: number; team: number; squad?: undefined }
   // M7f: restoreLandmark: the squad (with an engineer of the landmark's level and nodes: Fortifier, Master Builder; level
   // 10 also Poliorcetes or Archimedes) restores the region's landmark its team holds: the bill (src/data/warLandmarks.ts)
   // comes from the team's network, every piece goes to full and its function wakes (refused: a `landmarkRefused` event).
@@ -512,6 +515,8 @@ export interface BuildingSnap {
   goods?: Partial<Record<GoodKind, number>>; items?: number; owner?: string;
   /** M7a: a pre-built piece (landmark: restored only by its rule); a ruin (rubble, no function; rebuilt by its ground's owner); a fouled well; under repair. */
   pre?: true; landmark?: true; ruin?: true; fouled?: true; mend?: true;
+  /** Demolish ordered: how far the tear-down is (0..1); it comes down at 1 (src/war/sim/economy.ts DEMOLISH). */
+  razing?: number;
   /** M7d: a landmark piece's art (public/war/landmarks/landmarks.json piece id). */
   art?: string;
   /**

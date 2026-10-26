@@ -571,7 +571,7 @@ export class WarRoom {
   /**
    * An order from the player; null when it was taken. The squad must be his own (a squad-less site order acts for his
    * team); targets are checked here where the sim would act on anyone's (a foe squad to attack, his own to merge into,
-   * a site of his team to cancel or upgrade, points inside the region); the sim checks placement, stock and the rest.
+   * a site of his team to cancel, upgrade or demolish, points inside the region); the sim checks placement, stock and the rest.
    */
   order(pid: number, o: NetOrder): OrderError | null {
     const p = this.players.get(pid);
@@ -581,7 +581,7 @@ export class WarRoom {
     if (squad !== undefined && this.owners[squad] !== me) return 'notOwner';
     // W-53: every man named must be his (in any of his squads), as the last snapshot shows him
     if (o.units?.some((id) => { const u = this.snap.units[id]?.id === id ? this.snap.units[id] : this.snap.units.find((x) => x.id === id); return !u || this.owners[u.squad] !== me; })) return 'notOwner';
-    if (squad === undefined && o.kind !== 'cancelSite' && o.kind !== 'placeBuilding' && o.kind !== 'placeWall' && o.kind !== 'placeBridge' && o.kind !== 'upgrade' && o.kind !== 'craft' && o.kind !== 'cancelCraft' && o.kind !== 'fortify') return 'bad';
+    if (squad === undefined && o.kind !== 'cancelSite' && o.kind !== 'placeBuilding' && o.kind !== 'placeWall' && o.kind !== 'placeBridge' && o.kind !== 'upgrade' && o.kind !== 'demolish' && o.kind !== 'craft' && o.kind !== 'cancelCraft' && o.kind !== 'fortify') return 'bad';
     const inside = (x: number, y: number) => x >= 0 && y >= 0 && x < this.region.w && y < this.region.h;
     const allIn = (a?: number[]) => !a || a.every((v, i) => (i % 2 ? v < this.region.h : v < this.region.w) && v >= 0);
     const ownSite = (id: number) => this.snap.buildings?.find((b) => b.id === id)?.team === p.team;
@@ -623,6 +623,7 @@ export class WarRoom {
         if (!ownSite(o.site)) return 'badTarget';
         break;
       case 'upgrade':
+      case 'demolish':
       case 'build':
       case 'civWork':
       case 'craft': // M5h: a workplace of his team

@@ -999,6 +999,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       if (o.squad !== undefined) apply({ kind: 'build', squad: o.squad, site: o.building });
       return;
     }
+    if (o.kind === 'demolish') return void works.demolish(o.building, o.team);
     if (o.kind === 'restoreLandmark') return void landmarks.restore(o.squad, tick);
     if (o.kind === 'upgrade' && o.squad === undefined) {
       if (o.team !== undefined) works.upgrade(o.building, o.team);
