@@ -1,0 +1,53 @@
+src/war/sim/holders.ts
+  s_fcb7475e0b5395::t_d1e1afe7e854bd 8,12,14,23,28,48,60,88,94,108
+  s_fcb7475e0b5395::t_c1c9279922988a 20-21
+src/data/recipes.ts
+  s_fcb7475e0b5395::t_bcc7318599afa0 23,171
+tests/war/hunger.test.ts
+  s_fcb7475e0b5395::t_2f70d6ba47b741 1-134
+tests/war/civilians.test.ts
+  s_fcb7475e0b5395::t_1bc2f1da7d07a3 146,157
+src/war/sim/souls.ts
+  s_fcb7475e0b5395::t_f54eafdf6d4607 1-216
+src/war/sim/works.ts
+  s_fcb7475e0b5395::t_2ca7bc4d4ad26e 34
+  s_fcb7475e0b5395::t_298b99e424e58d 270
+  s_fcb7475e0b5395::t_9a9eab7b431172 1898-1907
+tests/war/souls.test.ts
+  s_fcb7475e0b5395::t_cd45abcc1129b6 1-88,96-169
+  s_fcb7475e0b5395::t_b2877c48ff2a12 89-95
+src/war/sim/crafting.ts
+  s_fcb7475e0b5395::t_298b99e424e58d 15,43
+src/war/sim/index.ts
+  s_fcb7475e0b5395::t_ca7656a3f9e2c2 73-78,223-224,300-301,353,849,880,1051,1059-1066,1765,1789,2600,2603,2643,2723,2933,3072,3100,3167,3181,3216,3251
+  s_fcb7475e0b5395::t_bcc7318599afa0 2632
+  s_fcb7475e0b5395::t_3d36e0463ef03a 70,2724-2725,2727-2740,2742,2744-2791,2813-2814,3349-3362
+  s_fcb7475e0b5395::t_cf438f75f14edd 2726
+src/war/sim/food.ts
+  s_fcb7475e0b5395::t_0dd2b27fef036e 1-38
+src/war/sim/economy.ts
+  s_fcb7475e0b5395::t_c1c9279922988a 72-73
+src/war/types.ts
+  s_fcb7475e0b5395::t_5adbc94e851ccc 603-611
+  s_fcb7475e0b5395::t_5c26cebe4840e0 113-115,252-254,305-314,689-695
+  s_fcb7475e0b5395::t_d1e1afe7e854bd 286,395-399,499,644
+tests/war/crafting.test.ts
+  s_fcb7475e0b5395::t_d2c7198ce35fd3 147
+  s_fcb7475e0b5395::t_45915352636b20 158
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "6cb08d63fe307b5e8cf7ebe1d9b317ee6200b42f",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
