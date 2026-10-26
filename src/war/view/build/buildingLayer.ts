@@ -952,8 +952,11 @@ export class BuildingLayer {
         const def = p.type ? BUILDINGS[p.type] : undefined, wall = def?.wall, col = !p.ok ? BAD : wall === 'gate' ? 0x60b0ff : wall === 'tower' ? 0xffc040 : OK;
         const ts = pairs(p.tiles), xs = ts.map((q) => q[0]), ys = ts.map((q) => q[1]);
         const x0 = Math.min(...xs), y0 = Math.min(...ys), x1 = Math.max(...xs) + 1, y1 = Math.max(...ys) + 1, z = this.iso.zAt((x0 + x1) / 2, (y0 + y1) / 2);
+        // the footprint as one intact shape at the level of its middle (where its art is drawn), even across a step (red
+        // when the site is refused); wall lines and bridge decks follow the ground tile by tile
+        const flat = wall !== 'segment' && !p.bridge;
         for (const [x, y] of ts) {
-          const c = this.corners(x, y, x + 1, y + 1, this.iso.zAt(x + 0.5, y + 0.5), 0);
+          const c = this.corners(x, y, x + 1, y + 1, flat ? z : this.iso.zAt(x + 0.5, y + 0.5), 0);
           this.gGround.fillStyle(col, 0.3).fillPoints(c, true).lineStyle(lw, col, 0.9).strokePoints(c, true);
           top = Math.min(top, c[0].y);
           cx += c[0].x; n++;
