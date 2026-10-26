@@ -69,7 +69,8 @@ export const BUILDINGS: Record<BuildingType, BuildingDef> = {
   storehouse: { w: 3, h: 3, hp: 600, cost: { wood: 60 }, labour: 300, workers: 6, influence: 0, material: 'wood', store: true, upgrade: { to: 'sortingFloor', cost: { wood: 40, stone: 20 }, labour: 200 } },
   outpost: { w: 3, h: 3, hp: 600, cost: { wood: 40, stone: 30 }, labour: 400, workers: 4, influence: 18, material: 'wood' },
   fort: { w: 10, h: 10, hp: 5000, cost: { stone: 400, wood: 150 }, labour: 8000, workers: 20, influence: 32, material: 'stone', store: true },
-  barracks: { w: 4, h: 3, hp: 1200, cost: { wood: 120, stone: 40 }, labour: 1000, workers: 8, influence: 0, material: 'wood' },
+  // W-60: training is gone (souls replace recruiting); barracks stand only as pre-built pieces of landmarks and towns
+  barracks: { w: 4, h: 3, hp: 1200, cost: { wood: 120, stone: 40 }, labour: 1000, workers: 8, influence: 0, material: 'wood', prebuilt: true },
   farm: { w: 4, h: 4, hp: 300, cost: { wood: 30 }, labour: 200, workers: 6, influence: 0, material: 'wood', yields: { res: 'food', max: 60, regrow: 0.5, rate: 1 } },
   olivePress: { w: 3, h: 3, hp: 700, cost: { wood: 30, stone: 60 }, labour: 500, workers: 6, influence: 0, material: 'stone', yields: { res: 'food', max: 100, regrow: 0.8, rate: 1.2 }, workplace: { kind: 'press', level: 1 } }, // M5h: the Presser's oil
   palisade: { w: 1, h: 1, hp: 300, cost: { wood: 6 }, labour: 20, workers: 2, influence: 0, material: 'wood', wall: 'segment', perTile: true, tier: 1, burnable: true, upgrade: { to: 'rampart', cost: { wood: 8 }, labour: 33 } },

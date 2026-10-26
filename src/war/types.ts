@@ -110,6 +110,9 @@ type SquadOrder =
   // claimRegion (W-12, src/war/sim/mobs.ts): the squad walks to claim point `point` (index into region.claimPoints) and
   // channels there; dropped unless the point is unowned and its zone's guard lairs are cleared.
   | { kind: 'claimRegion'; squad: SquadId; point: number }
+  // W-60 souls (src/war/sim/souls.ts): the squad walks to soul `soul` and claims him there; he joins it only while its
+  // owner has fewer than ARMY_MAX men (else a soulRefused event)
+  | { kind: 'claimSoul'; squad: SquadId; soul: number }
   // M7a: repairBuilding: the squad mends a damaged building of its team to full (src/war/sim/prebuilt.ts REPAIR: per 10%
   // hp, 5% of its cost from the network and 5% of its labour; engineers faster). rebuild: a ruin on the team's ground
   // becomes a site at RUIN.rebuild of its cost and labour (landmark pieces: never); with a squad it builds it.
@@ -246,7 +249,9 @@ export interface UnitSnap { id: UnitId; squad: SquadId; x: number; y: number; fa
   /** M6a: loads in his pack (a porter). */
   pack?: number;
   /** M6d combat tag: ticks left before he may enter a safe zone (he hit or was hit; absent: none). */
-  tag?: number }
+  tag?: number;
+  /** W-60 satiety 0..100 (src/war/sim/food.ts HUNGER; absent: the wild's men, who do not eat). */
+  sat?: number }
 // wounded: set on dead units, true = wounded, false = killed. state 'attack' only while striking in reach or shooting in range
 // (closing in is 'move'). 'gather': harvesting at a node; 'build': labouring at a site. carry/load: what and how much it
 // carries (set while it has a load, any state: play the carry clip while it walks). swing: ticks since the unit's last blow or shot (0 = it landed / was loosed this tick), set while
@@ -278,7 +283,7 @@ export interface Snapshot {
   tick: number; units: UnitSnap[]; squads: SquadSnap[]; shots?: ShotSnap[];
   buildings?: BuildingSnap[];
   /** Per-team stockpile (team -> resource -> amount). */
-  stock?: Record<number, Partial<Record<ResourceKind, number>>>;
+  stock?: Record<number, Partial<Record<GoodKind, number>>>;
   /** Bumped whenever influence() changes: re-read the overlay then. */
   influenceVersion?: number;
   /** M2c siege engines (destroyed ones stay as wrecks). */
@@ -295,10 +300,18 @@ export interface Snapshot {
   /** M7d: the region's guardians (src/war/sim/bosses.ts) and a Rim Warden strike being marked. */
   bosses?: BossSnap[];
   warden?: WardenSnap;
-  /** M5f: rations per team (cooks make them, squads near a cook eat them). */
-  rations?: Record<number, number>;
   /** M5h: dishes, remedies, kits and caravan goods per team (src/data/recipes.ts Product). */
   supplies?: Record<number, Partial<Record<Product, number>>>;
+  /** W-60: souls waiting to be claimed (src/war/sim/souls.ts). */
+  souls?: SoulSnap[];
+}
+/**
+ * W-60: a soul (a newly dead warrior) at a shrine, ruin, old battlefield or lair: the class and level he joins as, where
+ * he woke (`site`), ticks before he fades, the claim under way (0..1, by `team`) or contested by more than one side.
+ */
+export interface SoulSnap {
+  id: number; x: number; y: number; cls: string; level: number; site: 'shrine' | 'ruin' | 'battlefield' | 'lair'; left: number;
+  claim?: number; team?: number; contested?: true;
 }
 /** M7f: a region's memory (WarBuildSim.memory). */
 export interface RegionMemory {
@@ -379,6 +392,11 @@ export type ResourceKind = 'food' | 'wood' | 'stone' | 'marble' | 'copper' | 'ti
   | 'coin'
   // M7e rare goods (docs/WAR.md "Rare goods"): one per landmark with a node, and its boss's kill
   | 'dragonbone' | 'nereidPearl' | 'starIron' | 'asphodel' | 'titanBronze' | 'obsidian';
+/**
+ * W-60: every good a holder keeps: the resources and the cookhouse's ration (grain and onions cooked down: it feeds twice
+ * a plain food and weighs half). Rations are never gathered or carried by hand, so they stay out of ResourceKind.
+ */
+export type GoodKind = ResourceKind | 'ration';
 export type BuildingType =
   | 'camp' | 'storehouse' | 'outpost' | 'fort' | 'barracks' | 'farm' | 'olivePress'
   | 'palisade' | 'rampart' | 'stoneWall' | 'woodStairs' | 'stoneStairs' | 'ladder' | 'woodTower' | 'stoneTower' | 'woodGate' | 'stoneGate'
@@ -478,7 +496,7 @@ export interface BuildingSnap {
   /** M5h: a workplace's crafting queue (first = next), oldest first. */
   queue?: QueueSnap[];
   /** M6a: a store's or chest's goods and item count; a chest's owner. */
-  goods?: Partial<Record<ResourceKind, number>>; items?: number; owner?: string;
+  goods?: Partial<Record<GoodKind, number>>; items?: number; owner?: string;
   /** M7a: a pre-built piece (landmark: restored only by its rule); a ruin (rubble, no function; rebuilt by its ground's owner); a fouled well; under repair. */
   pre?: true; landmark?: true; ruin?: true; fouled?: true; mend?: true;
   /** M7d: a landmark piece's art (public/war/landmarks/landmarks.json piece id). */
@@ -582,6 +600,15 @@ export interface WarBuildSim extends WarSim {
   walkOut(owner: string): void;
   /** M5d: the sim event log since the last call (kills, falls, objectives, pickups, captures, level-ups). */
   events(): WarEvent[];
+  /**
+   * W-60 souls (src/war/sim/souls.ts): who may take one more man. Default: fewer than ARMY_MAX fighters of the owner on
+   * this field; the server sets its own (the player's whole army across regions, from D1).
+   */
+  setSoulGate(gate: ((owner: string) => { ok: boolean; have: number }) | null): void;
+  /** W-60 dev, scenarios and tests: a soul of `cls` (level) at (x,y), as if he woke there; his id. */
+  spawnSoul(x: number, y: number, cls: string, level?: number, site?: SoulSnap['site']): number;
+  /** W-60 dev, scenarios and tests: the satiety (0..100) of these living men. */
+  setSatiety(ids: number[], sat: number): void;
   /** M5g: a person changed off the field (level-up choice, dev XP): his living man takes the new record, baked again (HP keeps its wounds). false: not on the field. */
   setPerson(p: WarPerson): boolean;
   /**
@@ -614,7 +641,7 @@ export interface ActiveSnap { skill: WarSkillId; ready: number; on: number }
 /** M6k: an item in a hold as the view sees it (src/war/sim/holders.ts itemList). */
 export interface HoldItem { uid: string; def: string; rarity: string; q?: 0 | 1 | 2 }
 /** M6c: a loot pile: its goods, item count, loads, `left` ticks until it is gone; salvage: a smith's progress 0..1. */
-export interface PileSnap { id: number; x: number; y: number; goods: Partial<Record<ResourceKind, number>>; items: number; loads: number; left: number; salvage?: number;
+export interface PileSnap { id: number; x: number; y: number; goods: Partial<Record<GoodKind, number>>; items: number; loads: number; left: number; salvage?: number;
   /** M6k: the pile's first items (uid for salvagePile; at most 8). */
   list?: HoldItem[] }
 /**
@@ -659,4 +686,10 @@ export type WarEvent =
   // restore refused (why: not held, no engineer of the level and nodes in the squad, goods short)
   | { t: number; kind: 'landmark'; id: string; state: LandmarkSnap['state']; holder: number }
   | { t: number; kind: 'landmarkRefused'; id: string; squad: SquadId; why: 'held' | 'engineer' | 'goods' }
-  | { t: number; kind: 'wardenStrike'; x: number; y: number; w: number; h: number; hit: number };
+  | { t: number; kind: 'wardenStrike'; x: number; y: number; w: number; h: number; hit: number }
+  // W-60 souls: claimed by `owner`'s squad (the new man, his person and unit), refused (the army is full: `have` men),
+  // taken by a foe first (`team`; MOB_TEAM: the wild took him), faded unclaimed
+  | { t: number; kind: 'soulClaimed'; soul: number; squad: SquadId; owner: string; unit: UnitId; person: WarPerson }
+  | { t: number; kind: 'soulRefused'; soul: number; squad: SquadId; owner: string; have: number }
+  | { t: number; kind: 'soulLost'; soul: number; team: number }
+  | { t: number; kind: 'soulFaded'; soul: number };

@@ -31,7 +31,7 @@
  * higher bank) at BRIDGE.cost; unbuilt water stays closed. A piece brought to 0 hp (fire, stone throwers) collapses: its
  * tiles go back to water and `fall` drops the men on them.
  */
-import type { BridgeAxis, BridgeOrder, BridgePlan, BuildingSnap, BuildingType, BuildState, InfluenceMap, NodeSnap, PlaceReason, PlaceResult, RegionData, ResourceKind, WallOrder, WallPlan } from '../types';
+import type { BridgeAxis, BridgeOrder, BridgePlan, BuildingSnap, BuildingType, BuildState, GoodKind, InfluenceMap, NodeSnap, PlaceReason, PlaceResult, RegionData, ResourceKind, WallOrder, WallPlan } from '../types';
 import { BRAZIER, BRIDGE, BUILDINGS, CHEST, FIELD, KILN, PINES, CANCEL_REFUND, CARRY, CLAIM_RADIUS, lineTiles, NEUTRAL_TEAM, rectTiles, REPAIR, RESOURCE_NODES, rotated, RUIN, SEGMENT, WALL_KIT, type BuildingDef, type Spot } from './economy';
 import { DECK, LADDER, lineClear, STAIR, tileAt, type Grid } from './grid';
 import { amount, empty, itemList, newHold, put, take, takeFrom, totals, type Cost, type Hold } from './holders';
@@ -267,7 +267,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
     return out;
   };
   /** Output of work at (x,y): into the nearest store of its network, else the strongroom. */
-  const addAt = (team: number, x: number, y: number, r: ResourceKind, n: number, o = region.id) => {
+  const addAt = (team: number, x: number, y: number, r: GoodKind, n: number, o = region.id) => {
     let best: Building | null = null, bd = Infinity;
     for (const b of netStores(team, netAt(team, x, y))) {
       const d = (b.x - x) ** 2 + (b.y - y) ** 2;
@@ -1895,6 +1895,16 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
     takeAt,
     addAt,
     haveAt,
+    /** W-60: the hold of the nearest standing store of `team` within r tiles of (x,y) (null: none so near). */
+    storeNear(team: number, x: number, y: number, r: number): Hold | null {
+      let best: Building | null = null, bd = r * r;
+      for (const b of storeList) {
+        if (b.team !== team || !b.hold || !standing(b)) continue;
+        const d = (b.x - x) ** 2 + (b.y - y) ** 2;
+        if (d <= bd) (bd = d), (best = b);
+      }
+      return best?.hold ?? null;
+    },
     netAt,
     /** The network of store building id (-1: not a standing store, or cut off). */
     storeNet: (id: number) => (buildings[id] && buildings[id].def.store && standing(buildings[id]) ? storeNet(buildings[id]) : -1),

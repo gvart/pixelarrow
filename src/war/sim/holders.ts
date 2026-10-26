@@ -5,25 +5,27 @@
  * Takes are first in, first out over the lots, so origins travel with the goods; an emptied lot stays at 0.
  */
 import type { Item } from '../../data/items';
-import type { HoldItem, ResourceKind } from '../types';
+import type { GoodKind, HoldItem } from '../types';
 import { CARRY } from './economy';
 
 /** s (M6g): sealed under carry contract s: unloads only at its destination (the server's bridge), never into a sim holder. */
-export interface Lot { r: ResourceKind; n: number; o: string; s?: number }
+export interface Lot { r: GoodKind; n: number; o: string; s?: number }
 export interface Hold { lots: Lot[]; items: Item[] }
-export type Cost = Partial<Record<ResourceKind, number>>;
+export type Cost = Partial<Record<GoodKind, number>>;
 
 /** Items a load (docs/WAR.md: 5 items = 1 load). */
 export const ITEMS_PER_LOAD = 5;
 /** Coin a load (docs/WAR.md "Coin": 200 coin = 1 load); every other good CARRY a load. */
 export const COIN_LOAD = 200;
+/** W-60: rations a load (half the weight of plain food). */
+export const RATION_LOAD = 2 * CARRY;
 /** Goods of `r` one load holds. */
-export const perLoad = (r: ResourceKind | string | undefined) => (r === 'coin' ? COIN_LOAD : CARRY);
+export const perLoad = (r: GoodKind | string | undefined) => (r === 'coin' ? COIN_LOAD : r === 'ration' ? RATION_LOAD : CARRY);
 const EPS = 1e-9;
 
 export const newHold = (): Hold => ({ lots: [], items: [] });
 
-export function amount(h: Hold, r: ResourceKind): number {
+export function amount(h: Hold, r: GoodKind): number {
   let s = 0;
   for (const l of h.lots) if (l.r === r) s += l.n;
   return s;
@@ -43,7 +45,7 @@ export function loads(h: Hold): number {
 }
 
 /** Put n of r (origin o; sealed under contract s) into h; merges with a lot of the same good, origin and seal. */
-export function put(h: Hold, r: ResourceKind, n: number, o: string, s?: number): void {
+export function put(h: Hold, r: GoodKind, n: number, o: string, s?: number): void {
   if (n <= EPS) return;
   const l = h.lots.find((x) => x.r === r && x.o === o && x.s === s);
   if (l) l.n += n;
@@ -55,7 +57,7 @@ export function putLots(h: Hold, lots: readonly Lot[]): void {
 }
 
 /** Take up to n of r from h, oldest lot first; the lots taken. */
-export function take(h: Hold, r: ResourceKind, n: number): Lot[] {
+export function take(h: Hold, r: GoodKind, n: number): Lot[] {
   const out: Lot[] = [];
   for (let i = 0; i < h.lots.length && n > EPS; ) {
     const l = h.lots[i];
@@ -83,13 +85,13 @@ function takeLot(l: Lot, n: number): Lot[] {
 
 /** Take `cost` from the holds in order (all or nothing); false when together they lack any of it. */
 export function takeFrom(holds: readonly Hold[], cost: Cost): boolean {
-  for (const [r, v] of Object.entries(cost) as [ResourceKind, number][]) {
+  for (const [r, v] of Object.entries(cost) as [GoodKind, number][]) {
     if (!(v > 0)) continue;
     let have = 0;
     for (const h of holds) have += amount(h, r);
     if (have < v - EPS) return false;
   }
-  for (const [r, v] of Object.entries(cost) as [ResourceKind, number][]) {
+  for (const [r, v] of Object.entries(cost) as [GoodKind, number][]) {
     let left = v;
     for (const h of holds) {
       if (left <= EPS) break;
@@ -103,7 +105,7 @@ export function takeFrom(holds: readonly Hold[], cost: Cost): boolean {
  * Move at most `max` loads of goods (good `r`, or the most plentiful first) and items from a to b; the loads moved.
  * `unsealed` (an unload): sealed lots (M6g) stay where they are.
  */
-export function move(a: Hold, b: Hold, max: number, r?: ResourceKind, maxItems = Infinity, unsealed = false): number {
+export function move(a: Hold, b: Hold, max: number, r?: GoodKind, maxItems = Infinity, unsealed = false): number {
   let left = max;
   const ok = (x: Lot) => x.n > EPS && (!unsealed || x.s === undefined);
   while (left > EPS) {

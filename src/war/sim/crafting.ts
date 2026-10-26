@@ -12,7 +12,7 @@ import { CIV_TOOLS } from '../../data/classes';
 import { itemDef, ITEMS, type Item } from '../../data/items';
 import { heldNodes, type ProfId } from '../../data/professions';
 import { BATCH_NODES, DISHES, FED_CAP, craftGrade, craftRoll, materialGoods, materialOf, RECIPES, recipeFor, toolRecipe, type Goods, type Product, type Recipe } from '../../data/recipes';
-import type { CraftOrder, QueueSnap, ResourceKind, WarEvent } from '../types';
+import type { CraftOrder, GoodKind, QueueSnap, ResourceKind, WarEvent } from '../types';
 import type { BuildingDef } from './economy';
 
 export const CRAFT = {
@@ -40,7 +40,7 @@ export interface CraftDeps {
   seed: number;
   /** Pay from the store network of `team` at (x,y) (M6a); false (nothing taken) when it lacks any of it. */
   takeAt(team: number, x: number, y: number, cost: Partial<Record<ResourceKind, number>>): boolean;
-  addAt(team: number, x: number, y: number, res: ResourceKind, n: number): void;
+  addAt(team: number, x: number, y: number, res: GoodKind, n: number): void;
   emit(ev: WarEvent): void;
   /** M6b: a cart of `owner` rolls out of workshop b (false: no room, his cap or the quota; the order waits). */
   cart?(b: Placed, owner: string, type: string, check: boolean): boolean;
