@@ -90,7 +90,16 @@ void Promise.all([loading, q.get('art') === 'grey' ? null : loadArt(), loadSheet
     const own = ownCentre(scene.sim.cur);
     if (!own) return;
     game.events.off('poststep', toSquad);
-    scene.focus(own.x, own.y, 1 / 2);
+    scene.focus(own.x, own.y, 1); // close enough to know his men
+    // his men selected: their rings and outlines show them through trees and walls, and orders go to them at once
+    // (once they are drawn: the selection takes only men on screen)
+    let tries = 0;
+    const pick = () => {
+      const cur = scene.sim.cur, me = scene.sim.playerId, mine = new Set(cur?.squads.filter((sq) => sq.team === 0 && (me ? sq.owner === `p:${me}` : sq.owner === 'you')).map((sq) => sq.id));
+      scene.sel?.set(cur?.units.filter((u) => mine.has(u.squad) && u.state !== 'dead').map((u) => u.id) ?? []);
+      if ((scene.sel?.units.size ?? 0) > 0 || ++tries > 120) game.events.off('poststep', pick);
+    };
+    game.events.on('poststep', pick);
   };
   game.events.on('poststep', ready);
   (window as unknown as { __sandbox: SandboxScene }).__sandbox = scene;

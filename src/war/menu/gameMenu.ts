@@ -27,7 +27,7 @@ export function mountGameMenu(o: GameMenuOpts): void {
     card.className = 'rf mn-modal';
     card.style.zoom = String(uiZoom());
     card.innerHTML = `<div class="rf-card mn-card" style="width:300px">
-      <div class="mn-h"><span class="rf-name">Paused view</span><span class="rf-dim" style="margin-left:auto;font-size:11px">the war goes on</span></div>
+      <div class="mn-h"><span class="rf-name">Menu</span><span class="rf-dim" style="margin-left:auto;font-size:11px">the war goes on meanwhile</span></div>
       <button class="mn-big pri" data-k="resume">${icon('act-move', 24)}<div class="t">Resume</div><kbd>Esc</kbd></button>
       <button class="mn-big" data-k="settings">${icon('act-upgrade', 24)}<div class="t">Settings</div><kbd>${keys.label('menu.settings') || '—'}</kbd></button>
       ${o.world ? `<button class="mn-big" data-k="world">${icon('mode-biomes', 24)}<div class="t">World map</div><kbd>${keys.label('go.world')}</kbd></button>` : ''}

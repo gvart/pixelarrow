@@ -530,6 +530,42 @@ under rams (64 a blow on stone every 3 s, about 2 min for one ram) and throwers;
 | Strong but takeable | a restored landmark is a finished fort; it falls to a siege like any other (rams, towers, throwers), and its new holder inherits the breaches |
 | Symmetry | every home has, at the same distance, two bandit-held towns (each shared with a neighbour), one tier-1 pocket boss, two depth-3 and two depth-4 landmarks |
 
+## Starting a game
+
+The menu is the game's front page (`index.html`, play.pixelarrow.app; `src/war/menu/`), styled with the HUD kit.
+
+| Step | What | Rule (server `server/src/war/start.ts`, shared `src/war/world/start.ts`) |
+| --- | --- | --- |
+| Sign in | email and password, or create an account (the mailed link signs in and comes back); locally also a dev player (DEV_AUTH) | the web session cookie; the war pages play as it (`src/war/net/session.ts`) |
+| Alliance | one of the four, with its players this season | `POST /api/war/start/alliance`; changeable until the squad is picked (the home resets) |
+| Home region | the alliance's home or one of its four gate regions, picked on the world map | `POST /api/war/start/home`: free = fresh men may come in (`joinRefusal`) and the alliance's quota there has room for a full squad |
+| Squad | up to N = 12 men, any mix of the six classes with war sprites (militia, hoplite, swordsman, archer, slinger, javelineer), each shown with its codex card | `POST /api/war/start/squad`: 1..12 of those classes, once per player and season; fresh L1 men, active in slot order, taken from the home recruit pool (no militia recruit step) |
+| Land | march into the home region (the live region view, his men selected) or open the world map | |
+
+`GET /api/war/start` gives the step (alliance, home, squad, done) and the choices. A returning player gets
+Continue (into the region where most of his men stand, else his home), World map, Settings and Sign out. Players made
+by the dev routes (`/api/war/world/dev/alliance`, `/api/war/dev/seed`, DEV_AUTH only) count as started.
+
+## Controls
+
+Every war key is an action in `src/war/input/actions.ts` (the campaign's rebinding system, moved): each has two keys,
+rebindable on Settings > Controls (menu, or Esc / F10 in game) and kept per device (localStorage `war.bindings`).
+Handlers ask the router (`src/war/input/keys.ts`) which action a key means, never the key itself; build mode's keys
+win over the region's while it is on.
+
+| Group | Default keys |
+| --- | --- |
+| Camera | W A S D or arrows pan (hold), Space + drag pans, wheel zooms |
+| Selection | Ctrl+A all, 1-9 select group (twice: go there), Ctrl+1-9 store group; click, Shift+click, box (mouse) |
+| Orders | right click or E context action (hold E: all actions), H hold, X stop work, F squad active, Q fire arrows, Y deploy engine |
+| Formations | Alt+1 line, Alt+2 column, Alt+3 wedge, Alt+4 loose |
+| Build mode | B on or off; R rotate, Enter lay the wall, Backspace last line, F flip inside, [ ] bridge width, G gate, T tower |
+| View and panels | V cut walls down, M full map, F2-F7 map modes, G boss camera, R roster, K market, L landmark, N sound, Shift+W world map |
+| World map | Enter enter or send, T routes, H haul planner, F fit, + - zoom |
+| General | Esc back (fixed; with nothing open: the menu), F10 settings, ? controls, F1 dev panel |
+
+Settings also hold the UI scale (`war.uiScale`) and the sound (`pixelarrow.war.sound`).
+
 ## Soldiers
 
 Every soldier is a persistent person (W-10, W-37); civilians are the same record with a non-combat class (W-38).

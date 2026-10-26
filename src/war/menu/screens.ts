@@ -51,7 +51,7 @@ export function signInScreen(stage: HTMLElement, h: SignInHandlers): void {
       <div class="mn-ts"></div>
       <div class="mn-msg" aria-live="polite"></div>
       <button class="mn-big pri" type="submit" style="justify-content:center"><span class="t">Enter Metaxy</span></button>
-      <div class="mn-row" style="justify-content:space-between"><button type="button" class="mn-link" data-k="forgot">Forgot the password?</button><span class="rf-dim" style="font-size:11px">One account plays on every device</span></div>
+      <div class="mn-row" style="justify-content:space-between;margin-top:2px"><button type="button" class="mn-link" data-k="forgot">Forgot the password?</button><span class="rf-dim" style="font-size:11px">One account, every device</span></div>
     </form>
     ${h.dev ? `<div style="margin-top:12px;padding-top:8px;border-top:1px dashed var(--rf-rule)"><div class="mn-lab" style="margin-bottom:4px">Local server: dev player</div>
       <div class="mn-row"><input class="mn-in" id="mnDev" type="number" min="1" value="${devId}" style="width:90px;margin:0"><button type="button" class="rf-tbtn" data-k="dev" style="height:28px">Play as dev player</button></div></div>` : ''}
@@ -170,14 +170,16 @@ export function allianceScreen(stage: HTMLElement, v: StartView, pick: (a: Allia
 const ROLE_NAME = { home: 'Home city', entry: 'Gate region', neutral: 'Neutral', center: 'Centre' } as const;
 
 /** The world map with the alliance's home choices lit; a side card lists them. Returns a stop function. */
-export function homeScreen(root: HTMLElement, v: StartView, pick: (id: string) => Promise<void>, back: () => void): () => void {
+export function homeScreen(v: StartView, pick: (id: string) => Promise<void>, back: () => void): () => void {
   const a = ALLIANCES[v.alliance!];
   const canvas = document.createElement('canvas');
   canvas.className = 'mn-map';
-  root.prepend(canvas);
+  document.body.appendChild(canvas);
   const side = document.createElement('div');
-  side.className = 'rf-card mn-card mn-side';
-  root.appendChild(side);
+  side.className = 'rf rf-card mn-card mn-side';
+  side.style.zoom = String(uiZoom());
+  side.style.zIndex = '5';
+  document.body.appendChild(side);
   const free = v.homes.filter((h) => !h.refusal);
   let sel: string | null = v.home ?? free.find((h) => h.role === 'home')?.id ?? free[0]?.id ?? null;
   let hover: string | null = null;
@@ -221,17 +223,18 @@ export function homeScreen(root: HTMLElement, v: StartView, pick: (id: string) =
 
   const layout = () => {
     if (!map) return;
-    const z = uiZoom(), w = side.getBoundingClientRect().width;
-    map.fit({ top: 70 * z, left: w + 40 * z, right: 20 * z, bottom: 20 * z });
-    // the alliance's quarter, larger: zoom on the choices' middle
+    const z = uiZoom(), r = side.getBoundingClientRect(), left = r.right + 16 * z;
+    side.style.zoom = String(z);
+    map.fit({ top: 16 * z, left, right: 16 * z, bottom: 16 * z });
+    // the alliance's quarter, larger: the choices' box fills the free part of the screen
     const art = map.art.regions, ids = v.homes.map((h) => h.id).filter((id) => art[id]);
     if (ids.length) {
-      const cx = ids.reduce((s, id) => s + art[id].centroid[0], 0) / ids.length, cy = ids.reduce((s, id) => s + art[id].centroid[1], 0) / ids.length;
-      const [sx, sy] = map.toScreen(cx, cy), mid = (w + 40 * z + innerWidth) / 2;
-      map.zoom(1.7, sx, sy);
-      const [nx, ny] = map.toScreen(cx, cy);
-      map.x += (nx - mid) / map.k;
-      map.y += (ny - innerHeight / 2 - 20 * z) / map.k;
+      const xs = ids.flatMap((id) => art[id].polygon.map((q) => q[0])), ys = ids.flatMap((id) => art[id].polygon.map((q) => q[1]));
+      const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys), pad = 60;
+      const fw = innerWidth - left - 24 * z, fh = innerHeight - 40 * z;
+      map.k = Math.min(fw / (x1 - x0 + pad * 2), fh / (y1 - y0 + pad * 2));
+      map.x = (x0 + x1) / 2 - (left + fw / 2) / map.k;
+      map.y = (y0 + y1) / 2 - innerHeight / 2 / map.k;
     }
   };
   void WorldMap.load(canvas).then((m) => {
@@ -258,6 +261,11 @@ export function homeScreen(root: HTMLElement, v: StartView, pick: (id: string) =
 
 // ------------------------------------------------------------------ squad
 
+/** The picker's short names and roles (the full ones are on the class card). */
+const SHORT: Record<string, [string, string]> = {
+  militia: ['Militia', 'Levy · line'], hoplite: ['Hoplite', 'Heavy infantry'], celt_sword: ['Swordsman', 'Shock infantry'],
+  archer: ['Archer', 'Missile · long'], slinger: ['Slinger', 'Missile · mid'], javelineer: ['Javelineer', 'Skirmisher'],
+};
 const ROLE: Record<string, { role: string; line: string }> = {
   militia: { role: 'Levy · line', line: 'Cheap spears: bodies to fill a line, haul stone and hold ground. Brittle in a straight fight.' },
   hoplite: { role: 'Heavy infantry · line', line: 'The wall: a big shield and a long spear. Holds a line or a gate against anything on foot.' },
@@ -301,16 +309,16 @@ export function squadScreen(stage: HTMLElement, v: StartView, done: (classes: st
   const BARS: [keyof ClassFacts, string][] = [['hp', 'Health'], ['melee', 'Melee'], ['missile', 'Missile'], ['armour', 'Armour'], ['speed', 'Pace']];
   const total = () => Object.values(count).reduce((a, b) => a + b, 0);
   stage.innerHTML = `<div style="display:flex;gap:12px;align-items:flex-start">
-    <div><div class="rf-name" style="font-size:20px">Muster your squad</div><div class="mn-sub" style="margin:4px 0 10px">Up to ${max} men, any mix. Every man is a person: he levels, is wounded, keeps his gear.</div>
+    <div><div class="rf-name" style="font-size:22px">Muster your squad</div><div class="mn-sub" style="margin:4px 0 10px">Up to ${max} men, any mix. Every man is a person: he levels, is wounded, keeps his gear.</div>
       <div class="mn-sq">${classes.map((c) => {
         const f = facts(c);
         return `<div class="rf-card mn-cls" tabindex="0" data-c="${c}">
-          <div class="top"><span class="cx-ic">${icon(UNIT_ICON[c], 32)}</span><div style="min-width:0"><div class="nm">${esc(isClassId(c) ? CLASSES[c].name : c)}</div><div class="role">${ROLE[c]?.role ?? ''}</div></div></div>
-          <div class="bars">${BARS.map(([k, n]) => `<span>${n}</span>${bar(k === 'missile' ? 'burn' : k === 'hp' ? 'hp' : 'ok', (f[k] as number) / top(k), 116)}`).join('')}</div>
+          <div class="top"><span class="cx-ic">${icon(UNIT_ICON[c], 32)}</span><div style="min-width:0"><div class="nm">${esc(SHORT[c]?.[0] ?? c)}</div><div class="role">${SHORT[c]?.[1] ?? ''}</div></div></div>
+          <div class="bars">${BARS.map(([k, n]) => `<span>${n}</span>${bar(k === 'missile' ? 'burn' : k === 'hp' ? 'hp' : 'ok', (f[k] as number) / top(k), 118)}`).join('')}</div>
           <div class="cnt"><button class="rf-tbtn" data-d="-1" data-c="${c}" aria-label="one fewer">−</button><b data-n="${c}">0</b><button class="rf-tbtn" data-d="1" data-c="${c}" aria-label="one more">+</button></div>
         </div>`;
       }).join('')}</div></div>
-    <div style="width:290px">
+    <div style="width:290px;padding-top:4px">
       <div class="rf-card mn-card">
         <div class="mn-row" style="justify-content:space-between"><span class="rf-cap" style="margin:0">Your squad</span><span><span class="mn-count" data-k="total">0</span><span class="rf-dim"> / ${max}</span></span></div>
         <div class="mn-slots" data-k="slots"></div>
@@ -387,7 +395,7 @@ export function readyScreen(stage: HTMLElement, home: string, men: number, h: { 
   stage.innerHTML = `<div class="rf-card mn-card" style="width:380px;text-align:left">
     <div class="mn-h"><span class="rf-name">Your men are mustered</span></div>
     <div class="mn-sub" style="margin:0 0 10px">${plural(men, 'man', 'men')} stand ready in ${esc(name)}. Where do you go first?</div>
-    <button class="mn-big pri" data-k="region">${icon('act-move', 24)}<div><div class="t">March into ${esc(name)}</div><div class="d">Take command of your squad on the ground</div></div><kbd>Enter</kbd></button>
+    <button class="mn-big pri" data-k="region">${icon('act-move', 24)}<div><div class="t">March into ${esc(name)}</div><div class="d">Command your squad on the ground</div></div><kbd>Enter</kbd></button>
     <button class="mn-big" data-k="world">${icon('mode-biomes', 24)}<div><div class="t">Open the world map</div><div class="d">See the war first; enter your home from there</div></div></button>
   </div>`;
   stage.querySelector<HTMLElement>('[data-k=region]')!.onclick = h.region;

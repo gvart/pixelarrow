@@ -27,21 +27,22 @@ foot.innerHTML = 'Settings: F10 · Controls: ? · Esc goes back';
 document.getElementById('game')?.remove();
 document.body.append(bg, root, foot);
 const stage = root.querySelector<HTMLElement>('.mn-stage')!;
-const title = root.querySelector<HTMLElement>('.mn-title')!;
 let stop: (() => void) | null = null;
 
 const zoom = () => { for (const el of [root, foot]) el.style.zoom = String(uiZoom()); };
 zoom();
 addEventListener('resize', zoom);
 
-/** A fresh stage: the last screen's extras (the map) go, the title shows unless the screen is full-bleed. */
-function clear(full = false): void {
+/** A fresh stage: the last screen's extras (the map) go; `full` hides the menu (the map screen), `compact` the title. */
+function clear(full = false, compact = false): void {
   stop?.();
   stop = null;
   stage.innerHTML = '';
   stage.onkeydown = null;
-  stage.style.visibility = full ? 'hidden' : '';
-  title.style.display = full ? 'none' : '';
+  root.hidden = full;
+  bg.style.display = full ? 'none' : '';
+  root.classList.toggle('compact', compact);
+  foot.style.display = full || compact ? 'none' : '';
   bg.classList.toggle('dim', false);
 }
 
@@ -100,11 +101,11 @@ function alliance(v: api.StartView): void {
 
 function home(v: api.StartView): void {
   clear(true);
-  stop = homeScreen(root, v, async (id) => { squad(await api.chooseHome(id)); }, () => alliance(v));
+  stop = homeScreen(v, async (id) => { squad(await api.chooseHome(id)); }, () => alliance(v));
 }
 
 function squad(v: api.StartView): void {
-  clear();
+  clear(false, true);
   bg.classList.add('dim');
   squadScreen(stage, v, async (classes) => {
     const done = await api.pickSquad(classes);
