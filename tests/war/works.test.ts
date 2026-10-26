@@ -302,10 +302,8 @@ describe('squad split and merge', () => {
     expect(c.units).toHaveLength(4);
     expect(snap.squads[a].units).toHaveLength(6);
     for (const id of c.units) expect(snap.units[id].squad).toBe(2);
-    // M5a: into two detachments of DETACH_MIN or more, no further: a split squad and its detachment stay as they are
-    sim.order({ kind: 'detach', squad: a, count: 2 });
-    sim.order({ kind: 'detach', squad: c.id, count: 4 });
-    sim.order({ kind: 'detach', squad: b, count: 3 }); // too few to go
+    // W-53: no limit on how many go, but at least one man stays (none asked: nothing happens)
+    sim.order({ kind: 'detach', squad: b, count: 0 });
     sim.step();
     expect(sim.snapshot().squads).toHaveLength(3);
     // by unit ids (unknown ids ignored)
@@ -326,11 +324,11 @@ describe('squad split and merge', () => {
     expect(snap.squads[c.id].units).toHaveLength(0);
     expect(snap.squads[3].units).toHaveLength(4);
     expect(snap.squads[d].units).toHaveLength(12);
-    // whole again, it may split again
+    // whole again, it may split again; W-53: the new squad takes the id of the one emptied by the merge
     sim.order({ kind: 'detach', squad: a, count: 5 });
     sim.step();
-    expect(sim.snapshot().squads.at(-1)!.units).toHaveLength(5);
-    sim.order({ kind: 'merge', squad: sim.snapshot().squads.length - 1, into: a });
+    expect(sim.snapshot().squads[c.id].units).toHaveLength(5);
+    sim.order({ kind: 'merge', squad: c.id, into: a });
     // the merged squad moves as one
     sim.order({ kind: 'move', squad: a, x: 30, y: 20 });
     run(sim, 300);

@@ -40,7 +40,7 @@
  * orders them each tick (wander, aggro, leash back). claimRegion walks a squad to a claim point, where it channels.
  */
 import { Rng } from '../../sim/rng';
-import type { BuildingType, FightReport, Order, PersonResult, RegionData, RegionMemory, ResourceKind, ShotSnap, Snapshot, SquadId, SquadSnap, UnitSnap, WarBuildSim, WarEvent, WarPerson, WarSkillId } from '../types';
+import type { BuildingType, FightReport, Order, PersonResult, RegionData, RegionMemory, ResourceKind, ShotSnap, Snapshot, SquadId, SquadSnap, UnitId, UnitSnap, WarBuildSim, WarEvent, WarPerson, WarSkillId } from '../types';
 import { salvageValue, type Item } from '../../data/items';
 import { warStats, warStatsOf, type WarStats } from './classes';
 import { afterArmour, blockChance, COMBAT, heightRange, hitChance, meleeHeight, missileHeight } from './combat';
@@ -52,7 +52,7 @@ import { createSiege, LADDER } from './siege';
 import { createMobs, MOB_OWNER, MOB_TEAM, mobClass } from './mobs';
 import { BOSS, createBosses } from './bosses';
 import { createVision } from './vision';
-import { CAPTURE_R, DETACH_MIN, gainXp, SQUAD_MAX, XP } from './soldiers';
+import { CAPTURE_R, gainXp, SQUAD_MAX, XP } from './soldiers';
 import { ACTIVE, ACTIVES, activeCooldown, F, FLAG_FX } from './skills';
 import { AT_BUILDING, CIV, CIV_QUOTA, CIV_XP, civJob, CLIP, COOK, ENGINEER, FORAGER, PHYSICIAN, SMITH, wornest, type CivJob } from './civilians';
 import { isCivClass } from '../../data/classes';
@@ -252,7 +252,7 @@ interface Squad {
   task: Task | null;
   fire: boolean; // fire arrows
   claimPt: number; // claimRegion: the claim point it goes to and channels at, -1 none
-  pair: SquadId; // M5a: the other detachment of its split (-1 none): a split squad splits no further until merged back
+  spare: boolean; // W-53: emptied by a regroup or merge (not by the fallen): the next new squad of its owner and team takes its id
   // M5c squad active: from its best-ranked man holding one (null none), his WIL; ready again / buff over at these ticks;
   // while on, damage it deals and takes is multiplied by out / inn (1 otherwise): read in hit resolution
   act: WarSkillId | null;
@@ -290,6 +290,8 @@ interface Squad {
 }
 /** M5f: the orders a civilian squad takes (work orders only). */
 const CIV_ORDERS = new Set<Order['kind']>(['move', 'hold', 'stop', 'formation', 'gather', 'build', 'civWork', 'detach', 'merge', 'stopWork', 'placeBuilding', 'placeWall', 'placeBridge', 'upgrade', 'buildSiege', 'load', 'unload', 'salvagePile', 'crew', 'uncrew']);
+/** W-53: orders that lay something out or take one thing: to the first of the squads a `units` order gathers. */
+const ONCE = new Set<Order['kind']>(['placeBuilding', 'placeWall', 'placeBridge', 'buildSiege', 'rebuild', 'upgrade', 'crew', 'claimRegion', 'restoreLandmark']);
 /** M5f: seconds of work per batch, by job at a building. */
 const BATCH: Partial<Record<CivJob, number>> = { cook: COOK.batch, smith: SMITH.batch, physician: 1 };
 /** M5f: HP a physician heals for one job's XP. */
@@ -799,22 +801,76 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     s.actWil = lead?.person!.hero.attrs.wil ?? 5;
   };
 
-  /** A new squad of s's owner and team takes these living units of s, holding where they stand. */
-  const detach = (s: Squad, picked: Unit[]) => {
-    if (!picked.length) return;
+  /**
+   * A new squad of s's owner and team takes these living units of s, holding where they stand (W-53: in the slot of an
+   * emptied squad of the same owner and team, if any, so regrouping does not grow the squad list). Bandages split by men.
+   */
+  const detach = (s: Squad, picked: Unit[]): Squad | null => {
+    if (!picked.length) return null;
     let x = 0;
     let y = 0;
     for (const u of picked) (x += u.x), (y += u.y);
     const [ax, ay] = openPoint(x / picked.length, y / picked.length);
-    const ns: Squad = {
-      ...s, id: squads.length, units: [], alive: 0, ax, ay, cx: ax, cy: ay, path: [], pi: 0, order: 'hold', target: -1, goal: null,
-      near: [], sites: [], node: -1, fixed: null, col: null, siege: -1, task: null, claimPt: -1, pair: s.id, flee: false, calm: 0, resume: null, work: -1,
-    };
-    s.pair = ns.id;
-    squads.push(ns);
+    const old = squads.find((q) => q.spare && q.owner === s.owner && q.team === s.team);
+    const bandages = Math.floor((s.bandages * picked.length) / Math.max(1, s.alive));
+    const ns: Squad = Object.assign(old ?? ({} as Squad), {
+      ...s, id: old ? old.id : squads.length, units: old ? old.units : [], alive: 0, ax, ay, cx: ax, cy: ay, path: [], pi: 0, order: 'hold', target: -1, goal: null,
+      near: [], sites: [], node: -1, fixed: null, col: null, siege: -1, task: null, claimPt: -1, spare: false, flee: false, calm: 0, resume: null, work: -1,
+      bandages, xfer: null, escort: -1, salv: null,
+    } satisfies Squad);
+    s.bandages -= bandages;
+    if (!old) squads.push(ns);
     move(s, ns, picked);
-    if (s.order === 'gather' || s.order === 'build') for (const u of ns.units) works.setJob(u, null);
+    if (s.order === 'gather' || s.order === 'build') for (const u of picked) works.setJob(u, null);
     scanNear();
+    return ns;
+  };
+
+  /** Living units of s join t (merge, regroup): they drop their jobs and take up t's work order; s, emptied, holds and is spare. */
+  const join = (s: Squad, t: Squad, picked: Unit[]) => {
+    for (const u of picked) if (u.job) works.setJob(u, null);
+    move(s, t, picked);
+    if (t.order === 'gather' || t.order === 'build') for (const u of picked) works.setJob(u, t.order);
+    if (s.alive > 0) return;
+    s.order = 'hold';
+    s.path = [];
+    s.goal = null;
+    s.spare = s.siege < 0;
+    t.bandages = Math.min(SQUAD_MAX, t.bandages + s.bandages);
+    s.bandages = 0;
+  };
+
+  /**
+   * W-53: living men `ids` of lead's owner and team (in any of his squads) gathered for one order: soldiers and
+   * civilians apart, at most SQUAD_MAX a squad. Within each: the biggest squad given whole is the host and takes the
+   * rest in; with none whole the biggest share leaves its squad as a new one. Men left behind keep their order.
+   */
+  const regroup = (lead: Squad, ids: readonly UnitId[]): Squad[] => {
+    const seen = new Set<Unit>(), kinds: [Unit[], Unit[]] = [[], []];
+    for (const id of ids) {
+      const u = units[id];
+      if (!u || !u.alive || seen.has(u) || u.squad.owner !== lead.owner || u.squad.team !== lead.team) continue;
+      seen.add(u);
+      kinds[u.squad.civ ? 1 : 0].push(u);
+    }
+    const out: Squad[] = [];
+    for (const kind of kinds)
+      for (let k = 0; k < kind.length; k += SQUAD_MAX) {
+        const from = new Map<Squad, Unit[]>();
+        for (const u of kind.slice(k, k + SQUAD_MAX)) from.set(u.squad, [...(from.get(u.squad) ?? []), u]);
+        let host: Squad | null = null, most: Squad | null = null;
+        for (const [q, us] of from) {
+          if (us.length === q.alive && (!host || q.alive > host.alive)) host = q;
+          if (!most || us.length > from.get(most)!.length) most = q;
+        }
+        if (!host) {
+          host = detach(most!, from.get(most!)!)!;
+          from.delete(most!);
+        }
+        for (const [q, us] of from) if (q !== host) join(q, host, us);
+        out.push(host);
+      }
+    return out;
   };
 
   /** Living units leave s for t (and take up t's work order, if any); both re-form. */
@@ -831,11 +887,20 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       t.units.push(u);
     }
     t.alive += picked.length;
+    t.spare = false;
     if (s.alive > 0) reslot(s);
     reslot(t);
   };
 
   const apply = (o: Order) => {
+    if (o.units && o.squad !== undefined) {
+      // W-53: the named men gather into one squad (one per kind) and it takes the order; a layout goes once, to the first
+      const lead = squads[o.squad];
+      if (!lead) return;
+      const qs = regroup(lead, o.units);
+      for (const q of ONCE.has(o.kind) ? qs.slice(0, 1) : qs) apply({ ...o, squad: q.id, units: undefined } as Order);
+      return;
+    }
     if (o.kind === 'cancelSite') {
       works.cancel(o.site);
       return;
@@ -977,27 +1042,17 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       return;
     }
     if (o.kind === 'detach') {
+      // W-53: any of its living men (at least one stays)
       const alive = s.units.filter((u) => u.alive);
       const ids = o.unitIds ? new Set(o.unitIds) : null;
-      // M5a: two detachments of DETACH_MIN or more; a squad already split splits no further
-      if (s.pair >= 0 && squads[s.pair].alive > 0) return;
-      const n = Math.min(alive.length - DETACH_MIN, ids ? alive.length : Math.floor(o.count ?? 0));
-      const picked = n < DETACH_MIN ? [] : ids ? alive.filter((u) => ids.has(u.id)).slice(0, n) : alive.slice(alive.length - n);
-      if (picked.length >= DETACH_MIN) detach(s, picked);
+      const n = Math.min(alive.length - 1, ids ? alive.length : Math.floor(o.count ?? 0));
+      detach(s, n < 1 ? [] : ids ? alive.filter((u) => ids.has(u.id)).slice(0, n) : alive.slice(alive.length - n));
       return;
     }
     if (o.kind === 'merge') {
       const t = squads[o.into];
       if (!t || t === s || t.team !== s.team || t.owner !== s.owner || t.civ !== s.civ || s.alive === 0 || t.alive + s.alive > SQUAD_MAX) return;
-      if (t.pair === s.id) t.pair = -1;
-      if (s.pair === t.id) s.pair = -1;
-      const picked = s.units.filter((u) => u.alive);
-      for (const u of picked) if (u.job) works.setJob(u, null);
-      move(s, t, picked);
-      s.order = 'hold';
-      s.path = [];
-      s.goal = null;
-      if (t.order === 'gather' || t.order === 'build') for (const u of picked) works.setJob(u, t.order);
+      join(s, t, s.units.filter((u) => u.alive));
       return;
     }
     if (o.kind === 'stopWork') {
@@ -2870,7 +2925,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       const s: Squad = {
         id: squads.length, owner, team, units: [], alive: count, shape: 'line', offsets: formationOffsets('line', count, rng),
         ax, ay, cx: ax, cy: ay, facing: 0, speed: st.speed, ranged: st.range > 0, path: [], pi: 0, order: 'hold', target: -1,
-        repathAt: 0, goal: null, near: [], sites: [], node: -1, fixed: null, col: null, siege: -1, task: null, fire: false, claimPt: -1, pair: -1,
+        repathAt: 0, goal: null, near: [], sites: [], node: -1, fixed: null, col: null, siege: -1, task: null, fire: false, claimPt: -1, spare: false,
         act: null, actWil: 5, actReady: 0, actUntil: -1, out: 1, inn: 1, amx: ax, amy: ay,
         civ: ps ? ps.every((p) => isCivClass(p.hero.cls)) : isCivClass(cls), flee: false, calm: 0, resume: null, work: -1, fedUntil: -1,
         fedInn: 1, fedMelee: 0, fedMissile: 0, fedAcc: 0, fedHeal: 1, dish: null, bandages: 0, theriacUntil: -1,

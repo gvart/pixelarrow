@@ -65,7 +65,15 @@ export interface TileRect { x: number; y: number; w: number; h: number }
 export interface SafeRect extends TileRect { gates?: TileRect[] }
 export type MobKind = 'wolf' | 'boar' | 'bear' | 'bandit' | 'jackal' | 'ibex';
 export type SquadId = number; export type UnitId = number;
-export type Order =
+/**
+ * W-53 unit control: any order with a squad may name `units` (living men of that squad's owner and team, in any of his
+ * squads). The men are gathered into one squad first (soldiers and civilians apart, at most SQUAD_MAX a squad): a squad
+ * given whole keeps its id and takes the rest in, else the men leave as a new squad; men left behind keep their old
+ * order. The order then goes to the gathered squad (to the first only for orders that lay something out). Unknown,
+ * fallen or foreign ids are ignored.
+ */
+export type Order = SquadOrder & { units?: UnitId[] };
+type SquadOrder =
   | { kind: 'move'; squad: SquadId; x: number; y: number }
   | { kind: 'attack'; squad: SquadId; target: SquadId }
   | { kind: 'hold'; squad: SquadId }
@@ -82,7 +90,8 @@ export type Order =
   // cancelSite: an unfinished site goes (it leaves the snapshot), its tiles open, its workers stop; materials still on the way
   // go back to the stockpile in full, those delivered at CANCEL_REFUND (75%). Labour is lost.
   // detach: `unitIds` (living units of the squad) or the last `count` living ones leave as a new squad of the same owner and
-  // team, holding where they stand; its id is the next squad id (snapshot squads.length before the tick). At least one unit stays.
+  // team, holding where they stand; its id is the next squad id (snapshot squads.length before the tick), or that of an
+  // emptied squad of the same owner the sim reuses. At least one unit stays.
   // merge: every unit of `squad` joins `into` (same owner and team) and takes up its order; `squad` is left empty.
   | { kind: 'gather'; squad: SquadId; node: number }
   | { kind: 'build'; squad: SquadId; site: number }

@@ -6,8 +6,6 @@ import { MAX_LEVEL, xpToNext, type Hero } from '../../data/units';
 
 /** N: fighters per player squad (docs/WAR.md "Army size N"; proposal 12, owner to confirm). Every other cap follows it. */
 export const SQUAD_MAX = 12;
-/** A squad splits into at most two detachments (`detach`), each at least this many men. */
-export const DETACH_MIN = 4;
 
 /** At 0 HP a man is wounded with this share (+ per END point above 5, + a physician near, capped), else dead. */
 export const FALL = { wounded: 0.7, perEnd: 0.03, physician: 0.15, cap: 0.9 };
