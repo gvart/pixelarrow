@@ -242,10 +242,13 @@ export class SandboxScene extends Phaser.Scene {
     this.units.mark = (id) => gd.mark(id);
     gd.drawn = (id) => this.units.drawnAs.get(id);
     gd.fx.corpse = (cls, x, y, facing) => this.units.addCorpse(cls, x, y, facing, this.time.now);
-    this.units.lift = (d) => gd.lift(d) ?? sl.lift(d) ?? layer.lift(d);
+    const tl = this.tradeLayer;
+    this.units.lift = (d) => gd.lift(d) ?? sl.lift(d) ?? tl.lift(d) ?? layer.lift(d);
+    tl.packed = (id) => this.units.packed.has(id);
+    sl.bob = (id) => this.units.anim.bob(id);
     this.units.ground = (d) => layer.groundDepth(d);
     this.shots.lift = (x, y) => layer.lift({ x, y })?.px ?? 0;
-    this.units.anim.override = (u) => gd.clip(u) ?? (layer.climbing.has(u.id) ? CLIMB : sl.bearing.has(u.id) ? CARRY : u.task && u.task !== 'crew' ? TASK : workClip(u));
+    this.units.anim.override = (u) => gd.clip(u) ?? (layer.climbing.has(u.id) ? CLIMB : sl.bearing.has(u.id) || tl.pulling.has(u.id) ? CARRY : u.task && u.task !== 'crew' ? TASK : workClip(u));
     this.shots.launch = (id) => sl.launch(id);
     this.input.on('wheel', (p: Phaser.Input.Pointer, _o: unknown, _dx: number, dy: number) => this.zoomAt(p.x, p.y, dy > 0 ? -1 : 1));
   }

@@ -109,6 +109,8 @@ const QUADRANT = ['south-east', 'south-west', 'north-east', 'north-west'] as con
 /** A sheet's load anchors (scripts/art/pixellab/anim3/anchors.mjs): per point, per row name, per frame of `clip`, [dx, dy] from the feet. */
 interface SheetLoads { clip: string; shoulder: Record<string, [number, number][]>; chest: Record<string, [number, number][]> }
 const LOADS_KEY = 'war-loads';
+/** The load sprite a porter's pack shows. */
+const PACK = 'food';
 
 interface Sheet {
   /** The class whose sheet it is. */
@@ -207,6 +209,8 @@ export class UnitLayer {
   private pool: Phaser.GameObjects.Image[] = [];
   private loadPool: Phaser.GameObjects.Image[] = [];
   private nLoad = 0;
+  /** Porters whose pack was drawn on their stride this frame. */
+  readonly packed = new Set<number>();
   private ghosts: Phaser.GameObjects.Image[] = [];
   /** Shadow and ring of each raised unit, drawn in its layer slot (gUnder lies under every wall). */
   private rings: Phaser.GameObjects.Graphics[] = [];
@@ -333,6 +337,7 @@ export class UnitLayer {
     this.nGhost = 0;
     this.nRing = 0;
     this.nLoad = 0;
+    this.packed.clear();
     this.nUnder[0] = this.nUnder[1] = 0;
     this.anim.frame(units, squads, at.now);
     if (this.ids !== units.length) {
@@ -506,7 +511,9 @@ export class UnitLayer {
 
   /** The load a walking carrier holds, on his frame's anchor (shoulder: over him; chest: under him when his back is to us). */
   private load(d: DrawUnit, sheet: Sheet, row: number, clip: string, frame: number, body: Phaser.GameObjects.Image, tint: number): void {
-    const name = loadOf(d.u), L = sheet.loads;
+    // a porter's pack (M6a) walks as a sack on the same anchors (../trade/tradeLayer.ts marks the others)
+    const pack = !loadOf(d.u) && !!d.u.pack && d.u.state === 'move';
+    const name = loadOf(d.u) ?? (pack ? PACK : undefined), L = sheet.loads;
     if (!name || !L || clip !== L.clip || !this.scene.textures.exists(LOADS_KEY)) return;
     const f = loadsManifest.frames[name as keyof typeof loadsManifest.frames], rowName = sheet.rowNames[row];
     const at = f && (f.at === 'shoulder' ? L.shoulder : L.chest)[rowName]?.[frame];
@@ -517,6 +524,7 @@ export class UnitLayer {
     const behind = f.at === 'chest' && rowName.startsWith('north');
     im.setTexture(LOADS_KEY, name).setOrigin(f.ox / f.w, f.oy / f.h).setPosition(body.x + at[0], body.y + at[1]).setVisible(true);
     im.setDepth(body.depth + (behind ? -1e-6 : 1e-6)).setTint(tint);
+    if (pack) this.packed.add(d.u.id);
   }
 }
 

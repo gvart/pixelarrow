@@ -6,7 +6,7 @@
  *                     stab) played once per blow, started so its `strike` frame shows on the tick the
  *                     blow lands (the sim's `ready` lets it start early; `swing` places it when late)
  *   hit               stagger once, unless a blow is under way
- *   moving            walk; run above RUN tiles/s; charge while closing on an attack order
+ *   moving            walk; run above RUN_UP tiles/s; charge while closing on an attack order; stride-synced (below)
  *   in reach, waiting ready
  *   standing          foes near: ready (brace on a hold order); after a won fight the squad cheers
  *                     briefly; else idle with now and then an idle variant (look, adjust, breathe,
@@ -20,6 +20,12 @@
  * or a jar by the resource); never an attack clip (a sheet without them idles). Civilians (M5f, civ_* sheets): at work
  * at their building they play their job's clip (UnitSnap.work: cook, forge, trade, heal), a forager gathering plays
  * chop / mine / harvest as above, an engineer at a site build, and a fleeing one runs.
+ *
+ * Locomotion is stride-synced (as sprite games without root motion match feet to ground speed): walk, run and charge
+ * advance a per-man cycle phase by the distance he covers, one cycle per `strideOf` tiles (the clip's length at its
+ * authored pace), so a man slowed by his formation, a slope or a ford plays the whole cycle slower instead of sliding
+ * or cutting it. Gaits switch with hysteresis (run above RUN_UP, back to walk under RUN_DOWN; idle only after STOP_MS
+ * nearly still) and a walk <-> run change waits for the next half cycle (a footfall), keeping the phase.
  */
 import { resolveAnim, SHEET_ANIMS, type SheetAnim } from '../../art/sheetManifest';
 import type { ResourceKind, SquadSnap, UnitSnap } from '../types';
@@ -34,8 +40,14 @@ export interface AnimTime { now: number; tick: number; snap: number; tickMs: num
 const RANGED: Record<string, SheetAnim> = { archer: 'shoot', slinger: 'sling', javelineer: 'throw' };
 const MELEE: Record<string, SheetAnim> = { archer: 'stab', slinger: 'stab', javelineer: 'thrust' };
 const IDLE_VARIANTS = ['look', 'adjust', 'breathe', 'shift'];
-/** Tiles/s above which a moving man runs (the march pace is 1.5 x class speed). */
-const RUN = 1.9;
+/** Tiles/s above which a moving man runs, and under which a runner walks again (the march pace is 1.5 x class speed). */
+const RUN_UP = 2.05, RUN_DOWN = 1.7;
+/** Tiles/s under which a moving man counts as still, over which he walks again; still this long (ms): he idles. */
+const STILL = 0.12, GO = 0.25, STOP_MS = 300;
+/** Tiles/s a clip is authored for (one cycle = pace x clip length): walk at the march pace, run and charge faster. */
+export const PACE: Record<string, number> = { walk: 1.5, carry: 1.5, run: 2.4, charge: 2.4 };
+/** Most tiles a frame's move adds to the phase (a jump: a respawn, a skipped frame). */
+const MAX_STEP = 0.5;
 /** Gap between squads (tiles) under which foes count as near. */
 const NEAR = 12;
 const CHEER_MS = 2600;
@@ -102,8 +114,27 @@ export function frameAt(c: ClipDef, t: number, offset = 0): number {
   return f < c.n ? f : c.hold + ((f - c.hold) % (c.n - c.hold));
 }
 
+/** Tiles one cycle of a locomotion clip covers: its length at its authored pace. */
+export function strideOf(c: ClipDef, name: string): number {
+  return ((PACE[name] ?? PACE.walk) * c.n) / c.fps;
+}
+
+/** The cycle phase (0..1) after `dist` tiles more on a cycle of `stride` tiles. */
+export function advancePhase(phase: number, dist: number, stride: number): number {
+  return stride > 0 ? (phase + dist / stride) % 1 : phase;
+}
+
+/** The frame a cycle phase shows. */
+export function strideFrame(c: ClipDef, phase: number): number {
+  return Math.min(c.n - 1, Math.floor(phase * c.n));
+}
+
 interface OneShot { name: string; start: number; end: number }
-interface Mem { hp: number; blow: number; ranged: boolean; one: OneShot | null; loop: string; loopAt: number; fall: OneShot | null; px: number; py: number; t: number; v: number }
+interface Mem {
+  hp: number; blow: number; ranged: boolean; one: OneShot | null; loop: string; loopAt: number; fall: OneShot | null; px: number; py: number; t: number; v: number;
+  /** Locomotion: cycle phase, the clip shown, the moving gait (hysteresis), since when nearly still (-1: moving). */
+  phase: number; loco: string; run: boolean; still: number;
+}
 interface SquadAnim { team: number; order: string; foeNear: boolean; fought: number; cheer: number; cx: number; cy: number; r: number; n: number; attacking: boolean }
 export interface Pick { clip: string; frame: number }
 
@@ -145,6 +176,12 @@ export class Animator {
     }
   }
 
+  /** A walking man's stride bob (px, 0 or 1): up at each mid-stride, two per cycle; 0 when not on the stride clock. */
+  bob(id: number): number {
+    const m = this.mem.get(id);
+    return m?.loco ? Math.round(Math.abs(Math.sin(m.phase * 2 * Math.PI))) : 0;
+  }
+
   /** Forget units no longer in the snapshot. */
   prune(alive: Set<number>): void {
     for (const id of this.mem.keys()) if (!alive.has(id)) this.mem.delete(id);
@@ -153,7 +190,7 @@ export class Animator {
   pick(d: DrawUnit, clips: Clips, at: AnimTime, units: DrawUnit[], shots: readonly { by: number }[]): Pick {
     const u = d.u, { now } = at, cls = u.cls;
     let m = this.mem.get(u.id);
-    if (!m) this.mem.set(u.id, (m = { hp: u.hp, blow: -1e9, ranged: !!RANGED[cls], one: null, loop: '', loopAt: now, fall: null, px: d.x, py: d.y, t: now, v: 0 }));
+    if (!m) this.mem.set(u.id, (m = { hp: u.hp, blow: -1e9, ranged: !!RANGED[cls], one: null, loop: '', loopAt: now, fall: null, px: d.x, py: d.y, t: now, v: 0, phase: (hash(u.id, 3) % 1000) / 1000, loco: '', run: false, still: -1 }));
     // the time render reaches snapshot tick k
     const msAt = (k: number) => now + (k - at.tick) * at.tickMs;
 
@@ -168,11 +205,16 @@ export class Animator {
 
     // speed over the last frames (tiles/s), smoothed
     const dt = now - m.t;
+    let step = 0;
     if (dt > 0) {
-      const v = (Math.hypot(d.x - m.px, d.y - m.py) * 1000) / dt;
-      m.v += (v - m.v) * Math.min(1, dt / 250);
+      step = Math.hypot(d.x - m.px, d.y - m.py);
+      m.v += ((step * 1000) / dt - m.v) * Math.min(1, dt / 250);
       m.px = d.x; m.py = d.y; m.t = now;
     }
+    // gait with hysteresis: run or walk by the smoothed speed; still (an idle) only after STOP_MS nearly still
+    m.run = m.run ? m.v > RUN_DOWN : m.v > RUN_UP;
+    if (m.v > GO) m.still = -1;
+    else if (m.v < STILL && m.still < 0) m.still = now;
 
     if (m.one && now >= m.one.end) m.one = null;
     const strikeName = this.strikeClip(clips, cls, m.ranged);
@@ -209,12 +251,17 @@ export class Animator {
     if (m.one && now >= m.one.start) return { clip: m.one.name, frame: frameAt(clips.get(m.one.name)!, now - m.one.start) };
 
     const work = this.override?.(u)?.find((n) => clips.has(n));
-    if (work) return this.loop(m, clips, work, now, u.id);
+    const stopped = m.still >= 0 && now - m.still > STOP_MS;
+    if (work && !(work in PACE)) { m.loco = ''; return this.loop(m, clips, work, now, u.id); }
     const s = this.squads.get(u.squad);
-    if (u.state === 'move') {
-      const name = s?.order === 'attack' ? pickClip(clips, 'charge') : m.v > RUN ? pickClip(clips, 'run') : pickClip(clips, 'walk');
-      return this.loop(m, clips, name, now, u.id);
+    // a loaded man keeps his walk when still (his load is drawn on it), held mid-stride; a puller or bearer stands
+    if (work && (!stopped || loadOf(u))) return this.stride(m, clips, work, step);
+    if (work) { m.loco = ''; return this.idle(m, clips, now, u.id); }
+    if (u.state === 'move' && !stopped) {
+      const name = s?.order === 'attack' ? pickClip(clips, 'charge') : m.run ? pickClip(clips, 'run') : pickClip(clips, 'walk');
+      return this.stride(m, clips, name, step);
     }
+    m.loco = '';
     if (u.state === 'attack') return this.loop(m, clips, pickClip(clips, 'ready'), now, u.id);
     if (s && s.cheer >= 0) {
       const t = now - s.cheer - (hash(u.id, 7) % 500);
@@ -235,6 +282,18 @@ export class Animator {
       if (t >= 0 && t < (c.n * 1000) / c.fps) return { clip: name, frame: frameAt(c, t) };
     }
     return this.loop(m, clips, 'idle', now, id);
+  }
+
+  /**
+   * A locomotion clip on the stride clock: the phase moves by the tiles covered. A change of gait while one plays waits
+   * for the next half cycle (a footfall) and keeps the phase, so the cycle never restarts.
+   */
+  private stride(m: Mem, clips: Clips, name: string, step: number): Pick {
+    const cur = m.loco && clips.has(m.loco) ? m.loco : name, before = m.phase;
+    m.phase = advancePhase(m.phase, Math.min(step, MAX_STEP), strideOf(clips.get(cur)!, cur));
+    if (cur !== name && Math.floor(m.phase * 2) === Math.floor(before * 2)) name = cur; // no footfall yet: keep the gait
+    m.loco = m.loop = name;
+    return { clip: name, frame: strideFrame(clips.get(name)!, m.phase) };
   }
 
   /** A looping clip; clips with a held part start from frame 0 when entered, others from a per-unit frame. */
