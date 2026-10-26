@@ -215,7 +215,7 @@ export const GRAPH_CSS = `
 @keyframes tg-pulse{0%,100%{box-shadow:inset 0 0 0 1px #0e0907,0 0 0 1px rgba(222,138,78,.35),0 0 6px rgba(222,138,78,.35)}50%{box-shadow:inset 0 0 0 1px #0e0907,0 0 0 4px rgba(222,138,78,.12),0 0 12px rgba(222,138,78,.7)}}
 .tg-n.locked .tg-m{border-color:#33251c;background:#110a07}
 .tg-n.locked .tg-t{color:var(--rf-disabled)}
-.tg-n.locked .tg-m img,.tg-n.locked .tg-m .gl{opacity:.35;filter:grayscale(1) brightness(.85)}
+.tg-n.locked .tg-m img,.tg-n.locked .tg-m .gl{opacity:.5;filter:grayscale(1) brightness(.9)}
 .tg-n.locked .tg-lock{display:flex}
 .tg-n:hover .tg-m{border-color:var(--rf-title)}
 .tg-n.locked:hover .tg-m{border-color:#5a4030}

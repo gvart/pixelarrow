@@ -294,7 +294,7 @@ export function attrNow(a: AttrId, v: number): string {
 export const attrCard = (a: AttrId, v: number, state?: CardOpts['state'], more = '') => card({
   icon: ATTR_ICON[a], name: ATTR_NAME[a], kind: `Attribute · ${v} of ${ATTR_MAX}`, flavour: ATTR_FLAVOUR[a],
   fx: [`<div class="cx-tag" style="margin:1px 0 2px">each point above ${ATTR_BASE}</div>`, ...attrEffects(a)],
-  more: `<div class="cx-fx">${glyph('ui:check', 14)}<span>he has ${val(attrNow(a, v), '')}</span></div>${more}`, state,
+  more: `<div class="cx-fx">${glyph('ui:check', 14)}<span>at ${v}: ${val(attrNow(a, v), '')}</span></div>${more}`, state,
 });
 
 /** A skill's card: kind and slot, flavour, effects, an optional before/after and state line. */

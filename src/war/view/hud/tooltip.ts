@@ -12,7 +12,7 @@
 import { placeTip } from './kit';
 import { termCard } from './codex';
 
-const HOLD_MS = 550, GRACE_MS = 700;
+const HOLD_MS = 550, GRACE_MS = 450;
 
 export interface TipChain {
   /** The base was filled and placed for `anchor`. */
@@ -105,7 +105,7 @@ export function tipChain(base: HTMLElement, close: () => void): TipChain {
     for (let k = 0; k <= top; k++) gap[k] = held(k) ? dist(tips[k], e.clientX, e.clientY) : Infinity;
     if (next <= top && held(next) && gap[next] <= prev + 1.5) { // not moving away from it
       const now = performance.now();
-      if (!grace || gap[next] < prev - 0.5) grace = now; // still closing in
+      if (!grace || gap[next] < prev - 4) grace = now; // still closing in
       if (now - grace < GRACE_MS) { clearTimeout(recheck); recheck = window.setTimeout(() => last && move(last), GRACE_MS + 20); return; }
     }
     grace = 0;
