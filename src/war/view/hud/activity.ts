@@ -38,13 +38,14 @@ export function activityText(who: SquadSnap | UnitSnap, snap: Snapshot, o: { nod
   if (order === 'build' || order === 'repairBuilding' || men.some((u) => u.state === 'build')) {
     let site: BuildingSnap | undefined;
     for (const b of snap.buildings ?? []) if (b.team === sq?.team && working(b) && (!site || d(b.x, b.y) < d(site.x, site.y))) site = b;
-    if (!site) return 'Building';
-    const wait = waitText(site);
-    if (site.waiting || site.stalled === 'noStore') return wait;
-    const what = words(site.type), at = d(site.x, site.y) <= Math.max(site.w, site.h) / 2 + AT_SITE;
-    if (!at && !men.some((u) => u.state === 'build' || u.carry)) return `Marching to the ${what} site`;
-    const verb = site.mend ? 'Repairing' : site.upgradeFrom ? 'Upgrading to' : 'Building';
-    return `${verb} ${what} (${Math.round((site.mend ? site.hp / site.maxHp : site.progress) * 100)}%)`;
+    // no site left (the work is done): what they do now, below
+    if (site) {
+      if (site.waiting || site.stalled === 'noStore') return waitText(site);
+      const what = words(site.type), busy = men.some((u) => u.state === 'build' || u.carry);
+      const verb = site.mend ? 'Repairing' : site.upgradeFrom ? 'Upgrading to' : 'Building';
+      if (busy || d(site.x, site.y) <= Math.max(site.w, site.h) / 2 + AT_SITE) return `${verb} ${what} (${Math.round((site.mend ? site.hp / site.maxHp : site.progress) * 100)}%)`;
+      if (men.some((u) => u.state === 'move')) return `Marching to the ${what} site`;
+    }
   }
   if (order === 'gather') {
     let res = men.find((u) => u.carry)?.carry, best = Infinity;
