@@ -1,0 +1,26 @@
+src/war/view/hud/tree/graph.ts
+  s_fcb7475e0b5395::t_4958317212b667 5-8,33-36,55,116-118,134,140,165-166,181,183-184,189-190,192,194,197-198,200-202,204-208,210-216,218-219,221
+src/war/view/hud/craft/tree.ts
+  s_fcb7475e0b5395::t_f932e936f4f82d 11-12,24-25,30-37,47,57
+src/war/view/hud/roster/skillTree.ts
+  s_fcb7475e0b5395::t_29c62d7ab66f1a 7-8,14,20-22,27,30,33,35-42,52,56,59-61,71-75,77,81-82,86,88-93,99-101
+src/war/view/hud/craft/index.ts
+  s_fcb7475e0b5395::t_f932e936f4f82d 185-189
+  s_fcb7475e0b5395::t_5f78e7fae6b436 179
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "6e808743887adc15bb3797371a6373dff04db1fc",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
