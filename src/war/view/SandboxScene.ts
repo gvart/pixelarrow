@@ -70,8 +70,9 @@ const HOLE_PX = 200;
 const BAKE_MS = 6;
 /** Bake worker jobs in flight: few, so the next asked are always the ones nearest the view's middle. */
 const IN_FLIGHT = 3;
-/** World px per overview band (one band bakes per frame until the overview is done). */
+/** World px per overview band (one band bakes per frame until the overview is done), and bands per overview strip texture. */
 const BAND = 256;
+const STRIP = 8;
 
 /** at: the chunk's key (its column and row, and for one the peaks reach, whether they are cut). */
 interface Chunk { key: string; tex: Phaser.Textures.CanvasTexture; img: Phaser.GameObjects.Image; at: string; ver: number; used: number }
@@ -133,7 +134,9 @@ export class SandboxScene extends Phaser.Scene {
   private chunks: Chunk[] = [];
   /** The see-through holes' windows: the ground behind the peaks (their stubs), baked round a point and faded at the rim. */
   private windows: { tex: Phaser.Textures.CanvasTexture; img: Phaser.GameObjects.Image; at: string; want: string }[] = [];
-  private overviewTex!: Phaser.Textures.CanvasTexture;
+  private strips: { tex: Phaser.Textures.CanvasTexture; bands: number; done: number }[] = [];
+  /** The class sheets warm up once the view is first baked. */
+  private warmed = false;
   private band = 0;
   /** Overview bands asked of the worker, and back. */
   private bandsAsked = 0;
@@ -181,9 +184,7 @@ export class SandboxScene extends Phaser.Scene {
       this.glints = new WaterGlints(this, this.iso);
     }
     const { W, H } = this.iso;
-    this.overviewTex = this.textures.createCanvas('overview', Math.ceil(W * OVERVIEW_SCALE), Math.ceil(H * OVERVIEW_SCALE))!;
     this.peaky = this.peakChunks();
-    this.add.image(0, 0, 'overview').setOrigin(0).setScale(1 / OVERVIEW_SCALE);
     this.units = new UnitLayer(this, this.iso, this.sheetImages);
     this.neutral = new NeutralLayer(this, (p) => this.units.feet(p), (x, y) => this.depthAt(x, y));
     if (this.objects) this.units.depthOf = (x, y) => this.objects!.depth(x, y);
@@ -282,6 +283,7 @@ export class SandboxScene extends Phaser.Scene {
   private rebake(): void {
     this.ver++;
     this.band = this.bandsAsked = this.bandsDone = 0;
+    for (const st of this.strips) st.done = 0;
     this.overviewReady = false;
     this.painter?.opts(this.opts);
   }
@@ -295,25 +297,37 @@ export class SandboxScene extends Phaser.Scene {
   private bakeOverviewBand(): void {
     const { W, H } = this.iso, n = Math.ceil(H / BAND), wk = this.worker;
     if (!wk) {
-      const y = this.band * BAND;
-      this.bake(this.overviewTex.context, 0, y, W, BAND, OVERVIEW_SCALE, 0, y * OVERVIEW_SCALE);
+      const b = this.band, y = b * BAND, st = this.strip(b);
+      this.bake(st.tex.context, 0, y, W, BAND, OVERVIEW_SCALE, 0, (b % STRIP) * BAND * OVERVIEW_SCALE);
+      if (++st.done === st.bands) st.tex.refresh();
       if (++this.band < n) return;
-      this.overviewTex.refresh();
       this.overviewReady = true;
       return;
     }
     while (wk.busy < IN_FLIGHT && this.bandsAsked < n) {
-      const y = this.bandsAsked++ * BAND, ver = this.ver, cw = Math.ceil(W * OVERVIEW_SCALE), ch = Math.ceil(BAND * OVERVIEW_SCALE);
+      const b = this.bandsAsked++, y = b * BAND, ver = this.ver, cw = Math.ceil(W * OVERVIEW_SCALE), ch = Math.ceil(BAND * OVERVIEW_SCALE);
       this.ask({ x0: 0, y0: y, w: W, h: BAND, scale: OVERVIEW_SCALE, cw, ch, cut: false, objects: true }, (bmp) => {
         if (ver !== this.ver) return;
-        const ctx = this.overviewTex.context, cy = y * OVERVIEW_SCALE;
-        ctx.clearRect(0, cy, cw, ch);
-        ctx.drawImage(bmp, 0, cy);
-        if (++this.bandsDone < n) return;
-        this.overviewTex.refresh();
-        this.overviewReady = true;
+        const st = this.strip(b), cy = (b % STRIP) * ch;
+        st.tex.context.clearRect(0, cy, cw, ch);
+        st.tex.context.drawImage(bmp, 0, cy);
+        if (++st.done === st.bands) st.tex.refresh();
+        if (++this.bandsDone === n) this.overviewReady = true;
       });
     }
+  }
+
+  /**
+   * The overview strip holding band b: STRIP bands of the overview's canvas each (a 512-tile region's is 36 MB), made
+   * when its first band is baked and uploaded once all its bands are in, so no frame uploads the whole.
+   */
+  private strip(b: number): { tex: Phaser.Textures.CanvasTexture; bands: number; done: number } {
+    const k = Math.floor(b / STRIP);
+    if (this.strips[k]) return this.strips[k];
+    const { W, H } = this.iso, n = Math.ceil(H / BAND), bands = Math.min(STRIP, n - k * STRIP), key = `overview-${k}`;
+    const tex = this.textures.createCanvas(key, Math.ceil(W * OVERVIEW_SCALE), bands * BAND * OVERVIEW_SCALE)!;
+    this.add.image(0, k * STRIP * BAND, key).setOrigin(0).setScale(1 / OVERVIEW_SCALE).setDepth(-1);
+    return (this.strips[k] = { tex, bands, done: 0 });
   }
 
   /** Bake on the main thread (no worker); the art baker is built on first use. */
@@ -621,7 +635,6 @@ export class SandboxScene extends Phaser.Scene {
       this.filterZoom = zoom;
       // crisp tiles (and no seams between chunks) zoomed in, smooth zoomed out
       for (const c of this.chunks) c.tex.setFilter(this.filter());
-      this.overviewTex.setFilter(zoom >= 1 / OVERVIEW_SCALE ? Phaser.Textures.FilterMode.NEAREST : Phaser.Textures.FilterMode.LINEAR);
     }
     for (const c of this.chunks) c.img.setVisible(false);
     const span = CHUNK_PX, { W, H } = this.iso, nx = Math.ceil(W / span), ny = Math.ceil(H / span);
@@ -640,6 +653,7 @@ export class SandboxScene extends Phaser.Scene {
       want.push([cx, cy, (cx - mx) ** 2 + (cy - my) ** 2]);
     }
     this.viewPending = want.length;
+    if (!want.length && !this.warmed) (this.warmed = true), this.units.warm();
     // the view done, the worker bakes a ring round it (what a pan shows next)
     if (wk && !want.length) for (let cy = cy0 - 1; cy <= cy1 + 1; cy++) for (let cx = cx0 - 1; cx <= cx1 + 1; cx++) {
       if (cx < 0 || cy < 0 || cx >= nx || cy >= ny || (cx >= cx0 && cx <= cx1 && cy >= cy0 && cy <= cy1)) continue;

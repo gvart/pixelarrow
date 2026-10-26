@@ -195,6 +195,8 @@ export class UnitLayer {
   /** Clip selection; set `anim.override` for work clips (build, carry). */
   readonly anim = new Animator();
   private sheets = new Map<string, Sheet>();
+  /** The class sheets not uploaded yet (manifest and image): built on first use, or one per idle moment (warm()). */
+  private pending = new Map<string, [SheetManifest, HTMLImageElement]>();
   private pool: Phaser.GameObjects.Image[] = [];
   private loadPool: Phaser.GameObjects.Image[] = [];
   private nLoad = 0;
@@ -211,11 +213,46 @@ export class UnitLayer {
     this.outline = addOutlinePipeline(scene);
     for (const [path, m] of Object.entries(manifests)) {
       const cls = path.split('/').at(-2)!, img = sheetImages.get(cls);
-      if (img) this.sheets.set(cls, buildSheet(scene, cls, m, img));
+      if (img) this.pending.set(cls, [m, img]);
     }
     const loadsImg = sheetImages.get(LOADS_KEY);
     if (loadsImg) buildLoads(scene, loadsImg);
     this.gUnder = scene.add.graphics().setDepth(9);
+  }
+
+  /**
+   * A class's sheet, uploaded now if it was not yet and no other was this frame (`now`: the frame's time; omitted: build
+   * regardless). undefined: no such class, or waiting for a later frame.
+   */
+  private sheet(cls: string, now?: number): Sheet | undefined {
+    let sh = this.sheets.get(cls);
+    if (sh) return sh;
+    const p = this.pending.get(cls);
+    if (!p || (now !== undefined && now === this.builtAt)) return undefined;
+    if (now !== undefined) this.builtAt = now;
+    this.pending.delete(cls);
+    this.sheets.set(cls, (sh = buildSheet(this.scene, cls, p[0], p[1])));
+    return sh;
+  }
+
+  /** The frame time a sheet was last built at (one a frame: a soldier's is up to ~0.1 s of texture upload). */
+  private builtAt = -1;
+
+  /**
+   * The class sheets are uploaded on first use, at most one a frame (they held up the first frame by most of a second
+   * when all were made at load); the small ones (mobs, townsfolk) also in the browser's idle time once the view is up.
+   */
+  warm(): void {
+    const ric = (globalThis as { requestIdleCallback?: (f: (d: { timeRemaining(): number }) => void) => number }).requestIdleCallback;
+    if (!ric) return;
+    const small = [...this.pending].filter(([, [, img]]) => img.width * img.height < 1.2e6).map(([cls]) => cls);
+    const next = (d: { timeRemaining(): number }) => {
+      while (small.length && !this.pending.has(small[0])) small.shift();
+      if (!small.length || !this.scene.sys.isActive()) return;
+      if (d.timeRemaining() >= 10) this.sheet(small.shift()!);
+      ric(next);
+    };
+    ric(next);
   }
 
   /**
@@ -297,11 +334,11 @@ export class UnitLayer {
   /** M7d: slain guardians the sim no longer holds: their die clip played where they fell, held, then faded. */
   private corpses: { cls: string; x: number; y: number; facing: number; t0: number }[] = [];
   addCorpse(cls: string, x: number, y: number, facing: number, now: number): void {
-    if (this.sheets.get(cls)?.frames.has('die')) this.corpses.push({ cls, x, y, facing, t0: now });
+    if (this.sheet(cls)?.frames.has('die')) this.corpses.push({ cls, x, y, facing, t0: now });
   }
   private drawCorpses(n: number, now: number): number {
     for (let i = this.corpses.length - 1; i >= 0; i--) {
-      const c = this.corpses[i], sheet = this.sheets.get(c.cls)!, def = sheet.clips.get('die'), el = now - c.t0;
+      const c = this.corpses[i], sheet = this.sheet(c.cls)!, def = sheet.clips.get('die'), el = now - c.t0;
       if (el > 12000) { this.corpses.splice(i, 1); continue; }
       const fx = Math.cos(c.facing), fy = Math.sin(c.facing), sx = fx - fy, sy = fx + fy;
       const q = sheet.rows[(sx < 0 ? 1 : 0) + (sy < 0 ? 2 : 0)], frames = sheet.frames.get('die')![q.row];
@@ -360,7 +397,8 @@ export class UnitLayer {
       if (l?.hide) continue; // inside a tower
       const f = this.feet(d);
       if (f.x < view.x - padX || f.x > view.right + padX || f.y < view.y - padBot || f.y > view.bottom + padTop) continue;
-      const sheet = this.sheets.get(u.cls) ?? this.sheets.get(FALLBACK_CLASS);
+      // a class whose sheet waits for a later frame is not drawn this one (an unknown class draws as militia)
+      const sheet = this.sheet(u.cls, at.now) ?? (this.pending.has(u.cls) ? undefined : this.sheet(FALLBACK_CLASS, at.now));
       if (!sheet) continue;
       // facing, projected: a tile-space direction (dx, dy) runs (dx - dy, (dx + dy) / 2) on screen
       const facing = l?.facing ?? d.facing, fx = Math.cos(facing), fy = Math.sin(facing), sx = fx - fy, sy = fx + fy;

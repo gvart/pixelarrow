@@ -1,10 +1,9 @@
 /**
- * The main thread's end of the terrain bake worker (./bakeWorker.ts): started at page load so its art loads and its
- * baker builds alongside the page's; the scene (./SandboxScene.ts) asks it for chunks, see-through windows and overview
+ * The main thread's end of the terrain bake worker (./bakeWorker.ts): started at page load so its region and art load
+ * and its baker builds alongside the page's; the scene (./SandboxScene.ts) asks it for chunks, see-through windows and overview
  * bands and gets ImageBitmaps back. Only for the default look (PixelLab art, procedural peaks) and where OffscreenCanvas
  * exists; elsewhere the scene bakes on the main thread.
  */
-import type { RegionData } from '../types';
 import type { BakeJob, FromBake, ToBake } from './bakeWorker';
 import type { BakeOpts } from './terrain';
 
@@ -19,7 +18,7 @@ export class BakeClient {
   /** Ms from the worker's start to its art loaded, the region in and its baker built. */
   readyMs = { art: 0, region: 0, ready: 0 };
 
-  constructor(base: string) {
+  constructor(base: string, region: string) {
     this.worker.onmessage = (e: MessageEvent<FromBake>) => {
       const m = e.data;
       if (m.t === 'ready') { this.ready = true; this.readyMs = m.ms; return; }
@@ -29,22 +28,18 @@ export class BakeClient {
       if (cb) cb(m.bmp, m.ms); else m.bmp.close();
     };
     this.worker.onerror = (e) => { console.error('[bake worker]', e.message); this.failed = true; };
-    this.send({ t: 'art', base });
+    this.send({ t: 'start', base, region });
   }
 
-  /** The worker for this page, or null where the scene bakes itself (?art=grey, ?mountains=..., no OffscreenCanvas). */
-  static start(q: URLSearchParams): BakeClient | null {
+  /** The worker for region `id` on this page, or null where the scene bakes itself (?art=grey, ?mountains=..., no OffscreenCanvas). */
+  static start(q: URLSearchParams, id: string): BakeClient | null {
     if (q.get('art') === 'grey' || q.has('mountains') || typeof OffscreenCanvas === 'undefined' || typeof createImageBitmap === 'undefined') return null;
-    return new BakeClient(new URL('war/', location.href).href);
+    return new BakeClient(new URL('war/', location.href).href, id);
   }
 
   /** Jobs asked and not back yet. */
   get busy(): number {
     return this.wait.size;
-  }
-
-  region(r: RegionData): void {
-    this.send({ t: 'region', region: r });
   }
 
   /** The view mode's tint, the grid and the zones for the jobs that follow. */
