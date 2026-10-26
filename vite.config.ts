@@ -37,16 +37,10 @@ export default defineConfig({
     target: 'es2020',
     chunkSizeWarningLimit: 2000,
     rollupOptions: {
-      // preview.html (procedural sprite sheets) and store.html (Telegram store
-      // art, see scripts/dev/store-images.mjs) are shipped too, for art review;
-      // audio.html plays every procedural sound and track (src/dev/audio.ts).
       // auth/*.html are the standalone email-link pages (V6-ACCT-06, accounts-v6.md UXA-06): a few KB,
       // no Phaser; Workers static assets serve /auth/signup from auth/signup.html.
       input: {
         main: 'index.html',
-        preview: 'preview.html',
-        store: 'store.html',
-        audio: 'audio.html',
         sandbox: 'sandbox.html', // war region sandbox (src/war/view/main.ts)
         world: 'world.html', // war world map (src/war/world-view/main.ts)
         'auth-signup': 'auth/signup.html',

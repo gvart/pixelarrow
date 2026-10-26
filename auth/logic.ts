@@ -33,7 +33,7 @@ export function variantOf(pathname: string): Variant | null {
 /** A server reply: the status and the parsed JSON body; null when the network or the body failed. */
 export type Reply = { status: number; body: unknown } | null;
 
-/** Message keys of src/i18n/account.*.ts the views name. */
+/** Message keys of auth/strings.*.ts the views name. */
 export type PageKey = 'auth.err.pwShort' | 'auth.err.pwLong' | 'auth.err.pwCommon' | 'auth.err.pwEmail' | 'auth.err.creds' | 'auth.page.rate' | 'auth.page.offline' | 'auth.err.unavailable';
 
 export type View =

@@ -4,7 +4,7 @@ import { ApiError, notConfigured, unauthorized } from './errors';
 import { readSessionCookie } from './auth/cookies';
 import { lookupSession, type Session, type Transport } from './auth/sessions';
 
-type SecretName = 'TELEGRAM_BOT_TOKEN' | 'TELEGRAM_WEBHOOK_SECRET';
+type SecretName = 'TELEGRAM_BOT_TOKEN';
 
 /** A secret's value, or a 503 "<NAME> not configured". */
 export function secret(env: Env, name: SecretName): string {

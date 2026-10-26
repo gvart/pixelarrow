@@ -14,7 +14,7 @@
 import type { Env } from '../env';
 import { sendWithTimeout, type EmailSender } from '../email/sender';
 import { pickLang, renderEmail } from '../email/templates';
-import { buttonUrl, langOf, renderAccountNotice, type AccountNotice } from '../notify/templates';
+import { accountButtonUrl, langOf, renderAccountNotice, type AccountNotice } from './noticeTexts';
 import { tryBot } from '../telegramApi';
 import { gameUrl } from '../urls';
 import { log } from '../telemetry/log';
@@ -65,7 +65,7 @@ export async function sendNoticeBot(env: Env, kind: NoticeKind, chat: number, la
     chat_id: chat,
     text: msg.text,
     link_preview_options: { is_disabled: true },
-    ...(msg.button ? { reply_markup: { inline_keyboard: [[{ text: msg.button, web_app: { url: buttonUrl(gameUrl(env), { kind: 'account' }) } }]] } } : {}),
+    ...(msg.button ? { reply_markup: { inline_keyboard: [[{ text: msg.button, web_app: { url: accountButtonUrl(gameUrl(env)) } }]] } } : {}),
   });
   if (!res.ok) log('warn', 'account_notice_failed', { channel: 'bot', kind, status: res.status });
 }

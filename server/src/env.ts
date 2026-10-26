@@ -1,5 +1,3 @@
-import type { MatchmakerDO } from './duel/matchmaker';
-import type { DuelDO } from './duel/duelDO';
 import type { WarRegionDO } from './war/regionDO';
 import type { WarWorldDO } from './war/world/worldDO';
 import type { Session } from './auth/sessions';
@@ -8,10 +6,6 @@ import type { Session } from './auth/sessions';
 export interface Env {
   /** D1 database. Absent when D1_DATABASE_ID was not configured at deploy time. */
   DB?: D1Database;
-  /** The global duel queue (one object, 'global'). */
-  MATCHMAKER: DurableObjectNamespace<MatchmakerDO>;
-  /** One object per live ranked or unranked match (named by the match id). */
-  DUEL: DurableObjectNamespace<DuelDO>;
   /** One object per live war region (server/src/war/regionDO.ts). */
   WAR_REGION: DurableObjectNamespace<WarRegionDO>;
   /** The one strategic war world (server/src/war/world/worldDO.ts, named 'world'). */
@@ -27,13 +21,12 @@ export interface Env {
   LANDING_URL?: string;
   /** Local only (.dev.vars): comma-separated dev origins for CORS and the Origin check. */
   DEV_ORIGINS?: string;
-  /** Bot username for clan invite links (t.me/<bot>/<app>); looked up with getMe when unset. */
+  /** Bot username for account link deep links (t.me/<bot>/<app>). */
   TELEGRAM_BOT_USERNAME?: string;
   /** Mini App short name in BotFather (default "play"). */
   TELEGRAM_APP_NAME?: string;
   // Secrets (wrangler secret put ...). Missing ones make the routes that need them answer 503.
   TELEGRAM_BOT_TOKEN?: string;
-  TELEGRAM_WEBHOOK_SECRET?: string;
   /**
    * Workers Analytics Engine datasets (docs/OPS.md). Absent when the deploy
    * dropped them (server/scripts/deploy-config.mjs): events are then skipped.
@@ -46,7 +39,7 @@ export interface Env {
    * at least 32 characters; without it /admin answers 503.
    */
   ADMIN_TOKEN?: string;
-  /** "1" only in local .dev.vars: accept a fake Telegram user in /api/auth/telegram. */
+  /** "1" only in local .dev.vars: the dev sign-in on /api/auth/telegram (the war dev pages). */
   DEV_AUTH?: string;
   /**
    * Password pepper (secret, ADR-0008 §2): 32 random bytes, base64. The PBKDF2
@@ -68,8 +61,6 @@ export interface Env {
   TURNSTILE_SECRET?: string;
   /** Rate Limiting binding, 10 / 60 s: `<route>:<ip>` on the email auth forms, `rename:<pid>` (ADR-0008 §5). */
   RL_AUTH_IP?: RateLimit;
-  /** Rate Limiting binding, 30 / 60 s: `tg:<ip>` on /api/auth/telegram (ADR-0008 §5). */
-  RL_TG_AUTH_IP?: RateLimit;
   /** Rate Limiting binding, 60 / 60 s: `public:<ip>` on GET/HEAD /api/public/v1/summary (ADR-0010 §4). */
   RL_PUBLIC_IP?: RateLimit;
 }

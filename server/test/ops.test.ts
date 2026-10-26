@@ -10,8 +10,8 @@ import { resetRateLimits } from '../src/rateLimit';
 import { retentionEvents } from '../src/routes/auth';
 import { setAnalyticsSink, type DatasetName } from '../src/telemetry/analytics';
 import { ERROR_BATCHES_PER_MIN, resetTelemetryLimits } from '../src/telemetry/routes';
-import { forgetSeasonCache } from '../src/online/store';
-import { api, devLogin, mockTelegram, webhook } from './helpers';
+import { currentSeason, forgetSeasonCache } from '../src/war/store';
+import { api, devLogin } from './helpers';
 
 const ADMIN = 'test-admin-token-0123456789abcdef0123456789';
 const DB = () => env.DB!;
@@ -142,30 +142,12 @@ describe('analytics events', () => {
     expect((await api('/api/telemetry/events', { method: 'POST', json: { events: [{ e: 'session_start' }] } })).status).toBe(401);
   });
 
-  it('server events: install at first login, purchase and first_purchase unless opted out', async () => {
+  it('server events: install at first login, once a day', async () => {
     const tg = 930020;
     await devLogin(tg);
     expect(events('install')).toHaveLength(1);
-    const { token, playerId } = await devLogin(tg);
+    await devLogin(tg);
     expect(events('install')).toHaveLength(1); // same day: no marker
-
-    const pay = (charge: string) =>
-      webhook({
-        update_id: 1,
-        message: { message_id: 1, chat: { id: tg, type: 'private' }, from: { id: tg }, successful_payment: { currency: 'XTR', total_amount: 100, invoice_payload: `v1:drachmae_100:${playerId}:abcd1234`, telegram_payment_charge_id: charge } },
-      });
-    mockTelegram();
-    await pay('ops-charge-1');
-    await pay('ops-charge-1'); // retry: no second event
-    expect(events('purchase').map((p) => p.blobs![4])).toEqual(['drachmae_100']);
-    expect(events('purchase')[0].doubles).toEqual([playerId, -1, 100, 100]);
-    expect(events('first_purchase')).toHaveLength(1);
-
-    expect((await api('/api/telemetry/consent', { method: 'POST', token, json: { analytics: false } })).status).toBe(200);
-    await pay('ops-charge-2');
-    expect(events('purchase')).toHaveLength(1);
-    const credited = await DB().prepare("SELECT COUNT(*) AS n FROM drachmae_ledger WHERE player_id = ?1 AND kind = 'pack'").bind(playerId).first<{ n: number }>();
-    expect(credited!.n).toBe(2); // opting out never changes the purchase itself
   });
 
   it('retention markers come from the previous last-seen day', () => {
@@ -221,7 +203,7 @@ describe('bans', () => {
     expect(me.status).toBe(403);
     expect(((await me.json()) as { error: { code: string } }).error.code).toBe('banned');
     await expect(devLogin(931010)).rejects.toThrow(/403/);
-    expect((await api('/api/save', { token })).status).toBe(403);
+    expect((await api('/api/war/roster', { token })).status).toBe(403);
 
     expect((await adminApi(`/players/${playerId}/unban`, { json: { requestId: rid(), reason: 'appeal accepted' } })).status).toBe(200);
     expect((await api('/api/me', { token })).status).toBe(200);
@@ -239,104 +221,19 @@ describe('bans', () => {
   });
 });
 
-describe('admin adjust and refund', () => {
-  it('adjusts Drachmae once per request id, audited', async () => {
-    const { token, playerId } = await devLogin(931020);
-    const requestId = rid();
-    const body = { requestId, currency: 'drachmae', delta: 250, reason: 'compensation for outage' };
-    const first = await adminApi(`/players/${playerId}/adjust`, { json: body });
-    expect(first.status).toBe(200);
-    expect(await first.json()).toMatchObject({ applied: true, balance: 250, replayed: false });
-    const second = await adminApi(`/players/${playerId}/adjust`, { json: body });
-    expect(await second.json()).toMatchObject({ balance: 250, replayed: true });
-    const wallet = await (await api('/api/economy/wallet', { token })).json<{ drachmae: number }>();
-    expect(wallet.drachmae).toBe(250);
-    const audit = await DB().prepare('SELECT COUNT(*) AS n FROM admin_audit WHERE request_id = ?1').bind(requestId).first<{ n: number }>();
-    expect(audit!.n).toBe(1);
-    // The same id for another player or action is refused.
-    const other = await devLogin(931021);
-    expect((await adminApi(`/players/${other.playerId}/adjust`, { json: body })).status).toBe(409);
-  });
-
-  it('adjusts season gold (never below zero) and needs a joined profile', async () => {
-    const { token, playerId } = await devLogin(931022);
-    expect((await adminApi(`/players/${playerId}/adjust`, { json: { requestId: rid(), currency: 'gold', delta: 10, reason: 'test gold' } })).status).toBe(409);
-    expect((await api('/api/online/profile', { method: 'POST', token })).status).toBe(200);
-    const before = (await DB().prepare('SELECT gold FROM online_profiles WHERE player_id = ?1').bind(playerId).first<{ gold: number }>())!.gold;
-    const requestId = rid();
-    const r = await adminApi(`/players/${playerId}/adjust`, { json: { requestId, currency: 'gold', delta: 40, reason: 'test gold' } });
-    expect(await r.json()).toMatchObject({ balance: before + 40 });
-    await adminApi(`/players/${playerId}/adjust`, { json: { requestId, currency: 'gold', delta: 40, reason: 'test gold' } });
-    const down = await adminApi(`/players/${playerId}/adjust`, { json: { requestId: rid(), currency: 'gold', delta: -1_000_000, reason: 'test gold' } });
-    expect(await down.json()).toMatchObject({ balance: 0 });
-    expect(events('online_join')).toHaveLength(1);
-  });
-
-  it('refunds a Stars pack through Telegram, debits the Drachmae, and never twice', async () => {
-    const tg = 931030;
-    const { token, playerId } = await devLogin(tg);
-    const charge = 'ops-refund-charge-1';
-    const calls = mockTelegram();
-    await webhook({
-      update_id: 5,
-      message: { message_id: 5, chat: { id: tg, type: 'private' }, from: { id: tg }, successful_payment: { currency: 'XTR', total_amount: 250, invoice_payload: `v1:drachmae_275:${playerId}:abcd1234`, telegram_payment_charge_id: charge } },
-    });
-    expect((await (await api('/api/economy/wallet', { token })).json<{ drachmae: number }>()).drachmae).toBe(275);
-
-    const requestId = rid();
-    const res = await adminApi(`/purchases/${charge}/refund`, { json: { requestId, reason: 'player asked via /paysupport' } });
-    expect(res.status).toBe(200);
-    expect(await res.json()).toMatchObject({ refunded: true, alreadyRefunded: false, telegram: 'refunded', drachmae: 0 });
-    const refundCalls = () => calls.filter((c) => c.method === 'refundStarPayment');
-    expect(refundCalls()).toHaveLength(1);
-    expect(refundCalls()[0].params).toEqual({ user_id: tg, telegram_payment_charge_id: charge });
-
-    // Retry of the same request: the stored answer, no second Telegram call.
-    expect(await (await adminApi(`/purchases/${charge}/refund`, { json: { requestId, reason: 'player asked via /paysupport' } })).json()).toMatchObject({ replayed: true });
-    // A new request on a refunded purchase: nothing sent to Telegram either.
-    expect(await (await adminApi(`/purchases/${charge}/refund`, { json: { requestId: rid(), reason: 'double click' } })).json()).toMatchObject({ alreadyRefunded: true });
-    // The refunded_payment webhook that Telegram sends afterwards changes nothing.
-    await webhook({ update_id: 6, message: { message_id: 6, chat: { id: tg, type: 'private' }, from: { id: tg }, refunded_payment: { currency: 'XTR', total_amount: 250, invoice_payload: `v1:drachmae_275:${playerId}:abcd1234`, telegram_payment_charge_id: charge } } });
-    expect(refundCalls()).toHaveLength(1);
-    expect((await (await api('/api/economy/wallet', { token })).json<{ drachmae: number }>()).drachmae).toBe(0);
-    const audit = await DB().prepare("SELECT COUNT(*) AS n FROM admin_audit WHERE action = 'refund' AND player_id = ?1").bind(playerId).first<{ n: number }>();
-    expect(audit!.n).toBe(2);
-    expect((await adminApi('/purchases/no-such-charge/refund', { json: { requestId: rid(), reason: 'missing' } })).status).toBe(404);
-  });
-
-  it('records a failed Telegram refund in the audit log and leaves the purchase alone', async () => {
-    const tg = 931031;
-    const { playerId } = await devLogin(tg);
-    const charge = 'ops-refund-charge-2';
-    mockTelegram();
-    await webhook({ update_id: 7, message: { message_id: 7, chat: { id: tg, type: 'private' }, from: { id: tg }, successful_payment: { currency: 'XTR', total_amount: 100, invoice_payload: `v1:drachmae_100:${playerId}:abcd1234`, telegram_payment_charge_id: charge } } });
-    vi.restoreAllMocks();
-    vi.spyOn(globalThis, 'fetch').mockImplementation(async () => Response.json({ ok: false, description: 'Bad Request: CHARGE_NOT_FOUND' }, { status: 400 }));
-    const requestId = rid();
-    expect((await adminApi(`/purchases/${charge}/refund`, { json: { requestId, reason: 'try it' } })).status).toBe(502);
-    const row = await DB().prepare('SELECT refunded FROM purchases WHERE telegram_payment_charge_id = ?1').bind(charge).first<{ refunded: number }>();
-    expect(row!.refunded).toBe(0);
-    const audit = await DB().prepare('SELECT result FROM admin_audit WHERE request_id = ?1').bind(requestId).first<{ result: string }>();
-    expect(audit!.result).toContain('CHARGE_NOT_FOUND');
-    expect((await adminApi(`/purchases/${charge}/refund`, { json: { requestId, reason: 'try it' } })).status).toBe(409);
-  });
-});
-
 describe('admin reads', () => {
-  it('search, player detail, overview, errors, audit, tickets', async () => {
+  it('search, player detail, overview, errors, audit', async () => {
     const { playerId } = await devLogin(931040, 'Findme');
     const found = await (await adminApi('/players?q=Findm')).json<{ players: { id: number }[] }>();
     expect(found.players.map((p) => p.id)).toContain(playerId);
     expect((await (await adminApi(`/players?q=${playerId}`)).json<{ players: { id: number }[] }>()).players[0].id).toBe(playerId);
-    const detail = await (await adminApi(`/players/${playerId}`)).json<{ player: { id: number }; wallet: unknown; purchases: unknown[] }>();
+    const detail = await (await adminApi(`/players/${playerId}`)).json<{ player: { id: number } }>();
     expect(detail.player.id).toBe(playerId);
     expect((await adminApi('/players/999999999')).status).toBe(404);
     const overview = await (await adminApi('/overview')).json<{ players: { total: number } }>();
     expect(overview.players.total).toBeGreaterThan(0);
     expect((await adminApi('/errors')).status).toBe(200);
     expect((await adminApi('/audit')).status).toBe(200);
-    const tickets = await (await adminApi('/tickets')).json<{ available: boolean }>();
-    expect(typeof tickets.available).toBe('boolean');
   });
 });
 
@@ -344,8 +241,9 @@ describe('admin reads', () => {
 describe('admin season controls', () => {
   it('ends and starts seasons by hand, audited and idempotent', async () => {
     const view = async () => (await adminApi('/season')).json<{ active: { id: number } | null }>();
-    const { token } = await devLogin(931050);
-    expect((await api('/api/online/profile', { method: 'POST', token })).status).toBe(200);
+    await devLogin(931050);
+    forgetSeasonCache();
+    await currentSeason(DB());
     const s1 = (await view()).active!.id;
 
     expect((await adminApi('/season/start', { json: { requestId: rid(), reason: 'too early' } })).status).toBe(409);

@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import type { AppEnv, Env } from '../env';
 import { ApiError, badRequest } from '../errors';
-import { clientIp, db, requireSession, secret } from '../middleware';
+import { clientIp, db, requireSession } from '../middleware';
 import { bannedError } from '../ban';
 import { publicPlayer, type PlayerRow } from '../players';
 import { playerByTelegramIdentity, upsertTelegramPlayer } from '../auth/identity';
@@ -22,21 +22,18 @@ import type { Context, MiddlewareHandler } from 'hono';
 import { optedOut, requestCtx, writeEvent } from '../telemetry/analytics';
 import { requireLimit } from '../rateLimit';
 import { requireTurnstile } from '../auth/turnstile';
-import { validateInitData, type TelegramUser } from '../telegramAuth';
 
 const MAX_BODY = 8 * 1024;
 
-const Body = z.union([
-  z.object({ initData: z.string().min(1).max(MAX_BODY) }),
-  z.object({
-    dev: z.object({
-      id: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
-      username: z.string().max(64).optional(),
-      first_name: z.string().max(128).optional(),
-      language_code: z.string().max(16).optional(),
-    }),
+/** The dev player to sign in as (DEV_AUTH=1 only): the war sandbox and world view sign in this way. */
+const Body = z.object({
+  dev: z.object({
+    id: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
+    username: z.string().max(64).optional(),
+    first_name: z.string().max(128).optional(),
+    language_code: z.string().max(16).optional(),
   }),
-]);
+});
 
 /**
  * DEV_AUTH=1 comes only from the local .dev.vars (never set it as a Worker
@@ -49,45 +46,25 @@ function devAuthAllowed(env: Env): boolean {
 
 export const auth = new Hono<AppEnv>();
 
+/**
+ * Dev sign-in (DEV_AUTH=1, local only): `{ dev: { id, first_name } }` signs in
+ * the dev player with that id, made on first use. The Telegram Mini App login
+ * (initData) is gone; the path stays because the war dev pages call it.
+ */
 auth.post('/telegram', async (c) => {
-  // Per IP only (ADR-0008 §5.3): initData is HMAC-signed, and Turnstile can't run in the Telegram iframe (N-AF-3).
-  await requireLimit(c.env.RL_TG_AUTH_IP, `tg:${clientIp(c)}`, 'Too many login attempts, slow down');
-
-  // Accept either JSON { initData } or the raw initData string as the body.
-  let body: z.infer<typeof Body>;
-  const ct = c.req.header('content-type') ?? '';
-  if (ct.includes('application/json')) {
-    const text = await c.req.text();
-    if (text.length > MAX_BODY) throw new ApiError(413, 'too_large', 'Body too large');
-    let raw: unknown;
-    try {
-      raw = JSON.parse(text);
-    } catch {
-      throw badRequest('Body is not valid JSON');
-    }
-    const parsed = Body.safeParse(raw);
-    if (!parsed.success) throw badRequest('Expected { initData: string }');
-    body = parsed.data;
-  } else {
-    const text = (await c.req.text()).trim();
-    if (!text || text.length > MAX_BODY) throw badRequest('Expected the Telegram WebApp initData string');
-    body = { initData: text };
+  if (!devAuthAllowed(c.env)) throw new ApiError(403, 'forbidden', 'Dev auth is disabled');
+  const text = await c.req.text();
+  if (text.length > MAX_BODY) throw new ApiError(413, 'too_large', 'Body too large');
+  let raw: unknown;
+  try {
+    raw = JSON.parse(text);
+  } catch {
+    throw badRequest('Body is not valid JSON');
   }
-
-  let user: TelegramUser;
+  const parsed = Body.safeParse(raw);
+  if (!parsed.success) throw badRequest('Expected { dev: { id } }');
+  const user = parsed.data.dev;
   const now = Date.now();
-  // The session's re-auth proof is as fresh as the initData (ADR-0009 §1): a day-old initData signs in but isn't a fresh proof.
-  let reauthAt = now;
-  if ('dev' in body) {
-    if (!devAuthAllowed(c.env)) throw new ApiError(403, 'forbidden', 'Dev auth is disabled');
-    user = body.dev;
-  } else {
-    const botToken = secret(c.env, 'TELEGRAM_BOT_TOKEN');
-    const result = await validateInitData(body.initData, botToken);
-    if (!result.ok) throw new ApiError(401, 'invalid_init_data', `initData rejected: ${result.reason}`);
-    user = result.user;
-    reauthAt = Math.min(now, result.authDate * 1000);
-  }
 
   const d = db(c.env);
   if ((await playerByTelegramIdentity(d, user.id))?.banned_at) throw bannedError();
@@ -97,8 +74,8 @@ auth.post('/telegram', async (c) => {
   if (!optedOut(c) && !prev?.analytics_opt_out) {
     for (const event of retentionEvents(prev, now)) writeEvent(c.env, requestCtx(c, player.id, 'server', daysSince(player.created_at, now)), event, {});
   }
-  // Telegram always gets a bearer session (ADR-0008 §3): cookies are blocked in its iframe.
-  const { token, session } = await createSession(d, player.id, 'bearer', 'telegram', deviceLabel(c.req.header('user-agent')), now, reauthAt);
+  // A bearer session: the war dev pages send it as a header and a socket subprotocol.
+  const { token, session } = await createSession(d, player.id, 'bearer', 'telegram', deviceLabel(c.req.header('user-agent')), now, now);
   return c.json({ token, expiresAt: session.expiresAt, player: publicPlayer(player) });
 });
 

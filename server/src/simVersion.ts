@@ -1,8 +1,7 @@
 /**
  * The sim version check (design/adr/ADR-0001-determinism-replay.md).
  *
- * Clients send `simVersion` (src/sim/version.ts SIM_VERSION) with every battle
- * ticket, submission and verify call, and `?sim=` on their sockets. The server
+ * Clients send `?sim=` (src/sim/version.ts SIM_VERSION) on their sockets. The server
  * runs one sim, today's, so it takes only SIM_VERSION: anything else is a
  * stale (or newer) bundle and gets 426 `sim_version_unsupported` (sockets: an
  * error frame and close 4426) and a "please reload" message. There is no
@@ -10,13 +9,14 @@
  */
 import { z } from 'zod';
 import { SIM_VERSION } from '../../src/sim/version';
-import { SIM_VERSION_REJECTED } from '../../src/online/protocol';
 import { ApiError } from './errors';
 
 export { SIM_VERSION };
 
-/** The wire field. Optional in the schema so that a missing one is 426, not 400. */
-export const SimVersionField = z.number().int().min(0).max(1_000_000).optional();
+/** The error code of a refused sim version (HTTP 426, or a socket's `error` frame). */
+export const SIM_VERSION_REJECTED = 'sim_version_unsupported';
+/** The close code of a socket refused for its sim version. */
+export const SIM_VERSION_CLOSE = 4426;
 
 /** 426 `sim_version_unsupported`: the client must reload (an old build) or the server is behind (a newer build). */
 function unsupported(version: number | undefined): ApiError {

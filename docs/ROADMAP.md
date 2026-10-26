@@ -2,7 +2,8 @@
 
 Where the game is going, the architecture it runs on, the invariants the
 code keeps, and what is still open. What is built is described in
-GAMEPLAY.md, WAR.md, DUELS.md and server/README.md.
+WAR.md and server/README.md. The campaign, duels, the shop and the Telegram
+Mini App were removed (the game is only the browser war).
 
 ## Vision
 
@@ -10,11 +11,8 @@ GAMEPLAY.md, WAR.md, DUELS.md and server/README.md.
   four alliances, live server-run battles in every region and squads that
   transfer between neighbours (WAR.md, docs/impl/global-war-rebuild.md).
   **Clans** serve inside an alliance.
-- **Duels:** a persistent duel army with ranked live and async ladders
-  (DUELS.md).
 - **Telegram Stars buy only Drachmae**; Drachmae buy cosmetics and the
   season pass. No paid power.
-- The offline campaign stays the single-player core (GAMEPLAY.md).
 - **Web and desktop as well as Telegram** (v6, below).
 
 ## Agreed architecture
@@ -96,7 +94,7 @@ Still enforced by code. The ADRs themselves were removed; see the note at the en
   `neutral`, `lit`, `disabled` with a reason), never a colour; grey only for
   disabled. Hit areas at least `TAP` (44 pt), labels never under `TEXT_MIN`
   6.5, badges are counts (no "!"), must-show facts wrap. Pure rules live in
-  `src/ui/mosaic/policy.ts` with tests (docs/UI_KIT.md).
+  `src/ui/mosaic/policy.ts` with tests (removed with the legacy UI).
 - (ADR-0006) Game code reaches the platform only through `src/platform`
   (facade), `src/platform/core/*` and neutral services, never
   `src/platform/{telegram,web}/**` or `detect.ts`; it branches on
@@ -167,7 +165,7 @@ Still enforced by code. The ADRs themselves were removed; see the note at the en
 ### Polish
 
 - The world map, settlements, results, market, first run and camp still use
-  the older chrome (docs/UI_KIT.md "Screen chrome").
+  the older chrome.
 - The consumable picker (`pickBattleConsumable`) is not offered in attacks,
   lairs, world-boss raids or duel challenges yet.
 - The premium season pass (500 Dr) should return about 600 Dr; the reward
@@ -192,7 +190,7 @@ Still enforced by code. The ADRs themselves were removed; see the note at the en
 - Low-end phones: 30 fps in a 40-soldier battle; an automatic low-effects mode.
 - A staging environment.
 - Season events and themes.
-- Assault time or post-battle rest if attacks feel too cheap (DESIGN_V2.md).
+- Assault time or post-battle rest if attacks feel too cheap.
 
 ## v6: web and desktop
 
@@ -215,6 +213,6 @@ in place (see Binding decisions). Still open:
 
 ## Removed planning docs
 
-Code comments still cite removed planning docs (`docs/v5/*`, `docs/v6/*`,
-`design/*`, `production/*`) and story IDs such as V6-ACCT-03. They are in git
+Code comments still cite removed planning docs (`docs/v6/*`, `design/*`,
+`production/*`, the planning parts of `docs/v5/*`) and story IDs such as V6-ACCT-03. They are in git
 history before the cleanup: `git show 6f243dbc:<path>`.

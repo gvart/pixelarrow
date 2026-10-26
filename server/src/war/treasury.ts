@@ -9,7 +9,7 @@
  *  - Every move is in war_treasury_log (who, what, how much, which captive, when); the treasury view shows the latest.
  */
 import { ApiError } from '../errors';
-import { currentSeason, membership, type Membership } from '../online/store';
+import { currentSeason, membership, type Membership } from './store';
 import { credit, payCoin, RANSOM_PER_LEVEL, settle } from './persons';
 import { ensureHolder, goodsOf, pay, strongbox } from './holders';
 

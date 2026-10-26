@@ -12,10 +12,14 @@ import { describe, expect, it } from 'vitest';
 /** The last migration applied in production; later ones run over the seeded rows. */
 const PRODUCTION_HEAD = '0016_sim_version.sql';
 const PLAYERS = 6;
-/** Tables a later migration drops on purpose (0027: the old route-graph war, W-01). */
+/** Tables a later migration drops on purpose (0027: the old route-graph war, W-01; 0036: the legacy game). */
 const DROPPED = new Set([
   'online_garrisons', 'online_camp_buildings', 'online_camps', 'online_regions', 'online_shards', 'market_audit', 'market_listings',
   'merchant_orders', 'merchant_daily', 'world_boss_chests', 'world_boss_loot', 'world_boss_damage', 'world_bosses', 'battle_tickets', '_keep_merchant_orders',
+  // 0036: the campaign, duels, shop, pass and bot
+  'online_items', 'online_heroes', 'online_consumables', 'consumable_daily', 'shop_orders', 'cosmetic_loadout', 'pass_claims', 'pass_progress', 'notify_log',
+  'bot_meta', 'duel_heroes', 'duel_items', 'duel_orders', 'duel_tickets', 'duel_queue_state', 'duel_loadouts', 'duel_defences', 'duel_attacks',
+  'duel_season_rewards', 'duel_ladder_stars', 'duel_ladder_chests', 'loot_pity',
 ]);
 const ROWS = 3;
 

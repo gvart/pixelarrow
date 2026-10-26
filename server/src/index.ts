@@ -1,15 +1,13 @@
 /**
  * Pixelarrow Worker entry. Static assets (dist/) are served by the assets
  * layer; only /api/*, /ws/* and /admin run this code (assets.run_worker_first).
- * A daily cron (wrangler.jsonc triggers) prunes old client error reports.
+ * Crons (wrangler.jsonc triggers): the public stats snapshot and daily housekeeping.
  */
 import { Hono, type Context } from 'hono';
 import { WorkerEntrypoint } from 'cloudflare:workers';
-import { readJson } from './body';
-import { LIMITS, verifyBattle, VerifyBody } from './battle';
 import type { AppEnv } from './env';
 import { ApiError, errorBody, unauthorized } from './errors';
-import { assertPlayable, credentials, db, requirePlayable, requireSession } from './middleware';
+import { assertPlayable, credentials, db, requireSession } from './middleware';
 import { originCheck } from './auth/origin';
 import { WAR_REGIONS } from './war/regions';
 import { war } from './war/routes';
@@ -23,17 +21,7 @@ import { gameOrigins } from './urls';
 import { getPlayer, publicPlayer } from './players';
 import { auth } from './routes/auth';
 import { account } from './account/routes';
-import { save } from './routes/save';
-import { entitlements, shop } from './routes/shop';
-import { webhook } from './routes/webhook';
-import { checkSocketSimVersion } from './simVersion';
-import { SIM_VERSION_CLOSE, SIM_VERSION_REJECTED } from '../../src/online/protocol';
-import { online } from './online/routes';
-import { economy } from './economy/routes';
-import { duel } from './duel/routes';
-import { requireDuelProfile } from './duel/store';
-import { notifyRoutes } from './notify/routes';
-import { runScheduled } from './notify/jobs';
+import { checkSocketSimVersion, SIM_VERSION_CLOSE, SIM_VERSION_REJECTED } from './simVersion';
 import { buildPublicSnapshot } from './public/snapshot';
 import { PUBLIC_PREFIX, publicRoute, readSnapshot, type SnapshotRow } from './public/routes';
 import { pruneClientErrors, telemetry } from './telemetry/routes';
@@ -45,8 +33,6 @@ import { adminPage } from './admin/page';
 const WS_PROTOCOL = 'pixelarrow.v1';
 
 // Only handlers, Durable Object classes and entrypoints may be exported from the entry module.
-export { MatchmakerDO } from './duel/matchmaker';
-export { DuelDO } from './duel/duelDO';
 export { WarRegionDO } from './war/regionDO';
 export { WarWorldDO } from './war/world/worldDO';
 
@@ -65,12 +51,11 @@ export class PublicApi extends WorkerEntrypoint<AppEnv['Bindings']> {
 const app = new Hono<AppEnv>();
 
 /**
- * Play may be framed by itself and by Telegram Web, which shows the Mini App
- * in an iframe (ADR-0007); never X-Frame-Options. Responses that set their own
+ * Play may be framed only by itself; never X-Frame-Options. Responses that set their own
  * policy (the admin page: frame-ancestors 'none') keep it. The game's static
  * HTML gets the same header from public/_headers.
  */
-const FRAMING = "frame-ancestors 'self' https://web.telegram.org";
+const FRAMING = "frame-ancestors 'self'";
 app.use('*', async (c, next) => {
   await next();
   if (c.res.status === 101 || c.res.headers.has('content-security-policy')) return; // 101: rebuilding would drop the socket
@@ -79,11 +64,10 @@ app.use('*', async (c, next) => {
 });
 
 // The game and its API are same-origin on play (ADR-0007); this only matters for
-// Telegram web clients and local tooling. Never the apex, never credentials.
-const TELEGRAM_WEB = 'https://web.telegram.org';
+// local tooling. Never the apex, never credentials.
 app.use('/api/*', async (c, next) => {
   const origin = c.req.header('origin');
-  const allowed = !!origin && (origin === TELEGRAM_WEB || gameOrigins(c.env).includes(origin));
+  const allowed = !!origin && gameOrigins(c.env).includes(origin);
   if (allowed && c.req.method === 'OPTIONS') {
     c.res = new Response(null, {
       status: 204,
@@ -113,8 +97,6 @@ app.get('/api/health', (c) =>
     time: Date.now(),
     db: !!c.env.DB,
     secrets: {
-      telegramBotToken: !!c.env.TELEGRAM_BOT_TOKEN,
-      telegramWebhookSecret: !!c.env.TELEGRAM_WEBHOOK_SECRET,
       adminToken: !!c.env.ADMIN_TOKEN,
     },
     analyticsEngine: !!c.env.ANALYTICS,
@@ -130,32 +112,14 @@ app.get('/api/me', requireSession, async (c) => {
 });
 
 app.route('/api/account', account);
-app.route('/api/save', save);
-app.route('/api/shop', shop);
-app.route('/api/entitlements', entitlements);
-app.route('/api/telegram', webhook);
 
 app.route('/api/telemetry', telemetry);
 app.route('/api/admin', admin);
 app.route('/admin', adminPage);
 app.get('/admin/', (c) => c.redirect('/admin', 301));
 
-app.route('/api/online', online);
-app.route('/api/economy', economy);
-app.route('/api/duel', duel);
-app.route('/api/notify', notifyRoutes);
 app.route('/api/war/world', worldApi);
 app.route('/api/war', war);
-
-app.post('/api/battle/verify', requirePlayable, async (c) => {
-  const req = await readJson(c, VerifyBody, LIMITS.maxBodyBytes);
-  try {
-    return c.json(verifyBattle(req));
-  } catch (e) {
-    if (e instanceof ApiError) throw e; // 426 sim_version_unsupported
-    throw new ApiError(422, 'sim_rejected', `The simulation rejected this battle: ${(e as Error).message ?? e}`);
-  }
-});
 
 /** A socket the server will not serve (a sim version it does not run): opened only to say why, then closed. */
 class SocketRefused extends Error {
@@ -180,7 +144,7 @@ function refuseSocket(r: SocketRefused): Response {
 
 /**
  * The socket's session (ADR-0008 §3): the web's cookie (the same-origin upgrade
- * sends it; originCheck has already matched the Origin), or Telegram's bearer
+ * sends it; originCheck has already matched the Origin), or a bearer
  * token in `Sec-WebSocket-Protocol: pixelarrow.v1, <token>`. Never `?token=`.
  * The player must be playable (M-OG-1). `?sim=` must be SIM_VERSION, else the
  * socket is refused.
@@ -234,23 +198,6 @@ app.get('/api/war/:region/stats', async (c) => {
   if (c.env.DEV_AUTH !== '1' || !WAR_REGIONS.includes(region)) throw new ApiError(404, 'not_found', 'No such endpoint');
   const stub = c.env.WAR_REGION.get(c.env.WAR_REGION.idFromName(region));
   return c.json(await (await stub.fetch(new Request(`https://war/${region}/stats`))).json());
-});
-
-/** The global duel queue (ranked and unranked): needs a duel profile. */
-app.get('/ws/duel', async (c) => {
-  const { session, headers } = await wsSession(c);
-  await requireDuelProfile(db(c.env), session.pid);
-  const stub = c.env.MATCHMAKER.get(c.env.MATCHMAKER.idFromName('global'));
-  return stub.fetch(new Request(c.req.url, { headers }));
-});
-
-/** One live match (its DuelDO checks that the player is in it). */
-app.get('/ws/duel/:match', async (c) => {
-  const match = c.req.param('match');
-  if (!/^[0-9a-f]{32}$/.test(match)) throw new ApiError(400, 'bad_request', 'Bad match id');
-  const { headers } = await wsSession(c);
-  const stub = c.env.DUEL.get(c.env.DUEL.idFromName(match));
-  return stub.fetch(new Request(c.req.url, { headers }));
 });
 
 app.all('/api/*', () => {
@@ -308,16 +255,9 @@ export default {
     if (new URL(request.url).pathname.startsWith(PUBLIC_PREFIX)) return publicRoute(request, env);
     return app.fetch(request, env, ctx);
   },
-  /**
-   * Cron (wrangler.jsonc triggers): every 5 minutes bot notifications that
-   * wait, season and income notices, bot setup, the public stats snapshot;
-   * daily housekeeping.
-   */
+  /** Cron (wrangler.jsonc triggers): every 5 minutes the public stats snapshot; daily housekeeping. */
   scheduled(controller, env, ctx) {
     if (controller.cron === HOUSEKEEPING_CRON) ctx.waitUntil(housekeeping(env));
-    else {
-      ctx.waitUntil(runScheduled(env, controller.scheduledTime));
-      ctx.waitUntil(publicSnapshot(env, controller.scheduledTime));
-    }
+    else ctx.waitUntil(publicSnapshot(env, controller.scheduledTime));
   },
 } satisfies ExportedHandler<AppEnv['Bindings']>;

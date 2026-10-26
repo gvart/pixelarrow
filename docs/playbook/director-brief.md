@@ -108,8 +108,8 @@ design first").}
   published test keys locally.
 - Online war or duel rule changes are made in both the client and `server/`, with tests.
 - **Design first for any gameplay change:** a GDD via `/quick-design` or `/design-review`; for combat or economy,
-  `/balance-check` plus `npm run balance` before and after, both recorded; update the matching doc
-  (`docs/GAMEPLAY.md`, `DESIGN_V2.md`, `DUELS.md`, `ITEMS.md`).
+  `/balance-check` plus `npm run balance:war` before and after, both recorded; update the matching doc
+  (`docs/WAR.md`, `ITEMS.md`).
 - No change may silently remove an existing feature, piece of information or action. Before redesigning or
   re-laying out a screen, list its real elements from the scene code.
 - **Mockups, asset prompts, marketing copy and videos never show features that don't exist** (an early mockup

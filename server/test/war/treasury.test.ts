@@ -3,7 +3,7 @@ import { env } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
 import { good, setGood } from './goods';
 import { api, devLogin } from '../helpers';
-import { currentSeason } from '../../src/online/store';
+import { currentSeason } from '../../src/war/store';
 import { applyFight, claimForJoin, RANSOM_PER_LEVEL, type PersonRow } from '../../src/war/persons';
 import type { FightReport, PersonResult } from '../../../src/war/types';
 

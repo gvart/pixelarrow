@@ -24,8 +24,7 @@ GDDs and ADRs of those runs are no longer in the repo; this playbook keeps the m
 | --- | --- |
 | Art pipeline scripts, asset list, sheet format, PixelLab style lock | [docs/v5/art/](../v5/art/) (`ASSET_PIPELINE.md`, `ASSET_LIST.md`, `SHEET_FORMAT.md`, `STYLE_LOCK.md`, `asset-manifest.json`, `palette.json`) |
 | PixelLab job ids, picks and the I5c / polish prompts by id | [docs/v5/pixellab/](../v5/pixellab/) |
-| Player-facing rules | [docs/GAMEPLAY.md](../GAMEPLAY.md), [DESIGN_V2.md](../DESIGN_V2.md), [DUELS.md](../DUELS.md), [ITEMS.md](../ITEMS.md) |
-| Regression suite | [tests/regression/SUITE.md](../../tests/regression/SUITE.md) |
+| Player-facing rules | [docs/WAR.md](../WAR.md), [ITEMS.md](../ITEMS.md) |
 | Flaky checks | [docs/FLAKY.md](../FLAKY.md) |
 | Release and ops | [docs/OPS.md](../OPS.md) |
 | What comes next | [docs/ROADMAP.md](../ROADMAP.md) |

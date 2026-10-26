@@ -12,13 +12,15 @@
  * Text goes through textContent only; every label carries its key, so EN | RU switches in place
  * without a reload and without losing what was typed.
  */
-import { ACCOUNT_EN } from '../src/i18n/account.en';
-import { ACCOUNT_RU } from '../src/i18n/account.ru';
+import { ACCOUNT_EN } from './strings.en';
+import { ACCOUNT_RU } from './strings.ru';
 import { legalUrl } from '../src/ui/legal';
 import type { HumanCheck, HumanCheckAction, HumanCheckWidget } from '../src/platform/core/auth';
 import type { PlatformEnv } from '../src/platform/core/env';
-import type { Entry } from '../src/i18n/index';
 import { conflictView, fmt, guestSave, pageLang, PW_MAX, PW_MIN, readToken, resetView, savedLangSetting, variantOf, verifyView, type Lang, type Reply, type Variant, type View } from './logic';
+
+/** A string table entry: plain, or plural forms (as in the game's old i18n tables). */
+type Entry = string | { one?: string; few?: string; many?: string; other: string };
 
 type Key = keyof typeof ACCOUNT_EN;
 type Params = Record<string, string | number>;

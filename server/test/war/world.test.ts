@@ -17,7 +17,7 @@ import { freshWorld, RETRY_MS, World, WORLD_NAME, type ArriveResult, type Ports 
 import { HEGEMONY, HOUR_MS } from '../../../src/war/world/season';
 import { joinRefusal } from '../../../src/war/world/access';
 import type { WarWorldDO } from '../../src/war/world/worldDO';
-import { currentSeason } from '../../src/online/store';
+import { currentSeason } from '../../src/war/store';
 import { api, BASE, devLogin } from '../helpers';
 
 const T0 = 1_000_000;

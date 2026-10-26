@@ -26,8 +26,6 @@ concurrency:
 # `target`); only that site's jobs run:
 #   game:    build (types, unit tests, dist/ as an artifact)
 #              -> server (types, tests in workerd; wrangler.jsonc's assets need dist/)
-#              -> layout (one job per size and language) + smoke (one job per script
-#                 and platform mode) + regression (both platform modes)
 #              -> deploy (D1 migrations, game Worker)
 #   landing: landing-build (types, Worker tests in workerd, astro build, landing-dist)
 #              -> landing-test (hero and sections checks in Chromium)
@@ -56,7 +54,8 @@ jobs:
               - 'src/**'
               - 'server/**'
               - 'public/**'
-              - 'index.html'
+              - '*.html'
+              - 'auth/**'
               - 'scripts/**'
               - 'tests/**'
               - 'package*.json'
@@ -108,9 +107,6 @@ jobs:
       # vite build only: the type-check above is what `npm run build` adds
       - run: npx vite build
         env:
-          # Telegram invite links t.me/<bot>/<app>?startapp=... (owner action; the play URL until set)
-          VITE_TELEGRAM_BOT: ${{ vars.TELEGRAM_BOT_USERNAME }}
-          VITE_TELEGRAM_APP: ${{ vars.TELEGRAM_APP_NAME }}
           # the web sign-in forms' Turnstile site key (public; owner action, ADR-0008 §6)
           VITE_TURNSTILE_SITE_KEY: ${{ vars.TURNSTILE_SITE_KEY }}
       - uses: actions/upload-artifact@v4
@@ -126,7 +122,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-      # server/ (Worker API, bundles ../src/sim)
+      # server/ (Worker API, bundles ../src/war)
       - uses: ./.github/actions/server-setup
       - uses: actions/download-artifact@v4
         with:
@@ -137,82 +133,16 @@ jobs:
       - run: npx vitest run
         working-directory: server
 
-  # ---- layout check (docs/UI_KIT.md "Layout check"): every screen across the
-  # v6 screen matrix (the ten sizes of `--matrix all`) plus the v5 phone sizes
-  # (`--matrix v5`: 320x568, 375x667, 430x932, 320x640), in English and
-  # Russian, with Telegram's safe-area insets too at phone sizes. One job per
-  # size and language (one or two configurations, each split in two contexts).
-  # Known violations are allowlisted per owner story in
-  # scripts/layout-allowlist/<story>.json (`@WxH` scopes an entry to a size);
-  # anything else fails the deploy.
-  layout:
-    needs: build
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        size: [390x844, 360x780, 320x693, 844x390, 768x1024, 820x1180, 1024x768, 1280x800, 1440x900, 1920x1080, 320x568, 375x667, 430x932, 320x640]
-        lang: [en, ru]
-    # the wide sizes draw many more screens; software GL with the PixelLab sheets runs 1920x1080 past 45 min
-    timeout-minutes: 90
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/browser-setup
-      - name: Layout check (${{ matrix.size }}, ${{ matrix.lang }})
-        run: node scripts/layout-check.mjs http://localhost:4173/ --sizes ${{ matrix.size }} --langs ${{ matrix.lang }} --split 2 --jobs 4
-      - name: Upload layout screenshots
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: layout-${{ matrix.size }}-${{ matrix.lang }}
-          path: shots/layout
-          retention-days: 14
-
-  # ---- touch smoke tests (README "Browser checks")
-  smoke:
-    needs: build
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        # tutorial-smoke disabled on CI: battles too slow under software GL with the PixelLab sheets; re-enable when CI has a faster runner (still runs locally)
-        script: [smoke, online-smoke, fullscreen-smoke, audio-smoke, duel-smoke]
-        platform: [telegram, web]
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/browser-setup
-      # GATE-02 interface: base URL as argv[2]; the platform mode
-      # (telegram | web) from SMOKE_PLATFORM, one job per mode.
-      - run: node scripts/${{ matrix.script }}.mjs http://localhost:4173/
-        env:
-          SMOKE_PLATFORM: ${{ matrix.platform }}
-
-  # ---- regression suite (tests/regression/SUITE.md), both platform modes
-  regression:
-    needs: [changes, build]
-    if: needs.changes.outputs.game == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/browser-setup
-      # battle-kinds disabled on CI: battles too slow under software GL with the PixelLab sheets; re-enable when CI has a faster runner (still runs locally)
-      - run: node scripts/regression/run.mjs http://localhost:4173/ --only hub-flows,sheet-layout,controls,replay-hash
-
   deploy:
     # The game gates must pass. If the landing changed too, its gates must
     # pass as well, so the two sites go live together or not at all (V6-023).
-    needs: [changes, build, server, layout, smoke, regression, landing-build, landing-test]
+    needs: [changes, build, server, landing-build, landing-test]
     if: >-
       always() &&
       github.ref == 'refs/heads/main' &&
       needs.changes.outputs.game == 'true' &&
       needs.build.result == 'success' &&
       needs.server.result == 'success' &&
-      needs.layout.result == 'success' &&
-      needs.smoke.result == 'success' &&
-      needs.regression.result == 'success' &&
       (needs.changes.outputs.landing != 'true' ||
         (needs.landing-build.result == 'success' && needs.landing-test.result == 'success'))
     runs-on: ubuntu-latest
@@ -292,9 +222,6 @@ jobs:
       # the Worker tests run in workerd
       - run: npm test
       - run: npm run build
-        env:
-          # the "Open in Telegram" deep link (owner action; telegram.org until set)
-          PUBLIC_TELEGRAM_URL: ${{ vars.PUBLIC_TELEGRAM_URL }}
       - uses: actions/upload-artifact@v4
         with:
           name: landing-dist
