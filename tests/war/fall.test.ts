@@ -103,7 +103,7 @@ describe('M6c loot piles (replace the M5d gear drops)', () => {
     const one = piles.find((p) => p.items > 0)!;
     expect(sim.salvage(one.id)).toBeGreaterThan(0);
     expect(sim.salvage(one.id)).toBe(0);
-    run(sim, PILE.decay);
+    run(sim, PILE.decay + 5); // piles are swept every SCAN (5) ticks
     expect(sim.snapshot().piles ?? []).toHaveLength(0);
   });
 });

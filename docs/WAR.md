@@ -604,6 +604,24 @@ Cost at 600 units: bake ≈ 20 µs each, 12 ms once per region join (spread over
 new loops, ≤ 2 branches per hit (flag, squad multiplier), < 0.1 ms on today's step. No per-unit ability timers,
 auras or morale.
 
+### Movement (W-55)
+
+What we took from established RTS games (`src/war/sim/grid.ts` `pullPath`, `src/war/sim/index.ts` `fitSlots`, `stepSquad`, `separate`):
+
+- **Any-angle paths** (Theta*-style string pulling of the A* result, as in most modern RTS): a path's corners are pulled tight
+  wherever a body-wide straight walk is open and no dearer than the tile path, so men walk straight lines, not 8-way
+  zig-zags; terrain costs still count (no cutting through forest or up a slope the search went round). Stairs, decks
+  and bridges keep their corners.
+- **Formations move as one** (Age of Empires, Total War): the block marches at its slowest man's pace, faces a point a little
+  way along the path and wheels no faster than its outer slot can follow; on a new heading over 45° it faces it at once and
+  its men take the slots that keep their order in the block (rank by rank, left to right), so no one runs across it.
+- **Pushing, not going round** (StarCraft 2): a man at ease is shoved aside by a friend of another squad walking through
+  and walks back to his slot after. Foes and fighters still block.
+- **No sticking**: a walker who gets under half a tile on in 3 s while still wanting to go on re-paths on his own; no
+  slipping through corner-to-corner pinches. Facing turns at most 0.5 rad a tick and ignores shoves (no twitching sprites).
+- Not taken: flow fields (Supreme Commander 2, Planetary Annihilation) pay off for hundreds of units sharing one goal; with
+  squads of ≤ 12 one A* per squad plus slot steering is cheaper and keeps formations.
+
 ### Lifecycle
 
 | Stage | Rule |

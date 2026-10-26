@@ -72,7 +72,7 @@ describe('combat', () => {
     for (const seed of SEEDS) {
       const hill = battle(seed, { cls: 'archer', n: 12, x: brow.x + brow.ux, y: brow.y + brow.uy }, { cls: 'militia', n: 8, x: SPOTS.ridgeFoot[0], y: SPOTS.ridgeFoot[1] });
       expect(hill.att).toBe(0);
-      expect(hill.def).toBeGreaterThanOrEqual(5);
+      expect(hill.def).toBeGreaterThanOrEqual(2); // W-55: the climbers walk a straight line up (fewer volleys before they close)
       const flat = battle(seed, { cls: 'archer', n: 12, x: FX, y: FY - 12 }, { cls: 'militia', n: 8, x: FX, y: FY + 12 });
       expect(flat.def).toBe(0);
     }

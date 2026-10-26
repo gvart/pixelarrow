@@ -314,6 +314,67 @@ export function lineClear(g: Grid, x0: number, y0: number, x1: number, y1: numbe
   return true;
 }
 
+/**
+ * W-55: cost of a straight walk from (x0,y0) to (x1,y1) in the A* units (terrain of each tile crossed times the length in
+ * it, uphill steps x UPHILL), Infinity when it crosses a blocked tile or a cliff, or passes within r of one (the body:
+ * the walk is checked along its centre line and both edges).
+ */
+export function lineCost(g: Grid, x0: number, y0: number, x1: number, y1: number, r: number): number {
+  const len = Math.hypot(x1 - x0, y1 - y0);
+  if (len < 1e-6) return 0;
+  const nx = (-(y1 - y0) / len) * r, ny = ((x1 - x0) / len) * r;
+  if (r > 0 && (!lineClear(g, x0 + nx, y0 + ny, x1 + nx, y1 + ny) || !lineClear(g, x0 - nx, y0 - ny, x1 - nx, y1 - ny))) return Infinity;
+  const steps = Math.ceil(len * 4), ds = len / steps;
+  let prev = tileAt(g, x0, y0), cost = 0;
+  if (prev < 0) return Infinity;
+  for (let s = 1; s <= steps; s++) {
+    const t = tileAt(g, x0 + ((x1 - x0) * s) / steps, y0 + ((y1 - y0) * s) / steps);
+    if (t !== prev) {
+      if (!canEnter(g, prev, t)) return Infinity;
+      if ((x1 - x0) * (y1 - y0) !== 0) {
+        // a step to a diagonal neighbour squeezes between two tiles: both must be open (A* cuts no corner either)
+        const px = prev % g.w, py = (prev / g.w) | 0, tx = t % g.w, ty = (t / g.w) | 0;
+        if (px !== tx && py !== ty && !(g.span[prev] && g.span[t]) && (!canEnter(g, prev, py * g.w + tx) || !canEnter(g, prev, ty * g.w + px))) return Infinity;
+      }
+    }
+    cost += (g.height[t] > g.height[prev] ? g.cost[t] * UPHILL : g.cost[t]) * ds;
+    prev = t;
+  }
+  return cost;
+}
+
+/** W-55: a body can walk straight from (x0,y0) to (x1,y1): lineClear that also squeezes past no blocked corner. */
+export const walkClear = (g: Grid, x0: number, y0: number, x1: number, y1: number) => lineCost(g, x0, y0, x1, y1, 0) < Infinity;
+
+/**
+ * W-55 string pulling (any-angle paths): the tile path's corners `pts` (flat x,y, first = the start) are pulled tight, so a
+ * walker goes straight wherever a straight walk is open and no dearer than the tile path it replaces (it never cuts
+ * through a forest or up a slope the search went round). `cost[k]`: the tile path's cost from the start to point k.
+ * Points with keep[k] stay (stairs, decks, bridges: their own rules).
+ */
+export function pullPath(g: Grid, pts: number[], cost: number[], keep: boolean[], r: number): number[] {
+  const n = pts.length / 2;
+  if (n <= 2) return pts;
+  const out = [pts[0], pts[1]];
+  let i = 0;
+  while (i < n - 1) {
+    let j = i + 1;
+    if (!keep[i])
+      for (let k = i + 2; k < n; k++) {
+        if (keep[k - 1]) break;
+        const c = lineCost(g, pts[i * 2], pts[i * 2 + 1], pts[k * 2], pts[k * 2 + 1], r);
+        if (c > (cost[k] - cost[i]) * 1.04 + 0.05) {
+          if (c === Infinity) break;
+          continue; // dearer ground on the straight line: a later point may still be reached cheaply
+        }
+        j = k;
+      }
+    out.push(pts[j * 2], pts[j * 2 + 1]);
+    i = j;
+  }
+  return out;
+}
+
 /** Nearest open tile to (tx,ty) by growing square rings; -1 if the map has none. */
 export function nearestOpen(g: Grid, tx: number, ty: number): number {
   const max = Math.max(g.w, g.h);
