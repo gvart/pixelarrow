@@ -2,7 +2,8 @@
 import { describe, expect, it } from 'vitest';
 import { parseRegion } from '../../src/war/region/schema';
 import { scenarioById } from '../../src/war/scenarios';
-import { COTTAGE, NODE_MARBLE, NODE_OLIVE, NODE_WOOD, RIDGE } from '../../src/war/scenarios/trailer';
+import { nearestNode, resolveOrder } from '../../src/war/scenarios/run';
+import { COTTAGE, MARBLE, OLIVE, RIDGE, WOOD } from '../../src/war/scenarios/trailer';
 import { createSim } from '../../src/war/sim';
 import { createBots } from '../../src/war/sim/bots';
 import type { ResourceKind, Snapshot } from '../../src/war/types';
@@ -30,12 +31,12 @@ function play(id: string, seed = 1) {
     if (q.bot) bots.set(s, q.bot);
   };
   for (const q of sc.squads) spawn(q, q.owner ?? (q.team === 0 ? 'you' : 'bot'));
-  for (const o of a?.orders ?? []) sim.order(o);
+  for (const o of a?.orders ?? []) sim.order(resolveOrder(sim.region, o));
   step(a?.settle ?? 0);
   for (const q of a?.squads ?? []) spawn(q, q.team === 0 ? 'you' : q.bot ? 'bot' : 'raiders');
-  for (const o of a?.then ?? []) sim.order(o);
+  for (const o of a?.then ?? []) sim.order(resolveOrder(sim.region, o));
   step(a?.later?.settle ?? 0);
-  for (const o of a?.later?.orders ?? []) sim.order(o);
+  for (const o of a?.later?.orders ?? []) sim.order(resolveOrder(sim.region, o));
   return { sim, step };
 }
 const alive = (s: Snapshot, q: number) => s.squads[q].units.filter((id) => s.units[id].state !== 'dead').length;
@@ -43,8 +44,13 @@ const alive = (s: Snapshot, q: number) => s.squads[q].units.filter((id) => s.uni
 describe('trailer scenes', () => {
   it('Elaia at peace: the brazier stands lit by the well, the foragers work wood, marble and olives, the column waits', () => {
     const { sim, step } = play('trailer-elaia');
+    // each forager's node is of its kind and close by its mark
     const nodes = sim.resourceNodes();
-    expect([nodes[NODE_WOOD].res, nodes[NODE_MARBLE].res, nodes[NODE_OLIVE].res]).toEqual(['wood', 'marble', 'food']);
+    for (const [res, [x, y]] of [['wood', WOOD], ['marble', MARBLE], ['food', OLIVE]] as const) {
+      const n = nodes[nearestNode(sim.region, res, x, y)];
+      expect(n?.res, res).toBe(res);
+      expect(Math.hypot(n.x - x, n.y - y), res).toBeLessThan(12);
+    }
     step(400);
     const s = sim.snapshot();
     expect(s.buildings!.some((b) => b.type === 'brazier' && b.team === 0)).toBe(true);

@@ -5,6 +5,13 @@ import type { BridgeOrder, BuildingType, Order, ResourceKind, SafeRect, TileRect
 /** What a squad does as soon as it stands (its id is only known then): a move or an attack-move to (x, y). */
 export interface ScenarioGo { kind: 'move' | 'attackMove'; x: number; y: number }
 
+/**
+ * A gather order on the region's `res` node nearest (x, y) (./run.ts resolveOrder): node ids are the region's object
+ * order, so they shift whenever the region is re-dressed; a point and a kind do not.
+ */
+export interface GatherNear { kind: 'gatherNear'; squad: number; res: ResourceKind; x: number; y: number }
+export type ScenarioOrder = Order | GatherNear;
+
 /** count: at most SQUAD_MAX (the sim clamps it). owner: the spawn's owner (default you / bot); a team-1 squad without a bot and with an owner other than `bot` stands idle. */
 export interface ScenarioSquad { team: number; cls: string; count: number; x: number; y: number; bot?: Behaviour; owner?: string;
   /** M5h3, own civilians: the persons' level and profession nodes (src/data/professions.ts ids), set on the sandbox roster. */
@@ -71,8 +78,8 @@ export interface Scenario {
    * `squads`) and the orders `then`.
    */
   after?: {
-    orders: Order[]; settle?: number; squads: ScenarioSquad[]; then?: Order[];
+    orders: ScenarioOrder[]; settle?: number; squads: ScenarioSquad[]; then?: ScenarioOrder[];
     /** Then `settle` more ticks at once (engines get built) and these orders. */
-    later?: { settle: number; orders: Order[] };
+    later?: { settle: number; orders: ScenarioOrder[] };
   };
 }

@@ -2,9 +2,10 @@
  * Scenes for the war trailer (scripts/landing/trailer-shots.mjs records them, scripts/landing/trailer.mjs cuts them):
  * seeded sandbox scenarios like ./clips.ts, staged for the camera. `sandbox.html?scenario=<id>`; the recorder seeds
  * Math.random per shot, so a take repeats frame for frame. Squad ids follow the spawn order (neutral regions: their
- * lairs and guardians first); node and building ids are the region's own order (tests/war/trailer.test.ts checks them).
+ * lairs and guardians first); the foragers' nodes are the nearest of their kind to a point (gatherNear), building ids
+ * the region's own order (tests/war/trailer.test.ts checks them).
  */
-import type { Scenario, ScenarioSquad } from './types';
+import type { Scenario, ScenarioOrder, ScenarioSquad } from './types';
 import type { Order } from '../types';
 import { SPOTS as E } from '../regions/elaia.spots';
 import { SQUAD_MAX } from '../sim/soldiers';
@@ -15,8 +16,8 @@ const you = (cls: string, [x, y]: P, count = SQUAD_MAX): ScenarioSquad => ({ tea
 /** Elaia's agora: the well, the brazier the hoplites meet by, and the two groups' marks either side of it. */
 export const WELL = [254.5, 313.5] as const;
 const BRAZIER = [252, 316] as const;
-/** Resource nodes (elaia.json order): a pine above the agora, the marble knoll's deposit, the olive grove's trees. */
-export const NODE_WOOD = 169, NODE_MARBLE = 4972, NODE_OLIVE = 2415;
+/** Where the foragers work (the nearest node of its kind): a tree below the olive terraces, the marble knoll's deposit, the olive grove. */
+export const WOOD = [E.olives[0] + 20, E.olives[1] + 40] as const, MARBLE = E.marbleKnoll, OLIVE = E.olives;
 /** The column's halt on the terrace top above the olive grove, and the cottage the fire arrows go for (building 25). */
 export const RIDGE = [318, 176] as const;
 export const COTTAGE = 25;
@@ -27,7 +28,7 @@ const town: ScenarioSquad[] = [
   you('hoplite', [246, 318], 4),
   you('hoplite', [262, 312], 4),
   you('civ_merchant', [256.5, 309.5], 2),
-  you('civ_forager', [E.olives[0] + 20, E.olives[1] + 40], 3),
+  you('civ_forager', WOOD, 3),
   you('civ_forager', [E.marbleKnoll[0] + 2, E.marbleKnoll[1] + 4], 2),
   you('civ_forager', [E.olives[0] - 2, E.olives[1] + 5], 3),
   you('militia', [232, 306], 6),
@@ -38,13 +39,13 @@ const column = (bots: boolean): ScenarioSquad[] => COLUMN.map((cls, i) => ({
   ...(bots && cls !== 'archer' ? { bot: { kind: 'attackMove' as const, x: cls === 'javelineer' ? E.olives[0] : E.market[0], y: cls === 'javelineer' ? E.olives[1] + 4 : E.market[1] } } : {}),
 }));
 /** The day's work: the hoplites meet at the well, the merchants stand their stall, the foragers fell, quarry and pick. */
-const work: Order[] = [
+const work: ScenarioOrder[] = [
   { kind: 'move', squad: 0, x: 252.5, y: 314.5 },
   { kind: 'move', squad: 1, x: 256.5, y: 313 },
   { kind: 'placeBuilding', squad: 0, type: 'brazier', x: BRAZIER[0], y: BRAZIER[1] },
-  { kind: 'gather', squad: 3, node: NODE_WOOD },
-  { kind: 'gather', squad: 4, node: NODE_MARBLE },
-  { kind: 'gather', squad: 5, node: NODE_OLIVE },
+  { kind: 'gatherNear', squad: 3, res: 'wood', x: WOOD[0], y: WOOD[1] },
+  { kind: 'gatherNear', squad: 4, res: 'marble', x: MARBLE[0], y: MARBLE[1] },
+  { kind: 'gatherNear', squad: 5, res: 'food', x: OLIVE[0], y: OLIVE[1] },
   { kind: 'move', squad: 6, x: 272, y: 312 },
 ];
 /** No claims (no banners on the town): the brazier's wood comes from the strongroom. */

@@ -59,7 +59,7 @@ export const ECONOMY_SCENARIOS: Scenario[] = [
     squads: [you('militia', [178, 362])],
     camera: { x: 177, y: 356, zoom: 1 },
     economy: { claims: [{ team: 0, x: 176, y: 360, r: 16 }], stock: { wood: 100 }, sites: [{ squad: 0, type: 'camp', x: 176.5, y: 361.5 }], prebuild: 3000 },
-    after: { orders: [], squads: [], then: [{ kind: 'gather', squad: 0, node: 1230 }] },
+    after: { orders: [], squads: [], then: [{ kind: 'gatherNear', squad: 0, res: 'iron', x: 180.5, y: 354.5 }] },
   },
   {
     id: 'eco-hunt',

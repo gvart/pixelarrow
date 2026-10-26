@@ -66,7 +66,7 @@ export class SimClient {
   private asks = new Map<number, (r: unknown) => void>();
   private askId = 0;
 
-  constructor(region: RegionData) {
+  constructor(readonly region: RegionData) {
     type Msg = { snap: Snapshot; stats: { stepMs: number; units: number }; events?: WarEvent[]; nodes?: NodeSnap[]; influence?: InfluenceMap; fog?: FogGrid; seen?: BuildingSnap[] } | { reply: number; place?: PlaceResult | null; wall?: WallPlan | null; bridge?: BridgePlan | null; report?: FightReport | null; api?: unknown } | { server: ServerMsg };
     this.worker.onmessage = (e: MessageEvent<Msg>) => {
       if ('server' in e.data) {

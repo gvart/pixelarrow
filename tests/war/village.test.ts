@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import ridgeJson from '../../src/war/regions/test-ridge.json';
 import { parseRegion } from '../../src/war/region/schema';
 import { scenarioById } from '../../src/war/scenarios';
+import { resolveOrder } from '../../src/war/scenarios/run';
 import { createSim } from '../../src/war/sim';
 import { createBots } from '../../src/war/sim/bots';
 import type { ResourceKind, Snapshot } from '../../src/war/types';
@@ -20,13 +21,13 @@ function village(seed = 1) {
   }
   for (const t of e.sites ?? []) sim.order({ kind: 'placeBuilding', squad: t.squad, type: t.type, x: t.x, y: t.y });
   for (let t = 0; t < e.prebuild! && sim.snapshot().buildings![0]?.state !== 'done'; t++) (sim.step(), bots.tick());
-  for (const o of a.orders) sim.order(o);
+  for (const o of a.orders) sim.order(resolveOrder(sim.region, o));
   for (let t = 0; t < (a.settle ?? 0); t++) (sim.step(), bots.tick());
   for (const q of a.squads) {
     const id = sim.spawnSquad(q.owner ?? 'you', q.team, q.cls, q.count, q.x, q.y);
     if (q.bot) bots.set(id, q.bot);
   }
-  for (const o of a.then ?? []) sim.order(o);
+  for (const o of a.then ?? []) sim.order(resolveOrder(sim.region, o));
   const step = (n: number, until?: (s: Snapshot) => boolean) => {
     for (let t = 0; t < n; t++) {
       sim.step();
