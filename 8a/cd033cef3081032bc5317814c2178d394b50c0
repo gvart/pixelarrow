@@ -1,0 +1,25 @@
+src/war/scenarios/clips.ts
+  s_fcb7475e0b5395::t_d1d42e2f830998 13,49,52
+  s_fcb7475e0b5395::t_a86fa62e82f479 53-54
+  s_fcb7475e0b5395::t_614a1ce513e159 1-11,14-15,18-34,36-38,41-43,46-48,50-51,55-79,83-84
+  s_fcb7475e0b5395::t_3fc49070486e7b 16-17,80-82
+  s_fcb7475e0b5395::t_10a8e6cd08c15a 12,35,39-40,44-45
+src/war/scenarios/index.ts
+  s_fcb7475e0b5395::t_ea44deb01e4346 10,596
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "8acd033cef3081032bc5317814c2178d394b50c0",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
