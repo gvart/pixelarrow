@@ -45,7 +45,7 @@ import { salvageValue, type Item } from '../../data/items';
 import { warStats, warStatsOf, type WarStats } from './classes';
 import { afterArmour, blockChance, COMBAT, heightRange, hitChance, meleeHeight, missileHeight } from './combat';
 import { formationOffsets, type Shape } from './formation';
-import { BRAZIER, BUILDINGS, FIELD, WORK_DEFENCE } from './economy';
+import { BRAZIER, BUILDINGS, FIELD, WALLS, WORK_DEFENCE } from './economy';
 import { BOG, buildGrid, canEnter, DECK, findPath, flushSectors, FOREST, lineClear, lineCost, nearestOpen, pullPath, stepCost, tileAt, UPHILL, walkClear, type Grid } from './grid';
 import { createWorks, type Worker } from './works';
 import { createSiege, LADDER } from './siege';
@@ -1823,8 +1823,9 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
   };
   /** Damage building b for squad s; its fall is an objective of s. */
   const hitBuilding = (s: Squad, b: number, dmg: number) => {
-    const was = works.piece(b)?.state;
-    works.damage(b, dmg, s.team);
+    const p = works.piece(b), was = p?.state;
+    // W-61 walls that matter: blows and arrows barely mark a stone wall, gate or tower (a ram or a thrower brings it down)
+    works.damage(b, p?.def.wall && p.def.material === 'stone' ? dmg * WALLS.stoneMelee : dmg, s.team);
     if (was !== undefined && was !== 'destroyed' && works.piece(b)?.state === 'destroyed') objective(s, 'building');
   };
 
