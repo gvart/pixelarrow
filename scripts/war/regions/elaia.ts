@@ -99,8 +99,15 @@ const def: RegionDef = {
     k.agora([124, 160]);
     k.houses([124, 160], 18, 16, 40, ['house-a', 'house-b', 'house-a', 'workshop', 'storehouse', 'house-b', 'cottage']);
     k.outskirts([124, 160], 5, 32, 56, ['olive-press', 'farm', 'olive-press', 'cottage']);
-    k.jetty([124, 160], 60);
+    k.jetty([100, 170], 16); // out from the bay shore below the platform (the estuary bank is drawn wider than its tiles)
     k.piece('elaia/marble-quarry', [218, 62], { r: 10 });
+    // the platform's open ground between the houses: potted palms, amphorae, handcarts, an olive harvest, a few olives
+    // (round the platform's rim, off the agora)
+    for (const [x, y] of [[106, 150], [142, 148], [108, 174], [142, 176], [126, 180], [124, 140], [113, 151], [135, 150], [113, 170], [135, 171]] as [number, number][]) {
+      k.piece('elaia/olive-tall', [x, y], { r: 5 });
+      k.piece(['elaia/palm-pot', 'elaia/amphora-stack', 'elaia/handcart'][(x + y) % 3], [x + 2, y + 2], { r: 5, n: 2, gap: 3 });
+    }
+    k.piece('elaia/olive-harvest', [138, 180], { r: 6, n: 2, gap: 5 });
     k.resource('food', [140, 172], 3, 12);
     k.resource('stone', [70, 40], 3, 14);
     k.piece('elaia/shrine', [204, 48], { r: 8 });

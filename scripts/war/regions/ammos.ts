@@ -14,7 +14,7 @@ import { massif } from './setpieces.ts';
 
 const def: RegionDef = {
   id: 'ammos',
-  style: { dune: -0.45, trees: 0.4, bushes: 0.3 },
+  style: { dune: -0.45, trees: 0.4, bushes: 0.3, tufts: 0.03 },
   build(k: Kit) {
     const N = k.entry('skythia-s'), S = k.entry('kyrene-n'), E = k.entry('ammon'), W = k.entry('canyons');
     k.fill(1);
@@ -84,6 +84,10 @@ const def: RegionDef = {
     k.lair('jackal', [164, 196], { as: 'lions' });
     k.lair('jackal', [244, 150], { as: 'scorpions' });
     k.lair('jackal', [100, 190], { as: 'scorpions' });
+    // the caravanserai's bare hardpan: amphorae, handcarts and potted palms by the houses and the court
+    for (const [x, y] of [[116, 124], [144, 124], [116, 144], [146, 146], [130, 118], [124, 150]] as Pt[]) {
+      k.piece(['kyrene/amphora-stack', 'kyrene/handcart', 'kyrene/palm-pot'][(x + y) % 3], [x, y], { r: 4, n: 2, gap: 2 });
+    }
     k.claim([130, 134], 160);
   },
 };

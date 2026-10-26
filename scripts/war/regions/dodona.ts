@@ -17,6 +17,7 @@ import { profile, relief, valley } from './setpieces.ts';
 
 const def: RegionDef = {
   id: 'dodona',
+  style: { tufts: 0.03 },
   build(k: Kit) {
     k.fill(2);
     k.zone('dodona', () => 99);
@@ -56,7 +57,8 @@ const def: RegionDef = {
     k.square([156, 168], 7);
     k.spot('homeCamp', [156, 168]);
     // roads: W through the west gap over the Ladon bridge; N down the brook; E through the east gap; S past the ford
-    k.road([[-4, 128], [30, 128], [58, 140], [88, 158], [112, 164], [128, 166], [144, 168], [156, 168]], { bridges: [[128, 166]] });
+    k.road([[-4, 128], [30, 128], [58, 140], [88, 152], [108, 152], [118, 156], [128, 166], [138, 176], [143, 170], [149, 168], [156, 168]], { bridges: [[128, 166]] });
+    k.oldBridge([118, 156], [138, 176]); // a stone deck over the Ladon's narrows, the water drawn on under it
     k.road([[60, 138], [62, 112], [72, 88]]);
     k.road([[128, -4], [142, 28], [158, 64], [170, 104], [166, 146], [156, 168]]);
     k.road([[260, 128], [226, 128], [200, 138], [176, 154], [156, 168]]);
@@ -79,6 +81,7 @@ const def: RegionDef = {
     k.piece('dodona/iron-bog', [92, 146], { r: 8, n: 2 });
     k.resource('stone', [214, 12], 2, 12);
     k.resource('stone', [44, 224], 2, 14);
+    k.clearing([74, 88], 7); // the oracle's knoll top open round its oaks
     k.piece('dodona/oak-sacred', [72, 84], { r: 6 });
     k.piece('dodona/oracle-grove', [76, 92], { r: 6 });
     k.piece('dodona/timber-stand', [64, 50], { r: 14, n: 2 });

@@ -3081,6 +3081,50 @@ free: anchor one thing absolutely (the town "in the exact centre"), place the re
 ground when the data has one. (3) Headland, knoll, kurgan and butte come back as single tall blocks on sheer walls,
 which the W-52 `relief` cliff bands can match; olive terraces still come back as low one-level steps.
 
+### 40m Region polish: Gemini art-director critiques of in-game shots
+
+A polish pass over the regions as built (home regions, Omphalos, the market towns): per region 3-5 page screenshots
+(the sandbox, `sandbox.html?region=<id>&sim=real&offline=1`, fog off, `window.__sandbox.focus(x, y, zoom)` on the
+spots: the town at 1x and 1/2, a road, a wild area, the landmark or fort site; 1600x1000, system Chrome headless),
+converted to JPEG (~500 KB each) and uploaded to Gemini (Pro, sometimes Flash) for a critique; every point verified in
+the region data (`probe`: terrain, heights, the visual layer, objects round a tile) before a fix in the region script
+or the kit. Upload as in §32.1 (open "Upload & tools", tag the hidden `input[type=file]`, `file_upload`); the prompt
+inserted with `execCommand('insertText')`.
+
+```
+You are the art director of an isometric pixel-art RTS set in mythic Greece (hand-painted 2:1 iso tiles, PixelLab
+sprites). These are in-game screenshots of one region, '<Name>', <role>: <one line of its set pieces: town, landmark,
+relief, water>. Shots: 1) town at 1x zoom, 2) town at 1/2 zoom, 3) <road>, 4) <wild area or landmark>. Ignore the HUD
+(minimap, buttons, labels). The open centre of the agora is deliberate (a gathering square). Critique the scene art
+only: seams and joins between tiles, scale mismatches, floating or clipped props, empty areas, repetitive tiling,
+readability, lighting consistency, anything that looks broken. Give a ranked list (most important first), max 8 items,
+each: what, where (which shot, which part of the frame), and a concrete fix using set dressing, terrain or prop
+placement. Be specific and terse.
+```
+
+Re-check after fixes, in the same chat with the new shots: `Re-check after fixes. New shots: ... Your earlier points on
+<shared art> stay out of this pass. For these shots only: which of your earlier points are fixed, and is anything new
+broken? Max 5 lines.` A combined pass (four regions' shots in one prompt, `after a set-dressing pass`) also worked.
+
+| Region | Gemini's points (verified) | Fixed | Rejected (why) |
+| --- | --- | --- | --- |
+| dodona | land bridge walled into the water (road shot); oracle circle dwarfed by pines; agora edges straight | the west road on the old stone bridge kit over the Ladon narrows; the knoll top a clearing; library woods and floor (oaks, beeches, silver firs, ferns, logs, mossy stumps) | tree vs building shadow angle, stoa back walls, stall variety, furrowed road tile (shared sprite and tile art, not region data); "stretched slope texture" (the warped one-level ramp, by design) |
+| dodona (own) | a long water strip drawn straight down the screen through the agora | kit: a bank a sim level under the water is raised flush with it (the lake's corner stood on a wall over a dry trench) | |
+| skythia | (Gemini errored on every try: 5 attempts, Pro and Thinking) | own critique: the plateau a bare green sheet; the wagon town without a camp. Style.tufts (dry grass, broom, saltbush, herbs) and tents, carts, goats, hives | |
+| kyrene | stair-stepped escarpment edges; dry "waterwheels"; even rock sprinkle; unanchored rock pillar | red rock scatter without boulders (piles at the pillars' feet instead), dressed butte top and escarpment, dune scrub | stair-stepped edges (cliff faces on the tile grid, a renderer look gap); the "waterwheels" are the olive press sprite |
+| elaia | retaining wall without a grass lip (platform) | own: the jetty stood on dry ground (moved out from the bay shore); olives hanging on the headland's cliff faces (kit: rows and pieces need their foot in sight); the platform's grass dressed | the lip (the renderer's wall lips) |
+| omphalos | uniform prop scatter on the Great Fair; grid paving; repeated stoas | fair props in bands by the stalls and stoas; no cypresses on the paving | the paving tile and stoa rows are shared art and the landmark plan |
+| kleisoura | (Gemini errored) | own: goods round the toll town, fallen granite and junipers on the archer ledges | the tin cleft hidden behind its massif (the renderer's cut-away shows it in play) |
+| stymphalia | (own) | a talus mound standing in the water at the isle's cliff foot (kit: no talus on a shore); olives, pines and carts on the island town's grass; tufts | |
+| ammos, achelous | (own) | goods round the market towns (amphorae, carts, potted palms, olive baskets, hives); tufts | isolated stall awnings away from the agora read as litter, dropped |
+
+**Lessons:** (1) Gemini errors ("Sorry, something went wrong") on about half the image prompts this session, more with
+4 images on Thinking; a fresh chat, Pro, and 2-3 JPEGs instead of 4 PNGs got answers. (2) It reliably spots floating or
+walled joins (the dodona causeway), uneven scatter and empty ground, and misreads sprites (olive press as a
+waterwheel). (3) Shared-art points (tile textures, sprite shading, colonnade length) come back in every region: say in
+the prompt which art is out of scope. (4) Verify each point in the data: two of the worst faults (the water strip
+through the agora, the jetty on dry land) were not in Gemini's lists.
+
 ## 41. Landing page references (pixelarrow.app, "Play your way")
 
 Design references for the new marketing site in `landing/`, not assets: nothing is built until the owner approves

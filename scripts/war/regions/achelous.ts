@@ -13,7 +13,7 @@ import type { Kit, RegionDef } from './kit.ts';
 
 const def: RegionDef = {
   id: 'achelous',
-  style: { dry: 0.3, trees: 0.35, bushes: 0.3 },
+  style: { dry: 0.3, trees: 0.35, bushes: 0.3, tufts: 0.03 },
   build(k: Kit) {
     const N = k.entry('gorge'), S = k.entry('delta'), E = k.entry('kyrene-w'), W = k.entry('elaia-e');
     k.fill(1);
@@ -72,6 +72,11 @@ const def: RegionDef = {
     k.lair('boar', [124, 52], { as: 'river serpents' });
     k.lair('bandit', [70, 138], { as: 'bandits' });
     k.lair('boar', [150, 216], { as: 'river serpents' });
+    // the ford town's grass between its houses: carts, amphorae, olive baskets, hives
+    for (const [x, y] of [[106, 118], [134, 118], [106, 142], [134, 144], [120, 112], [120, 150]] as [number, number][]) {
+      k.piece(['elaia/handcart', 'elaia/amphora-stack', 'elaia/olive-harvest'][(x + y) % 3], [x, y], { r: 4, n: 2, gap: 2 });
+    }
+    k.piece('elaia/beehives', [142, 132], { r: 6, n: 2 });
     k.claim([120, 130], 140);
   },
 };
