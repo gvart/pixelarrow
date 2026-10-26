@@ -68,6 +68,8 @@ export interface SoulHost {
   /** `owner`'s squads give up their claim on soul `soul` (refused). */
   stop(owner: string, soul: number): void;
   emit(e: WarEvent): void;
+  /** W-61: a soul-chance multiplier at (x,y) (a levelled town's ground); default 1. */
+  chanceAt?(x: number, y: number): number;
 }
 
 /** The fixed sites of a region: its shrines and temples, a few spaced ruins, its lairs. */
@@ -116,7 +118,7 @@ export function createSouls(region: RegionData, seed: number, host: SoulHost) {
     for (let i = 0; i < all.length && list.length < SOUL.max; i++) {
       if (list.some((s) => s.at === i)) continue;
       const site = all[i];
-      if (rng.next() >= SOUL.chance[site.kind]) continue;
+      if (rng.next() >= SOUL.chance[site.kind] * (host.chanceAt?.(site.x, site.y) ?? 1)) continue;
       make(site.x, site.y, pick(site, i), soulLevel(site.kind, depth), site.kind, t, i);
     }
   };

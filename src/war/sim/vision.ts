@@ -91,7 +91,8 @@ function buildingSight(b: BuildingSnap): number {
   return OUTPOSTS.has(b.type) ? VISION.building + 4 : VISION.building;
 }
 
-export function createVision(grid: Grid, src: { units(): Iterable<Viewer>; buildings(): BuildingSnap[] }): Vision {
+/** W-61 src.sightAdd: tiles of sight a team's men gain (an alliance beacon line; towers and outposts twice that). */
+export function createVision(grid: Grid, src: { units(): Iterable<Viewer>; buildings(): BuildingSnap[]; sightAdd?(team: number): number }): Vision {
   const C = VISION.cell;
   const cw = Math.ceil(grid.w / C), ch = Math.ceil(grid.h / C), n = cw * ch;
   const cellH = new Uint8Array(n); // highest tile of the cell
@@ -212,14 +213,14 @@ export function createVision(grid: Grid, src: { units(): Iterable<Viewer>; build
     };
     for (const u of src.units()) {
       if (!u.alive || u.squad.team === MOB_TEAM) continue;
-      hold(u.squad.team, cellAt(u.x, u.y) * 128 + sightOf(u.cls));
+      hold(u.squad.team, cellAt(u.x, u.y) * 128 + Math.min(FLAT - 1, sightOf(u.cls) + (src.sightAdd?.(u.squad.team) ?? 0)));
     }
     const blds = src.buildings();
     for (const b of blds) {
       if (b.burning && b.state !== 'destroyed') for (const tm of teams.keys()) hold(tm, cellAt(b.x, b.y) * 128 + FLAT + VISION.fire);
       if (b.team === MOB_TEAM) continue;
-      const r = buildingSight(b);
-      if (r > 0) hold(b.team, cellAt(b.x, b.y) * 128 + r);
+      const r = buildingSight(b), add = r >= VISION.tower ? 2 * (src.sightAdd?.(b.team) ?? 0) : 0;
+      if (r > 0) hold(b.team, cellAt(b.x, b.y) * 128 + Math.min(FLAT - 1, r + add));
     }
     for (const tm of want.keys()) team(tm);
     for (const [tm, v] of teams) {
