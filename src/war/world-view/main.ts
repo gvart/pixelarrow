@@ -160,8 +160,8 @@ function renderSeason(): void {
 function peaceHtml(ids: number[], peace: Record<string, number[]> | undefined): string {
   if (!peace) return '';
   const sum = (a: number) => Object.values(peace).reduce((x, v) => x + (v[a] ?? 0), 0);
-  return `<div class="rf-cap" style="margin-top:6px">Peace score</div>
-    ${ids.map((a) => `<div class="wv-row" style="padding:1px 4px">${swatch(a)}<span style="flex:1">${aName(a)}</span><span class="rf-dim" style="font-size:11px">${['volume', 'contracts', 'works'].map((k) => `${k} ${peace[k]?.[a] ?? 0}`).join(' · ')}</span><span class="rf-num" style="width:34px;text-align:right">${sum(a)}</span></div>`).join('')}`;
+  return `<div class="rf-cap" style="margin-top:6px">Peace score <span class="rf-dim">volume · contracts · works</span></div>
+    ${ids.map((a) => `<div class="wv-row" style="padding:1px 4px">${swatch(a)}<span style="flex:1">${aName(a)}</span><span class="rf-dim" style="font-size:11px" title="trade volume · contracts filled · works raised">${['volume', 'contracts', 'works'].map((k) => peace[k]?.[a] ?? 0).join(' · ')}</span><span class="rf-num" style="width:34px;text-align:right">${sum(a)}</span></div>`).join('')}`;
 }
 
 /** W-61: the season's titles, each holder with his alliance's banner and home. */
