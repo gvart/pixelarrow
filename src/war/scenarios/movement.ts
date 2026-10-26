@@ -1,0 +1,69 @@
+/** Movement scenarios: pathing, formations, groups, the ford, the pass, cliffs and ramps (no foes: only the walking). */
+import type { Scenario } from './types';
+import { at, FIELD, HOME, move, S, you } from './kit';
+
+export const MOVEMENT_SCENARIOS: Scenario[] = [
+  {
+    id: 'move-woods',
+    name: 'Pathing: through the woods',
+    group: 'movement',
+    goal: 'Three squads leave the clearing for the forest spot through thick woods; a fourth is sent onto the rock band north of the camp.',
+    check: ['Every man reaches the forest spot; none stands stuck on a trunk for more than a few seconds', 'The squad sent onto the rock stops at the nearest open tile, not in a loop', 'Paths overlay (console) draws their trails round the trees'],
+    squads: [
+      you('hoplite', at(HOME, -4, 4), 12, move(S.forest)),
+      you('militia', at(HOME, 4, 4), 12, move(at(S.forest, 4, 4))),
+      you('archer', at(HOME, 0, 8), 12, move(at(S.forest, -4, 6))),
+      you('celt_sword', at(HOME, 0, -4), 12, move([354, 317])),
+    ],
+    camera: { x: 370, y: 348, zoom: 1 / 3 },
+  },
+  {
+    id: 'move-formations',
+    name: 'Formations',
+    group: 'movement',
+    goal: 'Four hoplite squads on open grass, each in another formation: line, column, wedge, loose. Reorder them with Alt+1-4 and march them about.',
+    check: ['Squad 1 line, 2 column, 3 wedge, 4 loose', 'Alt+1-4 on a selection reshapes it in place', 'The shape holds on the march and turns with the facing'],
+    squads: [0, 1, 2, 3].map((i) => you('hoplite', at(FIELD, -12 + i * 8, 0))),
+    camera: { x: FIELD[0], y: FIELD[1], zoom: 1 / 2 },
+    after: {
+      orders: [], squads: [],
+      then: (['line', 'column', 'wedge', 'loose'] as const).map((shape, squad) => ({ kind: 'formation' as const, squad, shape })),
+    },
+  },
+  {
+    id: 'move-groups',
+    name: 'Selection and groups',
+    group: 'movement',
+    goal: 'Eight squads of every class on open grass: box-select, shift-add, make control groups (Ctrl+1-9) and recall them.',
+    check: ['Box select picks the men inside; Shift adds', 'Ctrl+1 stores a group, 1 recalls it, 1 twice centres the camera', 'The group bar shows the groups; numbers float over the men', 'Orders to a mixed selection gather into the lead squad (W-53)'],
+    squads: ['hoplite', 'hoplite', 'militia', 'celt_sword', 'archer', 'archer', 'slinger', 'javelineer'].map((c, i) => you(c, at(FIELD, -14 + (i % 4) * 8, (i < 4 ? -4 : 6)))),
+    camera: { x: FIELD[0], y: FIELD[1], zoom: 1 / 2 },
+  },
+  {
+    id: 'move-ford',
+    name: 'Ford crossing (no foes)',
+    group: 'movement',
+    goal: 'Two squads wade the ford from the west bank to the east, no foes about.',
+    check: ['They funnel into the ford and slow in the water', 'Nobody tries the deep water beside it', 'They re-form on the far bank'],
+    squads: [you('hoplite', at(S.fordW, -14, -3), 12, move(at(S.fordE, 10, -2))), you('archer', at(S.fordW, -18, 4), 12, move(at(S.fordE, 12, 5)))],
+    camera: { x: S.ford[0], y: S.ford[1], zoom: 1 / 2 },
+  },
+  {
+    id: 'move-pass',
+    name: 'Narrow pass',
+    group: 'movement',
+    goal: 'A column of three squads climbs the switchback pass from passS to passN.',
+    check: ['They string out into a file on the narrow switchbacks', 'No man is pushed off the path or left behind', 'They re-form at the top'],
+    squads: [0, 1, 2].map((i) => you(['hoplite', 'militia', 'archer'][i], at(S.passS, (i - 1) * 4, 6 + i * 4), 12, move(at(S.passN, (i - 1) * 4, 0)))),
+    camera: { x: S.passSaddle[0], y: S.passSaddle[1] + 40, zoom: 1 / 3 },
+  },
+  {
+    id: 'move-cliffs',
+    name: 'Cliffs and ramps',
+    group: 'movement',
+    goal: 'One squad at the cliff foot is sent to the ridge crest above it; another climbs the ramp to the plateau.',
+    check: ['The cliff squad walks round to a slope, never up the cliff face', 'The ramp squad climbs the ramp, slower uphill', 'Altitude view (F3) shows the levels they pass'],
+    squads: [you('hoplite', at(S.ridgeCliffFoot, 0, 4), 12, move(S.ridgeCrest)), you('militia', at(S.rampFoot, 0, 0), 12, move(S.plateauTop))],
+    camera: { x: S.ridgeCrest[0], y: S.ridgeCrest[1], zoom: 1 / 3 },
+  },
+];

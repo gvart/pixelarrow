@@ -3,6 +3,7 @@
  * interpolates unit positions between them (rendering runs one 10 Hz tick behind).
  */
 import type { Behaviour } from '../sim/bots';
+import type { ScenarioGo } from '../scenarios/types';
 import type { BridgeOrder, BridgePlan, BuildingSnap, BuildingType, FightReport, FogGrid, InfluenceMap, NodeSnap, Order, PlaceResult, RegionData, ResourceKind, Snapshot, SquadSnap, UnitSnap, WallOrder, WallPlan, WarEvent, WarPerson } from '../types';
 import type { ToWorker } from './worker';
 import type { HandoffMsg, ServerMsg, StowMsg } from '../net/protocol';
@@ -92,7 +93,8 @@ export class SimClient {
     };
     const q = new URLSearchParams(location.search), dev = Number(q.get('dev')) || undefined;
     // ?net=<ws url or /ws/war/<region>>: play on the live region server (M3) instead of the local sim
-    this.send({ t: 'init', region, team: myTeam(), seed: 1, sim: q.get('sim') === 'fake' ? 'fake' : 'real', net: q.get('net') ?? undefined, dev });
+    // ?seed=<n>: the sim's seed (dev console: restart with the same or a new one; ./main.ts puts a scenario's own there)
+    this.send({ t: 'init', region, team: myTeam(), seed: Number(q.get('seed')) || 1, sim: q.get('sim') === 'fake' ? 'fake' : 'real', net: q.get('net') ?? undefined, dev });
     this.speed(1);
   }
 
@@ -119,9 +121,9 @@ export class SimClient {
   }
 
   /** `bot`: a bot behaviour that drives the squad (../sim/bots.ts). */
-  spawn(owner: string, team: number, cls: string, count: number, x: number, y: number, bot?: Behaviour): void {
+  spawn(owner: string, team: number, cls: string, count: number, x: number, y: number, bot?: Behaviour, go?: ScenarioGo): void {
     const persons = this.personsFor?.(owner, team, cls, count);
-    this.send({ t: 'spawn', owner, team, cls, count, x, y, bot, ...(persons?.length ? { persons } : {}) });
+    this.send({ t: 'spawn', owner, team, cls, count, x, y, bot, go, ...(persons?.length ? { persons } : {}) });
   }
 
   /** Dev panel: a squad of any class and team at (x,y) (net mode: the server's DEV_AUTH spawn; the player's team is ours). */
@@ -167,6 +169,16 @@ export class SimClient {
   /** Scenarios: step `ticks` ticks at once (squads settle before play). */
   skip(ticks: number): void {
     this.send({ t: 'skip', ticks });
+  }
+
+  /** Dev console: site `id` done at once (materials and labour free). */
+  finishSite(id: number): void {
+    this.send({ t: 'finishSite', id });
+  }
+
+  /** Dev console: these men struck down (wounded or dead by their END), hurt to a quarter, or healed. */
+  devUnits(ids: number[], op: 'kill' | 'hurt' | 'heal'): void {
+    if (ids.length) this.send({ t: 'devUnits', ids, op });
   }
 
   /** Dev: damage a building (scripts: a breach). */

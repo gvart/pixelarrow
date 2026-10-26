@@ -4,7 +4,7 @@
  * Math.random per shot, so a take repeats frame for frame. Squad ids follow the spawn order (neutral regions: their
  * lairs and guardians first); node and building ids are the region's own order (tests/war/trailer.test.ts checks them).
  */
-import type { Scenario, ScenarioSquad } from './index';
+import type { Scenario, ScenarioSquad } from './types';
 import type { Order } from '../types';
 import { SPOTS as E } from '../regions/elaia.spots';
 import { SQUAD_MAX } from '../sim/soldiers';
