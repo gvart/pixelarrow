@@ -12,7 +12,7 @@ import { massif } from './setpieces.ts';
 
 const def: RegionDef = {
   id: 'kyrene',
-  style: { dune: 0.15 },
+  style: { dune: 0.15, tufts: 0.05 },
   build(k: Kit) {
     k.fill(2);
     k.zone('kyrene', () => 99);
@@ -83,6 +83,24 @@ const def: RegionDef = {
     k.piece('kyrene/well', [146, 176], { r: 8 });
     k.piece('kyrene/camels', [44, 112], { r: 20 });
     k.piece('kyrene/gazelle', [230, 60], { r: 20 });
+    // the butte's top (fort site) a ruined lookout: fallen mud walls, rubble, red boulders and thorn scrub
+    k.piece('kyrene/wall-fallen-mud', [172, 92], { r: 6 });
+    k.piece('kyrene/rubble-heap-mud', [182, 94], { r: 7, n: 2, gap: 3 });
+    k.piece('kyrene/boulder-red', [176, 100], { r: 10, n: 4, gap: 3 });
+    k.piece('kyrene/thorn-tree', [170, 102], { r: 9, n: 2, gap: 5 });
+    // the escarpment's top: pillars and red boulders break the open rock, acacias in its hollows
+    for (const [x, y] of [[226, 30], [236, 96], [228, 168], [240, 226]] as [number, number][]) {
+      k.piece('kyrene/rock-pillar', [x, y], { r: 12 });
+      k.piece('kyrene/boulder-red', [x + 4, y + 6], { r: 10, n: 3, gap: 3 });
+      k.piece('kyrene/acacia-old', [x - 6, y + 10], { r: 10 });
+    }
+    // two lone buttes stand on the escarpment's top, landmarks over the town
+    k.piece('kyrene/butte', [232, 56], { r: 12 });
+    k.piece('kyrene/mesa', [238, 200], { r: 12 });
+    // the dry ground east of the town: thorn trees, scrub and fallen stones
+    k.piece('kyrene/thorn-tree', [176, 186], { r: 12, n: 3, gap: 6 });
+    k.piece('kyrene/rocks-red', [168, 200], { r: 10, n: 3, gap: 4 });
+    k.piece('kyrene/debris-mud', [158, 186], { r: 6, n: 2, gap: 3 });
   },
 };
 export default def;
