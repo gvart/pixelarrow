@@ -1,0 +1,25 @@
+docs/WAR.md
+  s_fcb7475e0b5395::t_9fcab7de7243ea 26-27,544,611-612,619,621,632,634-637,734-735,742,757-802,811,1053,1061-1063
+  s_fcb7475e0b5395::t_744c6a36717380 1064
+docs/PLAYTEST.md
+  s_fcb7475e0b5395::t_67624ec09de1bd 22,39-40,125,177
+docs/impl/global-war-rebuild.md
+  s_fcb7475e0b5395::t_9a818785763bd6 67
+  s_fcb7475e0b5395::t_ea9e959b5eab2c 129
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "d8c8c40e5be6e4bf53f7f7bfb361252e506b187d",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
