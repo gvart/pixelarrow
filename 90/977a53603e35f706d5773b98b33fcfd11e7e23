@@ -1,0 +1,86 @@
+src/war/view/hud/market.ts
+  s_fcb7475e0b5395::t_192369c51d9d75 28,118,201
+src/war/view/SandboxScene.ts
+  s_fcb7475e0b5395::t_192369c51d9d75 54,446,468,507
+  s_fcb7475e0b5395::t_70a0d015eefd63 156,441
+src/war/view/siege/siegeControls.ts
+  s_fcb7475e0b5395::t_6328915162888f 18,51,88,146,182,188,194
+  s_fcb7475e0b5395::t_70a0d015eefd63 142
+src/war/view/hud/fullMap.ts
+  s_fcb7475e0b5395::t_192369c51d9d75 18,324,326,332
+src/war/view/hud/hud.ts
+  s_fcb7475e0b5395::t_192369c51d9d75 57,248,261,309,312,399,420-421,436
+src/war/view/sound/warAudio.ts
+  s_fcb7475e0b5395::t_192369c51d9d75 26,233,248
+src/war/view/interact.ts
+  s_fcb7475e0b5395::t_6328915162888f 37,156,159,206,228,236,245,248,250,252,275
+src/war/view/hud/cardCiv.ts
+  s_fcb7475e0b5395::t_6328915162888f 11,39-40
+src/war/view/hud/buildingCard.ts
+  s_fcb7475e0b5395::t_192369c51d9d75 20,46,89,99
+src/war/view/units.ts
+  s_fcb7475e0b5395::t_70a0d015eefd63 10,23,26,414,440,442,450
+src/war/view/hud/craft/index.ts
+  s_fcb7475e0b5395::t_6328915162888f 27,51,63,90
+src/war/view/simClient.ts
+  s_fcb7475e0b5395::t_8e046ef646e2cf 9-34,41,45,72,95,99,108,127
+src/war/view/hud/groups.ts
+  s_fcb7475e0b5395::t_192369c51d9d75 13,64
+tests/war/playerSide.test.ts
+  s_fcb7475e0b5395::t_c26619f79c3fdc 1-75
+src/war/view/hud/roster/state.ts
+  s_fcb7475e0b5395::t_192369c51d9d75 15,48,169,188
+src/war/view/hud/craft/state.ts
+  s_fcb7475e0b5395::t_6328915162888f 19,84,139,153,215,219,231,251
+src/war/view/side.ts
+  s_fcb7475e0b5395::t_ef42375cf890a3 1-27
+src/war/view/mapModes.ts
+  s_fcb7475e0b5395::t_079f9ecfba4bc3 12
+  s_fcb7475e0b5395::t_7962f9b8405551 163
+src/war/view/trade/tradeControls.ts
+  s_fcb7475e0b5395::t_6328915162888f 21,94,172,184
+src/war/view/build/buildMode.ts
+  s_fcb7475e0b5395::t_6328915162888f 36,169,178,185,216,240,277,328,401,429,468,504,523,538,553,559
+src/war/view/hud/mapDraw.ts
+  s_fcb7475e0b5395::t_192369c51d9d75 126,131,140
+  s_fcb7475e0b5395::t_70a0d015eefd63 7,16,64,88,95,204,209,216,234,240
+tests/war/worldEntry.test.ts
+  s_fcb7475e0b5395::t_0d3ee16311e2cd 31-33
+src/war/view/hud/guardianBar.ts
+  s_fcb7475e0b5395::t_192369c51d9d75 28,138,143
+src/war/view/worker.ts
+  s_fcb7475e0b5395::t_e6720c2a2f5aa6 21,61-62,75-76,85,165
+  s_fcb7475e0b5395::t_da902e66fd0284 160
+src/war/view/hud/holder.ts
+  s_fcb7475e0b5395::t_192369c51d9d75 17,30,70,123,133
+src/war/view/build/buildingLayer.ts
+  s_fcb7475e0b5395::t_70a0d015eefd63 40,501,797,822,829,1092
+src/war/view/main.ts
+  s_fcb7475e0b5395::t_70a0d015eefd63 7-8,27,78,91,99
+src/war/view/neutral.ts
+  s_fcb7475e0b5395::t_70a0d015eefd63 11,51
+src/war/view/trade/market.ts
+  s_fcb7475e0b5395::t_192369c51d9d75 14,157,162,282,295,298,328-329
+src/war/view/entry.ts
+  s_fcb7475e0b5395::t_70a0d015eefd63 19-20,22
+src/war/view/trade/tradeLayer.ts
+  s_fcb7475e0b5395::t_70a0d015eefd63 23,155
+src/war/view/select.ts
+  s_fcb7475e0b5395::t_6328915162888f 21,46
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "90977a53603e35f706d5773b98b33fcfd11e7e23",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
