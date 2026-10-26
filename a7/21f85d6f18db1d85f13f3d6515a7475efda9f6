@@ -1,0 +1,43 @@
+docs/WAR.md
+  s_fcb7475e0b5395::t_8ffc08ac4e3cb2 683-701
+src/war/sim/index.ts
+  s_fcb7475e0b5395::t_31559604ee5ad5 2394-2412
+  s_fcb7475e0b5395::t_1ab80733027bb4 704,706-709,711-713,716
+  s_fcb7475e0b5395::t_f2bd1e6efb9fe2 714-715
+  s_fcb7475e0b5395::t_96434ece5ae72d 1626-1627
+  s_fcb7475e0b5395::t_bbb1e1dd6c6aa8 717,729-730
+  s_fcb7475e0b5395::t_0495e5a9edc10b 1650-1651,1655,2752-2753
+  s_fcb7475e0b5395::t_d2feb2e0ed539f 1618-1619
+  s_fcb7475e0b5395::t_726303b9b8f397 49,762-767,1611,1620,1641,1648
+  s_fcb7475e0b5395::t_2c9b32467d01a7 768
+  s_fcb7475e0b5395::t_bb0642e513afa2 718-727
+  s_fcb7475e0b5395::t_91146f74bcb997 129-130,1654,1669-1687,1693-1695,1697,1702-1703,1711-1713
+  s_fcb7475e0b5395::t_8cb6b03218026d 685-703,705,710,728,731-732,1609-1610,1612-1615,1632,1638,1643,1646-1647,1649,1652-1653
+  s_fcb7475e0b5395::t_b3a3838cda2500 1688-1692,1696,1705-1706,1708,1729-1730
+  s_fcb7475e0b5395::t_e20893d3e966ab 1704,1707,1722,1726-1728
+docs/impl/global-war-rebuild.md
+  s_fcb7475e0b5395::t_8ffc08ac4e3cb2 66
+src/war/scenarios/movement.ts
+  s_fcb7475e0b5395::t_02d9910009c6a9 51-59,69-77
+tests/war/movementStuck.test.ts
+  s_fcb7475e0b5395::t_c72327437bf09f 1-69,71-72,74,76-112,116-150
+  s_fcb7475e0b5395::t_2bf224bb70fbb6 70,73,75,113-115
+docs/PLAYTEST.md
+  s_fcb7475e0b5395::t_44863d15549055 98,100
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "a721f85d6f18db1d85f13f3d6515a7475efda9f6",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
