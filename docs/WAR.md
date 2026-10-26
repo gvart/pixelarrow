@@ -1230,13 +1230,18 @@ within 10 tiles of the site labour on it (counted every 10 s). Done: the whole a
 | Road and bridge | stone 400, wood 500 | 20 man-hours | transfers 15% faster |
 | Beacon line | wood 300, stone 200, pitch 60 | 12 man-hours | men see 2 tiles further, towers and outposts 4 |
 
-The Works panel (top right) shows each with its bars and who gave what (war_work_gifts).
+The Works panel (top right) shows a project card for each: its art, one progress bar, the goods and labour as have/need
+chips, the top three givers (war_work_gifts) and its bonus as a reward chip; pick a card to contribute from the strongroom.
+The town badge (top centre) rings its level numeral with the way to the next level; its card lists that level's needs as
+an icon checklist, the perks as icon chips and the next level's perks greyed.
 
 ### Build and guard contracts
 
 Posted in a market town's Contracts tab like the others, the reward escrowed from the stall; they need only the stall
 (no merchant node), count against the 2 open contracts, and are taken only by a member of the poster's alliance (his
-men stand among the poster's on the field; a truce for hired foes is not built).
+men stand among the poster's on the field; a truce for hired foes is not built). The tab is a job board of parchment
+cards (type, reward, route, time left, a rough risk by type, poster) with type filters; posting is four short steps
+(type, where, pay and time, a preview of the card) with the escrowed reward shown as "held until done".
 
 | Kind | Terms | Paid |
 | --- | --- | --- |
@@ -1254,7 +1259,8 @@ in tests/war/wallsMatter.test.ts.
 
 ### Titles
 
-Each season the leader in each stat (war_season_stats) holds a title, shown under the roster's tabs, in the Works panel
-and on the world map's season panel: **Merchant Prince** (coin sold at his stalls), **Master Builder** (man-hours sold
+Each season the leader in each stat (war_season_stats) holds a title, shown as an emblem (the words in its tooltip) under
+the roster's tabs, in the Works panel's Titles tab (the standings, with your own run at each), on the world map's season
+panel and after the holder's home on the map: **Merchant Prince** (coin sold at his stalls), **Master Builder** (man-hours sold
 under build contracts or given to works), **Warden** (hours held under guard contracts), **Warlord** (foes his men
 struck down).

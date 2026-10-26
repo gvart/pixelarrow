@@ -45,6 +45,8 @@ export interface MapState {
   /** M6l: carts and porters on the road this alliance sees (fog and Safe Roads applied), the planned haul. */
   convoys: ConvoySnap[];
   haul: HaulPlan | null;
+  /** W-61: region id -> the kit icons of the season's titles whose holders are at home there (drawn after its name). */
+  emblems?: Map<string, string[]>;
 }
 
 const img = (src: string) => new Promise<HTMLImageElement>((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => no(new Error(src)); i.src = src; });
@@ -120,7 +122,7 @@ export class WorldMap {
     const got = await Promise.all(names.map((n) => img(`${ART}${n}.${n.startsWith('base') ? 'jpg' : 'png'}`)));
     names.forEach((n, i) => (m.pics[n] = got[i]));
     // M6l: the kit's cart icons (public/war/ui), for convoys on the road; missing ones are drawn as a dot
-    for (const n of ['trade-cart', 'trade-wagon', 'act-load', 'bld-fort']) void img(`war/ui/icons/32/${n}.png`).then((i) => (m.pics[n] = i)).catch(() => undefined);
+    for (const n of ['trade-cart', 'trade-wagon', 'act-load', 'bld-fort', 'res-coin', 'node-engineer-master-builder', 'bld-tower-stone', 'act-attack']) void img(`war/ui/icons/32/${n}.png`).then((i) => (m.pics[n] = i)).catch(() => undefined);
     const ids = got[names.indexOf('region-ids')], c = document.createElement('canvas');
     c.width = ids.width;
     c.height = ids.height;
@@ -541,6 +543,23 @@ export class WorldMap {
         g.fillStyle = on ? '#fff6e4' : big ? '#f2c48a' : '#efe0c2';
         g.fillText(line, x, ly);
       });
+      // W-61: the season's titles held from this home, a gold medallion each after the name (the panel's tooltip names them)
+      const em = st.emblems?.get(id);
+      if (em?.length) {
+        const r = size * 0.62, wide = Math.max(...lines.map((l) => g.measureText(l).width));
+        em.forEach((ic, k) => {
+          const cx = x + wide / 2 + r * 1.25 + k * r * 2.2;
+          g.beginPath();
+          g.arc(cx, y, r, 0, Math.PI * 2);
+          g.fillStyle = '#2a1a0e';
+          g.fill();
+          g.lineWidth = Math.max(1, r * 0.18);
+          g.strokeStyle = '#e0b867';
+          g.stroke();
+          const p = this.pics[ic];
+          if (p) g.drawImage(p, cx - r * 0.72, y - r * 0.72, r * 1.44, r * 1.44);
+        });
+      }
     }
   }
 

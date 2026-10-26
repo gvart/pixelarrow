@@ -28,6 +28,7 @@ import { draggable } from './drag';
 import { goodCard, goodName } from './goods';
 import { esc, tipper } from './roster/ui';
 import { bar, fitHeight, icon } from './kit';
+import { glyph } from './glyph';
 import { keys } from '../../input/keys';
 import { myTeam } from '../side';
 
@@ -46,6 +47,15 @@ const opts = (list: readonly string[], cur: string) => list.map((x) => `<option 
 const KIND_TIP: Record<ContractKind, string> = {
   carry: 'carry sealed loads from here to the town; paid on delivery, half its value escrowed by the taker', supply: 'bring the goods to the town; paid as they arrive', escort: 'escort the poster\'s cart there; paid when it arrives with 75% of its cargo',
   build: 'hire an ally\'s men to build your site: paid from escrow as their labour goes in', guard: 'hire an ally to hold your town: paid an hour at a time while enough of his men stay inside; refunded if they leave or fall',
+};
+/** W-61 the job board's types: seal icon, name and a rough risk (0..3) by what the job asks of the taker's men. */
+const KINDS: ContractKind[] = ['carry', 'supply', 'escort', 'build', 'guard'];
+const KIND: Record<ContractKind, { icon: string; name: string; risk: number; riskWhy: string }> = {
+  carry: { icon: 'trade-wagon', name: 'Carry', risk: 2, riskWhy: 'sealed loads on the road: raiders may waylay the cart' },
+  supply: { icon: 'trade-pile', name: 'Supply', risk: 1, riskWhy: 'your own goods on your own road' },
+  escort: { icon: 'act-escort', name: 'Escort', risk: 3, riskWhy: 'a cart worth robbing: expect a fight' },
+  build: { icon: 'act-build', name: 'Build', risk: 1, riskWhy: 'labour on an ally\'s site' },
+  guard: { icon: 'act-hold', name: 'Guard', risk: 3, riskWhy: 'you hold his town when raiders come' },
 };
 
 const CSS = `
@@ -94,6 +104,39 @@ const CSS = `
 #rfMarket .mk-why{margin-top:4px;font-size:11px;text-align:center}
 #rfMarket .mk-rent{display:flex;align-items:center;gap:6px;margin-top:6px;padding:5px 6px;font-size:11.5px;white-space:normal}
 #rfMarket .mk-rent span{flex:1}
+#rfMarket .ct-bar{display:flex;align-items:center;gap:6px;margin:6px 0}
+#rfMarket .ct-bar .rf-seg button{width:32px}
+#rfMarket .ct-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+#rfMarket .ct-card{position:relative;padding:6px 7px 5px;color:#2a1a10;background:linear-gradient(172deg,#ecdab3,#dcc296 55%,#ccad7a);border:1px solid #6b4a26;box-shadow:inset 0 0 0 1px rgba(255,244,220,.45),inset 0 0 16px rgba(110,70,30,.4),0 2px 0 #0e0907;font:600 11.5px/1.25 Inter,sans-serif}
+#rfMarket .ct-card .rf-dim,#rfMarket .ct-sub{color:#6b4e30}
+#rfMarket .ct-h{display:flex;align-items:center;gap:6px}
+#rfMarket .ct-seal{flex:none;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 40% 35%,#b2412a,#6e1a10);box-shadow:0 0 0 2px #8a2a18,0 1px 2px rgba(0,0,0,.5)}
+#rfMarket .ct-t{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+#rfMarket .ct-t b{font:700 13.5px/1 Cinzel,serif;color:#4a1e0c}
+#rfMarket .ct-route{display:flex;align-items:center;gap:3px;margin-top:4px;font-size:11px;color:#5a3e22;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#rfMarket .ct-pay{display:flex;align-items:center;gap:1px}#rfMarket .ct-pay b{font:700 17px/1 Cinzel,serif;color:#4a1e0c}
+#rfMarket .ct-what{display:flex;align-items:center;gap:3px;margin:5px 0 4px;padding:3px 0;border-top:1px solid rgba(107,74,38,.45);border-bottom:1px solid rgba(107,74,38,.45);min-height:30px;flex-wrap:wrap}
+#rfMarket .ct-sub{margin-left:auto;font-size:10.5px}
+#rfMarket .ct-meta{display:flex;align-items:center;gap:7px;min-height:22px;font-size:10.5px;color:#5a3e22}
+#rfMarket .ct-meta>span{display:inline-flex;align-items:center;gap:2px}
+#rfMarket .ct-risk .off{opacity:.25}
+#rfMarket .ct-card .rf-pill{background:rgba(42,26,16,.85)}
+#rfMarket .ct-none{display:flex;align-items:center;gap:8px;padding:10px;white-space:normal}
+#rfMarket .ct-step{display:flex;align-items:center;gap:6px;margin:8px 0 4px;font:700 11px/1 Cinzel,serif;letter-spacing:.06em;text-transform:uppercase;color:var(--rf-accent)}
+#rfMarket .ct-step i{font-style:normal;width:16px;height:16px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font:700 10px/1 Inter,sans-serif;color:var(--rf-panel);background:var(--rf-accent)}
+#rfMarket .ct-step::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,var(--rf-line),transparent)}
+#rfMarket .ct-types{display:grid;grid-template-columns:repeat(5,1fr);gap:4px}
+#rfMarket .ct-type{display:flex;flex-direction:column;align-items:center;gap:2px;height:46px;padding:3px 0;background:var(--rf-sunk);border:1px solid var(--rf-rule);color:var(--rf-muted);font:600 11px/1 Inter,sans-serif}
+#rfMarket .ct-type:hover{border-color:var(--rf-accent);color:var(--rf-ink)}
+#rfMarket .ct-type.on{background:var(--rf-sel);border-color:var(--rf-title);color:var(--rf-title);box-shadow:inset 0 0 0 1px var(--rf-title)}
+#rfMarket .ct-row{display:flex;align-items:center;flex-wrap:wrap;gap:4px}
+#rfMarket .ct-lab{display:inline-flex;align-items:center;margin-left:4px}#rfMarket .ct-lab:first-child{margin-left:0}
+#rfMarket .ct-row .rf-step .rf-tbtn{width:23px;padding:0}#rfMarket .ct-row .rf-step input{width:52px}
+#rfMarket .ct-hours{display:inline-flex;gap:2px}
+#rfMarket .ct-prev{display:grid;grid-template-columns:minmax(0,1fr) 128px;gap:6px;align-items:stretch}
+#rfMarket .ct-esc{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:6px}
+#rfMarket .ct-esc b{font:700 20px/1 Cinzel,serif;color:var(--rf-gold)}
+#rfMarket .ct-esc span{font:700 10px/1 Inter,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--rf-muted)}
 `;
 
 export interface MarketHud { open(tab?: Tab): void; refresh(): void }
@@ -246,28 +289,69 @@ export function mountMarket(s: SandboxScene, mk: Mk): MarketHud {
       <div><div class="mk-colh"><span>Market</span><span title="what you pay a unit">buy</span><span title="what you get a unit">sell</span></div><div class="mk-list rf-scroll">${market}</div></div>
     </div>${deal}`;
   };
-  const contractsTab = () => {
+  // ---------- contracts: a job board of parchment cards (Battle Brothers, EVE), posting in four short steps ----------
+  let posting = false, cFilter: ContractKind | 'all' = 'all';
+  /** A job card: type seal, route, reward, what, time, risk, employer, and its action. */
+  const jobCard = (v: { kind: ContractKind; reward: number; route: string; what: string; time: string; employer: string; action: string; dim?: boolean }) => {
+    const k = KIND[v.kind];
+    const risk = `<span class="ct-risk" data-tip="${esc(`<b class="k">Risk</b> · ${['', 'low', 'some', 'high'][k.risk]}<br><span class="rf-dim tip-w">${k.riskWhy}</span>`)}">${[1, 2, 3].map((i) => `<span class="${i <= k.risk ? '' : 'off'}">${glyph('ui:skull', 13)}</span>`).join('')}</span>`;
+    return `<div class="ct-card${v.dim ? ' dim' : ''}">
+      <div class="ct-h"><span class="ct-seal" data-tip="${esc(`<b class="k">${k.name}</b><br><span class="rf-dim tip-w">${KIND_TIP[v.kind]}</span>`)}">${icon(k.icon)}</span>
+        <div class="ct-t"><b>${k.name}</b></div>
+        <div class="ct-pay" data-tip="the reward, held in escrow until done"><b data-live="reward">${v.reward}</b>${icon('res-coin')}</div></div>
+      <div class="ct-route">${v.route}</div>
+      <div class="ct-what">${v.what}</div>
+      <div class="ct-meta"><span data-tip="time left to take and do it">${glyph('ui:hourglass', 13)}<span data-live="hours">${v.time}</span></span>${risk}<span data-tip="who posted it">${glyph('ui:people', 13)}${v.employer}</span><span style="flex:1"></span>${v.action}</div></div>`;
+  };
+  const what = (c: { kind: ContractKind; res: string | null; n: number; delivered: number; value: number; site?: number | null; men?: number; paid?: number }) =>
+    c.kind === 'supply' ? `${gi(c.res)}<b>${fmt(c.n)}</b> ${goodName(c.res ?? '').toLowerCase()}${c.delivered ? `<span class="ct-sub">${fmt(c.delivered)} in</span>` : ''}`
+    : c.kind === 'carry' ? `${icon('trade-chest')}<b>${fmt(c.n)}</b> sealed loads<span class="ct-sub">worth ${c.value}</span>`
+    : c.kind === 'build' ? `${icon('act-build')}site #${c.site ?? '?'} · <b>${fmt(c.delivered / 3600)}/${fmt(c.n / 3600)}</b> man-h${c.paid ? `<span class="ct-sub">${fmt(c.paid)} paid</span>` : ''}`
+    : c.kind === 'guard' ? `${icon('unit-hoplite')}<b>${c.men ?? 0}</b> men · <b>${fmt(c.delivered / 3600)}/${fmt(c.n)}</b> h held${c.paid ? `<span class="ct-sub">${fmt(c.paid)} paid</span>` : ''}`
+    : `${icon('trade-cart')}the poster's cart<span class="ct-sub">75% to arrive</span>`;
+  const route = (kind: ContractKind, from: string, to: string) => `${glyph('ui:map', 12)}${kind === 'build' || kind === 'guard' ? town(from) : `${town(from)} → ${town(to)}`}`;
+  const contractsTab = () => (posting ? postView() : boardView());
+  const boardView = () => {
     const now = Date.now(), me = M.me;
-    const rows = contracts.map((c) => {
-      const what = c.kind === 'supply' ? `${fmt(c.n)} ${c.res}${c.delivered ? ` (${fmt(c.delivered)} in)` : ''}` : c.kind === 'carry' ? `${fmt(c.n)} sealed loads · value ${c.value}`
-        : c.kind === 'build' ? `build site #${c.site} in ${town(c.region ?? '')} · ${fmt(c.delivered / 3600)} / ${fmt(c.n / 3600)} man-h${c.paid ? ` · ${fmt(c.paid)} paid` : ''}`
-        : c.kind === 'guard' ? `hold the town in ${town(c.region ?? '')} · ${c.men} men · ${fmt(c.delivered / 3600)} / ${fmt(c.n)} h${c.paid ? ` · ${fmt(c.paid)} paid` : ''}` : 'the poster\'s cart';
-      const work = c.kind === 'build' || c.kind === 'guard';
+    const shown = contracts.filter((c) => cFilter === 'all' || c.kind === cFilter);
+    const cards = shown.map((c) => {
       const can = c.state === 'open' && c.poster !== me;
-      return `<div class="rf-row" style="padding:3px 2px;border-bottom:1px solid var(--rf-rule)"><div class="mk-row" style="padding:0;min-height:20px">${icon('trade-contract')}<b style="text-transform:capitalize" title="${KIND_TIP[c.kind]}">${c.kind}</b><span class="rf-dim" style="flex:1">${work ? `posted in ${town(c.town)}` : `${town(c.town)} → ${town(c.to_town)}`}</span><span class="rf-num">${c.reward}</span>${icon('res-coin')}</div>
-        <div class="mk-row" style="padding:0 0 0 28px;min-height:20px"><span style="flex:1;display:inline-flex;align-items:center;gap:3px">${gi(c.res)}${what}</span><span class="rf-dim">${c.state === 'taken' ? (c.taker === me ? 'yours' : 'taken') : inH(c.deadline - now)}</span>${c.state === 'open' ? btn('take', 'Take', can, `data-id="${c.id}"`, c.poster === me ? 'your own contract' : c.kind === 'carry' ? `escrows half its value (${c.deposit || Math.round(c.value / 2)} coin)` : 'take it') : ''}</div></div>`;
+      const action = c.state !== 'open' ? `<span class="rf-pill${c.taker === me ? ' gold' : ''}">${c.taker === me ? 'yours' : 'taken'}</span>`
+        : c.poster === me ? '<span class="rf-pill">posted</span>'
+        : btn('take', 'Take', can, `data-id="${c.id}" data-tip="${esc(c.kind === 'carry' ? `escrows half its value (${c.deposit || Math.round(c.value / 2)} coin) until delivered` : 'take the job')}"`, '', 'rf-tbtn mk-b pri');
+      return jobCard({ kind: c.kind, reward: c.reward, route: route(c.kind, c.kind === 'build' || c.kind === 'guard' ? c.region ?? c.town : c.town, c.to_town), what: what(c), time: c.state === 'open' ? inH(c.deadline - now) : '—', employer: c.poster === me ? 'you' : `#${c.poster}`, action });
     }).join('');
+    const count = (k: ContractKind | 'all') => contracts.filter((c) => k === 'all' || c.kind === k).length;
+    const filters = (['all', ...KINDS] as const).map((k) => `<button class="${k === cFilter ? 'on' : ''}" data-act="cfilter" data-v="${k}" data-tip="${esc(k === 'all' ? 'every contract' : `<b class="k">${KIND[k].name}</b> · ${count(k)}`)}">${k === 'all' ? '<b style="font:700 11px/1 Inter,sans-serif">All</b>' : icon(KIND[k].icon)}${count(k) ? `<span class="key">${count(k)}</span>` : ''}</button>`).join('');
+    return `<div class="ct-bar"><span class="rf-seg">${filters}</span><span style="flex:1"></span>${btn('postView', '+ Post a contract', true, '', '', 'rf-tbtn pri')}</div>
+      ${cards ? `<div class="ct-grid">${cards}</div>` : `<div class="ct-none rf-well">${icon('trade-contract', 32)}<div><b>No ${cFilter === 'all' ? '' : KIND[cFilter].name.toLowerCase() + ' '}contracts at ${town(T)}</b><div class="rf-dim">post one: the reward is held until the job is done</div></div></div>`}`;
+  };
+  const postView = () => {
+    const k = form.cKind;
     // W-61: a build contract names one of your team's open sites here; a guard contract your town in a region
     const sites = (s.sim.cur?.buildings ?? []).filter((b) => b.team === myTeam() && (b.state === 'foundation' || b.state === 'scaffold'));
-    if (form.cKind === 'build' && !sites.some((b) => b.id === form.cSite)) form.cSite = sites[0]?.id ?? -1;
-    const siteSel = `<select data-f="cSite" title="the site they build (your team's, in this region)">${sites.map((b) => `<option value="${b.id}"${b.id === form.cSite ? ' selected' : ''}>#${b.id} ${b.type}</option>`).join('') || '<option value="-1">no open site here</option>'}</select>`;
-    const extra = form.cKind === 'supply' ? `${sel('cRes', GOODS.filter((g) => g !== 'coin'))}<span class="rf-dim">n</span>${num('cN')}` : form.cKind === 'carry' ? `<span class="rf-dim">loads</span>${num('cLoads', 40)}<span class="rf-dim">value</span>${num('cValue')}`
-      : form.cKind === 'build' ? `${siteSel}<span class="rf-dim">man-h</span>${num('cWork', 40)}`
-      : form.cKind === 'guard' ? `<span class="rf-dim">in</span><input type="text" data-f="cRegion" value="${form.cRegion}" style="width:76px" title="the region of your town"><span class="rf-dim">men</span>${num('cMen', 36)}<span class="rf-dim">for</span>${num('cHold', 36)}<span class="rf-dim">h</span>` : '';
-    const work = form.cKind === 'build' || form.cKind === 'guard';
-    return `<div class="rf-cap" style="margin-top:6px">At or bound for ${town(T)}</div>${rows || '<div class="rf-dim" style="padding:2px">no open contracts</div>'}
-      <div class="rf-cap" style="margin-top:8px">Post a contract <span class="rf-dim">reward escrowed</span></div>
-      <div class="mk-form">${sel('cKind', ['carry', 'supply', 'escort', 'build', 'guard'])}${work ? '' : `<span class="rf-dim">to</span>${sel('cTo', towns)}`}${extra}<span class="rf-dim">reward</span>${num('cReward')}${icon('res-coin')}<span class="rf-dim">within</span>${num('cHours', 40)}<span class="rf-dim">h</span>${btn('post', 'Post', true, '', KIND_TIP[form.cKind], 'rf-tbtn mk-b pri')}</div>`;
+    if (k === 'build' && !sites.some((b) => b.id === form.cSite)) form.cSite = sites[0]?.id ?? -1;
+    const siteSel = `<select data-f="cSite">${sites.map((b) => `<option value="${b.id}"${b.id === form.cSite ? ' selected' : ''}>#${b.id} ${b.type}</option>`).join('') || '<option value="-1">no open site here</option>'}</select>`;
+    const lab = (ic: string, tipText: string) => `<span class="ct-lab" data-tip="${esc(tipText)}">${ic}</span>`;
+    const to = `${lab(glyph('ui:map', 16), 'the town it goes to')}${sel('cTo', towns)}`;
+    const where = k === 'supply' ? `${to}${lab(gi(form.cRes) || glyph('ui:amphora', 16), 'the good and how much')}${sel('cRes', GOODS.filter((g) => g !== 'coin'))}${num('cN')}`
+      : k === 'carry' ? `${to}${lab(icon('trade-chest'), 'sealed loads, and what they are worth (the taker escrows half)')}${num('cLoads', 40)}${lab(icon('res-coin'), 'their value')}${num('cValue')}`
+      : k === 'build' ? `${lab(icon('act-build'), 'the site they build: one of yours in this region')}${siteSel}${lab(glyph('ui:people', 16), 'man-hours of labour')}${num('cWork', 40)}<span class="rf-dim">man-h</span>`
+      : k === 'guard' ? `${lab(glyph('ui:map', 16), 'the region of your town')}<input type="text" data-f="cRegion" value="${esc(form.cRegion)}" style="width:96px">${lab(icon('unit-hoplite'), 'men he keeps inside')}${num('cMen', 40)}<span class="rf-dim">men</span>${lab(glyph('ui:hourglass', 16), 'hours held')}${num('cHold', 40)}<span class="rf-dim">h</span>`
+      : `${to}`;
+    const types = KINDS.map((x) => `<button class="ct-type${x === k ? ' on' : ''}" data-act="ckind" data-v="${x}" data-tip="${esc(`<b class="k">${KIND[x].name}</b><br><span class="rf-dim tip-w">${KIND_TIP[x]}</span>`)}">${icon(KIND[x].icon)}<span>${KIND[x].name}</span></button>`).join('');
+    const hours = [6, 12, 24, 48].map((h) => `<button class="rf-tbtn mk-b${form.cHours === h ? ' on' : ''}" data-act="chours" data-v="${h}">${h} h</button>`).join('');
+    const prevWhat = what({ kind: k, res: form.cRes, n: k === 'supply' ? form.cN : k === 'carry' ? form.cLoads : k === 'build' ? form.cWork * 3600 : form.cHold, delivered: 0, value: form.cValue, site: form.cSite, men: form.cMen });
+    const preview = jobCard({ kind: k, reward: form.cReward, route: route(k, k === 'guard' ? form.cRegion : k === 'build' ? s.region.id : T, form.cTo), what: prevWhat, time: `${form.cHours} h`, employer: 'you', action: '', dim: false });
+    const refund = k === 'guard' ? 'paid an hour at a time; the rest back if his men leave or fall' : k === 'build' ? 'paid as the labour goes in; the rest back at the deadline' : 'back to you if nobody does it in time';
+    return `<div class="ct-post">
+      <div class="ct-step"><i>1</i>Type</div><div class="ct-types">${types}</div>
+      <div class="ct-step"><i>2</i>Where</div><div class="ct-row">${where}</div>
+      <div class="ct-step"><i>3</i>Pay and time</div><div class="ct-row">${lab(icon('res-coin'), 'the reward')}<span class="rf-step">${btn('creward', '−', true, 'data-d="-10"', '', 'rf-tbtn')}<input type="number" data-f="cReward" min="1" value="${form.cReward}">${btn('creward', '+', true, 'data-d="10"', '', 'rf-tbtn')}</span>
+        ${lab(glyph('ui:hourglass', 16), 'how long it stays on the board')}<span class="ct-hours">${hours}</span></div>
+      <div class="ct-step"><i>4</i>Preview</div>
+      <div class="ct-prev">${preview}<div class="ct-esc rf-well" data-tip="${esc(`<b class="k">Escrow</b><br><span class="rf-dim tip-w">${refund}</span>`)}">${icon('res-coin', 32)}<b data-live="reward">${form.cReward}</b><span>held until done</span></div></div>
+      <div class="mk-go">${btn('postBack', 'Back to the board', true, '', '', 'rf-tbtn')}${btn('post', 'Post contract', true, '', '', 'rf-tbtn pri big')}</div></div>`;
   };
 
   const lettersTab = () => {
@@ -300,9 +384,16 @@ export function mountMarket(s: SandboxScene, mk: Mk): MarketHud {
     const f = form as Record<string, unknown>;
     f[k] = el instanceof HTMLInputElement && el.type === 'checkbox' ? el.checked : (el instanceof HTMLInputElement && el.type === 'number') || k === 'cSite' ? Number(el.value) : el.value;
     if (k === 'cKind' || k === 'side' || k === 'res' || k === 'n' || k === 'price') { if (el instanceof HTMLSelectElement) render(); else upd(); }
+    else if (tab === 'Contracts' && el instanceof HTMLSelectElement) render();
+    // the contract preview's reward and escrow follow the typing
+    if (k === 'cReward') win.querySelectorAll('[data-live=reward]').forEach((x) => (x.textContent = String(form.cReward)));
   });
-  // the trade quantity: the totals follow once it is typed (Enter or leaving the field)
-  win.addEventListener('change', (e) => { if ((e.target as HTMLElement).dataset.f === 'dn') { form.dn = Math.max(1, Math.floor(form.dn) || 1); render(); } });
+  // the trade quantity: the totals follow once it is typed (Enter or leaving the field); the contract preview too
+  win.addEventListener('change', (e) => {
+    const k = (e.target as HTMLElement).dataset.f;
+    if (k === 'dn') { form.dn = Math.max(1, Math.floor(form.dn) || 1); render(); }
+    else if (tab === 'Contracts' && k && k.startsWith('c') && (e.target as HTMLElement) instanceof HTMLInputElement) render();
+  });
   /** Refresh the escrow line without losing the field being typed in. */
   const upd = () => {
     const sp = win.querySelector<HTMLElement>('.mk-form span.rf-dim[style*="flex:1"] span');
@@ -334,6 +425,11 @@ export function mountMarket(s: SandboxScene, mk: Mk): MarketHud {
     else if (a === 'cancel') void run(M.cancel(id), () => 'cancelled: the escrow is back in the stall');
     else if (a === 'fill') void run(M.fill(id, Number(t.dataset.n) || Math.min(form.take, Number(t.dataset.left) || Infinity)), (r) => `filled ${fmt(r.n)} at ${r.price}${r.tax ? ` (tax ${fmt(r.tax)})` : ''}`);
     else if (a === 'take') void run(M.take(id), () => 'contract taken');
+    else if (a === 'cfilter') { cFilter = t.dataset.v as typeof cFilter; render(); }
+    else if (a === 'postView' || a === 'postBack') { posting = a === 'postView'; say(''); render(); }
+    else if (a === 'ckind') { form.cKind = t.dataset.v as ContractKind; render(); }
+    else if (a === 'chours') { form.cHours = Number(t.dataset.v); render(); }
+    else if (a === 'creward') { form.cReward = Math.max(1, form.cReward + Number(t.dataset.d)); render(); }
     else if (a === 'post') {
       if (form.cKind === 'build' && form.cSite < 0) { say('lay out a site first: hired men build one of your open sites here', true); render(); return; }
       const hours = form.cKind === 'guard' ? Math.max(form.cHours, form.cHold) : form.cHours;
@@ -341,7 +437,7 @@ export function mountMarket(s: SandboxScene, mk: Mk): MarketHud {
         kind: form.cKind, toTown: form.cTo, reward: form.cReward, deadline: Date.now() + hours * 3_600_000,
         ...(form.cKind === 'supply' ? { res: form.cRes, n: form.cN } : form.cKind === 'carry' ? { loads: form.cLoads, value: form.cValue }
           : form.cKind === 'build' ? { region: s.region.id, site: form.cSite, hours: form.cWork } : form.cKind === 'guard' ? { region: form.cRegion, hours: form.cHold, men: form.cMen } : {}),
-      }), (r) => `contract #${r.contract} posted; its reward is escrowed`);
+      }), (r) => `contract #${r.contract} posted; its reward is held until done`).then((ok) => { if (ok) { posting = false; render(); } });
     }
     else if (a === 'offerL') void run(M.letter(T, form.lTo, form.lAmount, form.lFee), (r) => `letter #${r.letter} offered`);
     else if (a === 'buyL') void run(M.buyLetter(id), () => `letter #${id} is yours: redeem it at its town`);
