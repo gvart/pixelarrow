@@ -95,6 +95,37 @@ export function mountPeace(s: SandboxScene, mk: Mk): void {
     if (open) tcard.innerHTML = townCard(t);
   };
   setInterval(draw, 500);
+  // the badge and card sit top centre unless a left panel (forge, market, roster, maybe dragged) reaches under them:
+  // then they step right of it (5 Hz; CSS px from the rects, art px for left)
+  const LEFT_PANELS = ['cfWp', 'cfTree', 'rfMarket', 'rfHandoff', 'rrPanel', 'rrCard'];
+  /** The right edge of the left panels under `r`'s band, or `x` when none reaches past it. */
+  const clearOf = (r: DOMRect, x: number, gap: number) => {
+    for (const id of LEFT_PANELS) {
+      const p = document.getElementById(id);
+      if (!p || p.style.display === 'none') continue;
+      const q = p.getBoundingClientRect();
+      if (q.width && q.top < r.bottom && r.top < q.bottom && q.left + q.width / 2 < innerWidth / 2) x = Math.max(x, q.right + gap);
+    }
+    return x;
+  };
+  const place = (el: HTMLElement) => {
+    if (el.style.display === 'none') return;
+    const r = el.getBoundingClientRect(), z = Number(el.style.zoom) || 1;
+    el.style.left = `${Math.round(clearOf(r, (innerWidth - r.width) / 2, 6 * z) / z)}px`;
+    el.style.transform = 'none';
+  };
+  // their tooltip: placeTip may put it left of the badge, over a left panel; then it goes right of its own panel
+  let tipOf: HTMLElement | null = null;
+  const placeTipClear = () => {
+    if (tip.style.display === 'none') tipOf = null;
+    if (!tipOf || tipOf.style.display === 'none') return;
+    const t = tip.getBoundingClientRect(), z = Number(tip.style.zoom) || 1;
+    if (clearOf(t, t.left, 0) === t.left) return;
+    const x = Math.min(innerWidth - t.width - 4, tipOf.getBoundingClientRect().right + 6 * z);
+    tip.style.left = `${x / z}px`;
+  };
+  for (const el of [badge, tcard]) el.addEventListener('pointerover', () => ((tipOf = el), placeTipClear()));
+  setInterval(() => (place(badge), place(tcard), placeTipClear()), 200);
 
   // ---------- the works window: works and titles ----------
   const win = mk('rfWorks', 'top:40px;right:110px;width:380px;display:none;pointer-events:auto;padding:4px 8px 8px');
