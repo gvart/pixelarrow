@@ -1,0 +1,23 @@
+src/war/regions/gorge.json
+  s_fcb7475e0b5395::t_8745f4bb2277f5 1
+scripts/war/regions/gorge.ts
+  s_fcb7475e0b5395::t_5fb14c7d942657 33-34
+  s_fcb7475e0b5395::t_178502f32e01bf 36
+  s_fcb7475e0b5395::t_8745f4bb2277f5 30
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "82c3d8cc0ba08648b002aa0d6d730ead57a02340",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
