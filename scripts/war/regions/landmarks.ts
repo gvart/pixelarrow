@@ -204,9 +204,11 @@ export function citadel(k: Kit, at: Pt, hb: number): Landmark {
   // no loose props just behind the drawn ramps (their faces would stand in front of them)
   const rampNear = (x: number, y: number) => { for (let d = 0; d <= 10; d++) for (let e = 0; e <= 10; e++) if ((s.vz.get((y + d) * 4096 + x + e) ?? 0) > hb + 0.3) return true; return false; };
   // the crag's skirt: broken granite ledges, snow drifted on them, round the wards but where the ramps come down
-  s.skirtKinds = { a: 'drift', b: 'rock', cut: -0.15 };
-  // (four ledges deep within the drafted width, so the face breaks into rock steps; the tiles it takes are as before: Drakon's raid is tuned on them)
-  const sk = s.skirt(C, ho, 8, { steps: 4, seed: 19, open: [fS, fW, fE, ...zig], lo: 0.1, hi: 0.85 });
+  s.skirtKinds = { a: 'drift', b: 'drift', cut: 0, edge: 'rock' };
+  // (16 wide, four ledges stepping down from about two thirds of the crag's height, so it reads as a skirt against the
+  // tall walls; the drift keeps the view's peaks off it (src/war/view/massifs.ts maskOf). Drakon's raid holds at 8/8
+  // with it: npm run balance:war)
+  const sk = s.skirt(C, ho, 16, { steps: 4, seed: 19, open: [fS, fW, fE, ...zig], lo: 0.08, hi: 0.65 });
   // the summit: the keep, the treasury, the temple, a cistern, the commander's halls, stores
   if (!putNear(s, 'citadel-keep', 120, 30)) throw new Error('citadel: no ground for the keep');
   s.plaza(123, 44, 10, 5);

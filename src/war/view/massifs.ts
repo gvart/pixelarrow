@@ -14,7 +14,7 @@
  */
 import type { RegionData } from '../types';
 import type { ObjDef } from './art';
-import { decodeBiomes } from '../regions/visual';
+import { decodeBiomes, decodeVisual, KINDS } from '../regions/visual';
 import { behindFootprint, edgeDistance, spriteTiles, type PlacedMassif } from '../region/massifs';
 import { hash } from './autotile';
 import { canvas } from './canvas';
@@ -51,8 +51,20 @@ export class Massifs {
     const k = r.biomes?.names.indexOf('mountains') ?? -1;
     if (!r.biomes || k < 0) return null;
     const b = decodeBiomes(r.biomes.rle, r.w * r.h), m = new Uint8Array(r.w * r.h);
+    // a landmark crag's skirt (drift on its ledges, rimmed in rock: scripts/war/regions/kit.ts Site.skirt) keeps its own
+    // drawn ledges: no peaks over a tile with drift on it or on a tile round it
+    const drift = new Uint8Array(r.w * r.h);
+    if (r.visual) {
+      const v = decodeVisual(r.visual.rle, 4 * r.w * r.h).kind, D = KINDS.indexOf('drift'), fw = 2 * r.w;
+      for (let j = 0; j < v.length; j++) if (v[j] === D) drift[((j / fw) >> 1) * r.w + ((j % fw) >> 1)] = 1;
+    }
+    const ledge = (i: number) => {
+      const x = i % r.w, y = (i / r.w) | 0;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (drift[Math.min(r.h - 1, Math.max(0, y + dy)) * r.w + Math.min(r.w - 1, Math.max(0, x + dx))]) return true;
+      return false;
+    };
     let any = false;
-    for (let i = 0; i < m.length; i++) if (b[i] === k && r.terrain[i] === 'rock' && !r.water[i]) { m[i] = 1; any = true; }
+    for (let i = 0; i < m.length; i++) if (b[i] === k && r.terrain[i] === 'rock' && !r.water[i] && !ledge(i)) { m[i] = 1; any = true; }
     return any ? m : null;
   }
 

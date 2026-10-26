@@ -3154,6 +3154,21 @@ dry falls, the jetty on sand) came from it. (2) A raid-tuned landmark can still 
 levels left every raid at 8/8 (`npm run balance:war`, tests/war/landmarkBalance.test.ts). (3) Drafted hubs and claim
 points are the commonest empty spots; dress them in the kit, not per region.
 
+### 40o Shore teeth and the Citadel's crag skirt
+
+Agent brief (look leftovers, war-rebuild item 5): "Water-tile teeth on diagonal shores: make diagonal shores read smooth
+(keep the 40n surf line). Citadel crag: the skirt doesn't balance against Drakon's. Existing assets, PixelLab only if
+something is missing. Page screenshots before/after, look at them, iterate." No new art; own critique of sandbox shots
+(elaia bay at 1x, krios Citadel at 1x and 1/2).
+
+| Item | Found | Fixed | Rejected (why) |
+| --- | --- | --- | --- |
+| shore teeth | the smoothed shore frames (SmoothFrames) already draw a curved waterline, but the baked light over each shore cell filled its whole diamond: water light on a half-sand cell, wet-sand light on a half-water cell, so a dark and turquoise sawtooth ran along every coast that crosses the grid | art.ts `shoreHalves`: a land-water transition cell's light split along the drawn 0.5 contour, each half in its own side's light | loosening the corner-value clamp (no visible change) |
+| Citadel skirt | at width 8 the skirt drew a thin brown rock band or vanished: the view raised procedural peaks over all mountains rock (massifs.ts maskOf), burying the ledges; the crag read as one sheer wall with a narrow ledge | skirt 16 wide, four ledges from two thirds of the crag's height (lo 0.08, hi 0.65); drift on the ledges, rimmed in rock (`skirtKinds.edge`: drift has no sheet against snow); maskOf keeps peaks off drift tiles; drift walls drawn as granite (rockFace.ts) | rock-only ledges (read as a brown bank), drift/rock noise mix (a pocked look); the "raid re-tune": Drakon held at 8/8 (4 squads + ram) with the wider skirt in `npm run balance:war` and the landmarkBalance test |
+
+**Lessons:** (1) A sawtooth over a smooth frame can be the light, not the tile: check each baked layer over the cell.
+(2) A drawn visual on mountains rock must keep the peak field off it, or the peaks cover it whole.
+
 ## 41. Landing page references (pixelarrow.app, "Play your way")
 
 Design references for the new marketing site in `landing/`, not assets: nothing is built until the owner approves

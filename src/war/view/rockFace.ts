@@ -19,7 +19,7 @@ export const STONES: Record<string, Stone> = { kyrene: 'sandstone', elaia: 'lime
 
 /** The stone of a rock wall under a cell of visual kind `kind` in biome (tile set) `biome`, null: a strip cliff (snow, earth). */
 export function wallStone(biome: string, kind: string): Stone | null {
-  if (kind === 'snow' || kind === 'drift') return null;
+  if (kind === 'snow') return null;
   return STONES[biome] ?? (kind === 'rock' ? 'granite' : null);
 }
 

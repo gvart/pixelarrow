@@ -750,8 +750,11 @@ export class Site {
   liftOnly: ((x: number, y: number) => boolean) | null = null;
   /** W-51 crag skirts (Site.skirt): per site tile of its rock, the level its ledge is drawn at (before `lift`). */
   readonly vrock = new Map<number, number>();
-  /** The skirt's visual kinds: `a` where the noise is over `cut`, else `b` (a drifted crag: drift over rock). */
-  skirtKinds: { a: Kind; b: Kind; cut: number } = { a: 'rock', b: 'rock', cut: 0 };
+  /**
+   * The skirt's visual kinds: `a` where the noise is over `cut`, else `b` (a drifted crag: drift over rock); `edge`: the
+   * kind of its tiles next to other ground (drift has no tile sheet against snow, so a drifted skirt is rimmed in rock).
+   */
+  skirtKinds: { a: Kind; b: Kind; cut: number; edge?: Kind } = { a: 'rock', b: 'rock', cut: 0 };
   /** W-51 a visual ground for the site's tiles where `inside` holds (sim terrain kept): `ground` on open land, `pave` on its streets and `court` tiles. */
   look: { ground: Kind; pave: Kind; inside: (x: number, y: number) => boolean; rough?: Kind; court?: (x: number, y: number) => boolean } | null = null;
   /** Site tiles round a ruin (within 1, most of them): its rubble ground (look.rough). */
@@ -1456,7 +1459,10 @@ function visualLayer(k: Kit): Out {
       for (const s of k.sites) {
         if (tx < s.x0 || ty < s.y0 || tx >= s.x0 + s.w || ty >= s.y0 + s.h) continue;
         const sx = tx - s.x0, sy = ty - s.y0;
-        if (terrain[i] === 'rock' && s.vrock.has(sy * 4096 + sx)) kind[i] = KINDS.indexOf(fbm(x, y, 2.5, 53) > s.skirtKinds.cut ? s.skirtKinds.a : s.skirtKinds.b);
+        if (terrain[i] === 'rock' && s.vrock.has(sy * 4096 + sx)) {
+          const sk = s.skirtKinds, rim = sk.edge && [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => !s.vrock.has((sy + dy) * 4096 + sx + dx));
+          kind[i] = KINDS.indexOf(rim ? sk.edge! : fbm(x, y, 2.5, 53) > sk.cut ? sk.a : sk.b);
+        }
         else if (s.look && terrain[i] !== 'rock' && s.look.inside(sx, sy)) kind[i] = KINDS.indexOf(terrain[i] === 'road' || s.look.court?.(sx, sy) ? s.look.pave : s.look.rough && s.roughAt(sx, sy) ? s.look.rough : s.look.ground);
       }
     }
