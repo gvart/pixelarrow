@@ -219,7 +219,12 @@ describe('planned sites, resume and cancel', () => {
     sim.order({ kind: 'placeBuilding', team: 0, type: 'fort', x: 22, y: 22 });
     sim.order({ kind: 'placeWall', team: 0, material: 'stone', points: [15.5, 20.5, 25.5, 20.5] });
     sim.step();
-    expect(sim.snapshot().buildings).toHaveLength(1);
+    // W-57: the wall builds its pieces clear of the camp site and skips the ones over it
+    const camp = new Set(building(sim, 0).tiles.reduce<string[]>((a, v, i, t) => (i % 2 ? a : [...a, `${v},${t[i + 1]}`]), []));
+    const wall = sim.snapshot().buildings!.slice(1);
+    expect(wall.length).toBeGreaterThan(0);
+    expect(wall.every((b) => b.type === 'stoneWall')).toBe(true);
+    for (const b of wall) for (let i = 0; i < b.tiles.length; i += 2) expect(camp.has(`${b.tiles[i]},${b.tiles[i + 1]}`)).toBe(false);
     // walls and gates too
     sim.order({ kind: 'placeWall', team: 0, material: 'wood', points: [10.5, 30.5, 30.5, 30.5], gates: [20, 30.5] });
     sim.step();
@@ -342,7 +347,8 @@ describe('squad split and merge', () => {
     sim.order({ kind: 'detach', squad: army, count: 4 });
     sim.step();
     const crew = 1;
-    sim.order({ kind: 'placeBuilding', squad: crew, type: 'camp', x: 20, y: 20 });
+    // a storehouse with no store to fetch its wood from: the men hold their slots and wait (a camp is done too soon now, W-57)
+    sim.order({ kind: 'placeBuilding', squad: crew, type: 'storehouse', x: 20.5, y: 20.5 });
     run(sim, 200);
     let snap = sim.snapshot();
     expect(snap.squads[army].order).toBe('hold');
@@ -352,7 +358,7 @@ describe('squad split and merge', () => {
     run(sim, 300);
     snap = sim.snapshot();
     expect(snap.squads[crew].units).toHaveLength(8);
-    expect(snap.buildings![0].workers).toBe(6); // a camp takes 6 at once
+    expect(snap.buildings![0].workers).toBe(6); // a storehouse takes 6 at once
   });
 });
 

@@ -38,6 +38,7 @@ import { BODY, TEAM_COLOR } from '../units';
 import type { BuildArt, BuildSprite, KitSprite } from './buildArt';
 import { frontDepth, type Back } from './wallDepth';
 import { slot } from '../side';
+import { waitText } from '../hud/activity';
 
 /** Ground overlays: over the terrain chunks (1) and the influence area (2), under objects and units (10+). */
 const GROUND = 2.5;
@@ -50,8 +51,12 @@ const HEIGHT: Partial<Record<BuildingType, number>> = {
 };
 const MAT = { wood: 0x8a6a44, stone: 0xa8a294 };
 const GATE_NEAR = 3; // tiles: a gate opens while one of its team stands this near
-/** Cutaway: walls, towers and gates drawn as stubs this high (px, ~1 m at a side vertex); build mode cuts within CUT_NEAR tiles of the cursor. */
-const STUB = 33, CUT_NEAR = 4;
+/** Cutaway (V): walls, towers and gates drawn as stubs this high (px, ~1 m at a side vertex). */
+const STUB = 33;
+/** W-57: while placing, buildings within FADE_NEAR tiles of the cursor are drawn at FADE alpha so the ghost reads in front of them. */
+const FADE_NEAR = 4, FADE = 0.3;
+/** Colour of a stalled site's floating note ("Waiting for 6 wood"). */
+const WAIT_COLOR = '#ffb060';
 /** Depth steps inside a tile's layers (a tile's depth key spans ~1 / 4096). */
 const IN = 1e-6;
 const view = (o: { x: number; y: number; right: number; bottom: number }, x: number, y: number, m: number) => x > o.x - m && x < o.right + m && y > o.y - m && y < o.bottom + m * 2;
@@ -139,8 +144,10 @@ export class BuildingLayer {
   grids = false;
   /** Cutaway (V): every wall, tower and gate drawn as a low stub, so the inside of a fort shows (and the peaks cut to stubs: SandboxScene). */
   cutaway = false;
-  /** Build mode's cursor tile: the walls near it are cut away too (null: none). */
+  /** Build mode's cursor tile while placing (W-57): the buildings near it are drawn see-through (null: none). */
   cutNear: { x: number; y: number } | null = null;
+  /** The player's team: its stalled sites get a floating note (-1 none). */
+  team = -1;
   /** Units on a ladder this frame (the climb clip). */
   readonly climbing = new Set<number>();
   /** Buildings another layer draws (siege ladders, rubble: ../siege/siegeLayer.ts). */
@@ -157,6 +164,9 @@ export class BuildingLayer {
   private gGround: Phaser.GameObjects.Graphics;
   private label: Phaser.GameObjects.Text;
   private nodeLabel: Phaser.GameObjects.Text;
+  /** Floating notes over the own stalled sites (pool), how many are up this frame. */
+  private waits: Phaser.GameObjects.Text[] = [];
+  private nw = 0;
   private inflImg: Phaser.GameObjects.Image | null = null;
   private inflVer = -1;
   private inflShown = false;
@@ -248,9 +258,9 @@ export class BuildingLayer {
   /** Index the standing buildings: tiles, walks, gate passages, open sides, tall tiles and the raised tiles units use. */
   private prepare(buildings: readonly BuildingSnap[]): void {
     // between snapshots (10 a second) nothing it reads changed: keep the index
-    const p = this.prepared, near = this.cutNear, nx = near?.x ?? NaN, ny = near?.y ?? NaN;
-    if (p.b === buildings && p.art === this.art && p.cut === this.cutaway && Object.is(p.nx, nx) && Object.is(p.ny, ny)) return;
-    this.prepared = { b: buildings, art: this.art, cut: this.cutaway, nx, ny };
+    const p = this.prepared;
+    if (p.b === buildings && p.art === this.art && p.cut === this.cutaway) return;
+    this.prepared = { b: buildings, art: this.art, cut: this.cutaway, nx: NaN, ny: NaN };
     const occ = this.occ, walks = this.walks, open = this.open;
     occ.clear(); this.looks.clear(); walks.clear(); this.gateJoin.clear(); this.deep.clear(); open.clear(); this.heights.clear(); this.decks.clear(); this.backs.clear();
     const live = buildings.filter((b) => b.state !== 'destroyed');
@@ -369,14 +379,17 @@ export class BuildingLayer {
     return null;
   }
 
-  /** Is building b drawn cut away (a wall, tower or gate; everywhere, or near build mode's cursor)? */
+  /** Is building b drawn cut away (a wall, tower or gate, with the cutaway V on)? */
   private cut(b: BuildingSnap): boolean {
     const w = BUILDINGS[b.type].wall;
-    if (!w || BUILDINGS[b.type].access) return false;
-    if (this.cutaway) return true;
+    return !!w && !BUILDINGS[b.type].access && this.cutaway;
+  }
+
+  /** W-57: is building b near build mode's cursor while placing (drawn see-through, never cut, so the ghost reads)? */
+  private faded(b: BuildingSnap): boolean {
     const c = this.cutNear;
     if (!c) return false;
-    for (const [x, y] of pairs(b.tiles)) if (Math.abs(x + 0.5 - c.x) <= CUT_NEAR && Math.abs(y + 0.5 - c.y) <= CUT_NEAR) return true;
+    for (const [x, y] of pairs(b.tiles)) if (Math.abs(x + 0.5 - c.x) <= FADE_NEAR && Math.abs(y + 0.5 - c.y) <= FADE_NEAR) return true;
     return false;
   }
 
@@ -486,6 +499,7 @@ export class BuildingLayer {
   draw(buildings: readonly BuildingSnap[], units: readonly DrawUnit[], v: { x: number; y: number; right: number; bottom: number }, zoom: number): void {
     let ng = 0;
     this.ni = 0;
+    this.nw = 0;
     this.working.length = 0;
     const bars = this.gBars.clear(), ground = this.gGround.clear(), lw = Math.max(1, 1.25 / zoom);
     this.prepare(buildings);
@@ -504,6 +518,7 @@ export class BuildingLayer {
       const x1 = b.x + b.w / 2, y1 = b.y + b.h / 2, depth = this.D(x1 - 0.5, y1 - 0.5);
       const def = BUILDINGS[b.type], l = this.looks.get(b.id) ?? this.look(b), axis = b.w >= b.h ? 'x' : 'y';
       let drawn = false;
+      const i0 = this.ni;
       if (this.art && b.art && (b.state !== 'destroyed' || b.ruin)) drawn = this.drawLandmark(b, depth, labyrinth);
       if (drawn) { /* M7d: a landmark piece in its art */ }
       else if (this.art && def.field) drawn = this.drawField(b, l, ditches);
@@ -559,18 +574,21 @@ export class BuildingLayer {
           }
         }
       }
+      const fade = this.faded(b) ? FADE : 1;
       if (!drawn) {
         let g = this.gfx[ng];
         if (!g) this.gfx.push((g = this.scene.add.graphics()));
         ng++;
-        g.clear().setVisible(true).setDepth(def.brazier ? depth + 100 * IN : depth);
+        g.clear().setVisible(true).setDepth(def.brazier ? depth + 100 * IN : depth).setAlpha(fade);
         if (def.brazier) this.brazier(g, b);
         else this.placeholder(g, b, units, zoom);
       }
+      for (let i = i0; i < this.ni; i++) this.imgs[i].setAlpha(fade);
       this.bar(bars, b, c, zoom);
     }
     for (let i = ng; i < this.gfx.length; i++) this.gfx[i].setVisible(false);
     for (let i = this.ni; i < this.imgs.length; i++) this.imgs[i].setVisible(false);
+    for (let i = this.nw; i < this.waits.length; i++) this.waits[i].setVisible(false);
   }
 
   private ni = 0;
@@ -926,6 +944,7 @@ export class BuildingLayer {
     const now = this.scene.time.now, seen = this.hits.get(b.id);
     if (!seen) this.hits.set(b.id, { hp: b.hp, at: -Infinity });
     else if (b.hp !== seen.hp) { if (b.hp < seen.hp) seen.at = now; seen.hp = b.hp; }
+    if (building && b.team === this.team && (b.waiting || b.stalled === 'noStore')) this.waitNote(b, c, zoom);
     if (!building && b.state !== 'damaged') return;
     if (!building && b.id !== this.selected && b.id !== this.hovered && now - (seen?.at ?? -Infinity) > HIT_MS) return;
     if (building && (BUILDINGS[b.type].wall === 'segment' || BUILDINGS[b.type].bridge) && b.delivered === 0) return; // a wall line of empty bars is noise
@@ -936,6 +955,15 @@ export class BuildingLayer {
       g.fillStyle(0xe0a030, 1).fillRect(x, y, w * b.delivered, h);
       g.fillStyle(b.upgradeFrom ? 0x60c0f0 : 0x60d060, 1).fillRect(x, y + h + k, w * b.progress, h);
     } else g.fillStyle(0xd04030, 1).fillRect(x, y, (w * b.hp) / b.maxHp, h);
+  }
+
+  /** W-57: a floating note over an own stalled site: what it waits for. */
+  private waitNote(b: BuildingSnap, c: P, zoom: number): void {
+    let t = this.waits[this.nw];
+    if (!t) this.waits.push((t = this.scene.add.text(0, 0, '', { fontFamily: 'monospace', fontSize: '12px', color: WAIT_COLOR, stroke: '#000000', strokeThickness: 3 }).setOrigin(0.5, 1).setDepth(11.6)));
+    this.nw++;
+    const tall = this.art?.meta(b.type)?.heightPx || HEIGHT[b.type] || 60, k = 1 / Math.max(zoom, 1 / 4);
+    t.setText(`⏳ ${waitText(b)}`).setScale(k).setPosition(c.x, c.y - tall - 20 * k).setVisible(true);
   }
 
   /**

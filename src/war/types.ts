@@ -483,6 +483,11 @@ export interface BuildingSnap {
   pre?: true; landmark?: true; ruin?: true; fouled?: true; mend?: true;
   /** M7d: a landmark piece's art (public/war/landmarks/landmarks.json piece id). */
   art?: string;
+  /**
+   * W-57, an unfinished site standing still: waiting, goods its store network lacks (kind -> amount short); stalled,
+   * noWorkers (nobody at it) or noStore (no store its network reaches to fetch from).
+   */
+  waiting?: Partial<Record<ResourceKind, number>>; stalled?: 'noWorkers' | 'noStore';
   /** M7a stoa: stall sites under its roof. */
   stalls?: number;
   /** M6k: a store's or chest's first items (at most 8). */
