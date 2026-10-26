@@ -1594,7 +1594,7 @@ export function build(def: RegionDef): Built {
         else if (oasisD > 2.6 && (x + 2 * y) % 4 === 0 && p < 0.6) put(pick(PALMS, q), fx, fy);
         else if (p < 0.1) put(pick(Y(['saltbush', 'reeds', 'dry-grass']), q), fx, fy);
       } else if (kk === 'dune') { if (p < 0.022) put(pick(Y(['dry-grass', 'camelthorn', 'dry-grass', 'broom']), q), fx, fy); }
-      else if (kk === 'redrock') { if (p < 0.045) put(pick(Y(['camelthorn', 'dry-grass', 'boulder-red', 'dry-grass', 'camelthorn', 'dry-grass', 'broom']), q), fx, fy); } // red stones, not the grey-blue saltbush, on the red rock
+      else if (kk === 'redrock') { if (p < 0.035) put(pick(Y(['camelthorn', 'dry-grass', 'dry-grass', 'camelthorn', 'dry-grass', 'broom']), q), fx, fy); } // scrub, not the grey-blue saltbush (it reads as pebbles), on the red rock
       else if (kk === 'reg') { if (p < 0.035 * st.bushes) put(pick(Y(['saltbush', 'camelthorn', 'dry-grass', 'broom']), q), fx, fy); }
       else if (kk === 'hardpan') { if (p < 0.03) put(pick(Y(['dry-grass', 'thorn-tree']), q), fx, fy); }
       else if (kk === 'salt') { /* bare */ }

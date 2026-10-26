@@ -90,8 +90,9 @@ const def: RegionDef = {
     k.piece('kyrene/thorn-tree', [170, 102], { r: 9, n: 2, gap: 5 });
     // the escarpment's top: pillars and red boulders break the open rock, acacias in its hollows
     for (const [x, y] of [[226, 30], [236, 96], [228, 168], [240, 226]] as [number, number][]) {
-      k.piece('kyrene/rock-pillar', [x, y], { r: 12 });
-      k.piece('kyrene/boulder-red', [x + 4, y + 6], { r: 10, n: 3, gap: 3 });
+      k.piece('kyrene/rock-pillar', [x, y], { r: 4 });
+      k.piece('kyrene/boulder-red', [x + 2, y + 2], { r: 4, n: 3, gap: 1.5 }); // a fallen pile at its foot
+      k.piece('kyrene/rocks-red', [x - 2, y + 3], { r: 4, n: 2, gap: 1.5 });
       k.piece('kyrene/acacia-old', [x - 6, y + 10], { r: 10 });
     }
     // two lone buttes stand on the escarpment's top, landmarks over the town

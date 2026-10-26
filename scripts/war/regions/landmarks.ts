@@ -474,8 +474,8 @@ export function templeCity(k: Kit, at: Pt, hm: number): Landmark {
   const fair = (x: number, y: number) => x >= A[0] && x < A[2] && y >= A[1] && y < A[3];
   s.dress(['elaia/cypress-tall', 'elaia/cypress-flame', 'elaia/cypress-tall'], (x, y) => top(x, y) && !s.streets.has(y * 4096 + x) && !fair(x, y), 120, 71, { gap: 5 });
   // the Great Fair's floor: amphorae, handcarts, potted palms and olive baskets between the stall rows, its heart (the claim) kept open
-  const floor = (x: number, y: number) => x >= A[0] + 6 && x < A[2] - 6 && y >= A[1] + 4 && y < A[3] - 4 && !(x >= 190 && x < 212 && y >= 190 && y < 210);
-  s.dress(['elaia/amphora-stack', 'elaia/handcart', 'elaia/palm-pot', 'elaia/amphora-stack', 'elaia/palm-pot', 'elaia/olive-harvest'], floor, 90, 74, { gap: 3, streets: true });
+  const floor = (x: number, y: number) => x >= A[0] + 6 && x < A[2] - 6 && y >= A[1] + 4 && y < A[3] - 4 && (y < A[1] + 9 || y >= A[3] - 9 || x < A[0] + 11 || x >= A[2] - 11); // in clusters by the stalls and stoas
+  s.dress(['elaia/amphora-stack', 'elaia/handcart', 'elaia/palm-pot', 'elaia/amphora-stack', 'elaia/palm-pot', 'elaia/olive-harvest'], floor, 70, 74, { gap: 2, streets: true });
   s.dress(['elaia/debris-stone', 'elaia/wall-fallen-stone', 'elaia/debris-stone', 'elaia/talus-lime'], (x, y) => top(x, y) && s.roughAt(x, y), 220, 72, { gap: 3 });
   const rimFoot = (x: number, y: number) => s.hAt(x, y) < hm - 1 && [[3, 0], [-3, 0], [0, 3], [0, -3]].some(([dx, dy]) => s.hAt(x + dx, y + dy) >= hm);
   s.dress(['elaia/talus-lime', 'elaia/debris-stone'], rimFoot, 120, 73, { gap: 3 });
