@@ -61,7 +61,9 @@ describe('world view sources', () => {
     const w = mockWorld(0);
     expect(w.snap.regions.map((r) => r.id).sort()).toEqual([...WORLD_IDS].sort());
     expect(w.snap.regions.find((r) => r.id === 'skythia')!.owner).toBe(1);
-    expect(w.snap.transit.length).toBeGreaterThan(0);
+    // the design's start (docs/WAR.md Army size): one squad of 12 at home, nothing on the road
+    expect(w.squads).toEqual([{ region: 'dodona', men: 12, classes: { hoplite: 12 }, ids: [] }]);
+    expect(w.snap.transit).toEqual([]);
     expect(travelMs('dodona', 'dodona-n')).toBe(100_000);
   });
 
