@@ -1,0 +1,48 @@
+src/war/view/peaks.ts
+  s_fcb7475e0b5395::t_3a5e776dc88043 20,219
+src/war/view/treeLight.ts
+  s_fcb7475e0b5395::t_3a5e776dc88043 7,14
+src/war/view/fineArt.ts
+  s_fcb7475e0b5395::t_3a5e776dc88043 14,47,62,179
+src/war/view/bakeWorker.ts
+  s_fcb7475e0b5395::t_2823bc040c9780 54
+  s_fcb7475e0b5395::t_3d3e28d8d28286 22-23,33,42,49
+  s_fcb7475e0b5395::t_86c4bac179778e 1-21,24-32,34-41,43-48,50-53,55-71
+src/war/view/bakeClient.ts
+  s_fcb7475e0b5395::t_3f309a3b3992ae 1-18,21-65
+  s_fcb7475e0b5395::t_3d3e28d8d28286 19-20
+src/war/view/massifs.ts
+  s_fcb7475e0b5395::t_3a5e776dc88043 20,129
+src/war/view/art.ts
+  s_fcb7475e0b5395::t_a32d09ca770768 109-113
+  s_fcb7475e0b5395::t_b4c18b840d7cc5 28,56-59,64-71,118,138,153,155,382
+src/war/view/main.ts
+  s_fcb7475e0b5395::t_f741fe36139c73 23,30-31,35,47
+src/war/view/canvas.ts
+  s_fcb7475e0b5395::t_32e7dc6b4b7a7c 1-10
+src/war/view/SandboxScene.ts
+  s_fcb7475e0b5395::t_17bd4bd1172055 27
+  s_fcb7475e0b5395::t_fc4c2005a4c54a 32,135,740,742,744,746-767,775
+  s_fcb7475e0b5395::t_ac8a32402b124b 31,69,71-72,76,78-79,112-120,138-140,161,165,185
+  s_fcb7475e0b5395::t_13f019c9b719be 284,286-291,294,296-316,319,322,324-337,342,567-568,608-610,613-619,627-648,650-663,665-669,671-678,680-705
+src/war/view/rockFace.ts
+  s_fcb7475e0b5395::t_3a5e776dc88043 14,136,211
+src/war/view/relief.ts
+  s_fcb7475e0b5395::t_3a5e776dc88043 20,249,269
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "098e7f0110948b73bbfbde194c49e7cef419c818",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
