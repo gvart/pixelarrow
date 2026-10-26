@@ -256,6 +256,9 @@ jobs:
           path: ~/.cache/ms-playwright
           key: playwright-shell-${{ runner.os }}-${{ steps.pw.outputs.version }}
       - name: Chromium system libraries
+        # ubuntu-latest already ships most of them; a slow apt mirror must not
+        # block the deploy (the page check below still fails if a lib is missing)
+        continue-on-error: true
         run: |
           printf '%s\n' 'DPkg::Lock::Timeout "120";' 'Acquire::Retries "3";' \
             | sudo tee /etc/apt/apt.conf.d/99ci-browser-setup > /dev/null
