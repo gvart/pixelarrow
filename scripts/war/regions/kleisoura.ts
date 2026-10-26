@@ -81,6 +81,14 @@ const def: RegionDef = {
     k.piece('mountains/watch-post', [160, 110], { r: 5 });
     k.piece('mountains/cairn', [138, 52], { r: 6, n: 2 });
     k.piece('mountains/rockfall', [70, 98], { r: 8, onRock: true, n: 2 });
+    // the toll town's bare saddle: carts, amphorae and goods by the houses, cairns and hives out on its rim
+    for (const [x, y] of [[138, 94], [162, 96], [140, 112], [164, 112], [150, 88], [150, 118]] as [number, number][]) {
+      k.piece(['elaia/handcart', 'elaia/amphora-stack', 'elaia/olive-harvest'][(x + y) % 3], [x, y], { r: 4, n: 2, gap: 2 });
+    }
+    k.piece('elaia/beehives', [134, 104], { r: 5, n: 2 });
+    k.piece('mountains/cairn', [150, 102], { r: 20, n: 4, gap: 10 });
+    // the archer ledges: junipers, alpine grass and fallen granite along them
+    for (const y of [110, 118.6]) for (const x of [70, 80, 92, 102]) k.piece(['mountains/juniper', 'mountains/talus-granite', 'mountains/alpine-grass', 'mountains/juniper'][(x / 2 + y) % 4 | 0], [x, y], { r: 2.5, n: 2, gap: 1.5 });
     // fauna (bandits in the valley woods and at the mine, bears in the east woods) and the claim point at the fort
     k.lair('bandit', [44, 136], { as: 'bandits' }); // in the lower valley's woods, off the Tin Road (a caravan from the west reaches the court)
     k.lair('bandit', [172, 92], { as: 'bandits' });
