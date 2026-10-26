@@ -1,0 +1,27 @@
+src/war/world-view/main.ts
+  s_fcb7475e0b5395::t_28c5599f909690 154-155,159-170
+  s_fcb7475e0b5395::t_39718512382f6a 25
+  s_fcb7475e0b5395::t_7f99a235789fa5 171
+src/war/world-view/source.ts
+  s_fcb7475e0b5395::t_28c5599f909690 40-41,43-44,107,142-143,146-150,258,277-284,297
+src/war/view/hud/peace.ts
+  s_fcb7475e0b5395::t_29e4dbd85cefb8 21,142,145-156
+src/war/view/hud/roster/panel.ts
+  s_fcb7475e0b5395::t_29e4dbd85cefb8 72-75,98
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "97d0747c62f634cbd41eda0e492682118338785e",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
