@@ -81,7 +81,7 @@ export const ECONOMY_SCENARIOS: Scenario[] = [
     check: ['The done farm is a food node (right-click with a squad)', 'Berries and the farm both feed the food stock', 'The farm regrows; the berries run out'],
     squads: [you('militia', at(HOME, -4, 4))],
     camera: { x: HOME[0] - 6, y: HOME[1] + 2, zoom: 1 / 2 },
-    economy: { ...camp({ wood: 200, food: 20 }), sites: [{ squad: 0, type: 'camp', x: HOME[0] + 0.5, y: HOME[1] + 0.5 }, { squad: 0, type: 'farm', x: HOME[0] - 8, y: HOME[1] + 8 }], prebuild: 5000 },
+    economy: { ...camp({ wood: 200, food: 20 }), sites: [{ squad: 0, type: 'camp', x: HOME[0] + 0.5, y: HOME[1] + 0.5 }, { squad: 0, type: 'farm', x: HOME[0] - 8, y: HOME[1] + 8, phase: 1 }], prebuild: 5000 },
     after: { orders: [], squads: [you('civ_forager', at(HOME, -10, 2), 3)], then: [{ kind: 'gather', squad: 1, node: NODE.food }] },
   },
   {

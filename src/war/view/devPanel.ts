@@ -56,12 +56,12 @@ function save(v: Saved): void {
 
 const esc = (t: string) => t.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 /** The first sentence of a goal (the picker's one-liner). */
-const oneLine = (g: string) => (g.match(/^.*?[.:!?](\s|$)/)?.[0] ?? g).trim();
+const oneLine = (g: string) => (g.match(/^.*?[.!?](\s|$)/)?.[0] ?? g).trim();
 const nice = (cls: string) => cls.replace(/^(civ|mob)_/, '').replace('_', ' ');
 
 const CSS = `
-#dev{top:30px;right:4px;width:316px;z-index:7;padding:6px 10px 8px;max-height:calc(100vh - 40px);overflow-y:auto;scrollbar-width:thin;scrollbar-color:#7a3418 #0e0907}
-#dev .rf-head{cursor:grab;justify-content:space-between}
+#dev{top:116px;right:4px;width:316px;z-index:7;padding:6px 10px 8px;max-height:calc(100vh - 124px);overflow-y:auto;scrollbar-width:thin;scrollbar-color:#7a3418 #0e0907}
+#dev .rf-head{cursor:grab;justify-content:space-between;position:sticky;top:-6px;z-index:2;background:var(--rf-panel);padding-top:4px}
 #dev.rf-dragging .rf-head{cursor:grabbing}
 #dev .dv-sec{border-bottom:1px solid var(--rf-rule);padding:3px 0}
 #dev .dv-h{display:flex;align-items:center;gap:6px;width:100%;padding:3px 0;background:none;border:0;color:var(--rf-accent);font:700 11.5px/1.2 Cinzel,serif;letter-spacing:.04em;text-align:left}
@@ -90,7 +90,7 @@ const CSS = `
 #dev .dv-goal{margin:4px 0;color:var(--rf-ink);font-weight:500;line-height:1.35}
 #dev .dv-check{margin:2px 0 0;padding:0;list-style:none}
 #dev .dv-check li{display:flex;gap:5px;align-items:flex-start;margin:2px 0;line-height:1.3;font-weight:500}
-#dev .dv-check input{margin:2px 0 0;accent-color:#de8a4e}
+#dev .dv-check input{flex:none;width:12px;height:12px;margin:2px 0 0;accent-color:#de8a4e}
 #dev .dv-check li.done{color:var(--rf-muted);text-decoration:line-through}
 #dev .dv-chip{display:inline-block;padding:0 5px;font:700 10px/15px Inter,sans-serif;color:var(--rf-gold);background:var(--rf-sunk);border:1px solid var(--rf-line);vertical-align:2px;margin-left:4px}
 #dev pre{margin:3px 0;color:var(--rf-good);font:600 11.5px/1.35 ui-monospace,Menlo,monospace;white-space:pre}
@@ -98,7 +98,7 @@ const CSS = `
 #dev .dv-keys{color:var(--rf-muted);font-weight:500;line-height:1.45}
 #dev .dv-keys b{color:var(--rf-ink)}
 #dev label{display:inline-flex;align-items:center;gap:3px;margin-right:6px}
-#dev label input{accent-color:#de8a4e;margin:0}
+#dev label input{width:12px;height:12px;accent-color:#de8a4e;margin:0}
 #devTip{position:fixed;z-index:9;max-width:260px;white-space:normal}
 `;
 
@@ -252,12 +252,14 @@ export function devPanel(game: Phaser.Game, s: SandboxScene, sc: Scenario | null
       preview = shown[Math.max(0, Math.min(shown.length - 1, i + (e.key === 'ArrowDown' ? 1 : -1)))] ?? preview;
       renderCard();
       renderList();
-      el.querySelector('.dv-it.on')?.scrollIntoView({ block: 'nearest' });
+      const it = el.querySelector<HTMLElement>('.dv-it.on'), list = $('dvList');
+      if (it && (it.offsetTop - list.offsetTop < list.scrollTop || it.offsetTop - list.offsetTop + it.offsetHeight > list.scrollTop + list.clientHeight)) list.scrollTop = it.offsetTop - list.offsetTop - list.clientHeight / 2;
     }
   };
   renderCard();
   renderList();
-  requestAnimationFrame(() => el.querySelector('.dv-it.cur')?.scrollIntoView({ block: 'center' }));
+  // the running scenario in view in the list (the list scrolls, not the console)
+  requestAnimationFrame(() => { const it = el.querySelector<HTMLElement>('.dv-it.cur'), list = $('dvList'); if (it) list.scrollTop = it.offsetTop - list.offsetTop - list.clientHeight / 2; });
   const restart = (sd: number) => (sc ? go(sc.id, sd) : (() => { const u = new URLSearchParams(location.search); u.set('seed', String(sd)); location.search = u.toString(); })());
   $('dvSame').onclick = () => restart(num('dvSeed') || 1);
   $('dvNew').onclick = () => restart(1 + Math.floor(Math.random() * 99999));

@@ -20,11 +20,11 @@ export const FOG_SCENARIOS: Scenario[] = [
     economy: { claims: [{ team: 2, x: FIELD[0], y: FIELD[1] + 6, r: 12 }], stock: { wood: 200 } },
   },
   {
-    id: 'fog-ambush',
-    name: 'Vision: woods and high ground',
+    id: 'fog-high-ground',
+    name: 'Vision from high ground',
     group: 'fog',
-    goal: 'An enemy squad waits in the forest, another on the ridge crest. March your scouts toward them and see when they show.',
-    check: ['Foes in the woods show late (sight blocked)', 'High ground sees farther', 'Bots see only what their team sees (they do not chase unseen men)'],
+    goal: 'An enemy archer squad waits on the ridge crest above your scouts. March up toward it and see when it shows.',
+    check: ['The archers on the crest show only once your men are within sight', 'High ground sees farther: they may shoot before you see them', 'Bots see only what their team sees (they do not chase unseen men)'],
     squads: [
       you('javelineer', at(S.ridgeFoot, 0, 14)), you('hoplite', at(S.ridgeFoot, -8, 18)),
       { team: 1, cls: 'archer', count: 12, x: S.ridgeCrest[0], y: S.ridgeCrest[1], bot: hold(S.ridgeCrest, 6) },

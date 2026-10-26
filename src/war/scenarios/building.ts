@@ -5,7 +5,7 @@
 import type { Scenario } from './types';
 import { at, FLAT, HOME, you } from './kit';
 
-/** A claimed camp of yours on FLAT standing (building 0), squad 0 the militia that raised it. */
+/** A claimed camp of yours on FLAT standing (building 0), squad 0 the militia that raised it; more sites (phase 1: after the camp, their store). */
 const flatCamp = (wood = 600, more: NonNullable<Scenario['economy']>['sites'] = []): NonNullable<Scenario['economy']> => ({
   claims: [{ team: 0, x: FLAT[0], y: FLAT[1], r: 22 }],
   stock: { wood, stone: 400 },
@@ -55,7 +55,7 @@ export const BUILDING_SCENARIOS: Scenario[] = [
     check: ['The first piece starts right after the tower (no overlap)', 'Drag a second line ending on the tower: it joins too', 'Men on the wall-walk reach the tower platform'],
     squads: [you('militia', at(FLAT, 0, -2))],
     camera: { x: 125, y: 429, zoom: 1 },
-    economy: flatCamp(600, [{ squad: 0, type: 'woodTower', x: 121, y: 428 }]),
+    economy: flatCamp(600, [{ squad: 0, type: 'woodTower', x: 121, y: 428, phase: 1 }]),
     after: { orders: [], squads: [], then: [{ kind: 'placeWall', squad: 0, material: 'wood', points: [120.5, 427.5, 134.5, 427.5] }] },
   },
   {
@@ -66,7 +66,7 @@ export const BUILDING_SCENARIOS: Scenario[] = [
     check: ['The gate takes the wall tiles it covers (no overlap, no gap)', 'Your men pass the gate; foes do not', 'Drop a tower on the wall: it takes its tiles too'],
     squads: [you('militia', at(FLAT, 0, -2))],
     camera: { x: 127, y: 429, zoom: 1 },
-    economy: { ...flatCamp(), walls: [{ squad: 0, material: 'wood', points: [119.5, 428.5, 134.5, 428.5] }] },
+    economy: { ...flatCamp(), walls: [{ squad: 0, material: 'wood', points: [119.5, 428.5, 134.5, 428.5], phase: 1 }] },
     after: { orders: [], squads: [], then: [{ kind: 'placeBuilding', squad: 0, type: 'woodGate', x: 127, y: 428.5, rot: 0 }] },
   },
   {
