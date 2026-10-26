@@ -1,0 +1,39 @@
+src/war/view/SandboxScene.ts
+  s_fcb7475e0b5395::t_7bb1e09d0890f1 245-247,250
+src/war/view/units.ts
+  s_fcb7475e0b5395::t_d071bc0923f4be 527
+  s_fcb7475e0b5395::t_a301f0bab65ffa 340
+  s_fcb7475e0b5395::t_652e4559795e6c 112-113
+  s_fcb7475e0b5395::t_d5bc4bf90e9c5b 212-213
+  s_fcb7475e0b5395::t_222bebcd67aab0 514-516
+tests/war/strideSync.test.ts
+  s_fcb7475e0b5395::t_3b7eef52bc12df 32
+src/war/view/trade/tradeLayer.ts
+  s_fcb7475e0b5395::t_a144b0b0bcee7f 19
+  s_fcb7475e0b5395::t_c65acb19466583 54-58
+  s_fcb7475e0b5395::t_a6b585f0993762 162-167
+  s_fcb7475e0b5395::t_77e7d2df5ab46f 99-106
+  s_fcb7475e0b5395::t_f9eac18504c636 111
+  s_fcb7475e0b5395::t_ed2ace59c44b16 174-181
+src/war/view/trade/tradeArt.ts
+  s_fcb7475e0b5395::t_0de69fc6ce77e4 17-18
+src/war/view/anim.ts
+  s_fcb7475e0b5395::t_3805af4f12aee6 48
+  s_fcb7475e0b5395::t_5a8e95c1b464bd 251-253
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "3317f4945894df752832697cb916b5ff85480463",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
