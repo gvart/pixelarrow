@@ -1,0 +1,63 @@
+landing/src/components/sections/Chapter.astro
+  s_fcb7475e0b5395::t_387b40c7b104b7 68
+  s_fcb7475e0b5395::t_e9bcef14eafc78 1-31,33-67,69-106
+  s_fcb7475e0b5395::t_2f5f8db07697f4 32
+landing/src/scripts/clips.ts
+  s_fcb7475e0b5395::t_0228550970efc6 1-7,10,12-13,15,17,20-21,28-30,32-33,36-40,44-49,52,56-59,62,64,68-71,74,81,87,93,97,99-105
+landing/src/components/sections/Men.astro
+  s_fcb7475e0b5395::t_eeaa506bef2a32 1-152
+landing/src/site.ts
+  s_fcb7475e0b5395::t_dfdd69ada7946a 1-2,5,8-9,11,16
+landing/src/components/Seo.astro
+  s_fcb7475e0b5395::t_cd9cc21745a574 31,33-36
+landing/src/components/sections/Hero.astro
+  s_fcb7475e0b5395::t_40c69e9c67c1df 2-5,8-15,22-26,29,32,34-36,38,41-43,47-49,53,56-67,70-71,74-76,78,80-82,84,91-93
+  s_fcb7475e0b5395::t_74aded5b73c8ff 86,88-89
+  s_fcb7475e0b5395::t_d3acac1e132d8a 85
+  s_fcb7475e0b5395::t_2f5f8db07697f4 44-46
+landing/src/styles/tokens.css
+  s_fcb7475e0b5395::t_74aded5b73c8ff 61
+  s_fcb7475e0b5395::t_a5b5e7169ea4a0 1-3,45-50,52-56,58,62,68-69,71,73,78
+landing/src/components/SkipLink.astro
+  s_fcb7475e0b5395::t_56977f31322465 9-10,12-13,17
+landing/src/pages/index.astro
+  s_fcb7475e0b5395::t_0bb5cbcf0bc8b1 2-3,5-6,8-9,13-27
+landing/src/components/Header.astro
+  s_fcb7475e0b5395::t_8bcfe7035598bc 1-57
+landing/src/styles/global.css
+  s_fcb7475e0b5395::t_98d51df88adc1c 1-2,15,21,33,37,48,53-54,64,81-82,84,87-107,111-117,119,124-126,128-132,134-137,139-141,144-146,150-155,157,159-160,162-164
+  s_fcb7475e0b5395::t_2f5f8db07697f4 167-170
+landing/public/_headers
+  s_fcb7475e0b5395::t_02b40e0b3ad30c 10,13-17
+landing/src/components/Clip.astro
+  s_fcb7475e0b5395::t_d3281d290fe716 2-11,13-17,19-20,22-32,34,36-37,39-47,52-53,55,59,64,67-69,74,79,82-84,87-88,90-94,96-102,105-106,109
+landing/src/components/sections/Closing.astro
+  s_fcb7475e0b5395::t_2f5f8db07697f4 25-27
+  s_fcb7475e0b5395::t_da9a0758dfbe1a 1-24,28-32
+.github/workflows/deploy.yml
+  s_fcb7475e0b5395::t_02b40e0b3ad30c 31,232-233
+landing/src/components/Footer.astro
+  s_fcb7475e0b5395::t_a64f8cb8b0507c 2,7,9-10,19,21,24-25,27-28,31-32,36,41-42,46,53-55,59-61,66,70-81
+landing/src/layouts/Base.astro
+  s_fcb7475e0b5395::t_b28790c3aa2cfc 2-3,7,29
+landing/scripts/sections-check.mjs
+  s_fcb7475e0b5395::t_693de0ad8ddaa1 1-10,22,26,34,45-50,55,59-70,74-75,78-86,90,94-111,115-116,120,122-125,133,136
+landing/src/components/sections/World.astro
+  s_fcb7475e0b5395::t_47e74fb6953642 1-150
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "36476f69be8e6a749484fc444f1c87ce4f3c82ee",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
