@@ -143,7 +143,7 @@ describe('M5f never fight, flee', () => {
 });
 
 describe('M5f loops', () => {
-  it('cook: food into rations; a squad near the cook eats and is fed (takes less damage)', () => {
+  it('cook: food into rations in the store; a squad near the cook eats and is fed (takes less damage)', () => {
     const sim = withCamp();
     sim.addStock(0, 'food', 40);
     const c = sim.spawnSquad('a', 0, 'civ_cook', 2, 33, 36);
@@ -154,7 +154,7 @@ describe('M5f loops', () => {
     expect(snap.squads[g].fed).toBe(true);
     expect(snap.stock![0].food).toBeLessThan(40);
     const made = ((40 - snap.stock![0].food!) / COOK.food) * COOK.rations;
-    expect(snap.rations![0]).toBeCloseTo(made - 6);
+    expect(snap.stock![0].ration).toBeCloseTo(made - 6); // W-60: rations are goods in the store
     expect(COOK.inn).toBeLessThan(1);
   });
 

@@ -13,27 +13,20 @@ import { WarRoom, type Crafted } from '../../src/war/room';
 import { warRegion } from '../../src/war/regions';
 import { craftKey } from '../../src/war/crafting';
 import { lotsOf, pay, planTake, putStmt, strongroom } from '../../src/war/holders';
-import { RECRUIT_FOOD, START } from '../../src/war/persons';
+import { START } from '../../src/war/persons';
 import { BUILDINGS } from '../../../src/war/sim/economy';
 import type { Item } from '../../../src/data/items';
 import { makePerson } from '../../../src/war/sim/roster';
 
 const DB = () => env.DB!;
-const post = (token: string, path: string, json: unknown = {}) => api(`/api/war${path}`, { method: 'POST', token, json });
-const code = async (r: Response) => ((await r.json()) as { error?: { code: string } }).error?.code;
 
 describe('home strongroom', () => {
-  it('season start gives START.food once and no coin; recruits pay food from it', async () => {
+  it('season start gives START.food once and no coin', async () => {
     const me = await devLogin(7901);
     const r = await (await api('/api/war/roster', { token: me.token })).json<{ stock: Record<string, number>; items: Item[] }>();
     expect(r.stock).toEqual({ food: START.food });
     await api('/api/war/roster', { token: me.token });
     expect(await good(me.playerId, 'food')).toBe(START.food); // once
-    expect((await post(me.token, '/recruit', { town: 'home', count: 2 })).status).toBe(200);
-    expect(await good(me.playerId, 'food')).toBe(START.food - 2 * RECRUIT_FOOD);
-    await setGood(me.playerId, 'food', RECRUIT_FOOD - 1);
-    expect(await code(await post(me.token, '/recruit', { town: 'home', count: 1 }))).toBe('no_food');
-    expect(await good(me.playerId, 'food')).toBe(RECRUIT_FOOD - 1); // nothing taken
   });
 
   it('takes go oldest origin first, keep origins, and a lot gone meanwhile fails the whole batch', async () => {

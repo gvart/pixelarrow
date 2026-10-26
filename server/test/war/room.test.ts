@@ -351,3 +351,36 @@ function spawnAt(r: WarRoom, k: number): [number, number] {
   const ox = ((k % 5) - 2) * 6, oy = ((Math.floor(k / 5) % 5) - 2) * 6;
   return [Math.min(e.x + e.w - 1, Math.max(e.x + 1, e.x + e.w / 2 + ox)), Math.min(e.y + e.h - 1, Math.max(e.y + 1, e.y + e.h / 2 + oy))];
 }
+
+describe('W-60 souls in a room', () => {
+  const claimRun = (army?: number) => {
+    const r = room();
+    r.join(1, join(1, 0, 4));
+    steps(r, 2);
+    const squad = r.squadsOf(1)[0];
+    const men = r.snapshot().units.filter((u) => u.squad === squad);
+    const x = men.reduce((a, u) => a + u.x, 0) / men.length, y = men.reduce((a, u) => a + u.y, 0) / men.length;
+    if (army !== undefined) r.setArmy(1, army);
+    const soul = r.sim.spawnSoul(x + 3, y + 3, 'archer', 2);
+    expect(r.order(1, { kind: 'claimSoul', squad, soul })).toBeNull();
+    for (let t = 0; t < 600; t++) {
+      const out = r.tick();
+      const m = out.msgs.get(1)?.find((x) => x.t === 'soul');
+      if (m) return { r, squad, m, out };
+    }
+    throw new Error('no soul message');
+  };
+
+  it('a claim under the cap: the player hears of his new man and the DO gets him to write', () => {
+    const { m, out, squad } = claimRun(5);
+    expect(m).toMatchObject({ t: 'soul', state: 'claimed', squad, cls: 'archer', level: 2 });
+    expect(out.souls).toEqual([expect.objectContaining({ pid: 1, squad })]);
+    expect(out.souls[0].person.hero.cls).toBe('archer');
+  });
+
+  it("refused at 12 men across all regions (the DO's count), told to the player", () => {
+    const { m, out } = claimRun(12);
+    expect(m).toMatchObject({ t: 'soul', state: 'refused', have: 12 });
+    expect(out.souls).toEqual([]);
+  });
+});

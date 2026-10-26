@@ -15,7 +15,7 @@
  */
 import Phaser from 'phaser';
 import type { SheetManifest } from '../../art/sheetManifest';
-import type { ShotSnap, SquadSnap } from '../types';
+import type { ShotSnap, SoulSnap, SquadSnap } from '../types';
 import { Animator, loadOf, type AnimTime, type ClipDef } from './anim';
 import loadsManifest from '../../assets/loads/manifest.json';
 import loadsUrl from '../../assets/loads/loads.png?url';
@@ -132,6 +132,10 @@ interface Sheet {
 export interface DrawnAs { clip: string; frame: number; row: string; x: number; y: number; ox: number; oy: number; scale: number; fw: number; fh: number }
 /** The manifest scale of a soldier sheet: 33 px/m (public/war/guardians.json). */
 const SOLDIER_SCALE = 0.55;
+
+/** W-60: where the souls to draw come from (the HUD sets it: ./hud/souls.ts); none: no souls drawn. */
+let soulSource: (() => readonly SoulSnap[]) | null = null;
+export const setSoulSource = (f: (() => readonly SoulSnap[]) | null): void => void (soulSource = f);
 
 /** Fetch and decode the class sheets (before the game starts: big ones are split, see buildSheet). */
 export async function loadSheetImages(): Promise<Map<string, HTMLImageElement>> {
@@ -348,6 +352,7 @@ export class UnitLayer {
     }
     used = this.sprites(units, view, zoom, selected, at, shots, under, occluded);
     used = this.drawCorpses(used, at.now);
+    this.drawSouls(at.now);
     for (let i = used; i < this.pool.length; i++) this.pool[i].setVisible(false);
     for (let i = this.nGhost; i < this.ghosts.length; i++) this.ghosts[i].setVisible(false);
     for (let i = this.nLoad; i < this.loadPool.length; i++) this.loadPool[i].setVisible(false);
@@ -376,6 +381,35 @@ export class UnitLayer {
       if (this.swap) img.resetPipeline();
     }
     return n;
+  }
+
+  /**
+   * W-60 souls: the class's idle clip, tinted pale blue-white and see-through, bobbing a little over an additive glow of the
+   * same frame (no new art); they fade over their last minute. Their own pool (the glow's blend mode stays off the men's).
+   */
+  private soulPool: Phaser.GameObjects.Image[] = [];
+  private drawSouls(now: number): void {
+    let n = 0;
+    for (const so of soulSource?.() ?? []) {
+      const sheet = this.sheet(so.cls, now) ?? this.sheet('militia', now);
+      const clip = sheet?.frames.get('idle') ?? sheet?.frames.values().next().value;
+      if (!sheet || !clip) continue;
+      const q = sheet.rows[0], row = clip[q.row];
+      if (!row?.length) continue;
+      const [key, frame] = row[Math.floor(now / 180) % row.length];
+      const f = this.feet(so), bob = Math.sin(now / 600 + so.id) * 3, fade = so.left < 600 ? Math.max(0.15, so.left / 600) : 1;
+      const pulse = 0.75 + 0.25 * Math.sin(now / 400 + so.id);
+      const depth = Math.max(10 + this.depthOf(so.x, so.y) / 4096 + 0.24, this.ground?.(so) || 0);
+      for (const glow of [true, false]) {
+        let im = this.soulPool[n++];
+        if (!im) this.soulPool.push((im = this.scene.add.image(0, 0, key)));
+        im.setTexture(key, frame).setOrigin(q.ox, q.oy).setPosition(Math.round(f.x), Math.round(f.y - 8 + bob)).setVisible(true)
+          .setScale(sheet.scale * (glow ? 1.14 : 1)).setDepth(depth + (glow ? -1e-5 : 0));
+        if (glow) im.setBlendMode(Phaser.BlendModes.ADD).setTintFill(0x8fcaff).setAlpha(0.6 * pulse * fade);
+        else im.setBlendMode(Phaser.BlendModes.NORMAL).setTint(0xe4f2ff).setAlpha(0.72 * fade);
+      }
+    }
+    for (let i = n; i < this.soulPool.length; i++) this.soulPool[i].setVisible(false);
   }
 
   private nGhost = 0;

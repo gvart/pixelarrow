@@ -20,7 +20,7 @@ import type { ProfId } from './professions';
 /** Stock kinds of the war (src/war/types.ts ResourceKind): the M2a ones and the 7 crafting goods (raw hides, flax, herbs; refined charcoal, leather, linen, oil). */
 export const CRAFT_GOODS = ['hides', 'flax', 'herbs', 'charcoal', 'leather', 'linen', 'oil'] as const;
 export type CraftGood = (typeof CRAFT_GOODS)[number];
-export type Good = 'food' | 'wood' | 'stone' | 'marble' | 'copper' | 'tin' | 'iron' | 'bronze' | 'silver' | 'salt' | 'pitch' | 'coin' | CraftGood;
+export type Good = 'food' | 'wood' | 'stone' | 'marble' | 'copper' | 'tin' | 'iron' | 'bronze' | 'silver' | 'salt' | 'pitch' | 'coin' | 'ration' | CraftGood;
 export type Goods = Partial<Record<Good, number>>;
 
 /** Where a recipe runs: a workplace chain, a store building (camp, storehouse, fort), an olive press, or on site (engines, forts: M5h3). */
@@ -168,7 +168,7 @@ const ROWS: Recipe[] = [
   R('mint', 'coin', 'smith', 'smelter', 'forge', 2, { silver: 1 }, 30, { good: 'coin', n: 20 }),
   R('melt', 'coin', 'smith', 'smelter', 'forge', 2, { coin: 20 }, 30, { good: 'silver', n: 1 }),
   // cook (the ration also runs at camps and stores on the M5f loop)
-  R('ration', 'dish', 'cook', 'campCook', 'cookhouse', 1, { food: 4 }, 10, { product: 'ration', n: 4 }),
+  R('ration', 'dish', 'cook', 'campCook', 'cookhouse', 1, { food: 4 }, 10, { good: 'ration', n: 4 }), // W-60: a good, into the store
   R('bread', 'dish', 'cook', 'baker', 'cookhouse', 2, { food: 6 }, 20, { product: 'bread', n: 6 }),
   R('salt_pork', 'dish', 'cook', 'saltPork', 'cookhouse', 1, { food: 4, salt: 2 }, 30, { product: 'salt_pork', n: 4 }),
   R('lentil_soup', 'dish', 'cook', 'stewPot', 'cookhouse', 2, { food: 6, herbs: 1 }, 30, { product: 'lentil_soup', n: 6 }),

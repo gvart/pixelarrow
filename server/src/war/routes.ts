@@ -2,13 +2,12 @@
  * War roster API (/api/war/*, M5e): the player's persistent soldiers (./persons.ts). Signed in and playable like the
  * online routes; bodies zod-checked.
  *
- *   GET  /roster                      persons, caps, recruit pools, home strongroom (stock, items), captives held, upkeep
- *   POST /recruit       { town, count }        L1 militia from the town's pool (food)
+ *   GET  /roster                      persons, caps, home strongroom (stock, items), captives held, upkeep
+ *                                      (W-60: no recruiting or training; men join by claiming souls in a region)
  *   POST /persons/:id/equip { slot, uid|null } put on a strongroom item, or take one off
  *   POST /persons/:id/level { attrs?, skill? } spend points, take a skill at levels 3 / 7
  *   POST /squad         { ids }                the squad order of his fit men at home (<= ARMY_MAX)
- *   POST /persons/:id/train  { cls }          train at a town's barracks / range (10 min, a kit's coin)
- *   POST /persons/:id/promote { cls }        promote to an elite of his family at a fortress (30 min, the elite rare kit's coin)
+ *   POST /persons/:id/promote { cls }        promote to an elite of his family (30 min, the elite rare kit's coin)
  *   POST /persons/:id/ransom                  pay a captive's ransom (coin to his captor's strongroom): he comes home
  *   POST /persons/:id/retire { civ? }         retire (half his gear's value back in coin); level 10: into a civilian class
  *   GET  /treasury                            the alliance's (clan's) strongbox coin, the player's role, the latest audit log
@@ -39,7 +38,7 @@ import { pickNode, respec, stash } from './crafting';
 import { deposit, payRansomFromTreasury, treasury } from './treasury';
 import { trade } from './tradeRoutes';
 import { start } from './start';
-import { equip, formSquad, levelUp, payRansom, promote, recruit, releaseCaptive, retire, roster, seed, train } from './persons';
+import { equip, formSquad, levelUp, payRansom, promote, releaseCaptive, retire, roster, seed } from './persons';
 
 export const war = new Hono<AppEnv>();
 // per route, not war.use('/*'): /api/war/:region/stats (dev, index.ts) shares the prefix
@@ -54,12 +53,6 @@ const skillId = z.string().refine((s): s is WarSkillId => s in SKILLS, 'unknown 
 const group = z.array(z.object({ cls: z.string().regex(/^[a-z_]{1,24}$/), level: z.number().int().min(1).max(10).optional() })).max(2 * ARMY_MAX); // fighters (seed checks ARMY_MAX) and civilians
 
 war.get('/roster', requirePlayable, async (c) => c.json(await roster(db(c.env), c.get('session').pid, Date.now())));
-
-war.post('/recruit', requirePlayable, async (c) => {
-  const b = await readJson(c, z.object({ town: z.string().regex(/^[a-z0-9_-]{1,40}$/), count: z.number().int().min(1).max(ARMY_MAX).default(1) }), MAX_BODY);
-  const ids = await recruit(db(c.env), c.get('session').pid, b.town, b.count, Date.now());
-  return c.json({ ids });
-});
 
 war.post('/persons/:id/equip', requirePlayable, async (c) => {
   const id = idParam(c.req.param('id'));
@@ -80,12 +73,6 @@ war.post('/squad', requirePlayable, async (c) => {
   const b = await readJson(c, z.object({ ids: z.array(personId).max(ARMY_MAX) }), MAX_BODY);
   await formSquad(db(c.env), c.get('session').pid, b.ids, Date.now());
   return c.json({ ok: true });
-});
-
-war.post('/persons/:id/train', requirePlayable, async (c) => {
-  const id = idParam(c.req.param('id'));
-  const b = await readJson(c, z.object({ cls: z.string().regex(/^[a-z_]{1,24}$/) }), MAX_BODY);
-  return c.json({ until: await train(db(c.env), c.get('session').pid, id, b.cls, Date.now()) });
 });
 
 war.post('/persons/:id/promote', requirePlayable, async (c) => {

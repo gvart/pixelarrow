@@ -5,6 +5,8 @@
 import type { Behaviour, Bots } from '../sim/bots';
 import type { Order, ResourceKind, WarBuildSim, WarSim } from '../types';
 import type { Scenario, ScenarioGo, ScenarioSquad } from './types';
+import { BUILDINGS } from '../sim/economy';
+import { put } from '../sim/holders';
 
 /** What applying a scenario needs of a sim (the sandbox's SimClient has these). */
 export interface ScenarioHost {
@@ -18,6 +20,11 @@ export interface ScenarioHost {
   spawnCart(team: number, owner: string, type: 'handcart' | 'wagon', x: number, y: number): void;
   spawnMobs(): void;
   hurtBossTo(boss: string, to: number): void;
+  /** W-60: a soul at (x,y); a squad's men at this satiety. */
+  spawnSoul(x: number, y: number, cls: string, level?: number, site?: 'shrine' | 'ruin' | 'battlefield' | 'lair'): void;
+  hunger(squad: number, sat: number): void;
+  /** W-60: food or rations into squad `squad`'s packs, or (null) the first standing store of `team`. */
+  feed(team: number, squad: number | null, res: 'food' | 'ration', n: number): void;
 }
 
 /** The player's team in a scenario (?team= on the page wins; ../view/main.ts sets it). */
@@ -60,6 +67,10 @@ export function applyScenario(h: ScenarioHost, sc: Scenario, around?: (q: Scenar
   for (const b of sc.bosses ?? []) h.hurtBossTo(b.boss, b.to); // M7d
   if (sc.after?.later) h.skip(sc.after.later.settle);
   for (const o of sc.after?.later?.orders ?? []) h.order(o);
+  // W-60, last (the men stand where the after-steps put them): souls, hunger, food in packs and the store
+  for (const so of sc.souls ?? []) h.spawnSoul(so.x, so.y, so.cls, so.level, so.site);
+  for (const hg of sc.hunger ?? []) h.hunger(hg.squad, hg.sat);
+  for (const f of sc.food ?? []) h.feed(me, f.squad ?? null, f.res, f.n);
 }
 
 /** Step the sim and its bots one tick. */
@@ -96,6 +107,14 @@ export function goOrder(squad: number, go: ScenarioGo): Order {
   return go.kind === 'move' ? { kind: 'move', squad, x: go.x, y: go.y } : { kind: 'attackMove', squad, x: go.x, y: go.y };
 }
 
+/** W-60: food or rations into squad `squad`'s packs (spread over its men), or (null) the first standing store of `team`. */
+export function feedSim(sim: WarBuildSim, team: number, squad: number | null, res: 'food' | 'ration', n: number): void {
+  const store = squad === null ? sim.snapshot().buildings?.find((b) => b.team === team && BUILDINGS[b.type]?.store && b.state === 'done') : undefined;
+  const at = squad !== null ? sim.cargo({ squad }) : store ? sim.cargo({ building: store.id }) : null;
+  if (!at?.slots.length) return;
+  for (const sl of at.slots) put(sl.hold, res, n / at.slots.length, 'scenario');
+}
+
 /** Guardian `boss` down to `to` of its max hp (no change when it is already lower). */
 export function hurtBossTo(sim: WarBuildSim, boss: string, to: number): void {
   const g = sim.snapshot().bosses?.find((x) => x.id === boss);
@@ -123,5 +142,8 @@ export function headlessHost(sim: WarBuildSim, bots: Bots, cap = Infinity): Scen
     spawnCart: (team, owner, type, x, y) => void sim.spawnCart(team, owner, type, x, y),
     spawnMobs: () => sim.spawnMobs(),
     hurtBossTo: (boss, to) => hurtBossTo(sim, boss, to),
+    spawnSoul: (x, y, cls, level, site) => void sim.spawnSoul(x, y, cls, level, site),
+    hunger: (squad, sat) => sim.setSatiety(sim.snapshot().squads[squad]?.units ?? [], sat),
+    feed: (team, squad, res, n) => feedSim(sim, team, squad, res, n),
   };
 }

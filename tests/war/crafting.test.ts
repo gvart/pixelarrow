@@ -144,7 +144,7 @@ describe('M5h2 crafting', () => {
     expect(rep.xp).toBeGreaterThanOrEqual(RECIPES.smelt.xp);
   });
 
-  it('remedies and dishes go to the team supplies; squads near take bandages and eat', () => {
+  it('remedies go to the team supplies, rations to the store (W-60); squads near take bandages and eat', () => {
     const sim = withWorkplaces(['infirmary', 'cookhouse']);
     civAt(sim, 1, makePerson('p1', 'civ_physician'));
     civAt(sim, 2, makePerson('c1', 'civ_cook'));
@@ -155,7 +155,7 @@ describe('M5h2 crafting', () => {
     run(sim, 1500, () => !building(sim, 1).queue && !building(sim, 2).queue);
     const sup = sim.snapshot().supplies![0];
     expect(sup.bandage).toBe(12);
-    expect(sup.ration).toBe(12);
+    expect(sim.snapshot().stock![0].ration).toBeGreaterThanOrEqual(12); // + the cook's own batches once the queue is done
     // a squad of 6 between them: refills its bandages and eats the rations
     const inf = building(sim, 1), ck = building(sim, 2);
     const s = sim.spawnSquad('a', 0, 'militia', 6, (inf.x + ck.x) / 2, inf.y + 4);

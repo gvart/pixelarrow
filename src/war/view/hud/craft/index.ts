@@ -27,6 +27,7 @@ import { WP_CSS, WP_PROF, WP_W, workplaceHtml, type Crafter, type Idle, type Man
 const CLASS_WORD: Record<string, string> = { militia: 'militia', hoplite: 'hoplite', celt_sword: 'swordsman', archer: 'archer', slinger: 'slinger', javelineer: 'javelineer' };
 import { keys } from '../../../input/keys';
 import { myTeam } from '../../side';
+import { storeNear } from '../chest';
 
 type Mk = (id: string, css: string, html?: string) => HTMLElement;
 
@@ -103,7 +104,7 @@ export function mountCraft(s: SandboxScene, mk: Mk, roster: RosterHooks): void {
     if (b) {
       if (s.sim.net) void C.pull();
       const { crafters, idle } = crew(b);
-      const html = workplaceHtml(C, b, crafters, idle, view, s.sim.cur?.stock?.[myTeam()] ?? {}, soldiers());
+      const html = workplaceHtml(C, b, crafters, idle, view, (storeNear(s.sim.cur, myTeam(), b.x, b.y, 24)?.goods ?? {}) as Record<string, number>, soldiers()); // W-60: the store of its area, no totals
       if (html !== lastW) {
         const list = wpEl.querySelector<HTMLElement>('.wp-list'), top = list?.scrollTop ?? 0;
         wpEl.innerHTML = lastW = html;

@@ -56,6 +56,12 @@ export interface Scenario {
      */
     prebuild?: number;
   };
+  /** W-60: souls waiting on the map from the start (src/war/sim/souls.ts; level default 1, site default shrine). */
+  souls?: { x: number; y: number; cls: string; level?: number; site?: 'shrine' | 'ruin' | 'battlefield' | 'lair' }[];
+  /** W-60: these squads (index into squads) start at this satiety (0..100: below 40 hungry, below 15 starving). */
+  hunger?: { squad: number; sat: number }[];
+  /** W-60: food or rations into a squad's packs (spread over its men) or, with no squad, the first standing store of yours. */
+  food?: { squad?: number; res: 'food' | 'ration'; n: number }[];
   /** M6k: carts standing ready after the prebuild (ids from 0 in this order, after any engine built before). */
   carts?: { team: number; owner: string; type: 'handcart' | 'wagon'; x: number; y: number }[];
   /** M6k: zones merged into the region before the sim starts (RegionData safe, yard, ambush). */

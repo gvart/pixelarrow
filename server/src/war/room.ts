@@ -58,6 +58,7 @@ function subtract(b: Bundle, r: Bundle): { goods: Record<string, number>; uids: 
   return { goods: Object.fromEntries(Object.entries(g).filter(([, n]) => n > 1e-9)), uids: b.items.filter((i) => !left.has(i.uid)).map((i) => i.uid) };
 }
 import { inRects } from '../../../src/war/sim/trade';
+import { ARMY_MAX } from '../../../src/war/sim/soldiers';
 
 const SIDES = ['N', 'E', 'S', 'W'] as const;
 /** Hold AI radius for an offline player's squads (tiles). */
@@ -179,6 +180,9 @@ export interface TickTimes { stepMs: number; snapMs: number; netMs: number }
 
 export type JoinResult = { msg: ServerMsg; admitted: boolean };
 
+/** W-60: a soul claimed here, for the DO to write (server/src/war/persons.ts claimSoul). */
+export interface SoulClaim { pid: number; person: WarPerson; squad: SquadId; unit: number }
+
 export class WarRoom {
   readonly sim: WarBuildSim;
   readonly bots: Bots;
@@ -214,6 +218,8 @@ export class WarRoom {
   private stormed = new Set<number>();
   /** Each team's influence runs at an influence version (encoded once per change). */
   private inflRuns = new Map<number, { v: number; runs: number[] }>();
+  /** W-60: each player's fighters across all regions (D1, set by the DO on join and after each claim): the soul gate. */
+  private armies = new Map<number, number>();
 
   constructor(o: RoomOptions) {
     this.region = o.region;
@@ -230,6 +236,14 @@ export class WarRoom {
     this.epoch = o.epoch ?? `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
     this.fightQuiet = o.fightQuiet ?? FIGHT_QUIET;
     this.run = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
+    // W-60: a soul joins only while the player's whole army (every region, D1) is under ARMY_MAX; without a count from
+    // the DO (dev armies, tests) his fighters on this field
+    this.sim.setSoulGate((owner) => {
+      const m = /^p:(\d+)$/.exec(owner), pid = m ? Number(m[1]) : null;
+      const known = pid !== null ? this.armies.get(pid) : undefined;
+      const have = known ?? this.snap?.units.filter((u) => u.state !== 'dead' && this.owners[u.squad] === owner && !u.cls.startsWith('civ_')).length ?? 0;
+      return { ok: have < ARMY_MAX, have };
+    });
     if (o.wild) this.sim.spawnMobs();
     if (o.home !== undefined) {
       const a = homeAnchor(o.region);
@@ -479,6 +493,11 @@ export class WarRoom {
     }
     const msg: ServerMsg | null = online ? { t: 'welcome', v: NET_VERSION, region: this.region.id, you: { id: pid, team }, squads: this.squadsOf(pid), tick: this.currentTick, quota: this.quota() } : null;
     return { squad, msg };
+  }
+
+  /** W-60: the player's fighters across all regions now (the DO reads D1); the soul gate counts on it. */
+  setArmy(pid: number, n: number): void {
+    this.armies.set(pid, n);
   }
 
   /** Dev /stats (scripts/war/play-smoke.mjs): the neutral side as the server holds it (lairs, guardians, claim points). */
@@ -848,7 +867,7 @@ export class WarRoom {
   }
 
   /** Step once; frames per online player, the queued players let in this tick and a finished fight to write back. */
-  tick(now: () => number = () => 0): { frames: Map<number, Uint8Array>; msgs: Map<number, ServerMsg[]>; admitted: Map<number, ServerMsg>; fights: Fight[]; crafted: Crafted[]; bosses: BossSlain[]; sacrilege: number[]; freed: string[]; raided: number[]; captured: { cart: number; from: string; team: number; to: string }[]; times: TickTimes } {
+  tick(now: () => number = () => 0): { frames: Map<number, Uint8Array>; msgs: Map<number, ServerMsg[]>; admitted: Map<number, ServerMsg>; fights: Fight[]; crafted: Crafted[]; bosses: BossSlain[]; sacrilege: number[]; freed: string[]; raided: number[]; captured: { cart: number; from: string; team: number; to: string }[]; souls: SoulClaim[]; times: TickTimes } {
     const t0 = now();
     // M6i: carts' owners before the step (a capture names only the taker)
     const cartWas = new Map((this.snap.sieges ?? []).filter((e) => e.owner !== undefined).map((e) => [e.id, { owner: e.owner!, team: e.team }]));
@@ -914,8 +933,21 @@ export class WarRoom {
       }
     }
     const msgs = this.economy();
+    // W-60: souls claimed (the DO writes the new men) or refused, told to the player who went for him
+    const souls: SoulClaim[] = [];
+    const tell = (pid: number, m: ServerMsg) => (msgs.get(pid) ?? msgs.set(pid, []).get(pid)!).push(m);
+    for (const e of evs) {
+      if (e.kind !== 'soulClaimed' && e.kind !== 'soulRefused') continue;
+      const m = /^p:(\d+)$/.exec(e.owner), pid = m ? Number(m[1]) : null;
+      if (pid === null) continue;
+      if (e.kind === 'soulClaimed') {
+        souls.push({ pid, person: e.person, squad: e.squad, unit: e.unit });
+        if (this.armies.has(pid)) this.armies.set(pid, this.armies.get(pid)! + 1);
+        if (this.players.get(pid)?.online) tell(pid, { t: 'soul', state: 'claimed', soul: e.soul, squad: e.squad, pid: e.person.id, cls: e.person.hero.cls, level: e.person.hero.level, name: e.person.hero.name });
+      } else if (this.players.get(pid)?.online) tell(pid, { t: 'soul', state: 'refused', soul: e.soul, squad: e.squad, have: e.have });
+    }
     this.lastTick = this.snap.tick;
-    return { frames, msgs, admitted, fights, crafted, bosses, sacrilege, freed, raided, captured, times: { stepMs: t1 - t0, snapMs: t2 - t1, netMs: now() - t2 } };
+    return { frames, msgs, admitted, fights, crafted, bosses, sacrilege, freed, raided, captured, souls, times: { stepMs: t1 - t0, snapMs: t2 - t1, netMs: now() - t2 } };
   }
 
   /**

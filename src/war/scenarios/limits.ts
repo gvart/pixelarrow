@@ -8,7 +8,7 @@ export const LIMIT_SCENARIOS: Scenario[] = [
     name: 'The 12-man army cap',
     group: 'limits',
     goal: 'Your whole army, 12 men, stands in one squad, with two cooks of the household beside it. Try to field more.',
-    check: ['Roster (R) head: 12 / 12 men; the cooks do not count', 'Recruiting is refused while the army is full', 'A fallen man frees a place (console: strike down one, then recruit)'],
+    check: ['Roster (R) head: 12 / 12 men; the cooks do not count', 'No recruiting: men join only as claimed souls, refused while the army is full (see Claim a soul)', 'A fallen man frees a place (console: strike down one, then claim a soul)'],
     squads: [you('hoplite', at(FIELD, 0, 0)), you('civ_cook', at(FIELD, 0, 8), 2)],
     camera: { x: FIELD[0], y: FIELD[1], zoom: 1 },
   },

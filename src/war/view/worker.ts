@@ -12,7 +12,7 @@ import { createSim as createFakeSim } from '../fake/sim';
 import { createSim } from '../sim';
 import { bossPile } from '../sim/bossLoot';
 import { createBots, type Behaviour, type Bots } from '../sim/bots';
-import { goOrder, prebuildSim } from '../scenarios/run';
+import { feedSim, goOrder, prebuildSim } from '../scenarios/run';
 import type { ScenarioGo } from '../scenarios/types';
 import { createNet, type Net } from '../net/client';
 import { MAX_SQUAD, type HandoffMsg, type StowMsg } from '../net/protocol';
@@ -32,6 +32,9 @@ export type ToWorker =
   | { t: 'prebuild'; team: number; max: number } // scenarios: build the team's sites before play (max 0: just step)
   | { t: 'mobs' } // neutral play: spawn the region's lairs
   | { t: 'hurtBoss'; boss: string; to: number; part?: number } // M7d dev and scenarios: a guardian (or its part: a head) down to a share of its hp
+  | { t: 'soul'; x: number; y: number; cls: string; level?: number; site?: 'shrine' | 'ruin' | 'battlefield' | 'lair' } // W-60 dev and scenarios: a soul waits there
+  | { t: 'hunger'; squad: number; sat: number } // W-60 dev and scenarios: a squad's men at this satiety
+  | { t: 'feed'; team: number; squad: number | null; res: 'food' | 'ration'; n: number } // W-60 scenarios: food into packs or a store
   | { t: 'takeRegion'; team: number } // M7g dev and scripts: every claim point to the team (a landmark takes its capture damage)
   | { t: 'skip'; ticks: number } // scenarios: step this many ticks at once
   | { t: 'damage'; id: number; dmg: number } // dev: damage a building (scripts: a breach)
@@ -162,6 +165,9 @@ onmessage = (e: MessageEvent<ToWorker>) => {
     if (b && g && m.part !== undefined) b.hurtBoss(m.boss, 1e9, 'you', m.part);
     else if (b && g && g.hp > g.maxHp * m.to) b.hurtBoss(m.boss, g.hp - g.maxHp * m.to, 'you');
   }
+  else if (m.t === 'soul') build(sim)?.spawnSoul(m.x, m.y, m.cls, m.level, m.site);
+  else if (m.t === 'feed') { const b = build(sim); if (b) feedSim(b, m.team, m.squad, m.res, m.n); }
+  else if (m.t === 'hunger') { const b = build(sim); b?.setSatiety(b.snapshot().squads[m.squad]?.units ?? [], m.sat); }
   else if (m.t === 'takeRegion') {
     const b = build(sim);
     if (b) { const mem = b.memory(); mem.claims = mem.claims.map(() => m.team); b.recall(mem, 0); }

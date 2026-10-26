@@ -3,7 +3,7 @@ import { env } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
 import { setGood } from './goods';
 import { api, devLogin } from '../helpers';
-import { applyFight, personOf, PROMOTE_MS, promoteCost, upkeepRate, UPKEEP, type PersonRow } from '../../src/war/persons';
+import { applyFight, personOf, PROMOTE_MS, promoteCost, upkeepRate, type PersonRow } from '../../src/war/persons';
 import { promoteBlocker } from '../../../src/war/sim/roster';
 import type { FightReport } from '../../../src/war/types';
 import { warStatsOf } from '../../../src/war/sim/classes';
@@ -51,10 +51,10 @@ describe('promotion to elite', () => {
     const elite = personOf((await row(a.id))!);
     expect(elite.hero.cls).toBe('royal_guard');
     expect(warStatsOf(elite)).not.toEqual(pre); // baked as the elite with his rare kit
-    // an elite is not promoted again, and costs elite upkeep in the field
+    // an elite is not promoted again; in the field he eats there like any man (W-60: no strongroom upkeep)
     expect(await code(await post(me.token, `/persons/${a.id}/promote`, { cls: 'sacred_band' }))).toBe('not_promotable');
     await DB().prepare("UPDATE war_persons SET region = 'test-ridge' WHERE id = ?1").bind(a.id).run();
-    expect(await upkeepRate(DB(), me.playerId)).toBe(UPKEEP.elite);
+    expect(await upkeepRate(DB(), me.playerId)).toBe(0);
   });
 
   it('honours won in fights are written back (at most 3, never the same twice), which makes promotion reachable', async () => {

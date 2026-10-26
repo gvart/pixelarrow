@@ -1,8 +1,8 @@
 /**
  * A new player's start (/api/war/start/*; docs/WAR.md "Starting a game"; rules in src/war/world/start.ts). Three steps,
  * once per player and season: an alliance, a free home region of it, a squad of up to ARMY_MAX men (his whole army, W-58) of the
- * classes with war sprites. The squad is his first men (active, in slot order) and comes out of his home recruit pool, so it replaces
- * recruiting militia for a new player. Kept in D1 on war_alliance_members (migrations/0037_war_start.sql).
+ * classes with war sprites. The squad is his first men (active, in slot order); after it, men join only by claiming
+ * souls in a region (W-60). Kept in D1 on war_alliance_members (migrations/0037_war_start.sql).
  *
  *   GET  /                     the step (alliance | home | squad | done), the alliances with their players, the home
  *                              choices of his alliance (players, men there, quota, why not free), the classes
@@ -99,7 +99,7 @@ export async function claimHome(env: Env, pid: number, region: string): Promise<
   await d.prepare('UPDATE war_alliance_members SET home = ?3 WHERE season = ?1 AND player_id = ?2').bind(WAR_SEASON.id, pid, region).run();
 }
 
-/** His first squad, in slot order: fresh L1 men of the classes picked, out of the home pool. Ends the start. Returns their ids. */
+/** His first squad, in slot order: fresh L1 men of the classes picked. Ends the start. Returns their ids. */
 export async function pickSquad(d: D1Database, pid: number, classes: string[], now: number): Promise<string[]> {
   const r = await startRow(d, pid);
   if (!r) throw new ApiError(409, 'no_alliance', 'Choose an alliance first');
@@ -119,8 +119,6 @@ export async function pickSquad(d: D1Database, pid: number, classes: string[], n
   try {
     await d.batch([
       ...men.map((p, slot) => insertPerson(d, pid, p, 'active', slot, now)),
-      // the men came from the home pool (ensureStart filled it with START.pool)
-      d.prepare("UPDATE war_pools SET stored = MAX(0, stored - ?2) WHERE player_id = ?1 AND town = 'home'").bind(pid, men.length),
     ]);
   } catch (e) {
     await d.prepare('UPDATE war_alliance_members SET started_at = NULL WHERE season = ?1 AND player_id = ?2').bind(WAR_SEASON.id, pid).run();

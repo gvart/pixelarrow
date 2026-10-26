@@ -23,6 +23,8 @@ owner to confirm; Greek "the in-between"), one continent hung between death and 
   scores most (10 an hour) and holding it with three frontier towns ends the season (hegemony).
 - **Homes never fall** because a dead warrior cannot die twice: in his own hall he always wakes again. What can be
   lost is everything outside it.
+- **Souls** (W-60). The dead keep coming: the newly dead wake at shrines, ruins, old battlefields and lairs, and a
+  squad that reaches one first claims him. This is how an army grows ("Souls"); nobody is recruited or trained.
 
 ## World
 
@@ -539,7 +541,7 @@ The menu is the game's front page (`index.html`, play.pixelarrow.app; `src/war/m
 | Sign in | email and password, or create an account (the mailed link signs in and comes back); locally also a dev player (DEV_AUTH) | the web session cookie; the war pages play as it (`src/war/net/session.ts`) |
 | Alliance | one of the four, with its players this season | `POST /api/war/start/alliance`; changeable until the squad is picked (the home resets) |
 | Home region | the alliance's home or one of its four gate regions, picked on the world map | `POST /api/war/start/home`: free = fresh men may come in (`joinRefusal`) and the alliance's quota there has room for a full squad |
-| Squad | up to N = 12 men, any mix of the six classes with war sprites (militia, hoplite, swordsman, archer, slinger, javelineer), each shown with its codex card | `POST /api/war/start/squad`: 1..12 of those classes, once per player and season; fresh L1 men, active in slot order, taken from the home recruit pool (no militia recruit step) |
+| Squad | up to N = 12 men, any mix of the six classes with war sprites (militia, hoplite, swordsman, archer, slinger, javelineer), each shown with its codex card | `POST /api/war/start/squad`: 1..12 of those classes, once per player and season; fresh L1 men, active in slot order; after it men join only as claimed souls (W-60) |
 | Land | march into the home region (the live region view, his men selected) or open the world map | |
 
 `GET /api/war/start` gives the step (alliance, home, squad, done) and the choices. A returning player gets
@@ -606,17 +608,17 @@ inside the owner's 50–60 hope.
 
 **Decided (W-58):** a player has at most N = 12 fighters **in total**, counted across all regions. There is no reserve
 and no barracks pool; the 12 may be split across regions as he likes. Wounded, captive and training men count; the
-dead and the retired free their place; civilians are the household, outside the cap. Recruiting fills only up to 12
-(`army_full` past it), the start squad is up to 12, a transfer moves at most 12. One constant: `ARMY_MAX`
+dead and the retired free their place; civilians are the household, outside the cap. A claimed soul joins only under 12
+(refused past it, W-60), the start squad is up to 12, a transfer moves at most 12. One constant: `ARMY_MAX`
 (`src/war/sim/soldiers.ts`; `SQUAD_MAX`, `MAX_SQUAD` and `TRANSFER_MAX` follow it).
 
 ### Record (server-side, one row per person)
 
 | Field | Rule | Reused from |
 | --- | --- | --- |
-| class | militia on recruit → trained class → elite at level 6 | `src/data/classes.ts` |
+| class | picked at the start, or the class his soul woke as (W-60) → elite at level 6 | `src/data/classes.ts` |
 | level, xp | 1–10, `xpToNext = 40 × level`; +2 attribute points per level | `MAX_LEVEL`, `xpToNext`, `POINTS_PER_LEVEL` |
-| attributes | STR, AGI, END, WIL (5 neutral, max 15); class spread on recruit. WIL drives survival and the squad active cooldown (no morale in the war) | `src/data/perks.ts` `ATTR_*` |
+| attributes | STR, AGI, END, WIL (5 neutral, max 15); class spread on joining. WIL drives survival and the squad active cooldown (no morale in the war) | `src/data/perks.ts` `ATTR_*` |
 | skills | 2 slots, unlocked at levels 3 and 7, picked from the family pool (≤ 4) | perks, reshaped |
 | equipment | weapon (civilians: tool), armour, helmet, shield/offhand, trinket; item tier 1–3 × 5 rarities | `src/data/items.ts`, `gearRules.ts` requirements and class limits |
 | honours | ≤ 3 battle traits ("Veteran of Kleisoura", "Held the Ford"): +2% to one stat, mostly a name | `src/data/traits.ts` shape |
@@ -627,12 +629,12 @@ objective. Civilians: 1 per job (meal batch, bar, trade, site, patient). A wound
 
 ### Classes
 
-| Family | Train to (building) | Elite at L6 (+ rare kit) | Skills (P passive baked, F flag, A squad active) |
+| Family | Classes (start squad, souls) | Elite at L6 (+ rare kit) | Skills (P passive baked, F flag, A squad active) |
 | --- | --- | --- | --- |
-| Line | hoplite, thureophoros (barracks) | royal_guard, sacred_band | Shield Drill P (+6% block, +1 armour), Phalangite P (+0.15 reach, +1 dmg), Hold Fast F (+30% block while the squad holds), **Shield Wall A** |
-| Shock | celt_sword, falx (barracks) | rhomphaia, gallic | Brawler P (+1.2 dmg), Shield Breaker P (−10% target block), Finisher F (+30% dmg vs men < 40% HP), **Berserk A** |
-| Missile | archer, slinger, javelineer, peltast (range) | Cretan-set archer | Deep Quiver P (+40% ammo, +1 range), Eagle Eye P (+6% accuracy), Fire Archer F (brazier reach ×2, half pitch), **Volley A** |
-| Rider | companion, thessalian, horse_archer (stable) | chariot | Horsemanship P, Lance Charge F, Ride Down F, **Wheel and Re-charge A**; only once the war sim has mounts |
+| Line | hoplite, thureophoros | royal_guard, sacred_band | Shield Drill P (+6% block, +1 armour), Phalangite P (+0.15 reach, +1 dmg), Hold Fast F (+30% block while the squad holds), **Shield Wall A** |
+| Shock | celt_sword, falx | rhomphaia, gallic | Brawler P (+1.2 dmg), Shield Breaker P (−10% target block), Finisher F (+30% dmg vs men < 40% HP), **Berserk A** |
+| Missile | archer, slinger, javelineer, peltast | Cretan-set archer | Deep Quiver P (+40% ammo, +1 range), Eagle Eye P (+6% accuracy), Fire Archer F (brazier reach ×2, half pitch), **Volley A** |
+| Rider | companion, thessalian, horse_archer | chariot | Horsemanship P, Lance Charge F, Ride Down F, **Wheel and Re-charge A**; only once the war sim has mounts |
 
 Non-combat classes (W-38), six, each with its own loop and a tool in the weapon slot (same tiers and rarities):
 
@@ -729,16 +731,15 @@ player's (`notOwner` otherwise); the field is optional, so the wire stays additi
 
 | Stage | Rule |
 | --- | --- |
-| Recruit | an owned town or home camp grows a pool: home 6/h, town 3/h, cap 30; a recruit costs 20 food and comes as L1 militia (civilian 30 food) |
-| Train | barracks / range / stable / guild hall: 10 min + one tier-1 common kit (crafted or bought); class change only within a family, keeps level and XP |
-| Promote | level 6 + the elite rare kit, at a fortress, 30 min |
+| Join | W-60: the start squad (W-56), then only claimed souls ("Souls"); no recruit pools, no recruiting, no training |
+| Promote | level 6 + the elite rare kit, 30 min |
 | Fall | at 0 HP wounded with `woundedShare` 0.7 (+3% per END above 5, + physician, cap 0.9), else dead; the dead drop their gear |
 | Heal | wounded leave with the squad; timer: field 6 h, camp 3 h, town 2 h, physician's house 1 h |
 | Gear drops | a physical loot pile anyone may carry off (W-46, "Trade" → "Loot piles") |
 | Capture | a wounded man on a tile the enemy holds when the fight ends (no friendly within 15 tiles) becomes `captive` in the captor's nearest fort (≤ 20 per fort, extra are freed) |
 | Prisoners | captor pays 1 food/h each; ransom = 30 × level silver, the owner pays or declines; a raid reaching the fort frees all; after 24 h they walk home. No execution or conversion |
 | Veterans | survivors keep XP, gear and honours; gear wears per fight (`cond`), a smith repairs it |
-| Roster | N = 12 men in total across all regions (fit, wounded, captive, training; W-58) + household; no reserve; at the cap a recruit is refused until a man falls or retires |
+| Roster | N = 12 men in total across all regions (fit, wounded, captive, promoting; W-58) + household; no reserve; at the cap a soul's claim is refused until a man falls or retires |
 | Retire | returns half the gear value and leaves one honour on the alliance memorial; a level-10 soldier may retire into a civilian class at level 5 |
 
 Household: separate from the N fighters, size `min(4, 1 + fit soldiers ÷ 4)` (with N = 12: 4). Separate so the
@@ -753,6 +754,52 @@ Into the economy (M6), never instead of fighting: rations, bronze, iron, gear, r
 or buffs that **soldiers consume**; merchants move and sell it to other players ("Trade"). No civilian claims land, wins a siege or holds
 a region.
 
+### Food and hunger (W-60)
+
+Food is visible and every man eats (`src/war/sim/food.ts` HUNGER; the HUD's `src/war/view/hud/hunger.ts`). Each man of
+a player has a **satiety** 0..100 (the wild's men do not eat). It runs down 100 in 30 minutes; below 60 he eats on his
+own, one bite every second while below: a **ration** (+60) from his pack, else plain **food** (+30) from his pack, else
+the same from a standing store of his team within 6 tiles. A dish or a cook's meal (the fed buff) fills him up.
+
+| Stage | Satiety | Pace | Blows | Health |
+| --- | --- | --- | --- | --- |
+| Fed | 40 and up | — | — | — |
+| Hungry | under 40 (about 18 min unfed from full) | −10% | −10% | — |
+| Starving | under 15 (about 26 min unfed) | −25% | −25% | −0.2% of max a second, never below 25%: hunger never kills |
+
+A squad marches at its slowest man's pace, hunger counted. The cookhouse (and a cook at a camp or store) turns grain
+and onions (food 4, + salt 1 for ×1.5) into 4 rations, a good in the nearest store: a ration feeds twice a food and
+weighs half (20 to a load, food 10). Icons everywhere: a grain bundle (fed) or the hunger sign (amber hungry, red
+starving) with a satiety bar on the soldier card, each roster row in the field and the chest's Food row, each with an
+icon-led card; food and ration icons in the chest and the cost hints. Each food building's card says in one line what
+it does with food (farm, olive press, cookhouse, camp, storehouse). The men in the field cost the strongroom nothing:
+the old field upkeep is gone; only captives cost their captor 1 food an hour.
+
+### Souls (W-60: recruiting is gone)
+
+Every warrior on Metaxy died in the world above (Lore); the newly dead wake as **souls** across the regions and wait
+to be claimed (`src/war/sim/souls.ts`). There are no recruit pools, no recruiting, no training and no training
+buildings (barracks stand only as pre-built pieces of landmarks and towns); a new player starts with the 12 he picks
+in the menu (W-56), and after that a man joins only as a claimed soul.
+
+| Rule | Value |
+| --- | --- |
+| Where | shrines and temples, up to 4 ruins of the region (spaced 16 tiles), its lairs, and old battlefields: a 12 x 12 tile cell where 6 men fell (at most 6 a region) |
+| Spawn | a roll every 2 min per site without a soul: shrine 12%, ruin 8%, battlefield 20%, lair 5%; at most 4 souls in a region at once |
+| Class | by site: shrine hoplite, archer or militia; ruin militia, slinger or javelineer; lair swordsman, hoplite or archer; a battlefield the class most of its fallen were |
+| Level | shrine and ruin 1, battlefield 2, lair 3, + half the region's depth (rounded down), at most 6: the rarer, better souls wait in dangerous places |
+| Claim | the claimSoul order walks a squad to him; a man of it within 2.5 tiles for 3 s claims him and he joins that squad, his class and level, as a fresh person |
+| Cap | only while the player has fewer than ARMY_MAX = 12 fighters across all regions; else the claim is refused ("army full") and the soul waits on |
+| Contest | two sides at him stall the claim (contested); the wild at him with no claimer takes him (lost); a foe who stands there first claims him |
+| Fade | unclaimed he fades after 10 min (the view fades him over the last minute) |
+
+Online the region room gates on the player's whole army (D1 `armyCount`, refreshed on join and after each claim) and
+tells him `soul` claimed or refused; the DO writes the new man (`claimSoul`: an insert that checks the cap itself, so
+two regions claiming at once cannot pass 12; a refused insert takes the man off the field). A soul draws as a pale,
+glowing ghost of his class sheet (tinted, see-through, an additive glow; no new art) and shows on the minimap and the
+full map; with men selected near one, a prompt names him (class, level, site, fade timer) and its Claim button sends
+them, or reads "Army full 12/12".
+
 ### Anti-oversaturation
 
 | Lever | Bound |
@@ -761,7 +808,7 @@ a region.
 | Item cap | the ITEMS.md rule (≤ +10 win-rate points per item), measured in the war sim |
 | Counters | Line > Rider > Missile > Shock > Line, by class stats and flags; height and terrain still outweigh levels |
 | Readability | ≤ 3 flags per unit and one active per squad; elites and veterans get a visible marker (crest, pip) |
-| Upkeep | 1 food per soldier per hour in the field, 2 for elites, 1 per civilian; unpaid upkeep stops healing and XP |
+| Hunger | W-60: men in the field eat from their packs and the stores ("Food and hunger"); hungry and starving men march and strike weaker. Captives cost their captor 1 food an hour; unpaid, healing and XP stop |
 | Attrition | ~30% of the fallen die and gear wears, so top squads still bleed |
 
 ### UI touchpoints
@@ -1003,13 +1050,17 @@ pile); it moves only by being carried and changes hands only by a hand-off, a fi
 
 | Holder | Size | Who may take | Notes |
 | --- | --- | --- | --- |
-| store (camp, storehouse, fort) | unlimited, as today | its alliance; enemies by looting | a team's stores joined by its influence in a region form one **network**: crafting, building and upkeep draw from it (today's team stock, now per network) |
+| store (camp, storehouse, fort) | unlimited, as today | its alliance; enemies by looting | a team's stores joined by its influence in a region form one **network**: crafting and building draw from it; men within 6 tiles eat from the store itself (W-60) |
 | chest | building 1×1, wood 10, 8 loads, owner-only | owner; enemies by looting | ≤ 4 a player a region; holds, never feeds crafting |
 | home strongroom | the home storehouse + one chest a player | never lootable (W-09) | the only safe store outside a trade town; replaces the stash and the treasury table |
 | rented warehouse | a trade-town site, 20 loads | renter only | safe while rent is paid; unpaid 3 days: locked, never confiscated |
 | porter | CARRY 10 = 1 load (today's worker load); 5 items = 1 load | his squad | any soldier or civilian; −10% speed loaded |
 | cart | see Carts | its driver's player | captured with its cargo |
 | a man | his worn kit | – | an item is worn or in a holder, nowhere else |
+
+**The store is local (W-60).** What a player sees is where he stands: the chest's Town store tab opens only while
+his men stand next to a store of his (8 tiles from its middle) and lists that one store's goods and items; cost hints
+read the store by the selected men (a building's card: the store of its area). No HUD shows a network or team total.
 
 A crafted item lands in the workplace's output chest for the crafter's player (no chest of his with room: in the
 maker's pack); equipping needs the man and the item in

@@ -19,7 +19,7 @@ warehouse in the court -> a fill). It runs in Playwright's bundled Chromium in t
 too slowly under software GL to start a region.
 
 The first start packs the sprite sheets (a few minutes). You play dev player 1 in Dodona with the design's start:
-12 militia recruited at home for food, the rest of the start food (120) in the strongroom, no coin. Open
+12 militia at home (W-60: no recruiting; more men only as claimed souls), the start food in the strongroom, no coin. Open
 **http://localhost:5173/world.html?dev=1**. Ctrl-C stops both servers. Other ports: `PLAY_API_PORT`, `PLAY_WEB_PORT`.
 
 ## What to try, in order
@@ -36,7 +36,8 @@ The first start packs the sprite sheets (a few minutes). You play dev player 1 i
 5. **Raid a neutral lair.** Kleisoura or a dodona ring region: clear the wolves, boars, bears, bandits round the banner.
 6. **Claim.** Right-click the banner with a squad (30 s, no foes near): its radius becomes your influence; build there
    as at home.
-7. **Recruit and craft.** R roster (recruit at home for food, squad, gear, levels). Click a forge to queue an item.
+7. **Souls and craft.** R roster (squad, gear, levels; the hunger mark by each man). Claim a soul in the field (the
+   prompt over the command card; refused at 12 men). Click a forge to queue an item.
 8. **Caravan.** Build or capture a **handcart**, load it, escort it to a frontier town (H on the world map plans a haul).
 9. **Trade.** In a frontier town (Kleisoura, Stymphalia, Achelous, Ammos) press K: rent a stall, stow goods, list an offer.
 10. **Siege a palisade.** Build a ram or ladders (build bar, Siege tab), crew with E, batter the gate.
@@ -121,6 +122,7 @@ steps it 50 ticks and checks a seed plays the same. Region test-ridge unless nam
 | eco-farm |  | A camp and a farm stand; foragers pick the berries west of the camp. |
 | eco-stores |  | Two towns down the east road, a camp and a storehouse each. |
 | eco-handcart |  | A crew of three takes up the handcart by the first camp and loads it there; then pull it to the second town and unload into its store. |
+| food-hunger |  | By the camp: hungry hoplites (its store holds food), slingers with rations in their packs. Out in the woods: starving archers with nothing to eat. |
 | eco-trade |  | A loaded wagon leaves the first town for the trading post down the road, an escort with it. |
 | **Building** (8) | | |
 | build-test |  | Build up a base: your militia raise a camp on the claimed ground; gather wood and stone, place buildings and walls (B). |
@@ -172,6 +174,7 @@ steps it 50 ticks and checks a seed plays the same. Region test-ridge unless nam
 | fog-high-ground |  | An enemy archer squad waits on the ridge crest above your scouts. |
 | **Limits** (2) | | |
 | limit-army |  | Your whole army, 12 men, stands in one squad, with two cooks of the household beside it. |
+| limit-soul |  | Eleven men of yours stand in the field; two souls wait near them: an archer who woke at a lair and a javelineer in a ruin. |
 | limit-entry | dodona-e | Your squad has just come in at the west entry of the Teeth Foothills and marches in; a bandit squad lurks near the entry. |
 | **Clips & trailer** (6) | | |
 | clip-caravan |  | A loaded wagon takes the east road from the camp past the trading post, hoplites and archers escorting it. |
@@ -188,7 +191,6 @@ steps it 50 ticks and checks a seed plays the same. Region test-ridge unless nam
   in its dev `/api/war/:region/stats` (`wild`): fog hides the beasts from the page.
 - No squad transfers out with a foe within 20 tiles. A squad lingering at Kleisoura's court with a cart meets the
   bandits' cart raid outside the court (12 men don't fit in it; those outside are taken), and then cannot leave.
-- Right after the start the home recruit pool is empty (the start's 12 militia took it; it refills 6 an hour).
 - A crafted item lands in the maker's chest by the workplace; with no chest it rides in the maker's pack (the stash
   lists it under packs).
 - Entering a region again with men at home brings them as a fresh squad beside the ones standing there; the dev
