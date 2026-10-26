@@ -1,7 +1,9 @@
 ---
 // "One world, four alliances": the game's own world map (public/war/world: the painted continent with
 // its inked borders, as the world view draws it), the four homes washed in their alliance colours from
-// regions.json, and a chip per alliance with its specialty (docs/WAR.md "Alliances").
+// regions.json, and a chip per alliance with its specialty (docs/WAR.md "Alliances"). Beside it, a
+// looping clip of the live world map (public/video/war-world.*); Clip keeps the poster under reduced motion.
+import Clip from '../Clip.astro';
 import world from '../../../../public/war/world/regions.json';
 
 type Region = { name: string; polygon: [number, number][]; label: [number, number] };
@@ -24,22 +26,29 @@ const centre = regions.omphalos;
   <div class="container">
     <h2 class="heading" id="world-title">One world, four alliances</h2>
     <p class="world__lead">37 regions on one continent at the edge of the Abyss. Pick an alliance, hold its roads, passes and market towns, and march on Omphalos at the heart.</p>
-    <figure class="world__map frame-band">
-      <div class="world__art">
-        <picture>
-          <source media="(max-width: 767px)" srcset="/art/world-960.webp" />
-          <img src="/art/world-1600.webp" width="1600" height="1200" alt="The world map of Metaxy: one continent ringed by mist and sea monsters, its regions inked over forests, steppe, red canyons and a central plateau." loading="lazy" decoding="async" />
-        </picture>
-        <svg viewBox={`0 0 ${W} ${H}`} aria-hidden="true" focusable="false">
-          {homes.map((h) => <polygon points={h.points} fill={h.color} fill-opacity="0.32" stroke={h.color} stroke-width="5" />)}
-        </svg>
-        <ul class="world__labels" aria-hidden="true">
-          {homes.map((h) => <li style={`left:${h.x}%;top:${h.y}%;--c:${h.color}`}>{h.name}</li>)}
-          <li class="world__centre" style={`left:${(centre.label[0] / W) * 100}%;top:${(centre.label[1] / H) * 100}%`}>Omphalos</li>
-        </ul>
-      </div>
-      <figcaption class="visually-hidden">The four alliance homes: Dodona in the north-west, Skythia in the north-east, Kyrene in the south-east and Elaia in the south-west, with Omphalos in the centre.</figcaption>
-    </figure>
+    <div class="world__pair">
+      <figure class="world__map frame-band">
+        <div class="world__art">
+          <picture>
+            <source media="(max-width: 767px)" srcset="/art/world-960.webp" />
+            <img src="/art/world-1600.webp" width="1600" height="1200" alt="The world map of Metaxy: one continent ringed by mist and sea monsters, its regions inked over forests, steppe, red canyons and a central plateau." loading="lazy" decoding="async" />
+          </picture>
+          <svg viewBox={`0 0 ${W} ${H}`} aria-hidden="true" focusable="false">
+            {homes.map((h) => <polygon points={h.points} fill={h.color} fill-opacity="0.32" stroke={h.color} stroke-width="5" />)}
+          </svg>
+          <ul class="world__labels" aria-hidden="true">
+            {homes.map((h) => <li style={`left:${h.x}%;top:${h.y}%;--c:${h.color}`}>{h.name}</li>)}
+            <li class="world__centre" style={`left:${(centre.label[0] / W) * 100}%;top:${(centre.label[1] / H) * 100}%`}>Omphalos</li>
+          </ul>
+        </div>
+        <figcaption class="visually-hidden">The four alliance homes: Dodona in the north-west, Skythia in the north-east, Kyrene in the south-east and Elaia in the south-west, with Omphalos in the centre.</figcaption>
+      </figure>
+      <figure class="world__live frame-band">
+        <div class="world__clip">
+          <Clip ids={['war-world']} fallback="/art/world-960.webp" label="The live world map in the game: alliance lands, marching armies and battles across Metaxy." />
+        </div>
+      </figure>
+    </div>
     <ul class="world__allies" role="list">
       {homes.map((h) => (
         <li class="ally" style={`--c:${h.color}`}>
@@ -65,12 +74,22 @@ const centre = regions.omphalos;
     color: var(--ink);
     text-align: center;
   }
-  .world__map {
+  /* The painted map and the live clip side by side; both 4:3, so the 16:9 clip's misty margins are cropped
+     and the whole continent stays in view. Stacked on narrow screens. */
+  .world__pair {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
     max-width: 1100px;
     margin: 0 auto;
+  }
+  .world__map,
+  .world__live {
+    margin: 0;
     box-shadow: 0 16px 48px rgb(0 0 0 / 0.5);
   }
-  .world__art {
+  .world__art,
+  .world__clip {
     position: relative;
     aspect-ratio: 4 / 3;
     overflow: hidden;
@@ -138,6 +157,12 @@ const centre = regions.omphalos;
   .ally__spec {
     color: var(--muted);
     font-size: var(--fs-caption);
+  }
+  @media (max-width: 899px) {
+    .world__pair {
+      grid-template-columns: minmax(0, 1fr);
+      max-width: 640px;
+    }
   }
   @media (max-width: 767px) {
     .world__allies {
