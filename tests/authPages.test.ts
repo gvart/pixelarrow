@@ -1,7 +1,7 @@
 // The standalone email-link pages /auth/* (V6-ACCT-06, design/ux/accounts-v6.md §5.4, §7.2, §8.3, §8.4):
-// what each server reply shows, where the token comes from, the language and the guest-save hint.
+// what each server reply shows, where the token comes from and the language.
 import { describe, expect, it } from 'vitest';
-import { conflictView, guestSave, pageLang, readToken, resetView, savedLangSetting, variantOf, verifyView } from '../auth/logic';
+import { conflictView, pageLang, readToken, resetView, savedLangSetting, variantOf, verifyView } from '../auth/logic';
 import { PW_MAX, PW_MIN } from '../auth/logic';
 import headers from '../public/_headers?raw';
 import { readText } from './support/nodeIo.js';
@@ -36,26 +36,25 @@ describe('variantOf', () => {
 });
 
 describe('verifyView (POST /api/auth/verify)', () => {
-  it('signs up: welcome with the name, the campaign line when this browser holds a guest save', () => {
-    expect(verifyView('signup', ok({ purpose: 'signup', player }), true)).toEqual({ kind: 'success', purpose: 'signup', name: 'SwiftArcher4821', campaign: 'comes' });
-    expect(verifyView('signup', ok({ purpose: 'signup', player }), false)).toMatchObject({ kind: 'success', campaign: 'otherDevice' });
+  it('signs up: welcome with the name', () => {
+    expect(verifyView('signup', ok({ purpose: 'signup', player }))).toEqual({ kind: 'success', purpose: 'signup', name: 'SwiftArcher4821' });
   });
   it('follows the purpose the server answers, not the path', () => {
-    expect(verifyView('signup', ok({ purpose: 'add_email', player }), false)).toMatchObject({ kind: 'success', purpose: 'add_email' });
-    expect(verifyView('change_email', ok({ purpose: 'change_email', player }), false)).toMatchObject({ kind: 'success', purpose: 'change_email' });
+    expect(verifyView('signup', ok({ purpose: 'add_email', player }))).toMatchObject({ kind: 'success', purpose: 'add_email' });
+    expect(verifyView('change_email', ok({ purpose: 'change_email', player }))).toMatchObject({ kind: 'success', purpose: 'change_email' });
   });
   it('maps every error code to a state', () => {
-    expect(verifyView('signup', err(400, 'invalid_token'), false)).toEqual({ kind: 'expired', variant: 'signup' });
-    expect(verifyView('add_email', err(400, 'invalid_token'), false)).toEqual({ kind: 'expired', variant: 'add_email' });
-    expect(verifyView('signup', err(409, 'email_taken'), false)).toEqual({ kind: 'taken' });
-    expect(verifyView('change_email', err(409, 'email_taken'), false)).toEqual({ kind: 'taken' });
-    expect(verifyView('add_email', err(409, 'email_conflict'), false)).toEqual({ kind: 'conflict' });
-    expect(verifyView('add_email', err(409, 'already_has_email'), false)).toEqual({ kind: 'expired', variant: 'add_email' });
-    expect(verifyView('signup', err(429, 'rate_limited'), false)).toEqual({ kind: 'rate' });
-    expect(verifyView('signup', err(403, 'banned'), false)).toEqual({ kind: 'banned' });
-    expect(verifyView('signup', err(403, 'bad_origin'), false)).toEqual({ kind: 'unavailable' });
-    expect(verifyView('signup', err(503, 'email_unavailable'), false)).toEqual({ kind: 'offline' });
-    expect(verifyView('signup', null, false)).toEqual({ kind: 'offline' });
+    expect(verifyView('signup', err(400, 'invalid_token'))).toEqual({ kind: 'expired', variant: 'signup' });
+    expect(verifyView('add_email', err(400, 'invalid_token'))).toEqual({ kind: 'expired', variant: 'add_email' });
+    expect(verifyView('signup', err(409, 'email_taken'))).toEqual({ kind: 'taken' });
+    expect(verifyView('change_email', err(409, 'email_taken'))).toEqual({ kind: 'taken' });
+    expect(verifyView('add_email', err(409, 'email_conflict'))).toEqual({ kind: 'conflict' });
+    expect(verifyView('add_email', err(409, 'already_has_email'))).toEqual({ kind: 'expired', variant: 'add_email' });
+    expect(verifyView('signup', err(429, 'rate_limited'))).toEqual({ kind: 'rate' });
+    expect(verifyView('signup', err(403, 'banned'))).toEqual({ kind: 'banned' });
+    expect(verifyView('signup', err(403, 'bad_origin'))).toEqual({ kind: 'unavailable' });
+    expect(verifyView('signup', err(503, 'email_unavailable'))).toEqual({ kind: 'offline' });
+    expect(verifyView('signup', null)).toEqual({ kind: 'offline' });
   });
 });
 
@@ -100,14 +99,7 @@ const saveWith = (settings: object) => ({
   'pixelarrow:px_part1_1': JSON.stringify({ v: 9, settings }).slice(10),
 });
 
-describe('the device hints', () => {
-  it('a save never synced with a server is a guest save', () => {
-    expect(guestSave(store(saveWith({})))).toBe(true);
-    expect(guestSave(store({ ...saveWith({}), 'pixelarrow:px_sync': '{"revision":3,"seq":4}' }))).toBe(false);
-    expect(guestSave(store({}))).toBe(false);
-    expect(guestSave(null)).toBe(false);
-    expect(guestSave({ getItem: () => { throw new Error('blocked'); } })).toBe(false);
-  });
+describe('the language', () => {
   it('reads the language setting from the current save slot', () => {
     expect(savedLangSetting(store(saveWith({ lang: 'ru' })))).toBe('ru');
     expect(savedLangSetting(store(saveWith({ lang: 'auto' })))).toBe('auto');

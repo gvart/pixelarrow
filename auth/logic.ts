@@ -1,7 +1,6 @@
 /**
  * The email-link pages' rules (V6-ACCT-06; design/ux/accounts-v6.md §5.4, §7.2, §8.3, §8.4), with no
- * DOM: where the token comes from, which state each server reply shows, and two device hints read from
- * the game's own localStorage (the language setting, and whether this browser holds a guest save).
+ * DOM: where the token comes from, which state each server reply shows, and the page language.
  *
  * It imports nothing from the game, so the page stays a few KB (no Phaser, no platform layer). The
  * token is never logged, never put in a query string, and never sent anywhere but the POST body.
@@ -37,7 +36,7 @@ export type Reply = { status: number; body: unknown } | null;
 export type PageKey = 'auth.err.pwShort' | 'auth.err.pwLong' | 'auth.err.pwCommon' | 'auth.err.pwEmail' | 'auth.err.creds' | 'auth.page.rate' | 'auth.page.offline' | 'auth.err.unavailable';
 
 export type View =
-  | { kind: 'success'; purpose: Purpose; name: string; campaign?: 'comes' | 'otherDevice'; removedEmpty?: true }
+  | { kind: 'success'; purpose: Purpose; name: string; removedEmpty?: true }
   | { kind: 'resetDone' }
   | { kind: 'expired'; variant: Variant }
   | { kind: 'taken' }
@@ -70,13 +69,11 @@ function common(r: Reply): View | undefined {
 }
 
 /** POST /api/auth/verify (V6-042, V6-049): the purpose comes from the server, which knows the token. */
-export function verifyView(variant: Variant, r: Reply, hasGuestSave: boolean): View {
+export function verifyView(variant: Variant, r: Reply): View {
   if (r && r.status === 200) {
     const p = (r.body as { purpose?: Purpose }).purpose;
     const purpose = p && PURPOSES.includes(p) ? p : variant === 'reset' ? 'signup' : variant;
-    const v: View = { kind: 'success', purpose, name: nameOf(r) };
-    if (purpose === 'signup') v.campaign = hasGuestSave ? 'comes' : 'otherDevice';
-    return v;
+    return { kind: 'success', purpose, name: nameOf(r) };
   }
   const c = common(r);
   if (c) return c;
@@ -142,11 +139,6 @@ const get = (s: Store | null, k: string): string | null => {
     return null;
   }
 };
-
-/** A campaign save that never synced with a server: a guest's, which comes along when they sign up. */
-export function guestSave(s: Store | null): boolean {
-  return get(s, 'px_meta') !== null && get(s, 'px_sync') === null;
-}
 
 /** The game's language setting ('en' | 'ru' | 'auto') from the current save slot, or null. */
 export function savedLangSetting(s: Store | null): 'en' | 'ru' | 'auto' | null {
