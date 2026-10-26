@@ -14,11 +14,13 @@
  *   v n, n x shot:     u16 x0 y0 x1 y1 | v tick - t0 | u8 t1 - t0 | u8 z0 | u8 z1 | u8 kind | fire<<2 | siege<<3 | z by [| v siege]
  *   v n, n bytes:      JSON { u: BuildingSnap[], r: id[] } of changed / gone buildings (n = 0: none)
  *   v n, n bytes:      JSON { u: SiegeSnap[], r: id[] } of changed / gone engines and carts (n = 0: none)
+ *   v n, n bytes:      JSON { u: SoulSnap[], r: id[] } of changed / gone souls (W-60; n = 0: none)
  * Unit fields: POS u16 x*QUANT, u16 y*QUANT | FACE u8 (turns * 256) | HP u16 hp*10 | STATE u8 (state | 8 wounded set | 16 wounded)
  *   | Z u8 | ANIM u8 swing, u8 ready (255 none) | META v squad, u16 maxHp*10, s cls, s person id ('' none), u8 level
- *   | EXTRA v on+1, u8 task, u8 carry, u8 load, v combat tag end tick (absolute; 0 none, the decoder counts down)
+ *   | EXTRA v on+1, u8 task, u8 carry, u8 load, v combat tag end tick (absolute; 0 none, the decoder counts down),
+ *     u8 satiety (W-60; 255 none)
  */
-import type { BuildingSnap, ResourceKind, ShotSnap, SiegeSnap, Snapshot, SquadSnap, UnitSnap, WarSkillId } from '../types';
+import type { BuildingSnap, ResourceKind, ShotSnap, SiegeSnap, Snapshot, SoulSnap, SquadSnap, UnitSnap, WarSkillId } from '../types';
 import { NET_VERSION, QUANT } from './protocol';
 
 const POS = 1, FACE = 2, HP = 4, STATE = 8, Z = 16, ANIM = 32, META = 64, EXTRA = 128;
@@ -30,7 +32,7 @@ const REASONS = [undefined, 'noBrazier', 'noPitch'] as const;
 const TAU = Math.PI * 2;
 
 // quantised unit record: indices into Q
-const QX = 0, QY = 1, QF = 2, QH = 3, QS = 4, QZ = 5, QSW = 6, QRD = 7, QON = 8, QTK = 9, QCA = 10, QLD = 11, QTG = 12;
+const QX = 0, QY = 1, QF = 2, QH = 3, QS = 4, QZ = 5, QSW = 6, QRD = 7, QON = 8, QTK = 9, QCA = 10, QLD = 11, QTG = 12, QSA = 13;
 type Q = number[];
 
 const clampU16 = (v: number) => (v < 0 ? 0 : v > 65535 ? 65535 : v);
@@ -43,7 +45,7 @@ function quantise(u: UnitSnap, tick: number): Q {
     Math.round(((((u.facing % TAU) + TAU) % TAU) / TAU) * 256) & 255,
     clampU16(Math.round(u.hp * 10)), Math.max(0, STATES.indexOf(u.state)) | w, u8(u.z ?? 0),
     u8(u.swing), u8(u.ready), u.on === undefined ? 0 : u.on + 1, Math.max(0, TASKS.indexOf(u.task)), Math.max(0, CARRY.indexOf(u.carry)), u8(u.load ?? 0),
-    u.tag ? tick + u.tag : 0,
+    u.tag ? tick + u.tag : 0, u8(u.sat),
   ];
 }
 
@@ -104,7 +106,7 @@ class Reader {
 }
 
 /** What one client sees this tick (already filtered, ./interest.ts). `shots`: the ones to send (new ones; all on a keyframe). */
-export interface FrameInput { tick: number; units: UnitSnap[]; squads: SquadSnap[]; shots: ShotSnap[]; buildings: BuildingSnap[]; sieges?: SiegeSnap[] }
+export interface FrameInput { tick: number; units: UnitSnap[]; squads: SquadSnap[]; shots: ShotSnap[]; buildings: BuildingSnap[]; sieges?: SiegeSnap[]; souls?: SoulSnap[] }
 
 /** Squad active as absolute ticks (ready at, buff over at): changes only when it fires. */
 const activeAbs = (s: SquadSnap, tick: number) => (s.active ? [s.active.skill, s.active.ready ? tick + s.active.ready : 0, s.active.on ? tick + s.active.on : 0] as const : null);
@@ -118,11 +120,12 @@ export class DeltaEncoder {
   private squads = new Map<number, string>();
   private buildings = new Map<number, string>();
   private sieges = new Map<number, string>();
+  private souls = new Map<number, string>();
   private seen = new Set<number>();
 
   /** key: a keyframe (full resend, the client starts over). */
   encode(f: FrameInput, key: boolean): Uint8Array {
-    if (key) { this.units.clear(); this.squads.clear(); this.buildings.clear(); this.sieges.clear(); }
+    if (key) { this.units.clear(); this.squads.clear(); this.buildings.clear(); this.sieges.clear(); this.souls.clear(); }
     const w = new Writer();
     w.u8(key ? 2 : 1);
     w.u8(NET_VERSION);
@@ -147,7 +150,7 @@ export class DeltaEncoder {
         if (p[QS] !== q[QS]) m |= STATE;
         if (p[QZ] !== q[QZ]) m |= Z;
         if (p[QSW] !== q[QSW] || p[QRD] !== q[QRD]) m |= ANIM;
-        if (p[QON] !== q[QON] || p[QTK] !== q[QTK] || p[QCA] !== q[QCA] || p[QLD] !== q[QLD] || p[QTG] !== q[QTG]) m |= EXTRA;
+        if (p[QON] !== q[QON] || p[QTK] !== q[QTK] || p[QCA] !== q[QCA] || p[QLD] !== q[QLD] || p[QTG] !== q[QTG] || p[QSA] !== q[QSA]) m |= EXTRA;
       }
       if (!m) continue;
       this.units.set(u.id, { q, meta });
@@ -161,7 +164,7 @@ export class DeltaEncoder {
       if (m & Z) w.u8(q[QZ]);
       if (m & ANIM) { w.u8(q[QSW]); w.u8(q[QRD]); }
       if (m & META) { w.v(u.squad); w.u16(clampU16(Math.round(u.maxHp * 10))); w.s(u.cls); w.s(u.pid ?? ''); w.u8(u.level ?? 0); }
-      if (m & EXTRA) { w.v(q[QON]); w.u8(q[QTK]); w.u8(q[QCA]); w.u8(q[QLD]); w.v(q[QTG]); }
+      if (m & EXTRA) { w.v(q[QON]); w.u8(q[QTK]); w.u8(q[QCA]); w.u8(q[QLD]); w.v(q[QTG]); w.u8(q[QSA]); }
     }
     // a 4-byte varint (padded with continuation bits) so the count can be patched in place
     w.buf[countAt] = (count & 0x7f) | 0x80;
@@ -203,6 +206,8 @@ export class DeltaEncoder {
     // buildings, then engines and carts: whole records, changed ones only (few)
     records(w, this.buildings, f.buildings, key);
     records(w, this.sieges, f.sieges ?? [], key);
+    // W-60 souls: their `left` counts down every tick, so they go as absolute fade ticks (sent on change only)
+    records(w, this.souls, (f.souls ?? []).map((x) => ({ ...x, left: f.tick + x.left })), key);
     return w.done();
   }
 }
@@ -230,6 +235,8 @@ export class DeltaDecoder {
   shots: ShotSnap[] = [];
   buildings = new Map<number, BuildingSnap>();
   sieges = new Map<number, SiegeSnap>();
+  /** W-60 souls, `left` held as the absolute tick they fade (snapshot() counts down). */
+  souls = new Map<number, SoulSnap>();
   /** Combat tag end ticks by unit (absolute; snapshot() counts down). */
   tags = new Map<number, number>();
   tick = 0;
@@ -239,7 +246,7 @@ export class DeltaDecoder {
     const kind = r.u8(), v = r.u8();
     if (v !== NET_VERSION) throw new Error(`net version ${v}, expected ${NET_VERSION}`);
     const tick = r.u32();
-    if (kind === 2) { this.units.clear(); this.squads.clear(); this.actives.clear(); this.shots = []; this.buildings.clear(); this.sieges.clear(); this.tags.clear(); }
+    if (kind === 2) { this.units.clear(); this.squads.clear(); this.actives.clear(); this.shots = []; this.buildings.clear(); this.sieges.clear(); this.souls.clear(); this.tags.clear(); }
     this.tick = tick;
     for (let n = r.v(); n > 0; n--) {
       const id = r.v(), m = r.u8();
@@ -270,6 +277,8 @@ export class DeltaDecoder {
         if (carry) { u.carry = carry; u.load = load; } else { delete u.carry; delete u.load; }
         const tag = r.v();
         if (tag) this.tags.set(id, tag); else this.tags.delete(id);
+        const sat = r.u8();
+        if (sat === 255) delete u.sat; else u.sat = sat;
       }
       this.units.set(id, u);
     }
@@ -292,7 +301,7 @@ export class DeltaDecoder {
       if (k & 8) s.siege = r.v();
       this.shots.push(s);
     }
-    for (const into of [this.buildings, this.sieges] as Map<number, { id: number }>[]) {
+    for (const into of [this.buildings, this.sieges, this.souls] as Map<number, { id: number }>[]) {
       const b = r.bytes();
       if (!b.length) continue;
       const j = JSON.parse(dec.decode(b)) as { u: { id: number }[]; r: number[] };
@@ -319,6 +328,9 @@ export class DeltaDecoder {
       const active = a ? { active: { skill: a[0], ready: Math.max(0, a[1] - this.tick), on: Math.max(0, a[2] - this.tick) } } : {};
       return { ...s, ...active, units: lists.get(s.id) ?? [] };
     });
-    return { tick: this.tick, units, squads, shots: this.shots.map((s) => ({ ...s })), buildings: [...this.buildings.values()], ...(this.sieges.size ? { sieges: [...this.sieges.values()] } : {}) };
+    return {
+      tick: this.tick, units, squads, shots: this.shots.map((s) => ({ ...s })), buildings: [...this.buildings.values()], ...(this.sieges.size ? { sieges: [...this.sieges.values()] } : {}),
+      ...(this.souls.size ? { souls: [...this.souls.values()].map((x) => ({ ...x, left: Math.max(0, x.left - this.tick) })) } : {}),
+    };
   }
 }

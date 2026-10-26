@@ -1,9 +1,9 @@
-/** M5e: war_persons in D1, the roster API (recruit, caps, equip, level-up, squad) and the idempotent fight write-back. */
+/** M5e: war_persons in D1, the roster API (caps, equip, level-up, squad), W-60 claimed souls and the idempotent fight write-back. */
 import { env } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
-import { setGood } from './goods';
 import { api, devLogin } from '../helpers';
-import { applyFight, claimForJoin, personOf, START, type PersonRow } from '../../src/war/persons';
+import { applyFight, armyCount, claimForJoin, claimSoul, personOf, START, type PersonRow } from '../../src/war/persons';
+import { makePerson } from '../../../src/war/sim/roster';
 import { ARMY_MAX } from '../../../src/war/sim/soldiers';
 import { warStatsOf } from '../../../src/war/sim/classes';
 import type { FightReport } from '../../../src/war/types';
@@ -13,19 +13,21 @@ const DB = () => env.DB!;
 interface RosterBody {
   persons: { id: string; cls: string; name: string; level: number; xp: number; state: string; slot: number | null; region: string | null; gear: Record<string, { uid: string; def: string } | undefined>; skills: string[]; attrs: Record<string, number>; pending: { points: number; skills: number }; until: number | null }[];
   caps: { army: number; household: number; fighters: number; fit: number };
-  pools: { town: string; recruits: number }[];
   stock: Record<string, number>;
   items: { uid: string; def: string }[];
 }
 const roster = async (token: string) => (await api('/api/war/roster', { token })).json<RosterBody>();
 const post = (token: string, path: string, json: unknown) => api(`/api/war${path}`, { method: 'POST', token, json });
+/** A soul's person as the sim makes him (src/war/sim/souls.ts). */
+const soul = (id: string, cls = 'hoplite', level = 1) => makePerson(`soul-${id}`, cls, { level });
+const claim = (pid: number, id: string, cls?: string, level?: number) => claimSoul(DB(), pid, soul(id, cls, level), 'test-ridge', Date.now());
 const row = (id: string) => DB().prepare('SELECT * FROM war_persons WHERE id = ?1').bind(id).first<PersonRow & { until_at: number | null }>();
 
 describe('war_persons migration', () => {
   it('creates the roster tables', async () => {
     const cols = async (t: string) => (await DB().prepare('SELECT name FROM pragma_table_info(?1)').bind(t).all<{ name: string }>()).results.map((c) => c.name);
     expect(await cols('war_persons')).toEqual(expect.arrayContaining(['id', 'player_id', 'cls', 'level', 'xp', 'attrs', 'skills', 'gear', 'honours', 'state', 'until_at', 'captor', 'held_at', 'slot', 'region']));
-    for (const t of ['war_pools', 'war_goods', 'war_holders', 'war_items', 'war_fights']) expect((await cols(t)).length).toBeGreaterThan(2);
+    for (const t of ['war_goods', 'war_holders', 'war_items', 'war_fights']) expect((await cols(t)).length).toBeGreaterThan(2);
     const me = await devLogin(7301);
     await expect(DB().prepare("INSERT INTO war_persons (id, player_id, state) VALUES ('x', ?1, 'resting')").bind(me.playerId).run()).rejects.toThrow(/CHECK/);
   });
@@ -36,38 +38,31 @@ describe('war roster API', () => {
     expect((await api('/api/war/roster')).status).toBe(401);
   });
 
-  it('recruits militia from the home pool for food, up to the army cap', async () => {
+  it('no recruiting (W-60): a claimed soul joins in his region, up to the army cap', async () => {
     const me = await devLogin(7302);
     const r0 = await roster(me.token);
     expect(r0.persons).toEqual([]);
-    expect(r0.pools).toEqual([expect.objectContaining({ town: 'home', recruits: START.pool })]);
-    expect(START.pool).toBe(ARMY_MAX);
     expect(r0.stock.food).toBe(START.food);
     expect(r0.caps).toMatchObject({ army: ARMY_MAX, household: 1 });
-    expect((await post(me.token, '/recruit', { town: 'athens', count: 1 })).status).toBe(404);
-    expect((await post(me.token, '/recruit', { town: 'home', count: 2 })).status).toBe(200);
-    // the food runs out; with food, the pool fills the army to ARMY_MAX
-    await setGood(me.playerId, 'food', 10);
-    expect(await (await post(me.token, '/recruit', { town: 'home', count: 1 })).json()).toMatchObject({ error: { code: 'no_food' } });
-    await setGood(me.playerId, 'food', 1000);
-    expect((await post(me.token, '/recruit', { town: 'home', count: ARMY_MAX - 2 })).status).toBe(200);
+    expect((r0 as unknown as { pools?: unknown }).pools).toBeUndefined();
+    expect((await post(me.token, '/recruit', { town: 'home', count: 1 })).status).toBe(404);
+    expect(await claim(me.playerId, '7302-0', 'archer', 3)).toBe(true);
+    for (let k = 1; k < ARMY_MAX; k++) expect(await claim(me.playerId, `7302-${k}`)).toBe(true);
     const r1 = await roster(me.token);
     expect(r1.persons).toHaveLength(ARMY_MAX);
-    expect(r1.persons.every((p) => p.cls === 'militia' && p.level === 1 && p.state === 'active')).toBe(true);
-    expect(new Set(r1.persons.map((p) => p.name)).size).toBe(ARMY_MAX); // every man has his own name
-    expect(r1.pools[0].recruits).toBe(0);
-    expect(r1.caps).toMatchObject({ army: ARMY_MAX, fighters: ARMY_MAX, fit: ARMY_MAX, household: 4 });
-    // at ARMY_MAX a recruit is refused, pool or not
-    await DB().prepare('UPDATE war_pools SET stored = 12 WHERE player_id = ?1').bind(me.playerId).run();
-    expect(await (await post(me.token, '/recruit', { town: 'home', count: 1 })).json()).toMatchObject({ error: { code: 'army_full' } });
-    // the dead free their place
-    await DB().prepare("UPDATE war_persons SET state = 'dead' WHERE id = ?1").bind(r1.persons[0].id).run();
-    expect(await (await post(me.token, '/recruit', { town: 'home', count: 2 })).json()).toMatchObject({ error: { code: 'army_full' } });
-    expect((await post(me.token, '/recruit', { town: 'home', count: 1 })).status).toBe(200);
-    // an empty pool stops it too
-    await DB().prepare("UPDATE war_persons SET state = 'dead' WHERE id = ?1").bind(r1.persons[1].id).run();
-    await DB().prepare('UPDATE war_pools SET stored = 0 WHERE player_id = ?1').bind(me.playerId).run();
-    expect(await (await post(me.token, '/recruit', { town: 'home', count: 1 })).json()).toMatchObject({ error: { code: 'pool_empty' } });
+    expect(r1.persons.find((p) => p.id === 'soul-7302-0')).toMatchObject({ cls: 'archer', level: 3, state: 'active', region: 'test-ridge' });
+    expect(r1.caps).toMatchObject({ army: ARMY_MAX, fighters: ARMY_MAX, fit: ARMY_MAX });
+    expect(await armyCount(DB(), me.playerId)).toBe(ARMY_MAX);
+    // at ARMY_MAX a claim is refused and nothing is written
+    expect(await claim(me.playerId, '7302-x')).toBe(false);
+    expect(await row('soul-7302-x')).toBeNull();
+    // the dead free their place, one man's worth
+    await DB().prepare("UPDATE war_persons SET state = 'dead' WHERE id = ?1").bind('soul-7302-1').run();
+    expect(await claim(me.playerId, '7302-x')).toBe(true);
+    expect(await claim(me.playerId, '7302-y')).toBe(false);
+    // the same soul twice is one man
+    await DB().prepare("UPDATE war_persons SET state = 'dead' WHERE id = ?1").bind('soul-7302-2').run();
+    expect(await claim(me.playerId, '7302-x')).toBe(false);
   });
 
   it('counts the wounded, captive and training men toward the army cap', async () => {
@@ -81,8 +76,7 @@ describe('war roster API', () => {
     await DB().prepare("UPDATE war_persons SET state = 'training', until_at = ?2, train_to = 'archer' WHERE id = ?1").bind(ids[2], far).run();
     const r = await roster(me.token);
     expect(r.caps).toMatchObject({ army: ARMY_MAX, fighters: ARMY_MAX, fit: ARMY_MAX - 3 });
-    await setGood(me.playerId, 'food', 1000);
-    expect(await (await post(me.token, '/recruit', { town: 'home', count: 1 })).json()).toMatchObject({ error: { code: 'army_full' } });
+    expect(await claim(me.playerId, '7308-a')).toBe(false);
   });
 
   it('counts the men of every region toward one cap', async () => {
@@ -96,14 +90,12 @@ describe('war roster API', () => {
     expect(r.persons.filter((p) => p.region === 'test-ridge')).toHaveLength(half);
     expect(r.persons.filter((p) => p.region === 'elsewhere')).toHaveLength(half);
     expect(r.caps.fighters).toBe(ARMY_MAX);
-    await setGood(me.playerId, 'food', 1000);
-    await DB().prepare('UPDATE war_pools SET stored = 12 WHERE player_id = ?1').bind(me.playerId).run();
-    expect(await (await post(me.token, '/recruit', { town: 'home', count: 1 })).json()).toMatchObject({ error: { code: 'army_full' } });
+    expect(await claim(me.playerId, '7309-a')).toBe(false);
     // a dev seed of more men at home is refused too: the field already holds the whole army
     expect(await (await post(me.token, '/dev/seed', { squad: [{ cls: 'hoplite' }] })).json()).toMatchObject({ error: { code: 'army_full' } });
-    // a man dies in one region: one recruit may come in
+    // a man dies in one region: one soul may join
     await DB().prepare("UPDATE war_persons SET state = 'dead', region = NULL WHERE id = ?1").bind(ids[0]).run();
-    expect((await post(me.token, '/recruit', { town: 'home', count: 1 })).status).toBe(200);
+    expect(await claim(me.playerId, '7309-a')).toBe(true);
     expect((await roster(me.token)).caps.fighters).toBe(ARMY_MAX);
   });
 

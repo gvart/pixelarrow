@@ -147,8 +147,8 @@ export interface HolderRef { building?: number; cart?: number; pile?: number }
 export interface CargoRef { squad?: number; persons?: string[]; cart?: number; building?: number; reserve?: number }
 export interface CargoAt { slots: { hold: import('./sim/holders').Hold; cap: number; x: number; y: number }[]; team: number; owner: string }
 export type TradeOrder =
-  | { kind: 'load'; squad: SquadId; from: HolderRef; res?: ResourceKind; n?: number }
-  | { kind: 'unload'; squad: SquadId; to: HolderRef; res?: ResourceKind }
+  | { kind: 'load'; squad: SquadId; from: HolderRef; res?: GoodKind; n?: number }
+  | { kind: 'unload'; squad: SquadId; to: HolderRef; res?: GoodKind }
   | { kind: 'escort'; squad: SquadId; cart: number }
   | { kind: 'salvagePile'; squad: SquadId; pile: number; uid: string };
 /**
@@ -534,7 +534,7 @@ export interface WarBuildSim extends WarSim {
   influence(): InfluenceMap;
   /** A claim anchor (claimed region, scenario start): projects influence radius r around (x,y). */
   claim(team: number, x: number, y: number, r?: number): void;
-  addStock(team: number, res: ResourceKind, n: number): void;
+  addStock(team: number, res: GoodKind, n: number): void;
   damageBuilding(id: number, dmg: number): void;
   /** Scenarios: the team's unfinished bridge pieces done at once (standing bridges at the start). */
   finishBridges(team: number): void;

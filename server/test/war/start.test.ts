@@ -6,6 +6,8 @@ import { ARMY_MAX } from '../../../src/war/sim/soldiers';
 import { homeRefusal, squadRefusal, START_CLASSES } from '../../../src/war/world/start';
 import { worldStub } from '../../src/war/world/routes';
 import type { StartView } from '../../src/war/start';
+import { claimSoul } from '../../src/war/persons';
+import { makePerson } from '../../../src/war/sim/roster';
 import type { WarWorldDO } from '../../src/war/world/worldDO';
 import type { World } from '../../src/war/world/world';
 
@@ -39,7 +41,7 @@ describe('start API', () => {
     expect((await api('/api/war/start')).status).toBe(401);
   });
 
-  it('happy path: alliance, home, squad; the men stand at home in slot order and came from the pool', async () => {
+  it('happy path: alliance, home, squad; the men stand at home in slot order', async () => {
     const me = await devLogin(7901);
     let v = await view(me.token);
     expect(v).toMatchObject({ step: 'alliance', alliance: null, home: null, homes: [], squadMax: ARMY_MAX, classes: [...START_CLASSES] });
@@ -65,16 +67,15 @@ describe('start API', () => {
     expect(done).toMatchObject({ step: 'done', alliance: 1, home: 'skythia-n' });
     expect(done.ids).toHaveLength(12);
 
-    const roster = await (await api('/api/war/roster', { token: me.token })).json<{ persons: { id: string; cls: string; state: string; slot: number | null; region: string | null; level: number }[]; pools: { town: string; recruits: number }[] }>();
+    const roster = await (await api('/api/war/roster', { token: me.token })).json<{ persons: { id: string; cls: string; state: string; slot: number | null; region: string | null; level: number }[] }>();
     const men = roster.persons.filter((p) => p.state === 'active').sort((a, b) => a.slot! - b.slot!);
     expect(men.map((p) => p.cls)).toEqual(classes);
     expect(men.map((p) => p.id)).toEqual(done.ids);
     expect(men.every((p) => p.region === null && p.level === 1)).toBe(true);
     expect(new Set(roster.persons.map((p) => p.id)).size).toBe(12);
-    expect(roster.pools.find((p) => p.town === 'home')!.recruits).toBe(0);
-    // the start is the whole army: with a pool and food again, a recruit is still refused
-    await env.DB!.prepare('UPDATE war_pools SET stored = 12 WHERE player_id = ?1').bind(me.playerId).run();
-    expect(await code(await api('/api/war/recruit', { method: 'POST', token: me.token, json: { town: 'home', count: 1 } }))).toBe('army_full');
+    // the start is the whole army: no recruiting (W-60), and a claimed soul is refused
+    expect((await api('/api/war/recruit', { method: 'POST', token: me.token, json: { town: 'home', count: 1 } })).status).toBe(404);
+    expect(await claimSoul(env.DB!, me.playerId, makePerson('soul-start-a', 'archer'), 'skythia-n', Date.now())).toBe(false);
   });
 
   it('refuses each step out of order, a home that is not free or not the alliance\'s, and a bad squad', async () => {

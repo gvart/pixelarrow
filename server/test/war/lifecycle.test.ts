@@ -1,9 +1,10 @@
-/** M5e lifecycle in D1: training, prisoners (ransom, release), field upkeep and retirement (server/src/war/persons.ts). */
+/** M5e lifecycle in D1: no training (W-60), prisoners (ransom, release), captives' upkeep and retirement (server/src/war/persons.ts). */
 import { env } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
 import { good, setGood } from './goods';
 import { api, devLogin } from '../helpers';
-import { applyFight, claimForJoin, personOf, RANSOM_PER_LEVEL, settle, TRAIN, type PersonRow } from '../../src/war/persons';
+import { applyFight, claimForJoin, claimSoul, personOf, RANSOM_PER_LEVEL, settle, type PersonRow } from '../../src/war/persons';
+import { makePerson } from '../../../src/war/sim/roster';
 import { ARMY_MAX } from '../../../src/war/sim/soldiers';
 import type { FightReport, PersonResult } from '../../../src/war/types';
 
@@ -46,39 +47,13 @@ describe('war lifecycle migration', () => {
   });
 });
 
-describe('training', () => {
-  it('trains a recruit into a class at a home building for a kit, in TRAIN.ms; only within a family after', async () => {
+describe('training (W-60: gone)', () => {
+  it('no train route: a man keeps the class his soul woke with', async () => {
     const me = await devLogin(7502);
-    await roster(me.token);
-    await setGood(me.playerId, 'coin', 200);
-    expect((await post(me.token, '/recruit', { town: 'home', count: 2 })).status).toBe(200);
-    const [a, b] = (await roster(me.token)).persons;
-    expect(await code(await post(me.token, `/persons/${a.id}/train`, { cls: 'royal_guard' }))).toBe('no_training'); // no fortress
-    expect(await code(await post(me.token, `/persons/${a.id}/train`, { cls: 'militia' }))).toBe('no_training');
-    const res = await post(me.token, `/persons/${a.id}/train`, { cls: 'archer' });
-    expect(res.status).toBe(200);
-    const { until } = await res.json<{ until: number }>();
-    expect(until).toBeGreaterThan(Date.now() + TRAIN.ms - 60_000);
-    let r = await roster(me.token);
-    const t = r.persons.find((p) => p.id === a.id)!;
-    expect(t).toMatchObject({ state: 'training', cls: 'militia', trainTo: 'archer', gear: {} });
-    expect(r.stock.coin).toBe(200 - TRAIN.coin);
-    expect(r.items.length).toBeGreaterThan(0); // his militia gear went to the stash
-    // in training: not deployable, not trainable again
-    expect(await claimForJoin(DB(), me.playerId, 'test-ridge', [[a.id]], new Set(), Date.now())).toMatch(/training/);
-    expect(await code(await post(me.token, `/persons/${a.id}/train`, { cls: 'slinger' }))).toBe('not_fit');
-    // time is up: an archer with the archer kit, level and XP kept
-    await DB().prepare('UPDATE war_persons SET until_at = 1, xp = 17 WHERE id = ?1').bind(a.id).run();
-    r = await roster(me.token);
-    const done = r.persons.find((p) => p.id === a.id)!;
-    expect(done).toMatchObject({ state: 'active', cls: 'archer', trainTo: null, xp: 17, level: 1 });
-    expect(Object.values(done.gear).map((g) => g!.def)).toContain('bow');
-    // a trained man changes class only within his family
-    expect(await code(await post(me.token, `/persons/${a.id}/train`, { cls: 'hoplite' }))).toBe('family');
-    expect((await post(me.token, `/persons/${a.id}/train`, { cls: 'slinger' })).status).toBe(200);
-    // no silver, no kit
-    await setGood(me.playerId, 'coin', 5);
-    expect(await code(await post(me.token, `/persons/${b.id}/train`, { cls: 'hoplite' }))).toBe('no_coin');
+    await post(me.token, '/dev/seed', {});
+    const [a] = (await roster(me.token)).persons;
+    expect((await post(me.token, `/persons/${a.id}/train`, { cls: 'archer' })).status).toBe(404);
+    expect((await row(a.id))!.state).toBe('active');
   });
 });
 
@@ -123,25 +98,32 @@ describe('prisoners', () => {
 });
 
 describe('upkeep', () => {
-  it('feeds the men in the field from the stock; unpaid, the wounded do not heal and no XP is earned', async () => {
+  it('his men in the field cost the strongroom nothing (they eat there, W-60); captives he holds a food an hour; unpaid, the wounded do not heal and no XP is earned', async () => {
     const me = await devLogin(7507), foe = await devLogin(7508);
     await post(me.token, '/dev/seed', {});
+    await post(foe.token, '/dev/seed', {});
     const ids = (await roster(me.token)).persons.filter((p) => p.state === 'active').map((p) => p.id);
     const [w] = await fight(me, foe, ids, ['wounded'], 'test-ridge:u:1', 0); // one wounded, eleven still in the field
     let r = await roster(me.token);
-    expect(r.upkeep).toMatchObject({ rate: 11, unpaid: false });
-    // two hours on: 22 food
+    expect(r.upkeep).toMatchObject({ rate: 0, unpaid: false });
+    // he takes three of the foe's men: three food an hour
+    const fids = (await roster(foe.token)).persons.filter((p) => p.state === 'active').map((p) => p.id).slice(0, 3);
+    await fight(foe, me, fids, ['captive', 'captive', 'captive'], 'test-ridge:u:0');
+    await DB().prepare('UPDATE war_persons SET captor_pid = ?2 WHERE id IN (?3, ?4, ?5)').bind(foe.playerId, me.playerId, ...fids).run();
+    r = await roster(me.token);
+    expect(r.upkeep).toMatchObject({ rate: 3, unpaid: false });
     const food0 = await stock(me.playerId, 'food');
     await DB().prepare('UPDATE war_upkeep SET at = at - ?2 WHERE player_id = ?1').bind(me.playerId, 2 * HOUR).run();
     r = await roster(me.token);
-    expect(r.stock.food).toBe(food0 - 22);
-    // no food: unpaid; his wounded man's time is up but he does not heal; a fight earns no XP
+    expect(r.stock.food).toBe(food0 - 6);
+    // no food: unpaid (his captives go free); his wounded man's time is up but he does not heal; a fight earns no XP
     await setGood(me.playerId, 'food', 3);
-    await DB().prepare('UPDATE war_upkeep SET at = at - ?2 WHERE player_id = ?1').bind(me.playerId, HOUR).run();
+    await DB().prepare('UPDATE war_upkeep SET at = at - ?2 WHERE player_id = ?1').bind(me.playerId, 3 * HOUR).run();
     await DB().prepare('UPDATE war_persons SET until_at = 1 WHERE id = ?1').bind(w.id).run();
     r = await roster(me.token);
     expect(r.upkeep.unpaid).toBe(true);
-    expect(r.upkeep.owed).toBeCloseTo(8, 1);
+    expect(r.upkeep.owed).toBeCloseTo(6, 1);
+    expect(r.captives).toEqual([]);
     expect(r.stock.food ?? 0).toBe(0);
     expect(r.persons.find((p) => p.id === w.id)!.state).toBe('wounded');
     const fitId = ids[1], xp0 = (await row(fitId))!.xp;
@@ -153,7 +135,7 @@ describe('upkeep', () => {
     await settle(DB(), me.playerId, Date.now());
     r = await roster(me.token);
     expect(r.upkeep.unpaid).toBe(false);
-    expect(r.stock.food).toBe(92);
+    expect(r.stock.food).toBe(94);
     expect(r.persons.find((p) => p.id === w.id)!.state).toBe('active');
   });
 });
@@ -175,7 +157,7 @@ describe('retirement', () => {
     expect(r.caps.fighters).toBe(ARMY_MAX - 1);
     expect(r.stock.coin).toBe(s0 + refund);
     expect(await DB().prepare('SELECT name, honour FROM war_memorial WHERE player_id = ?1').bind(me.playerId).all()).toMatchObject({ results: [{ name: a.name, honour: 'Held the Ford' }] });
-    expect((await post(me.token, '/recruit', { town: 'home', count: 1 })).status).toBe(200); // the place he left
+    expect(await claimSoul(DB(), me.playerId, makePerson('soul-7509-a', 'hoplite'), 'test-ridge', Date.now())).toBe(true); // the place he left
     // into a trade: only at level 10
     expect(await code(await post(me.token, `/persons/${b.id}/retire`, { civ: 'civ_cook' }))).toBe('level');
     await DB().prepare('UPDATE war_persons SET level = 10 WHERE id = ?1').bind(b.id).run();

@@ -286,7 +286,7 @@ describe('online gate (requirePlayable)', () => {
     const pid = await bareSessionPlayer();
     const { token } = await createSession(DB(), pid, 'cookie', 'email_link', null);
     expect((await api('/api/me', { cookie: token })).status).toBe(200);
-    for (const [method, path] of [['GET', '/api/war/roster'], ['POST', '/api/war/recruit']] as const) {
+    for (const [method, path] of [['GET', '/api/war/roster'], ['POST', '/api/war/squad']] as const) {
       const res = await api(path, { method, cookie: token, ...(method === 'POST' ? { json: {} } : {}) });
       expect(res.status, path).toBe(403);
       expect(await res.json()).toMatchObject({ error: { code: 'not_playable' } });

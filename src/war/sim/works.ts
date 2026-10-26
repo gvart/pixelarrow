@@ -1888,7 +1888,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
       repaint();
     },
     /** Server and scenario goods: into the team's home strongroom (negative n: taken out of it, as far as it goes). */
-    addStock(team: number, res: ResourceKind, n: number) {
+    addStock(team: number, res: GoodKind, n: number) {
       if (n >= 0) put(reserveOf(team), res, n, region.id);
       else take(reserveOf(team), res, -n);
     },

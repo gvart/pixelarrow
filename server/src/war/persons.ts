@@ -1,28 +1,26 @@
 /**
  * War persons in D1 (M5e; docs/WAR.md "Soldiers"): the roster rules and every read and write of `war_persons`,
- * `war_pools`, `war_items` and `war_fights` (migrations/0021_war_persons.sql). M6e: food and coin live in the player's
- * home strongroom (./holders.ts): recruits, upkeep, training, promotion, ransom and retirement pay from it or into it.
+ * `war_items` and `war_fights` (migrations/0021_war_persons.sql). M6e: food and coin live in the player's home
+ * strongroom (./holders.ts): captives' upkeep, promotion, ransom and retirement pay from it or into it.
  *
  *  - Army (W-58): at most ARMY_MAX fighters in total, counted across all regions (fit, wounded, captive, training); the
  *    dead and retired do not count. No reserve: a fit man is `active` (his `slot` only orders the squad picker). At the
- *    cap a recruit is refused.
- *  - Household: min(4, 1 + fit fighters / 4) civilians (M5f brings the classes; none can be recruited yet).
- *  - Recruit: from a pool per town the player holds (M4 stub: the home camp, 6/h, cap ARMY_MAX), 20 food each, L1 militia.
- *  - Timers, read lazily: wounded heal after HEAL (field 6 h), captives walk home after CAPTIVE_MS (24 h), training ends
- *    after TRAIN.ms (10 min).
- *  - Train: a fit man at home becomes a class his town trains (TOWN buildings: barracks, range; no stable yet): militia
- *    into any, others only within their family; TRAIN.silver buys the class's tier-1 common kit (crafting comes with M6),
- *    put on when training ends; his old gear goes to the stash; level, XP and his family's skills stay.
- *  - Promote (docs/WAR.md "Promote"): a fit trained man at home with PROMOTE.level and PROMOTE.honours, in a town with a
- *    fortress, becomes an elite of his family (src/war/sim/roster.ts promotesTo) in PROMOTE_MS; he pays the elite rare
+ *    cap a claimed soul is refused.
+ *  - Household: min(4, 1 + fit fighters / 4) civilians (M5f brings the classes).
+ *  - Souls (W-60, replaces recruiting and training): a man joins only by a claimed soul in a region (claimSoul, the room
+ *    and src/war/sim/souls.ts), of the class and level the soul woke with; the start squad (./start.ts) is the other way in.
+ *  - Timers, read lazily: wounded heal after HEAL (field 6 h), captives walk home after CAPTIVE_MS (24 h), a promotion
+ *    ends after PROMOTE_MS.
+ *  - Promote (docs/WAR.md "Promote"): a fit trained man at home with PROMOTE.level and PROMOTE.honours becomes an elite of his family (src/war/sim/roster.ts promotesTo) in PROMOTE_MS; he pays the elite rare
  *    kit's value in silver, it goes on when he is done (his old gear to the stash). Elites cost UPKEEP.elite.
  *  - Prisoners: a captive is held by the player of the captor alliance who fought there (`captor_pid`); he pays the
  *    captive's upkeep and takes the ransom (RANSOM_PER_LEVEL x level silver) when the owner pays it; he may also let him go.
  *    A captor who cannot pay upkeep lets all his captives go. A captive is held at the captor's nearest fort or camp in
  *    the region (`held_fort`, the sim's building id; at most HOLD_MAX there, the rest go free, wounded); a raid reaching
  *    it or its fall (the sim's `raid` event, freeRaided) frees them all: home, wounded (HEAL.field).
- *  - Upkeep (docs/WAR.md "Anti-oversaturation"), settled lazily: food per hour for each man in the field (UPKEEP), and
- *    each captive held. Unpaid: the player's wounded do not heal and his men earn no XP until it is paid.
+ *  - Upkeep (docs/WAR.md "Anti-oversaturation"), settled lazily: food per hour for each captive held (UPKEEP). His own
+ *    men eat in the field (W-60, src/war/sim/food.ts), from their packs and the stores. Unpaid: the player's wounded do
+ *    not heal and his men earn no XP until it is paid.
  *  - Retire: a fit man at home leaves for good (frees his roster place); half his gear's value comes back as silver and
  *    his first honour goes on the memorial. A level-10 soldier may instead retire into a civilian class at level 5
  *    (household cap).
@@ -38,7 +36,7 @@ import type { Equipment, Hero } from '../../../src/data/units';
 import { freshHero } from '../../../src/war/sim/classes';
 import { freshCivilian } from '../../../src/war/sim/civilians';
 import { isElite, makePerson, promoteBlocker, promotePerson, type PersonOpts } from '../../../src/war/sim/roster';
-import { FAMILY_OF, legalSkills, SKILL_LEVELS } from '../../../src/war/sim/skills';
+import { legalSkills, SKILL_LEVELS } from '../../../src/war/sim/skills';
 import { ARMY_MAX } from '../../../src/war/sim/soldiers';
 import { HONOURS_MAX } from '../../../src/war/sim/honours';
 import { WAR_SEASON } from '../../../src/war/world/alliances';
@@ -54,45 +52,24 @@ const HOUR = 3_600_000;
 export const HEAL = { field: 6 * HOUR, camp: 3 * HOUR, town: 2 * HOUR, physician: 1 * HOUR };
 /** Captives walk home after this. */
 export const CAPTIVE_MS = 24 * HOUR;
-/** A recruit's cost in food. */
-export const RECRUIT_FOOD = 20;
-/** Towns a player recruits and trains in. M4 stub: everyone holds a home camp; owned towns (3/h) come with the world map. */
-export const TOWNS: Record<string, { rate: number; cap: number; buildings: TrainingBuilding[] }> = { home: { rate: 6, cap: ARMY_MAX, buildings: ['barracks', 'range', 'fortress'] } };
-/** A new player's pool and food (season start: his army and START.food in his home strongroom, no coin, no goods). */
-export const START = { pool: ARMY_MAX, food: ARMY_MAX * RECRUIT_FOOD };
+/** A new player's food (season start: START.food in his home strongroom, no coin, no goods). */
+export const START = { food: 240 };
 /** Dev seed (DEV_AUTH=1): coin topped up to this, to test the coin paths. */
 export const DEV_COIN = 500;
-/** Training: time and the coin a tier-1 common kit costs. */
-export const TRAIN = { ms: 10 * 60_000, coin: 40 };
-export type TrainingBuilding = 'barracks' | 'range' | 'stable' | 'fortress';
-/** The classes each building trains (docs/WAR.md "Classes"). */
-export const TRAINS: Record<TrainingBuilding, ClassId[]> = {
-  barracks: ['hoplite', 'thureophoros', 'celt_sword', 'falx'],
-  range: ['archer', 'slinger', 'javelineer', 'peltast'],
-  stable: ['companion', 'thessalian', 'horse_archer'],
-  fortress: [], // promotes (promote), trains no one
-};
 /** Promotion to elite takes this long (at a fortress). */
 export const PROMOTE_MS = 30 * 60_000;
 /** Captives one fort or camp holds; past it the rest go free. */
 export const HOLD_MAX = 20;
 /** Ransom: coin per level of the captive. */
 export const RANSOM_PER_LEVEL = 30;
-/** Upkeep: food per hour each. */
-export const UPKEEP = { soldier: 1, elite: 2, civilian: 1, captive: 1 };
+/** Upkeep: food per hour each captive held (W-60: the player's own men eat in the field). */
+export const UPKEEP = { captive: 1 };
 /** Unpaid upkeep stops growing past this many hours of the player's rate. */
 export const UPKEEP_DEBT_HOURS = 24;
 
 /** Civilians a player may keep (docs/WAR.md "Household"). */
 export function householdCap(fit: number): number {
   return Math.min(4, 1 + Math.floor(fit / 4));
-}
-
-/** The pool's recruits at `now`, grown at the town's rate since `at`. */
-export function poolAt(town: string, stored: number, at: number, now: number): number {
-  const t = TOWNS[town];
-  if (!t) return 0;
-  return Math.min(t.cap, stored + (t.rate * Math.max(0, now - at)) / HOUR);
 }
 
 export interface PersonRow {
@@ -140,15 +117,10 @@ export function view(r: PersonRow) {
 
 const COLS = 'id, player_id, cls, name, level, xp, points, kills, battles, attrs, skills, gear, honours, state, until_at, captor, held_at, slot, region, train_to, captor_pid, perks, respec_at, held_fort';
 
-/** The player's upkeep in food per hour: his men in the field (elites 2, civilians 1) and the captives he holds. */
+/** The player's upkeep in food per hour: the captives he holds (W-60: his men eat in the field). */
 export async function upkeepRate(db: D1Database, pid: number): Promise<number> {
-  const [field, held] = await Promise.all([
-    db.prepare("SELECT cls FROM war_persons WHERE player_id = ?1 AND region IS NOT NULL AND state = 'active'").bind(pid).all<{ cls: string }>(),
-    db.prepare("SELECT COUNT(*) AS n FROM war_persons WHERE captor_pid = ?1 AND state = 'captive'").bind(pid).first<{ n: number }>(),
-  ]);
-  let rate = (held?.n ?? 0) * UPKEEP.captive;
-  for (const r of field.results) rate += isCivClass(r.cls) ? UPKEEP.civilian : isElite(r.cls) ? UPKEEP.elite : UPKEEP.soldier;
-  return rate;
+  const held = await db.prepare("SELECT COUNT(*) AS n FROM war_persons WHERE captor_pid = ?1 AND state = 'captive'").bind(pid).first<{ n: number }>();
+  return (held?.n ?? 0) * UPKEEP.captive;
 }
 
 /**
@@ -195,7 +167,7 @@ const kitOf = (cls: string, id: string, now: number): Equipment => reUid(freshHe
 
 /**
  * Timers, read lazily: upkeep first (an unpaid player's wounded do not heal); wounded men whose time is up are fit again
- * (active); captives whose 24 h are up walk home; finished training: the new class, its kit on, skills of the new family.
+ * (active); captives whose 24 h are up walk home; a finished promotion: the elite, his rare kit on.
  */
 export async function settle(db: D1Database, pid: number, now: number): Promise<void> {
   const { unpaid } = await settleUpkeep(db, pid, now);
@@ -239,11 +211,10 @@ export function home(r: PersonRow): void {
   if (r.state !== 'active') throw new ApiError(409, 'not_fit', `He is ${r.state}`);
 }
 
-/** Season start, once: the recruit pools and START.food in the home strongroom (the strongroom row marks it done). */
+/** Season start, once: START.food in the home strongroom (the strongroom row marks it done). */
 export async function ensureStart(db: D1Database, pid: number, now: number): Promise<void> {
   const sr = strongroom(pid);
   await db.batch([
-    ...Object.keys(TOWNS).map((t) => db.prepare('INSERT OR IGNORE INTO war_pools (player_id, town, stored, at) VALUES (?1, ?2, ?3, ?4)').bind(pid, t, START.pool, now)),
     db
       .prepare("INSERT INTO war_goods (place, res, origin, seal, amount) SELECT ?1, 'food', ?3, 0, ?2 WHERE NOT EXISTS (SELECT 1 FROM war_holders WHERE id = ?1) ON CONFLICT (place, res, origin, seal) DO UPDATE SET amount = amount + ?2")
       .bind(sr, START.food, HOME),
@@ -254,7 +225,6 @@ export async function ensureStart(db: D1Database, pid: number, now: number): Pro
 export interface Roster {
   persons: ReturnType<typeof view>[];
   caps: { army: number; household: number; fighters: number; fit: number };
-  pools: { town: string; recruits: number; rate: number; cap: number }[];
   /** The home strongroom: its goods (food, coin, ...) and items (equip from here). */
   stock: Record<string, number>;
   items: Item[];
@@ -267,9 +237,8 @@ export async function roster(db: D1Database, pid: number, now: number): Promise<
   await ensureStart(db, pid, now);
   await settle(db, pid, now);
   const up = await db.prepare('SELECT owed, unpaid FROM war_upkeep WHERE player_id = ?1').bind(pid).first<{ owed: number; unpaid: number }>();
-  const [rows, pools, stock, items, held, rate] = await Promise.all([
+  const [rows, stock, items, held, rate] = await Promise.all([
     persons(db, pid),
-    db.prepare('SELECT town, stored, at FROM war_pools WHERE player_id = ?1').bind(pid).all<{ town: string; stored: number; at: number }>(),
     goodsOf(db, strongroom(pid)),
     itemsIn(db, strongroom(pid)),
     db.prepare(`SELECT ${COLS} FROM war_persons WHERE captor_pid = ?1 AND state = 'captive' ORDER BY until_at, id`).bind(pid).all<PersonRow>(),
@@ -280,7 +249,6 @@ export async function roster(db: D1Database, pid: number, now: number): Promise<
   return {
     persons: rows.map(view),
     caps: { army: ARMY_MAX, household: householdCap(fit), fighters, fit },
-    pools: pools.results.map((p) => ({ town: p.town, recruits: Math.floor(poolAt(p.town, p.stored, p.at, now)), ...TOWNS[p.town] })),
     stock,
     items,
     captives: held.results.map((r) => ({ id: r.id, name: r.name, cls: r.cls, level: r.level, owner: r.player_id, ransom: RANSOM_PER_LEVEL * r.level, until: r.until_at, heldAt: r.held_at })),
@@ -308,32 +276,32 @@ export function nameFor(cls: string, taken: Set<string>, k: number): string {
   return n;
 }
 
-/** Recruit `count` L1 militia from the town's pool for RECRUIT_FOOD each; caps checked first. */
-export async function recruit(db: D1Database, pid: number, town: string, count: number, now: number): Promise<string[]> {
-  if (!TOWNS[town]) throw new ApiError(404, 'not_found', 'You hold no such town');
-  await ensureStart(db, pid, now);
-  await settle(db, pid, now);
-  const rows = await persons(db, pid);
-  const fighters = rows.filter(isFighter).length;
-  if (fighters + count > ARMY_MAX) throw new ApiError(409, 'army_full', `Your army is at most ${ARMY_MAX} men (${fighters} now)`);
-  const pool = await db.prepare('SELECT stored, at FROM war_pools WHERE player_id = ?1 AND town = ?2').bind(pid, town).first<{ stored: number; at: number }>();
-  const have = pool ? poolAt(town, pool.stored, pool.at, now) : 0;
-  if (have < count) throw new ApiError(409, 'pool_empty', `${Math.floor(have)} recruits wait in ${town}`);
-  const food = RECRUIT_FOOD * count;
-  const taken = new Set(rows.filter((r) => r.state !== 'dead').map((r) => r.name));
-  const made = Array.from({ length: count }, (_, k) => {
-    const p = makePerson(newId(pid), 'militia');
-    return { ...p, hero: { ...p.hero, name: nameFor('militia', taken, rows.length + k) } };
-  });
-  // food from the strongroom and the recruits in one batch: no food, nothing changes
-  await payFrom(db, strongroom(pid), { food }, [
-    db.prepare('UPDATE war_pools SET stored = ?3, at = ?4 WHERE player_id = ?1 AND town = ?2').bind(pid, town, have - count, now),
-    ...made.map((p) => insertPerson(db, pid, p, 'active', null, now)),
-  ]).catch((e) => {
-    if (e instanceof ApiError && e.code === 'no_food') throw new ApiError(409, 'no_food', `A recruit costs ${RECRUIT_FOOD} food`);
-    throw e;
-  });
-  return made.map((p) => p.id);
+/** The player's fighters now, counted across all regions (ARMY_MAX bounds them; W-58). */
+export async function armyCount(db: D1Database, pid: number): Promise<number> {
+  const r = await db
+    .prepare(`SELECT COUNT(*) AS n FROM war_persons WHERE player_id = ?1 AND state NOT IN ('dead', 'retired') AND cls NOT LIKE 'civ\\_%' ESCAPE '\\'`)
+    .bind(pid)
+    .first<{ n: number }>();
+  return r?.n ?? 0;
+}
+
+/**
+ * W-60: a soul the player's squad claimed in `region` (src/war/sim/souls.ts) becomes his man there: active, deployed in
+ * that region, the class and level he woke with. Only while the player has fewer than ARMY_MAX fighters, checked in the
+ * insert itself (two regions claiming at once cannot pass the cap); false: refused (the army is full), nothing written.
+ */
+export async function claimSoul(db: D1Database, pid: number, p: WarPerson, region: string, now: number): Promise<boolean> {
+  const h = p.hero;
+  const r = await db
+    .prepare(
+      `INSERT INTO war_persons (id, player_id, cls, name, level, xp, points, kills, battles, attrs, skills, gear, honours, state, slot, region, created_at, updated_at)
+       SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, 0, 0, ?8, ?9, ?10, '[]', 'active', NULL, ?11, ?12, ?12
+       WHERE (SELECT COUNT(*) FROM war_persons WHERE player_id = ?2 AND state NOT IN ('dead', 'retired') AND cls NOT LIKE 'civ\\_%' ESCAPE '\\') < ?13
+       ON CONFLICT (id) DO NOTHING`,
+    )
+    .bind(p.id, pid, h.cls ?? 'militia', h.name, h.level, h.xp, h.points, JSON.stringify(h.attrs), JSON.stringify(p.skills ?? []), JSON.stringify(h.equip), region, now, ARMY_MAX)
+    .run();
+  return (r.meta?.changes ?? 0) > 0;
 }
 
 /** Put `uid` (from the home strongroom; null: take the slot's item off) on the soldier; the old item goes to the strongroom. */
@@ -457,44 +425,14 @@ export const credit = (db: D1Database, pid: number, n: number) => putStmt(db, st
 /** His old gear into his home strongroom. */
 const stow = (db: D1Database, pid: number, items: Item[], now: number) => items.map((it) => placeItemStmt(db, pid, strongroom(pid), it, now));
 
-/** The buildings of the player's towns that can train `cls` (M4 stub: the home camp's). */
-export function trainsAt(cls: string): string[] {
-  return Object.entries(TOWNS).filter(([, t]) => t.buildings.some((b) => TRAINS[b].includes(cls as ClassId))).map(([id]) => id);
-}
-
-/**
- * Send a fit man at home to train as `cls` (docs/WAR.md "Train"): a town he holds must train it (barracks, range), a
- * militiaman may take any class, a trained man only one of his family. Pays TRAIN.coin (the kit), puts his old gear in
- * the strongroom; he is `training` for TRAIN.ms and out of the squad. Returns when he is done.
- */
-export async function train(db: D1Database, pid: number, id: string, cls: string, now: number): Promise<number> {
-  await ensureStart(db, pid, now);
-  await settle(db, pid, now);
-  const r = await person(db, pid, id);
-  home(r);
-  if (!isClassId(cls) || !trainsAt(cls).length) throw new ApiError(409, 'no_training', `No town of yours trains ${cls}`);
-  if (r.cls === cls) throw new ApiError(409, 'same_class', `He is a ${cls} already`);
-  if (r.cls !== 'militia' && FAMILY_OF[r.cls as ClassId] !== FAMILY_OF[cls]) throw new ApiError(409, 'family', `A ${r.cls} trains only within his family`);
-  const until = now + TRAIN.ms;
-  const old = Object.values(json<Equipment>(r.gear, {})).filter((x): x is Item => !!x);
-  const done = [
-    ...stow(db, pid, old, now),
-    db
-      .prepare("UPDATE war_persons SET state = 'training', train_to = ?3, until_at = ?4, gear = '{}', slot = NULL, updated_at = ?5 WHERE id = ?1 AND player_id = ?2 AND region IS NULL")
-      .bind(id, pid, cls, until, now),
-  ];
-  if (!(await payCoin(db, pid, TRAIN.coin, done))) throw new ApiError(409, 'no_coin', `A kit costs ${TRAIN.coin} coin`);
-  return until;
-}
-
 /** Coin the elite rare kit of `cls` costs (its items' value). */
 export function promoteCost(cls: ClassId): number {
   return Object.values(promotePerson(makePerson('kit', 'militia'), cls).hero.equip).reduce((a, it) => a + (it ? itemValue(it) : 0), 0);
 }
 
 /**
- * Promote a fit man at home to the elite `cls` (docs/WAR.md "Promote"): a town of his with a fortress, PROMOTE.level and
- * PROMOTE.honours, an elite of his family. Pays promoteCost (the elite rare kit), puts his old gear in the stash; he is
+ * Promote a fit man at home to the elite `cls` (docs/WAR.md "Promote"): PROMOTE.level and PROMOTE.honours, an elite of
+ * his family. Pays promoteCost (the elite rare kit), puts his old gear in the stash; he is
  * `training` for PROMOTE_MS and out of the squad, then the elite with the kit on (settle). Returns when he is done.
  */
 export async function promote(db: D1Database, pid: number, id: string, cls: string, now: number): Promise<number> {
@@ -502,7 +440,6 @@ export async function promote(db: D1Database, pid: number, id: string, cls: stri
   await settle(db, pid, now);
   const r = await person(db, pid, id);
   home(r);
-  if (!Object.values(TOWNS).some((t) => t.buildings.includes('fortress'))) throw new ApiError(409, 'no_fortress', 'You hold no town with a fortress');
   const why = promoteBlocker(personOf(r), cls);
   if (why || !isClassId(cls)) throw new ApiError(409, 'not_promotable', why ?? `${cls} is no class`);
   const price = promoteCost(cls);

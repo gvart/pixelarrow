@@ -46,7 +46,7 @@ import type { WarPerson } from '../../../src/war/types';
 import { logError } from '../telemetry/log';
 import { applyBossKill } from './bosses';
 import { elapsedTicks, loadMemory, remembered, storeMemory, writeMemory } from './memory';
-import { applyFight, claimForJoin, deployed, freeRaided, release, releaseRegion } from './persons';
+import { applyFight, armyCount, claimForJoin, claimSoul, deployed, freeRaided, release, releaseRegion } from './persons';
 import { applyCrafts, keepMends, returnMends, takeForMend } from './crafting';
 import { saveRegionHolds } from './holders';
 import { json } from './persons';
@@ -231,6 +231,8 @@ export class WarRegionDO extends DurableObject<Env> {
     }
     send(ws, res.msg);
     if (res.msg.t === 'refused' && persons) this.write('release', () => release(this.env.DB!, region, m.squads!.flat()));
+    // W-60: the soul gate counts his whole army (every region)
+    if (db && res.msg.t === 'welcome') room.setArmy(pid, await armyCount(db, pid));
     this.save();
     this.start();
     // a rejoin that also names men not here (entering again with some at home): they follow as a fresh squad
@@ -579,6 +581,13 @@ export class WarRegionDO extends DurableObject<Env> {
       const at = Date.now();
       this.write('raid', () => freeRaided(d, room.region.id, r.raided, at));
     }
+    // W-60: a claimed soul is a new man of the player, deployed here; the insert checks the cap again (another region may
+    // have filled the army meanwhile): refused, the man leaves the field
+    if (d) for (const c of r.souls) this.write(`soul ${c.person.id}`, async () => {
+      const ok = await claimSoul(d, c.pid, c.person, room.region.id, Date.now());
+      if (!ok) room.sim.dropPersons([c.person.id]);
+      room.setArmy(c.pid, await armyCount(d, c.pid));
+    });
     if (d && r.crafted.length) this.write('crafted', () => applyCrafts(d, room.region.id, room.run, r.crafted, Date.now()));
     if (d) for (const b of r.bosses) this.write(`boss ${b.boss}`, () => applyBossKill(d, room.region.id, room.run, b, Date.now()));
     // M7f: a temple or shrine razed costs the razer's alliance score
@@ -593,7 +602,7 @@ export class WarRegionDO extends DurableObject<Env> {
     });
     this.flushReleased(room);
     this.report(room);
-    if (r.fights.length || r.crafted.length || r.bosses.length || r.freed.length || r.admitted.size || room.currentTick - this.savedAt >= SAVE_TICKS) this.save();
+    if (r.fights.length || r.crafted.length || r.bosses.length || r.freed.length || r.souls.length || r.admitted.size || room.currentTick - this.savedAt >= SAVE_TICKS) this.save();
     const t2 = performance.now();
     const total = t2 - t0;
     if (total > TICK_MS) this.overruns++;

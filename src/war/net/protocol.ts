@@ -26,6 +26,8 @@
  *   client -> view   { t, x0, y0, x1, y1 }                    camera rect in tiles (interest management)
  *   client -> ping   { t, c }
  *   server -> welcome | refused | queued | error | pong | checked   (JSON)
+ *   server -> soul                                          W-60: his claim on a soul went through or was refused (his
+ *                    army is full)
  *   server -> nodes | influence | stock                       the economy view (./economy.ts): resource nodes his team
  *                    sees (changes only), his team's influence mask (RLE, on change), his team's stockpile (on change)
  *   server -> binary frame                                    (snapshot delta or keyframe)
@@ -33,10 +35,10 @@
 import { z } from 'zod';
 import { ARMY_MAX } from '../sim/soldiers';
 import type { NodeRow } from './economy';
-import type { BridgePlan, BuildingType, Order, PlaceResult, ResourceKind, SquadId, WallPlan } from '../types';
+import type { BridgePlan, BuildingType, GoodKind, Order, PlaceResult, SquadId, WallPlan } from '../types';
 
 /** Bumped on any wire change (messages or the binary frame layout). */
-export const NET_VERSION = 9;
+export const NET_VERSION = 10;
 /** Positions go out in 1/QUANT tile steps. */
 export const QUANT = 8;
 /** Ticks between keyframes (a full frame of what the client sees; deltas in between). */
@@ -69,7 +71,9 @@ const rot = z.union([z.literal(0), z.literal(1)]).optional();
 /** Every good (src/war/types.ts ResourceKind). */
 export const GOODS = ['food', 'wood', 'stone', 'marble', 'copper', 'tin', 'iron', 'bronze', 'silver', 'salt', 'pitch', 'hides', 'flax', 'herbs', 'charcoal', 'leather', 'linen', 'oil', 'coin',
   // M7e rare goods
-  'dragonbone', 'nereidPearl', 'starIron', 'asphodel', 'titanBronze', 'obsidian'] as const satisfies readonly ResourceKind[];
+  'dragonbone', 'nereidPearl', 'starIron', 'asphodel', 'titanBronze', 'obsidian',
+  // W-60: the cookhouse's ration
+  'ration'] as const satisfies readonly GoodKind[];
 export const goodSchema = z.enum(GOODS);
 /** M6: one holder on the field: a store or chest (building), a cart, a loot pile. */
 const holderRef = z
@@ -110,6 +114,8 @@ export const orderSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('upgrade'), building: id, squad: id.optional(), ...U }),
   z.object({ kind: z.literal('cancelSite'), site: id }),
   z.object({ kind: z.literal('claimRegion'), squad: id, ...U, point: id }),
+  // W-60: walk to soul `soul` and claim him (the room's gate: fewer than ARMY_MAX men across all regions)
+  z.object({ kind: z.literal('claimSoul'), squad: id, ...U, soul: id }),
   // M7a: mend a damaged building of the player's team; rebuild a ruin on its ground
   z.object({ kind: z.literal('repairBuilding'), squad: id, ...U, building: id }),
   z.object({ kind: z.literal('rebuild'), building: id, squad: id.optional(), ...U }),
@@ -213,7 +219,12 @@ export type ServerMsg =
   /** His team's influence: bit `team` of the w x h mask as alternating runs (outside first); v the sim's version. */
   | { t: 'influence'; team: number; w: number; h: number; v: number; runs: number[] }
   /** His team's stockpile (its stores and home strongroom here, Snapshot.stock), whole units, when it changed. */
-  | { t: 'stock'; team: number; goods: Record<string, number> };
+  | { t: 'stock'; team: number; goods: Record<string, number> }
+  /**
+   * W-60: a soul his squad went for: claimed (the new man's person id, class, level and name), refused (his army is full:
+   * `have` men across all regions, ARMY_MAX at most).
+   */
+  | { t: 'soul'; state: 'claimed' | 'refused'; soul: number; squad: SquadId; pid?: string; cls?: string; level?: number; name?: string; have?: number };
 
 /** Live soldiers per alliance against its quota. */
 export interface Quota { cap: number; per: number[]; live: number[] }

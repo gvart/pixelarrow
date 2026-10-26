@@ -40,7 +40,7 @@
  * orders them each tick (wander, aggro, leash back). claimRegion walks a squad to a claim point, where it channels.
  */
 import { Rng } from '../../sim/rng';
-import type { BuildingType, FightReport, Order, PersonResult, RegionData, RegionMemory, ResourceKind, ShotSnap, Snapshot, SquadId, SquadSnap, UnitId, UnitSnap, WarBuildSim, WarEvent, WarPerson, WarSkillId } from '../types';
+import type { BuildingType, FightReport, GoodKind, Order, PersonResult, RegionData, RegionMemory, ResourceKind, ShotSnap, Snapshot, SquadId, SquadSnap, UnitId, UnitSnap, WarBuildSim, WarEvent, WarPerson, WarSkillId } from '../types';
 import { salvageValue, type Item } from '../../data/items';
 import { warStats, warStatsOf, type WarStats } from './classes';
 import { afterArmour, blockChance, COMBAT, heightRange, hitChance, meleeHeight, missileHeight } from './combat';
@@ -225,7 +225,7 @@ interface Unit extends Worker {
 }
 
 /** M6 load / unload under way: the holder, which way, the good and how many goods are still wanted. */
-interface Xfer { ref: HolderRef; dir: 'load' | 'unload'; res?: ResourceKind; n: number }
+interface Xfer { ref: HolderRef; dir: 'load' | 'unload'; res?: GoodKind; n: number }
 /** A holder as the trade orders see it. */
 interface HolderAt { hold: Hold; x: number; y: number; kind: 'store' | 'chest' | 'cart' | 'pile'; team: number; owner: string; cap: number; id: number }
 

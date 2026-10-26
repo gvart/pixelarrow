@@ -3,7 +3,7 @@ import { DeltaDecoder, DeltaEncoder, type FrameInput } from '../../../src/war/ne
 import { QUANT } from '../../../src/war/net/protocol';
 import { createSim } from '../../../src/war/sim';
 import { makePerson } from '../../../src/war/sim/roster';
-import type { BuildingSnap, SiegeSnap, Snapshot, UnitSnap, WarPerson } from '../../../src/war/types';
+import type { BuildingSnap, SiegeSnap, Snapshot, SoulSnap, UnitSnap, WarPerson } from '../../../src/war/types';
 import { warRegion } from '../../src/war/regions';
 
 const region = warRegion('test-ridge')!;
@@ -79,8 +79,8 @@ describe('war delta codec', () => {
     dec.apply(enc.encode(frame(s), true));
     expect(dec.units.size).toBe(10);
     const idle = enc.encode(frame(s), false);
-    // header 6 + 4-byte unit count + 5 empty sections
-    expect(idle.length).toBe(15);
+    // header 6 + 4-byte unit count + 6 empty sections (W-60: souls)
+    expect(idle.length).toBe(16);
     dec.apply(enc.encode({ ...frame(s), units: s.units.slice(0, 4) }, false));
     expect([...dec.units.keys()]).toEqual([0, 1, 2, 3]);
   });
@@ -91,7 +91,7 @@ describe('war delta codec', () => {
     const base = { tick: 1, units: [], squads: [], shots: [] };
     dec.apply(enc.encode({ ...base, buildings: [b] }, true));
     expect(dec.buildings.get(5)?.state).toBe('foundation');
-    expect(enc.encode({ ...base, buildings: [b] }, false).length).toBe(15);
+    expect(enc.encode({ ...base, buildings: [b] }, false).length).toBe(16);
     dec.apply(enc.encode({ ...base, buildings: [{ ...b, state: 'scaffold' }] }, false));
     expect(dec.buildings.get(5)?.state).toBe('scaffold');
     dec.apply(enc.encode({ ...base, buildings: [] }, false));
@@ -103,7 +103,7 @@ describe('war delta codec', () => {
     const cart = { id: 3, type: 'handcart', team: 0, owner: 'p:1', x: 10, y: 12, facing: 0, hp: 200, maxHp: 200, state: 'idle', crew: 1 } as unknown as SiegeSnap;
     const base = { tick: 1, units: [], squads: [], shots: [], buildings: [] };
     expect(dec.apply(enc.encode({ ...base, sieges: [cart] }, true)).sieges).toEqual([cart]);
-    expect(enc.encode({ ...base, sieges: [cart] }, false).length).toBe(15);
+    expect(enc.encode({ ...base, sieges: [cart] }, false).length).toBe(16);
     expect(dec.apply(enc.encode({ ...base, sieges: [{ ...cart, x: 11 }] }, false)).sieges?.[0].x).toBe(11);
     expect(dec.apply(enc.encode({ ...base, sieges: [] }, false)).sieges).toBeUndefined();
   });
@@ -114,10 +114,28 @@ describe('war delta codec', () => {
     const at = (tick: number, units: UnitSnap[]) => ({ tick, units, squads: [], shots: [], buildings: [] });
     expect(dec.apply(enc.encode(at(100, [u]), true)).units[0].tag).toBe(400);
     // the sim counts the tag down each tick: same end tick, nothing to send
-    expect(enc.encode(at(150, [{ ...u, tag: 350 }]), false).length).toBe(15);
+    expect(enc.encode(at(150, [{ ...u, tag: 350 }]), false).length).toBe(16);
     expect(dec.apply(enc.encode(at(160, [{ ...u, tag: 340 }]), false)).units[0].tag).toBe(340);
     // a fresh hit re-arms it; then it runs out
     expect(dec.apply(enc.encode(at(200, [{ ...u, tag: 400 }]), false)).units[0].tag).toBe(400);
     expect(dec.apply(enc.encode(at(600, [{ ...u, tag: undefined }]), false)).units[0].tag).toBeUndefined();
+  });
+
+  it('W-60: carries satiety and the souls (their fade as a countdown, sent only on change)', () => {
+    const u = { id: 3, squad: 1, x: 10, y: 10, facing: 0, hp: 50, maxHp: 50, cls: 'hoplite', state: 'idle', sat: 72 } satisfies UnitSnap as UnitSnap;
+    const soul: SoulSnap = { id: 0, x: 20, y: 22, cls: 'archer', level: 3, site: 'lair', left: 500 };
+    const enc = new DeltaEncoder(), dec = new DeltaDecoder();
+    const at = (tick: number, units: UnitSnap[], souls: SoulSnap[]) => ({ tick, units, squads: [], shots: [], buildings: [], souls });
+    let s = dec.apply(enc.encode(at(100, [u], [soul]), true));
+    expect(s.units[0].sat).toBe(72);
+    expect(s.souls).toEqual([soul]);
+    // the soul's countdown runs on the client: nothing to send while only `left` falls
+    expect(enc.encode(at(150, [u], [{ ...soul, left: 450 }]), false).length).toBe(16);
+    s = dec.apply(enc.encode(at(160, [{ ...u, sat: 40 }], [{ ...soul, left: 440, claim: 0.5, team: 0 }]), false));
+    expect(s.units[0].sat).toBe(40);
+    expect(s.souls).toEqual([{ ...soul, left: 440, claim: 0.5, team: 0 }]);
+    s = dec.apply(enc.encode(at(170, [{ ...u, sat: undefined }], []), false));
+    expect(s.units[0].sat).toBeUndefined();
+    expect(s.souls).toBeUndefined();
   });
 });
