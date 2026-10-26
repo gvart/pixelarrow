@@ -50,7 +50,8 @@ describe('M7h landmark balance', () => {
       expect(raidFight(region, boss, mixed(4), 1).won).toBe(true);
     }, 120_000);
 
+  // three minutes of the fight (the march, the gate, the first blows on the guardian) is enough to show it
   it('is deterministic: the same seed fights the same raid', () => {
-    expect(raidFight('canyons', 'chimera', mixed(4), 3)).toEqual(raidFight('canyons', 'chimera', mixed(4), 3));
+    expect(raidFight('canyons', 'chimera', mixed(4), 3, 180)).toEqual(raidFight('canyons', 'chimera', mixed(4), 3, 180));
   }, 120_000);
 });

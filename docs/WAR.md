@@ -1248,7 +1248,9 @@ men stand among the poster's on the field; a truce for hired foes is not built).
 A man's blow or an arrow on a stone wall, gate or tower counts a quarter (`WALLS.stoneMelee`). A raid with no ram (the
 whole army is at most 12) needs over 20 minutes at a stone gate or tower, while a crewed ram breaks the gate in a few
 minutes and ladders raise as before: walls stop raids, not sieges. Wood stays cheap and weak (a wooden gate falls to the
-same raid in under 5 minutes). Seeded in tests/war/wallsMatter.test.ts.
+same raid in under 5 minutes). Only a player's walls resist so: a guardian's landmark (neutral or the wild's) keeps the
+full blow, as its raids are tuned (see "Balance"); once an alliance holds it, its stone resists like any other. Seeded
+in tests/war/wallsMatter.test.ts.
 
 ### Titles
 
