@@ -1,0 +1,23 @@
+server/test/migrations.test.ts
+  s_fcb7475e0b5395::t_ed8bd3d09fb143 15,19-22
+server/src/account/noticeTexts.ts
+  s_fcb7475e0b5395::t_99d4a14fe33bce 1-50
+server/migrations/0036_drop_legacy.sql
+  s_fcb7475e0b5395::t_f000482e4be827 1-29
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "6a210ed0e0e15f5b9520a022a0ebb1d568030798",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
