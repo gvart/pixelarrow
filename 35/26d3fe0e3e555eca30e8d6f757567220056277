@@ -1,0 +1,25 @@
+src/war/view/hud/codex.ts
+  s_fcb7475e0b5395::t_33971edef4fdb2 297
+src/war/view/hud/tooltip.ts
+  s_fcb7475e0b5395::t_b9465eca166c87 15,108
+src/war/view/hud/tree/graph.ts
+  s_fcb7475e0b5395::t_33971edef4fdb2 218
+src/war/view/hud/roster/card.ts
+  s_fcb7475e0b5395::t_33971edef4fdb2 95
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "3526d3fe0e3e555eca30e8d6f757567220056277",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
