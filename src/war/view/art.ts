@@ -601,18 +601,39 @@ export class ArtBaker {
       const fb = this.foam[i];
       if (fb) {
         foam ??= new Path2D(); wave ??= new Path2D();
-        const T = [tx + FW, ty], R = [tx + 2 * FW, ty + FH], B = [tx + FW, ty + 2 * FH], L = [tx, ty + FH], C = [tx + FW, ty + FH];
-        const edge = (a: number[], b: number[], k: number) => {
-          // jittered a pixel off the edge into the water; the wave line about a third of the way to the cell's middle
-          const j = ((hash(x, y, k) & 7) - 3.5) * 0.3, ox = (C[0] - (a[0] + b[0]) / 2) * 0.12, oy = (C[1] - (a[1] + b[1]) / 2) * 0.12;
-          foam!.moveTo(a[0] + ox, a[1] + oy + j); foam!.lineTo(b[0] + ox, b[1] + oy - j);
-          blobs.push((a[0] + b[0]) / 2 + ox * 1.5 + j * 3, (a[1] + b[1]) / 2 + oy * 1.5);
-          if (hash(x, y, k + 4) % 3) { const q = 3.2; wave!.moveTo(a[0] + ox * q + (b[0] - a[0]) * 0.15, a[1] + oy * q + (b[1] - a[1]) * 0.15); wave!.lineTo(b[0] + ox * q - (b[0] - a[0]) * 0.2, b[1] + oy * q - (b[1] - a[1]) * 0.2); }
+        const C = [tx + FW, ty + FH];
+        // a grid corner (gx, gy) on screen, at this cell's level
+        const S = (gx: number, gy: number) => [tx + FW + (gx - x - (gy - y)) * FW, ty + (gx - x + gy - y) * FH];
+        // the shore edges (grid corners) of a cell's foam bits: E-S for +x, W-N for -x, S-W for +y, N-E for -y
+        const edgesOf = (cx: number, cy: number): number[][] => {
+          if (cx < 0 || cy < 0 || cx >= fw || cy >= fh) return [];
+          const f = this.foam[cy * fw + cx], out: number[][] = [];
+          if (f & FOAM_PX) out.push([cx + 1, cy, cx + 1, cy + 1, 1]);
+          if (f & FOAM_NX) out.push([cx, cy, cx, cy + 1, 2]);
+          if (f & FOAM_PY) out.push([cx + 1, cy + 1, cx, cy + 1, 3]);
+          if (f & FOAM_NY) out.push([cx, cy, cx + 1, cy, 4]);
+          return out;
         };
-        if (fb & FOAM_PX) edge(R, B, 1);
-        if (fb & FOAM_NX) edge(T, L, 2);
-        if (fb & FOAM_PY) edge(B, L, 3);
-        if (fb & FOAM_NY) edge(T, R, 4);
+        const near: number[][] = [];
+        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (dx || dy) near.push(...edgesOf(x + dx, y + dy));
+        const mine = edgesOf(x, y);
+        for (const e of mine) {
+          // the surf line through the edges' midpoints: from this edge's midpoint half way to the midpoint of each shore
+          // edge that meets it at a corner (so a shore stepping across the grid draws as one smooth line, not a
+          // staircase), or on to the corner where none does
+          const k = e[4], mx = (e[0] + e[2]) / 2, my = (e[1] + e[3]) / 2, M = S(mx, my);
+          for (const [vx, vy] of [[e[0], e[1]], [e[2], e[3]]]) {
+            const meet = [...mine, ...near].filter((n) => n !== e && ((n[0] === vx && n[1] === vy) || (n[2] === vx && n[3] === vy)));
+            const ends = meet.length ? meet.map((n) => S((mx + (n[0] + n[2]) / 2) / 2, (my + (n[1] + n[3]) / 2) / 2)) : [S(vx, vy)];
+            for (const P of ends) {
+              foam!.moveTo(M[0], M[1]); foam!.lineTo(P[0], P[1]);
+              // the wave line about a third of the way to the water cell's middle, broken
+              if (hash(x, y, k + 4) % 3) { const q = 0.38; wave!.moveTo(M[0] + (C[0] - M[0]) * q, M[1] + (C[1] - M[1]) * q); wave!.lineTo(P[0] + (C[0] - P[0]) * q, P[1] + (C[1] - P[1]) * q); }
+            }
+          }
+          const j = ((hash(x, y, k) & 7) - 3.5) * 0.3;
+          blobs.push(M[0] + j * 3, M[1]);
+        }
       }
       if (!s && !t) continue;
       // the cell's diamond into its light's path and its tint's (tints keyed past the light codes)
@@ -636,7 +657,10 @@ export class ArtBaker {
     // soft spray blobs over the edge midpoints hide the cell staircase of the shore; a thin line keeps its edge
     const fs = foamSprite();
     for (let k = 0; k < blobs.length; k += 2) ctx.drawImage(fs, blobs[k] - FOAM_W / 2, blobs[k + 1] - FOAM_H / 2);
-    ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(236,244,236,0.4)'; ctx.stroke(foam);
+    // a soft band over the smoothed line covers most of the cell teeth where the shore crosses the grid
+    ctx.lineWidth = 7; ctx.strokeStyle = 'rgba(214,232,228,0.22)'; ctx.stroke(foam);
+    ctx.lineWidth = 3.5; ctx.strokeStyle = 'rgba(228,240,236,0.3)'; ctx.stroke(foam);
+    ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(236,244,236,0.45)'; ctx.stroke(foam);
     ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(220,236,236,0.3)'; ctx.stroke(wave!);
     ctx.lineCap = 'butt';
   }
