@@ -1,0 +1,24 @@
+server/test/war/peace.test.ts
+  s_fcb7475e0b5395::t_b975ca00dbfc95 138
+  s_fcb7475e0b5395::t_4892edcb2fc513 136-137,139-148
+server/src/war/peace.ts
+  s_fcb7475e0b5395::t_4892edcb2fc513 10,78
+docs/WAR.md
+  s_fcb7475e0b5395::t_0e189e41ccddf3 1266
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "3262012dce95e9ed6386f36e3bb03ff04f15fa9b",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
