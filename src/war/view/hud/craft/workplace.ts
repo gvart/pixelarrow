@@ -136,7 +136,7 @@ export function workplaceHtml(C: SandboxCraft, b: BuildingSnap, crafters: Crafte
 
   // the picked recipe
   const sel = v.recipe ? RECIPES[v.recipe] : null, selLock = sel ? lockOf(C, crafters, sel, level) : null, maker = sel ? makerOf(C, crafters, sel) : null;
-  let detail = '<div class="wp-det wp-pick rf-dim">Pick something to make: its stats against what your man wears, what it takes and how long.</div>';
+  let detail = `<div class="wp-det wp-pick rf-dim">${wp.kind === 'forge' ? 'Pick something to make: its stats against what your man wears, what it takes and how long.' : 'Pick something to make: what it takes, how long, and what comes out.'}</div>`;
   if (sel) {
     const isItem = !!sel.out.item && !!ITEMS[sel.out.item], made: Item | null = isItem ? { uid: '', def: sel.out.item!, rarity: 'common', cond: 100 } : null;
     const slot = made ? itemDef(made.def).slot : null;

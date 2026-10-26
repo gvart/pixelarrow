@@ -51,7 +51,7 @@ the same mechanics offline.
 | --- | --- |
 | World | drag pan, wheel zoom, click select, click a lit neighbour to transfer, double-click / Enter enter, Esc clear, T routes, H haul planner, F fit, +/- zoom |
 | Region | L click / box select (shift adds), right click move, Ctrl+right click attack-move, E or R the action at the cursor, H hold, X stop, F squad active, 1-4 line / column / wedge / loose |
-| Region panels | B build bar, R roster, K market, M full map, G boss camera, F2-F7 view modes, Shift+W world |
+| Region panels | B build bar, R roster, I squad chest (what the men carry; the town store by a store of yours), K market, M full map, G boss camera, F2-F7 view modes, Shift+W world |
 | Siege | E / right click crews, raises or pushes ladders, ignites, attacks; Y deploy / pack; Q fire arrows; P push a ladder off, I sally to burn, O beat out fire |
 | Camera | WASD, screen edge, middle or space+drag pan, wheel zoom |
 
