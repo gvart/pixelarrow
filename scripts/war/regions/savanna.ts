@@ -17,7 +17,7 @@ import { pocketBoss } from './tiers.ts';
 
 const def: RegionDef = {
   id: 'savanna',
-  style: { dry: -0.4, dryHigh: true, trees: 0.15, bushes: 0.2 },
+  style: { dry: -0.4, dryHigh: true, trees: 0.15, bushes: 0.2, tufts: 0.03 },
   build(k: Kit) {
     const E = k.entry('kyrene-n'), S = k.entry('kyrene-w'), N = k.entry('canyons'), W = k.entry('gorge');
     k.fill(2);
@@ -78,6 +78,20 @@ const def: RegionDef = {
     k.lair('jackal', [196, 76], { as: 'lions' });
     k.lair('jackal', [190, 200], { as: 'lions' });
     k.lair('jackal', [60, 200], { as: 'lions' });
+    // the wash's bed plain sand (the kyrene ground broke it into orange dune and black reg blots), dry scrub in it
+    k.patchWhere('kyrene', 'sand', () => true, ['sand']);
+    for (const [n, p] of ([[166, 50], [146, 96], [140, 140], [112, 182], [92, 222]] as Pt[]).entries()) k.piece(['kyrene/camelthorn', 'kyrene/dry-grass', 'kyrene/saltbush'][n % 3], p, { r: 3, n: 3, gap: 2 });
+    // the kopjes' bare flat tops: red boulders and stones, an acacia, dry grass
+    K.forEach(([p, rx], n) => {
+      for (let a = 0; a < 14; a++) {
+        const t = a * 1.3 + n, d = rx * (0.08 + 0.042 * a);
+        k.piece(['kyrene/boulder-red', 'kyrene/rocks-red', 'kyrene/boulder-red', 'kyrene/acacia', 'kyrene/rocks-red', 'kyrene/camelthorn', 'kyrene/talus-red'][a % 7], [p[0] + Math.cos(t) * d, p[1] + Math.sin(t) * d * 0.8], { r: 2.5, n: a % 7 === 3 ? 1 : 3, gap: 1.5 });
+      }
+    });
+    // the waterhole: reeds at the edge, game come to drink, acacias round it
+    for (const [n, [dx, dy]] of ([[-8, -2], [7, -4], [-4, 6], [9, 4], [0, -7], [-10, 4], [11, -1]] as const).entries()) k.piece(['kyrene/reeds', 'kyrene/gazelle', 'kyrene/reeds', 'kyrene/acacia-old', 'kyrene/reeds', 'kyrene/saltbush', 'kyrene/gazelle'][n], [138 + dx, 176 + dy], { r: 2, n: 2, gap: 2 });
+    // the crossing: a waymark cairn, a cart, dry scrub
+    for (const [n, [dx, dy]] of ([[-6, -5], [6, -6], [-6, 6], [7, 5]] as const).entries()) k.piece(['mountains/cairn', 'kyrene/handcart', 'kyrene/camelthorn', 'kyrene/amphora-stack'][n], [hub[0] + dx, hub[1] + dy], { r: 3, n: n === 0 ? 1 : 2, gap: 2 });
     k.claim(hub, 180);
   },
 };
