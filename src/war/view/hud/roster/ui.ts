@@ -165,7 +165,7 @@ export const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;')
 
 export const ROSTER_CSS = `
 .rr-list{overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;scrollbar-color:#7a3418 #140c08;border-top:1px solid var(--rf-line)}
-.rr-row{display:flex;align-items:center;gap:6px;height:31px;padding:0 4px 0 6px;cursor:pointer;box-shadow:inset 3px 0 0 transparent;border-bottom:1px solid #1e140e}
+.rr-row{display:flex;align-items:center;gap:6px;height:40px;padding:0 4px 0 6px;cursor:pointer;box-shadow:inset 3px 0 0 transparent;border-bottom:1px solid #1e140e}
 .rr-row:hover{background:var(--rf-hover)}
 .rr-row.on{background:var(--rf-sel);box-shadow:inset 3px 0 0 var(--rf-title)}
 .rr-row.dead{opacity:.5}
