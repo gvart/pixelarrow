@@ -290,9 +290,9 @@ export async function roster(db: D1Database, pid: number, now: number): Promise<
   };
 }
 
-const newId = (pid: number) => `w${pid}-${randomToken(5)}`;
+export const newId = (pid: number) => `w${pid}-${randomToken(5)}`;
 
-function insertPerson(db: D1Database, pid: number, p: WarPerson, state: PersonState, slot: number | null, now: number): D1PreparedStatement {
+export function insertPerson(db: D1Database, pid: number, p: WarPerson, state: PersonState, slot: number | null, now: number): D1PreparedStatement {
   const h = p.hero;
   return db
     .prepare(
@@ -303,7 +303,7 @@ function insertPerson(db: D1Database, pid: number, p: WarPerson, state: PersonSt
 }
 
 /** A fresh name of the class's first culture that no living soldier of the player has. */
-function nameFor(cls: string, taken: Set<string>, k: number): string {
+export function nameFor(cls: string, taken: Set<string>, k: number): string {
   const c = CLASSES[isClassId(cls) ? cls : 'militia'].cultures[0] ?? 'greek';
   const n = freeName(c, k, taken);
   taken.add(n);

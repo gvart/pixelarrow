@@ -21,6 +21,7 @@
  *                                             the region whose workplace holds them, and the holders of the region rooms
  *                                             (chests, carts, packs) as saved; equip from the strongroom with
  *                                             /persons/:id/equip; repair and salvage go over the region socket (`mend`)
+ *   /start/*                                  a new player's start: alliance, home region, squad (./start.ts)
  *   POST /dev/seed      { squad?, reserve? }   DEV_AUTH=1 only: a full roster to test with
  */
 import { Hono } from 'hono';
@@ -37,6 +38,7 @@ import type { WarSkillId } from '../../../src/war/types';
 import { pickNode, respec, stash } from './crafting';
 import { deposit, payRansomFromTreasury, treasury } from './treasury';
 import { trade } from './tradeRoutes';
+import { start } from './start';
 import { equip, formSquad, levelUp, payRansom, promote, recruit, releaseCaptive, retire, roster, ROSTER_MAX, seed, train } from './persons';
 
 export const war = new Hono<AppEnv>();
@@ -135,6 +137,7 @@ war.post('/persons/:id/respec', requirePlayable, async (c) => {
 war.get('/stash', requirePlayable, async (c) => c.json(await stash(db(c.env), c.get('session').pid)));
 
 war.route('/trade', trade);
+war.route('/start', start);
 
 war.post('/dev/seed', requirePlayable, async (c) => {
   if (c.env.DEV_AUTH !== '1') throw new ApiError(404, 'not_found', 'No such endpoint');
