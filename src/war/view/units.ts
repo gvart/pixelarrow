@@ -405,8 +405,8 @@ export class UnitLayer {
         if (!im) this.soulPool.push((im = this.scene.add.image(0, 0, key)));
         im.setTexture(key, frame).setOrigin(q.ox, q.oy).setPosition(Math.round(f.x), Math.round(f.y - 8 + bob)).setVisible(true)
           .setScale(sheet.scale * (glow ? 1.14 : 1)).setDepth(depth + (glow ? -1e-5 : 0));
-        if (glow) im.setBlendMode(Phaser.BlendModes.ADD).setTintFill(0x8fcaff).setAlpha(0.45 * pulse * fade);
-        else im.setBlendMode(Phaser.BlendModes.NORMAL).setTint(0xdcefff).setAlpha(0.6 * fade);
+        if (glow) im.setBlendMode(Phaser.BlendModes.ADD).setTintFill(0x8fcaff).setAlpha(0.6 * pulse * fade);
+        else im.setBlendMode(Phaser.BlendModes.NORMAL).setTint(0xe4f2ff).setAlpha(0.72 * fade);
       }
     }
     for (let i = n; i < this.soulPool.length; i++) this.soulPool[i].setVisible(false);

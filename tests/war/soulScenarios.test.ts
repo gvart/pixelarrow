@@ -10,7 +10,8 @@ import { createSim } from '../../src/war/sim';
 import { createBots } from '../../src/war/sim/bots';
 import { hungerStage } from '../../src/war/sim/food';
 import { ARMY_MAX } from '../../src/war/sim/soldiers';
-import type { Scenario, WarEvent } from '../../src/war/types';
+import type { WarEvent } from '../../src/war/types';
+import type { Scenario } from '../../src/war/scenarios/types';
 import region from '../../src/war/regions/test-ridge.json';
 
 const load = (sc: Scenario) => {

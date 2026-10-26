@@ -53,12 +53,11 @@ export function mountSouls(s: SandboxScene, mk: Mk, tipOn: (el: HTMLElement, htm
   let soul: SoulSnap | null = null;
   tipOn(el, () => (soul ? soulCard(soul, armyFull()) : ''));
 
-  /** His fighters now: the roster's (every region) or, without one, his men on this map. */
+  /** His fighters now: online the roster's (every region, as the server counts), offline his men on this map (as the sim does). */
   const army = () => {
-    const rows = R.rows().filter((r) => r.where !== 'dead' && !(r.p.hero.cls ?? '').startsWith('civ_')).length;
+    if (s.sim.net) return R.rows().filter((r) => r.where !== 'dead' && !(r.p.hero.cls ?? '').startsWith('civ_')).length;
     const own = new Set((s.sim.cur?.squads ?? []).filter((q) => q.team === myTeam()).map((q) => q.id));
-    const field = (s.sim.cur?.units ?? []).filter((u) => own.has(u.squad) && u.state !== 'dead' && !u.cls.startsWith('civ_')).length;
-    return Math.max(rows, field);
+    return (s.sim.cur?.units ?? []).filter((u) => own.has(u.squad) && u.state !== 'dead' && !u.cls.startsWith('civ_')).length;
   };
   const armyFull = () => army() >= ARMY_MAX;
 
@@ -100,14 +99,20 @@ export function mountSouls(s: SandboxScene, mk: Mk, tipOn: (el: HTMLElement, htm
 
   // what became of a claim: the sim's events (local play) and the region server's notes (online)
   const ownSquad = (q: number) => s.sim.cur?.squads.find((x) => x.id === q)?.team === myTeam();
+  /** Each outcome told once (the hooks below may sit twice in a chain of handlers). */
+  const told = new Set<string>();
+  const once = (k: string) => !told.has(k) && !!told.add(k);
   const onEvents = (ev: WarEvent[]) => {
     for (const e of ev) {
+      if ((e.kind === 'soulClaimed' || e.kind === 'soulRefused') && !once(`${e.kind}:${e.soul}:${e.t}`)) continue;
       if (e.kind === 'soulClaimed' && ownSquad(e.squad)) note(`${e.person.hero.name}, a level ${e.person.hero.level} ${SandboxRoster.className(e.person.hero.cls).toLowerCase()}, joins your squad`, 'levelUp');
       else if (e.kind === 'soulRefused' && ownSquad(e.squad)) note(`Claim refused: your army is full (${e.have} / ${ARMY_MAX} men). A soul joins only when a man falls or retires`, 'dead');
     }
   };
+  let seq = 0;
   const onServer = (m: ServerMsg) => {
     if (m.t !== 'soul') return;
+    if (!once(`srv:${m.state}:${m.soul}:${m.state === 'refused' ? seq++ : ''}`)) return;
     if (m.state === 'claimed') note(`${m.name ?? 'A new man'}, a level ${m.level ?? 1} ${SandboxRoster.className(m.cls).toLowerCase()}, joins your squad`, 'levelUp');
     else note(`Claim refused: your army is full (${m.have ?? ARMY_MAX} / ${ARMY_MAX} men across all regions). A soul joins only when a man falls or retires`, 'dead');
   };
