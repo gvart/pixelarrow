@@ -127,9 +127,9 @@ onmessage = (e: MessageEvent<ToWorker>) => {
     const seed = /[?&]seed=1\b/.test(m.net), url = m.net.replace(/[?&]seed=1\b/, '');
     // the economy view (nodes, influence) rides on the next snapshot post, as the local sim's does
     const nodes = new Map<number, NodeSnap>();
-    let nodesNew = false, infl: InfluenceMap | undefined, stock: Snapshot['stock'];
+    let nodesNew = false, infl: InfluenceMap | undefined, stock: Snapshot['stock'], town: Snapshot['townLevels'];
     net = createNet(url, m.region.id, m.dev, (snap, stats) => {
-      postMessage({ snap: stock ? { ...snap, stock } : snap, stats, nodes: nodesNew ? [...nodes.values()] : undefined, influence: infl });
+      postMessage({ snap: stock || town ? { ...snap, ...(stock ? { stock } : {}), ...(town ? { townLevels: town } : {}) } : snap, stats, nodes: nodesNew ? [...nodes.values()] : undefined, influence: infl });
       nodesNew = false;
       infl = undefined;
     }, seed, (server) => {
@@ -139,6 +139,7 @@ onmessage = (e: MessageEvent<ToWorker>) => {
         nodesNew = true;
       } else if (server.t === 'influence') infl = decodeInfluence(server.w, server.h, server.team, server.runs, server.v);
       else if (server.t === 'stock') stock = { [server.team]: server.goods };
+      else if (server.t === 'town') town = server.town ? [server.town] : []; // W-61: his team's town level
       else postMessage({ server });
     });
     return;

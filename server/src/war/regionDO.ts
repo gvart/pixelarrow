@@ -32,7 +32,9 @@ import type { Env } from '../env';
 import { WarRoom, type RoomOptions, type RoomState, type TickTimes } from './room';
 import { regionVersion, warRegion } from './regions';
 import { DEFAULT_CAP, parseClientMsg, type HandoffMsg, type JoinMsg, type MendMsg, type ServerMsg, type StowMsg } from '../../../src/war/net/protocol';
-import { cartArrived, contract, deliver, sealedFor } from './contracts';
+import { cartArrived, contract, deliver, guardCheck, labourDone, sealedFor, workContracts } from './contracts';
+import { addLabour, bonusesOf, openWorks } from './works';
+import { contractPoints, scorePeace } from './peace';
 import { handoffDone, handoffRefusal, linkedCaptures } from './abuse';
 import { loads } from '../../../src/war/sim/holders';
 import { ApiError } from '../errors';
@@ -68,6 +70,8 @@ const HISTORY = 600;
 const SAVE_TICKS = 300;
 /** D1 write attempts before a write is dropped (logged). */
 const WRITE_TRIES = 5;
+/** W-61: ticks between polls of the region's guard contracts, open works and work bonuses (30 s). */
+const PEACE_POLL = 300;
 
 interface Attachment { pid: number }
 
@@ -360,6 +364,8 @@ export class WarRegionDO extends DurableObject<Env> {
         if (r.refused) throw new ApiError(409, 'refused', r.refused);
         await batch(d, r.stmts);
         send(ws, { t: 'stowed', dir: 'in', site: `ct:${id}`, goods: bundleGoods(b), items: 0 });
+        // W-61: a filled carry or supply contract scores its taker's alliance (peace score, capped a day)
+        if (r.done) this.write('peace', async () => scorePeace(this.env, await allianceOf(d, pid), 'contracts', contractPoints(c.reward), Date.now()));
       } catch (e) {
         room.giveCargo(pid, from, b);
         return fail(e);
@@ -596,6 +602,15 @@ export class WarRegionDO extends DurableObject<Env> {
       for (const a of r.sacrilege) this.ctx.waitUntil(world.sacrilege(a as AllianceId).catch((e) => logError('war_sacrilege_failed', e)));
     }
     if (d && r.freed.length) this.write('unmend', () => returnMends(d, room.region.id, r.freed));
+    // W-61: build labour, guard checks and alliance-work labour into D1; the watched contracts, works and bonuses polled
+    const pz = r.peace;
+    if (d && pz) this.write('peace', async () => {
+      const at = Date.now(), region = room.region.id;
+      for (const l of pz.labour) await labourDone(this.env, l.pid, region, l.site, l.secs, at);
+      for (const g of pz.guards) await guardCheck(this.env, g.id, g.held, g.secs, at);
+      for (const w of pz.works) await addLabour(this.env, w.team, w.work, w.by, at);
+    });
+    if (d && room.currentTick % PEACE_POLL === 1) this.write('peace poll', () => this.pollPeace(room));
     // M6i: a cart captured between linked accounts goes back to its owner
     if (d && r.captured.length) this.write('captures', async () => {
       for (const c of await linkedCaptures(d, r.captured, Date.now())) room.sim.setCartOwner(c.cart, c.team, c.from);
@@ -613,6 +628,24 @@ export class WarRegionDO extends DurableObject<Env> {
     const now = performance.now();
     if (this.next < now - TICK_MS) this.next = now;
     this.timer = setTimeout(() => this.loop(), Math.max(0, this.next - now));
+  }
+
+  /** W-61: the region's taken guard contracts, its alliance's open works (a home) and every alliance's work bonuses. */
+  private async pollPeace(room: WarRoom): Promise<void> {
+    const d = this.env.DB;
+    if (!d) return;
+    const region = room.region.id, now = Date.now();
+    const guards = [];
+    for (const c of await workContracts(d, region, now)) {
+      if (c.kind !== 'guard' || !c.taker) continue;
+      const team = await allianceOf(d, c.poster);
+      if (team !== null) guards.push({ id: c.id, team, taker: c.taker, men: c.men });
+    }
+    room.setGuards(guards);
+    const home = ALLIANCES.find((a) => a.home === region);
+    if (home) room.setWorks(home.id, await openWorks(d, home.id));
+    const b = await bonusesOf(d);
+    for (const a of ALLIANCES) room.sim.setBonus(a.id, b.get(a.id) ?? {});
   }
 
   /** Tick-time and bandwidth figures over the last HISTORY ticks (or ?last=N). */

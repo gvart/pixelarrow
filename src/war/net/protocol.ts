@@ -35,7 +35,7 @@
 import { z } from 'zod';
 import { ARMY_MAX } from '../sim/soldiers';
 import type { NodeRow } from './economy';
-import type { BridgePlan, BuildingType, GoodKind, Order, PlaceResult, SquadId, WallPlan } from '../types';
+import type { BridgePlan, BuildingType, GoodKind, Order, PlaceResult, SquadId, TownLevelSnap, WallPlan } from '../types';
 
 /** Bumped on any wire change (messages or the binary frame layout). */
 export const NET_VERSION = 10;
@@ -220,6 +220,8 @@ export type ServerMsg =
   | { t: 'influence'; team: number; w: number; h: number; v: number; runs: number[] }
   /** His team's stockpile (its stores and home strongroom here, Snapshot.stock), whole units, when it changed. */
   | { t: 'stock'; team: number; goods: Record<string, number> }
+  /** W-61: his team's town level here (Snapshot.townLevels; null: none), when it changed. */
+  | { t: 'town'; team: number; town: TownLevelSnap | null }
   /**
    * W-60: a soul his squad went for: claimed (the new man's person id, class, level and name), refused (his army is full:
    * `have` men across all regions, ARMY_MAX at most).

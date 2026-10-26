@@ -14,6 +14,14 @@
  *      supply: the taker delivers n of `res` into the poster's warehouse at B by the deadline: reward to him.
  *      escort: the poster's cart arrives at B with >= CONTRACT.escort of its declared loads: reward to the taker.
  *    Past the deadline: the reward goes back to the poster; a carry's deposit and any sealed goods not yet loaded too.
+ *  - W-61 work contracts (no merchant node: any stall holder, CONTRACT.open of them), taken only by a member of the
+ *    poster's alliance (his men must stand among the poster's on the field):
+ *      build:  labour (`n` worker-seconds) by the taker's men on the poster's site `site` in `region`; the reward is
+ *              released into the taker's strongroom pro rata as the room reports the labour (labourDone), the last of it
+ *              when all is in.
+ *      guard:  the taker holds the poster's town in `region` (its town-level ground) with at least `men` men for `n`
+ *              hours: the room checks every LABOUR_EVERY ticks (guardCheck); each whole hour held pays reward / hours;
+ *              out of bounds (or dead) past GUARD.grace seconds: broken, the rest back to the poster.
  *  - Letter (Banker, stall L3 in town A): the banker escrows coin at town B and offers a letter at A for his fee; the
  *    buyer pays amount + fee into the banker's stall at A and the letter is named to him: only he redeems it, once,
  *    at B, into his warehouse there. At most LETTER.max coin.
@@ -23,10 +31,19 @@ import { ApiError } from '../errors';
 import { batch, guard, lotsOf, planTake, putLotsStmts, putStmt, strongroom, totalsOf, type GoodLot } from './holders';
 import { intoOf, presentIn, site, stallId, townOf } from './market';
 import { json } from './persons';
+import { allianceOf } from './world/members';
+import { contractPoints, peacePoints, statStmt } from './peace';
+import type { Env } from '../env';
+import { worldStub } from './world/routes';
+import { logError } from '../telemetry/log';
+import type { AllianceId } from '../../../src/war/world/types';
 
 const HOUR = 3_600_000;
 export const DEAL = { ms: 48 * HOUR };
 export const CONTRACT = { open: 2, broker: 4, deposit: 0.5, escort: 0.75 };
+/** W-61 guard contracts: seconds out of bounds before one breaks; most hours; most men asked. Build: most man-hours. */
+export const GUARD = { grace: 120, hours: 24, men: 12 };
+export const BUILD = { hours: 48 };
 export const LETTER = { max: 500 };
 
 type Goods = Record<string, number>;
@@ -132,25 +149,38 @@ export async function dropHalf(db: D1Database, pid: number, id: number, now: num
 
 // ---------------------------------------------------------------- contracts
 
-interface ContractRow { id: number; kind: 'carry' | 'supply' | 'escort'; town: string; to_town: string; poster: number; taker: number | null; reward: number; res: string | null; n: number; delivered: number; value: number; deposit: number; state: string; deadline: number }
-export interface ContractIn { kind: 'carry' | 'supply' | 'escort'; toTown: string; reward: number; res?: string; n?: number; value?: number; loads?: number; deadline: number }
+export type ContractKind = 'carry' | 'supply' | 'escort' | 'build' | 'guard';
+export interface ContractRow { id: number; kind: ContractKind; town: string; to_town: string; poster: number; taker: number | null; reward: number; res: string | null; n: number; delivered: number; value: number; deposit: number; region: string | null; site: number | null; men: number; paid: number; away: number; state: string; deadline: number }
+export interface ContractIn {
+  kind: ContractKind; toTown: string; reward: number; res?: string; n?: number; value?: number; loads?: number; deadline: number;
+  /** W-61 build and guard: the region; build: the site (building id) and man-hours; guard: hours and men. */
+  region?: string; site?: number; hours?: number; men?: number;
+}
+const work = (k: string) => k === 'build' || k === 'guard';
 
 export async function postContract(db: D1Database, pid: number, town: string, c: ContractIn, holder: number, now: number): Promise<number> {
   mustTown(town);
-  mustTown(c.toTown);
+  if (!work(c.kind)) mustTown(c.toTown);
   const s = await site(db, pid, town, 'stall', holder, now);
   const ns = await nodes(db, pid);
-  const cap = ns.has('broker') ? CONTRACT.broker : ns.has('contracts') ? CONTRACT.open : 0;
+  const cap = ns.has('broker') ? CONTRACT.broker : ns.has('contracts') || work(c.kind) ? CONTRACT.open : 0;
   if (!cap) throw new ApiError(409, 'no_contracts', 'Contracts need a merchant with the Contracts node');
   const open = (await db.prepare("SELECT COUNT(*) AS n FROM war_contracts WHERE poster = ?1 AND state IN ('open', 'taken')").bind(pid).first<{ n: number }>())?.n ?? 0;
   if (open >= cap) throw new ApiError(409, 'contracts_full', `At most ${cap} open contracts`);
   if (c.deadline <= now) throw new ApiError(400, 'bad_request', 'The deadline has passed');
-  if (c.kind !== 'escort' && (!c.res || !(c.n! > 0))) throw new ApiError(400, 'bad_request', 'A good and an amount');
+  if (c.kind !== 'escort' && !work(c.kind) && (!c.res || !(c.n! > 0))) throw new ApiError(400, 'bad_request', 'A good and an amount');
   if (c.kind === 'carry' && !(c.value! > 0)) throw new ApiError(400, 'bad_request', 'A carry declares its value');
   if (c.kind === 'escort' && !(c.loads! > 0)) throw new ApiError(400, 'bad_request', 'An escort declares the cart\'s loads');
+  if (work(c.kind)) {
+    if (!c.region || !(c.hours! > 0)) throw new ApiError(400, 'bad_request', 'A region and the hours');
+    if (c.kind === 'build' && (c.site === undefined || c.hours! > BUILD.hours)) throw new ApiError(400, 'bad_request', `A site and at most ${BUILD.hours} man-hours`);
+    if (c.kind === 'guard' && (!(c.men! >= 1) || c.men! > GUARD.men || c.hours! > GUARD.hours)) throw new ApiError(400, 'bad_request', `1 to ${GUARD.men} men for at most ${GUARD.hours} hours`);
+    if (c.kind === 'guard' && c.deadline < now + c.hours! * HOUR) throw new ApiError(400, 'bad_request', 'The deadline leaves no time to hold it');
+  }
+  const n = c.kind === 'escort' ? c.loads! : c.kind === 'build' ? c.hours! * 3600 : c.kind === 'guard' ? c.hours! : c.n!;
   const id = (await db
-    .prepare("INSERT INTO war_contracts (kind, town, to_town, poster, reward, res, n, value, deposit, state, deadline, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 'cancelled', ?10, ?11) RETURNING id")
-    .bind(c.kind, town, c.toTown, pid, c.reward, c.res ?? null, c.kind === 'escort' ? c.loads! : c.n!, c.value ?? 0, c.kind === 'carry' ? Math.ceil(c.value! * CONTRACT.deposit) : 0, c.deadline, now)
+    .prepare("INSERT INTO war_contracts (kind, town, to_town, poster, reward, res, n, value, deposit, region, site, men, state, deadline, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, 'cancelled', ?13, ?14) RETURNING id")
+    .bind(c.kind, town, work(c.kind) ? town : c.toTown, pid, c.reward, work(c.kind) ? null : (c.res ?? null), n, c.value ?? 0, c.kind === 'carry' ? Math.ceil(c.value! * CONTRACT.deposit) : 0, c.region ?? null, c.kind === 'build' ? c.site! : null, c.kind === 'guard' ? c.men! : 0, c.deadline, now)
     .first<{ id: number }>())!.id;
   const reward = planTake(db, s.id, await lotsOf(db, s.id), { coin: c.reward }, 'Your stall');
   const goods = c.kind === 'carry' ? planTake(db, s.id, (await lotsOf(db, s.id)).map((l) => (l.res === 'coin' ? { ...l, amount: Math.max(0, l.amount - c.reward) } : l)), { [c.res!]: c.n! }, 'Your stall') : null;
@@ -188,6 +218,10 @@ export async function takeContract(db: D1Database, pid: number, id: number, now:
   const c = await settleContract(db, id, now);
   if (c.state !== 'open') throw new ApiError(409, 'closed', `The contract is ${c.state}`);
   if (c.poster === pid) throw new ApiError(409, 'own_contract', 'Your own contract');
+  if (work(c.kind)) {
+    const [a, b] = await Promise.all([allianceOf(db, pid), allianceOf(db, c.poster)]);
+    if (a === null || a !== b) throw new ApiError(409, 'not_ally', 'Only a man of the same alliance works or guards his town');
+  }
   const dep = c.kind === 'carry' ? await fromSites(db, pid, c.town, { coin: c.deposit }) : { stmts: [], taken: [] };
   await batch(db, [
     db.prepare("UPDATE war_contracts SET state = 'taken', taker = ?2 WHERE id = ?1 AND state = 'open'").bind(id, pid),
@@ -213,7 +247,7 @@ export async function sealedFor(db: D1Database, pid: number, id: number, town: s
  */
 export async function deliver(db: D1Database, pid: number, id: number, town: string, lots: readonly GoodLot[], now: number): Promise<{ stmts: D1PreparedStatement[]; done: boolean; refused?: string }> {
   const c = await settleContract(db, id, now);
-  if (c.state !== 'taken' || c.taker !== pid || c.kind === 'escort') return { stmts: [], done: false, refused: 'not a contract you hold' };
+  if (c.state !== 'taken' || c.taker !== pid || c.kind === 'escort' || work(c.kind)) return { stmts: [], done: false, refused: 'not a contract you hold' };
   if (town !== c.to_town) return { stmts: [], done: false, refused: `it is delivered in ${c.to_town}` };
   const n = lots.filter((l) => l.res === c.res).reduce((a, l) => a + l.amount, 0);
   if (n <= EPS || lots.some((l) => l.res !== c.res)) return { stmts: [], done: false, refused: `only ${c.res}` };
@@ -234,6 +268,7 @@ async function payOut(db: D1Database, c: ContractRow, taker: number): Promise<D1
     guard(db, "(SELECT state FROM war_contracts WHERE id = ?1) = 'done'", c.id),
     ...(await release(db, `ct:${c.id}`, to)),
     ...(await release(db, `ct:${c.id}:d`, to)),
+    statStmt(db, taker, 'contracts', 1), // W-61: contracts filled (titles)
   ];
 }
 
@@ -255,6 +290,100 @@ export async function contractsIn(db: D1Database, town: string, now: number) {
   const out: ContractRow[] = [];
   for (const r of rows) out.push(await settleContract(db, r.id, now));
   return out.filter((c) => c.state === 'open' || c.state === 'taken');
+}
+
+// ---------------------------------------------------------------- W-61 build and guard contracts
+
+/** Coin `k` out of the reward escrow into the taker's strongroom (statements; nothing when k is ~0). */
+async function payShare(db: D1Database, c: ContractRow, k: number): Promise<D1PreparedStatement[]> {
+  if (!(k > EPS) || !c.taker) return [];
+  const lots = await lotsOf(db, `ct:${c.id}`), have = lots.filter((l) => l.res === 'coin' && !l.seal).reduce((a, l) => a + l.amount, 0);
+  const n = Math.min(k, have);
+  if (!(n > EPS)) return [];
+  const p = planTake(db, `ct:${c.id}`, lots, { coin: n });
+  return [...p.stmts, ...putLotsStmts(db, strongroom(c.taker), p.taken), db.prepare('UPDATE war_contracts SET paid = paid + ?2 WHERE id = ?1').bind(c.id, n)];
+}
+
+/** A work contract filled: the taker's stats and his alliance's peace score (capped a day; the world adds it). */
+async function filled(env: Env, c: ContractRow, now: number): Promise<D1PreparedStatement[]> {
+  const db = env.DB!, a = await allianceOf(db, c.taker!);
+  const out = [statStmt(db, c.taker!, 'contracts', 1)];
+  if (a === null) return out;
+  const p = await peacePoints(db, a, 'contracts', contractPoints(c.reward), now);
+  if (p.pts > 0) worldStub(env).addPeace(a as AllianceId, 'contracts', p.pts).catch((e) => logError('war_peace_failed', e));
+  return [...out, ...p.stmts];
+}
+
+/** Taken build and guard contracts in a region (the room watches them). */
+export async function workContracts(db: D1Database, region: string, now: number): Promise<ContractRow[]> {
+  const rows = (await db.prepare("SELECT id FROM war_contracts WHERE region = ?1 AND kind IN ('build', 'guard') AND state = 'taken' ORDER BY id").bind(region).all<{ id: number }>()).results;
+  const out: ContractRow[] = [];
+  for (const r of rows) {
+    const c = await settleContract(db, r.id, now);
+    if (c.state === 'taken') out.push(c);
+  }
+  return out;
+}
+
+/**
+ * Labour by player `pid`'s men on site `site` in `region` (worker-seconds, the room's count): his build contracts there
+ * grow by it (up to their need), the reward is released pro rata, and a full one is done. Returns coin paid.
+ */
+export async function labourDone(env: Env, pid: number, region: string, site: number, secs: number, now: number): Promise<number> {
+  const db = env.DB!;
+  const rows = (await db.prepare("SELECT id FROM war_contracts WHERE kind = 'build' AND state = 'taken' AND taker = ?1 AND region = ?2 AND site = ?3 ORDER BY id").bind(pid, region, site).all<{ id: number }>()).results;
+  let left = secs, coin = 0;
+  for (const { id } of rows) {
+    const c = await settleContract(db, id, now);
+    if (c.state !== 'taken' || !(left > EPS)) continue;
+    const add = Math.min(left, c.n - c.delivered);
+    if (!(add > EPS)) continue;
+    left -= add;
+    const total = c.delivered + add, done = total >= c.n - EPS;
+    const owed = done ? Infinity : (c.reward * total) / c.n - c.paid;
+    const pay = await payShare(db, c, owed);
+    coin += done ? c.reward - c.paid : Math.max(0, owed);
+    await batch(db, [
+      db.prepare("UPDATE war_contracts SET delivered = ?2 WHERE id = ?1 AND state = 'taken'").bind(id, total),
+      guard(db, "(SELECT state FROM war_contracts WHERE id = ?1) = 'taken'", id),
+      ...pay, statStmt(db, pid, 'labour', add),
+      ...(done ? [db.prepare("UPDATE war_contracts SET state = 'done' WHERE id = ?1").bind(id), ...(await filled(env, c, now))] : []),
+    ]);
+  }
+  return coin;
+}
+
+/**
+ * A guard check (the room, every LABOUR_EVERY ticks): did the taker hold the poster's town with his men for `secs`?
+ * Held: the time counts and each whole hour pays its share (all hours: done). Not held: past GUARD.grace it is broken
+ * and the rest of the reward goes back to the poster. Returns the contract's state.
+ */
+export async function guardCheck(env: Env, id: number, held: boolean, secs: number, now: number): Promise<string> {
+  const db = env.DB!;
+  const c = await settleContract(db, id, now);
+  if (c.kind !== 'guard' || c.state !== 'taken') return c.state;
+  if (!held) {
+    const away = c.away + secs;
+    if (away < GUARD.grace) {
+      await db.prepare("UPDATE war_contracts SET away = ?2 WHERE id = ?1 AND state = 'taken'").bind(id, away).run();
+      return 'taken';
+    }
+    await batch(db, [
+      db.prepare("UPDATE war_contracts SET state = 'broken', away = ?2 WHERE id = ?1 AND state = 'taken'").bind(id, away),
+      guard(db, "(SELECT state FROM war_contracts WHERE id = ?1) = 'broken'", id),
+      ...(await release(db, `ct:${id}`, intoOf(c.town, c.poster))),
+    ]);
+    return 'broken';
+  }
+  const total = Math.min(c.n * 3600, c.delivered + secs), done = total >= c.n * 3600 - EPS;
+  const owed = done ? Infinity : (c.reward * Math.floor(total / 3600 + EPS)) / c.n - c.paid;
+  await batch(db, [
+    db.prepare("UPDATE war_contracts SET delivered = ?2, away = 0 WHERE id = ?1 AND state = 'taken'").bind(id, total),
+    guard(db, "(SELECT state FROM war_contracts WHERE id = ?1) = 'taken'", id),
+    ...(await payShare(db, c, owed)), statStmt(db, c.taker!, 'guard', total - c.delivered),
+    ...(done ? [db.prepare("UPDATE war_contracts SET state = 'done' WHERE id = ?1").bind(id), ...(await filled(env, c, now))] : []),
+  ]);
+  return done ? 'done' : 'taken';
 }
 
 // ---------------------------------------------------------------- letters of credit (Banker)

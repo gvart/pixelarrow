@@ -21,6 +21,9 @@
  *                                             (chests, carts, packs) as saved; equip from the strongroom with
  *                                             /persons/:id/equip; repair and salvage go over the region socket (`mend`)
  *   /start/*                                  a new player's start: alliance, home region, squad (./start.ts)
+ *   GET  /works                               W-61: his alliance's works (progress, needs, contributors; ./works.ts)
+ *   POST /works/:id/give { goods }            give goods from his home strongroom to one (at most what it lacks)
+ *   GET  /titles                              the season's titles (./peace.ts) and his own season stats
  *   POST /dev/seed      { squad? }             DEV_AUTH=1 only: a whole army (and civilians) to test with
  */
 import { Hono } from 'hono';
@@ -38,6 +41,11 @@ import { pickNode, respec, stash } from './crafting';
 import { deposit, payRansomFromTreasury, treasury } from './treasury';
 import { trade } from './tradeRoutes';
 import { start } from './start';
+import { give, worksOf } from './works';
+import { statsOf, titles } from './peace';
+import { allianceOf } from './world/members';
+import { workDef } from '../../../src/war/net/works';
+import { GOODS } from '../../../src/war/net/protocol';
 import { equip, formSquad, levelUp, payRansom, promote, releaseCaptive, retire, roster, seed } from './persons';
 
 export const war = new Hono<AppEnv>();
@@ -122,6 +130,23 @@ war.post('/persons/:id/respec', requirePlayable, async (c) => {
 });
 
 war.get('/stash', requirePlayable, async (c) => c.json(await stash(db(c.env), c.get('session').pid)));
+
+war.get('/works', requirePlayable, async (c) => {
+  const d = db(c.env), a = await allianceOf(d, c.get('session').pid);
+  return c.json({ alliance: a, works: a === null ? [] : await worksOf(d, a) });
+});
+
+war.post('/works/:id/give', requirePlayable, async (c) => {
+  const id = c.req.param('id');
+  if (!workDef(id)) throw badRequest('Bad work');
+  const b = await readJson(c, z.object({ goods: z.partialRecord(z.enum(GOODS as unknown as [string, ...string[]]), z.number().positive().max(100_000)) }), MAX_BODY);
+  return c.json({ given: await give(c.env, c.get('session').pid, id, b.goods as Record<string, number>, Date.now()) });
+});
+
+war.get('/titles', requirePlayable, async (c) => {
+  const d = db(c.env);
+  return c.json({ titles: await titles(d), mine: await statsOf(d, c.get('session').pid) });
+});
 
 war.route('/trade', trade);
 war.route('/start', start);

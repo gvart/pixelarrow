@@ -102,6 +102,8 @@ export interface RegionState {
   prestige?: number[];
   /** M7f: its town is ruined (a frontier town scores 1 an hour instead of 3). */
   ruined?: boolean;
+  /** W-61: the best town level per alliance here (score an hour: src/war/world/season.ts PEACE.town). */
+  town?: number[];
 }
 
 /**
@@ -152,6 +154,8 @@ export interface SeasonSnap {
   ended: SeasonResult | null;
   /** M6h: trade score per alliance so far (included in `scores`). */
   trade?: number[];
+  /** W-61: peace score per kind (volume, contracts, works) and alliance so far (included in `scores`). */
+  peace?: Record<string, number[]>;
 }
 
 export interface WorldSnapshot {

@@ -18,6 +18,8 @@ import type { Board, FillHook } from './market';
 import { allianceOf } from './world/members';
 import { json } from './persons';
 import { tradeRefusal } from './abuse';
+import { peacePoints, statStmt } from './peace';
+import { PEACE } from '../../../src/war/world/season';
 
 export const TRADE = { per: 100, hops: 3, cap: 60 };
 const DAY = 86_400_000;
@@ -36,18 +38,25 @@ async function room(db: D1Database, alliance: number, now: number): Promise<numb
   return Math.max(0, TRADE.cap - (r?.points ?? 0));
 }
 
-/** The fill hook: anti-abuse first (M6i), then the score and its daily row. */
-export function fillHook(env: Env): FillHook {
+/**
+ * The fill hook: anti-abuse first (M6i), then the score and its daily row. W-61: the seller's coin sold (titles) on every
+ * fill; between alliances also the volume peace score (capped a day), handed back in `peace` for the caller to send.
+ */
+export function fillHook(env: Env, peace: { alliance: number | null; volume: number } = { alliance: null, volume: 0 }): FillHook {
   return async (f) => {
     const db = env.DB!;
     await tradeRefusal(db, f.seller, f.buyer, f.now);
+    const sold = statStmt(db, f.seller, 'sold', f.coin);
     const [sa, ba] = await Promise.all([allianceOf(db, f.seller), allianceOf(db, f.buyer)]);
-    if (sa === null || ba === null || sa === ba) return { score: 0, stmts: [] };
+    if (sa === null || ba === null || sa === ba) return { score: 0, stmts: [sold] };
+    const vol = await peacePoints(db, sa, 'volume', f.coin / PEACE.volume, f.now);
+    peace.alliance = sa;
+    peace.volume = vol.pts;
     const pts = Math.min(scoreOf(f.town, f.lots, f.coin), await room(db, sa, f.now));
-    if (!(pts > 0)) return { score: 0, stmts: [] };
+    if (!(pts > 0)) return { score: 0, stmts: [sold, ...vol.stmts] };
     return {
       score: pts,
-      stmts: [db.prepare('INSERT INTO war_trade_score (season, alliance, day, points) VALUES (?1, ?2, ?3, ?4) ON CONFLICT (season, alliance, day) DO UPDATE SET points = points + ?4').bind(WAR_SEASON.id, sa, Math.floor(f.now / DAY), pts)],
+      stmts: [sold, ...vol.stmts, db.prepare('INSERT INTO war_trade_score (season, alliance, day, points) VALUES (?1, ?2, ?3, ?4) ON CONFLICT (season, alliance, day) DO UPDATE SET points = points + ?4').bind(WAR_SEASON.id, sa, Math.floor(f.now / DAY), pts)],
     };
   };
 }

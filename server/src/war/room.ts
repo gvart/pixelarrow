@@ -59,6 +59,8 @@ function subtract(b: Bundle, r: Bundle): { goods: Record<string, number>; uids: 
 }
 import { inRects } from '../../../src/war/sim/trade';
 import { ARMY_MAX } from '../../../src/war/sim/soldiers';
+import { LABOUR_EVERY, WORK_R, workSite, type WorkId } from '../../../src/war/net/works';
+import { ALLIANCES as ALLIANCE_LIST } from '../../../src/war/world/alliances';
 
 const SIDES = ['N', 'E', 'S', 'W'] as const;
 /** Hold AI radius for an offline player's squads (tiles). */
@@ -84,6 +86,15 @@ export interface Fight { id: string; report: FightReport }
 
 /** A squad gone over a border (M4 transfer out); M6h: with its packs and the cart it drove. */
 export interface Departed { ids: string[]; off: number; lost: Record<string, number>; fight?: Fight; cargo?: TransitCargo }
+
+/** W-61: a guard contract the room checks: the poster's team (whose town), the taker, the men he must keep inside. */
+export interface GuardWatch { id: number; team: number; taker: number; men: number }
+/** W-61: what the room counted this LABOUR_EVERY (the DO books it in D1). */
+export interface Peace {
+  labour: { pid: number; site: number; secs: number }[];
+  guards: { id: number; held: boolean; secs: number }[];
+  works: { team: number; work: WorkId; by: Record<number, number> }[];
+}
 
 /** A sim `crafted` event (M5h4): the DO mints or updates the item in D1. */
 export type Crafted = Extract<WarEvent, { kind: 'crafted' }>;
@@ -159,7 +170,7 @@ export function homeAnchor(region: RegionData): { x: number; y: number } {
 /** M7f: a landmark as the room reports it to the world (src/war/net/world.ts LandmarkWorld; back: minutes, not a time). */
 export interface LandmarkReport { id: string; holder: number; guardian: 'alive' | 'slain' | 'away'; back?: number; state: LandmarkSnap['state']; hp: number; garrisoned: boolean }
 /** What the room tells the world (World.report). */
-export interface Summary { live: number[]; claims: number[]; channel: number[]; landmark?: LandmarkReport; prestige?: number[]; ruined?: boolean }
+export interface Summary { live: number[]; claims: number[]; channel: number[]; landmark?: LandmarkReport; prestige?: number[]; ruined?: boolean; town?: number[] }
 
 interface Player {
   pid: number;
@@ -220,6 +231,10 @@ export class WarRoom {
   private inflRuns = new Map<number, { v: number; runs: number[] }>();
   /** W-60: each player's fighters across all regions (D1, set by the DO on join and after each claim): the soul gate. */
   private armies = new Map<number, number>();
+  /** W-61: guard contracts the DO watches here (poster's team), the alliance works open at this home region, town sent. */
+  private guards: GuardWatch[] = [];
+  private workSites: { work: WorkId; team: number; x: number; y: number }[] = [];
+  private townSent = new Map<number, string>();
 
   constructor(o: RoomOptions) {
     this.region = o.region;
@@ -530,6 +545,10 @@ export class WarRoom {
         state: lm.state, hp: Math.round(lm.hp * 100) / 100, garrisoned: lm.garrisoned,
       };
     }
+    // W-61: the best town level per alliance (season score an hour)
+    const tl = Array<number>(n).fill(0);
+    for (const t of this.snap.townLevels ?? []) if (t.team >= 0 && t.team < n) tl[t.team] = Math.max(tl[t.team], t.level);
+    if (tl.some((v) => v > 0)) out.town = tl;
     if (this.region.prebuilt?.length) {
       const pr = Array.from({ length: n }, (_, t) => Math.round(this.sim.prestige(t) * 100) / 100);
       if (pr.some((v) => v > 0)) out.prestige = pr;
@@ -867,7 +886,52 @@ export class WarRoom {
   }
 
   /** Step once; frames per online player, the queued players let in this tick and a finished fight to write back. */
-  tick(now: () => number = () => 0): { frames: Map<number, Uint8Array>; msgs: Map<number, ServerMsg[]>; admitted: Map<number, ServerMsg>; fights: Fight[]; crafted: Crafted[]; bosses: BossSlain[]; sacrilege: number[]; freed: string[]; raided: number[]; captured: { cart: number; from: string; team: number; to: string }[]; souls: SoulClaim[]; times: TickTimes } {
+  /** W-61: the taken guard contracts of this region (the DO polls D1). */
+  setGuards(list: GuardWatch[]): void {
+    this.guards = list.slice();
+  }
+
+  /** W-61: the works still open of the alliance whose home this is (sites from the region data). */
+  setWorks(team: number, ids: readonly WorkId[]): void {
+    const q = ALLIANCE_LIST[team]?.quadrant;
+    this.workSites = ids.map((work) => ({ work, team, ...workSite(work, this.region, q) }));
+  }
+
+  /**
+   * W-61 every LABOUR_EVERY ticks: labour by owner and site (build contracts), whether each watched guard holds his
+   * poster's town (enough of his fighters inside its town-level ground), and the alliance's men at each open work site.
+   */
+  private peace(): Peace | null {
+    if (this.snap.tick % LABOUR_EVERY !== 0) return null;
+    const secs = LABOUR_EVERY / 10;
+    const pidOf = (owner: string | null | undefined) => {
+      const m = owner ? /^p:(\d+)$/.exec(owner) : null;
+      return m ? Number(m[1]) : null;
+    };
+    const labour = this.sim.takeLabour().flatMap((l) => {
+      const pid = pidOf(l.owner);
+      return pid === null ? [] : [{ pid, site: l.site, secs: l.secs }];
+    });
+    const towns = this.snap.townLevels ?? [];
+    const men = this.snap.units.filter((u) => u.state !== 'dead');
+    const guards = this.guards.map((g) => {
+      const t = towns.find((x) => x.team === g.team);
+      const n = t ? men.filter((u) => !u.cls.startsWith('civ_') && pidOf(this.owners[u.squad]) === g.taker && (u.x - t.x) ** 2 + (u.y - t.y) ** 2 <= t.r * t.r).length : 0;
+      return { id: g.id, held: n >= g.men, secs };
+    });
+    const works = this.workSites.map((w) => {
+      const by: Record<number, number> = {};
+      for (const u of men) {
+        const pid = pidOf(this.owners[u.squad]);
+        if (pid === null || this.teams[u.squad] !== w.team || (u.x - w.x) ** 2 + (u.y - w.y) ** 2 > WORK_R * WORK_R) continue;
+        by[pid] = (by[pid] ?? 0) + secs;
+      }
+      return { team: w.team, work: w.work, by };
+    }).filter((w) => Object.keys(w.by).length);
+    return labour.length || guards.length || works.length ? { labour, guards, works } : null;
+  }
+
+  tick(now: () => number = () => 0): { frames: Map<number, Uint8Array>; msgs: Map<number, ServerMsg[]>; admitted: Map<number, ServerMsg>; fights: Fight[]; crafted: Crafted[]; bosses: BossSlain[]; sacrilege: number[]; freed: string[]; raided: number[]; captured: { cart: number; from: string; team: number; to: string }[]; souls: SoulClaim[]; peace: Peace | null; times: TickTimes } {
     const t0 = now();
     // M6i: carts' owners before the step (a capture names only the taker)
     const cartWas = new Map((this.snap.sieges ?? []).filter((e) => e.owner !== undefined).map((e) => [e.id, { owner: e.owner!, team: e.team }]));
@@ -947,7 +1011,7 @@ export class WarRoom {
       } else if (this.players.get(pid)?.online) tell(pid, { t: 'soul', state: 'refused', soul: e.soul, squad: e.squad, have: e.have });
     }
     this.lastTick = this.snap.tick;
-    return { frames, msgs, admitted, fights, crafted, bosses, sacrilege, freed, raided, captured, souls, times: { stepMs: t1 - t0, snapMs: t2 - t1, netMs: now() - t2 } };
+    return { frames, msgs, admitted, fights, crafted, bosses, sacrilege, freed, raided, captured, souls, peace: this.peace(), times: { stepMs: t1 - t0, snapMs: t2 - t1, netMs: now() - t2 } };
   }
 
   /**
@@ -969,6 +1033,9 @@ export class WarRoom {
       if (r) push(p.pid, { t: 'influence', team: p.team, w: infl.w, h: infl.h, v: infl.version, runs: r });
       const g0 = feed.stock(this.snap.stock?.[p.team]);
       if (g0) push(p.pid, { t: 'stock', team: p.team, goods: g0 });
+      // W-61: his team's town level here, when it changed
+      const town = this.snap.townLevels?.find((t) => t.team === p.team) ?? null, tk = JSON.stringify(town);
+      if (this.townSent.get(p.pid) !== tk) (this.townSent.set(p.pid, tk), push(p.pid, { t: 'town', team: p.team, town }));
       if (this.snap.tick % NODES_EVERY && !feed.fresh) continue;
       const g = this.sim.teamGrid(p.team);
       const n = feed.nodes({
