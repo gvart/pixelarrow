@@ -1,14 +1,14 @@
 /**
  * The per-man look on the GPU (./look.ts): Phaser's single-texture sprite pipeline whose fragment shader finds a
  * pixel's colour in its class's block of the palette texture (one hashed slot, checked against the exact colour) and
- * draws the man's colour from it; any other saturated red of the player's side turns blue as TEAM_SWAP does. One pass,
+ * draws the man's colour from it; any other saturated red takes his team's dye (./look.ts DYE_GLSL) as ./units.ts does. One pass,
  * batched like any sprite: the look rides in the sprite's tint and tint effect (lookCode), the team multiply
  * (TEAM_TINT) is applied here.
  * The palette sits on texture unit 1, bound before every flush (Phaser's other pipelines forget their bindings on
  * bind, so they rebind unit 1 themselves).
  */
 import Phaser from 'phaser';
-import { PAL_ROWS, PAL_VARIANTS, buildPalette, type LookPalette } from './look';
+import { DYE_GLSL, PAL_ROWS, PAL_VARIANTS, RED_W_GLSL, buildPalette, type LookPalette } from './look';
 import type { SheetManifest } from '../../art/sheetManifest';
 
 export const LOOK = 'WarLook';
@@ -60,10 +60,9 @@ void main() {
       hit = true;
     }
   }
-  if (!hit && team < 0.5) {
-    float r = max(c.r, 0.001);
-    float w = smoothstep(0.3, 0.55, (c.r - max(c.g, c.b)) / r) * (1.0 - smoothstep(0.1, 0.25, (c.g - c.b) / r));
-    c = mix(c, vec3(c.b * 0.6, c.g * 0.8 + c.r * 0.3, c.r * 1.2 + 0.06), w);
+  if (!hit && (team < 1.5 || team > 2.5)) { // Kyrene (2) keeps the art's red
+    float w = ${RED_W_GLSL};
+    c = mix(c, team < 0.5 ? ${DYE_GLSL[0]} : team < 1.5 ? ${DYE_GLSL[1]} : ${DYE_GLSL[3]}, w);
   }
   vec3 tint = team < 0.5 ? ${hex(tints[0])} : team < 1.5 ? ${hex(tints[1])} : team < 2.5 ? ${hex(tints[2])} : ${hex(tints[3])};
   gl_FragColor = vec4(c * t.a, t.a) * vec4(tint * outTint.a, outTint.a);

@@ -45,14 +45,16 @@ describe('war per-man look', () => {
       for (const g of ['cloak', 'crest', 'emblem', 'trim'])
         (m.colorGroups?.[g] ?? []).forEach((_, i) => {
           for (const look of allLooks(24))
-            for (const team of [0, 1]) {
+            for (const team of [0, 1, 2, 3]) {
               const tiered = hexColor((m.tiers?.[(['basic', 'veteran', 'elite'] as const)[look.tier]]?.[g] ?? m.colorGroups![g])[i]);
               const base = teamColor(tiered, team), out = groupColor(m, g, i, team, look);
               const [bh, bs, bv] = toHsv(base), [oh, os] = toHsv(out);
               if (bs > 0.2 && bv > 0.08) expect(hueGap(oh, bh), `${cls} ${g}[${i}] team ${team}`).toBeLessThanOrEqual(10);
-              // red cloth: blue for the player's side, red for the foe
+              // red cloth in the alliance's colour, as the world map: Dodona blue, Skythia gold, Kyrene red, Elaia purple
               if (swapRed(tiered) !== tiered && os > 0.25 && bv > 0.2) { // near-black shadow steps carry no readable hue
                 if (team === 0) expect(oh > 190 && oh < 265, `${cls} ${g}[${i}] blue: hue ${oh}`).toBe(true);
+                else if (team === 1) expect(oh > 8 && oh < 60, `${cls} ${g}[${i}] gold: hue ${oh}`).toBe(true); // partly dyed shades lean to the red
+                else if (team === 3) expect(oh > 250 && oh < 350, `${cls} ${g}[${i}] purple: hue ${oh}`).toBe(true);
                 else expect(hueGap(oh, 0), `${cls} ${g}[${i}] red`).toBeLessThan(30);
               }
             }

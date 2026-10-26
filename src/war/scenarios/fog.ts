@@ -7,7 +7,7 @@ export const FOG_SCENARIOS: Scenario[] = [
     id: 'fog-team2',
     name: 'Playing as team 2',
     group: 'fog',
-    goal: 'You are team 2 (gold). Your squads stand by the east road; a team-1 force waits out of sight to the north, a team-0 squad to the west. Scout.',
+    goal: 'You are team 2 (Kyrene, red). Your squads stand by the east road; a team-1 force waits out of sight to the north, a team-0 squad to the west. Scout.',
     check: ['Your men draw in your colour (slot 0) and are selectable; team 0 draws in another', 'Foes show only within your sight; the shroud keeps what you explored', 'Fog off (console Overlays) shows everyone; on again hides them', 'Stock and build go to team 2'],
     team: 2,
     squads: [

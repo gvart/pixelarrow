@@ -57,6 +57,11 @@ marsh, scree and forest slow; roads are fast; high ground gives + range and + da
 | Kyrene | SE | desert-edge oasis on a river terrace, red cliffs | copper | Ammos dunes (N), Great River (W) |
 | Elaia | SW | terraced olive hills round a bay, marble | marble | Stymphalia (N), Great River (E) |
 
+Each alliance has one colour everywhere, the world map's and the region's alike (`src/war/world/palette.ts`, from
+`ALLIANCES` and matching the world art): Dodona blue, Skythia gold, Kyrene red, Elaia purple. In a region a team's men
+wear it (the art's red cloth dyed per team, Kyrene keeps the red), and its rings, flags, building marks and land wear
+it too; your own men stand out by a full, wider foot ring (foes' are fainter), and the ownership mode names your land.
+
 Each home sums to 9 resource points; through its entries each home reaches exactly one tin region, one silver
 region and one of Krios/Achelous Delta, all two transfers away. Bronze = copper + tin, so tin and copper force trade
 or war.

@@ -9,7 +9,9 @@ import { buildGrid } from '../sim/grid';
 import { CLAIM } from '../sim/mobs';
 import { decodeBiomes, decodeVisual, KINDS } from '../regions/visual';
 import type { BuildingSnap, BuildingType, ClaimSnap, InfluenceMap, LairSnap, NodeSnap, RegionData, ResourceKind } from '../types';
-import { slot } from './side';
+import { myTeam, slot } from './side';
+import { TEAM_RGB as PALETTE } from '../world/palette';
+import { ALLIANCES } from '../world/alliances';
 import { IsoMap, LH } from './iso';
 
 export type MapMode = 'normal' | 'altitude' | 'movement' | 'ownership' | 'biomes' | 'resources';
@@ -34,7 +36,8 @@ export interface LegendRow { c: RGB; label: string; hatch?: boolean; line?: bool
  */
 export interface Tint { mode: MapMode; pal: RGB[]; alpha: number; at: Int16Array; fine: boolean; line: 'dark' | 'color' | 'cliff' | null; legend: LegendRow[]; hatch?: number[] }
 
-export const TEAM_RGB: RGB[] = [[74, 163, 255], [224, 80, 60], [232, 192, 64], [176, 112, 224]];
+/** Each team's colour (its alliance's, as on the world map: ../world/palette.ts). */
+export const TEAM_RGB: RGB[] = PALETTE.map((c): RGB => [...c]);
 const css = (c: RGB, a = 1) => `rgba(${c[0] | 0},${c[1] | 0},${c[2] | 0},${a})`;
 export const hex = (c: RGB) => '#' + c.map((v) => Math.round(v).toString(16).padStart(2, '0')).join('');
 
@@ -160,11 +163,11 @@ export class MapData {
       const m = l.influence;
       if (m && m.w === w) for (let i = 0; i < nt; i++) {
         const v = m.mask[i];
-        if (v) at[i] = slot(v & 1 ? 0 : v & 2 ? 1 : v & 4 ? 2 : 3); // ours in slot 0 (./side.ts)
+        if (v) at[i] = slot(v & 1 ? 0 : v & 2 ? 1 : v & 4 ? 2 : 3); // each team in its alliance's colour (./side.ts)
       }
       const pal: RGB[] = [...TEAM_RGB, [226, 178, 84], [138, 120, 106], [110, 86, 70], [240, 192, 80]];
       return { mode, pal, alpha: 0.42, at, fine: false, line: 'color', hatch: [4, 5, 6],
-        legend: [{ c: TEAM_RGB[0], label: 'Your land' }, { c: TEAM_RGB[1], label: 'Enemy land' }, { c: pal[4], label: 'Claim zone, open', hatch: true }, { c: pal[5], label: 'Claim zone, guarded', hatch: true },
+        legend: [...TEAM_RGB.map((c, t) => ({ c, label: t === myTeam() ? `Your land (${ALLIANCES[t].name})` : `${ALLIANCES[t].name}'s land` })), { c: pal[4], label: 'Claim zone, open', hatch: true }, { c: pal[5], label: 'Claim zone, guarded', hatch: true },
           { c: pal[6], label: 'No building here', hatch: true }, { c: pal[7], label: 'Region entry' }] };
     }
     if (mode === 'biomes') {

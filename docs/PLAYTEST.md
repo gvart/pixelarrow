@@ -183,7 +183,7 @@ steps it 50 ticks and checks a seed plays the same. Region test-ridge unless nam
 | civ-household |  | A camp with a forge and a cookhouse. |
 | civ-flee |  | The household is at work when bandits come out of the woods to the south; no guard this time. |
 | **Fog & vision** (2) | | |
-| fog-team2 |  | You are team 2 (gold). |
+| fog-team2 |  | You are team 2 (Kyrene, red). |
 | fog-high-ground |  | An enemy archer squad waits on the ridge crest above your scouts. |
 | **Limits** (2) | | |
 | limit-army |  | Your whole army, 12 men, stands in one squad, with two cooks of the household beside it. |

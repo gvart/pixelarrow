@@ -4,6 +4,7 @@
  * the region under a point comes from region-ids.png (half size, red = 1-based index in `order`).
  */
 import { ALLIANCES } from '../world/alliances';
+import { TEAM_CSS } from '../world/palette';
 import type { RegionState, TransitSnap } from '../net/world';
 import { TRADE_ROUTES, MARKET_TOWNS, isChokepoint, type ConvoySnap, type HaulPlan } from './geo';
 
@@ -89,9 +90,9 @@ function fogTexture(w: number, h: number): HTMLCanvasElement {
   return c;
 }
 
-/** An alliance's colour on the world map (the art's palette, regions.json). */
-export function allianceColor(art: WorldArt, a: number): string {
-  return art.alliances[ALLIANCES[a]?.key]?.color ?? '#888';
+/** An alliance's colour on the world map: the shared team palette (../world/palette.ts), which the region draws too. */
+export function allianceColor(_art: WorldArt, a: number): string {
+  return TEAM_CSS[a] ?? '#888';
 }
 
 export class WorldMap {

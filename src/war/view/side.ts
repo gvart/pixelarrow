@@ -3,8 +3,8 @@
  * the region with `?team=<alliance>`; the live region's welcome confirms it (./simClient.ts). Everything that asks
  * "is this ours?" (fog, selection, cards, the HUD) asks `isMine`; the sim keeps the real team ids.
  *
- * Colours are relative: the player's side always draws in slot 0 (blue, the TEAM_SWAP cloth of ./units.ts) and team 0
- * takes the player's own slot, so every side keeps a distinct colour.
+ * Colours are absolute: every team draws in its alliance's colour, as on the world map (../world/palette.ts); the
+ * player's own men stand out by their foot ring (./units.ts), not by a colour of their own.
  */
 let me = parseTeam(typeof location === 'undefined' ? null : new URLSearchParams(location.search).get('team'));
 
@@ -23,5 +23,5 @@ export function setMyTeam(team: number): void {
 
 export const isMine = (team: number | undefined): boolean => team === me;
 
-/** The colour slot a team draws in: ours 0, team 0 ours, the rest their own. */
-export const slot = (team: number): number => (team === me ? 0 : team === 0 ? me : team);
+/** The colour slot a team draws in: its own (alliance) colour, the same for every player. */
+export const slot = (team: number): number => team;
