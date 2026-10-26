@@ -22,8 +22,8 @@ const follow = (track, zoom, t, dx = 0, dy = 0) => [{ t: 0, track, dx, dy, zoom 
 const SHOT_LIST = [
   // Act I: peace (Elaia)
   { id: '01-bay', query: { scenario: 'trailer-elaia' }, lead: 2, seconds: 4.4, camera: pan(226, 326, 242, 333, 0.5, 4.4) },
-  { id: '02-agora', query: { scenario: 'trailer-elaia' }, lead: 0.5, seconds: 3.4, camera: still(254.5, 314, 2, 3.4) },
-  { id: '03-chop', query: { scenario: 'trailer-elaia' }, lead: 12, seconds: 2.4, camera: follow(squad(3), 3, 2.4, 0, -1) },
+  { id: '02-agora', query: { scenario: 'trailer-elaia' }, lead: 2, seconds: 3.4, camera: still(254.5, 314, 2, 3.4) },
+  { id: '03-chop', query: { scenario: 'trailer-elaia' }, lead: 4, seconds: 2.4, camera: follow(squad(3), 3, 2.4, -1, -2) },
   { id: '04-marble', query: { scenario: 'trailer-elaia' }, lead: 12, seconds: 2.4, camera: pan(419.5, 109, 420.5, 108.5, 3, 2.4) },
   { id: '05-hunt', query: { scenario: 'trailer-hunt' }, lead: 0.5, seconds: 3.4, camera: follow(mid(3, 6), 1.5, 3.4) },
   { id: '06-wagon', query: { scenario: 'clip-caravan' }, lead: 4, seconds: 2.4, camera: [{ t: 0, track: '(s) => s.sim.cur.sieges[0]', dx: 1, dy: 1, zoom: 1 }, { t: 2.4, track: '(s) => s.sim.cur.sieges[0]', dx: 3, dy: 2, zoom: 1, ease: 'linear' }] },

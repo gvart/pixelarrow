@@ -16,8 +16,19 @@ const you = (cls: string, [x, y]: P, count = SQUAD_MAX): ScenarioSquad => ({ tea
 /** Elaia's agora: the well, the brazier the hoplites meet by, and the two groups' marks either side of it. */
 export const WELL = [254.5, 313.5] as const;
 const BRAZIER = [252, 316] as const;
-/** Where the foragers work (the nearest node of its kind): a tree below the olive terraces, the marble knoll's deposit, the olive grove. */
-export const WOOD = [E.olives[0] + 20, E.olives[1] + 40] as const, MARBLE = E.marbleKnoll, OLIVE = E.olives;
+/** The two hoplite groups' marks; each starts back along the line between them (a clear, straight walk), so they halt facing each other. */
+const MEET = [[252.5, 314.5], [256.5, 313]] as const;
+const back = (from: P, to: P, d = 5): P => {
+  const dx = from[0] - to[0], dy = from[1] - to[1], k = d / Math.hypot(dx, dy);
+  return [from[0] + dx * k, from[1] + dy * k];
+};
+/**
+ * Where the foragers work (the nearest node of its kind): a lone flame cypress in the fields below the olive terraces
+ * (no other tree in front of it, so it never fades over them), the marble knoll's deposit, the olive grove.
+ */
+export const WOOD = [286.4, 272.5] as const, MARBLE = E.marbleKnoll, OLIVE = E.olives;
+/** The woodcutters come at the cypress from the front (screen-below), so they stand before it, not behind it. */
+const WOOD_FRONT = [WOOD[0] + 3, WOOD[1] + 3] as const;
 /** The column's halt on the terrace top above the olive grove, and the cottage the fire arrows go for (building 25). */
 export const RIDGE = [318, 176] as const;
 export const COTTAGE = 25;
@@ -25,10 +36,10 @@ const COLUMN = ['celt_sword', 'celt_sword', 'javelineer', 'archer'] as const;
 
 /** The town at peace (squads 0..6, team 0) and the column on the ridge (7..10, team 1, idle). */
 const town: ScenarioSquad[] = [
-  you('hoplite', [246, 318], 4),
-  you('hoplite', [262, 312], 4),
+  you('hoplite', back(MEET[0], MEET[1]), 4),
+  you('hoplite', back(MEET[1], MEET[0], 6), 4),
   you('civ_merchant', [256.5, 309.5], 2),
-  you('civ_forager', WOOD, 3),
+  you('civ_forager', WOOD_FRONT, 3),
   you('civ_forager', [E.marbleKnoll[0] + 2, E.marbleKnoll[1] + 4], 2),
   you('civ_forager', [E.olives[0] - 2, E.olives[1] + 5], 3),
   you('militia', [232, 306], 6),
@@ -40,8 +51,8 @@ const column = (bots: boolean): ScenarioSquad[] => COLUMN.map((cls, i) => ({
 }));
 /** The day's work: the hoplites meet at the well, the merchants stand their stall, the foragers fell, quarry and pick. */
 const work: ScenarioOrder[] = [
-  { kind: 'move', squad: 0, x: 252.5, y: 314.5 },
-  { kind: 'move', squad: 1, x: 256.5, y: 313 },
+  { kind: 'move', squad: 0, x: MEET[0][0], y: MEET[0][1] },
+  { kind: 'move', squad: 1, x: MEET[1][0], y: MEET[1][1] },
   { kind: 'placeBuilding', squad: 0, type: 'brazier', x: BRAZIER[0], y: BRAZIER[1] },
   { kind: 'gatherNear', squad: 3, res: 'wood', x: WOOD[0], y: WOOD[1] },
   { kind: 'gatherNear', squad: 4, res: 'marble', x: MARBLE[0], y: MARBLE[1] },
