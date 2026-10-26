@@ -574,7 +574,7 @@ export class SandboxScene extends Phaser.Scene {
     for (const s of this.selected) if (this.sim.cur && !this.sim.squads.has(s)) this.selected.delete(s);
     const fog = this.sim.fog;
     if (fog && fog.version !== this.fogVer) (this.fogVer = fog.version), this.fog.set(fog);
-    this.fog.update(dt);
+    this.fog.update(dt, view);
     this.drawn = this.sim.units();
     // M7d: guardians perched or flying, and their squads' units not drawn (the Chimera's other heads)
     const bosses = this.sim.cur?.bosses;
