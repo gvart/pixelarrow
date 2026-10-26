@@ -8,14 +8,42 @@
  *    farm razed) is sent in `gone` if he knew it.
  *  - Influence: his own team's bit of the influence mask only, run-length encoded (runs alternate, the first one is
  *    outside), sent whenever it differs from what he has; `v` is the sim's influence version.
- *  - Stock: his own team's stockpile (whole units) whenever it differs from what he has.
+ *  - Stock (W-60): the goods of the one store of his team his men stand next to (storeNear, whole units; none near:
+ *    store null, no goods) whenever store or goods differ from what he has; never a network or team total.
  * The client (./client.ts) keeps the nodes by id and rebuilds the InfluenceMap with bit `team` set.
  */
 import { GOODS } from './protocol';
-import type { InfluenceMap, NodeSnap, ResourceKind } from '../types';
+import { BUILDINGS } from '../sim/economy';
+import type { BuildingSnap, InfluenceMap, NodeSnap, ResourceKind, Snapshot } from '../types';
 
 /** Ticks between node updates (amounts change slowly; the local worker uses the same pace). */
 export const NODES_EVERY = 10;
+
+/** W-60: a store of yours this close (tiles from its middle) is the one at hand: the Town store tab, the `stock` message. */
+export const STORE_NEAR = 8;
+
+/** W-60: the nearest standing store of `team` within r of (x,y) (null: none so near). */
+export function storeNear(cur: Snapshot | null | undefined, team: number, x: number, y: number, r = STORE_NEAR): BuildingSnap | null {
+  let best: BuildingSnap | null = null, bd = r * r;
+  for (const b of cur?.buildings ?? []) {
+    if (b.team !== team || !BUILDINGS[b.type]?.store || (b.state !== 'done' && b.state !== 'damaged')) continue;
+    const d = (b.x - x) ** 2 + (b.y - y) ** 2;
+    if (d <= bd) (bd = d), (best = b);
+  }
+  return best;
+}
+
+/** W-60 server side: the store of `team` nearest to any of these living men, within STORE_NEAR (null: none so near). */
+export function storeByMen(cur: Snapshot, team: number, men: { x: number; y: number }[]): BuildingSnap | null {
+  let best: BuildingSnap | null = null, bd = Infinity;
+  for (const u of men) {
+    const b = storeNear(cur, team, u.x, u.y);
+    if (!b) continue;
+    const d = (b.x - u.x) ** 2 + (b.y - u.y) ** 2;
+    if (d < bd) (bd = d), (best = b);
+  }
+  return best;
+}
 
 /** A node packed: id, good (index into GOODS), x, y, amount (whole), max, flags (1 guarded, 2 rare), obj (-1 none), building (-1 none). */
 export type NodeRow = [number, number, number, number, number, number, number, number, number];
@@ -93,14 +121,14 @@ export class EconomyFeed {
     return rows.length || gone.length ? { rows, gone } : null;
   }
 
-  /** The team's stockpile in whole units when it differs from what he has (null: unchanged). */
-  stock(goods: Partial<Record<string, number>> | undefined): Record<string, number> | null {
+  /** W-60: the store at hand (null: none) and its goods in whole units, when either differs from what he has (null: unchanged). */
+  stock(store: BuildingSnap | null): { store: number | null; goods: Record<string, number> } | null {
     const out: Record<string, number> = {};
-    for (const [k, v] of Object.entries(goods ?? {})) if (v && Math.floor(v) > 0) out[k] = Math.floor(v);
-    const key = JSON.stringify(out);
+    for (const [k, v] of Object.entries(store?.goods ?? {})) if (v && Math.floor(v) > 0) out[k] = Math.floor(v);
+    const id = store?.id ?? null, key = `${id}|${JSON.stringify(out)}`;
     if (key === this.goods) return null;
     this.goods = key;
-    return out;
+    return { store: id, goods: out };
   }
 
   /** The team's influence runs when they differ from what he has (null: unchanged). */
