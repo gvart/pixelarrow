@@ -1,0 +1,23 @@
+scripts/war/regions/landmarks.ts
+  s_fcb7475e0b5395::t_346f07f8b1b2f6 598-599
+src/war/regions/delta.json
+  s_fcb7475e0b5395::t_06d62aa8003e61 1
+scripts/war/regions/delta.ts
+  s_fcb7475e0b5395::t_a3183be527feb1 14,50-51
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "4d5a9c395c086badb8b66ac8e222d06381d02d1e",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
