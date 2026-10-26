@@ -7,7 +7,9 @@
  * Units are depth sorted by x + y (with the map objects, ./objects.ts); the player's own men hidden
  * behind higher ground, a wall or a stone object show as a team-coloured outline over it; hidden
  * foes are simply hidden.
- * The sheets wear red; the player's side (colour slot 0, blue: ./side.ts) draws through TEAM_SWAP, a shader that turns the red cloth blue.
+ * The sheets wear red; the player's side (colour slot 0, blue: ./side.ts) wears blue. A class whose manifest has colour
+ * groups draws through LOOK (./lookShader.ts): each man's own look (./look.ts: skin, cloak, crest, trim, hair, gear tier)
+ * in his team's colours; other sheets draw through TEAM_SWAP, a shader that turns the red cloth blue.
  * A man walking with a load (./anim.ts loadOf) carries its sprite (src/assets/loads) at his sheet's per-frame
  * `loads` anchor: on the shoulder over him, held at the chest under him in the north facings (his back to us).
  */
@@ -21,6 +23,8 @@ import type { DrawUnit } from './simClient';
 import { LH, type IsoMap } from './iso';
 import type { Lift } from './build/buildingLayer';
 import { myTeam, slot } from './side';
+import { lookCode, lookHero, lookHeroesVersion, lookOf, type Look } from './look';
+import { LOOK, addLookPipeline } from './lookShader';
 
 export const TEAM_COLOR = [0x4aa3ff, 0xe0503c, 0xe8c040, 0xb070e0];
 /** A light multiply per colour slot on the sprites (slot 0 is also hue-swapped, see TEAM_SWAP). */
@@ -107,6 +111,8 @@ interface SheetLoads { clip: string; shoulder: Record<string, [number, number][]
 const LOADS_KEY = 'war-loads';
 
 interface Sheet {
+  /** The class whose sheet it is. */
+  cls: string;
   /** Per quadrant: the image row, and the sprite origin (the feet). */
   rows: { row: number; ox: number; oy: number }[];
   clips: Map<string, ClipDef>;
@@ -181,7 +187,7 @@ function buildSheet(scene: Phaser.Scene, cls: string, m: SheetManifest, img: HTM
     frames.set(name, byRow);
   }
   const ms = (m as SheetManifest & { scale?: number }).scale ?? SOLDIER_SCALE;
-  return { rows, clips, frames, rowNames: m.rows, loads: (m as SheetManifest & { loads?: SheetLoads }).loads, scale: ms / SOLDIER_SCALE, fw, fh };
+  return { cls, rows, clips, frames, rowNames: m.rows, loads: (m as SheetManifest & { loads?: SheetLoads }).loads, scale: ms / SOLDIER_SCALE, fw, fh };
 }
 
 /** The load sprites as frames of one texture, named as in src/assets/loads/manifest.json. */
@@ -207,6 +213,12 @@ export class UnitLayer {
   private gUnder: Phaser.GameObjects.Graphics;
   private swap: boolean;
   private outline: boolean;
+  /** Per class with colour groups: its block in the look palette (none: no look pipeline). */
+  private lookIndex: Map<string, number> | null;
+  /** Draw men in their own looks (false: as before, the team swap; for A/B perf checks). */
+  lookOn = true;
+  /** Per unit: his look code, and what it was made from. */
+  private codes = new Map<number, { cls: string; team: number; pid?: string; level?: number; ver: number; fx: number; tint: number }>();
   private ids = 0;
 
   constructor(private scene: Phaser.Scene, private iso: IsoMap, sheetImages: Map<string, HTMLImageElement>) {
@@ -216,6 +228,7 @@ export class UnitLayer {
       const cls = path.split('/').at(-2)!, img = sheetImages.get(cls);
       if (img) this.pending.set(cls, [m, img]);
     }
+    this.lookIndex = addLookPipeline(scene, [...this.pending].map(([cls, [m]]) => [cls, m] as [string, SheetManifest]), TEAM_TINT);
     const loadsImg = sheetImages.get(LOADS_KEY);
     if (loadsImg) buildLoads(scene, loadsImg);
     this.gUnder = scene.add.graphics().setDepth(9);
@@ -322,7 +335,12 @@ export class UnitLayer {
     this.nLoad = 0;
     this.nUnder[0] = this.nUnder[1] = 0;
     this.anim.frame(units, squads, at.now);
-    if (this.ids !== units.length) { this.ids = units.length; this.anim.prune(new Set(units.map((d) => d.u.id))); }
+    if (this.ids !== units.length) {
+      this.ids = units.length;
+      const live = new Set(units.map((d) => d.u.id));
+      this.anim.prune(live);
+      for (const id of this.codes.keys()) if (!live.has(id)) this.codes.delete(id);
+    }
     used = this.sprites(units, view, zoom, selected, at, shots, under, occluded);
     used = this.drawCorpses(used, at.now);
     for (let i = used; i < this.pool.length; i++) this.pool[i].setVisible(false);
@@ -437,15 +455,21 @@ export class UnitLayer {
       n++;
       img.setTexture(key, frame).setOrigin(q.ox, q.oy).setPosition(Math.round(f.x), Math.round(f.y)).setScale(sheet.scale * (po?.sx ?? 1), sheet.scale * (po?.sy ?? 1)).setVisible(true);
       img.setDepth(depth);
-      if (this.swap && slot(d.team) === 0) img.setPipeline(TEAM_SWAP);
-      else if (this.swap) img.resetPipeline();
-      img.setTint(TEAM_TINT[slot(d.team)] ?? 0xffffff).setAlpha(1);
+      const code = this.lookOn ? this.code(d, sheet.cls) : undefined;
+      if (code) {
+        img.setPipeline(LOOK).setTint(code.tint).setAlpha(1);
+        img.tintFill = code.fx as unknown as boolean; // the look's tint effect (lookCode), passed through to the shader as is
+      } else {
+        if (this.swap && slot(d.team) === 0) img.setPipeline(TEAM_SWAP);
+        else if (this.swap) img.resetPipeline();
+        img.setTint(TEAM_TINT[slot(d.team)] ?? 0xffffff).setAlpha(1);
+      }
       if (po?.flash) img.setTintFill(0xfff4e0);
       // hidden behind higher ground (the sprite would draw over the baked terrain: not drawn) or behind a wall or object
       // (drawn under it): the player's own men (and the selected) get a thin team-coloured outline over everything, no
       // fill; a hidden foe is simply hidden
       if (hidden) img.setVisible(false);
-      else this.load(d, sheet, q.row, p.clip, p.frame, img);
+      else this.load(d, sheet, q.row, p.clip, p.frame, img, TEAM_TINT[slot(d.team)] ?? 0xffffff);
       const mk = u.state !== 'dead' ? this.mark?.(u.id) : undefined;
       if (mk !== undefined || ((hidden || occluded.has(u.id)) && (d.team === myTeam() || selected.has(u.id)))) {
         let gh = this.ghosts[this.nGhost];
@@ -463,8 +487,25 @@ export class UnitLayer {
     return n;
   }
 
+  /**
+   * A man's look code for the LOOK shader (undefined: his sheet has no colour groups, or no WebGL), made once per man
+   * and again when his class, team, level or gear source (setLookHeroes) changes. Seeded by his person id; a class-spawned man by his unit id.
+   */
+  private code(d: DrawUnit, cls: string): { fx: number; tint: number } | undefined {
+    const ci = this.lookIndex?.get(cls);
+    if (ci === undefined) return undefined;
+    const u = d.u, team = slot(d.team) & 3;
+    let c = this.codes.get(u.id);
+    const ver = lookHeroesVersion();
+    if (!c || c.cls !== cls || c.team !== team || c.pid !== u.pid || c.level !== u.level || c.ver !== ver) {
+      const look: Look = lookOf(u.pid ?? `unit:${u.id}`, u.cls, { level: u.level, hero: lookHero(u.pid) });
+      this.codes.set(u.id, (c = { cls, team, pid: u.pid, level: u.level, ver, ...lookCode(ci, team, look) }));
+    }
+    return c;
+  }
+
   /** The load a walking carrier holds, on his frame's anchor (shoulder: over him; chest: under him when his back is to us). */
-  private load(d: DrawUnit, sheet: Sheet, row: number, clip: string, frame: number, body: Phaser.GameObjects.Image): void {
+  private load(d: DrawUnit, sheet: Sheet, row: number, clip: string, frame: number, body: Phaser.GameObjects.Image, tint: number): void {
     const name = loadOf(d.u), L = sheet.loads;
     if (!name || !L || clip !== L.clip || !this.scene.textures.exists(LOADS_KEY)) return;
     const f = loadsManifest.frames[name as keyof typeof loadsManifest.frames], rowName = sheet.rowNames[row];
@@ -475,7 +516,7 @@ export class UnitLayer {
     this.nLoad++;
     const behind = f.at === 'chest' && rowName.startsWith('north');
     im.setTexture(LOADS_KEY, name).setOrigin(f.ox / f.w, f.oy / f.h).setPosition(body.x + at[0], body.y + at[1]).setVisible(true);
-    im.setDepth(body.depth + (behind ? -1e-6 : 1e-6)).setTint(body.tintTopLeft);
+    im.setDepth(body.depth + (behind ? -1e-6 : 1e-6)).setTint(tint);
   }
 }
 

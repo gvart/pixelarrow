@@ -126,25 +126,31 @@ A sheet with no attack clip skips the attack states.
 
 ## Tiers and per-man variation
 
-The colour map is built once per key and cached:
+The war map draws each man in his own look (`src/war/view/look.ts`), seeded
+from his person id (a class-spawned man: his unit id), so the map, his roster
+card and the codex agree. Groups `cloak`, `crest`, `trim`, `skin`, `emblem`,
+`hair` and `beard` are recoloured; `wood` and metal stay as drawn.
 
 1. **Tier**: gear score = summed `ItemDef.tier` (1..3) of worn weapon, shield,
    helmet and armour, divided by the slots the class may fill (`CLASS_GEAR`),
    an empty slot counting 0. Each class's band (`TIER_BANDS`, from its kit in
    `src/data/classes.ts`) is the score range of its three kit tiers split in
-   thirds: basic, veteran, elite. A class whose kit never varies (royal guard)
-   splits the range of everything it may equip. Rarity never moves the tier.
-   `DollSpec.sheetTier` forces it.
-2. **Skin**: `Look.skin` (0..3) picks one of `SKIN_TONES`; the sheet's ramp is
-   tone 1 (olive), 0 paler, 2 browner, 3 deep brown. Off with `variation.skin: false`.
-3. **Shade**: the man's seed picks one of `SHADE_STEPS` (x0.9, x1, x1.1) for
-   `cloak` and `crest`, after the tier. Off with `variation.shade: false`.
-4. **Rarity**: each metal group is spread over its rank's 5-colour ramp (off
-   with `rarity.metal: false`). Rank 2+ metal is the glint mask, the epic
-   outline ring the silhouette; `dollFx` animates both.
+   thirds: basic, veteran, elite. Without his gear (`setLookHeroes`), his level
+   decides: 1-3 basic, 4-7 veteran, 8+ elite. Rarity never moves the tier.
+2. **Team**: red cloth of the player's side (slot 0) turns blue (the
+   `TEAM_SWAP` formula); every slot gets its light `TEAM_TINT`.
+3. **Skin**: one of six `SKIN_TONES` (the sheet's ramp is tone 1), weighted by
+   the class's folk (Greek, Phoenician, Celtic, Thracian). Off with `variation.skin: false`.
+4. **Cloth**: a small hue / saturation / value step for `cloak` (8), `crest`
+   (4) and `trim` (4) after the tier and team, never more than 8 degrees of hue,
+   so a cloak stays in its team's family. Off with `variation.shade: false`.
+5. **Hair**: one of five `HAIR_COLOURS` (black to dark blond) on a `hair` or
+   `beard` group. No shipped sheet has one yet.
 
-Key: `sheet_<class>.<tier>.<skin><shade>_<metal ranks>...`: at most 36 looks
-per rarity mix per class.
+One shader pass (`src/war/view/lookShader.ts`): a palette texture holds per
+class a hashed slot per recoloured colour with its drawn colour for every team,
+tier and step; the sprite carries the man's steps in its tint. `paintLook` does
+the same on CPU pixels (portraits, icons).
 
 ## Animations and fallbacks
 
