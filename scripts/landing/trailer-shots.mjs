@@ -21,7 +21,7 @@ const follow = (track, zoom, t, dx = 0, dy = 0) => [{ t: 0, track, dx, dy, zoom 
 
 const SHOT_LIST = [
   // Act I: peace (Elaia)
-  { id: '01-bay', query: { scenario: 'trailer-elaia' }, lead: 2, seconds: 4.4, camera: pan(222, 314, 242, 326, 0.5, 4.4) },
+  { id: '01-bay', query: { scenario: 'trailer-elaia' }, lead: 2, seconds: 4.4, camera: pan(226, 326, 242, 333, 0.5, 4.4) },
   { id: '02-agora', query: { scenario: 'trailer-elaia' }, lead: 0.5, seconds: 3.4, camera: still(254.5, 314, 2, 3.4) },
   { id: '03-chop', query: { scenario: 'trailer-elaia' }, lead: 12, seconds: 2.4, camera: follow(squad(3), 3, 2.4, 0, -1) },
   { id: '04-marble', query: { scenario: 'trailer-elaia' }, lead: 12, seconds: 2.4, camera: pan(419.5, 109, 420.5, 108.5, 3, 2.4) },
