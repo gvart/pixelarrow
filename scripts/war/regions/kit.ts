@@ -2029,6 +2029,21 @@ export function build(def: RegionDef): Built {
   }
   // the pre-built pieces: their town's claim point, and the town's condition by depth and lore (a court stays whole)
   const prebuilt: PrebuiltEntry[] = [];
+  // a jetty left standing on dry ground (the shore laid after it moved out, e.g. a sea's beach) slides across its
+  // length to the nearest run of water within a few tiles
+  for (const e of pre) {
+    if (e.type !== 'jetty' || !e.tiles) continue;
+    const t = e.tiles, alongY = t.length > 2 && t[0] === t[2], wet = (d: number) => {
+      for (let n = 0; n < t.length; n += 2) { const x = t[n] + (alongY ? d : 0), y = t[n + 1] + (alongY ? 0 : d); if (x < 0 || y < 0 || x >= W || y >= H || !water[y * W + x]) return false; }
+      return true;
+    };
+    if ([0, 1, -1].some((d) => wet(d))) continue;
+    const d = [-2, 2, -3, 3, -4, 4, -5, 5, -6, 6, -7, 7, -8, 8].find(wet);
+    if (d === undefined) continue;
+    for (let n = 0; n < t.length; n += 2) t[n + (alongY ? 0 : 1)] += d;
+    if (alongY) e.x += d; else e.y += d;
+    log.push(`jetty moved ${d} onto the water`);
+  }
   {
     const cond = CONDITION[k.world.id] ?? CONDITION_BY_DEPTH[REGION_DEPTH[k.world.id] ?? 1];
     const homes = new Map<number, number>(), ruins = new Map<number, number>();
