@@ -1,0 +1,51 @@
+src/war/view/hud/goods.ts
+  s_fcb7475e0b5395::t_5f28b1abfe0426 1-90
+src/war/view/hud/buildingCard.ts
+  s_fcb7475e0b5395::t_3f1e97bba2185a 19
+  s_fcb7475e0b5395::t_79b8d16df5dadf 2-7,10
+  s_fcb7475e0b5395::t_a2bd7bc1be0896 18
+  s_fcb7475e0b5395::t_2efeb5f4179151 108-143,145,148,151-152,154-161,164-167,169-170,172-177,180-183
+src/war/input/actions.ts
+  s_fcb7475e0b5395::t_0f0b774e6e0f52 51,116
+src/war/view/hud/codex.ts
+  s_fcb7475e0b5395::t_df0a3cdf7a16fe 243-270
+src/war/view/hud/chest.ts
+  s_fcb7475e0b5395::t_ef84d111e7d5e4 60-61,64-69,71
+  s_fcb7475e0b5395::t_d0881432c7533a 12,23,94,96
+  s_fcb7475e0b5395::t_2ee2def9c1092c 15
+  s_fcb7475e0b5395::t_e36916a3ffa948 106
+  s_fcb7475e0b5395::t_c4a9e416ba4ef6 1-11,13-14,16-22,24-31,33-37,39-59,62-63,70,72-93,95,97-105,107-214
+  s_fcb7475e0b5395::t_ad868174d2b504 32
+  s_fcb7475e0b5395::t_5b1d1b42380104 38
+src/war/view/hud/hud.ts
+  s_fcb7475e0b5395::t_a2b00d7ba37529 400-401,403-405,409-412,416,418,423-424,428,433,435-438
+  s_fcb7475e0b5395::t_756f9b4f08979d 37
+  s_fcb7475e0b5395::t_fc48ae6a62890b 314
+  s_fcb7475e0b5395::t_fe3664ec7cc523 264-265,267,269,271-273,275-278
+  s_fcb7475e0b5395::t_08a1402be4ed51 354
+  s_fcb7475e0b5395::t_91d5d0cc7aa71a 50-52
+  s_fcb7475e0b5395::t_c65693f184357b 4-5
+  s_fcb7475e0b5395::t_18b5f140753df4 14-15
+  s_fcb7475e0b5395::t_0c7f7d1b20b69b 18
+  s_fcb7475e0b5395::t_e1a52d8fd9986f 30,33
+  s_fcb7475e0b5395::t_97a2830322b340 174
+src/war/view/hud/kit.ts
+  s_fcb7475e0b5395::t_4b8504d68da589 150-177,182
+  s_fcb7475e0b5395::t_d7fc3f271b1efe 178-181
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "0a03eea870f1a07cc98ecb8e88e079d657ed7cc5",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
