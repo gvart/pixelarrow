@@ -13,6 +13,7 @@
 import type { Kit, Pt, RegionDef } from './kit.ts';
 import { fbm } from './kit.ts';
 import { relief } from './setpieces.ts';
+import { nearestSample, spline } from '../shapes.ts';
 
 /** The ravine's centre line (unit y over x) and half-width: wide by Dodona, the narrows at x 128. */
 const cy = (x: number) => 128 + 8 * Math.sin(x / 41) - 4 * Math.sin(x / 17);
@@ -21,6 +22,9 @@ const half = (x: number) => 2.1 + Math.min(13, Math.abs(x - 128) * 0.15);
 const floor = (x: number) => (x < 86 ? 2 : x < 176 ? 4 : 6);
 /** The shoulders' tiers: the same steps, their edges wandering across the slopes. */
 const tier = (x: number, y: number) => floor(x + 9 * Math.sin(y / 13) + 5 * Math.cos(y / 5.3));
+/** The stream's ledge: the middle tier (h4) reaching on west under the north wall, its front facing the viewer (+y). */
+const ledgeFront = (x: number) => cy(x) - 4 + 0.6 * Math.sin(x / 2.3);
+const ledge = (x: number, y: number) => x > 63 && x < 88 && y < ledgeFront(x);
 
 const def: RegionDef = {
   id: 'dodona-e',
@@ -34,7 +38,7 @@ const def: RegionDef = {
     // the oak lowland by Dodona low (h2)
     relief(k, (x, y, s) => {
       const d0 = Math.abs(y - cy(x)) - half(x);
-      if (d0 <= 0) return floor(Math.max(0, Math.min(255, x))) as number;
+      if (d0 <= 0) return ledge(x, y) ? 4 : floor(Math.max(0, Math.min(255, x)));
       const d = d0 + 5 * fbm(x, y, 9, s) + 2 * fbm(x, y, 3.5, s + 1), roll = 0.9 * fbm(x, y, 16, s + 2);
       if (y < cy(x)) return tier(x, y) + (d < 34 + 6 * Math.sin(x / 19) ? 6 : 8.4) + roll; // north shoulder, a tier more under the Teeth
       return d < 30 + 5 * Math.sin(x / 15) ? tier(x, y) + 6 + roll : d < 56 + 6 * Math.cos(x / 23) ? tier(x, y) + 3 + roll : 3 + 0.8 * fbm(x, y, 20, s + 3);
@@ -46,10 +50,11 @@ const def: RegionDef = {
     k.rockMass([250, 190, 22, 30, 0.2], { rough: 2, foot: 0 });
     // the side cleft south to the moors: a cut from the ravine floor down the shoulders
     k.cut([[158, cy(158) + 8], [150, 176], [134, 212], [128, 262]], { h: 4, half: 5, bank: 3 });
-    // the stream down the ravine (shallow), over the first step as a fall
-    const R: Pt[] = [[262, cy(256) - 3], [210, cy(210) - 4], [176, cy(176) - 4], [128, cy(128) - 0.8], [86, cy(86) - 5], [40, cy(40) - 6], [-6, cy(0) - 5]];
-    k.river(R, { half: 1.1, deep: false, bed: (s) => (s < 86 ? 6 : s < 180 ? 4 : 2), bank: 0.1 });
-    k.fall([86, cy(86) - 5], [82, cy(82) - 5]);
+    // the stream down the ravine (shallow): along the ledge under the north wall, then south over its front as a fall
+    // facing the viewer (the water sheet, src/war/view/water.ts)
+    const R: Pt[] = [[262, cy(256) - 3], [210, cy(210) - 4], [176, cy(176) - 4], [128, cy(128) - 0.8], [100, cy(100) - 4.5], [86, cy(86) - 6], [74, cy(74) - 6.2], [70.5, cy(70.5) - 6], [69.5, cy(69.5) - 1.5], [56, cy(56) - 3], [40, cy(40) - 6], [-6, cy(0) - 5]];
+    const drop = nearestSample(spline(R), 70, ledgeFront(70)).s;
+    k.river(R, { half: 1.1, deep: false, bed: (s) => (s < 86 ? 6 : s < drop ? 4 : 2), bank: 0.1 });
     k.spot('falls', [86, cy(86) - 5]);
     // the narrows and the shoulders over it; the camp and the diggings
     k.spot('narrows', [128, cy(128) + 1.2]);

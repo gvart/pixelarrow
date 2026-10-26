@@ -65,6 +65,7 @@ const def: RegionDef = {
     k.road([[122, 160], [128, 182], [140, 206], [134, 232], [128, 260]]);
     k.spot('eastCut', [190, 132]);
     k.spot('oldBridge', [110, 138]);
+    k.oldBridge([105.25, 133.25], [113.25, 141.25]); // its stone deck over the estuary, the water drawn on under it
     k.spot('marbleKnoll', [208, 56]);
     k.road([[200, 64], [194, 96], [186, 134]], { grade: 3 });
     k.road([[200, 64], [214, 60], [226, 58]], { w: 1, grade: 2 }); // down the quarry's benches

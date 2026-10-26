@@ -95,7 +95,22 @@ export default composeOnDraft('canyons', { staging: [163, 196], entryBand: 6 }, 
     s.liftOnly = (tx, ty) => ring(tx, ty) || lifted.has(key(tx, ty));
     // the rim and ledges outside the walls: broken dark stone, not the bench's sand
     k.patchWhere('mountains', 'gravel', (x, y) => { const tx = k.tileOfUnit(x) - s.x0, ty = k.tileOfUnit(y) - s.y0; return !ring(tx, ty) && lifted.has(key(tx, ty)); }, ['sand', 'dirt', 'grass']);
-    if (s.look) s.look = { ...s.look, ground: 'rock' };
+    // inside the walls: a hold cut in the black basalt, not a flat yard: grey flagged courts (the central yard, a
+    // plinth round every building, the streets) set in the bare rock, broken stone round the ruins; dark granite talus
+    // and boulder fields heaped in the corners and along the walls (walkable props), the courts kept clear
+    const plinth = new Set<number>();
+    for (const p of s.pieces) {
+      const [w, h] = s.fp(p.id), px = p.x - s.x0, py = p.y - s.y0;
+      if (s.typeOf(p.id) === 'stoneWall' || s.typeOf(p.id) === 'stoneTower' || s.typeOf(p.id) === 'stoneGate') continue;
+      for (let j = py - 2; j < py + h + 2; j++) for (let i = px - 2; i < px + w + 2; i++) plinth.add(key(i, j));
+    }
+    const court = (tx: number, ty: number) => (tx >= 44 && tx < 76 && ty >= 40 && ty < 70) || plinth.has(key(tx, ty));
+    if (s.look) s.look = { ...s.look, ground: 'rock', rough: 'gravel', court };
+    s.dress(['mountains/boulder-field', 'mountains/talus-granite', 'mountains/talus-granite'], (tx, ty) => {
+      if (!ring(tx, ty) || court(tx, ty)) return false;
+      const edge = Math.min(tx - X0, X1 - 1 - tx, ty - Y0, Y1 - 1 - ty);
+      return edge < 9 || fbm(...s.u(tx, ty), 10, 172) > 0.3;
+    }, 70, 171, { gap: 3 });
     // the mesa's dark stone over the walls' rectangle and every lifted tile round it
     k.zone('mountains', (_i, x, y) => { const tx = k.tileOfUnit(x) - s.x0, ty = k.tileOfUnit(y) - s.y0; return ring(tx, ty) || lifted.has(key(tx, ty)) ? 99 : 0; });
   }
@@ -121,4 +136,6 @@ export default composeOnDraft('canyons', { staging: [163, 196], entryBand: 6 }, 
     const i = k.at([x, y]);
     return i >= 0 && k.height[i] <= 3 && k.roadDist[i] > 6 && hash(x, y, ds + 4) < 0.45 && cliffAt(i, x, y); // blocks stay off the ways through
   }, ['sand', 'redrock', 'dirt', 'dune', 'hardpan', 'reg', 'gravel'], 2);
+  // (last: the seeds above stay as they were) the canyon floors: pale sand washes all through (no dark reg or brown dune blotches the desert's sand rule lays)
+  k.patchWhere('kyrene', 'sand', (x, y) => { const i = k.at([x, y]); return i >= 0 && k.height[i] <= 1; }, ['sand']);
 }, { bushes: 0.5 });

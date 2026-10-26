@@ -1,7 +1,8 @@
 /**
  * Falls: where a river's course steps down (its water cells meet lower water, scripts/war/regions/kit.ts settleWater),
  * the face toward the viewer is drawn as falling water (a static sheet: slices of blue, white streaks, a glassy lip and
- * a churned white foot) with flickering foam at its foot.
+ * a churned white foot) with flickering foam at its foot. The sheet lies over the baked ground, so each face is cut off
+ * where the ground in front of it (down its screen column) hides it.
  *
  * Glints on open water: a sparse set of water cells (about one in GAP, away from the shore) each flash a short warm
  * streak now and then, out of phase, so the sea and the rivers shimmer. Cheap: pooled additive images over the
@@ -65,13 +66,23 @@ export class WaterGlints {
         if (!wet(j) || lo >= hi) continue;
         // the shared edge: E-S for +x, S-W for +y (cell corners in grid units)
         const [a, b] = dx ? [[x + 1, y], [x + 1, y + 1]] : [[x + 1, y + 1], [x, y + 1]];
+        // the sheet lies over the baked ground: cut it off where the ground in front (down its screen column) hides the face
+        const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
+        let seen = lo;
+        for (let t = 0; t < 160; t += 0.5) {
+          const cx = Math.floor(mx + t), cy = Math.floor(my + t);
+          if (cx >= fw || cy >= fh) break;
+          if (cx + cy > x + y) seen = Math.max(seen, fz[cy * fw + cx] - (cx + cy + 1 - mx - my) / 4);
+        }
+        if (seen >= hi - 0.25) continue;
         const ba = P(a[0], a[1], lo), bb = P(b[0], b[1], lo);
         g ??= this.scene.add.graphics().setDepth(1.45);
-        // a point on the face: t along its edge (a -> b), h down it (0 the lip, 1 the pool)
-        const at = (t: number, h: number) => P(a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, hi - (hi - lo) * h);
+        // a point on the face: t along its edge (a -> b), h down its seen part (0 the lip, 1 the pool or the ground in front)
+        const H = hi - Math.min(hi, seen);
+        const at = (t: number, h: number) => P(a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, hi - H * h);
         const quad = (t0: number, t1: number, h0: number, h1: number) => g!.fillPoints([at(t0, h0), at(t1, h0), at(t1, h1), at(t0, h1)], true);
         // the foam at the foot about a level tall (at most a third of the drop), the glassy lip a third of a level
-        const H = hi - lo, foot = Math.min(1 / 3, 1.1 / H), lip = Math.min(0.15, 0.35 / H);
+        const foot = seen > lo + 0.25 ? 0 : Math.min(1 / 3, 1.1 / H), lip = Math.min(0.15, 0.35 / H);
         // the body in slices of falling water, each its own blue, darker behind the lip, paler as it falls
         for (let k = 0; k < SLICES; k++) {
           const hk = hash(x, y, 30 + k), c = FALL_BODY[hk % FALL_BODY.length], t0 = k / SLICES, t1 = (k + 1) / SLICES;
@@ -86,7 +97,8 @@ export class WaterGlints {
         }
         g.fillStyle(0x9fd6e2, 0.8); quad(0, 1, 0, lip);
         g.fillStyle(0xf4fbfd, 0.95); quad(0, 1, 0, Math.min(lip, 0.08 / H));
-        // the churned foot: two white bands fading up from the pool
+        // the churned foot: two white bands fading up from the pool (when the pool is in sight)
+        if (!foot) continue;
         g.fillStyle(0xe6f5f8, 0.5); quad(0, 1, 1 - foot, 1);
         g.fillStyle(0xf6fcfd, 0.75); quad(0, 1, 1 - foot * 0.45, 1);
         this.foam.push((ba.x + bb.x) / 2, (ba.y + bb.y) / 2 + 2, (hash(x, y, 33) & 1023) / 1023 * Math.PI * 2);

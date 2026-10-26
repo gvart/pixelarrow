@@ -18,6 +18,8 @@ export interface Keep {
   roadBand?: number;
   /** Units kept round every region-edge entry point (default 20; smaller where the set pieces reach the edge, so no low bowl of draft ground is left round the entry). */
   entryBand?: number;
+  /** Unit boxes [x0, y0, x1, y1] where the kept cells take the composed level (a draft hill a band's straight edge would cut off). */
+  flatten?: [number, number, number, number][];
 }
 
 export function composeOnDraft(id: string, keep: Keep, compose: (k: Kit) => void, style?: Partial<Style>): RegionDef {
@@ -51,7 +53,9 @@ export function composeOnDraft(id: string, keep: Keep, compose: (k: Kit) => void
       };
       k.each((i, x, y) => {
         const kept = k.roadDist[i] < rb || boxes.some((b) => x >= b[0] && y >= b[1] && x <= b[2] && y <= b[3]) || points.some(([p, r]) => Math.hypot(x - p[0], y - p[1]) < r) || nearSeg(x, y);
-        if (kept) { k.height[i] = height[i]; k.terrain[i] = terrain[i]; k.water[i] = water[i]; }
+        if (!kept) return;
+        if (!keep.flatten?.some((b) => x >= b[0] && y >= b[1] && x <= b[2] && y <= b[3])) k.height[i] = height[i];
+        k.terrain[i] = terrain[i]; k.water[i] = water[i];
       });
     },
   };
