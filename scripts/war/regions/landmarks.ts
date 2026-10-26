@@ -595,6 +595,8 @@ export function sunkenTemple(k: Kit, at: Pt, hb: number): Landmark {
   s.put('sunken-temple', 112, 38);
   s.put('achelous-spring', 104, 48); s.put('sunken-shrine', 126, 48); s.put('sunken-shrine', 98, 36);
   for (const [x, y] of [[90, 70], [96, 76], [130, 70], [136, 76]]) s.put('sunken-house', x, y, { hp: 0.5 });
+  // the precinct's floor, a bare lawn inside the colonnade: fallen drums and stones, reeds in the wet hollows, dead trees
+  s.dress(['elaia/wall-fallen-stone', 'kyrene/reeds', 'elaia/debris-stone', 'dead-tree', 'kyrene/reeds', 'dodona/stump-moss'], (x, y) => x > 96 && x < 136 && y > 32 && y < 56, 34, 97, { gap: 3 });
   s.put('arch-treasury', 120, 74); s.put('arch-cistern', 102, 86); s.put('sunken-jetty', 146, 40); s.put('sunken-jetty', 83, 80);
   yard(s, 104, 82, 122, 96);
   // the drowned quarter: houses standing in the shallows along causeway streets

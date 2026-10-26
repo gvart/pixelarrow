@@ -11,7 +11,7 @@
  *                       creeks, pools and mud islands with dead trees, down to the sea.
  */
 import type { Blob, Kit, Pt } from './kit.ts';
-import { composeOnDraft } from './draftCompose.ts';
+import { composeOnDraft, marketGoods } from './draftCompose.ts';
 import { massif } from './setpieces.ts';
 
 export default composeOnDraft('delta', { staging: [236, 373] }, (k: Kit) => {
@@ -47,4 +47,5 @@ export default composeOnDraft('delta', { staging: [236, 373] }, (k: Kit) => {
     [[236, 94, 8, 4, 0.2], [220, 110, 7, 3, -0.4], [250, 108, 6, 4, 0]],
     [[230, 104], [248, 96]],
     [[[262, 98], [236, 104], [204, 112]]]);
-}, { trees: 0.4, bushes: 0.4 });
+  marketGoods(k, [117.5, 119], 'elaia');
+}, { trees: 0.4, bushes: 0.4, tufts: 0.03 });
