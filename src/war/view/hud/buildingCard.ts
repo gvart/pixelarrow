@@ -7,7 +7,8 @@
  * the landmark's restore bill and the engineer who leads it (src/data/warLandmarks.ts). The orders sit on the command
  * card (./hud.ts: repair, rebuild) and the E menu (../interact.ts).
  */
-import type { BuildingSnap, ResourceKind } from '../../types';
+import type { BuildingSnap, BuildingType, ResourceKind } from '../../types';
+import { BUILD_TEXT } from './codex';
 import type { SandboxScene } from '../SandboxScene';
 import { BUILDINGS, NEUTRAL_TEAM, REPAIR, RUIN } from '../../sim/economy';
 import { MOB_TEAM } from '../../sim/mobs';
@@ -105,7 +106,8 @@ export const leadText = (lm: Landmark) => lm.engineer === 10
 
 /** The card's html for building b in region `region`. */
 export function buildingHtml(b: BuildingSnap, region: string): string {
-  const fn = PRE_FUNCTION[b.type] ?? '';
+  const text = BUILD_TEXT[b.type.replace(/\d$/, '') as BuildingType];
+  const fn = PRE_FUNCTION[b.type] ?? (text ? `${text.for.charAt(0).toUpperCase()}${text.for.slice(1)}` : '');
   const share = b.ruin ? 0 : b.hp / Math.max(1, b.maxHp);
   const lm = b.landmark ? landmarkOfRegion(region) : undefined;
   const name = b.landmark && b.art ? nice(b.art.replace(/-/g, ' ')) : nice(b.type);
@@ -125,7 +127,7 @@ export function buildingHtml(b: BuildingSnap, region: string): string {
   }
   if (lm) rows.push(`<span>Restore</span><span>${billText(lm.restore.bulk)} + ${billText(lm.restore.rare)}<br><span class="rf-dim">${lm.name}: led by ${leadText(lm)}</span></span>`);
   return `<div class="rf-head"><span class="rf-name">${name}</span><span class="rf-dim" style="margin-left:auto">${b.pre ? (b.landmark ? 'landmark' : 'pre-built') : ''}</span></div>
-${fn ? `<div style="margin-top:3px">${fn}</div>` : ''}
+${text?.flavour ? `<div class="cx-flav" style="margin:4px 0 0">${text.flavour}</div>` : ''}${fn ? `<div style="margin-top:3px">${fn}</div>` : ''}
 <div style="display:flex;align-items:center;gap:6px;margin-top:5px">${bar(b.burning ? 'burn' : 'hp', share, 150)}<span class="rf-num rf-dim">${b.ruin ? 'ruin' : `${Math.ceil(b.hp)}/${b.maxHp}`}</span></div>
 <div class="bc-kv">${rows.join('')}</div>`;
 }

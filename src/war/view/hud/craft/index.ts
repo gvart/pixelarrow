@@ -176,19 +176,15 @@ export function mountCraft(s: SandboxScene, mk: Mk, roster: RosterHooks): void {
 }
 
 const SHELL = `<div class="rf-card" style="padding:4px 6px 6px">
-  <div class="rf-head"><span class="rf-name" style="font-size:16px" data-h="name"></span><span class="rf-dim" data-h="sub"></span><span style="flex:1"></span><span data-h="pts"></span>
+  <div class="rf-head"><div style="display:flex;flex-direction:column;gap:2px;min-width:0"><span class="rf-name" style="font-size:16px" data-h="name"></span><span class="rf-dim" style="font-size:11px" data-h="sub"></span></div><span style="flex:1"></span><span data-h="pts" style="display:flex;gap:4px;margin-right:4px"></span>
     <button class="rf-tbtn x" data-act="closeTree" data-tip="close">✕</button></div>
-  <div class="pt-legend"><i class="taken"></i>taken <i class="open"></i>can take now <i class="locked"></i>locked</div>
   <div data-h="graph"></div>
   <div class="pt-foot" data-h="foot"></div>
 </div>`;
 const PANEL_CSS = `
-.pt-legend{display:flex;align-items:center;gap:4px;margin:5px 0 0;font:600 11px/1 Inter,sans-serif;color:var(--rf-muted)}
-.pt-legend i{display:inline-block;width:9px;height:9px;margin-left:6px;border:2px solid;border-radius:50%}
-.pt-legend i:first-child{margin-left:0}
-.pt-legend i.taken{border-color:#e0b867;background:#4a3410;box-shadow:0 0 4px rgba(224,184,103,.6)}.pt-legend i.open{border-color:#de8a4e;background:#2e160c}.pt-legend i.locked{border-color:#4a3428;background:#140c08}
-.pt-foot{display:flex;align-items:center;gap:4px;margin-top:5px;min-height:23px}
-.tg-pts{font:600 12px/1 Inter,sans-serif;color:var(--rf-muted);margin-right:4px}
-.tg-pts b{font:700 15px/1 Cinzel,serif;color:var(--rf-ink)}
-.tg-pts.on b{color:var(--rf-gold);text-shadow:0 0 6px rgba(224,184,103,.5)}
+.pt-foot{display:flex;align-items:center;gap:4px;margin-top:6px;min-height:23px}
+.pt-foot:empty{display:none}
+.tg-chip{display:inline-flex;align-items:center;gap:3px;height:20px;padding:0 6px 0 2px;border:1px solid #4a3428;color:var(--rf-muted);font:700 11.5px/1 Inter,sans-serif;white-space:nowrap}
+.tg-chip.on{border-color:#c9a24a;color:var(--rf-gold);background:rgba(224,184,103,.1);box-shadow:0 0 6px rgba(224,184,103,.3)}
+.tg-chip .gl{margin-right:1px}
 `;

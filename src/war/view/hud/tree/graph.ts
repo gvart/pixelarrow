@@ -2,8 +2,10 @@
  * The tree graph (owner play-test): one component for the profession trees (../craft/tree.ts) and the soldier skill
  * trees (../roster/skillTree.ts). Root at the left, one column per level, nodes on lanes, connector lines from each
  * node's prerequisites routed through the gaps between columns and the channels between lanes (never through a node),
- * so branches read as a tree. States: taken (lit bronze, glowing), open (may be taken now, pulsing ring), locked
- * (dim, a lock, the reason in the hover card). Levels past the man's own are shaded.
+ * so branches read as a tree. The state reads from the art alone, no legend (W-55, after the KCD2 and Path of Exile
+ * trees): taken is a lit gold medallion with a glow; open (may be taken now) a bronze ring with a breathing halo, a gold
+ * cost badge and a lift on hover; locked a dark iron ring, a grey icon and a lock tag with the level it opens at (the
+ * reason in the hover card). Levels past the man's own are shaded.
  *
  * `paintGraph` builds the DOM once per tree (`key`) and afterwards patches node and edge states in place, so a node
  * taken lights up and its lines fill with a transition instead of a re-render jump.
@@ -28,6 +30,10 @@ export interface GNode {
   shape?: 'root' | 'cap';
   /** Small text under the name (a value, "one of two"). */
   sub?: string;
+  /** Open: the cost badge (default "+"). */
+  badge?: string;
+  /** Locked: the level it opens at, on the lock tag (none: a bare lock). */
+  opens?: number;
 }
 
 export interface Graph { key: string; nodes: GNode[]; lanes: number; level: number }
@@ -46,7 +52,7 @@ export interface TreeView {
   ask: (id: string) => string | null;
 }
 
-export const CW = 62, RH = 66, R = 16, TOP = 22, PAD = 6;
+export const CW = 74, RH = 72, R = 18, TOP = 28, PAD = 6;
 
 /** Lanes per column: fixed lanes kept, the rest near their parents' mean, spread apart, as few crossings as a small search finds. */
 function layout(g: Graph): Map<string, { x: number; y: number; col: number; lane: number }> {
@@ -107,7 +113,9 @@ function route(a: { x: number; y: number; col: number; lane: number }, b: { x: n
 }
 
 const edgeState = (p: GNode, c: GNode) => (p.state === 'taken' && c.state === 'taken' ? 'lit' : p.state === 'taken' && c.state === 'open' ? 'ready' : 'dim');
-const LOCK = '<svg class="tg-lock" viewBox="0 0 7 8" width="9" height="10"><path d="M1.5 3.5V2.2a2 2 0 0 1 4 0v1.3" fill="none" stroke="currentColor" stroke-width="1.1"/><rect x="0.5" y="3.5" width="6" height="4.2" fill="currentColor"/></svg>';
+const LOCK = '<svg viewBox="0 0 7 8" width="7" height="8"><path d="M1.5 3.5V2.2a2 2 0 0 1 4 0v1.3" fill="none" stroke="currentColor" stroke-width="1.1"/><rect x="0.5" y="3.5" width="6" height="4.2" fill="currentColor"/></svg>';
+/** The corner marks of a medallion: the cost badge (shown while open), the lock tag (shown while locked). */
+const marks = (n: GNode) => `<span class="tg-badge">${n.badge ?? '+'}</span><span class="tg-lock">${LOCK}${n.opens ? `<b>${n.opens}</b>` : ''}</span>`;
 
 /** The graph's width in art px. */
 export const graphWidth = (g: Graph) => PAD * 2 + new Set(g.nodes.map((n) => n.level)).size * CW;
@@ -123,13 +131,13 @@ function build(g: Graph): string {
     const d = route(pos.get(p)!, pos.get(c.id)!, (col, lane) => at.has(`${col}:${lane}`));
     return `<path data-e="${p}>${c.id}" class="${edgeState(byId.get(p)!, c)}" d="${d}" pathLength="100"/>`;
   }));
-  const ruler = cols.map((lv, i) => `<span class="tg-lv${lv > g.level ? ' ahead' : ''}" style="left:${PAD + i * CW}px;width:${CW}px">L${lv}</span>`).join('');
+  const ruler = cols.map((lv, i) => `<span class="tg-lv${lv > g.level ? ' ahead' : lv === g.level ? ' now' : ''}" style="left:${PAD + i * CW}px;width:${CW}px">Level ${lv}</span>`).join('');
   const ahead = cols.findIndex((lv) => lv > g.level);
   const shade = ahead >= 0 ? `<div class="tg-ahead" style="left:${PAD + ahead * CW}px;width:${(cols.length - ahead) * CW}px;height:${H}px"></div>` : '';
   const nodes = g.nodes.map((n) => {
     const p = pos.get(n.id)!;
     return `<button class="tg-n ${n.state}${n.shape ? ' ' + n.shape : ''}" data-node="${n.id}" data-tip="${esc(n.tip)}" style="left:${p.x - CW / 2}px;top:${p.y - R - 2}px;width:${CW}px;--d:${p.col * 45}ms">
-      <span class="tg-m">${n.face}${LOCK}</span><span class="tg-t">${n.name}</span>${n.sub ? `<span class="tg-s">${n.sub}</span>` : ''}</button>`;
+      <span class="tg-m">${n.face}${marks(n)}</span><span class="tg-t">${n.name}</span>${n.sub ? `<span class="tg-s">${n.sub}</span>` : ''}</button>`;
   }).join('');
   return `<div class="tg" data-key="${g.key}" style="width:${W}px;height:${H}px">${shade}${ruler}
     <svg class="tg-e" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${edges.join('')}</svg>${nodes}</div>`;
@@ -154,6 +162,8 @@ export function paintGraph(host: HTMLElement, g: Graph): void {
     if (b.dataset.tip !== n.tip) b.dataset.tip = n.tip;
     const s = b.querySelector('.tg-s');
     if (s && n.sub !== undefined && s.innerHTML !== n.sub) s.innerHTML = n.sub;
+    const m = b.querySelector('.tg-m');
+    if (m) { const k = marks(n), old = [...m.querySelectorAll('.tg-badge,.tg-lock')].map((x) => x.outerHTML).join(''); if (old !== k) { m.querySelectorAll('.tg-badge,.tg-lock').forEach((x) => x.remove()); m.insertAdjacentHTML('beforeend', k); } }
   }
   for (const p of el.querySelectorAll<SVGPathElement>('[data-e]')) {
     const [a, c] = p.dataset.e!.split('>');
@@ -168,37 +178,47 @@ export function markGraph(host: HTMLElement, id: string | null): void {
 }
 
 export const GRAPH_CSS = `
-.tg{position:relative;margin:4px auto 0;background:radial-gradient(ellipse at 20% 50%,#21150f 0,#120b08 75%);border:1px solid var(--rf-rule);box-shadow:inset 0 0 0 1px #0e0907}
+.tg{position:relative;margin:6px auto 0;background:radial-gradient(ellipse at 20% 50%,#21150f 0,#120b08 75%);border:1px solid var(--rf-rule);box-shadow:inset 0 0 0 1px #0e0907}
 .tg-ahead{position:absolute;top:0;background:repeating-linear-gradient(135deg,rgba(14,9,7,.55) 0 3px,rgba(14,9,7,.25) 3px 6px);border-left:1px dashed #5a3a28;pointer-events:none}
-.tg-lv{position:absolute;top:4px;text-align:center;font:700 10.5px/1 Cinzel,serif;color:var(--rf-accent);letter-spacing:.04em}
+.tg-lv{position:absolute;top:6px;text-align:center;font:700 10px/1 Cinzel,serif;color:var(--rf-accent);letter-spacing:.05em}
+.tg-lv.now{color:var(--rf-gold);text-shadow:0 0 6px rgba(224,184,103,.5)}
 .tg-lv.ahead{color:var(--rf-disabled)}
 .tg-e{position:absolute;left:0;top:0;pointer-events:none;overflow:visible}
 .tg-e path{fill:none;stroke-width:1.5;stroke-linejoin:round;transition:stroke .35s,opacity .35s}
 .tg-e path.dim{stroke:#4f3324;stroke-dasharray:2 2}
-.tg-e path.ready{stroke:#de8a4e}
+.tg-e path.ready{stroke:#de8a4e;stroke-dasharray:5 3;animation:tg-flow 1.2s linear infinite}
+@keyframes tg-flow{to{stroke-dashoffset:-16}}
 .tg-e path.lit{stroke:#e0b867;filter:drop-shadow(0 0 1.5px rgba(224,184,103,.8))}
-.tg:not(.still) .tg-e path{animation:tg-draw .5s ease-out both}
+.tg:not(.still) .tg-e path:not(.ready){animation:tg-draw .5s ease-out both}
 @keyframes tg-draw{from{opacity:0}to{opacity:1}}
-.tg-n{position:absolute;display:flex;flex-direction:column;align-items:center;gap:2px;padding:0;background:none;border:0;color:var(--rf-ink)}
+.tg-n{position:absolute;display:flex;flex-direction:column;align-items:center;gap:3px;padding:0;background:none;border:0;color:var(--rf-ink)}
 .tg:not(.still) .tg-n{animation:tg-in .32s cubic-bezier(.2,.9,.3,1.2) both;animation-delay:var(--d)}
 @keyframes tg-in{from{opacity:0;transform:translateX(-6px) scale(.85)}to{opacity:1;transform:none}}
-.tg-m{position:relative;width:${R * 2}px;height:${R * 2}px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#1c120d;border:2px solid #4a3428;box-shadow:inset 0 0 0 1px #0e0907;transition:border-color .3s,background .3s,box-shadow .4s;font:700 10px/1 Cinzel,serif;color:var(--rf-muted)}
-.tg-m img{display:block}
+.tg-m{position:relative;width:${R * 2}px;height:${R * 2}px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#1c120d;border:2px solid #4a3428;box-shadow:inset 0 0 0 1px #0e0907;transition:border-color .3s,background .3s,box-shadow .4s,transform .15s;font:700 10px/1 Cinzel,serif;color:var(--rf-muted)}
+.tg-m img,.tg-m .gl{display:block;transition:opacity .3s,filter .3s}
 .tg-n.root .tg-m{outline:1px solid #7a5a28;outline-offset:2px}
-.tg-n.cap .tg-m{border-radius:3px;transform:rotate(45deg) scale(.86)}
-.tg-n.cap .tg-m>img,.tg-n.cap .tg-m>.tg-lock{transform:rotate(-45deg) scale(1.16)}
-.tg-t{font:600 10px/11px Inter,sans-serif;text-align:center;max-width:${CW - 4}px;white-space:normal;transition:color .3s}
+.tg-n.cap .tg-m{border-radius:4px;transform:rotate(45deg) scale(.88)}
+.tg-n.cap .tg-m>img,.tg-n.cap .tg-m>.gl,.tg-n.cap .tg-badge,.tg-n.cap .tg-lock{transform:rotate(-45deg) scale(1.12)}
+.tg-t{font:600 10px/11px Inter,sans-serif;text-align:center;max-width:${CW - 2}px;white-space:normal;transition:color .3s}
 .tg-s{font:600 9.5px/1 Inter,sans-serif;color:var(--rf-muted)}
-.tg-lock{position:absolute;right:-3px;bottom:-3px;color:#8a786a;filter:drop-shadow(0 0 1px #0e0907);display:none}
-.tg-n.taken .tg-m{border-color:#e0b867;background:#4a3410;box-shadow:inset 0 0 0 1px #0e0907,0 0 7px 1px rgba(224,184,103,.55)}
+.tg-badge,.tg-lock{position:absolute;display:none;align-items:center;justify-content:center;pointer-events:none}
+.tg-badge{right:-7px;top:-6px;min-width:16px;height:16px;padding:0 3px;border-radius:8px;background:linear-gradient(#f6dc9c,#c9a24a);color:#1e1208;font:700 10px/1 Inter,sans-serif;box-shadow:0 0 0 1px #0e0907,0 0 6px rgba(224,184,103,.75)}
+.tg-lock{right:-8px;bottom:-5px;gap:2px;height:13px;padding:0 3px;background:#0e0907;border:1px solid #4a3428;color:#a8907a;font:700 9px/1 Inter,sans-serif}
+.tg-lock b{font-weight:700}
+.tg-n.taken .tg-m{border-color:#e0b867;background:radial-gradient(circle at 50% 40%,#6a4c18,#3a2808);box-shadow:inset 0 0 0 1px #0e0907,0 0 9px 2px rgba(224,184,103,.5)}
 .tg-n.taken .tg-t{color:#f6dc9c}
-.tg-n.open .tg-m{border-color:#de8a4e;background:#2e160c;animation:tg-pulse 1.6s ease-in-out infinite}
-@keyframes tg-pulse{0%,100%{box-shadow:inset 0 0 0 1px #0e0907,0 0 0 0 rgba(222,138,78,.6)}50%{box-shadow:inset 0 0 0 1px #0e0907,0 0 0 4px rgba(222,138,78,0)}}
+.tg-n.open{cursor:pointer}
+.tg-n.open .tg-m{border-color:#de8a4e;background:radial-gradient(circle at 50% 40%,#3e2010,#24120a);animation:tg-pulse 1.8s ease-in-out infinite}
+.tg-n.open .tg-badge{display:flex}
+.tg-n.open:hover .tg-m{transform:scale(1.1);border-color:#f2b27a}
+.tg-n.cap.open:hover .tg-m{transform:rotate(45deg) scale(.97)}
+@keyframes tg-pulse{0%,100%{box-shadow:inset 0 0 0 1px #0e0907,0 0 0 1px rgba(222,138,78,.35),0 0 6px rgba(222,138,78,.35)}50%{box-shadow:inset 0 0 0 1px #0e0907,0 0 0 4px rgba(222,138,78,.12),0 0 12px rgba(222,138,78,.7)}}
+.tg-n.locked .tg-m{border-color:#33251c;background:#110a07}
 .tg-n.locked .tg-t{color:var(--rf-disabled)}
-.tg-n.locked .tg-m img{opacity:.45;filter:grayscale(.85)}
-.tg-n.locked .tg-lock{display:block}
+.tg-n.locked .tg-m img,.tg-n.locked .tg-m .gl{opacity:.5;filter:grayscale(1) brightness(.9)}
+.tg-n.locked .tg-lock{display:flex}
 .tg-n:hover .tg-m{border-color:var(--rf-title)}
-.tg-n.locked:hover .tg-m{border-color:#6a4a38}
+.tg-n.locked:hover .tg-m{border-color:#5a4030}
 .tg-n.sel .tg-m{outline:2px solid var(--rf-title);outline-offset:2px}
 .tg-n:focus-visible{outline:none}.tg-n:focus-visible .tg-m{outline:1px solid var(--rf-title);outline-offset:2px}
 @media (prefers-reduced-motion:reduce){.tg-n,.tg-e path,.tg-n.open .tg-m{animation:none!important}}

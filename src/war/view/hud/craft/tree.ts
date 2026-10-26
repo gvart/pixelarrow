@@ -8,6 +8,8 @@ import { CIV_CLASSES, type CivClassId } from '../../../../data/classes';
 import { heldNodes, pointsAt, profOf, PROF_NODES, PROF_ROOT, PROF_TREES, type ProfNode } from '../../../../data/professions';
 import { RECIPES, type Recipe } from '../../../../data/recipes';
 import { esc } from '../roster/ui';
+import { glyph } from '../glyph';
+import { card, fx, term, val } from '../codex';
 import type { GNode, TreeView } from '../tree/graph';
 import { nameOf, REFUSAL, RESPEC, type Civ, type SandboxCraft } from './state';
 
@@ -19,20 +21,20 @@ export function recipesOf(node: string): Recipe[] {
   return Object.values(RECIPES).filter((r) => r.node === node || r.needs?.includes(node));
 }
 
-/** The hover card of a node: name and level, effect, recipes it opens, what it needs, its cost or why it is locked. */
-function card(c: Civ, n: ProfNode, why: ReturnType<SandboxCraft['refusal']>): string {
+/** The hover card of a node: icon, name and level, what it does, the recipes it opens, what it needs, its cost, its state. */
+function nodeCard(c: Civ, n: ProfNode, why: ReturnType<SandboxCraft['refusal']>): string {
   const rs = recipesOf(n.id);
   const needs = [...(n.needs ?? []).map((x) => PROF_NODES[x].name), ...(n.needsAny ? [`${n.needsAny[0]} of ${n.needsAny[1].map((x) => PROF_NODES[x].name).join(', ')}`] : [])];
   const list = rs.slice(0, 8).map((r) => esc(nameOf(r.out.item ?? r.out.tool ?? r.out.good ?? r.out.product ?? r.out.engine ?? r.out.fort ?? r.id)) + (r.tier > 1 ? ` <span class="rf-dim">T${r.tier}</span>` : '')).join(', ');
   const cost = n.root ? 'his from the start' : n.capstone ? 'free at level 10, one capstone of two' : 'costs 1 point';
-  const state = why === 'taken' ? '<span style="color:var(--rf-gold)">taken</span>'
-    : why ? `<span style="color:var(--rf-bad)">locked: ${REFUSAL[why]}${why === 'level' ? ` (L${n.level}, he is L${c.level})` : ''}</span>`
-    : '<span style="color:var(--rf-good)">open: click to take</span>';
-  return `<div style="width:210px;white-space:normal"><div class="rf-name" style="font-size:13px">${n.name} <span class="rf-dim" style="font:600 11px Inter">L${n.level}${n.capstone ? ' capstone' : ''}</span></div>
-    <div style="margin-top:3px">${esc(n.desc)}</div>
-    ${rs.length ? `<div style="margin-top:4px"><span style="color:var(--rf-accent)">Unlocks ${rs.length} recipe${rs.length > 1 ? 's' : ''}:</span> ${list}${rs.length > 8 ? ` <span class="rf-dim">and ${rs.length - 8} more</span>` : ''}</div>` : ''}
-    ${needs.length ? `<div class="rf-dim" style="margin-top:3px">needs ${needs.join(', ')}</div>` : ''}
-    <div class="rf-dim" style="margin-top:3px">${cost}</div><div style="margin-top:2px">${state}</div></div>`;
+  return card({
+    icon: nodeIcon(n, 24), rawIcon: true, name: n.name, kind: `level ${n.level}${n.capstone ? ' · capstone' : ''} · ${cost}`, w: 236,
+    fx: [`<div>${esc(n.desc)}</div>`, ...(rs.length ? [fx('ui:log', `opens ${val(String(rs.length), '')} ${term('recipe', rs.length > 1 ? 'recipes' : 'recipe')}: ${list}${rs.length > 8 ? ` <span class="rf-dim">and ${rs.length - 8} more</span>` : ''}`)] : []),
+      ...(needs.length ? [fx('ui:chevR', `needs ${needs.join(', ')}`)] : [])],
+    state: why === 'taken' ? { tone: 'gold', icon: 'ui:check', text: 'Taken' }
+      : why ? { tone: 'bad', icon: 'ui:lock', text: `${REFUSAL[why].replace(/^./, (x) => x.toUpperCase())}${why === 'level' ? ` (level ${n.level}, he is ${c.level})` : ''}` }
+      : { tone: 'good', icon: 'ui:plus', text: 'Click to take' },
+  });
 }
 
 export function profTree(C: SandboxCraft, c: Civ): TreeView {
@@ -42,7 +44,7 @@ export function profTree(C: SandboxCraft, c: Civ): TreeView {
     const why = C.refusal(c, n.id);
     return {
       id: n.id, level: n.level, parents: n.root ? [] : n.needs ?? n.needsAny?.[1] ?? [root], lane: n.root ? 1 : undefined,
-      state: held.has(n.id) ? 'taken' : why ? 'locked' : 'open', face: nodeIcon(n, 24), name: n.name, tip: card(c, n, why),
+      state: held.has(n.id) ? 'taken' : why ? 'locked' : 'open', face: nodeIcon(n, 24), name: n.name, tip: nodeCard(c, n, why), opens: why === 'level' ? n.level : undefined,
       shape: n.root ? 'root' : n.capstone ? 'cap' : undefined, sub: n.capstone ? 'one of two' : undefined,
     };
   });
@@ -52,7 +54,7 @@ export function profTree(C: SandboxCraft, c: Civ): TreeView {
     graph: { key: `prof:${c.id}:${prof}`, nodes, lanes: 3, level: c.level },
     name: c.name,
     sub: `${CIV_CLASSES[c.cls as CivClassId].name}, level ${c.level}`,
-    points: `<span class="tg-pts${left > 0 ? ' on' : ''}" data-tip="1 point a level from L2 to L9; the L10 capstones are free, one of two"><b>${left}</b> point${left === 1 ? '' : 's'} left</span>`,
+    points: `<span class="tg-chip${left > 0 ? ' on' : ''}" data-tip="1 point a level from level 2 to 9; the level 10 capstones are free, one of two">${glyph('ui:tgstar', 14)}${left > 0 ? `+${left} point${left === 1 ? '' : 's'}` : 'no points'}</span>`,
     foot: `<span class="rf-dim">${c.perks.length} node${c.perks.length === 1 ? '' : 's'} taken</span><span style="flex:1"></span>
       <button class="rf-tbtn" data-act="respec" data-tip="${esc(respecTip)}" ${rs.wait || !rs.silver || !c.perks.length ? 'disabled' : ''}>Respec, ${RESPEC.silver} silver${rs.wait ? ` (${Math.ceil(rs.wait / 3_600_000)} h)` : ''}</button>`,
     ask: (id) => {
