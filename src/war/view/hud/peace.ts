@@ -95,6 +95,23 @@ export function mountPeace(s: SandboxScene, mk: Mk): void {
     if (open) tcard.innerHTML = townCard(t);
   };
   setInterval(draw, 500);
+  // the badge and card sit top centre unless a left panel (forge, market, roster, maybe dragged) reaches under them:
+  // then they step right of it (5 Hz; CSS px from the rects, art px for left)
+  const LEFT_PANELS = ['cfWp', 'cfTree', 'rfMarket', 'rfHandoff', 'rrPanel', 'rrCard'];
+  const place = (el: HTMLElement) => {
+    if (el.style.display === 'none') return;
+    const r = el.getBoundingClientRect(), z = Number(el.style.zoom) || 1, gap = 6 * z;
+    let x = (innerWidth - r.width) / 2;
+    for (const id of LEFT_PANELS) {
+      const p = document.getElementById(id);
+      if (!p || p.style.display === 'none') continue;
+      const q = p.getBoundingClientRect();
+      if (q.width && q.top < r.bottom && r.top < q.bottom && q.left + q.width / 2 < innerWidth / 2) x = Math.max(x, q.right + gap);
+    }
+    el.style.left = `${Math.round(x / z)}px`;
+    el.style.transform = 'none';
+  };
+  setInterval(() => (place(badge), place(tcard)), 200);
 
   // ---------- the works window: works and titles ----------
   const win = mk('rfWorks', 'top:40px;right:110px;width:380px;display:none;pointer-events:auto;padding:4px 8px 8px');
