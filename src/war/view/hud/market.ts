@@ -86,7 +86,7 @@ export function mountMarket(s: SandboxScene, mk: Mk): MarketHud {
   hand.classList.add('rf-card');
   draggable(hand, '.rf-head');
 
-  // the corner's Market button (K)
+  // the corner's Market button (K), in dev only
   const corner = document.getElementById('rfDev');
   const mBtn = document.createElement('button');
   mBtn.className = 'rf-tbtn';
@@ -94,7 +94,7 @@ export function mountMarket(s: SandboxScene, mk: Mk): MarketHud {
   mBtn.textContent = 'Market K';
   mBtn.title = 'the market here: stall, offers, price board, contracts, letters (K)';
   mBtn.onclick = () => toggle();
-  corner?.insertBefore(mBtn, corner.children[1] ?? null);
+  if (import.meta.env.DEV) corner?.insertBefore(mBtn, corner.children[1] ?? null); // players open it with K
 
   const say = (t: string, isBad = false) => { msg = t; bad = isBad; };
   const run = async <T>(p: Promise<Res<T>>, okText: (v: T) => string): Promise<boolean> => {

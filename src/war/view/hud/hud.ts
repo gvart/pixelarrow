@@ -327,7 +327,7 @@ export function hud(s: SandboxScene): void {
   const tb = (label: string, tipText: string, run: () => void) => { const b = document.createElement('button'); b.className = 'rf-tbtn'; b.textContent = label; b.title = tipText; b.onclick = run; return b; };
   bWall.append(tb('+ gate G', 'insert a gate on the line', () => (m.insert = 'gate')), tb('+ tower T', 'insert a tower on the line', () => (m.insert = 'tower')), tb('Order ⏎', 'order the walls built', () => m.confirmWall()), tb('Undo ⌫', 'remove the last line', () => m.removeLine(m.lines.length - 1)), tb('Flip F', 'flip the inside', () => m.flipInside()));
 
-  // ---------- top right: dev panel (F1) and the UI scale ----------
+  // ---------- top right: World; in dev also the dev panel (F1) and the UI scale (players set it in Settings, F10) ----------
   const corner = mk('rfDev', 'top:4px;right:4px;pointer-events:auto;display:flex;flex-direction:column;align-items:flex-end;gap:2px', '');
   const dbtn = tb('DEV', 'dev panel (F1)', () => setDev(dev?.style.display === 'none'));
   const sbtn = tb('', 'UI scale: auto (by window) / 0.75x / 1x / 1.25x / 1.5x / 2x', () => { const v = UI_SCALES[(UI_SCALES.indexOf(uiScale()) + 1) % UI_SCALES.length]; setUiScale(v); scale(); });
@@ -336,13 +336,13 @@ export function hud(s: SandboxScene): void {
   const goWorld = () => { const q = new URLSearchParams(location.search), w = new URLSearchParams(); if (q.has('net')) { if (q.get('dev')) w.set('dev', q.get('dev')!); } else w.set('offline', '1'); location.href = `world.html?${w}`; };
   const wbtn = tb('World', 'world map (Shift+W; plain W pans the camera)', goWorld);
   wbtn.id = 'rfWorld';
-  corner.append(wbtn, dbtn, sbtn);
+  corner.append(wbtn, ...(import.meta.env.DEV ? [dbtn, sbtn] : []));
   const dev = document.getElementById('dev');
   const setDev = (on: boolean) => { if (dev) dev.style.display = on ? '' : 'none'; dbtn.classList.toggle('on', on); };
-  setDev(new URLSearchParams(location.search).has('dev'));
+  setDev(import.meta.env.DEV && new URLSearchParams(location.search).has('dev'));
   addEventListener('keydown', (e: KeyboardEvent) => {
     const a = keys.act(e);
-    if (a === 'dev.panel') { e.preventDefault(); setDev(dev?.style.display === 'none'); }
+    if (a === 'dev.panel') { if (import.meta.env.DEV) { e.preventDefault(); setDev(dev?.style.display === 'none'); } }
     else if (a === 'go.world') goWorld();
     else if (m.active || m.tool) return;
     else if (a === 'order.stop') stop();
