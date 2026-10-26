@@ -1,0 +1,21 @@
+tests/war/worldView.test.ts
+  s_fcb7475e0b5395::t_bc068d69e02940 64-66
+src/war/world-view/source.ts
+  s_fcb7475e0b5395::t_5691273beb0270 197,229-231,234
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "adcbbd9a12ca4b2f6a3d95c8bfbbd8777f5d33b3",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
