@@ -7,7 +7,7 @@
  *  - Peace score (war_peace_score): per alliance, UTC day and kind, capped a day; the points also go to the world
  *    (WarWorldDO.addPeace) by the caller.
  *  - Titles: the season's leader in each stat, at least TITLE.min of it: Merchant Prince (coin sold), Master Builder
- *    (labour), Warden (guard hours), Warlord (kills of his men).
+ *    (labour), Warden (guard hours), Warlord (kills of his men this season: war_player_stats, not the men's lifetime kills).
  */
 import { WAR_SEASON } from '../../../src/war/world/alliances';
 import { PEACE } from '../../../src/war/world/season';
@@ -75,7 +75,7 @@ export async function titles(db: D1Database, season = WAR_SEASON.id): Promise<Ti
     merchantPrince: await q('SELECT player_id AS pid, sold AS v FROM war_season_stats WHERE season = ?1 AND sold > 0 ORDER BY sold DESC, player_id LIMIT 1'),
     masterBuilder: await q('SELECT player_id AS pid, labour / 3600.0 AS v FROM war_season_stats WHERE season = ?1 AND labour > 0 ORDER BY labour DESC, player_id LIMIT 1'),
     warden: await q('SELECT player_id AS pid, guard / 3600.0 AS v FROM war_season_stats WHERE season = ?1 AND guard > 0 ORDER BY guard DESC, player_id LIMIT 1'),
-    warlord: await q('SELECT p.player_id AS pid, SUM(p.kills) AS v FROM war_persons p JOIN war_alliance_members m ON m.player_id = p.player_id AND m.season = ?1 GROUP BY p.player_id HAVING SUM(p.kills) > 0 ORDER BY v DESC, p.player_id LIMIT 1'),
+    warlord: await q('SELECT player_id AS pid, kills AS v FROM war_player_stats WHERE season = ?1 AND kills > 0 ORDER BY kills DESC, player_id LIMIT 1'),
   };
   const out: Title[] = [];
   for (const t of TITLES) {

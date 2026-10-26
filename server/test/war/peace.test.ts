@@ -133,6 +133,19 @@ describe('titles (W-61)', () => {
     expect(ids).toContain('warden');
     for (const x of t) expect(x.value).toBeGreaterThan(0);
   });
+
+  it('the Warlord counts kills this season, not his men\'s lifetime kills', async () => {
+    const vet = await player(8611, 0), fresh = await player(8612, 1), S = WAR_SEASON.id, now = Date.now();
+    // the veteran's man has 500 lifetime kills, all from older seasons; this season he struck down 3, the fresh one 7
+    await DB().prepare("INSERT INTO war_persons (id, player_id, cls, name, level, xp, points, kills, battles, attrs, skills, gear, honours, state, created_at, updated_at) VALUES ('wl-vet', ?1, 'hoplite', 'Vet', 9, 0, 0, 500, 80, '{}', '[]', '{}', '[]', 'active', ?2, ?2)").bind(vet, now).run();
+    await DB().batch([
+      DB().prepare('INSERT INTO war_player_stats (season, player_id, kills) VALUES (?1, ?2, 3), (?1, ?3, 7)').bind(S, vet, fresh),
+      DB().prepare('INSERT INTO war_player_stats (season, player_id, kills) VALUES (?1, ?2, 400)').bind(S - 1, vet),
+    ]);
+    const w = (await titles(DB(), S)).find((x) => x.id === 'warlord');
+    expect(w?.pid).toBe(fresh);
+    expect(w?.value).toBe(7);
+  });
 });
 
 describe('the room counts (W-61)', () => {
