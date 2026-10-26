@@ -4,7 +4,8 @@
  * once at its height (top diamond extruded down to the base plane, back to front, so a plateau's fog covers its cliff
  * face); a texel keeps the point of the surface it shows in cell units and samples the cells' alphas bilinearly there
  * (soft edges along the ground, not cell steps). Per cell the alpha eases to its target every frame (smooth reveals);
- * the canvas is rewritten only while some cell is still easing.
+ * the canvas is rewritten only while some cell is still easing, and then only over the camera's view, the whole of it
+ * once all have settled.
  */
 import Phaser from 'phaser';
 import type { FogGrid, RegionData } from '../types';
@@ -32,6 +33,8 @@ export class FogLayer {
   private goal: Float32Array | null = null;
   private grid: FogGrid | null = null;
   private easing = false;
+  /** Texels off the view were left behind while the cells eased: rewritten all once they settle. */
+  private stale = false;
   private on = true;
 
   constructor(scene: Phaser.Scene, private iso: IsoMap, private region: RegionData) {
@@ -66,19 +69,24 @@ export class FogLayer {
     this.img.setVisible(this.on);
   }
 
-  /** Ease the cells and rewrite the canvas while any is still moving. dt: ms since the last frame. */
-  update(dt: number): void {
+  /** Ease the cells and rewrite the canvas over `view` (world px) while any is still moving, all of it once they settle. dt: ms since the last frame. */
+  update(dt: number, view?: { x: number; y: number; right: number; bottom: number }): void {
     if (!this.easing || !this.cur || !this.goal || !this.on) return;
     const cur = this.cur, goal = this.goal, step = Math.min(1, dt / 1000 / EASE);
-    let moving = false;
+    let moving = false, any = false;
     for (let c = 0; c < cur.length; c++) {
       const d = goal[c] - cur[c];
       if (d === 0) continue;
+      any = true;
       if (Math.abs(d) <= step) cur[c] = goal[c];
       else (cur[c] += Math.sign(d) * step), (moving = true);
     }
-    const px = this.data.data, lut = this.lut, fu = this.fu, fv = this.fv, gw = this.grid!.w, gh = this.grid!.h;
-    for (let i = 0; i < lut.length; i++) {
+    if (!any && !this.stale) { this.easing = false; return; } // a new grid that changed nothing
+    const px = this.data.data, lut = this.lut, fu = this.fu, fv = this.fv, gw = this.grid!.w, gh = this.grid!.h, tw = this.tex.width, th = this.tex.height;
+    // the texels over the view (a texel's margin round it), or every texel when the last cell has settled
+    const part = moving && view, tx0 = part ? Math.max(0, Math.floor(view.x / FOG_PX) - 1) : 0, tx1 = part ? Math.min(tw, Math.ceil(view.right / FOG_PX) + 1) : tw;
+    const ty0 = part ? Math.max(0, Math.floor(view.y / FOG_PX) - 1) : 0, ty1 = part ? Math.min(th, Math.ceil(view.bottom / FOG_PX) + 1) : th;
+    for (let ty = ty0; ty < ty1; ty++) for (let i = ty * tw + tx0; i < ty * tw + tx1; i++) {
       if (lut[i] < 0) {
         px[i * 4 + 3] = 0;
         continue;
@@ -89,9 +97,10 @@ export class FogLayer {
       const top = cur[y0 * gw + x0] * (1 - a) + cur[y0 * gw + x1] * a, bot = cur[y1 * gw + x0] * (1 - a) + cur[y1 * gw + x1] * a;
       px[i * 4 + 3] = (top * (1 - b) + bot * b) * 255;
     }
-    this.tex.context.putImageData(this.data, 0, 0);
+    this.tex.context.putImageData(this.data, 0, 0, tx0, ty0, tx1 - tx0, ty1 - ty0);
     this.tex.refresh();
     this.easing = moving;
+    this.stale = !!part;
   }
 
   /** Each cell's texels: its top diamond at its height extruded down to level 0, painted back to front. */

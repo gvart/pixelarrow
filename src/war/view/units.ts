@@ -10,8 +10,6 @@
  * The sheets wear red; team 0 (blue) draws through TEAM_SWAP, a shader that turns the red cloth blue.
  * A man walking with a load (./anim.ts loadOf) carries its sprite (src/assets/loads) at his sheet's per-frame
  * `loads` anchor: on the shoulder over him, held at the chest under him in the north facings (his back to us).
- *
- * LOD by zoom: sprites from SPRITE_ZOOM up, team-coloured dots below (down to the camera's floor, SandboxScene MIN_ZOOM).
  */
 import Phaser from 'phaser';
 import type { SheetManifest } from '../../art/sheetManifest';
@@ -26,6 +24,7 @@ import type { Lift } from './build/buildingLayer';
 export const TEAM_COLOR = [0x4aa3ff, 0xe0503c, 0xe8c040, 0xb070e0];
 /** A light multiply per team on the sprites (team 0 is also hue-swapped, see TEAM_SWAP). */
 const TEAM_TINT = [0xd0e4ff, 0xffd4c8, 0xfff0c0, 0xecd8ff];
+/** Sprites show from this zoom up: always, now the camera stops at 1/2 (SandboxScene MIN_ZOOM); other layers still ask. */
 export const SPRITE_ZOOM = 1 / 3;
 /** World px from the feet to a man's middle (a sprite is ~58 px tall). */
 export const BODY = 28;
@@ -196,6 +195,8 @@ export class UnitLayer {
   /** Clip selection; set `anim.override` for work clips (build, carry). */
   readonly anim = new Animator();
   private sheets = new Map<string, Sheet>();
+  /** The class sheets not uploaded yet (manifest and image): built on first use, or one per idle moment (warm()). */
+  private pending = new Map<string, [SheetManifest, HTMLImageElement]>();
   private pool: Phaser.GameObjects.Image[] = [];
   private loadPool: Phaser.GameObjects.Image[] = [];
   private nLoad = 0;
@@ -212,11 +213,46 @@ export class UnitLayer {
     this.outline = addOutlinePipeline(scene);
     for (const [path, m] of Object.entries(manifests)) {
       const cls = path.split('/').at(-2)!, img = sheetImages.get(cls);
-      if (img) this.sheets.set(cls, buildSheet(scene, cls, m, img));
+      if (img) this.pending.set(cls, [m, img]);
     }
     const loadsImg = sheetImages.get(LOADS_KEY);
     if (loadsImg) buildLoads(scene, loadsImg);
     this.gUnder = scene.add.graphics().setDepth(9);
+  }
+
+  /**
+   * A class's sheet, uploaded now if it was not yet and no other was this frame (`now`: the frame's time; omitted: build
+   * regardless). undefined: no such class, or waiting for a later frame.
+   */
+  private sheet(cls: string, now?: number): Sheet | undefined {
+    let sh = this.sheets.get(cls);
+    if (sh) return sh;
+    const p = this.pending.get(cls);
+    if (!p || (now !== undefined && now === this.builtAt)) return undefined;
+    if (now !== undefined) this.builtAt = now;
+    this.pending.delete(cls);
+    this.sheets.set(cls, (sh = buildSheet(this.scene, cls, p[0], p[1])));
+    return sh;
+  }
+
+  /** The frame time a sheet was last built at (one a frame: a soldier's is up to ~0.1 s of texture upload). */
+  private builtAt = -1;
+
+  /**
+   * The class sheets are uploaded on first use, at most one a frame (they held up the first frame by most of a second
+   * when all were made at load); the small ones (mobs, townsfolk) also in the browser's idle time once the view is up.
+   */
+  warm(): void {
+    const ric = (globalThis as { requestIdleCallback?: (f: (d: { timeRemaining(): number }) => void) => number }).requestIdleCallback;
+    if (!ric) return;
+    const small = [...this.pending].filter(([, [, img]]) => img.width * img.height < 1.2e6).map(([cls]) => cls);
+    const next = (d: { timeRemaining(): number }) => {
+      while (small.length && !this.pending.has(small[0])) small.shift();
+      if (!small.length || !this.scene.sys.isActive()) return;
+      if (d.timeRemaining() >= 10) this.sheet(small.shift()!);
+      ric(next);
+    };
+    ric(next);
   }
 
   /**
@@ -283,25 +319,26 @@ export class UnitLayer {
     this.nGhost = 0;
     this.nRing = 0;
     this.nLoad = 0;
+    this.nUnder[0] = this.nUnder[1] = 0;
     this.anim.frame(units, squads, at.now);
     if (this.ids !== units.length) { this.ids = units.length; this.anim.prune(new Set(units.map((d) => d.u.id))); }
-    if (zoom >= SPRITE_ZOOM) used = this.sprites(units, view, zoom, selected, at, shots, under, occluded);
-    else this.dots(units, view, zoom, selected, under);
+    used = this.sprites(units, view, zoom, selected, at, shots, under, occluded);
     used = this.drawCorpses(used, at.now);
     for (let i = used; i < this.pool.length; i++) this.pool[i].setVisible(false);
     for (let i = this.nGhost; i < this.ghosts.length; i++) this.ghosts[i].setVisible(false);
     for (let i = this.nLoad; i < this.loadPool.length; i++) this.loadPool[i].setVisible(false);
     for (let i = this.nRing; i < this.rings.length; i++) this.rings[i].setVisible(false);
+    this.unders.forEach((pool, k) => { for (let i = this.nUnder[k]; i < pool.length; i++) pool[i].setVisible(false); });
   }
 
   /** M7d: slain guardians the sim no longer holds: their die clip played where they fell, held, then faded. */
   private corpses: { cls: string; x: number; y: number; facing: number; t0: number }[] = [];
   addCorpse(cls: string, x: number, y: number, facing: number, now: number): void {
-    if (this.sheets.get(cls)?.frames.has('die')) this.corpses.push({ cls, x, y, facing, t0: now });
+    if (this.sheet(cls)?.frames.has('die')) this.corpses.push({ cls, x, y, facing, t0: now });
   }
   private drawCorpses(n: number, now: number): number {
     for (let i = this.corpses.length - 1; i >= 0; i--) {
-      const c = this.corpses[i], sheet = this.sheets.get(c.cls)!, def = sheet.clips.get('die'), el = now - c.t0;
+      const c = this.corpses[i], sheet = this.sheet(c.cls)!, def = sheet.clips.get('die'), el = now - c.t0;
       if (el > 12000) { this.corpses.splice(i, 1); continue; }
       const fx = Math.cos(c.facing), fy = Math.sin(c.facing), sx = fx - fy, sy = fx + fy;
       const q = sheet.rows[(sx < 0 ? 1 : 0) + (sy < 0 ? 2 : 0)], frames = sheet.frames.get('die')![q.row];
@@ -319,6 +356,36 @@ export class UnitLayer {
 
   private nGhost = 0;
   private nRing = 0;
+  /** Shadows (0) and rings (1) of the men on the ground as pooled images under every wall (gUnder's depth), and how many are shown. */
+  private unders: Phaser.GameObjects.Image[][] = [[], []];
+  private nUnder = [0, 0];
+
+  /** The next pooled shadow (0) or ring (1) image, `key` centred on world px (x, y). */
+  private under(key: string, kind: 0 | 1, x: number, y: number): Phaser.GameObjects.Image {
+    const pool = this.unders[kind];
+    let im = pool[this.nUnder[kind]];
+    if (!im) pool.push((im = this.scene.add.image(0, 0, key).setDepth(9)));
+    this.nUnder[kind]++;
+    if (im.texture.key !== key) im.setTexture(key);
+    return im.setPosition(x, y).setVisible(true);
+  }
+
+  /** A white ring texture (30 x 14 world px, `lw` wide) as the Graphics ring drew it, made on first use; and the shadow's. */
+  private ringTex(lw: number): string {
+    const key = `war-ring-${lw}`;
+    if (this.scene.textures.exists(key)) return key;
+    const m = Math.ceil(lw / 2) + 1, t = this.scene.textures.createCanvas(key, 30 + 2 * m, 14 + 2 * m)!, c = t.context;
+    c.strokeStyle = '#fff'; c.lineWidth = lw;
+    c.beginPath(); c.ellipse(15 + m, 7 + m, 15, 7, 0, 0, Math.PI * 2); c.stroke();
+    t.refresh();
+    if (!this.scene.textures.exists('war-shadow')) {
+      const sh = this.scene.textures.createCanvas('war-shadow', 28, 14)!;
+      sh.context.fillStyle = '#fff';
+      sh.context.beginPath(); sh.context.ellipse(14, 7, 13, 6, 0, 0, Math.PI * 2); sh.context.fill();
+      sh.refresh();
+    }
+    return key;
+  }
   /** Depth key of a tile point (x + y; the scene sorts past massifs with ./massifs.ts). */
   depthOf: (x: number, y: number) => number = (x, y) => x + y;
 
@@ -330,7 +397,8 @@ export class UnitLayer {
       if (l?.hide) continue; // inside a tower
       const f = this.feet(d);
       if (f.x < view.x - padX || f.x > view.right + padX || f.y < view.y - padBot || f.y > view.bottom + padTop) continue;
-      const sheet = this.sheets.get(u.cls) ?? this.sheets.get(FALLBACK_CLASS);
+      // a class whose sheet waits for a later frame is not drawn this one (an unknown class draws as militia)
+      const sheet = this.sheet(u.cls, at.now) ?? (this.pending.has(u.cls) ? undefined : this.sheet(FALLBACK_CLASS, at.now));
       if (!sheet) continue;
       // facing, projected: a tile-space direction (dx, dy) runs (dx - dy, (dx + dy) / 2) on screen
       const facing = l?.facing ?? d.facing, fx = Math.cos(facing), fy = Math.sin(facing), sx = fx - fy, sy = fx + fy;
@@ -354,9 +422,14 @@ export class UnitLayer {
           r.clear().setDepth(l.depth - 1e-7).setVisible(true);
         }
         const k = sheet.scale; // a guardian's shadow and ring at its size
-        if (!l?.climb) r.fillStyle(0x000000, 0.28).fillEllipse(f.x, f.y, 26 * k, 12 * k); // no shadow in mid-air on a ladder
         const sel = selected.has(u.squad), w = Math.max(1.5, 1.5 / zoom); // a ring at least 1.5 screen px wide
-        r.lineStyle(sel ? w + 0.5 : w, sel ? 0xffffff : team, sel ? 1 : 0.85).strokeEllipse(f.x, f.y, 30 * k, 14 * k);
+        if (r === g && k === 1) { // a man on the ground: pooled images, batched (a Graphics ellipse is re-triangulated every frame)
+          if (!l?.climb) this.under('war-shadow', 0, f.x, f.y).setTint(0x000000).setAlpha(0.28);
+          this.under(this.ringTex(sel ? w + 0.5 : w), 1, f.x, f.y).setTint(sel ? 0xffffff : team).setAlpha(sel ? 1 : 0.85);
+        } else {
+          if (!l?.climb) r.fillStyle(0x000000, 0.28).fillEllipse(f.x, f.y, 26 * k, 12 * k); // no shadow in mid-air on a ladder
+          r.lineStyle(sel ? w + 0.5 : w, sel ? 0xffffff : team, sel ? 1 : 0.85).strokeEllipse(f.x, f.y, 30 * k, 14 * k);
+        }
       }
       let img = this.pool[n];
       if (!img) this.pool.push((img = this.scene.add.image(0, 0, key)));
@@ -402,16 +475,6 @@ export class UnitLayer {
     const behind = f.at === 'chest' && rowName.startsWith('north');
     im.setTexture(LOADS_KEY, name).setOrigin(f.ox / f.w, f.oy / f.h).setPosition(body.x + at[0], body.y + at[1]).setVisible(true);
     im.setDepth(body.depth + (behind ? -1e-6 : 1e-6)).setTint(body.tintTopLeft);
-  }
-
-  private dots(units: DrawUnit[], view: { x: number; y: number; right: number; bottom: number }, zoom: number, selected: Set<number>, g: Phaser.GameObjects.Graphics): void {
-    const s = 3 / zoom, half = s / 2;
-    for (const d of units) {
-      const f = this.feet(d);
-      if (f.x < view.x || f.x > view.right || f.y < view.y || f.y > view.bottom + 40) continue;
-      if (d.u.state === 'dead') { g.fillStyle(0x222222, 0.5).fillRect(f.x - half, f.y - half, s, s); continue; }
-      g.fillStyle(selected.has(d.u.squad) ? 0xffffff : (TEAM_COLOR[d.team] ?? 0xcccccc), 1).fillRect(f.x - half, f.y - s, s, s);
-    }
   }
 }
 

@@ -17,6 +17,7 @@ import type { ObjDef } from './art';
 import { decodeBiomes } from '../regions/visual';
 import { behindFootprint, edgeDistance, spriteTiles, type PlacedMassif } from '../region/massifs';
 import { hash } from './autotile';
+import { canvas } from './canvas';
 
 export interface MassifDef extends ObjDef {
   footprint: [number, number];
@@ -125,8 +126,7 @@ function reachTop(top: Int16Array): Int16Array {
 
 /** First opaque row of each column of an image. */
 export function columnTops(img: CanvasImageSource & { width: number; height: number }): Int16Array {
-  const c = document.createElement('canvas');
-  c.width = img.width; c.height = img.height;
+  const c = canvas(img.width, img.height);
   const g = c.getContext('2d')!;
   g.drawImage(img, 0, 0);
   const px = g.getImageData(0, 0, img.width, img.height).data, top = new Int16Array(img.width).fill(img.height);

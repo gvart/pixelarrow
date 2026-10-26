@@ -1,7 +1,7 @@
 /**
  * Greybox iso terrain baked into canvases. Any world-px rectangle can be baked at any scale (only
  * that rectangle of the canvas is cleared and painted): the scene bakes 512 px chunks on demand at
- * 1x (zoomed in) and 1/4 (mid zoom), and a whole-map overview at 1/8 in bands over several frames. Tiles are painted back to front (x + y ascending); each draws its own
+ * 1x, and a whole-map overview at 1/8 in bands over several frames. Tiles are painted back to front (x + y ascending); each draws its own
  * front walls down to the lower neighbour (or the slab base at the map edge), so cliffs, plateau
  * edges and riverbanks stand as vertical faces. Light from the NW: tops shade by slope and
  * altitude, back rims catch light, front rims and the SE faces fall in shadow; tall walls carry a

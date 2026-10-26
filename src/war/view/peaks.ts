@@ -17,6 +17,7 @@ import { hash } from './autotile';
 import { noise } from './relief';
 import { peakTexture } from './rockFace';
 import { BUILDINGS } from '../sim/economy';
+import { canvas } from './canvas';
 
 export interface PeakField {
   w: number;
@@ -215,8 +216,7 @@ let speckle: HTMLCanvasElement | null = null;
 /** A 64 px speckle and strata texture (rgba over the flat fills), made once. */
 function speckleTile(): HTMLCanvasElement {
   if (speckle) return speckle;
-  const c = (speckle = document.createElement('canvas')), N = 64;
-  c.width = N; c.height = N;
+  const N = 64, c = (speckle = canvas(N, N));
   const g = c.getContext('2d')!, img = g.createImageData(N, N);
   for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
     const h = hash(x, y, 41), o = (y * N + x) * 4, strata = Math.sin((y + ((x * 0.5) % N)) * 0.7 + Math.sin(x * 0.2) * 1.5) > 0.82;

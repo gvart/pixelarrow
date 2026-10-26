@@ -11,6 +11,7 @@
  *   rows follow the triangle's contour lines: broken strata with lit ledge tops, joints and crevices down the fall
  *   line, mottling; wind ripples on snow; even pebbles on scree.
  */
+import { canvas } from './canvas';
 export type Stone = 'sandstone' | 'limestone' | 'granite' | 'basalt';
 
 /** The wall stone per tile set / biome (./art.ts): the others' walls are granite under rock only, strip cliffs else. */
@@ -132,8 +133,7 @@ export function wallTexture(stone: Stone): HTMLCanvasElement {
     const x = Math.floor(R() * W), y = Math.floor(R() * H), i = y * W + x;
     shade[i] -= 2; shade[((y + 1) % H) * W + x] -= 1; shade[y * W + ((x + W - 1) % W)] += 1;
   }
-  const c = document.createElement('canvas');
-  c.width = W; c.height = H;
+  const c = canvas(W, H);
   const g = c.getContext('2d')!, img = g.createImageData(W, H);
   for (let i = 0; i < W * H; i++) {
     const p = pal[ramp[i]], col = p[Math.max(0, Math.min(p.length - 1, Math.round(shade[i])))], o = 4 * i;
@@ -208,8 +208,7 @@ export function peakTexture(m: number): HTMLCanvasElement {
     }
     for (let n = 0; n < N * N * 0.008; n++) put(Math.floor(R() * N), Math.floor(R() * N), 0.35);
   }
-  const c = document.createElement('canvas');
-  c.width = N; c.height = N;
+  const c = canvas(N, N);
   const g = c.getContext('2d')!, img = g.createImageData(N, N);
   // shade toward a cool dark (warm on red rock), light toward a warm white (blue-white on snow)
   const dk = m >= 3 ? [40, 12, 8] : m === 1 ? [52, 68, 104] : [10, 10, 18], lt = m === 1 ? [255, 255, 255] : m >= 3 ? [255, 214, 170] : [255, 246, 226];

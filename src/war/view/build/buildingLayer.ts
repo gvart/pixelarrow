@@ -200,10 +200,18 @@ export class BuildingLayer {
    */
   private z(b: { x: number; y: number; type?: BuildingType; tiles?: readonly number[] }): number {
     if (!b.tiles || !b.type || BUILDINGS[b.type].wall) return this.iso.zAt(b.x, b.y);
+    const memo = this.zs.get(b.tiles);
+    if (memo !== undefined) return memo;
     let z = Infinity;
     for (let i = 0; i < b.tiles.length; i += 2) for (const [dx, dy] of CELLS) z = Math.min(z, this.iso.zAt(b.tiles[i] + (dx + 0.5) / 2, b.tiles[i + 1] + (dy + 0.5) / 2));
+    this.zs.set(b.tiles, z);
     return z;
   }
+
+  /** z() per footprint (a snapshot's tile lists are never changed in place). */
+  private zs = new WeakMap<readonly number[], number>();
+  /** What prepare() last indexed: the snapshot's buildings, the art, the cut away state and build mode's cursor. */
+  private prepared: { b: readonly BuildingSnap[] | null; art: BuildArt | null; cut: boolean; nx: number; ny: number } = { b: null, art: null, cut: false, nx: 0, ny: 0 };
 
   /** Ground level of a tile (as its kit piece is drawn). */
   private zt(tx: number, ty: number): number {
@@ -238,6 +246,10 @@ export class BuildingLayer {
 
   /** Index the standing buildings: tiles, walks, gate passages, open sides, tall tiles and the raised tiles units use. */
   private prepare(buildings: readonly BuildingSnap[]): void {
+    // between snapshots (10 a second) nothing it reads changed: keep the index
+    const p = this.prepared, near = this.cutNear, nx = near?.x ?? NaN, ny = near?.y ?? NaN;
+    if (p.b === buildings && p.art === this.art && p.cut === this.cutaway && Object.is(p.nx, nx) && Object.is(p.ny, ny)) return;
+    this.prepared = { b: buildings, art: this.art, cut: this.cutaway, nx, ny };
     const occ = this.occ, walks = this.walks, open = this.open;
     occ.clear(); this.looks.clear(); walks.clear(); this.gateJoin.clear(); this.deep.clear(); open.clear(); this.heights.clear(); this.decks.clear(); this.backs.clear();
     const live = buildings.filter((b) => b.state !== 'destroyed');
@@ -952,8 +964,11 @@ export class BuildingLayer {
         const def = p.type ? BUILDINGS[p.type] : undefined, wall = def?.wall, col = !p.ok ? BAD : wall === 'gate' ? 0x60b0ff : wall === 'tower' ? 0xffc040 : OK;
         const ts = pairs(p.tiles), xs = ts.map((q) => q[0]), ys = ts.map((q) => q[1]);
         const x0 = Math.min(...xs), y0 = Math.min(...ys), x1 = Math.max(...xs) + 1, y1 = Math.max(...ys) + 1, z = this.iso.zAt((x0 + x1) / 2, (y0 + y1) / 2);
+        // the footprint as one intact shape at the level of its middle (where its art is drawn), even across a step (red
+        // when the site is refused); wall lines and bridge decks follow the ground tile by tile
+        const flat = wall !== 'segment' && !p.bridge;
         for (const [x, y] of ts) {
-          const c = this.corners(x, y, x + 1, y + 1, this.iso.zAt(x + 0.5, y + 0.5), 0);
+          const c = this.corners(x, y, x + 1, y + 1, flat ? z : this.iso.zAt(x + 0.5, y + 0.5), 0);
           this.gGround.fillStyle(col, 0.3).fillPoints(c, true).lineStyle(lw, col, 0.9).strokePoints(c, true);
           top = Math.min(top, c[0].y);
           cx += c[0].x; n++;

@@ -17,6 +17,7 @@
  */
 import { hash } from './autotile';
 import { KINDS } from '../regions/visual';
+import { canvas } from './canvas';
 
 /** Light step per shade code. */
 const STEP = 0.02;
@@ -245,8 +246,7 @@ export const SHADOW_W = 128, SHADOW_H = 96;
 /** The tree shadow sprite (made once). */
 export function treeShadow(): HTMLCanvasElement {
   if (shadowSprite) return shadowSprite;
-  const c = (shadowSprite = document.createElement('canvas'));
-  c.width = SHADOW_W; c.height = SHADOW_H;
+  const c = (shadowSprite = canvas(SHADOW_W, SHADOW_H));
   const g = c.getContext('2d')!;
   g.translate(SHADOW_W / 2, SHADOW_H / 2);
   g.rotate(Math.atan2(1, 2));
@@ -266,8 +266,7 @@ export const FOAM_W = 26, FOAM_H = 12;
 /** A soft white spray blob for the shore (made once). */
 export function foamSprite(): HTMLCanvasElement {
   if (foamCanvas) return foamCanvas;
-  const c = (foamCanvas = document.createElement('canvas'));
-  c.width = FOAM_W; c.height = FOAM_H;
+  const c = (foamCanvas = canvas(FOAM_W, FOAM_H));
   const g = c.getContext('2d')!;
   g.translate(FOAM_W / 2, FOAM_H / 2);
   g.scale(1, FOAM_H / FOAM_W);

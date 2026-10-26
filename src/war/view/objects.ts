@@ -4,10 +4,10 @@
  * (his body under its canopy's pixels) fades so he shows; a man behind a stone object (tower, wall)
  * or a massif is reported as occluded and the unit layer draws his team silhouette through it.
  * Massifs (./massifs.ts) are live sprites too (half-size textures below 1:1); their depth rule
- * comes from Massifs.depth, and objects standing inside a footprint are not drawn. Zoomed out the
- * objects are baked into the terrain chunks instead (./art.ts).
+ * comes from Massifs.depth, and objects standing inside a footprint are not drawn. The overview has
+ * them baked in (./art.ts).
  * Animals (objects.json `idle`: a strip of frames, frame 0 = the static sprite) play their idle
- * loop while live, each one at its own phase and speed; the baked far levels keep the still frame.
+ * loop, each one at its own phase and speed; the baked overview keeps the still frame.
  */
 import Phaser from 'phaser';
 import type { RegionData } from '../types';
@@ -18,8 +18,6 @@ import { peakHorizon } from './peaks';
 import { baseOffset } from './objBase';
 import type { DrawUnit } from './simClient';
 
-/** Objects are live sprites from this zoom up (the unit sprites' zoom). */
-export const LIVE_ZOOM = 1 / 3;
 const BUCKET = 16; // tiles per bucket side
 const MASK = 4; // px per alpha mask cell
 const CELL = 64; // px per unit hash cell
@@ -128,69 +126,67 @@ export class ObjectLayer {
 
   /**
    * Show the objects over the view and fade / report the ones hiding units. Returns the ids of
-   * units hidden behind stone objects (empty when zoomed out: the objects are baked then).
+   * units hidden behind stone objects.
    */
   draw(view: { x: number; y: number; right: number; bottom: number }, zoom: number, units: DrawUnit[], feet: (d: DrawUnit) => { x: number; y: number }, body: number): Set<number> {
     const hidden = new Set<number>();
     let n = 0;
-    if (zoom >= LIVE_ZOOM) {
-      if (zoom !== this.filter) {
-        this.filter = zoom;
-        const f = zoom >= 1 ? Phaser.Textures.FilterMode.NEAREST : Phaser.Textures.FilterMode.LINEAR;
-        for (const o of new Set([...this.objs, ...this.big].flatMap((q) => (q.def.anim?.ready ? [q.def.key, q.def.anim.key] : [q.def.key])))) this.scene.textures.get(o).setFilter(f);
-      }
-      // units by screen cell of their middle
-      this.cells.clear();
-      const pts: { x: number; y: number; v: number; id: number }[] = [];
-      for (const d of units) {
-        if (d.u.state === 'dead') continue;
-        const f = feet(d), p = { x: f.x, y: f.y - body, v: this.depth(d.x, d.y), id: d.u.id };
-        const k = Math.floor(p.x / CELL) * 65536 + Math.floor(p.y / CELL);
-        let c = this.cells.get(k);
-        if (!c) this.cells.set(k, (c = []));
-        c.push(pts.length);
-        pts.push(p);
-      }
-      const show = (o: Obj) => {
-        const d = o.def, ox = o.sx - d.anchor.x, oy = o.sy - d.anchor.y;
-        if (o.behind && this.iso.drawnPeaks(o.sx, o.sy) === this.iso.peaks) return;
-        if (ox > view.right || ox + d.w < view.x || oy > view.bottom || oy + d.h < view.y) return;
-        let covers = false;
-        if (d.fades || d.hides) {
-          for (let cx = Math.floor(ox / CELL); cx <= Math.floor((ox + d.w) / CELL); cx++) for (let cy = Math.floor(oy / CELL); cy <= Math.floor((oy + d.h) / CELL); cy++) {
-            const c = this.cells.get(cx * 65536 + cy);
-            if (!c) continue;
-            for (const pi of c) {
-              const p = pts[pi];
-              if (p.v >= o.v) continue; // in front of the object
-              const mx = ((p.x - ox) / MASK) | 0, my = ((p.y - oy) / MASK) | 0;
-              if (mx < 0 || my < 0 || mx >= d.mw || my >= d.mh || !d.mask[my * d.mw + mx]) continue;
-              covers = true;
-              if (d.hides) hidden.add(p.id);
-            }
+    if (zoom !== this.filter) {
+      this.filter = zoom;
+      const f = zoom >= 1 ? Phaser.Textures.FilterMode.NEAREST : Phaser.Textures.FilterMode.LINEAR;
+      for (const o of new Set([...this.objs, ...this.big].flatMap((q) => (q.def.anim?.ready ? [q.def.key, q.def.anim.key] : [q.def.key])))) this.scene.textures.get(o).setFilter(f);
+    }
+    // units by screen cell of their middle
+    this.cells.clear();
+    const pts: { x: number; y: number; v: number; id: number }[] = [];
+    for (const d of units) {
+      if (d.u.state === 'dead') continue;
+      const f = feet(d), p = { x: f.x, y: f.y - body, v: this.depth(d.x, d.y), id: d.u.id };
+      const k = Math.floor(p.x / CELL) * 65536 + Math.floor(p.y / CELL);
+      let c = this.cells.get(k);
+      if (!c) this.cells.set(k, (c = []));
+      c.push(pts.length);
+      pts.push(p);
+    }
+    const show = (o: Obj) => {
+      const d = o.def, ox = o.sx - d.anchor.x, oy = o.sy - d.anchor.y;
+      if (o.behind && this.iso.drawnPeaks(o.sx, o.sy) === this.iso.peaks) return;
+      if (ox > view.right || ox + d.w < view.x || oy > view.bottom || oy + d.h < view.y) return;
+      let covers = false;
+      if (d.fades || d.hides) {
+        for (let cx = Math.floor(ox / CELL); cx <= Math.floor((ox + d.w) / CELL); cx++) for (let cy = Math.floor(oy / CELL); cy <= Math.floor((oy + d.h) / CELL); cy++) {
+          const c = this.cells.get(cx * 65536 + cy);
+          if (!c) continue;
+          for (const pi of c) {
+            const p = pts[pi];
+            if (p.v >= o.v) continue; // in front of the object
+            const mx = ((p.x - ox) / MASK) | 0, my = ((p.y - oy) / MASK) | 0;
+            if (mx < 0 || my < 0 || mx >= d.mw || my >= d.mh || !d.mask[my * d.mw + mx]) continue;
+            covers = true;
+            if (d.hides) hidden.add(p.id);
           }
         }
-        const target = covers && d.fades ? FADE : 1;
-        o.alpha += (target - o.alpha) * 0.25;
-        if (Math.abs(o.alpha - target) < 0.02) o.alpha = target;
-        let img = this.pool[n];
-        if (!img) this.pool.push((img = this.scene.add.image(0, 0, d.key)));
-        n++;
-        const half = d.kind === 'massif' && zoom < 1, a = d.anim;
-        if (a?.ready) img.setTexture(a.key, Math.floor(o.ph + t * a.fps * o.sp) % a.n).setScale(1).setOrigin(a.ox, a.oy);
-        else img.setTexture(half ? d.key + '-half' : d.key).setScale(half ? 2 : 1).setOrigin(d.anchor.x / d.w, d.anchor.y / d.h);
-        img.setPosition(o.sx, o.sy).setAlpha(o.alpha).setTint(o.tint ?? 0xffffff).setVisible(true);
-        img.setDepth(10 + o.v / 4096 + 0.25);
-      };
-      const { iso } = this, t = this.scene.time.now / 1000;
-      // tile bounds of the view (objects reach ~400 px above their foot, ground up to iso.top levels)
-      const u0 = (view.x - iso.OX) / 32 - 6, u1 = (view.right - iso.OX) / 32 + 6;
-      const v0 = (view.y - iso.OY) / HH - 2, v1 = (view.bottom - iso.OY) / HH + (iso.top * LH) / HH + 26;
-      const bx0 = Math.max(0, Math.floor((u0 + v0) / 2 / BUCKET)), bx1 = Math.min(this.bw - 1, Math.floor((u1 + v1) / 2 / BUCKET));
-      const by0 = Math.max(0, Math.floor((v0 - u1) / 2 / BUCKET)), by1 = Math.min(this.bh - 1, Math.floor((v1 - u0) / 2 / BUCKET));
-      for (let by = by0; by <= by1; by++) for (let bx = bx0; bx <= bx1; bx++) for (const oi of this.buckets[by * this.bw + bx]) show(this.objs[oi]);
-      for (const o of this.big) show(o);
-    }
+      }
+      const target = covers && d.fades ? FADE : 1;
+      o.alpha += (target - o.alpha) * 0.25;
+      if (Math.abs(o.alpha - target) < 0.02) o.alpha = target;
+      let img = this.pool[n];
+      if (!img) this.pool.push((img = this.scene.add.image(0, 0, d.key)));
+      n++;
+      const half = d.kind === 'massif' && zoom < 1, a = d.anim;
+      if (a?.ready) img.setTexture(a.key, Math.floor(o.ph + t * a.fps * o.sp) % a.n).setScale(1).setOrigin(a.ox, a.oy);
+      else img.setTexture(half ? d.key + '-half' : d.key).setScale(half ? 2 : 1).setOrigin(d.anchor.x / d.w, d.anchor.y / d.h);
+      img.setPosition(o.sx, o.sy).setAlpha(o.alpha).setTint(o.tint ?? 0xffffff).setVisible(true);
+      img.setDepth(10 + o.v / 4096 + 0.25);
+    };
+    const { iso } = this, t = this.scene.time.now / 1000;
+    // tile bounds of the view (objects reach ~400 px above their foot, ground up to iso.top levels)
+    const u0 = (view.x - iso.OX) / 32 - 6, u1 = (view.right - iso.OX) / 32 + 6;
+    const v0 = (view.y - iso.OY) / HH - 2, v1 = (view.bottom - iso.OY) / HH + (iso.top * LH) / HH + 26;
+    const bx0 = Math.max(0, Math.floor((u0 + v0) / 2 / BUCKET)), bx1 = Math.min(this.bw - 1, Math.floor((u1 + v1) / 2 / BUCKET));
+    const by0 = Math.max(0, Math.floor((v0 - u1) / 2 / BUCKET)), by1 = Math.min(this.bh - 1, Math.floor((v1 - u0) / 2 / BUCKET));
+    for (let by = by0; by <= by1; by++) for (let bx = bx0; bx <= bx1; bx++) for (const oi of this.buckets[by * this.bw + bx]) show(this.objs[oi]);
+    for (const o of this.big) show(o);
     for (let i = n; i < this.pool.length; i++) this.pool[i].setVisible(false);
     return hidden;
   }

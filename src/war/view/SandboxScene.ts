@@ -1,11 +1,11 @@
 /**
  * The region sandbox in true iso with raised height (W-16) at real scale (W-18: 64 x 32 tiles of
  * 2 m, a 512-tile region is ~33k px wide): PixelLab terrain (./art.ts; ?art=grey: the greybox of
- * ./terrain.ts) baked into 512 px chunks on demand (LRU pools, culled to the camera) at 1x zoomed
- * in, 1/2 and 1/4 at mid zoom, mountains as procedural peaks (./peaks.ts; ?mountains=massifs: massif sprites, ?mountains=terrace: stacked levels), over a 1/8 overview baked in bands (shown while chunks bake; the minimap and full map use it); the camera stops at MIN_ZOOM 1/4; map
- * objects as live sprites sorted with the units down to 1/3 (./objects.ts), baked in below that; 10 Hz sim snapshots drawn interpolated as PixelLab
- * soldier sprites with dot and banner LOD (./units.ts); RTS camera and squad controls picking
- * through the height field (./iso.ts).
+ * ./terrain.ts) baked into 512 px chunks at 1x on demand (an LRU pool, culled to the camera), mountains as procedural
+ * peaks (./peaks.ts; ?mountains=massifs: massif sprites, ?mountains=terrace: stacked levels), over a 1/8 overview baked
+ * in bands (shown while chunks bake); the camera stops at MIN_ZOOM 1/2 (W-54: the minimap and the full map give the
+ * overview); map objects as live sprites sorted with the units (./objects.ts); 10 Hz sim snapshots drawn interpolated as
+ * PixelLab soldier sprites (./units.ts); RTS camera and squad controls picking through the height field (./iso.ts).
  *
  *   drag / middle-drag / space+drag pan, WASD/arrows, screen-edge pan; wheel zooms to the cursor
  *   left click / box: select own squads (shift adds)
@@ -24,10 +24,12 @@ import { SPOTS } from '../regions/test-ridge.spots';
 import { BUILDINGS } from '../sim/economy';
 import { SimClient, type DrawUnit } from './simClient';
 import { ArtBaker, type WarArt } from './art';
-import { IsoMap } from './iso';
+import { HH, HW, IsoMap, LH } from './iso';
 import { Massifs } from './massifs';
-import { LIVE_ZOOM, ObjectLayer } from './objects';
+import { ObjectLayer } from './objects';
 import { CHUNK_PX, OVERVIEW_SCALE, TerrainBaker, type BakeOpts } from './terrain';
+import type { BakeClient } from './bakeClient';
+import type { BakeJob } from './bakeWorker';
 import { WaterGlints } from './water';
 import { ShotLayer } from './shots';
 import { BODY, SPRITE_ZOOM, UnitLayer } from './units';
@@ -52,29 +54,30 @@ const CLIMB = ['climb', 'walk'] as const;
 const CARRY = ['carry', 'walk'] as const;
 /** Torching, beating out a fire, pushing a ladder off: a work swing. */
 const TASK = ['build', 'thrust', 'attack'] as const;
-/** The camera's zoom floor: never the whole region in view (the full map, M, is for that), and far less to draw. */
-export const MIN_ZOOM = 1 / 4;
-/** Pixel-clean zoom ladder (as regionMapView.zoomStep): 1/n below 1, whole numbers above; from MIN_ZOOM. */
-const LADDER = [1 / 4, 1 / 3, 1 / 2, 1, 2, 3];
+/** The camera's zoom floor (W-54): never far out (the minimap and the full map, M, give the overview), and far less to draw. */
+export const MIN_ZOOM = 1 / 2;
+/** Pixel-clean zoom ladder (as regionMapView.zoomStep): 1/2, then whole numbers; from MIN_ZOOM. */
+const LADDER = [1 / 2, 1, 2, 3];
 /**
- * Chunk levels, finest first: canvas px per world px and the lowest zoom each shows at. Down to
- * MIN_ZOOM the 1/4 level is the coarsest shown. Each pool keeps 48 canvases (1 MB each): a 1440x900 view
- * at a level's lowest zoom needs ~35. Map objects are baked in where they are not live sprites.
+ * Chunk canvases kept (1 MB each, LRU): a 1440x900 view at MIN_ZOOM shows ~35, the rest keep the ground just panned
+ * over. Chunks are baked at 1x without the map objects (live sprites); the overview carries them.
  */
-const LEVELS = [{ scale: 1, zoom: 1 / 2 }, { scale: 1 / 2, zoom: 1 / 3 }, { scale: 1 / 4, zoom: MIN_ZOOM }] as const;
-/** Bakes at this scale show below LIVE_ZOOM only (the 1/4 level and the overview), so they carry the objects. */
-const baked = (scale: number) => scale < LIVE_ZOOM;
-const POOL = 48;
+const POOL = 96;
 /** See-through holes in the peaks (./peaks.ts): at most this many (the cursor's, then the selected units'), this many screen px across. */
 const HOLES = 4;
 const HOLE_PX = 200;
-/** Terrain baking per frame (ms); at least one bake runs. */
+/** Terrain baking per frame on the main thread (ms; at least one bake runs), and uploading the bake worker's bitmaps. */
 const BAKE_MS = 6;
-/** World px per overview band (one band bakes per frame until the overview is done). */
+/** Bake worker jobs in flight: few, so the next asked are always the ones nearest the view's middle. */
+const IN_FLIGHT = 3;
+/** World px per overview band (one band bakes per frame until the overview is done), and bands per overview strip texture. */
 const BAND = 256;
+const STRIP = 8;
 
-
+/** at: the chunk's key (its column and row, and for one the peaks reach, whether they are cut). */
 interface Chunk { key: string; tex: Phaser.Textures.CanvasTexture; img: Phaser.GameObjects.Image; at: string; ver: number; used: number }
+/** A chunk's (or the overview band's, or a window's) bake back from the worker, to upload. */
+interface Arrived { bmp: ImageBitmap; ms: number; apply: (bmp: ImageBitmap) => void }
 interface View { x: number; y: number; right: number; bottom: number }
 
 export class SandboxScene extends Phaser.Scene {
@@ -107,6 +110,15 @@ export class SandboxScene extends Phaser.Scene {
   private baker!: TerrainBaker;
   private art: WarArt | null = null;
   private artBaker: ArtBaker | null = null;
+  /** The bake worker (./bakeClient.ts), null where the scene bakes on the main thread. */
+  private painter: BakeClient | null = null;
+  /** Its bakes back, uploaded within the frame's budget; the chunk keys (with version) asked and not back yet. */
+  private arrived: Arrived[] = [];
+  private asked = new Set<string>();
+  /** The chunks the peaks reach (their ground differs when cut, V): keyed by cut too, so toggling back finds them baked. */
+  private peaky = new Set<string>();
+  /** Visible chunks missing or stale last frame (0: the view is fully baked; for the perf scripts). */
+  viewPending = -1;
   private objects: ObjectLayer | null = null;
   private glints: WaterGlints | null = null;
   massifs: Massifs | null = null;
@@ -119,11 +131,16 @@ export class SandboxScene extends Phaser.Scene {
   private modeKey = '';
   private opts: BakeOpts = { tint: null, map: null, grid: false, zones: false };
   private ver = 0; // bumps when opts change: chunks baked earlier are stale
-  private chunks: Chunk[][] = LEVELS.map(() => []);
+  private chunks: Chunk[] = [];
   /** The see-through holes' windows: the ground behind the peaks (their stubs), baked round a point and faded at the rim. */
-  private windows: { tex: Phaser.Textures.CanvasTexture; img: Phaser.GameObjects.Image; at: string }[] = [];
-  private overviewTex!: Phaser.Textures.CanvasTexture;
+  private windows: { tex: Phaser.Textures.CanvasTexture; img: Phaser.GameObjects.Image; at: string; want: string }[] = [];
+  private strips: { tex: Phaser.Textures.CanvasTexture; bands: number; done: number }[] = [];
+  /** The class sheets warm up once the view is first baked. */
+  private warmed = false;
   private band = 0;
+  /** Overview bands asked of the worker, and back. */
+  private bandsAsked = 0;
+  private bandsDone = 0;
   private units!: UnitLayer;
   /** Lairs and claim banners (neutral regions). */
   private neutral!: NeutralLayer;
@@ -144,10 +161,11 @@ export class SandboxScene extends Phaser.Scene {
     super('Sandbox');
   }
 
-  init(data: { region: RegionData; art?: WarArt | null; sheets: Map<string, HTMLImageElement> }): void {
+  init(data: { region: RegionData; art?: WarArt | null; sheets: Map<string, HTMLImageElement>; baker?: BakeClient | null }): void {
     this.region = data.region;
     this.art = data.art ?? null;
     this.sheetImages = data.sheets;
+    this.painter = (this.art && data.baker) || null;
   }
 
   create(): void {
@@ -162,13 +180,11 @@ export class SandboxScene extends Phaser.Scene {
     this.map = new MapData(r);
     this.opts.map = this.map;
     if (this.art) {
-      this.artBaker = new ArtBaker(r, this.iso, this.art, this.massifs);
       this.objects = new ObjectLayer(this, this.iso, r, this.art, this.massifs);
       this.glints = new WaterGlints(this, this.iso);
     }
     const { W, H } = this.iso;
-    this.overviewTex = this.textures.createCanvas('overview', Math.ceil(W * OVERVIEW_SCALE), Math.ceil(H * OVERVIEW_SCALE))!;
-    this.add.image(0, 0, 'overview').setOrigin(0).setScale(1 / OVERVIEW_SCALE);
+    this.peaky = this.peakChunks();
     this.units = new UnitLayer(this, this.iso, this.sheetImages);
     this.neutral = new NeutralLayer(this, (p) => this.units.feet(p), (x, y) => this.depthAt(x, y));
     if (this.objects) this.units.depthOf = (x, y) => this.objects!.depth(x, y);
@@ -266,30 +282,78 @@ export class SandboxScene extends Phaser.Scene {
 
   private rebake(): void {
     this.ver++;
-    this.band = 0;
+    this.band = this.bandsAsked = this.bandsDone = 0;
+    for (const st of this.strips) st.done = 0;
     this.overviewReady = false;
+    this.painter?.opts(this.opts);
   }
 
-  /** Bake the next band of the overview; upload it once the last band is done. */
+  /** The bake worker while it works (once it fails the scene bakes on the main thread). */
+  private get worker(): BakeClient | null {
+    return this.painter && !this.painter.failed ? this.painter : null;
+  }
+
+  /** Bake the next band of the overview (with the worker: ask for the next ones); upload it once the last band is done. */
   private bakeOverviewBand(): void {
-    const { W, H } = this.iso, y = this.band * BAND;
-    this.bake(this.overviewTex.context, 0, y, W, BAND, OVERVIEW_SCALE, 0, y * OVERVIEW_SCALE);
-    if (++this.band * BAND < H) return;
-    this.overviewTex.refresh();
-    this.overviewReady = true;
+    const { W, H } = this.iso, n = Math.ceil(H / BAND), wk = this.worker;
+    if (!wk) {
+      const b = this.band, y = b * BAND, st = this.strip(b);
+      this.bake(st.tex.context, 0, y, W, BAND, OVERVIEW_SCALE, 0, (b % STRIP) * BAND * OVERVIEW_SCALE);
+      if (++st.done === st.bands) st.tex.refresh();
+      if (++this.band < n) return;
+      this.overviewReady = true;
+      return;
+    }
+    while (wk.busy < IN_FLIGHT && this.bandsAsked < n) {
+      const b = this.bandsAsked++, y = b * BAND, ver = this.ver, cw = Math.ceil(W * OVERVIEW_SCALE), ch = Math.ceil(BAND * OVERVIEW_SCALE);
+      this.ask({ x0: 0, y0: y, w: W, h: BAND, scale: OVERVIEW_SCALE, cw, ch, cut: false, objects: true }, (bmp) => {
+        if (ver !== this.ver) return;
+        const st = this.strip(b), cy = (b % STRIP) * ch;
+        st.tex.context.clearRect(0, cy, cw, ch);
+        st.tex.context.drawImage(bmp, 0, cy);
+        if (++st.done === st.bands) st.tex.refresh();
+        if (++this.bandsDone === n) this.overviewReady = true;
+      });
+    }
   }
 
+  /**
+   * The overview strip holding band b: STRIP bands of the overview's canvas each (a 512-tile region's is 36 MB), made
+   * when its first band is baked and uploaded once all its bands are in, so no frame uploads the whole.
+   */
+  private strip(b: number): { tex: Phaser.Textures.CanvasTexture; bands: number; done: number } {
+    const k = Math.floor(b / STRIP);
+    if (this.strips[k]) return this.strips[k];
+    const { W, H } = this.iso, n = Math.ceil(H / BAND), bands = Math.min(STRIP, n - k * STRIP), key = `overview-${k}`;
+    const tex = this.textures.createCanvas(key, Math.ceil(W * OVERVIEW_SCALE), bands * BAND * OVERVIEW_SCALE)!;
+    this.add.image(0, k * STRIP * BAND, key).setOrigin(0).setScale(1 / OVERVIEW_SCALE).setDepth(-1);
+    return (this.strips[k] = { tex, bands, done: 0 });
+  }
+
+  /** Bake on the main thread (no worker); the art baker is built on first use. */
   private bake(ctx: CanvasRenderingContext2D, x0: number, y0: number, w: number, h: number, scale: number, cx = 0, cy = 0): void {
     const t0 = performance.now();
-    if (this.artBaker) this.artBaker.bake(ctx, x0, y0, w, h, scale, this.opts, cx, cy, baked(scale));
+    if (this.art) (this.artBaker ??= new ArtBaker(this.region, this.iso, this.art, this.massifs)).bake(ctx, x0, y0, w, h, scale, this.opts, cx, cy, scale === OVERVIEW_SCALE);
     else this.baker.bake(ctx, x0, y0, w, h, scale, this.opts, cx, cy);
-    // bake times per scale (ms: count, mean, max), for the perf scripts
-    const st = (this.bakeStats[String(scale)] ??= { n: 0, mean: 0, max: 0 }), dt = performance.now() - t0;
+    this.stat(String(scale), performance.now() - t0);
+  }
+
+  /** Ask the worker for a bake; `apply` uploads it in a later frame (within the budget). */
+  private ask(job: Omit<BakeJob, 'id'>, apply: (bmp: ImageBitmap) => void): void {
+    this.worker!.bake(job, (bmp, ms) => {
+      this.stat(String(job.scale), ms);
+      this.arrived.push({ bmp, ms, apply });
+    });
+  }
+
+  /** Bake times per scale (ms: count, mean, max; in the worker with one), and the worker's bitmaps' uploads, for the perf scripts. */
+  private stat(key: string, dt: number): void {
+    const st = (this.bakeStats[key] ??= { n: 0, mean: 0, max: 0 });
     st.mean = (st.mean * st.n + dt) / ++st.n;
     st.max = Math.max(st.max, dt);
   }
 
-  /** Per bake scale: count, mean and max ms. */
+  /** Per bake scale: count, mean and max ms ('upload': the worker's bitmaps drawn into the chunks, on the main thread). */
   readonly bakeStats: Record<string, { n: number; mean: number; max: number }> = {};
 
   /** Centre the camera on a tile point (at its level), optionally zooming. */
@@ -514,8 +578,8 @@ export class SandboxScene extends Phaser.Scene {
     if (this.frame % 15 === 0) this.sim.camera([{ x: 0, y: 0 }, { x: cam.width, y: 0 }, { x: 0, y: cam.height }, { x: cam.width, y: cam.height }].map((c) => this.world(c)));
     // a live mode follows the sim (influence, nodes, lairs, walls): checked twice a second
     if (this.mode !== 'normal' && this.frame % 30 === 0) this.retint();
-    // V: the peaks cut down to stubs too (the chunks rebake, the stale ones shown meanwhile)
-    if (this.iso.stub && this.build.layer.cutaway !== this.iso.cut) { this.iso.cut = this.build.layer.cutaway; this.rebake(); }
+    // V: the peaks cut down to stubs too (the chunks they reach bake cut, the uncut ones shown meanwhile; the overview stays)
+    if (this.iso.stub && this.build.layer.cutaway !== this.iso.cut) this.iso.cut = this.build.layer.cutaway;
     this.updateChunks(view, cam.zoom);
     this.glints?.draw(view, cam.zoom, this.time.now, this.iso);
     // the ground under the cursor follows the camera too (pan, zoom), not just pointer moves
@@ -524,7 +588,7 @@ export class SandboxScene extends Phaser.Scene {
     for (const s of this.selected) if (this.sim.cur && !this.sim.squads.has(s)) this.selected.delete(s);
     const fog = this.sim.fog;
     if (fog && fog.version !== this.fogVer) (this.fogVer = fog.version), this.fog.set(fog);
-    this.fog.update(dt);
+    this.fog.update(dt, view);
     this.drawn = this.sim.units();
     // M7d: guardians perched or flying, and their squads' units not drawn (the Chimera's other heads)
     const bosses = this.sim.cur?.bosses;
@@ -555,45 +619,104 @@ export class SandboxScene extends Phaser.Scene {
   }
 
   /**
-   * Show baked chunks of the level for this zoom over the view; bake missing / stale ones within
-   * the frame's budget (the overview fills in meanwhile), then one overview band if it is not done.
+   * Upload the worker's bakes back since the last frame (within the budget, one at least); show the baked chunks over
+   * the view and bake the missing / stale ones nearest the view's middle first (the worker: a few in flight, then a ring
+   * round the view; the main thread: within the frame's budget), the stale ones shown meanwhile; then the overview.
    */
   private updateChunks(view: View, zoom: number): void {
-    const t0 = performance.now();
+    const t0 = performance.now(), wk = this.worker;
+    for (let k = 0; this.arrived.length && (k === 0 || performance.now() - t0 < BAKE_MS); k++) {
+      const a = this.arrived.shift()!, s = performance.now();
+      a.apply(a.bmp);
+      a.bmp.close();
+      this.stat('upload', performance.now() - s);
+    }
     if (zoom !== this.filterZoom) {
       this.filterZoom = zoom;
       // crisp tiles (and no seams between chunks) zoomed in, smooth zoomed out
-      for (const [l, pool] of this.chunks.entries()) for (const c of pool) c.tex.setFilter(this.filterFor(l));
-      this.overviewTex.setFilter(zoom >= 1 / OVERVIEW_SCALE ? Phaser.Textures.FilterMode.NEAREST : Phaser.Textures.FilterMode.LINEAR);
+      for (const c of this.chunks) c.tex.setFilter(this.filter());
     }
-    for (const pool of this.chunks) for (const c of pool) c.img.setVisible(false);
-    const l = LEVELS.findIndex((v) => zoom >= v.zoom);
-    if (l >= 0) {
-      const { scale } = LEVELS[l], span = CHUNK_PX / scale, { W, H } = this.iso;
-      const cx0 = Math.max(0, Math.floor(view.x / span)), cx1 = Math.min(Math.ceil(W / span) - 1, Math.floor(view.right / span));
-      const cy0 = Math.max(0, Math.floor(view.y / span)), cy1 = Math.min(Math.ceil(H / span) - 1, Math.floor(view.bottom / span));
-      let baked = 0;
-      for (let cy = cy0; cy <= cy1; cy++) {
-        for (let cx = cx0; cx <= cx1; cx++) {
-          const at = `${cx},${cy}`;
-          let c = this.chunks[l].find((q) => q.at === at);
-          if (!c || c.ver !== this.ver) {
-            if (baked && performance.now() - t0 > BAKE_MS) { if (c) (c.used = this.frame), c.img.setVisible(true); continue; } // stale shown till rebaked
-            baked++;
-            c ??= this.claimChunk(l, at);
-            // 1 canvas px of overlap all round: no seams between neighbours (or the overview showing through)
-            const m = 1 / scale;
-            this.bake(c.tex.context, cx * span - m, cy * span - m, span + 2 * m, span + 2 * m, scale);
-            c.tex.refresh();
-            c.img.setPosition(cx * span - m, cy * span - m).setScale(1 / scale);
-            c.ver = this.ver;
-          }
+    for (const c of this.chunks) c.img.setVisible(false);
+    const span = CHUNK_PX, { W, H } = this.iso, nx = Math.ceil(W / span), ny = Math.ceil(H / span);
+    const cx0 = Math.max(0, Math.floor(view.x / span)), cx1 = Math.min(nx - 1, Math.floor(view.right / span));
+    const cy0 = Math.max(0, Math.floor(view.y / span)), cy1 = Math.min(ny - 1, Math.floor(view.bottom / span));
+    const mx = (view.x + view.right) / 2 / span - 0.5, my = (view.y + view.bottom) / 2 / span - 0.5;
+    const want: [number, number, number][] = [];
+    for (let cy = cy0; cy <= cy1; cy++) for (let cx = cx0; cx <= cx1; cx++) {
+      const c = this.chunks.find((q) => q.at === this.chunkAt(cx, cy));
+      if (c) (c.used = this.frame), c.img.setVisible(true); // stale shown till rebaked
+      if (c?.ver === this.ver) continue;
+      if (!c && this.peaky.has(`${cx},${cy}`)) { // V just toggled: the other cut's bake meanwhile
+        const o = this.chunks.find((q) => q.at === this.chunkAt(cx, cy, !this.iso.cut));
+        if (o) (o.used = this.frame), o.img.setVisible(true);
+      }
+      want.push([cx, cy, (cx - mx) ** 2 + (cy - my) ** 2]);
+    }
+    this.viewPending = want.length;
+    if (!want.length && !this.warmed) (this.warmed = true), this.units.warm();
+    // the view done, the worker bakes a ring round it (what a pan shows next)
+    if (wk && !want.length) for (let cy = cy0 - 1; cy <= cy1 + 1; cy++) for (let cx = cx0 - 1; cx <= cx1 + 1; cx++) {
+      if (cx < 0 || cy < 0 || cx >= nx || cy >= ny || (cx >= cx0 && cx <= cx1 && cy >= cy0 && cy <= cy1)) continue;
+      if (this.chunks.find((q) => q.at === this.chunkAt(cx, cy))?.ver !== this.ver) want.push([cx, cy, (cx - mx) ** 2 + (cy - my) ** 2]);
+    }
+    want.sort((a, b) => a[2] - b[2]);
+    let baked = 0;
+    for (const [cx, cy] of want) {
+      // 1 px of overlap all round: no seams between neighbours (or the overview showing through)
+      const at = this.chunkAt(cx, cy), x0 = cx * span - 1, y0 = cy * span - 1, n = span + 2;
+      if (wk) {
+        if (wk.busy >= IN_FLIGHT) break;
+        const ver = this.ver, key = `${at}|${ver}`;
+        if (this.asked.has(key)) continue;
+        this.asked.add(key);
+        this.ask({ x0, y0, w: n, h: n, scale: 1, cw: n, ch: n, cut: this.iso.cut, objects: false }, (bmp) => {
+          this.asked.delete(key);
+          const c = this.chunks.find((q) => q.at === at) ?? this.claimChunk(at);
+          if (c.ver > ver) return;
+          c.tex.context.clearRect(0, 0, n, n);
+          c.tex.context.drawImage(bmp, 0, 0);
+          c.tex.refresh();
+          c.img.setPosition(x0, y0);
+          c.ver = ver;
           c.used = this.frame;
-          c.img.setVisible(true);
-        }
+        });
+        continue;
+      }
+      if (baked && performance.now() - t0 > BAKE_MS) break;
+      baked++;
+      const c = this.chunks.find((q) => q.at === at) ?? this.claimChunk(at);
+      this.bake(c.tex.context, x0, y0, n, n, 1);
+      c.tex.refresh();
+      c.img.setPosition(x0, y0).setVisible(true);
+      c.ver = this.ver;
+      c.used = this.frame;
+    }
+    if (!this.overviewReady && (!wk || !this.viewPending)) this.bakeOverviewBand();
+  }
+
+  /** A chunk's key: its column and row, and where the peaks reach it, whether they are cut (`cut`, default as now). */
+  private chunkAt(cx: number, cy: number, cut = this.iso.cut): string {
+    const k = `${cx},${cy}`;
+    return this.peaky.has(k) ? `${k}|${cut ? 1 : 0}` : k;
+  }
+
+  /** The chunks the peaks reach, with the ground under them and the walls down from it (their bakes differ when cut). */
+  private peakChunks(): Set<string> {
+    const out = new Set<string>(), iso = this.iso, f = iso.peaks;
+    if (!f || !iso.stub) return out;
+    const { w, h, P, S } = f, W = w + 1;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const k = y * W + x;
+      if (P[k] <= 0 && P[k + 1] <= 0 && P[k + W] <= 0 && P[k + W + 1] <= 0) continue;
+      let lo = Infinity;
+      for (let fy = 2 * y - 1; fy <= 2 * y + 3; fy++) for (let fx = 2 * x - 1; fx <= 2 * x + 3; fx++) lo = Math.min(lo, iso.zf(fx, fy));
+      const v = x + y, mx = iso.OX + (x - y) * HW;
+      const top = iso.OY + v * HH - (Math.max(S[k], S[k + 1], S[k + W], S[k + W + 1]) + 1) * LH, bottom = iso.OY + (v + 2) * HH - (lo - 2) * LH;
+      for (let cy = Math.floor(top / CHUNK_PX); cy <= Math.floor(bottom / CHUNK_PX); cy++) {
+        for (let cx = Math.floor((mx - HW - 2) / CHUNK_PX); cx <= Math.floor((mx + HW + 2) / CHUNK_PX); cx++) out.add(`${cx},${cy}`);
       }
     }
-    if (!this.overviewReady) this.bakeOverviewBand();
+    return out;
   }
 
   /**
@@ -603,9 +726,9 @@ export class SandboxScene extends Phaser.Scene {
    * units' occlusion see the same ground.
    */
   private updateHoles(zoom: number, wp: { x: number; y: number } | null): void {
-    const iso = this.iso, full = iso.peaks, stub = iso.stub, l = LEVELS.findIndex((v) => zoom >= v.zoom);
+    const iso = this.iso, full = iso.peaks, stub = iso.stub;
     const want: { x: number; y: number }[] = [];
-    if (full && stub && !iso.cut && l >= 0) {
+    if (full && stub && !iso.cut) {
       const R = HOLE_PX / 2 / zoom;
       if (wp) {
         const a = iso.pick(wp.x, wp.y, full), b = iso.pick(wp.x, wp.y, stub);
@@ -622,28 +745,40 @@ export class SandboxScene extends Phaser.Scene {
     const holes: { x: number; y: number; r: number }[] = [];
     let baked = false;
     want.forEach((q, i) => {
-      const { scale } = LEVELS[l], R = HOLE_PX / 2 / zoom, step = R / 2;
-      const cx = Math.round(q.x / step) * step, cy = Math.round(q.y / step) * step, at = `${cx},${cy},${scale},${R},${this.ver}`;
+      const R = HOLE_PX / 2 / zoom, step = R / 2;
+      const cx = Math.round(q.x / step) * step, cy = Math.round(q.y / step) * step, at = `${cx},${cy},${R},${this.ver}`;
       let w = this.windows[i];
       if (!w) {
         const key = `peak-window-${i}`, n = Math.ceil(4 * HOLE_PX);
         const tex = this.textures.createCanvas(key, n, n)!;
-        this.windows.push((w = { tex, img: this.add.image(0, 0, key).setOrigin(0).setDepth(1.5), at: '' }));
+        this.windows.push((w = { tex, img: this.add.image(0, 0, key).setOrigin(0).setDepth(1.5), at: '', want: '' }));
       }
-      if (w.at !== at && !baked) {
+      if (w.at !== at && w.want !== at && !baked) {
         baked = true;
-        const ctx = w.tex.context, n = Math.ceil(2 * R * scale);
-        ctx.clearRect(0, 0, w.tex.width, w.tex.height);
-        iso.cut = true;
-        this.bake(ctx, cx - R, cy - R, 2 * R, 2 * R, scale);
-        iso.cut = false;
+        const win = w, ctx = w.tex.context, n = Math.ceil(2 * R);
         // faded at the rim: opaque to 60% of the radius, gone at its edge
-        const g = ctx.createRadialGradient(n / 2, n / 2, n * 0.3, n / 2, n / 2, n / 2);
-        g.addColorStop(0, 'rgba(0,0,0,1)'); g.addColorStop(1, 'rgba(0,0,0,0)');
-        ctx.save(); ctx.globalCompositeOperation = 'destination-in'; ctx.fillStyle = g; ctx.fillRect(0, 0, w.tex.width, w.tex.height); ctx.restore();
-        w.tex.refresh();
-        w.img.setPosition(cx - R, cy - R).setScale(1 / scale);
-        w.at = at;
+        const fade = () => {
+          const g = ctx.createRadialGradient(n / 2, n / 2, n * 0.3, n / 2, n / 2, n / 2);
+          g.addColorStop(0, 'rgba(0,0,0,1)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+          ctx.save(); ctx.globalCompositeOperation = 'destination-in'; ctx.fillStyle = g; ctx.fillRect(0, 0, win.tex.width, win.tex.height); ctx.restore();
+          win.tex.refresh();
+          win.img.setPosition(cx - R, cy - R);
+          win.at = at;
+        };
+        win.want = at;
+        if (this.worker) this.ask({ x0: cx - R, y0: cy - R, w: 2 * R, h: 2 * R, scale: 1, cw: n, ch: n, cut: true, objects: false }, (bmp) => {
+          if (win.want !== at) return;
+          ctx.clearRect(0, 0, win.tex.width, win.tex.height);
+          ctx.drawImage(bmp, 0, 0);
+          fade();
+        });
+        else {
+          ctx.clearRect(0, 0, w.tex.width, w.tex.height);
+          iso.cut = true;
+          this.bake(ctx, cx - R, cy - R, 2 * R, 2 * R, 1);
+          iso.cut = false;
+          fade();
+        }
       }
       if (w.at) {
         w.img.setVisible(true);
@@ -651,22 +786,22 @@ export class SandboxScene extends Phaser.Scene {
         holes.push({ x: ax, y: ay, r: R * 0.8 });
       }
     });
-    for (let i = want.length; i < this.windows.length; i++) { this.windows[i].img.setVisible(false); this.windows[i].at = ''; }
+    for (let i = want.length; i < this.windows.length; i++) { this.windows[i].img.setVisible(false); this.windows[i].at = this.windows[i].want = ''; }
     iso.holes = holes;
   }
 
-  private filterFor(level: number): Phaser.Textures.FilterMode {
-    return this.filterZoom / LEVELS[level].scale >= 1 ? Phaser.Textures.FilterMode.NEAREST : Phaser.Textures.FilterMode.LINEAR;
+  private filter(): Phaser.Textures.FilterMode {
+    return this.filterZoom >= 1 ? Phaser.Textures.FilterMode.NEAREST : Phaser.Textures.FilterMode.LINEAR;
   }
 
-  /** A canvas for the chunk at `at` of a level: a new one while the pool has room, else the least recently shown. */
-  private claimChunk(level: number, at: string): Chunk {
-    const pool = this.chunks[level];
+  /** A canvas for the chunk at `at`: a new one while the pool has room, else the least recently shown. */
+  private claimChunk(at: string): Chunk {
+    const pool = this.chunks;
     let c: Chunk | undefined;
     if (pool.length < POOL) {
-      const key = `chunk-${level}-${pool.length}`;
+      const key = `chunk-${pool.length}`;
       const tex = this.textures.createCanvas(key, CHUNK_PX + 2, CHUNK_PX + 2)!;
-      tex.setFilter(this.filterFor(level));
+      tex.setFilter(this.filter());
       c = { key, tex, img: this.add.image(0, 0, key).setOrigin(0).setDepth(1), at, ver: -1, used: 0 };
       pool.push(c);
     } else {
