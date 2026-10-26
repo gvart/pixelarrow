@@ -54,6 +54,7 @@ import { loadGlyphs } from './glyph';
 import { TIP_CSS, tipChain } from './tooltip';
 import { GROUPS_CSS, mountGroups } from './groups';
 import { keys } from '../../input/keys';
+import type { ActionId } from '../../input/actions';
 import { myTeam } from '../side';
 
 const RES: string[] = ['food', 'wood', 'stone', 'marble', 'copper', 'tin', 'iron', 'bronze', 'silver', 'salt', 'olives', 'coin'];
@@ -221,7 +222,16 @@ export function hud(s: SandboxScene): void {
   sqAtkMove.insertAdjacentHTML('beforeend', `<span class="badge">${icon('act-move')}</span>`);
   const sqHold = btn('cHold', 'act-hold', tipK('Hold', 'stand and fight here', 'H'), 'H', () => s.orderSelected((squad) => ({ kind: 'hold', squad })));
   const sqStop = btn('cStop', 'act-stop', tipK('Stop', 'halt and form up where they stand', 'X'), 'X', stop);
-  const shapes = SHAPES.map((sh, i) => btn('cF' + sh, 'act-' + sh, tipK('Formation: ' + sh, 'the selected men form up as one', 'Alt+' + (i + 1)), String(i + 1), () => { s.orderSelected((squad) => ({ kind: 'formation', squad, shape: sh })); lastShape = sh; }, ''));
+  // the key hints are the formation actions' current bindings (src/war/input; Alt+1-4 by default, rebindable); the
+  // corner badge writes the Mac modifiers as symbols to fit
+  const formKey = (sh: string) => keys.label(`form.${sh}` as ActionId);
+  const badge = (sh: string) => formKey(sh).replace(/Option\+/g, '⌥').replace(/Cmd\+/g, '⌘').replace(/Shift\+/g, '⇧');
+  const shapes = SHAPES.map((sh) => btn('cF' + sh, 'act-' + sh, () => tipK('Formation: ' + sh, 'the selected men form up as one', formKey(sh)), badge(sh), () => { s.orderSelected((squad) => ({ kind: 'formation', squad, shape: sh })); lastShape = sh; }, ''));
+  keys.onChange(() => shapes.forEach((b, i) => {
+    const k = b.querySelector('.key'), label = badge(SHAPES[i]);
+    if (k) k.textContent = label;
+    else if (label) b.insertAdjacentHTML('beforeend', `<span class="key">${label}</span>`);
+  }));
   const orders = [row('', sqMove, sqAtk, sqAtkMove, sqHold, sqStop), row('rf-seg', ...shapes)];
   orders[1].style.gap = '0';
   // civilian squads (M5f): work orders only, their jobs instead of the attack orders
