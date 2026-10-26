@@ -12,7 +12,8 @@
     "bench:war": "node scripts/war/bench.mjs",
     "perf:war": "vitest run --config vitest.perf.config.ts",
     "balance:war": "node scripts/war/balance.mjs",
-    "play:war": "node scripts/war/play.mjs"
+    "play:war": "node scripts/war/play.mjs",
+    "clips:war": "node scripts/landing/record-war-clips.mjs && bash scripts/landing/encode-war-clips.sh"
   },
   "dependencies": {
     "@fontsource/cinzel": "^5.3.0",
