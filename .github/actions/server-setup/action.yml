@@ -10,7 +10,12 @@ runs:
       with:
         node-version: 22
         cache: npm
-        cache-dependency-path: server/package-lock.json
+        cache-dependency-path: |
+          package-lock.json
+          server/package-lock.json
+    # the Worker bundles ../src/war, which resolves zod from the root node_modules
+    - run: npm ci --ignore-scripts --no-audit
+      shell: bash
     - run: npm ci
       shell: bash
       working-directory: server
