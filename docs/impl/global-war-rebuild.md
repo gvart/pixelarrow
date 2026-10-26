@@ -112,7 +112,7 @@ Since resume (2026-10-25): baked terrain shading, 4 m visual levels, one-level s
 Next, in order:
 1. Owner playtest of the current build; route feedback per area.
 2. Home regions (elaia, dodona, skythia): Gemini references, then W-52 + `relief`; ammon/canyons/erymanthos drafts likewise.
-3. Smoke loop past the market: buyer coin setup, lair raid, claim, ram siege live.
+3. Done: the loop past the market is in seeded vitest scenarios (tests/war/loop.test.ts, server/test/war/tradeLoop.test.ts); the live smoke is a short wiring check (docs/PLAYTEST.md).
 4. Look polish: peaks up close (faceted), kyrene walls brighter/stripier than ref, pale elaia limestone lost its grass lip, sawtooth wall fronts, dodona brook banks as walls, elaia bay far-shore strip, waterfalls unchecked in-game (dodona-e/omphalos), unplaced pieces (elaia-e temple/jetty, kyrene-w, dodona-n hut-ruin, skythia-w rockfall), landmark look gaps (Citadel crag, Obsidian mesa, contour vineyards, `build.mjs --biome` wipes town objects).
 5. Perf on an idle GPU machine: ≥50 fps with 600 units at 1/2 and 1/4 zoom; bake-time A/B; V toggle rebake (~5 s choppy).
 
