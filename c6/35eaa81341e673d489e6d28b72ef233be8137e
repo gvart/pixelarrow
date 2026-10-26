@@ -1,0 +1,85 @@
+server/src/account/notices.ts
+  s_fcb7475e0b5395::t_99d4a14fe33bce 17,68
+server/src/simVersion.ts
+  s_fcb7475e0b5395::t_2d39bbc069c099 4,16-19
+server/src/admin/page.ts
+  s_fcb7475e0b5395::t_432a4dd0640239 191-192
+server/src/admin/routes.ts
+  s_fcb7475e0b5395::t_432a4dd0640239 114,124,153
+  s_fcb7475e0b5395::t_a50523ac733069 23
+  s_fcb7475e0b5395::t_ee466b1ed5d87d 18
+server/test/public-snapshot.test.ts
+  s_fcb7475e0b5395::t_02123eeee21bb5 2,153
+  s_fcb7475e0b5395::t_80b42bd9e70f2c 5-6,88,94-95,97,105,107-108,112-115,162,164,174
+server/src/war/world/members.ts
+  s_fcb7475e0b5395::t_a50523ac733069 10
+server/src/env.ts
+  s_fcb7475e0b5395::t_7f5e29282d4460 24,42
+server/src/account/conflicts.ts
+  s_fcb7475e0b5395::t_424fdf9cbfc25c 33,188,198,209-210
+server/test/simVersion.test.ts
+  s_fcb7475e0b5395::t_4658ee9e959e24 3,5,7
+server/test/deletion.test.ts
+  s_fcb7475e0b5395::t_ea78debe20e906 16
+server/test/war/treasury.test.ts
+  s_fcb7475e0b5395::t_ea78debe20e906 6
+server/src/routes/auth.ts
+  s_fcb7475e0b5395::t_ee466b1ed5d87d 5
+  s_fcb7475e0b5395::t_0e861a1445ed0c 28-34,36,49-53,55-62,64-66,77-78
+server/src/war/persons.ts
+  s_fcb7475e0b5395::t_a50523ac733069 46
+server/src/public/snapshot.ts
+  s_fcb7475e0b5395::t_790c74f11df9a2 148-149,151,163
+  s_fcb7475e0b5395::t_a354902d314745 18-23,47-48,53,80-81
+server/test/auth.test.ts
+  s_fcb7475e0b5395::t_ed8bd3d09fb143 60,80
+  s_fcb7475e0b5395::t_afb229b01b7845 45
+server/test/ops.test.ts
+  s_fcb7475e0b5395::t_24b04561d5162e 14
+  s_fcb7475e0b5395::t_f3af6205001957 145,149,225,230
+  s_fcb7475e0b5395::t_ed8bd3d09fb143 13,206,244-246
+wrangler.jsonc
+  s_fcb7475e0b5395::t_4c94213cfc662e 3,31,36-37,87-89,98-100
+server/test/sessions.test.ts
+  s_fcb7475e0b5395::t_ed8bd3d09fb143 285,289
+tests/playHeaders.test.ts
+  s_fcb7475e0b5395::t_c103d8aa424a91 6,29-30
+server/test/war/world.test.ts
+  s_fcb7475e0b5395::t_ea78debe20e906 20
+server/src/war/treasury.ts
+  s_fcb7475e0b5395::t_a50523ac733069 12
+server/test/headers.test.ts
+  s_fcb7475e0b5395::t_c9d044f2fd906e 14,22,32,41
+server/src/middleware.ts
+  s_fcb7475e0b5395::t_4c94213cfc662e 7
+server/src/account/delete.ts
+  s_fcb7475e0b5395::t_424fdf9cbfc25c 34,66,168,188
+server/src/war/store.ts
+  s_fcb7475e0b5395::t_14e29a1c11aa3e 1-100
+public/_headers
+  s_fcb7475e0b5395::t_124273dcb2ca01 3,5,8
+server/src/index.ts
+  s_fcb7475e0b5395::t_4b7b8d11222d76 10,24,258,261
+  s_fcb7475e0b5395::t_e854d2f66b7a23 4,54,58,67,70,147
+server/src/account/routes.ts
+  s_fcb7475e0b5395::t_424fdf9cbfc25c 178
+  s_fcb7475e0b5395::t_b0a976432ce609 193
+server/src/account/noticeTexts.ts
+  s_fcb7475e0b5395::t_b36e0539a76765 2-3,9-11
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "c635eaa81341e673d489e6d28b72ef233be8137e",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
