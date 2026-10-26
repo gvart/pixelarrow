@@ -1,0 +1,100 @@
+docs/WAR.md
+  s_fcb7475e0b5395::t_0fcf95e559844b 562,569-584
+  s_fcb7475e0b5395::t_c363c06be5aaab 585
+src/war/view/hud/activity.ts
+  s_fcb7475e0b5395::t_0fcf95e559844b 1-62
+src/war/view/build/buildMode.ts
+  s_fcb7475e0b5395::t_0fcf95e559844b 10-16,25,39-40,53-54,65-66,71-72,82-86,95,116,119,130-131,144,147-149,154,156-158,160,184-188,190-194,196-197,286,288,304-306,311-315,332-333,361-362,403-404,408-410,414-421,423,484-485,507-508,510-512,529-534,536,539,542-543,545-552,554-557,607-621
+src/war/view/build/buildingLayer.ts
+  s_fcb7475e0b5395::t_0fcf95e559844b 41,54-59,147,149-150,167-169,261-263,382,385-389,392,502,521,577,582,586,591,947,960-967
+  s_fcb7475e0b5395::t_4e2cf69eff7130 968
+src/war/view/build/wallDraw.ts
+  s_fcb7475e0b5395::t_0fcf95e559844b 1-39
+src/war/view/hud/hud.ts
+  s_fcb7475e0b5395::t_0fcf95e559844b 17-18,59,88-89,92-95,200,307,311,334,424,427,469
+tests/war/buildUx.test.ts
+  s_fcb7475e0b5395::t_0fcf95e559844b 1-187
+docs/impl/global-war-rebuild.md
+  s_fcb7475e0b5395::t_0fcf95e559844b 64
+  s_fcb7475e0b5395::t_34832d38506774 126
+src/war/sim/works.ts
+  s_fcb7475e0b5395::t_0fcf95e559844b 348-349,355-360,385,389-456,493-503,505,531-545,551-557,559,562,573,575-583,676,684-685,796-824,2223
+tests/war/works.test.ts
+  s_fcb7475e0b5395::t_0fcf95e559844b 222-227,350-351,361
+src/war/types.ts
+  s_fcb7475e0b5395::t_0fcf95e559844b 486-490
+src/war/sim/economy.ts
+  s_fcb7475e0b5395::t_0fcf95e559844b 3-4,68-84,86-87,92-94,96-110,112-113,115,117-128
+src/generated/sheets/archer/manifest.json
+  s_cfc22b058125c4::t_ebfb6d1fe97b51 1
+src/generated/sheets/celt_sword/manifest.json
+  s_cfc22b058125c4::t_2c63ef60b893df 1
+src/generated/sheets/civ_cook/manifest.json
+  s_cfc22b058125c4::t_e184d48adf25cd 1
+src/generated/sheets/civ_engineer/manifest.json
+  s_cfc22b058125c4::t_3b7bb25a6698b2 1
+src/generated/sheets/civ_forager/manifest.json
+  s_cfc22b058125c4::t_c6de6fb44a386b 1
+src/generated/sheets/civ_merchant/manifest.json
+  s_cfc22b058125c4::t_124255b9697823 1
+src/generated/sheets/civ_physician/manifest.json
+  s_cfc22b058125c4::t_b4bfc94b03ea89 1
+src/generated/sheets/civ_smith/manifest.json
+  s_cfc22b058125c4::t_4d8238d52c5e01 1
+src/generated/sheets/companion/manifest.json
+  s_cfc22b058125c4::t_5ecd57ac27409a 1
+src/generated/sheets/hoplite/manifest.json
+  s_cfc22b058125c4::t_7527dbbfff7d75 1
+src/generated/sheets/javelineer/manifest.json
+  s_cfc22b058125c4::t_c4f3c11f6d1a07 1
+src/generated/sheets/militia/manifest.json
+  s_cfc22b058125c4::t_441331071f20c1 1
+src/generated/sheets/mob_bandit_archer/manifest.json
+  s_cfc22b058125c4::t_e17894f0113605 1
+src/generated/sheets/mob_bandit_captain/manifest.json
+  s_cfc22b058125c4::t_b468c66baafe87 1
+src/generated/sheets/mob_bandit_guard/manifest.json
+  s_cfc22b058125c4::t_396a9bcaf67dd1 1
+src/generated/sheets/mob_bandit_king/manifest.json
+  s_cfc22b058125c4::t_8e2e585f2fe5a9 1
+src/generated/sheets/mob_brontes/manifest.json
+  s_cfc22b058125c4::t_29a880474a43c0 1
+src/generated/sheets/mob_chimera/manifest.json
+  s_cfc22b058125c4::t_10e737cd115347 1
+src/generated/sheets/mob_drakon/manifest.json
+  s_cfc22b058125c4::t_edcd08895fd3d0 1
+src/generated/sheets/mob_gyges/manifest.json
+  s_cfc22b058125c4::t_76e07111971590 1
+src/generated/sheets/mob_maenad/manifest.json
+  s_cfc22b058125c4::t_6499fe030218bb 1
+src/generated/sheets/mob_maenad_queen/manifest.json
+  s_cfc22b058125c4::t_04bba025304264 1
+src/generated/sheets/mob_scylla_head/manifest.json
+  s_cfc22b058125c4::t_1a21d0f61bd5c8 1
+src/generated/sheets/slinger/manifest.json
+  s_cfc22b058125c4::t_913a166bf7fb1f 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "39eb931e4e964ea182dcbdf8179d5ffd77d14eda",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "unknown"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    },
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
