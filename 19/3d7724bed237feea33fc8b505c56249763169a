@@ -1,0 +1,24 @@
+scripts/war/regions/elaia.ts
+  s_fcb7475e0b5395::t_82f0199e8a2b51 105,107-110
+  s_fcb7475e0b5395::t_5bb63c062f34b4 106
+  s_fcb7475e0b5395::t_b53f51099aad63 104
+  s_fcb7475e0b5395::t_297e44299f70b8 102
+src/war/regions/elaia.json
+  s_fcb7475e0b5395::t_5bb63c062f34b4 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "193d7724bed237feea33fc8b505c56249763169a",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
