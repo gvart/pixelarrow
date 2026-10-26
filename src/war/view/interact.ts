@@ -15,6 +15,7 @@
  *   own building                                      burning: extinguish; unfinished: build / resume; hurt: repair (repairBuilding);
  *                                                     M5h3 fortify (Fortifier, paid at once; never the tap's pick):
  *                                                     iron-bind a gate, wet hides on burnable wood
+ *   a soul (W-60)                                    claim him (claimSoul; greyed while the army is full)
  *   own cart, loot pile, chest, store (M6k)          ./trade/tradeControls.ts: unload, escort, pull, load, pick up, salvage, loot;
  *                                                     an enemy cart: capture first, then ignite / attack
  *   own pre-built ruin (M7g)                          rebuild (a site at RUIN.rebuild of its cost; landmark pieces: restore only)
@@ -31,7 +32,8 @@ import { Radial, RI } from './hud/radial';
 import { ACTIVE_UI, activeEffect, activesOf, activeWhy, fireActives } from './hud/cardActive';
 import { SIEGE_NAME } from './siege/siegeControls';
 import { sandboxCraft } from './hud/craft/state';
-import { sandboxRoster } from './hud/roster/state';
+import { sandboxRoster, SandboxRoster } from './hud/roster/state';
+import { claimSoul, claimWhy, soulAt } from './hud/souls';
 import type { SandboxScene } from './SandboxScene';
 import { keys } from '../input/keys';
 import { myTeam } from './side';
@@ -200,6 +202,10 @@ export class Interact {
       if (ac) o.push({ label: `${ACTIVE_UI[ac.a.skill]?.name.toLowerCase() ?? ac.a.skill} (${activeEffect(ac.a.skill)})`, icon: ACTIVE_UI[ac.a.skill]?.icon ?? 'act-hold', off: activeWhy(ac.a), run: () => { fireActives(s, own); sc.status = 'active fired'; } });
       return [...o, move];
     }
+
+    // W-60: a soul under the cursor: the lead squad goes to claim him (as the prompt's Claim button)
+    const so = soulAt(s, t.x, t.y);
+    if (so) return [act(`claim soul (${SandboxRoster.className(so.cls).toLowerCase()} L${so.level})`, 'act-assign', so, 0x9fd4ff, () => claimSoul(s, own[0], so), claimWhy(s)), move];
 
     // M6k trade (./trade/tradeControls.ts): own carts, loot piles, chests
     const th = s.trade.at(t);

@@ -802,7 +802,8 @@ tells him `soul` claimed or refused; the DO writes the new man (`claimSoul`: an 
 two regions claiming at once cannot pass 12; a refused insert takes the man off the field). A soul draws as a pale,
 glowing ghost of his class sheet (tinted, see-through, an additive glow; no new art) and shows on the minimap and the
 full map; with men selected near one, a prompt names him (class, level, site, fade timer) and its Claim button sends
-them, or reads "Army full 12/12".
+them, or reads "Army full 12/12"; right click or E on the soul gives the same claim order (greyed in the radial while
+the army is full).
 
 ### Anti-oversaturation
 

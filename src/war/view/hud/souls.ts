@@ -2,7 +2,7 @@
  * W-60 souls on the HUD (docs/WAR.md "Souls"; src/war/sim/souls.ts): the newly dead wait on the map as pale ghosts
  * (../units.ts draws them from this module's source, ./mapDraw.ts marks them on the minimap and full map). With men of
  * yours selected and a soul in sight, a prompt names him (class, level, where he woke, how long until he fades) and its
- * Claim button sends the squad to him (claimSoul). He joins only while your army is under ARMY_MAX: at 12 the button
+ * Claim button sends the squad to him (claimSoul), as right click or E on him does (../interact.ts). He joins only while your army is under ARMY_MAX: at 12 the button
  * says so and the claim is refused with a clear note; a claim that goes through, or one the sim or the server refuses,
  * shows as a note too (the roster's toasts).
  */
@@ -43,6 +43,28 @@ export function soulCard(so: SoulSnap, full: boolean): string {
   });
 }
 
+/** His fighters now: online the roster's (every region, as the server counts), offline his men on this map (as the sim does). */
+export function armyMen(s: SandboxScene): number {
+  if (s.sim.net) return sandboxRoster(s).rows().filter((r) => r.where !== 'dead' && !(r.p.hero.cls ?? '').startsWith('civ_')).length;
+  const own = new Set((s.sim.cur?.squads ?? []).filter((q) => q.team === myTeam()).map((q) => q.id));
+  return (s.sim.cur?.units ?? []).filter((u) => own.has(u.squad) && u.state !== 'dead' && !u.cls.startsWith('civ_')).length;
+}
+
+/** The soul within `r` tiles of tile point (x, y), nearest first (right click and E pick him so). */
+export const soulAt = (s: SandboxScene, x: number, y: number, r = 1.5): SoulSnap | null =>
+  (s.sim.cur?.souls ?? []).reduce<SoulSnap | null>((a, so) => (Math.hypot(so.x - x, so.y - y) <= r && (!a || Math.hypot(so.x - x, so.y - y) < Math.hypot(a.x - x, a.y - y)) ? so : a), null);
+
+/** Why squad men may not claim now (the army is full), else undefined. */
+export const claimWhy = (s: SandboxScene): string | undefined => (armyMen(s) >= ARMY_MAX ? `army full ${ARMY_MAX}/${ARMY_MAX}` : undefined);
+
+/** Send `squad` to claim soul `so` (the prompt's button, right click and E), with the roster's note; refused when the army is full. */
+export function claimSoul(s: SandboxScene, squad: number, so: SoulSnap): void {
+  const note = (text: string, kind: 'dead' | 'info') => sandboxRoster(s).onNote?.({ kind, text });
+  if (claimWhy(s)) return note(`Your army is full (${ARMY_MAX} / ${ARMY_MAX} men): the soul cannot join until a man falls or retires`, 'dead');
+  s.sim.order({ kind: 'claimSoul', squad, soul: so.id });
+  note(`Your men go to claim the soul of a ${SandboxRoster.className(so.cls).toLowerCase()}`, 'info');
+}
+
 export function mountSouls(s: SandboxScene, mk: Mk, tipOn: (el: HTMLElement, html: () => string) => void): void {
   setSoulSource(() => s.sim.cur?.souls ?? []);
   const R = sandboxRoster(s);
@@ -53,13 +75,7 @@ export function mountSouls(s: SandboxScene, mk: Mk, tipOn: (el: HTMLElement, htm
   let soul: SoulSnap | null = null;
   tipOn(el, () => (soul ? soulCard(soul, armyFull()) : ''));
 
-  /** His fighters now: online the roster's (every region, as the server counts), offline his men on this map (as the sim does). */
-  const army = () => {
-    if (s.sim.net) return R.rows().filter((r) => r.where !== 'dead' && !(r.p.hero.cls ?? '').startsWith('civ_')).length;
-    const own = new Set((s.sim.cur?.squads ?? []).filter((q) => q.team === myTeam()).map((q) => q.id));
-    return (s.sim.cur?.units ?? []).filter((u) => own.has(u.squad) && u.state !== 'dead' && !u.cls.startsWith('civ_')).length;
-  };
-  const armyFull = () => army() >= ARMY_MAX;
+  const armyFull = () => !!claimWhy(s);
 
   /** The soul nearest the selected squads' centre within SEE_R, and the squad to send. */
   const pick = (): { so: SoulSnap; squad: number; d: number } | null => {
@@ -91,10 +107,7 @@ export function mountSouls(s: SandboxScene, mk: Mk, tipOn: (el: HTMLElement, htm
   el.addEventListener('click', (e) => {
     const b = (e.target as HTMLElement).closest<HTMLElement>('[data-act="claim"]');
     const p = pick();
-    if (!b || !p) return;
-    if (armyFull()) return note(`Your army is full (${ARMY_MAX} / ${ARMY_MAX} men): the soul cannot join until a man falls or retires`, 'dead');
-    s.sim.order({ kind: 'claimSoul', squad: p.squad, soul: p.so.id });
-    note(`Your men go to claim the soul of a ${SandboxRoster.className(p.so.cls).toLowerCase()}`);
+    if (b && p) claimSoul(s, p.squad, p.so);
   });
 
   // what became of a claim: the sim's events (local play) and the region server's notes (online)
