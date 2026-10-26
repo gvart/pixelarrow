@@ -14,7 +14,7 @@
  */
 import type { Kit, Pt, RegionDef } from './kit.ts';
 import { fbm } from './kit.ts';
-import { composeOnDraft } from './draftCompose.ts';
+import { composeOnDraft, marketGoods } from './draftCompose.ts';
 
 const FORT: Pt = [34, 44];
 
@@ -52,6 +52,9 @@ const base = composeOnDraft('ammon', { staging: [330, 350], entryBand: 6 }, (k: 
   for (const p of [[24, 92], [200, 20], [150, 236]] as Pt[]) k.piece('kyrene/doum-palm', p, { r: 6 });
   // the fort butte's red sandstone (its walls in the kyrene stone)
   k.patchWhere('kyrene', 'redrock', (x, y) => Math.hypot(x - FORT[0], (y - FORT[1]) * 1.15) < 22 && k.height[k.at([x, y])] >= 3, ['sand', 'grass', 'dirt']);
+  // the fort butte's bare top round its tower: red stones, fallen mudbrick, a well (it read as an empty table)
+  for (const [n, [dx, dy]] of ([[-8, -4], [6, -7], [-5, 6], [8, 5], [0, 9], [-10, 2]] as const).entries()) k.piece(['kyrene/rocks-red', 'kyrene/rubble-heap-mud', 'kyrene/wall-fallen-mud', 'kyrene/debris-mud'][n % 4], [FORT[0] + dx, FORT[1] + dy], { r: 3, n: 2, gap: 2 });
+  marketGoods(k, [34, 220], 'kyrene');
 });
 
 /** The fort butte raised after the draft's keep (the fortress spot keeps the drafted h4 top otherwise). */
