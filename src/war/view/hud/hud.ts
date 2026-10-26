@@ -14,8 +14,8 @@
  *                  Situational orders (ladders, ignite, extinguish, crew, fire arrows) are context only: E / right
  *                  click, or hold either for the radial menu (../interact.ts).
  *   bottom right   the Build (hammer, B) button; the build bar (tabs Camp / Walls / Siege, a tool per building, a
- *                  tooltip with cost and labour; wall tools add gate / tower / order / undo / flip, the status line
- *                  above) opens bottom centre, over the card, only in build mode: B / Esc close it
+ *                  tooltip with cost and labour; walls, towers and gates are plain tools on the Walls tab (W-57), the
+ *                  status line above) opens bottom centre, over the card, only in build mode: B / Esc close it
  *   top right      World, Market (K: ./market.ts), DEV (F1) and the UI scale (auto by window / 0.75x / 1x / 1.25x / 1.5x / 2x, kept in localStorage; ./kit.ts)
  *   at the cursor  the E context label (../interact.ts) and the kit's cursors
  *
@@ -56,6 +56,7 @@ import { GROUPS_CSS, mountGroups } from './groups';
 import { keys } from '../../input/keys';
 import type { ActionId } from '../../input/actions';
 import { myTeam } from '../side';
+import { activityText, waitText } from './activity';
 
 const RES: string[] = ['food', 'wood', 'stone', 'marble', 'copper', 'tin', 'iron', 'bronze', 'silver', 'salt', 'olives', 'coin'];
 /** M5h: the band's second page (its toggle under the right end): crafting goods, pitch, and the remedies in the team supplies (p:). */
@@ -84,9 +85,14 @@ const TABS: Record<'Camp' | 'Walls' | 'Craft' | 'Siege' | 'Trade', ToolDef[]> = 
   Camp: TOOLBAR.map((t) => bTool(t)),
   Craft: WORKPLACES.map(([t, name]) => bTool(t, '', name)),
   Walls: [
-    { ...bTool('palisade', 'per tile · G gate, T tower, Enter orders', nice(WALL_NAME.wood)), tool: { kind: 'wall', material: 'wood' } },
+    // W-57: walls drawn by drag or click-click; towers and gates placed like any building, onto a wall or beside it
+    { ...bTool('palisade', 'per tile · drag, or click start and end', nice(WALL_NAME.wood)), tool: { kind: 'wall', material: 'wood' } },
     { ...bTool('rampart', 'per tile · 2 deep, walkway', nice(WALL_NAME.timber)), tool: { kind: 'wall', material: 'timber' } },
     { ...bTool('stoneWall', 'per tile · 2 deep, walkway', nice(WALL_NAME.stone)), tool: { kind: 'wall', material: 'stone' } },
+    bTool('woodTower', 'on or beside a wall: joins it'),
+    bTool('stoneTower', 'on or beside a wall: joins it'),
+    bTool('woodGate', 'on a wall: replaces that stretch'),
+    bTool('stoneGate', 'on a wall: replaces that stretch'),
     { ...bTool('woodStairs', 'up an own walkway wall\'s inside'), tool: { kind: 'access', type: 'woodStairs' } },
     { ...bTool('stoneStairs', 'up an own walkway wall\'s inside'), tool: { kind: 'access', type: 'stoneStairs' } },
     { ...bTool('ladder', 'beside any walkway wall or tower'), tool: { kind: 'access', type: 'ladder' } },
@@ -191,7 +197,7 @@ export function hud(s: SandboxScene): void {
         <div style="min-width:0;flex:1"><div class="rf-name" id="cName" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div><div class="rf-num" id="cCount" style="margin-top:4px"></div><div class="rf-chip" id="cTag" style="display:none" title="combat tag: no entry to a safe court until it runs out"></div></div>
       </div>
       <div id="cBars" style="margin-top:5px;display:flex;flex-direction:column;gap:2px"></div>
-      <div class="rf-dim" id="cInfo" style="margin-top:4px;font-size:11.5px;line-height:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
+      <div class="rf-dim" id="cInfo" style="margin-top:4px;font-size:11.5px;line-height:14px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden"></div>
     </div>
     <div class="rf-sep" id="cSep1"></div>
     <div id="cOrders" style="display:flex;flex-direction:column;justify-content:center;gap:3px"></div>
@@ -298,12 +304,11 @@ export function hud(s: SandboxScene): void {
   let tab: Tab = 'Camp';
   const barW = snapW(Math.max(...Object.values(TABS).map((t) => t.length)) * SLOT - 2 + 12); // the longest tab
   const build = mk('rfBuild', `left:50%;bottom:4px;transform:translateX(-50%);width:${barW}px;pointer-events:auto;display:none`,
-    `<div style="position:absolute;left:0;bottom:100%;margin-bottom:2px;display:flex;flex-direction:column;align-items:flex-start;gap:2px"><div id="bStatus" class="rf-label" style="display:none;white-space:normal;max-width:${barW}px"></div>
-    <div id="bWall" style="display:none;gap:2px"></div></div>
+    `<div style="position:absolute;left:0;bottom:100%;margin-bottom:2px;display:flex;flex-direction:column;align-items:flex-start;gap:2px"><div id="bStatus" class="rf-label" style="display:none;white-space:normal;max-width:${barW}px"></div></div>
     <div id="bTabs" style="display:flex;padding-left:6px;align-items:flex-end;height:23px"></div>
     <div class="rf-card" style="padding:2px 0 3px"><div id="bTools" style="display:flex;gap:2px;height:30px"></div></div>`);
   const bTabs = build.querySelector<HTMLElement>('#bTabs')!, bTools = build.querySelector<HTMLElement>('#bTools')!;
-  const bStatus = build.querySelector<HTMLElement>('#bStatus')!, bWall = build.querySelector<HTMLElement>('#bWall')!;
+  const bStatus = build.querySelector<HTMLElement>('#bStatus')!;
   for (const t of Object.keys(TABS) as Tab[]) {
     const b = document.createElement('button');
     b.className = 'rf-tab';
@@ -326,7 +331,7 @@ export function hud(s: SandboxScene): void {
   const renderTools = () => {
     toolBtns.length = 0;
     bTools.replaceChildren(...TABS[tab].map((d, i) => {
-      const b = btn('bt-' + tab + i, d.icon, () => buildCard(d.tool?.kind === 'siege' ? 'siege' : 'building', d.tool?.kind === 'siege' ? d.tool.type : d.type ?? '', d.name, icon(d.icon, 32), `<div style="display:flex;align-items:center;flex-wrap:wrap;row-gap:2px">${costHtml(d.cost)}</div><div class="rf-dim" style="margin-top:3px;font-size:11px">${d.craft ? `${d.labour} s an engineer` : `${term('labour')} ${labourText(d.labour)}`}${d.note ? ' · ' + d.note : ''}</div>`, nodeWhy(d)), '', () => { if (d.craft) return craftCart(d.craft); if (!nodeWhy(d)) m.setTool(JSON.stringify(m.tool) === JSON.stringify(d.tool) ? null : d.tool); });
+      const b = btn('bt-' + tab + i, d.icon, () => buildCard(d.tool?.kind === 'siege' ? 'siege' : 'building', d.tool?.kind === 'siege' ? d.tool.type : d.type ?? '', d.name, icon(d.icon, 32), `<div style="display:flex;align-items:center;flex-wrap:wrap;row-gap:2px">${costHtml(d.cost)}</div><div class="rf-dim" style="margin-top:3px;font-size:11px">${d.craft ? `${d.labour} s an engineer` : `${term('labour')} ${labourText(d.labour, d.type ? BUILDINGS[d.type].workers : undefined)}`}${d.note ? ' · ' + d.note : ''}</div>`, nodeWhy(d)), '', () => { if (d.craft) return craftCart(d.craft); if (!nodeWhy(d)) m.setTool(JSON.stringify(m.tool) === JSON.stringify(d.tool) ? null : d.tool); });
       b.dataset.tool = String(i);
       toolBtns.push([b, d]);
       return b;
@@ -335,7 +340,6 @@ export function hud(s: SandboxScene): void {
   };
   renderTools();
   const tb = (label: string, tipText: string, run: () => void) => { const b = document.createElement('button'); b.className = 'rf-tbtn'; b.textContent = label; b.title = tipText; b.onclick = run; return b; };
-  bWall.append(tb('+ gate G', 'insert a gate on the line', () => (m.insert = 'gate')), tb('+ tower T', 'insert a tower on the line', () => (m.insert = 'tower')), tb('Order ⏎', 'order the walls built', () => m.confirmWall()), tb('Undo ⌫', 'remove the last line', () => m.removeLine(m.lines.length - 1)), tb('Flip F', 'flip the inside', () => m.flipInside()));
 
   // ---------- top right: World; in dev also the dev panel (F1) and the UI scale (players set it in Settings, F10) ----------
   const corner = mk('rfDev', 'top:4px;right:4px;pointer-events:auto;display:flex;flex-direction:column;align-items:flex-end;gap:2px', '');
@@ -417,10 +421,10 @@ export function hud(s: SandboxScene): void {
       const wpd = BUILDINGS[b.type].workplace, site = isSite(b), name = (wpd ? `${WP_NAME[wpd.kind]} L${wpd.level}` : nice(b.type)) + (site ? (b.upgradeFrom ? ' upgrade' : ' site') : '');
       const BAR_W = SEL_BLD;
       if (site) {
-        const need = Object.entries(m.need(b)), planned = b.progress === 0 && b.delivered === 0 && b.workers === 0;
+        const need = Object.entries(m.need(b)), planned = b.progress === 0 && b.delivered === 0 && b.workers === 0, wait = waitText(b);
         const mats = need.map(([r, v]) => `${r} ${Math.floor(v! * b.delivered)}/${Math.ceil(v!)}`).join(' · ');
         setHead(BUILDING_ICON[b.type], name, `${Math.round(b.progress * 100)}% · ${b.workers}/${b.maxWorkers} at work`, bar('construction', b.progress, BAR_W),
-          `${planned ? 'planned' : b.state}${mats ? ' · ' + mats : ''}`);
+          `${wait ? `${wait}${b.stalled === 'noWorkers' && !b.waiting ? ': select men, E on it' : ''}` : planned ? 'planned' : b.state}${mats ? ' · ' + mats : ''}`);
         setCard(false, siteSlots, SEL_BLD);
         sStop.disabled = !m.squadsAt(b).length;
         const refund = m.refund(b);
@@ -462,7 +466,7 @@ export function hud(s: SandboxScene): void {
       $('cTag').style.display = tag ? '' : 'none';
       if (tag) $('cTag').textContent = `⚔ tagged ${Math.ceil(tag / 10)} s`;
       setHead(UNIT_ICON[cls] ?? 'unit-militia', byCls.size > 1 ? 'Mixed' : CLASS_NAME[cls] ?? civName(cls) ?? nice(cls), `${men.length} ${men.length === 1 ? 'man' : 'men'}${byCls.size > 1 ? `, ${byCls.size} classes` : ''}`, bar('hp', hp / max, SEL_SQUAD),
-        civ ? civInfo(s, own[0]) : e ? `crews ${SIEGE_NAME[e.type]} · ${e.state}${e.burning ? ' · burning' : ''}` : `${q.order}${q.fed ? ' · fed' : ''}${sc.status ? ' · ' + sc.status : ''}`);
+        civ ? civInfo(s, own[0]) : e ? `crews ${SIEGE_NAME[e.type]} · ${e.state}${e.burning ? ' · burning' : ''}` : `${s.sim.cur ? activityText(q, s.sim.cur, { nodes: s.sim.nodes, goal: s.lastCommand }) : q.order}${q.fed ? ' · fed' : ''}${sc.status ? ' · ' + sc.status : ''}`);
       const slots: HTMLElement[] = [];
       const act = activesOf(s, own)[0];
       if (act) {
@@ -508,7 +512,6 @@ export function hud(s: SandboxScene): void {
       x.classList.toggle('on', JSON.stringify(d.tool) === JSON.stringify(m.tool));
       x.disabled = !!nodeWhy(d);
     }
-    bWall.style.display = m.tool?.kind === 'wall' ? 'flex' : 'none';
     const status = m.claimArmed ? 'click the map to claim (influence r 20)' : m.tool ? m.status || 'R rotate · Esc cancel · shift keeps the tool' : '';
     bStatus.textContent = status;
     bStatus.style.display = status ? '' : 'none';

@@ -7,11 +7,13 @@
  *     cycles its orientations (rotated footprint; art without a rotated view is mirrored); click lays the site out
  *     (W-26): with an own squad selected that squad builds it, else it stays planned (team 0); shift keeps the tool. A
  *     tower shows where it joins a walk at its height (green edges, open sides)
- *   wall (palisade / timber rampart / stone wall): drag a straight run, drag again from its end to extend; a drag
- *     elsewhere starts another line, all lines stay pending (each previewed with the real kit, 2 deep with the inside
- *     marked by arrows; F flips the inside of the last line). G / T: a gate / tower ghost follows the cursor along the
- *     lines (green / red with the reason), click inserts it. Backspace removes the last line, right click a pending line
- *     removes it; Enter (or the toolbar) orders every line
+ *   wall (palisade / timber rampart / stone wall, W-57, as Age of Empires and Stronghold): press and drag, or click the
+ *     start and click the end (./wallDraw.ts); the line orders on release. The preview shows every piece green or red
+ *     (2 deep with the inside marked by arrows; F flips the inside); the sim lays out the green ones and skips the red,
+ *     the status says why. Starting or ending on an own wall, tower or gate joins it. Shift chains from the end, Esc or
+ *     right click drops the start. G / T: the gate / tower tool of the wall's material. Towers and gates are plain
+ *     building tools: dropped on an own wall a gate replaces that stretch, a tower takes its tiles and joins it; a gate
+ *     turns along the wall under the cursor
  *   stairs / ladder: the piece snaps to the nearest place it can lean on (stairs: the inside face of an own walkway
  *     wall; ladder: beside any walkway wall or tower); R cycles the places near the cursor; red with 'attach' when none
  *   bridge (wood / stone, M2d, v2 W-33): drag from a bank straight across the water to the far bank; the real deck pieces
@@ -20,7 +22,7 @@
  *     BRIDGE.maxSpan[material] tiles of water) and the sim's reason; release orders it (the selected squad builds it, else planned)
  *   siege (ram / stone thrower / siege ladder, M2c): the engine's sprite follows the cursor; click: the selected own squad
  *     builds it there (its cost paid at once; ../siege/siegeControls.ts)
- *   Esc drops the drag, then the pending lines, then the tool, then the selected site, then build mode
+ *   Esc drops the drag or the wall's start, then the tool, then the selected site, then build mode
  *   any mode: E / right click a resource node with squads selected gathers it, an unfinished (or damaged) own site
  *   builds / resumes it (../interact.ts); left click a building selects it (panel: stop work, cancel; upgrade a finished
  *   wall, tower or gate to its next tier)
@@ -34,6 +36,8 @@ import { BuildingLayer, pairs, type GhostMark, type GhostPiece } from './buildin
 import { BuildArt } from './buildArt';
 import { keys } from '../../input/keys';
 import { myTeam } from '../side';
+import { SQUAD_MAX } from '../../sim/soldiers';
+import { WallDraw } from './wallDraw';
 
 export type WallMaterial = 'wood' | 'timber' | 'stone';
 export type Tool =
@@ -44,12 +48,10 @@ export type Tool =
   | { kind: 'bridge'; material: 'wood' | 'stone' }
   | null;
 export type Cost = Partial<Record<ResourceKind, number>>;
-/** A wall line being planned: flat tile-centre points, its gates and towers (points on it), an explicit inside point. */
-export interface WallLine { points: number[]; gates: number[]; towers: number[]; inside?: number[] }
 
 export const RESOURCES: ResourceKind[] = ['food', 'wood', 'stone', 'marble', 'copper', 'tin', 'iron', 'bronze', 'silver', 'salt'];
-/** Buildings on the toolbar (wall pieces come with the wall tools). */
-export const TOOLBAR: BuildingType[] = ['camp', 'storehouse', 'outpost', 'fort', 'barracks', 'farm', 'olivePress', 'woodTower', 'stoneTower'];
+/** Buildings on the toolbar (walls, towers and gates sit on the Walls tab). */
+export const TOOLBAR: BuildingType[] = ['camp', 'storehouse', 'outpost', 'fort', 'barracks', 'farm', 'olivePress'];
 export const WALL_NAME: Record<WallMaterial, string> = { wood: 'palisade', timber: 'timber rampart', stone: 'stone wall' };
 const REASON: Partial<Record<PlaceReason, string>> = {
   bounds: 'off the map', noBuild: 'no-build zone', water: 'water', rock: 'rock', blocked: 'blocked', overlap: 'overlaps a building',
@@ -60,12 +62,14 @@ const REASON: Partial<Record<PlaceReason, string>> = {
 const AXIS_NAME: Record<BridgeAxis, string> = { x: 'along x', y: 'along y', h: 'screen-horizontal', v: 'screen-vertical' };
 export const reasonText = (r: PlaceReason) => REASON[r] ?? r;
 const RECHECK_MS = 500;
+/** How long the status keeps what the last wall order said (what it skipped). */
+const SAID_MS = 4000;
 /** Tiles from the cursor an access piece snaps over. */
 const SNAP_R = 4;
 
 const costText = (c: Cost) => Object.entries(c).map(([r, v]) => `${Math.ceil(v!)} ${r}`).join(' ') || 'free';
-/** Labour as the time a 20-man squad needs. */
-export const labourText = (workerSec: number) => { const s = workerSec / 20; return s < 90 ? `${Math.round(s)}s` : `${(s / 60).toFixed(1)}m`; };
+/** Labour as the time one squad (SQUAD_MAX men) needs, `slots` of them at work at once (a piece's `workers`; default all). */
+export const labourText = (workerSec: number, slots = SQUAD_MAX) => { const s = workerSec / Math.max(1, Math.min(SQUAD_MAX, slots)); return s < 90 ? `${Math.round(s)}s` : `${(s / 60).toFixed(1)}m`; };
 const key = (x: number, y: number) => y * 65536 + x;
 
 /** A place an access piece can go: footprint centre, rotation, tiles bottom first (stairs), the tile it leans on. */
@@ -75,9 +79,11 @@ export class BuildMode {
   active = false;
   tool: Tool = null;
   rot: 0 | 1 = 0;
-  /** Pending wall lines; the last one is the line being drawn / extended. insert: the next click adds a gate or tower. */
-  lines: WallLine[] = [];
-  insert: 'gate' | 'tower' | null = null;
+  /** The wall tool's line being drawn (W-57); inside: a point on the wall's inside once F flipped it (else the sim's default). */
+  readonly wall = new WallDraw();
+  private inside: number[] | null = null;
+  /** Shift held at the last press (a wall line chains from its end). */
+  private shift = false;
   /** Dev: the next left click claims there. */
   claimArmed = false;
   /** Selected building id (HUD), -1 none. */
@@ -86,7 +92,7 @@ export class BuildMode {
   /** One line for the toolbar: what the ghost says, or why an order was refused. */
   status = '';
   readonly layer: BuildingLayer;
-  private drag: { x: number; y: number } | null = null; // wall run start while dragging
+  private drag: { x: number; y: number } | null = null; // bridge start while dragging
   /** Sim answers by query key (placement, wall plans), refreshed every RECHECK_MS. */
   private answers = new Map<string, { at: number; r: PlaceResult | WallPlan | BridgePlan | null }>();
   private pending = false;
@@ -107,11 +113,10 @@ export class BuildMode {
       else if (a === 'back') this.cancel();
       else if (!this.active) return;
       else if (a === 'build.rotate') this.rotate();
-      else if (a === 'build.confirm') this.confirmWall();
-      else if (a === 'build.undo') this.removeLine(this.lines.length - 1);
+      else if (a === 'build.undo') this.wall.cancel();
       else if (a === 'build.flip') this.flipInside();
       else if ((a === 'build.narrower' || a === 'build.wider') && this.tool?.kind === 'bridge') this.bridgeWidth = Math.max(1, Math.min(3, this.bridgeWidth + (a === 'build.wider' ? 1 : -1)));
-      else if ((a === 'build.gate' || a === 'build.tower') && this.tool?.kind === 'wall' && this.lines.some((l) => l.points.length >= 4)) this.insert = a === 'build.gate' ? 'gate' : 'tower';
+      else if ((a === 'build.gate' || a === 'build.tower') && this.tool?.kind === 'wall') this.setTool({ kind: 'building', type: WALL_KIT[this.tool.material][a === 'build.gate' ? 'gate' : 'tower'] });
     });
   }
 
@@ -122,8 +127,8 @@ export class BuildMode {
 
   setTool(t: Tool): void {
     this.tool = t;
-    this.lines = [];
-    this.insert = null;
+    this.wall.cancel();
+    this.inside = null;
     this.drag = null;
     this.pick = 0;
     this.status = '';
@@ -136,32 +141,23 @@ export class BuildMode {
     else this.rot = this.rot ? 0 : 1;
   }
 
-  /** Esc: drop the drag, then the pending lines, then the tool, then the selected building, then leave build mode. */
+  /** Esc: drop the drag or the wall's start, then the tool, then the selected building, then leave build mode. */
   cancel(): void {
     this.claimArmed = false;
-    if (this.drag) { this.drag = null; this.insert = null; return; }
-    if (this.insert) { this.insert = null; return; }
-    if (this.tool?.kind === 'wall' && this.lines.length) this.lines = [];
-    else if (this.tool) this.setTool(null);
+    if (this.drag) { this.drag = null; return; }
+    if (this.wall.cancel()) return;
+    if (this.tool) this.setTool(null);
     else if (this.selected >= 0) this.selected = -1;
     else this.toggle(false);
   }
 
-  /** Remove pending wall line i. */
-  removeLine(i: number): void {
-    if (i < 0 || i >= this.lines.length) return;
-    this.lines.splice(i, 1);
-    this.insert = null;
-  }
-
-  /** F: flip the inside of the last line (2-deep walls: the inner row and its stairs go there). */
+  /** F: flip the inside of the wall being drawn (2-deep walls: the inner row and its stairs go there). */
   flipInside(): void {
-    const l = this.lines.at(-1), plan = l && this.planOf(l);
-    if (!l || !plan || this.tool?.kind !== 'wall') return;
-    const dir = innerDir(plan);
+    if (this.tool?.kind !== 'wall') return;
+    const s = this.wall.start ?? snap(this.s.pointerTile), [cx, cy] = snap(this.s.pointerTile);
+    const plan = this.planOf([...s, cx === s[0] && cy === s[1] ? cx + 1 : cx, cy]), dir = plan && innerDir(plan);
     if (!dir) return;
-    const [cx, cy] = centroid(l.points);
-    l.inside = [cx - dir[0] * 40, cy - dir[1] * 40];
+    this.inside = [(s[0] + cx) / 2 - dir[0] * 40, (s[1] + cy) / 2 - dir[1] * 40];
   }
 
   /** Dev: 500 of every resource for the own team. */
@@ -185,18 +181,20 @@ export class BuildMode {
     return squad === null ? { team: myTeam() } : { squad };
   }
 
-  /** Order every pending wall line laid out (if all their previews are valid). */
-  confirmWall(): void {
+  /**
+   * Order the wall line `points` (W-57): the sim lays out its buildable pieces and skips the blocked ones; the status says
+   * what was skipped and why (from the preview's plan). The tool stays for the next line (Esc or right click drops it).
+   */
+  private orderWall(points: number[]): void {
     if (this.tool?.kind !== 'wall') return;
-    const lines = this.lines.filter((l) => l.points.length >= 4);
-    if (!lines.length) return;
-    for (const l of lines) {
-      const plan = this.planOf(l);
-      if (!plan?.ok) { this.status = `wall: ${plan?.reason ? reasonText(plan.reason) : 'checking'}`; return; }
-    }
-    for (const l of lines) this.s.sim.order({ kind: 'placeWall', ...this.builder(), material: this.tool.material, ...this.wallQuery(l) });
-    this.setTool(null);
+    const material = this.tool.material, plan = this.planOf(points);
+    if (plan && !plan.ok) { this.said = { at: performance.now(), text: `can't build: ${plan.reason ? reasonText(plan.reason) : '?'}` }; return; }
+    this.s.sim.order({ kind: 'placeWall', ...this.builder(), material, ...this.wallQuery(points) });
+    const skipped = plan?.pieces.filter((p) => !p.ok) ?? [];
+    this.said = { at: performance.now(), text: `${WALL_NAME[material]} ordered${skipped.length ? ` · skipped ${skipped.length} blocked: ${skipText(skipped)}` : ''}` };
   }
+  /** What the last wall order said (the status shows it a few seconds while no new line is started). */
+  private said: { at: number; text: string } | null = null;
 
   // --- site orders (W-26) ---
 
@@ -285,9 +283,9 @@ export class BuildMode {
       return true;
     }
     if (this.tool.kind === 'building') {
-      const type = this.tool.type, [x, y] = this.centre(type, t), r = this.answer(`p:${type},${x},${y},${this.rot}`) as PlaceResult | null;
+      const type = this.tool.type, rot = this.rotFor(type, t), [x, y] = this.centre(type, t, rot), r = this.answer(`p:${type},${x},${y},${rot}`) as PlaceResult | null;
       if (!r?.ok) { this.status = r?.reason ? `can't build: ${reasonText(r.reason)}` : 'checking...'; return true; }
-      this.s.sim.order({ kind: 'placeBuilding', ...this.builder(), type, x, y, rot: this.rot });
+      this.s.sim.order({ kind: 'placeBuilding', ...this.builder(), type, x, y, rot });
       if (!shift) this.setTool(null);
       return true;
     }
@@ -303,24 +301,18 @@ export class BuildMode {
       this.drag = { x: p[0], y: p[1] };
       return true;
     }
-    if (this.insert) {
-      const l = this.nearestLine(p);
-      if (l) (this.insert === 'gate' ? l.gates : l.towers).push(p[0], p[1]);
-      this.insert = null;
-      return true;
-    }
-    // extend the last line from its end, or start another one (the others stay pending)
-    const last = this.lines.at(-1), n = last?.points.length ?? 0;
-    if (last && n && Math.hypot(last.points[n - 2] - p[0], last.points[n - 1] - p[1]) <= 2) {
-      this.drag = { x: last.points[n - 2], y: last.points[n - 1] };
-    } else {
-      this.lines.push({ points: [p[0], p[1]], gates: [], towers: [] });
-      this.drag = { x: p[0], y: p[1] };
-    }
+    this.said = null;
+    this.shift = shift;
+    this.wall.press(p);
     return true;
   }
 
   onUp(t: { x: number; y: number }): boolean {
+    if (this.active && this.tool?.kind === 'wall') {
+      const line = this.wall.release(snap(t), this.shift);
+      if (line) this.orderWall(line);
+      return true;
+    }
     if (!this.drag) return false;
     if (this.tool?.kind === 'bridge') {
       const o = this.bridgeQuery(t), who = this.builder();
@@ -332,26 +324,16 @@ export class BuildMode {
       });
       return true;
     }
-    const p = snap(t), l = this.lines.at(-1)!;
-    if (Math.hypot(p[0] - this.drag.x, p[1] - this.drag.y) >= 1) l.points.push(p[0], p[1]);
-    else if (l.points.length === 2) this.lines.pop();
     this.drag = null;
     return true;
   }
 
   /**
-   * Right click: in build mode with the wall tool, remove the pending line under the cursor (else drop the tool); with
-   * another tool, drop it; false without a tool (the context action of ../interact.ts runs: build a site, gather a node).
+   * Right click: in build mode with the wall tool, drop the line's start (else the tool); with another tool, drop it;
+   * false without a tool (the context action of ../interact.ts runs: build a site, gather a node).
    */
   command(): boolean {
     if (this.active && this.tool) {
-      if (this.tool.kind === 'wall' && this.lines.length) {
-        const t = this.s.pointerTile, i = this.lines.findIndex((l) => {
-          const plan = this.planOf(l);
-          return plan?.pieces.some((q) => pairs(q.tiles).some(([x, y]) => Math.abs(x + 0.5 - t.x) < 1 && Math.abs(y + 0.5 - t.y) < 1));
-        });
-        if (i >= 0) { this.removeLine(i); return true; }
-      }
       this.cancel();
       return true;
     }
@@ -376,8 +358,8 @@ export class BuildMode {
   }
 
   /** Footprint centre for a type snapped so the tiles are whole. */
-  private centre(type: BuildingType, t: { x: number; y: number }): [number, number] {
-    const [w, h] = rotated(type, this.rot);
+  private centre(type: BuildingType, t: { x: number; y: number }, rot = this.rot): [number, number] {
+    const [w, h] = rotated(type, rot);
     return [Math.round(t.x - w / 2) + w / 2, Math.round(t.y - h / 2) + h / 2];
   }
 
@@ -418,25 +400,27 @@ export class BuildMode {
 
   // --- wall lines ---
 
-  private wallQuery(l: WallLine) {
-    return { points: l.points, gates: l.gates, towers: l.towers, ...(l.inside ? { inside: l.inside } : {}) };
+  private wallQuery(points: number[]) {
+    return { points, ...(this.inside ? { inside: this.inside } : {}) };
   }
 
   /** The sim's plan of a line (asked when missing or stale), null until it answers. */
-  private planOf(l: WallLine): WallPlan | null {
-    if (this.tool?.kind !== 'wall' || l.points.length < 4) return null;
-    const o = { material: this.tool.material, ...this.wallQuery(l) };
+  private planOf(points: number[]): WallPlan | null {
+    if (this.tool?.kind !== 'wall' || points.length < 4) return null;
+    const o = { material: this.tool.material, ...this.wallQuery(points) };
     return this.ask(`w:${JSON.stringify(o)}`, () => this.s.sim.checkWall(myTeam(), o)) as WallPlan | null;
   }
 
-  /** The line with a tile nearest point p (within 2 tiles), for a gate or tower. */
-  private nearestLine(p: [number, number]): WallLine | null {
-    let best: WallLine | null = null, bd = 2;
-    for (const l of this.lines) for (let i = 0; i + 3 < l.points.length; i += 2) {
-      const d = segDist(p, l.points[i], l.points[i + 1], l.points[i + 2], l.points[i + 3]);
-      if (d < bd) (bd = d), (best = l);
+  /** A gate turned along the own wall under it (both its tiles on wall segments), else the chosen rotation. */
+  private rotFor(type: BuildingType, t: { x: number; y: number }): 0 | 1 {
+    if (BUILDINGS[type].wall !== 'gate') return this.rot;
+    const walls = new Set<number>();
+    for (const b of this.s.sim.cur?.buildings ?? []) if (b.team === myTeam() && BUILDINGS[b.type].wall === 'segment' && b.state !== 'destroyed') for (const [x, y] of pairs(b.tiles)) walls.add(key(x, y));
+    for (const r of [this.rot, this.rot ? 0 : 1] as const) {
+      const [x, y] = this.centre(type, t, r), [w, h] = rotated(type, r);
+      if (pairs(rectTiles(x, y, w, h)).every(([a, c]) => walls.has(key(a, c)))) return r;
     }
-    return best;
+    return this.rot;
   }
 
   // --- stairs and ladders ---
@@ -497,7 +481,8 @@ export class BuildMode {
     this.s.siegeLayer.ghost = null;
     this.layer.selected = this.selected;
     this.layer.grids = this.active;
-    this.layer.cutNear = placing ? this.s.pointerTile : null; // the ghost inside a fort always shows
+    this.layer.cutNear = placing ? this.s.pointerTile : null; // W-57: what stands near the ghost goes see-through
+    this.layer.team = myTeam();
     const hb = placing ? undefined : this.buildingAt(this.s.pointerTile);
     this.layer.hovered = hb && isSite(hb) ? hb.id : -1;
     this.layer.draw(buildings, this.s.drawn, view, zoom);
@@ -519,12 +504,12 @@ export class BuildMode {
     }
     if (this.tool.kind === 'bridge') return this.bridgeGhost(t, zoom, buildings, who);
     if (this.tool.kind === 'building') {
-      const type = this.tool.type, [x, y] = this.centre(type, t), [w, h] = rotated(type, this.rot);
-      const r = this.ask(`p:${type},${x},${y},${this.rot}`, () => sim.checkPlacement(myTeam(), type, x, y, this.rot)) as PlaceResult | null;
+      const type = this.tool.type, rot = this.rotFor(type, t), [x, y] = this.centre(type, t, rot), [w, h] = rotated(type, rot);
+      const r = this.ask(`p:${type},${x},${y},${rot}`, () => sim.checkPlacement(myTeam(), type, x, y, rot)) as PlaceResult | null;
       const d = BUILDINGS[type], ok = !!r?.ok, why = r && !ok && r.reason ? reasonText(r.reason) : '';
-      const turn = w !== h ? ` · R: ${w}x${h}` : '';
-      this.status = why ? `can't build: ${why}` : `${type}: ${costText(d.cost)} · ${labourText(d.labour)}${who}${turn}`;
-      this.layer.ghost([{ tiles: rectTiles(x, y, w, h), ok, type, rot: this.rot }], why ? `can't build: ${why}` : `${type} ${costText(d.cost)}`, zoom, buildings);
+      const turn = w !== h ? ` · R: ${w}x${h}` : '', onWall = d.wall === 'gate' ? ' · on a wall: replaces it there' : d.wall === 'tower' ? ' · on or beside a wall: joins it' : '';
+      this.status = why ? `can't build: ${why}` : `${type}: ${costText(d.cost)} · ${labourText(d.labour, d.workers)}${who}${turn}${onWall}`;
+      this.layer.ghost([{ tiles: rectTiles(x, y, w, h), ok, type, rot }], why ? `can't build: ${why}` : `${type} ${costText(d.cost)}`, zoom, buildings);
       return;
     }
     if (this.tool.kind === 'access') {
@@ -541,59 +526,35 @@ export class BuildMode {
       this.layer.ghost([{ tiles: sp.tiles, ok, type, attach: sp.attach }], why ? `can't build: ${why}` : `${type} ${costText(d.cost)}`, zoom, buildings);
       return;
     }
-    // wall: every pending line, the run being dragged on the last
-    const mat = this.tool.material, kit = WALL_KIT[mat], drawing = this.lines.map((l, i) => (i === this.lines.length - 1 && this.drag ? { ...l, points: [...l.points, ...snap(t)] } : l));
-    if (this.insert) {
-      // the gate / tower ghost: the plan with it inserted on the nearest line at the cursor
-      const p = snap(t), l = this.nearestLine(p), i = l ? this.lines.indexOf(l) : -1;
-      if (l) drawing[i] = { ...l, [this.insert === 'gate' ? 'gates' : 'towers']: [...(this.insert === 'gate' ? l.gates : l.towers), p[0], p[1]] };
-    }
-    const plans = drawing.filter((l) => l.points.length >= 4).map((l) => {
-      const o = { material: mat, ...this.wallQuery(l) };
-      return this.ask(`w:${JSON.stringify(o)}`, () => sim.checkWall(myTeam(), o)) as WallPlan | null;
-    });
-    if (!drawing.some((l) => l.points.length >= 4)) {
-      this.status = this.lines.length ? 'drag from the end to extend' : `drag to draw a ${WALL_NAME[mat]}`;
+    // wall (W-57): the line from its start to the cursor, every piece green or red with the sim's reason
+    const mat = this.tool.material, kit = WALL_KIT[mat], [cx, cy] = snap(t), st = this.wall.start;
+    const said = this.said && performance.now() - this.said.at < SAID_MS ? `${this.said.text} · ` : '';
+    const flip = BUILDINGS[kit.segment].depth ? ' · F flips the inside' : '';
+    if (!st || (st[0] === cx && st[1] === cy)) {
+      this.status = `${said}${st ? 'click the end, or drag to it' : `drag, or click the start and the end, to draw a ${WALL_NAME[mat]}`} · shift chains · Esc / right click cancels${flip}`;
       // the sim's plan of a two-tile stub here: a walkway wall shows both its rows (the inner one towards the inside)
-      const [sx, sy] = snap(t), o = { material: mat, points: [sx, sy, sx + 1, sy], gates: [], towers: [] };
+      const o = { material: mat, ...this.wallQuery([cx, cy, cx + 1, cy]) };
       const one = this.ask(`w:${JSON.stringify(o)}`, () => sim.checkWall(myTeam(), o)) as WallPlan | null;
       const seg = one?.pieces.filter((q) => BUILDINGS[q.type].wall === 'segment');
-      const marks: GhostMark[] = [];
-      for (const p of seg ?? []) if (BUILDINGS[p.type].depth === 2 && p.tiles.length === 8) for (const i of [4, 6]) marks.push({ x: p.tiles[i] + 0.5, y: p.tiles[i + 1] + 0.5, dx: p.tiles[i] - p.tiles[i - 4], dy: p.tiles[i + 1] - p.tiles[i - 3] });
-      this.layer.ghost(seg?.length ? seg : [{ tiles: [Math.floor(t.x), Math.floor(t.y)], ok: true, type: kit.segment }], '', zoom, buildings, marks);
+      this.layer.ghost(seg?.length ? seg : [{ tiles: [Math.floor(t.x), Math.floor(t.y)], ok: true, type: kit.segment }], '', zoom, buildings, innerMarks(seg ?? []));
       return;
     }
-    const ready = plans.filter((p): p is WallPlan => !!p);
+    const plan = this.planOf([...st, cx, cy]);
+    if (!plan) return;
     const cost: Cost = {};
-    let labour = 0, segs = 0;
-    const pieces: GhostPiece[] = [], marks: GhostMark[] = [];
-    for (const plan of ready) {
-      for (const p of plan.pieces) {
-        const d = BUILDINGS[p.type], k = d.perTile ? p.tiles.length / 2 : 1;
-        for (const [r, v] of Object.entries(d.cost) as [ResourceKind, number][]) cost[r] = (cost[r] ?? 0) + v * k;
-        labour += d.labour * k;
-        if (d.wall === 'segment') segs++;
-        pieces.push(p);
-        if (d.depth === 2) {
-          const ts = pairs(p.tiles), half = ts.length / 2;
-          for (const [x, y] of ts.slice(half)) {
-            const lt = ts.slice(0, half).find(([a, c]) => Math.abs(a - x) + Math.abs(c - y) === 1);
-            if (lt) marks.push({ x: x + 0.5, y: y + 0.5, dx: x - lt[0], dy: y - lt[1] });
-          }
-        }
-      }
+    let labour = 0, slots = 0, segs = 0;
+    for (const p of plan.pieces) {
+      if (!p.ok) continue;
+      const d = BUILDINGS[p.type], k = d.perTile ? p.tiles.length / 2 : 1;
+      for (const [r, v] of Object.entries(d.cost) as [ResourceKind, number][]) cost[r] = (cost[r] ?? 0) + v * k;
+      labour += d.labour * k;
+      slots += d.workers;
+      segs++;
     }
-    const bad = ready.find((p) => !p.ok), why = bad?.reason ? `can't build: ${reasonText(bad.reason)} · ` : '';
-    const count = (type: BuildingType) => ready.reduce((n, p) => n + p.pieces.filter((q) => q.type === type).length, 0);
-    const lines = this.lines.filter((l) => l.points.length >= 4).length;
-    const hint = this.insert ? ` · click a line: ${this.insert}` : ` · Enter orders ${lines} line${lines === 1 ? '' : 's'} · Backspace / right click removes one${BUILDINGS[kit.segment].depth ? ' · F flips the inside' : ''}`;
-    this.status = `${why}${WALL_NAME[mat]}: ${segs} segments ${count(kit.gate)} gate ${count(kit.tower)} tower · ${costText(cost)} · ${labourText(labour)}${who}${hint}`;
-    let label = `${why}${segs} seg · ${costText(cost)}`;
-    if (this.insert) {
-      const pt = snap(t), hit = ready.flatMap((p) => p.pieces).find((q) => BUILDINGS[q.type].wall === (this.insert === 'gate' ? 'gate' : 'tower') && pairs(q.tiles).some(([x, y]) => Math.abs(x + 0.5 - pt[0]) <= 1 && Math.abs(y + 0.5 - pt[1]) <= 1));
-      label = hit ? (hit.ok ? `${this.insert}: click to place` : `can't place ${this.insert}: ${hit.reason ? reasonText(hit.reason) : '?'}`) : `${this.insert}: move onto a line`;
-    }
-    this.layer.ghost(pieces, label, zoom, buildings, marks, this.insert ? { x: t.x, y: t.y } : undefined);
+    const skipped = plan.pieces.filter((p) => !p.ok), skip = skipped.length ? ` · ${skipped.length} blocked, skipped: ${skipText(skipped)}` : '';
+    const why = plan.ok ? '' : `can't build: ${plan.reason ? reasonText(plan.reason) : '?'} · `;
+    this.status = `${said}${why}${WALL_NAME[mat]}: ${segs} segment${segs === 1 ? '' : 's'} · ${costText(cost)} · ${labourText(labour, slots)}${who}${skip} · release or click to order${flip}`;
+    this.layer.ghost(plan.pieces, `${why}${segs} seg · ${costText(cost)}${skipped.length ? ` · ${skipped.length} skipped` : ''}`, zoom, buildings, innerMarks(plan.pieces));
   }
 
   /**
@@ -643,11 +604,21 @@ const DIRS = [[1, 0], [0, 1], [-1, 0], [0, -1]] as const;
 /** A tile centre under a tile point. */
 const snap = (t: { x: number; y: number }): [number, number] => [Math.floor(t.x) + 0.5, Math.floor(t.y) + 0.5];
 
-/** Mean of flat x,y points. */
-function centroid(p: number[]): [number, number] {
-  let x = 0, y = 0;
-  for (let i = 0; i < p.length; i += 2) (x += p[i]), (y += p[i + 1]);
-  return [(x * 2) / p.length, (y * 2) / p.length];
+/** Why the skipped pieces of a wall plan cannot be built, each reason once ("rock, water"). */
+export const skipText = (pieces: WallPlan['pieces']) => [...new Set(pieces.map((p) => reasonText(p.reason ?? 'blocked')))].join(', ');
+
+/** Ground arrows on the inner-row tiles of 2-deep wall pieces (line tiles first, inner row after), pointing in. */
+function innerMarks(pieces: WallPlan['pieces']): GhostMark[] {
+  const out: GhostMark[] = [];
+  for (const p of pieces) {
+    if (BUILDINGS[p.type].depth !== 2) continue;
+    const ts = pairs(p.tiles), half = Math.ceil(ts.length / 2);
+    for (const [x, y] of ts.slice(half)) {
+      const lt = ts.slice(0, half).find(([a, c]) => Math.abs(a - x) + Math.abs(c - y) === 1);
+      if (lt) out.push({ x: x + 0.5, y: y + 0.5, dx: x - lt[0], dy: y - lt[1] });
+    }
+  }
+  return out;
 }
 
 /** Direction from the line to its inner row in a plan's first 2-deep segment, or null. */
@@ -659,10 +630,4 @@ function innerDir(plan: WallPlan): [number, number] | null {
     if (lt) return [x - lt[0], y - lt[1]];
   }
   return null;
-}
-
-/** Distance from point p to the segment (ax, ay)-(bx, by). */
-function segDist(p: [number, number], ax: number, ay: number, bx: number, by: number): number {
-  const dx = bx - ax, dy = by - ay, l = dx * dx + dy * dy, k = l ? Math.max(0, Math.min(1, ((p[0] - ax) * dx + (p[1] - ay) * dy) / l)) : 0;
-  return Math.hypot(p[0] - ax - dx * k, p[1] - ay - dy * k);
 }

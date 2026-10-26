@@ -345,12 +345,19 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
   };
 
   // --- placement ---
-  const checkTiles = (team: number, tiles: number[], flat: boolean, anyTeam = false): PlaceReason | null => {
+  /** lets: tiles of an own wall a tower or gate takes over (W-57), by their ground height: only that is checked there. */
+  const checkTiles = (team: number, tiles: number[], flat: boolean, anyTeam = false, lets?: Map<number, number>): PlaceReason | null => {
     let lo = Infinity, hi = -Infinity;
     for (let i = 0; i < tiles.length; i += 2) {
       const x = tiles[i], y = tiles[i + 1];
       if (x < 0 || y < 0 || x >= w || y >= h) return 'bounds';
       const t = y * w + x;
+      const g = lets?.get(t);
+      if (g !== undefined) {
+        lo = Math.min(lo, g);
+        hi = Math.max(hi, g);
+        continue;
+      }
       if (noBuild[t]) return 'noBuild';
       if (region.water[t] > 0) return 'water';
       if (region.terrain[t] === 'rock') return 'rock';
@@ -375,8 +382,76 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
       const reason = a.reason ?? checkTiles(team, a.tiles, true, def.access === 'ladder');
       return reason ? { ok: false, reason, tiles: a.tiles } : { ok: true, tiles: a.tiles };
     }
-    const reason = def.wall === 'segment' ? 'short' : checkTiles(team, tiles, true);
+    const reason = def.wall === 'segment' ? 'short' : checkTiles(team, tiles, true, false, def.wall ? wallUnder(team, tiles) : undefined);
     return reason ? { ok: false, reason, tiles } : { ok: true, tiles };
+  };
+
+  /** An own wall segment of `team` standing or under way on tile t (not mid-upgrade), or null. */
+  const ownSegment = (t: number, team: number): Building | null => {
+    const o = buildings[occ[t]];
+    return o && o.team === team && o.def.wall === 'segment' && !o.prev && !o.cancelled && o.state !== 'destroyed' ? o : null;
+  };
+  /** W-57: the tiles (with their ground height) of own wall segments under a tower or gate footprint: it takes them over. */
+  const wallUnder = (team: number, tiles: number[]): Map<number, number> => {
+    const out = new Map<number, number>();
+    for (let i = 0; i < tiles.length; i += 2) {
+      const x = tiles[i], y = tiles[i + 1];
+      if (x < 0 || y < 0 || x >= w || y >= h) continue;
+      const t = y * w + x, o = ownSegment(t, team);
+      if (o) out.set(t, o.base[o.ti.indexOf(t)]);
+    }
+    return out;
+  };
+
+  /**
+   * W-57: a tower or gate dropped on own walls: the segments give up the tiles under it (a gate in a 2-deep wall also the
+   * inner row beside it, its passage). A segment keeps its share of labour, materials and hp; one left with no tiles goes.
+   */
+  const giveWay = (team: number, type: BuildingType, tiles: number[]) => {
+    const under = wallUnder(team, tiles), by = new Map<Building, Set<number>>();
+    const alongX = tiles.length >= 4 && tiles[1] === tiles[3];
+    for (const t of under.keys()) {
+      const o = ownSegment(t, team)!;
+      let d = by.get(o);
+      if (!d) by.set(o, (d = new Set()));
+      d.add(t);
+      if (BUILDINGS[type].wall === 'gate' && o.def.depth === 2) for (const s of [-1, 1]) {
+        const n = alongX ? t + s * w : t + s;
+        if (n >= 0 && n < w * h && occ[n] === o.id) d.add(n);
+      }
+    }
+    for (const [o, d] of by) cutOut(o, d);
+  };
+
+  /** Take tiles `drop` out of wall segment b (its labour, materials and hp shrink in proportion). */
+  const cutOut = (b: Building, drop: Set<number>) => {
+    const n0 = b.ti.length, decked = b.decked, closed = b.saved.length;
+    for (const u of active) if (u.wsite === b.id) leave(u);
+    lowerDeck(b);
+    const ti: number[] = [], tiles: number[] = [], base: number[] = [], saved: number[] = [];
+    b.ti.forEach((t, i) => {
+      if (!drop.has(t)) {
+        ti.push(t);
+        tiles.push(t % w, (t / w) | 0);
+        base.push(b.base[i]);
+        if (i < closed) saved.push(b.saved[i]);
+        return;
+      }
+      occ[t] = -1;
+      if (i < closed && !decked) grid.cost[t] = b.saved[i];
+      grid.dirty.push(t % w, (t / w) | 0);
+    });
+    if (!ti.length) {
+      Object.assign(b, { state: 'destroyed', cancelled: true, ti, tiles, base, saved });
+      return;
+    }
+    const k = ti.length / n0;
+    for (const c of [b.cost, b.delivered]) for (const r of Object.keys(c) as ResourceKind[]) c[r] = c[r]! * k;
+    Object.assign(b, { ti, tiles, base, saved, need: b.need * k, labour: b.labour * k, maxHp: b.maxHp * k, hp: b.hp * k, costSum: b.costSum * k });
+    bbox(b);
+    if (decked) raiseDeck(b);
+    b.slots = workSlots(b);
+    b.slotUser = b.slots.map(() => -1);
   };
 
   /**
@@ -415,9 +490,19 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
 
   const checkWall = (team: number, o: Omit<WallOrder, 'kind' | 'squad'>): WallPlan => {
     const kit = WALL_KIT[o.material];
-    const line = lineTiles(o.points);
+    let line = lineTiles(o.points);
+    // W-57: a line starting or ending on an own wall, tower or gate joins it there (those tiles are not built again)
+    const joins = (k: number) => {
+      const x = line[k * 2], y = line[k * 2 + 1], b = x >= 0 && y >= 0 && x < w && y < h ? buildings[occ[y * w + x]] : undefined;
+      return !!b && b.team === team && !!b.def.wall && !b.cancelled && b.state !== 'destroyed';
+    };
+    let a = 0, z = line.length / 2;
+    while (a < z && joins(a)) a++;
+    while (z > a && joins(z - 1)) z--;
+    const joined = a > 0 || z < line.length / 2;
+    line = line.slice(a * 2, z * 2);
     const n = line.length / 2;
-    if (n < 2) return { ok: false, reason: 'short', pieces: [] };
+    if (n < (joined ? 1 : 2)) return { ok: false, reason: joined ? 'overlap' : 'short', pieces: [] };
     const taken = new Array<boolean>(n).fill(false);
     const nearest = (px: number, py: number) => {
       let best = 0, bd = Infinity;
@@ -443,24 +528,38 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
       taken[k] = taken[k + 1] = true;
       pieces.push({ type: kit.gate, tiles: line.slice(k * 2, k * 2 + 4), ok: !clash, ...(clash ? { reason: 'overlap' as const } : {}) });
     }
+    // walls with a walkway are two tiles deep: an inner row toward the inside, one tile across the line's main axis
+    const inside: [number, number] = o.inside && o.inside.length >= 2 ? [o.inside[0], o.inside[1]] : homeOf(team);
+    const onLine = new Set<number>();
+    for (let k = 0; k < n; k++) onLine.add(line[k * 2 + 1] * w + line[k * 2]);
+    for (const p of pieces) for (let t = 0; t < p.tiles.length; t += 2) onLine.add(p.tiles[t + 1] * w + p.tiles[t]);
+    const [ox, oy] = BUILDINGS[kit.segment].depth === 2 ? innerStep(line, inside) : [0, 0];
+    const used = new Set<number>();
+    /** Each free line tile's inner tile (or null) and why it cannot be built (null: it can). */
+    const at = Array.from({ length: n }, (_, k) => {
+      const x = line[k * 2], y = line[k * 2 + 1], ix = x + ox, iy = y + oy, ik = iy * w + ix;
+      const inner = (ox || oy) && !onLine.has(ik) && !used.has(ik) ? [ix, iy] : null;
+      if (inner) used.add(ik);
+      return { inner, reason: taken[k] ? null : checkTiles(team, inner ? [x, y, ...inner] : [x, y], false) };
+    });
+    // W-57: the free tiles in runs of one verdict, cut to SEGMENT: red runs are skipped with their reason, the rest is built
     for (let k = 0; k < n; ) {
       if (taken[k]) {
         k++;
         continue;
       }
-      const tiles: number[] = [];
-      while (k < n && !taken[k] && tiles.length < SEGMENT * 2) tiles.push(line[k * 2], line[k * 2 + 1]), k++;
-      pieces.push({ type: kit.segment, tiles, ok: true });
+      const reason = at[k].reason, tiles: number[] = [], inner: number[] = [];
+      while (k < n && !taken[k] && at[k].reason === reason && tiles.length < SEGMENT * 2) {
+        tiles.push(line[k * 2], line[k * 2 + 1]);
+        if (at[k].inner) inner.push(...at[k].inner!);
+        k++;
+      }
+      pieces.push({ type: kit.segment, tiles: [...tiles, ...inner], ok: !reason, ...(reason ? { reason } : {}) });
     }
-    // walls with a walkway are two tiles deep: an inner row toward the inside
-    const inside: [number, number] = o.inside && o.inside.length >= 2 ? [o.inside[0], o.inside[1]] : homeOf(team);
-    const onLine = new Set<number>();
-    for (const p of pieces) for (let t = 0; t < p.tiles.length; t += 2) onLine.add(p.tiles[t + 1] * w + p.tiles[t]);
-    for (const p of pieces) if (BUILDINGS[p.type].depth === 2) p.tiles = [...p.tiles, ...innerRow(p.tiles, inside, onLine)];
-    // pieces may not overlap each other (two towers on one spot)
+    // towers and gates on the line may not overlap each other (two towers on one spot)
     const mine = new Set<number>();
     for (const p of pieces) {
-      if (!p.ok) continue;
+      if (!p.ok || BUILDINGS[p.type].wall === 'segment') continue;
       const r = checkTiles(team, p.tiles, BUILDINGS[p.type].wall === 'tower');
       let dup = false;
       for (let t = 0; t < p.tiles.length; t += 2) {
@@ -471,8 +570,17 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
       const reason = r ?? (dup ? 'overlap' : null);
       if (reason) (p.ok = false), (p.reason = reason);
     }
+    // W-57: the plan stands while any piece can be built; reason: why the first skipped one cannot
     const bad = pieces.find((p) => !p.ok);
-    return bad ? { ok: false, reason: bad.reason, pieces } : { ok: true, pieces };
+    return { ok: pieces.some((p) => p.ok), ...(bad ? { reason: bad.reason } : {}), pieces };
+  };
+
+  /** The step from a wall line to its inner row: across the line's main axis, towards `inside`. */
+  const innerStep = (line: number[], inside: [number, number]): [number, number] => {
+    let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+    for (let i = 0; i < line.length; i += 2) (x0 = Math.min(x0, line[i])), (x1 = Math.max(x1, line[i])), (y0 = Math.min(y0, line[i + 1])), (y1 = Math.max(y1, line[i + 1]));
+    const cx = (x0 + x1 + 1) / 2, cy = (y0 + y1 + 1) / 2;
+    return x1 - x0 >= y1 - y0 ? [0, inside[1] < cy ? -1 : 1] : [inside[0] < cx ? -1 : 1, 0];
   };
 
   /** Centre of the team's claims and influence buildings (the default inside of its walls); the map centre if none. */
@@ -565,6 +673,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
     const r = checkPlacement(team, type, x, y, rot);
     if (!r.ok) return -1;
     if (BUILDINGS[type].brazier) return addBrazier(team, r.tiles);
+    if (BUILDINGS[type].wall) giveWay(team, type, r.tiles);
     return add(team, type, r.tiles, rot, undefined, BUILDINGS[type].access ? accessOf(team, type, r.tiles).attach : -1, owner);
   };
 
@@ -572,7 +681,8 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
     const plan = checkWall(team, o);
     if (!plan.ok) return [];
     const inside: [number, number] = o.inside && o.inside.length >= 2 ? [o.inside[0], o.inside[1]] : homeOf(team);
-    const ids = plan.pieces.map((p) => add(team, p.type, p.tiles, 0, inside));
+    // W-57: the pieces that can be built are laid out, the blocked ones skipped
+    const ids = plan.pieces.filter((p) => p.ok).map((p) => add(team, p.type, p.tiles, 0, inside));
     for (const id of ids) {
       const b = buildings[id]; // slots again, now that every piece is marked out
       b.slots = workSlots(b);
@@ -681,6 +791,35 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
     let s = 0;
     for (const v of Object.values(b.delivered)) s += v!;
     return s / b.costSum;
+  };
+
+  /**
+   * W-57: why an unfinished site stands still. stalled noWorkers: nobody holds a slot; once labour has caught up with
+   * the goods on site: noStore (no store in its network to fetch from) or waiting (goods short in the network, by kind).
+   */
+  const waitOf = (b: Building): Pick<BuildingSnap, 'waiting' | 'stalled'> => {
+    if (b.cancelled || b.mend || (b.state !== 'foundation' && b.state !== 'scaffold')) return {};
+    const idle = b.users ? {} : { stalled: 'noWorkers' as const };
+    if (b.labour < b.need * delivered(b) - 1e-6) return idle;
+    const lack: Partial<Record<ResourceKind, number>> = {};
+    for (const [r, v] of Object.entries(b.cost) as [ResourceKind, number][]) {
+      const n = v - (b.delivered[r] ?? 0) - (b.incoming[r] ?? 0);
+      if (n > 1e-6) lack[r] = n;
+    }
+    if (!Object.keys(lack).length) return idle;
+    // a site outside every network (a far bridge ramp): its builders fetch from the network of the store nearest them
+    let sn = storeNet(b);
+    if (sn < 0) {
+      let bd = Infinity;
+      for (const o of storeList) if (o.team === b.team && standing(o) && (o.x - b.x) ** 2 + (o.y - b.y) ** 2 < bd) (bd = (o.x - b.x) ** 2 + (o.y - b.y) ** 2), (sn = storeNet(o));
+    }
+    const stores = netStores(b.team, sn);
+    if (!stores.length) return { stalled: 'noStore' };
+    const have: Cost = {};
+    for (const hd of [...stores.map((o) => o.hold!), reserveOf(b.team)]) totals(hd, have);
+    const waiting: Partial<Record<ResourceKind, number>> = {};
+    for (const [r, n] of Object.entries(lack) as [ResourceKind, number][]) if (n - (have[r] ?? 0) > 1e-6) waiting[r] = Math.ceil(n - (have[r] ?? 0));
+    return { ...idle, ...(Object.keys(waiting).length ? { waiting } : {}) };
   };
 
   /** Close the footprint tiles not closed yet (all of them, or the inner row an upgrade grew). */
@@ -2081,6 +2220,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
           ...(b.owner ? { owner: b.owner } : {}),
           ...(b.pre ? { pre: true as const, ...(b.pre.landmark ? { landmark: true as const } : {}), ...(region.prebuilt?.[b.pre.i]?.art ? { art: region.prebuilt[b.pre.i].art } : {}), ...(b.pre.ruin ? { ruin: true as const } : {}), ...(b.pre.fouled > tick ? { fouled: true as const } : {}) } : {}),
           ...(b.mend ? { mend: true as const } : {}),
+          ...waitOf(b),
           ...(b.type === 'stoa' ? { stalls: 2 } : {}),
         };
       }),

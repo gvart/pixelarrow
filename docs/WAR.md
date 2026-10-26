@@ -559,12 +559,29 @@ win over the region's while it is on.
 | Selection | Ctrl+A all, 1-9 select group (twice: go there), Ctrl+1-9 store group; click, Shift+click, box (mouse) |
 | Orders | right click or E context action (hold E: all actions), H hold, X stop work, F squad active, Q fire arrows, Y deploy engine |
 | Formations | Alt+1 line, Alt+2 column, Alt+3 wedge, Alt+4 loose |
-| Build mode | B on or off; R rotate, Enter lay the wall, Backspace last line, F flip inside, [ ] bridge width, G gate, T tower |
+| Build mode | B on or off; R rotate, F flip a wall's inside, [ ] bridge width, G gate tool, T tower tool, Backspace drop the wall's start; walls: drag or click start and end, Shift chains |
 | View and panels | V cut walls down, M full map, F2-F7 map modes, G boss camera, R roster, K market, L landmark, N sound, Shift+W world map |
 | World map | Enter enter or send, T routes, H haul planner, F fit, + - zoom |
 | General | Esc back (fixed; with nothing open: the menu), F10 settings, ? controls, F1 dev panel |
 
 Settings also hold the UI scale (`war.uiScale`) and the sound (`pixelarrow.war.sound`).
+
+## Building
+
+Build mode (B) places sites on own influence; the selected men build them, else they stay planned until men are sent
+(E on the site). Data: `BUILDINGS` in `src/war/sim/economy.ts`; rules: `src/war/sim/works.ts`; tools:
+`src/war/view/build/buildMode.ts` (W-22..W-28, W-57).
+
+| Rule | Value |
+| --- | --- |
+| Labour | worker-seconds; at most `workers` men a piece at once. With a squad: palisade segment (4 tiles) ~40 s, stone segment (4 tiles, 2 deep) ~3 min, wood tower ~1 min, camp ~17 s |
+| Walls (AoE / Stronghold) | palisade, rampart, stone wall are plain tools: press-drag, or click start then click end; Shift chains from the end; Esc or right click drops the start. The line splits into segments of `SEGMENT` (4) tiles; the preview shows each green or red |
+| Blocked pieces | ordered lines build their valid pieces and skip the blocked ones; the status names why (rock, water, outside influence, overlap, too steep, on a resource, no-build zone) |
+| Joins | a line starting or ending on an own wall, tower or gate joins it there (those tiles are not counted as overlap) |
+| Towers and gates | normal build tools; a gate dropped on an own wall replaces that stretch (and the inner row behind it on a 2-deep wall: the passage); a tower takes the wall tiles under it; the gate turns along the wall under the cursor |
+| Stalled sites | `BuildingSnap.waiting` (goods the store network lacks), `stalled` (`noWorkers`, `noStore`); the site card and a floating note say "Waiting for 6 wood" |
+| Activity | the squad card says what the men do (`activityText` in `src/war/view/hud/activity.ts`): Marching to …, Building palisade (62%), Waiting for wood, Gathering wood, Fighting, Holding |
+| Placement view | while placing, buildings within 4 tiles of the cursor go see-through; the ghost is never cut (V still cuts walls down) |
 
 ## Soldiers
 
