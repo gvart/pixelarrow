@@ -7,6 +7,8 @@
 import type { SandboxScene } from '../SandboxScene';
 import { hex, MODES, type LegendRow, type MapMode } from '../mapModes';
 import { icon } from './kit';
+import { keys } from '../../input/keys';
+import type { ActionId } from '../../input/actions';
 
 const CSS = `
 #rfModes{left:142px;bottom:142px;width:30px;height:30px;pointer-events:auto}
@@ -71,7 +73,7 @@ export class ModeBar {
       const b = document.createElement('button');
       b.className = 'opt';
       b.dataset.mode = m.id;
-      b.innerHTML = `${icon(m.icon)}<span>${m.name}</span><span class="k">${m.key}</span>`;
+      b.innerHTML = `${icon(m.icon)}<span>${m.name}</span><span class="k">${keys.label(`view.${m.id}` as ActionId)}</span>`;
       b.title = m.about;
       // unfold from the button up: the nearest option first
       b.style.transitionDelay = `0ms`;
@@ -88,9 +90,9 @@ export class ModeBar {
     this.el.addEventListener('pointerdown', (e) => e.stopPropagation());
     addEventListener('pointerdown', (e) => { if (!this.el.contains(e.target as Node)) this.toggle(false); }, true);
     addEventListener('keydown', (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement).tagName === 'INPUT') return;
-      if (e.key === 'Escape' && this.el.classList.contains('open')) { e.stopImmediatePropagation(); this.toggle(false); return; }
-      const m = MODES.find((q) => q.key === e.key);
+      const a = keys.act(e);
+      if (a === 'back' && this.el.classList.contains('open')) { e.stopImmediatePropagation(); this.toggle(false); return; }
+      const m = MODES.find((q) => `view.${q.id}` === a);
       if (!m) return;
       e.preventDefault(); // F5 would reload
       this.pick(m.id);

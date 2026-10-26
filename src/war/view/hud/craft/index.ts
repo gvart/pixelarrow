@@ -23,6 +23,7 @@ import { profTree } from './tree';
 import { GRAPH_CSS, markGraph, panelWidth, paintGraph, type TreeView } from '../tree/graph';
 import { soldierTree, takeSoldier } from '../roster/skillTree';
 import { WP_CSS, WP_PROF, WP_W, workplaceHtml, type Crafter, type Idle, type WpView } from './workplace';
+import { keys } from '../../../input/keys';
 
 type Mk = (id: string, css: string, html?: string) => HTMLElement;
 const TEAM = 0;
@@ -168,7 +169,7 @@ export function mountCraft(s: SandboxScene, mk: Mk, roster: RosterHooks): void {
     setTimeout(render, 150); // the order lands on the next snapshot
   });
   addEventListener('keydown', (e: KeyboardEvent) => {
-    if (e.key === 'Escape' && treePid) { if (ask) ask = null; else treePid = null; render(); }
+    if (keys.is(e, 'back') && treePid) { if (ask) ask = null; else treePid = null; render(); }
   });
   setInterval(render, 250);
   // scripts (scripts/war, Playwright): open a tree, read the stash

@@ -2,32 +2,19 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#14100c" />
-    <title>Pixelarrow</title>
+    <title>Pixelarrow: The War for Metaxy</title>
     <link rel="icon" href="./favicon.ico" sizes="16x16 32x32 48x48" />
     <link rel="icon" href="./favicon-32.png" type="image/png" sizes="32x32" />
     <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
     <link rel="manifest" href="./manifest.webmanifest" />
     <style>
-      html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #14100c; overscroll-behavior: none; touch-action: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
-      /* Safe area: device insets (max of env() and Telegram's safeAreaInset, set by src/platform/safeArea.ts,
-         falling back to Telegram's own CSS vars) plus Telegram's content insets (full-screen Close/Back and menu pills). */
-      :root {
-        --pa-t: calc(max(env(safe-area-inset-top, 0px), var(--pa-safe-top, var(--tg-safe-area-inset-top, 0px))) + var(--pa-content-top, var(--tg-content-safe-area-inset-top, 0px)));
-        --pa-b: calc(max(env(safe-area-inset-bottom, 0px), var(--pa-safe-bottom, var(--tg-safe-area-inset-bottom, 0px))) + var(--pa-content-bottom, var(--tg-content-safe-area-inset-bottom, 0px)));
-        --pa-l: calc(max(env(safe-area-inset-left, 0px), var(--pa-safe-left, var(--tg-safe-area-inset-left, 0px))) + var(--pa-content-left, var(--tg-content-safe-area-inset-left, 0px)));
-        --pa-r: calc(max(env(safe-area-inset-right, 0px), var(--pa-safe-right, var(--tg-safe-area-inset-right, 0px))) + var(--pa-content-right, var(--tg-content-safe-area-inset-right, 0px)));
-      }
-      /* #game fills the safe area at every size (ADR-0013). The canvas fills it too, except while a scene that
-         has not migrated to the size classes runs: then it is the v5 column (--pa-col, set by
-         src/platform/renderScale.ts), centred on the stone stage. */
-      #game { position: fixed; top: var(--pa-t); bottom: var(--pa-b); left: var(--pa-l); right: var(--pa-r); background: #1a1612; }
-      #game canvas { image-rendering: pixelated; image-rendering: crisp-edges; display: block; width: var(--pa-col, 100%) !important; height: 100% !important; margin: 0 auto; }
+      html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #0e0907; }
     </style>
   </head>
   <body>
-    <div id="game"></div>
+    <noscript><p style="color:#f0d9b5;font:16px sans-serif;padding:24px">Pixelarrow needs JavaScript.</p></noscript>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

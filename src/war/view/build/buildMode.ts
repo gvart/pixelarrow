@@ -32,6 +32,7 @@ import { SIEGE_NAME } from '../siege/siegeControls';
 import type { SandboxScene } from '../SandboxScene';
 import { BuildingLayer, pairs, type GhostMark, type GhostPiece } from './buildingLayer';
 import { BuildArt } from './buildArt';
+import { keys } from '../../input/keys';
 
 export type WallMaterial = 'wood' | 'timber' | 'stone';
 export type Tool =
@@ -100,18 +101,17 @@ export class BuildMode {
     this.layer = new BuildingLayer(s, s.iso, (x, y) => s.depthAt(x, y));
     void BuildArt.load(s).then((a) => (this.layer.art = a));
     s.input.keyboard!.on('keydown', (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement).tagName === 'INPUT') return;
-      const k = e.key.toLowerCase();
-      if (k === 'b') this.toggle();
-      else if (k === 'v') this.layer.cutaway = !this.layer.cutaway;
-      else if (k === 'escape') this.cancel();
+      const a = keys.act(e);
+      if (a === 'build.mode') this.toggle();
+      else if (a === 'view.cutaway') this.layer.cutaway = !this.layer.cutaway;
+      else if (a === 'back') this.cancel();
       else if (!this.active) return;
-      else if (k === 'r') this.rotate();
-      else if (k === 'enter') this.confirmWall();
-      else if (k === 'backspace') this.removeLine(this.lines.length - 1);
-      else if (k === 'f') this.flipInside();
-      else if ((k === '[' || k === ']') && this.tool?.kind === 'bridge') this.bridgeWidth = Math.max(1, Math.min(3, this.bridgeWidth + (k === ']' ? 1 : -1)));
-      else if ((k === 'g' || k === 't') && this.tool?.kind === 'wall' && this.lines.some((l) => l.points.length >= 4)) this.insert = k === 'g' ? 'gate' : 'tower';
+      else if (a === 'build.rotate') this.rotate();
+      else if (a === 'build.confirm') this.confirmWall();
+      else if (a === 'build.undo') this.removeLine(this.lines.length - 1);
+      else if (a === 'build.flip') this.flipInside();
+      else if ((a === 'build.narrower' || a === 'build.wider') && this.tool?.kind === 'bridge') this.bridgeWidth = Math.max(1, Math.min(3, this.bridgeWidth + (a === 'build.wider' ? 1 : -1)));
+      else if ((a === 'build.gate' || a === 'build.tower') && this.tool?.kind === 'wall' && this.lines.some((l) => l.points.length >= 4)) this.insert = a === 'build.gate' ? 'gate' : 'tower';
     });
   }
 

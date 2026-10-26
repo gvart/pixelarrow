@@ -5,6 +5,7 @@
 import type { WarAudio } from '../sound/warAudio';
 import type { WarSoundSettings } from '../sound/mix';
 import { uiZoom } from './kit';
+import { keys } from '../../input/keys';
 
 const ROWS: [keyof WarSoundSettings, string][] = [['masterVol', 'Master'], ['musicVol', 'Music'], ['sfxVol', 'Effects'], ['ambVol', 'Ambience']];
 
@@ -50,7 +51,6 @@ export function mountSoundPanel(audio: WarAudio): void {
   btn.onclick = () => toggle();
   document.getElementById('rfDev')?.append(btn);
   addEventListener('keydown', (e: KeyboardEvent) => {
-    if ((e.target as HTMLElement).tagName === 'INPUT') return;
-    if (e.key === 'n' || e.key === 'N') toggle();
+    if (keys.is(e, 'panel.sound')) toggle();
   });
 }

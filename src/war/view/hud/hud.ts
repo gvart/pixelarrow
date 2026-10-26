@@ -53,6 +53,7 @@ import { buildCard, term } from './codex';
 import { loadGlyphs } from './glyph';
 import { TIP_CSS, tipChain } from './tooltip';
 import { GROUPS_CSS, mountGroups } from './groups';
+import { keys } from '../../input/keys';
 
 const RES: string[] = ['food', 'wood', 'stone', 'marble', 'copper', 'tin', 'iron', 'bronze', 'silver', 'salt', 'olives', 'coin'];
 /** M5h: the band's second page (its toggle under the right end): crafting goods, pitch, and the remedies in the team supplies (p:). */
@@ -339,12 +340,12 @@ export function hud(s: SandboxScene): void {
   const setDev = (on: boolean) => { if (dev) dev.style.display = on ? '' : 'none'; dbtn.classList.toggle('on', on); };
   setDev(new URLSearchParams(location.search).has('dev'));
   addEventListener('keydown', (e: KeyboardEvent) => {
-    if ((e.target as HTMLElement).tagName === 'INPUT') return;
-    if (e.key === 'F1') { e.preventDefault(); setDev(dev?.style.display === 'none'); }
-    else if (e.key === 'W' && e.shiftKey) goWorld();
+    const a = keys.act(e);
+    if (a === 'dev.panel') { e.preventDefault(); setDev(dev?.style.display === 'none'); }
+    else if (a === 'go.world') goWorld();
     else if (m.active || m.tool) return;
-    else if (e.key.toLowerCase() === 'x') stop();
-    else if (e.key.toLowerCase() === 'f') fireActives(s, sc.own());
+    else if (a === 'order.stop') stop();
+    else if (a === 'order.active') fireActives(s, sc.own());
   });
 
   // ---------- trade: holder panel, hover card, command card slots (./holder.ts, M6k) ----------

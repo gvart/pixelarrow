@@ -50,6 +50,7 @@ import { FogLayer } from './fog';
 import { anySoldiers } from './hud/cardCiv';
 import { GuardianLayer } from './guardians';
 import { Selection } from './select';
+import { keys as warKeys } from '../input/keys';
 
 const CLIMB = ['climb', 'walk'] as const;
 const CARRY = ['carry', 'walk'] as const;
@@ -205,11 +206,13 @@ export class SandboxScene extends Phaser.Scene {
 
     this.sim = new SimClient(r);
     this.input.mouse!.disableContextMenu();
-    this.keys = this.input.keyboard!.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT,SPACE,SHIFT') as Record<string, Phaser.Input.Keyboard.Key>;
+    this.keys = this.input.keyboard!.addKeys('SHIFT') as Record<string, Phaser.Input.Keyboard.Key>;
+    // every key goes through the war's bindings (../input): build mode's keys win while it is on
+    warKeys.setContexts(() => (this.build?.active ? ['build', 'region', 'camera', 'global'] : ['region', 'camera', 'global']));
     this.input.keyboard!.on('keydown', (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement).tagName === 'INPUT') return;
-      if (e.key === 'h' || e.key === 'H') this.orderAll((squad) => ({ kind: 'hold', squad }));
-      if (e.key === 'g' || e.key === 'G') this.guardians.bossCam = !this.guardians.bossCam; // M7d: the boss camera on or off
+      const a = warKeys.act(e);
+      if (a === 'order.hold') this.orderAll((squad) => ({ kind: 'hold', squad }));
+      if (a === 'view.bossCam') this.guardians.bossCam = !this.guardians.bossCam; // M7d: the boss camera on or off
     });
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => this.onDown(p));
     this.input.on('pointermove', (p: Phaser.Input.Pointer) => this.onMove(p));
@@ -455,7 +458,7 @@ export class SandboxScene extends Phaser.Scene {
       return;
     }
     if (p.rightButtonDown()) return this.build.tool || this.siege.armed ? this.command(p) : this.interact.press(p, 'mouse');
-    const pan = p.middleButtonDown() || this.keys.SPACE.isDown;
+    const pan = p.middleButtonDown() || warKeys.held('cam.grab');
     if (!pan && this.siege.onDown(this.world(p))) return;
     if (!pan && this.build.onDown(this.world(p), this.keys.SHIFT.isDown)) return;
     if (!pan && this.placing) {
@@ -548,15 +551,15 @@ export class SandboxScene extends Phaser.Scene {
   }
 
   update(_t: number, dt: number): void {
-    const cam = this.cameras.main, k = this.keys;
+    const cam = this.cameras.main, k = (id: 'cam.up' | 'cam.down' | 'cam.left' | 'cam.right') => warKeys.held(id);
     this.frame++;
     this.guardians?.fx.unshake(cam); // M7d: last frame's boss shake off before the camera moves
     // a resize can leave the zoom below the floor
     if (this.frame % 15 === 0 && cam.zoom < this.minZoom() - 1e-6) cam.setZoom(this.minZoom());
     // keyboard and edge pan
     const sp = (dt * 0.9) / cam.zoom;
-    let vx = (k.D.isDown || k.RIGHT.isDown ? 1 : 0) - (k.A.isDown || k.LEFT.isDown ? 1 : 0);
-    let vy = (k.S.isDown || k.DOWN.isDown ? 1 : 0) - (k.W.isDown || k.UP.isDown ? 1 : 0);
+    let vx = (k('cam.right') ? 1 : 0) - (k('cam.left') ? 1 : 0);
+    let vy = (k('cam.down') ? 1 : 0) - (k('cam.up') ? 1 : 0);
     const p = this.input.activePointer, m = 12;
     if (this.input.isOver && !p.isDown && this.moved) {
       if (p.x < m) vx = -1; else if (p.x > cam.width - m) vx = 1;

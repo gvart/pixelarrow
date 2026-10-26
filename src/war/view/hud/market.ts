@@ -24,6 +24,7 @@ import {
 } from '../trade/market';
 import { draggable } from './drag';
 import { bar, fitHeight, icon } from './kit';
+import { keys } from '../../input/keys';
 
 type Mk = (id: string, css: string, html?: string) => HTMLElement;
 type Tab = 'Stall' | 'Offers' | 'Board' | 'Contracts' | 'Letters';
@@ -292,8 +293,7 @@ export function mountMarket(s: SandboxScene, mk: Mk): MarketHud {
     if (on) { render(); void load(); }
   };
   addEventListener('keydown', (e: KeyboardEvent) => {
-    if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'SELECT') return;
-    if (e.key.toLowerCase() === 'k' && !e.ctrlKey && !e.metaKey) toggle();
+    if (keys.is(e, 'panel.market')) toggle();
   });
   // timers (rent, the hand-off countdown) and what the region holds: once a second while shown
   setInterval(() => {

@@ -14,6 +14,7 @@ import type { SandboxScene } from '../SandboxScene';
 import { icon, uiZoom } from './kit';
 import { swatch } from './modes';
 import { drawIcon, drawMap, explored, fogAt, FOG_SWATCH, ISO_ROT, squads, TEAM, toPx, toTile, type MapXf } from './mapDraw';
+import { keys } from '../../input/keys';
 
 const CLASS: Record<string, string> = { militia: 'Militia', hoplite: 'Hoplites', celt_sword: 'Swordsmen', archer: 'Archers', slinger: 'Slingers', javelineer: 'Javelineers' };
 const nice = (t: string) => t.replace(/[A-Z]/g, (c) => ' ' + c.toLowerCase()).replace(/^./, (c) => c.toUpperCase());
@@ -122,9 +123,9 @@ export class FullMap {
     });
     // capture: Esc closes the map before build mode or the siege controls see it
     addEventListener('keydown', (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement).tagName === 'INPUT') return;
-      if (e.key === 'm' || e.key === 'M') { e.preventDefault(); if (this.open) this.close(); else this.show(); }
-      else if (e.key === 'Escape' && this.open) { e.stopImmediatePropagation(); this.close(); }
+      const a = keys.act(e);
+      if (a === 'view.map') { e.preventDefault(); if (this.open) this.close(); else this.show(); }
+      else if (a === 'back' && this.open) { e.stopImmediatePropagation(); this.close(); }
     }, true);
   }
 
