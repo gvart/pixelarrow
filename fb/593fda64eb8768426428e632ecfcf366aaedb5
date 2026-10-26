@@ -1,0 +1,24 @@
+vite.config.ts
+  s_fcb7475e0b5395::t_afc1b6f2583a94 21-22
+  s_fcb7475e0b5395::t_c4ef2f1318916d 58-59
+scripts/war/play.mjs
+  s_fcb7475e0b5395::t_d3e054f0ffa7a2 149
+docs/v5/art/SHEET_FORMAT.md
+  s_fcb7475e0b5395::t_afc1b6f2583a94 207-209
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "fb593fda64eb8768426428e632ecfcf366aaedb5",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
