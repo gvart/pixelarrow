@@ -1,0 +1,23 @@
+src/war/view/fog.ts
+  s_fcb7475e0b5395::t_5a32dd0eeb48df 87-89,100
+  s_fcb7475e0b5395::t_a88c1d45d02afa 7-8,72-73,85-86
+  s_fcb7475e0b5395::t_8d9af00ba39952 36-37,76,80,84,103
+src/war/view/SandboxScene.ts
+  s_fcb7475e0b5395::t_a88c1d45d02afa 577
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "aca721459cd82c739591762ee5f970d84440c807",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
