@@ -1,0 +1,32 @@
+docs/playbook/ART.md
+  s_fcb7475e0b5395::t_354e339a487c9d 10
+  s_fcb7475e0b5395::t_75a730c357c8d3 63,72,89-90,92-94
+docs/playbook/LESSONS.md
+  s_fcb7475e0b5395::t_354e339a487c9d 8,11-12
+  s_fcb7475e0b5395::t_a67d028f9d27da 46-47
+docs/playbook/director-brief.md
+  s_fcb7475e0b5395::t_354e339a487c9d 97-98,130,177-179
+docs/playbook/PROMPTS_AGENTS.md
+  s_fcb7475e0b5395::t_354e339a487c9d 40,61-62,72-74,105-106,109-110
+  s_fcb7475e0b5395::t_89b66d96ff9f66 111-112,133
+docs/playbook/NEW_FEATURE.md
+  s_fcb7475e0b5395::t_354e339a487c9d 102
+docs/playbook/README.md
+  s_fcb7475e0b5395::t_354e339a487c9d 16
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "26f41f53f6ebeb0caadf90bbe8d0db50c6dab3bc",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
