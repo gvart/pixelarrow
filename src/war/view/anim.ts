@@ -176,6 +176,12 @@ export class Animator {
     }
   }
 
+  /** A walking man's stride bob (px, 0 or 1): up at each mid-stride, two per cycle; 0 when not on the stride clock. */
+  bob(id: number): number {
+    const m = this.mem.get(id);
+    return m?.loco ? Math.round(Math.abs(Math.sin(m.phase * 2 * Math.PI))) : 0;
+  }
+
   /** Forget units no longer in the snapshot. */
   prune(alive: Set<number>): void {
     for (const id of this.mem.keys()) if (!alive.has(id)) this.mem.delete(id);

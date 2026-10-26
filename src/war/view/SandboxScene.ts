@@ -245,6 +245,7 @@ export class SandboxScene extends Phaser.Scene {
     const tl = this.tradeLayer;
     this.units.lift = (d) => gd.lift(d) ?? sl.lift(d) ?? tl.lift(d) ?? layer.lift(d);
     tl.packed = (id) => this.units.packed.has(id);
+    sl.bob = (id) => this.units.anim.bob(id);
     this.units.ground = (d) => layer.groundDepth(d);
     this.shots.lift = (x, y) => layer.lift({ x, y })?.px ?? 0;
     this.units.anim.override = (u) => gd.clip(u) ?? (layer.climbing.has(u.id) ? CLIMB : sl.bearing.has(u.id) || tl.pulling.has(u.id) ? CARRY : u.task && u.task !== 'crew' ? TASK : workClip(u));

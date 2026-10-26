@@ -130,6 +130,8 @@ export class SiegeLayer {
 
   /** M5h: the workplaces' working fx this frame (../build/buildingLayer.ts working), world px. */
   working: readonly { id: string; x: number; y: number; alpha: number; depth: number; seed: number }[] = [];
+  /** A bearer's stride bob (px, ../anim.ts Animator.bob): a carried ladder rises and falls with its lead bearer's steps. */
+  bob: (id: number) => number = () => 0;
 
   draw(sieges: readonly SiegeSnap[], buildings: readonly BuildingSnap[], units: readonly DrawUnit[], at: AnimTime, snapTick: number, v: V): void {
     this.ni = 0;
@@ -302,7 +304,7 @@ export class SiegeLayer {
     }
     const men = crew.filter((d) => Math.hypot(d.x - e.x, d.y - e.y) < 3).sort((a, b) => a.u.id - b.u.id);
     const carried = e.state === 'move' && men.length >= Math.min(c.bearers.length, e.crewNeed);
-    const im = this.put(spr as SiegeSprite, x0, y0, this.D(x0 + w, y0 + h) + IN, carried ? c.carryPx : 0, undefined, z);
+    const im = this.put(spr as SiegeSprite, x0, y0, this.D(x0 + w, y0 + h) + IN, carried ? c.carryPx + (men[0] ? this.bob(men[0].u.id) : 0) : 0, undefined, z);
     if (e.state === 'building') im.setAlpha(0.45 + 0.55 * e.progress);
     if (e.state === 'destroyed') im.setTint(0x6a6058);
     if (carried) men.slice(0, c.bearers.length).forEach((d, i) => {
