@@ -1055,13 +1055,15 @@ export class Site {
    */
   ramp(pts: Pt[], w: number, h0: number, h1: number, o: { run?: number; flat?: number; t?: string } = {}): Pt {
     const run = o.run ?? 5, flat = o.flat ?? 0, c = spline(pts, 0.5), r = w / 2, R = Math.ceil(r), lv = new Map<number, number>();
+    // drawn: one even slope over the whole curve (a switchback's lower legs climb too, not a flat road and a face at its top)
+    const vrun = Math.max(run * (h0 - h1), c[c.length - 1].s - flat) / Math.max(1, h0 - h1);
     for (const p of c) {
       const h = Math.max(h1, h0 - Math.max(0, Math.ceil((p.s - flat) / run)));
       for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) {
         const x = Math.floor(p.x + dx), y = Math.floor(p.y + dy), k = y * 4096 + x;
         if (x < 0 || y < 0 || x >= this.w || y >= this.h || (x + 0.5 - p.x) ** 2 + (y + 0.5 - p.y) ** 2 > r * r) continue;
         lv.set(k, Math.max(lv.get(k) ?? -1, h));
-        this.vz.set(k, Math.max(this.vz.get(k) ?? -1, Math.max(h1, h0 - Math.max(0, (p.s - flat) / run))));
+        this.vz.set(k, Math.max(this.vz.get(k) ?? -1, Math.max(h1, h0 - Math.max(0, (p.s - flat) / vrun))));
       }
     }
     this.levelBy((x, y) => lv.get(y * 4096 + x));
@@ -1343,9 +1345,11 @@ function visualLayer(k: Kit): Out {
       const tx = k.tileOfUnit(x), ty = k.tileOfUnit(y);
       for (const s of lifted) {
         const pd = s.liftPad;
-        if (tx < s.x0 - pd || ty < s.y0 - pd || tx >= s.x0 + s.w + pd || ty >= s.y0 + s.h + pd || height[i] <= s.base) continue;
-        if (s.liftOnly && !s.liftOnly(tx - s.x0, ty - s.y0)) continue;
+        if (tx < s.x0 - pd || ty < s.y0 - pd || tx >= s.x0 + s.w + pd || ty >= s.y0 + s.h + pd) continue;
+        // a ramp's lower run stands at the base in the sim but climbs by its smooth level (vz), so it is drawn rising to the gate
         const hv = s.vz.get((ty - s.y0) * 4096 + tx - s.x0) ?? height[i];
+        if (hv <= s.base) continue;
+        if (s.liftOnly && !s.liftOnly(tx - s.x0, ty - s.y0)) continue;
         z = Math.min(ZVIS, Math.max(Math.round(RELIEF * hv), Math.round(s.vis(hv, terrain[i] === 'road') + (RELIEF - 1) * s.base)));
         soft[i] = 0;
       }

@@ -189,6 +189,20 @@ export function citadel(k: Kit, at: Pt, hb: number): Landmark {
   const fW = s.ramp([out(gW, 2), out(gW, 7), [out(gW, 10)[0], out(gW, 7)[1] + 14]], 4, ho, hb, { run: 12 / T, flat: 5 });
   const fE = s.ramp([out(gE, 2), out(gE, 7), [out(gE, 10)[0], out(gE, 7)[1] + 14]], 4, ho, hb, { run: 12 / T, flat: 5 });
   const fI = s.ramp([out(gI, 1), out(gI, 6), [out(gI, 8)[0] - 6, out(gI, 14)[1]]], 4, hi, ho, { run: 10 / T, flat: 4 });
+  // the switchbacks drawn as one embankment (visual only): the snow pockets between their legs raised to the lower leg,
+  // not pits between two drawn faces
+  for (let y = 0; y < s.h; y++) for (let x = 0; x < s.w; x++) {
+    const k = y * 4096 + x;
+    if (s.vz.has(k) || s.hAt(x, y) !== hb) continue;
+    let up = -1, dn = -1;
+    for (let d = 1; d <= 4 && (up < 0 || dn < 0); d++) {
+      if (up < 0 && s.vz.has(k - d * 4096)) up = s.vz.get(k - d * 4096)!;
+      if (dn < 0 && s.vz.has(k + d * 4096)) dn = s.vz.get(k + d * 4096)!;
+    }
+    if (up > hb && dn > hb) s.vz.set(k, Math.min(up, dn));
+  }
+  // no loose props just behind the drawn ramps (their faces would stand in front of them)
+  const rampNear = (x: number, y: number) => { for (let d = 0; d <= 10; d++) for (let e = 0; e <= 10; e++) if ((s.vz.get((y + d) * 4096 + x + e) ?? 0) > hb + 0.3) return true; return false; };
   // the crag's skirt: broken granite ledges, snow drifted on them, round the wards but where the ramps come down
   s.skirtKinds = { a: 'drift', b: 'rock', cut: -0.15 };
   // (four ledges deep within the drafted width, so the face breaks into rock steps; the tiles it takes are as before: Drakon's raid is tuned on them)
@@ -226,16 +240,19 @@ export function citadel(k: Kit, at: Pt, hb: number): Landmark {
   // the ruined village where the road leaves the glacier, either side of it
   const vc = s.u(fS[0] - 30, 172);
   k.paint('dirt', [vc[0], vc[1], 26, 8, 0], { on: ['grass', 'snow'], rough: 3 });
-  s.street([fS, [fS[0] - 30, 176], [fS[0] - 70, 182]], 3, 'dirt');
-  s.street([[fS[0] - 24, 176], [fS[0] - 40, 160]], 2, 'dirt');
-  const village: District = { ids: [['@town-cottage', 4], ['@town-house-a', 2], ['arch-house-a', 2], ['@town-house-b', 1]], ruin: 1, hp: [0.6, 0.6], empty: 0.3, alley: 0.4 };
-  s.infill((x, y) => y > 148 && !within(C, x, y, -6), village, { seed: 21, front: 1, back: 2 });
+  // (its lanes trodden road: dirt is snowed over by the glacier patch, which left the ruins in rows on blank snow)
+  s.street([fS, [fS[0] - 30, 176], [fS[0] - 70, 182]], 3, 'road');
+  s.street([[fS[0] - 24, 176], [fS[0] - 40, 160]], 2, 'road');
+  const village: District = { ids: [['@town-cottage', 2], ['@town-house-a', 2], ['arch-house-a', 2], ['@town-house-b', 1]], ruin: 1, hp: [0.6, 0.6], empty: 0.3, alley: 0.4 };
+  s.infill((x, y) => y > 148 && !within(C, x, y, -6) && !rampNear(x, y), village, { seed: 21, front: 1, back: 2 });
+  // the dead village's litter: fallen stone, burnt beams, drifts against the walls, a few snowed firs
+  s.dress(['elaia/debris-stone', 'mountains/snow-drift', 'elaia/wall-fallen-stone', 'dead-tree', 'mountains/fir-snow'], (x, y) => y > 150 && !within(C, x, y, -8) && !rampNear(x, y), 80, 27, { gap: 3 });
   // dressing: drifts in the wards' lee, talus and drifts at the crag's foot, ice on the glacier round it
   const ward2 = (x: number, y: number) => s.hAt(x, y) >= ho && !s.streets.has(y * 4096 + x);
   s.dress(['mountains/snow-drift'], ward2, 70, 23, { gap: 4 });
-  const foot = (x: number, y: number) => !sk.has(y * 4096 + x) && [[2, 0], [-2, 0], [0, 2], [0, -2]].some(([dx, dy]) => sk.has((y + dy) * 4096 + x + dx));
+  const foot = (x: number, y: number) => !sk.has(y * 4096 + x) && !rampNear(x, y) && [[2, 0], [-2, 0], [0, 2], [0, -2]].some(([dx, dy]) => sk.has((y + dy) * 4096 + x + dx));
   s.dress(['mountains/talus-granite', 'mountains/snow-drift', 'mountains/talus-granite'], foot, 60, 24, { gap: 3 });
-  s.dress(['mountains/ice-patch', 'mountains/snow-drift'], (x, y) => s.hAt(x, y) <= hb && !sk.has(y * 4096 + x) && !within(C, x, y, -16) && y < 150, 40, 25, { gap: 6 });
+  s.dress(['mountains/ice-patch', 'mountains/snow-drift'], (x, y) => s.hAt(x, y) <= hb && !sk.has(y * 4096 + x) && !rampNear(x, y) && !within(C, x, y, -16) && y < 150, 40, 25, { gap: 6 });
   // P2: Drakon takes the roofs of the towers either side of the main gate, then the keep's
   const towers = O.corners.slice().sort((a, b) => Math.hypot(a[0] - gS.at[0], a[1] - gS.at[1]) - Math.hypot(b[0] - gS.at[0], b[1] - gS.at[1]));
   s.guardians[0].perches = [[gS.at[0], gS.at[1]], ...towers.slice(0, 4).map(([x, y]): Pt => [x + 1.5, y + 1.5])];
