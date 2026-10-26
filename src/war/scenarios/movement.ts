@@ -49,6 +49,15 @@ export const MOVEMENT_SCENARIOS: Scenario[] = [
     camera: { x: S.ford[0], y: S.ford[1], zoom: 1 / 2 },
   },
   {
+    id: 'move-ford-both-ways',
+    name: 'Ford, both ways (W-59)',
+    group: 'movement',
+    goal: 'One squad wades the ford west to east while another wades it east to west: they meet in the water.',
+    check: ['They squeeze past each other in the ford, nobody stands jammed for more than a moment', 'No man turns back along the bank or runs off to where he started', 'Nobody is pressed into the deep water\'s edge; both re-form on the far bank'],
+    squads: [you('hoplite', at(S.fordW, -10, 0), 12, move(at(S.fordE, 8, 0))), you('militia', at(S.fordE, 10, 0), 12, move(at(S.fordW, -8, 0)))],
+    camera: { x: S.ford[0], y: S.ford[1], zoom: 1 / 2 },
+  },
+  {
     id: 'move-pass',
     name: 'Narrow pass',
     group: 'movement',
@@ -56,6 +65,15 @@ export const MOVEMENT_SCENARIOS: Scenario[] = [
     check: ['They string out into a file on the narrow switchbacks', 'No man is pushed off the path or left behind', 'They re-form at the top'],
     squads: [0, 1, 2].map((i) => you(['hoplite', 'militia', 'archer'][i], at(S.passS, (i - 1) * 4, 6 + i * 4), 12, move(at(S.passN, (i - 1) * 4, 0)))),
     camera: { x: S.passSaddle[0], y: S.passSaddle[1] + 40, zoom: 1 / 3 },
+  },
+  {
+    id: 'move-pass-both-ways',
+    name: 'Narrow pass, both ways (W-59)',
+    group: 'movement',
+    goal: 'One squad climbs the switchback pass from passS while another comes down it from passN: they meet on the switchbacks.',
+    check: ['The files squeeze past each other on the narrow bends', 'No man walks back down the pass to where his squad started', 'Nobody sticks on a bend\'s corner; both re-form at the far end'],
+    squads: [you('hoplite', at(S.passS, 0, 6), 12, move(at(S.passN, 0, 0))), you('archer', at(S.passN, 0, -4), 12, move(at(S.passS, 0, 6)))],
+    camera: { x: S.passSaddle[0], y: S.passSaddle[1], zoom: 1 / 3 },
   },
   {
     id: 'move-cliffs',
