@@ -5,6 +5,8 @@
  *   right of the panel     the soldier card of the picked row (Esc closes the card, then the panel)
  *   top centre             toasts: level-ups, captures, the fallen (click: the card)
  *   on the map             veteran / elite pips under the selected men (./markers.ts)
+ *   W-53                   a click on a field row selects that man in the world too, on a squad's heading its men
+ *                          (shift adds); the selected men's rows carry a gold edge
  *
  * Panel and card re-render at 4 Hz while open, only when their HTML changed (so hover and scroll hold).
  */
@@ -64,7 +66,7 @@ export function mountRoster(s: SandboxScene, mk: Mk): RosterHooks {
     if (open) {
       // above the minimap (bottom left, about 190 art px) and below the band
       const z = Number(panel.style.zoom) || 1, listH = Math.max(120, Math.min(420, Math.floor(innerHeight / z) - 50 - 200 - 96));
-      const html = panelHtml(R, filter, sort, sel, listH, devOn());
+      const html = panelHtml(R, filter, sort, sel, listH, devOn(), s.sel.units);
       if (html !== lastP) {
         const list = panel.querySelector<HTMLElement>('.rr-list'), top = list?.scrollTop ?? 0;
         panel.innerHTML = lastP = html;
@@ -94,13 +96,22 @@ export function mountRoster(s: SandboxScene, mk: Mk): RosterHooks {
   panel.addEventListener('click', (e) => {
     const t = e.target as HTMLElement;
     const f = t.closest<HTMLElement>('[data-filter]'), a = t.closest<HTMLElement>('[data-act]'), so = t.closest<HTMLElement>('[data-sort]'), r = t.closest<HTMLElement>('[data-pid]');
-    if (f) filter = (FILTERS.find(([x]) => x === f.dataset.filter)?.[0] ?? 'all');
+    const sq = t.closest<HTMLElement>('[data-squad]');
+    if (sq) s.sel.set(s.drawn.filter((d) => d.u.squad === Number(sq.dataset.squad) && d.u.state !== 'dead').map((d) => d.u.id), e.shiftKey); // W-53: a squad's men
+    else if (f) filter = (FILTERS.find(([x]) => x === f.dataset.filter)?.[0] ?? 'all');
     else if (so) sort = SORTS[(SORTS.indexOf(sort) + 1) % SORTS.length];
     else if (a?.dataset.act === 'close') open = false;
     else if (a?.dataset.act === 'xpAll') {
       for (const x of R.rows()) if (x.where === 'field' || x.where === 'reserve') R.devXp(x.p.id);
     } else if (a?.dataset.act === 'endFight') R.endFight();
-    else if (r) sel = sel === r.dataset.pid ? null : r.dataset.pid!;
+    else if (r) {
+      // W-53: a man in the field is selected in the world too (shift adds or drops him)
+      const u = R.rows().find((x) => x.p.id === r.dataset.pid)?.unit;
+      if (u && u.state !== 'dead') {
+        if (e.shiftKey && s.sel.units.has(u.id)) { s.sel.units.delete(u.id); s.sel.set([], true); } else s.sel.set([u.id], e.shiftKey);
+      }
+      sel = sel === r.dataset.pid && !e.shiftKey ? null : r.dataset.pid!;
+    }
     render();
   });
   card.addEventListener('click', (e) => {

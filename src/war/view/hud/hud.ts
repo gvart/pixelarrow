@@ -4,11 +4,12 @@
  *   top centre     resource band: the 11 resources (icon + own stock), runner and horse at its ends
  *   bottom left    round minimap (./minimap.ts), the view mode switcher in its corner (F2-F7) and the mode's legend over it (./modes.ts)
  *   centre         the full map on M (./fullMap.ts)
- *   bottom centre  command card, shown with a selection (a selected building or site wins over squads), in groups:
+ *   bottom centre  command card, shown with a selection (a selected building or site wins over men), in groups:
  *                  selection (class icon, name, men, hp) | orders (move, attack, attack-move: Ctrl + right click or the button then a click, hold H, stop X) over the
- *                  formation segments (1-4) | squad-specific slots only while relevant (the squad active F with its
- *                  cooldown ring, ./cardActive.ts; deploy / pack Y, let go while crewing).
- *                  site: progress, workers, materials | assign N of the selected squad, stop work, cancel (refund)
+ *                  formation segments (Alt+1-4) | squad-specific slots only while relevant (the squad active F with its
+ *                  cooldown ring, ./cardActive.ts; deploy / pack Y, let go while crewing). The orders go to the selected
+ *                  men (W-53, ../select.ts); the control group bar 1-9 sits over the card (./groups.ts).
+ *                  site: progress, workers, materials | stop work, cancel (refund); send men by selecting them and E on it
  *                  building: hp (and burning) | upgrade with its cost
  *                  Situational orders (ladders, ignite, extinguish, crew, fire arrows) are context only: E / right
  *                  click, or hold either for the radial menu (../interact.ts).
@@ -51,6 +52,7 @@ import { allCivilians, civBuild, civGather, civInfo, civName, civTips, civWork }
 import { buildCard, term } from './codex';
 import { loadGlyphs } from './glyph';
 import { TIP_CSS, tipChain } from './tooltip';
+import { GROUPS_CSS, mountGroups } from './groups';
 
 const RES: string[] = ['food', 'wood', 'stone', 'marble', 'copper', 'tin', 'iron', 'bronze', 'silver', 'salt', 'olives', 'coin'];
 /** M5h: the band's second page (its toggle under the right end): crafting goods, pitch, and the remedies in the team supplies (p:). */
@@ -108,7 +110,7 @@ export function hud(s: SandboxScene): void {
   let held = new Set<string>();
   const nodeWhy = (d: ToolDef) => (d.node && !held.has(d.node) ? `needs an engineer with ${PROF_NODES[d.node]?.name ?? d.node}` : '');
   const style = document.createElement('style');
-  style.textContent = CSS + ACTIVE_CSS + TIP_CSS;
+  style.textContent = CSS + ACTIVE_CSS + TIP_CSS + GROUPS_CSS;
   void loadGlyphs();
   document.head.appendChild(style);
   const els: HTMLElement[] = [];
@@ -209,7 +211,7 @@ export function hud(s: SandboxScene): void {
 
   // orders and formation (squads)
   let lastShape: string | null = null;
-  /** Stop: each selected squad halts where it stands, forms up there and holds (the sim's stop). */
+  /** Stop: the selected men halt where it stands, forms up there and holds (the sim's stop). */
   const stop = () => { for (const q of sc.own()) s.sim.order({ kind: 'stop', squad: q }); };
   const sqMove = btn('cMove', 'act-move', tipK('Move', 'click the map, or', 'right click'), '', () => sc.arm('move'));
   const sqAtk = btn('cAttack', 'act-attack', tipK('Attack', 'click an enemy, or hover it and', 'E'), '', () => sc.arm('attack'));
@@ -217,7 +219,7 @@ export function hud(s: SandboxScene): void {
   sqAtkMove.insertAdjacentHTML('beforeend', `<span class="badge">${icon('act-move')}</span>`);
   const sqHold = btn('cHold', 'act-hold', tipK('Hold', 'stand and fight here', 'H'), 'H', () => s.orderSelected((squad) => ({ kind: 'hold', squad })));
   const sqStop = btn('cStop', 'act-stop', tipK('Stop', 'halt and form up where they stand', 'X'), 'X', stop);
-  const shapes = SHAPES.map((sh, i) => btn('cF' + sh, 'act-' + sh, tipK('Formation: ' + sh, '', String(i + 1)), String(i + 1), () => { s.orderSelected((squad) => ({ kind: 'formation', squad, shape: sh })); lastShape = sh; }, ''));
+  const shapes = SHAPES.map((sh, i) => btn('cF' + sh, 'act-' + sh, tipK('Formation: ' + sh, 'the selected men form up as one', 'Alt+' + (i + 1)), String(i + 1), () => { s.orderSelected((squad) => ({ kind: 'formation', squad, shape: sh })); lastShape = sh; }, ''));
   const orders = [row('', sqMove, sqAtk, sqAtkMove, sqHold, sqStop), row('rf-seg', ...shapes)];
   orders[1].style.gap = '0';
   // civilian squads (M5f): work orders only, their jobs instead of the attack orders
@@ -235,16 +237,9 @@ export function hud(s: SandboxScene): void {
   const gDeploy = btn('cDeploy', 'act-deploy', () => tipK(sc.own().some((q) => sc.engineOf(q)?.state === 'deployed') ? 'Pack up' : 'Deploy', 'the stone thrower', 'Y'), 'Y', () => sc.deploy());
   const gLetGo = btn('cLetGo', 'act-crew', () => tipK('Let go', 'leave the engine', 'E on it'), '', () => sc.uncrew());
   // site
-  const sN = document.createElement('input');
-  sN.id = 'sn';
-  sN.type = 'number';
-  sN.min = '1';
-  sN.value = '5';
-  sN.title = 'men to assign';
-  const sAssign = btn('sassign', 'act-assign', '', '', () => m.assign(Number(sN.value)));
   const sStop = btn('sstop', 'act-stop', tipK('Stop work', 'the builders leave', ''), '', () => m.stopWork());
   const sCancel = btn('scancel', 'act-cancel', '', '', () => m.cancelSite());
-  const siteSlots = [sAssign, sN, sStop, sCancel];
+  const siteSlots = [sStop, sCancel];
   // building
   const bUp = btn('bup', 'act-upgrade', '', '', () => m.upgrade());
   // M5h3 fortify (Fortifier, paid at once): iron-bind a gate, hang wet hides on a wood piece
@@ -360,6 +355,7 @@ export function hud(s: SandboxScene): void {
 
   // ---------- soldiers: roster panel (R), soldier card, toasts, veteran pips (./roster, M5g) ----------
   mountCraft(s, mk, mountRoster(s, mk)); // M5h5: workplace panel, profession trees, stash (./craft)
+  const groups = mountGroups(s, mk, tipOn); // W-53: the control group bar over the card, numbers on the map
 
   // ---------- scale ----------
   const scale = () => {
@@ -414,8 +410,6 @@ export function hud(s: SandboxScene): void {
         setHead(BUILDING_ICON[b.type], name, `${Math.round(b.progress * 100)}% · ${b.workers}/${b.maxWorkers} at work`, bar('construction', b.progress, BAR_W),
           `${planned ? 'planned' : b.state}${mats ? ' · ' + mats : ''}`);
         setCard(false, siteSlots, SEL_BLD);
-        sAssign.disabled = sq === null;
-        sAssign.dataset.tip = sq === null ? tipK('Assign', 'select a squad first', '') : tipK('Assign', `detach ${sN.value} from squad #${sq} and send them`, '');
         sStop.disabled = !m.squadsAt(b).length;
         const refund = m.refund(b);
         sCancel.dataset.tip = tipK('Cancel site', `refunds ${Object.keys(refund).length ? costText(refund) : 'nothing'}`, '');
@@ -444,16 +438,18 @@ export function hud(s: SandboxScene): void {
       }
     } else if (q && own.length) {
       card.style.display = '';
-      const men = s.drawn.filter((d) => own.includes(d.u.squad) && d.u.state !== 'dead');
-      const cls = men[0]?.u.cls ?? '';
+      // W-53: the selected men, named by the class most of them are (+ how many other classes)
+      const men = s.sel.men(), byCls = new Map<string, number>();
+      for (const d of men) byCls.set(d.u.cls, (byCls.get(d.u.cls) ?? 0) + 1);
+      const cls = [...byCls].sort((a, b) => b[1] - a[1])[0]?.[0] ?? '';
       const hp = men.reduce((a, d) => a + d.u.hp, 0), max = men.reduce((a, d) => a + d.u.maxHp, 0) || 1;
       const engines = own.map((x) => sc.engineOf(x)), e = engines.find((x) => x);
-      const civ = allCivilians(s, own);
+      const civ = allCivilians(s, [...s.selected]);
       // M6d combat tag: the longest left among the selected men (they hit or were hit), no safe court until it runs out
       const tag = men.reduce((a, d) => Math.max(a, d.u.tag ?? 0), 0);
       $('cTag').style.display = tag ? '' : 'none';
       if (tag) $('cTag').textContent = `⚔ tagged ${Math.ceil(tag / 10)} s`;
-      setHead(UNIT_ICON[cls] ?? 'unit-militia', (CLASS_NAME[cls] ?? civName(cls) ?? nice(cls)) + (own.length > 1 ? ` +${own.length - 1}` : ''), `${men.length} men`, bar('hp', hp / max, SEL_SQUAD),
+      setHead(UNIT_ICON[cls] ?? 'unit-militia', (CLASS_NAME[cls] ?? civName(cls) ?? nice(cls)) + (byCls.size > 1 ? ` +${byCls.size - 1}` : ''), `${men.length} ${men.length === 1 ? 'man' : 'men'}`, bar('hp', hp / max, SEL_SQUAD),
         civ ? civInfo(s, own[0]) : e ? `crews ${SIEGE_NAME[e.type]} · ${e.state}${e.burning ? ' · burning' : ''}` : `${q.order}${q.fed ? ' · fed' : ''}${sc.status ? ' · ' + sc.status : ''}`);
       const slots: HTMLElement[] = [];
       const act = activesOf(s, own)[0];
@@ -494,6 +490,7 @@ export function hud(s: SandboxScene): void {
     hBtn.classList.toggle('on', m.active);
     // the bar sits above the card when both show
     build.style.bottom = card.style.display === 'none' ? '4px' : `${card.offsetHeight + 8}px`;
+    groups.refresh(card.style.display === 'none' ? 4 : card.offsetHeight + 8, !m.active);
     if (m.active) held = C.engineerNodes();
     for (const [x, d] of toolBtns) {
       x.classList.toggle('on', JSON.stringify(d.tool) === JSON.stringify(m.tool));

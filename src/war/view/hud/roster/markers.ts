@@ -25,7 +25,7 @@ export function markers(s: SandboxScene): void {
     };
     for (const d of s.drawn) {
       const u = d.u;
-      if (!s.selected.has(u.squad) || u.state === 'dead' || !u.level) continue;
+      if (!s.sel.units.has(u.id) || u.state === 'dead' || !u.level) continue;
       const rank = rankOf(u.cls, u.level);
       if (rank === 'recruit') continue;
       const x = s.iso.sx(d.x, d.y), y = s.iso.sy(d.x, d.y, s.iso.zAt(d.x, d.y)) + 7 * px, r = 2.5 * px;

@@ -22,7 +22,7 @@
  *     builds it there (its cost paid at once; ../siege/siegeControls.ts)
  *   Esc drops the drag, then the pending lines, then the tool, then the selected site, then build mode
  *   any mode: E / right click a resource node with squads selected gathers it, an unfinished (or damaged) own site
- *   builds / resumes it (../interact.ts); left click a building selects it (panel: assign N, stop work, cancel; upgrade a finished
+ *   builds / resumes it (../interact.ts); left click a building selects it (panel: stop work, cancel; upgrade a finished
  *   wall, tower or gate to its next tier)
  */
 import { BRIDGE, BUILDINGS, CANCEL_REFUND, rectTiles, rotated, WALL_KIT } from '../../sim/economy';
@@ -95,8 +95,6 @@ export class BuildMode {
   bridgeWidth = BRIDGE.width;
   /** Site each squad was sent to from here (stop work finds the squads of a site by it and by proximity). */
   private sent = new Map<number, number>();
-  /** Next squad id the sim hands out (detach): at least the snapshot's count, bumped per detach not yet seen. */
-  private nextSquad = 0;
 
   constructor(private s: SandboxScene) {
     this.layer = new BuildingLayer(s, s.iso, (x, y) => s.depthAt(x, y));
@@ -208,24 +206,6 @@ export class BuildMode {
     this.sent.set(squad, site);
     const b = this.s.sim.cur?.buildings?.find((q) => q.id === site);
     if (b) this.s.mark(b.x, b.y, 0x60d060);
-  }
-
-  /**
-   * Assign n soldiers of the selected own squad to the selected site: the last n detach as a new squad (its id is the
-   * sim's next one) and are sent; n at or over the squad's size sends the whole squad. Returns how many went.
-   */
-  assign(n: number): number {
-    const b = this.selectedBuilding(), squad = this.squad(), q = squad === null ? undefined : this.s.sim.squads.get(squad);
-    if (!b || !q || squad === null) { this.status = 'select a squad, then assign'; return 0; }
-    const alive = this.s.drawn.filter((d) => d.u.squad === squad && d.u.state !== 'dead').length;
-    n = Math.floor(n);
-    if (n <= 0 || !alive) return 0;
-    if (n >= alive) { this.sendTo(squad, b.id); return alive; }
-    const id = Math.max(this.nextSquad, this.s.sim.cur?.squads.length ?? 0);
-    this.nextSquad = id + 1;
-    this.s.sim.order({ kind: 'detach', squad, count: n });
-    this.sendTo(id, b.id);
-    return n;
   }
 
   /** Own squads working the site: sent to it from here (still on a build order) or labouring at it. */
@@ -513,7 +493,6 @@ export class BuildMode {
   update(wp: { x: number; y: number }, zoom: number, view: { x: number; y: number; right: number; bottom: number }): void {
     const sim = this.s.sim, buildings = sim.cur?.buildings ?? [];
     if (this.selected >= 0 && !buildings.some((b) => b.id === this.selected)) this.selected = -1; // cancelled or gone
-    if (this.s.sim.cur && this.nextSquad <= this.s.sim.cur.squads.length) this.nextSquad = 0;
     const placing = this.active && !!this.tool;
     this.s.siegeLayer.ghost = null;
     this.layer.selected = this.selected;

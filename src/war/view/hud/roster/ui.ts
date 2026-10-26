@@ -169,6 +169,8 @@ export const ROSTER_CSS = `
 .rr-row:hover{background:var(--rf-hover)}
 .rr-row.on{background:var(--rf-sel);box-shadow:inset 3px 0 0 var(--rf-title)}
 .rr-row.dead{opacity:.5}
+.rr-row.picked{box-shadow:inset 3px 0 0 var(--rf-gold)}
+.rr-row.picked.on{box-shadow:inset 3px 0 0 var(--rf-gold),inset 0 0 0 1px var(--rf-title)}
 .rr-nm{font:600 12.5px/1 Inter,sans-serif;color:var(--rf-ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rr-xp{height:2px;background:#2a1a12;margin-top:4px;position:relative}
 .rr-xp i{position:absolute;left:0;top:0;height:2px;background:linear-gradient(90deg,#a8802f,#e0b867)}

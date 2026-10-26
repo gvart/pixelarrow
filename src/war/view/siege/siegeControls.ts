@@ -44,9 +44,10 @@ export class SiegeControls {
     });
   }
 
-  /** Selected own squads. */
+  /** The squad orders to the selection go to: its lead (W-53, ../select.ts names the selected men on them), or none. */
   own(): SquadId[] {
-    return [...this.s.selected].filter((q) => this.s.sim.squads.get(q)?.team === TEAM);
+    const q = this.s.sel.lead();
+    return q !== null && this.s.sim.squads.get(q)?.team === TEAM ? [q] : [];
   }
 
   private sieges(): SiegeSnap[] {

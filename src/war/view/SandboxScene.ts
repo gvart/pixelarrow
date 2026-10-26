@@ -8,11 +8,12 @@
  * through the height field (./iso.ts).
  *
  *   drag / middle-drag / space+drag pan, WASD/arrows, screen-edge pan; wheel zooms to the cursor
- *   left click / box: select own squads (shift adds)
+ *   left click / box: select own men (shift adds); double-click: his class on screen; Ctrl+A all, Esc none;
+ *   Ctrl+1-9 / 1-9 control groups (./select.ts, W-53)
  *   E or right click: the context action on the hovered target, named by the label at the cursor; hold either for a
  *   radial menu of every action there (./interact.ts: attack, crew / uncrew, raise / push ladder, ignite, extinguish,
  *   fire arrows, build, gather, move)
- *   H hold; 1-4 formation line / column / wedge / loose
+ *   H hold; Alt+1-4 formation line / column / wedge / loose
  *   B build mode; click a building: its panel (./build/buildMode.ts)
  *   F2-F7 view modes (./mapModes.ts, the HUD's mode bar), M the full map (./hud/fullMap.ts)
  *   siege (./siege/siegeControls.ts): Y deploy / pack, Q fire arrows; the rest is context (E / radial). Engines, fire, rubble
@@ -46,8 +47,8 @@ import { MapData, type Live, type MapMode } from './mapModes';
 import { FogLayer } from './fog';
 import { anySoldiers } from './hud/cardCiv';
 import { GuardianLayer } from './guardians';
+import { Selection } from './select';
 
-const SHAPES = ['line', 'column', 'wedge', 'loose'] as const;
 const CLIMB = ['climb', 'walk'] as const;
 const CARRY = ['carry', 'walk'] as const;
 /** Torching, beating out a fire, pushing a ladder off: a work swing. */
@@ -81,7 +82,10 @@ export class SandboxScene extends Phaser.Scene {
   region!: RegionData;
   iso!: IsoMap;
   sim!: SimClient;
+  /** Squads with a selected man, the lead first (kept by `sel`). */
   selected = new Set<SquadId>();
+  /** W-53: the selected men and the control groups. */
+  sel!: Selection;
   /** Set by the dev panel: the next left click spawns this squad there. */
   placing: { team: number; cls: string; count: number } | null = null;
   pointerTile = { x: 0, y: 0 };
@@ -190,8 +194,6 @@ export class SandboxScene extends Phaser.Scene {
       if ((e.target as HTMLElement).tagName === 'INPUT') return;
       if (e.key === 'h' || e.key === 'H') this.orderAll((squad) => ({ kind: 'hold', squad }));
       if (e.key === 'g' || e.key === 'G') this.guardians.bossCam = !this.guardians.bossCam; // M7d: the boss camera on or off
-      const n = Number(e.key);
-      if (n >= 1 && n <= 4) this.orderAll((squad) => ({ kind: 'formation', squad, shape: SHAPES[n - 1] }));
     });
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => this.onDown(p));
     this.input.on('pointermove', (p: Phaser.Input.Pointer) => this.onMove(p));
@@ -206,6 +208,7 @@ export class SandboxScene extends Phaser.Scene {
     this.build.layer.nodeBase = (n) => (n.obj !== undefined && r.objects?.[n.obj] ? this.objects?.baseOf(r.objects[n.obj].id) : undefined);
     this.siege = new SiegeControls(this);
     this.interact = new Interact(this);
+    this.sel = new Selection(this);
     // wall-walks: units drawn up on walks, stairs and ladders; climbers play climb (else walk); ram crews and ladder
     // bearers on their engine's offsets
     const layer = this.build.layer, sl = this.siegeLayer;
@@ -430,18 +433,18 @@ export class SandboxScene extends Phaser.Scene {
     if (this.trade.selected) { this.build.selectAt({ x: -1, y: -1 }); return; }
     // a click on a building selects it and keeps the squads selected (the site panel assigns from them)
     if (!this.box && !hit && this.build.selectAt(this.world(p))) return;
-    if (!this.keys.SHIFT.isDown) this.selected.clear();
     if (this.box) {
-      const { x0, y0, x1, y1 } = this.box;
+      const { x0, y0, x1, y1 } = this.box, ids: number[] = [];
       for (const d of this.drawn) {
         if (d.team !== 0 || d.u.state === 'dead') continue;
         const f = this.body(d);
-        if (f.x >= Math.min(x0, x1) && f.x <= Math.max(x0, x1) && f.y >= Math.min(y0, y1) && f.y <= Math.max(y0, y1)) this.selected.add(d.u.squad);
+        if (f.x >= Math.min(x0, x1) && f.x <= Math.max(x0, x1) && f.y >= Math.min(y0, y1) && f.y <= Math.max(y0, y1)) ids.push(d.u.id);
       }
       this.box = null;
+      this.sel.set(ids, this.keys.SHIFT.isDown);
       return;
     }
-    if (hit) this.selected.add(hit.u.squad);
+    this.sel.click(hit, this.keys.SHIFT.isDown, this.time.now);
     if (hit) this.build.selectAt({ x: -1, y: -1 });
   }
 
@@ -459,16 +462,9 @@ export class SandboxScene extends Phaser.Scene {
     this.lastCommand = { kind: 'attack', x: foe.x, y: foe.y };
   }
 
-  /** The selected squads move (or attack-move) to tile point (x, y), side by side. */
+  /** The selected men move (or attack-move) to tile point (x, y) as one formation (W-53). */
   moveTo({ x, y }: { x: number; y: number }, kind: 'move' | 'attackMove' = 'move'): void {
-    const ids = [...this.selected];
-    let cx = 0, cy = 0, n = 0;
-    for (const d of this.drawn) if (this.selected.has(d.u.squad)) { cx += d.x; cy += d.y; n++; }
-    const a = n ? Math.atan2(y - cy / n, x - cx / n) : 0;
-    ids.forEach((squad, i) => {
-      const off = (i - (ids.length - 1) / 2) * 7;
-      this.sim.order({ kind, squad, x: x - Math.sin(a) * off, y: y + Math.cos(a) * off });
-    });
+    for (const squad of this.siege.own()) this.sim.order({ kind, squad, x, y });
     this.markers.push({ x, y, t: this.time.now, c: kind === 'move' ? 0x80ff80 : 0xffa040 });
     this.lastCommand = { kind: 'move', x, y };
   }
@@ -484,7 +480,7 @@ export class SandboxScene extends Phaser.Scene {
   }
 
   private orderAll(f: (s: SquadId) => Order): void {
-    for (const s of this.selected) this.sim.order(f(s));
+    for (const s of this.siege.own()) this.sim.order(f(s));
   }
 
   update(_t: number, dt: number): void {
@@ -521,11 +517,11 @@ export class SandboxScene extends Phaser.Scene {
     // the ground under the cursor follows the camera too (pan, zoom), not just pointer moves
     if (this.moved && (vx || vy || this.frame % 4 === 0)) this.pointerTile = this.world(p);
 
-    for (const s of this.selected) if (this.sim.cur && !this.sim.squads.has(s)) this.selected.delete(s);
     const fog = this.sim.fog;
     if (fog && fog.version !== this.fogVer) (this.fogVer = fog.version), this.fog.set(fog);
     this.fog.update(dt);
     this.drawn = this.sim.units();
+    this.sel.sync(this.drawn);
     // M7d: guardians perched or flying, and their squads' units not drawn (the Chimera's other heads)
     const bosses = this.sim.cur?.bosses;
     if (bosses) {
@@ -543,7 +539,7 @@ export class SandboxScene extends Phaser.Scene {
     this.units.settle(this.drawn, this.time.now);
     const occluded = this.objects?.draw(view, cam.zoom, this.drawn, (d) => this.units.feet(d), BODY) ?? new Set<number>();
     if (cam.zoom >= SPRITE_ZOOM) this.build.layer.occluded(this.drawn, occluded);
-    this.units.draw(this.drawn, view, cam.zoom, this.selected, at, this.sim.squads, shots, occluded);
+    this.units.draw(this.drawn, view, cam.zoom, this.sel.units, at, this.sim.squads, shots, occluded);
     const cur = this.sim.cur;
     if (cur?.lairs || cur?.claims) this.neutral.draw(cur.lairs ?? [], cur.claims ?? [], cam.zoom);
     if (bosses || cur?.warden) this.guardians.draw(bosses ?? [], cur?.warden, cam.zoom, this.time.now, this.sim.since(this.time.now), view, this.moved && this.input.isOver ? this.wpx(p.x, p.y) : null);

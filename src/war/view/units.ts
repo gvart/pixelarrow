@@ -355,7 +355,7 @@ export class UnitLayer {
         }
         const k = sheet.scale; // a guardian's shadow and ring at its size
         if (!l?.climb) r.fillStyle(0x000000, 0.28).fillEllipse(f.x, f.y, 26 * k, 12 * k); // no shadow in mid-air on a ladder
-        const sel = selected.has(u.squad), w = Math.max(1.5, 1.5 / zoom); // a ring at least 1.5 screen px wide
+        const sel = selected.has(u.id), w = Math.max(1.5, 1.5 / zoom); // a ring at least 1.5 screen px wide
         r.lineStyle(sel ? w + 0.5 : w, sel ? 0xffffff : team, sel ? 1 : 0.85).strokeEllipse(f.x, f.y, 30 * k, 14 * k);
       }
       let img = this.pool[n];
@@ -373,7 +373,7 @@ export class UnitLayer {
       if (hidden) img.setVisible(false);
       else this.load(d, sheet, q.row, p.clip, p.frame, img);
       const mk = u.state !== 'dead' ? this.mark?.(u.id) : undefined;
-      if (mk !== undefined || ((hidden || occluded.has(u.id)) && (d.team === 0 || selected.has(u.squad)))) {
+      if (mk !== undefined || ((hidden || occluded.has(u.id)) && (d.team === 0 || selected.has(u.id)))) {
         let gh = this.ghosts[this.nGhost];
         if (!gh) {
           this.ghosts.push((gh = this.scene.add.image(0, 0, key).setDepth(10.8)));
@@ -410,7 +410,7 @@ export class UnitLayer {
       const f = this.feet(d);
       if (f.x < view.x || f.x > view.right || f.y < view.y || f.y > view.bottom + 40) continue;
       if (d.u.state === 'dead') { g.fillStyle(0x222222, 0.5).fillRect(f.x - half, f.y - half, s, s); continue; }
-      g.fillStyle(selected.has(d.u.squad) ? 0xffffff : (TEAM_COLOR[d.team] ?? 0xcccccc), 1).fillRect(f.x - half, f.y - s, s, s);
+      g.fillStyle(selected.has(d.u.id) ? 0xffffff : (TEAM_COLOR[d.team] ?? 0xcccccc), 1).fillRect(f.x - half, f.y - s, s, s);
     }
   }
 }
