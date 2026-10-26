@@ -75,7 +75,7 @@ export async function payRansomFromTreasury(db: D1Database, pid: number, id: str
   const price = RANSOM_PER_LEVEL * r.level;
   await pay(db, strongbox(m.clanId), { coin: price }, [
     db
-      .prepare("UPDATE war_persons SET state = 'reserve', until_at = NULL, captor = NULL, captor_pid = NULL, held_at = NULL, held_fort = NULL, updated_at = ?2 WHERE id = ?1")
+      .prepare("UPDATE war_persons SET state = 'active', until_at = NULL, captor = NULL, captor_pid = NULL, held_at = NULL, held_fort = NULL, updated_at = ?2 WHERE id = ?1")
       .bind(id, now),
     ...(r.captor_pid !== null ? [credit(db, r.captor_pid, price)] : []),
     db.prepare("INSERT INTO war_treasury_log (clan_id, player_id, kind, amount, person_id, at) VALUES (?1, ?2, 'ransom', ?3, ?4, ?5)").bind(m.clanId, pid, price, id, now),

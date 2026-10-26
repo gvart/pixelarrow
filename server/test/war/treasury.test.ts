@@ -68,7 +68,7 @@ describe('alliance treasury', () => {
     const f0 = await stock(foe.playerId);
     expect(await (await post(off.token, `/treasury/ransom/${id}`)).json()).toEqual({ paid: price });
     expect(await stock(foe.playerId)).toBe(f0 + price);
-    expect(await row(id)).toMatchObject({ state: 'reserve', captor_pid: null, held_at: null });
+    expect(await row(id)).toMatchObject({ state: 'active', captor_pid: null, held_at: null });
     expect(await code(await post(lead.token, `/treasury/ransom/${id}`))).toBe('not_captive');
     const t = await view(lead.token);
     expect(t).toMatchObject({ role: 'leader', coin: 130 - price });

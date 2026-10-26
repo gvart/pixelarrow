@@ -20,7 +20,7 @@ const honour = (id: string) => DB().prepare(`UPDATE war_persons SET honours = '[
 describe('promotion to elite', () => {
   it('asks level 6, an honour and the elite rare kit; 30 min later he is the elite with the kit on', async () => {
     const me = await devLogin(7801);
-    await post(me.token, '/dev/seed', { squad: [{ cls: 'hoplite', level: 6 }, { cls: 'hoplite', level: 5 }, { cls: 'militia', level: 6 }], reserve: [] });
+    await post(me.token, '/dev/seed', { squad: [{ cls: 'hoplite', level: 6 }, { cls: 'hoplite', level: 5 }, { cls: 'militia', level: 6 }] });
     const [a, b, m] = (await roster(me.token)).persons;
     // requirements: honours, level, a trained man, an elite of his family
     expect(await code(await post(me.token, `/persons/${a.id}/promote`, { cls: 'royal_guard' }))).toBe('not_promotable'); // no honour
@@ -46,7 +46,7 @@ describe('promotion to elite', () => {
     await DB().prepare('UPDATE war_persons SET until_at = 1 WHERE id = ?1').bind(a.id).run();
     r = await roster(me.token);
     const done = r.persons.find((p) => p.id === a.id)!;
-    expect(done).toMatchObject({ state: 'reserve', cls: 'royal_guard', level: 6, trainTo: null });
+    expect(done).toMatchObject({ state: 'active', cls: 'royal_guard', level: 6, trainTo: null });
     expect(Object.values(done.gear).every((g) => g!.rarity === 'rare')).toBe(true);
     const elite = personOf((await row(a.id))!);
     expect(elite.hero.cls).toBe('royal_guard');
@@ -59,7 +59,7 @@ describe('promotion to elite', () => {
 
   it('honours won in fights are written back (at most 3, never the same twice), which makes promotion reachable', async () => {
     const me = await devLogin(7803);
-    await post(me.token, '/dev/seed', { squad: [{ cls: 'hoplite', level: 6 }], reserve: [] });
+    await post(me.token, '/dev/seed', { squad: [{ cls: 'hoplite', level: 6 }] });
     const [a] = (await roster(me.token)).persons;
     const p = personOf((await row(a.id))!);
     expect(promoteBlocker(p, 'royal_guard')).toMatch(/honour/);

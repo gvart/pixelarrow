@@ -51,7 +51,7 @@ describe('WarRoom with persons', () => {
   it('reports a finished fight once, and the write-back to D1 is idempotent', async () => {
     const me = await devLogin(7401), foe = await devLogin(7402);
     for (const [who, cls] of [[me, 'hoplite'], [foe, 'archer']] as const)
-      expect((await api('/api/war/dev/seed', { method: 'POST', token: who.token, json: { squad: Array(12).fill({ cls, level: 3 }), reserve: [] } })).status).toBe(200);
+      expect((await api('/api/war/dev/seed', { method: 'POST', token: who.token, json: { squad: Array(12).fill({ cls, level: 3 }) } })).status).toBe(200);
     const load = async (who: { playerId: number }) => {
       const rows = (await env.DB!.prepare("SELECT id FROM war_persons WHERE player_id = ?1 AND state = 'active' ORDER BY slot").bind(who.playerId).all<{ id: string }>()).results;
       const got = await claimForJoin(env.DB!, who.playerId, 'test-ridge', [rows.map((x) => x.id)], new Set(), Date.now());

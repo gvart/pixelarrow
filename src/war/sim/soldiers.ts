@@ -4,8 +4,13 @@
 import { POINTS_PER_LEVEL } from '../../data/perks';
 import { MAX_LEVEL, xpToNext, type Hero } from '../../data/units';
 
-/** N: fighters per player squad (docs/WAR.md "Army size N"; proposal 12, owner to confirm). Every other cap follows it. */
-export const SQUAD_MAX = 12;
+/**
+ * The whole army (docs/WAR.md "Army size", W-58): a player has at most this many fighters in total, counted across all
+ * regions, wounded, captive and training men included. No reserve, no barracks pool. Every other cap follows it.
+ */
+export const ARMY_MAX = 12;
+/** Fighters per player squad: a squad may hold the whole army. */
+export const SQUAD_MAX = ARMY_MAX;
 
 /** At 0 HP a man is wounded with this share (+ per END point above 5, + a physician near, capped), else dead. */
 export const FALL = { wounded: 0.7, perEnd: 0.03, physician: 0.15, cap: 0.9 };

@@ -31,7 +31,7 @@
  *   server -> binary frame                                    (snapshot delta or keyframe)
  */
 import { z } from 'zod';
-import { SQUAD_MAX } from '../sim/soldiers';
+import { ARMY_MAX } from '../sim/soldiers';
 import type { NodeRow } from './economy';
 import type { BridgePlan, BuildingType, Order, PlaceResult, ResourceKind, SquadId, WallPlan } from '../types';
 
@@ -45,8 +45,8 @@ export const KEYFRAME_EVERY = 50;
 export const VISION = 28;
 /** Tiles added round the client's camera rect. */
 export const CAMERA_MARGIN = 8;
-/** Men per squad (M5: SQUAD_MAX) and squads per player. */
-export const MAX_SQUAD = SQUAD_MAX;
+/** Men per squad (the whole army, ARMY_MAX) and squads per player. */
+export const MAX_SQUAD = ARMY_MAX;
 export const MAX_SQUADS = 3;
 /** Live soldier cap per region (W-06), split evenly between the alliances unless quotas are given. */
 export const DEFAULT_CAP = 600;

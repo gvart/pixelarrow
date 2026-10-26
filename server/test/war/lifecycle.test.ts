@@ -3,7 +3,8 @@ import { env } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
 import { good, setGood } from './goods';
 import { api, devLogin } from '../helpers';
-import { applyFight, claimForJoin, personOf, RANSOM_PER_LEVEL, ROSTER_MAX, settle, TRAIN, type PersonRow } from '../../src/war/persons';
+import { applyFight, claimForJoin, personOf, RANSOM_PER_LEVEL, settle, TRAIN, type PersonRow } from '../../src/war/persons';
+import { ARMY_MAX } from '../../../src/war/sim/soldiers';
 import type { FightReport, PersonResult } from '../../../src/war/types';
 
 const DB = () => env.DB!;
@@ -70,7 +71,7 @@ describe('training', () => {
     await DB().prepare('UPDATE war_persons SET until_at = 1, xp = 17 WHERE id = ?1').bind(a.id).run();
     r = await roster(me.token);
     const done = r.persons.find((p) => p.id === a.id)!;
-    expect(done).toMatchObject({ state: 'reserve', cls: 'archer', trainTo: null, xp: 17, level: 1 });
+    expect(done).toMatchObject({ state: 'active', cls: 'archer', trainTo: null, xp: 17, level: 1 });
     expect(Object.values(done.gear).map((g) => g!.def)).toContain('bow');
     // a trained man changes class only within his family
     expect(await code(await post(me.token, `/persons/${a.id}/train`, { cls: 'hoplite' }))).toBe('family');
@@ -100,12 +101,12 @@ describe('prisoners', () => {
     expect(await res.json()).toEqual({ paid: price });
     expect(await stock(me.playerId, 'silver')).toBe(s0 - price);
     expect(await stock(foe.playerId, 'silver')).toBe(f0 + price);
-    expect(await row(a.id)).toMatchObject({ state: 'reserve', captor: null, captor_pid: null, held_at: null });
+    expect(await row(a.id)).toMatchObject({ state: 'active', captor: null, captor_pid: null, held_at: null });
     expect(await code(await post(me.token, `/persons/${a.id}/ransom`))).toBe('not_captive');
     // only his captor lets the other go
     expect((await post(me.token, `/captives/${b.id}/release`)).status).toBe(404);
     expect((await post(foe.token, `/captives/${b.id}/release`)).status).toBe(200);
-    expect(await row(b.id)).toMatchObject({ state: 'reserve', captor_pid: null });
+    expect(await row(b.id)).toMatchObject({ state: 'active', captor_pid: null });
     expect((await roster(foe.token)).captives).toEqual([]);
   });
 
@@ -153,16 +154,16 @@ describe('upkeep', () => {
     r = await roster(me.token);
     expect(r.upkeep.unpaid).toBe(false);
     expect(r.stock.food).toBe(92);
-    expect(r.persons.find((p) => p.id === w.id)!.state).toBe('reserve');
+    expect(r.persons.find((p) => p.id === w.id)!.state).toBe('active');
   });
 });
 
 describe('retirement', () => {
-  it('frees a roster place, pays back half the gear, leaves an honour; level 10 may retire into a trade', async () => {
+  it('frees a place in the army, pays back half the gear, leaves an honour; level 10 may retire into a trade', async () => {
     const me = await devLogin(7509);
     await post(me.token, '/dev/seed', {});
     let r = await roster(me.token);
-    expect(r.caps.fighters).toBe(ROSTER_MAX);
+    expect(r.caps.fighters).toBe(ARMY_MAX);
     const [a, b, c] = r.persons;
     await DB().prepare(`UPDATE war_persons SET honours = '[{"name":"Held the Ford","stat":"dmg"}]' WHERE id = ?1`).bind(a.id).run();
     const s0 = r.stock.coin;
@@ -171,7 +172,7 @@ describe('retirement', () => {
     expect(refund).toBeGreaterThan(0);
     r = await roster(me.token);
     expect(r.persons.some((p) => p.id === a.id)).toBe(false);
-    expect(r.caps.fighters).toBe(ROSTER_MAX - 1);
+    expect(r.caps.fighters).toBe(ARMY_MAX - 1);
     expect(r.stock.coin).toBe(s0 + refund);
     expect(await DB().prepare('SELECT name, honour FROM war_memorial WHERE player_id = ?1').bind(me.playerId).all()).toMatchObject({ results: [{ name: a.name, honour: 'Held the Ford' }] });
     expect((await post(me.token, '/recruit', { town: 'home', count: 1 })).status).toBe(200); // the place he left
@@ -179,7 +180,7 @@ describe('retirement', () => {
     expect(await code(await post(me.token, `/persons/${b.id}/retire`, { civ: 'civ_cook' }))).toBe('level');
     await DB().prepare('UPDATE war_persons SET level = 10 WHERE id = ?1').bind(b.id).run();
     expect((await post(me.token, `/persons/${b.id}/retire`, { civ: 'civ_cook' })).status).toBe(200);
-    expect(await row(b.id)).toMatchObject({ cls: 'civ_cook', level: 5, state: 'reserve', name: b.name });
+    expect(await row(b.id)).toMatchObject({ cls: 'civ_cook', level: 5, state: 'active', name: b.name });
     // a deployed man cannot retire
     await claimForJoin(DB(), me.playerId, 'test-ridge', [[c.id]], new Set(), Date.now());
     expect(await code(await post(me.token, `/persons/${c.id}/retire`))).toBe('deployed');

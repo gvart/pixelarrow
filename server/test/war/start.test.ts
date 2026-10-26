@@ -2,7 +2,7 @@
 import { env, runInDurableObject } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
 import { api, devLogin } from '../helpers';
-import { SQUAD_MAX } from '../../../src/war/sim/soldiers';
+import { ARMY_MAX } from '../../../src/war/sim/soldiers';
 import { homeRefusal, squadRefusal, START_CLASSES } from '../../../src/war/world/start';
 import { worldStub } from '../../src/war/world/routes';
 import type { StartView } from '../../src/war/start';
@@ -28,7 +28,7 @@ describe('start rules', () => {
     expect(squadRefusal(['hoplite'])).toBeNull();
     expect(squadRefusal([...START_CLASSES, ...START_CLASSES])).toBeNull();
     expect(squadRefusal([])).toMatch(/at least one/);
-    expect(squadRefusal(Array(SQUAD_MAX + 1).fill('archer'))).toMatch(/at most 12/);
+    expect(squadRefusal(Array(ARMY_MAX + 1).fill('archer'))).toMatch(/at most 12/);
     expect(squadRefusal(['hoplite', 'royal_guard'])).toMatch(/royal_guard/);
     expect(squadRefusal(['civ_cook'])).toMatch(/civ_cook/);
   });
@@ -42,7 +42,7 @@ describe('start API', () => {
   it('happy path: alliance, home, squad; the men stand at home in slot order and came from the pool', async () => {
     const me = await devLogin(7901);
     let v = await view(me.token);
-    expect(v).toMatchObject({ step: 'alliance', alliance: null, home: null, homes: [], squadMax: SQUAD_MAX, classes: [...START_CLASSES] });
+    expect(v).toMatchObject({ step: 'alliance', alliance: null, home: null, homes: [], squadMax: ARMY_MAX, classes: [...START_CLASSES] });
     expect(v.alliances.map((a) => a.name)).toEqual(['Dodona', 'Skythia', 'Kyrene', 'Elaia']);
     const before = v.alliances[1].members;
 
@@ -72,6 +72,9 @@ describe('start API', () => {
     expect(men.every((p) => p.region === null && p.level === 1)).toBe(true);
     expect(new Set(roster.persons.map((p) => p.id)).size).toBe(12);
     expect(roster.pools.find((p) => p.town === 'home')!.recruits).toBe(0);
+    // the start is the whole army: with a pool and food again, a recruit is still refused
+    await env.DB!.prepare('UPDATE war_pools SET stored = 12 WHERE player_id = ?1').bind(me.playerId).run();
+    expect(await code(await api('/api/war/recruit', { method: 'POST', token: me.token, json: { town: 'home', count: 1 } }))).toBe('army_full');
   });
 
   it('refuses each step out of order, a home that is not free or not the alliance\'s, and a bad squad', async () => {
@@ -106,7 +109,7 @@ describe('start API', () => {
     expect(await (await post(me.token, '/alliance', { alliance: 3 })).json<StartView>()).toMatchObject({ step: 'home', alliance: 3, home: null });
     expect((await post(me.token, '/home', { region: 'elaia-e' })).status).toBe(200);
 
-    for (const classes of [[], Array(SQUAD_MAX + 1).fill('hoplite'), ['hoplite', 'companion'], ['civ_smith']]) {
+    for (const classes of [[], Array(ARMY_MAX + 1).fill('hoplite'), ['hoplite', 'companion'], ['civ_smith']]) {
       const r = await post(me.token, '/squad', { classes });
       expect(r.status).toBe(409);
       expect(await code(r)).toBe('bad_squad');
