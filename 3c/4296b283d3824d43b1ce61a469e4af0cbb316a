@@ -1,0 +1,60 @@
+scripts/war/play.mjs
+  s_fcb7475e0b5395::t_2ad28b07c6fb94 89
+server/test/war/crafting.test.ts
+  s_fcb7475e0b5395::t_4090c725c136a9 21
+  s_fcb7475e0b5395::t_8620e291a40b57 234,241
+server/test/war/persons.test.ts
+  s_fcb7475e0b5395::t_fd87a86ac79c2f 6-7,15,39,44,46,48-49,53-62,65-105,107,110,114-119,121,123-124,146,164-165,176,230,233-234,236
+src/war/net/protocol.ts
+  s_fcb7475e0b5395::t_959cb6303e256d 34
+  s_fcb7475e0b5395::t_762f5d59366224 48-49
+src/war/net/world.ts
+  s_fcb7475e0b5395::t_762f5d59366224 20,23-24
+server/test/war/contracts.test.ts
+  s_fcb7475e0b5395::t_8620e291a40b57 23
+server/test/war/lifecycle.test.ts
+  s_fcb7475e0b5395::t_8620e291a40b57 6,74,104,109,157,162,166,175,183
+  s_fcb7475e0b5395::t_d9d35099a9c032 7
+server/src/war/persons.ts
+  s_fcb7475e0b5395::t_4a0b3aef66e16e 6-8,10,42,50,60-62,146,180,198,204,216,227,239,256,279,282,318,331,391,394,404-405,409-413,415-418,425,439,528,538,566,572,585,597,645
+src/war/world/start.ts
+  s_fcb7475e0b5395::t_ea0c3d798f2445 3-5
+  s_fcb7475e0b5395::t_959cb6303e256d 7,27,34,38,41
+src/war/net/client.ts
+  s_fcb7475e0b5395::t_2ad28b07c6fb94 64,105,107-108
+server/test/war/persistence.test.ts
+  s_fcb7475e0b5395::t_8620e291a40b57 54
+server/test/war/promotion.test.ts
+  s_fcb7475e0b5395::t_8620e291a40b57 23,49,62
+server/test/war/start.test.ts
+  s_fcb7475e0b5395::t_a0d3aea81a045b 77
+  s_fcb7475e0b5395::t_d9d35099a9c032 5,31,45,75-76,112
+server/src/war/treasury.ts
+  s_fcb7475e0b5395::t_271646cc5637ce 78
+src/war/sim/soldiers.ts
+  s_fcb7475e0b5395::t_b5c36adff99be8 7-13
+server/src/war/routes.ts
+  s_fcb7475e0b5395::t_02d69ff4c19439 9,25,36,42,54,59,80,144
+server/test/war/treasury.test.ts
+  s_fcb7475e0b5395::t_8620e291a40b57 71
+server/src/war/start.ts
+  s_fcb7475e0b5395::t_959cb6303e256d 3-4,11,23,77
+server/src/war/market.ts
+  s_fcb7475e0b5395::t_271646cc5637ce 196
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "3c4296b283d3824d43b1ce61a469e4af0cbb316a",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
