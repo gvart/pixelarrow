@@ -62,8 +62,10 @@ export interface Style {
   dune: number;
   /** Scatter density multipliers. */
   trees: number; bushes: number;
+  /** Share of open grass tiles with a low tuft (dry grass, alpine grass, herbs): steppe and pasture that reads as grown. */
+  tufts: number;
 }
-const STYLE: Style = { dry: 0.05, dryHigh: true, meadow: 0.1, dune: 0.3, trees: 1, bushes: 1 };
+const STYLE: Style = { dry: 0.05, dryHigh: true, meadow: 0.1, dune: 0.3, trees: 1, bushes: 1, tufts: 0 };
 
 /** Biome libraries a region may name (public/war/biomes/<name>; 'global' is the base set). */
 export const BIOMES = ['global', 'elaia', 'kyrene', 'mountains', 'dodona'] as const;
@@ -501,6 +503,9 @@ export class Kit {
 
   // ---- things (placed at the sim size, after the land)
   spot(name: string, p: Pt) { this.spots[name] = p; return p; }
+  /** Clearings: no wild trees or scrub scattered within `r` units of `p` (a grove's set piece, a sanctuary) to keep it in sight. */
+  readonly clearings: [Pt, number][] = [];
+  clearing(p: Pt, r: number) { this.clearings.push([p, r]); }
   /** `n` copies of a set piece on free ground within `r` units of `at`, `gap` units apart (blocking ones keep their footprint clear). */
   /** W-48: a waterfall where a river falls over a cliff step, its foot at `at`, the foam on its plunge pool at `pool` (units). */
   readonly falls: { at: Pt; pool: Pt; tall: boolean }[] = [];
@@ -1504,6 +1509,8 @@ export function build(def: RegionDef): Built {
     return false;
   };
   const tileOf = (p: Pt): Pt => [k.toTile(p[0]), k.toTile(p[1])];
+  const cleared = (x: number, y: number) => k.clearings.some(([p, r]) => Math.hypot(x - k.toTile(p[0]), y - k.toTile(p[1])) < k.toTile(r) - k.toTile(0));
+  const agora = k.spots.market ? [k.toTile(k.spots.market[0]), k.toTile(k.spots.market[1])] : null;
   const spotTiles = new Set(Object.values(k.spots).map((p) => at(Math.floor(k.toTile(p[0]) + 0.5), Math.floor(k.toTile(p[1]) + 0.5))));
   const spotNear = (x: number, y: number, r: number) => Object.values(k.spots).some((p) => Math.hypot(k.toTile(p[0]) + 0.5 - x, k.toTile(p[1]) + 0.5 - y) < r);
   const B = (i: number) => BIOMES[biome[i]];
@@ -1547,16 +1554,20 @@ export function build(def: RegionDef): Built {
   const OLIVES = E(['olive-ancient', 'olive-orchard', 'olive-tall', 'olive-orchard']), MAQUIS = E(['maquis-a', 'maquis-b', 'maquis-c', 'herbs', 'herbs']);
   const PALMS = Y(['date-palm-tall', 'date-palm-mid', 'date-palm-fruit', 'doum-palm', 'date-palm-young', 'date-palm-clump', 'tamarisk']);
   const WOODS = ['pine-a', 'pine-b', 'pine-a', 'oak', 'stone-pine', 'pine-b', 'oak'], NORTH = ['pine-a', 'pine-b', 'oak', 'mountains/fir', 'oak', 'pine-a', 'mountains/black-pine', 'oak'];
+  // the Dodona library's own woods and floor (public/war/biomes/dodona): its oaks, beeches and silver firs among the
+  // global pines, ferns, bramble, mossy stumps and logs, mushrooms and boulders under them
+  const DWOOD = [...NORTH, 'dodona/oak-a', 'dodona/beech-a', 'dodona/fir-silver', 'dodona/oak-b', 'dodona/beech-young', 'dodona/fir-silver-b', 'dodona/pitch-pine'];
+  const DFLOOR = ['dodona/fern-a', 'dodona/fern-c', 'dodona/bramble', 'dodona/fern-b', 'dodona/stump-moss', 'dodona/fern-a', 'dodona/log-fallen', 'dodona/mushrooms', 'dodona/boulder-moss-a', 'dodona/fern-c', 'dodona/stump-a', 'dodona/boulder-moss-b', 'bush-a'];
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     const i = y * W + x, t = terrain[i], b = B(i);
-    if (water[i] || t === 'road' || spotTiles.has(i)) continue;
+    if (water[i] || t === 'road' || spotTiles.has(i) || (agora && Math.max(Math.abs(x - agora[0]), Math.abs(y - agora[1])) <= 17) || cleared(x, y)) continue; // no wild trees in the agora and clearings
     const p = hsh(x, y, 1), q = hsh(x, y, 2), fx = x + 0.3 + 0.4 * hsh(x, y, 3), fy = y + 0.3 + 0.4 * hsh(x, y, 4);
     const nearWater = ring(x, y, (j) => water[j] > 0), kk = kindAt(fx, fy);
     if (t === 'forest') {
       const edge = ring(x, y, (j) => terrain[j] !== 'forest');
-      const trees = b === 'mountains' ? FIRS : b === 'elaia' ? E(['holm-oak', 'stone-pine', 'holm-oak', 'cypress-tall', 'olive-tall']) : b === 'kyrene' ? Y(['acacia', 'acacia-old', 'tamarisk', 'thorn-tree']) : b === 'dodona' ? NORTH : WOODS;
+      const trees = b === 'mountains' ? FIRS : b === 'elaia' ? E(['holm-oak', 'stone-pine', 'holm-oak', 'cypress-tall', 'olive-tall']) : b === 'kyrene' ? Y(['acacia', 'acacia-old', 'tamarisk', 'thorn-tree']) : b === 'dodona' ? DWOOD : WOODS;
       if (p < (edge ? 0.16 : 0.3) * Math.min(1, st.trees)) put(pick(trees, q), fx, fy);
-      else if (p < 0.34) put(pick(b === 'elaia' ? MAQUIS : b === 'mountains' ? ALPINE : b === 'kyrene' ? Y(['saltbush', 'broom']) : ['bush-a', 'bush-b'], q), fx, fy);
+      else if (p < (b === 'dodona' ? 0.42 : 0.34)) put(pick(b === 'elaia' ? MAQUIS : b === 'mountains' ? ALPINE : b === 'kyrene' ? Y(['saltbush', 'broom']) : b === 'dodona' ? DFLOOR : ['bush-a', 'bush-b'], q), fx, fy);
     } else if (t === 'marsh') {
       if (p < 0.2) put(pick(b === 'kyrene' ? Y(['reeds', 'reeds', 'saltbush']) : ['reeds', 'reeds', 'reeds', 'bush-b'], q), fx, fy);
       else if (p < 0.212) put('dead-tree', fx, fy);
@@ -1592,13 +1603,23 @@ export function build(def: RegionDef): Built {
     } else if (t === 'grass' && !nearWater) {
       const dry = height[i] >= 2 && b !== 'dodona';
       if (b === 'dodona') {
-        if (p < 0.03 * st.trees) put(pick(NORTH, q), fx, fy);
+        if (p < 0.03 * st.trees) put(pick(DWOOD, q), fx, fy);
         else if (p < 0.05 * st.bushes) put(pick(['bush-a', 'bush-b', 'mountains/juniper'], q), fx, fy);
+        else if (p < 0.075 * st.bushes) put(pick(DFLOOR, q), fx, fy);
       } else if (dry && p < 0.05 * st.trees) put(pick(['olive-a', 'olive-b', 'olive-a', 'cypress'], q), fx, fy);
       else if (p < (dry ? 0.065 : 0.008) * st.bushes) put(pick(['bush-a', 'bush-b', 'stone-pine', 'olive-b', 'cypress', 'dead-tree'], q), fx, fy);
     } else if (t === 'grass' && nearWater && p < 0.08) put(pick(['reeds', 'bush-b'], q), fx, fy);
     else if (t === 'sand') { if (p < 0.006) put(pick(['bush-a', 'boulder-b'], q), fx, fy); }
     else if (t === 'dirt' && p < 0.004) put('bush-a', fx, fy);
+  }
+  // low tufts over open grass (Style.tufts), on their own hashes so they fall between the other scatter
+  if (st.tufts > 0) {
+    const TUFTS = ['kyrene/dry-grass', 'mountains/alpine-grass', 'elaia/herbs', 'kyrene/dry-grass', 'kyrene/broom', 'mountains/alpine-grass', 'kyrene/dry-grass', 'kyrene/saltbush'];
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const i = y * W + x;
+      if (water[i] || terrain[i] !== 'grass' || spotTiles.has(i) || hsh(x, y, 9) >= st.tufts) continue;
+      put(pick(TUFTS, hsh(x, y, 10)), x + 0.15 + 0.7 * hsh(x, y, 11), y + 0.15 + 0.7 * hsh(x, y, 12));
+    }
   }
   {
     const open = new Set(['grass', 'sand', 'dirt']);
@@ -1647,6 +1668,7 @@ export function build(def: RegionDef): Built {
       if (!onRock && (ring(x, y, (n) => terrain[n] === 'road' || water[n] === 2) || (h0 >= 0 && height[j] !== h0))) return false;
       h0 = height[j];
     }
+    if (!footSeen(fx, fy)) return false; // its foot hidden behind a wall in front: it would hang on the face
     clear(tx - 1, ty - 1, tx + fp[0] + 1, ty + fp[1] + 1);
     for (const [x, y] of footprintTiles(fx, fy, fp)) taken.add(at(x, y));
     pinned.add(objects[objects.push({ id, x: fx, y: fy }) - 1]);
@@ -1889,7 +1911,7 @@ export function build(def: RegionDef): Built {
         const i = at(x, y);
         if (i < 0 || water[i] || terrain[i] === 'road' || terrain[i] === 'rock' || spotTiles.has(i) || taken.has(i)) continue;
         if (r.where ? !r.where(k.toUnit(x), k.toUnit(y)) || (!r.anyGround && terrain[i] !== 'dirt') : blob(k.toUnit(x), k.toUnit(y), cx, cy, rx, ry, rot ?? 0, 1.5, r.seed) <= 0) continue;
-        if (!r.on.includes(kindAt(x + 0.5, y + 0.5))) continue;
+        if (!r.on.includes(kindAt(x + 0.5, y + 0.5)) || !footSeen(x + 0.5, y + 0.5)) continue; // no plant whose foot a wall in front hides
         if (r.packed) { taken.add(i); clear(x, y, x + 1, y + 1); } else {
           if (ring(x, y, (j) => terrain[j] === 'road' || water[j] > 0)) continue;
           clear(x - 1, y - 1, x + 2, y + 2);
