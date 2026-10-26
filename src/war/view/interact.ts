@@ -33,6 +33,7 @@ import { SIEGE_NAME } from './siege/siegeControls';
 import { sandboxCraft } from './hud/craft/state';
 import { sandboxRoster } from './hud/roster/state';
 import type { SandboxScene } from './SandboxScene';
+import { keys } from '../input/keys';
 
 export interface Action { label: string; run(): void }
 /** A radial option: icon id from the kit, and why it is disabled (off). */
@@ -64,13 +65,13 @@ export class Interact {
     document.body.appendChild(this.el);
     this.ring = new Radial(); // ./hud/radial.ts: the pie
     s.input.keyboard!.on('keydown', (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement).tagName === 'INPUT') return;
-      const k = e.key.toLowerCase();
-      if (k === 'escape') return this.close();
-      if (k !== 'e' || e.repeat || s.build.tool) return;
+      const a = keys.act(e);
+      if (a === 'back') return this.close();
+      if (a !== 'order.act' || e.repeat || s.build.tool) return;
       this.press(s.input.activePointer, 'key');
     });
-    s.input.keyboard!.on('keyup', (e: KeyboardEvent) => { if (e.key.toLowerCase() === 'e') this.release('key'); });
+    // the release of any key of the context action (its modifiers may be up by then)
+    s.input.keyboard!.on('keyup', (e: KeyboardEvent) => { if (keys.map['order.act'].some((b) => b?.code === e.code)) this.release('key'); });
     window.addEventListener('pointermove', (e) => this.track(e));
     window.addEventListener('pointerup', (e) => { if (e.button === 2) this.release('mouse'); });
     window.addEventListener('blur', () => this.close());

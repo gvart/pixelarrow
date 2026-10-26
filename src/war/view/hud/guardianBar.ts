@@ -24,6 +24,7 @@ import { sandboxCraft } from './craft/state';
 import { sandboxRoster } from './roster/state';
 import { leadText } from './buildingCard';
 import { LANDMARK_FUNCTION } from '../../../data/warLore';
+import { keys } from '../../input/keys';
 export { LANDMARK_FUNCTION };
 
 type Mk = (id: string, css: string, html?: string) => HTMLElement;
@@ -75,8 +76,7 @@ export function mountGuardians(s: SandboxScene, mk: Mk): void {
   if (panel) panel.className = 'rf rf-card';
   let open = true;
   addEventListener('keydown', (e: KeyboardEvent) => {
-    if ((e.target as HTMLElement)?.tagName === 'INPUT') return;
-    if (e.key === 'l' || e.key === 'L') open = !open;
+    if (keys.is(e, 'panel.guardian')) open = !open;
   });
   // M7g: the Restore button sends restoreLandmark with the selected squad (the sim checks the engineer and the goods)
   panel?.addEventListener('click', (e) => {

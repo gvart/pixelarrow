@@ -27,6 +27,7 @@ import { REGION_DEPTH } from '../sim/depth';
 import { LANDMARK_FUNCTION, REGION_LORE } from '../../data/warLore';
 import { landmarkOfRegion } from '../../data/warLandmarks';
 import { bossesOfRegion } from '../../data/warBosses';
+import { keys } from '../input/keys';
 
 const q = new URLSearchParams(location.search);
 const offline = q.has('offline');
@@ -333,7 +334,7 @@ function enter(id: string | null): void {
   const p = new URLSearchParams({ region: id, world: '1' });
   if (source.mode === 'net') {
     p.set('net', `/ws/war/${id}`);
-    p.set('dev', String(source.devId));
+    if (source.devId) p.set('dev', String(source.devId));
     p.set('team', String(st.you ?? 0));
   } else p.set('offline', '1');
   location.href = `sandbox.html?${p}`;
@@ -383,16 +384,16 @@ canvas.addEventListener('pointerup', (e) => {
 });
 canvas.addEventListener('dblclick', (e) => enter(map.regionAt(...map.toMap(e.clientX, e.clientY))));
 canvas.addEventListener('wheel', (e) => { e.preventDefault(); map.zoom(e.deltaY > 0 ? 1 / 1.15 : 1.15, e.clientX, e.clientY); placeCard(); }, { passive: false });
+keys.setContexts(() => ['world', 'global']);
 addEventListener('keydown', (e: KeyboardEvent) => {
-  if ((e.target as HTMLElement).tagName === 'INPUT') return;
-  const k = e.key.toLowerCase();
-  if (k === 'enter') ordering ? void sendOrder() : enter(st.hover ?? st.selected);
-  else if (k === 'escape') ordering ? closeOrder() : selectRegion(null);
-  else if (k === 't') (st.routes = !st.routes), renderBand();
-  else if (k === 'h') toggleHaul();
-  else if (k === 'f') fit();
-  else if (k === '+' || k === '=') map.zoom(1.2, innerWidth / 2, innerHeight / 2);
-  else if (k === '-') map.zoom(1 / 1.2, innerWidth / 2, innerHeight / 2);
+  const a = keys.act(e);
+  if (a === 'world.enter') ordering ? void sendOrder() : enter(st.hover ?? st.selected);
+  else if (a === 'back') ordering ? closeOrder() : selectRegion(null);
+  else if (a === 'world.routes') (st.routes = !st.routes), renderBand();
+  else if (a === 'world.haul') toggleHaul();
+  else if (a === 'world.fit') fit();
+  else if (a === 'world.zoomIn') map.zoom(1.2, innerWidth / 2, innerHeight / 2);
+  else if (a === 'world.zoomOut') map.zoom(1 / 1.2, innerWidth / 2, innerHeight / 2);
 });
 addEventListener('contextmenu', (e) => e.preventDefault());
 

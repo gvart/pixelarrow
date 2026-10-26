@@ -16,10 +16,14 @@
 import type { Order, SquadId, UnitId } from '../types';
 import type { DrawUnit } from './simClient';
 import type { SandboxScene } from './SandboxScene';
+import { keys } from '../input/keys';
+import type { ActionId } from '../input/actions';
 
 const TEAM = 0;
 const DOUBLE_MS = 350;
 const SHAPES = ['line', 'column', 'wedge', 'loose'] as const;
+/** The formation actions (Alt+1-4 by default), in SHAPES order. */
+const FORMS: ActionId[] = ['form.line', 'form.column', 'form.wedge', 'form.loose'];
 
 export class Selection {
   /** Selected own men, in the order picked (the first one's squad leads). */
@@ -128,18 +132,20 @@ export class Selection {
   }
 
   private key(e: KeyboardEvent): void {
-    const t = e.target as HTMLElement;
-    if (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || e.repeat) return;
-    const s = this.s, digit = /^Digit([1-9])$/.exec(e.code), n = digit ? Number(digit[1]) : 0;
-    if (n && e.altKey && n <= SHAPES.length) {
+    if (e.repeat) return;
+    const s = this.s, a = keys.act(e);
+    if (!a) return;
+    const form = FORMS.indexOf(a);
+    if (form >= 0) {
       e.preventDefault();
       const lead = this.lead();
-      if (lead !== null) s.sim.order({ kind: 'formation', squad: lead, shape: SHAPES[n - 1] });
+      if (lead !== null) s.sim.order({ kind: 'formation', squad: lead, shape: SHAPES[form] });
       return;
     }
-    if (n && (e.ctrlKey || e.metaKey) && !e.altKey) { e.preventDefault(); this.store(n); return; }
-    if (n && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey && !s.build.tool) { this.recall(n, performance.now()); return; }
-    if (e.code === 'KeyA' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); this.set(this.live.keys()); return; }
-    if (e.key === 'Escape' && !s.build.active && !s.build.tool && !s.interact.open && !s.siege.armed) this.clear();
+    const set = /^group\.set\.(\d)$/.exec(a), get = /^group\.(\d)$/.exec(a);
+    if (set) { e.preventDefault(); this.store(Number(set[1])); return; }
+    if (get && !s.build.tool) { this.recall(Number(get[1]), performance.now()); return; }
+    if (a === 'sel.all') { e.preventDefault(); this.set(this.live.keys()); return; }
+    if (a === 'back' && !s.build.active && !s.build.tool && !s.interact.open && !s.siege.armed) this.clear();
   }
 }

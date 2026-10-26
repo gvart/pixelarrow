@@ -23,6 +23,7 @@ import { loadItemAtlas, ROSTER_CSS, tipper } from './ui';
 import { loadGlyphs } from '../glyph';
 import { sandboxCraft } from '../craft/state';
 import type { Slot } from '../../../../data/items';
+import { keys } from '../../../input/keys';
 
 type Mk = (id: string, css: string, html?: string) => HTMLElement;
 /** The dev panel (F1, ../hud.ts) is open: the cards show their dev buttons. */
@@ -128,10 +129,10 @@ export function mountRoster(s: SandboxScene, mk: Mk): RosterHooks {
   for (const el of [panel, card]) el.addEventListener('wheel', (e) => e.stopPropagation(), { passive: true });
 
   addEventListener('keydown', (e: KeyboardEvent) => {
-    if ((e.target as HTMLElement).tagName === 'INPUT' || e.ctrlKey || e.metaKey || e.altKey) return;
     if (s.build.active || s.build.tool) return; // R rotates and Esc closes in build mode
-    if (e.key.toLowerCase() === 'r') toggle();
-    else if (e.key === 'Escape' && (sel || open)) { if (sel) sel = null; else open = false; render(); }
+    const a = keys.act(e);
+    if (a === 'panel.roster') toggle();
+    else if (a === 'back' && (sel || open)) { if (sel) sel = null; else open = false; render(); }
   });
 
   R.onNote = toaster(toasts, (pid) => { open = true; show(pid); });

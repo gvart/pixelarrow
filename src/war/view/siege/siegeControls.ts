@@ -14,6 +14,7 @@ import { BUILDINGS } from '../../sim/economy';
 import { SIEGE } from '../../sim/siege';
 import type { BuildingSnap, SiegeSnap, SiegeType, SquadId } from '../../types';
 import type { SandboxScene } from '../SandboxScene';
+import { keys } from '../../input/keys';
 
 export type Armed = 'raise' | 'push' | 'ignite' | 'extinguish' | 'move' | 'attack' | 'attackMove';
 const TEAM = 0;
@@ -36,11 +37,11 @@ export class SiegeControls {
 
   constructor(private s: SandboxScene) {
     s.input.keyboard!.on('keydown', (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement).tagName === 'INPUT' || s.build.active) return;
-      const k = e.key.toLowerCase();
-      if (k === 'y') this.deploy();
-      else if (k === 'q') this.fireArrows();
-      else if (k === 'escape') this.armed = null;
+      if (s.build.active) return;
+      const a = keys.act(e);
+      if (a === 'order.deploy') this.deploy();
+      else if (a === 'order.fireArrows') this.fireArrows();
+      else if (a === 'back') this.armed = null;
     });
   }
 
