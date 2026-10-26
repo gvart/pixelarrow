@@ -1,0 +1,45 @@
+src/war/menu/screens.ts
+  s_fcb7475e0b5395::t_5bd22a2d68458f 15,324,329-337,377
+  s_fcb7475e0b5395::t_c28bd6f3e1aef7 1-14,16-323,325-328,338-376,378-397
+src/main.ts
+  s_fcb7475e0b5395::t_1ba0ed5af77545 1-5
+index.html
+  s_fcb7475e0b5395::t_1ba0ed5af77545 5,7,13,17
+src/war/menu/gameMenu.ts
+  s_fcb7475e0b5395::t_7e4f1e27485f3e 1-47,49,53-60
+  s_fcb7475e0b5395::t_0266ae9696238d 48,50-52
+src/war/menu/style.ts
+  s_fcb7475e0b5395::t_18dc75b7018163 1-123
+src/war/view/main.ts
+  s_fcb7475e0b5395::t_029b70f60040b1 25-26,32,34-35,37-47
+  s_fcb7475e0b5395::t_0d3f74932295c6 33,36,56,84
+src/war/menu/settings.ts
+  s_fcb7475e0b5395::t_a08582343795b2 1-14,16-134,136-184
+  s_fcb7475e0b5395::t_315aef79c9d242 15,135
+src/war/menu/turnstile.ts
+  s_fcb7475e0b5395::t_0a19de276e9f5d 1-53
+src/war/world-view/main.ts
+  s_fcb7475e0b5395::t_eff5eeda9ed467 31,388-389
+src/war/menu/api.ts
+  s_fcb7475e0b5395::t_4f9add7f89accc 1-87
+src/war/menu/main.ts
+  s_fcb7475e0b5395::t_d69fb3233b454c 141
+  s_fcb7475e0b5395::t_a771c78ab54699 1-10,12-61,64-140,142-148
+  s_fcb7475e0b5395::t_1ba0ed5af77545 11,62-63
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "7f18ab910a2ede73627fa59b803ac8df615607f0",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
