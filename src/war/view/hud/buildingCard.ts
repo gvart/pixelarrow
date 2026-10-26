@@ -17,6 +17,7 @@ import { ALLIANCES } from '../../world/alliances';
 import { landmarkOfRegion, type Landmark } from '../../../data/warLandmarks';
 import { labourText } from '../build/buildMode';
 import { bar } from './kit';
+import { myTeam } from '../side';
 
 type Mk = (id: string, css: string, html?: string) => HTMLElement;
 type Bill = Partial<Record<ResourceKind, number>>;
@@ -42,7 +43,7 @@ export const PRE_FUNCTION: Record<string, string> = {
   stoneTower: 'platform for 9 men, a door', woodTower: 'platform for 6 men over the road',
   stoneWall: 'walkway wall', stoneGate: 'opens for its owner (neutral: open; bandit-held: shut)',
 };
-const ALLIANCE_SIDE = (team: number) => (team === 0 ? 'yours' : ALLIANCES[team]?.name ?? `team ${team}`);
+const ALLIANCE_SIDE = (team: number) => (team === myTeam() ? 'yours' : ALLIANCES[team]?.name ?? `team ${team}`);
 export const nice = (t: string) => t.replace(/[A-Z]/g, (c) => ' ' + c.toLowerCase()).replace(/^./, (c) => c.toUpperCase());
 export const billText = (c: Bill) => Object.entries(c).filter(([, v]) => (v ?? 0) > 0).map(([r, v]) => `${Math.ceil(v!)} ${r.replace(/[A-Z]/g, (x) => ' ' + x.toLowerCase())}`).join(', ') || 'nothing';
 
@@ -85,7 +86,7 @@ export const rebuildBill = (b: BuildingSnap) => ({ cost: scaled(b, RUIN.rebuild)
 /** Why the own team cannot repair b now (undefined: it can). */
 export function repairWhy(b: BuildingSnap, squad: number | null): string | undefined {
   if (b.ruin) return 'a ruin: rebuild it';
-  if (b.team !== 0) return 'not yours';
+  if (b.team !== myTeam()) return 'not yours';
   if (b.hp >= b.maxHp - 1e-6) return 'at full hp';
   if (b.mend) return 'already under repair';
   if (squad === null) return 'select a squad first';
@@ -95,7 +96,7 @@ export function repairWhy(b: BuildingSnap, squad: number | null): string | undef
 export function rebuildWhy(b: BuildingSnap): string | undefined {
   if (!b.ruin) return 'not a ruin';
   if (b.landmark) return 'a landmark piece: restore the landmark';
-  if (b.team !== 0) return 'only the owner of its ground rebuilds it';
+  if (b.team !== myTeam()) return 'only the owner of its ground rebuilds it';
   return undefined;
 }
 

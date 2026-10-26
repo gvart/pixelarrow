@@ -33,6 +33,7 @@ import type { SandboxScene } from '../SandboxScene';
 import { BuildingLayer, pairs, type GhostMark, type GhostPiece } from './buildingLayer';
 import { BuildArt } from './buildArt';
 import { keys } from '../../input/keys';
+import { myTeam } from '../side';
 
 export type WallMaterial = 'wood' | 'timber' | 'stone';
 export type Tool =
@@ -59,7 +60,6 @@ const REASON: Partial<Record<PlaceReason, string>> = {
 const AXIS_NAME: Record<BridgeAxis, string> = { x: 'along x', y: 'along y', h: 'screen-horizontal', v: 'screen-vertical' };
 export const reasonText = (r: PlaceReason) => REASON[r] ?? r;
 const RECHECK_MS = 500;
-const TEAM = 0;
 /** Tiles from the cursor an access piece snaps over. */
 const SNAP_R = 4;
 
@@ -166,7 +166,7 @@ export class BuildMode {
 
   /** Dev: 500 of every resource for the own team. */
   addResources(): void {
-    for (const r of RESOURCES) this.s.sim.addStock(TEAM, r, 500);
+    for (const r of RESOURCES) this.s.sim.addStock(myTeam(), r, 500);
   }
 
   armClaim(): void {
@@ -175,14 +175,14 @@ export class BuildMode {
 
   /** The first selected own squad, if any. */
   squad(): number | null {
-    for (const q of this.s.selected) if (this.s.sim.squads.get(q)?.team === TEAM) return q;
+    for (const q of this.s.selected) if (this.s.sim.squads.get(q)?.team === myTeam()) return q;
     return null;
   }
 
   /** Who lays a site out: the selected own squad (it builds it), else the own team (a planned site). */
   private builder(): { squad: number } | { team: number } {
     const squad = this.squad();
-    return squad === null ? { team: TEAM } : { squad };
+    return squad === null ? { team: myTeam() } : { squad };
   }
 
   /** Order every pending wall line laid out (if all their previews are valid). */
@@ -213,7 +213,7 @@ export class BuildMode {
     const out = new Set<number>(), r = Math.max(b.w, b.h) / 2 + 3;
     for (const [q, site] of this.sent) if (site === b.id && this.s.sim.squads.get(q)?.order === 'build') out.add(q);
     for (const d of this.s.drawn) {
-      if (d.team !== TEAM || d.u.state !== 'build' || Math.abs(d.x - b.x) > r || Math.abs(d.y - b.y) > r) continue;
+      if (d.team !== myTeam() || d.u.state !== 'build' || Math.abs(d.x - b.x) > r || Math.abs(d.y - b.y) > r) continue;
       if (this.s.sim.squads.get(d.u.squad)?.order === 'build') out.add(d.u.squad);
     }
     return [...out];
@@ -237,7 +237,7 @@ export class BuildMode {
 
   /** The next tier of the selected finished building and what it costs (wall segments: per tile), or null. */
   upgradeOf(b: BuildingSnap | undefined): { to: BuildingType; cost: Cost; labour: number } | null {
-    const up = b && b.team === TEAM && b.state === 'done' ? BUILDINGS[b.type].upgrade : undefined;
+    const up = b && b.team === myTeam() && b.state === 'done' ? BUILDINGS[b.type].upgrade : undefined;
     if (!b || !up) return null;
     // a thin wall growing a walkway takes an inner row: about twice its tiles
     const n = BUILDINGS[b.type].perTile ? (b.tiles.length / 2) * (BUILDINGS[up.to].depth === 2 && !BUILDINGS[b.type].depth ? 2 : 1) : 1, cost: Cost = {};
@@ -274,7 +274,7 @@ export class BuildMode {
 
   onDown(t: { x: number; y: number }, shift: boolean): boolean {
     if (this.claimArmed) {
-      this.s.sim.claim(TEAM, Math.floor(t.x) + 0.5, Math.floor(t.y) + 0.5);
+      this.s.sim.claim(myTeam(), Math.floor(t.x) + 0.5, Math.floor(t.y) + 0.5);
       this.claimArmed = false;
       return true;
     }
@@ -325,7 +325,7 @@ export class BuildMode {
     if (this.tool?.kind === 'bridge') {
       const o = this.bridgeQuery(t), who = this.builder();
       this.drag = null;
-      void this.s.sim.checkBridge(TEAM, o).then((plan) => {
+      void this.s.sim.checkBridge(myTeam(), o).then((plan) => {
         if (!plan?.ok) { this.status = `can't build: ${plan?.reason ? reasonText(plan.reason) : 'no sim'}`; return; }
         this.s.sim.order({ kind: 'placeBridge', ...who, ...o });
         this.setTool(null);
@@ -398,7 +398,7 @@ export class BuildMode {
       this.layer.ghost([{ tiles: [Math.floor(t.x), Math.floor(t.y)], ok: true, type }], '', zoom, buildings);
       return;
     }
-    const o = this.bridgeQuery(t), plan = this.ask(`b:${JSON.stringify(o)}`, () => this.s.sim.checkBridge(TEAM, o)) as BridgePlan | null;
+    const o = this.bridgeQuery(t), plan = this.ask(`b:${JSON.stringify(o)}`, () => this.s.sim.checkBridge(myTeam(), o)) as BridgePlan | null;
     if (!plan) { this.layer.ghost(null, '', zoom); return; }
     const d = BUILDINGS[type], cost: Cost = {};
     let n = 0;
@@ -426,7 +426,7 @@ export class BuildMode {
   private planOf(l: WallLine): WallPlan | null {
     if (this.tool?.kind !== 'wall' || l.points.length < 4) return null;
     const o = { material: this.tool.material, ...this.wallQuery(l) };
-    return this.ask(`w:${JSON.stringify(o)}`, () => this.s.sim.checkWall(TEAM, o)) as WallPlan | null;
+    return this.ask(`w:${JSON.stringify(o)}`, () => this.s.sim.checkWall(myTeam(), o)) as WallPlan | null;
   }
 
   /** The line with a tile nearest point p (within 2 tiles), for a gate or tower. */
@@ -465,7 +465,7 @@ export class BuildMode {
         }
         continue;
       }
-      if (b.team !== TEAM || def.wall !== 'segment' || (b.depth ?? 1) < 2) continue;
+      if (b.team !== myTeam() || def.wall !== 'segment' || (b.depth ?? 1) < 2) continue;
       // inner row: the second half; inner direction from a line tile to its inner neighbour
       const half = ts.length / 2, line = ts.slice(0, half), inner = ts.slice(half);
       const lt = line.find(([x, y]) => Math.abs(x - inner[0][0]) + Math.abs(y - inner[0][1]) === 1);
@@ -501,7 +501,7 @@ export class BuildMode {
     const hb = placing ? undefined : this.buildingAt(this.s.pointerTile);
     this.layer.hovered = hb && isSite(hb) ? hb.id : -1;
     this.layer.draw(buildings, this.s.drawn, view, zoom);
-    this.layer.influence(sim.influence, TEAM, this.active || this.claimArmed);
+    this.layer.influence(sim.influence, myTeam(), this.active || this.claimArmed);
     this.hover = placing ? null : this.pickNode(wp);
     if (!placing || !this.tool) {
       this.layer.ghost(null, '', zoom);
@@ -520,7 +520,7 @@ export class BuildMode {
     if (this.tool.kind === 'bridge') return this.bridgeGhost(t, zoom, buildings, who);
     if (this.tool.kind === 'building') {
       const type = this.tool.type, [x, y] = this.centre(type, t), [w, h] = rotated(type, this.rot);
-      const r = this.ask(`p:${type},${x},${y},${this.rot}`, () => sim.checkPlacement(TEAM, type, x, y, this.rot)) as PlaceResult | null;
+      const r = this.ask(`p:${type},${x},${y},${this.rot}`, () => sim.checkPlacement(myTeam(), type, x, y, this.rot)) as PlaceResult | null;
       const d = BUILDINGS[type], ok = !!r?.ok, why = r && !ok && r.reason ? reasonText(r.reason) : '';
       const turn = w !== h ? ` · R: ${w}x${h}` : '';
       this.status = why ? `can't build: ${why}` : `${type}: ${costText(d.cost)} · ${labourText(d.labour)}${who}${turn}`;
@@ -535,7 +535,7 @@ export class BuildMode {
         this.layer.ghost([{ tiles: rectTiles(x, y, w, h), ok: false, type }], `can't build: ${reasonText('attach')}`, zoom, buildings);
         return;
       }
-      const r = this.ask(`p:${type},${sp.x},${sp.y},${sp.rot}`, () => sim.checkPlacement(TEAM, type, sp.x, sp.y, sp.rot)) as PlaceResult | null;
+      const r = this.ask(`p:${type},${sp.x},${sp.y},${sp.rot}`, () => sim.checkPlacement(myTeam(), type, sp.x, sp.y, sp.rot)) as PlaceResult | null;
       const ok = !!r?.ok, why = r && !ok && r.reason ? reasonText(r.reason) : '';
       this.status = why ? `can't build: ${why}` : `${type}: ${costText(d.cost)} · ${labourText(d.labour)}${who}${all > 1 ? ` · R: next place (${all})` : ''}`;
       this.layer.ghost([{ tiles: sp.tiles, ok, type, attach: sp.attach }], why ? `can't build: ${why}` : `${type} ${costText(d.cost)}`, zoom, buildings);
@@ -550,13 +550,13 @@ export class BuildMode {
     }
     const plans = drawing.filter((l) => l.points.length >= 4).map((l) => {
       const o = { material: mat, ...this.wallQuery(l) };
-      return this.ask(`w:${JSON.stringify(o)}`, () => sim.checkWall(TEAM, o)) as WallPlan | null;
+      return this.ask(`w:${JSON.stringify(o)}`, () => sim.checkWall(myTeam(), o)) as WallPlan | null;
     });
     if (!drawing.some((l) => l.points.length >= 4)) {
       this.status = this.lines.length ? 'drag from the end to extend' : `drag to draw a ${WALL_NAME[mat]}`;
       // the sim's plan of a two-tile stub here: a walkway wall shows both its rows (the inner one towards the inside)
       const [sx, sy] = snap(t), o = { material: mat, points: [sx, sy, sx + 1, sy], gates: [], towers: [] };
-      const one = this.ask(`w:${JSON.stringify(o)}`, () => sim.checkWall(TEAM, o)) as WallPlan | null;
+      const one = this.ask(`w:${JSON.stringify(o)}`, () => sim.checkWall(myTeam(), o)) as WallPlan | null;
       const seg = one?.pieces.filter((q) => BUILDINGS[q.type].wall === 'segment');
       const marks: GhostMark[] = [];
       for (const p of seg ?? []) if (BUILDINGS[p.type].depth === 2 && p.tiles.length === 8) for (const i of [4, 6]) marks.push({ x: p.tiles[i] + 0.5, y: p.tiles[i + 1] + 0.5, dx: p.tiles[i] - p.tiles[i - 4], dy: p.tiles[i + 1] - p.tiles[i - 3] });

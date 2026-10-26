@@ -34,12 +34,12 @@ import { sandboxCraft } from './hud/craft/state';
 import { sandboxRoster } from './hud/roster/state';
 import type { SandboxScene } from './SandboxScene';
 import { keys } from '../input/keys';
+import { myTeam } from './side';
 
 export interface Action { label: string; run(): void }
 /** A radial option: icon id from the kit, and why it is disabled (off). */
 export interface Option extends Action { icon: string; off?: string }
 type P = { x: number; y: number };
-const TEAM = 0;
 const LADDER_R = 1.1;
 const CLAIM_PICK = 2.5; // tiles round a claim banner's foot
 export const HOLD_MS = 200;
@@ -153,10 +153,10 @@ export class Interact {
     const s = this.s, def = BUILDINGS[b.type], o: Option[] = [];
     const iron = def.wall === 'gate', wet = !!def.burnable && !def.field;
     if (!iron && !wet) return o;
-    const stock = s.sim.cur?.stock?.[TEAM] ?? {}, have = (r: string) => (stock as Record<string, number>)[r] ?? 0;
+    const stock = s.sim.cur?.stock?.[myTeam()] ?? {}, have = (r: string) => (stock as Record<string, number>)[r] ?? 0;
     const up = b.state === 'done' || b.state === 'damaged';
     const no = !sandboxCraft(s, sandboxRoster(s)).engineerNodes().has('fortifier') ? 'needs an engineer with Fortifier' : !up ? 'not finished' : undefined;
-    const run = (fort: 'ironGate' | 'wetHides', label: string) => () => { s.sim.order({ kind: 'fortify', team: TEAM, building: b.id, fort }); s.mark(b.x, b.y, 0x60d060); s.siege.status = label; };
+    const run = (fort: 'ironGate' | 'wetHides', label: string) => () => { s.sim.order({ kind: 'fortify', team: myTeam(), building: b.id, fort }); s.mark(b.x, b.y, 0x60d060); s.siege.status = label; };
     if (iron) {
       const off = no ?? (b.iron ? 'already iron-bound' : have('iron') < FORT.ironCost.iron || have('charcoal') < FORT.ironCost.charcoal ? `needs ${FORT.ironCost.iron} iron, ${FORT.ironCost.charcoal} charcoal` : undefined);
       o.push({ label: 'iron-bind gate', icon: 'bld-gate', off, run: run('ironGate', 'iron-bind gate') });
@@ -203,7 +203,7 @@ export class Interact {
 
     // M6k trade (./trade/tradeControls.ts): own carts, loot piles, chests
     const th = s.trade.at(t);
-    if (th && th.kind !== 'store' && !(th.kind === 'cart' && th.team !== TEAM) && !(th.kind === 'chest' && th.team !== TEAM)) {
+    if (th && th.kind !== 'store' && !(th.kind === 'cart' && th.team !== myTeam()) && !(th.kind === 'chest' && th.team !== myTeam())) {
       const o = s.trade.options(th, own, move);
       if (th.kind === 'cart') {
         const e = sc.engineAt(t, false);
@@ -225,7 +225,7 @@ export class Interact {
     const theirs = sc.engineAt(t, true);
     if (theirs) {
       const name = SIEGE_NAME[theirs.type];
-      const cap = th?.kind === 'cart' && th.team !== TEAM ? s.trade.options(th, own, move).slice(0, 1) : [];
+      const cap = th?.kind === 'cart' && th.team !== myTeam() ? s.trade.options(th, own, move).slice(0, 1) : [];
       return [
         ...cap,
         act(`ignite ${name}`, 'act-ignite', theirs, 0xff8030, () => order((squad) => ({ kind: 'ignite', squad, siege: theirs.id })), theirs.burning ? 'already burning' : driving ? 'a crew carries no torches' : undefined),
@@ -233,7 +233,7 @@ export class Interact {
         fire({ siege: theirs.id }, theirs, name),
       ];
     }
-    const lad = sc.tileNear(t, (b) => b.siege !== undefined && b.team !== TEAM, LADDER_R);
+    const lad = sc.tileNear(t, (b) => b.siege !== undefined && b.team !== myTeam(), LADDER_R);
     if (lad) return [act('push ladder', 'act-push-ladder', { x: lad.x + 0.5, y: lad.y + 0.5 }, 0xffe070, () => order((squad) => ({ kind: 'pushLadder', squad, ladder: lad.b.id }))), move];
     const b = s.build.buildingAt(t);
     const foeBuilding = (b: BuildingSnap): Option[] => [
@@ -242,14 +242,14 @@ export class Interact {
       act(`attack ${nameOf(b)}`, 'act-attack', t, 0xff4040, () => order((squad) => ({ kind: 'attackBuilding', squad, building: b.id }))),
       fire({ building: b.id }, t, nameOf(b)),
     ];
-    const walled = (b: BuildingSnap) => b.team !== TEAM && !!BUILDINGS[b.type].walk && !BUILDINGS[b.type].access && (b.state === 'done' || b.state === 'damaged');
+    const walled = (b: BuildingSnap) => b.team !== myTeam() && !!BUILDINGS[b.type].walk && !BUILDINGS[b.type].access && (b.state === 'done' || b.state === 'damaged');
     if (carrying) {
       const w = sc.tileNear(t, walled);
-      if (w) return [act('raise ladder', 'act-raise-ladder', { x: w.x + 0.5, y: w.y + 0.5 }, 0xffe070, () => order((squad) => ({ kind: 'raiseLadder', squad, wallTile: [w.x, w.y] }))), ...(b && b.team !== TEAM ? foeBuilding(b) : [])];
+      if (w) return [act('raise ladder', 'act-raise-ladder', { x: w.x + 0.5, y: w.y + 0.5 }, 0xffe070, () => order((squad) => ({ kind: 'raiseLadder', squad, wallTile: [w.x, w.y] }))), ...(b && b.team !== myTeam() ? foeBuilding(b) : [])];
     }
-    if (b && b.team !== TEAM) {
+    if (b && b.team !== myTeam()) {
       const o = foeBuilding(b);
-      if (th && th.team !== TEAM && (th.kind === 'chest' || th.kind === 'store')) o.push(...s.trade.options(th, own, move));
+      if (th && th.team !== myTeam() && (th.kind === 'chest' || th.kind === 'store')) o.push(...s.trade.options(th, own, move));
       if (walled(b)) o.push({ label: 'raise ladder', icon: 'act-raise-ladder', off: 'needs a siege ladder carried', run: () => {} });
       return o;
     }
@@ -272,7 +272,7 @@ export class Interact {
     }
     // M7g: an own pre-built ruin: rebuild it (the first squad builds the site; landmark pieces only by restore)
     const ru = !b ? s.build.pieceAt(t) : undefined;
-    if (ru?.ruin && ru.team === TEAM) {
+    if (ru?.ruin && ru.team === myTeam()) {
       return [act(`rebuild ${nameOf(ru)}`, 'act-build', ru, 0x60d060, () => s.sim.order({ kind: 'rebuild', building: ru.id, squad: own[0] }), ru.landmark ? 'a landmark piece: restore the landmark' : undefined), move];
     }
     const cp = (s.sim.cur?.claims ?? []).find((c) => Math.hypot(c.x - t.x, c.y - t.y) < CLAIM_PICK);

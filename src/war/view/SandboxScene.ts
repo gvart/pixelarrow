@@ -51,6 +51,7 @@ import { anySoldiers } from './hud/cardCiv';
 import { GuardianLayer } from './guardians';
 import { Selection } from './select';
 import { keys as warKeys } from '../input/keys';
+import { myTeam } from './side';
 
 const CLIMB = ['climb', 'walk'] as const;
 const CARRY = ['carry', 'walk'] as const;
@@ -152,7 +153,7 @@ export class SandboxScene extends Phaser.Scene {
   private shots!: ShotLayer;
   /** M7d: landmark guardians (perch, clips, their moves' fx, the Warden's mark). */
   guardians!: GuardianLayer;
-  /** Fog of war over team 0's unexplored and explored ground (W-39; the sim client hides what it cannot see). */
+  /** Fog of war over the player's team's unexplored and explored ground (W-39; the sim client hides what it cannot see). */
   private fog!: FogLayer;
   private fogVer = -1;
   private sheetImages = new Map<string, HTMLImageElement>();
@@ -437,12 +438,12 @@ export class SandboxScene extends Phaser.Scene {
     return this.cameras.main.zoom >= SPRITE_ZOOM ? { x: f.x, y: f.y - BODY } : f;
   }
 
-  /** The live unit drawn nearest the pointer (screen space, so hills don't skew it), of / not of team 0. */
+  /** The live unit drawn nearest the pointer (screen space, so hills don't skew it), of / not of the player's team. */
   pick(p: { x: number; y: number }, own: boolean): DrawUnit | null {
     const w = this.wpx(p.x, p.y);
     let best: DrawUnit | null = null, bd = Math.max(BODY, 10 / this.cameras.main.zoom);
     for (const d of this.drawn) {
-      if (d.u.state === 'dead' || (d.team === 0) !== own) continue;
+      if (d.u.state === 'dead' || (d.team === myTeam()) !== own) continue;
       const f = this.body(d), dist = Math.hypot(f.x - w.x, f.y - w.y);
       if (dist < bd) { bd = dist; best = d; }
     }
@@ -464,7 +465,7 @@ export class SandboxScene extends Phaser.Scene {
     if (!pan && this.placing) {
       const t = this.world(p), { team, cls, count } = this.placing;
       if (this.sim.net) this.sim.devSpawn(team, cls, count, t.x, t.y); // the live region's dev spawn (a join brings the roster)
-      else this.sim.spawn(team === 0 ? 'you' : 'bot', team, cls, count, t.x, t.y);
+      else this.sim.spawn(team === myTeam() ? 'you' : 'bot', team, cls, count, t.x, t.y);
       this.placing = null;
       return;
     }
@@ -503,7 +504,7 @@ export class SandboxScene extends Phaser.Scene {
     if (this.box) {
       const { x0, y0, x1, y1 } = this.box, ids: number[] = [];
       for (const d of this.drawn) {
-        if (d.team !== 0 || d.u.state === 'dead') continue;
+        if (d.team !== myTeam() || d.u.state === 'dead') continue;
         const f = this.body(d);
         if (f.x >= Math.min(x0, x1) && f.x <= Math.max(x0, x1) && f.y >= Math.min(y0, y1) && f.y <= Math.max(y0, y1)) ids.push(d.u.id);
       }

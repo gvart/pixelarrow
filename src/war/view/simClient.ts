@@ -6,17 +6,43 @@ import type { Behaviour } from '../sim/bots';
 import type { BridgeOrder, BridgePlan, BuildingSnap, BuildingType, FightReport, FogGrid, InfluenceMap, NodeSnap, Order, PlaceResult, RegionData, ResourceKind, Snapshot, SquadSnap, UnitSnap, WallOrder, WallPlan, WarEvent, WarPerson } from '../types';
 import type { ToWorker } from './worker';
 import type { HandoffMsg, ServerMsg, StowMsg } from '../net/protocol';
+import { myTeam, setMyTeam } from './side';
+
+/**
+ * The snapshot as `team` knows it: foe men, engines and missiles only where it sees; foe buildings where it sees
+ * them now, else as last seen (`seen`, drawn under the explored shroud); its own side whole.
+ */
+export function fogged(s: Snapshot, team: number, visible: (x: number, y: number) => boolean, seen: BuildingSnap[]): Snapshot {
+  const of = new Map(s.squads.map((q) => [q.id, q.team]));
+  const big = new Set((s.bosses ?? []).filter((b) => b.state !== 'slain' && b.state !== 'away').map((b) => b.unit));
+  const vis = (b: BuildingSnap) => {
+    for (let i = 0; i < b.tiles.length; i += 2) if (visible(b.tiles[i] + 0.5, b.tiles[i + 1] + 0.5)) return true;
+    return visible(b.x, b.y);
+  };
+  // M7b: a region's pre-built towns are on the map (they were map objects before), so they show under the shroud too
+  const buildings = (s.buildings ?? []).filter((b) => b.team === team || b.pre || vis(b));
+  const here = new Set(buildings.map((b) => b.id));
+  for (const b of seen) if (!here.has(b.id) && !vis(b)) buildings.push(b);
+  return {
+    ...s,
+    // M7d: a guardian's body is seen from afar (a dragon on a keep roof), its fight under the fog is not
+    units: s.units.filter((u) => of.get(u.squad) === team || big.has(u.id) || visible(u.x, u.y)),
+    shots: s.shots?.filter((h) => visible(h.x0, h.y0) || visible(h.x1, h.y1)),
+    sieges: s.sieges?.filter((e) => e.team === team || visible(e.x, e.y)),
+    buildings,
+  };
+}
 
 export interface DrawUnit { u: UnitSnap; x: number; y: number; facing: number; team: number }
 
 export class SimClient {
   private worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' });
   private old = new Map<number, UnitSnap>();
-  /** The newest snapshot as the player's team (0) knows it under the fog (W-39; `full` while fog is off). */
+  /** The newest snapshot as the player's team (./side.ts) knows it under the fog (W-39; `full` while fog is off). */
   cur: Snapshot | null = null;
   /** The newest snapshot, everything in it (dev tallies). */
   full: Snapshot | null = null;
-  /** Team 0's fog grid (latest version) and the foe buildings as it last saw them; fog off (dev): no hiding. */
+  /** The player's team's fog grid (latest version) and the foe buildings as it last saw them; fog off (dev): no hiding. */
   fog: FogGrid | null = null;
   seen: BuildingSnap[] = [];
   fogOn = true;
@@ -43,7 +69,7 @@ export class SimClient {
     type Msg = { snap: Snapshot; stats: { stepMs: number; units: number }; events?: WarEvent[]; nodes?: NodeSnap[]; influence?: InfluenceMap; fog?: FogGrid; seen?: BuildingSnap[] } | { reply: number; place?: PlaceResult | null; wall?: WallPlan | null; bridge?: BridgePlan | null; report?: FightReport | null; api?: unknown } | { server: ServerMsg };
     this.worker.onmessage = (e: MessageEvent<Msg>) => {
       if ('server' in e.data) {
-        if (e.data.server.t === 'welcome') this.playerId = e.data.server.you.id;
+        if (e.data.server.t === 'welcome') (this.playerId = e.data.server.you.id), setMyTeam(e.data.server.you.team);
         else this.onServer?.(e.data.server);
         return;
       }
@@ -66,11 +92,11 @@ export class SimClient {
     };
     const q = new URLSearchParams(location.search), dev = Number(q.get('dev')) || undefined;
     // ?net=<ws url or /ws/war/<region>>: play on the live region server (M3) instead of the local sim
-    this.send({ t: 'init', region, seed: 1, sim: q.get('sim') === 'fake' ? 'fake' : 'real', net: q.get('net') ?? undefined, dev });
+    this.send({ t: 'init', region, team: myTeam(), seed: 1, sim: q.get('sim') === 'fake' ? 'fake' : 'real', net: q.get('net') ?? undefined, dev });
     this.speed(1);
   }
 
-  /** Team 0 sees tile point (x, y) now (always with fog off or before the first grid). */
+  /** The player's team sees tile point (x, y) now (always with fog off or before the first grid). */
   visible(x: number, y: number): boolean {
     const g = this.fog;
     if (!g || !this.fogOn) return true;
@@ -78,30 +104,8 @@ export class SimClient {
     return cx >= 0 && cy >= 0 && cx < g.w && cy < g.h && g.state[cy * g.w + cx] === 2;
   }
 
-  /**
-   * The snapshot as team 0 knows it: foe men, engines and missiles only where it sees; foe buildings where it sees
-   * them now, else as last seen (drawn under the explored shroud); its own side whole.
-   */
   private fogged(s: Snapshot): Snapshot {
-    if (!this.fog || !this.fogOn) return s;
-    const team = new Map(s.squads.map((q) => [q.id, q.team]));
-    const big = new Set((s.bosses ?? []).filter((b) => b.state !== 'slain' && b.state !== 'away').map((b) => b.unit));
-    const vis = (b: BuildingSnap) => {
-      for (let i = 0; i < b.tiles.length; i += 2) if (this.visible(b.tiles[i] + 0.5, b.tiles[i + 1] + 0.5)) return true;
-      return this.visible(b.x, b.y);
-    };
-    // M7b: a region's pre-built towns are on the map (they were map objects before), so they show under the shroud too
-    const buildings = (s.buildings ?? []).filter((b) => b.team === 0 || b.pre || vis(b));
-    const here = new Set(buildings.map((b) => b.id));
-    for (const b of this.seen) if (!here.has(b.id) && !vis(b)) buildings.push(b);
-    return {
-      ...s,
-      // M7d: a guardian's body is seen from afar (a dragon on a keep roof), its fight under the fog is not
-      units: s.units.filter((u) => team.get(u.squad) === 0 || big.has(u.id) || this.visible(u.x, u.y)),
-      shots: s.shots?.filter((h) => this.visible(h.x0, h.y0) || this.visible(h.x1, h.y1)),
-      sieges: s.sieges?.filter((e) => e.team === 0 || this.visible(e.x, e.y)),
-      buildings,
-    };
+    return this.fog && this.fogOn ? fogged(s, myTeam(), (x, y) => this.visible(x, y), this.seen) : s;
   }
 
   /** Dev: fog of war on / off (re-filters the snapshot drawn now). */
@@ -120,7 +124,7 @@ export class SimClient {
     this.send({ t: 'spawn', owner, team, cls, count, x, y, bot, ...(persons?.length ? { persons } : {}) });
   }
 
-  /** Dev panel: a squad of any class and team at (x,y) (net mode: the server's DEV_AUTH spawn; team 0 is ours). */
+  /** Dev panel: a squad of any class and team at (x,y) (net mode: the server's DEV_AUTH spawn; the player's team is ours). */
   devSpawn(team: number, cls: string, count: number, x: number, y: number): void {
     this.send({ t: 'devSpawn', team, cls, count, x, y });
   }

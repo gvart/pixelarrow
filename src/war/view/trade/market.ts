@@ -11,6 +11,7 @@
  */
 import type { ServerMsg, StowMsg } from '../../net/protocol';
 import type { SandboxScene } from '../SandboxScene';
+import { myTeam } from '../side';
 
 export type Goods = Record<string, number>;
 /** The wire's goods record (the schema types it by every good; any subset is sent). */
@@ -153,12 +154,12 @@ export class LocalMarket implements Market {
     this.ls.push({ id: ++this.seq, town: t, toTown: 'stymphalia', amount: 120, fee: 6, state: 'offered', mine: 'buyer' });
   }
 
-  private stock(): Goods { return { ...(this.s.sim.cur?.stock?.[0] ?? {}) } as Goods; }
+  private stock(): Goods { return { ...(this.s.sim.cur?.stock?.[myTeam()] ?? {}) } as Goods; }
   private site(kind: Site['kind']) { return this.sites.find((x) => x.kind === kind) ?? null; }
   /** Coin from the team's stock (the strongroom offline). */
   private pay(coin: number): boolean {
     if ((this.stock().coin ?? 0) < coin) return false;
-    if (coin > 0) this.s.sim.addStock(0, 'coin', -coin);
+    if (coin > 0) this.s.sim.addStock(myTeam(), 'coin', -coin);
     return true;
   }
   private takeFrom(g: Goods, from: Goods): boolean {
@@ -278,7 +279,7 @@ export class LocalMarket implements Market {
     const l = this.ls.find((x) => x.id === id);
     if (!l || l.state !== 'sold' || l.mine !== 'buyer') return no('only its buyer redeems a sold letter, once');
     l.state = 'redeemed';
-    this.s.sim.addStock(0, 'coin', l.amount);
+    this.s.sim.addStock(myTeam(), 'coin', l.amount);
     return ok({ coin: l.amount });
   }
 
@@ -291,10 +292,10 @@ export class LocalMarket implements Market {
       const have = this.stock();
       for (const [r, n] of Object.entries(goods)) if ((have[r] ?? 0) + 1e-6 < n) return done({ error: `you hold ${Math.floor(have[r] ?? 0)} ${r}` });
       if (loadsOf(x.goods) + loadsOf(goods) > SITE_LOADS + 1e-6) return done({ error: `a ${site} holds ${SITE_LOADS} loads` });
-      for (const [r, n] of Object.entries(goods)) { this.s.sim.addStock(0, r as never, -n); add(x.goods, r, n); }
+      for (const [r, n] of Object.entries(goods)) { this.s.sim.addStock(myTeam(), r as never, -n); add(x.goods, r, n); }
     } else {
       if (!this.takeFrom(goods, x.goods)) return done({ error: `the ${site} holds less` });
-      for (const [r, n] of Object.entries(goods)) this.s.sim.addStock(0, r as never, n);
+      for (const [r, n] of Object.entries(goods)) this.s.sim.addStock(myTeam(), r as never, n);
     }
     done({ goods });
   }
@@ -324,8 +325,8 @@ export class LocalMarket implements Market {
       const mine = h.halves[this.me]?.goods ?? {}, theirs = h.halves[withId].goods;
       const have = this.stock();
       if (Object.entries(mine).some(([r, n]) => (have[r] ?? 0) + 1e-6 < n)) { h.state = 'closed'; h.why = 'your half is no longer with your men'; emit(); this.hand = null; return; }
-      for (const [r, n] of Object.entries(mine)) this.s.sim.addStock(0, r as never, -n);
-      for (const [r, n] of Object.entries(theirs)) this.s.sim.addStock(0, r as never, n);
+      for (const [r, n] of Object.entries(mine)) this.s.sim.addStock(myTeam(), r as never, -n);
+      for (const [r, n] of Object.entries(theirs)) this.s.sim.addStock(myTeam(), r as never, n);
       h.state = 'done';
       emit();
       this.hand = null;

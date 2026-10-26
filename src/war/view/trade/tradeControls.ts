@@ -18,8 +18,8 @@ import { CART, PILE } from '../../sim/trade';
 import type { BuildingSnap, HoldItem, HolderRef, Order, PileSnap, ResourceKind, SiegeSnap, SquadId } from '../../types';
 import type { Option } from '../interact';
 import type { SandboxScene } from '../SandboxScene';
+import { myTeam } from '../side';
 
-const TEAM = 0;
 const OWNER = 'you';
 const PICK = 1.6;
 /** The command card's buttons find a holder within this many tiles of the squad. */
@@ -91,7 +91,7 @@ export class TradeControls {
   }
 
   mine(h: Holder): boolean {
-    return h.kind === 'store' ? h.team === TEAM : h.kind === 'pile' || h.owner === OWNER;
+    return h.kind === 'store' ? h.team === myTeam() : h.kind === 'pile' || h.owner === OWNER;
   }
 
   /** Own squads' men with a load in their packs, or crewing a cart with cargo. */
@@ -169,7 +169,7 @@ export class TradeControls {
     return h.kind === 'pile' || (h.kind === 'cart' ? h.owner === OWNER : true);
   }
   canPut(h: Holder): boolean {
-    return h.kind === 'store' ? h.team === TEAM : h.kind !== 'pile' && h.owner === OWNER;
+    return h.kind === 'store' ? h.team === myTeam() : h.kind !== 'pile' && h.owner === OWNER;
   }
   hasAny(h: Holder): boolean {
     return h.items > 0 || Object.values(h.goods).some((n) => (n ?? 0) > 0.05);
@@ -181,7 +181,7 @@ export class TradeControls {
     const opt = (label: string, icon: string, run: () => void, off?: string): Option => ({ label, icon, run, off });
     const full = h.cap !== undefined && h.loads !== undefined && h.loads >= h.cap - 1e-6 ? `${h.name} is full` : undefined;
     if (h.kind === 'cart') {
-      if (h.team !== TEAM) {
+      if (h.team !== myTeam()) {
         o.push(opt(`capture ${h.name}`, 'act-escort', () => this.capture(h)));
         return [...o, move];
       }

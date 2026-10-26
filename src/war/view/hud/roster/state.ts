@@ -12,6 +12,7 @@ import { applyOffer, createRoster, grantXp, levelOffers, makePerson, type LevelO
 import { SQUAD_MAX } from '../../../sim/soldiers';
 import type { FightReport, PersonResult, UnitSnap, WarEvent, WarPerson } from '../../../types';
 import type { SandboxScene } from '../../SandboxScene';
+import { myTeam } from '../../side';
 
 export type Where = 'field' | 'reserve' | 'wounded' | 'captive' | 'dead';
 /** A person as the panel shows him: where he is, his live man (in the field) and his squad. */
@@ -44,7 +45,7 @@ export class SandboxRoster {
 
   constructor(private s: SandboxScene) {
     this.seed();
-    s.sim.personsFor = (owner, team, cls, count) => (team === 0 && owner !== 'bot' ? this.take(cls, Math.min(count, SQUAD_MAX)) : undefined);
+    s.sim.personsFor = (owner, team, cls, count) => (team === myTeam() && owner !== 'bot' ? this.take(cls, Math.min(count, SQUAD_MAX)) : undefined);
     s.sim.onEvents = (ev) => this.events(ev);
     setInterval(() => this.watch(), 250);
   }
@@ -165,7 +166,7 @@ export class SandboxRoster {
 
   /** The sim's event log: level-ups and captures of the player's men become notes; his blows and falls keep the fight on. */
   private events(ev: WarEvent[]): void {
-    const own = new Set((this.s.sim.cur?.squads ?? []).filter((q) => q.team === 0).map((q) => q.id));
+    const own = new Set((this.s.sim.cur?.squads ?? []).filter((q) => q.team === myTeam()).map((q) => q.id));
     const unit = new Map((this.s.sim.cur?.units ?? []).map((u) => [u.id, u]));
     for (const e of ev) {
       if (e.kind === 'levelUp' && this.roster.get(e.pid)) {
@@ -184,7 +185,7 @@ export class SandboxRoster {
   private watch(): void {
     const cur = this.s.sim.cur;
     if (!cur) return;
-    const own = new Set(cur.squads.filter((q) => q.team === 0).map((q) => q.id));
+    const own = new Set(cur.squads.filter((q) => q.team === myTeam()).map((q) => q.id));
     if (cur.units.some((u) => own.has(u.squad) && u.pid && u.state === 'attack')) this.lastAction = cur.tick;
     if (this.lastAction >= 0 && cur.tick - this.lastAction > QUIET) this.endFight();
   }

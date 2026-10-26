@@ -18,8 +18,8 @@ import type { DrawUnit } from './simClient';
 import type { SandboxScene } from './SandboxScene';
 import { keys } from '../input/keys';
 import type { ActionId } from '../input/actions';
+import { myTeam } from './side';
 
-const TEAM = 0;
 const DOUBLE_MS = 350;
 const SHAPES = ['line', 'column', 'wedge', 'loose'] as const;
 /** The formation actions (Alt+1-4 by default), in SHAPES order. */
@@ -43,7 +43,7 @@ export class Selection {
   /** Each frame, after the units are drawn in: the fallen and the lost leave the selection and the groups. */
   sync(drawn: DrawUnit[]): void {
     this.live.clear();
-    for (const d of drawn) if (d.team === TEAM && d.u.state !== 'dead') this.live.set(d.u.id, d);
+    for (const d of drawn) if (d.team === myTeam() && d.u.state !== 'dead') this.live.set(d.u.id, d);
     if (!this.s.sim.cur) return;
     for (const id of this.units) if (!this.live.has(id)) this.units.delete(id);
     for (const [n, ids] of this.groups) {

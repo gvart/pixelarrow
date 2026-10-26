@@ -20,6 +20,7 @@ import type { DrawUnit } from '../simClient';
 import { facingOf, type SiegeArt } from '../siege/siegeArt';
 import { SPRITE_ZOOM, TEAM_COLOR } from '../units';
 import type { Facing, TradeArt, TradeSprite } from './tradeArt';
+import { slot } from '../side';
 
 const IN = 1e-6;
 /** Piles sit this far under the living men's depth (and so over the fallen). */
@@ -151,7 +152,7 @@ export class TradeLayer {
     const [w, h] = j?.footprint[f] ?? (f === 'e' || f === 'w' ? [2, 1] : [1, 2]);
     const x0 = e.x - w / 2, y0 = e.y - h / 2;
     const wrecked = e.state === 'destroyed', moving = !wrecked && e.state === 'move' && !e.halted;
-    const owner = TEAM_COLOR[e.team] ?? 0xcccccc;
+    const owner = TEAM_COLOR[slot(e.team)] ?? 0xcccccc;
     // the owner's ring on the ground (a selected / hovered cart: white)
     const c = this.pt(e.x, e.y, z), rw = (w + h) * 18;
     const ringed = this.ring?.cart === e.id;

@@ -16,8 +16,8 @@ import { crafterRefusal } from '../../../sim/crafting';
 import type { BuildingSnap, WarEvent, WarPerson } from '../../../types';
 import type { SandboxScene } from '../../SandboxScene';
 import type { SandboxRoster } from '../roster/state';
+import { myTeam } from '../../side';
 
-const TEAM = 0;
 const OWNER = 'you';
 /** Respec (server/src/war/crafting.ts RESPEC): 50 silver, once a day. */
 export const RESPEC = { silver: 50, ms: 24 * 3_600_000 };
@@ -81,7 +81,7 @@ export class SandboxCraft {
 
   private events(ev: WarEvent[]): void {
     for (const e of ev) {
-      if (e.kind !== 'crafted' || e.team !== TEAM) continue;
+      if (e.kind !== 'crafted' || e.team !== myTeam()) continue;
       if (this.net) { void this.pull(true); continue; }
       if (e.owner !== OWNER) continue;
       this.away.delete(e.item.uid);
@@ -136,7 +136,7 @@ export class SandboxCraft {
   /** When civilian c may respec again (0: now), and whether the stock holds the silver. */
   respecState(c: Civ): { wait: number; silver: boolean } {
     const wait = c.respecAt === null ? 0 : Math.max(0, c.respecAt + (this.net ? 0 : RESPEC.ms) - Date.now());
-    return { wait, silver: (this.s.sim.cur?.stock?.[TEAM]?.silver ?? 0) >= RESPEC.silver || this.net };
+    return { wait, silver: (this.s.sim.cur?.stock?.[myTeam()]?.silver ?? 0) >= RESPEC.silver || this.net };
   }
 
   async respec(pid: string): Promise<void> {
@@ -150,7 +150,7 @@ export class SandboxCraft {
     const st = this.respecState(c);
     if (st.wait) return this.onNote?.('a respec once a day', 'bad');
     if (!st.silver) return this.onNote?.(`a respec costs ${RESPEC.silver} silver`, 'bad');
-    this.s.sim.addStock(TEAM, 'silver', -RESPEC.silver);
+    this.s.sim.addStock(myTeam(), 'silver', -RESPEC.silver);
     this.respecs.set(pid, Date.now());
     this.editHero(pid, (h) => ({ ...h, perks: [] as unknown as typeof h.perks }));
   }
@@ -212,11 +212,11 @@ export class SandboxCraft {
   // ---------------------------------------------------------------- workplaces
 
   craft(b: BuildingSnap, recipe: string): void {
-    this.s.sim.order({ kind: 'craft', team: TEAM, building: b.id, recipe });
+    this.s.sim.order({ kind: 'craft', team: myTeam(), building: b.id, recipe });
   }
 
   cancel(b: BuildingSnap, order: number): void {
-    this.s.sim.order({ kind: 'cancelCraft', team: TEAM, building: b.id, order });
+    this.s.sim.order({ kind: 'cancelCraft', team: myTeam(), building: b.id, order });
   }
 
   /** Repair or salvage stash item uid at workplace b. */
@@ -228,7 +228,7 @@ export class SandboxCraft {
     }
     const it = this.local.find((x) => x.uid === uid);
     if (!it || this.away.has(uid)) return;
-    this.s.sim.order({ kind, team: TEAM, building: b.id, owner: OWNER, item: it });
+    this.s.sim.order({ kind, team: myTeam(), building: b.id, owner: OWNER, item: it });
     this.away.add(uid);
     this.onChange?.();
   }
@@ -248,7 +248,7 @@ export class SandboxCraft {
   engineerNodes(): Set<string> {
     const out = new Set<string>();
     for (const u of this.s.sim.cur?.units ?? []) {
-      if (u.state === 'dead' || u.cls !== 'civ_engineer' || this.s.sim.squads.get(u.squad)?.team !== TEAM) continue;
+      if (u.state === 'dead' || u.cls !== 'civ_engineer' || this.s.sim.squads.get(u.squad)?.team !== myTeam()) continue;
       for (const n of heldNodes('engineer', this.civ(u.pid)?.perks ?? [])) out.add(n);
     }
     return out;

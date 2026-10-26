@@ -8,6 +8,7 @@ import Phaser from 'phaser';
 import type { ClaimSnap, LairSnap } from '../types';
 import { TEAM_COLOR } from './units';
 import { HH, HW } from './iso';
+import { slot } from './side';
 
 const DEN: Record<LairSnap['kind'], number> = { wolf: 0x9aa0a8, boar: 0x8a6a4a, bear: 0x5a4030, bandit: 0xc09040, jackal: 0xc8a868, ibex: 0xd8d0b8 };
 const R2 = Math.SQRT2;
@@ -47,7 +48,7 @@ export class NeutralLayer {
       const b = this.banners[i] ?? this.banners[this.banners.push(this.scene.add.graphics()) - 1];
       const f = this.feet(c), top = f.y - 90;
       b.clear().setDepth(10 + this.depthAt(c.x, c.y) / 4096 + 0.25);
-      const cloth = c.state === 'claimed' ? (TEAM_COLOR[c.team] ?? 0xcccccc) : c.state === 'locked' ? 0x707070 : 0xf0f0e0;
+      const cloth = c.state === 'claimed' ? (TEAM_COLOR[slot(c.team)] ?? 0xcccccc) : c.state === 'locked' ? 0x707070 : 0xf0f0e0;
       b.fillStyle(0x000000, 0.3).fillEllipse(f.x, f.y, 26, 12);
       b.fillStyle(0x5a4028, 1).fillRect(f.x - 2, top, 4, 90); // pole
       b.fillStyle(cloth, 1).fillTriangle(f.x + 2, top, f.x + 40, top + 12, f.x + 2, top + 26);
