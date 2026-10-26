@@ -21,6 +21,7 @@ describe('war bindings', () => {
     for (const a of ACTION_IDS)
       for (const b of defaultBindings()[a]) if (b) expect(conflictsWith(defaultBindings(), a, b), `${a} ${b.code}`).toBeNull();
     expect(overlaps('build', 'region')).toBe(false);
+    expect(overlaps('building', 'region')).toBe(false);
     expect(ACTIONS.back.rebindable).toBe(false);
   });
 
@@ -37,6 +38,12 @@ describe('war bindings', () => {
     expect(keys.act(ev('KeyF'))).toBe('build.flip');
     expect(keys.act(ev('KeyR'))).toBe('build.rotate');
     expect(keys.act(ev('KeyB'))).toBe('build.mode');
+    // a building of yours selected: its keys win over the region's (R repairs, not the roster)
+    keys.setContexts(() => ['building', ...REGION]);
+    expect(keys.act(ev('KeyR'))).toBe('bld.repair');
+    expect(keys.act(ev('KeyU'))).toBe('bld.upgrade');
+    expect(keys.act(ev('Delete'))).toBe('bld.demolish');
+    expect(keys.act(ev('KeyF'))).toBe('order.active');
     keys.setContexts(() => ['world', 'global']);
     expect(keys.act(ev('KeyF'))).toBe('world.fit');
     expect(keys.act(ev('KeyB'))).toBeNull();

@@ -4,24 +4,27 @@
  * asks ./keys.ts for the action of a key event (or whether a hold action is down) and never reads a key itself.
  *
  * Contexts: `global` (every war page), `camera` and `region` (a live region), `build` (build mode is on: its keys
- * win over the region's, so F flips a wall there and fires the squad active elsewhere), `world` (the world map),
+ * win over the region's, so F flips a wall there and fires the squad active elsewhere), `building` (one of your
+ * buildings is selected: its keys win over the region's, so R repairs it there and opens the roster elsewhere), `world` (the world map),
  * `capture` (the controls page is waiting for a key: nothing else runs).
  */
 import type { Binding } from './bindings';
 
-export const CONTEXTS = ['global', 'camera', 'region', 'build', 'world', 'capture'] as const;
+export const CONTEXTS = ['global', 'camera', 'region', 'build', 'building', 'world', 'capture'] as const;
 export type Context = (typeof CONTEXTS)[number];
 
 /**
  * Which contexts can be active at the same time; conflict detection checks only these pairs (§5.3). Symmetric. `build`
- * does not overlap `region`: build mode's keys shadow the region's while it is on (the resolver tries build first).
+ * does not overlap `region`: build mode's keys shadow the region's while it is on (the resolver tries build first);
+ * `building` likewise while one of your buildings is selected.
  */
 const LIVE: readonly Context[] = CONTEXTS.filter((c) => c !== 'capture');
 export const OVERLAPS: Readonly<Record<Context, readonly Context[]>> = {
   global: LIVE,
-  camera: ['global', 'camera', 'region', 'build'],
+  camera: ['global', 'camera', 'region', 'build', 'building'],
   region: ['global', 'camera', 'region'],
   build: ['global', 'camera', 'build'],
+  building: ['global', 'camera', 'building'],
   world: ['global', 'world'],
   capture: [],
 };
@@ -34,7 +37,7 @@ export function overlaps(a: Context, b: Context): boolean {
 type ActionKind = 'press' | 'repeat' | 'hold';
 
 /** The sections of the controls page, in order. */
-export const SECTIONS = ['Camera', 'Selection', 'Orders', 'Formations', 'Build mode', 'View and panels', 'World map', 'General'] as const;
+export const SECTIONS = ['Camera', 'Selection', 'Orders', 'Formations', 'Build mode', 'Buildings', 'View and panels', 'World map', 'General'] as const;
 export type Section = (typeof SECTIONS)[number];
 
 const N = [1, 2, 3, 4, 5, 6, 7, 8, 9] as const;
@@ -47,6 +50,7 @@ export const ACTION_IDS = [
   'order.act', 'order.hold', 'order.stop', 'order.active', 'order.fireArrows', 'order.deploy',
   'form.line', 'form.column', 'form.wedge', 'form.loose',
   'build.mode', 'build.rotate', 'build.confirm', 'build.undo', 'build.flip', 'build.narrower', 'build.wider', 'build.gate', 'build.tower',
+  'bld.upgrade', 'bld.repair', 'bld.demolish',
   'view.cutaway', 'view.map', 'view.normal', 'view.altitude', 'view.movement', 'view.ownership', 'view.biomes', 'view.resources', 'view.bossCam',
   'panel.roster', 'panel.chest', 'panel.market', 'panel.guardian', 'panel.sound', 'go.world',
   'world.enter', 'world.routes', 'world.haul', 'world.fit', 'world.zoomIn', 'world.zoomOut',
@@ -102,6 +106,10 @@ const DEFS: ActionDef[] = [
   def('build.wider', 'build', 'Build mode', 'Bridge wider', [k('BracketRight')]),
   def('build.gate', 'build', 'Build mode', 'Put a gate in the wall', [k('KeyG')]),
   def('build.tower', 'build', 'Build mode', 'Put a tower in the wall', [k('KeyT')]),
+
+  def('bld.upgrade', 'building', 'Buildings', 'Upgrade the selected building', [k('KeyU')]),
+  def('bld.repair', 'building', 'Buildings', 'Repair the selected building', [k('KeyR')]),
+  def('bld.demolish', 'building', 'Buildings', 'Demolish the selected building (again: confirm)', [k('Delete')]),
 
   def('view.cutaway', 'region', 'View and panels', 'Cut walls and peaks down', [k('KeyV')]),
   def('view.map', 'region', 'View and panels', 'Full map', [k('KeyM')]),

@@ -208,8 +208,10 @@ export class SandboxScene extends Phaser.Scene {
     this.sim = new SimClient(r);
     this.input.mouse!.disableContextMenu();
     this.keys = this.input.keyboard!.addKeys('SHIFT') as Record<string, Phaser.Input.Keyboard.Key>;
-    // every key goes through the war's bindings (../input): build mode's keys win while it is on
-    warKeys.setContexts(() => (this.build?.active ? ['build', 'region', 'camera', 'global'] : ['region', 'camera', 'global']));
+    // every key goes through the war's bindings (../input): build mode's keys win while it is on, a selected own
+    // building's (upgrade, repair, demolish) while one is
+    warKeys.setContexts(() => (this.build?.active ? ['build', 'region', 'camera', 'global']
+      : this.build?.selectedBuilding()?.team === myTeam() ? ['building', 'region', 'camera', 'global'] : ['region', 'camera', 'global']));
     this.input.keyboard!.on('keydown', (e: KeyboardEvent) => {
       const a = warKeys.act(e);
       if (a === 'order.hold') this.orderAll((squad) => ({ kind: 'hold', squad }));

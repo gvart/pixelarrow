@@ -256,7 +256,7 @@ export function hud(s: SandboxScene): void {
     s.sim.order(q === null ? { kind: 'rebuild', building: b.id, team: myTeam() } : { kind: 'rebuild', building: b.id, squad: q });
     s.mark(b.x, b.y, 0x60d060);
   });
-  // demolish: two steps, the confirm sits in the card itself (never a browser dialog)
+  // demolish (Del): two steps, the confirm sits in the card itself (never a browser dialog); Del again or its button tears down
   let razeArmed = -1;
   const bDemolish = btn('bdemolish', 'act-cancel', '', '', () => { const b = m.selectedBuilding(); if (b && !m.demolishWhy(b)) razeArmed = b.id; });
   const razeBox = document.createElement('div');
@@ -264,6 +264,8 @@ export function hud(s: SandboxScene): void {
   razeBox.style.cssText = 'display:flex;align-items:center;gap:4px;font-size:12px;white-space:nowrap;padding:0 2px';
   const confirmRaze = (yes: boolean) => { if (yes) m.demolish(); razeArmed = -1; refresh(); };
   razeBox.addEventListener('click', (e) => { const a = (e.target as HTMLElement).closest<HTMLElement>('[data-raze]')?.dataset.raze; if (a) confirmRaze(a === 'yes'); });
+  /** A building key's hint for a tooltip title (the current binding, rebindable on Settings > Controls). */
+  const kHint = (id: ActionId) => (keys.label(id) ? ` <b class="k">${keys.label(id)}</b>` : '');
   let shownSlots: HTMLElement[] = [], shownOrders: HTMLElement[] | null = null;
   const setCard = (ord: boolean, slots: HTMLElement[], selW: number, list = orders) => {
     const want = ord ? list : null;
@@ -354,6 +356,10 @@ export function hud(s: SandboxScene): void {
     else if (m.active || m.tool) return;
     else if (a === 'order.stop') stop();
     else if (a === 'order.active') fireActives(s, sc.own());
+    // the selected building's orders (src/war/input 'building' context): only what its card offers now
+    else if (a === 'bld.upgrade' || a === 'bld.repair') { const b = a === 'bld.upgrade' ? bUp : bRepair; if (shownSlots.includes(b) && !b.disabled) b.click(); }
+    else if (a === 'bld.demolish') { if (razeArmed >= 0) confirmRaze(true); else if (shownSlots.includes(bDemolish) && !bDemolish.disabled) bDemolish.click(); }
+    else if (a === 'back' && razeArmed >= 0) confirmRaze(false);
   });
 
   // ---------- trade: holder panel, hover card, command card slots (./holder.ts, M6k) ----------
@@ -439,19 +445,19 @@ export function hud(s: SandboxScene): void {
         if (razeArmed !== b.id || razeWhy) razeArmed = -1;
         if (razeArmed >= 0) {
           const back = m.demolishRefund(b), html = `<span>Tear down the ${nameOfBuilding(b).toLowerCase()}?</span><span class="rf-dim">back ${Object.keys(back).length ? costText(back) : 'nothing'}</span>
-            <button class="rf-tbtn pri" data-raze="yes" data-tip="tear it down">Demolish</button><button class="rf-tbtn" data-raze="no">Keep</button>`;
+            <button class="rf-tbtn pri" data-raze="yes" data-tip="tear it down (${keys.label('bld.demolish') || 'click'})">Demolish</button><button class="rf-tbtn" data-raze="no">Keep</button>`;
           if (razeBox.dataset.h !== html) { razeBox.dataset.h = html; razeBox.innerHTML = html; }
           setCard(false, [razeBox], SEL_BLD);
         } else setCard(false, [...(up ? [bUp] : []), ...(hurt ? [bRepair] : []), ...(ruin ? [bRebuild] : []), ...(iron ? [bIron] : []), ...(wet ? [bWet] : []), ...(raze ? [bDemolish] : [])], SEL_BLD);
         if (raze) {
           bDemolish.disabled = !!razeWhy;
-          bDemolish.dataset.tip = actTip(`Demolish`, null, `tear it down in ${DEMOLISH.ticks / 10} s; ${Math.round(DEMOLISH.refund * 100)}% of its materials back to the nearest store (${Object.keys(m.demolishRefund(b)).length ? costText(m.demolishRefund(b)) : 'nothing'}) · asks first`, razeWhy);
+          bDemolish.dataset.tip = actTip(`Demolish${kHint('bld.demolish')}`, null, `tear it down in ${DEMOLISH.ticks / 10} s; ${Math.round(DEMOLISH.refund * 100)}% of its materials back to the nearest store (${Object.keys(m.demolishRefund(b)).length ? costText(m.demolishRefund(b)) : 'nothing'}) · asks first`, razeWhy);
         }
         const who = sq === null ? 'planned: select a squad to send it' : `squad #${sq} does the work`;
         if (hurt) {
           const r = repairBill(b), why = repairWhy(b, sq);
           bRepair.disabled = !!why;
-          bRepair.dataset.tip = actTip(`Repair`, ceilBill(r.all), `${billText(r.step)} per 10% · labour ${labourText(r.labour)} · any squad, engineers ×1.5`, why);
+          bRepair.dataset.tip = actTip(`Repair${kHint('bld.repair')}`, ceilBill(r.all), `${billText(r.step)} per 10% · labour ${labourText(r.labour)} · any squad, engineers ×1.5`, why);
         }
         if (ruin) {
           const r = rebuildBill(b), why = rebuildWhy(b);
@@ -461,7 +467,7 @@ export function hud(s: SandboxScene): void {
         const tiles = b.tiles.length / 2;
         if (iron) { bIron.dataset.tip = actTip('Iron-bind the gate', FORT.ironCost, `hp ×${FORT.iron}, once · a Fortifier engineer's work, paid at once`); bIron.disabled = (stock.iron ?? 0) < FORT.ironCost.iron || (stock.charcoal ?? 0) < FORT.ironCost.charcoal; }
         if (wet) { bWet.dataset.tip = actTip('Wet hides', { hides: FORT.wetCost * tiles }, `catches fire at ×${FORT.wet} the chance for ${FORT.wetTicks / 600} min`); bWet.disabled = (stock.hides ?? 0) < FORT.wetCost * tiles; }
-        if (up) bUp.dataset.tip = actTip(`Upgrade to level ${levelOf(up.to)}`, up.cost, `${BUILDINGS[up.to].workplace ? 'more recipes, one more crafter · ' : ''}labour ${labourText(up.labour)} · ${who}`);
+        if (up) bUp.dataset.tip = actTip(`Upgrade to level ${levelOf(up.to)}${kHint('bld.upgrade')}`, up.cost, `${BUILDINGS[up.to].workplace ? 'more recipes, one more crafter · ' : ''}labour ${labourText(up.labour)} · ${who}`);
       }
     } else if (q && own.length) {
       card.style.display = '';
