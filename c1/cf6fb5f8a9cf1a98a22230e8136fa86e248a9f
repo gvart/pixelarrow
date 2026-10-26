@@ -1,0 +1,97 @@
+docs/impl/global-war-rebuild.md
+  s_fcb7475e0b5395::t_8cf6335e8e8230 63,123
+src/war/view/main.ts
+  s_fcb7475e0b5395::t_8cf6335e8e8230 25-26,32-47,56,84,93-102
+src/war/net/client.ts
+  s_fcb7475e0b5395::t_8cf6335e8e8230 3-4,6-7,14,41,59-62,69-70,77,105,107-109
+src/war/menu/main.ts
+  s_fcb7475e0b5395::t_8cf6335e8e8230 1-149
+src/war/menu/settings.ts
+  s_fcb7475e0b5395::t_8cf6335e8e8230 1-184
+src/war/input/bindings.ts
+  s_fcb7475e0b5395::t_8cf6335e8e8230 1-247
+src/war/net/session.ts
+  s_fcb7475e0b5395::t_8cf6335e8e8230 1-60
+src/war/view/hud/soundPanel.ts
+  s_fcb7475e0b5395::t_8cf6335e8e8230 8,54
+tests/war/keys.test.ts
+  s_fcb7475e0b5395::t_8cf6335e8e8230 1-107
+index.html
+  s_fcb7475e0b5395::t_8cf6335e8e8230 5,7,13,17
+src/war/input/actions.ts
+  s_fcb7475e0b5395::t_8cf6335e8e8230 1-134
+src/war/menu/gameMenu.ts
+  s_fcb7475e0b5395::t_8cf6335e8e8230 1-60
+src/war/view/hud/fullMap.ts
+  s_fcb7475e0b5395::t_8cf6335e8e8230 17,126-128
+src/war/menu/screens.ts
+  s_fcb7475e0b5395::t_8cf6335e8e8230 1-405
+server/src/war/routes.ts
+  s_fcb7475e0b5395::t_8cf6335e8e8230 24,41,140
+src/war/view/hud/hud.ts
+  s_fcb7475e0b5395::t_8cf6335e8e8230 56,343-345,347-348
+src/war/view/select.ts
+  s_fcb7475e0b5395::t_8cf6335e8e8230 19-20,25-26,135-139,142,145-149
+src/war/world-view/source.ts
+  s_fcb7475e0b5395::t_8cf6335e8e8230 4-7,14,46,92-93,100,115-120,122-125,144
+src/war/menu/style.ts
+  s_fcb7475e0b5395::t_8cf6335e8e8230 1-125
+src/war/view/hud/modes.ts
+  s_fcb7475e0b5395::t_8cf6335e8e8230 10-11,76,93-95
+server/src/war/start.ts
+  s_fcb7475e0b5395::t_8cf6335e8e8230 1-153
+src/war/view/hud/craft/index.ts
+  s_fcb7475e0b5395::t_8cf6335e8e8230 26,172
+src/war/view/hud/guardianBar.ts
+  s_fcb7475e0b5395::t_8cf6335e8e8230 27,79
+src/war/world-view/main.ts
+  s_fcb7475e0b5395::t_8cf6335e8e8230 30-31,338,388-390,392-399
+src/war/view/interact.ts
+  s_fcb7475e0b5395::t_8cf6335e8e8230 36,68-70,73-74
+src/war/menu/api.ts
+  s_fcb7475e0b5395::t_8cf6335e8e8230 1-87
+server/src/war/persons.ts
+  s_fcb7475e0b5395::t_8cf6335e8e8230 293,295,306
+src/war/menu/turnstile.ts
+  s_fcb7475e0b5395::t_8cf6335e8e8230 1-53
+src/war/input/keys.ts
+  s_fcb7475e0b5395::t_8cf6335e8e8230 1-92
+src/war/view/hud/roster/index.ts
+  s_fcb7475e0b5395::t_8cf6335e8e8230 26,133-135
+src/war/view/build/buildMode.ts
+  s_fcb7475e0b5395::t_8cf6335e8e8230 35,104-107,109-114
+src/war/world/start.ts
+  s_fcb7475e0b5395::t_8cf6335e8e8230 1-43
+src/war/view/siege/siegeControls.ts
+  s_fcb7475e0b5395::t_8cf6335e8e8230 17,40-44
+server/test/war/start.test.ts
+  s_fcb7475e0b5395::t_8cf6335e8e8230 1-132
+src/war/input/bindingStore.ts
+  s_fcb7475e0b5395::t_8cf6335e8e8230 1-27
+docs/WAR.md
+  s_fcb7475e0b5395::t_8cf6335e8e8230 533-568
+src/main.ts
+  s_fcb7475e0b5395::t_8cf6335e8e8230 1-5
+src/war/view/SandboxScene.ts
+  s_fcb7475e0b5395::t_8cf6335e8e8230 53,209-211,213-215,461,554,561-562
+src/war/view/hud/market.ts
+  s_fcb7475e0b5395::t_8cf6335e8e8230 27,296
+server/migrations/0037_war_start.sql
+  s_fcb7475e0b5395::t_e1620b49786e4b 1-4
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "c1cf6fb5f8a9cf1a98a22230e8136fa86e248a9f",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
