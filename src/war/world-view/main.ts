@@ -22,7 +22,7 @@ import { bar, CSS, uiZoom } from '../view/hud/kit';
 import { draggable } from '../view/hud/drag';
 import { convoySeen, FRONTIER_TOWNS, HAUL_LOADS, inSight, isChokepoint, MARKET_TOWNS, planHaul, PURPOSE, seasonStandings, TRADE_CAP, type HaulKind } from './geo';
 import { allianceColor, ART, clock, WorldMap, type MapState } from './map';
-import { MockSource, NetSource, travelMs, type WorldSource, type WorldView } from './source';
+import { MockSource, NetSource, travelMs, type WorldSource, type WorldTitle, type WorldView } from './source';
 import { REGION_DEPTH } from '../sim/depth';
 import { LANDMARK_FUNCTION, REGION_LORE } from '../../data/warLore';
 import { landmarkOfRegion } from '../../data/warLandmarks';
@@ -151,7 +151,22 @@ function renderSeason(): void {
     <div class="wv-kv"><span>Omphalos</span><span>${holder >= 0 ? `${aName(holder)} holds it` : 'unclaimed'}</span>
       <span>Frontier</span><span>${ranked.map((r) => `${aName(r.id).slice(0, 3)} ${r.frontier}/4`).join(' · ')}</span></div>
     ${view.trade ? tradeHtml(ranked.map((r) => r.id), view.trade) : ''}
+    ${peaceHtml(ranked.map((r) => r.id), view.snap.score.peace)}
+    ${titlesHtml(view.titles ?? [])}
     <div class="rf-dim" style="margin-top:5px">Hegemony: Omphalos and 3 of the 4 frontier towns for 24 h ends the season.</div>`;
+}
+
+/** W-61: the peace score per alliance so far (trade volume, contracts filled, works raised). */
+function peaceHtml(ids: number[], peace: Record<string, number[]> | undefined): string {
+  if (!peace) return '';
+  const sum = (a: number) => Object.values(peace).reduce((x, v) => x + (v[a] ?? 0), 0);
+  return `<div class="rf-cap" style="margin-top:6px">Peace score</div>
+    ${ids.map((a) => `<div class="wv-row" style="padding:1px 4px">${swatch(a)}<span style="flex:1">${aName(a)}</span><span class="rf-dim" style="font-size:11px">${['volume', 'contracts', 'works'].map((k) => `${k} ${peace[k]?.[a] ?? 0}`).join(' · ')}</span><span class="rf-num" style="width:34px;text-align:right">${sum(a)}</span></div>`).join('')}`;
+}
+
+/** W-61: the season's titles, each holder with his alliance's banner and home. */
+function titlesHtml(t: WorldTitle[]): string {
+  return `<div class="rf-cap" style="margin-top:6px">Titles</div>${t.length ? t.map((x) => `<div class="wv-row" style="padding:1px 4px">${x.alliance >= 0 ? swatch(x.alliance) : ''}<b style="width:112px">${x.name}</b><span style="flex:1">${x.player}</span><span class="rf-dim">${x.home ?? ''}</span></div>`).join('') : '<div class="rf-dim" style="padding:1px 4px">none claimed yet</div>'}`;
 }
 
 /** M6l: today's trade score per alliance against the daily cap. */

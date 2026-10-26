@@ -18,6 +18,7 @@ import { myTeam } from '../side';
 import { draggable } from './drag';
 import { bar, fitHeight, icon } from './kit';
 import { esc } from './roster/ui';
+import { setTitlesLine } from './roster/panel';
 
 type Mk = (id: string, css: string, html?: string) => HTMLElement;
 
@@ -138,9 +139,21 @@ export function mountPeace(s: SandboxScene, mk: Mk): void {
     if (!online()) return render();
     const [w, t] = await Promise.all([s.sim.api<{ works: WorkView[] }>('GET', 'works'), s.sim.api<{ titles: TitleRow[]; mine: PeaceStats }>('GET', 'titles')]);
     if (w?.works?.length) works = w.works;
-    if (t?.titles) (titles = t.titles), (stats = t.mine);
+    if (t?.titles) (titles = t.titles), (stats = t.mine), strip();
     render();
   };
+  // the roster's titles strip: who holds each title (yours in gold)
+  const strip = () => {
+    const me = s.sim.playerId ?? null;
+    setTitlesLine(titles.length ? `<div style="display:flex;flex-wrap:wrap;gap:3px;margin:4px 2px 0">${titles.map((x) => `<span style="font:700 10.5px/14px Inter,sans-serif;padding:0 4px;border:1px solid var(--rf-line);background:var(--rf-sunk)${x.pid === me ? ';color:var(--rf-gold)' : ''}" data-tip="${esc(`${x.name}: ${x.player}, ${fmt(x.value)} ${TITLE_OF[x.id] ?? ''}`)}">${esc(x.name)} · ${esc(x.player)}</span>`).join('')}</div>` : '');
+  };
+  const pollTitles = async () => {
+    if (!online()) return;
+    const t = await s.sim.api<{ titles: TitleRow[]; mine: PeaceStats }>('GET', 'titles');
+    if (t?.titles) (titles = t.titles), (stats = t.mine), strip();
+  };
+  setTimeout(() => void pollTitles(), 3000);
+  setInterval(() => void pollTitles(), 300_000);
   const toggle = (on = win.style.display === 'none') => {
     win.style.display = on ? '' : 'none';
     if (on) void load();

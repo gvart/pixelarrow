@@ -69,6 +69,10 @@ function row(r: Row, sel: string | null, pending: boolean, captor: number | unde
   </div>`;
 }
 
+/** W-61: the season's titles strip under the roster's tabs (../peace.ts sets it; '' none). */
+let titlesLine = '';
+export const setTitlesLine = (html: string) => void (titlesLine = html);
+
 /** listH: the list's height in art px (the panel stops above the minimap). picked: the men selected in the world (W-53). */
 export function panelHtml(R: SandboxRoster, filter: Filter, sort: Sort, sel: string | null, listH = 380, dev = false, picked: ReadonlySet<number> = new Set()): string {
   const rows = R.rows().filter((r) => filter === 'all' || (filter === 'field' ? r.where === 'field' : r.where === 'wounded' || r.where === 'captive' || r.where === 'dead'));
@@ -91,6 +95,7 @@ export function panelHtml(R: SandboxRoster, filter: Filter, sort: Sort, sel: str
       <button class="rf-tbtn x" data-act="close" data-tip="close (R)">✕</button>
     </div>
     <div style="display:flex;align-items:flex-end;height:23px;margin:5px 0 0 2px">${FILTERS.map(([f, n]) => `<button class="rf-tab${f === filter ? ' on' : ''}" data-filter="${f}">${n}</button>`).join('')}</div>
+    ${titlesLine}
     <div class="rr-list" style="max-height:${listH}px">${body || '<div class="rf-dim" style="padding:8px 4px">nobody here</div>'}</div>
     <div style="display:flex;gap:3px;margin-top:5px;padding:0 2px">
       ${dev ? '<button class="rf-tbtn" data-act="xpAll" data-tip="dev: one level of XP to every fit soldier">+XP all</button>' : ''}
