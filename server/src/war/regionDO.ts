@@ -4,7 +4,7 @@
  * object resident meanwhile. Sockets use the hibernation API; the object cannot hibernate while the loop runs.
  *
  * The Worker authenticates the socket (/ws/war/:region) and forwards it with X-Player-Id; the DO trusts that header.
- * Protocol: src/war/net/protocol.ts. GET /stats (dev only, routed by the Worker) reports tick times and bandwidth.
+ * Protocol: src/war/net/protocol.ts. GET /stats (dev only, routed by the Worker) reports tick times and bandwidth, and the neutral state (lairs, guardians, claim points: `wild`).
  *
  * M5e persistence:
  *  - a join names persons by id: they are claimed in D1 for this region (./persons.ts claimForJoin) and spawned;
@@ -620,6 +620,7 @@ export class WarRegionDO extends DurableObject<Env> {
       units: room?.alive() ?? 0, online: room?.online() ?? 0, quota: room?.quota() ?? null,
       totalMs: pick('totalMs'), stepMs: pick('stepMs'), snapMs: pick('snapMs'), netMs: pick('netMs'), sendMs: pick('sendMs'), lateMs: pick('lateMs'),
       bytesPerTick: pick('bytes'), clientsPerTick: pick('clients'),
+      ...(room ? { wild: room.wild() } : {}),
     };
   }
 }

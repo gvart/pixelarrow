@@ -5,13 +5,18 @@ npm run play:war            # migrate local D1, start wrangler dev (DEV_AUTH=1) 
 npm run play:war -- --reset # wipe local state first: a fresh world, season and roster
 npm run play:war -- --bots  # + 3 bot players (Skythia, Kyrene, Elaia), 12 militia each standing at home
 npm run play:war -- --fast  # world travel x0.05 (WAR_TRAVEL_SCALE, dev only): transits take seconds
-node scripts/war/play-smoke.mjs   # headless run of the whole loop below (servers up with --reset --fast; ~15 min)
+node scripts/war/play-smoke.mjs   # live wiring check (servers up with --reset --fast; 12 min on a loaded machine, 6 of it the page starting a region)
 ```
 
-The smoke drives one page as dev player 1 and a raw socket as a second dev player (Skythia, the buyer and the
-palisade's owner). It runs in Playwright's bundled Chromium in the new headless mode (`channel: 'chromium'`; `--chrome`
-for the system Chrome). The old headless shell (Playwright's default) runs the page far too slowly under software GL
-to start a region.
+The smoke only checks wiring: the page (dev player 1, Dodona) opens the world map, enters home and gives a move order;
+raw sockets (dev 1, and dev 2 as Skythia, each with its own `cf-connecting-ip`, else the accounts are linked and may not
+trade) carry food and coin from the strongrooms in packs, one chained transfer each into Kleisoura, stow them into a
+stall and a warehouse in the court, and the buyer fills the seller's offer. The loop's game logic is in seeded vitest
+scenarios run in CI: tests/war/loop.test.ts (moors: bear lair, the Great Bear, claim point 2 flipped, a ram crewed, moved
+and breaching a palisade gate) and server/test/war/tradeLoop.test.ts (the buyer's coin strongroom -> packs -> transfer ->
+warehouse in the court -> a fill). It runs in Playwright's bundled Chromium in the new headless mode
+(`channel: 'chromium'`; `--chrome` for the system Chrome). The old headless shell (Playwright's default) runs the page far
+too slowly under software GL to start a region.
 
 The first start packs the sprite sheets (a few minutes). You play dev player 1 in Dodona with the design's start:
 12 militia recruited at home for food, the rest of the start food (120) in the strongroom, no coin. Open
@@ -84,12 +89,11 @@ has no dev panel; `npm run play:war -- --reset` gives a fresh world.
 
 ## Known gaps
 
-- The smoke loop passes from the world map through the caravan's arrival in Kleisoura (gather, camp, storehouse,
-  recruit / train, a sword forged into a chest, a handcart made, loaded, crewed and hauled over two borders). The cart
-  rolls into the market court, wood is stowed into a rented stall and a sell offer listed. The buyer's fill then
-  fails ("It costs 30 coin, in your warehouse or stall here": the smoke gives him no coin in his fresh warehouse); the
-  loop goes on to the chained transfer kleisoura -> dodona-e -> moors (arrives); lair raid, claim and ram siege are
-  scripted after it but not yet seen passing live.
+- The live smoke covers only wiring (see above); the caravan, crafting, lairs, guardian, claims and siege are covered
+  headless (tests/war, server/test/war) and by hand in the steps above. Lairs, guardians and claims of a live region are
+  in its dev `/api/war/:region/stats` (`wild`): fog hides the beasts from the page.
+- No squad transfers out with a foe within 20 tiles. A squad lingering at Kleisoura's court with a cart meets the
+  bandits' cart raid outside the court (12 men don't fit in it; those outside are taken), and then cannot leave.
 - Right after the start the home recruit pool is empty (the start's 12 militia took it; it refills 6 an hour).
 - A crafted item lands in the maker's chest by the workplace; with no chest it rides in the maker's pack (the stash
   lists it under packs).
