@@ -957,12 +957,18 @@ export class BuildingLayer {
     } else g.fillStyle(0xd04030, 1).fillRect(x, y, (w * b.hp) / b.maxHp, h);
   }
 
-  /** W-57: a floating note over an own stalled site: what it waits for. */
+  /**
+   * W-57: a floating note over an own stalled site: what it waits for. It keeps one size on screen at every zoom (13 px
+   * on a dark plate, drawn at twice the resolution), so it reads as well zoomed out as in.
+   */
   private waitNote(b: BuildingSnap, c: P, zoom: number): void {
     let t = this.waits[this.nw];
-    if (!t) this.waits.push((t = this.scene.add.text(0, 0, '', { fontFamily: 'monospace', fontSize: '12px', color: WAIT_COLOR, stroke: '#000000', strokeThickness: 3 }).setOrigin(0.5, 1).setDepth(11.6)));
+    if (!t) {
+      t = this.scene.add.text(0, 0, '', { fontFamily: 'monospace', fontSize: '13px', fontStyle: 'bold', color: WAIT_COLOR, stroke: '#000000', strokeThickness: 3, backgroundColor: 'rgba(12,10,8,0.62)', padding: { x: 4, y: 2 }, resolution: 2 });
+      this.waits.push(t.setOrigin(0.5, 1).setDepth(11.6));
+    }
     this.nw++;
-    const tall = this.art?.meta(b.type)?.heightPx || HEIGHT[b.type] || 60, k = 1 / Math.max(zoom, 1 / 4);
+    const tall = this.art?.meta(b.type)?.heightPx || HEIGHT[b.type] || 60, k = 1 / Math.max(zoom, 1 / 8);
     t.setText(`⏳ ${waitText(b)}`).setScale(k).setPosition(c.x, c.y - tall - 20 * k).setVisible(true);
   }
 
