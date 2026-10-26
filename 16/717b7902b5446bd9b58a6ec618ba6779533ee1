@@ -1,0 +1,61 @@
+src/war/view/hud/peaceCards.ts
+  s_fcb7475e0b5395::t_9f5578452eb4e8 1-167
+tests/war/peaceHud.test.ts
+  s_fcb7475e0b5395::t_9b3dc793ae6d04 1,4-41
+  s_fcb7475e0b5395::t_24068b4cb14d28 2-3
+src/war/view/hud/peace.ts
+  s_fcb7475e0b5395::t_66f0221bc2f5eb 49
+  s_fcb7475e0b5395::t_9f5578452eb4e8 16,21,24
+  s_fcb7475e0b5395::t_632bdfd938469f 50
+  s_fcb7475e0b5395::t_926eca30ca9c31 36
+  s_fcb7475e0b5395::t_d75e3d3ad8df70 44
+  s_fcb7475e0b5395::t_d7e7718ffbf777 38
+  s_fcb7475e0b5395::t_c615713103dee0 80
+  s_fcb7475e0b5395::t_57b3d8e66dec74 2-3,5-13,22,30-35,37,39-43,45-48,51-68,75-76,78,82-83,92-93,99,103-105,108,111-116,126-127,137,141-142,145,147-157,162,172-177
+src/war/view/hud/kit.ts
+  s_fcb7475e0b5395::t_c26b4a0b59a6d9 183-196,198,201-202
+  s_fcb7475e0b5395::t_24392bbb4e286f 197
+  s_fcb7475e0b5395::t_25f7685fa4a448 203
+src/war/world-view/map.ts
+  s_fcb7475e0b5395::t_78b33024f2838f 546-562
+  s_fcb7475e0b5395::t_55775f657f44bb 125
+  s_fcb7475e0b5395::t_7ecd0181b5c9df 48-49
+src/war/view/hud/market.ts
+  s_fcb7475e0b5395::t_11bb67f0ca6f1c 292-296,298,301,303-310,312-314,316-317,319-322,324-330,333-341,343-352,354
+  s_fcb7475e0b5395::t_c75d004cc8dc4c 109,136
+  s_fcb7475e0b5395::t_10be513af5af69 107-108,110-115,117-135,137-139
+  s_fcb7475e0b5395::t_bf0ace9f28f757 297,299,342,353
+  s_fcb7475e0b5395::t_61bd9fb8999a33 311
+  s_fcb7475e0b5395::t_64753425793e25 428-432,440
+  s_fcb7475e0b5395::t_74d5a223ef1e7e 31
+  s_fcb7475e0b5395::t_039a0dab697684 387-395
+  s_fcb7475e0b5395::t_d0ceec7755d634 116
+  s_fcb7475e0b5395::t_022eff4538a13d 300,302
+  s_fcb7475e0b5395::t_1165fec7830626 51-59
+src/war/world-view/main.ts
+  s_fcb7475e0b5395::t_d2903817b1851b 54-58
+  s_fcb7475e0b5395::t_120371f7505a1e 394
+  s_fcb7475e0b5395::t_6abf91c393fd6a 185,187-197
+  s_fcb7475e0b5395::t_930507e52b549f 21-23
+  s_fcb7475e0b5395::t_5c279f6121ccd3 81,86-95
+src/war/view/hud/titles.ts
+  s_fcb7475e0b5395::t_85f8a5548732ef 1-10,15-26,28
+  s_fcb7475e0b5395::t_662616f36996fa 11-14
+  s_fcb7475e0b5395::t_627293f8a95635 27
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "16717b7902b5446bd9b58a6ec618ba6779533ee1",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
