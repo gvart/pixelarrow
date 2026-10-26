@@ -22,7 +22,7 @@ const MOUNDS: [number, number, number][] = [[60, 60, 6], [92, 40, 5], [176, 64, 
 
 const def: RegionDef = {
   id: 'skythia',
-  style: { dry: 0.3, dryHigh: false, meadow: -0.2, trees: 0.04, bushes: 0.01 },
+  style: { dry: 0.3, dryHigh: false, meadow: -0.2, trees: 0.04, bushes: 0.01, tufts: 0.16 },
   build(k: Kit) {
     k.fill(9);
     const RIVER: [number, number][] = [[-6, 176], [30, 166], [62, 184], [98, 170], [128, 186], [160, 172], [194, 190], [228, 178], [262, 188]];
@@ -78,6 +78,12 @@ const def: RegionDef = {
     for (let a = 0; a < 12; a++) k.piece('mountains/cairn', [156 + 11 * Math.cos(a * 0.524), 120 + 9 * Math.sin(a * 0.524)], { r: 1.5 }); // the ring of stones
     k.piece('mountains/watch-post', [176, 64], { r: 5 });
     k.piece('mountains/ibex', [214, 60], { r: 20 });
+    // the wagon town's camp: felt tents and carts on its rim, goat flocks and hives out on the grass round it
+    for (const [x, y] of [[100, 136], [146, 136], [104, 166], [144, 160], [118, 126]] as [number, number][]) k.piece('kyrene/nomad-tent', [x, y], { r: 6, n: 2, gap: 4 });
+    for (const [x, y] of [[112, 140], [136, 158], [130, 138]] as [number, number][]) k.piece('elaia/handcart', [x, y], { r: 5 });
+    for (const [x, y] of [[96, 110], [170, 104], [60, 140], [200, 150], [40, 80]] as [number, number][]) k.piece('elaia/goats', [x, y], { r: 10 });
+    k.piece('elaia/beehives', [150, 176], { r: 6, n: 2 });
+    k.piece('elaia/amphora-stack', [128, 140], { r: 5, n: 2 });
   },
 };
 export default def;
