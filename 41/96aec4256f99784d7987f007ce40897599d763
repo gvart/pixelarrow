@@ -1,0 +1,38 @@
+tests/war/movement.test.ts
+  s_fcb7475e0b5395::t_a7230c4d271640 205
+  s_fcb7475e0b5395::t_cf5ec09cea41a0 60-62,92-93,145
+  s_fcb7475e0b5395::t_9f619637b74e41 121-133
+  s_fcb7475e0b5395::t_2918782527fbbb 148-163
+  s_fcb7475e0b5395::t_d5c49d90e8e28e 41,43
+  s_fcb7475e0b5395::t_5fd4bec241d094 14,17,28-30
+  s_fcb7475e0b5395::t_2d7d2cb58cc965 197-204,206-231
+  s_fcb7475e0b5395::t_7c45eada0634f9 1-13,15-16,18-27,31-40,42,44-59,63-91,94-97,99-105,109-120,134-144,146-147,164-196,232
+  s_fcb7475e0b5395::t_42144d85b6f16e 98,106-108
+tests/war/village.test.ts
+  s_fcb7475e0b5395::t_4caa04bd42a4a2 79-81,84-85
+tests/war/piles.test.ts
+  s_fcb7475e0b5395::t_ae9220ed388a84 133-145
+  s_fcb7475e0b5395::t_5edd06cf0a1c6e 117,125-126
+tests/war/civilians.test.ts
+  s_fcb7475e0b5395::t_3aea15aa3b68c3 220
+tests/war/fall.test.ts
+  s_fcb7475e0b5395::t_a5ea5d94f31c5d 106
+tests/war/combat.test.ts
+  s_fcb7475e0b5395::t_c20b35e9892b12 75
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "4196aec4256f99784d7987f007ce40897599d763",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
