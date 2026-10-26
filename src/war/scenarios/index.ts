@@ -8,6 +8,7 @@ import type { BridgeOrder, BuildingType, Order, ResourceKind, SafeRect, TileRect
 import { CLAIM_POINT as ridgeClaim, SPOTS } from '../regions/test-ridge.spots';
 import { SQUAD_MAX } from '../sim/soldiers';
 import { CLIP_SCENARIOS } from './clips';
+import { TRAILER_SCENARIOS } from './trailer';
 
 /** count: at most SQUAD_MAX (the sim clamps it). owner: the spawn's owner (default you / bot); a team-1 squad without a bot and with an owner other than `bot` stands idle. */
 export interface ScenarioSquad { team: 0 | 1; cls: string; count: number; x: number; y: number; bot?: Behaviour; owner?: string;
@@ -594,6 +595,7 @@ export const SCENARIOS: Scenario[] = [
     camera: { x: S.ford[0], y: S.ford[1], zoom: 1 / 2 },
   },
   ...CLIP_SCENARIOS,
+  ...TRAILER_SCENARIOS,
 ];
 
 export const scenarioById = (id: string | null): Scenario | undefined => SCENARIOS.find((s) => s.id === id);
