@@ -48,6 +48,9 @@ import { mountGuardians } from './guardianBar';
 import { billText, mountBuildingCard, rebuildBill, rebuildWhy, repairBill, repairWhy } from './buildingCard';
 import { RECIPES } from '../../../data/recipes';
 import { allCivilians, civBuild, civGather, civInfo, civName, civTips, civWork } from './cardCiv';
+import { buildCard, term } from './codex';
+import { loadGlyphs } from './glyph';
+import { TIP_CSS, tipChain } from './tooltip';
 
 const RES: string[] = ['food', 'wood', 'stone', 'marble', 'copper', 'tin', 'iron', 'bronze', 'silver', 'salt', 'olives', 'coin'];
 /** M5h: the band's second page (its toggle under the right end): crafting goods, pitch, and the remedies in the team supplies (p:). */
@@ -61,14 +64,12 @@ interface ToolDef { name: string; icon: string; tool: Tool; cost: Cost; labour: 
   /** M5h3: the engineer node it needs (an engine design, a Fortifier field tile). */
   node?: string;
   /** M6k carts: a workshop recipe queued at your workshop of its level (not laid out on the map). */
-  craft?: string }
-const bTool = (t: BuildingType, note = '', name = nice(t)): ToolDef => ({ name, icon: BUILDING_ICON[t], tool: { kind: 'building', type: t }, cost: BUILDINGS[t].cost, labour: BUILDINGS[t].labour, note });
-/** M5h workplaces: level 1 placed here, L2 / L3 by Upgrade on the building's card. */
-const WORKPLACES: [BuildingType, string, string][] = [
-  ['forge', 'Forge', 'smiths: bronze, weapons, armour, repairs'], ['cookhouse', 'Cookhouse', 'cooks: rations and dishes'],
-  ['infirmary', 'Infirmary', 'physicians: bandages, salves, theriac'], ['workshop', 'Workshop', 'engineers: tools, mantlets'],
-  ['stall', 'Market stall', 'merchants: caravan goods'], ['sortingFloor', 'Sorting floor', 'foragers: charcoal, linen, leather (or upgrade a storehouse)'],
-];
+  craft?: string;
+  /** The building type it places (its description, ./codex.ts BUILD_TEXT). */
+  type?: BuildingType }
+const bTool = (t: BuildingType, note = '', name = nice(t)): ToolDef => ({ name, icon: BUILDING_ICON[t], tool: { kind: 'building', type: t }, cost: BUILDINGS[t].cost, labour: BUILDINGS[t].labour, note, type: t });
+/** M5h workplaces: level 1 placed here, L2 / L3 by Upgrade on the building's card (what each is for: ./codex.ts). */
+const WORKPLACES: [BuildingType, string][] = [['forge', 'Forge'], ['cookhouse', 'Cookhouse'], ['infirmary', 'Infirmary'], ['workshop', 'Workshop'], ['stall', 'Market stall'], ['sortingFloor', 'Sorting floor']];
 /** M6k carts (docs/WAR.md "Carts"): made at a workshop, rolled out beside it for you. */
 const cartTool = (t: 'handcart' | 'wagon'): ToolDef => {
   const r = RECIPES[t], lvl = r.lv;
@@ -76,7 +77,7 @@ const cartTool = (t: 'handcart' | 'wagon'): ToolDef => {
 };
 const TABS: Record<'Camp' | 'Walls' | 'Craft' | 'Siege' | 'Trade', ToolDef[]> = {
   Camp: TOOLBAR.map((t) => bTool(t)),
-  Craft: WORKPLACES.map(([t, name, note]) => bTool(t, `${note} · L2, L3: Upgrade`, name)),
+  Craft: WORKPLACES.map(([t, name]) => bTool(t, '', name)),
   Walls: [
     { ...bTool('palisade', 'per tile · G gate, T tower, Enter orders', nice(WALL_NAME.wood)), tool: { kind: 'wall', material: 'wood' } },
     { ...bTool('rampart', 'per tile · 2 deep, walkway', nice(WALL_NAME.timber)), tool: { kind: 'wall', material: 'timber' } },
@@ -107,7 +108,8 @@ export function hud(s: SandboxScene): void {
   let held = new Set<string>();
   const nodeWhy = (d: ToolDef) => (d.node && !held.has(d.node) ? `needs an engineer with ${PROF_NODES[d.node]?.name ?? d.node}` : '');
   const style = document.createElement('style');
-  style.textContent = CSS + ACTIVE_CSS;
+  style.textContent = CSS + ACTIVE_CSS + TIP_CSS;
+  void loadGlyphs();
   document.head.appendChild(style);
   const els: HTMLElement[] = [];
   const mk = (id: string, css: string, html = '') => {
@@ -165,9 +167,15 @@ export function hud(s: SandboxScene): void {
     tip.innerHTML = html;
     tip.style.display = '';
     placeTip(tip, el);
+    chain.shown(el);
   };
-  const hideTip = () => (tip.style.display = 'none');
-  const tipOn = (el: HTMLElement, html: () => string) => { el.addEventListener('pointerenter', () => showTip(el, html())); el.addEventListener('pointerleave', hideTip); };
+  const hideTip = () => { tip.style.display = 'none'; chain.hidden(); };
+  // W-55: a held tooltip (its terms open nested cards) closes when the pointer leaves the chain
+  const chain = tipChain(tip, () => { tip.style.display = 'none'; tipAt = null; });
+  const tipOn = (el: HTMLElement, html: () => string) => {
+    el.addEventListener('pointerenter', () => { if (!chain.isHeld()) showTip(el, html()); });
+    el.addEventListener('pointerleave', (e) => { if (!chain.isHeld() && !chain.holds(e.relatedTarget)) hideTip(); });
+  };
 
   // ---------- command card: selection | orders + formation | squad-specific ----------
   const card = mk('rfCard', 'left:50%;bottom:4px;transform:translateX(-50%);display:none;pointer-events:auto');
@@ -311,7 +319,7 @@ export function hud(s: SandboxScene): void {
   const renderTools = () => {
     toolBtns.length = 0;
     bTools.replaceChildren(...TABS[tab].map((d, i) => {
-      const b = btn('bt-' + tab + i, d.icon, () => `<div class="rf-name" style="margin-bottom:4px">${d.name}</div><div style="display:flex;align-items:center">${costHtml(d.cost)}</div><div class="rf-dim" style="margin-top:3px">${d.craft ? `${d.labour} s an engineer` : `labour ${labourText(d.labour)}`}${d.note ? ' · ' + d.note : ''}</div>${nodeWhy(d) ? `<div class="rf-dim" style="margin-top:3px;color:#ff7a5c">${nodeWhy(d)}</div>` : ''}`, '', () => { if (d.craft) return craftCart(d.craft); if (!nodeWhy(d)) m.setTool(JSON.stringify(m.tool) === JSON.stringify(d.tool) ? null : d.tool); });
+      const b = btn('bt-' + tab + i, d.icon, () => buildCard(d.tool?.kind === 'siege' ? 'siege' : 'building', d.tool?.kind === 'siege' ? d.tool.type : d.type ?? '', d.name, icon(d.icon, 32), `<div style="display:flex;align-items:center;flex-wrap:wrap;row-gap:2px">${costHtml(d.cost)}</div><div class="rf-dim" style="margin-top:3px;font-size:11px">${d.craft ? `${d.labour} s an engineer` : `${term('labour')} ${labourText(d.labour)}`}${d.note ? ' · ' + d.note : ''}</div>`, nodeWhy(d)), '', () => { if (d.craft) return craftCart(d.craft); if (!nodeWhy(d)) m.setTool(JSON.stringify(m.tool) === JSON.stringify(d.tool) ? null : d.tool); });
       b.dataset.tool = String(i);
       toolBtns.push([b, d]);
       return b;
@@ -387,7 +395,7 @@ export function hud(s: SandboxScene): void {
   // ---------- refresh ----------
   const refresh = () => {
     // a button removed or hidden under the pointer never sends pointerleave
-    if (tipAt && (!tipAt.isConnected || !tipAt.offsetParent)) { tipAt = null; hideTip(); }
+    if (tipAt && (!tipAt.isConnected || !tipAt.offsetParent) && !chain.isHeld()) { tipAt = null; hideTip(); }
     modes.refresh();
     trade.refresh();
     const st = s.sim.cur?.stock?.[0] ?? {}, sup = (s.sim.cur?.supplies?.[0] ?? {}) as Record<string, number>;
