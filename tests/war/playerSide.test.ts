@@ -36,9 +36,9 @@ describe('the player side for a Kyrene player (team 2)', () => {
     expect(isMine(0)).toBe(false);
   });
 
-  it('draws his side in the own colour slot and Dodona in his', () => {
+  it('draws every alliance in its own world-map colour, whoever plays', () => {
     setMyTeam(KYRENE);
-    expect([0, 1, 2, 3].map(slot)).toEqual([2, 1, 0, 3]);
+    expect([0, 1, 2, 3].map(slot)).toEqual([0, 1, 2, 3]);
     setMyTeam(0);
     expect([0, 1, 2, 3].map(slot)).toEqual([0, 1, 2, 3]);
   });
