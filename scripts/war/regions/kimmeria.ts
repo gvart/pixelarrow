@@ -18,7 +18,7 @@ import { pocketBoss } from './tiers.ts';
 
 const def: RegionDef = {
   id: 'kimmeria',
-  style: { dry: 0.3, dryHigh: false, trees: 0.05, bushes: 0.08, meadow: 0.3 },
+  style: { dry: 0.3, dryHigh: false, trees: 0.05, bushes: 0.08, meadow: 0.3, tufts: 0.04 },
   build(k: Kit) {
     const N = k.entry('skythia-w'), E = k.entry('skythia-s'), W = k.entry('saddle'), S = k.entry('canyons');
     k.fill(3);
@@ -76,6 +76,8 @@ const def: RegionDef = {
     k.piece('wall-ruin', [96, 104], { r: 5, n: 3, gap: 3 });
     k.piece('watchtower', [98, 96], { r: 4 });
     pocketBoss(k, 'griffin', [118, 98], 5);
+    // the fort top read as a bare lawn with huts in a row: fallen ramparts, stones, dead trees and broom between them
+    for (const [n, [dx, dy]] of ([[-14, -8], [10, -12], [-6, 12], [14, 10], [-16, 4], [4, -16], [18, -2], [-2, 16], [8, 4], [-10, -2]] as const).entries()) k.piece(['elaia/wall-fallen-stone', 'elaia/debris-stone', 'dead-tree', 'kyrene/broom', 'mountains/boulder-field'][n % 5], [F[0] + 4 + dx, F[1] + dy], { r: 3, n: 2, gap: 2 });
     // the slopes: hawthorns, horse pasture, a herders' hamlet; stone from the quarry
     k.forest([66, 196, 7, 5, 0.3], [222, 70, 7, 5, 0], [186, 30, 6, 5, 0]);
     k.village([206, 112], 4);
@@ -87,6 +89,8 @@ const def: RegionDef = {
     k.lair('ibex', [30, 214], { as: 'wild horses' });
     k.lair('ibex', [226, 40], { as: 'wild horses' });
     k.lair('ibex', [228, 230], { as: 'wild horses' });
+    // the crossing of the Sacred Way: a waymark cairn, a herders' cart, horses' trough stones, broom
+    for (const [n, [dx, dy]] of ([[-6, -5], [6, -6], [-6, 6], [7, 5]] as const).entries()) k.piece(['mountains/cairn', 'elaia/handcart', 'elaia/wall-fallen-stone', 'kyrene/broom'][n], [hub[0] + dx, hub[1] + dy], { r: 3, n: n === 0 ? 1 : 2, gap: 2 });
     k.claim(hub, 180);
   },
 };
