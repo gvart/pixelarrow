@@ -520,6 +520,10 @@ export interface WarBuildSim extends WarSim {
   damageBuilding(id: number, dmg: number): void;
   /** Scenarios: the team's unfinished bridge pieces done at once (standing bridges at the start). */
   finishBridges(team: number): void;
+  /** Dev: site `id` done at once (materials and labour free); false when it is no open site. */
+  finishSite(id: number): boolean;
+  /** Dev: these living men struck down (they fall wounded or dead by their END), hurt to a quarter of their hp, or healed. */
+  devUnits(ids: number[], op: 'kill' | 'hurt' | 'heal'): void;
   /** M6b scenarios and benches: a finished, empty cart of `owner` (team `team`) at (x,y); its siege id. `crew`: squad crewing it at once. */
   spawnCart(team: number, owner: string, type: 'handcart' | 'wagon', x: number, y: number, crew?: number): number;
   /** Spawn the region's lairs (neutral play; once). */

@@ -2904,6 +2904,17 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       reslotQueue.clear();
       return out;
     },
+    devUnits(ids, op) {
+      // dev panel: strike down (falls wounded or dead by his END, as in a fight), hurt to a quarter, or heal living men
+      const of = new Set(ids);
+      for (const u of units) {
+        if (!u.alive || !of.has(u.id)) continue;
+        if (op === 'kill') hurt(u, Infinity);
+        else if (op === 'heal') u.hp = u.maxHp;
+        else u.hp = Math.max(1, Math.min(u.hp, Math.round(u.maxHp / 4)));
+      }
+    },
+    finishSite: works.finishSite,
     hurtPersons(lost) {
       // M4: men arriving from another region come in with the hit points they left with
       for (const u of units) {
