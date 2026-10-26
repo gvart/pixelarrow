@@ -18,7 +18,7 @@ import { pocketBoss } from './tiers.ts';
 
 const def: RegionDef = {
   id: 'bacchae',
-  style: { dry: 0.2, trees: 0.05, bushes: 0.08 },
+  style: { dry: 0.2, trees: 0.05, bushes: 0.08, tufts: 0.03 },
   build(k: Kit) {
     const W = k.entry('elaia-n'), S = k.entry('elaia-e'), N = k.entry('erymanthos'), E = k.entry('gorge');
     k.fill(2);
@@ -74,6 +74,14 @@ const def: RegionDef = {
     k.lair('bandit', [236, 24], { as: 'bandits' });
     k.lair('boar', [80, 120], { as: 'boars' });
     k.lair('boar', [18, 232], { as: 'boars' });
+    // the grove's bare clearing round the temple: the thiasos' leavings (amphorae, a fallen altar stone, vines, herbs)
+    for (const [n, [dx, dy]] of ([[-5, -3], [4, -5], [-4, 4], [6, 3], [0, 6], [-7, 0], [7, -1], [2, -7]] as const).entries()) k.piece(['elaia/amphora-stack', 'elaia/wall-fallen-stone', 'elaia/vines', 'elaia/herbs', 'elaia/debris-stone', 'elaia/vines', 'elaia/amphora-stack', 'elaia/herbs'][n], [38 + dx, 30 + dy], { r: 2, n: 2, gap: 2 });
+    // the quarry's benches: cut marble blocks and spoil on the floor and the ledges
+    for (const [n, [dx, dy]] of ([[-6, 4], [6, 6], [0, 9], [-10, -2], [10, -4], [-4, -8], [8, -10]] as const).entries()) k.piece(['elaia/marble-quarry', 'elaia/debris-stone', 'elaia/marble-outcrop-b', 'elaia/debris-stone'][n % 4], [150 + dx, 64 + dy], { r: 3, n: 2, gap: 2 });
+    // the village round its well: carts, amphorae, hives, olive baskets, goats
+    for (const [n, [dx, dy]] of ([[-6, -4], [6, -5], [-5, 6], [7, 5], [-9, 0], [2, 8]] as const).entries()) k.piece(['elaia/amphora-stack', 'elaia/handcart', 'elaia/beehives', 'elaia/amphora-stack', 'elaia/olive-harvest', 'elaia/goats'][n], [54 + dx, 216 + dy], { r: 3, n: 2, gap: 2 });
+    // the crossing at the hill's foot: a wayside shrine, a cart of grapes
+    for (const [n, [dx, dy]] of ([[-6, -5], [6, -6], [-6, 6]] as const).entries()) k.piece(['elaia/shrine', 'elaia/handcart', 'elaia/amphora-stack'][n], [hub[0] + dx, hub[1] + dy], { r: 3, n: n === 0 ? 1 : 2, gap: 2 });
     k.claim(hub, 180);
   },
 };
