@@ -1,0 +1,152 @@
+---
+// "Your men": a strip of soldier cards with the six classes a squad can field (docs/WAR.md "Starting a
+// game"), each with the HUD's class icon and the class's own idle loop cut from its war sprite sheet
+// (src/assets/sheets/<class>, facing south-east). Class names and roles are the menu's squad picker's
+// (src/war/menu/screens.ts); the man's name and level are an example of one soldier's record.
+const MEN = [
+  { cls: 'hoplite', icon: 'hoplite', label: 'Hoplite', role: 'Heavy infantry', name: 'Leonidas', level: 6 },
+  { cls: 'archer', icon: 'archer', label: 'Archer', role: 'Missile · long', name: 'Teukros', level: 4 },
+  { cls: 'celt_sword', icon: 'swordsman', label: 'Swordsman', role: 'Shock infantry', name: 'Brennos', level: 5 },
+  { cls: 'slinger', icon: 'slinger', label: 'Slinger', role: 'Missile · mid', name: 'Lykon', level: 3 },
+  { cls: 'javelineer', icon: 'javelineer', label: 'Javelineer', role: 'Skirmisher', name: 'Seuthes', level: 4 },
+  { cls: 'militia', icon: 'militia', label: 'Militia', role: 'Levy · line', name: 'Dion', level: 1 },
+];
+---
+<section class="men" id="men" aria-labelledby="men-title">
+  <div class="container">
+    <h2 class="heading" id="men-title">Your men</h2>
+    <p class="men__lead">Every soldier is a man with a name. They level up, keep their gear and earn honours, and the wounded come back to fight again.</p>
+    <ul class="men__strip" role="list">
+      {MEN.map((m) => (
+        <li class="man frame-card">
+          <div class="man__head">
+            <img class="pixel" src={`/men/unit-${m.icon}.png`} srcset={`/men/unit-${m.icon}@2x.png 2x`} width="32" height="32" alt="" loading="lazy" />
+            <div>
+              <h3 class="man__class">{m.label}</h3>
+              <p class="man__role">{m.role}</p>
+            </div>
+          </div>
+          <div class="man__sprite pixel" role="img" aria-label={`${m.label}, standing ready`} style={`background-image:url(/men/${m.cls}-idle.webp)`}></div>
+          <p class="man__name">{m.name} <span>Lv {m.level}</span></p>
+        </li>
+      ))}
+    </ul>
+    <p class="men__foot">Up to 12 men in the field, with reserves in the barracks.</p>
+  </div>
+</section>
+
+<style is:global>
+  .men {
+    padding-block: clamp(48px, 7vw, 88px);
+    background: var(--panel);
+    border-bottom: 4px solid var(--night);
+  }
+  .men__lead {
+    max-width: 40rem;
+    margin: 14px auto 28px;
+    color: var(--ink);
+    text-align: center;
+  }
+  .men__strip {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 12px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .man {
+    display: grid;
+    justify-items: center;
+    padding: 2px 8px 10px;
+  }
+  .man__head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    justify-self: stretch;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .man__head img {
+    flex: none;
+  }
+  .man__class {
+    font-size: 0.9375rem;
+    letter-spacing: 0.03em;
+  }
+  .man__role {
+    color: var(--muted);
+    font-size: 0.75rem;
+  }
+  /* The idle loop: twelve 80 x 96 frames in a strip, drawn at 2x and stepped at the sheet's 8 fps. */
+  .man__sprite {
+    width: 160px;
+    height: 150px;
+    max-width: 100%;
+    background-repeat: no-repeat;
+    background-size: 1920px 192px;
+    background-position: 0 -36px;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .man__sprite {
+      animation: man-idle 1.5s steps(12) infinite;
+    }
+  }
+  @keyframes man-idle {
+    to {
+      background-position: -1920px -36px;
+    }
+  }
+  .man__name {
+    color: var(--ink);
+    font-family: var(--font-display);
+    font-size: 0.9375rem;
+    font-weight: 700;
+  }
+  .man__name span {
+    margin-left: 4px;
+    color: var(--accent);
+    font-family: var(--font-text);
+    font-size: 0.8125rem;
+  }
+  .men__foot {
+    margin-top: 20px;
+    color: var(--muted);
+    font-size: var(--fs-caption);
+    text-align: center;
+  }
+  @media (max-width: 1099px) {
+    .men__strip {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+  /* Phones: a swipeable strip, two and a bit cards in view. */
+  @media (max-width: 599px) {
+    .men__strip {
+      display: flex;
+      gap: 10px;
+      margin-inline: calc(-1 * var(--gutter));
+      padding-inline: var(--gutter);
+      overflow-x: auto;
+      scroll-snap-type: x mandatory;
+      scroll-padding-inline: var(--gutter);
+      scrollbar-width: none;
+    }
+    .man {
+      flex: 0 0 150px;
+      scroll-snap-align: start;
+    }
+    .man__sprite {
+      width: 128px;
+      height: 120px;
+      background-size: 1536px 154px;
+      background-position: 0 -29px;
+    }
+    @keyframes man-idle {
+      to {
+        background-position: -1536px -29px;
+      }
+    }
+  }
+</style>

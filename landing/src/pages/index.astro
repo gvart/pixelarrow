@@ -1,29 +1,28 @@
 ---
-// pixelarrow.app: the sections in STRUCTURE.md order. V6-LAND-01 composes them; later LAND stories
-// fill the section components and never edit this file. The .divider lines between sections are
-// static here; V6-LAND-03 makes them draw themselves (style the class, no markup change needed).
+// pixelarrow.app: the "Play your way" page (mockup D, shots/landing/proto/LAND_desktop_D_1.png; phone
+// LAND_phone_1.png). Every claim is in docs/WAR.md. Clips come from public/video/ (components/Clip.astro).
 import Base from '../layouts/Base.astro';
-import Classes from '../components/sections/Classes.astro';
-import Clips from '../components/sections/Clips.astro';
-import ClosingCta from '../components/sections/ClosingCta.astro';
-import Faq from '../components/sections/Faq.astro';
-import Features from '../components/sections/Features.astro';
+import Chapter from '../components/sections/Chapter.astro';
+import Closing from '../components/sections/Closing.astro';
 import Hero from '../components/sections/Hero.astro';
-import Modes from '../components/sections/Modes.astro';
-import Stats from '../components/sections/Stats.astro';
+import Men from '../components/sections/Men.astro';
+import World from '../components/sections/World.astro';
 ---
 <Base>
   <Hero />
-  <Features />
-  <div class="divider" aria-hidden="true"></div>
-  <Classes />
-  <div class="divider" aria-hidden="true"></div>
-  <Modes />
-  <div class="divider" aria-hidden="true"></div>
-  <Stats />
-  <div class="divider" aria-hidden="true"></div>
-  <Clips />
-  <div class="divider" aria-hidden="true"></div>
-  <Faq />
-  <ClosingCta />
+  <Chapter id="trader" title="The Trader" side="left" clips={['war-caravan']} fallback="/art/trade-road.webp" label="A merchant's ox cart rolls down a road between hoplite escorts.">
+    Lead caravans between market towns, trading copper, tin and salt. Tin is scarce, so every cart is worth a raid.
+  </Chapter>
+  <Chapter id="builder" title="The Builder" side="right" clips={['war-build']} fallback="/art/keyart-battle.webp" label="Workers raise stone walls and towers to fortify a region.">
+    Build forts, walls, towers and bridges to secure your land.
+  </Chapter>
+  <Chapter id="warlord" title="The Warlord" side="left" clips={['war-siege', 'war-battle']} fallback="/art/keyart-battle.webp" label="Two armies meet in battle below a fortress.">
+    Lead your own men, up to 12 of them, in battles where as many as 600 soldiers fight for one region.
+  </Chapter>
+  <Chapter id="boss-hunter" title="The Boss Hunter" side="right" clips={['war-boss']} fallback="/art/keyart-drakon.webp" label="A white dragon breathes fire over a snowbound citadel as soldiers storm its walls.">
+    Slay mythic bosses guarding ancient landmarks, from a cyclops at the mountain gate to the dragon Drakon on his glacier citadel.
+  </Chapter>
+  <Men />
+  <World />
+  <Closing />
 </Base>

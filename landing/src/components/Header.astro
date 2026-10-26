@@ -1,0 +1,57 @@
+---
+// The header: the wordmark and Play. Fixed; clear over the hero, solid once the page scrolls (a scroll
+// timeline where the browser has one, a solid bar where it does not).
+import { PLAY_URL } from '../site';
+---
+<header class="header">
+  <div class="header__bar container">
+    <a class="header__mark" href="#top" aria-label="Pixelarrow, back to top">Pixelarrow</a>
+    <a class="play play--small" href={PLAY_URL}>Play</a>
+  </div>
+</header>
+
+<style is:global>
+  .header {
+    position: fixed;
+    inset: 0 0 auto;
+    z-index: 50;
+    height: var(--header-h);
+    background: rgb(14 9 7 / 0.94);
+    border-bottom: 1px solid var(--rule);
+  }
+  .header__bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 100%;
+  }
+  .header__mark {
+    color: var(--title);
+    font-family: var(--font-display);
+    font-size: 1.375rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-decoration: none;
+    text-transform: uppercase;
+  }
+  @media (max-width: 767px) {
+    .header__mark {
+      font-size: 1.125rem;
+    }
+  }
+  @supports (animation-timeline: scroll()) {
+    .header {
+      animation-name: header-solid;
+      animation-timing-function: linear;
+      animation-fill-mode: both;
+      animation-timeline: scroll(root);
+      animation-range: 0 30vh;
+    }
+  }
+  @keyframes header-solid {
+    from {
+      background-color: rgb(14 9 7 / 0.55);
+      border-bottom-color: transparent;
+    }
+  }
+</style>

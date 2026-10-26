@@ -7,12 +7,12 @@
 /_astro/*
   Cache-Control: public, max-age=31536000, immutable
 
-# Hero layers keep their names across art re-renders, so they revalidate after a day.
-/hero/*
-  Cache-Control: public, max-age=86400, stale-while-revalidate=604800
-
-# Clips, posters and class busts keep their names across re-encodes, so they revalidate after a day.
+# Clips, stills, soldier sprites and kit frames keep their names across re-renders, so they revalidate after a day.
 /video/*
   Cache-Control: public, max-age=86400, stale-while-revalidate=604800
-/classes/*
+/art/*
+  Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+/men/*
+  Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+/ui/*
   Cache-Control: public, max-age=86400, stale-while-revalidate=604800

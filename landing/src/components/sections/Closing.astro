@@ -1,0 +1,32 @@
+---
+// The closing call: "Your men are waiting" and Play.
+import { PLAY_URL } from '../../site';
+---
+<section class="closing" id="play" aria-labelledby="closing-title">
+  <div class="container closing__inner">
+    <h2 class="heading" id="closing-title">Your men are waiting</h2>
+    <a class="play play--big" href={PLAY_URL}>Play</a>
+    <p class="closing__note">Plays in your web browser. Nothing to install.</p>
+  </div>
+</section>
+
+<style is:global>
+  .closing {
+    padding-block: clamp(48px, 6vw, 80px);
+    background: var(--panel);
+    border-top: 2px solid var(--line);
+  }
+  .closing__inner {
+    display: grid;
+    justify-items: center;
+    gap: 24px;
+    text-align: center;
+  }
+  .closing .heading {
+    width: 100%;
+  }
+  .closing__note {
+    color: var(--muted);
+    font-size: var(--fs-caption);
+  }
+</style>
