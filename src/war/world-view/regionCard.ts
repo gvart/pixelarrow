@@ -15,6 +15,7 @@ import { REGION_DEPTH } from '../sim/depth';
 import { REGION_LORE } from '../../data/warLore';
 import { landmarkOfRegion } from '../../data/warLandmarks';
 import { EVENT_LOOK, eventIcon } from './eventLook';
+import { takeLine, TERRITORY } from '../view/hud/explain';
 
 /** What the card shows for, besides the region's own data. */
 export interface CardCtx {
@@ -165,10 +166,11 @@ export function regionCardHtml(id: string, c: CardCtx): string {
     ${tags ? `<div class="rc-tags">${tags}</div>` : ''}
     ${lore ? `<div class="rc-lore">${lore}</div>` : ''}
     <div class="rc-tiles">
-      <div class="rc-tile"><span class="rc-k">Held by</span><span class="rc-v">${owner >= 0 ? `<i class="wv-sw" style="background:${c.color(owner)}"></i>` : ''}${owner === c.you && owner >= 0 ? `<span style="color:var(--rf-gold)">${aName(owner)}</span>` : aName(owner)}</span></div>
+      <div class="rc-tile"${tip(`How territory works: ${TERRITORY}`)}><span class="rc-k">Held by</span><span class="rc-v">${owner >= 0 ? `<i class="wv-sw" style="background:${c.color(owner)}"></i>` : ''}${owner === c.you && owner >= 0 ? `<span style="color:var(--rf-gold)">${aName(owner)}</span>` : aName(owner)}</span></div>
       <div class="rc-tile"${tip(`Danger ${depth} of 4. ${DANGER_TIP}`)}><span class="rc-k">Danger</span><span class="rc-v">${dangerHtml(depth)}</span></div>
       <div class="rc-tile"><span class="rc-k">Troops</span>${troopsHtml(c)}</div>
     </div>
+    <div class="rc-take">${esc(takeLine(id, owner, r?.claims, c.you))}</div>
     ${r && !c.seen ? '<div class="rc-note">Troops show only in and next to your land, or where your men stand.</div>' : ''}
     ${room}
     ${eventHtml(c)}
@@ -209,6 +211,7 @@ export const CARD_CSS = `
 .rc-ev{display:flex;gap:7px;align-items:flex-start;margin-top:7px;padding:5px 6px;background:var(--rf-sunk);border:1px solid var(--rf-rule);border-left:3px solid var(--we-c);font:600 13px/1.35 Inter,sans-serif}
 .rc-ev>div{flex:1;min-width:0}.rc-ev .dim{color:var(--rf-muted)}
 .rc-evh{display:flex;gap:6px}.rc-evh b{color:var(--we-c)}.rc-evh span{margin-left:auto;font-variant-numeric:tabular-nums;white-space:nowrap}
+.rc-take{margin-top:6px;font:600 13px/1.35 Inter,sans-serif;color:var(--rf-ink)}
 .rc-mine{margin-top:4px;font:600 13px/1.2 Inter,sans-serif;color:var(--rf-gold)}
 .rc-sec{display:flex;align-items:baseline;gap:6px;margin:9px 0 4px;font:700 13px/1 Cinzel,serif;color:var(--rf-accent);letter-spacing:.06em;text-transform:uppercase}
 .rc-sec .dim{font:600 13px/1 Inter,sans-serif;text-transform:none;letter-spacing:0;color:var(--rf-muted);margin-left:auto}

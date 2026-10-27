@@ -54,7 +54,7 @@ export const ACTION_IDS = [
   'view.cutaway', 'view.map', 'view.normal', 'view.altitude', 'view.movement', 'view.ownership', 'view.biomes', 'view.resources', 'view.bossCam',
   'panel.roster', 'panel.chest', 'panel.market', 'panel.guardian', 'panel.sound', 'panel.tasks', 'panel.crown', 'panel.holdings', 'panel.works', 'replay.open', 'go.world',
   'world.enter', 'world.routes', 'world.haul', 'world.fit', 'world.zoomIn', 'world.zoomOut',
-  'chat.open', 'chat.mark',
+  'chat.open', 'chat.mark', 'map.pin',
   'back', 'menu.settings', 'help.keys', 'dev.panel',
 ] as const;
 export type ActionId = (typeof ACTION_IDS)[number];
@@ -142,6 +142,8 @@ const DEFS: ActionDef[] = [
   // W-62 E6 alliance chat (src/war/view/hud/chat.ts): on the world map Enter opens it when there is nothing to enter
   def('chat.open', 'region', 'Chat', 'Open the alliance chat', [k('Enter')]),
   def('chat.mark', 'global', 'Chat', 'Place a map mark (again: the next kind; then click)', [k('KeyP')]),
+  // personal markers (src/war/view/hud/pins.ts): a mouse button, so fixed (bindings are keys); never sent to anyone
+  def('map.pin', 'global', 'Chat', 'Your own marker, seen by you only (on one: remove it; Shift: clear all)', [k('MouseMiddle')], 'press', false),
 
   def('back', 'global', 'General', 'Back, close, cancel; the menu', [k('Escape')], 'press', false),
   def('menu.settings', 'global', 'General', 'Settings', [k('F10')]),

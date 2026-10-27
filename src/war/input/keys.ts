@@ -77,7 +77,7 @@ export const keys = {
 };
 
 const NAMED: Record<string, string> = {
-  Escape: 'Esc', Backspace: 'Backspace', Delete: 'Del', Insert: 'Ins', Enter: 'Enter', Space: 'Space', Tab: 'Tab',
+  MouseMiddle: 'Middle click', Escape: 'Esc', Backspace: 'Backspace', Delete: 'Del', Insert: 'Ins', Enter: 'Enter', Space: 'Space', Tab: 'Tab',
   ArrowUp: '↑', ArrowDown: '↓', ArrowLeft: '←', ArrowRight: '→', PageUp: 'PgUp', PageDown: 'PgDn', Home: 'Home', End: 'End',
   NumpadAdd: 'Num +', NumpadSubtract: 'Num -', NumpadMultiply: 'Num *', NumpadDivide: 'Num /', NumpadDecimal: 'Num .', NumpadEnter: 'Num Enter',
   Backquote: '`', Minus: '-', Equal: '=', BracketLeft: '[', BracketRight: ']', Backslash: '\\', Semicolon: ';', Quote: "'", Comma: ',', Period: '.', Slash: '/',

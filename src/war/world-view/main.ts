@@ -43,6 +43,7 @@ import { EVENT_INFO, type WorldEvent } from '../world/events';
 import { EVENT_LOOK, eventIcon } from './eventLook';
 import type { Crest, SeasonBoard } from '../net/world';
 import { chatBusy, mountChat, type ChatHandle } from '../view/hud/chat';
+import { mountPins, type PinHandle } from '../view/hud/pins';
 import { MockChat, NetChat, worldTaps } from '../net/chatLink';
 import { warAuth } from '../net/session';
 import { levelName } from '../net/settlements';
@@ -574,6 +575,7 @@ canvas.addEventListener('pointerup', (e) => {
   const click = down && !down.moved;
   down = null;
   if (!click) return;
+  if (e.button === 1) { const [x, y] = map.toMap(e.clientX, e.clientY); return pins?.click(e.clientX, e.clientY, { x, y }, e.shiftKey); }
   const id = map.regionAt(...map.toMap(e.clientX, e.clientY));
   if (haul.open && id) { if (e.shiftKey) haul.from = id; else haul.to = id; renderHaul(); return; }
   if (id && st.targets.has(id)) openOrder(id);
@@ -609,6 +611,7 @@ void WorldMap.load(canvas).then(async (m) => {
   renderBand();
   renderLegend();
   chat = mountWorldChat(m);
+  pins = mountWorldPins(m);
   const frame = () => { st.now = Date.now(); map.draw(st); requestAnimationFrame(frame); };
   requestAnimationFrame(frame);
   setInterval(() => { renderSquads(); renderSeason(); renderEvents(); renderPin(); }, 1000);
@@ -629,8 +632,26 @@ void WorldMap.load(canvas).then(async (m) => {
     say(String((e as Error).message), 60_000);
     band.querySelector('#wvStatus')!.textContent = 'offline: no server';
   }
+  // the region view's events card (Show on map, ../view/hud/worldEvents.ts): ?focus=<region> centred and selected
+  const focus = q.get('focus'), fc = focus ? m.art.regions[focus]?.centroid : null;
+  if (focus && fc && worldRegion(focus)) {
+    (m.x = fc[0] - canvas.clientWidth / 2 / m.k), (m.y = fc[1] - canvas.clientHeight / 2 / m.k);
+    selectRegion(focus);
+  }
   (window as unknown as { __world: unknown }).__world = { st, map, source, haul: (from: string, to: string, kind: HaulKind = 'wagon') => { Object.assign(haul, { open: true, from, to, kind }); renderHaul(); renderBand(); }, select: selectRegion, order: openOrder, hover: (id: string | null, x = 0, y = 0, lm = false) => { st.hover = id; hoverLm = lm ? id : null; mouse = { x, y }; placeCard(); } };
 });
+
+// ---------- personal markers (../view/hud/pins.ts): a middle click, this player only; in map px ----------
+let pins: PinHandle | null = null;
+function mountWorldPins(m: WorldMap): PinHandle {
+  return mountPins({
+    scope: 'world',
+    project: (p) => { const r = canvas.getBoundingClientRect(), [x, y] = m.toScreen(p.x, p.y); return { x: x + r.left, y: y + r.top }; },
+    area: () => ({ x0: 24, y0: 64, x1: innerWidth - 24, y1: innerHeight - 24 }),
+    focus: (p) => void ((m.x = p.x - canvas.clientWidth / 2 / m.k), (m.y = p.y - canvas.clientHeight / 2 / m.k)),
+    far: () => '',
+  });
+}
 
 // ---------- W-62 E6 alliance chat (../view/hud/chat.ts): above the events card; world marks in map px ----------
 let chat: ChatHandle | null = null;

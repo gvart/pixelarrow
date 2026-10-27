@@ -58,6 +58,7 @@ import { needChips, shortText } from './goods';
 import { localGoods, mountChest, storeNear } from './chest';
 import { mountSouls } from './souls';
 import { mountWorldEvents } from './worldEvents';
+import { claimFirst, mountClaimCard } from './claimCard';
 import { mountRegionChat } from './chatRegion';
 import { mountPeace } from './peace';
 import { mountSettlements } from './settlements';
@@ -66,6 +67,7 @@ import { mountTasks } from './tasks';
 import { mountCrown } from './crown';
 import { mountGuide } from './guide';
 import { mountQuestTracker } from './quest';
+import { mountRegionPins } from './pins';
 import { mountReplay } from '../replay';
 import { RECIPES } from '../../../data/recipes';
 import { allCivilians, civBuild, civGather, civInfo, civName, civTips, civWork } from './cardCiv';
@@ -393,8 +395,10 @@ export function hud(s: SandboxScene): void {
   mountTasks(s, mk); // W-62 E7: daily and weekly tasks (./tasks.ts)
   mountCrown(s, mk); // W-64: the crown and council (./crown.ts)
   mountWorldEvents(s, mk); // W-62: the world events card (./worldEvents.ts)
+  mountClaimCard(s, mk); // the claim point card at the cursor (./claimCard.ts)
   mountGuide(s, mk); // W-62: the first-hour quest tracker, top left, and its world markers (./guide.ts)
   mountQuestTracker(s, mk); // the tracked task or order, top right, and its marker (./quest.ts)
+  mountRegionPins(s); // personal markers on middle click, this player only (./pins.ts)
   mountRegionChat(s); // W-62 E6: the alliance chat above the minimap, map marks (./chat.ts)
   mountGate(s); // the online cap's line and the idle kick (./gate.ts)
   mountReplay(s, mk); // W-62 E5: the replay recorder, "Watch the battle", replay mode and clips (../replay)
@@ -559,7 +563,8 @@ export function hud(s: SandboxScene): void {
       x.classList.toggle('on', JSON.stringify(d.tool) === JSON.stringify(m.tool));
       x.disabled = !!nodeWhy(d);
     }
-    const status = m.claimArmed ? 'click the map to claim (influence r 20)' : m.tool ? m.status || 'R rotate · Esc cancel · shift keeps the tool' : '';
+    // no ground of his in the region yet: say how to get some instead of a silent red ghost (./claimCard.ts)
+    const status = m.claimArmed ? 'click the map to claim (influence r 20)' : (m.active && claimFirst(s)) || (m.tool ? m.status || 'R rotate · Esc cancel · shift keeps the tool' : '');
     bStatus.textContent = status;
     bStatus.style.display = status ? '' : 'none';
   };

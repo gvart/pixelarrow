@@ -14,6 +14,7 @@ import type { SandboxScene } from '../SandboxScene';
 import { hex, TEAM_RGB } from '../mapModes';
 import { BUILDING_ICON, UI } from './kit';
 import { myTeam, slot } from '../side';
+import { drawPins } from './pins';
 
 /** How far own men and buildings see, in tiles (enemies beyond are not marked). */
 export const VISION = 24;
@@ -243,6 +244,7 @@ export function drawMap(g: CanvasRenderingContext2D, s: SandboxScene, f: MapXf, 
     g.beginPath(); g.moveTo(x - r * 0.42, y + r * 0.55); g.quadraticCurveTo(x, y - r * 0.4, x + r * 0.42, y + r * 0.55); g.closePath(); g.fill();
     g.globalAlpha = 1;
   }
+  drawPins(g, P, m, full); // personal markers (./pins.ts)
   // men (zoomed in), then the squads
   if (full && f.k >= 2 * m) for (const d of s.drawn) {
     if (d.u.state === 'dead' || d.team === MOB_TEAM) continue;
