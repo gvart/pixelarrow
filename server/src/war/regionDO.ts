@@ -80,8 +80,9 @@ import { isWorldRegion } from '../../../src/war/world/graph';
 import { joinRefusal } from '../../../src/war/world/access';
 import { ALLIANCES, WAR_SEASON } from '../../../src/war/world/alliances';
 import { allianceOf } from './world/members';
+import { regionStub, runningColo, worldStub } from './placement';
 import type { AllianceId, Side } from '../../../src/war/world/types';
-import { WORLD_NAME, type ArriveResult, type DepartResult } from './world/world';
+import { type ArriveResult, type DepartResult } from './world/world';
 import type { TransitCargo } from '../../../src/war/net/world';
 import { guideStorageKey, type GuideDone } from './guide';
 import { storyStorageKey, type StoryDone } from './stories';
@@ -134,11 +135,11 @@ interface LevyBase { store: Record<string, number>; stalls: Record<number, numbe
 /** W-63: the terms route asks the settlement's region room whether the offerer's men stand on its ground; the level route hands it a spend (LIVE). */
 export function wirePresence(env: Env): void {
   PRESENCE.check = async (pid, s) => {
-    const stub = env.WAR_REGION.get(env.WAR_REGION.idFromName(s.region));
+    const stub = regionStub(env, s.region);
     return stub.presence(s.region, pid, s.id).catch(() => false);
   };
   // a level-up on a man in a region reaches his living man in its room
-  LIVE.levelUp = (region, id, attrs, skill) => env.WAR_REGION.get(env.WAR_REGION.idFromName(region)).levelUp(region, id, attrs, skill);
+  LIVE.levelUp = (region, id, attrs, skill) => regionStub(env, region).levelUp(region, id, attrs, skill);
 }
 
 interface Attachment { pid: number }
@@ -171,9 +172,19 @@ export class WarRegionDO extends DurableObject<Env> {
   /** The catch-up running in slices (caughtUp), shared by every caller meanwhile. */
   private draining: Promise<number> | null = null;
 
+  /** The data centre this object runs in (docs/OPS.md "War DO placement"), logged once at start. */
+  private readonly where: Promise<string>;
+
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
     this.ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair('ping', 'pong'));
+    this.where = runningColo(env).catch(() => 'unknown');
+    this.ctx.waitUntil(this.where.then((colo) => colo !== 'local' && log('info', 'war_do_colo', { do: 'region', name: ctx.id.name, colo })));
+  }
+
+  /** RPC (GET /api/admin/war/where): the data centre this object runs in. */
+  colo(): Promise<string> {
+    return this.where;
   }
 
   private options(region: string): RoomOptions | null {
@@ -680,7 +691,7 @@ export class WarRegionDO extends DurableObject<Env> {
   }
 
   private world() {
-    return this.env.WAR_WORLD.get(this.env.WAR_WORLD.idFromName(WORLD_NAME));
+    return worldStub(this.env);
   }
 
   /** M4: tell the world what its map shows of this region, when it changed (world regions only). */

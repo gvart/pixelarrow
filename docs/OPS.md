@@ -57,6 +57,22 @@ it in wrangler.jsonc and redeploy (a dashboard edit lasts only until the next de
 `WAR_ADMIN_PIDS` (comma-separated player ids, add it to `vars`) skip the cap. Players
 idle 15 min are kicked (client side), which frees their place.
 
+### War DO placement
+
+A Durable Object stays in the data centre that first created it. Every war stub
+(`server/src/war/placement.ts`) asks for `WAR_DO_HINT` (wrangler.jsonc `vars`,
+default `weur`; any locationHint: `wnam`, `enam`, `weur`, `eeur`, `apac`, ...),
+and every object name carries a placement generation (`<name>@p2`). A new hint
+reaches only objects created after it: to move the war, bump `PLACEMENT_GEN` too.
+The new objects start without DO storage and rebuild from D1: men standing in a
+region go home and are deployed again, settlements and region memory come back,
+the world starts a fresh season clock (transits and hauls in flight go home).
+
+Check it after a deploy: `curl -H "Authorization: Bearer $ADMIN_TOKEN"
+https://play.pixelarrow.app/api/admin/war/where[?region=dodona]` answers the
+colo of the Worker entry, the world object and one region object. `wrangler tail`
+shows `war_do_colo` once per object start.
+
 ## Monitoring
 
 ### Server errors (Workers Logs)

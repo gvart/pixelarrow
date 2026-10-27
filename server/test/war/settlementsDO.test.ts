@@ -16,10 +16,11 @@ import { tiedTo } from '../../src/war/roomSettlements';
 import { found, seasonSweep, SETTLE } from '../../src/war/settlements';
 import { ensureHolder, goodsOf, putStmt, strongroom } from '../../src/war/holders';
 import { stallId } from '../../src/war/market';
+import { regionStub } from '../../src/war/placement';
 
 const DB = () => env.DB!;
 const H = 3_600_000;
-const stub = (region: string) => env.WAR_REGION.get(env.WAR_REGION.idFromName(region));
+const stub = (region: string) => regionStub(env, region);
 const ally = (pid: number, a: number) => DB().prepare('INSERT INTO war_alliance_members (season, player_id, alliance, joined_at) VALUES (?1, ?2, ?3, 0) ON CONFLICT (season, player_id) DO UPDATE SET alliance = ?3').bind(WAR_SEASON.id, pid, a).run();
 type Priv = { ensure(r: string): Promise<WarRoom>; loadSettlements(r: WarRoom): Promise<void>; settles: RoomSettlement[]; levyOne(r: WarRoom, s: RoomSettlement, now?: number): Promise<void>; attacked(r: WarRoom, l: { by: number; victim: number }[]): Promise<void>; world(): unknown };
 const priv = (o: WarRegionDO) => o as unknown as Priv;

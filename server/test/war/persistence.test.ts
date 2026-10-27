@@ -14,6 +14,7 @@ import { warRegion } from '../../src/war/regions';
 import { applyFight, claimForJoin } from '../../src/war/persons';
 import { loadState, type WarRegionDO } from '../../src/war/regionDO';
 import { api, BASE, devLogin } from '../helpers';
+import { regionStub } from '../../src/war/placement';
 
 const region = warRegion('test-ridge')!;
 const squad = (prefix: string, cls: string, n = 12, level = 1) => Array.from({ length: n }, (_, i) => makePerson(`${prefix}-${i}`, cls, { level }));
@@ -224,13 +225,13 @@ describe('WarRegionDO persistence', () => {
     await new Promise((r) => setTimeout(r, 200));
 
     // the object goes away; its storage keeps the region, and the pending alarm brings it back (and catches it up)
-    const stub = env.WAR_REGION.get(env.WAR_REGION.idFromName('test-ridge'));
+    const stub = regionStub(env, 'test-ridge');
     await runInDurableObject(stub, async (o: WarRegionDO, state) => {
       await o.settled();
       expect(await loadState(state.storage)).toMatchObject({ v: 2, region: 'test-ridge' });
     });
     await abortAllDurableObjects(); // a crash or deploy: the running loop holds the object, so no graceful eviction
-    expect(await runDurableObjectAlarm(env.WAR_REGION.get(env.WAR_REGION.idFromName('test-ridge')))).toBe(true); // a fresh stub: the old one died with the object
+    expect(await runDurableObjectAlarm(regionStub(env, 'test-ridge'))).toBe(true); // a fresh stub: the old one died with the object
     const after = await stats();
     expect(after).toMatchObject({ units: before.units, online: 0, running: false }); // caught up, dormant: nobody is connected
     expect(await deployed()).toBe(12);
@@ -240,6 +241,31 @@ describe('WarRegionDO persistence', () => {
     const w = (await again.next('welcome')) as Extract<ServerMsg, { t: 'welcome' }>;
     expect(w.squads).toHaveLength(1);
     expect((await stats()).units).toBe(before.units);
+    again.ws.close(1000);
+  });
+
+  it('a fresh object (a new placement generation) rebuilds from D1: his men standing there go home and join again', async () => {
+    const me = await devLogin(7405);
+    await api('/api/war/dev/seed', { method: 'POST', token: me.token, json: {} });
+    const rows = (await env.DB!.prepare("SELECT id FROM war_persons WHERE player_id = ?1 AND state = 'active' ORDER BY slot").bind(me.playerId).all<{ id: string }>()).results.map((r) => r.id);
+    const deployed = async () => (await env.DB!.prepare("SELECT COUNT(*) AS n FROM war_persons WHERE player_id = ?1 AND region = 'test-ridge'").bind(me.playerId).first<{ n: number }>())!.n;
+    const c = await connect(me.token);
+    c.send(join(me.playerId, 0, [rows]));
+    expect(await c.next('welcome')).toMatchObject({ you: { id: me.playerId } });
+    expect(await deployed()).toBe(12);
+    c.ws.close(1000);
+    await new Promise((r) => setTimeout(r, 200));
+    // the object's DO storage is gone, as for one created under a new name; D1 still lists his men in the region
+    await runInDurableObject(regionStub(env, 'test-ridge'), async (o: WarRegionDO, state) => {
+      await o.settled();
+      await state.storage.deleteAlarm();
+      await state.storage.deleteAll();
+    });
+    await abortAllDurableObjects();
+    const again = await connect(me.token);
+    again.send(join(me.playerId, 0, [rows]));
+    expect(((await again.next('welcome')) as Extract<ServerMsg, { t: 'welcome' }>).squads).toHaveLength(1);
+    expect(await deployed()).toBe(12);
     again.ws.close(1000);
   });
 });

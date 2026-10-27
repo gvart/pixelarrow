@@ -35,7 +35,10 @@
     "MAIL_FROM": "noreply@pixelarrow.app",
     // The war's online cap (src/war/net/gate.ts, docs/OPS.md): most players in the war at once, the rest wait in
     // line. WAR_ADMIN_PIDS (comma-separated player ids, optional) are exempt.
-    "WAR_MAX_ONLINE": "50"
+    "WAR_MAX_ONLINE": "50",
+    // Where the war's Durable Objects are created (server/src/war/placement.ts, docs/OPS.md "War DO placement"):
+    // a locationHint (weur, enam, ...). An object never moves: a change reaches only objects created after it.
+    "WAR_DO_HINT": "weur"
     // Secrets (wrangler secret put, never here): TELEGRAM_BOT_TOKEN (account
     // links to Telegram identities), ADMIN_TOKEN, PASSWORD_PEPPER, PASSWORD_PEPPER_ID,
     // TURNSTILE_SECRET. DEV_AUTH and DEV_EMAIL are local-only (.dev.vars);

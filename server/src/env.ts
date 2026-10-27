@@ -16,6 +16,8 @@ export interface Env {
   WAR_MAX_ONLINE?: string;
   /** Comma-separated player ids exempt from WAR_MAX_ONLINE (operators). */
   WAR_ADMIN_PIDS?: string;
+  /** Where the war's Durable Objects are created (docs/OPS.md "War DO placement"): a locationHint, default weur. */
+  WAR_DO_HINT?: string;
   /** Dev only (with DEV_AUTH=1): world travel times x this (e.g. 0.05), for scripted playtests (scripts/war/play.mjs --fast). */
   WAR_TRAVEL_SCALE?: string;
   ASSETS?: Fetcher;

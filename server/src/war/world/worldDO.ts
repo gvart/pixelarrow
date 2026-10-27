@@ -36,7 +36,8 @@
  */
 import { DurableObject } from 'cloudflare:workers';
 import type { Env } from '../../env';
-import { logError } from '../../telemetry/log';
+import { log, logError } from '../../telemetry/log';
+import { regionStub, runningColo } from '../placement';
 import { parseWorldMsg, type WorldClientMsg, type RegionState, type SeasonResult, type SeasonSnap, type TransferError, type TransferOrder, type TransitSnap, type WorldServerMsg, type WorldSnapshot } from '../../../../src/war/net/world';
 import type { AllianceId, Side } from '../../../../src/war/world/types';
 import { scoreRate } from '../../../../src/war/world/season';
@@ -83,9 +84,19 @@ export class WarWorldDO extends DurableObject<Env> {
   /** Tests: the cap instead of WAR_MAX_ONLINE. */
   gateCapOverride: number | null = null;
 
+  /** The data centre this object runs in (docs/OPS.md "War DO placement"), logged once at start. */
+  private readonly where: Promise<string>;
+
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
     this.ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair('ping', 'pong'));
+    this.where = runningColo(env).catch(() => 'unknown');
+    this.ctx.waitUntil(this.where.then((colo) => colo !== 'local' && log('info', 'war_do_colo', { do: 'world', name: ctx.id.name, colo })));
+  }
+
+  /** RPC (GET /api/admin/war/where): the data centre this object runs in. */
+  colo(): Promise<string> {
+    return this.where;
   }
 
   private async ensure(): Promise<World> {
@@ -109,7 +120,7 @@ export class WarWorldDO extends DurableObject<Env> {
   }
 
   private ports(): Ports {
-    const stub = (id: string) => this.env.WAR_REGION.get(this.env.WAR_REGION.idFromName(id));
+    const stub = (id: string) => regionStub(this.env, id);
     return {
       depart: (from: string, pid: number, who: number | string[], side: Side, to: string, foeRadius: number) => stub(from).depart(from, pid, who, side, to, foeRadius) as Promise<DepartResult>,
       arrive: (to: string, pid: number, alliance: AllianceId, ids: string[], side: Side, lost?: Record<string, number>, cargo?: TransitCargo) => stub(to).arrive(to, pid, alliance, ids, side, lost, cargo) as Promise<ArriveResult>,
@@ -215,7 +226,7 @@ export class WarWorldDO extends DurableObject<Env> {
       logError('war_season_record_failed', e, { season: s.id });
       board ??= await buildBoard(undefined, s.id, s.startAt, r, s.event ?? r.scores.map(() => 0));
     }
-    const stub = (id: string) => this.env.WAR_REGION.get(this.env.WAR_REGION.idFromName(id));
+    const stub = (id: string) => regionStub(this.env, id);
     await Promise.all(WORLD_REGIONS.filter((x) => x.role !== 'home').map((x) => stub(x.id).seasonReset(x.id).catch((e: unknown) => logError('war_season_reset_failed', e, { region: x.id }))));
     // W-63: every region wrote what persists of its settlements; Town level and up, or tended lately, stay; the rest go
     if (d) await seasonSweep(d, now).catch((e: unknown) => logError('war_settle_sweep_failed', e));
@@ -241,7 +252,7 @@ export class WarWorldDO extends DurableObject<Env> {
   private announce(w: World, now: number): void {
     const events = w.activeEvents(now), next = w.nextEvent(now);
     for (const r of WORLD_REGIONS) {
-      const stub = this.env.WAR_REGION.get(this.env.WAR_REGION.idFromName(r.id));
+      const stub = regionStub(this.env, r.id);
       this.ctx.waitUntil(stub.worldEvents(r.id, events, next).catch((e: unknown) => logError('war_world_events_failed', e, { region: r.id })));
     }
   }
