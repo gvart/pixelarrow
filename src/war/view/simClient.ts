@@ -59,6 +59,8 @@ export class SimClient {
   onEvents: ((ev: WarEvent[]) => void) | null = null;
   /** M6 net mode: the region server's trade answers (stowed, handoff, error) for the trade panels (../hud/market.ts). */
   onServer: ((m: ServerMsg) => void) | null = null;
+  /** W-62: extra listeners of every server message (beside the single onServer hook), e.g. the world events card. */
+  readonly serverTaps = new Set<(m: ServerMsg) => void>();
   /** W-53 (../select.ts): names the selected men on an order to the selection's lead squad (they gather into one squad). */
   address: ((o: Order) => Order) | null = null;
   /** Net mode: our player id once the region welcomed us (hand-off halves are keyed by it). */
@@ -72,6 +74,7 @@ export class SimClient {
       if ('server' in e.data) {
         if (e.data.server.t === 'welcome') (this.playerId = e.data.server.you.id), setMyTeam(e.data.server.you.team);
         else this.onServer?.(e.data.server);
+        for (const f of this.serverTaps) f(e.data.server);
         return;
       }
       if ('reply' in e.data) {
