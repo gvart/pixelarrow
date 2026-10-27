@@ -26,10 +26,11 @@ import type { TownLevelSnap } from '../../types';
 import type { SandboxScene } from '../SandboxScene';
 import { PlotLayer } from '../plots';
 import { draggable } from './drag';
-import { fitHeight } from './kit';
+import { closeCornerWindows, CORNER_BOTTOM, fitHeight } from './kit';
+import { keys } from '../../input/keys';
 import { tipper } from './roster/ui';
 import type { CrownNewsKind } from '../../net/world';
-import { attackToast, crownToast, FOUND_HINT, groundToast, holdingsHtml, SETTLE_CSS, settlementBadge, settlementCard, viewerOf, type SettleForm, type Viewer } from './settleCards';
+import { askFirst, attackToast, crownToast, FOUND_HINT, groundToast, holdingsHtml, SETTLE_CSS, settlementBadge, settlementCard, viewerOf, type SettleForm, type Viewer } from './settleCards';
 
 type Mk = (id: string, css: string, html?: string) => HTMLElement;
 type Api = <T>(method: 'GET' | 'POST', path: string, body?: unknown) => Promise<T | null>;
@@ -58,6 +59,8 @@ export function mountSettlements(s: SandboxScene, mk: Mk): void {
   let list: SettlementNet[] = [], world: WorldSettlement[] = [], inbox: Inbox | null = null;
   const details = new Map<number, SettleDetail>();
   let msg = '', bad = false, ver = 0, pinned: number | null = null;
+  /** A request in flight (the actions wait); the Holdings accept armed by a first click, until a second. */
+  let busy = false, armed: string | null = null, disarm = 0;
   const form: SettleForm = { open: null, kind: 'vassal', tribute: 10, from: null, bond: 500 };
   const me = () => (online() ? s.sim.playerId : MOCK_ME);
   const plots = new PlotLayer(s, mk);
@@ -137,11 +140,18 @@ export function mountSettlements(s: SandboxScene, mk: Mk): void {
 
   const ctx = (x: SettlementNet) => ({
     s: x, viewer: viewer(x), detail: details.get(x.id) ?? null, world: known(), realm: realm(), men: menOn(x), town: townOf(x),
-    inbox, form, msg, bad, online: online(), now: Date.now(),
+    inbox, form, msg, bad, online: online(), now: Date.now(), busy,
   });
   const say = (t: string, isBad = false) => ((msg = t), (bad = isBad), ver++);
+  /** POST and wait: the card and the panel show "Sending…" and their buttons wait until the answer. */
+  const post = (path: string, body?: unknown) => {
+    busy = true;
+    ver++;
+    renderHoldings();
+    return api<Answer>('POST', path, body).finally(() => (busy = false));
+  };
   const answer = (r: Answer | null, ok: string) => {
-    if (!r) say('no answer', true);
+    if (!r) say('No answer from the server', true);
     else if (r.error) say(r.message ?? r.error, true);
     else say(ok);
     form.open = null;
@@ -154,6 +164,8 @@ export function mountSettlements(s: SandboxScene, mk: Mk): void {
   const act = (a: string, x: SettlementNet | null) => {
     const [k, arg] = a.split(':');
     const id = Number(arg);
+    if (busy && k !== 'close' && k !== 'goto') return;
+    if (armed && a !== armed) (armed = null), renderHoldings();
     if (k === 'close-form') return ((form.open = null), ver++);
     if (k === 'terms' || k === 'truce' || k === 'rebel') {
       form.open = form.open === k ? null : k;
@@ -165,25 +177,34 @@ export function mountSettlements(s: SandboxScene, mk: Mk): void {
     if (k === 'holdings') return toggleHoldings(true);
     if (k === 'close') return toggleHoldings(false);
     if (k === 'goto') return goTo(id);
-    if (k === 'withdraw' || k === 'refuse') return void api<Answer>('POST', `settlements/offers/${id}/refuse`).then((r) => answer(r, k === 'withdraw' ? 'Withdrawn' : 'Refused'));
+    if (k === 'withdraw' || k === 'refuse') return void post(`settlements/offers/${id}/refuse`).then((r) => answer(r, k === 'withdraw' ? 'Withdrawn' : 'Refused'));
     if (k === 'accept') return accept(id);
     if (!x) return;
-    if (k === 'settle') return void api<Answer>('POST', `settlements/${x.id}/settle`).then((r) => answer(r, `Asked: ${x.lordName} answers within ${left(SETTLE_UI.offerMs)}`));
-    if (k === 'send-terms') return void api<Answer>('POST', `settlements/${x.id}/terms`, form.kind === 'vassal' ? { kind: 'vassal', from: form.from, tribute: form.tribute } : { kind: 'join' }).then((r) => answer(r, 'Terms sent'));
-    if (k === 'garrison') return void api<Answer>('POST', `settlements/${x.id}/garrison`, { from: x.overlord }).then((r) => answer(r, 'Asked to garrison'));
-    if (k === 'send-truce') return void api<Answer>('POST', `settlements/${x.id}/truce`, { from: form.from, bond: form.bond }).then((r) => answer(r, `Truce offered: ${form.bond} coin held`));
-    if (k === 'send-rebel') return void api<Answer>('POST', `settlements/${x.id}/rebel`).then((r) => answer(r, 'You are free: no more tribute'));
+    if (k === 'settle') return void post(`settlements/${x.id}/settle`).then((r) => answer(r, `Asked: ${x.lordName} answers within ${left(SETTLE_UI.offerMs)}`));
+    if (k === 'send-terms') return void post(`settlements/${x.id}/terms`, form.kind === 'vassal' ? { kind: 'vassal', from: form.from, tribute: form.tribute } : { kind: 'join' }).then((r) => answer(r, 'Terms sent'));
+    if (k === 'garrison') return void post(`settlements/${x.id}/garrison`, { from: x.overlord }).then((r) => answer(r, 'Asked to garrison'));
+    if (k === 'send-truce') return void post(`settlements/${x.id}/truce`, { from: form.from, bond: form.bond }).then((r) => answer(r, `Truce offered: ${form.bond} coin held`));
+    if (k === 'send-rebel') return void post(`settlements/${x.id}/rebel`).then((r) => answer(r, 'You are free: no more tribute'));
   };
   /** Accept: a plot request picks the plot on the ground first (in its region only). */
   const accept = (id: number) => {
     const o = inbox?.incoming.find((x) => x.id === id);
     if (!o) return;
-    const post = (plot?: Plot) => void api<Answer>('POST', `settlements/offers/${id}/accept`, plot ? { plot } : {}).then((r) => answer(r, o.kind === 'settle' ? `${o.from_name ?? 'They'} settled` : o.kind === 'truce' ? 'Truce sealed' : 'Accepted'));
-    if (o.kind !== 'settle') return post();
+    const yes = (plot?: Plot) => void post(`settlements/offers/${id}/accept`, plot ? { plot } : {}).then((r) => answer(r, o.kind === 'settle' ? `${o.from_name ?? 'They'} settled` : o.kind === 'truce' ? 'Truce sealed' : 'Accepted'));
+    // giving something up (tribute, the lordship) asks first: the first click arms, a second within 5 s accepts
+    const key = `accept:${id}`;
+    if (askFirst(o.kind) && armed !== key) {
+      clearTimeout(disarm);
+      armed = key;
+      disarm = window.setTimeout(() => { if (armed === key) (armed = null), renderHoldings(); }, 5000);
+      return renderHoldings();
+    }
+    armed = null;
+    if (o.kind !== 'settle') return yes();
     const at = list.find((x) => x.id === o.to_settlement);
     if (!at) return ((msg = `Go to ${o.to_name} to stake the plot`), (bad = true), renderHoldings());
     toggleHoldings(false);
-    plots.start(at, o.from_name ?? `Player ${o.from_pid}`, (p) => (p ? post(p) : toggleHoldings(true)));
+    plots.start(at, o.from_name ?? `Player ${o.from_pid}`, (p) => (p ? yes(p) : toggleHoldings(true)));
   };
   /** Jump to a settlement: here, the camera; elsewhere, its region. */
   const goTo = (id: number, region?: string) => {
@@ -248,16 +269,28 @@ export function mountSettlements(s: SandboxScene, mk: Mk): void {
     drawBtn();
     if (win.style.display === 'none') return;
     const scroll = win.scrollTop;
-    win.innerHTML = holdingsHtml({ inbox, realm: realm(), world: known(), now: Date.now(), online: online() || !!inbox, msg, bad });
+    win.innerHTML = holdingsHtml({ inbox, realm: realm(), world: known(), now: Date.now(), online: online() || !!inbox, msg, bad, busy, armed });
     win.scrollTop = scroll;
-    fitHeight(win);
+    fitHeight(win, CORNER_BOTTOM);
   }
   function toggleHoldings(on = win.style.display === 'none'): void {
+    if (on) closeCornerWindows(btn.id);
     win.style.display = on ? '' : 'none';
     btn.classList.toggle('on', on);
+    armed = null;
     if (on) (msg = ''), void loadInbox(), void loadWorld();
     renderHoldings();
   }
+  // Esc: an armed accept first, then the panel (before the selection and the game menu hear it)
+  addEventListener('keydown', (e: KeyboardEvent) => {
+    if (win.style.display === 'none' || keys.act(e) !== 'back' || plots.pick) return;
+    const at = e.target as HTMLElement;
+    if (at.closest?.('input,textarea,select') && !win.contains(at)) return; // the chat's own Esc
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    if (armed) (armed = null), renderHoldings();
+    else toggleHoldings(false);
+  }, true);
   win.addEventListener('click', (e) => {
     const t = (e.target as HTMLElement).closest<HTMLElement>('[data-sa]');
     if (t && !(t as HTMLButtonElement).disabled) act(t.dataset.sa!, null);

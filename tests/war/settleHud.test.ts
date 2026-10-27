@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 // W-63 the settlement HUD's views (src/war/view/hud/settleCards.ts) and the client's plot rules (src/war/net/settlements.ts).
-import { attackToast, crownToast, holdingsHtml, offerText, settlementCard, settleWarning, viewerOf, type SettleCtx } from '../../src/war/view/hud/settleCards';
+import { askFirst, attackToast, crownToast, holdingsHtml, offerText, settlementCard, settleWarning, viewerOf, type SettleCtx } from '../../src/war/view/hud/settleCards';
 import { left, levelKind, levelName, plotRefusal, spanOf, type OfferRow, type WorldSettlement } from '../../src/war/net/settlements';
 import type { SettlementNet } from '../../src/war/net/protocol';
 
@@ -76,5 +76,22 @@ describe('W-63 settlement HUD', () => {
     // W-64 crown news
     expect(crownToast({ kind: 'monarch', text: 'Kallias is crowned in Skythia' })).toMatch(/A new monarch[\s\S]*Kallias is crowned/);
     expect(crownToast({ kind: 'pactBroken', text: '<b>' })).toContain('&lt;b&gt;');
+  });
+
+  it('accepting vassal terms or a join asks first; offline buttons say why; a request in flight waits', () => {
+    const base = { inbox: { incoming: [offer({ id: 2, kind: 'vassal', from_settlement: 9, tribute_pct: 12 })], outgoing: [], truces: [] }, realm: [larissa], world: [larissa], now: 0, online: true, msg: '', bad: false };
+    expect(askFirst('vassal')).toMatch(/pays tribute/);
+    expect(askFirst('join')).toMatch(/become a citizen/);
+    expect(askFirst('settle')).toBeNull();
+    expect(holdingsHtml(base)).not.toContain('hd-ask');
+    const armed = holdingsHtml({ ...base, armed: 'accept:2' });
+    expect(armed).toMatch(/class="rf-tbtn st-bad sure" data-sa="accept:2"/);
+    expect(armed).toContain('Click Swear fealty again to confirm');
+    expect(holdingsHtml({ ...base, online: false })).toMatch(/data-sa="accept:2" disabled data-tip="[^"]*offline: answers need the server/);
+    const busy = holdingsHtml({ ...base, busy: true });
+    expect(busy).toContain('class="st-busy"');
+    expect(busy).toContain('Sending…');
+    expect(settlementCard(ctx({ busy: true }))).toContain('class="st-busy"');
+    expect(holdingsHtml({ ...base, inbox: { incoming: [], outgoing: [], truces: [] } })).toContain('Nothing waits. Requests to settle in your settlements');
   });
 });

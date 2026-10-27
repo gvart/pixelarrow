@@ -201,10 +201,10 @@ export const CSS = TOKENS + CURSORS + `
 /** A level ring: `p` 0..1 of the way to the next level in gold round `inner` (the level numeral), `px` across. */
 export const ring = (p: number, px: number, inner: string) => `<span class="rf-ring" style="--p:${Math.max(0, Math.min(1, p)).toFixed(3)};width:${px}px;height:${px}px">${inner}</span>`;
 
-/** Keep a top-anchored panel inside the window: it scrolls past the bottom edge (4 art px margin). */
-export function fitHeight(el: HTMLElement): void {
+/** Keep a top-anchored panel inside the window: it scrolls past the bottom edge (`bottom` art px margin, 4 by default). */
+export function fitHeight(el: HTMLElement, bottom = 4): void {
   const z = Number(el.style.zoom) || 1;
-  el.style.maxHeight = `${Math.floor(innerHeight / z - (parseFloat(el.style.top) || 0) - 4)}px`;
+  el.style.maxHeight = `${Math.floor(innerHeight / z - (parseFloat(el.style.top) || 0) - bottom)}px`;
   el.style.overflowY = 'auto';
   el.style.scrollbarWidth = 'thin';
   el.style.scrollbarColor = '#7a3418 #0e0907';
@@ -236,6 +236,15 @@ export function placeTip(tip: HTMLElement, el: HTMLElement): void {
   tip.style.left = `${Math.max(4, Math.min(innerWidth - t.width - 4, x)) / z}px`;
   tip.style.top = `${Math.max(4, Math.min(innerHeight - t.height - 4, y)) / z}px`;
 }
+
+/** The windows under the top-right corner buttons share one place: opening one closes the others (by their buttons). */
+const CORNER_WINDOWS = ['rfWorksBtn', 'rfTasksBtn', 'rfCrownBtn', 'rfHoldingsBtn'];
+export function closeCornerWindows(except: string): void {
+  for (const id of CORNER_WINDOWS) if (id !== except) { const b = document.getElementById(id); if (b?.classList.contains('on')) b.click(); }
+}
+
+/** The bottom margin of a right-hand window: clear of the chest, roster and build buttons in the bottom-right corner. */
+export const CORNER_BOTTOM = 52;
 
 /** A bar: kind hp / construction / burn / ok, value 0..1, width in art px. */
 export const bar = (kind: string, v: number, w: number) => `<div class="rf-bar" style="width:${w}px"><i class="${kind}" style="width:${Math.round((w - 2) * Math.max(0, Math.min(1, v)))}px"></i></div>`;
