@@ -110,6 +110,8 @@ export class SandboxScene extends Phaser.Scene {
   /** M6k: carts, piles, chests, packs and safe zones on the map; the trade orders. */
   tradeLayer!: TradeLayer;
   trade!: TradeControls;
+  /** The building, siege and trade art loading (the loading screen waits for them: ./loadScreen.ts). */
+  readonly artLoads: Promise<unknown>[] = [];
   /** True once the overview has been baked for the current overlays. */
   overviewReady = false;
   private moved = false; // no edge pan before the first real pointer move
@@ -230,10 +232,10 @@ export class SandboxScene extends Phaser.Scene {
     this.input.on('pointermove', (p: Phaser.Input.Pointer) => this.onMove(p));
     this.input.on('pointerup', (p: Phaser.Input.Pointer) => this.onUp(p));
     this.siegeLayer = new SiegeLayer(this, this.iso, (x, y) => this.depthAt(x, y));
-    void SiegeArt.load(this).then((a) => (this.siegeLayer.art = a));
+    this.artLoads.push(SiegeArt.load(this).then((a) => (this.siegeLayer.art = a)));
     this.tradeLayer = new TradeLayer(this, this.iso, r, (x, y) => this.depthAt(x, y), (d) => this.units.feet(d));
     this.tradeLayer.siegeArt = () => this.siegeLayer.art;
-    void TradeArt.load(this).then((a) => (this.tradeLayer.art = a));
+    this.artLoads.push(TradeArt.load(this).then((a) => (this.tradeLayer.art = a)));
     this.trade = new TradeControls(this);
     this.build = new BuildMode(this);
     this.build.layer.nodeBase = (n) => (n.obj !== undefined && r.objects?.[n.obj] ? this.objects?.baseOf(r.objects[n.obj].id) : undefined);

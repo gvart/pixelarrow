@@ -147,12 +147,13 @@ let soulSource: (() => readonly SoulSnap[]) | null = null;
 export const setSoulSource = (f: (() => readonly SoulSnap[]) | null): void => void (soulSource = f);
 
 /** Fetch and decode the class sheets (before the game starts: big ones are split, see buildSheet). */
-export async function loadSheetImages(): Promise<Map<string, HTMLImageElement>> {
-  const out = new Map<string, HTMLImageElement>();
+export async function loadSheetImages(onProgress?: (f: number) => void): Promise<Map<string, HTMLImageElement>> {
+  const out = new Map<string, HTMLImageElement>(), total = Object.keys(images).length + 1;
   await Promise.all(Object.entries(images).map(async ([path, url]) => {
     const im = new Image();
     await new Promise((ok, fail) => { im.onload = ok; im.onerror = () => fail(new Error(`sheet ${url} failed to load`)); im.src = url; });
     out.set(path.split('/').at(-2)!, im);
+    onProgress?.(out.size / total);
   }));
   const im = new Image();
   await new Promise((ok, fail) => { im.onload = ok; im.onerror = () => fail(new Error(`loads ${loadsUrl} failed to load`)); im.src = loadsUrl; });

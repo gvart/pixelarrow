@@ -13,6 +13,7 @@ page.on('pageerror', (e) => errors.push(String(e)));
 page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
 await page.goto(`${base}/sandbox.html?scenario=${process.env.SC ?? 'free'}`);
 await page.waitForFunction(() => !!window.__warAudio, null, { timeout: 120000 });
+await page.waitForFunction(() => !document.getElementById('rfLoad'), null, { timeout: 120000 }); // the loading screen gone (src/war/view/loadScreen.ts)
 const before = await page.evaluate(() => window.__warAudio.debug().state);
 await page.mouse.click(640, 400);
 await page.waitForFunction(() => window.__warAudio.debug().state === 'running', null, { timeout: 15000 });

@@ -33,6 +33,7 @@ const shot = async (name) => {
 const boot = async (q = '') => {
   await page.goto(url + q);
   await page.waitForFunction(() => window.__sandbox?.sim?.cur && document.getElementById('dev'), null, { timeout: 60000 });
+  await page.waitForFunction(() => !document.getElementById('rfLoad'), null, { timeout: 120000 }); // the loading screen gone (src/war/view/loadScreen.ts)
 };
 /** Average and minimum fps over n half seconds. */
 const fps = async (label, n = 12) => {

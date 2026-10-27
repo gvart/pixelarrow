@@ -166,6 +166,7 @@ async function record(shot, [w, h]) {
     await page.waitForTimeout(1500); // the map's art
   } else {
     await page.waitForFunction(() => window.__sandbox?.sim?.cur && window.__simWorker && window.__warAudio, null, { timeout: 120000 });
+    await page.waitForFunction(() => !document.getElementById('rfLoad'), null, { timeout: 120000 }); // the loading screen gone (src/war/view/loadScreen.ts)
     // no lair dens (the greybox bone rings of neutral regions, src/war/view/neutral.ts): markers, not the world
     await ev(page, (fog) => { const s = window.__sandbox; s.setFog(fog); s.sel?.set([]); s.neutral?.g?.setVisible(false); }, !!shot.fog);
     // setup before the lead: orders it gives play out over the lead

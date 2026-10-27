@@ -56,6 +56,7 @@ for (const b of BOSSES) {
   if (only && !only.includes(b.id)) continue;
   await page.goto(`${base}sandbox.html?region=${b.region}&sim=real`);
   await page.waitForFunction(() => window.__sandbox?.sim?.cur && document.getElementById('dev'), null, { timeout: 90000 });
+  await page.waitForFunction(() => !document.getElementById('rfLoad'), null, { timeout: 120000 }); // the loading screen gone (src/war/view/loadScreen.ts)
   await page.evaluate(() => {
     const s = window.__sandbox;
     s.setFog(false);

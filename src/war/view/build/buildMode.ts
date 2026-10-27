@@ -105,7 +105,7 @@ export class BuildMode {
 
   constructor(private s: SandboxScene) {
     this.layer = new BuildingLayer(s, s.iso, (x, y) => s.depthAt(x, y));
-    void BuildArt.load(s).then((a) => (this.layer.art = a));
+    s.artLoads.push(BuildArt.load(s).then((a) => (this.layer.art = a)));
     s.input.keyboard!.on('keydown', (e: KeyboardEvent) => {
       const a = keys.act(e);
       if (a === 'build.mode') this.toggle();

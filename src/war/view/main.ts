@@ -31,6 +31,7 @@ import { ARMY_MAX } from '../sim/soldiers';
 import { WORLD_REGIONS } from '../regions';
 import { chatBusy } from './hud/chat';
 import { escPanelOpen } from './hud/kit';
+import { loader, watchScene } from './loadScreen';
 
 const q = new URLSearchParams(location.search);
 // M7d: a scenario may name its own region (the landmark raids)
@@ -63,9 +64,15 @@ const baker = BakeClient.start(q);
 // no top-level await: the build targets es2020
 const loading = id === 'fake' ? Promise.resolve(fakeRegion()) : loadRegion(id);
 if (baker) void loading.then((r) => baker.region(r), () => {});
-void Promise.all([loading, q.get('art') === 'grey' ? null : loadArt(), loadSheetImages()]).then(([region, art, sheets]) => {
+// the loading screen (./loadScreen.ts) covers the page until the region is playable; its bar follows these loads
+void loading.then((r) => (loader?.name(r.name), loader?.set('region', 1)), () => {});
+const grey = q.get('art') === 'grey';
+if (grey) loader?.set('art', 1);
+void Promise.all([loading, grey ? null : loadArt(undefined, loader?.part('art', 'Gathering the land…')), loadSheetImages(loader?.part('sheets'))]).then(([region, art, sheets]) => {
+  loader?.set('scene', 0.5, 'Pitching the camp…');
   const scene = new SandboxScene();
   live = scene;
+  let placed = false; // world entry: the camera is on the player's men (the loading screen waits for it)
   const game = new Phaser.Game({
     type: Phaser.WEBGL,
     parent: 'game',
@@ -102,6 +109,8 @@ void Promise.all([loading, q.get('art') === 'grey' ? null : loadArt(), loadSheet
     }
     devPanel(game, scene, sc);
     hud(scene);
+    loader?.set('scene', 1, 'Waking the region…');
+    if (loader) watchScene(loader, scene, () => !q.has('world') || placed);
     // the war's sound (./sound): settings card in the HUD corner, then the hooks (after the HUD's own event taps)
     audio = new WarAudio(scene);
     mountSoundPanel(audio);
@@ -113,6 +122,7 @@ void Promise.all([loading, q.get('art') === 'grey' ? null : loadArt(), loadSheet
     if (!own) return;
     game.events.off('poststep', toSquad);
     scene.focus(own.x, own.y, 1); // close enough to know his men
+    placed = true;
     // his men selected: their rings and outlines show them through trees and walls, and orders go to them at once
     // (once they are drawn: the selection takes only men on screen)
     let tries = 0;
@@ -125,4 +135,4 @@ void Promise.all([loading, q.get('art') === 'grey' ? null : loadArt(), loadSheet
   };
   game.events.on('poststep', ready);
   (window as unknown as { __sandbox: SandboxScene }).__sandbox = scene;
-});
+}).catch((e: unknown) => loader?.fail(`${(e as Error)?.message ?? e}`));
