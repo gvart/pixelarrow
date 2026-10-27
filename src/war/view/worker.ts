@@ -56,13 +56,15 @@ export type ToWorker =
   // M6f-g, net mode only: stow and the hand-off window over the region socket (answers come back as `server`)
   | { t: 'stow'; m: Omit<StowMsg, 't'> }
   | { t: 'handoff'; m: Omit<HandoffMsg, 't'> }
-  | { t: 'guideHide' }; // W-62, net mode: hide the first-hour guide for good
+  | { t: 'guideHide' } // W-62, net mode: hide the first-hour guide for good
+  | { t: 'netStats'; on: boolean }; // net mode: the network readout (pings, and `net` posted every second) on or off
 
 /** Ticks between resource node posts (amounts change slowly). */
 const NODES_EVERY = 10;
 
 let sim: WarSim | null = null;
 let net: Net | null = null;
+let netTimer = 0;
 let brains: Bots | null = null;
 const scripted = new Set<number>();
 let timer = 0;
@@ -203,6 +205,12 @@ onmessage = (e: MessageEvent<ToWorker>) => {
  * messages (DEV_AUTH servers only); the rest of the dev asks (damage, bosses, scenarios) have no live counterpart. */
 function netMessage(n: Net, m: ToWorker): void {
   if (m.t === 'stop') n.stop();
+  else if (m.t === 'netStats') {
+    clearInterval(netTimer);
+    n.pings(m.on);
+    n.stats();
+    if (m.on) netTimer = setInterval(() => postMessage({ net: n.stats() }), 1000) as unknown as number;
+  }
   else if (m.t === 'spawn') n.join(m.team, m.cls, m.count);
   else if (m.t === 'devSpawn') n.dev({ op: 'spawn', team: m.team, cls: m.cls, count: Math.min(m.count, MAX_SQUAD), x: m.x, y: m.y });
   else if (m.t === 'claim') n.dev({ op: 'claim', x: m.x, y: m.y, ...(m.r ? { r: m.r } : {}) });
