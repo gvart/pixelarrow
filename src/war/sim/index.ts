@@ -40,7 +40,7 @@
  * orders them each tick (wander, aggro, leash back). claimRegion walks a squad to a claim point, where it channels.
  */
 import { Rng } from '../../sim/rng';
-import type { BuildingType, FightReport, GoodKind, Order, PersonResult, RegionData, RegionMemory, ResourceKind, ShotSnap, Snapshot, SquadId, SquadSnap, UnitId, UnitSnap, WarBuildSim, WarEvent, WarPerson, WarSkillId } from '../types';
+import type { BuildingType, Deed, FightReport, GoodKind, Order, PersonResult, RegionData, RegionMemory, ResourceKind, ShotSnap, Snapshot, SquadId, SquadSnap, UnitId, UnitSnap, WarBuildSim, WarEvent, WarPerson, WarSkillId } from '../types';
 import { salvageValue, type Item } from '../../data/items';
 import { warStats, warStatsOf, type WarStats } from './classes';
 import { afterArmour, blockChance, COMBAT, heightRange, hitChance, meleeHeight, missileHeight } from './combat';
@@ -68,7 +68,8 @@ import { BLESS, createTowns } from './prebuilt';
 import { createLandmarks } from './landmarks';
 import { CART_FORD, CART_UPHILL } from './grid';
 import { amount as amountOf, itemList, loads, move as moveHold, newHold, perLoad, take as takeHold, totals, type Hold, type Lot } from './holders';
-import { CART, createPiles, ESCORT, inRect, PILE, PORTER, SAFE } from './trade';
+import { addDeeds, DEED, plainDeed, SCARS_MAX, slayerDeed } from './deeds';
+import { CART, CLAIM_TICKS, createPiles, ESCORT, inRect, PILE, PORTER, SAFE } from './trade';
 import { CRAFT, itemRecipe } from './crafting';
 import { blow, HUNGER, hungerStage, pace } from './food';
 import { createSouls, type Soul } from './souls';
@@ -199,6 +200,8 @@ interface Unit extends Worker {
   obj: number;
   engaged: boolean;
   reported: boolean;
+  /** E3: the guardians (boss ids) he struck since the last endFight (a slayer's deed when one falls). */
+  bossHit?: string[];
   // M5f civilians (./civilians.ts): his job (null: a soldier), seconds of work towards his next batch, at work at his
   // building since the last civilian tick; repaired: a smith mended his gear (reported by endFight)
   civ: CivJob | null;
@@ -350,7 +353,10 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
   const LOG_MAX = 5000;
   const note = (e: WarEvent) => {
     if (log.length < LOG_MAX) log.push(e);
+    if (e.kind === 'bossSlain') slain.push(e.boss); // E3: slayers' deeds at the next report
   };
+  /** E3: guardians slain since the last endFight. */
+  let slain: string[] = [];
   // M5f: the civilians (all ever spawned, in id order)
   const civs: Unit[] = [];
   // M5h: teams with a Battle Dresser physician on the field (a bandage counts double), refreshed on the civilian loop
@@ -1784,6 +1790,8 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       by.dealt += Math.min(d, t.hp);
       by.engaged = t.engaged = true;
       if (t.boss >= 0) bosses.hit(t.boss, by.squad.owner, Math.min(d, t.hp)); // M7d: the killers' list
+      const bid = t.boss >= 0 && by.person ? region.guardians?.[t.boss]?.boss : undefined; // E3: a slayer's deed
+      if (bid && !by.bossHit?.includes(bid)) (by.bossHit ??= []).push(bid);
       if (by.boss >= 0) bosses.struck(by.boss);
     }
     t.hp -= d;
@@ -1807,13 +1815,16 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     const lots: Lot[] = t.pack ? t.pack.lots.filter((l) => l.n > 1e-9) : [];
     if (t.carry && t.load > 0 && t.wfor < 0) lots.push({ r: t.carry, n: t.load, o: region.id });
     const items = t.pack ? t.pack.items.slice() : [];
+    // E3: his worn kit falls apart from his pack, his owner's alone for CLAIM_TICKS (then anyone's)
+    const kit: Item[] = [];
     if (!t.wounded && t.person) {
-      for (const it of Object.values(t.person.hero.equip)) if (it) items.push({ ...it, cond: Math.max(0, it.cond - PILE.wear) });
+      for (const it of Object.values(t.person.hero.equip)) if (it) kit.push({ ...it, cond: Math.max(0, it.cond - PILE.wear) });
       t.person = { ...t.person, hero: { ...t.person.hero, equip: {} } };
     }
     if (t.carry && t.wfor < 0) (t.carry = null), (t.load = 0);
     t.pack = null;
     piles.drop(t.x, t.y, lots, items, tick);
+    if (kit.length) piles.drop(t.x, t.y, [], kit, tick, 0, { owner: t.squad.owner, name: t.person!.hero.name, until: tick + CLAIM_TICKS });
   };
   /** M6d: a building of the region stands in a safe zone. */
   const safeBuilding = (id: number) => {
@@ -1873,7 +1884,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
   const unitNear = (pred: (u: Unit) => boolean, x: number, y: number, r: number) => units.some((u) => u.alive && pred(u) && (u.x - x) ** 2 + (u.y - y) ** 2 <= r * r);
   /** May squad s take from h? A pile: anyone; his cart, his chest, his team's store; looting: see TradeOrder. In a safe zone only his own. */
   const mayTake = (s: Squad, h: HolderAt): boolean => {
-    if (h.kind === 'pile') return true;
+    if (h.kind === 'pile') return piles.open(piles.get(h.id)!, s.owner, tick); // E3: a fallen man's kit, his owner's for a while
     if (h.kind === 'cart') return h.owner === s.owner;
     if (h.kind === 'store' && works.piece(h.id)?.def.cache) return !inSafe(h.x, h.y); // M7a: a town's cache: anyone's
     const own = h.kind === 'chest' ? h.owner === s.owner : h.team === s.team;
@@ -1911,7 +1922,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     }
     if (o.kind === 'salvagePile') {
       const p = piles.get(o.pile);
-      if (!p || !p.hold.items.some((it) => it.uid === o.uid) || !s.units.some((u) => u.alive && u.civ === 'smith')) return;
+      if (!p || !piles.open(p, s.owner, tick) || !p.hold.items.some((it) => it.uid === o.uid) || !s.units.some((u) => u.alive && u.civ === 'smith')) return;
       stopWork();
       if (s.siege >= 0) uncrew(s);
       s.salv = { pile: o.pile, uid: o.uid, t: 0 };
@@ -2163,7 +2174,8 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
   /** M5d: the fight report (WarBuildSim.endFight). */
   const endFight = (): FightReport => {
     const persons = resultsOf(units);
-    for (const u of units) (u.dealt = u.kills = u.obj = 0), (u.engaged = u.repaired = false);
+    for (const u of units) (u.dealt = u.kills = u.obj = 0), (u.engaged = u.repaired = false), (u.bossHit = undefined);
+    slain = [];
     for (const s of reslotQueue) reslot(s);
     reslotQueue.clear();
     const out: FightReport = { tick, persons, loot };
@@ -2211,11 +2223,37 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       if (state === 'dead') xp = 0;
       const g = gainXp(p.hero, xp);
       const hero = { ...g.hero, kills: p.hero.kills + u.kills, battles: p.hero.battles + (u.engaged ? 1 : 0), ...(state === 'dead' || state === 'captive' ? { equip: {} } : {}) };
-      u.person = { ...p, hero };
+      // E3 (./deeds.ts): what he did, on his record once; a wound that he lived through leaves a scar
+      const did: Deed[] = [];
+      if (p.hero.kills === 0 && u.kills > 0) did.push(plainDeed('firstBlood'));
+      if (p.hero.kills < DEED.slayer && hero.kills >= DEED.slayer) did.push(plainDeed('manSlayer'));
+      for (const b of u.bossHit ?? []) if (slain.includes(b)) did.push(slayerDeed(b));
+      if (state === 'fit' && u.engaged && foes > 0) {
+        const f = holdOf(team, u.x, u.y);
+        if (f !== undefined && works.dist2(f, u.x, u.y) <= DEED.gate * DEED.gate) did.push(plainDeed('heldGate'));
+      }
+      if (state === 'wounded') did.push(plainDeed('survivor'));
+      const scar = state === 'wounded';
+      const rec = addDeeds(p.deeds, did);
+      u.person = { ...p, hero, ...(rec.all.length ? { deeds: rec.all } : {}), ...(scar ? { scars: Math.min(SCARS_MAX, (p.scars ?? 0) + 1) } : {}) };
       if (g.levelUps) note({ t: tick, kind: 'levelUp', unit: u.id, pid: p.id, level: hero.level });
       if (g.levelUps && u.alive) rebake(u);
       if (!u.alive) u.reported = true;
-      persons.push({ pid: p.id, owner: u.squad.owner, team, state, ...(captor !== undefined ? { captor } : {}), ...(fort !== undefined ? { fort } : {}), xp, kills: u.kills, dmg: Math.round(u.dealt), levelUps: g.levelUps, hero });
+      persons.push({ pid: p.id, owner: u.squad.owner, team, state, ...(captor !== undefined ? { captor } : {}), ...(fort !== undefined ? { fort } : {}), xp, kills: u.kills, dmg: Math.round(u.dealt), levelUps: g.levelUps, hero,
+        ...(rec.fresh.length ? { deeds: rec.fresh } : {}), ...(scar ? { scar: true as const } : {}) });
+    }
+    // E3 Last man standing: the only one of his team in the report (DEED.last or more of them) to walk off fit
+    const byTeam = new Map<number, PersonResult[]>();
+    for (const x of persons) byTeam.set(x.team, [...(byTeam.get(x.team) ?? []), x]);
+    for (const xs of byTeam.values()) {
+      const fit = xs.filter((x) => x.state === 'fit');
+      if (xs.length < DEED.last || fit.length !== 1) continue;
+      const x = fit[0], live = units.find((m) => m.person?.id === x.pid);
+      if (!live?.person) continue;
+      const rec = addDeeds(live.person.deeds, [plainDeed('lastStanding')]);
+      if (!rec.fresh.length) continue;
+      live.person = { ...live.person, deeds: rec.all };
+      x.deeds = [...(x.deeds ?? []), ...rec.fresh];
     }
     return persons;
   };
@@ -3093,7 +3131,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     grid, rng, squads, units, queue, pathQueue, unitPathQueue, missiles, shots, reslotQueue, tick, loot, log, civs, dresser, souls: souls.saveRoot(),
     crafting: crafting.saveRoot(), works: works.saveRoot(), siege: siege.saveRoot(), mobs: mobs.saveRoot(), vision: vision.saveRoot(), piles: piles.saveRoot(),
     towns: towns.saveRoot(), bosses: bosses.saveRoot(), landmarks: landmarks.saveRoot(),
-    townLv: townLv.saveRoot(), bonuses, labourLog,
+    townLv: townLv.saveRoot(), bonuses, labourLog, slain,
   });
 
   const api: WarBuildSim = {
@@ -3110,6 +3148,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       const r = decodeGraph(st, keyed, saveRoot()) as ReturnType<typeof saveRoot>;
       if (r.grid !== grid || r.squads !== squads || r.units !== units || r.rng !== rng) throw new Error('importState: live state not bound');
       ({ missiles, shots, tick, loot, log } = r);
+      slain = r.slain ?? [];
       piles.loadRoot(r.piles);
       works.loadRoot(r.works);
       siege.loadRoot(r.siege);
@@ -3141,7 +3180,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       // M4: these living men leave mid-fight (a transfer): their fight so far, reported now, tallies cleared
       const of = new Set(ids), sel = units.filter((u) => u.alive && u.person && of.has(u.person.id));
       const out = resultsOf(sel);
-      for (const u of sel) (u.dealt = u.kills = u.obj = 0), (u.engaged = u.repaired = false);
+      for (const u of sel) (u.dealt = u.kills = u.obj = 0), (u.engaged = u.repaired = false), (u.bossHit = undefined);
       for (const s of reslotQueue) reslot(s);
       reslotQueue.clear();
       return out;
@@ -3230,6 +3269,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
             ...(u.alive && u.doing ? { task: u.doing } : {}),
             ...(u.alive ? {} : { wounded: u.wounded }),
             ...(u.person ? { pid: u.person.id, level: u.person.hero.level } : {}),
+            ...(u.person?.scars ? { scars: u.person.scars } : {}),
             ...(u.alive && u.civAt && CLIP[u.civ!] ? { work: CLIP[u.civ!] } : {}),
             ...(u.alive && u.squad.flee ? { flee: true as const } : {}),
             ...(u.alive && u.load > 0 ? { carry: u.carry!, load: u.load } : {}),
@@ -3273,7 +3313,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
         ...(souls.any() ? { souls: souls.snaps(tick) } : {}),
         ...((tl) => (tl.length ? { townLevels: tl } : {}))(townLv.snaps()),
         ...(crafting.supplies.size ? { supplies: crafting.suppliesSnap() } : {}),
-        ...(piles.piles.length ? { piles: piles.piles.map((p) => ({ id: p.id, x: p.x, y: p.y, goods: totals(p.hold), items: p.hold.items.length, ...(p.hold.items.length ? { list: itemList(p.hold) } : {}), loads: loads(p.hold), left: p.until - tick, ...(p.salv > 0 ? { salvage: p.salv / PILE.salvage } : {}) })) } : {}),
+        ...(piles.piles.length ? { piles: piles.piles.map((p) => ({ id: p.id, x: p.x, y: p.y, goods: totals(p.hold), items: p.hold.items.length, ...(p.hold.items.length ? { list: itemList(p.hold) } : {}), loads: loads(p.hold), left: p.until - tick, ...(p.salv > 0 ? { salvage: p.salv / PILE.salvage } : {}), ...(p.claim && p.claim.until > tick ? { claim: { owner: p.claim.owner, name: p.claim.name, left: p.claim.until - tick } } : {}) })) } : {}),
       };
     },
     stats() {

@@ -4,7 +4,7 @@ import { createSim } from '../../src/war/sim';
 import { warStats, warStatsOf } from '../../src/war/sim/classes';
 import { createRoster, makePerson } from '../../src/war/sim/roster';
 import { CAPTURE_R, FALL, woundedShare, XP } from '../../src/war/sim/soldiers';
-import { PILE } from '../../src/war/sim/trade';
+import { CLAIM_TICKS, PILE } from '../../src/war/sim/trade';
 import type { WarBuildSim, WarPerson } from '../../src/war/types';
 import { flat } from './flatRegion';
 
@@ -58,7 +58,7 @@ describe('M5d wounded share', () => {
 });
 
 describe('M6c loot piles (replace the M5d gear drops)', () => {
-  it('the killed leave their kit in piles (-25 condition), the wounded keep it; any side picks a pile up, first hands win', () => {
+  it('the killed leave their kit in piles (-25 condition), the wounded keep it; any side picks a pile up (once its claim runs out), first hands win', () => {
     const sim = createSim(flat(), 4);
     const victims = men('v', 'hoplite', 12, { tier: 1, rarity: 'rare' }).map((p) => ({ ...p, hero: { ...p.hero, attrs: { ...p.hero.attrs, end: 0 } } }));
     const a = sim.spawnSquad('a', 0, 'x', 0, 30, 24, victims);
@@ -76,7 +76,9 @@ describe('M6c loot piles (replace the M5d gear drops)', () => {
       expect(p.left).toBeLessThanOrEqual(PILE.decay);
       expect(p.loads).toBeLessThanOrEqual(PILE.max + 1e-9);
     }
-    // the winners load the nearest pile into their packs: one item a man every PORTER.every ticks
+    // E3: a fallen man's kit is his owner's for CLAIM_TICKS; then the winners load the nearest pile into their packs: one
+    // item a man every PORTER.every ticks
+    run(sim, CLAIM_TICKS);
     sim.order({ kind: 'load', squad: b, from: { pile: piles[0].id } });
     run(sim, 600);
     const r = sim.endFight();

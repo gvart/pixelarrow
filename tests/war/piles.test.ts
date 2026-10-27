@@ -111,7 +111,8 @@ describe('M6c pile rules', () => {
     run(sim, 3000, () => alive(sim, s) === 0);
     sim.order({ kind: 'move', squad: f, x: 90, y: 90 });
     run(sim, 400);
-    const pile = (sim.snapshot().piles ?? []).find((p) => (p.goods.wood ?? 0) > 0 && p.items > 0)!;
+    // E3: the killed men's worn kit lies apart (claimed); their packs' wood in this one, anyone's
+    const pile = (sim.snapshot().piles ?? []).find((p) => (p.goods.wood ?? 0) > 0 && !p.claim)!;
     expect(pile).toBeDefined();
     const wood0 = pile.goods.wood!, items0 = pile.items;
     const others0 = (sim.snapshot().piles ?? []).reduce((n, p) => n + (p.id === pile.id ? 0 : p.loads), 0);

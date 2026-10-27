@@ -36,7 +36,11 @@ export type Rect = { x: number; y: number; w: number; h: number };
 export const inRect = (r: Rect, x: number, y: number) => x >= r.x && y >= r.y && x < r.x + r.w && y < r.y + r.h;
 export const inRects = (rs: readonly Rect[] | undefined, x: number, y: number) => !!rs?.some((r) => inRect(r, x, y));
 
-export interface Pile { id: number; x: number; y: number; hold: Hold; until: number; salv: number; by: number }
+/** E3: a fallen man's kit: only `owner`'s squads take from it until tick `until` (CLAIM_TICKS), then anyone. */
+export interface PileClaim { owner: string; name: string; until: number }
+export interface Pile { id: number; x: number; y: number; hold: Hold; until: number; salv: number; by: number; claim?: PileClaim }
+/** E3: a fallen man's worn kit is his owner's alone this long (10 min at 10 Hz). */
+export const CLAIM_TICKS = 6000;
 
 /** Loot piles of a region (saved through saveRoot; `nextId` set back by loadRoot). */
 export function createPiles(region: RegionData) {
@@ -48,9 +52,10 @@ export function createPiles(region: RegionData) {
     loadRoot: (o: { nextId: number }) => void (nextId = o.nextId),
     /**
      * Goods and items fall at (x,y): into a pile within PILE.merge tiles with room (up to PILE.max loads), else a new
-     * one; `spoilt`: fire spoils that share of the goods first. Nothing in a safe zone (no falls there).
+     * one; `spoilt`: fire spoils that share of the goods first. Nothing in a safe zone (no falls there). `claim` (E3): a
+     * fallen man's kit, its own pile (merged only into his owner's claimed kit), his owner's alone for a while.
      */
-    drop(x: number, y: number, lots: readonly Lot[], items: readonly Item[], tick: number, spoilt = 0): Pile | null {
+    drop(x: number, y: number, lots: readonly Lot[], items: readonly Item[], tick: number, spoilt = 0, claim?: PileClaim): Pile | null {
       const h = newHold();
       putLots(h, lots);
       if (spoilt > 0) spoil(h, spoilt);
@@ -58,14 +63,17 @@ export function createPiles(region: RegionData) {
       if (!h.items.length && !h.lots.length) return null;
       if (inRects(region.safe, x, y)) return null;
       const add = loads(h);
-      let p = piles.find((q) => (q.x - x) ** 2 + (q.y - y) ** 2 <= PILE.merge * PILE.merge && loads(q.hold) + add <= PILE.max);
-      if (!p) piles.push((p = { id: nextId++, x, y, hold: newHold(), until: 0, salv: 0, by: -1 }));
+      let p = piles.find((q) => (q.x - x) ** 2 + (q.y - y) ** 2 <= PILE.merge * PILE.merge && loads(q.hold) + add <= PILE.max && q.claim?.owner === claim?.owner);
+      if (!p) piles.push((p = { id: nextId++, x, y, hold: newHold(), until: 0, salv: 0, by: -1, ...(claim ? { claim: { ...claim } } : {}) }));
+      else if (claim && p.claim) p.claim.until = claim.until;
       putLots(p.hold, h.lots);
       p.hold.items.push(...h.items);
       p.until = tick + PILE.decay;
       return p;
     },
     get: (id: number) => piles.find((p) => p.id === id),
+    /** E3: may `owner` take from pile p at `tick` (its claim run out, or his)? */
+    open: (p: Pile, owner: string, tick: number) => !p.claim || p.claim.owner === owner || tick >= p.claim.until,
     /** Piles past their time are gone (items scrapped, goods spoilt); emptied ones too. */
     tick(tick: number) {
       for (let i = piles.length - 1; i >= 0; i--) {

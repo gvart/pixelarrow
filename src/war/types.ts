@@ -247,6 +247,8 @@ export interface UnitSnap { id: UnitId; squad: SquadId; x: number; y: number; fa
   z?: number; on?: number;
   /** M5b: a person (WarPerson id) and his level; missing on class-spawned men. */
   pid?: string; level?: number;
+  /** E3: his scars (cosmetic: a mark under him when selected). */
+  scars?: number;
   /** M5f civilians: at work at his building (cook, forge, trade, heal: the clip to play); fleeing (run). */
   work?: 'cook' | 'forge' | 'trade' | 'heal'; flee?: true;
   /** M6a: loads in his pack (a porter). */
@@ -659,7 +661,11 @@ export type WarSkillId =
   | 'horsemanship' | 'lanceCharge' | 'rideDown' | 'wheel';
 export type HonourStat = 'hp' | 'dmg' | 'armor' | 'block' | 'accuracy';
 /** A persistent soldier as the live sim sees him: the hero record (class, level, attributes, gear), his skills, his honours (+2% to one stat each). */
-export interface WarPerson { id: string; hero: Hero; skills?: WarSkillId[]; honours?: { name: string; stat: HonourStat }[] }
+export interface WarPerson { id: string; hero: Hero; skills?: WarSkillId[]; honours?: { name: string; stat: HonourStat }[];
+  /** E3 (src/war/sim/deeds.ts): deeds on his record (names only) and scars from heavy wounds (cosmetic, 0..3). */
+  deeds?: Deed[]; scars?: number }
+/** E3: a deed of a man's record: `id` (firstBlood, slayer:<boss>, ...) and its name as men tell it. */
+export interface Deed { id: string; name: string }
 /** A squad active: ready in `ready` ticks (0 = now), buff on for `on` more ticks (0 = off). */
 export interface ActiveSnap { skill: WarSkillId; ready: number; on: number }
 /** M6k: an item in a hold as the view sees it (src/war/sim/holders.ts itemList). */
@@ -667,7 +673,9 @@ export interface HoldItem { uid: string; def: string; rarity: string; q?: 0 | 1 
 /** M6c: a loot pile: its goods, item count, loads, `left` ticks until it is gone; salvage: a smith's progress 0..1. */
 export interface PileSnap { id: number; x: number; y: number; goods: Partial<Record<GoodKind, number>>; items: number; loads: number; left: number; salvage?: number;
   /** M6k: the pile's first items (uid for salvagePile; at most 8). */
-  list?: HoldItem[] }
+  list?: HoldItem[];
+  /** E3: a fallen man's worn kit: only his owner may take it for `left` more ticks, then anyone. */
+  claim?: { owner: string; name: string; left: number } }
 /**
  * One person's fight: XP earned (half when wounded or captive, none when dead), level-ups, and the hero after it.
  * fort: a captive's holding building (the captor's nearest standing fort or camp), absent when the captor holds none.
@@ -677,6 +685,8 @@ export interface PersonResult {
   xp: number; kills: number; dmg: number; levelUps: number; hero: Hero;
   /** A battle honour won in this fight (src/war/sim/honours.ts; set by the region room, not the sim). */
   honour?: { name: string; stat: HonourStat };
+  /** E3 (src/war/sim/deeds.ts): deeds first earned in this fight, and a fresh scar (he fell wounded). */
+  deeds?: Deed[]; scar?: true;
 }
 /** loot: items picked up from piles per team since the last report (M6c; the server mints them until M6e places them). */
 export interface FightReport { tick: number; persons: PersonResult[]; loot: Record<number, Item[]> }
