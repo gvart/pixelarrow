@@ -28,6 +28,11 @@
  *    the settlements once every region wrote what persists of them (../settlements.ts seasonSweep).
  *  - W-64: the rollover also ends every crown's term (../crown.ts crownSeason); notify() carries crown news too. The
  *    snapshot carries the crown layer (../crown.ts crownMap: monarchs, pacts), read at most every CROWN_MS and again after news.
+ *  - The online cap (`?gate=1`: a gate socket, tagged `gate`, src/war/net/gate.ts; ./gate.ts plans it): at most
+ *    WAR_MAX_ONLINE players in the war (admins exempt), the rest in line. The sockets' attachments are the state (no
+ *    storage); a tab silent past GATE_EXPIRE_MS (its last auto-answered ping) is closed. While anyone waits or holds a
+ *    dropped place, a GATE_SWEEP_MS timer sweeps; else the sweep runs on the gate's events. admitted() answers the
+ *    Worker's region socket route.
  */
 import { DurableObject } from 'cloudflare:workers';
 import type { Env } from '../../env';
@@ -48,13 +53,17 @@ import type { ChatMsg, Mark } from '../../../../src/war/net/chat';
 import { seasonSweep } from '../settlements';
 import { crownMap, crownSeason } from '../crown';
 import type { CrownMap } from '../../../../src/war/net/world';
+import { GATE_HOLD_MS, GATE_LEAVE, type GateMsg } from '../../../../src/war/net/gate';
+import { gateCap, gateEta, planGate, type GateTab } from './gate';
 
 const STATE = 'world';
 const PUSH_MS = 1000;
 /** W-64: how long the crown layer of the snapshot is reused before D1 is read again. */
 const CROWN_MS = 30_000;
+/** The gate's sweep while players wait or hold a place. */
+const GATE_SWEEP_MS = 10_000;
 
-interface Attachment { pid: number; alliance: AllianceId | null; /** W-62 E6: a chat socket (its player's name). */ chat?: string }
+interface Attachment { pid: number; alliance: AllianceId | null; /** W-62 E6: a chat socket (its player's name). */ chat?: string; /** A gate socket (the online cap): its tab, last place sent (0: in). */ gate?: Omit<GateTab, 'pid' | 'seen'> & { place: number } }
 
 export class WarWorldDO extends DurableObject<Env> {
   private world: World | null = null;
@@ -67,6 +76,12 @@ export class WarWorldDO extends DurableObject<Env> {
   /** W-62 E6: the chat's rate gate; mark ids (marks are not kept). */
   private gate = new ChatGate();
   private markSeq = 0;
+  /** The gate: places held for players whose last tab dropped by accident (until), when players were let in from the line, the sweep timer. */
+  private held = new Map<number, number>();
+  private letIn: number[] = [];
+  private gateTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Tests: the cap instead of WAR_MAX_ONLINE. */
+  gateCapOverride: number | null = null;
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -308,21 +323,24 @@ export class WarWorldDO extends DurableObject<Env> {
     const alliance = a === null || a === '' ? null : (Number(a) as AllianceId);
     const chat = new URL(request.url).searchParams.get('chat') === '1';
     const [client, server] = Object.values(new WebSocketPair());
+    if (new URL(request.url).searchParams.get('gate') === '1') {
+      this.ctx.acceptWebSocket(server, ['gate']);
+      server.serializeAttachment({ pid, alliance, gate: { admin: request.headers.get('x-war-admin') === '1', in: false, at: Date.now(), place: -1 } } satisfies Attachment);
+      this.gateRun();
+      return upgraded(client, request);
+    }
     this.ctx.acceptWebSocket(server, chat ? [`p:${pid}`, `chat:${alliance ?? 'none'}`] : [`p:${pid}`]);
     server.serializeAttachment({ pid, alliance, ...(chat ? { chat: request.headers.get('x-player-name') || `Player ${pid}` } : {}) } satisfies Attachment);
     if (chat) {
       const d = this.env.DB;
       send(server, { t: 'chat', you: pid, msgs: d && alliance !== null ? await chatHistory(d, alliance) : [], muted: d ? await chatMutes(d, pid) : [] });
     } else send(server, { t: 'world', ...(await this.snapshot(pid, alliance)) });
-    const headers = new Headers();
-    const proto = request.headers.get('x-ws-protocol');
-    if (proto) headers.set('sec-websocket-protocol', proto);
-    return new Response(null, { status: 101, webSocket: client, headers });
+    return upgraded(client, request);
   }
 
   async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): Promise<void> {
     const me = ws.deserializeAttachment() as Attachment | null;
-    if (!me) return;
+    if (!me || me.gate) return; // a gate socket only pings (auto-answered)
     const m = typeof message === 'string' ? parseWorldMsg(message) : null;
     if (!m) return send(ws, { t: 'error', code: 'parse' });
     try {
@@ -363,12 +381,75 @@ export class WarWorldDO extends DurableObject<Env> {
     for (const ws of this.ctx.getWebSockets(`chat:${alliance}`)) send(ws, m);
   }
 
-  async webSocketClose(ws: WebSocket): Promise<void> {
+  async webSocketClose(ws: WebSocket, code?: number): Promise<void> {
+    const me = ws.deserializeAttachment() as Attachment | null;
     ws.serializeAttachment(null);
+    if (!me?.gate) return;
+    // a dropped tab (not a leave) keeps its player's place a while, unless another tab of his is still in
+    if (me.gate.in && !me.gate.admin && code !== GATE_LEAVE && !this.gateTabs().some((t) => t.tab.pid === me.pid && t.tab.in)) this.held.set(me.pid, Date.now() + GATE_HOLD_MS);
+    this.gateRun();
+  }
+
+  private gateTabs(): { ws: WebSocket; a: Attachment & { gate: NonNullable<Attachment['gate']> }; tab: GateTab }[] {
+    const out = [];
+    for (const ws of this.ctx.getWebSockets('gate')) {
+      const a = ws.deserializeAttachment() as Attachment | null;
+      if (!a?.gate) continue;
+      const ping = this.ctx.getWebSocketAutoResponseTimestamp(ws)?.getTime() ?? 0;
+      out.push({ ws, a: a as Attachment & { gate: NonNullable<Attachment['gate']> }, tab: { pid: a.pid, admin: a.gate.admin, in: a.gate.in, at: a.gate.at, seen: Math.max(ping, a.gate.at) } });
+    }
+    return out;
+  }
+
+  private gateCap(): number {
+    return this.gateCapOverride ?? gateCap(this.env.WAR_MAX_ONLINE);
+  }
+
+  /** Sweep the gate (./gate.ts planGate): close silent tabs, let in who may come in, tell the line its places. */
+  gateRun(now = Date.now()): { online: number; waiting: number } {
+    const tabs = this.gateTabs(), cap = this.gateCap();
+    const plan = planGate(tabs.map((t) => t.tab), this.held, cap, now);
+    for (const i of plan.expired) {
+      const ws = tabs[i].ws;
+      ws.serializeAttachment(null);
+      try { ws.close(4000, 'expired'); } catch { /* gone */ }
+    }
+    this.letIn.push(...plan.fromLine.map(() => now));
+    this.letIn = this.letIn.filter((t) => now - t < 15 * 60_000);
+    const send1 = (ws: WebSocket, m: GateMsg) => send(ws, m as unknown as WorldServerMsg);
+    for (const i of plan.admit) {
+      const { ws, a } = tabs[i];
+      a.gate.in = true;
+      a.gate.place = 0;
+      ws.serializeAttachment(a);
+      this.held.delete(a.pid); // in again: a later drop holds anew
+      send1(ws, { t: 'gate', s: 'in' });
+    }
+    for (const [i, place] of plan.place) {
+      const { ws, a } = tabs[i];
+      if (a.gate.place === place) continue;
+      a.gate.place = place;
+      ws.serializeAttachment(a);
+      send1(ws, { t: 'gate', s: 'queue', place, of: plan.waiting, eta: gateEta(place, this.letIn, cap, now) });
+    }
+    if (plan.waiting || this.held.size) {
+      this.gateTimer ??= setTimeout(() => ((this.gateTimer = null), this.gateRun()), GATE_SWEEP_MS);
+    } else if (this.gateTimer) clearTimeout(this.gateTimer), (this.gateTimer = null);
+    return { online: plan.online, waiting: plan.waiting };
+  }
+
+  /**
+   * The Worker's region socket route: may player `pid` play? Admins always; anyone while the war has room (a client
+   * that skipped the gate is refused only once it is full); else only a player who is in (or holds his place).
+   */
+  async admitted(pid: number, admin: boolean): Promise<boolean> {
+    if (admin) return true;
+    const { online } = this.gateRun();
+    return online < this.gateCap() || this.held.has(pid) || this.gateTabs().some((t) => t.tab.pid === pid && t.tab.in);
   }
 
   private schedulePush(): void {
-    if (this.pushTimer || !this.ctx.getWebSockets().length) return;
+    if (this.pushTimer || this.ctx.getWebSockets().length === this.ctx.getWebSockets('gate').length) return; // gate sockets get no map
     this.pushTimer = setTimeout(() => {
       this.pushTimer = null;
       this.ctx.waitUntil(this.push().catch((e) => logError('war_world_push_failed', e)));
@@ -381,7 +462,7 @@ export class WarWorldDO extends DurableObject<Env> {
     const now = Date.now();
     for (const ws of this.ctx.getWebSockets()) {
       const a = ws.deserializeAttachment() as Attachment | null;
-      if (!a || a.chat !== undefined) continue;
+      if (!a || a.chat !== undefined || a.gate) continue;
       const snap = w.snapshot(a.pid, a.alliance, counts, now);
       if (this.env.DB && a.alliance !== null) snap.boards = await boardsSeen(this.env.DB, a.alliance);
       snap.crests = await this.crestsFor(a.pid);
@@ -389,6 +470,13 @@ export class WarWorldDO extends DurableObject<Env> {
       send(ws, { t: 'world', ...snap });
     }
   }
+}
+
+function upgraded(client: WebSocket, request: Request): Response {
+  const headers = new Headers();
+  const proto = request.headers.get('x-ws-protocol');
+  if (proto) headers.set('sec-websocket-protocol', proto);
+  return new Response(null, { status: 101, webSocket: client, headers });
 }
 
 function send(ws: WebSocket, m: WorldServerMsg): void {

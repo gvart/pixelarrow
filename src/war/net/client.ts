@@ -12,6 +12,7 @@ import { SIM_VERSION } from '../../sim/version';
 import type { BridgePlan, Order, PlaceResult, Snapshot, WallPlan } from '../types';
 import { DeltaDecoder } from './codec';
 import { devAuth, warAuth } from './session';
+import { openGate, type Gate } from './gateLink';
 import { MAX_SQUAD, NET_VERSION, type CheckMsg, type DevMsg, type HandoffMsg, type ServerMsg, type StowMsg } from './protocol';
 
 export interface Net {
@@ -32,6 +33,8 @@ export interface Net {
   guideHide(): void;
   /** Dev panel helpers (DEV_AUTH servers only; else an `error` forbidden). */
   dev(m: DevBody): void;
+  /** Leave the war (the idle kick): the region and gate sockets close, nothing more goes up. */
+  stop(): void;
 }
 
 /** A dev message without its envelope. */
@@ -50,6 +53,7 @@ export function createNet(url: string, region: string, devId: number | undefined
   let pid = 0;
   let home: RosterPerson[] = [];
   let checkId = 0;
+  let gate: Gate | null = null, stopped = false;
   const checks = new Map<number, (r: PlaceResult | WallPlan | BridgePlan | null) => void>();
   let signedIn: (auth: Record<string, string>) => void = () => undefined;
   const authed = new Promise<Record<string, string>>((ok) => (signedIn = ok));
@@ -75,6 +79,10 @@ export function createNet(url: string, region: string, devId: number | undefined
       home = await load();
     }
     console.info(`[net] roster: ${home.length} soldiers at home`, home.map((p) => p.cls).join(' '));
+    // the online cap (./gate.ts): wait for a place in the war before the region socket opens; the gate's state goes on to the page
+    gate = openGate(s, (m) => onMsg(m));
+    await gate.admitted;
+    if (stopped) return;
     const abs = /^wss?:/.test(url) ? url : `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}${url}`;
     ws = new WebSocket(`${abs}${abs.includes('?') ? '&' : '?'}sim=${SIM_VERSION}`, s.protocols);
     ws.binaryType = 'arraybuffer';
@@ -134,6 +142,13 @@ export function createNet(url: string, region: string, devId: number | undefined
       const r = await fetch(`/api/war/${path}`, { method, headers: await authed, ...(body !== undefined ? { body: JSON.stringify(body) } : {}) });
       const j = (await r.json().catch(() => ({}))) as Record<string, unknown>;
       return r.ok ? j : { error: (j.error as string | undefined) ?? `HTTP ${r.status}`, ...j };
+    },
+    stop: () => {
+      stopped = true;
+      ready = false;
+      pending.length = 0;
+      gate?.stop();
+      try { ws?.close(1000, 'idle'); } catch { /* closed */ }
     },
     view: (x0, y0, x1, y1) => {
       if (ready && ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ t: 'view', x0, y0, x1, y1 }));

@@ -12,6 +12,10 @@ export interface Env {
   WAR_WORLD: DurableObjectNamespace<WarWorldDO>;
   /** Live soldier cap per war region (W-06, default 600), split evenly between the 4 alliances. */
   WAR_CAP?: string;
+  /** Most players in the war at once (src/war/net/gate.ts; default 50); the rest wait in line. */
+  WAR_MAX_ONLINE?: string;
+  /** Comma-separated player ids exempt from WAR_MAX_ONLINE (operators). */
+  WAR_ADMIN_PIDS?: string;
   /** Dev only (with DEV_AUTH=1): world travel times x this (e.g. 0.05), for scripted playtests (scripts/war/play.mjs --fast). */
   WAR_TRAVEL_SCALE?: string;
   ASSETS?: Fetcher;

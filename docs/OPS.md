@@ -51,6 +51,12 @@ the missed ticks in one batch (~0.4 ms a tick at 72 men, ~3.6 ms at 360; ≤
 3000 ticks a call, gaps over 30 min cut), so such a region is awake ~15-60 min
 a day instead of 24 h (`server/src/war/regionDO.ts` top comment).
 
+War online cap: `WAR_MAX_ONLINE` (wrangler.jsonc `vars`, default 50) is the most
+players in the war at once; the rest wait in line and go in as places free. Change
+it in wrangler.jsonc and redeploy (a dashboard edit lasts only until the next deploy);
+`WAR_ADMIN_PIDS` (comma-separated player ids, add it to `vars`) skip the cap. Players
+idle 15 min are kicked (client side), which frees their place.
+
 ## Monitoring
 
 ### Server errors (Workers Logs)
