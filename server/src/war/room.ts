@@ -63,6 +63,8 @@ import { ARMY_MAX } from '../../../src/war/sim/soldiers';
 import { RoomGuide, type GuideDone } from './guide';
 import type { GuideSave } from '../../../src/war/net/guide';
 import { LABOUR_EVERY, WORK_R, workSite, type WorkId } from '../../../src/war/net/works';
+import { GatherWatch } from './taskWatch';
+import type { TaskMetric } from '../../../src/war/net/tasks';
 import { ALLIANCES as ALLIANCE_LIST } from '../../../src/war/world/alliances';
 
 const SIDES = ['N', 'E', 'S', 'W'] as const;
@@ -238,6 +240,8 @@ export class WarRoom {
   private guards: GuardWatch[] = [];
   private workSites: { work: WorkId; team: number; x: number; y: number }[] = [];
   private townSent = new Map<number, string>();
+  /** W-62 E7: men carrying wood and stone home, tallied for the tasks (the DO books `gathered`). */
+  private gather = new GatherWatch();
   /** W-62: world events running in this region (the DO sets them: src/war/world/events.ts). */
   private worldEvents: WorldEvent[] = [];
   /** W-62: the first-hour guide of the home alliance's new players (./guide.ts). */
@@ -961,7 +965,7 @@ export class WarRoom {
     return labour.length || guards.length || works.length ? { labour, guards, works } : null;
   }
 
-  tick(now: () => number = () => 0): { frames: Map<number, Uint8Array>; msgs: Map<number, ServerMsg[]>; admitted: Map<number, ServerMsg>; fights: Fight[]; crafted: Crafted[]; bosses: BossSlain[]; sacrilege: number[]; freed: string[]; raided: number[]; captured: { cart: number; from: string; team: number; to: string }[]; souls: SoulClaim[]; peace: Peace | null; times: TickTimes; guided: GuideDone[] } {
+  tick(now: () => number = () => 0): { frames: Map<number, Uint8Array>; msgs: Map<number, ServerMsg[]>; admitted: Map<number, ServerMsg>; fights: Fight[]; crafted: Crafted[]; bosses: BossSlain[]; sacrilege: number[]; freed: string[]; raided: number[]; captured: { cart: number; from: string; team: number; to: string }[]; souls: SoulClaim[]; peace: Peace | null; times: TickTimes; guided: GuideDone[]; gathered: [number, TaskMetric, number][] } {
     const t0 = now();
     // M6i: carts' owners before the step (a capture names only the taker)
     const cartWas = new Map((this.snap.sieges ?? []).filter((e) => e.owner !== undefined).map((e) => [e.id, { owner: e.owner!, team: e.team }]));
@@ -989,6 +993,7 @@ export class WarRoom {
       this.owners[s.id] = s.owner;
       this.teams[s.id] = s.team;
     }
+    this.gather.step(this.snap.units, (sq) => this.owners[sq]); // W-62 E7
     const tick = this.snap.tick, wire: typeof this.snap.units = [];
     let blow = false;
     for (const u of this.snap.units) {
@@ -1046,7 +1051,7 @@ export class WarRoom {
     const g = this.guide.tick(this.snap, evs);
     for (const [pid, m] of g.msgs) if (this.players.get(pid)?.online) tell(pid, m);
     this.lastTick = this.snap.tick;
-    return { frames, msgs, admitted, fights, crafted, bosses, sacrilege, freed, raided, captured, souls, guided: g.done, peace: this.peace(), times: { stepMs: t1 - t0, snapMs: t2 - t1, netMs: now() - t2 } };
+    return { frames, msgs, admitted, fights, crafted, bosses, sacrilege, freed, raided, captured, souls, guided: g.done, peace: this.peace(), gathered: tick % LABOUR_EVERY === 0 ? this.gather.drain() : [], times: { stepMs: t1 - t0, snapMs: t2 - t1, netMs: now() - t2 } };
   }
 
   /**

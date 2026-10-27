@@ -11,6 +11,7 @@
  */
 import { WAR_SEASON } from '../../../src/war/world/alliances';
 import { PEACE } from '../../../src/war/world/season';
+import { TASKS } from '../../../src/war/net/tasks';
 import type { AllianceId } from '../../../src/war/world/types';
 import type { Env } from '../env';
 import { logError } from '../telemetry/log';
@@ -18,14 +19,15 @@ import { worldStub } from './world/routes';
 
 const DAY = 86_400_000;
 export type Stat = 'sold' | 'contracts' | 'labour' | 'guard';
-export type PeaceKind = 'volume' | 'contracts' | 'works';
+/** E7: 'tasks' (a peaceful daily or weekly task claimed) and 'feats' (a warlike one): the war score of tasks. */
+export type PeaceKind = 'volume' | 'contracts' | 'works' | 'tasks' | 'feats';
 
 /** Add `n` to stat `col` of the player this season (a statement). */
 export function statStmt(db: D1Database, pid: number, col: Stat, n: number, season = WAR_SEASON.id): D1PreparedStatement {
   return db.prepare(`INSERT INTO war_season_stats (season, player_id, ${col}) VALUES (?1, ?2, ?3) ON CONFLICT (season, player_id) DO UPDATE SET ${col} = ${col} + ?3`).bind(season, pid, n);
 }
 
-const CAPS: Record<PeaceKind, number> = { volume: PEACE.volumeCap, contracts: PEACE.contractCap, works: Infinity };
+const CAPS: Record<PeaceKind, number> = { volume: PEACE.volumeCap, contracts: PEACE.contractCap, works: Infinity, tasks: TASKS.peaceCap, feats: TASKS.warCap };
 
 /** Points of `kind` alliance `a` may still score today, and the statement that books `pts` of them. */
 export async function peacePoints(db: D1Database, a: number, kind: PeaceKind, pts: number, now: number): Promise<{ pts: number; stmts: D1PreparedStatement[] }> {
