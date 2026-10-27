@@ -40,7 +40,9 @@ import { legalSkills, SKILL_LEVELS } from '../../../src/war/sim/skills';
 import { ARMY_MAX } from '../../../src/war/sim/soldiers';
 import { HONOURS_MAX } from '../../../src/war/sim/honours';
 import { WAR_SEASON } from '../../../src/war/world/alliances';
-import type { FightReport, HonourStat, WarPerson, WarSkillId } from '../../../src/war/types';
+import type { Deed, FightReport, HonourStat, WarPerson, WarSkillId } from '../../../src/war/types';
+import { addDeeds, SCARS_MAX } from '../../../src/war/sim/deeds';
+import { trophies, type Trophy } from './bosses';
 import { ApiError } from '../errors';
 import { randomToken } from './store';
 import { batch, ensureHolder, goodsOf, HOME, itemsIn, lotsOf, pay as payFrom, placeItemStmt, planTake, putStmt, strongroom } from './holders';
@@ -77,6 +79,8 @@ export interface PersonRow {
   attrs: string; skills: string; gear: string; honours: string; state: PersonState; until_at: number | null; captor: number | null;
   held_at: string | null; slot: number | null; region: string | null; train_to: string | null; captor_pid: number | null;
   perks: string; respec_at: number | null; held_fort: number | null;
+  /** E3 (0041): deeds JSON [{id, name}] and scars. */
+  deeds: string; scars: number;
 }
 
 export const json = <T>(s: string, fallback: T): T => {
@@ -96,7 +100,8 @@ export function personOf(r: PersonRow): WarPerson {
     attrs: { ...base.attrs, ...json<Partial<Attrs>>(r.attrs, {}) }, equip: json<Equipment>(r.gear, {}),
     perks: json<Hero['perks']>(r.perks ?? '[]', []),
   };
-  return { id: r.id, hero, skills: json<WarSkillId[]>(r.skills, []), honours: json<{ name: string; stat: HonourStat }[]>(r.honours, []) };
+  const deeds = json<Deed[]>(r.deeds ?? '[]', []);
+  return { id: r.id, hero, skills: json<WarSkillId[]>(r.skills, []), honours: json<{ name: string; stat: HonourStat }[]>(r.honours, []), ...(deeds.length ? { deeds } : {}), ...(r.scars ? { scars: r.scars } : {}) };
 }
 
 /** Open choices after level-ups: unspent attribute points and skill slots with no skill in them. */
@@ -111,11 +116,12 @@ export function view(r: PersonRow) {
     id: r.id, cls: r.cls, name: p.hero.name, level: r.level, xp: r.xp, kills: r.kills, battles: r.battles, attrs: p.hero.attrs,
     skills: p.skills ?? [], gear: p.hero.equip, honours: p.honours ?? [], state: r.state, until: r.until_at, captor: r.captor,
     heldAt: r.held_at, slot: r.slot, region: r.region, pending: pending(p), trainTo: r.train_to, perks: p.hero.perks, respecAt: r.respec_at,
+    deeds: p.deeds ?? [], scars: r.scars ?? 0,
     ...(r.state === 'captive' ? { ransom: RANSOM_PER_LEVEL * r.level } : {}),
   };
 }
 
-const COLS = 'id, player_id, cls, name, level, xp, points, kills, battles, attrs, skills, gear, honours, state, until_at, captor, held_at, slot, region, train_to, captor_pid, perks, respec_at, held_fort';
+const COLS = 'id, player_id, cls, name, level, xp, points, kills, battles, attrs, skills, gear, honours, state, until_at, captor, held_at, slot, region, train_to, captor_pid, perks, respec_at, held_fort, deeds, scars';
 
 /** The player's upkeep in food per hour: the captives he holds (W-60: his men eat in the field). */
 export async function upkeepRate(db: D1Database, pid: number): Promise<number> {
@@ -231,18 +237,35 @@ export interface Roster {
   /** Captives the player holds (he pays their upkeep, takes their ransom). */
   captives: { id: string; name: string; cls: string; level: number; owner: number; ransom: number; until: number | null; heldAt: string | null }[];
   upkeep: { rate: number; owed: number; unpaid: boolean };
+  /** E3: the home memorial (the fallen and the retired, newest first) and the guardians' trophies in the home town. */
+  memorial: MemorialRow[];
+  trophies: Trophy[];
+}
+
+/** E3: a grave (fallen) or an engraved honour (retired) on the player's home memorial. */
+export interface MemorialRow { kind: 'fallen' | 'retired'; personId: string; name: string; cls: string; level: number; kills: number; battles: number; honour: string; deeds: Deed[]; region: string | null; at: number }
+
+/** E3: the player's memorial, newest first (at most `limit`). */
+export async function memorial(db: D1Database, pid: number, limit = 100): Promise<MemorialRow[]> {
+  const r = await db
+    .prepare('SELECT kind, person_id, name, cls, level, kills, battles, honour, deeds, region, at FROM war_memorial WHERE player_id = ?1 ORDER BY at DESC, id DESC LIMIT ?2')
+    .bind(pid, limit)
+    .all<{ kind: string; person_id: string; name: string; cls: string; level: number; kills: number; battles: number; honour: string; deeds: string; region: string | null; at: number }>();
+  return r.results.map((x) => ({ kind: x.kind === 'fallen' ? 'fallen' : 'retired', personId: x.person_id, name: x.name, cls: x.cls, level: x.level, kills: x.kills, battles: x.battles, honour: x.honour, deeds: json<Deed[]>(x.deeds, []), region: x.region, at: x.at }));
 }
 
 export async function roster(db: D1Database, pid: number, now: number): Promise<Roster> {
   await ensureStart(db, pid, now);
   await settle(db, pid, now);
   const up = await db.prepare('SELECT owed, unpaid FROM war_upkeep WHERE player_id = ?1').bind(pid).first<{ owed: number; unpaid: number }>();
-  const [rows, stock, items, held, rate] = await Promise.all([
+  const [rows, stock, items, held, rate, mem, troph] = await Promise.all([
     persons(db, pid),
     goodsOf(db, strongroom(pid)),
     itemsIn(db, strongroom(pid)),
     db.prepare(`SELECT ${COLS} FROM war_persons WHERE captor_pid = ?1 AND state = 'captive' ORDER BY until_at, id`).bind(pid).all<PersonRow>(),
     upkeepRate(db, pid),
+    memorial(db, pid),
+    trophies(db, pid),
   ]);
   const fighters = rows.filter(isFighter).length;
   const fit = rows.filter((r) => r.state === 'active').length;
@@ -253,6 +276,8 @@ export async function roster(db: D1Database, pid: number, now: number): Promise<
     items,
     captives: held.results.map((r) => ({ id: r.id, name: r.name, cls: r.cls, level: r.level, owner: r.player_id, ransom: RANSOM_PER_LEVEL * r.level, until: r.until_at, heldAt: r.held_at })),
     upkeep: { rate, owed: +(up?.owed ?? 0).toFixed(2), unpaid: !!up?.unpaid },
+    memorial: mem,
+    trophies: troph,
   };
 }
 
@@ -511,7 +536,12 @@ export async function retire(db: D1Database, pid: number, id: string, civ: strin
     );
   } else stmts.push(db.prepare("UPDATE war_persons SET state = 'retired', slot = NULL, gear = '{}', updated_at = ?3 WHERE id = ?1 AND player_id = ?2 AND region IS NULL").bind(id, pid, now));
   if (refund) stmts.push(credit(db, pid, refund));
-  if (honour) stmts.push(db.prepare('INSERT INTO war_memorial (player_id, person_id, name, level, honour, at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)').bind(pid, id, r.name, r.level, honour, now));
+  if (honour)
+    stmts.push(
+      db
+        .prepare("INSERT INTO war_memorial (player_id, person_id, name, level, honour, at, kind, cls, kills, battles, deeds) VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'retired', ?7, ?8, ?9, ?10)")
+        .bind(pid, id, r.name, r.level, honour, now, r.cls, r.kills, r.battles, r.deeds ?? '[]'),
+    );
   await db.batch(stmts);
   return refund;
 }
@@ -649,19 +679,25 @@ export async function applyFight(db: D1Database, fightId: string, region: string
     held.set(f, n);
     return n > HOLD_MAX;
   };
+  // E3: each man's deeds and scars so far (his fresh ones merge in; a grave takes them all)
+  const recs = new Map(
+    (await db.prepare('SELECT id, name, deeds, scars, honours FROM war_persons WHERE id IN (SELECT value FROM json_each(?1))').bind(JSON.stringify(r.persons.map((x) => x.pid))).all<{ id: string; name: string; deeds: string; scars: number; honours: string }>()).results.map((x) => [x.id, x]),
+  );
   for (const x of r.persons) {
     const pid = ownerPid(x.owner);
     if (pid === null) continue;
     const h = x.hero;
+    const rec = recs.get(x.pid), deeds = addDeeds(json<Deed[]>(rec?.deeds ?? '[]', []), x.deeds ?? []).all;
+    const scars = Math.min(SCARS_MAX, (rec?.scars ?? 0) + (x.scar ? 1 : 0));
     // unpaid: level, xp and points stay (nullif(?n, ?n) is null: the params are still used)
     const xpCols = unpaid.has(pid) ? 'level = coalesce(nullif(?4, ?4), level), xp = coalesce(nullif(?5, ?5), xp), points = coalesce(nullif(?6, ?6), points), ' : 'level = ?4, xp = ?5, points = ?6, ';
     // a battle honour won: appended while he has fewer than HONOURS_MAX and none of that name (?17: the honour or null)
     const honourCol = `honours = CASE WHEN ?17 IS NOT NULL AND json_array_length(honours) < ${HONOURS_MAX} AND NOT EXISTS (SELECT 1 FROM json_each(honours) WHERE json_extract(value, '$.name') = json_extract(?17, '$.name')) THEN json_insert(honours, '$[#]', json(?17)) ELSE honours END`;
-    const base = `cls = ?3, ${xpCols}kills = ?7, battles = ?8, attrs = ?9, gear = ?10, updated_at = ?11, ${honourCol}`;
+    const base = `cls = ?3, ${xpCols}kills = ?7, battles = ?8, attrs = ?9, gear = ?10, updated_at = ?11, ${honourCol}, deeds = ?18, scars = ?19`;
     const honour = x.honour && x.state !== 'dead' && x.state !== 'captive' ? JSON.stringify(x.honour) : null;
     const base11 = [x.pid, pid, h.cls ?? 'militia', h.level, h.xp, h.points, h.kills, h.battles, JSON.stringify(h.attrs), JSON.stringify(x.state === 'dead' ? {} : h.equip), now];
-    // ?1..?11 shared, ?12..?16 per state, ?17 the honour
-    const bind = (...extra: unknown[]) => [...base11, ...extra, ...Array<null>(5 - extra.length).fill(null), honour];
+    // ?1..?11 shared, ?12..?16 per state, ?17 the honour, ?18 his deeds, ?19 his scars
+    const bind = (...extra: unknown[]) => [...base11, ...extra, ...Array<null>(5 - extra.length).fill(null), honour, JSON.stringify(deeds), scars];
     if (x.state === 'fit') stmts.push(db.prepare(`UPDATE war_persons SET ${base} WHERE id = ?1 AND player_id = ?2`).bind(...bind()));
     else if (x.state === 'wounded')
       stmts.push(db.prepare(`UPDATE war_persons SET ${base}, state = 'wounded', until_at = ?12, slot = NULL, region = NULL WHERE id = ?1 AND player_id = ?2`).bind(...bind(now + HEAL.field)));
@@ -673,7 +709,16 @@ export async function applyFight(db: D1Database, fightId: string, region: string
       );
     else if (x.state === 'captive') // the fort is full: he goes free, wounded
       stmts.push(db.prepare(`UPDATE war_persons SET ${base}, state = 'wounded', until_at = ?12, slot = NULL, region = NULL WHERE id = ?1 AND player_id = ?2`).bind(...bind(now + HEAL.field)));
-    else stmts.push(db.prepare(`UPDATE war_persons SET ${base}, state = 'dead', until_at = NULL, slot = NULL, region = NULL WHERE id = ?1 AND player_id = ?2`).bind(...bind()));
+    else {
+      stmts.push(db.prepare(`UPDATE war_persons SET ${base}, state = 'dead', until_at = NULL, slot = NULL, region = NULL WHERE id = ?1 AND player_id = ?2`).bind(...bind()));
+      // E3: he stays dead; his grave on the home memorial, with his name and deeds
+      const first = json<{ name: string }[]>(rec?.honours ?? '[]', [])[0]?.name ?? '';
+      stmts.push(
+        db
+          .prepare("INSERT INTO war_memorial (player_id, person_id, name, level, honour, at, kind, cls, kills, battles, deeds, region) VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'fallen', ?7, ?8, ?9, ?10, ?11)")
+          .bind(pid, x.pid, h.name || rec?.name || '', h.level, first, now, h.cls ?? 'militia', h.kills, h.battles, JSON.stringify(deeds), region),
+      );
+    }
   }
   stmts.push(...fightStats(db, r));
   try {

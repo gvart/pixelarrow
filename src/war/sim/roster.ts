@@ -3,6 +3,7 @@
  * war_persons): makes persons (class, level, kit tier and rarity, skills), hands fit ones out for spawnSquad and takes
  * fight reports back (M5d).
  */
+import { addDeeds, SCARS_MAX } from './deeds';
 import { ATTR_IDS, ATTR_MAX, POINTS_PER_LEVEL, type AttrId } from '../../data/perks';
 import { CIV_CLASSES, CLASSES, isCivClass, isClassId, type ClassId } from '../../data/classes';
 import { MAX_LEVEL, type Hero } from '../../data/units';
@@ -105,7 +106,9 @@ export function createRoster(): Roster {
       for (const x of r.persons) {
         const p = persons.get(x.pid);
         if (!p) continue;
-        persons.set(x.pid, { ...p, hero: x.hero });
+        // E3: his fresh deeds onto his record, a scar for a wound he lived through
+        const deeds = addDeeds(p.deeds, x.deeds ?? []).all;
+        persons.set(x.pid, { ...p, hero: x.hero, ...(deeds.length ? { deeds } : {}), ...(x.scar ? { scars: Math.min(SCARS_MAX, (p.scars ?? 0) + 1) } : {}) });
         states.set(x.pid, x.state);
       }
     },

@@ -24,6 +24,7 @@ import { CIVILIAN_SCENARIOS } from './civilians';
 import { FOG_SCENARIOS } from './fog';
 import { LIMIT_SCENARIOS } from './limits';
 import { SOUL_SCENARIOS } from './souls';
+import { VETERAN_SCENARIOS } from './veterans';
 import { brawlSquads } from './kit';
 
 export type { Scenario, ScenarioGo, ScenarioGroup, ScenarioSquad } from './types';
@@ -622,6 +623,7 @@ export const SCENARIOS: Scenario[] = [
   ...FOG_SCENARIOS,
   ...LIMIT_SCENARIOS,
   ...SOUL_SCENARIOS,
+  ...VETERAN_SCENARIOS,
   ...[...CLIP_SCENARIOS, ...TRAILER_SCENARIOS].map((sc): Scenario => ({ group: sc.id.startsWith('landmark-') ? 'bosses' : 'clips', ...(LANDMARK_CHECK[sc.id] ? { check: LANDMARK_CHECK[sc.id] } : {}), ...sc })),
 ];
 

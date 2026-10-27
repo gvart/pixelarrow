@@ -5,6 +5,7 @@
  *   right of the panel     the soldier card of the picked row (Esc closes the card, then the panel)
  *   top centre             toasts: level-ups, captures, the fallen (click: the card); right of the card when it is under them
  *   on the map             veteran / elite pips under the selected men (./markers.ts)
+ *   E3                     the home memorial: graves and trophies by the town's statues, its panel (./memorial.ts)
  *   W-53                   a click on a field row selects that man in the world too, on a squad's heading its men
  *                          (shift adds); the selected men's rows carry a gold edge
  *
@@ -15,8 +16,9 @@ import { draggable } from '../drag';
 import { fitHeight, icon } from '../kit';
 import { cardHtml, CARD_W } from './card';
 import { markers } from './markers';
+import { mountMemorial } from './memorial';
 import { FILTERS, panelHtml, PANEL_W, SORTS, type Filter, type Sort } from './panel';
-import { portrait, PORTRAIT_H, PORTRAIT_W } from './portrait';
+import { portrait, PORTRAIT_H, PORTRAIT_W, scarMarks } from './portrait';
 import { sandboxRoster } from './state';
 import { placeToasts, toaster } from './toast';
 import { loadItemAtlas, ROSTER_CSS, tipper } from './ui';
@@ -85,6 +87,7 @@ export function mountRoster(s: SandboxScene, mk: Mk): RosterHooks {
           const g = c.getContext('2d')!;
           g.imageSmoothingEnabled = false;
           g.drawImage(img, 0, 0, PORTRAIT_W * 2, PORTRAIT_H * 2);
+          scarMarks(g, row.p.scars ?? 0);
         } else lastC = ''; // the sheet is not in yet: try again
       }
       fitHeight(card);
@@ -139,6 +142,7 @@ export function mountRoster(s: SandboxScene, mk: Mk): RosterHooks {
   R.onNote = toaster(toasts, (pid) => { open = true; show(pid); }, () => placeToasts(toasts, card));
   R.onChange = render;
   markers(s);
+  mountMemorial(s, mk, R); // E3: the home memorial (graves, trophies) and its panel
   void Promise.all([loadItemAtlas(), loadGlyphs()]).then(() => { lastP = lastC = ''; render(); });
   setInterval(() => { if (open || sel) render(); }, 250);
   render();

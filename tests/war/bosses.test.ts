@@ -218,6 +218,31 @@ describe('guardians (M7d)', () => {
     expect(s.units[s.squads[n0].units[0]].cls).toBe('mob_maenad');
   });
 
+  it('the Erymanthian Boar (E3): a huge boar that gores through the ranks, the sounder under 50%; both Erymanthos guardians gate the claim', () => {
+    const sim = createSim(flat([{ boss: 'grove_queen', x: 20, y: 20 }, { boss: 'erymanthian_boar', x: 48, y: 48 }], { id: 'erymanthos', depth: 3 }), 9);
+    sim.spawnMobs();
+    sim.step();
+    const b = sim.snapshot().bosses!.find((x) => x.id === 'erymanthian_boar')!;
+    expect(b).toMatchObject({ maxHp: GUARDIANS.erymanthian_boar.hp, phases: warBoss('erymanthian_boar')!.phases });
+    expect(unit(sim, b.unit).cls).toBe('mob_great_boar');
+    // a squad in reach: it engages and, MOVES.charge.every on, charges a line of it
+    sim.spawnSquad('you', 0, 'hoplite', 12, 52, 48);
+    const charged = run(sim, MOVES.charge.every * 3, () => sim.snapshot().bosses!.find((x) => x.id === 'erymanthian_boar')!.fx?.kind === 'charge');
+    expect(charged).toBeLessThan(MOVES.charge.every * 3);
+    const n0 = sim.snapshot().squads.length;
+    downTo(sim, 'erymanthian_boar', 0.49);
+    const s = sim.snapshot();
+    expect(s.bosses!.find((x) => x.id === 'erymanthian_boar')!.phase).toBe(1);
+    expect(s.squads.length).toBe(n0 + MOVES.calls.packs);
+    expect(s.units[s.squads[n0].units[0]].cls).toBe('mob_boar');
+    // the Boar slain, the Grove's queen still holds the claim shut
+    events(sim);
+    sim.hurtBoss('erymanthian_boar', 1e9, 'you');
+    sim.step();
+    expect(events(sim).find((e) => e.kind === 'bossSlain')).toMatchObject({ boss: 'erymanthian_boar', region: 'erymanthos', killers: ['you'] });
+    expect(sim.snapshot().claims![0].state).toBe('locked');
+  });
+
   it('loot: the kill drops its tier table and rare good as a pile where it fell', () => {
     const sim = createSim(flat([DRAKON]), 8);
     sim.spawnMobs();

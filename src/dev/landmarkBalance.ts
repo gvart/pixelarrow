@@ -28,7 +28,7 @@ export const regionOf = (id: string): RegionData => {
 
 /** A raid: its squads' classes (12 men each) and the rams its first heavies build at the staging point and crew. */
 export interface Raid { label: string; classes: readonly string[]; rams?: number }
-/** Where each landmark's raid forms up, outside its walls (tiles). */
+/** Where each landmark's raid forms up, outside its walls (tiles); a second guardian of a region by its own id. */
 export const STAGING: Readonly<Record<string, readonly [number, number]>> = {
   krios: [316, 371],
   ammon: [330, 350],
@@ -36,6 +36,7 @@ export const STAGING: Readonly<Record<string, readonly [number, number]>> = {
   gorge: [262, 190],
   canyons: [163, 196],
   erymanthos: [162, 410],
+  erymanthian_boar: [247, 414], // E3: on the south road below its meadow
   siren: [47, 312], // the beach under Scylla's cave
   delta: [236, 373], // the mud island south of the temple
   omphalos: [450, 258], // the foot of the east ramp
@@ -63,7 +64,7 @@ export function raidFight(region: string, boss: string, raid: Raid, seed: number
   sim.spawnMobs();
   sim.step();
   const g = r.guardians!.find((x) => x.boss === boss)!;
-  const [sx, sy] = STAGING[region] ?? [g.x, g.y + 20];
+  const [sx, sy] = STAGING[boss] ?? STAGING[region] ?? [g.x, g.y + 20];
   const mine: number[] = [];
   raid.classes.forEach((cls, k) => {
     const ps = Array.from({ length: 12 }, (_, i) => makePerson(`r${seed}-${k}-${i}`, cls, { level: 6, tier: 1, rarity: 'rare' }));
@@ -169,6 +170,7 @@ export const FIGHTS: readonly { boss: string; region: string; squads: readonly n
   { boss: 'gyges', region: 'gorge', squads: [1, 4], seeds: SEEDS },
   { boss: 'chimera', region: 'canyons', squads: [1, 4], seeds: SEEDS },
   { boss: 'grove_queen', region: 'erymanthos', squads: [1, 4], seeds: SEEDS },
+  { boss: 'erymanthian_boar', region: 'erymanthos', squads: [1, 4], seeds: SEEDS },
 ];
 
 /** Raid to take a region of each depth (docs/WAR.md "Living regions" -> "Balance"). */

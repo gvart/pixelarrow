@@ -4,9 +4,10 @@
  * A `bossSlain` event of a region room is written once (war_boss_kills, keyed by region, room run and tick): the kill,
  * the last blow's player and alliance and a boss tally for every killer (war_player_stats). M6e (W-44, W-46): the loot
  * is physical: the room drops bossItems() as a loot pile where the boss fell (WarRoom.tick), for anyone to carry off;
- * nothing is minted.
+ * nothing is minted. E3: every killer takes its trophy home (war_trophies, migrations/0041_war_veterans.sql), shown in his
+ * home town (src/war/view/memorial.ts).
  */
-import { warBoss, bossLoot } from '../../../src/data/warBosses';
+import { bossTrophy, warBoss, bossLoot } from '../../../src/data/warBosses';
 import { makeItem } from '../../../src/game/heroes';
 import { Rng, hashString } from '../../../src/sim/rng';
 import type { WarEvent } from '../../../src/war/types';
@@ -37,6 +38,7 @@ export async function applyBossKill(db: D1Database, region: string, run: string,
   const stmts: D1PreparedStatement[] = [
     db.prepare('INSERT INTO war_boss_kills (id, season, region, boss, alliance, player_id, at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)').bind(id, WAR_SEASON.id, region, e.boss, ally?.alliance ?? null, last, now),
     ...pids.map((p) => addStats(db, p, { bosses: 1 })),
+    ...pids.map((p) => db.prepare('INSERT INTO war_trophies (kill_id, player_id, season, boss, region, at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)').bind(id, p, WAR_SEASON.id, e.boss, region, now)),
   ];
   try {
     await db.batch(stmts);
@@ -45,4 +47,13 @@ export async function applyBossKill(db: D1Database, region: string, run: string,
     if (/UNIQUE constraint failed: war_boss_kills\.id/.test(String(err))) return false;
     throw err;
   }
+}
+
+/** E3: a guardian's trophy in a killer's home town. */
+export interface Trophy { boss: string; name: string; region: string; at: number }
+
+/** E3: the player's trophies, newest first. */
+export async function trophies(db: D1Database, pid: number): Promise<Trophy[]> {
+  const r = await db.prepare('SELECT boss, region, at FROM war_trophies WHERE player_id = ?1 ORDER BY at DESC, kill_id').bind(pid).all<{ boss: string; region: string; at: number }>();
+  return r.results.map((x) => ({ boss: x.boss, name: bossTrophy(x.boss), region: x.region, at: x.at }));
 }

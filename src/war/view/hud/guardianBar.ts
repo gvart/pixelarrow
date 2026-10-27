@@ -38,6 +38,7 @@ const PHASE_NOTE: Record<string, string[]> = {
   chimera: ['lion, goat and serpent'],
   bandit_king: ['street by street', 'the palace gate', 'running for the postern'],
   grove_queen: ['the thiasos dances', 'frenzied: maenads called'],
+  erymanthian_boar: ['goring through the ranks', 'enraged: the sounder comes'],
   maenad_queen: ['the thiasos dances'],
   titan: ['boulders from the arena', 'stomping, tearing the ramp gates'],
   river_god: ['a bull-horned giant', 'a serpent in the channels (from the fords)', 'a bull charging through the ranks'],

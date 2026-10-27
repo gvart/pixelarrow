@@ -235,6 +235,7 @@ export const ROSTER_CSS = `
 .rr-skill.shut .nm{color:var(--rf-muted)}.rr-skill.shut .kd{color:var(--rf-disabled)}
 .rr-hon{display:inline-flex;align-items:center;gap:3px;padding:2px 6px 2px 2px;border:1px solid #8a6a2a;color:var(--rf-gold);background:rgba(224,184,103,.07);font:600 11.5px/1 Inter,sans-serif}
 .rr-hon.trait{border-color:var(--rf-line);color:var(--rf-ink);background:var(--rf-raised)}
+.rr-hon.deed{border-color:#6a4a3a;color:#e6c9a8;background:rgba(150,70,40,.12)}
 .rr-node{display:flex;padding:1px;border:1px solid #7a5a28;background:#1c120d}
 .rr-rec{display:flex;align-items:center;gap:10px;margin-top:9px;padding-top:6px;border-top:1px solid var(--rf-rule)}
 .rr-rec>span{display:inline-flex;align-items:center;gap:4px}

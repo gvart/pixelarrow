@@ -1,7 +1,8 @@
 /**
  * Veteran and elite markers under the selected men (M5g, docs/WAR.md "Anti-oversaturation": elites and veterans get a
  * visible marker): a terracotta pip under a veteran (level 3..5), two gold pips under an elite (level 6 up or an elite
- * class), black-outlined like the red-figure kit, a few screen px at any zoom. Sprite zoom only (dots and banners carry none).
+ * class), black-outlined like the red-figure kit, a few screen px at any zoom; E3: a red slash beside them per scar. Sprite
+ * zoom only (dots and banners carry none).
  */
 import Phaser from 'phaser';
 import { CLASSES, isClassId } from '../../../../data/classes';
@@ -27,8 +28,14 @@ export function markers(s: SandboxScene): void {
       const u = d.u;
       if (!s.sel.units.has(u.id) || u.state === 'dead' || !u.level) continue;
       const rank = rankOf(u.cls, u.level);
-      if (rank === 'recruit') continue;
       const x = s.iso.sx(d.x, d.y), y = s.iso.sy(d.x, d.y, s.iso.zAt(d.x, d.y)) + 7 * px, r = 2.5 * px;
+      // E3: a red slash beside the pips for each scar (heavy wounds lived through)
+      for (let k = 0; k < Math.min(3, u.scars ?? 0); k++) {
+        const sx = x + (rank === 'elite' ? 8 : rank === 'veteran' ? 4.5 : 0) * px + k * 3 * px;
+        g.lineStyle(3 * px, 0x0e0907, 1).lineBetween(sx, y + 3 * px, sx + 2 * px, y - 3 * px);
+        g.lineStyle(1.4 * px, 0xb4462e, 1).lineBetween(sx, y + 3 * px, sx + 2 * px, y - 3 * px);
+      }
+      if (rank === 'recruit') continue;
       if (rank === 'veteran') pip(x, y, r, 0xde8a4e);
       else (pip(x - 3.5 * px, y, r, 0xe0b867), pip(x + 3.5 * px, y, r, 0xe0b867));
     }

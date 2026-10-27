@@ -666,7 +666,8 @@ export function cyclopsGate(k: Kit, at: Pt, h: number): Landmark {
  * the theatre in the north-west corner; the pilgrims' village outside the south gate, mostly empty.
  */
 export function oracleGrove(k: Kit, at: Pt, hb: number): Landmark {
-  const s = k.site('oracle', at, [150, 124], { claim: [74, 66], guardians: [{ boss: 'grove_queen', at: [74, 56] }] });
+  // E3: the Erymanthian Boar in the meadow by the south road below the Grove, where the boar wood begins (site tiles)
+  const s = k.site('oracle', at, [150, 124], { claim: [74, 66], guardians: [{ boss: 'grove_queen', at: [74, 56] }, { boss: 'erymanthian_boar', at: [162.5, 96.5] }] });
   s.wild = true; // the sacred grove keeps its oaks
   s.level(16, 6, 134, 104, hb);
   const G = s.ring(ARCH, 20, 8, 130, 100, { gates: [['W', 0.5], ['S', 0.5], ['E', 0.35]], every: 30, breach: 0.25, seed: 121 });
