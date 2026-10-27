@@ -30,7 +30,7 @@ import { closeCornerWindows, CORNER_BOTTOM, fitHeight, menuBtn, setBadge } from 
 import { keys } from '../../input/keys';
 import { tipper } from './roster/ui';
 import type { CrownNewsKind } from '../../net/world';
-import { askFirst, attackToast, crownToast, FOUND_HINT, groundToast, holdingsHtml, SETTLE_CSS, settlementBadge, settlementCard, viewerOf, type SettleForm, type Viewer } from './settleCards';
+import { askFirst, attackToast, claimToast, crownToast, FOUND_HINT, groundToast, peaceToast, holdingsHtml, SETTLE_CSS, settlementBadge, settlementCard, viewerOf, type SettleForm, type Viewer } from './settleCards';
 
 type Mk = (id: string, css: string, html?: string) => HTMLElement;
 type Api = <T>(method: 'GET' | 'POST', path: string, body?: unknown) => Promise<T | null>;
@@ -100,6 +100,7 @@ export function mountSettlements(s: SandboxScene, mk: Mk): void {
       changed();
       void loadDetails();
     } else if (m.t === 'error' && m.code === 'notYourGround') note(groundToast(m.detail), 'grd', 6000);
+    else if (m.t === 'error' && m.code === 'atPeace') note(peaceToast(m.detail), 'grd', 6000);
   });
   setTimeout(refresh, 2500);
   setInterval(() => { if (online()) void loadInbox(); }, 30_000);
@@ -320,6 +321,12 @@ export function mountSettlements(s: SandboxScene, mk: Mk): void {
     void loadInbox();
   };
   worldTaps.add((m) => { if (m.t === 'settlementAttacked') attacked(m as unknown as Parameters<typeof attacked>[0]); });
+  // a claim point of his alliance being taken (anywhere; here too)
+  worldTaps.add((m) => {
+    if (m.t !== 'claimAttacked') return;
+    const c = m as unknown as { region: string; name: string; by: number };
+    note(claimToast({ ...c, here: c.region === s.region.id }), 'atk', 14_000);
+  });
   // W-64: crown news (an election opened or closed, a new monarch, a pact broken) as a notice
   worldTaps.add((m) => { if (m.t === 'crownNews') note(crownToast(m as unknown as { kind: CrownNewsKind; text: string }), 'crn', 10_000); });
 

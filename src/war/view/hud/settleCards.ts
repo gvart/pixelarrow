@@ -304,6 +304,16 @@ export function crownToast(n: { kind: CrownNewsKind; text: string }): string {
   return `${glyph(n.kind === 'pactBroken' ? 'ui:swords' : 'ui:laurel', 24)}<div class="sx-b"><div class="sx-t">${head}</div><div class="rf-dim">${esc(n.text)}</div></div><button class="rf-tbtn x" data-sx="x">×</button>`;
 }
 
+/** A claim point of his alliance being taken (the world socket's claimAttacked). */
+export function claimToast(a: { region: string; name: string; by: number; here: boolean }): string {
+  const where = worldRegion(a.region)?.name ?? a.name ?? a.region, by = ALLIANCES[a.by]?.name ?? 'A foe';
+  return `${glyph('ui:swords', 26)}<div class="sx-b"><div class="sx-t">${esc(where)}: your claim point is being taken!</div>
+    <div class="rf-dim">${esc(by)} is at the banner${a.here ? ' here' : ''}. Any of your men within 14 tiles resets it.</div></div><button class="rf-tbtn x" data-sx="x">×</button>`;
+}
+
+/** A claim refused: a pact or truce with the point's holder. */
+export const peaceToast = (detail: string | undefined) => `${glyph('ui:laurel', 22)}<div class="sx-b"><div class="sx-t">You can't take this point</div><div class="rf-dim">${esc(detail || 'A pact or truce with its holder is in force')}</div></div><button class="rf-tbtn x" data-sx="x">×</button>`;
+
 /** A build refused on settled ground, in words. */
 export const groundToast = (detail: string | undefined) => `${glyph('ui:lock', 22)}<div class="sx-b"><div class="sx-t">You can't build here</div><div class="rf-dim">${esc(detail || 'This is a settlement\'s ground: ask its lord for a plot')}</div></div><button class="rf-tbtn x" data-sx="x">×</button>`;
 

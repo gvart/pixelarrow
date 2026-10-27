@@ -102,9 +102,19 @@ export interface ClaimView {
 export function claimView(c: ClaimSnap, you: number, depth: number, lairs: readonly LairSnap[], bosses: readonly BossSnap[]): ClaimView {
   const need = claimNeed(depth), hold = holdText({ men: c.men ?? need.men, players: c.players ?? need.players, secs: need.secs });
   if (c.state === 'claimed') {
-    if (c.team === you) return { label: 'Held: yours', tone: 'good', state: 'Held by your alliance: the ground round it is yours.', next: 'Press B to build here; forts and outposts spread your ground further.' };
-    const who = ALLIANCES[c.team]?.name ?? 'another side';
-    return { label: `Held: ${who}`, tone: 'bad', state: `Held by ${who}.`, next: `A held point stays with its holder. To take the region, hold more of its claim points than ${who} does.` };
+    const who = ALLIANCES[c.team]?.name ?? 'another side', at = Math.floor(c.progress * need.secs);
+    const by = c.by !== undefined && c.by >= 0 ? ALLIANCES[c.by]?.name ?? 'another side' : '';
+    if (c.team === you) {
+      if (c.taking) return { label: 'Being taken!', tone: 'bad', state: c.taking === 'channel' ? `${by} is taking it: ${at} of ${need.secs} s.` : `${by} is at the banner; ${c.taking === 'defended' ? 'your men hold it off' : 'the claim is reset'}.`, next: `Send men: any of yours within ${CLAIM.contest} tiles resets it, and while one stands within ${CLAIM.r} tiles it cannot run.` };
+      return { label: 'Held: yours', tone: 'good', state: 'Held by your alliance: the ground round it is yours.', next: `Press B to build here; forts and outposts spread your ground further. Keep men near: a foe who clears ${CLAIM.r} tiles round it can take it.` };
+    }
+    const take = `clear its defenders, then hold it ${need.secs} s to take it`;
+    if (c.taking && c.by === you) {
+      if (c.taking === 'channel') return { label: `Taking ${at}/${need.secs} s`, tone: '', state: `Taking it from ${who}: ${at} of ${need.secs} s.`, next: `Keep ${c.men ?? need.men} men within ${CLAIM.at} tiles of the banner; any foe within ${CLAIM.contest} tiles resets it. Done, the town round it is yours at the hp it has.` };
+      if (c.taking === 'defended') return { label: 'Defended', tone: 'bad', state: `Held by ${who}: its men within ${CLAIM.r} tiles keep the claim from running.`, next: `Drive them off, then ${hold}.` };
+      return { label: 'Contested', tone: 'bad', state: `Contested: foes within ${CLAIM.contest} tiles reset the claim.`, next: `Drive them off, then ${hold}.` };
+    }
+    return { label: `Held: ${who}`, tone: 'bad', state: `Held by ${who}: ${take}.${by ? ` ${by} is taking it now.` : ''}`, next: `No man of ${who} may stand within ${CLAIM.r} tiles; then select men, E on the banner and ${hold}. A truce or pact with ${who} forbids it.` };
   }
   if (c.state === 'locked') {
     const why = claimBlocker(c, lairs, bosses);
@@ -125,7 +135,7 @@ export function claimFirstHint(claims: readonly ClaimSnap[], you: number, depth:
   if (open) return `Claim this region first: you build only on your own ground. Send men to a white claim banner and ${hold}.`;
   const locked = claims.find((c) => c.state === 'locked');
   if (locked) return `Claim this region first: you build only on your own ground. Its claim point is guarded: ${claimBlocker(locked, lairs, bosses)}, then ${hold}.`;
-  if (claims.some((c) => c.state === 'claimed' && c.team !== you)) return 'You have no ground here: every claim point is held by others. You build only on your own ground.';
+  if (claims.some((c) => c.state === 'claimed' && c.team !== you)) return `You have no ground here: every claim point is held by others. Take one: clear its defenders, then ${hold}.`;
   return 'You have no ground here: you build only on your own ground (claim a point, or build next to your own forts).';
 }
 
@@ -140,11 +150,11 @@ export function takeLine(id: string, owner: number, claims: readonly number[] | 
   const n = owner >= 0 ? claims?.[owner] ?? 0 : 0;
   if (owner < 0) return `Unclaimed: ${first}${hold}.`;
   if (owner === you) return `Yours: you hold ${n || 'the most'} of its claim point${n === 1 ? '' : 's'}. Others need more to take it.`;
-  return `Held by ${ALLIANCES[owner]?.name} (${n} point${n === 1 ? '' : 's'}): hold more of its claim points to take it; each one: ${hold}.`;
+  return `Held by ${ALLIANCES[owner]?.name} (${n} point${n === 1 ? '' : 's'}): take more of its claim points than it holds; each one: clear its defenders, then ${hold}.`;
 }
 
 /** The "How territory works" entry (the codex term `territory`). */
-export const TERRITORY = `You build only on your own ground. In a region you do not hold yet, take a claim point: a banner on a pole. A point guarded by beasts, a bandit captain or a region guardian opens once they fall. Then hold it with your men: depth 1 needs ${holdText(claimNeed(1)).replace('hold it with ', '')}, depth 2 ${holdText(claimNeed(2)).replace('hold it with ', '')}, depth 3 ${holdText(claimNeed(3)).replace('hold it with ', '')}, depth 4 ${holdText(claimNeed(4)).replace('hold it with ', '')}. Any foe within ${CLAIM.contest} tiles resets it. A held point gives you ground ${CLAIM.r} tiles round it; forts and outposts spread it further, and towns follow their claim point. The alliance holding the most claim points holds the region. Your first camp outside home founds a settlement and makes you its lord.`;
+export const TERRITORY = `You build only on your own ground. In a region you do not hold yet, take a claim point: a banner on a pole. A point guarded by beasts, a bandit captain or a region guardian opens once they fall. Then hold it with your men: depth 1 needs ${holdText(claimNeed(1)).replace('hold it with ', '')}, depth 2 ${holdText(claimNeed(2)).replace('hold it with ', '')}, depth 3 ${holdText(claimNeed(3)).replace('hold it with ', '')}, depth 4 ${holdText(claimNeed(4)).replace('hold it with ', '')}. Any foe within ${CLAIM.contest} tiles resets it. A point another alliance holds is taken the same way once no man of theirs stands within ${CLAIM.r} tiles of it, and its town turns at the hp it has; a truce or pact with them forbids it. A held point gives you ground ${CLAIM.r} tiles round it; forts and outposts spread it further, and towns follow their claim point. The alliance holding the most claim points holds the region. Your first camp outside home founds a settlement and makes you its lord.`;
 
 const cap = (t: string) => t[0].toUpperCase() + t.slice(1);
 function clock(ms: number): string {
