@@ -116,6 +116,8 @@ interface Lair {
   wanderAt: number; fleeUntil: number; hpSeen: number; foe: SquadId;
   /** M7c: a host's captain lair (his man alive), a host lair posted on tower `post` (-1 none), raiding until tick. */
   captain: boolean; capAlive: boolean; post: number; raidUntil: number;
+  /** W-65: an added lair led by a captain (a story's named foe: HOST.captain over his kind), never holding the region. */
+  lead?: true;
   /** W-62: an added lair (addLair, the guide's early win): never comes back once cleared. */
   once?: boolean;
 }
@@ -155,7 +157,7 @@ export function createMobs(region: RegionData, host: MobHost) {
 
   const spawnLair = (l: Lair) => {
     const g = l.captain ? HOST.guard : { hp: 1, dmg: 1 };
-    l.squad = host.spawn(l.kind, l.count, l.x, l.y, { hp: rule.mob * g.hp, dmg: rule.mob * g.dmg, ...(l.captain ? { lead: HOST.captain } : {}) });
+    l.squad = host.spawn(l.kind, l.count, l.x, l.y, { hp: rule.mob * g.hp, dmg: rule.mob * g.dmg, ...(l.captain || l.lead ? { lead: HOST.captain } : {}) });
     l.capAlive = l.captain;
     l.raidUntil = 0;
     if (l.def.base === 'militia') host.order({ kind: 'formation', squad: l.squad, shape: 'loose' });
@@ -435,9 +437,9 @@ export function createMobs(region: RegionData, host: MobHost) {
      */
     /** W-62: some lair was added (the snapshot then carries the lairs in a region with none of its own). */
     added: () => lairs.some((l) => l.once),
-    add(d: { kind: MobKind; x: number; y: number; count?: number }): number {
+    add(d: { kind: MobKind; x: number; y: number; count?: number; lead?: true }): number {
       const def = MOBS[d.kind];
-      const l: Lair = { id: lairs.length, kind: d.kind, def, x: d.x, y: d.y, count: d.count ?? def.count, squad: -1, state: 'home', cleared: false, respawnAt: 0, nodes: [], wanderAt: 0, fleeUntil: 0, hpSeen: Infinity, foe: -1, captain: false, capAlive: false, post: -1, raidUntil: 0, once: true };
+      const l: Lair = { id: lairs.length, kind: d.kind, def, x: d.x, y: d.y, count: d.count ?? def.count, squad: -1, state: 'home', cleared: false, respawnAt: 0, nodes: [], wanderAt: 0, fleeUntil: 0, hpSeen: Infinity, foe: -1, captain: false, capAlive: false, post: -1, raidUntil: 0, once: true, ...(d.lead ? { lead: true as const } : {}) };
       lairs.push(l);
       spawnLair(l);
       return l.id;
