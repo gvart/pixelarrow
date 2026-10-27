@@ -8,13 +8,18 @@
  *  - done: every good in and the labour done: `done_at` set once, the alliance scores PEACE.work, a road's transfer
  *    bonus goes to the world, and every region room of the season applies the rest (`bonusesOf`: repairs, sight).
  * Who gave what stays in war_work_gifts (the panel's contributors).
+ *
+ * W-62 E7 alliance projects: the wonder (src/war/net/works.ts WONDER) is a work in stages. `stage` counts the stages
+ * done; goods and labour are the current stage's and start again at 0 when a stage stands (gifts add up over all
+ * stages: the top contributors). Each stage done scores its own `score` and adds its perk (`perksOf`, `bonusesOf`;
+ * the transfer share goes to the world folded with the road's; the task boost to ./tasks.ts). Every plain work is one
+ * stage (`stagesOf`).
  */
 import { ApiError } from '../errors';
 import { ALLIANCES, WAR_SEASON } from '../../../src/war/world/alliances';
-import { PEACE } from '../../../src/war/world/season';
 import type { AllianceId } from '../../../src/war/world/types';
 import type { TeamBonus } from '../../../src/war/types';
-import { workDef, workSite, WORKS, type WorkId, type WorkView } from '../../../src/war/net/works';
+import { foldBonus, stagesOf, workDef, workSite, WONDER, WORKS, type WorkBonus, type WorkId, type WorkView } from '../../../src/war/net/works';
 import type { Env } from '../env';
 import { logError } from '../telemetry/log';
 import { batch, lotsOf, planTake, strongroom } from './holders';
@@ -22,13 +27,16 @@ import { allianceOf } from './world/members';
 import { warRegion } from './regions';
 import { json } from './persons';
 import { scorePeace, statStmt } from './peace';
+import { tallyStmt } from './tasks';
 import { worldStub } from './world/routes';
 
 const EPS = 1e-6;
-interface WorkRow { work: string; goods: string; labour: number; done_at: number | null }
+interface WorkRow { work: string; goods: string; labour: number; stage: number; done_at: number | null }
+/** Stages done of a row (a done work: all of them). */
+const doneStages = (r: Pick<WorkRow, 'work' | 'stage' | 'done_at'>) => (r.done_at ? stagesOf(r.work)?.length ?? 0 : r.stage);
 
 const row = (db: D1Database, a: number, id: string, season: number) =>
-  db.prepare('SELECT work, goods, labour, done_at FROM war_works WHERE season = ?1 AND alliance = ?2 AND work = ?3').bind(season, a, id).first<WorkRow>();
+  db.prepare('SELECT work, goods, labour, stage, done_at FROM war_works WHERE season = ?1 AND alliance = ?2 AND work = ?3').bind(season, a, id).first<WorkRow>();
 const ensure = (db: D1Database, a: number, id: string, season: number) =>
   db.prepare('INSERT OR IGNORE INTO war_works (season, alliance, work) VALUES (?1, ?2, ?3)').bind(season, a, id);
 const gift = (db: D1Database, a: number, id: string, pid: number, season: number) =>
@@ -41,38 +49,64 @@ export function siteOf(a: number, id: WorkId): { region: string; x: number; y: n
   return { region: al.home, ...p };
 }
 
-/** The alliance's works as the panel shows them: progress, needs and who gave. */
+/** The alliance's works as the panel shows them: progress, needs and who gave; the wonder last, by its current stage. */
 export async function worksOf(db: D1Database, a: number, season = WAR_SEASON.id): Promise<WorkView[]> {
-  const rows = new Map((await db.prepare('SELECT work, goods, labour, done_at FROM war_works WHERE season = ?1 AND alliance = ?2').bind(season, a).all<WorkRow>()).results.map((r) => [r.work, r]));
+  const rows = new Map((await db.prepare('SELECT work, goods, labour, stage, done_at FROM war_works WHERE season = ?1 AND alliance = ?2').bind(season, a).all<WorkRow>()).results.map((r) => [r.work, r]));
   const gifts = (await db
     .prepare('SELECT g.work, g.player_id AS pid, g.goods, g.labour, pl.display_name AS name FROM war_work_gifts g LEFT JOIN players pl ON pl.id = g.player_id WHERE g.season = ?1 AND g.alliance = ?2')
     .bind(season, a)
     .all<{ work: string; pid: number; goods: string; labour: number; name: string | null }>()).results;
-  return WORKS.map((w) => {
+  const byOf = (id: string) => gifts
+    .filter((g) => g.work === id)
+    .map((g) => ({ pid: g.pid, name: g.name ?? `#${g.pid}`, goods: Math.round(Object.values(json<Record<string, number>>(g.goods, {})).reduce((x, y) => x + y, 0)), labour: Math.round((g.labour / 3600) * 10) / 10 }))
+    .sort((x, y) => y.goods + y.labour * 50 - (x.goods + x.labour * 50) || x.pid - y.pid);
+  const views: WorkView[] = WORKS.map((w) => {
     const r = rows.get(w.id), site = siteOf(a, w.id);
-    const by = gifts
-      .filter((g) => g.work === w.id)
-      .map((g) => ({ pid: g.pid, name: g.name ?? `#${g.pid}`, goods: Math.round(Object.values(json<Record<string, number>>(g.goods, {})).reduce((x, y) => x + y, 0)), labour: Math.round((g.labour / 3600) * 10) / 10 }))
-      .sort((x, y) => y.goods + y.labour * 50 - (x.goods + x.labour * 50) || x.pid - y.pid);
     return {
       id: w.id, name: w.name, text: w.text, region: site.region, x: site.x, y: site.y,
-      goods: json<Record<string, number>>(r?.goods ?? '{}', {}), need: w.goods, labour: (r?.labour ?? 0) / 3600, needLabour: w.labour, done: !!r?.done_at, by,
+      goods: json<Record<string, number>>(r?.goods ?? '{}', {}), need: w.goods, labour: (r?.labour ?? 0) / 3600, needLabour: w.labour, done: !!r?.done_at, by: byOf(w.id),
     };
   });
+  // E7: the wonder: its current stage's goods and labour, and every stage with its perk
+  const r = rows.get(WONDER.id), site = siteOf(a, WONDER.id), n = r ? doneStages(r) : 0, done = n >= WONDER.stages.length;
+  const cur = WONDER.stages[Math.min(n, WONDER.stages.length - 1)];
+  views.push({
+    id: WONDER.id, name: WONDER.name, text: cur.text, region: site.region, x: site.x, y: site.y,
+    goods: done ? { ...cur.goods } : json<Record<string, number>>(r?.goods ?? '{}', {}), need: cur.goods, labour: done ? cur.labour : (r?.labour ?? 0) / 3600, needLabour: cur.labour, done, by: byOf(WONDER.id),
+    stage: n, stages: WONDER.stages.map((s, k) => ({ name: s.name, text: s.text, need: s.goods, needLabour: s.labour, done: k < n })),
+  });
+  return views;
 }
 
-/** Done yet? Then mark it once, score it and hand out the travel bonus. Returns true when it was finished now. */
+/** The perks of the works and wonder stages alliance `a` raised this season (tasks: ./tasks.ts; travel: the world). */
+export async function perksOf(db: D1Database, a: number, season = WAR_SEASON.id): Promise<WorkBonus> {
+  const rows = (await db.prepare('SELECT work, stage, done_at FROM war_works WHERE season = ?1 AND alliance = ?2 AND (done_at IS NOT NULL OR stage > 0)').bind(season, a).all<WorkRow>()).results;
+  return foldBonus(rows.map((r) => [r.work, doneStages(r)]));
+}
+
+/**
+ * The current stage done? Then mark it once (the last: the work stands; else the next stage opens with nothing in),
+ * score it and hand out its travel share (folded with the other works'). Returns true when a stage was finished now.
+ */
 async function finish(env: Env, a: number, id: WorkId, now: number, season: number): Promise<boolean> {
-  const db = env.DB!, w = workDef(id)!, r = await row(db, a, id, season);
+  const db = env.DB!, stages = stagesOf(id)!, r = await row(db, a, id, season);
   if (!r || r.done_at) return false;
+  const st = stages[r.stage];
+  if (!st) return false;
   const have = json<Record<string, number>>(r.goods, {});
-  if (Object.entries(w.goods).some(([k, n]) => (have[k] ?? 0) < n - EPS) || r.labour < w.labour * 3600 - EPS) return false;
-  const u = await db.prepare('UPDATE war_works SET done_at = ?4 WHERE season = ?1 AND alliance = ?2 AND work = ?3 AND done_at IS NULL').bind(season, a, id, now).run();
+  if (Object.entries(st.goods).some(([k, n]) => (have[k] ?? 0) < n - EPS) || r.labour < st.labour * 3600 - EPS) return false;
+  const last = r.stage + 1 >= stages.length;
+  const u = await db
+    .prepare(last
+      ? 'UPDATE war_works SET done_at = ?4, stage = ?5 + 1 WHERE season = ?1 AND alliance = ?2 AND work = ?3 AND done_at IS NULL AND stage = ?5'
+      : "UPDATE war_works SET stage = ?5 + 1, goods = '{}', labour = 0 WHERE season = ?1 AND alliance = ?2 AND work = ?3 AND done_at IS NULL AND stage = ?5 AND ?4 > 0")
+    .bind(season, a, id, now, r.stage)
+    .run();
   if (!u.meta.changes) return false;
-  await scorePeace(env, a, 'works', PEACE.work, now);
-  if (w.bonus.travel) {
+  await scorePeace(env, a, 'works', st.score, now);
+  if (st.bonus.travel) {
     try {
-      await worldStub(env).setTravel(a as AllianceId, w.bonus.travel);
+      await worldStub(env).setTravel(a as AllianceId, (await perksOf(db, a, season)).travel ?? 1);
     } catch (e) {
       logError('war_travel_failed', e);
     }
@@ -80,18 +114,19 @@ async function finish(env: Env, a: number, id: WorkId, now: number, season: numb
   return true;
 }
 
-/** A member gives goods from his home strongroom to his alliance's work: at most what it lacks. Returns what went in. */
+/** A member gives goods from his home strongroom to his alliance's work (its current stage): at most what it lacks. Returns what went in. */
 export async function give(env: Env, pid: number, id: string, goods: Record<string, number>, now: number, season = WAR_SEASON.id): Promise<Record<string, number>> {
-  const db = env.DB!, w = workDef(id);
-  if (!w) throw new ApiError(404, 'not_found', 'No such work');
+  const db = env.DB!, stages = stagesOf(id);
+  if (!stages) throw new ApiError(404, 'not_found', 'No such work');
+  const w = { id: id as WorkId, name: workDef(id)?.name ?? WONDER.name };
   const a = await allianceOf(db, pid, season);
   if (a === null) throw new ApiError(409, 'no_alliance', 'Join an alliance first');
   const r = await row(db, a, w.id, season);
   if (r?.done_at) throw new ApiError(409, 'done', `${w.name} stands already`);
-  const have = json<Record<string, number>>(r?.goods ?? '{}', {});
+  const need = stages[r?.stage ?? 0].goods, have = json<Record<string, number>>(r?.goods ?? '{}', {});
   const take: Record<string, number> = {};
   for (const [k, n] of Object.entries(goods)) {
-    const lack = (w.goods[k] ?? 0) - (have[k] ?? 0);
+    const lack = (need[k] ?? 0) - (have[k] ?? 0);
     if (lack > EPS && n > EPS) take[k] = Math.min(n, lack);
   }
   if (!Object.keys(take).length) throw new ApiError(409, 'not_needed', `${w.name} needs none of that`);
@@ -103,18 +138,19 @@ export async function give(env: Env, pid: number, id: string, goods: Record<stri
       db.prepare(`UPDATE war_works SET ${add('goods', k, n)} WHERE season = ?1 AND alliance = ?2 AND work = ?3`).bind(season, a, w.id),
       db.prepare(`UPDATE war_work_gifts SET ${add('goods', k, n)} WHERE season = ?1 AND alliance = ?2 AND work = ?3 AND player_id = ?4`).bind(season, a, w.id, pid),
     ]),
+    tallyStmt(db, pid, 'workGoods', Object.values(take).reduce((x, y) => x + y, 0), now, season), // E7 tasks
   ]);
   await finish(env, a, w.id, now, season);
   return take;
 }
 
-/** Labour at alliance `a`'s work: man-seconds by player (the room's count); capped at the need; the giver's stats too. */
+/** Labour at alliance `a`'s work (its current stage): man-seconds by player (the room's count); capped at the need; the giver's stats too. */
 export async function addLabour(env: Env, a: number, id: WorkId, by: Record<number, number>, now: number, season = WAR_SEASON.id): Promise<number> {
-  const db = env.DB!, w = workDef(id);
-  if (!w) return 0;
+  const db = env.DB!, stages = stagesOf(id);
+  if (!stages) return 0;
   const r = await row(db, a, id, season);
   if (r?.done_at) return 0;
-  let left = w.labour * 3600 - (r?.labour ?? 0), put = 0;
+  let left = stages[r?.stage ?? 0].labour * 3600 - (r?.labour ?? 0), put = 0;
   const stmts: D1PreparedStatement[] = [ensure(db, a, id, season)];
   for (const [p, secs] of Object.entries(by).sort((x, y) => Number(x[0]) - Number(y[0]))) {
     const n = Math.min(secs, left);
@@ -125,6 +161,7 @@ export async function addLabour(env: Env, a: number, id: WorkId, by: Record<numb
       gift(db, a, id, Number(p), season),
       db.prepare('UPDATE war_work_gifts SET labour = labour + ?5 WHERE season = ?1 AND alliance = ?2 AND work = ?3 AND player_id = ?4').bind(season, a, id, Number(p), n),
       statStmt(db, Number(p), 'labour', n, season),
+      tallyStmt(db, Number(p), 'labour', n, now, season), // E7 tasks
     );
   }
   if (!(put > EPS)) return 0;
@@ -134,22 +171,23 @@ export async function addLabour(env: Env, a: number, id: WorkId, by: Record<numb
   return put;
 }
 
-/** The works still open for labour in the alliance's home region (the room watches their sites). */
+/** The works (and the wonder) still open for labour in the alliance's home region (the room watches their sites). */
 export async function openWorks(db: D1Database, a: number, season = WAR_SEASON.id): Promise<WorkId[]> {
   const done = new Set((await db.prepare('SELECT work FROM war_works WHERE season = ?1 AND alliance = ?2 AND done_at IS NOT NULL').bind(season, a).all<{ work: string }>()).results.map((r) => r.work));
-  return WORKS.filter((w) => !done.has(w.id)).map((w) => w.id);
+  return [...WORKS.map((w) => w.id), WONDER.id].filter((id) => !done.has(id));
 }
 
-/** The sim bonuses of the works each alliance has raised this season (by team = alliance id). */
+/** The sim bonuses of the works (and wonder stages) each alliance has raised this season (by team = alliance id). */
 export async function bonusesOf(db: D1Database, season = WAR_SEASON.id): Promise<Map<number, TeamBonus>> {
+  const by = new Map<number, [string, number][]>();
+  for (const r of (await db.prepare('SELECT alliance, work, stage, done_at FROM war_works WHERE season = ?1 AND (done_at IS NOT NULL OR stage > 0)').bind(season).all<WorkRow & { alliance: number }>()).results)
+    by.set(r.alliance, [...(by.get(r.alliance) ?? []), [r.work, doneStages(r)]]);
   const out = new Map<number, TeamBonus>();
-  for (const r of (await db.prepare('SELECT alliance, work FROM war_works WHERE season = ?1 AND done_at IS NOT NULL').bind(season).all<{ alliance: number; work: string }>()).results) {
-    const b = workDef(r.work)?.bonus;
-    if (!b) continue;
-    const cur = out.get(r.alliance) ?? {};
-    if (b.repairCost) cur.repairCost = b.repairCost;
+  for (const [a, done] of by) {
+    const b = foldBonus(done), cur: TeamBonus = {};
+    if (b.repairCost !== undefined) cur.repairCost = b.repairCost;
     if (b.sight) cur.sight = b.sight;
-    out.set(r.alliance, cur);
+    if (Object.keys(cur).length) out.set(a, cur);
   }
   return out;
 }

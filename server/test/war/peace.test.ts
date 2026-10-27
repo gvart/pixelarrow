@@ -118,7 +118,7 @@ describe('alliance works (W-61)', () => {
     expect(v.done).toBe(true);
     expect(v.by.map((x) => x.pid).sort()).toEqual([a, b].sort());
     expect(await addLabour(env, 1, 'temple', { [a]: 100 }, now, season)).toBe(0);
-    expect(await openWorks(DB(), 1, season)).toEqual(['road', 'beacons']);
+    expect(await openWorks(DB(), 1, season)).toEqual(['road', 'beacons', 'wonder']);
     expect((await bonusesOf(DB(), season)).get(1)).toEqual({ repairCost: temple.bonus.repairCost });
     const pts = await DB().prepare("SELECT SUM(points) AS p FROM war_peace_score WHERE alliance = 1 AND kind = 'works'").first<{ p: number }>();
     expect(pts!.p).toBe(PEACE.work);
