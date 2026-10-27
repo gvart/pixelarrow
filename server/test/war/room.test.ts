@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { DeltaDecoder } from '../../../src/war/net/codec';
 import { CELL, VisionMap } from '../../../src/war/net/interest';
-import { decodeInfluence, encodeInfluence, NODES_EVERY, packNode, STORE_NEAR, unpackNode } from '../../../src/war/net/economy';
+import { decodeFog, decodeInfluence, encodeFog, encodeInfluence, NODES_EVERY, packNode, STORE_NEAR, unpackNode } from '../../../src/war/net/economy';
 import { NET_VERSION, VISION, type JoinMsg, type ServerMsg } from '../../../src/war/net/protocol';
 import { put } from '../../../src/war/sim/holders';
 import { createSim } from '../../../src/war/sim';
@@ -301,6 +301,33 @@ describe('WarRoom economy view (nodes, influence)', () => {
     expect(unpackNode(packNode(n))).toEqual(n);
     const mask = new Uint8Array([0, 2, 2, 0, 3, 1, 2]);
     expect(decodeInfluence(7, 1, 1, encodeInfluence(mask, 1), 1).mask).toEqual(new Uint8Array([0, 2, 2, 0, 2, 0, 2]));
+  });
+});
+
+describe('W-39 fog of war goes to the client', () => {
+  it('a fresh join gets its team fog grid (most of the region unexplored), then only changes', () => {
+    const r = room();
+    r.join(1, join(1, 0));
+    const fog = (r.tick().msgs.get(1) ?? []).find((m) => m.t === 'fog');
+    expect(fog).toBeTruthy();
+    if (fog?.t !== 'fog') return;
+    const g = decodeFog(fog.team, fog.w, fog.h, fog.cell, fog.runs, fog.v);
+    expect(g.state).toEqual(r.sim.teamGrid(0).state);
+    expect(g.state.filter((s) => s === 0).length).toBeGreaterThan(g.state.length / 2); // dark beyond the men's sight
+    expect(g.state.some((s) => s === 2)).toBe(true);
+    // unchanged grid: not resent; a new version is
+    const v = r.sim.teamGrid(0).version;
+    const again = r.tick();
+    expect((again.msgs.get(1) ?? []).some((m) => m.t === 'fog')).toBe(r.sim.teamGrid(0).version !== v);
+    r.order(1, { kind: 'move', squad: 0, x: 200, y: 200 });
+    let sent = false;
+    for (let t = 0; t < 60 && !sent; t++) sent = (r.tick().msgs.get(1) ?? []).some((m) => m.t === 'fog' && m.v === r.sim.teamGrid(0).version);
+    expect(sent).toBe(true);
+  });
+
+  it('packs fog runs losslessly', () => {
+    const s = new Uint8Array([0, 0, 1, 2, 2, 2, 0, 1]);
+    expect(decodeFog(0, 4, 2, 2, encodeFog(s), 3).state).toEqual(s);
   });
 });
 

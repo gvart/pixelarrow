@@ -34,7 +34,7 @@ import { createBots, type Bots } from '../../../src/war/sim/bots';
 import { isClassId } from '../../../src/data/classes';
 import { DeltaEncoder } from '../../../src/war/net/codec';
 import { visibleTo, type Rect, type TeamVision } from '../../../src/war/net/interest';
-import { EconomyFeed, encodeInfluence, NODES_EVERY, storeByMen } from '../../../src/war/net/economy';
+import { EconomyFeed, encodeFog, encodeInfluence, NODES_EVERY, storeByMen } from '../../../src/war/net/economy';
 import { ALLIANCES, KEYFRAME_EVERY, MAX_SQUAD, MAX_SQUADS, NET_VERSION, splitQuota, type CheckMsg, type DevMsg, type JoinMsg, type NetOrder, type OrderError, type Quota, type Refusal, type ServerMsg } from '../../../src/war/net/protocol';
 import type { SimState } from '../../../src/war/sim/state';
 import type { Item } from '../../../src/data/items';
@@ -250,6 +250,8 @@ export class WarRoom {
   private stormed = new Set<number>();
   /** Each team's influence runs at an influence version (encoded once per change). */
   private inflRuns = new Map<number, { v: number; runs: number[] }>();
+  /** Each team's fog runs at a fog version (W-39; encoded once per change). */
+  private fogRuns = new Map<number, { v: number; runs: number[] }>();
   /** W-60: each player's fighters across all regions (D1, set by the DO on join and after each claim): the soul gate. */
   private armies = new Map<number, number>();
   /** W-61: guard contracts the DO watches here (poster's team), the alliance works open at this home region, town sent. */
@@ -1114,6 +1116,13 @@ export class WarRoom {
       if (c?.v !== infl.version) this.inflRuns.set(p.team, (c = { v: infl.version, runs: encodeInfluence(infl.mask, p.team) }));
       const r = feed.influence(c.runs);
       if (r) push(p.pid, { t: 'influence', team: p.team, w: infl.w, h: infl.h, v: infl.version, runs: r });
+      // W-39: his team's fog grid when it changed (the shroud; the snapshot is already filtered by it)
+      const fg = this.sim.teamGrid(p.team);
+      if (feed.fog(p.team, fg.version)) {
+        let fc = this.fogRuns.get(p.team);
+        if (fc?.v !== fg.version) this.fogRuns.set(p.team, (fc = { v: fg.version, runs: encodeFog(fg.state) }));
+        push(p.pid, { t: 'fog', team: p.team, w: fg.w, h: fg.h, cell: fg.cell, v: fg.version, runs: fc.runs });
+      }
       // W-60: the store his men stand next to, only it (src/war/net/economy.ts storeByMen)
       const mine = new Set(this.squadsOf(p.pid));
       const g0 = feed.stock(storeByMen(this.snap, p.team, this.snap.units.filter((u) => mine.has(u.squad) && u.state !== 'dead')));

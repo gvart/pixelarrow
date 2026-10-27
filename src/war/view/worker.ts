@@ -16,8 +16,8 @@ import { feedSim, goOrder, prebuildSim } from '../scenarios/run';
 import type { ScenarioGo } from '../scenarios/types';
 import { createNet, type Net } from '../net/client';
 import { MAX_SQUAD, type HandoffMsg, type StowMsg } from '../net/protocol';
-import { decodeInfluence, unpackNode } from '../net/economy';
-import type { BridgeOrder, BuildingType, InfluenceMap, MobKind, NodeSnap, Order, RegionData, Snapshot, ResourceKind, WallOrder, WarBuildSim, WarPerson, WarSim } from '../types';
+import { decodeFog, decodeInfluence, unpackNode } from '../net/economy';
+import type { BridgeOrder, BuildingType, FogGrid, InfluenceMap, MobKind, NodeSnap, Order, RegionData, Snapshot, ResourceKind, WallOrder, WarBuildSim, WarPerson, WarSim } from '../types';
 
 export type ToWorker =
   | { t: 'init'; region: RegionData; team: number; seed: number; sim: 'real' | 'fake'; net?: string; dev?: number }
@@ -130,17 +130,19 @@ onmessage = (e: MessageEvent<ToWorker>) => {
     const seed = /[?&]seed=1\b/.test(m.net), url = m.net.replace(/[?&]seed=1\b/, '');
     // the economy view (nodes, influence) rides on the next snapshot post, as the local sim's does
     const nodes = new Map<number, NodeSnap>();
-    let nodesNew = false, infl: InfluenceMap | undefined, stock: Snapshot['stock'], town: Snapshot['townLevels'];
+    let nodesNew = false, infl: InfluenceMap | undefined, fog: FogGrid | undefined, stock: Snapshot['stock'], town: Snapshot['townLevels'];
     net = createNet(url, m.region.id, m.dev, (snap, stats) => {
-      postMessage({ snap: stock || town ? { ...snap, ...(stock ? { stock } : {}), ...(town ? { townLevels: town } : {}) } : snap, stats, nodes: nodesNew ? [...nodes.values()] : undefined, influence: infl });
+      postMessage({ snap: stock || town ? { ...snap, ...(stock ? { stock } : {}), ...(town ? { townLevels: town } : {}) } : snap, stats, nodes: nodesNew ? [...nodes.values()] : undefined, influence: infl, fog });
       nodesNew = false;
       infl = undefined;
+      fog = undefined;
     }, seed, (server) => {
       if (server.t === 'nodes') {
         for (const r of server.rows) nodes.set(r[0], unpackNode(r));
         for (const id of server.gone ?? []) nodes.delete(id);
         nodesNew = true;
       } else if (server.t === 'influence') infl = decodeInfluence(server.w, server.h, server.team, server.runs, server.v);
+      else if (server.t === 'fog') fog = decodeFog(server.team, server.w, server.h, server.cell, server.runs, server.v); // W-39: the shroud (the snapshot comes filtered)
       else if (server.t === 'stock') stock = { [server.team]: server.goods }; // W-60: the store his men stand next to only ({} away from every store)
       else if (server.t === 'town') town = server.town ? [server.town] : []; // W-61: his team's town level
       else postMessage({ server });

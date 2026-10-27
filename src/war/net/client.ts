@@ -98,7 +98,7 @@ export function createNet(url: string, region: string, devId: number | undefined
           checks.delete(m.id);
           return;
         }
-        if (m.t === 'nodes' || m.t === 'influence' || m.t === 'stock' || m.t === 'town') return onMsg(m); // the economy view (./economy.ts)
+        if (m.t === 'nodes' || m.t === 'influence' || m.t === 'stock' || m.t === 'town' || m.t === 'fog') return onMsg(m); // the economy view (./economy.ts), W-39 the fog
         if (m.t !== 'pong') console.info('[net]', m);
         if (m.t === 'stowed' || m.t === 'handoff' || m.t === 'error' || m.t === 'welcome' || m.t === 'soul' || m.t === 'worldEvents' || m.t === 'guide' || m.t === 'settlements') onMsg(m); // M6: the trade panels (welcome: our player id); W-60: a soul claimed or refused; W-62 world events, the guide; W-63 settlements
         return;

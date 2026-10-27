@@ -14,7 +14,7 @@
  */
 import { GOODS } from './protocol';
 import { BUILDINGS } from '../sim/economy';
-import type { BuildingSnap, InfluenceMap, NodeSnap, ResourceKind, Snapshot } from '../types';
+import type { BuildingSnap, FogGrid, InfluenceMap, NodeSnap, ResourceKind, Snapshot } from '../types';
 
 /** Ticks between node updates (amounts change slowly; the local worker uses the same pace). */
 export const NODES_EVERY = 10;
@@ -83,6 +83,28 @@ export function decodeInfluence(w: number, h: number, team: number, runs: number
   return { w, h, mask, version };
 }
 
+/** W-39 fog on the wire: the team's cell states (0 unexplored, 1 explored, 2 visible) as [state, count] pairs. */
+export function encodeFog(state: Uint8Array): number[] {
+  const runs: number[] = [];
+  for (let i = 0; i < state.length; ) {
+    let j = i + 1;
+    while (j < state.length && state[j] === state[i]) j++;
+    runs.push(state[i], j - i);
+    i = j;
+  }
+  return runs;
+}
+
+export function decodeFog(team: number, w: number, h: number, cell: number, runs: number[], version: number): FogGrid {
+  const state = new Uint8Array(w * h);
+  let i = 0;
+  for (let k = 0; k < runs.length; k += 2) {
+    state.fill(runs[k], i, Math.min(state.length, i + runs[k + 1]));
+    i += runs[k + 1];
+  }
+  return { team, w, h, cell, state, version };
+}
+
 /** What the feed needs of the sim, for one team. */
 export interface EconomySource {
   nodes: NodeSnap[];
@@ -96,6 +118,7 @@ export class EconomyFeed {
   private infl = '';
   private last: number[] | null = null;
   private goods = '';
+  private fogKey = '';
   private synced = false;
 
   /** Not synced yet: the first node update goes out at once. */
@@ -129,6 +152,14 @@ export class EconomyFeed {
     if (key === this.goods) return null;
     this.goods = key;
     return { store: id, goods: out };
+  }
+
+  /** W-39: true when the team's fog grid (team, version) differs from what he has. */
+  fog(team: number, version: number): boolean {
+    const key = `${team}:${version}`;
+    if (key === this.fogKey) return false;
+    this.fogKey = key;
+    return true;
   }
 
   /** The team's influence runs when they differ from what he has (null: unchanged). */

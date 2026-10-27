@@ -28,7 +28,7 @@
  *   server -> welcome | refused | queued | error | pong | checked   (JSON)
  *   server -> soul                                          W-60: his claim on a soul went through or was refused (his
  *                    army is full)
- *   server -> nodes | influence | stock                       the economy view (./economy.ts): resource nodes his team
+ *   server -> nodes | influence | stock | fog                 the economy view (./economy.ts): resource nodes his team
  *                    sees (changes only), his team's influence mask (RLE, on change), his team's stockpile (on change)
  *   server -> binary frame                                    (snapshot delta or keyframe)
  */
@@ -235,6 +235,8 @@ export type ServerMsg =
   | { t: 'nodes'; rows: NodeRow[]; gone?: number[] }
   /** His team's influence: bit `team` of the w x h mask as alternating runs (outside first); v the sim's version. */
   | { t: 'influence'; team: number; w: number; h: number; v: number; runs: number[] }
+  /** W-39: his team's fog of war, w x h cells of `cell` tiles as [state, count] runs (./economy.ts encodeFog), on change; v the grid's version. */
+  | { t: 'fog'; team: number; w: number; h: number; cell: number; v: number; runs: number[] }
   /** W-60: the store his men stand next to (building id; null: none within STORE_NEAR) and its goods, whole units, when either changed. Never a team total. */
   | { t: 'stock'; team: number; store: number | null; goods: Record<string, number> }
   /** W-61: his team's town level here (Snapshot.townLevels; null: none), when it changed. */
