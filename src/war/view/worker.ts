@@ -17,7 +17,7 @@ import type { ScenarioGo } from '../scenarios/types';
 import { createNet, type Net } from '../net/client';
 import { MAX_SQUAD, type HandoffMsg, type StowMsg } from '../net/protocol';
 import { decodeInfluence, unpackNode } from '../net/economy';
-import type { BridgeOrder, BuildingType, InfluenceMap, NodeSnap, Order, RegionData, Snapshot, ResourceKind, WallOrder, WarBuildSim, WarPerson, WarSim } from '../types';
+import type { BridgeOrder, BuildingType, InfluenceMap, MobKind, NodeSnap, Order, RegionData, Snapshot, ResourceKind, WallOrder, WarBuildSim, WarPerson, WarSim } from '../types';
 
 export type ToWorker =
   | { t: 'init'; region: RegionData; team: number; seed: number; sim: 'real' | 'fake'; net?: string; dev?: number }
@@ -31,6 +31,7 @@ export type ToWorker =
   | { t: 'stock'; team: number; res: ResourceKind; n: number }
   | { t: 'prebuild'; team: number; max: number } // scenarios: build the team's sites before play (max 0: just step)
   | { t: 'mobs' } // neutral play: spawn the region's lairs
+  | { t: 'lair'; kind: MobKind; x: number; y: number; count?: number } // W-62 the guide (offline): one weak lair on the new player's way
   | { t: 'hurtBoss'; boss: string; to: number; part?: number } // M7d dev and scenarios: a guardian (or its part: a head) down to a share of its hp
   | { t: 'soul'; x: number; y: number; cls: string; level?: number; site?: 'shrine' | 'ruin' | 'battlefield' | 'lair' } // W-60 dev and scenarios: a soul waits there
   | { t: 'hunger'; squad: number; sat: number } // W-60 dev and scenarios: a squad's men at this satiety
@@ -161,6 +162,7 @@ onmessage = (e: MessageEvent<ToWorker>) => {
   else if (m.t === 'claim') { build(sim)?.claim(m.team, m.x, m.y, m.r); }
   else if (m.t === 'stock') build(sim)?.addStock(m.team, m.res, m.n);
   else if (m.t === 'mobs') build(sim)?.spawnMobs();
+  else if (m.t === 'lair') build(sim)?.addLair({ kind: m.kind, x: m.x, y: m.y, count: m.count });
   else if (m.t === 'hurtBoss') {
     const b = build(sim), g = b?.snapshot().bosses?.find((x) => x.id === m.boss);
     if (b && g && m.part !== undefined) b.hurtBoss(m.boss, 1e9, 'you', m.part);
