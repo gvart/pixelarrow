@@ -77,6 +77,7 @@ import type { TransitCargo } from '../../../src/war/net/world';
 import { guideStorageKey, type GuideDone } from './guide';
 import { fightTallies, tallyStmt } from './tasks';
 import type { GuideSave } from '../../../src/war/net/guide';
+import { bookFight, pactAttack } from './crown';
 import { found, levy, logAttack, PRESENCE, report as reportSettlement, SETTLE, tributeOf } from './settlements';
 import { foundRefusal, loadRegionSettlements, tiedTo, type Persist, type RoomSettlement } from './roomSettlements';
 import { goodsOf } from './holders';
@@ -729,7 +730,8 @@ export class WarRegionDO extends DurableObject<Env> {
     }
     const d = this.env.DB;
     // W-62 E7: a fight written now also tallies wins and kills for the tasks
-    if (d) for (const f of r.fights) this.write(`fight ${f.id}`, async () => (await applyFight(d, f.id, room.region.id, f.report, Date.now())) && batch(d, fightTallies(d, f.report, Date.now())));
+    // W-64: and books shares in the crown's war goals in this region
+    if (d) for (const f of r.fights) this.write(`fight ${f.id}`, async () => (await applyFight(d, f.id, room.region.id, f.report, Date.now())) && (await batch(d, fightTallies(d, f.report, Date.now())), await bookFight(d, room.region.id, f.report, Date.now())));
     if (d && r.gathered.length) this.write('gathered', () => d.batch(r.gathered.map(([p, m, n]) => tallyStmt(d, p, m, n, Date.now()))));
     if (d && r.raided.length) {
       const at = Date.now();
@@ -866,6 +868,9 @@ export class WarRegionDO extends DurableObject<Env> {
       const r = await logAttack(d, a.by, a.victim, Date.now());
       const name = this.settles.find((s) => s.id === a.victim)?.name ?? '';
       if (r.tell.length && this.env.WAR_WORLD) await this.world().notify(r.tell, { t: 'settlementAttacked', settlement: a.victim, name, region, by: a.by, broken: r.broken }).catch((e) => logError('war_settle_notify_failed', e, { region }));
+      // W-64: a pact or truce between the attacker's alliance and the victim's breaks; both alliances hear it
+      const p = await pactAttack(d, a.by, a.victim, Date.now());
+      if (p.tell.length && this.env.WAR_WORLD) await this.world().notify(p.tell, { t: 'crownNews', kind: 'pactBroken', text: p.text, region }).catch((e) => logError('war_crown_notify_failed', e, { region }));
     }
   }
 

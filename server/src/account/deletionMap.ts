@@ -89,6 +89,10 @@ export const DELETION_MAP: Record<string, TableRule> = {
   // W-62 E7: his daily and weekly tasks and the tallies behind them
   war_tasks: { rule: 'delete', pid: ['player_id'] },
   war_task_tally: { rule: 'delete', pid: ['player_id'] },
+  // W-64: his council office, ballots and signatures, and his shares in the crown's orders
+  war_crown_offices: { rule: 'delete', pid: ['player_id'] },
+  war_crown_ballots: { rule: 'delete', pid: ['player_id'] },
+  war_crown_shares: { rule: 'delete', pid: ['player_id'] },
   display_name_history: { rule: 'delete', pid: ['player_id'], via: 'one row is written back at the tombstone step so the freed name stays held 30 days' },
 
   // Kept against the tombstone.
@@ -114,6 +118,12 @@ export const DELETION_MAP: Record<string, TableRule> = {
   // W-63: a settlement he rules stays (others live there), its lord the tombstone; its log of attacks and tribute
   war_settlements: { rule: 'shared_history', kept: ['lord_pid'] },
   war_settlement_log: { rule: 'shared_history', kept: ['actor_id'] },
+  // W-64: the alliance's crown (its monarch the tombstone until the next election), its votes, orders, pacts and chronicle
+  war_crowns: { rule: 'shared_history', kept: ['monarch_pid'] },
+  war_crown_votes: { rule: 'shared_history', kept: ['target_pid', 'winner_pid'] },
+  war_crown_orders: { rule: 'shared_history', kept: ['posted_by'] },
+  war_crown_pacts: { rule: 'shared_history', kept: ['offered_by', 'answered_by', 'broken_by'] },
+  war_crown_log: { rule: 'shared_history', kept: ['actor_id'] },
 
   players: { rule: 'tombstone' },
 

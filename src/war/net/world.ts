@@ -212,6 +212,8 @@ export type WorldServerMsg =
   | { t: 'pong'; c: number }
   /** W-63: a settlement he rules, or one under his, was attacked by player `by` in `region`; truces broken by it. */
   | { t: 'settlementAttacked'; settlement: number; name: string; region: string; by: number; broken: number[] }
+  /** W-64: crown news for every member of the alliances concerned (a pact or truce broken by an attack). */
+  | { t: 'crownNews'; kind: 'pactBroken'; text: string; region?: string }
   | ChatServerMsg;
 
 export function parseWorldMsg(text: string): WorldClientMsg | null {

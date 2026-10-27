@@ -38,6 +38,21 @@
  *   GET  /tasks                               W-62 E7: his daily and weekly tasks (drawn on first read), progress, rerolls
  *   POST /tasks/:kind/:slot/claim             claim a done task: reward into his strongroom, score to his alliance
  *   POST /tasks/:kind/:slot/reroll            reroll a task not yet claimed (one free a UTC day; ./tasks.ts)
+ *   GET  /crown                               W-64: his alliance's crown, council, treasury, election, petition,
+ *                                             orders, pacts and chronicle (./crown.ts; the clock moves on the read)
+ *   POST /crown/vote { candidate }            vote in the running election
+ *   POST /crown/petition                      sign the no-confidence petition (opening one)
+ *   POST /crown/confidence { yes }            vote in the open no-confidence vote
+ *   POST /crown/appoint { office, pid|null }  the monarch appoints or dismisses
+ *   POST /crown/tax { pct }                   the Treasurer sets the alliance tax
+ *   POST /crown/deposit { coin }              coin of his strongroom into the treasury
+ *   POST /crown/works/:id { goods }           the Treasurer gives treasury goods to a work
+ *   POST /crown/contracts/:id { coin }        the Treasurer tops up a taken build or guard contract
+ *   POST /crown/orders { kind, region, ... }  the Marshal or the Quartermaster posts an order (bounty from the treasury)
+ *   POST /crown/orders/:id/end                its office ends it (a war goal pays out)
+ *   POST /crown/orders/:id/deliver { n }      deliver to a supply quest from his sites in its town
+ *   POST /crown/pacts { to, kind }            the Envoy offers a pact or a truce
+ *   POST /crown/pacts/:id/:act                accept, refuse, cancel or end one
  *   POST /dev/seed      { squad? }             DEV_AUTH=1 only: a whole army (and civilians) to test with
  */
 import { Hono } from 'hono';
@@ -63,6 +78,8 @@ import { stagesOf } from '../../../src/war/net/works';
 import { GOODS } from '../../../src/war/net/protocol';
 import { accept, inbox, offerGarrison, offerTerms, offerTruce, PRESENCE, rebel, refuse, requestSettle, settlement, settlementsOf, settlementView, SETTLE } from './settlements';
 import { WAR_REGIONS } from './regions';
+import { answerPact, appoint, confidence, crownView, deliver, deposit as crownDeposit, endOrder, fundContract, fundWork, offerPact, postOrder, setTax, sign, vote } from './crown';
+import { CROWN, OFFICES, type Office } from '../../../src/war/net/crown';
 import { equip, formSquad, levelUp, payRansom, promote, releaseCaptive, retire, roster, seed } from './persons';
 
 export const war = new Hono<AppEnv>();
@@ -224,6 +241,70 @@ war.post('/tasks/:kind/:slot/claim', requirePlayable, async (c) => {
 war.post('/tasks/:kind/:slot/reroll', requirePlayable, async (c) => {
   const t = taskParams(c.req.param('kind'), c.req.param('slot'));
   return c.json({ task: await rerollOne(db(c.env), c.get('session').pid, t.kind, t.slot, Date.now()) });
+});
+
+const intId = (s: string) => {
+  if (!/^\d{1,10}$/.test(s)) throw badRequest('Bad id');
+  return Number(s);
+};
+const pidNum = z.number().int().min(1).max(Number.MAX_SAFE_INTEGER);
+war.get('/crown', requirePlayable, async (c) => c.json(await crownView(c.env, c.get('session').pid, Date.now())));
+war.post('/crown/vote', requirePlayable, async (c) => {
+  const b = await readJson(c, z.object({ candidate: pidNum }), MAX_BODY);
+  await vote(c.env, c.get('session').pid, b.candidate, Date.now());
+  return c.json({ ok: true });
+});
+war.post('/crown/petition', requirePlayable, async (c) => c.json(await sign(c.env, c.get('session').pid, Date.now())));
+war.post('/crown/confidence', requirePlayable, async (c) => {
+  const b = await readJson(c, z.object({ yes: z.boolean() }), MAX_BODY);
+  await confidence(c.env, c.get('session').pid, b.yes, Date.now());
+  return c.json({ ok: true });
+});
+war.post('/crown/appoint', requirePlayable, async (c) => {
+  const b = await readJson(c, z.object({ office: z.enum(OFFICES.map((o) => o.id) as [Office, ...Office[]]), pid: pidNum.nullable() }), MAX_BODY);
+  await appoint(c.env, c.get('session').pid, b.office, b.pid, Date.now());
+  return c.json({ ok: true });
+});
+war.post('/crown/tax', requirePlayable, async (c) => {
+  const b = await readJson(c, z.object({ pct: z.number().int().min(0).max(CROWN.taxMax) }), MAX_BODY);
+  return c.json({ pct: await setTax(c.env, c.get('session').pid, b.pct, Date.now()) });
+});
+war.post('/crown/deposit', requirePlayable, async (c) => {
+  const b = await readJson(c, z.object({ coin: z.number().positive().max(1_000_000) }), MAX_BODY);
+  return c.json({ coin: await crownDeposit(c.env, c.get('session').pid, b.coin, Date.now()) });
+});
+war.post('/crown/works/:id', requirePlayable, async (c) => {
+  const id = c.req.param('id');
+  if (!stagesOf(id)) throw badRequest('Bad work');
+  const b = await readJson(c, z.object({ goods: z.partialRecord(z.enum(GOODS as unknown as [string, ...string[]]), z.number().positive().max(100_000)) }), MAX_BODY);
+  return c.json({ given: await fundWork(c.env, c.get('session').pid, id, b.goods as Record<string, number>, Date.now()) });
+});
+war.post('/crown/contracts/:id', requirePlayable, async (c) => {
+  const b = await readJson(c, z.object({ coin: z.number().positive().max(CROWN.bountyMax) }), MAX_BODY);
+  return c.json({ coin: await fundContract(c.env, c.get('session').pid, intId(c.req.param('id')), b.coin, Date.now()) });
+});
+war.post('/crown/orders', requirePlayable, async (c) => {
+  const b = await readJson(c, z.object({
+    kind: z.enum(['attack', 'defend', 'rally', 'supply']), region: z.string().max(40), target: z.string().max(40).optional(),
+    x: z.number().int().min(0).max(4096).optional(), y: z.number().int().min(0).max(4096).optional(),
+    res: z.enum(GOODS as unknown as [string, ...string[]]).optional(), n: z.number().positive().max(100_000).optional(),
+    bounty: z.number().min(0).max(CROWN.bountyMax), hours: z.number().int().min(1).max(CROWN.orderHoursMax),
+  }), MAX_BODY);
+  return c.json({ id: await postOrder(c.env, c.get('session').pid, b, Date.now()) });
+});
+war.post('/crown/orders/:id/end', requirePlayable, async (c) => c.json(await endOrder(c.env, c.get('session').pid, intId(c.req.param('id')), Date.now())));
+war.post('/crown/orders/:id/deliver', requirePlayable, async (c) => {
+  const b = await readJson(c, z.object({ n: z.number().positive().max(100_000) }), MAX_BODY);
+  return c.json(await deliver(c.env, c.get('session').pid, intId(c.req.param('id')), b.n, Date.now()));
+});
+war.post('/crown/pacts', requirePlayable, async (c) => {
+  const b = await readJson(c, z.object({ to: z.number().int().min(0).max(3), kind: z.enum(['pact', 'truce']) }), MAX_BODY);
+  return c.json({ id: await offerPact(c.env, c.get('session').pid, b.to, b.kind, Date.now()) });
+});
+war.post('/crown/pacts/:id/:act', requirePlayable, async (c) => {
+  const act = z.enum(['accept', 'refuse', 'cancel', 'end']).safeParse(c.req.param('act'));
+  if (!act.success) throw badRequest('Bad act');
+  return c.json({ state: await answerPact(c.env, c.get('session').pid, intId(c.req.param('id')), act.data, Date.now()) });
 });
 
 war.route('/trade', trade);
