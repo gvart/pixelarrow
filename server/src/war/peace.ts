@@ -8,6 +8,8 @@
  *    (WarWorldDO.addPeace) by the caller.
  *  - Titles: the season's leader in each stat, at least TITLE.min of it: Merchant Prince (coin sold), Master Builder
  *    (labour), Warden (guard hours), Warlord (kills of his men this season: war_player_stats, not the men's lifetime kills).
+ *  - The stats' season is the world's (STAT_SEASON: one past the last board in war_season_results), not WAR_SEASON.id,
+ *    so titles are won anew each season; the crests already earned (war_cosmetics) stay.
  */
 import { WAR_SEASON } from '../../../src/war/world/alliances';
 import { PEACE } from '../../../src/war/world/season';
@@ -22,9 +24,15 @@ export type Stat = 'sold' | 'contracts' | 'labour' | 'guard';
 /** E7: 'tasks' (a peaceful daily or weekly task claimed) and 'feats' (a warlike one): the war score of tasks. */
 export type PeaceKind = 'volume' | 'contracts' | 'works' | 'tasks' | 'feats';
 
-/** Add `n` to stat `col` of the player this season (a statement). */
-export function statStmt(db: D1Database, pid: number, col: Stat, n: number, season = WAR_SEASON.id): D1PreparedStatement {
-  return db.prepare(`INSERT INTO war_season_stats (season, player_id, ${col}) VALUES (?1, ?2, ?3) ON CONFLICT (season, player_id) DO UPDATE SET ${col} = ${col} + ?3`).bind(season, pid, n);
+/**
+ * SQL for the world season the stats count in: the one after the last finished (its board is written at the rollover
+ * before the next season starts), WAR_SEASON.id before any. `COALESCE(?n, STAT_SEASON)` with a null binding: this one.
+ */
+export const STAT_SEASON = `COALESCE((SELECT MAX(season) + 1 FROM war_season_results), ${WAR_SEASON.id})`;
+
+/** Add `n` to stat `col` of the player this season (a statement; `season`: the stats' season by default). */
+export function statStmt(db: D1Database, pid: number, col: Stat, n: number, season?: number): D1PreparedStatement {
+  return db.prepare(`INSERT INTO war_season_stats (season, player_id, ${col}) VALUES (COALESCE(?1, ${STAT_SEASON}), ?2, ?3) ON CONFLICT (season, player_id) DO UPDATE SET ${col} = ${col} + ?3`).bind(season ?? null, pid, n);
 }
 
 const CAPS: Record<PeaceKind, number> = { volume: PEACE.volumeCap, contracts: PEACE.contractCap, works: Infinity, tasks: TASKS.peaceCap, feats: TASKS.warCap };
@@ -71,8 +79,8 @@ export const TITLES: readonly { id: TitleId; name: string; of: string }[] = [
 export interface Title { id: TitleId; name: string; pid: number; player: string; alliance: number; home: string | null; value: number }
 
 /** The season's titles: the leader in each (ties: the lower player id). */
-export async function titles(db: D1Database, season = WAR_SEASON.id): Promise<Title[]> {
-  const q = async (sql: string): Promise<{ pid: number; v: number } | null> => db.prepare(sql).bind(season).first<{ pid: number; v: number }>();
+export async function titles(db: D1Database, season?: number): Promise<Title[]> {
+  const q = async (sql: string): Promise<{ pid: number; v: number } | null> => db.prepare(sql.replace('season = ?1', `season = COALESCE(?1, ${STAT_SEASON})`)).bind(season ?? null).first<{ pid: number; v: number }>();
   const top: Record<TitleId, { pid: number; v: number } | null> = {
     merchantPrince: await q('SELECT player_id AS pid, sold AS v FROM war_season_stats WHERE season = ?1 AND sold > 0 ORDER BY sold DESC, player_id LIMIT 1'),
     masterBuilder: await q('SELECT player_id AS pid, labour / 3600.0 AS v FROM war_season_stats WHERE season = ?1 AND labour > 0 ORDER BY labour DESC, player_id LIMIT 1'),
@@ -85,7 +93,7 @@ export async function titles(db: D1Database, season = WAR_SEASON.id): Promise<Ti
     if (!r || r.v < TITLE.min) continue;
     const who = await db
       .prepare('SELECT pl.display_name AS name, m.alliance AS alliance, m.home AS home FROM players pl LEFT JOIN war_alliance_members m ON m.player_id = pl.id AND m.season = ?2 WHERE pl.id = ?1')
-      .bind(r.pid, season)
+      .bind(r.pid, WAR_SEASON.id)
       .first<{ name: string | null; alliance: number | null; home: string | null }>();
     out.push({ id: t.id, name: t.name, pid: r.pid, player: who?.name ?? `#${r.pid}`, alliance: who?.alliance ?? -1, home: who?.home ?? null, value: Math.round(r.v * 10) / 10 });
   }
@@ -93,7 +101,7 @@ export async function titles(db: D1Database, season = WAR_SEASON.id): Promise<Ti
 }
 
 /** A player's stats this season (the roster's peace line). */
-export async function statsOf(db: D1Database, pid: number, season = WAR_SEASON.id) {
-  const r = await db.prepare('SELECT sold, contracts, labour, guard FROM war_season_stats WHERE season = ?1 AND player_id = ?2').bind(season, pid).first<{ sold: number; contracts: number; labour: number; guard: number }>();
+export async function statsOf(db: D1Database, pid: number, season?: number) {
+  const r = await db.prepare(`SELECT sold, contracts, labour, guard FROM war_season_stats WHERE season = COALESCE(?1, ${STAT_SEASON}) AND player_id = ?2`).bind(season ?? null, pid).first<{ sold: number; contracts: number; labour: number; guard: number }>();
   return { sold: r?.sold ?? 0, contracts: r?.contracts ?? 0, labourHours: (r?.labour ?? 0) / 3600, guardHours: (r?.guard ?? 0) / 3600 };
 }

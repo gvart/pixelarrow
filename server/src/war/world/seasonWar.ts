@@ -10,7 +10,7 @@ import { titles } from '../peace';
 
 /** The board of world season `season` that ended with `r` (event score per alliance; title holders now). */
 export async function buildBoard(db: D1Database | undefined, season: number, startAt: number, r: SeasonResult, event: number[]): Promise<SeasonBoard> {
-  const t: BoardTitle[] = db ? (await titles(db)).map((x) => ({ id: x.id, name: x.name, pid: x.pid, player: x.player, alliance: x.alliance })) : [];
+  const t: BoardTitle[] = db ? (await titles(db, season)).map((x) => ({ id: x.id, name: x.name, pid: x.pid, player: x.player, alliance: x.alliance })) : [];
   let banners = 0;
   if (db && r.winner !== null) {
     banners = (await db.prepare('SELECT COUNT(*) AS n FROM war_alliance_members WHERE season = ?1 AND alliance = ?2').bind(WAR_SEASON.id, r.winner).first<{ n: number }>())?.n ?? 0;

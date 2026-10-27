@@ -18,7 +18,7 @@ import type { WarWorldDO } from '../../src/war/world/worldDO';
 import { WarRoom } from '../../src/war/room';
 import { warRegion } from '../../src/war/regions';
 import { remembered, writeMemory } from '../../src/war/memory';
-import { statStmt, titles } from '../../src/war/peace';
+import { statStmt, statsOf, titles } from '../../src/war/peace';
 
 const T0 = 1_000_000;
 const H = 3600_000;
@@ -223,11 +223,15 @@ describe('W-62 season war', () => {
     expect(out.snap.regions.find((r) => r.id === 'saddle')!.owner).toBe(-1);
     expect(out.snap.regions.find((r) => r.id === 'skythia')!.owner).toBe(1);
     expect(await DB().prepare("SELECT region FROM war_region_state WHERE region = 'krios'").first()).toBeNull();
-    // kept: every man (those in Krios home again), his gear, the titles
+    // kept: every man (those in Krios home again), his gear, the crests; the titles are won anew
     const after = await persons();
     expect(after.map((p) => p.id)).toEqual(before.map((p) => p.id));
     expect(after.every((p) => p.region === null)).toBe(true);
     expect(await items()).toBe(gear);
-    expect((await titles(DB())).map((t) => [t.id, t.pid])).toEqual([['merchantPrince', b.playerId]]);
+    expect((await titles(DB(), out.id)).map((t) => [t.id, t.pid])).toEqual([['merchantPrince', b.playerId]]);
+    expect(await titles(DB())).toEqual([]);
+    expect((await statsOf(DB(), b.playerId)).sold).toBe(0);
+    await statStmt(DB(), b.playerId, 'sold', 7).run();
+    expect((await statsOf(DB(), b.playerId)).sold).toBe(7);
   });
 });
