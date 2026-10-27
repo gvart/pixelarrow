@@ -1,0 +1,29 @@
+server/src/war/regionDO.ts
+  s_fcb7475e0b5395::t_0307e0539aba64 8-10
+  s_fcb7475e0b5395::t_ed3b0780efb755 336,1099-1102
+  s_fcb7475e0b5395::t_bde4a168523992 760-761,763-769,771-776
+  s_fcb7475e0b5395::t_c658e2910ebd47 107-111,162-163,257,318-319,357,588,612,677-678,1094
+  s_fcb7475e0b5395::t_4f91612bab810b 708-709,711,725,740-745,750-759,762,770,1103
+  s_fcb7475e0b5395::t_3b0743ac281fe0 1104
+server/test/war/dormant.test.ts
+  s_fcb7475e0b5395::t_334650a59c3b2c 119
+  s_fcb7475e0b5395::t_6886f001471a69 11,115-118,120-130,135-137
+src/war/net/protocol.ts
+  s_fcb7475e0b5395::t_ed3b0780efb755 228-229
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "d5b2c708b3b2c5bccd14fa548785eb4413922b70",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
