@@ -1,0 +1,35 @@
+src/war/view/SandboxScene.ts
+  s_fcb7475e0b5395::t_ee0bc53901faf3 56,169-170,241,243-245,639
+  s_fcb7475e0b5395::t_149a45a2955a64 242
+src/war/view/build/buildingLayer.ts
+  s_fcb7475e0b5395::t_ba98653b9eb977 42,505,564,599-612
+  s_fcb7475e0b5395::t_cfad6b56a20844 613
+src/war/view/units.ts
+  s_fcb7475e0b5395::t_c776dbccf72b5e 267-275,277-284
+  s_fcb7475e0b5395::t_4ee3a688c8e236 276
+src/war/view/feel/ambient.ts
+  s_fcb7475e0b5395::t_05d7520b1550a1 1-23,25-71,92-100,102-111,114,116-144,146-214,216-261,263-290,298-301,303-306,308-340,344-400,402-408
+  s_fcb7475e0b5395::t_ee0bc53901faf3 101,115,215,262,291-297,302,307,342-343,401
+  s_fcb7475e0b5395::t_4ee3a688c8e236 341
+  s_fcb7475e0b5395::t_1b3f71ee7e6909 112-113
+  s_fcb7475e0b5395::t_149a45a2955a64 24,145
+  s_fcb7475e0b5395::t_17eb9abac376f9 72-91
+src/war/view/feel/hearths.ts
+  s_fcb7475e0b5395::t_76c9e84a0fc8cc 1-20
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "ae7eb8314798ab88e94365b2011401cb8adc9bdd",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
