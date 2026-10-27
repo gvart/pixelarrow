@@ -87,7 +87,10 @@ export function mountReplay(s: SandboxScene, mk: Mk): Replay {
   style.textContent = CSS;
   document.head.appendChild(style);
   const buf = new ReplayBuffer(), moments = new Moments();
-  s.sim.onSnap = (cur, fog) => moments.feed(buf.push(cur, fog));
+  s.sim.onSnap = (cur, fog) => {
+    if (buf.frames.length && cur.tick <= buf.last) moments.reset(); // a new sim or region: the record starts over
+    moments.feed(buf.push(cur, fog));
+  };
 
   // ---------- the offer after a big moment ----------
   const toast = mk('rpToast', 'left:50%;top:46px;transform:translateX(-50%);pointer-events:auto;display:none;z-index:5');
