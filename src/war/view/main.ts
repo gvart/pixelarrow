@@ -46,7 +46,8 @@ mountGameMenu({
     if (!s?.sel) return true;
     return !s.build.active && !s.build.tool && !s.interact.open && !s.siege.armed && !s.mapOpen && s.sel.units.size === 0
       && !document.querySelector('#rfModes.open') && !chatBusy()
-      && document.getElementById('rfPlotBar')?.style.display !== 'flex'; // W-63: Esc cancels the plot picker first
+      && document.getElementById('rfPlotBar')?.style.display !== 'flex' // W-63: Esc cancels the plot picker first
+      && !['rfCrown', 'rfHoldings'].some((id) => { const w = document.getElementById(id); return !!w && w.style.display !== 'none'; }); // and closes these windows
   },
   world: q.has('world') ? () => document.getElementById('rfWorld')?.click() : undefined,
   hooks: {
