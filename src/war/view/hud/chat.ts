@@ -42,6 +42,26 @@ export interface ChatHandle {
 const LINE_FADE_MS = 14_000;
 const SHOWN = 6;
 
+/** A map mark's look (its pin layer and edge pointers, the tag above it, the edge arrow in `--mk-c`), for `layer` and
+ * `edges` selectors: the alliance marks here and the personal markers (./pins.ts) share it. */
+export const markCss = (layer: string, edges: string) => `
+${layer},${edges}{position:fixed;left:0;top:0;width:100%;height:100%;pointer-events:none;z-index:3;overflow:hidden}${edges}{z-index:5}
+${layer} .mk{position:absolute;width:0;height:0;transition:opacity .4s}
+${layer} .mk .pin{position:absolute;left:-15px;top:-44px;filter:drop-shadow(0 2px 2px rgba(0,0,0,.7));animation:mkDrop .38s cubic-bezier(.3,1.6,.5,1)}
+${layer} .mk .ring{position:absolute;left:-22px;top:-9px;width:44px;height:18px;border-radius:50%;border:2px solid var(--mk-c);box-shadow:0 0 6px var(--mk-c);animation:mkPulse 1.4s ease-out infinite}
+${layer} .mk .ring.b{animation-delay:.7s}
+${layer} .mk .dot{position:absolute;left:-3px;top:-2px;width:6px;height:4px;border-radius:50%;background:var(--mk-c);box-shadow:0 0 0 1px #0e0907}
+${layer} .mk .nm{position:absolute;left:0;top:-62px;transform:translateX(-50%);padding:2px 6px;white-space:nowrap;font:700 11px/1.2 Inter,sans-serif;color:#fff0d8;background:rgba(14,9,7,.86);border:1px solid var(--rf-rule);border-left:2px solid var(--mk-c)}
+${layer} .mk .nm i{font-style:normal;color:var(--mk-c);margin-right:4px}
+${edges} .edge{position:absolute;width:0;height:0;pointer-events:auto;cursor:pointer}
+${edges} .edge .ar{position:absolute;left:-17px;top:-17px;width:34px;height:34px;border-radius:50%;background:rgba(14,9,7,.9);border:2px solid var(--mk-c);box-shadow:0 0 8px var(--mk-c);display:flex;align-items:center;justify-content:center;animation:mkBeat 1s ease-in-out infinite}
+${edges} .edge .tip{position:absolute;left:-6px;top:-6px;width:0;height:0;border-left:9px solid var(--mk-c);border-top:6px solid transparent;border-bottom:6px solid transparent;transform-origin:6px 6px}
+${edges} .edge .nm{position:absolute;left:0;top:20px;transform:translateX(-50%);white-space:nowrap;font:700 10px/1 Inter,sans-serif;color:#fff0d8;text-shadow:0 1px 0 #0e0907,0 0 3px #0e0907}
+@keyframes mkPulse{0%{transform:scale(.4);opacity:1}100%{transform:scale(1.5);opacity:0}}
+@keyframes mkDrop{0%{transform:translateY(-26px);opacity:0}100%{transform:none;opacity:1}}
+@keyframes mkBeat{0%,100%{transform:scale(1)}50%{transform:scale(1.1)}}
+`;
+
 const CSS = `
 #rfChat{position:fixed;z-index:4;width:340px;pointer-events:none;color:var(--rf-ink);font:var(--rf-body)}
 #rfChat .ch-tab{pointer-events:auto;display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px 0 6px;margin-top:3px;cursor:pointer;background:rgba(14,9,7,.82);border:1px solid var(--rf-rule);box-shadow:inset 0 1px 0 rgba(242,178,122,.08);font:700 11px/1 Cinzel,serif;color:var(--rf-title);letter-spacing:.05em}
@@ -98,24 +118,10 @@ const CSS = `
 #rfChat .ch-mutes.on{display:block}
 #rfChat .ch-mutes .r{display:flex;align-items:center;gap:6px;padding:2px 0}
 #rfChat .ch-mutes .r button{margin-left:auto}
-#rfMarks,#rfMarkEdges{position:fixed;left:0;top:0;width:100%;height:100%;pointer-events:none;z-index:3;overflow:hidden}#rfMarkEdges{z-index:5}
-#rfMarks .mk{position:absolute;width:0;height:0;transition:opacity .4s}
-#rfMarks .mk .pin{position:absolute;left:-15px;top:-44px;filter:drop-shadow(0 2px 2px rgba(0,0,0,.7));animation:mkDrop .38s cubic-bezier(.3,1.6,.5,1)}
-#rfMarks .mk .ring{position:absolute;left:-22px;top:-9px;width:44px;height:18px;border-radius:50%;border:2px solid var(--mk-c);box-shadow:0 0 6px var(--mk-c);animation:mkPulse 1.4s ease-out infinite}
-#rfMarks .mk .ring.b{animation-delay:.7s}
-#rfMarks .mk .dot{position:absolute;left:-3px;top:-2px;width:6px;height:4px;border-radius:50%;background:var(--mk-c);box-shadow:0 0 0 1px #0e0907}
-#rfMarks .mk .nm{position:absolute;left:0;top:-62px;transform:translateX(-50%);padding:2px 6px;white-space:nowrap;font:700 11px/1.2 Inter,sans-serif;color:#fff0d8;background:rgba(14,9,7,.86);border:1px solid var(--rf-rule);border-left:2px solid var(--mk-c)}
-#rfMarks .mk .nm i{font-style:normal;color:var(--mk-c);margin-right:4px}
-#rfMarkEdges .edge{position:absolute;width:0;height:0;pointer-events:auto;cursor:pointer}
-#rfMarkEdges .edge .ar{position:absolute;left:-17px;top:-17px;width:34px;height:34px;border-radius:50%;background:rgba(14,9,7,.9);border:2px solid var(--mk-c);box-shadow:0 0 8px var(--mk-c);display:flex;align-items:center;justify-content:center;animation:mkBeat 1s ease-in-out infinite}
-#rfMarkEdges .edge .tip{position:absolute;left:-6px;top:-6px;width:0;height:0;border-left:9px solid var(--mk-c);border-top:6px solid transparent;border-bottom:6px solid transparent;transform-origin:6px 6px}
-#rfMarkEdges .edge .nm{position:absolute;left:0;top:20px;transform:translateX(-50%);white-space:nowrap;font:700 10px/1 Inter,sans-serif;color:#fff0d8;text-shadow:0 1px 0 #0e0907,0 0 3px #0e0907}
+${markCss('#rfMarks', '#rfMarkEdges')}
 #rfMarkPick{position:fixed;left:0;top:0;width:100%;height:100%;z-index:3;cursor:crosshair}
 #rfMarkHint{position:fixed;z-index:9;pointer-events:none;padding:3px 7px;white-space:nowrap;font:600 11.5px/1.3 Inter,sans-serif;color:var(--rf-ink);background:rgba(14,9,7,.9);border:1px solid var(--rf-rule);border-left:3px solid var(--mk-c)}
 #rfMarkHint b{color:var(--mk-c)}#rfMarkHint .k{color:var(--rf-muted);font-size:10.5px}
-@keyframes mkPulse{0%{transform:scale(.4);opacity:1}100%{transform:scale(1.5);opacity:0}}
-@keyframes mkDrop{0%{transform:translateY(-26px);opacity:0}100%{transform:none;opacity:1}}
-@keyframes mkBeat{0%,100%{transform:scale(1)}50%{transform:scale(1.1)}}
 `;
 
 /** The kinds' glyphs (16 px grid): a banner, crossed swords, a shield, a cry. */
