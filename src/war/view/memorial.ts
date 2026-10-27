@@ -12,7 +12,7 @@ import { myTeam } from './side';
 
 /** Graves drawn at most (the list keeps every one). */
 export const GRAVES = 18;
-const COLS = 6;
+const COLS = 4;
 
 // pixel art, 2 world px a pixel: '.' clear; the palette by letter
 const STELE = [
@@ -125,7 +125,8 @@ export function mountMemorialLayer(s: SandboxScene, src: MemorialSource): void {
     key = k;
     for (const im of pool) im.setVisible(false);
     if (!m) return;
-    const taken = new Set((s.sim.cur?.buildings ?? []).flatMap((b) => b.tiles));
+    const taken = new Set<number>();
+    for (const b of s.sim.cur?.buildings ?? []) for (let k = 0; k < b.tiles.length; k += 2) taken.add(b.tiles[k + 1] * s.region.w + b.tiles[k]);
     const free = (x: number, y: number) => !taken.has(Math.floor(y) * s.region.w + Math.floor(x));
     let i = 0;
     const put = (tex: string, x: number, y: number) => {
@@ -135,15 +136,20 @@ export function mountMemorialLayer(s: SandboxScene, src: MemorialSource): void {
     };
     // the graves in rows before the statue (south-east, toward the viewer), skipping building tiles
     const cx = Math.floor(m.x) + 0.5, cy = Math.floor(m.y) + 0.5;
-    for (let g = 0, row = 0; g < n && row < 8; row++)
+    for (let g = 0, row = 0; g < n && row < 10; row++)
       for (let c = 0; c < COLS && g < n; c++) {
-        const x = cx + 1.4 + c * 0.95, y = cy + 1.2 + row * 1.15;
+        const x = cx + 1.7 + c * 0.9, y = cy + 1.5 + row * 0.9;
         if (!free(x, y)) continue;
         put(g % 3 === 1 ? 'mem-stele-b' : 'mem-stele', x, y);
         g++;
       }
-    // the trophies by the second statue, else beside the memorial
-    const t = statues(s)[1], tx = t ? Math.floor(t.x) + 0.5 : cx - 1.6, ty = t ? Math.floor(t.y) + 0.5 : cy;
-    tr.slice(0, 6).forEach((x, j) => put(x.boss === 'erymanthian_boar' ? 'mem-tusks' : 'mem-head', tx + 1.2 + (j % 3) * 1.1, ty + (t ? -0.4 : 1) + Math.floor(j / 3) * 1.2));
+    // the trophies on posts in a row to the left of the second statue (else of the memorial), skipping building tiles
+    const t = statues(s)[1] ?? m, tx = Math.floor(t.x) + 0.5, ty = Math.floor(t.y) + 0.5;
+    for (let j = 0, k = 0; j < Math.min(6, tr.length) && k < 16; k++) {
+      const x = tx - 1.1 - (k % 4) * 0.8 + Math.floor(k / 4), y = ty + 1.1 + (k % 4) * 0.8 + Math.floor(k / 4);
+      if (!free(x, y)) continue;
+      put(tr[j].boss === 'erymanthian_boar' ? 'mem-tusks' : 'mem-head', x, y);
+      j++;
+    }
   });
 }

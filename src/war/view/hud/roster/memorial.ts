@@ -55,7 +55,7 @@ export function mountMemorial(s: SandboxScene, mk: Mk, R: SandboxRoster): void {
   const style = document.createElement('style');
   style.textContent = CSS;
   document.head.appendChild(style);
-  const el = mk('mmPanel', `top:50px;right:8px;width:${MEMORIAL_W}px;display:none;pointer-events:auto`);
+  const el = mk('mmPanel', `top:50px;left:4px;width:${MEMORIAL_W}px;display:none;pointer-events:auto`);
   draggable(el);
   let forced = false, closed = -1, last = '';
   const render = () => {

@@ -49,7 +49,7 @@ export const WAR_BOSSES: readonly WarBoss[] = [
   { id: 'brontes', name: 'Brontes the Cyclops', region: 'saddle', tier: 2, signature: [], landmark: 'cyclopean_gatehouse', phases: [1, 0.85], rare: { good: 'starIron', n: 10 } },
   // M7d: the Oracle Grove's guardians are the god's maenads and their queen (the art built them; docs/WAR.md "Landmarks")
   { id: 'grove_queen', name: 'the Maenad Queen of the Grove', region: 'erymanthos', tier: 2, signature: [], landmark: 'oracle_grove', phases: [1, 0.4], rare: { good: 'asphodel', n: 10 } },
-  // E3: the Erymanthian Boar (Heracles' fourth labour) roots in the boar wood east of the Grove: a second guardian of the
+  // E3: the Erymanthian Boar (Heracles' fourth labour) roots in a meadow by the south road below the Grove: a second guardian of the
   // region (both keep its claim points shut, as the Titan and the Minotaur do Omphalos'); its tusks are its trophy
   { id: 'erymanthian_boar', name: 'the Erymanthian Boar', region: 'erymanthos', tier: 2, signature: [], phases: [1, 0.5], trophy: 'the tusks of the Erymanthian Boar', deed: 'Boar-slayer' },
   { id: 'gyges', name: 'Gyges the Hundred-Handed', region: 'gorge', tier: 2, signature: [], landmark: 'titans_forge', phases: [1, 0.5], rare: { good: 'titanBronze', n: 10 } },

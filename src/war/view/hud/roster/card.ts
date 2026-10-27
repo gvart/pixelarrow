@@ -148,7 +148,7 @@ export function cardHtml(R: SandboxRoster, r: Row, C?: SandboxCraft, dev = false
     <div class="rr-rec">
       <span ${tip(card({ icon: 'ui:skull', name: 'Kills', w: 170, more: '<div>Foes he struck down.</div>' }))}>${glyph('ui:skull', 15)}<b>${h.kills}</b><span class="rf-dim">kills</span></span>
       <span ${tip(card({ icon: 'ui:swords', name: 'Battles', w: 170, more: '<div>Fights he lived through.</div>' }))}>${glyph('ui:swords', 15)}<b>${h.battles}</b><span class="rf-dim">battles</span></span>
-      ${scars ? `<span ${tip(card({ icon: 'power:rend', name: 'Scars', w: 180, more: '<div>Heavy wounds he lived through: marks on him, no effect.</div>' }))}>${glyph('power:rend', 15)}<b>${scars}</b><span class="rf-dim">${scars === 1 ? 'scar' : 'scars'}</span></span>` : ''}
+      ${scars ? `<span ${tip(card({ icon: 'power:rend', name: `${scars} ${scars === 1 ? 'scar' : 'scars'}`, w: 180, more: '<div>Heavy wounds he lived through: marks on him (a red slash under him when selected), no effect.</div>' }))}>${glyph('power:rend', 15)}<b>${scars}</b></span>` : ''}
       <span style="flex:1"></span>
       ${dev && r.where !== 'dead' ? '<button class="rf-tbtn" data-act="xp" data-tip="dev: one level of XP">+XP</button>' : ''}
       <button class="rf-tbtn" data-act="tree" data-tip="${esc(card({ icon: 'ui:tgstar', name: civ ? 'Profession tree' : 'Skill tree', w: 210, more: civ ? '<div>His trade: the nodes by level, what each opens.</div>' : '<div>His attributes, his two skill slots and the elite rank, by level.</div>' }))}">${glyph('ui:tgstar', 13)} ${civ ? 'Profession' : 'Skill tree'}</button>

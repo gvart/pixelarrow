@@ -426,9 +426,10 @@ export function tally(s: SandboxScene): { tick: number; rows: { team: number; al
 
 /** Place a scenario's squads (with their bot behaviours), build its base, set its camera (../scenarios/run.ts). */
 export function applyScenario(s: SandboxScene, sc: Scenario): void {
-  if (sc.history) sandboxRoster(s).seedHistory(sc.history.fallen, sc.history.trophies); // E3: graves and trophies at home
+  // E3: graves and trophies at home; the veterans the scenario's squads of yours take
+  if (sc.history) sandboxRoster(s).seedHistory(sc.history.fallen, sc.history.trophies);
+  for (const q of [...sc.squads, ...(sc.after?.squads ?? [])]) if (q.veteran) sandboxRoster(s).enlist(q.cls, q.count, q.veteran);
   applyTo(s.sim, sc, (q, spawn) => {
-    if (q.veteran) sandboxRoster(s).enlist(q.cls, q.count, q.veteran); // E3: this spawn takes veterans
     // M5h3: civilians with set levels and nodes: the roster's persons for the spawn take them
     const R = q.nodes ? sandboxRoster(s) : null, pf = s.sim.personsFor; // the roster sets personsFor
     if (R && pf) s.sim.personsFor = (...a) => pf(...a)?.map((p) => {
