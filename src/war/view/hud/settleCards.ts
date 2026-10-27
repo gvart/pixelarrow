@@ -7,6 +7,7 @@ import { ALLIANCES } from '../../world/alliances';
 import { TEAM_CSS } from '../../world/palette';
 import { worldRegion } from '../../world/graph';
 import type { SettlementNet } from '../../net/protocol';
+import type { CrownNewsKind } from '../../net/world';
 import { left, levelName, SETTLE_UI, type Inbox, type OfferRow, type SettleDetail, type SettleMember, type WorldSettlement } from '../../net/settlements';
 import { TOWN_LEVELS, TOWN_MAX } from '../../sim/townLevel';
 import type { TownLevelSnap } from '../../types';
@@ -279,6 +280,12 @@ export function attackToast(a: { name: string; region: string; mine: boolean; br
     <button class="rf-tbtn pri" data-sx="jump">${a.here ? 'Look' : 'Go there'}</button><button class="rf-tbtn x" data-sx="x">×</button>`;
 }
 
+/** W-64: a crown news notice: an election opened or closed, a new monarch, a pact or truce broken. */
+export function crownToast(n: { kind: CrownNewsKind; text: string }): string {
+  const head = n.kind === 'electionOpen' ? 'An election is open' : n.kind === 'electionClosed' ? 'The election closed' : n.kind === 'monarch' ? 'A new monarch' : 'A pact is broken';
+  return `${glyph(n.kind === 'pactBroken' ? 'ui:swords' : 'ui:laurel', 24)}<div class="sx-b"><div class="sx-t">${head}</div><div class="rf-dim">${esc(n.text)}</div></div><button class="rf-tbtn x" data-sx="x">×</button>`;
+}
+
 /** A build refused on settled ground, in words. */
 export const groundToast = (detail: string | undefined) => `${glyph('ui:lock', 22)}<div class="sx-b"><div class="sx-t">You can't build here</div><div class="rf-dim">${esc(detail || 'This is a settlement\'s ground: ask its lord for a plot')}</div></div><button class="rf-tbtn x" data-sx="x">×</button>`;
 
@@ -338,6 +345,7 @@ export const SETTLE_CSS = `
 #rfSettleNote{top:292px;right:4px;display:flex;flex-direction:column;align-items:flex-end;gap:4px;pointer-events:none}
 .sx{display:flex;align-items:center;gap:8px;width:330px;padding:6px 8px;pointer-events:auto;transition:opacity .4s,transform .4s}
 .sx.grd{border-left:3px solid var(--rf-gold)}
+.sx.crn{border-left:3px solid #e0b867;animation:sxIn .35s ease-out}
 .sx.atk{border-left:3px solid var(--rf-bad);animation:sxIn .35s ease-out}
 .sx.atk .gl{filter:drop-shadow(0 0 4px rgba(240,138,112,.7))}
 .sx-b{flex:1;min-width:0}.sx-t{font-size:12.5px;line-height:1.3}.sx-t b{color:var(--rf-title)}

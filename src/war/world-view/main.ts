@@ -13,6 +13,7 @@
  * shift-click the start). Convoys (carts and porters on the road) show by fog and the Safe Roads rule; a market town's
  * hover card shows its price board as your men last saw it; the season panel adds today's trade score. `window.__world` is the screen's state for scripts.
  * W-63: settlements show as markers sized by level with fealty lines vassal to overlord; hover names lord and ties.
+ * W-64: a crown by each monarch's home, pacts and truces as lines home to home; crown news (`crownNews`) as a toast.
  * W-62: world events glow on the map with a marker and their countdown; the events card (bottom left) names the running
  * one, its rule and the next; B opens the season scoreboard (the last season's result, title holders, your banners and
  * crests, what a season's end keeps and resets).
@@ -39,7 +40,7 @@ import { EVENT_INFO, type WorldEvent } from '../world/events';
 import { EVENT_LOOK, eventIcon } from './eventLook';
 import type { Crest, SeasonBoard } from '../net/world';
 import { chatBusy, mountChat, type ChatHandle } from '../view/hud/chat';
-import { MockChat, NetChat } from '../net/chatLink';
+import { MockChat, NetChat, worldTaps } from '../net/chatLink';
 import { warAuth } from '../net/session';
 import { levelName } from '../net/settlements';
 
@@ -133,7 +134,7 @@ let hoverLm: string | null = null;
 
 function say(text: string, ms = 3500): void {
   toast.textContent = text;
-  toast.style.display = '';
+  toast.style.display = 'block'; // '' would fall back to the sheet's display:none
   clearTimeout((say as unknown as { t: number }).t);
   (say as unknown as { t: number }).t = setTimeout(() => (toast.style.display = 'none'), ms) as unknown as number;
 }
@@ -490,6 +491,9 @@ function enter(id: string | null): void {
   location.href = `sandbox.html?${p}`;
 }
 
+// W-64: crown news (an election, a new monarch, a pact broken) from the world's chat socket, as a toast
+worldTaps.add((m) => { if (m.t === 'crownNews') say((m as unknown as { text: string }).text, 8000); });
+
 function apply(v: WorldView): void {
   view = v;
   st.regions = new Map(v.snap.regions.map((r: RegionState) => [r.id, r]));
@@ -499,6 +503,7 @@ function apply(v: WorldView): void {
   st.convoys = (v.convoys ?? []).filter((c) => convoySeen(c, st.you as 0 | null, st.regions, ownSquadsIn()));
   st.emblems = emblems(v.titles ?? []);
   st.events = v.snap.events?.active ?? [];
+  st.crown = v.snap.crown; // W-64: monarchs and pacts
   if (haul.open) renderHaul();
   if (st.squadAt && !st.squads.has(st.squadAt)) selectRegion(st.selected);
   renderBand();
