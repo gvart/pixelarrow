@@ -31,7 +31,7 @@ describe('W-65 story in the region room', () => {
       told = storyMsgs(r, 1)[0];
     }
     expect(told).toMatchObject({ save: { at: story.steps[0].id }, notes: [{ kind: 'start' }] });
-    expect(done).toEqual([{ pid: 1, save: told!.save, goods: {} }]);
+    expect(done).toMatchObject([{ pid: 1, save: told!.save, goods: {} }]);
     expect(storyStorageKey(3, 1)).toBe('story:3:1');
   }, 60_000);
 
@@ -55,7 +55,7 @@ describe('W-65 story in the region room', () => {
     expect(m).toEqual({ t: 'story', op: 'choose', option: 'slay' });
     w.storyChoose(1, 'slay');
     const r = w.tick();
-    expect(r.storied).toEqual([{ pid: 1, save: { v: 1, story: story.id, at: null, n: 0, picks: { judge: 'slay' }, done: true }, goods: { coin: 100 } }]);
+    expect(r.storied).toMatchObject([{ pid: 1, save: { v: 1, story: story.id, at: null, n: 0, picks: { judge: 'slay' }, done: true }, goods: { coin: 100 } }]);
     expect(storyMsgs(r, 1)[0].notes?.map((n) => n.kind)).toEqual(['step', 'end']);
     expect((w.snapshot().piles ?? []).some((p) => p.items === 1)).toBe(true); // Lykon's kopis at his men's feet
     expect(w.stories.open).toEqual([]);

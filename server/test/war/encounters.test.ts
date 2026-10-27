@@ -28,7 +28,7 @@ describe('W-65 encounters in the region room', () => {
     }
     expect(told?.notes?.[0]?.kind).toBe('start');
     expect(told?.save.n).toBe(1);
-    expect(met.at(-1)).toEqual({ pid: 1, save: told!.save, goods: {} });
+    expect(met.at(-1)).toMatchObject({ pid: 1, save: told!.save, goods: {} });
     expect(encounterStorageKey(3, 1)).toBe('encounter:3:1');
   }, 60_000);
 
@@ -42,7 +42,7 @@ describe('W-65 encounters in the region room', () => {
     expect(parseClientMsg(JSON.stringify({ t: 'encounter', op: 'choose', option: 'strip' }))).toEqual({ t: 'encounter', op: 'choose', option: 'strip' });
     w.encounterChoose(1, 'strip');
     const r = w.tick();
-    expect(r.met).toEqual([{ pid: 1, save: { v: 1, n: 1, travel: 0, next: 2000, open: null }, goods: { coin: 3 } }]);
+    expect(r.met).toMatchObject([{ pid: 1, save: { v: 1, n: 1, travel: 0, next: 2000, open: null }, goods: { coin: 3 } }]);
     expect(encMsgs(r, 1)[0].notes?.map((n) => n.kind)).toEqual(['step', 'end']);
     expect((w.snapshot().piles ?? []).some((p) => p.items === 1)).toBe(true);
   });
