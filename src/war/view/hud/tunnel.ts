@@ -30,7 +30,7 @@ const PULL_MS = 10_000;
 /** Offline dev speed: the tunnel clock runs this many times faster. */
 const FAST = 60;
 /** Offline: the raised man joins the map after the line's rise (ms: the shade reaches the mouth, flashes, stands). */
-const SPAWN_AFTER = 2200;
+const SPAWN_AFTER = 2800;
 
 /** A rise the line shows: when (performance ms) and of what class. */
 export interface Rise { at: number; cls: string }
@@ -70,6 +70,7 @@ export function mountTunnel(s: SandboxScene, mk: Mk): TunnelHost {
     tunnel: () => homeTunnel(s),
   };
   hosts.set(s, host);
+  if (import.meta.env.DEV) (window as unknown as { __tunnel: TunnelHost }).__tunnel = host; // scripts and the dev console
   mountTunnelLine(s, host);
 
   // ---------- the countdown pill ----------

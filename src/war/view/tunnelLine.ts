@@ -16,8 +16,8 @@ import type { SandboxScene } from './SandboxScene';
 import type { TunnelHost } from './hud/tunnel';
 import { setShadeSource, type ShadeGhost } from './units';
 
-/** Shades art (./shades.ts), when present. */
-interface ShadeArt { ids: readonly string[]; anim(id: string, dir: 'sw' | 'se'): string; scale: number; originY(id: string): number }
+/** Shades art (./shades.ts), when present: ids, the walk anim, and each shade's feet origin and draw scale. */
+interface ShadeArt { ids: readonly string[]; anim(id: string): string; scale(id: string): number; origin(id: string): [number, number] }
 const SHADES_MOD = import.meta.glob('./shades.ts');
 
 async function loadShadeArt(scene: Phaser.Scene): Promise<ShadeArt | null> {
@@ -25,15 +25,17 @@ async function loadShadeArt(scene: Phaser.Scene): Promise<ShadeArt | null> {
   if (!load) return null;
   try {
     const m = (await load()) as {
-      loadShades(s: Phaser.Scene): Promise<unknown>; SHADE_IDS: readonly string[]; SHADE_SCALE?: number;
-      shadeAnim?(id: string, dir: 'sw' | 'se'): string; shadeOrigin?(id: string): number;
+      loadShades(s: Phaser.Scene): Promise<unknown>; SHADE_IDS: readonly string[];
+      shadeAnim(id: string, dir: 'sw' | 'se'): string; shadeDef(id: string): { originX: number; originY: number; scale: number } | undefined;
     };
     await m.loadShades(scene);
     if (!m.SHADE_IDS?.length) return null;
     return {
-      ids: m.SHADE_IDS, scale: m.SHADE_SCALE ?? 0.55,
-      anim: (id, dir) => m.shadeAnim?.(id, dir) ?? `shade-${id}-walk-${dir}`,
-      originY: (id) => m.shadeOrigin?.(id) ?? 0.85,
+      ids: m.SHADE_IDS,
+      // the line walks up to the mouth (north-east); the sheets face south: the south-east row reads best
+      anim: (id) => m.shadeAnim(id, 'se'),
+      scale: (id) => m.shadeDef(id)?.scale ?? 1,
+      origin: (id) => { const d = m.shadeDef(id); return [d?.originX ?? 0.5, d?.originY ?? 0.85]; },
     };
   } catch {
     return null;
@@ -75,12 +77,12 @@ export function mountTunnelLine(s: SandboxScene, host: TunnelHost): void {
     const shade = (id: number, cls: string, x: number, y: number, alpha: number) => {
       if (alpha <= 0.01) return;
       if (art) {
-        const sid = art.ids[id % art.ids.length], key = art.anim(sid, 'sw');
+        const sid = art.ids[id % art.ids.length], key = art.anim(sid), [ox, oy] = art.origin(sid);
         let sp = sprites[used];
         if (!sp) sprites.push((sp = s.add.sprite(0, 0, `shade-${sid}`)));
         used++;
         if (s.anims.exists(key) && sp.anims.currentAnim?.key !== key) sp.play({ key, repeat: -1, startFrame: id % 4 });
-        sp.setOrigin(0.5, art.originY(sid)).setScale(art.scale).setAlpha(alpha).setVisible(true).setFlipX(true)
+        sp.setOrigin(ox, oy).setScale(art.scale(sid)).setAlpha(alpha).setVisible(true)
           .setPosition(Math.round(s.iso.sx(x, y)), Math.round(s.iso.sy(x, y, s.iso.zAt(x, y)))).setDepth(10 + (x + y) / 4096 + 0.24);
       } else ghosts.push({ id, cls, x, y, alpha });
     };
@@ -102,6 +104,6 @@ export function mountTunnelLine(s: SandboxScene, host: TunnelHost): void {
     for (let i = used; i < sprites.length; i++) sprites[i].setVisible(false);
     const line = tunnelLine(host.alive, host.nextAt, host.now());
     label.setVisible(!!line);
-    if (line) label.setText(line).setPosition(Math.round(s.iso.sx(t.x, t.y)), Math.round(s.iso.sy(t.x, t.y, s.iso.zAt(t.x, t.y)) - 120));
+    if (line) label.setText(line).setPosition(Math.round(s.iso.sx(t.x, t.y)), Math.round(s.iso.sy(t.x, t.y, s.iso.zAt(t.x, t.y)) - 150));
   });
 }
