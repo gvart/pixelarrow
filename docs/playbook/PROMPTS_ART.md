@@ -3266,3 +3266,10 @@ server up) rebuilds the whole film. Output `shots/trailer/pixelarrow-trailer.mp4
   white, a dip through black), cards overlaid with alpha fades, the end card on the last Temple City frame at 40 %
   light; sound = takes in their slots + music on bar lines, sidechain ducking, two-pass `loudnorm` to -14 LUFS /
   -1 dBTP; H.264 High CRF 16, yuv420p, 30 fps, AAC 320k.
+
+## 43. HUD menu bar icons (crown, replay, sound)
+
+No prompt: the kit's 24 px icons had nothing for the crown, the replay or sound, so they are drawn in code
+(`scripts/war/art/menu-icons.mjs`: char grids and a ring, auto outline, gold and parchment ramps from the panels'
+crown crest) and the rest of the bar reuses kit icons (World `mode-altitude`, Tasks `trade-contract`, Works
+`node-engineer-master-builder`, Holdings `mk-claim`). Redraw by editing the grids and rerunning the script.

@@ -27,7 +27,7 @@ for (let t = 0; t < wait; t += 2500) {
   if (process.env.SC) await frame();
   await page.waitForTimeout(2500);
 }
-await page.click('#rfSoundBtn');
+await page.click('#cChest'); // a user gesture: the audio context starts
 await page.waitForTimeout(300);
 const d = await page.evaluate(() => window.__warAudio.debug());
 await browser.close();

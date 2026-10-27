@@ -52,7 +52,7 @@ export const ACTION_IDS = [
   'build.mode', 'build.rotate', 'build.confirm', 'build.undo', 'build.flip', 'build.narrower', 'build.wider', 'build.gate', 'build.tower',
   'bld.upgrade', 'bld.repair', 'bld.demolish',
   'view.cutaway', 'view.map', 'view.normal', 'view.altitude', 'view.movement', 'view.ownership', 'view.biomes', 'view.resources', 'view.bossCam',
-  'panel.roster', 'panel.chest', 'panel.market', 'panel.guardian', 'panel.sound', 'go.world',
+  'panel.roster', 'panel.chest', 'panel.market', 'panel.guardian', 'panel.sound', 'panel.tasks', 'panel.crown', 'panel.holdings', 'panel.works', 'replay.open', 'go.world',
   'world.enter', 'world.routes', 'world.haul', 'world.fit', 'world.zoomIn', 'world.zoomOut',
   'chat.open', 'chat.mark',
   'back', 'menu.settings', 'help.keys', 'dev.panel',
@@ -125,7 +125,11 @@ const DEFS: ActionDef[] = [
   def('panel.chest', 'region', 'View and panels', 'Squad chest: what your men carry, the town store', [k('KeyI')]),
   def('panel.market', 'region', 'View and panels', 'Market', [k('KeyK')]),
   def('panel.guardian', 'region', 'View and panels', 'Landmark panel', [k('KeyL')]),
-  def('panel.sound', 'region', 'View and panels', 'Sound panel', [k('KeyN')]),
+  def('panel.tasks', 'region', 'View and panels', 'Daily and weekly tasks', [k('KeyT')]),
+  def('panel.crown', 'region', 'View and panels', 'The crown and council', [k('KeyC')]),
+  def('panel.holdings', 'region', 'View and panels', 'Holdings: your settlements', [k('KeyO')]),
+  def('panel.works', 'region', 'View and panels', 'Alliance works and titles', [k('KeyU')]),
+  def('replay.open', 'region', 'View and panels', 'Replay the last 3 minutes', [k('KeyR', { shift: true })]),
   def('go.world', 'region', 'View and panels', 'Back to the world map', [k('KeyW', { shift: true })]),
 
   def('world.enter', 'world', 'World map', 'Enter the region (or send the squad)', [k('Enter')]),
@@ -141,6 +145,7 @@ const DEFS: ActionDef[] = [
 
   def('back', 'global', 'General', 'Back, close, cancel; the menu', [k('Escape')], 'press', false),
   def('menu.settings', 'global', 'General', 'Settings', [k('F10')]),
+  def('panel.sound', 'global', 'General', 'Sound settings', [k('KeyN')]),
   def('help.keys', 'global', 'General', 'Controls', [k('Slash', { shift: true }), k('Slash')]),
   def('dev.panel', 'global', 'General', 'Dev panel', [k('F1')]),
 ];

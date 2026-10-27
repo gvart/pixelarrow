@@ -5,6 +5,8 @@
  * (image-rendering: pixelated, the @1x / @2x asset by device pixel ratio), so the pixel art stays sharp.
  */
 import type { BuildingType, SiegeType } from '../../types';
+import type { ActionId } from '../../input/actions';
+import { keys } from '../../input/keys';
 
 export const UI = 'war/ui/';
 const url = (f: string) => `url(${UI}${f})`;
@@ -145,6 +147,8 @@ export const CSS = TOKENS + CURSORS + `
 .rf-seg button:hover{border-image-source:${set('buttons/button-icon-hover.png')}}
 .rf-seg button.on{border-image-source:${set('buttons/button-icon-active.png')}}
 .rf-seg button .key,.rf-btn .key{position:absolute;right:2px;bottom:1px;font:700 9px/1 Inter,sans-serif;color:var(--rf-ink);text-shadow:0 1px 0 #0e0907,0 0 2px #0e0907}
+.rf-btn .rf-badge{position:absolute;top:-5px;left:-5px;display:flex;align-items:center;justify-content:center;min-width:15px;height:15px;padding:0 3px;border-radius:8px;background:var(--rf-bad);color:#1a0d08;font:700 10px/1 Inter,sans-serif;box-shadow:0 0 0 1px #0e0907;pointer-events:none}
+.rf-btn .rf-badge.gold{background:var(--rf-gold)}
 .rf-chip{display:inline-block;margin-top:3px;padding:1px 5px;font:700 10.5px/14px Inter,sans-serif;color:var(--rf-bad);background:var(--rf-sunk);border:1px solid var(--rf-line);white-space:nowrap}
 .rf input{font:600 12px/1 Inter,sans-serif;width:30px;height:23px;background:var(--rf-sunk);color:var(--rf-ink);border:1px solid var(--rf-line);padding:0 3px}
 .rf select{font:600 12px/1 Inter,sans-serif;height:23px;background:var(--rf-sunk);color:var(--rf-ink);border:1px solid var(--rf-line);padding:0 2px}
@@ -237,14 +241,53 @@ export function placeTip(tip: HTMLElement, el: HTMLElement): void {
   tip.style.top = `${Math.max(4, Math.min(innerHeight - t.height - 4, y)) / z}px`;
 }
 
-/** The windows under the top-right corner buttons share one place: opening one closes the others (by their buttons). */
+/** The windows of the menu bar's buttons share one place at the top right: opening one closes the others (by their buttons). */
 const CORNER_WINDOWS = ['rfWorksBtn', 'rfTasksBtn', 'rfCrownBtn', 'rfHoldingsBtn'];
 export function closeCornerWindows(except: string): void {
   for (const id of CORNER_WINDOWS) if (id !== except) { const b = document.getElementById(id); if (b?.classList.contains('on')) b.click(); }
 }
 
-/** The bottom margin of a right-hand window: clear of the chest, roster and build buttons in the bottom-right corner. */
+/** The bottom margin of a right-hand window: clear of the menu bar (chest, roster, build and the menus) in the bottom-right corner. */
 export const CORNER_BOTTOM = 52;
+
+/** The menu bar, bottom right, left of the chest, roster and build buttons (made by ./hud.ts); its buttons sort by `order`. */
+export const MENU_BAR = 'rfMenus';
+const shortKey = (id: ActionId) => keys.label(id).replace('Shift+', '⇧');
+
+/**
+ * A menu bar button: the kit's icon frame, its key in the corner, a tooltip (name, what, key) and a count badge
+ * (`setBadge`). Its key (src/war/input/actions.ts) clicks it while the button shows.
+ */
+export function menuBtn(id: string, ic: string, name: string, what: string, action: ActionId, order: number): HTMLButtonElement {
+  const b = document.createElement('button');
+  b.className = 'rf-btn';
+  b.id = id;
+  b.style.order = String(order);
+  const paint = () => {
+    const badge = b.querySelector('.rf-badge');
+    b.innerHTML = icon(ic) + `<span class="key">${shortKey(action)}</span>`;
+    if (badge) b.appendChild(badge);
+    b.dataset.tip = `<div class="rf-name" style="margin-bottom:3px">${name}</div>${what} <b class="k">${keys.label(action)}</b>`;
+  };
+  paint();
+  keys.onChange(paint);
+  document.getElementById(MENU_BAR)?.appendChild(b);
+  addEventListener('keydown', (e: KeyboardEvent) => {
+    if (keys.act(e) !== action || b.style.display === 'none' || !b.isConnected) return;
+    e.preventDefault();
+    b.click();
+  });
+  return b;
+}
+
+/** A count on a menu bar button (0 hides it); `gold` for something to collect rather than to answer. */
+export function setBadge(b: HTMLElement, n: number, gold = false): void {
+  let el = b.querySelector<HTMLElement>('.rf-badge');
+  if (!n) return void el?.remove();
+  if (!el) { el = document.createElement('b'); el.className = 'rf-badge'; b.appendChild(el); }
+  el.classList.toggle('gold', gold);
+  el.textContent = String(n);
+}
 
 /** A bar: kind hp / construction / burn / ok, value 0..1, width in art px. */
 export const bar = (kind: string, v: number, w: number) => `<div class="rf-bar" style="width:${w}px"><i class="${kind}" style="width:${Math.round((w - 2) * Math.max(0, Math.min(1, v)))}px"></i></div>`;

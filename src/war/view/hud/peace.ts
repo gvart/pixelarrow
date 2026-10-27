@@ -21,9 +21,8 @@ import type { SandboxScene } from '../SandboxScene';
 import { myTeam } from '../side';
 import { settleHosts } from './settlements';
 import { keys } from '../../input/keys';
-import { closeTasks } from './tasks';
 import { draggable } from './drag';
-import { fitHeight, icon, LEFT_PANELS } from './kit';
+import { closeCornerWindows, CORNER_BOTTOM, fitHeight, icon, LEFT_PANELS, menuBtn } from './kit';
 import { esc, tipper } from './roster/ui';
 import { setTitlesLine } from './roster/panel';
 import { offlineWorks, titlesHtml, titlesStrip, townBadge, townCard, worksHtml, type GiveForm, type PeaceStats, type TitleRow } from './peaceCards';
@@ -176,7 +175,7 @@ export function mountPeace(s: SandboxScene, mk: Mk): void {
   setInterval(() => (place(badge), place(tcard), placeTipClear()), 200);
 
   // ---------- the works window: works and titles ----------
-  const win = mk('rfWorks', 'top:40px;right:110px;width:380px;display:none;pointer-events:auto;padding:4px 8px 8px');
+  const win = mk('rfWorks', 'top:40px;right:4px;width:380px;display:none;pointer-events:auto;padding:4px 8px 8px');
   win.className = 'rf rf-card rf-esc';
   draggable(win, '.rf-head');
   tipper(win, tip);
@@ -193,7 +192,7 @@ export function mountPeace(s: SandboxScene, mk: Mk): void {
       <div class="rf-tabs">${(['works', 'titles'] as const).map((t) => `<button class="rf-tab${t === tab ? ' on' : ''}" data-tab="${t}">${t === 'works' ? 'Works' : 'Titles'}</button>`).join('')}</div>
       ${tab === 'works' ? worksHtml(works, online(), form, home()) : titlesHtml(titles, stats, s.sim.playerId ?? null)}<div class="mk-msg rf-dim" style="min-height:15px${bad ? ';color:var(--rf-bad)' : ''}">${esc(msg)}</div>`;
     win.scrollTop = scroll;
-    fitHeight(win);
+    fitHeight(win, CORNER_BOTTOM);
   };
   const load = async () => {
     if (!online()) return render();
@@ -213,8 +212,8 @@ export function mountPeace(s: SandboxScene, mk: Mk): void {
   setInterval(() => void pollTitles(), 300_000);
   const toggle = (on = win.style.display === 'none') => {
     win.style.display = on ? '' : 'none';
-    document.getElementById('rfWorksBtn')?.classList.toggle('on', on);
-    if (on) { closeTasks(); void load(); }
+    b.classList.toggle('on', on);
+    if (on) { closeCornerWindows(b.id); void load(); }
   };
   addEventListener('keydown', (e: KeyboardEvent) => { if (keys.act(e) === 'back' && win.style.display !== 'none') toggle(false); });
   win.addEventListener('input', (e) => {
@@ -241,14 +240,8 @@ export function mountPeace(s: SandboxScene, mk: Mk): void {
       });
     render();
   });
-  const corner = document.getElementById('rfDev');
-  const b = document.createElement('button');
-  b.className = 'rf-tbtn';
-  b.id = 'rfWorksBtn';
-  b.textContent = 'Works';
-  b.title = 'alliance works and the season\'s titles';
+  const b = menuBtn('rfWorksBtn', 'node-engineer-master-builder', 'Alliance works', 'works and the season\'s titles', 'panel.works', 3);
   b.onclick = () => toggle();
-  corner?.insertBefore(b, corner.children[1] ?? null);
   // dev: fill the panels offline (screenshots, layout checks)
   if (import.meta.env.DEV) (window as unknown as { __peace: unknown }).__peace = {
     titles: (t: TitleRow[], m: PeaceStats | null) => ((titles = t), (stats = m), strip(), render()),

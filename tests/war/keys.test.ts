@@ -49,6 +49,20 @@ describe('war bindings', () => {
     expect(keys.act(ev('KeyB'))).toBeNull();
   });
 
+  it('the menu bar\'s keys: T tasks, C crown, O holdings, U works, Shift+R replay; N sound settings everywhere', () => {
+    keys.setContexts(() => REGION);
+    expect(['KeyT', 'KeyC', 'KeyO', 'KeyU'].map((c) => keys.act(ev(c)))).toEqual(['panel.tasks', 'panel.crown', 'panel.holdings', 'panel.works']);
+    expect(keys.act(ev('KeyR', { shiftKey: true }))).toBe('replay.open');
+    expect(keys.act(ev('KeyN'))).toBe('panel.sound');
+    // build mode and a selected building keep their own T and U
+    keys.setContexts(() => BUILD);
+    expect(keys.act(ev('KeyT'))).toBe('build.tower');
+    keys.setContexts(() => ['building', ...REGION]);
+    expect(keys.act(ev('KeyU'))).toBe('bld.upgrade');
+    keys.setContexts(() => ['world', 'global']);
+    expect(keys.act(ev('KeyN'))).toBe('panel.sound');
+  });
+
   it('a rebound key drives the action; the old key no longer does; a taken key swaps', () => {
     keys.setContexts(() => REGION);
     keys.set(assign(keys.map, 'order.hold', 0, { code: 'KeyJ' }, 'swap'));

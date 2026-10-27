@@ -363,7 +363,6 @@ export const SETTLE_CSS = `
 .hd-of{display:flex;align-items:center;gap:6px;margin-top:5px}.hd-ab{margin-left:auto;display:flex;gap:3px}
 .st-clock{display:inline-flex;align-items:center;gap:3px;font-size:11px;color:var(--rf-muted);white-space:nowrap}.st-clock.low{color:var(--rf-bad)}
 #rfHoldingsBtn{position:relative}
-#rfHoldingsBtn .st-n{position:absolute;top:-6px;left:-8px;box-shadow:0 0 0 1px #0e0907}
 #rfSettleNote{top:292px;right:4px;display:flex;flex-direction:column;align-items:flex-end;gap:4px;pointer-events:none}
 .sx{display:flex;align-items:center;gap:8px;width:330px;padding:6px 8px;pointer-events:auto;transition:opacity .4s,transform .4s}
 .sx.grd{border-left:3px solid var(--rf-gold)}
