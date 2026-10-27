@@ -386,6 +386,19 @@ the Titan of Krios becomes the dragon Drakon (keeping the Aegis), and Bacchae, t
 | delta | Achelous Delta | 4 | Achelous the River-God (tier 3), Warden strikes | Landmark: Sunken Temple. The god who wrestled Heracles lost a horn and his temple to the sea; he still changes shape. |
 | omphalos | Omphalos Plateau | 4 | the Titan (tier 3), the Minotaur (tier 3) | The navel of the in-between, where the way up opens; a titan who tried to climb it guards the arena, the minotaur the labyrinth. |
 
+### Region stories (W-65)
+
+Each neutral region tells a 3-5 step story from its lore line above, per player (`src/data/warStories.ts`, the runner
+`src/war/sim/stories.ts`). A giver stands by the village well with a gold "!"; his men reaching him start the chain,
+which becomes the tracked quest (card, marker, edge arrow, banners). Steps: **reach** a clue, **track** marks in turn,
+**clear** a camp or a named captain (an added lair led by a captain, x2 hp), **rescue** a captive (a soul to claim),
+**talk** (back to the giver), **choice** (buttons on the card; each option pays its own way and may lead on). Rewards:
+goods (stores offline, home strongroom online), an item (a pile at his men, rolled on the seeded Rng), a soul who joins.
+Progress: offline localStorage `pa.war.story.<region>`, online the region DO's storage `story:<season>:<pid>`; a run
+started again from its save (reload, region woken) spawns what its open step needs. Full chains today: Teeth
+Foothills, Teeth Eastern Slopes, Western Heath, Lagoon Coast, Cape of Winds, Grey Moors; the others have a one-line
+hook and the file ends with a template. Foes stand 25+ tiles from the region's own lairs (tests/war/stories.test.ts).
+
 ### Landmarks
 
 Nine pre-built strongholds, one in every depth-3 and depth-4 neutral, so each home faces the same set at the same

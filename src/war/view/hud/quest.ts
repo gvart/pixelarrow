@@ -54,6 +54,11 @@ const CSS = `
 #rfQuest .qt-pay{display:flex;flex-wrap:wrap;align-items:center;gap:3px}
 #rfQuest .qt-pay i{font-style:normal;color:var(--rf-muted);font-size:11px;flex-basis:100%}
 #rfQuest .rf-bar{width:100%;margin-top:4px}
+#rfQuest .qt-s{margin-top:4px;font:italic 12px/15px Inter,sans-serif;color:var(--rf-ink);opacity:.9}
+#rfQuest .qt-s+.qt-s{margin-top:3px}
+#rfQuest .qt-ch{display:flex;flex-direction:column;gap:4px;margin-top:6px}
+#rfQuest .qt-ch button{display:block;width:100%;height:auto;text-align:left;padding:4px 7px;font:700 12px/15px Inter,sans-serif;white-space:normal}
+#rfQuest .qt-ch button i{display:block;font:400 11px/14px Inter,sans-serif;color:var(--rf-muted);font-style:normal}
 `;
 let styled = false;
 const style = () => {
@@ -192,8 +197,12 @@ export interface TrackView {
   /** Where its marker points in this region (null: elsewhere, or nothing to point at); `turnIn`: the label says so. */
   at: P | null;
   label: string;
+  /** W-65 a story: its lines in italics under the title (the backstory, the step's story). */
+  story?: string[];
+  /** W-65 a story's open choice: a button each (Tracked.act gets its id). */
+  choices?: { id: string; label: string; text: string }[];
 }
-export interface Tracked { key: string; view: (me: P) => TrackView | null }
+export interface Tracked { key: string; view: (me: P) => TrackView | null; /** A choice button pressed (W-65). */ act?: (id: string) => void }
 
 const TKEY = 'pa.war.track';
 let tracked: Tracked | null = null;
@@ -218,6 +227,8 @@ export function mountQuestTracker(s: SandboxScene, mk: Mk): void {
   const mark = questMarker('trk');
   el.addEventListener('click', (e) => {
     if ((e.target as HTMLElement).closest('.qt-x')) { track(null); last = ''; }
+    const c = (e.target as HTMLElement).closest<HTMLElement>('[data-act]');
+    if (c && tracked?.act) { tracked.act(c.dataset.act!); last = ''; }
   });
   let last = '';
   const frame = () => {
@@ -241,11 +252,11 @@ export function mountQuestTracker(s: SandboxScene, mk: Mk): void {
       if (Math.abs(parseFloat(mark.style.left) - parseFloat(o.style.left)) < 170 && Math.abs(dy) < 30) mark.style.top = `${parseFloat(o.style.top) + (dy < 0 ? -32 : 32)}px`;
     }
     const html = `<div class="qt-h">${icon('mk-claim')}<span class="qt-k">${esc(v.kind)}</span><span class="qt-n">${esc(v.progress)}</span><button class="rf-tbtn x qt-x" title="Stop tracking">×</button></div>
-      <div class="qt-t">${esc(v.title)}</div><div class="qt-g">${esc(v.giver)}</div>
+      <div class="qt-t">${esc(v.title)}</div><div class="qt-g">${esc(v.giver)}</div>${(v.story ?? []).map((l) => `<div class="qt-s">“${esc(l)}”</div>`).join('')}
       ${v.frac >= 0 ? `<div class="rf-bar"><i class="${v.frac >= 1 ? 'ok' : 'construction'}" style="width:${(Math.min(1, v.frac) * 100).toFixed(1)}%"></i></div>` : ''}
       <div class="qt-row"><b>Goal</b><span>${esc(v.goal)}</span></div>
       <div class="qt-row"><b>Where</b><span>${esc(v.where)}${far ? ` <span class="rf-dim">(${far})</span>` : ''}</span></div>
-      <div class="qt-row"><b>Pay</b><span class="qt-pay">${rewardChips(v.reward)}<i>${esc(v.pay)}</i></span></div>`;
+      <div class="qt-row"><b>Pay</b><span class="qt-pay">${rewardChips(v.reward)}<i>${esc(v.pay)}</i></span></div>${v.choices?.length ? `<div class="qt-ch">${v.choices.map((c) => `<button class="rf-tbtn" data-act="${esc(c.id)}">${esc(c.label)}<i>${esc(c.text)}</i></button>`).join('')}</div>` : ''}`;
     if (html !== last) el.innerHTML = last = html;
   };
   requestAnimationFrame(frame);

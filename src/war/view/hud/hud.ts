@@ -66,6 +66,7 @@ import { mountTasks } from './tasks';
 import { mountCrown } from './crown';
 import { mountGuide } from './guide';
 import { mountQuestTracker } from './quest';
+import { mountStory } from './story';
 import { mountReplay } from '../replay';
 import { RECIPES } from '../../../data/recipes';
 import { allCivilians, civBuild, civGather, civInfo, civName, civTips, civWork } from './cardCiv';
@@ -395,6 +396,7 @@ export function hud(s: SandboxScene): void {
   mountWorldEvents(s, mk); // W-62: the world events card (./worldEvents.ts)
   mountGuide(s, mk); // W-62: the first-hour quest tracker, top left, and its world markers (./guide.ts)
   mountQuestTracker(s, mk); // the tracked task or order, top right, and its marker (./quest.ts)
+  mountStory(s); // W-65: the region's story chain: its giver, banners and tracked card (./story.ts)
   mountRegionChat(s); // W-62 E6: the alliance chat above the minimap, map marks (./chat.ts)
   mountGate(s); // the online cap's line and the idle kick (./gate.ts)
   mountReplay(s, mk); // W-62 E5: the replay recorder, "Watch the battle", replay mode and clips (../replay)
