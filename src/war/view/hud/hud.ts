@@ -2,6 +2,7 @@
  * The player HUD in the red-figure kit (W-32; art: public/war/ui/, ./kit.ts). HTML over the canvas, anchored:
  *
  *   top centre     W-61: the town level badge (click: the town card; ./peace.ts)
+ *   top left       W-62: the first-hour quest tracker in a home region (./guide.ts)
  *   (no top band)  what the men carry and the town's store are in the squad chest (I, bottom right: ./chest.ts); a cost
  *                  shows "needs 6 wood (you have 2)" where it is asked (build bar, upgrade, forge, market: ./goods.ts)
  *   bottom left    round minimap (./minimap.ts), the view mode switcher in its corner (F2-F7) and the mode's legend over it (./modes.ts)
@@ -53,6 +54,7 @@ import { needChips, shortText } from './goods';
 import { localGoods, mountChest, storeNear } from './chest';
 import { mountSouls } from './souls';
 import { mountPeace } from './peace';
+import { mountGuide } from './guide';
 import { RECIPES } from '../../../data/recipes';
 import { allCivilians, civBuild, civGather, civInfo, civName, civTips, civWork } from './cardCiv';
 import { buildCard, term } from './codex';
@@ -373,6 +375,7 @@ export function hud(s: SandboxScene): void {
   mountChest(s, mk, tipOn); // the squad chest (I) beside the roster button: what the men carry, the town store
   mountSouls(s, mk, tipOn); // W-60: souls to claim (the prompt, notes; ghosts drawn by ../units.ts)
   mountPeace(s, mk); // W-61: the town level badge and card, alliance works and titles (./peace.ts)
+  mountGuide(s, mk); // W-62: the first-hour quest tracker, top left, and its world markers (./guide.ts)
   const groups = mountGroups(s, mk, tipOn); // W-53: the control group bar over the card, numbers on the map
 
   // ---------- scale ----------

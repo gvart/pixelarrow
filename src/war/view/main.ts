@@ -25,6 +25,10 @@ import { mountSoundPanel } from './hud/soundPanel';
 import { mountGameMenu } from '../menu/gameMenu';
 import { saveSound } from './sound/mix';
 import { myTeam, setMyTeam } from './side';
+import { GUIDE_LAIR, GUIDE_SOUL, guideSpots, HOME_R } from './guidePlan';
+import { guideKey, guideOpen, loadGuide, setGuide } from './hud/guide';
+import { ARMY_MAX } from '../sim/soldiers';
+import { WORLD_REGIONS } from '../regions';
 
 const q = new URLSearchParams(location.search);
 // M7d: a scenario may name its own region (the landmark raids)
@@ -79,7 +83,17 @@ void Promise.all([loading, q.get('art') === 'grey' ? null : loadArt(), loadSheet
     // the server places it on the team's entry); offline the player's one squad of 12 walks in at the same entry
     else if (q.has('world')) {
       const team = myTeam(), at = entrySpot(region, team);
-      scene.sim.spawn('you', team, 'hoplite', 12, at.x, at.y);
+      // W-62 a home region: the first-hour guide (./hud/guide.ts). Offline the sandbox claims the town's ground as the
+      // server room does, and while the guide is open a new player walks in with one man short, his first soul waiting
+      // down the road, and the guide's bandit pair on the way home
+      const home = WORLD_REGIONS.some((w) => w.id === region.id && w.role === 'home'), offline = !q.has('net'), spots = home ? guideSpots(region, team) : null;
+      const save = offline ? loadGuide(guideKey(null)) : null, open = !!spots && guideOpen(save);
+      if (spots && offline) scene.sim.claim(team, spots.home.x, spots.home.y, HOME_R);
+      if (spots && (!offline || open)) setGuide({ spots, town: region.name, offline });
+      const soul = offline && open && !save?.done.includes('soul'), lair = offline && open && !save?.done.includes('lair');
+      scene.sim.spawn('you', team, 'hoplite', soul ? ARMY_MAX - 1 : ARMY_MAX, at.x, at.y);
+      if (soul) scene.sim.spawnSoul(spots!.soul.x, spots!.soul.y, GUIDE_SOUL.cls, GUIDE_SOUL.level, 'shrine');
+      if (lair) scene.sim.addLair(GUIDE_LAIR.kind, spots!.lair.x, spots!.lair.y, GUIDE_LAIR.count);
       game.events.on('poststep', toSquad);
     }
     devPanel(game, scene, sc);
