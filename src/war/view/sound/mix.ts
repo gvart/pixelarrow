@@ -65,6 +65,20 @@ export function gatherSfx(res: string | undefined): SfxId | null {
   return null;
 }
 
+/**
+ * E4 melee din: the bed's level 0..1 for `fighting`, the men striking on screen (each weighted by his loudness there): none
+ * for a skirmish (its blows are heard one by one), rising with the square root (a press of men does not get twice as
+ * loud for twice the men), full from some 60.
+ */
+export function dinLevel(fighting: number): number {
+  return fighting < 6 ? 0 : Math.min(1, Math.sqrt((fighting - 5) / 55));
+}
+
+/** The single blows under a full din: a third quieter, so the bed and the capped hits together never pile up to clip. */
+export function blowVol(din: number): number {
+  return 1 - 0.35 * Math.max(0, Math.min(1, din));
+}
+
 // ---------------------------------------------------------------- guardians
 
 /** A guardian's beat (../bossFx.ts CUES) as a sound, by guardian (src/data/warBosses.ts ids). */

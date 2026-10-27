@@ -328,7 +328,7 @@ export class AudioEngine {
     this.musicBus.connect(this.world);
     this.ambBus = ctx.createGain();
     this.ambBus.connect(this.master);
-    this.amb = new AmbiencePlayer(ctx, this.ambBus, new AudioRng(0x2545f491));
+    this.amb = new AmbiencePlayer(ctx, this.ambBus, new AudioRng(0x2545f491), this.sfxDuck); // E4: the melee din on the field bus
     this.musicDuck = ctx.createGain();
     this.musicDuck.connect(this.musicBus);
     this.musicDuck.gain.value = 1;

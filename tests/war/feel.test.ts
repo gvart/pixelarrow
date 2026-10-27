@@ -2,6 +2,22 @@ import { describe, expect, it } from 'vitest';
 import type { BuildingSnap, Snapshot, UnitSnap } from '../../src/war/types';
 import { HitStop, ImpactWatch, isElite } from '../../src/war/view/feel/impacts';
 import { CameraShake, shakeFalloff } from '../../src/war/view/feel/shake';
+import { blowVol, dinLevel } from '../../src/war/view/sound/mix';
+
+describe('E4 melee din', () => {
+  it('stays out of a skirmish, rises with the press, full from some 60 men', () => {
+    expect(dinLevel(4)).toBe(0);
+    expect(dinLevel(12)).toBeGreaterThan(0);
+    expect(dinLevel(30)).toBeGreaterThan(dinLevel(12));
+    expect(dinLevel(60)).toBe(1);
+    expect(dinLevel(400)).toBe(1);
+  });
+
+  it('steps the single blows down under it', () => {
+    expect(blowVol(0)).toBe(1);
+    expect(blowVol(1)).toBeCloseTo(0.65);
+  });
+});
 
 const unit = (id: number, o: Partial<UnitSnap> = {}): UnitSnap => ({ id, squad: 0, x: 10, y: 10, facing: 0, hp: 10, maxHp: 10, cls: 'militia', state: 'idle', ...o });
 const wall = (id: number, o: Partial<BuildingSnap> = {}): BuildingSnap =>
