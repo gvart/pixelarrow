@@ -1,0 +1,20 @@
+server/src/war/routes.ts
+  s_fcb7475e0b5395::t_ffd53495007c5a 41-55,81-82,246-308
+  s_fcb7475e0b5395::t_15edb46e7b00cf 309
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "e1a3868805d3c03e62a2844694c5e3eeb39e6978",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
