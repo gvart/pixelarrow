@@ -1,6 +1,7 @@
 /**
- * Main-thread side of the sim worker: sends spawns and orders, keeps the last two Snapshots and
- * interpolates unit positions between them (rendering runs one 10 Hz tick behind).
+ * Main-thread side of the sim worker: sends spawns and orders, keeps the last few Snapshots and plays unit positions
+ * back between them on a smooth clock a little behind the newest (./interp.ts; the same for the local sim and the
+ * region server's snapshots).
  */
 import type { Behaviour } from '../sim/bots';
 import type { ScenarioGo } from '../scenarios/types';
@@ -10,6 +11,7 @@ import type { Item } from '../../data/items';
 import type { HandoffMsg, ServerMsg, StowMsg } from '../net/protocol';
 import type { NetStats } from '../net/client';
 import { myTeam, setMyTeam } from './side';
+import { SnapBuffer } from './interp';
 
 /**
  * The snapshot as `team` knows it: foe men, engines and missiles only where it sees; foe buildings where it sees
@@ -52,7 +54,8 @@ export interface ReplaySource {
 
 export class SimClient {
   private worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' });
-  private old = new Map<number, UnitSnap>();
+  /** The snapshots played back (fogged, as drawn). */
+  private buf = new SnapBuffer();
   /** The newest snapshot as the player's team (./side.ts) knows it under the fog (W-39; `full` while fog is off). */
   get cur(): Snapshot | null { return this.replay ? this.replay.cur : this.liveCur; }
   private liveCur: Snapshot | null = null;
@@ -108,11 +111,11 @@ export class SimClient {
       if (e.data.nodes) this.nodes = e.data.nodes;
       if (e.data.influence) this.influence = e.data.influence;
       if (e.data.fog) (this.liveFog = e.data.fog), (this.seen = e.data.seen ?? []);
-      this.old = new Map(this.liveCur?.units.map((u) => [u.id, u]));
       this.full = e.data.snap;
       this.liveCur = this.fogged(e.data.snap);
       this.stats = e.data.stats;
       this.at = performance.now();
+      this.buf.push(this.liveCur.tick, this.liveCur.units, this.at);
       this.liveSquads = new Map(this.liveCur.squads.map((s) => [s.id, s]));
       this.onSnap?.(this.liveCur, this.liveFog);
       if (e.data.events) this.onEvents?.(e.data.events);
@@ -350,6 +353,8 @@ export class SimClient {
   /** Time scale; 0 pauses. */
   speed(scale: number): void {
     if (scale > 0) this.interval = 100 / scale;
+    this.buf.setInterval(this.interval);
+    this.buf.paused = scale <= 0;
     this.send({ t: 'speed', scale });
   }
 
@@ -359,23 +364,17 @@ export class SimClient {
     return performance.now() - this.at;
   }
 
-  /** Render time for the clips (./anim.ts): the fractional tick drawn (one behind the newest snapshot). */
+  /** Render time for the clips (./anim.ts): the fractional tick drawn (~1.2-1.6 behind the newest snapshot, ./interp.ts). */
   time(now: number): { now: number; tick: number; snap: number; tickMs: number } {
     if (this.replay) return this.replay.time(now);
-    const snap = this.cur?.tick ?? 0;
-    return { now, tick: snap - 1 + Math.min(1, (performance.now() - this.at) / this.interval), snap, tickMs: this.interval };
+    return { now, tick: this.buf.clock(performance.now()), snap: this.cur?.tick ?? 0, tickMs: this.interval };
   }
 
   /** Units at render time, positions in tiles. */
   units(): DrawUnit[] {
     if (this.replay) return this.replay.units();
-    if (!this.cur) return [];
-    const a = Math.min(1, (performance.now() - this.at) / this.interval);
-    return this.cur.units.map((u) => {
-      const p = this.old.get(u.id) ?? u;
-      let df = u.facing - p.facing;
-      df -= Math.round(df / (2 * Math.PI)) * 2 * Math.PI;
-      return { u, x: p.x + (u.x - p.x) * a, y: p.y + (u.y - p.y) * a, facing: p.facing + df * a, team: this.squads.get(u.squad)?.team ?? 0 };
-    });
+    if (!this.liveCur) return [];
+    const ps = this.buf.sample(this.liveCur.units, this.buf.clock(performance.now()));
+    return ps.map((p) => ({ u: p.u, x: p.x, y: p.y, facing: p.facing, team: this.squads.get(p.u.squad)?.team ?? 0 }));
   }
 }

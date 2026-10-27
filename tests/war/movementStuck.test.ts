@@ -90,7 +90,9 @@ describe('W-59 movement: no sticking, no running back', () => {
     const s = sim.spawnSquad('a', 0, 'militia', 12, 18, 24);
     sim.order({ kind: 'move', squad: s, x: 44, y: 24 });
     const f = field(r, 44, 24);
-    const w = walk(sim, r, new Map([[s, f]]), 1200);
+    // near 4: a flank man of the 6-wide line stands 3.8 walking tiles from the order point in his slot, and the block
+    // eases into its halt, so his last gain on the goal is a while before the squad is idle (he stands in his slot, not stuck)
+    const w = walk(sim, r, new Map([[s, f]]), 1200, 4);
     expect(w.arrived).toBe(true);
     expect(near(sim, s, 44, 24, 5)).toBe(true);
     expect(w.back).toBeLessThan(3);
