@@ -218,6 +218,8 @@ export function restoreTrack(t: Tracked): void {
   if (!tracked && trackedKey() === t.key) tracked = t;
 }
 export const isTracked = (key: string) => tracked?.key === key;
+/** The tracked quest itself (W-65: an encounter takes the card for a while, then gives it back). */
+export const trackedNow = (): Tracked | null => tracked;
 
 /** The tracked quest card (top right) and its marker. */
 export function mountQuestTracker(s: SandboxScene, mk: Mk): void {

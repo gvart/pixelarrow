@@ -21,7 +21,7 @@ const LIST: EncounterDef[] = [
   {
     id: 'deserter', title: 'A Wounded Deserter', weight: 2,
     figure: { cls: 'hoplite', count: 1, name: 'Deserter' },
-    lore: 'A hoplite lies by the road, an arrow in his thigh. "By Zeus Xenios, friend: water, and I am yours."',
+    lore: 'A hoplite lies by the road, an arrow in his thigh. ‘By Zeus Xenios, friend: water, and I am yours.’',
     end: 'The road takes him one way or another.',
     steps: [
       { id: 'go', goal: 'Go to the wounded man', label: 'Deserter', text: 'He waves a torn cloak at your men.', trigger: { kind: 'reach' } },
@@ -69,7 +69,7 @@ const LIST: EncounterDef[] = [
   {
     id: 'merchant', title: 'A Lost Merchant', weight: 2, needs: 'town',
     figure: { cls: 'civ_merchant', count: 1, name: 'Merchant' },
-    lore: 'A Phoenician trader with a laden mule has lost the road. "Lead me to a town, friend, and my purse opens."',
+    lore: 'A Phoenician trader with a laden mule has lost the road. ‘Lead me to a town, friend, and my purse opens.’',
     end: 'He counts out your coin twice, the Phoenician way, and haggles for nothing.',
     steps: [
       { id: 'guide', goal: 'Guide the merchant to a town', label: 'Merchant', text: 'Reach him, then walk him to the nearest town. He follows your men.', trigger: { kind: 'guide' }, reward: { goods: { coin: 15, salt: 6 } } },
@@ -95,15 +95,15 @@ const LIST: EncounterDef[] = [
   {
     id: 'rumour', title: 'A Shepherd\'s Rumour', weight: 1, needs: 'story',
     figure: { cls: 'civ_forager', count: 1, name: 'Shepherd' },
-    lore: 'A shepherd spits and points: "Trouble in the village. The old one by the well has a tale, and pay for whoever ends it."',
+    lore: 'A shepherd spits and points: ‘Trouble in the village. The old one by the well has a tale, and pay for whoever ends it.’',
     end: 'The village well. Someone there has waited a long time.',
     steps: [
-      { id: 'go', goal: 'Find the one by the well', label: 'Rumour', text: 'Seek the villager with the "!" over his head.', trigger: { kind: 'reach', at: 'giver' }, reward: { goods: { coin: 5 } } },
+      { id: 'go', goal: 'Find the one by the well', label: 'Rumour', text: 'Seek the villager with the ‘!’ over his head.', trigger: { kind: 'reach', at: 'giver' }, reward: { goods: { coin: 5 } } },
     ],
   },
   {
     id: 'toll', title: 'Toll of the Road', weight: 1, minDepth: 2, near: [8, 11],
-    lore: 'Bandits bar the path with an overturned cart. "A toll for Hermes," grins their chief. Pay it in blood, or go round.',
+    lore: 'Bandits bar the path with an overturned cart. ‘A toll for Hermes,’ grins their chief. Pay it in blood, or go round.',
     end: 'The road is open, for a while.',
     steps: [
       {
@@ -134,7 +134,7 @@ const LIST: EncounterDef[] = [
   {
     id: 'flock', title: 'A Strayed Flock', weight: 1,
     figure: { cls: 'civ_forager', count: 1, name: 'Goatherd' },
-    lore: 'A goatherd boy weeps over his flock scattered in the scrub. "Pan drove them mad. Help me, and take one for your pot."',
+    lore: 'A goatherd boy weeps over his flock scattered in the scrub. ‘Pan drove them mad. Help me, and take one for your pot.’',
     end: 'Pan\'s panic passes. The boy whistles his goats home.',
     steps: [
       { id: 'herd', goal: 'Help round up the goats', label: 'Goats', text: 'They bleat from the scrub ahead.', trigger: { kind: 'reach' } },

@@ -83,7 +83,7 @@ export const ENC = {
   far: [10, 14] as const,
   /** Reach radius (tiles); a cleared camp counts with his men this near; a town or lair reached this near. */
   reach: 5, near: 30, town: 12, lair: 18, giver: 8,
-  /** An open step lapses after this long (ticks; a guide twice) or with all his men this far from it. */
+  /** An open step lapses after this long (ticks; a guide three times) or with all his men this far from it. */
   lapse: 1800, leave: 70,
   /** Ticks before a spawn not seen yet is asked for again. */
   respawn: 300,
@@ -243,8 +243,15 @@ export class EncounterRun {
     if (!men.length && !from) return notes;
     const r = rngOf(this.key(this.save.n, 'where'));
     const c = from ?? this.centre(men.filter((u) => u.squad === (men.find((m) => m.state === 'move') ?? men[0]).squad), { x: 0, y: 0 });
-    const [d0, d1] = def.near ?? ENC.far, a = r.range(0, Math.PI * 2), d = r.range(d0, d1);
-    const p = snapOpen(this.region, [Math.max(2, Math.min(this.region.w - 3, c.x + Math.cos(a) * d)), Math.max(2, Math.min(this.region.h - 3, c.y + Math.sin(a) * d))]);
+    // a spot round him, away from the map's edge (a few tries, then the last)
+    const [d0, d1] = def.near ?? ENC.far, M = 8, { w, h } = this.region;
+    let x = c.x, y = c.y;
+    for (let k = 0; k < 8; k++) {
+      const a = r.range(0, Math.PI * 2), d = r.range(d0, d1);
+      (x = c.x + Math.cos(a) * d), (y = c.y + Math.sin(a) * d);
+      if (x >= M && y >= M && x < w - M && y < h - M) break;
+    }
+    const p = snapOpen(this.region, [Math.max(2, Math.min(w - 3, x)), Math.max(2, Math.min(h - 3, y))]);
     this.save.open = { id: def.id, step: def.steps[0].id, x: p.x, y: p.y, tx: p.x, ty: p.y, since: s.tick };
     this.save.last = def.id;
     this.save.travel = 0;
@@ -316,7 +323,7 @@ export class EncounterRun {
       }
       // the moment passes: too long, or his men gone far (a guide is followed: only the clock)
       const far = !men.length || (!o.with && !men.some((u) => Math.hypot(u.x - o.tx, u.y - o.ty) < ENC.leave && Math.hypot(u.x - o.x, u.y - o.y) < ENC.leave));
-      if (s.tick - o.since > ENC.lapse * (t.kind === 'guide' ? 2 : 1) || far) {
+      if (s.tick - o.since > ENC.lapse * (t.kind === 'guide' ? 3 : 1) || far) {
         this.save.open = null;
         notes.push({ kind: 'lapse', enc: def.id });
       }
