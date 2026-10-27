@@ -41,6 +41,7 @@ export interface KitMeta {
 const ART_ID: Partial<Record<BuildingType, string>> = {
   camp: 'camp', storehouse: 'storehouse', outpost: 'outpost', fort: 'fort', barracks: 'barracks', farm: 'farm', olivePress: 'olive-press',
   woodTower: 'wood-tower', stoneTower: 'stone-tower', woodGate: 'wood-gate', stoneGate: 'stone-gate',
+  pitchKiln: 'pitch-kiln', // W-35: its ART-B art and working fx (smoke, the stoking flame)
   // M5h workplace chains (ART-C): each level its own art
   forge: 'forge', forge2: 'forge2', forge3: 'forge3', cookhouse: 'cookhouse', cookhouse2: 'cookhouse2', cookhouse3: 'cookhouse3',
   infirmary: 'infirmary', infirmary2: 'infirmary2', infirmary3: 'infirmary3', workshop: 'workshop', workshop2: 'workshop2', workshop3: 'workshop3',
