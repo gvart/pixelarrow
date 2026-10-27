@@ -2,6 +2,7 @@
  * War roster API (/api/war/*, M5e): the player's persistent soldiers (./persons.ts). Signed in and playable like the
  * online routes; bodies zod-checked.
  *
+ *   GET  /tunnel                      W-66: the Tunnel of Shades { alive, floor, nextAt, pending } (raises the men due; ./raise.ts)
  *   GET  /roster                      persons, caps, home strongroom (stock, items), captives held, upkeep
  *                                      (W-60: no recruiting or training; men join by claiming souls in a region)
  *   POST /persons/:id/equip { slot, uid|null } put on a strongroom item, or take one off
@@ -80,6 +81,7 @@ import { accept, inbox, offerGarrison, offerTerms, offerTruce, PRESENCE, rebel, 
 import { WAR_REGIONS } from './regions';
 import { answerPact, appoint, confidence, crownView, deliver, deposit as crownDeposit, endOrder, fundContract, fundWork, offerPact, postOrder, setTax, sign, vote } from './crown';
 import { CROWN, OFFICES, type Office } from '../../../src/war/net/crown';
+import { settleTunnelFor } from './raise';
 import { equip, formSquad, levelUp, payRansom, promote, releaseCaptive, retire, roster, seed } from './persons';
 
 export const war = new Hono<AppEnv>();
@@ -95,6 +97,8 @@ const skillId = z.string().refine((s): s is WarSkillId => s in SKILLS, 'unknown 
 const group = z.array(z.object({ cls: z.string().regex(/^[a-z_]{1,24}$/), level: z.number().int().min(1).max(10).optional() })).max(2 * ARMY_MAX); // fighters (seed checks ARMY_MAX) and civilians
 
 war.get('/roster', requirePlayable, async (c) => c.json(await roster(db(c.env), c.get('session').pid, Date.now())));
+// W-66: the Tunnel of Shades: { alive, floor, nextAt, pending } (the men due rise on this read; ./raise.ts)
+war.get('/tunnel', requirePlayable, async (c) => c.json(await settleTunnelFor(db(c.env), c.get('session').pid, Date.now())));
 
 war.post('/persons/:id/equip', requirePlayable, async (c) => {
   const id = idParam(c.req.param('id'));

@@ -45,6 +45,7 @@ import { trophies, type Trophy } from './bosses';
 import { ApiError } from '../errors';
 import { STAT_SEASON } from './peace';
 import { randomToken } from './store';
+import { applyRaise, raiseBonus, settleTunnelFor, type TunnelView } from './raise';
 import { batch, ensureHolder, goodsOf, HOME, itemsIn, lotsOf, pay as payFrom, placeItemStmt, planTake, putStmt, strongroom } from './holders';
 
 export type PersonState = 'active' | 'wounded' | 'captive' | 'dead' | 'training' | 'retired';
@@ -240,6 +241,8 @@ export interface Roster {
   /** E3: the home memorial (the fallen and the retired, newest first) and the guardians' trophies in the home town. */
   memorial: MemorialRow[];
   trophies: Trophy[];
+  /** W-66: the Tunnel of Shades (./raise.ts): men alive against the floor, the next rise, how many are still to come. */
+  tunnel: TunnelView;
 }
 
 /** E3: a grave (fallen) or an engraved honour (retired) on the player's home memorial. */
@@ -257,6 +260,7 @@ export async function memorial(db: D1Database, pid: number, limit = 100): Promis
 export async function roster(db: D1Database, pid: number, now: number): Promise<Roster> {
   await ensureStart(db, pid, now);
   await settle(db, pid, now);
+  const tunnel = await settleTunnelFor(db, pid, now); // W-66: the men the tunnel raised since the last read
   const up = await db.prepare('SELECT owed, unpaid FROM war_upkeep WHERE player_id = ?1').bind(pid).first<{ owed: number; unpaid: number }>();
   const [rows, stock, items, held, rate, mem, troph] = await Promise.all([
     persons(db, pid),
@@ -278,6 +282,7 @@ export async function roster(db: D1Database, pid: number, now: number): Promise<
     upkeep: { rate, owed: +(up?.owed ?? 0).toFixed(2), unpaid: !!up?.unpaid },
     memorial: mem,
     trophies: troph,
+    tunnel,
   };
 }
 
@@ -311,21 +316,29 @@ export async function armyCount(db: D1Database, pid: number): Promise<number> {
 }
 
 /**
- * W-60: a soul the player's squad claimed in `region` (src/war/sim/souls.ts) becomes his man there: active, deployed in
- * that region, the class and level he woke with. Only while the player has fewer than ARMY_MAX fighters, checked in the
- * insert itself (two regions claiming at once cannot pass the cap); false: refused (the army is full), nothing written.
+ * An insert of a new man, active, in `region` (null: at home), only while the player has fewer than `cap` fighters,
+ * checked in the insert itself (two writers at once cannot pass it); a run with no change: refused.
  */
-export async function claimSoul(db: D1Database, pid: number, p: WarPerson, region: string, now: number): Promise<boolean> {
+export function insertCapped(db: D1Database, pid: number, p: WarPerson, region: string | null, cap: number, now: number): D1PreparedStatement {
   const h = p.hero;
-  const r = await db
+  return db
     .prepare(
       `INSERT INTO war_persons (id, player_id, cls, name, level, xp, points, kills, battles, attrs, skills, gear, honours, state, slot, region, created_at, updated_at)
        SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, 0, 0, ?8, ?9, ?10, '[]', 'active', NULL, ?11, ?12, ?12
        WHERE (SELECT COUNT(*) FROM war_persons WHERE player_id = ?2 AND state NOT IN ('dead', 'retired') AND cls NOT LIKE 'civ\\_%' ESCAPE '\\') < ?13
        ON CONFLICT (id) DO NOTHING`,
     )
-    .bind(p.id, pid, h.cls ?? 'militia', h.name, h.level, h.xp, h.points, JSON.stringify(h.attrs), JSON.stringify(p.skills ?? []), JSON.stringify(h.equip), region, now, ARMY_MAX)
-    .run();
+    .bind(p.id, pid, h.cls ?? 'militia', h.name, h.level, h.xp, h.points, JSON.stringify(h.attrs), JSON.stringify(p.skills ?? []), JSON.stringify(h.equip), region, now, cap);
+}
+
+/**
+ * W-60: a soul the player's squad claimed in `region` (src/war/sim/souls.ts) becomes his man there: active, deployed in
+ * that region, the class and level he woke with (W-66: plus ./raise.ts raiseBonus). Only while the player has fewer than
+ * ARMY_MAX fighters, checked in the insert itself (two regions claiming at once cannot pass the cap); false: refused
+ * (the army is full), nothing written.
+ */
+export async function claimSoul(db: D1Database, pid: number, p: WarPerson, region: string, now: number): Promise<boolean> {
+  const r = await insertCapped(db, pid, applyRaise(p, await raiseBonus(db, pid)), region, ARMY_MAX, now).run();
   return (r.meta?.changes ?? 0) > 0;
 }
 

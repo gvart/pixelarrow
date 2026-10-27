@@ -70,6 +70,7 @@ import { log, logError } from '../telemetry/log';
 import { applyBossKill } from './bosses';
 import { elapsedTicks, loadMemory, MEMORY_KEY, remembered, storeMemory, writeMemory } from './memory';
 import type { WorldEvent } from '../../../src/war/world/events';
+import { settleTunnelFor } from './raise';
 import { applyFight, armyCount, claimForJoin, claimSoul, deployed, freeRaided, LIVE, release, releaseRegion } from './persons';
 import { applyCrafts, keepMends, returnMends, takeForMend } from './crafting';
 import { saveRegionHolds } from './holders';
@@ -400,6 +401,7 @@ export class WarRegionDO extends DurableObject<Env> {
     if (res.msg.t === 'welcome') this.sendSettlements(room, pid, true); // W-63
     if (res.msg.t === 'refused' && persons) this.write('release', () => release(this.env.DB!, region, m.squads!.flat()));
     // W-60: the soul gate counts his whole army (every region)
+    if (db && res.msg.t === 'welcome') await settleTunnelFor(db, pid, Date.now()); // W-66: the tunnel raises the men due on a join
     if (db && res.msg.t === 'welcome') room.setArmy(pid, await armyCount(db, pid));
     if (res.msg.t === 'welcome') await this.guideStart(pid, room);
     if (res.msg.t === 'welcome') await this.storyStart(pid, room); // W-65
