@@ -20,6 +20,7 @@ import type { BossSnap, GuardianEntry } from '../types';
 import { MOVES } from '../sim/bosses';
 import { HH, HW } from './iso';
 import type { DrawnAs } from './units';
+import { camShake, shakeFalloff } from './feel/shake';
 
 /** Audio-ready event names (`boss.<id>.<beat>` and the shared ones). */
 export const CUES = [
@@ -94,9 +95,7 @@ export class BossFx {
   private clock = 0;
   private lastNow = 0;
   private stopUntil = 0;
-  private trauma = 0;
   private nudge: { x: number; y: number; t0: number } | null = null;
-  private shook = { x: 0, y: 0 };
   private ctx: FxCtx | null = null;
   private mouths = new Map<string, Mouth>();
   /** Additive light the breath throws on the ground. */
@@ -158,10 +157,8 @@ export class BossFx {
   private shake(amount: number, x: number, y: number): void {
     const c = this.ctx;
     if (!c) return;
-    const p = c.feet({ x, y }), cx = (c.view.x + c.view.right) / 2, cy = (c.view.y + c.view.bottom) / 2;
-    const span = Math.hypot(c.view.right - c.view.x, c.view.bottom - c.view.y) * 0.65;
-    const k = Math.max(0, 1 - Math.hypot(p.x - cx, p.y - cy) / (span * 1.3));
-    this.trauma = Math.min(1, this.trauma + amount * k);
+    const p = c.feet({ x, y });
+    camShake.add(amount * shakeFalloff(p.x, p.y, c.view));
   }
   private hitStop(ms: number): void {
     this.stopUntil = Math.max(this.stopUntil, (this.ctx?.now ?? 0) + ms);
@@ -201,15 +198,12 @@ export class BossFx {
 
   /** Undo last frame's shake offset (call before the camera moves). */
   unshake(cam: Phaser.Cameras.Scene2D.Camera): void {
-    cam.scrollX -= this.shook.x;
-    cam.scrollY -= this.shook.y;
-    this.shook = { x: 0, y: 0 };
+    camShake.undo(cam);
   }
   /** This frame's shake and nudge offset (call after drawing; undone by unshake). */
   applyShake(cam: Phaser.Cameras.Scene2D.Camera, dt: number, now: number): void {
-    this.trauma = Math.max(0, this.trauma - (dt / 1000) * 1.4);
-    const s = this.trauma * this.trauma, amp = (16 * s) / Math.max(0.35, cam.zoom); // ~16 screen px at most
-    let x = amp * (Math.sin(now / 21) * 0.7 + Math.sin(now / 13.7) * 0.3), y = amp * 0.8 * (Math.sin(now / 17.3) * 0.7 + Math.sin(now / 9.1) * 0.3);
+    // E4: the shared shaker (./feel/shake.ts: every source's trauma, the player's setting), ~16 screen px at most
+    let { x, y } = camShake.offset(dt, now, cam.zoom);
     if (this.nudge) {
       const k = (now - this.nudge.t0) / 900;
       if (k >= 1) this.nudge = null;
@@ -219,9 +213,7 @@ export class BossFx {
         y += this.nudge.y * e;
       }
     }
-    this.shook = { x, y };
-    cam.scrollX += x;
-    cam.scrollY += y;
+    camShake.apply(cam, x, y);
   }
 
   // --- plays (pooled strip sprites) ---

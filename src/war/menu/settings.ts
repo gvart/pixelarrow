@@ -1,6 +1,6 @@
 /**
  * Settings, from the menu and in game (Esc, F10): Controls (every war key, two slots each, rebinding through
- * ../input; replaces the campaign's src/ui/settings/controls.ts and shortcutsSheet.ts), Display (the HUD's UI scale)
+ * ../input; replaces the campaign's src/ui/settings/controls.ts and shortcutsSheet.ts), Display (the HUD's UI scale, screen shake)
  * and Sound (mute and the four volumes). Everything is kept in localStorage as before: `war.bindings`, `war.uiScale`,
  * `pixelarrow.war.sound`.
  *
@@ -14,6 +14,7 @@ import { keyLabel, keys } from '../input/keys';
 import { setUiScale, uiScale, uiZoom, UI_SCALES, type UiScale } from '../view/hud/kit';
 import { DEFAULT_SOUND, loadSound, parseSound, saveSound, type WarSoundSettings } from '../view/sound/mix';
 import { injectMenuCss } from './style';
+import { setShakeOn, shakeOn } from '../view/feel/shake';
 
 export type SettingsTab = 'controls' | 'display' | 'sound';
 
@@ -136,6 +137,7 @@ export function openSettings(tab: SettingsTab = 'controls', hooks: SettingsHooks
   };
   modal.addEventListener('input', (e) => {
     const el = e.target as HTMLInputElement, k = el.dataset.snd as keyof WarSoundSettings | undefined;
+    if (el.dataset.shake !== undefined) { setShakeOn(el.checked); say(`Screen shake ${el.checked ? 'on' : 'off'}.`); return; }
     if (!k) return;
     const s = { ...(hooks.sound?.() ?? loadSound()) };
     if (k === 'sound') s.sound = el.checked;
@@ -173,7 +175,10 @@ function displayHtml(): string {
   const v = uiScale();
   return `<div class="rf-cap">UI scale</div>
     <div class="mn-scale">${UI_SCALES.map((s) => `<button class="rf-tbtn${s === v ? ' on' : ''}" data-scale="${s}">${SCALE_NAME(s)}</button>`).join('')}</div>
-    <div class="rf-dim" style="font-size:11.5px;margin-top:6px">How big the HUD, its panels and the menus are drawn. Auto picks by the window (now ${uiZoom().toFixed(2)} CSS px per art px).</div>`;
+    <div class="rf-dim" style="font-size:11.5px;margin-top:6px">How big the HUD, its panels and the menus are drawn. Auto picks by the window (now ${uiZoom().toFixed(2)} CSS px per art px).</div>
+    <div class="rf-cap" style="margin-top:12px">Camera</div>
+    <label class="mn-row" style="height:28px"><input type="checkbox" data-shake ${shakeOn() ? 'checked' : ''}>Screen shake</label>
+    <div class="rf-dim" style="font-size:11.5px">Walls coming down, rams and guardians' blows shake the view a little. Off: the view stays still.</div>`;
 }
 
 function soundHtml(s: WarSoundSettings): string {
