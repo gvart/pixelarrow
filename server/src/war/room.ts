@@ -443,7 +443,7 @@ export class WarRoom {
     const need = groups.reduce((a, g) => a + g.count, 0);
     if (need > this.per[m.team]) return refuse('quota', `army of ${need} is bigger than the alliance quota ${this.per[m.team]}`);
     this.dequeue(sessionPid);
-    if (this.queue.some((w) => w.join.team === m.team) || this.live[m.team] + need > this.per[m.team]) {
+    if (groups.length && (this.queue.some((w) => w.join.team === m.team) || this.live[m.team] + need > this.per[m.team])) { // W-66: a watcher (no squad) never waits
       this.queue.push({ pid: sessionPid, join: m, groups });
       const pos = this.queue.filter((w) => w.join.team === m.team).length;
       return { msg: { t: 'queued', reason: 'quota', pos, need, quota: this.quota() }, admitted: false };

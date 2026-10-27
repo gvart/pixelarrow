@@ -353,7 +353,7 @@ export class WarRegionDO extends DurableObject<Env> {
         const err = room.order(me.pid, m.o);
         if (err) send(ws, { t: 'error', code: err, detail: err === 'notYourGround' || err === 'atPeace' ? room.refusal : m.o.kind });
       } else if (m.t === 'view') room.view(me.pid, m);
-      else if (m.t === 'ping') send(ws, { t: 'pong', c: m.c, tick: room.currentTick, ms: this.tickMs() });
+      else if (m.t === 'ping') send(ws, { t: 'pong', c: m.c, tick: room.currentTick, ms: this.tickMs(), idle: !this.timer || room.alive() === 0 });
       else if (m.t === 'check') send(ws, room.check(me.pid, m));
       else if (m.t === 'dev') {
         const err = room.dev(me.pid, m);
@@ -391,8 +391,11 @@ export class WarRegionDO extends DurableObject<Env> {
         if (why) return send(ws, { t: 'refused', reason: 'region', detail: why });
       }
     }
+    // W-66: a join naming nobody (['none']: no man at home, his army destroyed) watches the region: no squad, no claim
+    if (m.squads?.every((g) => g.every((id) => id === 'none')) && room.spawnsNew(pid)) m = { ...m, squads: [] };
     let persons: WarPerson[][] | undefined;
-    if (m.squads && m.region === region && room.spawnsNew(pid)) {
+    if (m.squads?.length === 0) persons = [];
+    else if (m.squads && m.region === region && room.spawnsNew(pid)) {
       const d = this.env.DB;
       if (!d) return send(ws, { t: 'refused', reason: 'army', detail: 'no database' });
       const got = await claimForJoin(d, pid, region, m.squads, room.personsHere(), Date.now());
