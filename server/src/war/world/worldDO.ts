@@ -202,9 +202,12 @@ export class WarWorldDO extends DurableObject<Env> {
     this.announce(w, now);
   }
 
-  /** W-63 (RPC from WarRegionDO): a message to these players' world sockets (a settlement of theirs attacked). */
+  /**
+   * W-63 (RPC from WarRegionDO): a message to these players' world sockets (a settlement of theirs attacked), the
+   * chat-only ones too: a region view holds only that one (its HUD shows the notice).
+   */
   async notify(pids: number[], m: WorldServerMsg): Promise<void> {
-    for (const pid of pids) for (const ws of this.ctx.getWebSockets(`p:${pid}`)) if ((ws.deserializeAttachment() as Attachment | null)?.chat === undefined) send(ws, m);
+    for (const pid of pids) for (const ws of this.ctx.getWebSockets(`p:${pid}`)) send(ws, m);
   }
 
   /** W-62: every region room hears the running and next world events (the effect where one runs, a banner for all). */
