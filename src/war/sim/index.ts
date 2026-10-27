@@ -116,7 +116,7 @@ const SIDE_RATE = 0.1; // tiles a tick a block shifts sideways to give way to a 
 const SIDE_LOOK = 10; // tiles of open ground between two such blocks at which they start to give way
 const SIDE_GAP = 0.6; // tiles kept between the flanks of two blocks passing
 const KEEP_SIDE = 0.45; // tiles off the middle of the way a block giving way in a narrow place keeps its men ...
-const FOLD = 0.8; // ... moving a slot this much back per tile it would have lain over the middle
+const FOLD = 0.4; // ... moving a slot this much back per tile it would have lain over the middle
 const CROSS_WAIT = 0.25; // share of its pace a block keeps while it waits for another to cross its way
 const STALL = 10; // squad at rest: a unit that gets no nearer its slot this many ticks settles where it stands
 const WAKE = 0.5; // a settled unit walks again when its slot moves this much further off
@@ -2719,7 +2719,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
    */
   const meet = (a: Unit, b: Unit) =>
     a.vx * b.vx + a.vy * b.vy < -0.3 &&
-    ((!!works.bridgeAt(tileAt(grid, a.x, a.y)) && !!works.bridgeAt(tileAt(grid, b.x, b.y))) || (a.squad.team === b.squad.team && a.toSlot && b.toSlot && tight(a) && tight(b)));
+    ((!!works.bridgeAt(tileAt(grid, a.x, a.y)) && !!works.bridgeAt(tileAt(grid, b.x, b.y))) || (a.squad.team === b.squad.team && (a.squad !== b.squad || a.squad.side === 0) && a.toSlot && b.toSlot && tight(a) && tight(b)));
   /** A tile within 2 of where u stands that he may not step on from his own. */
   const tight = (u: Unit) => {
     const t = tileAt(grid, u.x, u.y), tx = t % grid.w, ty = (t / grid.w) | 0;
