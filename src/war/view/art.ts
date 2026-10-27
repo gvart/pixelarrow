@@ -57,7 +57,7 @@ interface TilesJson extends TilesMeta { cliffs?: { id: string; file: string; fra
  * Fetch the global and every biome's tiles.json and objects.json and every image they name (relative to the page:
  * public/war/). In a worker (./bakeWorker.ts; `base` absolute) the images are ImageBitmaps typed as images.
  */
-export async function loadArt(base = 'war/'): Promise<WarArt> {
+export async function loadArt(base = 'war/', onProgress?: (f: number) => void): Promise<WarArt> {
   const json = (p: string) => fetch(base + p).then((r) => r.json());
   // load events, not decode(): decoding hundreds of images at once rejects spuriously ("The source image cannot be
   // decoded"), always so in Playwright's bundled headless Chromium
@@ -89,11 +89,15 @@ export async function loadArt(base = 'war/'): Promise<WarArt> {
     const mine = k && T.cliffs?.length ? T.cliffs[0].id : null;
     sets.push({ name: l.name, tiles, sheetIx, varIx, earth: mine ?? 'earth', crag: mine && (T.cliffs![0].frames ?? 0) > 1 ? mine : 'crag', snow: has('granite-snow') ? 'granite-snow' : undefined, ice: has('granite-ice') ? 'granite-ice' : undefined });
   });
+  // the loading screen's bar (./loadScreen.ts): images in of all
+  const total = sheets.length + variants.length + cliffs.length + defs.length;
+  let got = 0;
+  const one = (p: string) => img(p).then((im) => (onProgress?.(++got / total), im));
   const [si0, vi0, ci, oi] = await Promise.all([
-    Promise.all(sheets.map((s) => img(s.file))),
-    Promise.all(variants.map((v) => img(v.file))),
-    Promise.all(cliffs.map((c) => img(c.file))),
-    Promise.all(defs.map((d) => img(d.file))),
+    Promise.all(sheets.map((s) => one(s.file))),
+    Promise.all(variants.map((v) => one(v.file))),
+    Promise.all(cliffs.map((c) => one(c.file))),
+    Promise.all(defs.map((d) => one(d.file))),
   ]);
   // the desert's red rock warmed from mud brown to the red and ochre of its walls (./rockFace.ts sandstone); its salt
   // bleached from slate grey to a white crust
