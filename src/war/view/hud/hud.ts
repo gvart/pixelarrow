@@ -64,6 +64,7 @@ import { mountPeace } from './peace';
 import { mountSettlements } from './settlements';
 import { mountGate } from './gate';
 import { mountTasks } from './tasks';
+import { mountFavour } from './favour';
 import { mountCrown } from './crown';
 import { mountGuide } from './guide';
 import { mountQuestTracker } from './quest';
@@ -395,6 +396,7 @@ export function hud(s: SandboxScene): void {
   mountPeace(s, mk); // W-61: the town level badge and card, alliance works and titles (./peace.ts)
   mountSettlements(s, mk); // W-63: the settlement card behind the town badge, Holdings, plots, notices (./settlements.ts)
   mountTasks(s, mk); // W-62 E7: daily and weekly tasks (./tasks.ts)
+  mountFavour(s, mk); // W-66: divine favour (./favour.ts)
   mountCrown(s, mk); // W-64: the crown and council (./crown.ts)
   mountWorldEvents(s, mk); // W-62: the world events card (./worldEvents.ts)
   mountClaimCard(s, mk); // the claim point card at the cursor (./claimCard.ts)

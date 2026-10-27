@@ -12,7 +12,7 @@
  *    third level (at most FAVOUR_ATTR_MAX) and a better rarity of the starting kit at FAVOUR_GEAR_AT. Capped so a max
  *    favour fresh man stays below a level 3 to 4 veteran (who has 4 to 6 points, a skill and his deeds).
  */
-import { normalizeItem, RARITIES, rarityRank, type Rarity } from '../../data/items';
+import { normalizeItem, RARITIES, RARITY_LABEL, rarityRank, type Rarity } from '../../data/items';
 import type { Equipment } from '../../data/units';
 import type { WarPerson } from '../types';
 
@@ -84,11 +84,11 @@ export function withFavour(p: WarPerson, b: FavourBonus): WarPerson {
   return { ...p, hero: { ...p.hero, points: p.hero.points + b.attr, equip } };
 }
 
-/** What each level unlocks, for the panel: its title and the bonus that changed there (empty: only the title). */
+/** What each level unlocks for new men, for the panel: the bonus that changed there (empty: only the title). */
 export function favourUnlocks(level: number): string[] {
   const b = favourBonus(level), a = favourBonus(level - 1), out: string[] = [];
-  if (level > 1 && b.attr > a.attr) out.push(`+${b.attr} attribute point${b.attr > 1 ? 's' : ''} for new men`);
-  if (level > 1 && b.gearTier > a.gearTier) out.push(`${gearRarity(b.gearTier)} starting kit for new men`);
+  if (level > 1 && b.attr > a.attr) out.push(`+${b.attr} attribute point${b.attr > 1 ? 's' : ''}`);
+  if (level > 1 && b.gearTier > a.gearTier) out.push(`${RARITY_LABEL[gearRarity(b.gearTier)]} starting kit`);
   return out;
 }
 

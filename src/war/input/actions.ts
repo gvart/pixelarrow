@@ -52,7 +52,7 @@ export const ACTION_IDS = [
   'build.mode', 'build.rotate', 'build.confirm', 'build.undo', 'build.flip', 'build.narrower', 'build.wider', 'build.gate', 'build.tower',
   'bld.upgrade', 'bld.repair', 'bld.demolish',
   'view.cutaway', 'view.map', 'view.normal', 'view.altitude', 'view.movement', 'view.ownership', 'view.biomes', 'view.resources', 'view.bossCam',
-  'panel.roster', 'panel.chest', 'panel.market', 'panel.guardian', 'panel.sound', 'panel.tasks', 'panel.crown', 'panel.holdings', 'panel.works', 'replay.open', 'go.world',
+  'panel.roster', 'panel.chest', 'panel.market', 'panel.guardian', 'panel.sound', 'panel.tasks', 'panel.crown', 'panel.holdings', 'panel.works', 'panel.favour', 'replay.open', 'go.world',
   'world.enter', 'world.routes', 'world.haul', 'world.fit', 'world.zoomIn', 'world.zoomOut',
   'chat.open', 'chat.mark', 'map.pin',
   'back', 'menu.settings', 'help.keys', 'dev.panel',
@@ -129,6 +129,7 @@ const DEFS: ActionDef[] = [
   def('panel.crown', 'region', 'View and panels', 'The crown and council', [k('KeyC')]),
   def('panel.holdings', 'region', 'View and panels', 'Holdings: your settlements', [k('KeyO')]),
   def('panel.works', 'region', 'View and panels', 'Alliance works and titles', [k('KeyU')]),
+  def('panel.favour', 'region', 'View and panels', 'Divine favour', [k('KeyF', { shift: true })]),
   def('replay.open', 'region', 'View and panels', 'Replay the last 3 minutes', [k('KeyR', { shift: true })]),
   def('go.world', 'region', 'View and panels', 'Back to the world map', [k('KeyW', { shift: true })]),
 

@@ -64,6 +64,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:#0e0907}
 .mn-ally.on,.mn-ally:focus-visible{transform:translateY(-4px);box-shadow:0 0 0 1px var(--rf-title),0 8px 24px rgba(0,0,0,.6)}
 .mn-ally .rf-tbtn{width:100%;height:26px}
 .mn-swatch{display:inline-block;width:9px;height:9px;margin-right:4px;border:1px solid #0e0907;vertical-align:-1px}
+.mn-fav{margin-left:6px;padding:1px 5px;font:700 10px/1.3 Inter,sans-serif;letter-spacing:.03em;color:var(--rf-gold);border:1px solid #6a5326;background:#1c130a;vertical-align:2px;white-space:nowrap}
 .mn-map{position:fixed;inset:0;width:100%;height:100%;display:block}
 .mn-side{position:fixed;top:12px;left:12px;bottom:12px;width:432px;padding:10px 14px 12px;display:flex;flex-direction:column}
 .mn-side .mn-h{margin-bottom:6px;padding-bottom:5px}
