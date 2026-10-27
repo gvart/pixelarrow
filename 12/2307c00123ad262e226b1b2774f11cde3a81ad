@@ -1,0 +1,37 @@
+tests/war/movementStuck.test.ts
+  s_fcb7475e0b5395::t_f32bb6b5c3eabc 93-95
+src/war/sim/index.ts
+  s_fcb7475e0b5395::t_8a3389ea37d4fc 109,111-112
+  s_fcb7475e0b5395::t_efb84cca184d85 118-119,826-829,831,835,837-841,843,1796-1799
+  s_fcb7475e0b5395::t_334512a4984d02 108,113-117,195,270-272,985,3488,3503
+  s_fcb7475e0b5395::t_c2d250a95543f2 3237-3239
+  s_fcb7475e0b5395::t_3cc97bdb3e0f0f 3285
+  s_fcb7475e0b5395::t_e43aef50c2c9ac 1778,3243,3246,3251,3270
+  s_fcb7475e0b5395::t_f5fed98c3e32d2 3244-3245,3247-3250
+  s_fcb7475e0b5395::t_3ca977d473b1c4 110
+  s_fcb7475e0b5395::t_55f388e0c2a515 120,1770-1772,1774-1775,1777,1784-1795,1812,1823,1836-1837
+  s_fcb7475e0b5395::t_8fc250b896018d 792,795-796,800,810-811,813,815-825,830,832-834,844-846
+  s_fcb7475e0b5395::t_b58e78fea6807f 145,3283-3284,3286,3293-3295,3297
+  s_fcb7475e0b5395::t_651340f0509d96 1756-1769,1773,1776,1780-1782,1800-1811,1813-1814,1819,1835,1838-1846
+  s_fcb7475e0b5395::t_572f8c61d1c679 3241-3242
+  s_fcb7475e0b5395::t_db0bf4a79c1c5f 1779,1783
+  s_fcb7475e0b5395::t_ead84963f320e5 790
+docs/WAR.md
+  s_fcb7475e0b5395::t_69ec1e7a2bd21e 793-808
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "122307c00123ad262e226b1b2774f11cde3a81ad",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
