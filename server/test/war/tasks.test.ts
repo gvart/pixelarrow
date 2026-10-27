@@ -144,9 +144,9 @@ describe('tasks (E7)', () => {
     // the gather watch: a man cuts wood and drops it at a store: counted; a carrier fetching stone from a store: not
     const w = new GatherWatch(), owner = () => `p:${p}`;
     const u = (id: number, state: UnitSnap['state'], carry?: string, load = 0) => ({ id, squad: 1, x: 0, y: 0, facing: 0, hp: 1, maxHp: 1, cls: 'civ_worker', state, carry, load }) as UnitSnap;
-    w.step([u(1, 'gather', 'wood', 2), u(2, 'move', 'stone', 5)], owner);
-    w.step([u(1, 'move', 'wood', 4), u(2, 'move', 'stone', 5)], owner);
-    w.step([u(1, 'idle'), u(2, 'idle')], owner);
+    expect(w.step([u(1, 'gather', 'wood', 2), u(2, 'move', 'stone', 5)], owner)).toEqual([]);
+    expect(w.step([u(1, 'move', 'wood', 4), u(2, 'move', 'stone', 5)], owner)).toEqual([]);
+    expect(w.step([u(1, 'idle'), u(2, 'idle')], owner)).toEqual([p]); // brought home: the guide's haul step
     expect(w.drain()).toEqual([[p, 'gatherWood', 4]]);
     expect(w.drain()).toEqual([]);
     // a man who dies with his load gathered nothing

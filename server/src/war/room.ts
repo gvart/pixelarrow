@@ -1034,7 +1034,8 @@ export class WarRoom {
       this.owners[s.id] = s.owner;
       this.teams[s.id] = s.team;
     }
-    this.gather.step(this.snap.units, (sq) => this.owners[sq]); // W-62 E7
+    // W-62 E7; a load brought home also closes the guide's haul step, as offline (his gatherers fill a store)
+    for (const pid of this.gather.step(this.snap.units, (sq) => this.owners[sq])) this.guide.mark(pid, 'haul');
     const tick = this.snap.tick, wire: typeof this.snap.units = [];
     let blow = false;
     for (const u of this.snap.units) {

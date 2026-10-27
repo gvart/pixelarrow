@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 // W-62 E7 the Tasks panel (src/war/view/hud/tasks.ts) and the wonder card on the Works tab (src/war/view/hud/peaceCards.ts).
 import { offlineTasks, tasksHtml, until } from '../../src/war/view/hud/tasks';
 import { offlineWorks, worksHtml } from '../../src/war/view/hud/peaceCards';
-import { TASKS } from '../../src/war/net/tasks';
+import { DAILY, TASKS, WEEKLY } from '../../src/war/net/tasks';
+import { fill, GUIDE_LORE, ORDER_LORE, TASK_LORE } from '../../src/war/net/questLore';
+import { GUIDE_STEPS } from '../../src/war/net/guide';
 import { WONDER } from '../../src/war/net/works';
 
 const NOW = Date.UTC(2031, 0, 6, 12);
@@ -26,6 +28,20 @@ describe('E7 tasks panel', () => {
     expect(html).toContain('reroll used today');
     expect(html).toContain('+50%');
     expect(until(3 * 86_400_000 + 4 * 3_600_000)).toBe('3d 4h');
+  });
+});
+
+describe('quest lore on the tasks, the guide and the orders', () => {
+  it('every task names its giver, story, where to go and how it pays, with Track on open ones', () => {
+    for (const t of [...DAILY, ...WEEKLY]) expect(TASK_LORE[t.metric].giver.name).toBeTruthy();
+    for (const s of GUIDE_STEPS) expect(GUIDE_LORE[s.id].story.length).toBeGreaterThan(20);
+    for (const k of ['attack', 'defend', 'rally', 'supply'] as const) expect(ORDER_LORE[k].pay).toBeTruthy();
+    const v = offlineTasks(42, NOW), html = tasksHtml(v, true), lore = TASK_LORE[v.tasks[0].metric];
+    expect(html).toContain(lore.giver.name);
+    expect(html).toContain('Where');
+    expect(html).toContain('press Claim here: the reward goes into your home strongroom');
+    expect(html.match(/data-act="track"/g)).toHaveLength(v.tasks.length);
+    expect(fill('Raise a camp in {town}', { town: 'Dodona' })).toBe('Raise a camp in Dodona');
   });
 });
 
