@@ -29,6 +29,7 @@ import { GUIDE_LAIR, GUIDE_SOUL, guideSpots, HOME_R } from '../net/guide';
 import { guideKey, guideOpen, loadGuide, setGuide } from './hud/guide';
 import { ARMY_MAX } from '../sim/soldiers';
 import { WORLD_REGIONS } from '../regions';
+import { chatBusy } from './hud/chat';
 
 const q = new URLSearchParams(location.search);
 // M7d: a scenario may name its own region (the landmark raids)
@@ -44,7 +45,7 @@ mountGameMenu({
     const s = live;
     if (!s?.sel) return true;
     return !s.build.active && !s.build.tool && !s.interact.open && !s.siege.armed && !s.mapOpen && s.sel.units.size === 0
-      && !document.querySelector('#rfModes.open');
+      && !document.querySelector('#rfModes.open') && !chatBusy();
   },
   world: q.has('world') ? () => document.getElementById('rfWorld')?.click() : undefined,
   hooks: {

@@ -5,7 +5,8 @@
  *   top left       W-62: the first-hour quest tracker in a home region (./guide.ts)
  *   (no top band)  what the men carry and the town's store are in the squad chest (I, bottom right: ./chest.ts); a cost
  *                  shows "needs 6 wood (you have 2)" where it is asked (build bar, upgrade, forge, market: ./goods.ts)
- *   bottom left    round minimap (./minimap.ts), the view mode switcher in its corner (F2-F7) and the mode's legend over it (./modes.ts)
+ *   bottom left    round minimap (./minimap.ts), the view mode switcher in its corner (F2-F7) and the mode's legend over it (./modes.ts);
+ *                  W-62 E6 the alliance chat over them (Enter; marks P: ./chat.ts)
  *   centre         the full map on M (./fullMap.ts)
  *   bottom centre  command card, shown with a selection (a selected building or site wins over men), in groups:
  *                  selection (class icon, name, men, hp) | orders (move, attack, attack-move: Ctrl + right click or the button then a click, hold H, stop X) over the
@@ -54,6 +55,7 @@ import { needChips, shortText } from './goods';
 import { localGoods, mountChest, storeNear } from './chest';
 import { mountSouls } from './souls';
 import { mountWorldEvents } from './worldEvents';
+import { mountRegionChat } from './chatRegion';
 import { mountPeace } from './peace';
 import { mountGuide } from './guide';
 import { RECIPES } from '../../../data/recipes';
@@ -378,6 +380,7 @@ export function hud(s: SandboxScene): void {
   mountPeace(s, mk); // W-61: the town level badge and card, alliance works and titles (./peace.ts)
   mountWorldEvents(s, mk); // W-62: the world events card (./worldEvents.ts)
   mountGuide(s, mk); // W-62: the first-hour quest tracker, top left, and its world markers (./guide.ts)
+  mountRegionChat(s); // W-62 E6: the alliance chat above the minimap, map marks (./chat.ts)
   const groups = mountGroups(s, mk, tipOn); // W-53: the control group bar over the card, numbers on the map
 
   // ---------- scale ----------

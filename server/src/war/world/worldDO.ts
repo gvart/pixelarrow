@@ -21,11 +21,14 @@
  *    home with their gear) and the next season begins with fresh owners and score. Men, gear and titles stay.
  *  - Sockets (/ws/war/world, hibernation API): the Worker authenticates and forwards x-player-id and x-alliance; each
  *    gets the snapshot on connect and again after changes, at most once per PUSH_MS. Messages: src/war/net/world.ts.
+ *  - W-62 E6 chat (`?chat=1`: a chat-only socket, tagged `chat:<alliance>`, no snapshots): on connect the alliance's
+ *    last messages and the player's mutes; a message or mark goes to every chat socket of the sender's alliance only,
+ *    through the rate gate (./chat.ts ChatGate), free text masked and kept in D1 (./chat.ts).
  */
 import { DurableObject } from 'cloudflare:workers';
 import type { Env } from '../../env';
 import { logError } from '../../telemetry/log';
-import { parseWorldMsg, type RegionState, type SeasonResult, type SeasonSnap, type TransferError, type TransferOrder, type TransitSnap, type WorldServerMsg, type WorldSnapshot } from '../../../../src/war/net/world';
+import { parseWorldMsg, type WorldClientMsg, type RegionState, type SeasonResult, type SeasonSnap, type TransferError, type TransferOrder, type TransitSnap, type WorldServerMsg, type WorldSnapshot } from '../../../../src/war/net/world';
 import type { AllianceId, Side } from '../../../../src/war/world/types';
 import { scoreRate } from '../../../../src/war/world/season';
 import { WAR_SEASON } from '../../../../src/war/world/alliances';
@@ -36,11 +39,13 @@ import { snapOf, World, type ArriveResult, type DepartResult, type Ports, type R
 import { WORLD_REGIONS } from '../../../../src/war/world/regions';
 import type { Crest } from '../../../../src/war/net/world';
 import { buildBoard, crestsOf, recordSeason } from './seasonWar';
+import { ChatGate, chatHistory, chatMute, chatMutes, chatReport, chatStore } from './chat';
+import type { ChatMsg, Mark } from '../../../../src/war/net/chat';
 
 const STATE = 'world';
 const PUSH_MS = 1000;
 
-interface Attachment { pid: number; alliance: AllianceId | null }
+interface Attachment { pid: number; alliance: AllianceId | null; /** W-62 E6: a chat socket (its player's name). */ chat?: string }
 
 export class WarWorldDO extends DurableObject<Env> {
   private world: World | null = null;
@@ -48,6 +53,9 @@ export class WarWorldDO extends DurableObject<Env> {
   private arriving: Promise<void> = Promise.resolve();
   /** W-62: each player's banners and crests (D1), read once per player and dropped at a rollover. */
   private crests = new Map<number, Crest[]>();
+  /** W-62 E6: the chat's rate gate; mark ids (marks are not kept). */
+  private gate = new ChatGate();
+  private markSeq = 0;
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -265,10 +273,14 @@ export class WarWorldDO extends DurableObject<Env> {
     if (!Number.isSafeInteger(pid) || pid <= 0) return new Response('Missing player', { status: 400 });
     const a = request.headers.get('x-alliance');
     const alliance = a === null || a === '' ? null : (Number(a) as AllianceId);
+    const chat = new URL(request.url).searchParams.get('chat') === '1';
     const [client, server] = Object.values(new WebSocketPair());
-    this.ctx.acceptWebSocket(server, [`p:${pid}`]);
-    server.serializeAttachment({ pid, alliance } satisfies Attachment);
-    send(server, { t: 'world', ...(await this.snapshot(pid, alliance)) });
+    this.ctx.acceptWebSocket(server, chat ? [`p:${pid}`, `chat:${alliance ?? 'none'}`] : [`p:${pid}`]);
+    server.serializeAttachment({ pid, alliance, ...(chat ? { chat: request.headers.get('x-player-name') || `Player ${pid}` } : {}) } satisfies Attachment);
+    if (chat) {
+      const d = this.env.DB;
+      send(server, { t: 'chat', you: pid, msgs: d && alliance !== null ? await chatHistory(d, alliance) : [], muted: d ? await chatMutes(d, pid) : [] });
+    } else send(server, { t: 'world', ...(await this.snapshot(pid, alliance)) });
     const headers = new Headers();
     const proto = request.headers.get('x-ws-protocol');
     if (proto) headers.set('sec-websocket-protocol', proto);
@@ -282,6 +294,7 @@ export class WarWorldDO extends DurableObject<Env> {
     if (!m) return send(ws, { t: 'error', code: 'parse' });
     try {
       if (m.t === 'ping') send(ws, { t: 'pong', c: m.c });
+      else if (m.t === 'say' || m.t === 'mark' || m.t === 'mute' || m.t === 'report') await this.chat(ws, me, m);
       else {
         const r = await this.transfer(me.pid, me.alliance, { from: m.from, to: m.to, squad: m.squad, ids: m.ids });
         send(ws, 'error' in r ? { t: 'error', code: r.error, detail: r.detail } : { t: 'transferred', transit: r.transit });
@@ -289,6 +302,32 @@ export class WarWorldDO extends DurableObject<Env> {
     } catch (e) {
       logError('war_world_message_failed', e);
     }
+  }
+
+  /** W-62 E6: a chat socket's message (./chat.ts); other sockets may not chat. */
+  private async chat(ws: WebSocket, me: Attachment, m: Extract<WorldClientMsg, { t: 'say' | 'mark' | 'mute' | 'report' }>): Promise<void> {
+    if (me.chat === undefined) return send(ws, { t: 'error', code: 'parse', detail: 'not a chat socket' });
+    const d = this.env.DB, now = Date.now();
+    if (m.t === 'mute') return void (d && (await chatMute(d, me.pid, m.pid, m.on, now)));
+    if (me.alliance === null) return send(ws, { t: 'chatError', code: 'noAlliance' });
+    if (m.t === 'report') {
+      if (d) await chatReport(d, me.pid, me.alliance, m.id, now);
+      return send(ws, { t: 'chatError', code: 'reported' });
+    }
+    if (m.t === 'say' && m.text !== undefined && !m.text.trim()) return;
+    const g = this.gate.check(me.pid, now);
+    if (!g.ok) return send(ws, { t: 'chatError', code: g.code, ...(g.until ? { until: g.until } : {}) });
+    if (m.t === 'mark') {
+      const mark: Mark = { id: ++this.markSeq, pid: me.pid, name: me.chat, kind: m.kind, at: m.at, x: m.x, y: m.y, t: now };
+      return this.toAlliance(me.alliance, { t: 'marked', mark });
+    }
+    const said = m.phrase !== undefined ? { phrase: m.phrase } : { text: m.text! };
+    const msg: ChatMsg = d ? await chatStore(d, me.alliance, me.pid, me.chat, said, now) : { id: ++this.markSeq, pid: me.pid, name: me.chat, at: now, ...said };
+    this.toAlliance(me.alliance, { t: 'said', msg });
+  }
+
+  private toAlliance(alliance: AllianceId, m: WorldServerMsg): void {
+    for (const ws of this.ctx.getWebSockets(`chat:${alliance}`)) send(ws, m);
   }
 
   async webSocketClose(ws: WebSocket): Promise<void> {
@@ -309,7 +348,7 @@ export class WarWorldDO extends DurableObject<Env> {
     const now = Date.now();
     for (const ws of this.ctx.getWebSockets()) {
       const a = ws.deserializeAttachment() as Attachment | null;
-      if (!a) continue;
+      if (!a || a.chat !== undefined) continue;
       const snap = w.snapshot(a.pid, a.alliance, counts, now);
       if (this.env.DB && a.alliance !== null) snap.boards = await boardsSeen(this.env.DB, a.alliance);
       snap.crests = await this.crestsFor(a.pid);

@@ -80,6 +80,9 @@ export const DELETION_MAP: Record<string, TableRule> = {
   war_player_stats: { rule: 'delete', pid: ['player_id'] },
   // W-62: the banners and crests he earned at a season's end
   war_cosmetics: { rule: 'delete', pid: ['player_id'] },
+  // W-62 E6: his alliance chat lines and whom he muted (or who muted him)
+  war_chat: { rule: 'delete', pid: ['player_id'] },
+  war_chat_mutes: { rule: 'delete', pid: ['player_id', 'muted_id'] },
   display_name_history: { rule: 'delete', pid: ['player_id'], via: 'one row is written back at the tombstone step so the freed name stays held 30 days' },
 
   // Kept against the tombstone.
@@ -89,6 +92,8 @@ export const DELETION_MAP: Record<string, TableRule> = {
   war_treasury_log: { rule: 'keep_tombstone', kept: ['player_id'] },
   admin_audit: { rule: 'keep_tombstone', kept: ['player_id'] },
   deletion_jobs: { rule: 'keep_tombstone', kept: ['player_id'] },
+  // W-62 E6: chat reports are moderation records
+  war_chat_reports: { rule: 'keep_tombstone', kept: ['reporter_id', 'author_id'] },
 
   // Other players' history.
   battle_log: { rule: 'shared_history', kept: ['attacker_id', 'defender_id'] },

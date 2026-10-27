@@ -37,6 +37,8 @@ import { mountGameMenu } from '../menu/gameMenu';
 import { EVENT_INFO, type WorldEvent } from '../world/events';
 import { EVENT_LOOK, eventIcon } from './eventLook';
 import type { Crest, SeasonBoard } from '../net/world';
+import { chatBusy, mountChat, type ChatHandle } from '../view/hud/chat';
+import { MockChat, NetChat } from '../net/chatLink';
 
 const q = new URLSearchParams(location.search);
 const offline = q.has('offline');
@@ -519,12 +521,13 @@ canvas.addEventListener('pointerup', (e) => {
 canvas.addEventListener('dblclick', (e) => enter(map.regionAt(...map.toMap(e.clientX, e.clientY))));
 canvas.addEventListener('wheel', (e) => { e.preventDefault(); map.zoom(e.deltaY > 0 ? 1 / 1.15 : 1.15, e.clientX, e.clientY); placeCard(); }, { passive: false });
 // Esc with nothing selected or open: the in-game menu; F10: settings (src/war/menu)
-mountGameMenu({ idle: () => !ordering && !st.selected && !haul.open });
+mountGameMenu({ idle: () => !ordering && !st.selected && !haul.open && !chatBusy() });
 keys.setContexts(() => ['world', 'global']);
 addEventListener('keydown', (e: KeyboardEvent) => {
   const a = keys.act(e);
   if (a === 'back' && boardOpen) return void toggleBoard();
-  if (a === 'world.enter') ordering ? void sendOrder() : enter(st.hover ?? st.selected);
+  // W-62 E6: Enter with nothing to enter opens the alliance chat
+  if (a === 'world.enter') ordering ? void sendOrder() : st.hover ?? st.selected ? enter(st.hover ?? st.selected) : chat?.open();
   else if (a === 'back') ordering ? closeOrder() : selectRegion(null);
   else if (a === 'world.routes') (st.routes = !st.routes), renderBand();
   else if (a === 'world.haul') toggleHaul();
@@ -541,6 +544,7 @@ void WorldMap.load(canvas).then(async (m) => {
   fit();
   addEventListener('resize', () => fit());
   renderBand();
+  chat = mountWorldChat(m);
   const frame = () => { st.now = Date.now(); map.draw(st); requestAnimationFrame(frame); };
   requestAnimationFrame(frame);
   setInterval(() => { renderSquads(); renderSeason(); renderEvents(); }, 1000);
@@ -552,3 +556,31 @@ void WorldMap.load(canvas).then(async (m) => {
   }
   (window as unknown as { __world: unknown }).__world = { st, map, source, haul: (from: string, to: string, kind: HaulKind = 'wagon') => { Object.assign(haul, { open: true, from, to, kind }); renderHaul(); renderBand(); }, select: selectRegion, order: openOrder, hover: (id: string | null, x = 0, y = 0, lm = false) => { st.hover = id; hoverLm = lm ? id : null; mouse = { x, y }; placeCard(); } };
 });
+
+// ---------- W-62 E6 alliance chat (../view/hud/chat.ts): above the events card; world marks in map px ----------
+let chat: ChatHandle | null = null;
+function mountWorldChat(m: WorldMap): ChatHandle {
+  const link = offline ? new MockChat() : new NetChat(Number(q.get('dev')) || null);
+  const at = (c: { at: string; x: number; y: number }): [number, number] | null => (c.at === 'world' ? [c.x, c.y] : m.art.regions[c.at]?.centroid ?? null);
+  const h = mountChat({
+    link,
+    scope: 'world',
+    zoom,
+    place: (el) => {
+      const r = eventsEl.getBoundingClientRect(), z = zoom();
+      el.style.left = '8px';
+      el.style.bottom = `${eventsEl.offsetHeight ? (innerHeight - r.top + 6) / z : 12}px`;
+    },
+    project: (c) => {
+      const p = at(c), r = canvas.getBoundingClientRect();
+      if (!p) return null;
+      const [x, y] = m.toScreen(p[0], p[1]);
+      return { x: x + r.left, y: y + r.top };
+    },
+    pick: (x, y) => { const r = canvas.getBoundingClientRect(), [mx, my] = m.toMap(x - r.left, y - r.top); return { x: mx, y: my }; },
+    focus: (c) => { const p = at(c); if (p) (m.x = p[0] - canvas.clientWidth / 2 / m.k), (m.y = p[1] - canvas.clientHeight / 2 / m.k); },
+    where: (id) => (id === 'world' ? 'World map' : name(id)),
+  });
+  (window as unknown as { __chat: unknown }).__chat = link;
+  return h;
+}
