@@ -139,7 +139,7 @@ async function titleMenu(v: api.StartView): Promise<void> {
   const homeTown = v.alliance !== null ? ALLIANCES[v.alliance].home : v.home;
   if (tunnel && tunnel.alive === 0 && tunnel.pending > 0 && homeTown && !destroyedSeen) {
     destroyedSeen = true;
-    destroyedScreen(stage, homeTown, tunnel, { watch: () => enterRegion(homeTown, v.alliance ?? 0), back: () => void titleMenu(v) });
+    stop = destroyedScreen(stage, homeTown, tunnel, { watch: () => enterRegion(homeTown, v.alliance ?? 0), back: () => void titleMenu(v), due: () => ((destroyedSeen = false), void titleMenu(v)) });
     return;
   }
   titleScreen(stage, { name, alliance: v.alliance, home: v.home, men, where, favour }, {

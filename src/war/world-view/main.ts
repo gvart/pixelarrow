@@ -47,6 +47,7 @@ import { mountPins, type PinHandle } from '../view/hud/pins';
 import { MockChat, NetChat, worldTaps } from '../net/chatLink';
 import { warAuth } from '../net/session';
 import { levelName } from '../net/settlements';
+import { wipeCard } from '../view/hud/wipeCard';
 
 const q = new URLSearchParams(location.search);
 const offline = q.has('offline');
@@ -637,6 +638,7 @@ void WorldMap.load(canvas).then(async (m) => {
     say(String((e as Error).message), 60_000);
     band.querySelector('#wvStatus')!.textContent = 'offline: no server';
   }
+  if (source.mode === 'net') watchTunnel();
   // the region view's events card (Show on map, ../view/hud/worldEvents.ts): ?focus=<region> centred and selected
   const focus = q.get('focus'), fc = focus ? m.art.regions[focus]?.centroid : null;
   if (focus && fc && worldRegion(focus)) {
@@ -645,6 +647,28 @@ void WorldMap.load(canvas).then(async (m) => {
   }
   (window as unknown as { __world: unknown }).__world = { st, map, source, haul: (from: string, to: string, kind: HaulKind = 'wagon') => { Object.assign(haul, { open: true, from, to, kind }); renderHaul(); renderBand(); }, select: selectRegion, order: openOrder, hover: (id: string | null, x = 0, y = 0, lm = false) => { st.hover = id; hoverLm = lm ? id : null; mouse = { x, y }; placeCard(); } };
 });
+
+// ---------- W-66 his army destroyed (../view/hud/wipeCard.ts): the card over the map, home to watch the tunnel ----------
+function watchTunnel(): void {
+  const homeOf = () => (st.you !== null ? ALLIANCES[st.you]?.home : undefined);
+  const el = document.createElement('div');
+  el.id = 'rfWipe';
+  el.addEventListener('pointerdown', (e) => e.stopPropagation());
+  document.body.appendChild(el);
+  const wipe = wipeCard(el, worldRegion(homeOf() ?? '')?.name ?? 'your home town', () => enter(homeOf() ?? null));
+  let t: { alive: number; pending: number; nextAt: number | null } | null = null, shown = false;
+  const pull = async () => {
+    const auth = await warAuth(source.devId).catch(() => null);
+    const r = await fetch('/api/war/tunnel', { headers: auth?.headers ?? {} }).catch(() => null);
+    if (r?.ok) t = await r.json();
+    const dead = !!t && t.alive === 0 && t.pending > 0;
+    if (dead && !shown) (shown = true), wipe.show(true);
+    if (!dead) (shown = false), wipe.show(false);
+  };
+  void pull();
+  setInterval(() => void pull(), 10_000);
+  setInterval(() => wipe.set(t?.nextAt ?? null, Date.now()), 500);
+}
 
 // ---------- personal markers (../view/hud/pins.ts): a middle click, this player only; in map px ----------
 let pins: PinHandle | null = null;
