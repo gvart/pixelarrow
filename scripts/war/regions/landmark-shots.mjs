@@ -12,6 +12,7 @@ const problems = captureErrors(page, { prefix: true, echo: true });
 for (const id of ids) {
   await page.goto(`${base}sandbox.html?region=${id}&sim=real&offline=1`);
   await page.waitForFunction(() => window.__sandbox?.sim?.cur?.buildings?.length > 0, null, { timeout: 240000 }).catch(async (e) => { console.log(problems, await page.evaluate(() => Object.keys(window.__sandbox ?? {}))); throw e; });
+  await page.waitForFunction(() => !document.getElementById('rfLoad'), null, { timeout: 120000 }); // the loading screen gone (src/war/view/loadScreen.ts)
   await page.evaluate(() => window.__sandbox.setFog(false));
   await page.waitForTimeout(1500);
   await page.keyboard.press('l'); // the landmark card off the picture

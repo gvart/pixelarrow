@@ -18,6 +18,7 @@ const shot = async (name) => {
 const boot = async (q) => {
   await page.goto(`${base}sandbox.html?region=test-ridge&sim=real&${q}`);
   await page.waitForFunction(() => window.__sandbox?.sim?.cur && document.getElementById('dev'), null, { timeout: 90000 });
+  await page.waitForFunction(() => !document.getElementById('rfLoad'), null, { timeout: 120000 }); // the loading screen gone (src/war/view/loadScreen.ts)
 };
 /** Canvas px of a tile point. */
 const scr = (x, y) => page.evaluate(([x, y]) => window.__sandbox.toScreen(x, y), [x, y]);

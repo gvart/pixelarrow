@@ -14,7 +14,7 @@ const shot = async (name) => {
   await page.screenshot({ path: `${out}/${name}.png` });
   console.log('saved', `${out}/${name}.png`);
 };
-const ready = async () => { await page.waitForFunction(() => window.__sandbox?.sim?.cur?.buildings?.length > 0, null, { timeout: 180000 }); await page.evaluate(() => window.__sandbox.setFog(false)); };
+const ready = async () => { await page.waitForFunction(() => window.__sandbox?.sim?.cur?.buildings?.length > 0, null, { timeout: 180000 }); await page.waitForFunction(() => !document.getElementById('rfLoad'), null, { timeout: 120000 }); await page.evaluate(() => window.__sandbox.setFog(false)); };
 
 /** Select building `id` and centre the camera on it. */
 const focus = (id) => page.evaluate((id) => {

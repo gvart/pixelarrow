@@ -136,6 +136,7 @@ try {
   await Promise.all([page.waitForURL(/sandbox\.html/, { timeout: 30_000, waitUntil: 'commit' }), page.keyboard.press('Enter')]);
   check(page.url().includes(`region=${home}`) && page.url().includes('net='), `entered ${home} (${page.url().split('?')[1]})`);
   await page.waitForFunction(() => window.__sandbox?.sim?.cur?.squads?.some((q) => q.team === Number(new URLSearchParams(location.search).get('team')) && q.units.length > 0), null, { timeout: 180_000 });
+  await page.waitForFunction(() => !document.getElementById('rfLoad'), null, { timeout: 120000 }); // the loading screen gone (src/war/view/loadScreen.ts)
   const sq = await page.evaluate(() => {
     const s = window.__sandbox, team = Number(new URLSearchParams(location.search).get('team')), me = s.sim.playerId;
     const q = s.sim.cur.squads.find((x) => x.team === team && (me === null || x.owner === `p:${me}`) && x.units.length);

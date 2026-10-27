@@ -11,6 +11,7 @@ const wait = (ms) => page.waitForTimeout(ms);
 const boot = async (id) => {
   await page.goto(`${base}sandbox.html?region=test-ridge&scenario=${id}&seed=1`);
   await page.waitForFunction(() => window.__sandbox?.sim?.cur && document.getElementById('dev'), null, { timeout: 120000 });
+  await page.waitForFunction(() => !document.getElementById('rfLoad'), null, { timeout: 120000 }); // the loading screen gone (src/war/view/loadScreen.ts)
   await wait(2500);
 };
 const select = (squad) => page.evaluate((q) => { const s = window.__sandbox; s.sel.set(s.sim.cur.squads[q].units); }, squad);

@@ -18,6 +18,7 @@ const fill = async (sel, v) => { await page.fill(sel, String(v)); await page.dis
 
 await page.goto(`${base}sandbox.html?region=test-ridge&sim=real&scenario=market`);
 await page.waitForFunction(() => window.__sandbox?.sim?.cur && document.getElementById('rfMarketBtn') && (window.__sandbox.sim.cur.stock?.[0]?.coin ?? 0) > 0, null, { timeout: 120000 });
+await page.waitForFunction(() => !document.getElementById('rfLoad'), null, { timeout: 120000 }); // the loading screen gone (src/war/view/loadScreen.ts)
 await wait(2500);
 // select the militia in the court
 await page.evaluate(() => { const s = window.__sandbox; for (const q of s.sim.squads.values()) if (q.team === 0 && q.owner === 'you') { s.selected.add(q.id); break; } });
