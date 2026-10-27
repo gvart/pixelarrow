@@ -316,6 +316,8 @@ export interface Snapshot {
  * what the next level still needs.
  */
 export interface TownLevelSnap {
+  /** W-63: the town's centre piece (its camp or fort; a team may hold several towns in a region). */
+  id: number;
   team: number; level: number; name: string; x: number; y: number; r: number;
   variety: number; stone: number; closed: boolean; stoneWalls: boolean; next: string[];
 }

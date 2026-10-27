@@ -1,7 +1,9 @@
 /**
- * W-61 town level (docs/WAR.md "Town level"): a team's town in a region levels up from what it has built there. The town
- * is the ground within TOWN.r tiles of its first standing camp or fort (else its first store); it is measured every
- * TOWN.every ticks from the team's own standing pieces there (pre-built pieces do not count: they were not built):
+ * W-61 town level (docs/WAR.md "Town level"): a team's town in a region levels up from what it has built there. W-63:
+ * every standing camp or fort a team built is a town centre (a team with none: its first store), so a team may hold
+ * several towns in a region and each levels on its own. A town is the ground within TOWN.r tiles of its centre; a piece
+ * counts for its team's nearest centre that near. Towns are keyed by centre piece id and measured every TOWN.every
+ * ticks from the team's own standing pieces (pre-built pieces do not count: they were not built):
  *
  *  - variety: how many kinds of building stand (a forge of any level is one kind, every wall segment one, ...);
  *  - stone: the share of the built footprint that is stone;
@@ -81,6 +83,7 @@ export function nextNeeds(t: Pick<TownLevel, 'level' | 'variety' | 'stone' | 'cl
 }
 
 export function createTownLevels(grid: Grid, pieces: () => readonly Piece[], mob: number) {
+  /** W-63: the towns by centre piece id (teams ascending, centres in id order within a team). */
   const levels = new Map<number, TownLevel>();
   const { w, h } = grid;
   const seen = new Uint32Array(w * h);
@@ -107,45 +110,75 @@ export function createTownLevels(grid: Grid, pieces: () => readonly Piece[], mob
 
   const measure = () => {
     const all = pieces();
-    const centres = new Map<number, Piece>();
+    // W-63: every standing camp or fort a team built is a town centre; a team with none has one round its first store
+    const camps = new Map<number, Piece[]>(), stores = new Map<number, Piece>();
     for (const b of all) {
       if (!up(b) || b.pre || !b.def.store || b.team === NEUTRAL_TEAM || b.team === mob || b.team < 0) continue;
-      const cur = centres.get(b.team);
-      const main = (p: Piece) => p.type === 'camp' || p.type === 'fort';
-      if (!cur || (main(b) && !main(cur))) centres.set(b.team, b);
+      if (b.type === 'camp' || b.type === 'fort') {
+        const l = camps.get(b.team);
+        if (l) l.push(b);
+        else camps.set(b.team, [b]);
+      } else if (!stores.has(b.team)) stores.set(b.team, b);
     }
+    for (const [team, b] of stores) if (!camps.has(team)) camps.set(team, [b]);
     levels.clear();
-    for (const [team, c] of [...centres].sort((a, b) => a[0] - b[0])) {
-      const kinds = new Set<string>();
-      let stoneN = 0, allN = 0, walls = 0, woodWalls = 0;
-      for (const b of all) {
-        if (b.team !== team || !up(b) || b.pre || SKIP.has(b.type) || (b.x - c.x) ** 2 + (b.y - c.y) ** 2 > TOWN.r * TOWN.r) continue;
-        kinds.add(kindOf(b.type, b.def));
-        const n = b.ti.length;
-        allN += n;
-        if (b.def.material === 'stone') stoneN += n;
-        if (b.def.wall) (walls++, b.def.material !== 'stone' && woodWalls++);
+    const towns: { c: Piece; kinds: Set<string>; stoneN: number; allN: number; walls: number; woodWalls: number }[] = [];
+    const slots = new Map<number, { t: TownLevel; i: number }[]>();
+    for (const team of [...camps.keys()].sort((a, b) => a - b))
+      for (const c of camps.get(team)!.sort((a, b) => a.id - b.id)) {
+        const t: TownLevel = { team, level: 0, x: c.x, y: c.y, centre: c.id, variety: 0, stone: 0, closed: false, stoneWalls: false };
+        let l = slots.get(team);
+        if (!l) slots.set(team, (l = []));
+        l.push({ t, i: towns.length });
+        towns.push({ c, kinds: new Set(), stoneN: 0, allN: 0, walls: 0, woodWalls: 0 });
       }
-      const t0 = Math.floor(c.y) * w + Math.floor(c.x);
-      // the flood starts beside the store (its own tiles are closed)
-      let start = -1;
-      for (let r = 1; r < 6 && start < 0; r++)
-        for (const [dx, dy] of [[0, r], [r, 0], [0, -r], [-r, 0], [r, r], [-r, r], [r, -r], [-r, -r]]) {
-          const o = t0 + dy * w + dx;
-          if (o >= 0 && o < w * h && grid.cost[o] > 0 && grid.gate[o] === 0 && grid.deck[o] === 0) {
-            start = o;
-            break;
-          }
-        }
-      const closed = walls > 0 && start >= 0 && closedAt(start);
-      const m = { variety: kinds.size, stone: allN ? stoneN / allN : 0, closed, stoneWalls: walls > 0 && woodWalls === 0 };
-      levels.set(team, { team, level: levelOf(m), x: c.x, y: c.y, centre: c.id, ...m });
+    // each piece counts for one town: its team's nearest centre within TOWN.r
+    for (const b of all) {
+      if (!up(b) || b.pre || SKIP.has(b.type)) continue;
+      const l = slots.get(b.team);
+      if (!l) continue;
+      let k = -1, bd = TOWN.r * TOWN.r;
+      for (const { t, i } of l) {
+        const d = (b.x - t.x) ** 2 + (b.y - t.y) ** 2;
+        if (d < bd || (d === bd && k < 0)) (bd = d), (k = i);
+      }
+      if (k < 0) continue;
+      const m = towns[k], n = b.ti.length;
+      m.kinds.add(kindOf(b.type, b.def));
+      m.allN += n;
+      if (b.def.material === 'stone') m.stoneN += n;
+      if (b.def.wall) (m.walls++, b.def.material !== 'stone' && m.woodWalls++);
     }
+    for (const l of slots.values())
+      for (const { t, i } of l) {
+        const { c, kinds, stoneN, allN, walls, woodWalls } = towns[i];
+        const t0 = Math.floor(c.y) * w + Math.floor(c.x);
+        // the flood starts beside the store (its own tiles are closed)
+        let start = -1;
+        for (let r = 1; r < 6 && start < 0; r++)
+          for (const [dx, dy] of [[0, r], [r, 0], [0, -r], [-r, 0], [r, r], [-r, r], [r, -r], [-r, -r]]) {
+            const o = t0 + dy * w + dx;
+            if (o >= 0 && o < w * h && grid.cost[o] > 0 && grid.gate[o] === 0 && grid.deck[o] === 0) {
+              start = o;
+              break;
+            }
+          }
+        const closed = walls > 0 && start >= 0 && closedAt(start);
+        const m = { variety: kinds.size, stone: allN ? stoneN / allN : 0, closed, stoneWalls: walls > 0 && woodWalls === 0 };
+        Object.assign(t, { level: levelOf(m), ...m });
+        levels.set(c.id, t);
+      }
   };
 
+  /** The town of `team` that holds (x,y): the nearest of its centres within TOWN.r (ties: the lower id), or null. */
   const at = (team: number, x: number, y: number): TownLevel | null => {
-    const t = levels.get(team);
-    return t && (t.x - x) ** 2 + (t.y - y) ** 2 <= TOWN.r * TOWN.r ? t : null;
+    let best: TownLevel | null = null, bd = TOWN.r * TOWN.r;
+    for (const t of levels.values()) {
+      if (t.team !== team) continue;
+      const d = (t.x - x) ** 2 + (t.y - y) ** 2;
+      if (d < bd || (d === bd && !best)) (bd = d), (best = t);
+    }
+    return best;
   };
 
   return {
@@ -155,7 +188,16 @@ export function createTownLevels(grid: Grid, pieces: () => readonly Piece[], mob
     },
     /** Measure now (a scenario, a test). */
     measure,
-    level: (team: number) => levels.get(team)?.level ?? 0,
+    /** The best level of `team`'s towns here (0: none). */
+    level(team: number) {
+      let lv = 0;
+      for (const t of levels.values()) if (t.team === team) lv = Math.max(lv, t.level);
+      return lv;
+    },
+    /** W-63: the town of `team` that holds (x,y), or null. */
+    townAt: at,
+    /** W-63: the town whose centre is piece `centre`, or null. */
+    town: (centre: number): TownLevel | null => levels.get(centre) ?? null,
     /** The perks a man or thing of `team` at (x,y) enjoys: his town's if he stands in it, else none. */
     perkAt: (team: number, x: number, y: number): TownPerk => TOWN_PERKS[at(team, x, y)?.level ?? 0] ?? NONE,
     /** The best soul-chance multiplier of any town whose ground (x,y) is. */
@@ -165,7 +207,7 @@ export function createTownLevels(grid: Grid, pieces: () => readonly Piece[], mob
       return k;
     },
     snaps: (): TownLevelSnap[] =>
-      [...levels.values()].map((t) => ({ team: t.team, level: t.level, name: TOWN_LEVELS[t.level].name, x: t.x, y: t.y, r: TOWN.r, variety: t.variety, stone: t.stone, closed: t.closed, stoneWalls: t.stoneWalls, next: nextNeeds(t) })),
+      [...levels.values()].map((t) => ({ id: t.centre, team: t.team, level: t.level, name: TOWN_LEVELS[t.level].name, x: t.x, y: t.y, r: TOWN.r, variety: t.variety, stone: t.stone, closed: t.closed, stoneWalls: t.stoneWalls, next: nextNeeds(t) })),
   };
 }
 export type TownLevels = ReturnType<typeof createTownLevels>;
