@@ -165,19 +165,21 @@ export function mountGuide(s: SandboxScene, mk: Mk): void {
   /** Place a marker over tile point p, or on the screen's edge towards it. */
   const place = (m: HTMLElement, p: { x: number; y: number } | null, label: string) => {
     if (!p) return void (m.style.display = 'none');
-    const cam = s.cameras.main, q = s.toScreen(p.x, p.y), W = cam.width, H = cam.height, pad = 36;
+    const cam = s.cameras.main, q = s.toScreen(p.x, p.y), W = cam.width, H = cam.height;
+    // the open play area: clear of the minimap, buttons and command card (the HUD is zoomed with the UI scale)
+    const z = uiZoom(), x0 = 90, x1 = W - 120 * z, y0 = 70, y1 = H - 225 * z;
     m.style.display = 'flex';
     const lb = m.querySelector<HTMLElement>('.lb')!, ar = m.querySelector<SVGElement>('.ar')!;
-    if (q.x > pad && q.y > pad + 20 && q.x < W - pad && q.y < H - pad) {
+    if (q.x > x0 && q.y > y0 + 20 && q.x < x1 && q.y < y1 + 40) {
       m.classList.remove('edge');
       m.style.left = `${q.x}px`;
       m.style.top = `${q.y - 26}px`;
       lb.textContent = label.split(' · ')[0];
       return;
     }
-    // off screen: on the edge of the open play area (clear of the tracker, minimap, buttons and command card), along
-    // the line from the middle, the chevron turned towards it
-    const z = uiZoom(), x0 = 90, x1 = W - 120 * z, y0 = 70, y1 = H - 225 * z, cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, dx = q.x - cx, dy = q.y - cy;
+    // off screen (or under the HUD): on the edge of the open play area, along the line from its middle, the arrow
+    // turned towards it
+    const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, dx = q.x - cx, dy = q.y - cy;
     const k = Math.min((x1 - cx) / Math.abs(dx || 1e-6), (y1 - cy) / Math.abs(dy || 1e-6)), at = { x: cx + dx * k, y: cy + dy * k };
     const tr = el.getBoundingClientRect(); // ... and below the tracker
     if (el.style.display !== 'none' && at.x < tr.right + 50 && at.y < tr.bottom + 20) at.y = tr.bottom + 24;
