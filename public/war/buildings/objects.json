@@ -3144,6 +3144,19 @@
    "states": {
     "done": "stone-pile-done"
    }
+  },
+  {
+   "id": "tunnel-of-shades",
+   "kind": "tunnel",
+   "material": "stone",
+   "burnable": false,
+   "footprint": [
+    3,
+    3
+   ],
+   "states": {
+    "done": "tunnel-of-shades-done"
+   }
   }
  ],
  "objects": [
@@ -11550,6 +11563,33 @@
    "material": "stone",
    "burnable": false,
    "source": "map_object 594dd609"
+  },
+  {
+   "id": "tunnel-of-shades-done",
+   "kind": "tunnel",
+   "file": "tunnel-of-shades.png",
+   "w": 192,
+   "h": 200,
+   "metres": 5.3,
+   "basePx": 96,
+   "anchor": {
+    "x": 96,
+    "y": 188
+   },
+   "tileOrigin": {
+    "x": 96,
+    "y": 92
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "tunnel-of-shades",
+   "state": "done",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object 09344cc4 (mirrored: mouth on the SW / +y face)"
   }
  ]
 }

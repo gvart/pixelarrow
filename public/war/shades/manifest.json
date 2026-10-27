@@ -1,0 +1,227 @@
+[
+ {
+  "id": "hoplite",
+  "sheet": "hoplite.png",
+  "frameW": 40,
+  "frameH": 72,
+  "frames": 8,
+  "fps": 10,
+  "rows": [
+   "south-west",
+   "south-east"
+  ],
+  "originX": 0.5,
+  "originY": 0.944,
+  "scale": 0.985
+ },
+ {
+  "id": "archer",
+  "sheet": "archer.png",
+  "frameW": 60,
+  "frameH": 70,
+  "frames": 8,
+  "fps": 10,
+  "rows": [
+   "south-west",
+   "south-east"
+  ],
+  "originX": 0.5,
+  "originY": 0.971,
+  "scale": 0.985
+ },
+ {
+  "id": "elder",
+  "sheet": "elder.png",
+  "frameW": 48,
+  "frameH": 70,
+  "frames": 8,
+  "fps": 10,
+  "rows": [
+   "south-west",
+   "south-east"
+  ],
+  "originX": 0.5,
+  "originY": 0.971,
+  "scale": 0.97
+ },
+ {
+  "id": "woman",
+  "sheet": "woman.png",
+  "frameW": 54,
+  "frameH": 66,
+  "frames": 8,
+  "fps": 10,
+  "rows": [
+   "south-west",
+   "south-east"
+  ],
+  "originX": 0.5,
+  "originY": 0.97,
+  "scale": 1.049
+ },
+ {
+  "id": "boy",
+  "sheet": "boy.png",
+  "frameW": 44,
+  "frameH": 67,
+  "frames": 8,
+  "fps": 10,
+  "rows": [
+   "south-west",
+   "south-east"
+  ],
+  "originX": 0.5,
+  "originY": 0.94,
+  "scale": 0.768
+ },
+ {
+  "id": "priest",
+  "sheet": "priest.png",
+  "frameW": 40,
+  "frameH": 68,
+  "frames": 8,
+  "fps": 10,
+  "rows": [
+   "south-west",
+   "south-east"
+  ],
+  "originX": 0.5,
+  "originY": 0.971,
+  "scale": 1.016
+ },
+ {
+  "id": "sailor",
+  "sheet": "sailor.png",
+  "frameW": 46,
+  "frameH": 68,
+  "frames": 8,
+  "fps": 10,
+  "rows": [
+   "south-west",
+   "south-east"
+  ],
+  "originX": 0.5,
+  "originY": 0.971,
+  "scale": 1
+ },
+ {
+  "id": "peltast",
+  "sheet": "peltast.png",
+  "frameW": 64,
+  "frameH": 66,
+  "frames": 8,
+  "fps": 10,
+  "rows": [
+   "south-west",
+   "south-east"
+  ],
+  "originX": 0.5,
+  "originY": 0.939,
+  "scale": 1.067
+ },
+ {
+  "id": "king",
+  "sheet": "king.png",
+  "frameW": 46,
+  "frameH": 69,
+  "frames": 8,
+  "fps": 10,
+  "rows": [
+   "south-west",
+   "south-east"
+  ],
+  "originX": 0.5,
+  "originY": 0.971,
+  "scale": 0.985
+ },
+ {
+  "id": "miner",
+  "sheet": "miner.png",
+  "frameW": 50,
+  "frameH": 65,
+  "frames": 8,
+  "fps": 10,
+  "rows": [
+   "south-west",
+   "south-east"
+  ],
+  "originX": 0.5,
+  "originY": 0.969,
+  "scale": 1.049
+ },
+ {
+  "id": "shepherd",
+  "sheet": "shepherd.png",
+  "frameW": 52,
+  "frameH": 67,
+  "frames": 8,
+  "fps": 10,
+  "rows": [
+   "south-west",
+   "south-east"
+  ],
+  "originX": 0.5,
+  "originY": 0.94,
+  "scale": 1.067
+ },
+ {
+  "id": "smith",
+  "sheet": "smith.png",
+  "frameW": 64,
+  "frameH": 67,
+  "frames": 8,
+  "fps": 10,
+  "rows": [
+   "south-west",
+   "south-east"
+  ],
+  "originX": 0.5,
+  "originY": 0.97,
+  "scale": 1.016
+ },
+ {
+  "id": "bard",
+  "sheet": "bard.png",
+  "frameW": 36,
+  "frameH": 65,
+  "frames": 8,
+  "fps": 10,
+  "rows": [
+   "south-west",
+   "south-east"
+  ],
+  "originX": 0.5,
+  "originY": 0.969,
+  "scale": 1.067
+ },
+ {
+  "id": "mourner",
+  "sheet": "mourner.png",
+  "frameW": 32,
+  "frameH": 66,
+  "frames": 8,
+  "fps": 10,
+  "rows": [
+   "south-west",
+   "south-east"
+  ],
+  "originX": 0.5,
+  "originY": 0.955,
+  "scale": 1.049
+ },
+ {
+  "id": "philosopher",
+  "sheet": "philosopher.png",
+  "frameW": 42,
+  "frameH": 68,
+  "frames": 8,
+  "fps": 10,
+  "rows": [
+   "south-west",
+   "south-east"
+  ],
+  "originX": 0.5,
+  "originY": 0.956,
+  "scale": 1.032
+ }
+]
