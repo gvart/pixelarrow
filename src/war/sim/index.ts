@@ -2715,7 +2715,8 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
   /**
    * Two men meeting head-on in a bridge's lane squeeze past each other (else a footbridge jams for good). W-59: so do two
    * friends walking head-on in a narrow place (a pass, a gap, a ford: a wall or bank within 2 tiles of both), where two
-   * files meeting have no room to step aside; in the open they still keep to their right round each other.
+   * files meeting have no room to step aside; in the open they still keep to their right round each other. Not two men
+   * of one block giving way (`giveWay`): it folds into a file on its side, and its men keep apart in it.
    */
   const meet = (a: Unit, b: Unit) =>
     a.vx * b.vx + a.vy * b.vy < -0.3 &&
