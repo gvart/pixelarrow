@@ -34,6 +34,7 @@ const WS_PROTOCOL = 'pixelarrow.v1';
 
 // Only handlers, Durable Object classes and entrypoints may be exported from the entry module.
 export { WarRegionDO } from './war/regionDO';
+import { wirePresence } from './war/regionDO';
 export { WarWorldDO } from './war/world/worldDO';
 
 /**
@@ -253,6 +254,7 @@ export default {
   // /api/public/* never enters the Hono app: no session, CORS or Origin middleware (ADR-0010 §1, §5).
   fetch(request, env, ctx) {
     if (new URL(request.url).pathname.startsWith(PUBLIC_PREFIX)) return publicRoute(request, env);
+    wirePresence(env); // W-63: the terms route asks the region room
     return app.fetch(request, env, ctx);
   },
   /** Cron (wrangler.jsonc triggers): every 5 minutes the public stats snapshot; daily housekeeping. */

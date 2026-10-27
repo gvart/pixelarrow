@@ -24,6 +24,8 @@
  *  - W-62 E6 chat (`?chat=1`: a chat-only socket, tagged `chat:<alliance>`, no snapshots): on connect the alliance's
  *    last messages and the player's mutes; a message or mark goes to every chat socket of the sender's alliance only,
  *    through the rate gate (./chat.ts ChatGate), free text masked and kept in D1 (./chat.ts).
+ *  - W-63: notify() passes a region room's notice (a settlement attacked) to players' world sockets; the rollover sweeps
+ *    the settlements once every region wrote what persists of them (../settlements.ts seasonSweep).
  */
 import { DurableObject } from 'cloudflare:workers';
 import type { Env } from '../../env';
@@ -41,6 +43,7 @@ import type { Crest } from '../../../../src/war/net/world';
 import { buildBoard, crestsOf, recordSeason } from './seasonWar';
 import { ChatGate, chatHistory, chatMute, chatMutes, chatReport, chatStore } from './chat';
 import type { ChatMsg, Mark } from '../../../../src/war/net/chat';
+import { seasonSweep } from '../settlements';
 
 const STATE = 'world';
 const PUSH_MS = 1000;
@@ -191,10 +194,17 @@ export class WarWorldDO extends DurableObject<Env> {
     }
     const stub = (id: string) => this.env.WAR_REGION.get(this.env.WAR_REGION.idFromName(id));
     await Promise.all(WORLD_REGIONS.filter((x) => x.role !== 'home').map((x) => stub(x.id).seasonReset(x.id).catch((e: unknown) => logError('war_season_reset_failed', e, { region: x.id }))));
+    // W-63: every region wrote what persists of its settlements; Town level and up, or tended lately, stay; the rest go
+    if (d) await seasonSweep(d, now).catch((e: unknown) => logError('war_settle_sweep_failed', e));
     w.st.last = board;
     w.newSeason(now);
     this.crests.clear();
     this.announce(w, now);
+  }
+
+  /** W-63 (RPC from WarRegionDO): a message to these players' world sockets (a settlement of theirs attacked). */
+  async notify(pids: number[], m: WorldServerMsg): Promise<void> {
+    for (const pid of pids) for (const ws of this.ctx.getWebSockets(`p:${pid}`)) if ((ws.deserializeAttachment() as Attachment | null)?.chat === undefined) send(ws, m);
   }
 
   /** W-62: every region room hears the running and next world events (the effect where one runs, a banner for all). */
