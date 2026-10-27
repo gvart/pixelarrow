@@ -629,6 +629,12 @@ void WorldMap.load(canvas).then(async (m) => {
     say(String((e as Error).message), 60_000);
     band.querySelector('#wvStatus')!.textContent = 'offline: no server';
   }
+  // the region view's events card (Show on map, ../view/hud/worldEvents.ts): ?focus=<region> centred and selected
+  const focus = q.get('focus'), fc = focus ? m.art.regions[focus]?.centroid : null;
+  if (focus && fc && worldRegion(focus)) {
+    (m.x = fc[0] - canvas.clientWidth / 2 / m.k), (m.y = fc[1] - canvas.clientHeight / 2 / m.k);
+    selectRegion(focus);
+  }
   (window as unknown as { __world: unknown }).__world = { st, map, source, haul: (from: string, to: string, kind: HaulKind = 'wagon') => { Object.assign(haul, { open: true, from, to, kind }); renderHaul(); renderBand(); }, select: selectRegion, order: openOrder, hover: (id: string | null, x = 0, y = 0, lm = false) => { st.hover = id; hoverLm = lm ? id : null; mouse = { x, y }; placeCard(); } };
 });
 
