@@ -1,0 +1,38 @@
+tests/war/market.test.ts
+  s_fcb7475e0b5395::t_de79fe2483ef68 5-8,10-12
+src/war/sim/works.ts
+  s_fcb7475e0b5395::t_bf6546db994a7b 1924-1925
+src/war/types.ts
+  s_fcb7475e0b5395::t_bf6546db994a7b 564-565
+src/war/view/hud/guardianBar.ts
+  s_fcb7475e0b5395::t_64101486dae211 29,140
+src/war/view/hud/market.ts
+  s_fcb7475e0b5395::t_64101486dae211 32,252
+src/war/view/trade/market.ts
+  s_fcb7475e0b5395::t_64101486dae211 10,15,160,162-164,304,308,338-339
+  s_fcb7475e0b5395::t_83aa88fd02ae65 161,301,307,318,336
+src/war/view/hud/chest.ts
+  s_fcb7475e0b5395::t_bf6546db994a7b 59-60,63-74
+tests/war/localStore.test.ts
+  s_fcb7475e0b5395::t_de79fe2483ef68 44-58
+src/war/view/simClient.ts
+  s_fcb7475e0b5395::t_bf6546db994a7b 247-249
+src/war/view/worker.ts
+  s_fcb7475e0b5395::t_bf6546db994a7b 31,164
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "3b93c0e6b96116df2859013c6684597057d18434",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
