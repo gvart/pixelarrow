@@ -116,6 +116,8 @@ interface Lair {
   wanderAt: number; fleeUntil: number; hpSeen: number; foe: SquadId;
   /** M7c: a host's captain lair (his man alive), a host lair posted on tower `post` (-1 none), raiding until tick. */
   captain: boolean; capAlive: boolean; post: number; raidUntil: number;
+  /** W-62: an added lair (addLair, the guide's early win): never comes back once cleared. */
+  once?: boolean;
 }
 
 interface Claim { id: number; x: number; y: number; r: number; lairs: number[]; team: number; squad: SquadId; progress: number; contested: boolean }
@@ -268,7 +270,7 @@ export function createMobs(region: RegionData, host: MobHost) {
   };
 
   const respawn = (l: Lair) => {
-    if (tick < l.respawnAt) return;
+    if (l.once || tick < l.respawnAt) return;
     const z = zoneOf(l);
     if ((z && z.team >= 0) || host.influenced(l.x, l.y)) {
       l.respawnAt = tick + rule.respawn; // claimed ground: it stays clear (checked again later)
@@ -395,6 +397,7 @@ export function createMobs(region: RegionData, host: MobHost) {
       if (spawned) return;
       spawned = true;
       const nodes = host.nodes();
+      const added = lairs.splice(0); // W-62: lairs added before keep their squads, after the region's (claim zones index those)
       (region.lairs ?? []).forEach((d, id) => {
         const def = MOBS[d.kind];
         const guard = def.passive ? [] : nodes.filter((n) => n.obj !== undefined && (n.x - d.x) ** 2 + (n.y - d.y) ** 2 <= GUARD_R * GUARD_R).map((n) => n.id);
@@ -423,6 +426,21 @@ export function createMobs(region: RegionData, host: MobHost) {
         }
       }
       for (const l of lairs) spawnLair(l);
+      for (const l of added) lairs.push(Object.assign(l, { id: lairs.length }));
+    },
+    /**
+     * W-62: one more lair of `kind` at (x,y), spawned now (the guide's early win for a new player): it locks no nodes,
+     * belongs to no claim zone and never comes back once cleared. Its lair id (it moves past the region's lairs if
+     * spawn() runs later).
+     */
+    /** W-62: some lair was added (the snapshot then carries the lairs in a region with none of its own). */
+    added: () => lairs.some((l) => l.once),
+    add(d: { kind: MobKind; x: number; y: number; count?: number }): number {
+      const def = MOBS[d.kind];
+      const l: Lair = { id: lairs.length, kind: d.kind, def, x: d.x, y: d.y, count: d.count ?? def.count, squad: -1, state: 'home', cleared: false, respawnAt: 0, nodes: [], wanderAt: 0, fleeUntil: 0, hpSeen: Infinity, foe: -1, captain: false, capAlive: false, post: -1, raidUntil: 0, once: true };
+      lairs.push(l);
+      spawnLair(l);
+      return l.id;
     },
     /**
      * claimRegion: false (the order is dropped) unless the point exists, is unowned and its zone's guard lairs are all

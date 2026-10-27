@@ -564,6 +564,8 @@ export interface WarBuildSim extends WarSim {
   spawnCart(team: number, owner: string, type: 'handcart' | 'wagon', x: number, y: number, crew?: number): number;
   /** Spawn the region's lairs (neutral play; once). */
   spawnMobs(): void;
+  /** W-62 (src/war/sim/mobs.ts add): one more lair spawned now, outside any claim zone, never back once cleared (the guide's early win); its lair id. */
+  addLair(d: { kind: MobKind; x: number; y: number; count?: number }): number;
   /** M7a (src/war/sim/prebuilt.ts): the region's towns; a team's recruit pool (an hour) and cap from its houses; its favour and prestige (score an hour, capped); the upkeep multiplier of its squad resting at (x,y) (a well near). */
   towns(): TownSnap[];
   /** W-61 (src/war/sim/townLevel.ts): every team's town level here (measured every few seconds; `measure` now). */

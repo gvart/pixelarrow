@@ -4,7 +4,7 @@
  */
 import type { Behaviour } from '../sim/bots';
 import type { ScenarioGo } from '../scenarios/types';
-import type { BridgeOrder, BridgePlan, BuildingSnap, BuildingType, FightReport, FogGrid, InfluenceMap, NodeSnap, Order, PlaceResult, RegionData, ResourceKind, Snapshot, SquadSnap, UnitSnap, WallOrder, WallPlan, WarEvent, WarPerson } from '../types';
+import type { BridgeOrder, BridgePlan, BuildingSnap, BuildingType, FightReport, FogGrid, InfluenceMap, MobKind, NodeSnap, Order, PlaceResult, RegionData, ResourceKind, Snapshot, SquadSnap, UnitSnap, WallOrder, WallPlan, WarEvent, WarPerson } from '../types';
 import type { ToWorker } from './worker';
 import type { HandoffMsg, ServerMsg, StowMsg } from '../net/protocol';
 import { myTeam, setMyTeam } from './side';
@@ -179,6 +179,11 @@ export class SimClient {
     this.send({ t: 'mobs' });
   }
 
+  /** W-62 the guide (offline): one weak lair at (x,y) that never comes back (../sim/mobs.ts add). */
+  addLair(kind: MobKind, x: number, y: number, count?: number): void {
+    this.send({ t: 'lair', kind, x, y, count });
+  }
+
   /** Scenarios: fast-forward up to `max` ticks, the team's squads building its unfinished sites, until none is left. */
   prebuild(team: number, max: number): void {
     this.send({ t: 'prebuild', team, max });
@@ -268,6 +273,11 @@ export class SimClient {
   /** M6f net mode: goods between his packs or cart and his site here (answered by `stowed` or `error` on onServer). */
   stow(m: Omit<StowMsg, 't'>): void {
     this.send({ t: 'stow', m });
+  }
+
+  /** W-62 net mode: hide the first-hour guide for good (the region server keeps it). */
+  guideHide(): void {
+    this.send({ t: 'guideHide' });
   }
 
   /** M6g net mode: the hand-off window (answered by `handoff` on onServer, to both players). */

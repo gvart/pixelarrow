@@ -28,6 +28,8 @@ export interface Net {
   stow(m: Omit<StowMsg, 't'>): void;
   /** M6g: the hand-off window with another player here (-> handoff to both). */
   handoff(m: Omit<HandoffMsg, 't'>): void;
+  /** W-62: hide the first-hour guide for good. */
+  guideHide(): void;
   /** Dev panel helpers (DEV_AUTH servers only; else an `error` forbidden). */
   dev(m: DevBody): void;
 }
@@ -90,7 +92,7 @@ export function createNet(url: string, region: string, devId: number | undefined
         }
         if (m.t === 'nodes' || m.t === 'influence' || m.t === 'stock' || m.t === 'town') return onMsg(m); // the economy view (./economy.ts)
         if (m.t !== 'pong') console.info('[net]', m);
-        if (m.t === 'stowed' || m.t === 'handoff' || m.t === 'error' || m.t === 'welcome' || m.t === 'soul' || m.t === 'worldEvents') onMsg(m); // M6: the trade panels (welcome: our player id); W-60: a soul claimed or refused
+        if (m.t === 'stowed' || m.t === 'handoff' || m.t === 'error' || m.t === 'welcome' || m.t === 'soul' || m.t === 'worldEvents' || m.t === 'guide') onMsg(m); // M6: the trade panels (welcome: our player id); W-60: a soul claimed or refused; W-62 world events, the guide
         return;
       }
       const snap = dec.apply(e.data as ArrayBuffer);
@@ -126,6 +128,7 @@ export function createNet(url: string, region: string, devId: number | undefined
     mend: (kind, building, uid) => send(() => ({ t: 'mend', kind, building, uid })),
     stow: (m) => send(() => ({ ...m, t: 'stow' })),
     handoff: (m) => send(() => ({ ...m, t: 'handoff' })),
+    guideHide: () => send(() => ({ t: 'guide', op: 'hide' })),
     dev: (m) => send(() => ({ ...m, t: 'dev' })),
     api: async (method, path, body) => {
       const r = await fetch(`/api/war/${path}`, { method, headers: await authed, ...(body !== undefined ? { body: JSON.stringify(body) } : {}) });

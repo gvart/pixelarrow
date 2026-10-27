@@ -3266,7 +3266,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
         stock: works.stockSnap(),
         influenceVersion: works.influence().version,
         sieges: siege.snaps(tick),
-        ...(region.lairs?.length || region.claimPoints?.length ? { lairs: mobs.lairSnaps(), claims: mobs.claimSnaps() } : {}),
+        ...(region.lairs?.length || region.claimPoints?.length || mobs.added() ? { lairs: mobs.lairSnaps(), claims: mobs.claimSnaps() } : {}),
         ...(bosses.any() ? { bosses: bosses.snaps(), ...(bosses.warden() ? { warden: bosses.warden() } : {}) } : {}),
         ...(region.prebuilt?.length ? { towns: towns.towns() } : {}),
         ...(landmarks.any() ? { landmark: landmarks.snap() } : {}),
@@ -3294,6 +3294,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       return id;
     },
     spawnMobs: () => (mobs.spawn(), bosses.spawn()),
+    addLair: (d) => mobs.add(d),
     spawnGuardians: () => bosses.spawn(),
     wakeGuardians: (k) => (bosses.spawn(), bosses.wake(k)),
     setSoulStorm: (k) => souls.setStorm(k),
