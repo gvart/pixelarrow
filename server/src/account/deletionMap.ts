@@ -79,6 +79,9 @@ export const DELETION_MAP: Record<string, TableRule> = {
   war_player_stats: { rule: 'delete', pid: ['player_id'] },
   // W-62: the banners and crests he earned at a season's end
   war_cosmetics: { rule: 'delete', pid: ['player_id'] },
+  // W-63: his place in settlements and his requests and offers to them
+  war_settlement_members: { rule: 'delete', pid: ['player_id'] },
+  war_settlement_offers: { rule: 'delete', pid: ['from_pid'] },
   display_name_history: { rule: 'delete', pid: ['player_id'], via: 'one row is written back at the tombstone step so the freed name stays held 30 days' },
 
   // Kept against the tombstone.
@@ -99,6 +102,9 @@ export const DELETION_MAP: Record<string, TableRule> = {
   war_deals: { rule: 'shared_history', kept: ['broker', 'player_a', 'player_b'] },
   war_contracts: { rule: 'shared_history', kept: ['poster', 'taker'] },
   war_letters: { rule: 'shared_history', kept: ['banker', 'buyer'] },
+  // W-63: a settlement he rules stays (others live there), its lord the tombstone; its log of attacks and tribute
+  war_settlements: { rule: 'shared_history', kept: ['lord_pid'] },
+  war_settlement_log: { rule: 'shared_history', kept: ['actor_id'] },
 
   players: { rule: 'tombstone' },
 
