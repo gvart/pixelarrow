@@ -114,8 +114,11 @@ async function finish(env: Env, a: number, id: WorkId, now: number, season: numb
   return true;
 }
 
-/** A member gives goods from his home strongroom to his alliance's work (its current stage): at most what it lacks. Returns what went in. */
-export async function give(env: Env, pid: number, id: string, goods: Record<string, number>, now: number, season = WAR_SEASON.id): Promise<Record<string, number>> {
+/**
+ * A member gives goods from his home strongroom to his alliance's work (its current stage): at most what it lacks. Returns
+ * what went in. W-64: `from` another holder (the crown's treasury, given by the Treasurer: no task tally for him).
+ */
+export async function give(env: Env, pid: number, id: string, goods: Record<string, number>, now: number, season = WAR_SEASON.id, from?: string): Promise<Record<string, number>> {
   const db = env.DB!, stages = stagesOf(id);
   if (!stages) throw new ApiError(404, 'not_found', 'No such work');
   const w = { id: id as WorkId, name: workDef(id)?.name ?? WONDER.name };
@@ -130,7 +133,8 @@ export async function give(env: Env, pid: number, id: string, goods: Record<stri
     if (lack > EPS && n > EPS) take[k] = Math.min(n, lack);
   }
   if (!Object.keys(take).length) throw new ApiError(409, 'not_needed', `${w.name} needs none of that`);
-  const plan = planTake(db, strongroom(pid), await lotsOf(db, strongroom(pid)), take, 'Your strongroom');
+  const src = from ?? strongroom(pid);
+  const plan = planTake(db, src, await lotsOf(db, src), take, from ? 'The treasury' : 'Your strongroom');
   const add = (col: string, k: string, n: number) => `${col} = json_set(${col}, '$.${k}', coalesce(json_extract(${col}, '$.${k}'), 0) + ${n})`;
   await batch(db, [
     ...plan.stmts, ensure(db, a, w.id, season), gift(db, a, w.id, pid, season),
@@ -138,7 +142,7 @@ export async function give(env: Env, pid: number, id: string, goods: Record<stri
       db.prepare(`UPDATE war_works SET ${add('goods', k, n)} WHERE season = ?1 AND alliance = ?2 AND work = ?3`).bind(season, a, w.id),
       db.prepare(`UPDATE war_work_gifts SET ${add('goods', k, n)} WHERE season = ?1 AND alliance = ?2 AND work = ?3 AND player_id = ?4`).bind(season, a, w.id, pid),
     ]),
-    tallyStmt(db, pid, 'workGoods', Object.values(take).reduce((x, y) => x + y, 0), now, season), // E7 tasks
+    ...(from ? [] : [tallyStmt(db, pid, 'workGoods', Object.values(take).reduce((x, y) => x + y, 0), now, season)]), // E7 tasks
   ]);
   await finish(env, a, w.id, now, season);
   return take;
