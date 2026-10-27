@@ -12,6 +12,7 @@
  * F fits the map, H the haul planner (M6l: from, to and cart; while it is open a click on the map picks the destination,
  * shift-click the start). Convoys (carts and porters on the road) show by fog and the Safe Roads rule; a market town's
  * hover card shows its price board as your men last saw it; the season panel adds today's trade score. `window.__world` is the screen's state for scripts.
+ * W-63: settlements show as markers sized by level with fealty lines vassal to overlord; hover names lord and ties.
  * W-62: world events glow on the map with a marker and their countdown; the events card (bottom left) names the running
  * one, its rule and the next; B opens the season scoreboard (the last season's result, title holders, your banners and
  * crests, what a season's end keeps and resets).
@@ -27,7 +28,7 @@ import { medal, titleTip, TITLES, TITLE_ORDER } from '../view/hud/titles';
 import { draggable } from '../view/hud/drag';
 import { convoySeen, FRONTIER_TOWNS, HAUL_LOADS, inSight, isChokepoint, MARKET_TOWNS, planHaul, PURPOSE, seasonStandings, TRADE_CAP, type HaulKind } from './geo';
 import { allianceColor, ART, clock, WorldMap, type MapState } from './map';
-import { MockSource, NetSource, travelMs, type WorldSource, type WorldTitle, type WorldView } from './source';
+import { MOCK_SETTLEMENTS, MockSource, NetSource, travelMs, type WorldSource, type WorldTitle, type WorldView } from './source';
 import { REGION_DEPTH } from '../sim/depth';
 import { LANDMARK_FUNCTION, REGION_LORE } from '../../data/warLore';
 import { landmarkOfRegion } from '../../data/warLandmarks';
@@ -39,6 +40,8 @@ import { EVENT_LOOK, eventIcon } from './eventLook';
 import type { Crest, SeasonBoard } from '../net/world';
 import { chatBusy, mountChat, type ChatHandle } from '../view/hud/chat';
 import { MockChat, NetChat } from '../net/chatLink';
+import { warAuth } from '../net/session';
+import { levelName } from '../net/settlements';
 
 const q = new URLSearchParams(location.search);
 const offline = q.has('offline');
@@ -316,6 +319,22 @@ function landmarkCard(id: string): string {
     <div class="rf-cap" style="margin-top:5px">Once held</div><div style="font-size:11.5px;line-height:1.35">${LANDMARK_FUNCTION[lm.id] ?? ''}</div>`;
 }
 
+/** W-63: a settlement's hover card: its level, lord and region, its overlord with the tribute, its vassals. */
+function settlementCard(id: number): string {
+  const list = st.settlements ?? [], w = list.find((x) => x.id === id);
+  if (!w) return '';
+  const over = w.overlord_id !== null ? list.find((x) => x.id === w.overlord_id) : null, vas = list.filter((x) => x.overlord_id === w.id);
+  const icon = w.level >= 5 ? 'bld-fort' : w.level >= 4 ? 'bld-tower-stone' : w.level >= 2 ? 'bld-storehouse' : 'bld-camp';
+  const mine = st.me != null && w.lord_pid === st.me;
+  return `<div class="rf-head"><img src="war/ui/icons/24/${icon}.png" width="22" height="22" alt=""><span class="rf-name">${esc(w.name)}</span><span class="rf-dim" style="margin-left:auto">${levelName(w.level)} · ${name(w.region)}</span></div>
+    <div class="wv-kv" style="grid-template-columns:66px 1fr"><span>Lord</span><span>${esc(w.lord ?? '?')}${mine ? ' <span class="wv-flag">you</span>' : ''}</span>
+      <span>Level</span><span>${'◆'.repeat(Math.max(1, w.level))}<span class="rf-dim">${'◇'.repeat(Math.max(0, 5 - Math.max(1, w.level)))}</span> ${levelName(w.level)}</span>
+      <span>Fealty</span><span>${over ? `vassal of <b>${esc(over.name)}</b> <span class="rf-dim">· pays ${w.tribute_pct}%</span>` : '<span class="rf-dim">free</span>'}</span>
+      ${vas.length ? `<span>Vassals</span><span>${vas.map((v) => `${esc(v.name)} <span class="rf-dim">${v.tribute_pct}%</span>`).join(', ')}</span>` : ''}
+      <span>People</span><span>${w.people}</span></div>`;
+}
+const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
 function regionCard(id: string): string {
   const w = worldRegion(id)!, r = st.regions.get(id), [p1, p2] = PURPOSE[id] ?? ['', ''], you = st.you;
   const res = Object.entries(w.res).map(([k, n]) => `${k} ${n}`).join(' · ');
@@ -408,8 +427,8 @@ draggable(haulEl);
 
 function placeCard(): void {
   if (!st.hover || ordering) return void (card.style.display = 'none');
-  card.innerHTML = hoverLm ? landmarkCard(hoverLm) : regionCard(st.hover);
-  card.style.width = hoverLm ? '300px' : '270px';
+  card.innerHTML = st.hoverSettle != null ? settlementCard(st.hoverSettle) : hoverLm ? landmarkCard(hoverLm) : regionCard(st.hover);
+  card.style.width = st.hoverSettle != null ? '260px' : hoverLm ? '300px' : '270px';
   card.style.display = '';
   const z = Number(card.style.zoom) || 1, r = card.getBoundingClientRect();
   let x = mouse.x + 18, y = mouse.y + 18;
@@ -505,6 +524,7 @@ canvas.addEventListener('pointermove', (e) => {
   st.hover = map.regionAt(...map.toMap(e.clientX, e.clientY));
   hoverLm = map.landmarkAt(st, ...map.toMap(e.clientX, e.clientY));
   st.hover = map.eventAt(st, ...map.toMap(e.clientX, e.clientY)) ?? st.hover;
+  st.hoverSettle = map.settlementAt(st, ...map.toMap(e.clientX, e.clientY)); // W-63: a settlement's card wins
   canvas.style.cursor = st.hover ? 'pointer' : 'default';
   placeCard();
 });
@@ -548,6 +568,17 @@ void WorldMap.load(canvas).then(async (m) => {
   const frame = () => { st.now = Date.now(); map.draw(st); requestAnimationFrame(frame); };
   requestAnimationFrame(frame);
   setInterval(() => { renderSquads(); renderSeason(); renderEvents(); }, 1000);
+  // W-63: the world's settlements (markers and fealty lines), again every minute online
+  const settlements = async () => {
+    if (source.mode === 'offline') return void ((st.settlements = MOCK_SETTLEMENTS), (st.me = 1));
+    const auth = await warAuth(source.devId).catch(() => null);
+    const r = await fetch('/api/war/settlements', { headers: auth?.headers ?? {} }).catch(() => null);
+    const j = r?.ok ? ((await r.json()) as { settlements?: MapState['settlements'] }) : null;
+    if (j?.settlements) st.settlements = j.settlements;
+    if (auth) st.me = auth.pid;
+  };
+  void settlements();
+  setInterval(() => void settlements(), 60_000);
   try {
     await source.start(apply);
   } catch (e) {
