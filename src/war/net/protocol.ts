@@ -204,7 +204,20 @@ export type HandoffMsg = Extract<ClientMsg, { t: 'handoff' }>;
 
 /** Why a join or an order was turned down. */
 export type Refusal = 'version' | 'region' | 'player' | 'team' | 'army' | 'squads' | 'quota';
-export type OrderError = 'notOwner' | 'notJoined' | 'badTarget' | 'bad' | 'forbidden';
+/** notYourGround (W-63): a build inside a settlement off the player's plot (its lord: on another's plot); the detail says why. */
+export type OrderError = 'notOwner' | 'notJoined' | 'badTarget' | 'bad' | 'forbidden' | 'notYourGround';
+
+/**
+ * W-63: a settlement of the region as its room sends it (server/src/war/settlements.ts): its centre piece and ground
+ * (x, y, r), its lord (player id, name) and the alliance whose banner it flies (team; null: the lord serves none),
+ * town level, overlord settlement, citizens' plots (inclusive tile rects) and the receiving player's role there.
+ */
+export interface SettlementNet {
+  id: number; centre: number; x: number; y: number; r: number; name: string; lord: number; lordName: string; team: number | null;
+  level: number; overlord: number | null; tribute: number;
+  plots: { pid: number; x0: number; y0: number; x1: number; y1: number }[];
+  role: 'lord' | 'citizen' | 'garrison' | null;
+}
 
 export type ServerMsg =
   | { t: 'welcome'; v: number; region: string; you: { id: number; team: number }; squads: SquadId[]; tick: number; quota: Quota }
@@ -238,7 +251,9 @@ export type ServerMsg =
    * done, `paid`: its reward is in his strongroom (a soul step with a full army closes unpaid). Sent on his join and
    * with each step.
    */
-  | { t: 'guide'; done: string[]; hidden?: true; step?: string; paid?: true };
+  | { t: 'guide'; done: string[]; hidden?: true; step?: string; paid?: true }
+  /** W-63: the region's settlements (SettlementNet), on his join and whenever one changes. */
+  | { t: 'settlements'; list: SettlementNet[] };
 
 /** Live soldiers per alliance against its quota. */
 export interface Quota { cap: number; per: number[]; live: number[] }

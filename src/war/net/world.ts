@@ -210,6 +210,8 @@ export type WorldServerMsg =
   | { t: 'transferred'; transit: TransitSnap }
   | { t: 'error'; code: TransferError | 'parse'; detail?: string }
   | { t: 'pong'; c: number }
+  /** W-63: a settlement he rules, or one under his, was attacked by player `by` in `region`; truces broken by it. */
+  | { t: 'settlementAttacked'; settlement: number; name: string; region: string; by: number; broken: number[] }
   | ChatServerMsg;
 
 export function parseWorldMsg(text: string): WorldClientMsg | null {
