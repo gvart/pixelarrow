@@ -1,0 +1,25 @@
+server/src/auth/password.ts
+  s_fcb7475e0b5395::t_bb5fed0ffcd330 18,22,24
+docs/OPS.md
+  s_fcb7475e0b5395::t_f9ad3cd4827cb7 296-299
+server/scripts/pbkdf2-probe/limits.ts
+  s_fcb7475e0b5395::t_bb5fed0ffcd330 7-8,10
+server/test/password.test.ts
+  s_fcb7475e0b5395::t_bb5fed0ffcd330 18,37
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "beeeec84ff9f050160136bfedc2c610a530c9a6f",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
