@@ -7,6 +7,10 @@
  * A spawn becomes a join with person ids: his field squad (active, slot order) first, then fit men of the asked class, then any. Joins wait until
  * the socket is open and the roster is in. Every order goes up as is (the server checks the squad is ours and fills in
  * our team for squad-less site orders); placement checks go up as `check` and come back as `checked`.
+ * A region socket lost by accident (a deploy, the object restarting) reopens with a backoff and rejoins (an empty join
+ * takes his squads standing there back) with the camera rect as it was. Closes on purpose (replaced, season, version,
+ * leaving) stay closed. `stats()` is the network readout (../view/hud/netStats.ts): round trip of `ping` (sent every
+ * PING_MS while `pings(true)`), the server's tick time, frames and bytes since the last call, time since the last message.
  */
 import { SIM_VERSION } from '../../sim/version';
 import type { BridgePlan, Order, PlaceResult, Snapshot, WallPlan } from '../types';
@@ -35,7 +39,30 @@ export interface Net {
   dev(m: DevBody): void;
   /** Leave the war (the idle kick): the region and gate sockets close, nothing more goes up. */
   stop(): void;
+  /** The network readout: ping the region every PING_MS while on. */
+  pings(on: boolean): void;
+  /** The network readout since the last call (rates over `secs`). */
+  stats(): NetStats;
 }
+
+export interface NetStats {
+  /** Round trip of the last ping (ms; null: none answered yet). */
+  rtt: number | null;
+  /** The region loop's mean tick time (ms), from the last pong. */
+  serverMs: number | null;
+  /** Snapshot frames and bytes (frames and JSON) received since the last call, over `secs`. */
+  frames: number;
+  bytes: number;
+  secs: number;
+  /** Ms since the last snapshot frame (pongs do not count: a stalled loop still answers them), else the last message; 0 before any. */
+  quiet: number;
+  /** The region socket is open. */
+  open: boolean;
+}
+
+export const PING_MS = 2000;
+/** Close codes that do not reconnect: ours (1000 leaving), replaced by another tab (4000), the season's rollover (4001), an old client (4426). */
+const FINAL = new Set([1000, 4000, 4001, 4426]);
 
 /** A dev message without its envelope. */
 export type DevBody = DevMsg extends infer D ? (D extends unknown ? Omit<D, 't'> : never) : never;
@@ -46,7 +73,7 @@ export type CheckBody = CheckMsg extends infer C ? (C extends unknown ? Omit<C, 
 interface RosterPerson { id: string; cls: string; state: string; region: string | null; slot?: number | null }
 
 export function createNet(url: string, region: string, devId: number | undefined, onSnap: (s: Snapshot, stats: { stepMs: number; units: number }) => void, seed = false, onMsg: (m: ServerMsg) => void = () => undefined): Net {
-  const dec = new DeltaDecoder();
+  let dec = new DeltaDecoder();
   const pending: (() => unknown)[] = [];
   let ws: WebSocket | null = null;
   let ready = false;
@@ -55,6 +82,9 @@ export function createNet(url: string, region: string, devId: number | undefined
   let checkId = 0;
   let gate: Gate | null = null, stopped = false;
   const checks = new Map<number, (r: PlaceResult | WallPlan | BridgePlan | null) => void>();
+  // reconnects: the last join's team (an empty join rejoins), the camera rect; the readout's counters
+  let joined: number | null = null, lastView: string | null = null, wait = 1000, pinger: ReturnType<typeof setInterval> | null = null;
+  let frames = 0, bytes = 0, since = performance.now(), lastAt = 0, lastFrame = 0, rtt: number | null = null, serverMs: number | null = null;
   let signedIn: (auth: Record<string, string>) => void = () => undefined;
   const authed = new Promise<Record<string, string>>((ok) => (signedIn = ok));
   const send = (m: () => unknown) => {
@@ -84,33 +114,57 @@ export function createNet(url: string, region: string, devId: number | undefined
     await gate.admitted;
     if (stopped) return;
     const abs = /^wss?:/.test(url) ? url : `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}${url}`;
-    ws = new WebSocket(`${abs}${abs.includes('?') ? '&' : '?'}sim=${SIM_VERSION}`, s.protocols);
-    ws.binaryType = 'arraybuffer';
-    ws.onopen = () => {
-      ready = true;
-      for (const m of pending.splice(0)) ws!.send(JSON.stringify(m()));
-    };
-    ws.onmessage = (e) => {
-      if (typeof e.data === 'string') {
-        const m = JSON.parse(e.data) as ServerMsg;
-        if (m.t === 'checked') {
-          checks.get(m.id)?.(m.result);
-          checks.delete(m.id);
+    const open = (again: boolean) => {
+      if (stopped) return;
+      ws = new WebSocket(`${abs}${abs.includes('?') ? '&' : '?'}sim=${SIM_VERSION}`, s.protocols);
+      ws.binaryType = 'arraybuffer';
+      ws.onopen = () => {
+        ready = true;
+        wait = 1000;
+        if (again) {
+          // a fresh socket: a fresh delta stream, his squads standing here taken back, the camera as it was
+          dec = new DeltaDecoder();
+          if (joined !== null) ws!.send(JSON.stringify({ t: 'join', v: NET_VERSION, region, playerId: pid, team: joined, squads: [['none']] }));
+          if (lastView) ws!.send(lastView);
+        }
+        for (const m of pending.splice(0)) ws!.send(JSON.stringify(m()));
+      };
+      ws.onmessage = (e) => {
+        lastAt = performance.now();
+        bytes += typeof e.data === 'string' ? e.data.length : (e.data as ArrayBuffer).byteLength;
+        if (typeof e.data === 'string') {
+          const m = JSON.parse(e.data) as ServerMsg;
+          if (m.t === 'pong') {
+            rtt = Math.round(performance.now() - m.c);
+            serverMs = m.ms ?? null;
+            return;
+          }
+          if (m.t === 'checked') {
+            checks.get(m.id)?.(m.result);
+            checks.delete(m.id);
+            return;
+          }
+          if (m.t === 'nodes' || m.t === 'influence' || m.t === 'stock' || m.t === 'town' || m.t === 'fog') return onMsg(m); // the economy view (./economy.ts), W-39 the fog
+          console.info('[net]', m);
+          if (m.t === 'stowed' || m.t === 'handoff' || m.t === 'error' || m.t === 'welcome' || m.t === 'soul' || m.t === 'worldEvents' || m.t === 'guide' || m.t === 'settlements') onMsg(m); // M6: the trade panels (welcome: our player id); W-60: a soul claimed or refused; W-62 world events, the guide; W-63 settlements
           return;
         }
-        if (m.t === 'nodes' || m.t === 'influence' || m.t === 'stock' || m.t === 'town' || m.t === 'fog') return onMsg(m); // the economy view (./economy.ts), W-39 the fog
-        if (m.t !== 'pong') console.info('[net]', m);
-        if (m.t === 'stowed' || m.t === 'handoff' || m.t === 'error' || m.t === 'welcome' || m.t === 'soul' || m.t === 'worldEvents' || m.t === 'guide' || m.t === 'settlements') onMsg(m); // M6: the trade panels (welcome: our player id); W-60: a soul claimed or refused; W-62 world events, the guide; W-63 settlements
-        return;
-      }
-      const snap = dec.apply(e.data as ArrayBuffer);
-      onSnap(snap, { stepMs: 0, units: snap.units.filter((u) => u.state !== 'dead').length });
+        frames++;
+        lastFrame = lastAt;
+        const snap = dec.apply(e.data as ArrayBuffer);
+        onSnap(snap, { stepMs: 0, units: snap.units.filter((u) => u.state !== 'dead').length });
+      };
+      ws.onclose = (e) => {
+        console.warn('[net] closed', e.code, e.reason);
+        for (const done of checks.values()) done(null);
+        checks.clear();
+        ready = false;
+        if (stopped || FINAL.has(e.code)) return;
+        setTimeout(() => open(true), wait);
+        wait = Math.min(wait * 2, 10_000);
+      };
     };
-    ws.onclose = (e) => {
-      console.warn('[net] closed', e.code, e.reason);
-      for (const done of checks.values()) done(null);
-      checks.clear();
-    };
+    open(false);
   })().catch((e) => console.error(e));
   /** Take up to n soldiers from home for a squad: his men with a squad slot in slot order first, then the class asked for. */
   const pick = (cls: string, n: number): string[] => {
@@ -124,6 +178,7 @@ export function createNet(url: string, region: string, devId: number | undefined
     join: (team, cls, count) =>
       send(() => {
         const ids = pick(cls, count);
+        joined = team;
         // none left at home: an empty join still rejoins squads standing in the region
         return { t: 'join', v: NET_VERSION, region, playerId: pid, team, squads: [ids.length ? ids : ['none']] };
       }),
@@ -146,12 +201,28 @@ export function createNet(url: string, region: string, devId: number | undefined
     stop: () => {
       stopped = true;
       ready = false;
+      if (pinger) clearInterval(pinger);
       pending.length = 0;
       gate?.stop();
       try { ws?.close(1000, 'idle'); } catch { /* closed */ }
     },
     view: (x0, y0, x1, y1) => {
-      if (ready && ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ t: 'view', x0, y0, x1, y1 }));
+      lastView = JSON.stringify({ t: 'view', x0, y0, x1, y1 });
+      if (ready && ws?.readyState === WebSocket.OPEN) ws.send(lastView);
+    },
+    pings: (on) => {
+      if (pinger) clearInterval(pinger);
+      pinger = null;
+      if (!on) return;
+      const ping = () => ready && ws?.readyState === WebSocket.OPEN && ws.send(JSON.stringify({ t: 'ping', c: performance.now() }));
+      ping();
+      pinger = setInterval(ping, PING_MS);
+    },
+    stats: () => {
+      const now = performance.now(), out: NetStats = { rtt, serverMs, frames, bytes, secs: (now - since) / 1000, quiet: lastFrame || lastAt ? now - (lastFrame || lastAt) : 0, open: ready && ws?.readyState === WebSocket.OPEN };
+      frames = bytes = 0;
+      since = now;
+      return out;
     },
   };
 }

@@ -7,6 +7,7 @@ import type { ScenarioGo } from '../scenarios/types';
 import type { BridgeOrder, BridgePlan, BuildingSnap, BuildingType, FightReport, FogGrid, InfluenceMap, MobKind, NodeSnap, Order, PlaceResult, RegionData, ResourceKind, Snapshot, SquadSnap, UnitSnap, WallOrder, WallPlan, WarEvent, WarPerson } from '../types';
 import type { ToWorker } from './worker';
 import type { HandoffMsg, ServerMsg, StowMsg } from '../net/protocol';
+import type { NetStats } from '../net/client';
 import { myTeam, setMyTeam } from './side';
 
 /**
@@ -88,8 +89,9 @@ export class SimClient {
   private askId = 0;
 
   constructor(readonly region: RegionData) {
-    type Msg = { snap: Snapshot; stats: { stepMs: number; units: number }; events?: WarEvent[]; nodes?: NodeSnap[]; influence?: InfluenceMap; fog?: FogGrid; seen?: BuildingSnap[] } | { reply: number; place?: PlaceResult | null; wall?: WallPlan | null; bridge?: BridgePlan | null; report?: FightReport | null; api?: unknown } | { server: ServerMsg };
+    type Msg = { snap: Snapshot; stats: { stepMs: number; units: number }; events?: WarEvent[]; nodes?: NodeSnap[]; influence?: InfluenceMap; fog?: FogGrid; seen?: BuildingSnap[] } | { reply: number; place?: PlaceResult | null; wall?: WallPlan | null; bridge?: BridgePlan | null; report?: FightReport | null; api?: unknown } | { server: ServerMsg } | { net: NetStats };
     this.worker.onmessage = (e: MessageEvent<Msg>) => {
+      if ('net' in e.data) return void (this.netInfo = e.data.net);
       if ('server' in e.data) {
         if (e.data.server.t === 'welcome') (this.playerId = e.data.server.you.id), setMyTeam(e.data.server.you.team);
         else this.onServer?.(e.data.server);
@@ -140,6 +142,15 @@ export class SimClient {
   setFog(on: boolean): void {
     this.fogOn = on;
     if (this.full) this.liveCur = this.fogged(this.full);
+  }
+
+  /** Net mode: the network readout (../net/client.ts stats), every second while netStats(true); null offline or off. */
+  netInfo: NetStats | null = null;
+
+  /** Net mode: the network readout on (pings the region, posts `net` every second) or off. */
+  netStats(on: boolean): void {
+    if (!on) this.netInfo = null;
+    this.send({ t: 'netStats', on });
   }
 
   /** Net mode: leave the war (the idle kick): the worker closes its region and gate sockets. */

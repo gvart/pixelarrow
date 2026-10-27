@@ -31,6 +31,7 @@ import { WORLD_REGIONS } from '../regions';
 import { chatBusy } from './hud/chat';
 import { escPanelOpen } from './hud/kit';
 import { loader, watchScene } from './loadScreen';
+import { mountNetStats } from './hud/netStats';
 
 const q = new URLSearchParams(location.search);
 // M7d: a scenario may name its own region (the landmark raids)
@@ -108,6 +109,7 @@ void Promise.all([loading, grey ? null : loadArt(undefined, loader?.part('art', 
     }
     devPanel(game, scene, sc);
     hud(scene);
+    mountNetStats(game, scene.sim, q.has('net')); // Settings > Display > Network stats
     loader?.set('scene', 1, 'Waking the region…');
     if (loader) watchScene(loader, scene, () => !q.has('world') || placed);
     // the war's sound (./sound; its settings: the Esc menu's Sound, or N), then the hooks (after the HUD's own event taps)
