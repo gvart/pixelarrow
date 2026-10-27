@@ -1,0 +1,22 @@
+server/src/war/crown.ts
+  s_fcb7475e0b5395::t_bc3c1ca8d39803 295-297
+  s_fcb7475e0b5395::t_6c4bcc34fd79aa 1-294,298-639
+server/src/war/works.ts
+  s_fcb7475e0b5395::t_e65b44032ee284 117-121,136-137,145
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "fb01af0ed0ef25c0479b846b1583d82f043ddbb8",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
