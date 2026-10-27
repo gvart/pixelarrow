@@ -20,8 +20,10 @@ import type { TownLevelSnap } from '../../types';
 import type { SandboxScene } from '../SandboxScene';
 import { myTeam } from '../side';
 import { settleHosts } from './settlements';
+import { keys } from '../../input/keys';
+import { closeTasks } from './tasks';
 import { draggable } from './drag';
-import { fitHeight, icon } from './kit';
+import { fitHeight, icon, LEFT_PANELS } from './kit';
 import { esc, tipper } from './roster/ui';
 import { setTitlesLine } from './roster/panel';
 import { offlineWorks, titlesHtml, titlesStrip, townBadge, townCard, worksHtml, type GiveForm, type PeaceStats, type TitleRow } from './peaceCards';
@@ -143,7 +145,6 @@ export function mountPeace(s: SandboxScene, mk: Mk): void {
   tcard.addEventListener('change', () => ((key = ''), draw()));
   // the badge and card sit top centre unless a left panel (forge, market, roster, maybe dragged) reaches under them:
   // then they step right of it (5 Hz; CSS px from the rects, art px for left)
-  const LEFT_PANELS = ['cfWp', 'cfTree', 'rfMarket', 'rfHandoff', 'rrPanel', 'rrCard'];
   /** The right edge of the left panels under `r`'s band, or `x` when none reaches past it. */
   const clearOf = (r: DOMRect, x: number, gap: number) => {
     for (const id of LEFT_PANELS) {
@@ -175,7 +176,7 @@ export function mountPeace(s: SandboxScene, mk: Mk): void {
 
   // ---------- the works window: works and titles ----------
   const win = mk('rfWorks', 'top:40px;right:110px;width:380px;display:none;pointer-events:auto;padding:4px 8px 8px');
-  win.className = 'rf rf-card';
+  win.className = 'rf rf-card rf-esc';
   draggable(win, '.rf-head');
   tipper(win, tip);
   const form: GiveForm = { work: 'temple', res: 'stone', n: 50 };
@@ -187,7 +188,7 @@ export function mountPeace(s: SandboxScene, mk: Mk): void {
     if (win.style.display === 'none') return;
     const scroll = win.scrollTop;
     const plain = works.filter((w) => !w.stages), raised = plain.filter((w) => w.done).length;
-    win.innerHTML = `<div class="rf-head rf-ph">${icon('node-engineer-master-builder', 32)}<div style="flex:1;min-width:0"><div class="rf-name">Alliance works</div><div class="sub">${raised} of ${plain.length} raised this season${online() ? '' : ' · offline'}</div></div><button class="rf-tbtn x" data-act="close" title="close">×</button></div>
+    win.innerHTML = `<div class="rf-head rf-ph">${icon('node-engineer-master-builder', 32)}<div style="flex:1;min-width:0"><div class="rf-name">Alliance works</div><div class="sub">${raised} of ${plain.length} raised this season${online() ? '' : ' · offline'}</div></div><button class="rf-tbtn x" data-act="close" title="close (Esc)">×</button></div>
       <div class="rf-tabs">${(['works', 'titles'] as const).map((t) => `<button class="rf-tab${t === tab ? ' on' : ''}" data-tab="${t}">${t === 'works' ? 'Works' : 'Titles'}</button>`).join('')}</div>
       ${tab === 'works' ? worksHtml(works, online(), form, home()) : titlesHtml(titles, stats, s.sim.playerId ?? null)}<div class="mk-msg rf-dim" style="min-height:15px${bad ? ';color:var(--rf-bad)' : ''}">${esc(msg)}</div>`;
     win.scrollTop = scroll;
@@ -212,8 +213,9 @@ export function mountPeace(s: SandboxScene, mk: Mk): void {
   const toggle = (on = win.style.display === 'none') => {
     win.style.display = on ? '' : 'none';
     document.getElementById('rfWorksBtn')?.classList.toggle('on', on);
-    if (on) void load();
+    if (on) { closeTasks(); void load(); }
   };
+  addEventListener('keydown', (e: KeyboardEvent) => { if (keys.act(e) === 'back' && win.style.display !== 'none') toggle(false); });
   win.addEventListener('input', (e) => {
     const el = e.target as HTMLInputElement;
     if (el.dataset.f === 'n') form.n = Math.max(1, Math.floor(Number(el.value)) || 1);
