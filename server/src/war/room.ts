@@ -35,7 +35,7 @@ import { isClassId } from '../../../src/data/classes';
 import { DeltaEncoder } from '../../../src/war/net/codec';
 import { visibleTo, type Rect, type TeamVision } from '../../../src/war/net/interest';
 import { EconomyFeed, encodeFog, encodeInfluence, NODES_EVERY, storeByMen } from '../../../src/war/net/economy';
-import { ALLIANCES, KEYFRAME_EVERY, MAX_SQUAD, MAX_SQUADS, NET_VERSION, splitQuota, type CheckMsg, type DevMsg, type JoinMsg, type NetOrder, type OrderError, type Quota, type Refusal, type ServerMsg } from '../../../src/war/net/protocol';
+import { ALLIANCES, KEYFRAME_EVERY, MAX_SQUAD, MAX_SQUADS, NET_VERSION, splitQuota, WILD_EVERY, type CheckMsg, type DevMsg, type JoinMsg, type NetOrder, type OrderError, type Quota, type Refusal, type ServerMsg } from '../../../src/war/net/protocol';
 import type { SimState } from '../../../src/war/sim/state';
 import type { Item } from '../../../src/data/items';
 import type { BridgePlan, FightReport, LandmarkSnap, Order, PlaceResult, RegionData, RegionMemory, ShotSnap, Snapshot, SquadId, WallPlan, WarBuildSim, WarEvent, WarPerson } from '../../../src/war/types';
@@ -258,6 +258,8 @@ export class WarRoom {
   private guards: GuardWatch[] = [];
   private workSites: { work: WorkId; team: number; x: number; y: number }[] = [];
   private townSent = new Map<number, string>();
+  /** W-65: the `wild` message last sent on each client's feed (a new feed, a rejoin, sends it again). */
+  private wildSent = new WeakMap<EconomyFeed, string>();
   /** W-62 E7: men carrying wood and stone home, tallied for the tasks (the DO books `gathered`). */
   private gather = new GatherWatch();
   /** W-62: world events running in this region (the DO sets them: src/war/world/events.ts). */
@@ -1109,6 +1111,7 @@ export class WarRoom {
     if (!on.length) return out;
     const infl = this.sim.influence();
     let nodes: ReturnType<WarBuildSim['resourceNodes']> | null = null;
+    let wild: ServerMsg | null = null, wildKey: string | null = null;
     const push = (pid: number, m: ServerMsg) => (out.get(pid) ?? out.set(pid, []).get(pid)!).push(m);
     for (const p of on) {
       const feed = p.feed!;
@@ -1130,6 +1133,14 @@ export class WarRoom {
       // W-61: his team's town level here, when it changed
       const town = this.snap.townLevels?.find((t) => t.team === p.team) ?? null, tk = JSON.stringify(town);
       if (this.townSent.get(p.pid) !== tk) (this.townSent.set(p.pid, tk), push(p.pid, { t: 'town', team: p.team, town }));
+      // W-65: the neutral state (lairs, claim points) the binary frames leave out; on join and when it changed
+      if (this.snap.lairs || this.snap.claims) {
+        if (!this.wildSent.has(feed) || this.snap.tick % WILD_EVERY === 0) {
+          wild ??= { t: 'wild', lairs: this.snap.lairs ?? [], claims: this.snap.claims ?? [] };
+          wildKey ??= JSON.stringify(wild);
+          if (this.wildSent.get(feed) !== wildKey) (this.wildSent.set(feed, wildKey), push(p.pid, wild));
+        }
+      }
       if (this.snap.tick % NODES_EVERY && !feed.fresh) continue;
       const g = this.sim.teamGrid(p.team);
       const n = feed.nodes({

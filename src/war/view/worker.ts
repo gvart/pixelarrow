@@ -131,8 +131,9 @@ onmessage = (e: MessageEvent<ToWorker>) => {
     // the economy view (nodes, influence) rides on the next snapshot post, as the local sim's does
     const nodes = new Map<number, NodeSnap>();
     let nodesNew = false, infl: InfluenceMap | undefined, fog: FogGrid | undefined, stock: Snapshot['stock'], town: Snapshot['townLevels'];
+    let wild: Pick<Snapshot, 'lairs' | 'claims'> | undefined; // W-65: the lairs and claim points, kept on every snapshot
     net = createNet(url, m.region.id, m.dev, (snap, stats) => {
-      postMessage({ snap: stock || town ? { ...snap, ...(stock ? { stock } : {}), ...(town ? { townLevels: town } : {}) } : snap, stats, nodes: nodesNew ? [...nodes.values()] : undefined, influence: infl, fog });
+      postMessage({ snap: stock || town || wild ? { ...snap, ...(stock ? { stock } : {}), ...(town ? { townLevels: town } : {}), ...wild } : snap, stats, nodes: nodesNew ? [...nodes.values()] : undefined, influence: infl, fog });
       nodesNew = false;
       infl = undefined;
       fog = undefined;
@@ -145,6 +146,7 @@ onmessage = (e: MessageEvent<ToWorker>) => {
       else if (server.t === 'fog') fog = decodeFog(server.team, server.w, server.h, server.cell, server.runs, server.v); // W-39: the shroud (the snapshot comes filtered)
       else if (server.t === 'stock') stock = { [server.team]: server.goods }; // W-60: the store his men stand next to only ({} away from every store)
       else if (server.t === 'town') town = server.town ? [server.town] : []; // W-61: his team's town level
+      else if (server.t === 'wild') wild = { lairs: server.lairs, claims: server.claims };
       else postMessage({ server });
     });
     return;
