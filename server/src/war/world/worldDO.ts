@@ -12,6 +12,13 @@
  *  - Season: the alarm also fires at the season's end (or when the hegemony clock runs out); the World accrues the
  *    score on every report and alarm. At the end the result is frozen in the world state and kept under
  *    `result:<season id>` (seasonEnded, the hook later rewards hang on); resetSeason() starts the next one.
+ *  - W-62 world events (src/war/world/events.ts): the same alarm opens and closes them (next due wins: arrivals, retries,
+ *    event boundaries, the season's end); each change is told to every region room (WarRegionDO.worldEvents: the effect
+ *    where it runs, a banner for everyone).
+ *  - W-62 season war: once the season is over the alarm rolls it over (rollover): the board is kept (D1
+ *    war_season_results and `last` in the world state), the winners' banners and the titles' crests awarded
+ *    (./seasonWar.ts), every region but the homes starts over (WarRegionDO.seasonReset: landmarks and control; its men go
+ *    home with their gear) and the next season begins with fresh owners and score. Men, gear and titles stay.
  *  - Sockets (/ws/war/world, hibernation API): the Worker authenticates and forwards x-player-id and x-alliance; each
  *    gets the snapshot on connect and again after changes, at most once per PUSH_MS. Messages: src/war/net/world.ts.
  */
@@ -26,6 +33,9 @@ import { allianceCounts } from './members';
 import { boardsSeen, hasNode } from '../tradeScore';
 import type { TransitCargo } from '../../../../src/war/net/world';
 import { snapOf, World, type ArriveResult, type DepartResult, type Ports, type RegionReport, type WorldState } from './world';
+import { WORLD_REGIONS } from '../../../../src/war/world/regions';
+import type { Crest } from '../../../../src/war/net/world';
+import { buildBoard, crestsOf, recordSeason } from './seasonWar';
 
 const STATE = 'world';
 const PUSH_MS = 1000;
@@ -36,6 +46,8 @@ export class WarWorldDO extends DurableObject<Env> {
   private world: World | null = null;
   private pushTimer: ReturnType<typeof setTimeout> | null = null;
   private arriving: Promise<void> = Promise.resolve();
+  /** W-62: each player's banners and crests (D1), read once per player and dropped at a rollover. */
+  private crests = new Map<number, Crest[]>();
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -73,7 +85,8 @@ export class WarWorldDO extends DurableObject<Env> {
   /** Save the state, set the alarm for the next arrival (or the season's end) and push the map to sockets. */
   private async commit(w: World): Promise<void> {
     await this.ctx.storage.put(STATE, w.st);
-    const at = w.nextAlarm();
+    // a season over rolls over at once (W-62); else the next arrival, event boundary or the season's end
+    const at = w.st.season.ended ? Date.now() : w.nextAlarm();
     if (at === null) await this.ctx.storage.deleteAlarm();
     else await this.ctx.storage.setAlarm(Math.max(at, Date.now() + 10));
     this.schedulePush();
@@ -136,12 +149,67 @@ export class WarWorldDO extends DurableObject<Env> {
     return (await this.ctx.storage.get<SeasonResult>(`result:${id}`)) ?? null;
   }
 
-  /** The reset hook: start the next season now (fresh owners and scores; squads on the road ride on). */
+  /** The dev reset hook: the season ends now and rolls over (W-62: its board kept, the partial reset); the new id. */
   async resetSeason(now = Date.now()): Promise<number> {
+    await this.arriving;
     const w = await this.ensure();
-    w.newSeason(now);
+    const s = w.st.season;
+    if (!s.ended) {
+      s.endAt = Math.min(s.endAt, now);
+      s.hegemony = null;
+      const r = w.advance(now);
+      if (r) await this.seasonEnded(r, s.id);
+    }
+    await this.rollover(w, now);
     await this.commit(w);
     return w.st.season.id;
+  }
+
+  /**
+   * W-62 season war: the finished season's board kept and its cosmetics awarded, every region but the homes reset
+   * (landmarks, control; men home with their gear), then the next season with fresh owners, score and events.
+   */
+  private async rollover(w: World, now: number): Promise<void> {
+    const s = w.st.season, r = s.ended;
+    if (!r) return;
+    const d = this.env.DB;
+    let board;
+    try {
+      board = await buildBoard(d, s.id, s.startAt, r, s.event ?? r.scores.map(() => 0));
+      if (d) await recordSeason(d, board, now);
+    } catch (e) {
+      logError('war_season_record_failed', e, { season: s.id });
+      board ??= await buildBoard(undefined, s.id, s.startAt, r, s.event ?? r.scores.map(() => 0));
+    }
+    const stub = (id: string) => this.env.WAR_REGION.get(this.env.WAR_REGION.idFromName(id));
+    await Promise.all(WORLD_REGIONS.filter((x) => x.role !== 'home').map((x) => stub(x.id).seasonReset(x.id).catch((e: unknown) => logError('war_season_reset_failed', e, { region: x.id }))));
+    w.st.last = board;
+    w.newSeason(now);
+    this.crests.clear();
+    this.announce(w, now);
+  }
+
+  /** W-62: every region room hears the running and next world events (the effect where one runs, a banner for all). */
+  private announce(w: World, now: number): void {
+    const events = w.activeEvents(now), next = w.nextEvent(now);
+    for (const r of WORLD_REGIONS) {
+      const stub = this.env.WAR_REGION.get(this.env.WAR_REGION.idFromName(r.id));
+      this.ctx.waitUntil(stub.worldEvents(r.id, events, next).catch((e: unknown) => logError('war_world_events_failed', e, { region: r.id })));
+    }
+  }
+
+  /** W-62: the world events running now and the next (a region room asks on its start). */
+  async worldEvents(now = Date.now()) {
+    const w = await this.ensure();
+    return { events: w.activeEvents(now), next: w.nextEvent(now) };
+  }
+
+  private async crestsFor(pid: number): Promise<Crest[]> {
+    const d = this.env.DB;
+    if (!d) return [];
+    let c = this.crests.get(pid);
+    if (!c) this.crests.set(pid, (c = await crestsOf(d, pid)));
+    return c;
   }
 
   /** The public boards' view (server/src/public/snapshot.ts): the season's score and every region's owner. */
@@ -160,6 +228,7 @@ export class WarWorldDO extends DurableObject<Env> {
     const counts = this.env.DB ? await allianceCounts(this.env.DB) : { members: [0, 0, 0, 0], clans: [0, 0, 0, 0] };
     const snap = w.snapshot(pid, alliance, counts, Date.now());
     if (this.env.DB && alliance !== null) snap.boards = await boardsSeen(this.env.DB, alliance);
+    snap.crests = await this.crestsFor(pid);
     return snap;
   }
 
@@ -172,9 +241,14 @@ export class WarWorldDO extends DurableObject<Env> {
 
   private async arrive(now: number): Promise<void> {
     const w = await this.ensure();
+    const ev = w.eventTick(now); // first: an event closing with the season still closes
     const ended = w.advance(now);
     if (ended) await this.seasonEnded(ended, w.st.season.id);
-    if ((await w.due(now, this.ports())) || ended) await this.commit(w);
+    const moved = await w.due(now, this.ports());
+    const over = !!w.st.season.ended;
+    if (over) await this.rollover(w, now);
+    else if (ev.changed) this.announce(w, now);
+    if (moved || ended || ev.changed || over) await this.commit(w);
     else {
       const at = w.nextAlarm();
       if (at !== null) await this.ctx.storage.setAlarm(Math.max(at, Date.now() + 10));
@@ -238,6 +312,7 @@ export class WarWorldDO extends DurableObject<Env> {
       if (!a) continue;
       const snap = w.snapshot(a.pid, a.alliance, counts, now);
       if (this.env.DB && a.alliance !== null) snap.boards = await boardsSeen(this.env.DB, a.alliance);
+      snap.crests = await this.crestsFor(a.pid);
       send(ws, { t: 'world', ...snap });
     }
   }
