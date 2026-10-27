@@ -30,6 +30,7 @@ import { guideKey, guideOpen, loadGuide, setGuide } from './hud/guide';
 import { ARMY_MAX } from '../sim/soldiers';
 import { WORLD_REGIONS } from '../regions';
 import { chatBusy } from './hud/chat';
+import { escPanelOpen } from './hud/kit';
 
 const q = new URLSearchParams(location.search);
 // M7d: a scenario may name its own region (the landmark raids)
@@ -45,7 +46,7 @@ mountGameMenu({
     const s = live;
     if (!s?.sel) return true;
     return !s.build.active && !s.build.tool && !s.interact.open && !s.siege.armed && !s.mapOpen && s.sel.units.size === 0
-      && !document.querySelector('#rfModes.open') && !chatBusy()
+      && !document.querySelector('#rfModes.open') && !chatBusy() && !escPanelOpen()
       && document.getElementById('rfPlotBar')?.style.display !== 'flex'; // W-63: Esc cancels the plot picker first
   },
   world: q.has('world') ? () => document.getElementById('rfWorld')?.click() : undefined,

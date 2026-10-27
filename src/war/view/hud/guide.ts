@@ -1,7 +1,8 @@
 /**
  * W-62 the quest tracker of the guided first hour (rules and spots: ../../net/guide.ts). Top left: the chain in a card,
- * the open step in full (its hint, reward and how far its target is), the done ones ticked, the rest dim; × hides the
- * guide for good. In the world a gold marker floats over the open step's target, or sits on the screen's edge pointing
+ * the open step in full (its hint, reward and how far its target is), the done ones ticked, the rest dim; − folds it to
+ * the open step's one line (kept in localStorage; click the header to unfold), × hides the guide for good. It gives way
+ * to a left panel (forge, market, roster, memorial). In the world a gold marker floats over the open step's target, or sits on the screen's edge pointing
  * at it when it is off screen; until the build step a quieter one points at the home town. A step done pays its reward
  * and tells it as a toast.
  *
@@ -16,7 +17,7 @@ import type { SandboxScene } from '../SandboxScene';
 import { doneNow, GUIDE_STEPS, guideOpen, newWatch, watchEvents, type GuideSave, type GuideSpots, type GuideStepId } from '../../net/guide';
 import { ownCentre } from '../entry';
 import { myTeam } from '../side';
-import { icon, uiZoom } from './kit';
+import { icon, leftPanelOpen, uiZoom } from './kit';
 import { ghostIcon } from './souls';
 import { sandboxRoster } from './roster/state';
 
@@ -55,13 +56,15 @@ const STEP_ICON: Record<GuideStepId, () => string> = {
 const TARGET: Record<GuideStepId, string> = { soul: 'Soul', gather: 'Wood', lair: 'Bandits', build: 'Camp', haul: 'Store' };
 
 const CSS = `
-#rfGuide{left:8px;top:8px;width:244px;z-index:3;pointer-events:auto;padding:5px 8px 7px}
-#rfGuide .gd-h{display:flex;align-items:center;gap:6px;padding-bottom:4px;margin-bottom:3px;border-bottom:1px solid var(--rf-rule)}
+#rfGuide{left:4px;top:4px;width:244px;z-index:3;pointer-events:auto;padding:5px 8px 7px}
+#rfGuide .gd-h{display:flex;align-items:center;gap:6px;padding-bottom:4px;margin-bottom:3px;border-bottom:1px solid var(--rf-rule);cursor:pointer}
+#rfGuide .gd-one{display:flex;align-items:center;gap:6px;font:700 12px/16px Inter,sans-serif;color:var(--rf-title)}
+#rfGuide .gd-one .gd-far{font-weight:600}
 #rfGuide .gd-h .rf-name{font-size:13px}
 #rfGuide .gd-n{margin-left:auto;font:700 11px/1 Inter,sans-serif;color:var(--rf-gold)}
-#rfGuide .gd-x{width:18px;height:18px;min-width:18px;padding:0;font-size:12px}
+#rfGuide .gd-x,#rfGuide .gd-fold{width:18px;height:18px;min-width:18px;padding:0;font-size:12px}
 #rfGuide ol{list-style:none;margin:0;padding:0}
-#rfGuide li{display:flex;align-items:flex-start;gap:6px;padding:2px 0;color:var(--rf-disabled);font-size:11.5px;line-height:15px}
+#rfGuide li{display:flex;align-items:flex-start;gap:6px;padding:2px 0;color:var(--rf-disabled);font-size:12px;line-height:16px}
 #rfGuide li .bx{flex:none;width:11px;height:11px;margin-top:2px;border:1px solid var(--rf-rule);background:var(--rf-sunk)}
 #rfGuide li.ok{color:var(--rf-muted)}
 #rfGuide li.ok .bx{border-color:#3f5a2c;background:#1d2a14;position:relative}
@@ -70,11 +73,11 @@ const CSS = `
 #rfGuide li.cur{color:var(--rf-ink);margin:2px -4px;padding:4px 4px 5px;background:var(--rf-sunk);box-shadow:inset 2px 0 0 var(--rf-gold)}
 #rfGuide li.cur .ic{flex:none;margin-top:-1px}
 #rfGuide li.cur .t{font:700 12px/16px Inter,sans-serif;color:var(--rf-title)}
-#rfGuide .gd-hint{display:block;margin-top:1px;color:var(--rf-muted);font-size:11px;line-height:14px}
+#rfGuide .gd-hint{display:block;margin-top:1px;color:var(--rf-muted);font-size:12px;line-height:15px}
 #rfGuide .gd-meta{display:flex;align-items:center;gap:6px;margin-top:4px}
-#rfGuide .gd-rw{display:inline-flex;align-items:center;gap:2px;padding:1px 5px 1px 2px;border:1px solid #6a5326;background:#1c140c;color:var(--rf-gold);font:700 10.5px/14px Inter,sans-serif}
+#rfGuide .gd-rw{display:inline-flex;align-items:center;gap:2px;padding:1px 5px 1px 2px;border:1px solid #6a5326;background:#1c140c;color:var(--rf-gold);font:700 11px/14px Inter,sans-serif}
 #rfGuide .gd-rw img{width:14px;height:14px}
-#rfGuide .gd-far{margin-left:auto;color:var(--rf-muted);font-size:10.5px}
+#rfGuide .gd-far{margin-left:auto;color:var(--rf-muted);font-size:11px}
 #rfGuide.flash li.cur{animation:gdFlash .9s ease-out}
 @keyframes gdFlash{0%{background:#3d2a12}100%{background:var(--rf-sunk)}}
 .gd-mk{position:fixed;z-index:2;pointer-events:none;transform:translate(-50%,-100%);display:none;flex-direction:column;align-items:center;font:700 13px/1 Inter,sans-serif;color:var(--rf-gold);text-shadow:0 1px 0 #0e0907,0 0 3px #0e0907;white-space:nowrap}
@@ -147,11 +150,22 @@ export function mountGuide(s: SandboxScene, mk: Mk): void {
       if (m.step) told(m.step as GuideStepId, !!m.paid);
     };
   }
+  // folded: the header and the open step's line only (this browser's choice, online and offline)
+  const MIN_KEY = `${KEY}.min`;
+  let folded = (() => { try { return localStorage.getItem(MIN_KEY) === '1'; } catch { return false; } })();
   el.addEventListener('click', (e) => {
-    if (!(e.target as HTMLElement).closest('.gd-x') || !save) return;
-    save.hidden = true;
-    if (g.offline) saveGuide(key!, save);
-    else s.sim.guideHide();
+    const t = e.target as HTMLElement;
+    if (t.closest('.gd-x')) {
+      if (!save) return;
+      save.hidden = true;
+      if (g.offline) saveGuide(key!, save);
+      else s.sim.guideHide();
+      return;
+    }
+    if (!t.closest('.gd-h')) return;
+    folded = !folded;
+    try { localStorage.setItem(MIN_KEY, folded ? '1' : '0'); } catch { /* storage blocked: folded for this visit */ }
+    last = '';
   });
 
   /** The open step's target now (tile point), null: nothing to point at. */
@@ -212,8 +226,7 @@ export function mountGuide(s: SandboxScene, mk: Mk): void {
     if (!save) return; // online: no word from the server yet (or no guide for him here)
     const list = steps, open = list.filter((st) => !save!.done.includes(st.id));
     if (g.offline) for (const id of doneNow(watch, cur)) finish(id, true);
-    const busy = !!document.querySelector('#rfMarket:not([style*="display: none"])');
-    const on = !save!.hidden && !busy && (open.length > 0 || shown);
+    const on = !save!.hidden && !leftPanelOpen() && (open.length > 0 || shown);
     if (!on) {
       el.style.display = mStep.style.display = mHome.style.display = 'none';
       return;
@@ -228,7 +241,10 @@ export function mountGuide(s: SandboxScene, mk: Mk): void {
     // on screen the town speaks for itself; on the edge beside the step's marker it gives way
     const near = Math.hypot(parseFloat(mHome.style.left) - parseFloat(mStep.style.left), parseFloat(mHome.style.top) - parseFloat(mStep.style.top)) < 140;
     if (!mHome.classList.contains('edge') || (mStep.style.display !== 'none' && near)) mHome.style.display = 'none';
-    const html = `<div class="gd-h">${icon('mk-claim')}<span class="rf-name">The First Hour</span><span class="gd-n">${list.length - open.length}/${list.length}</span><button class="rf-tbtn x gd-x" title="Hide the guide">×</button></div>
+    const head = `<div class="gd-h" title="${folded ? 'Show all the steps' : 'Fold to the current step'}">${icon('mk-claim')}<span class="rf-name">The First Hour</span><span class="gd-n">${list.length - open.length}/${list.length}</span><button class="rf-tbtn gd-fold">${folded ? '+' : '−'}</button><button class="rf-tbtn x gd-x" title="Hide the guide for good">×</button></div>`;
+    const html = folded
+      ? `${head}${now ? `<div class="gd-one">${STEP_ICON[now.id]()}<span style="flex:1;min-width:0">${now.title}</span>${t ? `<span class="gd-far">${metres(far)}</span>` : ''}</div>` : ''}`
+      : `${head}
       <ol>${list.map((st) => {
         if (save!.done.includes(st.id)) return `<li class="ok"><span class="bx"></span><span class="t">${st.title}</span></li>`;
         if (st !== now) return `<li><span class="bx"></span><span class="t">${st.title}</span></li>`;

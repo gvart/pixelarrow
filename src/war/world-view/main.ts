@@ -63,11 +63,11 @@ style.textContent = CSS + `
 .wv-depth i{width:9px;height:9px;border-radius:50%;border:1.5px solid var(--rf-gold)}
 .wv-depth i.on{background:var(--rf-gold)}
 #wvToast{left:50%;bottom:16px;transform:translateX(-50%);display:none;pointer-events:none}
-.wt-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+.wt-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px}
 .wt-t{display:flex;align-items:center;gap:5px;padding:3px;background:var(--rf-sunk);border:1px solid var(--rf-rule)}
 .wt-t:hover{border-color:var(--rf-accent)}
 .wt-who{display:flex;align-items:center;gap:3px;font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.wt-who .wv-sw{width:7px;height:7px}
-.wt-n{font:700 9px/1.2 Cinzel,serif;color:var(--rf-accent);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wt-n{font:700 10px/1.2 Cinzel,serif;color:var(--rf-accent);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .we-ev{display:flex;gap:7px;align-items:flex-start;padding:5px;margin-top:4px;background:var(--rf-sunk);border:1px solid var(--rf-rule);border-left:3px solid var(--we-c)}
 .we-ev b{color:var(--we-c)}
 .we-t{font:600 15px/1 Inter,sans-serif;font-variant-numeric:tabular-nums;color:var(--rf-text);margin-left:auto;white-space:nowrap}
@@ -201,7 +201,7 @@ function renderBoard(): void {
   const mine = crests.length
     ? crests.map((c) => `<span class="sb-crest" title="season ${c.season}">${c.kind === 'banner' ? `<img src="${ART}banners/${ALLIANCES[c.alliance]?.key ?? 'dodona'}.png" width="11" height="15" alt="">${aName(c.alliance)} banner` : `${medal(c.title ?? '', 16)}${TITLES[c.title ?? '']?.name ?? c.title} crest`}<span class="rf-dim">S${c.season}</span></span>`).join('')
     : '<span class="rf-dim">none yet: win a season with your alliance, or hold a title at its end</span>';
-  boardEl.innerHTML = `<div class="rf-head"><span class="rf-name">Season scoreboard</span><button class="rf-tbtn x" data-act="close" style="margin-left:auto" title="close (B)">×</button></div>
+  boardEl.innerHTML = `<div class="rf-head"><span class="rf-name">Season scoreboard</span><button class="rf-tbtn x" data-act="close" style="margin-left:auto" title="close (B, Esc)">×</button></div>
     ${board}
     <div class="rf-cap" style="margin-top:6px">Your banners and crests</div><div>${mine}</div>
     <div class="rf-cap" style="margin-top:6px">At a season's end</div>
@@ -546,7 +546,7 @@ canvas.addEventListener('pointerup', (e) => {
 canvas.addEventListener('dblclick', (e) => enter(map.regionAt(...map.toMap(e.clientX, e.clientY))));
 canvas.addEventListener('wheel', (e) => { e.preventDefault(); map.zoom(e.deltaY > 0 ? 1 / 1.15 : 1.15, e.clientX, e.clientY); placeCard(); }, { passive: false });
 // Esc with nothing selected or open: the in-game menu; F10: settings (src/war/menu)
-mountGameMenu({ idle: () => !ordering && !st.selected && !haul.open && !chatBusy() });
+mountGameMenu({ idle: () => !ordering && !st.selected && !haul.open && !boardOpen && !chatBusy() });
 keys.setContexts(() => ['world', 'global']);
 addEventListener('keydown', (e: KeyboardEvent) => {
   const a = keys.act(e);

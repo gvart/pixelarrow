@@ -11,6 +11,11 @@ import { uiZoom } from './kit';
 
 /** Above the round minimap (168 px at the bottom left). */
 const ABOVE_MINI = 184;
+/** The open log's height: 164 px, less on a short window so the panel stays under the top-left cards; at least 72. */
+export const LOG_H = 164, LOG_MIN = 72;
+/** The log height that keeps the open panel's top `gap` below `above` (CSS px), given its rect now and its log's height. */
+export const chatLogFit = (top: number, z: number, logH: number, above: number, gap = 6) =>
+  Math.round(Math.max(LOG_MIN, Math.min(LOG_H, logH - (above + gap - top) / z)));
 
 export function mountRegionChat(s: SandboxScene): void {
   const q = new URLSearchParams(location.search);
@@ -22,11 +27,16 @@ export function mountRegionChat(s: SandboxScene): void {
     link,
     scope: id,
     zoom: uiZoom,
-    place: (el) => {
+    place: (el, open) => {
       const lg = document.getElementById('rfLegend');
       const up = lg && lg.offsetHeight > 0 && getComputedStyle(lg).opacity !== '0' && getComputedStyle(lg).display !== 'none';
       el.style.left = '4px';
       el.style.bottom = `${up ? Math.max(ABOVE_MINI, (innerHeight - lg.getBoundingClientRect().top + 4) / uiZoom()) : ABOVE_MINI}px`;
+      // open on a short window: the log gives up height rather than run over the quest tracker (the events card
+      // steps aside while the chat is open: ./worldEvents.ts)
+      if (!open) return;
+      const g = document.getElementById('rfGuide'), above = g && g.style.display !== 'none' ? g.getBoundingClientRect().bottom : 0;
+      el.style.setProperty('--ch-log-h', `${chatLogFit(el.getBoundingClientRect().top, uiZoom(), parseFloat(el.style.getPropertyValue('--ch-log-h')) || LOG_H, above)}px`);
     },
     project: (m) => {
       if (m.at !== id) return null;

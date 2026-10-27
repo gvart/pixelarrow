@@ -11,6 +11,7 @@ import { card } from '../codex';
 import { deedIcon } from './card';
 import { SandboxRoster } from './state';
 import { esc } from './ui';
+import { keys } from '../../../input/keys';
 
 type Mk = (id: string, css: string, html?: string) => HTMLElement;
 export const MEMORIAL_W = 300;
@@ -29,7 +30,7 @@ function html(R: SandboxRoster): string {
   }).join('');
   const tr = trophies.map((t) => `<div class="mm-trophy">${glyph('ui:trophy', 16)}<span>${esc(t.name.replace(/^./, (c) => c.toUpperCase()))}</span><span class="rf-dim">${esc(t.region)}</span></div>`).join('');
   return `<div class="rf-card rr-card">
-    <div class="rf-head">${glyph('ui:laurel', 18)}<span class="rf-name" style="font-size:16px">The Memorial</span><span style="flex:1"></span><button class="rf-tbtn x" data-act="closeMem" data-tip="close">✕</button></div>
+    <div class="rf-head">${glyph('ui:laurel', 18)}<span class="rf-name" style="font-size:16px">The Memorial</span><span style="flex:1"></span><button class="rf-tbtn x" data-act="closeMem" title="close (Esc)">×</button></div>
     <div class="rf-dim" style="margin:2px 0 6px">${graves.length ? `${graves.length} fallen lie here. A grave stands for each before the statue.` : 'No man of yours has fallen yet.'}</div>
     <div class="mm-list">${rows}</div>
     ${tr ? `<div class="rf-cap rr-cap">Trophies</div>${tr}` : ''}
@@ -67,13 +68,14 @@ export function mountMemorial(s: SandboxScene, mk: Mk, R: SandboxRoster): void {
     const h = html(R);
     if (h !== last) el.innerHTML = last = h;
   };
-  el.addEventListener('click', (e) => {
-    if ((e.target as HTMLElement).closest('[data-act="closeMem"]')) {
-      forced = false;
-      closed = memorialStatue(s)?.id ?? -1;
-      render();
-    }
-  });
+  el.classList.add('rf-esc');
+  const close = () => {
+    forced = false;
+    closed = memorialStatue(s)?.id ?? -1;
+    render();
+  };
+  el.addEventListener('click', (e) => { if ((e.target as HTMLElement).closest('[data-act="closeMem"]')) close(); });
+  addEventListener('keydown', (e: KeyboardEvent) => { if (keys.act(e) === 'back' && el.style.display !== 'none') close(); });
   el.addEventListener('wheel', (e) => e.stopPropagation(), { passive: true });
   setInterval(render, 250);
   (window as unknown as { __memorial: unknown }).__memorial = { open: (v = true) => { forced = v; render(); } };

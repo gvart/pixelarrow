@@ -12,6 +12,7 @@ import { draggable } from './drag';
 import { glyph } from './glyph';
 import { fitHeight, icon } from './kit';
 import { esc, tipper } from './roster/ui';
+import { keys } from '../../input/keys';
 
 type Mk = (id: string, css: string, html?: string) => HTMLElement;
 const attr = esc;
@@ -44,6 +45,10 @@ export function offlineTasks(pid: number, now: number): TasksView {
 }
 
 const ready = (t: TaskView) => !t.claimed && t.have >= t.need - 1e-6;
+
+let closer: (() => void) | null = null;
+/** Close the Tasks window (the Works window opens in its place: ./peace.ts). */
+export const closeTasks = () => closer?.();
 
 /** One task card. */
 function card(t: TaskView, rerolls: number, online: boolean): string {
@@ -86,7 +91,7 @@ const CSS = `
 .tk-top{display:flex;align-items:baseline;gap:6px}
 .tk-name{flex:1;min-width:0;font:700 13px/1.15 Cinzel,serif;color:var(--rf-title);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tk-n{font:700 12px/1 Inter,sans-serif;color:var(--rf-gold)}.claimed .tk-n,.ready .tk-n{color:var(--rf-good)}
-.tk-hint{font-size:10.5px;line-height:1.2;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tk-hint{font-size:11.5px;line-height:1.25;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tk-prog{margin:4px 0}.tk-prog .rf-bar{width:100%}
 .tk-foot{display:flex;align-items:center;gap:4px;flex-wrap:wrap}.tk-foot .rf-ichip{height:20px}.tk-foot .rf-tbtn{height:22px}
 .tk-war{color:#e08a6a;border-color:#5a2c22}
@@ -105,7 +110,7 @@ export function mountTasks(s: SandboxScene, mk: Mk): void {
   const tip = mk('rfTasksTip', 'display:none;z-index:7');
   tip.className = 'rf rf-tip';
   const win = mk('rfTasks', 'top:40px;right:110px;width:360px;display:none;pointer-events:auto;padding:4px 8px 8px');
-  win.className = 'rf rf-card';
+  win.className = 'rf rf-card rf-esc';
   draggable(win, '.rf-head');
   tipper(win, tip);
   const online = () => !!s.sim.net;
@@ -115,7 +120,7 @@ export function mountTasks(s: SandboxScene, mk: Mk): void {
     btn.classList.toggle('pip', v.tasks.some(ready));
     if (win.style.display === 'none') return;
     const scroll = win.scrollTop, done = v.tasks.filter((t) => t.claimed).length;
-    win.innerHTML = `<div class="rf-head rf-ph">${icon('trade-contract', 32)}<div style="flex:1;min-width:0"><div class="rf-name">Tasks</div><div class="sub">${done} of ${v.tasks.length} claimed${online() ? '' : ' · offline'}</div></div><button class="rf-tbtn x" data-act="close" title="close">×</button></div>
+    win.innerHTML = `<div class="rf-head rf-ph">${icon('trade-contract', 32)}<div style="flex:1;min-width:0"><div class="rf-name">Tasks</div><div class="sub">${done} of ${v.tasks.length} claimed${online() ? '' : ' · offline'}</div></div><button class="rf-tbtn x" data-act="close" title="close (Esc)">×</button></div>
       ${tasksHtml(v, online())}<div class="mk-msg rf-dim" style="min-height:15px${bad ? ';color:var(--rf-bad)' : ''}">${esc(msg)}</div>`;
     win.scrollTop = scroll;
     fitHeight(win);
@@ -130,8 +135,15 @@ export function mountTasks(s: SandboxScene, mk: Mk): void {
   const toggle = (on = win.style.display === 'none') => {
     win.style.display = on ? '' : 'none';
     btn.classList.toggle('on', on);
-    if (on) void load();
+    if (on) {
+      // one window in this corner: Works and Tasks share it
+      const works = document.getElementById('rfWorks');
+      if (works && works.style.display !== 'none') works.querySelector<HTMLElement>('[data-act="close"]')?.click();
+      void load();
+    }
   };
+  closer = () => { if (win.style.display !== 'none') toggle(false); };
+  addEventListener('keydown', (e: KeyboardEvent) => { if (keys.act(e) === 'back') closer?.(); });
   win.addEventListener('click', (e) => {
     const t = (e.target as HTMLElement).closest<HTMLElement>('[data-act]');
     if (!t || (t as HTMLButtonElement).disabled) return;
