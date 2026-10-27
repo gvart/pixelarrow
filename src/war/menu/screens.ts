@@ -99,14 +99,14 @@ export function signInScreen(stage: HTMLElement, h: SignInHandlers): void {
 
 // ------------------------------------------------------------------ title (returning players)
 
-export interface TitleInfo { name: string; alliance: AllianceId | null; home: string | null; men: number; where: string | null }
+export interface TitleInfo { name: string; alliance: AllianceId | null; home: string | null; men: number; where: string | null; favour?: { level: number; title: string } }
 export interface TitleHandlers { continue(): void; world(): void; settings(): void; signOut(): void }
 
 export function titleScreen(stage: HTMLElement, t: TitleInfo, h: TitleHandlers): void {
   const a = t.alliance !== null ? ALLIANCES[t.alliance] : null, place = worldRegion(t.where ?? t.home ?? '')?.name ?? '';
   stage.innerHTML = `<div class="rf-card mn-card" style="width:360px">
     ${a ? `<div class="mn-row" style="gap:10px;margin-bottom:10px"><img src="war/world/banners/${a.key}.png" srcset="war/world/banners/${a.key}@2x.png 2x" width="29" height="47" alt="" style="image-rendering:pixelated">
-      <div><div class="rf-name">${esc(t.name)}</div><div class="rf-dim" style="font-size:11.5px">Serves ${a.name} · ${plural(t.men, 'man', 'men')}${place ? ` · ${t.where ? 'in' : 'home'} ${esc(place)}` : ''}</div></div></div>` : ''}
+      <div><div class="rf-name">${esc(t.name)}${t.favour ? ` <span class="mn-fav" title="Divine favour: ${esc(t.favour.title)}">L${t.favour.level} ${esc(t.favour.title)}</span>` : ''}</div><div class="rf-dim" style="font-size:11.5px">Serves ${a.name} · ${plural(t.men, 'man', 'men')}${place ? ` · ${t.where ? 'in' : 'home'} ${esc(place)}` : ''}</div></div></div>` : ''}
     <button class="mn-big pri" data-k="continue">${icon('act-move', 24)}<div><div class="t">Continue</div><div class="d">${place ? `March into ${esc(place)}` : 'Back to the war'}</div></div><kbd>Enter</kbd></button>
     <button class="mn-big" data-k="world">${icon('mode-biomes', 24)}<div><div class="t">World map</div><div class="d">Regions, borders and your squads on the road</div></div></button>
     <button class="mn-big" data-k="settings">${icon('act-upgrade', 24)}<div><div class="t">Settings</div><div class="d">Controls, display and sound</div></div></button>

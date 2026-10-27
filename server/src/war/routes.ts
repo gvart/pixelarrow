@@ -39,6 +39,7 @@
  *   GET  /tasks                               W-62 E7: his daily and weekly tasks (drawn on first read), progress, rerolls
  *   POST /tasks/:kind/:slot/claim             claim a done task: reward into his strongroom, score to his alliance
  *   POST /tasks/:kind/:slot/reroll            reroll a task not yet claimed (one free a UTC day; ./tasks.ts)
+ *   GET  /favour                              W-66: his divine favour (level, title, bonus, what earned it lately; ./favour.ts)
  *   GET  /crown                               W-64: his alliance's crown, council, treasury, election, petition,
  *                                             orders, pacts and chronicle (./crown.ts; the clock moves on the read)
  *   POST /crown/vote { candidate }            vote in the running election
@@ -73,6 +74,7 @@ import { trade } from './tradeRoutes';
 import { start } from './start';
 import { give, worksOf } from './works';
 import { claimTask, rerollOne, tasksOf } from './tasks';
+import { getFavour } from './favour';
 import { statsOf, titles } from './peace';
 import { allianceOf } from './world/members';
 import { stagesOf } from '../../../src/war/net/works';
@@ -230,6 +232,8 @@ war.post('/settlements/offers/:id/accept', requirePlayable, async (c) => {
 });
 
 war.post('/settlements/offers/:id/refuse', requirePlayable, async (c) => c.json({ state: await refuse(db(c.env), c.get('session').pid, sid(c.req.param('id')), Date.now()) }));
+
+war.get('/favour', requirePlayable, async (c) => c.json(await getFavour(c.env, c.get('session').pid)));
 
 war.get('/tasks', requirePlayable, async (c) => c.json(await tasksOf(db(c.env), c.get('session').pid, Date.now())));
 

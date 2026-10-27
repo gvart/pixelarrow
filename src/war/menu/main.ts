@@ -119,7 +119,7 @@ function squad(v: api.StartView): void {
 let destroyedSeen = false;
 async function titleMenu(v: api.StartView): Promise<void> {
   wait('Mustering…');
-  let men = 0, where: string | null = null, name = '', tunnel: api.TunnelInfo | undefined;
+  let men = 0, where: string | null = null, name = '', favour: { level: number; title: string } | undefined, tunnel: api.TunnelInfo | undefined;
   try {
     const [r, me] = await Promise.all([api.roster(), api.call<{ player: { displayName: string } }>('GET', '/api/me')]);
     tunnel = r.tunnel;
@@ -130,6 +130,7 @@ async function titleMenu(v: api.StartView): Promise<void> {
     for (const p of alive) if (p.region && !p.region.startsWith('>') && worldRegion(p.region)) by.set(p.region, (by.get(p.region) ?? 0) + 1);
     where = [...by.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
     name = me.player.displayName;
+    favour = await api.call<{ level: number; title: string }>('GET', '/api/war/favour').catch(() => undefined); // W-66
   } catch (e) {
     return fail(e, () => void route());
   }
@@ -141,7 +142,7 @@ async function titleMenu(v: api.StartView): Promise<void> {
     destroyedScreen(stage, homeTown, tunnel, { watch: () => enterRegion(homeTown, v.alliance ?? 0), back: () => void titleMenu(v) });
     return;
   }
-  titleScreen(stage, { name, alliance: v.alliance, home: v.home, men, where }, {
+  titleScreen(stage, { name, alliance: v.alliance, home: v.home, men, where, favour }, {
     continue: () => enterRegion(where ?? v.home!, v.alliance ?? 0),
     world: openWorld,
     settings: () => openSettings('controls', { onScale: zoom }),

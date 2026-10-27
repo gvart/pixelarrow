@@ -2,7 +2,7 @@
  * W-66 raising men: the Tunnel of Shades (rules: src/war/sim/tunnel.ts) and the bonus every raised or claimed man gets.
  *
  *  - raiseBonus: what a man raised by the tunnel or claimed as a soul (./persons.ts claimSoul) gets on top of his class
- *    and level. Zero for now; divine favour fills it in (the "favour" work). Keep the hook to this one function.
+ *    and level: his player's divine favour (./favour.ts bonusOf, applied with withFavour).
  *  - The tunnel: while the player has fewer than TUNNEL.floor living men (armyCount: every region, wounded and captive
  *    count, the dead and retired do not), one man rises at home every TUNNEL.everyMs, level 1 in starter gear, of the
  *    class of one of his latest fallen (else militia). Settled lazily from war_tunnel.next_at (migration 0048) on
@@ -10,25 +10,17 @@
  *    compare-and-set on next_at and each man's insert checks the floor itself, so two racing reads never pass it.
  *    A player who never had a man (before his start squad) has no tunnel.
  */
-import type { WarPerson } from '../../../src/war/types';
 import { makePerson } from '../../../src/war/sim/roster';
 import { settleTunnel, TUNNEL } from '../../../src/war/sim/tunnel';
 import { START_CLASSES } from '../../../src/war/world/start';
 import { armyCount, insertCapped, nameFor, newId } from './persons';
+import { bonusOf, withFavour, type FavourBonus } from './favour';
 
-export interface RaiseBonus { attr: number; gearTier: number }
+export type RaiseBonus = FavourBonus;
 
-/** The bonus a man raised or claimed by `pid` gets now (W-66 hook; the favour work fills it in). */
-export async function raiseBonus(_db: D1Database, _pid: number): Promise<RaiseBonus> {
-  return { attr: 0, gearTier: 0 };
-}
-
-/** The man with the bonus: `attr` unspent attribute points more; `gearTier` kit tiers up (his class kit remade at that tier). */
-export function applyRaise(p: WarPerson, b: RaiseBonus): WarPerson {
-  if (!b.attr && !b.gearTier) return p;
-  const hero = { ...p.hero, points: p.hero.points + Math.max(0, b.attr) };
-  if (b.gearTier > 0) hero.equip = { ...hero.equip, ...makePerson(p.id, hero.cls ?? 'militia', { tier: Math.min(2, b.gearTier) }).hero.equip };
-  return { ...p, hero };
+/** The bonus a man raised or claimed by `pid` gets now: his divine favour's (./favour.ts bonusOf). */
+export async function raiseBonus(db: D1Database, pid: number): Promise<RaiseBonus> {
+  return bonusOf({ DB: db }, pid);
 }
 
 export interface TunnelView { alive: number; floor: number; nextAt: number | null; pending: number; every: number; raised: number }
@@ -69,7 +61,7 @@ async function raiseMen(db: D1Database, pid: number, n: number, now: number): Pr
   const stmts = Array.from({ length: n }, (_, k) => {
     const cls = classes[k % Math.max(1, classes.length)] ?? 'militia';
     const p = makePerson(newId(pid), cls);
-    const man = applyRaise({ ...p, hero: { ...p.hero, name: nameFor(cls, taken, k) } }, bonus);
+    const man = withFavour({ ...p, hero: { ...p.hero, name: nameFor(cls, taken, k) } }, bonus);
     return insertCapped(db, pid, man, null, TUNNEL.floor, now);
   });
   const res = await db.batch(stmts);

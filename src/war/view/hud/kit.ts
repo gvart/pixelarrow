@@ -242,7 +242,7 @@ export function placeTip(tip: HTMLElement, el: HTMLElement): void {
 }
 
 /** The windows of the menu bar's buttons share one place at the top right: opening one closes the others (by their buttons). */
-const CORNER_WINDOWS = ['rfWorksBtn', 'rfTasksBtn', 'rfCrownBtn', 'rfHoldingsBtn'];
+const CORNER_WINDOWS = ['rfWorksBtn', 'rfTasksBtn', 'rfCrownBtn', 'rfHoldingsBtn', 'rfFavourBtn'];
 export function closeCornerWindows(except: string): void {
   for (const id of CORNER_WINDOWS) if (id !== except) { const b = document.getElementById(id); if (b?.classList.contains('on')) b.click(); }
 }

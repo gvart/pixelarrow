@@ -22,6 +22,7 @@ import type { Env } from '../env';
 import { batch, ensureHolder, putStmt, strongroom } from './holders';
 import { scorePeace } from './peace';
 import { fightTally } from './persons';
+import { addFavour, FAVOUR_EARN } from './favour';
 import { allianceOf } from './world/members';
 import { perksOf } from './works';
 
@@ -111,6 +112,7 @@ export async function claimTask(env: Env, pid: number, kind: TaskKind, slot: num
   const u = await db.prepare('UPDATE war_tasks SET claimed_at = ?5 WHERE season = ?1 AND player_id = ?2 AND period = ?3 AND slot = ?4 AND claimed_at IS NULL').bind(season, pid, p.key, slot, now).run();
   if (!u.meta.changes) throw new ApiError(409, 'claimed', 'Claimed already');
   await batch(db, payStmts(db, pid, t.reward, now));
+  await addFavour(env, pid, FAVOUR_EARN.task[kind], 'task', now); // W-66 divine favour
   return { reward: t.reward, pts: await scoreTask(env, pid, t.score, t.pts, now) };
 }
 

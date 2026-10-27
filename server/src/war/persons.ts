@@ -45,7 +45,8 @@ import { trophies, type Trophy } from './bosses';
 import { ApiError } from '../errors';
 import { STAT_SEASON } from './peace';
 import { randomToken } from './store';
-import { applyRaise, raiseBonus, settleTunnelFor, type TunnelView } from './raise';
+import { raiseBonus, settleTunnelFor, type TunnelView } from './raise';
+import { fightFavourStmts, withFavour } from './favour';
 import { batch, ensureHolder, goodsOf, HOME, itemsIn, lotsOf, pay as payFrom, placeItemStmt, planTake, putStmt, strongroom } from './holders';
 
 export type PersonState = 'active' | 'wounded' | 'captive' | 'dead' | 'training' | 'retired';
@@ -338,7 +339,8 @@ export function insertCapped(db: D1Database, pid: number, p: WarPerson, region: 
  * (the army is full), nothing written.
  */
 export async function claimSoul(db: D1Database, pid: number, p: WarPerson, region: string, now: number): Promise<boolean> {
-  const r = await insertCapped(db, pid, applyRaise(p, await raiseBonus(db, pid)), region, ARMY_MAX, now).run();
+  Object.assign(p, withFavour(p, await raiseBonus(db, pid))); // W-66: his player's favour bonus (the DO hands the live man the same)
+  const r = await insertCapped(db, pid, p, region, ARMY_MAX, now).run();
   return (r.meta?.changes ?? 0) > 0;
 }
 
@@ -742,6 +744,7 @@ export async function applyFight(db: D1Database, fightId: string, region: string
     }
   }
   stmts.push(...fightStats(db, r));
+  stmts.push(...fightFavourStmts(db, r, now)); // W-66 divine favour
   try {
     await db.batch(stmts);
     return true;

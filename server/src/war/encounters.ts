@@ -15,7 +15,7 @@ import type { RegionData, Snapshot, WarBuildSim, WarEvent } from '../../../src/w
 export const encounterStorageKey = (season: number | string, pid: number) => `encounter:${season}:${pid}`;
 
 /** A run moved: the DO stores `save` and pays `goods` into his home strongroom. */
-export interface EncounterDone { pid: number; save: EncSave; goods: Record<string, number> }
+export interface EncounterDone { pid: number; save: EncSave; goods: Record<string, number>; notes?: EncNote[] }
 
 export class RoomEncounters {
   private runs = new Map<number, { run: EncounterRun; goods: Record<string, number> }>();
@@ -65,7 +65,7 @@ export class RoomEncounters {
       const r = this.runs.get(m.pid);
       if (!r) continue;
       const save: EncSave = { ...r.run.save, open: r.run.save.open ? { ...r.run.save.open } : null };
-      done.push({ pid: m.pid, save, goods: { ...r.goods } });
+      done.push({ pid: m.pid, save, goods: { ...r.goods }, notes: m.notes });
       for (const k of Object.keys(r.goods)) delete r.goods[k];
       msgs.push([m.pid, RoomEncounters.msg(save, m.notes)]);
     }
