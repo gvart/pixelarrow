@@ -7,7 +7,7 @@
  * overview); map objects as live sprites sorted with the units (./objects.ts); 10 Hz sim snapshots drawn interpolated as
  * PixelLab soldier sprites (./units.ts); RTS camera and squad controls picking through the height field (./iso.ts).
  *
- *   drag / middle-drag / space+drag pan, WASD/arrows, screen-edge pan; wheel zooms to the cursor
+ *   drag / middle-drag / space+drag pan (a middle click without a drag: a personal marker, ./hud/pins.ts), WASD/arrows, screen-edge pan; wheel zooms to the cursor
  *   left click / box: select own men (shift adds); double-click: his class on screen; Ctrl+A all, Esc none;
  *   Ctrl+1-9 / 1-9 control groups (./select.ts, W-53)
  *   E or right click: the context action on the hovered target, named by the label at the cursor; hold either for a
@@ -164,7 +164,9 @@ export class SandboxScene extends Phaser.Scene {
   private gUi!: Phaser.GameObjects.Graphics;
   private markers: { x: number; y: number; t: number; c: number }[] = [];
   private box: { x0: number; y0: number; x1: number; y1: number } | null = null;
-  private down: { x: number; y: number; sx: number; sy: number; pan: boolean } | null = null;
+  private down: { x: number; y: number; sx: number; sy: number; pan: boolean; mid?: boolean } | null = null;
+  /** A middle click without a drag (client px, the ground's tile point, Shift): the personal markers (./hud/pins.ts). */
+  onMiddleClick: ((cx: number, cy: number, at: { x: number; y: number }, shift: boolean) => void) | null = null;
   private keys!: Record<string, Phaser.Input.Keyboard.Key>;
   /** E4: impacts' shake and hit-stop (./feel/feel.ts); the render time and missiles held through a stop. */
   feel!: Feel;
@@ -490,7 +492,7 @@ export class SandboxScene extends Phaser.Scene {
       this.placing = null;
       return;
     }
-    this.down = { x: p.x, y: p.y, sx: this.cameras.main.scrollX, sy: this.cameras.main.scrollY, pan };
+    this.down = { x: p.x, y: p.y, sx: this.cameras.main.scrollX, sy: this.cameras.main.scrollY, pan, mid: p.middleButtonDown() };
   }
 
   private onMove(p: Phaser.Input.Pointer): void {
@@ -506,6 +508,13 @@ export class SandboxScene extends Phaser.Scene {
   }
 
   private onUp(p: Phaser.Input.Pointer): void {
+    if (this.down?.mid && Math.hypot(p.x - this.down.x, p.y - this.down.y) <= 5) {
+      const e = p.event as MouseEvent | undefined, r = this.game.canvas.getBoundingClientRect();
+      const cx = e?.clientX ?? p.x + r.left, cy = e?.clientY ?? p.y + r.top;
+      this.down = null;
+      this.onMiddleClick?.(cx, cy, this.world({ x: cx - r.left, y: cy - r.top }), !!e?.shiftKey);
+      return;
+    }
     if (this.build.onUp(this.world(p))) return;
     if (!this.down || this.down.pan) { this.down = null; return; }
     this.down = null;

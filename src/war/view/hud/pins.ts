@@ -1,0 +1,160 @@
+/**
+ * Personal map markers, seen by this player only (the store: ./pinStore.ts; the alliance's shared marks are P, ./chat.ts).
+ * A middle click puts one on the ground there (a middle drag still pans); a middle click on one takes it away; Shift +
+ * middle click clears them all. On screen a small teal pennant with its number; off screen it sits on the edge of the
+ * play area as the guide's pointer does (label "Marker 2 · 29 m", the arrow turned towards it; left click: go there,
+ * middle click: remove). The region's markers show on the minimap and the full map too (drawPins, ./mapDraw.ts).
+ * Mounted by the region HUD (mountRegionPins) and the world map (mountPins, ../../world-view/main.ts).
+ */
+import type { SandboxScene } from '../SandboxScene';
+import { ownCentre } from '../entry';
+import { myTeam } from '../side';
+import { uiZoom } from './kit';
+import { PinStore, type Pin } from './pinStore';
+
+export interface PinView {
+  /** The store's scope ('world' or the region id). */
+  scope: string;
+  /** A marker's point on screen (client px), or null. */
+  project(p: Pin): { x: number; y: number } | null;
+  /** The open play area (client px) the edge pointers keep to (a marker anywhere in the window shows as its pennant). */
+  area(): { x0: number; y0: number; x1: number; y1: number };
+  /** Centre the view on a marker. */
+  focus(p: Pin): void;
+  /** How far it is (" · 29 m"), or ''. */
+  far(p: Pin): string;
+  /** Hide them all now (a full map over the view). */
+  hidden?(): boolean;
+}
+
+export interface PinHandle {
+  /** A middle click at client (cx, cy) on map point `at`: remove the marker there, else put one; with Shift clear all. */
+  click(cx: number, cy: number, at: { x: number; y: number }, shift: boolean): void;
+  readonly store: PinStore;
+}
+
+const C = '#5fd6bd';
+const CSS = `
+.pn-pin{position:fixed;left:0;top:0;z-index:2;pointer-events:none;width:0;height:0}
+.pn-pin svg{position:absolute;left:-4px;top:-39px;filter:drop-shadow(0 1px 0 #0e0907) drop-shadow(0 0 2px rgba(14,9,7,.8))}
+.pn-pin.new svg{animation:pnDrop .32s cubic-bezier(.3,1.6,.5,1)}
+@keyframes pnDrop{0%{transform:translateY(-14px);opacity:0}100%{transform:none;opacity:1}}
+.pn-mk{position:fixed;z-index:2;pointer-events:auto;cursor:pointer;transform:translate(-50%,-50%);display:none;font:700 12px/1 Inter,sans-serif;color:${C};text-shadow:0 1px 0 #0e0907,0 0 3px #0e0907;white-space:nowrap}
+.pn-mk .lb{padding:4px 7px;background:rgba(14,9,7,.82);box-shadow:inset 0 0 0 1px #2f6a5e}
+.pn-mk .ar{position:absolute;left:50%;top:50%;width:22px;height:22px;margin:-11px 0 0 -11px;color:${C};filter:drop-shadow(0 1px 0 #0e0907) drop-shadow(0 0 2px #0e0907)}
+`;
+
+/** A pennant on a stake, its number on the cloth; drawn at 1.25x, the stake's foot at (4, 39). */
+const pennant = (n: number) => `<svg width="30" height="42" viewBox="0 0 24 34"><ellipse cx="3.5" cy="31" rx="3.5" ry="1.6" fill="rgba(14,9,7,.55)"/><rect x="2" y="2" width="2.4" height="29.5" fill="#2a1a10"/><rect x="2" y="2" width="1" height="29.5" fill="#6b4a30"/><path d="M4.4 3h17l-4.2 6.5 4.2 6.5h-17z" fill="#0e0907"/><path d="M4.4 4.3h14.6l-3.4 5.2 3.4 5.2H4.4z" fill="${C}"/><path d="M4.4 4.3h14.6l-.9 1.4H4.4z" fill="rgba(255,255,255,.35)"/><text x="10.6" y="12.6" text-anchor="middle" font-family="Inter,sans-serif" font-weight="800" font-size="8.5" fill="#0e0907">${n}</text></svg>`;
+
+let styled = false;
+
+export function mountPins(v: PinView): PinHandle {
+  if (!styled) {
+    const st = document.createElement('style');
+    st.textContent = CSS;
+    document.head.appendChild(st);
+    styled = true;
+  }
+  const store = new PinStore(v.scope);
+  const els = new Map<number, { pin: HTMLElement; edge: HTMLElement }>();
+  let looping = false;
+
+  const make = (p: Pin, fresh: boolean) => {
+    const pin = document.createElement('div');
+    pin.className = `pn-pin${fresh ? ' new' : ''}`;
+    pin.innerHTML = pennant(p.n);
+    const edge = document.createElement('div');
+    edge.className = 'pn-mk';
+    edge.innerHTML = '<div class="lb"></div><svg class="ar" viewBox="0 0 18 18"><path d="M2 3 L16 9 L2 15 L6 9 Z" fill="currentColor"/></svg>';
+    edge.addEventListener('pointerdown', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      if (e.button === 1) remove(p.n);
+      else if (e.button === 0) v.focus(p);
+    });
+    document.body.append(pin, edge);
+    els.set(p.n, { pin, edge });
+  };
+  const sync = (fresh?: number) => {
+    for (const [n, x] of els) if (!store.list().some((p) => p.n === n)) { x.pin.remove(); x.edge.remove(); els.delete(n); }
+    for (const p of store.list()) if (!els.has(p.n)) make(p, p.n === fresh);
+    if (els.size && !looping) { looping = true; requestAnimationFrame(frame); }
+  };
+  const remove = (n: number) => { store.remove(n); sync(); };
+
+  function frame(): void {
+    if (!els.size) return void (looping = false);
+    requestAnimationFrame(frame);
+    const a = v.area(), off = !!v.hidden?.();
+    for (const p of store.list()) {
+      const x = els.get(p.n), q = v.project(p);
+      if (!x) continue;
+      if (!q || off) { x.pin.style.display = x.edge.style.display = 'none'; continue; }
+      if (q.x > 4 && q.y > 30 && q.x < innerWidth - 20 && q.y < innerHeight - 2) {
+        x.edge.style.display = 'none';
+        x.pin.style.display = '';
+        x.pin.style.transform = `translate(${q.x}px,${q.y}px)`;
+        continue;
+      }
+      // off screen: on the edge of the play area, along the line from its middle, the arrow towards it
+      x.pin.style.display = 'none';
+      x.edge.style.display = 'block';
+      const cx = (a.x0 + a.x1) / 2, cy = (a.y0 + a.y1) / 2, dx = q.x - cx, dy = q.y - cy;
+      const k = Math.min((a.x1 - cx) / Math.abs(dx || 1e-6), (a.y1 - cy) / Math.abs(dy || 1e-6));
+      x.edge.style.left = `${cx + dx * k}px`;
+      x.edge.style.top = `${cy + dy * k}px`;
+      const lb = x.edge.querySelector<HTMLElement>('.lb')!, ar = x.edge.querySelector<SVGElement>('.ar')!;
+      const text = `Marker ${p.n}${v.far(p)}`;
+      if (lb.textContent !== text) lb.textContent = text;
+      const ang = Math.atan2(dy, dx), r = Math.hypot((lb.offsetWidth / 2) * Math.cos(ang), 9 * Math.sin(ang)) + 14;
+      ar.style.transform = `rotate(${ang}rad) translateX(${r}px)`;
+    }
+  }
+
+  sync();
+  return {
+    store,
+    click(cx, cy, at, shift) {
+      if (shift) { store.clear(); return sync(); }
+      // on a marker: its stake and cloth stand above the point
+      const hit = store.list().find((p) => { const q = v.project(p); return !!q && cx >= q.x - 7 && cx <= q.x + 27 && cy >= q.y - 41 && cy <= q.y + 4; });
+      if (hit) return remove(hit.n);
+      sync(store.add(at.x, at.y).n);
+    },
+  };
+}
+
+let regionPins: PinStore | null = null;
+
+/** The region view's markers (the HUD's mount): middle clicks from the scene, distances from his men. */
+export function mountRegionPins(s: SandboxScene): void {
+  const canvas = () => s.game.canvas.getBoundingClientRect();
+  const h = mountPins({
+    scope: s.region.id,
+    project: (p) => { const q = s.toScreen(p.x, p.y), r = canvas(); return { x: q.x + r.left, y: q.y + r.top }; },
+    // clear of the minimap, buttons and command card, as the guide's pointers (./guide.ts)
+    area: () => { const r = canvas(), z = uiZoom(); return { x0: r.left + 90, y0: r.top + 70, x1: r.right - 120 * z, y1: r.bottom - 225 * z }; },
+    focus: (p) => s.focus(p.x, p.y),
+    hidden: () => s.mapOpen,
+    far: (p) => {
+      const me = ownCentre(s.sim.cur, myTeam()) ?? s.tileAt({ x: s.cameras.main.width / 2, y: s.cameras.main.height / 2 });
+      return ` · ${Math.round(Math.hypot(p.x - me.x, p.y - me.y) * 2)} m`; // 1 tile = 2 m
+    },
+  });
+  regionPins = h.store;
+  s.onMiddleClick = (cx, cy, at, shift) => h.click(cx, cy, at, shift);
+}
+
+/** The region's markers on the minimap and the full map: a teal diamond with its number. */
+export function drawPins(g: CanvasRenderingContext2D, P: (x: number, y: number) => [number, number], m: number, full: boolean): void {
+  for (const p of regionPins?.list() ?? []) {
+    const [x, y] = P(p.x, p.y), r = (full ? 6 : 4.2) * m;
+    g.beginPath(); g.moveTo(x, y - r); g.lineTo(x + r, y); g.lineTo(x, y + r); g.lineTo(x - r, y); g.closePath();
+    g.lineWidth = 2 * m; g.strokeStyle = '#0e0907'; g.stroke();
+    g.fillStyle = C; g.fill();
+    if (!full) continue;
+    g.fillStyle = '#0e0907'; g.font = `800 ${7 * m}px Inter, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText(String(p.n), x, y + 0.5 * m);
+  }
+}
