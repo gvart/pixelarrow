@@ -1,0 +1,40 @@
+src/war/view/bossFx.ts
+  s_fcb7475e0b5395::t_55842c8d747aea 64,464-469,512,515
+tests/war/bossLoot.test.ts
+  s_fcb7475e0b5395::t_3b8ea0764e8af4 10-12,15
+src/war/view/hud/guardianBar.ts
+  s_fcb7475e0b5395::t_b5b0fa22f4e37c 41
+tests/war/bosses.test.ts
+  s_fcb7475e0b5395::t_0cf8134cc1b33e 221-228,230-245
+  s_fcb7475e0b5395::t_d1a43560191598 229
+scripts/war/regions/landmarks.ts
+  s_fcb7475e0b5395::t_2ab5dfd45a8452 669-670
+src/war/view/units.ts
+  s_fcb7475e0b5395::t_58d25e85c2c863 111-112,248-250
+  s_fcb7475e0b5395::t_cf77b1ce322af4 251
+src/war/view/guardians.ts
+  s_fcb7475e0b5395::t_5e1410a4e77e4a 21-22,77,97
+src/data/warBosses.ts
+  s_fcb7475e0b5395::t_494b2bb7491350 36-39,52-54,84-93
+  s_fcb7475e0b5395::t_1b5a83feb1e68c 94
+src/war/regions/erymanthos.json
+  s_fcb7475e0b5395::t_2ab5dfd45a8452 1
+src/war/sim/bosses.ts
+  s_fcb7475e0b5395::t_effb9c739afe0c 33-34,89,108-109,133-134,403-408,438-453,627-631,810
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "b6bcf4f4a17bbe481975fd9e808c411e4d74db6f",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
