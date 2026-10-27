@@ -53,6 +53,8 @@ export interface Scenario {
   camera: { x: number; y: number; zoom: number };
   /** Neutral play (W-12): spawn the region's lairs (src/war/sim/mobs.ts); no claim anchor, the claim point gives the first. */
   neutral?: true;
+  /** W-65: the region's roaming life too (packs, patrols, caravans, travellers; src/war/sim/roam.ts). */
+  roam?: true;
   /** Economy start (M2b): claim anchors, own stock, and sites a squad (index into squads) lays out and builds. */
   economy?: {
     claims: { team: number; x: number; y: number; r?: number }[];

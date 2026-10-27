@@ -20,6 +20,7 @@ import type { BuildingSnap, BuildingType, FogGrid } from '../types';
 import { warStats } from './classes';
 import { FOREST, type Grid } from './grid';
 import { MOB_TEAM } from './mobs';
+import { NEUTRAL_TEAM } from './economy';
 
 export const VISION = {
   cell: 2, // tiles per vision cell
@@ -212,7 +213,7 @@ export function createVision(grid: Grid, src: { units(): Iterable<Viewer>; build
       m.set(key, (m.get(key) ?? 0) + 1);
     };
     for (const u of src.units()) {
-      if (!u.alive || u.squad.team === MOB_TEAM) continue;
+      if (!u.alive || u.squad.team === MOB_TEAM || u.squad.team === NEUTRAL_TEAM) continue; // W-65: roaming folk need no sight
       hold(u.squad.team, cellAt(u.x, u.y) * 128 + Math.min(FLAT - 1, sightOf(u.cls) + (src.sightAdd?.(u.squad.team) ?? 0)));
     }
     const blds = src.buildings();

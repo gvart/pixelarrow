@@ -30,7 +30,8 @@
  *                    army is full)
  *   server -> nodes | influence | stock | fog                 the economy view (./economy.ts): resource nodes his team
  *                    sees (changes only), his team's influence mask (RLE, on change), his team's stockpile (on change)
- *   server -> binary frame                                    (snapshot delta or keyframe)
+ *   server -> wild                                          W-65: the region's lairs, claim points and roaming groups (on change)
+ *   server -> binary frame                                   (snapshot delta or keyframe)
  */
 import { z } from 'zod';
 import { ARMY_MAX } from '../sim/soldiers';
@@ -43,6 +44,8 @@ export const NET_VERSION = 10;
 export const QUANT = 8;
 /** Ticks between keyframes (a full frame of what the client sees; deltas in between). */
 export const KEYFRAME_EVERY = 50;
+/** W-65: ticks between checks of the region's neutral state for the `wild` message. */
+export const WILD_EVERY = 20;
 /** Vision radius in tiles round each living unit of the team (shared by the alliance). */
 export const VISION = 28;
 /** Tiles added round the client's camera rect. */
@@ -245,6 +248,11 @@ export type ServerMsg =
   | { t: 'stock'; team: number; store: number | null; goods: Record<string, number> }
   /** W-61: his team's town level here (Snapshot.townLevels; null: none), when it changed. */
   | { t: 'town'; team: number; town: TownLevelSnap | null }
+  /**
+   * W-65: the region's neutral state (Snapshot.lairs and claims: authored places, their state and squad ids), on join
+   * and when it changed (checked every WILD_EVERY ticks). The live view drew no lair, claim banner or map mark without it.
+   */
+  | { t: 'wild'; lairs: import('../types').LairSnap[]; claims: import('../types').ClaimSnap[]; roam?: import('../types').RoamSnap[] }
   /**
    * W-60: a soul his squad went for: claimed (the new man's person id, class, level and name), refused (his army is full:
    * `have` men across all regions, ARMY_MAX at most).

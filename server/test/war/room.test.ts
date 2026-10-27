@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { DeltaDecoder } from '../../../src/war/net/codec';
 import { CELL, VisionMap } from '../../../src/war/net/interest';
 import { decodeFog, decodeInfluence, encodeFog, encodeInfluence, NODES_EVERY, packNode, STORE_NEAR, unpackNode } from '../../../src/war/net/economy';
-import { NET_VERSION, VISION, type JoinMsg, type ServerMsg } from '../../../src/war/net/protocol';
+import { NET_VERSION, VISION, WILD_EVERY, type JoinMsg, type ServerMsg } from '../../../src/war/net/protocol';
 import { put } from '../../../src/war/sim/holders';
 import { createSim } from '../../../src/war/sim';
 import { CORPSE_TICKS, HOME_CLAIM_R, homeAnchor, WarRoom } from '../../src/war/room';
@@ -328,6 +328,20 @@ describe('W-39 fog of war goes to the client', () => {
   it('packs fog runs losslessly', () => {
     const s = new Uint8Array([0, 0, 1, 2, 2, 2, 0, 1]);
     expect(decodeFog(0, 4, 2, 2, encodeFog(s), 3).state).toEqual(s);
+  });
+});
+
+describe('W-65 the neutral state goes to the client', () => {
+  it('a wild room sends its lairs and claim points on join, then only when they change', () => {
+    const r = new WarRoom({ region, seed: 1, cap: 600, wild: true });
+    r.join(1, join(1, 0));
+    const wild = (r.tick().msgs.get(1) ?? []).find((m) => m.t === 'wild');
+    expect(wild?.t === 'wild' && wild.lairs.length).toBe(region.lairs!.length);
+    expect(wild?.t === 'wild' && wild.claims.length).toBe(region.claimPoints!.length);
+    // nothing changed: not sent again at the next check
+    let again = 0;
+    for (let t = 0; t < WILD_EVERY * 2; t++) again += (r.tick().msgs.get(1) ?? []).filter((m) => m.t === 'wild').length;
+    expect(again).toBe(0);
   });
 });
 

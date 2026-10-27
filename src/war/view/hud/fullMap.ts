@@ -13,7 +13,7 @@ import { BIOME_NAME, MODES } from '../mapModes';
 import type { SandboxScene } from '../SandboxScene';
 import { icon, uiZoom } from './kit';
 import { swatch } from './modes';
-import { drawIcon, drawMap, explored, fogAt, FOG_SWATCH, ISO_ROT, squads, TEAM, toPx, toTile, type MapXf } from './mapDraw';
+import { drawIcon, drawMap, explored, fogAt, FOG_SWATCH, ISO_ROT, ROAM_DOT, squads, TEAM, toPx, toTile, type MapXf } from './mapDraw';
 import { keys } from '../../input/keys';
 import { myTeam } from '../side';
 
@@ -271,7 +271,7 @@ export class FullMap {
   /** What the side panel shows: the mode, its live key, the found lair kinds and whether the fog is on. */
   private panelKey(): string {
     const s = this.s;
-    return `${s.mode}|${s.map.key(s.mode, s.live())}|${this.lairKinds()}|${!!s.sim.fog && s.sim.fogOn}`;
+    return `${s.mode}|${s.map.key(s.mode, s.live())}|${this.lairKinds()}|${!!s.sim.fog && s.sim.fogOn}|${[...new Set((s.sim.cur?.roam ?? []).map((r) => r.kind))].sort()}`;
   }
 
   /** The side panel: mode, question, tabs, legend, markers' key, the hover card. */
@@ -287,13 +287,17 @@ export class FullMap {
     const square = (c: string) => `<i class="mk"><i style="width:10px;height:10px;background:${c};box-shadow:0 0 0 1px #0e0907"></i></i>`;
     const kinds = this.lairKinds();
     const fog = s.sim.fog && s.sim.fogOn ? row(`<i class="sw" style="background:linear-gradient(${FOG_SWATCH.dim},${FOG_SWATCH.dim}),#688440"></i>`, 'Explored, out of sight') + row(`<i class="sw" style="background:linear-gradient(${FOG_SWATCH.dark},${FOG_SWATCH.dark}),#688440"></i>`, 'Unexplored') : '';
+    // W-65: the roaming groups in sight, by kind (dots as on the map)
+    const dot = (c: string) => `<i class="mk"><i style="width:7px;height:7px;border-radius:50%;background:${c};box-shadow:0 0 0 1px #0e0907"></i></i>`;
+    const roaming = new Set((s.sim.cur?.roam ?? []).map((r) => r.kind));
+    const roam = ([['pack', 'Beasts on the move'], ['patrol', 'Bandit patrol'], ['caravan', 'Merchant caravan: escort it for coin, or rob it'], ['traveller', 'Travellers']] as const).filter(([k]) => roaming.has(k)).map(([k, l]) => row(dot(ROAM_DOT[k]), l)).join('');
     const lairs = kinds.length ? `<div class="fm-row" style="flex-wrap:wrap;gap:2px">${kinds.map((k) => `<span title="${BEAST[k] ?? k}">${icon('lair-' + k)}</span>`).join('')}<span style="margin-left:4px">Beast lairs</span></div>` : '';
     this.panel.innerHTML = `<div class="fm-mode">${icon(md.icon, 32)}<h2>${md.name}</h2><span class="fm-key">${md.key}</span></div>
       <p class="fm-about">${md.about}</p>
       <div class="fm-tabs">${MODES.map((q) => `<button class="rf-btn${q.id === s.mode ? ' on' : ''}" data-mode="${q.id}" title="${q.name} (${q.key})">${icon(q.icon)}</button>`).join('')}</div>
       <h3>Legend</h3>${legend}
       <h3>On the map</h3>${row(shield(TEAM[0]), 'Your squads (ringed: selected)')}${row(shield(TEAM[1]), 'Enemies in sight')}${row(square(TEAM[0]) , 'Your buildings')}${row(square(TEAM[1]), 'Enemy buildings')}
-      ${lairs}${row(icon('mk-claim'), 'Claim point')}${row('<i class="mk"><i style="width:14px;height:9px;box-shadow:inset 0 0 0 1px #f0d9b5,0 0 0 1px #0e0907"></i></i>', 'Your view')}${fog}`;
+      ${lairs}${roam}${row(icon('mk-claim'), 'Claim point')}${row('<i class="mk"><i style="width:14px;height:9px;box-shadow:inset 0 0 0 1px #f0d9b5,0 0 0 1px #0e0907"></i></i>', 'Your view')}${fog}`;
     this.panel.append(this.card);
     this.panel.querySelectorAll<HTMLButtonElement>('[data-mode]').forEach((b) => (b.onclick = () => { s.setMode(b.dataset.mode as typeof s.mode); this.dirty = true; }));
     if (!this.card.innerHTML) this.card.innerHTML = '<span class="d">Point at the map to see what is there.</span>';

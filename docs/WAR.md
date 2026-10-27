@@ -399,6 +399,32 @@ started again from its save (reload, region woken) spawns what its open step nee
 Foothills, Teeth Eastern Slopes, Western Heath, Lagoon Coast, Cape of Winds, Grey Moors; the others have a one-line
 hook and the file ends with a template. Foes stand 25+ tiles from the region's own lairs (tests/war/stories.test.ts).
 
+### Roaming life
+
+W-65 (`src/war/sim/roam.ts`): besides the lairs, groups move about every region on the sim's own orders, deterministic
+(their own seeded Rng). The live server starts them in every region (homes too); scenarios opt in with `roam: true`.
+
+| Kind | Who | Does |
+| --- | --- | --- |
+| Beast pack | 1-5 beasts of the region's fauna (the wild) | idle, graze and roam a territory round a lair of their kind, now and then move on to another; ibex flee, bears attack anything near, boars charge what comes close, wolves and jackals stalk squads they outnumber and keep away from bigger ones |
+| Bandit patrol | 4 + depth bandits (the wild) | walk the road between a bandit camp and the nearest entry; ambush weak squads (no more men than the patrol + 2), caravans and travellers; let strong squads pass unless hurt |
+| Merchant caravan | a wagon with goods, a merchant driver, 3-4 guards (roaming folk) | back and forth between an entry and a town; escort it (your squads within 14 tiles for 30% of the trip) and it pays coin on arrival (4 + 2 x depth, a pile only you may take for 10 min); rob it (attack the guards, take the wagon) and it is yours with its goods |
+| Travellers | 2-3 civilians, pilgrims from depth 3 (roaming folk) | walk the roads between entries and towns; run from foes and from any fight within 18 tiles |
+
+| Depth | Packs | Patrols | Caravans | Travellers |
+| --- | --- | --- | --- | --- |
+| 0 | 0 | 0 | 1 | 3 |
+| 1 | 2 | 1 (with a bandit camp) | 1 | 2 |
+| 2 | 3 | 2 | 1 | 2 |
+| 3 | 3 | 2 | 1 | 1 |
+| 4 | 4 | 2 | 0 | 1 |
+
+Roaming folk (NEUTRAL_TEAM) are meek: players' men and theirs do not fight until a player attacks them (the whole group
+then turns on that team); beasts and bandits fight them as anyone. A group with no player's man within 90 tiles holds
+and does not think, so dormant regions catch up cheaply. A wiped-out group comes back at the start of its road after 10
+minutes; the survivors of a broken caravan walk on as travellers. Maps show roaming groups as small dots by kind where
+your men see them.
+
 ### Landmarks
 
 Nine pre-built strongholds, one in every depth-3 and depth-4 neutral, so each home faces the same set at the same
