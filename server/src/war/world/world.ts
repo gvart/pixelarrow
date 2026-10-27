@@ -21,6 +21,11 @@
  *    (`path`) chains the transfers on each arrival, offline too, retried while a leg is refused. Convoys are seen
  *    like squads, by alliances with men in or next to either end; Safe Roads (the merchant node): only by alliances
  *    with men at the destination. Trade score (addTrade) adds to the season score as it comes.
+ *  - W-62 world events (src/war/world/events.ts): the season's schedule from its seed; eventTick() opens and closes them
+ *    (the DO's alarm: nextAlarm() includes the next boundary), a caravan rush scores convoys arriving with cargo at its
+ *    market (due), a landmark siege scores its capture (report) and its garrisoned holder at the end (eventTick). Event
+ *    score is kept per alliance (`event`) and in `scores`. newSeason() is the partial reset of the season war: fresh
+ *    owners, score and schedule; squads on the road ride on; the last season's board stays (`last`, set by the DO).
  */
 import { ALLIANCES, WAR_SEASON } from '../../../../src/war/world/alliances';
 import { edge, worldRegion } from '../../../../src/war/world/graph';
@@ -29,6 +34,8 @@ import { allianceRates, FRONTIER_TOWNS, HEGEMONY, hegemon, HOUR_MS, LIVING, OMPH
 import type { AllianceId, SeasonConfig, Side } from '../../../../src/war/world/types';
 import type { AllianceStats, ConvoySnap, LandmarkWorld, RegionState, SeasonResult, SeasonSnap, TransferError, TransferOrder, TransitCargo, TransitSnap, WorldSnapshot } from '../../../../src/war/net/world';
 import { loads as holdLoads } from '../../../../src/war/sim/holders';
+import { activeEvents, nextEvent, RUSH, seasonEvents, seasonSeed, SIEGE, type WorldEvent, type WorldEventKind } from '../../../../src/war/world/events';
+import type { SeasonBoard } from '../../../../src/war/net/world';
 import { adjacent } from '../../../../src/war/world/graph';
 
 /** M6h: travel time factors with cargo (docs/WAR.md "Carts": wagon x1.5, loaded porters x1.2). */
@@ -99,6 +106,10 @@ export interface SeasonState {
   /** W-61: peace score per kind and alliance (also in `scores`); transfer time share per alliance (its road work). */
   peace?: Record<string, number[]>;
   travel?: number[];
+  /** W-62: the schedule's seed; world events are opened and closed up to `evAt`; event score per alliance (also in `scores`). */
+  seed?: number;
+  evAt?: number;
+  event?: number[];
 }
 
 export interface WorldState {
@@ -109,6 +120,8 @@ export interface WorldState {
   season: SeasonState;
   /** M6h: haul legs waiting to be sent on. */
   hauls?: Haul[];
+  /** W-62: the last finished season's scoreboard (the DO writes it at the rollover). */
+  last?: SeasonBoard;
 }
 
 /** What a region room tells the world (WarRoom.summary). */
@@ -142,7 +155,7 @@ function freshRegion(id: string): RegionState {
 const freshRegions = () => Object.fromEntries(WORLD_REGIONS.map((r) => [r.id, freshRegion(r.id)]));
 
 export function freshSeason(id: number, now: number, cfg: SeasonConfig = WAR_SEASON): SeasonState {
-  return { id, startAt: now, endAt: now + cfg.lengthMs, scores: zeros(), accruedAt: now, hegemony: null, ended: null };
+  return { id, startAt: now, endAt: now + cfg.lengthMs, scores: zeros(), accruedAt: now, hegemony: null, ended: null, seed: seasonSeed(id, now), evAt: now };
 }
 
 export function freshWorld(now = Date.now(), cfg: SeasonConfig = WAR_SEASON): WorldState {
@@ -154,6 +167,7 @@ export const snapOf = (t: Transit): TransitSnap => ({ id: t.id, from: t.from, to
 export class World {
   readonly st: WorldState;
   readonly season: SeasonConfig;
+  private sched: { key: string; list: WorldEvent[] } | null = null;
 
   constructor(st?: WorldState, season: SeasonConfig = WAR_SEASON) {
     this.st = st ?? freshWorld(Date.now(), season);
@@ -201,6 +215,71 @@ export class World {
     this.st.season = freshSeason(this.st.season.id + 1, now, this.season);
   }
 
+  /** W-62: the season's event schedule (cached; the same seed and dates, the same list). */
+  events(): WorldEvent[] {
+    const s = this.st.season, seed = s.seed ?? seasonSeed(s.id, s.startAt), key = `${seed}:${s.startAt}:${s.endAt}`;
+    if (this.sched?.key !== key) this.sched = { key, list: seasonEvents(seed, s.startAt, s.endAt) };
+    return this.sched.list;
+  }
+
+  /** W-62: the events running at `now` (none once the season is over). */
+  activeEvents(now: number): WorldEvent[] {
+    return this.st.season.ended ? [] : activeEvents(this.events(), now);
+  }
+
+  /** W-62: the next event to start after `now` (null: none, or the season is over). */
+  nextEvent(now: number): WorldEvent | null {
+    const s = this.st.season, e = s.ended ? null : nextEvent(this.events(), now);
+    return e && e.startAt < this.seasonEndsAt() ? e : null;
+  }
+
+  private eventIn(region: string, kind: WorldEventKind, now: number): WorldEvent | undefined {
+    return this.activeEvents(now).find((e) => e.region === region && e.kind === kind);
+  }
+
+  /** W-62: the next event boundary (a start or an end) after the last one handled. */
+  nextEventAt(): number | null {
+    const s = this.st.season;
+    if (s.ended) return null;
+    const after = s.evAt ?? s.startAt, end = this.seasonEndsAt();
+    let at: number | null = null;
+    for (const e of this.events()) {
+      const x = e.startAt > after ? e.startAt : e.endAt > after ? e.endAt : null;
+      if (x !== null && x <= end && (at === null || x < at)) at = x;
+      if (e.startAt > after) break;
+    }
+    return at;
+  }
+
+  /**
+   * W-62: open and close the events whose boundary passed since the last call (the alarm): `started` are running now,
+   * `ended` closed (a landmark siege scores its garrisoned holder SIEGE.held). `changed`: either list is not empty.
+   */
+  eventTick(now: number): { started: WorldEvent[]; ended: WorldEvent[]; changed: boolean } {
+    const s = this.st.season;
+    if (s.ended) return { started: [], ended: [], changed: false };
+    const after = s.evAt ?? s.startAt, to = Math.min(now, this.seasonEndsAt());
+    if (to <= after) return { started: [], ended: [], changed: false };
+    const list = this.events();
+    const started = list.filter((e) => e.startAt > after && e.startAt <= to && e.endAt > to);
+    const ended = list.filter((e) => e.endAt > after && e.endAt <= to && e.startAt <= to);
+    s.evAt = to;
+    for (const e of ended) {
+      const lm = e.kind === 'landmarkSiege' ? this.st.regions[e.region]?.landmark : undefined;
+      if (lm && lm.holder >= 0 && lm.garrisoned) this.eventScore(lm.holder as AllianceId, SIEGE.held, e.endAt);
+    }
+    return { started, ended, changed: started.length > 0 || ended.length > 0 };
+  }
+
+  /** W-62: event score `pts` to alliance `a` (after the season is brought up to now). */
+  eventScore(a: AllianceId, pts: number, now: number): void {
+    this.advance(now);
+    const s = this.st.season;
+    if (s.ended || !(pts > 0) || a < 0 || a >= N) return;
+    s.scores[a] += pts;
+    (s.event ??= zeros())[a] += pts;
+  }
+
   region(id: string): RegionState | undefined {
     return this.st.regions[id];
   }
@@ -239,6 +318,9 @@ export class World {
     if (rep.prestige?.some((v) => v > 0)) next.prestige = Array.from({ length: N }, (_, i) => rep.prestige![i] ?? 0);
     if (rep.ruined) next.ruined = true;
     if (rep.town?.some((v) => v > 0)) next.town = Array.from({ length: N }, (_, i) => rep.town![i] ?? 0);
+    // W-62: a landmark taken while its siege runs scores its captor
+    const was = cur.landmark?.holder ?? -1, holder = next.landmark?.holder ?? -1;
+    if (holder >= 0 && holder !== was && this.eventIn(id, 'landmarkSiege', now)) this.eventScore(holder as AllianceId, SIEGE.capture, now);
     const changed = JSON.stringify(next) !== JSON.stringify(cur);
     this.st.regions[id] = next;
     if (changed) this.checkHegemony(now);
@@ -326,6 +408,9 @@ export class World {
       if ('ok' in r || r.error === 'gone') {
         this.st.transit = this.st.transit.filter((x) => x !== t);
         changed = true;
+        // W-62: a caravan rush at its market scores the convoy's loads
+        const loads = 'ok' in r ? cargoLoads(t.cargo) : 0;
+        if (loads > 1e-9 && this.eventIn(t.to, 'caravanRush', now)) this.eventScore(t.alliance, Math.min(RUSH.cap, Math.ceil(loads * RUSH.perLoad)), now);
         // a haul: the next leg leaves at once (the player may be offline)
         if ('ok' in r && t.path?.length) (this.st.hauls ??= []).push({ pid: t.pid, alliance: t.alliance, at: t.to, ids: t.ids, path: t.path, retryAt: now, ...(t.safe ? { safe: true } : {}) });
         continue;
@@ -356,10 +441,10 @@ export class World {
     return at;
   }
 
-  /** The world's next alarm: the next arrival or the season's end, whichever is first (null: neither). */
+  /** The world's next alarm: the next arrival, world event boundary (W-62) or the season's end, whichever is first (null: none). */
   nextAlarm(): number | null {
-    const a = this.nextDue(), e = this.st.season.ended ? null : this.seasonEndsAt();
-    return a === null ? e : e === null ? a : Math.min(a, e);
+    const xs = [this.nextDue(), this.nextEventAt(), this.st.season.ended ? null : this.seasonEndsAt()].filter((x): x is number => x !== null);
+    return xs.length ? Math.min(...xs) : null;
   }
 
   /** Person ids on the road or waiting (D1 recovery: anyone marked in transit and not here goes home). */
@@ -382,6 +467,8 @@ export class World {
       transit: this.st.transit.filter((t) => t.pid === pid).map(snapOf),
       convoys: this.convoys(pid, alliance),
       boards: {},
+      events: { active: this.activeEvents(now), next: this.nextEvent(now) },
+      last: this.st.last ?? null,
     };
   }
 
@@ -411,6 +498,7 @@ export class World {
       ended: s.ended,
       trade: (s.trade ?? zeros()).map(Math.floor),
       ...(s.peace ? { peace: Object.fromEntries(Object.entries(s.peace).map(([k, v]) => [k, v.map(Math.floor)])) } : {}),
+      ...(s.event ? { event: s.event.map(Math.floor) } : {}),
     };
   }
 }

@@ -164,7 +164,7 @@ describe('Season', () => {
   it('ends at its time with the top score; results freeze', () => {
     const w = new World(freshWorld(T0));
     hold(w, 'saddle', 2, T0);
-    expect(w.nextAlarm()).toBe(T0 + w.season.lengthMs);
+    expect(w.seasonEndsAt()).toBe(T0 + w.season.lengthMs); // W-62: world events come first on the alarm
     const end = T0 + w.season.lengthMs;
     expect(w.advance(end - 1)).toBeNull();
     const r = w.advance(end + 5 * H);
@@ -189,7 +189,7 @@ describe('Season', () => {
     expect(w.st.season.hegemony).toBeNull();
     hold(w, 'ammos', 3, T0 + H);
     expect(w.st.season.hegemony).toEqual({ alliance: 3, since: T0 + H });
-    expect(w.nextAlarm()).toBe(T0 + H + HEGEMONY.ms);
+    expect(w.seasonEndsAt()).toBe(T0 + H + HEGEMONY.ms);
     // Kyrene takes Ammos back for a while: the clock stops, and starts over when Elaia retakes it
     hold(w, 'ammos', 2, T0 + 10 * H);
     expect(w.st.season.hegemony).toBeNull();

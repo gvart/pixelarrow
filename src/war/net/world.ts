@@ -5,7 +5,8 @@
  *   REST  GET  /api/war/world                     -> WorldSnapshot for the signed-in player
  *         POST /api/war/world/transfer  TransferOrder -> { transit: TransitSnap }
  *         POST /api/war/world/dev/alliance { alliance } (DEV_AUTH=1) join an alliance
- *   WS    /ws/war/world: server -> { t: 'world', ...WorldSnapshot } on connect and on every change (at most 1/s);
+ *   WS    /ws/war/world: server -> { t: 'world', ...WorldSnapshot } on connect and on every change (at most 1/s; W-62:
+ *         the running and next world events, the last season's scoreboard and the player's crests ride along);
  *         client -> { t: 'transfer', ...TransferOrder } | { t: 'ping', c }; server -> transferred | error | pong.
  *
  * Transfer: a squad of the player's standing in region `from` (by its room squad id, or his men there by person id, up
@@ -19,6 +20,9 @@
 import { z } from 'zod';
 import { ARMY_MAX } from '../sim/soldiers';
 import type { AllianceId } from '../world/types';
+import type { WorldEvent } from '../world/events';
+
+export type { WorldEvent } from '../world/events';
 
 /** Most men one transfer moves: the whole army (they arrive as one squad). */
 export const TRANSFER_MAX = ARMY_MAX;
@@ -156,7 +160,28 @@ export interface SeasonSnap {
   trade?: number[];
   /** W-61: peace score per kind (volume, contracts, works) and alliance so far (included in `scores`). */
   peace?: Record<string, number[]>;
+  /** W-62: world event score per alliance so far (included in `scores`). */
+  event?: number[];
 }
+
+/** W-62: a title holder at a season's end (server/src/war/peace.ts Title). */
+export interface BoardTitle { id: string; name: string; pid: number; player: string; alliance: number }
+
+/** W-62: a finished season's scoreboard: its result, the event score, the title holders and how many earned a banner. */
+export interface SeasonBoard extends SeasonResult {
+  season: number;
+  startAt: number;
+  event: number[];
+  titles: BoardTitle[];
+  /** Players of the winning alliance who earned its banner. */
+  banners: number;
+}
+
+/**
+ * W-62: a cosmetic a player earned at a season's end (war_cosmetics): the winning alliance's banner (`alliance`), or a
+ * title's crest (`title`).
+ */
+export interface Crest { season: number; kind: 'banner' | 'crest'; alliance: number; title?: string }
 
 export interface WorldSnapshot {
   season: number;
@@ -170,6 +195,11 @@ export interface WorldSnapshot {
   convoys?: ConvoySnap[];
   /** M6h: per market town, the last board the player's alliance saw there. */
   boards?: Record<string, BoardSeen>;
+  /** W-62: world events running now and the next to come. */
+  events?: { active: WorldEvent[]; next: WorldEvent | null };
+  /** W-62: the last finished season's scoreboard (null: none yet); the player's own banners and crests. */
+  last?: SeasonBoard | null;
+  crests?: Crest[];
 }
 
 export type WorldServerMsg =
