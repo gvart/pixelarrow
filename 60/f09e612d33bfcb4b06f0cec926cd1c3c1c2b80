@@ -1,0 +1,27 @@
+server/src/war/settlements.ts
+  s_fcb7475e0b5395::t_28d525bd62de23 27,373
+server/src/war/world/worldDO.ts
+  s_fcb7475e0b5395::t_e29b06ab559a74 29,48,201-202
+server/src/war/regionDO.ts
+  s_fcb7475e0b5395::t_e29b06ab559a74 80,733-734,871-873
+src/war/net/world.ts
+  s_fcb7475e0b5395::t_e29b06ab559a74 215-216
+server/src/war/tradeScore.ts
+  s_fcb7475e0b5395::t_28d525bd62de23 17-18,46,52-53,55,61,64
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "60f09e612d33bfcb4b06f0cec926cd1c3c1c2b80",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
