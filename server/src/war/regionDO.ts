@@ -38,7 +38,7 @@ import { contractPoints, scorePeace } from './peace';
 import { handoffDone, handoffRefusal, linkedCaptures } from './abuse';
 import { loads } from '../../../src/war/sim/holders';
 import { ApiError } from '../errors';
-import { batch, guard, lotsOf, placeItemStmt, planTake, putStmt, strongroom } from './holders';
+import { batch, ensureHolder, guard, lotsOf, placeItemStmt, planTake, putStmt, strongroom } from './holders';
 import { loadsIn, SITE, site } from './market';
 import { holderOf } from './tradeRoutes';
 import { bundleGoods, bundleLoads, type Bundle } from './cargo';
@@ -59,6 +59,8 @@ import { allianceOf } from './world/members';
 import type { AllianceId, Side } from '../../../src/war/world/types';
 import { WORLD_NAME, type ArriveResult, type DepartResult } from './world/world';
 import type { TransitCargo } from '../../../src/war/net/world';
+import { guideStorageKey, type GuideDone } from './guide';
+import type { GuideSave } from '../../../src/war/net/guide';
 
 const TICK_MS = 100;
 /** Ticks between summaries to the world map (sent only when changed). */
@@ -197,6 +199,10 @@ export class WarRegionDO extends DurableObject<Env> {
       else if (m.t === 'mend') await this.mend(ws, me.pid, room, m);
       else if (m.t === 'stow') await this.stow(ws, me.pid, room, m);
       else if (m.t === 'handoff') await this.handoff(ws, me.pid, room, m);
+      else if (m.t === 'guide') {
+        const g = room.guide.hide(me.pid);
+        if (g) await this.ctx.storage.put(guideStorageKey(WAR_SEASON.id, me.pid), g);
+      }
     } catch (e) {
       logError('war_message_failed', e);
     }
@@ -237,11 +243,29 @@ export class WarRegionDO extends DurableObject<Env> {
     if (res.msg.t === 'refused' && persons) this.write('release', () => release(this.env.DB!, region, m.squads!.flat()));
     // W-60: the soul gate counts his whole army (every region)
     if (db && res.msg.t === 'welcome') room.setArmy(pid, await armyCount(db, pid));
+    if (res.msg.t === 'welcome') await this.guideStart(pid, room);
     this.save();
     this.start();
     // a rejoin that also names men not here (entering again with some at home): they follow as a fresh squad
     const fresh = here && res.msg.t === 'welcome' ? m.squads?.map((g) => g.filter((id) => id !== 'none' && !here.has(id))).filter((g) => g.length) : undefined;
     if (fresh?.length && room.spawnsNew(pid)) await this.join(ws, pid, room, { ...m, squads: fresh });
+  }
+
+  /** W-62: his first-hour guide here (his save from this DO's storage): started by the room, told to him. */
+  private async guideStart(pid: number, room: WarRoom): Promise<void> {
+    const save = (await this.ctx.storage.get<GuideSave>(guideStorageKey(WAR_SEASON.id, pid))) ?? null;
+    const m = room.startGuide(pid, save);
+    if (m) for (const ws of this.ctx.getWebSockets(`p:${pid}`)) send(ws, m);
+  }
+
+  /** W-62: guide steps done: the save into storage, the reward into his home strongroom. */
+  private guided(done: readonly GuideDone[]): void {
+    const d = this.env.DB;
+    for (const g of done) {
+      this.ctx.waitUntil(this.ctx.storage.put(guideStorageKey(WAR_SEASON.id, g.pid), g.save).catch((e) => logError('war_guide_save_failed', e)));
+      const pay = Object.entries(g.reward).filter(([, n]) => n > 0);
+      if (d && pay.length) this.write(`guide ${g.pid} ${g.step}`, () => batch(d, [ensureHolder(d, strongroom(g.pid), 'strongroom', { pid: g.pid }, Date.now()), ...pay.map(([r, n]) => putStmt(d, strongroom(g.pid), r, n))]));
+    }
   }
 
   /** M5h4: the stash item goes to the workplace (D1), then into the room's queue; refused: straight back. */
@@ -305,6 +329,7 @@ export class WarRegionDO extends DurableObject<Env> {
         return fail(e);
       }
       send(ws, { t: 'stowed', dir: 'in', site: id, goods: bundleGoods(b), items: b.items.length });
+      room.guide.mark(pid, 'haul'); // W-62
       if (cartLoads > 0) this.write('escort', () => cartArrived(d, pid, region, cartLoads, Date.now()));
     } else {
       let b: Bundle;
@@ -395,6 +420,7 @@ export class WarRegionDO extends DurableObject<Env> {
     if ('error' in s) return tell((w) => ({ t: 'handoff', with: w, state: 'closed', why: s.error }));
     if (d) this.write('handoff', () => handoffDone(d, r.window, s.gave, Date.now()));
     tell((w) => ({ t: 'handoff', with: w, state: 'done', halves }));
+    for (const p of [r.window.a, r.window.b]) room.guide.mark(p, 'haul'); // W-62
     this.save();
   }
 
@@ -433,6 +459,7 @@ export class WarRegionDO extends DurableObject<Env> {
     if (!persons.length) return { error: 'gone' };
     const r = room.arrive(pid, team, persons, side, lost, cargo);
     if ('error' in r) return r;
+    if (cargo) room.guide.mark(pid, 'haul'); // W-62: a caravan in
     await d.batch([
       d.prepare('UPDATE war_persons SET region = ?1, updated_at = ?4 WHERE region = ?3 AND id IN (SELECT value FROM json_each(?2))').bind(region, JSON.stringify(persons.map((p) => p.id)), road, Date.now()),
       d.prepare('UPDATE war_persons SET region = NULL WHERE region = ?2 AND id IN (SELECT value FROM json_each(?1))').bind(JSON.stringify(ids), road),
@@ -575,6 +602,7 @@ export class WarRegionDO extends DurableObject<Env> {
       if (!a) continue;
       const w = r.admitted.get(a.pid);
       if (w) send(ws, w);
+      if (w?.t === 'welcome') void this.guideStart(a.pid, room); // W-62: in from the line
       for (const m of r.msgs.get(a.pid) ?? []) send(ws, m); // the economy view (nodes, influence)
       const f = r.frames.get(a.pid);
       if (f) {
@@ -594,6 +622,7 @@ export class WarRegionDO extends DurableObject<Env> {
       if (!ok) room.sim.dropPersons([c.person.id]);
       room.setArmy(c.pid, await armyCount(d, c.pid));
     });
+    if (r.guided.length) this.guided(r.guided);
     if (d && r.crafted.length) this.write('crafted', () => applyCrafts(d, room.region.id, room.run, r.crafted, Date.now()));
     if (d) for (const b of r.bosses) this.write(`boss ${b.boss}`, () => applyBossKill(d, room.region.id, room.run, b, Date.now()));
     // M7f: a temple or shrine razed costs the razer's alliance score
