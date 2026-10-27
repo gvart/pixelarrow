@@ -468,6 +468,9 @@ export class WarRegionDO extends DurableObject<Env> {
       if (rest.lots.length || rest.items.length)
         this.write('stow back', () => d.batch([...rest.lots.map((l) => putStmt(d, id, l.r, l.n, l.o, l.s ?? 0)), ...rest.items.map((it) => placeItemStmt(d, pid, id, it, now))]));
       send(ws, { t: 'stowed', dir: 'out', site: id, goods: bundleGoods(b), items: b.items.length - rest.items.length, ...(rest.lots.length ? { left: bundleGoods(rest) } : {}) });
+      // W-62 E7: "Fill the stores" counts the day's net, so taking goods out and stowing them back earns nothing
+      const out = b.lots.reduce((a, l) => a + l.n, 0) - rest.lots.reduce((a, l) => a + l.n, 0);
+      if (out > 0) this.write('tasks', () => tallyStmt(d, pid, 'deliver', -out, Date.now()).run());
     }
     this.save();
   }
