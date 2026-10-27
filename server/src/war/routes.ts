@@ -35,6 +35,9 @@
  *   POST /settlements/:id/rebel               a vassal's lord ends the tie
  *   POST /settlements/offers/:id/accept { plot? } the asked lord accepts (a settle request: with the plot)
  *   POST /settlements/offers/:id/refuse       the asked lord refuses, or the offerer withdraws
+ *   GET  /tasks                               W-62 E7: his daily and weekly tasks (drawn on first read), progress, rerolls
+ *   POST /tasks/:kind/:slot/claim             claim a done task: reward into his strongroom, score to his alliance
+ *   POST /tasks/:kind/:slot/reroll            reroll a task not yet claimed (one free a UTC day; ./tasks.ts)
  *   POST /dev/seed      { squad? }             DEV_AUTH=1 only: a whole army (and civilians) to test with
  */
 import { Hono } from 'hono';
@@ -53,9 +56,10 @@ import { deposit, payRansomFromTreasury, treasury } from './treasury';
 import { trade } from './tradeRoutes';
 import { start } from './start';
 import { give, worksOf } from './works';
+import { claimTask, rerollOne, tasksOf } from './tasks';
 import { statsOf, titles } from './peace';
 import { allianceOf } from './world/members';
-import { workDef } from '../../../src/war/net/works';
+import { stagesOf } from '../../../src/war/net/works';
 import { GOODS } from '../../../src/war/net/protocol';
 import { accept, inbox, offerGarrison, offerTerms, offerTruce, PRESENCE, rebel, refuse, requestSettle, settlement, settlementsOf, settlementView, SETTLE } from './settlements';
 import { WAR_REGIONS } from './regions';
@@ -151,7 +155,7 @@ war.get('/works', requirePlayable, async (c) => {
 
 war.post('/works/:id/give', requirePlayable, async (c) => {
   const id = c.req.param('id');
-  if (!workDef(id)) throw badRequest('Bad work');
+  if (!stagesOf(id)) throw badRequest('Bad work');
   const b = await readJson(c, z.object({ goods: z.partialRecord(z.enum(GOODS as unknown as [string, ...string[]]), z.number().positive().max(100_000)) }), MAX_BODY);
   return c.json({ given: await give(c.env, c.get('session').pid, id, b.goods as Record<string, number>, Date.now()) });
 });
@@ -205,6 +209,22 @@ war.post('/settlements/offers/:id/accept', requirePlayable, async (c) => {
 });
 
 war.post('/settlements/offers/:id/refuse', requirePlayable, async (c) => c.json({ state: await refuse(db(c.env), c.get('session').pid, sid(c.req.param('id')), Date.now()) }));
+
+war.get('/tasks', requirePlayable, async (c) => c.json(await tasksOf(db(c.env), c.get('session').pid, Date.now())));
+
+const taskParams = (kind: string, slot: string) => {
+  const k = z.enum(['daily', 'weekly']).safeParse(kind), s = z.coerce.number().int().min(0).max(4).safeParse(slot);
+  if (!k.success || !s.success) throw badRequest('Bad task');
+  return { kind: k.data, slot: s.data };
+};
+war.post('/tasks/:kind/:slot/claim', requirePlayable, async (c) => {
+  const t = taskParams(c.req.param('kind'), c.req.param('slot'));
+  return c.json(await claimTask(c.env, c.get('session').pid, t.kind, t.slot, Date.now()));
+});
+war.post('/tasks/:kind/:slot/reroll', requirePlayable, async (c) => {
+  const t = taskParams(c.req.param('kind'), c.req.param('slot'));
+  return c.json({ task: await rerollOne(db(c.env), c.get('session').pid, t.kind, t.slot, Date.now()) });
+});
 
 war.route('/trade', trade);
 war.route('/start', start);

@@ -19,6 +19,7 @@ import { allianceOf } from './world/members';
 import { json } from './persons';
 import { tradeRefusal } from './abuse';
 import { peacePoints, statStmt } from './peace';
+import { tallyStmt } from './tasks';
 import { PEACE } from '../../../src/war/world/season';
 
 export const TRADE = { per: 100, hops: 3, cap: 60 };
@@ -52,11 +53,12 @@ export function fillHook(env: Env, peace: { alliance: number | null; volume: num
     const vol = await peacePoints(db, sa, 'volume', f.coin / PEACE.volume, f.now);
     peace.alliance = sa;
     peace.volume = vol.pts;
+    const abroad = tallyStmt(db, f.seller, 'sellAlliance', f.coin, f.now); // E7 tasks
     const pts = Math.min(scoreOf(f.town, f.lots, f.coin), await room(db, sa, f.now));
-    if (!(pts > 0)) return { score: 0, stmts: [sold, ...vol.stmts] };
+    if (!(pts > 0)) return { score: 0, stmts: [sold, abroad, ...vol.stmts] };
     return {
       score: pts,
-      stmts: [sold, ...vol.stmts, db.prepare('INSERT INTO war_trade_score (season, alliance, day, points) VALUES (?1, ?2, ?3, ?4) ON CONFLICT (season, alliance, day) DO UPDATE SET points = points + ?4').bind(WAR_SEASON.id, sa, Math.floor(f.now / DAY), pts)],
+      stmts: [sold, abroad, ...vol.stmts, db.prepare('INSERT INTO war_trade_score (season, alliance, day, points) VALUES (?1, ?2, ?3, ?4) ON CONFLICT (season, alliance, day) DO UPDATE SET points = points + ?4').bind(WAR_SEASON.id, sa, Math.floor(f.now / DAY), pts)],
     };
   };
 }

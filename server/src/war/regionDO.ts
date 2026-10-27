@@ -67,6 +67,7 @@ import type { AllianceId, Side } from '../../../src/war/world/types';
 import { WORLD_NAME, type ArriveResult, type DepartResult } from './world/world';
 import type { TransitCargo } from '../../../src/war/net/world';
 import { guideStorageKey, type GuideDone } from './guide';
+import { fightTallies, tallyStmt } from './tasks';
 import type { GuideSave } from '../../../src/war/net/guide';
 
 const TICK_MS = 100;
@@ -399,6 +400,8 @@ export class WarRegionDO extends DurableObject<Env> {
       }
       send(ws, { t: 'stowed', dir: 'in', site: id, goods: bundleGoods(b), items: b.items.length });
       room.guide.mark(pid, 'haul'); // W-62
+      const stowed = b.lots.reduce((a, l) => a + l.n, 0);
+      if (stowed > 0) this.write('tasks', () => tallyStmt(d, pid, 'deliver', stowed, Date.now()).run()); // W-62 E7
       if (cartLoads > 0) this.write('escort', () => cartArrived(d, pid, region, cartLoads, Date.now()));
     } else {
       let b: Bundle;
@@ -532,6 +535,7 @@ export class WarRegionDO extends DurableObject<Env> {
     await d.batch([
       d.prepare('UPDATE war_persons SET region = ?1, updated_at = ?4 WHERE region = ?3 AND id IN (SELECT value FROM json_each(?2))').bind(region, JSON.stringify(persons.map((p) => p.id)), road, Date.now()),
       d.prepare('UPDATE war_persons SET region = NULL WHERE region = ?2 AND id IN (SELECT value FROM json_each(?1))').bind(JSON.stringify(ids), road),
+      ...(cargo ? [tallyStmt(d, pid, 'caravan', 1, Date.now())] : []), // W-62 E7 tasks
     ]);
     if (r.msg) for (const ws of this.ctx.getWebSockets(`p:${pid}`)) send(ws, r.msg);
     this.save();
@@ -679,7 +683,9 @@ export class WarRegionDO extends DurableObject<Env> {
       }
     }
     const d = this.env.DB;
-    if (d) for (const f of r.fights) this.write(`fight ${f.id}`, () => applyFight(d, f.id, room.region.id, f.report, Date.now()));
+    // W-62 E7: a fight written now also tallies wins and kills for the tasks
+    if (d) for (const f of r.fights) this.write(`fight ${f.id}`, async () => (await applyFight(d, f.id, room.region.id, f.report, Date.now())) && batch(d, fightTallies(d, f.report, Date.now())));
+    if (d && r.gathered.length) this.write('gathered', () => d.batch(r.gathered.map(([p, m, n]) => tallyStmt(d, p, m, n, Date.now()))));
     if (d && r.raided.length) {
       const at = Date.now();
       this.write('raid', () => freeRaided(d, room.region.id, r.raided, at));
@@ -689,6 +695,7 @@ export class WarRegionDO extends DurableObject<Env> {
     if (d) for (const c of r.souls) this.write(`soul ${c.person.id}`, async () => {
       const ok = await claimSoul(d, c.pid, c.person, room.region.id, Date.now());
       if (!ok) room.sim.dropPersons([c.person.id]);
+      else await tallyStmt(d, c.pid, 'soul', 1, Date.now()).run(); // W-62 E7
       room.setArmy(c.pid, await armyCount(d, c.pid));
     });
     if (r.guided.length) this.guided(r.guided);

@@ -57,6 +57,7 @@ import { mountSouls } from './souls';
 import { mountWorldEvents } from './worldEvents';
 import { mountRegionChat } from './chatRegion';
 import { mountPeace } from './peace';
+import { mountTasks } from './tasks';
 import { mountGuide } from './guide';
 import { mountReplay } from '../replay';
 import { RECIPES } from '../../../data/recipes';
@@ -379,6 +380,7 @@ export function hud(s: SandboxScene): void {
   mountChest(s, mk, tipOn); // the squad chest (I) beside the roster button: what the men carry, the town store
   mountSouls(s, mk, tipOn); // W-60: souls to claim (the prompt, notes; ghosts drawn by ../units.ts)
   mountPeace(s, mk); // W-61: the town level badge and card, alliance works and titles (./peace.ts)
+  mountTasks(s, mk); // W-62 E7: daily and weekly tasks (./tasks.ts)
   mountWorldEvents(s, mk); // W-62: the world events card (./worldEvents.ts)
   mountGuide(s, mk); // W-62: the first-hour quest tracker, top left, and its world markers (./guide.ts)
   mountRegionChat(s); // W-62 E6: the alliance chat above the minimap, map marks (./chat.ts)

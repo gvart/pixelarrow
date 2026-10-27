@@ -632,6 +632,11 @@ export const addStats = (db: D1Database, pid: number, d: { kills?: number; fight
  * off fit and no man of another team did (mobs are not persons: a fight against beasts is won by surviving it).
  */
 export function fightStats(db: D1Database, r: FightReport): D1PreparedStatement[] {
+  return [...fightTally(r)].map(([pid, s]) => addStats(db, pid, { kills: s.kills, fights: 1, wins: s.win ? 1 : 0, honours: s.honours }));
+}
+
+/** Those tallies by player (also E7's task tallies, ./tasks.ts). */
+export function fightTally(r: FightReport): Map<number, { kills: number; honours: number; win: boolean }> {
   const fitTeams = new Set(r.persons.filter((x) => x.state === 'fit').map((x) => x.team));
   const per = new Map<number, { team: number; kills: number; honours: number; fit: boolean }>();
   for (const x of r.persons) {
@@ -643,7 +648,7 @@ export function fightStats(db: D1Database, r: FightReport): D1PreparedStatement[
     if (x.state === 'fit') s.fit = true;
     per.set(pid, s);
   }
-  return [...per].map(([pid, s]) => addStats(db, pid, { kills: s.kills, fights: 1, wins: s.fit && [...fitTeams].every((t) => t === s.team) ? 1 : 0, honours: s.honours }));
+  return new Map([...per].map(([pid, s]) => [pid, { kills: s.kills, honours: s.honours, win: s.fit && [...fitTeams].every((t) => t === s.team) }]));
 }
 
 /**

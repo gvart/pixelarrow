@@ -33,6 +33,7 @@ import { intoOf, presentIn, site, stallId, townOf } from './market';
 import { json } from './persons';
 import { allianceOf } from './world/members';
 import { contractPoints, peacePoints, statStmt } from './peace';
+import { tallyStmt } from './tasks';
 import type { Env } from '../env';
 import { worldStub } from './world/routes';
 import { logError } from '../telemetry/log';
@@ -256,12 +257,12 @@ export async function deliver(db: D1Database, pid: number, id: number, town: str
     ...lots.map((l) => putStmt(db, into, l.res, l.amount, l.origin)),
     db.prepare('UPDATE war_contracts SET delivered = delivered + ?2 WHERE id = ?1').bind(id, n),
   ];
-  if (done) stmts.push(...(await payOut(db, c, pid)));
+  if (done) stmts.push(...(await payOut(db, c, pid, now)));
   return { stmts, done };
 }
 
 /** A finished contract: state done, the reward (and a carry's deposit) to the taker's warehouse at B (at home: strongroom). */
-async function payOut(db: D1Database, c: ContractRow, taker: number): Promise<D1PreparedStatement[]> {
+async function payOut(db: D1Database, c: ContractRow, taker: number, now: number): Promise<D1PreparedStatement[]> {
   const to = (await db.prepare('SELECT 1 FROM war_holders WHERE id = ?1').bind(intoOf(c.to_town, taker)).first()) ? intoOf(c.to_town, taker) : strongroom(taker);
   return [
     db.prepare("UPDATE war_contracts SET state = 'done' WHERE id = ?1 AND state = 'taken'").bind(c.id),
@@ -269,6 +270,7 @@ async function payOut(db: D1Database, c: ContractRow, taker: number): Promise<D1
     ...(await release(db, `ct:${c.id}`, to)),
     ...(await release(db, `ct:${c.id}:d`, to)),
     statStmt(db, taker, 'contracts', 1), // W-61: contracts filled (titles)
+    tallyStmt(db, taker, 'contract', 1, now), // E7 tasks
   ];
 }
 
@@ -279,7 +281,7 @@ export async function cartArrived(db: D1Database, poster: number, town: string, 
   for (const { id } of rows) {
     const c = await settleContract(db, id, now);
     if (c.state !== 'taken' || loads < c.n * CONTRACT.escort - EPS) continue;
-    await batch(db, await payOut(db, c, c.taker!));
+    await batch(db, await payOut(db, c, c.taker!, now));
     paid++;
   }
   return paid;
@@ -307,7 +309,7 @@ async function payShare(db: D1Database, c: ContractRow, k: number): Promise<D1Pr
 /** A work contract filled: the taker's stats and his alliance's peace score (capped a day; the world adds it). */
 async function filled(env: Env, c: ContractRow, now: number): Promise<D1PreparedStatement[]> {
   const db = env.DB!, a = await allianceOf(db, c.taker!);
-  const out = [statStmt(db, c.taker!, 'contracts', 1)];
+  const out = [statStmt(db, c.taker!, 'contracts', 1), tallyStmt(db, c.taker!, 'contract', 1, now)];
   if (a === null) return out;
   const p = await peacePoints(db, a, 'contracts', contractPoints(c.reward), now);
   if (p.pts > 0) worldStub(env).addPeace(a as AllianceId, 'contracts', p.pts).catch((e) => logError('war_peace_failed', e));
@@ -346,7 +348,7 @@ export async function labourDone(env: Env, pid: number, region: string, site: nu
     await batch(db, [
       db.prepare("UPDATE war_contracts SET delivered = ?2 WHERE id = ?1 AND state = 'taken'").bind(id, total),
       guard(db, "(SELECT state FROM war_contracts WHERE id = ?1) = 'taken'", id),
-      ...pay, statStmt(db, pid, 'labour', add),
+      ...pay, statStmt(db, pid, 'labour', add), tallyStmt(db, pid, 'labour', add, now),
       ...(done ? [db.prepare("UPDATE war_contracts SET state = 'done' WHERE id = ?1").bind(id), ...(await filled(env, c, now))] : []),
     ]);
   }
@@ -380,7 +382,7 @@ export async function guardCheck(env: Env, id: number, held: boolean, secs: numb
   await batch(db, [
     db.prepare("UPDATE war_contracts SET delivered = ?2, away = 0 WHERE id = ?1 AND state = 'taken'").bind(id, total),
     guard(db, "(SELECT state FROM war_contracts WHERE id = ?1) = 'taken'", id),
-    ...(await payShare(db, c, owed)), statStmt(db, c.taker!, 'guard', total - c.delivered),
+    ...(await payShare(db, c, owed)), statStmt(db, c.taker!, 'guard', total - c.delivered), tallyStmt(db, c.taker!, 'guard', total - c.delivered, now),
     ...(done ? [db.prepare("UPDATE war_contracts SET state = 'done' WHERE id = ?1").bind(id), ...(await filled(env, c, now))] : []),
   ]);
   return done ? 'done' : 'taken';
