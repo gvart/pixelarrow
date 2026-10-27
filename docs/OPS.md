@@ -45,6 +45,12 @@ per error, admin action or cron run; ~5-30 events per player per day; one D1
 isolate, 6 batches/min per IP and player; pruned after 30 days); daily export
 artifacts count toward Actions storage on a private repo.
 
+War online cap: `WAR_MAX_ONLINE` (wrangler.jsonc `vars`, default 50) is the most
+players in the war at once; the rest wait in line and go in as places free. Change
+it in wrangler.jsonc and redeploy (a dashboard edit lasts only until the next deploy);
+`WAR_ADMIN_PIDS` (comma-separated player ids, add it to `vars`) skip the cap. Players
+idle 15 min are kicked (client side), which frees their place.
+
 ## Monitoring
 
 ### Server errors (Workers Logs)

@@ -32,7 +32,10 @@
     "LANDING_URL": "https://pixelarrow.app",
     // The sender of account emails (ADR-0008 §4); must be on the domain
     // onboarded in Email Service (docs/v6/OWNER_ACTIONS.md).
-    "MAIL_FROM": "noreply@pixelarrow.app"
+    "MAIL_FROM": "noreply@pixelarrow.app",
+    // The war's online cap (src/war/net/gate.ts, docs/OPS.md): most players in the war at once, the rest wait in
+    // line. WAR_ADMIN_PIDS (comma-separated player ids, optional) are exempt.
+    "WAR_MAX_ONLINE": "50"
     // Secrets (wrangler secret put, never here): TELEGRAM_BOT_TOKEN (account
     // links to Telegram identities), ADMIN_TOKEN, PASSWORD_PEPPER, PASSWORD_PEPPER_ID,
     // TURNSTILE_SECRET. DEV_AUTH and DEV_EMAIL are local-only (.dev.vars);

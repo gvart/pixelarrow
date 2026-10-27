@@ -13,6 +13,7 @@ import { WAR_REGIONS } from './war/regions';
 import { war } from './war/routes';
 import { worldApi, worldStub } from './war/world/routes';
 import { allianceOf } from './war/world/members';
+import { gateAdmin } from './war/world/gate';
 import { noteSeen, seenOf } from './war/abuse';
 import { lookupSession, pruneAuth } from './auth/sessions';
 import { finishDeletions } from './account/delete';
@@ -173,10 +174,11 @@ async function wsSession(c: Context<AppEnv>) {
   return { session, headers };
 }
 
-/** The war world map (M4, server/src/war/world/): snapshots pushed, transfer orders; protocol src/war/net/world.ts. */
+/** The war world map (M4, server/src/war/world/): snapshots pushed, transfer orders; protocol src/war/net/world.ts. `?gate=1`: the online cap's gate socket (src/war/net/gate.ts). */
 app.get('/ws/war/world', async (c) => {
   const { session, headers } = await wsSession(c);
   headers.set('x-alliance', String((await allianceOf(db(c.env), session.pid)) ?? ''));
+  headers.set('x-war-admin', gateAdmin(c.env.WAR_ADMIN_PIDS, session.pid) ? '1' : '0');
   return worldStub(c.env).fetch(new Request(c.req.url, { headers }));
 });
 
@@ -188,6 +190,10 @@ app.get('/ws/war/:region', async (c) => {
   const s = seenOf(c.req.raw);
   await noteSeen(db(c.env), session.pid, s.ip, s.device, Date.now()).catch(() => undefined);
   if (!WAR_REGIONS.includes(region)) throw new ApiError(404, 'not_found', 'No such war region');
+  // the online cap (src/war/net/gate.ts): once the war is full only players the gate let in may play
+  if (!(await worldStub(c.env).admitted(session.pid, gateAdmin(c.env.WAR_ADMIN_PIDS, session.pid)))) {
+    throw new SocketRefused(new ApiError(503, 'war_full', 'The war is full: wait for your place in line'), headers.get('x-ws-protocol'));
+  }
   headers.set('x-region-id', region);
   const stub = c.env.WAR_REGION.get(c.env.WAR_REGION.idFromName(region));
   return stub.fetch(new Request(c.req.url, { headers }));
