@@ -1,0 +1,19 @@
+src/war/view/hud/guide.ts
+  s_fcb7475e0b5395::t_3bdb364c7834a8 3-5,20,59-62,65,67,76,78,80,153-155,157-168,229,244-247
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "cbc64a92e4aa2a61762be3ed350876221307e41f",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
