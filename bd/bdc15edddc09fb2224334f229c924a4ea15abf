@@ -1,0 +1,40 @@
+src/war/view/hud/claimCard.ts
+  s_fcb7475e0b5395::t_6fbf6fa7e7b42d 1-4,6-33,35-45,47-58,60-64
+  s_fcb7475e0b5395::t_a094e699ad5344 5,34
+  s_fcb7475e0b5395::t_839a64aafbfc10 46
+  s_fcb7475e0b5395::t_52c4993abf8ffe 59
+src/war/world-view/main.ts
+  s_fcb7475e0b5395::t_2df44bb5478cd2 632-637
+src/war/view/hud/codex.ts
+  s_fcb7475e0b5395::t_aac9271b745cbc 17,61
+tests/war/explainHelp.test.ts
+  s_fcb7475e0b5395::t_e28599399f5fb4 88
+  s_fcb7475e0b5395::t_5478b86797822f 1-87,89-90
+src/war/view/hud/explain.ts
+  s_fcb7475e0b5395::t_a28257602fcdbe 1-153
+src/war/view/neutral.ts
+  s_fcb7475e0b5395::t_535930a99766ad 5-7,13-16,20-21,28,69-73
+src/war/world-view/regionCard.ts
+  s_fcb7475e0b5395::t_39759ae9a5fef3 18,169,173,214
+src/war/view/hud/hud.ts
+  s_fcb7475e0b5395::t_ef3f8cc5b1bee2 61,396,562-563
+src/war/view/hud/worldEvents.ts
+  s_fcb7475e0b5395::t_906a8b10df87e6 52
+  s_fcb7475e0b5395::t_6f3812d03cefa2 4-8,16,18,30-48,50,53,59-60,63-64,66-75,82,101-103,110-111
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "bdbdc15edddc09fb2224334f229c924a4ea15abf",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
