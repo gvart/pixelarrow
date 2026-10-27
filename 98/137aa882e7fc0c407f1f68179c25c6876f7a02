@@ -1,0 +1,37 @@
+scripts/war/art/boss-fx-shots.mjs
+  s_fcb7475e0b5395::t_43b0cadaf08b1c 59
+scripts/war/market-shots.mjs
+  s_fcb7475e0b5395::t_43b0cadaf08b1c 21
+scripts/war/regions/landmark-shots.mjs
+  s_fcb7475e0b5395::t_43b0cadaf08b1c 15
+scripts/war/trade-shots.mjs
+  s_fcb7475e0b5395::t_43b0cadaf08b1c 21
+scripts/war/audio-check.mjs
+  s_fcb7475e0b5395::t_43b0cadaf08b1c 16
+scripts/war/play-smoke.mjs
+  s_fcb7475e0b5395::t_43b0cadaf08b1c 139
+scripts/war/living-shots.mjs
+  s_fcb7475e0b5395::t_43b0cadaf08b1c 17
+scripts/war/sandbox-shots.mjs
+  s_fcb7475e0b5395::t_43b0cadaf08b1c 36
+scripts/war/w60-shots.mjs
+  s_fcb7475e0b5395::t_43b0cadaf08b1c 14
+scripts/landing/record-war-clips.mjs
+  s_fcb7475e0b5395::t_43b0cadaf08b1c 169
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "98137aa882e7fc0c407f1f68179c25c6876f7a02",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
