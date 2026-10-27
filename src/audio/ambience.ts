@@ -9,15 +9,18 @@
  *   sea      surf: slow swells of noise
  *   murmur   a town: babble of distant voices and the odd knock
  *   fire     a blaze nearby: roar and crackles
+ *   din      a big melee on screen (E4): the scrape and shove of a press of men, bronze ringing on bronze and grunts,
+ *            denser the more fight; it plays on the field bus when one is given (the effects volume, the pause gate
+ *            and the horns' duck), under the capped single blows
  *
  * A layer's nodes are built the first time its level rises above silence and dropped again after a while silent,
  * so a region only runs the beds it has (the "lazy load" of procedural audio). Levels glide (time constant FADE).
  * `pump(until)` schedules the sporadic events (chirps, voices, crackles) ahead, like the music sequencer.
  */
 import type { AudioRng } from './rng';
-import { brownNoise, noise, osc, whiteNoise, type Ctx } from './synth';
+import { brownNoise, metal, noise, osc, whiteNoise, type Ctx } from './synth';
 
-export const AMB_LAYERS = ['wind', 'gale', 'desert', 'birds', 'river', 'sea', 'murmur', 'fire'] as const;
+export const AMB_LAYERS = ['wind', 'gale', 'desert', 'birds', 'river', 'sea', 'murmur', 'fire', 'din'] as const;
 export type AmbLayer = (typeof AMB_LAYERS)[number];
 export type AmbLevels = Partial<Record<AmbLayer, number>>;
 
@@ -37,7 +40,7 @@ interface Bed {
 }
 
 /** Peak gain per layer at level 1 (balanced by ear against the SFX bus). */
-const PEAK: Record<AmbLayer, number> = { wind: 0.35, gale: 0.45, desert: 0.3, birds: 0.5, river: 0.3, sea: 0.4, murmur: 0.4, fire: 0.45 };
+const PEAK: Record<AmbLayer, number> = { wind: 0.35, gale: 0.45, desert: 0.3, birds: 0.5, river: 0.3, sea: 0.4, murmur: 0.4, fire: 0.45, din: 0.42 };
 
 export class AmbiencePlayer {
   private beds = new Map<AmbLayer, Bed>();
@@ -47,6 +50,8 @@ export class AmbiencePlayer {
     private readonly c: Ctx,
     private readonly bus: AudioNode,
     private readonly r: AudioRng,
+    /** Where the din plays (the SFX bus under the duck); none: the ambience bus. */
+    private readonly field?: AudioNode,
   ) {}
 
   /** Target levels 0..1 per layer (missing: 0). */
@@ -115,6 +120,15 @@ export class AmbiencePlayer {
       case 'fire':
         noise(c, out, t, { dur: r.range(0.008, 0.02), gain: r.range(0.08, 0.25), f: r.jit(3000, 0.4), q: 2 });
         return r.range(0.03, 0.25) / (0.4 + b.level);
+      case 'din': {
+        // bronze on bronze, far and near (a click of the blow, then the ring), now and then a grunt or a shield thud
+        const g = r.range(0.04, 0.12);
+        noise(c, out, t, { dur: 0.012, gain: g * 1.4, f: r.jit(3200, 0.3), q: 1.5 });
+        metal(c, out, t, r.range(1500, 4200), [1, 1.71, 2.6], r.range(0.04, 0.12), g);
+        if (r.chance(0.12)) osc(c, out, t + 0.02, { type: 'sawtooth', f: r.range(130, 210), f1: r.range(90, 140), dur: r.range(0.12, 0.22), gain: 0.02, a: 0.01 });
+        if (r.chance(0.18)) noise(c, out, t, { dur: 0.06, gain: 0.18, f: r.jit(220, 0.3), q: 1, brown: true });
+        return r.range(0.02, 0.14) / (0.25 + b.level);
+      }
       default:
         return 5;
     }
@@ -125,7 +139,7 @@ export class AmbiencePlayer {
     const c = this.c;
     const gain = c.createGain();
     gain.gain.value = 0;
-    gain.connect(this.bus);
+    gain.connect(id === 'din' && this.field ? this.field : this.bus);
     const nodes: (AudioScheduledSourceNode)[] = [];
     const loop = (brown: boolean, rate = 1): AudioBufferSourceNode => {
       const s = c.createBufferSource();
@@ -220,6 +234,21 @@ export class AmbiencePlayer {
         const f = filter('lowpass', 500, 0.8), g = amp(gain, 0.6);
         loop(true).connect(f).connect(g);
         lfo(g.gain, 0.7, 0.2);
+        break;
+      }
+      case 'din': {
+        // the press: feet and shoving (low thumps), steel scrape (a shimmering high band), a crowd's strained voices
+        const lo = filter('lowpass', 180, 0.9), lg = amp(gain, 0.45);
+        loop(true, 1.3).connect(lo).connect(lg);
+        lfo(lg.gain, 2.3, 0.2);
+        const hi = filter('bandpass', 2800, 1.2), hg = amp(gain, 0.1);
+        loop(false).connect(hi).connect(hg);
+        lfo(hg.gain, 7, 0.06);
+        for (const [fq, q, v] of [[520, 3, 0.16], [1150, 4, 0.08]] as const) {
+          const f = filter('bandpass', fq, q), g = amp(gain, v);
+          loop(false, 0.6).connect(f).connect(g);
+          lfo(g.gain, 0.5, v * 0.5);
+        }
         break;
       }
       case 'birds':

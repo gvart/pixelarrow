@@ -20,7 +20,7 @@
  *   and siege ladders are drawn by ./siege/siegeLayer.ts
  */
 import Phaser from 'phaser';
-import type { Order, RegionData, SquadId } from '../types';
+import type { Order, RegionData, ShotSnap, SquadId } from '../types';
 import { SPOTS } from '../regions/test-ridge.spots';
 import { BUILDINGS } from '../sim/economy';
 import { SimClient, type DrawUnit } from './simClient';
@@ -52,6 +52,8 @@ import { GuardianLayer } from './guardians';
 import { Selection } from './select';
 import { keys as warKeys } from '../input/keys';
 import { myTeam } from './side';
+import { Feel } from './feel/feel';
+import { AmbientLayer } from './feel/ambient';
 
 const CLIMB = ['climb', 'walk'] as const;
 const CARRY = ['carry', 'walk'] as const;
@@ -162,6 +164,12 @@ export class SandboxScene extends Phaser.Scene {
   private box: { x0: number; y0: number; x1: number; y1: number } | null = null;
   private down: { x: number; y: number; sx: number; sy: number; pan: boolean } | null = null;
   private keys!: Record<string, Phaser.Input.Keyboard.Key>;
+  /** E4: impacts' shake and hit-stop (./feel/feel.ts); the render time and missiles held through a stop. */
+  feel!: Feel;
+  /** E4: chimney smoke, birds and townsfolk (./feel/ambient.ts; with the art only). */
+  ambient: AmbientLayer | null = null;
+  private heldAt: ReturnType<SimClient['time']> | null = null;
+  private heldShots: ShotSnap[] = [];
 
   constructor() {
     super('Sandbox');
@@ -196,6 +204,7 @@ export class SandboxScene extends Phaser.Scene {
     if (this.objects) this.units.depthOf = (x, y) => this.objects!.depth(x, y);
     this.shots = new ShotLayer(this, this.iso);
     this.fog = new FogLayer(this, this.iso, r);
+    this.feel = new Feel(this.iso);
     this.units.anim.override = workClip;
     this.gUi = this.add.graphics().setDepth(11);
 
@@ -229,6 +238,11 @@ export class SandboxScene extends Phaser.Scene {
     this.build = new BuildMode(this);
     this.build.layer.nodeBase = (n) => (n.obj !== undefined && r.objects?.[n.obj] ? this.objects?.baseOf(r.objects[n.obj].id) : undefined);
     this.siege = new SiegeControls(this);
+    if (this.art) this.ambient = new AmbientLayer(this, this.iso, r, {
+      hearths: () => this.build.layer,
+      paint: (...a) => this.units.paint(...a),
+      depthAt: (x, y) => this.depthAt(x, y),
+    });
     this.interact = new Interact(this);
     this.sel = new Selection(this);
     // wall-walks: units drawn up on walks, stairs and ladders; climbers play climb (else walk); ram crews and ladder
@@ -593,7 +607,10 @@ export class SandboxScene extends Phaser.Scene {
     const fog = this.sim.fog;
     if (fog && fog.version !== this.fogVer) (this.fogVer = fog.version), this.fog.set(fog);
     this.fog.update(dt, view);
-    this.drawn = this.sim.units();
+    // E4: impacts shake the camera; a hit-stop holds the drawn units, clips and missiles (the sim runs on)
+    this.feel.update(this.sim.cur, view, this.time.now);
+    const stopped = this.feel.frozen(this.time.now) && !!this.heldAt;
+    if (!stopped) this.drawn = this.sim.units();
     this.sel.sync(this.drawn);
     // M7d: guardians perched or flying, and their squads' units not drawn (the Chimera's other heads)
     const bosses = this.sim.cur?.bosses;
@@ -604,7 +621,8 @@ export class SandboxScene extends Phaser.Scene {
     // buildings first: this frame's walks, stairs and ladders lift the units
     this.build.update(this.wpx(p.x, p.y), cam.zoom, view);
     this.updateHoles(cam.zoom, this.moved && this.input.isOver ? this.wpx(p.x, p.y) : null);
-    const at = this.sim.time(this.time.now), shots = this.sim.cur?.shots ?? [];
+    const at = stopped ? this.heldAt! : (this.heldAt = this.sim.time(this.time.now));
+    const shots = stopped ? this.heldShots : (this.heldShots = this.sim.cur?.shots ?? []);
     this.siegeLayer.draw(this.sim.cur?.sieges ?? [], this.sim.cur?.buildings ?? [], this.drawn, at, this.sim.cur?.tick ?? 0, view);
     const cur0 = this.sim.cur, sel = this.trade.selected;
     this.tradeLayer.ring = sel ?? (this.build.selectedBuilding()?.type === 'chest' ? { building: this.build.selectedBuilding()!.id } : null);
@@ -618,6 +636,7 @@ export class SandboxScene extends Phaser.Scene {
     if (bosses || cur?.warden) this.guardians.draw(bosses ?? [], cur?.warden, cam.zoom, this.time.now, this.sim.since(this.time.now), view, this.moved && this.input.isOver ? this.wpx(p.x, p.y) : null);
     this.shots.update(at.snap, shots);
     this.shots.draw(at, cam.zoom, cam.zoom >= SPRITE_ZOOM);
+    this.ambient?.update(view, cam.zoom, this.time.now, this.sim.cur, this.drawn); // E4: smoke, birds, townsfolk
     this.drawUi();
     this.guardians.fx.applyShake(cam, dt, this.time.now);
     this.interact.label(this.moved && this.input.isOver && !this.build.tool && !this.box && !this.siege.armed ? p : null);

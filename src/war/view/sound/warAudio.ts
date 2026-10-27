@@ -13,6 +13,8 @@
  *  - spatial: pan and loudness by screen place and zoom (./mix.ts spatial).
  *  - music: calm / tension / battle / boss by what is near the camera (./mix.ts MusicDirector), crossfaded by the engine.
  *  - ambience: the biome beds round the camera (./mix.ts ambienceFor), sampled twice a second.
+ *  - E4 melee din: a bed under the blows that thickens with the men fighting on screen (./mix.ts dinLevel, the din layer of
+ *    src/audio/ambience.ts on the effects bus); the single blows step down under it (blowVol).
  *  - the browser: the context starts on the first user gesture; a hidden tab suspends it.
  * Settings (master, music, effects, ambience, mute) persist in localStorage (./mix.ts loadSound) and the HUD's sound
  * panel (../hud/soundPanel.ts) edits them. `window.__warAudio` is the debug handle (scripts and the headless check).
@@ -22,7 +24,7 @@ import type { SfxId } from '../../../audio/sfx';
 import type { BuildingSnap, SiegeSnap, Snapshot, UnitSnap, WarEvent } from '../../types';
 import type { SandboxScene } from '../SandboxScene';
 import { NEUTRAL_TEAM } from '../../sim/economy';
-import { ambienceFor, cueSfx, gatherSfx, loadSound, MusicDirector, saveSound, shotSfx, spatial, STATE_TRACK, strikeSfx, struckSince, type AmbSample, type WarSoundSettings } from './mix';
+import { ambienceFor, blowVol, cueSfx, dinLevel, gatherSfx, loadSound, MusicDirector, saveSound, shotSfx, spatial, STATE_TRACK, strikeSfx, struckSince, type AmbSample, type WarSoundSettings } from './mix';
 import { myTeam } from '../side';
 
 /** Field sounds started per snapshot at most (10 Hz). */
@@ -46,6 +48,8 @@ export class WarAudio {
   private wants: Want[] = [];
   private ambAt = 0;
   private fireLevel = 0;
+  /** E4: the melee din's level now (0..1). */
+  private din = 0;
   private rnd = 1;
 
   constructor(private readonly s: SandboxScene) {
@@ -91,7 +95,7 @@ export class WarAudio {
   }
 
   debug(): Record<string, unknown> {
-    return { ...this.engine.debug(), music: this.director.state, settings: this.settings };
+    return { ...this.engine.debug(), music: this.director.state, din: this.din, settings: this.settings };
   }
 
   // ---------------------------------------------------------------- per frame
@@ -136,7 +140,8 @@ export class WarAudio {
     if (!this.wants.length) return;
     const placed = this.wants.map((w) => ({ w, p: this.place(w.x, w.y) })).filter((e) => e.p.vol > 0.03);
     placed.sort((a, b) => b.p.vol - a.p.vol);
-    for (const { w, p } of placed.slice(0, BUDGET)) this.engine.play(w.id, { vol: p.vol, pan: p.pan, pri: (w.pri ?? 0) + p.vol });
+    const k = blowVol(this.din);
+    for (const { w, p } of placed.slice(0, BUDGET)) this.engine.play(w.id, { vol: p.vol * k, pan: p.pan, pri: (w.pri ?? 0) + p.vol });
     this.wants = [];
   }
 
@@ -238,13 +243,13 @@ export class WarAudio {
 
   private music(cur: Snapshot): void {
     const sq = this.s.sim.squads;
-    let foes = 0, fighting = 0;
+    let foes = 0, fighting = 0, loud = 0;
     for (const u of cur.units) {
       if (u.state === 'dead') continue;
       const team = sq.get(u.squad)?.team;
       const p = this.place(u.x, u.y);
       if (p.vol <= 0) continue;
-      if (u.state === 'attack') fighting++;
+      if (u.state === 'attack') fighting++, (loud += p.vol);
       if (team !== undefined && team !== myTeam() && team !== NEUTRAL_TEAM && !sq.get(u.squad)?.civ) foes++;
     }
     let boss = false;
@@ -252,6 +257,7 @@ export class WarAudio {
     const st = this.director.update(performance.now() / 1000, { foes, fighting, boss });
     this.engine.music(STATE_TRACK[st]);
     this.engine.heat(Math.min(1, fighting / 30));
+    this.din = dinLevel(loud);
   }
 
   private ambience(cur: Snapshot): void {
@@ -287,7 +293,9 @@ export class WarAudio {
     this.fireLevel += (Math.min(1, fire) - this.fireLevel) * 0.5;
     sample.built = built / 40;
     sample.fire = this.fireLevel;
-    this.engine.ambience(ambienceFor(sample, cam.zoom));
+    const lv = ambienceFor(sample, cam.zoom);
+    if (this.din > 0) lv.din = this.din;
+    this.engine.ambience(lv);
   }
 
   // ---------------------------------------------------------------- the HUD
