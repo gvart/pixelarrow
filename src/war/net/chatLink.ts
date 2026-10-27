@@ -23,6 +23,12 @@ export interface ChatLink {
   readonly live: boolean;
 }
 
+/**
+ * W-63: every message of the world's chat socket, chat or not (the world tells a lord here that a settlement of his
+ * was attacked: `settlementAttacked`); ../view/hud/settlements.ts listens.
+ */
+export const worldTaps = new Set<(m: { t: string }) => void>();
+
 const wsBase = () => `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}`;
 
 export class NetChat implements ChatLink {
@@ -47,7 +53,9 @@ export class NetChat implements ChatLink {
     ws.onmessage = (e) => {
       if (typeof e.data !== 'string') return;
       try {
-        this.on(JSON.parse(e.data) as ChatServerMsg);
+        const m = JSON.parse(e.data) as ChatServerMsg;
+        for (const f of worldTaps) f(m);
+        this.on(m);
       } catch {
         // not ours
       }
