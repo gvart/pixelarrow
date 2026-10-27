@@ -26,6 +26,7 @@
  *    through the rate gate (./chat.ts ChatGate), free text masked and kept in D1 (./chat.ts).
  *  - W-63: notify() passes a region room's notice (a settlement attacked) to players' world sockets; the rollover sweeps
  *    the settlements once every region wrote what persists of them (../settlements.ts seasonSweep).
+ *  - W-64: the rollover also ends every crown's term (../crown.ts crownSeason); notify() carries crown news too.
  */
 import { DurableObject } from 'cloudflare:workers';
 import type { Env } from '../../env';
@@ -44,6 +45,7 @@ import { buildBoard, crestsOf, recordSeason } from './seasonWar';
 import { ChatGate, chatHistory, chatMute, chatMutes, chatReport, chatStore } from './chat';
 import type { ChatMsg, Mark } from '../../../../src/war/net/chat';
 import { seasonSweep } from '../settlements';
+import { crownSeason } from '../crown';
 
 const STATE = 'world';
 const PUSH_MS = 1000;
@@ -196,6 +198,8 @@ export class WarWorldDO extends DurableObject<Env> {
     await Promise.all(WORLD_REGIONS.filter((x) => x.role !== 'home').map((x) => stub(x.id).seasonReset(x.id).catch((e: unknown) => logError('war_season_reset_failed', e, { region: x.id }))));
     // W-63: every region wrote what persists of its settlements; Town level and up, or tended lately, stay; the rest go
     if (d) await seasonSweep(d, now).catch((e: unknown) => logError('war_settle_sweep_failed', e));
+    // W-64: every crown's term ends (regents until the new elections), votes void, open orders settle
+    if (d) await crownSeason(this.env, now).catch((e: unknown) => logError('war_crown_season_failed', e));
     w.st.last = board;
     w.newSeason(now);
     this.crests.clear();

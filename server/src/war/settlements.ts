@@ -24,6 +24,7 @@
 import { WAR_SEASON } from '../../../src/war/world/alliances';
 import { ApiError } from '../errors';
 import { linked } from './abuse';
+import { crownTax } from './crown';
 import { batch, guard, lotsOf, planTake, putLotsStmts, putStmt, round, strongroom, totalsOf, type Goods } from './holders';
 
 const HOUR = 3_600_000;
@@ -369,6 +370,7 @@ export async function levy(db: D1Database, id: number, gain: Goods, stallCoin: n
   const goods = tributeOf(s.tribute_pct, gain, stallCoin);
   await db.batch([
     ...Object.entries(goods).map(([res, n]) => putStmt(db, strongroom(ov.lord_pid), res, n, s.region)),
+    ...(await crownTax(db, ov.lord_pid, goods.coin ?? 0, strongroom(ov.lord_pid), s.region)), // W-64: the alliance tax on tribute
     db.prepare('UPDATE war_settlements SET levied_at = ?2 WHERE id = ?1').bind(id, now),
     logStmt(db, id, 'tribute', ov.id, s.lord_pid, { goods, pct: s.tribute_pct }, now),
     ...extra,

@@ -14,7 +14,8 @@ import { WAR_SEASON } from '../../../src/war/world/alliances';
 import type { AllianceId } from '../../../src/war/world/types';
 import type { BoardSeen } from '../../../src/war/net/world';
 import type { Env } from '../env';
-import type { Board, FillHook } from './market';
+import { stallId, type Board, type FillHook } from './market';
+import { crownTax } from './crown';
 import { allianceOf } from './world/members';
 import { json } from './persons';
 import { tradeRefusal } from './abuse';
@@ -42,23 +43,25 @@ async function room(db: D1Database, alliance: number, now: number): Promise<numb
 /**
  * The fill hook: anti-abuse first (M6i), then the score and its daily row. W-61: the seller's coin sold (titles) on every
  * fill; between alliances also the volume peace score (capped a day), handed back in `peace` for the caller to send.
+ * W-64: the seller's alliance tax (./crown.ts crownTax) on every fill.
  */
 export function fillHook(env: Env, peace: { alliance: number | null; volume: number } = { alliance: null, volume: 0 }): FillHook {
   return async (f) => {
     const db = env.DB!;
     await tradeRefusal(db, f.seller, f.buyer, f.now);
-    const sold = statStmt(db, f.seller, 'sold', f.coin);
+    // W-64: the alliance tax's share of the sale, out of the seller's stall into his crown's treasury
+    const sold = [statStmt(db, f.seller, 'sold', f.coin), ...(await crownTax(db, f.seller, f.coin, stallId(f.town, f.seller)))];
     const [sa, ba] = await Promise.all([allianceOf(db, f.seller), allianceOf(db, f.buyer)]);
-    if (sa === null || ba === null || sa === ba) return { score: 0, stmts: [sold] };
+    if (sa === null || ba === null || sa === ba) return { score: 0, stmts: sold };
     const vol = await peacePoints(db, sa, 'volume', f.coin / PEACE.volume, f.now);
     peace.alliance = sa;
     peace.volume = vol.pts;
     const abroad = tallyStmt(db, f.seller, 'sellAlliance', f.coin, f.now); // E7 tasks
     const pts = Math.min(scoreOf(f.town, f.lots, f.coin), await room(db, sa, f.now));
-    if (!(pts > 0)) return { score: 0, stmts: [sold, abroad, ...vol.stmts] };
+    if (!(pts > 0)) return { score: 0, stmts: [...sold, abroad, ...vol.stmts] };
     return {
       score: pts,
-      stmts: [sold, abroad, ...vol.stmts, db.prepare('INSERT INTO war_trade_score (season, alliance, day, points) VALUES (?1, ?2, ?3, ?4) ON CONFLICT (season, alliance, day) DO UPDATE SET points = points + ?4').bind(WAR_SEASON.id, sa, Math.floor(f.now / DAY), pts)],
+      stmts: [...sold, abroad, ...vol.stmts, db.prepare('INSERT INTO war_trade_score (season, alliance, day, points) VALUES (?1, ?2, ?3, ?4) ON CONFLICT (season, alliance, day) DO UPDATE SET points = points + ?4').bind(WAR_SEASON.id, sa, Math.floor(f.now / DAY), pts)],
     };
   };
 }
