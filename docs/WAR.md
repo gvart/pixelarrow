@@ -910,6 +910,13 @@ dark; at each rise the front shade walks in, flashes and stands there as the man
 ("Next shade rises in 7:42, 3/6") shows over the tunnel and as a pill at the top of the HUD. Offline the same rule runs
 on a local clock (his men on the map count; the raised man joins the map at the mouth), with a dev x60 button.
 
+Online with no man he is never on a blank page: the card shows in a region, over the world map
+(`src/war/view/hud/wipeCard.ts`) and on the menu after a reload, with a live countdown. A join naming nobody
+(`[['none']]`) watches the region: welcomed with no squad, never queued, and the room streams to him. At home the camera
+opens on the tunnel; a man risen (by any read) plays the line's rise and then marches in (the join reloads his men at
+home). The pong carries `idle` (no armies here, or the loop rests): the network readout then says "region idle", not
+"server stalled".
+
 ### Divine favour (W-66)
 
 The player is a demigod who leads mortals. His divine favour is per account and never resets with a season: it is
