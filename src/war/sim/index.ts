@@ -974,7 +974,63 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     reslot(t);
   };
 
+  /** W-63: squad s fights under `team` from now (WarBuildSim.turnSquad). */
+  const turnSquad = (id: number, team: number): boolean => {
+    const s = squads[id];
+    if (!s || s.alive === 0 || s.team === team || !Number.isInteger(team) || team < 0) return false;
+    // its own business drops first (as a stop order would), the crew leaves its engine
+    if (s.siege >= 0) uncrew(s);
+    if (s.order === 'gather' || s.order === 'build') for (const u of s.units) works.setJob(u, null);
+    s.xfer = null;
+    s.escort = -1;
+    s.salv = null;
+    s.task = null;
+    s.claimPt = -1;
+    s.soul = -1;
+    s.work = -1;
+    s.sites = [];
+    s.node = -1;
+    s.flee = false;
+    s.resume = null;
+    s.order = 'hold';
+    s.path = [];
+    s.pi = 0;
+    s.goal = null;
+    s.target = -1;
+    s.fixed = null;
+    [s.ax, s.ay] = openPoint(s.cx, s.cy);
+    s.team = team;
+    s.spare = false;
+    for (const u of s.units) (u.tgt = null), (u.fighting = false), (u.striking = false), (u.own = []), (u.wp = 0), (u.settled = false);
+    // squads now of its team stop fighting it; every man aiming at a friend drops his mark
+    for (const q of squads) {
+      if (q === s || q.team !== team) continue;
+      if (q.target === s.id) {
+        q.target = -1;
+        if (q.order === 'attack') (q.order = 'hold'), (q.path = []), (q.goal = null);
+      }
+    }
+    for (const u of units) if (u.tgt && u.tgt.squad.team === u.squad.team) u.tgt = null;
+    scanNear(); // friends now foes see it at once
+    return true;
+  };
+  /** W-63: the town round centre piece `centre` goes to `team` (WarBuildSim.rebanner). */
+  const rebanner = (centre: number, team: number): number[] => {
+    townLv.measure();
+    const t = townLv.town(centre);
+    if (!t || t.team === team || !Number.isInteger(team) || team < 0) return [];
+    const ids = townLv.members(centre);
+    works.setTeams(ids, team);
+    // civilians of the old team at work in a building that changed hands stand down
+    const gone = new Set(ids);
+    for (const s of squads) if (s.order === 'civWork' && gone.has(s.work) && s.team !== team) (s.order = 'hold'), (s.work = -1), (s.fixed = null), (s.path = []), (s.goal = null);
+    townLv.measure();
+    return ids;
+  };
+
   const apply = (o: Order) => {
+    if (o.kind === 'turnSquad') return void turnSquad(o.squad, o.team);
+    if (o.kind === 'rebanner') return void rebanner(o.centre, o.team);
     if (o.units && o.squad !== undefined) {
       // W-53: the named men gather into one squad (one per kind) and it takes the order; a layout goes once, to the first
       const lead = squads[o.squad];
@@ -3369,6 +3425,8 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       if (measure) townLv.measure();
       return townLv.snaps();
     },
+    turnSquad,
+    rebanner,
     setBonus: (team, b) => void (Object.keys(b).length ? bonuses.set(team, { ...b }) : bonuses.delete(team)),
     takeLabour() {
       const out: { owner: string; site: number; secs: number }[] = [];

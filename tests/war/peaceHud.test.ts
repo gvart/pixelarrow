@@ -4,7 +4,7 @@ import { titlesStrip, townBadge, townCard, townProgress, townReqs, workProgress,
 import type { TownLevelSnap } from '../../src/war/types';
 import type { WorkView } from '../../src/war/net/works';
 
-const village: TownLevelSnap = { team: 0, level: 3, name: 'Village', x: 0, y: 0, r: 24, variety: 6, stone: 0.42, closed: false, stoneWalls: false, next: [] };
+const village: TownLevelSnap = { id: 0, team: 0, level: 3, name: 'Village', x: 0, y: 0, r: 24, variety: 6, stone: 0.42, closed: false, stoneWalls: false, next: [] };
 
 describe('W-61 peace HUD', () => {
   it('the town card lists only what the next level needs, met or not, and fills the ring by them', () => {

@@ -134,6 +134,11 @@ type SquadOrder =
   // storehouse, fort) and works there by class (cook, smith, merchant, physician). Civilian squads take only work orders
   // (move, hold, stop, formation, gather, build, civWork, detach, merge with another civilian squad).
   | { kind: 'civWork'; squad: SquadId; building: number }
+  // W-63 shared settlements (room only, never from a client): turnSquad: the squad and its men fight under `team` from
+  // now (its order and targets drop, it holds where it stands). rebanner: the town round centre piece `centre` (its own
+  // team's pieces there, stores with their goods) goes to `team`. See WarBuildSim.turnSquad / rebanner.
+  | { kind: 'turnSquad'; squad: SquadId; team: number }
+  | { kind: 'rebanner'; centre: number; team: number; squad?: undefined }
   | CraftOrder
   | TradeOrder;
 /**
@@ -318,6 +323,8 @@ export interface Snapshot {
  * what the next level still needs.
  */
 export interface TownLevelSnap {
+  /** W-63: the town's centre piece (its camp or fort; a team may hold several towns in a region). */
+  id: number;
   team: number; level: number; name: string; x: number; y: number; r: number;
   variety: number; stone: number; closed: boolean; stoneWalls: boolean; next: string[];
 }
@@ -572,6 +579,19 @@ export interface WarBuildSim extends WarSim {
   towns(): TownSnap[];
   /** W-61 (src/war/sim/townLevel.ts): every team's town level here (measured every few seconds; `measure` now). */
   townLevels(measure?: boolean): TownLevelSnap[];
+  /**
+   * W-63: squad `squad` (and its men) fights under `team` from now: its order, task, crew, escort, load and work drop and
+   * it holds where it stands; every man's target drops, foes now friends stop fighting it and friends now foes see it at
+   * once. False: no such squad, no men alive, or already of that team. Deterministic; as an order: { kind: 'turnSquad' }.
+   */
+  turnSquad(squad: SquadId, team: number): boolean;
+  /**
+   * W-63: the town whose centre is piece `centre` (TownLevelSnap.id) goes to `team`: every built piece of the centre's team
+   * that counts for that town (its nearest own centre, within the town radius; sites and ruins too), in id order, at the
+   * hp it has, stores and chests with their goods; influence and town levels are measured again. Returns the ids turned
+   * ([]: no such town, or already that team's). Squads are not turned (turnSquad). As an order: { kind: 'rebanner' }.
+   */
+  rebanner(centre: number, team: number): number[];
   /** W-61: the alliance works' lasting bonuses for a team (the server sets them; {} clears). */
   setBonus(team: number, b: TeamBonus): void;
   /** W-61: labour (worker-seconds) men of each owner put into each site since the last call (build contracts, works). */
