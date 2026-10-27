@@ -88,10 +88,10 @@ export class PlotLayer {
     const k = this.pick;
     if (!k) return;
     const r = k.rect, size = r ? `${r.x1 - r.x0 + 1}×${r.y1 - r.y0 + 1} tiles` : '';
-    const status = !r ? '<span class="rf-dim">drag on the ground</span>' : k.why ? `<span class="rf-hint">${k.why}</span>` : `<span style="color:var(--rf-good)">${size} · fits</span>`;
+    const status = !r ? '<span class="rf-dim">drag a rectangle inside the ring</span>' : k.why ? `<span class="rf-hint">${k.why}</span>` : `<span style="color:var(--rf-good)">${size} · fits</span>`;
     const who = k.who.replace(/</g, '&lt;'), at = k.s.name.replace(/</g, '&lt;');
     this.bar.innerHTML = `<span class="pb-t">A plot for <b>${who}</b> in <b>${at}</b></span><span class="rf-sep"></span><span class="pb-s">${status}</span>
-      <button class="rf-tbtn pri" data-pb="give"${r && !k.why ? '' : ' disabled'}>Give plot</button><button class="rf-tbtn" data-pb="cancel" title="Esc">Cancel</button>`;
+      <button class="rf-tbtn pri" data-pb="give"${r && !k.why ? '' : ' disabled'}>Give plot</button><button class="rf-tbtn" data-pb="cancel" title="Esc">Cancel <span class="pb-k">Esc</span></button>`;
   }
 
   private px(e: PointerEvent | WheelEvent): { x: number; y: number } {

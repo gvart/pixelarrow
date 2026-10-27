@@ -54,6 +54,8 @@ export interface SettleCtx {
   bad: boolean;
   online: boolean;
   now: number;
+  /** A request is on its way to the server: the actions wait. */
+  busy?: boolean;
 }
 
 const ROLE_PILL: Record<Viewer, [string, string]> = {
@@ -175,7 +177,7 @@ function formHtml(c: SettleCtx, others: readonly WorldSettlement[]): string {
       : `<div class="rf-dim st-note">${esc(s.lordName)} becomes a citizen and you its lord; its citizens keep their plots.</div>`;
     const ok = form.kind === 'join' || !!from;
     return `<div class="st-form"><div class="st-seg">${seg('vassal', 'Become our vassal')}${seg('join', 'Join our land')}</div>${body}
-      <div class="st-acts"><button class="rf-tbtn pri" data-sa="send-terms"${ok ? '' : ' disabled'}>Send terms</button><button class="rf-tbtn" data-sa="close-form">Cancel</button><span class="rf-dim st-exp">answer within ${left(SETTLE_UI.offerMs)}</span></div></div>`;
+      <div class="st-acts"><button class="rf-tbtn pri" data-sa="send-terms"${ok ? '' : ` disabled data-tip="${esc('<span class="rf-hint">found a settlement of your own first: it becomes the overlord</span>')}"`}>Send terms</button><button class="rf-tbtn" data-sa="close-form">Cancel</button><span class="rf-dim st-exp">answer within ${left(SETTLE_UI.offerMs)}</span></div></div>`;
   }
   if (form.open === 'truce') {
     const from = others.find((o) => o.id === form.from) ?? others[0];
@@ -198,8 +200,8 @@ export function settlementCard(c: SettleCtx): string {
   const ladder = `<span class="tw-ladder">${[1, 2, 3, 4, 5].map((k) => `<i class="${k <= lv ? 'on' : ''}${k === lv ? ' cur' : ''}" data-tip="${esc(`<b class="k">${k} ${TOWN_LEVELS[k].name}</b>`)}"></i>`).join('')}</span>`;
   return `<div class="tw-top">${ring(p, 44, `<b>${lv}</b>`)}<div style="flex:1;min-width:0"><div class="rf-name st-title">${esc(s.name)}</div>
       <div class="st-lvl">${ladder}<span>${levelName(lv)}</span></div></div>${bannerChip(s.team)}</div>
-    ${standing(c)}${fealty(c)}${citizens(c)}${truces(c)}${growth(c)}${actions(c)}
-    <div class="st-msg${c.bad ? ' bad' : ''}">${esc(c.msg)}</div>`;
+    ${standing(c)}${fealty(c)}${citizens(c)}${truces(c)}${growth(c)}<div class="${c.busy ? 'st-busy' : ''}">${actions(c)}</div>
+    <div class="st-msg${c.bad ? ' bad' : ''}">${esc(c.busy ? 'Sending…' : c.msg)}</div>`;
 }
 
 /** The badge: the level ring, the name, the role's pip. */
@@ -244,7 +246,19 @@ const clockOf = (until: number, span: number, now: number) => {
 /** A level icon for a settlement (camp, village, town, city). */
 export const levelIcon = (lv: number, size: 24 | 32 = 24) => icon(lv >= 5 ? 'bld-fort' : lv >= 4 ? 'bld-tower-stone' : lv >= 2 ? 'bld-storehouse' : 'bld-camp', size);
 
-export interface HoldingsCtx { inbox: Inbox | null; realm: readonly WorldSettlement[]; world: readonly WorldSettlement[]; now: number; online: boolean; msg: string; bad: boolean }
+export interface HoldingsCtx {
+  inbox: Inbox | null; realm: readonly WorldSettlement[]; world: readonly WorldSettlement[]; now: number; online: boolean; msg: string; bad: boolean;
+  /** A request on its way (the buttons wait); the accept armed by a first click (`accept:<id>`), waiting for the second. */
+  busy?: boolean; armed?: string | null;
+}
+
+/** Accepting these gives something up (you pay tribute, or lose the lordship): the first click only asks. */
+const ASK_FIRST: Partial<Record<OfferRow['kind'], string>> = {
+  vassal: 'Your settlement pays tribute to theirs. Click Swear fealty again to confirm.',
+  join: 'You hand over your settlement and become a citizen. Click Yield again to confirm.',
+};
+/** The line shown while an accept is armed. */
+export const askFirst = (kind: OfferRow['kind']) => ASK_FIRST[kind] ?? null;
 
 /** The Holdings panel: the player's settlements, what waits for him, what he sent, his truces. */
 export function holdingsHtml(c: HoldingsCtx): string {
@@ -254,21 +268,25 @@ export function holdingsHtml(c: HoldingsCtx): string {
     return `<div class="hd-set" data-sa="goto:${r.id}">${levelIcon(r.level)}<div class="hd-sn"><b>${esc(r.name)}</b><span class="rf-dim">${levelName(r.level)} · ${esc(worldRegion(r.region)?.name ?? r.region)}</span></div>
       <span class="hd-tie">${over ? `<span class="rf-pill" data-tip="${esc(`<b class="k">Vassal of ${esc(over.name)}</b> · pays ${r.tribute_pct}%`)}">${glyph('ui:standard', 11)}vassal</span>` : ''}${vas ? `<span class="rf-pill gold">${vas} vassal${vas === 1 ? '' : 's'}</span>` : ''}<span class="rf-pill">${glyph('ui:people', 11)}${r.people}</span></span></div>`;
   }).join('') || `<div class="rf-dim st-empty">You rule no settlement. Raise a camp outside your home: you become its lord.</div>`;
-  const card = (o: OfferRow, incoming: boolean) => `<div class="hd-offer${incoming ? ' in' : ''}">${glyph(KIND_ICON[o.kind], 22)}<div class="hd-ob">
+  const off = c.online ? '' : ` disabled data-tip="${esc('<span class="rf-hint">offline: answers need the server</span>')}"`;
+  const card = (o: OfferRow, incoming: boolean) => {
+    const sure = c.armed === `accept:${o.id}`;
+    return `<div class="hd-offer${incoming ? ' in' : ''}${sure ? ' sure' : ''}">${glyph(KIND_ICON[o.kind], 22)}<div class="hd-ob">
       <div class="hd-ot">${offerText(o, c.world, incoming)}</div>
       <div class="hd-of">${clockOf(o.expires_at, SETTLE_UI.offerMs, c.now)}<span class="hd-ab">${incoming
-        ? `<button class="rf-tbtn pri" data-sa="accept:${o.id}"${c.online ? '' : ' disabled'}>${ACCEPT[o.kind]}</button><button class="rf-tbtn" data-sa="refuse:${o.id}"${c.online ? '' : ' disabled'}>Refuse</button>`
-        : `<button class="rf-tbtn" data-sa="withdraw:${o.id}"${c.online ? '' : ' disabled'}>Withdraw</button>`}</span></div></div></div>`;
+        ? `<button class="rf-tbtn ${sure ? 'st-bad sure' : 'pri'}" data-sa="accept:${o.id}"${off}>${ACCEPT[o.kind]}</button><button class="rf-tbtn" data-sa="refuse:${o.id}"${off}>Refuse</button>`
+        : `<button class="rf-tbtn" data-sa="withdraw:${o.id}"${off}>Withdraw</button>`}</span></div>${sure ? `<div class="hd-ask">${esc(askFirst(o.kind) ?? '')}</div>` : ''}</div></div>`;
+  };
   const truces = ib.truces.map((t) => {
     const a = c.world.find((w) => w.id === t.from_settlement)?.name ?? t.from_name;
     return `<div class="hd-offer">${glyph('ui:bond', 22)}<div class="hd-ob"><div class="hd-ot">${b(a)} ⇄ ${b(t.to_name)} · bond <b class="st-gold">${t.bond}</b> each</div><div class="hd-of">${clockOf(t.ends_at ?? c.now, SETTLE_UI.truceMs, c.now)}<span class="rf-dim">an attack breaks it</span></div></div></div>`;
   }).join('');
-  return `<div class="rf-head rf-ph">${glyph('ui:standard', 30)}<div style="flex:1;min-width:0"><div class="rf-name">Holdings</div><div class="sub">${c.realm.length} settlement${c.realm.length === 1 ? '' : 's'} · ${ib.incoming.length} waiting${c.online ? '' : ' · offline'}</div></div><button class="rf-tbtn x" data-sa="close" title="close">×</button></div>
+  return `<div class="rf-head rf-ph">${glyph('ui:standard', 30)}<div style="flex:1;min-width:0"><div class="rf-name">Holdings</div><div class="sub">${c.realm.length} settlement${c.realm.length === 1 ? '' : 's'} · ${ib.incoming.length} waiting${c.online ? '' : ' · offline'}</div></div><button class="rf-tbtn x" data-sa="close" title="close (Esc)">×</button></div>
     <div class="rf-sec">Your settlements</div>${realm}
-    <div class="rf-sec">Waiting for you <span class="rf-dim">${ib.incoming.length}</span></div>${ib.incoming.map((o) => card(o, true)).join('') || '<div class="rf-dim st-empty">nothing waits</div>'}
-    ${ib.outgoing.length ? `<div class="rf-sec">Sent <span class="rf-dim">${ib.outgoing.length}</span></div>${ib.outgoing.map((o) => card(o, false)).join('')}` : ''}
+    <div class="${c.busy ? 'st-busy' : ''}"><div class="rf-sec">Waiting for you <span class="rf-dim">${ib.incoming.length}</span></div>${ib.incoming.map((o) => card(o, true)).join('') || `<div class="rf-dim st-empty">Nothing waits. Requests to settle${c.realm.length ? ' in your settlements' : ''}, terms and truces offered to you show here.</div>`}
+    ${ib.outgoing.length ? `<div class="rf-sec">Sent <span class="rf-dim">${ib.outgoing.length}</span></div>${ib.outgoing.map((o) => card(o, false)).join('')}` : ''}</div>
     ${truces ? `<div class="rf-sec">Truces <span class="rf-dim">${ib.truces.length}</span></div>${truces}` : ''}
-    <div class="st-msg${c.bad ? ' bad' : ''}">${esc(c.msg)}</div>`;
+    <div class="st-msg${c.bad ? ' bad' : ''}">${esc(c.busy ? 'Sending…' : c.msg)}</div>`;
 }
 
 // ------------------------------------------------------------------ notices
@@ -294,7 +312,7 @@ export const FOUND_HINT = `${glyph('ui:laurel', 18)}<span><b>Found a settlement.
 
 export const SETTLE_CSS = `
 #rfTownCard .st-title{font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.st-lvl{display:flex;align-items:center;gap:6px;margin-top:3px}.st-lvl span{font:700 10.5px/1 Cinzel,serif;letter-spacing:.08em;text-transform:uppercase;color:var(--rf-gold)}.st-lvl .tw-ladder{margin-top:0}
+.st-lvl{display:flex;align-items:center;gap:6px;margin-top:3px}.st-lvl span{font:700 11px/1 Cinzel,serif;letter-spacing:.08em;text-transform:uppercase;color:var(--rf-gold)}.st-lvl .tw-ladder{margin-top:0}
 .st-flag{display:inline-flex;align-items:center;gap:4px;height:20px;padding:0 6px 0 4px;border:1px solid var(--rf-rule);background:var(--rf-sunk);font:700 11px/1 Inter,sans-serif;color:var(--rf-ink);align-self:flex-start}
 .st-flag i{width:9px;height:12px;background:var(--c);clip-path:polygon(0 0,100% 0,100% 100%,50% 75%,0 100%);box-shadow:inset 0 0 0 1px rgba(0,0,0,.4)}
 .st-flag.none i{background:var(--rf-disabled)}
@@ -318,7 +336,7 @@ export const SETTLE_CSS = `
 .st-pend{display:flex;align-items:center;gap:6px;margin-top:8px;padding:4px 4px 4px 6px;border:1px solid var(--rf-rule);background:var(--rf-sunk);font-size:11.5px}.st-pend span{flex:1}
 .st-acts{display:flex;align-items:center;gap:4px;margin-top:7px;flex-wrap:wrap}
 .st-acts .rf-tbtn{height:25px}
-.st-n{display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--rf-bad);color:#1a0d08;font:700 10.5px/1 Inter,sans-serif}
+.st-n{display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--rf-bad);color:#1a0d08;font:700 11px/1 Inter,sans-serif}
 .rf-tbtn.st-bad{color:var(--rf-bad)}
 .st-form{margin-top:6px;padding:6px;background:var(--rf-sunk);border:1px solid var(--rf-rule);box-shadow:inset 0 1px 3px rgba(0,0,0,.6)}
 .st-form.bad{border-color:#6a2c1c}
@@ -328,8 +346,12 @@ export const SETTLE_CSS = `
 .st-fr .rf-step input{width:56px}
 .st-pct{min-width:34px;text-align:right;font:700 14px/1 Cinzel,serif;color:var(--rf-gold)}
 .st-note{font-size:11px;line-height:1.35;margin-top:4px;white-space:normal}
-.st-exp{margin-left:auto;font-size:10.5px}
-.st-msg{min-height:14px;margin-top:4px;font-size:11px;color:var(--rf-good)}.st-msg.bad{color:var(--rf-bad)}
+.st-exp{margin-left:auto;font-size:11px}
+.st-msg{min-height:14px;margin-top:4px;font-size:11.5px;color:var(--rf-good)}.st-msg.bad{color:var(--rf-bad)}
+.st-busy [data-sa]{pointer-events:none;opacity:.55}
+.hd-offer.sure{border-color:#6a2c1c;border-left-color:var(--rf-bad)}
+.rf-tbtn.sure{box-shadow:0 0 0 1px var(--rf-bad)}
+.hd-ask{margin-top:5px;font-size:11.5px;line-height:1.3;color:var(--rf-gold)}
 .st-gold{color:var(--rf-gold)}
 #rfHoldings .rf-sec:first-of-type{margin-top:2px}
 .hd-set{display:flex;align-items:center;gap:7px;padding:3px 4px;border-bottom:1px solid #1d130e;cursor:pointer}.hd-set:hover{background:var(--rf-hover)}
@@ -356,5 +378,6 @@ export const SETTLE_CSS = `
 #rfPlotBar{top:52px;left:50%;transform:translateX(-50%);display:none;align-items:center;gap:8px;padding:5px 8px;pointer-events:auto;z-index:8}
 #rfPlotBar .pb-t{font-size:12px;white-space:nowrap}#rfPlotBar .pb-t b{color:var(--rf-title)}
 #rfPlotBar .pb-s{min-width:150px;font-size:11.5px;white-space:nowrap}
+#rfPlotBar .pb-k{margin-left:4px;font:600 11px/1 Inter,sans-serif;color:var(--rf-muted)}
 #rfPlotTip{display:none;pointer-events:none;z-index:7}
 `;
