@@ -1,0 +1,39 @@
+src/war/menu/main.ts
+  s_fcb7475e0b5395::t_88cdfccca6a3c3 142
+src/war/view/main.ts
+  s_fcb7475e0b5395::t_297d1cb56915ba 35,113-114,125-132
+src/war/view/hud/tunnel.ts
+  s_fcb7475e0b5395::t_7ebdd10198f11b 113-116,137-147,180
+  s_fcb7475e0b5395::t_a4e9efc25d33d8 175,178,181-182
+  s_fcb7475e0b5395::t_ffb6e09fce7094 12-13,24,99,102,105,108,111,120,127-130,133-136,189-191
+  s_fcb7475e0b5395::t_f580da1e587006 112
+src/war/view/hud/netStats.ts
+  s_fcb7475e0b5395::t_f91ca6122d6d2b 4-5,65-66
+src/war/view/hud/wipeCard.ts
+  s_fcb7475e0b5395::t_d0f1968a869b97 1-15,19-37
+  s_fcb7475e0b5395::t_30d2281e83922c 16-18
+src/war/net/client.ts
+  s_fcb7475e0b5395::t_73acfca0f80b44 65-66,93,96-97,113-116,150,160,239
+  s_fcb7475e0b5395::t_54443fea2b779a 189-199
+src/war/menu/screens.ts
+  s_fcb7475e0b5395::t_88cdfccca6a3c3 476,481,487-491
+src/war/world-view/main.ts
+  s_fcb7475e0b5395::t_64f8bdabaac6aa 50,641,651-671
+  s_fcb7475e0b5395::t_ae1204f6bca920 672
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "f25a765c95eb3cbc6c8bed5c031da1dc42782a8c",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
