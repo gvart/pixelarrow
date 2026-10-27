@@ -65,6 +65,8 @@ import { ARMY_MAX } from '../../../src/war/sim/soldiers';
 import { RoomGuide, type GuideDone } from './guide';
 import type { GuideSave } from '../../../src/war/net/guide';
 import { RoomStories, type StoryDone } from './stories';
+import { RoomEncounters, type EncounterDone } from './encounters';
+import type { EncSave } from '../../../src/war/sim/encounters';
 import type { StorySave } from '../../../src/war/sim/stories';
 import { LABOUR_EVERY, WORK_R, workSite, type WorkId } from '../../../src/war/net/works';
 import { GatherWatch } from './taskWatch';
@@ -281,6 +283,8 @@ export class WarRoom {
   readonly guide: RoomGuide;
   /** W-65: the region's story chain, one run per player here (./stories.ts). */
   readonly stories: RoomStories;
+  /** W-65: random encounters on the road, one run per player here (./encounters.ts). */
+  readonly encounters: RoomEncounters;
   // W-63 shared settlements (the block at the end of the class)
   private settles: RoomSettlement[] = [];
   private own = new Map<number, number>();
@@ -310,6 +314,7 @@ export class WarRoom {
     this.allowDev = o.allowDev ?? this.allowArmy;
     this.guide = new RoomGuide(o.region, this.sim, o.home);
     this.stories = new RoomStories(o.region, this.sim);
+    this.encounters = new RoomEncounters(o.region, this.sim, o.seed);
     this.isHome = o.home !== undefined;
     this.epoch = o.epoch ?? `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
     this.fightQuiet = o.fightQuiet ?? FIGHT_QUIET;
@@ -615,6 +620,17 @@ export class WarRoom {
   /** W-65: his choice at the story's open choice step (told and stored with the next tick). */
   storyChoose(pid: number, option: string): void {
     this.stories.choose(pid, option, this.snap);
+  }
+
+  /** W-65: a welcomed player's random encounters here (his save from the DO): the message to send him. */
+  startEncounters(pid: number, save: EncSave | null): ServerMsg | null {
+    const p = this.players.get(pid);
+    return p ? this.encounters.start(pid, p.team, save) : null;
+  }
+
+  /** W-65: his choice at the open encounter (told and stored with the next tick). */
+  encounterChoose(pid: number, option: string): void {
+    this.encounters.choose(pid, option, this.snap);
   }
 
   /** Dev /stats (scripts/war/play-smoke.mjs): the neutral side as the server holds it (lairs, guardians, claim points). */
@@ -1044,7 +1060,7 @@ export class WarRoom {
     return labour.length || guards.length || works.length ? { labour, guards, works } : null;
   }
 
-  tick(now: () => number = () => 0): { frames: Map<number, Uint8Array>; msgs: Map<number, ServerMsg[]>; admitted: Map<number, ServerMsg>; fights: Fight[]; crafted: Crafted[]; bosses: BossSlain[]; sacrilege: number[]; freed: string[]; raided: number[]; captured: { cart: number; from: string; team: number; to: string }[]; souls: SoulClaim[]; peace: Peace | null; times: TickTimes; guided: GuideDone[]; storied: StoryDone[]; gathered: [number, TaskMetric, number][]; settle: SettleOut | null } {
+  tick(now: () => number = () => 0): { frames: Map<number, Uint8Array>; msgs: Map<number, ServerMsg[]>; admitted: Map<number, ServerMsg>; fights: Fight[]; crafted: Crafted[]; bosses: BossSlain[]; sacrilege: number[]; freed: string[]; raided: number[]; captured: { cart: number; from: string; team: number; to: string }[]; souls: SoulClaim[]; peace: Peace | null; times: TickTimes; guided: GuideDone[]; storied: StoryDone[]; met: EncounterDone[]; gathered: [number, TaskMetric, number][]; settle: SettleOut | null } {
     const t0 = now();
     // M6i: carts' owners before the step (a capture names only the taker)
     const cartWas = new Map((this.snap.sieges ?? []).filter((e) => e.owner !== undefined).map((e) => [e.id, { owner: e.owner!, team: e.team }]));
@@ -1133,12 +1149,15 @@ export class WarRoom {
     // W-65: story steps done (the DO stores and pays them), told to the player
     const st = this.stories.tick(this.snap, evs);
     for (const [pid, m] of st.msgs) if (this.players.get(pid)?.online) tell(pid, m);
+    // W-65: random encounters (the DO stores and pays them), told to the player
+    const en = this.encounters.tick(this.snap, evs);
+    for (const [pid, m] of en.msgs) if (this.players.get(pid)?.online) tell(pid, m);
     // W-63: camps to found, attacks on settlements; messages owed since the last tick (a banner changed)
     const settle = this.settleTick();
     for (const [pid, ms] of this.later) if (this.players.get(pid)?.online) for (const m of ms) tell(pid, m);
     this.later.clear();
     this.lastTick = this.snap.tick;
-    return { frames, msgs, admitted, fights, crafted, bosses, sacrilege, freed, raided, captured, souls, guided: g.done, storied: st.done, peace: this.peace(), gathered: tick % LABOUR_EVERY === 0 ? this.gather.drain() : [], settle, times: { stepMs: t1 - t0, snapMs: t2 - t1, netMs: now() - t2 } };
+    return { frames, msgs, admitted, fights, crafted, bosses, sacrilege, freed, raided, captured, souls, guided: g.done, storied: st.done, met: en.done, peace: this.peace(), gathered: tick % LABOUR_EVERY === 0 ? this.gather.drain() : [], settle, times: { stepMs: t1 - t0, snapMs: t2 - t1, netMs: now() - t2 } };
   }
 
   /**

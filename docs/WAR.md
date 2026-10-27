@@ -425,6 +425,38 @@ and does not think, so dormant regions catch up cheaply. A wiped-out group comes
 minutes; the survivors of a broken caravan walk on as travellers. Maps show roaming groups as small dots by kind where
 your men see them.
 
+### Random encounters
+
+W-65 (`src/war/sim/encounters.ts`, the kinds `src/data/warEncounters.ts`, the HUD `src/war/view/hud/encounter.ts`): while
+a human player's men travel a depth 1+ region, something now and then happens 10-14 tiles from his walking squad (an
+ambush 6-8). The cooldown counts ticks of travel only (his men walking, no foe's man within 16 tiles, none of his
+striking): 1800-3000 ticks (3-5 minutes), drawn anew after each; nothing rolls in a fight, at home, or while one is open.
+Every roll (the kind, weighted, never the same twice running; the spot; a search's risk; an item) uses the sim's seeded
+Rng keyed by region, owner, seed and the encounter's number. Each kind is 1-3 steps of the story runner's kinds (reach,
+clear: foes added as a once-lair, +1 man per two depths; choice; guide: reach him, then the nearest town, he walks behind
+your men) and pays a little: coin and goods, now and then an item (a pile at your men) or a soul (claimable once a man
+has fallen, the 12-man cap). It takes the tracked card while open and gives it back after; who waits at the spot is
+painted from the existing sheets (no sim unit). An open step lapses after 3 minutes (a guide 9) or with all his men 70
+tiles away.
+
+| Kind | Steps | Pays |
+| --- | --- | --- |
+| Ambush! | bandits spring from cover: beat them off | coin, food |
+| A Wounded Deserter | reach him; bind his wound / take his gear / leave | a soul (hoplite L2) / a dory and coin / nothing |
+| The Wayside Herm | reach it; take the offerings (35%: robbers, fight) / offer / pass | coin / herbs |
+| A Buried Cache | reach it; dig (30%: the region's beasts, fight) / leave | iron, coin |
+| A Lost Merchant | reach him, walk him to the nearest town (needs one) | coin, salt |
+| Travellers Beset | the region's beasts on pilgrims: kill them | coin, food |
+| Eagles of Zeus | an omen: reach the nearest lair still held | coin |
+| A Shepherd's Rumour | reach the region story's giver (needs a story) | coin |
+| Toll of the Road (depth 2+) | break the toll (bandits, fight) / go round | coin, a pilos |
+| A Hero's Barrow | reach it; pour a libation / take the helm (40%: grave-robbers) / leave | a soul (militia L2) / a helm |
+| A Strayed Flock | reach the boy, then the last goat | food |
+
+Progress: offline localStorage `pa.war.enc.<region>` (`?encounter=<kind>` springs one at once for tools); online the
+region room keeps a run per welcomed player (`server/src/war/encounters.ts`), its save in the region DO's storage
+`encounter:<season>:<pid>` (on every change and every minute of travel), goods into his home strongroom.
+
 ### Landmarks
 
 Nine pre-built strongholds, one in every depth-3 and depth-4 neutral, so each home faces the same set at the same
