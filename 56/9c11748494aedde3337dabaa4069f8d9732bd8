@@ -1,0 +1,24 @@
+src/war/view/interp.ts
+  s_fcb7475e0b5395::t_759892a50b49a7 1-132
+tests/war/interp.test.ts
+  s_fcb7475e0b5395::t_deb43d7bba1a7c 44-45
+  s_fcb7475e0b5395::t_4bc23c51b69048 1-43,46-73
+src/war/view/simClient.ts
+  s_fcb7475e0b5395::t_e0550841c069fc 2-4,14,57-58,118,356-357,367,370,376-378
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "569c11748494aedde3337dabaa4069f8d9732bd8",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
