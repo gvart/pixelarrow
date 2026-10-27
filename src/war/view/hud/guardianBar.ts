@@ -26,6 +26,7 @@ import { leadText } from './buildingCard';
 import { LANDMARK_FUNCTION } from '../../../data/warLore';
 import { keys } from '../../input/keys';
 import { myTeam } from '../side';
+import { stockAtHand } from './chest';
 export { LANDMARK_FUNCTION };
 
 type Mk = (id: string, css: string, html?: string) => HTMLElement;
@@ -136,7 +137,7 @@ export function restoreWhy(s: SandboxScene, lm: Landmark, snap?: LandmarkSnap): 
     return n.has('fortifier') && n.has('masterBuilder') && (lm.engineer < 10 || n.has('poliorcetes') || n.has('archimedes'));
   });
   if (!lead) return `needs ${leadText(lm)} in the squad`;
-  const stock = (cur?.stock?.[myTeam()] ?? {}) as Record<string, number>;
+  const stock = stockAtHand(s); // W-60: the store by his men, online and offline
   const short = Object.entries({ ...lm.restore.bulk, ...lm.restore.rare }).filter(([r, v]) => (stock[r] ?? 0) < (v ?? 0)).map(([r]) => r.replace(/[A-Z]/g, (x) => ' ' + x.toLowerCase()));
   return short.length ? `goods short: ${short.join(', ')}` : undefined;
 }

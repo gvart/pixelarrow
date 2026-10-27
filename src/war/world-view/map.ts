@@ -5,7 +5,8 @@
  */
 import { ALLIANCES } from '../world/alliances';
 import { TEAM_CSS } from '../world/palette';
-import type { RegionState, TransitSnap } from '../net/world';
+import type { CrownMap, RegionState, TransitSnap } from '../net/world';
+import { homeOf } from '../world/graph';
 import { TRADE_ROUTES, MARKET_TOWNS, isChokepoint, type ConvoySnap, type HaulPlan } from './geo';
 import type { WorldEvent } from '../world/events';
 import { EVENT_INFO } from '../world/events';
@@ -58,6 +59,8 @@ export interface MapState {
   settlements?: WorldSettlement[];
   me?: number | null;
   hoverSettle?: number | null;
+  /** W-64: each alliance's monarch (a crown by its home) and the pacts and truces between alliances (lines home to home). */
+  crown?: CrownMap;
 }
 
 /** W-63: a region map's side in tiles (every region is 512 x 512), to place a settlement inside its region's shape. */
@@ -369,7 +372,7 @@ export class WorldMap {
 
   /** Marker spots in map px (x, y, w, h): a siege fort or battle sword right of the region's centre, the player's
    *  banner left of it. Labels are laid out round these (never under them). */
-  private markerSpots(st: MapState): { marks: [string, string, number, number, number, number][]; banners: Map<string, [number, number, number]>; landmarks: Map<string, [number, number, number]>; events: Map<string, [number, number, number, WorldEvent]> } {
+  private markerSpots(st: MapState): { marks: [string, string, number, number, number, number][]; banners: Map<string, [number, number, number]>; landmarks: Map<string, [number, number, number]>; events: Map<string, [number, number, number, WorldEvent]>; crowns: [number, number, number, string, number][] } {
     const s = Math.max(1, 0.8 / this.k), marks: [string, string, number, number, number, number][] = [], banners = new Map<string, [number, number, number]>();
     const landmarks = new Map<string, [number, number, number]>(); // M7g: centre and radius of a landmark's marker, under the region's centre
     const events = new Map<string, [number, number, number, WorldEvent]>(); // W-62: a world event's marker, above it
@@ -388,7 +391,87 @@ export class WorldMap {
       const r = this.art.regions[id];
       if (r) banners.set(id, [r.centroid[0] - 44 * b, r.centroid[1] - 28 * b, b]);
     }
-    return { marks, banners, landmarks, events };
+    // W-64: a crown up right of each monarch's home (centre, radius, his name, alliance)
+    const crowns: [number, number, number, string, number][] = [];
+    for (const m of st.crown?.monarchs ?? []) {
+      const r = this.art.regions[homeOf(m.alliance)];
+      if (r) crowns.push([r.centroid[0] + 34 * s, r.centroid[1] - 40 * s, 15 * s, m.name, m.alliance]);
+    }
+    return { marks, banners, landmarks, events, crowns };
+  }
+
+  /**
+   * W-64: the crown layer: a line home to home per pact (solid, in both alliances' colours) or truce (dashed, pale) with
+   * its word at the middle, then a gold crown on a dark disc by each monarch's home with his name.
+   */
+  private drawCrown(g: CanvasRenderingContext2D, st: MapState, crowns: [number, number, number, string, number][]): void {
+    const s = Math.max(1, 0.8 / this.k);
+    g.save();
+    g.lineCap = 'round';
+    for (const p of st.crown?.pacts ?? []) {
+      const a = this.art.regions[homeOf(p.a)]?.centroid, b = this.art.regions[homeOf(p.b)]?.centroid;
+      if (!a || !b) continue;
+      const line = () => { g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); };
+      const truce = p.kind === 'truce';
+      line();
+      g.setLineDash([]);
+      g.strokeStyle = 'rgba(14,9,7,.7)';
+      g.lineWidth = 6 * s;
+      g.stroke();
+      if (truce) {
+        line();
+        g.setLineDash([10 * s, 7 * s]);
+        g.strokeStyle = '#f0d9b5';
+        g.lineWidth = 2.6 * s;
+        g.stroke();
+      } else {
+        // half in each alliance's colour, meeting at the middle
+        const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
+        for (const [from, team] of [[a, p.a], [b, p.b]] as const) {
+          g.beginPath();
+          g.moveTo(from[0], from[1]);
+          g.lineTo(mx, my);
+          g.strokeStyle = TEAM_CSS[team] ?? '#f0d9b5';
+          g.lineWidth = 3 * s;
+          g.stroke();
+        }
+      }
+      g.setLineDash([]);
+      const w = (truce ? 'TRUCE' : 'PACT'), mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
+      g.font = `600 ${13 * s}px Inter, sans-serif`;
+      this.badge(g, w, mx - (g.measureText(w).width + 10 * s) / 2, my, s, false, truce ? '#f0d9b5' : '#e0b867');
+    }
+    g.restore();
+    for (const [x, y, r, name, a] of crowns) {
+      g.beginPath();
+      g.arc(x, y + 1.5 * s, r + 2 * s, 0, Math.PI * 2);
+      g.fillStyle = 'rgba(14,9,7,.55)';
+      g.fill();
+      g.beginPath();
+      g.arc(x, y, r, 0, Math.PI * 2);
+      g.fillStyle = '#17100d';
+      g.fill();
+      g.lineWidth = 2 * s;
+      g.strokeStyle = TEAM_CSS[a] ?? '#e0b867';
+      g.stroke();
+      // the crown: a band and three points
+      const w = r * 1.15, h = r * 0.95, bx = x - w / 2, by = y + h * 0.45;
+      g.beginPath();
+      g.moveTo(bx, by);
+      g.lineTo(bx, by - h * 0.75);
+      g.lineTo(bx + w * 0.25, by - h * 0.35);
+      g.lineTo(x, by - h);
+      g.lineTo(bx + w * 0.75, by - h * 0.35);
+      g.lineTo(bx + w, by - h * 0.75);
+      g.lineTo(bx + w, by);
+      g.closePath();
+      g.fillStyle = '#e0b867';
+      g.fill();
+      g.lineWidth = 1.2 * s;
+      g.strokeStyle = '#6b4a14';
+      g.stroke();
+      this.badge(g, name, x + r + 3 * s, y, s * 0.85, false, '#e0b867');
+    }
   }
 
   /** W-62: the world event marker under map point (x, y), its region id, else null. */
@@ -616,6 +699,7 @@ export class WorldMap {
       ...[...spots.landmarks.values()].map(([x, y, r]) => [x - r - 4, y - r - 4, x + r + 4, y + r + 4] as Box),
       ...[...spots.events.values()].map(([x, y, r]) => [x - r - 10, y - r - 10, x + r + 150 * s, y + r + 10] as Box),
       ...[...spots.banners].map(([id, [x, y, b]]) => [x, y, x + 38 * b + (10 * String(st.squads.get(id)).length + 14) * s, y + 56 * b] as Box),
+      ...spots.crowns.map(([x, y, r, name]) => [x - r - 4, y - r - 4, x + r + (8 * name.length + 18) * s, y + r + 4] as Box),
       ...st.convoys.map((c) => {
         const q = 32 * s, [x, y] = this.transitPos({ ...c, men: 0, state: 'moving' }, st.now).map((v) => Math.round(v / q) * q);
         return [x - 16 * s - q / 2, y - 16 * s - q / 2, x + 16 * s + 64 * s + q / 2, y + 16 * s + q / 2] as Box;
@@ -761,6 +845,7 @@ export class WorldMap {
     this.drawLandmarks(g, st, spots.landmarks);
     this.drawEvents(g, st, spots.events);
     this.drawSettlements(g, st);
+    this.drawCrown(g, st, spots.crowns);
     // the player's men: the alliance banner with a count
     const you = st.you ?? 0, key = ALLIANCES[you].key;
     for (const [id, men] of st.squads) {

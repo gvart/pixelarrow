@@ -42,7 +42,7 @@ describe('fight tallies', () => {
     const binds: unknown[][] = [];
     const db = { prepare: () => ({ bind: (...v: unknown[]) => (binds.push(v), {}) }) } as unknown as D1Database;
     fightStats(db, { tick: 1, loot: {}, persons: [p('p:1', 0, 'fit', true), p('p:1', 0, 'dead'), p('p:2', 1, 'dead')] });
-    // season, player, kills, fights, wins, honours, bosses
-    expect(binds).toEqual([[1, 1, 2, 1, 1, 1, 0], [1, 2, 1, 1, 0, 0, 0]]);
+    // season (null: the stats' season), player, kills, fights, wins, honours, bosses
+    expect(binds).toEqual([[null, 1, 2, 1, 1, 1, 0], [null, 2, 1, 1, 0, 0, 0]]);
   });
 });

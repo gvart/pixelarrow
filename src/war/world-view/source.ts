@@ -290,7 +290,9 @@ export function mockWorld(now: number): { snap: WorldSnapshot; squads: FieldSqua
     banners: 43,
   };
   const crests: Crest[] = [{ season: WAR_SEASON.id, kind: 'banner', alliance: 0 }, { season: WAR_SEASON.id, kind: 'crest', alliance: 0, title: 'masterBuilder' }];
-  return { snap: { season: score.id, score, at: now, you: { id: 1, alliance: 0 }, alliances, regions, transit, events, last, crests }, squads, scores, endsAt: now + left, convoys, boards, trade: [34, 18, 60, 9] };
+  // W-64: three crowned alliances, a pact and a truce
+  const crown = { monarchs: [{ alliance: 0 as const, pid: 1, name: 'You' }, { alliance: 1 as const, pid: 21, name: 'Kallias' }, { alliance: 2 as const, pid: 22, name: 'Myrto' }], pacts: [{ a: 0 as const, b: 2 as const, kind: 'pact' as const }, { a: 1 as const, b: 3 as const, kind: 'truce' as const }] };
+  return { snap: { season: score.id, score, at: now, you: { id: 1, alliance: 0 }, alliances, regions, transit, events, last, crests, crown }, squads, scores, endsAt: now + left, convoys, boards, trade: [34, 18, 60, 9] };
 }
 
 /** W-61: the mock's titles. */

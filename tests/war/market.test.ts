@@ -2,9 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { failed, LocalMarket, RENT, type Mine } from '../../src/war/view/trade/market';
 import type { SandboxScene } from '../../src/war/view/SandboxScene';
 
-/** The scene bits the offline market reads: the region id and team 0's stock (the strongroom offline). */
+/**
+ * The scene bits the offline market reads: the region id, team 0's stock (coin: the strongroom offline) and, W-60, the
+ * store his squad stands by (the goods at hand); the stub keeps one pot for both.
+ */
 function scene(stock: Record<string, number>) {
-  const s = { region: { id: 'kleisoura' }, sim: { cur: { tick: 0, stock: [stock] }, addStock: (_t: number, r: string, n: number) => { stock[r] = Math.max(0, (stock[r] ?? 0) + n); } } };
+  const store = { id: 1, type: 'camp', team: 0, x: 10, y: 10, state: 'done', goods: stock };
+  const cur = { tick: 0, stock: [stock], buildings: [store], squads: [{ id: 0, team: 0, units: [1] }], units: [{ id: 1, squad: 0, x: 11, y: 12, state: 'idle' }] };
+  const s = { region: { id: 'kleisoura' }, siege: { own: () => [] }, sim: { cur, addStock: (_t: number, r: string, n: number) => { stock[r] = Math.max(0, (stock[r] ?? 0) + n); } } };
   return { s: s as unknown as SandboxScene, stock };
 }
 const ok = <T>(r: T | { error: string }): T => { if (failed(r)) throw new Error(r.error); return r; };

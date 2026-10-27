@@ -10,7 +10,7 @@ import { devLogin } from '../helpers';
 import { good, setGood } from './goods';
 import { joinAlliance } from '../../src/war/world/members';
 import {
-  advance, answerPact, appoint, bookFight, confidence, crownSeason, crownTax, crownView, deliver, deposit, endOrder, fundWork, membersOf, offerPact,
+  advance, answerPact, appoint, bookFight, confidence, crownMap, crownSeason, crownTax, crownView, deliver, deposit, endOrder, fundWork, membersOf, offerPact,
   pactAttack, postOrder, setTax, sign, treasuryOf, vote,
 } from '../../src/war/crown';
 import { goodsOf, putStmt } from '../../src/war/holders';
@@ -341,6 +341,8 @@ describe('pacts', () => {
     expect(await answerPact(env, B.b, id, 'accept', now, S)).toBe('active');
     const view = await crownView(env, A.c, now, S);
     expect(view.pacts[0]).toMatchObject({ id, kind: 'pact', state: 'active', ends: now + CROWN.pactMs });
+    // the world map's crown layer: both monarchs, the pact between them
+    expect(await crownMap(DB(), now, S)).toEqual({ monarchs: [expect.objectContaining({ alliance: 0, pid: A.king }), expect.objectContaining({ alliance: 3, pid: B.king })], pacts: [{ a: 0, b: 3, kind: 'pact' }] });
     // A's c attacks a settlement of B's king: broken, both alliances told
     const victim = (await DB().prepare('SELECT id FROM war_settlements WHERE lord_pid = ?1').bind(B.king).first<{ id: number }>())!.id;
     const own = (await DB().prepare('SELECT id FROM war_settlements WHERE lord_pid = ?1').bind(A.king).first<{ id: number }>())!.id;
@@ -351,6 +353,7 @@ describe('pacts', () => {
     expect(r.text).toMatch(/broke the pact with Elaia/);
     const vb = await crownView(env, B.c, now + H, S);
     expect(vb.pacts[0].state).toBe('broken');
+    expect((await crownMap(DB(), now + H, S)).pacts).toEqual([]);
     expect(vb.log[0]).toMatchObject({ kind: 'pact_broken' });
     expect((await pactAttack(DB(), A.c, victim, now + H, S)).broken).toEqual([]);
   });

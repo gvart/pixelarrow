@@ -56,11 +56,22 @@ export function storeOfMen(s: SandboxScene, qs: SquadId[]): BuildingSnap | null 
   const cx = men.reduce((a, u) => a + u.x, 0) / men.length, cy = men.reduce((a, u) => a + u.y, 0) / men.length;
   return storeNear(s.sim.cur, myTeam(), cx, cy);
 }
-/** W-60: the goods a player has at hand for a cost hint: the store his selected men (else all his men) stand next to; {} away from every store. */
-export function localGoods(s: SandboxScene): Record<string, number> {
+/** W-60: the store a player has at hand: the one his selected men (else all his men) stand next to; null away from every store. */
+export function storeAtHand(s: SandboxScene): BuildingSnap | null {
   const sel = s.siege.own();
   const qs = sel.length ? sel : (s.sim.cur?.squads ?? []).filter((q) => q.team === myTeam() && q.units.length).map((q) => q.id);
-  return (storeOfMen(s, qs)?.goods ?? {}) as Record<string, number>;
+  return storeOfMen(s, qs);
+}
+/** W-60: the goods a player has at hand for a cost hint: the goods of storeAtHand; {} away from every store. */
+export function localGoods(s: SandboxScene): Record<string, number> {
+  return (storeAtHand(s)?.goods ?? {}) as Record<string, number>;
+}
+/**
+ * W-60: the stock a screen shows (market, landmark): online the server's `stock` (already the store by his men),
+ * offline the same store from the local sim, never the alliance total the offline snapshot's `stock` sums.
+ */
+export function stockAtHand(s: SandboxScene): Record<string, number> {
+  return s.sim.net ? ((s.sim.cur?.stock?.[myTeam()] ?? {}) as Record<string, number>) : localGoods(s);
 }
 
 /** What the squad view lists, in order. Add a row here for anything new a squad carries. */

@@ -23,6 +23,7 @@ import { ARMY_MAX } from '../sim/soldiers';
 import type { AllianceId } from '../world/types';
 import type { WorldEvent } from '../world/events';
 import { chatClientMsgs, type ChatServerMsg } from './chat';
+import type { PactKind } from './crown';
 
 export type { WorldEvent } from '../world/events';
 
@@ -203,7 +204,17 @@ export interface WorldSnapshot {
   /** W-62: the last finished season's scoreboard (null: none yet); the player's own banners and crests. */
   last?: SeasonBoard | null;
   crests?: Crest[];
+  /** W-64: each alliance's monarch (regent included) and the pacts and truces in force (server/src/war/crown.ts crownMap). */
+  crown?: CrownMap;
 }
+
+/** W-64 the world map's crown layer: a crown by each monarch's alliance home, a line per pact or truce between alliances. */
+export interface CrownMap {
+  monarchs: { alliance: AllianceId; pid: number; name: string }[];
+  pacts: { a: AllianceId; b: AllianceId; kind: PactKind }[];
+}
+/** W-64 crown news: an election opened or closed (no winner), a monarch crowned, a pact or truce broken by an attack. */
+export type CrownNewsKind = 'electionOpen' | 'electionClosed' | 'monarch' | 'pactBroken';
 
 export type WorldServerMsg =
   | ({ t: 'world' } & WorldSnapshot)
@@ -212,8 +223,8 @@ export type WorldServerMsg =
   | { t: 'pong'; c: number }
   /** W-63: a settlement he rules, or one under his, was attacked by player `by` in `region`; truces broken by it. */
   | { t: 'settlementAttacked'; settlement: number; name: string; region: string; by: number; broken: number[] }
-  /** W-64: crown news for every member of the alliances concerned (a pact or truce broken by an attack). */
-  | { t: 'crownNews'; kind: 'pactBroken'; text: string; region?: string }
+  /** W-64: crown news for every member of the alliances concerned (elections, a new monarch, a pact or truce broken). */
+  | { t: 'crownNews'; kind: CrownNewsKind; text: string; region?: string }
   | ChatServerMsg;
 
 export function parseWorldMsg(text: string): WorldClientMsg | null {

@@ -29,6 +29,7 @@ import { goodCard, goodName } from './goods';
 import { esc, tipper } from './roster/ui';
 import { bar, fitHeight, icon } from './kit';
 import { glyph } from './glyph';
+import { stockAtHand } from './chest';
 import { keys } from '../../input/keys';
 import { myTeam } from '../side';
 
@@ -248,7 +249,7 @@ export function mountMarket(s: SandboxScene, mk: Mk): MarketHud {
   let dealMax = 1, dealOffer: number | null = null;
   const best = (r: string, side: 'sell' | 'buy') => board?.offers.find((o) => o.res === r && o.side === side && o.player !== M.me);
   const tradeTab = () => {
-    const st = stall(), sg = st?.goods ?? {}, home = (s.sim.cur?.stock?.[myTeam()] ?? {}) as Record<string, number>;
+    const st = stall(), sg = st?.goods ?? {}, home = stockAtHand(s); // W-60: the store by his men, online and offline
     const rows = board?.goods ?? {};
     const names = [...new Set([...Object.keys(rows), ...Object.keys(sg), ...Object.keys(home).filter((r) => home[r] >= 1)])].filter((r) => r !== 'coin' && GOODS.includes(r as never));
     names.sort((a, b) => Number(!rows[a]) - Number(!rows[b]) || a.localeCompare(b));

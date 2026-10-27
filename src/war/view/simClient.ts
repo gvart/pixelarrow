@@ -244,9 +244,9 @@ export class SimClient {
     this.send({ t: 'cart', team, owner, type, x, y });
   }
 
-  /** Dev: add to a team's stockpile. */
-  addStock(team: number, res: ResourceKind, n: number): void {
-    this.send({ t: 'stock', team, res, n });
+  /** Dev: add to a team's stockpile (`at`: the stores by that point, offline). */
+  addStock(team: number, res: ResourceKind, n: number, at?: { x: number; y: number }): void {
+    this.send({ t: 'stock', team, res, n, ...(at ? { at } : {}) });
   }
 
   /** The sim's checkPlacement, answered off the worker (null on the fake sim). */

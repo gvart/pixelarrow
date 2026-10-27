@@ -4,8 +4,8 @@
  * and the payout (`payStmts`, `scoreTask`).
  *
  *  - Tally: what the server sees a player do, per UTC day and metric (war_task_tally), booked where it happens:
- *    the room's men carrying wood or stone home (./taskWatch.ts GatherWatch, via the region DO), stows in, fights (wins, kills), souls
- *    claimed, caravans in (the DO), guard and build labour and contracts filled (./contracts.ts), goods and labour given
+ *    the room's men carrying wood or stone home (./taskWatch.ts GatherWatch, via the region DO), stows in less stows out
+ *    (a day's net), fights (wins, kills), souls claimed, caravans in (the DO), guard and build labour and contracts filled (./contracts.ts), goods and labour given
  *    to works (./works.ts), coin sold to another alliance (./tradeScore.ts).
  *  - Tasks: drawn on the first read of a period (war_tasks), the same for a player whatever the device; progress is the
  *    tally over the period's days less the row's `base` (a reroll starts at what was there already, a first draw at 0:

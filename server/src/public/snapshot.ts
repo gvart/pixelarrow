@@ -11,6 +11,7 @@ import { ALLIANCES, WAR_SEASON } from '../../../src/war/world/alliances';
 import { worldRegion } from '../../../src/war/world/graph';
 import { WAR_BOSSES } from '../../../src/data/warBosses';
 import { worldStub } from '../war/world/routes';
+import { STAT_SEASON } from '../war/peace';
 import { logError } from '../telemetry/log';
 
 const DAY = 86_400_000;
@@ -110,8 +111,8 @@ async function warBoards(db: D1Database, world: Standings | null): Promise<Pick<
       .prepare(
         `SELECT p.display_name AS name, m.alliance, s.kills, s.fights, s.wins, s.honours
          FROM war_player_stats s JOIN players p ON p.id = s.player_id
-         LEFT JOIN war_alliance_members m ON m.season = s.season AND m.player_id = s.player_id
-         WHERE s.season = ?1 AND s.fights > 0 AND ${ELIGIBLE}
+         LEFT JOIN war_alliance_members m ON m.season = ?1 AND m.player_id = s.player_id
+         WHERE s.season = ${STAT_SEASON} AND s.fights > 0 AND ${ELIGIBLE}
          ORDER BY s.kills DESC, s.wins DESC, s.honours DESC, s.player_id LIMIT ?2`,
       )
       .bind(WAR_SEASON.id, BOARD_MAX)
@@ -167,8 +168,8 @@ async function champions(db: D1Database): Promise<PublicSummaryV1['champions']> 
 async function bossSlayers(db: D1Database): Promise<PublicSummaryV1['bossSlayers']> {
   return (
     await db
-      .prepare(`SELECT p.display_name AS name, s.bosses AS kills FROM war_player_stats s JOIN players p ON p.id = s.player_id WHERE s.season = ?1 AND s.bosses > 0 AND ${ELIGIBLE} ORDER BY s.bosses DESC, s.player_id LIMIT ?2`)
-      .bind(WAR_SEASON.id, BOARD_MAX)
+      .prepare(`SELECT p.display_name AS name, s.bosses AS kills FROM war_player_stats s JOIN players p ON p.id = s.player_id WHERE s.season = ${STAT_SEASON} AND s.bosses > 0 AND ${ELIGIBLE} ORDER BY s.bosses DESC, s.player_id LIMIT ?1`)
+      .bind(BOARD_MAX)
       .all<{ name: string; kills: number }>()
   ).results.map((r, i) => ({ rank: i + 1, ...r }));
 }

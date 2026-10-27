@@ -123,6 +123,12 @@ describe('tasks (E7)', () => {
     expect(await code(rerollOne(DB(), p, 'daily', 0, MON + 2 * DAY_MS))).toBe('claimed');
   });
 
+  it('"Fill the stores" counts the day\'s net: goods taken out and stowed back earn nothing', async () => {
+    const p = await player(8823, 0), d = dayOf(MON);
+    for (const n of [50, -50, 50, -50, 20]) await tallyStmt(DB(), p, 'deliver', n, MON).run();
+    expect((await tallyOf(DB(), p, d, d + 1)).deliver).toBe(20);
+  });
+
   it('the hooks tally: goods and labour to works, fights (wins, kills), the gather watch', async () => {
     const p = await player(8831, 1, 9101), q = await player(8832, 1, 9101), now = Date.now(), d = dayOf(now);
     await setGood(p, 'stone', 300);

@@ -9,7 +9,8 @@
  *   top right    Holdings (the corner button, a count when something waits): your settlements, requests and offers
  *                with their clocks, accept or refuse (a plot request opens the plot picker on the ground: ../plots.ts),
  *                what you sent, your truces
- *   under it     notices: "your vassal X is under attack" (the world socket's settlementAttacked) with a jump to it; a
+ *   under it     notices: "your vassal X is under attack" (the world socket's settlementAttacked) with a jump to it; W-64
+ *                crown news (crownNews: elections, a new monarch, a pact broken); a
  *                build refused on settled ground (notYourGround) in words
  *   build bar    the founding hint while a camp is in hand and you rule no settlement yet
  *
@@ -27,7 +28,8 @@ import { PlotLayer } from '../plots';
 import { draggable } from './drag';
 import { fitHeight } from './kit';
 import { tipper } from './roster/ui';
-import { attackToast, FOUND_HINT, groundToast, holdingsHtml, SETTLE_CSS, settlementBadge, settlementCard, viewerOf, type SettleForm, type Viewer } from './settleCards';
+import type { CrownNewsKind } from '../../net/world';
+import { attackToast, crownToast, FOUND_HINT, groundToast, holdingsHtml, SETTLE_CSS, settlementBadge, settlementCard, viewerOf, type SettleForm, type Viewer } from './settleCards';
 
 type Mk = (id: string, css: string, html?: string) => HTMLElement;
 type Api = <T>(method: 'GET' | 'POST', path: string, body?: unknown) => Promise<T | null>;
@@ -269,7 +271,7 @@ export function mountSettlements(s: SandboxScene, mk: Mk): void {
 
   // ---------- notices ----------
   const notes = mk('rfSettleNote', '');
-  function note(html: string, kind: 'atk' | 'grd', ms: number, jump?: () => void): void {
+  function note(html: string, kind: 'atk' | 'grd' | 'crn', ms: number, jump?: () => void): void {
     const el = document.createElement('div');
     el.className = `rf rf-card sx ${kind}`;
     el.style.position = 'static';
@@ -290,6 +292,8 @@ export function mountSettlements(s: SandboxScene, mk: Mk): void {
     void loadInbox();
   };
   worldTaps.add((m) => { if (m.t === 'settlementAttacked') attacked(m as unknown as Parameters<typeof attacked>[0]); });
+  // W-64: crown news (an election opened or closed, a new monarch, a pact broken) as a notice
+  worldTaps.add((m) => { if (m.t === 'crownNews') note(crownToast(m as unknown as { kind: CrownNewsKind; text: string }), 'crn', 10_000); });
 
   // ---------- the founding hint: a camp in hand, outside home, and no settlement of his yet ----------
   const hint = mk('rfFoundHint', '', FOUND_HINT);

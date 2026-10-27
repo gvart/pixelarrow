@@ -39,11 +39,11 @@ import { isElite, makePerson, promoteBlocker, promotePerson, type PersonOpts } f
 import { legalSkills, SKILL_LEVELS } from '../../../src/war/sim/skills';
 import { ARMY_MAX } from '../../../src/war/sim/soldiers';
 import { HONOURS_MAX } from '../../../src/war/sim/honours';
-import { WAR_SEASON } from '../../../src/war/world/alliances';
 import type { Deed, FightReport, HonourStat, WarPerson, WarSkillId } from '../../../src/war/types';
 import { addDeeds, SCARS_MAX } from '../../../src/war/sim/deeds';
 import { trophies, type Trophy } from './bosses';
 import { ApiError } from '../errors';
+import { STAT_SEASON } from './peace';
 import { randomToken } from './store';
 import { batch, ensureHolder, goodsOf, HOME, itemsIn, lotsOf, pay as payFrom, placeItemStmt, planTake, putStmt, strongroom } from './holders';
 
@@ -622,10 +622,10 @@ export const ownerPid = (owner: string): number | null => {
 export const addStats = (db: D1Database, pid: number, d: { kills?: number; fights?: number; wins?: number; honours?: number; bosses?: number }): D1PreparedStatement =>
   db
     .prepare(
-      `INSERT INTO war_player_stats (season, player_id, kills, fights, wins, honours, bosses) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+      `INSERT INTO war_player_stats (season, player_id, kills, fights, wins, honours, bosses) VALUES (COALESCE(?1, ${STAT_SEASON}), ?2, ?3, ?4, ?5, ?6, ?7)
        ON CONFLICT (season, player_id) DO UPDATE SET kills = kills + ?3, fights = fights + ?4, wins = wins + ?5, honours = honours + ?6, bosses = bosses + ?7`,
     )
-    .bind(WAR_SEASON.id, pid, d.kills ?? 0, d.fights ?? 0, d.wins ?? 0, d.honours ?? 0, d.bosses ?? 0);
+    .bind(null, pid, d.kills ?? 0, d.fights ?? 0, d.wins ?? 0, d.honours ?? 0, d.bosses ?? 0);
 
 /**
  * Each player's tallies of one fight: his men's kills and honours, one fight, and a win when some of his men walked

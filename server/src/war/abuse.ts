@@ -10,7 +10,7 @@
  *  - Same-alliance fills score nothing (./tradeScore.ts).
  */
 import { itemValue, ITEMS, type Item } from '../../../src/data/items';
-import { WAR_SEASON } from '../../../src/war/world/alliances';
+import { STAT_SEASON } from './peace';
 import { ApiError } from '../errors';
 import type { Bundle } from './cargo';
 import type { HandoffWindow } from './room';
@@ -79,7 +79,7 @@ export async function handoffRefusal(db: D1Database, w: HandoffWindow, now: numb
   if (ga === null || ga !== ra) return 'one-sided hand-offs only within an alliance';
   const p = await db.prepare('SELECT created_at FROM players WHERE id = ?1').bind(receiver).first<{ created_at: number }>();
   if (!p || now - p.created_at < ABUSE.ageMs) return 'the receiver\'s account is too new';
-  const fought = await db.prepare('SELECT fights FROM war_player_stats WHERE season = ?1 AND player_id = ?2').bind(WAR_SEASON.id, receiver).first<{ fights: number }>();
+  const fought = await db.prepare(`SELECT fights FROM war_player_stats WHERE season = ${STAT_SEASON} AND player_id = ?1`).bind(receiver).first<{ fights: number }>();
   if (!fought?.fights) return 'the receiver has not fought yet';
   const value = await valueOf(db, half.goods);
   const today = (await db.prepare('SELECT value FROM war_gifts WHERE player_id = ?1 AND day = ?2').bind(receiver, Math.floor(now / DAY)).first<{ value: number }>())?.value ?? 0;

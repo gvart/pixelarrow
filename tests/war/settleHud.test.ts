@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 // W-63 the settlement HUD's views (src/war/view/hud/settleCards.ts) and the client's plot rules (src/war/net/settlements.ts).
-import { attackToast, holdingsHtml, offerText, settlementCard, settleWarning, viewerOf, type SettleCtx } from '../../src/war/view/hud/settleCards';
+import { attackToast, crownToast, holdingsHtml, offerText, settlementCard, settleWarning, viewerOf, type SettleCtx } from '../../src/war/view/hud/settleCards';
 import { left, levelKind, levelName, plotRefusal, spanOf, type OfferRow, type WorldSettlement } from '../../src/war/net/settlements';
 import type { SettlementNet } from '../../src/war/net/protocol';
 
@@ -73,5 +73,8 @@ describe('W-63 settlement HUD', () => {
     expect(html).toContain('data-sa="refuse:1"');
     expect(html).toContain('1d 23h');
     expect(attackToast({ name: 'Thermi', region: 'achelous', mine: false, broken: 1, here: false })).toContain('Your vassal <b>Thermi</b> is under attack');
+    // W-64 crown news
+    expect(crownToast({ kind: 'monarch', text: 'Kallias is crowned in Skythia' })).toMatch(/A new monarch[\s\S]*Kallias is crowned/);
+    expect(crownToast({ kind: 'pactBroken', text: '<b>' })).toContain('&lt;b&gt;');
   });
 });

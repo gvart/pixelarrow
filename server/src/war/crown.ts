@@ -26,6 +26,8 @@
  *  - Envoy: pacts and truces with another alliance, offered by one envoy and accepted by the other (records). An attack
  *    on a settlement of the other side by a member while one is active breaks it (`pactAttack`, the region DO), logged
  *    and announced to both alliances.
+ *  - News: an election opened or closed and a monarch crowned (advance) go to the alliance's world sockets as `crownNews`
+ *    (WarWorldDO.notify); the world map reads `crownMap` (monarchs, pacts and truces in force).
  *  - Season: the world's rollover (`crownSeason`) ends every term (the monarch regent until the new election closes),
  *    voids running votes and settles open orders.
  */
@@ -47,6 +49,10 @@ import { WAR_REGIONS } from './regions';
 import { payStmts } from './tasks';
 import { give as giveWork } from './works';
 import { allianceOf } from './world/members';
+import { worldStub } from './world/routes';
+import { logError } from '../telemetry/log';
+import type { CrownMap, CrownNewsKind } from '../../../src/war/net/world';
+import type { AllianceId } from '../../../src/war/world/types';
 
 const EPS = 1e-6;
 export const treasuryOf = (a: number, season = WAR_SEASON.id) => `cr:${season}:${a}`;
@@ -98,8 +104,11 @@ async function ballotsOf(db: D1Database, id: number, stage: 'sign' | 'ballot') {
   return (await db.prepare('SELECT player_id AS pid, choice, weight FROM war_crown_ballots WHERE vote_id = ?1 AND stage = ?2').bind(id, stage).all<{ pid: number; choice: number; weight: number }>()).results;
 }
 
-/** Close a vote whose time is up (an election crowns its winner; a lost confidence vote removes the monarch). */
-async function closeVote(db: D1Database, v: VoteRow, season: number): Promise<void> {
+type News = { kind: CrownNewsKind; text: string };
+
+/** Close a vote whose time is up (an election crowns its winner; a lost confidence vote removes the monarch); an election's news. */
+async function closeVote(db: D1Database, v: VoteRow, season: number): Promise<News | null> {
+  let news: News | null = null;
   const at = v.closes_at, stmts: D1PreparedStatement[] = [guard(db, '(SELECT state FROM war_crown_votes WHERE id = ?1) = ?2', v.id, v.state)];
   const close = (result: unknown, winner: number | null = null) =>
     db.prepare("UPDATE war_crown_votes SET state = 'closed', result = ?2, winner_pid = ?3 WHERE id = ?1 AND state = ?4").bind(v.id, JSON.stringify(result), winner, v.state);
@@ -112,7 +121,8 @@ async function closeVote(db: D1Database, v: VoteRow, season: number): Promise<vo
       stmts.push(db.prepare('UPDATE war_crowns SET monarch_pid = ?3, crowned_at = ?4, term_ends = ?5 WHERE season = ?1 AND alliance = ?2').bind(season, v.alliance, w.pid, at, at + CROWN.termMs));
       if (w.pid !== c.monarch_pid) stmts.push(db.prepare('DELETE FROM war_crown_offices WHERE season = ?1 AND alliance = ?2').bind(season, v.alliance));
       stmts.push(logStmt(db, season, v.alliance, 'crowned', w.pid, { name: w.name, votes: votes[w.pid] ?? 0, again: w.pid === c.monarch_pid }, at));
-    }
+      news = { kind: 'monarch', text: `${w.name} is crowned${w.pid === c.monarch_pid ? ' again' : ''} in ${ALLIANCES[v.alliance].name}` };
+    } else news = { kind: 'electionClosed', text: `The election in ${ALLIANCES[v.alliance].name} closed with no winner` };
   } else if (v.state === 'petition') {
     stmts.push(close({ failed: 'signatures' }), logStmt(db, season, v.alliance, 'petition_failed', null, {}, at));
   } else {
@@ -127,15 +137,19 @@ async function closeVote(db: D1Database, v: VoteRow, season: number): Promise<vo
       );
     } else stmts.push(logStmt(db, season, v.alliance, 'confidence_held', v.target_pid, { yes, no }, at));
   }
-  await batch(db, stmts).catch((e) => {
-    if (!(e instanceof ApiError && e.code === 'changed')) throw e; // another read closed it first
-  });
+  return batch(db, stmts).then(
+    () => news,
+    (e) => {
+      if (!(e instanceof ApiError && e.code === 'changed')) throw e; // another read closed it first
+      return null;
+    },
+  );
 }
 
-/** Open an election (none open yet): the top members by power stand; a running petition is void. */
-async function openElection(db: D1Database, a: number, now: number, season: number): Promise<void> {
+/** Open an election (none open yet): the top members by power stand; a running petition is void. Its news when opened. */
+async function openElection(db: D1Database, a: number, now: number, season: number): Promise<News | null> {
   const cands = candidatesOf(await membersOf(db, a, season)).map(({ pid, name, power }) => ({ pid, name, power }));
-  if (!cands.length) return;
+  if (!cands.length) return null;
   const r = await db
     .prepare(
       `INSERT INTO war_crown_votes (season, alliance, kind, state, candidates, opens_at, closes_at, created_at)
@@ -143,11 +157,20 @@ async function openElection(db: D1Database, a: number, now: number, season: numb
     )
     .bind(season, a, JSON.stringify(cands), now, now + CROWN.voteMs)
     .run();
-  if (!r.meta.changes) return;
+  if (!r.meta.changes) return null;
   await db.batch([
     db.prepare("UPDATE war_crown_votes SET state = 'closed', result = '{\"void\":\"election\"}' WHERE season = ?1 AND alliance = ?2 AND kind = 'confidence' AND state IN ('petition', 'open')").bind(season, a),
     logStmt(db, season, a, 'election', null, { candidates: cands }, now),
   ]);
+  return { kind: 'electionOpen', text: `An election for the crown of ${ALLIANCES[a].name} is open: ${cands.map((k) => k.name).join(', ')} stand` };
+}
+
+/** Crown news to every member of alliance `a` on his world sockets (best effort). */
+async function tell(env: Env, a: number, season: number, news: News[]): Promise<void> {
+  if (!news.length || !env.WAR_WORLD) return;
+  const pids = (await env.DB!.prepare('SELECT player_id FROM war_alliance_members WHERE season = ?1 AND alliance = ?2').bind(season, a).all<{ player_id: number }>()).results.map((r) => r.player_id);
+  const world = worldStub(env);
+  for (const n of news) await world.notify(pids, { t: 'crownNews', ...n }).catch((e: unknown) => logError('war_crown_notify_failed', e, { alliance: a }));
 }
 
 /** Bring alliance `a`'s crown up to `now`: votes due closed, orders and pacts due settled, an election opened when due. */
@@ -155,12 +178,14 @@ export async function advance(env: Env, a: number, now: number, season = WAR_SEA
   const db = env.DB!;
   await crownOf(db, a, season);
   const due = (await db.prepare("SELECT * FROM war_crown_votes WHERE season = ?1 AND alliance = ?2 AND state IN ('petition', 'open') AND closes_at <= ?3 ORDER BY closes_at, id").bind(season, a, now).all<VoteRow>()).results;
-  for (const v of due) await closeVote(db, v, season);
+  const news: News[] = [];
+  for (const v of due) { const n = await closeVote(db, v, season); if (n) news.push(n); }
   await settleOrders(env, a, now, season);
   await expirePacts(db, now, season);
   const c = await crownOf(db, a, season);
   const open = await db.prepare("SELECT 1 FROM war_crown_votes WHERE season = ?1 AND alliance = ?2 AND kind = 'election' AND state = 'open'").bind(season, a).first();
-  if (!open && (c.monarch_pid === null || c.term_ends <= now)) await openElection(db, a, now, season);
+  if (!open && (c.monarch_pid === null || c.term_ends <= now)) { const n = await openElection(db, a, now, season); if (n) news.push(n); }
+  await tell(env, a, season, news);
   return crownOf(db, a, season);
 }
 
@@ -519,9 +544,19 @@ export async function answerPact(env: Env, pid: number, id: number, act: 'accept
   return state;
 }
 
-/** Active pacts and truces of the season (the world map, later). */
+/** Active pacts and truces of the season (the world map). */
 export async function pactsOf(db: D1Database, season = WAR_SEASON.id): Promise<PactRow[]> {
   return (await db.prepare("SELECT * FROM war_crown_pacts WHERE season = ?1 AND state = 'active' ORDER BY id").bind(season).all<PactRow>()).results;
+}
+
+/** The world map's crown layer: each alliance's monarch (regent included) and the pacts and truces in force at `now`. */
+export async function crownMap(db: D1Database, now: number, season = WAR_SEASON.id): Promise<CrownMap> {
+  const monarchs = (await db
+    .prepare('SELECT c.alliance, c.monarch_pid AS pid, p.display_name AS name FROM war_crowns c LEFT JOIN players p ON p.id = c.monarch_pid WHERE c.season = ?1 AND c.monarch_pid IS NOT NULL ORDER BY c.alliance')
+    .bind(season)
+    .all<{ alliance: number; pid: number; name: string | null }>()).results.map((r) => ({ alliance: r.alliance as AllianceId, pid: r.pid, name: r.name ?? `#${r.pid}` }));
+  const pacts = (await pactsOf(db, season)).filter((p) => p.ends_at === null || p.ends_at > now).map((p) => ({ a: p.alliance_a as AllianceId, b: p.alliance_b as AllianceId, kind: p.kind }));
+  return { monarchs, pacts };
 }
 
 /**
