@@ -101,7 +101,7 @@ export function mountPeace(s: SandboxScene, mk: Mk): void {
   const badge = mk('rfTown', 'top:4px;left:50%;transform:translateX(-50%);pointer-events:auto;cursor:pointer;display:none');
   badge.className = 'rf rf-card';
   const tcard = mk('rfTownCard', 'top:42px;left:50%;transform:translateX(-50%);width:316px;pointer-events:auto;padding:6px 8px 8px;display:none');
-  tcard.className = 'rf rf-card';
+  tcard.className = 'rf rf-card rf-esc';
   tipper(badge, tip);
   tipper(tcard, tip);
   let open = false, key = '';
@@ -140,6 +140,7 @@ export function mountPeace(s: SandboxScene, mk: Mk): void {
     if (open) (tcard.innerHTML = townCard(t)), fitHeight(tcard);
   };
   setInterval(draw, 500);
+  addEventListener('keydown', (e: KeyboardEvent) => { if (keys.act(e) === 'back' && open) ((open = false), (key = ''), draw()); });
   tcard.addEventListener('click', (e) => { settleHosts.get(s)?.click(e); key = ''; draw(); });
   tcard.addEventListener('input', (e) => settleHosts.get(s)?.input(e));
   tcard.addEventListener('change', () => ((key = ''), draw()));
