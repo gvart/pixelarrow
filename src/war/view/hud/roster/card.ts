@@ -105,7 +105,9 @@ export function cardHtml(R: SandboxRoster, r: Row, C?: SandboxCraft, dev = false
     const open = h.level >= lv;
     return `<div class="rr-skill ${open ? 'free' : 'shut'}" ${open ? 'data-act="tree"' : ''} ${tip(card({ icon: open ? 'ui:plus' : 'ui:lock', name: `Skill slot ${ROMAN[i]}`, kind: `opens at level ${lv}`, w: 200, more: `<div>${TERMS.slot.text()}</div>`, state: open ? { tone: 'good', icon: 'ui:plus', text: 'Open: pick it in his tree' } : { tone: 'dim', icon: 'ui:lock', text: `He is level ${h.level}` } }))}><span class="rr-med">${glyph(open ? 'ui:plus' : 'ui:lock', open ? 16 : 14)}</span><div><div class="nm">${open ? 'Choose a skill' : `Slot ${ROMAN[i]}`}</div><div class="kd">${open ? 'in his tree' : `at level ${lv}`}</div></div></div>`;
   }).join('');
-  const attrs = ATTR_IDS.map((a) => `<div class="rr-attr" data-attr="${a}" ${tip(attrCard(a, h.attrs[a]))}>${glyph(ATTR_ICON[a], 16)}<span class="nm">${ATTR_NAME[a]}</span><b>${h.attrs[a]}</b>${pips(h.attrs[a])}</div>`).join('');
+  // points to spend: an attribute row (or the +N) opens his tree, where they are spent
+  const spend = !civ && h.points > 0 && r.where !== 'dead' ? ' data-act="tree"' : '';
+  const attrs = ATTR_IDS.map((a) => `<div class="rr-attr${spend ? ' spend' : ''}" data-attr="${a}"${spend} ${tip(attrCard(a, h.attrs[a], spend && h.attrs[a] < ATTR_MAX ? { tone: 'good', icon: 'ui:plus', text: 'Click: spend his points in his tree' } : undefined))}>${glyph(ATTR_ICON[a], 16)}<span class="nm">${ATTR_NAME[a]}</span><b>${h.attrs[a]}</b>${pips(h.attrs[a])}</div>`).join('');
   const stats = statRows(st).map(([l, t]) => `<div class="rr-stat" data-stat="${l}" ${tip(statCard(l, t))}>${glyph(STAT_TERM[l]?.icon ?? 'ui:info', 15)}<span class="rf-dim">${l === 'HP' ? 'Health' : l}</span><b>${t}</b></div>`).join('');
   const honours = [
     ...(p.honours ?? []).map((x) => `<span class="rr-hon" ${tip(card({ icon: 'ui:laurel', name: esc(x.name), kind: 'battle honour', w: 200, more: `<div>+2% ${esc(x.stat)}</div>` }))}>${glyph('ui:laurel', 15)}${esc(x.name)}</span>`),
@@ -135,7 +137,7 @@ export function cardHtml(R: SandboxRoster, r: Row, C?: SandboxCraft, dev = false
         <div style="grid-column:2;grid-row:3;justify-self:center">${slot(p, 'trinket')}</div>
       </div>
       <div style="flex:1;min-width:0">
-        <div class="rf-cap rr-cap" style="margin-top:0">Attributes${h.points > 0 ? ` <span class="rr-pts" ${tip(termCard('points'))}>${glyph('ui:tgstar', 12)}+${h.points}</span>` : ''}</div>
+        <div class="rf-cap rr-cap" style="margin-top:0">Attributes${h.points > 0 ? ` <span class="rr-pts"${spend} ${tip(termCard('points'))}>${glyph('ui:tgstar', 12)}+${h.points}</span>` : ''}</div>
         ${attrs}
       </div>
     </div>

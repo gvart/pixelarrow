@@ -1,34 +1,62 @@
 /**
  * A soldier's portrait for the card (M5g): the first idle frame of his class sheet (the shipped PixelLab sheets the map
  * draws, ../../units.ts), facing the viewer (south-west row), cropped to the figure and scaled nearest-neighbour, the
- * red cloth turned blue as the team 0 shader does (TEAM_SWAP). One canvas per class, cached.
+ * red cloth turned blue as the team 0 shader does (TEAM_SWAP). One canvas per class, cached. The map uploads a class's
+ * sheet only once a man of it is drawn, so for a class not on the map the portrait cuts the frame from the sheet image.
  */
 import type Phaser from 'phaser';
 import type { SheetManifest } from '../../../../art/sheetManifest';
 
 const manifests = import.meta.glob<SheetManifest>('../../../../assets/sheets/*/manifest.json', { eager: true, import: 'default' });
 const byClass = new Map(Object.entries(manifests).map(([p, m]) => [p.split('/').at(-2)!, m]));
+// the sheets the map ships (../../units.ts), by class: the portrait of a class not on the map is cut from these
+const urls = import.meta.glob<string>(
+  ['../../../../assets/sheets/militia/*.png', '../../../../assets/sheets/hoplite/*.png', '../../../../assets/sheets/celt_sword/*.png', '../../../../assets/sheets/archer/*.png', '../../../../assets/sheets/slinger/*.png', '../../../../assets/sheets/javelineer/*.png', '../../../../assets/sheets/civ_*/*.png'],
+  { eager: true, query: '?url', import: 'default' },
+);
+const urlOf = new Map(Object.entries(urls).map(([p, u]) => [p.split('/').at(-2)!, u]));
+const images = new Map<string, HTMLImageElement>();
 const cache = new Map<string, HTMLCanvasElement>();
+
+/** The sheet image of a class (loading on first call; null until it is in). */
+function sheetImage(cls: string): HTMLImageElement | null {
+  let im = images.get(cls);
+  if (!im) {
+    const u = urlOf.get(cls);
+    if (!u) return null;
+    im = new Image();
+    im.src = u;
+    images.set(cls, im);
+  }
+  return im.complete && im.naturalWidth ? im : null;
+}
 export const PORTRAIT_W = 64, PORTRAIT_H = 80;
 
 /** The class's portrait canvas (64 x 80 art px), or null before its sheet texture is in. */
 export function portrait(scene: Phaser.Scene, cls: string): HTMLCanvasElement | null {
-  const key = byClass.has(cls) ? cls : 'militia';
+  const key = byClass.has(cls) && urlOf.has(cls) ? cls : 'militia';
   const hit = cache.get(key);
   if (hit) return hit;
   const m = byClass.get(key);
-  const tk = scene.textures.exists(`war-${key}`) ? `war-${key}` : `war-${key}-0`;
-  if (!m || !scene.textures.exists(tk)) return null;
+  if (!m) return null;
   const row = Math.max(0, m.rows.indexOf('south-west'));
-  const tex = scene.textures.get(tk), fr = tex.has(`idle${row}_0`) ? tex.get(`idle${row}_0`) : null;
-  const img = tex.getSourceImage() as HTMLImageElement | HTMLCanvasElement;
-  if (!fr) return null;
+  // the map's uploaded frame, else the idle frame cut from the sheet image (column c, band c / wrap: SheetManifest.wrap)
+  const tk = scene.textures.exists(`war-${key}`) ? `war-${key}` : `war-${key}-0`;
+  const tex = scene.textures.exists(tk) ? scene.textures.get(tk) : null, fr = tex?.has(`idle${row}_0`) ? tex.get(`idle${row}_0`) : null;
+  let img: HTMLImageElement | HTMLCanvasElement | null, cut: { x: number; y: number; w: number; h: number };
+  if (tex && fr) (img = tex.getSourceImage() as HTMLImageElement | HTMLCanvasElement), (cut = { x: fr.cutX, y: fr.cutY, w: fr.cutWidth, h: fr.cutHeight });
+  else {
+    const c = m.anims.idle?.col ?? 0, wrap = m.wrap ?? 1e9;
+    img = sheetImage(key);
+    cut = { x: (c % wrap) * m.frame.w, y: (Math.floor(c / wrap) * m.rows.length + row) * m.frame.h, w: m.frame.w, h: m.frame.h };
+  }
+  if (!img) return null;
   // the frame, its opaque bounds, then fitted into the portrait (feet at the bottom, integer-ish scale)
   const f = document.createElement('canvas');
-  f.width = fr.cutWidth;
-  f.height = fr.cutHeight;
+  f.width = cut.w;
+  f.height = cut.h;
   const fc = f.getContext('2d', { willReadFrequently: true })!;
-  fc.drawImage(img, fr.cutX, fr.cutY, fr.cutWidth, fr.cutHeight, 0, 0, fr.cutWidth, fr.cutHeight);
+  fc.drawImage(img, cut.x, cut.y, cut.w, cut.h, 0, 0, cut.w, cut.h);
   const d = fc.getImageData(0, 0, f.width, f.height);
   let x0 = f.width, y0 = f.height, x1 = 0, y1 = 0;
   for (let y = 0; y < f.height; y++)

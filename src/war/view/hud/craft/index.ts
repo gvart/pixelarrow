@@ -138,11 +138,11 @@ export function mountCraft(s: SandboxScene, mk: Mk, roster: RosterHooks): void {
     }
     for (const f of unTip) f();
   };
-  /** The tree of a man: a civilian's profession, a soldier's skills (local roster only). */
+  /** The tree of a man: a civilian's profession, a soldier's skills (net mode: the roster holds the server's men). */
   const treeView = (pid: string): TreeView | null => {
     const c = C.civ(pid);
     if (c) return profTree(C, c);
-    const p = s.sim.net ? undefined : R.roster.get(pid);
+    const p = R.roster.get(pid);
     return p && !isCivClass(p.hero.cls) ? soldierTree(R, p) : null;
   };
   const openTree = (pid: string) => { treePid = treePid === pid ? null : pid; ask = null; render(); };
