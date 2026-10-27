@@ -583,6 +583,10 @@ export interface WarBuildSim extends WarSim {
   bossDown(id?: string): void;
   /** M7d (src/war/sim/bosses.ts): wake the region's guardians (spawnMobs does it too); a dev and test hook: deal `dmg` to guardian `boss`'s body (its phases follow). */
   spawnGuardians(): void;
+  /** W-62 boss wake (src/war/world/events.ts): guardians slain or away are back now (not while the region is held), all x`k` hp. */
+  wakeGuardians(k: number): void;
+  /** W-62 soul storm: souls wake `k` times as often here (1: calm). */
+  setSoulStorm(k: number): void;
   /**
    * M7f: what the region remembers once its room empties (the server keeps it across DO restarts and in D1): its
    * pre-built pieces' hp, ruin and owner, the claim points' holders, its guardians (slain or away and the ticks until they

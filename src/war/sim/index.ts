@@ -3295,6 +3295,8 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     },
     spawnMobs: () => (mobs.spawn(), bosses.spawn()),
     spawnGuardians: () => bosses.spawn(),
+    wakeGuardians: (k) => (bosses.spawn(), bosses.wake(k)),
+    setSoulStorm: (k) => souls.setStorm(k),
     memory(): RegionMemory {
       return {
         pieces: works.preRows(),

@@ -46,6 +46,7 @@ import { CHOKEPOINTS } from '../../../src/war/world/season';
 import { worldRegion } from '../../../src/war/world/graph';
 import { bossItems } from './bosses';
 import { bossGoods } from '../../../src/data/warBosses';
+import { STORM, WAKE, type WorldEvent } from '../../../src/war/world/events';
 import { craftKey } from './crafting';
 import { bundleGoods, contents, fill, room as freeLoads, takeAll, takeOut, type Bundle } from './cargo';
 import type { TransitCargo } from '../../../src/war/net/world';
@@ -235,6 +236,8 @@ export class WarRoom {
   private guards: GuardWatch[] = [];
   private workSites: { work: WorkId; team: number; x: number; y: number }[] = [];
   private townSent = new Map<number, string>();
+  /** W-62: world events running in this region (the DO sets them: src/war/world/events.ts). */
+  private worldEvents: WorldEvent[] = [];
 
   constructor(o: RoomOptions) {
     this.region = o.region;
@@ -270,6 +273,18 @@ export class WarRoom {
   /** M7f: what the region remembers once it empties (pre-built pieces, claim holders, guardians, its landmark). */
   memory(): RegionMemory {
     return this.sim.memory();
+  }
+
+  /** W-62: the world events running in this region now: a soul storm wakes souls faster; a boss wake doubles its rare goods. */
+  setWorldEvents(evs: WorldEvent[]): void {
+    this.worldEvents = evs;
+    this.sim.setSoulStorm(evs.some((e) => e.kind === 'soulStorm') ? STORM.chance : 1);
+  }
+
+  /** W-62: a boss wake: the region's guardians back now (unless the region is held) and stronger. */
+  wakeGuardians(): void {
+    this.sim.wakeGuardians(WAKE.hp);
+    this.snap = this.sim.snapshot();
   }
 
   /** M7f: a fresh room takes on what the region remembers, `elapsed` ticks after it was left. */
@@ -948,7 +963,9 @@ export class WarRoom {
     const captured = evs.flatMap((e) => (e.kind === 'cartCaptured' && cartWas.has(e.cart) ? [{ cart: e.cart, from: cartWas.get(e.cart)!.owner, team: cartWas.get(e.cart)!.team, to: e.owner }] : []));
     for (const e of crafted) if (e.what === 'craft') this.deposit(e);
     // M7e: a landmark boss's rare good falls into the pile with its gear (origin: this region)
-    for (const e of bosses) this.sim.dropPile(e.x ?? this.region.w / 2, e.y ?? this.region.h / 2, bossGoods(e.boss).map((g) => ({ r: g.r, n: g.n, o: this.region.id })), bossItems(this.region.id, this.run, e));
+    // W-62: slain while its region's boss wake runs: its rare goods WAKE.loot times over
+    const loot = this.worldEvents.some((x) => x.kind === 'bossWake') ? WAKE.loot : 1;
+    for (const e of bosses) this.sim.dropPile(e.x ?? this.region.w / 2, e.y ?? this.region.h / 2, bossGoods(e.boss).map((g) => ({ r: g.r, n: g.n * loot, o: this.region.id })), bossItems(this.region.id, this.run, e));
     // M5e: holding buildings raided or fallen this tick: their captives go free (the DO writes it)
     const raided = evs.flatMap((e) => (e.kind === 'raid' ? [e.building] : []));
     for (const e of evs) if (e.kind === 'raid' && e.by !== undefined && e.by !== e.team) this.stormed.add(e.by);
