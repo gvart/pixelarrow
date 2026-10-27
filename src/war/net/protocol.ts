@@ -253,7 +253,9 @@ export type ServerMsg =
    */
   | { t: 'guide'; done: string[]; hidden?: true; step?: string; paid?: true }
   /** W-63: the region's settlements (SettlementNet), on his join and whenever one changes. */
-  | { t: 'settlements'; list: SettlementNet[] };
+  | { t: 'settlements'; list: SettlementNet[] }
+  /** The online cap (./gate.ts): not from the region socket, the gate's state passed on by ./client.ts. */
+  | import('./gate').GateMsg;
 
 /** Live soldiers per alliance against its quota. */
 export interface Quota { cap: number; per: number[]; live: number[] }

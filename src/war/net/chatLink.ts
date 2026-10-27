@@ -31,6 +31,14 @@ export const worldTaps = new Set<(m: { t: string }) => void>();
 
 const wsBase = () => `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}`;
 
+/** The idle kick (../view/hud/gate.ts): every chat socket of the page closes and stays closed. */
+let halted = false;
+const chats = new Set<NetChat>();
+export function haltChat(): void {
+  halted = true;
+  for (const c of chats) c.close();
+}
+
 export class NetChat implements ChatLink {
   live = false;
   private ws: WebSocket | null = null;
@@ -41,11 +49,18 @@ export class NetChat implements ChatLink {
 
   start(on: (m: ChatServerMsg) => void): void {
     this.on = on;
+    chats.add(this);
     void this.open();
   }
 
+  close(): void {
+    try { this.ws?.close(1000, 'idle'); } catch { /* closed */ }
+  }
+
   private async open(): Promise<void> {
+    if (halted) return;
     const auth = await warAuth(this.dev).catch(() => null);
+    if (halted) return;
     if (!auth) return void setTimeout(() => void this.open(), (this.wait = Math.min(this.wait * 2, 30_000)));
     const ws = new WebSocket(`${wsBase()}/ws/war/world?sim=${SIM_VERSION}&chat=1`, auth.protocols);
     this.ws = ws;

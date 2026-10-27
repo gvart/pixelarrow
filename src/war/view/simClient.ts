@@ -142,6 +142,11 @@ export class SimClient {
     if (this.full) this.liveCur = this.fogged(this.full);
   }
 
+  /** Net mode: leave the war (the idle kick): the worker closes its region and gate sockets. */
+  stopNet(): void {
+    this.send({ t: 'stop' });
+  }
+
   private send(m: ToWorker): void {
     this.worker.postMessage(m);
   }

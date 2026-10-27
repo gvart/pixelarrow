@@ -25,6 +25,7 @@ export type ToWorker =
   | { t: 'spawn'; owner: string; team: number; cls: string; count: number; x: number; y: number; bot?: Behaviour; persons?: WarPerson[]; go?: ScenarioGo }
   | { t: 'devSpawn'; team: number; cls: string; count: number; x: number; y: number } // dev panel: a squad at a point (net mode: the server's dev spawn)
   | { t: 'order'; o: Order }
+  | { t: 'stop' } // net mode: leave the war (the idle kick, ./hud/gate.ts)
   | { t: 'speed'; scale: number } // 0 pauses
   // economy (M2b, the real sim only): dev claims and stock, placement checks answered by `reply`
   | { t: 'claim'; team: number; x: number; y: number; r?: number }
@@ -199,7 +200,8 @@ onmessage = (e: MessageEvent<ToWorker>) => {
  * our team (the server's answer comes back as the reply). The dev panel's claim, stock, squad and skip go up as dev
  * messages (DEV_AUTH servers only); the rest of the dev asks (damage, bosses, scenarios) have no live counterpart. */
 function netMessage(n: Net, m: ToWorker): void {
-  if (m.t === 'spawn') n.join(m.team, m.cls, m.count);
+  if (m.t === 'stop') n.stop();
+  else if (m.t === 'spawn') n.join(m.team, m.cls, m.count);
   else if (m.t === 'devSpawn') n.dev({ op: 'spawn', team: m.team, cls: m.cls, count: Math.min(m.count, MAX_SQUAD), x: m.x, y: m.y });
   else if (m.t === 'claim') n.dev({ op: 'claim', x: m.x, y: m.y, ...(m.r ? { r: m.r } : {}) });
   else if (m.t === 'stock' && m.n > 0) n.dev({ op: 'stock', res: m.res, n: m.n });
