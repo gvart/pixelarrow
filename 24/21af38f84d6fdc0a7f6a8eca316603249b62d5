@@ -1,0 +1,32 @@
+src/data/warEncounters.ts
+  s_fcb7475e0b5395::t_23cc58ff974334 24,72,98,106,137
+  s_fcb7475e0b5395::t_45d970661011cd 101
+src/war/view/hud/hud.ts
+  s_fcb7475e0b5395::t_bb823dd59b40d9 72,405
+src/war/sim/encounters.ts
+  s_fcb7475e0b5395::t_7d552df27fc03a 86,246-254,326
+src/war/view/hud/encounter.ts
+  s_fcb7475e0b5395::t_7d552df27fc03a 163-164
+  s_fcb7475e0b5395::t_52c35c83ee0498 188
+  s_fcb7475e0b5395::t_d46fbdb441a57a 1-162,165-187,189-200
+docs/WAR.md
+  s_fcb7475e0b5395::t_a72cb07ba65176 428-459
+src/war/view/hud/quest.ts
+  s_fcb7475e0b5395::t_ec4af1f32c01e5 221-222
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "2421af38f84d6fdc0a7f6a8eca316603249b62d5",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
