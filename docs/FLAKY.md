@@ -32,11 +32,6 @@ With fewer than 3 runs a case is only **suspected**.
 - **Cause:** suspected load timeout: one test sweeps the settlement tap areas close to the 30 s limit.
 - **Fix:** none yet.
 
-### F9 · server `auth.test.ts` "rate-limits logins per IP (30 / 60 s)" (suspected, load race)
-
-- **Seen:** 200 instead of 429 once under load (PAY-01, V6-077), then 2 clean reruns.
-- **Cause:** likely F2's wall-clock window. **Fix:** apply F2's fix (a refusing-limiter stub, or start with ≥ 30 s left).
-
 ### F11 · server vitest suite hangs at 0% CPU with no output (suspected, open handle)
 
 - **Seen:** ACCT-07 agent run (killed after 40 min), ACCT-06 integration (≈ 20 min); a rerun passes.
@@ -71,6 +66,9 @@ With fewer than 3 runs a case is only **suspected**.
 - **F8** · layout-check element parity on live scenes: each size staged a different moment. Fix (PARITY-STABLE,
   V6-076): `restoreStage` reseeds per screen, `uiTransient()` exempts transient ids from parity, staged waits fail
   loudly. 3 full runs, 0 parity findings; `tests/parityStable.test.ts`.
+- **F9** · server `auth.test.ts` "rate-limits logins per IP (30 / 60 s)": F2's wall-clock window. The test went with
+  the old bot login (c635eaa8); the auth limiter tests now live in `auth-gates.test.ts` behind `freshWindow()`, and
+  the other 429 tests use the in-memory limiter, whose window starts at the first hit.
 - **F10** · `online-e2e.mjs` recruit and lockstep steps: an evaluate returning Phaser's ScenePlugin, a fixed 400 ms
   Hire tap, a 30 s tick cap. Fix (FIX-E2E): `void` the evaluate, Hire by layout id, 90 s caps. 10/10 PASS.
 
