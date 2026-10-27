@@ -205,8 +205,8 @@ function renderBoard(): void {
     ${board}
     <div class="rf-cap" style="margin-top:6px">Your banners and crests</div><div>${mine}</div>
     <div class="rf-cap" style="margin-top:6px">At a season's end</div>
-    <div class="sb-keep"><div><b style="color:var(--rf-good)">You keep</b><br>your men and their levels<br>gear and goods at home<br>titles and crests</div>
-      <div><b style="color:var(--rf-bad)">Starts over</b><br>alliance score<br>region control, claim points<br>landmarks and their guardians</div></div>
+    <div class="sb-keep"><div><b style="color:var(--rf-good)">You keep</b><br>your men and their levels<br>gear and goods at home<br>banners and crests</div>
+      <div><b style="color:var(--rf-bad)">Starts over</b><br>alliance score, titles<br>region control, claim points<br>landmarks and their guardians</div></div>
     <div class="rf-dim" style="margin-top:4px">Men out in the regions march home when the next season begins.</div>`;
   boardEl.style.display = '';
 }
