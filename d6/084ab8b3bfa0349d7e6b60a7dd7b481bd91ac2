@@ -1,0 +1,31 @@
+src/war/view/hud/guide.ts
+  s_fcb7475e0b5395::t_0f9e092f030f40 86,188
+  s_fcb7475e0b5395::t_2283cc441100c5 87,90-91,109,170,189
+  s_fcb7475e0b5395::t_285704d64f1b64 18,181-183,185-186,218-220
+  s_fcb7475e0b5395::t_4dc86af215d596 180
+  s_fcb7475e0b5395::t_b69c02b22a5db4 56,215
+  s_fcb7475e0b5395::t_f5023526dedf12 192,230
+  s_fcb7475e0b5395::t_a9857480403c89 1-17,19-55,57-80,84-85,88-89,92-108,110-169,171-177,184,187,190-191,193-214,216-217,221-229,231-233
+  s_fcb7475e0b5395::t_1819fb176dfc66 81-83,178-179
+src/war/view/main.ts
+  s_fcb7475e0b5395::t_03011cf01177ad 28-30,86-88,90-96
+  s_fcb7475e0b5395::t_8ede71663cda4f 31,89
+src/war/view/hud/hud.ts
+  s_fcb7475e0b5395::t_03011cf01177ad 5,57,378
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "d6084ab8b3bfa0349d7e6b60a7dd7b481bd91ac2",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
