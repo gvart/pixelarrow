@@ -358,9 +358,10 @@ const logStmt = (db: D1Database, id: number, kind: 'attack' | 'tribute' | 'rebel
 /**
  * Levy a vassal's tribute: `gain` its store's goods gained since the last levy, `stallCoin` its citizens' stall coin
  * since then. The overlord's lord gets the tribute in his strongroom; returns it (null: no overlord, or linked lords),
- * for the caller to take out of the vassal's store and stalls.
+ * for the caller to take out of the vassal's store and stalls (`extra`: statements that take the stalls' share, in the
+ * same batch as the credit).
  */
-export async function levy(db: D1Database, id: number, gain: Goods, stallCoin: number, now: number): Promise<{ overlord: number; lord: number; goods: Goods } | null> {
+export async function levy(db: D1Database, id: number, gain: Goods, stallCoin: number, now: number, extra: readonly D1PreparedStatement[] = []): Promise<{ overlord: number; lord: number; goods: Goods } | null> {
   const s = await settlement(db, id);
   if (s.overlord_id === null) return null;
   const ov = await settlement(db, s.overlord_id);
@@ -370,6 +371,7 @@ export async function levy(db: D1Database, id: number, gain: Goods, stallCoin: n
     ...Object.entries(goods).map(([res, n]) => putStmt(db, strongroom(ov.lord_pid), res, n, s.region)),
     db.prepare('UPDATE war_settlements SET levied_at = ?2 WHERE id = ?1').bind(id, now),
     logStmt(db, id, 'tribute', ov.id, s.lord_pid, { goods, pct: s.tribute_pct }, now),
+    ...extra,
   ]);
   return { overlord: ov.id, lord: ov.lord_pid, goods };
 }
