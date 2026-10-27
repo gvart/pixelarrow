@@ -1,0 +1,22 @@
+server/test/war/settlements.test.ts
+  s_fcb7475e0b5395::t_328ee5dafdf28a 1-108,110-211,213-243
+  s_fcb7475e0b5395::t_78c822c918cea5 109,212
+server/test/deletion.test.ts
+  s_fcb7475e0b5395::t_ec23cac44f1868 65-69
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "0ff5a9d0db524c06b31677f8a6c37d85ff54a0e4",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
