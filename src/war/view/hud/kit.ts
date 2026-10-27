@@ -210,6 +210,13 @@ export function fitHeight(el: HTMLElement): void {
   el.style.scrollbarColor = '#7a3418 #0e0907';
 }
 
+/** The panels that open at the top left (forge, market, roster, soldier card, memorial): the quest tracker and events card give way. */
+export const LEFT_PANELS = ['cfWp', 'cfTree', 'rfMarket', 'rfHandoff', 'rrPanel', 'rrCard', 'mmPanel'];
+export const leftPanelOpen = () => LEFT_PANELS.some((id) => { const p = document.getElementById(id); return !!p && p.style.display !== 'none'; });
+
+/** Panels that Esc closes (class `rf-esc`): while one shows, Esc is theirs, not the game menu's. */
+export const escPanelOpen = () => [...document.querySelectorAll<HTMLElement>('.rf-esc')].some((p) => p.style.display !== 'none');
+
 /**
  * Place a tooltip away from its anchor's panel, so it never covers the panel's own title: a side panel's tip sits beside the
  * panel (on the side with room, level with the anchor), a bottom bar's above it; flipped and clamped at the window edges.

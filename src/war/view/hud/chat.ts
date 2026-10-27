@@ -20,8 +20,8 @@ export interface ChatView {
   link: ChatLink;
   /** Where marks placed in this view go ('world' or the region id). */
   scope: string;
-  /** Position the panel (left / bottom in the panel's own zoomed px). */
-  place(el: HTMLElement): void;
+  /** Position the panel (left / bottom in the panel's own zoomed px); open, it may set `--ch-log-h` to fit the room above. */
+  place(el: HTMLElement, open: boolean): void;
   zoom(): number;
   /** A mark's screen point here (CSS px), or null when it is not of this view. */
   project(m: Mark): { x: number; y: number } | null;
@@ -57,7 +57,7 @@ const CSS = `
 #rfChat .ch-head .rf-name{font-size:13px}
 #rfChat .ch-head .sub{font:600 10.5px/1 Inter,sans-serif;color:var(--rf-muted)}
 #rfChat .ch-log{display:flex;flex-direction:column;gap:1px;max-height:132px;overflow:hidden}
-#rfChat.open .ch-log{height:164px;max-height:none;overflow-y:auto;padding:3px 2px 3px 3px;background:var(--rf-sunk);border:1px solid var(--rf-rule);box-shadow:inset 0 1px 3px rgba(0,0,0,.6)}
+#rfChat.open .ch-log{height:var(--ch-log-h,164px);max-height:none;overflow-y:auto;padding:3px 2px 3px 3px;background:var(--rf-sunk);border:1px solid var(--rf-rule);box-shadow:inset 0 1px 3px rgba(0,0,0,.6)}
 #rfChat .ch-l{position:relative;padding:2px 5px;font:600 12px/1.35 Inter,sans-serif;color:var(--rf-ink);word-wrap:break-word;overflow-wrap:anywhere;transition:opacity .6s}
 #rfChat:not(.open) .ch-l{background:linear-gradient(90deg,rgba(14,9,7,.78) 60%,rgba(14,9,7,0));text-shadow:0 1px 0 #0e0907,0 0 3px #0e0907}
 #rfChat:not(.open) .ch-l.old{opacity:0}
@@ -248,6 +248,7 @@ export function mountChat(v: ChatView): ChatHandle {
       input.blur();
     }
     render();
+    place();
     if (focus) input.focus();
   }
 
@@ -406,7 +407,7 @@ export function mountChat(v: ChatView): ChatHandle {
     else if (a === 'back' && open) setOpen(false);
   });
 
-  const place = () => { root.style.zoom = String(v.zoom()); v.place(root); };
+  const place = () => { root.style.zoom = String(v.zoom()); v.place(root, open); };
   place();
   addEventListener('resize', place);
   setInterval(() => { place(); if (!open) render(); }, 1000);
