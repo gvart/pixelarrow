@@ -22,7 +22,9 @@ export interface ScenarioSquad { team: number; cls: string; count: number; x: nu
   /** M5h3, own civilians: the persons' level and profession nodes (src/data/professions.ts ids), set on the sandbox roster. */
   level?: number; nodes?: string[];
   /** An order given the moment it stands (no squad ids to count). */
-  go?: ScenarioGo }
+  go?: ScenarioGo;
+  /** E3, own soldiers: veterans of this level and kit tier for the spawn, with these deeds (src/war/sim/deeds.ts ids) and scars. */
+  veteran?: { level: number; tier?: 0 | 1 | 2; deeds?: string[]; scars?: number } }
 
 /** The dev console's scenario groups (the picker lists them in this order). */
 export const GROUPS = ['sandbox', 'movement', 'combat', 'economy', 'building', 'siege', 'mobs', 'bosses', 'civilians', 'fog', 'limits', 'clips'] as const;
@@ -68,6 +70,8 @@ export interface Scenario {
      */
     prebuild?: number;
   };
+  /** E3: the player's past on the sandbox roster: men fallen before (graves on the home memorial) and guardian trophies won. */
+  history?: { fallen: { cls: string; level: number; kills: number; battles: number; deeds: string[]; region: string }[]; trophies?: string[] };
   /** W-60: souls waiting on the map from the start (src/war/sim/souls.ts; level default 1, site default shrine). */
   souls?: { x: number; y: number; cls: string; level?: number; site?: 'shrine' | 'ruin' | 'battlefield' | 'lair' }[];
   /** W-60: these squads (index into squads) start at this satiety (0..100: below 40 hungry, below 15 starving). */

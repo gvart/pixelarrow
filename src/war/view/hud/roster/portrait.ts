@@ -60,3 +60,16 @@ export function portrait(scene: Phaser.Scene, cls: string): HTMLCanvasElement | 
   cache.set(key, out);
   return out;
 }
+
+/** E3: his scars as dark-red slashes in the portrait's top corner (2x canvas px), one per heavy wound lived through. */
+export function scarMarks(g: CanvasRenderingContext2D, n: number): void {
+  for (let i = 0; i < Math.min(3, n); i++) {
+    const x = 10 + i * 9, y = 10;
+    g.strokeStyle = '#1a0c08';
+    g.lineWidth = 5;
+    g.beginPath(); g.moveTo(x, y + 14); g.lineTo(x + 7, y); g.stroke();
+    g.strokeStyle = '#a8402c';
+    g.lineWidth = 2.5;
+    g.beginPath(); g.moveTo(x, y + 14); g.lineTo(x + 7, y); g.stroke();
+  }
+}

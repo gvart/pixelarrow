@@ -39,6 +39,14 @@ const SLOT_LABEL: Record<Slot, string> = { weapon: 'Weapon', armor: 'Armour', he
 /** The faint outline an empty slot shows. */
 const SLOT_GHOST: Record<Slot, string> = { weapon: 'ui:sword', armor: 'ui:armor', helmet: 'ui:helmet', shield: 'ui:shield', trinket: 'ui:ring' };
 const ROMAN = ['I', 'II'];
+/** E3: a deed's icon (src/war/sim/deeds.ts ids; a guardian's slayer: the beast). */
+const DEED_ICON: Record<string, string> = { firstBlood: 'power:blood_price', manSlayer: 'power:executioner', heldGate: 'ui:wall', lastStanding: 'power:last_stand', survivor: 'power:second_wind' };
+export const deedIcon = (id: string) => DEED_ICON[id] ?? (id.startsWith('slayer:') ? 'ui:beast' : 'ui:laurel');
+const DEED_TEXT: Record<string, string> = {
+  firstBlood: 'His first kill.', manSlayer: 'His tenth kill.', heldGate: 'He stood fit by his fort or camp through a fight.',
+  lastStanding: 'The only one of his squad to walk off a fight fit.', survivor: 'He fell wounded and lived.',
+};
+const deedText = (id: string) => DEED_TEXT[id] ?? (id.startsWith('slayer:') ? 'He struck a guardian in the fight that slew it.' : '');
 
 /** A kit unit icon (24 art px art) drawn at px. */
 const unitIcon = (cls: string, px = 16) => `<img src="war/ui/icons/24/${UNIT_ICON[cls] ?? 'unit-militia'}.png" srcset="war/ui/icons/24/${UNIT_ICON[cls] ?? 'unit-militia'}@2x.png 2x" width="${px}" height="${px}" alt="">`;
@@ -103,6 +111,9 @@ export function cardHtml(R: SandboxRoster, r: Row, C?: SandboxCraft, dev = false
     ...(p.honours ?? []).map((x) => `<span class="rr-hon" ${tip(card({ icon: 'ui:laurel', name: esc(x.name), kind: 'battle honour', w: 200, more: `<div>+2% ${esc(x.stat)}</div>` }))}>${glyph('ui:laurel', 15)}${esc(x.name)}</span>`),
     ...h.traits.map((t) => TRAITS[t as TraitId]).filter(Boolean).map((t) => `<span class="rr-hon trait" ${tip(card({ icon: 'ui:star', name: t.name, kind: 'trait', w: 200, more: `<div>${esc(t.desc)}</div>` }))}>${glyph('ui:star', 13)}${t.name}</span>`),
   ].join('');
+  // E3: his deeds (names only, no stat) and scars (heavy wounds lived through)
+  const deeds = (p.deeds ?? []).map((d) => `<span class="rr-hon deed" ${tip(card({ icon: deedIcon(d.id), name: esc(d.name), kind: 'deed', w: 200, more: `<div>${esc(deedText(d.id))}</div><div class="rf-dim">On his record and, if he falls, on his grave.</div>` }))}>${glyph(deedIcon(d.id), 15)}${esc(d.name)}</span>`).join('');
+  const scars = p.scars ?? 0;
   const crest = rank === 'recruit' ? '' : `<span class="rr-rank ${rank}" ${tip(rank === 'elite' ? termCard('elite') : card({ icon: 'ui:star', name: 'Veteran', w: 200, more: '<div>Level 3 or more: a terracotta pip under him on the map.</div>' }))}>${glyph(rank === 'elite' ? 'ui:captain' : 'ui:star', 13)}${rank === 'elite' ? 'Elite' : 'Veteran'}</span>`;
   const hp = r.unit && r.where === 'field' ? `<div class="rr-line" ${tip(statCard('HP', `${Math.ceil(r.unit.hp)} / ${r.unit.maxHp}`))}>${glyph('ui:heart', 16)}<div class="rr-bar hp"><i style="width:${Math.round(100 * Math.max(0, Math.min(1, r.unit.hp / Math.max(1, r.unit.maxHp))))}%"></i></div><span class="rf-dim">${Math.ceil(r.unit.hp)} / ${r.unit.maxHp}</span></div>` : '';
   // W-60: how fed he is, icon first (../hunger.ts)
@@ -132,10 +143,12 @@ export function cardHtml(R: SandboxRoster, r: Row, C?: SandboxCraft, dev = false
     <div class="rr-stats">${stats}</div>
     ${civ ? trade(p) : `<div class="rf-cap rr-cap">Skills</div><div class="rr-skills">${skills}</div>`}
     ${honours ? `<div class="rf-cap rr-cap">Honours</div><div style="display:flex;flex-wrap:wrap;gap:4px">${honours}</div>` : ''}
+    ${deeds ? `<div class="rf-cap rr-cap">Deeds</div><div style="display:flex;flex-wrap:wrap;gap:4px">${deeds}</div>` : ''}
     ${C && r.where !== 'dead' && r.where !== 'captive' ? `<div class="rf-cap rr-cap">Stash</div><div style="display:flex;flex-wrap:wrap;gap:4px">${stashRow(C, p)}</div>` : ''}
     <div class="rr-rec">
       <span ${tip(card({ icon: 'ui:skull', name: 'Kills', w: 170, more: '<div>Foes he struck down.</div>' }))}>${glyph('ui:skull', 15)}<b>${h.kills}</b><span class="rf-dim">kills</span></span>
       <span ${tip(card({ icon: 'ui:swords', name: 'Battles', w: 170, more: '<div>Fights he lived through.</div>' }))}>${glyph('ui:swords', 15)}<b>${h.battles}</b><span class="rf-dim">battles</span></span>
+      ${scars ? `<span ${tip(card({ icon: 'power:rend', name: 'Scars', w: 180, more: '<div>Heavy wounds he lived through: marks on him, no effect.</div>' }))}>${glyph('power:rend', 15)}<b>${scars}</b><span class="rf-dim">${scars === 1 ? 'scar' : 'scars'}</span></span>` : ''}
       <span style="flex:1"></span>
       ${dev && r.where !== 'dead' ? '<button class="rf-tbtn" data-act="xp" data-tip="dev: one level of XP">+XP</button>' : ''}
       <button class="rf-tbtn" data-act="tree" data-tip="${esc(card({ icon: 'ui:tgstar', name: civ ? 'Profession tree' : 'Skill tree', w: 210, more: civ ? '<div>His trade: the nodes by level, what each opens.</div>' : '<div>His attributes, his two skill slots and the elite rank, by level.</div>' }))}">${glyph('ui:tgstar', 13)} ${civ ? 'Profession' : 'Skill tree'}</button>

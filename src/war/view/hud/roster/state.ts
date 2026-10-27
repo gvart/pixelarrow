@@ -7,6 +7,8 @@
  */
 import { CIV_CLASSES, CLASSES, isCivClass, isClassId } from '../../../../data/classes';
 import { freeName } from '../../../../data/names';
+import { bossTrophy, warBoss } from '../../../../data/warBosses';
+import { plainDeed, slayerDeed, type PlainDeed } from '../../../sim/deeds';
 import { xpToNext } from '../../../../data/units';
 import { applyOffer, createRoster, grantXp, levelOffers, makePerson, type LevelOffer, type Roster } from '../../../sim/roster';
 import { ARMY_MAX, SQUAD_MAX } from '../../../sim/soldiers';
@@ -21,6 +23,10 @@ export type Where = 'field' | 'away' | 'wounded' | 'captive' | 'dead';
 /** A person as the panel shows him: where he is, his live man (in the field), his squad and its order, the region's name. */
 export interface Row { p: WarPerson; where: Where; unit?: UnitSnap; squad?: number; order?: Order['kind']; region: string }
 export interface Note { kind: 'levelUp' | 'capture' | 'dead' | 'info'; pid?: string; text: string }
+/** E3: a grave on the home memorial: the fallen man (his record as he fell), where and when (ms). */
+export interface Grave { p: WarPerson; region: string; at: number }
+/** E3: a guardian's trophy in the home town. */
+export interface TrophyRow { boss: string; name: string; region: string; at: number }
 
 /** A fight ends this many ticks after the player's last blow or fall. */
 const QUIET = 50;
@@ -40,6 +46,11 @@ export class SandboxRoster {
   private captor = new Map<string, number>();
   private names = new Set<string>();
   private n = 0;
+  /** E3: where and when each of the fallen fell (the memorial's graves), the trophies of guardians his men slew. */
+  private graves = new Map<string, { region: string; at: number }>();
+  private won: TrophyRow[] = [];
+  /** E3 scenarios: enlisted veterans, handed out before the other fit men of their class. */
+  private first = new Set<string>();
   /** The tick of the player's last blow or fall in the current fight (-1: no fight). */
   private lastAction = -1;
   private ending = false;
@@ -88,7 +99,8 @@ export class SandboxRoster {
 
   /** n persons of cls for a spawn: fit men of the class not on this map first, then recruits. */
   private take(cls: string, n: number): WarPerson[] {
-    const out = this.roster.fit().filter((p) => p.hero.cls === (isClassId(cls) || isCivClass(cls) ? cls : 'militia') && !this.sent.has(p.id)).slice(0, n);
+    const out = this.roster.fit().filter((p) => p.hero.cls === (isClassId(cls) || isCivClass(cls) ? cls : 'militia') && !this.sent.has(p.id))
+      .sort((a, b) => Number(this.first.has(b.id)) - Number(this.first.has(a.id))).slice(0, n);
     while (out.length < n) out.push(this.recruit(cls));
     for (const p of out) this.sent.add(p.id);
     this.onChange?.();
@@ -170,6 +182,7 @@ export class SandboxRoster {
       if (x.state === 'captive' && x.captor !== undefined) this.captor.set(x.pid, x.captor);
     }
     const dead: PersonResult[] = mine.filter((x) => x.state === 'dead');
+    for (const x of dead) this.graves.set(x.pid, { region: this.s.region?.name ?? 'the field', at: Date.now() });
     for (const x of dead.slice(0, 3)) this.onNote?.({ kind: 'dead', pid: x.pid, text: `${x.hero.name} fell` });
     if (dead.length > 3) this.onNote?.({ kind: 'dead', text: `${dead.length - 3} more fell` });
     this.onChange?.();
@@ -185,6 +198,11 @@ export class SandboxRoster {
         this.onNote?.({ kind: 'levelUp', pid: e.pid, text: `${name} reached level ${e.level}` });
       } else if (e.kind === 'capture' && this.roster.get(e.pid)) {
         this.onNote?.({ kind: 'capture', pid: e.pid, text: `${this.roster.get(e.pid)!.hero.name} taken captive` });
+      } else if (e.kind === 'bossSlain' && e.killers.includes('you') && !this.won.some((t) => t.boss === e.boss && t.at === e.t)) {
+        // E3: the guardian's trophy goes home with his killers
+        this.won.unshift({ boss: e.boss, name: bossTrophy(e.boss), region: this.s.region?.name ?? e.region, at: e.t });
+        this.onNote?.({ kind: 'info', text: `Trophy: ${bossTrophy(e.boss)}` });
+        this.onChange?.();
       } else if (e.kind === 'fall') {
         const a = unit.get(e.unit), b = unit.get(e.by);
         if ((a && own.has(a.squad)) || (b && own.has(b.squad))) this.lastAction = e.t;
@@ -199,6 +217,40 @@ export class SandboxRoster {
     const own = new Set(cur.squads.filter((q) => q.team === myTeam()).map((q) => q.id));
     if (cur.units.some((u) => own.has(u.squad) && u.pid && u.state === 'attack')) this.lastAction = cur.tick;
     if (this.lastAction >= 0 && cur.tick - this.lastAction > QUIET) this.endFight();
+  }
+
+  /** E3 scenarios: n fit veterans of cls (level, kit tier, deeds, scars) at the head of the roster, for the next spawn of the class. */
+  enlist(cls: string, n: number, v: { level: number; tier?: 0 | 1 | 2; deeds?: string[]; scars?: number }): void {
+    const deeds = (v.deeds ?? []).map((id) => (id.startsWith('slayer:') ? slayerDeed(id.slice(7)) : plainDeed(id as PlainDeed)));
+    const mine = Array.from({ length: n }, (_, k): WarPerson => {
+      const p = this.recruit(cls, { level: v.level, tier: v.tier ?? 1, rarity: v.level >= 6 ? 'rare' : 'uncommon' });
+      return { ...p, hero: { ...p.hero, kills: 3 + ((k * 7) % 11), battles: 2 + (k % 5) }, ...(deeds.length ? { deeds: deeds.slice(0, 1 + (k % deeds.length)) } : {}), ...(v.scars ? { scars: k % (v.scars + 1) } : {}) };
+    });
+    for (const q of mine) (this.roster.update(q), this.first.add(q.id));
+    this.onChange?.();
+  }
+
+  /** E3: the home memorial's graves, newest first. */
+  memorial(): Grave[] {
+    return this.roster.all().filter((p) => this.roster.state(p.id) === 'dead').map((p) => ({ p, ...(this.graves.get(p.id) ?? { region: 'the field', at: 0 }) })).sort((a, b) => b.at - a.at);
+  }
+
+  /** E3: the trophies in the home town, newest first. */
+  trophies(): readonly TrophyRow[] {
+    return this.won;
+  }
+
+  /** E3 scenarios: men who fell before the scenario (graves on the memorial, deeds and all) and trophies won. */
+  seedHistory(fallen: { cls: string; level: number; kills: number; battles: number; deeds: string[]; region: string }[], trophies: string[] = []): void {
+    for (const [k, f] of fallen.entries()) {
+      const p = this.recruit(f.cls, { level: f.level });
+      const deeds = f.deeds.map((id) => (id.startsWith('slayer:') ? slayerDeed(id.slice(7)) : plainDeed(id as PlainDeed)));
+      this.roster.update({ ...p, hero: { ...p.hero, kills: f.kills, battles: f.battles, equip: {} }, deeds });
+      this.roster.apply({ tick: 0, persons: [{ pid: p.id, owner: 'you', team: myTeam(), state: 'dead', xp: 0, kills: 0, dmg: 0, levelUps: 0, hero: this.roster.get(p.id)!.hero }], loot: {} });
+      this.graves.set(p.id, { region: f.region, at: Date.now() - (fallen.length - k) * 3_600_000 });
+    }
+    for (const [k, b] of trophies.entries()) this.won.push({ boss: b, name: bossTrophy(b), region: WORLD_REGIONS.find((w) => w.id === warBoss(b)?.region)?.name ?? '', at: -k });
+    this.onChange?.();
   }
 
   /** Class display name. */
