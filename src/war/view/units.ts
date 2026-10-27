@@ -264,6 +264,24 @@ export class UnitLayer {
     return sh;
   }
 
+  /**
+   * E4: a cosmetic townsman (../feel/ambient.ts, not a sim unit) drawn on `img` as a man of class `cls` playing `clip`
+   * (looped, `ms` into it) facing tile direction (dx, dy), his feet at world px (x, y), in team `team`'s dye. False while
+   * the sheet waits for a later frame.
+   */
+  paint(img: Phaser.GameObjects.Image, cls: string, clip: string, ms: number, dx: number, dy: number, x: number, y: number, depth: number, team: number): boolean {
+    const sheet = this.sheet(cls, this.scene.time.now), c = sheet?.clips.get(clip);
+    if (!sheet || !c) return false;
+    const sx = dx - dy, sy = dx + dy, q = sheet.rows[(sx < 0 ? 1 : 0) + (sy < 0 ? 2 : 0)];
+    const [key, frame] = sheet.frames.get(clip)![q.row][Math.floor((Math.abs(ms) * c.fps) / 1000) % c.n];
+    img.setTexture(key, frame).setOrigin(q.ox, q.oy).setPosition(Math.round(x), Math.round(y)).setScale(sheet.scale).setDepth(depth).setVisible(true).setAlpha(1);
+    const dye = TEAM_DYE[slot(team) & 3];
+    if (this.swap && dye) img.setPipeline(dye);
+    else if (this.swap) img.resetPipeline();
+    img.setTint(TEAM_TINT[slot(team)] ?? 0xffffff);
+    return true;
+  }
+
   /** The frame time a sheet was last built at (one a frame: a soldier's is up to ~0.1 s of texture upload). */
   private builtAt = -1;
 

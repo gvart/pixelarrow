@@ -39,6 +39,7 @@ import type { BuildArt, BuildSprite, KitSprite } from './buildArt';
 import { frontDepth, type Back } from './wallDepth';
 import { slot } from '../side';
 import { waitText } from '../hud/activity';
+import { HEARTH, type Hearth } from '../feel/hearths';
 
 /** Ground overlays: over the terrain chunks (1) and the influence area (2), under objects and units (10+). */
 const GROUND = 2.5;
@@ -501,6 +502,7 @@ export class BuildingLayer {
     this.ni = 0;
     this.nw = 0;
     this.working.length = 0;
+    this.nh = 0;
     const bars = this.gBars.clear(), ground = this.gGround.clear(), lw = Math.max(1, 1.25 / zoom);
     this.prepare(buildings);
     const walls = this.wallTiles(buildings), ditches = new Set<number>();
@@ -559,6 +561,7 @@ export class BuildingLayer {
               if (b.wet) im.setTint(WET_TINT);
             } else {
               const im = this.fit(this.img(this.ni++, spr.key), spr, b.type, b.x, b.y, b.w, b.h, this.z(b), !def.wall && b.rot === 1).setDepth(depth);
+              if (b.state === 'done' && !b.burning && !this.cut(b)) this.hearth(im, spr.key, depth, b.id); // E4: its smoke
               if (b.wet) im.setTint(WET_TINT);
               else if (b.fouled) im.setTint(FOUL_TINT);
               else if (hurt && !hurtArt) im.setTint(SOOT_TINT);
@@ -592,6 +595,21 @@ export class BuildingLayer {
   }
 
   private ni = 0;
+
+  /** E4: the chimneys, hearths and campfires of the finished buildings drawn this frame (the first `nh`; ../feel/ambient.ts smokes them). */
+  readonly hearths: Hearth[] = [];
+  nh = 0;
+  private hearth(im: Phaser.GameObjects.Image, key: string, depth: number, id: number): void {
+    const a = HEARTH[key];
+    if (!a) return;
+    const h = this.hearths[this.nh] ?? this.hearths[this.hearths.push({ x: 0, y: 0, depth: 0, id: 0, kind: 'roof' }) - 1];
+    this.nh++;
+    h.x = im.x + (im.flipX ? 1 - a[0] : a[0]) * im.displayWidth;
+    h.y = im.y + a[1] * im.displayHeight;
+    h.depth = depth;
+    h.id = id;
+    h.kind = a[2];
+  }
 
   /**
    * M7d: a landmark piece in its art state: ruined (a ruin, or razed), restored (an alliance's at full hp), damaged

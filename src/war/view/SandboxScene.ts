@@ -53,6 +53,7 @@ import { Selection } from './select';
 import { keys as warKeys } from '../input/keys';
 import { myTeam } from './side';
 import { Feel } from './feel/feel';
+import { AmbientLayer } from './feel/ambient';
 
 const CLIMB = ['climb', 'walk'] as const;
 const CARRY = ['carry', 'walk'] as const;
@@ -165,6 +166,8 @@ export class SandboxScene extends Phaser.Scene {
   private keys!: Record<string, Phaser.Input.Keyboard.Key>;
   /** E4: impacts' shake and hit-stop (./feel/feel.ts); the render time and missiles held through a stop. */
   feel!: Feel;
+  /** E4: chimney smoke, birds and townsfolk (./feel/ambient.ts; with the art only). */
+  ambient: AmbientLayer | null = null;
   private heldAt: ReturnType<SimClient['time']> | null = null;
   private heldShots: ShotSnap[] = [];
 
@@ -235,6 +238,11 @@ export class SandboxScene extends Phaser.Scene {
     this.build = new BuildMode(this);
     this.build.layer.nodeBase = (n) => (n.obj !== undefined && r.objects?.[n.obj] ? this.objects?.baseOf(r.objects[n.obj].id) : undefined);
     this.siege = new SiegeControls(this);
+    if (this.art) this.ambient = new AmbientLayer(this, this.iso, r, {
+      hearths: () => this.build.layer,
+      paint: (...a) => this.units.paint(...a),
+      depthAt: (x, y) => this.depthAt(x, y),
+    });
     this.interact = new Interact(this);
     this.sel = new Selection(this);
     // wall-walks: units drawn up on walks, stairs and ladders; climbers play climb (else walk); ram crews and ladder
@@ -628,6 +636,7 @@ export class SandboxScene extends Phaser.Scene {
     if (bosses || cur?.warden) this.guardians.draw(bosses ?? [], cur?.warden, cam.zoom, this.time.now, this.sim.since(this.time.now), view, this.moved && this.input.isOver ? this.wpx(p.x, p.y) : null);
     this.shots.update(at.snap, shots);
     this.shots.draw(at, cam.zoom, cam.zoom >= SPRITE_ZOOM);
+    this.ambient?.update(view, cam.zoom, this.time.now, this.sim.cur, this.drawn); // E4: smoke, birds, townsfolk
     this.drawUi();
     this.guardians.fx.applyShake(cam, dt, this.time.now);
     this.interact.label(this.moved && this.input.isOver && !this.build.tool && !this.box && !this.siege.armed ? p : null);
