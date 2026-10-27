@@ -198,6 +198,12 @@ export function createTownLevels(grid: Grid, pieces: () => readonly Piece[], mob
     townAt: at,
     /** W-63: the town whose centre is piece `centre`, or null. */
     town: (centre: number): TownLevel | null => levels.get(centre) ?? null,
+    /** W-63: ids (ascending) of the built pieces of the centre's team that count for its town (sites and ruins too). */
+    members(centre: number): number[] {
+      const c = levels.get(centre), out: number[] = [];
+      if (c) for (const b of pieces()) if (!b.cancelled && !b.pre && b.team === c.team && at(c.team, b.x, b.y) === c) out.push(b.id);
+      return out.sort((a, b) => a - b);
+    },
     /** The perks a man or thing of `team` at (x,y) enjoys: his town's if he stands in it, else none. */
     perkAt: (team: number, x: number, y: number): TownPerk => TOWN_PERKS[at(team, x, y)?.level ?? 0] ?? NONE,
     /** The best soul-chance multiplier of any town whose ground (x,y) is. */

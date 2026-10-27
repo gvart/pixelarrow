@@ -1911,6 +1911,11 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
     damage,
     setJob,
     release,
+    /** W-63 rebanner: buildings `ids` (built pieces, in the order given) go to `team` at the hp they have, stores with their goods. */
+    setTeams(ids: readonly number[], team: number) {
+      for (const id of ids) if (buildings[id] && !buildings[id].pre) setTeam(buildings[id], team);
+      if (needPaint) (needPaint = false), repaint();
+    },
     claim(team: number, x: number, y: number, r = CLAIM_RADIUS) {
       claims.push({ team, x, y, r });
       repaint();
