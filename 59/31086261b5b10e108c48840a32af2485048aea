@@ -1,0 +1,54 @@
+src/war/view/hud/crown.ts
+  s_fcb7475e0b5395::t_4e1b88a45df3ae 18,227
+  s_fcb7475e0b5395::t_973c909dfcfc2b 422
+  s_fcb7475e0b5395::t_8202d4db917354 17,19,33-35,200-209,226,231-232,234,340-343,411-421,423-427,434-438,485-489
+src/war/view/hud/guide.ts
+  s_fcb7475e0b5395::t_ee7ea5cf8c8fab 8
+  s_fcb7475e0b5395::t_8f6cf7df1e7aab 21,23-24,61,85-89,100,102-104,109,111-116,178
+  s_fcb7475e0b5395::t_1706f1fbe8f540 180,209-210,212-217,219-224
+  s_fcb7475e0b5395::t_476e932eaea8f1 2-4
+src/war/view/hud/market.ts
+  s_fcb7475e0b5395::t_dfe4353262cb69 120
+  s_fcb7475e0b5395::t_9666ac4a55efd1 20,307
+tests/war/tasksHud.test.ts
+  s_fcb7475e0b5395::t_28d4711bf328c8 5-7
+  s_fcb7475e0b5395::t_f2fbbd16ec7be1 34-44
+  s_fcb7475e0b5395::t_aa67ed517c8cfe 45-47
+src/war/net/questLore.ts
+  s_fcb7475e0b5395::t_cfda8909b699ec 1-96,98-100
+  s_fcb7475e0b5395::t_86094111c7f1da 97
+src/war/view/hud/hud.ts
+  s_fcb7475e0b5395::t_47298778dd696b 392
+  s_fcb7475e0b5395::t_cd7fe2ba1e0a18 65
+src/war/view/hud/tasks.ts
+  s_fcb7475e0b5395::t_4e1b88a45df3ae 8,77
+  s_fcb7475e0b5395::t_a541a3a7902ad8 7,9,19-22,55-57,76,81-84,86-87,110-114,138-173,189-190,210-220,225-229,245
+src/war/view/hud/quest.ts
+  s_fcb7475e0b5395::t_43ea42538716b4 231-233
+  s_fcb7475e0b5395::t_006a4cd13dda06 1-5,8-43,45-110,112-136,138-162,171-212,214-226,228-230,234-236,243-256
+  s_fcb7475e0b5395::t_f82f42f17121a8 237-242
+  s_fcb7475e0b5395::t_4e1b88a45df3ae 213
+  s_fcb7475e0b5395::t_2ea222acdccb23 163,166-170
+  s_fcb7475e0b5395::t_6ca0feeb3fdecf 44
+  s_fcb7475e0b5395::t_d10056984820ac 227
+  s_fcb7475e0b5395::t_7c1dfcd029d375 137
+  s_fcb7475e0b5395::t_26c48f58564163 164-165
+  s_fcb7475e0b5395::t_d83a42e16d8c73 6-7
+  s_fcb7475e0b5395::t_dbe00e03761381 111
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "5931086261b5b10e108c48840a32af2485048aea",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
