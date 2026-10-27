@@ -1,7 +1,11 @@
 /**
  * WarRegionDO: one Durable Object per war region (M3; W-05..W-07). Hosts a WarRoom (./room.ts) and steps it at 10 Hz
- * with a timer loop while anyone is connected or armies stand in the region; an alarm every KEEPALIVE_MS keeps the
- * object resident meanwhile. Sockets use the hibernation API; the object cannot hibernate while the loop runs.
+ * with a timer loop while a socket is open and the room is active (players or armies); an alarm every KEEPALIVE_MS keeps
+ * the object resident meanwhile. Sockets use the hibernation API; the object cannot hibernate while the loop runs.
+ * Dormant regions (armies stand, no socket open): the loop stops and the object may hibernate or be evicted; an alarm
+ * every DORMANT_MS runs the missed ticks in one batch (catchUp: the same sim ticks, only faster, ≤ BATCH a call, a gap
+ * over MAX_LAG cut), saves and sleeps again. A socket, an arrival or any other RPC that touches the room catches up to
+ * now first. The saved state carries the wall time its tick stands for (`at`), so an evicted region catches up too.
  *
  * The Worker authenticates the socket (/ws/war/:region) and forwards it with X-Player-Id; the DO trusts that header.
  * Protocol: src/war/net/protocol.ts. GET /stats (dev only, routed by the Worker) reports tick times and bandwidth, and the neutral state (lairs, guardians, claim points: `wild`).
@@ -14,7 +18,7 @@
  *  - the room's whole state (WarRoom.saveState: the sim's exact state and the room's books) goes to DO storage every
  *    SAVE_TICKS, after joins and fights, as gzipped JSON in chunks (`state:meta` + `state:<i>`, one atomic put); an
  *    evicted object restores it on its next socket or its pending alarm (WarRoom.restore, persons reloaded from D1) and
- *    the region steps on exactly where it was saved. A region with no saved state starts fresh and sends home anyone D1
+ *    the region steps on from where it was saved, catching up the time since. A region with no saved state starts fresh and sends home anyone D1
  *    still has deployed there.
  *
  * M6e holders: every save also snapshots the room's player holders (chests, carts, packs) to D1 war_region_holds.
@@ -59,7 +63,7 @@ import { bundleGoods, bundleLoads, type Bundle } from './cargo';
 import { homeOf } from '../../../src/war/world/graph';
 import type { Item } from '../../../src/data/items';
 import type { WarPerson } from '../../../src/war/types';
-import { logError } from '../telemetry/log';
+import { log, logError } from '../telemetry/log';
 import { applyBossKill } from './bosses';
 import { elapsedTicks, loadMemory, MEMORY_KEY, remembered, storeMemory, writeMemory } from './memory';
 import type { WorldEvent } from '../../../src/war/world/events';
@@ -87,6 +91,17 @@ const TICK_MS = 100;
 /** Ticks between summaries to the world map (sent only when changed). */
 const REPORT_TICKS = 50;
 const KEEPALIVE_MS = 10_000;
+/**
+ * Dormant regions (armies stand, no socket): the alarm wakes the object every DORMANT_MS to run the missed ticks in one
+ * batch (≤ BATCH a call; still behind: again after BEHIND_MS). A gap over MAX_LAG (an outage) is cut to MAX_LAG. Tick cost
+ * with men parked and nobody online (WarRoom.tick, M-series laptop): ~0.4 ms at 72 men, ~1 ms at 250, ~3.6 ms at 360 on a
+ * home map; a save ~0.1-0.2 s. So a 2 min batch (1200 ticks) is ~0.5 s CPU, ~4.5 s at 360 men, and BATCH stays near a
+ * third of the 30 s CPU limit even for the heaviest region.
+ */
+export const DORMANT_MS = 120_000;
+export const BATCH = 3_000;
+export const BEHIND_MS = 1_000;
+export const MAX_LAG = 18_000;
 /** Tick history kept for /stats. */
 const HISTORY = 600;
 /** Ticks between state saves to DO storage (30 s). */
@@ -116,8 +131,12 @@ export class WarRegionDO extends DurableObject<Env> {
   private room: WarRoom | null = null;
   private timer: ReturnType<typeof setTimeout> | null = null;
   private next = 0;
+  /** Wall time (ms) the room's current tick stands for: the live loop keeps it at now, a dormant region falls behind. */
+  private clockAt = Date.now();
   private times: (TickTimes & { totalMs: number; sendMs: number; bytes: number; units: number; clients: number; lateMs: number })[] = [];
   private overruns = 0;
+  /** Ticks run in catch-up batches since the object started (/stats). */
+  private ran = 0;
   private savedAt = 0;
   private saving: Promise<void> = Promise.resolve();
   /** D1 writes in order (fights, releases); `writing` drains it. */
@@ -174,8 +193,11 @@ export class WarRegionDO extends DurableObject<Env> {
       }
       if (restored) {
         this.room = restored;
+        // it was saved at `at`: the time since is caught up (catchUp), as if it had never stopped
+        this.clockAt = (await this.ctx.storage.get<{ at?: number }>(STATE_META))?.at ?? Date.now();
         this.flushReleased(restored);
       } else {
+        this.clockAt = Date.now();
         if (d) await releaseRegion(d, region);
         this.room = new WarRoom(o);
         // M7f: what the region remembers (razed towns, slain guardians, restored landmarks) since it was left
@@ -223,6 +245,7 @@ export class WarRegionDO extends DurableObject<Env> {
     await this.ctx.storage.put('worldEvents', this.worldEv);
     const room = this.room;
     if (!room || room.region.id !== region) return;
+    if (this.catchUp()) this.save();
     await this.applyEvents(room);
     for (const ws of this.ctx.getWebSockets()) if (ws.deserializeAttachment()) send(ws, { t: 'worldEvents', events, next });
   }
@@ -270,7 +293,9 @@ export class WarRegionDO extends DurableObject<Env> {
     if (request.headers.get('upgrade')?.toLowerCase() !== 'websocket') return new Response('Expected WebSocket upgrade', { status: 426 });
     const pid = Number(request.headers.get('x-player-id'));
     if (!Number.isSafeInteger(pid) || pid <= 0) return new Response('Missing player', { status: 400 });
-    if (!(await this.ensure(region))) return new Response('Unknown region', { status: 404 });
+    const room = await this.ensure(region);
+    if (!room) return new Response('Unknown region', { status: 404 });
+    this.catchUp(); // a dormant region plays out the time since its last batch before anyone sees it
     // one socket per player: a new one replaces the old
     for (const old of this.ctx.getWebSockets(`p:${pid}`)) {
       old.serializeAttachment(null);
@@ -282,7 +307,7 @@ export class WarRegionDO extends DurableObject<Env> {
     const headers = new Headers();
     const proto = request.headers.get('x-ws-protocol');
     if (proto) headers.set('sec-websocket-protocol', proto);
-    if (this.room!.active()) this.start(); // a restored region runs on
+    this.resume(room); // a restored or dormant region runs on live
     return new Response(null, { status: 101, webSocket: client, headers });
   }
 
@@ -550,6 +575,7 @@ export class WarRegionDO extends DurableObject<Env> {
   async depart(region: string, pid: number, who: number | string[], side: Side, to: string, foeRadius: number): Promise<DepartResult> {
     const room = await this.ensure(region);
     if (!room) return { error: 'region', detail: region };
+    this.catchUp();
     const r = room.depart(pid, who, side, foeRadius);
     if ('error' in r) return r;
     const d = this.env.DB;
@@ -561,6 +587,7 @@ export class WarRegionDO extends DurableObject<Env> {
     if (d) await d.prepare('UPDATE war_persons SET region = ?3, updated_at = ?4 WHERE region = ?1 AND id IN (SELECT value FROM json_each(?2))').bind(region, JSON.stringify(r.ids), `>${to}`, Date.now()).run();
     this.save();
     this.report(room, true);
+    this.resume(room);
     return { ids: r.ids, off: r.off, lost: r.lost, ...(r.cargo ? { cargo: r.cargo } : {}) };
   }
 
@@ -572,6 +599,7 @@ export class WarRegionDO extends DurableObject<Env> {
     const room = await this.ensure(region);
     const d = this.env.DB;
     if (!room || !d) return { error: 'unavailable' };
+    this.catchUp();
     const road = `>${region}`;
     const got = await deployed(d, road, ids);
     const persons = ids.flatMap((id) => got.get(id) ?? []);
@@ -586,8 +614,8 @@ export class WarRegionDO extends DurableObject<Env> {
     ]);
     if (r.msg) for (const ws of this.ctx.getWebSockets(`p:${pid}`)) send(ws, r.msg);
     this.save();
-    this.start();
     this.report(room, true);
+    this.resume(room);
     return { ok: true };
   }
 
@@ -626,13 +654,82 @@ export class WarRegionDO extends DurableObject<Env> {
   }
 
   async alarm(): Promise<void> {
-    // evicted while armies stood: the pending alarm brings the region back
+    if (this.timer) return void (await this.ctx.storage.setAlarm(Date.now() + KEEPALIVE_MS));
+    // dormant, or evicted while armies stood: the region comes back (from its saved state), catches up and sleeps again
     if (!this.room) {
       const region = await this.ctx.storage.get<string>('region');
       if (region && (await this.ctx.storage.get(STATE_META))) await this.ensure(region);
-      if (this.room && (this.room as WarRoom).active()) this.start();
     }
-    if (this.timer) await this.ctx.storage.setAlarm(Date.now() + KEEPALIVE_MS);
+    const room = this.room;
+    if (!room) return;
+    // a stale keepalive on a region already at rest: nothing to do (the loop rested it when it stopped)
+    if (!room.active()) return;
+    this.resume(room, this.catchUp());
+    await this.saving;
+  }
+
+  /** A socket is open (its player may not have joined yet). */
+  private connected(): boolean {
+    return this.ctx.getWebSockets().some((ws) => ws.deserializeAttachment() !== null);
+  }
+
+  /**
+   * The loop is not running: run live when armies stand and a socket is open; with armies and nobody here, sleep till the
+   * next batch (DORMANT_MS; BEHIND_MS while still `behind`); an empty region rests (its state dropped, its memory kept).
+   */
+  private resume(room: WarRoom, behind = 0): void {
+    if (this.timer) return;
+    if (room.active() && this.connected()) return this.start();
+    this.report(room, true);
+    if (room.active()) {
+      this.save();
+      void this.ctx.storage.setAlarm(Date.now() + (behind > 0 ? BEHIND_MS : DORMANT_MS));
+      return;
+    }
+    if (this.env.DB) this.write('settle report', () => this.reportSettlements(room, 'all')); // W-63: before its state goes
+    this.save();
+  }
+
+  /**
+   * A dormant region plays out the ticks it missed since clockAt, in one go: the same sim ticks as the live loop, with
+   * their D1 writes, but no frames (nobody is connected) and the D1 polls (guards, works, settlements and levies, world
+   * events) once after the batch instead of every few seconds. At most BATCH ticks a call; a gap over MAX_LAG is cut.
+   * An empty region does not tick (as live). No-op while the loop runs. Returns the ticks still behind.
+   */
+  catchUp(now = Date.now()): number {
+    const room = this.room;
+    if (!room || this.timer) return 0;
+    if (!room.active()) {
+      this.clockAt = now;
+      return 0;
+    }
+    let due = Math.floor((now - this.clockAt) / TICK_MS);
+    if (due > MAX_LAG) {
+      log('warn', 'war_catchup_cut', { region: room.region.id, ticks: due - MAX_LAG });
+      this.clockAt = now - MAX_LAG * TICK_MS;
+      due = MAX_LAG;
+    }
+    if (due <= 0) return 0;
+    const n = Math.min(due, BATCH);
+    let i = 0;
+    for (; i < n && room.active(); i++) {
+      let r: ReturnType<WarRoom['tick']>;
+      try {
+        r = room.tick();
+      } catch (e) {
+        logError('war_tick_failed', e, { region: room.region.id, catchUp: true });
+        this.clockAt = now; // do not retry a broken tick on every alarm
+        return 0;
+      }
+      this.outputs(room, r, true);
+    }
+    this.clockAt = room.active() ? this.clockAt + i * TICK_MS : now;
+    this.ran += i;
+    const d = this.env.DB;
+    if (d) this.write('peace poll', () => this.pollPeace(room));
+    if (d) this.write('settle poll', async () => (await this.pollSettlements(room), await this.reportSettlements(room)));
+    void this.applyEvents(room).catch((e) => logError('war_world_events_failed', e));
+    return room.active() ? due - i : 0;
   }
 
   private start(): void {
@@ -648,7 +745,8 @@ export class WarRegionDO extends DurableObject<Env> {
     if (!room) return;
     this.savedAt = room.currentTick;
     const st = room.alive() === 0 && room.online() === 0 ? null : { ...room.saveState(), edition: edition(room.region.id) };
-    this.saving = this.saving.then(() => storeState(this.ctx.storage, st)).catch((e) => logError('war_save_failed', e));
+    const at = this.clockAt;
+    this.saving = this.saving.then(() => storeState(this.ctx.storage, st, at)).catch((e) => logError('war_save_failed', e));
     this.ctx.waitUntil(this.saving);
     // M7f: what the region remembers once it empties (DO storage always; D1 when it changed)
     const mem = room.memory(), mjson = JSON.stringify(mem), rem = remembered(mem, Date.now(), WAR_SEASON.id, regionVersion(room.region.id));
@@ -699,11 +797,10 @@ export class WarRegionDO extends DurableObject<Env> {
 
   private loop(): void {
     const room = this.room;
-    if (!room || !room.active()) {
+    // nothing standing, or nobody connected: the loop stops (the region rests or goes dormant: resume)
+    if (!room || !room.active() || !this.connected()) {
       this.timer = null;
-      if (room) this.report(room, true);
-      if (room && this.env.DB) this.write('settle report', () => this.reportSettlements(room, 'all')); // W-63: before its state goes
-      this.save();
+      if (room) this.resume(room);
       return;
     }
     const t0 = performance.now();
@@ -716,6 +813,7 @@ export class WarRegionDO extends DurableObject<Env> {
       this.timer = null;
       return;
     }
+    this.clockAt = Date.now();
     const t1 = performance.now();
     let bytes = 0;
     for (const ws of this.ctx.getWebSockets()) {
@@ -731,6 +829,21 @@ export class WarRegionDO extends DurableObject<Env> {
         try { ws.send(f); bytes += f.length; } catch { /* closing */ }
       }
     }
+    this.outputs(room, r, false);
+    const t2 = performance.now();
+    const total = t2 - t0;
+    if (total > TICK_MS) this.overruns++;
+    this.times.push({ ...r.times, totalMs: total, sendMs: t2 - t1, bytes, units: room.alive(), clients: r.frames.size, lateMs: late });
+    if (this.times.length > HISTORY) this.times.shift();
+    // fixed-rate schedule; if far behind, skip ahead rather than burst
+    this.next += TICK_MS;
+    const now = performance.now();
+    if (this.next < now - TICK_MS) this.next = now;
+    this.timer = setTimeout(() => this.loop(), Math.max(0, this.next - now));
+  }
+
+  /** A tick's outputs into D1, the world and storage (`catching`: a catch-up tick; its polls and save come after the batch). */
+  private outputs(room: WarRoom, r: ReturnType<WarRoom['tick']>, catching: boolean): void {
     const d = this.env.DB;
     // W-62 E7: a fight written now also tallies wins and kills for the tasks
     // W-64: and books shares in the crown's war goals in this region
@@ -765,31 +878,22 @@ export class WarRegionDO extends DurableObject<Env> {
       for (const g of pz.guards) await guardCheck(this.env, g.id, g.held, g.secs, at);
       for (const w of pz.works) await addLabour(this.env, w.team, w.work, w.by, at);
     });
-    if (d && room.currentTick % PEACE_POLL === 1) this.write('peace poll', () => this.pollPeace(room));
+    if (d && !catching && room.currentTick % PEACE_POLL === 1) this.write('peace poll', () => this.pollPeace(room));
     // W-63: camps founded, attacks logged and told; the settlements polled, reported and levied
     const st = r.settle;
     if (d && st?.found.length) this.write('found', () => this.foundAll(room, st.found));
     if (d && st?.attacks.length) this.write('attacks', () => this.attacked(room, st.attacks));
-    if (d && room.currentTick % SETTLE_POLL === 3) this.write('settle poll', () => this.pollSettlements(room));
+    if (d && !catching && room.currentTick % SETTLE_POLL === 3) this.write('settle poll', () => this.pollSettlements(room));
     // W-62: an event that ran out while the world could not tell us ends here too
-    if (room.currentTick % PEACE_POLL === 2) void this.applyEvents(room).catch((e) => logError('war_world_events_failed', e));
+    if (!catching && room.currentTick % PEACE_POLL === 2) void this.applyEvents(room).catch((e) => logError('war_world_events_failed', e));
     // M6i: a cart captured between linked accounts goes back to its owner
     if (d && r.captured.length) this.write('captures', async () => {
       for (const c of await linkedCaptures(d, r.captured, Date.now())) room.sim.setCartOwner(c.cart, c.team, c.from);
     });
     this.flushReleased(room);
+    if (catching) return;
     this.report(room);
     if (r.fights.length || r.crafted.length || r.bosses.length || r.freed.length || r.souls.length || r.admitted.size || room.currentTick - this.savedAt >= SAVE_TICKS) this.save();
-    const t2 = performance.now();
-    const total = t2 - t0;
-    if (total > TICK_MS) this.overruns++;
-    this.times.push({ ...r.times, totalMs: total, sendMs: t2 - t1, bytes, units: room.alive(), clients: r.frames.size, lateMs: late });
-    if (this.times.length > HISTORY) this.times.shift();
-    // fixed-rate schedule; if far behind, skip ahead rather than burst
-    this.next += TICK_MS;
-    const now = performance.now();
-    if (this.next < now - TICK_MS) this.next = now;
-    this.timer = setTimeout(() => this.loop(), Math.max(0, this.next - now));
   }
 
   /** W-61: the region's taken guard contracts, its alliance's open works (a home) and every alliance's work bonuses. */
@@ -943,6 +1047,7 @@ export class WarRegionDO extends DurableObject<Env> {
   async presence(region: string, pid: number, id: number): Promise<boolean> {
     const room = await this.ensure(region);
     if (!room) return false;
+    if (this.catchUp()) this.save();
     if (!room.settlement(id)) await this.loadSettlements(room);
     return room.presence(pid, id);
   }
@@ -957,7 +1062,7 @@ export class WarRegionDO extends DurableObject<Env> {
       return { avg: +avg.toFixed(3), p95: +v[Math.floor(v.length * 0.95)].toFixed(3), max: +v[v.length - 1].toFixed(3) };
     };
     return {
-      region: room?.region.id ?? null, tick: room?.currentTick ?? 0, running: !!this.timer, ticks: h.length, overruns: this.overruns,
+      region: room?.region.id ?? null, tick: room?.currentTick ?? 0, running: !!this.timer, caughtUp: this.ran, behindMs: this.timer ? 0 : Date.now() - this.clockAt, ticks: h.length, overruns: this.overruns,
       units: room?.alive() ?? 0, online: room?.online() ?? 0, quota: room?.quota() ?? null,
       totalMs: pick('totalMs'), stepMs: pick('stepMs'), snapMs: pick('snapMs'), netMs: pick('netMs'), sendMs: pick('sendMs'), lateMs: pick('lateMs'),
       bytesPerTick: pick('bytes'), clientsPerTick: pick('clients'),
@@ -982,7 +1087,7 @@ async function gunzip(b: Uint8Array): Promise<string> {
 }
 
 /** The room state gzipped in chunks, written in one atomic put (null: the region is empty, drop it). */
-export async function storeState(storage: DurableObjectStorage, st: RoomState | null): Promise<void> {
+export async function storeState(storage: DurableObjectStorage, st: RoomState | null, at = Date.now()): Promise<void> {
   const old = (await storage.get<{ n: number }>(STATE_META))?.n ?? 0;
   if (!st) {
     await storage.delete([STATE_META, ...Array.from({ length: old }, (_, i) => `state:${i}`)]);
@@ -990,7 +1095,7 @@ export async function storeState(storage: DurableObjectStorage, st: RoomState | 
   }
   const z = await gzip(JSON.stringify(st));
   const n = Math.ceil(z.length / CHUNK);
-  const put: Record<string, unknown> = { [STATE_META]: { n, region: st.region, tick: st.tick, bytes: z.length } };
+  const put: Record<string, unknown> = { [STATE_META]: { n, region: st.region, tick: st.tick, bytes: z.length, at } };
   for (let i = 0; i < n; i++) put[`state:${i}`] = z.slice(i * CHUNK, (i + 1) * CHUNK);
   await storage.put(put);
   if (old > n) await storage.delete(Array.from({ length: old - n }, (_, i) => `state:${n + i}`));
