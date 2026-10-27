@@ -1,0 +1,26 @@
+src/war/view/hud/worldEvents.ts
+  s_fcb7475e0b5395::t_26defbd931fc68 60-61
+  s_fcb7475e0b5395::t_451284c4113654 1-59,62-64
+src/war/view/simClient.ts
+  s_fcb7475e0b5395::t_26defbd931fc68 62-63,77
+src/war/view/hud/hud.ts
+  s_fcb7475e0b5395::t_26defbd931fc68 55,377
+src/war/net/client.ts
+  s_fcb7475e0b5395::t_26defbd931fc68 93
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "709b685abae26e0e1c60ad159d6bc24d8a41b06d",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
