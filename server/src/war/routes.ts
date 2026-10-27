@@ -24,6 +24,17 @@
  *   GET  /works                               W-61: his alliance's works (progress, needs, contributors; ./works.ts)
  *   POST /works/:id/give { goods }            give goods from his home strongroom to one (at most what it lacks)
  *   GET  /titles                              the season's titles (./peace.ts) and his own season stats
+ *   GET  /settlements?region=                 W-63: settlements of a region, or of the world (./settlements.ts)
+ *   GET  /settlements/inbox                   requests and offers to settlements he rules, his own, his truces
+ *   GET  /settlements/:id                     a settlement and its members
+ *   POST /settlements/:id/settle              ask its lord for a plot
+ *   POST /settlements/:id/terms { kind, from?, tribute? }  vassal (his settlement `from` overlord) or join; his men
+ *                                             must stand on its ground (PRESENCE, the room's check)
+ *   POST /settlements/:id/garrison { from }   an overlord's lord asks to garrison his vassal
+ *   POST /settlements/:id/truce { from, bond } a truce between his settlement `from` and this one, bond escrowed
+ *   POST /settlements/:id/rebel               a vassal's lord ends the tie
+ *   POST /settlements/offers/:id/accept { plot? } the asked lord accepts (a settle request: with the plot)
+ *   POST /settlements/offers/:id/refuse       the asked lord refuses, or the offerer withdraws
  *   POST /dev/seed      { squad? }             DEV_AUTH=1 only: a whole army (and civilians) to test with
  */
 import { Hono } from 'hono';
@@ -46,6 +57,8 @@ import { statsOf, titles } from './peace';
 import { allianceOf } from './world/members';
 import { workDef } from '../../../src/war/net/works';
 import { GOODS } from '../../../src/war/net/protocol';
+import { accept, inbox, offerGarrison, offerTerms, offerTruce, PRESENCE, rebel, refuse, requestSettle, settlement, settlementsOf, settlementView, SETTLE } from './settlements';
+import { WAR_REGIONS } from './regions';
 import { equip, formSquad, levelUp, payRansom, promote, releaseCaptive, retire, roster, seed } from './persons';
 
 export const war = new Hono<AppEnv>();
@@ -147,6 +160,51 @@ war.get('/titles', requirePlayable, async (c) => {
   const d = db(c.env);
   return c.json({ titles: await titles(d), mine: await statsOf(d, c.get('session').pid) });
 });
+
+const sid = (s: string) => {
+  if (!/^\d{1,10}$/.test(s)) throw badRequest('Bad settlement id');
+  return Number(s);
+};
+const num = z.number().int().min(0).max(1_000_000_000);
+
+war.get('/settlements', requirePlayable, async (c) => {
+  const region = c.req.query('region');
+  if (region !== undefined && !WAR_REGIONS.includes(region)) throw badRequest('Bad region');
+  return c.json({ settlements: await settlementsOf(db(c.env), region) });
+});
+
+war.get('/settlements/inbox', requirePlayable, async (c) => c.json(await inbox(db(c.env), c.get('session').pid, Date.now())));
+
+war.get('/settlements/:id', requirePlayable, async (c) => c.json(await settlementView(db(c.env), sid(c.req.param('id')))));
+
+war.post('/settlements/:id/settle', requirePlayable, async (c) => c.json({ offer: await requestSettle(db(c.env), c.get('session').pid, sid(c.req.param('id')), Date.now()) }));
+
+war.post('/settlements/:id/terms', requirePlayable, async (c) => {
+  const id = sid(c.req.param('id')), pid = c.get('session').pid, d = db(c.env);
+  const b = await readJson(c, z.object({ kind: z.enum(['vassal', 'join']), from: num.optional(), tribute: z.number().int().min(0).max(SETTLE.tributeMax).optional() }), MAX_BODY);
+  const present = await PRESENCE.check(pid, await settlement(d, id));
+  return c.json({ offer: await offerTerms(d, pid, b.kind, id, b.from ?? null, b.tribute ?? 0, present, Date.now()) });
+});
+
+war.post('/settlements/:id/garrison', requirePlayable, async (c) => {
+  const b = await readJson(c, z.object({ from: num }), MAX_BODY);
+  return c.json({ offer: await offerGarrison(db(c.env), c.get('session').pid, b.from, sid(c.req.param('id')), Date.now()) });
+});
+
+war.post('/settlements/:id/truce', requirePlayable, async (c) => {
+  const b = await readJson(c, z.object({ from: num, bond: z.number().int().min(1).max(SETTLE.bondMax) }), MAX_BODY);
+  return c.json({ offer: await offerTruce(db(c.env), c.get('session').pid, b.from, sid(c.req.param('id')), b.bond, Date.now()) });
+});
+
+war.post('/settlements/:id/rebel', requirePlayable, async (c) => c.json({ overlord: await rebel(db(c.env), c.get('session').pid, sid(c.req.param('id')), Date.now()) }));
+
+war.post('/settlements/offers/:id/accept', requirePlayable, async (c) => {
+  const tile = z.number().int().min(0).max(4096);
+  const b = await readJson(c, z.object({ plot: z.object({ x0: tile, y0: tile, x1: tile, y1: tile }).optional() }), MAX_BODY);
+  return c.json({ state: await accept(db(c.env), c.get('session').pid, sid(c.req.param('id')), b.plot ?? null, Date.now()) });
+});
+
+war.post('/settlements/offers/:id/refuse', requirePlayable, async (c) => c.json({ state: await refuse(db(c.env), c.get('session').pid, sid(c.req.param('id')), Date.now()) }));
 
 war.route('/trade', trade);
 war.route('/start', start);
