@@ -25,7 +25,7 @@ import { mountSoundPanel } from './hud/soundPanel';
 import { mountGameMenu } from '../menu/gameMenu';
 import { saveSound } from './sound/mix';
 import { myTeam, setMyTeam } from './side';
-import { GUIDE_LAIR, GUIDE_SOUL, guideSpots, HOME_R } from './guidePlan';
+import { GUIDE_LAIR, GUIDE_SOUL, guideSpots, HOME_R } from '../net/guide';
 import { guideKey, guideOpen, loadGuide, setGuide } from './hud/guide';
 import { ARMY_MAX } from '../sim/soldiers';
 import { WORLD_REGIONS } from '../regions';

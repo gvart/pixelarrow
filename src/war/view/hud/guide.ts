@@ -1,22 +1,23 @@
 /**
- * W-62 the quest tracker of the guided first hour (rules and spots: ../guidePlan.ts). Top left: the chain in a card,
+ * W-62 the quest tracker of the guided first hour (rules and spots: ../../net/guide.ts). Top left: the chain in a card,
  * the open step in full (its hint, reward and how far its target is), the done ones ticked, the rest dim; × hides the
  * guide for good. In the world a gold marker floats over the open step's target, or sits on the screen's edge pointing
  * at it when it is off screen; until the build step a quieter one points at the home town. A step done pays its reward
- * into his stores (offline; online the server would pay it, not yet) and tells it as a toast.
+ * and tells it as a toast.
  *
- * Progress is kept in localStorage (wrapped: a blocked store just forgets), per player online, once offline.
+ * Offline the page runs the done checks, pays into his stores and keeps progress in localStorage (wrapped: a blocked
+ * store just forgets). Online the region server does all three (server/src/war/guide.ts: the reward into his home
+ * strongroom, the save in the region's storage); the tracker shows its `guide` messages and × sends `guide hide`.
  * ../main.ts arms the guide (setGuide) for a world entry into a home region before the HUD mounts.
  */
-import { ARMY_MAX } from '../../sim/soldiers';
 import type { ServerMsg } from '../../net/protocol';
 import type { WarEvent } from '../../types';
 import type { SandboxScene } from '../SandboxScene';
-import { doneNow, GUIDE_STEPS, newWatch, watchEvents, type GuideSpots, type GuideStep, type GuideStepId } from '../guidePlan';
+import { doneNow, GUIDE_STEPS, guideOpen, newWatch, watchEvents, type GuideSave, type GuideSpots, type GuideStepId } from '../../net/guide';
 import { ownCentre } from '../entry';
 import { myTeam } from '../side';
 import { icon, uiZoom } from './kit';
-import { armyMen, ghostIcon } from './souls';
+import { ghostIcon } from './souls';
 import { sandboxRoster } from './roster/state';
 
 type Mk = (id: string, css: string, html?: string) => HTMLElement;
@@ -25,10 +26,9 @@ export interface GuideSetup {
   spots: GuideSpots;
   /** The home town's name (the edge marker). */
   town: string;
-  /** Offline: the guide's lair stands at spots.lair and rewards are paid here. */
+  /** Offline: the page runs the guide (checks, rewards, save); online the region server does. */
   offline: boolean;
 }
-export interface GuideSave { v: 1; done: GuideStepId[]; hidden?: boolean }
 
 let setup: GuideSetup | null = null;
 /** ../main.ts: the guide for this page (null: none, e.g. a scenario). */
@@ -43,8 +43,7 @@ export function loadGuide(key: string): GuideSave | null {
   } catch { return null; }
 }
 const saveGuide = (key: string, g: GuideSave) => { try { localStorage.setItem(key, JSON.stringify(g)); } catch { /* storage blocked: progress is forgotten */ } };
-/** The guide still has steps to show for this save (none saved: a new player). */
-export const guideOpen = (g: GuideSave | null) => !g || (!g.hidden && GUIDE_STEPS.some((s) => !g.done.includes(s.id)));
+export { guideOpen };
 
 const STEP_ICON: Record<GuideStepId, () => string> = {
   soul: () => ghostIcon('hoplite', 20),
@@ -112,37 +111,47 @@ export function mountGuide(s: SandboxScene, mk: Mk): void {
   };
   const mStep = marker('on'), mHome = marker('home');
 
-  const team = myTeam(), watch = newWatch(team, g.offline ? g.spots.lair : null);
+  const team = myTeam(), watch = newWatch(team, g.spots.lair);
+  // offline: the save in localStorage (key set on the first snapshot); online: the server's latest `guide` message
   let key: string | null = null, save: GuideSave | null = null;
-  // the lair step only where a lair is there to beat (offline: the guide's; online: the region's own wild, if any)
-  const steps = (): GuideStep[] => GUIDE_STEPS.filter((st) => st.id !== 'lair' || g.offline || !!s.sim.cur?.lairs?.some((l) => l.state !== 'cleared'));
+  const steps = GUIDE_STEPS;
 
-  const finish = (id: GuideStepId, paid: boolean) => {
-    if (!save || save.done.includes(id)) return;
-    save.done.push(id);
-    saveGuide(key!, save);
+  /** A step done: told as a toast (with its reward), the tracker flashes. */
+  const told = (id: GuideStepId, paid: boolean) => {
     const st = GUIDE_STEPS.find((x) => x.id === id)!;
-    if (paid && g.offline) for (const [r, n] of Object.entries(st.reward)) s.sim.addStock(team, r as never, n!);
-    const reward = g.offline ? Object.entries(st.reward).map(([r, n]) => `+${n} ${r}`).join(', ') : '';
+    const reward = paid ? Object.entries(st.reward).map(([r, n]) => `+${n} ${r}`).join(', ') : '';
     sandboxRoster(s).onNote?.({ kind: 'levelUp', text: `${st.title}: done${reward ? ` (${reward})` : ''}` });
     el.classList.remove('flash');
     void el.offsetWidth;
     el.classList.add('flash');
   };
-
-  // a soul claimed (the sim's events offline, the server's note online); goods stowed or handed off at home (online)
-  const prevEv = s.sim.onEvents;
-  s.sim.onEvents = (ev: WarEvent[]) => { prevEv?.(ev); watchEvents(watch, s.sim.cur, ev); };
-  const prevSrv = s.sim.onServer;
-  s.sim.onServer = (m: ServerMsg) => {
-    prevSrv?.(m);
-    if (m.t === 'soul' && m.state === 'claimed') watch.flags.add('soul');
-    if ((m.t === 'stowed' && m.dir === 'in') || (m.t === 'handoff' && m.state === 'done')) watch.flags.add('haul');
+  const finish = (id: GuideStepId, paid: boolean) => {
+    if (!save || save.done.includes(id)) return;
+    save.done.push(id);
+    saveGuide(key!, save);
+    if (paid) for (const [r, n] of Object.entries(GUIDE_STEPS.find((x) => x.id === id)!.reward)) s.sim.addStock(team, r as never, n!);
+    told(id, paid);
   };
+
+  if (g.offline) {
+    const prevEv = s.sim.onEvents;
+    s.sim.onEvents = (ev: WarEvent[]) => { prevEv?.(ev); watchEvents(watch, s.sim.cur, ev); };
+  } else {
+    // online the server keeps the guide: its message is the save; `step` just done (paid into his strongroom, unless
+    // it closed unpaid: a soul step with a full army)
+    const prevSrv = s.sim.onServer;
+    s.sim.onServer = (m: ServerMsg) => {
+      prevSrv?.(m);
+      if (m.t !== 'guide') return;
+      save = { v: 1, done: m.done as GuideStepId[], ...(m.hidden ? { hidden: true } : {}) };
+      if (m.step) told(m.step as GuideStepId, !!m.paid);
+    };
+  }
   el.addEventListener('click', (e) => {
     if (!(e.target as HTMLElement).closest('.gd-x') || !save) return;
     save.hidden = true;
-    saveGuide(key!, save);
+    if (g.offline) saveGuide(key!, save);
+    else s.sim.guideHide();
   });
 
   /** The open step's target now (tile point), null: nothing to point at. */
@@ -196,14 +205,13 @@ export function mountGuide(s: SandboxScene, mk: Mk): void {
     requestAnimationFrame(frame);
     const cur = s.sim.cur;
     if (!cur) return;
-    if (!key) {
-      if (!g.offline && s.sim.playerId === null) return; // online: the save is the player's, known once welcomed
-      key = guideKey(g.offline ? null : s.sim.playerId);
+    if (g.offline && !key) {
+      key = guideKey(null);
       save = loadGuide(key) ?? { v: 1, done: [] };
-      if (!g.offline && armyMen(s) >= ARMY_MAX && !save.done.includes('soul')) finish('soul', false); // a full army takes no soul
     }
-    const list = steps(), open = list.filter((st) => !save!.done.includes(st.id));
-    for (const id of doneNow(watch, cur)) if (list.some((st) => st.id === id)) finish(id, true);
+    if (!save) return; // online: no word from the server yet (or no guide for him here)
+    const list = steps, open = list.filter((st) => !save!.done.includes(st.id));
+    if (g.offline) for (const id of doneNow(watch, cur)) finish(id, true);
     const busy = !!document.querySelector('#rfMarket:not([style*="display: none"])');
     const on = !save!.hidden && !busy && (open.length > 0 || shown);
     if (!on) {
@@ -224,12 +232,12 @@ export function mountGuide(s: SandboxScene, mk: Mk): void {
       <ol>${list.map((st) => {
         if (save!.done.includes(st.id)) return `<li class="ok"><span class="bx"></span><span class="t">${st.title}</span></li>`;
         if (st !== now) return `<li><span class="bx"></span><span class="t">${st.title}</span></li>`;
-        const rw = g.offline ? Object.entries(st.reward).map(([r, n]) => `<span class="gd-rw">${icon(`res-${r}`)}+${n}</span>`).join('') : '';
+        const rw = Object.entries(st.reward).map(([r, n]) => `<span class="gd-rw">${icon(`res-${r}`)}+${n}</span>`).join('');
         return `<li class="cur">${STEP_ICON[st.id]()}<div style="min-width:0;flex:1"><span class="t">${st.title}</span><span class="gd-hint">${st.hint}</span>
           <div class="gd-meta">${rw}${t ? `<span class="gd-far">${metres(far)} away</span>` : ''}</div></div></li>`;
       }).join('')}</ol>${now ? '' : '<div class="gd-hint" style="padding:4px 0 0">Your men know their way now. The war is yours.</div>'}`;
     if (html !== last) el.innerHTML = last = html;
-    if (!now && !closing && (closing = true)) setTimeout(() => { if (save) { save.hidden = true; saveGuide(key!, save); } }, 12000);
+    if (!now && !closing && (closing = true)) setTimeout(() => { if (save) { save.hidden = true; if (key) saveGuide(key, save); } }, 12000);
   };
   requestAnimationFrame(frame);
 }

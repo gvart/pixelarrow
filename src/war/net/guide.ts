@@ -10,7 +10,7 @@
  * early counts at once; the tracker points at the first one still open.
  */
 import type { MobKind, ResourceKind, RegionData, Snapshot, WarEvent } from '../types';
-import { entrySpot } from './entry';
+import { entrySpot } from '../view/entry';
 
 export type GuideStepId = 'soul' | 'gather' | 'lair' | 'build' | 'haul';
 /** reward: paid into his stores (offline); never wood or stone, which the haul step counts. */
@@ -94,9 +94,18 @@ export function guideSpots(region: RegionData, team: number): GuideSpots {
   return { entry, home, soul: along(GUIDE_SOUL.at), lair: along(GUIDE_LAIR.at) };
 }
 
-/** What the done-checks remember between snapshots (./hud/guide.ts keeps one per page). */
+/** A player's guide progress (offline: localStorage; online: the home region's DO storage, `guide:<pid>`). */
+export interface GuideSave { v: 1; done: GuideStepId[]; hidden?: boolean }
+/** The guide still has steps to show for this save (none saved: a new player). */
+export const guideOpen = (g: GuideSave | null) => !g || (!g.hidden && GUIDE_STEPS.some((s) => !g.done.includes(s.id)));
+/** His men stand this near a lair as it is cleared, or a new building as it is done, for it to count as his (online). */
+export const GUIDE_NEAR = 30;
+
+/** What the done-checks remember between snapshots (./hud/guide.ts keeps one per page, the server room one per player). */
 export interface GuideWatch {
   team: number;
+  /** Online (the server room): the player's squads' owner (`p:<pid>`): only his men count, and the haul step comes by flag. */
+  owner?: string;
   /** Own building ids standing when the guide began (they do not count as built by him). */
   had: Set<number>;
   /** Goods in his stores at the start (offline haul), -1 until the first snapshot. */
@@ -107,11 +116,17 @@ export interface GuideWatch {
   flags: Set<GuideStepId>;
 }
 
-export const newWatch = (team: number, lair: { x: number; y: number } | null): GuideWatch => ({ team, had: new Set(), stock0: -1, lair, flags: new Set() });
+export const newWatch = (team: number, lair: { x: number; y: number } | null, owner?: string): GuideWatch => ({ team, ...(owner ? { owner } : {}), had: new Set(), stock0: -1, lair, flags: new Set() });
 
-/** Sim events that finish a step: a soul claimed by a squad of his team. */
+/**
+ * Sim events that finish a step: a soul claimed by a squad of his (team, or owner online). Online a claim refused
+ * (his army is full) ends the soul step too: there is nothing to claim, it never sticks.
+ */
 export function watchEvents(w: GuideWatch, s: Pick<Snapshot, 'squads'> | null, ev: readonly WarEvent[]): void {
-  for (const e of ev) if (e.kind === 'soulClaimed' && s?.squads.find((q) => q.id === e.squad)?.team === w.team) w.flags.add('soul');
+  for (const e of ev) {
+    if (e.kind !== 'soulClaimed' && e.kind !== 'soulRefused') continue;
+    if (w.owner ? e.owner === w.owner : e.kind === 'soulClaimed' && s?.squads.find((q) => q.id === e.squad)?.team === w.team) w.flags.add('soul');
+  }
 }
 
 const goods = (s: Snapshot, team: number) => {
@@ -126,13 +141,16 @@ export function doneNow(w: GuideWatch, s: Snapshot): Set<GuideStepId> {
     w.stock0 = goods(s, w.team);
     for (const b of s.buildings ?? []) if (b.team === w.team) w.had.add(b.id);
   }
-  const own = new Set(s.squads.filter((q) => q.team === w.team).map((q) => q.id));
-  if (s.units.some((u) => own.has(u.squad) && u.state !== 'dead' && (u.carry === 'wood' || u.carry === 'stone') && (u.load ?? 0) > 0)) out.add('gather');
+  const own = new Set(s.squads.filter((q) => q.team === w.team && (!w.owner || q.owner === w.owner)).map((q) => q.id));
+  const men = s.units.filter((u) => own.has(u.squad) && u.state !== 'dead');
+  const near = (x: number, y: number) => !w.owner || men.some((u) => Math.hypot(u.x - x, u.y - y) < GUIDE_NEAR);
+  if (men.some((u) => (u.carry === 'wood' || u.carry === 'stone') && (u.load ?? 0) > 0)) out.add('gather');
   if (w.lair) {
-    const l = (s.lairs ?? []).find((x) => Math.hypot(x.x - w.lair!.x, x.y - w.lair!.y) < 0.5);
-    if (l?.state === 'cleared') out.add('lair');
+    // every lair at the spot cleared (a later player's fresh pair stands where the first one fell)
+    const ls = (s.lairs ?? []).filter((x) => Math.hypot(x.x - w.lair!.x, x.y - w.lair!.y) < 0.5);
+    if (ls.length && ls.every((l) => l.state === 'cleared') && near(w.lair.x, w.lair.y)) out.add('lair');
   }
-  if ((s.buildings ?? []).some((b) => b.team === w.team && b.state === 'done' && !b.pre && !w.had.has(b.id))) out.add('build');
-  if (goods(s, w.team) >= w.stock0 + HAUL_GOODS) out.add('haul');
+  if ((s.buildings ?? []).some((b) => b.team === w.team && b.state === 'done' && !b.pre && !w.had.has(b.id) && near(b.x, b.y))) out.add('build');
+  if (!w.owner && goods(s, w.team) >= w.stock0 + HAUL_GOODS) out.add('haul');
   return out;
 }

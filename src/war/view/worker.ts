@@ -54,7 +54,8 @@ export type ToWorker =
   | { t: 'api'; id: number; method: 'GET' | 'POST'; path: string; body?: unknown }
   // M6f-g, net mode only: stow and the hand-off window over the region socket (answers come back as `server`)
   | { t: 'stow'; m: Omit<StowMsg, 't'> }
-  | { t: 'handoff'; m: Omit<HandoffMsg, 't'> };
+  | { t: 'handoff'; m: Omit<HandoffMsg, 't'> }
+  | { t: 'guideHide' }; // W-62, net mode: hide the first-hour guide for good
 
 /** Ticks between resource node posts (amounts change slowly). */
 const NODES_EVERY = 10;
@@ -213,4 +214,5 @@ function netMessage(n: Net, m: ToWorker): void {
   else if (m.t === 'api') void n.api(m.method, m.path, m.body).then((api) => postMessage({ reply: m.id, api }));
   else if (m.t === 'stow') n.stow(m.m);
   else if (m.t === 'handoff') n.handoff(m.m);
+  else if (m.t === 'guideHide') n.guideHide();
 }

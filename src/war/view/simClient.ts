@@ -272,6 +272,11 @@ export class SimClient {
     this.send({ t: 'stow', m });
   }
 
+  /** W-62 net mode: hide the first-hour guide for good (the region server keeps it). */
+  guideHide(): void {
+    this.send({ t: 'guideHide' });
+  }
+
   /** M6g net mode: the hand-off window (answered by `handoff` on onServer, to both players). */
   handoff(m: Omit<HandoffMsg, 't'>): void {
     this.send({ t: 'handoff', m });

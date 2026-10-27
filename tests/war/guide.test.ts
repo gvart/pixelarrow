@@ -1,5 +1,5 @@
 /**
- * W-62 the guided first hour (src/war/view/guidePlan.ts): the targets stand on open, reachable ground of every home
+ * W-62 the guided first hour (src/war/net/guide.ts): the targets stand on open, reachable ground of every home
  * region, and the chain's sim side runs to the end on dodona (seeded): a new player's 11 hoplites claim the soul by the
  * road, gather, beat the guide's bandit pair without a loss within 3 minutes of arrival, raise a camp in the home town
  * and haul goods into it.
@@ -13,7 +13,7 @@ import { parseRegion } from '../../src/war/region/schema';
 import { createSim } from '../../src/war/sim';
 import { buildGrid, findPath, tileAt } from '../../src/war/sim/grid';
 import { ARMY_MAX } from '../../src/war/sim/soldiers';
-import { doneNow, GUIDE_LAIR, GUIDE_SOUL, GUIDE_STEPS, guideSpots, HOME_R, newWatch, watchEvents, type GuideStepId } from '../../src/war/view/guidePlan';
+import { doneNow, GUIDE_LAIR, GUIDE_SOUL, GUIDE_STEPS, guideSpots, HOME_R, newWatch, watchEvents, type GuideStepId } from '../../src/war/net/guide';
 import type { RegionData, WarBuildSim } from '../../src/war/types';
 
 const HOMES: [string, unknown][] = [['dodona', dodonaJson], ['elaia', elaiaJson], ['kyrene', kyreneJson], ['skythia', skythiaJson]];

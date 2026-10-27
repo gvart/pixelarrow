@@ -183,6 +183,8 @@ const baseMsgSchema = z.discriminatedUnion('t', [
     t: z.literal('handoff'), op: z.enum(['offer', 'confirm', 'cancel']), with: z.number().int().positive(),
     squad: id.optional(), cart: id.optional(), goods: z.partialRecord(goodSchema, amount).optional(), uids: z.array(z.string().min(1).max(120)).max(20).optional(),
   }).refine((o) => o.op !== 'offer' || (o.squad === undefined) !== (o.cart === undefined), 'an offer names its squad or cart'),
+  // W-62: the first-hour guide: hide it for good (the tracker's ×)
+  z.object({ t: z.literal('guide'), op: z.literal('hide') }),
 ]);
 /** Dev helpers (the F1 panel); the region refuses them unless the server runs with DEV_AUTH=1. */
 export const devSchema = z.discriminatedUnion('op', [
@@ -228,7 +230,13 @@ export type ServerMsg =
    * W-60: a soul his squad went for: claimed (the new man's person id, class, level and name), refused (his army is full:
    * `have` men across all regions, ARMY_MAX at most).
    */
-  | { t: 'soul'; state: 'claimed' | 'refused'; soul: number; squad: SquadId; pid?: string; cls?: string; level?: number; name?: string; have?: number };
+  | { t: 'soul'; state: 'claimed' | 'refused'; soul: number; squad: SquadId; pid?: string; cls?: string; level?: number; name?: string; have?: number }
+  /**
+   * W-62: his first-hour guide in his home region (./guide.ts): the steps done, hidden for good; `step`: the one just
+   * done, `paid`: its reward is in his strongroom (a soul step with a full army closes unpaid). Sent on his join and
+   * with each step.
+   */
+  | { t: 'guide'; done: string[]; hidden?: true; step?: string; paid?: true };
 
 /** Live soldiers per alliance against its quota. */
 export interface Quota { cap: number; per: number[]; live: number[] }
