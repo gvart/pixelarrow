@@ -7,6 +7,9 @@ import { ALLIANCES } from '../world/alliances';
 import { TEAM_CSS } from '../world/palette';
 import type { RegionState, TransitSnap } from '../net/world';
 import { TRADE_ROUTES, MARKET_TOWNS, isChokepoint, type ConvoySnap, type HaulPlan } from './geo';
+import type { WorldEvent } from '../world/events';
+import { EVENT_INFO } from '../world/events';
+import { EVENT_LOOK } from './eventLook';
 
 type Box = [number, number, number, number];
 interface PlacedLabel { id: string; lines: string[]; size: number; x: number; y: number; w: number; h: number; big: boolean; leader: [number, number] | null }
@@ -48,6 +51,8 @@ export interface MapState {
   haul: HaulPlan | null;
   /** W-61: region id -> the kit icons of the season's titles whose holders are at home there (drawn after its name). */
   emblems?: Map<string, string[]>;
+  /** W-62: the world events running now (their regions glow, a marker with the countdown above the centre). */
+  events?: WorldEvent[];
 }
 
 const img = (src: string) => new Promise<HTMLImageElement>((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => no(new Error(src)); i.src = src; });
@@ -123,7 +128,7 @@ export class WorldMap {
     const got = await Promise.all(names.map((n) => img(`${ART}${n}.${n.startsWith('base') ? 'jpg' : 'png'}`)));
     names.forEach((n, i) => (m.pics[n] = got[i]));
     // M6l: the kit's cart icons (public/war/ui), for convoys on the road; missing ones are drawn as a dot
-    for (const n of ['trade-cart', 'trade-wagon', 'act-load', 'bld-fort', 'res-coin', 'node-engineer-master-builder', 'bld-tower-stone', 'act-attack']) void img(`war/ui/icons/32/${n}.png`).then((i) => (m.pics[n] = i)).catch(() => undefined);
+    for (const n of ['trade-cart', 'trade-wagon', 'act-load', 'bld-fort', 'res-coin', 'node-engineer-master-builder', 'bld-tower-stone', 'act-attack', 'bld-ram', 'unit-hoplite']) void img(`war/ui/icons/32/${n}.png`).then((i) => (m.pics[n] = i)).catch(() => undefined);
     const ids = got[names.indexOf('region-ids')], c = document.createElement('canvas');
     c.width = ids.width;
     c.height = ids.height;
@@ -298,6 +303,20 @@ export class WorldMap {
       g.stroke(p);
     }
 
+    // W-62: a region with a world event glows in its colour
+    for (const e of st.events ?? []) {
+      const p = this.paths.get(e.region);
+      if (!p) continue;
+      const col = EVENT_LOOK[e.kind].color;
+      g.fillStyle = hexA(col, 0.12 + 0.1 * pulse);
+      g.fill(p);
+      g.save();
+      g.clip(p);
+      g.strokeStyle = hexA(col, 0.55 + 0.35 * pulse);
+      g.lineWidth = 12;
+      g.stroke(p);
+      g.restore();
+    }
     if (st.routes) this.drawRoutes(g);
     if (st.haul) this.drawHaul(g, st.haul);
     this.drawLabels(g, st);
@@ -338,14 +357,17 @@ export class WorldMap {
 
   /** Marker spots in map px (x, y, w, h): a siege fort or battle sword right of the region's centre, the player's
    *  banner left of it. Labels are laid out round these (never under them). */
-  private markerSpots(st: MapState): { marks: [string, string, number, number, number, number][]; banners: Map<string, [number, number, number]>; landmarks: Map<string, [number, number, number]> } {
+  private markerSpots(st: MapState): { marks: [string, string, number, number, number, number][]; banners: Map<string, [number, number, number]>; landmarks: Map<string, [number, number, number]>; events: Map<string, [number, number, number, WorldEvent]> } {
     const s = Math.max(1, 0.8 / this.k), marks: [string, string, number, number, number, number][] = [], banners = new Map<string, [number, number, number]>();
     const landmarks = new Map<string, [number, number, number]>(); // M7g: centre and radius of a landmark's marker, under the region's centre
+    const events = new Map<string, [number, number, number, WorldEvent]>(); // W-62: a world event's marker, above it
     for (const [id, r] of Object.entries(this.art.regions)) {
       const rs = st.regions.get(id);
       if (!rs) continue;
       const [cx, cy] = r.centroid;
       if (rs.landmark) landmarks.set(id, [cx, cy + 34 * s, 17 * s]);
+      const ev = st.events?.find((e) => e.region === id);
+      if (ev) events.set(id, [cx, cy - 60 * s, 22 * s, ev]);
       if (rs.besieged) marks.push([id, 'markers/fort', cx + 6 * s, cy - 24 * s, 48 * s, 48 * s]);
       else if (rs.contested) marks.push([id, 'markers/battle', cx + 4 * s, cy - 28 * s, 56 * s, 56 * s]);
     }
@@ -354,7 +376,41 @@ export class WorldMap {
       const r = this.art.regions[id];
       if (r) banners.set(id, [r.centroid[0] - 44 * b, r.centroid[1] - 28 * b, b]);
     }
-    return { marks, banners, landmarks };
+    return { marks, banners, landmarks, events };
+  }
+
+  /** W-62: the world event marker under map point (x, y), its region id, else null. */
+  eventAt(st: MapState, x: number, y: number): string | null {
+    for (const [id, [cx, cy, r]] of this.markerSpots(st).events) if ((x - cx) ** 2 + (y - cy) ** 2 <= (r * 1.3) ** 2) return id;
+    return null;
+  }
+
+  /** W-62: a world event: its icon on a dark disc ringed in its colour, a pulsing halo, and its name with the time left. */
+  private drawEvents(g: CanvasRenderingContext2D, st: MapState, spots: Map<string, [number, number, number, WorldEvent]>): void {
+    const s = Math.max(1, 0.8 / this.k), pulse = 0.5 + 0.5 * Math.sin(st.now / 260);
+    for (const [, [x, y, r, e]] of spots) {
+      const look = EVENT_LOOK[e.kind];
+      g.beginPath();
+      g.arc(x, y, r + (5 + 5 * pulse) * s, 0, Math.PI * 2);
+      g.fillStyle = hexA(look.color, 0.18 + 0.14 * (1 - pulse));
+      g.fill();
+      g.beginPath();
+      g.arc(x, y, r, 0, Math.PI * 2);
+      g.fillStyle = '#17100d';
+      g.fill();
+      g.lineWidth = 3.5 * s;
+      g.strokeStyle = look.color;
+      g.stroke();
+      const ic = this.pics[look.icon];
+      if (ic) {
+        g.save();
+        if (look.ghost) (g.filter = 'grayscale(1) brightness(1.8)'), (g.globalAlpha = 0.85);
+        g.drawImage(ic, x - 15 * s, y - 15 * s, 30 * s, 30 * s);
+        g.restore();
+      }
+      const left = Math.max(0, Math.ceil((e.endAt - st.now) / 1000));
+      this.badge(g, `${EVENT_INFO[e.kind].name} · ${clock(left)}`, x + r + 3 * s, y, s, false, look.color);
+    }
   }
 
   /** M7g: the landmark marker under map point (x, y), its region id, else null. */
@@ -425,6 +481,7 @@ export class WorldMap {
     const obstacles: Box[] = [
       ...spots.marks.map(([, , x, y, w, h]) => [x, y, x + w, y + h] as Box),
       ...[...spots.landmarks.values()].map(([x, y, r]) => [x - r - 4, y - r - 4, x + r + 4, y + r + 4] as Box),
+      ...[...spots.events.values()].map(([x, y, r]) => [x - r - 10, y - r - 10, x + r + 150 * s, y + r + 10] as Box),
       ...[...spots.banners].map(([id, [x, y, b]]) => [x, y, x + 38 * b + (10 * String(st.squads.get(id)).length + 14) * s, y + 56 * b] as Box),
       ...st.convoys.map((c) => {
         const q = 32 * s, [x, y] = this.transitPos({ ...c, men: 0, state: 'moving' }, st.now).map((v) => Math.round(v / q) * q);
@@ -569,6 +626,7 @@ export class WorldMap {
     g.imageSmoothingEnabled = false;
     for (const [, name, x, y, w, h] of spots.marks) g.drawImage(pic(name), x, y, w, h);
     this.drawLandmarks(g, st, spots.landmarks);
+    this.drawEvents(g, st, spots.events);
     // the player's men: the alliance banner with a count
     const you = st.you ?? 0, key = ALLIANCES[you].key;
     for (const [id, men] of st.squads) {
@@ -650,13 +708,13 @@ export class WorldMap {
     g.restore();
   }
 
-  private badge(g: CanvasRenderingContext2D, text: string, x: number, y: number, s: number, on: boolean): void {
+  private badge(g: CanvasRenderingContext2D, text: string, x: number, y: number, s: number, on: boolean, edge?: string): void {
     g.font = `600 ${13 * s}px Inter, sans-serif`;
     g.textAlign = 'left';
     g.textBaseline = 'middle';
     const w = g.measureText(text).width + 10 * s;
     g.fillStyle = on ? '#3d2414' : '#17100d';
-    g.strokeStyle = on ? '#f2b27a' : '#7a3418';
+    g.strokeStyle = edge ?? (on ? '#f2b27a' : '#7a3418');
     g.lineWidth = 2 * s;
     g.fillRect(x, y - 9 * s, w, 18 * s);
     g.strokeRect(x, y - 9 * s, w, 18 * s);

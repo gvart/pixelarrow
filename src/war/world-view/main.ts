@@ -12,6 +12,9 @@
  * F fits the map, H the haul planner (M6l: from, to and cart; while it is open a click on the map picks the destination,
  * shift-click the start). Convoys (carts and porters on the road) show by fog and the Safe Roads rule; a market town's
  * hover card shows its price board as your men last saw it; the season panel adds today's trade score. `window.__world` is the screen's state for scripts.
+ * W-62: world events glow on the map with a marker and their countdown; the events card (bottom left) names the running
+ * one, its rule and the next; B opens the season scoreboard (the last season's result, title holders, your banners and
+ * crests, what a season's end keeps and resets).
  */
 import '@fontsource/inter/600.css';
 import '@fontsource/cinzel/700.css';
@@ -31,6 +34,9 @@ import { landmarkOfRegion } from '../../data/warLandmarks';
 import { bossesOfRegion } from '../../data/warBosses';
 import { keys } from '../input/keys';
 import { mountGameMenu } from '../menu/gameMenu';
+import { EVENT_INFO, type WorldEvent } from '../world/events';
+import { EVENT_LOOK, eventIcon } from './eventLook';
+import type { Crest, SeasonBoard } from '../net/world';
 
 const q = new URLSearchParams(location.search);
 const offline = q.has('offline');
@@ -56,6 +62,16 @@ style.textContent = CSS + `
 .wt-t:hover{border-color:var(--rf-accent)}
 .wt-who{display:flex;align-items:center;gap:3px;font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.wt-who .wv-sw{width:7px;height:7px}
 .wt-n{font:700 9px/1.2 Cinzel,serif;color:var(--rf-accent);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.we-ev{display:flex;gap:7px;align-items:flex-start;padding:5px;margin-top:4px;background:var(--rf-sunk);border:1px solid var(--rf-rule);border-left:3px solid var(--we-c)}
+.we-ev b{color:var(--we-c)}
+.we-t{font:600 15px/1 Inter,sans-serif;font-variant-numeric:tabular-nums;color:var(--rf-text);margin-left:auto;white-space:nowrap}
+.we-rule{font-size:11.5px;line-height:1.35;color:var(--rf-muted);margin-top:2px}
+.sb-win{display:flex;gap:10px;align-items:center;padding:6px;margin-top:4px;background:var(--rf-sunk);border:1px solid var(--rf-rule)}
+.sb-row{display:grid;grid-template-columns:24px 12px 1fr 54px 44px;gap:0 6px;align-items:center;padding:2px 4px}
+.sb-row.top{color:var(--rf-gold)}
+.sb-keep{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:4px;font-size:11.5px;line-height:1.4}
+.sb-keep>div{padding:4px 6px;background:var(--rf-sunk);border:1px solid var(--rf-rule)}
+.sb-crest{display:inline-flex;align-items:center;gap:4px;padding:2px 6px 2px 3px;margin:2px 4px 0 0;border:1px solid var(--rf-line);font-size:11.5px}
 `;
 document.head.appendChild(style);
 
@@ -78,6 +94,8 @@ const card = mk('wvCard', 'rf-card wv-panel', 'display:none;pointer-events:none;
 const order = mk('wvOrder', 'rf-card wv-panel', 'display:none;left:50%;bottom:16px;transform:translateX(-50%);width:300px');
 const haulEl = mk('wvHaul', 'rf-card wv-panel', 'display:none;left:50%;bottom:12px;transform:translateX(-50%);width:264px');
 const toast = mk('wvToast', 'rf-label', '');
+const eventsEl = mk('wvEvents', 'rf-card wv-panel', 'left:8px;bottom:12px;width:250px');
+const boardEl = mk('wvBoard', 'rf-card wv-panel', 'display:none;left:50%;top:56px;transform:translateX(-50%);width:360px;z-index:7');
 const tip = mk('wvTip', 'rf-tip', 'display:none;z-index:8');
 /** The kit's scale a step smaller: the map is the screen here, the panels sit beside it. */
 const zoom = () => Math.max(1, Math.round(uiZoom() * 0.8 * 4) / 4);
@@ -126,6 +144,7 @@ function renderBand(): void {
     <span class="rf-dim" id="wvStatus">${view?.status ?? 'loading'}</span><span class="rf-sep"></span>
     <button class="rf-tbtn${st.routes ? ' on' : ''}" data-act="routes" title="trade routes (T)">Routes T</button>
     <button class="rf-tbtn${haul.open ? ' on' : ''}" data-act="haul" title="plan a haul: path, ETA, chokepoints and ambush risk (H)">Haul H</button>
+    <button class="rf-tbtn${boardOpen ? ' on' : ''}" data-act="board" title="the season scoreboard: last season's result, titles, your banners (B)">Scoreboard B</button>
     <button class="rf-tbtn" data-act="fit" title="fit the map (F)">Fit F</button>`;
 }
 band.addEventListener('click', (e) => {
@@ -133,7 +152,66 @@ band.addEventListener('click', (e) => {
   if (a === 'routes') (st.routes = !st.routes), renderBand();
   if (a === 'fit') fit();
   if (a === 'haul') toggleHaul();
+  if (a === 'board') toggleBoard();
 });
+
+// ---------- W-62 world events and the season scoreboard ----------
+const left = (at: number) => clock(Math.max(0, Math.ceil((at - Date.now()) / 1000)));
+const evStyle = (e: WorldEvent) => `--we-c:${EVENT_LOOK[e.kind].color}`;
+/** The events card: the running event (where, its rule, time left), and the next one to come. */
+function renderEvents(): void {
+  const ev = view?.snap.events;
+  const active = (ev?.active ?? []).filter((e) => e.endAt > Date.now()), next = ev?.next ?? null;
+  eventsEl.innerHTML = `<div class="rf-head"><span class="rf-name">World events</span><span class="rf-dim" style="margin-left:auto">one every ~3 h</span></div>
+    ${active.map((e) => `<div class="we-ev" style="${evStyle(e)};cursor:pointer" data-region="${e.region}" title="click: select it on the map">${eventIcon(e.kind, 24)}<div style="flex:1;min-width:0">
+      <div style="display:flex;align-items:baseline;gap:6px"><b>${EVENT_INFO[e.kind].name}</b><span class="we-t">${left(e.endAt)}</span></div>
+      <div>${name(e.region)}</div><div class="we-rule">${EVENT_INFO[e.kind].rule}</div></div></div>`).join('')
+      || '<div class="rf-dim" style="padding:4px">all quiet on the map</div>'}
+    ${next ? `<div class="wv-row" style="margin-top:4px;padding:2px 0;align-items:flex-start">${eventIcon(next.kind, 20)}<div style="flex:1;min-width:0"><div style="display:flex"><span class="rf-dim">Next: ${EVENT_INFO[next.kind].name}</span><span class="rf-num" style="margin-left:auto">in ${left(next.startAt)}</span></div><div>${name(next.region)}</div></div></div>` : ''}`;
+}
+eventsEl.addEventListener('click', (e) => {
+  const r = (e.target as HTMLElement).closest<HTMLElement>('[data-region]')?.dataset.region;
+  if (r) selectRegion(r);
+});
+
+let boardOpen = q.has('board');
+const ordinal = ['1st', '2nd', '3rd', '4th'];
+/** The season scoreboard: the last finished season (winner, final and event score, title holders), your crests, the rules of the season's end. */
+function renderBoard(): void {
+  if (!boardOpen || !view) return void (boardEl.style.display = 'none');
+  const b: SeasonBoard | null = view.snap.last ?? null, crests: Crest[] = view.snap.crests ?? [], now = view.snap.score;
+  const board = b ? (() => {
+    const ranked = b.scores.map((v, a) => ({ a, v })).sort((x, y) => y.v - x.v);
+    const w = b.winner;
+    return `<div class="sb-win">${w !== null ? `<img src="${ART}banners/${ALLIANCES[w].key}.png" width="24" height="34" alt="">` : ''}<div>
+        <div class="rf-name" style="font-size:15px">${w !== null ? `${aName(w)} won season ${b.season}` : `Season ${b.season} ended in a tie`}</div>
+        <div class="rf-dim">${b.reason === 'hegemony' ? 'by hegemony: Omphalos and 3 frontier towns for 24 h' : 'on time, by the highest score'} · ${new Date(b.at).toLocaleDateString()}</div>
+        ${w !== null ? `<div class="rf-dim">${b.banners} player${b.banners === 1 ? '' : 's'} earned the ${aName(w)} banner</div>` : ''}</div></div>
+      <div class="sb-row rf-dim" style="font-size:11px"><span></span><span></span><span>alliance</span><span style="text-align:right">score</span><span style="text-align:right">events</span></div>
+      ${ranked.map((r, i) => `<div class="sb-row${i === 0 && w !== null ? ' top' : ''}"><span class="rf-dim">${ordinal[i]}</span>${swatch(r.a)}<span>${aName(r.a)}${r.a === st.you ? ' <span class="rf-dim">(you)</span>' : ''}</span><span class="rf-num" style="text-align:right">${r.v}</span><span class="rf-num rf-dim" style="text-align:right">${b.event[r.a] ?? 0}</span></div>`).join('')}
+      <div class="rf-cap" style="margin-top:6px">Title holders <span class="rf-dim">each earned his title's crest</span></div>
+      ${b.titles.length ? `<div class="wt-grid">${b.titles.map((t) => `<div class="wt-t">${medal(t.id, 24)}<div style="min-width:0"><div class="wt-who">${t.alliance >= 0 ? swatch(t.alliance) : ''}${t.player}</div><div class="wt-n">${t.name}</div></div></div>`).join('')}</div>` : '<div class="rf-dim">no titles were held</div>'}`;
+  })() : `<div class="rf-dim" style="padding:6px 2px">No season has ended yet. Season ${now.id} ends in ${Math.floor(now.left / 86_400_000)}d ${clock(Math.floor((now.left % 86_400_000) / 1000))}; its board appears here.</div>`;
+  const mine = crests.length
+    ? crests.map((c) => `<span class="sb-crest" title="season ${c.season}">${c.kind === 'banner' ? `<img src="${ART}banners/${ALLIANCES[c.alliance]?.key ?? 'dodona'}.png" width="11" height="15" alt="">${aName(c.alliance)} banner` : `${medal(c.title ?? '', 16)}${TITLES[c.title ?? '']?.name ?? c.title} crest`}<span class="rf-dim">S${c.season}</span></span>`).join('')
+    : '<span class="rf-dim">none yet: win a season with your alliance, or hold a title at its end</span>';
+  boardEl.innerHTML = `<div class="rf-head"><span class="rf-name">Season scoreboard</span><button class="rf-tbtn x" data-act="close" style="margin-left:auto" title="close (B)">×</button></div>
+    ${board}
+    <div class="rf-cap" style="margin-top:6px">Your banners and crests</div><div>${mine}</div>
+    <div class="rf-cap" style="margin-top:6px">At a season's end</div>
+    <div class="sb-keep"><div><b style="color:var(--rf-good)">You keep</b><br>your men and their levels<br>gear and goods at home<br>titles and crests</div>
+      <div><b style="color:var(--rf-bad)">Starts over</b><br>alliance score<br>region control, claim points<br>landmarks and their guardians</div></div>
+    <div class="rf-dim" style="margin-top:4px">Men out in the regions march home when the next season begins.</div>`;
+  boardEl.style.display = '';
+}
+function toggleBoard(): void {
+  boardOpen = !boardOpen;
+  renderBoard();
+  renderBand();
+}
+boardEl.addEventListener('click', (e) => { if ((e.target as HTMLElement).closest('[data-act="close"]')) toggleBoard(); });
+draggable(boardEl);
+draggable(eventsEl);
 
 function renderSquads(): void {
   const now = Date.now(), sq = view?.squads ?? [], tr = st.transit;
@@ -261,8 +339,15 @@ function regionCard(id: string): string {
       <span>Troops</span>${troops}
       ${you !== null && seen ? `<span>Garrison</span><span style="display:flex;gap:6px;align-items:center">${bar('ok', ours / quota, 70)}<span class="rf-num">${ours}/${quota}</span></span>` : ''}
       ${mine ? `<span>Yours</span><span>${mine} men</span>` : ''}</div>
+    ${eventHtml(id)}
     ${MARKET_TOWNS.has(id) ? boardHtml(id) : ''}
     <div class="rf-dim" style="margin-top:4px">${haul.open ? 'click: haul here · shift-click: haul from here' : st.targets.has(id) ? 'click: send the squad here' : 'double-click or Enter: enter the region'}</div>`;
+}
+
+/** W-62: the world event running in the region, if any (hover card). */
+function eventHtml(id: string): string {
+  const e = view?.snap.events?.active.find((x) => x.region === id && x.endAt > Date.now());
+  return e ? `<div class="we-ev" style="${evStyle(e)}">${eventIcon(e.kind, 20)}<div style="flex:1"><div style="display:flex;gap:6px"><b>${EVENT_INFO[e.kind].name}</b><span class="we-t" style="font-size:13px">${left(e.endAt)}</span></div><div class="we-rule">${EVENT_INFO[e.kind].rule}</div></div></div>` : '';
 }
 
 /** M6l: a market town's price board as your men last saw it (fog: never seen, or how old). */
@@ -392,11 +477,14 @@ function apply(v: WorldView): void {
   st.you = v.snap.you.alliance;
   st.convoys = (v.convoys ?? []).filter((c) => convoySeen(c, st.you as 0 | null, st.regions, ownSquadsIn()));
   st.emblems = emblems(v.titles ?? []);
+  st.events = v.snap.events?.active ?? [];
   if (haul.open) renderHaul();
   if (st.squadAt && !st.squads.has(st.squadAt)) selectRegion(st.selected);
   renderBand();
   renderSquads();
   renderSeason();
+  renderEvents();
+  renderBoard();
 }
 
 // ---------- input ----------
@@ -414,6 +502,7 @@ canvas.addEventListener('pointermove', (e) => {
   }
   st.hover = map.regionAt(...map.toMap(e.clientX, e.clientY));
   hoverLm = map.landmarkAt(st, ...map.toMap(e.clientX, e.clientY));
+  st.hover = map.eventAt(st, ...map.toMap(e.clientX, e.clientY)) ?? st.hover;
   canvas.style.cursor = st.hover ? 'pointer' : 'default';
   placeCard();
 });
@@ -434,10 +523,12 @@ mountGameMenu({ idle: () => !ordering && !st.selected && !haul.open });
 keys.setContexts(() => ['world', 'global']);
 addEventListener('keydown', (e: KeyboardEvent) => {
   const a = keys.act(e);
+  if (a === 'back' && boardOpen) return void toggleBoard();
   if (a === 'world.enter') ordering ? void sendOrder() : enter(st.hover ?? st.selected);
   else if (a === 'back') ordering ? closeOrder() : selectRegion(null);
   else if (a === 'world.routes') (st.routes = !st.routes), renderBand();
   else if (a === 'world.haul') toggleHaul();
+  else if (!a && e.key.toLowerCase() === 'b' && !e.ctrlKey && !e.metaKey && !(e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement)) toggleBoard();
   else if (a === 'world.fit') fit();
   else if (a === 'world.zoomIn') map.zoom(1.2, innerWidth / 2, innerHeight / 2);
   else if (a === 'world.zoomOut') map.zoom(1 / 1.2, innerWidth / 2, innerHeight / 2);
@@ -452,7 +543,7 @@ void WorldMap.load(canvas).then(async (m) => {
   renderBand();
   const frame = () => { st.now = Date.now(); map.draw(st); requestAnimationFrame(frame); };
   requestAnimationFrame(frame);
-  setInterval(() => { renderSquads(); renderSeason(); }, 1000);
+  setInterval(() => { renderSquads(); renderSeason(); renderEvents(); }, 1000);
   try {
     await source.start(apply);
   } catch (e) {
