@@ -1,0 +1,34 @@
+server/test/war/persistence.test.ts
+  s_fcb7475e0b5395::t_8ab3e3e5e74402 221-222
+  s_fcb7475e0b5395::t_5040c0fb05b109 211-220,223-225
+server/src/war/regionDO.ts
+  s_bd6d2eb4637f70::t_ca152cc43e984a 356,394-395,397-398
+server/src/war/room.ts
+  s_bd6d2eb4637f70::t_b54248a07fd8b2 446
+src/war/net/protocol.ts
+  s_bd6d2eb4637f70::t_fcfe1c4b06b96e 236-240
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "eb1c278bb427bf54dbc1fce0f5e34085ec0f042e",
+  "prompts": {},
+  "sessions": {
+    "s_bd6d2eb4637f70": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e65c1d1c-2818-49c0-a8ad-1c5f8d772b61",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    },
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
