@@ -1,0 +1,27 @@
+src/war/view/hud/chatRegion.ts
+  s_fcb7475e0b5395::t_e46dfc5498d5d6 13
+src/war/net/chatLink.ts
+  s_fcb7475e0b5395::t_26f2d972219159 108-109
+src/war/view/hud/chat.ts
+  s_fcb7475e0b5395::t_e46dfc5498d5d6 85,346
+  s_fcb7475e0b5395::t_4d836d97c8e9b1 101,109-112,191-193,348-349
+  s_fcb7475e0b5395::t_2ca25ea25bad77 322
+  s_fcb7475e0b5395::t_ec04a4f2d317d6 374
+  s_fcb7475e0b5395::t_26f2d972219159 46,83,114-115,180,200-201,212,228,244,254,301-304,307,313,317-321
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "c4eb4d78bac8d82a004ab4425ac3570aacc16b51",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
