@@ -1,0 +1,26 @@
+server/src/account/deletionMap.ts
+  s_fcb7475e0b5395::t_0762dfd1283d51 92-95,121-126
+server/test/war/crown.test.ts
+  s_fcb7475e0b5395::t_a40ac33147035f 244-245,253
+  s_fcb7475e0b5395::t_20a248c4760706 20-22,236-243,246-252,254-261
+  s_fcb7475e0b5395::t_50d983b7a046fd 16,223,276-279,282,294,307
+  s_fcb7475e0b5395::t_8914f4e0ad2d9a 1-15,17-19,23-222,224-235,262-275,280-281,283-293,295-306,308-358
+server/test/deletion.test.ts
+  s_fcb7475e0b5395::t_0762dfd1283d51 70-76
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "b75dd26c725d246b1ac28e9ce134d0d0f7b5a06f",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
