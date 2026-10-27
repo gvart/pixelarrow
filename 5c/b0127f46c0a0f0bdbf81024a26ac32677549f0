@@ -1,0 +1,25 @@
+server/src/war/roomSettlements.ts
+  s_fcb7475e0b5395::t_3cfd1a06309ae5 1-146
+server/src/war/room.ts
+  s_fcb7475e0b5395::t_db39fbed889714 67-70,137-138,141-150,261-272,287,393-395,538-540,711-714,1003,1087-1090,1092,1173,1196-1198,1229-1435
+server/test/war/settlementsRoom.test.ts
+  s_fcb7475e0b5395::t_1c8e3eb11993d3 155,157-160,176-177
+  s_fcb7475e0b5395::t_61793f86b44c9f 1-6,8-154,156,161-174,178-206
+  s_fcb7475e0b5395::t_766c8a6e3aa86b 7,175
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "5cb0127f46c0a0f0bdbf81024a26ac32677549f0",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
