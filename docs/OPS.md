@@ -293,15 +293,10 @@ Owner-only steps, in order. Legal pages (EN/RU, `landing/public/`) are signed of
 1. **Mail and legal:** make sure privacy@pixelarrow.app receives mail
    (Cloudflare Email Routing); read the legal pages once in both languages.
 2. **Workers Paid plan** (Rate Limiting bindings, CPU limits, step 3).
-3. **PBKDF2 production check**, from `server/`:
-   `npx wrangler deploy --config scripts/pbkdf2-probe/wrangler.jsonc`; open
-   `https://pixelarrow-pbkdf2-probe.<subdomain>.workers.dev/hash?iter=100000`,
-   `?iter=100001`, `?iter=310000` ~10 times each (each must answer
-   `{"ok":true,...}`); in its Logs the `iter=310000` CPU time must be under
-   60 ms; then `npx wrangler delete --config scripts/pbkdf2-probe/wrangler.jsonc`.
-   On failure lower `PBKDF2_ITERATIONS` / `PBKDF2_SAFE_MAX`
-   (`server/scripts/pbkdf2-probe/limits.ts`) to the highest passing count, at
-   least 100,000.
+3. **PBKDF2 count:** done. Workers refuses PBKDF2 above 100,000 iterations
+   (`NotSupportedError`), so `PBKDF2_ITERATIONS` is 100,000
+   (`server/scripts/pbkdf2-probe/limits.ts`); stored hashes above it count as
+   malformed.
 4. **Accounts:** onboard pixelarrow.app in Cloudflare Email Service with
    sender `noreply@pixelarrow.app` (the only address the `EMAIL` binding
    allows) and check SPF, DKIM, DMARC. Create a Turnstile widget (Managed) for

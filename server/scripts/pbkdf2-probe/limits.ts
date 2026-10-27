@@ -4,7 +4,7 @@
 
 /** V6-014 floor. */
 export const PBKDF2_SAFE_MIN = 100_000;
-/** Highest count that stays under ADR-0008's 60 ms CPU ceiling even if production CPUs are 2x slower than the local M2 Pro (24 ms measured). */
-export const PBKDF2_SAFE_MAX = 310_000;
+/** Workers' WebCrypto refuses PBKDF2 above 100k iterations (NotSupportedError), below the 310k the 60 ms CPU ceiling would allow. */
+export const PBKDF2_SAFE_MAX = 100_000;
 /** The value ADR-0008 §2 and M-PW-1 adopt. */
-export const PBKDF2_CHOSEN = 310_000;
+export const PBKDF2_CHOSEN = 100_000;

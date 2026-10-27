@@ -15,13 +15,13 @@ import { notConfigured } from '../errors';
 import { COMMON_PASSWORDS } from './common-passwords';
 
 /** The V6-ACCT-01 spike value (docs/v6/qa/PBKDF2_SPIKE.md); server/test/pbkdf2-spike.test.ts pins it. */
-export const PBKDF2_ITERATIONS = 310_000;
+export const PBKDF2_ITERATIONS = 100_000;
 const TAG = 'pbkdf2-sha256';
 const SALT_BYTES = 16;
 const DK_BITS = 256;
-/** Stored counts outside this range are treated as malformed (never run a stored count of a billion). */
+/** Stored counts outside this range are treated as malformed (Workers refuses PBKDF2 above 100k iterations). */
 const MIN_STORED_ITER = 1_000;
-const MAX_STORED_ITER = 2_000_000;
+const MAX_STORED_ITER = 100_000;
 
 export const PASSWORD_MIN = 10;
 export const PASSWORD_MAX = 128;
