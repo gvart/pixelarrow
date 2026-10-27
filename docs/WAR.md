@@ -634,6 +634,12 @@ dead and the retired free their place; civilians are the household, outside the 
 | equipment | weapon (civilians: tool), armour, helmet, shield/offhand, trinket; item tier 1–3 × 5 rarities | `src/data/items.ts`, `gearRules.ts` requirements and class limits |
 | honours | ≤ 3 battle traits ("Veteran of Kleisoura", "Held the Ford"): +2% to one stat, mostly a name | `src/data/traits.ts` shape |
 | state | `fit` / `wounded(until, where)` / `captive(by, since)` / `dead`; kills, battles, home town | `Hero.wound` |
+| deeds, scars (E3) | ≤ 8 deeds, names only, each once: First blood, Man-slayer (10th kill), Boar-slayer / Bane of … (struck a guardian slain in the fight), Held the gate (fit by his fort or camp), Last man standing, Survivor (fell wounded and lived); a wound lived through leaves a scar (≤ 3, cosmetic: red slashes on his portrait and under him) | `src/war/sim/deeds.ts` |
+
+The dead stay dead (E3): each gets a grave on his player's home memorial (the home town's first statue; graves stand
+before it, a click lists the fallen with their deeds and where they fell), and his worn kit falls as a pile named for
+him, his owner's alone for 10 min, then anyone's. A guardian's killers each take its trophy home (on posts by the
+town's second statue). Server: `war_memorial`, `war_trophies` (migration 0041).
 
 XP: 1 per 10 damage dealt, 10 per kill, 15 per fight survived (≥ N enemy soldiers took part), 5 per claim or siege
 objective. Civilians: 1 per job (meal batch, bar, trade, site, patient). A wounded soldier keeps half the fight's XP.
