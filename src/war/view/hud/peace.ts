@@ -8,7 +8,8 @@
  *                enjoys as icon chips, and the next level's perks as a greyed row
  *   top right    Works (the corner button), two tabs: Works, a project card per alliance work (after Rise of Kingdoms'
  *                alliance buildings): its art, one big progress bar, the goods and labour as have/need chips, the top
- *                three givers and the bonus it grants as a reward chip; pick a card to contribute goods from your home
+ *                three givers and the bonus it grants as a reward chip (E7: the alliance's wonder heads the tab, its stage
+ *                track with each stage's perk and its top five givers); pick a card to contribute goods from your home
  *                strongroom. Titles, the season's standings: each title's emblem, holder and lead, and your own run at it.
  *                The roster strip shows the titles as emblems (./titles.ts).
  * Online the panels read /api/war/works and /api/war/titles; offline they show the works' needs only.
@@ -58,6 +59,24 @@ const CSS = `
 .wk-give{display:flex;align-items:center;gap:5px;margin-top:6px;padding-top:6px;border-top:1px solid var(--rf-rule)}
 .wk-give .rf-step .rf-tbtn{width:23px;padding:0}.wk-give input{width:46px}
 .wk-go{margin-left:auto}
+.wd-card{padding:7px 7px 8px;border-color:#6a5326;background:linear-gradient(180deg,#1f1610,var(--rf-sunk) 60%)}
+.wd-art{width:76px;height:76px;flex:none;display:flex;align-items:flex-end;justify-content:center;background:radial-gradient(circle at 50% 75%,#4a3018,#120b08);border:1px solid #6a5326;box-shadow:inset 0 0 0 1px #0e0907;overflow:hidden}
+.wd-art img{max-width:72px;max-height:74px;object-fit:contain}
+.wd-tier{font:700 10px/1 Cinzel,serif;letter-spacing:.12em;text-transform:uppercase;color:var(--rf-gold);margin-bottom:3px}
+.wd-name{font-size:16px}
+.wd-stage{margin-top:4px;font-size:11.5px;color:var(--rf-muted)}.wd-stage b{color:var(--rf-ink)}
+.wd-track{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;margin:8px 0 2px}
+.wd-st{padding:4px 4px 5px;border:1px solid var(--rf-rule);background:var(--rf-sunk)}
+.wd-st.cur{border-color:var(--rf-accent)}.wd-st.done{border-color:#3f5a2c;background:#121a0c}
+.wd-st .rf-bar{margin:4px 0}
+.wd-sn{display:flex;align-items:center;gap:4px;font:700 11px/1.1 Cinzel,serif;color:var(--rf-title);white-space:nowrap;overflow:hidden}
+.wd-k{width:14px;height:14px;flex:none;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;font:700 9px/1 Inter,sans-serif;color:var(--rf-ink);background:var(--rf-raised);border:1px solid var(--rf-line)}
+.done .wd-k{background:#1d2a14;border-color:#3f5a2c}
+.wd-pk{display:flex;flex-wrap:wrap;gap:2px}.wd-pk .rf-ichip{height:20px;font-size:11px}
+.wd-givers{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:3px 10px}
+.wd-giver{display:flex;align-items:center;gap:6px;min-width:0;font-size:11px}.wd-gn{flex:1;min-width:0;color:var(--rf-ink);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wd-giver .rf-dim{white-space:nowrap}
+.wd-hint{flex:1;font-size:11px}
 .ti-row{display:flex;align-items:center;gap:8px;padding:5px 4px;border-bottom:1px solid #1d130e}
 .ti-row.me{background:var(--rf-sel)}
 .ti-name{font:700 13px/1.1 Cinzel,serif;color:var(--rf-title)}
@@ -140,8 +159,8 @@ export function mountPeace(s: SandboxScene, mk: Mk): void {
   const render = () => {
     if (win.style.display === 'none') return;
     const scroll = win.scrollTop;
-    const raised = works.filter((w) => w.done).length;
-    win.innerHTML = `<div class="rf-head rf-ph">${icon('node-engineer-master-builder', 32)}<div style="flex:1;min-width:0"><div class="rf-name">Alliance works</div><div class="sub">${raised} of ${works.length} raised this season${online() ? '' : ' · offline'}</div></div><button class="rf-tbtn x" data-act="close" title="close">×</button></div>
+    const plain = works.filter((w) => !w.stages), raised = plain.filter((w) => w.done).length;
+    win.innerHTML = `<div class="rf-head rf-ph">${icon('node-engineer-master-builder', 32)}<div style="flex:1;min-width:0"><div class="rf-name">Alliance works</div><div class="sub">${raised} of ${plain.length} raised this season${online() ? '' : ' · offline'}</div></div><button class="rf-tbtn x" data-act="close" title="close">×</button></div>
       <div class="rf-tabs">${(['works', 'titles'] as const).map((t) => `<button class="rf-tab${t === tab ? ' on' : ''}" data-tab="${t}">${t === 'works' ? 'Works' : 'Titles'}</button>`).join('')}</div>
       ${tab === 'works' ? worksHtml(works, online(), form, home()) : titlesHtml(titles, stats, s.sim.playerId ?? null)}<div class="mk-msg rf-dim" style="min-height:15px${bad ? ';color:var(--rf-bad)' : ''}">${esc(msg)}</div>`;
     win.scrollTop = scroll;
