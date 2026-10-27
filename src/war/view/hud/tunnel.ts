@@ -9,7 +9,8 @@
  * pulls the roster again. Offline the same rule runs here on a local clock (his men on this map count), the raised man
  * spawns at the mouth, and a dev button runs the clock x60.
  */
-import { settleTunnel, TUNNEL, tunnelLine, clock } from '../../sim/tunnel';
+import { settleTunnel, TUNNEL, tunnelLine } from '../../sim/tunnel';
+import { ARMY_MAX } from '../../sim/soldiers';
 import { START_CLASSES } from '../../world/start';
 import { ALLIANCES } from '../../world/alliances';
 import { WORLD_REGIONS } from '../../world/regions';
@@ -20,6 +21,7 @@ import { mountTunnelLine } from '../tunnelLine';
 import { glyph } from './glyph';
 import { sandboxRoster } from './roster/state';
 import { armyMen } from './souls';
+import { wipeCard } from './wipeCard';
 
 type Mk = (id: string, css: string, html?: string) => HTMLElement;
 
@@ -94,43 +96,55 @@ export function mountTunnel(s: SandboxScene, mk: Mk): TunnelHost {
   fast.textContent = `x${FAST}`;
   if (!s.sim.net || import.meta.env.DEV) pill.append(fast);
 
-  // ---------- the army destroyed card ----------
-  const wipe = mk('rfWipe', 'inset:0;display:none;pointer-events:auto;background:radial-gradient(ellipse at center,rgba(8,10,20,.55),rgba(0,0,0,.82));align-items:center;justify-content:center;z-index:30');
+  // ---------- the army destroyed card (./wipeCard.ts) ----------
   const home = WORLD_REGIONS.find((w) => w.id === homeId())?.name ?? 'your home town';
-  wipe.innerHTML = `<div class="rf-card" style="width:380px;padding:16px 18px 14px;text-align:center">
-    <div class="rf-name" style="font-size:20px;margin-bottom:8px">Your army is destroyed</div>
-    <div class="rf-dim" style="font-style:italic;line-height:1.45;margin-bottom:12px">The shades of your fallen walk back through the Tunnel of Shades in ${home}. The dead do not stay idle on Metaxy for long.</div>
-    <div style="margin-bottom:4px">The first man rises in <b id="rfWipeT" style="color:#bfe0ff">10:00</b></div>
-    <div class="rf-dim" style="font-size:11.5px;margin-bottom:14px">Until ${TUNNEL.floor} men stand again, one rises every ${TUNNEL.everyMs / 60_000} minutes, level 1 in starter kit. Past ${TUNNEL.floor}, men come only from souls.</div>
-    <div style="display:flex;gap:8px;justify-content:center"><button class="rf-tbtn pri" id="rfWipeGo" style="height:28px;padding:0 14px">Watch the tunnel</button><button class="rf-tbtn" id="rfWipeX" style="height:28px">Close</button></div>
-  </div>`;
-  const wipeT = wipe.querySelector<HTMLElement>('#rfWipeT')!;
   let shown = false;
-  const showWipe = (on: boolean) => void (wipe.style.display = on ? 'flex' : 'none');
-  wipe.querySelector<HTMLElement>('#rfWipeX')!.onclick = () => showWipe(false);
-  wipe.querySelector<HTMLElement>('#rfWipeGo')!.onclick = () => {
-    showWipe(false);
+  const wipe = wipeCard(mk('rfWipe', ''), home, () => {
     const t = homeTunnel(s);
     if (t) return s.focus(t.x, t.y + 3, 1.6);
+    // not at home: his home town, watching (a join with nobody: the server lets him look on)
     const q = new URLSearchParams(location.search);
     q.set('region', homeId());
+    q.set('world', '1');
     if (q.has('net')) q.set('net', `/ws/war/${homeId()}`);
     location.href = `sandbox.html?${q}`;
+  });
+
+  /** His living men on this map (online: his squads). */
+  const mineHere = () => {
+    const me = `p:${s.sim.playerId}`, mine = new Set((s.sim.cur?.squads ?? []).filter((q) => q.owner === me).map((q) => q.id));
+    return (s.sim.cur?.units ?? []).filter((u) => mine.has(u.squad) && u.state !== 'dead');
   };
 
   // ---------- the clock ----------
-  let pulling = false, pulledFor: number | null = null, inflight = 0, inflightUntil = 0;
+  let pulling = false, known = false, pulledFor: number | null = null, inflight = 0, inflightUntil = 0;
   const pull = async () => {
     if (pulling) return;
     pulling = true;
     try {
       const t = await s.sim.api<NetTunnel>('GET', 'tunnel');
       if (!t) return;
-      const was = host.alive;
+      const was = host.alive, due = host.nextAt !== null && Date.now() >= host.nextAt;
+      // the men risen since the last read: by this read, or by another (the roster's) once the clock ran out
+      const raised = t.raised || (known && due && t.alive > was ? t.alive - was : 0);
+      known = true;
       Object.assign(host, { alive: t.alive, nextAt: t.nextAt, pending: t.pending });
       host.ever ||= t.pending < TUNNEL.floor || t.alive > 0 || t.nextAt !== null;
-      for (let k = 0; k < (t.raised ?? 0); k++) host.rises.push({ at: performance.now() + k * 1200, cls: classFor(s, k) });
-      if (t.raised || t.alive > was) void R.pull();
+      for (let k = 0; k < raised; k++) host.rises.push({ at: performance.now() + k * 1200, cls: classFor(s, k) });
+      if (raised || t.alive > was) void R.pull();
+      // at home: once the line's rise played, the risen men march in (a join picks his men at home; ../../net/client.ts)
+      const at = homeTunnel(s);
+      if (raised && at) setTimeout(() => {
+        const before = mineHere().length;
+        s.sim.spawn('you', myTeam(), classFor(s, 0), ARMY_MAX, at.x, at.y + at.h / 2 + 0.8);
+        // the camera goes to him once he stands in the region (the server places him on the road in)
+        let tries = 0;
+        const look = setInterval(() => {
+          const men = mineHere();
+          if (men.length > before) s.focus(men[0].x, men[0].y, 1);
+          if (men.length > before || ++tries > 60) clearInterval(look);
+        }, 500);
+      }, SPAWN_AFTER + (raised - 1) * 1200);
     } finally {
       pulling = false;
     }
@@ -158,19 +172,23 @@ export function mountTunnel(s: SandboxScene, mk: Mk): TunnelHost {
     void pull();
     setInterval(() => void pull(), PULL_MS);
   }
+  let hereWas = 0;
   setInterval(() => {
     if (s.sim.net) {
-      // the countdown ran out: the read raises him
+      // the countdown ran out: the read raises him; his last man here fell: read again soon (the card)
       if (host.nextAt !== null && host.now() >= host.nextAt && pulledFor !== host.nextAt) (pulledFor = host.nextAt), void pull();
+      const here = mineHere().length;
+      if (hereWas > 0 && here === 0) for (const ms of [1500, 5000]) setTimeout(() => void pull(), ms);
+      hereWas = here;
     } else offline();
     const line = host.ever ? tunnelLine(host.alive, host.nextAt, host.now()) : null;
     pill.style.display = line ? 'flex' : 'none';
     if (line) pillText.textContent = line;
     // the last man fell: the card once (again only after men stood once more)
     const dead = host.ever && host.alive === 0 && host.pending > 0;
-    if (dead && !shown) (shown = true), showWipe(true);
-    if (!dead) shown = false;
-    if (host.nextAt !== null) wipeT.textContent = clock(host.nextAt - host.now());
+    if (dead && !shown) (shown = true), wipe.show(true);
+    if (!dead) (shown = false), wipe.show(false);
+    wipe.set(host.nextAt, host.now());
   }, 250);
   return host;
 }

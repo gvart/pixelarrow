@@ -208,6 +208,21 @@ describe('WarRegionDO persistence', () => {
     again.ws.close(1000);
   });
 
+  it('W-66: a player with no man at home watches the region (a join naming nobody), its loop streams, the pong says idle', async () => {
+    const me = await devLogin(7409);
+    const c = await connect(me.token);
+    let frames = 0;
+    c.ws.addEventListener('message', (e) => void (typeof e.data !== 'string' && frames++));
+    c.send(join(me.playerId, 0, [['none']]));
+    expect(await c.next('welcome')).toMatchObject({ you: { id: me.playerId, team: 0 }, squads: [] });
+    await new Promise((r) => setTimeout(r, 600));
+    expect(frames).toBeGreaterThan(0); // snapshots, not a blank region
+    c.send({ t: 'ping', c: 1 } as never);
+    const pong = (await c.next('pong')) as Extract<ServerMsg, { t: 'pong' }>;
+    expect(pong.idle).toBe((await stats()).units === 0); // no armies here: the readout says idle, not stalled
+    c.ws.close(1000);
+  });
+
   it('joins with persisted soldiers and resumes the region after an eviction', async () => {
     const me = await devLogin(7403);
     await api('/api/war/dev/seed', { method: 'POST', token: me.token, json: {} });

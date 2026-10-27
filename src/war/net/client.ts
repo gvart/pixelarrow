@@ -62,6 +62,8 @@ export interface NetStats {
   quiet: number;
   /** The region socket is open. */
   open: boolean;
+  /** W-66: the last pong said the region is idle (no armies stand, or its loop rests): no snapshots is no stall. */
+  idle: boolean;
 }
 
 export const PING_MS = 2000;
@@ -88,9 +90,11 @@ export function createNet(url: string, region: string, devId: number | undefined
   const checks = new Map<number, (r: PlaceResult | WallPlan | BridgePlan | null) => void>();
   // reconnects: the last join's team (an empty join rejoins), the camera rect; the readout's counters
   let joined: number | null = null, lastView: string | null = null, wait = 1000, pinger: ReturnType<typeof setInterval> | null = null;
-  let frames = 0, bytes = 0, since = performance.now(), lastAt = 0, lastFrame = 0, rtt: number | null = null, serverMs: number | null = null;
+  let frames = 0, bytes = 0, since = performance.now(), lastAt = 0, lastFrame = 0, rtt: number | null = null, serverMs: number | null = null, idle = false;
   let signedIn: (auth: Record<string, string>) => void = () => undefined;
   const authed = new Promise<Record<string, string>>((ok) => (signedIn = ok));
+  // W-66: his men at home again (the tunnel raised one): the next join picks from the roster as it is now
+  let reload: () => Promise<void> = async () => undefined;
   const send = (m: () => unknown) => {
     if (ready && ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify(m()));
     else pending.push(m);
@@ -106,8 +110,10 @@ export function createNet(url: string, region: string, devId: number | undefined
     const load = async () => (await all()).filter(fit);
     const roster = await all();
     home = roster.filter(fit);
-    // a dev player with nobody (a fresh dev id) gets a dev roster; an email account makes his start in the menu
-    if (s.dev && (seed || !roster.some((p) => p.state !== 'dead'))) {
+    reload = async () => void (home = await load());
+    // a fresh dev id (nobody, not even fallen) gets a dev roster; an email account makes his start in the menu, and a
+    // dev player whose army fell waits on the Tunnel of Shades as an email account does (W-66)
+    if (s.dev && (seed || !roster.length)) {
       const r = await fetch('/api/war/dev/seed', { method: 'POST', headers: auth, body: '{}' });
       if (!r.ok) console.warn('[net] seed roster failed', r.status, await r.text());
       home = await load();
@@ -141,6 +147,7 @@ export function createNet(url: string, region: string, devId: number | undefined
           if (m.t === 'pong') {
             rtt = Math.round(performance.now() - m.c);
             serverMs = m.ms ?? null;
+            idle = !!m.idle;
             return;
           }
           if (m.t === 'checked') {
@@ -150,7 +157,7 @@ export function createNet(url: string, region: string, devId: number | undefined
           }
           if (m.t === 'nodes' || m.t === 'influence' || m.t === 'stock' || m.t === 'town' || m.t === 'fog' || m.t === 'wild') return onMsg(m); // the economy view (./economy.ts), W-39 the fog, W-65 the lairs and claims
           console.info('[net]', m);
-          if (m.t === 'stowed' || m.t === 'handoff' || m.t === 'error' || m.t === 'welcome' || m.t === 'soul' || m.t === 'worldEvents' || m.t === 'guide' || m.t === 'settlements' || m.t === 'story' || m.t === 'encounter') onMsg(m); // M6: the trade panels (welcome: our player id); W-60: a soul claimed or refused; W-62 world events, the guide; W-63 settlements
+          if (m.t === 'stowed' || m.t === 'handoff' || m.t === 'error' || m.t === 'welcome' || m.t === 'soul' || m.t === 'worldEvents' || m.t === 'guide' || m.t === 'settlements' || m.t === 'story' || m.t === 'encounter' || m.t === 'refused' || m.t === 'queued') onMsg(m); // M6: the trade panels (welcome: our player id); W-60: a soul claimed or refused; W-62 world events, the guide; W-63 settlements
           return;
         }
         frames++;
@@ -179,13 +186,17 @@ export function createNet(url: string, region: string, devId: number | undefined
     return order.map((p) => p.id);
   };
   return {
-    join: (team, cls, count) =>
-      send(() => {
-        const ids = pick(cls, count);
-        joined = team;
-        // none left at home: an empty join still rejoins squads standing in the region
-        return { t: 'join', v: NET_VERSION, region, playerId: pid, team, squads: [ids.length ? ids : ['none']] };
-      }),
+    join: (team, cls, count) => {
+      const go = () =>
+        send(() => {
+          const ids = pick(cls, count);
+          joined = team;
+          // none left at home: an empty join still rejoins squads standing in the region (or watches it: W-66)
+          return { t: 'join', v: NET_VERSION, region, playerId: pid, team, squads: [ids.length ? ids : ['none']] };
+        });
+      if (home.length) go();
+      else void reload().catch(() => undefined).then(go);
+    },
     order: (o) => send(() => ({ t: 'order', o })),
     check: (c, done) => {
       const id = ++checkId;
@@ -225,7 +236,7 @@ export function createNet(url: string, region: string, devId: number | undefined
       pinger = setInterval(ping, PING_MS);
     },
     stats: () => {
-      const now = performance.now(), out: NetStats = { rtt, serverMs, frames, bytes, secs: (now - since) / 1000, quiet: lastFrame || lastAt ? now - (lastFrame || lastAt) : 0, open: ready && ws?.readyState === WebSocket.OPEN };
+      const now = performance.now(), out: NetStats = { rtt, serverMs, frames, bytes, secs: (now - since) / 1000, quiet: lastFrame || lastAt ? now - (lastFrame || lastAt) : 0, open: ready && ws?.readyState === WebSocket.OPEN, idle };
       frames = bytes = 0;
       since = now;
       return out;

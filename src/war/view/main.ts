@@ -32,6 +32,7 @@ import { chatBusy } from './hud/chat';
 import { escPanelOpen } from './hud/kit';
 import { loader, watchScene } from './loadScreen';
 import { mountNetStats } from './hud/netStats';
+import { homeTunnel, tunnelHost } from './hud/tunnel';
 
 const q = new URLSearchParams(location.search);
 // M7d: a scenario may name its own region (the landmark raids)
@@ -109,6 +110,8 @@ void Promise.all([loading, grey ? null : loadArt(undefined, loader?.part('art', 
     }
     devPanel(game, scene, sc);
     hud(scene);
+    // the region would not take him (a refused join): say why rather than wait on a snapshot that never comes
+    scene.sim.serverTaps.add((m) => { if (m.t === 'refused' && !scene.sim.cur) loader?.fail(`The region refused you: ${m.detail ?? m.reason}.`); });
     mountNetStats(game, scene.sim, q.has('net')); // Settings > Display > Network stats
     loader?.set('scene', 1, 'Waking the region…');
     if (loader) watchScene(loader, scene, () => !q.has('world') || placed);
@@ -119,6 +122,14 @@ void Promise.all([loading, grey ? null : loadArt(undefined, loader?.part('art', 
   // world entry: the camera opens on the player's men once they stand in the region (not the map's middle)
   const toSquad = () => {
     const own = ownCentre(scene.sim.cur, myTeam());
+    // W-66 his army destroyed, watching his home town: the camera on the Tunnel of Shades (his men rise there)
+    const tunnel = homeTunnel(scene), th = tunnelHost(scene);
+    if (!own && tunnel && th?.ever && th.alive === 0) {
+      game.events.off('poststep', toSquad);
+      scene.focus(tunnel.x, tunnel.y + 3, 1.6);
+      placed = true;
+      return;
+    }
     if (!own) return;
     game.events.off('poststep', toSquad);
     scene.focus(own.x, own.y, 1); // close enough to know his men

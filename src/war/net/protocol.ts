@@ -233,8 +233,11 @@ export type ServerMsg =
   | { t: 'queued'; reason: 'quota'; pos: number; need: number; quota: Quota }
   | { t: 'refused'; reason: Refusal; detail?: string }
   | { t: 'error'; code: OrderError | 'parse' | 'tooBig'; detail?: string }
-  /** `ms`: the region loop's mean tick time over its last ticks (the network readout, ../view/hud/netStats.ts). */
-  | { t: 'pong'; c: number; tick: number; ms?: number }
+  /**
+   * `ms`: the region loop's mean tick time over its last ticks (the network readout, ../view/hud/netStats.ts); `idle`:
+   * no armies stand here or the loop rests (no snapshots is then no stall).
+   */
+  | { t: 'pong'; c: number; tick: number; ms?: number; idle?: boolean }
   | { t: 'checked'; id: number; result: PlaceResult | WallPlan | BridgePlan | null }
   /** M6f: a stow went through: what moved (goods by good, item count) and what did not fit (left where it was). */
   | { t: 'stowed'; dir: 'in' | 'out'; site: string; goods: Record<string, number>; items: number; left?: Record<string, number> }

@@ -1,7 +1,8 @@
 /**
  * The network readout (Settings > Display > Network stats, `war.netStats`, default off): a small corner panel with the
  * round trip to the region server (ping), the server's tick time, snapshots a second, kilobytes a second, the page's
- * fps, and a warning when the server has sent nothing for over a second. Offline (the local sim): fps and the sim's
+ * fps, and a warning when the server has sent nothing for over a second ("region idle" instead while the server says
+ * no armies stand there or its loop rests). Offline (the local sim): fps and the sim's
  * step time. The figures come from ../../net/client.ts stats through the sim worker (SimClient.netInfo), once a second.
  */
 import type Phaser from 'phaser';
@@ -61,6 +62,8 @@ export function mountNetStats(game: Phaser.Game, sim: SimClient, net: boolean): 
           + row('Snaps', `<b class="${rate >= 8.5 ? 'good' : rate >= 5 ? 'warn' : 'bad'}">${rate.toFixed(1)}</b>/s`)
           + row('In', `<b>${(n.bytes / s / 1024).toFixed(1)}</b> KB/s`);
         if (!n.open) html += '<div class="stall">reconnecting…</div>';
+        // W-66: no armies stand here, or the loop rests: few or no snapshots is no stall
+        else if (n.idle) html += '<div><b>region idle</b></div>';
         else if (n.quiet > 1000) html += `<div class="stall">server stalled ${(n.quiet / 1000).toFixed(1)} s</div>`;
       }
     }
