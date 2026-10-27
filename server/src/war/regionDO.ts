@@ -64,12 +64,13 @@ import { holderOf } from './tradeRoutes';
 import { bundleGoods, bundleLoads, type Bundle } from './cargo';
 import { homeOf } from '../../../src/war/world/graph';
 import type { Item } from '../../../src/data/items';
-import type { WarPerson } from '../../../src/war/types';
+import type { WarPerson, WarSkillId } from '../../../src/war/types';
+import type { AttrId } from '../../../src/data/perks';
 import { log, logError } from '../telemetry/log';
 import { applyBossKill } from './bosses';
 import { elapsedTicks, loadMemory, MEMORY_KEY, remembered, storeMemory, writeMemory } from './memory';
 import type { WorldEvent } from '../../../src/war/world/events';
-import { applyFight, armyCount, claimForJoin, claimSoul, deployed, freeRaided, release, releaseRegion } from './persons';
+import { applyFight, armyCount, claimForJoin, claimSoul, deployed, freeRaided, LIVE, release, releaseRegion } from './persons';
 import { applyCrafts, keepMends, returnMends, takeForMend } from './crafting';
 import { saveRegionHolds } from './holders';
 import { json } from './persons';
@@ -126,12 +127,14 @@ export const LEVY_MS = 6 * 3_600_000;
 const levyKey = (id: number) => `levy:${id}`;
 interface LevyBase { store: Record<string, number>; stalls: Record<number, number> }
 
-/** W-63: the terms route asks the settlement's region room whether the offerer's men stand on its ground. */
+/** W-63: the terms route asks the settlement's region room whether the offerer's men stand on its ground; the level route hands it a spend (LIVE). */
 export function wirePresence(env: Env): void {
   PRESENCE.check = async (pid, s) => {
     const stub = env.WAR_REGION.get(env.WAR_REGION.idFromName(s.region));
     return stub.presence(s.region, pid, s.id).catch(() => false);
   };
+  // a level-up on a man in a region reaches his living man in its room
+  LIVE.levelUp = (region, id, attrs, skill) => env.WAR_REGION.get(env.WAR_REGION.idFromName(region)).levelUp(region, id, attrs, skill);
 }
 
 interface Attachment { pid: number }
@@ -1108,6 +1111,16 @@ export class WarRegionDO extends DurableObject<Env> {
     for (const pid of citizens) after[pid] = stalls[pid] - (takeStall[pid] ?? 0);
     await this.ctx.storage.put(levyKey(s.id), { store: room.storeGoods(s.id), stalls: after } satisfies LevyBase);
     this.save();
+  }
+
+  /** RPC (POST /persons/:id/level on a man in this region): his living man takes the spend; see WarRoom.levelUp. */
+  async levelUp(region: string, id: string, attrs: Partial<Record<AttrId, number>>, skill?: WarSkillId): Promise<string> {
+    const room = await this.ensure(region);
+    if (!room) return 'absent';
+    this.catchUp();
+    const r = room.levelUp(id, attrs, skill);
+    if (r === 'ok') this.save();
+    return r;
   }
 
   /** W-63 (RPC, the terms route): do at least SETTLE.presence of the player's men stand on settlement `id`'s ground? */

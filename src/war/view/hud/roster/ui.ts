@@ -214,6 +214,7 @@ export const ROSTER_CSS = `
 .rr-port canvas{display:block;width:64px;height:80px;image-rendering:pixelated}
 .rr-attr{display:grid;grid-template-columns:16px 1fr auto;column-gap:6px;align-items:center;padding:2px 2px 3px;margin-bottom:2px}
 .rr-attr:hover,.rr-stat:hover{background:var(--rf-hover)}
+.rr-attr.spend,.rr-pts[data-act]{cursor:pointer}
 .rr-attr .nm{color:var(--rf-ink)}
 .rr-attr b{font:700 13px/1 Cinzel,serif;color:var(--rf-ink)}
 .rr-pips{grid-column:2/4;display:flex;gap:1px;margin-top:3px}

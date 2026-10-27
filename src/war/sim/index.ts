@@ -3498,6 +3498,9 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
         speedOf(u.squad);
       }
     },
+    person(id) {
+      return units.find((x) => x.alive && x.person?.id === id)?.person ?? undefined;
+    },
     setPerson(p) {
       const u = units.find((x) => x.alive && x.person?.id === p.id);
       if (!u) return false;

@@ -4,6 +4,9 @@
  * (in his home region) first, then new recruits with names. The sim's event log comes in as it happens; a fight ends 5 s after the player's
  * last blow or fall (or on End fight), and its report is written back. Changes off the field (a level-up choice, dev XP)
  * go to the live man too (setPerson), so the next report does not undo them.
+ *
+ * Net mode (?net=, the live war): the server keeps the persons, so the roster is his (GET /api/war/roster, again every
+ * PULL_MS and after a choice) instead of the local seed, and a level-up choice goes up as POST /persons/:id/level.
  */
 import { CIV_CLASSES, CLASSES, isCivClass, isClassId } from '../../../../data/classes';
 import { freeName } from '../../../../data/names';
@@ -11,10 +14,12 @@ import { bossTrophy, warBoss } from '../../../../data/warBosses';
 import { plainDeed, slayerDeed, type PlainDeed } from '../../../sim/deeds';
 import { xpToNext } from '../../../../data/units';
 import { applyOffer, createRoster, grantXp, levelOffers, makePerson, type LevelOffer, type Roster } from '../../../sim/roster';
+import { ATTR_IDS, ATTR_MAX, POINTS_PER_LEVEL, type AttrId } from '../../../../data/perks';
 import { ARMY_MAX, SQUAD_MAX } from '../../../sim/soldiers';
 import { ALLIANCES } from '../../../world/alliances';
 import { WORLD_REGIONS } from '../../../world/regions';
-import type { FightReport, Order, PersonResult, UnitSnap, WarEvent, WarPerson } from '../../../types';
+import type { Item, Slot } from '../../../../data/items';
+import type { FightReport, Order, PersonResult, UnitSnap, WarEvent, WarPerson, WarSkillId } from '../../../types';
 import type { SandboxScene } from '../../SandboxScene';
 import { myTeam } from '../../side';
 
@@ -30,6 +35,28 @@ export interface TrophyRow { boss: string; name: string; region: string; at: num
 
 /** A fight ends this many ticks after the player's last blow or fall. */
 const QUIET = 50;
+/** Net mode: the server's roster again this often (ms; his men level in fights the server runs). */
+const PULL_MS = 10_000;
+
+/** Net mode: a person as GET /api/war/roster lists him (server/src/war/persons.ts view). */
+export interface NetPerson {
+  id: string; cls: string; name: string; level: number; xp: number; kills: number; battles: number; attrs: Partial<Record<AttrId, number>>;
+  skills?: WarSkillId[]; gear?: Partial<Record<Slot, Item>>; honours?: WarPerson['honours']; state: string; region: string | null;
+  pending: { points: number }; perks?: string[]; deeds?: WarPerson['deeds']; scars?: number;
+}
+
+/** The server's man as the card's person: his class's fresh hero with the server's level, points, attributes, gear and record. */
+export function netPerson(n: NetPerson): WarPerson {
+  const base = makePerson(n.id, n.cls, { level: n.level }).hero;
+  const hero = {
+    ...base, name: n.name || base.name, level: n.level, xp: n.xp, points: n.pending.points, kills: n.kills, battles: n.battles,
+    attrs: { ...base.attrs, ...n.attrs }, equip: n.gear ?? {}, perks: (n.perks ?? base.perks) as typeof base.perks,
+  };
+  return { id: n.id, hero, skills: n.skills ?? [], honours: n.honours ?? [], ...(n.deeds?.length ? { deeds: n.deeds } : {}), ...(n.scars ? { scars: n.scars } : {}) };
+}
+
+/** The server's person state as the roster's (training: still his, at home). */
+const NET_STATE: Record<string, PersonResult['state']> = { wounded: 'wounded', captive: 'captive', dead: 'dead' };
 const rosters = new WeakMap<SandboxScene, SandboxRoster>();
 
 /** The scene's roster (made on first call; call before the scenario spawns, so its squads get persons). */
@@ -40,7 +67,9 @@ export function sandboxRoster(s: SandboxScene): SandboxRoster {
 }
 
 export class SandboxRoster {
-  readonly roster: Roster = createRoster();
+  roster: Roster = createRoster();
+  /** Net mode: the region each man stands in (null: at home). */
+  private netRegion = new Map<string, string | null>();
   /** Persons sent to the field (until the fight that took them is reported). */
   private sent = new Set<string>();
   private captor = new Map<string, number>();
@@ -58,7 +87,10 @@ export class SandboxRoster {
   onChange: (() => void) | null = null;
 
   constructor(private s: SandboxScene) {
-    this.seed();
+    if (s.sim.net) {
+      void this.pull();
+      setInterval(() => void this.pull(), PULL_MS);
+    } else this.seed();
     // only the player's own spawns draw his men (an ally's or a garrison's squad on his team stays anonymous)
     s.sim.personsFor = (owner, team, cls, count) => (team === myTeam() && owner === 'you' ? this.take(cls, Math.min(count, SQUAD_MAX)) : undefined);
     s.sim.onEvents = (ev) => this.events(ev);
@@ -86,6 +118,24 @@ export class SandboxRoster {
       const p = this.recruit(cls, { level });
       this.roster.update({ ...p, hero: { ...p.hero, perks: perks as unknown as typeof p.hero.perks } }); // node ids ride in perks (src/data/professions.ts)
     }
+  }
+
+  /** Net mode: the server's roster in place of the one held (the fallen and the captive in their state). */
+  async pull(): Promise<void> {
+    const r = await this.s.sim.api<{ persons?: NetPerson[] }>('GET', 'roster');
+    if (!r?.persons) return;
+    const ro = createRoster(), gone: PersonResult[] = [];
+    this.netRegion.clear();
+    for (const n of r.persons) {
+      const p = netPerson(n);
+      ro.add(p);
+      this.netRegion.set(p.id, n.region);
+      const st = NET_STATE[n.state];
+      if (st) gone.push({ pid: p.id, owner: 'you', team: myTeam(), state: st, xp: 0, kills: 0, dmg: 0, levelUps: 0, hero: p.hero });
+    }
+    ro.apply({ tick: 0, persons: gone, loot: {} });
+    this.roster = ro;
+    this.onChange?.();
   }
 
   private recruit(cls: string, o: Parameters<typeof makePerson>[2] = {}): WarPerson {
@@ -116,7 +166,9 @@ export class SandboxRoster {
     return this.roster.all().map((p) => {
       const st = this.roster.state(p.id), unit = live.get(p.id);
       if (st !== 'fit') return { p, where: st === 'captive' ? 'captive' : st, region: here };
-      if (!unit || !this.sent.has(p.id)) return { p, where: 'away', region: home };
+      // net mode: any live man of his is in the field (the server sent him); at rest he stands where the server says
+      const at = this.netRegion.get(p.id), away = at ? (WORLD_REGIONS.find((w) => w.id === at)?.name ?? at) : home;
+      if (!unit || !(this.sent.has(p.id) || this.s.sim.net)) return { p, where: 'away', region: away };
       if (unit.state === 'dead') return { p, where: unit.wounded ? 'wounded' : 'dead', unit, squad: unit.squad, region: here };
       return { p, where: 'field', unit, squad: unit.squad, order: this.s.sim.squads.get(unit.squad)?.order, region: here };
     });
@@ -131,16 +183,30 @@ export class SandboxRoster {
     return this.captor.get(pid);
   }
 
+  /** What he may take now: an open skill slot first, and his unspent points beside it (a pending skill does not hold them back). */
   offers(pid: string): LevelOffer[] {
     const p = this.roster.get(pid);
-    return p && this.roster.state(pid) !== 'dead' ? levelOffers(p) : [];
+    if (!p || this.roster.state(pid) === 'dead') return [];
+    const os = levelOffers(p), n = Math.min(p.hero.points, POINTS_PER_LEVEL);
+    if (os[0]?.kind === 'skill' && n > 0) for (const attr of ATTR_IDS) if (p.hero.attrs[attr] < ATTR_MAX) os.push({ kind: 'attr', attr, n });
+    return os;
   }
 
-  /** Take a level-up offer: the roster and the live man. */
+  /** Take a level-up offer: the roster and the live man (net mode: the server keeps it, then his roster comes again). */
   choose(pid: string, o: LevelOffer): void {
     const p = this.roster.get(pid);
     if (!p) return;
-    this.put(applyOffer(p, o));
+    const q = applyOffer(p, o);
+    if (!this.s.sim.net) return this.put(q);
+    this.roster.update(q); // shown at once; the pull puts the server's word over it
+    this.onChange?.();
+    const body = o.kind === 'skill' ? { skill: o.skill } : { attrs: { [o.attr]: q.hero.attrs[o.attr] - p.hero.attrs[o.attr] } };
+    // a refusal (he is in the field, no points left): { error: { code, message } }, or a bare string off the wire
+    void this.s.sim.api<{ error?: string | { message?: string } }>('POST', `persons/${pid}/level`, body).then((r) => {
+      const e = r?.error;
+      if (e) this.onNote?.({ kind: 'info', pid, text: typeof e === 'string' ? e : (e.message ?? 'refused') });
+      return this.pull();
+    });
   }
 
   /** Dev: one level's worth of XP. */

@@ -27,7 +27,7 @@
  *  - Deployment: a room claims persons for its region on join (`region`); while deployed the API leaves them alone and
  *    only the room's fight write-back changes them. Fight writes are one D1 batch keyed by the fight id (idempotent).
  */
-import { ATTR_IDS, ATTR_MAX, type AttrId, type Attrs } from '../../../src/data/perks';
+import { ATTR_MAX, type AttrId, type Attrs } from '../../../src/data/perks';
 import { CLASSES, isCivClass, isClassId, type ClassId } from '../../../src/data/classes';
 import { itemValue, ITEMS, type Item, type Slot } from '../../../src/data/items';
 import { classGearBlocker } from '../../../src/data/gearRules';
@@ -35,7 +35,7 @@ import { freeName } from '../../../src/data/names';
 import type { Equipment, Hero } from '../../../src/data/units';
 import { freshHero } from '../../../src/war/sim/classes';
 import { freshCivilian } from '../../../src/war/sim/civilians';
-import { isElite, makePerson, promoteBlocker, promotePerson, type PersonOpts } from '../../../src/war/sim/roster';
+import { isElite, makePerson, promoteBlocker, promotePerson, spendLevel, type PersonOpts, type SpendRefusal } from '../../../src/war/sim/roster';
 import { legalSkills, SKILL_LEVELS } from '../../../src/war/sim/skills';
 import { ARMY_MAX } from '../../../src/war/sim/soldiers';
 import { HONOURS_MAX } from '../../../src/war/sim/honours';
@@ -355,29 +355,32 @@ export async function equip(db: D1Database, pid: number, id: string, slot: Slot,
   await db.batch(stmts);
 }
 
-/** Spend unspent attribute points and / or take a skill in an open slot (levels 3 and 7, the family pool). */
+/** A level-up on a man in a region reaches his living man in its room (wired by ./regionDO.ts wirePresence; tests: absent). */
+export const LIVE: { levelUp: (region: string, id: string, attrs: Partial<Record<AttrId, number>>, skill: WarSkillId | undefined) => Promise<string> } = { levelUp: async () => 'absent' };
+
+const SPEND_REFUSED: Record<SpendRefusal, (p: WarPerson, skill?: WarSkillId) => string> = {
+  attr_max: () => `An attribute is at most ${ATTR_MAX}`,
+  no_points: (p) => `${p.hero.points} points to spend`,
+  bad_skill: (_p, skill) => `${skill} is not open to him now`,
+};
+
+/**
+ * Spend unspent attribute points and / or take a skill in an open slot (levels 3 and 7, the family pool). A fit man in
+ * a region (every man stands in one, W-58) takes it there too: his living man in the room, whose next fight report
+ * writes the attributes and points back.
+ */
 export async function levelUp(db: D1Database, pid: number, id: string, attrs: Partial<Record<AttrId, number>>, skill: WarSkillId | undefined, now: number): Promise<void> {
   const r = await person(db, pid, id);
-  home(r);
-  const p = personOf(r);
-  const a: Attrs = { ...p.hero.attrs };
-  let spent = 0;
-  for (const k of ATTR_IDS) {
-    const n = attrs[k] ?? 0;
-    if (a[k] + n > ATTR_MAX) throw new ApiError(409, 'attr_max', `${k} is at most ${ATTR_MAX}`);
-    a[k] += n;
-    spent += n;
-  }
-  if (spent > p.hero.points) throw new ApiError(409, 'no_points', `${p.hero.points} points to spend`);
-  const skills = [...(p.skills ?? [])];
-  if (skill) {
-    const next = legalSkills(r.cls, r.level, [...skills, skill]);
-    if (skills.includes(skill) || !next.includes(skill)) throw new ApiError(409, 'bad_skill', `${skill} is not open to him now`);
-    skills.push(skill);
+  if (r.state !== 'active') throw new ApiError(409, 'not_fit', `He is ${r.state}`);
+  const p = personOf(r), q = spendLevel(p, attrs, skill);
+  if (typeof q === 'string') throw new ApiError(409, q, SPEND_REFUSED[q](p, skill));
+  if (r.region) {
+    const live = await LIVE.levelUp(r.region, id, attrs, skill);
+    if (live !== 'ok' && live !== 'absent') throw new ApiError(409, live, live in SPEND_REFUSED ? SPEND_REFUSED[live as SpendRefusal](p, skill) : 'refused');
   }
   await db
-    .prepare('UPDATE war_persons SET attrs = ?3, points = ?4, skills = ?5, updated_at = ?6 WHERE id = ?1 AND player_id = ?2 AND region IS NULL')
-    .bind(id, pid, JSON.stringify(a), p.hero.points - spent, JSON.stringify(skills), now)
+    .prepare('UPDATE war_persons SET attrs = ?3, points = ?4, skills = ?5, updated_at = ?6 WHERE id = ?1 AND player_id = ?2')
+    .bind(id, pid, JSON.stringify(q.hero.attrs), q.hero.points, JSON.stringify(q.skills ?? []), now)
     .run();
 }
 

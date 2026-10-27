@@ -160,6 +160,31 @@ export function applyOffer(p: WarPerson, o: LevelOffer): WarPerson {
   return { ...p, hero: { ...h, attrs: { ...h.attrs, [o.attr]: h.attrs[o.attr] + add }, points: h.points - add } };
 }
 
+/** Why a level-up spend is refused: an attribute past ATTR_MAX, more points than he has, a skill not open to him now. */
+export type SpendRefusal = 'attr_max' | 'no_points' | 'bad_skill';
+
+/**
+ * The person after spending `attrs` of his unspent points and taking `skill` into his next open slot (POST
+ * /persons/:id/level; the server applies it to his record and to his living man in a region room), or why not.
+ */
+export function spendLevel(p: WarPerson, attrs: Partial<Record<AttrId, number>>, skill?: WarSkillId): WarPerson | SpendRefusal {
+  const h = p.hero, a = { ...h.attrs };
+  let spent = 0;
+  for (const k of ATTR_IDS) {
+    const n = attrs[k] ?? 0;
+    if (a[k] + n > ATTR_MAX) return 'attr_max';
+    a[k] += n;
+    spent += n;
+  }
+  if (spent > h.points) return 'no_points';
+  const skills = [...(p.skills ?? [])];
+  if (skill) {
+    if (skills.includes(skill) || !legalSkills(h.cls ?? 'militia', h.level, [...skills, skill]).includes(skill)) return 'bad_skill';
+    skills.push(skill);
+  }
+  return { ...p, hero: { ...h, attrs: a, points: h.points - spent }, skills };
+}
+
 // --- M5e promotion to elite (docs/WAR.md "Promote": level 6 + the elite rare kit, at a fortress) ---
 
 /** What a promotion asks of the man: his level and honours won. The kit (ELITE_KIT) is his new gear. */

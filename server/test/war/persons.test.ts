@@ -155,12 +155,15 @@ describe('war roster API', () => {
     const got = await claimForJoin(DB(), me.playerId, 'test-ridge', [ids], new Set(), Date.now());
     expect(Array.isArray(got) && got[0].length).toBe(ARMY_MAX);
     expect((await roster(me.token)).persons.filter((p) => p.region === 'test-ridge')).toHaveLength(ARMY_MAX);
-    expect(await (await post(me.token, `/persons/${ids[0]}/level`, {})).json()).toMatchObject({ error: { code: 'deployed' } });
     expect(await (await post(me.token, `/persons/${ids[0]}/equip`, { slot: 'helmet', uid: null })).json()).toMatchObject({ error: { code: 'deployed' } });
     // a second claim of the same men (another region) fails, and so does a claim of unknown or unfit ones
     expect(await claimForJoin(DB(), me.playerId, 'elsewhere', [ids.slice(0, 2)], new Set(), Date.now())).toMatch(/already in the field/);
     expect(await claimForJoin(DB(), me.playerId, 'test-ridge', [['nobody']], new Set(), Date.now())).toMatch(/no soldier/);
     expect(await claimForJoin(DB(), me.playerId, 'test-ridge', [[ids[0], ids[0]]], new Set(), Date.now())).toMatch(/twice/);
+    // but a level-up reaches a man in a region (every man stands in one, W-58): kept in D1, handed to the room's living man
+    await DB().prepare('UPDATE war_persons SET points = 2 WHERE id = ?1').bind(ids[1]).run();
+    expect((await post(me.token, `/persons/${ids[1]}/level`, { attrs: { wil: 2 } })).status).toBe(200);
+    expect(await DB().prepare('SELECT points FROM war_persons WHERE id = ?1').bind(ids[1]).first()).toEqual({ points: 0 });
   });
 
   it('reads a civilian back as a civilian (his class and tool, stats the sim can bake)', async () => {
