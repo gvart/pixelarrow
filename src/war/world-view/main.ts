@@ -650,7 +650,6 @@ void WorldMap.load(canvas).then(async (m) => {
 let pins: PinHandle | null = null;
 function mountWorldPins(m: WorldMap): PinHandle {
   return mountPins({
-    scope: 'world',
     project: (p) => { const r = canvas.getBoundingClientRect(), [x, y] = m.toScreen(p.x, p.y); return { x: x + r.left, y: y + r.top }; },
     area: () => ({ x0: 24, y0: 64, x1: innerWidth - 24, y1: innerHeight - 24 }),
     focus: (p) => void ((m.x = p.x - canvas.clientWidth / 2 / m.k), (m.y = p.y - canvas.clientHeight / 2 / m.k)),
