@@ -1,0 +1,45 @@
+src/war/world-view/regionCard.ts
+  s_fcb7475e0b5395::t_778c5297e27914 192,225
+  s_fcb7475e0b5395::t_d8c4adaa80205b 1-16,18-84,87-138,147-157,159-167,169-171,173,175-191,193-195,197-208,212,215-216,218-220,222-224,226-228,230
+  s_fcb7475e0b5395::t_c28c31af32f619 17,85-86,139-146,158,168,172,174,209-211
+  s_fcb7475e0b5395::t_a7b799cef3e8a2 196,213-214,221,229
+  s_fcb7475e0b5395::t_1ef3e3572eb79f 217
+tests/war/worldRegionCard.test.ts
+  s_fcb7475e0b5395::t_70df1c1db7a229 1-51,53-76
+  s_fcb7475e0b5395::t_d66078e636f3c8 52
+src/war/world-view/main.ts
+  s_fcb7475e0b5395::t_1ef3e3572eb79f 60,74,292
+  s_fcb7475e0b5395::t_7762a7c0ad0c56 410,412
+  s_fcb7475e0b5395::t_778c5297e27914 27,115-116,355,360,455-458,460,494
+  s_fcb7475e0b5395::t_0c7287469dffc0 55-57,63,65,67-73,75-80,84-85,89,91,93,95
+  s_fcb7475e0b5395::t_2f2a41df2e1d69 337-338,340-343,345,348,351-354,356-359,361-363,372-380,384-392
+  s_fcb7475e0b5395::t_f6437f91ee2103 9-11
+  s_fcb7475e0b5395::t_7144b0a5567aa7 171-175,183,186-199
+  s_fcb7475e0b5395::t_2941564512db13 259,262-264,266,268-270,278-279,286-291,293-300,302-305,311-312,321,332-333
+  s_fcb7475e0b5395::t_1765d9b72d11b4 129-139
+  s_fcb7475e0b5395::t_927242b9b908dc 614
+  s_fcb7475e0b5395::t_4a43280071e52a 59
+  s_fcb7475e0b5395::t_dbfbf1c4770146 31-33,37,423,439-442,452-454,459,461-467,474-475,482-491,499,548-549,585,590,597,610
+  s_fcb7475e0b5395::t_148ed9db331096 114
+  s_fcb7475e0b5395::t_803c7303cfcdbd 117
+  s_fcb7475e0b5395::t_45fde99addfa72 200
+src/war/world-view/legend.ts
+  s_fcb7475e0b5395::t_a7b799cef3e8a2 54-55
+  s_fcb7475e0b5395::t_90ae1e0cefbc6f 1-53,56-58
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "7a6efd17e3a33eb5a44c3b081be2c21b98d5296a",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
