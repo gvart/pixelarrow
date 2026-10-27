@@ -1,0 +1,23 @@
+tests/war/guide.test.ts
+  s_fcb7475e0b5395::t_2709d0d7d3dac0 29-31
+src/war/view/guidePlan.ts
+  s_fcb7475e0b5395::t_d1ae266c7b79c6 43-46,48-49,52,55,58-59,61,63,65,68-70,76,79,84,93
+  s_fcb7475e0b5395::t_8da6764b2c29a9 53-54,56-57,60,62,64,66-67,71,77-78,81,83,85-92
+  s_fcb7475e0b5395::t_7aee3b111fca34 135
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "883abdb0477f8df4a6126e4ce372ef4e6dc200d2",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
