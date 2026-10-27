@@ -282,7 +282,7 @@ export class Interact {
       return [act(`rebuild ${nameOf(ru)}`, 'act-build', ru, 0x60d060, () => s.sim.order({ kind: 'rebuild', building: ru.id, squad: own[0] }), ru.landmark ? 'a landmark piece: restore the landmark' : undefined), move];
     }
     const cp = (s.sim.cur?.claims ?? []).find((c) => Math.hypot(c.x - t.x, c.y - t.y) < CLAIM_PICK);
-    if (cp && (cp.state === 'open' || cp.state === 'contested' || cp.state === 'channel')) return [act('claim region', 'act-assign', cp, 0xffe070, () => s.sim.order({ kind: 'claimRegion', squad: own[0], point: cp.id })), move];
+    if (cp && (cp.state === 'open' || cp.state === 'contested' || cp.state === 'channel' || (cp.state === 'claimed' && cp.team !== myTeam()))) return [act('claim region', 'act-assign', cp, 0xffe070, () => s.sim.order({ kind: 'claimRegion', squad: own[0], point: cp.id })), move];
     if (cp && cp.state === 'locked') return [{ ...move, label: 'move (claim locked: clear the lairs)' }];
     const n = s.build.hover;
     if (n?.guarded) return [{ ...move, label: `move (${n.res} guarded by a lair)` }];

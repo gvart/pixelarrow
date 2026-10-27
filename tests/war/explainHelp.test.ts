@@ -71,6 +71,17 @@ describe('claiming in plain words', () => {
     expect(claimView(claim({ state: 'claimed', team: 0 }), 0, 1, [], []).next).toContain('B');
   });
 
+  it('a held point: how to take it, the taking, and the holder warned', () => {
+    expect(claimView(claim({ state: 'claimed', team: 2 }), 0, 2, [], []).state).toBe('Held by Kyrene: clear its defenders, then hold it 60 s to take it.');
+    expect(claimView(claim({ state: 'claimed', team: 2 }), 0, 1, [], []).next).toContain('truce or pact');
+    const mine = claimView(claim({ state: 'claimed', team: 2, taking: 'channel', by: 0, progress: 0.5, squad: 4 }), 0, 1, [], []);
+    expect(mine).toMatchObject({ label: 'Taking 15/30 s', state: 'Taking it from Kyrene: 15 of 30 s.' });
+    expect(claimView(claim({ state: 'claimed', team: 2, taking: 'defended', by: 0, squad: 4 }), 0, 1, [], []).label).toBe('Defended');
+    const theirs = claimView(claim({ state: 'claimed', team: 0, taking: 'channel', by: 2, progress: 0.2, squad: 4 }), 0, 1, [], []);
+    expect(theirs).toMatchObject({ label: 'Being taken!', tone: 'bad', state: 'Kyrene is taking it: 6 of 30 s.' });
+    expect(TERRITORY).toContain('A point another alliance holds is taken the same way');
+  });
+
   it('the build bar says how to get ground', () => {
     expect(claimFirstHint([claim()], 0, 1, [], [])).toMatch(/^Claim this region first: .*hold it with 3 men for 30 s/);
     expect(claimFirstHint([claim({ state: 'locked', lairs: [0] })], 0, 2, [lair('bandit', { captain: true })], [])).toContain('defeat the bandit captain first, then hold it with 6 men for 60 s');

@@ -223,6 +223,8 @@ export type WorldServerMsg =
   | { t: 'pong'; c: number }
   /** W-63: a settlement he rules, or one under his, was attacked by player `by` in `region`; truces broken by it. */
   | { t: 'settlementAttacked'; settlement: number; name: string; region: string; by: number; broken: number[] }
+  /** A claim point his alliance holds in `region` (named `name`) is being taken by alliance `by`. */
+  | { t: 'claimAttacked'; region: string; name: string; point: number; by: number }
   /** W-64: crown news for every member of the alliances concerned (elections, a new monarch, a pact or truce broken). */
   | { t: 'crownNews'; kind: CrownNewsKind; text: string; region?: string }
   | ChatServerMsg;

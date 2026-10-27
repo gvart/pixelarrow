@@ -12,6 +12,9 @@
  * `claimRegion` channels for CLAIM.ticks with CLAIM.men of its men beside the banner; any foe (mobs included) within
  * CLAIM.contest resets it. Done, the team owns the point and gets its first influence anchor (works.claim). A cleared
  * lair comes back after RESPAWN ticks, but only while its area is unclaimed (its zone's point unowned, no influence on it).
+ * A point another alliance holds is taken the same way (owner 2026-10-27): the same channel, reset by any foe within
+ * CLAIM.contest, and it does not run while a fighting man of the holder stands within the point's radius (clear its
+ * defenders first). Done, the point changes hands (host.claim with `from`: the old anchor goes, his pieces flip).
  *
  * M7c depth (./depth.ts, docs/WAR.md "Region lore and depth"): the region's depth scales its mobs' hp and damage, the
  * respawn time and the claim channel: its ticks, the men of the claiming team beside the banner (any of its squads)
@@ -77,7 +80,7 @@ const RESPAWN_CLEAR = 20; // no foe this near the lair when it comes back
 export const CLAIM = { ticks: 300, men: 3, at: 5, contest: 14, r: 20 };
 
 export interface MobUnit { x: number; y: number; hp: number; maxHp: number; alive: boolean }
-export interface MobSquad { id: SquadId; owner: string; team: number; alive: number; cx: number; cy: number; units: MobUnit[]; order: Order['kind']; target: SquadId; claimPt: number }
+export interface MobSquad { id: SquadId; owner: string; team: number; alive: number; civ?: boolean; cx: number; cy: number; units: MobUnit[]; order: Order['kind']; target: SquadId; claimPt: number }
 /** M7c: stat multipliers of a spawned pack (depth, elite guard) and of its first man (a captain). */
 export interface SpawnScale { hp: number; dmg: number; lead?: { hp: number; dmg: number } }
 /** M7d stub: a region boss as the claim gate sees it (alive: it holds the region and keeps its claim points shut). */
@@ -93,7 +96,8 @@ export interface MobHost {
   arrived(id: SquadId): boolean;
   nodes(): NodeSnap[];
   lockNodes(ids: number[], on: boolean): void;
-  claim(team: number, x: number, y: number, r: number): void;
+  /** `from`: the alliance that held the point (a capture: its anchor goes, its pieces in the radius flip); absent: unheld. */
+  claim(team: number, x: number, y: number, r: number, from?: number): void;
   /** Some team has influence on the tile under (x,y). */
   influenced(x: number, y: number): boolean;
   range(lo: number, hi: number): number;
@@ -295,18 +299,26 @@ export function createMobs(region: RegionData, host: MobHost) {
     if (caps.length) return caps.every((i) => lairs[i].cleared || !lairs[i].capAlive);
     return c.lairs.every((i) => !lairs[i] || lairs[i].cleared || lairs[i].def.passive);
   };
+  /** A fighting man of `team` stands within the point's radius (a held point's defenders: cleared before it is taken). */
+  const defended = (team: number, c: Claim) => {
+    for (const q of host.squads) {
+      if (q.team !== team || q.alive === 0 || q.civ || (q.cx - c.x) ** 2 + (q.cy - c.y) ** 2 > (c.r + 30) ** 2) continue;
+      for (const u of q.units) if (u.alive && (u.x - c.x) ** 2 + (u.y - c.y) ** 2 <= c.r * c.r) return true;
+    }
+    return false;
+  };
   /** A squad channelling (or on its way to) claim point c. */
   const claiming = (s: MobSquad | undefined, c: Claim) => !!s && s.alive > 0 && s.claimPt === c.id && s.order === 'claimRegion';
 
   const channel = (c: Claim) => {
     let s = c.squad >= 0 ? sq(c.squad) : undefined;
-    if (c.team < 0 && !claiming(s, c) && s) {
+    if (!claiming(s, c) && s) {
       // the lead fell or went: another squad of its team on the point carries on
       const team = s.team;
       s = host.squads.find((q) => q.team === team && claiming(q, c));
       if (s) c.squad = s.id;
     }
-    if (!s || !claiming(s, c) || c.team >= 0) {
+    if (!s || !claiming(s, c) || c.team === s.team) {
       c.squad = -1;
       c.progress = 0;
       c.contested = false;
@@ -324,15 +336,17 @@ export function createMobs(region: RegionData, host: MobHost) {
       if (here) (men += here), players.add(q.owner);
     }
     if (men < Math.min(rule.claim.men, coming) || players.size < rule.claim.players) return; // on the way, or too few
-    c.contested = nearestFoe(s.team, c.x, c.y, CLAIM.contest)[0] >= 0 || !zoneOpen(c);
+    c.contested = nearestFoe(s.team, c.x, c.y, CLAIM.contest)[0] >= 0 || !zoneOpen(c) || (c.team >= 0 && defended(c.team, c));
     if (c.contested) {
       c.progress = 0;
       return;
     }
     if (++c.progress < rule.claim.ticks) return;
+    const from = c.team;
     c.team = s.team;
     c.squad = -1;
-    host.claim(s.team, c.x, c.y, c.r);
+    c.progress = 0;
+    host.claim(s.team, c.x, c.y, c.r, from >= 0 ? from : undefined);
     for (const q of host.squads) if (q.team === s.team && claiming(q, c)) host.order({ kind: 'hold', squad: q.id });
   };
 
@@ -384,10 +398,11 @@ export function createMobs(region: RegionData, host: MobHost) {
     grant(i: number, team: number) {
       const c = claims[i];
       if (!c || c.team === team || team < 0) return;
+      const from = c.team;
       c.team = team;
       c.squad = -1;
       c.progress = 0;
-      host.claim(team, c.x, c.y, c.r);
+      host.claim(team, c.x, c.y, c.r, from >= 0 ? from : undefined);
     },
     /** Some claim point of the region is held (a boss does not come back then). */
     claimed: () => claims.some((c) => c.team >= 0),
@@ -445,12 +460,13 @@ export function createMobs(region: RegionData, host: MobHost) {
       return l.id;
     },
     /**
-     * claimRegion: false (the order is dropped) unless the point exists, is unowned and its zone's guard lairs are all
-     * cleared. The sim walks the squad there; channelling starts when it arrives.
+     * claimRegion: false (the order is dropped) unless the point exists, is not the squad's team's already and its zone's
+     * guard lairs are all cleared (a point another alliance holds may be taken). The sim walks the squad there;
+     * channelling starts when it arrives.
      */
     startClaim(squad: SquadId, point: number): boolean {
-      const c = claims[point];
-      if (!c || c.team >= 0 || !zoneOpen(c)) return false;
+      const c = claims[point], s = sq(squad);
+      if (!c || !s || c.team === s.team || !zoneOpen(c)) return false;
       c.squad = squad;
       c.progress = 0;
       c.contested = false;
@@ -480,6 +496,8 @@ export function createMobs(region: RegionData, host: MobHost) {
       claims.map((c) => ({
         id: c.id, x: c.x, y: c.y, team: c.team, squad: c.squad, progress: c.progress / rule.claim.ticks, lairs: c.lairs, men: rule.claim.men, players: rule.claim.players,
         state: c.team >= 0 ? 'claimed' : !zoneOpen(c) ? 'locked' : c.squad < 0 ? 'open' : c.contested ? 'contested' : 'channel',
+        // a held point being taken: the attacker's team and how the channel stands (progress and squad as above)
+        ...(c.team >= 0 && c.squad >= 0 ? { taking: !c.contested ? ('channel' as const) : defended(c.team, c) ? ('defended' as const) : ('contested' as const), by: sq(c.squad)?.team ?? -1 } : {}),
       })),
   };
 }

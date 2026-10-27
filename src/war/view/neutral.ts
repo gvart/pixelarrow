@@ -61,10 +61,12 @@ export class NeutralLayer {
       b.fillStyle(0x5a4028, 1).fillRect(f.x - 2, top, 4, 90); // pole
       b.fillStyle(cloth, 1).fillTriangle(f.x + 2, top, f.x + 40, top + 12, f.x + 2, top + 26);
       if (c.state === 'locked') b.lineStyle(2, 0x303030, 1).lineBetween(f.x + 8, top + 6, f.x + 26, top + 20);
-      if (c.state === 'channel' || c.state === 'contested') {
+      // a held point being taken shows the attacker's channel the same way (red while reset or held off)
+      const run = c.state === 'channel' || c.taking === 'channel', stop = c.state === 'contested' || c.taking === 'contested' || c.taking === 'defended';
+      if (run || stop) {
         const bw = Math.max(48, 48 * k * 0.5), bx = f.x - bw / 2, by = top - 14;
         b.fillStyle(0x101010, 0.85).fillRect(bx, by, bw, 7);
-        b.fillStyle(c.state === 'contested' ? 0xff4040 : 0xffe070, 1).fillRect(bx + 1, by + 1, (bw - 2) * (c.state === 'contested' ? 1 : c.progress), 5);
+        b.fillStyle(stop ? 0xff4040 : 0xffe070, 1).fillRect(bx + 1, by + 1, (bw - 2) * (stop ? 1 : c.progress), 5);
       }
       const v = claimView(c, myTeam(), depthOf((this.scene as SandboxScene).region), lairs, []);
       const t = this.labels[i] ?? this.labels[this.labels.push(this.scene.add.text(0, 0, '', LABEL).setOrigin(0.5, 1).setResolution(2)) - 1];

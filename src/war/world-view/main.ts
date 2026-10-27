@@ -528,6 +528,11 @@ function enter(id: string | null): void {
 
 // W-64: crown news (an election, a new monarch, a pact broken) from the world's chat socket, as a toast
 worldTaps.add((m) => { if (m.t === 'crownNews') say((m as unknown as { text: string }).text, 8000); });
+worldTaps.add((m) => {
+  if (m.t !== 'claimAttacked') return;
+  const c = m as unknown as { region: string; name: string };
+  say(`${worldRegion(c.region)?.name ?? c.name}: your claim point is being taken!`, 10_000);
+});
 
 function apply(v: WorldView): void {
   view = v;

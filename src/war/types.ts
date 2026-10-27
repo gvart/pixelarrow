@@ -395,7 +395,12 @@ export interface TownSnap { claim: number; team: number; houses: number; standin
  */
 export interface ClaimSnap { id: number; x: number; y: number; team: number; squad: SquadId; progress: number; lairs: number[]; state: 'locked' | 'open' | 'channel' | 'contested' | 'claimed';
   /** M7c: men of the claiming team the channel needs beside the banner, and of how many players. */
-  men?: number; players?: number }
+  men?: number; players?: number;
+  /**
+   * A held point being taken by team `by` (state stays 'claimed', `squad` and `progress` are the attacker's): channel,
+   * contested (a foe within CLAIM.contest) or defended (a fighting man of the holder within its radius: clear them first).
+   */
+  taking?: 'channel' | 'contested' | 'defended'; by?: number }
 export interface WarSim {
   readonly region: RegionData;
   /**

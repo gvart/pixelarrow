@@ -207,7 +207,8 @@ export type HandoffMsg = Extract<ClientMsg, { t: 'handoff' }>;
 /** Why a join or an order was turned down. */
 export type Refusal = 'version' | 'region' | 'player' | 'team' | 'army' | 'squads' | 'quota';
 /** notYourGround (W-63): a build inside a settlement off the player's plot (its lord: on another's plot); the detail says why. */
-export type OrderError = 'notOwner' | 'notJoined' | 'badTarget' | 'bad' | 'forbidden' | 'notYourGround';
+/** atPeace (W-64): a claim on a point held by an alliance his own has a pact or truce with; the detail says which. */
+export type OrderError = 'notOwner' | 'notJoined' | 'badTarget' | 'bad' | 'forbidden' | 'notYourGround' | 'atPeace';
 
 /**
  * W-63: a settlement of the region as its room sends it (server/src/war/settlements.ts): its centre piece and ground
