@@ -228,7 +228,9 @@ export type ServerMsg =
    * W-60: a soul his squad went for: claimed (the new man's person id, class, level and name), refused (his army is full:
    * `have` men across all regions, ARMY_MAX at most).
    */
-  | { t: 'soul'; state: 'claimed' | 'refused'; soul: number; squad: SquadId; pid?: string; cls?: string; level?: number; name?: string; have?: number };
+  | { t: 'soul'; state: 'claimed' | 'refused'; soul: number; squad: SquadId; pid?: string; cls?: string; level?: number; name?: string; have?: number }
+  /** W-62: the world events running now (any region; src/war/world/events.ts) and the next, on join and whenever one opens or closes. */
+  | { t: 'worldEvents'; events: import('../world/events').WorldEvent[]; next: import('../world/events').WorldEvent | null };
 
 /** Live soldiers per alliance against its quota. */
 export interface Quota { cap: number; per: number[]; live: number[] }

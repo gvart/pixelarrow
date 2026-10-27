@@ -36,6 +36,8 @@ export const SOUL = {
   /** Ruins a region offers as sites (spaced `spacing` tiles apart). */
   ruins: 4,
   spacing: 16,
+  /** W-62 soul storm (setStorm): souls at once while it blows; rolls come twice as often. */
+  stormMax: 10,
 };
 
 /** The classes a site wakes, by kind (the six with war sprites). */
@@ -96,6 +98,8 @@ export function createSouls(region: RegionData, seed: number, host: SoulHost) {
   /** Old battlefields found so far (sites after the fixed ones) and the falls per cell. */
   let fields: Site[] = [];
   let cells = new Map<number, Cell>();
+  /** W-62: the soul storm's chance multiplier (1: none). */
+  let storm = 1;
 
   const sites = () => (fields.length ? [...fixed, ...fields] : fixed);
   const make = (x: number, y: number, cls: string, level: number, site: SoulSite, t: number, at = -1): Soul => {
@@ -115,11 +119,14 @@ export function createSouls(region: RegionData, seed: number, host: SoulHost) {
   };
   const roll = (t: number) => {
     const all = sites();
-    for (let i = 0; i < all.length && list.length < SOUL.max; i++) {
-      if (list.some((s) => s.at === i)) continue;
+    const max = storm > 1 ? SOUL.stormMax : SOUL.max;
+    for (let i = 0; i < all.length && list.length < max; i++) {
+      // a storm wakes more than one soul at a site (offset round it)
+      const at = list.filter((s) => s.at === i).length;
+      if (at >= (storm > 1 ? 2 : 1)) continue;
       const site = all[i];
-      if (rng.next() >= SOUL.chance[site.kind] * (host.chanceAt?.(site.x, site.y) ?? 1)) continue;
-      make(site.x, site.y, pick(site, i), soulLevel(site.kind, depth), site.kind, t, i);
+      if (rng.next() >= SOUL.chance[site.kind] * storm * (host.chanceAt?.(site.x, site.y) ?? 1)) continue;
+      make(site.x + (at ? 1.5 : 0), site.y + (at ? 1 : 0), pick(site, i), soulLevel(site.kind, depth), site.kind, t, i);
     }
   };
   const claim = (s: Soul, t: number): boolean => {
@@ -170,7 +177,7 @@ export function createSouls(region: RegionData, seed: number, host: SoulHost) {
   return {
     /** Every tick: rolls on SOUL.every, claims and fading on SOUL.scan. */
     tick(t: number) {
-      if (t > 0 && t % SOUL.every === 0) roll(t);
+      if (t > 0 && t % (storm > 1 ? SOUL.every / 2 : SOUL.every) === 0) roll(t);
       if (t % SOUL.scan !== 0 || !list.length) return;
       list = list.filter((s) => {
         if (s.until <= t) {
@@ -208,6 +215,10 @@ export function createSouls(region: RegionData, seed: number, host: SoulHost) {
       }));
     },
     any: () => list.length > 0,
+    /** W-62 soul storm: chance x k (1: calm). */
+    setStorm(k: number) {
+      storm = Math.max(1, k);
+    },
     sites: () => sites().map((s) => ({ ...s })),
     saveRoot: () => ({ list, next, fields, cells, rng }),
     loadRoot(o: { list: Soul[]; next: number; fields: Site[]; cells: Map<number, Cell>; rng: Rng }) {

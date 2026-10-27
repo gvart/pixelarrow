@@ -52,6 +52,7 @@ import { billText, buildingTip, levelOf, mountBuildingCard, nameOfBuilding, purp
 import { needChips, shortText } from './goods';
 import { localGoods, mountChest, storeNear } from './chest';
 import { mountSouls } from './souls';
+import { mountWorldEvents } from './worldEvents';
 import { mountPeace } from './peace';
 import { RECIPES } from '../../../data/recipes';
 import { allCivilians, civBuild, civGather, civInfo, civName, civTips, civWork } from './cardCiv';
@@ -373,6 +374,7 @@ export function hud(s: SandboxScene): void {
   mountChest(s, mk, tipOn); // the squad chest (I) beside the roster button: what the men carry, the town store
   mountSouls(s, mk, tipOn); // W-60: souls to claim (the prompt, notes; ghosts drawn by ../units.ts)
   mountPeace(s, mk); // W-61: the town level badge and card, alliance works and titles (./peace.ts)
+  mountWorldEvents(s, mk); // W-62: the world events card (./worldEvents.ts)
   const groups = mountGroups(s, mk, tipOn); // W-53: the control group bar over the card, numbers on the map
 
   // ---------- scale ----------

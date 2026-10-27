@@ -13,7 +13,7 @@
 import { SIM_VERSION } from '../../sim/version';
 import { devAuth, warAuth } from '../net/session';
 import { DEFAULT_CAP, splitQuota } from '../net/protocol';
-import { TRANSFER_MAX, type LandmarkWorld, type RegionState, type SeasonSnap, type TransitSnap, type WorldSnapshot } from '../net/world';
+import { TRANSFER_MAX, type Crest, type LandmarkWorld, type RegionState, type SeasonBoard, type SeasonSnap, type TransitSnap, type WorldSnapshot } from '../net/world';
 import { ALLIANCES, WAR_SEASON } from '../world/alliances';
 import { edge, worldRegion, WORLD_IDS } from '../world/graph';
 import { allianceRates, FRONTIER_TOWNS, OMPHALOS } from '../world/season';
@@ -271,7 +271,25 @@ export function mockWorld(now: number): { snap: WorldSnapshot; squads: FieldSqua
     stymphalia: { at: now - 3 * min, fills: 10, rows: [{ good: 'tin', ask: 11, bid: 9, depth: 45 }, { good: 'oil', ask: 5, bid: 4, depth: 120 }, { good: 'marble', ask: 9, bid: null, depth: 30 }, { good: 'iron', ask: 8, bid: 6, depth: 60 }, { good: 'food', ask: 2, bid: 1, depth: 300 }] },
     kleisoura: { at: now - 47 * min, fills: 4, rows: [{ good: 'tin', ask: 8, bid: 7, depth: 80 }, { good: 'iron', ask: 9, bid: 5, depth: 25 }, { good: 'hides', ask: 3, bid: null, depth: 40 }] },
   };
-  return { snap: { season: WAR_SEASON.id, score, at: now, you: { id: 1, alliance: 0 }, alliances, regions, transit }, squads, scores, endsAt: now + left, convoys, boards, trade: [34, 18, 60, 9] };
+  // W-62: a soul storm on Lake Stymphalia now, a caravan rush at Ammos next; the first season's board and the player's
+  // banner and crest (the mock plays its second season)
+  score.id = WAR_SEASON.id + 1;
+  const events: WorldSnapshot['events'] = {
+    active: [{ id: 41, kind: 'soulStorm', region: 'stymphalia', startAt: now - 12 * min, endAt: now + 34 * min + 12_000 }],
+    next: { id: 42, kind: 'caravanRush', region: 'ammos', startAt: now + 2 * 3600_000 + 41 * min, endAt: now + 3 * 3600_000 + 20 * min },
+  };
+  const last: SeasonBoard = {
+    season: WAR_SEASON.id, startAt: now - left - 2 * WAR_SEASON.lengthMs, at: now + left - WAR_SEASON.lengthMs, reason: 'time', winner: 0, scores: [1832, 1610, 1745, 1290], event: [140, 95, 160, 70],
+    titles: [
+      { id: 'merchantPrince', name: 'Merchant Prince', pid: 9, player: 'Kallias', alliance: 3 },
+      { id: 'masterBuilder', name: 'Master Builder', pid: 1, player: 'Iktinos', alliance: 0 },
+      { id: 'warden', name: 'Warden', pid: 11, player: 'Phylax', alliance: 1 },
+      { id: 'warlord', name: 'Warlord', pid: 12, player: 'Brasidas', alliance: 2 },
+    ],
+    banners: 43,
+  };
+  const crests: Crest[] = [{ season: WAR_SEASON.id, kind: 'banner', alliance: 0 }, { season: WAR_SEASON.id, kind: 'crest', alliance: 0, title: 'masterBuilder' }];
+  return { snap: { season: score.id, score, at: now, you: { id: 1, alliance: 0 }, alliances, regions, transit, events, last, crests }, squads, scores, endsAt: now + left, convoys, boards, trade: [34, 18, 60, 9] };
 }
 
 /** W-61: the mock's titles. */

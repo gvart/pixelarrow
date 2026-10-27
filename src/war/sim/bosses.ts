@@ -747,6 +747,29 @@ export function createBosses(region: RegionData, host: BossHost) {
       if (away) r.guardN = Math.ceil((def(r).guard?.n ?? 0) / 2);
       else host.gate(r.id, false);
     },
+    /**
+     * W-62 boss wake: each guardian slain or away is back now (unless the region is held: a slain one's landmark as the
+     * season found it), and every one standing takes `k` times its hp (its guard not).
+     */
+    wake(k: number) {
+      for (const r of runs) {
+        if (r.state === 'slain' || r.state === 'away') {
+          if (r.state === 'slain' && host.claimed()) continue;
+          const back = r.state === 'slain';
+          spawnRun(r, back ? -1 : r.guardN);
+          if (back) host.resetLandmark();
+          host.note({ t: tick, kind: 'bossBack', region: region.id, boss: r.id });
+        }
+        if (dead(r) || !(k > 1)) continue;
+        for (const m of units(r)) {
+          if (m.cls === def(r).guard?.cls) continue;
+          m.maxHp *= k;
+          m.hp *= k;
+          m.st = { ...m.st, maxHp: m.maxHp };
+        }
+        r.scale *= k;
+      }
+    },
     /** M7f memory: each guardian's state and ticks until it is back (slain or away). */
     memo: (): { id: string; state: BossSnap['state']; left: number }[] =>
       runs.map((r) => ({ id: r.id, state: r.state, left: r.state === 'slain' || r.state === 'away' ? Math.max(0, r.respawnAt - tick) : 0 })),

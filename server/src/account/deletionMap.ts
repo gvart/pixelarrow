@@ -77,6 +77,8 @@ export const DELETION_MAP: Record<string, TableRule> = {
   war_season_stats: { rule: 'delete', pid: ['player_id'] },
   war_work_gifts: { rule: 'delete', pid: ['player_id'] },
   war_player_stats: { rule: 'delete', pid: ['player_id'] },
+  // W-62: the banners and crests he earned at a season's end
+  war_cosmetics: { rule: 'delete', pid: ['player_id'] },
   display_name_history: { rule: 'delete', pid: ['player_id'], via: 'one row is written back at the tombstone step so the freed name stays held 30 days' },
 
   // Kept against the tombstone.
@@ -112,6 +114,8 @@ export const DELETION_MAP: Record<string, TableRule> = {
   war_peace_score: { rule: 'not_player_keyed' },
   war_alliance_clans: { rule: 'not_player_keyed' },
   war_region_state: { rule: 'not_player_keyed' },
+  // W-62: a finished season's board (its title holders' names inside the JSON, like the public boards)
+  war_season_results: { rule: 'not_player_keyed' },
   public_snapshot: { rule: 'derived' },
   dev_outbox: { rule: 'dev_only' },
 };

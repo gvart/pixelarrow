@@ -26,6 +26,12 @@
  * M4 world: WarWorldDO calls depart / arrive over RPC for transfers between regions (./world/world.ts): a departing
  * squad's unsaved fight (XP, kills) is written to D1 before it leaves and its hit points ride along; a world region
  * reports its summary (live men, claim points, claims in progress) to the world every REPORT_TICKS when it changed.
+ *
+ * W-62 world events: the world tells every room the running and next events (worldEvents; kept in DO storage, asked of
+ * the world when a room starts with none); the room applies the one in its region (a soul storm, a guardian woken once
+ * per event: `woke`) and every client hears them (`worldEvents`). seasonReset (the season war's rollover): the room
+ * stops, its clients are closed (4001 'season'), its men go home with their gear (D1), and its saved state and memory
+ * are dropped: it starts over from its authored data (landmarks, claim points, guardians).
  */
 import { DurableObject } from 'cloudflare:workers';
 import type { Env } from '../env';
@@ -47,7 +53,8 @@ import type { Item } from '../../../src/data/items';
 import type { WarPerson } from '../../../src/war/types';
 import { logError } from '../telemetry/log';
 import { applyBossKill } from './bosses';
-import { elapsedTicks, loadMemory, remembered, storeMemory, writeMemory } from './memory';
+import { elapsedTicks, loadMemory, MEMORY_KEY, remembered, storeMemory, writeMemory } from './memory';
+import type { WorldEvent } from '../../../src/war/world/events';
 import { applyFight, armyCount, claimForJoin, claimSoul, deployed, freeRaided, release, releaseRegion } from './persons';
 import { applyCrafts, keepMends, returnMends, takeForMend } from './crafting';
 import { saveRegionHolds } from './holders';
@@ -90,6 +97,8 @@ export class WarRegionDO extends DurableObject<Env> {
   private reported = '';
   /** M7f: the region memory last written to D1. */
   private memory = '';
+  /** W-62: the world events as the world last told them (null: not loaded yet). */
+  private worldEv: { events: WorldEvent[]; next: WorldEvent | null } | null = null;
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -147,8 +156,67 @@ export class WarRegionDO extends DurableObject<Env> {
         }
       }
       await this.ctx.storage.put('region', region);
+      await this.loadEvents();
+      if (this.room) await this.applyEvents(this.room);
     });
     return this.room;
+  }
+
+  /** W-62: the world events from DO storage, else asked of the world (a room that never heard them). */
+  private async loadEvents(): Promise<void> {
+    if (this.worldEv) return;
+    this.worldEv = (await this.ctx.storage.get<{ events: WorldEvent[]; next: WorldEvent | null }>('worldEvents')) ?? null;
+    if (!this.worldEv && this.env.WAR_WORLD) this.worldEv = await this.world().worldEvents().catch(() => null);
+  }
+
+  /** W-62: the events running in this region now onto the room; a guardian wakes once per event. */
+  private async applyEvents(room: WarRoom, now = Date.now()): Promise<void> {
+    const mine = (this.worldEv?.events ?? []).filter((e) => e.region === room.region.id && e.startAt <= now && now < e.endAt);
+    room.setWorldEvents(mine);
+    const wake = mine.find((e) => e.kind === 'bossWake');
+    if (wake && (await this.ctx.storage.get<number>('woke')) !== wake.startAt) {
+      room.wakeGuardians();
+      await this.ctx.storage.put('woke', wake.startAt);
+      this.save();
+    }
+  }
+
+  /** W-62 (RPC from WarWorldDO): the world events running now (any region) and the next; applied here, told to all. */
+  async worldEvents(region: string, events: WorldEvent[], next: WorldEvent | null): Promise<void> {
+    this.worldEv = { events, next };
+    await this.ctx.storage.put('worldEvents', this.worldEv);
+    const room = this.room;
+    if (!room || room.region.id !== region) return;
+    await this.applyEvents(room);
+    for (const ws of this.ctx.getWebSockets()) if (ws.deserializeAttachment()) send(ws, { t: 'worldEvents', events, next });
+  }
+
+  /**
+   * W-62 (RPC from WarWorldDO, the season's rollover): the region starts over. Its loop stops, its clients are closed,
+   * queued writes finish, its men (and their gear) go home in D1, and its saved state and memory are dropped.
+   */
+  async seasonReset(region: string): Promise<void> {
+    if (this.timer) clearTimeout(this.timer);
+    this.timer = null;
+    this.room = null;
+    for (const ws of this.ctx.getWebSockets()) {
+      ws.serializeAttachment(null);
+      try {
+        ws.close(4001, 'season');
+      } catch {
+        // gone
+      }
+    }
+    await this.settled();
+    await storeState(this.ctx.storage, null);
+    await this.ctx.storage.delete([MEMORY_KEY, 'woke']);
+    this.memory = '';
+    this.reported = '';
+    const d = this.env.DB;
+    if (d) {
+      await releaseRegion(d, region);
+      await d.batch([d.prepare('DELETE FROM war_region_state WHERE region = ?1').bind(region), d.prepare('DELETE FROM war_region_holds WHERE region = ?1').bind(region)]);
+    }
   }
 
   async fetch(request: Request): Promise<Response> {
@@ -234,6 +302,7 @@ export class WarRegionDO extends DurableObject<Env> {
       throw e;
     }
     send(ws, res.msg);
+    if (res.msg.t === 'welcome' && this.worldEv) send(ws, { t: 'worldEvents', ...this.worldEv }); // W-62
     if (res.msg.t === 'refused' && persons) this.write('release', () => release(this.env.DB!, region, m.squads!.flat()));
     // W-60: the soul gate counts his whole army (every region)
     if (db && res.msg.t === 'welcome') room.setArmy(pid, await armyCount(db, pid));
@@ -611,6 +680,8 @@ export class WarRegionDO extends DurableObject<Env> {
       for (const w of pz.works) await addLabour(this.env, w.team, w.work, w.by, at);
     });
     if (d && room.currentTick % PEACE_POLL === 1) this.write('peace poll', () => this.pollPeace(room));
+    // W-62: an event that ran out while the world could not tell us ends here too
+    if (room.currentTick % PEACE_POLL === 2) void this.applyEvents(room).catch((e) => logError('war_world_events_failed', e));
     // M6i: a cart captured between linked accounts goes back to its owner
     if (d && r.captured.length) this.write('captures', async () => {
       for (const c of await linkedCaptures(d, r.captured, Date.now())) room.sim.setCartOwner(c.cart, c.team, c.from);
