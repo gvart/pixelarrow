@@ -67,10 +67,10 @@ describe('W-63 presence for terms', () => {
     r.join(30, join(30, 2, 1, 'militia'));
     steps(r, 1);
     expect(r.presence(30, 1)).toBe(false);
-    expect(r.dev(30, { op: 'spawn', cls: 'hoplite', count: 5, team: 2, x: at.x, y: at.y })).toBeNull();
+    expect(r.dev(30, { t: 'dev', op: 'spawn', cls: 'hoplite', count: 5, team: 2, x: at.x, y: at.y })).toBeNull();
     steps(r, 1);
     expect(r.presence(30, 1)).toBe(false);
-    r.dev(30, { op: 'spawn', cls: 'hoplite', count: 1, team: 2, x: at.x + 2, y: at.y });
+    r.dev(30, { t: 'dev', op: 'spawn', cls: 'hoplite', count: 1, team: 2, x: at.x + 2, y: at.y });
     steps(r, 1);
     expect(r.presence(30, 1)).toBe(true);
     expect(r.presence(30, 2)).toBe(false); // no such settlement here
@@ -157,7 +157,7 @@ describe('W-63 founding, rebanner and attacks', () => {
     const men = r.snapshot().units.filter((u) => r.squadsOf(10).includes(u.squad));
     const cx = men.reduce((a, u) => a + u.x, 0) / men.length, cy = men.reduce((a, u) => a + u.y, 0) / men.length;
     r.setSettlements([town({ x: cx, y: cy, members: [{ pid: 10, role: 'lord', plot: null }] })]);
-    r.dev(3, { op: 'spawn', cls: 'hoplite', count: 8, team: 2, x: cx - 3, y: cy });
+    r.dev(3, { t: 'dev', op: 'spawn', cls: 'hoplite', count: 8, team: 2, x: cx - 3, y: cy });
     const attacks: unknown[] = [];
     for (let i = 0; i < 600; i++) attacks.push(...(r.tick().settle?.attacks ?? []));
     expect(attacks).toEqual([{ by: 3, victim: 1 }]);
