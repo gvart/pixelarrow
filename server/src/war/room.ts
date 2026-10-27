@@ -64,6 +64,10 @@ import { RoomGuide, type GuideDone } from './guide';
 import type { GuideSave } from '../../../src/war/net/guide';
 import { LABOUR_EVERY, WORK_R, workSite, type WorkId } from '../../../src/war/net/works';
 import { ALLIANCES as ALLIANCE_LIST } from '../../../src/war/world/alliances';
+import { BUILDINGS } from '../../../src/war/sim/economy';
+import { bannerOf, buildRefusal, netOf, ownBuildings, piecesOf, storesOf, type Persist, type Piece, type RoomSettlement } from './roomSettlements';
+import { SETTLE } from './settlements';
+import type { SettlementNet } from '../../../src/war/net/protocol';
 
 const SIDES = ['N', 'E', 'S', 'W'] as const;
 /** Hold AI radius for an offline player's squads (tiles). */
@@ -130,7 +134,19 @@ export interface RoomState {
   stormed?: number[];
   /** The war season and authored region version it was saved on (the DO sets it; another one starts the region over). */
   edition?: string;
+  /** W-63: players' own alliances, who placed each camp or fort site, camps already reported to found(). */
+  settle?: { own: [number, number][]; campBy: [number, number][]; tried: number[] };
 }
+
+/** W-63: a finished camp or fort to report to settlements.found (its placer the lord). */
+export interface FoundReq { centre: number; x: number; y: number; lord: number }
+/** W-63: what the room saw this tick of the settlements: camps to found, attacks on them (player `by`, settlement `victim`). */
+export interface SettleOut { found: FoundReq[]; attacks: { by: number; victim: number }[] }
+/** W-63: a settlement's report (settlements.report): town level, people on its ground, what persists of it. */
+export interface SettleReport { id: number; level: number; tended: boolean; persist: Persist }
+/** W-63 ticks: founding checks and attack samples; one player's attacks on one settlement are logged once per ATTACK_COOLDOWN. */
+export const SETTLE_EVERY = 10;
+export const ATTACK_COOLDOWN = 3000;
 
 export interface RoomOptions {
   region: RegionData;
@@ -242,6 +258,18 @@ export class WarRoom {
   private worldEvents: WorldEvent[] = [];
   /** W-62: the first-hour guide of the home alliance's new players (./guide.ts). */
   readonly guide: RoomGuide;
+  // W-63 shared settlements (the block at the end of the class)
+  private settles: RoomSettlement[] = [];
+  private own = new Map<number, number>();
+  private campBy = new Map<number, number>();
+  private pendingCamps: { pid: number; team: number; type: string; x: number; y: number; tick: number }[] = [];
+  private tried = new Set<number>();
+  private hpSeen = new Map<string, number>();
+  private attackAt = new Map<string, number>();
+  private later = new Map<number, ServerMsg[]>();
+  private isHome: boolean;
+  /** W-63: why the last order was refused with notYourGround (the DO sends it as the error's detail). */
+  refusal = '';
 
   constructor(o: RoomOptions) {
     this.region = o.region;
@@ -256,6 +284,7 @@ export class WarRoom {
     this.allowArmy = o.allowArmy ?? true;
     this.allowDev = o.allowDev ?? this.allowArmy;
     this.guide = new RoomGuide(o.region, this.sim, o.home);
+    this.isHome = o.home !== undefined;
     this.epoch = o.epoch ?? `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
     this.fightQuiet = o.fightQuiet ?? FIGHT_QUIET;
     this.run = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
@@ -361,6 +390,9 @@ export class WarRoom {
     if (m.region !== this.region.id) return refuse('region', `this room is ${this.region.id}`);
     if (m.playerId !== sessionPid) return refuse('player', 'playerId is not the signed-in player');
     if (m.team >= this.per.length) return refuse('team');
+    // W-63: the banner by ground: tied to a settlement here, his men fly its lord's alliance; else his own (m.team)
+    this.own.set(sessionPid, m.team);
+    m = { ...m, team: this.bannerTeam(sessionPid) ?? m.team };
     const p = this.players.get(sessionPid);
     if (p && p.team !== m.team) return refuse('team', `already in alliance ${p.team}`);
     if (!m.squads === !m.army) return refuse('army', 'send squads (person ids) or, in dev, an army');
@@ -503,6 +535,9 @@ export class WarRoom {
    * over with a join (a rejoin: no new spawn).
    */
   arrive(pid: number, team: number, persons: WarPerson[], side: Side, lost: Record<string, number> = {}, cargo?: TransitCargo): { squad: SquadId; msg: ServerMsg | null } | { error: 'full' | 'team' | 'squads' } {
+    // W-63: the banner by ground
+    if (team < this.per.length) this.own.set(pid, team);
+    team = this.bannerTeam(pid) ?? team;
     const p = this.players.get(pid);
     if (team >= this.per.length || (p && p.team !== team)) return { error: 'team' };
     if (this.squadsOf(pid).length >= MAX_SQUADS) return { error: 'squads' };
@@ -673,6 +708,10 @@ export class WarRoom {
         if (!pile(o.pile)) return 'badTarget';
         break;
     }
+    // W-63: building on a settlement's ground: its lord off others' plots, a citizen on his own plot
+    const why = this.groundRefusal(pid, p.team, o);
+    if (why) return (this.refusal = why), 'notYourGround';
+    if (o.kind === 'placeBuilding' && (o.type === 'camp' || o.type === 'fort')) this.pendingCamps.push({ pid, team: p.team, type: o.type, x: o.x, y: o.y, tick: this.currentTick });
     const sent = (squad === undefined && o.kind !== 'cancelSite' ? { ...o, team: p.team } : o) as Order;
     if (squad !== undefined) this.bots.clear(squad);
     this.sim.order(sent);
@@ -961,7 +1000,7 @@ export class WarRoom {
     return labour.length || guards.length || works.length ? { labour, guards, works } : null;
   }
 
-  tick(now: () => number = () => 0): { frames: Map<number, Uint8Array>; msgs: Map<number, ServerMsg[]>; admitted: Map<number, ServerMsg>; fights: Fight[]; crafted: Crafted[]; bosses: BossSlain[]; sacrilege: number[]; freed: string[]; raided: number[]; captured: { cart: number; from: string; team: number; to: string }[]; souls: SoulClaim[]; peace: Peace | null; times: TickTimes; guided: GuideDone[] } {
+  tick(now: () => number = () => 0): { frames: Map<number, Uint8Array>; msgs: Map<number, ServerMsg[]>; admitted: Map<number, ServerMsg>; fights: Fight[]; crafted: Crafted[]; bosses: BossSlain[]; sacrilege: number[]; freed: string[]; raided: number[]; captured: { cart: number; from: string; team: number; to: string }[]; souls: SoulClaim[]; peace: Peace | null; times: TickTimes; guided: GuideDone[]; settle: SettleOut | null } {
     const t0 = now();
     // M6i: carts' owners before the step (a capture names only the taker)
     const cartWas = new Map((this.snap.sieges ?? []).filter((e) => e.owner !== undefined).map((e) => [e.id, { owner: e.owner!, team: e.team }]));
@@ -1045,8 +1084,12 @@ export class WarRoom {
     // W-62: guide steps done (the DO pays and stores them), told to the player
     const g = this.guide.tick(this.snap, evs);
     for (const [pid, m] of g.msgs) if (this.players.get(pid)?.online) tell(pid, m);
+    // W-63: camps to found, attacks on settlements; messages owed since the last tick (a banner changed)
+    const settle = this.settleTick();
+    for (const [pid, ms] of this.later) if (this.players.get(pid)?.online) for (const m of ms) tell(pid, m);
+    this.later.clear();
     this.lastTick = this.snap.tick;
-    return { frames, msgs, admitted, fights, crafted, bosses, sacrilege, freed, raided, captured, souls, guided: g.done, peace: this.peace(), times: { stepMs: t1 - t0, snapMs: t2 - t1, netMs: now() - t2 } };
+    return { frames, msgs, admitted, fights, crafted, bosses, sacrilege, freed, raided, captured, souls, guided: g.done, peace: this.peace(), settle, times: { stepMs: t1 - t0, snapMs: t2 - t1, netMs: now() - t2 } };
   }
 
   /**
@@ -1127,6 +1170,7 @@ export class WarRoom {
       owners: Array.from(this.owners, (o) => o ?? null), teams: Array.from(this.teams, (t) => t ?? null),
       spawns: this.spawns, died, lastBlow: this.lastBlow, inFight: this.inFight, queue: this.queue, pids,
       sim: this.sim.exportState(), bots: this.bots.exportState(), run: this.run, mends: this.mends, stormed: [...this.stormed],
+      settle: { own: [...this.own], campBy: [...this.campBy], tried: [...this.tried] },
     };
   }
 
@@ -1149,6 +1193,9 @@ export class WarRoom {
     if (st.run) r.run = st.run;
     r.mends = st.mends ?? [];
     r.stormed = new Set(st.stormed ?? []);
+    r.own = new Map(st.settle?.own ?? []);
+    r.campBy = new Map(st.settle?.campBy ?? []);
+    r.tried = new Set(st.settle?.tried ?? []);
     for (const w of st.queue) r.dequeue(w.pid); // nobody is connected to wait: their persons go home (takeReleased)
     const gone = st.pids.filter((id) => !persons.has(id));
     if (gone.length) r.sim.dropPersons(gone);
@@ -1178,5 +1225,212 @@ export class WarRoom {
   /** Bytes sent to each online player so far. */
   bytesSent(): Map<number, number> {
     return new Map([...this.players.values()].map((p) => [p.pid, p.bytes]));
+  }
+
+  // ---------------------------------------------------------------- W-63 shared settlements (./roomSettlements.ts)
+
+  /** The banner the player's men fly here: his settlement's (its lord's alliance); null when he has no tie here. */
+  bannerTeam(pid: number): number | null {
+    const t = bannerOf(this.settles, pid)?.team ?? null;
+    return t !== null && t < this.per.length ? t : null;
+  }
+
+  /** The region's settlements (the DO's D1 poll). Towns and squads whose banner changed turn now, in id order (logged orders). */
+  setSettlements(list: readonly RoomSettlement[]): void {
+    this.settles = [...list].sort((a, b) => a.id - b.id);
+    for (const s of this.settles) {
+      if (s.team === null || s.team >= this.per.length) continue;
+      const t = this.snap.townLevels?.find((x) => x.id === s.centre);
+      if (t && t.team !== s.team) this.roomOrder({ kind: 'rebanner', centre: s.centre, team: s.team });
+    }
+    for (const p of [...this.players.values()].sort((a, b) => a.pid - b.pid)) {
+      const want = this.bannerTeam(p.pid) ?? this.own.get(p.pid) ?? p.team;
+      if (want === p.team) continue;
+      for (const id of this.squadsOf(p.pid)) {
+        this.roomOrder({ kind: 'turnSquad', squad: id, team: want });
+        this.teams[id] = want;
+      }
+      p.team = want;
+      if (p.enc) p.feed = new EconomyFeed(); // influence and nodes of the new banner
+      this.townSent.delete(p.pid);
+      if (p.online) this.tellLater(p.pid, { t: 'welcome', v: NET_VERSION, region: this.region.id, you: { id: p.pid, team: want }, squads: this.squadsOf(p.pid), tick: this.currentTick, quota: this.quota() });
+    }
+  }
+
+  /** The region's settlements as the player sees them (protocol `settlements`). */
+  settlementsFor(pid: number): SettlementNet[] {
+    return netOf(this.settles, pid);
+  }
+
+  /** Settlement `id`, as known here. */
+  settlement(id: number): RoomSettlement | null {
+    return this.settles.find((s) => s.id === id) ?? null;
+  }
+
+  private tellLater(pid: number, m: ServerMsg): void {
+    (this.later.get(pid) ?? this.later.set(pid, []).get(pid)!).push(m);
+  }
+
+  /** An order the room itself gives (W-63 turnSquad, rebanner): to the sim at the next step, in the log. */
+  private roomOrder(o: Order): void {
+    this.sim.order(o);
+    this.log.push({ tick: this.currentTick, o });
+  }
+
+  /** Why the player may not build there (null: he may): placements on a settlement's ground (./roomSettlements.ts buildRefusal). */
+  private groundRefusal(pid: number, team: number, o: NetOrder): string | null {
+    if (!this.settles.length) return null;
+    let tiles: readonly number[];
+    if (o.kind === 'placeBuilding') {
+      const d = BUILDINGS[o.type];
+      if (!d || d.brazier || d.access === 'ladder') return null; // field pieces before foe walls
+      tiles = this.sim.checkPlacement(team, o.type, o.x, o.y, o.rot).tiles;
+    } else if (o.kind === 'placeWall') tiles = [...o.points, ...(o.towers ?? []), ...(o.gates ?? [])];
+    else if (o.kind === 'placeBridge') tiles = o.points;
+    else return null;
+    return buildRefusal(this.settles, pid, tiles);
+  }
+
+  /** At least SETTLE.presence of the player's fighters stand on settlement `id`'s ground (terms may be offered). */
+  presence(pid: number, id: number): boolean {
+    const s = this.settlement(id);
+    if (!s) return false;
+    const me = ownerOf(pid);
+    const n = this.snap.units.filter((u) => u.state !== 'dead' && !u.cls.startsWith('civ_') && this.owners[u.squad] === me && (u.x - s.x) ** 2 + (u.y - s.y) ** 2 <= s.r * s.r).length;
+    return n >= SETTLE.presence;
+  }
+
+  /** Each settlement's town level (its centre's; 0: gone), whether its lord or a citizen has men on its ground, its pieces. */
+  settlementReports(): SettleReport[] {
+    return this.settles.map((s) => {
+      const people = new Set(s.members.filter((m) => m.role !== 'garrison').map((m) => ownerOf(m.pid)));
+      const tended = this.snap.units.some((u) => u.state !== 'dead' && people.has(this.owners[u.squad]) && (u.x - s.x) ** 2 + (u.y - s.y) ** 2 <= s.r * s.r);
+      return { id: s.id, level: this.snap.townLevels?.find((t) => t.id === s.centre)?.level ?? 0, tended, persist: { pieces: piecesOf(this.snap, s) } };
+    });
+  }
+
+  /** The goods in the settlement's stores now. */
+  storeGoods(id: number): Record<string, number> {
+    const s = this.settlement(id), out: Record<string, number> = {};
+    if (!s) return out;
+    for (const b of storesOf(this.snap, s)) {
+      const at = this.sim.cargo({ building: b.id });
+      for (const [k, n] of Object.entries(at ? contents(at.slots).goods : {})) out[k] = (out[k] ?? 0) + n;
+    }
+    return out;
+  }
+
+  /** Take `goods` out of the settlement's stores (all or nothing). */
+  takeStore(id: number, goods: Record<string, number>): boolean {
+    const s = this.settlement(id), want = Object.entries(goods).filter(([, n]) => n > 1e-9);
+    if (!want.length) return true;
+    if (!s) return false;
+    const have = this.storeGoods(id);
+    if (want.some(([k, n]) => (have[k] ?? 0) + 1e-6 < n)) return false;
+    const left = Object.fromEntries(want);
+    for (const b of storesOf(this.snap, s)) {
+      const at = this.sim.cargo({ building: b.id });
+      if (!at) continue;
+      const g = contents(at.slots).goods, part: Record<string, number> = {};
+      for (const [k, n] of Object.entries(left)) {
+        const t = Math.min(n, g[k] ?? 0);
+        if (t > 1e-9) (part[k] = t), (left[k] = n - t);
+      }
+      if (Object.keys(part).length) takeOut(at.slots, part);
+    }
+    this.snap = this.sim.snapshot();
+    return true;
+  }
+
+  /** Goods back into the settlement's first store (a levy that failed). */
+  putStore(id: number, goods: Record<string, number>): void {
+    const s = this.settlement(id), b = s ? storesOf(this.snap, s)[0] : undefined;
+    const at = b ? this.sim.cargo({ building: b.id }) : null;
+    if (at) fill(at.slots.map((x) => ({ ...x, cap: Infinity })), { lots: Object.entries(goods).map(([r, n]) => ({ r: r as never, n, o: this.region.id })), items: [] });
+    this.snap = this.sim.snapshot();
+  }
+
+  /**
+   * A fresh field: what persists of a settlement laid down again for `team` (its ground claimed, each piece placed and
+   * finished at its hp share, store goods back in); pieces whose tiles are blocked now are dropped. The new centre id
+   * (null: its centre could not be laid down).
+   */
+  restorePieces(team: number, s: { x: number; y: number; r: number }, pieces: readonly Piece[]): number | null {
+    if (!pieces.length || team >= this.per.length) return null;
+    this.sim.claim(team, s.x, s.y, s.r);
+    const before = new Set((this.sim.snapshot().buildings ?? []).map((b) => b.id));
+    for (const p of pieces) if (BUILDINGS[p.type]) this.sim.order({ kind: 'placeBuilding', team, type: p.type, x: p.x, y: p.y, rot: p.rot });
+    this.sim.step();
+    const fresh = (this.sim.snapshot().buildings ?? []).filter((b) => !before.has(b.id) && b.team === team);
+    let centre: number | null = null;
+    for (const [i, p] of pieces.entries()) {
+      const b = fresh.find((x) => x.type === p.type && Math.abs(x.x - p.x) <= 1 && Math.abs(x.y - p.y) <= 1);
+      if (!b) continue;
+      this.sim.finishSite(b.id);
+      if (p.hp < 1) this.sim.damageBuilding(b.id, b.maxHp * (1 - Math.max(0.05, p.hp)));
+      const at = p.goods ? this.sim.cargo({ building: b.id }) : null;
+      if (at) fill(at.slots, { lots: Object.entries(p.goods!).map(([r, n]) => ({ r: r as never, n, o: this.region.id })), items: [] });
+      if (i === 0 && (p.type === 'camp' || p.type === 'fort')) centre = b.id;
+    }
+    this.snap = this.sim.snapshot();
+    return centre;
+  }
+
+  /** Every tick: who placed new camp and fort sites; every SETTLE_EVERY: finished camps to found, attacks on settlements. */
+  private settleTick(): SettleOut | null {
+    const snap = this.snap, tick = snap.tick;
+    if (this.pendingCamps.length) {
+      for (const b of snap.buildings ?? []) {
+        if ((b.type !== 'camp' && b.type !== 'fort') || b.pre || this.campBy.has(b.id)) continue;
+        const i = this.pendingCamps.findIndex((c) => c.team === b.team && c.type === b.type && Math.abs(c.x - b.x) <= 3 && Math.abs(c.y - b.y) <= 3);
+        if (i >= 0) this.campBy.set(b.id, this.pendingCamps.splice(i, 1)[0].pid);
+      }
+      this.pendingCamps = this.pendingCamps.filter((c) => tick - c.tick < SETTLE_EVERY); // refused placements
+    }
+    if (tick % SETTLE_EVERY) return null;
+    const out: SettleOut = { found: [], attacks: [] };
+    if (!this.isHome)
+      for (const b of snap.buildings ?? []) {
+        if ((b.type !== 'camp' && b.type !== 'fort') || b.pre || (b.state !== 'done' && b.state !== 'damaged') || this.tried.has(b.id)) continue;
+        const lord = this.campBy.get(b.id);
+        if (lord === undefined) continue;
+        this.tried.add(b.id);
+        if (this.settles.some((s) => s.centre === b.id || (b.x - s.x) ** 2 + (b.y - s.y) ** 2 <= s.r * s.r)) continue; // a camp of a settlement
+        out.found.push({ centre: b.id, x: b.x, y: b.y, lord });
+      }
+    // attacks: a settlement's pieces or its people's men there lost hp while a foe player's men struck near
+    const seen = new Map<string, number>();
+    for (const s of this.settles) {
+      if (s.team === null) continue;
+      const people = new Set(s.members.map((m) => ownerOf(m.pid)));
+      const near = (x: number, y: number, k = 0) => (x - s.x) ** 2 + (y - s.y) ** 2 <= (s.r + k) ** 2;
+      let hurt = false;
+      for (const b of ownBuildings(snap, s)) {
+        const k = `b${b.id}`, was = this.hpSeen.get(k);
+        if (was !== undefined && b.hp < was - 1e-6) hurt = true;
+        seen.set(k, b.hp);
+      }
+      for (const u of snap.units) {
+        if (!people.has(this.owners[u.squad]) || !near(u.x, u.y)) continue;
+        const k = `u${u.id}`, hp = u.state === 'dead' ? 0 : u.hp, was = this.hpSeen.get(k);
+        if (was !== undefined && hp < was - 1e-6) hurt = true;
+        if (u.state !== 'dead') seen.set(k, hp);
+      }
+      if (!hurt) continue;
+      const by = new Set<number>();
+      for (const u of snap.units) {
+        if (u.state !== 'attack' || this.teams[u.squad] === s.team || !near(u.x, u.y, 12)) continue;
+        const m = /^p:(\d+)$/.exec(this.owners[u.squad] ?? ''), pid = m ? Number(m[1]) : null;
+        if (pid !== null && !s.members.some((x) => x.pid === pid)) by.add(pid);
+      }
+      for (const pid of [...by].sort((a, b) => a - b)) {
+        const k = `${s.id}:${pid}`, at = this.attackAt.get(k);
+        if (at !== undefined && tick - at < ATTACK_COOLDOWN) continue;
+        this.attackAt.set(k, tick);
+        out.attacks.push({ by: pid, victim: s.id });
+      }
+    }
+    this.hpSeen = seen;
+    return out.found.length || out.attacks.length ? out : null;
   }
 }
