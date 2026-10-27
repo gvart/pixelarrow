@@ -42,6 +42,7 @@ export class Selection {
 
   /** Each frame, after the units are drawn in: the fallen and the lost leave the selection and the groups. */
   sync(drawn: DrawUnit[]): void {
+    if (this.s.sim.replay) return; // W-62 E5: a replay's men are not the live ones (the selection and groups wait)
     this.live.clear();
     for (const d of drawn) if (d.team === myTeam() && d.u.state !== 'dead') this.live.set(d.u.id, d);
     if (!this.s.sim.cur) return;
@@ -132,7 +133,7 @@ export class Selection {
   }
 
   private key(e: KeyboardEvent): void {
-    if (e.repeat) return;
+    if (e.repeat || this.s.sim.replay) return;
     const s = this.s, a = keys.act(e);
     if (!a) return;
     const form = FORMS.indexOf(a);

@@ -43,6 +43,15 @@ describe('replay buffer', () => {
     expect(f1.bytes / 600).toBeLessThan(32);
   });
 
+  it('a pile counting down its time is kept from the frame before until it is SLACK ticks stale', () => {
+    const b = new ReplayBuffer(), pile = (t: number) => ({ id: 7, x: 1, y: 2, lots: [[1, 2]], left: 1000 - t });
+    for (let t = 1; t <= 30; t++) b.push({ ...synth(t, 2), piles: [pile(t)] } as unknown as Snapshot, null);
+    const at = (t: number) => b.frames[t - 1].rest.piles!;
+    expect(at(10)).toBe(at(5));
+    expect(at(25)).not.toBe(at(5));
+    expect((at(25)[0] as unknown as { left: number }).left).toBeGreaterThan(1000 - 25);
+  });
+
   it('starts over when the ticks go back (a new sim or region)', () => {
     const b = new ReplayBuffer();
     for (let t = 1; t <= 50; t++) b.push(synth(t, 5), null);

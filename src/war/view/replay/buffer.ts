@@ -78,6 +78,26 @@ export function est(v: unknown): number {
   return n;
 }
 
+/**
+ * Countdowns that tick every frame on things that otherwise stand still (a pile's or a soul's `left`: it fades by it):
+ * an element differing only by these, by less than SLACK ticks, is kept as the frame before's (drawn a moment stale).
+ */
+const COUNTDOWN = new Set(['left']);
+const SLACK = 20;
+
+/** Element equality for interning: same(), but a countdown may lag by SLACK. */
+function near(a: unknown, b: unknown): boolean {
+  if (!isObj(a) || !isObj(b) || Array.isArray(a) || Array.isArray(b)) return same(a, b);
+  let n = 0;
+  for (const k in a) {
+    n++;
+    const x = a[k], y = b[k];
+    if (COUNTDOWN.has(k) && typeof x === 'number' && typeof y === 'number' ? Math.abs(x - y) >= SLACK : !same(x, y)) return false;
+  }
+  for (const _ in b) n--;
+  return n === 0;
+}
+
 type Keyed = { id?: unknown; team?: unknown };
 const keyOf = (v: unknown, i: number): unknown => (isObj(v) ? ((v as Keyed).id ?? i) : i);
 
@@ -88,14 +108,15 @@ function intern<T>(prev: T, cur: T, out: { bytes: number }): T {
     out.bytes += est(cur);
     return cur;
   }
-  let byKey: Map<unknown, unknown> | null = null;
+  let byKey: Map<unknown, unknown> | null = null, kept = 0;
   const res = cur.map((c, i) => {
     let p = prev[i];
     if (keyOf(p, i) !== keyOf(c, i)) p = (byKey ??= new Map(prev.map((x, j) => [keyOf(x, j), x]))).get(keyOf(c, i));
-    if (p !== undefined && same(p, c)) return p;
+    if (p !== undefined && near(p, c)) return kept++, p;
     out.bytes += est(c);
     return c;
   });
+  if (kept === prev.length && res.length === prev.length && res.every((x, i) => x === prev[i])) return prev; // all kept: the array too
   out.bytes += 16 + 8 * res.length;
   return res as T;
 }
