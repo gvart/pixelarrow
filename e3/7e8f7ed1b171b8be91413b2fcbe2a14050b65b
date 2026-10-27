@@ -1,0 +1,69 @@
+src/war/view/worker.ts
+  s_fcb7475e0b5395::t_3c5421e5896ecf 35,135,150,172
+src/war/scenarios/types.ts
+  s_fcb7475e0b5395::t_3c5421e5896ecf 56-57
+src/war/view/hud/fullMap.ts
+  s_fcb7475e0b5395::t_4fa0ff65b1ae06 16
+  s_fcb7475e0b5395::t_0d413bd489d696 274,290-293,300
+src/war/view/units.ts
+  s_fcb7475e0b5395::t_4a3c53ae8bbc7c 31
+  s_fcb7475e0b5395::t_03f4426f190d0f 536
+src/war/types.ts
+  s_fcb7475e0b5395::t_7fd9660dd20f75 304-305,382-388,391,589-592,772-775
+  s_fcb7475e0b5395::t_139635a3b26e8b 389-390
+tests/perf/war.perf.ts
+  s_fcb7475e0b5395::t_f970d4b9232871 19-20
+  s_fcb7475e0b5395::t_a00d6e1d188338 135
+  s_fcb7475e0b5395::t_b4739960107fba 9,124-125,131-134,136-138,153-154
+  s_fcb7475e0b5395::t_bb607408f3541f 126-130
+  s_fcb7475e0b5395::t_3c294b413dc6c6 139-152
+  s_fcb7475e0b5395::t_6aabc49c46c7b7 155
+src/war/view/hud/mapDraw.ts
+  s_fcb7475e0b5395::t_dc2fc77d350d0a 259-261,265-271
+  s_fcb7475e0b5395::t_d2cb134058fdbe 12,166-168,249-251,254
+  s_fcb7475e0b5395::t_1aff7127248e3b 272
+src/war/scenarios/run.ts
+  s_fcb7475e0b5395::t_3c5421e5896ecf 24-25,87,193
+src/war/sim/index.ts
+  s_fcb7475e0b5395::t_cbf43ad865234d 53,71,679-721,2989,3249,3278,3431,3456-3457
+  s_fcb7475e0b5395::t_749f7147fa8ea3 307-310,534-535,542,1149-1151,1492-1497,1504,1927,2317,2695,2697,3345
+src/war/sim/vision.ts
+  s_fcb7475e0b5395::t_928a8d6f5144a9 23,216
+src/war/view/simClient.ts
+  s_fcb7475e0b5395::t_3c5421e5896ecf 212-216
+docs/WAR.md
+  s_fcb7475e0b5395::t_d278b2c599f0e2 389-414
+tests/war/roam.test.ts
+  s_fcb7475e0b5395::t_0e843cd40b5443 42,170
+  s_fcb7475e0b5395::t_b33f71282a0b15 1-41,43-169,171-255
+src/war/sim/roam.ts
+  s_fcb7475e0b5395::t_08988d96e5767f 1-121,123-231,233-377,382-391,393-426,430-434,436-458,460-465,470-482,489-505,510-524,535-572,576-698,700-703
+  s_fcb7475e0b5395::t_3e68968f6f10af 532-534
+  s_fcb7475e0b5395::t_5667a850303ef8 378-381,427-429,435,466-469,506-509,573-575
+  s_fcb7475e0b5395::t_139635a3b26e8b 699
+  s_fcb7475e0b5395::t_3fdf0bffc90b14 122,232,525-531
+  s_fcb7475e0b5395::t_62375d33a7b95c 392,459
+  s_fcb7475e0b5395::t_0e843cd40b5443 483-488
+server/src/war/regionDO.ts
+  s_fcb7475e0b5395::t_86b37f2c35deb1 168
+server/src/war/room.ts
+  s_fcb7475e0b5395::t_58ffa4e8354a10 174-175,310,1140,1142,1211
+src/war/net/protocol.ts
+  s_fcb7475e0b5395::t_cfcddd96437455 33,251
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "e37e8f7ed1b171b8be91413b2fcbe2a14050b65b",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
