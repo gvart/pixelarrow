@@ -1,0 +1,34 @@
+src/war/sim/tunnel.ts
+  s_fcb7475e0b5395::t_af6eff8137a1e1 1-41
+server/src/war/regionDO.ts
+  s_fcb7475e0b5395::t_4fd32f8d4116aa 73,404
+server/src/war/routes.ts
+  s_fcb7475e0b5395::t_4fd32f8d4116aa 5,84,100-101
+server/src/war/raise.ts
+  s_fcb7475e0b5395::t_3a0230c07ae745 1-77
+server/src/war/persons.ts
+  s_fcb7475e0b5395::t_04681154c5ddca 48,263,285,319-320,322,324,331-341
+  s_fcb7475e0b5395::t_4fd32f8d4116aa 244-245
+server/migrations/0047_war_tunnel.sql
+  s_fcb7475e0b5395::t_38403373cfaf3e 1-7
+server/src/account/deletionMap.ts
+  s_fcb7475e0b5395::t_38403373cfaf3e 70
+server/test/war/tunnel.test.ts
+  s_fcb7475e0b5395::t_8f0201948167a0 1-75
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "05dd34417bbdb89e350589039a493090a341421b",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
