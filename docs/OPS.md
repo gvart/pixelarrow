@@ -45,6 +45,12 @@ per error, admin action or cron run; ~5-30 events per player per day; one D1
 isolate, 6 batches/min per IP and player; pruned after 30 days); daily export
 artifacts count toward Actions storage on a private repo.
 
+War regions bill DO duration only while someone is connected: with armies
+parked and nobody online the 10 Hz loop stops and an alarm every 2 min runs
+the missed ticks in one batch (~0.4 ms a tick at 72 men, ~3.6 ms at 360; ≤
+3000 ticks a call, gaps over 30 min cut), so such a region is awake ~15-60 min
+a day instead of 24 h (`server/src/war/regionDO.ts` top comment).
+
 ## Monitoring
 
 ### Server errors (Workers Logs)
@@ -60,6 +66,7 @@ artifacts count toward Actions storage on a private repo.
 | `admin_request`, `admin_action`, `admin_action_failed` | info/warn | `actor`, `action`, `player`, `requestId` |
 | `analytics_write_failed`, `analytics_emit_failed`, `background_failed` | warn | `message` |
 | `cron_pruned` | info | `table`, `rows` |
+| `war_catchup_cut` | warn | a dormant war region owed more than 30 min of ticks (an outage): `region`, `ticks` dropped |
 
 Tail: `cd server && npx wrangler tail pixelarrow --format json --config ../wrangler.jsonc`.
 Alerts: a Cloudflare Notification on the Worker's error rate.

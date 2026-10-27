@@ -208,7 +208,7 @@ describe('WarRegionDO persistence', () => {
     c.ws.close(1000);
     await new Promise((r) => setTimeout(r, 200));
 
-    // the object goes away; its storage keeps the region, and the pending alarm brings it back
+    // the object goes away; its storage keeps the region, and the pending alarm brings it back (and catches it up)
     const stub = env.WAR_REGION.get(env.WAR_REGION.idFromName('test-ridge'));
     await runInDurableObject(stub, async (o: WarRegionDO, state) => {
       await o.settled();
@@ -217,7 +217,7 @@ describe('WarRegionDO persistence', () => {
     await abortAllDurableObjects(); // a crash or deploy: the running loop holds the object, so no graceful eviction
     expect(await runDurableObjectAlarm(env.WAR_REGION.get(env.WAR_REGION.idFromName('test-ridge')))).toBe(true); // a fresh stub: the old one died with the object
     const after = await stats();
-    expect(after).toMatchObject({ units: before.units, online: 0, running: true });
+    expect(after).toMatchObject({ units: before.units, online: 0, running: false }); // caught up, dormant: nobody is connected
     expect(await deployed()).toBe(12);
     // the player takes his restored squad back with a rejoin
     const again = await connect(me.token);
