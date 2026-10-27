@@ -47,7 +47,7 @@
  */
 import { DurableObject } from 'cloudflare:workers';
 import type { Env } from '../env';
-import { WarRoom, type RoomOptions, type RoomState, type TickTimes } from './room';
+import { WarRoom, type ClaimTaking, type RoomOptions, type RoomState, type TickTimes } from './room';
 import { regionVersion, warRegion } from './regions';
 import { DEFAULT_CAP, parseClientMsg, type HandoffMsg, type JoinMsg, type MendMsg, type ServerMsg, type StowMsg } from '../../../src/war/net/protocol';
 import { cartArrived, contract, deliver, guardCheck, labourDone, sealedFor, workContracts } from './contracts';
@@ -81,7 +81,7 @@ import type { TransitCargo } from '../../../src/war/net/world';
 import { guideStorageKey, type GuideDone } from './guide';
 import { fightTallies, tallyStmt } from './tasks';
 import type { GuideSave } from '../../../src/war/net/guide';
-import { bookFight, pactAttack } from './crown';
+import { bookFight, pactAttack, pactsOf } from './crown';
 import { found, levy, logAttack, PRESENCE, report as reportSettlement, SETTLE, tributeOf } from './settlements';
 import { foundRefusal, loadRegionSettlements, tiedTo, type Persist, type RoomSettlement } from './roomSettlements';
 import { goodsOf } from './holders';
@@ -322,7 +322,7 @@ export class WarRegionDO extends DurableObject<Env> {
       if (m.t === 'join') await this.join(ws, me.pid, room, m);
       else if (m.t === 'order') {
         const err = room.order(me.pid, m.o);
-        if (err) send(ws, { t: 'error', code: err, detail: err === 'notYourGround' ? room.refusal : m.o.kind });
+        if (err) send(ws, { t: 'error', code: err, detail: err === 'notYourGround' || err === 'atPeace' ? room.refusal : m.o.kind });
       } else if (m.t === 'view') room.view(me.pid, m);
       else if (m.t === 'ping') send(ws, { t: 'pong', c: m.c, tick: room.currentTick });
       else if (m.t === 'check') send(ws, room.check(me.pid, m));
@@ -883,6 +883,7 @@ export class WarRegionDO extends DurableObject<Env> {
     const st = r.settle;
     if (d && st?.found.length) this.write('found', () => this.foundAll(room, st.found));
     if (d && st?.attacks.length) this.write('attacks', () => this.attacked(room, st.attacks));
+    if (d && st?.taking.length) this.write('claims taken', () => this.claimsTaken(room, st.taking));
     if (d && !catching && room.currentTick % SETTLE_POLL === 3) this.write('settle poll', () => this.pollSettlements(room));
     // W-62: an event that ran out while the world could not tell us ends here too
     if (!catching && room.currentTick % PEACE_POLL === 2) void this.applyEvents(room).catch((e) => logError('war_world_events_failed', e));
@@ -922,6 +923,9 @@ export class WarRegionDO extends DurableObject<Env> {
     if (!d) return;
     this.settles = await loadRegionSettlements(d, room.region.id);
     room.setSettlements(this.settles);
+    // W-64: pacts and truces in force (a claim on a point of an alliance at peace with one's own is refused)
+    const now = Date.now();
+    room.setPacts((await pactsOf(d)).filter((p) => p.ends_at === null || p.ends_at > now).map((p) => ({ a: p.alliance_a, b: p.alliance_b, kind: p.kind })));
     for (const ws of this.ctx.getWebSockets()) {
       const a = ws.deserializeAttachment() as Attachment | null;
       if (a && this.settleSent.has(a.pid)) this.sendSettlements(room, a.pid);
@@ -978,6 +982,16 @@ export class WarRegionDO extends DurableObject<Env> {
       // W-64: a pact or truce between the attacker's alliance and the victim's breaks; both alliances hear it
       const p = await pactAttack(d, a.by, a.victim, Date.now());
       if (p.tell.length && this.env.WAR_WORLD) await this.world().notify(p.tell, { t: 'crownNews', kind: 'pactBroken', text: p.text, region }).catch((e) => logError('war_crown_notify_failed', e, { region }));
+    }
+  }
+
+  /** Held claim points being taken: every member of the holding alliance hears it on his world sockets. */
+  private async claimsTaken(room: WarRoom, list: readonly ClaimTaking[]): Promise<void> {
+    const d = this.env.DB!, region = room.region.id;
+    if (!this.env.WAR_WORLD) return;
+    for (const c of list) {
+      const pids = (await d.prepare('SELECT player_id FROM war_alliance_members WHERE season = ?1 AND alliance = ?2').bind(WAR_SEASON.id, c.holder).all<{ player_id: number }>()).results.map((r) => r.player_id);
+      if (pids.length) await this.world().notify(pids, { t: 'claimAttacked', region, name: room.region.name, point: c.point, by: c.by }).catch((e) => logError('war_claim_notify_failed', e, { region }));
     }
   }
 

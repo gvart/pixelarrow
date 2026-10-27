@@ -142,8 +142,15 @@ export interface RoomState {
 
 /** W-63: a finished camp or fort to report to settlements.found (its placer the lord). */
 export interface FoundReq { centre: number; x: number; y: number; lord: number }
-/** W-63: what the room saw this tick of the settlements: camps to found, attacks on them (player `by`, settlement `victim`). */
-export interface SettleOut { found: FoundReq[]; attacks: { by: number; victim: number }[] }
+/** A held claim point being taken: its holder hears it (once per ATTACK_COOLDOWN a point and attacker). */
+export interface ClaimTaking { point: number; holder: number; by: number }
+/**
+ * W-63: what the room saw this tick of the settlements: camps to found, attacks on them (player `by`, settlement
+ * `victim`); and held claim points being taken (`taking`).
+ */
+export interface SettleOut { found: FoundReq[]; attacks: { by: number; victim: number }[]; taking: ClaimTaking[] }
+/** W-64: a pact or truce in force between alliances a and b (crown.ts pactsOf; the DO loads them with the settlements). */
+export interface RoomPact { a: number; b: number; kind: 'pact' | 'truce' }
 /** W-63: a settlement's report (settlements.report): town level, people on its ground, what persists of it. */
 export interface SettleReport { id: number; level: number; tended: boolean; persist: Persist }
 /** W-63 ticks: founding checks and attack samples; one player's attacks on one settlement are logged once per ATTACK_COOLDOWN. */
@@ -272,6 +279,8 @@ export class WarRoom {
   private tried = new Set<number>();
   private hpSeen = new Map<string, number>();
   private attackAt = new Map<string, number>();
+  private takeAt = new Map<string, number>();
+  private pacts: RoomPact[] = [];
   private later = new Map<number, ServerMsg[]>();
   private isHome: boolean;
   /** W-63: why the last order was refused with notYourGround (the DO sends it as the error's detail). */
@@ -601,7 +610,7 @@ export class WarRoom {
     for (const c of this.snap.claims ?? []) {
       if (c.state === 'claimed' && c.team >= 0 && c.team < n) claims[c.team]++;
       const t = c.squad >= 0 ? this.teams[c.squad] : undefined;
-      if ((c.state === 'channel' || c.state === 'contested') && t !== undefined && t < n) channel[t]++;
+      if ((c.state === 'channel' || c.state === 'contested' || c.taking) && t !== undefined && t < n) channel[t]++;
     }
     const out: Summary = { live: this.live.slice(0, n), claims, channel };
     // M7f: its landmark, favour and prestige per alliance, a ruined town
@@ -713,6 +722,12 @@ export class WarRoom {
       case 'salvagePile':
         if (!pile(o.pile)) return 'badTarget';
         break;
+      case 'claimRegion': {
+        // W-64: a pact or truce with the point's holder forbids taking it
+        const holder = this.snap.claims?.[o.point]?.team ?? -1, pact = holder >= 0 && holder !== p.team ? this.pactWith(p.team, holder) : null;
+        if (pact) return (this.refusal = `A ${pact} with ${ALLIANCE_LIST[holder]?.name ?? 'its holder'} is in force: its claim points may not be taken`), 'atPeace';
+        break;
+      }
     }
     // W-63: building on a settlement's ground: its lord off others' plots, a citizen on his own plot
     const why = this.groundRefusal(pid, p.team, o);
@@ -1272,6 +1287,17 @@ export class WarRoom {
     }
   }
 
+  /** W-64: the pacts and truces in force between alliances (the DO's poll). */
+  setPacts(list: readonly RoomPact[]): void {
+    this.pacts = [...list];
+  }
+
+  /** The pact or truce in force between alliances a and b (null: none). */
+  pactWith(a: number, b: number): RoomPact['kind'] | null {
+    const p = this.pacts.filter((x) => (x.a === a && x.b === b) || (x.a === b && x.b === a));
+    return p.some((x) => x.kind === 'pact') ? 'pact' : p.length ? 'truce' : null;
+  }
+
   /** The region's settlements as the player sees them (protocol `settlements`). */
   settlementsFor(pid: number): SettlementNet[] {
     return netOf(this.settles, pid);
@@ -1403,7 +1429,15 @@ export class WarRoom {
       this.pendingCamps = this.pendingCamps.filter((c) => tick - c.tick < SETTLE_EVERY); // refused placements
     }
     if (tick % SETTLE_EVERY) return null;
-    const out: SettleOut = { found: [], attacks: [] };
+    const out: SettleOut = { found: [], attacks: [], taking: [] };
+    // held claim points being taken (the channel running, or the attackers at the banner held off): the holder hears it
+    for (const c of snap.claims ?? []) {
+      if (!c.taking || (c.taking === 'channel' && c.progress <= 0) || c.by === undefined || c.by < 0) continue;
+      const k = `${c.id}:${c.by}`, at = this.takeAt.get(k);
+      if (at !== undefined && tick - at < ATTACK_COOLDOWN) continue;
+      this.takeAt.set(k, tick);
+      out.taking.push({ point: c.id, holder: c.team, by: c.by });
+    }
     if (!this.isHome)
       for (const b of snap.buildings ?? []) {
         if ((b.type !== 'camp' && b.type !== 'fort') || b.pre || (b.state !== 'done' && b.state !== 'damaged') || this.tried.has(b.id)) continue;
@@ -1446,6 +1480,6 @@ export class WarRoom {
       }
     }
     this.hpSeen = seen;
-    return out.found.length || out.attacks.length ? out : null;
+    return out.found.length || out.attacks.length || out.taking.length ? out : null;
   }
 }
