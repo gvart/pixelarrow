@@ -1,0 +1,31 @@
+src/war/view/hud/explain.ts
+  s_fcb7475e0b5395::t_82c334b43b56b1 105-117,138,153,157
+tests/war/explainHelp.test.ts
+  s_fcb7475e0b5395::t_cce43a45917251 74-84
+src/war/view/hud/settlements.ts
+  s_fcb7475e0b5395::t_b41bce17285235 33,103,324-329
+src/war/world-view/main.ts
+  s_fcb7475e0b5395::t_b41bce17285235 531-535
+src/war/view/hud/settleCards.ts
+  s_fcb7475e0b5395::t_b41bce17285235 307-316
+src/war/view/interact.ts
+  s_fcb7475e0b5395::t_e82e0ba0ba79b8 285
+src/war/view/neutral.ts
+  s_fcb7475e0b5395::t_20927bbc3c1722 64-66,69
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "53afab3e8c6e825754179c0ce140265ce06846ea",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "unknown"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
