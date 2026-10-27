@@ -1,0 +1,30 @@
+src/data/warStories.ts
+  s_fcb7475e0b5395::t_8db49e93bd1024 1-164,168-171,174-177,180-335
+  s_fcb7475e0b5395::t_c70656872b0954 165-167,172-173,178-179
+src/war/types.ts
+  s_fcb7475e0b5395::t_2bc79272fbd51e 578
+src/war/sim/stories.ts
+  s_fcb7475e0b5395::t_aa6afbd792e957 1-16,18-106,110,112-119,121-201,204-221,223-289,291-293
+  s_fcb7475e0b5395::t_719541f23b21d9 202-203,222,290
+  s_fcb7475e0b5395::t_16ff0641cb44ec 17,107-109,111,120
+tests/war/stories.test.ts
+  s_fcb7475e0b5395::t_b53e44dfb970c8 1-160
+src/war/sim/mobs.ts
+  s_fcb7475e0b5395::t_2bc79272fbd51e 119-120,160,440,442
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "13e0354169bb67ceb1d7813e527bdfb7e4e4268d",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
