@@ -190,6 +190,8 @@ const baseMsgSchema = z.discriminatedUnion('t', [
   z.object({ t: z.literal('guide'), op: z.literal('hide') }),
   // W-65: a choice at the open choice step of the region's story (src/war/sim/stories.ts)
   z.object({ t: z.literal('story'), op: z.literal('choose'), option: z.string().regex(/^[a-z0-9_-]{1,32}$/) }),
+  // W-65: a choice at the open random encounter (src/war/sim/encounters.ts)
+  z.object({ t: z.literal('encounter'), op: z.literal('choose'), option: z.string().regex(/^[a-z0-9_-]{1,32}$/) }),
 ]);
 /** Dev helpers (the F1 panel); the region refuses them unless the server runs with DEV_AUTH=1. */
 export const devSchema = z.discriminatedUnion('op', [
@@ -271,6 +273,11 @@ export type ServerMsg =
    * `notes`: what just happened (begun, a step done with its reward, the chain done), for the banners.
    */
   | { t: 'story'; save: import('../sim/stories').StorySave; notes?: import('../sim/stories').StoryNote[] }
+  /**
+   * W-65: his random encounters here (src/war/sim/encounters.ts EncSave), on his join and whenever one moves; `notes`:
+   * what just happened (one sprang, a step done or a choice made with its reward, it ended or lapsed), for the banners.
+   */
+  | { t: 'encounter'; save: import('../sim/encounters').EncSave; notes?: import('../sim/encounters').EncNote[] }
   /** W-63: the region's settlements (SettlementNet), on his join and whenever one changes. */
   | { t: 'settlements'; list: SettlementNet[] }
   /** The online cap (./gate.ts): not from the region socket, the gate's state passed on by ./client.ts. */

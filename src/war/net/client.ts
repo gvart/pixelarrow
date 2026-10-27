@@ -37,6 +37,8 @@ export interface Net {
   guideHide(): void;
   /** W-65: a choice in the region's story. */
   story(option: string): void;
+  /** W-65: a choice at the open random encounter. */
+  encounter(option: string): void;
   /** Dev panel helpers (DEV_AUTH servers only; else an `error` forbidden). */
   dev(m: DevBody): void;
   /** Leave the war (the idle kick): the region and gate sockets close, nothing more goes up. */
@@ -148,7 +150,7 @@ export function createNet(url: string, region: string, devId: number | undefined
           }
           if (m.t === 'nodes' || m.t === 'influence' || m.t === 'stock' || m.t === 'town' || m.t === 'fog' || m.t === 'wild') return onMsg(m); // the economy view (./economy.ts), W-39 the fog, W-65 the lairs and claims
           console.info('[net]', m);
-          if (m.t === 'stowed' || m.t === 'handoff' || m.t === 'error' || m.t === 'welcome' || m.t === 'soul' || m.t === 'worldEvents' || m.t === 'guide' || m.t === 'settlements' || m.t === 'story') onMsg(m); // M6: the trade panels (welcome: our player id); W-60: a soul claimed or refused; W-62 world events, the guide; W-63 settlements
+          if (m.t === 'stowed' || m.t === 'handoff' || m.t === 'error' || m.t === 'welcome' || m.t === 'soul' || m.t === 'worldEvents' || m.t === 'guide' || m.t === 'settlements' || m.t === 'story' || m.t === 'encounter') onMsg(m); // M6: the trade panels (welcome: our player id); W-60: a soul claimed or refused; W-62 world events, the guide; W-63 settlements
           return;
         }
         frames++;
@@ -195,6 +197,7 @@ export function createNet(url: string, region: string, devId: number | undefined
     handoff: (m) => send(() => ({ ...m, t: 'handoff' })),
     guideHide: () => send(() => ({ t: 'guide', op: 'hide' })),
     story: (option) => send(() => ({ t: 'story', op: 'choose', option })),
+    encounter: (option) => send(() => ({ t: 'encounter', op: 'choose', option })),
     dev: (m) => send(() => ({ ...m, t: 'dev' })),
     api: async (method, path, body) => {
       const r = await fetch(`/api/war/${path}`, { method, headers: await authed, ...(body !== undefined ? { body: JSON.stringify(body) } : {}) });

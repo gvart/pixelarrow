@@ -61,6 +61,7 @@ export type ToWorker =
   | { t: 'guideHide' } // W-62, net mode: hide the first-hour guide for good
   | { t: 'netStats'; on: boolean } // net mode: the network readout (pings, and `net` posted every second) on or off
   | { t: 'story'; op: 'choose'; option: string } // W-65, net mode: a choice in the region's story
+  | { t: 'encounter'; op: 'choose'; option: string } // W-65, net mode: a choice at the open random encounter
   | { t: 'pile'; x: number; y: number; items: Item[] }; // W-65 (offline): a story's item falls at the player's men
 
 /** Ticks between resource node posts (amounts change slowly). */
@@ -236,4 +237,5 @@ function netMessage(n: Net, m: ToWorker): void {
   else if (m.t === 'handoff') n.handoff(m.m);
   else if (m.t === 'guideHide') n.guideHide();
   else if (m.t === 'story') n.story(m.option);
+  else if (m.t === 'encounter') n.encounter(m.option);
 }

@@ -333,6 +333,11 @@ export class SimClient {
     this.send({ t: 'story', op: 'choose', option });
   }
 
+  /** W-65 net mode: a choice at the open random encounter (the region server keeps it). */
+  encounterChoose(option: string): void {
+    this.send({ t: 'encounter', op: 'choose', option });
+  }
+
   guideHide(): void {
     this.send({ t: 'guideHide' });
   }

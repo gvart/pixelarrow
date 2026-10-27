@@ -227,7 +227,7 @@ describe('W-65 encounters played on the sim', () => {
       f.go(o.x, o.y);
       f.stepFor(1500, () => f.run.save.open?.step === 'search');
       const n = f.run.choose(f.sim.snapshot(), 'take')!;
-      if (!n[0].risk) {
+      if (!(n[0].kind === 'step' && n[0].risk)) {
         expect(f.paid).toEqual([{ goods: { coin: 12 } }]);
         return 'paid';
       }
