@@ -26,7 +26,8 @@
  *    through the rate gate (./chat.ts ChatGate), free text masked and kept in D1 (./chat.ts).
  *  - W-63: notify() passes a region room's notice (a settlement attacked) to players' world sockets; the rollover sweeps
  *    the settlements once every region wrote what persists of them (../settlements.ts seasonSweep).
- *  - W-64: the rollover also ends every crown's term (../crown.ts crownSeason); notify() carries crown news too.
+ *  - W-64: the rollover also ends every crown's term (../crown.ts crownSeason); notify() carries crown news too. The
+ *    snapshot carries the crown layer (../crown.ts crownMap: monarchs, pacts), read at most every CROWN_MS and again after news.
  */
 import { DurableObject } from 'cloudflare:workers';
 import type { Env } from '../../env';
@@ -45,10 +46,13 @@ import { buildBoard, crestsOf, recordSeason } from './seasonWar';
 import { ChatGate, chatHistory, chatMute, chatMutes, chatReport, chatStore } from './chat';
 import type { ChatMsg, Mark } from '../../../../src/war/net/chat';
 import { seasonSweep } from '../settlements';
-import { crownSeason } from '../crown';
+import { crownMap, crownSeason } from '../crown';
+import type { CrownMap } from '../../../../src/war/net/world';
 
 const STATE = 'world';
 const PUSH_MS = 1000;
+/** W-64: how long the crown layer of the snapshot is reused before D1 is read again. */
+const CROWN_MS = 30_000;
 
 interface Attachment { pid: number; alliance: AllianceId | null; /** W-62 E6: a chat socket (its player's name). */ chat?: string }
 
@@ -58,6 +62,8 @@ export class WarWorldDO extends DurableObject<Env> {
   private arriving: Promise<void> = Promise.resolve();
   /** W-62: each player's banners and crests (D1), read once per player and dropped at a rollover. */
   private crests = new Map<number, Crest[]>();
+  /** W-64: the crown layer (monarchs, pacts) and when it was read; dropped on crown news and at a rollover. */
+  private crown: { at: number; map: CrownMap } | null = null;
   /** W-62 E6: the chat's rate gate; mark ids (marks are not kept). */
   private gate = new ChatGate();
   private markSeq = 0;
@@ -203,6 +209,7 @@ export class WarWorldDO extends DurableObject<Env> {
     w.st.last = board;
     w.newSeason(now);
     this.crests.clear();
+    this.crown = null;
     this.announce(w, now);
   }
 
@@ -212,6 +219,7 @@ export class WarWorldDO extends DurableObject<Env> {
    */
   async notify(pids: number[], m: WorldServerMsg): Promise<void> {
     for (const pid of pids) for (const ws of this.ctx.getWebSockets(`p:${pid}`)) send(ws, m);
+    if (m.t === 'crownNews') (this.crown = null), this.schedulePush(); // W-64: the map's crowns and pacts again
   }
 
   /** W-62: every region room hears the running and next world events (the effect where one runs, a banner for all). */
@@ -227,6 +235,13 @@ export class WarWorldDO extends DurableObject<Env> {
   async worldEvents(now = Date.now()) {
     const w = await this.ensure();
     return { events: w.activeEvents(now), next: w.nextEvent(now) };
+  }
+
+  private async crownFor(now: number): Promise<CrownMap | undefined> {
+    const d = this.env.DB;
+    if (!d) return undefined;
+    if (!this.crown || now - this.crown.at > CROWN_MS) this.crown = { at: now, map: await crownMap(d, now) };
+    return this.crown.map;
   }
 
   private async crestsFor(pid: number): Promise<Crest[]> {
@@ -254,6 +269,7 @@ export class WarWorldDO extends DurableObject<Env> {
     const snap = w.snapshot(pid, alliance, counts, Date.now());
     if (this.env.DB && alliance !== null) snap.boards = await boardsSeen(this.env.DB, alliance);
     snap.crests = await this.crestsFor(pid);
+    snap.crown = await this.crownFor(Date.now());
     return snap;
   }
 
@@ -369,6 +385,7 @@ export class WarWorldDO extends DurableObject<Env> {
       const snap = w.snapshot(a.pid, a.alliance, counts, now);
       if (this.env.DB && a.alliance !== null) snap.boards = await boardsSeen(this.env.DB, a.alliance);
       snap.crests = await this.crestsFor(a.pid);
+      snap.crown = await this.crownFor(now);
       send(ws, { t: 'world', ...snap });
     }
   }
