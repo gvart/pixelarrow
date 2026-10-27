@@ -790,6 +790,22 @@ W-59 fixes (`src/war/sim/index.ts` `formSlot`, `unitTarget`, `reachIn` / `tryMov
   Theta* proper (the A* path plus string pulling gives the same any-angle paths); flow fields (as above); a column for every
   narrow place (tried: no faster than squeezed slots, and it folded blocks at every corner).
 
+Motion polish (`src/war/sim/index.ts` `giveWay`, `layOut`, `stepSquad`; `src/war/view/interp.ts`, `anim.ts`, `units.ts`;
+tests/war/interp.test.ts, movement tests):
+
+- **Blocks give way** (two columns on a road): a marching block meeting a friendly marching block head-on, or catching up
+  a slower one, shifts its whole formation sideways (`side`, to its own right when square on) until the flanks pass 0.6
+  tiles apart, holds it while they pass and eases back after. The shift is laid out like a blocked slot, so a wall or bank
+  cuts it short; then the block keeps to its own side of the way and folds into a file there, and two files pass in a
+  pass or ford side by side, stepping right as they close instead of through each other. Blocks at rest are still
+  shoved through. Blocks whose ways cross at an angle take turns: the later one to the crossing slows to a quarter pace.
+- **Easing**: a march sets off at 0.6 of its pace (full in 2 ticks) and slows over its last tile to 0.4; a man in a block
+  at rest walking back to his slot eases in and slows into it; a man keeping his slot in a marching block follows it
+  however slowly it goes (no stand-and-step under ARRIVE).
+- **The view** plays snapshots back on a smooth clock 1.2-1.6 ticks behind the newest (more with arrival jitter), slewed
+  not jumped, carrying a man on along his velocity for up to 1.5 ticks when a snapshot is late; the same for the local
+  worker and the region server. Sprite rows keep 15 degrees of hysteresis; a man goes idle only once he stops on screen.
+
 ### Unit control (W-53)
 
 Every soldier is a unit: the player selects any of his men and orders them alone or in any mix
