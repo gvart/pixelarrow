@@ -25,7 +25,8 @@
  * advance a per-man cycle phase by the distance he covers, one cycle per `strideOf` tiles (the clip's length at its
  * authored pace), so a man slowed by his formation, a slope or a ford plays the whole cycle slower instead of sliding
  * or cutting it. Gaits switch with hysteresis (run above RUN_UP, back to walk under RUN_DOWN; idle only after STOP_MS
- * nearly still) and a walk <-> run change waits for the next half cycle (a footfall), keeping the phase.
+ * nearly still on screen, walking on meanwhile if the snapshot already has him idle) and a walk <-> run change waits
+ * for the next half cycle (a footfall), keeping the phase.
  */
 import { resolveAnim, SHEET_ANIMS, type SheetAnim } from '../../art/sheetManifest';
 import type { ResourceKind, SquadSnap, UnitSnap } from '../types';
@@ -43,7 +44,7 @@ const IDLE_VARIANTS = ['look', 'adjust', 'breathe', 'shift'];
 /** Tiles/s above which a moving man runs, and under which a runner walks again (the march pace is 1.5 x class speed). */
 const RUN_UP = 2.05, RUN_DOWN = 1.7;
 /** Tiles/s under which a moving man counts as still, over which he walks again; still this long (ms): he idles. */
-const STILL = 0.12, GO = 0.25, STOP_MS = 300;
+const STILL = 0.12, GO = 0.25, STOP_MS = 150;
 /** Tiles/s a clip is authored for (one cycle = pace x clip length): walk at the march pace, run and charge faster. */
 export const PACE: Record<string, number> = { walk: 1.5, carry: 1.5, run: 2.4, charge: 2.4 };
 /** Most tiles a frame's move adds to the phase (a jump: a respawn, a skipped frame). */
@@ -211,10 +212,14 @@ export class Animator {
       m.v += ((step * 1000) / dt - m.v) * Math.min(1, dt / 250);
       m.px = d.x; m.py = d.y; m.t = now;
     }
-    // gait with hysteresis: run or walk by the smoothed speed; still (an idle) only after STOP_MS nearly still
+    // gait with hysteresis: run or walk by the smoothed speed; still (an idle) only after STOP_MS nearly still by the
+    // speed this frame (the smoothed one trails a stop by most of a second: a frozen stride, his feet held mid-step)
     m.run = m.run ? m.v > RUN_DOWN : m.v > RUN_UP;
-    if (m.v > GO) m.still = -1;
-    else if (m.v < STILL && m.still < 0) m.still = now;
+    if (dt > 0) {
+      const raw = (step * 1000) / dt;
+      if (raw > GO) m.still = -1;
+      else if (raw < STILL && m.still < 0) m.still = now;
+    }
 
     if (m.one && now >= m.one.end) m.one = null;
     const strikeName = this.strikeClip(clips, cls, m.ranged);
@@ -257,7 +262,9 @@ export class Animator {
     // a loaded man keeps his walk when still (his load is drawn on it), held mid-stride; a puller or bearer stands
     if (work && (!stopped || loadOf(u))) return this.stride(m, clips, work, step);
     if (work) { m.loco = ''; return this.idle(m, clips, now, u.id); }
-    if (u.state === 'move' && !stopped) {
+    // a man the snapshot already has standing still walks on until he does on screen (drawn ~1.5 ticks behind it), so
+    // he never slides into his place in the idle pose
+    if ((u.state === 'move' || (u.state === 'idle' && m.loco !== '')) && !stopped) {
       const name = s?.order === 'attack' ? pickClip(clips, 'charge') : m.run ? pickClip(clips, 'run') : pickClip(clips, 'walk');
       return this.stride(m, clips, name, step);
     }

@@ -115,6 +115,8 @@ const SHEET_ALIAS: Readonly<Record<string, { from: string; scale: number }>> = {
 const MAX_TEX = 4096;
 /** Screen quadrant (x right, y down) -> sheet row name. */
 const QUADRANT = ['south-east', 'south-west', 'north-east', 'north-west'] as const;
+/** Radians past a quadrant's edge a man's heading must go before his sprite turns to the next row. */
+const QUAD_HYST = 0.26;
 
 /** A sheet's load anchors (scripts/art/pixellab/anim3/anchors.mjs): per point, per row name, per frame of `clip`, [dx, dy] from the feet. */
 interface SheetLoads { clip: string; shoulder: Record<string, [number, number][]>; chest: Record<string, [number, number][]> }
@@ -389,6 +391,7 @@ export class UnitLayer {
       const live = new Set(units.map((d) => d.u.id));
       this.anim.prune(live);
       for (const id of this.codes.keys()) if (!live.has(id)) this.codes.delete(id);
+      for (const id of this.quads.keys()) if (!live.has(id)) this.quads.delete(id);
     }
     used = this.sprites(units, view, zoom, selected, at, shots, under, occluded);
     used = this.drawCorpses(used, at.now);
@@ -519,8 +522,7 @@ export class UnitLayer {
       const sheet = this.sheet(u.cls, at.now) ?? (this.pending.has(u.cls) ? undefined : this.sheet(FALLBACK_CLASS, at.now));
       if (!sheet) continue;
       // facing, projected: a tile-space direction (dx, dy) runs (dx - dy, (dx + dy) / 2) on screen
-      const facing = l?.facing ?? d.facing, fx = Math.cos(facing), fy = Math.sin(facing), sx = fx - fy, sy = fx + fy;
-      const qi = (sx < 0 ? 1 : 0) + (sy < 0 ? 2 : 0), q = sheet.rows[qi];
+      const qi = this.quadrant(u.id, l?.facing ?? d.facing), q = sheet.rows[qi];
       const p = this.anim.pick(d, sheet.clips, at, units, shots);
       if (this.watch.has(u.id)) this.drawnAs.set(u.id, { clip: p.clip, frame: p.frame, row: QUADRANT[qi], x: f.x, y: f.y, ox: q.ox, oy: q.oy, scale: sheet.scale, fw: sheet.fw, fh: sheet.fh });
       let [key, frame] = sheet.frames.get(p.clip)![q.row][p.frame];
@@ -586,6 +588,26 @@ export class UnitLayer {
       }
     }
     return n;
+  }
+
+  /** Per unit: the sheet row (screen quadrant) he was drawn in last frame. */
+  private quads = new Map<number, number>();
+
+  /**
+   * The screen quadrant (QUADRANT index) a man facing `facing` (tile space) is drawn in. A man keeps his row until his
+   * heading is QUAD_HYST past its edge: a heading wavering round a quadrant's edge (a walker bending round a friend, a
+   * squad's facing between two rows) does not flip his sprite to and fro.
+   */
+  private quadrant(id: number, facing: number): number {
+    const fx = Math.cos(facing), fy = Math.sin(facing), sx = fx - fy, sy = fx + fy;
+    const qi = (sx < 0 ? 1 : 0) + (sy < 0 ? 2 : 0), was = this.quads.get(id);
+    if (was !== undefined && was !== qi) {
+      // the quadrant's centre on screen: (+-1, +-1); keep it while the heading is within 45 deg + QUAD_HYST of it
+      const cx = was & 1 ? -1 : 1, cy = was & 2 ? -1 : 1, a = Math.atan2(sy, sx) - Math.atan2(cy, cx);
+      if (Math.abs(Math.atan2(Math.sin(a), Math.cos(a))) < Math.PI / 4 + QUAD_HYST) return was;
+    }
+    this.quads.set(id, qi);
+    return qi;
   }
 
   /**
