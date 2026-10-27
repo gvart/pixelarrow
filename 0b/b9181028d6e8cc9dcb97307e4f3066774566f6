@@ -1,0 +1,31 @@
+src/war/world-view/main.ts
+  s_fcb7475e0b5395::t_28ffb05157e89c 16,43,494-496,506
+  s_fcb7475e0b5395::t_8be34592479d8c 137
+src/war/view/hud/settlements.ts
+  s_fcb7475e0b5395::t_28ffb05157e89c 12-13,31-32,274,295-296
+src/war/view/hud/settleCards.ts
+  s_fcb7475e0b5395::t_a3abab7f409f76 10,348
+  s_fcb7475e0b5395::t_28ffb05157e89c 283-288
+src/war/world-view/source.ts
+  s_fcb7475e0b5395::t_28ffb05157e89c 293-295
+tests/war/settleHud.test.ts
+  s_fcb7475e0b5395::t_8577aacc7b546b 3,76-78
+src/war/world-view/map.ts
+  s_fcb7475e0b5395::t_3d77cfda501320 8-9,62-63,375,394-474,702,848
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "0bb9181028d6e8cc9dcb97307e4f3066774566f6",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
