@@ -1,0 +1,17 @@
+[
+ { "id":"hoplite", "character":"e10f4e23-2d49-41c9-89b4-c29d5a75479a", "anim":"ghost-walk" },
+ { "id":"archer", "character":"880d3ecc-ebd0-4ea3-a880-f78895b47d0b" },
+ { "id":"elder", "character":"63e649e8-c97d-40dc-bf8e-755ad6f8d0e9" },
+ { "id":"woman", "character":"2a17cd8e-cc7c-4ba4-87eb-5e96a2bfce40" },
+ { "id":"boy", "character":"5db4dec0-4bc7-48bc-84f0-d0719db403b3", "size":0.72 },
+ { "id":"priest", "character":"1c877f3f-5469-451f-89d4-98273bd2378d" },
+ { "id":"sailor", "character":"226c0ad3-a9d4-49ed-8426-1c30bbbdc012" },
+ { "id":"peltast", "character":"35e0ad00-4977-4798-8b56-1524cdeb1b78" },
+ { "id":"king", "character":"2623f667-eb9f-458b-809a-4ee5776e00e4" },
+ { "id":"miner", "character":"1bb3dbbd-0c6c-4237-926d-526ac7a3d3f6" },
+ { "id":"shepherd", "character":"5384eebb-1ac3-428b-afa3-a9b0277da16f" },
+ { "id":"smith", "character":"a9166c44-81b5-4231-a393-9d6d495d6e5d" },
+ { "id":"bard", "character":"6b6dc422-db30-45f3-8bec-14d2528290c9" },
+ { "id":"mourner", "character":"a1c6a3d9-6206-4b4e-b6d1-b593edcc61c5" },
+ { "id":"philosopher", "character":"137c4932-e9b3-4ae1-af46-3c80018d1bc3" }
+]

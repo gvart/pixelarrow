@@ -3273,3 +3273,42 @@ No prompt: the kit's 24 px icons had nothing for the crown, the replay or sound,
 (`scripts/war/art/menu-icons.mjs`: char grids and a ring, auto outline, gold and parchment ramps from the panels'
 crown crest) and the rest of the bar reuses kit icons (World `mode-altitude`, Tasks `trade-contract`, Works
 `node-engineer-master-builder`, Holdings `mk-claim`). Redraw by editing the grids and rerunning the script.
+
+## 44. Tunnel of Shades and the shades (W-66)
+
+**Gemini first: skipped.** Claude in Chrome was not connected on 2026-10-27, so no Gemini prototype was made; the
+PixelLab pick below stands in for it. Redo with Gemini (prompt as the first one below) when a browser is at hand.
+
+**Tunnel** (`public/war/buildings/tunnel-of-shades.png`, objects.json `tunnel-of-shades-done`, 3x3, the mouth on the
+SW / +y face): `create_map_object`, basic mode, 192x200, high top-down, high detail, detailed shading, selective outline.
+Three tries; the second kept (map object `09344cc4`), **mirrored horizontally** (iso: a flip turns the SE face into the SW
+face, which is where the tunnel's line leaves):
+
+> isometric view of a low dark grey rocky hill mound, a carved ancient Greek stone doorway set into the left front face
+> of the rock, a black tunnel mouth descending into darkness with faint pale blue ghostly glow and mist inside, two short
+> stone pillars and a lintel framing the doorway, two bronze tripod braziers with cold blue-white flames beside the
+> door, a few worn stone steps leading down into the tunnel, scattered rocks, grim realistic muted colours
+
+Rejected: "an ancient Greek underworld gate cut into a dark grey rock outcrop, a tall doorway with weathered Doric
+stone pillars …" (a free-standing gate on a stair, no rock); "… Mycenaean tholos tomb style" (a clean ashlar box, the
+door on the wrong face). "left front face" did not put the door on the left; mirror instead.
+
+**Shades** (15, `public/war/shades/<id>.png` + `manifest.json`, ids `docs/v5/pixellab/SHADES/ids.json`, sheet build
+`node scripts/art/pixellab/shades/build.mjs [--fetch]`): `create_character` (v3, 2 generations), size 68, high top-down,
+high detail, single color outline, 8 directions. Every description has the form "ghostly skeleton shade of a dead
+<who>, hollow dark eye sockets in a bare skull <head>, <clothes and remnants>, pale blue-grey translucent ghost, bones,
+no blood". The who / props per id: hoplite (broken cracked Corinthian helmet, torn shroud over the ribs, cracked round
+shield), archer (torn linen tunic, broken bow, empty quiver), elder (hunched old man, wispy beard, ragged himation,
+crooked stick), woman (torn veil, wisps of hair, ankle-length peplos), boy (small child, short tunic, wooden toy),
+priest (withered laurel wreath, long robe and stole, tall staff), sailor (drowned; pilos cap, rotten rope, broken oar),
+peltast (Thracian skirmisher: fox-skin cap, no helmet, crescent wicker shield, broken javelins), king (rusted bronze
+diadem, tattered royal cloak, cracked sceptre), miner (mine slave: broken shackles and chains, broken pickaxe), shepherd
+(petasos hat, sheepskin cloak, crook), smith (scorched leather apron, smith's hammer), bard (ivy wreath, lyre with
+broken strings), mourner (old woman, hooded shawl, clay oil lamp), philosopher (thin beard, himation, scroll).
+
+Walk: `animate_character` template `walking-8-frames`, **south-west only** (1 generation); the south-east row is the
+mirror. The hoplite's template walk turned him into a living man in white: his walk is v3 instead ("walking slowly
+forward, a dead skeleton shambling with a heavy tired gait", 8 frames, keep_first_frame false, 2 generations; `anim`
+ghost-walk in ids.json). The first peltast (round shield and crested helmet) read as a second hoplite: redone as the
+Thracian above. The ghost look is not prompted but baked by the build: every pixel to a 5-step slate-to-bone-blue ramp
+by luminance, alpha 185 (outline 230). Scale: each figure to a soldier's 64 px (the boy 0.72), within 15% of the median.
