@@ -18,10 +18,12 @@
  *                  ./buildingCard.ts) and its status in plain words | upgrade, repair, rebuild, fortify with their costs
  *                  Situational orders (ladders, ignite, extinguish, crew, fire arrows) are context only: E / right
  *                  click, or hold either for the radial menu (../interact.ts).
- *   bottom right   the squad chest (I), roster (R) and Build (hammer, B) buttons; the build bar (tabs Camp / Walls / Siege, a tool per building, a
+ *   bottom right   the menu bar (World Shift+W, Replay Shift+R | Holdings O, Works U, Crown C, Tasks T: their windows
+ *                  open top right, above the bar; ./kit.ts menuBtn), then the squad chest (I), roster (R) and Build (hammer, B) buttons; the build bar (tabs Camp / Walls / Siege, a tool per building, a
  *                  tooltip with cost and labour; walls, towers and gates are plain tools on the Walls tab (W-57), the
  *                  status line above) opens bottom centre, over the card, only in build mode: B / Esc close it
- *   top right      World, Works (W-61 alliance works and titles: ./peace.ts), Market (K: ./market.ts), DEV (F1) and the UI scale (auto by window / 0.75x / 1x / 1.25x / 1.5x / 2x, kept in localStorage; ./kit.ts)
+ *   top right      the windows of the menu bar (one at a time); in dev only a small row: DEV (F1), the UI scale (auto by
+ *                  window / 0.75x / 1x / 1.25x / 1.5x / 2x, kept in localStorage; ./kit.ts) and Market (K: ./market.ts)
  *   at the cursor  the E context label (../interact.ts) and the kit's cursors
  *
  * The dev panel (../devPanel.ts) hides behind F1 and the DEV corner button. It only calls BuildMode, SiegeControls and
@@ -37,7 +39,8 @@ import type { BuildingType, FortKind, SiegeType } from '../../types';
 import type { SandboxScene } from '../SandboxScene';
 import { costText, isSite, labourText, TOOLBAR, WALL_NAME, type BuildMode, type Cost, type Tool } from '../build/buildMode';
 import { SIEGE_NAME } from '../siege/siegeControls';
-import { bar, BUILDING_ICON, cursor, CSS, icon, placeTip, setUiScale, SIEGE_ICON, snapW, UI_SCALES, uiScale, uiZoom, UNIT_ICON } from './kit';
+import { bar, BUILDING_ICON, cursor, CSS, icon, MENU_BAR, menuBtn, placeTip, setUiScale, SIEGE_ICON, snapW, UI_SCALES, uiScale, uiZoom, UNIT_ICON } from './kit';
+import { tipper } from './roster/ui';
 import { Minimap } from './minimap';
 import { ModeBar } from './modes';
 import { FullMap } from './fullMap';
@@ -346,23 +349,25 @@ export function hud(s: SandboxScene): void {
   renderTools();
   const tb = (label: string, tipText: string, run: () => void) => { const b = document.createElement('button'); b.className = 'rf-tbtn'; b.textContent = label; b.title = tipText; b.onclick = run; return b; };
 
-  // ---------- top right: World; in dev also the dev panel (F1) and the UI scale (players set it in Settings, F10) ----------
-  const corner = mk('rfDev', 'top:4px;right:4px;pointer-events:auto;display:flex;flex-direction:column;align-items:flex-end;gap:2px', '');
+  // ---------- the menu bar, bottom right left of the chest: World, Replay | Holdings, Works, Crown, Tasks (kit.ts menuBtn) ----------
+  const menus = mk(MENU_BAR, 'right:106px;bottom:4px;pointer-events:auto;display:flex;gap:4px');
+  // M4c: back to the world map (world.html); a live region opens the live world as the same dev player, else the mock
+  const goWorld = () => { const q = new URLSearchParams(location.search), w = new URLSearchParams(); if (q.has('net')) { if (q.get('dev')) w.set('dev', q.get('dev')!); } else w.set('offline', '1'); location.href = `world.html?${w}`; };
+  const wbtn = menuBtn('rfWorld', 'mode-altitude', 'World map', 'back to the world map (plain W pans the camera)', 'go.world', 0);
+  wbtn.onclick = goWorld;
+  // ---------- dev only, top right: the dev panel (F1), the UI scale (players set it in Settings, F10), the market (K) ----------
+  const corner = mk('rfDev', 'top:4px;right:4px;pointer-events:auto;display:flex;gap:2px;opacity:.8', '');
   const dbtn = tb('DEV', 'dev panel (F1)', () => setDev(dev?.style.display === 'none'));
   const sbtn = tb('', 'UI scale: auto (by window) / 0.75x / 1x / 1.25x / 1.5x / 2x', () => { const v = UI_SCALES[(UI_SCALES.indexOf(uiScale()) + 1) % UI_SCALES.length]; setUiScale(v); scale(); });
   sbtn.id = 'uiScale';
-  // M4c: back to the world map (world.html); a live region opens the live world as the same dev player, else the mock
-  const goWorld = () => { const q = new URLSearchParams(location.search), w = new URLSearchParams(); if (q.has('net')) { if (q.get('dev')) w.set('dev', q.get('dev')!); } else w.set('offline', '1'); location.href = `world.html?${w}`; };
-  const wbtn = tb('World', 'world map (Shift+W; plain W pans the camera)', goWorld);
-  wbtn.id = 'rfWorld';
-  corner.append(wbtn, ...(import.meta.env.DEV ? [dbtn, sbtn] : []));
+  if (import.meta.env.DEV) corner.append(dbtn, sbtn);
+  else corner.style.display = 'none';
   const dev = document.getElementById('dev');
   const setDev = (on: boolean) => { if (dev) dev.style.display = on ? '' : 'none'; dbtn.classList.toggle('on', on); };
   setDev(import.meta.env.DEV && new URLSearchParams(location.search).has('dev'));
   addEventListener('keydown', (e: KeyboardEvent) => {
     const a = keys.act(e);
     if (a === 'dev.panel') { if (import.meta.env.DEV) { e.preventDefault(); setDev(dev?.style.display === 'none'); } }
-    else if (a === 'go.world') goWorld();
     else if (m.active || m.tool) return;
     else if (a === 'order.stop') stop();
     else if (a === 'order.active') fireActives(s, sc.own());
@@ -392,6 +397,9 @@ export function hud(s: SandboxScene): void {
   mountGate(s); // the online cap's line and the idle kick (./gate.ts)
   mountReplay(s, mk); // W-62 E5: the replay recorder, "Watch the battle", replay mode and clips (../replay)
   const groups = mountGroups(s, mk, tipOn); // W-53: the control group bar over the card, numbers on the map
+  const menusTip = mk('rfMenusTip', 'display:none;z-index:7');
+  menusTip.className = 'rf rf-tip';
+  tipper(menus, menusTip); // the menu bar's buttons carry their tooltips (data-tip)
 
   // ---------- scale ----------
   const scale = () => {
@@ -541,6 +549,8 @@ export function hud(s: SandboxScene): void {
     hBtn.classList.toggle('on', m.active);
     // the bar sits above the card when both show
     build.style.bottom = card.style.display === 'none' ? '4px' : `${card.offsetHeight + 8}px`;
+    // a narrow window: the bar would run into the menu bar (bottom right), so it sits above that row
+    if (m.active && card.style.display === 'none' && build.getBoundingClientRect().right > menus.getBoundingClientRect().left - 4) build.style.bottom = '42px';
     groups.refresh(card.style.display === 'none' ? 4 : card.offsetHeight + 8, !m.active);
     if (m.active) held = C.engineerNodes();
     for (const [x, d] of toolBtns) {

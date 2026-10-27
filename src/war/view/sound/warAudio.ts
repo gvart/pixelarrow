@@ -16,8 +16,8 @@
  *  - E4 melee din: a bed under the blows that thickens with the men fighting on screen (./mix.ts dinLevel, the din layer of
  *    src/audio/ambience.ts on the effects bus); the single blows step down under it (blowVol).
  *  - the browser: the context starts on the first user gesture; a hidden tab suspends it.
- * Settings (master, music, effects, ambience, mute) persist in localStorage (./mix.ts loadSound) and the HUD's sound
- * panel (../hud/soundPanel.ts) edits them. `window.__warAudio` is the debug handle (scripts and the headless check).
+ * Settings (master, music, effects, ambience, mute) persist in localStorage (./mix.ts loadSound) and the settings' Sound
+ * tab (../../menu/settings.ts; Esc menu, or N) edits them. `window.__warAudio` is the debug handle (scripts and the headless check).
  */
 import { AudioEngine } from '../../../audio/engine';
 import type { SfxId } from '../../../audio/sfx';
@@ -31,7 +31,7 @@ import { myTeam } from '../side';
 const BUDGET = 8;
 /** Voices at once (the engine's limiter). */
 const VOICES = 20;
-const PANELS: Record<string, string> = { rrPanel: 'roster', rrCard: 'soldier', cfTree: 'tree', cfWp: 'workplace', rfBuild: 'build', rfMarket: 'market', rfHandoff: 'handoff', rfLand: 'landmark', rfHolder: 'holder', rfSound: 'sound' };
+const PANELS: Record<string, string> = { rrPanel: 'roster', rrCard: 'soldier', cfTree: 'tree', cfWp: 'workplace', rfBuild: 'build', rfMarket: 'market', rfHandoff: 'handoff', rfLand: 'landmark', rfHolder: 'holder' };
 
 interface Want { id: SfxId; x: number; y: number; pri?: number }
 

@@ -24,7 +24,7 @@ import { WORKS, WONDER } from '../../net/works';
 import type { SandboxScene } from '../SandboxScene';
 import { draggable } from './drag';
 import { glyph } from './glyph';
-import { closeCornerWindows, CORNER_BOTTOM, fitHeight, icon } from './kit';
+import { closeCornerWindows, CORNER_BOTTOM, fitHeight, icon, menuBtn, setBadge } from './kit';
 import { esc, tipper } from './roster/ui';
 import { keys } from '../../input/keys';
 
@@ -329,7 +329,6 @@ const CSS = `
 #rfCrown.busy [data-act]:not([data-act=tab]):not([data-act=close]){pointer-events:none;opacity:.55}
 #rfCrown .rf-tbtn.sure{width:auto!important;padding:0 7px!important;color:var(--rf-bad);box-shadow:0 0 0 1px var(--rf-bad)}
 #rfCrownBtn{position:relative}
-#rfCrownBtn.pip::after{content:'';position:absolute;right:-2px;top:-2px;width:7px;height:7px;border-radius:50%;background:var(--rf-gold);box-shadow:0 0 4px var(--rf-gold)}
 `;
 
 interface OrderForm { kind: OrderKind; region: string; target: string; res: string; n: number; bounty: number; hours: number }
@@ -349,7 +348,7 @@ export function mountCrown(s: SandboxScene, mk: Mk): void {
   document.head.append(style);
   const tip = mk('rfCrownTip', 'display:none;z-index:7');
   tip.className = 'rf rf-tip';
-  const win = mk('rfCrown', 'top:40px;right:110px;width:420px;display:none;pointer-events:auto;padding:4px 8px 8px');
+  const win = mk('rfCrown', 'top:40px;right:4px;width:420px;display:none;pointer-events:auto;padding:4px 8px 8px');
   win.className = 'rf rf-card';
   draggable(win, '.rf-head');
   tipper(win, tip);
@@ -359,9 +358,9 @@ export function mountCrown(s: SandboxScene, mk: Mk): void {
   let busy = false, armed: string | null = null, disarm = 0;
   const form: OrderForm = { kind: 'attack', region: WORLD_REGIONS[0].id, target: '', res: 'stone', n: 100, bounty: 200, hours: 24 };
   const pact = { to: 0, kind: 'pact' as 'pact' | 'truce' };
-  const btn = document.createElement('button');
+  const btn = menuBtn('rfCrownBtn', 'menu-crown', 'The Crown', 'the crown and council of your alliance', 'panel.crown', 4);
   const render = () => {
-    btn.classList.toggle('pip', waiting(v));
+    setBadge(btn, +waiting(v));
     if (win.style.display === 'none') return;
     const scroll = win.scrollTop;
     const sub = v.alliance === null ? (online() || demo ? 'no alliance' : 'offline')
@@ -474,10 +473,6 @@ export function mountCrown(s: SandboxScene, mk: Mk): void {
     const t = e.target as HTMLElement;
     if (t.matches('[data-sel="region"],[data-sel="res"],[data-sel="to"]')) keepForm();
   });
-  btn.className = 'rf-tbtn';
-  btn.id = 'rfCrownBtn';
-  btn.textContent = 'Crown';
-  btn.title = 'the crown and council of your alliance';
   btn.onclick = () => toggle();
   // Esc: an armed button first, then the window (before the selection and the game menu hear it)
   addEventListener('keydown', (e: KeyboardEvent) => {
@@ -489,8 +484,6 @@ export function mountCrown(s: SandboxScene, mk: Mk): void {
     if (armed) (arm(null), render());
     else toggle(false);
   }, true);
-  const corner = document.getElementById('rfDev');
-  corner?.insertBefore(btn, document.getElementById('rfTasksBtn')?.nextSibling ?? corner.children[1] ?? null);
   setInterval(() => (online() ? void load() : ((v = { ...v, now: Date.now() }), render())), 60_000);
   setTimeout(() => void load(), 5000);
   // dev: fill the panel offline (screenshots, layout checks)

@@ -21,7 +21,6 @@ import { SandboxScene } from './SandboxScene';
 import { loadSheetImages } from './units';
 import { WarAudio } from './sound/warAudio';
 import { BakeClient } from './bakeClient';
-import { mountSoundPanel } from './hud/soundPanel';
 import { mountGameMenu } from '../menu/gameMenu';
 import { saveSound } from './sound/mix';
 import { myTeam, setMyTeam } from './side';
@@ -111,9 +110,8 @@ void Promise.all([loading, grey ? null : loadArt(undefined, loader?.part('art', 
     hud(scene);
     loader?.set('scene', 1, 'Waking the region…');
     if (loader) watchScene(loader, scene, () => !q.has('world') || placed);
-    // the war's sound (./sound): settings card in the HUD corner, then the hooks (after the HUD's own event taps)
+    // the war's sound (./sound; its settings: the Esc menu's Sound, or N), then the hooks (after the HUD's own event taps)
     audio = new WarAudio(scene);
-    mountSoundPanel(audio);
     audio.install();
   };
   // world entry: the camera opens on the player's men once they stand in the region (not the map's middle)

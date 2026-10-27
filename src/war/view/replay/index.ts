@@ -18,6 +18,7 @@ import { ReplayBuffer } from './buffer';
 import { Moments, type Moment } from './moments';
 import { RATES, ReplayPlayer, TICK_MS } from './player';
 import { clipType, download, recordClip, type ClipRec } from './clip';
+import { menuBtn } from '../hud/kit';
 
 type Mk = (id: string, css: string, html?: string) => HTMLElement;
 
@@ -116,15 +117,10 @@ export function mountReplay(s: SandboxScene, mk: Mk): Replay {
     showToast(m, TITLE[m.kind], `${mmss(m.to - m.from)} of it recorded${m.kind === 'boss' ? '' : ' · ' + what}`);
   };
 
-  // ---------- the HUD's corner: the Replay button (beside World) ----------
-  const corner = document.getElementById('rfDev'), world = document.getElementById('rfWorld');
-  const rb = document.createElement('button');
-  rb.className = 'rf-tbtn';
-  rb.id = 'rfReplay';
-  rb.innerHTML = `${G.replay} Replay`;
-  rb.title = 'watch the last 3 minutes again (what your men saw)';
+  // ---------- the HUD's menu bar: the Replay button (beside World; ../hud/kit.ts menuBtn) ----------
+  const rb = menuBtn('rfReplay', 'menu-replay', 'Replay', 'watch the last 3 minutes again (what your men saw)', 'replay.open', 1);
+  rb.style.marginRight = '6px'; // World and Replay apart from the windows' buttons
   rb.onclick = () => open();
-  if (corner) corner.insertBefore(rb, world?.nextSibling ?? null);
 
   // ---------- replay mode ----------
   const pad = document.createElement('div');

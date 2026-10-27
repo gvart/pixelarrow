@@ -26,7 +26,7 @@ import type { TownLevelSnap } from '../../types';
 import type { SandboxScene } from '../SandboxScene';
 import { PlotLayer } from '../plots';
 import { draggable } from './drag';
-import { closeCornerWindows, CORNER_BOTTOM, fitHeight } from './kit';
+import { closeCornerWindows, CORNER_BOTTOM, fitHeight, menuBtn, setBadge } from './kit';
 import { keys } from '../../input/keys';
 import { tipper } from './roster/ui';
 import type { CrownNewsKind } from '../../net/world';
@@ -249,20 +249,15 @@ export function mountSettlements(s: SandboxScene, mk: Mk): void {
   // ---------- the Holdings panel and its corner button ----------
   const tip = mk('rfSettleTip', 'display:none;z-index:7');
   tip.className = 'rf rf-tip';
-  const win = mk('rfHoldings', 'top:40px;right:110px;width:360px;display:none;pointer-events:auto;padding:4px 8px 8px');
+  const win = mk('rfHoldings', 'top:40px;right:4px;width:360px;display:none;pointer-events:auto;padding:4px 8px 8px');
   win.className = 'rf rf-card';
   draggable(win, '.rf-head');
   tipper(win, tip);
-  const btn = document.createElement('button');
-  btn.className = 'rf-tbtn';
-  btn.id = 'rfHoldingsBtn';
-  btn.title = 'your settlements, requests to settle, terms and truces';
+  const btn = menuBtn('rfHoldingsBtn', 'mk-claim', 'Holdings', 'your settlements, requests to settle, terms and truces', 'panel.holdings', 2);
   btn.onclick = () => toggleHoldings();
-  const corner = document.getElementById('rfDev');
-  corner?.insertBefore(btn, corner.children[1] ?? null);
   const drawBtn = () => {
     const n = waiting();
-    btn.innerHTML = `Holdings${n ? `<b class="st-n">${n}</b>` : ''}`;
+    setBadge(btn, n);
     btn.style.display = online() || list.length || realm().length || n ? '' : 'none';
   };
   function renderHoldings(): void {

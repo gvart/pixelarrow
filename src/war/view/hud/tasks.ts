@@ -10,7 +10,7 @@ import { WAR_SEASON } from '../../world/alliances';
 import type { SandboxScene } from '../SandboxScene';
 import { draggable } from './drag';
 import { glyph } from './glyph';
-import { fitHeight, icon } from './kit';
+import { closeCornerWindows, CORNER_BOTTOM, fitHeight, icon, menuBtn, setBadge } from './kit';
 import { esc, tipper } from './roster/ui';
 import { keys } from '../../input/keys';
 
@@ -47,8 +47,6 @@ export function offlineTasks(pid: number, now: number): TasksView {
 const ready = (t: TaskView) => !t.claimed && t.have >= t.need - 1e-6;
 
 let closer: (() => void) | null = null;
-/** Close the Tasks window (the Works window opens in its place: ./peace.ts). */
-export const closeTasks = () => closer?.();
 
 /** One task card. */
 function card(t: TaskView, rerolls: number, online: boolean): string {
@@ -100,7 +98,6 @@ const CSS = `
 .tk-claimed{display:inline-flex;align-items:center;gap:3px;font:600 11px/1 Inter,sans-serif;color:var(--rf-good)}
 .tk-note{display:flex;align-items:center;justify-content:space-between;margin-top:4px;font-size:11px}
 #rfTasksBtn{position:relative}
-#rfTasksBtn.pip::after{content:'';position:absolute;right:-2px;top:-2px;width:7px;height:7px;border-radius:50%;background:var(--rf-gold);box-shadow:0 0 4px var(--rf-gold)}
 `;
 
 export function mountTasks(s: SandboxScene, mk: Mk): void {
@@ -109,21 +106,21 @@ export function mountTasks(s: SandboxScene, mk: Mk): void {
   document.head.append(style);
   const tip = mk('rfTasksTip', 'display:none;z-index:7');
   tip.className = 'rf rf-tip';
-  const win = mk('rfTasks', 'top:40px;right:110px;width:360px;display:none;pointer-events:auto;padding:4px 8px 8px');
+  const win = mk('rfTasks', 'top:40px;right:4px;width:360px;display:none;pointer-events:auto;padding:4px 8px 8px');
   win.className = 'rf rf-card rf-esc';
   draggable(win, '.rf-head');
   tipper(win, tip);
   const online = () => !!s.sim.net;
   let v: TasksView = offlineTasks(s.sim.playerId ?? 0, Date.now()), msg = '', bad = false;
-  const btn = document.createElement('button');
+  const btn = menuBtn('rfTasksBtn', 'trade-contract', 'Tasks', 'daily and weekly tasks', 'panel.tasks', 5);
   const render = () => {
-    btn.classList.toggle('pip', v.tasks.some(ready));
+    setBadge(btn, v.tasks.filter(ready).length, true);
     if (win.style.display === 'none') return;
     const scroll = win.scrollTop, done = v.tasks.filter((t) => t.claimed).length;
     win.innerHTML = `<div class="rf-head rf-ph">${icon('trade-contract', 32)}<div style="flex:1;min-width:0"><div class="rf-name">Tasks</div><div class="sub">${done} of ${v.tasks.length} claimed${online() ? '' : ' · offline'}</div></div><button class="rf-tbtn x" data-act="close" title="close (Esc)">×</button></div>
       ${tasksHtml(v, online())}<div class="mk-msg rf-dim" style="min-height:15px${bad ? ';color:var(--rf-bad)' : ''}">${esc(msg)}</div>`;
     win.scrollTop = scroll;
-    fitHeight(win);
+    fitHeight(win, CORNER_BOTTOM);
   };
   const load = async () => {
     if (online()) {
@@ -135,12 +132,7 @@ export function mountTasks(s: SandboxScene, mk: Mk): void {
   const toggle = (on = win.style.display === 'none') => {
     win.style.display = on ? '' : 'none';
     btn.classList.toggle('on', on);
-    if (on) {
-      // one window in this corner: Works and Tasks share it
-      const works = document.getElementById('rfWorks');
-      if (works && works.style.display !== 'none') works.querySelector<HTMLElement>('[data-act="close"]')?.click();
-      void load();
-    }
+    if (on) closeCornerWindows(btn.id), void load();
   };
   closer = () => { if (win.style.display !== 'none') toggle(false); };
   addEventListener('keydown', (e: KeyboardEvent) => { if (keys.act(e) === 'back') closer?.(); });
@@ -156,13 +148,7 @@ export function mountTasks(s: SandboxScene, mk: Mk): void {
       void load();
     });
   });
-  btn.className = 'rf-tbtn';
-  btn.id = 'rfTasksBtn';
-  btn.textContent = 'Tasks';
-  btn.title = 'daily and weekly tasks';
   btn.onclick = () => toggle();
-  const corner = document.getElementById('rfDev');
-  corner?.insertBefore(btn, document.getElementById('rfWorksBtn')?.nextSibling ?? corner.children[1] ?? null);
   // the countdowns and the pip: every minute (the server read only while online)
   setInterval(() => (online() ? void load() : ((v = { ...v, now: Date.now() }), render())), 60_000);
   setTimeout(() => void load(), 4000);

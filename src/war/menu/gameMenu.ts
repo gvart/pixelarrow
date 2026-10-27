@@ -1,7 +1,7 @@
 /**
  * The in-game menu of the war pages (the region view, the world map): Esc with nothing else to close (no tool, panel,
- * radial or selection: the page says so with `idle`) opens it; F10 opens the settings at once. Resume, Settings,
- * World map (from a region), Main menu (index.html).
+ * radial or selection: the page says so with `idle`) opens it; F10 opens the settings at once, N on their Sound tab. Resume,
+ * Settings, Sound, World map (from a region), Main menu (index.html).
  */
 import { keys } from '../input/keys';
 import { icon, uiZoom } from '../view/hud/kit';
@@ -20,7 +20,7 @@ export interface GameMenuOpts {
 export function mountGameMenu(o: GameMenuOpts): void {
   let card: HTMLElement | null = null;
   const close = () => { card?.remove(); card = null; };
-  const settings = () => { close(); openSettings('controls', o.hooks); };
+  const settings = (tab: 'controls' | 'sound' = 'controls') => { close(); openSettings(tab, o.hooks); };
   const show = () => {
     injectMenuCss();
     card = document.createElement('div');
@@ -30,14 +30,16 @@ export function mountGameMenu(o: GameMenuOpts): void {
       <div class="mn-h"><span class="rf-name">Menu</span><span class="rf-dim" style="margin-left:auto;font-size:11px">the war goes on meanwhile</span></div>
       <button class="mn-big pri" data-k="resume">${icon('act-move', 24)}<div class="t">Resume</div><kbd>Esc</kbd></button>
       <button class="mn-big" data-k="settings">${icon('act-upgrade', 24)}<div class="t">Settings</div><kbd>${keys.label('menu.settings') || '—'}</kbd></button>
-      ${o.world ? `<button class="mn-big" data-k="world">${icon('mode-biomes', 24)}<div class="t">World map</div><kbd>${keys.label('go.world')}</kbd></button>` : ''}
+      <button class="mn-big" data-k="sound">${icon('menu-sound', 24)}<div class="t">Sound</div><kbd>${keys.label('panel.sound') || '—'}</kbd></button>
+      ${o.world ? `<button class="mn-big" data-k="world">${icon('mode-altitude', 24)}<div class="t">World map</div><kbd>${keys.label('go.world')}</kbd></button>` : ''}
       <button class="mn-big" data-k="menu">${icon('act-cancel', 24)}<div class="t">Main menu</div></button>
     </div>`;
     document.body.appendChild(card);
     card.addEventListener('pointerdown', (e) => { e.stopPropagation(); if (e.target === card) close(); });
     const by = (k: string) => card!.querySelector<HTMLElement>(`[data-k=${k}]`);
     by('resume')!.onclick = close;
-    by('settings')!.onclick = settings;
+    by('settings')!.onclick = () => settings();
+    by('sound')!.onclick = () => settings('sound');
     if (o.world) by('world')!.onclick = o.world;
     by('menu')!.onclick = () => (location.href = 'index.html');
     by('resume')!.focus();
@@ -54,7 +56,7 @@ export function mountGameMenu(o: GameMenuOpts): void {
       return;
     }
     const a = keys.act(e);
-    if (a === 'menu.settings' || a === 'help.keys') { e.preventDefault(); e.stopImmediatePropagation(); openSettings('controls', o.hooks); }
+    if (a === 'menu.settings' || a === 'help.keys' || a === 'panel.sound') { e.preventDefault(); e.stopImmediatePropagation(); openSettings(a === 'panel.sound' ? 'sound' : 'controls', o.hooks); }
     else if (a === 'back' && o.idle()) { e.preventDefault(); e.stopImmediatePropagation(); show(); }
   }, true);
 }
