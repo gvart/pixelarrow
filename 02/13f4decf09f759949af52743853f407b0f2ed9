@@ -1,0 +1,28 @@
+src/war/net/world.ts
+  s_fcb7475e0b5395::t_1e15f21c051cda 8-9,23-25,163-164,167-185,198-202
+server/src/war/world/world.ts
+  s_fcb7475e0b5395::t_e92830a4d869cd 322-323
+  s_fcb7475e0b5395::t_2c9534f40a4a5b 24-28,37-38,109-112,123-124,158,170,218-268,270-282,321,411-413,444,446-447,470-471,501
+  s_fcb7475e0b5395::t_150eab9947e7ce 269
+src/war/world/events.ts
+  s_fcb7475e0b5395::t_ad6f09999e1ed6 46-50
+  s_fcb7475e0b5395::t_96ef41ab4a66a7 1-45,51-83
+server/test/war/world.test.ts
+  s_fcb7475e0b5395::t_93e0a1e34e54aa 167,192
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "0213f4decf09f759949af52743853f407b0f2ed9",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
