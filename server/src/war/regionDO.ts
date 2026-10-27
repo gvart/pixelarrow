@@ -68,6 +68,7 @@ import type { WarPerson, WarSkillId } from '../../../src/war/types';
 import type { AttrId } from '../../../src/data/perks';
 import { log, logError } from '../telemetry/log';
 import { applyBossKill } from './bosses';
+import { addFavour, encounterFavour, favourTick, storyFavour } from './favour';
 import { elapsedTicks, loadMemory, MEMORY_KEY, remembered, storeMemory, writeMemory } from './memory';
 import type { WorldEvent } from '../../../src/war/world/events';
 import { applyFight, armyCount, claimForJoin, claimSoul, deployed, freeRaided, LIVE, release, releaseRegion } from './persons';
@@ -438,6 +439,7 @@ export class WarRegionDO extends DurableObject<Env> {
     for (const g of done) {
       this.ctx.waitUntil(this.ctx.storage.put(encounterStorageKey(WAR_SEASON.id, g.pid), g.save).catch((e) => logError('war_encounter_save_failed', e)));
       const pay = Object.entries(g.goods).filter(([, n]) => n > 0);
+      if (d && g.notes) this.write(`favour encounter ${g.pid}`, () => addFavour(this.env, g.pid, encounterFavour(g.notes), 'encounter')); // W-66
       if (d && pay.length) this.write(`encounter ${g.pid} ${g.save.n}`, () => batch(d, [ensureHolder(d, strongroom(g.pid), 'strongroom', { pid: g.pid }, Date.now()), ...pay.map(([r, n]) => putStmt(d, strongroom(g.pid), r, n))]));
     }
   }
@@ -448,6 +450,7 @@ export class WarRegionDO extends DurableObject<Env> {
     for (const g of done) {
       this.ctx.waitUntil(this.ctx.storage.put(storyStorageKey(WAR_SEASON.id, g.pid), g.save).catch((e) => logError('war_story_save_failed', e)));
       const pay = Object.entries(g.goods).filter(([, n]) => n > 0);
+      if (d && g.notes) this.write(`favour story ${g.pid}`, () => addFavour(this.env, g.pid, storyFavour(g.notes), 'story')); // W-66
       if (d && pay.length) this.write(`story ${g.pid} ${g.save.at ?? 'end'}`, () => batch(d, [ensureHolder(d, strongroom(g.pid), 'strongroom', { pid: g.pid }, Date.now()), ...pay.map(([r, n]) => putStmt(d, strongroom(g.pid), r, n))]));
     }
   }
@@ -950,11 +953,13 @@ export class WarRegionDO extends DurableObject<Env> {
       const ok = await claimSoul(d, c.pid, c.person, room.region.id, Date.now());
       if (!ok) room.sim.dropPersons([c.person.id]);
       else await tallyStmt(d, c.pid, 'soul', 1, Date.now()).run(); // W-62 E7
+      if (ok) room.sim.setPerson(c.person); // W-66: the live man takes the favour bonus claimSoul wrote
       room.setArmy(c.pid, await armyCount(d, c.pid));
     });
     if (r.guided.length) this.guided(r.guided);
     if (r.storied.length) this.storied(r.storied); // W-65
     if (r.met.length) this.met(r.met); // W-65
+    favourTick(this.env, room, (w, f) => this.write(w, f)); // W-66: lairs cleared, land held
     if (d && r.crafted.length) this.write('crafted', () => applyCrafts(d, room.region.id, room.run, r.crafted, Date.now()));
     if (d) for (const b of r.bosses) this.write(`boss ${b.boss}`, () => applyBossKill(d, room.region.id, room.run, b, Date.now()));
     // M7f: a temple or shrine razed costs the razer's alliance score

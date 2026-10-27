@@ -890,6 +890,24 @@ full map; with men selected near one, a prompt names him (class, level, site, fa
 them, or reads "Army full 12/12"; right click or E on the soul gives the same claim order (greyed in the radial while
 the army is full).
 
+### Divine favour (W-66)
+
+The player is a demigod who leads mortals. His divine favour is per account and never resets with a season: it is
+the reason to keep an account. Rules and amounts: `src/war/net/favour.ts`; D1 `war_favour` and `war_favour_log`
+(0047); earning hooks: `server/src/war/favour.ts`; panel: Divine favour on the menu bar (Shift+F, its level as a
+badge; the title screen shows it beside the name), a short banner on a level gained.
+
+- **Curve:** level L at 200 x (L-1)^2 favour: level 2 at 200 (about the first hour), 5 at 3200, 10 at 16200 (weeks),
+  12 the last. Titles: Hero, Demigod, Heroes' Kin, Favoured of Ares, Spear of Athena, Herald of Hermes, Hand of
+  Apollo, Shield of Zeus, Titan-slayer, Ichor-blooded, Star of Olympus, Olympian-touched.
+- **Earning:** battle won 20, fought 4, each kill 2 (20 kills a fight at most); lair cleared 40 (players with men
+  within 20 tiles); guardian slain 150 (each killer); daily task 40, weekly 150; story step 25, chain ended 150;
+  encounter step 10, ended 30; land every 10 min: 1 per claim point his alliance holds where his men stand (3 at
+  most) and 2 if it owns the region, at most 30 an hour across regions.
+- **Bonus, newly raised men only** (claimed souls; tunnel raises): +1 unspent attribute point at levels 3, 6, 9, 12
+  (4 at most); the starting kit lifted to uncommon at level 5, rare at level 10. A max-favour fresh man (4 points,
+  rare kit) stays below a level 3 to 4 veteran (4 to 6 points, a skill, his deeds).
+
 ### Anti-oversaturation
 
 | Lever | Bound |

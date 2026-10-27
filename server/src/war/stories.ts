@@ -14,7 +14,7 @@ import type { RegionData, Snapshot, WarBuildSim, WarEvent } from '../../../src/w
 export const storyStorageKey = (season: number | string, pid: number) => `story:${season}:${pid}`;
 
 /** A run moved: the DO stores `save` and pays `goods` into his home strongroom. */
-export interface StoryDone { pid: number; save: StorySave; goods: Record<string, number> }
+export interface StoryDone { pid: number; save: StorySave; goods: Record<string, number>; notes?: StoryNote[] }
 
 export class RoomStories {
   private runs = new Map<number, { run: StoryRun; goods: Record<string, number> }>();
@@ -69,7 +69,7 @@ export class RoomStories {
       const r = this.runs.get(m.pid);
       if (!r) continue;
       const save: StorySave = { ...r.run.save, picks: { ...r.run.save.picks } };
-      done.push({ pid: m.pid, save, goods: { ...r.goods } });
+      done.push({ pid: m.pid, save, goods: { ...r.goods }, notes: m.notes });
       for (const k of Object.keys(r.goods)) delete r.goods[k];
       msgs.push([m.pid, RoomStories.msg(save, m.notes)]);
       if (save.done) this.runs.delete(m.pid);
