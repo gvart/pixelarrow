@@ -86,6 +86,9 @@ export const DELETION_MAP: Record<string, TableRule> = {
   // W-63: his place in settlements and his requests and offers to them
   war_settlement_members: { rule: 'delete', pid: ['player_id'] },
   war_settlement_offers: { rule: 'delete', pid: ['from_pid'] },
+  // W-62 E7: his daily and weekly tasks and the tallies behind them
+  war_tasks: { rule: 'delete', pid: ['player_id'] },
+  war_task_tally: { rule: 'delete', pid: ['player_id'] },
   display_name_history: { rule: 'delete', pid: ['player_id'], via: 'one row is written back at the tombstone step so the freed name stays held 30 days' },
 
   // Kept against the tombstone.
