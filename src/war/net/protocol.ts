@@ -185,6 +185,8 @@ const baseMsgSchema = z.discriminatedUnion('t', [
   }).refine((o) => o.op !== 'offer' || (o.squad === undefined) !== (o.cart === undefined), 'an offer names its squad or cart'),
   // W-62: the first-hour guide: hide it for good (the tracker's ×)
   z.object({ t: z.literal('guide'), op: z.literal('hide') }),
+  // W-65: a choice at the open choice step of the region's story (src/war/sim/stories.ts)
+  z.object({ t: z.literal('story'), op: z.literal('choose'), option: z.string().regex(/^[a-z0-9_-]{1,32}$/) }),
 ]);
 /** Dev helpers (the F1 panel); the region refuses them unless the server runs with DEV_AUTH=1. */
 export const devSchema = z.discriminatedUnion('op', [
@@ -254,6 +256,11 @@ export type ServerMsg =
    * with each step.
    */
   | { t: 'guide'; done: string[]; hidden?: true; step?: string; paid?: true }
+  /**
+   * W-65: his progress in this region's story (src/war/sim/stories.ts StorySave), on his join and whenever it moves;
+   * `notes`: what just happened (begun, a step done with its reward, the chain done), for the banners.
+   */
+  | { t: 'story'; save: import('../sim/stories').StorySave; notes?: import('../sim/stories').StoryNote[] }
   /** W-63: the region's settlements (SettlementNet), on his join and whenever one changes. */
   | { t: 'settlements'; list: SettlementNet[] }
   /** The online cap (./gate.ts): not from the region socket, the gate's state passed on by ./client.ts. */
