@@ -168,7 +168,7 @@ function controlsHtml(capture: { id: ActionId; slot: Slot } | null): string {
       html += changed(id) ? `<button class="rf-tbtn x" data-def="${id}" title="back to the default">↺</button>` : '<span></span>';
     }
   }
-  return html + `</div><div class="rf-dim" style="font-size:11px;margin:10px 0 2px">Mouse: left click selects (Shift adds, drag a box), right click gives the context order, the wheel zooms. Keys work by place on the keyboard, on any layout.</div>`;
+  return html + `</div><div class="rf-dim" style="font-size:11px;margin:10px 0 2px">Mouse: left click selects (Shift adds, drag a box), right click gives the context order, the middle button drags the map (a middle click puts your own marker), the wheel zooms. Keys work by place on the keyboard, on any layout.</div>`;
 }
 
 function displayHtml(): string {
