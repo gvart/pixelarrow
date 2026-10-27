@@ -1,0 +1,46 @@
+server/test/war/favour.test.ts
+  s_fcb7475e0b5395::t_fab29ba2c6a628 1-75,77-79,81-193
+  s_fcb7475e0b5395::t_a6ccbedba177d6 76
+  s_fcb7475e0b5395::t_b98027e46c9897 80
+server/migrations/0047_war_favour.sql
+  s_fcb7475e0b5395::t_7873a65085a3ad 1-22
+server/src/war/favour.ts
+  s_fcb7475e0b5395::t_09d4be1d803d79 1-133,135-170
+  s_fcb7475e0b5395::t_c856b04d3b5467 134
+server/src/war/stories.ts
+  s_fcb7475e0b5395::t_ecc420c81a8522 17,72
+server/src/account/deletionMap.ts
+  s_fcb7475e0b5395::t_c24899c6d12aea 96-98
+server/src/war/bosses.ts
+  s_fcb7475e0b5395::t_a93a82cc96ad77 42
+  s_fcb7475e0b5395::t_c4e67ee8224e32 17
+server/src/war/persons.ts
+  s_fcb7475e0b5395::t_a93a82cc96ad77 48,320,734
+server/src/war/regionDO.ts
+  s_fcb7475e0b5395::t_ecc420c81a8522 71,442,453,956,962
+src/war/net/favour.ts
+  s_fcb7475e0b5395::t_5e22ae6eee8329 1-107
+server/src/war/encounters.ts
+  s_fcb7475e0b5395::t_ecc420c81a8522 18,68
+server/src/war/routes.ts
+  s_fcb7475e0b5395::t_fd3eb06382aced 41,76,232
+  s_fcb7475e0b5395::t_ce50d96825067d 233
+server/src/war/tasks.ts
+  s_fcb7475e0b5395::t_a93a82cc96ad77 25,115
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "021d0297f40214f70b27c4911d67c15350c5c723",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
