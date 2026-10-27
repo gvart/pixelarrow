@@ -1,0 +1,39 @@
+scripts/war/shades-shots.mjs
+  s_fcb7475e0b5395::t_1c5470da4884b9 14,17,22
+  s_fcb7475e0b5395::t_dbb49a68a9935b 1-13,15-16,18-21,23-27
+docs/v5/pixellab/SHADES/ids.json
+  s_fcb7475e0b5395::t_818b41c4ad35e1 1,17
+  s_fcb7475e0b5395::t_351e00ef6a7ec9 2
+  s_fcb7475e0b5395::t_5952793cfe2e15 3-16
+public/war/buildings/objects.json
+  s_fcb7475e0b5395::t_837f7f7a01cdfa 3147-3159,11566-11592
+src/war/view/shades.ts
+  s_fcb7475e0b5395::t_dffac0d43e36fa 22
+  s_fcb7475e0b5395::t_0f1c343b21b888 1-21,23-93
+docs/playbook/PROMPTS_ART.md
+  s_fcb7475e0b5395::t_d0d31c77e7f1b4 3276-3314
+scripts/art/pixellab/shades/build.mjs
+  s_fcb7475e0b5395::t_dffac0d43e36fa 18-19
+  s_fcb7475e0b5395::t_f920b0a48f817f 1-2,4-17,20-57,59-81,86-90
+  s_fcb7475e0b5395::t_79318d53ddaf96 3,58
+  s_fcb7475e0b5395::t_ece3b9860486ce 82-85
+public/war/shades/manifest.json
+  s_fcb7475e0b5395::t_555b7781813afb 6,14-15,21-35,45,60,66-155,165-225
+  s_fcb7475e0b5395::t_13dc39e80b6124 1-5,7-13,16-20,36-44,46-59,61-65,156-164,226-227
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "945fa6a6268e85265a16761867ee6494312d2b79",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
