@@ -11,10 +11,11 @@ import { worldRegion } from '../world/graph';
 import type { AllianceId } from '../world/types';
 import { WorldMap, type MapState } from '../world-view/map';
 import type { RegionState, WorldSnapshot } from '../net/world';
-import { bar, icon, UNIT_ICON, uiZoom } from '../view/hud/kit';
+import { icon, UNIT_ICON, uiZoom } from '../view/hud/kit';
 import { card, fx, term, termCard, val } from '../view/hud/codex';
 import { placeTip } from '../view/hud/kit';
 import { call, type StartView } from './api';
+import { DIFFICULTY_NAME, HOME_LORE } from './homeLore';
 
 export const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
@@ -168,6 +169,24 @@ export function allianceScreen(stage: HTMLElement, v: StartView, pick: (a: Allia
 // ------------------------------------------------------------------ home region
 
 const ROLE_NAME = { home: 'Home city', entry: 'Gate region', neutral: 'Neutral', center: 'Centre' } as const;
+const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
+
+/** One home choice in full: its lore, what it means for play (difficulty, resources, beasts, where it leads), who is there. */
+export function homeDetail(h: StartView['homes'][number], alliance: AllianceId): string {
+  const r = worldRegion(h.id), l = HOME_LORE[h.id];
+  if (!r) return '';
+  const d = l?.difficulty ?? 2;
+  const res = Object.entries(r.res).map(([k, n]) => `<span class="mn-res">${icon(k === 'horses' ? 'unit-javelineer' : `res-${k}`)}${cap(k)} <b>${n}</b></span>`).join('');
+  const leads = r.adj.filter((id) => worldRegion(id)?.alliance !== alliance || r.role === 'home').map((id) => esc(worldRegion(id)?.name ?? id)).join(', ');
+  const beasts = r.fauna.length ? r.fauna.map(cap).join(', ') : 'None. A home never falls';
+  return `<div class="hd-top"><span class="nm">${esc(r.name)}</span><span class="tag">${ROLE_NAME[r.role]}</span><span class="mn-diff d${d}">${'<i></i>'.repeat(d)}${'<i class="o"></i>'.repeat(3 - d)}${DIFFICULTY_NAME[d]}</span></div>
+    ${l ? `<div class="hd-lore">${esc(l.lore)}</div><div class="hd-play">${esc(l.play)}</div>` : ''}
+    <div class="hd-facts">
+      <span>Resources</span><span class="hd-res">${res}</span>
+      <span>Beasts</span><span>${beasts}</span>
+      <span>${r.role === 'home' ? 'Gates' : 'Leads to'}</span><span>${leads}</span>
+    </div>`;
+}
 
 /** The world map with the alliance's home choices lit; a side card lists them. Returns a stop function. */
 export function homeScreen(v: StartView, pick: (id: string) => Promise<void>, back: () => void): () => void {
@@ -188,27 +207,36 @@ export function homeScreen(v: StartView, pick: (id: string) => Promise<void>, ba
   let alive = true;
   const st = (): MapState => ({ regions, transit: [], squads: new Map(), you: v.alliance, hover, selected: sel, squadAt: null, targets: new Set(free.map((h) => h.id)), routes: false, now: Date.now(), convoys: [], haul: null });
 
+  /** The detail of the hovered choice, else the selected one. */
+  const detail = () => {
+    const el = side.querySelector<HTMLElement>('[data-k=detail]');
+    const h = v.homes.find((x) => x.id === (hover ?? sel));
+    if (el) el.innerHTML = h ? homeDetail(h, v.alliance!) : '';
+  };
+  const setHover = (id: string | null) => { if (id !== hover) { hover = id; detail(); } };
   const render = () => {
-    side.innerHTML = `<div class="mn-h"><span class="rf-name">Choose your home</span><span class="rf-dim" style="margin-left:auto;font-size:11px">${a.name}</span></div>
-      <div class="mn-sub">Your squad musters here, and you come back here. Lit regions on the map are free.</div>
-      ${v.homes.map((h) => `<button class="mn-home${h.id === sel ? ' on' : ''}" data-h="${h.id}" ${h.refusal ? 'disabled' : ''}>
-        <div style="min-width:0"><div class="nm">${esc(h.name)}</div>
-        <div class="meta">${plural(h.players, 'player')} · ${h.men}/${h.quota} men</div>${h.refusal ? `<div class="why">${esc(h.refusal)}</div>` : ''}</div>
-        <span class="tag">${ROLE_NAME[h.role]}</span></button>`).join('')}
+    side.innerHTML = `<span class="mn-step">Step 2 of 3</span><div class="mn-h"><span class="rf-name">Choose your home</span><span class="mn-ally-tag"><span class="mn-swatch" style="background:${a.color}"></span>${a.name}</span></div>
+      <div class="mn-homes">${v.homes.map((h) => `<button class="mn-home${h.id === sel ? ' on' : ''}" data-h="${h.id}" ${h.refusal ? 'disabled' : ''}>
+        <div style="min-width:0;flex:1"><div class="nm">${esc(h.name)}</div>${h.refusal ? `<div class="meta why">${esc(h.refusal)}</div>` : ''}</div>
+        ${h.refusal ? '' : `<span class="meta">${plural(h.players, 'player')} · ${h.men}/${h.quota}</span>`}
+        <span class="mn-diff d${HOME_LORE[h.id]?.difficulty ?? 2}">${DIFFICULTY_NAME[HOME_LORE[h.id]?.difficulty ?? 2]}</span></button>`).join('')}</div>
+      <div class="mn-hd" data-k="detail"></div>
       <div class="mn-msg bad"></div>
-      <div class="mn-row"><button class="rf-tbtn" data-k="back">Back</button><button class="rf-tbtn pri" data-k="ok" style="margin-left:auto" ${sel ? '' : 'disabled'}>Make ${esc(worldRegion(sel ?? '')?.name ?? 'it')} my home</button></div>`;
+      <div class="mn-cta"><button class="mn-link mn-quiet" data-k="back">‹ Back</button><button class="mn-big pri" data-k="ok" ${sel ? '' : 'disabled'}><div><div class="t">Make ${esc(worldRegion(sel ?? '')?.name ?? 'it')} my home</div><div class="d">Next: muster your squad</div></div><kbd>Enter</kbd></button></div>`;
     side.querySelector<HTMLElement>('[data-k=back]')!.onclick = back;
     side.querySelector<HTMLElement>('[data-k=ok]')!.onclick = confirm;
     const rows = [...side.querySelectorAll<HTMLButtonElement>('.mn-home')];
     for (const r of rows) {
       r.onclick = () => { sel = r.dataset.h!; render(); side.querySelector<HTMLElement>(`[data-h="${sel}"]`)?.focus(); };
       r.ondblclick = confirm;
-      r.onmouseenter = () => (hover = r.dataset.h!);
-      r.onmouseleave = () => (hover = null);
-      r.onfocus = () => (hover = r.dataset.h!);
+      r.onmouseenter = () => setHover(r.dataset.h!);
+      r.onmouseleave = () => setHover(null);
+      r.onfocus = () => { sel = r.dataset.h!; for (const x of rows) x.classList.toggle('on', x === r); side.querySelector('[data-k=ok] .t')!.textContent = `Make ${worldRegion(sel)?.name ?? sel} my home`; detail(); };
     }
+    detail();
     side.onkeydown = (e) => {
       if (e.key === 'Escape') return back();
+      if (e.key === 'Enter' && (e.target as HTMLElement).classList.contains('mn-home')) { e.preventDefault(); return confirm(); }
       arrows(rows.filter((x) => !x.disabled), 1)(e);
     };
   };
@@ -247,7 +275,7 @@ export function homeScreen(v: StartView, pick: (id: string) => Promise<void>, ba
   const at = (e: MouseEvent) => (map ? map.regionAt(...map.toMap(e.clientX, e.clientY)) : null);
   canvas.onmousemove = (e) => {
     const id = at(e);
-    hover = id && v.homes.some((h) => h.id === id) ? id : null;
+    setHover(id && v.homes.some((h) => h.id === id) ? id : null);
     canvas.style.cursor = hover ? 'pointer' : 'default';
   };
   canvas.onclick = (e) => {
@@ -263,7 +291,7 @@ export function homeScreen(v: StartView, pick: (id: string) => Promise<void>, ba
 
 /** The picker's short names and roles (the full ones are on the class card). */
 const SHORT: Record<string, [string, string]> = {
-  militia: ['Militia', 'Levy · line'], hoplite: ['Hoplite', 'Heavy infantry'], celt_sword: ['Swordsman', 'Shock infantry'],
+  militia: ['Militia', 'Levy · line'], hoplite: ['Hoplite', 'Heavy · line'], celt_sword: ['Swordsman', 'Shock · melee'],
   archer: ['Archer', 'Missile · long'], slinger: ['Slinger', 'Missile · mid'], javelineer: ['Javelineer', 'Skirmisher'],
 };
 const ROLE: Record<string, { role: string; line: string }> = {
@@ -283,10 +311,10 @@ const facts = (cls: string): ClassFacts => {
 const r1 = (v: number) => String(Math.round(v * 10) / 10), pc = (v: number) => `${Math.round(v * 100)}%`;
 
 /** The class's description card (the HUD's codex style). */
-export function classCard(cls: string): string {
+export function classCard(cls: string, w = 262): string {
   const f = facts(cls), c = isClassId(cls) ? CLASSES[cls] : null, fam = FAMILY_OF[cls as keyof typeof FAMILY_OF];
   return card({
-    icon: icon(UNIT_ICON[cls], 32), rawIcon: true, name: c?.name ?? cls, kind: `${ROLE[cls]?.role ?? ''}${fam ? ` · ${fam} family` : ''}`, flavour: c?.desc, w: 262,
+    icon: icon(UNIT_ICON[cls], 32), rawIcon: true, name: c?.name ?? cls, kind: `${ROLE[cls]?.role ?? ''}${fam ? ` · ${fam} family` : ''}`, flavour: c?.desc, w,
     fx: [
       fx('ui:heart', `${term('health')} ${val(String(Math.round(f.hp)), '')}`),
       fx('ui:sword', `${term('melee')} ${val(r1(f.melee), '')} every ${val(r1(f.blow) + ' s', '')} · ${term('reach')} ${val(r1(warStats(cls).reach), '')}`),
@@ -298,34 +326,60 @@ export function classCard(cls: string): string {
   });
 }
 
+/** A 0..5 pip rating of `v` within the classes' span lo..hi: 0 when he has none of it, else 1 (the least) to 5 (the most). */
+export function pips(v: number, lo: number, hi: number): number {
+  if (v <= 0) return 0;
+  return hi - lo < 1e-6 ? 3 : 1 + Math.round(((v - lo) / (hi - lo)) * 4);
+}
+/** What a squad's mix reads as: its line, shock and missile men. */
+const GROUP: Record<string, 'line' | 'shock' | 'missile'> = { militia: 'line', hoplite: 'line', celt_sword: 'shock', archer: 'missile', slinger: 'missile', javelineer: 'missile' };
+export function squadMix(order: readonly string[]): string {
+  const n = { line: 0, shock: 0, missile: 0 };
+  for (const c of order) n[GROUP[c] ?? 'line']++;
+  if (!order.length) return 'No men yet: add some with +';
+  const parts = [`${n.line} line`, `${n.shock} shock`, `${n.missile} missile`];
+  const warn = !n.line ? 'Nobody holds a line.' : !n.missile ? 'Nothing answers archers.' : '';
+  return `${parts.join(' · ')}${warn ? ` <span class="warn">${warn}</span>` : ''}`;
+}
+
 export function squadScreen(stage: HTMLElement, v: StartView, done: (classes: string[]) => Promise<void>, back: () => void): void {
   const classes = v.classes, max = v.squadMax;
   const count: Record<string, number> = Object.fromEntries(classes.map((c) => [c, 0]));
   // a sound default: a shield line with missiles behind
   Object.assign(count, { hoplite: 4, celt_sword: 2, archer: 3, slinger: 1, javelineer: 2 });
   for (const c of Object.keys(count)) if (!classes.includes(c)) delete count[c];
-  let focus = 'hoplite';
-  const all = classes.map(facts), top = (k: keyof ClassFacts) => Math.max(...all.map((f) => f[k] as number), 1e-6);
-  const BARS: [keyof ClassFacts, string][] = [['hp', 'Health'], ['melee', 'Melee'], ['missile', 'Missile'], ['armour', 'Armour'], ['speed', 'Pace']];
+  let focus = 'hoplite', hover: string | null = null;
+  // the pips: each stat rated within the six classes' span (melee as damage a second)
+  const STATS: [string, (f: ClassFacts) => number][] = [['Health', (f) => f.hp], ['Melee', (f) => f.melee / f.blow], ['Missile', (f) => f.missile], ['Armour', (f) => f.armour], ['Pace', (f) => f.speed]];
+  const all = classes.map(facts);
+  const span = STATS.map(([, g]) => { const xs = all.map(g).filter((x) => x > 0); return [Math.min(...xs), Math.max(...xs)] as const; });
   const total = () => Object.values(count).reduce((a, b) => a + b, 0);
-  stage.innerHTML = `<div style="display:flex;gap:12px;align-items:flex-start">
-    <div><div class="rf-name" style="font-size:22px">Muster your squad</div><div class="mn-sub" style="margin:4px 0 10px">Up to ${max} men, any mix. Every man is a person: he levels, is wounded, keeps his gear.</div>
+  const order = () => classes.flatMap((c) => Array(count[c] ?? 0).fill(c) as string[]);
+  stage.innerHTML = `<div class="mn-mu">
+    <div class="mn-mu-l">
+      <div class="mn-mu-h"><span class="mn-step">Step 3 of 3</span><div class="rf-name">Muster your squad</div><div class="mn-sub">Pick up to ${max} men, any mix. Each levels, takes wounds and keeps his gear.</div></div>
       <div class="mn-sq">${classes.map((c) => {
         const f = facts(c);
         return `<div class="rf-card mn-cls" tabindex="0" data-c="${c}">
-          <div class="top"><span class="cx-ic">${icon(UNIT_ICON[c], 32)}</span><div style="min-width:0"><div class="nm">${esc(SHORT[c]?.[0] ?? c)}</div><div class="role">${SHORT[c]?.[1] ?? ''}</div></div></div>
-          <div class="bars">${BARS.map(([k, n]) => `<span>${n}</span>${bar(k === 'missile' ? 'burn' : k === 'hp' ? 'hp' : 'ok', (f[k] as number) / top(k), 118)}`).join('')}</div>
-          <div class="cnt"><button class="rf-tbtn" data-d="-1" data-c="${c}" aria-label="one fewer">−</button><b data-n="${c}">0</b><button class="rf-tbtn" data-d="1" data-c="${c}" aria-label="one more">+</button></div>
+          <div class="top"><span class="cx-ic big">${icon(UNIT_ICON[c], 32)}</span><div><div class="nm">${esc(SHORT[c]?.[0] ?? c)}</div><div class="role">${SHORT[c]?.[1] ?? ''}</div></div></div>
+          <div class="pips">${STATS.map(([n, g], k) => {
+            const p = pips(g(f), span[k][0], span[k][1]);
+            return `<span>${n}</span><span class="pp${p ? '' : ' none'}">${p ? '<i class="on"></i>'.repeat(p) + '<i></i>'.repeat(5 - p) : 'none'}</span>`;
+          }).join('')}</div>
+          <div class="cnt"><button class="rf-tbtn" data-d="-1" data-c="${c}" aria-label="one fewer ${esc(SHORT[c]?.[0] ?? c)}" tabindex="-1">−</button><b data-n="${c}">0</b><button class="rf-tbtn" data-d="1" data-c="${c}" aria-label="one more ${esc(SHORT[c]?.[0] ?? c)}" tabindex="-1">+</button></div>
         </div>`;
-      }).join('')}</div></div>
-    <div style="width:290px;padding-top:4px">
-      <div class="rf-card mn-card">
-        <div class="mn-row" style="justify-content:space-between"><span class="rf-cap" style="margin:0">Your squad</span><span><span class="mn-count" data-k="total">0</span><span class="rf-dim"> / ${max}</span></span></div>
+      }).join('')}</div>
+    </div>
+    <div class="mn-mu-r">
+      <div class="rf-card mn-card mn-detail" data-k="card"></div>
+      <div class="rf-card mn-card mn-squad">
+        <div class="mn-row" style="justify-content:space-between;align-items:baseline"><span class="rf-name">Your squad</span><span><span class="mn-count" data-k="total">0</span><span class="mn-of"> / ${max}</span></span></div>
         <div class="mn-slots" data-k="slots"></div>
+        <div class="mn-mix" data-k="mix"></div>
         <div class="mn-msg" data-k="msg"></div>
-        <div class="mn-row"><button class="rf-tbtn" data-k="back">Back</button><button class="rf-tbtn" data-k="clear">Clear</button><button class="rf-tbtn pri" data-k="go" style="margin-left:auto">Muster ${max} men</button></div>
+        <button class="mn-big pri" data-k="go"><div><div class="t" data-k="go-t">Muster</div><div class="d">Then march into your home</div></div></button>
+        <div class="mn-row" style="justify-content:space-between"><button class="mn-link mn-quiet" data-k="back">‹ Back to home</button><button class="mn-link mn-quiet" data-k="clear">Clear all</button></div>
       </div>
-      <div class="rf-card mn-card" data-k="card" style="margin-top:8px;padding:10px 12px"></div>
     </div>
   </div>`;
   const q = <T extends HTMLElement>(s: string) => stage.querySelector<T>(s)!;
@@ -343,46 +397,57 @@ export function squadScreen(stage: HTMLElement, v: StartView, done: (classes: st
     placeTip(tip, t);
   });
   stage.addEventListener('mouseleave', () => (tip.style.display = 'none'));
+  let shown = '';
+  const showCard = () => {
+    const c = hover ?? focus;
+    if (c !== shown) { shown = c; q('[data-k=card]').innerHTML = classCard(c, 276); }
+  };
   const render = () => {
-    const n = total();
+    const n = total(), men = order();
     for (const c of classes) q(`[data-n="${c}"]`).textContent = String(count[c] ?? 0);
     for (const b of stage.querySelectorAll<HTMLButtonElement>('[data-d]')) b.disabled = b.dataset.d === '1' ? n >= max : !count[b.dataset.c!];
-    for (const el of stage.querySelectorAll<HTMLElement>('.mn-cls')) el.classList.toggle('on', el.dataset.c === focus);
+    for (const el of stage.querySelectorAll<HTMLElement>('.mn-cls')) { el.classList.toggle('on', el.dataset.c === focus); el.classList.toggle('picked', (count[el.dataset.c!] ?? 0) > 0); }
     q('[data-k=total]').textContent = String(n);
-    const order = classes.flatMap((c) => Array(count[c] ?? 0).fill(c) as string[]);
-    q('[data-k=slots]').innerHTML = Array.from({ length: max }, (_, i) => order[i]
-      ? `<button class="mn-slot full" data-rm="${order[i]}" title="${esc(CLASSES[order[i] as 'militia'].name)} (click: send home)">${icon(UNIT_ICON[order[i]], 32)}</button>`
+    q('[data-k=total]').classList.toggle('full', n === max);
+    q('[data-k=slots]').innerHTML = Array.from({ length: max }, (_, i) => men[i]
+      ? `<button class="mn-slot full" data-rm="${men[i]}" title="${esc(CLASSES[men[i] as 'militia'].name)} (click: send home)">${icon(UNIT_ICON[men[i]], 32)}</button>`
       : '<span class="mn-slot"></span>').join('');
-    const go = q<HTMLButtonElement>('[data-k=go]');
-    go.disabled = n === 0;
-    go.textContent = n ? `Muster ${plural(n, 'man', 'men')}` : 'Pick your men';
-    q('[data-k=card]').innerHTML = classCard(focus);
+    q('[data-k=mix]').innerHTML = squadMix(men);
+    q<HTMLButtonElement>('[data-k=go]').disabled = n === 0;
+    q('[data-k=go-t]').textContent = n ? `Muster ${plural(n, 'man', 'men')}` : 'Pick your men';
+    showCard();
     for (const b of stage.querySelectorAll<HTMLElement>('[data-rm]')) b.onclick = () => { count[b.dataset.rm!]--; render(); };
   };
+  const add = (c: string, d: number) => { count[c] = Math.max(0, Math.min((count[c] ?? 0) + d, (count[c] ?? 0) + max - total())); focus = c; render(); };
   stage.addEventListener('click', (e) => {
     const b = (e.target as HTMLElement).closest<HTMLElement>('[data-d]');
-    if (b) { const c = b.dataset.c!; count[c] = Math.max(0, (count[c] ?? 0) + Number(b.dataset.d)); focus = c; render(); return; }
+    if (b) return add(b.dataset.c!, Number(b.dataset.d));
     const card = (e.target as HTMLElement).closest<HTMLElement>('.mn-cls');
     if (card) { focus = card.dataset.c!; render(); }
   });
   const cards = [...stage.querySelectorAll<HTMLElement>('.mn-cls')];
   for (const c of cards) {
+    c.onmouseenter = () => { hover = c.dataset.c!; showCard(); };
+    c.onmouseleave = () => { hover = null; showCard(); };
     c.onfocus = () => { focus = c.dataset.c!; render(); };
     c.onkeydown = (e) => {
       const k = c.dataset.c!;
-      if (e.key === '+' || e.key === '=' || e.key === 'Enter') { e.preventDefault(); if (total() < max) count[k]++; render(); }
-      else if (e.key === '-' || e.key === 'Backspace') { e.preventDefault(); if (count[k]) count[k]--; render(); }
+      if (e.key === '+' || e.key === '=' || e.key === 'Enter') { e.preventDefault(); add(k, 1); }
+      else if (e.key === '-' || e.key === 'Backspace') { e.preventDefault(); add(k, -1); }
     };
   }
-  stage.onkeydown = (e) => { if (e.key === 'Escape') return back(); arrows(cards, 3)(e); };
+  stage.onkeydown = (e) => {
+    if (e.key === 'Escape') return back();
+    arrows(cards, 3)(e);
+  };
   q('[data-k=back]').onclick = back;
   q('[data-k=clear]').onclick = () => { for (const c of classes) count[c] = 0; render(); };
   q('[data-k=go]').onclick = () => {
-    const order = classes.flatMap((c) => Array(count[c] ?? 0).fill(c) as string[]);
+    if (!total()) return;
     const m = q('[data-k=msg]');
     m.className = 'mn-msg';
     m.innerHTML = '<span class="mn-spin"></span>';
-    done(order).then(() => tip.remove()).catch((err) => { m.className = 'mn-msg bad'; m.textContent = (err as Error).message; });
+    done(order()).then(() => tip.remove()).catch((err) => { m.className = 'mn-msg bad'; m.textContent = (err as Error).message; });
   };
   render();
   cards[1]?.focus();

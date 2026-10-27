@@ -549,7 +549,7 @@ The menu is the game's front page (`index.html`, play.pixelarrow.app; `src/war/m
 | --- | --- | --- |
 | Sign in | email and password, or create an account (the mailed link signs in and comes back); locally also a dev player (DEV_AUTH) | the web session cookie; the war pages play as it (`src/war/net/session.ts`) |
 | Alliance | one of the four, with its players this season | `POST /api/war/start/alliance`; changeable until the squad is picked (the home resets) |
-| Home region | the alliance's home or one of its four gate regions, picked on the world map | `POST /api/war/start/home`: free = fresh men may come in (`joinRefusal`) and the alliance's quota there has room for a full squad |
+| Home region | the alliance's home or one of its four gate regions, picked on the world map; each shows its lore, difficulty, resources, beasts and roads out (`src/war/menu/homeLore.ts`) | `POST /api/war/start/home`: free = fresh men may come in (`joinRefusal`) and the alliance's quota there has room for a full squad |
 | Squad | up to N = 12 men, any mix of the six classes with war sprites (militia, hoplite, swordsman, archer, slinger, javelineer), each shown with its codex card | `POST /api/war/start/squad`: 1..12 of those classes, once per player and season; fresh L1 men, active in slot order; after it men join only as claimed souls (W-60) |
 | Land | march into the home region (the live region view, his men selected) or open the world map | |
 
