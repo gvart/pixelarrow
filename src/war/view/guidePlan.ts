@@ -40,33 +40,57 @@ export function homeAnchor(region: Pick<RegionData, 'w' | 'h' | 'prebuilt'>): { 
   return { x: Math.round(ps.reduce((a, p) => a + p.x, 0) / ps.length) + 0.5, y: Math.round(ps.reduce((a, p) => a + p.y, 0) / ps.length) + 0.5 };
 }
 
-/** A tile a man may stand on: no deep water, rock or massif ground (boulders are few and far between on the roads). */
-function open(r: RegionData, x: number, y: number): boolean {
-  if (x < 1 || y < 1 || x >= r.w - 1 || y >= r.h - 1) return false;
-  const t = y * r.w + x;
-  if (r.water[t] === 2 || r.terrain[t] === 'rock') return false;
+/** Tiles a man may stand on: no deep water, rock or massif ground (boulders are few and far between on the roads). */
+function openMask(r: RegionData): Uint8Array {
+  const n = r.w * r.h, m = new Uint8Array(n);
+  for (let t = 0; t < n; t++) m[t] = r.water[t] === 2 || r.terrain[t] === 'rock' ? 0 : 1;
   const b = r.blocked ?? [];
-  for (let k = 0; k + 1 < b.length; k += 2) if (t >= b[k] && t < b[k] + b[k + 1]) return false;
-  return true;
+  for (let k = 0; k + 1 < b.length; k += 2) m.fill(0, b[k], Math.min(n, b[k] + b[k + 1]));
+  return m;
 }
 
-/** The open tile centre nearest (x,y), searched in growing squares (the point itself when nothing is open near). */
-function nearestOpen(r: RegionData, x: number, y: number): { x: number; y: number } {
-  const tx = Math.floor(x), ty = Math.floor(y);
-  for (let d = 0; d < 24; d++)
-    for (let yy = ty - d; yy <= ty + d; yy++)
-      for (let xx = tx - d; xx <= tx + d; xx++)
-        if ((Math.abs(xx - tx) === d || Math.abs(yy - ty) === d) && open(r, xx, yy)) return { x: xx + 0.5, y: yy + 0.5 };
-  return { x, y };
+/**
+ * Steps a man walks from `from` to every tile (-1: no way there): a breadth-first flood over open tiles, steps of one
+ * height level at most (a cliff is no way), 4-connected.
+ */
+function walkSteps(r: RegionData, from: { x: number; y: number }): Int32Array {
+  const { w, h } = r, ok = openMask(r), dist = new Int32Array(w * h).fill(-1), q = new Int32Array(w * h);
+  let start = Math.floor(from.y) * w + Math.floor(from.x);
+  for (let k = 1; !ok[start] && k < 40; k++) start += w; // an entry on rough ground: the first open tile inward
+  let head = 0, tail = 0;
+  q[tail++] = start;
+  dist[start] = 0;
+  while (head < tail) {
+    const t = q[head++], x = t % w;
+    for (const n of [x > 0 ? t - 1 : -1, x < w - 1 ? t + 1 : -1, t - w, t + w]) {
+      if (n < 0 || n >= w * h || dist[n] >= 0 || !ok[n] || Math.abs(r.height[n] - r.height[t]) > 1) continue;
+      dist[n] = dist[t] + 1;
+      q[tail++] = n;
+    }
+  }
+  return dist;
 }
 
 export interface GuideSpots { entry: { x: number; y: number }; home: { x: number; y: number }; soul: { x: number; y: number }; lair: { x: number; y: number } }
 
-/** Where the guide's targets stand for `team` entering `region`: along the straight road from its entry to the home town. */
+/**
+ * Where the guide's targets stand for `team` entering `region`: `at` steps' walk from its entry (never across a river or
+ * a cliff from it), as near the straight line to the home town as the ground allows.
+ */
 export function guideSpots(region: RegionData, team: number): GuideSpots {
-  const entry = entrySpot(region, team), home = homeAnchor(region);
+  const entry = entrySpot(region, team), home = homeAnchor(region), dist = walkSteps(region, entry), w = region.w;
   const dx = home.x - entry.x, dy = home.y - entry.y, len = Math.hypot(dx, dy) || 1;
-  const along = (d: number) => nearestOpen(region, entry.x + (dx / len) * Math.min(d, len * 0.6), entry.y + (dy / len) * Math.min(d, len * 0.6));
+  // the tile `d` steps' walk from the entry that lies nearest the straight line to the town (ahead of the entry)
+  const along = (d: number) => {
+    let best = -1, bs = Infinity;
+    for (let t = 0; t < dist.length; t++) {
+      if (dist[t] !== d) continue;
+      const px = (t % w) + 0.5 - entry.x, py = ((t / w) | 0) + 0.5 - entry.y, ahead = (px * dx + py * dy) / len;
+      const off = Math.abs(px * dy - py * dx) / len + (ahead < 0 ? 1000 : 0);
+      if (off < bs) (bs = off), (best = t);
+    }
+    return best < 0 ? { ...entry } : { x: (best % w) + 0.5, y: Math.floor(best / w) + 0.5 };
+  };
   return { entry, home, soul: along(GUIDE_SOUL.at), lair: along(GUIDE_LAIR.at) };
 }
 
@@ -108,7 +132,7 @@ export function doneNow(w: GuideWatch, s: Snapshot): Set<GuideStepId> {
     const l = (s.lairs ?? []).find((x) => Math.hypot(x.x - w.lair!.x, x.y - w.lair!.y) < 0.5);
     if (l?.state === 'cleared') out.add('lair');
   }
-  if ((s.buildings ?? []).some((b) => b.team === w.team && b.state === 'done' && !w.had.has(b.id))) out.add('build');
+  if ((s.buildings ?? []).some((b) => b.team === w.team && b.state === 'done' && !b.pre && !w.had.has(b.id))) out.add('build');
   if (goods(s, w.team) >= w.stock0 + HAUL_GOODS) out.add('haul');
   return out;
 }

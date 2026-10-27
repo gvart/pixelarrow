@@ -26,7 +26,9 @@ describe('W-62 guide spots', () => {
       for (const p of [sp.soul, sp.lair]) {
         const t = tileAt(g, p.x, p.y);
         expect(g.cost[t]).toBeGreaterThan(0);
-        expect(findPath(g, from, t).at(-1)).toBe(t);
+        const way = findPath(g, from, t);
+        expect(way.at(-1)).toBe(t);
+        expect(way.length).toBeLessThan(Math.hypot(p.x - sp.entry.x, p.y - sp.entry.y) * 1.3 + 8); // on this side of any river, no detour
       }
       expect(Math.hypot(sp.soul.x - sp.entry.x, sp.soul.y - sp.entry.y)).toBeLessThan(GUIDE_SOUL.at + 6);
       expect(Math.hypot(sp.lair.x - sp.entry.x, sp.lair.y - sp.entry.y)).toBeLessThan(GUIDE_LAIR.at + 6);
