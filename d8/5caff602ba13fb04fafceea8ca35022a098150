@@ -1,0 +1,53 @@
+docs/WAR.md
+  s_fcb7475e0b5395::t_accf57b3fb154c 511
+server/src/war/regionDO.ts
+  s_fcb7475e0b5395::t_0256d1e15a2ea3 52,89,339,956,996-998,1058-1067
+server/src/war/room.ts
+  s_fcb7475e0b5395::t_6d3f6381c2cc50 149-157,288-289,631,743-748,1311-1321,1466-1474,1517
+server/test/war/claimCapture.test.ts
+  s_fcb7475e0b5395::t_1039e3339475d4 1-102
+src/war/net/protocol.ts
+  s_fcb7475e0b5395::t_4d3f934496a395 210-211
+src/war/net/world.ts
+  s_fcb7475e0b5395::t_f9d95540271452 226-227
+src/war/sim/index.ts
+  s_fcb7475e0b5395::t_3fb9fa34ac6509 592-594,1018-1022,1030,1034-1051
+src/war/sim/mobs.ts
+  s_fcb7475e0b5395::t_f6facaacce32c0 15-17,83,99-100,302-309,315,321,339,345,348-349,401,405,463-465,468-469,499-500
+src/war/sim/works.ts
+  s_fcb7475e0b5395::t_cf45b9e22677d7 1919-1921
+src/war/types.ts
+  s_fcb7475e0b5395::t_4056bd8b1ce627 398-403
+src/war/view/hud/explain.ts
+  s_fcb7475e0b5395::t_dd0c8b195bc06c 105-117,138,153,157
+src/war/view/hud/settleCards.ts
+  s_fcb7475e0b5395::t_8b193fa9401748 307-316
+src/war/view/hud/settlements.ts
+  s_fcb7475e0b5395::t_99aec2dc988165 33,103,324-329
+src/war/view/interact.ts
+  s_fcb7475e0b5395::t_e04a7a129e8d22 285
+src/war/view/neutral.ts
+  s_fcb7475e0b5395::t_6d95063cae90f2 64-66,69
+src/war/world-view/main.ts
+  s_fcb7475e0b5395::t_89006d505ad686 531-535
+tests/war/capture.test.ts
+  s_fcb7475e0b5395::t_8ccde50c2cebca 1-157
+tests/war/explainHelp.test.ts
+  s_fcb7475e0b5395::t_1868b19f91522d 74-84
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "d85caff602ba13fb04fafceea8ca35022a098150",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "unknown"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
