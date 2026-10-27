@@ -45,6 +45,7 @@ import { trophies, type Trophy } from './bosses';
 import { ApiError } from '../errors';
 import { STAT_SEASON } from './peace';
 import { randomToken } from './store';
+import { favoured, fightFavourStmts } from './favour';
 import { batch, ensureHolder, goodsOf, HOME, itemsIn, lotsOf, pay as payFrom, placeItemStmt, planTake, putStmt, strongroom } from './holders';
 
 export type PersonState = 'active' | 'wounded' | 'captive' | 'dead' | 'training' | 'retired';
@@ -316,6 +317,7 @@ export async function armyCount(db: D1Database, pid: number): Promise<number> {
  * insert itself (two regions claiming at once cannot pass the cap); false: refused (the army is full), nothing written.
  */
 export async function claimSoul(db: D1Database, pid: number, p: WarPerson, region: string, now: number): Promise<boolean> {
+  Object.assign(p, await favoured(db, pid, p)); // W-66: his player's favour bonus (the DO hands the live man the same)
   const h = p.hero;
   const r = await db
     .prepare(
@@ -729,6 +731,7 @@ export async function applyFight(db: D1Database, fightId: string, region: string
     }
   }
   stmts.push(...fightStats(db, r));
+  stmts.push(...fightFavourStmts(db, r, now)); // W-66 divine favour
   try {
     await db.batch(stmts);
     return true;
