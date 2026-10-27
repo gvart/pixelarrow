@@ -1,0 +1,29 @@
+server/migrations/0045_war_settlements.sql
+  s_fcb7475e0b5395::t_c12fa3f4f8c794 1-69
+server/src/account/deletionMap.ts
+  s_fcb7475e0b5395::t_65b2e68a878269 86-88,111-113
+server/src/war/routes.ts
+  s_fcb7475e0b5395::t_7ec858fd4059f0 27-37,60-61,164-208
+server/src/war/settlements.ts
+  s_fcb7475e0b5395::t_b30c9946ef9ce2 1-461
+server/test/deletion.test.ts
+  s_fcb7475e0b5395::t_ad3ca662bef514 65-69
+server/test/war/settlements.test.ts
+  s_fcb7475e0b5395::t_52951746162786 1-243
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "320ba15063d02466c63a9762f652fdcc5a3ec08e",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
