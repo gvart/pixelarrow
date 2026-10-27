@@ -589,8 +589,9 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     arrived: (id) => !squads[id].goal && squads[id].pi >= squads[id].path.length / 2,
     nodes: () => works.resourceNodes(),
     lockNodes: works.lockNodes,
-    claim: (team, x, y, r) => {
-      works.claim(team, x, y, r);
+    claim: (team, x, y, r, from) => {
+      works.claim(team, x, y, r, from !== undefined);
+      if (from !== undefined) capture(from, team, x, y, r);
       // M5d: the squad that channelled it (the nearest of the team on a claim order) has an objective
       let best: Squad | null = null;
       for (const s of squads) if (s.team === team && s.claimPt >= 0 && s.alive > 0 && (!best || dist2(s, { cx: x, cy: y }) < dist2(best, { cx: x, cy: y }))) best = s;
@@ -1014,6 +1015,11 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     scanNear(); // friends now foes see it at once
     return true;
   };
+  /** Civilians of another team at work in buildings `ids` (they changed hands to `team`) stand down. */
+  const standDown = (ids: readonly number[], team: number) => {
+    const gone = new Set(ids);
+    for (const s of squads) if (s.order === 'civWork' && gone.has(s.work) && s.team !== team) (s.order = 'hold'), (s.work = -1), (s.fixed = null), (s.path = []), (s.goal = null);
+  };
   /** W-63: the town round centre piece `centre` goes to `team` (WarBuildSim.rebanner). */
   const rebanner = (centre: number, team: number): number[] => {
     townLv.measure();
@@ -1021,11 +1027,27 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     if (!t || t.team === team || !Number.isInteger(team) || team < 0) return [];
     const ids = townLv.members(centre);
     works.setTeams(ids, team);
-    // civilians of the old team at work in a building that changed hands stand down
-    const gone = new Set(ids);
-    for (const s of squads) if (s.order === 'civWork' && gone.has(s.work) && s.team !== team) (s.order = 'hold'), (s.work = -1), (s.fixed = null), (s.path = []), (s.goal = null);
+    standDown(ids, team);
     townLv.measure();
     return ids;
+  };
+  /**
+   * A claim point held by `from` taken by `team` (./mobs.ts): its pre-built pieces follow the point (works), and every
+   * built piece of `from` within its radius r goes to `team` at the hp it has, stores with their goods; a piece of a town
+   * whose centre stands outside the radius stays with its town (a W-63 settlement follows its own banner: rebanner).
+   */
+  const capture = (from: number, team: number, x: number, y: number, r: number) => {
+    townLv.measure();
+    const ids: number[] = [];
+    for (const b of works.all()) {
+      if (b.pre || b.cancelled || b.team !== from || b.state === 'destroyed' || (b.x - x) ** 2 + (b.y - y) ** 2 > r * r) continue;
+      const t = townLv.townAt(from, b.x, b.y);
+      if (t && (t.x - x) ** 2 + (t.y - y) ** 2 > r * r) continue;
+      ids.push(b.id);
+    }
+    works.setTeams(ids, team);
+    standDown(ids, team);
+    townLv.measure();
   };
 
   const apply = (o: Order) => {

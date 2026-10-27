@@ -1916,7 +1916,9 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
       for (const id of ids) if (buildings[id] && !buildings[id].pre) setTeam(buildings[id], team);
       if (needPaint) (needPaint = false), repaint();
     },
-    claim(team: number, x: number, y: number, r = CLAIM_RADIUS) {
+    /** An influence anchor of `team` round (x,y); `replace`: a claim point changing hands, the old holder's anchor there goes. */
+    claim(team: number, x: number, y: number, r = CLAIM_RADIUS, replace = false) {
+      if (replace) for (let i = claims.length - 1; i >= 0; i--) if (claims[i].x === x && claims[i].y === y) claims.splice(i, 1);
       claims.push({ team, x, y, r });
       repaint();
     },
