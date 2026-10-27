@@ -69,7 +69,7 @@ const BUILDING_TYPES = ['camp', 'storehouse', 'outpost', 'fort', 'barracks', 'fa
   // M5h3 Fortifier field tiles; towerBridge (listed for checks: the sim never places one)
   'stakes', 'ditch', 'towerBridge',
   // M7a pre-built pieces (listed for checks: only the region places them)
-  'house', 'cottage', 'tent', 'temple', 'shrine', 'stoa', 'statue', 'well', 'jetty', 'warehouse', 'board', 'cache'] as const satisfies readonly BuildingType[];
+  'house', 'cottage', 'tent', 'temple', 'shrine', 'stoa', 'statue', 'well', 'jetty', 'warehouse', 'board', 'cache', 'tunnel'] as const satisfies readonly BuildingType[];
 const rot = z.union([z.literal(0), z.literal(1)]).optional();
 /** Every good (src/war/types.ts ResourceKind). */
 export const GOODS = ['food', 'wood', 'stone', 'marble', 'copper', 'tin', 'iron', 'bronze', 'silver', 'salt', 'pitch', 'hides', 'flax', 'herbs', 'charcoal', 'leather', 'linen', 'oil', 'coin',

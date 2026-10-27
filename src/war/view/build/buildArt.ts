@@ -48,6 +48,7 @@ const ART_ID: Partial<Record<BuildingType, string>> = {
   stall: 'market-stall', stall2: 'market-stall2', stall3: 'market-stall3', sortingFloor: 'sorting-floor', sortingFloor2: 'sorting-floor2',
   stakes: 'stakes', // M5h3 Fortifier field tile
   warehouse: 'warehouse', // M7a pre-built (a trade town's rented warehouse)
+  tunnel: 'tunnel-of-shades', // W-66 the Tunnel of Shades (until its art lands: ./buildingLayer.ts falls back to a landmark tomb)
 };
 /**
  * M7b pre-built pieces with no building art of their own: drawn with the town art of the biome libraries

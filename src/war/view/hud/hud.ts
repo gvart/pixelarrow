@@ -57,6 +57,7 @@ import { billText, buildingTip, levelOf, mountBuildingCard, nameOfBuilding, purp
 import { needChips, shortText } from './goods';
 import { localGoods, mountChest, storeNear } from './chest';
 import { mountSouls } from './souls';
+import { mountTunnel } from './tunnel';
 import { mountWorldEvents } from './worldEvents';
 import { claimFirst, mountClaimCard } from './claimCard';
 import { mountRegionChat } from './chatRegion';
@@ -392,6 +393,7 @@ export function hud(s: SandboxScene): void {
   mountCraft(s, mk, mountRoster(s, mk)); // M5h5: workplace panel, profession trees, stash (./craft)
   mountChest(s, mk, tipOn); // the squad chest (I) beside the roster button: what the men carry, the town store
   mountSouls(s, mk, tipOn); // W-60: souls to claim (the prompt, notes; ghosts drawn by ../units.ts)
+  mountTunnel(s, mk); // W-66: the Tunnel of Shades: countdown, army destroyed card, the line at the mouth (./tunnel.ts)
   mountPeace(s, mk); // W-61: the town level badge and card, alliance works and titles (./peace.ts)
   mountSettlements(s, mk); // W-63: the settlement card behind the town badge, Holdings, plots, notices (./settlements.ts)
   mountTasks(s, mk); // W-62 E7: daily and weekly tasks (./tasks.ts)

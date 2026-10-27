@@ -84,4 +84,6 @@ export const startView = () => call<StartView>('GET', '/api/war/start');
 export const chooseAlliance = (alliance: number) => call<StartView>('POST', '/api/war/start/alliance', { alliance });
 export const chooseHome = (region: string) => call<StartView>('POST', '/api/war/start/home', { region });
 export const pickSquad = (classes: string[]) => call<StartView & { ids: string[] }>('POST', '/api/war/start/squad', { classes });
-export const roster = () => call<{ persons: RosterMan[] }>('GET', '/api/war/roster');
+/** W-66: the Tunnel of Shades as the roster reports it (server/src/war/raise.ts TunnelView). */
+export interface TunnelInfo { alive: number; floor: number; nextAt: number | null; pending: number }
+export const roster = () => call<{ persons: RosterMan[]; tunnel?: TunnelInfo }>('GET', '/api/war/roster');

@@ -58,7 +58,7 @@ export const BUILDING_ICON: Record<BuildingType, string> & Record<string, string
   stakes: 'art:stakes-done', ditch: 'bld-palisade', towerBridge: 'bld-ladder',
   // M7a pre-built pieces: stand-ins until their kit icons exist
   house: 'bld-storehouse', cottage: 'bld-storehouse', tent: 'bld-camp', temple: 'bld-fort', shrine: 'bld-outpost', stoa: 'art:market-stall2-done', statue: 'bld-outpost',
-  well: 'bld-outpost', jetty: 'bld-bridge-wood', warehouse: 'bld-storehouse', board: 'trade-chest', cache: 'trade-chest',
+  well: 'bld-outpost', jetty: 'bld-bridge-wood', warehouse: 'bld-storehouse', board: 'trade-chest', cache: 'trade-chest', tunnel: 'bld-fort',
 };
 export const SIEGE_ICON: Record<SiegeType, string> = { ram: 'bld-ram', stoneThrower: 'bld-stone-thrower', siegeLadder: 'bld-siege-ladder', mantlet: 'art:../siege/mantlet-s-done-front', coveredRam: 'art:../siege/covered-ram-s-done-front', oxybeles: 'art:../siege/oxybeles-s-done', siegeTower: 'art:../siege/siege-tower-s-done-front', handcart: 'trade-cart', wagon: 'trade-wagon' }; // M5h3 designs: their engine art until kit icons exist
 

@@ -179,6 +179,19 @@ export class SandboxRoster {
     return { men: this.roster.all().filter((p) => !isCivClass(p.hero.cls) && this.roster.state(p.id) !== 'dead').length, max: ARMY_MAX };
   }
 
+  /** W-66 offline: a man the Tunnel of Shades raised (level 1, starter gear), the first one the next spawn of his class takes. */
+  raise(cls: string): WarPerson {
+    const p = this.recruit(cls);
+    this.first.add(p.id);
+    this.onChange?.();
+    return p;
+  }
+
+  /** W-66: the classes of his fallen fighters, latest first (the tunnel raises their like). */
+  fallenClasses(): string[] {
+    return [...this.graves].sort((a, b) => b[1].at - a[1].at).map(([id]) => this.roster.get(id)?.hero.cls ?? '').filter((c) => c && !isCivClass(c));
+  }
+
   captorOf(pid: string): number | undefined {
     return this.captor.get(pid);
   }

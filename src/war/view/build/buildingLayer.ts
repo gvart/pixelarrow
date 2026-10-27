@@ -88,6 +88,8 @@ interface Deck {
 const DITCH = 2.4;
 /** M5h3: wet wood with no hides art, darkened. */
 const WET_TINT = 0xb0b4b8;
+/** W-66: the landmark art the Tunnel of Shades borrows until its own art exists (a mausoleum, 3x3). */
+const TUNNEL_FALLBACK = 'arch-tomb-b';
 /** M7d: the Temple City's labyrinth kit (public/war/landmarks/landmarks.json kits). */
 const LABYRINTH = 'navel-labyrinth';
 /** M7b: a pre-built ruin's stub, soot-dark. */
@@ -522,6 +524,8 @@ export class BuildingLayer {
       let drawn = false;
       const i0 = this.ni;
       if (this.art && b.art && (b.state !== 'destroyed' || b.ruin)) drawn = this.drawLandmark(b, depth, labyrinth);
+      // W-66: the Tunnel of Shades in a landmark tomb's art until its own (ART_ID tunnel-of-shades) has loaded
+      else if (this.art && b.type === 'tunnel' && b.state !== 'destroyed' && !this.art.sprite('tunnel', 'done', 'x')) drawn = this.drawLandmark({ ...b, art: TUNNEL_FALLBACK }, depth, labyrinth);
       if (drawn) { /* M7d: a landmark piece in its art */ }
       else if (this.art && def.field) drawn = this.drawField(b, l, ditches);
       else if (this.art && def.bridge) drawn = this.drawBridge(b, l);

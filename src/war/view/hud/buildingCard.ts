@@ -36,6 +36,7 @@ export const PRE_FUNCTION: Record<string, string> = {
   warehouse: 'rented warehouse (20 loads) in a trade town; elsewhere a store',
   board: 'the price board: razed, the town shows no prices until rebuilt',
   cache: '2 loads of the region\'s goods, lootable by anyone; gone once empty',
+  tunnel: 'the Tunnel of Shades: while you have fewer than 6 men, the shades of your fallen walk back through it, one man every 10 min',
   stall: 'a rented site in a trade court', stall2: 'a rented site in a trade court', stall3: 'a rented site in a trade court',
   workshop: 'the town\'s working quarter: engines, carts and tools', forge: 'the town\'s working quarter: arms and armour',
   storehouse: 'a store: men within 6 tiles eat from it', cookhouse: 'cooks grain and onions into rations: feed twice, weigh half',
