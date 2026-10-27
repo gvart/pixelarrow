@@ -13,12 +13,13 @@ import { worldRegion } from '../../../src/war/world/graph';
 import { createSouls, SOUL } from '../../../src/war/sim/souls';
 import type { AllianceId } from '../../../src/war/world/types';
 import type { TransitCargo } from '../../../src/war/net/world';
-import { cargoLoads, freshWorld, World, WORLD_NAME, type Ports } from '../../src/war/world/world';
+import { cargoLoads, freshWorld, World, type Ports } from '../../src/war/world/world';
 import type { WarWorldDO } from '../../src/war/world/worldDO';
 import { WarRoom } from '../../src/war/room';
 import { warRegion } from '../../src/war/regions';
 import { remembered, writeMemory } from '../../src/war/memory';
 import { statStmt, statsOf, titles } from '../../src/war/peace';
+import { worldStub } from '../../src/war/placement';
 
 const T0 = 1_000_000;
 const H = 3600_000;
@@ -200,7 +201,7 @@ describe('W-62 season war', () => {
     await writeMemory(DB(), 'krios', remembered(mem, Date.now()));
     await statStmt(DB(), b.playerId, 'sold', 500).run(); // b: Merchant Prince
 
-    const world = env.WAR_WORLD.get(env.WAR_WORLD.idFromName(WORLD_NAME));
+    const world = worldStub(env);
     const out = await runInDurableObject(world, async (o: WarWorldDO) => {
       const id = (await o.standings()).season.id;
       await o.report('saddle', { live: [0, 0, 12, 0], claims: [0, 0, 1, 0], channel: [0, 0, 0, 0] });

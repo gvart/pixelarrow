@@ -12,13 +12,13 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { readJson } from '../../body';
-import type { AppEnv, Env } from '../../env';
+import type { AppEnv } from '../../env';
 import { ApiError } from '../../errors';
 import { db, requirePlayable } from '../../middleware';
 import { TRANSFER_MAX, type TransferOrder } from '../../../../src/war/net/world';
 import type { AllianceId } from '../../../../src/war/world/types';
 import { allianceOf, joinAlliance } from './members';
-import { WORLD_NAME } from './world';
+import { worldStub } from '../placement';
 
 export const worldApi = new Hono<AppEnv>();
 
@@ -28,7 +28,7 @@ const regionId = z.string().regex(/^[a-z0-9_-]{1,40}$/);
 const transfer = z
   .object({ from: regionId, to: regionId, squad: z.number().int().min(0).max(2 ** 31).optional(), ids: z.array(z.string().min(1).max(64)).min(1).max(TRANSFER_MAX).optional(), path: z.array(regionId).max(12).optional() })
   .refine((o) => (o.squad === undefined) !== (o.ids === undefined), 'squad or ids');
-export const worldStub = (env: Env) => env.WAR_WORLD.get(env.WAR_WORLD.idFromName(WORLD_NAME));
+export { worldStub };
 
 worldApi.get('/', requirePlayable, async (c) => {
   const pid = c.get('session').pid;

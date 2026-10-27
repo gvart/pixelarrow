@@ -12,6 +12,7 @@ import { originCheck } from './auth/origin';
 import { WAR_REGIONS } from './war/regions';
 import { war } from './war/routes';
 import { worldApi, worldStub } from './war/world/routes';
+import { regionStub } from './war/placement';
 import { allianceOf } from './war/world/members';
 import { gateAdmin } from './war/world/gate';
 import { noteSeen, seenOf } from './war/abuse';
@@ -195,7 +196,7 @@ app.get('/ws/war/:region', async (c) => {
     throw new SocketRefused(new ApiError(503, 'war_full', 'The war is full: wait for your place in line'), headers.get('x-ws-protocol'));
   }
   headers.set('x-region-id', region);
-  const stub = c.env.WAR_REGION.get(c.env.WAR_REGION.idFromName(region));
+  const stub = regionStub(c.env, region);
   return stub.fetch(new Request(c.req.url, { headers }));
 });
 
@@ -203,7 +204,7 @@ app.get('/ws/war/:region', async (c) => {
 app.get('/api/war/:region/stats', async (c) => {
   const region = c.req.param('region');
   if (c.env.DEV_AUTH !== '1' || !WAR_REGIONS.includes(region)) throw new ApiError(404, 'not_found', 'No such endpoint');
-  const stub = c.env.WAR_REGION.get(c.env.WAR_REGION.idFromName(region));
+  const stub = regionStub(c.env, region);
   return c.json(await (await stub.fetch(new Request(`https://war/${region}/stats`))).json());
 });
 

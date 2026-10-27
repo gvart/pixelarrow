@@ -10,12 +10,13 @@ import { WarRoom } from '../../src/war/room';
 import { warRegion } from '../../src/war/regions';
 import { BATCH, BEHIND_MS, DORMANT_MS, MAX_LAG, SLICE, type WarRegionDO } from '../../src/war/regionDO';
 import { BASE, devLogin } from '../helpers';
+import { regionStub } from '../../src/war/placement';
 
 /** The DO's private parts the tests reach into. */
 interface Inner { room: WarRoom | null; clockAt: number; timer: unknown }
 const inner = (o: WarRegionDO) => o as unknown as Inner;
 
-const stub = (name = 'test-ridge') => env.WAR_REGION.get(env.WAR_REGION.idFromName(name));
+const stub = (name = 'test-ridge') => regionStub(env, name);
 const stats = async () => (await (await SELF.fetch(`${BASE}/api/war/test-ridge/stats`)).json<{ tick: number; units: number; online: number; running: boolean; caughtUp: number }>());
 
 async function connect(token: string) {

@@ -13,12 +13,13 @@ import type { FightReport } from '../../../src/war/types';
 import { SIM_VERSION } from '../../../src/sim/version';
 import { WarRoom } from '../../src/war/room';
 import { warRegion } from '../../src/war/regions';
-import { freshWorld, RETRY_MS, World, WORLD_NAME, type ArriveResult, type Ports } from '../../src/war/world/world';
+import { freshWorld, RETRY_MS, World, type ArriveResult, type Ports } from '../../src/war/world/world';
 import { HEGEMONY, HOUR_MS } from '../../../src/war/world/season';
 import { joinRefusal } from '../../../src/war/world/access';
 import type { WarWorldDO } from '../../src/war/world/worldDO';
 import { currentSeason } from '../../src/war/store';
 import { api, BASE, devLogin } from '../helpers';
+import { worldStub } from '../../src/war/placement';
 
 const T0 = 1_000_000;
 const squad = (prefix: string, n = 12, cls = 'hoplite') => Array.from({ length: n }, (_, i) => makePerson(`${prefix}-${i}`, cls));
@@ -414,7 +415,7 @@ describe('WarWorldDO', () => {
 
     // the world goes away mid-road; its storage keeps the squad on the road
     await abortAllDurableObjects();
-    const world = env.WAR_WORLD.get(env.WAR_WORLD.idFromName(WORLD_NAME));
+    const world = worldStub(env);
     await runInDurableObject(world, async (o: WarWorldDO) => {
       expect((await o.snapshot(me.playerId, 0)).transit).toHaveLength(1);
       await o.arrivals(tr.transit.arriveAt + 1);

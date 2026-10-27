@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { GATE_EXPIRE_MS, GATE_LEAVE, MAX_ONLINE_DEFAULT, type GateMsg } from '../../../src/war/net/gate';
 import { gateAdmin, gateCap, gateEta, planGate, type GateTab } from '../../src/war/world/gate';
 import type { WarWorldDO } from '../../src/war/world/worldDO';
+import { worldStub } from '../../src/war/placement';
 
 const T0 = 1_000_000_000;
 const tab = (pid: number, at: number, o: Partial<GateTab> = {}): GateTab => ({ pid, admin: false, in: false, at, seen: at, ...o });
@@ -110,7 +111,7 @@ const until = async (ok: () => boolean, what: string) => {
 
 let n = 0;
 async function world(cap: number) {
-  const stub = env.WAR_WORLD.get(env.WAR_WORLD.idFromName(`gate-test-${++n}`));
+  const stub = worldStub(env, `gate-test-${++n}`);
   await runInDurableObject(stub, (o: WarWorldDO) => void (o.gateCapOverride = cap));
   return stub;
 }

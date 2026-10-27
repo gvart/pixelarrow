@@ -24,6 +24,8 @@ import { currentSeason, endSeason, forgetSeasonCache, randomToken } from '../war
 import { log } from '../telemetry/log';
 import { requireAdmin } from './auth';
 import { deleteAccount } from '../account/delete';
+import { WAR_REGIONS } from '../war/regions';
+import { doHint, PLACEMENT_GEN, regionStub, worldStub } from '../war/placement';
 
 export const admin = new Hono<AppEnv>();
 admin.use('*', requireAdmin);
@@ -185,6 +187,18 @@ admin.get('/season', async (c) => {
   const seasons = await d.prepare('SELECT * FROM online_seasons ORDER BY id DESC LIMIT 10').all<{ id: number; status: string }>();
   const active = seasons.results.find((s) => s.status === 'active') ?? null;
   return c.json({ active, seasons: seasons.results });
+});
+
+/**
+ * Where the war runs (docs/OPS.md "War DO placement"): the colo of this Worker entry, the world object and one region
+ * object (?region=, default the first war region), and the placement they were asked for.
+ */
+admin.get('/war/where', async (c) => {
+  const region = c.req.query('region') ?? WAR_REGIONS[0];
+  if (!WAR_REGIONS.includes(region)) throw new ApiError(404, 'not_found', 'No such war region');
+  const [world, regionColo] = await Promise.all([worldStub(c.env).colo(), regionStub(c.env, region).colo()]);
+  const cf = c.req.raw.cf as { colo?: string } | undefined;
+  return c.json({ worker: cf?.colo ?? 'unknown', world, region, regionColo, hint: doHint(c.env), generation: PLACEMENT_GEN });
 });
 
 // ------------------------------------------------------------------ actions

@@ -13,6 +13,7 @@ import { listOffer, rentSite, stallId, warehouseId } from '../../src/war/market'
 import { warRegion } from '../../src/war/regions';
 import { NET_VERSION, type ServerMsg } from '../../../src/war/net/protocol';
 import { SIM_VERSION } from '../../../src/sim/version';
+import { regionStub } from '../../src/war/placement';
 
 const DB = () => env.DB!;
 const T = 'kleisoura';
@@ -35,7 +36,7 @@ async function connect(token: string, region: string) {
   };
   return { send: (m: unknown) => ws.send(JSON.stringify(m)), next, close: () => ws.close(1000) };
 }
-const stub = (region: string) => env.WAR_REGION.get(env.WAR_REGION.idFromName(region));
+const stub = (region: string) => regionStub(env, region);
 const answer = (m: ServerMsg) => m.t === 'stowed' || m.t === 'error';
 
 describe('a market trade: the buyer brings his coin', () => {
