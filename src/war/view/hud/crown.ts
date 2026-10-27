@@ -14,6 +14,9 @@
  *   Envoys     pacts and truces with the other alliances (offers to answer), and the Envoy's offer form.
  *
  * Online it reads /api/war/crown (polled each minute for the pip); offline it says the crown needs the server.
+ * Each order names its giver (the councillor who posted it), its story, goal and how the bounty is paid
+ * (../../net/questLore.ts); Track pins it top right with a marker on its spot or turn-in (./quest.ts), and a new
+ * order shows as a banner.
  */
 import { CROWN, OFFICES, type CrownLog, type CrownOrder, type CrownView, type Office, type OrderKind } from '../../net/crown';
 import { GOODS } from '../../net/protocol';
@@ -27,6 +30,9 @@ import { glyph } from './glyph';
 import { closeCornerWindows, CORNER_BOTTOM, fitHeight, icon } from './kit';
 import { esc, tipper } from './roster/ui';
 import { keys } from '../../input/keys';
+import { fill, ORDER_LORE } from '../../net/questLore';
+import { homeAnchor } from '../../net/guide';
+import { isTracked, questBanner, restoreTrack, track, type TrackView } from './quest';
 
 type Mk = (id: string, css: string, html?: string) => HTMLElement;
 type Tab = 'court' | 'election' | 'orders' | 'envoys';
@@ -191,6 +197,16 @@ function electionHtml(v: CrownView): string {
   return `${top}${conf}${list}`;
 }
 
+/** An order's key for tracking. */
+const orderKey = (o: Pick<CrownOrder, 'id'>) => `order:${o.id}`;
+/** An order's giver, story, goal and pay (../../net/questLore.ts). */
+function orderLore(o: CrownOrder): { giver: string; story: string; goal: string; pay: string; where: string } {
+  const l = ORDER_LORE[o.kind], where = o.target ? `${o.target} in ${regionName(o.region)}` : regionName(o.region);
+  const office = o.kind === 'supply' ? 'the Quartermaster' : 'the Marshal';
+  const goal = o.kind === 'supply' ? `Deliver ${fmt(Math.max(0, o.n - o.delivered))} ${o.res ?? 'goods'} to ${regionName(o.region)}` : fill(l.goal, { where });
+  return { giver: `${o.by}, for ${office}`, story: fill(l.story, { where }), goal, pay: fill(l.pay, { where: regionName(o.region) }), where };
+}
+
 function orderCard(o: CrownOrder, v: CrownView): string {
   const k = ORDER[o.kind], open = o.state === 'open', war = o.kind === 'attack' || o.kind === 'defend';
   const where = `${esc(regionName(o.region))}${o.target ? ` — ${esc(o.target)}` : ''}`;
@@ -207,11 +223,15 @@ function orderCard(o: CrownOrder, v: CrownView): string {
     ? `<span class="cr-st ${o.state}">${o.state === 'done' ? `${glyph('ui:check', 12)}done` : o.state}</span>`
     : `${o.kind === 'supply' && o.byPid !== v.me.pid ? `<input data-in="dl-${o.id}" value="${fmt(Math.max(0, o.n - o.delivered))}" inputmode="numeric" style="width:46px"><button class="rf-tbtn pri" data-act="deliver" data-id="${o.id}" data-tip="${attr(`<b class="k">Deliver</b><br><span class="rf-dim tip-w">from your warehouse and stall in ${esc(regionName(o.region))} (strongroom at home) into the treasury</span>`)}">Deliver</button>` : ''}
        ${mayEnd ? `<button class="rf-tbtn" data-act="endOrder" data-id="${o.id}" data-sure="endOrder:${o.id}" data-tip="${attr(war ? '<b class="k">Close and pay</b><br><span class="rf-dim tip-w">the bounty goes out by shares now</span>' : '<b class="k">Call off</b><br><span class="rf-dim tip-w">what is unpaid goes back to the treasury</span>')}">${war ? 'Pay out' : 'Call off'}</button>` : ''}`;
+  const lore = orderLore(o), on = isTracked(orderKey(o));
+  const trk = open ? `<button class="rf-tbtn cr-trk${on ? ' on' : ''}" data-act="trackOrder" data-id="${o.id}" data-tip="${attr(on ? '<b class="k">Tracked</b><br><span class="rf-dim tip-w">click to stop tracking</span>' : '<b class="k">Track</b><br><span class="rf-dim tip-w">pin it on screen, with a marker on its spot</span>')}">${on ? 'Tracked' : 'Track'}</button>` : '';
   return `<div class="cr-order rf-well ${k.cls}${open ? '' : ' closed'}">
     <div class="cr-oic">${glyph(k.glyph, 26)}</div>
     <div class="cr-ob"><div class="cr-otop"><span class="cr-okind">${k.name}</span><span class="cr-owhere">${where}</span>${o.bounty > 0 ? `<span class="rf-ichip gold cr-bounty" data-tip="${attr(`<b class="k">Bounty</b> · ${fmt(o.bounty)} coin<br><span class="rf-dim tip-w">${war ? 'shared by everyone whose men fight there (1 + kills each)' : 'paid pro rata as goods come in'}</span>`)}">${icon('res-coin')}${fmt(o.bounty)}</span>` : ''}</div>
+      <div class="cr-ogiver">Posted by ${esc(lore.giver)}</div>
+      ${open ? `<div class="cr-ostory">“${esc(lore.story)}”</div><div class="cr-oline"><b>Goal</b><span>${esc(lore.goal)}</span></div><div class="cr-oline"><b>Pay</b><span>${esc(lore.pay)}</span></div>` : ''}
       ${prog}
-      <div class="cr-ofoot"><span class="rf-dim">${esc(o.by)} · ${open ? `${until(o.expires - v.now)} left` : 'closed'}</span><span class="cr-oact">${act}</span></div></div></div>`;
+      <div class="cr-ofoot"><span class="rf-dim">${open ? `${until(o.expires - v.now)} left` : 'closed'}</span><span class="cr-oact">${trk}${act}</span></div></div></div>`;
 }
 
 function ordersHtml(v: CrownView, form: OrderForm): string {
@@ -317,6 +337,10 @@ const CSS = `
 .cr-bounty{height:20px}
 .cr-prog{display:flex;align-items:center;gap:6px;margin:4px 0;font-size:11px}.cr-prog .rf-bar{flex:1}
 .cr-pn{display:inline-flex;align-items:center;gap:2px;white-space:nowrap;font:700 12px/1 Inter,sans-serif;color:var(--rf-gold)}
+.cr-ogiver{font:italic 11px/1.3 Inter,sans-serif;color:var(--rf-muted);margin-top:2px}
+.cr-ostory{font:italic 11.5px/1.3 Inter,sans-serif;color:var(--rf-ink);opacity:.85;margin-top:2px}
+.cr-oline{display:flex;gap:5px;font-size:11.5px;line-height:1.3;margin-top:2px}.cr-oline b{flex:none;width:34px;font:700 9.5px/15px Inter,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--rf-muted)}
+.cr-trk.on{color:var(--rf-gold);border-color:#6a5326}
 .cr-ofoot{display:flex;align-items:center;gap:4px;font-size:11px}.cr-oact{margin-left:auto;display:flex;gap:3px;align-items:center}.cr-ofoot .rf-tbtn,.cr-pact .rf-tbtn{height:22px}
 .cr-st{font:600 11px/1 Inter,sans-serif;text-transform:capitalize;color:var(--rf-muted)}.cr-st.done,.cr-st.active{color:var(--rf-good)}.cr-st.broken,.cr-st.refused{color:var(--rf-bad)}.cr-st.offered{color:var(--rf-gold)}
 .cr-post{padding:6px 7px}.cr-kinds{display:flex;gap:3px}.cr-kinds .rf-tbtn{flex:1;gap:3px}
@@ -384,12 +408,34 @@ export function mountCrown(s: SandboxScene, mk: Mk): void {
     bad = false;
     if (key) disarm = window.setTimeout(() => { if (armed === key) arm(null), render(); }, 5000);
   };
+  /** The tracked order's card: fresh from the last read; its marker on its spot here, or the turn-in for a supply quest. */
+  const tracker = (id: number) => ({
+    key: orderKey({ id }),
+    view: (): TrackView | null => {
+      const o = v.orders.find((x) => x.id === id);
+      if (!o || o.state !== 'open') return null;
+      const l = orderLore(o), here = s.region?.id === o.region;
+      const at = !here ? null : o.kind === 'supply' ? homeAnchor(s.region) : o.x !== null && o.y !== null ? { x: o.x, y: o.y } : null;
+      return {
+        kind: 'Order of the crown', title: `${ORDER[o.kind].name}: ${l.where}`, giver: l.giver, goal: l.goal,
+        progress: o.kind === 'supply' ? `${fmt(o.delivered)}/${fmt(o.n)}` : `${until(o.expires - Date.now())} left`, frac: o.kind === 'supply' && o.n ? o.delivered / o.n : -1,
+        where: here ? (o.kind === 'supply' ? 'Here: your warehouse (your strongroom at home), then Deliver in the Crown panel' : o.target ?? 'This region') : `${regionName(o.region)}: travel there on the world map (Shift+W)`,
+        reward: o.bounty > 0 ? { coin: o.bounty - o.paid } : {}, pay: l.pay, at, label: o.kind === 'supply' ? 'Turn in' : (o.target ?? ORDER[o.kind].name),
+      };
+    },
+  });
+  let known: Set<number> | null = null;
   const load = async () => {
     if (demo) return render();
     if (online()) {
       const r = await s.sim.api<CrownView>('GET', 'crown');
       if (r && 'council' in r) v = r;
     } else v = blank(s.sim.playerId ?? 0);
+    // a new order since the last read: a banner (not on the first read)
+    const open = v.orders.filter((o) => o.state === 'open');
+    if (known) for (const o of open) if (!known.has(o.id) && o.byPid !== v.me.pid) { const l = orderLore(o); questBanner({ kind: 'start', head: 'New order of the crown', title: `${ORDER[o.kind].name}: ${l.where}`, giver: `Posted by ${l.giver}`, text: l.story, ...(o.bounty > 0 ? { reward: { coin: o.bounty } } : {}), pay: l.pay }); }
+    known = new Set(open.map((o) => o.id));
+    for (const o of open) restoreTrack(tracker(o.id));
     render();
   };
   const toggle = (on = win.style.display === 'none') => {
@@ -436,6 +482,11 @@ export function mountCrown(s: SandboxScene, mk: Mk): void {
     if (sure && armed !== sure) return (arm(sure, SURE[a] ?? 'Click Confirm to go ahead.'), render());
     if (armed) arm(null);
     if (a === 'tab') return ((tab = t.dataset.t as Tab), (msg = ''), render());
+    if (a === 'trackOrder') {
+      if (isTracked(orderKey({ id }))) track(null);
+      else track(tracker(id));
+      return render();
+    }
     if (a === 'kind') {
       form.kind = t.dataset.k as OrderKind;
       const towns = form.kind === 'supply';

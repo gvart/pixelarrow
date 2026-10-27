@@ -17,6 +17,7 @@
  *   Hand-off (the Market header's button)   both carriers here and within 4 tiles: each puts in a half, both confirm,
  *                 the halves swap at once or not at all; the window closes on a walk-off, a cancel or 60 s
  */
+import { CONTRACT_HOW } from '../../net/questLore';
 import { GOODS } from '../../net/protocol';
 import { MARKET_TOWNS } from '../../world-view/geo';
 import type { SandboxScene } from '../SandboxScene';
@@ -116,6 +117,7 @@ const CSS = `
 #rfMarket .ct-t b{font:700 13.5px/1 Cinzel,serif;color:#4a1e0c}
 #rfMarket .ct-route{display:flex;align-items:center;gap:3px;margin-top:4px;font-size:11px;color:#5a3e22;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #rfMarket .ct-pay{display:flex;align-items:center;gap:1px}#rfMarket .ct-pay b{font:700 17px/1 Cinzel,serif;color:#4a1e0c}
+#rfMarket .ct-how{font-size:11px;line-height:1.35;margin:0 0 4px;color:var(--rf-ink)}#rfMarket .ct-how b{font:700 9.5px/1 Inter,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--rf-muted);margin-right:5px}
 #rfMarket .ct-what{display:flex;align-items:center;gap:3px;margin:5px 0 4px;padding:3px 0;border-top:1px solid rgba(107,74,38,.45);border-bottom:1px solid rgba(107,74,38,.45);min-height:30px;flex-wrap:wrap}
 #rfMarket .ct-sub{margin-left:auto;font-size:10.5px}
 #rfMarket .ct-meta{display:flex;align-items:center;gap:7px;min-height:22px;font-size:10.5px;color:#5a3e22}
@@ -302,6 +304,7 @@ export function mountMarket(s: SandboxScene, mk: Mk): MarketHud {
         <div class="ct-pay" data-tip="the reward, held in escrow until done"><b data-live="reward">${v.reward}</b>${icon('res-coin')}</div></div>
       <div class="ct-route">${v.route}</div>
       <div class="ct-what">${v.what}</div>
+      <div class="ct-how"><b>Goal</b>${CONTRACT_HOW[v.kind].goal}<br><b>Pay</b>${CONTRACT_HOW[v.kind].pay}</div>
       <div class="ct-meta"><span data-tip="time left to take and do it">${glyph('ui:hourglass', 13)}<span data-live="hours">${v.time}</span></span>${risk}<span data-tip="who posted it">${glyph('ui:people', 13)}${v.employer}</span><span style="flex:1"></span>${v.action}</div></div>`;
   };
   const what = (c: { kind: ContractKind; res: string | null; n: number; delivered: number; value: number; site?: number | null; men?: number; paid?: number }) =>

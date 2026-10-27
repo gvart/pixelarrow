@@ -1,10 +1,11 @@
 /**
- * W-62 the quest tracker of the guided first hour (rules and spots: ../../net/guide.ts). Top left: the chain in a card,
- * the open step in full (its hint, reward and how far its target is), the done ones ticked, the rest dim; − folds it to
+ * W-62 the quest tracker of the guided first hour (rules and spots: ../../net/guide.ts; giver and stories:
+ * ../../net/questLore.ts). Top left: the chain in a card under its giver's name, the open step in full (its goal, story,
+ * where to go, reward, how it is paid and how far its target is), the done ones ticked, the rest dim; − folds it to
  * the open step's one line (kept in localStorage; click the header to unfold), × hides the guide for good. It gives way
  * to a left panel (forge, market, roster, memorial). In the world a gold marker floats over the open step's target, or sits on the screen's edge pointing
  * at it when it is off screen; until the build step a quieter one points at the home town. A step done pays its reward
- * and tells it as a toast.
+ * and tells it as a banner (./quest.ts), as does the quest's start.
  *
  * Offline the page runs the done checks, pays into his stores and keeps progress in localStorage (wrapped: a blocked
  * store just forgets). Online the region server does all three (server/src/war/guide.ts: the reward into his home
@@ -17,9 +18,10 @@ import type { SandboxScene } from '../SandboxScene';
 import { doneNow, GUIDE_STEPS, guideOpen, newWatch, watchEvents, type GuideSave, type GuideSpots, type GuideStepId } from '../../net/guide';
 import { ownCentre } from '../entry';
 import { myTeam } from '../side';
-import { icon, leftPanelOpen, uiZoom } from './kit';
+import { icon, leftPanelOpen } from './kit';
 import { ghostIcon } from './souls';
-import { sandboxRoster } from './roster/state';
+import { fill, GUIDE_INTRO, GUIDE_LORE, guideGiver } from '../../net/questLore';
+import { metres, placeMarker, questBanner, questMarker, rewardChips } from './quest';
 
 type Mk = (id: string, css: string, html?: string) => HTMLElement;
 
@@ -56,7 +58,7 @@ const STEP_ICON: Record<GuideStepId, () => string> = {
 const TARGET: Record<GuideStepId, string> = { soul: 'Soul', gather: 'Wood', lair: 'Bandits', build: 'Camp', haul: 'Store' };
 
 const CSS = `
-#rfGuide{left:4px;top:4px;width:244px;z-index:3;pointer-events:auto;padding:5px 8px 7px}
+#rfGuide{left:4px;top:4px;width:262px;z-index:3;pointer-events:auto;padding:5px 8px 7px}
 #rfGuide .gd-h{display:flex;align-items:center;gap:6px;padding-bottom:4px;margin-bottom:3px;border-bottom:1px solid var(--rf-rule);cursor:pointer}
 #rfGuide .gd-one{display:flex;align-items:center;gap:6px;font:700 12px/16px Inter,sans-serif;color:var(--rf-title)}
 #rfGuide .gd-one .gd-far{font-weight:600}
@@ -80,22 +82,12 @@ const CSS = `
 #rfGuide .gd-far{margin-left:auto;color:var(--rf-muted);font-size:11px}
 #rfGuide.flash li.cur{animation:gdFlash .9s ease-out}
 @keyframes gdFlash{0%{background:#3d2a12}100%{background:var(--rf-sunk)}}
-.gd-mk{position:fixed;z-index:2;pointer-events:none;transform:translate(-50%,-100%);display:none;flex-direction:column;align-items:center;font:700 13px/1 Inter,sans-serif;color:var(--rf-gold);text-shadow:0 1px 0 #0e0907,0 0 3px #0e0907;white-space:nowrap}
-.gd-mk .lb{padding:4px 7px;background:rgba(14,9,7,.82);box-shadow:inset 0 0 0 1px #6a5326}
-.gd-mk .ch{width:0;height:0;margin-top:3px;border:9px solid transparent;border-top:13px solid var(--rf-gold);border-bottom:0;filter:drop-shadow(0 1px 0 #0e0907)}
-.gd-mk.on .ch{animation:gdBob 1.1s ease-in-out infinite}
-.gd-mk.edge{transform:translate(-50%,-50%)}
-.gd-mk .ar{display:none;position:absolute;left:50%;top:50%;width:26px;height:26px;margin:-13px 0 0 -13px;filter:drop-shadow(0 1px 0 #0e0907) drop-shadow(0 0 2px #0e0907)}
-.gd-mk.edge .ch{display:none}.gd-mk.edge .ar{display:block}
-.gd-mk.home{color:var(--rf-ink)}
-.gd-mk.home .lb{box-shadow:inset 0 0 0 1px var(--rf-rule);color:var(--rf-muted)}
-.gd-mk.home .ar{color:var(--rf-muted)}
-.gd-mk .ar{color:var(--rf-gold)}
-@keyframes gdBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+#rfGuide .gd-giver{font:italic 11.5px/1.3 Inter,sans-serif;color:var(--rf-muted);margin:-1px 0 3px}
+#rfGuide .gd-story{display:block;margin-top:2px;color:var(--rf-ink);font:italic 12px/15px Inter,sans-serif;opacity:.88}
+#rfGuide .gd-where{display:block;margin-top:3px;color:var(--rf-muted);font-size:12px;line-height:15px}
+#rfGuide .gd-where b,#rfGuide .gd-pay b{font:700 10px/15px Inter,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--rf-muted);margin-right:4px}
+#rfGuide .gd-pay{display:block;margin-top:2px;color:var(--rf-muted);font-size:11px}
 `;
-
-/** Tiles to metres (1 tile = 2 m, W-18). */
-const metres = (d: number) => `${Math.round(d * 2)} m`;
 
 export function mountGuide(s: SandboxScene, mk: Mk): void {
   const g = setup;
@@ -105,25 +97,23 @@ export function mountGuide(s: SandboxScene, mk: Mk): void {
   document.head.appendChild(style);
   const el = mk('rfGuide', 'display:none');
   el.classList.add('rf-card');
-  const marker = (cls: string) => {
-    const m = document.createElement('div');
-    m.className = `gd-mk ${cls}`;
-    m.innerHTML = '<div class="lb"></div><div class="ch"></div><svg class="ar" viewBox="0 0 18 18"><path d="M2 3 L16 9 L2 15 L6 9 Z" fill="currentColor"/></svg>';
-    document.body.appendChild(m);
-    return m;
-  };
-  const mStep = marker('on'), mHome = marker('home');
+  const mStep = questMarker('on'), mHome = questMarker('home');
 
-  const team = myTeam(), watch = newWatch(team, g.spots.lair);
+  const team = myTeam(), watch = newWatch(team, g.spots.lair), giver = guideGiver(team), from = `${giver.name}, ${giver.title}`;
+  const town = { town: g.town }, lore = (id: GuideStepId) => ({ goal: fill(GUIDE_LORE[id].goal, town), story: fill(GUIDE_LORE[id].story, town), where: fill(GUIDE_LORE[id].where, town) });
+  const payLine = `Paid when done, into your ${g.offline ? 'stores' : 'home strongroom'}`;
   // offline: the save in localStorage (key set on the first snapshot); online: the server's latest `guide` message
   let key: string | null = null, save: GuideSave | null = null;
   const steps = GUIDE_STEPS;
 
-  /** A step done: told as a toast (with its reward), the tracker flashes. */
+  /** A step done: told as a banner (its reward, how it was paid, the next step), the tracker flashes. */
   const told = (id: GuideStepId, paid: boolean) => {
-    const st = GUIDE_STEPS.find((x) => x.id === id)!;
-    const reward = paid ? Object.entries(st.reward).map(([r, n]) => `+${n} ${r}`).join(', ') : '';
-    sandboxRoster(s).onNote?.({ kind: 'levelUp', text: `${st.title}: done${reward ? ` (${reward})` : ''}` });
+    const st = GUIDE_STEPS.find((x) => x.id === id)!, nx = GUIDE_STEPS.find((x) => x.id !== id && !save?.done.includes(x.id));
+    questBanner({
+      kind: 'done', head: nx ? 'Step done' : 'The First Hour is done', title: lore(id).goal, giver: from,
+      ...(paid ? { reward: st.reward as Record<string, number>, pay: `Paid into your ${g.offline ? 'stores' : 'home strongroom'}` } : { pay: 'Your army is full: no soul to claim, nothing paid' }),
+      text: nx ? `Next: ${lore(nx.id).goal}.` : 'Your men know their way now. The war is yours.',
+    });
     el.classList.remove('flash');
     void el.offsetWidth;
     el.classList.add('flash');
@@ -185,36 +175,9 @@ export function mountGuide(s: SandboxScene, mk: Mk): void {
     return near(stores.map((b) => ({ x: b.x, y: b.y }))) ?? g.spots.home;
   };
 
-  /** Place a marker over tile point p, or on the screen's edge towards it. */
-  const place = (m: HTMLElement, p: { x: number; y: number } | null, label: string) => {
-    if (!p) return void (m.style.display = 'none');
-    const cam = s.cameras.main, q = s.toScreen(p.x, p.y), W = cam.width, H = cam.height;
-    // the open play area: clear of the minimap, buttons and command card (the HUD is zoomed with the UI scale)
-    const z = uiZoom(), x0 = 90, x1 = W - 120 * z, y0 = 70, y1 = H - 225 * z;
-    m.style.display = 'flex';
-    const lb = m.querySelector<HTMLElement>('.lb')!, ar = m.querySelector<SVGElement>('.ar')!;
-    if (q.x > x0 && q.y > y0 + 20 && q.x < x1 && q.y < y1 + 40) {
-      m.classList.remove('edge');
-      m.style.left = `${q.x}px`;
-      m.style.top = `${q.y - 26}px`;
-      lb.textContent = label.split(' · ')[0];
-      return;
-    }
-    // off screen (or under the HUD): on the edge of the open play area, along the line from its middle, the arrow
-    // turned towards it
-    const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, dx = q.x - cx, dy = q.y - cy;
-    const k = Math.min((x1 - cx) / Math.abs(dx || 1e-6), (y1 - cy) / Math.abs(dy || 1e-6)), at = { x: cx + dx * k, y: cy + dy * k };
-    const tr = el.getBoundingClientRect(); // ... and below the tracker
-    if (el.style.display !== 'none' && at.x < tr.right + 50 && at.y < tr.bottom + 20) at.y = tr.bottom + 24;
-    m.classList.add('edge');
-    m.style.left = `${at.x}px`;
-    m.style.top = `${at.y}px`;
-    lb.textContent = label;
-    const a = Math.atan2(dy, dx), r = Math.hypot((lb.offsetWidth / 2) * Math.cos(a), 9 * Math.sin(a)) + 16; // just past the label's edge
-    ar.style.transform = `rotate(${a}rad) translateX(${r}px)`;
-  };
+  const place = (m: HTMLElement, p: { x: number; y: number } | null, label: string) => placeMarker(s, m, p, label, [el, ...[document.getElementById('rfQuest')].filter((x): x is HTMLElement => !!x)]);
 
-  let last = '', shown = false, closing = false;
+  let last = '', shown = false, closing = false, announced = false;
   const frame = () => {
     requestAnimationFrame(frame);
     const cur = s.sim.cur;
@@ -243,15 +206,22 @@ export function mountGuide(s: SandboxScene, mk: Mk): void {
     if (!mHome.classList.contains('edge') || (mStep.style.display !== 'none' && near)) mHome.style.display = 'none';
     const head = `<div class="gd-h" title="${folded ? 'Show all the steps' : 'Fold to the current step'}">${icon('mk-claim')}<span class="rf-name">The First Hour</span><span class="gd-n">${list.length - open.length}/${list.length}</span><button class="rf-tbtn gd-fold">${folded ? '+' : '−'}</button><button class="rf-tbtn x gd-x" title="Hide the guide for good">×</button></div>`;
     const html = folded
-      ? `${head}${now ? `<div class="gd-one">${STEP_ICON[now.id]()}<span style="flex:1;min-width:0">${now.title}</span>${t ? `<span class="gd-far">${metres(far)}</span>` : ''}</div>` : ''}`
-      : `${head}
+      ? `${head}${now ? `<div class="gd-one">${STEP_ICON[now.id]()}<span style="flex:1;min-width:0">${lore(now.id).goal}</span>${t ? `<span class="gd-far">${metres(far)}</span>` : ''}</div>` : ''}`
+      : `${head}<div class="gd-giver">Given by ${from}</div>
       <ol>${list.map((st) => {
-        if (save!.done.includes(st.id)) return `<li class="ok"><span class="bx"></span><span class="t">${st.title}</span></li>`;
-        if (st !== now) return `<li><span class="bx"></span><span class="t">${st.title}</span></li>`;
-        const rw = Object.entries(st.reward).map(([r, n]) => `<span class="gd-rw">${icon(`res-${r}`)}+${n}</span>`).join('');
-        return `<li class="cur">${STEP_ICON[st.id]()}<div style="min-width:0;flex:1"><span class="t">${st.title}</span><span class="gd-hint">${st.hint}</span>
-          <div class="gd-meta">${rw}${t ? `<span class="gd-far">${metres(far)} away</span>` : ''}</div></div></li>`;
+        const l = lore(st.id);
+        if (save!.done.includes(st.id)) return `<li class="ok"><span class="bx"></span><span class="t">${l.goal}</span></li>`;
+        if (st !== now) return `<li><span class="bx"></span><span class="t">${l.goal}</span></li>`;
+        return `<li class="cur">${STEP_ICON[st.id]()}<div style="min-width:0;flex:1"><span class="t">${l.goal}</span><span class="gd-story">“${l.story}”</span>
+          <span class="gd-where"><b>Where</b>${l.where}</span>
+          <div class="gd-meta">${rewardChips(st.reward as Record<string, number>)}${t ? `<span class="gd-far">${metres(far)} away</span>` : ''}</div><span class="gd-pay">${payLine}</span></div></li>`;
       }).join('')}</ol>${now ? '' : '<div class="gd-hint" style="padding:4px 0 0">Your men know their way now. The war is yours.</div>'}`;
+    if (!announced && now) {
+      // the quest starts (or picks up again): who gives it and why
+      announced = true;
+      const fresh = save!.done.length === 0;
+      questBanner({ kind: 'start', head: fresh ? 'New quest' : 'Quest continues', title: fresh ? 'The First Hour' : lore(now.id).goal, giver: from, text: fresh ? fill(GUIDE_INTRO, town) : lore(now.id).story, ...(fresh ? {} : { reward: now.reward as Record<string, number>, pay: payLine }) });
+    }
     if (html !== last) el.innerHTML = last = html;
     if (!now && !closing && (closing = true)) setTimeout(() => { if (save) { save.hidden = true; if (key) saveGuide(key, save); } }, 12000);
   };

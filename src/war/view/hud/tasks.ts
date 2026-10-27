@@ -4,6 +4,9 @@
  * three tasks and the week's two, each a card: its icon, title, the hint as a dim line, a progress bar with have / need,
  * the reward and score chips, and Claim (when done) or the reroll (one free a UTC day). The resets count down in the
  * section heads. Online it reads /api/war/tasks (polled each minute for the pip); offline it shows the draw, unprogressed.
+ * Each card names its giver and story (../../net/questLore.ts), where to go and how it pays (Claim here, into the home
+ * strongroom); Track pins it top right with a marker on its nearest target (./quest.ts). Progress ticks show as
+ * toasts, a task done as a banner asking to claim it, a claim as a banner with the reward.
  */
 import { DAY_MS, drawTasks, periodOf, TASKS, type TaskKind, type TaskMetric, type TasksView, type TaskView } from '../../net/tasks';
 import { WAR_SEASON } from '../../world/alliances';
@@ -13,6 +16,10 @@ import { glyph } from './glyph';
 import { fitHeight, icon } from './kit';
 import { esc, tipper } from './roster/ui';
 import { keys } from '../../input/keys';
+import { TASK_LORE } from '../../net/questLore';
+import { isTracked, nearest, questBanner, restoreTrack, track, type TrackView } from './quest';
+import { sandboxRoster } from './roster/state';
+import { myTeam } from '../side';
 
 type Mk = (id: string, css: string, html?: string) => HTMLElement;
 const attr = esc;
@@ -45,6 +52,9 @@ export function offlineTasks(pid: number, now: number): TasksView {
 }
 
 const ready = (t: TaskView) => !t.claimed && t.have >= t.need - 1e-6;
+/** A task's key for tracking (its slot in the period: a reroll keeps tracking the slot's new task). */
+const taskKey = (t: Pick<TaskView, 'kind' | 'slot' | 'ends'>) => `task:${t.kind}:${t.ends}:${t.slot}`;
+const amount = (t: TaskView) => `${fmt(t.have / t.per)}/${fmt(t.need / t.per)}${t.unit ? ` ${t.unit}` : ''}`;
 
 let closer: (() => void) | null = null;
 /** Close the Tasks window (the Works window opens in its place: ./peace.ts). */
@@ -63,12 +73,18 @@ function card(t: TaskView, rerolls: number, online: boolean): string {
     : done
       ? `<button class="rf-tbtn pri" data-act="claim" data-k="${t.kind}" data-s="${t.slot}"${online ? '' : ' disabled'}>Claim</button>`
       : `<button class="rf-tbtn tk-re" data-act="reroll" data-k="${t.kind}" data-s="${t.slot}"${online && rerolls > 0 ? '' : ' disabled'} data-tip="${attr(rerolls > 0 ? `<b class="k">Reroll</b> · draw another task<br><span class="rf-dim tip-w">${rerolls} free reroll left today; its progress starts now</span>` : '<b class="k">Reroll</b> · none left today<br><span class="rf-dim tip-w">one free reroll each UTC day</span>')}">↻</button>`;
+  const lore = TASK_LORE[t.metric], key = taskKey(t), on = isTracked(key);
+  const trk = t.claimed ? '' : `<button class="rf-tbtn tk-trk${on ? ' on' : ''}" data-act="track" data-k="${t.kind}" data-s="${t.slot}" data-tip="${attr(on ? '<b class="k">Tracked</b><br><span class="rf-dim tip-w">click to stop tracking</span>' : '<b class="k">Track</b><br><span class="rf-dim tip-w">pin it on screen, with a marker on the nearest target</span>')}">${on ? 'Tracked' : 'Track'}</button>`;
   return `<div class="tk-card rf-well${done ? ' ready' : ''}${t.claimed ? ' claimed' : ''}">
     <div class="tk-ic">${METRIC_ICON[t.metric]()}</div>
     <div class="tk-body"><div class="tk-top"><span class="tk-name">${esc(t.title)}</span><span class="rf-num tk-n">${num}</span></div>
-      <div class="tk-hint rf-dim" data-tip="${attr(`<b class="k">${esc(t.title)}</b><br>${esc(t.hint)}`)}">${esc(t.hint)}</div>
+      <div class="tk-giver">${esc(lore.giver.name)}, ${esc(lore.giver.title)}</div>
+      <div class="tk-story">“${esc(lore.story)}”</div>
+      <div class="tk-line"><b>Goal</b><span>${esc(t.hint)}</span></div>
+      <div class="tk-line"><b>Where</b><span>${esc(lore.where)}</span></div>
       <div class="tk-prog"><div class="rf-bar"><i class="${done || t.claimed ? 'ok' : 'construction'}" style="width:${(f * 100).toFixed(1)}%"></i></div></div>
-      <div class="tk-foot">${rw}${sc}<span class="tk-act">${act}</span></div></div></div>`;
+      <div class="tk-foot">${rw}${sc}<span class="tk-act">${trk}${act}</span></div>
+      <div class="tk-pay rf-dim">${t.claimed ? 'Paid into your home strongroom' : done ? 'Done: press Claim, the reward goes into your home strongroom' : 'When done, press Claim here: the reward goes into your home strongroom'}</div></div></div>`;
 }
 
 /** The panel's body: the daily and the weekly section, the rerolls and the wonder's boost. */
@@ -91,7 +107,11 @@ const CSS = `
 .tk-top{display:flex;align-items:baseline;gap:6px}
 .tk-name{flex:1;min-width:0;font:700 13px/1.15 Cinzel,serif;color:var(--rf-title);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tk-n{font:700 12px/1 Inter,sans-serif;color:var(--rf-gold)}.claimed .tk-n,.ready .tk-n{color:var(--rf-good)}
-.tk-hint{font-size:11.5px;line-height:1.25;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tk-giver{font:italic 11px/1.3 Inter,sans-serif;color:var(--rf-muted);margin-top:1px}
+.tk-story{font:italic 11.5px/1.3 Inter,sans-serif;color:var(--rf-ink);opacity:.85;margin-top:2px}
+.tk-line{display:flex;gap:5px;font-size:11.5px;line-height:1.3;margin-top:2px}.tk-line b{flex:none;width:38px;font:700 9.5px/15px Inter,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--rf-muted)}
+.tk-pay{font-size:10.5px;margin-top:3px}
+.tk-trk{height:22px;padding:0 6px;margin-right:4px;font-size:11px}.tk-trk.on{color:var(--rf-gold);border-color:#6a5326}
 .tk-prog{margin:4px 0}.tk-prog .rf-bar{width:100%}
 .tk-foot{display:flex;align-items:center;gap:4px;flex-wrap:wrap}.tk-foot .rf-ichip{height:20px}.tk-foot .rf-tbtn{height:22px}
 .tk-war{color:#e08a6a;border-color:#5a2c22}
@@ -115,6 +135,42 @@ export function mountTasks(s: SandboxScene, mk: Mk): void {
   tipper(win, tip);
   const online = () => !!s.sim.net;
   let v: TasksView = offlineTasks(s.sim.playerId ?? 0, Date.now()), msg = '', bad = false;
+  // progress since the last read (by task key): ticks as toasts, a task done as a banner (not on the first read)
+  let seen: Map<string, { have: number; id: string }> | null = null;
+  const feedback = () => {
+    const was = seen;
+    seen = new Map(v.tasks.map((t) => [taskKey(t), { have: t.have, id: t.id }]));
+    if (!was) return;
+    for (const t of v.tasks) {
+      const p = was.get(taskKey(t));
+      if (!p || p.id !== t.id || t.claimed || t.have <= p.have + 1e-6) continue;
+      if (ready(t)) questBanner({ kind: 'ready', head: `${t.kind === 'daily' ? 'Daily' : 'Weekly'} task done`, title: t.title, giver: `${TASK_LORE[t.metric].giver.name}, ${TASK_LORE[t.metric].giver.title}`, reward: t.reward, pay: 'Claim it in Tasks: the reward goes into your home strongroom' });
+      else sandboxRoster(s).onNote?.({ kind: 'info', text: `${t.title}: ${amount(t)}` });
+    }
+  };
+  /** The tracked task's card: fresh from the last read; its marker on the nearest target of its kind here. */
+  const tracker = (key: string) => ({
+    key,
+    view: (me: { x: number; y: number }): TrackView | null => {
+      const t = v.tasks.find((x) => taskKey(x) === key);
+      if (!t || t.claimed) return null;
+      const lore = TASK_LORE[t.metric], at = taskTarget(t.metric, me);
+      return {
+        kind: `${t.kind === 'daily' ? 'Daily' : 'Weekly'} task`, title: t.title, giver: `${lore.giver.name}, ${lore.giver.title}`, goal: t.hint,
+        progress: amount(t), frac: t.have / t.need, where: lore.where, reward: t.reward,
+        pay: ready(t) ? 'Done: claim it in Tasks' : 'Claim in Tasks when done, into your home strongroom', at: at?.p ?? null, label: at?.label ?? '',
+      };
+    },
+  });
+  const taskTarget = (m: TaskMetric, me: { x: number; y: number }): { p: { x: number; y: number }; label: string } | null => {
+    const cur = s.sim.cur, team = myTeam();
+    const pick = (xs: readonly { x: number; y: number }[], label: string) => { const p = nearest(xs, me); return p ? { p, label } : null; };
+    if (m === 'gatherWood' || m === 'gatherStone') return pick(s.sim.nodes.filter((n) => n.res === (m === 'gatherWood' ? 'wood' : 'stone') && n.amount > 0), m === 'gatherWood' ? 'Tree' : 'Boulder');
+    if (m === 'soul') return pick(cur?.souls ?? [], 'Soul');
+    if (m === 'kills' || m === 'wins') return pick((cur?.lairs ?? []).filter((l) => l.state !== 'cleared'), 'Lair');
+    if (m === 'deliver') return pick((cur?.buildings ?? []).filter((b) => b.team === team && b.state === 'done' && ['camp', 'storehouse', 'fort', 'warehouse'].includes(b.type)), 'Store');
+    return null;
+  };
   const btn = document.createElement('button');
   const render = () => {
     btn.classList.toggle('pip', v.tasks.some(ready));
@@ -130,6 +186,8 @@ export function mountTasks(s: SandboxScene, mk: Mk): void {
       const r = await s.sim.api<TasksView>('GET', 'tasks');
       if (r?.tasks) v = r;
     } else v = offlineTasks(s.sim.playerId ?? 0, Date.now());
+    feedback();
+    for (const t of v.tasks) restoreTrack(tracker(taskKey(t)));
     render();
   };
   const toggle = (on = win.style.display === 'none') => {
@@ -149,10 +207,26 @@ export function mountTasks(s: SandboxScene, mk: Mk): void {
     if (!t || (t as HTMLButtonElement).disabled) return;
     const a = t.dataset.act;
     if (a === 'close') return toggle(false);
+    if (a === 'track') {
+      const tv = v.tasks.find((x) => x.kind === t.dataset.k && x.slot === Number(t.dataset.s));
+      if (!tv) return;
+      const key = taskKey(tv);
+      if (isTracked(key)) track(null);
+      else {
+        track(tracker(key));
+        questBanner({ kind: 'start', head: 'Tracking', title: tv.title, giver: `${TASK_LORE[tv.metric].giver.name}, ${TASK_LORE[tv.metric].giver.title}`, text: TASK_LORE[tv.metric].story, reward: tv.reward, pay: 'Claim in Tasks when done' });
+      }
+      return render();
+    }
     if (a !== 'claim' && a !== 'reroll') return;
     void s.sim.api<{ reward?: Record<string, number>; pts?: number; task?: TaskView; error?: string; message?: string }>('POST', `tasks/${t.dataset.k}/${t.dataset.s}/${a}`).then((r) => {
       bad = !r || !!r.error;
       msg = !r ? 'no answer' : r.error ? (r.message ?? r.error) : a === 'claim' ? `claimed: ${Object.entries(r.reward ?? {}).map(([g, n]) => `${n} ${g}`).join(', ')}${r.pts ? ` · +${fmt(r.pts)} score` : ''}` : `new task: ${r.task?.title ?? ''}`;
+      const done = v.tasks.find((x) => x.kind === t.dataset.k && x.slot === Number(t.dataset.s));
+      if (r && !r.error && a === 'claim' && done) {
+        questBanner({ kind: 'done', head: 'Reward paid', title: done.title, giver: `${TASK_LORE[done.metric].giver.name}, ${TASK_LORE[done.metric].giver.title}`, reward: r.reward ?? done.reward, pay: `Into your home strongroom${r.pts ? ` · +${fmt(r.pts)} ${done.score} score for your alliance` : ''}` });
+        if (isTracked(taskKey(done))) track(null);
+      }
       void load();
     });
   });
@@ -168,7 +242,7 @@ export function mountTasks(s: SandboxScene, mk: Mk): void {
   setTimeout(() => void load(), 4000);
   // dev: fill the panel offline (screenshots, layout checks)
   if (import.meta.env.DEV) (window as unknown as { __tasks: unknown }).__tasks = {
-    view: (x: TasksView) => ((v = x), render()),
+    view: (x: TasksView) => ((v = x), feedback(), render()),
     open: () => toggle(true),
     offline: (pid: number, now = Date.now()) => ((v = offlineTasks(pid, now)), render()),
     DAY_MS,
