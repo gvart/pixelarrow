@@ -10,6 +10,7 @@
  *  - MockSource (?offline=1): a made-up mid-season world in memory, transfers run on local timers, so the map can be
  *    browsed with no server.
  */
+import type { WorldSettlement } from '../net/settlements';
 import { SIM_VERSION } from '../../sim/version';
 import { devAuth, warAuth } from '../net/session';
 import { DEFAULT_CAP, splitQuota } from '../net/protocol';
@@ -293,6 +294,16 @@ export function mockWorld(now: number): { snap: WorldSnapshot; squads: FieldSqua
 }
 
 /** W-61: the mock's titles. */
+/** W-63 offline: a few settlements with their ties (the player is pid 1: he rules Thermi and its vassal Pella). */
+export const MOCK_SETTLEMENTS: WorldSettlement[] = [
+  { id: 7, region: 'achelous', x: 90, y: 120, r: 24, name: 'Thermi', lord_pid: 1, lord: 'You', level: 3, overlord_id: null, tribute_pct: 0, people: 4 },
+  { id: 12, region: 'saddle', x: 300, y: 200, r: 24, name: 'Pella', lord_pid: 1, lord: 'You', level: 2, overlord_id: 7, tribute_pct: 12, people: 2 },
+  { id: 9, region: 'omphalos', x: 130, y: 330, r: 24, name: 'Argos', lord_pid: 11, lord: 'Brasidas', level: 5, overlord_id: null, tribute_pct: 0, people: 9 },
+  { id: 14, region: 'stymphalia', x: 260, y: 240, r: 24, name: 'Mykale', lord_pid: 15, lord: 'Myrto', level: 1, overlord_id: 9, tribute_pct: 8, people: 1 },
+  { id: 16, region: 'kleisoura', x: 256, y: 300, r: 24, name: 'Korinthos', lord_pid: 17, lord: 'Iktinos', level: 4, overlord_id: 9, tribute_pct: 20, people: 6 },
+  { id: 18, region: 'delta', x: 200, y: 200, r: 24, name: 'Naukratis', lord_pid: 19, lord: 'Phaidra', level: 3, overlord_id: null, tribute_pct: 0, people: 3 },
+];
+
 const MOCK_TITLES: WorldTitle[] = [
   { id: 'merchantPrince', name: 'Merchant Prince', player: 'Kallias', alliance: 3, home: 'elaia', value: 4210 },
   { id: 'masterBuilder', name: 'Master Builder', player: 'Iktinos', alliance: 0, home: 'dodona', value: 61.5 },

@@ -6,6 +6,7 @@
  *                round the level numeral, and its name; click for the town card (after Anno 1800's needs and Civ VI's city
  *                panel): the next level's needs as an icon checklist with fill bars, the perks every man of yours inside
  *                enjoys as icon chips, and the next level's perks as a greyed row
+ *                W-63: over a settlement (./settlements.ts) the badge and card are the settlement's (./settleCards.ts)
  *   top right    Works (the corner button), two tabs: Works, a project card per alliance work (after Rise of Kingdoms'
  *                alliance buildings): its art, one big progress bar, the goods and labour as have/need chips, the top
  *                three givers and the bonus it grants as a reward chip (E7: the alliance's wonder heads the tab, its stage
@@ -18,6 +19,7 @@ import type { WorkView } from '../../net/works';
 import type { TownLevelSnap } from '../../types';
 import type { SandboxScene } from '../SandboxScene';
 import { myTeam } from '../side';
+import { settleHosts } from './settlements';
 import { draggable } from './drag';
 import { fitHeight, icon } from './kit';
 import { esc, tipper } from './roster/ui';
@@ -104,6 +106,21 @@ export function mountPeace(s: SandboxScene, mk: Mk): void {
   const mine = (): TownLevelSnap | null => s.sim.cur?.townLevels?.find((t) => t.team === myTeam()) ?? null;
   badge.onclick = () => ((open = !open), (key = ''), draw());
   const draw = () => {
+    // W-63: over a settlement the badge and card are the settlement's (./settlements.ts)
+    const host = settleHosts.get(s), st = host?.here() ?? null;
+    if (host && st) {
+      const k = `s${host.key()}${open}`;
+      if (k === key) return;
+      key = k;
+      badge.style.display = '';
+      badge.classList.toggle('on', open);
+      badge.innerHTML = host.badge();
+      tcard.style.display = open ? '' : 'none';
+      tcard.style.width = '336px';
+      if (open) tcard.innerHTML = host.card();
+      return;
+    }
+    tcard.style.width = '316px';
     const t = mine(), k = JSON.stringify(t) + open;
     if (k === key) return;
     key = k;
@@ -114,6 +131,9 @@ export function mountPeace(s: SandboxScene, mk: Mk): void {
     if (open) tcard.innerHTML = townCard(t);
   };
   setInterval(draw, 500);
+  tcard.addEventListener('click', (e) => { settleHosts.get(s)?.click(e); key = ''; draw(); });
+  tcard.addEventListener('input', (e) => settleHosts.get(s)?.input(e));
+  tcard.addEventListener('change', () => ((key = ''), draw()));
   // the badge and card sit top centre unless a left panel (forge, market, roster, maybe dragged) reaches under them:
   // then they step right of it (5 Hz; CSS px from the rects, art px for left)
   const LEFT_PANELS = ['cfWp', 'cfTree', 'rfMarket', 'rfHandoff', 'rrPanel', 'rrCard'];

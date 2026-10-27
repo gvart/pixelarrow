@@ -10,6 +10,7 @@ import { TRADE_ROUTES, MARKET_TOWNS, isChokepoint, type ConvoySnap, type HaulPla
 import type { WorldEvent } from '../world/events';
 import { EVENT_INFO } from '../world/events';
 import { EVENT_LOOK } from './eventLook';
+import { levelKind, type LevelKind, type WorldSettlement } from '../net/settlements';
 
 type Box = [number, number, number, number];
 interface PlacedLabel { id: string; lines: string[]; size: number; x: number; y: number; w: number; h: number; big: boolean; leader: [number, number] | null }
@@ -53,7 +54,18 @@ export interface MapState {
   emblems?: Map<string, string[]>;
   /** W-62: the world events running now (their regions glow, a marker with the countdown above the centre). */
   events?: WorldEvent[];
+  /** W-63: the world's settlements (a marker sized by level, fealty lines vassal to overlord), the player's id, the hovered one. */
+  settlements?: WorldSettlement[];
+  me?: number | null;
+  hoverSettle?: number | null;
 }
+
+/** W-63: a region map's side in tiles (every region is 512 x 512), to place a settlement inside its region's shape. */
+const REGION_TILES = 512;
+/** W-63: a settlement marker's radius and kit icon by kind. */
+const SETTLE_LOOK: Record<LevelKind, { r: number; icon: string }> = {
+  camp: { r: 12, icon: 'bld-camp' }, village: { r: 15, icon: 'bld-storehouse' }, town: { r: 18.5, icon: 'bld-tower-stone' }, city: { r: 22.5, icon: 'bld-fort' },
+};
 
 const img = (src: string) => new Promise<HTMLImageElement>((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => no(new Error(src)); i.src = src; });
 
@@ -128,7 +140,7 @@ export class WorldMap {
     const got = await Promise.all(names.map((n) => img(`${ART}${n}.${n.startsWith('base') ? 'jpg' : 'png'}`)));
     names.forEach((n, i) => (m.pics[n] = got[i]));
     // M6l: the kit's cart icons (public/war/ui), for convoys on the road; missing ones are drawn as a dot
-    for (const n of ['trade-cart', 'trade-wagon', 'act-load', 'bld-fort', 'res-coin', 'node-engineer-master-builder', 'bld-tower-stone', 'act-attack', 'bld-ram', 'unit-hoplite']) void img(`war/ui/icons/32/${n}.png`).then((i) => (m.pics[n] = i)).catch(() => undefined);
+    for (const n of ['trade-cart', 'trade-wagon', 'act-load', 'bld-fort', 'res-coin', 'node-engineer-master-builder', 'bld-tower-stone', 'act-attack', 'bld-ram', 'unit-hoplite', 'bld-camp', 'bld-storehouse']) void img(`war/ui/icons/32/${n}.png`).then((i) => (m.pics[n] = i)).catch(() => undefined);
     const ids = got[names.indexOf('region-ids')], c = document.createElement('canvas');
     c.width = ids.width;
     c.height = ids.height;
@@ -413,6 +425,127 @@ export class WorldMap {
     }
   }
 
+  private settleAt = new Map<string, [number, number]>();
+  /** W-63: a settlement's spot in map px: its tile point scaled into its region's bounds, pulled toward the centre until inside the shape. */
+  settlementSpot(w: WorldSettlement): [number, number] | null {
+    const k = `${w.region}:${w.x}:${w.y}`, had = this.settleAt.get(k);
+    if (had) return had;
+    const r = this.art.regions[w.region], p = this.paths.get(w.region);
+    if (!r || !p) return null;
+    const xs = r.polygon.map((q) => q[0]), ys = r.polygon.map((q) => q[1]);
+    const x0 = Math.min(...xs), y0 = Math.min(...ys), x1 = Math.max(...xs), y1 = Math.max(...ys);
+    // inset: the shape's edge is a border band, a marker sits clear of it
+    let x = x0 + (x1 - x0) * (0.15 + 0.7 * w.x / REGION_TILES), y = y0 + (y1 - y0) * (0.15 + 0.7 * w.y / REGION_TILES);
+    const [cx, cy] = r.centroid;
+    for (let i = 0; i < 10 && !this.ctx.isPointInPath(p, x, y); i++) (x += (cx - x) * 0.25), (y += (cy - y) * 0.25);
+    const out: [number, number] = [x, y];
+    this.settleAt.set(k, out);
+    return out;
+  }
+
+  /** W-63: the settlement marker under map point (x, y), its id, else null. */
+  settlementAt(st: MapState, x: number, y: number): number | null {
+    const s = Math.max(1, 0.8 / this.k);
+    for (const w of st.settlements ?? []) {
+      const p = this.settlementSpot(w);
+      if (p && (x - p[0]) ** 2 + (y - p[1]) ** 2 <= (SETTLE_LOOK[levelKind(w.level)].r * s * 1.3) ** 2) return w.id;
+    }
+    return null;
+  }
+
+  /**
+   * W-63: settlements: fealty lines first (vassal to overlord, a solid arc with an arrowhead at the overlord, gold when his), then
+   * a marker per settlement sized by level (camp, village, town, city) on a parchment seal, gold-rimmed when the player rules
+   * it; its name beside it when near (zoomed in) or hovered.
+   */
+  private drawSettlements(g: CanvasRenderingContext2D, st: MapState): void {
+    const list = st.settlements ?? [];
+    if (!list.length) return;
+    const s = Math.max(1, 0.8 / this.k), by = new Map(list.map((w) => [w.id, w]));
+    g.save();
+    g.lineCap = 'round';
+    for (const v of list) {
+      const o = v.overlord_id !== null ? by.get(v.overlord_id) : undefined, a = this.settlementSpot(v), b = o && this.settlementSpot(o);
+      if (!a || !b) continue;
+      const hot = st.hoverSettle === v.id || st.hoverSettle === o!.id, mine = st.me != null && (v.lord_pid === st.me || o!.lord_pid === st.me);
+      const dx = b[0] - a[0], dy = b[1] - a[1], len = Math.hypot(dx, dy) || 1, bend = Math.min(60, len * 0.18);
+      const mx = (a[0] + b[0]) / 2 - (dy / len) * bend, my = (a[1] + b[1]) / 2 + (dx / len) * bend;
+      const rb = SETTLE_LOOK[levelKind(o!.level)].r * s + 4 * s, ra = SETTLE_LOOK[levelKind(v.level)].r * s + 2 * s;
+      // stop short of both markers: the arc's ends at their radii, along the curve's end tangents
+      const ta = Math.hypot(mx - a[0], my - a[1]) || 1, tb = Math.hypot(b[0] - mx, b[1] - my) || 1;
+      const sx = a[0] + ((mx - a[0]) / ta) * ra, sy = a[1] + ((my - a[1]) / ta) * ra, ex = b[0] - ((b[0] - mx) / tb) * rb, ey = b[1] - ((b[1] - my) / tb) * rb;
+      const arc = () => { g.beginPath(); g.moveTo(sx, sy); g.quadraticCurveTo(mx, my, ex, ey); };
+      arc();
+      g.strokeStyle = 'rgba(14,9,7,.75)';
+      g.lineWidth = (hot ? 6 : 5) * s;
+      g.setLineDash([]);
+      g.stroke();
+      arc();
+      // solid (the trade routes are dashed), gold when it ties the player
+      g.strokeStyle = mine ? '#e0b867' : '#c9a6e8';
+      g.globalAlpha = hot ? 1 : 0.9;
+      g.lineWidth = (hot ? 3.4 : 2.6) * s;
+      g.stroke();
+      // the arrowhead: tribute and fealty flow to the overlord
+      const ang = Math.atan2(ey - my, ex - mx), h = 9 * s;
+      g.beginPath();
+      g.moveTo(ex, ey);
+      g.lineTo(ex - Math.cos(ang - 0.45) * h, ey - Math.sin(ang - 0.45) * h);
+      g.lineTo(ex - Math.cos(ang + 0.45) * h, ey - Math.sin(ang + 0.45) * h);
+      g.closePath();
+      g.fillStyle = mine ? '#e0b867' : '#c9a6e8';
+      g.strokeStyle = '#0e0907';
+      g.lineWidth = 1.5 * s;
+      g.fill();
+      g.stroke();
+      g.globalAlpha = 1;
+    }
+    g.restore();
+    // markers: small ones first, so a city sits on top
+    for (const w of [...list].sort((p, q) => p.level - q.level)) {
+      const p = this.settlementSpot(w);
+      if (!p) continue;
+      const look = SETTLE_LOOK[levelKind(w.level)], r = look.r * s, [x, y] = p, hot = st.hoverSettle === w.id, mine = st.me != null && w.lord_pid === st.me;
+      g.beginPath();
+      g.arc(x, y + 1.5 * s, r + 2 * s, 0, Math.PI * 2);
+      g.fillStyle = 'rgba(14,9,7,.55)';
+      g.fill();
+      // a parchment seal (the other markers are dark discs): its rim gold when he rules it
+      if (w.level >= 4) { // a town or city: an outer ring, its walls
+        g.beginPath();
+        g.arc(x, y, r + 4 * s, 0, Math.PI * 2);
+        g.lineWidth = 2.5 * s;
+        g.strokeStyle = '#0e0907';
+        g.stroke();
+        g.lineWidth = 1.5 * s;
+        g.strokeStyle = mine ? '#e0b867' : '#f0d9b5';
+        g.stroke();
+      }
+      g.beginPath();
+      g.arc(x, y, r, 0, Math.PI * 2);
+      const fill = g.createRadialGradient(x, y - r * 0.4, r * 0.1, x, y, r);
+      fill.addColorStop(0, '#f6e6c8');
+      fill.addColorStop(1, '#c9ae86');
+      g.fillStyle = fill;
+      g.fill();
+      g.lineWidth = 2.5 * s;
+      g.strokeStyle = '#0e0907';
+      g.stroke();
+      g.lineWidth = (hot ? 2.5 : 1.6) * s;
+      g.strokeStyle = mine ? '#e0b867' : hot ? '#fff0d8' : '#7a3418';
+      g.beginPath();
+      g.arc(x, y, r - 1.5 * s, 0, Math.PI * 2);
+      g.stroke();
+      const ic = this.pics[look.icon];
+      if (ic) {
+        g.imageSmoothingEnabled = true;
+        g.drawImage(ic, x - r * 0.82, y - r * 0.82, r * 1.64, r * 1.64);
+        g.imageSmoothingEnabled = false;
+      }
+      if (hot || this.k >= 0.6) this.badge(g, w.name, x + r + 3 * s, y, s * 0.85, hot, mine ? '#e0b867' : undefined);
+    }
+  }
+
   /** M7g: the landmark marker under map point (x, y), its region id, else null. */
   landmarkAt(st: MapState, x: number, y: number): string | null {
     for (const [id, [cx, cy, r]] of this.markerSpots(st).landmarks) if ((x - cx) ** 2 + (y - cy) ** 2 <= (r * 1.25) ** 2) return id;
@@ -627,6 +760,7 @@ export class WorldMap {
     for (const [, name, x, y, w, h] of spots.marks) g.drawImage(pic(name), x, y, w, h);
     this.drawLandmarks(g, st, spots.landmarks);
     this.drawEvents(g, st, spots.events);
+    this.drawSettlements(g, st);
     // the player's men: the alliance banner with a count
     const you = st.you ?? 0, key = ALLIANCES[you].key;
     for (const [id, men] of st.squads) {
