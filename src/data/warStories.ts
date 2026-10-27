@@ -32,13 +32,13 @@ const TEETH: Story = {
       id: 'camp', goal: 'Break the shoulder camp', label: 'Deserters',
       story: 'Six deserters guard the ore they never paid for. They were brave once, in the dark.',
       where: 'The camp on the ravine\'s south shoulder.',
-      trigger: { kind: 'clear', at: [290, 322], mob: 'bandit', count: 6 }, reward: { goods: { iron: 10, coin: 20 } },
+      trigger: { kind: 'clear', at: [268, 304], mob: 'bandit', count: 6 }, reward: { goods: { iron: 10, coin: 20 } },
     },
     {
       id: 'lykon', goal: 'Face Lykon the Overseer', label: 'Lykon',
       story: 'Lykon kept the tally when the shafts fell, and ran with the ore. He has been running since.',
-      where: 'His last guard, east along the shoulder.',
-      trigger: { kind: 'clear', at: [340, 328], mob: 'bandit', count: 4, lead: true, name: 'Lykon the Overseer' },
+      where: 'His last guard, by the stream east of the camp.',
+      trigger: { kind: 'clear', at: [340, 262], mob: 'bandit', count: 4, lead: true, name: 'Lykon the Overseer' },
     },
     {
       id: 'judge', goal: 'Judge Lykon', label: 'Lykon',

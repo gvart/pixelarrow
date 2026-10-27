@@ -122,7 +122,7 @@ describe('W-65 a chain played on the sim', () => {
     const end = run.choose(sim.snapshot(), 'spare')!;
     expect(end.map((n) => n.kind)).toEqual(['step', 'end']);
     expect(run.save).toMatchObject({ done: true, at: null, picks: { judge: 'spare' } });
-    expect(paid.slice(-2)).toEqual([s.steps.find((x) => x.id === 'judge')!.trigger.kind === 'choice' ? { soul: { cls: 'hoplite', level: 3, name: 'Lykon' }, goods: { iron: 10 } } : null, { goods: { coin: 60 } }]);
+    expect(paid.slice(-2)).toEqual([{ soul: { cls: 'hoplite', level: 3, name: 'Lykon' }, goods: { iron: 10 } }, { goods: { coin: 60 } }]);
     expect(sim.snapshot().souls?.length ?? 0).toBe(souls0 + 1);
     // done stays done
     expect(run.tick(sim.snapshot(), [])).toEqual([]);
@@ -150,6 +150,24 @@ describe('W-65 a chain played on the sim', () => {
     sim.step();
     const p = run.spots.steps.pack[0];
     expect(sim.snapshot().lairs?.some((l) => Math.hypot(l.x - p.x, l.y - p.y) < 0.5 && l.kind === 'wolf')).toBe(true);
+  });
+
+  it('a captive freed: the soul at the spot claimed by his squad ends the chain (Western Heath)', () => {
+    const s = STORIES['dodona-w'], r = region('dodona-w'), sim = createSim(r, 9) as WarBuildSim, paid: StoryReward[] = [];
+    const run = new StoryRun(r, s, { v: 1, story: s.id, at: 'oathman', n: 0, picks: { oath: 'break' } }, { team: 0, owner: 'p:3' }, simHost(sim, paid));
+    const p = run.spots.steps.oathman[0], sq = sim.spawnSquad('p:3', 0, 'hoplite', 8, p.x - 3, p.y);
+    const notes: StoryNote[] = [];
+    sim.step();
+    notes.push(...run.tick(sim.snapshot(), sim.events()));
+    const soul = sim.snapshot().souls!.find((x) => Math.hypot(x.x - p.x, x.y - p.y) < 1)!;
+    expect(soul).toMatchObject({ cls: 'hoplite', level: 2 });
+    sim.order({ kind: 'claimSoul', squad: sq, soul: soul.id });
+    for (let t = 0; t < 900 && !run.save.done; t++) {
+      sim.step();
+      notes.push(...run.tick(sim.snapshot(), sim.events()));
+    }
+    expect(notes.map((n) => n.kind)).toEqual(['step', 'end']);
+    expect(paid.at(-1)).toEqual(s.reward);
   });
 
   it('a foreign or broken save starts afresh', () => {

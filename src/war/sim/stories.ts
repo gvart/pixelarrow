@@ -37,7 +37,7 @@ export type StoryTrigger =
   | { kind: 'track'; marks: readonly Pt[] }
   /** A camp or a named foe spawned for him at the spot (`lead`: its first man a captain, x2 hp); done once it is cleared with his men near. */
   | { kind: 'clear'; at: Pt; mob: MobKind; count: number; lead?: true; name?: string }
-  /** A captive (a soul at the spot) his squad claims. */
+  /** A captive (a soul at the spot) his squad claims (or would, with a full army: freed, he goes his way). */
   | { kind: 'rescue'; at: Pt; cls: string; level: number; name: string }
   /** A choice on the story card: each option pays and leads on (no `next`: the chain ends). */
   | { kind: 'choice'; options: readonly StoryOption[] };
@@ -268,7 +268,7 @@ export class StoryRun {
         done = this.seen && ls.length > 0 && ls.every((l) => l.state === 'cleared') && near(ps[0], STORY_R.near);
       } else if (t.kind === 'rescue') {
         const mine = (e: WarEvent) => (e.kind === 'soulClaimed' || e.kind === 'soulRefused') && this.souls.has(e.soul)
-          && (this.me.owner ? e.owner === this.me.owner : e.kind === 'soulClaimed' && s.squads.find((q) => q.id === e.squad)?.team === this.me.team);
+          && (this.me.owner ? e.owner === this.me.owner : s.squads.find((q) => q.id === e.squad)?.team === this.me.team);
         done = evs.some(mine);
       }
       if (!done) break;
