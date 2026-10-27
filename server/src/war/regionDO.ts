@@ -81,6 +81,8 @@ import type { AllianceId, Side } from '../../../src/war/world/types';
 import { WORLD_NAME, type ArriveResult, type DepartResult } from './world/world';
 import type { TransitCargo } from '../../../src/war/net/world';
 import { guideStorageKey, type GuideDone } from './guide';
+import { storyStorageKey, type StoryDone } from './stories';
+import type { StorySave } from '../../../src/war/sim/stories';
 import { fightTallies, tallyStmt } from './tasks';
 import type { GuideSave } from '../../../src/war/net/guide';
 import { bookFight, pactAttack } from './crown';
@@ -347,6 +349,7 @@ export class WarRegionDO extends DurableObject<Env> {
         const g = room.guide.hide(me.pid);
         if (g) await this.ctx.storage.put(guideStorageKey(WAR_SEASON.id, me.pid), g);
       }
+      else if (m.t === 'story') room.storyChoose(me.pid, m.option); // W-65
     } catch (e) {
       logError('war_message_failed', e);
     }
@@ -393,6 +396,7 @@ export class WarRegionDO extends DurableObject<Env> {
     // W-60: the soul gate counts his whole army (every region)
     if (db && res.msg.t === 'welcome') room.setArmy(pid, await armyCount(db, pid));
     if (res.msg.t === 'welcome') await this.guideStart(pid, room);
+    if (res.msg.t === 'welcome') await this.storyStart(pid, room); // W-65
     this.save();
     this.start();
     // a rejoin that also names men not here (entering again with some at home): they follow as a fresh squad
@@ -405,6 +409,23 @@ export class WarRegionDO extends DurableObject<Env> {
     const save = (await this.ctx.storage.get<GuideSave>(guideStorageKey(WAR_SEASON.id, pid))) ?? null;
     const m = room.startGuide(pid, save);
     if (m) for (const ws of this.ctx.getWebSockets(`p:${pid}`)) send(ws, m);
+  }
+
+  /** W-65: his story here (his save from this DO's storage): started by the room, told to him. */
+  private async storyStart(pid: number, room: WarRoom): Promise<void> {
+    const save = (await this.ctx.storage.get<StorySave>(storyStorageKey(WAR_SEASON.id, pid))) ?? null;
+    const m = room.startStory(pid, save);
+    if (m) for (const ws of this.ctx.getWebSockets(`p:${pid}`)) send(ws, m);
+  }
+
+  /** W-65: story runs moved: the save into storage, goods owed into his home strongroom. */
+  private storied(done: readonly StoryDone[]): void {
+    const d = this.env.DB;
+    for (const g of done) {
+      this.ctx.waitUntil(this.ctx.storage.put(storyStorageKey(WAR_SEASON.id, g.pid), g.save).catch((e) => logError('war_story_save_failed', e)));
+      const pay = Object.entries(g.goods).filter(([, n]) => n > 0);
+      if (d && pay.length) this.write(`story ${g.pid} ${g.save.at ?? 'end'}`, () => batch(d, [ensureHolder(d, strongroom(g.pid), 'strongroom', { pid: g.pid }, Date.now()), ...pay.map(([r, n]) => putStmt(d, strongroom(g.pid), r, n))]));
+    }
   }
 
   /** W-62: guide steps done: the save into storage, the reward into his home strongroom. */
@@ -866,6 +887,7 @@ export class WarRegionDO extends DurableObject<Env> {
       const w = r.admitted.get(a.pid);
       if (w) send(ws, w);
       if (w?.t === 'welcome') void this.guideStart(a.pid, room); // W-62: in from the line
+      if (w?.t === 'welcome') void this.storyStart(a.pid, room); // W-65
       if (w?.t === 'welcome') this.sendSettlements(room, a.pid, true); // W-63
       for (const m of r.msgs.get(a.pid) ?? []) send(ws, m); // the economy view (nodes, influence)
       const f = r.frames.get(a.pid);
@@ -906,6 +928,7 @@ export class WarRegionDO extends DurableObject<Env> {
       room.setArmy(c.pid, await armyCount(d, c.pid));
     });
     if (r.guided.length) this.guided(r.guided);
+    if (r.storied.length) this.storied(r.storied); // W-65
     if (d && r.crafted.length) this.write('crafted', () => applyCrafts(d, room.region.id, room.run, r.crafted, Date.now()));
     if (d) for (const b of r.bosses) this.write(`boss ${b.boss}`, () => applyBossKill(d, room.region.id, room.run, b, Date.now()));
     // M7f: a temple or shrine razed costs the razer's alliance score

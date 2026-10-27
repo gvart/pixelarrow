@@ -6,6 +6,7 @@ import type { Behaviour } from '../sim/bots';
 import type { ScenarioGo } from '../scenarios/types';
 import type { BridgeOrder, BridgePlan, BuildingSnap, BuildingType, FightReport, FogGrid, InfluenceMap, MobKind, NodeSnap, Order, PlaceResult, RegionData, ResourceKind, Snapshot, SquadSnap, UnitSnap, WallOrder, WallPlan, WarEvent, WarPerson } from '../types';
 import type { ToWorker } from './worker';
+import type { Item } from '../../data/items';
 import type { HandoffMsg, ServerMsg, StowMsg } from '../net/protocol';
 import type { NetStats } from '../net/client';
 import { myTeam, setMyTeam } from './side';
@@ -221,8 +222,13 @@ export class SimClient {
   }
 
   /** W-62 the guide (offline): one weak lair at (x,y) that never comes back (../sim/mobs.ts add). */
-  addLair(kind: MobKind, x: number, y: number, count?: number): void {
-    this.send({ t: 'lair', kind, x, y, count });
+  addLair(kind: MobKind, x: number, y: number, count?: number, lead?: true): void {
+    this.send({ t: 'lair', kind, x, y, count, ...(lead ? { lead } : {}) });
+  }
+
+  /** W-65 a story's item (offline): it falls as a loot pile at (x,y). */
+  dropPile(x: number, y: number, items: Item[]): void {
+    this.send({ t: 'pile', x, y, items });
   }
 
   /** Scenarios: fast-forward up to `max` ticks, the team's squads building its unfinished sites, until none is left. */
@@ -317,6 +323,11 @@ export class SimClient {
   }
 
   /** W-62 net mode: hide the first-hour guide for good (the region server keeps it). */
+  /** W-65 net mode: a choice in the region's story (the region server keeps it). */
+  storyChoose(option: string): void {
+    this.send({ t: 'story', op: 'choose', option });
+  }
+
   guideHide(): void {
     this.send({ t: 'guideHide' });
   }

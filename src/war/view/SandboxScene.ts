@@ -404,6 +404,11 @@ export class SandboxScene extends Phaser.Scene {
     this.orderAll(f);
   }
 
+  /** W-65: a cosmetic man (a story's giver, ./hud/story.ts) painted on `img` (./units.ts paint); false while his sheet waits. */
+  paintMan(...a: Parameters<UnitLayer['paint']>): boolean {
+    return this.units.paint(...a);
+  }
+
   /** A tile point on its level -> canvas px (for scripts). */
   toScreen(x: number, y: number): { x: number; y: number } {
     const cam = this.cameras.main, w = cam.width / 2, h = cam.height / 2;

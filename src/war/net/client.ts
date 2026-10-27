@@ -35,6 +35,8 @@ export interface Net {
   handoff(m: Omit<HandoffMsg, 't'>): void;
   /** W-62: hide the first-hour guide for good. */
   guideHide(): void;
+  /** W-65: a choice in the region's story. */
+  story(option: string): void;
   /** Dev panel helpers (DEV_AUTH servers only; else an `error` forbidden). */
   dev(m: DevBody): void;
   /** Leave the war (the idle kick): the region and gate sockets close, nothing more goes up. */
@@ -149,6 +151,7 @@ export function createNet(url: string, region: string, devId: number | undefined
           if (m.t === 'stowed' || m.t === 'handoff' || m.t === 'error' || m.t === 'welcome' || m.t === 'soul' || m.t === 'worldEvents' || m.t === 'guide' || m.t === 'settlements') onMsg(m); // M6: the trade panels (welcome: our player id); W-60: a soul claimed or refused; W-62 world events, the guide; W-63 settlements
           return;
         }
+<<<<<<< HEAD
         frames++;
         lastFrame = lastAt;
         const snap = dec.apply(e.data as ArrayBuffer);
@@ -163,6 +166,20 @@ export function createNet(url: string, region: string, devId: number | undefined
         setTimeout(() => open(true), wait);
         wait = Math.min(wait * 2, 10_000);
       };
+=======
+        if (m.t === 'nodes' || m.t === 'influence' || m.t === 'stock' || m.t === 'town' || m.t === 'fog') return onMsg(m); // the economy view (./economy.ts), W-39 the fog
+        if (m.t !== 'pong') console.info('[net]', m);
+        if (m.t === 'stowed' || m.t === 'handoff' || m.t === 'error' || m.t === 'welcome' || m.t === 'soul' || m.t === 'worldEvents' || m.t === 'guide' || m.t === 'settlements' || m.t === 'story') onMsg(m); // M6: the trade panels (welcome: our player id); W-60: a soul claimed or refused; W-62 world events, the guide; W-63 settlements
+        return;
+      }
+      const snap = dec.apply(e.data as ArrayBuffer);
+      onSnap(snap, { stepMs: 0, units: snap.units.filter((u) => u.state !== 'dead').length });
+    };
+    ws.onclose = (e) => {
+      console.warn('[net] closed', e.code, e.reason);
+      for (const done of checks.values()) done(null);
+      checks.clear();
+>>>>>>> worktree-agent-a86384648867eeccf
     };
     open(false);
   })().catch((e) => console.error(e));
@@ -192,6 +209,7 @@ export function createNet(url: string, region: string, devId: number | undefined
     stow: (m) => send(() => ({ ...m, t: 'stow' })),
     handoff: (m) => send(() => ({ ...m, t: 'handoff' })),
     guideHide: () => send(() => ({ t: 'guide', op: 'hide' })),
+    story: (option) => send(() => ({ t: 'story', op: 'choose', option })),
     dev: (m) => send(() => ({ ...m, t: 'dev' })),
     api: async (method, path, body) => {
       const r = await fetch(`/api/war/${path}`, { method, headers: await authed, ...(body !== undefined ? { body: JSON.stringify(body) } : {}) });

@@ -14,6 +14,7 @@ import { bossPile } from '../sim/bossLoot';
 import { createBots, type Behaviour, type Bots } from '../sim/bots';
 import { feedSim, goOrder, prebuildSim } from '../scenarios/run';
 import type { ScenarioGo } from '../scenarios/types';
+import type { Item } from '../../data/items';
 import { createNet, type Net } from '../net/client';
 import { MAX_SQUAD, type HandoffMsg, type StowMsg } from '../net/protocol';
 import { decodeFog, decodeInfluence, unpackNode } from '../net/economy';
@@ -32,7 +33,7 @@ export type ToWorker =
   | { t: 'stock'; team: number; res: ResourceKind; n: number; at?: { x: number; y: number } }
   | { t: 'prebuild'; team: number; max: number } // scenarios: build the team's sites before play (max 0: just step)
   | { t: 'mobs' } // neutral play: spawn the region's lairs
-  | { t: 'lair'; kind: MobKind; x: number; y: number; count?: number } // W-62 the guide (offline): one weak lair on the new player's way
+  | { t: 'lair'; kind: MobKind; x: number; y: number; count?: number; lead?: true } // W-62 the guide (offline): one weak lair on the new player's way
   | { t: 'hurtBoss'; boss: string; to: number; part?: number } // M7d dev and scenarios: a guardian (or its part: a head) down to a share of its hp
   | { t: 'soul'; x: number; y: number; cls: string; level?: number; site?: 'shrine' | 'ruin' | 'battlefield' | 'lair' } // W-60 dev and scenarios: a soul waits there
   | { t: 'hunger'; squad: number; sat: number } // W-60 dev and scenarios: a squad's men at this satiety
@@ -57,7 +58,9 @@ export type ToWorker =
   | { t: 'stow'; m: Omit<StowMsg, 't'> }
   | { t: 'handoff'; m: Omit<HandoffMsg, 't'> }
   | { t: 'guideHide' } // W-62, net mode: hide the first-hour guide for good
-  | { t: 'netStats'; on: boolean }; // net mode: the network readout (pings, and `net` posted every second) on or off
+  | { t: 'netStats'; on: boolean } // net mode: the network readout (pings, and `net` posted every second) on or off
+  | { t: 'story'; op: 'choose'; option: string } // W-65, net mode: a choice in the region's story
+  | { t: 'pile'; x: number; y: number; items: Item[] }; // W-65 (offline): a story's item falls at the player's men
 
 /** Ticks between resource node posts (amounts change slowly). */
 const NODES_EVERY = 10;
@@ -168,13 +171,14 @@ onmessage = (e: MessageEvent<ToWorker>) => {
   else if (m.t === 'claim') { build(sim)?.claim(m.team, m.x, m.y, m.r); }
   else if (m.t === 'stock') build(sim)?.addStock(m.team, m.res, m.n, m.at);
   else if (m.t === 'mobs') build(sim)?.spawnMobs();
-  else if (m.t === 'lair') build(sim)?.addLair({ kind: m.kind, x: m.x, y: m.y, count: m.count });
+  else if (m.t === 'lair') build(sim)?.addLair({ kind: m.kind, x: m.x, y: m.y, count: m.count, ...(m.lead ? { lead: true as const } : {}) });
   else if (m.t === 'hurtBoss') {
     const b = build(sim), g = b?.snapshot().bosses?.find((x) => x.id === m.boss);
     if (b && g && m.part !== undefined) b.hurtBoss(m.boss, 1e9, 'you', m.part);
     else if (b && g && g.hp > g.maxHp * m.to) b.hurtBoss(m.boss, g.hp - g.maxHp * m.to, 'you');
   }
   else if (m.t === 'soul') build(sim)?.spawnSoul(m.x, m.y, m.cls, m.level, m.site);
+  else if (m.t === 'pile') build(sim)?.dropPile(m.x, m.y, [], m.items);
   else if (m.t === 'feed') { const b = build(sim); if (b) feedSim(b, m.team, m.squad, m.res, m.n); }
   else if (m.t === 'hunger') { const b = build(sim); b?.setSatiety(b.snapshot().squads[m.squad]?.units ?? [], m.sat); }
   else if (m.t === 'takeRegion') {
@@ -227,4 +231,5 @@ function netMessage(n: Net, m: ToWorker): void {
   else if (m.t === 'stow') n.stow(m.m);
   else if (m.t === 'handoff') n.handoff(m.m);
   else if (m.t === 'guideHide') n.guideHide();
+  else if (m.t === 'story') n.story(m.option);
 }
