@@ -8,7 +8,7 @@ import { NET_VERSION, type ServerMsg } from '../../../src/war/net/protocol';
 import { SIM_VERSION } from '../../../src/sim/version';
 import { WarRoom } from '../../src/war/room';
 import { warRegion } from '../../src/war/regions';
-import { BATCH, BEHIND_MS, DORMANT_MS, MAX_LAG, type WarRegionDO } from '../../src/war/regionDO';
+import { BATCH, BEHIND_MS, DORMANT_MS, MAX_LAG, SLICE, type WarRegionDO } from '../../src/war/regionDO';
 import { BASE, devLogin } from '../helpers';
 
 /** The DO's private parts the tests reach into. */
@@ -112,14 +112,31 @@ describe('dormant regions', () => {
     });
   });
 
-  it('a socket connecting catches the region up before it runs live', async () => {
+  it('a catch-up runs in slices that yield between them', async () => {
+    await parked(7604);
+    await runInDurableObject(stub(), async (o: WarRegionDO) => {
+      const room = inner(o).room!;
+      inner(o).clockAt = Date.now() - 1000 * 100;
+      const t0 = room.currentTick;
+      const run = o.alarm();
+      // the first slice ran, then the object yields (a socket or an RPC is served here) before the next
+      expect(room.currentTick - t0).toBe(SLICE);
+      await run;
+      expect(room.currentTick - t0).toBeGreaterThanOrEqual(1000);
+      expect(room.currentTick - t0).toBeLessThan(1050);
+    });
+  });
+
+  it('a socket connecting is let in at once and the region catches up before it runs live', async () => {
     const me = await parked(7603);
     await runInDurableObject(stub(), (o: WarRegionDO) => void (inner(o).clockAt -= 30_000));
     const t0 = (await stats()).tick;
     const c = await connect(me.token);
+    c.ws.send(JSON.stringify({ t: 'ping', c: 1 }));
+    await vi.waitFor(() => expect(c.msgs.some((m) => m.t === 'pong')).toBe(true), { timeout: 20_000, interval: 20 });
+    await vi.waitFor(async () => expect((await stats()).running).toBe(true), { timeout: 20_000, interval: 20 });
     const s = await stats();
     expect(s.tick - t0).toBeGreaterThanOrEqual(300);
-    expect(s.running).toBe(true);
     c.ws.close(1000);
     await vi.waitFor(async () => expect((await stats()).running).toBe(false), { timeout: 30_000, interval: 50 });
   });
