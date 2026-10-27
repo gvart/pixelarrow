@@ -14,6 +14,7 @@ import { FALL } from '../../sim/soldiers';
 import { COVERED, LADDER, MANTLET, RAM, SIEGE, THROWER } from '../../sim/siege';
 import type { BuildingType, SiegeType, WarSkillId } from '../../types';
 import { glyph } from './glyph';
+import { TERRITORY } from './explain';
 
 const pc = (v: number) => `${Math.round(v * 1000) / 10}%`;
 const num = (v: number) => String(Math.round(v * 100) / 100);
@@ -57,6 +58,7 @@ export const TERMS: Record<string, Term> = {
   captive: { name: 'Captive', icon: 'ui:lock', text: () => 'Held in an enemy fort: ransom him, raid the fort, or he walks home after a day.' },
   fallen: { name: 'Fallen', icon: 'ui:skull', text: () => 'Dead. His gear lies where he fell.' },
   influence: { name: 'Influence', icon: 'ui:flag', text: () => 'The ground a building claims for its owner: you build, gather and work inside it.' },
+  territory: { name: 'How territory works', icon: 'ui:flag', text: () => TERRITORY },
   store: { name: 'Store', icon: 'ui:chest', text: () => 'Holds your goods; all your stores in a region share one stock. Builders and crafters draw from it.' },
   labour: { name: 'Labour', icon: 'ui:repair', text: () => 'Work to raise it: more builders finish it sooner, an engineer half again as fast.' },
   burns: { name: 'Burns', icon: 'ui:fire', text: () => 'Wood: fire arrows and torches set it alight; wet hides or a well near help.' },

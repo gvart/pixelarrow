@@ -2,22 +2,30 @@
  * Neutral-region marks (W-12, src/war/sim/mobs.ts), minimal greybox: each lair as a den marker on the ground (bones ring
  * for beasts, a tent and fire for a bandit camp; struck through once cleared), its aggro and leash radii with the `mobs`
  * overlay, and each claim point as a banner on a pole: grey while locked (a guard lair of its zone lives), white when
- * open, a progress bar while a squad channels (red when foes interrupt), the owner's colour once claimed.
+ * open, a progress bar while a squad channels (red when foes interrupt), the owner's colour once claimed. Over each
+ * banner a label names it and its state ("Claim point / Guarded", "Claiming 12/30 s", "Held: Dodona"; ./hud/explain.ts),
+ * kept the same size on screen at any zoom; the hover card says what to do (./hud/claimCard.ts).
  */
 import Phaser from 'phaser';
 import type { ClaimSnap, LairSnap } from '../types';
 import { TEAM_COLOR } from './units';
 import { HH, HW } from './iso';
-import { slot } from './side';
+import { myTeam, slot } from './side';
+import { depthOf } from '../sim/depth';
+import { claimView } from './hud/explain';
+import type { SandboxScene } from './SandboxScene';
 
 const DEN: Record<LairSnap['kind'], number> = { wolf: 0x9aa0a8, boar: 0x8a6a4a, bear: 0x5a4030, bandit: 0xc09040, jackal: 0xc8a868, ibex: 0xd8d0b8 };
 const R2 = Math.SQRT2;
+const LABEL: Phaser.Types.GameObjects.Text.TextStyle = { fontFamily: 'Inter, sans-serif', fontSize: '13px', fontStyle: 'bold', color: '#f0e0b0', stroke: '#140c08', strokeThickness: 4, align: 'center' };
+const LABEL_TONE = { good: '#9ed46a', bad: '#ff7a5a', warn: '#e0b867', '': '#f4ead0' } as const;
 
 export class NeutralLayer {
   /** The `mobs` overlay: aggro (inner) and leash (outer) rings, guard radius dashed. */
   debug = false;
   private g: Phaser.GameObjects.Graphics;
   private banners: Phaser.GameObjects.Graphics[] = [];
+  private labels: Phaser.GameObjects.Text[] = [];
 
   constructor(private scene: Phaser.Scene, private feet: (p: { x: number; y: number }) => { x: number; y: number }, private depthAt: (x: number, y: number) => number) {
     this.g = scene.add.graphics().setDepth(9.05);
@@ -58,6 +66,11 @@ export class NeutralLayer {
         b.fillStyle(0x101010, 0.85).fillRect(bx, by, bw, 7);
         b.fillStyle(c.state === 'contested' ? 0xff4040 : 0xffe070, 1).fillRect(bx + 1, by + 1, (bw - 2) * (c.state === 'contested' ? 1 : c.progress), 5);
       }
+      const v = claimView(c, myTeam(), depthOf((this.scene as SandboxScene).region), lairs, []);
+      const t = this.labels[i] ?? this.labels[this.labels.push(this.scene.add.text(0, 0, '', LABEL).setOrigin(0.5, 1).setResolution(2)) - 1];
+      const text = `Claim point\n${v.label}`;
+      if (t.text !== text) t.setText(text);
+      t.setColor(LABEL_TONE[v.tone]).setScale(k).setPosition(f.x + 10, top - 16).setDepth(b.depth + 0.01);
     });
   }
 }
