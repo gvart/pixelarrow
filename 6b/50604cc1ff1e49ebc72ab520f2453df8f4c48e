@@ -1,0 +1,27 @@
+src/war/world-view/main.ts
+  s_fcb7475e0b5395::t_357076ce059dd5 15,31,43-44,322-337,430-431,527,571-581
+src/war/world-view/source.ts
+  s_fcb7475e0b5395::t_357076ce059dd5 13,297-298,300,302-306
+  s_fcb7475e0b5395::t_e7811bdf61b4be 299,301
+src/war/world-view/map.ts
+  s_fcb7475e0b5395::t_eeca20d5b96e74 13,57-60,63-66,68-69,143,428-456,459-483,488-495,497-512,524-525,530,533,539-544,546-547
+  s_fcb7475e0b5395::t_e7811bdf61b4be 67,763
+  s_fcb7475e0b5395::t_27334c9168b5f1 457-458,484-487,496,513-523,526-529,531-532,534-538,545
+  s_fcb7475e0b5395::t_e699a7c3c27a83 548
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "6b50604cc1ff1e49ebc72ab520f2453df8f4c48e",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
