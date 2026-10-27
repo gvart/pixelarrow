@@ -8,9 +8,10 @@ import { keys } from '../input/keys';
 import { loadGlyphs } from '../view/hud/glyph';
 import { uiZoom } from '../view/hud/kit';
 import { worldRegion } from '../world/graph';
+import { ALLIANCES } from '../world/alliances';
 import { keptDevId } from '../net/session';
 import * as api from './api';
-import { allianceScreen, esc, homeScreen, readyScreen, signInScreen, squadScreen, titleScreen } from './screens';
+import { allianceScreen, destroyedScreen, esc, homeScreen, readyScreen, signInScreen, squadScreen, titleScreen } from './screens';
 import { openSettings, settingsOpen } from './settings';
 import { injectMenuCss } from './style';
 
@@ -114,11 +115,14 @@ function squad(v: api.StartView): void {
   }, () => home(v));
 }
 
+/** W-66: the army destroyed screen shows once a page load (Back goes on to the title). */
+let destroyedSeen = false;
 async function titleMenu(v: api.StartView): Promise<void> {
   wait('Mustering…');
-  let men = 0, where: string | null = null, name = '', favour: { level: number; title: string } | undefined;
+  let men = 0, where: string | null = null, name = '', favour: { level: number; title: string } | undefined, tunnel: api.TunnelInfo | undefined;
   try {
     const [r, me] = await Promise.all([api.roster(), api.call<{ player: { displayName: string } }>('GET', '/api/me')]);
+    tunnel = r.tunnel;
     const alive = r.persons.filter((p) => p.state !== 'dead');
     men = alive.length;
     // where his men stand (the region with most of them), else his home
@@ -131,6 +135,13 @@ async function titleMenu(v: api.StartView): Promise<void> {
     return fail(e, () => void route());
   }
   clear();
+  // W-66: his last man fell: the army destroyed screen first (the tunnel at home raises his men)
+  const homeTown = v.alliance !== null ? ALLIANCES[v.alliance].home : v.home;
+  if (tunnel && tunnel.alive === 0 && tunnel.pending > 0 && homeTown && !destroyedSeen) {
+    destroyedSeen = true;
+    destroyedScreen(stage, homeTown, tunnel, { watch: () => enterRegion(homeTown, v.alliance ?? 0), back: () => void titleMenu(v) });
+    return;
+  }
   titleScreen(stage, { name, alliance: v.alliance, home: v.home, men, where, favour }, {
     continue: () => enterRegion(where ?? v.home!, v.alliance ?? 0),
     world: openWorld,

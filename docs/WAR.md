@@ -890,6 +890,26 @@ full map; with men selected near one, a prompt names him (class, level, site, fa
 them, or reads "Army full 12/12"; right click or E on the soul gives the same claim order (greyed in the radial while
 the army is full).
 
+### Tunnel of Shades (W-66)
+
+A player whose men all fell is never soft-locked: every home town (the four alliance homes) has a Tunnel of Shades, a
+3 x 3 pre-built piece (`tunnel`, art `tunnel-of-shades`, its mouth on the +y face). Rules: `src/war/sim/tunnel.ts`;
+server: `server/src/war/raise.ts`, D1 `war_tunnel.next_at` (0048); view: `src/war/view/hud/tunnel.ts`, `src/war/view/tunnelLine.ts`.
+
+| Rule | Value |
+| --- | --- |
+| Floor | while he has fewer than 6 living men (what armyCount counts: every region, wounded and captive too), one rises at home every 10 min, up to 6; past 6 men come only from souls |
+| The man | level 1 in starter kit, the class of one of his latest fallen (of the start classes, else militia), plus his divine favour bonus (raiseBonus) |
+| Clock | starts on the first read below the floor; settled lazily on `GET /api/war/tunnel` { alive, floor, nextAt, pending }, the roster read and a region join (no live room needed); a compare-and-set on next_at and a capped insert keep racing reads to one man each |
+| No tunnel | before his first squad (a player who never had a man) |
+
+His last man fallen, the HUD shows "Your army is destroyed" (the shades of the fallen walk back through the tunnel,
+the time until the first man rises, a button home to watch it; the menu shows the same before the title). No reset.
+In the home town a line of shades stands before the mouth, one for each man to come, its far end fading into the
+dark; at each rise the front shade walks in, flashes and stands there as the man, and the line steps up. The countdown
+("Next shade rises in 7:42, 3/6") shows over the tunnel and as a pill at the top of the HUD. Offline the same rule runs
+on a local clock (his men on the map count; the raised man joins the map at the mouth), with a dev x60 button.
+
 ### Divine favour (W-66)
 
 The player is a demigod who leads mortals. His divine favour is per account and never resets with a season: it is

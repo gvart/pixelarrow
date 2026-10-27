@@ -14,7 +14,8 @@ import type { RegionState, WorldSnapshot } from '../net/world';
 import { icon, UNIT_ICON, uiZoom } from '../view/hud/kit';
 import { card, fx, term, termCard, val } from '../view/hud/codex';
 import { placeTip } from '../view/hud/kit';
-import { call, type StartView } from './api';
+import { call, type StartView, type TunnelInfo } from './api';
+import { clock, TUNNEL } from '../sim/tunnel';
 import { DIFFICULTY_NAME, HOME_LORE } from './homeLore';
 
 export const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -467,4 +468,26 @@ export function readyScreen(stage: HTMLElement, home: string, men: number, h: { 
   stage.querySelector<HTMLElement>('[data-k=world]')!.onclick = h.world;
   stage.onkeydown = arrows([...stage.querySelectorAll<HTMLElement>('.mn-big')], 1);
   stage.querySelector<HTMLElement>('[data-k=region]')!.focus();
+}
+
+// ------------------------------------------------------------------ W-66: the army destroyed
+
+/** His last man fell: the shades walk back through the Tunnel of Shades at home; the time until the first man rises. */
+export function destroyedScreen(stage: HTMLElement, home: string, t: TunnelInfo, h: { watch(): void; back(): void }): () => void {
+  const name = worldRegion(home)?.name ?? home;
+  stage.innerHTML = `<div class="rf-card mn-card" style="width:380px;text-align:center">
+    <div class="mn-h"><span class="rf-name">Your army is destroyed</span></div>
+    <div class="mn-sub" style="margin:0 0 10px;font-style:italic">The shades of your fallen walk back through the Tunnel of Shades in ${esc(name)}.</div>
+    <div style="margin-bottom:4px">The first man rises in <b data-k="t" style="color:#bfe0ff">${t.nextAt ? clock(t.nextAt - Date.now()) : '…'}</b></div>
+    <div class="rf-dim" style="font-size:11.5px;margin-bottom:12px">Until ${TUNNEL.floor} men stand again, one rises every ${TUNNEL.everyMs / 60_000} minutes. Past ${TUNNEL.floor}, men come only from souls.</div>
+    <button class="mn-big pri" data-k="watch">${icon('act-move', 24)}<div><div class="t">Watch the tunnel</div><div class="d">Go home to ${esc(name)}</div></div><kbd>Enter</kbd></button>
+    <button class="mn-big" data-k="back">${icon('act-cancel', 24)}<div><div class="t">Back</div></div></button>
+  </div>`;
+  const el = stage.querySelector<HTMLElement>('[data-k=t]')!;
+  const tick = setInterval(() => { if (t.nextAt) el.textContent = clock(t.nextAt - Date.now()); }, 500);
+  stage.querySelector<HTMLElement>('[data-k=watch]')!.onclick = () => (clearInterval(tick), h.watch());
+  stage.querySelector<HTMLElement>('[data-k=back]')!.onclick = () => (clearInterval(tick), h.back());
+  stage.onkeydown = arrows([...stage.querySelectorAll<HTMLElement>('.mn-big')], 1);
+  stage.querySelector<HTMLElement>('[data-k=watch]')!.focus();
+  return () => clearInterval(tick);
 }

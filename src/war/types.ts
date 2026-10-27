@@ -456,7 +456,9 @@ export type BuildingType =
   // M6a: a player's chest (1x1, owner-only, never feeds crafting)
   | 'chest'
   // M7a pre-built pieces (docs/WAR.md "Pre-built structures"; placed only by the region, rebuilt from ruins)
-  | 'house' | 'cottage' | 'tent' | 'temple' | 'shrine' | 'stoa' | 'statue' | 'well' | 'jetty' | 'warehouse' | 'board' | 'cache';
+  | 'house' | 'cottage' | 'tent' | 'temple' | 'shrine' | 'stoa' | 'statue' | 'well' | 'jetty' | 'warehouse' | 'board' | 'cache'
+  // W-66: the Tunnel of Shades in every home town (src/war/sim/tunnel.ts: the fallen walk back through it)
+  | 'tunnel';
 /** foundation: marked out, materials arriving; scaffold: labour under way (the footprint blocks); damaged: done below half hp. */
 export type BuildState = 'foundation' | 'scaffold' | 'done' | 'damaged' | 'destroyed';
 export type PlaceReason = 'bounds' | 'noBuild' | 'water' | 'rock' | 'blocked' | 'overlap' | 'influence' | 'slope' | 'node' | 'short' | 'attach' | 'span' | 'bank' | 'cost';

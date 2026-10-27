@@ -146,6 +146,13 @@ const SOLDIER_SCALE = 0.55;
 /** W-60: where the souls to draw come from (the HUD sets it: ./hud/souls.ts); none: no souls drawn. */
 let soulSource: (() => readonly SoulSnap[]) | null = null;
 export const setSoulSource = (f: (() => readonly SoulSnap[]) | null): void => void (soulSource = f);
+/**
+ * W-66: the Tunnel of Shades' line (./tunnelLine.ts) while the shades art is missing: ghosts drawn as souls are, each
+ * with its own alpha; `solid`: the man he becomes at the mouth (his class in plain colours, `flash` 0..1 a white burst).
+ */
+export interface ShadeGhost { id: number; cls: string; x: number; y: number; alpha: number; solid?: boolean; flash?: number }
+let shadeSource: (() => readonly ShadeGhost[]) | null = null;
+export const setShadeSource = (f: (() => readonly ShadeGhost[]) | null): void => void (shadeSource = f);
 
 /** Fetch and decode the class sheets (before the game starts: big ones are split, see buildSheet). */
 export async function loadSheetImages(onProgress?: (f: number) => void): Promise<Map<string, HTMLImageElement>> {
@@ -440,6 +447,26 @@ export class UnitLayer {
           .setScale(sheet.scale * (glow ? 1.14 : 1)).setDepth(depth + (glow ? -1e-5 : 0));
         if (glow) im.setBlendMode(Phaser.BlendModes.ADD).setTintFill(0x8fcaff).setAlpha(0.6 * pulse * fade);
         else im.setBlendMode(Phaser.BlendModes.NORMAL).setTint(0xe4f2ff).setAlpha(0.72 * fade);
+      }
+    }
+    // W-66: the tunnel's line of shades and the man rising at its mouth
+    for (const g of shadeSource?.() ?? []) {
+      const sheet = this.sheet(g.cls, now) ?? this.sheet('militia', now);
+      const clip = sheet?.frames.get('idle') ?? sheet?.frames.values().next().value;
+      if (!sheet || !clip) continue;
+      const q = sheet.rows[0], row = clip[q.row];
+      if (!row?.length) continue;
+      const [key, frame] = row[Math.floor(now / 180) % row.length];
+      const f = this.feet(g), bob = g.solid ? 0 : Math.sin(now / 600 + g.id) * 3, pulse = 0.75 + 0.25 * Math.sin(now / 400 + g.id);
+      const depth = Math.max(10 + this.depthOf(g.x, g.y) / 4096 + 0.24, this.ground?.(g) || 0);
+      for (const glow of [true, false]) {
+        let im = this.soulPool[n++];
+        if (!im) this.soulPool.push((im = this.scene.add.image(0, 0, key)));
+        im.setTexture(key, frame).setOrigin(q.ox, q.oy).setPosition(Math.round(f.x), Math.round(f.y - (g.solid ? 0 : 8) + bob)).setVisible(true)
+          .setScale(sheet.scale * (glow ? 1.14 + (g.flash ?? 0) * 0.3 : 1)).setDepth(depth + (glow ? -1e-5 : 0));
+        if (glow) im.setBlendMode(Phaser.BlendModes.ADD).setTintFill(g.solid ? 0xffffff : 0x8fcaff).setAlpha((g.solid ? (g.flash ?? 0) : 0.6 * pulse) * g.alpha);
+        else if (g.solid) im.setBlendMode(Phaser.BlendModes.NORMAL).setTint(0xffffff).setAlpha(g.alpha);
+        else im.setBlendMode(Phaser.BlendModes.NORMAL).setTint(0xe4f2ff).setAlpha(0.72 * g.alpha);
       }
     }
     for (let i = n; i < this.soulPool.length; i++) this.soulPool[i].setVisible(false);

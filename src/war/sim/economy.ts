@@ -127,6 +127,8 @@ export const BUILDINGS: Record<BuildingType, BuildingDef> = {
   warehouse: { w: 3, h: 2, hp: 1200, cost: { stone: 80, wood: 40 }, labour: 667, workers: 6, influence: 0, material: 'stone', store: true, prebuilt: true },
   board: { w: 1, h: 1, hp: 150, cost: { wood: 10 }, labour: 20, workers: 2, influence: 0, material: 'wood', burnable: true, prebuilt: true },
   cache: { w: 1, h: 1, hp: 100, cost: { wood: 5 }, labour: 10, workers: 2, influence: 0, material: 'wood', prebuilt: true, cache: 2 },
+  // W-66: the Tunnel of Shades (src/war/sim/tunnel.ts), 3x3, its mouth on the +y face
+  tunnel: { w: 3, h: 3, hp: 4000, cost: { stone: 200 }, labour: 2000, workers: 8, influence: 0, material: 'stone', prebuilt: true },
 };
 
 /** M7a: the team of the neutral regions' pre-built pieces (mobs never attack it, nobody uses it; its gates stand open). */
