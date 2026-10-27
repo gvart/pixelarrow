@@ -32,6 +32,7 @@ export type ToWorker =
   | { t: 'stock'; team: number; res: ResourceKind; n: number; at?: { x: number; y: number } }
   | { t: 'prebuild'; team: number; max: number } // scenarios: build the team's sites before play (max 0: just step)
   | { t: 'mobs' } // neutral play: spawn the region's lairs
+  | { t: 'roam' } // W-65: the region's roaming life
   | { t: 'lair'; kind: MobKind; x: number; y: number; count?: number } // W-62 the guide (offline): one weak lair on the new player's way
   | { t: 'hurtBoss'; boss: string; to: number; part?: number } // M7d dev and scenarios: a guardian (or its part: a head) down to a share of its hp
   | { t: 'soul'; x: number; y: number; cls: string; level?: number; site?: 'shrine' | 'ruin' | 'battlefield' | 'lair' } // W-60 dev and scenarios: a soul waits there
@@ -131,7 +132,7 @@ onmessage = (e: MessageEvent<ToWorker>) => {
     // the economy view (nodes, influence) rides on the next snapshot post, as the local sim's does
     const nodes = new Map<number, NodeSnap>();
     let nodesNew = false, infl: InfluenceMap | undefined, fog: FogGrid | undefined, stock: Snapshot['stock'], town: Snapshot['townLevels'];
-    let wild: Pick<Snapshot, 'lairs' | 'claims'> | undefined; // W-65: the lairs and claim points, kept on every snapshot
+    let wild: Pick<Snapshot, 'lairs' | 'claims' | 'roam'> | undefined; // W-65: the lairs and claim points, kept on every snapshot
     net = createNet(url, m.region.id, m.dev, (snap, stats) => {
       postMessage({ snap: stock || town || wild ? { ...snap, ...(stock ? { stock } : {}), ...(town ? { townLevels: town } : {}), ...wild } : snap, stats, nodes: nodesNew ? [...nodes.values()] : undefined, influence: infl, fog });
       nodesNew = false;
@@ -146,7 +147,7 @@ onmessage = (e: MessageEvent<ToWorker>) => {
       else if (server.t === 'fog') fog = decodeFog(server.team, server.w, server.h, server.cell, server.runs, server.v); // W-39: the shroud (the snapshot comes filtered)
       else if (server.t === 'stock') stock = { [server.team]: server.goods }; // W-60: the store his men stand next to only ({} away from every store)
       else if (server.t === 'town') town = server.town ? [server.town] : []; // W-61: his team's town level
-      else if (server.t === 'wild') wild = { lairs: server.lairs, claims: server.claims };
+      else if (server.t === 'wild') wild = { lairs: server.lairs, claims: server.claims, ...(server.roam ? { roam: server.roam } : {}) };
       else postMessage({ server });
     });
     return;
@@ -168,6 +169,7 @@ onmessage = (e: MessageEvent<ToWorker>) => {
   else if (m.t === 'claim') { build(sim)?.claim(m.team, m.x, m.y, m.r); }
   else if (m.t === 'stock') build(sim)?.addStock(m.team, m.res, m.n, m.at);
   else if (m.t === 'mobs') build(sim)?.spawnMobs();
+  else if (m.t === 'roam') build(sim)?.spawnRoam();
   else if (m.t === 'lair') build(sim)?.addLair({ kind: m.kind, x: m.x, y: m.y, count: m.count });
   else if (m.t === 'hurtBoss') {
     const b = build(sim), g = b?.snapshot().bosses?.find((x) => x.id === m.boss);

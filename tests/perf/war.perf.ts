@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 import type { ClassId } from '../../src/data/classes';
 import { CIV_CLASS_IDS } from '../../src/data/classes';
 import ridgeJson from '../../src/war/regions/test-ridge.json';
+import kimmeriaJson from '../../src/war/regions/kimmeria.json';
 import { parseRegion } from '../../src/war/region/schema';
 import { createSim } from '../../src/war/sim';
 import { warStatsOf } from '../../src/war/sim/classes';
@@ -15,6 +16,8 @@ import type { RegionData, WarBuildSim } from '../../src/war/types';
 import { flat } from '../war/flatRegion';
 
 const REPEATS = 5;
+/** Node's CPU clock (no @types/node here). */
+declare const process: { cpuUsage(prev?: { user: number; system: number }): { user: number; system: number } };
 
 const median = (xs: number[]) => {
   const s = [...xs].sort((a, b) => a - b);
@@ -117,5 +120,37 @@ describe('war sim budgets', () => {
       return sim;
     };
     expect(measure('bridge builders step', () => stepMs(setup(), 2500, 0))).toBeLessThan(2);
+  });
+  it('W-65 roaming life on a depth-2 region, every group awake: < 0.5 ms more a step', () => {
+    const region = parseRegion(kimmeriaJson) as RegionData;
+    // where each group stands at the start: a player's squad by every one, so none sleeps (the worst case)
+    const probe = createSim(region, 3);
+    probe.spawnMobs();
+    probe.spawnRoam();
+    const ps = probe.snapshot(), at = (ps.roam ?? []).map((g) => ps.units.find((u) => u.squad === g.squads[0])!);
+    const setup = (roam: boolean) => () => {
+      const sim = createSim(region, 3);
+      sim.spawnMobs();
+      if (roam) sim.spawnRoam();
+      at.forEach((u, i) => sim.spawnSquad(`p:${i}`, 0, 'hoplite', 12, u.x + 30, u.y + 30));
+      run(sim, 100);
+      return sim;
+    };
+    // CPU time of this process (not wall time: the budget holds on a busy machine too), the least of a few runs
+    const cpuMs = (sim: WarBuildSim, ticks: number) => {
+      const t0 = process.cpuUsage();
+      run(sim, ticks);
+      const d = process.cpuUsage(t0);
+      return (d.user + d.system) / 1000 / ticks;
+    };
+    const least = (name: string, f: () => number) => {
+      const xs = Array.from({ length: 3 }, f), m = Math.min(...xs);
+      console.log(`${name}: least ${m.toFixed(3)} ms  [${xs.map((x) => x.toFixed(3)).join(', ')}]`);
+      return m;
+    };
+    const off = least('kimmeria without roaming life', () => cpuMs(setup(false)(), 2000));
+    const on = least('kimmeria with roaming life', () => cpuMs(setup(true)(), 2000));
+    console.log(`roaming life adds ${(on - off).toFixed(3)} ms a step`);
+    expect(on - off).toBeLessThan(0.5);
   });
 });

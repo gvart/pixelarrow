@@ -9,7 +9,7 @@
  * buildings as last seen; lairs, claim points and resource badges show once their ground is explored.
  */
 import { MOB_TEAM } from '../../sim/mobs';
-import type { BuildingSnap, FogGrid } from '../../types';
+import type { BuildingSnap, FogGrid, RoamSnap } from '../../types';
 import type { SandboxScene } from '../SandboxScene';
 import { hex, TEAM_RGB } from '../mapModes';
 import { BUILDING_ICON, UI } from './kit';
@@ -163,6 +163,9 @@ function badge(g: CanvasRenderingContext2D, x: number, y: number, r: number, rin
   g.lineWidth = 0.8 * m; g.strokeStyle = INK; g.stroke();
 }
 
+/** W-65: map dot colours of the roaming groups by kind (the full map's key shows them too). */
+export const ROAM_DOT: Record<RoamSnap['kind'], string> = { pack: '#d9a441', patrol: '#d0503c', caravan: '#f3dc8a', traveller: '#b9c7d6' };
+
 /** A squad: a round shield in the team colour with a cream rim; selected ones get a halo. */
 function shield(g: CanvasRenderingContext2D, x: number, y: number, r: number, colour: string, sel: boolean, m: number): void {
   if (sel) { g.beginPath(); g.arc(x, y, r + 2.4 * m, 0, Math.PI * 2); g.fillStyle = 'rgba(255,240,200,0.55)'; g.fill(); }
@@ -243,17 +246,29 @@ export function drawMap(g: CanvasRenderingContext2D, s: SandboxScene, f: MapXf, 
     g.beginPath(); g.moveTo(x - r * 0.42, y + r * 0.55); g.quadraticCurveTo(x, y - r * 0.4, x + r * 0.42, y + r * 0.55); g.closePath(); g.fill();
     g.globalAlpha = 1;
   }
+  // W-65: roaming groups (src/war/sim/roam.ts) by squad: a small dot by kind where seen (the fog already hid the rest)
+  const roam = new Map<number, string>();
+  for (const r of s.sim.cur?.roam ?? []) for (const id of r.squads) roam.set(id, ROAM_DOT[r.kind]);
   // men (zoomed in), then the squads
   if (full && f.k >= 2 * m) for (const d of s.drawn) {
-    if (d.u.state === 'dead' || d.team === MOB_TEAM) continue;
+    if (d.u.state === 'dead' || d.team === MOB_TEAM || roam.has(d.u.squad)) continue;
     const [x, y] = P(d.x, d.y);
     g.fillStyle = TEAM[slot(d.team)] ?? '#ccc';
     g.fillRect(x - 0.6 * m, y - 0.6 * m, 1.2 * m, 1.2 * m);
   }
-  for (const q of squads(s)) {
-    if (q.team === MOB_TEAM) continue; // the lair marks them
+  const seen = squads(s);
+  for (const q of seen) {
+    if (q.team === MOB_TEAM || roam.has(q.id)) continue; // the lair marks the wild's packs; roaming groups below
     const [x, y] = P(q.x, q.y);
     shield(g, x, y, (full ? 4.5 : 3.4) * m, TEAM[slot(q.team)] ?? '#ccc', s.selected.has(q.id), m);
+  }
+  // roaming groups over the squads: a small dot in the kind's colour
+  for (const q of seen) {
+    const dot = roam.get(q.id);
+    if (!dot) continue;
+    const [x, y] = P(q.x, q.y), r = (full ? 3.4 : 2.4) * m;
+    g.beginPath(); g.arc(x, y, r + 1 * m, 0, Math.PI * 2); g.fillStyle = INK; g.fill();
+    g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fillStyle = dot; g.fill();
   }
   // the camera's view
   poly(frustum(s).map((p) => P(p.x, p.y)));

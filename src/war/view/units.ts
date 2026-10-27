@@ -28,6 +28,7 @@ import { myTeam, slot } from './side';
 import { DYE_GLSL, RED_W_GLSL, lookCode, lookHero, lookHeroesVersion, lookOf, type Look } from './look';
 import { TEAM_INT } from '../world/palette';
 import { LOOK, addLookPipeline } from './lookShader';
+import { NEUTRAL_TEAM } from '../sim/economy';
 
 /** Each team's marker colour (rings, outlines, flags): its alliance's, as the world map draws it. */
 export const TEAM_COLOR = TEAM_INT;
@@ -532,7 +533,7 @@ export class UnitLayer {
         img.setPipeline(LOOK).setTint(code.tint).setAlpha(1);
         img.tintFill = code.fx as unknown as boolean; // the look's tint effect (lookCode), passed through to the shader as is
       } else {
-        const dye = TEAM_DYE[slot(d.team) & 3];
+        const dye = d.team === NEUTRAL_TEAM ? null : TEAM_DYE[slot(d.team) & 3]; // W-65: roaming folk wear their own colours
         if (this.swap && dye) img.setPipeline(dye);
         else if (this.swap) img.resetPipeline();
         img.setTint(TEAM_TINT[slot(d.team)] ?? 0xffffff).setAlpha(1);

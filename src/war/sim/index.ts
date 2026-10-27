@@ -50,6 +50,7 @@ import { BOG, buildGrid, canEnter, DECK, findPath, flushSectors, FOREST, lineCle
 import { createWorks, type Worker } from './works';
 import { createSiege, LADDER } from './siege';
 import { createMobs, MOB_OWNER, MOB_TEAM, mobClass } from './mobs';
+import { createRoam, ROAM_OWNER } from './roam';
 import { BOSS, createBosses } from './bosses';
 import { createVision } from './vision';
 import { CAPTURE_R, gainXp, SQUAD_MAX, XP } from './soldiers';
@@ -67,7 +68,7 @@ import { CHEST, NEUTRAL_TEAM } from './economy';
 import { BLESS, createTowns } from './prebuilt';
 import { createLandmarks } from './landmarks';
 import { CART_FORD, CART_UPHILL } from './grid';
-import { amount as amountOf, itemList, loads, move as moveHold, newHold, perLoad, take as takeHold, totals, type Hold, type Lot } from './holders';
+import { amount as amountOf, itemList, loads, move as moveHold, newHold, perLoad, putLots, take as takeHold, totals, type Hold, type Lot } from './holders';
 import { addDeeds, DEED, plainDeed, SCARS_MAX, slayerDeed } from './deeds';
 import { CART, CLAIM_TICKS, createPiles, ESCORT, inRect, PILE, PORTER, SAFE } from './trade';
 import { CRAFT, itemRecipe } from './crafting';
@@ -303,6 +304,10 @@ interface Squad {
   salv: { pile: number; uid: string; t: number } | null;
   // W-60: the soul it is ordered to claim (./souls.ts), -1 none
   soul: number;
+  // W-65 (./roam.ts): roaming folk (NEUTRAL_TEAM): players' men and theirs do not take each other on unless angry (bit per
+  // team that attacked it)
+  meek: boolean;
+  angry: number;
 }
 /** M5f: the orders a civilian squad takes (work orders only). */
 const CIV_ORDERS = new Set<Order['kind']>(['move', 'hold', 'stop', 'formation', 'gather', 'build', 'civWork', 'detach', 'merge', 'stopWork', 'placeBuilding', 'placeWall', 'placeBridge', 'upgrade', 'buildSiege', 'load', 'unload', 'salvagePile', 'crew', 'uncrew']);
@@ -526,14 +531,15 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       return a >= 0 && grid.height[b] > grid.height[a] ? k * CART_UPHILL : k;
     },
     foeNear(team, x, y, r) {
-      for (const u of units) if (u.alive && u.squad.team !== team && u.squad.team !== MOB_TEAM && !u.civ && (u.x - x) ** 2 + (u.y - y) ** 2 <= r * r) return true;
+      if (team === NEUTRAL_TEAM) return false; // W-65: a caravan's wagon halts on its own (./roam.ts)
+      for (const u of units) if (u.alive && u.squad.team !== team && u.squad.team !== MOB_TEAM && !u.civ && !u.squad.meek && (u.x - x) ** 2 + (u.y - y) ** 2 <= r * r) return true;
       return false;
     },
     taker(e) {
       if (inSafe(e.x, e.y)) return null; // M6d: no capture in a safe zone
       let by: Unit | null = null;
       for (const u of units) {
-        if (!u.alive || u.squad.team === MOB_TEAM) continue;
+        if (!u.alive || u.squad.team === MOB_TEAM || (u.squad.meek && u.squad.team !== e.team)) continue; // W-65: roaming folk take no carts
         const d = (u.x - e.x) ** 2 + (u.y - e.y) ** 2;
         if (u.squad.team === e.team && d <= CART.guard * CART.guard) return null;
         if (u.squad.team !== e.team && d <= CART.beside * CART.beside && (!by || u.id < by.id)) by = u;
@@ -668,6 +674,49 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     h: grid.h,
     mobTeam: MOB_TEAM,
     neutralTeam: NEUTRAL_TEAM,
+  });
+
+  // W-65: the region's roaming life (./roam.ts): packs, bandit patrols, caravans and travellers on the sim's own orders
+  const roam = createRoam(region, seed, {
+    squads,
+    spawn: (team, owner, cls, count, x, y, k) => {
+      const id = api.spawnSquad(owner, team, cls, count, x, y);
+      if (id >= 0 && (k.hp !== 1 || k.dmg !== 1))
+        for (const u of squads[id].units) (u.st = { ...u.st, maxHp: u.st.maxHp * k.hp, dmg: u.st.dmg * k.dmg, rangedDmg: u.st.rangedDmg * k.dmg }), (u.maxHp = u.hp = u.st.maxHp);
+      return id;
+    },
+    order: (o) => apply(o),
+    arrived: (id) => !squads[id].goal && squads[id].pi >= squads[id].path.length / 2,
+    route: (cart, x0, y0, x1, y1) => {
+      grid.team = NEUTRAL_TEAM;
+      grid.engine = grid.cart = cart;
+      const p = cornerPath(x0, y0, x1, y1);
+      grid.engine = grid.cart = false;
+      return p;
+    },
+    open: (x, y) => openPoint(x, y),
+    cart: (x, y, goods) => {
+      const id = siege.cart(NEUTRAL_TEAM, ROAM_OWNER, 'wagon', x, y);
+      putLots(siege.get(id)!.hold!, goods.map(([r, n]) => ({ r, n, o: region.id })));
+      return id;
+    },
+    cartAt: (id) => {
+      const e = siege.get(id);
+      return e ? { x: e.x, y: e.y, team: e.team, alive: siege.alive(id), moving: !!e.goal } : null;
+    },
+    pay: (owner, team, x, y, coin) => {
+      let best: Squad | null = null;
+      for (const q of squads) if (q.owner === owner && q.team === team && q.alive > 0 && (!best || dist2(q, { cx: x, cy: y }) < dist2(best, { cx: x, cy: y }))) best = q;
+      const [px, py] = best ? openPoint(best.cx + 1, best.cy + 1) : [x, y];
+      piles.drop(px, py, [{ r: 'coin', n: coin, o: region.id }], [], tick, 0, { owner, name: 'Caravan pay', until: tick + CLAIM_TICKS });
+    },
+    fightNear: (x, y, r) => {
+      for (const u of units) if (u.alive && u.fighting && (u.x - x) ** 2 + (u.y - y) ** 2 <= r * r) return [u.x, u.y];
+      return null;
+    },
+    note: (e) => note({ t: tick, ...e }),
+    w: grid.w,
+    h: grid.h,
   });
 
   // M7a: the region's pre-built pieces and their functions (./prebuilt.ts)
@@ -1097,6 +1146,9 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     }
     // M6d: no attack, fire or capture on what stands in a safe zone
     if (o.kind === 'attack' && squads[o.target] && inSafe(squads[o.target].cx, squads[o.target].cy)) return;
+    // W-65: attacking roaming folk (or their wagon) sets the whole group against the attacker's team
+    if (o.kind === 'attack' && squads[o.target]?.meek) roam.provoke(s.team, o.target, null);
+    if ((o.kind === 'attackBuilding' || o.kind === 'ignite') && o.siege !== undefined) roam.provoke(s.team, null, o.siege);
     if ((o.kind === 'attackBuilding' || o.kind === 'ignite') && (o.building !== undefined ? safeBuilding(o.building) : o.siege !== undefined && !!siege.get(o.siege) && inSafe(siege.get(o.siege)!.x, siege.get(o.siege)!.y))) return;
     if (o.kind === 'load' || o.kind === 'unload' || o.kind === 'escort' || o.kind === 'salvagePile') return tradeOrder(s, o);
     if (o.kind !== 'formation' && o.kind !== 'detach') (s.xfer = null), (s.escort = -1), (s.salv = null);
@@ -1437,13 +1489,19 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     }
   };
 
+  /**
+   * W-65: a player's squad and roaming folk (meek) are no foes of each other until the folk are angry at that team (it
+   * attacked them) or the squad is ordered at them; the wild (MOB_TEAM) takes on everyone as ever.
+   */
+  const calmPair = (s: Squad, o: Squad) =>
+    (o.meek && s.team !== MOB_TEAM && !((o.angry >> s.team) & 1) && !(s.order === 'attack' && s.target === o.id)) || (s.meek && o.team !== MOB_TEAM && !((s.angry >> o.team) & 1));
   const scanNear = () => {
     for (const s of squads) {
       s.near = [];
       if (s.alive === 0) continue;
       // by its centre or its anchor (a squad strung out, some men stuck far behind, still sees the foe its anchor reached)
       for (const o of squads)
-        if (o.team !== s.team && o.alive > 0 && (dist2(s, o) < NEAR * NEAR || (s.ax - o.cx) ** 2 + (s.ay - o.cy) ** 2 < NEAR * NEAR)) s.near.push(o);
+        if (o.team !== s.team && o.alive > 0 && (dist2(s, o) < NEAR * NEAR || (s.ax - o.cx) ** 2 + (s.ay - o.cy) ** 2 < NEAR * NEAR) && !calmPair(s, o)) s.near.push(o);
     }
   };
 
@@ -1866,7 +1924,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     reslotQueue.add(t.squad);
     if (by) by.kills++;
     note({ t: tick, kind: 'fall', unit: t.id, by: by?.id ?? -1, wounded: t.wounded });
-    if (t.squad.team !== MOB_TEAM && !t.civ) souls.fell(t.x, t.y, t.cls); // W-60: where many fall, souls wake
+    if (t.squad.team !== MOB_TEAM && t.squad.team !== NEUTRAL_TEAM && !t.civ) souls.fell(t.x, t.y, t.cls); // W-65: nor where roaming folk fall // W-60: where many fall, souls wake
     // M6c (docs/WAR.md "Loot piles"): what he carried goes to a pile; the killed leave their worn kit too, worn by PILE.wear
     const lots: Lot[] = t.pack ? t.pack.lots.filter((l) => l.n > 1e-9) : [];
     if (t.carry && t.load > 0 && t.wfor < 0) lots.push({ r: t.carry, n: t.load, o: region.id });
@@ -2256,7 +2314,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
         // captive: no friendly within CAPTURE_R, the nearest foe soldier within it takes him
         let friend = false, bd = CAPTURE_R * CAPTURE_R;
         for (const o of units) {
-          if (!o.alive || o.squad.team === MOB_TEAM) continue;
+          if (!o.alive || o.squad.team === MOB_TEAM || o.squad.team === NEUTRAL_TEAM) continue; // W-65: roaming folk take no captives
           const d2 = (o.x - u.x) ** 2 + (o.y - u.y) ** 2;
           if (d2 > CAPTURE_R * CAPTURE_R) continue;
           if (o.squad.team === team) {
@@ -2634,8 +2692,9 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
   };
   /** Living civilians of the team, and the most it may field: CIV_QUOTA split evenly between the teams present. */
   const civRoom = (team: number) => {
+    if (team === NEUTRAL_TEAM) return CIV_QUOTA; // W-65: roaming folk are no team's civilians
     const teams = new Set([team]);
-    for (const q of squads) if (q.team !== MOB_TEAM && q.alive > 0) teams.add(q.team);
+    for (const q of squads) if (q.team !== MOB_TEAM && q.team !== NEUTRAL_TEAM && q.alive > 0) teams.add(q.team);
     let n = siege.carts({ team }); // M6b: carts are in the civilian quota
     for (const u of civs) if (u.alive && u.squad.team === team) n++;
     return Math.floor(CIV_QUOTA / teams.size) + towns.population(team).cap - n; // M7a: a town's houses feed more
@@ -2927,6 +2986,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     if (tick % HUNGER.every === 0) hungerTick();
     souls.tick(tick);
     mobs.tick(tick);
+    roam.tick(tick);
     bosses.tick(tick);
     towns.tick(tick);
     townLv.tick(tick);
@@ -3186,7 +3246,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
   const saveRoot = () => ({
     grid, rng, squads, units, queue, pathQueue, unitPathQueue, missiles, shots, reslotQueue, tick, loot, log, civs, dresser, souls: souls.saveRoot(),
     crafting: crafting.saveRoot(), works: works.saveRoot(), siege: siege.saveRoot(), mobs: mobs.saveRoot(), vision: vision.saveRoot(), piles: piles.saveRoot(),
-    towns: towns.saveRoot(), bosses: bosses.saveRoot(), landmarks: landmarks.saveRoot(),
+    towns: towns.saveRoot(), bosses: bosses.saveRoot(), landmarks: landmarks.saveRoot(), roam: roam.saveRoot(),
     townLv: townLv.saveRoot(), bonuses, labourLog, slain,
   });
 
@@ -3215,6 +3275,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       bosses.loadRoot(r.bosses);
       if (r.landmarks) landmarks.loadRoot(r.landmarks);
       if (r.souls) souls.loadRoot(r.souls);
+      if (r.roam) roam.loadRoot(r.roam);
     },
     dropPersons(ids) {
       // a resumed region whose save predates a fight write-back: men D1 has already sent home leave without a report
@@ -3281,7 +3342,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
         act: null, actWil: 5, actReady: 0, actUntil: -1, out: 1, inn: 1, amx: ax, amy: ay,
         civ: ps ? ps.every((p) => isCivClass(p.hero.cls)) : isCivClass(cls), flee: false, calm: 0, resume: null, work: -1, fedUntil: -1,
         fedInn: 1, fedMelee: 0, fedMissile: 0, fedAcc: 0, fedHeal: 1, dish: null, bandages: 0, theriacUntil: -1,
-        xfer: null, escort: -1, laden: false, salv: null, soul: -1,
+        xfer: null, escort: -1, laden: false, salv: null, soul: -1, meek: team === NEUTRAL_TEAM, angry: 0,
       };
       grid.team = team;
       squads.push(s);
@@ -3367,6 +3428,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
         ...(region.prebuilt?.length ? { towns: towns.towns() } : {}),
         ...(landmarks.any() ? { landmark: landmarks.snap() } : {}),
         ...(souls.any() ? { souls: souls.snaps(tick) } : {}),
+        ...(roam.any() ? { roam: roam.snaps() } : {}),
         ...((tl) => (tl.length ? { townLevels: tl } : {}))(townLv.snaps()),
         ...(crafting.supplies.size ? { supplies: crafting.suppliesSnap() } : {}),
         ...(piles.piles.length ? { piles: piles.piles.map((p) => ({ id: p.id, x: p.x, y: p.y, goods: totals(p.hold), items: p.hold.items.length, ...(p.hold.items.length ? { list: itemList(p.hold) } : {}), loads: loads(p.hold), left: p.until - tick, ...(p.salv > 0 ? { salvage: p.salv / PILE.salvage } : {}), ...(p.claim && p.claim.until > tick ? { claim: { owner: p.claim.owner, name: p.claim.name, left: p.claim.until - tick } } : {}) })) } : {}),
@@ -3391,6 +3453,8 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     },
     spawnMobs: () => (mobs.spawn(), bosses.spawn()),
     addLair: (d) => mobs.add(d),
+    spawnRoam: () => roam.spawn(),
+    addRoamer: (d) => roam.add(d),
     spawnGuardians: () => bosses.spawn(),
     wakeGuardians: (k) => (bosses.spawn(), bosses.wake(k)),
     setSoulStorm: (k) => souls.setStorm(k),

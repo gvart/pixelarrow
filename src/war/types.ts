@@ -301,6 +301,8 @@ export interface Snapshot {
   /** Neutral lairs (after spawnMobs) and region claim points. */
   lairs?: LairSnap[];
   claims?: ClaimSnap[];
+  /** W-65: the roaming groups (src/war/sim/roam.ts), once any. */
+  roam?: RoamSnap[];
   /** M6c: loot piles on the field. */
   piles?: PileSnap[];
   /** M7a: towns of pre-built pieces (grouped by claim point). */
@@ -377,6 +379,16 @@ export interface WardenSnap { x: number; y: number; w: number; h: number; in: nu
  * healing), flee (a herd), cleared (respawnIn: ticks until it may come back while its area is unclaimed). aggro, leash,
  * guard: radii in tiles (guard 0: a herd, it locks no nodes); nodes: resource nodes it locks while it lives.
  */
+/**
+ * W-65: a roaming group (src/war/sim/roam.ts): its kind, squads (a caravan: driver, then guards), wagon, what it does;
+ * a pack's beast kind; pilgrims are travellers deep in.
+ */
+export interface RoamSnap {
+  id: number; kind: 'pack' | 'patrol' | 'caravan' | 'traveller'; squads: SquadId[]; state: string;
+  mob?: MobKind; cart?: number; pilgrim?: true;
+  /** No player's man near: it holds and does not think (cheap). */
+  asleep?: true;
+}
 export interface LairSnap {
   id: number; kind: MobKind; x: number; y: number; squad: SquadId; alive: number; count: number;
   /** M7c: a bandit host's captain lair (claim opens once he falls), its captain alive. */
@@ -574,6 +586,10 @@ export interface WarBuildSim extends WarSim {
   spawnCart(team: number, owner: string, type: 'handcart' | 'wagon', x: number, y: number, crew?: number): number;
   /** Spawn the region's lairs (neutral play; once). */
   spawnMobs(): void;
+  /** W-65 (src/war/sim/roam.ts): start the region's roaming life (packs, patrols, caravans, travellers by depth; once). */
+  spawnRoam(): void;
+  /** W-65: one roaming group on the given road (tests, tools); its id. */
+  addRoamer(d: import('./sim/roam').RoamDef): number;
   /** W-62 (src/war/sim/mobs.ts add): one more lair spawned now, outside any claim zone, never back once cleared (the guide's early win); its lair id. */
   addLair(d: { kind: MobKind; x: number; y: number; count?: number }): number;
   /** M7a (src/war/sim/prebuilt.ts): the region's towns; a team's recruit pool (an hour) and cap from its houses; its favour and prestige (score an hour, capped); the upkeep multiplier of its squad resting at (x,y) (a well near). */
@@ -753,4 +769,7 @@ export type WarEvent =
   | { t: number; kind: 'soulClaimed'; soul: number; squad: SquadId; owner: string; unit: UnitId; person: WarPerson }
   | { t: number; kind: 'soulRefused'; soul: number; squad: SquadId; owner: string; have: number }
   | { t: number; kind: 'soulLost'; soul: number; team: number }
-  | { t: number; kind: 'soulFaded'; soul: number };
+  | { t: number; kind: 'soulFaded'; soul: number }
+  // W-65 roaming life (src/war/sim/roam.ts): a caravan arrived and paid `owner` for his escort; one was robbed by `by`
+  | { t: number; kind: 'caravanPaid'; owner: string; team: number; coin: number; x: number; y: number }
+  | { t: number; kind: 'caravanRobbed'; caravan: number; by: number };

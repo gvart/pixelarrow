@@ -30,7 +30,7 @@
  *                    army is full)
  *   server -> nodes | influence | stock | fog                 the economy view (./economy.ts): resource nodes his team
  *                    sees (changes only), his team's influence mask (RLE, on change), his team's stockpile (on change)
- *   server -> wild                                          W-65: the region's lairs and claim points (on change)
+ *   server -> wild                                          W-65: the region's lairs, claim points and roaming groups (on change)
  *   server -> binary frame                                   (snapshot delta or keyframe)
  */
 import { z } from 'zod';
@@ -248,7 +248,7 @@ export type ServerMsg =
    * W-65: the region's neutral state (Snapshot.lairs and claims: authored places, their state and squad ids), on join
    * and when it changed (checked every WILD_EVERY ticks). The live view drew no lair, claim banner or map mark without it.
    */
-  | { t: 'wild'; lairs: import('../types').LairSnap[]; claims: import('../types').ClaimSnap[] }
+  | { t: 'wild'; lairs: import('../types').LairSnap[]; claims: import('../types').ClaimSnap[]; roam?: import('../types').RoamSnap[] }
   /**
    * W-60: a soul his squad went for: claimed (the new man's person id, class, level and name), refused (his army is full:
    * `have` men across all regions, ARMY_MAX at most).

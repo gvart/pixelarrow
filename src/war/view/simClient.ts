@@ -209,6 +209,11 @@ export class SimClient {
     this.send({ t: 'mobs' });
   }
 
+  /** W-65: start the region's roaming life. */
+  spawnRoam(): void {
+    this.send({ t: 'roam' });
+  }
+
   /** W-62 the guide (offline): one weak lair at (x,y) that never comes back (../sim/mobs.ts add). */
   addLair(kind: MobKind, x: number, y: number, count?: number): void {
     this.send({ t: 'lair', kind, x, y, count });

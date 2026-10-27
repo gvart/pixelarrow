@@ -21,6 +21,8 @@ export interface ScenarioHost {
   finishBridges(team: number): void;
   spawnCart(team: number, owner: string, type: 'handcart' | 'wagon', x: number, y: number): void;
   spawnMobs(): void;
+  /** W-65: start the region's roaming life (src/war/sim/roam.ts). */
+  spawnRoam?(): void;
   hurtBossTo(boss: string, to: number): void;
   /** W-60: a soul at (x,y); a squad's men at this satiety. */
   spawnSoul(x: number, y: number, cls: string, level?: number, site?: 'shrine' | 'ruin' | 'battlefield' | 'lair'): void;
@@ -82,6 +84,7 @@ export const playerTeam = (sc: Scenario): number => sc.team ?? 0;
 export function applyScenario(h: ScenarioHost, sc: Scenario, around?: (q: ScenarioSquad, spawn: () => void) => void): void {
   const e = sc.economy, me = playerTeam(sc);
   if (sc.neutral) h.spawnMobs();
+  if (sc.roam) h.spawnRoam?.();
   for (const c of e?.claims ?? []) h.claim(c.team, c.x, c.y, c.r);
   for (const [r, n] of Object.entries(e?.stock ?? {})) h.addStock(me, r as ResourceKind, n);
   for (const [r, n] of Object.entries(e?.foeStock ?? {})) h.addStock(1, r as ResourceKind, n);
@@ -187,6 +190,7 @@ export function headlessHost(sim: WarBuildSim, bots: Bots, cap = Infinity): Scen
     finishBridges: (team) => sim.finishBridges(team),
     spawnCart: (team, owner, type, x, y) => void sim.spawnCart(team, owner, type, x, y),
     spawnMobs: () => sim.spawnMobs(),
+    spawnRoam: () => sim.spawnRoam(),
     hurtBossTo: (boss, to) => hurtBossTo(sim, boss, to),
     spawnSoul: (x, y, cls, level, site) => void sim.spawnSoul(x, y, cls, level, site),
     hunger: (squad, sat) => sim.setSatiety(sim.snapshot().squads[squad]?.units ?? [], sat),
