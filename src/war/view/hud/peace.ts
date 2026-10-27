@@ -117,7 +117,14 @@ export function mountPeace(s: SandboxScene, mk: Mk): void {
       badge.innerHTML = host.badge();
       tcard.style.display = open ? '' : 'none';
       tcard.style.width = '336px';
-      if (open) tcard.innerHTML = host.card();
+      if (open) {
+        // fits the window (the terms form makes it long): scrolls inside, keeps its place, the form's send in view
+        const top = tcard.scrollTop, had = !!tcard.querySelector('[data-sa="send-terms"]');
+        tcard.innerHTML = host.card();
+        fitHeight(tcard);
+        tcard.scrollTop = top;
+        if (!had) tcard.querySelector('[data-sa="send-terms"]')?.scrollIntoView({ block: 'nearest' });
+      }
       return;
     }
     tcard.style.width = '316px';
@@ -128,7 +135,7 @@ export function mountPeace(s: SandboxScene, mk: Mk): void {
     badge.classList.toggle('on', open);
     if (t) badge.innerHTML = townBadge(t);
     tcard.style.display = open && t ? '' : 'none';
-    if (open) tcard.innerHTML = townCard(t);
+    if (open) (tcard.innerHTML = townCard(t)), fitHeight(tcard);
   };
   setInterval(draw, 500);
   tcard.addEventListener('click', (e) => { settleHosts.get(s)?.click(e); key = ''; draw(); });
