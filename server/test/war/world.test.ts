@@ -430,7 +430,7 @@ describe('WarWorldDO', () => {
     b.ws.close(1000);
   });
 
-  it('region joins check the alliance: none, the wrong team or a foreign home are refused', async () => {
+  it('region joins check the alliance: none or a foreign home are refused; the team is his alliance', async () => {
     const me = await devLogin(7504);
     await api('/api/war/dev/seed', { method: 'POST', token: me.token, json: {} });
     const ids = (await env.DB!.prepare("SELECT id FROM war_persons WHERE player_id = ?1 AND state = 'active' ORDER BY slot LIMIT 12").bind(me.playerId).all<{ id: string }>()).results.map((r) => r.id);
@@ -443,9 +443,9 @@ describe('WarWorldDO', () => {
     };
     expect(await tryJoin('dodona', 0)).toMatchObject({ t: 'refused', reason: 'team', detail: 'join an alliance first' });
     await api('/api/war/world/dev/alliance', { method: 'POST', token: me.token, json: { alliance: 1 } });
-    expect(await tryJoin('skythia', 0)).toMatchObject({ t: 'refused', reason: 'team' });
     expect(await tryJoin('dodona', 1)).toMatchObject({ t: 'refused', reason: 'region' });
-    expect(await tryJoin('skythia', 1)).toMatchObject({ t: 'welcome' });
+    // W-63: the client's team is not asked: he serves his alliance (or a settlement's banner)
+    expect(await tryJoin('skythia', 0)).toMatchObject({ t: 'welcome', you: { team: 1 } });
   });
 
   it('alliance join: a clan is a sub-group of one alliance', async () => {
