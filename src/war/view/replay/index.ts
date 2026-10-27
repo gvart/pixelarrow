@@ -134,7 +134,7 @@ export function mountReplay(s: SandboxScene, mk: Mk): Replay {
   document.body.appendChild(pad);
   const top = mk('rpTop', 'left:50%;top:6px;transform:translateX(-50%);display:none;z-index:5');
   top.classList.add('rp', 'rf-label', 'rp-top');
-  const bar = mk('rpBar', 'left:50%;bottom:6px;transform:translateX(-50%);width:660px;max-width:calc(100vw - 16px);pointer-events:auto;display:none;z-index:5');
+  const bar = mk('rpBar', 'left:50%;bottom:6px;transform:translateX(-50%);width:720px;max-width:calc(100vw - 16px);pointer-events:auto;display:none;z-index:5');
   bar.classList.add('rp');
   top.classList.add('rp');
   toast.classList.add('rp');
@@ -281,7 +281,7 @@ export function mountReplay(s: SandboxScene, mk: Mk): Replay {
     bar.querySelectorAll<HTMLElement>('[data-rate]').forEach((b) => b.classList.toggle('on', Number(b.dataset.rate) === p.rate));
     const d = follow >= 0 ? s.drawn.find((x) => x.u.id === follow) : null;
     fol.classList.toggle('on', !!d);
-    folName.textContent = d ? manName(d.u.cls, d.u.state) : 'Click a man';
+    folName.textContent = d ? manName(d.u.cls, d.u.state) : 'Click to follow';
     for (const b of bar.querySelectorAll<HTMLButtonElement>('[data-act=back],[data-act=fwd],[data-act=play],[data-act=in],[data-act=out]')) b.disabled = !!rec;
     $('[data-act=clip]').classList.toggle('on', !!rec);
     html($('[data-act=clip]'), rec ? `${G.stop} Stop` : `${G.clip} Clip`);
@@ -289,7 +289,7 @@ export function mountReplay(s: SandboxScene, mk: Mk): Replay {
     const behind = mmss(buf.last - p.t);
     html(top, rec
       ? `<span class="tag"><i></i>REC</span><span>${mmss(p.t - inPt)} / ${mmss(recEnd - inPt)}</span><span class="rf-dim">the HUD is left out</span>`
-      : `<span class="tag"><i></i>REPLAY</span><span><b>${behind}</b> behind live</span><span class="rf-dim">what your men saw · <b>Esc</b> back to live</span>`);
+      : `<span class="tag"><i></i>REPLAY</span><span><b>${behind}</b> behind live</span><span class="rf-dim"><b>Space</b> play · <b>J</b> / <b>L</b> ±5 s · <b>Esc</b> back to live</span>`);
   }
 
   // ---------- free camera, following ----------
