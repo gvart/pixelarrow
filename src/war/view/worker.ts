@@ -28,7 +28,7 @@ export type ToWorker =
   | { t: 'speed'; scale: number } // 0 pauses
   // economy (M2b, the real sim only): dev claims and stock, placement checks answered by `reply`
   | { t: 'claim'; team: number; x: number; y: number; r?: number }
-  | { t: 'stock'; team: number; res: ResourceKind; n: number }
+  | { t: 'stock'; team: number; res: ResourceKind; n: number; at?: { x: number; y: number } }
   | { t: 'prebuild'; team: number; max: number } // scenarios: build the team's sites before play (max 0: just step)
   | { t: 'mobs' } // neutral play: spawn the region's lairs
   | { t: 'lair'; kind: MobKind; x: number; y: number; count?: number } // W-62 the guide (offline): one weak lair on the new player's way
@@ -161,7 +161,7 @@ onmessage = (e: MessageEvent<ToWorker>) => {
   }
   else if (m.t === 'order') sim.order(m.o);
   else if (m.t === 'claim') { build(sim)?.claim(m.team, m.x, m.y, m.r); }
-  else if (m.t === 'stock') build(sim)?.addStock(m.team, m.res, m.n);
+  else if (m.t === 'stock') build(sim)?.addStock(m.team, m.res, m.n, m.at);
   else if (m.t === 'mobs') build(sim)?.spawnMobs();
   else if (m.t === 'lair') build(sim)?.addLair({ kind: m.kind, x: m.x, y: m.y, count: m.count });
   else if (m.t === 'hurtBoss') {

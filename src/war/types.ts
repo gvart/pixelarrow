@@ -561,7 +561,8 @@ export interface WarBuildSim extends WarSim {
   influence(): InfluenceMap;
   /** A claim anchor (claimed region, scenario start): projects influence radius r around (x,y). */
   claim(team: number, x: number, y: number, r?: number): void;
-  addStock(team: number, res: GoodKind, n: number): void;
+  /** `at`: into or out of the stores by that point (addAt / takeAt), else the home strongroom. */
+  addStock(team: number, res: GoodKind, n: number, at?: { x: number; y: number }): void;
   damageBuilding(id: number, dmg: number): void;
   /** Scenarios: the team's unfinished bridge pieces done at once (standing bridges at the start). */
   finishBridges(team: number): void;

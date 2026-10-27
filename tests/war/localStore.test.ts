@@ -41,4 +41,19 @@ describe('W-60 the town store is local', () => {
     // a foe's store never opens your tab
     expect(storeNear(cur, 1, a.x, a.y)).toBeNull();
   });
+
+  it('offline goods moved at a point go into and out of the store there, not the strongroom', () => {
+    const sim = createSim(flat(96), 1);
+    sim.claim(0, 30, 30, 40);
+    const b = sim.spawnSquad('a', 0, 'militia', 6, 24, 36);
+    sim.order({ kind: 'placeBuilding', squad: b, type: 'camp', x: 24, y: 30 });
+    run(sim, 6000, () => (sim.snapshot().buildings ?? []).some((x) => x.type === 'camp' && x.state === 'done'));
+    const a = sim.snapshot().buildings!.find((x) => x.type === 'camp')!;
+    sim.addStock(0, 'iron', 12, { x: a.x, y: a.y });
+    sim.addStock(0, 'iron', -5, { x: a.x, y: a.y });
+    run(sim, 1);
+    const cur = sim.snapshot();
+    expect(storeNear(cur, 0, a.x, a.y)?.goods).toMatchObject({ iron: 7 });
+    expect(cur.stock![0].iron).toBe(7);
+  });
 });

@@ -7,11 +7,12 @@
  *   offline            LocalMarket: an in-memory stub with the server's rules in small (rent from the strongroom, escrow
  *                      out of the stall, stall levels, a contract's escrowed reward, a letter redeemed once) and a few
  *                      seeded offers and contracts of made-up traders, so the panels can be tried with no server. The
- *                      "field" side of a stow is the team's stock.
+ *                      "field" side of a stow or hand-off is the store by his men (W-60, as online); coin is the team's.
  */
 import type { ServerMsg, StowMsg } from '../../net/protocol';
 import type { SandboxScene } from '../SandboxScene';
 import { myTeam } from '../side';
+import { storeAtHand } from '../hud/chest';
 
 export type Goods = Record<string, number>;
 /** The wire's goods record (the schema types it by every good; any subset is sent). */
@@ -156,6 +157,11 @@ export class LocalMarket implements Market {
   }
 
   private stock(): Goods { return { ...(this.s.sim.cur?.stock?.[myTeam()] ?? {}) } as Goods; }
+  /** W-60: the goods at hand (the store by his men) and where they move: that store, else the home strongroom. */
+  private atHand(): { goods: Goods; at?: { x: number; y: number } } {
+    const b = storeAtHand(this.s);
+    return b ? { goods: { ...(b.goods ?? {}) } as Goods, at: { x: b.x, y: b.y } } : { goods: {} };
+  }
   private site(kind: Site['kind']) { return this.sites.find((x) => x.kind === kind) ?? null; }
   /** Coin from the team's stock (the strongroom offline). */
   private pay(coin: number): boolean {
@@ -292,13 +298,14 @@ export class LocalMarket implements Market {
     const x = this.site(site);
     if (!x) return done({ error: `rent a ${site} first` });
     if (dir === 'in') {
-      const have = this.stock();
+      const { goods: have, at } = this.atHand();
       for (const [r, n] of Object.entries(goods)) if ((have[r] ?? 0) + 1e-6 < n) return done({ error: `you hold ${Math.floor(have[r] ?? 0)} ${r}` });
       if (loadsOf(x.goods) + loadsOf(goods) > SITE_LOADS + 1e-6) return done({ error: `a ${site} holds ${SITE_LOADS} loads` });
-      for (const [r, n] of Object.entries(goods)) { this.s.sim.addStock(myTeam(), r as never, -n); add(x.goods, r, n); }
+      for (const [r, n] of Object.entries(goods)) { this.s.sim.addStock(myTeam(), r as never, -n, at); add(x.goods, r, n); }
     } else {
       if (!this.takeFrom(goods, x.goods)) return done({ error: `the ${site} holds less` });
-      for (const [r, n] of Object.entries(goods)) this.s.sim.addStock(myTeam(), r as never, n);
+      const { at } = this.atHand();
+      for (const [r, n] of Object.entries(goods)) this.s.sim.addStock(myTeam(), r as never, n, at);
     }
     done({ goods });
   }
@@ -308,7 +315,7 @@ export class LocalMarket implements Market {
     const emit = () => { if (this.hand) for (const f of this.subs) f({ ...this.hand, halves: { ...this.hand.halves }, ok: [...this.hand.ok] }); };
     if (op === 'cancel') { if (this.hand) { this.hand = { ...this.hand, state: 'closed', why: 'cancelled' }; emit(); this.hand = null; } return; }
     if (op === 'offer') {
-      const have = this.stock();
+      const have = this.atHand().goods;
       for (const [r, n] of Object.entries(goods)) if ((have[r] ?? 0) + 1e-6 < n) { this.hand = { with: withId, state: 'closed', halves: {}, ok: [], why: `you hold ${Math.floor(have[r] ?? 0)} ${r}` }; emit(); this.hand = null; return; }
       const fresh = !this.hand;
       this.hand ??= { with: withId, state: 'open', halves: {}, ok: [], until: (this.s.sim.cur?.tick ?? 0) + 600 };
@@ -326,10 +333,10 @@ export class LocalMarket implements Market {
       if (!h || h.state !== 'open' || !h.halves[withId]) return;
       h.ok.push(withId);
       const mine = h.halves[this.me]?.goods ?? {}, theirs = h.halves[withId].goods;
-      const have = this.stock();
+      const { goods: have, at } = this.atHand();
       if (Object.entries(mine).some(([r, n]) => (have[r] ?? 0) + 1e-6 < n)) { h.state = 'closed'; h.why = 'your half is no longer with your men'; emit(); this.hand = null; return; }
-      for (const [r, n] of Object.entries(mine)) this.s.sim.addStock(myTeam(), r as never, -n);
-      for (const [r, n] of Object.entries(theirs)) this.s.sim.addStock(myTeam(), r as never, n);
+      for (const [r, n] of Object.entries(mine)) this.s.sim.addStock(myTeam(), r as never, -n, at);
+      for (const [r, n] of Object.entries(theirs)) this.s.sim.addStock(myTeam(), r as never, n, at);
       h.state = 'done';
       emit();
       this.hand = null;
