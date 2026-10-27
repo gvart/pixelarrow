@@ -43,7 +43,7 @@ const LINE_FADE_MS = 14_000;
 const SHOWN = 6;
 
 const CSS = `
-#rfChat{position:fixed;z-index:4;width:318px;pointer-events:none;color:var(--rf-ink);font:var(--rf-body)}
+#rfChat{position:fixed;z-index:4;width:340px;pointer-events:none;color:var(--rf-ink);font:var(--rf-body)}
 #rfChat .ch-tab{pointer-events:auto;display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px 0 6px;margin-top:3px;cursor:pointer;background:rgba(14,9,7,.82);border:1px solid var(--rf-rule);box-shadow:inset 0 1px 0 rgba(242,178,122,.08);font:700 11px/1 Cinzel,serif;color:var(--rf-title);letter-spacing:.05em}
 #rfChat .ch-tab:hover{border-color:var(--rf-line);background:rgba(44,28,21,.92)}
 #rfChat .ch-tab .k{font:600 10px/1 Inter,sans-serif;color:var(--rf-muted);letter-spacing:0;padding:2px 4px;border:1px solid var(--rf-rule);background:var(--rf-sunk)}
@@ -80,9 +80,9 @@ const CSS = `
 #rfChat .ch-acts button:hover{color:var(--rf-bad);border-color:#6a2c1c}
 #rfChat .ch-bar{display:none;align-items:center;gap:3px;margin-top:5px}
 #rfChat.open .ch-bar{display:flex}
-#rfChat .ch-ib{width:25px;height:23px;flex:none;padding:0;display:flex;align-items:center;justify-content:center;background:var(--rf-raised);border:1px solid var(--rf-rule);cursor:pointer;position:relative}
+#rfChat .ch-ib{width:24px;height:23px;flex:none;padding:0;display:flex;align-items:center;justify-content:center;background:var(--rf-raised);border:1px solid var(--rf-rule);cursor:pointer;position:relative}
 #rfChat .ch-ib:hover{border-color:var(--rf-accent);background:var(--rf-hover)}
-#rfChat .ch-ib.on{border-color:var(--rf-title);background:var(--rf-sel);box-shadow:inset 0 0 0 1px #0e0907}
+#rfChat .ch-pop.on ~ .ch-box [data-a="phrases"],#rfChat .ch-ib.on{border-color:var(--rf-title);background:var(--rf-sel);box-shadow:inset 0 0 0 1px #0e0907}
 #rfChat .ch-ib svg{display:block}
 #rfChat .ch-sep{width:1px;height:17px;background:var(--rf-rule);margin:0 2px}
 #rfChat input.ch-in{flex:1;min-width:0;width:auto;height:23px;padding:0 6px;font:600 12px/1 Inter,sans-serif;color:var(--rf-ink);background:var(--rf-sunk);border:1px solid var(--rf-line);outline:none;user-select:text}
@@ -98,7 +98,7 @@ const CSS = `
 #rfChat .ch-mutes.on{display:block}
 #rfChat .ch-mutes .r{display:flex;align-items:center;gap:6px;padding:2px 0}
 #rfChat .ch-mutes .r button{margin-left:auto}
-#rfMarks{position:fixed;left:0;top:0;width:100%;height:100%;pointer-events:none;z-index:3;overflow:hidden}
+#rfMarks,#rfMarkEdges{position:fixed;left:0;top:0;width:100%;height:100%;pointer-events:none;z-index:3;overflow:hidden}#rfMarkEdges{z-index:5}
 #rfMarks .mk{position:absolute;width:0;height:0;transition:opacity .4s}
 #rfMarks .mk .pin{position:absolute;left:-15px;top:-44px;filter:drop-shadow(0 2px 2px rgba(0,0,0,.7));animation:mkDrop .38s cubic-bezier(.3,1.6,.5,1)}
 #rfMarks .mk .ring{position:absolute;left:-22px;top:-9px;width:44px;height:18px;border-radius:50%;border:2px solid var(--mk-c);box-shadow:0 0 6px var(--mk-c);animation:mkPulse 1.4s ease-out infinite}
@@ -106,13 +106,13 @@ const CSS = `
 #rfMarks .mk .dot{position:absolute;left:-3px;top:-2px;width:6px;height:4px;border-radius:50%;background:var(--mk-c);box-shadow:0 0 0 1px #0e0907}
 #rfMarks .mk .nm{position:absolute;left:0;top:-62px;transform:translateX(-50%);padding:2px 6px;white-space:nowrap;font:700 11px/1.2 Inter,sans-serif;color:#fff0d8;background:rgba(14,9,7,.86);border:1px solid var(--rf-rule);border-left:2px solid var(--mk-c)}
 #rfMarks .mk .nm i{font-style:normal;color:var(--mk-c);margin-right:4px}
-#rfMarks .edge{position:absolute;width:0;height:0;pointer-events:auto;cursor:pointer}
-#rfMarks .edge .ar{position:absolute;left:-17px;top:-17px;width:34px;height:34px;border-radius:50%;background:rgba(14,9,7,.9);border:2px solid var(--mk-c);box-shadow:0 0 8px var(--mk-c);display:flex;align-items:center;justify-content:center;animation:mkBeat 1s ease-in-out infinite}
-#rfMarks .edge .tip{position:absolute;left:-6px;top:-6px;width:0;height:0;border-left:9px solid var(--mk-c);border-top:6px solid transparent;border-bottom:6px solid transparent;transform-origin:6px 6px}
-#rfMarks .edge .nm{position:absolute;left:0;top:20px;transform:translateX(-50%);white-space:nowrap;font:700 10px/1 Inter,sans-serif;color:#fff0d8;text-shadow:0 1px 0 #0e0907,0 0 3px #0e0907}
+#rfMarkEdges .edge{position:absolute;width:0;height:0;pointer-events:auto;cursor:pointer}
+#rfMarkEdges .edge .ar{position:absolute;left:-17px;top:-17px;width:34px;height:34px;border-radius:50%;background:rgba(14,9,7,.9);border:2px solid var(--mk-c);box-shadow:0 0 8px var(--mk-c);display:flex;align-items:center;justify-content:center;animation:mkBeat 1s ease-in-out infinite}
+#rfMarkEdges .edge .tip{position:absolute;left:-6px;top:-6px;width:0;height:0;border-left:9px solid var(--mk-c);border-top:6px solid transparent;border-bottom:6px solid transparent;transform-origin:6px 6px}
+#rfMarkEdges .edge .nm{position:absolute;left:0;top:20px;transform:translateX(-50%);white-space:nowrap;font:700 10px/1 Inter,sans-serif;color:#fff0d8;text-shadow:0 1px 0 #0e0907,0 0 3px #0e0907}
 #rfMarkPick{position:fixed;left:0;top:0;width:100%;height:100%;z-index:3;cursor:crosshair}
-#rfMarkPick .hint{position:fixed;pointer-events:none;padding:3px 7px;white-space:nowrap;font:600 11.5px/1.3 Inter,sans-serif;color:var(--rf-ink);background:rgba(14,9,7,.9);border:1px solid var(--rf-rule);border-left:3px solid var(--mk-c)}
-#rfMarkPick .hint b{color:var(--mk-c)}#rfMarkPick .hint .k{color:var(--rf-muted);font-size:10.5px}
+#rfMarkHint{position:fixed;z-index:9;pointer-events:none;padding:3px 7px;white-space:nowrap;font:600 11.5px/1.3 Inter,sans-serif;color:var(--rf-ink);background:rgba(14,9,7,.9);border:1px solid var(--rf-rule);border-left:3px solid var(--mk-c)}
+#rfMarkHint b{color:var(--mk-c)}#rfMarkHint .k{color:var(--rf-muted);font-size:10.5px}
 @keyframes mkPulse{0%{transform:scale(.4);opacity:1}100%{transform:scale(1.5);opacity:0}}
 @keyframes mkDrop{0%{transform:translateY(-26px);opacity:0}100%{transform:none;opacity:1}}
 @keyframes mkBeat{0%,100%{transform:scale(1)}50%{transform:scale(1.1)}}
@@ -177,7 +177,7 @@ export function mountChat(v: ChatView): ChatHandle {
   root.innerHTML = `<div class="ch-mutes rf-card"></div><div class="ch-pop rf-card"><div class="rf-sec">Quick phrases</div>${PHRASES.map((p, i) => `<button data-ph="${i}" title="${esc(p)}">${esc(p)}</button>`).join('')}</div>
     <div class="ch-box"><div class="ch-head"><span class="ch-dot"></span><span class="rf-name">Alliance</span><span class="sub"></span><span style="margin-left:auto;display:flex;gap:3px"><button class="rf-tbtn" data-a="mutes" style="height:19px;padding:0 6px;font-size:10.5px;display:none"></button><button class="rf-tbtn x" data-a="close" title="Close (Esc)" style="height:19px;width:19px">×</button></span></div>
     <div class="ch-log"></div>
-    <div class="ch-bar" style="position:relative"><button class="ch-ib" data-a="phrases" title="Quick phrases">${ICON_QUOTE}</button><span class="ch-sep"></span>${MARK_KINDS.map((k) => `<button class="ch-ib" data-mk="${k}" title="${MARK_INFO[k].name}: then click the map">${markIcon(k, 13, MARK_INFO[k].color)}</button>`).join('')}<span class="ch-sep"></span><input class="ch-in" maxlength="${CHAT_MAX}" placeholder="Message your alliance…" spellcheck="false" autocomplete="off"><span class="ch-cnt"></span><button class="ch-ib" data-a="send" title="Send (Enter)">${ICON_SEND}</button></div></div>
+    <div class="ch-bar" style="position:relative"><button class="ch-ib" data-a="phrases" title="Quick phrases">${ICON_QUOTE}</button><span class="ch-sep"></span>${MARK_KINDS.map((k) => `<button class="ch-ib" data-mk="${k}" title="${MARK_INFO[k].name}: then click the map">${markIcon(k, 13, MARK_INFO[k].color)}</button>`).join('')}<span class="ch-sep"></span><input class="ch-in" maxlength="${CHAT_MAX}" placeholder="Message allies…" spellcheck="false" autocomplete="off"><span class="ch-cnt"></span><button class="ch-ib" data-a="send" title="Send (Enter)">${ICON_SEND}</button></div></div>
     <div class="ch-tab" data-a="open"><span class="ch-dot"></span>Alliance<span class="u" style="display:none"></span><span class="k"></span></div>`;
   root.addEventListener('pointerdown', (e) => e.stopPropagation());
   root.addEventListener('wheel', (e) => e.stopPropagation());
@@ -188,13 +188,17 @@ export function mountChat(v: ChatView): ChatHandle {
 
   const layer = document.createElement('div');
   layer.id = 'rfMarks';
-  document.body.appendChild(layer);
+  const edges = document.createElement('div');
+  edges.id = 'rfMarkEdges';
+  document.body.append(layer, edges);
 
   let you = 0, open = false, unread = 0, armed: MarkKind | null = null, lastKind: MarkKind = 'gather';
   let lines: Line[] = [];
   const muted = new Set<number>(), names = new Map<number, string>();
   const marks = new Map<number, { m: Mark; el: HTMLElement; edge: HTMLElement }>();
   let silencedUntil = 0;
+  /** The open log follows new lines unless the player scrolled up. */
+  let pinned = true;
 
   const lineOf = (m: ChatMsg): Line => {
     names.set(m.pid, m.name);
@@ -205,7 +209,7 @@ export function mountChat(v: ChatView): ChatHandle {
   };
   const markLine = (m: Mark): Line => ({
     at: m.t, pid: m.pid, mark: m, cls: 'mk',
-    html: `<span class="tm">${hhmm(m.t)}</span><span class="mi">${markIcon(m.kind, 13, MARK_INFO[m.kind].color)}</span><span class="n${m.pid === you ? ' me' : ''}">${esc(m.name)}</span> <b class="kd" style="--mk-c:${MARK_INFO[m.kind].color}">${MARK_INFO[m.kind].name}</b> · <span class="wh">${esc(v.where(m.at))}</span>`,
+    html: `<span class="tm">${hhmm(m.t)}</span><span class="mi">${markIcon(m.kind, 13, MARK_INFO[m.kind].color)}</span><span class="n${m.pid === you ? ' me' : ''}">${esc(m.name)}</span> <span class="rf-dim">marks</span> <b class="kd" style="--mk-c:${MARK_INFO[m.kind].color}">${MARK_INFO[m.kind].name}</b> · <span class="wh">${esc(v.where(m.at))}</span>`,
   });
   const sys = (text: string, bad = false) => push({ at: Date.now(), cls: `sys${bad ? ' bad' : ''}`, html: esc(text) });
 
@@ -219,10 +223,9 @@ export function mountChat(v: ChatView): ChatHandle {
   function render(): void {
     const now = Date.now(), shown = lines.filter((l) => l.pid === undefined || !muted.has(l.pid));
     const list = open ? shown : shown.slice(-SHOWN);
-    const stick = !open || log.scrollTop + log.clientHeight >= log.scrollHeight - 8;
     log.innerHTML = list.map((l, i) => `<div class="ch-l ${l.cls}${!open && now - l.at > LINE_FADE_MS ? ' old' : ''}" data-i="${shown.length - list.length + i}">${l.html}</div>`).join('');
     (log as HTMLElement & { _rows?: Line[] })._rows = shown;
-    if (stick) log.scrollTop = log.scrollHeight;
+    if (!open || pinned) log.scrollTop = log.scrollHeight;
     unreadEl.style.display = unread ? '' : 'none';
     unreadEl.textContent = String(Math.min(unread, 99));
     keyEl.textContent = keys.label('chat.open') || 'Enter';
@@ -238,7 +241,7 @@ export function mountChat(v: ChatView): ChatHandle {
     root.classList.toggle('open', on);
     box.classList.toggle('rf-card', on);
     tab.style.display = on ? 'none' : '';
-    if (on) unread = 0;
+    if (on) (unread = 0), (pinned = true);
     else {
       pop.classList.remove('on');
       mutesEl.classList.remove('on');
@@ -248,6 +251,7 @@ export function mountChat(v: ChatView): ChatHandle {
     if (focus) input.focus();
   }
 
+  log.addEventListener('scroll', () => { if (open) pinned = log.scrollTop + log.clientHeight >= log.scrollHeight - 8; });
   // keys typed into the field drive nothing else (WASD would pan the camera)
   input.addEventListener('focus', () => keys.suspend(true));
   input.addEventListener('blur', () => { keys.suspend(false); keys.release(); });
@@ -294,22 +298,28 @@ export function mountChat(v: ChatView): ChatHandle {
   const pick = document.createElement('div');
   pick.id = 'rfMarkPick';
   pick.style.display = 'none';
-  pick.innerHTML = '<div class="hint"></div>';
-  document.body.appendChild(pick);
-  const hint = pick.firstElementChild as HTMLElement;
+  const hint = document.createElement('div');
+  hint.id = 'rfMarkHint';
+  hint.style.display = 'none';
+  document.body.append(pick, hint);
   const hintText = () => {
     if (!armed) return;
-    pick.style.setProperty('--mk-c', MARK_INFO[armed].color);
+    hint.style.setProperty('--mk-c', MARK_INFO[armed].color);
     hint.innerHTML = `<b>${MARK_INFO[armed].name}</b> · click to mark <span class="k">· ${esc(keys.label('chat.mark') || 'P')} next kind · Esc cancel</span>`;
   };
   function arm(k: MarkKind | null): void {
     armed = k;
     if (k) lastKind = k;
-    pick.style.display = k ? '' : 'none';
+    pick.style.display = hint.style.display = k ? '' : 'none';
     hintText();
     render();
   }
-  pick.addEventListener('pointermove', (e) => { hint.style.left = `${e.clientX + 16}px`; hint.style.top = `${e.clientY + 14}px`; });
+  const follow = (e: PointerEvent) => {
+    const w = hint.offsetWidth, flip = e.clientX + 16 + w > innerWidth - 4;
+    hint.style.left = `${flip ? e.clientX - 12 - w : e.clientX + 16}px`;
+    hint.style.top = `${Math.min(e.clientY + 14, innerHeight - 30)}px`;
+  };
+  addEventListener('pointermove', (e) => { if (armed) follow(e as PointerEvent); });
   pick.addEventListener('contextmenu', (e) => e.preventDefault());
   pick.addEventListener('pointerdown', (e) => {
     e.stopPropagation();
@@ -333,9 +343,10 @@ export function mountChat(v: ChatView): ChatHandle {
     const edge = document.createElement('div');
     edge.className = 'edge';
     edge.style.setProperty('--mk-c', c);
-    edge.innerHTML = `<div class="tip"></div><div class="ar">${markIcon(m.kind, 16, c)}</div><div class="nm">${esc(m.name)}</div>`;
+    edge.innerHTML = `<div class="ar">${markIcon(m.kind, 16, c)}</div><div class="tip"></div><div class="nm">${esc(m.name)}</div>`;
     edge.addEventListener('pointerdown', (e) => { e.stopPropagation(); v.focus(m); });
-    layer.append(el, edge);
+    layer.append(el);
+    edges.append(edge);
     const old = [...marks.values()].find((x) => x.m.pid === m.pid); // one mark a player: the new one replaces his last
     if (old) drop(old.m.id);
     marks.set(m.id, { m, el, edge });
@@ -360,7 +371,7 @@ export function mountChat(v: ChatView): ChatHandle {
       const ang = Math.atan2(dy, dx);
       edge.style.transform = `translate(${cx + dx * k}px,${cy + dy * k}px)`;
       edge.style.opacity = fade;
-      (edge.firstElementChild as HTMLElement).style.transform = `rotate(${ang}rad) translateX(20px)`;
+      (edge.querySelector('.tip') as HTMLElement).style.transform = `rotate(${ang}rad) translateX(19px)`;
     }
     if (marks.size) requestAnimationFrame(frame);
   }

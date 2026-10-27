@@ -10,7 +10,7 @@ import { mountChat } from './chat';
 import { uiZoom } from './kit';
 
 /** Above the round minimap (168 px at the bottom left). */
-const ABOVE_MINI = 178;
+const ABOVE_MINI = 184;
 
 export function mountRegionChat(s: SandboxScene): void {
   const q = new URLSearchParams(location.search);

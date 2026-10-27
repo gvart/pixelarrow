@@ -105,6 +105,7 @@ export class MockChat implements ChatLink {
 
   /** A made-up ally's mark (scripts and screenshots). */
   allyMark(kind: MarkKind, at: string, x: number, y: number, name = 'Brasidas'): void {
-    this.on({ t: 'marked', mark: { id: ++this.seq, pid: 9, name, kind, at, x, y, t: Date.now() } });
+    const pid = ({ Kallias: 7, Myrto: 8, Brasidas: 9 } as Record<string, number>)[name] ?? 10;
+    this.on({ t: 'marked', mark: { id: ++this.seq, pid, name, kind, at, x, y, t: Date.now() } });
   }
 }
