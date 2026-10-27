@@ -32,6 +32,14 @@
  * per event: `woke`) and every client hears them (`worldEvents`). seasonReset (the season war's rollover): the room
  * stops, its clients are closed (4001 'season'), its men go home with their gear (D1), and its saved state and memory
  * are dropped: it starts over from its authored data (landmarks, claim points, guardians).
+ *
+ * W-63 shared settlements (./settlements.ts in D1, ./roomSettlements.ts on the field): the region's settlements are
+ * polled every SETTLE_POLL ticks (and before each join) into the room, which flies each player's banner by ground and
+ * turns squads and towns whose banner changed; clients hear `settlements` when their view changes. Finished camps are
+ * founded, attacks logged (the lords told over the world), level, tending and persisting pieces reported every
+ * SETTLE_REPORT, tribute levied every LEVY_MS (the vassal's store gain and its citizens' stall coin since the last levy,
+ * taken out of them). PRESENCE.check asks the room (presence RPC). A fresh room lays its settlements' persisting pieces
+ * down again under their lord's alliance; seasonReset writes them first.
  */
 import { DurableObject } from 'cloudflare:workers';
 import type { Env } from '../env';
@@ -68,6 +76,10 @@ import { WORLD_NAME, type ArriveResult, type DepartResult } from './world/world'
 import type { TransitCargo } from '../../../src/war/net/world';
 import { guideStorageKey, type GuideDone } from './guide';
 import type { GuideSave } from '../../../src/war/net/guide';
+import { found, levy, logAttack, PRESENCE, report as reportSettlement, SETTLE, tributeOf } from './settlements';
+import { foundRefusal, loadRegionSettlements, tiedTo, type Persist, type RoomSettlement } from './roomSettlements';
+import { goodsOf } from './holders';
+import { stallId } from './market';
 
 const TICK_MS = 100;
 /** Ticks between summaries to the world map (sent only when changed). */
@@ -81,6 +93,20 @@ const SAVE_TICKS = 300;
 const WRITE_TRIES = 5;
 /** W-61: ticks between polls of the region's guard contracts, open works and work bonuses (30 s). */
 const PEACE_POLL = 300;
+/** W-63: ticks between polls of the region's settlements (10 s), between their reports to D1 (60 s); ms between levies. */
+const SETTLE_POLL = 100;
+const SETTLE_REPORT = 600;
+export const LEVY_MS = 6 * 3_600_000;
+const levyKey = (id: number) => `levy:${id}`;
+interface LevyBase { store: Record<string, number>; stalls: Record<number, number> }
+
+/** W-63: the terms route asks the settlement's region room whether the offerer's men stand on its ground. */
+export function wirePresence(env: Env): void {
+  PRESENCE.check = async (pid, s) => {
+    const stub = env.WAR_REGION.get(env.WAR_REGION.idFromName(s.region));
+    return stub.presence(s.region, pid, s.id).catch(() => false);
+  };
+}
 
 interface Attachment { pid: number }
 
@@ -101,6 +127,10 @@ export class WarRegionDO extends DurableObject<Env> {
   private memory = '';
   /** W-62: the world events as the world last told them (null: not loaded yet). */
   private worldEv: { events: WorldEvent[]; next: WorldEvent | null } | null = null;
+  /** W-63: the region's settlements as last polled; each player's view as last sent; persisted pieces as last reported. */
+  private settles: RoomSettlement[] = [];
+  private settleSent = new Map<number, string>();
+  private persisted = new Map<number, string>();
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -156,7 +186,9 @@ export class WarRegionDO extends DurableObject<Env> {
             logError('war_recall_failed', e, { region });
           }
         }
+        if (d) await this.restoreSettlements(this.room).catch((e) => logError('war_settle_restore_failed', e, { region }));
       }
+      if (d && this.room) await this.loadSettlements(this.room).catch((e) => logError('war_settle_poll_failed', e, { region }));
       await this.ctx.storage.put('region', region);
       await this.loadEvents();
       if (this.room) await this.applyEvents(this.room);
@@ -198,6 +230,11 @@ export class WarRegionDO extends DurableObject<Env> {
    * queued writes finish, its men (and their gear) go home in D1, and its saved state and memory are dropped.
    */
   async seasonReset(region: string): Promise<void> {
+    // W-63: what persists of its settlements goes to D1 first (seasonSweep, after every region, keeps or drops them)
+    if (this.env.DB) {
+      const room = await this.ensure(region).catch(() => null);
+      if (room) await this.reportSettlements(room, 'persist').catch((e) => logError('war_settle_persist_failed', e, { region }));
+    }
     if (this.timer) clearTimeout(this.timer);
     this.timer = null;
     this.room = null;
@@ -214,6 +251,9 @@ export class WarRegionDO extends DurableObject<Env> {
     await this.ctx.storage.delete([MEMORY_KEY, 'woke']);
     this.memory = '';
     this.reported = '';
+    this.settles = [];
+    this.settleSent.clear();
+    this.persisted.clear();
     const d = this.env.DB;
     if (d) {
       await releaseRegion(d, region);
@@ -255,7 +295,7 @@ export class WarRegionDO extends DurableObject<Env> {
       if (m.t === 'join') await this.join(ws, me.pid, room, m);
       else if (m.t === 'order') {
         const err = room.order(me.pid, m.o);
-        if (err) send(ws, { t: 'error', code: err, detail: m.o.kind });
+        if (err) send(ws, { t: 'error', code: err, detail: err === 'notYourGround' ? room.refusal : m.o.kind });
       } else if (m.t === 'view') room.view(me.pid, m);
       else if (m.t === 'ping') send(ws, { t: 'pong', c: m.c, tick: room.currentTick });
       else if (m.t === 'check') send(ws, room.check(me.pid, m));
@@ -280,13 +320,15 @@ export class WarRegionDO extends DurableObject<Env> {
     const region = room.region.id;
     // M4: in a world region the player serves his alliance; fresh squads only where it may bring them (joinRefusal)
     const db = this.env.DB;
+    // W-63: the settlements as they stand now: the room flies his banner by ground (the client's team is not asked)
+    if (db) await this.loadSettlements(room).catch((e) => logError('war_settle_poll_failed', e, { region }));
     if (db && isWorldRegion(region) && m.region === region) {
       const a = await allianceOf(db, pid);
       if (a === null) return send(ws, { t: 'refused', reason: 'team', detail: 'join an alliance first' });
-      if (m.team !== a) return send(ws, { t: 'refused', reason: 'team', detail: `you serve ${ALLIANCES[a].name}` });
+      m = { ...m, team: a };
       if (room.spawnsNew(pid)) {
         const st = await this.world().regionState(region).catch(() => null);
-        const why = joinRefusal(region, a, st);
+        const why = joinRefusal(region, a, st, tiedTo(this.settles, pid));
         if (why) return send(ws, { t: 'refused', reason: 'region', detail: why });
       }
     }
@@ -309,6 +351,7 @@ export class WarRegionDO extends DurableObject<Env> {
     }
     send(ws, res.msg);
     if (res.msg.t === 'welcome' && this.worldEv) send(ws, { t: 'worldEvents', ...this.worldEv }); // W-62
+    if (res.msg.t === 'welcome') this.sendSettlements(room, pid, true); // W-63
     if (res.msg.t === 'refused' && persons) this.write('release', () => release(this.env.DB!, region, m.squads!.flat()));
     // W-60: the soul gate counts his whole army (every region)
     if (db && res.msg.t === 'welcome') room.setArmy(pid, await armyCount(db, pid));
@@ -651,6 +694,7 @@ export class WarRegionDO extends DurableObject<Env> {
     if (!room || !room.active()) {
       this.timer = null;
       if (room) this.report(room, true);
+      if (room && this.env.DB) this.write('settle report', () => this.reportSettlements(room, 'all')); // W-63: before its state goes
       this.save();
       return;
     }
@@ -672,6 +716,7 @@ export class WarRegionDO extends DurableObject<Env> {
       const w = r.admitted.get(a.pid);
       if (w) send(ws, w);
       if (w?.t === 'welcome') void this.guideStart(a.pid, room); // W-62: in from the line
+      if (w?.t === 'welcome') this.sendSettlements(room, a.pid, true); // W-63
       for (const m of r.msgs.get(a.pid) ?? []) send(ws, m); // the economy view (nodes, influence)
       const f = r.frames.get(a.pid);
       if (f) {
@@ -709,6 +754,11 @@ export class WarRegionDO extends DurableObject<Env> {
       for (const w of pz.works) await addLabour(this.env, w.team, w.work, w.by, at);
     });
     if (d && room.currentTick % PEACE_POLL === 1) this.write('peace poll', () => this.pollPeace(room));
+    // W-63: camps founded, attacks logged and told; the settlements polled, reported and levied
+    const st = r.settle;
+    if (d && st?.found.length) this.write('found', () => this.foundAll(room, st.found));
+    if (d && st?.attacks.length) this.write('attacks', () => this.attacked(room, st.attacks));
+    if (d && room.currentTick % SETTLE_POLL === 3) this.write('settle poll', () => this.pollSettlements(room));
     // W-62: an event that ran out while the world could not tell us ends here too
     if (room.currentTick % PEACE_POLL === 2) void this.applyEvents(room).catch((e) => logError('war_world_events_failed', e));
     // M6i: a cart captured between linked accounts goes back to its owner
@@ -746,6 +796,140 @@ export class WarRegionDO extends DurableObject<Env> {
     if (home) room.setWorks(home.id, await openWorks(d, home.id));
     const b = await bonusesOf(d);
     for (const a of ALLIANCES) room.sim.setBonus(a.id, b.get(a.id) ?? {});
+  }
+
+  // ---------------------------------------------------------------- W-63 shared settlements
+
+  /** The region's settlements from D1 into the room (banners turn there); clients whose view changed hear it. */
+  private async loadSettlements(room: WarRoom): Promise<void> {
+    const d = this.env.DB;
+    if (!d) return;
+    this.settles = await loadRegionSettlements(d, room.region.id);
+    room.setSettlements(this.settles);
+    for (const ws of this.ctx.getWebSockets()) {
+      const a = ws.deserializeAttachment() as Attachment | null;
+      if (a && this.settleSent.has(a.pid)) this.sendSettlements(room, a.pid);
+    }
+  }
+
+  /** The player's view of the settlements, when it changed (`fresh`: anyway, a welcome). */
+  private sendSettlements(room: WarRoom, pid: number, fresh = false): void {
+    const list = room.settlementsFor(pid), k = JSON.stringify(list);
+    if (!fresh && this.settleSent.get(pid) === k) return;
+    this.settleSent.set(pid, k);
+    for (const ws of this.ctx.getWebSockets(`p:${pid}`)) send(ws, { t: 'settlements', list });
+  }
+
+  /** A fresh field: each settlement's persisting pieces laid down again under its lord's alliance; centres re-keyed in D1. */
+  private async restoreSettlements(room: WarRoom): Promise<void> {
+    const d = this.env.DB!, region = room.region.id;
+    const rows = (await d.prepare('SELECT id, persist FROM war_settlements WHERE region = ?1 ORDER BY id').bind(region).all<{ id: number; persist: string }>()).results;
+    if (!rows.length) return;
+    const list = await loadRegionSettlements(d, region), moved: [number, number][] = [];
+    for (const row of rows) {
+      const s = list.find((x) => x.id === row.id), pieces = json<Persist>(row.persist, {}).pieces ?? [];
+      if (!s || s.team === null || !pieces.length) continue;
+      const centre = room.restorePieces(s.team, s, pieces);
+      if (centre !== null) moved.push([s.id, centre]);
+    }
+    // the old centre ids mean nothing on the new field: off them all first (unique per region), then the new ones
+    await d.batch([
+      d.prepare('UPDATE war_settlements SET centre_piece = -id WHERE region = ?1').bind(region),
+      ...moved.map(([id, c]) => d.prepare('UPDATE war_settlements SET centre_piece = ?2 WHERE id = ?1').bind(id, c)),
+    ]);
+  }
+
+  /** Finished camps reported: each founds a settlement round it (the spot the map allows), its placer the lord. */
+  private async foundAll(room: WarRoom, list: readonly { centre: number; x: number; y: number; lord: number }[]): Promise<void> {
+    const d = this.env.DB!, region = room.region.id, home = ALLIANCES.some((a) => a.home === region);
+    for (const f of list) {
+      try {
+        await found(d, { region, centre: f.centre, x: f.x, y: f.y, lord: f.lord }, (c) => foundRefusal(room.snapshot(), home, c), Date.now());
+      } catch (e) {
+        if (!(e instanceof ApiError)) throw e; // too close, a bad spot: it stays a plain camp
+      }
+    }
+    await this.loadSettlements(room);
+  }
+
+  /** Attacks on settlements: logged (truces broken), their lord and overlords' lords told over the world. */
+  private async attacked(room: WarRoom, list: readonly { by: number; victim: number }[]): Promise<void> {
+    const d = this.env.DB!, region = room.region.id;
+    for (const a of list) {
+      const r = await logAttack(d, a.by, a.victim, Date.now());
+      const name = this.settles.find((s) => s.id === a.victim)?.name ?? '';
+      if (r.tell.length && this.env.WAR_WORLD) await this.world().notify(r.tell, { t: 'settlementAttacked', settlement: a.victim, name, region, by: a.by, broken: r.broken }).catch((e) => logError('war_settle_notify_failed', e, { region }));
+    }
+  }
+
+  /** Every SETTLE_POLL: the settlements again; every SETTLE_REPORT their reports; tribute when a levy is due. */
+  private async pollSettlements(room: WarRoom): Promise<void> {
+    await this.loadSettlements(room);
+    if (room.currentTick % SETTLE_REPORT === 3) await this.reportSettlements(room);
+    for (const s of this.settles) if (s.overlord !== null) await this.levyOne(room, s);
+  }
+
+  /** Level, tending and persisting pieces into D1 (`all`: the pieces even when unchanged; `persist`: only them, the season's end). */
+  private async reportSettlements(room: WarRoom, mode: 'tick' | 'all' | 'persist' = 'tick'): Promise<void> {
+    const d = this.env.DB!, now = Date.now();
+    for (const r of room.settlementReports()) {
+      const p = JSON.stringify(r.persist), fresh = mode !== 'tick' || this.persisted.get(r.id) !== p;
+      const live = mode === 'persist' ? {} : { ...(r.level > 0 ? { level: r.level } : {}), tended: r.tended };
+      await reportSettlement(d, r.id, { ...live, ...(fresh ? { persist: r.persist } : {}) }, now);
+      this.persisted.set(r.id, p);
+    }
+  }
+
+  /**
+   * A vassal's tribute, every LEVY_MS: its store gain and its citizens' stall coin since the last levy (DO storage keeps
+   * where they stood then); the overlord's lord credited, the same taken out of the store (the room) and the stalls (the
+   * credit's batch). A failed levy puts the store's share back.
+   */
+  async levyOne(room: WarRoom, s: RoomSettlement, now = Date.now()): Promise<void> {
+    const d = this.env.DB!, region = room.region.id;
+    const citizens = s.members.filter((m) => m.role === 'citizen').map((m) => m.pid);
+    const stalls: Record<number, number> = {};
+    for (const pid of citizens) stalls[pid] = (await goodsOf(d, stallId(region, pid))).coin ?? 0;
+    const store = room.storeGoods(s.id);
+    const base = await this.ctx.storage.get<LevyBase>(levyKey(s.id));
+    if (!base) return void (await this.ctx.storage.put(levyKey(s.id), { store, stalls } satisfies LevyBase));
+    if (now - s.leviedAt < LEVY_MS) return;
+    const gain: Record<string, number> = {};
+    for (const [k, n] of Object.entries(store)) if (n - (base.store[k] ?? 0) > 1e-6) gain[k] = n - (base.store[k] ?? 0);
+    const k = Math.max(0, Math.min(SETTLE.tributeMax, s.tribute)) / 100, coin: Record<number, number> = {}, takeStall: Record<number, number> = {};
+    for (const pid of citizens) {
+      coin[pid] = Math.max(0, stalls[pid] - (base.stalls[pid] ?? 0));
+      const t = Math.round(coin[pid] * k * 1000) / 1000;
+      if (t > 0) takeStall[pid] = t;
+    }
+    const stallCoin = Object.values(coin).reduce((a, b) => a + b, 0), fromStalls = Object.values(takeStall).reduce((a, b) => a + b, 0);
+    const want = tributeOf(s.tribute, gain, stallCoin), fromStore: Record<string, number> = { ...want };
+    if (fromStore.coin !== undefined) fromStore.coin = Math.round((fromStore.coin - fromStalls) * 1000) / 1000;
+    for (const [g, n] of Object.entries(fromStore)) if (n <= 1e-9) delete fromStore[g];
+    if (!room.takeStore(s.id, fromStore)) return;
+    let got: Awaited<ReturnType<typeof levy>> = null;
+    try {
+      const extra: D1PreparedStatement[] = [];
+      for (const [pid, n] of Object.entries(takeStall)) {
+        const id = stallId(region, Number(pid));
+        extra.push(...planTake(d, id, await lotsOf(d, id), { coin: n }).stmts);
+      }
+      got = await levy(d, s.id, gain, stallCoin, now, extra);
+    } finally {
+      if (!got) room.putStore(s.id, fromStore);
+    }
+    const after: Record<number, number> = {};
+    for (const pid of citizens) after[pid] = stalls[pid] - (takeStall[pid] ?? 0);
+    await this.ctx.storage.put(levyKey(s.id), { store: room.storeGoods(s.id), stalls: after } satisfies LevyBase);
+    this.save();
+  }
+
+  /** W-63 (RPC, the terms route): do at least SETTLE.presence of the player's men stand on settlement `id`'s ground? */
+  async presence(region: string, pid: number, id: number): Promise<boolean> {
+    const room = await this.ensure(region);
+    if (!room) return false;
+    if (!room.settlement(id)) await this.loadSettlements(room);
+    return room.presence(pid, id);
   }
 
   /** Tick-time and bandwidth figures over the last HISTORY ticks (or ?last=N). */
