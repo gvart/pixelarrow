@@ -18,6 +18,8 @@ import type { DrawnAs } from './units';
 const PPM = 33;
 /** In flight: this high over the ground (px). */
 const FLIGHT_PX = 380;
+/** E3: guardians whose `flight` is a charge along the ground (the River-God's bull, the Erymanthian Boar): not lifted. */
+const GROUND_CHARGE = new Set(['river_god', 'erymanthian_boar']);
 /** A perch on no landmark piece: this high (px). */
 const PERCH_PX = 220;
 
@@ -72,7 +74,7 @@ export class GuardianLayer {
       this.fx.saw(b.unit, u.cls, u.facing);
       this.states.set(b.unit, b);
       this.watch.add(b.unit);
-      if (b.state === 'flight') this.lifts.set(b.unit, FLIGHT_PX);
+      if (b.state === 'flight' && !GROUND_CHARGE.has(b.id)) this.lifts.set(b.unit, FLIGHT_PX);
       else if (b.state === 'perch' && b.id !== 'river_god') {
         const tx = Math.floor(u.x), ty = Math.floor(u.y);
         const on = buildings.find((p) => p.art && tileIn(p.tiles, tx, ty));
@@ -92,6 +94,7 @@ export class GuardianLayer {
   clip(u: UnitSnap): readonly string[] | undefined {
     const b = this.states.get(u.id);
     if (!b) return undefined;
+    if (b.state === 'flight' && GROUND_CHARGE.has(b.id)) return ['run', 'charge', 'walk']; // a charge along the ground
     if (b.state === 'flight') return b.phase === 2 ? ['charge', 'walk'] : ['walk'];
     // the breath: the mouth opens on cue (just before it) and stays open while the jet runs
     if (b.fx?.kind === 'breath' && b.fx.t < 20) return ['shoot', 'attack'];

@@ -33,6 +33,10 @@ export interface WarBoss {
   phases: readonly number[];
   /** M7e: the rare good its kill drops into the loot pile (docs/WAR.md "Rare goods"). */
   rare?: { good: RareGood; n: number };
+  /** E3: the trophy its killers hang in their home town (src/war/view/memorial.ts); default: bossTrophy's. */
+  trophy?: string;
+  /** E3: the deed its slayers carry on their record (src/war/sim/deeds.ts); default: bossDeed's. */
+  deed?: string;
 }
 
 export const WAR_BOSSES: readonly WarBoss[] = [
@@ -45,6 +49,9 @@ export const WAR_BOSSES: readonly WarBoss[] = [
   { id: 'brontes', name: 'Brontes the Cyclops', region: 'saddle', tier: 2, signature: [], landmark: 'cyclopean_gatehouse', phases: [1, 0.85], rare: { good: 'starIron', n: 10 } },
   // M7d: the Oracle Grove's guardians are the god's maenads and their queen (the art built them; docs/WAR.md "Landmarks")
   { id: 'grove_queen', name: 'the Maenad Queen of the Grove', region: 'erymanthos', tier: 2, signature: [], landmark: 'oracle_grove', phases: [1, 0.4], rare: { good: 'asphodel', n: 10 } },
+  // E3: the Erymanthian Boar (Heracles' fourth labour) roots in the boar wood east of the Grove: a second guardian of the
+  // region (both keep its claim points shut, as the Titan and the Minotaur do Omphalos'); its tusks are its trophy
+  { id: 'erymanthian_boar', name: 'the Erymanthian Boar', region: 'erymanthos', tier: 2, signature: [], phases: [1, 0.5], trophy: 'the tusks of the Erymanthian Boar', deed: 'Boar-slayer' },
   { id: 'gyges', name: 'Gyges the Hundred-Handed', region: 'gorge', tier: 2, signature: [], landmark: 'titans_forge', phases: [1, 0.5], rare: { good: 'titanBronze', n: 10 } },
   { id: 'chimera', name: 'the Chimera', region: 'canyons', tier: 2, signature: [], landmark: 'obsidian_hold', phases: [1], rare: { good: 'obsidian', n: 10 } },
   // depth 4 rim edges: tier 3, the four signature legendaries
@@ -73,6 +80,17 @@ export const warBoss = (id: string): WarBoss | undefined => BY_ID.get(id);
 /** The (first) boss of a region; Omphalos has two (bossesOfRegion). */
 export const bossOfRegion = (region: string): WarBoss | undefined => WAR_BOSSES.find((b) => b.region === region);
 export const bossesOfRegion = (region: string): WarBoss[] => WAR_BOSSES.filter((b) => b.region === region);
+
+/** E3: the trophy a kill of `boss` gives its killers ("the head of ..." unless the boss names its own). */
+export const bossTrophy = (boss: string): string => {
+  const b = warBoss(boss);
+  return b?.trophy ?? `the head of ${b?.name ?? boss}`;
+};
+/** E3: the deed its slayers earn ("Bane of ..." unless the boss names its own). */
+export const bossDeed = (boss: string): string => {
+  const b = warBoss(boss);
+  return b?.deed ?? `Bane of ${(b?.name ?? boss).replace(/^the /, '')}`;
+};
 
 export interface BossDrop { def: string; rarity: Rarity }
 

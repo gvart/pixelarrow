@@ -61,7 +61,7 @@ const JET_SEGS = 7;
 const EMBERS = 28;
 
 /** Draw scale over a man's (guardians.json scale / 0.55). */
-const SIZE: Record<string, number> = { drakon: 1.5 / 0.55, titan: 1.8, brontes: 1.8, gyges: 1.8, scylla: 1.8, river_god: 1.8 };
+const SIZE: Record<string, number> = { drakon: 1.5 / 0.55, titan: 1.8, brontes: 1.8, gyges: 1.8, scylla: 1.8, river_god: 1.8, erymanthian_boar: 1.4 / 0.55 };
 const size = (id: string) => SIZE[id] ?? 1;
 /** Cadence (ms) of the moves a telegraph foresees, by guardian. */
 const EVERY: Record<string, Partial<Record<string, number>>> = {
@@ -461,6 +461,12 @@ export class BossFx {
       case 'drakon':
         if (b.phase === 2) this.cue('boss.enrage', b.x, b.y, b.id);
         break;
+      case 'erymanthian_boar':
+        // enraged: the bristles rise, the sounder answers its squeal
+        this.play('boss-horn', p.x, p.y, this.depthAt(b.x, b.y, 0.2), { sx: 1.6, sy: 1.6, tint: 0xff6a3a });
+        this.play('crash-dust', p.x, p.y, d, { sx: 1.4, sy: 1.4 });
+        this.cue('boss.enrage', b.x, b.y, b.id);
+        break;
       default:
         this.play('boss-impact', p.x, p.y, d, { sx: 1.2 * k, sy: 1.2 * k });
     }
@@ -503,10 +509,10 @@ export class BossFx {
     const m = this.mem.get(b.unit)!, now = ctx.now, k = size(b.id), f = b.fx;
     const body = ctx.feet({ x: b.x, y: b.y, u: { id: b.unit } }), lift = ctx.lift(b.unit);
     // auras: Drakon enraged (P3), a maenad queen frenzied (P2)
-    if ((b.id === 'drakon' && b.phase === 2) || ((b.id === 'maenad_queen' || b.id === 'grove_queen') && b.phase >= 1)) {
+    if ((b.id === 'drakon' && b.phase === 2) || ((b.id === 'maenad_queen' || b.id === 'grove_queen' || b.id === 'erymanthian_boar') && b.phase >= 1)) {
       const st = this.strips.get('boss-frenzy');
       if (st) {
-        const red = b.id === 'drakon';
+        const red = b.id === 'drakon' || b.id === 'erymanthian_boar';
         const sp = this.sprite(this.nSprite++, st.key, Math.floor((this.clock / 1000) * st.fps) % st.frames);
         sp.setOrigin(st.ax, st.ay).setPosition(body.x, body.y + 4).setScale(red ? 3.2 : 0.9, red ? 1.6 : 0.75).setFlipX(false).setRotation(0)
           .setDepth(this.depthAt(b.x, b.y, red ? 0.46 : 0.24)).setAlpha(red ? 0.3 + 0.08 * Math.sin(now / 120) : 0.6).setTint(red ? 0xff5030 : 0xffffff).setBlendMode(Phaser.BlendModes.ADD);

@@ -30,6 +30,8 @@
  *  - The Titan of the Navel: P1 boulders from the arena (range 6-30, area 2.5, breaks wood); P2 (< 50%) stomps (knock 3) and
  *    tears the ramp gates. Achelous the River-God: a giant, a serpent in the channels (venom, aloft but from the
  *    fords), a bull that charges through the ranks (knock 2). The Minotaur and the pocket bosses fight as brutes.
+ *  - The Erymanthian Boar (E3, the boar wood of Erymanthos): gores through the ranks every 10 s (the bull's charge, knock 2);
+ *    P2 (< 50%) enraged, the sounder comes: two boar packs from its wallow.
  *
  * The kill: a `bossSlain` event (killers: owners of the squads that hurt it, the last blow first) at the body; the region
  * room drops its loot (src/data/warBosses.ts bossLoot, bossGoods) as a pile there; the sandbox does the same. Respawn:
@@ -84,7 +86,7 @@ export interface BossHost {
   mobTeam: number; neutralTeam: number;
 }
 
-type Ai = 'drakon' | 'scylla' | 'brontes' | 'gyges' | 'chimera' | 'king' | 'maenads' | 'titan' | 'river' | 'brute';
+type Ai = 'drakon' | 'scylla' | 'brontes' | 'gyges' | 'chimera' | 'king' | 'maenads' | 'titan' | 'river' | 'brute' | 'boar';
 /**
  * Per guardian: its AI, sheet, body (hp, damage a blow, armour, reach, seconds a blow, speed), aggro and leash radii, its
  * guard or thiasos, and its parts (linked targets: Scylla's heads, the Chimera's heads).
@@ -103,6 +105,8 @@ export const GUARDIANS: Readonly<Record<string, GDef>> = {
   minotaur: { ai: 'brute', cls: 'mob_bandit_captain', hp: 12000, dmg: 50, armor: 4, reach: 1.8, atk: 1.2, speed: 1.1, aggro: 10, leash: 16 },
   brontes: { ai: 'brontes', cls: 'mob_brontes', hp: 8000, dmg: 30, armor: 4, reach: 2.2, atk: 1.8, speed: 0.85, aggro: 25, leash: 22 },
   grove_queen: { ai: 'maenads', cls: 'mob_maenad_queen', hp: 4000, dmg: 30, armor: 4, reach: 1.6, atk: 1, speed: 1.3, aggro: 14, leash: 24, guard: { cls: 'mob_maenad', n: 8, hp: 90, dmg: 14, armor: 2 } },
+  // E3: the mob_boar sheet drawn huge (src/war/view/units.ts SHEET_ALIAS); gores through the ranks, the sounder at half hp
+  erymanthian_boar: { ai: 'boar', cls: 'mob_great_boar', hp: 7000, dmg: 34, armor: 5, reach: 2, atk: 1.4, speed: 1.25, aggro: 14, leash: 24 },
   gyges: { ai: 'gyges', cls: 'mob_gyges', hp: 10000, dmg: 12, armor: 4, reach: 2.4, atk: 1.6, speed: 0.9, aggro: 20, leash: 30 },
   chimera: { ai: 'chimera', cls: 'mob_chimera', hp: 2200, dmg: 16, armor: 6, reach: 1.8, atk: 1.3, speed: 1.15, aggro: 14, leash: 22, parts: { n: 3, hp: 2200, dmg: 16 } },
   maenad_queen: { ai: 'maenads', cls: 'mob_maenad_queen', hp: 2500, dmg: 26, armor: 3, reach: 1.6, atk: 1, speed: 1.3, aggro: 14, leash: 24, guard: { cls: 'mob_maenad', n: 6, hp: 80, dmg: 12, armor: 2 } },
@@ -126,6 +130,8 @@ export const MOVES = {
   goatBreath: { every: 60, len: 7, half: 0.5, share: 0.2 },
   postern: { at: 2.5, hold: 600, away: 36000 },
   calls: { packs: 2, n: 6 },
+  /** E3: boars in each pack the Erymanthian Boar calls. */
+  sounder: 4,
   boulder: { every: 60, range: 30, min: 6, r: 2.5, share: 0.1, wood: 400 },
   stomp: { every: 100, r: 4, share: 0.08, knock: 3, gates: 6, gateDmg: 600 },
   bite: { every: 30, r: 3 },
@@ -394,6 +400,12 @@ export function createBosses(region: RegionData, host: BossHost) {
           call(r, 'mob_maenad', null, MOVES.calls.packs, MOVES.calls.n, e.x, e.y, 1, 1);
         }
         break;
+      case 'boar':
+        if (p === 1) {
+          setSt(u, { dmg: g.dmg * MOVES.enrage.dmg, atkTicks: Math.max(1, Math.round(g.atk * 10 * MOVES.enrage.atk)) });
+          call(r, 'mob_boar', 'boar', MOVES.calls.packs, MOVES.sounder, e.x, e.y, 1, 1);
+        }
+        break;
       case 'titan':
         if (p === 1) {
           pin(u, false);
@@ -421,6 +433,22 @@ export function createBosses(region: RegionData, host: BossHost) {
         break;
       default:
     }
+  };
+
+  /** A charge through the ranks to the densest foe within MOVES.charge.range: the men on its line hit and thrown back. */
+  const gore = (r: Run, u: BUnit) => {
+    r.next = tick + MOVES.charge.every;
+    const t = densest(u.x, u.y, MOVES.charge.range);
+    if (!t || !host.open(t.x, t.y)) return;
+    const d = Math.hypot(t.x - u.x, t.y - u.y) || 1;
+    const line = foesIn(u.x, u.y, d + 1).filter((m) => {
+      const k = ((m.x - u.x) * (t.x - u.x) + (m.y - u.y) * (t.y - u.y)) / (d * d);
+      return k >= 0 && k <= 1 && Math.hypot(u.x + (t.x - u.x) * k - m.x, u.y + (t.y - u.y) * k - m.y) <= MOVES.charge.w;
+    });
+    blast(line, MOVES.charge.share, u.x, u.y, MOVES.charge.knock);
+    fx(r, 'charge', u.x, u.y, t.x, t.y, MOVES.charge.w);
+    flyTo(r, t.x, t.y, 6, 'land');
+    u.aloft = 0;
   };
 
   const think = (r: Run) => {
@@ -596,22 +624,11 @@ export function createBosses(region: RegionData, host: BossHost) {
           return;
         }
         engage(s, e.x, e.y, g.aggro, g.leash, r);
-        if (r.phase === 2 && tick >= r.next) {
-          // the bull charges through the ranks
-          r.next = tick + MOVES.charge.every;
-          const t = densest(u.x, u.y, MOVES.charge.range);
-          if (t && host.open(t.x, t.y)) {
-            const d = Math.hypot(t.x - u.x, t.y - u.y) || 1;
-            const line = foesIn(u.x, u.y, d + 1).filter((m) => {
-              const k = ((m.x - u.x) * (t.x - u.x) + (m.y - u.y) * (t.y - u.y)) / (d * d);
-              return k >= 0 && k <= 1 && Math.hypot(u.x + (t.x - u.x) * k - m.x, u.y + (t.y - u.y) * k - m.y) <= MOVES.charge.w;
-            });
-            blast(line, MOVES.charge.share, u.x, u.y, MOVES.charge.knock);
-            fx(r, 'charge', u.x, u.y, t.x, t.y, MOVES.charge.w);
-            flyTo(r, t.x, t.y, 6, 'land');
-            u.aloft = 0;
-          }
-        }
+        if (r.phase === 2 && tick >= r.next) gore(r, u); // the bull charges through the ranks
+        break;
+      case 'boar':
+        engage(s, e.x, e.y, g.aggro, g.leash, r);
+        if (r.state === 'fight' && tick >= r.next) gore(r, u);
         break;
       default:
         engage(s, e.x, e.y, g.aggro, g.leash, r);
@@ -790,7 +807,7 @@ export function createBosses(region: RegionData, host: BossHost) {
         while (r.phase < p) enter(r, ++r.phase);
         if ((tick + r.i) % RAID.every === 0) scaleFor(r);
         think(r);
-        if (r.ai === 'drakon' || r.ai === 'maenads') for (const c of r.called) engage(sqOf(c), r.x, r.y, 20, 40);
+        if (r.ai === 'drakon' || r.ai === 'maenads' || r.ai === 'boar') for (const c of r.called) engage(sqOf(c), r.x, r.y, 20, 40);
       }
     },
     /** The view's guardians. */

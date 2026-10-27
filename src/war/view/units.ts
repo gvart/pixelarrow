@@ -108,6 +108,8 @@ const images = import.meta.glob<string>(
   ['../../assets/sheets/militia/*.png', '../../assets/sheets/hoplite/*.png', '../../assets/sheets/celt_sword/*.png', '../../assets/sheets/archer/*.png', '../../assets/sheets/slinger/*.png', '../../assets/sheets/javelineer/*.png', '../../assets/sheets/mob_*/*.png', '../../assets/sheets/civ_*/*.png'],
   { eager: true, query: '?url', import: 'default' },
 );
+/** E3: classes drawn with another class's sheet at their own manifest scale (the Erymanthian Boar: the boar, huge). */
+const SHEET_ALIAS: Readonly<Record<string, { from: string; scale: number }>> = { mob_great_boar: { from: 'mob_boar', scale: 1.4 } };
 /** Texture side every GPU takes: a taller sheet is split into pieces of whole bands. */
 const MAX_TEX = 4096;
 /** Screen quadrant (x right, y down) -> sheet row name. */
@@ -242,6 +244,10 @@ export class UnitLayer {
     for (const [path, m] of Object.entries(manifests)) {
       const cls = path.split('/').at(-2)!, img = sheetImages.get(cls);
       if (img) this.pending.set(cls, [m, img]);
+    }
+    for (const [cls, a] of Object.entries(SHEET_ALIAS)) {
+      const p = this.pending.get(a.from);
+      if (p) this.pending.set(cls, [{ ...p[0], class: cls, scale: a.scale } as SheetManifest, p[1]]);
     }
     this.lookIndex = addLookPipeline(scene, [...this.pending].map(([cls, [m]]) => [cls, m] as [string, SheetManifest]), TEAM_TINT);
     const loadsImg = sheetImages.get(LOADS_KEY);
