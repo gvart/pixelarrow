@@ -36,21 +36,40 @@ export function fogged(s: Snapshot, team: number, visible: (x: number, y: number
 
 export interface DrawUnit { u: UnitSnap; x: number; y: number; facing: number; team: number }
 
+/** W-62 E5 (./replay): what the view draws while a replay plays instead of the live game (the live sim runs on beneath). */
+export interface ReplaySource {
+  readonly cur: Snapshot | null;
+  readonly fog: FogGrid | null;
+  readonly squads: Map<number, SquadSnap>;
+  /** Men marked as selected in the replay (the one followed). */
+  readonly picked: Set<number>;
+  units(): DrawUnit[];
+  time(now: number): { now: number; tick: number; snap: number; tickMs: number };
+  since(now: number): number;
+}
+
 export class SimClient {
   private worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' });
   private old = new Map<number, UnitSnap>();
   /** The newest snapshot as the player's team (./side.ts) knows it under the fog (W-39; `full` while fog is off). */
-  cur: Snapshot | null = null;
+  get cur(): Snapshot | null { return this.replay ? this.replay.cur : this.liveCur; }
+  private liveCur: Snapshot | null = null;
+  /** W-62 E5: set while a replay plays (./replay): the view reads it; orders and the camera rect are held back. */
+  replay: ReplaySource | null = null;
+  /** W-62 E5: every snapshot as this client saw it (fogged) and its fog grid, as it comes (the replay recorder). */
+  onSnap: ((cur: Snapshot, fog: FogGrid | null) => void) | null = null;
   /** The newest snapshot, everything in it (dev tallies). */
   full: Snapshot | null = null;
   /** The player's team's fog grid (latest version) and the foe buildings as it last saw them; fog off (dev): no hiding. */
-  fog: FogGrid | null = null;
+  get fog(): FogGrid | null { return this.replay ? this.replay.fog : this.liveFog; }
+  private liveFog: FogGrid | null = null;
   seen: BuildingSnap[] = [];
   fogOn = true;
   private at = 0;
   private interval = 100;
   stats = { stepMs: 0, units: 0 };
-  squads = new Map<number, SquadSnap>();
+  get squads(): Map<number, SquadSnap> { return this.replay ? this.replay.squads : this.liveSquads; }
+  private liveSquads = new Map<number, SquadSnap>();
   /** Economy (real sim only): the influence mask (latest version) and the resource nodes (posted every second). */
   influence: InfluenceMap | null = null;
   nodes: NodeSnap[] = [];
@@ -85,13 +104,14 @@ export class SimClient {
       }
       if (e.data.nodes) this.nodes = e.data.nodes;
       if (e.data.influence) this.influence = e.data.influence;
-      if (e.data.fog) (this.fog = e.data.fog), (this.seen = e.data.seen ?? []);
-      this.old = new Map(this.cur?.units.map((u) => [u.id, u]));
+      if (e.data.fog) (this.liveFog = e.data.fog), (this.seen = e.data.seen ?? []);
+      this.old = new Map(this.liveCur?.units.map((u) => [u.id, u]));
       this.full = e.data.snap;
-      this.cur = this.fogged(e.data.snap);
+      this.liveCur = this.fogged(e.data.snap);
       this.stats = e.data.stats;
       this.at = performance.now();
-      this.squads = new Map(this.cur.squads.map((s) => [s.id, s]));
+      this.liveSquads = new Map(this.liveCur.squads.map((s) => [s.id, s]));
+      this.onSnap?.(this.liveCur, this.liveFog);
       if (e.data.events) this.onEvents?.(e.data.events);
     };
     const q = new URLSearchParams(location.search), dev = Number(q.get('dev')) || undefined;
@@ -103,20 +123,23 @@ export class SimClient {
 
   /** The player's team sees tile point (x, y) now (always with fog off or before the first grid). */
   visible(x: number, y: number): boolean {
-    const g = this.fog;
+    return this.sees(this.fog, x, y);
+  }
+
+  private sees(g: FogGrid | null, x: number, y: number): boolean {
     if (!g || !this.fogOn) return true;
     const cx = Math.floor(x / g.cell), cy = Math.floor(y / g.cell);
     return cx >= 0 && cy >= 0 && cx < g.w && cy < g.h && g.state[cy * g.w + cx] === 2;
   }
 
   private fogged(s: Snapshot): Snapshot {
-    return this.fog && this.fogOn ? fogged(s, myTeam(), (x, y) => this.visible(x, y), this.seen) : s;
+    return this.liveFog && this.fogOn ? fogged(s, myTeam(), (x, y) => this.sees(this.liveFog, x, y), this.seen) : s;
   }
 
   /** Dev: fog of war on / off (re-filters the snapshot drawn now). */
   setFog(on: boolean): void {
     this.fogOn = on;
-    if (this.full) this.cur = this.fogged(this.full);
+    if (this.full) this.liveCur = this.fogged(this.full);
   }
 
   private send(m: ToWorker): void {
@@ -135,11 +158,13 @@ export class SimClient {
   }
 
   order(o: Order): void {
+    if (this.replay) return; // W-62 E5: no live input while a replay plays
     this.send({ t: 'order', o: this.address?.(o) ?? o });
   }
 
   /** The camera's ground rect in tiles (corner tiles): the live server sends what lies near it (net mode only). */
   camera(corners: { x: number; y: number }[]): void {
+    if (this.replay) return; // the replay's free camera is not the live interest rect
     const xs = corners.map((c) => c.x), ys = corners.map((c) => c.y);
     this.send({ t: 'view', x0: Math.min(...xs), y0: Math.min(...ys), x1: Math.max(...xs), y1: Math.max(...ys) });
   }
@@ -292,18 +317,21 @@ export class SimClient {
   }
 
   /** M7d: ms since the newest snapshot came. */
-  since(_now: number): number {
+  since(now: number): number {
+    if (this.replay) return this.replay.since(now);
     return performance.now() - this.at;
   }
 
   /** Render time for the clips (./anim.ts): the fractional tick drawn (one behind the newest snapshot). */
   time(now: number): { now: number; tick: number; snap: number; tickMs: number } {
+    if (this.replay) return this.replay.time(now);
     const snap = this.cur?.tick ?? 0;
     return { now, tick: snap - 1 + Math.min(1, (performance.now() - this.at) / this.interval), snap, tickMs: this.interval };
   }
 
   /** Units at render time, positions in tiles. */
   units(): DrawUnit[] {
+    if (this.replay) return this.replay.units();
     if (!this.cur) return [];
     const a = Math.min(1, (performance.now() - this.at) / this.interval);
     return this.cur.units.map((u) => {

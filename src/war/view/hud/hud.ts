@@ -58,6 +58,7 @@ import { mountWorldEvents } from './worldEvents';
 import { mountRegionChat } from './chatRegion';
 import { mountPeace } from './peace';
 import { mountGuide } from './guide';
+import { mountReplay } from '../replay';
 import { RECIPES } from '../../../data/recipes';
 import { allCivilians, civBuild, civGather, civInfo, civName, civTips, civWork } from './cardCiv';
 import { buildCard, term } from './codex';
@@ -381,6 +382,7 @@ export function hud(s: SandboxScene): void {
   mountWorldEvents(s, mk); // W-62: the world events card (./worldEvents.ts)
   mountGuide(s, mk); // W-62: the first-hour quest tracker, top left, and its world markers (./guide.ts)
   mountRegionChat(s); // W-62 E6: the alliance chat above the minimap, map marks (./chat.ts)
+  mountReplay(s, mk); // W-62 E5: the replay recorder, "Watch the battle", replay mode and clips (../replay)
   const groups = mountGroups(s, mk, tipOn); // W-53: the control group bar over the card, numbers on the map
 
   // ---------- scale ----------

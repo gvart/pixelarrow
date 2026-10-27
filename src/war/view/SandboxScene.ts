@@ -630,7 +630,7 @@ export class SandboxScene extends Phaser.Scene {
     this.units.settle(this.drawn, this.time.now);
     const occluded = this.objects?.draw(view, cam.zoom, this.drawn, (d) => this.units.feet(d), BODY) ?? new Set<number>();
     if (cam.zoom >= SPRITE_ZOOM) this.build.layer.occluded(this.drawn, occluded);
-    this.units.draw(this.drawn, view, cam.zoom, this.sel.units, at, this.sim.squads, shots, occluded);
+    this.units.draw(this.drawn, view, cam.zoom, this.sim.replay?.picked ?? this.sel.units, at, this.sim.squads, shots, occluded);
     const cur = this.sim.cur;
     if (cur?.lairs || cur?.claims) this.neutral.draw(cur.lairs ?? [], cur.claims ?? [], cam.zoom);
     if (bosses || cur?.warden) this.guardians.draw(bosses ?? [], cur?.warden, cam.zoom, this.time.now, this.sim.since(this.time.now), view, this.moved && this.input.isOver ? this.wpx(p.x, p.y) : null);
