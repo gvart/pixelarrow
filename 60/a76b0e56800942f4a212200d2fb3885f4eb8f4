@@ -1,0 +1,36 @@
+server/test/war/bosses.test.ts
+  s_fcb7475e0b5395::t_c3aa6f3480bee0 45-46
+server/src/public/snapshot.ts
+  s_fcb7475e0b5395::t_0c3ae1e5d9c419 114-115,171-172
+  s_fcb7475e0b5395::t_69bbd01ce4cc8e 14
+server/src/war/abuse.ts
+  s_fcb7475e0b5395::t_69bbd01ce4cc8e 13
+  s_fcb7475e0b5395::t_0c3ae1e5d9c419 82
+server/src/war/persons.ts
+  s_fcb7475e0b5395::t_69bbd01ce4cc8e 46
+  s_fcb7475e0b5395::t_9d5673b0e246df 625
+  s_fcb7475e0b5395::t_0c3ae1e5d9c419 628
+server/src/war/world/seasonWar.ts
+  s_fcb7475e0b5395::t_69bbd01ce4cc8e 13
+server/test/war/worldEvents.test.ts
+  s_fcb7475e0b5395::t_fae912dc424542 21
+  s_fcb7475e0b5395::t_c643cefbf2eb9d 226,231-235
+server/src/war/peace.ts
+  s_fcb7475e0b5395::t_0c3ae1e5d9c419 11-12,27-35,82-83,96,104-105
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "60a76b0e56800942f4a212200d2fb3885f4eb8f4",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
