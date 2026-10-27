@@ -37,7 +37,7 @@ export function overlaps(a: Context, b: Context): boolean {
 type ActionKind = 'press' | 'repeat' | 'hold';
 
 /** The sections of the controls page, in order. */
-export const SECTIONS = ['Camera', 'Selection', 'Orders', 'Formations', 'Build mode', 'Buildings', 'View and panels', 'World map', 'General'] as const;
+export const SECTIONS = ['Camera', 'Selection', 'Orders', 'Formations', 'Build mode', 'Buildings', 'View and panels', 'World map', 'Chat', 'General'] as const;
 export type Section = (typeof SECTIONS)[number];
 
 const N = [1, 2, 3, 4, 5, 6, 7, 8, 9] as const;
@@ -54,6 +54,7 @@ export const ACTION_IDS = [
   'view.cutaway', 'view.map', 'view.normal', 'view.altitude', 'view.movement', 'view.ownership', 'view.biomes', 'view.resources', 'view.bossCam',
   'panel.roster', 'panel.chest', 'panel.market', 'panel.guardian', 'panel.sound', 'go.world',
   'world.enter', 'world.routes', 'world.haul', 'world.fit', 'world.zoomIn', 'world.zoomOut',
+  'chat.open', 'chat.mark',
   'back', 'menu.settings', 'help.keys', 'dev.panel',
 ] as const;
 export type ActionId = (typeof ACTION_IDS)[number];
@@ -133,6 +134,10 @@ const DEFS: ActionDef[] = [
   def('world.fit', 'world', 'World map', 'Fit the map', [k('KeyF')]),
   def('world.zoomIn', 'world', 'World map', 'Zoom in', [k('Equal'), k('NumpadAdd')]),
   def('world.zoomOut', 'world', 'World map', 'Zoom out', [k('Minus'), k('NumpadSubtract')]),
+
+  // W-62 E6 alliance chat (src/war/view/hud/chat.ts): on the world map Enter opens it when there is nothing to enter
+  def('chat.open', 'region', 'Chat', 'Open the alliance chat', [k('Enter')]),
+  def('chat.mark', 'global', 'Chat', 'Place a map mark (again: the next kind; then click)', [k('KeyP')]),
 
   def('back', 'global', 'General', 'Back, close, cancel; the menu', [k('Escape')], 'press', false),
   def('menu.settings', 'global', 'General', 'Settings', [k('F10')]),

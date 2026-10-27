@@ -25,6 +25,7 @@ import { mountSoundPanel } from './hud/soundPanel';
 import { mountGameMenu } from '../menu/gameMenu';
 import { saveSound } from './sound/mix';
 import { myTeam, setMyTeam } from './side';
+import { chatBusy } from './hud/chat';
 
 const q = new URLSearchParams(location.search);
 // M7d: a scenario may name its own region (the landmark raids)
@@ -40,7 +41,7 @@ mountGameMenu({
     const s = live;
     if (!s?.sel) return true;
     return !s.build.active && !s.build.tool && !s.interact.open && !s.siege.armed && !s.mapOpen && s.sel.units.size === 0
-      && !document.querySelector('#rfModes.open');
+      && !document.querySelector('#rfModes.open') && !chatBusy();
   },
   world: q.has('world') ? () => document.getElementById('rfWorld')?.click() : undefined,
   hooks: {
