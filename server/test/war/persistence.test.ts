@@ -37,6 +37,21 @@ describe('WarRoom with persons', () => {
     expect(r.spawnsNew(1)).toBe(false); // offline with squads standing: a rejoin
   });
 
+  it('a level-up spend reaches his living man (POST /persons/:id/level on a man in the region)', () => {
+    const r = new WarRoom({ region, seed: 1, cap: 600, allowArmy: false });
+    const nikias = { ...makePerson('n-0', 'militia', { level: 3, skills: [] }), skills: [] };
+    const g = [[{ ...nikias, hero: { ...nikias.hero, points: 2 } }]];
+    r.join(1, join(1, 0, ids(g)), g);
+    r.tick();
+    expect(r.levelUp('nobody', { str: 2 })).toBe('absent');
+    expect(r.levelUp('n-0', { str: 3 })).toBe('no_points');
+    expect(r.levelUp('n-0', {}, 'volley')).toBe('bad_skill');
+    expect(r.levelUp('n-0', { str: 2 }, 'shieldWall')).toBe('ok');
+    r.tick();
+    expect(r.levelUp('n-0', { str: 1 })).toBe('no_points'); // spent: the living man holds it (his reports write it back)
+    expect(r.levelUp('n-0', {}, 'shieldWall')).toBe('bad_skill'); // his slot is filled
+  });
+
   it('releases the persons of a join that leaves the line', () => {
     const r = new WarRoom({ region, seed: 1, cap: 48 }); // 12 per alliance
     r.join(1, join(1, 0, ids([squad('a', 'hoplite')])), [squad('a', 'hoplite')]);

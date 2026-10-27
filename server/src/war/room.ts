@@ -38,7 +38,9 @@ import { EconomyFeed, encodeFog, encodeInfluence, NODES_EVERY, storeByMen } from
 import { ALLIANCES, KEYFRAME_EVERY, MAX_SQUAD, MAX_SQUADS, NET_VERSION, splitQuota, type CheckMsg, type DevMsg, type JoinMsg, type NetOrder, type OrderError, type Quota, type Refusal, type ServerMsg } from '../../../src/war/net/protocol';
 import type { SimState } from '../../../src/war/sim/state';
 import type { Item } from '../../../src/data/items';
-import type { BridgePlan, FightReport, LandmarkSnap, Order, PlaceResult, RegionData, RegionMemory, ShotSnap, Snapshot, SquadId, WallPlan, WarBuildSim, WarEvent, WarPerson } from '../../../src/war/types';
+import type { BridgePlan, FightReport, LandmarkSnap, Order, PlaceResult, RegionData, RegionMemory, ShotSnap, Snapshot, SquadId, WallPlan, WarBuildSim, WarEvent, WarPerson, WarSkillId } from '../../../src/war/types';
+import type { AttrId } from '../../../src/data/perks';
+import { spendLevel, type SpendRefusal } from '../../../src/war/sim/roster';
 import type { Side } from '../../../src/war/world/types';
 import type { BossSlain } from './bosses';
 import { honoursOf } from '../../../src/war/sim/honours';
@@ -1303,6 +1305,19 @@ export class WarRoom {
     else if (o.kind === 'placeBridge') tiles = o.points;
     else return null;
     return buildRefusal(this.settles, pid, tiles);
+  }
+
+  /**
+   * A level-up spend (POST /persons/:id/level) on a man of this room: his living man takes it, baked again (his next
+   * fight report writes the attributes and points back). 'absent': no living man of that person here.
+   */
+  levelUp(id: string, attrs: Partial<Record<AttrId, number>>, skill?: WarSkillId): 'ok' | 'absent' | SpendRefusal {
+    const p = this.sim.person(id);
+    if (!p) return 'absent';
+    const q = spendLevel(p, attrs, skill);
+    if (typeof q === 'string') return q;
+    this.sim.setPerson(q);
+    return 'ok';
   }
 
   /** At least SETTLE.presence of the player's fighters stand on settlement `id`'s ground (terms may be offered). */

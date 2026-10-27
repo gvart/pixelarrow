@@ -664,6 +664,8 @@ export interface WarBuildSim extends WarSim {
   setSatiety(ids: number[], sat: number): void;
   /** M5g: a person changed off the field (level-up choice, dev XP): his living man takes the new record, baked again (HP keeps its wounds). false: not on the field. */
   setPerson(p: WarPerson): boolean;
+  /** The record his living man carries now (undefined: not on the field; a level-up on a man in a region room). */
+  person(id: string): WarPerson | undefined;
   /**
    * M5e eviction resume (src/war/sim/state.ts): the sim's whole live state as JSON-safe data (units with hp, wounds and
    * flags, squads and orders, sites and buildings, siege, stock, fog, mobs, tick and rng). importState puts it into a
