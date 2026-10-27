@@ -8,6 +8,7 @@
  *   WS    /ws/war/world: server -> { t: 'world', ...WorldSnapshot } on connect and on every change (at most 1/s; W-62:
  *         the running and next world events, the last season's scoreboard and the player's crests ride along);
  *         client -> { t: 'transfer', ...TransferOrder } | { t: 'ping', c }; server -> transferred | error | pong.
+ *         W-62 E6: `?chat=1` opens a chat-only socket (no snapshots): alliance chat and map marks, ./chat.ts.
  *
  * Transfer: a squad of the player's standing in region `from` (by its room squad id, or his men there by person id, up
  * to TRANSFER_MAX) leaves it for the adjacent `to`. It may leave from
@@ -21,6 +22,7 @@ import { z } from 'zod';
 import { ARMY_MAX } from '../sim/soldiers';
 import type { AllianceId } from '../world/types';
 import type { WorldEvent } from '../world/events';
+import { chatClientMsgs, type ChatServerMsg } from './chat';
 
 export type { WorldEvent } from '../world/events';
 
@@ -44,6 +46,7 @@ export type TransferOrder = z.infer<typeof transferSchema>;
 export const worldClientMsgSchema = z.discriminatedUnion('t', [
   transferFields.extend({ t: z.literal('transfer') }),
   z.object({ t: z.literal('ping'), c: z.number().finite() }),
+  ...chatClientMsgs, // W-62 E6 alliance chat and marks (./chat.ts)
 ]);
 export type WorldClientMsg = z.infer<typeof worldClientMsgSchema>;
 
@@ -206,13 +209,16 @@ export type WorldServerMsg =
   | ({ t: 'world' } & WorldSnapshot)
   | { t: 'transferred'; transit: TransitSnap }
   | { t: 'error'; code: TransferError | 'parse'; detail?: string }
-  | { t: 'pong'; c: number };
+  | { t: 'pong'; c: number }
+  | ChatServerMsg;
 
 export function parseWorldMsg(text: string): WorldClientMsg | null {
   if (text.length > 1024) return null;
   try {
     const r = worldClientMsgSchema.safeParse(JSON.parse(text));
-    return r.success && (r.data.t !== 'transfer' || oneOf(r.data)) ? r.data : null;
+    if (!r.success) return null;
+    const d = r.data;
+    return (d.t !== 'transfer' || oneOf(d)) && (d.t !== 'say' || (d.text === undefined) !== (d.phrase === undefined)) ? d : null;
   } catch {
     return null;
   }
