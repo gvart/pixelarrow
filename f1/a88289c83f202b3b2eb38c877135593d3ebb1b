@@ -1,0 +1,29 @@
+scripts/war/regions/achelous.ts
+  s_f08b12c690e0d6::t_a1fc1a49335274 72,74
+scripts/war/regions/kyrene-s.ts
+  s_f08b12c690e0d6::t_a1fc1a49335274 80-81
+src/war/regions/ammos.json
+  s_f08b12c690e0d6::t_a1fc1a49335274 1
+src/war/regions/achelous.json
+  s_f08b12c690e0d6::t_a1fc1a49335274 1
+src/war/regions/kyrene-s.json
+  s_f08b12c690e0d6::t_a1fc1a49335274 1
+scripts/war/regions/ammos.ts
+  s_f08b12c690e0d6::t_a1fc1a49335274 83-84
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "f1a88289c83f202b3b2eb38c877135593d3ebb1b",
+  "prompts": {},
+  "sessions": {
+    "s_f08b12c690e0d6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e4ed4b42-9ff5-404c-b2dd-32a044e85f29",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
