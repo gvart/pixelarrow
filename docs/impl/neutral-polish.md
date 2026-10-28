@@ -20,7 +20,7 @@ Bosses read as set pieces (own art, an entrance, lines, signature moves); neutra
 - [x] 1 boss-voice — wake banner, phase lines, epitaph; lines in src/data/warBosses.ts; src/war/view/hud/bossBanner.ts; one beat per skipped phase. verify: tests/war/bosses.test.ts, Playwright shots of wake / phase / death.
 - [ ] 2a boss-art — 7 sheets in src/assets/sheets/mob_<kind>/, GUARDIANS cls + SIZE, prompts in PROMPTS_ART.md. verify: guardians-preview shots, sandbox draws each.
 - [ ] 2b boss-moves — griffin dive, lion pounce, bear maul, minotaur charge, river-god surge with telegraphs. verify: bosses tests, balance:war, FX shots. depends on: 1, 2a.
-- [ ] 3 beasts-lairs — lion + serpent mob kinds, lair art per kind with cleared state, mob FX from new events (charge, howl, flee), server mirror. verify: mob scenarios, lair shots.
+- [x] 3 beasts-lairs — lion + serpent mob kinds, lair art per kind with cleared state, mob FX from new events (charge, howl, flee), server mirror. verify: mob scenarios, lair shots.
 - [ ] 4 stories — 13 hooks done (merged), 5 wait with existing beasts now, the 6 lion/serpent ones after 3; named leads as captains with a name tag; STORY_HOOKS removed. verify: tests/war/stories.test.ts, story card shot.
 - [ ] 5 encounters — rescue and track triggers, biome/region filter, ~8 new kinds incl. lion and serpent. verify: encounter tests. depends on: 3.
 

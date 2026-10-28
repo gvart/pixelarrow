@@ -41,7 +41,7 @@ export const regionSchema = z
     blocked: ints().optional(),
     visual: z.object({ scale: z.literal(2), rle: ints() }).optional(),
     biomes: z.object({ names: z.array(z.string().min(1)).min(1), rle: ints() }).optional(),
-    lairs: z.array(z.object({ kind: z.enum(['wolf', 'boar', 'bear', 'bandit', 'jackal', 'ibex']), x: z.number().min(0), y: z.number().min(0), count: z.number().int().positive().optional(), as: z.string().optional(), captain: z.boolean().optional() })).optional(),
+    lairs: z.array(z.object({ kind: z.enum(['wolf', 'boar', 'bear', 'bandit', 'jackal', 'ibex', 'lion', 'serpent']), x: z.number().min(0), y: z.number().min(0), count: z.number().int().positive().optional(), as: z.string().optional(), captain: z.boolean().optional() })).optional(),
     claimPoints: z.array(z.object({ x: z.number().min(0), y: z.number().min(0), lairs: z.array(z.number().int().min(0)), r: z.number().positive().optional() })).optional(),
     /** M6d (additive): safe zones with their gates, caravan yards, ambush spots (src/war/sim/trade.ts; ./zones.ts). */
     safe: z.array(z.object({ ...rect, gates: z.array(z.object(rect)).optional() })).optional(),

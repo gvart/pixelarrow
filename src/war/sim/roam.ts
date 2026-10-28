@@ -77,6 +77,8 @@ export const NATURE: Record<MobKind, { react: 'flee' | 'attack' | 'near' | 'weak
   bear: { react: 'attack', size: 1, r: 9 },
   ibex: { react: 'flee', size: 5, r: 14 },
   bandit: { react: 'attack', size: 5, r: 14 },
+  lion: { react: 'weak', size: 3, r: 11 },
+  serpent: { react: 'near', size: 2, r: 6 },
 };
 
 export interface RoamUnit { x: number; y: number; hp: number; maxHp: number; alive: boolean }

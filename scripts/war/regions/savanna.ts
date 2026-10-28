@@ -75,9 +75,9 @@ const def: RegionDef = {
     // the Lion's den at the great kopje's south-east foot; the lions' lair on the copper; lions on the plain
     pocketBoss(k, 'savanna_lion', [94, 104], 5);
     k.lair('jackal', [34, 124], { as: 'Nemean lion', count: 10 });
-    k.lair('jackal', [196, 76], { as: 'lions' });
-    k.lair('jackal', [190, 200], { as: 'lions' });
-    k.lair('jackal', [60, 200], { as: 'lions' });
+    k.lair('lion', [196, 76], { as: 'lions' });
+    k.lair('lion', [190, 200], { as: 'lions' });
+    k.lair('lion', [60, 200], { as: 'lions' });
     // the wash's bed plain sand (the kyrene ground broke it into orange dune and black reg blots), dry scrub in it
     k.patchWhere('kyrene', 'sand', () => true, ['sand']);
     for (const [n, p] of ([[166, 50], [146, 96], [140, 140], [112, 182], [92, 222]] as Pt[]).entries()) k.piece(['kyrene/camelthorn', 'kyrene/dry-grass', 'kyrene/saltbush'][n % 3], p, { r: 3, n: 3, gap: 2 });

@@ -84,8 +84,8 @@ const def: RegionDef = {
     k.oasis([214, 84], 1.6);
     k.forest([100, 40, 14, 8, 0.4], [60, 236, 16, 10, 0.2]);
     // fauna: river serpents up the channels, boars in the reeds
-    k.lair('boar', [150, 116], { as: 'river serpents' });
-    k.lair('boar', [86, 220], { as: 'river serpents' });
+    k.lair('serpent', [150, 116], { as: 'river serpents' });
+    k.lair('serpent', [86, 220], { as: 'river serpents' });
     k.lair('boar', [104, 40], { as: 'boars' });
     k.lair('boar', [210, 220], { as: 'boars' });
     // the market crossing (only its flag stood there): stalls, amphorae, carts, potted palms

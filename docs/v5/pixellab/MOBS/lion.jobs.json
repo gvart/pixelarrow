@@ -1,0 +1,4 @@
+[
+ { "anim": "die", "dir": "south-west", "attempt": "a1", "job": "08b32b6e-2f22-4da6-a20d-f8d11fd3feae", "mode": "pixminimax", "frames": 8 },
+ { "anim": "die", "dir": "north-west", "attempt": "a1", "job": "a466f358-6551-4724-9380-264b64471339", "mode": "pixminimax", "frames": 8 }
+]

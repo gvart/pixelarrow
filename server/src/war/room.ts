@@ -33,7 +33,8 @@ import { createSim } from '../../../src/war/sim';
 import { createBots, type Bots } from '../../../src/war/sim/bots';
 import { isClassId } from '../../../src/data/classes';
 import { DeltaEncoder } from '../../../src/war/net/codec';
-import { visibleTo, type Rect, type TeamVision } from '../../../src/war/net/interest';
+import { interestRect, visibleTo, type Rect, type TeamVision } from '../../../src/war/net/interest';
+import { isMobFx } from '../../../src/war/sim/mobs';
 import { EconomyFeed, encodeFog, encodeInfluence, NODES_EVERY, storeByMen } from '../../../src/war/net/economy';
 import { ALLIANCES, KEYFRAME_EVERY, MAX_SQUAD, MAX_SQUADS, NET_VERSION, splitQuota, WILD_EVERY, type CheckMsg, type DevMsg, type JoinMsg, type NetOrder, type OrderError, type Quota, type Refusal, type ServerMsg } from '../../../src/war/net/protocol';
 import type { SimState } from '../../../src/war/sim/state';
@@ -1160,6 +1161,13 @@ export class WarRoom {
     // W-65: random encounters (the DO stores and pays them), told to the player
     const en = this.encounters.tick(this.snap, evs);
     for (const [pid, m] of en.msgs) if (this.players.get(pid)?.online) tell(pid, m);
+    // W-67: mob FX events (a beast's burst, a lair's cry, a pack scattering) to the players whose camera rect holds them
+    const mobFx = evs.filter(isMobFx);
+    if (mobFx.length) for (const p of this.players.values()) {
+      if (!p.online) continue;
+      const r = interestRect(p.cam), ev = mobFx.filter((e) => !r || (e.x >= r.x0 && e.x <= r.x1 && e.y >= r.y0 && e.y <= r.y1));
+      if (ev.length) tell(p.pid, { t: 'mobFx', ev });
+    }
     // W-63: camps to found, attacks on settlements; messages owed since the last tick (a banner changed)
     const settle = this.settleTick();
     for (const [pid, ms] of this.later) if (this.players.get(pid)?.online) for (const m of ms) tell(pid, m);
