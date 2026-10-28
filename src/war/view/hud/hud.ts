@@ -232,9 +232,9 @@ export function hud(s: SandboxScene): void {
   let lastShape: string | null = null;
   /** Stop: the selected men halt where it stands, forms up there and holds (the sim's stop). */
   const stop = () => { for (const q of sc.own()) s.sim.order({ kind: 'stop', squad: q }); };
-  const sqMove = btn('cMove', 'act-move', tipK('Move', 'click the map, or', 'right click'), '', () => sc.arm('move'));
-  const sqAtk = btn('cAttack', 'act-attack', tipK('Attack', 'click an enemy, or hover it and', 'E'), '', () => sc.arm('attack'));
-  const sqAtkMove = btn('cAttackMove', 'act-attack', tipK('Attack-move', 'march to a point, fighting any foe met on the way: click it, or', 'Ctrl + right click'), '', () => sc.arm('attackMove'));
+  const sqMove = btn('cMove', 'act-move', tipK('Move', 'click the button, then the map; or right click the map', 'Right click'), '', () => sc.arm('move'));
+  const sqAtk = btn('cAttack', 'act-attack', tipK('Attack', 'click the button, then an enemy; or hover him and press the key', 'E'), '', () => sc.arm('attack'));
+  const sqAtkMove = btn('cAttackMove', 'act-attack', tipK('Attack-move', 'march to a point, fighting any foe met on the way: click the button, then the point', 'Ctrl + right click'), '', () => sc.arm('attackMove'));
   sqAtkMove.insertAdjacentHTML('beforeend', `<span class="badge">${icon('act-move')}</span>`);
   const sqHold = btn('cHold', 'act-hold', tipK('Hold', 'stand and fight here', 'H'), 'H', () => s.orderSelected((squad) => ({ kind: 'hold', squad })));
   const sqStop = btn('cStop', 'act-stop', tipK('Stop', 'halt and form up where they stand', 'X'), 'X', stop);
@@ -251,7 +251,7 @@ export function hud(s: SandboxScene): void {
   const orders = [row('', sqMove, sqAtk, sqAtkMove, sqHold, sqStop), row('rf-seg', ...shapes)];
   orders[1].style.gap = '0';
   // civilian squads (M5f): work orders only, their jobs instead of the attack orders
-  const cvMove = btn('cvMove', 'act-move', tipK('Move', 'click the map, or', 'right click'), '', () => sc.arm('move'));
+  const cvMove = btn('cvMove', 'act-move', tipK('Move', 'click the button, then the map; or right click the map', 'Right click'), '', () => sc.arm('move'));
   const cvHold = btn('cvHold', 'act-hold', tipK('Hold', 'stand here', 'H'), 'H', () => s.orderSelected((squad) => ({ kind: 'hold', squad })));
   const cvStop = btn('cvStop', 'act-stop', tipK('Stop', 'halt where they stand', 'X'), 'X', stop);
   const cvWork = btn('cvWork', 'act-assign', () => tipK('Work', civTips(s).work, ''), '', () => civWork(s, sc.own()));

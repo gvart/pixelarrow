@@ -54,7 +54,7 @@ export const THEME_CSS = `
 .rf{font:var(--hud-body);color:var(--hud-ink);-webkit-font-smoothing:antialiased}
 @keyframes hudIn{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
 @keyframes hudFade{from{opacity:0}to{opacity:1}}
-.rf-band,.rf-card{border:solid transparent;border-width:6px 6px 4px;border-image:none;background:var(--hud-stone);background-clip:border-box;box-shadow:var(--hud-frame);border-radius:3px}
+.rf-band,.rf-card{border:solid transparent;border-width:6px 6px 4px;border-image:none;background:var(--hud-stone);background-clip:border-box;background-origin:border-box;box-shadow:var(--hud-frame);border-radius:3px}
 .rf-band{border-width:5px 6px}
 .rf-card.on,#rfTown.on{box-shadow:var(--hud-frame-hi)}
 .rf-tip{border:1px solid transparent;border-image:none;padding:6px 9px 7px;border-radius:3px;background:linear-gradient(180deg,rgba(32,35,42,.98),rgba(14,16,19,.98));box-shadow:inset 0 1px 0 rgba(226,189,104,.5),inset 0 0 0 1px var(--hud-bronze),0 0 0 1px var(--hud-edge),0 10px 26px rgba(0,0,0,.6);animation:hudFade var(--hud-fast) ease-out;line-height:1.4;max-width:300px}
@@ -146,6 +146,7 @@ export const THEME_CSS = `
   background:linear-gradient(180deg,#262a31,#121418);clip-path:polygon(0 0,100% 0,calc(100% - 14px) 100%,14px 100%);box-shadow:none}
 #rfTop .tb-plaque::before{content:'';position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,transparent calc(100% - 2px),var(--hud-gold) calc(100% - 2px));clip-path:polygon(0 0,100% 0,calc(100% - 14px) 100%,14px 100%)}
 #rfTop .tb-plaque::after{content:'';position:absolute;left:14px;right:14px;bottom:2px;height:1px;background:rgba(0,0,0,.7)}
+#rfTop .tb-region::before,#rfTop .tb-region::after{content:'';display:inline-block;width:5px;height:5px;margin:0 9px;vertical-align:4px;background:var(--hud-gold);transform:rotate(45deg);box-shadow:0 0 4px rgba(226,189,104,.6)}
 #rfTop .tb-region{font:700 15px/1.1 Cinzel,serif;color:var(--hud-title);letter-spacing:.08em;white-space:nowrap;text-shadow:0 1px 0 #000,0 0 8px rgba(226,189,104,.25)}
 #rfTop .tb-sub{margin-top:3px;font:var(--hud-small);color:var(--hud-muted);white-space:nowrap;letter-spacing:.02em}
 #rfTop .tb-sub b{color:var(--hud-ink);font-variant-numeric:tabular-nums}
@@ -168,7 +169,9 @@ export const THEME_CSS = `
 #rfTown,#rfTownCard,#rfQBanner,#rfTunnel,#rfGuard,#rrToasts,#rpToast,#rpTop,#rfPlotBar{margin-top:calc(var(--hud-top) + 10px)}
 
 /* ---- the command panel, bottom centre ---- */
-#rfCard .hud-cmd{display:flex;align-items:stretch;padding:5px 6px 5px 5px;border-width:4px 5px 4px;box-shadow:var(--hud-frame)}
+#rfCard .hud-cmd{position:relative;display:flex;align-items:stretch;padding:5px 6px 5px 5px;border-width:4px 5px 4px;box-shadow:var(--hud-frame)}
+#rfCard .hud-cmd::before,#rfCard .hud-cmd::after,#rfDock::before{content:'';position:absolute;top:-3px;width:12px;height:12px;pointer-events:none;border-top:2px solid var(--hud-gold);opacity:.9}
+#rfCard .hud-cmd::before,#rfDock::before{left:-3px;border-left:2px solid var(--hud-gold)}#rfCard .hud-cmd::after{right:-3px;border-right:2px solid var(--hud-gold)}
 #rfCard .hud-port{position:relative;flex:none;width:58px;align-self:stretch;min-height:64px;margin-right:7px;border-radius:2px;overflow:hidden;
   background:radial-gradient(ellipse at 50% 30%,#3a3f49,#16181d 70%,#0b0c0e);box-shadow:inset 0 0 0 1px var(--hud-gold-lo),inset 0 0 0 2px rgba(0,0,0,.7),inset 0 -12px 18px rgba(0,0,0,.55),0 0 0 1px var(--hud-edge)}
 #rfCard .hud-port #cIcon{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) scale(1.5);width:32px;height:32px;image-rendering:pixelated}

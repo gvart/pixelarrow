@@ -4,6 +4,7 @@
  * Icons reuse the first kit until the actives get their own art.
  */
 import { ACTIVE, ACTIVES } from '../../sim/skills';
+import { tipHtml } from './theme';
 import type { ActiveSnap, SquadId, WarSkillId } from '../../types';
 import type { SandboxScene } from '../SandboxScene';
 
@@ -51,8 +52,8 @@ export function activeWhy(a: ActiveSnap): string | undefined {
 /** Tooltip: name, effect, cooldown state and key. */
 export function activeTip(a: ActiveSnap): string {
   const ui = ACTIVE_UI[a.skill];
-  const state = a.on > 0 ? `<span style="color:#efcf86">on · ${secs(a.on)} left</span>` : a.ready > 0 ? `<span class="rf-dim">ready in ${secs(a.ready)}</span>` : '<span style="color:#9fd88a">ready</span>';
-  return `<div class="rf-name" style="margin-bottom:3px">${ui?.name ?? a.skill}</div>${activeEffect(a.skill)}<div style="margin-top:3px">${state} · cooldown ${secs(ACTIVE.cooldown)} <b class="k">${ACTIVE_KEY}</b></div>`;
+  const state = a.on > 0 ? `<span style="color:var(--hud-title)">on · ${secs(a.on)} left</span>` : a.ready > 0 ? `<span class="rf-dim">ready in ${secs(a.ready)}</span>` : '<span style="color:var(--hud-good)">ready</span>';
+  return tipHtml(ui?.name ?? a.skill, `${activeEffect(a.skill)}<div style="margin-top:3px">${state} · cooldown ${secs(ACTIVE.cooldown)}</div>`, ACTIVE_KEY);
 }
 
 export const ACTIVE_CSS = `

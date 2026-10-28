@@ -28,6 +28,7 @@ import { glyph } from './glyph';
 import { HUNGER, hungerStage } from '../../sim/food';
 import type { BuildingSnap } from '../../types';
 import { storeNear } from '../../net/economy';
+import { tipHtml } from './theme';
 export { STORE_NEAR, storeNear } from '../../net/economy'; // W-60: shared with the server's `stock` message
 
 type Mk = (id: string, css: string, html?: string) => HTMLElement;
@@ -181,7 +182,7 @@ export function mountChest(s: SandboxScene, mk: Mk, tipOn: (el: HTMLElement, htm
   const paintBtn = () => { btn.innerHTML = icon('trade-chest') + `<span class="key">${label()}</span>`; };
   paintBtn();
   keys.onChange(paintBtn);
-  tipOn(btn, () => `<div class="rf-name" style="margin-bottom:3px">Squad chest</div>what your men carry, and the town store <b class="k">${label()}</b>`);
+  tipOn(btn, () => tipHtml('Squad chest', 'what your men carry, and the town store', label()));
 
   const el = mk('rfChest', 'right:4px;bottom:40px;display:none;pointer-events:auto');
   el.classList.add('rf-card');
