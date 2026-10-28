@@ -412,7 +412,10 @@ export class UnitLayer {
   }
   private drawCorpses(n: number, now: number): number {
     for (let i = this.corpses.length - 1; i >= 0; i--) {
-      const c = this.corpses[i], sheet = this.sheet(c.cls), el = now - c.t0;
+      const c = this.corpses[i], sheet = this.sheet(c.cls);
+      // the corpse is stamped on the scene clock, drawn on the sim's (AnimTime): start it at its first draw
+      if (c.t0 > now) c.t0 = now;
+      const el = now - c.t0;
       if (el > 12000 || !sheet) { this.corpses.splice(i, 1); continue; }
       const def = sheet.clips.get('die');
       const fx = Math.cos(c.facing), fy = Math.sin(c.facing), sx = fx - fy, sy = fx + fy;
