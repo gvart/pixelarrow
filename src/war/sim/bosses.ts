@@ -113,7 +113,7 @@ export const GUARDIANS: Readonly<Record<string, GDef>> = {
   bandit_king: { ai: 'king', cls: 'mob_bandit_king', hp: 6000, dmg: 22, armor: 6, reach: 1.6, atk: 1.1, speed: 1.05, aggro: 10, leash: 14, guard: { cls: 'mob_bandit_guard', n: 11, hp: 150, dmg: 14, armor: 4 } },
   river_god: { ai: 'river', cls: 'mob_river_god', hp: 30000, dmg: 20, armor: 4, reach: 2.4, atk: 1.8, speed: 0.9, aggro: 16, leash: 26 },
   titan: { ai: 'titan', cls: 'mob_titan', hp: 16000, dmg: 30, armor: 4, reach: 2.6, atk: 2, speed: 0.8, aggro: 30, leash: 30 },
-  minotaur: { ai: 'minotaur', cls: 'mob_minotaur', hp: 12000, dmg: 50, armor: 4, reach: 1.8, atk: 1.2, speed: 1.1, aggro: 10, leash: 16 },
+  minotaur: { ai: 'minotaur', cls: 'mob_minotaur', hp: 11000, dmg: 44, armor: 4, reach: 1.8, atk: 1.2, speed: 1.1, aggro: 10, leash: 16 },
   brontes: { ai: 'brontes', cls: 'mob_brontes', hp: 8000, dmg: 30, armor: 4, reach: 2.2, atk: 1.8, speed: 0.85, aggro: 25, leash: 22 },
   grove_queen: { ai: 'maenads', cls: 'mob_maenad_queen', hp: 4000, dmg: 30, armor: 4, reach: 1.6, atk: 1, speed: 1.3, aggro: 14, leash: 24, guard: { cls: 'mob_maenad', n: 8, hp: 90, dmg: 14, armor: 2 } },
   // E3: gores through the ranks, the sounder at half hp (W-67: its own sheet, mob_erymanthian_boar)
@@ -155,7 +155,7 @@ export const MOVES = {
   pounce: { every: 90, wind: 10, fly: 4, range: 8, min: 2.5, r: 1.6, share: 0.12, knock: 2 },
   roar: { every: 220, wind: 8, r: 5, n: 3, knock: 1.5, slow: 20 },
   maul: { every: 70, wind: 12, len: 3.4, half: 0.75, share: 0.1, knock: 3 },
-  bull: { every: 110, wind: 15, range: 12, min: 3, len: 12, w: 1.3, share: 0.14, knock: 2, stun: 30, fly: 8 },
+  bull: { every: 140, wind: 15, range: 12, min: 3, len: 12, w: 1.3, share: 0.1, knock: 2, stun: 30, fly: 8 },
   surge: { delay: 30, wind: 20, reach: 28, len: 10, past: 6, w: 3, share: 0.04, push: 3, slow: 30 },
   fx: 20,
   /** Ticks without a blow either way, away from home, before a guardian on the ground walks back to its post. */

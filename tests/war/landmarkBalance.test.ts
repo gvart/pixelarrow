@@ -50,6 +50,13 @@ describe('M7h landmark balance', () => {
       expect(raidFight(region, boss, mixed(4), 1).won).toBe(true);
     }, 120_000);
 
+  // W-67: the beasts with their own moves (dive, pounce and roar, maul, the bull's charge) at their tiers' raids
+  for (const [region, boss, raid] of [['moors', 'moor_bear', 3], ['kimmeria', 'griffin', 3], ['savanna', 'savanna_lion', 3], ['omphalos', 'minotaur', 5]] as const)
+    it(`${boss}: one squad loses, ${raid} win`, () => {
+      expect(raidFight(region, boss, mixed(1), 1).won).toBe(false);
+      expect(raidFight(region, boss, mixed(raid), 1).won).toBe(true);
+    }, 120_000);
+
   // three minutes of the fight (the march, the gate, the first blows on the guardian) is enough to show it
   it('is deterministic: the same seed fights the same raid', () => {
     expect(raidFight('canyons', 'chimera', mixed(4), 3, 180)).toEqual(raidFight('canyons', 'chimera', mixed(4), 3, 180));
