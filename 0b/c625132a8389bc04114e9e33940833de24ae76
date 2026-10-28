@@ -1,0 +1,32 @@
+src/war/view/hud/groups.ts
+  s_fcb7475e0b5395::t_6dd5112381c0aa 14,37
+src/war/view/hud/chest.ts
+  s_fcb7475e0b5395::t_6dd5112381c0aa 31,185
+src/war/view/hud/theme.ts
+  s_fcb7475e0b5395::t_6dd5112381c0aa 149,172-174
+  s_fcb7475e0b5395::t_25c4932b7f3151 57
+src/war/view/hud/favour.ts
+  s_fcb7475e0b5395::t_6dd5112381c0aa 16,126
+src/war/view/hud/roster/index.ts
+  s_fcb7475e0b5395::t_6dd5112381c0aa 27,57
+src/war/view/hud/cardActive.ts
+  s_fcb7475e0b5395::t_6dd5112381c0aa 7,55-56
+src/war/view/hud/hud.ts
+  s_fcb7475e0b5395::t_a7df2e06549f29 235-237,254
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "0bc625132a8389bc04114e9e33940833de24ae76",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
