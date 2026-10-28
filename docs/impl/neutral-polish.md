@@ -17,7 +17,7 @@ Bosses read as set pieces (own art, an entrance, lines, signature moves); neutra
 
 ## Work items
 
-- [ ] 1 boss-voice — wake banner, phase lines, epitaph; lines in src/data/warBosses.ts; src/war/view/hud/bossBanner.ts; one beat per skipped phase. verify: tests/war/bosses.test.ts, Playwright shots of wake / phase / death.
+- [x] 1 boss-voice — wake banner, phase lines, epitaph; lines in src/data/warBosses.ts; src/war/view/hud/bossBanner.ts; one beat per skipped phase. verify: tests/war/bosses.test.ts, Playwright shots of wake / phase / death.
 - [ ] 2a boss-art — 7 sheets in src/assets/sheets/mob_<kind>/, GUARDIANS cls + SIZE, prompts in PROMPTS_ART.md. verify: guardians-preview shots, sandbox draws each.
 - [ ] 2b boss-moves — griffin dive, lion pounce, bear maul, minotaur charge, river-god surge with telegraphs. verify: bosses tests, balance:war, FX shots. depends on: 1, 2a.
 - [ ] 3 beasts-lairs — lion + serpent mob kinds, lair art per kind with cleared state, mob FX from new events (charge, howl, flee), server mirror. verify: mob scenarios, lair shots.
@@ -29,3 +29,7 @@ Bosses read as set pieces (own art, an entrance, lines, signature moves); neutra
 - river_god changes body per phase today; one sheet must carry all three phases.
 - New clear spots must stay > 24 tiles from lairs (stories test).
 - Sim events and snapshot fields must be mirrored in server/src/war/*.
+
+## Notes from landed work
+
+- 1 boss-voice: lines live in the HUD banner under the guardian bar (not over the boss); a guardian already fighting when first seen never wakes; skipped phases play 1.8 s apart. Beasts are `mute` (narrated lines). Rough edge: the replay "guardian is slain" toast overlaps the guardian bar title above the epitaph.
