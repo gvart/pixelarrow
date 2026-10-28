@@ -224,7 +224,7 @@ describe('guardians (M7d)', () => {
     sim.step();
     const b = sim.snapshot().bosses!.find((x) => x.id === 'erymanthian_boar')!;
     expect(b).toMatchObject({ maxHp: GUARDIANS.erymanthian_boar.hp, phases: warBoss('erymanthian_boar')!.phases });
-    expect(unit(sim, b.unit).cls).toBe('mob_great_boar');
+    expect(unit(sim, b.unit).cls).toBe('mob_erymanthian_boar');
     // a squad in reach: it engages and, MOVES.charge.every on, charges a line of it
     sim.spawnSquad('you', 0, 'hoplite', 12, 52, 48);
     const charged = run(sim, MOVES.charge.every * 3, () => sim.snapshot().bosses!.find((x) => x.id === 'erymanthian_boar')!.fx?.kind === 'charge');

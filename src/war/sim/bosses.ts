@@ -105,8 +105,8 @@ export const GUARDIANS: Readonly<Record<string, GDef>> = {
   minotaur: { ai: 'brute', cls: 'mob_minotaur', hp: 12000, dmg: 50, armor: 4, reach: 1.8, atk: 1.2, speed: 1.1, aggro: 10, leash: 16 },
   brontes: { ai: 'brontes', cls: 'mob_brontes', hp: 8000, dmg: 30, armor: 4, reach: 2.2, atk: 1.8, speed: 0.85, aggro: 25, leash: 22 },
   grove_queen: { ai: 'maenads', cls: 'mob_maenad_queen', hp: 4000, dmg: 30, armor: 4, reach: 1.6, atk: 1, speed: 1.3, aggro: 14, leash: 24, guard: { cls: 'mob_maenad', n: 8, hp: 90, dmg: 14, armor: 2 } },
-  // E3: the mob_boar sheet drawn huge (src/war/view/units.ts SHEET_ALIAS); gores through the ranks, the sounder at half hp
-  erymanthian_boar: { ai: 'boar', cls: 'mob_great_boar', hp: 7000, dmg: 34, armor: 5, reach: 2, atk: 1.4, speed: 1.25, aggro: 14, leash: 24 },
+  // E3: gores through the ranks, the sounder at half hp (W-67: its own sheet, mob_erymanthian_boar)
+  erymanthian_boar: { ai: 'boar', cls: 'mob_erymanthian_boar', hp: 7000, dmg: 34, armor: 5, reach: 2, atk: 1.4, speed: 1.25, aggro: 14, leash: 24 },
   gyges: { ai: 'gyges', cls: 'mob_gyges', hp: 10000, dmg: 12, armor: 4, reach: 2.4, atk: 1.6, speed: 0.9, aggro: 20, leash: 30 },
   chimera: { ai: 'chimera', cls: 'mob_chimera', hp: 2200, dmg: 16, armor: 6, reach: 1.8, atk: 1.3, speed: 1.15, aggro: 14, leash: 22, parts: { n: 3, hp: 2200, dmg: 16 } },
   maenad_queen: { ai: 'maenads', cls: 'mob_maenad_queen', hp: 2500, dmg: 26, armor: 3, reach: 1.6, atk: 1, speed: 1.3, aggro: 14, leash: 24, guard: { cls: 'mob_maenad', n: 6, hp: 80, dmg: 12, armor: 2 } },
