@@ -21,6 +21,7 @@ import { MOVES } from '../sim/bosses';
 import { HH, HW } from './iso';
 import type { DrawnAs } from './units';
 import { camShake, shakeFalloff } from './feel/shake';
+import { voiceMem, voices, type Voice, type VoiceMem } from './hud/bossBanner';
 
 /** Audio-ready event names (`boss.<id>.<beat>` and the shared ones). */
 export const CUES = [
@@ -36,7 +37,9 @@ interface Play {
   alpha: number; tint: number; until: number; fade: number; minor: boolean;
 }
 interface Mem {
-  phase: number; state: BossSnap['state']; fx: string; hp: number; x: number; y: number;
+  state: BossSnap['state'];
+  /** W-67: what it has said (./hud/bossBanner.ts voices); phases entered whose beat waits its turn, the next beat's time. */
+  voice: VoiceMem; beats: number[]; beatAt: number; fx: string; hp: number; x: number; y: number;
   /** View clock (ms) of the last move of each kind. */
   last: Record<string, number>;
   /** The last breath's direction (tiles). */
@@ -74,6 +77,8 @@ const EVERY: Record<string, Partial<Record<string, number>>> = {
 const TELEGRAPH = 900;
 const MAX_PLAYS = 90;
 const TICK = 100;
+/** W-67: the gap between the beats of phases skipped at once (ms). */
+const BEAT_GAP = 1800;
 
 export class BossFx {
   /** A slain guardian's body, gone from the snapshot, played falling where it fell (./units.ts addCorpse). */
@@ -82,6 +87,8 @@ export class BossFx {
   private bodies = new Map<number, { cls: string; facing: number }>();
   /** Audio hook: every beat (see CUES), at a tile point. */
   onCue: ((name: Cue, x: number, y: number, boss: string) => void) | null = null;
+  /** W-67: a guardian's line to show (./hud/bossBanner.ts): its wake, a phase, its death, an escape and return. */
+  onVoice: ((v: Voice, b: BossSnap) => void) | null = null;
   private strips = new Map<string, Strip>();
   private plays: Play[] = [];
   private sprites: Phaser.GameObjects.Sprite[] = [];
@@ -265,7 +272,7 @@ export class BossFx {
   private events(b: BossSnap, ctx: FxCtx, lod: boolean): void {
     const m = this.mem.get(b.unit), now = ctx.now, f = b.fx, key = f ? `${f.kind}:${f.x.toFixed(1)},${f.y.toFixed(1)}>${f.tx.toFixed(1)},${f.ty.toFixed(1)}` : '';
     if (!m) {
-      this.mem.set(b.unit, { phase: b.phase, state: b.state, fx: key, hp: b.hp, x: b.x, y: b.y, last: {}, dir: [1, 0], landed: '', charged: -1 });
+      this.mem.set(b.unit, { state: b.state, voice: voiceMem(b), beats: [], beatAt: 0, fx: key, hp: b.hp, x: b.x, y: b.y, last: {}, dir: [1, 0], landed: '', charged: -1 });
       return;
     }
     const k = size(b.id);
@@ -274,8 +281,21 @@ export class BossFx {
     // a heavy blow taken: a flash
     if (b.hp < m.hp - b.maxHp * 0.015 && b.state !== 'slain') this.pose(b.unit, 'flash', 90);
     m.hp = b.hp;
-    if (b.phase > m.phase && b.state !== 'slain') this.phaseBeat(b, ctx);
-    m.phase = b.phase;
+    // W-67: the wake, then a beat and a line per phase entered, one at a time when it skipped some; escape, return, death
+    for (const v of voices(m.voice, b)) {
+      if (v.kind === 'phase') m.beats.push(v.phase);
+      else {
+        if (v.kind === 'wake') (this.wake(b), (m.beatAt = now + BEAT_GAP));
+        if (v.kind === 'slain') m.beats.length = 0;
+        this.onVoice?.(v, b);
+      }
+    }
+    if (m.beats.length && now >= m.beatAt && b.state !== 'slain' && b.state !== 'away') {
+      const p = m.beats.shift()!;
+      this.phaseBeat({ ...b, phase: p }, ctx);
+      this.onVoice?.({ kind: 'phase', boss: b.id, phase: p }, b);
+      m.beatAt = now + BEAT_GAP;
+    }
     if (b.state !== m.state) {
       const ground = { x: m.x, y: m.y };
       if (b.state === 'flight' && m.state !== 'flight') {
@@ -414,6 +434,13 @@ export class BossFx {
         this.cue('boss.impact', f.tx, f.ty, b.id);
         break;
     }
+  }
+
+  /** W-67: it wakes: a roar and a shake (the camera stays the player's: no nudge, no set piece). */
+  private wake(b: BossSnap): void {
+    this.pose(b.unit, 'roar', 900);
+    this.shake(0.4, b.x, b.y);
+    this.cue('boss.roar', b.x, b.y, b.id);
   }
 
   /** A phase change: the roar, the nudge, and the guardian's own beat. */

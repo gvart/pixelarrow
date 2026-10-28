@@ -37,35 +37,61 @@ export interface WarBoss {
   trophy?: string;
   /** E3: the deed its slayers carry on their record (src/war/sim/deeds.ts); default: bossDeed's. */
   deed?: string;
+  /** W-67: what it says (src/war/view/hud/bossBanner.ts): its taunt at the wake, a line per phase past the first, its epitaph. */
+  voice: BossVoice;
+}
+
+/**
+ * W-67: a guardian's lines (grim Greek myth, the world between death and the afterlife, W-42; 12 words at most). `title`
+ * under its name on the wake banner; `wake` its taunt; `phases[i]` as it enters phase i + 1; `epitaph` at its death;
+ * `fled` and `back` for one that escapes (the Bandit King). `mute`: a beast, its lines are told, not said.
+ */
+export interface BossVoice {
+  title: string; wake: string; phases: readonly string[]; epitaph: string; fled?: string; back?: string; mute?: true;
 }
 
 export const WAR_BOSSES: readonly WarBoss[] = [
   // depth 2 pockets: tier 1, no signature
-  { id: 'moor_bear', name: 'Great Bear of the Moors', region: 'moors', tier: 1, signature: [], phases: [1] },
-  { id: 'griffin', name: 'Griffin of the Kimmerian Hills', region: 'kimmeria', tier: 1, signature: [], phases: [1] },
-  { id: 'savanna_lion', name: 'Lion of the Savanna', region: 'savanna', tier: 1, signature: [], phases: [1] },
-  { id: 'maenad_queen', name: 'the Maenad Queen', region: 'bacchae', tier: 1, signature: [], phases: [1] },
+  { id: 'moor_bear', name: 'Great Bear of the Moors', region: 'moors', tier: 1, signature: [], phases: [1] ,
+    voice: { title: 'Warden of the Heather', mute: true, wake: 'The Great Bear rises from the heather, and the moor falls silent.', phases: [], epitaph: 'It lies down in the heather it guarded. The moor is open.' } },
+  { id: 'griffin', name: 'Griffin of the Kimmerian Hills', region: 'kimmeria', tier: 1, signature: [], phases: [1] ,
+    voice: { title: 'Gold-Keeper of the Crags', mute: true, wake: 'A shriek from the crags: the Griffin guards its gold.', phases: [], epitaph: 'The Griffin falls from the grey sky. Its hoard lies unwatched.' } },
+  { id: 'savanna_lion', name: 'Lion of the Savanna', region: 'savanna', tier: 1, signature: [], phases: [1] ,
+    voice: { title: 'Lord of the Burnt Grass', mute: true, wake: 'The grass parts. The Lion has your scent, shade.', phases: [], epitaph: 'The Lion breathes its last into the dust it ruled.' } },
+  { id: 'maenad_queen', name: 'the Maenad Queen', region: 'bacchae', tier: 1, signature: [], phases: [1] ,
+    voice: { title: 'Queen of the Bacchae', wake: 'Dance with us, dead man. You will dance until you tear.', phases: [], epitaph: 'The flutes fall silent. The god still drinks.' } },
   // depth 3 gates: tier 2, each in its landmark
-  { id: 'brontes', name: 'Brontes the Cyclops', region: 'saddle', tier: 2, signature: [], landmark: 'cyclopean_gatehouse', phases: [1, 0.85], rare: { good: 'starIron', n: 10 } },
+  { id: 'brontes', name: 'Brontes the Cyclops', region: 'saddle', tier: 2, signature: [], landmark: 'cyclopean_gatehouse', phases: [1, 0.85], rare: { good: 'starIron', n: 10 } ,
+    voice: { title: 'Thunder of the Saddle Gate', wake: 'Little shades at my gate. I will bury you under it.', phases: ['Enough stones. I come down to break you myself.'], epitaph: 'My thunder is spent. Let the gate fall with me.' } },
   // M7d: the Oracle Grove's guardians are the god's maenads and their queen (the art built them; docs/WAR.md "Landmarks")
-  { id: 'grove_queen', name: 'the Maenad Queen of the Grove', region: 'erymanthos', tier: 2, signature: [], landmark: 'oracle_grove', phases: [1, 0.4], rare: { good: 'asphodel', n: 10 } },
+  { id: 'grove_queen', name: 'the Maenad Queen of the Grove', region: 'erymanthos', tier: 2, signature: [], landmark: 'oracle_grove', phases: [1, 0.4], rare: { good: 'asphodel', n: 10 } ,
+    voice: { title: 'Voice of the Oracle Grove', wake: 'The oracle foretold you. It foretold your bones as well.', phases: ['Sisters, come! Tear them as we tore the king!'], epitaph: 'The grove will speak again. It will not speak of you.' } },
   // E3: the Erymanthian Boar (Heracles' fourth labour) roots in a meadow by the south road below the Grove: a second guardian of the
   // region (both keep its claim points shut, as the Titan and the Minotaur do Omphalos'); its tusks are its trophy
-  { id: 'erymanthian_boar', name: 'the Erymanthian Boar', region: 'erymanthos', tier: 2, signature: [], phases: [1, 0.5], trophy: 'the tusks of the Erymanthian Boar', deed: 'Boar-slayer' },
-  { id: 'gyges', name: 'Gyges the Hundred-Handed', region: 'gorge', tier: 2, signature: [], landmark: 'titans_forge', phases: [1, 0.5], rare: { good: 'titanBronze', n: 10 } },
-  { id: 'chimera', name: 'the Chimera', region: 'canyons', tier: 2, signature: [], landmark: 'obsidian_hold', phases: [1], rare: { good: 'obsidian', n: 10 } },
+  { id: 'erymanthian_boar', name: 'the Erymanthian Boar', region: 'erymanthos', tier: 2, signature: [], phases: [1, 0.5], trophy: 'the tusks of the Erymanthian Boar', deed: 'Boar-slayer' ,
+    voice: { title: 'Terror of Erymanthos', mute: true, wake: 'The Boar lowers its tusks. The snow remembers Heracles.', phases: ['Bristles rise, blood in its eye: the sounder answers its squeal.'], epitaph: 'The Boar falls where no hero chained it. Take the tusks.' } },
+  { id: 'gyges', name: 'Gyges the Hundred-Handed', region: 'gorge', tier: 2, signature: [], landmark: 'titans_forge', phases: [1, 0.5], rare: { good: 'titanBronze', n: 10 } ,
+    voice: { title: 'Chained Giant of the Forge', wake: 'A hundred hands, and every one of them wants your throat.', phases: ['The chains of Zeus are broken. Now run, little shades.'], epitaph: 'Chained by gods, slain by ghosts. Tartarus will laugh.' } },
+  { id: 'chimera', name: 'the Chimera', region: 'canyons', tier: 2, signature: [], landmark: 'obsidian_hold', phases: [1], rare: { good: 'obsidian', n: 10 } ,
+    voice: { title: 'Fire of the Obsidian Hold', mute: true, wake: 'Lion roars, goat bleats, serpent hisses: the Chimera wakes in fire.', phases: [], epitaph: 'Three heads, one death. The fire in the hold goes cold.' } },
   // depth 4 rim edges: tier 3, the four signature legendaries
   // a dragon on the titan frozen in the glacier: the aegis of the god who threw the titans down
-  { id: 'drakon', name: 'Drakon the White', region: 'krios', tier: 3, signature: ['aegis_of_zeus'], landmark: 'drakons_citadel', phases: [1, 0.6, 0.565], rare: { good: 'dragonbone', n: 20 } },
+  { id: 'drakon', name: 'Drakon the White', region: 'krios', tier: 3, signature: ['aegis_of_zeus'], landmark: 'drakons_citadel', phases: [1, 0.6, 0.565], rare: { good: 'dragonbone', n: 20 } ,
+    voice: { title: 'Guardian of the Citadel', wake: "I sleep on a titan's corpse. You will lie beside it.", phases: ['Burn, then. Ash does not climb to heaven.', 'Enough! I will bring the citadel down upon you.'], epitaph: 'The ice takes me back. Take the aegis, and fear Zeus.' } },
   // the estuary where the sea meets the rim: the sea god's trident
-  { id: 'scylla', name: 'Scylla of the Estuary', region: 'siren', tier: 3, signature: ['poseidon_trident'], landmark: 'rim_watchtower', phases: [1, 0.5], rare: { good: 'nereidPearl', n: 15 } },
+  { id: 'scylla', name: 'Scylla of the Estuary', region: 'siren', tier: 3, signature: ['poseidon_trident'], landmark: 'rim_watchtower', phases: [1, 0.5], rare: { good: 'nereidPearl', n: 15 } ,
+    voice: { title: 'Devourer of the Estuary', wake: 'Six mouths, and every one of them hungry for the dead.', phases: ['You drag me from my cave? Then come closer.'], epitaph: 'Once I was a nymph. Now I am nothing at all.' } },
   // the oracle that named Alexander son of a god: his armour on a king of thieves
-  { id: 'bandit_king', name: 'the Bandit King of Ammon', region: 'ammon', tier: 3, signature: ['alexander'], landmark: 'dead_city', phases: [1, 0.6, 0.3] },
+  { id: 'bandit_king', name: 'the Bandit King of Ammon', region: 'ammon', tier: 3, signature: ['alexander'], landmark: 'dead_city', phases: [1, 0.6, 0.3] ,
+    voice: { title: 'King of the Dead City', wake: "Ammon's dead city is mine, and so is all you carry.", phases: ['To the palace! Make them pay for every street.', 'Hold them. A king does not die in the gutter.'], epitaph: "Take Alexander's armour, then. It never fit me.", fled: 'Laugh while you can. I will be back for the rest.', back: 'Miss me? The dead city never forgets its king.' } },
   // the river that fought Achilles at Troy, here as the Achelous: the arms of Achilles
-  { id: 'river_god', name: 'Achelous the River-God', region: 'delta', tier: 3, signature: ['achilles'], landmark: 'sunken_temple', phases: [1, 0.66, 0.33] },
+  { id: 'river_god', name: 'Achelous the River-God', region: 'delta', tier: 3, signature: ['achilles'], landmark: 'sunken_temple', phases: [1, 0.66, 0.33] ,
+    voice: { title: 'Lord of the Sunken Temple', wake: 'I fought Achilles at Troy. You are no Achilles.', phases: ['Water takes every shape. Try to hold me now.', 'As a bull, then. Heracles took a horn; you take nothing.'], epitaph: 'The river runs on without me. It always has.' } },
   // the navel of the in-between: two guardians, two fights at once
-  { id: 'titan', name: 'the Titan of the Navel', region: 'omphalos', tier: 3, signature: [], landmark: 'temple_city', phases: [1, 0.5] },
-  { id: 'minotaur', name: 'the Minotaur', region: 'omphalos', tier: 3, signature: [], landmark: 'temple_city', phases: [1] },
+  { id: 'titan', name: 'the Titan of the Navel', region: 'omphalos', tier: 3, signature: [], landmark: 'temple_city', phases: [1, 0.5] ,
+    voice: { title: 'Keeper of the Navel', wake: 'I held up the sky. I can hold back the dead.', phases: ['Then I shake the Navel until the world splits.'], epitaph: 'The Navel is yours. May it weigh on you as on me.' } },
+  { id: 'minotaur', name: 'the Minotaur', region: 'omphalos', tier: 3, signature: [], landmark: 'temple_city', phases: [1] ,
+    voice: { title: 'Horror of the Temple Maze', mute: true, wake: "A bellow from the temple's dark: the Minotaur smells the dead.", phases: [], epitaph: 'The bull-man falls. No thread is needed to leave now.' } },
 ];
 
 /** Per tier: pieces dropped, rarity weights of each, the least item tier, and the chance the first is a signature legendary. */
