@@ -1,0 +1,165 @@
+{
+ "about": "W-67 lair art per mob kind, live and cleared (scripts/art/lairs/compose.mjs). anchor: the lair ground point in the PNG.",
+ "lairs": {
+  "wolf": {
+   "live": {
+    "file": "wolf-live.png",
+    "w": 207,
+    "h": 178,
+    "anchor": {
+     "x": 96,
+     "y": 140
+    }
+   },
+   "cleared": {
+    "file": "wolf-cleared.png",
+    "w": 207,
+    "h": 168,
+    "anchor": {
+     "x": 96,
+     "y": 140
+    }
+   }
+  },
+  "boar": {
+   "live": {
+    "file": "boar-live.png",
+    "w": 214,
+    "h": 121,
+    "anchor": {
+     "x": 104,
+     "y": 79
+    }
+   },
+   "cleared": {
+    "file": "boar-cleared.png",
+    "w": 178,
+    "h": 99,
+    "anchor": {
+     "x": 104,
+     "y": 79
+    }
+   }
+  },
+  "bear": {
+   "live": {
+    "file": "bear-live.png",
+    "w": 199,
+    "h": 146,
+    "anchor": {
+     "x": 103,
+     "y": 104
+    }
+   },
+   "cleared": {
+    "file": "bear-cleared.png",
+    "w": 176,
+    "h": 140,
+    "anchor": {
+     "x": 103,
+     "y": 104
+    }
+   }
+  },
+  "bandit": {
+   "live": {
+    "file": "bandit-live.png",
+    "w": 218,
+    "h": 119,
+    "anchor": {
+     "x": 114,
+     "y": 77
+    }
+   },
+   "cleared": {
+    "file": "bandit-cleared.png",
+    "w": 218,
+    "h": 88,
+    "anchor": {
+     "x": 114,
+     "y": 56
+    }
+   }
+  },
+  "jackal": {
+   "live": {
+    "file": "jackal-live.png",
+    "w": 180,
+    "h": 88,
+    "anchor": {
+     "x": 91,
+     "y": 54
+    }
+   },
+   "cleared": {
+    "file": "jackal-cleared.png",
+    "w": 139,
+    "h": 86,
+    "anchor": {
+     "x": 91,
+     "y": 54
+    }
+   }
+  },
+  "ibex": {
+   "live": {
+    "file": "ibex-live.png",
+    "w": 169,
+    "h": 123,
+    "anchor": {
+     "x": 76,
+     "y": 83
+    }
+   },
+   "cleared": {
+    "file": "ibex-cleared.png",
+    "w": 151,
+    "h": 117,
+    "anchor": {
+     "x": 76,
+     "y": 83
+    }
+   }
+  },
+  "lion": {
+   "live": {
+    "file": "lion-live.png",
+    "w": 201,
+    "h": 154,
+    "anchor": {
+     "x": 112,
+     "y": 117
+    }
+   },
+   "cleared": {
+    "file": "lion-cleared.png",
+    "w": 175,
+    "h": 154,
+    "anchor": {
+     "x": 86,
+     "y": 117
+    }
+   }
+  },
+  "serpent": {
+   "live": {
+    "file": "serpent-live.png",
+    "w": 197,
+    "h": 121,
+    "anchor": {
+     "x": 106,
+     "y": 90
+    }
+   },
+   "cleared": {
+    "file": "serpent-cleared.png",
+    "w": 182,
+    "h": 121,
+    "anchor": {
+     "x": 91,
+     "y": 90
+    }
+   }
+  }
+ }
+}
