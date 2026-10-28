@@ -78,7 +78,7 @@ import { makePerson } from './roster';
 import { ARMY_MAX } from './soldiers';
 import { CLASSES, isClassId } from '../../data/classes';
 import { freeName } from '../../data/names';
-import type { HolderRef, TeamBonus } from '../types';
+import type { HolderRef, MobKind, TeamBonus } from '../types';
 import { createTownLevels } from './townLevel';
 
 /** Save and restore: the constants a sim's state points at (named, not copied) and a fresh sim's root per region (typed-array diffs). */
@@ -248,6 +248,13 @@ interface Unit extends Worker {
   back: boolean;
   bx: number;
   by: number;
+  // W-67 (./mobs.ts MobDash): a beast with a burst (boar, lion, serpent): its kind; bursting until this tick, its next
+  // burst no sooner than dashAt, the man it last burst at, its next blow the burst's (harder, a knock)
+  mob?: MobKind;
+  dash?: number;
+  dashAt?: number;
+  dashTgt?: number;
+  dashHit?: boolean;
 }
 
 /** M6 load / unload under way: the holder, which way, the good and how many goods are still wanted. */
@@ -613,6 +620,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     },
     held: (on) => works.setFallback(on ? MOB_TEAM : NEUTRAL_TEAM),
     captainDown: (lair, by) => note({ t: tick, kind: 'captainSlain', lair, by }),
+    note: (e) => note({ t: tick, ...e }), // W-67 mob FX
     towers: () => works.prebuilt().filter((b) => b.def.wall === 'tower' && (b.team === MOB_TEAM || b.team === NEUTRAL_TEAM) && (b.state === 'done' || b.state === 'damaged')).map((b) => ({ id: b.id, x: b.x, y: b.y })),
     carts: () => siege.snaps(tick).filter((e) => isCartType(e.type) && e.state !== 'destroyed' && e.team !== MOB_TEAM).map((e) => ({ id: e.id, x: e.x, y: e.y, team: e.team })),
     order: (o) => apply(o),
@@ -2639,10 +2647,14 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     u.cd = Math.round(u.st.atkTicks * (bog ? COMBAT.bogAtk : 1) * (dh < 0 ? COMBAT.uphillAtk : 1));
     u.swingAt = tick;
     if (!working(t) && rng.chance(blockChance(blockOf(u, t), t.facing, u.x - t.x, u.y - t.y, false, groundAt(t.x, t.y) === BOG))) return;
-    hurt(t, afterArmour(u.st.dmg * meleeHeight(dh) * (bog ? COMBAT.bogDmg : 1) * dmgMult(u, t), t.st.armor, 0), u);
-    if (u.st.knock && t.alive) {
+    // W-67: the blow at the end of a burst (boar charge, lion pounce, serpent lunge) is harder and may throw the man
+    const burst = u.dashHit && u.mob ? MOBS[u.mob].dash! : null;
+    if (burst) u.dashHit = false;
+    hurt(t, afterArmour(u.st.dmg * meleeHeight(dh) * (bog ? COMBAT.bogDmg : 1) * dmgMult(u, t) * (burst ? burst.dmg : 1), t.st.armor, 0), u);
+    const knock = (u.st.knock ?? 0) + (burst?.knock ?? 0);
+    if (knock && t.alive) {
       // a charge (boar): the man is thrown back, in short steps so no wall is jumped
-      const d = Math.hypot(t.x - u.x, t.y - u.y) || 1, k = u.st.knock / 3;
+      const d = Math.hypot(t.x - u.x, t.y - u.y) || 1, k = knock / 3;
       grid.team = t.squad.team;
       for (let i = 0; i < 3; i++) tryMove(t, ((t.x - u.x) / d) * k, ((t.y - u.y) / d) * k);
       grid.team = u.squad.team;
@@ -2731,6 +2743,20 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
   };
 
   /**
+   * W-67 (./mobs.ts MobDash): a beast closing on t, `gap` tiles short of its reach, bursts at him when the gap is in its
+   * window and the burst is ready (a lion: only at a man it has not pounced on yet); the view hears of it (mobDash).
+   */
+  const burst = (u: Unit, t: Unit, gap: number) => {
+    const b = MOBS[u.mob!].dash!;
+    if (gap < b.min || gap > b.max || (u.dashAt ?? 0) > tick || (b.once && u.dashTgt === t.id)) return;
+    u.dash = tick + b.ticks;
+    u.dashAt = tick + b.cd;
+    u.dashTgt = t.id;
+    u.dashHit = true;
+    note({ t: tick, kind: 'mobDash', unit: u.id, mob: u.mob!, x: u.x, y: u.y, tx: t.x, ty: t.y });
+  };
+
+  /**
    * Fighting for one unit this tick. Returns the point to walk to when it closes on a foe,
    * `null` to fall back to its formation slot, or the unit itself to stand and fight.
    */
@@ -2774,6 +2800,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
           const k = (d - range * 0.9) / d;
           return [u.x + (t.x - u.x) * k, u.y + (t.y - u.y) * k];
         }
+        if (u.mob) burst(u, t, d - range);
         return [t.x, t.y];
       }
     }
@@ -2902,6 +2929,9 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     }
     u.fieldR = held?.has('fieldSurgeon') ? PHYSICIAN.surgeonR : PHYSICIAN.r;
     u.venom = mobKindOf(u.cls) ? !!MOBS[mobKindOf(u.cls)!].venom : false;
+    const mk = mobKindOf(u.cls);
+    if (mk && MOBS[mk].dash) u.mob = mk; // W-67: a beast with a burst
+    else delete u.mob;
     u.beast = !!mobKindOf(u.cls) && mobKindOf(u.cls) !== 'bandit';
   };
   /** Living civilians of the team, and the most it may field: CIV_QUOTA split evenly between the teams present. */
@@ -3327,7 +3357,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       // or into its halt), not standing until it is ARRIVE on and stepping after it
       if (d > ARRIVE || (d > 1e-4 && act === null && eases(u.squad) && u.squad.pi < u.squad.path.length / 2)) {
         const cost = moveCost(u.x, u.y, dx / d, dy / d);
-        const full = (SPEED * u.st.speed * pace(u.sat) * (u.squad.flee ? CIV.fleeSpeed : 1) * (u.squad.laden ? PORTER.slow : 1) * CATCH_UP * DT) / cost;
+        const full = (SPEED * u.st.speed * pace(u.sat) * (u.squad.flee ? CIV.fleeSpeed : 1) * (u.squad.laden ? PORTER.slow : 1) * (u.mob && (u.dash ?? 0) > tick ? MOBS[u.mob].dash!.speed : 1) * CATCH_UP * DT) / cost;
         let step = Math.min(d, full);
         if (act === null && eases(u.squad)) {
           // his block at rest, walking back to his slot (after a shove, a fight): eased in on setting off and slowing into

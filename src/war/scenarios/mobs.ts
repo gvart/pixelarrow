@@ -13,6 +13,8 @@ const PACK: Record<MobKind, { n: number; note: string; check: string }> = {
   bandit: { n: 10, note: 'A bandit band attacks like soldiers.', check: 'Bandits fight as a squad (their archers shoot)' },
   jackal: { n: 6, note: 'Jackals: many, weak, quick.', check: 'Jackals swarm; each falls fast' },
   ibex: { n: 6, note: 'An ibex herd grazes: hunt it (right-click it with the archers).', check: 'The herd bolts when shot; fallen ibex leave hides' },
+  lion: { n: 3, note: 'A lion pride hunts: each lion pounces on the man it goes for.', check: 'Lions leap a few tiles onto a man (a heavy first blow, he is thrown back); badly mauled they break off' },
+  serpent: { n: 2, note: 'Two great river serpents: slow, armoured, a venomous bite.', check: 'Serpents crawl slowly, lunge the last tiles; bitten men are poisoned (fewer wounded)' },
 };
 
 export const MOB_SCENARIOS: Scenario[] = (Object.keys(PACK) as MobKind[]).map((kind): Scenario => ({

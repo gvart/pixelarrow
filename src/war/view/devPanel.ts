@@ -30,7 +30,7 @@ import { TEAM_RGB, hex } from './mapModes';
 const CLASSES: [string, string[]][] = [
   ['Soldiers', ['militia', 'hoplite', 'celt_sword', 'archer', 'slinger', 'javelineer']],
   ['Civilians', ['civ_cook', 'civ_smith', 'civ_merchant', 'civ_physician', 'civ_engineer', 'civ_forager']],
-  ['Mobs', ['mob_wolf', 'mob_boar', 'mob_bear', 'mob_bandit', 'mob_jackal', 'mob_ibex']],
+  ['Mobs', ['mob_wolf', 'mob_boar', 'mob_bear', 'mob_bandit', 'mob_jackal', 'mob_ibex', 'mob_lion', 'mob_serpent']],
 ];
 const SOLDIERS = CLASSES[0][1];
 const TEAMS = ['blue', 'red', 'gold', 'violet'];
