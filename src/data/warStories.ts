@@ -281,30 +281,547 @@ const MOORS: Story = {
   reward: { goods: { coin: 80 } },
 };
 
+const FJORDS: Story = {
+  id: 'singing-ribs', region: 'dodona-n', title: 'The Singing Ribs',
+  giver: { name: 'Phereklos', title: 'a drowned helmsman', at: [192, 452], cls: 'civ_engineer' },
+  hook: 'Wolves den in my longship. The wind cannot sing in her.',
+  backstory: 'I steered a longship of the drowned up the eastern arm and beached her when the sea let go of us. The north wind sang in her ribs and I slept. Now wolves den in the hull, and the song is choked with fur. Clear her, so I can sleep.',
+  steps: [
+    {
+      id: 'oar', goal: 'Find the steering oar', label: 'Oar',
+      story: 'His oar lies on the shingle at the head of the fjord, his name burnt into the loom. Gnawed. Wolves have carried it here and dropped it.',
+      where: 'Where the eastern fjord ends, north-east of the village.',
+      trigger: { kind: 'reach', at: [378, 402] }, reward: { goods: { wood: 15 } },
+    },
+    {
+      id: 'spoor', goal: 'Follow the wolf spoor up the shore', label: 'Spoor',
+      story: 'Paw prints in the frost, bones of seals, a scrap of sail. The pack runs the shore between the hull and the sea.',
+      where: 'North along the fjord\'s western shore.',
+      trigger: { kind: 'track', marks: [[348, 360], [342, 315], [340, 275]] },
+    },
+    {
+      id: 'hull', goal: 'Drive the Hound of Boreas from the hull', label: 'The Hound',
+      story: 'The longship lies keel-up on the shore, ribs to the sky. The pack sleeps in her belly, and the biggest of them was born in the north wind.',
+      where: 'The beached hull on the fjord shore.',
+      trigger: { kind: 'clear', at: [338, 232], mob: 'wolf', count: 6, lead: true, name: 'the Hound of Boreas' }, reward: { goods: { hides: 10, coin: 20 } },
+    },
+    {
+      id: 'ribs', goal: 'Decide what becomes of the hull', label: 'Hull',
+      story: 'The hull is empty. The wind comes down the fjord and finds the ribs again. Phereklos asked for a song. A pyre would do as well, and the oak is sound.',
+      where: 'Choose on this card.',
+      trigger: {
+        kind: 'choice', options: [
+          { id: 'sing', label: 'Leave her to the wind', text: 'You leave the ribs bare. By dusk the wind is singing in them, low and steady, all the way to the village.', reward: { item: { def: 'wolfskin_cap', rarity: 'rare' }, goods: { coin: 20 } } },
+          { id: 'strip', label: 'Strip her for timber', text: 'Old oak, bent by the sea and dry as bone. Your carts take every rib. The wind passes over the empty shore with nothing to sing in.', reward: { goods: { wood: 50, pitch: 10, coin: 20 } } },
+        ],
+      },
+    },
+  ],
+  end: 'Phereklos sits by the well and listens to the north. Whatever he hears, he does not say.',
+  reward: { goods: { coin: 50 } },
+};
+
+const OAKWOOD: Story = {
+  id: 'river-names', region: 'dodona-s', title: 'Names in the River',
+  giver: { name: 'Kleodora', title: 'oak-priestess of the Ladon', at: [324, 428], cls: 'civ_physician' },
+  hook: 'The Ladon carries a name I must not lose.',
+  backstory: 'This wood grew from the spears of a host cut down to the last man. Each oak keeps one name, and when its bark falls the Ladon carries the name down to the lake and it is gone. Last night the river brought me a strip of bark with a name half washed away. Find the oak it fell from.',
+  steps: [
+    {
+      id: 'ford', goal: 'Search the eastern ford', label: 'Ford',
+      story: 'Strips of bark are caught in the ford stones, names cut into them. Most are blurred. One is fresh, and it was torn, not shed.',
+      where: 'The ford on the Ladon, north-east of the village.',
+      trigger: { kind: 'reach', at: [438, 294] }, reward: { goods: { coin: 10 } },
+    },
+    {
+      id: 'upstream', goal: 'Follow the bark upstream', label: 'Bark',
+      story: 'Torn bark in the shallows, then on the bank, then in the ferns. Something drags it from the wood to the water.',
+      where: 'Upstream along the inner bank, toward the oak wood.',
+      trigger: { kind: 'track', marks: [[420, 215], [385, 150], [320, 115]] },
+    },
+    {
+      id: 'oak', goal: 'Drive the Rooting Sow from the spear-oak', label: 'The Sow',
+      story: 'A great sow and her litter root at the foot of one oak. Its bark hangs in strips, and between the roots shows the bronze butt of a spear.',
+      where: 'The spear-oak in the wood ring west of the hill.',
+      trigger: { kind: 'clear', at: [178, 235], mob: 'boar', count: 4, lead: true, name: 'the Rooting Sow' }, reward: { goods: { food: 20, hides: 5 } },
+    },
+    {
+      id: 'spearman', goal: 'Wake the spearman of the oak', label: 'Amphimachos',
+      story: 'The oak was his spear, and the name was his. With the bark torn off he is waking, and he does not know where his host has gone.',
+      where: 'At the roots of the spear-oak. Right-click him with your men.',
+      trigger: { kind: 'rescue', at: [181, 238], cls: 'hoplite', level: 3, name: 'Amphimachos' },
+    },
+    {
+      id: 'name', goal: 'Bring his name to Kleodora', label: 'Kleodora',
+      story: 'Amphimachos marches with you. His name should be cut where the river cannot reach it.',
+      where: 'Back at the village well.',
+      trigger: { kind: 'talk' }, reward: { item: { def: 'sauroter_dory', rarity: 'rare' } },
+    },
+  ],
+  end: 'Kleodora cuts the name into the lintel of her door. "Wood forgets," she says. "Stone forgets slower."',
+  reward: { goods: { coin: 50, food: 20 } },
+};
+
+const STEPPE: Story = {
+  id: 'masterless-herd', region: 'skythia-n', title: 'The Masterless Herd',
+  giver: { name: 'Saulios', title: 'a rider who woke without his horse', at: [410, 440], cls: 'civ_forager' },
+  hook: 'My mare grazes with the masterless herd. Bring her back.',
+  backstory: 'We died together in the saddle, my mare and I. I woke on the steppe and she did not wake beside me. Now she runs with the herds of riders who never woke at all, out on the frozen ponds. A Scythian without his horse is only a man. Bring her back.',
+  steps: [
+    {
+      id: 'hooves', goal: 'Follow her hoofprints west', label: 'Hoofprints',
+      story: 'One set of prints, shod in the old way, apart from the herd\'s. She is looking for something too.',
+      where: 'West across the steppe, print by print.',
+      trigger: { kind: 'track', marks: [[350, 410], [280, 395], [205, 352]] },
+    },
+    {
+      id: 'pond', goal: 'Search the western pond', label: 'Pond',
+      story: 'Her bridle, frozen into the ice at the pond\'s edge. Blood on the snow, not hers. Wolf tracks circle the pond three times.',
+      where: 'The frozen pond in the west.',
+      trigger: { kind: 'reach', at: [140, 298] }, reward: { goods: { leather: 5 } },
+    },
+    {
+      id: 'pack', goal: 'Break Frost-Jaw\'s pack', label: 'Frost-Jaw',
+      story: 'They have cut her from the herd and run her into the reeds. Their leader has a jaw white with old frost and he is patient.',
+      where: 'The reeds south of the pond.',
+      trigger: { kind: 'clear', at: [165, 360], mob: 'wolf', count: 6, lead: true, name: 'Frost-Jaw' }, reward: { goods: { hides: 10, coin: 15 } },
+    },
+    {
+      id: 'home', goal: 'Lead the mare to Saulios', label: 'Saulios',
+      story: 'She is lame and wild-eyed, but she follows your men. She remembers the smell of a camp.',
+      where: 'Back at the village well.',
+      trigger: { kind: 'talk' }, reward: { soul: { cls: 'archer', level: 3, name: 'Saulios' } },
+    },
+  ],
+  end: 'Saulios puts his face in her mane and says nothing for a long time. Then he asks where you ride next.',
+  reward: { goods: { coin: 40, food: 30 }, item: { def: 'horse_pendant', rarity: 'uncommon' } },
+};
+
+const CHALK: Story = {
+  id: 'chalk-faces', region: 'skythia-e', title: 'Faces in the Chalk',
+  giver: { name: 'Ariston', title: 'a carver of the white cliffs', at: [170, 392], cls: 'civ_smith' },
+  hook: 'Someone cut my face in the cliff. I have not leapt.',
+  backstory: 'Those who would rather leap than fade cut their faces in the chalk, and then they go over. I have carved forty faces for others. This morning there was a new one on the cliff, and it was mine. I have not leapt. I do not mean to.',
+  steps: [
+    {
+      id: 'face', goal: 'Look at the new face', label: 'Face',
+      story: 'His face, well cut, the chalk dust still wet. Below it, the turf is worn by boots, and at the edge a rope has rubbed a groove into the chalk.',
+      where: 'The cliff top north-east of the village.',
+      trigger: { kind: 'reach', at: [432, 182] }, reward: { goods: { stone: 10 } },
+    },
+    {
+      id: 'leapers', goal: 'Break Bias the Chisel\'s band', label: 'Bias',
+      story: 'The Leapers cut a face for a man first, then push him, and sell what he leaves behind. Bias holds the chisel. He has done it forty times.',
+      where: 'Their camp on the downs north along the cliffs.',
+      trigger: { kind: 'clear', at: [400, 80], mob: 'bandit', count: 5, lead: true, name: 'Bias the Chisel' }, reward: { goods: { coin: 25, bronze: 5 } },
+    },
+    {
+      id: 'roped', goal: 'Cut Teres loose', label: 'Teres',
+      story: 'A slinger trussed by the cliff edge, his face already cut on the chalk below. He was to go over at dusk.',
+      where: 'In the Leapers\' camp. Right-click him with your men.',
+      trigger: { kind: 'rescue', at: [403, 83], cls: 'slinger', level: 2, name: 'Teres' },
+    },
+    {
+      id: 'chalk', goal: 'Decide about Ariston\'s face', label: 'Face',
+      story: 'Ariston\'s face is still on the cliff. A face cut is a promise to the sea. It can be cut out.',
+      where: 'Choose on this card.',
+      trigger: {
+        kind: 'choice', options: [
+          { id: 'erase', label: 'Cut it out', text: 'You chip his face off the cliff and let the chalk fall into the dead water. He will fade when he fades, and not before.', reward: { goods: { stone: 15, coin: 30 } } },
+          { id: 'keep', label: 'Leave it', text: 'A good face, and his own work in a way. Let the cliff keep it. Bias carried an eye bead to watch his victims; it watches for you now.', reward: { item: { def: 'eye_bead', rarity: 'rare' } } },
+        ],
+      },
+    },
+  ],
+  end: 'Ariston goes back to his chisel. On the next face he cuts, the eyes are open.',
+  reward: { goods: { coin: 50 } },
+};
+
+const KURGANS: Story = {
+  id: 'chieftain-mound', region: 'skythia-s', title: 'The Chieftain\'s Mound',
+  giver: { name: 'Madyes', title: 'keeper of the mounds', at: [424, 393], cls: 'civ_cook' },
+  hook: 'Grave robbers opened the oldest mound.',
+  backstory: 'The mounds here are older than any alliance, and I keep them. Three nights ago robbers sank a shaft into the oldest, north of the village, and took the gold torc from the chieftain\'s chest. He sleeps lightly without it. Bring it back before he wakes and comes for it himself.',
+  steps: [
+    {
+      id: 'mound', goal: 'Look into the opened mound', label: 'Mound',
+      story: 'A shaft through the turf into the dark. The chieftain lies on his horses\' bones with his arms crossed over nothing. The earth around him is warm.',
+      where: 'The oldest mound, north of the village.',
+      trigger: { kind: 'reach', at: [428, 106] }, reward: { goods: { coin: 10 } },
+    },
+    {
+      id: 'beads', goal: 'Follow the dropped gold beads', label: 'Beads',
+      story: 'A torn bag leaks gold beads, one every hundred paces. The robbers were in a hurry. They knew what sleeps there.',
+      where: 'West along the hills.',
+      trigger: { kind: 'track', marks: [[380, 122], [330, 96], [285, 76]] },
+    },
+    {
+      id: 'robbers', goal: 'Face Tisamenos the Grave-Robber', label: 'Tisamenos',
+      story: 'Tisamenos has robbed every mound from here to the dunes. He wears the torc already, and it does not sit well on him.',
+      where: 'His camp by the northern road.',
+      trigger: { kind: 'clear', at: [240, 60], mob: 'bandit', count: 5, lead: true, name: 'Tisamenos the Grave-Robber' }, reward: { goods: { coin: 25, bronze: 5 } },
+    },
+    {
+      id: 'torc', goal: 'Decide the torc\'s fate', label: 'Torc',
+      story: 'The torc is heavy, old gold, warm in the hand. Madyes wants it back on the chieftain\'s chest. Nobody else knows you have it.',
+      where: 'Choose on this card.',
+      trigger: {
+        kind: 'choice', options: [
+          { id: 'return', label: 'Return it to the mound', text: 'You lay the torc on his chest and close the shaft. Under the turf, something settles.', reward: { goods: { coin: 40, food: 20 } } },
+          { id: 'keep', label: 'Keep the gold', text: 'Gold is gold. Behind you the mound breathes out, and on the hills the wolves begin to howl.', reward: { item: { def: 'gold_torc', rarity: 'rare' } }, next: 'hounds' },
+        ],
+      },
+    },
+    {
+      id: 'hounds', goal: 'Face the Chieftain\'s Hounds', label: 'Hounds',
+      story: 'He was buried with his hounds. They have come out of the mound to fetch what he is owed.',
+      where: 'On the hills between the mound and the village.',
+      trigger: { kind: 'clear', at: [400, 182], mob: 'wolf', count: 6, lead: true, name: 'the Chieftain\'s Hounds' }, reward: { goods: { hides: 10 } },
+    },
+  ],
+  end: 'Madyes sits on the mound\'s shoulder and watches the Desert Road. The old chieftain sleeps, or pretends to.',
+  reward: { goods: { coin: 40 } },
+};
+
+const DUNES: Story = {
+  id: 'diggers-well', region: 'kyrene-s', title: 'The Digger\'s Well',
+  giver: { name: 'Lakritos', title: 'the well-digger\'s ghost', at: [393, 216], cls: 'civ_engineer' },
+  hook: 'Sand chokes my well. Dig it out before the dunes walk.',
+  backstory: 'I dug the one well on the outcrop. I died at the bottom of it, the day the water came. The dunes walk over everything else here, but they have never had my well. Now the sand is in its throat, and something lives in the sand. Find my spade. I will dig it out myself.',
+  steps: [
+    {
+      id: 'well', goal: 'Look into the choked well', label: 'Well',
+      story: 'Sand to within a man\'s height of the lip. In the sand, bones gnawed clean, and the yelping of something below.',
+      where: 'The well on the outcrop, west of the village.',
+      trigger: { kind: 'reach', at: [252, 220] }, reward: { goods: { salt: 5 } },
+    },
+    {
+      id: 'den', goal: 'Drive out Mother Thirst', label: 'Mother Thirst',
+      story: 'Jackals have dug their den into the well\'s throat. Their mother is old and grey and has fed on the thirsty for longer than the village has stood.',
+      where: 'The den beside the well.',
+      trigger: { kind: 'clear', at: [255, 236], mob: 'jackal', count: 6, lead: true, name: 'Mother Thirst' }, reward: { goods: { hides: 5, coin: 15 } },
+    },
+    {
+      id: 'cord', goal: 'Follow the digger\'s knotted cord', label: 'Cord',
+      story: 'His measuring cord runs out from the well, a knot every fathom, half buried. It leads to where he first found damp sand.',
+      where: 'South-east along the long dune, knot by knot.',
+      trigger: { kind: 'track', marks: [[312, 300], [352, 332], [388, 362]] },
+    },
+    {
+      id: 'spade', goal: 'Bring the spade to Lakritos', label: 'Lakritos',
+      story: 'At the cord\'s end, under the lip of a dune: a bronze spade worn thin, and an amulet of Bes tied to its handle.',
+      where: 'Back at the village well.',
+      trigger: { kind: 'talk' }, reward: { item: { def: 'bes_amulet', rarity: 'rare' } },
+    },
+  ],
+  end: 'By morning the ghost has dug the well clear. The water is sweet. No one in the village saw him do it.',
+  reward: { goods: { coin: 50, salt: 10 } },
+};
+
+const COVES: Story = {
+  id: 'coast-lost', region: 'elaia-w', title: 'What the Coast Lost',
+  giver: { name: 'Chryseis', title: 'widow of a hanged pirate', at: [425, 200], cls: 'civ_cook' },
+  hook: 'He hid his last prize in the sea caves.',
+  backstory: 'My husband Neleus was hanged on the headland for a pirate, and he was one. Before they took him he hid his last prize in the sea caves. His crew woke here as hungry as they died, and they want it. So do I. It is all I have of him.',
+  steps: [
+    {
+      id: 'gallows', goal: 'Find the hanging tree', label: 'Gallows',
+      story: 'His rope still hangs from the branch. Cut into the bark at the height of a hanged man\'s hand: three notches pointing to the coves.',
+      where: 'On the ridge west of the village.',
+      trigger: { kind: 'reach', at: [205, 254] }, reward: { goods: { coin: 10 } },
+    },
+    {
+      id: 'crew', goal: 'Break Dromon One-Ear\'s crew', label: 'Dromon',
+      story: 'Neleus\'s crew camp on the middle cove, digging every hole on the beach. Dromon took his place and his ear was the price.',
+      where: 'Their camp on the middle cove.',
+      trigger: { kind: 'clear', at: [112, 264], mob: 'bandit', count: 6, lead: true, name: 'Dromon One-Ear' }, reward: { goods: { coin: 20, pitch: 5 } },
+    },
+    {
+      id: 'cave', goal: 'Search the southern sea cave', label: 'Sea cave',
+      story: 'Behind the tide line, a chest of coin and a wax tablet. On it, in Chryseis\'s hand: the night he would come ashore, sold to the harbour-master for twenty drachmae.',
+      where: 'The cave under the southern cove.',
+      trigger: { kind: 'reach', at: [80, 404] },
+    },
+    {
+      id: 'prize', goal: 'Decide who gets the prize', label: 'Prize',
+      story: 'She sold him to the rope. She wants his gold. The tablet is in your hand and she does not know you have read it.',
+      where: 'Choose on this card.',
+      trigger: {
+        kind: 'choice', options: [
+          { id: 'give', label: 'Give it to the widow', text: 'You hand her the chest and keep the tablet. She weighs the coin, and looks at you, and pays your share without being asked.', reward: { goods: { coin: 60 } } },
+          { id: 'keep', label: 'Keep it, show her the tablet', text: 'She reads it, and says nothing, and goes back to her hut. Neleus\'s seal ring was in the chest. It suits you better.', reward: { item: { def: 'signet_ring', rarity: 'rare' }, goods: { coin: 30, silver: 5 } } },
+        ],
+      },
+    },
+  ],
+  end: 'On the headland, someone has taken down the rope at last.',
+  reward: { goods: { coin: 30, food: 20 } },
+};
+
+const VINEYARDS: Story = {
+  id: 'crossing-wine', region: 'elaia-e', title: 'Wine for the Crossing',
+  giver: { name: 'Oinopion', title: 'vintner of the first dead', at: [97, 230], cls: 'civ_merchant' },
+  hook: 'Boars trampled the oldest vine.',
+  backstory: 'The first Elaians who drowned planted these vines, and their wine is poured at every crossing of the river, for luck. Without it no one crosses lucky. The boars came down in the night and tore the oldest vine out by the root. Drive them off, and find me a cutting that still lives.',
+  steps: [
+    {
+      id: 'rows', goal: 'Drive the boars from the vineyard', label: 'Boars',
+      story: 'Stakes snapped, leaves in the mud, the old root dragged out like a drowned man. The boars are still at it.',
+      where: 'The vineyard south of the farm.',
+      trigger: { kind: 'clear', at: [70, 272], mob: 'boar', count: 4 }, reward: { goods: { food: 15 } },
+    },
+    {
+      id: 'trail', goal: 'Follow the great boar\'s trail', label: 'Trail',
+      story: 'One trail is deeper than the rest, and green leaves are caught in it. The one who led them ate the oldest vine and went east.',
+      where: 'East across the hills, wallow by wallow.',
+      trigger: { kind: 'track', marks: [[122, 298], [172, 318], [222, 330]] },
+    },
+    {
+      id: 'tusk', goal: 'Kill the Black Tusk', label: 'Black Tusk',
+      story: 'A boar as black as pitch, his tusks yellow with age, lying in his wallow with vine leaves in his bristles. A green cutting still clings to him.',
+      where: 'His wallow on the slope to the east.',
+      trigger: { kind: 'clear', at: [272, 330], mob: 'boar', count: 3, lead: true, name: 'the Black Tusk' }, reward: { goods: { hides: 10, food: 20 } },
+    },
+    {
+      id: 'cutting', goal: 'Bring the cutting to Oinopion', label: 'Oinopion',
+      story: 'The cutting from the Black Tusk\'s bristles is alive. It should go back in the ground before it dries.',
+      where: 'Back at the farm in the west.',
+      trigger: { kind: 'talk' }, reward: { item: { def: 'hermes_token', rarity: 'rare' } },
+    },
+  ],
+  end: 'Oinopion plants the cutting where the old vine stood and pours the last of last year\'s wine on it. "For your next crossing," he says.',
+  reward: { goods: { coin: 40, oil: 10 } },
+};
+
+const PASS: Story = {
+  id: 'toll-takers', region: 'kleisoura', title: 'The Toll-Takers',
+  giver: { name: 'Hagnon', title: 'tin-trader of the pass', at: [205, 230], cls: 'civ_merchant' },
+  hook: 'The deserters tax my tin twice. Break the toll.',
+  backstory: 'The Rim Wardens took one toll at this pass, and then they went into the mist. The deserters who took their fort take two: one at the fort and one on the Saddle road, where nobody sees. My carts cannot pay it twice. Break the second toll and I will make it worth your while.',
+  steps: [
+    {
+      id: 'stone', goal: 'Read the Wardens\' toll-stone', label: 'Toll-stone',
+      story: 'The Wardens cut one toll into this stone, a tenth of all tin. Below it, fresh and crooked: a second tenth.',
+      where: 'Where the Saddle road leaves the pass, south of the fort.',
+      trigger: { kind: 'reach', at: [298, 330] }, reward: { goods: { tin: 5 } },
+    },
+    {
+      id: 'post', goal: 'Break the second toll post', label: 'Toll post',
+      story: 'A barricade of carts across the Saddle road, and tin stacked behind it. Every ingot is stamped twice.',
+      where: 'Further down the Saddle road.',
+      trigger: { kind: 'clear', at: [290, 420], mob: 'bandit', count: 5 }, reward: { goods: { tin: 10, coin: 10 } },
+    },
+    {
+      id: 'sosias', goal: 'Face Sosias the Collector', label: 'Sosias',
+      story: 'Sosias keeps the second toll\'s ledger and the second toll\'s silver. He has gone west to the torrent, where he thinks no one will follow.',
+      where: 'His hideout by the western torrent.',
+      trigger: { kind: 'clear', at: [132, 226], mob: 'bandit', count: 4, lead: true, name: 'Sosias the Collector' },
+    },
+    {
+      id: 'ledger', goal: 'Decide what to do with the ledger', label: 'Ledger',
+      story: 'Sosias\'s ledger lists every cart taxed twice, and the few that were not. Every one of those is Hagnon\'s. He has been paying the toll-takers to tax his rivals.',
+      where: 'Choose on this card.',
+      trigger: {
+        kind: 'choice', options: [
+          { id: 'burn', label: 'Burn the ledger', text: 'The pages curl in the fire. Hagnon smiles and pays you well, for a fire is cheaper than a reckoning.', reward: { goods: { tin: 20, coin: 40 } } },
+          { id: 'expose', label: 'Keep it for the traders', text: 'Hagnon\'s seal is on the last page. The traders of the pass will want to see it, and they will pay to.', reward: { item: { def: 'curse_tablet', rarity: 'rare' }, goods: { coin: 30 } } },
+        ],
+      },
+    },
+  ],
+  end: 'Tin moves through Kleisoura once-taxed again. Whose tin, and whose silence, is another matter.',
+  reward: { goods: { coin: 40 } },
+};
+
+const LAKE: Story = {
+  id: 'empty-square', region: 'stymphalia', title: 'The Empty Square',
+  giver: { name: 'Nikias', title: 'ferryman of the causeway', at: [192, 432], cls: 'civ_engineer' },
+  hook: 'The Reed Men burnt my ferry.',
+  backstory: 'The town on the causeway emptied the day the bronze-feathered birds nested on the isle. The Reed Men moved into the empty square, and now they take a tithe from anyone who crosses. I would not pay. They burnt my ferry and took my oarsman into the reeds.',
+  steps: [
+    {
+      id: 'ferry', goal: 'Find the burnt ferry', label: 'Ferry',
+      story: 'Charred ribs in the shallows at the causeway\'s foot. Reed rope, cut, and a trail of trampled reeds going west along the shore.',
+      where: 'The foot of the causeway, east of the village.',
+      trigger: { kind: 'reach', at: [296, 402] }, reward: { goods: { wood: 10 } },
+    },
+    {
+      id: 'reeds', goal: 'Break the reed camp', label: 'Reed Men',
+      story: 'Huts of bundled reed on stilts, and men who live off what crosses the lake. They are not expecting you to wade.',
+      where: 'The reeds on the southern shore.',
+      trigger: { kind: 'clear', at: [230, 378], mob: 'bandit', count: 6 }, reward: { goods: { coin: 15, food: 15 } },
+    },
+    {
+      id: 'oarsman', goal: 'Free Pasion the oarsman', label: 'Pasion',
+      story: 'Pasion is tied in a reed hut, sling still on his belt. They meant to sell him across the lake.',
+      where: 'In the reed camp. Right-click him with your men.',
+      trigger: { kind: 'rescue', at: [232, 381], cls: 'slinger', level: 2, name: 'Pasion' },
+    },
+    {
+      id: 'tithe', goal: 'Face Kalamos the Tithe-Taker', label: 'Kalamos',
+      story: 'Kalamos counts the tithe on the eastern road, where the carts come round the lake. Above him, a bronze feather turns slowly in the air and falls.',
+      where: 'The road on the eastern shore.',
+      trigger: { kind: 'clear', at: [440, 255], mob: 'bandit', count: 5, lead: true, name: 'Kalamos the Tithe-Taker' },
+    },
+    {
+      id: 'chest', goal: 'Decide what to do with the tithe', label: 'Tithe',
+      story: 'His chest is full of what the town\'s people left behind when they fled. They are not coming back for it. Probably.',
+      where: 'Choose on this card.',
+      trigger: {
+        kind: 'choice', options: [
+          { id: 'square', label: 'Leave it in the square', text: 'You set the chest on the temple steps in the empty square. Nikias says no one will come back for it. You leave it anyway, and take only the shield they hung there for the god.', reward: { item: { def: 'votive_shield', rarity: 'rare' } } },
+          { id: 'keep', label: 'Keep it', text: 'Coin is coin. The birds on the isle watch you load it.', reward: { goods: { coin: 50, bronze: 10 } } },
+        ],
+      },
+    },
+  ],
+  end: 'Nikias builds a new ferry. He does not look at the isle when he rows past it.',
+  reward: { goods: { coin: 40 } },
+};
+
+const FORD: Story = {
+  id: 'charons-due', region: 'achelous', title: 'Charon\'s Due',
+  giver: { name: 'Deinias', title: 'a soldier of the fleeing army', at: [72, 300], cls: 'civ_forager' },
+  hook: 'My company still waits on the far bank.',
+  backstory: 'We broke at the river, and the bridge broke under us. I came over. My company did not. They are on the island still, waiting for a boat, and the Ferrymen charge the dead to cross, as Charon does. My file-leader will not pay. He never paid for anything.',
+  steps: [
+    {
+      id: 'bridge', goal: 'Go to the broken bridge', label: 'Bridge',
+      story: 'The stumps of the bridge, and the company\'s mark scratched on the last stone: a crooked shield and a number, crossed out, crossed out, crossed out.',
+      where: 'The broken bridge on the western channel.',
+      trigger: { kind: 'reach', at: [168, 240] }, reward: { goods: { coin: 10 } },
+    },
+    {
+      id: 'obol', goal: 'Pay the ferryman or find a ford', label: 'Ferryman',
+      story: 'A boat below the stumps, a hooded man at the pole. An obol a head, he says, as the old ferryman takes.',
+      where: 'Choose on this card.',
+      trigger: {
+        kind: 'choice', options: [
+          { id: 'pay', label: 'Pay the obol', text: 'He bites the coin and pushes off. Halfway over, he whistles, and on the island bank men stand up out of the reeds.', next: 'ambush' },
+          { id: 'ford', label: 'Find a ford', text: 'The dead do not pay twice. You turn north, along the bank, looking for shallow water.', next: 'fords' },
+        ],
+      },
+    },
+    {
+      id: 'fords', goal: 'Wade the northern ford', label: 'Ford',
+      story: 'Shallow water over gravel, cold as Lethe. On the far side, boot prints that go round and round in the mud.',
+      where: 'North along the bank and over the ford, onto the island.',
+      trigger: { kind: 'track', marks: [[176, 178], [188, 133], [222, 158]] },
+    },
+    {
+      id: 'ambush', goal: 'Face Porthmeus the Ferryman', label: 'Porthmeus',
+      story: 'Porthmeus keeps the company on the island because a company waiting to cross is a company that pays. Each day he names a new price.',
+      where: 'The island landing across the western channel.',
+      trigger: { kind: 'clear', at: [216, 190], mob: 'bandit', count: 5, lead: true, name: 'Porthmeus the Ferryman' }, reward: { goods: { coin: 25 } },
+    },
+    {
+      id: 'file', goal: 'Free the last of the company', label: 'Philomelos',
+      story: 'Of the company, only the file-leader is left, chained to the landing post. The rest paid, one by one, and crossed to wherever the boat goes.',
+      where: 'At the landing. Right-click him with your men.',
+      trigger: { kind: 'rescue', at: [218, 193], cls: 'hoplite', level: 3, name: 'Philomelos' },
+    },
+  ],
+  end: 'Deinias waits on the bank. When Philomelos comes over, the two old soldiers do not speak; they stand together and look at the river.',
+  reward: { goods: { coin: 50 }, item: { def: 'knucklebones', rarity: 'rare' } },
+};
+
+const OASIS: Story = {
+  id: 'caravan-never-came', region: 'ammos', title: 'The Caravan That Never Came',
+  giver: { name: 'Hanno', title: 'master of a lost caravan', at: [212, 250], cls: 'civ_merchant' },
+  hook: 'My riders rob every caravan that arrives. Make them stop waiting for me.',
+  backstory: 'I sent my riders ahead to the oasis and promised I would follow with the caravan. The caravan died in the dunes, and I with it, and I woke here years after them. They are still waiting for me. They rob every caravan that arrives, in case it is mine, and it never is. Their outrider is my son. He does not know my face.',
+  steps: [
+    {
+      id: 'lookout', goal: 'Climb to the riders\' lookout', label: 'Lookout',
+      story: 'A cairn of caravan bells, one from every caravan they have robbed. None is Hanno\'s. Someone polishes them every day.',
+      where: 'The lookout on the dunes north-east of the town.',
+      trigger: { kind: 'reach', at: [372, 162] }, reward: { goods: { coin: 15 } },
+    },
+    {
+      id: 'battos', goal: 'Bring down Battos the Outrider', label: 'Battos',
+      story: 'Battos rides out at every dust cloud. He has his father\'s jaw and none of his patience.',
+      where: 'His riders\' camp in the dunes to the north.',
+      trigger: { kind: 'clear', at: [330, 88], mob: 'bandit', count: 5, lead: true, name: 'Battos the Outrider' }, reward: { goods: { coin: 20, salt: 10 } },
+    },
+    {
+      id: 'father', goal: 'Tell Hanno what his son said', label: 'Hanno',
+      story: 'Beaten, Battos only asks: "Has the caravan come?" Hanno should hear that from you.',
+      where: 'Back at the oasis.',
+      trigger: { kind: 'talk' },
+    },
+    {
+      id: 'word', goal: 'Choose what Battos is told', label: 'Hanno',
+      story: 'Hanno is afraid. If his son learns the caravan is dead, he may follow it. If he does not, he will wait forever.',
+      where: 'Choose on this card.',
+      trigger: {
+        kind: 'choice', options: [
+          { id: 'truth', label: 'Tell Battos the truth', text: 'Battos looks at the old man a long time. Then he lays his spear down at his father\'s feet, and picks it up again, and asks to ride with you.', reward: { soul: { cls: 'javelineer', level: 3, name: 'Battos' } } },
+          { id: 'wait', label: 'Let him wait', text: 'Battos goes back to his dunes to wait. His riders leave your carts alone from now on, and pay you to say nothing.', reward: { goods: { coin: 40, silver: 10 } } },
+        ],
+      },
+    },
+  ],
+  end: 'Hanno sits by the water and watches the dunes. For the first time, he is not waiting for anyone.',
+  reward: { goods: { coin: 40, salt: 10 } },
+};
+
+const BACCHAE: Story = {
+  id: 'do-not-watch', region: 'bacchae', title: 'Do Not Watch',
+  giver: { name: 'Komatas', title: 'a goatherd who looked away', at: [120, 436], cls: 'civ_forager' },
+  hook: 'My brother watched the dancers. Bring back what is left of him.',
+  backstory: 'The women who died in the god\'s frenzy still dance up in the cypress grove, and they tear apart any man who watches. My brother Lykidas said it was a story. He went up to watch. I heard him singing, and then I heard him stop. Bring back what is left of him. Do not look at the grove.',
+  steps: [
+    {
+      id: 'cloak', goal: 'Follow the shreds of his cloak', label: 'Cloak',
+      story: 'Strips of wool on the thorns, pulled apart by hands, not teeth. They lead north toward the grove.',
+      where: 'North up the hills, shred by shred.',
+      trigger: { kind: 'track', marks: [[142, 380], [112, 302], [122, 222]] },
+    },
+    {
+      id: 'boar', goal: 'Drive off the Ivy Boar', label: 'Ivy Boar',
+      story: 'The god\'s beasts clean up after the god\'s women. A boar with ivy grown into his bristles roots where the trail ends.',
+      where: 'Below the grove, on the hillside.',
+      trigger: { kind: 'clear', at: [182, 168], mob: 'boar', count: 3, lead: true, name: 'the Ivy Boar' }, reward: { goods: { hides: 5, food: 15 } },
+    },
+    {
+      id: 'head', goal: 'Find Lykidas', label: 'Lykidas',
+      story: 'In the ivy at the grove\'s edge lies his head, eyes open. It is still singing the god\'s hymn, very softly. Behind you, in the cypresses, someone laughs.',
+      where: 'At the edge of the cypress grove. Do not go in.',
+      trigger: { kind: 'reach', at: [150, 136] },
+    },
+    {
+      id: 'rite', goal: 'Decide what to do with Lykidas', label: 'Lykidas',
+      story: 'The head will not stop singing. Komatas asked for what is left. The grove is watching to see what you do.',
+      where: 'Choose on this card.',
+      trigger: {
+        kind: 'choice', options: [
+          { id: 'bury', label: 'Bury him here', text: 'You bury him under the ivy without looking at the grove. The singing stops. The laughing stops too, which is worse.', reward: { item: { def: 'gorgoneion', rarity: 'rare' }, goods: { coin: 20 } } },
+          { id: 'carry', label: 'Carry him home', text: 'You wrap the head in your cloak and do not look back. It sings all the way down the hill.', reward: { goods: { coin: 20 } }, next: 'home' },
+        ],
+      },
+    },
+    {
+      id: 'home', goal: 'Bring Lykidas to his brother', label: 'Komatas',
+      story: 'The head is still singing. Komatas is waiting by the well.',
+      where: 'Back at the village well.',
+      trigger: { kind: 'talk' }, reward: { item: { def: 'knucklebones', rarity: 'rare' } },
+    },
+  ],
+  end: 'Komatas does not go up into the hills again. On still nights, the whole village can hear the singing.',
+  reward: { goods: { coin: 50 } },
+};
+
 /** The region stories, by region id. */
-export const STORIES: Readonly<Record<string, Story>> = Object.fromEntries([TEETH, SLOPES, HEATH, LAGOON, CAPE, MOORS].map((s) => [s.region, s]));
+export const STORIES: Readonly<Record<string, Story>> = Object.fromEntries([TEETH, SLOPES, HEATH, LAGOON, CAPE, MOORS, FJORDS, OAKWOOD, STEPPE, CHALK, KURGANS, DUNES, COVES, VINEYARDS, PASS, LAKE, FORD, OASIS, BACCHAE].map((s) => [s.region, s]));
 export const storyOf = (region: string): Story | null => STORIES[region] ?? null;
 
 /** One-line hooks for the regions still without a chain (from docs/WAR.md lore): the giver and what he asks. */
 export const STORY_HOOKS: Readonly<Record<string, { title: string; giver: string; hook: string }>> = {
-  'dodona-n': { title: 'The Singing Ribs', giver: 'a drowned helmsman', hook: 'Wolves den in my longship. Clear the hull so the north wind can sing me to sleep.' },
-  'dodona-s': { title: 'Names in the River', giver: 'an oak-priestess', hook: 'The Ladon carries a name I must not lose. Find the spear-oak it fell from.' },
-  'skythia-n': { title: 'The Masterless Herd', giver: 'a rider who woke without his horse', hook: 'My mare grazes with the masterless herd on the frozen ponds. Bring her back.' },
-  'skythia-e': { title: 'Faces in the Chalk', giver: 'a cliff-carver', hook: 'Someone cut a new face in the white cliff. It is mine, and I have not leapt.' },
-  'skythia-s': { title: 'The Chieftain\'s Mound', giver: 'a mound-keeper', hook: 'Grave robbers opened the oldest mound. What they took will wake him.' },
   'kyrene-n': { title: 'The Throat of the Wadi', giver: 'a water-carrier', hook: 'The lions remember the army that died of thirst. They are hunting its last scout.' },
-  'kyrene-s': { title: 'The Digger\'s Well', giver: 'the well-digger\'s ghost', hook: 'Sand chokes my well. Dig it out before the dunes walk over the outcrop.' },
   'kyrene-w': { title: 'After the Flood', giver: 'a reed-farmer', hook: 'The flood brought a serpent fat on the drowned. It nests in my channel.' },
   'elaia-n': { title: 'Bones in the Reeds', giver: 'the last fenwoman', hook: 'My people are bones in the reeds. The serpents will not let me bury them.' },
-  'elaia-w': { title: 'What the Coast Lost', giver: 'a hanged pirate\'s widow', hook: 'He hid his last prize in the sea caves. His crew woke hungrier than he did.' },
-  'elaia-e': { title: 'Wine for the Crossing', giver: 'a vintner of the first dead', hook: 'Boars trampled the oldest vine. Without its wine, no crossing of the river is lucky.' },
-  kleisoura: { title: 'The Toll-Takers', giver: 'a tin-trader of the pass', hook: 'The deserters in the Wardens\' fort tax my tin twice. Break the toll.' },
-  stymphalia: { title: 'The Empty Square', giver: 'a causeway ferryman', hook: 'The Reed Men hold the empty square. The bronze birds nest on the isle above them.' },
-  achelous: { title: 'Charon\'s Due', giver: 'a soldier of the fleeing army', hook: 'The Ferrymen charge the dead to cross. My company still waits on the far bank.' },
-  ammos: { title: 'The Caravan That Never Came', giver: 'a caravan-master', hook: 'My riders rob every caravan that arrives. Make them stop waiting for me.' },
   kimmeria: { title: 'Gold of the Kimmerians', giver: 'a Kimmerian shade', hook: 'The griffin keeps our gold in the broken gate. We would pay you with it.' },
   savanna: { title: 'The Unskinned Lion', giver: 'a hero\'s shield-bearer', hook: 'Every Kyrenean hero who went to skin the lion lies here. Mine was the last.' },
-  bacchae: { title: 'Do Not Watch', giver: 'a goatherd who looked away', hook: 'My brother watched the dancers. Bring back what is left of him.' },
 };
 
 /*

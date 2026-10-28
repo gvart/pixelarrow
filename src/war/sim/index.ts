@@ -609,6 +609,9 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
         u.st = { ...u.st, maxHp: u.st.maxHp * hp, dmg: u.st.dmg * dmg, rangedDmg: u.st.rangedDmg * dmg };
         u.maxHp = u.hp = u.st.maxHp;
       });
+      // W-65: a bandit captain (a host's or a story's named foe) wears the captain's sheet; his stats stay as set above
+      const lead = k.lead && kind === 'bandit' ? squads[id]?.units[0] : undefined;
+      if (lead) lead.cls = 'mob_bandit_captain';
       return id;
     },
     held: (on) => works.setFallback(on ? MOB_TEAM : NEUTRAL_TEAM),
