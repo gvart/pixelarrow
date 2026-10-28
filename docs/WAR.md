@@ -396,8 +396,8 @@ which becomes the tracked quest (card, marker, edge arrow, banners). Steps: **re
 goods (stores offline, home strongroom online), an item (a pile at his men, rolled on the seeded Rng), a soul who joins.
 Progress: offline localStorage `pa.war.story.<region>`, online the region DO's storage `story:<season>:<pid>`; a run
 started again from its save (reload, region woken) spawns what its open step needs. Every depth 1-2 neutral has a full
-chain except the five waiting on the lion, serpent and griffin foes (Thornscrub Rise, Eastbank Floodplain, Lakeshore
-Fens, Kimmerian Hills, Lion Savanna), which keep a one-line hook; the file ends with a template. A step's named bandit
+chain (24); the lion and serpent regions fight their own beasts in their steps (a pride, a nest), and the Kimmerian
+Hills' chain ends by sending the player at the Griffin (the guardian is never a step). The file ends with a template. A step's named bandit
 lead wears the captain's sheet (as does a host's captain) and his name stands under his feet while he lives. Foes stand
 25+ tiles from the region's own lairs (tests/war/stories.test.ts).
 

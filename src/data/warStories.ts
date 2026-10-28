@@ -5,8 +5,8 @@
  * (src/war/regions/<id>.spots.ts names the authored ones); the runner snaps each to open ground. Souls use the six
  * classes with war sprites (hoplite, archer, militia, slinger, javelineer, celt_sword).
  *
- * A new story: copy the template at the end of this file, fill it from the region's lore and its spots, add it to
- * STORIES, and drop its line from STORY_HOOKS. tests/war/stories.test.ts walks every story's places from its giver.
+ * A new story: copy the template at the end of this file, fill it from the region's lore and its spots, and add it to
+ * STORIES. tests/war/stories.test.ts walks every story's places from its giver.
  */
 import type { Story } from '../war/sim/stories';
 
@@ -811,18 +811,210 @@ const BACCHAE: Story = {
   reward: { goods: { coin: 50 } },
 };
 
-/** The region stories, by region id. */
-export const STORIES: Readonly<Record<string, Story>> = Object.fromEntries([TEETH, SLOPES, HEATH, LAGOON, CAPE, MOORS, FJORDS, OAKWOOD, STEPPE, CHALK, KURGANS, DUNES, COVES, VINEYARDS, PASS, LAKE, FORD, OASIS, BACCHAE].map((s) => [s.region, s]));
-export const storyOf = (region: string): Story | null => STORIES[region] ?? null;
-
-/** One-line hooks for the regions still without a chain (from docs/WAR.md lore): the giver and what he asks. */
-export const STORY_HOOKS: Readonly<Record<string, { title: string; giver: string; hook: string }>> = {
-  'kyrene-n': { title: 'The Throat of the Wadi', giver: 'a water-carrier', hook: 'The lions remember the army that died of thirst. They are hunting its last scout.' },
-  'kyrene-w': { title: 'After the Flood', giver: 'a reed-farmer', hook: 'The flood brought a serpent fat on the drowned. It nests in my channel.' },
-  'elaia-n': { title: 'Bones in the Reeds', giver: 'the last fenwoman', hook: 'My people are bones in the reeds. The serpents will not let me bury them.' },
-  kimmeria: { title: 'Gold of the Kimmerians', giver: 'a Kimmerian shade', hook: 'The griffin keeps our gold in the broken gate. We would pay you with it.' },
-  savanna: { title: 'The Unskinned Lion', giver: 'a hero\'s shield-bearer', hook: 'Every Kyrenean hero who went to skin the lion lies here. Mine was the last.' },
+const WADI: Story = {
+  id: 'wadi-throat', region: 'kyrene-n', title: 'The Throat of the Wadi',
+  giver: { name: 'Eurybatos', title: 'water-carrier of the wadi', at: [200, 404], cls: 'civ_forager' },
+  hook: 'The lions remember the army that died of thirst. They are hunting its last scout.',
+  backstory: 'An army marched into the wadi and lay down in it, man by man, for want of water. The lions ate well that year and they remember. One scout lived long enough to go on north looking for a well. He came back last night, and the lions came with him.',
+  steps: [
+    {
+      id: 'skins', goal: 'Search the slot where the army lay', label: 'Water-skins',
+      story: 'Water-skins by the hundred, dry as leaves, where the army lay down. One is fresh-cut and still damp: the scout came back here to drink, and there was nothing to drink.',
+      where: 'The gravel slot of the wadi, north-east of the village.',
+      trigger: { kind: 'reach', at: [256, 232] }, reward: { goods: { coin: 10 } },
+    },
+    {
+      id: 'arrows', goal: 'Follow the scout\'s arrow marks', label: 'Arrow mark',
+      story: 'Arrows scratched into the rock, pointing north, the way scouts mark a road for the army behind them. There has been no army behind him for a hundred years. Pug marks cross every one.',
+      where: 'North up the wadi and out into the scrub.',
+      trigger: { kind: 'track', marks: [[256, 190], [256, 150], [230, 100]] },
+    },
+    {
+      id: 'pride', goal: 'Break Ochre-Mane\'s pride', label: 'Ochre-Mane',
+      story: 'The pride has him treed on a butte. Their old male is red as the cliffs and grey at the jaw, and he was a cub the year the army died.',
+      where: 'The scrub under the north-west butte.',
+      trigger: { kind: 'clear', at: [180, 60], mob: 'lion', count: 4, lead: true, name: 'Ochre-Mane' }, reward: { goods: { hides: 10, coin: 20 } },
+    },
+    {
+      id: 'scout', goal: 'Bring the scout down', label: 'Agathon',
+      story: 'Agathon has been on that rock two days with three arrows left. He will not come down until he sees spears, and then he will not stop talking about the well.',
+      where: 'On the butte where the pride held him. Right-click him with your men.',
+      trigger: { kind: 'rescue', at: [183, 63], cls: 'archer', level: 2, name: 'Agathon' },
+    },
+    {
+      id: 'well', goal: 'Decide what becomes of the scout\'s map', label: 'Map',
+      story: 'He found the well. His map shows water under the north scrub, marked for a general a hundred years dead. The army in the wadi is still waiting for it.',
+      where: 'Choose on this card.',
+      trigger: {
+        kind: 'choice', options: [
+          { id: 'army', label: 'Read it to the army', text: 'You read the map aloud in the slot, to the dry skins and the bones. The wind in the wadi drops. Eurybatos says the throat has never been so quiet.', reward: { goods: { coin: 30, food: 30 } } },
+          { id: 'keep', label: 'Keep the map', text: 'Water is worth more than gold out here, and you know where it is. Agathon\'s thumb ring comes with the map; he will not need it to draw a bow for a general now.', reward: { item: { def: 'thumb_ring', rarity: 'rare' }, goods: { copper: 15 } } },
+        ],
+      },
+    },
+  ],
+  end: 'Eurybatos fills a skin at the village well and pours it out in the wadi, as he does every morning. Today he does it smiling.',
+  reward: { goods: { coin: 50, copper: 10 } },
 };
+
+const FLOOD: Story = {
+  id: 'after-flood', region: 'kyrene-w', title: 'After the Flood',
+  giver: { name: 'Amasis', title: 'reed-farmer of the floodplain', at: [300, 416], cls: 'civ_forager' },
+  hook: 'The flood brought a serpent fat on the drowned. It nests in my channel.',
+  backstory: 'Every flood the serpents come up the channels from the Great River, and every flood they go back. Not this one. It came up the middle channel fat on the drowned and did not go back, and now it eats what the flood left: my goats, my neighbour\'s dog, my neighbour. Kill it before the water falls and it comes looking for more.',
+  steps: [
+    {
+      id: 'field', goal: 'Look at the flattened flax', label: 'Flax',
+      story: 'A furrow through the flax as wide as a cart, the stalks laid flat and slick. At the end of it, a sandal, and nothing else of the man who wore it.',
+      where: 'The flax fields north-west of the village.',
+      trigger: { kind: 'reach', at: [236, 320] }, reward: { goods: { flax: 10 } },
+    },
+    {
+      id: 'skins', goal: 'Follow its shed skins up the channel', label: 'Shed skin',
+      story: 'It has grown so fast it sheds as it goes. Each skin is longer than the last, papery and cold, caught on the reeds of the middle channel.',
+      where: 'North up the middle channel, skin by skin.',
+      trigger: { kind: 'track', marks: [[250, 280], [250, 230], [252, 180]] },
+    },
+    {
+      id: 'nest', goal: 'Kill the Flood-Fed', label: 'Flood-Fed',
+      story: 'It lies coiled in a drowned reed bed, thick as a man, two of its brood beside it. Its belly is still round with the flood\'s dead.',
+      where: 'Its nest where the channel splits in the north reeds.',
+      trigger: { kind: 'clear', at: [255, 130], mob: 'serpent', count: 3, lead: true, name: 'the Flood-Fed' }, reward: { goods: { hides: 10, coin: 20 } },
+    },
+    {
+      id: 'home', goal: 'Bring Amasis what the nest held', label: 'Amasis',
+      story: 'In the nest, among the shed skins: rings, bracelets, a child\'s clay horse. What the drowned wore. Amasis will know whose they are.',
+      where: 'Back at the farm village.',
+      trigger: { kind: 'talk' }, reward: { item: { def: 'serpent_ring', rarity: 'rare' } },
+    },
+  ],
+  end: 'Amasis lays the rings out on the threshing floor, one by one, and the village comes to find its own. One ring nobody claims. He gives it to you.',
+  reward: { goods: { coin: 40, food: 30 } },
+};
+
+const FENS: Story = {
+  id: 'reed-bones', region: 'elaia-n', title: 'Bones in the Reeds',
+  giver: { name: 'Phaenna', title: 'the last fenwoman', at: [250, 328], cls: 'civ_forager' },
+  hook: 'My people are bones in the reeds. The serpents will not let me bury them.',
+  backstory: 'When the bronze birds came to the lake, the farmers went up the wall to the fields and the fenfolk stayed in the reeds. We always had. Now they are bones out there and I am the last who knows the way to the burial isle. The serpents lie on the old path, and they are fat on my people.',
+  steps: [
+    {
+      id: 'poles', goal: 'Find the old burial path', label: 'Pole',
+      story: 'Grey poles stand in the marsh, one every hundred paces, each with a rag of colour tied to it. The fenfolk carried their dead out this way, pole to pole, in the old days.',
+      where: 'Down the wall and north into the reeds, pole by pole.',
+      trigger: { kind: 'track', marks: [[228, 256], [220, 232], [236, 205]] },
+    },
+    {
+      id: 'coil', goal: 'Drive the Old Coil off the path', label: 'Old Coil',
+      story: 'Where the path turns east to the isle, the reeds are flattened in a ring. Something old and very long lies in it, with two younger ones, and the bones round them are not all fish.',
+      where: 'The reed bed east of the landfall, on the way to the isle.',
+      trigger: { kind: 'clear', at: [300, 240], mob: 'serpent', count: 3, lead: true, name: 'the Old Coil' }, reward: { goods: { hides: 10, coin: 15 } },
+    },
+    {
+      id: 'isle', goal: 'Reach the burial isle', label: 'Isle',
+      story: 'The low isle is white with bones, the fenfolk\'s and their dogs\', dragged here by the serpents to lie on in the sun. Phaenna\'s mother wore a gold bulla; it is here, in the grass.',
+      where: 'The eastern isle off the landfall.',
+      trigger: { kind: 'reach', at: [322, 210] }, reward: { goods: { herbs: 10 } },
+    },
+    {
+      id: 'rite', goal: 'Choose how they are laid to rest', label: 'Bones',
+      story: 'The fenfolk gave their dead to the lake. The farmers on the wall would raise a mound. The bones do not care. Phaenna will.',
+      where: 'Choose on this card.',
+      trigger: {
+        kind: 'choice', options: [
+          { id: 'lake', label: 'Give them to the lake', text: 'You sink them in the deep water off the isle, as the fenfolk did, with stones on their chests. The lake closes over them without a sound. Phaenna nods: that is how it is done.', reward: { goods: { coin: 25, food: 20, herbs: 10 } } },
+          { id: 'mound', label: 'Raise a mound', text: 'You heap the bones on the isle and raise turf over them, where nothing can drag them off again. Phaenna says it is a farmer\'s grave. She keeps the bulla on its string and gives you her father\'s instead.', reward: { item: { def: 'bulla', rarity: 'rare' }, goods: { coin: 15 } } },
+        ],
+      },
+    },
+  ],
+  end: 'Phaenna walks the pole path alone that evening, tying fresh rags to each pole. The reeds are only reeds.',
+  reward: { goods: { coin: 50 } },
+};
+
+const KIMMERIANS: Story = {
+  id: 'kimmerian-gold', region: 'kimmeria', title: 'Gold of the Kimmerians',
+  giver: { name: 'Teushpa', title: 'a Kimmerian shade', at: [410, 228], cls: 'civ_physician' },
+  hook: 'The griffin keeps our gold in the broken gate. We would pay you with it.',
+  backstory: 'The mist took my people whole, all but our gold, and the griffin sits on that in the broken gate. It drops what it does not eat on the downs, and the one-eyed thieves from the north pick the bones for our gold. They do it in our name. Stop them, and I will show you what the griffin keeps.',
+  steps: [
+    {
+      id: 'kill', goal: 'Look at the griffin\'s leavings', label: 'Bones',
+      story: 'A horse, picked clean and dropped from a height, its ribs driven into the turf. Gold leaf from a Kimmerian bridle is caught in them, and boot prints have been at it already.',
+      where: 'The open downs north-west of the village, under the fort hill.',
+      trigger: { kind: 'reach', at: [330, 140] }, reward: { goods: { coin: 10 } },
+    },
+    {
+      id: 'wolves', goal: 'Drive off the wolves that follow the griffin', label: 'Wolves',
+      story: 'Where the griffin hunts, the wolves eat after it, and they have grown bold on its leavings. A pack is tearing at a fresh kill further down the slope, and they do not mean to share it.',
+      where: 'Down the slope toward the fort hill\'s foot.',
+      trigger: { kind: 'clear', at: [345, 180], mob: 'wolf', count: 6 }, reward: { goods: { hides: 10 } },
+    },
+    {
+      id: 'arimaspos', goal: 'Face Arimaspos One-Eye', label: 'Arimaspos',
+      story: 'Arimaspos says his people have robbed griffins since the world above was young, and that a man with one eye aims better. His camp sits at the fort hill\'s foot, as close to the gate as he dares.',
+      where: 'His camp at the east foot of the fort hill.',
+      trigger: { kind: 'clear', at: [330, 256], mob: 'bandit', count: 5, lead: true, name: 'Arimaspos One-Eye' }, reward: { goods: { coin: 25, bronze: 5 } },
+    },
+    {
+      id: 'stag', goal: 'Decide what to do with the gold stag', label: 'Gold stag',
+      story: 'In his packs, the best of what he picked from the griffin\'s kills: a gold stag plaque, its legs folded under it, the Kimmerian kind. Teushpa promised you gold. This is gold.',
+      where: 'Choose on this card.',
+      trigger: {
+        kind: 'choice', options: [
+          { id: 'return', label: 'Give it to Teushpa', text: 'The shade takes the stag in both hands. "One of us," he says, and a rider of his people wakes on the downs to ride with you. "The rest are under the griffin."', reward: { soul: { cls: 'archer', level: 3, name: 'a Kimmerian rider' }, goods: { coin: 20 } } },
+          { id: 'keep', label: 'Keep it', text: 'Teushpa watches you put it away and says nothing. A shade cannot stop you. The griffin can, and it has more.', reward: { item: { def: 'gold_stag', rarity: 'rare' } } },
+        ],
+      },
+    },
+  ],
+  end: 'Teushpa looks up at the broken gate on the fort hill. The rest of the Kimmerians\' gold lies under the Griffin, and the Griffin does not sleep. "When you are ready," he says.',
+  reward: { goods: { coin: 50, bronze: 10 } },
+};
+
+const SAVANNA: Story = {
+  id: 'unskinned-lion', region: 'savanna', title: 'The Unskinned Lion',
+  giver: { name: 'Pyrrhias', title: 'shield-bearer of the last hero', at: [318, 388], cls: 'civ_engineer' },
+  hook: 'Every Kyrenean hero who went to skin the lion lies here. Mine was the last.',
+  backstory: 'Every hero of Kyrene who wanted a lion-skin cloak came here, to the one lion whose hide turns blades. They all lie on the savanna. My master Alkimos went last. I carried his shield as far as the waterhole and he told me to wait. I have been waiting a long time.',
+  steps: [
+    {
+      id: 'waterhole', goal: 'Search the waterhole', label: 'Shield',
+      story: 'Alkimos\'s shield lies face-down in the mud, scored to the bronze. His sword lies beside it in two pieces. It broke on the Lion\'s hide, and then the pride came for what was left.',
+      where: 'The muddy waterhole by the wash, west of the village.',
+      trigger: { kind: 'reach', at: [276, 352] }, reward: { goods: { coin: 10 } },
+    },
+    {
+      id: 'pride', goal: 'Break Aithousa\'s pride', label: 'Aithousa',
+      story: 'The Lion hunts alone. His mate does not. Aithousa leads four lionesses up the wash, and they drag the heroes the Lion leaves to their lie-up in the high grass.',
+      where: 'Up the dry wash to the north, in the high grass.',
+      trigger: { kind: 'clear', at: [330, 110], mob: 'lion', count: 4, lead: true, name: 'Aithousa the Lioness' }, reward: { goods: { hides: 10, coin: 20 } },
+    },
+    {
+      id: 'alkimos', goal: 'Wake Alkimos', label: 'Alkimos',
+      story: 'He lies among the bones of older heroes, his hilt still in his fist. He is dead, as everyone here is dead, and he wants to know if he got the skin.',
+      where: 'In the pride\'s lie-up. Right-click him with your men.',
+      trigger: { kind: 'rescue', at: [333, 113], cls: 'hoplite', level: 3, name: 'Alkimos' },
+    },
+    {
+      id: 'hide', goal: 'Tell Alkimos how the Lion can be skinned', label: 'Alkimos',
+      story: 'Alkimos wants to go back up the great kopje tonight, alone, with a borrowed sword. Pyrrhias has the old story: Herakles cut the hide with the beast\'s own claws.',
+      where: 'Choose on this card.',
+      trigger: {
+        kind: 'choice', options: [
+          { id: 'hold', label: 'Hold him back', text: 'You tell him a hero who goes alone lies in the grass with the others. He laughs for the first time in a hundred years and ties a Herakles knot in his belt. He will go with your men, or not at all.', reward: { item: { def: 'herakles_knot', rarity: 'rare' }, goods: { coin: 20 } } },
+          { id: 'claws', label: 'Tell him of the claws', text: 'You take a claw from Aithousa\'s paw and give it to him. "Not hers," he says, giving it back. "His." He keeps the story and you keep the claw.', reward: { item: { def: 'lion_claw', rarity: 'rare' } } },
+        ],
+      },
+    },
+  ],
+  end: 'Pyrrhias hangs the scored shield over the village gate. Under the great kopje the Lion of the Savanna still sleeps. His hide turns blades. His own claws do not.',
+  reward: { goods: { coin: 50, copper: 10 } },
+};
+
+/** The region stories, by region id: every depth 1-2 neutral region has one (tests/war/stories.test.ts). */
+export const STORIES: Readonly<Record<string, Story>> = Object.fromEntries([TEETH, SLOPES, HEATH, LAGOON, CAPE, MOORS, FJORDS, OAKWOOD, STEPPE, CHALK, KURGANS, DUNES, COVES, VINEYARDS, PASS, LAKE, FORD, OASIS, BACCHAE, WADI, FLOOD, FENS, KIMMERIANS, SAVANNA].map((s) => [s.region, s]));
+export const storyOf = (region: string): Story | null => STORIES[region] ?? null;
 
 /*
  * Template (copy, fill, add to STORIES):
