@@ -59,6 +59,13 @@ const CSS = `
 #rfGuard .gb s.off{background:var(--rf-disabled)}
 #rfGuard .gn{margin-top:3px;font-size:11px}
 #rfGuard .w{padding:4px 10px;color:var(--rf-bad);font-weight:700}
+#rfGuard.many{gap:3px}
+#rfGuard.many .g{padding:3px 8px 4px;width:330px}
+#rfGuard.many .gt .rf-name{font-size:12px}
+#rfGuard.many .gt .rf-dim{font-size:10.5px}
+#rfGuard.many .gb{height:7px;margin-top:3px}
+#rfGuard.many .gb s{top:-3px;bottom:-3px}
+#rfGuard.many .gn{margin-top:2px;font-size:10px}
 #rfLand{padding:8px 10px 10px;width:270px;font-size:11px;line-height:1.35}
 #rfLand h4{margin:6px 0 1px;font:var(--rf-title-font);font-size:11px;color:var(--rf-accent)}
 #rfLand p{margin:0}
@@ -95,6 +102,7 @@ export function mountGuardians(s: SandboxScene, mk: Mk): void {
     // under the replay's offer toast while it shows (../replay: "The guardian is slain · Watch the battle"), never under it
     const toast = document.getElementById('rpToast'), z = Number(bar.style.zoom) || 1;
     bar.style.top = `${toast && toast.style.display !== 'none' && toast.offsetHeight ? Math.max(52, Math.round(toast.getBoundingClientRect().bottom / z) + 4) : 52}px`;
+    bar.classList.toggle('many', (cur.bosses ?? []).length > 1); // two guardians (Omphalos): slimmer, clear of the landmark panel
     bar.innerHTML = (cur.bosses ?? []).map((b) => guardianHtml(b, held)).join('') + (cur.warden ? `<div class="rf-card w">Rim Warden strike marked: ${Math.ceil(cur.warden.in / 10)} s</div>` : '');
     if (panel && lm) {
       panel.style.display = open ? 'block' : 'none';
