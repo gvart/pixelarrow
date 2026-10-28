@@ -1,0 +1,26 @@
+src/data/warEncounters.ts
+  s_f08b12c690e0d6::t_d4355cfa044efd 191
+src/war/sim/encounters.ts
+  s_f08b12c690e0d6::t_d4355cfa044efd 84-85
+src/war/view/hud/encounter.ts
+  s_f08b12c690e0d6::t_589a3be03bce7f 173,215,219
+  s_f08b12c690e0d6::t_d4355cfa044efd 157,171-172,174-175,179,213-214,216,218
+  s_f08b12c690e0d6::t_aabe622819b938 217
+  s_f08b12c690e0d6::t_31bebc502b00d2 220
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "cc20b954c1979b50e109e31096b8ece77c5ab69a",
+  "prompts": {},
+  "sessions": {
+    "s_f08b12c690e0d6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e4ed4b42-9ff5-404c-b2dd-32a044e85f29",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
