@@ -125,6 +125,11 @@ type SquadOrder =
   // 10 also Poliorcetes or Archimedes) restores the region's landmark its team holds: the bill (src/data/warLandmarks.ts)
   // comes from the team's network, every piece goes to full and its function wakes (refused: a `landmarkRefused` event).
   | { kind: 'restoreLandmark'; squad: SquadId }
+  // micro: one man of the squad (`unit`, living, a soldier) acts alone inside it. fallBack: he leaves the fight (no blows)
+  // and keeps BACK.dist tiles behind his block, away from the nearest foe squad (behind its facing with none near), till
+  // rejoin; rear: he swaps slots with the nearest man of the rear rank (and rejoins, if he was falling back); rejoin: he
+  // takes his slot again. He stays in the squad throughout (UnitSnap.back while falling back). Never with `units`.
+  | { kind: 'man'; squad: SquadId; unit: UnitId; act: 'fallBack' | 'rear' | 'rejoin' }
   | WallOrder
   | BridgeOrder
   | SiegeOrder
@@ -261,7 +266,9 @@ export interface UnitSnap { id: UnitId; squad: SquadId; x: number; y: number; fa
   /** M6d combat tag: ticks left before he may enter a safe zone (he hit or was hit; absent: none). */
   tag?: number;
   /** W-60 satiety 0..100 (src/war/sim/food.ts HUNGER; absent: the wild's men, who do not eat). */
-  sat?: number }
+  sat?: number;
+  /** micro: falling back out of the fight on a `man` order (till rejoin). */
+  back?: true }
 // wounded: set on dead units, true = wounded, false = killed. state 'attack' only while striking in reach or shooting in range
 // (closing in is 'move'). 'gather': harvesting at a node; 'build': labouring at a site. carry/load: what and how much it
 // carries (set while it has a load, any state: play the carry clip while it walks). swing: ticks since the unit's last blow or shot (0 = it landed / was loosed this tick), set while

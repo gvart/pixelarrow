@@ -168,6 +168,8 @@ const FILE = 0.75; // tiles between men in file on a bridge (1.5 m; a tile is 2 
 const LANE = 0.8; // tiles between the lanes of a bridge 2 or 3 wide
 const COL_AHEAD = 3; // tiles of path ahead of the anchor that put its squad in column for a bridge
 const TASK_REPOINT = 10; // ticks between standing point updates for a task on a moving engine
+/** micro (`man` order): a man falling back keeps this many tiles behind his block's anchor, his mark re-taken every `every` ticks. */
+const BACK = { dist: 7, every: 5 };
 
 interface Unit extends Worker {
   id: number;
@@ -242,6 +244,10 @@ interface Unit extends Worker {
   boss: number;
   // W-60: satiety 0..HUNGER.max (./food.ts); the wild's men keep it full
   sat: number;
+  // micro (`man` order): falling back out of the fight (no blows, no slot), making for (bx, by) behind his block
+  back: boolean;
+  bx: number;
+  by: number;
 }
 
 /** M6 load / unload under way: the holder, which way, the good and how many goods are still wanted. */
@@ -1048,6 +1054,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     s.alive -= picked.length;
     for (const u of picked) {
       u.squad = t;
+      u.back = false;
       u.settled = false;
       u.own = [];
       u.wp = 0;
@@ -1135,10 +1142,65 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     townLv.measure();
   };
 
+  /** micro: where a man falling back makes for: BACK.dist behind his block's anchor, away from the nearest foe squad. */
+  const backPoint = (u: Unit) => {
+    const s = u.squad;
+    let fx = 0, fy = 0, best = Infinity;
+    for (const o of s.near) {
+      const d = (o.cx - s.ax) ** 2 + (o.cy - s.ay) ** 2;
+      if (o.alive > 0 && d < best) (best = d), (fx = o.cx), (fy = o.cy);
+    }
+    let dx = best < Infinity ? s.ax - fx : -Math.cos(s.facing), dy = best < Infinity ? s.ay - fy : -Math.sin(s.facing);
+    const l = Math.hypot(dx, dy);
+    if (l < 1e-6) (dx = -Math.cos(s.facing)), (dy = -Math.sin(s.facing));
+    else (dx /= l), (dy /= l);
+    const x = Math.min(grid.w - 0.5, Math.max(0.5, s.ax + dx * BACK.dist)), y = Math.min(grid.h - 0.5, Math.max(0.5, s.ay + dy * BACK.dist));
+    const [bx, by] = openPoint(x, y);
+    if (Math.hypot(bx - u.bx, by - u.by) > 1) u.own = []; // his way there went stale
+    u.bx = bx;
+    u.by = by;
+  };
+  /** micro: one man of s falls back, swaps to the rear rank or rejoins his slot (Order kind 'man'). */
+  const manOrder = (s: Squad, id: UnitId, act: 'fallBack' | 'rear' | 'rejoin') => {
+    const u = units[id];
+    if (!u || !u.alive || u.squad !== s || s.civ || u.pin || u.civ) return;
+    const loose = (m: Unit) => ((m.settled = false), (m.best = Infinity), (m.stall = 0), (m.own = []), (m.oi = 0), (m.wp = 0));
+    if (act === 'fallBack') {
+      if (u.job) works.setJob(u, null);
+      u.back = true;
+      u.tgt = null;
+      u.fighting = u.striking = false;
+      loose(u);
+      backPoint(u);
+      return;
+    }
+    if (act === 'rejoin') {
+      if (!u.back) return;
+      u.back = false;
+      loose(u);
+      return;
+    }
+    // rear: the slot of the nearest man (across the block) in its rearmost rank, if he is not in it already
+    u.back = false;
+    loose(u);
+    const n = s.offsets.length / 2, fwd = (m: Unit) => (m.slot < n ? s.offsets[m.slot * 2] : 0), side = (m: Unit) => (m.slot < n ? s.offsets[m.slot * 2 + 1] : 0);
+    let rear = Infinity;
+    for (const m of s.units) if (m.alive) rear = Math.min(rear, fwd(m));
+    if (fwd(u) < rear + 0.5) return;
+    let w: Unit | null = null;
+    for (const m of s.units) {
+      if (!m.alive || m === u || m.back || fwd(m) >= rear + 0.5) continue;
+      if (!w || Math.abs(side(m) - side(u)) < Math.abs(side(w) - side(u))) w = m;
+    }
+    if (!w) return;
+    [u.slot, w.slot] = [w.slot, u.slot];
+    loose(w);
+  };
+
   const apply = (o: Order) => {
     if (o.kind === 'turnSquad') return void turnSquad(o.squad, o.team);
     if (o.kind === 'rebanner') return void rebanner(o.centre, o.team);
-    if (o.units && o.squad !== undefined) {
+    if (o.units && o.squad !== undefined && o.kind !== 'man') {
       // W-53: the named men gather into one squad (one per kind) and it takes the order; a layout goes once, to the first
       const lead = squads[o.squad];
       if (!lead) return;
@@ -1184,6 +1246,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     }
     const s = squads[o.squad ?? -1];
     if (!s) return;
+    if (o.kind === 'man') return void manOrder(s, o.unit, o.act); // micro: the squad's own order stands
     if (s.civ && !CIV_ORDERS.has(o.kind)) return; // M5f: civilians take work orders only
     // M5f: an order ends a civilian squad's flight (the flee controller sets it again after its own move)
     s.flee = false;
@@ -1825,7 +1888,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     let lag = 0;
     let n = 0;
     for (const u of s.units) {
-      if (!u.alive || u.fighting) continue;
+      if (!u.alive || u.fighting || u.back) continue;
       const [sx, sy] = slotPos(s, u.slot);
       lag += Math.hypot(sx - u.x, sy - u.y);
       n++;
@@ -1876,8 +1939,25 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     s.col = columnFor(s);
   };
 
+  /** micro: the point a man falling back steers to: his mark when he sees it, else his own way there. */
+  const backTarget = (u: Unit): [number, number] => {
+    if ((tick + u.id) % BACK.every === 0) backPoint(u);
+    u.crossing = false;
+    if (sees(false, u.x, u.y, u.bx, u.by)) {
+      u.own = [];
+      return [u.bx, u.by];
+    }
+    if (u.own.length) {
+      while (u.oi < u.own.length / 2 - 1 && Math.hypot(u.own[u.oi * 2] - u.x, u.own[u.oi * 2 + 1] - u.y) < 0.3) u.oi++;
+      return [u.own[u.oi * 2], u.own[u.oi * 2 + 1]];
+    }
+    if (!u.ownReq) (u.ownReq = true), unitPathQueue.push(u);
+    return [u.bx, u.by];
+  };
+
   /** Point the unit steers to: its detour, its slot when in sight, else the furthest visible point of the squad path. */
   const unitTarget = (u: Unit): [number, number] => {
+    if (u.back) return backTarget(u);
     const s = u.squad;
     // a man on a bridge whose slot is off it walks on along his lane to the end towards the anchor (not into its side; tile
     // waypoints of a detour lie off his lane)
@@ -2707,10 +2787,12 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
    */
   /**
    * Workers walk through their own side's bodies (a standing squad would fence them off their store or site), and so do men
-   * on a stair or ladder (one file: they squeeze past whoever stands at its head or foot).
+   * on a stair or ladder (one file: they squeeze past whoever stands at its head or foot), and a man falling back through
+   * his own block.
    */
   const ghost = (a: Unit, b: Unit) =>
     (a.squad.team === b.squad.team && (a.job !== null || b.job !== null || grid.deck[tileAt(grid, a.x, a.y)] > DECK || grid.deck[tileAt(grid, b.x, b.y)] > DECK)) ||
+    (a.squad === b.squad && (a.back || b.back)) || // micro: a man falling back slips out through his own block's ranks
     meet(a, b);
   /**
    * Two men meeting head-on in a bridge's lane squeeze past each other (else a footbridge jams for good). W-59: so do two
@@ -3143,7 +3225,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       if (!u.alive) continue;
       grid.team = u.squad.team;
       // W-59: always to his slot (the corner he was making for may be the one he cannot get past, or far behind)
-      const [tx, ty] = slotPos(u.squad, u.slot);
+      const [tx, ty] = u.back ? [u.bx, u.by] : slotPos(u.squad, u.slot);
       u.own = cornerPath(u.x, u.y, tx, ty);
       if (u.squad.fixed) (u.settled = false), (u.best = Infinity), (u.stall = 0); // walk it, however long it stood
       u.oi = 1;
@@ -3189,7 +3271,13 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       const oy = u.y;
       grid.team = u.squad.team;
       let act: [number, number] | null | Unit;
-      if (u.job) {
+      if (u.back) {
+        // micro: falling back: no blows, no work, out to his mark behind the block
+        u.fighting = u.striking = u.working = false;
+        u.tgt = null;
+        if (u.cd > 0) u.cd--;
+        act = null;
+      } else if (u.job) {
         u.fighting = u.striking = false;
         u.tgt = null;
         const w = works.work(u);
@@ -3505,7 +3593,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
           crossing: false, settled: false, settleD: 0, best: Infinity, stall: 0, ox: px, oy: py, want: 0, toSlot: false,
           job: null, carry: null, load: 0, wnode: -1, wsite: -1, wslot: -1, wfor: -1, working: false, wgx: -1, wgy: -1, wpath: [], wpi: 0, wreq: false, doing: null, person: ps?.[k] ?? null,
           dealt: 0, kills: 0, obj: 0, engaged: false, reported: false, civ: civJob(ps?.[k].hero.cls ?? cls), civT: 0, civAt: false, repaired: false, venomUntil: -1, venom: false, beast: false, fieldR: 0,
-          pack: null, tag: 0, safeT: 0, pin: false, aloft: 0, immune: false, boss: -1, sat: HUNGER.max,
+          pack: null, tag: 0, safeT: 0, pin: false, aloft: 0, immune: false, boss: -1, sat: HUNGER.max, back: false, bx: px, by: py,
         };
         setRates(u);
         if (u.civ) civs.push(u);
@@ -3542,6 +3630,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
             ...(u.alive && u.pack && loads(u.pack) > 1e-9 ? { pack: loads(u.pack) } : {}),
             ...(u.alive && u.tag > tick ? { tag: u.tag - tick } : {}),
             ...(u.alive && u.squad.team !== MOB_TEAM ? { sat: Math.round(u.sat) } : {}),
+            ...(u.alive && u.back ? { back: true as const } : {}),
             ...(atk ? { ready: Math.max(0, u.cd - 1), ...(u.swingAt >= 0 ? { swing: tick - 1 - u.swingAt } : {}) } : {}),
           };
         }),
