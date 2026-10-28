@@ -1,0 +1,52 @@
+scripts/art/pixellab/guard/spec.mjs
+  s_f08b12c690e0d6::t_f725268bbbf1cc 26-34
+src/assets/sheets/mob_savanna_lion/manifest.json
+  s_f08b12c690e0d6::t_834623b8ac9d4f 1-79
+docs/v5/pixellab/GUARD/savanna_lion.jobs.json
+  s_f08b12c690e0d6::t_5a21ad152367dc 1,9
+  s_f08b12c690e0d6::t_1cb85098e72440 5
+  s_f08b12c690e0d6::t_5f55ea62095c5b 4
+  s_f08b12c690e0d6::t_254798e8657805 6-8
+  s_f08b12c690e0d6::t_5fedd4cc0f163e 2-3
+scripts/art/pixellab/guard/clean.mjs
+  s_f08b12c690e0d6::t_ac86b3411960bb 1-21,26-32,39-60
+  s_f08b12c690e0d6::t_160aac2fcb651e 22-25
+  s_f08b12c690e0d6::t_adf9b84d0b5291 33-38
+src/war/view/units.ts
+  s_f08b12c690e0d6::t_f3654090297d95 425-430
+  s_f08b12c690e0d6::t_7647db058ce026 421-423
+scripts/war/art/guardians-preview.mjs
+  s_f08b12c690e0d6::t_0e4758a3ba3223 8
+  s_f08b12c690e0d6::t_631b1c3d5015e6 108-130
+docs/v5/pixellab/GUARD/moor_bear.jobs.json
+  s_f08b12c690e0d6::t_f959924459d3d7 1,9
+  s_f08b12c690e0d6::t_5f55ea62095c5b 4-6
+  s_f08b12c690e0d6::t_254798e8657805 7-8
+  s_f08b12c690e0d6::t_56bd75d531e422 2-3
+docs/v5/pixellab/GUARD/griffin.jobs.json
+  s_f08b12c690e0d6::t_cedc5e611d7727 1-5
+docs/v5/pixellab/GUARD/bases.jobs.json
+  s_f08b12c690e0d6::t_942acbd5d4e3c7 12-17,19
+  s_f08b12c690e0d6::t_e3d82670cdc909 18
+docs/v5/pixellab/GUARD/savanna_lion.sheet.json
+  s_f08b12c690e0d6::t_834623b8ac9d4f 40
+  s_f08b12c690e0d6::t_02cc528c276825 1-39,41-64
+scripts/art/pixellab/anim2/ground.mjs
+  s_f08b12c690e0d6::t_47bb14792bac5b 5-7,14-15,30
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "c1f9540bad75899b6bded91c682be702909489fd",
+  "prompts": {},
+  "sessions": {
+    "s_f08b12c690e0d6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e4ed4b42-9ff5-404c-b2dd-32a044e85f29",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
