@@ -1,0 +1,21 @@
+src/war/view/hud/bossBanner.ts
+  s_f08b12c690e0d6::t_4a8ee8fe8492f3 61,67-68,72,74
+src/data/warBosses.ts
+  s_f08b12c690e0d6::t_525ab724c34b64 56,58
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "cca8d4f9780f9b0222c865845519768f493ecb9f",
+  "prompts": {},
+  "sessions": {
+    "s_f08b12c690e0d6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e4ed4b42-9ff5-404c-b2dd-32a044e85f29",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
