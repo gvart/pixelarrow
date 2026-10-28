@@ -1,0 +1,21 @@
+src/war/view/SandboxScene.ts
+  s_f08b12c690e0d6::t_7c46bc1ecce132 661
+src/war/view/build/buildingLayer.ts
+  s_f08b12c690e0d6::t_7c46bc1ecce132 59-60,154-155,398-404,505-506
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "d93cf35b1d4ade7dfe7a8bf6591684cc1d8bcc94",
+  "prompts": {},
+  "sessions": {
+    "s_f08b12c690e0d6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e4ed4b42-9ff5-404c-b2dd-32a044e85f29",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
