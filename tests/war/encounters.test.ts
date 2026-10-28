@@ -290,7 +290,7 @@ describe('W-67 encounters fit their region', () => {
   it('a fauna fight draws one of the region\'s own hunters (lions too), the same for the same run', () => {
     const r = region('kyrene-n');
     expect(encHunters(r).sort()).toEqual(['jackal', 'lion']);
-    expect(encHunters(region('ammos'))).toEqual(['jackal']);
+    expect(encHunters(region('ammos')).sort()).toEqual(['jackal', 'lion']); // its lore's lions (stories-b)
     const q = snapOpen(r, [r.w / 2, r.h / 2]);
     const spawned = (owner: string) => {
       const ks: string[] = [];
