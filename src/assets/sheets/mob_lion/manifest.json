@@ -1,0 +1,83 @@
+{
+ "version": 2,
+ "class": "mob_lion",
+ "image": "mob_lion.png",
+ "frame": {
+  "w": 51,
+  "h": 45
+ },
+ "anchor": {
+  "x": 29,
+  "y": 39
+ },
+ "anchors": {
+  "south-east": {
+   "x": 23,
+   "y": 39
+  },
+  "north-east": {
+   "x": 21,
+   "y": 41
+  },
+  "south-west": {
+   "x": 29,
+   "y": 39
+  },
+  "north-west": {
+   "x": 30,
+   "y": 41
+  }
+ },
+ "scale": 0.55,
+ "rows": [
+  "south-east",
+  "north-east",
+  "south-west",
+  "north-west"
+ ],
+ "colorGroups": {},
+ "tiers": {
+  "basic": {}
+ },
+ "anims": {
+  "idle": {
+   "col": 0,
+   "frames": 9,
+   "fps": 6
+  },
+  "walk": {
+   "col": 9,
+   "frames": 8,
+   "fps": 10
+  },
+  "run": {
+   "col": 17,
+   "frames": 8,
+   "fps": 14
+  },
+  "attack": {
+   "col": 25,
+   "frames": 8,
+   "fps": 12,
+   "strike": 5
+  },
+  "die": {
+   "col": 33,
+   "frames": 8,
+   "fps": 10
+  },
+  "hit": {
+   "col": 41,
+   "frames": 4,
+   "fps": 12
+  }
+ },
+ "metal": [],
+ "variation": {
+  "skin": false,
+  "shade": false
+ },
+ "rarity": {
+  "metal": false
+ }
+}
