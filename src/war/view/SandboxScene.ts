@@ -658,6 +658,7 @@ export class SandboxScene extends Phaser.Scene {
     this.sel.sync(this.drawn);
     // M7d: guardians perched or flying, and their squads' units not drawn (the Chimera's other heads)
     const bosses = this.sim.cur?.bosses;
+    this.build.layer.guards = (bosses ?? []).filter((b) => b.state !== 'slain' && b.state !== 'away').map((b) => ({ x: b.x, y: b.y }));
     if (bosses) {
       this.guardians.update(bosses, this.sim.cur?.buildings ?? [], this.sim.cur?.units ?? []);
       if (this.guardians.hidden.size) this.drawn = this.drawn.filter((d) => !this.guardians.hidden.has(d.u.id));
