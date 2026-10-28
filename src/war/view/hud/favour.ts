@@ -95,6 +95,10 @@ const writeSeen = (pid: number, level: number) => {
   }
 };
 
+/** The favour the HUD shows now (the top bar's chip reads it; level 1 until the first read). */
+let latest: FavourView | null = null;
+export const favourNow = (): FavourView => latest ?? favourView(0);
+
 /** The short level-up banner. */
 export function favourBanner(level: number): void {
   const u = favourUnlocks(level);
@@ -116,6 +120,7 @@ export function mountFavour(s: SandboxScene, mk: Mk): void {
   let v: FavourView = favourView(0);
   const btn = menuBtn('rfFavourBtn', 'badge-rarity-legendary', 'Divine favour', 'your favour with the gods: it makes the men you raise better', 'panel.favour', 6);
   const render = () => {
+    latest = v;
     setBadge(btn, v.level, true);
     btn.dataset.tip = `<div class="rf-name" style="margin-bottom:3px">Divine favour · level ${v.level}</div>${esc(v.title)}: it makes the men you raise better <b class="k">${keys.label('panel.favour')}</b>`;
     if (win.style.display === 'none') return;
