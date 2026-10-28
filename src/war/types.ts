@@ -63,7 +63,7 @@ export interface PrebuiltEntry {
 }
 export interface TileRect { x: number; y: number; w: number; h: number }
 export interface SafeRect extends TileRect { gates?: TileRect[] }
-export type MobKind = 'wolf' | 'boar' | 'bear' | 'bandit' | 'jackal' | 'ibex';
+export type MobKind = 'wolf' | 'boar' | 'bear' | 'bandit' | 'jackal' | 'ibex' | 'lion' | 'serpent';
 export type SquadId = number; export type UnitId = number;
 /**
  * W-53 unit control: any order with a squad may name `units` (living men of that squad's owner and team, in any of his
@@ -788,4 +788,12 @@ export type WarEvent =
   | { t: number; kind: 'soulFaded'; soul: number }
   // W-65 roaming life (src/war/sim/roam.ts): a caravan arrived and paid `owner` for his escort; one was robbed by `by`
   | { t: number; kind: 'caravanPaid'; owner: string; team: number; coin: number; x: number; y: number }
-  | { t: number; kind: 'caravanRobbed'; caravan: number; by: number };
+  | { t: number; kind: 'caravanRobbed'; caravan: number; by: number }
+  // W-67 mob FX (src/war/view/mobFx.ts; view only, the sim does not read them back): a beast's burst at a foe a few tiles
+  // off (boar: the charge run-up before its knock; lion: the pounce of its first blow on a man) from (x,y) towards
+  // (tx,ty); a lair roused from home (wolf howl, lion and bear roar); a pack breaking off or a herd bolting (scatter)
+  | { t: number; kind: 'mobDash'; unit: UnitId; mob: MobKind; x: number; y: number; tx: number; ty: number }
+  | { t: number; kind: 'mobCry'; lair: number; mob: MobKind; x: number; y: number }
+  | { t: number; kind: 'mobScatter'; lair: number; mob: MobKind; x: number; y: number };
+/** W-67: the mob FX events (the live region sends them to the players whose camera sees them: protocol `mobFx`). */
+export type MobFxEvent = Extract<WarEvent, { kind: 'mobDash' | 'mobCry' | 'mobScatter' }>;

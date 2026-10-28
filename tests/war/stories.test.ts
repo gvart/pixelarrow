@@ -8,7 +8,7 @@ import { describe, expect, it } from 'vitest';
 import { parseRegion } from '../../src/war/region/schema';
 import { createSim } from '../../src/war/sim';
 import { buildGrid, findPath, tileAt } from '../../src/war/sim/grid';
-import { STORIES, STORY_HOOKS } from '../../src/data/warStories';
+import { STORIES } from '../../src/data/warStories';
 import { storyItem, storyPath, StoryRun, type StoryHost, type StoryNote, type StoryReward, type StorySave } from '../../src/war/sim/stories';
 import { REGION_DEPTH } from '../../src/war/sim/depth';
 import type { RegionData, WarBuildSim } from '../../src/war/types';
@@ -17,9 +17,8 @@ const jsons = import.meta.glob<unknown>('../../src/war/regions/*.json', { eager:
 const region = (id: string) => parseRegion(jsons[`../../src/war/regions/${id}.json`]) as RegionData;
 
 describe('W-65 story data', () => {
-  it('six full chains and a hook for every other depth 1-2 neutral', () => {
-    expect(Object.keys(STORIES).length).toBeGreaterThanOrEqual(6);
-    for (const [id, d] of Object.entries(REGION_DEPTH)) if (d === 1 || d === 2) expect(!!STORIES[id] || !!STORY_HOOKS[id], id).toBe(true);
+  it('a full chain for every depth 1-2 neutral', () => {
+    for (const [id, d] of Object.entries(REGION_DEPTH)) if (d === 1 || d === 2) expect(!!STORIES[id], id).toBe(true);
     for (const s of Object.values(STORIES)) {
       expect(s.steps.length, s.id).toBeGreaterThanOrEqual(3);
       expect(storyPath(s, null).length, s.id).toBeLessThanOrEqual(5);

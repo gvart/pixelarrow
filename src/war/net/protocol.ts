@@ -261,6 +261,8 @@ export type ServerMsg =
    * and when it changed (checked every WILD_EVERY ticks). The live view drew no lair, claim banner or map mark without it.
    */
   | { t: 'wild'; lairs: import('../types').LairSnap[]; claims: import('../types').ClaimSnap[]; roam?: import('../types').RoamSnap[] }
+  /** W-67: this tick's mob FX events (a beast's burst, a lair's cry, a pack scattering) inside his camera rect (src/war/view/mobFx.ts). */
+  | { t: 'mobFx'; ev: import('../types').MobFxEvent[] }
   /**
    * W-60: a soul his squad went for: claimed (the new man's person id, class, level and name), refused (his army is full:
    * `have` men across all regions, ARMY_MAX at most).

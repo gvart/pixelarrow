@@ -6,6 +6,8 @@
   "bear": { "sheet": "mob_bear", "hostile": true, "tier": 2, "pack": false, "shoulderM": 1.2, "attack": "swipe", "biomes": ["fjord", "foothills", "mountains"] },
   "bandit": { "sheet": "mob_bandit", "hostile": true, "tier": 1, "pack": true, "heightM": 1.76, "attack": "thrust", "biomes": ["foothills", "lagoon", "cape", "mountains"], "note": "its own outfit (hooded mud-brown cloak, face wrap, leather scraps, short sword) on the militia base: every soldier clip (thrust, fallFwd, fallBack, ...)" },
   "jackal": { "sheet": "mob_jackal", "hostile": true, "tier": 1, "pack": true, "shoulderM": 0.65, "attack": "bite", "biomes": ["kyrene"], "note": "the wolf's frames, smaller and tinted sandy" },
-  "ibex": { "sheet": "mob_ibex", "hostile": false, "flees": true, "tier": 0, "pack": true, "shoulderM": 0.9, "attack": null, "biomes": ["mountains"] }
+  "ibex": { "sheet": "mob_ibex", "hostile": false, "flees": true, "tier": 0, "pack": true, "shoulderM": 0.9, "attack": null, "biomes": ["mountains"] },
+  "lion": { "sheet": "mob_lion", "hostile": true, "tier": 2, "pack": true, "shoulderM": 1.0, "attack": "pounce", "biomes": ["kyrene", "savanna"], "note": "W-67: a hunting pride of lionesses (the maned Nemean lion is the boss mob_savanna_lion); leaps on the first blow at each man" },
+  "serpent": { "sheet": "mob_serpent", "hostile": true, "tier": 2, "pack": false, "lengthM": 6, "attack": "bite", "venom": true, "biomes": ["kyrene", "elaia", "floodplain", "fens"], "note": "W-67: a great river serpent (anaconda-like), slow, a venomous bite and a short lunge" }
  }
 }

@@ -80,8 +80,8 @@ const def: RegionDef = {
     k.resource('dates', [104, 118], 4, 9);
     k.resource('stone', [196, 56], 2, 10);
     // fauna: lions in the west ridge's clefts and the east ridge, scorpions in the dunes
-    k.lair('jackal', [88, 72], { as: 'lions' });
-    k.lair('jackal', [164, 196], { as: 'lions' });
+    k.lair('lion', [88, 72], { as: 'lions' });
+    k.lair('lion', [164, 196], { as: 'lions' });
     k.lair('jackal', [244, 150], { as: 'scorpions' });
     k.lair('jackal', [100, 190], { as: 'scorpions' });
     // the caravanserai's bare hardpan: amphorae, handcarts and potted palms by the houses and the court
