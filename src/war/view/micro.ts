@@ -4,7 +4,7 @@
  * Bars: thin pixel bars over each man, all in one Graphics a frame, snapped to screen pixels (crisp at every zoom).
  *   your own men     green, while hurt or while their squad is selected
  *   foes             red, while hurt
- *   allies, pacts    yellow (roaming folk, and any team `allyOf` names), while hurt
+ *   allies, pacts    yellow (roaming folk, and the men of the players the region's `allies` message names), while hurt
  *   Alt held         every man's bar (Dota-style)
  * Guardians are left out (their own bar and name plate, ./guardians.ts).
  *
@@ -18,7 +18,7 @@ import type { UnitId } from '../types';
 import type { DrawUnit } from './simClient';
 import type { SandboxScene } from './SandboxScene';
 import type { UnitLayer } from './units';
-import { BAR, barOf, type BarTone } from './microRules';
+import { alliesBy, BAR, barOf, setAllyOf, type BarTone } from './microRules';
 import { myTeam } from './side';
 import { MAN_ACTS, ManCard, type ManAct, type ManInfo } from './hud/manCard';
 import { keys } from '../input/keys';
@@ -44,6 +44,8 @@ export class Micro {
     window.addEventListener('keydown', (e) => alt(e, true));
     window.addEventListener('keyup', (e) => alt(e, false));
     window.addEventListener('blur', () => (this.alt = false));
+    // online: the players whose men are friends (his alliance, pacts and truces) get yellow bars
+    s.sim.serverTaps.add((m) => { if (m.t === 'allies') setAllyOf(alliesBy(m.players)); });
     // the picked man's orders on their hotkeys
     window.addEventListener('keydown', (e) => {
       const a = keys.act(e), x = MAN_ACTS.find((m) => m.key === a);
@@ -80,7 +82,7 @@ export class Micro {
     const w = wp * px, h = hp * px, rows: { x: number; y: number; k: number; tone: BarTone }[] = [];
     for (const d of drawn) {
       if (hide.has(d.u.id)) continue;
-      const tone = barOf(d, mine, sq, this.alt);
+      const tone = barOf(d, mine, sq, this.alt, this.s.sim.squads.get(d.u.squad)?.owner);
       if (!tone) continue;
       const f = this.units.feet(d), up = this.above(d);
       if (f.x < view.x - 20 || f.x > view.right + 20 || f.y < view.y || f.y > view.bottom + up) continue;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { barOf, blockAt, setAllyOf } from '../../src/war/view/microRules';
+import { alliesBy, barOf, blockAt, setAllyOf } from '../../src/war/view/microRules';
 import type { DrawUnit } from '../../src/war/view/simClient';
 import { NEUTRAL_TEAM } from '../../src/war/sim/economy';
 
@@ -27,6 +27,17 @@ describe('micro: health bars', () => {
     expect(barOf(man(3, NEUTRAL_TEAM, 5, 0, 0, 50), 0, none, false)).toBe('ally');
     setAllyOf((t) => t === 2);
     expect(barOf(man(2, 2, 4, 0, 0), 0, none, true)).toBe('ally');
+    setAllyOf(() => false);
+  });
+
+  it('online, the players the region names as allies are yellow: an alliance mate and a pact partner, not oneself', () => {
+    const none = new Set<number>();
+    setAllyOf(alliesBy([7, 9])); // the `allies` message: player 7 (same banner), player 9 (an alliance at peace)
+    expect(barOf(man(1, 0, 3, 0, 0, 50), 0, none, false, 'p:5')).toBe('own'); // mine
+    expect(barOf(man(2, 0, 4, 0, 0, 50), 0, none, false, 'p:7')).toBe('ally'); // same team, another player
+    expect(barOf(man(3, 1, 5, 0, 0, 50), 0, none, false, 'p:9')).toBe('ally'); // a foe's team, but at peace
+    expect(barOf(man(4, 1, 6, 0, 0, 50), 0, none, false, 'p:8')).toBe('foe'); // that team, a player not named
+    expect(barOf(man(2, 0, 4, 0, 0), 0, new Set([4]), false, 'p:7')).toBeNull(); // an ally's selected squad: no green bar
     setAllyOf(() => false);
   });
 });
