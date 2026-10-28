@@ -435,8 +435,10 @@ ambush 6-8). The cooldown counts ticks of travel only (his men walking, no foe's
 striking): 1800-3000 ticks (3-5 minutes), drawn anew after each; nothing rolls in a fight, at home, or while one is open.
 Every roll (the kind, weighted, never the same twice running; the spot; a search's risk; an item) uses the sim's seeded
 Rng keyed by region, owner, seed and the encounter's number. Each kind is 1-3 steps of the story runner's kinds (reach,
-clear: foes added as a once-lair, +1 man per two depths; choice; guide: reach him, then the nearest town, he walks behind
-your men) and pays a little: coin and goods, now and then an item (a pile at your men) or a soul (claimable once a man
+clear: foes added as a once-lair, +1 man per two depths, `fauna` one of the region's own hunters, rolled; choice; guide:
+reach him, then the nearest town, he walks behind your men; track: marks 9 tiles apart, each rolled on from the last,
+the trail's end the next step's spot; rescue: a captive's soul at the spot, done once his squad claims him or is
+refused). A kind may keep to regions with a biome on 25% of the ground, or with a lair of some beast. Each pays a little: coin and goods, now and then an item (a pile at your men) or a soul (claimable once a man
 has fallen, the 12-man cap). It takes the tracked card while open and gives it back after; who waits at the spot is
 painted from the existing sheets (no sim unit). An open step lapses after 3 minutes (a guide 9) or with all his men 70
 tiles away.
@@ -454,6 +456,14 @@ tiles away.
 | Toll of the Road (depth 2+) | break the toll (bandits, fight) / go round | coin, a pilos |
 | A Hero's Barrow | reach it; pour a libation / take the helm (40%: grave-robbers) / leave | a soul (militia L2) / a helm |
 | A Strayed Flock | reach the boy, then the last goat | food |
+| The Lion at the Fold (lion regions) | reach the shepherd; kill the lion | food, hides, a lion claw |
+| The Serpent of the Ford (serpent regions) | draw it out (fight) / pour wine / go round | coin, herbs, a serpent ring / coin |
+| The Slavers' Camp | break the camp; claim the bound captive's soul (rescue) | coin, a soul (peltast L2) |
+| Tracks of a Stolen Herd | follow 3 marks (track); the rustlers at the trail's end | food, hides, coin |
+| The Unburied Shade | reach him; the rites / enlist him / take the obol (50%: carrion beasts) | a votive shield / a soul (hoplite L2) / coin |
+| The Poisoned Well (elaia, dodona, kyrene) | seal it / hunt the poisoner: 2 marks, then bandits / leave | food, herbs / coin, herbs |
+| A Deserter's Map | follow 3 marks; dig (30%: his old comrades) / leave | bronze, coin, a helm |
+| The Speaking Oak (dodona, mountains) | reach it; ask for victory / the road / take a cauldron (50%: keepers) | a charm / food / bronze |
 
 Progress: offline localStorage `pa.war.enc.<region>` (`?encounter=<kind>` springs one at once for tools); online the
 region room keeps a run per welcomed player (`server/src/war/encounters.ts`), its save in the region DO's storage
