@@ -815,7 +815,7 @@ Every soldier is a unit: the player selects any of his men and orders them alone
 | --- | --- |
 | click, shift+click | select a man; shift adds him or drops him; a click on open ground clears |
 | click in a block's gaps | select that block (all its men) |
-| one man selected | micro card by him (`src/war/view/hud/manCard.ts`): fall back, to the rear rank, rejoin |
+| one man selected | his card docked in the command panel (`src/war/view/hud/manCard.ts`), his pip lit: fall back Z, rejoin Shift+Z, to the rear rank Ctrl+Z |
 | hold Alt | every man's health bar |
 | drag a box, shift+box | select every man of yours inside; shift adds |
 | double-click a man | every man of his class on screen |
@@ -832,7 +832,8 @@ Micro (`src/war/view/micro.ts`, the sim's `man` order): one man picked out of hi
 leaves the fight (strikes no blow) and keeps 7 tiles behind his block's anchor, away from the nearest foe squad (behind
 its facing with none near), slipping out through his own ranks; rejoin: he takes his slot again; to rear: he swaps slots
 with the nearest man of the rear rank. Health bars: thin pixel bars over the men, green your own (hurt, or their squad
-selected), red foes (hurt), yellow roaming folk and pact partners (hurt); Alt shows them all.
+selected), red foes (hurt), yellow roaming folk and other players' men under one's banner or an alliance at peace
+with it, a pact or truce (hurt; online the region's `allies` message names those players); Alt shows them all.
 
 Orders: men ordered together march as one formation (Movement above); a man ordered alone walks alone. In the sim, an
 order naming `units` gathers them first: a squad given whole keeps its id and takes the rest in, else the men leave

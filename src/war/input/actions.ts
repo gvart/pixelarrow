@@ -47,7 +47,7 @@ type G = (typeof N)[number];
 export const ACTION_IDS = [
   'cam.up', 'cam.down', 'cam.left', 'cam.right', 'cam.grab',
   'sel.all', ...N.map((n) => `group.${n}` as `group.${G}`), ...N.map((n) => `group.set.${n}` as `group.set.${G}`),
-  'order.act', 'order.hold', 'order.stop', 'order.active', 'order.fireArrows', 'order.deploy',
+  'order.act', 'order.hold', 'order.stop', 'order.active', 'order.fireArrows', 'order.deploy', 'order.fallBack', 'order.rear', 'order.rejoin',
   'form.line', 'form.column', 'form.wedge', 'form.loose',
   'build.mode', 'build.rotate', 'build.confirm', 'build.undo', 'build.flip', 'build.narrower', 'build.wider', 'build.gate', 'build.tower',
   'bld.upgrade', 'bld.repair', 'bld.demolish',
@@ -92,6 +92,10 @@ const DEFS: ActionDef[] = [
   def('order.active', 'region', 'Orders', 'Squad active skill', [k('KeyF')]),
   def('order.fireArrows', 'region', 'Orders', 'Fire arrows on or off', [k('KeyQ')]),
   def('order.deploy', 'region', 'Orders', 'Deploy or pack an engine', [k('KeyY')]),
+  // micro (src/war/view/micro.ts): the one man picked out of his block
+  def('order.fallBack', 'region', 'Orders', 'Picked man: fall back out of the fight', [k('KeyZ')]),
+  def('order.rejoin', 'region', 'Orders', 'Picked man: rejoin his slot', [k('KeyZ', { shift: true })]),
+  def('order.rear', 'region', 'Orders', 'Picked man: to the rear rank', [k('KeyZ', { mod: true })]),
 
   def('form.line', 'region', 'Formations', 'Line', [k('Digit1', { alt: true })]),
   def('form.column', 'region', 'Formations', 'Column', [k('Digit2', { alt: true })]),

@@ -4,9 +4,11 @@
  * the iso camera (tile +x runs down-right, +y down-left), and the markers over it: buildings by owner (footprints; the
  * main ones as an icon badge on the full map), lairs by beast, claim banners, own squads, enemy squads only where own men
  * or buildings see them, and the camera's view (a rectangle: the screen in tile space, turned back upright).
- * Fog of war (W-39, ../fog.ts): the player's team's fog grid shades the map in the black glaze (dark unexplored, dimmed explored,
- * soft edges), rebuilt only when the grid's version changes; the sim client already hides foes out of sight and keeps foe
- * buildings as last seen; lairs, claim points and resource badges show once their ground is explored.
+ * Fog of war (W-39, ../fog.ts): the player's team's fog grid shades the map in the black glaze (dark unexplored, explored
+ * dimmed to about 55%, soft edges), rebuilt only when the grid's version changes; the sim client already hides foes out of
+ * sight and keeps foe buildings as last seen; lairs, claim points and resource badges show once their ground is explored.
+ * On the minimap the player's own ground (his team's influence), buildings, claim points and squads are lit over it all,
+ * so his holdings read at a glance whatever the fog.
  */
 import { MOB_TEAM } from '../../sim/mobs';
 import type { BuildingSnap, FogGrid, RoamSnap } from '../../types';
@@ -60,7 +62,7 @@ export function mapCanvas(s: SandboxScene): HTMLCanvasElement {
 
 const fogged = new WeakMap<SandboxScene, { ver: number; cv: HTMLCanvasElement }>();
 /** The fog's shade: the black glaze; alpha over unexplored and explored cells (visible: clear). */
-const GLAZE = [14, 9, 7], FOG_DARK = 232, FOG_DIM = 120;
+const GLAZE = [14, 9, 7], FOG_DARK = 232, FOG_DIM = 115;
 
 /** The player's team's fog, one px per vision cell (cached per version); null with fog off or none yet. */
 function fogCanvas(s: SandboxScene): { cv: HTMLCanvasElement; g: FogGrid } | null {
@@ -194,6 +196,13 @@ export function drawMap(g: CanvasRenderingContext2D, s: SandboxScene, f: MapXf, 
     g.imageSmoothingEnabled = true; // soft edges
     g.drawImage(fog.cv, 0, 0, fog.g.w * fog.g.cell, fog.g.h * fog.g.cell);
   }
+  const ground = full ? null : groundCanvas(s);
+  if (ground) {
+    g.imageSmoothingEnabled = true;
+    g.globalAlpha = 0.34;
+    g.drawImage(ground, 0, 0, s.map.w, s.map.h);
+    g.globalAlpha = 1;
+  }
   g.restore();
   const cur = s.sim.cur;
   g.lineJoin = 'round';
@@ -276,4 +285,66 @@ export function drawMap(g: CanvasRenderingContext2D, s: SandboxScene, f: MapXf, 
   poly(frustum(s).map((p) => P(p.x, p.y)));
   g.lineWidth = 3 * m; g.strokeStyle = 'rgba(14,9,7,0.75)'; g.stroke();
   g.lineWidth = 1.3 * m; g.strokeStyle = CREAM; g.stroke();
+  if (!full) ownOnTop(g, s, f, m, seen);
+}
+
+const grounds = new WeakMap<SandboxScene, { key: string; cv: HTMLCanvasElement }>();
+/** The player's team's ground (its influence bit), one px per tile in the team's colour (cached per version); null: none. */
+function groundCanvas(s: SandboxScene): HTMLCanvasElement | null {
+  const inf = s.sim.influence, team = myTeam();
+  if (!inf) return null;
+  const key = `${inf.version}|${team}|${inf.w}x${inf.h}`;
+  let p = grounds.get(s);
+  if (p?.key !== key) {
+    const cv = p?.cv ?? document.createElement('canvas'), bit = 1 << team, [r, gr, b] = TEAM_RGB[slot(team)] ?? [200, 200, 200];
+    cv.width = inf.w;
+    cv.height = inf.h;
+    const ctx = cv.getContext('2d')!, im = ctx.createImageData(inf.w, inf.h);
+    for (let i = 0; i < inf.mask.length; i++) {
+      if (!(inf.mask[i] & bit)) continue;
+      im.data[i * 4] = r; im.data[i * 4 + 1] = gr; im.data[i * 4 + 2] = b; im.data[i * 4 + 3] = 255;
+    }
+    ctx.putImageData(im, 0, 0);
+    grounds.set(s, (p = { key, cv }));
+  }
+  return p.cv;
+}
+
+/** The minimap's own layer over everything (fog, the view): the player's buildings, claim points and squads, lit. */
+function ownOnTop(g: CanvasRenderingContext2D, s: SandboxScene, f: MapXf, m: number, seen: ReturnType<typeof squads>): void {
+  const me = myTeam(), cur = s.sim.cur, rgb = TEAM_RGB[slot(me)] ?? [200, 200, 200];
+  const lit = hex(rgb.map((v) => v + (255 - v) * 0.5) as typeof rgb), team = TEAM[slot(me)] ?? '#ccc';
+  const P = (x: number, y: number) => toPx(f, x, y);
+  // buildings: the footprint, at least a few px, in the team's colour lifted halfway to white, a dark rim
+  for (const b of cur?.buildings ?? []) {
+    if (b.team !== me || b.state === 'destroyed') continue;
+    const hw = Math.max(b.w / 2, 1.7 * m / f.k), hh = Math.max(b.h / 2, 1.7 * m / f.k);
+    g.beginPath();
+    [P(b.x - hw, b.y - hh), P(b.x + hw, b.y - hh), P(b.x + hw, b.y + hh), P(b.x - hw, b.y + hh)].forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y)));
+    g.closePath();
+    g.lineWidth = 1.6 * m; g.strokeStyle = INK; g.stroke();
+    g.fillStyle = lit; g.fill();
+  }
+  // claim points held: a soft glow, the badge again on top
+  for (const cl of cur?.claims ?? []) {
+    if (cl.state !== 'claimed' || cl.team !== me) continue;
+    const [x, y] = P(cl.x, cl.y), r = 5.5 * m;
+    halo(g, x, y, r * 2.2, rgb);
+    badge(g, x, y, r, lit, m);
+    if (!drawIcon(g, 'mk-claim', x, y, r * 1.7)) { g.fillStyle = lit; g.fillRect(x - m, y - r * 0.6, 2 * m, r * 1.2); }
+  }
+  // squads: a glow under the shield, drawn last so nothing covers them
+  for (const q of seen) {
+    if (q.team !== me) continue;
+    const [x, y] = P(q.x, q.y);
+    halo(g, x, y, 7 * m, [255, 236, 190]);
+    shield(g, x, y, 3.8 * m, team, s.selected.has(q.id), m);
+  }
+}
+
+/** A soft round glow of colour c, radius r. */
+function halo(g: CanvasRenderingContext2D, x: number, y: number, r: number, c: readonly number[]): void {
+  const glow = g.createRadialGradient(x, y, 0, x, y, r);
+  glow.addColorStop(0, `rgba(${c.join(',')},0.55)`); glow.addColorStop(1, `rgba(${c.join(',')},0)`);
+  g.fillStyle = glow; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
 }

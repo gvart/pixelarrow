@@ -31,6 +31,7 @@
  *   server -> nodes | influence | stock | fog                 the economy view (./economy.ts): resource nodes his team
  *                    sees (changes only), his team's influence mask (RLE, on change), his team's stockpile (on change)
  *   server -> wild                                          W-65: the region's lairs, claim points and roaming groups (on change)
+ *   server -> allies                                        the players whose men are his friends (his alliance, pacts; on change)
  *   server -> binary frame                                   (snapshot delta or keyframe)
  */
 import { z } from 'zod';
@@ -285,6 +286,11 @@ export type ServerMsg =
   | { t: 'encounter'; save: import('../sim/encounters').EncSave; notes?: import('../sim/encounters').EncNote[] }
   /** W-63: the region's settlements (SettlementNet), on his join and whenever one changes. */
   | { t: 'settlements'; list: SettlementNet[] }
+  /**
+   * The other players here whose men are his friends: his alliance's, and those of an alliance at peace with his (a pact
+   * or truce in force). On join and when it changed (checked every WILD_EVERY ticks); their men get yellow bars.
+   */
+  | { t: 'allies'; players: number[] }
   /** The online cap (./gate.ts): not from the region socket, the gate's state passed on by ./client.ts. */
   | import('./gate').GateMsg;
 

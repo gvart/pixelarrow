@@ -208,8 +208,25 @@ export const THEME_CSS = `
 #rfCard .hud-pip.on{box-shadow:inset 0 0 0 1px var(--hud-gold-hi),0 0 0 1px var(--hud-edge)}
 #rfCard .hud-more{font:var(--hud-small);color:var(--hud-muted);align-self:center;margin-left:2px}
 #rfCard #cInfo{color:var(--hud-muted)}
+#rfCard .hud-pip.pick{box-shadow:inset 0 0 0 1px var(--hud-gold-hi),0 0 0 1px var(--hud-gold),0 0 7px rgba(246,220,152,.75);transform:translateY(-2px)}
 #rfCard .hud-mancard{display:flex;align-items:stretch;margin-left:6px}
 #rfCard .hud-mancard:empty{display:none}
+/* the picked man's card (./manCard.ts), docked between the selection and the orders */
+#rfCard .hud-man{display:flex;flex-direction:column;justify-content:center;gap:4px;width:182px;padding:0 1px 0 8px;box-shadow:inset 1px 0 0 var(--hud-bronze),inset 2px 0 0 rgba(0,0,0,.6);animation:hudFade var(--hud-fast) ease-out}
+#rfCard .hud-man-body{display:flex;flex-direction:column;gap:3px;min-width:0}
+#rfCard .hud-man-head{display:flex;align-items:baseline;gap:6px;min-width:0}
+#rfCard .hud-man-head .rf-name{font-size:13px;flex:none;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#rfCard .hud-man-cls{margin-left:auto;min-width:0;font:var(--hud-small);color:var(--hud-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#rfCard .hud-man .hud-hp{height:11px}
+#rfCard .hud-man-kit{display:flex;align-items:center;gap:4px;min-width:0;font:var(--hud-small);color:var(--hud-muted)}
+#rfCard .hud-man-kit:empty{display:none}
+#rfCard .hud-man-kit>span:last-child:not(.hud-chip){min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* the orders: text buttons, the hotkey on the top-right corner as on the ability slots */
+#rfCard .hud-man-acts{display:flex;gap:4px;margin-top:3px}
+#rfCard .hud-man-acts .rf-tbtn{position:relative;flex:1 1 auto;height:22px;padding:0 5px;font-size:11px;white-space:nowrap}
+#rfCard .hud-man-acts .hud-kbd{position:absolute;right:-3px;top:-6px;min-width:0;margin:0;padding:1px 2px 0;font:var(--hud-key-font);background:rgba(4,5,6,.9);box-shadow:0 0 0 1px rgba(95,75,42,.8);pointer-events:none}
+#rfCard .hud-man-acts .rf-tbtn.off{color:var(--hud-disabled);background:linear-gradient(180deg,#1c1e22,#141518);box-shadow:inset 0 0 0 1px #2c2b28,0 0 0 1px var(--hud-edge);cursor:default}
+#rfCard .hud-man-acts .rf-tbtn.off .hud-kbd{opacity:.5}
 #rfCard #cOrders{gap:3px}
 #rfCard #cOrders>div{gap:3px!important}
 #rfCard #cSlots{gap:3px;flex-wrap:wrap;max-width:132px;align-content:center}

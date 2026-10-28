@@ -12,15 +12,23 @@ const BODY = 28;
 export const BAR = { w: 16, h: 2, above: BODY * 2 + 6, green: 0x52c447, red: 0xd8402f, yellow: 0xe8c33a, back: 0x120c0a, lost: 0x3b2a22 } as const;
 export type BarTone = 'own' | 'foe' | 'ally';
 
-/** Pact partners' and allies' teams (none known in the region view yet: the HUD may set it). */
-let allyOf: (team: number) => boolean = () => false;
-export const setAllyOf = (f: (team: number) => boolean): void => void (allyOf = f);
+/**
+ * Allies' and pact partners' men, by team and squad owner (none offline; online the region's `allies` message sets it,
+ * ./micro.ts). An ally wins over one's own team: another player under the same banner is an ally, not oneself.
+ */
+let allyOf: (team: number, owner?: string) => boolean = () => false;
+export const setAllyOf = (f: (team: number, owner?: string) => boolean): void => void (allyOf = f);
+/** The live region's test: men of players `ids` (protocol `allies`: his alliance's, and those at peace with it). */
+export const alliesBy = (ids: Iterable<number>): ((team: number, owner?: string) => boolean) => {
+  const set = new Set([...ids].map((n) => `p:${n}`));
+  return (_team, owner) => owner !== undefined && set.has(owner);
+};
 
 /** The bar man d gets this frame (null: none): his tone by side, shown while hurt, his squad selected (own) or Alt held. */
-export function barOf(d: DrawUnit, mine: number, selected: ReadonlySet<number>, alt: boolean): BarTone | null {
+export function barOf(d: DrawUnit, mine: number, selected: ReadonlySet<number>, alt: boolean, owner?: string): BarTone | null {
   const u = d.u;
   if (u.state === 'dead' || !(u.maxHp > 0)) return null;
-  const tone: BarTone = d.team === mine ? 'own' : d.team === NEUTRAL_TEAM || allyOf(d.team) ? 'ally' : 'foe';
+  const tone: BarTone = allyOf(d.team, owner) ? 'ally' : d.team === mine ? 'own' : d.team === NEUTRAL_TEAM ? 'ally' : 'foe';
   return alt || u.hp < u.maxHp - 1e-6 || (tone === 'own' && selected.has(u.squad)) ? tone : null;
 }
 

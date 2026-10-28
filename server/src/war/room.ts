@@ -275,6 +275,8 @@ export class WarRoom {
   private townSent = new Map<number, string>();
   /** W-65: the `wild` message last sent on each client's feed (a new feed, a rejoin, sends it again). */
   private wildSent = new WeakMap<EconomyFeed, string>();
+  /** The `allies` message last sent on each client's feed (a new feed, a rejoin, sends it again). */
+  private allySent = new WeakMap<EconomyFeed, string>();
   /** W-62 E7: men carrying wood and stone home, tallied for the tasks (the DO books `gathered`). */
   private gather = new GatherWatch();
   /** W-62: world events running in this region (the DO sets them: src/war/world/events.ts). */
@@ -1198,6 +1200,11 @@ export class WarRoom {
       // W-61: his team's town level here, when it changed
       const town = this.snap.townLevels?.find((t) => t.team === p.team) ?? null, tk = JSON.stringify(town);
       if (this.townSent.get(p.pid) !== tk) (this.townSent.set(p.pid, tk), push(p.pid, { t: 'town', team: p.team, town }));
+      // the players whose men are his friends (yellow bars, ../../src/war/view/microRules.ts); on join and when it changed
+      if (!this.allySent.has(feed) || this.snap.tick % WILD_EVERY === 0) {
+        const players = this.alliesOf(p.pid), k = players.join(',');
+        if (this.allySent.get(feed) !== k) (this.allySent.set(feed, k), push(p.pid, { t: 'allies', players }));
+      }
       // W-65: the neutral state (lairs, claim points) the binary frames leave out; on join and when it changed
       if (this.snap.lairs || this.snap.claims || this.snap.roam) {
         if (!this.wildSent.has(feed) || this.snap.tick % WILD_EVERY === 0) {
@@ -1356,6 +1363,21 @@ export class WarRoom {
   pactWith(a: number, b: number): RoomPact['kind'] | null {
     const p = this.pacts.filter((x) => (x.a === a && x.b === b) || (x.a === b && x.b === a));
     return p.some((x) => x.kind === 'pact') ? 'pact' : p.length ? 'truce' : null;
+  }
+
+  /**
+   * The other players here whose men are friends to player pid's (protocol `allies`): men under his own banner, and
+   * under an alliance at peace with it (a pact or truce in force), ascending.
+   */
+  alliesOf(pid: number): number[] {
+    const p = this.players.get(pid);
+    if (!p) return [];
+    const out = new Set<number>();
+    this.owners.forEach((o, id) => {
+      const m = /^p:(\d+)$/.exec(o), n = m ? Number(m[1]) : pid, t = this.teams[id];
+      if (n !== pid && !out.has(n) && t !== undefined && (t === p.team || this.pactWith(p.team, t))) out.add(n);
+    });
+    return [...out].sort((a, b) => a - b);
   }
 
   /** The region's settlements as the player sees them (protocol `settlements`). */
