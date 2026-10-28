@@ -1,0 +1,134 @@
+docs/v5/pixellab/MOBS/lion.jobs.json
+  s_f08b12c690e0d6::t_a9151f87e11bcf 1-4
+scripts/art/lairs/compose.mjs
+  s_f08b12c690e0d6::t_a9151f87e11bcf 1-148
+src/data/warEncounters.ts
+  s_f08b12c690e0d6::t_a9151f87e11bcf 3,5-7,145-254
+src/war/sim/index.ts
+  s_f08b12c690e0d6::t_a9151f87e11bcf 81,251-257,626,2653-2658,2660,2748-2761,2806,2935-2937,3363
+tests/war/stories.test.ts
+  s_f08b12c690e0d6::t_a9151f87e11bcf 11,20-21
+server/src/war/room.ts
+  s_f08b12c690e0d6::t_a9151f87e11bcf 36-37,1164-1170
+src/war/net/client.ts
+  s_f08b12c690e0d6::t_a9151f87e11bcf 160
+src/war/view/mobFx.ts
+  s_f08b12c690e0d6::t_a9151f87e11bcf 1-151
+docs/v5/pixellab/MOBS/lion.sheet.json
+  s_f08b12c690e0d6::t_a9151f87e11bcf 1-17
+tests/war/beasts.test.ts
+  s_f08b12c690e0d6::t_a9151f87e11bcf 1-178
+src/war/sim/encounters.ts
+  s_f08b12c690e0d6::t_a9151f87e11bcf 5-8,22,30,32-36,77-81,98-101,119-120,168-185,200-202,209-210,248,261-262,266-271,278,281,328,331-337,343-344,348,369-382
+src/war/region/schema.ts
+  s_f08b12c690e0d6::t_a9151f87e11bcf 44
+src/war/regions/kyrene-s.json
+  s_f08b12c690e0d6::t_a9151f87e11bcf 1
+docs/v5/pixellab/MOBS/serpent.sheet.json
+  s_f08b12c690e0d6::t_a9151f87e11bcf 1-18
+scripts/war/regions/kyrene-w.ts
+  s_f08b12c690e0d6::t_a9151f87e11bcf 87-88
+src/war/net/protocol.ts
+  s_f08b12c690e0d6::t_a9151f87e11bcf 264-265
+scripts/war/regions/savanna.ts
+  s_f08b12c690e0d6::t_a9151f87e11bcf 78-80
+src/assets/sheets/mob_lion/manifest.json
+  s_f08b12c690e0d6::t_a9151f87e11bcf 1-83
+src/war/regions/savanna.json
+  s_f08b12c690e0d6::t_a9151f87e11bcf 1
+scripts/war/regions/ammos.ts
+  s_f08b12c690e0d6::t_a9151f87e11bcf 83-84
+scripts/war/beasts-shots.mjs
+  s_f08b12c690e0d6::t_a9151f87e11bcf 1-86
+docs/v5/pixellab/MOBS/serpent.jobs.json
+  s_f08b12c690e0d6::t_a9151f87e11bcf 1-10
+scripts/war/regions/kyrene-n.ts
+  s_f08b12c690e0d6::t_a9151f87e11bcf 91-92
+docs/playbook/PROMPTS_ART.md
+  s_f08b12c690e0d6::t_521b019d4a4e05 3316-3384,3393
+public/war/mobs.json
+  s_f08b12c690e0d6::t_a9151f87e11bcf 9-11
+src/war/view/hud/explain.ts
+  s_f08b12c690e0d6::t_a9151f87e11bcf 75
+src/war/types.ts
+  s_f08b12c690e0d6::t_a9151f87e11bcf 66,791-799
+src/war/regions/achelous.json
+  s_f08b12c690e0d6::t_a9151f87e11bcf 1
+docs/impl/neutral-polish.md
+  s_f08b12c690e0d6::t_a9151f87e11bcf 23-25,37-39
+src/war/view/sound/mix.ts
+  s_f08b12c690e0d6::t_a9151f87e11bcf 30,115-124
+  s_f08b12c690e0d6::t_a42b756c4ae70c 125-126
+src/war/regions/elaia-n.json
+  s_f08b12c690e0d6::t_a9151f87e11bcf 1
+scripts/art/pixellab/mobs/serpent-prep.mjs
+  s_f08b12c690e0d6::t_a9151f87e11bcf 1-43
+tests/war/roam.test.ts
+  s_f08b12c690e0d6::t_a9151f87e11bcf 228
+src/war/sim/roam.ts
+  s_f08b12c690e0d6::t_a9151f87e11bcf 80-81
+src/war/view/devPanel.ts
+  s_f08b12c690e0d6::t_a9151f87e11bcf 33
+src/war/view/hud/encounter.ts
+  s_f08b12c690e0d6::t_a9151f87e11bcf 8,22,51,73,98-99,148-149,177-178,199
+tests/war/encounters.test.ts
+  s_f08b12c690e0d6::t_a9151f87e11bcf 12-13,23,25-26,251-376
+scripts/war/regions/kyrene-s.ts
+  s_f08b12c690e0d6::t_a9151f87e11bcf 80-81
+scripts/war/regions/achelous.ts
+  s_f08b12c690e0d6::t_a9151f87e11bcf 72,74
+src/war/scenarios/mobs.ts
+  s_f08b12c690e0d6::t_a9151f87e11bcf 16-17
+src/assets/sheets/mob_serpent/manifest.json
+  s_f08b12c690e0d6::t_a9151f87e11bcf 1-84
+src/war/regions/kyrene-n.json
+  s_f08b12c690e0d6::t_a9151f87e11bcf 1
+src/audio/sfx.ts
+  s_f08b12c690e0d6::t_a9151f87e11bcf 594-602,932
+src/war/regions/kyrene-w.json
+  s_f08b12c690e0d6::t_a9151f87e11bcf 1
+src/war/view/hud/fullMap.ts
+  s_f08b12c690e0d6::t_a9151f87e11bcf 24
+src/war/view/sound/warAudio.ts
+  s_f08b12c690e0d6::t_a9151f87e11bcf 24,27,76-79,227-232,249
+src/war/view/SandboxScene.ts
+  s_f08b12c690e0d6::t_a9151f87e11bcf 39-40,163-164,230-245,681
+scripts/war/regions/elaia-n.ts
+  s_f08b12c690e0d6::t_a9151f87e11bcf 76-77
+src/war/view/neutral.ts
+  s_f08b12c690e0d6::t_a9151f87e11bcf 2-10,21,32-34,38-55,60-70,77-78,103-115
+  s_f08b12c690e0d6::t_f3421deb7ec9db 116
+src/war/view/hud/roster/state.ts
+  s_f08b12c690e0d6::t_a9151f87e11bcf 96-97
+docs/WAR.md
+  s_f08b12c690e0d6::t_a9151f87e11bcf 399-400,438-441,459-466
+src/war/sim/mobs.ts
+  s_f08b12c690e0d6::t_a9151f87e11bcf 9-12,31,37,51-54,57-63,66,68-69,71,78-83,86-88,138-139,228,271,286-291
+src/war/sim/stories.ts
+  s_f08b12c690e0d6::t_a9151f87e11bcf 173-177,274
+src/war/regions/ammos.json
+  s_f08b12c690e0d6::t_a9151f87e11bcf 1
+src/data/warStories.ts
+  s_f08b12c690e0d6::t_a9151f87e11bcf 8-9,814-858,860-892,895-1017
+  s_f08b12c690e0d6::t_ae6eb48a45561d 1018
+public/war/lairs/lairs.json
+  s_f08b12c690e0d6::t_a9151f87e11bcf 1-165
+public/war/guardians.json
+  s_f08b12c690e0d6::t_5be2f1c777426e 42-48
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "11af12264ec8a74019fc6e8313bbd6675c8fca4c",
+  "prompts": {},
+  "sessions": {
+    "s_f08b12c690e0d6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e4ed4b42-9ff5-404c-b2dd-32a044e85f29",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
