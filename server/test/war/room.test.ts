@@ -85,6 +85,23 @@ describe('WarRoom orders', () => {
     expect(r.order(1, { kind: 'hold', squad: 2 })).toBeNull();
   });
 
+  it('micro: a man order needs a living man of that squad of his', () => {
+    const r = room();
+    r.join(1, join(1, 0));
+    r.join(2, join(2, 1));
+    steps(r, 1);
+    const mine = r.snapshot().units.filter((u) => u.squad === 0).map((u) => u.id), theirs = r.snapshot().units.filter((u) => u.squad === 1).map((u) => u.id);
+    expect(r.order(1, { kind: 'man', squad: 1, unit: theirs[0], act: 'fallBack' })).toBe('notOwner');
+    expect(r.order(1, { kind: 'man', squad: 0, unit: theirs[0], act: 'fallBack' })).toBe('badTarget');
+    expect(r.order(1, { kind: 'man', squad: 0, unit: 9999, act: 'rear' })).toBe('badTarget');
+    expect(r.order(1, { kind: 'man', squad: 0, unit: mine[0], act: 'fallBack' })).toBeNull();
+    steps(r, 2);
+    expect(r.snapshot().units[mine[0]].back).toBe(true);
+    expect(r.order(1, { kind: 'man', squad: 0, unit: mine[0], act: 'rejoin' })).toBeNull();
+    steps(r, 2);
+    expect(r.snapshot().units[mine[0]].back).toBeUndefined();
+  });
+
   it('W-53: an order to named men needs every one of them to be his', () => {
     const r = room();
     r.join(1, join(1, 0));
