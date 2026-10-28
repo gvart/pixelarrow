@@ -1,0 +1,19 @@
+docs/impl/neutral-polish.md
+  s_f08b12c690e0d6::t_f8f33fac913303 25,38
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "752d4d3c8ac627fca3f2a9eb77bcf4af9d6153d8",
+  "prompts": {},
+  "sessions": {
+    "s_f08b12c690e0d6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e4ed4b42-9ff5-404c-b2dd-32a044e85f29",
+        "model": "unknown"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
