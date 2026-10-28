@@ -1,0 +1,38 @@
+docs/v5/pixellab/GUARD/erymanthian_boar.jobs.json
+  s_f08b12c690e0d6::t_2bf6921073a629 4
+  s_f08b12c690e0d6::t_441df2f9365ba1 10-11
+src/war/sim/bosses.ts
+  s_f08b12c690e0d6::t_4a7f978a39ec30 108-109
+src/assets/sheets/mob_erymanthian_boar/manifest.json
+  s_f08b12c690e0d6::t_de56b81c1e3447 1-85
+docs/v5/pixellab/GUARD/river_god.jobs.json
+  s_f08b12c690e0d6::t_441df2f9365ba1 9-10
+src/war/view/bossFx.ts
+  s_f08b12c690e0d6::t_4a7f978a39ec30 68
+docs/v5/pixellab/GUARD/savanna_lion.jobs.json
+  s_f08b12c690e0d6::t_2bf6921073a629 4
+docs/v5/pixellab/GUARD/erymanthian_boar.sheet.json
+  s_f08b12c690e0d6::t_de56b81c1e3447 1-74
+tests/war/bosses.test.ts
+  s_f08b12c690e0d6::t_4a7f978a39ec30 227
+docs/v5/pixellab/GUARD/moor_bear.jobs.json
+  s_f08b12c690e0d6::t_2bf6921073a629 5
+public/war/guardians.json
+  s_f08b12c690e0d6::t_93f4d87e4c7507 46-47
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "c71c70fa51617a6d05c78d3cb8284edfc807ac88",
+  "prompts": {},
+  "sessions": {
+    "s_f08b12c690e0d6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e4ed4b42-9ff5-404c-b2dd-32a044e85f29",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
