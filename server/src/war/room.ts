@@ -33,10 +33,10 @@ import { createSim } from '../../../src/war/sim';
 import { createBots, type Bots } from '../../../src/war/sim/bots';
 import { isClassId } from '../../../src/data/classes';
 import { DeltaEncoder } from '../../../src/war/net/codec';
-import { interestRect, visibleTo, type Rect, type TeamVision } from '../../../src/war/net/interest';
+import { interestRect, seesBoss, visibleTo, type Rect, type TeamVision } from '../../../src/war/net/interest';
 import { isMobFx } from '../../../src/war/sim/mobs';
 import { EconomyFeed, encodeFog, encodeInfluence, NODES_EVERY, storeByMen } from '../../../src/war/net/economy';
-import { ALLIANCES, KEYFRAME_EVERY, MAX_SQUAD, MAX_SQUADS, NET_VERSION, splitQuota, WILD_EVERY, type CheckMsg, type DevMsg, type JoinMsg, type NetOrder, type OrderError, type Quota, type Refusal, type ServerMsg } from '../../../src/war/net/protocol';
+import { ALLIANCES, isBossEvent, KEYFRAME_EVERY, MAX_SQUAD, MAX_SQUADS, NET_VERSION, splitQuota, WILD_EVERY, type CheckMsg, type DevMsg, type JoinMsg, type NetOrder, type OrderError, type Quota, type Refusal, type ServerMsg } from '../../../src/war/net/protocol';
 import type { SimState } from '../../../src/war/sim/state';
 import type { Item } from '../../../src/data/items';
 import type { BridgePlan, FightReport, LandmarkSnap, Order, PlaceResult, RegionData, RegionMemory, ShotSnap, Snapshot, SquadId, WallPlan, WarBuildSim, WarEvent, WarPerson, WarSkillId } from '../../../src/war/types';
@@ -1124,8 +1124,10 @@ export class WarRoom {
     const admitted = this.drainQueue();
     const t2 = now();
     const frames = new Map<number, Uint8Array>();
+    let vision: TeamVision | null = null;
     if (this.online() > 0) {
-      const vision = this.vision(this.sim, this.snap), view = { ...this.snap, units: wire };
+      vision = this.vision(this.sim, this.snap);
+      const view = { ...this.snap, units: wire };
       const shots = this.snap.shots ?? [];
       const fresh = shots.filter((s: ShotSnap) => s.t0 > this.lastTick);
       for (const p of this.players.values()) {
@@ -1167,6 +1169,18 @@ export class WarRoom {
       if (!p.online) continue;
       const r = interestRect(p.cam), ev = mobFx.filter((e) => !r || (e.x >= r.x0 && e.x <= r.x1 && e.y >= r.y0 && e.y <= r.y1));
       if (ev.length) tell(p.pid, { t: 'mobFx', ev });
+    }
+    // W-67: guardian events to the players whose team sees the guardian (where it stands, or fell) or the struck patch
+    const bossEv = evs.filter(isBossEvent);
+    if (bossEv.length && vision) for (const p of this.players.values()) {
+      if (!p.online) continue;
+      const v = vision, sees = (x: number, y: number) => v.sees(p.team, x, y);
+      const ev = bossEv.filter((e) => {
+        if (e.kind === 'wardenStrike') return sees(e.x + e.w / 2, e.y + e.h / 2) || sees(e.x, e.y) || sees(e.x + e.w, e.y + e.h);
+        const b = this.snap.bosses?.find((x) => x.id === e.boss), at = e.kind === 'bossSlain' && e.x !== undefined && e.y !== undefined ? { x: e.x, y: e.y } : b;
+        return !!at && seesBoss(this.snap, v, p.team, at.x, at.y);
+      });
+      if (ev.length) tell(p.pid, { t: 'bossEv', ev });
     }
     // W-63: camps to found, attacks on settlements; messages owed since the last tick (a banner changed)
     const settle = this.settleTick();
