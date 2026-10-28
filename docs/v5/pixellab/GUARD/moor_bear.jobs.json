@@ -1,0 +1,9 @@
+[
+ {"anim":"walk","dir":"south-west","attempt":"a1","job":"7fb009df-512c-4224-9aa9-4386b28bbda3","mode":"pixminimax","frames":12,"gens":1},
+ {"anim":"attack","dir":"south-west","attempt":"a1","job":"ac9b8fb3-79d3-427a-8c83-4ad69278d270","mode":"pixminimax","frames":12,"gens":1},
+ {"anim":"walk","dir":"north-west","attempt":"a1","job":"6b54f79a-76ff-4c96-8718-1acf40bcb096","mode":"pixminimax","frames":12,"gens":1},
+ {"anim":"attack","dir":"south-west","attempt":"a2","job":"8c37b6b0-4b51-4fc2-b4d8-beb2140d00dd","mode":"pixminimax","frames":12,"gens":1},
+ {"anim":"idle","dir":"south-west","attempt":"a1","job":"83787b3a-0e39-4bf3-b5ad-c3160163b4b5","mode":"pixminimax","frames":12,"gens":1},
+ {"anim":"die","dir":"south-west","attempt":"a1","job":"96549ff1-1cfd-4a31-a8e1-e0269ef10abf","mode":"pixminimax","frames":12,"gens":1},
+ {"anim":"attack","dir":"north-west","attempt":"a1","job":"2a1587cc-4484-4761-acae-ca4c531999ba","mode":"pixminimax","frames":12,"gens":1}
+]

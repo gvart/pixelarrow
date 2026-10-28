@@ -9,5 +9,12 @@
  { "class": "brontes", "kind": "south-west", "job": "4f92c3fc-4f7f-41e1-8f9f-cc24dfe154b1", "gens": 6 },
  { "class": "gyges", "kind": "south-west", "job": "5135009e-e219-4949-8d98-ddf52cadd0ce", "gens": 6 },
  { "class": "chimera", "kind": "south-west", "job": "b4ced96f-0978-4a04-9bd0-a384c568d2b7", "gens": 6 },
- { "class": "scylla_head", "kind": "south-west", "job": "4a105dde-6c55-45ba-9145-1cc72f28bc29", "gens": 6 }
+ { "class": "scylla_head", "kind": "south-west", "job": "4a105dde-6c55-45ba-9145-1cc72f28bc29", "gens": 6 },
+ { "class": "griffin", "kind": "south-west", "job": "5b57a263-2ca7-4b73-aec9-10f210528c6c", "gens": 6 },
+ { "class": "savanna_lion", "kind": "south-west", "job": "a9dfa52a-dafb-4901-a941-903dded62188", "gens": 6 },
+ { "class": "moor_bear", "kind": "south-west", "job": "64d785b9-f8f5-4a82-93d4-7bdf0d4222e5", "gens": 6 },
+ { "class": "erymanthian_boar", "kind": "south-west", "job": "da348fae-e65f-4391-8d85-8a83b72b88ab", "gens": 6 },
+ { "class": "minotaur", "kind": "south-west", "job": "6fc37999-6e01-4257-a7f4-77ba11cc6de5", "gens": 6 },
+ { "class": "titan", "kind": "south-west", "job": "a5601020-e18b-4b44-81d4-30304cac13c3", "gens": 18, "note": "second roll (the first, b8463ab0, came out flesh, not stone)" },
+ { "class": "river_god", "kind": "south-west", "job": "1a6e8ad8-bf13-4b54-a51a-0011529946ba", "gens": 6 }
 ]

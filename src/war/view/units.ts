@@ -418,10 +418,16 @@ export class UnitLayer {
   }
   private drawCorpses(n: number, now: number): number {
     for (let i = this.corpses.length - 1; i >= 0; i--) {
-      const c = this.corpses[i], sheet = this.sheet(c.cls)!, def = sheet.clips.get('die'), el = now - c.t0;
-      if (el > 12000) { this.corpses.splice(i, 1); continue; }
+      const c = this.corpses[i], sheet = this.sheet(c.cls), el = now - c.t0;
+      if (el > 12000 || !sheet) { this.corpses.splice(i, 1); continue; }
+      const def = sheet.clips.get('die');
       const fx = Math.cos(c.facing), fy = Math.sin(c.facing), sx = fx - fy, sy = fx + fy;
-      const q = sheet.rows[(sx < 0 ? 1 : 0) + (sy < 0 ? 2 : 0)], frames = sheet.frames.get('die')![q.row];
+      // a die row may be missing or empty (east rows are mirrors): take the first row that has frames, else skip
+      const die = sheet.frames.get('die') ?? [];
+      let q = sheet.rows[(sx < 0 ? 1 : 0) + (sy < 0 ? 2 : 0)];
+      if (!die[q?.row]?.length) q = sheet.rows.find((r) => die[r.row]?.length) ?? q;
+      const frames = die[q?.row];
+      if (!frames?.length) { this.corpses.splice(i, 1); continue; }
       const [key, frame] = frames[Math.min(frames.length - 1, Math.floor((el / 1000) * (def?.fps ?? 10)))];
       const f = this.feet({ x: c.x, y: c.y });
       let img = this.pool[n];
