@@ -3443,7 +3443,7 @@ frame's feet in the bottom 15% (for a giant's rubble), `--white` cuts near-white
 cuts red everywhere (back views). The cleaning used: lion attack SW `5=4`, NW `5=4`; bear attack NW `4=3 5=3`;
 griffin attack SW `5=4 6=7`, NW `5=4 6=7`, walk SW `6=5`; minotaur attack SW `3=2`, NW `4=3`; boar attack SW
 `2=1 3=4 --white 215`, NW `5=4 6=4 7=8`; river_god attack SW `4=3 5=4`, NW `--nored`; titan walk / attack / shoot /
-idle `--feet 6` (walk 8). Every other clip got the plain clean. A rejected roll is renamed `_aN` (its jobs entry
+idle `--feet 6` (walk 8). Every other clip got the plain clean. Later fixes in the built sheets (free, by frame order): lion attack all rows `0,1,2,3,4,5,5,4,3,2,1,0` (the back half jumped to another stance with smears); boar attack NW/NE `0..6,5..1` (frames 7-11 stood up); bear: grey pixels in each frame's upper half (lum over 120) pulled to the fur tone, ending the pale stripe. A rejected roll is renamed `_aN` (its jobs entry
 too), so `spec.mjs` takes the kept one. Build: `guard/spec.mjs <id>` → `mobs/build.mjs` → `anim2/ground.mjs mob_<id>
 idle walk [charge]` → `anim2/ground.mjs mob_<id> attack [shoot] --down`.
 
