@@ -66,9 +66,12 @@ describe('W-67 guardians on the wire', () => {
     r.join(1, { ...join(1, 0), region: 'moors' });
     r.join(2, { ...join(2, 1), region: 'moors' });
     r.tick();
-    const a = r.sim.spawnSquad('p:1', 0, 'hoplite', 12, bear.x, bear.y + 6);
-    r.sim.order({ kind: 'attack', squad: a, target: r.snapshot().bosses![0].squad });
+    const a = r.sim.spawnSquad('p:1', 0, 'hoplite', 12, bear.x, bear.y + 30);
     const decs = [new DeltaDecoder(), new DeltaDecoder()];
+    for (let i = 0; i < 3; i++) for (const [pid, f] of r.tick().frames) decs[pid - 1].apply(f);
+    // seen before it wakes (past its aggro, beyond his men's sight): the wake banner can play
+    expect(decs[0].snapshot().bosses?.[0]).toMatchObject({ id: 'moor_bear', state: 'idle' });
+    r.sim.order({ kind: 'attack', squad: a, target: r.snapshot().bosses![0].squad });
     let tele: BossSnap['tele'], fx: BossSnap['fx'];
     for (let i = 0; i < 800 && !(tele && fx); i++) {
       for (const [pid, f] of r.tick().frames) decs[pid - 1].apply(f);

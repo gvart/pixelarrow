@@ -6,15 +6,19 @@
  *   - its team's buildings and engines (and carts of his), always;
  *   - any other unit, building, engine or new shot that its team sees AND that lies inside its camera rect plus CAMERA_MARGIN;
  *   - W-67: the guardians its team sees or has a man within BOSS_NEAR tiles of (anywhere: the guardian bar and banners
- *     are HUD, not camera, things; a maze or a keep may hide the guardian from men fighting it), with its body (as the
+ *     are HUD, not camera, things; it wakes at up to 30 tiles, often beyond a man's sight, and a maze or a keep may hide it from men fighting it), with its body (as the
  *     offline view keeps it under the fog), and the Rim Warden's marked strike when it sees any of the patch.
  * No camera rect yet: the camera counts as the whole map.
  */
 import type { BossSnap, BuildingSnap, ShotSnap, SiegeSnap, Snapshot, SoulSnap, SquadSnap, UnitSnap, WardenSnap } from '../types';
 import { CAMERA_MARGIN, VISION } from './protocol';
 
-/** W-67: a man of the team this near a guardian (tiles) gets it even where his sight does not reach it (its maze, its keep). */
-export const BOSS_NEAR = 16;
+/**
+ * W-67: a man of the team this near a guardian (tiles) gets it even where his sight does not reach it: past every
+ * guardian's aggro (the Titan's 30), so it is first seen before it fights (the wake banner needs that), and through its
+ * maze or keep. Its place is authored and known (the landmark), so this gives little away.
+ */
+export const BOSS_NEAR = 40;
 
 /** Vision cell size in tiles. */
 export const CELL = 8;
