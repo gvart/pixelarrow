@@ -1,0 +1,26 @@
+docs/WAR.md
+  s_fcb7475e0b5395::t_a61b1e0287f633 835-836
+src/war/view/microRules.ts
+  s_fcb7475e0b5395::t_5679956481c467 15-25,28,31
+tests/war/microView.test.ts
+  s_fcb7475e0b5395::t_7397f0c86c3e1e 2,32-40
+  s_fcb7475e0b5395::t_143c99bc4ef4cc 41-42
+src/war/view/micro.ts
+  s_fcb7475e0b5395::t_5679956481c467 7,21,47-48,85
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "c9692f4453fbd720facf86f2c3c50af320a0ec70",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
