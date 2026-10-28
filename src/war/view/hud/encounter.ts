@@ -154,7 +154,7 @@ export function mountEncounters(s: SandboxScene): void {
   }
 
   // ---------------------------------------------------------------- who waits there, and the ground ring
-  const imgs: Phaser.GameObjects.Image[] = [];
+  const imgs: Phaser.GameObjects.Image[] = [], glows: Phaser.GameObjects.Image[] = [];
   const ring = s.add.graphics().setDepth(9.5);
   const draw = () => {
     const o = save?.open, d = o && ENCOUNTERS[o.id], st = encStepOf(ENCOUNTERS, save ?? null), cam = s.cameras.main;
@@ -168,11 +168,15 @@ export function mountEncounters(s: SandboxScene): void {
         const img = imgs[i] ?? (imgs[i] = s.add.image(0, 0, '__WHITE').setVisible(false));
         const fx = s.iso.sx(x, y), fy = s.iso.sy(x, y, s.iso.zDraw(x, y));
         const paint = (clip: string) => s.paintMan(img, d.figure!.cls, clip, s.time.now + i * 170, i % 2 ? 1 : -1, 1, fx, fy, 10 + s.depthAt(x, y) / 4096 + 0.25, NEUTRAL_TEAM);
-        if ((o.with && paint('walk')) || paint('idle')) shown++;
-        else img.setVisible(false);
+        if ((o.with && paint('walk')) || paint('idle')) {
+          shown++;
+          if (d.figure.shade) shadeLook(img, glows[i] ?? (glows[i] = s.add.image(0, 0, '__WHITE')), s.time.now + i * 900);
+          else glows[i]?.setVisible(false);
+        } else img.setVisible(false);
       }
     }
     for (let i = shown; i < imgs.length; i++) imgs[i].setVisible(false);
+    for (let i = shown; i < glows.length; i++) glows[i].setVisible(false);
     // a place to reach: a slow gold ring on the ground
     const k0 = st?.trigger.kind;
     if (!o || !st || (k0 !== 'reach' && k0 !== 'track' && k0 !== 'rescue' && !(k0 === 'guide' && !o.with))) return;
@@ -205,4 +209,12 @@ export function mountEncounters(s: SandboxScene): void {
     }
   };
   requestAnimationFrame(frame);
+}
+
+/** A shade (the W-60 soul look, ../units.ts drawSouls): the painted man pale blue-white and see-through, bobbing over an additive glow of his frame. */
+function shadeLook(img: Phaser.GameObjects.Image, glow: Phaser.GameObjects.Image, t: number): void {
+  const bob = Math.sin(t / 600) * 3, pulse = 0.75 + 0.25 * Math.sin(t / 400);
+  img.setPosition(img.x, Math.round(img.y - 8 + bob)).setTint(0xe4f2ff).setAlpha(0.72);
+  glow.setTexture(img.texture.key, img.frame.name).setOrigin(img.originX, img.originY).setPosition(img.x, img.y).setFlipX(img.flipX)
+    .setScale(img.scaleX * 1.14, img.scaleY * 1.14).setDepth(img.depth - 1e-5).setBlendMode('ADD').setTintFill(0x8fcaff).setAlpha(0.6 * pulse).setVisible(true);
 }
