@@ -1,0 +1,21 @@
+src/data/warStories.ts
+  s_f08b12c690e0d6::t_7e89c2e5e3de6a 815
+  s_f08b12c690e0d6::t_72c3135bd43c9e 512
+  s_f08b12c690e0d6::t_db36dce2843fca 486-511,513-813
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "2a2e7a6d4ef02ec67997adadb062a4b223e7db84",
+  "prompts": {},
+  "sessions": {
+    "s_f08b12c690e0d6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e4ed4b42-9ff5-404c-b2dd-32a044e85f29",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
