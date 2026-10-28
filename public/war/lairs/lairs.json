@@ -74,10 +74,10 @@
    "cleared": {
     "file": "bandit-cleared.png",
     "w": 218,
-    "h": 88,
+    "h": 69,
     "anchor": {
      "x": 114,
-     "y": 56
+     "y": 37
     }
    }
   },

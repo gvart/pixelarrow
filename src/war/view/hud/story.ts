@@ -34,9 +34,6 @@ const CSS = `
 .st-giver .hk{margin-top:2px;max-width:220px;white-space:normal;text-align:center;font:italic 11px/1.3 Inter,sans-serif;color:var(--rf-muted)}
 `;
 
-/** A named foe's tag: the claim-point label style (../neutral.ts), a touch smaller, a red-gold tone. */
-const NAME_TAG = { fontFamily: 'Inter, sans-serif', fontSize: '12px', fontStyle: 'bold', color: '#ffb27a', stroke: '#140c08', strokeThickness: 4, align: 'center' } as const;
-
 const KEY = (region: string) => `pa.war.story.${region}`;
 function load(key: string, story: Story): StorySave | null {
   try {
@@ -116,9 +113,10 @@ export function mountStory(s: SandboxScene): void {
     if (t.kind === 'choice') return null;
     const p = ps[0];
     if (t.kind === 'clear') {
-      // the camp's men while they live (they wander), else its spot
+      // the camp's men while they live (they wander; a named lead first: the marker names him), else its spot
       const l = (cur?.lairs ?? []).find((x) => Math.hypot(x.x - p.x, x.y - p.y) < 0.5 && x.state !== 'cleared'), sq = l && cur?.squads.find((x) => x.id === l.squad);
-      const u = sq && cur?.units.find((x) => x.squad === sq.id && x.state !== 'dead');
+      const lead = t.name && sq ? cur?.units.find((x) => x.id === sq.units[0] && x.state !== 'dead') : undefined;
+      const u = lead ?? (sq && cur?.units.find((x) => x.squad === sq.id && x.state !== 'dead'));
       return u ? { x: u.x, y: u.y } : p;
     }
     return p;
@@ -135,7 +133,7 @@ export function mountStory(s: SandboxScene): void {
         goal: `${step.goal}${marks}`, progress: `${i + 1}/${path.length}`, frac: i / path.length,
         where: step.where, reward: r.goods,
         pay: t.kind === 'choice' ? 'Each choice pays its own way' : [r.more, Object.keys(r.goods).length ? `Paid when done, into ${payTo}` : r.more ? '' : 'The story goes on'].filter(Boolean).join(' · '),
-        at: target(step, sv), label: step.label,
+        at: target(step, sv), label: t.kind === 'clear' && t.name ? t.name : step.label, // a named foe: his full name, once
         story: i === 0 && t.kind !== 'choice' ? [story.backstory, step.story] : [step.story],
         ...(t.kind === 'choice' ? { choices: t.options.map((o) => { const rp = rewardParts(o.reward); return { id: o.id, label: o.label, text: [o.text, rp.more, Object.entries(rp.goods).map(([k, n]) => `+${n} ${k}`).join(', ')].filter(Boolean).join(' · ') }; }) } : {}),
       };
@@ -153,17 +151,6 @@ export function mountStory(s: SandboxScene): void {
   // ---------------------------------------------------------------- the giver and the ground rings
   const img = s.add.image(0, 0, '__WHITE').setVisible(false);
   const ring = s.add.graphics().setDepth(9.5);
-  const tag = s.add.text(0, 0, '', NAME_TAG).setOrigin(0.5, 0).setResolution(2).setDepth(11.4).setVisible(false);
-  /** The open step's named foe: his name under his feet while he lives (the quest marker's label stands over him) (the first man of the lair at the step's spot). */
-  const nameTag = (step: StoryStep | null) => {
-    const t = step?.trigger, cur = s.sim.cur;
-    if (!step || t?.kind !== 'clear' || !t.name || !cur) return void tag.setVisible(false);
-    const p = spots.steps[step.id][0], l = (cur.lairs ?? []).find((x) => Math.hypot(x.x - p.x, x.y - p.y) < 0.5 && x.state !== 'cleared');
-    const lead = l && cur.squads.find((q) => q.id === l.squad)?.units[0], d = lead !== undefined ? s.drawn.find((x) => x.u.id === lead && x.u.state !== 'dead') : undefined;
-    if (!d) return void tag.setVisible(false);
-    if (tag.text !== t.name) tag.setText(t.name);
-    tag.setPosition(s.iso.sx(d.x, d.y), s.iso.sy(d.x, d.y, s.iso.zDraw(d.x, d.y)) + 10).setScale(1 / s.cameras.main.zoom).setVisible(true);
-  };
   const draw = () => {
     const cam = s.cameras.main, g = spots.giver, sv = save;
     const fx = s.iso.sx(g.x, g.y), fy = s.iso.sy(g.x, g.y, s.iso.zDraw(g.x, g.y));
@@ -171,7 +158,6 @@ export function mountStory(s: SandboxScene): void {
     // the open clue or mark: a slow gold ring on the ground
     ring.clear();
     const step = stepOf(story, sv), t = step?.trigger;
-    nameTag(step);
     if (!step || !t || (t.kind !== 'reach' && t.kind !== 'track')) return;
     const p = spots.steps[step.id][t.kind === 'track' ? Math.min(sv!.n, t.marks.length - 1) : 0], r = t.kind === 'track' ? 6 : 5;
     const k = 0.55 + 0.35 * Math.sin(s.time.now / 380), cx = s.iso.sx(p.x, p.y), cy = s.iso.sy(p.x, p.y, s.iso.zDraw(p.x, p.y));

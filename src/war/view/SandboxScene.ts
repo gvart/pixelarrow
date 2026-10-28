@@ -658,6 +658,7 @@ export class SandboxScene extends Phaser.Scene {
     this.sel.sync(this.drawn);
     // M7d: guardians perched or flying, and their squads' units not drawn (the Chimera's other heads)
     const bosses = this.sim.cur?.bosses;
+    this.build.layer.guards = (bosses ?? []).filter((b) => b.state !== 'slain' && b.state !== 'away').map((b) => ({ x: b.x, y: b.y }));
     if (bosses) {
       this.guardians.update(bosses, this.sim.cur?.buildings ?? [], this.sim.cur?.units ?? []);
       if (this.guardians.hidden.size) this.drawn = this.drawn.filter((d) => !this.guardians.hidden.has(d.u.id));
@@ -677,7 +678,7 @@ export class SandboxScene extends Phaser.Scene {
     this.units.draw(this.drawn, view, cam.zoom, this.sim.replay?.picked ?? this.sel.units, at, this.sim.squads, shots, occluded);
     this.micro.update(this.drawn, this.sel.units, view, cam.zoom, this.guardians.watch);
     const cur = this.sim.cur;
-    if (cur?.lairs || cur?.claims) this.neutral.draw(cur.lairs ?? [], cur.claims ?? [], cam.zoom);
+    if (cur?.lairs || cur?.claims) this.neutral.draw(cur.lairs ?? [], cur.claims ?? [], cam.zoom, bosses);
     this.mobFx.draw(cam.zoom, this.time.now, view);
     if (bosses || cur?.warden) this.guardians.draw(bosses ?? [], cur?.warden, cam.zoom, this.time.now, this.sim.since(this.time.now), view, this.moved && this.input.isOver ? this.wpx(p.x, p.y) : null);
     this.shots.update(at.snap, shots);

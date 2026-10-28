@@ -188,7 +188,7 @@ const LIST: EncounterDef[] = [
   },
   {
     id: 'shade', title: 'The Unburied Shade', weight: 2,
-    figure: { cls: 'hoplite', count: 1, name: 'Shade' },
+    figure: { cls: 'hoplite', count: 1, name: 'Shade', shade: true },
     lore: 'A hoplite by the road, grey as ash, his wound still open. ‘I fell here and no one sang for me. Give me the rites, or I cannot go on.’',
     end: 'Even here, between the worlds, the dead must be honoured.',
     steps: [

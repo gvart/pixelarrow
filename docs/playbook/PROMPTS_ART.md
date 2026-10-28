@@ -3351,7 +3351,7 @@ held up`:
 - walk: `the great serpent slithers in place towards the viewer's lower left: its long heavy body ripples in slow S-shaped waves from the head back to the tail, the head held low and forward gliding over the ground, the coils sliding after it; it stays on the same spot, it does not move away; the serpent alone; no dust, no water, no effects` (played ping-pong; run = walk faster)
 - attack: `the great serpent strikes in place towards the viewer's lower left: it draws its head and neck back into a tight S-coil, its jaws gape wide showing long fangs, then it lunges forward and down in a fast vicious snapping bite at the empty air ahead of it, its heavy body driving behind the head, then it pulls back into its raised coil; the serpent alone; no blood, no venom drawn, no effects, no motion trails`
 - die: `the great serpent takes a mortal blow: its raised head jerks back and up, its body writhes and twists, then the head and neck fall heavily to the ground and the long body goes slack and lies still in loose uncoiled loops; its scales stay clean, no wounds, no red, no blood at all; no dust, no effects`
-- NW: the same, opening `seen from behind, its head turned away from the viewer towards the upper left in every frame, it never turns round:` (die: `seen from behind, its back towards the viewer:`), subject `…, seen from behind`.
+- NW: the same, opening `seen from behind, its head turned away from the viewer towards the upper left in every frame, it never turns round:` (die: `seen from behind, its back towards the viewer:`), subject `…, seen from behind`. The NW strike still turned the gaping head to the camera on frames 5-6: fixed in the built sheet (NW and NE attack `5=4 6=1`).
 
 **Lair parts** (`create_map_object`, basic, high top-down, high detail, detailed shading; every prompt ends `seen from a
 high isometric three-quarter view, dark epic desaturated colours, heavy shadows, only the <thing> on a fully transparent
@@ -3363,7 +3363,7 @@ background, no ground, no grass, no base under it` (ground pieces: `…, no gras
 | ribs | 128 x 80 | `the rib cage of a large dead animal half sunk in the earth, a long curved spine with bleached ribs arching up like a hollow, a skull at one end, dirty bone-white and grey` | kept; the wolf hollow |
 | cave | 160 x 128 | `the dark mouth of a bear's cave in a big rough grey rock outcrop, a black gaping opening at its foot, a few claw-scratched stones and a little trampled earth in front, moss in the cracks` | grass base: green cut, then its thin outline ring eroded |
 | tent | 112 x 96 | `a ragged outlaw's tent of patched dark hides and torn brown cloth stretched over crooked wooden poles, ropes pegged to the ground, an open dark doorway, a spear leaning on it` | kept |
-| tent-down | 112 x 72 | `a collapsed abandoned outlaw's tent: broken crooked wooden poles fallen over, torn patched dark hides and ragged brown cloth slumped flat on the ground, a snapped rope` | came back still standing, smaller; kept for the cleared camp |
+| tent-down | 112 x 72 | `a collapsed abandoned outlaw's tent: broken crooked wooden poles fallen over, torn patched dark hides and ragged brown cloth slumped flat on the ground, a snapped rope` | came back still standing; replaced (no generation) by the standing `tent` squashed to 36% height, slumped sideways, a snapped pole poking out and one on the ground (120 x 60) |
 | campfire | 64 x 64 | `a small outlaw's campfire burning: a ring of blackened stones around a pile of burning logs with orange flames and glowing embers, a little grey smoke` | kept |
 | campfire-cold | 64 x 48 | `a cold dead campfire: a ring of blackened stones around grey ash and a few charred black log ends, no fire, no smoke` | kept |
 | wallow | 128 x 72 | `a wild boar wallow: a wide shallow churned pit of dark wet mud with a murky brown puddle in it, deep hoof prints and snout furrows all round its edge` | kept (a pinkish rim); cleared: paled as dried mud |
@@ -3443,7 +3443,7 @@ frame's feet in the bottom 15% (for a giant's rubble), `--white` cuts near-white
 cuts red everywhere (back views). The cleaning used: lion attack SW `5=4`, NW `5=4`; bear attack NW `4=3 5=3`;
 griffin attack SW `5=4 6=7`, NW `5=4 6=7`, walk SW `6=5`; minotaur attack SW `3=2`, NW `4=3`; boar attack SW
 `2=1 3=4 --white 215`, NW `5=4 6=4 7=8`; river_god attack SW `4=3 5=4`, NW `--nored`; titan walk / attack / shoot /
-idle `--feet 6` (walk 8). Every other clip got the plain clean. A rejected roll is renamed `_aN` (its jobs entry
+idle `--feet 6` (walk 8). Every other clip got the plain clean. Later fixes in the built sheets (free, by frame order): lion attack all rows `0,1,2,3,4,5,5,4,3,2,1,0` (the back half jumped to another stance with smears); boar attack NW/NE `0..6,5..1` (frames 7-11 stood up); bear: grey pixels in each frame's upper half (lum over 120) pulled to the fur tone, ending the pale stripe. A rejected roll is renamed `_aN` (its jobs entry
 too), so `spec.mjs` takes the kept one. Build: `guard/spec.mjs <id>` → `mobs/build.mjs` → `anim2/ground.mjs mob_<id>
 idle walk [charge]` → `anim2/ground.mjs mob_<id> attack [shoot] --down`.
 

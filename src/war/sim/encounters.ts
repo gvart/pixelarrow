@@ -81,8 +81,8 @@ export interface EncounterDef {
   beasts?: readonly MobKind[];
   /** It springs this near his squad (tiles; default ENC.far). */
   near?: readonly [number, number];
-  /** Who waits at the spot, painted by the page only (no sim unit): a sheet and how many. */
-  figure?: { cls: string; count: number; name: string };
+  /** Who waits at the spot, painted by the page only (no sim unit): a sheet and how many; `shade`: a ghost (the W-60 soul look). */
+  figure?: { cls: string; count: number; name: string; shade?: true };
   steps: readonly EncStep[];
 }
 
