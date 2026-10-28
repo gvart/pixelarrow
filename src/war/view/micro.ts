@@ -9,7 +9,8 @@
  * Guardians are left out (their own bar and name plate, ./guardians.ts).
  *
  * The picked man: exactly one of your men selected (a click on him, ./select.ts) gets a gold ring (./units.ts picked) and
- * a card by him (./hud/manCard.ts) with his micro orders: fall back, to the rear rank, rejoin (the sim's `man` order).
+ * his card docked in the command panel (./hud/manCard.ts, mounted by ./hud/hud.ts) with his micro orders: fall back, to
+ * the rear rank, rejoin (the sim's `man` order), each on a hotkey (src/war/input `order.fallBack`, `order.rear`, `order.rejoin`).
  * A click in the gaps of one of your blocks (not on a man) selects the whole block; Esc or open ground clears.
  */
 import Phaser from 'phaser';
@@ -19,13 +20,14 @@ import type { SandboxScene } from './SandboxScene';
 import type { UnitLayer } from './units';
 import { BAR, barOf, type BarTone } from './microRules';
 import { myTeam } from './side';
-import { ManCard, type ManAct, type ManInfo } from './hud/manCard';
+import { MAN_ACTS, ManCard, type ManAct, type ManInfo } from './hud/manCard';
+import { keys } from '../input/keys';
 import { sandboxRoster, SandboxRoster } from './hud/roster/state';
 import { ITEMS } from '../../data/items';
 
 export class Micro {
   private g: Phaser.GameObjects.Graphics;
-  private card: ManCard;
+  readonly card: ManCard;
   /** Alt held: every bar. */
   alt = false;
   /** The man picked out of his block (exactly one of yours selected), or null. */
@@ -42,6 +44,13 @@ export class Micro {
     window.addEventListener('keydown', (e) => alt(e, true));
     window.addEventListener('keyup', (e) => alt(e, false));
     window.addEventListener('blur', () => (this.alt = false));
+    // the picked man's orders on their hotkeys
+    window.addEventListener('keydown', (e) => {
+      const a = keys.act(e), x = MAN_ACTS.find((m) => m.key === a);
+      if (!x || !this.picked || e.repeat) return;
+      e.preventDefault();
+      if (this.card.can(x.a)) this.act(x.a);
+    });
   }
 
   /** The micro order a for the picked man. */
@@ -59,7 +68,7 @@ export class Micro {
     this.picked = s.sim.replay ? null : one;
     this.units.picked = this.picked?.u.id ?? -1;
     this.bars(drawn, view, zoom, hide);
-    this.showCard(drawn, view, zoom);
+    this.showCard(drawn);
   }
 
   private bars(drawn: readonly DrawUnit[], view: { x: number; y: number; right: number; bottom: number }, zoom: number, hide: ReadonlySet<number>): void {
@@ -94,9 +103,9 @@ export class Micro {
     return BAR.above * this.units.scaleOf(d.u.cls);
   }
 
-  private showCard(drawn: readonly DrawUnit[], view: { x: number; y: number }, zoom: number): void {
+  private showCard(drawn: readonly DrawUnit[]): void {
     const d = this.picked, s = this.s;
-    if (!d || s.interact.open) return this.card.hide();
+    if (!d) return this.card.hide();
     const u = d.u, p = u.pid ? sandboxRoster(s).roster.get(u.pid) : undefined;
     const mates = drawn.filter((x) => x.u.squad === u.squad && x.u.state !== 'dead').length;
     const civ = !!s.sim.squads.get(u.squad)?.civ;
@@ -106,9 +115,6 @@ export class Micro {
       kit: p ? Object.values(p.hero.equip).flatMap((it) => (it && ITEMS[it.def] ? [ITEMS[it.def].name] : [])) : [],
       off: civ ? { fallBack: 'civilians work, not fight', rear: 'civilians work, not fight', rejoin: 'civilians work, not fight' } : mates < 2 ? { rear: 'alone in his squad' } : {},
     };
-    const r = s.game.canvas.getBoundingClientRect(), f = this.units.feet(d);
-    // by his head, to its right
-    const x = r.left + (f.x - view.x) * zoom + 14, y = r.top + (f.y - this.above(d) - view.y) * zoom - 6;
-    this.card.show(info, x, y);
+    this.card.show(info);
   }
 }

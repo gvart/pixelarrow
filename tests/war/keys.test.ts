@@ -34,6 +34,8 @@ describe('war bindings', () => {
     expect(keys.act(ev('Digit3'))).toBe('group.3');
     expect(keys.act(ev('KeyW', { shiftKey: true }))).toBe('go.world');
     expect(keys.act(ev('Escape'))).toBe('back');
+    // the picked man's micro orders (src/war/view/micro.ts)
+    expect([ev('KeyZ'), ev('KeyZ', { shiftKey: true }), ev('KeyZ', { ctrlKey: true })].map((e) => keys.act(e))).toEqual(['order.fallBack', 'order.rejoin', 'order.rear']);
     keys.setContexts(() => BUILD);
     expect(keys.act(ev('KeyF'))).toBe('build.flip');
     expect(keys.act(ev('KeyR'))).toBe('build.rotate');
@@ -88,9 +90,9 @@ describe('war bindings', () => {
   });
 
   it('the stored map keeps only the changes and reads back the same', () => {
-    const m = assign(assign(defaultBindings(), 'form.line', 0, { code: 'KeyZ' }, 'swap'), 'cam.up', 1, null, 'swap');
+    const m = assign(assign(defaultBindings(), 'form.line', 0, { code: 'KeyJ' }, 'swap'), 'cam.up', 1, null, 'swap');
     const json = serialize(m);
-    expect(JSON.parse(json).o).toEqual({ 'form.line': [{ code: 'KeyZ' }, null], 'cam.up': [{ code: 'KeyW' }, null] });
+    expect(JSON.parse(json).o).toEqual({ 'form.line': [{ code: 'KeyJ' }, null], 'cam.up': [{ code: 'KeyW' }, null] });
     expect(parse(json)).toEqual(m);
     expect(parse('{"v":1,"o":{"back":[{"code":"KeyQ"},null]}}').back).toEqual(defaultBindings().back);
   });

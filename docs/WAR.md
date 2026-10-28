@@ -815,7 +815,7 @@ Every soldier is a unit: the player selects any of his men and orders them alone
 | --- | --- |
 | click, shift+click | select a man; shift adds him or drops him; a click on open ground clears |
 | click in a block's gaps | select that block (all its men) |
-| one man selected | micro card by him (`src/war/view/hud/manCard.ts`): fall back, to the rear rank, rejoin |
+| one man selected | his card docked in the command panel (`src/war/view/hud/manCard.ts`), his pip lit: fall back Z, rejoin Shift+Z, to the rear rank Ctrl+Z |
 | hold Alt | every man's health bar |
 | drag a box, shift+box | select every man of yours inside; shift adds |
 | double-click a man | every man of his class on screen |

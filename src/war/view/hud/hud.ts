@@ -214,6 +214,8 @@ export function hud(s: SandboxScene): void {
     <div class="rf-sep" id="cSep2"></div>
     <div id="cSlots" style="display:flex;gap:2px;align-items:center"></div></div>`;
   draggable(card, '#cSel'); // the selection's name plate moves the command card
+  /** Art px the card is slid right of the centre, clear of the minimap (refresh). */
+  let cardShift = 0;
   const $ = (id: string) => card.querySelector<HTMLElement>('#' + id)!;
   /** An icon button: id, icon, tooltip, key hint, click. */
   const btn = (id: string, ic: string, tipText: string | (() => string), key: string, run: () => void, cls = 'rf-btn') => {
@@ -225,6 +227,7 @@ export function hud(s: SandboxScene): void {
     tipOn(b, () => (typeof tipText === 'function' ? tipText() : b.dataset.tip ?? tipText));
     return b;
   };
+  s.micro.card.mount($('cManCard'), tipOn); // the picked man's card docks in its slot (../micro.ts shows it)
   const row = (cls: string, ...bs: HTMLElement[]) => { const r = document.createElement('div'); r.className = cls; r.style.cssText = 'display:flex;gap:2px;align-items:center'; r.append(...bs); return r; };
   const tipK = (name: string, what: string, key: string) => tipHtml(name, what, key);
 
@@ -372,6 +375,7 @@ export function hud(s: SandboxScene): void {
       b.classList.toggle('mid', f <= 0.6 && f > 0.3);
       b.classList.toggle('low', f <= 0.3);
       b.classList.toggle('on', s.sel.units.has(Number(b.dataset.uid)));
+      b.classList.toggle('pick', s.micro.picked?.u.id === Number(b.dataset.uid)); // the man whose card is docked
     }
   };
   // the building panel's long description (the CK3 card) on its name plate
@@ -529,6 +533,7 @@ export function hud(s: SandboxScene): void {
     if (b && (b.state !== 'destroyed' || b.ruin)) {
       card.style.display = '';
       $('cTag').style.display = 'none';
+      $('cManCard').style.display = 'none'; // a building's panel: no man card
       setPortrait(null, '');
       setPips([]);
       const site = isSite(b), stock = (storeNear(s.sim.cur, myTeam(), b.x, b.y, LOCAL_R)?.goods ?? {}) as Record<string, number>, lv = levelOf(b.type); // W-60: the store of its area, no totals
@@ -583,6 +588,7 @@ export function hud(s: SandboxScene): void {
       }
     } else if (q && own.length) {
       card.style.display = '';
+      $('cManCard').style.display = '';
       // W-53: the selected men, named by their class (several classes: mixed; the icon is the class most are)
       const men = s.sel.men(), byCls = new Map<string, number>();
       for (const d of men) byCls.set(d.u.cls, (byCls.get(d.u.cls) ?? 0) + 1);
@@ -637,6 +643,14 @@ export function hud(s: SandboxScene): void {
       gDeploy.classList.toggle('on', engines.some((x) => x?.type === 'stoneThrower' && (x.state === 'deployed' || x.state === 'deploying')));
     } else {
       card.style.display = 'none';
+    }
+    // the panel widened (a man's card docked) would run under the minimap: it slides right, clear of it
+    if (card.style.display !== 'none' && !card.dataset.moved) {
+      const slid = (n: number) => (n ? `translateX(calc(-50% + ${n}px))` : 'translateX(-50%)');
+      if (card.style.transform !== slid(cardShift)) cardShift = 0; // put back (a double click on its plate)
+      const z = Number(card.style.zoom) || 1, left = card.getBoundingClientRect().left - cardShift * z;
+      const shift = Math.round(Math.max(0, mini.el.getBoundingClientRect().right + 4 - left) / z);
+      if (shift !== cardShift || card.style.transform !== slid(shift)) { cardShift = shift; card.style.transform = slid(shift); }
     }
 
     // build bar
