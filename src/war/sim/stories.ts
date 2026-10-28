@@ -170,6 +170,11 @@ export interface StoryMe {
   owner?: string;
 }
 
+/** A rescue (here and in ./encounters.ts): one of the captive's souls claimed by his squad, or refused (a full army). */
+export const rescued = (s: Snapshot, evs: readonly WarEvent[], souls: ReadonlySet<number>, me: StoryMe): boolean =>
+  evs.some((e) => (e.kind === 'soulClaimed' || e.kind === 'soulRefused') && souls.has(e.soul)
+    && (me.owner ? e.owner === me.owner : s.squads.find((q) => q.id === e.squad)?.team === me.team));
+
 export class StoryRun {
   readonly spots: StorySpots;
   save: StorySave;
@@ -266,11 +271,7 @@ export class StoryRun {
       } else if (t.kind === 'clear') {
         const ls = (s.lairs ?? []).filter((l) => Math.hypot(l.x - ps[0].x, l.y - ps[0].y) < 0.5);
         done = this.seen && ls.length > 0 && ls.every((l) => l.state === 'cleared') && near(ps[0], STORY_R.near);
-      } else if (t.kind === 'rescue') {
-        const mine = (e: WarEvent) => (e.kind === 'soulClaimed' || e.kind === 'soulRefused') && this.souls.has(e.soul)
-          && (this.me.owner ? e.owner === this.me.owner : s.squads.find((q) => q.id === e.squad)?.team === this.me.team);
-        done = evs.some(mine);
-      }
+      } else if (t.kind === 'rescue') done = rescued(s, evs, this.souls, this.me);
       if (!done) break;
       this.finish(s, st, notes);
     }
