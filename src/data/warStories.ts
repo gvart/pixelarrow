@@ -693,7 +693,7 @@ const FORD: Story = {
     },
     {
       id: 'obol', goal: 'Pay the ferryman or find a ford', label: 'Ferryman',
-      story: 'A boat below the stumps, a hooded man at the pole. "An obol a head," he says, "as the old ferryman takes."',
+      story: 'A boat below the stumps, a hooded man at the pole. An obol a head, he says, as the old ferryman takes.',
       where: 'Choose on this card.',
       trigger: {
         kind: 'choice', options: [

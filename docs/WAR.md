@@ -395,9 +395,11 @@ which becomes the tracked quest (card, marker, edge arrow, banners). Steps: **re
 **talk** (back to the giver), **choice** (buttons on the card; each option pays its own way and may lead on). Rewards:
 goods (stores offline, home strongroom online), an item (a pile at his men, rolled on the seeded Rng), a soul who joins.
 Progress: offline localStorage `pa.war.story.<region>`, online the region DO's storage `story:<season>:<pid>`; a run
-started again from its save (reload, region woken) spawns what its open step needs. Full chains today: Teeth
-Foothills, Teeth Eastern Slopes, Western Heath, Lagoon Coast, Cape of Winds, Grey Moors; the others have a one-line
-hook and the file ends with a template. Foes stand 25+ tiles from the region's own lairs (tests/war/stories.test.ts).
+started again from its save (reload, region woken) spawns what its open step needs. Every depth 1-2 neutral has a full
+chain except the five waiting on the lion, serpent and griffin foes (Thornscrub Rise, Eastbank Floodplain, Lakeshore
+Fens, Kimmerian Hills, Lion Savanna), which keep a one-line hook; the file ends with a template. A step's named bandit
+lead wears the captain's sheet (as does a host's captain) and his name stands under his feet while he lives. Foes stand
+25+ tiles from the region's own lairs (tests/war/stories.test.ts).
 
 ### Roaming life
 

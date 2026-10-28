@@ -153,8 +153,8 @@ export function mountStory(s: SandboxScene): void {
   // ---------------------------------------------------------------- the giver and the ground rings
   const img = s.add.image(0, 0, '__WHITE').setVisible(false);
   const ring = s.add.graphics().setDepth(9.5);
-  const tag = s.add.text(0, 0, '', NAME_TAG).setOrigin(0.5, 1).setResolution(2).setDepth(11.4).setVisible(false);
-  /** The open step's named foe: his name over him while he lives (the first man of the lair at the step's spot). */
+  const tag = s.add.text(0, 0, '', NAME_TAG).setOrigin(0.5, 0).setResolution(2).setDepth(11.4).setVisible(false);
+  /** The open step's named foe: his name under his feet while he lives (the quest marker's label stands over him) (the first man of the lair at the step's spot). */
   const nameTag = (step: StoryStep | null) => {
     const t = step?.trigger, cur = s.sim.cur;
     if (!step || t?.kind !== 'clear' || !t.name || !cur) return void tag.setVisible(false);
@@ -162,7 +162,7 @@ export function mountStory(s: SandboxScene): void {
     const lead = l && cur.squads.find((q) => q.id === l.squad)?.units[0], d = lead !== undefined ? s.drawn.find((x) => x.u.id === lead && x.u.state !== 'dead') : undefined;
     if (!d) return void tag.setVisible(false);
     if (tag.text !== t.name) tag.setText(t.name);
-    tag.setPosition(s.iso.sx(d.x, d.y), s.iso.sy(d.x, d.y, s.iso.zDraw(d.x, d.y)) - 64).setScale(1 / s.cameras.main.zoom).setVisible(true);
+    tag.setPosition(s.iso.sx(d.x, d.y), s.iso.sy(d.x, d.y, s.iso.zDraw(d.x, d.y)) + 10).setScale(1 / s.cameras.main.zoom).setVisible(true);
   };
   const draw = () => {
     const cam = s.cameras.main, g = spots.giver, sv = save;
