@@ -1,0 +1,19 @@
+src/data/warBosses.ts
+  s_f08b12c690e0d6::t_544d3ae5017d67 40-50,55-62,64-65,67-68,71-76,79-80,82-83,85-86,88-89,91-94
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "955bf1fa8a9123d104c2e81f457f9c79ac7798d1",
+  "prompts": {},
+  "sessions": {
+    "s_f08b12c690e0d6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e4ed4b42-9ff5-404c-b2dd-32a044e85f29",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
