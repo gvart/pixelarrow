@@ -1,0 +1,23 @@
+src/war/sim/bosses.ts
+  s_f08b12c690e0d6::t_b43824bda422cf 115
+src/war/view/bossFx.ts
+  s_f08b12c690e0d6::t_b43824bda422cf 68
+public/war/guardians.json
+  s_f08b12c690e0d6::t_211ea942d7f5bb 41-42
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "1f9257a34d255945438db652b856b1c0cc6d57bc",
+  "prompts": {},
+  "sessions": {
+    "s_f08b12c690e0d6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e4ed4b42-9ff5-404c-b2dd-32a044e85f29",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
