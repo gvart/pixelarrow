@@ -1,0 +1,27 @@
+src/war/view/sound/mix.ts
+  s_f08b12c690e0d6::t_bac8eb05886750 111-118
+src/war/view/bossFx.ts
+  s_f08b12c690e0d6::t_751160870f2bbe 551,554,566,570-572,587,595,601,609,764-765
+  s_f08b12c690e0d6::t_69cd1be046e238 325,460,462
+  s_f08b12c690e0d6::t_2834ad87e44f20 594
+  s_f08b12c690e0d6::t_69a7300572db08 10-13,35-36,56-57,59,86-89,209-213,292,298-301,322-324,326,340,455-459,461,463,465,468-470,473-550,552-553,555-565,567-569,573-586,588-593,596-600,602-608,763,788
+  s_f08b12c690e0d6::t_f08a875b5ddd77 471-472
+src/war/view/guardians.ts
+  s_f08b12c690e0d6::t_a14f8e68550884 21-24,36-37,81-91,111-117
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "271c3264b41939a05462dc813c052dc18e716ed4",
+  "prompts": {},
+  "sessions": {
+    "s_f08b12c690e0d6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e4ed4b42-9ff5-404c-b2dd-32a044e85f29",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
