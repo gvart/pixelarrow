@@ -112,7 +112,7 @@ export const GUARDIANS: Readonly<Record<string, GDef>> = {
   maenad_queen: { ai: 'maenads', cls: 'mob_maenad_queen', hp: 2500, dmg: 26, armor: 3, reach: 1.6, atk: 1, speed: 1.3, aggro: 14, leash: 24, guard: { cls: 'mob_maenad', n: 6, hp: 80, dmg: 12, armor: 2 } },
   moor_bear: { ai: 'brute', cls: 'mob_bear', hp: 5000, dmg: 40, armor: 6, reach: 1.6, atk: 1.5, speed: 1.05, aggro: 12, leash: 20 },
   griffin: { ai: 'brute', cls: 'mob_bear', hp: 4500, dmg: 40, armor: 5, reach: 1.6, atk: 1.3, speed: 1.3, aggro: 14, leash: 22 },
-  savanna_lion: { ai: 'brute', cls: 'mob_bear', hp: 4500, dmg: 45, armor: 9, reach: 1.6, atk: 1.2, speed: 1.3, aggro: 14, leash: 22 },
+  savanna_lion: { ai: 'brute', cls: 'mob_savanna_lion', hp: 4500, dmg: 45, armor: 9, reach: 1.6, atk: 1.2, speed: 1.3, aggro: 14, leash: 22 },
 };
 
 /** Timings (ticks) and reach of the special moves. */
