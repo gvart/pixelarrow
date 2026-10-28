@@ -1,0 +1,68 @@
+src/war/view/hud/chat.ts
+  s_fcb7475e0b5395::t_d702bc673871af 53-54,57,59,67,82,105,109,116,123,134,136
+src/war/view/hud/craft/index.ts
+  s_fcb7475e0b5395::t_d702bc673871af 208
+src/war/view/hud/settleCards.ts
+  s_fcb7475e0b5395::t_d702bc673871af 330,334-337,341,367
+src/war/view/hud/tooltip.ts
+  s_fcb7475e0b5395::t_d702bc673871af 131
+src/war/view/hud/peace.ts
+  s_fcb7475e0b5395::t_d702bc673871af 48,60-61,66,83
+src/war/view/hud/cardActive.ts
+  s_fcb7475e0b5395::t_d702bc673871af 54,60,62,65
+src/war/view/hud/crown.ts
+  s_fcb7475e0b5395::t_d702bc673871af 48,74,280-283,296,310,328,332
+src/war/view/hud/hud.ts
+  s_fcb7475e0b5395::t_f2521fd8c0fbb2 381-382
+  s_fcb7475e0b5395::t_cd3d88e277317b 204,600-602,604,651-656
+  s_fcb7475e0b5395::t_defbac2353a21c 322
+src/war/view/hud/tree/graph.ts
+  s_fcb7475e0b5395::t_d702bc673871af 181-182,189,197,205-206,208,211,213,215
+src/war/view/hud/modes.ts
+  s_fcb7475e0b5395::t_d702bc673871af 21,24-25,30
+src/war/view/hud/craft/workplace.ts
+  s_fcb7475e0b5395::t_d702bc673871af 213,218-219,226,233,238,240
+src/war/view/hud/fullMap.ts
+  s_fcb7475e0b5395::t_d702bc673871af 32,35,47,211,217,220,225,237,241,244,260-261,286-287,291,300
+src/war/view/hud/netStats.ts
+  s_fcb7475e0b5395::t_d702bc673871af 33-35
+src/war/view/hud/quest.ts
+  s_fcb7475e0b5395::t_d702bc673871af 19-21,24
+src/war/view/hud/pins.ts
+  s_fcb7475e0b5395::t_d702bc673871af 40,46,163,166
+src/war/view/hud/radial.ts
+  s_fcb7475e0b5395::t_d702bc673871af 23,27,29-31,35,37,40-41
+src/war/view/hud/groups.ts
+  s_fcb7475e0b5395::t_d702bc673871af 20,67
+src/war/view/hud/roster/ui.ts
+  s_fcb7475e0b5395::t_d702bc673871af 56,61,167,175,186,188,199,205-206,209,213,221,230,232,234-235
+src/war/view/hud/theme.ts
+  s_fcb7475e0b5395::t_cd3d88e277317b 179-182,184
+  s_fcb7475e0b5395::t_f2521fd8c0fbb2 14-16,35-36,222
+src/war/view/hud/story.ts
+  s_fcb7475e0b5395::t_d702bc673871af 31,33
+src/war/view/hud/tasks.ts
+  s_fcb7475e0b5395::t_d702bc673871af 103
+src/war/view/hud/market.ts
+  s_fcb7475e0b5395::t_d702bc673871af 86,112
+src/war/view/hud/gate.ts
+  s_fcb7475e0b5395::t_d702bc673871af 36,38,42
+src/war/view/hud/kit.ts
+  s_fcb7475e0b5395::t_d702bc673871af 126,136-141,151-152,158,162,164,178
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "fdea53ee7417fd55177eb3af3404f2b4ddde7a8d",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
