@@ -34,6 +34,9 @@ const CSS = `
 .st-giver .hk{margin-top:2px;max-width:220px;white-space:normal;text-align:center;font:italic 11px/1.3 Inter,sans-serif;color:var(--rf-muted)}
 `;
 
+/** A named foe's tag: the claim-point label style (../neutral.ts), a touch smaller, a red-gold tone. */
+const NAME_TAG = { fontFamily: 'Inter, sans-serif', fontSize: '12px', fontStyle: 'bold', color: '#ffb27a', stroke: '#140c08', strokeThickness: 4, align: 'center' } as const;
+
 const KEY = (region: string) => `pa.war.story.${region}`;
 function load(key: string, story: Story): StorySave | null {
   try {
@@ -150,6 +153,17 @@ export function mountStory(s: SandboxScene): void {
   // ---------------------------------------------------------------- the giver and the ground rings
   const img = s.add.image(0, 0, '__WHITE').setVisible(false);
   const ring = s.add.graphics().setDepth(9.5);
+  const tag = s.add.text(0, 0, '', NAME_TAG).setOrigin(0.5, 1).setResolution(2).setDepth(11.4).setVisible(false);
+  /** The open step's named foe: his name over him while he lives (the first man of the lair at the step's spot). */
+  const nameTag = (step: StoryStep | null) => {
+    const t = step?.trigger, cur = s.sim.cur;
+    if (!step || t?.kind !== 'clear' || !t.name || !cur) return void tag.setVisible(false);
+    const p = spots.steps[step.id][0], l = (cur.lairs ?? []).find((x) => Math.hypot(x.x - p.x, x.y - p.y) < 0.5 && x.state !== 'cleared');
+    const lead = l && cur.squads.find((q) => q.id === l.squad)?.units[0], d = lead !== undefined ? s.drawn.find((x) => x.u.id === lead && x.u.state !== 'dead') : undefined;
+    if (!d) return void tag.setVisible(false);
+    if (tag.text !== t.name) tag.setText(t.name);
+    tag.setPosition(s.iso.sx(d.x, d.y), s.iso.sy(d.x, d.y, s.iso.zDraw(d.x, d.y)) - 64).setScale(1 / s.cameras.main.zoom).setVisible(true);
+  };
   const draw = () => {
     const cam = s.cameras.main, g = spots.giver, sv = save;
     const fx = s.iso.sx(g.x, g.y), fy = s.iso.sy(g.x, g.y, s.iso.zDraw(g.x, g.y));
@@ -157,6 +171,7 @@ export function mountStory(s: SandboxScene): void {
     // the open clue or mark: a slow gold ring on the ground
     ring.clear();
     const step = stepOf(story, sv), t = step?.trigger;
+    nameTag(step);
     if (!step || !t || (t.kind !== 'reach' && t.kind !== 'track')) return;
     const p = spots.steps[step.id][t.kind === 'track' ? Math.min(sv!.n, t.marks.length - 1) : 0], r = t.kind === 'track' ? 6 : 5;
     const k = 0.55 + 0.35 * Math.sin(s.time.now / 380), cx = s.iso.sx(p.x, p.y), cy = s.iso.sy(p.x, p.y, s.iso.zDraw(p.x, p.y));
