@@ -1,0 +1,21 @@
+docs/impl/neutral-polish.md
+  s_f08b12c690e0d6::t_8a1405f45b978a 1-31
+docs/impl/global-war-rebuild.md
+  s_f08b12c690e0d6::t_27c543b41854b8 74
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "e2ce0ca481ed232dd1df9ae38f69cfbccdf51701",
+  "prompts": {},
+  "sessions": {
+    "s_f08b12c690e0d6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e4ed4b42-9ff5-404c-b2dd-32a044e85f29",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
