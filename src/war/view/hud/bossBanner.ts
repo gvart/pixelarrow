@@ -58,19 +58,20 @@ export function voiceLine(v: Voice): string | null {
 }
 
 const CSS = `
-#rfBossBanner{left:50%;top:120px;z-index:6;pointer-events:none;min-width:300px;max-width:520px;padding:8px 26px 11px;text-align:center;transform:translateX(-50%);transition:opacity .5s,transform .5s;animation:bbIn .45s cubic-bezier(.2,.7,.3,1)}
+#rfBossBanner{left:50%;top:120px;z-index:6;pointer-events:none;min-width:300px;padding:8px 26px 11px;text-align:center;transform:translateX(-50%);transition:opacity .5s,transform .5s;animation:bbIn .45s cubic-bezier(.2,.7,.3,1)}
 #rfBossBanner.out{opacity:0;transform:translateX(-50%) translateY(-6px)}
 @keyframes bbIn{from{opacity:0;transform:translateX(-50%) scale(.94)}to{opacity:1;transform:translateX(-50%) scale(1)}}
 #rfBossBanner .bb-k{font:700 10px/1 Inter,sans-serif;letter-spacing:.18em;text-transform:uppercase;color:var(--rf-gold)}
 #rfBossBanner.wake .bb-k{color:var(--hud-bad)}
 #rfBossBanner.slain .bb-k{color:var(--rf-good)}
-#rfBossBanner .bb-n{margin-top:6px;font:700 25px/1.1 Cinzel,serif;letter-spacing:.06em;color:var(--rf-title);text-shadow:0 1px 0 #000,0 0 14px rgba(226,189,104,.35)}
-#rfBossBanner.slain .bb-n{font-size:19px}
+#rfBossBanner .bb-n{margin-top:6px;font:700 21px/1.1 Cinzel,serif;letter-spacing:.04em;white-space:nowrap;color:var(--rf-title);text-shadow:0 1px 0 #000,0 0 14px rgba(226,189,104,.35)}
+#rfBossBanner.slain .bb-n{font-size:18px}
 #rfBossBanner .bb-n i{font-style:normal;color:var(--hud-gold-lo);font-size:.7em;vertical-align:.18em;margin:0 .45em}
 #rfBossBanner .bb-t{margin-top:4px;font:italic 12.5px/1.2 Georgia,serif;color:var(--rf-muted)}
 #rfBossBanner .bb-r{height:1px;margin:8px auto 7px;width:62%;background:linear-gradient(90deg,transparent,var(--hud-gold-lo),transparent)}
-#rfBossBanner .bb-l{margin-top:5px;font:italic 15px/1.35 Georgia,serif;color:var(--rf-ink)}
+#rfBossBanner .bb-l{max-width:380px;margin:5px auto 0;font:italic 15px/1.35 Georgia,serif;color:var(--rf-ink)}
 #rfBossBanner .bb-r+.bb-l{margin-top:0}
+#rfBossBanner .bb-k{white-space:nowrap}
 #rfBossBanner .bb-l.told{color:#d6cdb9}
 `;
 let styled = false;

@@ -53,9 +53,9 @@ export interface BossVoice {
 export const WAR_BOSSES: readonly WarBoss[] = [
   // depth 2 pockets: tier 1, no signature
   { id: 'moor_bear', name: 'Great Bear of the Moors', region: 'moors', tier: 1, signature: [], phases: [1] ,
-    voice: { title: 'Warden of the Moors', mute: true, wake: 'The Great Bear rises from the heather, and the moor falls silent.', phases: [], epitaph: 'It lies down in the heather it guarded. The moor is open.' } },
+    voice: { title: 'Warden of the Heather', mute: true, wake: 'The Great Bear rises from the heather, and the moor falls silent.', phases: [], epitaph: 'It lies down in the heather it guarded. The moor is open.' } },
   { id: 'griffin', name: 'Griffin of the Kimmerian Hills', region: 'kimmeria', tier: 1, signature: [], phases: [1] ,
-    voice: { title: 'Gold-Keeper of the Kimmerian Hills', mute: true, wake: 'A shriek from the crags: the Griffin guards its gold.', phases: [], epitaph: 'The Griffin falls from the grey sky. Its hoard lies unwatched.' } },
+    voice: { title: 'Gold-Keeper of the Crags', mute: true, wake: 'A shriek from the crags: the Griffin guards its gold.', phases: [], epitaph: 'The Griffin falls from the grey sky. Its hoard lies unwatched.' } },
   { id: 'savanna_lion', name: 'Lion of the Savanna', region: 'savanna', tier: 1, signature: [], phases: [1] ,
     voice: { title: 'Lord of the Burnt Grass', mute: true, wake: 'The grass parts. The Lion has your scent, shade.', phases: [], epitaph: 'The Lion breathes its last into the dust it ruled.' } },
   { id: 'maenad_queen', name: 'the Maenad Queen', region: 'bacchae', tier: 1, signature: [], phases: [1] ,
