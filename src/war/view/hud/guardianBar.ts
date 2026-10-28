@@ -109,11 +109,11 @@ export function guardianHtml(b: BossSnap, held = false): string {
   const pips = b.phases.slice(1).map((p) => `<s class="${share < p ? '' : 'off'}" style="left:${(p * 100).toFixed(1)}%" title="phase at ${Math.round(p * 100)}%"></s>`).join('');
   const note = gone
     ? b.state === 'slain' ? (held ? 'slain: stays down while the region is held' : `slain: back in ${mins(b.respawnIn ?? 0)} unless the region is held`) : `escaped by the postern: back in ${mins(b.respawnIn ?? 0)}`
-    : `phase ${b.phase + 1}/${b.phases.length}: ${PHASE_NOTE[b.id]?.[b.phase] ?? ''}${STATE_NOTE[b.state] && b.state !== 'flee' ? ` (${STATE_NOTE[b.state]})` : ''}`;
-  const parts = b.parts ? ` · heads ${b.parts.alive}/${b.parts.total}` : '';
-  const raid = b.raid ? ` · raid ${b.raid} squads${b.scale > 1.001 ? `, hp x${b.scale.toFixed(1)}` : ''}` : '';
+    : [b.phases.length > 1 ? `phase ${b.phase + 1}/${b.phases.length}` : '', PHASE_NOTE[b.id]?.[b.phase] ?? ''].filter(Boolean).join(': ') + (STATE_NOTE[b.state] && b.state !== 'flee' ? ` (${STATE_NOTE[b.state]})` : '');
+  const parts = b.parts ? `heads ${b.parts.alive}/${b.parts.total}` : '';
+  const raid = b.raid ? `raid ${b.raid} ${b.raid === 1 ? 'squad' : 'squads'}${b.scale > 1.001 ? `, hp x${b.scale.toFixed(1)}` : ''}` : '';
   return `<div class="rf-card g"><div class="gt"><span class="rf-name">${b.name}</span><span class="rf-dim">${gone ? '' : `${Math.ceil(b.hp)} / ${Math.ceil(b.maxHp)}`}</span></div>
-<div class="gb"><i style="width:${(share * 100).toFixed(1)}%"></i>${pips}</div><div class="gn rf-dim">${note}${parts}${raid}</div></div>`;
+<div class="gb"><i style="width:${(share * 100).toFixed(1)}%"></i>${pips}</div><div class="gn rf-dim">${[note, parts, raid].filter((x) => x.trim()).join(' · ')}</div></div>`;
 }
 
 /**
