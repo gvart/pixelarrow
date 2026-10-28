@@ -1,0 +1,33 @@
+src/war/view/sound/warAudio.ts
+  s_f08b12c690e0d6::t_51fa25317ded96 227-232,249
+  s_f08b12c690e0d6::t_923476a0a34cac 24,27,76-79
+tests/war/beasts.test.ts
+  s_f08b12c690e0d6::t_bdf358983d18b4 14-15,165-176
+  s_f08b12c690e0d6::t_0f7817e5156e25 177
+src/war/view/sound/mix.ts
+  s_f08b12c690e0d6::t_51fa25317ded96 30,115-124
+  s_f08b12c690e0d6::t_c848dca929eae0 125-126
+src/war/view/mobFx.ts
+  s_f08b12c690e0d6::t_0da60109bca3b0 16,59
+  s_f08b12c690e0d6::t_78298dd99c3d6c 1-15,17-58,60-148
+src/war/view/SandboxScene.ts
+  s_f08b12c690e0d6::t_9f06d7f397691c 39-40,163-164,230-245,681
+src/audio/sfx.ts
+  s_f08b12c690e0d6::t_51fa25317ded96 594-602,932
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "4cfc73e5b6fde226cc65eef2f453fa8660f47bf1",
+  "prompts": {},
+  "sessions": {
+    "s_f08b12c690e0d6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e4ed4b42-9ff5-404c-b2dd-32a044e85f29",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
