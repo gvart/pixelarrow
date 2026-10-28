@@ -29,10 +29,10 @@ const CSS = `
 #rfFull .fm-frame{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) scale(.965);transition:transform .18s cubic-bezier(.2,.8,.3,1);padding:6px 8px 8px;pointer-events:auto;display:flex;gap:8px}
 #rfFull.on .fm-frame{transform:translate(-50%,-50%) scale(1)}
 #rfFull .fm-map{position:relative;flex:none}
-#rfFull canvas{display:block;cursor:crosshair;image-rendering:auto;box-shadow:0 0 0 1px #7a3418,0 0 0 2px #0e0907}
+#rfFull canvas{display:block;cursor:crosshair;image-rendering:auto;box-shadow:0 0 0 1px #5f4b2a,0 0 0 2px #050506}
 #rfFull .fm-title{position:absolute;left:6px;top:6px;pointer-events:none;font:700 17px/1 Cinzel,serif;color:var(--rf-title);letter-spacing:.04em;background:var(--rf-panel);box-shadow:inset 0 0 0 1px var(--rf-rule);padding:5px 8px 4px}
 #rfFull .fm-hint{position:absolute;left:6px;bottom:6px;background:var(--rf-panel);box-shadow:inset 0 0 0 1px var(--rf-rule);padding:4px 7px;pointer-events:none;font:600 11.5px/1 Inter,sans-serif;color:var(--rf-muted)}
-#rfFull .fm-panel{width:${PANEL}px;display:flex;flex-direction:column;gap:0;min-height:0;overflow:hidden auto;scrollbar-width:thin;scrollbar-color:#7a3418 #0e0907}
+#rfFull .fm-panel{width:${PANEL}px;display:flex;flex-direction:column;gap:0;min-height:0;overflow:hidden auto;scrollbar-width:thin;scrollbar-color:#5f4b2a #050506}
 #rfFull .fm-card{flex:none}
 #rfFull .fm-mode{display:flex;align-items:center;gap:6px;margin:1px 0 6px;padding-bottom:5px;border-bottom:1px solid var(--rf-rule)}
 #rfFull .fm-mode h2{margin:0;font:700 17px/1 Cinzel,serif;color:var(--rf-title);letter-spacing:.03em}
@@ -44,7 +44,7 @@ const CSS = `
 #rfFull h3::after{content:'';flex:1;height:1px;background:var(--rf-rule)}
 #rfFull .fm-row{display:flex;align-items:center;gap:6px;font:600 12px/16px Inter,sans-serif;color:var(--rf-ink);margin:2px 0}
 #rfFull .fm-row .ic{flex:none}
-#rfFull .sw{width:14px;height:10px;flex:none;box-shadow:0 0 0 1px #0e0907;margin:0 2px}
+#rfFull .sw{width:14px;height:10px;flex:none;box-shadow:0 0 0 1px #050506;margin:0 2px}
 #rfFull .sw.ln{height:3px}
 #rfFull .mk{width:18px;height:18px;flex:none;display:flex;align-items:center;justify-content:center}
 #rfFull .fm-card{margin-top:auto;padding:7px 8px;background:var(--rf-sunk);box-shadow:inset 0 0 0 1px var(--rf-line);min-height:72px}
@@ -208,21 +208,21 @@ export class FullMap {
     const g = this.cv.getContext('2d')!, m = this.px, { w, h } = this.s.map;
     g.setTransform(1, 0, 0, 1, 0, 0);
     const bg = g.createRadialGradient(this.cw / 2, this.ch / 2, 0, this.cw / 2, this.ch / 2, Math.max(this.cw, this.ch) * 0.7);
-    bg.addColorStop(0, '#2a1c14'); bg.addColorStop(1, '#120b08');
+    bg.addColorStop(0, '#2a1c14'); bg.addColorStop(1, '#0d0f12');
     g.fillStyle = bg;
     g.fillRect(0, 0, this.cw, this.ch);
     // the region's edge: a shadow, the map, then a double terracotta line
     const edge = [toPx(this.f, 0, 0), toPx(this.f, w, 0), toPx(this.f, w, h), toPx(this.f, 0, h)];
     const path = () => { g.beginPath(); edge.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y))); g.closePath(); };
-    g.save(); path(); g.shadowColor = 'rgba(0,0,0,0.7)'; g.shadowBlur = 18 * m; g.fillStyle = '#0e0907'; g.fill(); g.restore();
+    g.save(); path(); g.shadowColor = 'rgba(0,0,0,0.7)'; g.shadowBlur = 18 * m; g.fillStyle = '#050506'; g.fill(); g.restore();
     drawMap(g, this.s, this.f, m, true);
     if (this.s.mode === 'resources') this.drawResources(g);
-    path(); g.lineWidth = 2 * m; g.strokeStyle = '#0e0907'; g.stroke();
+    path(); g.lineWidth = 2 * m; g.strokeStyle = '#050506'; g.stroke();
     path(); g.lineWidth = 1 * m; g.strokeStyle = '#b8592a'; g.stroke();
     if (this.hover && this.hover.x >= 0 && this.hover.y >= 0 && this.hover.x < w && this.hover.y < h) {
       const x = Math.floor(this.hover.x), y = Math.floor(this.hover.y), q = [toPx(this.f, x, y), toPx(this.f, x + 1, y), toPx(this.f, x + 1, y + 1), toPx(this.f, x, y + 1)];
       g.beginPath(); q.forEach(([a, b], i) => (i ? g.lineTo(a, b) : g.moveTo(a, b))); g.closePath();
-      g.lineWidth = 1.2 * m; g.strokeStyle = '#f0d9b5'; g.stroke();
+      g.lineWidth = 1.2 * m; g.strokeStyle = '#ece6d8'; g.stroke();
     }
     this.compass(g);
     if (this.title.textContent !== this.s.region.name) this.title.textContent = this.s.region.name;
@@ -234,14 +234,14 @@ export class FullMap {
     const m = this.px, r = 17 * m, x = this.cw - r - 16 * m, y = r + 18 * m;
     const [nx, ny] = toPx({ ...this.f, cx: 0, cy: 0, ox: 0, oy: 0, k: 1 }, 0, -1), a = Math.atan2(ny, nx);
     g.save(); g.translate(x, y);
-    g.beginPath(); g.arc(0, 0, r * 0.7, 0, Math.PI * 2); g.fillStyle = 'rgba(14,9,7,0.6)'; g.fill(); g.lineWidth = 1.2 * m; g.strokeStyle = '#7a3418'; g.stroke();
+    g.beginPath(); g.arc(0, 0, r * 0.7, 0, Math.PI * 2); g.fillStyle = 'rgba(10,11,13,0.6)'; g.fill(); g.lineWidth = 1.2 * m; g.strokeStyle = '#5f4b2a'; g.stroke();
     for (let i = 0; i < 4; i++) {
       const b = a + (i * Math.PI) / 2, len = i === 0 ? r * 1.05 : r * 0.62;
       g.beginPath(); g.moveTo(Math.cos(b) * len, Math.sin(b) * len); g.lineTo(Math.cos(b + Math.PI / 2) * r * 0.22, Math.sin(b + Math.PI / 2) * r * 0.22); g.lineTo(Math.cos(b + Math.PI) * r * 0.1, Math.sin(b + Math.PI) * r * 0.1); g.lineTo(Math.cos(b - Math.PI / 2) * r * 0.22, Math.sin(b - Math.PI / 2) * r * 0.22); g.closePath();
-      g.fillStyle = i === 0 ? '#de8a4e' : '#c4ae8c'; g.fill(); g.lineWidth = 0.8 * m; g.strokeStyle = '#0e0907'; g.stroke();
+      g.fillStyle = i === 0 ? '#cfa25a' : '#c4ae8c'; g.fill(); g.lineWidth = 0.8 * m; g.strokeStyle = '#050506'; g.stroke();
     }
     g.font = `700 ${12 * m}px Cinzel, serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.fillStyle = '#f2b27a'; g.fillText('N', Math.cos(a) * (r + 9 * m), Math.sin(a) * (r + 9 * m));
+    g.fillStyle = '#efcf86'; g.fillText('N', Math.cos(a) * (r + 9 * m), Math.sin(a) * (r + 9 * m));
     g.restore();
   }
 
@@ -257,8 +257,8 @@ export class FullMap {
     for (const q of at.values()) {
       const [x, y] = toPx(this.f, q.x / q.n, q.y / q.n), r = 9 * m;
       g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fillStyle = 'rgba(240,217,181,0.92)'; g.fill();
-      g.lineWidth = 1.5 * m; g.strokeStyle = q.guarded ? '#b42c22' : '#7a3418'; g.stroke();
-      g.beginPath(); g.arc(x, y, r + m, 0, Math.PI * 2); g.lineWidth = 0.8 * m; g.strokeStyle = '#0e0907'; g.stroke();
+      g.lineWidth = 1.5 * m; g.strokeStyle = q.guarded ? '#b42c22' : '#5f4b2a'; g.stroke();
+      g.beginPath(); g.arc(x, y, r + m, 0, Math.PI * 2); g.lineWidth = 0.8 * m; g.strokeStyle = '#050506'; g.stroke();
       drawIcon(g, 'res-' + q.res, x, y, 16 * m);
     }
   }
@@ -283,12 +283,12 @@ export class FullMap {
     if (!t) legend = row(`<i class="sw" style="background:#688440"></i>`, 'Grass and fields') + row(`<i class="sw" style="background:#345430"></i>`, 'Forest') + row(`<i class="sw" style="background:#7a746e"></i>`, 'Rock') + row(`<i class="sw" style="background:#5696b2"></i>`, 'Water') + row(`<i class="sw ln" style="background:#bea476"></i>`, 'Road');
     else if (s.mode === 'resources') legend = t.legend.map((q) => (q.hatch ? row(swatch(q), q.label) : row(icon('res-' + q.label.toLowerCase()), q.label))).join('');
     else legend = t.legend.map((q) => row(swatch(q), q.label)).join('');
-    const shield = (c: string) => `<i class="mk"><i style="width:12px;height:12px;border-radius:50%;background:${c};box-shadow:0 0 0 2px #f0d9b5,0 0 0 3px #0e0907"></i></i>`;
-    const square = (c: string) => `<i class="mk"><i style="width:10px;height:10px;background:${c};box-shadow:0 0 0 1px #0e0907"></i></i>`;
+    const shield = (c: string) => `<i class="mk"><i style="width:12px;height:12px;border-radius:50%;background:${c};box-shadow:0 0 0 2px #ece6d8,0 0 0 3px #050506"></i></i>`;
+    const square = (c: string) => `<i class="mk"><i style="width:10px;height:10px;background:${c};box-shadow:0 0 0 1px #050506"></i></i>`;
     const kinds = this.lairKinds();
     const fog = s.sim.fog && s.sim.fogOn ? row(`<i class="sw" style="background:linear-gradient(${FOG_SWATCH.dim},${FOG_SWATCH.dim}),#688440"></i>`, 'Explored, out of sight') + row(`<i class="sw" style="background:linear-gradient(${FOG_SWATCH.dark},${FOG_SWATCH.dark}),#688440"></i>`, 'Unexplored') : '';
     // W-65: the roaming groups in sight, by kind (dots as on the map)
-    const dot = (c: string) => `<i class="mk"><i style="width:7px;height:7px;border-radius:50%;background:${c};box-shadow:0 0 0 1px #0e0907"></i></i>`;
+    const dot = (c: string) => `<i class="mk"><i style="width:7px;height:7px;border-radius:50%;background:${c};box-shadow:0 0 0 1px #050506"></i></i>`;
     const roaming = new Set((s.sim.cur?.roam ?? []).map((r) => r.kind));
     const roam = ([['pack', 'Beasts on the move'], ['patrol', 'Bandit patrol'], ['caravan', 'Merchant caravan: escort it for coin, or rob it'], ['traveller', 'Travellers']] as const).filter(([k]) => roaming.has(k)).map(([k, l]) => row(dot(ROAM_DOT[k]), l)).join('');
     const lairs = kinds.length ? `<div class="fm-row" style="flex-wrap:wrap;gap:2px">${kinds.map((k) => `<span title="${BEAST[k] ?? k}">${icon('lair-' + k)}</span>`).join('')}<span style="margin-left:4px">Beast lairs</span></div>` : '';
@@ -297,7 +297,7 @@ export class FullMap {
       <div class="fm-tabs">${MODES.map((q) => `<button class="rf-btn${q.id === s.mode ? ' on' : ''}" data-mode="${q.id}" title="${q.name} (${q.key})">${icon(q.icon)}</button>`).join('')}</div>
       <h3>Legend</h3>${legend}
       <h3>On the map</h3>${row(shield(TEAM[0]), 'Your squads (ringed: selected)')}${row(shield(TEAM[1]), 'Enemies in sight')}${row(square(TEAM[0]) , 'Your buildings')}${row(square(TEAM[1]), 'Enemy buildings')}
-      ${lairs}${roam}${row(icon('mk-claim'), 'Claim point')}${row('<i class="mk"><i style="width:14px;height:9px;box-shadow:inset 0 0 0 1px #f0d9b5,0 0 0 1px #0e0907"></i></i>', 'Your view')}${fog}`;
+      ${lairs}${roam}${row(icon('mk-claim'), 'Claim point')}${row('<i class="mk"><i style="width:14px;height:9px;box-shadow:inset 0 0 0 1px #ece6d8,0 0 0 1px #050506"></i></i>', 'Your view')}${fog}`;
     this.panel.append(this.card);
     this.panel.querySelectorAll<HTMLButtonElement>('[data-mode]').forEach((b) => (b.onclick = () => { s.setMode(b.dataset.mode as typeof s.mode); this.dirty = true; }));
     if (!this.card.innerHTML) this.card.innerHTML = '<span class="d">Point at the map to see what is there.</span>';

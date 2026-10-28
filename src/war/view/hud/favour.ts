@@ -13,6 +13,7 @@ import { closeCornerWindows, CORNER_BOTTOM, fitHeight, icon, menuBtn, setBadge }
 import { esc, tipper } from './roster/ui';
 import { keys } from '../../input/keys';
 import { questBanner } from './quest';
+import { tipHtml } from './theme';
 
 type Mk = (id: string, css: string, html?: string) => HTMLElement;
 
@@ -95,6 +96,10 @@ const writeSeen = (pid: number, level: number) => {
   }
 };
 
+/** The favour the HUD shows now (the top bar's chip reads it; level 1 until the first read). */
+let latest: FavourView | null = null;
+export const favourNow = (): FavourView => latest ?? favourView(0);
+
 /** The short level-up banner. */
 export function favourBanner(level: number): void {
   const u = favourUnlocks(level);
@@ -116,8 +121,9 @@ export function mountFavour(s: SandboxScene, mk: Mk): void {
   let v: FavourView = favourView(0);
   const btn = menuBtn('rfFavourBtn', 'badge-rarity-legendary', 'Divine favour', 'your favour with the gods: it makes the men you raise better', 'panel.favour', 6);
   const render = () => {
+    latest = v;
     setBadge(btn, v.level, true);
-    btn.dataset.tip = `<div class="rf-name" style="margin-bottom:3px">Divine favour · level ${v.level}</div>${esc(v.title)}: it makes the men you raise better <b class="k">${keys.label('panel.favour')}</b>`;
+    btn.dataset.tip = tipHtml(`Divine favour · level ${v.level}`, `${esc(v.title)}: it makes the men you raise better`, keys.label('panel.favour'));
     if (win.style.display === 'none') return;
     const scroll = win.scrollTop;
     win.innerHTML = `<div class="rf-head rf-ph">${glyph('ui:laurel', 30)}<div style="flex:1;min-width:0"><div class="rf-name">Divine favour</div><div class="sub">Level ${v.level} · ${esc(v.title)}${online() ? '' : ' · offline'}</div></div><button class="rf-tbtn x" data-act="close" title="close (Esc)">×</button></div>

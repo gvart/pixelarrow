@@ -18,16 +18,16 @@ const CSS = `
 #rfModes .drawer{position:absolute;left:-2px;bottom:34px;display:flex;flex-direction:column;gap:2px;pointer-events:none}
 #rfModes.open .drawer{pointer-events:auto}
 #rfModes .opt{display:flex;align-items:center;gap:6px;width:140px;height:30px;padding:0 7px 0 3px;border:0;cursor:pointer;color:var(--rf-ink);font:600 12px/1 Inter,sans-serif;
-  background:var(--rf-panel);box-shadow:inset 0 0 0 1px var(--rf-rule),0 0 0 1px #0e0907;opacity:0;transform:translateY(10px) scale(.92);transform-origin:16px 100%;
+  background:var(--rf-panel);box-shadow:inset 0 0 0 1px var(--rf-rule),0 0 0 1px #050506;opacity:0;transform:translateY(10px) scale(.92);transform-origin:16px 100%;
   transition:opacity .09s ease-in,transform .09s ease-in}
 #rfModes.open .opt{opacity:1;transform:none;transition:opacity .14s ease-out,transform .16s cubic-bezier(.2,.9,.3,1.25)}
-#rfModes .opt:hover{background:var(--rf-hover);box-shadow:inset 0 0 0 1px var(--rf-line),0 0 0 1px #0e0907}
-#rfModes .opt.on{background:var(--rf-sel);box-shadow:inset 3px 0 0 var(--rf-title),inset 0 0 0 1px var(--rf-line),0 0 0 1px #0e0907;color:var(--rf-title)}
+#rfModes .opt:hover{background:var(--rf-hover);box-shadow:inset 0 0 0 1px var(--rf-line),0 0 0 1px #050506}
+#rfModes .opt.on{background:var(--rf-sel);box-shadow:inset 3px 0 0 var(--rf-title),inset 0 0 0 1px var(--rf-line),0 0 0 1px #050506;color:var(--rf-title)}
 #rfModes .opt .k{margin-left:auto;font:600 10.5px/1 Inter,sans-serif;color:var(--rf-muted)}
 #rfLegend{left:4px;bottom:176px;pointer-events:none;padding:5px 8px 7px;min-width:150px;transition:opacity .12s}
 #rfLegend .rf-name{margin-bottom:5px;padding-bottom:4px;border-bottom:1px solid var(--rf-rule)}
 #rfLegend .lr{display:flex;align-items:center;gap:6px;margin-top:3px;font:600 12px/15px Inter,sans-serif}
-#rfLegend .sw{width:14px;height:10px;flex:none;box-shadow:0 0 0 1px #0e0907}
+#rfLegend .sw{width:14px;height:10px;flex:none;box-shadow:0 0 0 1px #050506}
 #rfLegend .sw.ln{height:3px}
 @media (prefers-reduced-motion:reduce){#rfModes .opt,#rfModes.open .opt{transition:none}}
 `;

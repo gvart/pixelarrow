@@ -83,7 +83,7 @@ const CSS = `
 #rfMarket .mk-colh span{text-align:right}
 #rfMarket .mk-colh span:first-child{font:700 12px/1 Cinzel,serif;letter-spacing:.04em;text-transform:none;color:var(--rf-accent);text-align:left}
 #rfMarket .mk-list{height:146px;background:var(--rf-sunk);border:1px solid var(--rf-rule);border-top:0}
-#rfMarket .mk-g{display:grid;grid-template-columns:24px 1fr 40px 40px;gap:4px;align-items:center;height:28px;padding:0 6px 0 3px;border-bottom:1px solid #1d130e}
+#rfMarket .mk-g{display:grid;grid-template-columns:24px 1fr 40px 40px;gap:4px;align-items:center;height:28px;padding:0 6px 0 3px;border-bottom:1px solid #1a1c20}
 #rfMarket .mk-g .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11.5px}
 #rfMarket .mk-mark{font-size:9px;margin-left:2px;vertical-align:1px}#rfMarket .mk-mark.good{color:var(--rf-good)}#rfMarket .mk-mark.gold{color:var(--rf-gold)}
 #rfMarket .mk-g .v,#rfMarket .mk-g .p{text-align:right;font-size:12px}
@@ -109,7 +109,7 @@ const CSS = `
 #rfMarket .ct-bar{display:flex;align-items:center;gap:6px;margin:6px 0}
 #rfMarket .ct-bar .rf-seg button{width:32px}
 #rfMarket .ct-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
-#rfMarket .ct-card{position:relative;padding:6px 7px 5px;color:#2a1a10;background:linear-gradient(172deg,#ecdab3,#dcc296 55%,#ccad7a);border:1px solid #6b4a26;box-shadow:inset 0 0 0 1px rgba(255,244,220,.45),inset 0 0 16px rgba(110,70,30,.4),0 2px 0 #0e0907;font:600 11.5px/1.25 Inter,sans-serif}
+#rfMarket .ct-card{position:relative;padding:6px 7px 5px;color:#2a1a10;background:linear-gradient(172deg,#ecdab3,#dcc296 55%,#ccad7a);border:1px solid #6b4a26;box-shadow:inset 0 0 0 1px rgba(255,244,220,.45),inset 0 0 16px rgba(110,70,30,.4),0 2px 0 #050506;font:600 11.5px/1.25 Inter,sans-serif}
 #rfMarket .ct-card .rf-dim,#rfMarket .ct-sub{color:#6b4e30}
 #rfMarket .ct-h{display:flex;align-items:center;gap:6px}
 #rfMarket .ct-seal{flex:none;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 40% 35%,#b2412a,#6e1a10);box-shadow:0 0 0 2px #8a2a18,0 1px 2px rgba(0,0,0,.5)}

@@ -24,6 +24,7 @@ import { placeToasts, toaster } from './toast';
 import { loadItemAtlas, ROSTER_CSS, tipper } from './ui';
 import { loadGlyphs } from '../glyph';
 import { sandboxCraft } from '../craft/state';
+import { tipHtml } from '../theme';
 import type { Slot } from '../../../../data/items';
 import { keys } from '../../../input/keys';
 
@@ -53,7 +54,7 @@ export function mountRoster(s: SandboxScene, mk: Mk): RosterHooks {
   btn.className = 'rf-btn';
   btn.id = 'cRoster';
   btn.innerHTML = icon('unit-hoplite') + '<span class="key">R</span>';
-  btn.dataset.tip = '<div class="rf-name" style="margin-bottom:3px">Roster</div>your soldiers by squad <b class="k">R</b>';
+  btn.dataset.tip = tipHtml('Roster', 'your soldiers by squad', 'R');
   btnBox.appendChild(btn);
 
   let filter: Filter = 'all', sort: Sort = 'level', sel: string | null = null, open = false;

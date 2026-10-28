@@ -1,15 +1,20 @@
 /**
  * The player HUD in the red-figure kit (W-32; art: public/war/ui/, ./kit.ts). HTML over the canvas, anchored:
  *
- *   top centre     W-61: the town level badge (click: the town card; ./peace.ts)
+ *   top bar        the Dota 2 hybrid strip (./topBar.ts, look: ./theme.ts): the goods at hand and his men left, the
+ *                  region with the season or clock centre, divine favour, the menu buttons and Settings right; every
+ *                  panel anchored at the top sits below it
+ *   top centre     W-61: the town level badge under the bar's plaque (click: the town card; ./peace.ts)
  *   top left       W-62: the first-hour quest tracker in a home region (./guide.ts)
- *   (no top band)  what the men carry and the town's store are in the squad chest (I, bottom right: ./chest.ts); a cost
+ *                  what the men carry and the town's store are in the squad chest (I, bottom right: ./chest.ts); a cost
  *                  shows "needs 6 wood (you have 2)" where it is asked (build bar, upgrade, forge, market: ./goods.ts)
- *   bottom left    round minimap (./minimap.ts), the view mode switcher in its corner (F2-F7) and the mode's legend over it (./modes.ts);
+ *   bottom left    framed square minimap (./minimap.ts), the view mode switcher in its corner (F2-F7) and the mode's legend over it (./modes.ts);
  *                  W-62 E6 the alliance chat over them (Enter; marks P: ./chat.ts)
  *   centre         the full map on M (./fullMap.ts)
- *   bottom centre  command card, shown with a selection (a selected building or site wins over men), in groups:
- *                  selection (class icon, name, men, hp) | orders (move, attack, attack-move: Ctrl + right click or the button then a click, hold H, stop X) over the
+ *   bottom centre  command panel, shown with a selection (a selected building or site wins over men), in groups:
+ *                  portrait (the class's sprite, or the building's icon) | selection (name, men, hp bar with its numbers,
+ *                  level and food chips, a pip per man with his hp: click selects him, shift adds him; the man card's
+ *                  slot #cManCard) | orders (move, attack, attack-move: Ctrl + right click or the button then a click, hold H, stop X) over the
  *                  formation segments (Alt+1-4) | squad-specific slots only while relevant (the squad active F with its
  *                  cooldown ring, ./cardActive.ts; deploy / pack Y, let go while crewing). The orders go to the selected
  *                  men (W-53, ../select.ts); the control group bar 1-9 sits over the card (./groups.ts).
@@ -18,8 +23,9 @@
  *                  ./buildingCard.ts) and its status in plain words | upgrade, repair, rebuild, fortify with their costs
  *                  Situational orders (ladders, ignite, extinguish, crew, fire arrows) are context only: E / right
  *                  click, or hold either for the radial menu (../interact.ts).
- *   bottom right   the menu bar (World Shift+W, Replay Shift+R | Holdings O, Works U, Crown C, Tasks T: their windows
- *                  open top right, above the bar; ./kit.ts menuBtn), then the squad chest (I), roster (R) and Build (hammer, B) buttons; the build bar (tabs Camp / Walls / Siege, a tool per building, a
+ *   top right      the menu bar in the top bar (World Shift+W, Replay Shift+R | Holdings O, Works U, Crown C, Tasks T,
+ *                  Favour Shift+F: their windows open top right, under the bar; ./kit.ts menuBtn)
+ *   bottom right   the squad chest (I), roster (R) and Build (hammer, B) buttons; the build bar (tabs Camp / Walls / Siege, a tool per building, a
  *                  tooltip with cost and labour; walls, towers and gates are plain tools on the Walls tab (W-57), the
  *                  status line above) opens bottom centre, over the card, only in build mode: B / Esc close it
  *   top right      the windows of the menu bar (one at a time); in dev only a small row: DEV (F1), the UI scale (auto by
@@ -39,7 +45,7 @@ import type { BuildingType, FortKind, SiegeType } from '../../types';
 import type { SandboxScene } from '../SandboxScene';
 import { costText, isSite, labourText, TOOLBAR, WALL_NAME, type BuildMode, type Cost, type Tool } from '../build/buildMode';
 import { SIEGE_NAME } from '../siege/siegeControls';
-import { bar, BUILDING_ICON, cursor, CSS, icon, MENU_BAR, menuBtn, placeTip, setUiScale, SIEGE_ICON, snapW, UI_SCALES, uiScale, uiZoom, UNIT_ICON } from './kit';
+import { BUILDING_ICON, cursor, CSS, icon, menuBtn, placeTip, setUiScale, SIEGE_ICON, snapW, UI_SCALES, uiScale, uiZoom, UNIT_ICON } from './kit';
 import { tipper } from './roster/ui';
 import { Minimap } from './minimap';
 import { ModeBar } from './modes';
@@ -83,6 +89,9 @@ import { keys } from '../../input/keys';
 import type { ActionId } from '../../input/actions';
 import { myTeam } from '../side';
 import { activityText, waitText } from './activity';
+import { mountTopBar } from './topBar';
+import { tipHtml } from './theme';
+import { portrait } from './roster/portrait';
 
 const SHAPES = ['line', 'column', 'wedge', 'loose'] as const;
 /** W-60: a building's cost hints count the store of its area (the nearest store of yours this near), never a total. */
@@ -188,16 +197,18 @@ export function hud(s: SandboxScene): void {
 
   // ---------- command card: selection | orders + formation | squad-specific ----------
   const card = mk('rfCard', 'left:50%;bottom:4px;transform:translateX(-50%);display:none;pointer-events:auto');
-  card.innerHTML = `<div class="rf-card" id="cFrame" style="padding:3px 4px 4px;display:flex;align-items:stretch">
-    <div id="cSel" style="display:flex;flex-direction:column;justify-content:center">
-      <div style="display:flex;gap:5px;align-items:center">
-        <div id="cIcon" style="width:32px;height:32px;flex:none"></div>
-        <div style="min-width:0;flex:1"><div class="rf-name" id="cName" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div><div class="rf-num" id="cCount" style="margin-top:4px"></div><div class="rf-chip" id="cTag" style="display:none" title="combat tag: no entry to a safe court until it runs out"></div></div>
-      </div>
-      <div id="cBars" style="margin-top:5px;display:flex;flex-direction:column;gap:2px"></div>
+  // the man card (another view's, ./manCard.ts) slots into #cManCard, between the selection and the orders
+  card.innerHTML = `<div class="rf-card hud-cmd" id="cFrame">
+    <div class="hud-port" id="cPort"><div id="cIcon"></div><canvas id="cPortCv" width="64" height="80"></canvas><span class="lv" id="cLv"></span></div>
+    <div id="cSel" style="display:flex;flex-direction:column;justify-content:center;min-width:0">
+      <div class="hud-head"><div class="rf-name" id="cName"></div><div class="rf-num" id="cCount"></div></div><div class="rf-chip" id="cTag" style="display:none" title="combat tag: no entry to a safe court until it runs out"></div>
+      <div id="cBars" style="margin-top:4px;display:flex;flex-direction:column;gap:2px"></div>
+      <div class="hud-chips" id="cChips"></div>
+      <div class="hud-pips" id="cPips"></div>
       <div class="rf-dim" id="cInfo" style="margin-top:4px;font-size:11.5px;line-height:14px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden"></div>
       <div id="cStat" class="bk-stat" style="display:none"></div>
     </div>
+    <div class="hud-mancard" id="cManCard" data-slot="man-card"></div>
     <div class="rf-sep" id="cSep1"></div>
     <div id="cOrders" style="display:flex;flex-direction:column;justify-content:center;gap:3px"></div>
     <div class="rf-sep" id="cSep2"></div>
@@ -215,15 +226,15 @@ export function hud(s: SandboxScene): void {
     return b;
   };
   const row = (cls: string, ...bs: HTMLElement[]) => { const r = document.createElement('div'); r.className = cls; r.style.cssText = 'display:flex;gap:2px;align-items:center'; r.append(...bs); return r; };
-  const tipK = (name: string, what: string, key: string) => `<div class="rf-name" style="margin-bottom:3px">${name}</div>${what}${key ? ` <b class="k">${key}</b>` : ''}`;
+  const tipK = (name: string, what: string, key: string) => tipHtml(name, what, key);
 
   // orders and formation (squads)
   let lastShape: string | null = null;
   /** Stop: the selected men halt where it stands, forms up there and holds (the sim's stop). */
   const stop = () => { for (const q of sc.own()) s.sim.order({ kind: 'stop', squad: q }); };
-  const sqMove = btn('cMove', 'act-move', tipK('Move', 'click the map, or', 'right click'), '', () => sc.arm('move'));
-  const sqAtk = btn('cAttack', 'act-attack', tipK('Attack', 'click an enemy, or hover it and', 'E'), '', () => sc.arm('attack'));
-  const sqAtkMove = btn('cAttackMove', 'act-attack', tipK('Attack-move', 'march to a point, fighting any foe met on the way: click it, or', 'Ctrl + right click'), '', () => sc.arm('attackMove'));
+  const sqMove = btn('cMove', 'act-move', tipK('Move', 'click the button, then the map; or right click the map', 'Right click'), '', () => sc.arm('move'));
+  const sqAtk = btn('cAttack', 'act-attack', tipK('Attack', 'click the button, then an enemy; or hover him and press the key', 'E'), '', () => sc.arm('attack'));
+  const sqAtkMove = btn('cAttackMove', 'act-attack', tipK('Attack-move', 'march to a point, fighting any foe met on the way: click the button, then the point', 'Ctrl + right click'), '', () => sc.arm('attackMove'));
   sqAtkMove.insertAdjacentHTML('beforeend', `<span class="badge">${icon('act-move')}</span>`);
   const sqHold = btn('cHold', 'act-hold', tipK('Hold', 'stand and fight here', 'H'), 'H', () => s.orderSelected((squad) => ({ kind: 'hold', squad })));
   const sqStop = btn('cStop', 'act-stop', tipK('Stop', 'halt and form up where they stand', 'X'), 'X', stop);
@@ -240,7 +251,7 @@ export function hud(s: SandboxScene): void {
   const orders = [row('', sqMove, sqAtk, sqAtkMove, sqHold, sqStop), row('rf-seg', ...shapes)];
   orders[1].style.gap = '0';
   // civilian squads (M5f): work orders only, their jobs instead of the attack orders
-  const cvMove = btn('cvMove', 'act-move', tipK('Move', 'click the map, or', 'right click'), '', () => sc.arm('move'));
+  const cvMove = btn('cvMove', 'act-move', tipK('Move', 'click the button, then the map; or right click the map', 'Right click'), '', () => sc.arm('move'));
   const cvHold = btn('cvHold', 'act-hold', tipK('Hold', 'stand here', 'H'), 'H', () => s.orderSelected((squad) => ({ kind: 'hold', squad })));
   const cvStop = btn('cvStop', 'act-stop', tipK('Stop', 'halt where they stand', 'X'), 'X', stop);
   const cvWork = btn('cvWork', 'act-assign', () => tipK('Work', civTips(s).work, ''), '', () => civWork(s, sc.own()));
@@ -285,7 +296,7 @@ export function hud(s: SandboxScene): void {
   const confirmRaze = (yes: boolean) => { if (yes) m.demolish(); razeArmed = -1; refresh(); };
   razeBox.addEventListener('click', (e) => { const a = (e.target as HTMLElement).closest<HTMLElement>('[data-raze]')?.dataset.raze; if (a) confirmRaze(a === 'yes'); });
   /** A building key's hint for a tooltip title (the current binding, rebindable on Settings > Controls). */
-  const kHint = (id: ActionId) => (keys.label(id) ? ` <b class="k">${keys.label(id)}</b>` : '');
+  const kHint = (id: ActionId) => (keys.label(id) ? ` <kbd class="hud-kbd">${keys.label(id)}</kbd>` : '');
   let shownSlots: HTMLElement[] = [], shownOrders: HTMLElement[] | null = null;
   const setCard = (ord: boolean, slots: HTMLElement[], selW: number, list = orders) => {
     const want = ord ? list : null;
@@ -296,22 +307,79 @@ export function hud(s: SandboxScene): void {
     $('cSep2').style.display = slots.length ? '' : 'none';
     $('cSel').style.width = `${selW}px`;
   };
-  /** The selection head: icon, name (HTML: a level pill may follow), a count line, bars, an info line, a status line. */
-  const setHead = (ic: string, name: string, count: string, bars: string, info: string, stat?: { tone: string; text: string }) => {
+  /** The selection head: icon, name (HTML: a level pill may follow), a count line, bars, an info line, a status line; chips (HTML) under the bars. */
+  const setHead = (ic: string, name: string, count: string, bars: string, info: string, stat?: { tone: string; text: string }, chips = '') => {
     if ($('cIcon').dataset.ic !== ic) { $('cIcon').dataset.ic = ic; $('cIcon').innerHTML = icon(ic, 32); }
     if ($('cName').innerHTML !== name) $('cName').innerHTML = name;
-    $('cCount').textContent = count;
+    if ($('cCount').innerHTML !== count) $('cCount').innerHTML = count;
     if ($('cBars').innerHTML !== bars) $('cBars').innerHTML = bars;
+    if ($('cChips').innerHTML !== chips) $('cChips').innerHTML = chips;
     $('cInfo').textContent = info;
     $('cInfo').title = stat ? '' : info;
     $('cStat').style.display = stat ? '' : 'none';
     if (stat) { $('cStat').className = `bk-stat ${stat.tone}`; $('cStat').textContent = stat.text; }
   };
-  const SEL_SQUAD = 112, SEL_BLD = 236;
+  const SEL_SQUAD = 184, SEL_BLD = 236;
+  /** The panel's bar: a fill (hp, construction, burn) with its numbers on it. */
+  const hudBar = (kind: string, v: number, text: string) => `<div class="hud-hp"><i class="${kind}" style="width:${(Math.max(0, Math.min(1, v)) * 100).toFixed(1)}%"></i><span>${text}</span></div>`;
+  /** The portrait: the class's sprite (the roster's portrait) for men, else the icon. */
+  const portCv = card.querySelector<HTMLCanvasElement>('#cPortCv')!;
+  let portCls = '';
+  const setPortrait = (cls: string | null, lv: string) => {
+    const want = cls ?? '';
+    if (want !== portCls) {
+      const p = cls ? portrait(s, cls) : null;
+      const g = portCv.getContext('2d')!;
+      g.clearRect(0, 0, portCv.width, portCv.height);
+      if (p) { g.imageSmoothingEnabled = false; g.drawImage(p, 0, 0, portCv.width, portCv.height); portCls = want; }
+      else portCls = '';
+      $('cPort').classList.toggle('sprite', !!p);
+    }
+    if ($('cLv').textContent !== lv) $('cLv').textContent = lv;
+  };
+  // ---------- a pip per man of the selected squads: his hp; click selects him, shift adds him (../select.ts) ----------
+  const PIPS_MAX = 24;
+  let pipKey = '';
+  const pipTip = (id: number) => {
+    const u = s.sim.cur?.units.find((x) => x.id === id);
+    if (!u) return '';
+    const nm = CLASS_NAME[u.cls] ?? civName(u.cls) ?? nice(u.cls);
+    return tipHtml(`${nm}${u.level ? ` · Lv ${u.level}` : ''}`, `${Math.ceil(u.hp)} / ${Math.ceil(u.maxHp)} hp${u.sat !== undefined ? ` · fed ${Math.round(u.sat)}%` : ''}${u.wounded ? ' · wounded' : ''}<div class="rf-dim" style="margin-top:3px">click: select him · shift+click: add him</div>`);
+  };
+  $('cPips').addEventListener('click', (e) => {
+    const b = (e.target as HTMLElement).closest<HTMLElement>('[data-uid]');
+    if (b) { s.sel.set([Number(b.dataset.uid)], e.shiftKey); refresh(); }
+  });
+  const setPips = (ids: number[]) => {
+    const shown = ids.slice(0, PIPS_MAX), key = shown.join(',') + '|' + ids.length;
+    const box = $('cPips');
+    if (key !== pipKey) {
+      pipKey = key;
+      box.replaceChildren(...shown.map((id) => {
+        const b = document.createElement('button');
+        b.className = 'hud-pip';
+        b.dataset.uid = String(id);
+        b.innerHTML = '<i></i>';
+        tipOn(b, () => pipTip(id));
+        return b;
+      }));
+      if (ids.length > PIPS_MAX) box.insertAdjacentHTML('beforeend', `<span class="hud-more">+${ids.length - PIPS_MAX}</span>`);
+    }
+    const byId = new Map((s.sim.cur?.units ?? []).map((u) => [u.id, u]));
+    for (const b of box.querySelectorAll<HTMLElement>('.hud-pip')) {
+      const u = byId.get(Number(b.dataset.uid)), f = u ? Math.max(0, Math.min(1, u.hp / (u.maxHp || 1))) : 0;
+      b.style.setProperty('--hp', f.toFixed(3));
+      b.classList.toggle('mid', f <= 0.6 && f > 0.3);
+      b.classList.toggle('low', f <= 0.3);
+      b.classList.toggle('on', s.sel.units.has(Number(b.dataset.uid)));
+    }
+  };
   // the building panel's long description (the CK3 card) on its name plate
   $('cSel').addEventListener('pointerenter', () => { const b = m.selectedBuilding(); if (b && !chain.isHeld()) showTip($('cSel'), buildingTip(b, s.region.id)); });
   $('cSel').addEventListener('pointerleave', (e) => { if (tipAt === $('cSel') && !chain.isHeld() && !chain.holds(e.relatedTarget)) hideTip(); });
 
+  // ---------- the dock bottom right: a plate under the chest (I), roster (R) and build (B) buttons ----------
+  mk('rfDock', '');
   // ---------- build: hammer button (B) opens the tabbed bar; B / Esc close it ----------
   const hammer = mk('rfHammer', 'right:4px;bottom:4px;pointer-events:auto');
   const hBtn = btn('cBuild', 'act-build', tipK('Build', 'open the build bar; Esc closes', 'B'), 'B', () => { m.toggle(); if (m.active) { tab = 'Camp'; renderTools(); } });
@@ -357,7 +425,9 @@ export function hud(s: SandboxScene): void {
   const tb = (label: string, tipText: string, run: () => void) => { const b = document.createElement('button'); b.className = 'rf-tbtn'; b.textContent = label; b.title = tipText; b.onclick = run; return b; };
 
   // ---------- the menu bar, bottom right left of the chest: World, Replay | Holdings, Works, Crown, Tasks (kit.ts menuBtn) ----------
-  const menus = mk(MENU_BAR, 'right:106px;bottom:4px;pointer-events:auto;display:flex;gap:4px');
+  const top = mountTopBar(s, tipOn);
+  els.push(top.el);
+  const menus = top.el.querySelector<HTMLElement>('.tb-r')!;
   // M4c: back to the world map (world.html); a live region opens the live world as the same dev player, else the mock
   const goWorld = () => { const q = new URLSearchParams(location.search), w = new URLSearchParams(); if (q.has('net')) { if (q.get('dev')) w.set('dev', q.get('dev')!); } else w.set('offline', '1'); location.href = `world.html?${w}`; };
   const wbtn = menuBtn('rfWorld', 'mode-altitude', 'World map', 'back to the world map (plain W pans the camera)', 'go.world', 0);
@@ -452,15 +522,17 @@ export function hud(s: SandboxScene): void {
     if (tipAt && (!tipAt.isConnected || !tipAt.offsetParent) && !chain.isHeld()) { tipAt = null; hideTip(); }
     modes.refresh();
     trade.refresh();
+    top.refresh();
 
     const sq = m.squad(), q = sq === null ? undefined : s.sim.squads.get(sq), own = sc.own();
     const b = m.selectedBuilding();
     if (b && (b.state !== 'destroyed' || b.ruin)) {
       card.style.display = '';
       $('cTag').style.display = 'none';
+      setPortrait(null, '');
+      setPips([]);
       const site = isSite(b), stock = (storeNear(s.sim.cur, myTeam(), b.x, b.y, LOCAL_R)?.goods ?? {}) as Record<string, number>, lv = levelOf(b.type); // W-60: the store of its area, no totals
       const name = `${nameOfBuilding(b)}${site ? (b.upgradeFrom ? ' upgrade' : ' site') : ''}${lv > 1 || BUILDINGS[b.type].workplace ? ` <span class="rf-lv">L${lv}</span>` : ''}${b.ruin ? ' <span class="rf-pill bad">ruin</span>' : ''}`;
-      const BAR_W = SEL_BLD;
       /** A button's tooltip: its title, the cost against your stock, plain notes, and why it is off (red). */
       const actTip = (title: string, cost: Record<string, number | undefined> | null, note: string, why?: string) =>
         `<div class="rf-name" style="margin-bottom:4px">${title}</div>${cost ? `<div style="display:flex;flex-wrap:wrap;max-width:240px">${needChips(cost, stock)}</div>` : ''}<div class="rf-dim" style="margin-top:2px;white-space:normal;max-width:240px">${note}</div>${why || (cost && shortText(cost, stock)) ? `<div class="rf-hint" style="margin-top:3px;white-space:normal;max-width:240px">${why ?? shortText(cost!, stock)}</div>` : ''}`;
@@ -468,7 +540,7 @@ export function hud(s: SandboxScene): void {
         const need = Object.entries(m.need(b)), planned = b.progress === 0 && b.delivered === 0 && b.workers === 0, wait = waitText(b);
         const mats = need.map(([r, v]) => `${r} ${Math.floor(v! * b.delivered)}/${Math.ceil(v!)}`).join(' · ');
         const short = shortText(Object.fromEntries(need.map(([r, v]) => [r, Math.ceil(v! * (1 - b.delivered))])), stock);
-        setHead(BUILDING_ICON[b.type], name, `${Math.round(b.progress * 100)}% built · ${b.workers}/${b.maxWorkers} at work`, bar('construction', b.progress, BAR_W),
+        setHead(BUILDING_ICON[b.type], name, `${Math.round(b.progress * 100)}% built · ${b.workers}/${b.maxWorkers} at work`, hudBar('construction', b.progress, `${Math.round(b.progress * 100)}%`),
           mats ? `materials ${mats}` : purposeOf(b),
           short ? { tone: 'bad', text: short.replace(/^./, (c) => c.toUpperCase()) } : { tone: wait ? 'gold' : 'dim', text: `${wait ? `${wait}${b.stalled === 'noWorkers' && !b.waiting ? ': select men, E on it' : ''}` : planned ? 'Planned: send men to build it' : 'Being built'}` });
         setCard(false, siteSlots, SEL_BLD);
@@ -476,7 +548,7 @@ export function hud(s: SandboxScene): void {
         const refund = m.refund(b);
         sCancel.dataset.tip = tipK('Cancel and tear down', `refunds ${Object.keys(refund).length ? costText(refund) : 'nothing'}`, '');
       } else {
-        setHead(BUILDING_ICON[b.type], name, b.ruin ? '' : `${Math.ceil(b.hp)} / ${b.maxHp}`, bar(b.burning ? 'burn' : 'hp', b.ruin ? 0 : b.hp / b.maxHp, BAR_W), purposeOf(b), statusOf(b));
+        setHead(BUILDING_ICON[b.type], name, b.ruin ? 'in ruins' : b.burning ? 'burning' : '', hudBar(b.burning ? 'burn' : 'hp', b.ruin ? 0 : b.hp / b.maxHp, b.ruin ? '0' : `${Math.ceil(b.hp)} / ${b.maxHp}`), purposeOf(b), statusOf(b));
         const up = b.team === myTeam() && !b.ruin ? m.upgradeOf(b) : null, def = BUILDINGS[b.type], own = b.team === myTeam() && b.state === 'done';
         const iron = own && def.wall === 'gate', wet = own && !!def.burnable && !def.field;
         // M7g: repair (a hurt standing building), rebuild (a pre-built ruin)
@@ -522,8 +594,17 @@ export function hud(s: SandboxScene): void {
       const tag = men.reduce((a, d) => Math.max(a, d.u.tag ?? 0), 0);
       $('cTag').style.display = tag ? '' : 'none';
       if (tag) $('cTag').textContent = `⚔ tagged ${Math.ceil(tag / 10)} s`;
-      setHead(UNIT_ICON[cls] ?? 'unit-militia', byCls.size > 1 ? 'Mixed' : CLASS_NAME[cls] ?? civName(cls) ?? nice(cls), `${men.length} ${men.length === 1 ? 'man' : 'men'}${byCls.size > 1 ? `, ${byCls.size} classes` : ''}`, bar('hp', hp / max, SEL_SQUAD),
-        civ ? civInfo(s, own[0]) : e ? `crews ${SIEGE_NAME[e.type]} · ${e.state}${e.burning ? ' · burning' : ''}` : `${s.sim.cur ? activityText(q, s.sim.cur, { nodes: s.sim.nodes, goal: s.lastCommand }) : q.order}${q.fed ? ' · fed' : ''}${sc.status ? ' · ' + sc.status : ''}`);
+      // level and food: the selected men's average (what exists: no morale in the sim)
+      const lvls = men.filter((d) => d.u.level), lv = lvls.length ? lvls.reduce((a, d) => a + d.u.level!, 0) / lvls.length : 0;
+      const fedMen = men.filter((d) => d.u.sat !== undefined), sat = fedMen.length ? fedMen.reduce((a, d) => a + d.u.sat!, 0) / fedMen.length : -1;
+      const fed = sat >= 0 ? ` · <span class="hud-fed ${sat >= 60 ? 'good' : sat >= 30 ? 'warn' : 'bad'}" title="how fed they are (food: the squad chest)">fed ${Math.round(sat)}%</span>` : '';
+      const chips = q.blessed ? '<span class="hud-chip gold">Blessed</span>' : '';
+      setHead(UNIT_ICON[cls] ?? 'unit-militia', byCls.size > 1 ? 'Mixed' : CLASS_NAME[cls] ?? civName(cls) ?? nice(cls), `<b>${men.length}</b> ${men.length === 1 ? 'man' : 'men'}${byCls.size > 1 ? `, ${byCls.size} classes` : ''}${fed}`, hudBar('hp', hp / max, `${Math.ceil(hp)} / ${Math.ceil(max)}`),
+        civ ? civInfo(s, own[0]) : e ? `crews ${SIEGE_NAME[e.type]} · ${e.state}${e.burning ? ' · burning' : ''}` : `${s.sim.cur ? activityText(q, s.sim.cur, { nodes: s.sim.nodes, goal: s.lastCommand }) : q.order}${q.fed ? ' · fed' : ''}${sc.status ? ' · ' + sc.status : ''}`, undefined, chips);
+      setPortrait(byCls.size ? cls : null, lv ? `Lv ${Number.isInteger(lv) ? lv : lv.toFixed(1)}` : '');
+      // the pips: every living man of the selected squads (a man picked alone keeps his squad's row)
+      const ownSet = new Set(own);
+      setPips((s.sim.cur?.units ?? []).filter((u) => ownSet.has(u.squad) && u.state !== 'dead').map((u) => u.id));
       const slots: HTMLElement[] = [];
       const act = activesOf(s, own)[0];
       if (act) {
@@ -563,9 +644,16 @@ export function hud(s: SandboxScene): void {
     hBtn.classList.toggle('on', m.active);
     // the bar sits above the card when both show
     build.style.bottom = card.style.display === 'none' ? '4px' : `${card.offsetHeight + 8}px`;
-    // a narrow window: the bar would run into the menu bar (bottom right), so it sits above that row
-    if (m.active && card.style.display === 'none' && build.getBoundingClientRect().right > menus.getBoundingClientRect().left - 4) build.style.bottom = '42px';
+    // a narrow window: the bar would run into the dock (chest, roster, build: bottom right), so it sits above that row
+    const dock = document.getElementById('rfChestBtn');
+    if (m.active && card.style.display === 'none' && dock && build.getBoundingClientRect().right > dock.getBoundingClientRect().left - 4) build.style.bottom = '42px';
     groups.refresh(card.style.display === 'none' ? 4 : card.offsetHeight + 8, !m.active);
+    // the soul prompt (./souls.ts) sits over whatever is stacked bottom centre
+    const soul = document.getElementById('rfSoul');
+    if (soul && soul.style.display !== 'none') {
+      const tops = [card, build, document.getElementById('rfGroups')].filter((x): x is HTMLElement => !!x && x.style.display !== 'none').map((x) => (parseFloat(x.style.bottom) || 0) + x.offsetHeight);
+      soul.style.bottom = `${Math.max(132, ...tops.map((t) => t + 6))}px`;
+    }
     if (m.active) held = C.engineerNodes();
     for (const [x, d] of toolBtns) {
       x.classList.toggle('on', JSON.stringify(d.tool) === JSON.stringify(m.tool));

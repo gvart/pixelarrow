@@ -37,13 +37,13 @@ export interface PinHandle {
 const C = '#5fd6bd';
 const CSS = `${markCss('#pnMarks', '#pnMarkEdges')}
 #pnMarks .mk{transition:none}
-#pnMarks .mk svg.pn{position:absolute;left:-4px;top:-39px;filter:drop-shadow(0 1px 0 #0e0907) drop-shadow(0 0 2px rgba(14,9,7,.8))}
+#pnMarks .mk svg.pn{position:absolute;left:-4px;top:-39px;filter:drop-shadow(0 1px 0 #050506) drop-shadow(0 0 2px rgba(10,11,13,.8))}
 #pnMarks .mk.new svg.pn{animation:mkDrop .38s cubic-bezier(.3,1.6,.5,1)}
 #pnMarkEdges .edge .ar b{font:800 13px/1 Inter,sans-serif;color:var(--mk-c)}
 `;
 
 /** A pennant on a stake, its number on the cloth; drawn at 1.25x, the stake's foot at (4, 39). */
-const pennant = (n: number) => `<svg class="pn" width="30" height="42" viewBox="0 0 24 34"><ellipse cx="3.5" cy="31" rx="3.5" ry="1.6" fill="rgba(14,9,7,.55)"/><rect x="2" y="2" width="2.4" height="29.5" fill="#2a1a10"/><rect x="2" y="2" width="1" height="29.5" fill="#6b4a30"/><path d="M4.4 3h17l-4.2 6.5 4.2 6.5h-17z" fill="#0e0907"/><path d="M4.4 4.3h14.6l-3.4 5.2 3.4 5.2H4.4z" fill="${C}"/><path d="M4.4 4.3h14.6l-.9 1.4H4.4z" fill="rgba(255,255,255,.35)"/><text x="10.6" y="12.6" text-anchor="middle" font-family="Inter,sans-serif" font-weight="800" font-size="8.5" fill="#0e0907">${n}</text></svg>`;
+const pennant = (n: number) => `<svg class="pn" width="30" height="42" viewBox="0 0 24 34"><ellipse cx="3.5" cy="31" rx="3.5" ry="1.6" fill="rgba(10,11,13,.55)"/><rect x="2" y="2" width="2.4" height="29.5" fill="#2a1a10"/><rect x="2" y="2" width="1" height="29.5" fill="#6b4a30"/><path d="M4.4 3h17l-4.2 6.5 4.2 6.5h-17z" fill="#050506"/><path d="M4.4 4.3h14.6l-3.4 5.2 3.4 5.2H4.4z" fill="${C}"/><path d="M4.4 4.3h14.6l-.9 1.4H4.4z" fill="rgba(255,255,255,.35)"/><text x="10.6" y="12.6" text-anchor="middle" font-family="Inter,sans-serif" font-weight="800" font-size="8.5" fill="#050506">${n}</text></svg>`;
 
 let styled = false;
 
@@ -160,10 +160,10 @@ export function drawPins(g: CanvasRenderingContext2D, P: (x: number, y: number) 
     const [x, y] = P(p.x, p.y), r = (full ? 6 : 4.2) * m;
     g.globalAlpha = pinAlpha(p, now);
     g.beginPath(); g.moveTo(x, y - r); g.lineTo(x + r, y); g.lineTo(x, y + r); g.lineTo(x - r, y); g.closePath();
-    g.lineWidth = 2 * m; g.strokeStyle = '#0e0907'; g.stroke();
+    g.lineWidth = 2 * m; g.strokeStyle = '#050506'; g.stroke();
     g.fillStyle = C; g.fill();
     if (!full) continue;
-    g.fillStyle = '#0e0907'; g.font = `800 ${7 * m}px Inter, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillStyle = '#050506'; g.font = `800 ${7 * m}px Inter, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
     g.fillText(String(p.n), x, y + 0.5 * m);
   }
   g.globalAlpha = 1;

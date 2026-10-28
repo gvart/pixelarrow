@@ -30,9 +30,9 @@ export function setNetStatsOn(on: boolean): void {
 }
 
 const CSS = `#rfNet{position:fixed;left:8px;top:50%;transform:translateY(-50%);z-index:30;pointer-events:none;padding:4px 7px;min-width:96px;
-  background:color-mix(in srgb,var(--rf-sunk,#0e0907) 82%,transparent);border:1px solid var(--rf-rule,#3a2418);border-radius:3px;
-  font:600 10.5px/1.45 Inter,system-ui,sans-serif;color:var(--rf-muted,#bba58c);font-variant-numeric:tabular-nums;white-space:nowrap}
-#rfNet b{color:var(--rf-ink,#f0d9b5);font-weight:700}#rfNet .good{color:var(--rf-good,#9fd47a)}#rfNet .warn{color:var(--rf-gold,#e0b867)}
+  background:color-mix(in srgb,var(--rf-sunk,#050506) 82%,transparent);border:1px solid var(--rf-rule,#2b2c2f);border-radius:3px;
+  font:600 10.5px/1.45 Inter,system-ui,sans-serif;color:var(--rf-muted,#a8a194);font-variant-numeric:tabular-nums;white-space:nowrap}
+#rfNet b{color:var(--rf-ink,#ece6d8);font-weight:700}#rfNet .good{color:var(--rf-good,#9fd47a)}#rfNet .warn{color:var(--rf-gold,#e0b867)}
 #rfNet .bad{color:var(--rf-bad,#f08a70)}#rfNet .stall{color:var(--rf-bad,#f08a70);font-weight:700}`;
 
 const tone = (v: number, ok: number, warn: number) => (v <= ok ? 'good' : v <= warn ? 'warn' : 'bad');

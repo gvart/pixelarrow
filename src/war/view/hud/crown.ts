@@ -45,7 +45,7 @@ const until = (ms: number) => {
 const ago = (ms: number) => (ms < 60_000 ? 'now' : `${until(ms)} ago`);
 const regionName = (id: string) => WORLD_REGIONS.find((r) => r.id === id)?.name ?? id;
 const allianceName = (a: number) => ALLIANCES[a]?.name ?? `#${a}`;
-const colourOf = (a: number | null) => (a === null ? '#8a786a' : (ALLIANCES[a]?.color ?? '#8a786a'));
+const colourOf = (a: number | null) => (a === null ? '#6f6a62' : (ALLIANCES[a]?.color ?? '#6f6a62'));
 const TOWNS = [...ALLIANCES.map((a) => a.home), ...FRONTIER_TOWNS, OMPHALOS];
 const SUPPLY_GOODS = GOODS.filter((g) => g !== 'coin').slice(0, 18);
 const ICONED = new Set(['food', 'wood', 'stone', 'marble', 'coin', 'silver']);
@@ -71,7 +71,7 @@ const ORDER: Record<OrderKind, { name: string; glyph: string; cls: string }> = {
 };
 
 /** A gold crown, drawn (the medallion's crest). */
-const CROWN_SVG = (w = 34) => `<svg class="cr-crest" width="${w}" height="${Math.round(w * 0.62)}" viewBox="0 0 34 21" aria-hidden="true"><defs><linearGradient id="crg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe7a3"/><stop offset=".55" stop-color="#e0b867"/><stop offset="1" stop-color="#8a6326"/></linearGradient></defs><path d="M2 7 L9 12 L17 2 L25 12 L32 7 L29 18 L5 18 Z" fill="url(#crg)" stroke="#3a2410" stroke-width="1.2" stroke-linejoin="round"/><rect x="5" y="17" width="24" height="3" fill="#b38a3e" stroke="#3a2410" stroke-width="1"/><circle cx="17" cy="2.6" r="1.8" fill="#de8a4e" stroke="#3a2410" stroke-width=".8"/><circle cx="2.6" cy="7" r="1.5" fill="#de8a4e" stroke="#3a2410" stroke-width=".8"/><circle cx="31.4" cy="7" r="1.5" fill="#de8a4e" stroke="#3a2410" stroke-width=".8"/><circle cx="17" cy="13" r="1.6" fill="#b42c22"/></svg>`;
+const CROWN_SVG = (w = 34) => `<svg class="cr-crest" width="${w}" height="${Math.round(w * 0.62)}" viewBox="0 0 34 21" aria-hidden="true"><defs><linearGradient id="crg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe7a3"/><stop offset=".55" stop-color="#e0b867"/><stop offset="1" stop-color="#8a6326"/></linearGradient></defs><path d="M2 7 L9 12 L17 2 L25 12 L32 7 L29 18 L5 18 Z" fill="url(#crg)" stroke="#3a2410" stroke-width="1.2" stroke-linejoin="round"/><rect x="5" y="17" width="24" height="3" fill="#b38a3e" stroke="#3a2410" stroke-width="1"/><circle cx="17" cy="2.6" r="1.8" fill="#cfa25a" stroke="#3a2410" stroke-width=".8"/><circle cx="2.6" cy="7" r="1.5" fill="#cfa25a" stroke="#3a2410" stroke-width=".8"/><circle cx="31.4" cy="7" r="1.5" fill="#cfa25a" stroke="#3a2410" stroke-width=".8"/><circle cx="17" cy="13" r="1.6" fill="#b42c22"/></svg>`;
 
 /** A round portrait: the initial in a ring of the alliance colour. */
 const avatar = (name: string | null, a: number | null, size = 26, extra = '') =>
@@ -277,10 +277,10 @@ function envoysHtml(v: CrownView, form: { to: number; kind: 'pact' | 'truce' }):
 const CSS = `
 #rfCrown{--rf-crown:#e0b867}
 #rfCrown .rf-tabs{display:flex;align-items:flex-end;height:24px;margin:0 0 6px;border-bottom:1px solid var(--rf-rule)}
-.cr-av{display:inline-flex;flex:none;align-items:center;justify-content:center;border-radius:50%;font-family:Cinzel,serif;font-weight:700;color:var(--rf-ink);background:radial-gradient(circle at 50% 35%,#4a2e1c,#120b08);box-shadow:inset 0 0 0 2px var(--c),0 0 0 1px #0e0907}
-.cr-av.big{box-shadow:inset 0 0 0 3px var(--c),0 0 0 1px #0e0907,0 0 10px rgba(0,0,0,.6)}
-.cr-av.vacant{--c:#3a2418;color:var(--rf-disabled);background:var(--rf-sunk)}
-.cr-you{font:700 10px/1 Inter,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:#0e0907;background:var(--rf-gold);padding:1px 4px;border-radius:2px;vertical-align:2px}
+.cr-av{display:inline-flex;flex:none;align-items:center;justify-content:center;border-radius:50%;font-family:Cinzel,serif;font-weight:700;color:var(--rf-ink);background:radial-gradient(circle at 50% 35%,#4a2e1c,#0d0f12);box-shadow:inset 0 0 0 2px var(--c),0 0 0 1px #050506}
+.cr-av.big{box-shadow:inset 0 0 0 3px var(--c),0 0 0 1px #050506,0 0 10px rgba(0,0,0,.6)}
+.cr-av.vacant{--c:#2b2c2f;color:var(--rf-disabled);background:var(--rf-sunk)}
+.cr-you{font:700 10px/1 Inter,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:#050506;background:var(--rf-gold);padding:1px 4px;border-radius:2px;vertical-align:2px}
 .cr-throne{display:flex;gap:10px;align-items:center;padding:8px 9px;border-color:#6a5326;background:radial-gradient(ellipse at 18% 50%,#3a2414,transparent 60%),linear-gradient(180deg,#22170f,var(--rf-sunk))}
 .cr-throne.regent{border-color:var(--rf-accent)}.cr-throne.empty{border-style:dashed}
 .cr-medal{position:relative;width:70px;height:78px;flex:none;display:flex;align-items:flex-end;justify-content:center}
@@ -293,7 +293,7 @@ const CSS = `
 .cr-seats{display:grid;grid-template-columns:1fr 1fr;gap:5px}
 .cr-seat{padding:5px 6px}.cr-seat.me{border-color:#6a5326}.cr-seat.vacant{opacity:.85;border-style:dashed}
 .cr-seat-top{display:flex;align-items:center;gap:5px}
-.cr-oi{width:26px;height:26px;flex:none;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 60%,#3a2516,#120b08);border:1px solid var(--rf-line)}
+.cr-oi{width:26px;height:26px;flex:none;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 60%,#2b2f37,#0d0f12);border:1px solid var(--rf-line)}
 .cr-on{font:700 12px/1 Cinzel,serif;letter-spacing:.05em;color:var(--rf-title)}
 .cr-holder{display:flex;align-items:center;gap:6px;margin-top:5px;min-height:24px}
 .cr-hn{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -307,7 +307,7 @@ const CSS = `
 .cr-tools{margin-top:6px;padding-top:5px;border-top:1px dashed #6a5326}
 .cr-tl{display:flex;align-items:center;gap:4px;font:700 11px/1 Cinzel,serif;letter-spacing:.12em;text-transform:uppercase;color:var(--rf-gold)}
 .cr-chron{border:1px solid var(--rf-rule);background:var(--rf-sunk);padding:2px 6px}
-.cr-log{display:flex;gap:6px;justify-content:space-between;padding:3px 0;border-bottom:1px solid #1d130e;font-size:11px}.cr-log:last-child{border:0}.cr-log b{color:var(--rf-title)}.cr-log .rf-dim{white-space:nowrap}
+.cr-log{display:flex;gap:6px;justify-content:space-between;padding:3px 0;border-bottom:1px solid #1a1c20;font-size:11px}.cr-log:last-child{border:0}.cr-log b{color:var(--rf-title)}.cr-log .rf-dim{white-space:nowrap}
 .cr-bad{color:var(--rf-bad)}.cr-bad b{color:var(--rf-bad)!important}
 .cr-banner{display:flex;align-items:center;gap:8px;padding:6px 8px;margin-bottom:6px;border:1px solid #6a5326;background:linear-gradient(90deg,#2a1b10,var(--rf-sunk))}
 .cr-bt{font:700 14px/1.1 Cinzel,serif;color:var(--rf-title)}.cr-banner .rf-dim{font-size:11px;margin-top:2px}
@@ -325,11 +325,11 @@ const CSS = `
 .cr-yn{display:flex;align-items:center;gap:6px;margin-top:7px;font:700 11px/1 Inter,sans-serif}.cr-y{color:var(--rf-bad)}.cr-n{color:var(--rf-good)}
 .cr-ynbar{flex:1;height:8px;background:#1d2a14;border:1px solid var(--rf-rule)}.cr-ynbar i{display:block;height:100%;background:linear-gradient(180deg,#f08a70,#9a3a22)}
 .cr-pb{flex:1}.cr-sig{font:700 13px/1 Cinzel,serif;color:var(--rf-gold);min-width:34px;text-align:right}
-.cr-rk{display:flex;align-items:center;gap:6px;padding:3px 4px;border-bottom:1px solid #1d130e;font-size:11.5px}.cr-rk.me{background:var(--rf-sel)}
+.cr-rk{display:flex;align-items:center;gap:6px;padding:3px 4px;border-bottom:1px solid #1a1c20;font-size:11.5px}.cr-rk.me{background:var(--rf-sel)}
 .cr-rn{width:14px;text-align:right;color:var(--rf-muted);font:700 11px/1 Cinzel,serif}.cr-rkn{flex:1;min-width:0;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.cr-rk b{min-width:24px;text-align:right;color:var(--rf-gold)}
 .cr-order{display:flex;gap:7px;padding:5px 6px;margin-bottom:4px}.cr-order.closed{opacity:.6}
 .cr-order.war{border-left:3px solid #b42c22}.cr-order.def{border-left:3px solid #2e6c9c}.cr-order.rally{border-left:3px solid var(--rf-gold)}.cr-order.sup{border-left:3px solid #6a8a3a}
-.cr-oic{width:40px;height:40px;flex:none;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 65%,#3a2516,#120b08);border:1px solid var(--rf-line)}
+.cr-oic{width:40px;height:40px;flex:none;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 65%,#2b2f37,#0d0f12);border:1px solid var(--rf-line)}
 .cr-ob{flex:1;min-width:0}
 .cr-otop{display:flex;align-items:center;gap:5px}
 .cr-okind{font:700 13px/1 Cinzel,serif;color:var(--rf-title)}.war .cr-okind{color:#f08a70}.def .cr-okind{color:#8ab8e0}.sup .cr-okind{color:var(--rf-good)}

@@ -1,12 +1,13 @@
 /**
- * The red-figure UI kit (W-32, public/war/ui/ui.json): its CSS (9-slice frames as border-image, buttons with their
- * states, bars, the hover label, the tooltip) and the scale. 1 art px = `zoom` CSS px: the UI scale
+ * The UI kit (W-32; icons and cursors: public/war/ui/): its CSS (the frames, buttons, bars, label and tooltip are drawn
+ * in CSS from the tokens of ./theme.ts, the Dota 2 hybrid look) and the scale. 1 art px = `zoom` CSS px: the UI scale
  * setting (auto by viewport, 0.75x / 1x / 1.25x / 1.5x / 2x; W-34) snapped to quarter device pixels and drawn nearest-neighbour
  * (image-rendering: pixelated, the @1x / @2x asset by device pixel ratio), so the pixel art stays sharp.
  */
 import type { BuildingType, SiegeType } from '../../types';
 import type { ActionId } from '../../input/actions';
 import { keys } from '../../input/keys';
+import { THEME_CSS, tipHtml, TOKENS } from './theme';
 
 export const UI = 'war/ui/';
 const url = (f: string) => `url(${UI}${f})`;
@@ -80,75 +81,37 @@ ${CLICKABLE.map((x) => `.rf ${x}`).join(',')}{cursor:${cursor('interact', 'point
 ${BLOCKED.map((x) => `.rf ${x},.rf ${x} *`).join(',')}{cursor:${cursor('invalid', 'not-allowed')}!important}
 .rf input,.rf textarea{cursor:text!important}`;
 
-const nine = (f: string, l: number, t: number, r: number, b: number, rep = 'stretch', fill = ' fill') =>
-  `border-style:solid;border-width:${t}px ${r}px ${b}px ${l}px;border-image:${set(f)} ${t} ${r} ${b} ${l}${fill} / ${t}px ${r}px ${b}px ${l}px ${rep};`;
-/** A frame as ornament only: the sprite's edges around a solid surface. The frames' centre slices hold the meander's inner
- * lines, which stretch into stripes and terracotta blocks at some scales, so text never sits on them. */
-const frame = (f: string, l: number, t: number, r: number, b: number, rep = 'stretch') =>
-  nine(f, l, t, r, b, rep, '') + 'background:var(--rf-panel);background-clip:padding-box;';
-
-/**
- * Tokens (W-32 palette). Every text / surface pair passes WCAG AA (4.5:1 body, 3:1 large): on --rf-panel cream 13.7, title
- * 10.2, muted 8.0, accent 7.0, good 10.9, bad 7.7, gold 10.0, disabled 4.5; on --rf-sel cream 10.5, title 7.8, muted 6.1.
- * Terracotta (--rf-line, --rf-accent) is for borders and ornament: no text sits on a terracotta fill.
- */
-export const TOKENS = `:root{
-  --rf-panel:#17100d;--rf-raised:#251812;--rf-sunk:#0e0907;--rf-hover:#2c1c15;--rf-sel:#3d2414;
-  --rf-ink:#f0d9b5;--rf-title:#f2b27a;--rf-muted:#bba58c;--rf-disabled:#8a786a;
-  --rf-accent:#de8a4e;--rf-line:#7a3418;--rf-rule:#3a2418;--rf-good:#9fd47a;--rf-bad:#f08a70;--rf-gold:#e0b867;
-  --rf-title-font:700 14px/1.1 Cinzel,serif;--rf-body:600 12px/1.3 Inter,system-ui,sans-serif}`;
+/** The design tokens and the shared pieces live in ./theme.ts (one file for colours, borders, fonts, shadows, timing). */
+export { TOKENS };
 
 export const CSS = TOKENS + CURSORS + `
 .rf{position:fixed;z-index:4;color:var(--rf-ink);font:var(--rf-body);user-select:none;image-rendering:pixelated;box-sizing:border-box;font-variant-numeric:tabular-nums}
 .rf *{box-sizing:border-box}
 .rf img{image-rendering:pixelated;display:block}
-.rf-band{${frame('frames/band.png', SIDE, 10, SIDE, 10, 'repeat stretch')}}
-.rf-card{${frame('frames/card.png', SIDE, 10, SIDE, 4, 'repeat stretch')}}
-.rf-tip{${frame('frames/tooltip.png', 4, 4, 4, 4)}padding:4px 7px;pointer-events:none;white-space:nowrap;line-height:1.4}
-.rf-label{${frame('frames/label.png', 3, 3, 3, 3)}padding:3px 6px;pointer-events:none;white-space:nowrap;font-size:12px;line-height:15px}
+.rf-tip{pointer-events:none;white-space:nowrap;line-height:1.4}
+.rf-label{pointer-events:none;white-space:nowrap;font-size:12px;line-height:15px}
 .rf-label b,.rf-tip b.k{color:var(--rf-accent)}
 .rf-name{font:var(--rf-title-font);color:var(--rf-title);letter-spacing:.02em}
 .rf-head{display:flex;align-items:center;gap:6px;padding-bottom:4px;border-bottom:1px solid var(--rf-rule)}
 .rf-dim{color:var(--rf-muted)}
 .rf-num{font-variant-numeric:tabular-nums}
-.rf-btn{width:30px;height:30px;padding:0;border:0;background:${set('buttons/button-icon-normal.png')} 0 0/30px 30px;display:flex;align-items:center;justify-content:center;position:relative}
-.rf-btn:hover{background-image:${set('buttons/button-icon-hover.png')}}
-.rf-btn:active,.rf-btn.press{background-image:${set('buttons/button-icon-pressed.png')}}
-.rf-btn:active .ic,.rf-btn.press .ic{transform:translateY(1px)}
-.rf-btn.on{background-image:${set('buttons/button-icon-active.png')}}
-.rf-btn:disabled{background-image:${set('buttons/button-icon-disabled.png')}}
-.rf-btn:disabled .ic{opacity:.4;filter:grayscale(.7)}
 .rf button:focus{outline:none}
 .rf button:focus-visible{outline:1px solid var(--rf-title);outline-offset:1px}
-.rf-tbtn{display:inline-flex;align-items:center;justify-content:center;gap:4px;height:23px;min-width:23px;padding:0 8px;color:var(--rf-ink);font:600 12px/1 Inter,sans-serif;white-space:nowrap;background:none;${nine('buttons/button-normal.png', 3, 3, 3, 3)}}
-.rf-tbtn:hover{border-image-source:${set('buttons/button-hover.png')};color:#fff0d8}
-.rf-tbtn:active{border-image-source:${set('buttons/button-pressed.png')};padding-top:1px}
-.rf-tbtn.on,.rf-tbtn.pri{border-image-source:${set('buttons/button-active.png')};color:#fff0d8}
-.rf-tbtn.pri:hover{filter:brightness(1.12)}
-.rf-tbtn:disabled{border-image-source:${set('buttons/button-disabled.png')};color:var(--rf-disabled);filter:none;padding-top:0}
+.rf-tbtn{display:inline-flex;align-items:center;justify-content:center;gap:4px;min-width:23px;white-space:nowrap}
+.rf-tbtn:disabled{filter:none;padding-top:0}
 .rf-tbtn.x{width:23px;padding:0;font-size:13px}
-.rf-tab{height:22px;padding:0 9px;margin-right:2px;color:var(--rf-muted);font:600 12px/1 Inter,sans-serif;background:none;white-space:nowrap;${nine('buttons/tab-inactive.png', 3, 3, 3, 2)}}
-.rf-tab:hover{border-image-source:${set('buttons/tab-hover.png')};color:var(--rf-ink)}
-.rf-tab.on{border-image-source:${set('buttons/tab-active.png')};color:var(--rf-title);height:23px;margin-bottom:-1px}
+.rf-tab{white-space:nowrap}
 .rf-segs{display:grid;grid-template-columns:repeat(3,1fr);gap:2px}
 .rf-segs .rf-tbtn{width:100%}
-.rf-bar{height:6px;${nine('bars/track.png', 2, 0, 2, 0)}position:relative}
-.rf-bar i{position:absolute;left:-1px;top:1px;height:4px;background-size:2px 4px;background-repeat:repeat-x}
-.rf-bar i.hp{background-image:${url('bars/fill-hp.png')}} .rf-bar i.construction{background-image:${url('bars/fill-construction.png')}}
-.rf-bar i.burn{background-image:${url('bars/fill-burn.png')}} .rf-bar i.ok{background-image:${url('bars/fill-ok.png')}}
-.rf-sep{width:1px;align-self:stretch;background:var(--rf-line);box-shadow:1px 0 0 var(--rf-sunk);margin:0 4px}
+.rf-bar{position:relative}
+.rf-bar i{position:absolute}
+.rf-sep{align-self:stretch}
 .rf-cap{font:700 11.5px/1.2 Cinzel,serif;color:var(--rf-accent);letter-spacing:.04em;margin:0 0 3px 1px}
 .rf-cap .rf-dim{font:600 11.5px/1 Inter,sans-serif}
 .rf-row{box-shadow:inset 3px 0 0 transparent}
 .rf-row:hover{background:var(--rf-hover)}
 .rf-row.on{background:var(--rf-sel);box-shadow:inset 3px 0 0 var(--rf-title)}
-.rf-seg{display:flex}
-.rf-seg button{width:28px;height:26px;padding:0;display:flex;align-items:center;justify-content:center;position:relative;background:none;${nine('buttons/button-icon-normal.png', 3, 3, 3, 3)}}
-.rf-seg button:hover{border-image-source:${set('buttons/button-icon-hover.png')}}
-.rf-seg button.on{border-image-source:${set('buttons/button-icon-active.png')}}
-.rf-seg button .key,.rf-btn .key{position:absolute;right:2px;bottom:1px;font:700 9px/1 Inter,sans-serif;color:var(--rf-ink);text-shadow:0 1px 0 #0e0907,0 0 2px #0e0907}
-.rf-btn .rf-badge{position:absolute;top:-5px;left:-5px;display:flex;align-items:center;justify-content:center;min-width:15px;height:15px;padding:0 3px;border-radius:8px;background:var(--rf-bad);color:#1a0d08;font:700 10px/1 Inter,sans-serif;box-shadow:0 0 0 1px #0e0907;pointer-events:none}
-.rf-btn .rf-badge.gold{background:var(--rf-gold)}
+.rf-btn .rf-badge{position:absolute;display:flex;align-items:center;justify-content:center;min-width:15px;height:15px;padding:0 3px;border-radius:8px;font:700 10px/1 Inter,sans-serif;pointer-events:none}
 .rf-chip{display:inline-block;margin-top:3px;padding:1px 5px;font:700 10.5px/14px Inter,sans-serif;color:var(--rf-bad);background:var(--rf-sunk);border:1px solid var(--rf-line);white-space:nowrap}
 .rf input{font:600 12px/1 Inter,sans-serif;width:30px;height:23px;background:var(--rf-sunk);color:var(--rf-ink);border:1px solid var(--rf-line);padding:0 3px}
 .rf select{font:600 12px/1 Inter,sans-serif;height:23px;background:var(--rf-sunk);color:var(--rf-ink);border:1px solid var(--rf-line);padding:0 2px}
@@ -160,7 +123,7 @@ export const CSS = TOKENS + CURSORS + `
 .rf-sec::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,var(--rf-line),transparent)}
 .rf-sec .rf-dim{font:600 11px/1 Inter,sans-serif;text-transform:none;letter-spacing:0}
 .rf-well{background:var(--rf-sunk);border:1px solid var(--rf-rule);box-shadow:inset 0 1px 3px rgba(0,0,0,.6)}
-.rf-scroll{overflow-y:auto;scrollbar-width:thin;scrollbar-color:#7a3418 #0e0907}
+.rf-scroll{overflow-y:auto;scrollbar-width:thin;scrollbar-color:#5f4b2a #050506}
 /* a cost chip against what the player has: red with "/have" when short */
 .rf-need{display:inline-flex;align-items:center;gap:2px;height:22px;padding:0 5px 0 2px;margin:0 3px 3px 0;background:var(--rf-raised);border:1px solid var(--rf-rule);font:700 12px/1 Inter,sans-serif;white-space:nowrap}
 .rf-need b{color:var(--rf-ink)}.rf-need i{font-style:normal;font-weight:600;color:var(--rf-bad)}
@@ -170,12 +133,12 @@ export const CSS = TOKENS + CURSORS + `
 .rf-pill{display:inline-flex;align-items:center;gap:3px;height:16px;padding:0 5px;font:700 9.5px/1 Inter,sans-serif;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--rf-rule);background:var(--rf-sunk);color:var(--rf-muted);white-space:nowrap}
 .rf-pill.good{color:var(--rf-good);border-color:#3f5a2c}.rf-pill.gold{color:var(--rf-gold);border-color:#6a5326}.rf-pill.bad{color:var(--rf-bad);border-color:#6a2c1c}
 /* an inventory slot: icon, count in the corner, rarity edge */
-.rf-cell{position:relative;width:38px;height:38px;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 40%,#2a1b13,#120b08);border:1px solid #3a2418;box-shadow:inset 0 0 0 1px #0e0907}
-.rf-cell:hover{border-color:var(--rf-accent);background:radial-gradient(circle at 50% 40%,#3a2516,#160d09)}
-.rf-cell .n{position:absolute;right:2px;bottom:1px;font:700 10.5px/1 Inter,sans-serif;color:var(--rf-ink);text-shadow:0 1px 0 #0e0907,0 0 2px #0e0907,0 0 2px #0e0907}
-.rf-cell .w{position:absolute;left:2px;top:2px;width:5px;height:5px;background:var(--rf-bad);box-shadow:0 0 0 1px #0e0907}
-.rf-cell.empty{background:#0f0907;border-color:#24160f}
-.rf-cell.empty:hover{border-color:#24160f}
+.rf-cell{position:relative;width:38px;height:38px;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 40%,#1e2127,#0d0f12);border:1px solid #2b2c2f;box-shadow:inset 0 0 0 1px #050506}
+.rf-cell:hover{border-color:var(--rf-accent);background:radial-gradient(circle at 50% 40%,#2b2f37,#160d09)}
+.rf-cell .n{position:absolute;right:2px;bottom:1px;font:700 10.5px/1 Inter,sans-serif;color:var(--rf-ink);text-shadow:0 1px 0 #050506,0 0 2px #050506,0 0 2px #050506}
+.rf-cell .w{position:absolute;left:2px;top:2px;width:5px;height:5px;background:var(--rf-bad);box-shadow:0 0 0 1px #050506}
+.rf-cell.empty{background:#0f0907;border-color:#1a1c20}
+.rf-cell.empty:hover{border-color:#1a1c20}
 /* a quantity stepper: − n + */
 .rf-step{display:inline-flex;align-items:center}
 .rf-step button{width:22px;padding:0}.rf-step input{width:46px;text-align:center;border-left:0;border-right:0}
@@ -185,22 +148,21 @@ export const CSS = TOKENS + CURSORS + `
 .bk-stat.good{color:var(--rf-good)}.bk-stat.bad{color:var(--rf-bad)}.bk-stat.gold{color:var(--rf-gold)}
 .rf-tbtn.big{height:30px;padding:0 16px;font:700 14px/1 Cinzel,serif;letter-spacing:.04em}
 /* W-61: a level ring (gold fill to the next level), an icon chip with a number, a checklist row, a big bar, a medallion */
-.rf-ring{position:relative;flex:none;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;background:conic-gradient(var(--rf-gold) calc(var(--p) * 1turn),#2c1c15 0);box-shadow:0 0 0 1px #0e0907}
-.rf-ring::before{content:'';position:absolute;inset:3px;border-radius:50%;background:radial-gradient(circle at 50% 35%,#3a2516,#120b08);box-shadow:0 0 0 1px #6a5326}
+.rf-ring{position:relative;flex:none;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;background:conic-gradient(var(--rf-gold) calc(var(--p) * 1turn),#2c1c15 0);box-shadow:0 0 0 1px #050506}
+.rf-ring::before{content:'';position:absolute;inset:3px;border-radius:50%;background:radial-gradient(circle at 50% 35%,#2b2f37,#0d0f12);box-shadow:0 0 0 1px #6a5326}
 .rf-ring b{position:relative;font:700 13px/1 Cinzel,serif;color:var(--rf-title)}
 .rf-ichip{display:inline-flex;align-items:center;gap:2px;height:26px;padding:0 6px 0 1px;background:var(--rf-raised);border:1px solid var(--rf-rule);font:700 12px/1 Inter,sans-serif;color:var(--rf-ink);white-space:nowrap}
 .rf-ichip.good{color:var(--rf-good);border-color:#3f5a2c}.rf-ichip.gold{color:var(--rf-gold);border-color:#6a5326}
 .rf-ichip.dim{color:var(--rf-disabled);background:var(--rf-sunk);border-style:dashed}.rf-ichip.dim .ic,.rf-ichip.dim .gl{opacity:.45;filter:grayscale(1)}
 .rf-ichip .up{color:var(--rf-gold);font-size:9px;margin-left:1px}
-.rf-check{display:grid;grid-template-columns:24px 1fr 46px 16px;align-items:center;gap:0 6px;min-height:30px;padding:1px 4px 1px 2px;border-bottom:1px solid #1d130e}
+.rf-check{display:grid;grid-template-columns:24px 1fr 46px 16px;align-items:center;gap:0 6px;min-height:30px;padding:1px 4px 1px 2px;border-bottom:1px solid #1a1c20}
 .rf-check .l{font:600 11.5px/1.2 Inter,sans-serif;color:var(--rf-ink)}.rf-check .rf-bar{margin-top:3px}
 .rf-check .v{text-align:right;font:700 12px/1 Inter,sans-serif}
 .rf-check.ok .v{color:var(--rf-good)}.rf-check.no .v{color:var(--rf-bad)}
-.rf-bar.big{height:12px}.rf-bar.big i{top:2px;height:8px;background-size:2px 8px}
-.rf-medal{position:relative;flex:none;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;background:radial-gradient(circle at 50% 35%,#4a3018,#1a100a);box-shadow:0 0 0 1px #0e0907,inset 0 0 0 1.5px var(--rf-gold)}
+.rf-medal{position:relative;flex:none;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;background:radial-gradient(circle at 50% 35%,#4a3018,#1a100a);box-shadow:0 0 0 1px #050506,inset 0 0 0 1.5px var(--rf-gold)}
 .rf-tip .tip-w{display:block;white-space:normal;width:max-content;max-width:240px}
-.rf-medal.me{box-shadow:0 0 0 1px #0e0907,inset 0 0 0 1.5px var(--rf-gold),0 0 6px rgba(224,184,103,.7)}
-`;
+.rf-medal.me{box-shadow:0 0 0 1px #050506,inset 0 0 0 1.5px var(--rf-gold),0 0 6px rgba(224,184,103,.7)}
+` + THEME_CSS;
 
 /** A level ring: `p` 0..1 of the way to the next level in gold round `inner` (the level numeral), `px` across. */
 export const ring = (p: number, px: number, inner: string) => `<span class="rf-ring" style="--p:${Math.max(0, Math.min(1, p)).toFixed(3)};width:${px}px;height:${px}px">${inner}</span>`;
@@ -208,10 +170,12 @@ export const ring = (p: number, px: number, inner: string) => `<span class="rf-r
 /** Keep a top-anchored panel inside the window: it scrolls past the bottom edge (`bottom` art px margin, 4 by default). */
 export function fitHeight(el: HTMLElement, bottom = 4): void {
   const z = Number(el.style.zoom) || 1;
-  el.style.maxHeight = `${Math.floor(innerHeight / z - (parseFloat(el.style.top) || 0) - bottom)}px`;
+  // the top bar's offset (./theme.ts: panels anchored at the top take it as margin) counts as top
+  const below = parseFloat(getComputedStyle(el).marginTop) || 0;
+  el.style.maxHeight = `${Math.floor(innerHeight / z - (parseFloat(el.style.top) || 0) - below - bottom)}px`;
   el.style.overflowY = 'auto';
   el.style.scrollbarWidth = 'thin';
-  el.style.scrollbarColor = '#7a3418 #0e0907';
+  el.style.scrollbarColor = '#5f4b2a #050506';
 }
 
 /** The panels that open at the top left (forge, market, roster, soldier card, memorial): the quest tracker and events card give way. */
@@ -267,7 +231,7 @@ export function menuBtn(id: string, ic: string, name: string, what: string, acti
     const badge = b.querySelector('.rf-badge');
     b.innerHTML = icon(ic) + `<span class="key">${shortKey(action)}</span>`;
     if (badge) b.appendChild(badge);
-    b.dataset.tip = `<div class="rf-name" style="margin-bottom:3px">${name}</div>${what} <b class="k">${keys.label(action)}</b>`;
+    b.dataset.tip = tipHtml(name, what, keys.label(action));
   };
   paint();
   keys.onChange(paint);

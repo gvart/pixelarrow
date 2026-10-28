@@ -4,6 +4,7 @@
  * Icons reuse the first kit until the actives get their own art.
  */
 import { ACTIVE, ACTIVES } from '../../sim/skills';
+import { tipHtml } from './theme';
 import type { ActiveSnap, SquadId, WarSkillId } from '../../types';
 import type { SandboxScene } from '../SandboxScene';
 
@@ -51,18 +52,18 @@ export function activeWhy(a: ActiveSnap): string | undefined {
 /** Tooltip: name, effect, cooldown state and key. */
 export function activeTip(a: ActiveSnap): string {
   const ui = ACTIVE_UI[a.skill];
-  const state = a.on > 0 ? `<span style="color:#f2b27a">on · ${secs(a.on)} left</span>` : a.ready > 0 ? `<span class="rf-dim">ready in ${secs(a.ready)}</span>` : '<span style="color:#9fd88a">ready</span>';
-  return `<div class="rf-name" style="margin-bottom:3px">${ui?.name ?? a.skill}</div>${activeEffect(a.skill)}<div style="margin-top:3px">${state} · cooldown ${secs(ACTIVE.cooldown)} <b class="k">${ACTIVE_KEY}</b></div>`;
+  const state = a.on > 0 ? `<span style="color:var(--hud-title)">on · ${secs(a.on)} left</span>` : a.ready > 0 ? `<span class="rf-dim">ready in ${secs(a.ready)}</span>` : '<span style="color:var(--hud-good)">ready</span>';
+  return tipHtml(ui?.name ?? a.skill, `${activeEffect(a.skill)}<div style="margin-top:3px">${state} · cooldown ${secs(ACTIVE.cooldown)}</div>`, ACTIVE_KEY);
 }
 
 export const ACTIVE_CSS = `
 .rf-btn .cd{position:absolute;inset:3px;border-radius:50%;pointer-events:none;
-  background:conic-gradient(from 0deg,rgba(14,9,7,.8) var(--cd,0%),rgba(242,178,122,.9) 0);
+  background:conic-gradient(from 0deg,rgba(10,11,13,.8) var(--cd,0%),rgba(239,207,134,.9) 0);
   -webkit-mask:radial-gradient(circle,transparent 7px,#000 7.5px);mask:radial-gradient(circle,transparent 7px,#000 7.5px)}
-.rf-btn .cdn{position:absolute;left:0;right:0;top:9px;text-align:center;font:700 10px/1 Inter,sans-serif;color:#f0d9b5;text-shadow:0 1px 0 #0e0907,0 0 2px #0e0907;pointer-events:none}
+.rf-btn .cdn{position:absolute;left:0;right:0;top:9px;text-align:center;font:700 10px/1 Inter,sans-serif;color:#ece6d8;text-shadow:0 1px 0 #050506,0 0 2px #050506;pointer-events:none}
 .rf-btn:not(.cool) .cd{display:none}
 .rf-btn.cool .ic{opacity:.6;filter:grayscale(.5)}
-.rf-btn.buff{box-shadow:0 0 0 1px #f2b27a,0 0 6px #de8a4e}
+.rf-btn.buff{box-shadow:0 0 0 1px #efcf86,0 0 6px #cfa25a}
 .rf-btn .badge{position:absolute;left:1px;top:1px;pointer-events:none}
 .rf-btn .badge .ic{width:12px;height:12px}
 `;

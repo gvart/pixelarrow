@@ -100,7 +100,7 @@ const CSS = `
 .tk-card{display:flex;gap:8px;padding:5px 6px;margin-bottom:4px}
 .tk-card.ready{border-color:#6a5326;box-shadow:inset 0 0 0 1px #3a2a14,0 0 6px rgba(224,184,103,.25)}
 .tk-card.claimed{opacity:.6}
-.tk-ic{width:40px;height:40px;flex:none;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 65%,#3a2516,#120b08);border:1px solid var(--rf-line);box-shadow:inset 0 0 0 1px #0e0907}
+.tk-ic{width:40px;height:40px;flex:none;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 65%,#2b2f37,#0d0f12);border:1px solid var(--rf-line);box-shadow:inset 0 0 0 1px #050506}
 .tk-body{flex:1;min-width:0}
 .tk-top{display:flex;align-items:baseline;gap:6px}
 .tk-name{flex:1;min-width:0;font:700 13px/1.15 Cinzel,serif;color:var(--rf-title);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
