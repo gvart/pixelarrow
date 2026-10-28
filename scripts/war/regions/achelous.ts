@@ -69,9 +69,9 @@ const def: RegionDef = {
     k.resource('tin', [116, 60], 5, 9);
     k.resource('food', [32, 176], 3, 12);
     // fauna: river serpents at the diggings, bandits at the broken bridge, serpents in the south reeds
-    k.lair('boar', [124, 52], { as: 'river serpents' });
+    k.lair('serpent', [124, 52], { as: 'river serpents' });
     k.lair('bandit', [70, 138], { as: 'bandits' });
-    k.lair('boar', [150, 216], { as: 'river serpents' });
+    k.lair('serpent', [150, 216], { as: 'river serpents' });
     // the ford town's grass between its houses: carts, amphorae, olive baskets, hives
     for (const [x, y] of [[106, 118], [134, 118], [106, 142], [134, 144], [120, 112], [120, 150]] as [number, number][]) {
       k.piece(['elaia/handcart', 'elaia/amphora-stack', 'elaia/olive-harvest'][(x + y) % 3], [x, y], { r: 4, n: 2, gap: 2 });
