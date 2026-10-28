@@ -3,29 +3,29 @@
  "class": "mob_lion",
  "image": "mob_lion.png",
  "frame": {
-  "w": 51,
-  "h": 45
+  "w": 58,
+  "h": 52
  },
  "anchor": {
-  "x": 29,
-  "y": 39
+  "x": 33,
+  "y": 46
  },
  "anchors": {
   "south-east": {
-   "x": 23,
-   "y": 39
+   "x": 26,
+   "y": 46
   },
   "north-east": {
-   "x": 21,
-   "y": 41
+   "x": 25,
+   "y": 48
   },
   "south-west": {
-   "x": 29,
-   "y": 39
+   "x": 33,
+   "y": 46
   },
   "north-west": {
-   "x": 30,
-   "y": 41
+   "x": 35,
+   "y": 48
   }
  },
  "scale": 0.55,

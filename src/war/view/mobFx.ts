@@ -28,7 +28,7 @@ const MAX_RINGS = 12;
 const LOD_DUST = 0.3;
 /** Ms of the sim tick (the burst's ticks). */
 const TICK = 100;
-const DUST: Record<MobKind, number> = { wolf: 0x8a8070, boar: 0x7a6248, bear: 0x6a5a48, bandit: 0x8a7a60, jackal: 0xb09a70, ibex: 0x9a9488, lion: 0xb8a072, serpent: 0x5a5038 };
+const DUST: Record<MobKind, number> = { wolf: 0xb8ae98, boar: 0xa89070, bear: 0xa09078, bandit: 0xb8a888, jackal: 0xd8c498, ibex: 0xc0bab0, lion: 0xdcc898, serpent: 0x8a7c58 };
 const CRY = { howl: 0xc8d4e0, roar: 0xe8b060 } as const;
 
 export class MobFx {
@@ -47,7 +47,7 @@ export class MobFx {
     /** A unit's feet as drawn this frame (world px), undefined when not drawn. */
     private unitAt: (id: number) => { x: number; y: number } | undefined,
   ) {
-    this.g = scene.add.graphics().setDepth(9.06);
+    this.g = scene.add.graphics().setDepth(9.5);
     this.top = scene.add.graphics().setDepth(10.95);
   }
 
@@ -72,7 +72,7 @@ export class MobFx {
         const p = this.ground(e.x, e.y);
         for (let i = 0; i < 12; i++) {
           const a = (i / 12) * Math.PI * 2 + Math.random() * 0.4, s = 40 + Math.random() * 50;
-          this.puff(p.x + Math.cos(a) * HW * 0.8, p.y + Math.sin(a) * HH * 0.8, Math.cos(a) * s, Math.sin(a) * s * 0.5, 7 + Math.random() * 5, now + Math.random() * 200, 900, DUST[e.mob], 0.55);
+          this.puff(p.x + Math.cos(a) * HW * 0.8, p.y + Math.sin(a) * HH * 0.8, Math.cos(a) * s, Math.sin(a) * s * 0.5, 11 + Math.random() * 7, now + Math.random() * 200, 1000, DUST[e.mob], 0.8);
         }
       }
     }
@@ -96,7 +96,7 @@ export class MobFx {
       if (!dust || now < t.next) continue;
       t.next = now + (t.mob === 'lion' ? 45 : 60);
       const back = Math.random() * 2 - 1;
-      this.puff(at.x + back * 6, at.y - 2, back * 20, -8 - Math.random() * 10, t.mob === 'serpent' ? 4 : 6 + Math.random() * 4, now, t.mob === 'lion' ? 500 : 700, DUST[t.mob], t.mob === 'lion' ? 0.4 : 0.6);
+      this.puff(at.x + back * 6, at.y - 2, back * 20, -8 - Math.random() * 10, t.mob === 'serpent' ? 7 : 10 + Math.random() * 6, now, t.mob === 'lion' ? 600 : 800, DUST[t.mob], t.mob === 'lion' ? 0.65 : 0.8);
       const tgt = this.ground(t.tx, t.ty);
       if (!t.landed && Math.hypot(tgt.x - at.x, tgt.y - at.y) < HW * 0.9) this.skid(t, at, now);
     }
@@ -108,8 +108,11 @@ export class MobFx {
         if (age >= p.life) continue;
         this.puffs[n++] = p;
         if (age < 0 || p.x < view.x - 40 || p.x > view.right + 40 || p.y < view.y - 40 || p.y > view.bottom + 40) continue;
-        const k = age / p.life, s = age / 1000, r = p.r * (0.5 + k);
-        g.fillStyle(p.c, Math.round(p.a * (1 - k) * 4) / 4).fillEllipse(p.x + p.vx * s, p.y + p.vy * s, r * 2, r * 1.2);
+        // full for the first third, then fading in steps (pixel-ish); a lighter core
+        const k = age / p.life, s = age / 1000, r = p.r * (0.6 + k), a = p.a * Math.min(1, 1.5 * (1 - k));
+        const x = p.x + p.vx * s, y = p.y + p.vy * s;
+        g.fillStyle(p.c, Math.round(a * 4) / 4).fillEllipse(x, y, r * 2, r * 1.2);
+        if (k < 0.5) g.fillStyle(0xf0e8d8, Math.round(a * 2) / 5).fillEllipse(x - r * 0.2, y - r * 0.15, r, r * 0.6);
       }
       this.puffs.length = n;
     } else this.puffs.length = 0;
@@ -137,7 +140,7 @@ export class MobFx {
     const n = t.mob === 'boar' ? 9 : t.mob === 'lion' ? 7 : 5;
     for (let i = 0; i < n; i++) {
       const a = Math.PI + (i / (n - 1) - 0.5) * Math.PI * 1.2, s = 50 + Math.random() * 40;
-      this.puff(at.x, at.y, Math.cos(a) * s * (Math.random() < 0.5 ? -1 : 1), Math.sin(a) * s * 0.4 - 10, 6 + Math.random() * 4, now, 650, DUST[t.mob], 0.65);
+      this.puff(at.x, at.y, Math.cos(a) * s * (Math.random() < 0.5 ? -1 : 1), Math.sin(a) * s * 0.4 - 10, 10 + Math.random() * 6, now, 800, DUST[t.mob], 0.85);
     }
   }
 
