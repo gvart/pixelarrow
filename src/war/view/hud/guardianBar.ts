@@ -92,6 +92,9 @@ export function mountGuardians(s: SandboxScene, mk: Mk): void {
     const cur = s.sim.cur;
     if (!cur) return;
     const held = (cur.claims ?? []).some((c) => c.state === 'claimed');
+    // under the replay's offer toast while it shows (../replay: "The guardian is slain · Watch the battle"), never under it
+    const toast = document.getElementById('rpToast'), z = Number(bar.style.zoom) || 1;
+    bar.style.top = `${toast && toast.style.display !== 'none' && toast.offsetHeight ? Math.max(52, Math.round(toast.getBoundingClientRect().bottom / z) + 4) : 52}px`;
     bar.innerHTML = (cur.bosses ?? []).map((b) => guardianHtml(b, held)).join('') + (cur.warden ? `<div class="rf-card w">Rim Warden strike marked: ${Math.ceil(cur.warden.in / 10)} s</div>` : '');
     if (panel && lm) {
       panel.style.display = open ? 'block' : 'none';
