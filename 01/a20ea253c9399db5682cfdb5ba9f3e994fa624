@@ -1,0 +1,24 @@
+src/war/net/client.ts
+  s_f08b12c690e0d6::t_64bf2b99af39b4 160
+src/war/net/protocol.ts
+  s_f08b12c690e0d6::t_64bf2b99af39b4 264-265
+server/src/war/room.ts
+  s_f08b12c690e0d6::t_055f2df1f58e07 37
+  s_f08b12c690e0d6::t_64bf2b99af39b4 36,1164-1170
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "01a20ea253c9399db5682cfdb5ba9f3e994fa624",
+  "prompts": {},
+  "sessions": {
+    "s_f08b12c690e0d6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e4ed4b42-9ff5-404c-b2dd-32a044e85f29",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
