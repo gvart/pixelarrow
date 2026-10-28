@@ -100,7 +100,7 @@ export const GUARDIANS: Readonly<Record<string, GDef>> = {
   drakon: { ai: 'drakon', cls: 'mob_drakon', hp: 18000, dmg: 8, armor: 2, reach: 2.6, atk: 2, speed: 1.1, aggro: 18, leash: 30 },
   scylla: { ai: 'scylla', cls: 'mob_scylla_head', hp: 10000, dmg: 10, armor: 4, reach: 3, atk: 3, speed: 0.8, aggro: 14, leash: 40, parts: { n: 6, hp: 1200, dmg: 10 } },
   bandit_king: { ai: 'king', cls: 'mob_bandit_king', hp: 6000, dmg: 22, armor: 6, reach: 1.6, atk: 1.1, speed: 1.05, aggro: 10, leash: 14, guard: { cls: 'mob_bandit_guard', n: 11, hp: 150, dmg: 14, armor: 4 } },
-  river_god: { ai: 'river', cls: 'mob_brontes', hp: 30000, dmg: 20, armor: 4, reach: 2.4, atk: 1.8, speed: 0.9, aggro: 16, leash: 26 },
+  river_god: { ai: 'river', cls: 'mob_river_god', hp: 30000, dmg: 20, armor: 4, reach: 2.4, atk: 1.8, speed: 0.9, aggro: 16, leash: 26 },
   titan: { ai: 'titan', cls: 'mob_titan', hp: 16000, dmg: 30, armor: 4, reach: 2.6, atk: 2, speed: 0.8, aggro: 30, leash: 30 },
   minotaur: { ai: 'brute', cls: 'mob_minotaur', hp: 12000, dmg: 50, armor: 4, reach: 1.8, atk: 1.2, speed: 1.1, aggro: 10, leash: 16 },
   brontes: { ai: 'brontes', cls: 'mob_brontes', hp: 8000, dmg: 30, armor: 4, reach: 2.2, atk: 1.8, speed: 0.85, aggro: 25, leash: 22 },
@@ -415,15 +415,13 @@ export function createBosses(region: RegionData, host: BossHost) {
         break;
       case 'river':
         if (p === 1) {
-          // a serpent in the channels: only a man on a ford reaches it
-          u.cls = 'mob_scylla_head';
+          // in the channels (one body, mob_river_god, in every phase): only a man on a ford reaches him
           u.venom = true;
           const [cx, cy] = e.flats ?? [e.x, e.y];
           host.place(u, cx, cy);
           pin(u, true, 2);
           r.state = 'perch';
         } else if (p === 2) {
-          u.cls = 'mob_boar';
           u.venom = false;
           pin(u, false);
           host.place(u, e.x, e.y);

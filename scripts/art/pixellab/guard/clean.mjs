@@ -4,7 +4,8 @@
 // frame j (a smear frame by its neighbour, as 40c lesson 4). --feet R: rubble, cracks and dust round a giant's stomp —
 // in the bottom 15% of the first frame's figure only pixels within R px of that frame's own feet are kept. The original
 // frames are kept once in <clip>/orig/. --white T: near-white slash arcs fused to a tusk or claw (every channel >= T) go.
-// Usage: node scripts/art/pixellab/guard/clean.mjs <clip dir> [i=j ...] [--feet R] [--white T]
+// --nored: every bright red pixel is cut, not darkened (a back view, where no maw shows).
+// Usage: node scripts/art/pixellab/guard/clean.mjs <clip dir> [i=j ...] [--feet R] [--white T] [--nored]
 import { copyFileSync, existsSync, mkdirSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { readImage, writeImage } from '../../lib/png.mjs';
@@ -14,6 +15,8 @@ const fi = argv.indexOf('--feet'), FEET = fi >= 0 ? Number(argv[fi + 1]) : 0;
 if (fi >= 0) argv.splice(fi, 2);
 const wi = argv.indexOf('--white'), WHITE = wi >= 0 ? Number(argv[wi + 1]) : 0;
 if (wi >= 0) argv.splice(wi, 2);
+const NORED = argv.includes('--nored');
+if (NORED) argv.splice(argv.indexOf('--nored'), 1);
 const [dir, ...swaps] = argv;
 const MAW = [38, 26, 22];
 const frames = readdirSync(dir).filter((f) => /^frame_\d+\.png$/.test(f)).sort();
@@ -48,7 +51,7 @@ for (const f of frames) {
     const r = data[i * 4], g = data[i * 4 + 1], b = data[i * 4 + 2];
     // red on the ground (the bottom tenth of the first frame's figure) is a splat: cut; above it, a maw: darkened
     if (data[i * 4 + 3] >= 128 && r >= 110 && r > 1.7 * g && r > 1.7 * b) {
-      if (Math.floor(i / w) >= ground) data[i * 4 + 3] = 0;
+      if (NORED || Math.floor(i / w) >= ground) data[i * 4 + 3] = 0;
       else data.set(MAW, i * 4);
       red++;
     }
