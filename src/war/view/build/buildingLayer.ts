@@ -56,6 +56,8 @@ const GATE_NEAR = 3; // tiles: a gate opens while one of its team stands this ne
 const STUB = 33;
 /** W-57: while placing, buildings within FADE_NEAR tiles of the cursor are drawn at FADE alpha so the ghost reads in front of them. */
 const FADE_NEAR = 4, FADE = 0.3;
+/** Walls this many tiles in front of a living guardian go see-through (`guards`), so a walled-in guardian reads. */
+const GUARD_NEAR = 4;
 /** Colour of a stalled site's floating note ("Waiting for 6 wood"). */
 const WAIT_COLOR = '#ffb060';
 /** Depth steps inside a tile's layers (a tile's depth key spans ~1 / 4096). */
@@ -149,6 +151,8 @@ export class BuildingLayer {
   cutaway = false;
   /** Build mode's cursor tile while placing (W-57): the buildings near it are drawn see-through (null: none). */
   cutNear: { x: number; y: number } | null = null;
+  /** Living guardians' tiles: the walls just in front of each are drawn see-through too (the Minotaur in his labyrinth). */
+  guards: readonly { x: number; y: number }[] = [];
   /** The player's team: its stalled sites get a floating note (-1 none). */
   team = -1;
   /** Units on a ladder this frame (the climb clip). */
@@ -391,8 +395,13 @@ export class BuildingLayer {
   /** W-57: is building b near build mode's cursor while placing (drawn see-through, never cut, so the ghost reads)? */
   private faded(b: BuildingSnap): boolean {
     const c = this.cutNear;
-    if (!c) return false;
-    for (const [x, y] of pairs(b.tiles)) if (Math.abs(x + 0.5 - c.x) <= FADE_NEAR && Math.abs(y + 0.5 - c.y) <= FADE_NEAR) return true;
+    if (c) for (const [x, y] of pairs(b.tiles)) if (Math.abs(x + 0.5 - c.x) <= FADE_NEAR && Math.abs(y + 0.5 - c.y) <= FADE_NEAR) return true;
+    if (this.guards.length && BUILDINGS[b.type].wall)
+      for (const g of this.guards)
+        for (const [x, y] of pairs(b.tiles)) {
+          const dx = x + 0.5 - g.x, dy = y + 0.5 - g.y;
+          if (dx + dy > 0 && Math.abs(dx) <= GUARD_NEAR && Math.abs(dy) <= GUARD_NEAR) return true; // in front of him
+        }
     return false;
   }
 
@@ -493,7 +502,8 @@ export class BuildingLayer {
       const px = l?.px ?? 0, own = l ? this.decks.get(key(Math.floor(d.x), Math.floor(d.y)))?.b : -1;
       for (let s = 0.5; s <= 7; s += 0.5) {
         const k = key(Math.floor(d.x + s), Math.floor(d.y + s)), h = this.heights.get(k);
-        if (h !== undefined && h >= 32 * s + px + BODY && this.occ.get(k)?.id !== own) { out.add(d.u.id); break; }
+        const o = this.occ.get(k);
+        if (h !== undefined && h >= 32 * s + px + BODY && o?.id !== own && !(o && this.guards.length && this.faded(o))) { out.add(d.u.id); break; }
       }
     }
   }

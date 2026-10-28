@@ -10,7 +10,7 @@
  * (./hud/claimCard.ts).
  */
 import Phaser from 'phaser';
-import type { ClaimSnap, LairSnap } from '../types';
+import type { BossSnap, ClaimSnap, LairSnap } from '../types';
 import { TEAM_COLOR } from './units';
 import { HH, HW } from './iso';
 import { myTeam, slot } from './side';
@@ -55,7 +55,7 @@ export class NeutralLayer {
     }
   }
 
-  draw(lairs: LairSnap[], claims: ClaimSnap[], zoom: number): void {
+  draw(lairs: LairSnap[], claims: ClaimSnap[], zoom: number, bosses: readonly BossSnap[] = []): void {
     const g = this.g.clear(), k = 1 / zoom, w = Math.max(1, 1.5 * k);
     lairs.forEach((l, i) => {
       const f = this.feet(l), cleared = l.state === 'cleared';
@@ -96,7 +96,9 @@ export class NeutralLayer {
       const t = this.labels[i] ?? this.labels[this.labels.push(this.scene.add.text(0, 0, '', LABEL).setOrigin(0.5, 1).setResolution(2)) - 1];
       const text = `Claim point\n${v.label}`;
       if (t.text !== text) t.setText(text);
-      t.setColor(LABEL_TONE[v.tone]).setScale(k).setPosition(f.x + 10, top - 16).setDepth(b.depth + 0.01);
+      // a living guardian standing on the point hides its label (it would draw over him; the hover card still tells)
+      const guarded = bosses.some((g) => g.state !== 'slain' && g.state !== 'away' && Math.abs(g.x - c.x) < 5 && Math.abs(g.y - c.y) < 5);
+      t.setColor(LABEL_TONE[v.tone]).setScale(k).setPosition(f.x + 10, top - 16).setDepth(b.depth + 0.01).setVisible(!guarded);
     });
   }
 }
