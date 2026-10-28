@@ -108,6 +108,14 @@ export function cueSfx(cue: string, boss: string): SfxId | null {
     case 'boss.enrage': return roar[boss] ?? 'roar';
     case 'boss.slain': return 'bossSlain';
     case 'boss.loot': return 'chime';
+    // W-67 signature moves: the wind-up (the Griffin's screech, a growl, the bull pawing, the river gathering), the landings
+    case 'boss.windup': return boss === 'griffin' ? 'screech' : boss === 'minotaur' || boss === 'erymanthian_boar' ? 'stomp' : boss === 'river_god' ? 'splash' : 'roar';
+    case 'boss.dive': return 'bossCrash';
+    case 'boss.pounce': return 'thud';
+    case 'boss.maul': return 'sweep';
+    case 'boss.charge': return 'thud';
+    case 'boss.surge': return 'splash';
+    case 'boss.wall': return 'wallCollapse';
     default: return null;
   }
 }
