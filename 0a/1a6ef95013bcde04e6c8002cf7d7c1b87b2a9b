@@ -1,0 +1,31 @@
+docs/v5/pixellab/GUARD/erymanthian_boar.jobs.json
+  s_f08b12c690e0d6::t_c37ba9d2c9e9bf 1-4
+docs/v5/pixellab/GUARD/moor_bear.sheet.json
+  s_f08b12c690e0d6::t_2201834fdb55d7 1-64
+docs/v5/pixellab/GUARD/griffin.jobs.json
+  s_f08b12c690e0d6::t_c37ba9d2c9e9bf 4-7
+src/assets/sheets/mob_moor_bear/manifest.json
+  s_f08b12c690e0d6::t_2201834fdb55d7 1-79
+public/war/guardians.json
+  s_f08b12c690e0d6::t_ca64cedaca8cd9 42-43
+src/war/sim/bosses.ts
+  s_f08b12c690e0d6::t_29d5edd13e4293 113
+src/war/view/bossFx.ts
+  s_f08b12c690e0d6::t_13b08d5429eb36 68
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "0a1a6ef95013bcde04e6c8002cf7d7c1b87b2a9b",
+  "prompts": {},
+  "sessions": {
+    "s_f08b12c690e0d6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e4ed4b42-9ff5-404c-b2dd-32a044e85f29",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
