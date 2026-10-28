@@ -53,12 +53,12 @@ export function itemBadges(item: Item, px = 10): string {
 /** Rolled stats of an item as "Keen +1.0 damage"-style rows. */
 function rolled(item: Item): string[] {
   const aff = CIV_TOOLS[item.def] ? (item.aff ? item.aff.split(',').map((x) => x.split(':')).map(([k, v]) => [k, Number(v)] as const) : []) : itemAffixes(item);
-  return aff.map(([k, n]) => { const a = AFFIXES[k as keyof typeof AFFIXES]; return a ? `${a.word} <span class="rf-num" style="color:#f0d9b5">${n}</span>` : ''; }).filter(Boolean);
+  return aff.map(([k, n]) => { const a = AFFIXES[k as keyof typeof AFFIXES]; return a ? `${a.word} <span class="rf-num" style="color:#ece6d8">${n}</span>` : ''; }).filter(Boolean);
 }
 
 /** Quality, maker and condition of an item (crafted ones; else condition alone). */
 function made(item: Item): string {
-  const q = item.q === undefined ? '' : `<span style="color:${item.q === 2 ? '#e0b867' : item.q === 0 ? '#a8907a' : '#f0d9b5'}">${QUALITY[item.q]}</span> · `;
+  const q = item.q === undefined ? '' : `<span style="color:${item.q === 2 ? '#e0b867' : item.q === 0 ? '#a8907a' : '#ece6d8'}">${QUALITY[item.q]}</span> · `;
   const mk = item.mk ? `made by ${esc(item.mk)} · ` : '';
   const c = item.cond / (item.mc ?? 100);
   return `<div class="rf-dim" style="margin-top:4px;font-size:11px">${q}${mk}condition <span style="color:${c < 0.35 ? 'var(--rf-bad)' : 'var(--rf-ink)'}">${Math.round(item.cond)}/${item.mc ?? 100}</span></div>`;
@@ -164,7 +164,7 @@ export function tipper(root: HTMLElement, tip: HTMLElement): () => void {
 export const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 export const ROSTER_CSS = `
-.rr-list{overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;scrollbar-color:#7a3418 #140c08;border-top:1px solid var(--rf-line)}
+.rr-list{overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;scrollbar-color:#5f4b2a #0f1114;border-top:1px solid var(--rf-line)}
 .rr-row{display:flex;align-items:center;gap:6px;height:40px;padding:0 4px 0 6px;cursor:pointer;box-shadow:inset 3px 0 0 transparent;border-bottom:1px solid #1e140e}
 .rr-row:hover{background:var(--rf-hover)}
 .rr-row.on{background:var(--rf-sel);box-shadow:inset 3px 0 0 var(--rf-title)}
@@ -172,7 +172,7 @@ export const ROSTER_CSS = `
 .rr-row.picked{box-shadow:inset 3px 0 0 var(--rf-gold)}
 .rr-row.picked.on{box-shadow:inset 3px 0 0 var(--rf-gold),inset 0 0 0 1px var(--rf-title)}
 .rr-nm{font:600 12.5px/1 Inter,sans-serif;color:var(--rf-ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.rr-xp{height:2px;background:#2a1a12;margin-top:4px;position:relative}
+.rr-xp{height:2px;background:#1e2127;margin-top:4px;position:relative}
 .rr-xp i{position:absolute;left:0;top:0;height:2px;background:linear-gradient(90deg,#a8802f,#e0b867)}
 .rr-doing{font:500 10.5px/1 Inter,sans-serif;color:var(--rf-muted);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rr-lvup{display:flex;animation:rr-glow 1.8s ease-in-out infinite}
@@ -183,9 +183,9 @@ export const ROSTER_CSS = `
 .rr-cap::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,var(--rf-line),transparent)}
 .rr-cap .rf-dim{font:600 11px/1 Inter,sans-serif}
 .rr-grp{margin:7px 4px 3px 4px}
-.rr-lv{flex:none;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font:700 12px/1 Cinzel,serif;color:#1e1208;background:radial-gradient(circle at 35% 30%,#f6dc9c,#c9a24a 60%,#7a5a28);box-shadow:0 0 0 1px #0e0907,0 0 0 2px #7a5a28}
+.rr-lv{flex:none;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font:700 12px/1 Cinzel,serif;color:#1e1208;background:radial-gradient(circle at 35% 30%,#f6dc9c,#c9a24a 60%,#7a5a28);box-shadow:0 0 0 1px #050506,0 0 0 2px #7a5a28}
 .rr-lv.sm{width:19px;height:19px;font-size:10.5px;color:var(--rf-ink);background:#251812;box-shadow:0 0 0 1px #7a5a28}
-.rr-bar{flex:1;height:6px;background:#140c08;border:1px solid #3a2418;position:relative}
+.rr-bar{flex:1;height:6px;background:#0f1114;border:1px solid #2b2c2f;position:relative}
 .rr-bar i{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(#e8c87a,#a8802f)}
 .rr-bar.hp i{background:linear-gradient(#e0644a,#9a2a1a)}
 .rr-bar.sm{flex:none;width:36px;height:6px}
@@ -196,21 +196,21 @@ export const ROSTER_CSS = `
 .rr-line{display:flex;align-items:center;gap:7px;margin-top:6px}
 .rr-line>.rf-dim{font-size:11px;min-width:62px;text-align:right}
 .rr-rank{display:inline-flex;align-items:center;gap:3px;padding:1px 6px 1px 2px;font:700 11px/14px Inter,sans-serif;border:1px solid #8a6a2a;color:var(--rf-gold);background:rgba(224,184,103,.08)}
-.rr-rank.veteran{border-color:#7a3418;color:var(--rf-accent);background:rgba(222,138,78,.07)}
+.rr-rank.veteran{border-color:#5f4b2a;color:var(--rf-accent);background:rgba(207,162,90,.07)}
 .rr-pending{display:flex;align-items:center;gap:6px;width:100%;margin:7px 0 1px;padding:5px 7px;border:1px solid #c9a24a;background:linear-gradient(90deg,rgba(224,184,103,.24),rgba(224,184,103,.04));color:var(--rf-gold);font:700 12px/1 Cinzel,serif;box-shadow:0 0 8px rgba(224,184,103,.22);animation:rr-pend 2.4s ease-in-out infinite}
 .rr-pending .go{margin-left:auto;font:600 11px/1 Inter,sans-serif;color:var(--rf-ink)}
 .rr-pending:hover{background:linear-gradient(90deg,rgba(224,184,103,.34),rgba(224,184,103,.08))}
 @keyframes rr-pend{0%,100%{box-shadow:0 0 6px rgba(224,184,103,.18)}50%{box-shadow:0 0 11px rgba(224,184,103,.45)}}
 .rr-top{display:flex;gap:9px;margin-top:9px}
-.rr-doll{display:grid;grid-template-columns:30px 64px 30px;grid-template-rows:38px 38px 32px;gap:2px 5px;align-items:start;justify-items:center;padding:6px 6px 4px;background:radial-gradient(ellipse at 50% 55%,#2a1a12,#120b08 75%);border:1px solid var(--rf-rule);box-shadow:inset 0 0 0 1px #0e0907}
-.rr-slot{width:30px;height:30px;background:#140c08;border:1px solid #7a3418;box-shadow:inset 0 0 0 1px #0e0907;display:flex;align-items:center;justify-content:center;position:relative}
+.rr-doll{display:grid;grid-template-columns:30px 64px 30px;grid-template-rows:38px 38px 32px;gap:2px 5px;align-items:start;justify-items:center;padding:6px 6px 4px;background:radial-gradient(ellipse at 50% 55%,#1e2127,#0d0f12 75%);border:1px solid var(--rf-rule);box-shadow:inset 0 0 0 1px #050506}
+.rr-slot{width:30px;height:30px;background:#0f1114;border:1px solid #5f4b2a;box-shadow:inset 0 0 0 1px #050506;display:flex;align-items:center;justify-content:center;position:relative}
 .rr-slot[data-unequip],.rr-slot[data-equip]{cursor:pointer}
 .rr-slot[data-unequip]:hover,.rr-slot[data-equip]:hover{border-color:var(--rf-title)}
-.rr-slot.empty{border-color:#3a2418;background:#100a07}
+.rr-slot.empty{border-color:#2b2c2f;background:#100a07}
 .rr-slot.empty .gl{opacity:.2;filter:grayscale(1)}
 .rr-slot.no{opacity:.4}
 .rr-badge{position:absolute;bottom:-2px;line-height:0;pointer-events:none}
-.rr-port{width:64px;height:80px;background:radial-gradient(ellipse at 50% 85%,#3a2216 0,#140c08 70%);border:1px solid #7a3418;box-shadow:inset 0 0 0 1px #0e0907}
+.rr-port{width:64px;height:80px;background:radial-gradient(ellipse at 50% 85%,#3a2216 0,#0f1114 70%);border:1px solid #5f4b2a;box-shadow:inset 0 0 0 1px #050506}
 .rr-port canvas{display:block;width:64px;height:80px;image-rendering:pixelated}
 .rr-attr{display:grid;grid-template-columns:16px 1fr auto;column-gap:6px;align-items:center;padding:2px 2px 3px;margin-bottom:2px}
 .rr-attr:hover,.rr-stat:hover{background:var(--rf-hover)}
@@ -218,7 +218,7 @@ export const ROSTER_CSS = `
 .rr-attr .nm{color:var(--rf-ink)}
 .rr-attr b{font:700 13px/1 Cinzel,serif;color:var(--rf-ink)}
 .rr-pips{grid-column:2/4;display:flex;gap:1px;margin-top:3px}
-.rr-pips i{flex:1;height:3px;background:#2a1b13}.rr-pips i.b{background:#6a4630}.rr-pips i.on{background:#de8a4e}
+.rr-pips i{flex:1;height:3px;background:#1e2127}.rr-pips i.b{background:#6a4630}.rr-pips i.on{background:#cfa25a}
 .rr-pts{display:inline-flex;align-items:center;gap:2px;padding:0 4px 0 1px;border:1px solid #c9a24a;font:700 10.5px/13px Inter,sans-serif;color:var(--rf-gold);background:rgba(224,184,103,.1);box-shadow:0 0 5px rgba(224,184,103,.3);letter-spacing:0}
 .rr-stats{display:grid;grid-template-columns:1fr 1fr;column-gap:12px}
 .rr-stat{display:flex;align-items:center;gap:6px;padding:3px 2px;border-bottom:1px solid #22160f}
@@ -227,12 +227,12 @@ export const ROSTER_CSS = `
 .rr-skill{display:flex;align-items:center;gap:6px;padding:4px;min-width:0;background:var(--rf-raised);border:1px solid var(--rf-line)}
 .rr-skill .nm{font:600 12px/1.15 Inter,sans-serif;color:var(--rf-ink)}
 .rr-skill .kd{font:700 9px/1.2 Inter,sans-serif;letter-spacing:.07em;text-transform:uppercase;color:var(--rf-gold);margin-top:2px}
-.rr-med{flex:none;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid #e0b867;background:radial-gradient(circle at 50% 40%,#6a4c18,#3a2808);box-shadow:inset 0 0 0 1px #0e0907,0 0 6px rgba(224,184,103,.4)}
+.rr-med{flex:none;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid #e0b867;background:radial-gradient(circle at 50% 40%,#6a4c18,#3a2808);box-shadow:inset 0 0 0 1px #050506,0 0 6px rgba(224,184,103,.4)}
 .rr-skill.free{cursor:pointer;border-color:#c9a24a;background:rgba(224,184,103,.07)}
-.rr-skill.free .rr-med{border-color:#de8a4e;background:#2e160c;animation:rr-pend 1.8s ease-in-out infinite}
+.rr-skill.free .rr-med{border-color:#cfa25a;background:#2e160c;animation:rr-pend 1.8s ease-in-out infinite}
 .rr-skill.free .kd{color:var(--rf-good)}
-.rr-skill.shut{background:none;border-style:dashed;border-color:#4a3428}
-.rr-skill.shut .rr-med{border-color:#3a2a20;background:#120b08;box-shadow:none}
+.rr-skill.shut{background:none;border-style:dashed;border-color:#34363b}
+.rr-skill.shut .rr-med{border-color:#3a2a20;background:#0d0f12;box-shadow:none}
 .rr-skill.shut .nm{color:var(--rf-muted)}.rr-skill.shut .kd{color:var(--rf-disabled)}
 .rr-hon{display:inline-flex;align-items:center;gap:3px;padding:2px 6px 2px 2px;border:1px solid #8a6a2a;color:var(--rf-gold);background:rgba(224,184,103,.07);font:600 11.5px/1 Inter,sans-serif}
 .rr-hon.trait{border-color:var(--rf-line);color:var(--rf-ink);background:var(--rf-raised)}

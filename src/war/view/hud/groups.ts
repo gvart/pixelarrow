@@ -17,7 +17,7 @@ type TipOn = (el: HTMLElement, html: () => string) => void;
 const CLASS = (c: string) => c.replace(/^civ_/, '').replace(/_/g, ' ');
 
 export const GROUPS_CSS = `
-#rfGroups .rf-btn .cnt{position:absolute;left:2px;top:1px;font:700 9px/1 Inter,sans-serif;color:var(--rf-gold);text-shadow:0 1px 0 #0e0907,0 0 2px #0e0907}
+#rfGroups .rf-btn .cnt{position:absolute;left:2px;top:1px;font:700 9px/1 Inter,sans-serif;color:var(--rf-gold);text-shadow:0 1px 0 #050506,0 0 2px #050506}
 #rfGroups .rf-btn:disabled .key{opacity:.55}`;
 
 export function mountGroups(s: SandboxScene, mk: Mk, tipOn: TipOn): { refresh(bottom: number, show: boolean): void } {
@@ -64,7 +64,7 @@ export function mountGroups(s: SandboxScene, mk: Mk, tipOn: TipOn): { refresh(bo
         if (d.team !== myTeam() || d.u.state === 'dead') continue;
         const n = s.sel.groupOf(d.u.id);
         if (!n) continue;
-        const t = texts[k] ?? texts[texts.push(s.add.text(0, 0, '', { fontFamily: 'Inter, sans-serif', fontStyle: '700', fontSize: '20px', color: '#e0b867', stroke: '#0e0907', strokeThickness: 5 }).setOrigin(0.5, 0.5).setDepth(10.9)) - 1];
+        const t = texts[k] ?? texts[texts.push(s.add.text(0, 0, '', { fontFamily: 'Inter, sans-serif', fontStyle: '700', fontSize: '20px', color: '#e0b867', stroke: '#050506', strokeThickness: 5 }).setOrigin(0.5, 0.5).setDepth(10.9)) - 1];
         k++;
         const x = s.iso.sx(d.x, d.y), y = s.iso.sy(d.x, d.y, s.iso.zAt(d.x, d.y));
         if (t.text !== String(n)) t.setText(String(n));

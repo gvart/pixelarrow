@@ -123,7 +123,7 @@ export const CSS = TOKENS + CURSORS + `
 .rf-sec::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,var(--rf-line),transparent)}
 .rf-sec .rf-dim{font:600 11px/1 Inter,sans-serif;text-transform:none;letter-spacing:0}
 .rf-well{background:var(--rf-sunk);border:1px solid var(--rf-rule);box-shadow:inset 0 1px 3px rgba(0,0,0,.6)}
-.rf-scroll{overflow-y:auto;scrollbar-width:thin;scrollbar-color:#7a3418 #0e0907}
+.rf-scroll{overflow-y:auto;scrollbar-width:thin;scrollbar-color:#5f4b2a #050506}
 /* a cost chip against what the player has: red with "/have" when short */
 .rf-need{display:inline-flex;align-items:center;gap:2px;height:22px;padding:0 5px 0 2px;margin:0 3px 3px 0;background:var(--rf-raised);border:1px solid var(--rf-rule);font:700 12px/1 Inter,sans-serif;white-space:nowrap}
 .rf-need b{color:var(--rf-ink)}.rf-need i{font-style:normal;font-weight:600;color:var(--rf-bad)}
@@ -133,12 +133,12 @@ export const CSS = TOKENS + CURSORS + `
 .rf-pill{display:inline-flex;align-items:center;gap:3px;height:16px;padding:0 5px;font:700 9.5px/1 Inter,sans-serif;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--rf-rule);background:var(--rf-sunk);color:var(--rf-muted);white-space:nowrap}
 .rf-pill.good{color:var(--rf-good);border-color:#3f5a2c}.rf-pill.gold{color:var(--rf-gold);border-color:#6a5326}.rf-pill.bad{color:var(--rf-bad);border-color:#6a2c1c}
 /* an inventory slot: icon, count in the corner, rarity edge */
-.rf-cell{position:relative;width:38px;height:38px;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 40%,#2a1b13,#120b08);border:1px solid #3a2418;box-shadow:inset 0 0 0 1px #0e0907}
-.rf-cell:hover{border-color:var(--rf-accent);background:radial-gradient(circle at 50% 40%,#3a2516,#160d09)}
-.rf-cell .n{position:absolute;right:2px;bottom:1px;font:700 10.5px/1 Inter,sans-serif;color:var(--rf-ink);text-shadow:0 1px 0 #0e0907,0 0 2px #0e0907,0 0 2px #0e0907}
-.rf-cell .w{position:absolute;left:2px;top:2px;width:5px;height:5px;background:var(--rf-bad);box-shadow:0 0 0 1px #0e0907}
-.rf-cell.empty{background:#0f0907;border-color:#24160f}
-.rf-cell.empty:hover{border-color:#24160f}
+.rf-cell{position:relative;width:38px;height:38px;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 40%,#1e2127,#0d0f12);border:1px solid #2b2c2f;box-shadow:inset 0 0 0 1px #050506}
+.rf-cell:hover{border-color:var(--rf-accent);background:radial-gradient(circle at 50% 40%,#2b2f37,#160d09)}
+.rf-cell .n{position:absolute;right:2px;bottom:1px;font:700 10.5px/1 Inter,sans-serif;color:var(--rf-ink);text-shadow:0 1px 0 #050506,0 0 2px #050506,0 0 2px #050506}
+.rf-cell .w{position:absolute;left:2px;top:2px;width:5px;height:5px;background:var(--rf-bad);box-shadow:0 0 0 1px #050506}
+.rf-cell.empty{background:#0f0907;border-color:#1a1c20}
+.rf-cell.empty:hover{border-color:#1a1c20}
 /* a quantity stepper: − n + */
 .rf-step{display:inline-flex;align-items:center}
 .rf-step button{width:22px;padding:0}.rf-step input{width:46px;text-align:center;border-left:0;border-right:0}
@@ -148,20 +148,20 @@ export const CSS = TOKENS + CURSORS + `
 .bk-stat.good{color:var(--rf-good)}.bk-stat.bad{color:var(--rf-bad)}.bk-stat.gold{color:var(--rf-gold)}
 .rf-tbtn.big{height:30px;padding:0 16px;font:700 14px/1 Cinzel,serif;letter-spacing:.04em}
 /* W-61: a level ring (gold fill to the next level), an icon chip with a number, a checklist row, a big bar, a medallion */
-.rf-ring{position:relative;flex:none;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;background:conic-gradient(var(--rf-gold) calc(var(--p) * 1turn),#2c1c15 0);box-shadow:0 0 0 1px #0e0907}
-.rf-ring::before{content:'';position:absolute;inset:3px;border-radius:50%;background:radial-gradient(circle at 50% 35%,#3a2516,#120b08);box-shadow:0 0 0 1px #6a5326}
+.rf-ring{position:relative;flex:none;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;background:conic-gradient(var(--rf-gold) calc(var(--p) * 1turn),#2c1c15 0);box-shadow:0 0 0 1px #050506}
+.rf-ring::before{content:'';position:absolute;inset:3px;border-radius:50%;background:radial-gradient(circle at 50% 35%,#2b2f37,#0d0f12);box-shadow:0 0 0 1px #6a5326}
 .rf-ring b{position:relative;font:700 13px/1 Cinzel,serif;color:var(--rf-title)}
 .rf-ichip{display:inline-flex;align-items:center;gap:2px;height:26px;padding:0 6px 0 1px;background:var(--rf-raised);border:1px solid var(--rf-rule);font:700 12px/1 Inter,sans-serif;color:var(--rf-ink);white-space:nowrap}
 .rf-ichip.good{color:var(--rf-good);border-color:#3f5a2c}.rf-ichip.gold{color:var(--rf-gold);border-color:#6a5326}
 .rf-ichip.dim{color:var(--rf-disabled);background:var(--rf-sunk);border-style:dashed}.rf-ichip.dim .ic,.rf-ichip.dim .gl{opacity:.45;filter:grayscale(1)}
 .rf-ichip .up{color:var(--rf-gold);font-size:9px;margin-left:1px}
-.rf-check{display:grid;grid-template-columns:24px 1fr 46px 16px;align-items:center;gap:0 6px;min-height:30px;padding:1px 4px 1px 2px;border-bottom:1px solid #1d130e}
+.rf-check{display:grid;grid-template-columns:24px 1fr 46px 16px;align-items:center;gap:0 6px;min-height:30px;padding:1px 4px 1px 2px;border-bottom:1px solid #1a1c20}
 .rf-check .l{font:600 11.5px/1.2 Inter,sans-serif;color:var(--rf-ink)}.rf-check .rf-bar{margin-top:3px}
 .rf-check .v{text-align:right;font:700 12px/1 Inter,sans-serif}
 .rf-check.ok .v{color:var(--rf-good)}.rf-check.no .v{color:var(--rf-bad)}
-.rf-medal{position:relative;flex:none;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;background:radial-gradient(circle at 50% 35%,#4a3018,#1a100a);box-shadow:0 0 0 1px #0e0907,inset 0 0 0 1.5px var(--rf-gold)}
+.rf-medal{position:relative;flex:none;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;background:radial-gradient(circle at 50% 35%,#4a3018,#1a100a);box-shadow:0 0 0 1px #050506,inset 0 0 0 1.5px var(--rf-gold)}
 .rf-tip .tip-w{display:block;white-space:normal;width:max-content;max-width:240px}
-.rf-medal.me{box-shadow:0 0 0 1px #0e0907,inset 0 0 0 1.5px var(--rf-gold),0 0 6px rgba(224,184,103,.7)}
+.rf-medal.me{box-shadow:0 0 0 1px #050506,inset 0 0 0 1.5px var(--rf-gold),0 0 6px rgba(224,184,103,.7)}
 ` + THEME_CSS;
 
 /** A level ring: `p` 0..1 of the way to the next level in gold round `inner` (the level numeral), `px` across. */
@@ -175,7 +175,7 @@ export function fitHeight(el: HTMLElement, bottom = 4): void {
   el.style.maxHeight = `${Math.floor(innerHeight / z - (parseFloat(el.style.top) || 0) - below - bottom)}px`;
   el.style.overflowY = 'auto';
   el.style.scrollbarWidth = 'thin';
-  el.style.scrollbarColor = '#7a3418 #0e0907';
+  el.style.scrollbarColor = '#5f4b2a #050506';
 }
 
 /** The panels that open at the top left (forge, market, roster, soldier card, memorial): the quest tracker and events card give way. */

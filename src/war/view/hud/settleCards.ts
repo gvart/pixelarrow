@@ -327,18 +327,18 @@ export const SETTLE_CSS = `
 .st-flag i{width:9px;height:12px;background:var(--c);clip-path:polygon(0 0,100% 0,100% 100%,50% 75%,0 100%);box-shadow:inset 0 0 0 1px rgba(0,0,0,.4)}
 .st-flag.none i{background:var(--rf-disabled)}
 .st-stand{display:flex;align-items:center;gap:6px;padding:4px 4px;margin:2px 0 0;background:var(--rf-sunk);border:1px solid var(--rf-rule);font-size:11.5px}
-.st-row{display:flex;align-items:center;gap:6px;min-height:26px;padding:1px 4px;border-bottom:1px solid #1d130e}
+.st-row{display:flex;align-items:center;gap:6px;min-height:26px;padding:1px 4px;border-bottom:1px solid #1a1c20}
 .st-k{width:58px;flex:none;color:var(--rf-muted);font-size:11px}.st-v{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.st-v b{color:var(--rf-ink)}
 .st-t{font-size:11px;white-space:nowrap}
 .st-trib{height:21px}
-.st-av{width:20px;height:20px;flex:none;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font:700 11px/1 Cinzel,serif;color:var(--rf-ink);background:radial-gradient(circle at 50% 35%,#3a2516,#120b08);box-shadow:inset 0 0 0 1.5px var(--rf-muted),0 0 0 1px #0e0907}
-.st-av.lord,.st-av.over{box-shadow:inset 0 0 0 1.5px var(--rf-gold),0 0 0 1px #0e0907;color:var(--rf-gold)}
-.st-av.garrison{box-shadow:inset 0 0 0 1.5px var(--rf-accent),0 0 0 1px #0e0907}
-.st-av.citizen{box-shadow:inset 0 0 0 1.5px var(--rf-good),0 0 0 1px #0e0907}
+.st-av{width:20px;height:20px;flex:none;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font:700 11px/1 Cinzel,serif;color:var(--rf-ink);background:radial-gradient(circle at 50% 35%,#2b2f37,#0d0f12);box-shadow:inset 0 0 0 1.5px var(--rf-muted),0 0 0 1px #050506}
+.st-av.lord,.st-av.over{box-shadow:inset 0 0 0 1.5px var(--rf-gold),0 0 0 1px #050506;color:var(--rf-gold)}
+.st-av.garrison{box-shadow:inset 0 0 0 1.5px var(--rf-accent),0 0 0 1px #050506}
+.st-av.citizen{box-shadow:inset 0 0 0 1.5px var(--rf-good),0 0 0 1px #050506}
 .st-av.free{box-shadow:inset 0 0 0 1px var(--rf-rule)}
 .st-vas{display:flex;flex-wrap:wrap;gap:3px;padding:4px 2px 2px}
 .st-vchip{display:inline-flex;align-items:center;gap:3px;height:20px;padding:0 5px 0 3px;border:1px solid #6a5326;background:var(--rf-raised);font-size:11px}.st-vchip i{font-style:normal;color:var(--rf-gold);margin-left:2px}
-.st-cit{display:grid;grid-template-columns:20px 1fr auto 52px;align-items:center;gap:6px;min-height:24px;padding:1px 4px;border-bottom:1px solid #1d130e}
+.st-cit{display:grid;grid-template-columns:20px 1fr auto 52px;align-items:center;gap:6px;min-height:24px;padding:1px 4px;border-bottom:1px solid #1a1c20}
 .st-cn{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.st-plot{text-align:right;font-size:11px;white-space:nowrap}
 .st-empty{padding:3px 4px;font-size:11.5px}
 .st-reqs{display:flex;flex-wrap:wrap;gap:3px}.st-reqs .rf-ichip{height:22px;font-size:11px}
@@ -364,7 +364,7 @@ export const SETTLE_CSS = `
 .hd-ask{margin-top:5px;font-size:11.5px;line-height:1.3;color:var(--rf-gold)}
 .st-gold{color:var(--rf-gold)}
 #rfHoldings .rf-sec:first-of-type{margin-top:2px}
-.hd-set{display:flex;align-items:center;gap:7px;padding:3px 4px;border-bottom:1px solid #1d130e;cursor:pointer}.hd-set:hover{background:var(--rf-hover)}
+.hd-set{display:flex;align-items:center;gap:7px;padding:3px 4px;border-bottom:1px solid #1a1c20;cursor:pointer}.hd-set:hover{background:var(--rf-hover)}
 .hd-sn{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}.hd-sn b{font:700 13px/1.1 Cinzel,serif;color:var(--rf-title)}.hd-sn span{font-size:11px}
 .hd-tie{display:flex;gap:3px}
 .hd-offer{display:flex;gap:7px;align-items:flex-start;padding:6px 5px;margin-bottom:4px;background:var(--rf-sunk);border:1px solid var(--rf-rule)}

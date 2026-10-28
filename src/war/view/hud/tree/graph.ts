@@ -178,15 +178,15 @@ export function markGraph(host: HTMLElement, id: string | null): void {
 }
 
 export const GRAPH_CSS = `
-.tg{position:relative;margin:6px auto 0;background:radial-gradient(ellipse at 20% 50%,#21150f 0,#120b08 75%);border:1px solid var(--rf-rule);box-shadow:inset 0 0 0 1px #0e0907}
-.tg-ahead{position:absolute;top:0;background:repeating-linear-gradient(135deg,rgba(14,9,7,.55) 0 3px,rgba(14,9,7,.25) 3px 6px);border-left:1px dashed #5a3a28;pointer-events:none}
+.tg{position:relative;margin:6px auto 0;background:radial-gradient(ellipse at 20% 50%,#21150f 0,#0d0f12 75%);border:1px solid var(--rf-rule);box-shadow:inset 0 0 0 1px #050506}
+.tg-ahead{position:absolute;top:0;background:repeating-linear-gradient(135deg,rgba(10,11,13,.55) 0 3px,rgba(10,11,13,.25) 3px 6px);border-left:1px dashed #5a3a28;pointer-events:none}
 .tg-lv{position:absolute;top:6px;text-align:center;font:700 10px/1 Cinzel,serif;color:var(--rf-accent);letter-spacing:.05em}
 .tg-lv.now{color:var(--rf-gold);text-shadow:0 0 6px rgba(224,184,103,.5)}
 .tg-lv.ahead{color:var(--rf-disabled)}
 .tg-e{position:absolute;left:0;top:0;pointer-events:none;overflow:visible}
 .tg-e path{fill:none;stroke-width:1.5;stroke-linejoin:round;transition:stroke .35s,opacity .35s}
 .tg-e path.dim{stroke:#4f3324;stroke-dasharray:2 2}
-.tg-e path.ready{stroke:#de8a4e;stroke-dasharray:5 3;animation:tg-flow 1.2s linear infinite}
+.tg-e path.ready{stroke:#cfa25a;stroke-dasharray:5 3;animation:tg-flow 1.2s linear infinite}
 @keyframes tg-flow{to{stroke-dashoffset:-16}}
 .tg-e path.lit{stroke:#e0b867;filter:drop-shadow(0 0 1.5px rgba(224,184,103,.8))}
 .tg:not(.still) .tg-e path:not(.ready){animation:tg-draw .5s ease-out both}
@@ -194,7 +194,7 @@ export const GRAPH_CSS = `
 .tg-n{position:absolute;display:flex;flex-direction:column;align-items:center;gap:3px;padding:0;background:none;border:0;color:var(--rf-ink)}
 .tg:not(.still) .tg-n{animation:tg-in .32s cubic-bezier(.2,.9,.3,1.2) both;animation-delay:var(--d)}
 @keyframes tg-in{from{opacity:0;transform:translateX(-6px) scale(.85)}to{opacity:1;transform:none}}
-.tg-m{position:relative;width:${R * 2}px;height:${R * 2}px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#1c120d;border:2px solid #4a3428;box-shadow:inset 0 0 0 1px #0e0907;transition:border-color .3s,background .3s,box-shadow .4s,transform .15s;font:700 10px/1 Cinzel,serif;color:var(--rf-muted)}
+.tg-m{position:relative;width:${R * 2}px;height:${R * 2}px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#1c120d;border:2px solid #34363b;box-shadow:inset 0 0 0 1px #050506;transition:border-color .3s,background .3s,box-shadow .4s,transform .15s;font:700 10px/1 Cinzel,serif;color:var(--rf-muted)}
 .tg-m img,.tg-m .gl{display:block;transition:opacity .3s,filter .3s}
 .tg-n.root .tg-m{outline:1px solid #7a5a28;outline-offset:2px}
 .tg-n.cap .tg-m{border-radius:4px;transform:rotate(45deg) scale(.88)}
@@ -202,17 +202,17 @@ export const GRAPH_CSS = `
 .tg-t{font:600 10px/11px Inter,sans-serif;text-align:center;max-width:${CW - 2}px;white-space:normal;transition:color .3s}
 .tg-s{font:600 9.5px/1 Inter,sans-serif;color:var(--rf-muted)}
 .tg-badge,.tg-lock{position:absolute;display:none;align-items:center;justify-content:center;pointer-events:none}
-.tg-badge{right:-7px;top:-6px;min-width:16px;height:16px;padding:0 3px;border-radius:8px;background:linear-gradient(#f6dc9c,#c9a24a);color:#1e1208;font:700 10px/1 Inter,sans-serif;box-shadow:0 0 0 1px #0e0907,0 0 6px rgba(224,184,103,.75)}
-.tg-lock{right:-8px;bottom:-5px;gap:2px;height:13px;padding:0 3px;background:#0e0907;border:1px solid #4a3428;color:#a8907a;font:700 9px/1 Inter,sans-serif}
+.tg-badge{right:-7px;top:-6px;min-width:16px;height:16px;padding:0 3px;border-radius:8px;background:linear-gradient(#f6dc9c,#c9a24a);color:#1e1208;font:700 10px/1 Inter,sans-serif;box-shadow:0 0 0 1px #050506,0 0 6px rgba(224,184,103,.75)}
+.tg-lock{right:-8px;bottom:-5px;gap:2px;height:13px;padding:0 3px;background:#050506;border:1px solid #34363b;color:#a8907a;font:700 9px/1 Inter,sans-serif}
 .tg-lock b{font-weight:700}
-.tg-n.taken .tg-m{border-color:#e0b867;background:radial-gradient(circle at 50% 40%,#6a4c18,#3a2808);box-shadow:inset 0 0 0 1px #0e0907,0 0 9px 2px rgba(224,184,103,.5)}
+.tg-n.taken .tg-m{border-color:#e0b867;background:radial-gradient(circle at 50% 40%,#6a4c18,#3a2808);box-shadow:inset 0 0 0 1px #050506,0 0 9px 2px rgba(224,184,103,.5)}
 .tg-n.taken .tg-t{color:#f6dc9c}
 .tg-n.open{cursor:pointer}
-.tg-n.open .tg-m{border-color:#de8a4e;background:radial-gradient(circle at 50% 40%,#3e2010,#24120a);animation:tg-pulse 1.8s ease-in-out infinite}
+.tg-n.open .tg-m{border-color:#cfa25a;background:radial-gradient(circle at 50% 40%,#3e2010,#24120a);animation:tg-pulse 1.8s ease-in-out infinite}
 .tg-n.open .tg-badge{display:flex}
-.tg-n.open:hover .tg-m{transform:scale(1.1);border-color:#f2b27a}
+.tg-n.open:hover .tg-m{transform:scale(1.1);border-color:#efcf86}
 .tg-n.cap.open:hover .tg-m{transform:rotate(45deg) scale(.97)}
-@keyframes tg-pulse{0%,100%{box-shadow:inset 0 0 0 1px #0e0907,0 0 0 1px rgba(222,138,78,.35),0 0 6px rgba(222,138,78,.35)}50%{box-shadow:inset 0 0 0 1px #0e0907,0 0 0 4px rgba(222,138,78,.12),0 0 12px rgba(222,138,78,.7)}}
+@keyframes tg-pulse{0%,100%{box-shadow:inset 0 0 0 1px #050506,0 0 0 1px rgba(207,162,90,.35),0 0 6px rgba(207,162,90,.35)}50%{box-shadow:inset 0 0 0 1px #050506,0 0 0 4px rgba(207,162,90,.12),0 0 12px rgba(207,162,90,.7)}}
 .tg-n.locked .tg-m{border-color:#33251c;background:#110a07}
 .tg-n.locked .tg-t{color:var(--rf-disabled)}
 .tg-n.locked .tg-m img,.tg-n.locked .tg-m .gl{opacity:.5;filter:grayscale(1) brightness(.9)}

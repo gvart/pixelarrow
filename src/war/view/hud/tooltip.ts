@@ -128,7 +128,7 @@ export const TIP_CSS = `
 @keyframes cx-hold{from{transform:scaleX(0)}to{transform:scaleX(1)}}
 .cx{white-space:normal;line-height:1.35}
 .cx-head{display:flex;align-items:center;gap:7px}
-.cx-ic{width:32px;height:32px;flex:none;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 40%,#2c1c14,#140c08);border:1px solid #7a5a28;box-shadow:inset 0 0 0 1px #0e0907}
+.cx-ic{width:32px;height:32px;flex:none;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 40%,#2c1c14,#0f1114);border:1px solid #7a5a28;box-shadow:inset 0 0 0 1px #050506}
 .cx-ic.sm{width:26px;height:26px}
 .cx-name{font:700 13.5px/1.1 Cinzel,serif;color:var(--rf-title);letter-spacing:.02em}
 .cx-kind{font:700 9.5px/1.2 Inter,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--rf-muted);margin-top:2px}

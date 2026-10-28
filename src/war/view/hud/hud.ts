@@ -201,7 +201,7 @@ export function hud(s: SandboxScene): void {
   card.innerHTML = `<div class="rf-card hud-cmd" id="cFrame">
     <div class="hud-port" id="cPort"><div id="cIcon"></div><canvas id="cPortCv" width="64" height="80"></canvas><span class="lv" id="cLv"></span></div>
     <div id="cSel" style="display:flex;flex-direction:column;justify-content:center;min-width:0">
-      <div style="min-width:0"><div class="rf-name" id="cName" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div><div class="rf-num" id="cCount"></div><div class="rf-chip" id="cTag" style="display:none" title="combat tag: no entry to a safe court until it runs out"></div></div>
+      <div class="hud-head"><div class="rf-name" id="cName"></div><div class="rf-num" id="cCount"></div></div><div class="rf-chip" id="cTag" style="display:none" title="combat tag: no entry to a safe court until it runs out"></div>
       <div id="cBars" style="margin-top:4px;display:flex;flex-direction:column;gap:2px"></div>
       <div class="hud-chips" id="cChips"></div>
       <div class="hud-pips" id="cPips"></div>
@@ -319,7 +319,7 @@ export function hud(s: SandboxScene): void {
     $('cStat').style.display = stat ? '' : 'none';
     if (stat) { $('cStat').className = `bk-stat ${stat.tone}`; $('cStat').textContent = stat.text; }
   };
-  const SEL_SQUAD = 156, SEL_BLD = 236;
+  const SEL_SQUAD = 184, SEL_BLD = 236;
   /** The panel's bar: a fill (hp, construction, burn) with its numbers on it. */
   const hudBar = (kind: string, v: number, text: string) => `<div class="hud-hp"><i class="${kind}" style="width:${(Math.max(0, Math.min(1, v)) * 100).toFixed(1)}%"></i><span>${text}</span></div>`;
   /** The portrait: the class's sprite (the roster's portrait) for men, else the icon. */
@@ -378,6 +378,8 @@ export function hud(s: SandboxScene): void {
   $('cSel').addEventListener('pointerenter', () => { const b = m.selectedBuilding(); if (b && !chain.isHeld()) showTip($('cSel'), buildingTip(b, s.region.id)); });
   $('cSel').addEventListener('pointerleave', (e) => { if (tipAt === $('cSel') && !chain.isHeld() && !chain.holds(e.relatedTarget)) hideTip(); });
 
+  // ---------- the dock bottom right: a plate under the chest (I), roster (R) and build (B) buttons ----------
+  mk('rfDock', '');
   // ---------- build: hammer button (B) opens the tabbed bar; B / Esc close it ----------
   const hammer = mk('rfHammer', 'right:4px;bottom:4px;pointer-events:auto');
   const hBtn = btn('cBuild', 'act-build', tipK('Build', 'open the build bar; Esc closes', 'B'), 'B', () => { m.toggle(); if (m.active) { tab = 'Camp'; renderTools(); } });
@@ -595,10 +597,11 @@ export function hud(s: SandboxScene): void {
       // level and food: the selected men's average (what exists: no morale in the sim)
       const lvls = men.filter((d) => d.u.level), lv = lvls.length ? lvls.reduce((a, d) => a + d.u.level!, 0) / lvls.length : 0;
       const fedMen = men.filter((d) => d.u.sat !== undefined), sat = fedMen.length ? fedMen.reduce((a, d) => a + d.u.sat!, 0) / fedMen.length : -1;
-      const chips = `${lv ? `<span class="hud-chip gold">Lv ${Number.isInteger(lv) ? lv : lv.toFixed(1)}</span>` : ''}${sat >= 0 ? `<span class="hud-chip ${sat >= 60 ? 'good' : sat >= 30 ? 'warn' : 'bad'}">Fed ${Math.round(sat)}%</span>` : ''}${q.blessed ? '<span class="hud-chip gold">Blessed</span>' : ''}`;
-      setHead(UNIT_ICON[cls] ?? 'unit-militia', byCls.size > 1 ? 'Mixed' : CLASS_NAME[cls] ?? civName(cls) ?? nice(cls), `<b>${men.length}</b> ${men.length === 1 ? 'man' : 'men'}${byCls.size > 1 ? `, ${byCls.size} classes` : ''}`, hudBar('hp', hp / max, `${Math.ceil(hp)} / ${Math.ceil(max)}`),
+      const fed = sat >= 0 ? ` · <span class="hud-fed ${sat >= 60 ? 'good' : sat >= 30 ? 'warn' : 'bad'}" title="how fed they are (food: the squad chest)">fed ${Math.round(sat)}%</span>` : '';
+      const chips = q.blessed ? '<span class="hud-chip gold">Blessed</span>' : '';
+      setHead(UNIT_ICON[cls] ?? 'unit-militia', byCls.size > 1 ? 'Mixed' : CLASS_NAME[cls] ?? civName(cls) ?? nice(cls), `<b>${men.length}</b> ${men.length === 1 ? 'man' : 'men'}${byCls.size > 1 ? `, ${byCls.size} classes` : ''}${fed}`, hudBar('hp', hp / max, `${Math.ceil(hp)} / ${Math.ceil(max)}`),
         civ ? civInfo(s, own[0]) : e ? `crews ${SIEGE_NAME[e.type]} · ${e.state}${e.burning ? ' · burning' : ''}` : `${s.sim.cur ? activityText(q, s.sim.cur, { nodes: s.sim.nodes, goal: s.lastCommand }) : q.order}${q.fed ? ' · fed' : ''}${sc.status ? ' · ' + sc.status : ''}`, undefined, chips);
-      setPortrait(byCls.size ? cls : null, lv ? `Lv ${Math.round(lv)}` : '');
+      setPortrait(byCls.size ? cls : null, lv ? `Lv ${Number.isInteger(lv) ? lv : lv.toFixed(1)}` : '');
       // the pips: every living man of the selected squads (a man picked alone keeps his squad's row)
       const ownSet = new Set(own);
       setPips((s.sim.cur?.units ?? []).filter((u) => ownSet.has(u.squad) && u.state !== 'dead').map((u) => u.id));
@@ -645,6 +648,12 @@ export function hud(s: SandboxScene): void {
     const dock = document.getElementById('rfChestBtn');
     if (m.active && card.style.display === 'none' && dock && build.getBoundingClientRect().right > dock.getBoundingClientRect().left - 4) build.style.bottom = '42px';
     groups.refresh(card.style.display === 'none' ? 4 : card.offsetHeight + 8, !m.active);
+    // the soul prompt (./souls.ts) sits over whatever is stacked bottom centre
+    const soul = document.getElementById('rfSoul');
+    if (soul && soul.style.display !== 'none') {
+      const tops = [card, build, document.getElementById('rfGroups')].filter((x): x is HTMLElement => !!x && x.style.display !== 'none').map((x) => (parseFloat(x.style.bottom) || 0) + x.offsetHeight);
+      soul.style.bottom = `${Math.max(132, ...tops.map((t) => t + 6))}px`;
+    }
     if (m.active) held = C.engineerNodes();
     for (const [x, d] of toolBtns) {
       x.classList.toggle('on', JSON.stringify(d.tool) === JSON.stringify(m.tool));

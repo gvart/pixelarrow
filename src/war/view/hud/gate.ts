@@ -33,13 +33,13 @@ export function waitText(ms: number): string {
 }
 
 const CSS = `
-.gt-modal{z-index:30;background:radial-gradient(ellipse at center,rgba(8,5,4,.35),rgba(8,5,4,.78))}
+.gt-modal{z-index:30;background:radial-gradient(ellipse at center,rgba(5,6,7,.35),rgba(5,6,7,.78))}
 body.gt-clean .rf:not(#rfGate),body.gt-clean .gd-mk{visibility:hidden}
-.gt-modal.soft{background:rgba(8,5,4,.38)}
+.gt-modal.soft{background:rgba(5,6,7,.38)}
 .gt-card{width:320px;text-align:left}
 .gt-card .mn-h{justify-content:center}
 .gt-place{display:flex;align-items:center;justify-content:center;gap:12px;margin:6px 0 4px}
-.gt-n{font:700 44px/1 Cinzel,serif;color:var(--rf-title);text-shadow:0 2px 0 #0e0907}
+.gt-n{font:700 44px/1 Cinzel,serif;color:var(--rf-title);text-shadow:0 2px 0 #050506}
 .gt-n small{font-size:20px;color:var(--rf-accent);margin-right:1px}
 .gt-of{font:600 12px/1.35 Inter,sans-serif;color:var(--rf-muted)}
 .gt-of b{color:var(--rf-ink)}

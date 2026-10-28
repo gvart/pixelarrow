@@ -50,13 +50,13 @@ ${layer} .mk{position:absolute;width:0;height:0;transition:opacity .4s}
 ${layer} .mk .pin{position:absolute;left:-15px;top:-44px;filter:drop-shadow(0 2px 2px rgba(0,0,0,.7));animation:mkDrop .38s cubic-bezier(.3,1.6,.5,1)}
 ${layer} .mk .ring{position:absolute;left:-22px;top:-9px;width:44px;height:18px;border-radius:50%;border:2px solid var(--mk-c);box-shadow:0 0 6px var(--mk-c);animation:mkPulse 1.4s ease-out infinite}
 ${layer} .mk .ring.b{animation-delay:.7s}
-${layer} .mk .dot{position:absolute;left:-3px;top:-2px;width:6px;height:4px;border-radius:50%;background:var(--mk-c);box-shadow:0 0 0 1px #0e0907}
-${layer} .mk .nm{position:absolute;left:0;top:-62px;transform:translateX(-50%);padding:2px 6px;white-space:nowrap;font:700 11px/1.2 Inter,sans-serif;color:#fff0d8;background:rgba(14,9,7,.86);border:1px solid var(--rf-rule);border-left:2px solid var(--mk-c)}
+${layer} .mk .dot{position:absolute;left:-3px;top:-2px;width:6px;height:4px;border-radius:50%;background:var(--mk-c);box-shadow:0 0 0 1px #050506}
+${layer} .mk .nm{position:absolute;left:0;top:-62px;transform:translateX(-50%);padding:2px 6px;white-space:nowrap;font:700 11px/1.2 Inter,sans-serif;color:#fff6e2;background:rgba(10,11,13,.86);border:1px solid var(--rf-rule);border-left:2px solid var(--mk-c)}
 ${layer} .mk .nm i{font-style:normal;color:var(--mk-c);margin-right:4px}
 ${edges} .edge{position:absolute;width:0;height:0;pointer-events:auto;cursor:pointer}
-${edges} .edge .ar{position:absolute;left:-17px;top:-17px;width:34px;height:34px;border-radius:50%;background:rgba(14,9,7,.9);border:2px solid var(--mk-c);box-shadow:0 0 8px var(--mk-c);display:flex;align-items:center;justify-content:center;animation:mkBeat 1s ease-in-out infinite}
+${edges} .edge .ar{position:absolute;left:-17px;top:-17px;width:34px;height:34px;border-radius:50%;background:rgba(10,11,13,.9);border:2px solid var(--mk-c);box-shadow:0 0 8px var(--mk-c);display:flex;align-items:center;justify-content:center;animation:mkBeat 1s ease-in-out infinite}
 ${edges} .edge .tip{position:absolute;left:-6px;top:-6px;width:0;height:0;border-left:9px solid var(--mk-c);border-top:6px solid transparent;border-bottom:6px solid transparent;transform-origin:6px 6px}
-${edges} .edge .nm{position:absolute;left:0;top:20px;transform:translateX(-50%);white-space:nowrap;font:700 10px/1 Inter,sans-serif;color:#fff0d8;text-shadow:0 1px 0 #0e0907,0 0 3px #0e0907}
+${edges} .edge .nm{position:absolute;left:0;top:20px;transform:translateX(-50%);white-space:nowrap;font:700 10px/1 Inter,sans-serif;color:#fff6e2;text-shadow:0 1px 0 #050506,0 0 3px #050506}
 @keyframes mkPulse{0%{transform:scale(.4);opacity:1}100%{transform:scale(1.5);opacity:0}}
 @keyframes mkDrop{0%{transform:translateY(-26px);opacity:0}100%{transform:none;opacity:1}}
 @keyframes mkBeat{0%,100%{transform:scale(1)}50%{transform:scale(1.1)}}
@@ -64,7 +64,7 @@ ${edges} .edge .nm{position:absolute;left:0;top:20px;transform:translateX(-50%);
 
 const CSS = `
 #rfChat{position:fixed;z-index:4;width:340px;pointer-events:none;color:var(--rf-ink);font:var(--rf-body)}
-#rfChat .ch-tab{pointer-events:auto;display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px 0 6px;margin-top:3px;cursor:pointer;background:rgba(14,9,7,.82);border:1px solid var(--rf-rule);box-shadow:inset 0 1px 0 rgba(242,178,122,.08);font:700 11px/1 Cinzel,serif;color:var(--rf-title);letter-spacing:.05em}
+#rfChat .ch-tab{pointer-events:auto;display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px 0 6px;margin-top:3px;cursor:pointer;background:rgba(10,11,13,.82);border:1px solid var(--rf-rule);box-shadow:inset 0 1px 0 rgba(239,207,134,.08);font:700 11px/1 Cinzel,serif;color:var(--rf-title);letter-spacing:.05em}
 #rfChat .ch-tab:hover{border-color:var(--rf-line);background:rgba(44,28,21,.92)}
 #rfChat .ch-tab .k{font:600 10px/1 Inter,sans-serif;color:var(--rf-muted);letter-spacing:0;padding:2px 4px;border:1px solid var(--rf-rule);background:var(--rf-sunk)}
 #rfChat .ch-tab .u{min-width:16px;height:15px;padding:0 4px;font:700 10px/15px Inter,sans-serif;text-align:center;color:#1a0e08;background:var(--rf-accent);letter-spacing:0}
@@ -79,7 +79,7 @@ const CSS = `
 #rfChat .ch-log{display:flex;flex-direction:column;gap:1px;max-height:132px;overflow:hidden}
 #rfChat.open .ch-log{height:var(--ch-log-h,164px);max-height:none;overflow-y:auto;padding:3px 2px 3px 3px;background:var(--rf-sunk);border:1px solid var(--rf-rule);box-shadow:inset 0 1px 3px rgba(0,0,0,.6)}
 #rfChat .ch-l{position:relative;padding:2px 5px;font:600 12px/1.35 Inter,sans-serif;color:var(--rf-ink);word-wrap:break-word;overflow-wrap:anywhere;transition:opacity .6s}
-#rfChat:not(.open) .ch-l{background:linear-gradient(90deg,rgba(14,9,7,.78) 60%,rgba(14,9,7,0));text-shadow:0 1px 0 #0e0907,0 0 3px #0e0907}
+#rfChat:not(.open) .ch-l{background:linear-gradient(90deg,rgba(10,11,13,.78) 60%,rgba(10,11,13,0));text-shadow:0 1px 0 #050506,0 0 3px #050506}
 #rfChat:not(.open) .ch-l.old{opacity:0}
 #rfChat.open .ch-l:hover{background:var(--rf-hover)}
 #rfChat .ch-l .tm{font:600 10px/1 Inter,sans-serif;color:var(--rf-disabled);margin-right:4px}
@@ -102,25 +102,25 @@ const CSS = `
 #rfChat.open .ch-bar{display:flex}
 #rfChat .ch-ib{width:24px;height:23px;flex:none;padding:0;display:flex;align-items:center;justify-content:center;background:var(--rf-raised);border:1px solid var(--rf-rule);cursor:pointer;position:relative}
 #rfChat .ch-ib:hover{border-color:var(--rf-accent);background:var(--rf-hover)}
-#rfChat .ch-pop.on ~ .ch-box [data-a="phrases"],#rfChat .ch-ib.on{border-color:var(--rf-title);background:var(--rf-sel);box-shadow:inset 0 0 0 1px #0e0907}
+#rfChat .ch-pop.on ~ .ch-box [data-a="phrases"],#rfChat .ch-ib.on{border-color:var(--rf-title);background:var(--rf-sel);box-shadow:inset 0 0 0 1px #050506}
 #rfChat .ch-ib svg{display:block}
 #rfChat .ch-sep{width:1px;height:17px;background:var(--rf-rule);margin:0 2px}
 #rfChat input.ch-in{flex:1;min-width:0;width:auto;height:23px;padding:0 6px;font:600 12px/1 Inter,sans-serif;color:var(--rf-ink);background:var(--rf-sunk);border:1px solid var(--rf-line);outline:none;user-select:text}
-#rfChat input.ch-in:focus{border-color:var(--rf-accent);box-shadow:0 0 0 1px rgba(222,138,78,.25)}
+#rfChat input.ch-in:focus{border-color:var(--rf-accent);box-shadow:0 0 0 1px rgba(207,162,90,.25)}
 #rfChat input.ch-in::placeholder{color:var(--rf-disabled)}
 #rfChat .ch-cnt{position:absolute;right:6px;bottom:100%;margin-bottom:2px;font:600 10px/1 Inter,sans-serif;color:var(--rf-disabled)}
 #rfChat .ch-pop{display:none;pointer-events:auto;margin-bottom:4px;padding:6px;grid-template-columns:1fr 1fr;gap:2px}
 #rfChat .ch-pop.on{display:grid}
 #rfChat .ch-pop .rf-sec{grid-column:1/-1;margin:0 0 3px}
 #rfChat .ch-pop button{height:22px;padding:0 7px;text-align:left;font:600 11.5px/1 Inter,sans-serif;color:var(--rf-ink);background:var(--rf-sunk);border:1px solid var(--rf-rule);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#rfChat .ch-pop button:hover{border-color:var(--rf-accent);color:#fff0d8;background:var(--rf-hover)}
+#rfChat .ch-pop button:hover{border-color:var(--rf-accent);color:#fff6e2;background:var(--rf-hover)}
 #rfChat .ch-mutes{display:none;pointer-events:auto;margin-bottom:4px;padding:6px 8px}
 #rfChat .ch-mutes.on{display:block}
 #rfChat .ch-mutes .r{display:flex;align-items:center;gap:6px;padding:2px 0}
 #rfChat .ch-mutes .r button{margin-left:auto}
 ${markCss('#rfMarks', '#rfMarkEdges')}
 #rfMarkPick{position:fixed;left:0;top:0;width:100%;height:100%;z-index:3;cursor:crosshair}
-#rfMarkHint{position:fixed;z-index:9;pointer-events:none;padding:3px 7px;white-space:nowrap;font:600 11.5px/1.3 Inter,sans-serif;color:var(--rf-ink);background:rgba(14,9,7,.9);border:1px solid var(--rf-rule);border-left:3px solid var(--mk-c)}
+#rfMarkHint{position:fixed;z-index:9;pointer-events:none;padding:3px 7px;white-space:nowrap;font:600 11.5px/1.3 Inter,sans-serif;color:var(--rf-ink);background:rgba(10,11,13,.9);border:1px solid var(--rf-rule);border-left:3px solid var(--mk-c)}
 #rfMarkHint b{color:var(--mk-c)}#rfMarkHint .k{color:var(--rf-muted);font-size:10.5px}
 `;
 
@@ -131,9 +131,9 @@ const GLYPH: Record<MarkKind, string> = {
   defend: '<path d="M8 1.8l5.2 1.8v4.1c0 3.2-2.2 5.4-5.2 6.6-3-1.2-5.2-3.4-5.2-6.6V3.6z"/>',
   help: '<path d="M6.8 2h2.4l-.4 7.6H7.2z"/><circle cx="8" cy="12.4" r="1.4"/>',
 };
-export const markIcon = (k: MarkKind, size = 14, fill = '#fff0d8') => `<svg width="${size}" height="${size}" viewBox="0 0 16 16" fill="${fill}">${GLYPH[k]}</svg>`;
+export const markIcon = (k: MarkKind, size = 14, fill = '#fff6e2') => `<svg width="${size}" height="${size}" viewBox="0 0 16 16" fill="${fill}">${GLYPH[k]}</svg>`;
 /** The pin: a shield-shaped drop in the kind's colour, the glyph inside. */
-const pin = (k: MarkKind) => `<svg class="pin" width="30" height="44" viewBox="0 0 30 44"><path d="M15 43 4 26C1 21 1 14 4 9 7 4 11 2 15 2s8 2 11 7c3 5 3 12 0 17z" fill="#0e0907"/><path d="M15 39.5 5.8 25C3.4 21 3.4 15 5.8 10.6 8.2 6.4 11.4 4.4 15 4.4s6.8 2 9.2 6.2c2.4 4.4 2.4 10.4 0 14.4z" fill="${MARK_INFO[k].color}"/><path d="M15 6.4c-2.6 0-5 1.4-6.8 4.4" stroke="rgba(255,255,255,.45)" stroke-width="1.6" fill="none"/><g transform="translate(7 8)" fill="#1a0e08">${GLYPH[k]}</g></svg>`;
+const pin = (k: MarkKind) => `<svg class="pin" width="30" height="44" viewBox="0 0 30 44"><path d="M15 43 4 26C1 21 1 14 4 9 7 4 11 2 15 2s8 2 11 7c3 5 3 12 0 17z" fill="#050506"/><path d="M15 39.5 5.8 25C3.4 21 3.4 15 5.8 10.6 8.2 6.4 11.4 4.4 15 4.4s6.8 2 9.2 6.2c2.4 4.4 2.4 10.4 0 14.4z" fill="${MARK_INFO[k].color}"/><path d="M15 6.4c-2.6 0-5 1.4-6.8 4.4" stroke="rgba(255,255,255,.45)" stroke-width="1.6" fill="none"/><g transform="translate(7 8)" fill="#1a0e08">${GLYPH[k]}</g></svg>`;
 const ICON_QUOTE = '<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M2 3h12v8H8l-3.5 3v-3H2z" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M5 6h6v1.4H5zM5 8.2h4v1.4H5z"/></svg>';
 const ICON_SEND = '<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2.5 14.5 8 2 13.5l1.6-4.6L9 8 3.6 7.1z"/></svg>';
 

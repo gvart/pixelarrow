@@ -11,6 +11,9 @@
  * (disabled is for greyed controls only).
  */
 
+/** A faint stone grain (SVG noise, tiled) under the panels' gradient. */
+const GRAIN = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 1  0 0 0 0 .93  0 0 0 0 .8  0 0 0 .06 0"/></filter><rect width="96" height="96" filter="url(#n)"/></svg>')}`;
+
 /** The top bar's height in art px; panels anchored at the top sit below it (`--hud-top`). */
 export const TOP_BAR_H = 30;
 
@@ -29,7 +32,8 @@ export const TOKENS = `:root{
   --hud-frame-hi:inset 0 1px 0 rgba(246,220,152,.8),inset 0 0 0 1px var(--hud-gold-lo),inset 0 0 0 2px rgba(0,0,0,.55),0 0 0 1px var(--hud-edge),0 0 14px rgba(226,189,104,.18),0 8px 22px rgba(0,0,0,.5);
   --hud-slot:inset 0 0 0 1px var(--hud-bronze),inset 0 0 0 2px rgba(0,0,0,.7),inset 0 3px 6px rgba(0,0,0,.55),0 0 0 1px var(--hud-edge),0 1px 0 rgba(255,236,190,.06);
   --hud-glow:0 0 0 1px var(--hud-edge),inset 0 0 0 1px var(--hud-gold),inset 0 0 0 2px rgba(0,0,0,.6),0 0 10px rgba(226,189,104,.45);
-  --hud-stone:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,0) 38%),linear-gradient(180deg,var(--hud-panel-hi),var(--hud-panel) 46%,var(--hud-panel-lo));
+  --hud-grain:url("${GRAIN}");
+  --hud-stone:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,0) 38%),var(--hud-grain),linear-gradient(180deg,var(--hud-panel-hi),var(--hud-panel) 46%,var(--hud-panel-lo));
   --hud-slot-bg:radial-gradient(circle at 50% 32%,#2b2f37,#121419 70%,#0b0c0f);
   --hud-fast:120ms;--hud-med:160ms;--hud-ease:cubic-bezier(.2,.7,.3,1);
   --hud-top:${TOP_BAR_H + 2}px;
@@ -172,9 +176,12 @@ export const THEME_CSS = `
 #rfCard .hud-port.sprite canvas{display:block}#rfCard .hud-port.sprite #cIcon{display:none}
 #rfCard .hud-port .lv{position:absolute;left:50%;bottom:2px;transform:translateX(-50%);padding:1px 5px;border-radius:2px;font:700 9.5px/1.2 Inter,system-ui,sans-serif;color:var(--hud-gold-hi);background:rgba(4,5,6,.85);box-shadow:0 0 0 1px var(--hud-gold-lo);white-space:nowrap}
 #rfCard .hud-port .lv:empty{display:none}
-#rfCard #cName{font:700 14px/1.1 Cinzel,serif}
-#rfCard #cCount{margin-top:3px;font:var(--hud-small);color:var(--hud-muted)}
+#rfCard .hud-head{display:flex;align-items:baseline;flex-wrap:wrap;gap:0 8px;min-width:0}
+#rfCard #cName{font:700 14px/1.15 Cinzel,serif;min-width:0;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#rfCard #cCount{margin-left:auto;font:var(--hud-small);color:var(--hud-muted);white-space:nowrap}
+#rfCard #cCount:empty{display:none}
 #rfCard #cCount b{color:var(--hud-ink)}
+#rfCard .hud-fed.good{color:var(--hud-good)}#rfCard .hud-fed.warn{color:var(--hud-warn)}#rfCard .hud-fed.bad{color:var(--hud-bad)}
 #rfCard .hud-hp{position:relative;height:13px;border:1px solid var(--hud-edge);border-radius:1px;background:linear-gradient(180deg,#07080a,#131518);box-shadow:0 1px 0 rgba(255,236,190,.06);overflow:hidden}
 #rfCard .hud-hp i{position:absolute;left:0;top:0;bottom:0;box-shadow:inset 0 1px 0 rgba(255,255,255,.3),inset 0 -2px 3px rgba(0,0,0,.25);transition:width var(--hud-med) var(--hud-ease)}
 #rfCard .hud-hp i.hp{background:linear-gradient(180deg,var(--hud-hp-a),var(--hud-hp-b) 55%,var(--hud-hp-c))}
@@ -212,5 +219,5 @@ export const THEME_CSS = `
 #minimap .mm-corner.c{left:2px;bottom:2px;border-right:0;border-top:0}#minimap .mm-corner.d{right:2px;bottom:2px;border-left:0;border-top:0}
 
 /* ---- the dock bottom right (chest, roster, build) ---- */
-#rfChestBtn,#rrBtn,#rfHammer{filter:drop-shadow(0 3px 6px rgba(0,0,0,.5))}
+#rfDock{right:1px;bottom:1px;width:106px;height:36px;z-index:3;pointer-events:none;border-radius:3px;background:var(--hud-stone);box-shadow:var(--hud-frame)}
 `;

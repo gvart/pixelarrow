@@ -16,12 +16,12 @@ type Mk = (id: string, css: string, html?: string) => HTMLElement;
 type P = { x: number; y: number };
 
 const CSS = `
-.gd-mk{position:fixed;z-index:2;pointer-events:none;transform:translate(-50%,-100%);display:none;flex-direction:column;align-items:center;font:700 13px/1 Inter,sans-serif;color:var(--rf-gold);text-shadow:0 1px 0 #0e0907,0 0 3px #0e0907;white-space:nowrap}
-.gd-mk .lb{padding:4px 7px;background:rgba(14,9,7,.82);box-shadow:inset 0 0 0 1px #6a5326}
-.gd-mk .ch{width:0;height:0;margin-top:3px;border:9px solid transparent;border-top:13px solid var(--rf-gold);border-bottom:0;filter:drop-shadow(0 1px 0 #0e0907)}
+.gd-mk{position:fixed;z-index:2;pointer-events:none;transform:translate(-50%,-100%);display:none;flex-direction:column;align-items:center;font:700 13px/1 Inter,sans-serif;color:var(--rf-gold);text-shadow:0 1px 0 #050506,0 0 3px #050506;white-space:nowrap}
+.gd-mk .lb{padding:4px 7px;background:rgba(10,11,13,.82);box-shadow:inset 0 0 0 1px #6a5326}
+.gd-mk .ch{width:0;height:0;margin-top:3px;border:9px solid transparent;border-top:13px solid var(--rf-gold);border-bottom:0;filter:drop-shadow(0 1px 0 #050506)}
 .gd-mk.on .ch,.gd-mk.trk .ch{animation:gdBob 1.1s ease-in-out infinite}
 .gd-mk.edge{transform:translate(-50%,-50%)}
-.gd-mk .ar{display:none;position:absolute;left:50%;top:50%;width:26px;height:26px;margin:-13px 0 0 -13px;filter:drop-shadow(0 1px 0 #0e0907) drop-shadow(0 0 2px #0e0907)}
+.gd-mk .ar{display:none;position:absolute;left:50%;top:50%;width:26px;height:26px;margin:-13px 0 0 -13px;filter:drop-shadow(0 1px 0 #050506) drop-shadow(0 0 2px #050506)}
 .gd-mk.edge .ch{display:none}.gd-mk.edge .ar{display:block}
 .gd-mk.home{color:var(--rf-ink)}
 .gd-mk.home .lb{box-shadow:inset 0 0 0 1px var(--rf-rule);color:var(--rf-muted)}
