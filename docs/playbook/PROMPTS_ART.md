@@ -3312,3 +3312,71 @@ forward, a dead skeleton shambling with a heavy tired gait", 8 frames, keep_firs
 ghost-walk in ids.json). The first peltast (round shield and crested helmet) read as a second hoplite: redone as the
 Thracian above. The ghost look is not prompted but baked by the build: every pixel to a 5-step slate-to-bone-blue ramp
 by luminance, alpha 185 (outline 230). Scale: each figure to a soldier's 64 px (the boy 0.72), within 15% of the median.
+
+## 45. W-67 lion, serpent and lairs
+
+(The brief named this §42; 42 was taken.) Two mob sheets in the §33 recipe and a den per lair kind (docs/impl/neutral-polish.md
+item 3). Specs and jobs: `docs/v5/pixellab/MOBS/lion.*`, `serpent.*`; lair parts `scripts/art/lairs/parts/`, composed by
+`node scripts/art/lairs/compose.mjs` into `public/war/lairs/`. Shots: `node scripts/war/beasts-shots.mjs [baseUrl] [outDir]`.
+**~48 PixelLab generations** (lion 20, serpent 15, lair parts 13).
+
+**Lion** (`mob_lion`, character `216ccef6`): a hunting lioness, not the maned Nemean lion (that is the boss sheet
+`mob_savanna_lion`). `create_character`, pro, quadruped `lion` template, `style_character_id` H4, size 68, high top-down
+(10): `grim lioness, a real wild African lioness with realistic proportions, not cute: a lean hungry hunter of the dry
+savanna, long low powerful body, deep chest, heavy muscular shoulders, thick forelegs with big paws, a broad flat head with
+a strong muzzle, small round ears, no mane, a long thin tail with a dark tuft; short dusty dark tawny-ochre hide with old
+pale scars, darker along the spine, a dull pale belly; standing on all four legs; heavy shadows, desaturated dark warm
+colours like the style reference`. Clips SW + NW, east rows mirrored: templates `idle`, `walk-8-frames`,
+`running-8-frames`, `jump-attack` (the pounce; 8), PixMiniMax die (2, 92 canvas): SW `the lioness takes a mortal blow
+towards the viewer's lower left: it flinches and rears its head back with a snarl, its body recoiling, staggers sideways
+on buckling legs, then its strength gives out and it collapses heavily onto its side on the ground and lies still; its
+hide stays clean, no wounds, no red, no blood at all; the same lioness with exactly four legs in every frame; no dust, no
+effects`; NW opens `seen from behind, its back and rump towards the viewer:`. Build shrink 0.72 (0.62 read cat-sized
+beside the men).
+
+**Serpent** (`mob_serpent`, character `433df7e6`): the §40c big-guardian route. `create_image_pro_flash` 96 x 96 (5) with
+the lion's SW rotation as `style_image` ("match its dark-epic pixel art look: outline weight, shading steps, pixel density
+and desaturated dark warm palette"): `a great river serpent, one huge water snake of Greek myth, grim and real, not cute:
+a giant thick-bodied serpent like a huge anaconda, its long heavy body lying in loose coils on the ground behind it, the
+front third raised in an S-curve ready to strike, a broad flat wedge-shaped head with small cold yellow eyes and a slightly
+open mouth; heavy overlapping scales of dark olive-green and muddy brown with darker blotches along the back, a dull
+dirty-yellow belly, old scars; facing the viewer's lower left, seen from a high top-down three-quarter view; heavy shadows,
+desaturated dark warm colours like the style reference, dark epic pixel art; transparent background, no ground, no
+shadow, no water`, then `create_character_pro_flash` from it (`template_id: custom`, ~2). As §40c lesson 1 the SW view
+was filed as "south": game SW = its `south`, NW = its `west` (`mobs/serpent-prep.mjs` also centres the 124 and 132 px
+PixMiniMax canvases onto one). PixMiniMax 8 frames, 1 each (8); subject `a great dark olive-green river serpent, a giant
+anaconda lying in coils with its front raised`, pose `lying in heavy coils with the front of its body raised and its head
+held up`:
+- idle: `the great serpent rests in place in its coils facing the viewer's lower left: its raised head and neck sway slowly from side to side, its forked tongue flicks out and back, the coils shift and breathe a little; it stays on the same spot; the serpent alone; no effects`
+- walk: `the great serpent slithers in place towards the viewer's lower left: its long heavy body ripples in slow S-shaped waves from the head back to the tail, the head held low and forward gliding over the ground, the coils sliding after it; it stays on the same spot, it does not move away; the serpent alone; no dust, no water, no effects` (played ping-pong; run = walk faster)
+- attack: `the great serpent strikes in place towards the viewer's lower left: it draws its head and neck back into a tight S-coil, its jaws gape wide showing long fangs, then it lunges forward and down in a fast vicious snapping bite at the empty air ahead of it, its heavy body driving behind the head, then it pulls back into its raised coil; the serpent alone; no blood, no venom drawn, no effects, no motion trails`
+- die: `the great serpent takes a mortal blow: its raised head jerks back and up, its body writhes and twists, then the head and neck fall heavily to the ground and the long body goes slack and lies still in loose uncoiled loops; its scales stay clean, no wounds, no red, no blood at all; no dust, no effects`
+- NW: the same, opening `seen from behind, its head turned away from the viewer towards the upper left in every frame, it never turns round:` (die: `seen from behind, its back towards the viewer:`), subject `…, seen from behind`.
+
+**Lair parts** (`create_map_object`, basic, high top-down, high detail, detailed shading; every prompt ends `seen from a
+high isometric three-quarter view, dark epic desaturated colours, heavy shadows, only the <thing> on a fully transparent
+background, no ground, no grass, no base under it` (ground pieces: `…, no grass around it`)):
+
+| part | canvas | subject (verbatim, before the tail) | result |
+| --- | --- | --- | --- |
+| bones | 96 x 64 | `a grim scatter of old animal bones: a big horned skull, a broken jawbone, a few long leg bones and loose ribs lying in a rough cluster, bleached dirty bone-white and yellowed` | kept; wolf, bear, jackal, lion |
+| ribs | 128 x 80 | `the rib cage of a large dead animal half sunk in the earth, a long curved spine with bleached ribs arching up like a hollow, a skull at one end, dirty bone-white and grey` | kept; the wolf hollow |
+| cave | 160 x 128 | `the dark mouth of a bear's cave in a big rough grey rock outcrop, a black gaping opening at its foot, a few claw-scratched stones and a little trampled earth in front, moss in the cracks` | grass base: green cut, then its thin outline ring eroded |
+| tent | 112 x 96 | `a ragged outlaw's tent of patched dark hides and torn brown cloth stretched over crooked wooden poles, ropes pegged to the ground, an open dark doorway, a spear leaning on it` | kept |
+| tent-down | 112 x 72 | `a collapsed abandoned outlaw's tent: broken crooked wooden poles fallen over, torn patched dark hides and ragged brown cloth slumped flat on the ground, a snapped rope` | came back still standing, smaller; kept for the cleared camp |
+| campfire | 64 x 64 | `a small outlaw's campfire burning: a ring of blackened stones around a pile of burning logs with orange flames and glowing embers, a little grey smoke` | kept |
+| campfire-cold | 64 x 48 | `a cold dead campfire: a ring of blackened stones around grey ash and a few charred black log ends, no fire, no smoke` | kept |
+| wallow | 128 x 72 | `a wild boar wallow: a wide shallow churned pit of dark wet mud with a murky brown puddle in it, deep hoof prints and snout furrows all round its edge` | kept (a pinkish rim); cleared: paled as dried mud |
+| burrow | 96 x 64 | `a jackal den: a low mound of loose sandy earth and stones with a dark burrow hole dug into its side, scattered small gnawed bones and paw-scuffed sand in front` | kept |
+| nest | 128 x 80 | `a great river serpent's nest on a muddy bank: a wide ring of flattened, broken dark reeds and wet brown mud, a clutch of big pale leathery snake eggs in its middle, a long grey shed snakeskin trailing over the edge` | kept, drawn x1.25 |
+| (rejected) nest-broken | 128 x 80 | `an abandoned river serpent's nest on a muddy bank: a ring of flattened, rotting grey-brown reeds and dried cracked mud, smashed empty pale snake eggshells scattered in its middle, a torn shed snakeskin` | read as a stone well; the cleared nest is the live one greyed |
+
+Dens (props from the biomes, parts above; `compose.mjs` LAIRS): wolf rib hollow under a dead tree; boar wallow by a fallen
+log and stump; bear cave mouth; bandit tent round a fire; jackal burrow by red rocks; ibex rockfall ledge; lion thorn tree
+with flattened dry grass and bones; serpent reed nest. Cleared: the living bits dropped (fire out, tent down, bushes),
+then the whole den drained (saturation 0.3, brightness 0.68).
+
+**Lessons:** (1) A map object asked for "collapsed" may still stand: check flat things against a standing reference.
+(2) PixMiniMax stores each facing on its own canvas (124 vs 132 here): centre them before `mobs/build.mjs`. (3) The back
+view's strike still turned the head to the viewer for two frames; a coiled snake reads either way, kept. (4) Mob dust
+must be paler than the ground (the first, earth-toned puffs vanished on grass).
