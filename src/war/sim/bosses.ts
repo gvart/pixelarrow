@@ -100,19 +100,19 @@ export const GUARDIANS: Readonly<Record<string, GDef>> = {
   drakon: { ai: 'drakon', cls: 'mob_drakon', hp: 18000, dmg: 8, armor: 2, reach: 2.6, atk: 2, speed: 1.1, aggro: 18, leash: 30 },
   scylla: { ai: 'scylla', cls: 'mob_scylla_head', hp: 10000, dmg: 10, armor: 4, reach: 3, atk: 3, speed: 0.8, aggro: 14, leash: 40, parts: { n: 6, hp: 1200, dmg: 10 } },
   bandit_king: { ai: 'king', cls: 'mob_bandit_king', hp: 6000, dmg: 22, armor: 6, reach: 1.6, atk: 1.1, speed: 1.05, aggro: 10, leash: 14, guard: { cls: 'mob_bandit_guard', n: 11, hp: 150, dmg: 14, armor: 4 } },
-  river_god: { ai: 'river', cls: 'mob_brontes', hp: 30000, dmg: 20, armor: 4, reach: 2.4, atk: 1.8, speed: 0.9, aggro: 16, leash: 26 },
-  titan: { ai: 'titan', cls: 'mob_brontes', hp: 16000, dmg: 30, armor: 4, reach: 2.6, atk: 2, speed: 0.8, aggro: 30, leash: 30 },
-  minotaur: { ai: 'brute', cls: 'mob_bandit_captain', hp: 12000, dmg: 50, armor: 4, reach: 1.8, atk: 1.2, speed: 1.1, aggro: 10, leash: 16 },
+  river_god: { ai: 'river', cls: 'mob_river_god', hp: 30000, dmg: 20, armor: 4, reach: 2.4, atk: 1.8, speed: 0.9, aggro: 16, leash: 26 },
+  titan: { ai: 'titan', cls: 'mob_titan', hp: 16000, dmg: 30, armor: 4, reach: 2.6, atk: 2, speed: 0.8, aggro: 30, leash: 30 },
+  minotaur: { ai: 'brute', cls: 'mob_minotaur', hp: 12000, dmg: 50, armor: 4, reach: 1.8, atk: 1.2, speed: 1.1, aggro: 10, leash: 16 },
   brontes: { ai: 'brontes', cls: 'mob_brontes', hp: 8000, dmg: 30, armor: 4, reach: 2.2, atk: 1.8, speed: 0.85, aggro: 25, leash: 22 },
   grove_queen: { ai: 'maenads', cls: 'mob_maenad_queen', hp: 4000, dmg: 30, armor: 4, reach: 1.6, atk: 1, speed: 1.3, aggro: 14, leash: 24, guard: { cls: 'mob_maenad', n: 8, hp: 90, dmg: 14, armor: 2 } },
-  // E3: the mob_boar sheet drawn huge (src/war/view/units.ts SHEET_ALIAS); gores through the ranks, the sounder at half hp
-  erymanthian_boar: { ai: 'boar', cls: 'mob_great_boar', hp: 7000, dmg: 34, armor: 5, reach: 2, atk: 1.4, speed: 1.25, aggro: 14, leash: 24 },
+  // E3: gores through the ranks, the sounder at half hp (W-67: its own sheet, mob_erymanthian_boar)
+  erymanthian_boar: { ai: 'boar', cls: 'mob_erymanthian_boar', hp: 7000, dmg: 34, armor: 5, reach: 2, atk: 1.4, speed: 1.25, aggro: 14, leash: 24 },
   gyges: { ai: 'gyges', cls: 'mob_gyges', hp: 10000, dmg: 12, armor: 4, reach: 2.4, atk: 1.6, speed: 0.9, aggro: 20, leash: 30 },
   chimera: { ai: 'chimera', cls: 'mob_chimera', hp: 2200, dmg: 16, armor: 6, reach: 1.8, atk: 1.3, speed: 1.15, aggro: 14, leash: 22, parts: { n: 3, hp: 2200, dmg: 16 } },
   maenad_queen: { ai: 'maenads', cls: 'mob_maenad_queen', hp: 2500, dmg: 26, armor: 3, reach: 1.6, atk: 1, speed: 1.3, aggro: 14, leash: 24, guard: { cls: 'mob_maenad', n: 6, hp: 80, dmg: 12, armor: 2 } },
-  moor_bear: { ai: 'brute', cls: 'mob_bear', hp: 5000, dmg: 40, armor: 6, reach: 1.6, atk: 1.5, speed: 1.05, aggro: 12, leash: 20 },
-  griffin: { ai: 'brute', cls: 'mob_bear', hp: 4500, dmg: 40, armor: 5, reach: 1.6, atk: 1.3, speed: 1.3, aggro: 14, leash: 22 },
-  savanna_lion: { ai: 'brute', cls: 'mob_bear', hp: 4500, dmg: 45, armor: 9, reach: 1.6, atk: 1.2, speed: 1.3, aggro: 14, leash: 22 },
+  moor_bear: { ai: 'brute', cls: 'mob_moor_bear', hp: 5000, dmg: 40, armor: 6, reach: 1.6, atk: 1.5, speed: 1.05, aggro: 12, leash: 20 },
+  griffin: { ai: 'brute', cls: 'mob_griffin', hp: 4500, dmg: 40, armor: 5, reach: 1.6, atk: 1.3, speed: 1.3, aggro: 14, leash: 22 },
+  savanna_lion: { ai: 'brute', cls: 'mob_savanna_lion', hp: 4500, dmg: 45, armor: 9, reach: 1.6, atk: 1.2, speed: 1.3, aggro: 14, leash: 22 },
 };
 
 /** Timings (ticks) and reach of the special moves. */
@@ -415,15 +415,13 @@ export function createBosses(region: RegionData, host: BossHost) {
         break;
       case 'river':
         if (p === 1) {
-          // a serpent in the channels: only a man on a ford reaches it
-          u.cls = 'mob_scylla_head';
+          // in the channels (one body, mob_river_god, in every phase): only a man on a ford reaches him
           u.venom = true;
           const [cx, cy] = e.flats ?? [e.x, e.y];
           host.place(u, cx, cy);
           pin(u, true, 2);
           r.state = 'perch';
         } else if (p === 2) {
-          u.cls = 'mob_boar';
           u.venom = false;
           pin(u, false);
           host.place(u, e.x, e.y);

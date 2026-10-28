@@ -1,0 +1,79 @@
+{
+ "version": 2,
+ "class": "mob_minotaur",
+ "image": "mob_minotaur.png",
+ "frame": {
+  "w": 161,
+  "h": 161
+ },
+ "anchor": {
+  "x": 69,
+  "y": 158
+ },
+ "anchors": {
+  "south-east": {
+   "x": 92,
+   "y": 158
+  },
+  "north-east": {
+   "x": 75,
+   "y": 154
+  },
+  "south-west": {
+   "x": 69,
+   "y": 158
+  },
+  "north-west": {
+   "x": 85,
+   "y": 154
+  }
+ },
+ "scale": 0.55,
+ "rows": [
+  "south-east",
+  "north-east",
+  "south-west",
+  "north-west"
+ ],
+ "wrap": 25,
+ "colorGroups": {},
+ "tiers": {
+  "basic": {}
+ },
+ "anims": {
+  "idle": {
+   "col": 0,
+   "frames": 12,
+   "fps": 8
+  },
+  "walk": {
+   "col": 12,
+   "frames": 12,
+   "fps": 10
+  },
+  "attack": {
+   "col": 24,
+   "frames": 12,
+   "fps": 12,
+   "strike": 6
+  },
+  "die": {
+   "col": 36,
+   "frames": 12,
+   "fps": 10
+  },
+  "hit": {
+   "col": 48,
+   "frames": 4,
+   "fps": 12
+  }
+ },
+ "metal": [],
+ "variation": {
+  "skin": false,
+  "shade": false
+ },
+ "rarity": {
+  "metal": false
+ }
+}

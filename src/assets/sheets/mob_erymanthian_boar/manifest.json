@@ -1,0 +1,85 @@
+{
+ "version": 2,
+ "class": "mob_erymanthian_boar",
+ "image": "mob_erymanthian_boar.png",
+ "frame": {
+  "w": 158,
+  "h": 149
+ },
+ "anchor": {
+  "x": 77,
+  "y": 134
+ },
+ "anchors": {
+  "south-east": {
+   "x": 81,
+   "y": 134
+  },
+  "north-east": {
+   "x": 83,
+   "y": 140
+  },
+  "south-west": {
+   "x": 77,
+   "y": 134
+  },
+  "north-west": {
+   "x": 75,
+   "y": 140
+  }
+ },
+ "scale": 0.55,
+ "rows": [
+  "south-east",
+  "north-east",
+  "south-west",
+  "north-west"
+ ],
+ "wrap": 25,
+ "colorGroups": {},
+ "tiers": {
+  "basic": {}
+ },
+ "anims": {
+  "idle": {
+   "col": 0,
+   "frames": 12,
+   "fps": 8
+  },
+  "walk": {
+   "col": 12,
+   "frames": 12,
+   "fps": 10
+  },
+  "attack": {
+   "col": 24,
+   "frames": 12,
+   "fps": 12,
+   "strike": 6
+  },
+  "charge": {
+   "col": 36,
+   "frames": 12,
+   "fps": 12,
+   "strike": 6
+  },
+  "die": {
+   "col": 48,
+   "frames": 12,
+   "fps": 10
+  },
+  "hit": {
+   "col": 60,
+   "frames": 4,
+   "fps": 12
+  }
+ },
+ "metal": [],
+ "variation": {
+  "skin": false,
+  "shade": false
+ },
+ "rarity": {
+  "metal": false
+ }
+}

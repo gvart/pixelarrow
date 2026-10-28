@@ -1,0 +1,85 @@
+{
+ "version": 2,
+ "class": "mob_river_god",
+ "image": "mob_river_god.png",
+ "frame": {
+  "w": 192,
+  "h": 193
+ },
+ "anchor": {
+  "x": 89,
+  "y": 187
+ },
+ "anchors": {
+  "south-east": {
+   "x": 103,
+   "y": 187
+  },
+  "north-east": {
+   "x": 100,
+   "y": 178
+  },
+  "south-west": {
+   "x": 89,
+   "y": 187
+  },
+  "north-west": {
+   "x": 93,
+   "y": 178
+  }
+ },
+ "scale": 1,
+ "rows": [
+  "south-east",
+  "north-east",
+  "south-west",
+  "north-west"
+ ],
+ "wrap": 21,
+ "colorGroups": {},
+ "tiers": {
+  "basic": {}
+ },
+ "anims": {
+  "idle": {
+   "col": 0,
+   "frames": 12,
+   "fps": 8
+  },
+  "walk": {
+   "col": 12,
+   "frames": 12,
+   "fps": 10
+  },
+  "attack": {
+   "col": 24,
+   "frames": 12,
+   "fps": 12,
+   "strike": 6
+  },
+  "charge": {
+   "col": 36,
+   "frames": 12,
+   "fps": 12,
+   "strike": 6
+  },
+  "die": {
+   "col": 48,
+   "frames": 12,
+   "fps": 10
+  },
+  "hit": {
+   "col": 60,
+   "frames": 4,
+   "fps": 12
+  }
+ },
+ "metal": [],
+ "variation": {
+  "skin": false,
+  "shade": false
+ },
+ "rarity": {
+  "metal": false
+ }
+}
