@@ -11,6 +11,8 @@ import kyreneN from '../../src/war/regions/kyrene-n.json';
 import kyreneW from '../../src/war/regions/kyrene-w.json';
 import savanna from '../../src/war/regions/savanna.json';
 import elaiaN from '../../src/war/regions/elaia-n.json';
+import { mobSfx } from '../../src/war/view/sound/mix';
+import { RECIPES } from '../../src/audio/sfx';
 
 function flat(lairs: RegionData['lairs'] = [], n = 96): RegionData {
   return { id: 't', name: 't', w: n, h: n, height: Array(n * n).fill(1), terrain: Array(n * n).fill('grass'), water: Array(n * n).fill(0), entries: [], noBuild: [], objects: [], lairs, claimPoints: [] };
@@ -159,5 +161,18 @@ describe('beasts (W-67)', () => {
     expect(kinds(savanna)).toContain('lion');
     expect(kinds(kyreneW)).toContain('serpent');
     expect(kinds(elaiaN)).toContain('serpent');
+  });
+
+  it('mob FX events have sounds: a howl, roars, the charge, the pounce, the hiss, a herd bolting', () => {
+    expect(mobSfx('mobCry', 'wolf')).toBe('howl');
+    expect(mobSfx('mobCry', 'lion')).toBe('roar');
+    expect(mobSfx('mobCry', 'bear')).toBe('roar');
+    expect(mobSfx('mobDash', 'boar')).toBe('thud');
+    expect(mobSfx('mobDash', 'serpent')).toBe('hiss');
+    expect(mobSfx('mobScatter', 'ibex')).toBe('hooves');
+    for (const k of MOB_KINDS) for (const e of ['mobCry', 'mobDash', 'mobScatter'] as const) {
+      const id = mobSfx(e, k);
+      if (id) expect(RECIPES[id]).toBeTypeOf('function');
+    }
   });
 });
