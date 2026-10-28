@@ -4,11 +4,17 @@
  * alliance shares sight), then each client gets:
  *   - its own squads' units, always (selection, minimap);
  *   - its team's buildings and engines (and carts of his), always;
- *   - any other unit, building, engine or new shot that its team sees AND that lies inside its camera rect plus CAMERA_MARGIN.
+ *   - any other unit, building, engine or new shot that its team sees AND that lies inside its camera rect plus CAMERA_MARGIN;
+ *   - W-67: the guardians its team sees or has a man within BOSS_NEAR tiles of (anywhere: the guardian bar and banners
+ *     are HUD, not camera, things; a maze or a keep may hide the guardian from men fighting it), with its body (as the
+ *     offline view keeps it under the fog), and the Rim Warden's marked strike when it sees any of the patch.
  * No camera rect yet: the camera counts as the whole map.
  */
-import type { BuildingSnap, ShotSnap, SiegeSnap, Snapshot, SoulSnap, SquadSnap, UnitSnap } from '../types';
+import type { BossSnap, BuildingSnap, ShotSnap, SiegeSnap, Snapshot, SoulSnap, SquadSnap, UnitSnap, WardenSnap } from '../types';
 import { CAMERA_MARGIN, VISION } from './protocol';
+
+/** W-67: a man of the team this near a guardian (tiles) gets it even where his sight does not reach it (its maze, its keep). */
+export const BOSS_NEAR = 16;
 
 /** Vision cell size in tiles. */
 export const CELL = 8;
@@ -82,7 +88,14 @@ export function interestRect(cam: Rect | null, margin = CAMERA_MARGIN): Rect | n
   return cam ? { x0: Math.min(cam.x0, cam.x1) - margin, y0: Math.min(cam.y0, cam.y1) - margin, x1: Math.max(cam.x0, cam.x1) + margin, y1: Math.max(cam.y0, cam.y1) + margin } : null;
 }
 
-export interface Visible { units: UnitSnap[]; squads: SquadSnap[]; shots: ShotSnap[]; buildings: BuildingSnap[]; sieges: SiegeSnap[]; souls: SoulSnap[] }
+export interface Visible { units: UnitSnap[]; squads: SquadSnap[]; shots: ShotSnap[]; buildings: BuildingSnap[]; sieges: SiegeSnap[]; souls: SoulSnap[]; bosses: BossSnap[]; warden?: WardenSnap }
+
+/** W-67: `team` sees a guardian at (x,y): in its sight, or a living man of it within BOSS_NEAR tiles. */
+export function seesBoss(snap: Snapshot, vision: TeamVision, team: number, x: number, y: number, squadOf?: Map<number, SquadSnap>): boolean {
+  if (vision.sees(team, x, y)) return true;
+  const teamOf = squadOf ?? new Map(snap.squads.map((s) => [s.id, s]));
+  return snap.units.some((u) => u.state !== 'dead' && Math.abs(u.x - x) < BOSS_NEAR && Math.abs(u.y - y) < BOSS_NEAR && teamOf.get(u.squad)?.team === team && Math.hypot(u.x - x, u.y - y) < BOSS_NEAR);
+}
 
 /**
  * What one client (owner string, team) gets this tick. `newShots`: shots loosed since the last frame (all in-flight
@@ -92,11 +105,13 @@ export function visibleTo(snap: Snapshot, vision: TeamVision, owner: string, tea
   const r = interestRect(cam);
   const squadOf = new Map<number, SquadSnap>();
   for (const s of snap.squads) squadOf.set(s.id, s);
+  const bosses = (snap.bosses ?? []).filter((b) => seesBoss(snap, vision, team, b.x, b.y, squadOf));
+  const bodies = new Set(bosses.map((b) => b.unit));
   const units: UnitSnap[] = [], used = new Set<number>();
   for (const u of snap.units) {
     const s = squadOf.get(u.squad);
     if (!s) continue;
-    if (s.owner === owner || (vision.sees(team, u.x, u.y) && inRect(r, u.x, u.y))) {
+    if (s.owner === owner || bodies.has(u.id) || (vision.sees(team, u.x, u.y) && inRect(r, u.x, u.y))) {
       units.push(u);
       used.add(s.id);
     }
@@ -107,5 +122,6 @@ export function visibleTo(snap: Snapshot, vision: TeamVision, owner: string, tea
   const buildings = (snap.buildings ?? []).filter((b) => b.team === team || ok(b.x, b.y));
   const sieges = (snap.sieges ?? []).filter((e) => e.team === team || e.owner === owner || ok(e.x, e.y));
   const souls = (snap.souls ?? []).filter((x) => ok(x.x, x.y)); // W-60: souls in sight
-  return { units, squads, shots, buildings, sieges, souls };
+  const wd = snap.warden, warden = wd && [[0, 0], [1, 0], [0, 1], [1, 1], [0.5, 0.5]].some(([i, j]) => vision.sees(team, wd.x + i * wd.w, wd.y + j * wd.h)) ? wd : undefined;
+  return { units, squads, shots, buildings, sieges, souls, bosses, ...(warden ? { warden } : {}) };
 }

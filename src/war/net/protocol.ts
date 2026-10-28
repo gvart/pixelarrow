@@ -32,7 +32,8 @@
  *                    sees (changes only), his team's influence mask (RLE, on change), his team's stockpile (on change)
  *   server -> wild                                          W-65: the region's lairs, claim points and roaming groups (on change)
  *   server -> allies                                        the players whose men are his friends (his alliance, pacts; on change)
- *   server -> binary frame                                   (snapshot delta or keyframe)
+ *   server -> bossEv                                        W-67: this tick's guardian events his team sees (phase, slain, fled, back, Warden strike)
+ *   server -> binary frame                                   (snapshot delta or keyframe; with the guardians his team sees)
  */
 import { z } from 'zod';
 import { ARMY_MAX } from '../sim/soldiers';
@@ -40,7 +41,7 @@ import type { NodeRow } from './economy';
 import type { BridgePlan, BuildingType, GoodKind, Order, PlaceResult, SquadId, TownLevelSnap, WallPlan } from '../types';
 
 /** Bumped on any wire change (messages or the binary frame layout). */
-export const NET_VERSION = 10;
+export const NET_VERSION = 11;
 /** Positions go out in 1/QUANT tile steps. */
 export const QUANT = 8;
 /** Ticks between keyframes (a full frame of what the client sees; deltas in between). */
@@ -264,6 +265,11 @@ export type ServerMsg =
   /** W-67: this tick's mob FX events (a beast's burst, a lair's cry, a pack scattering) inside his camera rect (src/war/view/mobFx.ts). */
   | { t: 'mobFx'; ev: import('../types').MobFxEvent[] }
   /**
+   * W-67: this tick's guardian events (bossPhase, bossSlain, bossFled, bossBack, wardenStrike) where his team sees the
+   * guardian or the struck patch; the view gets them as sim events. Bars, banners and move FX ride on the frame's bosses.
+   */
+  | { t: 'bossEv'; ev: BossEvent[] }
+  /**
    * W-60: a soul his squad went for: claimed (the new man's person id, class, level and name), refused (his army is full:
    * `have` men across all regions, ARMY_MAX at most).
    */
@@ -295,6 +301,11 @@ export type ServerMsg =
   | { t: 'allies'; players: number[] }
   /** The online cap (./gate.ts): not from the region socket, the gate's state passed on by ./client.ts. */
   | import('./gate').GateMsg;
+
+/** W-67: the guardian events the live view gets (./protocol.ts `bossEv`). */
+export type BossEvent = Extract<import('../types').WarEvent, { kind: 'bossPhase' | 'bossSlain' | 'bossFled' | 'bossBack' | 'wardenStrike' }>;
+export const isBossEvent = (e: import('../types').WarEvent): e is BossEvent =>
+  e.kind === 'bossPhase' || e.kind === 'bossSlain' || e.kind === 'bossFled' || e.kind === 'bossBack' || e.kind === 'wardenStrike';
 
 /** Live soldiers per alliance against its quota. */
 export interface Quota { cap: number; per: number[]; live: number[] }
