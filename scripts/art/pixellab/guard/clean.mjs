@@ -1,13 +1,20 @@
 // Guardians (W-67): clean a raw PixMiniMax clip in place. PixMiniMax draws blood, claw smears and dust on beast attacks
 // whatever the prompt says: every bright red pixel becomes the dark maw colour, and only the biggest opaque piece (and
 // pieces at least a quarter its size) is kept, so detached splats, dust and slash arcs go. `i=j` replaces frame i with
-// frame j (a smear frame by its neighbour, as 40c lesson 4). The original frames are kept once in <clip>/orig/.
-// Usage: node scripts/art/pixellab/guard/clean.mjs <clip dir> [i=j ...]
+// frame j (a smear frame by its neighbour, as 40c lesson 4). --feet R: rubble, cracks and dust round a giant's stomp —
+// in the bottom 15% of the first frame's figure only pixels within R px of that frame's own feet are kept. The original
+// frames are kept once in <clip>/orig/. --white T: near-white slash arcs fused to a tusk or claw (every channel >= T) go.
+// Usage: node scripts/art/pixellab/guard/clean.mjs <clip dir> [i=j ...] [--feet R] [--white T]
 import { copyFileSync, existsSync, mkdirSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { readImage, writeImage } from '../../lib/png.mjs';
 
-const [dir, ...swaps] = process.argv.slice(2);
+const argv = process.argv.slice(2);
+const fi = argv.indexOf('--feet'), FEET = fi >= 0 ? Number(argv[fi + 1]) : 0;
+if (fi >= 0) argv.splice(fi, 2);
+const wi = argv.indexOf('--white'), WHITE = wi >= 0 ? Number(argv[wi + 1]) : 0;
+if (wi >= 0) argv.splice(wi, 2);
+const [dir, ...swaps] = argv;
 const MAW = [38, 26, 22];
 const frames = readdirSync(dir).filter((f) => /^frame_\d+\.png$/.test(f)).sort();
 if (!existsSync(join(dir, 'orig'))) {
@@ -22,7 +29,16 @@ for (const s of swaps) {
 const first = readImage(join(dir, 'orig', frames[0]));
 let top = first.h, bot = -1;
 for (let i = 0; i < first.w * first.h; i++) if (first.data[i * 4 + 3] >= 128) (top = Math.min(top, Math.floor(i / first.w)), bot = Math.floor(i / first.w));
-const ground = bot - Math.round((bot - top) * 0.1);
+const ground = bot - Math.round((bot - top) * 0.1), band = bot - Math.round((bot - top) * 0.15);
+// --feet: the first frame's feet, grown by FEET px (a mask over the band)
+const feet = new Uint8Array(first.w * first.h);
+if (FEET) for (let y = band; y < first.h; y++) for (let x = 0; x < first.w; x++) {
+  if (first.data[(y * first.w + x) * 4 + 3] < 128) continue;
+  for (let dy = -FEET; dy <= FEET; dy++) for (let dx = -FEET; dx <= FEET; dx++) {
+    const nx = x + dx, ny = y + dy;
+    if (nx >= 0 && ny >= 0 && nx < first.w && ny < first.h) feet[ny * first.w + nx] = 1;
+  }
+}
 const swapped = new Set(swaps.map((s) => name(Number(s.split('=')[0]))));
 let red = 0, cut = 0;
 for (const f of frames) {
@@ -37,6 +53,8 @@ for (const f of frames) {
       red++;
     }
   }
+  if (WHITE) for (let i = 0; i < w * h; i++) if (data[i * 4 + 3] && Math.min(data[i * 4], data[i * 4 + 1], data[i * 4 + 2]) >= WHITE) (data[i * 4 + 3] = 0, cut++);
+  if (FEET) for (let i = band * w; i < w * h; i++) if (!feet[i] && data[i * 4 + 3]) (data[i * 4 + 3] = 0, cut++);
   const seen = new Uint8Array(w * h), comps = [];
   for (let i = 0; i < w * h; i++) {
     if (seen[i] || data[i * 4 + 3] < 128) continue;

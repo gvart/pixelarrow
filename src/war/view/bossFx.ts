@@ -65,7 +65,7 @@ const JET_SEGS = 7;
 const EMBERS = 28;
 
 /** Draw scale over a man's (guardians.json scale / 0.55). */
-const SIZE: Record<string, number> = { drakon: 1.5 / 0.55, titan: 1.8, brontes: 1.8, gyges: 1.8, scylla: 1.8, river_god: 1.8, erymanthian_boar: 1.4 / 0.55, savanna_lion: 1.3, moor_bear: 1.3, griffin: 1.3, minotaur: 1.3 };
+const SIZE: Record<string, number> = { drakon: 1.5 / 0.55, titan: 2.4, brontes: 1.8, gyges: 1.8, scylla: 1.8, river_god: 1.8, erymanthian_boar: 1.4 / 0.55, savanna_lion: 1.3, moor_bear: 1.3, griffin: 1.3, minotaur: 1.3 };
 const size = (id: string) => SIZE[id] ?? 1;
 /** Cadence (ms) of the moves a telegraph foresees, by guardian. */
 const EVERY: Record<string, Partial<Record<string, number>>> = {
