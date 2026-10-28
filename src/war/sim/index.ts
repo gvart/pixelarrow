@@ -51,7 +51,7 @@ import { createWorks, type Worker } from './works';
 import { createSiege, LADDER } from './siege';
 import { createMobs, MOB_OWNER, MOB_TEAM, mobClass } from './mobs';
 import { createRoam, ROAM_OWNER } from './roam';
-import { BOSS, createBosses } from './bosses';
+import { BOSS, BOSS_SLOW, createBosses } from './bosses';
 import { createVision } from './vision';
 import { CAPTURE_R, gainXp, SQUAD_MAX, XP } from './soldiers';
 import { ACTIVE, ACTIVES, activeCooldown, F, FLAG_FX } from './skills';
@@ -255,6 +255,8 @@ interface Unit extends Worker {
   dashAt?: number;
   dashTgt?: number;
   dashHit?: boolean;
+  // W-67 (./bosses.ts): staggered by a guardian's roar or surge: half pace until this tick
+  slowUntil?: number;
 }
 
 /** M6 load / unload under way: the holder, which way, the good and how many goods are still wanted. */
@@ -673,6 +675,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       hurt(t, dmg);
     },
     knock: (u, fx, fy, tiles) => knock(u as Unit, fx, fy, tiles),
+    slow: (u, ticks) => void ((u as Unit).slowUntil = Math.max((u as Unit).slowUntil ?? 0, tick + ticks)),
     place: (u, x, y) => {
       const t = u as Unit;
       t.x = t.ox = x;
@@ -3360,7 +3363,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       // or into its halt), not standing until it is ARRIVE on and stepping after it
       if (d > ARRIVE || (d > 1e-4 && act === null && eases(u.squad) && u.squad.pi < u.squad.path.length / 2)) {
         const cost = moveCost(u.x, u.y, dx / d, dy / d);
-        const full = (SPEED * u.st.speed * pace(u.sat) * (u.squad.flee ? CIV.fleeSpeed : 1) * (u.squad.laden ? PORTER.slow : 1) * (u.mob && (u.dash ?? 0) > tick ? MOBS[u.mob].dash!.speed : 1) * CATCH_UP * DT) / cost;
+        const full = (SPEED * u.st.speed * pace(u.sat) * (u.squad.flee ? CIV.fleeSpeed : 1) * (u.squad.laden ? PORTER.slow : 1) * (u.mob && (u.dash ?? 0) > tick ? MOBS[u.mob].dash!.speed : 1) * ((u.slowUntil ?? 0) > tick ? BOSS_SLOW : 1) * CATCH_UP * DT) / cost;
         let step = Math.min(d, full);
         if (act === null && eases(u.squad)) {
           // his block at rest, walking back to his slot (after a shove, a fight): eased in on setting off and slowing into

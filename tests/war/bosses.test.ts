@@ -345,3 +345,145 @@ describe('guardians (M7d)', () => {
     expect(r.snapshot()).toEqual(s1.snapshot());
   });
 });
+
+describe('W-67 signature moves: wound up on a mark, landing on what is in it', () => {
+  /** Run until the guardian winds a move of `kind` up (its mark), the ticks it took. */
+  const until = (sim: WarBuildSim, kind: string, max = 400) => run(sim, max, () => boss(sim).tele?.kind === kind);
+  const men = (sim: WarBuildSim, sq: number) => sim.snapshot().squads[sq].units.map((id) => sim.snapshot().units[id]);
+  const hurt = (sim: WarBuildSim, sq: number) => men(sim, sq).filter((u) => u.hp < u.maxHp || u.state === 'dead').length;
+
+  it('the Griffin dives on the archers: the mark on them, braced, the leap, the landing knocks the men in it down', () => {
+    const sim = createSim(flat([{ boss: 'griffin', x: 48, y: 48 }], { id: 'kimmeria', depth: 2 }), 21);
+    sim.spawnMobs();
+    sim.step();
+    const foot = sim.spawnSquad('you', 0, 'hoplite', 12, 48, 52);
+    const bows = sim.spawnSquad('you', 0, 'archer', 12, 48, 59);
+    sim.order({ kind: 'attack', squad: foot, target: boss(sim).squad });
+    expect(until(sim, 'dive')).toBeLessThan(400);
+    const t = boss(sim).tele!;
+    expect(t).toMatchObject({ kind: 'dive', r: MOVES.dive.r, of: MOVES.dive.wind + MOVES.dive.fly });
+    const bow = men(sim, bows).map((u) => Math.hypot(u.x - t.tx, u.y - t.ty));
+    expect(Math.min(...bow), 'marked on the archers').toBeLessThan(1);
+    const at = unit(sim, boss(sim).unit);
+    run(sim, MOVES.dive.wind - 2);
+    expect([unit(sim, boss(sim).unit).x, unit(sim, boss(sim).unit).y], 'braced').toEqual([at.x, at.y]);
+    run(sim, 3);
+    expect(boss(sim).state).toBe('flight');
+    run(sim, MOVES.dive.fly);
+    expect(boss(sim).tele).toBeUndefined();
+    expect(boss(sim).fx?.kind).toBe('dive');
+    const g = unit(sim, boss(sim).unit);
+    expect(Math.hypot(g.x - t.tx, g.y - t.ty)).toBeLessThan(0.5);
+    expect(hurt(sim, bows)).toBeGreaterThan(0);
+  });
+
+  it('a man who walks out of the mark is spared', () => {
+    const play = (dodge: boolean) => {
+      const sim = createSim(flat([{ boss: 'griffin', x: 48, y: 48 }], { id: 'kimmeria', depth: 2 }), 22);
+      sim.spawnMobs();
+      sim.step();
+      const foot = sim.spawnSquad('you', 0, 'hoplite', 12, 48, 52);
+      const scout = sim.spawnSquad('you', 0, 'archer', 1, 40, 60);
+      sim.order({ kind: 'attack', squad: foot, target: boss(sim).squad });
+      until(sim, 'dive');
+      if (dodge) sim.order({ kind: 'move', squad: scout, x: 30, y: 60 });
+      run(sim, MOVES.dive.wind + MOVES.dive.fly + 1);
+      return hurt(sim, scout);
+    };
+    expect(play(false)).toBe(1);
+    expect(play(true)).toBe(0);
+  });
+
+  it('the Lion crouches and pounces on the nearest man a few strides off, and roars the press round it back', () => {
+    const sim = createSim(flat([{ boss: 'savanna_lion', x: 48, y: 48 }], { id: 'savanna', depth: 2 }), 23);
+    sim.spawnMobs();
+    sim.step();
+    const a = sim.spawnSquad('you', 0, 'archer', 12, 48, 54);
+    sim.order({ kind: 'attack', squad: a, target: boss(sim).squad });
+    expect(until(sim, 'pounce')).toBeLessThan(400);
+    const t = boss(sim).tele!;
+    expect(t.of).toBe(MOVES.pounce.wind + MOVES.pounce.fly);
+    run(sim, t.in + 1);
+    expect(boss(sim).fx?.kind).toBe('pounce');
+    expect(hurt(sim, a)).toBeGreaterThan(0);
+    // the press round it: a roar throws them back, staggered
+    const b = sim.spawnSquad('you', 0, 'hoplite', 12, 48, 50);
+    sim.order({ kind: 'attack', squad: b, target: boss(sim).squad });
+    expect(until(sim, 'roar', 600)).toBeLessThan(600);
+    run(sim, MOVES.roar.wind + 1);
+    expect(boss(sim).fx?.kind).toBe('roar');
+  });
+
+  it('the Bear rears and mauls the cone before it (knock 3)', () => {
+    const sim = createSim(flat([{ boss: 'moor_bear', x: 48, y: 48 }], { id: 'moors', depth: 2 }), 24);
+    sim.spawnMobs();
+    sim.step();
+    const a = sim.spawnSquad('you', 0, 'hoplite', 12, 48, 52);
+    sim.order({ kind: 'attack', squad: a, target: boss(sim).squad });
+    expect(until(sim, 'maul')).toBeLessThan(400);
+    const t = boss(sim).tele!;
+    expect(Math.hypot(t.tx - t.x, t.ty - t.y)).toBeCloseTo(MOVES.maul.len);
+    const hp0 = men(sim, a).reduce((n, u) => n + u.hp, 0);
+    run(sim, t.in + 1);
+    expect(boss(sim).fx?.kind).toBe('maul');
+    expect(men(sim, a).reduce((n, u) => n + u.hp, 0)).toBeLessThan(hp0);
+  });
+
+  it('the Minotaur charges in a straight line through a squad; a wall stops it, stunned', () => {
+    const n = 96, terrain = Array(n * n).fill('grass');
+    for (let y = 0; y < n; y++) terrain[y * n + 62] = 'rock';
+    const sim = createSim(flat([{ boss: 'minotaur', x: 52, y: 48 }], { id: 'omphalos', depth: 4, terrain }), 25);
+    sim.spawnMobs();
+    sim.step();
+    const a = sim.spawnSquad('you', 0, 'hoplite', 12, 44, 48);
+    sim.order({ kind: 'attack', squad: a, target: boss(sim).squad });
+    expect(until(sim, 'charge')).toBeLessThan(400);
+    let t = boss(sim).tele!;
+    expect(Math.hypot(t.tx - t.x, t.ty - t.y), 'its full length on open ground').toBeGreaterThan(MOVES.bull.len - 0.6);
+    run(sim, t.in + 1);
+    expect(boss(sim).fx?.kind).toBe('charge');
+    expect(hurt(sim, a)).toBeGreaterThan(0);
+    // men with their backs to a wall: it runs into it and stands stunned
+    const w = createSim(flat([{ boss: 'minotaur', x: 55, y: 48 }], { id: 'omphalos', depth: 4, terrain }), 25);
+    w.spawnMobs();
+    w.step();
+    const b = w.spawnSquad('you', 0, 'hoplite', 12, 59, 48);
+    w.order({ kind: 'attack', squad: b, target: boss(w).squad });
+    expect(until(w, 'charge')).toBeLessThan(400);
+    t = boss(w).tele!;
+    expect(t.tx, 'short of the wall').toBeLessThan(62);
+    run(w, t.in + MOVES.bull.fly + 1);
+    expect(boss(w).fx?.kind).toBe('wall');
+    const at = unit(w, boss(w).unit);
+    run(w, MOVES.bull.stun - 5);
+    expect([unit(w, boss(w).unit).x, unit(w, boss(w).unit).y], 'stunned where it hit').toEqual([at.x, at.y]);  });
+
+  it('Achelous surges once a phase from P2: a wave that throws the men in its band back and staggers them', () => {
+    const sim = createSim(flat([{ boss: 'river_god', x: 48, y: 48, flats: [48, 48] }], { id: 'delta', depth: 4 }), 26);
+    sim.spawnMobs();
+    sim.step();
+    const a = sim.spawnSquad('you', 0, 'hoplite', 12, 48, 54);
+    expect(run(sim, 200, () => !!boss(sim).tele), 'no surge in P1').toBe(200);
+    downTo(sim, 'river_god', 0.65);
+    expect(until(sim, 'surge', 100)).toBeLessThan(100);
+    const t = boss(sim).tele!;
+    expect(t.of).toBe(MOVES.surge.wind);
+    const y0 = men(sim, a).reduce((n, u) => n + u.y, 0) / 12;
+    run(sim, t.in + 1);
+    expect(boss(sim).fx?.kind).toBe('surge');
+    expect(men(sim, a).reduce((n, u) => n + u.y, 0) / 12, 'thrown back').toBeGreaterThan(y0 + 1);
+    expect(run(sim, 300, () => boss(sim).tele?.kind === 'surge'), 'once a phase').toBe(300);
+  });
+
+  it('the Erymanthian Boar marks its gore on a line before it runs', () => {
+    const sim = createSim(flat([{ boss: 'erymanthian_boar', x: 48, y: 48 }], { id: 'erymanthos', depth: 3 }), 27);
+    sim.spawnMobs();
+    sim.step();
+    const a = sim.spawnSquad('you', 0, 'hoplite', 12, 48, 54);
+    sim.order({ kind: 'attack', squad: a, target: boss(sim).squad });
+    expect(until(sim, 'charge')).toBeLessThan(400);
+    expect(boss(sim).tele!.of).toBe(MOVES.charge.wind);
+    run(sim, MOVES.charge.wind + 1);
+    expect(boss(sim).fx?.kind).toBe('charge');
+  });
+});
