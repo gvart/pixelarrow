@@ -107,6 +107,8 @@ export const orderSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('detach'), squad: id, ...U, count: z.number().int().min(1).max(MAX_SQUAD).optional(), unitIds: z.array(id).min(1).max(MAX_SQUAD).optional() }),
   z.object({ kind: z.literal('merge'), squad: id, ...U, into: id }),
   z.object({ kind: z.literal('active'), squad: id, ...U }),
+  // micro: one man of the squad falls back, swaps to its rear rank or rejoins (never with `units`: he stays in it)
+  z.object({ kind: z.literal('man'), squad: id, unit: id, act: z.enum(['fallBack', 'rear', 'rejoin']) }),
   // work and building
   z.object({ kind: z.literal('gather'), squad: id, ...U, node: id }),
   z.object({ kind: z.literal('build'), squad: id, ...U, site: id }),

@@ -116,7 +116,7 @@ export class Selection {
   /** The order with the selected men named on it, when it goes to the lead squad and they are not exactly that squad. */
   address(o: Order): Order {
     const lead = this.lead();
-    if (o.units || !('squad' in o) || o.squad === undefined || o.squad !== lead) return o;
+    if (o.units || o.kind === 'man' || !('squad' in o) || o.squad === undefined || o.squad !== lead) return o; // micro: a man order names its man
     const ids = this.men().map((d) => d.u.id);
     let inLead = 0;
     for (const d of this.live.values()) if (d.u.squad === lead) inLead++;

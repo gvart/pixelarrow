@@ -39,6 +39,8 @@ export const SPRITE_ZOOM = 1 / 3;
 /** World px from the feet to a man's middle (a sprite is ~58 px tall). */
 export const BODY = 28;
 const FALLBACK_CLASS = 'militia';
+/** micro: the ring of the one man picked out of his block (./micro.ts): white, wider, pulsing. */
+const PICK_RING = 0xffffff;
 /** The dye pipeline per team (none: Kyrene keeps the art's red). */
 const TEAM_DYE = DYE_GLSL.map((d, t) => (d ? `WarTeamDye${t}` : null));
 
@@ -335,6 +337,12 @@ export class UnitLayer {
   /** Units whose drawn frame is kept in `drawnAs` (the guardians: their mouths and silhouettes for ./bossFx.ts). */
   watch: ReadonlySet<number> = new Set();
   readonly drawnAs = new Map<number, DrawnAs>();
+  /** micro (./micro.ts): the man picked out of his block (a wider, pulsing white ring), -1 none. */
+  picked = -1;
+  /** A class's draw scale over a soldier's (1 till its sheet is up; guardians up to 2.7). */
+  scaleOf(cls: string): number {
+    return this.sheets.get(cls)?.scale ?? 1;
+  }
   /** A unit drawn with an outline over everything in this colour (the man-sized guardians: the King, a queen), or undefined. */
   mark: ((id: number) => number | undefined) | null = null;
 
@@ -543,13 +551,14 @@ export class UnitLayer {
         }
         const k = sheet.scale; // a guardian's shadow and ring at its size
         // a ring at least 1.5 screen px wide; your own men's full and wider (their colour is their alliance's, not yours)
-        const sel = selected.has(u.id), own = d.team === myTeam(), w = Math.max(1.5, 1.5 / zoom);
+        const sel = selected.has(u.id), own = d.team === myTeam(), w = Math.max(1.5, 1.5 / zoom), pick = this.picked === u.id;
+        const ring = pick ? PICK_RING : sel ? 0xffffff : team, lw = pick ? w + 1.5 : sel || own ? w + 0.5 : w;
         if (r === g && k === 1) { // a man on the ground: pooled images, batched (a Graphics ellipse is re-triangulated every frame)
           if (!l?.climb) this.under('war-shadow', 0, f.x, f.y).setTint(0x000000).setAlpha(0.28);
-          this.under(this.ringTex(sel || own ? w + 0.5 : w), 1, f.x, f.y).setTint(sel ? 0xffffff : team).setAlpha(sel || own ? 1 : 0.7);
+          this.under(this.ringTex(lw), 1, f.x, f.y).setTint(ring).setAlpha(pick ? 0.7 + 0.3 * Math.sin(at.now / 160) : sel || own ? 1 : 0.7);
         } else {
           if (!l?.climb) r.fillStyle(0x000000, 0.28).fillEllipse(f.x, f.y, 26 * k, 12 * k); // no shadow in mid-air on a ladder
-          r.lineStyle(sel || own ? w + 0.5 : w, sel ? 0xffffff : team, sel || own ? 1 : 0.7).strokeEllipse(f.x, f.y, 30 * k, 14 * k);
+          r.lineStyle(lw, ring, sel || own ? 1 : 0.7).strokeEllipse(f.x, f.y, 30 * k, 14 * k);
         }
       }
       let img = this.pool[n];

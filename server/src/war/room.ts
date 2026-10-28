@@ -724,6 +724,12 @@ export class WarRoom {
       case 'merge':
         if (this.owners[o.into] !== me || o.into === o.squad) return 'notOwner';
         break;
+      case 'man': {
+        // micro: a living man of that squad, as the last snapshot shows him
+        const u = this.snap.units[o.unit]?.id === o.unit ? this.snap.units[o.unit] : this.snap.units.find((x) => x.id === o.unit);
+        if (!u || u.squad !== o.squad || u.state === 'dead') return 'badTarget';
+        break;
+      }
       case 'move':
       case 'attackMove':
       case 'placeBuilding':

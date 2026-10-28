@@ -50,6 +50,8 @@ import { FogLayer } from './fog';
 import { anySoldiers } from './hud/cardCiv';
 import { GuardianLayer } from './guardians';
 import { Selection } from './select';
+import { Micro } from './micro';
+import { blockAt } from './microRules';
 import { keys as warKeys } from '../input/keys';
 import { myTeam } from './side';
 import { Feel } from './feel/feel';
@@ -93,6 +95,8 @@ export class SandboxScene extends Phaser.Scene {
   selected = new Set<SquadId>();
   /** W-53: the selected men and the control groups. */
   sel!: Selection;
+  /** micro: health bars, the man picked out of his block and his card (./micro.ts). */
+  micro!: Micro;
   /** Set by the dev panel: the next left click spawns this squad there. */
   placing: { team: number; cls: string; count: number } | null = null;
   pointerTile = { x: 0, y: 0 };
@@ -249,6 +253,7 @@ export class SandboxScene extends Phaser.Scene {
     });
     this.interact = new Interact(this);
     this.sel = new Selection(this);
+    this.micro = new Micro(this, this.units);
     // wall-walks: units drawn up on walks, stairs and ladders; climbers play climb (else walk); ram crews and ladder
     // bearers on their engine's offsets
     const layer = this.build.layer, sl = this.siegeLayer;
@@ -547,6 +552,9 @@ export class SandboxScene extends Phaser.Scene {
       this.sel.set(ids, this.keys.SHIFT.isDown);
       return;
     }
+    // micro: a click in the gaps of one of your blocks selects the block
+    const block = hit ? null : blockAt(this.drawn, myTeam(), this.world(p));
+    if (block) { this.sel.set(block, this.keys.SHIFT.isDown); this.build.selectAt({ x: -1, y: -1 }); return; }
     this.sel.click(hit, this.keys.SHIFT.isDown, this.time.now);
     if (hit) this.build.selectAt({ x: -1, y: -1 });
   }
@@ -647,6 +655,7 @@ export class SandboxScene extends Phaser.Scene {
     const occluded = this.objects?.draw(view, cam.zoom, this.drawn, (d) => this.units.feet(d), BODY) ?? new Set<number>();
     if (cam.zoom >= SPRITE_ZOOM) this.build.layer.occluded(this.drawn, occluded);
     this.units.draw(this.drawn, view, cam.zoom, this.sim.replay?.picked ?? this.sel.units, at, this.sim.squads, shots, occluded);
+    this.micro.update(this.drawn, this.sel.units, view, cam.zoom, this.guardians.watch);
     const cur = this.sim.cur;
     if (cur?.lairs || cur?.claims) this.neutral.draw(cur.lairs ?? [], cur.claims ?? [], cam.zoom);
     if (bosses || cur?.warden) this.guardians.draw(bosses ?? [], cur?.warden, cam.zoom, this.time.now, this.sim.since(this.time.now), view, this.moved && this.input.isOver ? this.wpx(p.x, p.y) : null);
