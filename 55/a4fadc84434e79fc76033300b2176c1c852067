@@ -1,0 +1,24 @@
+src/war/view/hud/armyPanel.ts
+  s_f08b12c690e0d6::t_fc6c90ef3aeb90 71
+  s_f08b12c690e0d6::t_3a769bcff06fbd 1-70,72-81
+tests/armyPanel.test.ts
+  s_f08b12c690e0d6::t_225dcb3b9ecad8 1-32
+src/war/view/hud/hud.ts
+  s_f08b12c690e0d6::t_ffdece56ccc575 14-15,68,232,650-654
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "55a4fadc84434e79fc76033300b2176c1c852067",
+  "prompts": {},
+  "sessions": {
+    "s_f08b12c690e0d6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e4ed4b42-9ff5-404c-b2dd-32a044e85f29",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
