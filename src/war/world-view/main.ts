@@ -58,8 +58,9 @@ const style = document.createElement('style');
 style.textContent = CSS + CARD_CSS + LEGEND_CSS + `
 :root{--rf-body:600 13px/1.35 Inter,system-ui,sans-serif}
 .rf-tbtn{font-size:13px}.rf-cap,.rf-cap .rf-dim{font-size:13px}
-#wvBand{white-space:nowrap;top:0;left:50%;transform:translateX(-50%);height:40px;display:flex;align-items:center;gap:8px;padding:0 10px;pointer-events:auto}
-#wvBand kbd{font:700 13px/1 Inter,sans-serif;padding:1px 3px;margin-left:2px;border:1px solid var(--rf-rule);color:var(--rf-muted)}
+#wvBand{white-space:nowrap;top:0;left:0;right:0;height:40px;display:flex;align-items:center;justify-content:center;gap:8px;padding:0 10px;pointer-events:auto;
+  border:0;border-radius:0;background:linear-gradient(180deg,rgba(30,33,39,.94),rgba(13,15,18,.9));box-shadow:inset 0 -1px 0 var(--hud-gold-lo),inset 0 -2px 0 rgba(0,0,0,.6),0 1px 0 var(--hud-edge),0 4px 14px rgba(0,0,0,.45);backdrop-filter:blur(3px)}
+#wvBand kbd{display:inline-block;min-width:15px;padding:2px 4px 1px;margin-left:5px;border:0;border-radius:2px;font:700 10px/1.1 Inter,system-ui,sans-serif;color:var(--hud-gold-hi);text-align:center;background:linear-gradient(180deg,#2a2d34,#15171b);box-shadow:inset 0 0 0 1px var(--hud-bronze),0 1px 0 var(--hud-edge)}
 .wv-panel{width:240px;padding:6px 8px 8px;pointer-events:auto}
 .wv-row{display:flex;align-items:center;gap:6px;padding:3px 4px;border-radius:2px}
 .wv-sw{width:10px;height:10px;flex:none;border:1px solid #0e0907}
