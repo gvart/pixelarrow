@@ -1,0 +1,27 @@
+server/src/war/world/chat.ts
+  s_f08b12c690e0d6::t_de97db5bb5cd76 2-4,8,11-13,45-49,51-55,58-76,89-93,95
+server/src/war/world/worldDO.ts
+  s_f08b12c690e0d6::t_1d7b4cb6a6a02b 24-27,53,344,348,379-380,382,387,389-391,394-396
+server/migrations/0049_war_chat_world.sql
+  s_f08b12c690e0d6::t_993fc144012f22 1-4
+server/test/war/chat.test.ts
+  s_f08b12c690e0d6::t_f58f6e839db14a 1,7-8,172-191,195-226
+  s_f08b12c690e0d6::t_aff1d941a9c724 192-194
+  s_f08b12c690e0d6::t_5724566970a111 227
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "528f671a54ccdd7ccac97b6573f72c5a508b9e4a",
+  "prompts": {},
+  "sessions": {
+    "s_f08b12c690e0d6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e4ed4b42-9ff5-404c-b2dd-32a044e85f29",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
