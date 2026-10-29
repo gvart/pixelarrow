@@ -16,6 +16,9 @@ import { swatch } from './modes';
 import { drawIcon, drawMap, explored, fogAt, FOG_SWATCH, ISO_ROT, ROAM_DOT, squads, TEAM, toPx, toTile, type MapXf } from './mapDraw';
 import { keys } from '../../input/keys';
 import { myTeam } from '../side';
+import { groundless } from './claimCard';
+import { claimView } from './explain';
+import { depthOf } from '../../sim/depth';
 
 const CLASS: Record<string, string> = { militia: 'Militia', hoplite: 'Hoplites', celt_sword: 'Swordsmen', archer: 'Archers', slinger: 'Slingers', javelineer: 'Javelineers' };
 const nice = (t: string) => t.replace(/[A-Z]/g, (c) => ' ' + c.toLowerCase()).replace(/^./, (c) => c.toUpperCase());
@@ -319,15 +322,16 @@ export class FullMap {
     const { w, h } = s.map;
     if (t.x < 0 || t.y < 0 || t.x >= w || t.y >= h) { this.tip.style.display = 'none'; this.card.innerHTML = '<span class="d">Point at the map to see what is there.</span>'; return; }
     const fog = fogAt(s, t.x, t.y);
-    if (fog === 0) { this.place(e, 'Unexplored'); this.card.innerHTML = '<b>Unexplored</b>'; return; }
     const pick = (9 * this.px) / this.f.k; // ~9 art px in tiles
+    // while he holds no ground here the banners show through the fog (./mapDraw.ts), and say what to do
+    const lost = groundless(s), c = l.claims.find((q) => near(q.x, q.y, Math.max(2, pick)) && (lost || explored(s, q.x, q.y)));
+    if (fog === 0 && !c) { this.place(e, 'Unexplored'); this.card.innerHTML = '<b>Unexplored</b>'; return; }
     const items: [string, string][] = [];
     const lair = l.lairs.find((q) => near(q.x, q.y, Math.max(2, pick)) && explored(s, q.x, q.y));
     if (lair) items.push([`${BEAST[lair.kind] ?? nice(lair.kind)} lair`, fog < 2 ? 'Out of sight' : lair.state === 'cleared' ? 'Cleared' : `${lair.alive} of ${lair.count} left · guards ${lair.guard} tiles`]);
     const b = l.buildings.find((q) => q.state !== 'destroyed' && Math.abs(q.x - t.x) <= Math.max(q.w / 2, pick / 2) && Math.abs(q.y - t.y) <= Math.max(q.h / 2, pick / 2));
     if (b) items.push([nice(b.type), `${b.team === myTeam() ? 'Yours' : 'Enemy'} · ${b.state}`]);
-    const c = l.claims.find((q) => near(q.x, q.y, Math.max(2, pick)) && explored(s, q.x, q.y));
-    if (c) items.push(['Claim point', c.state === 'claimed' ? (c.team === myTeam() ? 'Claimed by you' : 'Claimed by the enemy') : c.state === 'locked' ? 'Locked: clear the lairs first' : nice(c.state)]);
+    if (c) { const v = claimView(c, myTeam(), depthOf(s.region), l.lairs, s.sim.cur?.bosses ?? []); items.push(['Claim point', `${v.state} ${v.next}`]); }
     const nd = l.nodes.find((q) => near(q.x, q.y, Math.max(1, pick / 2)) && explored(s, q.x, q.y));
     if (nd) items.push([nice(nd.res), `${Math.floor(nd.amount)} of ${nd.max} left${nd.guarded ? ' · guarded by a lair' : ''}`]);
     const q = squads(s).find((v) => v.team !== MOB_TEAM && near(v.x, v.y, Math.max(2, pick)));

@@ -115,7 +115,7 @@ export function mountGuide(s: SandboxScene, mk: Mk): void {
     questBanner({
       kind: 'done', head: nx ? 'Step done' : 'The First Hour is done', title: lore(id).goal, giver: from,
       ...(paid ? { reward: st.reward as Record<string, number>, pay: `Paid into your ${g.offline ? 'stores' : 'home strongroom'}` } : { pay: 'Your army is full: no soul to claim, nothing paid' }),
-      text: nx ? `Next: ${lore(nx.id).goal}.` : 'Your men know their way now. The war is yours.',
+      text: nx ? `Next: ${lore(nx.id).goal}.` : 'Your men know their way now. Next, beyond your home: clear the lair guarding a claim banner, right-click the banner with your men and hold it, and you build there too.',
     });
     el.classList.remove('flash');
     void el.offsetWidth;
@@ -218,7 +218,7 @@ export function mountGuide(s: SandboxScene, mk: Mk): void {
         return `<li class="cur">${STEP_ICON[st.id]()}<div style="min-width:0;flex:1"><span class="t">${l.goal}</span><span class="gd-story">“${l.story}”</span>
           <span class="gd-where"><b>Where</b>${l.where}</span>
           <div class="gd-meta">${rewardChips(st.reward as Record<string, number>)}${t ? `<span class="gd-far">${metres(far)} away</span>` : ''}</div><span class="gd-pay">${payLine}</span></div></li>`;
-      }).join('')}</ol>${now ? '' : '<div class="gd-hint" style="padding:4px 0 0">Your men know their way now. The war is yours.</div>'}`;
+      }).join('')}</ol>${now ? '' : '<div class="gd-hint" style="padding:4px 0 0">Your men know their way now. Next, beyond your home: clear the lair guarding a claim banner, right-click the banner with your men and hold it, and you build there too.</div>'}`;
     if (!announced && now) {
       // the quest starts (or picks up again): who gives it and why
       announced = true;

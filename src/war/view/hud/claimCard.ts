@@ -4,12 +4,16 @@
  *   at the cursor   the claim point card while the pointer is on a claim banner (its pole and cloth, or its foot):
  *                   its state (unclaimed, guarded by whom, claiming x of y s, held by whom) and what to do next
  *   build bar       `claimFirst`: while the player has no ground anywhere in the region, why B builds nothing yet and
- *                   how to get ground (../hud.ts shows it in the bar's status line)
+ *                   how to get ground (../hud.ts shows it in the bar's status line, with a "Show banner" button)
+ *   in the world    while he has no ground here and men in the region, a gold marker over the nearest banner he can
+ *                   take (or on the screen's edge pointing at it, ./quest.ts), so a newcomer finds where to claim
  */
 import type { SandboxScene } from '../SandboxScene';
 import { depthOf } from '../../sim/depth';
 import { myTeam } from '../side';
 import { claimFirstHint, claimView } from './explain';
+import { ownCentre } from '../entry';
+import { metres, placeMarker, questMarker } from './quest';
 import type { ClaimSnap } from '../../types';
 
 type Mk = (id: string, css: string, html?: string) => HTMLElement;
@@ -34,15 +38,46 @@ export function claimCardHtml(s: SandboxScene, c: ClaimSnap): string {
     <div class="rf-dim" style="margin-top:4px;font-size:11px">A held point is ground you build on. The alliance with the most points holds the region.</div>`;
 }
 
+let had: { mask: unknown; v: number; bit: number; none: boolean } | null = null;
+/** The player holds no ground anywhere in this region (false while the influence is not known yet); cached per version. */
+export function groundless(s: SandboxScene): boolean {
+  const inf = s.sim.influence, bit = 1 << myTeam();
+  if (!inf) return false;
+  if (had?.mask !== inf.mask || had.v !== inf.version || had.bit !== bit) had = { mask: inf.mask, v: inf.version, bit, none: !inf.mask.some((m) => (m & bit) !== 0) };
+  return had.none;
+}
+
 /** The build bar's hint while the player holds no ground in this region (null: he has some). */
 export function claimFirst(s: SandboxScene): string | null {
-  const inf = s.sim.influence, bit = 1 << myTeam();
-  if (!inf || inf.mask.some((m) => (m & bit) !== 0)) return null;
+  if (!groundless(s)) return null;
   const cur = s.sim.cur;
   return claimFirstHint(cur?.claims ?? [], myTeam(), depthOf(s.region), cur?.lairs ?? [], cur?.bosses ?? []);
 }
 
+/** The banner to point a groundless player at: the nearest open one, else the nearest guarded, else one held by others. */
+export function nearestClaim(s: SandboxScene, from: { x: number; y: number }): ClaimSnap | null {
+  const me = myTeam(), cs = (s.sim.cur?.claims ?? []).filter((c) => !(c.state === 'claimed' && c.team === me));
+  const rank = (c: ClaimSnap) => (c.state === 'locked' ? 1 : c.state === 'claimed' ? 2 : 0);
+  return cs.reduce<ClaimSnap | null>((a, c) => (!a || rank(c) < rank(a) || (rank(c) === rank(a) && Math.hypot(c.x - from.x, c.y - from.y) < Math.hypot(a.x - from.x, a.y - from.y)) ? c : a), null);
+}
+
+/** The camera on the banner `claimFirst` speaks of (the build bar's "Show banner"). */
+export function showNearestClaim(s: SandboxScene): void {
+  const c = nearestClaim(s, ownCentre(s.sim.cur, myTeam()) ?? { x: s.map.w / 2, y: s.map.h / 2 });
+  if (c) s.focus(c.x, c.y);
+}
+
+/** The build bar status's HTML for the claim-first hint: the words and a button to the nearest banner. */
+export const claimFirstHtml = (hint: string) => `${hint} <button class="rf-tbtn" data-show-banner style="pointer-events:auto;height:18px;padding:0 6px;font-size:11px;vertical-align:baseline">Show banner</button>`;
+
 export function mountClaimCard(s: SandboxScene, mk: Mk): void {
+  // the nearest banner to take while he has no ground here (the guide's markers stand in his home, where he has)
+  const mark = questMarker('on');
+  s.events.on('postupdate', () => {
+    const me = groundless(s) ? ownCentre(s.sim.cur, myTeam()) : null, c = me ? nearestClaim(s, me) : null;
+    // over the banner's own label (pole and label stand ~140 px over its foot; their label keeps its size on screen: 4 tiles up-screen clears both)
+    placeMarker(s, mark, c && { x: c.x - 4, y: c.y - 4 }, c && me ? `Claim banner · ${metres(Math.hypot(c.x - me.x, c.y - me.y))}` : '', ['rfGuide', 'rfQuest'].map((id) => document.getElementById(id)).filter((x): x is HTMLElement => !!x));
+  });
   const card = mk('rfClaimTip', 'display:none;z-index:6;width:280px;white-space:normal;line-height:1.35');
   card.className = 'rf rf-tip';
   let shown = '';

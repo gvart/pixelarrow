@@ -83,8 +83,9 @@ describe('claiming in plain words', () => {
   });
 
   it('the build bar says how to get ground', () => {
-    expect(claimFirstHint([claim()], 0, 1, [], [])).toMatch(/^Claim this region first: .*hold it with 3 men for 30 s/);
-    expect(claimFirstHint([claim({ state: 'locked', lairs: [0] })], 0, 2, [lair('bandit', { captain: true })], [])).toContain('defeat the bandit captain first, then hold it with 6 men for 60 s');
+    expect(claimFirstHint([claim()], 0, 1, [], [])).toMatch(/^No ground of yours here.*right-click the banner and hold it with 3 men for 30 s/);
+    expect(claimFirstHint([claim({ state: 'locked', lairs: [0] })], 0, 2, [lair('bandit', { captain: true })], [])).toContain('opens once you defeat the bandit captain; then select your men, right-click the banner and hold it with 6 men for 60 s');
+    expect(claimFirstHint([claim({ state: 'claimed', team: 1 })], 0, 1, [], [])).toContain('new men come only from souls');
   });
 
   it('the world map card says how to take a region', () => {

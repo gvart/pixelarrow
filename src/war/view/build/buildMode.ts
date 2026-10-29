@@ -54,8 +54,8 @@ export const RESOURCES: ResourceKind[] = ['food', 'wood', 'stone', 'marble', 'co
 export const TOOLBAR: BuildingType[] = ['camp', 'storehouse', 'outpost', 'fort', 'farm', 'olivePress']; // W-60: no barracks (pre-built only)
 export const WALL_NAME: Record<WallMaterial, string> = { wood: 'palisade', timber: 'timber rampart', stone: 'stone wall' };
 const REASON: Partial<Record<PlaceReason, string>> = {
-  bounds: 'off the map', noBuild: 'no-build zone', water: 'water', rock: 'rock', blocked: 'blocked', overlap: 'overlaps a building',
-  influence: 'outside your influence', slope: 'too steep', node: 'on a resource', short: 'line too short',
+  bounds: 'off the map', noBuild: 'this ground is kept clear', water: 'water', rock: 'rock', blocked: 'blocked', overlap: 'overlaps a building',
+  influence: 'not your ground (build round your town or a banner you hold)', slope: 'too steep', node: 'on a resource', short: 'line too short',
   attach: 'attach: needs a wall to lean on', span: 'too long: over the span limit', bank: 'needs dry banks at both ends',
 };
 /** Bridge directions in the tool's status (BridgePlan axis). */

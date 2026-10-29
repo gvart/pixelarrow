@@ -68,7 +68,7 @@ import { mountSouls } from './souls';
 import { mountTunnel } from './tunnel';
 import { mountArmyPanel } from './armyPanel';
 import { mountWorldEvents } from './worldEvents';
-import { claimFirst, mountClaimCard } from './claimCard';
+import { claimFirst, claimFirstHtml, mountClaimCard, showNearestClaim } from './claimCard';
 import { mountRegionChat } from './chatRegion';
 import { mountPeace } from './peace';
 import { mountSettlements } from './settlements';
@@ -400,6 +400,7 @@ export function hud(s: SandboxScene): void {
     <div class="rf-card" style="padding:2px 0 3px"><div id="bTools" style="display:flex;gap:2px;height:30px"></div></div>`);
   const bTabs = build.querySelector<HTMLElement>('#bTabs')!, bTools = build.querySelector<HTMLElement>('#bTools')!;
   const bStatus = build.querySelector<HTMLElement>('#bStatus')!;
+  bStatus.addEventListener('click', (e) => { if ((e.target as HTMLElement).closest('[data-show-banner]')) showNearestClaim(s); });
   for (const t of Object.keys(TABS) as Tab[]) {
     const b = document.createElement('button');
     b.className = 'rf-tab';
@@ -687,8 +688,9 @@ export function hud(s: SandboxScene): void {
       x.disabled = !!nodeWhy(d);
     }
     // no ground of his in the region yet: say how to get some instead of a silent red ghost (./claimCard.ts)
-    const status = m.claimArmed ? 'click the map to claim (influence r 20)' : (m.active && claimFirst(s)) || (m.tool ? m.status || 'R rotate · Esc cancel · shift keeps the tool' : '');
-    bStatus.textContent = status;
+    const cf = !m.claimArmed && m.active && claimFirst(s);
+    const status = m.claimArmed ? 'click the map to claim (influence r 20)' : cf || (m.tool ? m.status || 'R rotate · Esc cancel · shift keeps the tool' : '');
+    if (bStatus.dataset.t !== status) { bStatus.dataset.t = status; if (cf) bStatus.innerHTML = claimFirstHtml(cf); else bStatus.textContent = status; }
     bStatus.style.display = status ? '' : 'none';
   };
   setInterval(refresh, 200);
