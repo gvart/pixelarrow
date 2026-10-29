@@ -27,7 +27,7 @@ export function spatial(dx: number, dy: number, hw: number, hh: number, zoom: nu
 
 const RANGED = new Set(['archer', 'slinger', 'javelineer']);
 const SPEAR = new Set(['hoplite', 'militia']);
-const BEAST = /^mob_(wolf|jackal|boar|bear|ibex|lion|griffin|moor_bear|savanna_lion)/;
+const BEAST = /^mob_(wolf|jackal|boar|bear|ibex|lion|serpent|griffin|moor_bear|savanna_lion)/;
 const SWORD = /^(celt_sword|mob_bandit|mob_maenad$)/;
 
 /** A melee blow's sound by the striker's class; null: a ranged class (its missile sounds instead). */
@@ -108,8 +108,28 @@ export function cueSfx(cue: string, boss: string): SfxId | null {
     case 'boss.enrage': return roar[boss] ?? 'roar';
     case 'boss.slain': return 'bossSlain';
     case 'boss.loot': return 'chime';
+    // W-67 signature moves: the wind-up (the Griffin's screech, a growl, the bull pawing, the river gathering), the landings
+    case 'boss.windup': return boss === 'griffin' ? 'screech' : boss === 'minotaur' || boss === 'erymanthian_boar' ? 'stomp' : boss === 'river_god' ? 'splash' : 'roar';
+    case 'boss.dive': return 'bossCrash';
+    case 'boss.pounce': return 'thud';
+    case 'boss.maul': return 'sweep';
+    case 'boss.charge': return 'thud';
+    case 'boss.surge': return 'splash';
+    case 'boss.wall': return 'wallCollapse';
     default: return null;
   }
+}
+
+// ---------------------------------------------------------------- mobs
+
+/**
+ * W-67: a mob FX event (src/war/sim/mobs.ts) as a sound: a lair's cry (wolf howl, lion and bear roar), a beast's burst
+ * (the boar's charge thud, the lion's pounce, the serpent's hiss), a herd bolting (hooves); null: silent.
+ */
+export function mobSfx(kind: 'mobDash' | 'mobCry' | 'mobScatter', mob: string): SfxId | null {
+  if (kind === 'mobCry') return mob === 'wolf' ? 'howl' : 'roar';
+  if (kind === 'mobDash') return mob === 'boar' ? 'thud' : mob === 'lion' ? 'hurl' : mob === 'serpent' ? 'hiss' : null;
+  return mob === 'ibex' ? 'hooves' : null;
 }
 
 // ---------------------------------------------------------------- music

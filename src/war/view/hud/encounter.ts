@@ -5,7 +5,7 @@
  *    where and pay, a marker over the spot (or the town, the lair, the giver), buttons for a choice; when it ends or the
  *    moment passes the card goes back to what was tracked before;
  *  - who waits at the spot (a deserter, a merchant, pilgrims) is painted there from the existing sheets (no sim unit);
- *    a guided merchant walks behind your men; a place to reach glows as a gold ring on the ground;
+ *    a guided merchant walks behind your men; a place to reach (a mark of a trail, a captive) glows as a gold ring;
  *  - each step, choice, risk gone wrong and the end are banners with their rewards.
  *
  * Offline (a world entry, or ?encounter; ?encounter=<kind> springs that one at once, for tools) the page runs the
@@ -19,6 +19,7 @@ import { NEUTRAL_TEAM } from '../../sim/economy';
 import { encSaveOk, encStepOf, EncounterRun, type EncNote, type EncSave, type EncStep } from '../../sim/encounters';
 import type { StoryReward } from '../../sim/stories';
 import type { ServerMsg } from '../../net/protocol';
+import type { WarEvent } from '../../types';
 import type { SandboxScene } from '../SandboxScene';
 import { ownCentre } from '../entry';
 import { SPRITE_ZOOM } from '../units';
@@ -47,6 +48,7 @@ export function mountEncounters(s: SandboxScene): void {
   const payTo = online ? 'your home strongroom' : 'your stores';
   const trackKey = 'encounter';
   let save: EncSave | null = null, run: EncounterRun | null = null, prev: Tracked | null = null;
+  const evs: WarEvent[] = [];
 
   // ---------------------------------------------------------------- banners and the card
   const pay = (r: StoryReward | undefined) => {
@@ -68,6 +70,7 @@ export function mountEncounters(s: SandboxScene): void {
         track(tracker);
       } else if (n.kind === 'step') {
         if (n.step.includes('#')) {
+          if (d.steps.find((x) => x.id === n.step.split('#')[0])?.trigger.kind === 'track') continue; // a mark: the card counts it
           questBanner({ kind: 'done', head: d.title, title: 'He follows your men', text: 'Lead him to the nearest town.' });
           continue;
         }
@@ -92,6 +95,8 @@ export function mountEncounters(s: SandboxScene): void {
     if (t.kind === 'choice') return 'Choose on this card.';
     if (t.kind === 'guide') return save?.open?.with ? 'The nearest town. He follows your men.' : 'Close by, where the marker points.';
     if (t.kind === 'clear') return 'Right here. Fight them off.';
+    if (t.kind === 'track') return `Follow the marks where the marker points (${save?.open?.n ?? 0}/${t.marks} found).`;
+    if (t.kind === 'rescue') return `Free ${t.name}: send a squad to claim his soul where the marker points.`;
     return WHERE[t.at ?? 'here'];
   };
   const tracker: Tracked = {
@@ -140,6 +145,8 @@ export function mountEncounters(s: SandboxScene): void {
       },
     }, story);
     save = run.save;
+    const prevEv = s.sim.onEvents;
+    s.sim.onEvents = (ev: WarEvent[]) => { prevEv?.(ev); evs.push(...ev); }; // a rescue waits on a soul claimed
     if (save.open) {
       prev = trackedNow();
       track(tracker);
@@ -147,7 +154,7 @@ export function mountEncounters(s: SandboxScene): void {
   }
 
   // ---------------------------------------------------------------- who waits there, and the ground ring
-  const imgs: Phaser.GameObjects.Image[] = [];
+  const imgs: Phaser.GameObjects.Image[] = [], glows: Phaser.GameObjects.Image[] = [];
   const ring = s.add.graphics().setDepth(9.5);
   const draw = () => {
     const o = save?.open, d = o && ENCOUNTERS[o.id], st = encStepOf(ENCOUNTERS, save ?? null), cam = s.cameras.main;
@@ -161,13 +168,18 @@ export function mountEncounters(s: SandboxScene): void {
         const img = imgs[i] ?? (imgs[i] = s.add.image(0, 0, '__WHITE').setVisible(false));
         const fx = s.iso.sx(x, y), fy = s.iso.sy(x, y, s.iso.zDraw(x, y));
         const paint = (clip: string) => s.paintMan(img, d.figure!.cls, clip, s.time.now + i * 170, i % 2 ? 1 : -1, 1, fx, fy, 10 + s.depthAt(x, y) / 4096 + 0.25, NEUTRAL_TEAM);
-        if ((o.with && paint('walk')) || paint('idle')) shown++;
-        else img.setVisible(false);
+        if ((o.with && paint('walk')) || paint('idle')) {
+          shown++;
+          if (d.figure.shade) shadeLook(img, glows[i] ?? (glows[i] = s.add.image(0, 0, '__WHITE')), s.time.now + i * 900);
+          else glows[i]?.setVisible(false);
+        } else img.setVisible(false);
       }
     }
     for (let i = shown; i < imgs.length; i++) imgs[i].setVisible(false);
+    for (let i = shown; i < glows.length; i++) glows[i].setVisible(false);
     // a place to reach: a slow gold ring on the ground
-    if (!o || !st || (st.trigger.kind !== 'reach' && !(st.trigger.kind === 'guide' && !o.with))) return;
+    const k0 = st?.trigger.kind;
+    if (!o || !st || (k0 !== 'reach' && k0 !== 'track' && k0 !== 'rescue' && !(k0 === 'guide' && !o.with))) return;
     const p = st.trigger.kind === 'guide' ? { x: o.x, y: o.y } : { x: o.tx, y: o.ty }, r = 4;
     const k = 0.55 + 0.35 * Math.sin(s.time.now / 380), cx = s.iso.sx(p.x, p.y), cy = s.iso.sy(p.x, p.y, s.iso.zDraw(p.x, p.y));
     ring.lineStyle(3, 0xffd257, k).strokeEllipse(cx, cy, r * 2 * 32 * 1.41, r * 2 * 16 * 1.41);
@@ -188,7 +200,7 @@ export function mountEncounters(s: SandboxScene): void {
     if (!forced && ownCentre(cur, team) && !document.getElementById('rfLoad')) {
       forced = true;
       notes = run!.save.open ? [] : run!.fire(cur, ENCOUNTERS[force!]);
-    } else notes = run!.tick(cur);
+    } else notes = run!.tick(cur, evs.splice(0));
     save = run!.save;
     if (notes.length || run!.due) {
       run!.due = false;
@@ -197,4 +209,12 @@ export function mountEncounters(s: SandboxScene): void {
     }
   };
   requestAnimationFrame(frame);
+}
+
+/** A shade (the W-60 soul look, ../units.ts drawSouls): the painted man pale blue-white and see-through, bobbing over an additive glow of his frame. */
+function shadeLook(img: Phaser.GameObjects.Image, glow: Phaser.GameObjects.Image, t: number): void {
+  const bob = Math.sin(t / 600) * 3, pulse = 0.75 + 0.25 * Math.sin(t / 400);
+  img.setPosition(img.x, Math.round(img.y - 8 + bob)).setTint(0xe4f2ff).setAlpha(0.72);
+  glow.setTexture(img.texture.key, img.frame.name).setOrigin(img.originX, img.originY).setPosition(img.x, img.y).setFlipX(img.flipX)
+    .setScale(img.scaleX * 1.14, img.scaleY * 1.14).setDepth(img.depth - 1e-5).setBlendMode('ADD').setTintFill(0x8fcaff).setAlpha(0.6 * pulse).setVisible(true);
 }

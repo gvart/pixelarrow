@@ -15,12 +15,16 @@
  *   v n, n bytes:      JSON { u: BuildingSnap[], r: id[] } of changed / gone buildings (n = 0: none)
  *   v n, n bytes:      JSON { u: SiegeSnap[], r: id[] } of changed / gone engines and carts (n = 0: none)
  *   v n, n bytes:      JSON { u: SoulSnap[], r: id[] } of changed / gone souls (W-60; n = 0: none)
+ *   v n, n bytes:      JSON { u: BossSnap[], r: boss id[] } of changed / gone guardians (W-67; n = 0: none): every field
+ *                      but x, y, hp, its countdowns as absolute ticks (respawnIn, tele.in: tick + n, -1 for 0; fx.t: tick - t)
+ *   v n, n x boss:     s id | u16 x*QUANT | u16 y*QUANT | v round(hp)   (guardians that moved or were hurt)
+ *   u8 warden:         0 unchanged | 1 none | 2 then u16 x y | u8 w h | v strike tick (absolute)
  * Unit fields: POS u16 x*QUANT, u16 y*QUANT | FACE u8 (turns * 256) | HP u16 hp*10 | STATE u8 (state | 8 wounded set | 16 wounded)
  *   | Z u8 | ANIM u8 swing, u8 ready (255 none) | META v squad, u16 maxHp*10, s cls, s person id ('' none), u8 level
  *   | EXTRA v on+1, u8 task, u8 carry, u8 load, v combat tag end tick (absolute; 0 none, the decoder counts down),
  *     u8 satiety (W-60; 255 none)
  */
-import type { BuildingSnap, ResourceKind, ShotSnap, SiegeSnap, Snapshot, SoulSnap, SquadSnap, UnitSnap, WarSkillId } from '../types';
+import type { BossSnap, BuildingSnap, ResourceKind, ShotSnap, SiegeSnap, Snapshot, SoulSnap, SquadSnap, UnitSnap, WardenSnap, WarSkillId } from '../types';
 import { NET_VERSION, QUANT } from './protocol';
 
 const POS = 1, FACE = 2, HP = 4, STATE = 8, Z = 16, ANIM = 32, META = 64, EXTRA = 128;
@@ -106,7 +110,23 @@ class Reader {
 }
 
 /** What one client sees this tick (already filtered, ./interest.ts). `shots`: the ones to send (new ones; all on a keyframe). */
-export interface FrameInput { tick: number; units: UnitSnap[]; squads: SquadSnap[]; shots: ShotSnap[]; buildings: BuildingSnap[]; sieges?: SiegeSnap[]; souls?: SoulSnap[] }
+export interface FrameInput { tick: number; units: UnitSnap[]; squads: SquadSnap[]; shots: ShotSnap[]; buildings: BuildingSnap[]; sieges?: SiegeSnap[]; souls?: SoulSnap[];
+  /** W-67: the guardians and the Rim Warden's marked strike his team sees. */
+  bosses?: BossSnap[]; warden?: WardenSnap }
+
+/** A countdown as an absolute tick (-1: it is at 0, so it stays put on the wire), and back. */
+const absIn = (tick: number, n: number) => (n > 0 ? tick + n : -1);
+const relIn = (tick: number, at: number) => (at < 0 ? 0 : Math.max(0, at - tick));
+/** A guardian's slow part (all but x, y, hp), countdowns made absolute so it changes only when something happens. */
+function bossRest(b: BossSnap, tick: number): Omit<BossSnap, 'x' | 'y' | 'hp'> {
+  const { x: _x, y: _y, hp: _h, ...r } = b;
+  return {
+    ...r,
+    ...(b.respawnIn !== undefined ? { respawnIn: absIn(tick, b.respawnIn) } : {}),
+    ...(b.fx ? { fx: { ...b.fx, t: tick - b.fx.t } } : {}),
+    ...(b.tele ? { tele: { ...b.tele, in: absIn(tick, b.tele.in) } } : {}),
+  };
+}
 
 /** Squad active as absolute ticks (ready at, buff over at): changes only when it fires. */
 const activeAbs = (s: SquadSnap, tick: number) => (s.active ? [s.active.skill, s.active.ready ? tick + s.active.ready : 0, s.active.on ? tick + s.active.on : 0] as const : null);
@@ -121,11 +141,14 @@ export class DeltaEncoder {
   private buildings = new Map<number, string>();
   private sieges = new Map<number, string>();
   private souls = new Map<number, string>();
+  private bosses = new Map<string, string>();
+  private bossDyn = new Map<string, string>();
+  private warden = 'none';
   private seen = new Set<number>();
 
   /** key: a keyframe (full resend, the client starts over). */
   encode(f: FrameInput, key: boolean): Uint8Array {
-    if (key) { this.units.clear(); this.squads.clear(); this.buildings.clear(); this.sieges.clear(); this.souls.clear(); }
+    if (key) { this.units.clear(); this.squads.clear(); this.buildings.clear(); this.sieges.clear(); this.souls.clear(); this.bosses.clear(); this.bossDyn.clear(); this.warden = ''; }
     const w = new Writer();
     w.u8(key ? 2 : 1);
     w.u8(NET_VERSION);
@@ -208,13 +231,31 @@ export class DeltaEncoder {
     records(w, this.sieges, f.sieges ?? [], key);
     // W-60 souls: their `left` counts down every tick, so they go as absolute fade ticks (sent on change only)
     records(w, this.souls, (f.souls ?? []).map((x) => ({ ...x, left: f.tick + x.left })), key);
+    // W-67 guardians: the slow part as JSON on change, then position and hp (they change every tick of a fight) in binary
+    const bosses = f.bosses ?? [];
+    records(w, this.bosses, bosses.map((b) => bossRest(b, f.tick)), key);
+    const dyn = bosses.map((b) => [b.id, clampU16(Math.round(b.x * QUANT)), clampU16(Math.round(b.y * QUANT)), Math.max(0, Math.round(b.hp))] as const)
+      .filter((d) => this.bossDyn.get(d[0]) !== `${d[1]},${d[2]},${d[3]}`);
+    for (const id of this.bossDyn.keys()) if (!this.bosses.has(id)) this.bossDyn.delete(id);
+    w.v(dyn.length);
+    for (const [id, x, y, hp] of dyn) {
+      this.bossDyn.set(id, `${x},${y},${hp}`);
+      w.s(id); w.u16(x); w.u16(y); w.v(hp);
+    }
+    const wd = f.warden, wk = wd ? `${wd.x},${wd.y},${wd.w},${wd.h},${absIn(f.tick, wd.in)}` : 'none';
+    if (wk === this.warden) w.u8(0);
+    else if (!wd) (w.u8(1), (this.warden = wk));
+    else {
+      this.warden = wk;
+      w.u8(2); w.u16(clampU16(Math.round(wd.x))); w.u16(clampU16(Math.round(wd.y))); w.u8(u8(wd.w)); w.u8(u8(wd.h)); w.z(absIn(f.tick, wd.in));
+    }
     return w.done();
   }
 }
 
 /** A JSON block of the records that changed since `sent` (and the ids gone), or 0 bytes for none. */
-function records(w: Writer, sent: Map<number, string>, now: readonly { id: number }[], key: boolean): void {
-  const u: { id: number }[] = [], r: number[] = [], seen = new Set<number>();
+function records<K extends number | string>(w: Writer, sent: Map<K, string>, now: readonly { id: K }[], key: boolean): void {
+  const u: { id: K }[] = [], r: K[] = [], seen = new Set<K>();
   for (const b of now) {
     seen.add(b.id);
     const k = JSON.stringify(b);
@@ -237,6 +278,9 @@ export class DeltaDecoder {
   sieges = new Map<number, SiegeSnap>();
   /** W-60 souls, `left` held as the absolute tick they fade (snapshot() counts down). */
   souls = new Map<number, SoulSnap>();
+  /** W-67 guardians as sent (countdowns absolute: ./codec.ts bossRest; snapshot() counts down) and the Rim Warden's mark. */
+  bosses = new Map<string, BossSnap>();
+  warden: WardenSnap | null = null;
   /** Combat tag end ticks by unit (absolute; snapshot() counts down). */
   tags = new Map<number, number>();
   tick = 0;
@@ -246,7 +290,7 @@ export class DeltaDecoder {
     const kind = r.u8(), v = r.u8();
     if (v !== NET_VERSION) throw new Error(`net version ${v}, expected ${NET_VERSION}`);
     const tick = r.u32();
-    if (kind === 2) { this.units.clear(); this.squads.clear(); this.actives.clear(); this.shots = []; this.buildings.clear(); this.sieges.clear(); this.souls.clear(); this.tags.clear(); }
+    if (kind === 2) { this.units.clear(); this.squads.clear(); this.actives.clear(); this.shots = []; this.buildings.clear(); this.sieges.clear(); this.souls.clear(); this.tags.clear(); this.bosses.clear(); this.warden = null; }
     this.tick = tick;
     for (let n = r.v(); n > 0; n--) {
       const id = r.v(), m = r.u8();
@@ -308,6 +352,23 @@ export class DeltaDecoder {
       for (const x of j.u) into.set(x.id, x);
       for (const id of j.r) into.delete(id);
     }
+    // W-67 guardians: the slow part keeps the position and hp it had (the binary rows below move them)
+    const bb = r.bytes();
+    if (bb.length) {
+      const j = JSON.parse(dec.decode(bb)) as { u: Omit<BossSnap, 'x' | 'y' | 'hp'>[]; r: string[] };
+      for (const x of j.u) {
+        const was = this.bosses.get(x.id);
+        this.bosses.set(x.id, { ...x, x: was?.x ?? 0, y: was?.y ?? 0, hp: was?.hp ?? 0 });
+      }
+      for (const id of j.r) this.bosses.delete(id);
+    }
+    for (let n = r.v(); n > 0; n--) {
+      const id = r.s(), x = r.u16() / QUANT, y = r.u16() / QUANT, hp = r.v(), b = this.bosses.get(id);
+      if (b) (b.x = x), (b.y = y), (b.hp = hp);
+    }
+    const wd = r.u8();
+    if (wd === 1) this.warden = null;
+    else if (wd === 2) this.warden = { x: r.u16(), y: r.u16(), w: r.u8(), h: r.u8(), in: r.z() };
     return this.snapshot();
   }
 
@@ -331,6 +392,19 @@ export class DeltaDecoder {
     return {
       tick: this.tick, units, squads, shots: this.shots.map((s) => ({ ...s })), buildings: [...this.buildings.values()], ...(this.sieges.size ? { sieges: [...this.sieges.values()] } : {}),
       ...(this.souls.size ? { souls: [...this.souls.values()].map((x) => ({ ...x, left: Math.max(0, x.left - this.tick) })) } : {}),
+      ...(this.bosses.size ? { bosses: [...this.bosses.values()].map((b) => this.boss(b)) } : {}),
+      ...(this.warden ? { warden: { ...this.warden, in: relIn(this.tick, this.warden.in) } } : {}),
+    };
+  }
+
+  /** A guardian as the sim shows it: its countdowns relative to this tick again. */
+  private boss(b: BossSnap): BossSnap {
+    const t = this.tick;
+    return {
+      ...b,
+      ...(b.respawnIn !== undefined ? { respawnIn: relIn(t, b.respawnIn) } : {}),
+      ...(b.fx ? { fx: { ...b.fx, t: t - b.fx.t } } : {}),
+      ...(b.tele ? { tele: { ...b.tele, in: relIn(t, b.tele.in) } } : {}),
     };
   }
 }

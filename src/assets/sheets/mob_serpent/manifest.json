@@ -1,0 +1,84 @@
+{
+ "version": 2,
+ "class": "mob_serpent",
+ "image": "mob_serpent.png",
+ "frame": {
+  "w": 80,
+  "h": 56
+ },
+ "anchor": {
+  "x": 41,
+  "y": 54
+ },
+ "anchors": {
+  "south-east": {
+   "x": 39,
+   "y": 54
+  },
+  "north-east": {
+   "x": 38,
+   "y": 50
+  },
+  "south-west": {
+   "x": 41,
+   "y": 54
+  },
+  "north-west": {
+   "x": 41,
+   "y": 50
+  }
+ },
+ "scale": 0.55,
+ "rows": [
+  "south-east",
+  "north-east",
+  "south-west",
+  "north-west"
+ ],
+ "wrap": 51,
+ "colorGroups": {},
+ "tiers": {
+  "basic": {}
+ },
+ "anims": {
+  "idle": {
+   "col": 0,
+   "frames": 8,
+   "fps": 6
+  },
+  "walk": {
+   "col": 8,
+   "frames": 14,
+   "fps": 8
+  },
+  "run": {
+   "col": 22,
+   "frames": 14,
+   "fps": 12
+  },
+  "attack": {
+   "col": 36,
+   "frames": 8,
+   "fps": 12,
+   "strike": 5
+  },
+  "die": {
+   "col": 44,
+   "frames": 8,
+   "fps": 10
+  },
+  "hit": {
+   "col": 52,
+   "frames": 4,
+   "fps": 12
+  }
+ },
+ "metal": [],
+ "variation": {
+  "skin": false,
+  "shade": false
+ },
+ "rarity": {
+  "metal": false
+ }
+}

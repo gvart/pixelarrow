@@ -591,6 +591,15 @@ export const RECIPES = {
     noise(c, out, t, { dur: r.range(0.45, 0.65), gain: 0.35, f: r.jit(5200, 0.15), f1: 3800, q: 1.5, a: 0.05, type: 'highpass' });
     return 0.7;
   },
+  /** W-67: a wolf pack's howl: a rising, wavering call that sinks away, a second wolf joining a beat later. */
+  howl: (c, out, t, r) => {
+    for (const [d, f] of [[0, r.jit(330, 0.06)], [r.range(0.25, 0.45), r.jit(400, 0.06)]] as const) {
+      osc(c, out, t + d, { type: 'triangle', f, f1: f * 1.55, dur: 0.55, gain: 0.16, a: 0.18, vib: [5.5, 9] });
+      osc(c, out, t + d + 0.55, { type: 'triangle', f: f * 1.55, f1: f * 0.95, dur: 1.0, gain: 0.14, vib: [5, 12] });
+    }
+    noise(c, out, t, { dur: 1.4, gain: 0.04, f: 1800, q: 4, a: 0.3 });
+    return 1.9;
+  },
   /** A severed head or arm: a wet chop and a shriek. */
   sever: (c, out, t, r) => {
     const g = grit(c, out, 3);
@@ -920,6 +929,7 @@ export const PRIORITY: Record<SfxId, number> = {
   stomp: 8,
   fire: 8,
   hiss: 4,
+  howl: 7,
   sever: 7,
   bleat: 6,
   narrate: 10,

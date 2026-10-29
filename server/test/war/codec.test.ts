@@ -79,8 +79,8 @@ describe('war delta codec', () => {
     dec.apply(enc.encode(frame(s), true));
     expect(dec.units.size).toBe(10);
     const idle = enc.encode(frame(s), false);
-    // header 6 + 4-byte unit count + 6 empty sections (W-60: souls)
-    expect(idle.length).toBe(16);
+    // header 6 + 4-byte unit count + 6 empty sections (W-60: souls) + 3 (W-67: guardians, their rows, the Warden)
+    expect(idle.length).toBe(19);
     dec.apply(enc.encode({ ...frame(s), units: s.units.slice(0, 4) }, false));
     expect([...dec.units.keys()]).toEqual([0, 1, 2, 3]);
   });
@@ -91,7 +91,7 @@ describe('war delta codec', () => {
     const base = { tick: 1, units: [], squads: [], shots: [] };
     dec.apply(enc.encode({ ...base, buildings: [b] }, true));
     expect(dec.buildings.get(5)?.state).toBe('foundation');
-    expect(enc.encode({ ...base, buildings: [b] }, false).length).toBe(16);
+    expect(enc.encode({ ...base, buildings: [b] }, false).length).toBe(19);
     dec.apply(enc.encode({ ...base, buildings: [{ ...b, state: 'scaffold' }] }, false));
     expect(dec.buildings.get(5)?.state).toBe('scaffold');
     dec.apply(enc.encode({ ...base, buildings: [] }, false));
@@ -103,7 +103,7 @@ describe('war delta codec', () => {
     const cart = { id: 3, type: 'handcart', team: 0, owner: 'p:1', x: 10, y: 12, facing: 0, hp: 200, maxHp: 200, state: 'idle', crew: 1 } as unknown as SiegeSnap;
     const base = { tick: 1, units: [], squads: [], shots: [], buildings: [] };
     expect(dec.apply(enc.encode({ ...base, sieges: [cart] }, true)).sieges).toEqual([cart]);
-    expect(enc.encode({ ...base, sieges: [cart] }, false).length).toBe(16);
+    expect(enc.encode({ ...base, sieges: [cart] }, false).length).toBe(19);
     expect(dec.apply(enc.encode({ ...base, sieges: [{ ...cart, x: 11 }] }, false)).sieges?.[0].x).toBe(11);
     expect(dec.apply(enc.encode({ ...base, sieges: [] }, false)).sieges).toBeUndefined();
   });
@@ -114,7 +114,7 @@ describe('war delta codec', () => {
     const at = (tick: number, units: UnitSnap[]) => ({ tick, units, squads: [], shots: [], buildings: [] });
     expect(dec.apply(enc.encode(at(100, [u]), true)).units[0].tag).toBe(400);
     // the sim counts the tag down each tick: same end tick, nothing to send
-    expect(enc.encode(at(150, [{ ...u, tag: 350 }]), false).length).toBe(16);
+    expect(enc.encode(at(150, [{ ...u, tag: 350 }]), false).length).toBe(19);
     expect(dec.apply(enc.encode(at(160, [{ ...u, tag: 340 }]), false)).units[0].tag).toBe(340);
     // a fresh hit re-arms it; then it runs out
     expect(dec.apply(enc.encode(at(200, [{ ...u, tag: 400 }]), false)).units[0].tag).toBe(400);
@@ -130,12 +130,38 @@ describe('war delta codec', () => {
     expect(s.units[0].sat).toBe(72);
     expect(s.souls).toEqual([soul]);
     // the soul's countdown runs on the client: nothing to send while only `left` falls
-    expect(enc.encode(at(150, [u], [{ ...soul, left: 450 }]), false).length).toBe(16);
+    expect(enc.encode(at(150, [u], [{ ...soul, left: 450 }]), false).length).toBe(19);
     s = dec.apply(enc.encode(at(160, [{ ...u, sat: 40 }], [{ ...soul, left: 440, claim: 0.5, team: 0 }]), false));
     expect(s.units[0].sat).toBe(40);
     expect(s.souls).toEqual([{ ...soul, left: 440, claim: 0.5, team: 0 }]);
     s = dec.apply(enc.encode(at(170, [{ ...u, sat: undefined }], []), false));
     expect(s.units[0].sat).toBeUndefined();
     expect(s.souls).toBeUndefined();
+  });
+
+  it('W-67: round-trips guardians in a fight (slow part on change, position and hp per tick) and the Warden\'s mark', () => {
+    const moors = warRegion('moors')!, g = moors.guardians![0];
+    const sim = createSim(moors, 5);
+    sim.spawnMobs();
+    sim.step();
+    const a = sim.spawnSquad('p:1', 0, 'hoplite', 12, g.x, g.y + 6);
+    sim.order({ kind: 'attack', squad: a, target: sim.snapshot().bosses![0].squad });
+    const enc = new DeltaEncoder(), dec = new DeltaDecoder(), bare = new DeltaEncoder();
+    let bossBytes = 0, n = 0, teles = 0;
+    for (let t = 0; t < 400; t++) {
+      sim.step();
+      const s = sim.snapshot(), key = t % 50 === 0;
+      const warden = t >= 100 && t < 200 ? { x: 30, y: 2, w: 8, h: 8, in: 200 - t } : undefined;
+      const buf = enc.encode({ ...frame(s, []), bosses: s.bosses, warden }, key);
+      if (!key) (bossBytes += buf.length - bare.encode(frame(s, []), false).length), n++;
+      else bare.encode(frame(s, []), true);
+      const out = dec.apply(buf), b = s.bosses![0], o = out.bosses![0];
+      expect({ ...o, x: q(o.x), y: q(o.y) }).toEqual({ ...b, x: q(b.x), y: q(b.y), hp: Math.round(b.hp) });
+      expect(out.warden).toEqual(warden);
+      if (b.tele) teles++;
+    }
+    expect(teles).toBeGreaterThan(0);
+    // a guardian fighting costs a few bytes a tick (its position and hp), not its whole record
+    expect(bossBytes / n).toBeLessThan(40);
   });
 });

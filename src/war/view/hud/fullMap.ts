@@ -24,7 +24,7 @@ const CLASS: Record<string, string> = { militia: 'Militia', hoplite: 'Hoplites',
 const nice = (t: string) => t.replace(/[A-Z]/g, (c) => ' ' + c.toLowerCase()).replace(/^./, (c) => c.toUpperCase());
 const PANEL = 204;
 const PACE: Record<string, string> = { impassable: 'no way through', 'fast (road)': 'fast march', open: 'normal pace', slow: 'slow going', 'very slow': 'very slow going' };
-const BEAST: Record<string, string> = { wolf: 'Wolves', boar: 'Boars', bear: 'Bears', bandit: 'Bandits', jackal: 'Jackals', ibex: 'Ibex' };
+const BEAST: Record<string, string> = { wolf: 'Wolves', boar: 'Boars', bear: 'Bears', bandit: 'Bandits', jackal: 'Jackals', ibex: 'Ibex', lion: 'Lions', serpent: 'Serpents' };
 
 const CSS = `
 #rfFull{position:fixed;inset:0;z-index:8;background:rgba(10,6,4,0.66);opacity:0;transition:opacity .16s ease-out}

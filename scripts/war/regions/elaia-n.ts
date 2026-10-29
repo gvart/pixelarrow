@@ -73,8 +73,8 @@ const def: RegionDef = {
     k.piece('elaia/shrine', [132, 204], { r: 6 });
     k.forest([24, 230, 14, 12, 0.2], [236, 232, 14, 12, -0.2], [248, 50, 6, 20, 0]);
     // fauna: river serpents in the reeds either side of the causeway, boars in the south woods
-    k.lair('boar', [70, 98], { as: 'river serpents' });
-    k.lair('boar', [190, 100], { as: 'river serpents' });
+    k.lair('serpent', [70, 98], { as: 'river serpents' });
+    k.lair('serpent', [190, 100], { as: 'river serpents' });
     k.lair('boar', [24, 230], { as: 'boars' });
     k.lair('boar', [236, 232], { as: 'boars' });
     k.claim(hub, 160);

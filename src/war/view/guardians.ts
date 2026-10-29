@@ -18,8 +18,10 @@ import type { DrawnAs } from './units';
 const PPM = 33;
 /** In flight: this high over the ground (px). */
 const FLIGHT_PX = 380;
-/** E3: guardians whose `flight` is a charge along the ground (the River-God's bull, the Erymanthian Boar): not lifted. */
-const GROUND_CHARGE = new Set(['river_god', 'erymanthian_boar']);
+/** E3: guardians whose `flight` is a charge along the ground (the River-God's bull, the Erymanthian Boar, W-67 the Minotaur): not lifted. */
+const GROUND_CHARGE = new Set(['river_god', 'erymanthian_boar', 'minotaur']);
+/** W-67: a leap's arc (px at its top): the Griffin's dive, the Lion's pounce. */
+const LEAP_PX: Record<string, number> = { dive: 230, pounce: 55 };
 /** A perch on no landmark piece: this high (px). */
 const PERCH_PX = 220;
 
@@ -31,6 +33,8 @@ export class GuardianLayer {
   private heights = new Map<string, number>();
   private lifts = new Map<number, number>();
   private states = new Map<number, BossSnap>();
+  /** W-67: a leap under way, by unit: when it was first seen (ms) and how long it lasts. */
+  private leaps = new Map<number, { t0: number; ms: number; px: number }>();
   /** Units of guardian squads not drawn. */
   readonly hidden = new Set<number>();
   /** The guardians' units (./units.ts keeps how they were drawn: `drawn`). */
@@ -74,7 +78,17 @@ export class GuardianLayer {
       this.fx.saw(b.unit, u.cls, u.facing);
       this.states.set(b.unit, b);
       this.watch.add(b.unit);
-      if (b.state === 'flight' && !GROUND_CHARGE.has(b.id)) this.lifts.set(b.unit, FLIGHT_PX);
+      const leap = b.state === 'flight' && b.tele && LEAP_PX[b.tele.kind] ? b.tele : undefined;
+      if (leap) {
+        // W-67: up and down on an arc over the leap's time (the sim's flight is a straight glide)
+        const now = performance.now();
+        let l = this.leaps.get(b.unit);
+        if (!l) this.leaps.set(b.unit, (l = { t0: now, ms: Math.max(100, (leap.in + 1) * 100), px: LEAP_PX[leap.kind] }));
+        this.lifts.set(b.unit, Math.max(1, Math.sin(Math.min(1, (now - l.t0) / l.ms) * Math.PI) * l.px));
+        continue;
+      }
+      this.leaps.delete(b.unit);
+      if (b.state === 'flight' && !GROUND_CHARGE.has(b.id) && b.id !== 'savanna_lion') this.lifts.set(b.unit, FLIGHT_PX);
       else if (b.state === 'perch' && b.id !== 'river_god') {
         const tx = Math.floor(u.x), ty = Math.floor(u.y);
         const on = buildings.find((p) => p.art && tileIn(p.tiles, tx, ty));
@@ -94,6 +108,13 @@ export class GuardianLayer {
   clip(u: UnitSnap): readonly string[] | undefined {
     const b = this.states.get(u.id);
     if (!b) return undefined;
+    // W-67: the Griffin's dive on its wing-beat leap, the Lion's pounce claws out, the Bear's maul timed to land, the
+    // Minotaur dazed in the wall
+    if (b.id === 'griffin' && (b.state === 'flight' || (b.fx?.kind === 'dive' && b.fx.t < 4))) return ['charge', 'walk'];
+    if (b.id === 'savanna_lion' && (b.state === 'flight' || (b.fx?.kind === 'pounce' && b.fx.t < 6))) return ['attack'];
+    if ((b.tele?.kind === 'maul' && b.tele.in <= 5) || (b.fx?.kind === 'maul' && b.fx.t < 5)) return ['attack'];
+    if (b.fx?.kind === 'wall' && b.fx.t < 20) return ['hit', 'idle'];
+    if (b.tele && b.state !== 'flight' && b.state !== 'perch') return ['idle']; // braced: still while it gathers itself
     if (b.state === 'flight' && GROUND_CHARGE.has(b.id)) return ['run', 'charge', 'walk']; // a charge along the ground
     if (b.state === 'flight') return b.phase === 2 ? ['charge', 'walk'] : ['walk'];
     // the breath: the mouth opens on cue (just before it) and stays open while the jet runs

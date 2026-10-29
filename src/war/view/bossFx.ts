@@ -7,6 +7,10 @@
  *    the crash, stomps and smashes as heavy impacts; Scylla's heads in splashes.
  *  - telegraphs: a move with a cadence (MOVES) is foreseen from the last one: a red ground ring filling before a sweep,
  *    stomp or smash, the mouth glowing and embers drawn in before a breath, the crash's landing marked while he dives.
+ *    W-67 signature moves are wound up in the sim (BossSnap `tele`): their mark drawn on the ground as it will land,
+ *    filling as the blow nears (the Griffin's dive: a ring and its shadow growing on the spot; the Lion's pounce: a ring
+ *    on the man and a run-up line; its roar: a ring round it; the Bear's maul: a cone; the charges: a lane with chevrons;
+ *    the River-God's surge: a lane with a crest of water), the guardian crouching or rearing up while it winds.
  *  - impact: camera shake from a decaying trauma (squared), scaled by the distance to the screen centre and the zoom;
  *    hit-stop (the FX clock and the guardian's frame hold for ~0.1 s); squash and stretch of the guardian (./units.ts pose).
  *  - phases: a roar (stretch), a camera nudge towards it and the phase's own beat: Drakon's wing-beat dust taking off and
@@ -21,12 +25,15 @@ import { MOVES } from '../sim/bosses';
 import { HH, HW } from './iso';
 import type { DrawnAs } from './units';
 import { camShake, shakeFalloff } from './feel/shake';
+import { voiceMem, voices, type Voice, type VoiceMem } from './hud/bossBanner';
 
 /** Audio-ready event names (`boss.<id>.<beat>` and the shared ones). */
 export const CUES = [
   'boss.breath', 'boss.breath.charge', 'boss.sweep', 'boss.smash', 'boss.stomp', 'boss.throw', 'boss.impact', 'boss.crash',
   'boss.snatch', 'boss.takeoff', 'boss.land', 'boss.roar', 'boss.phase', 'boss.chains', 'boss.splash', 'boss.horn',
   'boss.frenzy', 'boss.enrage', 'boss.slain', 'boss.loot',
+  // W-67 signature moves: the wind-up (a screech, a growl, the pawing), then each landing
+  'boss.windup', 'boss.dive', 'boss.pounce', 'boss.maul', 'boss.charge', 'boss.surge', 'boss.wall',
 ] as const;
 export type Cue = (typeof CUES)[number];
 
@@ -36,7 +43,9 @@ interface Play {
   alpha: number; tint: number; until: number; fade: number; minor: boolean;
 }
 interface Mem {
-  phase: number; state: BossSnap['state']; fx: string; hp: number; x: number; y: number;
+  state: BossSnap['state'];
+  /** W-67: what it has said (./hud/bossBanner.ts voices); phases entered whose beat waits its turn, the next beat's time. */
+  voice: VoiceMem; beats: number[]; beatAt: number; fx: string; hp: number; x: number; y: number;
   /** View clock (ms) of the last move of each kind. */
   last: Record<string, number>;
   /** The last breath's direction (tiles). */
@@ -44,8 +53,10 @@ interface Mem {
   /** The move whose rock has landed, the breath whose charge was cued. */
   landed: string;
   charged: number;
+  /** W-67: the move wound up last seen (its key). */
+  tele: string;
 }
-interface Pose { t0: number; kind: 'roar' | 'squash' | 'flash'; until: number }
+interface Pose { t0: number; kind: 'roar' | 'squash' | 'flash' | 'crouch'; until: number }
 /** What the layer needs from the scene each frame. */
 export interface FxCtx {
   feet: (d: { x: number; y: number; u?: { id: number } }) => { x: number; y: number };
@@ -62,7 +73,7 @@ const JET_SEGS = 7;
 const EMBERS = 28;
 
 /** Draw scale over a man's (guardians.json scale / 0.55). */
-const SIZE: Record<string, number> = { drakon: 1.5 / 0.55, titan: 1.8, brontes: 1.8, gyges: 1.8, scylla: 1.8, river_god: 1.8, erymanthian_boar: 1.4 / 0.55 };
+const SIZE: Record<string, number> = { drakon: 1.5 / 0.55, titan: 2.4, brontes: 1.8, gyges: 1.8, scylla: 1.8, river_god: 2.1, erymanthian_boar: 1.4, savanna_lion: 1.3, moor_bear: 1.3, griffin: 1.3, minotaur: 1.3 };
 const size = (id: string) => SIZE[id] ?? 1;
 /** Cadence (ms) of the moves a telegraph foresees, by guardian. */
 const EVERY: Record<string, Partial<Record<string, number>>> = {
@@ -72,8 +83,14 @@ const EVERY: Record<string, Partial<Record<string, number>>> = {
   scylla: { snatch: MOVES.snatch.every * 100 },
 };
 const TELEGRAPH = 900;
+/** W-67: guardians that fly (a flight is a takeoff on wings); the others' flights are runs and leaps on the ground. */
+const FLYERS = new Set(['drakon', 'griffin']);
+/** W-67: moves whose landing is their own beat (no heavy-landing beat on top). */
+const LEAPS = new Set(['dive', 'pounce', 'charge', 'wall']);
 const MAX_PLAYS = 90;
 const TICK = 100;
+/** W-67: the gap between the beats of phases skipped at once (ms). */
+const BEAT_GAP = 1800;
 
 export class BossFx {
   /** A slain guardian's body, gone from the snapshot, played falling where it fell (./units.ts addCorpse). */
@@ -82,6 +99,8 @@ export class BossFx {
   private bodies = new Map<number, { cls: string; facing: number }>();
   /** Audio hook: every beat (see CUES), at a tile point. */
   onCue: ((name: Cue, x: number, y: number, boss: string) => void) | null = null;
+  /** W-67: a guardian's line to show (./hud/bossBanner.ts): its wake, a phase, its death, an escape and return. */
+  onVoice: ((v: Voice, b: BossSnap) => void) | null = null;
   private strips = new Map<string, Strip>();
   private plays: Play[] = [];
   private sprites: Phaser.GameObjects.Sprite[] = [];
@@ -187,6 +206,11 @@ export class BossFx {
     }
     const k = (now - p.t0) / (p.until - p.t0);
     if (p.kind === 'flash') return { sx: 1, sy: 1, flash: k < 0.5, hold };
+    if (p.kind === 'crouch') {
+      // W-67: gathering for a leap or a charge: sinks low and wide, held, and springs back as it goes
+      const c = k < 0.85 ? Math.sin(Math.min(1, k / 0.4) * (Math.PI / 2)) : 1 - (k - 0.85) / 0.15;
+      return { sx: 1 + 0.07 * c, sy: 1 - 0.11 * c, flash: false, hold };
+    }
     if (p.kind === 'squash') {
       const e = Math.exp(-5 * k) * Math.cos(k * Math.PI * 2.5); // squash, rebound past rest, settle
       return { sx: 1 + 0.14 * e, sy: 1 - 0.16 * e, flash: false, hold };
@@ -265,20 +289,41 @@ export class BossFx {
   private events(b: BossSnap, ctx: FxCtx, lod: boolean): void {
     const m = this.mem.get(b.unit), now = ctx.now, f = b.fx, key = f ? `${f.kind}:${f.x.toFixed(1)},${f.y.toFixed(1)}>${f.tx.toFixed(1)},${f.ty.toFixed(1)}` : '';
     if (!m) {
-      this.mem.set(b.unit, { phase: b.phase, state: b.state, fx: key, hp: b.hp, x: b.x, y: b.y, last: {}, dir: [1, 0], landed: '', charged: -1 });
+      this.mem.set(b.unit, { state: b.state, voice: voiceMem(b), beats: [], beatAt: 0, fx: key, hp: b.hp, x: b.x, y: b.y, last: {}, dir: [1, 0], landed: '', charged: -1, tele: '' });
       return;
     }
     const k = size(b.id);
     if (f && key !== m.fx && f.t < 5) this.move(b, m, f, ctx, lod);
     m.fx = key;
+    // W-67: a signature move wound up: the guardian gathers itself (and is heard)
+    const tl = b.tele, tk = tl ? `${tl.kind}:${tl.tx.toFixed(1)},${tl.ty.toFixed(1)}` : '';
+    if (tl && tk !== m.tele && tl.in > 1) this.windup(b, tl);
+    m.tele = tk;
     // a heavy blow taken: a flash
     if (b.hp < m.hp - b.maxHp * 0.015 && b.state !== 'slain') this.pose(b.unit, 'flash', 90);
     m.hp = b.hp;
-    if (b.phase > m.phase && b.state !== 'slain') this.phaseBeat(b, ctx);
-    m.phase = b.phase;
+    // W-67: the wake, then a beat and a line per phase entered, one at a time when it skipped some; escape, return, death
+    for (const v of voices(m.voice, b)) {
+      if (v.kind === 'phase') m.beats.push(v.phase);
+      else {
+        if (v.kind === 'wake') (this.wake(b), (m.beatAt = now + BEAT_GAP));
+        if (v.kind === 'slain') m.beats.length = 0;
+        this.onVoice?.(v, b);
+      }
+    }
+    if (m.beats.length && now >= m.beatAt && b.state !== 'slain' && b.state !== 'away') {
+      const p = m.beats.shift()!;
+      this.phaseBeat({ ...b, phase: p }, ctx);
+      this.onVoice?.({ kind: 'phase', boss: b.id, phase: p }, b);
+      m.beatAt = now + BEAT_GAP;
+    }
     if (b.state !== m.state) {
       const ground = { x: m.x, y: m.y };
-      if (b.state === 'flight' && m.state !== 'flight') {
+      if (b.state === 'flight' && m.state !== 'flight' && !FLYERS.has(b.id)) {
+        // W-67: a run or a leap on the ground: dust kicked up where it sets off
+        const p = ctx.feet(ground);
+        this.play('crash-dust', p.x, p.y, this.depthAt(m.x, m.y, 0.3), { sx: 0.3 * k, sy: 0.26 * k, minor: true });
+      } else if (b.state === 'flight' && m.state !== 'flight') {
         // a wing-beat blows the dust out flat from where he leaves
         const lift = ctx.lift(b.unit) > 40;
         const p = lift ? ctx.feet({ x: b.x, y: b.y, u: { id: b.unit } }) : ctx.feet(ground);
@@ -292,7 +337,7 @@ export class BossFx {
         this.shake(0.2, b.x, b.y);
         this.cue('boss.land', b.x, b.y, b.id);
         m.last.breath = now - (EVERY[b.id]?.breath ?? 0) + 1000; // the first breath comes a second after he lands
-      } else if (m.state === 'flight' && b.state === 'fight' && b.id !== 'drakon') {
+      } else if (m.state === 'flight' && b.state === 'fight' && b.id !== 'drakon' && !(f && LEAPS.has(f.kind) && f.t < 12)) {
         // a giant coming down off his gate (Brontes, the River-God's charge): a heavy landing
         const p = ctx.feet({ x: b.x, y: b.y });
         this.play('boss-impact', p.x, p.y, this.depthAt(b.x, b.y), { sx: 0.9 * k, sy: 0.9 * k });
@@ -407,13 +452,169 @@ export class BossFx {
         this.pose(b.unit, 'roar', 350);
         this.cue('boss.throw', f.x, f.y, b.id);
         break;
-      case 'charge':
-        this.play('boss-wingbeat', at.x, at.y, this.depthAt(f.x, f.y, 0.3), { sx: 1.2, sy: 1.2 });
-        this.play('boss-impact', tgt.x, tgt.y, this.depthAt(f.tx, f.ty), { sx: 1.6, sy: 1.6 });
+      case 'charge': {
+        // the run: dust thrown up along its lane as it passes, the men in it hit at the end
+        const len = Math.hypot(f.tx - f.x, f.ty - f.y), n = lod ? Math.min(5, Math.max(2, Math.round(len / 2.5))) : 1;
+        for (let i = 1; i <= n; i++) {
+          const q = i / (n + 1), x = f.x + (f.tx - f.x) * q, y = f.y + (f.ty - f.y) * q, p = ctx.feet({ x, y });
+          this.play('crash-dust', p.x, p.y, this.depthAt(x, y, 0.3), { sx: 0.32 * k, sy: 0.28 * k, t0: this.clock + q * 500, minor: true });
+        }
+        this.play('boss-impact', tgt.x, tgt.y, this.depthAt(f.tx, f.ty, 0.1), { sx: 1.1, sy: 1.1, t0: this.clock + 450 });
+        this.pose(b.unit, 'squash', 300);
         this.shake(0.5, f.tx, f.ty);
+        this.cue('boss.charge', f.x, f.y, b.id);
         this.cue('boss.impact', f.tx, f.ty, b.id);
         break;
+      }
+      case 'dive': {
+        // the Griffin comes down on its mark: a crater of dust, the wings' blast, the men in it thrown down
+        this.play('crash-dust', tgt.x, tgt.y, this.depthAt(f.tx, f.ty), { sx: 0.9 * (f.r / 2.5), sy: 0.8 * (f.r / 2.5) });
+        this.play('boss-impact', tgt.x, tgt.y, this.depthAt(f.tx, f.ty, 0.1), { sx: 0.9 * (f.r / 2.5), sy: 0.9 * (f.r / 2.5) });
+        this.play('boss-wingbeat', tgt.x, tgt.y, this.depthAt(f.tx, f.ty, 0.3), { sx: 1.4, sy: 1.4 });
+        this.scorch.push({ x: f.tx, y: f.ty, r: f.r * 0.6, t0: this.clock });
+        this.pose(b.unit, 'squash', 500);
+        this.shake(0.6, f.tx, f.ty);
+        this.hitStop(100);
+        this.cue('boss.dive', f.tx, f.ty, b.id);
+        break;
+      }
+      case 'pounce': {
+        // the Lion lands on its man: claws across him, a puff of dust
+        const flip = tgt.x < at.x;
+        this.play('boss-slash', tgt.x, tgt.y - 30, this.depthAt(f.tx, f.ty, 0.45), { sx: 0.9, sy: 0.75, flip, tint: 0xf0d8b0 });
+        this.play('boss-impact', tgt.x, tgt.y, this.depthAt(f.tx, f.ty, 0.3), { sx: 0.8, sy: 0.8, minor: true });
+        this.pose(b.unit, 'squash', 350);
+        this.shake(0.35, f.tx, f.ty);
+        this.hitStop(70);
+        this.cue('boss.pounce', f.tx, f.ty, b.id);
+        break;
+      }
+      case 'roar': {
+        // a roar: the air shakes off it in rings, the press round it thrown back
+        const p = ctx.feet({ x: f.x, y: f.y, u: { id: b.unit } });
+        this.play('boss-horn', p.x, p.y, this.depthAt(f.x, f.y, 0.2), { sx: 1.5, sy: 1.5, tint: 0xffc070 });
+        this.play('boss-horn', p.x, p.y, this.depthAt(f.x, f.y, 0.2), { sx: 2.4, sy: 2.4, t0: this.clock + 250, alpha: 0.6, tint: 0xffc070 });
+        this.pose(b.unit, 'roar', 700);
+        this.shake(0.35, f.x, f.y);
+        this.cue('boss.roar', f.x, f.y, b.id);
+        break;
+      }
+      case 'maul': {
+        // the Bear comes down out of its rear: a great swipe across the cone, the ground struck where it lands
+        const mx = f.x + (f.tx - f.x) * 0.6, my = f.y + (f.ty - f.y) * 0.6, p = ctx.feet({ x: mx, y: my }), flip = tgt.x < at.x;
+        this.play('boss-slash', p.x, p.y - 40, this.depthAt(mx, my, 0.45), { sx: 1.3, sy: 1.1, flip, tint: 0xe8d8c0 });
+        this.play('boss-impact', p.x, p.y, this.depthAt(mx, my, 0.3), { sx: 1.2, sy: 1.2 });
+        this.pose(b.unit, 'squash', 450);
+        this.shake(0.5, mx, my);
+        this.hitStop(90);
+        this.cue('boss.maul', mx, my, b.id);
+        break;
+      }
+      case 'surge': {
+        // the wave runs down its lane: splashes breaking along it, one after another
+        const n = lod ? 5 : 2;
+        for (let i = 0; i < n; i++) {
+          const q = (i + 0.5) / n, x = f.x + (f.tx - f.x) * q, y = f.y + (f.ty - f.y) * q, p = ctx.feet({ x, y });
+          this.play('boss-splash', p.x, p.y, this.depthAt(x, y, 0.35), { sx: 1.5, sy: 1.3, t0: this.clock + q * 450, flip: i % 2 === 1, minor: i > 0 });
+        }
+        this.shake(0.45, f.x, f.y);
+        this.cue('boss.surge', f.x, f.y, b.id);
+        break;
+      }
+      case 'wall': {
+        // the Minotaur's horns in the wall: stone sparks, dazed
+        const p = ctx.feet({ x: f.x, y: f.y, u: { id: b.unit } });
+        this.play('boss-impact', p.x, p.y, this.depthAt(f.x, f.y, 0.3), { sx: 1.3, sy: 1.3 });
+        this.play('boss-sparks', p.x, p.y - 70 * k, this.depthAt(f.x, f.y, 0.45), { sx: 1.4, sy: 1.4 });
+        this.play('boss-sparks', p.x, p.y - 80 * k, this.depthAt(f.x, f.y, 0.45), { sx: 1, sy: 1, t0: this.clock + 600, flip: true });
+        this.pose(b.unit, 'squash', 600);
+        this.shake(0.6, f.x, f.y);
+        this.hitStop(120);
+        this.cue('boss.wall', f.x, f.y, b.id);
+        break;
+      }
     }
+  }
+
+  /** W-67: a signature move wound up: it crouches for a leap or a charge, rears for a maul or a roar. */
+  private windup(b: BossSnap, t: NonNullable<BossSnap['tele']>): void {
+    const ms = t.of * TICK;
+    if (t.kind === 'maul' || t.kind === 'roar' || t.kind === 'surge') this.pose(b.unit, 'roar', ms + 150);
+    else this.pose(b.unit, 'crouch', (t.kind === 'dive' || t.kind === 'pounce' ? t.of - (t.kind === 'dive' ? MOVES.dive.fly : MOVES.pounce.fly) : t.of) * TICK);
+    this.cue('boss.windup', b.x, b.y, b.id);
+  }
+
+  /**
+   * W-67: a move's mark on the ground as it will land, filling as it nears (`tele.in` of `tele.of` ticks, eased between
+   * snapshots): rings (dive, pounce, roar), a cone (maul), a lane (charge, surge). Red for the blow; the last 0.3 s lit.
+   */
+  private mark(t: NonNullable<BossSnap['tele']>, ctx: FxCtx, g: Phaser.GameObjects.Graphics, w: number, k = 1): void {
+    const left = Math.max(0, t.in - Math.min(1, ctx.sinceSnap / TICK)), p = 1 - left / Math.max(1, t.of), now = ctx.now;
+    const late = left < 3, pulse = 0.6 + 0.4 * Math.sin(now / (late ? 30 : 70));
+    const edge = late ? 0xffd0a0 : 0xff5a3c, fillA = k < 1 ? 0 : 0.16 + 0.3 * p, edgeA = (0.6 + 0.4 * p * pulse) * k;
+    const P = (x: number, y: number) => {
+      const q = ctx.feet({ x, y });
+      return new Phaser.Math.Vector2(q.x, q.y);
+    };
+    if (t.kind === 'dive' || t.kind === 'pounce' || t.kind === 'roar') {
+      const c = ctx.feet({ x: t.tx, y: t.ty }), rx = t.r * HW * Math.SQRT2, ry = t.r * HH * Math.SQRT2;
+      if (t.kind === 'pounce') {
+        // the run-up: a dashed line from the Lion to its man
+        const a = ctx.feet({ x: t.x, y: t.y }), n = 7;
+        for (let i = 0; i < n; i += 2) {
+          const q0 = i / n, q1 = (i + 1) / n;
+          g.lineStyle(w * 2, 0xff5a3c, (0.35 + 0.4 * p) * k).lineBetween(a.x + (c.x - a.x) * q0, a.y + (c.y - a.y) * q0, a.x + (c.x - a.x) * q1, a.y + (c.y - a.y) * q1);
+        }
+      }
+      g.fillStyle(0xb01818, fillA).fillEllipse(c.x, c.y, 2 * rx * p, 2 * ry * p);
+      if (t.kind === 'dive') g.fillStyle(0x000000, (0.2 + 0.4 * p) * (k < 1 ? 0 : 1)).fillEllipse(c.x, c.y, 2 * rx * (0.25 + 0.55 * p), 2 * ry * (0.25 + 0.55 * p)); // its shadow, growing as it comes down
+      g.lineStyle(w * 3.5, edge, edgeA).strokeEllipse(c.x, c.y, 2 * rx, 2 * ry);
+      if (t.kind === 'roar') g.lineStyle(w * 1.5, edge, 0.3 * pulse * k).strokeEllipse(c.x, c.y, 2 * rx * 1.12, 2 * ry * 1.12);
+      return;
+    }
+    const dx = t.tx - t.x, dy = t.ty - t.y, len = Math.hypot(dx, dy) || 1, ux = dx / len, uy = dy / len;
+    if (t.kind === 'maul') {
+      const a0 = Math.atan2(dy, dx), half = MOVES.maul.half, n = 10;
+      const fan = (rr: number) => {
+        const pts = [P(t.x, t.y)];
+        for (let i = 0; i <= n; i++) {
+          const a = a0 - half + (2 * half * i) / n;
+          pts.push(P(t.x + Math.cos(a) * rr, t.y + Math.sin(a) * rr));
+        }
+        return pts;
+      };
+      g.fillStyle(0xb01818, fillA).fillPoints(fan(t.r * Math.max(0.15, p)), true);
+      g.lineStyle(w * 3.5, edge, edgeA).strokePoints(fan(t.r), true);
+      return;
+    }
+    // a lane (charge, surge): w each side of the line, filling from the guardian out
+    const nx = -uy * t.r, ny = ux * t.r;
+    const lane = (q: number) => [P(t.x + nx, t.y + ny), P(t.x + dx * q + nx, t.y + dy * q + ny), P(t.x + dx * q - nx, t.y + dy * q - ny), P(t.x - nx, t.y - ny)];
+    const surge = t.kind === 'surge';
+    g.fillStyle(surge ? 0x3c8ce0 : 0xb01818, surge && k === 1 ? fillA + 0.12 : fillA).fillPoints(lane(Math.max(0.05, p)), true);
+    g.lineStyle(w * 3.5, surge && !late ? 0x9fd8ff : edge, edgeA).strokePoints(lane(1), true);
+    if (surge) {
+      // the crest gathering: white water lines running down the lane
+      for (let i = 0; i < 3; i++) {
+        const q = ((now / 900 + i / 3) % 1) * p;
+        const a = P(t.x + dx * q + nx * 0.9, t.y + dy * q + ny * 0.9), c = P(t.x + dx * q - nx * 0.9, t.y + dy * q - ny * 0.9);
+        g.lineStyle(w * 2, 0xe8f6ff, (0.6 * (1 - q) + 0.2) * k).lineBetween(a.x, a.y, c.x, c.y);
+      }
+      return;
+    }
+    // chevrons pointing down the lane
+    for (const q of [0.3, 0.55, 0.8]) {
+      const cx = t.x + dx * q, cy = t.y + dy * q, s = Math.min(t.r, 1.2);
+      const tip = P(cx + ux * s * 0.6, cy + uy * s * 0.6), l = P(cx - ux * s * 0.4 + (-uy) * s, cy - uy * s * 0.4 + ux * s), r = P(cx - ux * s * 0.4 - (-uy) * s, cy - uy * s * 0.4 - ux * s);
+      g.lineStyle(w * 2.5, edge, (q <= p + 0.05 ? 0.85 : 0.3) * (0.7 + 0.3 * pulse) * k).strokePoints([l, tip, r], false);
+    }
+  }
+
+  /** W-67: it wakes: a roar and a shake (the camera stays the player's: no nudge, no set piece). */
+  private wake(b: BossSnap): void {
+    this.pose(b.unit, 'roar', 900);
+    this.shake(0.4, b.x, b.y);
+    this.cue('boss.roar', b.x, b.y, b.id);
   }
 
   /** A phase change: the roar, the nudge, and the guardian's own beat. */
@@ -559,6 +760,9 @@ export class BossFx {
         g.lineStyle(w * 3, 0xff5a3c, 0.6 + 0.4 * t).strokeEllipse(p.x, p.y, 2 * rx, 2 * ry);
       }
     }
+    // W-67: a signature move's mark
+    // (its edge again faintly over the men, so a crowd never hides it)
+    if (b.tele) (this.mark(b.tele, ctx, g, w), this.mark(b.tele, ctx, top, w, 0.35));
     if (!f) return;
     const s = (f.t + Math.min(1, ctx.sinceSnap / TICK)) / 10; // seconds into the move
     if (f.kind === 'breath') this.breath(b, f, s, body, lift, ctx, top);
@@ -581,7 +785,7 @@ export class BossFx {
         this.hitStop(big ? 90 : 60);
         this.cue('boss.impact', f.tx, f.ty, b.id);
       }
-    } else if (f.kind === 'sweep' || f.kind === 'stomp' || f.kind === 'smash' || f.kind === 'crash') {
+    } else if (f.kind === 'sweep' || f.kind === 'stomp' || f.kind === 'smash' || f.kind === 'crash' || f.kind === 'roar') {
       if (!(b.id === 'scylla' && f.kind === 'smash')) ring(g, ctx.feet({ x: f.x, y: f.y }), f.r, s, f.kind === 'sweep' ? 0xf0e8d8 : 0xd8b070, w);
     }
   }

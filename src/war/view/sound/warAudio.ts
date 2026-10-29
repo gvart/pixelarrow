@@ -21,10 +21,10 @@
  */
 import { AudioEngine } from '../../../audio/engine';
 import type { SfxId } from '../../../audio/sfx';
-import type { BuildingSnap, SiegeSnap, Snapshot, UnitSnap, WarEvent } from '../../types';
+import type { BuildingSnap, MobFxEvent, SiegeSnap, Snapshot, UnitSnap, WarEvent } from '../../types';
 import type { SandboxScene } from '../SandboxScene';
 import { NEUTRAL_TEAM } from '../../sim/economy';
-import { ambienceFor, blowVol, cueSfx, dinLevel, gatherSfx, loadSound, MusicDirector, saveSound, shotSfx, spatial, STATE_TRACK, strikeSfx, struckSince, type AmbSample, type WarSoundSettings } from './mix';
+import { ambienceFor, blowVol, cueSfx, dinLevel, gatherSfx, loadSound, mobSfx, MusicDirector, saveSound, shotSfx, spatial, STATE_TRACK, strikeSfx, struckSince, type AmbSample, type WarSoundSettings } from './mix';
 import { myTeam } from '../side';
 
 /** Field sounds started per snapshot at most (10 Hz). */
@@ -73,6 +73,10 @@ export class WarAudio {
       prev?.(ev);
       this.events(ev);
     };
+    // W-67, live: the server's mob FX events (offline they come with the sim's log above)
+    this.s.sim.serverTaps.add((m) => {
+      if (m.t === 'mobFx' && this.engine.ctx) for (const e of m.ev) this.mob(e);
+    });
     this.s.guardians.fx.onCue = (cue, x, y, boss) => {
       const id = cueSfx(cue, boss);
       if (id) this.at(id, x, y, 4);
@@ -220,6 +224,12 @@ export class WarAudio {
     return best;
   }
 
+  /** W-67: a mob FX event's sound (a cry carries: heard further than a blow). */
+  private mob(e: MobFxEvent): void {
+    const id = mobSfx(e.kind, e.mob);
+    if (id) this.at(id, e.x, e.y, e.kind === 'mobCry' ? 5 : 2);
+  }
+
   private events(ev: WarEvent[]): void {
     if (!this.engine.ctx) return;
     for (const e of ev) {
@@ -236,6 +246,7 @@ export class WarAudio {
       } else if (e.kind === 'landmark') this.ui('chime');
       else if (e.kind === 'wardenStrike') this.at('thunder', e.x + e.w / 2, e.y + e.h / 2, 5);
       else if (e.kind === 'cartCaptured' && e.team === myTeam()) this.ui('coin');
+      else if (e.kind === 'mobDash' || e.kind === 'mobCry' || e.kind === 'mobScatter') this.mob(e);
     }
   }
 

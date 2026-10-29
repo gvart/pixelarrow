@@ -2,8 +2,10 @@
  * W-65 random encounters (docs/WAR.md "Random encounters"; the kinds: src/data/warEncounters.ts; the HUD:
  * src/war/view/hud/encounter.ts; online: server/src/war/encounters.ts). While a human player's men travel a neutral
  * region (depth 1+), now and then something happens near them: an ambush from cover, a wounded deserter, a shrine or a
- * cache to search, a lost merchant to guide, travellers beset by beasts, an omen pointing to a lair or the story's giver.
- * Each is one or two steps (the story runner's kinds: reach, clear, choice; and guide) and pays a little.
+ * cache to search, a lost merchant to guide, travellers beset by beasts, an omen pointing to a lair or the story's giver,
+ * a lion at a fold, a serpent at a ford, a captive in a slaver camp, a trail to follow. Each is 1-3 steps (the story
+ * runner's kinds: reach, clear, choice, track, rescue; and guide) and pays a little. A kind may keep to the regions of
+ * some biomes or some beasts; a `fauna` fight draws one of the region's own hunters.
  *
  * The runner is pure and deterministic like ./stories.ts: it reads the sim's snapshots and asks its host to spawn and
  * pay. Every roll (which kind, where, the next cooldown, a search's risk, an item) is drawn on the sim's seeded Rng keyed
@@ -17,7 +19,7 @@ import { hashString, Rng } from '../../sim/rng';
 import type { MobKind, RegionData, Snapshot, UnitSnap, WarEvent } from '../types';
 import { depthOf } from './depth';
 import { NEUTRAL_TEAM } from './economy';
-import { snapOpen, storySpots, type StoryReward, type Story } from './stories';
+import { rescued, snapOpen, STORY_R, storySpots, type StoryReward, type Story } from './stories';
 
 /** Where a step points: the encounter's spot, the nearest town, the nearest lair still held, the story's giver. */
 export type EncWhere = 'here' | 'town' | 'lair' | 'giver';
@@ -25,8 +27,13 @@ export type EncWhere = 'here' | 'town' | 'lair' | 'giver';
 export type EncTrigger =
   /** His men reach the place (`r` tiles, default ENC.reach; `off`: a spot that far from it, rolled). */
   | { kind: 'reach'; at?: EncWhere; r?: number; off?: number }
-  /** Foes spawned at the spot (`fauna`: a beast kind of the region); done once cleared with his men near. */
+  /** Foes spawned at the spot (`fauna`: one of the region's hunters, rolled); done once cleared with his men near. */
   | { kind: 'clear'; mob: MobKind | 'fauna'; count: number }
+  /** Follow the marks: `marks` spots, each `off` tiles (default ENC.mark) on from the last, rolled; his men reach each in
+   *  turn. The last one becomes the encounter's spot (where the next step happens). */
+  | { kind: 'track'; marks: number; off?: number }
+  /** A captive (a soul at the spot) his squad claims, or would with a full army (freed, he goes his way). */
+  | { kind: 'rescue'; cls: string; level: number; name: string }
   /** Buttons on the card; each pays and may lead on; `risk`: a roll that sends it to another step instead. */
   | { kind: 'choice'; options: readonly EncOption[] }
   /** Reach the one who waits at the spot, then bring him to the nearest town (he follows your men). */
@@ -67,10 +74,15 @@ export interface EncounterDef {
   minDepth?: number;
   /** It needs a town, a lair still held, or the region's story to point at. */
   needs?: 'town' | 'lair' | 'story';
+  /** Only in regions whose ground is at least ENC.biome of one of these biomes (RegionData.biomes names: kyrene desert
+   *  and savanna, elaia olive lowland, dodona oak hills, mountains, global). */
+  biomes?: readonly string[];
+  /** Only in regions with a lair of one of these kinds (a lion where lions den). */
+  beasts?: readonly MobKind[];
   /** It springs this near his squad (tiles; default ENC.far). */
   near?: readonly [number, number];
-  /** Who waits at the spot, painted by the page only (no sim unit): a sheet and how many. */
-  figure?: { cls: string; count: number; name: string };
+  /** Who waits at the spot, painted by the page only (no sim unit): a sheet and how many; `shade`: a ghost (the W-60 soul look). */
+  figure?: { cls: string; count: number; name: string; shade?: true };
   steps: readonly EncStep[];
 }
 
@@ -83,6 +95,10 @@ export const ENC = {
   far: [10, 14] as const,
   /** Reach radius (tiles); a cleared camp counts with his men this near; a town or lair reached this near. */
   reach: 5, near: 30, town: 12, lair: 18, giver: 8,
+  /** A track's marks: this far apart (tiles), reached this near (the story runner's). */
+  mark: 9, markR: STORY_R.mark,
+  /** A biome filter holds where the biome covers this share of the region. */
+  biome: 0.25,
   /** An open step lapses after this long (ticks; a guide three times) or with all his men this far from it. */
   lapse: 1800, leave: 70,
   /** Ticks before a spawn not seen yet is asked for again. */
@@ -100,6 +116,8 @@ export interface EncOpen {
   since: number;
   /** A guide: he has been reached and follows. */
   with?: true;
+  /** A track: marks reached. */
+  n?: number;
 }
 
 /** n: encounters met; travel: ticks of travel since the last; next: travel ticks the next one waits for. */
@@ -147,9 +165,24 @@ export function encTowns(r: RegionData): { x: number; y: number }[] {
   const t = [...(r.safe ?? []).map((a) => ({ x: a.x + a.w / 2, y: a.y + a.h / 2 })), ...(r.claimPoints ?? []).map((c) => ({ x: c.x, y: c.y }))];
   return t.length ? t : r.entries.map((e) => ({ x: e.x + e.w / 2, y: e.y + e.h / 2 }));
 }
-/** The region's beast kind for a `fauna` fight (its lairs' first hunter, else wolves). */
-export function encFauna(r: RegionData): MobKind {
-  return (r.lairs ?? []).find((l) => l.kind === 'wolf' || l.kind === 'jackal' || l.kind === 'boar' || l.kind === 'bear')?.kind ?? 'wolf';
+/** The region's hunters: its lairs' beast kinds in order, no bandits, no herds that flee (none: wolves). */
+export function encHunters(r: RegionData): MobKind[] {
+  const ks = [...new Set((r.lairs ?? []).map((l) => l.kind))].filter((k) => k !== 'bandit' && k !== 'ibex');
+  return ks.length ? ks : ['wolf'];
+}
+/** The beast kind of a `fauna` fight: one of the region's hunters, by `roll` (a seeded draw). */
+export const encFauna = (r: RegionData, roll = 0): MobKind => { const ks = encHunters(r); return ks[roll % ks.length]; };
+/** The biomes covering at least ENC.biome of the region's ground. */
+export function encBiomes(r: RegionData): Set<string> {
+  const n = new Map<number, number>(), rle = r.biomes?.rle ?? [];
+  let all = 0;
+  for (let i = 0; i + 1 < rle.length; i += 2) (n.set(rle[i], (n.get(rle[i]) ?? 0) + rle[i + 1])), (all += rle[i + 1]);
+  return new Set([...n].filter(([, c]) => all > 0 && c / all >= ENC.biome).map(([b]) => r.biomes!.names[b]));
+}
+/** A kind may happen in this region at all (depth, biome, beasts). */
+export function encFits(d: EncounterDef, r: RegionData, depth = depthOf(r), biomes = encBiomes(r)): boolean {
+  return depth >= (d.minDepth ?? 1) && (!d.biomes || d.biomes.some((b) => biomes.has(b)))
+    && (!d.beasts || (r.lairs ?? []).some((l) => d.beasts!.includes(l.kind)));
 }
 
 const near = <T extends { x: number; y: number }>(xs: readonly T[], p: { x: number; y: number }): T | null =>
@@ -164,12 +197,17 @@ export class EncounterRun {
   private asked = -Infinity;
   private towns: { x: number; y: number }[];
   private giver: { x: number; y: number } | null;
+  private fits: Set<string>;
+  /** A rescue's captive: the souls seen at its spot. */
+  private souls = new Set<number>();
 
   constructor(readonly region: RegionData, readonly defs: Readonly<Record<string, EncounterDef>>, save: EncSave | null, readonly me: EncMe, private readonly host: EncHost, story?: Story | null) {
     this.depth = depthOf(region);
     this.save = save && encSaveOk(save, defs) ? { ...save, open: save.open ? { ...save.open } : null } : newEncSave(region.id, this.owner, me.seed);
     this.towns = encTowns(region);
     this.giver = story ? storySpots(region, story).giver : null;
+    const bs = encBiomes(region);
+    this.fits = new Set(Object.values(defs).filter((d) => encFits(d, region, this.depth, bs)).map((d) => d.id));
   }
 
   get owner(): string { return this.me.owner ?? `t:${this.me.team}`; }
@@ -207,7 +245,7 @@ export class EncounterRun {
 
   /** The kinds that can happen here now. */
   private choices(s: Snapshot): EncounterDef[] {
-    return Object.values(this.defs).filter((d) => this.depth >= (d.minDepth ?? 1) && (d.id !== this.save.last || Object.keys(this.defs).length < 2)
+    return Object.values(this.defs).filter((d) => this.fits.has(d.id) && (d.id !== this.save.last || Object.keys(this.defs).length < 2)
       && (d.needs !== 'story' || !!this.giver) && (d.needs !== 'lair' || (s.lairs ?? []).some((l) => l.state !== 'cleared')) && (d.needs !== 'town' || this.towns.length > 0));
   }
 
@@ -220,11 +258,15 @@ export class EncounterRun {
       const l = near((s.lairs ?? []).filter((x) => x.state !== 'cleared' && Math.hypot(x.x - at.x, x.y - at.y) > 2), at);
       return l ? { x: l.x, y: l.y } : at;
     }
-    if (t.kind === 'reach' && t.off) {
-      const a = rngOf(this.key(this.save.n, st.id, 'off')).range(0, Math.PI * 2);
-      return snapOpen(this.region, [Math.max(2, Math.min(this.region.w - 3, at.x + Math.cos(a) * t.off)), Math.max(2, Math.min(this.region.h - 3, at.y + Math.sin(a) * t.off))]);
-    }
+    if (t.kind === 'reach' && t.off) return this.offset(at, t.off, this.key(this.save.n, st.id, 'off'));
+    if (t.kind === 'track') return this.offset(at, t.off ?? ENC.mark, this.key(this.save.n, st.id, 'mark', 0));
     return at;
+  }
+
+  /** A spot `d` tiles from `at` in a rolled direction (`key`), on open ground inside the map. */
+  private offset(at: { x: number; y: number }, d: number, key: string): { x: number; y: number } {
+    const a = rngOf(key).range(0, Math.PI * 2);
+    return snapOpen(this.region, [Math.max(2, Math.min(this.region.w - 3, at.x + Math.cos(a) * d)), Math.max(2, Math.min(this.region.h - 3, at.y + Math.sin(a) * d))]);
   }
 
   /** Step `st` of the open encounter begins: its target, its clock. */
@@ -233,8 +275,10 @@ export class EncounterRun {
     const p = this.target(s, st, { x: o.x, y: o.y });
     Object.assign(o, { step: st.id, tx: p.x, ty: p.y, since: s.tick });
     delete o.with;
+    delete o.n;
     this.seen = false;
     this.asked = -Infinity;
+    this.souls.clear();
   }
 
   /** Meet `def` now beside his squad `squad` (a roll; also dev and tests). */
@@ -281,19 +325,27 @@ export class EncounterRun {
     notes.push({ kind: 'end', enc: def.id });
   }
 
-  /** Spawn the open fight's foes at its spot (not there yet, or gone: a reloaded page). */
+  /** Spawn the open fight's foes or captive at its spot (not there yet, or gone: a reloaded page, a soul who faded). */
   private ensure(s: Snapshot, st: EncStep): void {
     const t = st.trigger, o = this.save.open!;
+    if (t.kind === 'rescue') {
+      const here = (s.souls ?? []).filter((x) => Math.hypot(x.x - o.tx, x.y - o.ty) < STORY_R.soul);
+      for (const x of here) this.souls.add(x.id);
+      if (here.length || s.tick - this.asked < ENC.respawn) return;
+      this.asked = s.tick;
+      return this.host.spawnSoul(o.tx, o.ty, t.cls, t.level);
+    }
     if (t.kind !== 'clear') return;
     const ls = (s.lairs ?? []).filter((l) => Math.hypot(l.x - o.tx, l.y - o.ty) < 0.5);
     if (ls.some((l) => l.state !== 'cleared')) return void (this.seen = true);
     if (this.seen || s.tick - this.asked < ENC.respawn) return;
     this.asked = s.tick;
-    this.host.addLair({ kind: t.mob === 'fauna' ? encFauna(this.region) : t.mob, x: o.tx, y: o.ty, count: t.count + Math.floor(this.depth / 2) });
+    const kind = t.mob === 'fauna' ? encFauna(this.region, rngOf(this.key(this.save.n, st.id, 'fauna')).int(0, 999)) : t.mob;
+    this.host.addLair({ kind, x: o.tx, y: o.ty, count: t.count + Math.floor(this.depth / 2) });
   }
 
   /** One snapshot: what happened (the caller tells it and stores the save when any, or when `due`). */
-  tick(s: Snapshot, _evs: readonly WarEvent[] = []): EncNote[] {
+  tick(s: Snapshot, evs: readonly WarEvent[] = []): EncNote[] {
     const notes: EncNote[] = [], men = this.men(s), o = this.save.open;
     if (o) {
       const def = this.defs[o.id], st = this.step;
@@ -314,7 +366,20 @@ export class EncounterRun {
           notes.push({ kind: 'step', enc: def.id, step: `${st.id}#1` });
         }
         done = !!o.with && at({ x: o.tx, y: o.ty }, ENC.town);
-      }
+      } else if (t.kind === 'track') {
+        // each mark reached shows the next, rolled on from it; the last is where the trail ends (the spot moves there)
+        while (!done && at({ x: o.tx, y: o.ty }, ENC.markR)) {
+          o.n = (o.n ?? 0) + 1;
+          notes.push({ kind: 'step', enc: def.id, step: `${st.id}#${o.n}` });
+          if (o.n >= t.marks) {
+            Object.assign(o, { x: o.tx, y: o.ty });
+            done = true;
+          } else {
+            const p = this.offset({ x: o.tx, y: o.ty }, t.off ?? ENC.mark, this.key(this.save.n, st.id, 'mark', o.n));
+            Object.assign(o, { tx: p.x, ty: p.y, since: s.tick });
+          }
+        }
+      } else if (t.kind === 'rescue') done = rescued(s, evs, this.souls, this.me);
       if (done) {
         this.pay(s, st.id, st.reward);
         notes.push({ kind: 'step', enc: def.id, step: st.id, ...(st.reward ? { reward: st.reward } : {}) });

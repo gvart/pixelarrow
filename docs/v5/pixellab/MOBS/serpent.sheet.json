@@ -1,0 +1,18 @@
+{
+ "class": "mob_serpent",
+ "character": "433df7e6-7eeb-4a34-9092-00d333a20314",
+ "raw": "docs/v5/pixellab/MOBS/raw/serpent",
+ "rotations": "docs/v5/pixellab/MOBS/raw/serpent/rot",
+ "shrink": 0.6,
+ "scale": 0.55,
+ "canvas": [132, 132],
+ "pad": [0, 0],
+ "clips": {
+  "idle": { "fps": 6, "job": { "south-east": "mirror:south-west", "north-east": "mirror:north-west", "south-west": "a1", "north-west": "a1" } },
+  "walk": { "fps": 8, "keep": [0, 1, 2, 3, 4, 5, 6, 7, 6, 5, 4, 3, 2, 1], "job": { "south-east": "mirror:south-west", "north-east": "mirror:north-west", "south-west": "a1", "north-west": "a1" } },
+  "run": { "fps": 12, "of": "walk", "frames": [0, 1, 2, 3, 4, 5, 6, 7, 6, 5, 4, 3, 2, 1] },
+  "attack": { "fps": 12, "strike": 5, "job": { "south-east": "mirror:south-west", "north-east": "mirror:north-west", "south-west": "a1", "north-west": "a1" } },
+  "die": { "fps": 10, "job": { "south-east": "mirror:south-west", "north-east": "mirror:north-west", "south-west": "a1", "north-west": "a1" } },
+  "hit": { "fps": 12, "of": "die", "frames": [0, 1, 1, 0] }
+ }
+}

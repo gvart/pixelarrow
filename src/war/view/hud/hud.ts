@@ -11,7 +11,8 @@
  *   bottom left    framed square minimap (./minimap.ts), the view mode switcher in its corner (F2-F7) and the mode's legend over it (./modes.ts);
  *                  W-62 E6 the alliance chat over them (Enter; marks P: ./chat.ts)
  *   centre         the full map on M (./fullMap.ts)
- *   bottom centre  command panel, shown with a selection (a selected building or site wins over men), in groups:
+ *   bottom centre  command panel, always shown (nothing selected: the army state, ./armyPanel.ts; a selected building or
+ *                  site wins over men), in groups:
  *                  portrait (the class's sprite, or the building's icon) | selection (name, men, hp bar with its numbers,
  *                  level and food chips, a pip per man with his hp: click selects him, shift adds him; the man card's
  *                  slot #cManCard) | orders (move, attack, attack-move: Ctrl + right click or the button then a click, hold H, stop X) over the
@@ -59,11 +60,13 @@ import { PROF_NODES } from '../../../data/professions';
 import { mountTrade } from './holder';
 import { mountMarket } from './market';
 import { mountGuardians } from './guardianBar';
+import { mountBossBanner } from './bossBanner';
 import { billText, buildingTip, levelOf, mountBuildingCard, nameOfBuilding, purposeOf, rebuildBill, rebuildWhy, repairBill, repairWhy, statusOf } from './buildingCard';
 import { needChips, shortText } from './goods';
 import { localGoods, mountChest, storeNear } from './chest';
 import { mountSouls } from './souls';
 import { mountTunnel } from './tunnel';
+import { mountArmyPanel } from './armyPanel';
 import { mountWorldEvents } from './worldEvents';
 import { claimFirst, claimFirstHtml, mountClaimCard, showNearestClaim } from './claimCard';
 import { mountRegionChat } from './chatRegion';
@@ -227,6 +230,7 @@ export function hud(s: SandboxScene): void {
     tipOn(b, () => (typeof tipText === 'function' ? tipText() : b.dataset.tip ?? tipText));
     return b;
   };
+  const army = mountArmyPanel(s, card); // nothing selected: the army state in the same panel (./armyPanel.ts)
   s.micro.card.mount($('cManCard'), tipOn); // the picked man's card docks in its slot (../micro.ts shows it)
   const row = (cls: string, ...bs: HTMLElement[]) => { const r = document.createElement('div'); r.className = cls; r.style.cssText = 'display:flex;gap:2px;align-items:center'; r.append(...bs); return r; };
   const tipK = (name: string, what: string, key: string) => tipHtml(name, what, key);
@@ -463,6 +467,7 @@ export function hud(s: SandboxScene): void {
   const trade = mountTrade(s, mk, btn, tipK);
   mountMarket(s, mk); // M6k: market, offers, board, contracts, letters, hand-off (./market.ts; K)
   mountGuardians(s, mk); // M7d: the guardian bar and the landmark panel (./guardianBar.ts; L)
+  mountBossBanner(s); // W-67: the guardians' wake banner, phase lines and epitaphs (./bossBanner.ts)
   mountBuildingCard(s, mk); // M7g: the building card over the command card (./buildingCard.ts)
 
   // ---------- soldiers: roster panel (R), soldier card, toasts, veteran pips (./roster, M5g) ----------
@@ -501,6 +506,9 @@ export function hud(s: SandboxScene): void {
 
   // ---------- no browser context menu anywhere (canvas and HUD): right click is the game's (orders, the radial) ----------
   addEventListener('contextmenu', (e) => e.preventDefault(), true);
+  // ---------- no browser pinch zoom either: a trackpad pinch (a ctrl wheel) over the HUD zoomed the page, which slid the
+  // top bar and the command card out of the window (the canvas takes its own: the camera's zoom) ----------
+  addEventListener('wheel', (e: WheelEvent) => { if (e.ctrlKey) e.preventDefault(); }, { passive: false });
 
   // ---------- cursors ----------
   const CUR: Record<string, string> = Object.fromEntries(['default', 'move', 'attack', 'build', 'gather', 'interact'].map((k) => [k, cursor(k)]));
@@ -645,6 +653,11 @@ export function hud(s: SandboxScene): void {
     } else {
       card.style.display = 'none';
     }
+    // nothing selected: the panel stays, showing his army (./armyPanel.ts)
+    const idle = card.style.display === 'none';
+    $('cFrame').style.display = idle ? 'none' : '';
+    army.refresh(idle);
+    card.style.display = '';
     // the panel widened (a man's card docked) would run under the minimap: it slides right, clear of it
     if (card.style.display !== 'none' && !card.dataset.moved) {
       const slid = (n: number) => (n ? `translateX(calc(-50% + ${n}px))` : 'translateX(-50%)');

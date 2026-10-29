@@ -9,7 +9,8 @@ import { ENCOUNTERS } from '../../src/data/warEncounters';
 import { STORIES } from '../../src/data/warStories';
 import { parseRegion } from '../../src/war/region/schema';
 import { createSim } from '../../src/war/sim';
-import { ENC, EncounterRun, encTowns, type EncHost, type EncNote, type EncSave } from '../../src/war/sim/encounters';
+import { ENC, encBiomes, encFits, encHunters, EncounterRun, encTowns, type EncHost, type EncNote, type EncSave } from '../../src/war/sim/encounters';
+import { depthOf } from '../../src/war/sim/depth';
 import { MOB_TEAM } from '../../src/war/sim/mobs';
 import { snapOpen, type StoryReward } from '../../src/war/sim/stories';
 import type { RegionData, Snapshot, WarBuildSim } from '../../src/war/types';
@@ -19,10 +20,10 @@ const region = (id: string) => parseRegion(jsons[`../../src/war/regions/${id}.js
 const none: EncHost = { addLair() {}, spawnSoul() {}, give() {} };
 
 describe('W-65 encounter data', () => {
-  it('8-12 kinds, each with short lore, 1-3 steps whose links and items resolve', () => {
+  it('16-24 kinds, each with short lore, 1-3 steps whose links and items resolve', () => {
     const ds = Object.values(ENCOUNTERS);
-    expect(ds.length).toBeGreaterThanOrEqual(8);
-    expect(ds.length).toBeLessThanOrEqual(12);
+    expect(ds.length).toBeGreaterThanOrEqual(16);
+    expect(ds.length).toBeLessThanOrEqual(24);
     for (const d of ds) {
       expect(d.lore.length, d.id).toBeLessThan(170);
       expect(d.steps.length, d.id).toBeGreaterThanOrEqual(1);
@@ -246,4 +247,130 @@ describe('W-65 encounters played on the sim', () => {
     }
     expect([...seen].sort()).toEqual(['paid', 'robbers']);
   }, 120_000);
+});
+
+// ---------------------------------------------------------------- W-67 region fit, the region's hunters, track and rescue
+
+const allRegions = () => Object.keys(jsons).map((k) => k.split('/').pop()!.replace('.json', '')).filter((id) => !id.startsWith('test-')).map(region);
+
+describe('W-67 encounters fit their region', () => {
+  it('every kind can happen somewhere; lion and serpent kinds only where they den; biome kinds only on their ground', () => {
+    const rs = allRegions().filter((r) => depthOf(r) >= 1);
+    for (const d of Object.values(ENCOUNTERS)) expect(rs.some((r) => encFits(d, r)), d.id).toBe(true);
+    for (const r of rs) {
+      const kinds = new Set((r.lairs ?? []).map((l) => l.kind));
+      expect(encFits(ENCOUNTERS.lionfold, r), r.id).toBe(kinds.has('lion'));
+      expect(encFits(ENCOUNTERS.ford, r), r.id).toBe(kinds.has('serpent'));
+      const bs = encBiomes(r);
+      expect(encFits(ENCOUNTERS.oak, r), r.id).toBe(bs.has('dodona') || bs.has('mountains'));
+    }
+    expect([...encBiomes(region('kyrene-n'))]).toEqual(['kyrene']);
+    expect(encBiomes(region('dodona-e')).has('mountains')).toBe(true);
+  });
+
+  it('the rolls keep to the region: lions in the savanna, the oak in the hills', () => {
+    const seen = (id: string) => {
+      const r = region(id), q = snapOpen(r, [r.w / 2, r.h / 2]), out = new Set<string>();
+      for (let k = 0; k < 6; k++) {
+        const run = new EncounterRun(r, ENCOUNTERS, null, { team: 0, owner: `p:${k}` }, none);
+        for (let t = 0; t < 40000 && run.save.n < 12; t++) {
+          const sn = { ...snap(t, q.x, q.y), squads: [{ id: 0, owner: `p:${k}`, team: 0, units: [0, 1, 2, 3, 4, 5], order: 'move' }] } as Snapshot;
+          if (run.tick(sn).some((n) => n.kind === 'start')) (out.add(run.save.open!.id), (run.save.open = null));
+        }
+      }
+      return out;
+    };
+    const savanna = seen('kyrene-n'), hills = seen('dodona-e');
+    expect(savanna.has('lionfold')).toBe(true);
+    expect(savanna.has('oak')).toBe(false);
+    expect(hills.has('lionfold')).toBe(false);
+    expect(hills.has('ford')).toBe(false);
+  }, 60_000);
+
+  it('a fauna fight draws one of the region\'s own hunters (lions too), the same for the same run', () => {
+    const r = region('kyrene-n');
+    expect(encHunters(r).sort()).toEqual(['jackal', 'lion']);
+    expect(encHunters(region('ammos')).sort()).toEqual(['jackal', 'lion']); // its lore's lions (stories-b)
+    const q = snapOpen(r, [r.w / 2, r.h / 2]);
+    const spawned = (owner: string) => {
+      const ks: string[] = [];
+      const run = new EncounterRun(r, ENCOUNTERS, null, { team: 0, owner }, { ...none, addLair: (d) => void ks.push(d.kind) });
+      run.fire(snap(0, q.x, q.y), ENCOUNTERS.beset, q);
+      run.tick(snap(1, q.x, q.y));
+      return ks[0];
+    };
+    const got = Array.from({ length: 12 }, (_, i) => spawned(`p:${i}`));
+    for (const k of got) expect(['jackal', 'lion']).toContain(k);
+    expect(new Set(got).size).toBe(2);
+    expect(spawned('p:3')).toBe(got[3]);
+  });
+});
+
+describe('W-67 track and rescue played on the sim', () => {
+  it('stolen herd: follow three rolled marks, the rustlers wait where the trail ends; beaten, they pay', () => {
+    const f = field(6);
+    f.run.fire(f.sim.snapshot(), ENCOUNTERS.herd);
+    const marks: { x: number; y: number }[] = [];
+    for (let i = 0; i < 3; i++) {
+      const o = f.run.save.open!;
+      expect(o.step).toBe('trail');
+      marks.push({ x: o.tx, y: o.ty });
+      f.go(o.tx, o.ty);
+      f.stepFor(1500, () => f.run.save.open?.step !== 'trail' || (f.run.save.open?.n ?? 0) > i);
+    }
+    expect(f.notes.filter((n) => n.kind === 'step').map((n) => (n as { step: string }).step)).toEqual(['trail#1', 'trail#2', 'trail#3', 'trail']);
+    // each mark ENC.mark tiles on from the last (snapped to open ground)
+    for (let i = 1; i < 3; i++) expect(Math.hypot(marks[i].x - marks[i - 1].x, marks[i].y - marks[i - 1].y)).toBeLessThan(ENC.mark + 3);
+    const o = f.run.save.open!;
+    expect(o.step).toBe('rustlers');
+    expect({ x: o.x, y: o.y }).toEqual(marks[2]);
+    f.stepFor(30, () => (f.sim.snapshot().lairs ?? []).some((l) => l.state !== 'cleared' && Math.hypot(l.x - o.tx, l.y - o.ty) < 0.5));
+    f.go(o.x, o.y, true);
+    f.stepFor(3000, () => f.run.save.open === null);
+    expect(f.paid).toEqual([{ goods: { food: 18, hides: 4, coin: 5 } }]);
+  }, 60_000);
+
+  it('the same run rolls the same trail', () => {
+    const trail = () => {
+      const f = field(7);
+      f.run.fire(f.sim.snapshot(), ENCOUNTERS.map);
+      return [f.run.save.open!.tx, f.run.save.open!.ty];
+    };
+    expect(trail()).toEqual(trail());
+  });
+
+  it('slavers: break the camp, then claim the bound captive\'s soul at the stake', () => {
+    const f = field(8);
+    f.run.fire(f.sim.snapshot(), ENCOUNTERS.slavers);
+    const o = f.run.save.open!;
+    f.stepFor(30, () => (f.sim.snapshot().lairs ?? []).some((l) => l.state !== 'cleared' && Math.hypot(l.x - o.tx, l.y - o.ty) < 0.5));
+    f.go(o.x, o.y, true);
+    f.stepFor(3000, () => f.run.save.open?.step === 'free');
+    expect(f.paid).toEqual([{ goods: { coin: 8 } }]);
+    // the captive wakes at the stake as a soul
+    let soul: { id: number; x: number; y: number } | undefined;
+    f.stepFor(30, () => !!(soul = (f.sim.snapshot().souls ?? []).find((x) => Math.hypot(x.x - o.tx, x.y - o.ty) < 2.5)));
+    expect(f.notes.at(-1)).toMatchObject({ kind: 'step', step: 'camp' });
+    const sq = f.sim.snapshot().squads.find((q) => q.owner === 'p:1')!.id;
+    f.sim.order({ kind: 'claimSoul', squad: sq, soul: soul!.id });
+    f.stepFor(3000, () => f.run.save.open === null);
+    expect(f.notes.slice(-2).map((n) => n.kind)).toEqual(['step', 'end']);
+  }, 60_000);
+
+  it('a rescue does not end on someone else\'s soul', () => {
+    const f = field(9);
+    f.run.fire(f.sim.snapshot(), ENCOUNTERS.slavers);
+    f.run.save.open!.step = 'free';
+    const o = f.run.save.open!;
+    f.sim.spawnSoul(o.x + 30, o.y, 'militia', 1, 'lair');
+    f.sim.step();
+    const other = (f.sim.snapshot().souls ?? []).find((x) => Math.hypot(x.x - o.x - 30, x.y - o.y) < 3)!;
+    const sq = f.sim.snapshot().squads.find((q) => q.owner === 'p:1')!.id;
+    f.sim.order({ kind: 'claimSoul', squad: sq, soul: other.id });
+    for (let t = 0; t < 600; t++) {
+      f.sim.step();
+      f.notes.push(...f.run.tick(f.sim.snapshot(), f.sim.events()));
+    }
+    expect(f.run.save.open?.step).toBe('free');
+  }, 60_000);
 });

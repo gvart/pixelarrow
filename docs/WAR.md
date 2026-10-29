@@ -395,9 +395,11 @@ which becomes the tracked quest (card, marker, edge arrow, banners). Steps: **re
 **talk** (back to the giver), **choice** (buttons on the card; each option pays its own way and may lead on). Rewards:
 goods (stores offline, home strongroom online), an item (a pile at his men, rolled on the seeded Rng), a soul who joins.
 Progress: offline localStorage `pa.war.story.<region>`, online the region DO's storage `story:<season>:<pid>`; a run
-started again from its save (reload, region woken) spawns what its open step needs. Full chains today: Teeth
-Foothills, Teeth Eastern Slopes, Western Heath, Lagoon Coast, Cape of Winds, Grey Moors; the others have a one-line
-hook and the file ends with a template. Foes stand 25+ tiles from the region's own lairs (tests/war/stories.test.ts).
+started again from its save (reload, region woken) spawns what its open step needs. Every depth 1-2 neutral has a full
+chain (24); the lion and serpent regions fight their own beasts in their steps (a pride, a nest), and the Kimmerian
+Hills' chain ends by sending the player at the Griffin (the guardian is never a step). The file ends with a template. A step's named bandit
+lead wears the captain's sheet (as does a host's captain) and his name stands under his feet while he lives. Foes stand
+25+ tiles from the region's own lairs (tests/war/stories.test.ts).
 
 ### Roaming life
 
@@ -433,8 +435,10 @@ ambush 6-8). The cooldown counts ticks of travel only (his men walking, no foe's
 striking): 1800-3000 ticks (3-5 minutes), drawn anew after each; nothing rolls in a fight, at home, or while one is open.
 Every roll (the kind, weighted, never the same twice running; the spot; a search's risk; an item) uses the sim's seeded
 Rng keyed by region, owner, seed and the encounter's number. Each kind is 1-3 steps of the story runner's kinds (reach,
-clear: foes added as a once-lair, +1 man per two depths; choice; guide: reach him, then the nearest town, he walks behind
-your men) and pays a little: coin and goods, now and then an item (a pile at your men) or a soul (claimable once a man
+clear: foes added as a once-lair, +1 man per two depths, `fauna` one of the region's own hunters, rolled; choice; guide:
+reach him, then the nearest town, he walks behind your men; track: marks 9 tiles apart, each rolled on from the last,
+the trail's end the next step's spot; rescue: a captive's soul at the spot, done once his squad claims him or is
+refused). A kind may keep to regions with a biome on 25% of the ground, or with a lair of some beast. Each pays a little: coin and goods, now and then an item (a pile at your men) or a soul (claimable once a man
 has fallen, the 12-man cap). It takes the tracked card while open and gives it back after; who waits at the spot is
 painted from the existing sheets (no sim unit). An open step lapses after 3 minutes (a guide 9) or with all his men 70
 tiles away.
@@ -452,6 +456,14 @@ tiles away.
 | Toll of the Road (depth 2+) | break the toll (bandits, fight) / go round | coin, a pilos |
 | A Hero's Barrow | reach it; pour a libation / take the helm (40%: grave-robbers) / leave | a soul (militia L2) / a helm |
 | A Strayed Flock | reach the boy, then the last goat | food |
+| The Lion at the Fold (lion regions) | reach the shepherd; kill the lion | food, hides, a lion claw |
+| The Serpent of the Ford (serpent regions) | draw it out (fight) / pour wine / go round | coin, herbs, a serpent ring / coin |
+| The Slavers' Camp | break the camp; claim the bound captive's soul (rescue) | coin, a soul (peltast L2) |
+| Tracks of a Stolen Herd | follow 3 marks (track); the rustlers at the trail's end | food, hides, coin |
+| The Unburied Shade | reach him; the rites / enlist him / take the obol (50%: carrion beasts) | a votive shield / a soul (hoplite L2) / coin |
+| The Poisoned Well (elaia, dodona, kyrene) | seal it / hunt the poisoner: 2 marks, then bandits / leave | food, herbs / coin, herbs |
+| A Deserter's Map | follow 3 marks; dig (30%: his old comrades) / leave | bronze, coin, a helm |
+| The Speaking Oak (dodona, mountains) | reach it; ask for victory / the road / take a cauldron (50%: keepers) | a charm / food / bronze |
 
 Progress: offline localStorage `pa.war.enc.<region>` (`?encounter=<kind>` springs one at once for tools); online the
 region room keeps a run per welcomed player (`server/src/war/encounters.ts`), its save in the region DO's storage
