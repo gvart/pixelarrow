@@ -500,6 +500,9 @@ export function hud(s: SandboxScene): void {
 
   // ---------- no browser context menu anywhere (canvas and HUD): right click is the game's (orders, the radial) ----------
   addEventListener('contextmenu', (e) => e.preventDefault(), true);
+  // ---------- no browser pinch zoom either: a trackpad pinch (a ctrl wheel) over the HUD zoomed the page, which slid the
+  // top bar and the command card out of the window (the canvas takes its own: the camera's zoom) ----------
+  addEventListener('wheel', (e: WheelEvent) => { if (e.ctrlKey) e.preventDefault(); }, { passive: false });
 
   // ---------- cursors ----------
   const CUR: Record<string, string> = Object.fromEntries(['default', 'move', 'attack', 'build', 'gather', 'interact'].map((k) => [k, cursor(k)]));
