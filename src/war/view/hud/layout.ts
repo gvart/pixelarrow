@@ -176,6 +176,10 @@ const YIELDS = new Set(['rfGuide', 'rfWorldEv', 'rfChat']);
 const yields = (id: string, el: HTMLElement) => YIELDS.has(id) && !(id === 'rfChat' && el.classList.contains('open'));
 /** Measured, never moved: the dock plate (its buttons sit on it by their own CSS). */
 const FIXED = new Set(['rfDock']);
+/** Centre modals: while one shows, no banner in the lane. */
+const MODALS = '#rfWipe,.mn-modal';
+/** Not placed, but kept clear by the map's pointers. */
+const DECOR = '#rfModes,#rfModes .cap,#rfChestBtn,#rrBtn,#rfHammer';
 /** Placed by their bottom edge (bottom-up zones). */
 const FROM_BOTTOM = new Set<Anchor>(['bl', 'bc', 'br', 'rwin']);
 /** Windows: they keep a dragged place and get a max height. */
@@ -244,8 +248,15 @@ export function mountLayout(): void {
       const h = el.dataset.hudClamp ? el.scrollHeight + el.offsetHeight - el.clientHeight : r.height / ez;
       (stacks[zone] ??= []).push({ id, w: r.width / ez, h, ...(MIN[id] !== undefined ? { min: MIN[id] } : {}), ...(yields(id, el) ? { yields: true } : {}), ...(SIDE_BY_SIDE.has(id) ? { dx: Math.round(r.left / ez - EDGE) } : zone === 'bc' ? { dx: r.left / ez - (f.w - r.width / ez) / 2 } : {}) });
     }
+    // a centre modal up (the wipe card, the game menu): the lane's banners wait under it, unseen
+    if (stacks.lane && [...document.querySelectorAll(MODALS)].some((m) => m.getClientRects().length > 0)) { for (const b of stacks.lane) els.get(b.id)!.classList.add('hud-off'); delete stacks.lane; }
     const placed = solve(f, stacks);
     docked = Object.values(placed).filter((p) => !p.off).map((p) => ({ l: p.x * z, t: p.y * z, r: (p.x + p.w) * z, b: (p.y + p.h) * z }));
+    // pieces that ride on a zoned panel by their own CSS: the map mode button and its caption, the dock's buttons
+    for (const d of document.querySelectorAll<HTMLElement>(DECOR)) {
+      const r = d.getBoundingClientRect();
+      if (r.width > 0 && r.height > 0) docked.push({ l: r.left, t: r.top, r: r.right, b: r.bottom });
+    }
     for (const [id, p] of Object.entries(placed)) {
       const el = els.get(id)!, zone = zoneOf.get(id)!;
       if (p.off) { el.classList.add('hud-off'); continue; }
