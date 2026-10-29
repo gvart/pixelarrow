@@ -1,0 +1,35 @@
+src/war/view/hud/bossBanner.ts
+  s_f08b12c690e0d6::t_af4f7bb69f1a8d 17,62
+src/war/view/hud/gate.ts
+  s_f08b12c690e0d6::t_1beb9b3168ac00 17
+  s_f08b12c690e0d6::t_af4f7bb69f1a8d 37
+src/war/view/interact.ts
+  s_f08b12c690e0d6::t_af4f7bb69f1a8d 67
+  s_f08b12c690e0d6::t_1beb9b3168ac00 40
+src/war/view/hud/quest.ts
+  s_f08b12c690e0d6::t_af4f7bb69f1a8d 14,20,34,45
+src/war/view/hud/guide.ts
+  s_f08b12c690e0d6::t_af4f7bb69f1a8d 61
+src/war/view/hud/layout.ts
+  s_f08b12c690e0d6::t_af4f7bb69f1a8d 26
+src/war/view/hud/theme.ts
+  s_f08b12c690e0d6::t_af4f7bb69f1a8d 17-41,160,267
+src/war/view/hud/kit.ts
+  s_f08b12c690e0d6::t_af4f7bb69f1a8d 10,88
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "6bf288c7c949c4cde979a872c5dd8fa7a0779c75",
+  "prompts": {},
+  "sessions": {
+    "s_f08b12c690e0d6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e4ed4b42-9ff5-404c-b2dd-32a044e85f29",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
