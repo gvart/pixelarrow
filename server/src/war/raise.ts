@@ -11,7 +11,7 @@
  *    A player who never had a man (before his start squad) has no tunnel.
  */
 import { makePerson } from '../../../src/war/sim/roster';
-import { settleTunnel, TUNNEL } from '../../../src/war/sim/tunnel';
+import { settleTunnel, TUNNEL, type WipeState } from '../../../src/war/sim/tunnel';
 import { START_CLASSES } from '../../../src/war/world/start';
 import { armyCount, insertCapped, nameFor, newId } from './persons';
 import { bonusOf, withFavour, type FavourBonus } from './favour';
@@ -23,16 +23,23 @@ export async function raiseBonus(db: D1Database, pid: number): Promise<RaiseBonu
   return bonusOf({ DB: db }, pid);
 }
 
-export interface TunnelView { alive: number; floor: number; nextAt: number | null; pending: number; every: number; raised: number }
+/**
+ * alive: what the floor counts (armyCount); fit, wounded, captive (with the first of each back): the wipe card's
+ * WipeState (src/war/sim/tunnel.ts wiped: no man he can field).
+ */
+export interface TunnelView extends WipeState { alive: number; floor: number; nextAt: number | null; pending: number; every: number; raised: number }
 
 /** Settle the player's tunnel at `now`: raise every man due, move the clock; his tunnel as GET /api/war/tunnel shows it. */
 export async function settleTunnelFor(db: D1Database, pid: number, now: number, retry = true): Promise<TunnelView> {
-  const [alive, ever, row] = await Promise.all([
+  const [alive, ever, row, out] = await Promise.all([
     armyCount(db, pid),
     db.prepare('SELECT 1 AS x FROM war_persons WHERE player_id = ?1 LIMIT 1').bind(pid).first(),
     db.prepare('SELECT next_at FROM war_tunnel WHERE player_id = ?1').bind(pid).first<{ next_at: number | null }>(),
+    db.prepare(`SELECT state, COUNT(*) AS n, MIN(until_at) AS at FROM war_persons WHERE player_id = ?1 AND state IN ('wounded', 'captive') AND cls NOT LIKE 'civ\\_%' ESCAPE '\\' GROUP BY state`).bind(pid).all<{ state: string; n: number; at: number | null }>(),
   ]);
-  const view = (a: number, nextAt: number | null, raised: number): TunnelView => ({ alive: a, floor: TUNNEL.floor, nextAt, pending: Math.max(0, TUNNEL.floor - a), every: TUNNEL.everyMs, raised });
+  const w = out.results.find((r) => r.state === 'wounded'), c = out.results.find((r) => r.state === 'captive');
+  const away = { wounded: w?.n ?? 0, woundedAt: w?.at ?? null, captive: c?.n ?? 0, captiveAt: c?.at ?? null };
+  const view = (a: number, nextAt: number | null, raised: number): TunnelView => ({ alive: a, floor: TUNNEL.floor, nextAt, pending: Math.max(0, TUNNEL.floor - a), every: TUNNEL.everyMs, raised, fit: Math.max(0, a - away.wounded - away.captive), ...away });
   if (!ever) return { ...view(alive, null, 0), pending: 0 };
   const stored = row?.next_at ?? null;
   const s = settleTunnel({ alive, nextAt: stored }, now);

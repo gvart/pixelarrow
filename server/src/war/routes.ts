@@ -2,7 +2,7 @@
  * War roster API (/api/war/*, M5e): the player's persistent soldiers (./persons.ts). Signed in and playable like the
  * online routes; bodies zod-checked.
  *
- *   GET  /tunnel                      W-66: the Tunnel of Shades { alive, floor, nextAt, pending } (raises the men due; ./raise.ts)
+ *   GET  /tunnel                      W-66: the Tunnel of Shades { alive, floor, nextAt, pending, fit, wounded, captive } (raises the men due; ./raise.ts)
  *   GET  /roster                      persons, caps, home strongroom (stock, items), captives held, upkeep
  *                                      (W-60: no recruiting or training; men join by claiming souls in a region)
  *   POST /persons/:id/equip { slot, uid|null } put on a strongroom item, or take one off
@@ -84,7 +84,7 @@ import { WAR_REGIONS } from './regions';
 import { answerPact, appoint, confidence, crownView, deliver, deposit as crownDeposit, endOrder, fundContract, fundWork, offerPact, postOrder, setTax, sign, vote } from './crown';
 import { CROWN, OFFICES, type Office } from '../../../src/war/net/crown';
 import { settleTunnelFor } from './raise';
-import { equip, formSquad, levelUp, payRansom, promote, releaseCaptive, retire, roster, seed } from './persons';
+import { equip, formSquad, levelUp, payRansom, promote, releaseCaptive, retire, roster, seed, settle } from './persons';
 
 export const war = new Hono<AppEnv>();
 // per route, not war.use('/*'): /api/war/:region/stats (dev, index.ts) shares the prefix
@@ -100,7 +100,11 @@ const group = z.array(z.object({ cls: z.string().regex(/^[a-z_]{1,24}$/), level:
 
 war.get('/roster', requirePlayable, async (c) => c.json(await roster(db(c.env), c.get('session').pid, Date.now())));
 // W-66: the Tunnel of Shades: { alive, floor, nextAt, pending } (the men due rise on this read; ./raise.ts)
-war.get('/tunnel', requirePlayable, async (c) => c.json(await settleTunnelFor(db(c.env), c.get('session').pid, Date.now())));
+war.get('/tunnel', requirePlayable, async (c) => {
+  const d = db(c.env), pid = c.get('session').pid, now = Date.now();
+  await settle(d, pid, now); // the wounded healed and captives home by now count as fit (the wipe card)
+  return c.json(await settleTunnelFor(d, pid, now));
+});
 
 war.post('/persons/:id/equip', requirePlayable, async (c) => {
   const id = idParam(c.req.param('id'));

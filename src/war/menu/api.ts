@@ -4,6 +4,7 @@
  */
 import { cookieAuth, DEV_KEY, devAuth, type WarAuth } from '../net/session';
 import type { AllianceId, RegionRole } from '../world/types';
+import type { WipeState } from '../sim/tunnel';
 import { humanCheck } from './turnstile';
 
 export type StartStep = 'alliance' | 'home' | 'squad' | 'done';
@@ -85,5 +86,5 @@ export const chooseAlliance = (alliance: number) => call<StartView>('POST', '/ap
 export const chooseHome = (region: string) => call<StartView>('POST', '/api/war/start/home', { region });
 export const pickSquad = (classes: string[]) => call<StartView & { ids: string[] }>('POST', '/api/war/start/squad', { classes });
 /** W-66: the Tunnel of Shades as the roster reports it (server/src/war/raise.ts TunnelView). */
-export interface TunnelInfo { alive: number; floor: number; nextAt: number | null; pending: number }
+export interface TunnelInfo extends WipeState { alive: number; floor: number; nextAt: number | null; pending: number }
 export const roster = () => call<{ persons: RosterMan[]; tunnel?: TunnelInfo }>('GET', '/api/war/roster');

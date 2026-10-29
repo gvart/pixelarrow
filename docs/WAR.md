@@ -941,8 +941,11 @@ server: `server/src/war/raise.ts`, D1 `war_tunnel.next_at` (0048); view: `src/wa
 | Clock | starts on the first read below the floor; settled lazily on `GET /api/war/tunnel` { alive, floor, nextAt, pending }, the roster read and a region join (no live room needed); a compare-and-set on next_at and a capped insert keep racing reads to one man each |
 | No tunnel | before his first squad (a player who never had a man) |
 
-His last man fallen, the HUD shows "Your army is destroyed" (the shades of the fallen walk back through the tunnel,
-the time until the first man rises, a button home to watch it; the menu shows the same before the title). No reset.
+His last man who can fight fallen (the rest dead, wounded or captive; `wiped` in the rules), the HUD shows "Your army
+is destroyed" (the shades of the fallen walk back through the tunnel, the time until his first man is back: the next
+rise, or his first wounded man fit or captive home, whichever comes first, with a line on each; a button home to watch
+it; the menu shows the same before the title). No reset. GET /api/war/tunnel carries `fit`, `wounded`, `woundedAt`,
+`captive`, `captiveAt` for it.
 In the home town a line of shades stands before the mouth, one for each man to come, its far end fading into the
 dark; at each rise the front shade walks in, flashes and stands there as the man, and the line steps up. The countdown
 ("Next shade rises in 7:42, 3/6") shows over the tunnel and as a pill at the top of the HUD. Offline the same rule runs
