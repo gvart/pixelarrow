@@ -1,0 +1,39 @@
+src/war/world-view/main.ts
+  s_f08b12c690e0d6::t_3360a84b94bdf1 51,660,665,671
+src/war/menu/main.ts
+  s_f08b12c690e0d6::t_2f25696420e165 14
+  s_f08b12c690e0d6::t_0a0493bbf29c37 139,141
+src/war/menu/screens.ts
+  s_f08b12c690e0d6::t_0a0493bbf29c37 481-482,487-489,491-496,498-500
+  s_f08b12c690e0d6::t_2f25696420e165 18
+  s_f08b12c690e0d6::t_f22051f74e82aa 490
+docs/WAR.md
+  s_f08b12c690e0d6::t_8bc1bde8a4a204 944-948
+src/war/view/hud/wipeCard.ts
+  s_f08b12c690e0d6::t_2d607af3afc952 3-4
+  s_f08b12c690e0d6::t_d090a3acadfbb4 7,13-14,24-25,29,34,36-39
+  s_f08b12c690e0d6::t_f22051f74e82aa 35
+src/war/view/hud/tunnel.ts
+  s_f08b12c690e0d6::t_bd1101a15645af 5-7
+  s_f08b12c690e0d6::t_2d607af3afc952 13,30,40,71,132,158,160,188-189,192
+  s_f08b12c690e0d6::t_727b2c78242052 133
+src/war/menu/api.ts
+  s_f08b12c690e0d6::t_0a0493bbf29c37 89
+  s_f08b12c690e0d6::t_29cbeeb8eb06b0 7
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "5b6c8aaaa26b4b340050b216845e7e1676274662",
+  "prompts": {},
+  "sessions": {
+    "s_f08b12c690e0d6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e4ed4b42-9ff5-404c-b2dd-32a044e85f29",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
