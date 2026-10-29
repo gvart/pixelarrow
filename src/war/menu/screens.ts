@@ -15,7 +15,7 @@ import { icon, UNIT_ICON, uiZoom } from '../view/hud/kit';
 import { card, fx, term, termCard, val } from '../view/hud/codex';
 import { placeTip } from '../view/hud/kit';
 import { call, type StartView, type TunnelInfo } from './api';
-import { clock, TUNNEL } from '../sim/tunnel';
+import { span, TUNNEL, wipeLine, wipeNext } from '../sim/tunnel';
 import { DIFFICULTY_NAME, HOME_LORE } from './homeLore';
 
 export const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -478,16 +478,26 @@ export function destroyedScreen(stage: HTMLElement, home: string, t: TunnelInfo,
   stage.innerHTML = `<div class="rf-card mn-card" style="width:380px;text-align:center">
     <div class="mn-h"><span class="rf-name">Your army is destroyed</span></div>
     <div class="mn-sub" style="margin:0 0 10px;font-style:italic">The shades of your fallen walk back through the Tunnel of Shades in ${esc(name)}.</div>
-    <div style="margin-bottom:4px">The next man rises in <b data-k="t" style="color:#bfe0ff">${t.nextAt ? clock(t.nextAt - Date.now()) : '…'}</b></div>
+    <div style="margin-bottom:4px"><span data-k="h"></span> <b data-k="t" style="color:#bfe0ff">…</b></div>
+    <div data-k="l" style="font-size:12px;margin-bottom:6px"></div>
     <div class="rf-dim" style="font-size:11.5px;margin-bottom:12px">Until ${TUNNEL.floor} men stand again, one rises every ${TUNNEL.everyMs / 60_000} minutes. Past ${TUNNEL.floor}, men come only from souls.</div>
     <button class="mn-big pri" data-k="watch">${icon('act-move', 24)}<div><div class="t">Watch the tunnel</div><div class="d">Go home to ${esc(name)}</div></div><kbd>Enter</kbd></button>
     <button class="mn-big" data-k="back">${icon('act-cancel', 24)}<div><div class="t">Back</div></div></button>
   </div>`;
-  const el = stage.querySelector<HTMLElement>('[data-k=t]')!;
+  const el = stage.querySelector<HTMLElement>('[data-k=t]')!, head = stage.querySelector<HTMLElement>('[data-k=h]')!, line = stage.querySelector<HTMLElement>('[data-k=l]')!;
+  // the first man back: the next rise, a wounded man fit or a captive home, whichever comes first
+  const show = () => {
+    const now = Date.now(), n = wipeNext(t);
+    head.textContent = n.text;
+    el.textContent = n.at === null ? '…' : span(n.at - now);
+    line.textContent = wipeLine(t, now);
+    return n.at;
+  };
+  show();
   const tick = setInterval(() => {
-    if (t.nextAt) el.textContent = clock(t.nextAt - Date.now());
-    // his man is due: read again (the read raises him)
-    if (t.nextAt && h.due && Date.now() >= t.nextAt + 1000) (clearInterval(tick), h.due());
+    const at = show();
+    // his man is due: read again (the read raises him, or settles the healed and the freed)
+    if (at && h.due && Date.now() >= at + 1000) (clearInterval(tick), h.due());
   }, 500);
   stage.querySelector<HTMLElement>('[data-k=watch]')!.onclick = () => (clearInterval(tick), h.watch());
   stage.querySelector<HTMLElement>('[data-k=back]')!.onclick = () => (clearInterval(tick), h.back());

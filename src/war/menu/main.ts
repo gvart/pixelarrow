@@ -11,6 +11,7 @@ import { worldRegion } from '../world/graph';
 import { ALLIANCES } from '../world/alliances';
 import { keptDevId } from '../net/session';
 import * as api from './api';
+import { wiped } from '../sim/tunnel';
 import { allianceScreen, destroyedScreen, esc, homeScreen, readyScreen, signInScreen, squadScreen, titleScreen } from './screens';
 import { openSettings, settingsOpen } from './settings';
 import { injectMenuCss } from './style';
@@ -135,9 +136,9 @@ async function titleMenu(v: api.StartView): Promise<void> {
     return fail(e, () => void route());
   }
   clear();
-  // W-66: his last man fell: the army destroyed screen first (the tunnel at home raises his men)
+  // W-66: his last man he can field fell (the rest dead, wounded or captive): the army destroyed screen first (the tunnel at home raises his men)
   const homeTown = v.alliance !== null ? ALLIANCES[v.alliance].home : v.home;
-  if (tunnel && tunnel.alive === 0 && tunnel.pending > 0 && homeTown && !destroyedSeen) {
+  if (tunnel && wiped(tunnel) && homeTown && !destroyedSeen) {
     destroyedSeen = true;
     stop = destroyedScreen(stage, homeTown, tunnel, { watch: () => enterRegion(homeTown, v.alliance ?? 0), back: () => void titleMenu(v), due: () => ((destroyedSeen = false), void titleMenu(v)) });
     return;

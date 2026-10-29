@@ -48,6 +48,7 @@ import { MockChat, NetChat, worldTaps } from '../net/chatLink';
 import { warAuth } from '../net/session';
 import { levelName } from '../net/settlements';
 import { wipeCard } from '../view/hud/wipeCard';
+import { wiped, type WipeState } from '../sim/tunnel';
 
 const q = new URLSearchParams(location.search);
 const offline = q.has('offline');
@@ -656,18 +657,18 @@ function watchTunnel(): void {
   el.addEventListener('pointerdown', (e) => e.stopPropagation());
   document.body.appendChild(el);
   const wipe = wipeCard(el, worldRegion(homeOf() ?? '')?.name ?? 'your home town', () => enter(homeOf() ?? null));
-  let t: { alive: number; pending: number; nextAt: number | null } | null = null, shown = false;
+  let t: WipeState | null = null, shown = false;
   const pull = async () => {
     const auth = await warAuth(source.devId).catch(() => null);
     const r = await fetch('/api/war/tunnel', { headers: auth?.headers ?? {} }).catch(() => null);
     if (r?.ok) t = await r.json();
-    const dead = !!t && t.alive === 0 && t.pending > 0;
+    const dead = !!t && wiped(t); // no man he can field (the rest dead, wounded or captive)
     if (dead && !shown) (shown = true), wipe.show(true);
     if (!dead) (shown = false), wipe.show(false);
   };
   void pull();
   setInterval(() => void pull(), 10_000);
-  setInterval(() => wipe.set(t?.nextAt ?? null, Date.now()), 500);
+  setInterval(() => wipe.set(t, Date.now()), 500);
 }
 
 // ---------- personal markers (../view/hud/pins.ts): a middle click, this player only; in map px ----------

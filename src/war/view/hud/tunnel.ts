@@ -2,14 +2,15 @@
  * W-66 the Tunnel of Shades on the HUD (docs/WAR.md "Tunnel of Shades"; rules: src/war/sim/tunnel.ts). While the player
  * has fewer than 6 men, one rises from his home town's tunnel every 10 min:
  *  - the countdown pill, top centre: "Next shade rises in 7:42, 3/6";
- *  - when his last man falls, the "Your army is destroyed" card: a lore line, the time until the first man rises, and a
- *    button to his home town to watch the tunnel (no account reset);
+ *  - when his last man he can field falls (the rest dead, wounded or captive), the "Your army is destroyed" card: a lore
+ *    line, the time until his first man is back (a rise, a wounded man fit, a captive home), and a button to his home
+ *    town to watch the tunnel (no account reset);
  *  - the line of shades at the tunnel mouth and the man rising there (../tunnelLine.ts reads this module's host).
  * Online the server keeps the clock (GET /api/war/tunnel, the men due rise on the read; server/src/war/raise.ts); a rise
  * pulls the roster again. Offline the same rule runs here on a local clock (his men on this map count), the raised man
  * spawns at the mouth, and a dev button runs the clock x60.
  */
-import { settleTunnel, TUNNEL, tunnelLine } from '../../sim/tunnel';
+import { settleTunnel, TUNNEL, tunnelLine, wiped, type WipeState } from '../../sim/tunnel';
 import { ARMY_MAX } from '../../sim/soldiers';
 import { START_CLASSES } from '../../world/start';
 import { ALLIANCES } from '../../world/alliances';
@@ -26,7 +27,7 @@ import { wipeCard } from './wipeCard';
 type Mk = (id: string, css: string, html?: string) => HTMLElement;
 
 /** GET /api/war/tunnel (server/src/war/raise.ts TunnelView). */
-interface NetTunnel { alive: number; floor: number; nextAt: number | null; pending: number; raised?: number }
+interface NetTunnel extends WipeState { alive: number; floor: number; nextAt: number | null; pending: number; raised?: number }
 /** Online: the tunnel read again this often (ms), and right after the countdown runs out. */
 const PULL_MS = 10_000;
 /** Offline dev speed: the tunnel clock runs this many times faster. */
@@ -36,7 +37,7 @@ const SPAWN_AFTER = 2800;
 
 /** A rise the line shows: when (performance ms) and of what class. */
 export interface Rise { at: number; cls: string }
-export interface TunnelHost {
+export interface TunnelHost extends WipeState {
   /** Men alive (what the floor counts), the next rise on the tunnel clock (null: none pending), men still to come. */
   alive: number; nextAt: number | null; pending: number;
   /** He ever had men (before his first squad there is no tunnel). */
@@ -67,7 +68,7 @@ export function mountTunnel(s: SandboxScene, mk: Mk): TunnelHost {
   const R = sandboxRoster(s);
   let speed = 1, base = Date.now(), at0 = base; // offline: tunnel clock = at0 + (Date.now() - base) * speed
   const host: TunnelHost = {
-    alive: 0, nextAt: null, pending: 0, ever: false, rises: [],
+    alive: 0, nextAt: null, pending: 0, ever: false, rises: [], fit: 0, wounded: 0, woundedAt: null, captive: 0, captiveAt: null,
     now: () => (s.sim.net ? Date.now() : at0 + (Date.now() - base) * speed),
     tunnel: () => homeTunnel(s),
   };
@@ -128,8 +129,8 @@ export function mountTunnel(s: SandboxScene, mk: Mk): TunnelHost {
       // the men risen since the last read: by this read, or by another (the roster's) once the clock ran out
       const raised = t.raised || (known && due && t.alive > was ? t.alive - was : 0);
       known = true;
-      Object.assign(host, { alive: t.alive, nextAt: t.nextAt, pending: t.pending });
-      host.ever ||= t.pending < TUNNEL.floor || t.alive > 0 || t.nextAt !== null;
+      Object.assign(host, { alive: t.alive, nextAt: t.nextAt, pending: t.pending, fit: t.fit, wounded: t.wounded, woundedAt: t.woundedAt, captive: t.captive, captiveAt: t.captiveAt });
+      host.ever ||= t.pending < TUNNEL.floor || t.alive > 0 || t.nextAt !== null || t.wounded > 0 || t.captive > 0;
       for (let k = 0; k < raised; k++) host.rises.push({ at: performance.now() + k * 1200, cls: classFor(s, k) });
       if (raised || t.alive > was) void R.pull();
       // at home: once the line's rise played, the risen men march in (a join picks his men at home; ../../net/client.ts)
@@ -154,9 +155,9 @@ export function mountTunnel(s: SandboxScene, mk: Mk): TunnelHost {
     if (Date.now() > inflightUntil) inflight = 0;
     const alive = armyMen(s) + inflight;
     host.ever ||= alive > 0 || R.fallenClasses().length > 0;
-    if (!host.ever || !t) return void Object.assign(host, { alive, nextAt: null, pending: 0 });
+    if (!host.ever || !t) return void Object.assign(host, { alive, fit: alive, nextAt: null, pending: 0 });
     const st = settleTunnel({ alive, nextAt: host.nextAt }, now);
-    Object.assign(host, { alive: st.alive, nextAt: st.nextAt, pending: st.pending });
+    Object.assign(host, { alive: st.alive, fit: st.alive, nextAt: st.nextAt, pending: st.pending }); // offline: no wounded or captives
     for (let k = 0; k < st.raise; k++) {
       const cls = classFor(s, host.rises.length), rise = { at: performance.now() + k * 1200, cls };
       host.rises.push(rise);
@@ -184,11 +185,11 @@ export function mountTunnel(s: SandboxScene, mk: Mk): TunnelHost {
     const line = host.ever ? tunnelLine(host.alive, host.nextAt, host.now()) : null;
     pill.style.display = line ? 'flex' : 'none';
     if (line) pillText.textContent = line;
-    // the last man fell: the card once (again only after men stood once more)
-    const dead = host.ever && host.alive === 0 && host.pending > 0;
+    // his last man he can field fell (the rest dead, wounded or captive): the card once (again only after men stood once more)
+    const dead = host.ever && wiped(host);
     if (dead && !shown) (shown = true), wipe.show(true);
     if (!dead) (shown = false), wipe.show(false);
-    wipe.set(host.nextAt, host.now());
+    wipe.set(host, host.now());
   }, 250);
   return host;
 }
