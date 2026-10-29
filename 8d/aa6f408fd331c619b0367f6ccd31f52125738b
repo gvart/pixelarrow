@@ -1,0 +1,28 @@
+src/war/view/hud/fullMap.ts
+  s_f08b12c690e0d6::t_fdf6575892f9c7 19-21,326-328,334
+src/war/view/hud/claimCard.ts
+  s_f08b12c690e0d6::t_2e72364fc50d5b 78-79
+  s_f08b12c690e0d6::t_7d40d2954afa0a 7-9,15-16,57-72,74-76,80
+  s_f08b12c690e0d6::t_82d4a5494faa12 41-49,52,77
+src/war/view/hud/mapDraw.ts
+  s_f08b12c690e0d6::t_82d4a5494faa12 21,227-230,232,234-238
+  s_f08b12c690e0d6::t_349e189133c0cb 9-10
+src/war/view/hud/hud.ts
+  s_f08b12c690e0d6::t_8944f9807542bb 68,399,678-680
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "8daa6f408fd331c619b0367f6ccd31f52125738b",
+  "prompts": {},
+  "sessions": {
+    "s_f08b12c690e0d6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e4ed4b42-9ff5-404c-b2dd-32a044e85f29",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
