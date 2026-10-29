@@ -3200,7 +3200,8 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       for (const u of units) if (u.alive && u.person && u.squad.owner === into.owner) taken.add(u.person.hero.name);
       const id = `soul-${region.id}-${(seed >>> 0).toString(36)}-${so.id}`.slice(0, 40);
       const p0 = makePerson(id, cls, { level: so.level });
-      const person: WarPerson = { ...p0, hero: { ...p0.hero, name: freeName(CLASSES[cls].cultures[0] ?? 'greek', so.id, taken) } };
+      // W-68: a named soul joins as himself (his record kept)
+      const person: WarPerson = so.person ?? { ...p0, hero: { ...p0.hero, name: freeName(CLASSES[cls].cultures[0] ?? 'greek', so.id, taken) } };
       const sq = api.spawnSquad(into.owner, into.team, cls, 1, so.x, so.y, [person]);
       if (sq < 0) return null;
       const unit = squads[sq].units[0].id;
@@ -3827,6 +3828,17 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     },
     spawnSoul(x, y, cls, level = 1, site = 'shrine') {
       return souls.spawn(x, y, cls, level, site, tick);
+    },
+    spawnNamedSoul(person, life, bar) {
+      return souls.spawnNamed(person, tick, life, bar);
+    },
+    dismissPerson(id) {
+      const u = units.find((m) => m.alive && m.person?.id === id);
+      if (!u || !u.person) return null;
+      const at = { x: u.x, y: u.y };
+      piles.drop(u.x, u.y, [], Object.values(u.person.hero.equip).filter((it): it is Item => !!it), tick);
+      api.dropPersons([id]);
+      return at;
     },
     setSatiety(ids, sat) {
       const of = new Set(ids);

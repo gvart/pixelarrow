@@ -6,6 +6,10 @@
  * only while the owner has fewer than ARMY_MAX men (the gate), else the claim is refused and he waits on. More than one
  * side at him stalls the claim (contested); the wild's men at him with no claimer take him (lost). Unclaimed, he fades
  * after SOUL.life ticks. Deterministic: its own Rng (seeded from the sim seed), fixed iteration order.
+ *
+ * W-68 named souls (spawnNamed): a released captive or a dismissed man wakes at a shrine of the region as himself (his
+ * person: name, level, class, record), waits longer (the server's CAPTIVE.soulMs) and does not count toward SOUL.max; the
+ * player who dismissed him may not claim him until `barUntil` (src/war/sim/captives.ts CAPTIVE.barMs).
  */
 import { Rng } from '../../sim/rng';
 import type { RegionData, SoulSnap, WarEvent, WarPerson } from '../types';
@@ -55,7 +59,11 @@ const START = new Set(['militia', 'hoplite', 'celt_sword', 'archer', 'slinger', 
 /** The level a soul of `site` wakes at in a region of `depth`. */
 export const soulLevel = (site: SoulSite, depth: number): number => Math.min(SOUL_LEVEL_MAX, SOUL_LEVEL[site] + Math.floor(depth / 2));
 
-export interface Soul { id: number; x: number; y: number; cls: string; level: number; site: SoulSite; until: number; prog: number; team: number; contested: boolean; at: number }
+export interface Soul {
+  id: number; x: number; y: number; cls: string; level: number; site: SoulSite; until: number; prog: number; team: number; contested: boolean; at: number;
+  /** W-68: a named soul's person (he joins as himself); the owner barred from claiming him and the tick it lifts. */
+  person?: WarPerson; bar?: string; barUntil?: number;
+}
 interface Site { kind: SoulSite; x: number; y: number }
 interface Cell { n: number; x: number; y: number; by: Record<string, number>; site: number }
 
@@ -120,13 +128,15 @@ export function createSouls(region: RegionData, seed: number, host: SoulHost) {
   const roll = (t: number) => {
     const all = sites();
     const max = storm > 1 ? SOUL.stormMax : SOUL.max;
-    for (let i = 0; i < all.length && list.length < max; i++) {
+    let n = list.filter((s) => !s.person).length; // W-68: named souls wait outside the count
+    for (let i = 0; i < all.length && n < max; i++) {
       // a storm wakes more than one soul at a site (offset round it)
       const at = list.filter((s) => s.at === i).length;
       if (at >= (storm > 1 ? 2 : 1)) continue;
       const site = all[i];
       if (rng.next() >= SOUL.chance[site.kind] * storm * (host.chanceAt?.(site.x, site.y) ?? 1)) continue;
       make(site.x + (at ? 1.5 : 0), site.y + (at ? 1 : 0), pick(site, i), soulLevel(site.kind, depth), site.kind, t, i);
+      n++;
     }
   };
   const claim = (s: Soul, t: number): boolean => {
@@ -135,7 +145,7 @@ export function createSouls(region: RegionData, seed: number, host: SoulHost) {
     for (const m of host.men()) {
       if ((m.x - s.x) ** 2 + (m.y - s.y) ** 2 > SOUL.reach * SOUL.reach) continue;
       if (m.team === MOB_TEAM) mob = true;
-      else if (m.claim === s.id && !m.civ) {
+      else if (m.claim === s.id && !m.civ && !(s.bar === m.owner && t < (s.barUntil ?? 0))) {
         const q = by.get(m.team);
         if (q === undefined || m.squad < q) by.set(m.team, m.squad);
       }
@@ -154,7 +164,7 @@ export function createSouls(region: RegionData, seed: number, host: SoulHost) {
     s.prog += SOUL.scan;
     if (s.prog < SOUL.channel) return false;
     if (mob) {
-      host.emit({ t, kind: 'soulLost', soul: s.id, team: MOB_TEAM });
+      host.emit({ t, kind: 'soulLost', soul: s.id, team: MOB_TEAM, ...(s.person ? { pid: s.person.id } : {}) });
       return true;
     }
     const squad = by.get(team)!;
@@ -181,7 +191,7 @@ export function createSouls(region: RegionData, seed: number, host: SoulHost) {
       if (t % SOUL.scan !== 0 || !list.length) return;
       list = list.filter((s) => {
         if (s.until <= t) {
-          host.emit({ t, kind: 'soulFaded', soul: s.id });
+          host.emit({ t, kind: 'soulFaded', soul: s.id, ...(s.person ? { pid: s.person.id } : {}) });
           return false;
         }
         return !claim(s, t);
@@ -204,6 +214,23 @@ export function createSouls(region: RegionData, seed: number, host: SoulHost) {
     spawn(x: number, y: number, cls: string, level: number, site: SoulSite, t: number): number {
       return make(x, y, cls, level, site, t).id;
     },
+    /**
+     * W-68: `person` wakes as a named soul at a shrine of this region for `life` ticks (`bar`: that owner may not claim
+     * him for `barTicks`). Once per person (a second call while he waits does nothing). False: the region has no shrine.
+     */
+    spawnNamed(person: WarPerson, t: number, life: number, bar?: { owner: string; ticks: number }): boolean {
+      if (list.some((s) => s.person?.id === person.id)) return true;
+      const shrines = fixed.map((site, i) => ({ site, i })).filter((x) => x.site.kind === 'shrine');
+      if (!shrines.length) return false;
+      const at = (i: number) => list.filter((s) => s.at === i).length;
+      const { site, i } = shrines.reduce((a, b) => (at(b.i) < at(a.i) ? b : a));
+      const k = at(i);
+      const s = make(site.x + 1.5 * (k % 3), site.y + Math.floor(k / 3) + (k ? 1 : 0), person.hero.cls ?? 'militia', person.hero.level, 'shrine', t, i);
+      s.until = t + Math.max(1, life);
+      s.person = person;
+      if (bar) (s.bar = bar.owner), (s.barUntil = t + bar.ticks);
+      return true;
+    },
     get(id: number): Soul | undefined {
       return list.find((s) => s.id === id);
     },
@@ -212,6 +239,8 @@ export function createSouls(region: RegionData, seed: number, host: SoulHost) {
         id: s.id, x: s.x, y: s.y, cls: s.cls, level: s.level, site: s.site, left: Math.max(0, s.until - t),
         ...(s.prog > 0 ? { claim: Math.min(1, s.prog / SOUL.channel), team: s.team } : {}),
         ...(s.contested ? { contested: true as const } : {}),
+        ...(s.person ? { name: s.person.hero.name } : {}),
+        ...(s.bar !== undefined && t < (s.barUntil ?? 0) ? { bar: { owner: s.bar, at: s.barUntil! } } : {}),
       }));
     },
     any: () => list.length > 0,

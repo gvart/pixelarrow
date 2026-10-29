@@ -346,6 +346,8 @@ export interface TeamBonus { repairCost?: number; sight?: number }
 export interface SoulSnap {
   id: number; x: number; y: number; cls: string; level: number; site: 'shrine' | 'ruin' | 'battlefield' | 'lair'; left: number;
   claim?: number; team?: number; contested?: true;
+  /** W-68: a named soul (a released captive or a dismissed man): his name; `bar`: that owner may not claim him before tick `at`. */
+  name?: string; bar?: { owner: string; at: number };
 }
 /** M7f: a region's memory (WarBuildSim.memory). */
 export interface RegionMemory {
@@ -695,6 +697,10 @@ export interface WarBuildSim extends WarSim {
   setSoulGate(gate: ((owner: string) => { ok: boolean; have: number }) | null): void;
   /** W-60 dev, scenarios and tests: a soul of `cls` (level) at (x,y), as if he woke there; his id. */
   spawnSoul(x: number, y: number, cls: string, level?: number, site?: SoulSnap['site']): number;
+  /** W-68: `person` wakes as a named soul at a shrine here for `life` ticks (`bar`: that owner may not claim him for `ticks`); false: no shrine. */
+  spawnNamedSoul(person: WarPerson, life: number, bar?: { owner: string; ticks: number }): boolean;
+  /** W-68: dismiss this living man: his worn gear drops in a pile where he stands and he leaves the field (no report); where he stood, or null. */
+  dismissPerson(id: string): { x: number; y: number } | null;
   /** W-60 dev, scenarios and tests: the satiety (0..100) of these living men. */
   setSatiety(ids: number[], sat: number): void;
   /** M5g: a person changed off the field (level-up choice, dev XP): his living man takes the new record, baked again (HP keeps its wounds). false: not on the field. */
@@ -789,8 +795,8 @@ export type WarEvent =
   // taken by a foe first (`team`; MOB_TEAM: the wild took him), faded unclaimed
   | { t: number; kind: 'soulClaimed'; soul: number; squad: SquadId; owner: string; unit: UnitId; person: WarPerson }
   | { t: number; kind: 'soulRefused'; soul: number; squad: SquadId; owner: string; have: number }
-  | { t: number; kind: 'soulLost'; soul: number; team: number }
-  | { t: number; kind: 'soulFaded'; soul: number }
+  | { t: number; kind: 'soulLost'; soul: number; team: number; pid?: string }
+  | { t: number; kind: 'soulFaded'; soul: number; pid?: string }
   // W-65 roaming life (src/war/sim/roam.ts): a caravan arrived and paid `owner` for his escort; one was robbed by `by`
   | { t: number; kind: 'caravanPaid'; owner: string; team: number; coin: number; x: number; y: number }
   | { t: number; kind: 'caravanRobbed'; caravan: number; by: number }
