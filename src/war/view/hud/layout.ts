@@ -11,7 +11,8 @@
  *   bc  bottom centre, up from the edge: the command card, the build bar or the control groups, the soul prompt
  *   br  bottom right: the I / R / B dock
  *   lwin  left windows (roster, market, forge, memorial): from under the bar down to the minimap, clear of the card;
- *         while one is open the tl column and the chat give way
+ *         while one is open the tl column and the shut chat give way (an open chat stays: the window ends above it,
+ *         so a Shift+click from the roster can link a man)
  *   rwin  right windows (the squad chest): up from the dock, clear of the card, under the tr column
  *
  * A zone stacks its panels with a gap; a panel in a column pushes the next one along. When a column runs out of room
@@ -170,8 +171,9 @@ const MIN: Record<string, number> = {
   rfGuide: 34, rfQuest: 60, rfLand: 30, rfTownCard: 120,
   rfWorks: 120, rfFavour: 120, rfTasks: 120, rfHoldings: 120, rfCrown: 120, rfHolder: 120,
 };
-/** Panels that give way while a left window is open. */
+/** Panels that give way while a left window is open (the chat only while shut: open, the window ends above it). */
 const YIELDS = new Set(['rfGuide', 'rfWorldEv', 'rfChat']);
+const yields = (id: string, el: HTMLElement) => YIELDS.has(id) && !(id === 'rfChat' && el.classList.contains('open'));
 /** Measured, never moved: the dock plate (its buttons sit on it by their own CSS). */
 const FIXED = new Set(['rfDock']);
 /** Placed by their bottom edge (bottom-up zones). */
@@ -240,7 +242,7 @@ export function mountLayout(): void {
       const zone = zoneOf.get(id)!, ez = Number(el.style.zoom) || 1;
       if (WINDOWS.has(zone) && el.dataset.moved) continue;
       const h = el.dataset.hudClamp ? el.scrollHeight + el.offsetHeight - el.clientHeight : r.height / ez;
-      (stacks[zone] ??= []).push({ id, w: r.width / ez, h, ...(MIN[id] !== undefined ? { min: MIN[id] } : {}), ...(YIELDS.has(id) ? { yields: true } : {}), ...(SIDE_BY_SIDE.has(id) ? { dx: Math.round(r.left / ez - EDGE) } : zone === 'bc' ? { dx: r.left / ez - (f.w - r.width / ez) / 2 } : {}) });
+      (stacks[zone] ??= []).push({ id, w: r.width / ez, h, ...(MIN[id] !== undefined ? { min: MIN[id] } : {}), ...(yields(id, el) ? { yields: true } : {}), ...(SIDE_BY_SIDE.has(id) ? { dx: Math.round(r.left / ez - EDGE) } : zone === 'bc' ? { dx: r.left / ez - (f.w - r.width / ez) / 2 } : {}) });
     }
     const placed = solve(f, stacks);
     docked = Object.values(placed).filter((p) => !p.off).map((p) => ({ l: p.x * z, t: p.y * z, r: (p.x + p.w) * z, b: (p.y + p.h) * z }));

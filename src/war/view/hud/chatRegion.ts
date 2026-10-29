@@ -9,7 +9,7 @@ import { manLink } from '../../net/chatLinks';
 import { worldRegion } from '../../world/graph';
 import type { SandboxScene } from '../SandboxScene';
 import { mountChat } from './chat';
-import { leftPanelOpen, uiZoom } from './kit';
+import { uiZoom } from './kit';
 import { GAP, TOP } from './layout';
 import { sandboxRoster } from './roster/state';
 import { portrait, PORTRAIT_H, PORTRAIT_W, scarMarks } from './roster/portrait';
@@ -40,7 +40,6 @@ export function mountRegionChat(s: SandboxScene): void {
       const z = uiZoom(), above = (TOP + GUIDE_HEAD + GAP) * z;
       el.style.setProperty('--ch-log-h', `${chatLogFit(el.getBoundingClientRect().top, z, parseFloat(el.style.getPropertyValue('--ch-log-h')) || LOG_H, above)}px`);
     },
-    canOpen: () => !leftPanelOpen(),
     project: (m) => {
       if (m.at !== id) return null;
       const p = s.toScreen(m.x, m.y), r = canvas();

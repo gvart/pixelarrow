@@ -22,7 +22,7 @@ const chatShut = b('rfChat', 340, 20, { yields: true }), chatOpen = b('rfChat', 
 const STATES: Record<string, Stacks> = {
   'home-guide-chat': { tl: [guide, event], bl: [mini, chatShut], bc: [card, b('rfSoul', 315, 50)], br: [dock] },
   'home-chat-open': { tl: [guide, event], bl: [mini, b('rfLegend', 150, 90), chatOpen], bc: [card, b('rfSoul', 315, 50)], br: [dock] },
-  'home-roster-chat': { tl: [guide, event], bl: [mini, chatOpen], lwin: [b('rrPanel', 300, 520), b('rrCard', 280, 400)], bc: [card], br: [dock] },
+  'home-roster-chat': { tl: [guide, event], bl: [mini, b('rfChat', 340, 230)], lwin: [b('rrPanel', 300, 520), b('rrCard', 280, 400)], bc: [card], br: [dock] },
   'ridge-build': { bl: [mini, chatShut], bc: [card, b('rfBuild', 420, 80), b('rfSoul', 315, 50)], br: [dock] },
   'ridge-chest': { bl: [mini, chatShut], bc: [card], br: [dock], rwin: [b('rfChest', 330, 380)], tr: [b('rfQuest', 250, 150)] },
   'boss-fight': {
@@ -65,11 +65,18 @@ describe('HUD zones', () => {
     expect(p.rfGuide.y + p.rfGuide.h).toBeLessThanOrEqual(p.rfChat.y - GAP);
   });
 
-  it('a left window hides the top-left column and the chat, and ends above the minimap', () => {
-    const p = solve(FRAMES['1440x900'], { tl: [guide], bl: [mini, chatOpen], lwin: [b('rrPanel', 300, 800)] });
+  it('a left window hides the top-left column and the shut chat, and ends above the minimap', () => {
+    const p = solve(FRAMES['1440x900'], { tl: [guide], bl: [mini, chatShut], lwin: [b('rrPanel', 300, 800)] });
     expect(p.rfGuide.off).toBe(true);
     expect(p.rfChat.off).toBe(true);
     expect(p.rrPanel.y + p.rrPanel.h).toBeLessThanOrEqual(p.minimap.y - GAP);
+  });
+
+  it('an open chat stays under a left window, which ends above it', () => {
+    const p = solve(FRAMES['1100x700'], { bl: [mini, b('rfChat', 340, 230)], lwin: [b('rrPanel', 300, 800), b('rrCard', 280, 400, { dx: 306 })] });
+    expect(p.rfChat.off).toBeUndefined();
+    expect(p.rrPanel.y + p.rrPanel.h).toBeLessThanOrEqual(p.rfChat.y - GAP);
+    expect(p.rrCard.y + p.rrCard.h).toBeLessThanOrEqual(p.rfChat.y - GAP);
   });
 
   it('the chest opens above the command card where they would meet', () => {

@@ -40,7 +40,7 @@ export function mountTagTip(): { show(l: ChatLinkData, owner: string, at: HTMLEl
   if (!styled) {
     styled = true;
     const st = document.createElement('style');
-    st.textContent = TIP_CSS + ROSTER_CSS + '#rfChatTip{position:fixed;z-index:9;pointer-events:none}#rfChatTip.man{white-space:normal}#rfChatTip .rr-card{margin:0}';
+    st.textContent = TIP_CSS + ROSTER_CSS + '#rfChatTip{position:fixed;z-index:9;pointer-events:none}#rfChatTip.man{white-space:normal}#rfChatTip .rr-card{margin:0}#rfChatTip button,#rfChatTip .rr-pending{display:none}';
     document.head.appendChild(st);
     void loadItemAtlas();
   }
