@@ -28,7 +28,8 @@ export interface ArmyView {
 
 /** What the panel says: the count line, the line under it and its tone, and whether a click selects the men here. */
 export function armyText(v: ArmyView): { count: string; line: string; tone: 'gold' | 'dim'; pick: boolean } {
-  const count = `<b>${v.men}</b> / ${v.max} men · <b>${v.here}</b> here`;
+  // over the cap (a sandbox scenario, men from souls past it): the count alone, not "41 / 12"
+  const count = `<b>${v.men}</b>${v.men > v.max ? '' : ` / ${v.max}`} men · <b>${v.here}</b> here`;
   if (v.wipe) return { count, line: `Next man rises in ${v.wipe.nextAt === null ? '…' : clock(v.wipe.nextAt - v.wipe.now)} · ${v.wipe.alive}/${TUNNEL.floor}`, tone: 'gold', pick: false };
   if (v.here) return { count, line: `Click${v.key ? ` or ${v.key}` : ''}: select the ${v.here} here`, tone: 'dim', pick: true };
   const away = v.away.map(([r, n]) => `${n} in ${r}`).join(', ');
