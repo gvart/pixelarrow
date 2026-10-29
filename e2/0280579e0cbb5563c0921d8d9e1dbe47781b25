@@ -1,0 +1,35 @@
+server/src/war/routes.ts
+  s_f08b12c690e0d6::t_768312345dd809 5
+  s_f08b12c690e0d6::t_39367e9187793d 87,103-107
+server/test/war/tunnel.test.ts
+  s_f08b12c690e0d6::t_ebb0d08b267ca2 5,85-94,96-101
+  s_f08b12c690e0d6::t_e5bb8ac18909a9 8,95,102
+  s_f08b12c690e0d6::t_798295ccdf23dc 103
+server/src/war/raise.ts
+  s_f08b12c690e0d6::t_7f621a3d1ba2ea 14
+  s_f08b12c690e0d6::t_81f512a7330a71 26-30,34,38,40-42
+tests/war/tunnel.test.ts
+  s_f08b12c690e0d6::t_f99d588819a5fd 90
+  s_f08b12c690e0d6::t_8877667487a9e6 3,71-89,91-92
+  s_f08b12c690e0d6::t_a21d6f2ae80d36 93
+src/war/sim/tunnel.ts
+  s_f08b12c690e0d6::t_f22051f74e82aa 54
+  s_f08b12c690e0d6::t_3b7f19758777b6 37-53,55-62,64-65,67-71
+  s_f08b12c690e0d6::t_3f6231b7d6e7fb 63,66
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "e20280579e0cbb5563c0921d8d9e1dbe47781b25",
+  "prompts": {},
+  "sessions": {
+    "s_f08b12c690e0d6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e4ed4b42-9ff5-404c-b2dd-32a044e85f29",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
