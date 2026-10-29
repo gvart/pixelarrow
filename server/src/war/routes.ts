@@ -9,12 +9,12 @@
  *   POST /persons/:id/level { attrs?, skill? } spend points, take a skill at levels 3 / 7
  *   POST /squad         { ids }                the squad order of his fit men at home (<= ARMY_MAX)
  *   POST /persons/:id/promote { cls }        promote to an elite of his family (30 min, the elite rare kit's coin)
- *   POST /persons/:id/ransom                  pay a captive's ransom (coin to his captor's strongroom): he comes home
+ *   POST /persons/:id/dismiss                 W-68: let a man go: his gear drops, his soul rises (./captives.ts)
  *   POST /persons/:id/retire { civ? }         retire (half his gear's value back in coin); level 10: into a civilian class
  *   GET  /treasury                            the alliance's (clan's) strongbox coin, the player's role, the latest audit log
  *   POST /treasury/deposit { amount }         a member puts coin of his home strongroom into the strongbox
- *   POST /treasury/ransom/:id                 the leader or an officer pays a member's captive's ransom from the pool
- *   POST /captives/:id/release                the captor lets a captive he holds go
+ *   POST /captives/:id/release                W-68: the captor lets a captive he holds go: his soul wakes at a shrine
+ *   POST /captives/:id/join                   W-68: the captor asks a captive (held 2 h) to join: { joined }
  *   POST /persons/:id/node  { node }          M5h4: a civilian takes a profession node
  *   POST /persons/:id/respec                  M5h4: his nodes reset (50 coin, once a day)
  *   GET  /stash                               M6e: where his things are: items D1 keeps with their place (holder id) or
@@ -69,9 +69,10 @@ import { SKILLS } from '../../../src/war/sim/skills';
 import { ARMY_MAX } from '../../../src/war/sim/soldiers';
 import type { WarSkillId } from '../../../src/war/types';
 import { pickNode, respec, stash } from './crafting';
-import { deposit, payRansomFromTreasury, treasury } from './treasury';
+import { deposit, treasury } from './treasury';
 import { trade } from './tradeRoutes';
-import { start } from './start';
+import { homeRegion, start } from './start';
+import { WORLD_REGIONS } from '../../../src/war/world/regions';
 import { give, worksOf } from './works';
 import { claimTask, rerollOne, tasksOf } from './tasks';
 import { getFavour } from './favour';
@@ -84,7 +85,8 @@ import { WAR_REGIONS } from './regions';
 import { answerPact, appoint, confidence, crownView, deliver, deposit as crownDeposit, endOrder, fundContract, fundWork, offerPact, postOrder, setTax, sign, vote } from './crown';
 import { CROWN, OFFICES, type Office } from '../../../src/war/net/crown';
 import { settleTunnelFor } from './raise';
-import { equip, formSquad, levelUp, payRansom, promote, releaseCaptive, retire, roster, seed, settle } from './persons';
+import { equip, formSquad, levelUp, promote, retire, roster, seed, settle } from './persons';
+import { askToJoin, dismiss, releaseCaptive } from './captives';
 
 export const war = new Hono<AppEnv>();
 // per route, not war.use('/*'): /api/war/:region/stats (dev, index.ts) shares the prefix
@@ -102,7 +104,7 @@ war.get('/roster', requirePlayable, async (c) => c.json(await roster(db(c.env), 
 // W-66: the Tunnel of Shades: { alive, floor, nextAt, pending } (the men due rise on this read; ./raise.ts)
 war.get('/tunnel', requirePlayable, async (c) => {
   const d = db(c.env), pid = c.get('session').pid, now = Date.now();
-  await settle(d, pid, now); // the wounded healed and captives home by now count as fit (the wipe card)
+  await settle(d, pid, now); // the wounded healed by now count as fit (the wipe card)
   return c.json(await settleTunnelFor(d, pid, now));
 });
 
@@ -133,9 +135,10 @@ war.post('/persons/:id/promote', requirePlayable, async (c) => {
   return c.json({ until: await promote(db(c.env), c.get('session').pid, id, b.cls, Date.now()) });
 });
 
-war.post('/persons/:id/ransom', requirePlayable, async (c) => {
+war.post('/persons/:id/dismiss', requirePlayable, async (c) => {
   const id = idParam(c.req.param('id'));
-  return c.json({ paid: await payRansom(db(c.env), c.get('session').pid, id, Date.now()) });
+  const d = db(c.env), pid = c.get('session').pid;
+  return c.json(await dismiss(d, pid, id, (await homeRegion(d, pid)) ?? WORLD_REGIONS[0].id, Date.now()));
 });
 
 war.post('/persons/:id/retire', requirePlayable, async (c) => {
@@ -151,15 +154,16 @@ war.post('/treasury/deposit', requirePlayable, async (c) => {
   return c.json({ coin: await deposit(db(c.env), c.get('session').pid, b.amount, Date.now()) });
 });
 
-war.post('/treasury/ransom/:id', requirePlayable, async (c) => {
-  const id = idParam(c.req.param('id'));
-  return c.json({ paid: await payRansomFromTreasury(db(c.env), c.get('session').pid, id, Date.now()) });
-});
 
 war.post('/captives/:id/release', requirePlayable, async (c) => {
   const id = idParam(c.req.param('id'));
   await releaseCaptive(db(c.env), c.get('session').pid, id, Date.now());
   return c.json({ ok: true });
+});
+
+war.post('/captives/:id/join', requirePlayable, async (c) => {
+  const id = idParam(c.req.param('id'));
+  return c.json(await askToJoin(db(c.env), c.get('session').pid, id, Date.now()));
 });
 
 war.post('/persons/:id/node', requirePlayable, async (c) => {

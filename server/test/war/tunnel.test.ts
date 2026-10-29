@@ -83,22 +83,39 @@ describe('the Tunnel of Shades', () => {
     expect((await api('/api/war/tunnel')).status).toBe(401);
   });
 
-  it('a wipe online with his men taken captive or wounded: no man he can field, the card shows (the owner\'s 11 captive, 1 dead)', async () => {
+  it('W-68: a wipe online (11 captive, 1 dead): captives are not his, the tunnel starts at once and the card shows', async () => {
     const me = await devLogin(7667);
     for (let k = 0; k < 12; k++) expect(await claimSoul(DB(), me.playerId, soul(`7667-${k}`, 'militia'), 'test-ridge', T0)).toBe(true);
     const now = Date.now();
     const ids = (await DB().prepare('SELECT id FROM war_persons WHERE player_id = ?1 ORDER BY id').bind(me.playerId).all<{ id: string }>()).results.map((r) => r.id);
     await DB().prepare("UPDATE war_persons SET state = 'dead' WHERE id = ?1").bind(ids[0]).run();
     await DB().prepare("UPDATE war_persons SET state = 'captive', until_at = ?2 WHERE player_id = ?1 AND id != ?3").bind(me.playerId, now + CAPTIVE_MS, ids[0]).run();
+    expect(await armyCount(DB(), me.playerId)).toBe(0);
     const t = await (await api('/api/war/tunnel', { token: me.token })).json<WipeState & { alive: number; pending: number }>();
-    expect(t).toMatchObject({ alive: 11, pending: 0, nextAt: null, fit: 0, wounded: 0, captive: 11, captiveAt: now + CAPTIVE_MS });
+    expect(t).toMatchObject({ alive: 0, pending: 6, fit: 0, wounded: 0 });
+    expect(t.nextAt).toBeGreaterThanOrEqual(now + 10 * MIN);
     expect(showsCard(t)).toBe(true);
     // one wounded instead: the first wounded man back is known too; once he heals (the read settles him) the card goes
     await DB().prepare("UPDATE war_persons SET state = 'wounded', until_at = ?2 WHERE id = ?1").bind(ids[1], now + HEAL.field).run();
-    expect(await (await api('/api/war/tunnel', { token: me.token })).json()).toMatchObject({ fit: 0, wounded: 1, woundedAt: now + HEAL.field, captive: 10 });
+    expect(await (await api('/api/war/tunnel', { token: me.token })).json()).toMatchObject({ fit: 0, wounded: 1, woundedAt: now + HEAL.field });
     await DB().prepare('UPDATE war_persons SET until_at = ?2 WHERE id = ?1').bind(ids[1], now - 1).run();
     const healed = await (await api('/api/war/tunnel', { token: me.token })).json<WipeState>();
     expect(healed).toMatchObject({ fit: 1, wounded: 0 });
     expect(showsCard(healed)).toBe(false);
+  });
+
+  it('W-68: the floor counts men who can fight; the wounded still fill the army (no rise past ARMY_MAX)', async () => {
+    const me = await devLogin(7668);
+    for (let k = 0; k < 8; k++) expect(await claimSoul(DB(), me.playerId, soul(`7668-${k}`, 'militia'), 'test-ridge', T0)).toBe(true);
+    // 3 fit, 5 wounded: 3 rise in time, up to 6 who can fight (8 + 3 = 11 under 12)
+    await DB().prepare("UPDATE war_persons SET state = 'wounded', until_at = ?2 WHERE player_id = ?1 AND id IN (SELECT id FROM war_persons WHERE player_id = ?1 ORDER BY id LIMIT 5)").bind(me.playerId, T0 + 50 * 60 * MIN).run();
+    expect(await settleTunnelFor(DB(), me.playerId, T0)).toMatchObject({ alive: 3, pending: 3, nextAt: T0 + 10 * MIN });
+    expect(await settleTunnelFor(DB(), me.playerId, T0 + 60 * MIN)).toMatchObject({ alive: 6, raised: 3, nextAt: null });
+    expect(await armyCount(DB(), me.playerId)).toBe(11);
+    // 9 wounded, 3 fit, a full army: the tunnel waits
+    const full = await devLogin(7669);
+    for (let k = 0; k < ARMY_MAX; k++) expect(await claimSoul(DB(), full.playerId, soul(`7669-${k}`, 'militia'), 'test-ridge', T0)).toBe(true);
+    await DB().prepare("UPDATE war_persons SET state = 'wounded', until_at = ?2 WHERE player_id = ?1 AND id IN (SELECT id FROM war_persons WHERE player_id = ?1 ORDER BY id LIMIT 9)").bind(full.playerId, T0 + 50 * 60 * MIN).run();
+    expect(await settleTunnelFor(DB(), full.playerId, T0)).toMatchObject({ alive: 3, nextAt: null, raised: 0 });
   });
 });

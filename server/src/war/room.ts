@@ -1069,7 +1069,7 @@ export class WarRoom {
     return labour.length || guards.length || works.length ? { labour, guards, works } : null;
   }
 
-  tick(now: () => number = () => 0): { frames: Map<number, Uint8Array>; msgs: Map<number, ServerMsg[]>; admitted: Map<number, ServerMsg>; fights: Fight[]; crafted: Crafted[]; bosses: BossSlain[]; sacrilege: number[]; freed: string[]; raided: number[]; captured: { cart: number; from: string; team: number; to: string }[]; souls: SoulClaim[]; peace: Peace | null; times: TickTimes; guided: GuideDone[]; storied: StoryDone[]; met: EncounterDone[]; gathered: [number, TaskMetric, number][]; settle: SettleOut | null } {
+  tick(now: () => number = () => 0): { frames: Map<number, Uint8Array>; msgs: Map<number, ServerMsg[]>; admitted: Map<number, ServerMsg>; fights: Fight[]; crafted: Crafted[]; bosses: BossSlain[]; sacrilege: number[]; freed: string[]; raided: number[]; captured: { cart: number; from: string; team: number; to: string }[]; souls: SoulClaim[]; faded: string[]; peace: Peace | null; times: TickTimes; guided: GuideDone[]; storied: StoryDone[]; met: EncounterDone[]; gathered: [number, TaskMetric, number][]; settle: SettleOut | null } {
     const t0 = now();
     // M6i: carts' owners before the step (a capture names only the taker)
     const cartWas = new Map((this.snap.sieges ?? []).filter((e) => e.owner !== undefined).map((e) => [e.id, { owner: e.owner!, team: e.team }]));
@@ -1090,6 +1090,8 @@ export class WarRoom {
     for (const e of bosses) this.sim.dropPile(e.x ?? this.region.w / 2, e.y ?? this.region.h / 2, bossGoods(e.boss).map((g) => ({ r: g.r, n: g.n * loot, o: this.region.id })), bossItems(this.region.id, this.run, e));
     // M5e: holding buildings raided or fallen this tick: their captives go free (the DO writes it)
     const raided = evs.flatMap((e) => (e.kind === 'raid' ? [e.building] : []));
+    // W-68: named souls that faded or the wild took (the DO marks them gone)
+    const faded = evs.flatMap((e) => ((e.kind === 'soulFaded' || e.kind === 'soulLost') && e.pid ? [e.pid] : []));
     for (const e of evs) if (e.kind === 'raid' && e.by !== undefined && e.by !== e.team) this.stormed.add(e.by);
     const freed = this.unmend(new Set(crafted.filter((e) => e.what !== 'craft').map((e) => e.item.uid)));
     this.live = this.per.map(() => 0);
@@ -1187,7 +1189,7 @@ export class WarRoom {
     for (const [pid, ms] of this.later) if (this.players.get(pid)?.online) for (const m of ms) tell(pid, m);
     this.later.clear();
     this.lastTick = this.snap.tick;
-    return { frames, msgs, admitted, fights, crafted, bosses, sacrilege, freed, raided, captured, souls, guided: g.done, storied: st.done, met: en.done, peace: this.peace(), gathered: tick % LABOUR_EVERY === 0 ? this.gather.drain() : [], settle, times: { stepMs: t1 - t0, snapMs: t2 - t1, netMs: now() - t2 } };
+    return { frames, msgs, admitted, fights, crafted, bosses, sacrilege, freed, raided, captured, souls, faded, guided: g.done, storied: st.done, met: en.done, peace: this.peace(), gathered: tick % LABOUR_EVERY === 0 ? this.gather.drain() : [], settle, times: { stepMs: t1 - t0, snapMs: t2 - t1, netMs: now() - t2 } };
   }
 
   /**

@@ -45,7 +45,8 @@ describe('W-68 asking a captive to join', () => {
   });
 
   it('his soul wakes in the region, else the nearest world regions first', () => {
-    expect(soulRegions('test-ridge')).toEqual(['test-ridge']);
+    expect(soulRegions('test-ridge')[0]).toBe('test-ridge');
+    expect(soulRegions('test-ridge')).toHaveLength(1 + 37);
     const r = soulRegions('dodona');
     expect(r[0]).toBe('dodona');
     expect(r.slice(1, 5).sort()).toEqual(['dodona-e', 'dodona-n', 'dodona-s', 'dodona-w']);

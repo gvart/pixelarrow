@@ -50,7 +50,7 @@
 import { DurableObject } from 'cloudflare:workers';
 import type { Env } from '../env';
 import { WarRoom, type ClaimTaking, type RoomOptions, type RoomState, type TickTimes } from './room';
-import { regionVersion, warRegion } from './regions';
+import { regionVersion, WAR_REGIONS, warRegion } from './regions';
 import { DEFAULT_CAP, parseClientMsg, type HandoffMsg, type JoinMsg, type MendMsg, type ServerMsg, type StowMsg } from '../../../src/war/net/protocol';
 import { cartArrived, contract, deliver, guardCheck, labourDone, sealedFor, workContracts } from './contracts';
 import { addLabour, bonusesOf, openWorks } from './works';
@@ -72,7 +72,9 @@ import { addFavour, encounterFavour, favourTick, storyFavour } from './favour';
 import { elapsedTicks, loadMemory, MEMORY_KEY, remembered, storeMemory, writeMemory } from './memory';
 import type { WorldEvent } from '../../../src/war/world/events';
 import { settleTunnelFor } from './raise';
-import { applyFight, armyCount, claimForJoin, claimSoul, deployed, freeRaided, LIVE, release, releaseRegion } from './persons';
+import { applyFight, armyCount, claimForJoin, claimSoul, COLS, deployed, freeRaided, LIVE, ownerPid, release, releaseRegion, type PersonRow } from './persons';
+import { namedSoul, SOULS, type NamedSoul, type SoulSpawn } from './captives';
+import { soulSites } from '../../../src/war/sim/souls';
 import { applyCrafts, keepMends, returnMends, takeForMend } from './crafting';
 import { saveRegionHolds } from './holders';
 import { json } from './persons';
@@ -140,6 +142,23 @@ export function wirePresence(env: Env): void {
   };
   // a level-up on a man in a region reaches his living man in its room
   LIVE.levelUp = (region, id, attrs, skill) => regionStub(env, region).levelUp(region, id, attrs, skill);
+  // W-68: a named soul wakes in a region's room; a dismissed man in the field leaves his room
+  SOULS.spawn = (region, soul) => (WAR_REGIONS.includes(region) ? regionStub(env, region).wakeSoul(region, soul) : Promise.resolve('none' as const));
+  SOULS.dismiss = (region, id) => regionStub(env, region).dismissMan(region, id);
+}
+
+/** W-68: does this region have a shrine for named souls? */
+function shrineAt(region: string): boolean {
+  const r = warRegion(region);
+  return !!r && soulSites(r).some((x) => x.kind === 'shrine');
+}
+
+/** W-68: souls released while this region's room is not up: they wait in D1 here (wakeSouls) if it has a shrine, else go on. */
+const awayFrom = (own: string): SoulSpawn => async (region, soul) => (region === own ? (shrineAt(own) ? 'absent' : 'none') : SOULS.spawn(region, soul));
+
+/** Wake `soul` in the room's sim: true, or false (no shrine here). */
+function wakeIn(room: WarRoom, soul: NamedSoul): boolean {
+  return room.sim.spawnNamedSoul(soul.person, Math.ceil(soul.lifeMs / TICK_MS), soul.bar ? { owner: `p:${soul.bar.pid}`, ticks: Math.ceil(soul.bar.ms / TICK_MS) } : undefined);
 }
 
 interface Attachment { pid: number }
@@ -178,6 +197,7 @@ export class WarRegionDO extends DurableObject<Env> {
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
     this.ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair('ping', 'pong'));
+    wirePresence(env); // W-68: souls released by this room's writes wake in other regions' rooms
     this.where = runningColo(env).catch(() => 'unknown');
     this.ctx.waitUntil(this.where.then((colo) => colo !== 'local' && log('info', 'war_do_colo', { do: 'region', name: ctx.id.name, colo })));
   }
@@ -227,7 +247,7 @@ export class WarRegionDO extends DurableObject<Env> {
         this.flushReleased(restored);
       } else {
         this.clockAt = Date.now();
-        if (d) await releaseRegion(d, region);
+        if (d) await releaseRegion(d, region, Date.now(), awayFrom(region));
         this.room = new WarRoom(o);
         // M7f: what the region remembers (razed towns, slain guardians, restored landmarks) since it was left
         const m = await loadMemory(this.ctx.storage, d, region, WAR_SEASON.id, regionVersion(region));
@@ -242,11 +262,18 @@ export class WarRegionDO extends DurableObject<Env> {
         if (d) await this.restoreSettlements(this.room).catch((e) => logError('war_settle_restore_failed', e, { region }));
       }
       if (d && this.room) await this.loadSettlements(this.room).catch((e) => logError('war_settle_poll_failed', e, { region }));
+      if (d && this.room) await this.wakeSouls(this.room, d).catch((e) => logError('war_souls_wake_failed', e, { region }));
       await this.ctx.storage.put('region', region);
       await this.loadEvents();
       if (this.room) await this.applyEvents(this.room);
     });
     return this.room;
+  }
+
+  /** W-68: the named souls D1 says wait in this region (released while no room ran here) wake in it (a shrine here). */
+  private async wakeSouls(room: WarRoom, d: D1Database, now = Date.now()): Promise<void> {
+    const rows = (await d.prepare(`SELECT ${COLS} FROM war_persons WHERE state = 'soul' AND held_at = ?1 AND until_at > ?2`).bind(room.region.id, now).all<PersonRow>()).results;
+    for (const r of rows) wakeIn(room, namedSoul(r, now));
   }
 
   /** W-62: the world events from DO storage, else asked of the world (a room that never heard them). */
@@ -310,7 +337,7 @@ export class WarRegionDO extends DurableObject<Env> {
     this.persisted.clear();
     const d = this.env.DB;
     if (d) {
-      await releaseRegion(d, region);
+      await releaseRegion(d, region, Date.now(), awayFrom(region));
       await d.batch([d.prepare('DELETE FROM war_region_state WHERE region = ?1').bind(region), d.prepare('DELETE FROM war_region_holds WHERE region = ?1').bind(region)]);
     }
   }
@@ -957,11 +984,18 @@ export class WarRegionDO extends DurableObject<Env> {
     const d = this.env.DB;
     // W-62 E7: a fight written now also tallies wins and kills for the tasks
     // W-64: and books shares in the crown's war goals in this region
-    if (d) for (const f of r.fights) this.write(`fight ${f.id}`, async () => (await applyFight(d, f.id, room.region.id, f.report, Date.now())) && (await batch(d, fightTallies(d, f.report, Date.now())), await bookFight(d, room.region.id, f.report, Date.now())));
+    if (d) for (const f of r.fights) this.write(`fight ${f.id}`, async () => {
+      if (!(await applyFight(d, f.id, room.region.id, f.report, Date.now()))) return;
+      await batch(d, fightTallies(d, f.report, Date.now()));
+      await bookFight(d, room.region.id, f.report, Date.now());
+      // W-68: a captured man left his owner's army: the gate counts again
+      for (const pid of new Set(f.report.persons.filter((x) => x.state === 'captive').map((x) => ownerPid(x.owner)))) if (pid !== null) room.setArmy(pid, await armyCount(d, pid));
+    });
+    if (d) for (const id of r.faded) this.write(`faded ${id}`, () => d.prepare("UPDATE war_persons SET state = 'faded' WHERE id = ?1 AND state = 'soul'").bind(id).run());
     if (d && r.gathered.length) this.write('gathered', () => d.batch(r.gathered.map(([p, m, n]) => tallyStmt(d, p, m, n, Date.now()))));
     if (d && r.raided.length) {
       const at = Date.now();
-      this.write('raid', () => freeRaided(d, room.region.id, r.raided, at));
+      this.write('raid', () => freeRaided(d, room.region.id, r.raided, at, async (region, soul) => (region === room.region.id ? (wakeIn(room, soul) ? 'ok' : 'none') : SOULS.spawn(region, soul))));
     }
     // W-60: a claimed soul is a new man of the player, deployed here; the insert checks the cap again (another region may
     // have filled the army meanwhile): refused, the man leaves the field
@@ -1179,6 +1213,26 @@ export class WarRegionDO extends DurableObject<Env> {
     const r = room.levelUp(id, attrs, skill);
     if (r === 'ok') this.save();
     return r;
+  }
+
+  /** W-68 RPC (./captives.ts toSouls): a named soul wakes at a shrine here; none: no shrine in this region. */
+  async wakeSoul(region: string, soul: NamedSoul): Promise<'ok' | 'none' | 'absent'> {
+    const room = await this.ensure(region);
+    if (!room) return 'absent';
+    this.catchUp();
+    if (!wakeIn(room, soul)) return 'none';
+    this.save();
+    return 'ok';
+  }
+
+  /** W-68 RPC (./captives.ts dismiss): his living man here drops his gear where he stands and leaves; where he stood, or null. */
+  async dismissMan(region: string, id: string): Promise<{ x: number; y: number } | null> {
+    const room = await this.ensure(region);
+    if (!room) return null;
+    this.catchUp();
+    const at = room.sim.dismissPerson(id);
+    if (at) this.save();
+    return at;
   }
 
   /** W-63 (RPC, the terms route): do at least SETTLE.presence of the player's men stand on settlement `id`'s ground? */

@@ -1,9 +1,9 @@
-/** M5e lifecycle in D1: no training (W-60), prisoners (ransom, release), captives' upkeep and retirement (server/src/war/persons.ts). */
+/** M5e lifecycle in D1: no training (W-60), captives' upkeep (W-68 prisoners: ./captives.test.ts) and retirement (server/src/war/persons.ts). */
 import { env } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
 import { good, setGood } from './goods';
 import { api, devLogin } from '../helpers';
-import { applyFight, claimForJoin, claimSoul, personOf, RANSOM_PER_LEVEL, settle, type PersonRow } from '../../src/war/persons';
+import { applyFight, claimForJoin, claimSoul, personOf, settle, type PersonRow } from '../../src/war/persons';
 import { makePerson } from '../../../src/war/sim/roster';
 import { ARMY_MAX } from '../../../src/war/sim/soldiers';
 import type { FightReport, PersonResult } from '../../../src/war/types';
@@ -11,8 +11,8 @@ import type { FightReport, PersonResult } from '../../../src/war/types';
 const DB = () => env.DB!;
 const HOUR = 3_600_000;
 
-interface P { id: string; cls: string; name: string; level: number; xp: number; state: string; slot: number | null; gear: Record<string, { def: string } | undefined>; skills: string[]; until: number | null; trainTo: string | null; ransom?: number }
-interface RosterBody { persons: P[]; caps: { fighters: number }; stock: Record<string, number>; items: { def: string }[]; captives: { id: string; ransom: number; owner: number }[]; upkeep: { rate: number; owed: number; unpaid: boolean } }
+interface P { id: string; cls: string; name: string; level: number; xp: number; state: string; slot: number | null; gear: Record<string, { def: string } | undefined>; skills: string[]; until: number | null; trainTo: string | null }
+interface RosterBody { persons: P[]; caps: { fighters: number }; stock: Record<string, number>; items: { def: string }[]; captives: { id: string; owner: number }[]; upkeep: { rate: number; owed: number; unpaid: boolean } }
 const roster = async (token: string) => (await api('/api/war/roster', { token })).json<RosterBody>();
 const post = (token: string, path: string, json: unknown = {}) => api(`/api/war${path}`, { method: 'POST', token, json });
 const code = async (r: Response) => ((await r.json()) as { error?: { code: string } }).error?.code;
@@ -57,46 +57,6 @@ describe('training (W-60: gone)', () => {
   });
 });
 
-describe('prisoners', () => {
-  it('the captor holds the captive; the owner pays the ransom to him, or the captor lets him go', async () => {
-    const me = await devLogin(7503), foe = await devLogin(7504);
-    await post(me.token, '/dev/seed', {});
-    await roster(foe.token);
-    const ids = (await roster(me.token)).persons.filter((p) => p.state === 'active').map((p) => p.id).slice(0, 3);
-    const [a, b] = await fight(me, foe, ids, ['captive', 'captive', 'fit'], 'test-ridge:p:1');
-    expect(await row(a.id)).toMatchObject({ state: 'captive', captor: 1, captor_pid: foe.playerId, held_at: 'test-ridge' });
-    const held = await roster(foe.token);
-    expect(held.captives.map((c) => c.id).sort()).toEqual([a.id, b.id].sort());
-    expect(held.captives.find((x) => x.id === a.id)).toMatchObject({ owner: me.playerId, ransom: RANSOM_PER_LEVEL * a.hero.level });
-    expect(held.upkeep.rate).toBe(2); // one food an hour each
-    // the owner pays: silver to the captor, the man is home
-    const price = RANSOM_PER_LEVEL * a.hero.level;
-    const s0 = await stock(me.playerId, 'silver'), f0 = await stock(foe.playerId, 'silver');
-    const res = await post(me.token, `/persons/${a.id}/ransom`);
-    expect(await res.json()).toEqual({ paid: price });
-    expect(await stock(me.playerId, 'silver')).toBe(s0 - price);
-    expect(await stock(foe.playerId, 'silver')).toBe(f0 + price);
-    expect(await row(a.id)).toMatchObject({ state: 'active', captor: null, captor_pid: null, held_at: null });
-    expect(await code(await post(me.token, `/persons/${a.id}/ransom`))).toBe('not_captive');
-    // only his captor lets the other go
-    expect((await post(me.token, `/captives/${b.id}/release`)).status).toBe(404);
-    expect((await post(foe.token, `/captives/${b.id}/release`)).status).toBe(200);
-    expect(await row(b.id)).toMatchObject({ state: 'active', captor_pid: null });
-    expect((await roster(foe.token)).captives).toEqual([]);
-  });
-
-  it('no silver, no ransom', async () => {
-    const me = await devLogin(7505), foe = await devLogin(7506);
-    await post(me.token, '/dev/seed', {});
-    await roster(foe.token);
-    const [id] = (await roster(me.token)).persons.filter((p) => p.state === 'active').map((p) => p.id);
-    await fight(me, foe, [id], ['captive'], 'test-ridge:p:2');
-    await setGood(me.playerId, 'coin', 0);
-    expect(await code(await post(me.token, `/persons/${id}/ransom`))).toBe('no_coin');
-    expect((await row(id))!.state).toBe('captive');
-  });
-});
-
 describe('upkeep', () => {
   it('his men in the field cost the strongroom nothing (they eat there, W-60); captives he holds a food an hour; unpaid, the wounded do not heal and no XP is earned', async () => {
     const me = await devLogin(7507), foe = await devLogin(7508);
@@ -116,7 +76,7 @@ describe('upkeep', () => {
     await DB().prepare('UPDATE war_upkeep SET at = at - ?2 WHERE player_id = ?1').bind(me.playerId, 2 * HOUR).run();
     r = await roster(me.token);
     expect(r.stock.food).toBe(food0 - 6);
-    // no food: unpaid (his captives go free); his wounded man's time is up but he does not heal; a fight earns no XP
+    // no food: unpaid (his captives are released, as souls); his wounded man's time is up but he does not heal; a fight earns no XP
     await setGood(me.playerId, 'food', 3);
     await DB().prepare('UPDATE war_upkeep SET at = at - ?2 WHERE player_id = ?1').bind(me.playerId, 3 * HOUR).run();
     await DB().prepare('UPDATE war_persons SET until_at = 1 WHERE id = ?1').bind(w.id).run();

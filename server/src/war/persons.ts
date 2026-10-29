@@ -3,21 +3,22 @@
  * `war_items` and `war_fights` (migrations/0021_war_persons.sql). M6e: food and coin live in the player's home
  * strongroom (./holders.ts): captives' upkeep, promotion, ransom and retirement pay from it or into it.
  *
- *  - Army (W-58): at most ARMY_MAX fighters in total, counted across all regions (fit, wounded, captive, training); the
- *    dead and retired do not count. No reserve: a fit man is `active` (his `slot` only orders the squad picker). At the
+ *  - Army (W-58): at most ARMY_MAX fighters in total, counted across all regions (fit, wounded, training); the dead, the
+ *    retired and (W-68) the captive do not count: a captured man is no longer his. No reserve: a fit man is `active` (his `slot` only orders the squad picker). At the
  *    cap a claimed soul is refused.
  *  - Household: min(4, 1 + fit fighters / 4) civilians (M5f brings the classes).
  *  - Souls (W-60, replaces recruiting and training): a man joins only by a claimed soul in a region (claimSoul, the room
  *    and src/war/sim/souls.ts), of the class and level the soul woke with; the start squad (./start.ts) is the other way in.
- *  - Timers, read lazily: wounded heal after HEAL (field 6 h), captives walk home after CAPTIVE_MS (24 h), a promotion
- *    ends after PROMOTE_MS.
+ *  - Timers, read lazily: wounded heal after HEAL (field 6 h), captives unclaimed for CAPTIVE_MS (24 h) are released as
+ *    souls (./captives.ts), a promotion ends after PROMOTE_MS.
  *  - Promote (docs/WAR.md "Promote"): a fit trained man at home with PROMOTE.level and PROMOTE.honours becomes an elite of his family (src/war/sim/roster.ts promotesTo) in PROMOTE_MS; he pays the elite rare
  *    kit's value in silver, it goes on when he is done (his old gear to the stash). Elites cost UPKEEP.elite.
- *  - Prisoners: a captive is held by the player of the captor alliance who fought there (`captor_pid`); he pays the
- *    captive's upkeep and takes the ransom (RANSOM_PER_LEVEL x level silver) when the owner pays it; he may also let him go.
- *    A captor who cannot pay upkeep lets all his captives go. A captive is held at the captor's nearest fort or camp in
- *    the region (`held_fort`, the sim's building id; at most HOLD_MAX there, the rest go free, wounded); a raid reaching
- *    it or its fall (the sim's `raid` event, freeRaided) frees them all: home, wounded (HEAL.field).
+ *  - Prisoners (W-68, ./captives.ts): a captive is held by the player of the captor alliance who fought there
+ *    (`captor_pid`), who pays his upkeep; after 2 h he may ask him to join (he refuses for good by chance, else he moves
+ *    to the captor's army), he may release him at any time, and after CAPTIVE_MS he is released. Released, his soul
+ *    wakes at a shrine. No ransom. A captor who cannot pay upkeep releases all his captives. A captive is held at the
+ *    captor's nearest fort or camp in the region (`held_fort`, the sim's building id; at most HOLD_MAX there, the rest go
+ *    free, wounded); a raid reaching it or its fall (the sim's `raid` event, freeRaided) releases them all.
  *  - Upkeep (docs/WAR.md "Anti-oversaturation"), settled lazily: food per hour for each captive held (UPKEEP). His own
  *    men eat in the field (W-60, src/war/sim/food.ts), from their packs and the stores. Unpaid: the player's wounded do
  *    not heal and his men earn no XP until it is paid.
@@ -48,14 +49,17 @@ import { randomToken } from './store';
 import { raiseBonus, settleTunnelFor, type TunnelView } from './raise';
 import { fightFavourStmts, withFavour } from './favour';
 import { batch, ensureHolder, goodsOf, HOME, itemsIn, lotsOf, pay as payFrom, placeItemStmt, planTake, putStmt, strongroom } from './holders';
+import { askAt, CAPTIVE } from '../../../src/war/sim/captives';
+import { releaseDue, toSouls, type SoulSpawn } from './captives';
 
-export type PersonState = 'active' | 'wounded' | 'captive' | 'dead' | 'training' | 'retired';
+/** W-68 soul: released or dismissed, a named soul waiting at a shrine of `held_at`; faded: that soul is gone. */
+export type PersonState = 'active' | 'wounded' | 'captive' | 'dead' | 'training' | 'retired' | 'soul' | 'faded';
 
 const HOUR = 3_600_000;
 /** Heal timers by where the wounded man lies (docs/WAR.md "Heal"); a fight's wounded heal in the field. */
 export const HEAL = { field: 6 * HOUR, camp: 3 * HOUR, town: 2 * HOUR, physician: 1 * HOUR };
-/** Captives walk home after this. */
-export const CAPTIVE_MS = 24 * HOUR;
+/** Captives unclaimed this long are released (W-68: as souls). */
+export const CAPTIVE_MS = CAPTIVE.holdMs;
 /** A new player's food (season start: START.food in his home strongroom, no coin, no goods). */
 export const START = { food: 240 };
 /** Dev seed (DEV_AUTH=1): coin topped up to this, to test the coin paths. */
@@ -64,8 +68,6 @@ export const DEV_COIN = 500;
 export const PROMOTE_MS = 30 * 60_000;
 /** Captives one fort or camp holds; past it the rest go free. */
 export const HOLD_MAX = 20;
-/** Ransom: coin per level of the captive. */
-export const RANSOM_PER_LEVEL = 30;
 /** Upkeep: food per hour each captive held (W-60: the player's own men eat in the field). */
 export const UPKEEP = { captive: 1 };
 /** Unpaid upkeep stops growing past this many hours of the player's rate. */
@@ -83,6 +85,8 @@ export interface PersonRow {
   perks: string; respec_at: number | null; held_fort: number | null;
   /** E3 (0041): deeds JSON [{id, name}] and scars. */
   deeds: string; scars: number;
+  /** W-68 (0050): a captive who refused his captor; the owner barred from claiming his soul, until when. */
+  refused: number; bar_pid: number | null; bar_until: number | null;
 }
 
 export const json = <T>(s: string, fallback: T): T => {
@@ -112,18 +116,22 @@ export function pending(p: WarPerson): { points: number; skills: number } {
   return { points: p.hero.points, skills: Math.max(0, slots - (p.skills?.length ?? 0)) };
 }
 
-export function view(r: PersonRow) {
+export function view(r: PersonRow, names: ReadonlyMap<number, string> = new Map()) {
   const p = personOf(r);
   return {
     id: r.id, cls: r.cls, name: p.hero.name, level: r.level, xp: r.xp, kills: r.kills, battles: r.battles, attrs: p.hero.attrs,
     skills: p.skills ?? [], gear: p.hero.equip, honours: p.honours ?? [], state: r.state, until: r.until_at, captor: r.captor,
     heldAt: r.held_at, slot: r.slot, region: r.region, pending: pending(p), trainTo: r.train_to, perks: p.hero.perks, respecAt: r.respec_at,
     deeds: p.deeds ?? [], scars: r.scars ?? 0,
-    ...(r.state === 'captive' ? { ransom: RANSOM_PER_LEVEL * r.level } : {}),
+    // W-68: a man of his taken captive: who holds him (the roster's note "Captured by <player> at <region>")
+    ...(r.state === 'captive' && r.captor_pid !== null ? { captorName: names.get(r.captor_pid) ?? `player ${r.captor_pid}` } : {}),
   };
 }
 
-const COLS = 'id, player_id, cls, name, level, xp, points, kills, battles, attrs, skills, gear, honours, state, until_at, captor, held_at, slot, region, train_to, captor_pid, perks, respec_at, held_fort, deeds, scars';
+export const COLS = 'id, player_id, cls, name, level, xp, points, kills, battles, attrs, skills, gear, honours, state, until_at, captor, held_at, slot, region, train_to, captor_pid, perks, respec_at, held_fort, deeds, scars, refused, bar_pid, bar_until';
+/** W-68: the states of a man in his player's army (ARMY_MAX counts them; a captive is not his). */
+export const IN_ARMY = "state IN ('active', 'wounded', 'training')";
+const FIGHTER = "cls NOT LIKE 'civ\\_%' ESCAPE '\\'";
 
 /** The player's upkeep in food per hour: the captives he holds (W-60: his men eat in the field). */
 export async function upkeepRate(db: D1Database, pid: number): Promise<number> {
@@ -155,11 +163,10 @@ export async function settleUpkeep(db: D1Database, pid: number, now: number): Pr
   }
   const unpaid = due > paid;
   await db.prepare('UPDATE war_upkeep SET at = ?2, owed = ?3, unpaid = ?4 WHERE player_id = ?1').bind(pid, now, owed, unpaid ? 1 : 0).run();
-  if (unpaid)
-    await db
-      .prepare("UPDATE war_persons SET state = 'active', until_at = NULL, captor = NULL, captor_pid = NULL, held_at = NULL, held_fort = NULL, updated_at = ?2 WHERE captor_pid = ?1 AND state = 'captive'")
-      .bind(pid, now)
-      .run();
+  if (unpaid) {
+    const held = (await db.prepare(`SELECT ${COLS} FROM war_persons WHERE captor_pid = ?1 AND state = 'captive'`).bind(pid).all<PersonRow>()).results;
+    if (held.length) await toSouls(db, held, now); // W-68: released, as souls
+  }
   return { unpaid, rate, owed };
 }
 
@@ -171,19 +178,21 @@ function reUid(equip: Equipment, id: string, now: number): Equipment {
 }
 
 /** The tier-1 common kit of a class, as worn gear. */
-const kitOf = (cls: string, id: string, now: number): Equipment => reUid(freshHero(cls, id).equip, id, now);
+export const kitOf = (cls: string, id: string, now: number): Equipment => reUid(freshHero(cls, id).equip, id, now);
 
 /**
  * Timers, read lazily: upkeep first (an unpaid player's wounded do not heal); wounded men whose time is up are fit again
- * (active); captives whose 24 h are up walk home; a finished promotion: the elite, his rare kit on.
+ * (active); captives he lost or holds whose 24 h are up are released (W-68: souls); a finished promotion: the elite,
+ * his rare kit on.
  */
 export async function settle(db: D1Database, pid: number, now: number): Promise<void> {
   const { unpaid } = await settleUpkeep(db, pid, now);
-  const states = unpaid ? "'captive'" : "'wounded', 'captive'";
-  await db
-    .prepare(`UPDATE war_persons SET state = 'active', until_at = NULL, captor = NULL, captor_pid = NULL, held_at = NULL, held_fort = NULL, updated_at = ?2 WHERE player_id = ?1 AND state IN (${states}) AND until_at <= ?2`)
-    .bind(pid, now)
-    .run();
+  if (!unpaid)
+    await db
+      .prepare("UPDATE war_persons SET state = 'active', until_at = NULL, updated_at = ?2 WHERE player_id = ?1 AND state = 'wounded' AND until_at <= ?2")
+      .bind(pid, now)
+      .run();
+  await releaseDue(db, pid, now);
   const done = (await db.prepare(`SELECT ${COLS} FROM war_persons WHERE player_id = ?1 AND state = 'training' AND until_at <= ?2`).bind(pid, now).all<PersonRow>()).results;
   if (!done.length) return;
   await db.batch(
@@ -200,12 +209,12 @@ export async function settle(db: D1Database, pid: number, now: number): Promise<
 }
 
 export async function persons(db: D1Database, pid: number): Promise<PersonRow[]> {
-  const r = await db.prepare(`SELECT ${COLS} FROM war_persons WHERE player_id = ?1 AND state != 'retired' ORDER BY state = 'dead', slot IS NULL, slot, created_at, id`).bind(pid).all<PersonRow>();
+  const r = await db.prepare(`SELECT ${COLS} FROM war_persons WHERE player_id = ?1 AND state NOT IN ('retired', 'soul', 'faded') ORDER BY state = 'dead', slot IS NULL, slot, created_at, id`).bind(pid).all<PersonRow>();
   return r.results;
 }
 
-/** Fighters (ARMY_MAX counts them, in every region): soldiers neither dead nor retired; civilians are the household. */
-const isFighter = (r: PersonRow) => r.state !== 'dead' && r.state !== 'retired' && !isCivClass(r.cls);
+/** Fighters (ARMY_MAX counts them, in every region): soldiers fit, wounded or training (W-68: not captive); civilians are the household. */
+const isFighter = (r: PersonRow) => (r.state === 'active' || r.state === 'wounded' || r.state === 'training') && !isCivClass(r.cls);
 
 export async function person(db: D1Database, pid: number, id: string): Promise<PersonRow> {
   const r = await db.prepare(`SELECT ${COLS} FROM war_persons WHERE id = ?1 AND player_id = ?2`).bind(id, pid).first<PersonRow>();
@@ -236,8 +245,11 @@ export interface Roster {
   /** The home strongroom: its goods (food, coin, ...) and items (equip from here). */
   stock: Record<string, number>;
   items: Item[];
-  /** Captives the player holds (he pays their upkeep, takes their ransom). */
-  captives: { id: string; name: string; cls: string; level: number; owner: number; ransom: number; until: number | null; heldAt: string | null }[];
+  /**
+   * W-68: captives the player holds (he pays their upkeep): his owner, when he is released (`until`), when he may be asked
+   * to join (`askAt`), whether he refused for good.
+   */
+  captives: { id: string; name: string; cls: string; level: number; owner: number; ownerName: string; until: number | null; askAt: number | null; refused: boolean; heldAt: string | null }[];
   upkeep: { rate: number; owed: number; unpaid: boolean };
   /** E3: the home memorial (the fallen and the retired, newest first) and the guardians' trophies in the home town. */
   memorial: MemorialRow[];
@@ -274,17 +286,29 @@ export async function roster(db: D1Database, pid: number, now: number): Promise<
   ]);
   const fighters = rows.filter(isFighter).length;
   const fit = rows.filter((r) => r.state === 'active').length;
+  const names = await playerNames(db, [...rows.map((r) => (r.state === 'captive' ? r.captor_pid : null)), ...held.results.map((r) => r.player_id)]);
   return {
-    persons: rows.map(view),
+    persons: rows.map((r) => view(r, names)),
     caps: { army: ARMY_MAX, household: householdCap(fit), fighters, fit },
     stock,
     items,
-    captives: held.results.map((r) => ({ id: r.id, name: r.name, cls: r.cls, level: r.level, owner: r.player_id, ransom: RANSOM_PER_LEVEL * r.level, until: r.until_at, heldAt: r.held_at })),
+    captives: held.results.map((r) => ({
+      id: r.id, name: r.name, cls: r.cls, level: r.level, owner: r.player_id, ownerName: names.get(r.player_id) ?? `player ${r.player_id}`,
+      until: r.until_at, askAt: r.until_at !== null ? askAt(r.until_at) : null, refused: !!r.refused, heldAt: r.held_at,
+    })),
     upkeep: { rate, owed: +(up?.owed ?? 0).toFixed(2), unpaid: !!up?.unpaid },
     memorial: mem,
     trophies: troph,
     tunnel,
   };
+}
+
+/** Display names of these players (W-68: a captive's owner, a captor). */
+export async function playerNames(db: D1Database, ids: readonly (number | null)[]): Promise<Map<number, string>> {
+  const want = [...new Set(ids.filter((x): x is number => x !== null))];
+  if (!want.length) return new Map();
+  const r = await db.prepare('SELECT id, display_name FROM players WHERE id IN (SELECT value FROM json_each(?1))').bind(JSON.stringify(want)).all<{ id: number; display_name: string }>();
+  return new Map(r.results.map((x) => [x.id, x.display_name]));
 }
 
 export const newId = (pid: number) => `w${pid}-${randomToken(5)}`;
@@ -307,29 +331,51 @@ export function nameFor(cls: string, taken: Set<string>, k: number): string {
   return n;
 }
 
-/** The player's fighters now, counted across all regions (ARMY_MAX bounds them; W-58). */
+/** The player's fighters now, counted across all regions (ARMY_MAX bounds them; W-58; W-68: captives are not his). */
 export async function armyCount(db: D1Database, pid: number): Promise<number> {
-  const r = await db
-    .prepare(`SELECT COUNT(*) AS n FROM war_persons WHERE player_id = ?1 AND state NOT IN ('dead', 'retired') AND cls NOT LIKE 'civ\\_%' ESCAPE '\\'`)
-    .bind(pid)
-    .first<{ n: number }>();
+  const r = await db.prepare(`SELECT COUNT(*) AS n FROM war_persons WHERE player_id = ?1 AND ${IN_ARMY} AND ${FIGHTER}`).bind(pid).first<{ n: number }>();
+  return r?.n ?? 0;
+}
+
+/** W-68: his fighters who can fight now (fit: not wounded, not promoting); the tunnel's floor counts them. */
+export async function fitCount(db: D1Database, pid: number): Promise<number> {
+  const r = await db.prepare(`SELECT COUNT(*) AS n FROM war_persons WHERE player_id = ?1 AND state = 'active' AND ${FIGHTER}`).bind(pid).first<{ n: number }>();
   return r?.n ?? 0;
 }
 
 /**
- * An insert of a new man, active, in `region` (null: at home), only while the player has fewer than `cap` fighters,
- * checked in the insert itself (two writers at once cannot pass it); a run with no change: refused.
+ * An insert of a new man, active, in `region` (null: at home), only while the player has fewer than `cap` fighters (and,
+ * W-68 for the tunnel, fewer than `fitCap` fit ones), checked in the insert itself (two writers at once cannot pass it);
+ * a run with no change: refused.
  */
-export function insertCapped(db: D1Database, pid: number, p: WarPerson, region: string | null, cap: number, now: number): D1PreparedStatement {
+export function insertCapped(db: D1Database, pid: number, p: WarPerson, region: string | null, cap: number, now: number, fitCap = ARMY_MAX): D1PreparedStatement {
   const h = p.hero;
   return db
     .prepare(
       `INSERT INTO war_persons (id, player_id, cls, name, level, xp, points, kills, battles, attrs, skills, gear, honours, state, slot, region, created_at, updated_at)
        SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, 0, 0, ?8, ?9, ?10, '[]', 'active', NULL, ?11, ?12, ?12
-       WHERE (SELECT COUNT(*) FROM war_persons WHERE player_id = ?2 AND state NOT IN ('dead', 'retired') AND cls NOT LIKE 'civ\\_%' ESCAPE '\\') < ?13
+       WHERE (SELECT COUNT(*) FROM war_persons WHERE player_id = ?2 AND ${IN_ARMY} AND ${FIGHTER}) < ?13
+         AND (SELECT COUNT(*) FROM war_persons WHERE player_id = ?2 AND state = 'active' AND ${FIGHTER}) < ?14
        ON CONFLICT (id) DO NOTHING`,
     )
-    .bind(p.id, pid, h.cls ?? 'militia', h.name, h.level, h.xp, h.points, JSON.stringify(h.attrs), JSON.stringify(p.skills ?? []), JSON.stringify(h.equip), region, now, cap);
+    .bind(p.id, pid, h.cls ?? 'militia', h.name, h.level, h.xp, h.points, JSON.stringify(h.attrs), JSON.stringify(p.skills ?? []), JSON.stringify(h.equip), region, now, cap, fitCap);
+}
+
+/**
+ * W-68 (and W-69's trade later): move person `id`, in state `from`, to player `to`'s army: active, at `region` (null:
+ * at home), his level, class and record kept (`gear`: what he wears now; default: as he is). Only while `to` has fewer
+ * than ARMY_MAX fighters, checked in the update itself; false: refused, nothing written.
+ */
+export async function movePerson(db: D1Database, id: string, to: number, o: { from: PersonState; region: string | null; gear?: Equipment }, now: number): Promise<boolean> {
+  const r = await db
+    .prepare(
+      `UPDATE war_persons SET player_id = ?2, state = 'active', until_at = NULL, captor = NULL, captor_pid = NULL, held_at = NULL, held_fort = NULL,
+         slot = NULL, refused = 0, bar_pid = NULL, bar_until = NULL, region = ?4, gear = COALESCE(?5, gear), updated_at = ?6
+       WHERE id = ?1 AND state = ?3 AND (SELECT COUNT(*) FROM war_persons WHERE player_id = ?2 AND ${IN_ARMY} AND ${FIGHTER}) < ?7`,
+    )
+    .bind(id, to, o.from, o.region, o.gear ? JSON.stringify(o.gear) : null, now, ARMY_MAX)
+    .run();
+  return (r.meta?.changes ?? 0) > 0;
 }
 
 /**
@@ -339,6 +385,8 @@ export function insertCapped(db: D1Database, pid: number, p: WarPerson, region: 
  * (the army is full), nothing written.
  */
 export async function claimSoul(db: D1Database, pid: number, p: WarPerson, region: string, now: number): Promise<boolean> {
+  // W-68: a named soul (a released captive, a dismissed man) is moved to the claimer as himself, in the kit he woke in
+  if (await db.prepare("SELECT 1 FROM war_persons WHERE id = ?1 AND state = 'soul'").bind(p.id).first()) return movePerson(db, p.id, pid, { from: 'soul', region, gear: p.hero.equip }, now);
   Object.assign(p, withFavour(p, await raiseBonus(db, pid))); // W-66: his player's favour bonus (the DO hands the live man the same)
   const r = await insertCapped(db, pid, p, region, ARMY_MAX, now).run();
   return (r.meta?.changes ?? 0) > 0;
@@ -498,29 +546,6 @@ export async function promote(db: D1Database, pid: number, id: string, cls: stri
   return until;
 }
 
-/** The owner pays the ransom of his captive (RANSOM_PER_LEVEL x level coin from his strongroom, into the captor's): he is home and fit. */
-export async function payRansom(db: D1Database, pid: number, id: string, now: number): Promise<number> {
-  await settle(db, pid, now);
-  const r = await person(db, pid, id);
-  if (r.state !== 'captive') throw new ApiError(409, 'not_captive', `He is ${r.state}`);
-  const price = RANSOM_PER_LEVEL * r.level;
-  const done = [
-    db.prepare("UPDATE war_persons SET state = 'active', until_at = NULL, captor = NULL, captor_pid = NULL, held_at = NULL, held_fort = NULL, updated_at = ?3 WHERE id = ?1 AND player_id = ?2").bind(id, pid, now),
-    ...(r.captor_pid !== null ? [credit(db, r.captor_pid, price)] : []),
-  ];
-  if (!(await payCoin(db, pid, price, done))) throw new ApiError(409, 'no_coin', `His ransom is ${price} coin`);
-  return price;
-}
-
-/** The captor lets a captive he holds go (no ransom): the man walks home. */
-export async function releaseCaptive(db: D1Database, captor: number, id: string, now: number): Promise<void> {
-  const r = await db
-    .prepare("UPDATE war_persons SET state = 'active', until_at = NULL, captor = NULL, captor_pid = NULL, held_at = NULL, held_fort = NULL, updated_at = ?3 WHERE id = ?1 AND captor_pid = ?2 AND state = 'captive'")
-    .bind(id, captor, now)
-    .run();
-  if (!r.meta.changes) throw new ApiError(404, 'not_found', 'You hold no such captive');
-}
-
 /** Level a soldier must reach to retire into a civilian class, and the level he starts there. */
 export const RETIRE_CIV = { from: 10, at: 5 };
 
@@ -599,26 +624,28 @@ export async function release(db: D1Database, region: string, ids: string[]): Pr
   await db.prepare('UPDATE war_persons SET region = NULL WHERE region = ?1 AND id IN (SELECT value FROM json_each(?2))').bind(region, JSON.stringify(ids)).run();
 }
 
-/** A captive goes free: home, wounded. */
-const FREE = "state = 'wounded', until_at = ?2, captor = NULL, captor_pid = NULL, held_at = NULL, held_fort = NULL, updated_at = ?3";
-
 /**
  * M5e: raids in `region` (the sim's `raid` events, at wall time `at`): the captives held at each raided building, taken
- * before it, go free, wounded (HEAL.field). Repeating it changes nothing. Returns how many went free.
+ * before it, are released (W-68: souls; `spawn` wakes them, the DO's own room first). Repeating it changes nothing.
+ * Returns how many were released.
  */
-export async function freeRaided(db: D1Database, region: string, buildings: readonly number[], at: number): Promise<number> {
+export async function freeRaided(db: D1Database, region: string, buildings: readonly number[], at: number, spawn?: SoulSpawn): Promise<number> {
   if (!buildings.length) return 0;
-  const res = await db
-    .prepare(`UPDATE war_persons SET ${FREE} WHERE held_at = ?1 AND state = 'captive' AND held_fort IN (SELECT value FROM json_each(?4)) AND until_at <= ?5`)
-    .bind(region, at + HEAL.field, at, JSON.stringify([...new Set(buildings)]), at + CAPTIVE_MS)
-    .run();
-  return res.meta.changes;
+  const rows = (await db
+    .prepare(`SELECT ${COLS} FROM war_persons WHERE held_at = ?1 AND state = 'captive' AND held_fort IN (SELECT value FROM json_each(?2)) AND until_at <= ?3`)
+    .bind(region, JSON.stringify([...new Set(buildings)]), at + CAPTIVE_MS)
+    .all<PersonRow>()).results;
+  return rows.length ? toSouls(db, rows, at, { spawn }) : 0;
 }
 
-/** A fresh room (no saved state): nobody is in the field there any more, no item waits at its workplaces, and its forts are gone (their captives go free). */
-export async function releaseRegion(db: D1Database, region: string, now = Date.now()): Promise<void> {
+/**
+ * A fresh room (no saved state): nobody is in the field there any more, no item waits at its workplaces, and its forts
+ * are gone (their captives are released: souls, waiting in D1 until the room wakes them, ./regionDO.ts wakeSouls).
+ */
+export async function releaseRegion(db: D1Database, region: string, now = Date.now(), spawn: SoulSpawn = async () => 'absent'): Promise<void> {
+  const held = (await db.prepare(`SELECT ${COLS} FROM war_persons WHERE held_at = ?1 AND state = 'captive' AND held_fort IS NOT NULL`).bind(region).all<PersonRow>()).results;
+  if (held.length) await toSouls(db, held, now, { spawn });
   await db.batch([
-    db.prepare(`UPDATE war_persons SET ${FREE} WHERE held_at = ?1 AND state = 'captive' AND held_fort IS NOT NULL`).bind(region, now + HEAL.field, now),
     db.prepare('UPDATE war_persons SET region = NULL WHERE region = ?1').bind(region),
     db.prepare('UPDATE war_items SET region = NULL WHERE region = ?1').bind(region),
   ]);

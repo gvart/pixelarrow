@@ -43,10 +43,12 @@ export const refuses = (id: string, level: number): boolean => unit(`join:${id}`
 /** May the captor ask him now? `until` is when he is released (capture + holdMs). */
 export const askAt = (until: number): number => until - CAPTIVE.holdMs + CAPTIVE.askMs;
 
-/** Where his soul may wake, in order: this region, then the world regions nearest to it (a region without a shrine is skipped). */
+/**
+ * Where his soul may wake, in order: this region, then the world regions nearest to it (a region without a shrine is
+ * skipped); a region off the world map (a test region): the world regions nearest the centre.
+ */
 export function soulRegions(from: string): string[] {
-  const at = WORLD_REGIONS.find((r) => r.id === from)?.pos;
-  if (!at) return [from];
+  const at = WORLD_REGIONS.find((r) => r.id === from)?.pos ?? { x: 0, y: 0 };
   const rest = WORLD_REGIONS.filter((r) => r.id !== from).sort((a, b) => (a.pos.x - at.x) ** 2 + (a.pos.y - at.y) ** 2 - ((b.pos.x - at.x) ** 2 + (b.pos.y - at.y) ** 2) || a.id.localeCompare(b.id));
   return [from, ...rest.map((r) => r.id)];
 }
