@@ -26,6 +26,12 @@ import { uiZoom } from './kit';
 
 export { Z } from './theme';
 
+/** The open chat's log (./chat.ts): 164 px, less on a short window so the panel stays under what is above it; at least 72. */
+export const LOG_H = 164, LOG_MIN = 72;
+/** The log height that keeps the open panel's top `gap` below `above` (CSS px), given its rect now and its log's height. */
+export const chatLogFit = (top: number, z: number, logH: number, above: number, gap = 6) =>
+  Math.round(Math.max(LOG_MIN, Math.min(LOG_H, logH - (above + gap - top) / z)));
+
 export type Anchor = 'tl' | 'tc' | 'tr' | 'lane' | 'bl' | 'bc' | 'br' | 'lwin' | 'rwin';
 
 /** A panel to place: its size now (art px). */
@@ -37,6 +43,8 @@ export interface Box {
   min?: number;
   /** Gives way (hidden) while a left window is open. */
   yields?: boolean;
+  /** While a left window is open, stands beside it (right of it) when there is room (the open chat). */
+  beside?: boolean;
   /** Its own horizontal offset from the anchor (a left window beside another, the command card slid clear). */
   dx?: number;
 }
@@ -58,6 +66,9 @@ export function solve(f: Frame, st: Stacks): Record<string, Placed> {
   const shown = (zs: Anchor[]) => zs.flatMap((z) => (st[z] ?? []).map((b) => out[b.id]).filter((p) => p && !p.off));
   const off = (b: Box) => (out[b.id] = { x: 0, y: 0, w: b.w, h: b.h, off: true });
   const lwinOpen = (st.lwin ?? []).length > 0;
+  /** The left windows' right edge, as they will stand. */
+  let lwinRight = EDGE - GAP;
+  for (const b of st.lwin ?? []) lwinRight = (b.dx !== undefined ? EDGE + b.dx : lwinRight + GAP) + b.w;
 
   /** Bottom-up from `base`; x by `xOf`; each panel also clears the boxes of `clear` it would meet. */
   const up = (list: Box[], base: number, xOf: (b: Box) => number, clear: () => Placed[] = () => []) => {
@@ -100,7 +111,7 @@ export function solve(f: Frame, st: Stacks): Record<string, Placed> {
 
   // the bottom corners, then the bottom centre clear of them
   const brTop = up(st.br ?? [], f.h - EDGE, right);
-  up(st.bl ?? [], f.h - EDGE, left);
+  up(st.bl ?? [], f.h - EDGE, (b) => (b.beside && lwinOpen && lwinRight + GAP + b.w <= f.w - EDGE ? lwinRight + GAP : left(b)));
   const bcTop = up(st.bc ?? [], f.h - EDGE, centre, () => shown(['bl', 'br']));
   /** The highest top among the bottom boxes a box over [x0, x1] would meet. */
   const floor = (x0: number, x1: number, zs: Anchor[]) => Math.min(f.h - EDGE, ...shown(zs).filter((p) => meets(x0, x1, p.x, p.x + p.w)).map((p) => p.y));
@@ -173,7 +184,10 @@ const MIN: Record<string, number> = {
 };
 /** Panels that give way while a left window is open (the chat only while shut: open, the window ends above it). */
 const YIELDS = new Set(['rfGuide', 'rfWorldEv', 'rfChat']);
-const yields = (id: string, el: HTMLElement) => YIELDS.has(id) && !(id === 'rfChat' && el.classList.contains('open'));
+const chatOpen = (id: string, el: HTMLElement) => id === 'rfChat' && el.classList.contains('open');
+const yields = (id: string, el: HTMLElement) => YIELDS.has(id) && !chatOpen(id, el);
+/** The guide's folded header: the open chat leaves it room. */
+const GUIDE_HEAD = 34;
 /** Measured, never moved: the dock plate (its buttons sit on it by their own CSS). */
 const FIXED = new Set(['rfDock']);
 /** Centre modals: while one shows, no banner in the lane. */
@@ -246,7 +260,7 @@ export function mountLayout(): void {
       const zone = zoneOf.get(id)!, ez = Number(el.style.zoom) || 1;
       if (WINDOWS.has(zone) && el.dataset.moved) continue;
       const h = el.dataset.hudClamp ? el.scrollHeight + el.offsetHeight - el.clientHeight : r.height / ez;
-      (stacks[zone] ??= []).push({ id, w: r.width / ez, h, ...(MIN[id] !== undefined ? { min: MIN[id] } : {}), ...(yields(id, el) ? { yields: true } : {}), ...(SIDE_BY_SIDE.has(id) ? { dx: Math.round(r.left / ez - EDGE) } : zone === 'bc' ? { dx: r.left / ez - (f.w - r.width / ez) / 2 } : {}) });
+      (stacks[zone] ??= []).push({ id, w: r.width / ez, h, ...(MIN[id] !== undefined ? { min: MIN[id] } : {}), ...(yields(id, el) ? { yields: true } : {}), ...(chatOpen(id, el) ? { beside: true } : {}), ...(SIDE_BY_SIDE.has(id) ? { dx: Math.round(r.left / ez - EDGE) } : zone === 'bc' ? { dx: r.left / ez - (f.w - r.width / ez) / 2 } : {}) });
     }
     // a centre modal up (the wipe card, the game menu): the lane's banners wait under it, unseen
     if (stacks.lane && [...document.querySelectorAll(MODALS)].some((m) => m.getClientRects().length > 0)) { for (const b of stacks.lane) els.get(b.id)!.classList.add('hud-off'); delete stacks.lane; }
@@ -263,6 +277,14 @@ export function mountLayout(): void {
       if (FIXED.has(id)) continue;
       el.style.marginTop = '0';
       if (FROM_BOTTOM.has(zone)) { el.style.top = 'auto'; el.style.bottom = `${Math.round(f.h - p.y - p.h)}px`; }
+      if (zone === 'bl') el.style.left = `${Math.round(p.x)}px`;
+      if (chatOpen(id, el)) {
+        // the log fits the room: under the guide's header, or (in the column under a left window) under 60% of the
+        // column, so the window stays usable
+        const col = stacks.bl!.find((b) => b.id === 'minimap'), bottom = col ? f.h - EDGE - col.h - GAP : f.h;
+        const roof = p.x > EDGE + 1 ? TOP : stacks.lwin ? TOP + 0.6 * (bottom - TOP) : TOP + GUIDE_HEAD + GAP;
+        el.style.setProperty('--ch-log-h', `${chatLogFit(p.y * z, z, parseFloat(el.style.getPropertyValue('--ch-log-h')) || LOG_H, roof * z)}px`);
+      }
       else { el.style.bottom = 'auto'; el.style.top = `${Math.round(p.y)}px`; }
       // the centre zones: placed by their middle (they keep their translateX(-50%)), no wider than the room
       if (p.cap !== undefined) { el.style.left = `${Math.round(p.x + p.w / 2)}px`; el.style.maxWidth = `${Math.floor(p.cap)}px`; }

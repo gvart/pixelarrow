@@ -20,9 +20,10 @@ const chatShut = b('rfChat', 340, 20, { yields: true }), chatOpen = b('rfChat', 
 
 /** The audit's states. */
 const STATES: Record<string, Stacks> = {
+  'home-roster-chat-beside': { bl: [mini, b('rfChat', 340, 230, { beside: true })], lwin: [b('rrPanel', 300, 520)], bc: [card], br: [dock] },
   'home-guide-chat': { tl: [guide, event], bl: [mini, chatShut], bc: [card, b('rfSoul', 315, 50)], br: [dock] },
   'home-chat-open': { tl: [guide, event], bl: [mini, b('rfLegend', 150, 90), chatOpen], bc: [card, b('rfSoul', 315, 50)], br: [dock] },
-  'home-roster-chat': { tl: [guide, event], bl: [mini, b('rfChat', 340, 230)], lwin: [b('rrPanel', 300, 520), b('rrCard', 280, 400)], bc: [card], br: [dock] },
+  'home-roster-chat': { tl: [guide, event], bl: [mini, b('rfChat', 340, 230, { beside: true })], lwin: [b('rrPanel', 300, 520), b('rrCard', 280, 400)], bc: [card], br: [dock] },
   'ridge-build': { bl: [mini, chatShut], bc: [card, b('rfBuild', 420, 80), b('rfSoul', 315, 50)], br: [dock] },
   'ridge-chest': { bl: [mini, chatShut], bc: [card], br: [dock], rwin: [b('rfChest', 330, 380)], tr: [b('rfQuest', 250, 150)] },
   'boss-fight': {
@@ -70,6 +71,14 @@ describe('HUD zones', () => {
     expect(p.rfGuide.off).toBe(true);
     expect(p.rfChat.off).toBe(true);
     expect(p.rrPanel.y + p.rrPanel.h).toBeLessThanOrEqual(p.minimap.y - GAP);
+  });
+
+  it('an open chat stands beside a left window when there is room, the window keeping the whole column', () => {
+    const f = FRAMES['1440x900'], chat = b('rfChat', 340, 230, { beside: true });
+    const p = solve(f, { bl: [mini, chat], lwin: [b('rrPanel', 300, 800)], bc: [card] });
+    expect(p.rfChat.x).toBeGreaterThanOrEqual(p.rrPanel.x + p.rrPanel.w + GAP);
+    expect(p.rrPanel.y + p.rrPanel.h).toBe(p.minimap.y - GAP);
+    expect(p.rfChat.y + p.rfChat.h).toBeLessThanOrEqual(p.rfCard.y);
   });
 
   it('an open chat stays under a left window, which ends above it', () => {

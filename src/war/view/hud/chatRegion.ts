@@ -10,17 +10,10 @@ import { worldRegion } from '../../world/graph';
 import type { SandboxScene } from '../SandboxScene';
 import { mountChat } from './chat';
 import { uiZoom } from './kit';
-import { GAP, TOP } from './layout';
 import { sandboxRoster } from './roster/state';
 import { portrait, PORTRAIT_H, PORTRAIT_W, scarMarks } from './roster/portrait';
 
-/** The guide's folded header (./guide.ts): the open chat leaves it room. */
-const GUIDE_HEAD = 34;
-/** The open log's height: 164 px, less on a short window so the panel stays under the top-left cards; at least 72. */
-export const LOG_H = 164, LOG_MIN = 72;
-/** The log height that keeps the open panel's top `gap` below `above` (CSS px), given its rect now and its log's height. */
-export const chatLogFit = (top: number, z: number, logH: number, above: number, gap = 6) =>
-  Math.round(Math.max(LOG_MIN, Math.min(LOG_H, logH - (above + gap - top) / z)));
+export { chatLogFit, LOG_H, LOG_MIN } from './layout';
 
 export function mountRegionChat(s: SandboxScene): void {
   const q = new URLSearchParams(location.search);
@@ -32,14 +25,9 @@ export function mountRegionChat(s: SandboxScene): void {
     link,
     scope: id,
     zoom: uiZoom,
-    // the HUD layout stacks it over the minimap and the legend (./layout.ts); open on a short window, the log gives
-    // up height rather than run over the guide's header (the top-left column folds to make room)
-    place: (el, open) => {
-      el.style.left = '4px';
-      if (!open) return;
-      const z = uiZoom(), above = (TOP + GUIDE_HEAD + GAP) * z;
-      el.style.setProperty('--ch-log-h', `${chatLogFit(el.getBoundingClientRect().top, z, parseFloat(el.style.getPropertyValue('--ch-log-h')) || LOG_H, above)}px`);
-    },
+    // the HUD layout places it (./layout.ts): over the minimap and the legend, or beside a left window; open, it fits
+    // the log to the room
+    place: () => {},
     project: (m) => {
       if (m.at !== id) return null;
       const p = s.toScreen(m.x, m.y), r = canvas();
