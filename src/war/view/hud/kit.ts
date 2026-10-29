@@ -7,7 +7,7 @@
 import type { BuildingType, SiegeType } from '../../types';
 import type { ActionId } from '../../input/actions';
 import { keys } from '../../input/keys';
-import { THEME_CSS, tipHtml, TOKENS } from './theme';
+import { THEME_CSS, tipHtml, TOKENS, Z } from './theme';
 
 export const UI = 'war/ui/';
 const url = (f: string) => `url(${UI}${f})`;
@@ -85,7 +85,7 @@ ${BLOCKED.map((x) => `.rf ${x},.rf ${x} *`).join(',')}{cursor:${cursor('invalid'
 export { TOKENS };
 
 export const CSS = TOKENS + CURSORS + `
-.rf{position:fixed;z-index:4;color:var(--rf-ink);font:var(--rf-body);user-select:none;image-rendering:pixelated;box-sizing:border-box;font-variant-numeric:tabular-nums}
+.rf{position:fixed;z-index:${Z.docked};color:var(--rf-ink);font:var(--rf-body);user-select:none;image-rendering:pixelated;box-sizing:border-box;font-variant-numeric:tabular-nums}
 .rf *{box-sizing:border-box}
 .rf img{image-rendering:pixelated;display:block}
 .rf-tip{pointer-events:none;white-space:nowrap;line-height:1.4}

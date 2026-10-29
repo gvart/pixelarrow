@@ -23,25 +23,7 @@
 import { TOP_BAR_H } from './theme';
 import { uiZoom } from './kit';
 
-/** The HUD's z-order tiers. */
-export const Z = {
-  /** Quest and story markers on the map, chat pings. */
-  mark: 2,
-  /** The top bar and the dock plate. */
-  bar: 3,
-  /** Docked panels: the zones' stacks, minimap, command card. */
-  docked: 4,
-  /** Windows: roster, chest, market, menu windows, a dragged panel. */
-  window: 5,
-  /** Centre banners (they let the pointer through). */
-  banner: 6,
-  /** Tooltips and chained cards (7-9). */
-  tip: 7,
-  /** Full map, game menu, wipe card, the gate. */
-  modal: 20,
-  /** The dev console. */
-  dev: 30,
-} as const;
+export { Z } from './theme';
 
 export type Anchor = 'tl' | 'tc' | 'tr' | 'lane' | 'bl' | 'bc' | 'br' | 'lwin' | 'rwin';
 

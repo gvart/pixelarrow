@@ -14,6 +14,31 @@
 /** A faint stone grain (SVG noise, tiled) under the panels' gradient. */
 const GRAIN = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 1  0 0 0 0 .93  0 0 0 0 .8  0 0 0 .06 0"/></filter><rect width="96" height="96" filter="url(#n)"/></svg>')}`;
 
+/**
+ * The HUD's z-order, one table for every panel (./layout.ts places them): map markers < docked panels < windows < centre
+ * banners < tooltips < modals.
+ */
+export const Z = {
+  /** Quest and story markers on the map, chat pings. */
+  mark: 2,
+  /** The top bar and the dock plate. */
+  bar: 3,
+  /** Docked panels: the zones' stacks, minimap, command card. */
+  docked: 4,
+  /** Windows: roster, chest, market, menu windows, a dragged panel. */
+  window: 5,
+  /** Centre banners (they let the pointer through). */
+  banner: 6,
+  /** Tooltips and chained cards (7-9). */
+  tip: 7,
+  /** Full map, game menu, the gate. */
+  modal: 20,
+  /** The wipe card: over everything but the dev console's peers. */
+  wipe: 30,
+  /** The dev console. */
+  dev: 30,
+} as const;
+
 /** The top bar's height in art px; panels anchored at the top sit below it (`--hud-top`). */
 export const TOP_BAR_H = 30;
 
@@ -132,7 +157,7 @@ export const THEME_CSS = `
 .rf .rf-esc,.rf-esc{animation:hudIn var(--hud-med) var(--hud-ease)}
 
 /* ---- the top bar: resources left, region and clock centre, favour and the menus right ---- */
-#rfTop{left:0;right:0;top:0;height:${TOP_BAR_H}px;z-index:3;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 6px;pointer-events:none;
+#rfTop{left:0;right:0;top:0;height:${TOP_BAR_H}px;z-index:${Z.bar};display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 6px;pointer-events:none;
   background:linear-gradient(180deg,rgba(30,33,39,.94),rgba(13,15,18,.9));box-shadow:inset 0 -1px 0 var(--hud-gold-lo),inset 0 -2px 0 rgba(0,0,0,.6),0 1px 0 var(--hud-edge),0 4px 14px rgba(0,0,0,.45);backdrop-filter:blur(3px)}
 #rfTop>*{pointer-events:auto}
 #rfTop .tb-l,#rfTop .tb-r{display:flex;align-items:center;gap:3px;flex:1;min-width:0}
@@ -239,5 +264,5 @@ export const THEME_CSS = `
 #minimap .mm-corner.c{left:2px;bottom:2px;border-right:0;border-top:0}#minimap .mm-corner.d{right:2px;bottom:2px;border-left:0;border-top:0}
 
 /* ---- the dock bottom right (chest, roster, build) ---- */
-#rfDock{right:1px;bottom:1px;width:106px;height:36px;z-index:3;pointer-events:none;border-radius:3px;background:var(--hud-stone);box-shadow:var(--hud-frame)}
+#rfDock{right:1px;bottom:1px;width:106px;height:36px;z-index:${Z.bar};pointer-events:none;border-radius:3px;background:var(--hud-stone);box-shadow:var(--hud-frame)}
 `;

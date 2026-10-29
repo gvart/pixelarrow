@@ -11,13 +11,13 @@ import { ownCentre } from '../entry';
 import { myTeam } from '../side';
 import { icon, leftPanelOpen, uiZoom } from './kit';
 import { esc } from './roster/ui';
-import { clearOfHud, laneBusy, markerArea } from './layout';
+import { clearOfHud, laneBusy, markerArea, Z } from './layout';
 
 type Mk = (id: string, css: string, html?: string) => HTMLElement;
 type P = { x: number; y: number };
 
 const CSS = `
-.gd-mk{position:fixed;z-index:2;pointer-events:none;transform:translate(-50%,-100%);display:none;flex-direction:column;align-items:center;font:700 13px/1 Inter,sans-serif;color:var(--rf-gold);text-shadow:0 1px 0 #050506,0 0 3px #050506;white-space:nowrap}
+.gd-mk{position:fixed;z-index:${Z.mark};pointer-events:none;transform:translate(-50%,-100%);display:none;flex-direction:column;align-items:center;font:700 13px/1 Inter,sans-serif;color:var(--rf-gold);text-shadow:0 1px 0 #050506,0 0 3px #050506;white-space:nowrap}
 .gd-mk .lb{padding:4px 7px;background:rgba(10,11,13,.82);box-shadow:inset 0 0 0 1px #6a5326}
 .gd-mk .ch{width:0;height:0;margin-top:3px;border:9px solid transparent;border-top:13px solid var(--rf-gold);border-bottom:0;filter:drop-shadow(0 1px 0 #050506)}
 .gd-mk.on .ch,.gd-mk.trk .ch{animation:gdBob 1.1s ease-in-out infinite}
@@ -31,7 +31,7 @@ const CSS = `
 .gd-mk.trk{color:#f3e2b8}.gd-mk.trk .lb{box-shadow:inset 0 0 0 1px #b38a3e;background:rgba(36,22,10,.88)}
 .gd-mk.trk .ch{border-top-color:#f3e2b8}.gd-mk.trk .ar{color:#f3e2b8}
 @keyframes gdBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
-#rfQBanner{left:50%;top:44px;transform:translateX(-50%);z-index:6;pointer-events:none;width:340px;padding:7px 12px 9px;text-align:center;transition:opacity .45s,transform .45s}
+#rfQBanner{left:50%;top:44px;transform:translateX(-50%);z-index:${Z.banner};pointer-events:none;width:340px;padding:7px 12px 9px;text-align:center;transition:opacity .45s,transform .45s}
 #rfQBanner.out{opacity:0;transform:translateX(-50%) translateY(-6px)}
 #rfQBanner .qb-k{font:700 10px/1 Inter,sans-serif;letter-spacing:.14em;text-transform:uppercase;color:var(--rf-gold)}
 #rfQBanner .qb-t{margin-top:4px;font:700 16px/1.15 Cinzel,serif;color:var(--rf-title)}
@@ -42,7 +42,7 @@ const CSS = `
 #rfQBanner .gd-rw img,#rfQuest .gd-rw img{width:14px;height:14px}
 #rfQBanner .qb-p{margin-top:4px;font-size:11px;color:var(--rf-muted)}
 #rfQBanner.done .qb-k{color:var(--rf-good)}
-#rfQuest{right:4px;top:40px;width:244px;z-index:3;pointer-events:auto;padding:5px 8px 7px}
+#rfQuest{right:4px;top:40px;width:244px;pointer-events:auto;padding:5px 8px 7px}
 #rfQuest .qt-h{display:flex;align-items:center;gap:6px;padding-bottom:4px;margin-bottom:3px;border-bottom:1px solid var(--rf-rule)}
 #rfQuest .qt-k{font:700 10px/1 Inter,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--rf-gold)}
 #rfQuest .qt-n{margin-left:auto;font:700 11px/1 Inter,sans-serif;color:var(--rf-gold)}

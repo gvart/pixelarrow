@@ -58,7 +58,7 @@ const STEP_ICON: Record<GuideStepId, () => string> = {
 const TARGET: Record<GuideStepId, string> = { soul: 'Soul', gather: 'Wood', lair: 'Bandits', build: 'Camp', haul: 'Store' };
 
 const CSS = `
-#rfGuide{left:4px;top:4px;width:262px;z-index:3;pointer-events:auto;padding:5px 8px 7px}
+#rfGuide{left:4px;top:4px;width:262px;pointer-events:auto;padding:5px 8px 7px}
 #rfGuide .gd-h{display:flex;align-items:center;gap:6px;padding-bottom:4px;margin-bottom:3px;border-bottom:1px solid var(--rf-rule);cursor:pointer}
 #rfGuide .gd-one{display:flex;align-items:center;gap:6px;font:700 12px/16px Inter,sans-serif;color:var(--rf-title)}
 #rfGuide .gd-one .gd-far{font-weight:600}

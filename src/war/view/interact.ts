@@ -37,6 +37,7 @@ import { claimSoul, claimWhy, soulAt } from './hud/souls';
 import type { SandboxScene } from './SandboxScene';
 import { keys } from '../input/keys';
 import { myTeam } from './side';
+import { Z } from './hud/theme';
 
 export interface Action { label: string; run(): void }
 /** A radial option: icon id from the kit, and why it is disabled (off). */
@@ -63,7 +64,7 @@ export class Interact {
     this.el = document.createElement('div');
     this.el.id = 'hoverAct';
     this.el.className = 'rf rf-label'; // the kit's hover label (./hud/kit.ts)
-    this.el.style.cssText = 'display:none;z-index:5';
+    this.el.style.cssText = `display:none;z-index:${Z.tip}`; // the cursor's label rides over banners and panels
     document.body.appendChild(this.el);
     this.ring = new Radial(); // ./hud/radial.ts: the pie
     s.input.keyboard!.on('keydown', (e: KeyboardEvent) => {

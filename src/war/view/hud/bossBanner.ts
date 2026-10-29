@@ -14,7 +14,7 @@ import type { BossSnap } from '../../types';
 import type { SandboxScene } from '../SandboxScene';
 import { warBoss } from '../../../data/warBosses';
 import { uiZoom } from './kit';
-import { laneBusy } from './layout';
+import { laneBusy, Z } from './layout';
 import { esc } from './roster/ui';
 
 export type VoiceKind = 'wake' | 'phase' | 'slain' | 'fled' | 'back';
@@ -59,7 +59,7 @@ export function voiceLine(v: Voice): string | null {
 }
 
 const CSS = `
-#rfBossBanner{left:50%;top:120px;z-index:6;pointer-events:none;min-width:300px;padding:8px 26px 11px;text-align:center;transform:translateX(-50%);transition:opacity .5s,transform .5s;animation:bbIn .45s cubic-bezier(.2,.7,.3,1)}
+#rfBossBanner{left:50%;top:120px;z-index:${Z.banner};pointer-events:none;min-width:300px;padding:8px 26px 11px;text-align:center;transform:translateX(-50%);transition:opacity .5s,transform .5s;animation:bbIn .45s cubic-bezier(.2,.7,.3,1)}
 #rfBossBanner.out{opacity:0;transform:translateX(-50%) translateY(-6px)}
 @keyframes bbIn{from{opacity:0;transform:translateX(-50%) scale(.94)}to{opacity:1;transform:translateX(-50%) scale(1)}}
 #rfBossBanner .bb-k{font:700 10px/1 Inter,sans-serif;letter-spacing:.18em;text-transform:uppercase;color:var(--rf-gold)}
