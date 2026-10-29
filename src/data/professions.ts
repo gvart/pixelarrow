@@ -76,7 +76,7 @@ const ALL: ProfNode[] = [
     ['iatreion', 'Iatreion', 7, 'his infirmary L3 heals in 1 h', { needs: ['bonesetter'] }],
     ['anatomist', 'Anatomist', 8, 'remedies batch x1.5', { needs: ['triage'] }],
     ['asclepiad', 'Asclepiad', 10, 'once a fight, the first man to die within 10 tiles is wounded instead', CAP],
-    ['proxenosSick', 'Proxenos of the sick', 10, 'captives he holds heal, ransom +30%', CAP],
+    ['proxenosSick', 'Proxenos of the sick', 10, 'captives he holds heal', CAP],
   ]),
   ...tree('engineer', [
     ['builder', 'Builder', 1, 'build x1.5, tools T1', ROOT],
@@ -104,7 +104,7 @@ const ALL: ProfNode[] = [
     ['banker', 'Banker', 7, 'letters of credit between own market towns', { needs: ['broker'] }],
     ['importer', 'Importer', 8, '<= 5 copper or 3 hides a day at x2 price (never tin)', { needs: ['appraiser'] }],
     ['emporos', 'Emporos', 10, 'caravan +1 wagon, a market for allies it passes', CAP],
-    ['proxenos', 'Proxenos', 10, 'ransom -30%, buys back fallen gear from the enemy salvage pool', CAP],
+    ['proxenos', 'Proxenos', 10, 'buys back fallen gear from the enemy salvage pool', CAP],
   ]),
   ...tree('forager', [
     ['gatherer', 'Gatherer', 1, 'gathers x2', ROOT],
