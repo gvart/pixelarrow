@@ -1,17 +1,17 @@
 /**
  * W-62 E6: the page's end of the alliance chat (./chat.ts). NetChat follows the world's chat socket
  * (/ws/war/world?chat=1, as the page's player: ./session.ts), reconnecting with a backoff; MockChat (offline pages) is
- * a made-up alliance in memory: a few lines of history, allies who answer now and then, your marks and lines echoed
- * back (masked like the server's).
+ * a made-up alliance in memory: a few lines of history (W-69 World ones too, from other alliances, a linked item among
+ * them), allies who answer now and then, your marks and lines echoed back (masked like the server's).
  */
 import { SIM_VERSION } from '../../sim/version';
 import { PHRASES, type ChatMsg, type ChatServerMsg, type MarkKind } from './chat';
-import { maskText } from './chatFilter';
+import { maskTagged, type ChatLinkData } from './chatLinks';
 import { warAuth } from './session';
 
 export type ChatOut =
-  | { t: 'say'; text: string }
-  | { t: 'say'; phrase: number }
+  | { t: 'say'; text: string; links?: ChatLinkData[]; ch?: 'world' }
+  | { t: 'say'; phrase: number; ch?: 'world' }
   | { t: 'mark'; kind: MarkKind; at: string; x: number; y: number }
   | { t: 'mute'; pid: number; on: boolean }
   | { t: 'report'; id: number };
@@ -104,6 +104,9 @@ export class MockChat implements ChatLink {
       { id: 3, pid: 9, name: 'Brasidas', at: now - 6 * m, text: 'Skythia scouts at the Kleisoura ford, 2 squads' },
       { id: 4, pid: 7, name: 'Kallias', at: now - 5 * m, phrase: 1 },
       { id: 5, pid: 8, name: 'Myrto', at: now - 2 * m, phrase: 7 },
+      { id: 6, pid: 21, name: 'Tomyris', at: now - 7 * m, ch: 'world', text: 'Skythia buys iron at the Kleisoura ford, fair price' },
+      { id: 7, pid: 22, name: 'Hanno', at: now - 4 * m, ch: 'world', text: `Who wants this? ${String.fromCharCode(0xe000)} Meet me in Dodona`, links: [{ k: 'item', it: { uid: 'mock-kopis', def: 'kopis', rarity: 'epic', cond: 92, q: 2, mk: 'Hanno of Carthage' } }] },
+      { id: 8, pid: 21, name: 'Tomyris', at: now - 1 * m, ch: 'world', phrase: 18 },
     ];
     on({ t: 'chat', you: 1, msgs, muted: [] });
   }
@@ -118,7 +121,7 @@ export class MockChat implements ChatLink {
       if (m.kind === 'help' || m.kind === 'gather') this.reply(PHRASES.indexOf('On my way'));
       return;
     }
-    this.on({ t: 'said', msg: { id: ++this.seq, pid: 1, name: this.name, at: now, ...('text' in m ? { text: maskText(m.text.trim()) } : { phrase: m.phrase }) } });
+    this.on({ t: 'said', msg: { id: ++this.seq, pid: 1, name: this.name, at: now, ...('text' in m ? { text: maskTagged(m.text.trim()), ...(m.links ? { links: m.links } : {}) } : { phrase: m.phrase }), ...(m.ch ? { ch: m.ch } : {}) } });
     if ('phrase' in m && PHRASES[m.phrase]?.startsWith('Need')) this.reply(PHRASES.indexOf('On my way'));
   }
 

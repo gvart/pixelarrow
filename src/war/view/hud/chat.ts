@@ -6,12 +6,18 @@
  *  - Open (Enter in a region, Enter with nothing to enter on the world map, or a click on the tab): the log, the quick
  *    phrases (the quote button), the four marks and a text field (CHAT_MAX chars). Enter sends and closes, Esc closes.
  *    A line's name: hover shows mute and report (mutes are kept server side; muted players' lines are hidden).
+ *  - W-69 two channels, a tab each with its own unread count: Alliance (marks too) and World (every player of every
+ *    alliance; no marks). While the field is open, Shift+click on an item (chest, gear slots, loot) or a man (roster
+ *    row, squad pip, man card) puts "[its name]" in the field; sent, it is a gold tag whose hover is the full card
+ *    (./chatTags.ts; the snapshot rides the message: ../../net/chatLinks.ts).
  *  - Marks: P (rebindable, `chat.mark`) or a mark button arms placing; P again steps the kind; a click places it here
  *    (this region's tile point, or the world map's px), Esc or right click cancels. Alliance marks of this view show for
  *    MARK_MS as a pin with a pulse and the placer's name, at the screen edge as an arrow while off screen (a click on
  *    it, or on the mark's line in the log, centres the view there); each one arriving plays a short horn.
  */
-import { CHAT_MAX, chatText, MARK_INFO, MARK_KINDS, MARK_MS, PHRASES, type ChatMsg, type ChatServerMsg, type Mark, type MarkKind } from '../../net/chat';
+import { CHAT_MAX, chatText, MARK_INFO, MARK_KINDS, MARK_MS, PHRASES, type ChatChannel, type ChatMsg, type ChatServerMsg, type Mark, type MarkKind } from '../../net/chat';
+import { encodeDraft, linkLabel, tagParts, type ChatLinkData } from '../../net/chatLinks';
+import { markedLink, mountTagTip, tagHtml } from './chatTags';
 import type { ChatLink } from '../../net/chatLink';
 import { keys } from '../../input/keys';
 import { loadSound } from '../sound/mix';
@@ -31,6 +37,10 @@ export interface ChatView {
   focus(m: Mark): void;
   /** A scope's name ("World map", a region's). */
   where(at: string): string;
+  /** W-69: the man (or item) a Shift+click on this element links, beside the `data-chat-link` ones. */
+  linkAt?(el: HTMLElement): ChatLinkData | null;
+  /** W-69: draw a linked man's portrait into his card's canvas. */
+  portrait?(c: HTMLCanvasElement, cls: string, scars: number): void;
 }
 
 export interface ChatHandle {
@@ -67,7 +77,6 @@ const CSS = `
 #rfChat .ch-tab{pointer-events:auto;display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px 0 6px;margin-top:3px;cursor:pointer;background:rgba(10,11,13,.82);border:1px solid var(--rf-rule);box-shadow:inset 0 1px 0 rgba(239,207,134,.08);font:700 11px/1 Cinzel,serif;color:var(--rf-title);letter-spacing:.05em}
 #rfChat .ch-tab:hover{border-color:var(--rf-line);background:rgba(44,28,21,.92)}
 #rfChat .ch-tab .k{font:600 10px/1 Inter,sans-serif;color:var(--rf-muted);letter-spacing:0;padding:2px 4px;border:1px solid var(--rf-rule);background:var(--rf-sunk)}
-#rfChat .ch-tab .u{min-width:16px;height:15px;padding:0 4px;font:700 10px/15px Inter,sans-serif;text-align:center;color:#1a0e08;background:var(--rf-accent);letter-spacing:0}
 #rfChat .ch-dot{width:7px;height:7px;border-radius:50%;background:var(--rf-good);box-shadow:0 0 4px var(--rf-good)}
 #rfChat .ch-dot.off{background:var(--rf-disabled);box-shadow:none}
 #rfChat .ch-box{display:flex;flex-direction:column}
@@ -75,6 +84,14 @@ const CSS = `
 #rfChat .ch-head{display:none;align-items:center;gap:6px;padding:0 0 5px;margin-bottom:4px;border-bottom:1px solid var(--rf-line);box-shadow:0 1px 0 var(--rf-sunk)}
 #rfChat.open .ch-head{display:flex}
 #rfChat .ch-head .rf-name{font-size:13px}
+#rfChat .ch-chan{height:20px;padding:0 7px;display:inline-flex;align-items:center;gap:4px;font:700 11.5px/1 Cinzel,serif;letter-spacing:.05em;color:var(--rf-muted);background:none;border:1px solid transparent;cursor:pointer}
+#rfChat .ch-chan:hover{color:var(--rf-title)}
+#rfChat .ch-chan.on{color:var(--rf-title);background:var(--rf-sel);border-color:var(--rf-line)}
+#rfChat .ch-chan .u,#rfChat .ch-tab .u{min-width:16px;height:15px;padding:0 4px;font:700 10px/15px Inter,sans-serif;text-align:center;color:#1a0e08;background:var(--rf-accent);letter-spacing:0}
+#rfChat .ch-tab .w{color:var(--rf-muted);font:600 10px/1 Inter,sans-serif;letter-spacing:0}
+#rfChat .ch-tag{color:var(--rf-gold);font-weight:700;cursor:help}
+#rfChat .ch-tag:hover{text-decoration:underline;text-underline-offset:2px}
+#rfChat.world [data-mk],#rfChat.world .ch-mk-sep{display:none}
 #rfChat .ch-head .sub{font:600 10.5px/1 Inter,sans-serif;color:var(--rf-muted)}
 #rfChat .ch-log{display:flex;flex-direction:column;gap:1px;max-height:132px;overflow:hidden}
 #rfChat.open .ch-log{height:var(--ch-log-h,164px);max-height:none;overflow-y:auto;padding:3px 2px 3px 3px;background:var(--rf-sunk);border:1px solid var(--rf-rule);box-shadow:inset 0 1px 3px rgba(0,0,0,.6)}
@@ -140,7 +157,9 @@ const ICON_SEND = '<svg width="14" height="14" viewBox="0 0 16 16" fill="current
 const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const hhmm = (t: number) => { const d = new Date(t); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
 
-type Line = { at: number; html: string; cls: string; id?: number; pid?: number; mark?: Mark };
+/** A line of the log: `ch` its channel (none: a notice, shown in both); `links` its tags' snapshots. */
+type Line = { at: number; html: string; cls: string; id?: number; pid?: number; mark?: Mark; ch?: ChatChannel; links?: ChatLinkData[]; name?: string };
+const CH_NAME: Record<ChatChannel, string> = { ally: 'Alliance', world: 'World' };
 
 /** A short horn for a mark (two rising notes), a soft tick for a line; the war's sound settings (master x sfx). */
 let ac: AudioContext | null = null;
@@ -181,16 +200,16 @@ export function mountChat(v: ChatView): ChatHandle {
   root.id = 'rfChat';
   root.className = 'rf';
   root.innerHTML = `<div class="ch-mutes rf-card"></div><div class="ch-pop rf-card"><div class="rf-sec">Quick phrases</div>${PHRASES.map((p, i) => `<button data-ph="${i}" title="${esc(p)}">${esc(p)}</button>`).join('')}</div>
-    <div class="ch-box"><div class="ch-head"><span class="ch-dot"></span><span class="rf-name">Alliance</span><span class="sub"></span><span style="margin-left:auto;display:flex;gap:3px"><button class="rf-tbtn" data-a="mutes" style="height:19px;padding:0 6px;font-size:10.5px;display:none"></button><button class="rf-tbtn x" data-a="close" title="Close (Esc)" style="height:19px;width:19px">×</button></span></div>
+    <div class="ch-box"><div class="ch-head"><span class="ch-dot"></span><button class="ch-chan" data-ch="ally">Alliance<span class="u"></span></button><button class="ch-chan" data-ch="world">World<span class="u"></span></button><span class="sub"></span><span style="margin-left:auto;display:flex;gap:3px"><button class="rf-tbtn" data-a="mutes" style="height:19px;padding:0 6px;font-size:10.5px;display:none"></button><button class="rf-tbtn x" data-a="close" title="Close (Esc)" style="height:19px;width:19px">×</button></span></div>
     <div class="ch-log"></div>
-    <div class="ch-bar" style="position:relative"><button class="ch-ib" data-a="phrases" title="Quick phrases">${ICON_QUOTE}</button><span class="ch-sep"></span>${MARK_KINDS.map((k) => `<button class="ch-ib" data-mk="${k}" title="${MARK_INFO[k].name}: then click the map">${markIcon(k, 13, MARK_INFO[k].color)}</button>`).join('')}<span class="ch-sep"></span><input class="ch-in" maxlength="${CHAT_MAX}" placeholder="Message allies…" spellcheck="false" autocomplete="off"><span class="ch-cnt"></span><button class="ch-ib" data-a="send" title="Send (Enter)">${ICON_SEND}</button></div></div>
-    <div class="ch-tab" data-a="open"><span class="ch-dot"></span>Alliance<span class="u" style="display:none"></span><span class="k"></span></div>`;
+    <div class="ch-bar" style="position:relative"><button class="ch-ib" data-a="phrases" title="Quick phrases">${ICON_QUOTE}</button><span class="ch-sep ch-mk-sep"></span>${MARK_KINDS.map((k) => `<button class="ch-ib" data-mk="${k}" title="${MARK_INFO[k].name}: then click the map">${markIcon(k, 13, MARK_INFO[k].color)}</button>`).join('')}<span class="ch-sep"></span><input class="ch-in" maxlength="${CHAT_MAX}" spellcheck="false" autocomplete="off"><span class="ch-cnt"></span><button class="ch-ib" data-a="send" title="Send (Enter)">${ICON_SEND}</button></div></div>
+    <div class="ch-tab" data-a="open"><span class="ch-dot"></span><span class="nm"></span><span class="u" style="display:none"></span><span class="w"></span><span class="k"></span></div>`;
   root.addEventListener('pointerdown', (e) => e.stopPropagation());
   root.addEventListener('wheel', (e) => e.stopPropagation());
   document.body.appendChild(root);
   const $ = <T extends HTMLElement>(sel: string) => root.querySelector<T>(sel)!;
   const box = $('.ch-box'), log = $('.ch-log'), input = $<HTMLInputElement>('.ch-in'), cnt = $('.ch-cnt'), pop = $('.ch-pop'), mutesEl = $('.ch-mutes');
-  const tab = $('.ch-tab'), unreadEl = $('.ch-tab .u'), keyEl = $('.ch-tab .k'), mutesBtn = $<HTMLButtonElement>('[data-a="mutes"]'), sub = $('.ch-head .sub');
+  const tab = $('.ch-tab'), unreadEl = $('.ch-tab .u'), keyEl = $('.ch-tab .k'), tabName = $('.ch-tab .nm'), tabOther = $('.ch-tab .w'), mutesBtn = $<HTMLButtonElement>('[data-a="mutes"]'), sub = $('.ch-head .sub');
 
   const layer = document.createElement('div');
   layer.id = 'rfMarks';
@@ -198,23 +217,27 @@ export function mountChat(v: ChatView): ChatHandle {
   edges.id = 'rfMarkEdges';
   document.body.append(layer, edges);
 
-  let you = 0, open = false, unread = 0, armed: MarkKind | null = null, lastKind: MarkKind = 'gather';
+  let you = 0, open = false, armed: MarkKind | null = null, lastKind: MarkKind = 'gather';
   let lines: Line[] = [];
   const muted = new Set<number>(), names = new Map<number, string>();
   const marks = new Map<number, { m: Mark; el: HTMLElement; edge: HTMLElement }>();
   let silencedUntil = 0;
+  /** W-69: the channel shown and spoken in; each one's unread lines; the links Shift+clicked into the field. */
+  let chan: ChatChannel = 'ally';
+  const unread: Record<ChatChannel, number> = { ally: 0, world: 0 };
+  let picked: ChatLinkData[] = [];
   /** The open log follows new lines unless the player scrolled up. */
   let pinned = true;
 
   const lineOf = (m: ChatMsg): Line => {
     names.set(m.pid, m.name);
     const me = m.pid === you;
-    const words = m.phrase !== undefined ? `<span class="ph">${esc(chatText(m))}</span>` : esc(chatText(m));
+    const words = m.phrase !== undefined ? `<span class="ph">${esc(chatText(m))}</span>` : tagParts(m.text ?? '', m.links).map((x) => (typeof x === 'string' ? esc(x) : tagHtml(x.link, x.i))).join('');
     const acts = me ? '' : `<span class="ch-acts"><button data-mute="${m.pid}" title="Hide ${esc(m.name)}'s messages">Mute</button><button data-rep="${m.id}" title="Report this message to the moderators">Report</button></span>`;
-    return { at: m.at, id: m.id, pid: m.pid, cls: '', html: `<span class="tm">${hhmm(m.at)}</span><span class="n${me ? ' me' : ''}">${esc(m.name)}</span>: ${words}${acts}` };
+    return { at: m.at, id: m.id, pid: m.pid, cls: '', ch: m.ch ?? 'ally', links: m.links, name: m.name, html: `<span class="tm">${hhmm(m.at)}</span><span class="n${me ? ' me' : ''}">${esc(m.name)}</span>: ${words}${acts}` };
   };
   const markLine = (m: Mark): Line => ({
-    at: m.t, pid: m.pid, mark: m, cls: 'mk',
+    at: m.t, pid: m.pid, mark: m, cls: 'mk', ch: 'ally',
     html: `<span class="tm">${hhmm(m.t)}</span><span class="mi">${markIcon(m.kind, 13, MARK_INFO[m.kind].color)}</span><span class="n${m.pid === you ? ' me' : ''}">${esc(m.name)}</span> <span class="rf-dim">marks</span> <b class="kd" style="--mk-c:${MARK_INFO[m.kind].color}">${MARK_INFO[m.kind].name}</b> · <span class="wh">${esc(v.where(m.at))}</span>`,
   });
   const sys = (text: string, bad = false) => push({ at: Date.now(), cls: `sys${bad ? ' bad' : ''}`, html: esc(text) });
@@ -222,21 +245,32 @@ export function mountChat(v: ChatView): ChatHandle {
   function push(l: Line, quiet = false): void {
     lines.push(l);
     if (lines.length > 120) lines = lines.slice(-100);
-    if (!quiet && !open && !l.cls.startsWith('sys') && l.pid !== you) unread++;
+    if (!quiet && l.ch && (!open || l.ch !== chan) && l.pid !== you) unread[l.ch]++;
     render();
   }
 
   function render(): void {
-    const now = Date.now(), shown = lines.filter((l) => l.pid === undefined || !muted.has(l.pid));
+    const now = Date.now(), shown = lines.filter((l) => (l.pid === undefined || !muted.has(l.pid)) && (!l.ch || l.ch === chan));
     const list = open ? shown : shown.slice(-SHOWN);
     log.innerHTML = list.map((l, i) => `<div class="ch-l ${l.cls}${!open && now - l.at > LINE_FADE_MS ? ' old' : ''}" data-i="${shown.length - list.length + i}">${l.html}</div>`).join('');
     (log as HTMLElement & { _rows?: Line[] })._rows = shown;
     if (!open || pinned) log.scrollTop = log.scrollHeight;
-    unreadEl.style.display = unread ? '' : 'none';
-    unreadEl.textContent = String(Math.min(unread, 99));
+    const other: ChatChannel = chan === 'ally' ? 'world' : 'ally';
+    tabName.textContent = CH_NAME[chan];
+    unreadEl.style.display = unread[chan] ? '' : 'none';
+    unreadEl.textContent = String(Math.min(unread[chan], 99));
+    tabOther.textContent = unread[other] ? `${CH_NAME[other]} ${Math.min(unread[other], 99)}` : '';
+    for (const b of root.querySelectorAll<HTMLElement>('[data-ch]')) {
+      const c = b.dataset.ch as ChatChannel, u = b.querySelector<HTMLElement>('.u')!;
+      b.classList.toggle('on', c === chan);
+      u.style.display = c !== chan && unread[c] ? '' : 'none';
+      u.textContent = String(Math.min(unread[c], 99));
+    }
+    root.classList.toggle('world', chan === 'world');
+    input.placeholder = chan === 'world' ? 'Message every alliance…' : 'Message allies…';
     keyEl.textContent = keys.label('chat.open') || 'Enter';
     for (const d of root.querySelectorAll('.ch-dot')) d.classList.toggle('off', !v.link.live);
-    sub.textContent = v.link.live ? 'allies only' : 'connecting…';
+    sub.textContent = v.link.live ? (chan === 'world' ? 'everyone' : 'allies only') : 'connecting…';
     mutesBtn.style.display = muted.size ? '' : 'none';
     mutesBtn.textContent = `Muted ${muted.size}`;
     for (const b of root.querySelectorAll<HTMLElement>('[data-mk]')) b.classList.toggle('on', armed === b.dataset.mk);
@@ -247,8 +281,9 @@ export function mountChat(v: ChatView): ChatHandle {
     root.classList.toggle('open', on);
     box.classList.toggle('rf-card', on);
     tab.style.display = on ? 'none' : '';
-    if (on) (unread = 0), (pinned = true);
+    if (on) (unread[chan] = 0), (pinned = true);
     else {
+      tagTip.hide();
       pop.classList.remove('on');
       mutesEl.classList.remove('on');
       input.blur();
@@ -262,30 +297,73 @@ export function mountChat(v: ChatView): ChatHandle {
   // keys typed into the field drive nothing else (WASD would pan the camera)
   input.addEventListener('focus', () => keys.suspend(true));
   input.addEventListener('blur', () => { keys.suspend(false); keys.release(); });
-  input.addEventListener('input', () => { cnt.textContent = input.value.length > CHAT_MAX - 40 ? `${input.value.length}/${CHAT_MAX}` : ''; });
+  /** The field's length as sent (a tag one character), and its limit with the tags' names let in. */
+  const draft = () => encodeDraft(input.value, picked);
+  const count = () => {
+    const d = draft(), n = d.text.length;
+    input.maxLength = CHAT_MAX + d.links.reduce((a, l) => a + linkLabel(l).length + 1, 0);
+    cnt.textContent = n > CHAT_MAX - 40 ? `${n}/${CHAT_MAX}` : '';
+  };
+  input.addEventListener('input', count);
   input.addEventListener('keydown', (e) => {
     e.stopPropagation();
     if (e.key === 'Enter') { e.preventDefault(); sendText(); setOpen(false); }
     else if (e.key === 'Escape') { e.preventDefault(); setOpen(false); }
   });
   const sendText = () => {
-    const t = input.value.trim();
+    const d = draft(), t = d.text.trim();
     input.value = '';
-    cnt.textContent = '';
+    picked = [];
+    count();
     if (!t) return;
     if (silencedUntil > Date.now()) return sys(`You are muted for spam for ${Math.ceil((silencedUntil - Date.now()) / 1000)} s.`, true);
-    v.link.send({ t: 'say', text: t.slice(0, CHAT_MAX) });
+    v.link.send({ t: 'say', text: t.slice(0, CHAT_MAX), ...(d.links.length ? { links: d.links } : {}), ...(chan === 'world' ? { ch: 'world' as const } : {}) });
   };
+  const setChan = (c: ChatChannel) => { chan = c; unread[c] = 0; pinned = true; if (armed && c === 'world') arm(null); render(); };
+
+  // W-69: Shift+click on an item or a man while the field is open puts its tag in the field
+  const linkOf = (t: EventTarget | null) => (t instanceof HTMLElement && !root.contains(t) ? markedLink(t) ?? v.linkAt?.(t) ?? null : null);
+  for (const type of ['pointerdown', 'mousedown', 'click'] as const) {
+    addEventListener(type, (e: Event) => {
+      if (!open || !(e as MouseEvent).shiftKey) return;
+      const l = linkOf(e.target);
+      if (!l) return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (type !== 'click') return;
+      const tag = `[${linkLabel(l)}]`, at = input.selectionStart ?? input.value.length;
+      const v0 = input.value, pre = v0.slice(0, at) + (at && !/\s$/.test(v0.slice(0, at)) ? ' ' : '');
+      const next = `${pre}${tag} ${v0.slice(input.selectionEnd ?? at)}`;
+      if (encodeDraft(next, [...picked, l]).links.length <= draft().links.length) return sys('No room for another link in this message.', true);
+      picked.push(l);
+      input.value = next;
+      count();
+      input.focus();
+      input.setSelectionRange(pre.length + tag.length + 1, pre.length + tag.length + 1);
+    }, true);
+  }
+  // a tag's hover: its card
+  const tagTip = mountTagTip();
+  log.addEventListener('pointerover', (e) => {
+    const t = (e.target as HTMLElement).closest<HTMLElement>('.ch-tag');
+    if (!t) return;
+    const l = (log as HTMLElement & { _rows?: Line[] })._rows?.[Number(t.closest<HTMLElement>('.ch-l')?.dataset.i)];
+    const link = l?.links?.[Number(t.dataset.li)];
+    if (link) tagTip.show(link, l?.pid === you ? 'your' : `${l?.name ?? 'their'}'s`, t, v.portrait);
+  });
+  log.addEventListener('pointerout', (e) => { if ((e.target as HTMLElement).closest('.ch-tag')) tagTip.hide(); });
 
   root.addEventListener('click', (e) => {
     const t = e.target as HTMLElement, a = t.closest<HTMLElement>('[data-a]')?.dataset.a;
+    const ch = t.closest<HTMLElement>('[data-ch]')?.dataset.ch as ChatChannel | undefined;
+    if (ch) return setChan(ch);
     if (a === 'open') return setOpen(true);
     if (a === 'close') return setOpen(false);
     if (a === 'send') { sendText(); input.focus(); return; }
     if (a === 'phrases') { pop.classList.toggle('on'); mutesEl.classList.remove('on'); return; }
     if (a === 'mutes') { renderMutes(); mutesEl.classList.toggle('on'); pop.classList.remove('on'); return; }
     const ph = t.closest<HTMLElement>('[data-ph]')?.dataset.ph;
-    if (ph !== undefined) { v.link.send({ t: 'say', phrase: Number(ph) }); pop.classList.remove('on'); return; }
+    if (ph !== undefined) { v.link.send({ t: 'say', phrase: Number(ph), ...(chan === 'world' ? { ch: 'world' as const } : {}) }); pop.classList.remove('on'); return; }
     const mk = t.closest<HTMLElement>('[data-mk]')?.dataset.mk as MarkKind | undefined;
     if (mk) return arm(armed === mk ? null : mk);
     const mu = t.closest<HTMLElement>('[data-mute]')?.dataset.mute;
@@ -402,13 +480,14 @@ export function mountChat(v: ChatView): ChatHandle {
       else if (m.code === 'silenced') { silencedUntil = m.until ?? Date.now() + 60_000; sys(`Muted for spam for ${Math.ceil((silencedUntil - Date.now()) / 1000)} s.`, true); }
       else if (m.code === 'noAlliance') sys('Join an alliance to chat.', true);
       else if (m.code === 'reported') sys('Reported. A moderator will look at it.');
+      else if (m.code === 'link') sys('You can only link your own men. That message was not sent.', true);
     }
   });
 
   addEventListener('keydown', (e: KeyboardEvent) => {
     const a = keys.act(e);
     if (a === 'chat.open' && !open) { e.preventDefault(); setOpen(true); }
-    else if (a === 'chat.mark') { e.preventDefault(); arm(armed ? MARK_KINDS[(MARK_KINDS.indexOf(armed) + 1) % MARK_KINDS.length] : lastKind); }
+    else if (a === 'chat.mark' && chan === 'ally') { e.preventDefault(); arm(armed ? MARK_KINDS[(MARK_KINDS.indexOf(armed) + 1) % MARK_KINDS.length] : lastKind); }
     else if (a === 'back' && armed) arm(null);
     else if (a === 'back' && open) setOpen(false);
   });
