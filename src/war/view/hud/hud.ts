@@ -11,7 +11,8 @@
  *   bottom left    framed square minimap (./minimap.ts), the view mode switcher in its corner (F2-F7) and the mode's legend over it (./modes.ts);
  *                  W-62 E6 the alliance chat over them (Enter; marks P: ./chat.ts)
  *   centre         the full map on M (./fullMap.ts)
- *   bottom centre  command panel, shown with a selection (a selected building or site wins over men), in groups:
+ *   bottom centre  command panel, always shown (nothing selected: the army state, ./armyPanel.ts; a selected building or
+ *                  site wins over men), in groups:
  *                  portrait (the class's sprite, or the building's icon) | selection (name, men, hp bar with its numbers,
  *                  level and food chips, a pip per man with his hp: click selects him, shift adds him; the man card's
  *                  slot #cManCard) | orders (move, attack, attack-move: Ctrl + right click or the button then a click, hold H, stop X) over the
@@ -64,6 +65,7 @@ import { needChips, shortText } from './goods';
 import { localGoods, mountChest, storeNear } from './chest';
 import { mountSouls } from './souls';
 import { mountTunnel } from './tunnel';
+import { mountArmyPanel } from './armyPanel';
 import { mountWorldEvents } from './worldEvents';
 import { claimFirst, mountClaimCard } from './claimCard';
 import { mountRegionChat } from './chatRegion';
@@ -227,6 +229,7 @@ export function hud(s: SandboxScene): void {
     tipOn(b, () => (typeof tipText === 'function' ? tipText() : b.dataset.tip ?? tipText));
     return b;
   };
+  const army = mountArmyPanel(s, card); // nothing selected: the army state in the same panel (./armyPanel.ts)
   s.micro.card.mount($('cManCard'), tipOn); // the picked man's card docks in its slot (../micro.ts shows it)
   const row = (cls: string, ...bs: HTMLElement[]) => { const r = document.createElement('div'); r.className = cls; r.style.cssText = 'display:flex;gap:2px;align-items:center'; r.append(...bs); return r; };
   const tipK = (name: string, what: string, key: string) => tipHtml(name, what, key);
@@ -644,6 +647,11 @@ export function hud(s: SandboxScene): void {
     } else {
       card.style.display = 'none';
     }
+    // nothing selected: the panel stays, showing his army (./armyPanel.ts)
+    const idle = card.style.display === 'none';
+    $('cFrame').style.display = idle ? 'none' : '';
+    army.refresh(idle);
+    card.style.display = '';
     // the panel widened (a man's card docked) would run under the minimap: it slides right, clear of it
     if (card.style.display !== 'none' && !card.dataset.moved) {
       const slid = (n: number) => (n ? `translateX(calc(-50% + ${n}px))` : 'translateX(-50%)');
