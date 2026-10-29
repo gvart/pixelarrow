@@ -63,7 +63,7 @@ export interface PrebuiltEntry {
 }
 export interface TileRect { x: number; y: number; w: number; h: number }
 export interface SafeRect extends TileRect { gates?: TileRect[] }
-export type MobKind = 'wolf' | 'boar' | 'bear' | 'bandit' | 'jackal' | 'ibex';
+export type MobKind = 'wolf' | 'boar' | 'bear' | 'bandit' | 'jackal' | 'ibex' | 'lion' | 'serpent';
 export type SquadId = number; export type UnitId = number;
 /**
  * W-53 unit control: any order with a squad may name `units` (living men of that squad's owner and team, in any of his
@@ -370,13 +370,18 @@ export interface LandmarkSnap {
  * the postern; away: escaped, back in respawnIn; slain: respawnIn while its region is unheld), parts alive of its linked
  * targets (Scylla's heads, the Chimera's heads), the raid it faces (foe squads near) and its hp scale for it; fx: the move
  * it makes now (breath cone from x,y towards tx,ty, r wide; sweep, crash, stomp, smash: a ring of r; rock and boulder: a
- * throw landing at tx,ty; snatch: a man pulled into the water at tx,ty), `t` ticks ago; hide: units of its squads the view
- * does not draw (the Chimera's other heads share the lion's body).
+ * throw landing at tx,ty; snatch: a man pulled into the water at tx,ty; charge: a run along the ground from x,y to tx,ty,
+ * r wide; dive, pounce: a leap landing on a ring of r at tx,ty; roar: a ring of r round it; maul: a cone r long towards
+ * tx,ty; surge: a wave r wide from x,y to tx,ty; wall: a charge stopped by a wall at x,y, stunned), `t` ticks ago; tele
+ * (W-67): the signature move it winds up, marked on the ground where it will land (the same shapes as fx), landing in `in`
+ * ticks of `of`; hide: units of its squads the view does not draw (the Chimera's other heads share the lion's body).
  */
+export type BossMove = 'breath' | 'sweep' | 'crash' | 'stomp' | 'smash' | 'rock' | 'boulder' | 'snatch' | 'charge' | 'dive' | 'pounce' | 'roar' | 'maul' | 'surge' | 'wall';
 export interface BossSnap {
   id: string; name: string; squad: SquadId; unit: UnitId; x: number; y: number; hp: number; maxHp: number; phase: number; phases: readonly number[];
   state: 'idle' | 'fight' | 'perch' | 'flight' | 'flee' | 'away' | 'slain'; parts?: { alive: number; total: number }; raid: number; scale: number;
-  respawnIn?: number; fx?: { kind: 'breath' | 'sweep' | 'crash' | 'stomp' | 'smash' | 'rock' | 'boulder' | 'snatch' | 'charge'; x: number; y: number; tx: number; ty: number; r: number; t: number };
+  respawnIn?: number; fx?: { kind: BossMove; x: number; y: number; tx: number; ty: number; r: number; t: number };
+  tele?: { kind: BossMove; x: number; y: number; tx: number; ty: number; r: number; in: number; of: number };
   hide?: UnitId[];
 }
 /** M7d: a Rim Warden strike marked on an 8 x 8 patch of the rim band, landing in `in` ticks (60% max hp to every man in it). */
@@ -788,4 +793,12 @@ export type WarEvent =
   | { t: number; kind: 'soulFaded'; soul: number }
   // W-65 roaming life (src/war/sim/roam.ts): a caravan arrived and paid `owner` for his escort; one was robbed by `by`
   | { t: number; kind: 'caravanPaid'; owner: string; team: number; coin: number; x: number; y: number }
-  | { t: number; kind: 'caravanRobbed'; caravan: number; by: number };
+  | { t: number; kind: 'caravanRobbed'; caravan: number; by: number }
+  // W-67 mob FX (src/war/view/mobFx.ts; view only, the sim does not read them back): a beast's burst at a foe a few tiles
+  // off (boar: the charge run-up before its knock; lion: the pounce of its first blow on a man) from (x,y) towards
+  // (tx,ty); a lair roused from home (wolf howl, lion and bear roar); a pack breaking off or a herd bolting (scatter)
+  | { t: number; kind: 'mobDash'; unit: UnitId; mob: MobKind; x: number; y: number; tx: number; ty: number }
+  | { t: number; kind: 'mobCry'; lair: number; mob: MobKind; x: number; y: number }
+  | { t: number; kind: 'mobScatter'; lair: number; mob: MobKind; x: number; y: number };
+/** W-67: the mob FX events (the live region sends them to the players whose camera sees them: protocol `mobFx`). */
+export type MobFxEvent = Extract<WarEvent, { kind: 'mobDash' | 'mobCry' | 'mobScatter' }>;

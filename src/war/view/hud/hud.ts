@@ -60,6 +60,7 @@ import { PROF_NODES } from '../../../data/professions';
 import { mountTrade } from './holder';
 import { mountMarket } from './market';
 import { mountGuardians } from './guardianBar';
+import { mountBossBanner } from './bossBanner';
 import { billText, buildingTip, levelOf, mountBuildingCard, nameOfBuilding, purposeOf, rebuildBill, rebuildWhy, repairBill, repairWhy, statusOf } from './buildingCard';
 import { needChips, shortText } from './goods';
 import { localGoods, mountChest, storeNear } from './chest';
@@ -465,6 +466,7 @@ export function hud(s: SandboxScene): void {
   const trade = mountTrade(s, mk, btn, tipK);
   mountMarket(s, mk); // M6k: market, offers, board, contracts, letters, hand-off (./market.ts; K)
   mountGuardians(s, mk); // M7d: the guardian bar and the landmark panel (./guardianBar.ts; L)
+  mountBossBanner(s); // W-67: the guardians' wake banner, phase lines and epitaphs (./bossBanner.ts)
   mountBuildingCard(s, mk); // M7g: the building card over the command card (./buildingCard.ts)
 
   // ---------- soldiers: roster panel (R), soldier card, toasts, veteran pips (./roster, M5g) ----------
@@ -503,6 +505,9 @@ export function hud(s: SandboxScene): void {
 
   // ---------- no browser context menu anywhere (canvas and HUD): right click is the game's (orders, the radial) ----------
   addEventListener('contextmenu', (e) => e.preventDefault(), true);
+  // ---------- no browser pinch zoom either: a trackpad pinch (a ctrl wheel) over the HUD zoomed the page, which slid the
+  // top bar and the command card out of the window (the canvas takes its own: the camera's zoom) ----------
+  addEventListener('wheel', (e: WheelEvent) => { if (e.ctrlKey) e.preventDefault(); }, { passive: false });
 
   // ---------- cursors ----------
   const CUR: Record<string, string> = Object.fromEntries(['default', 'move', 'attack', 'build', 'gather', 'interact'].map((k) => [k, cursor(k)]));

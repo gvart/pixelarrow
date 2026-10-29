@@ -6,6 +6,10 @@
  * `aggro` of the pack (or one that hurt it) gets the whole pack on it (attack), and lairs of the same kind within ASSIST
  * join in; past `leash` from the lair they turn back (a move: marching, they do not fight) and regenerate until home.
  * Passive herds (ibex) run from foes instead; skittish packs (jackals) break off once they lose half their strength.
+ * W-67: lions hunt in prides of 2-4 and pounce on a man (a leap of a few tiles, its first blow on him heavier); river
+ * serpents lie slow in the reeds, a venomous bite and a short lunge; a boar's charge has a run-up (MobDef.dash, run by
+ * the sim's fight loop). The view's mob FX (src/war/view/mobFx.ts) hear a cry when a lair is roused (MobDef.cry) and a
+ * scatter when a pack breaks off or a herd bolts (host.note).
  *
  * A living guard lair locks the resource nodes within GUARD_R (no gathering there); clearing it (every mob dead) frees
  * them. A claim point (`RegionData.claimPoints`) opens once every lair of its zone is cleared: a squad sent there with
@@ -24,13 +28,13 @@
  * HOST.raid.every ticks one goes for the nearest foe cart; his zone's claim point opens once he falls. A region boss
  * (M7d, setBoss) holds the region and keeps every claim point shut while it lives.
  */
-import type { ClaimSnap, LairSnap, MobKind, NodeSnap, Order, RegionData, SquadId } from '../types';
+import type { ClaimSnap, LairSnap, MobFxEvent, MobKind, NodeSnap, Order, RegionData, SquadId, WarEvent } from '../types';
 import type { ClassId } from '../../data/classes';
 import { depthRule, HOST } from './depth';
 
 export const MOB_TEAM = 7;
 export const MOB_OWNER = 'mob';
-export const MOB_KINDS: readonly MobKind[] = ['wolf', 'boar', 'bear', 'bandit', 'jackal', 'ibex'];
+export const MOB_KINDS: readonly MobKind[] = ['wolf', 'boar', 'bear', 'bandit', 'jackal', 'ibex', 'lion', 'serpent'];
 
 /**
  * Per kind: stats over a base class (multipliers on hp and damage, absolute speed and attack time), pack size, and the
@@ -44,22 +48,43 @@ export interface MobDef {
   count: number; aggro: number; leash: number;
   /** passive: runs from foes, never guards nodes or a claim zone; skittish: breaks off below this share of the pack's hp. */
   passive?: boolean; skittish?: number;
+  /** W-67: a burst at a foe min..max tiles off (boar charge, lion pounce, serpent lunge): see MobDash. */
+  dash?: MobDash;
+  /** W-67: roused from home it cries out (wolf howl, lion and bear roar; the view's sound and ring). */
+  cry?: 'howl' | 'roar';
 }
+
+/**
+ * W-67: a beast's burst at its target: when the foe is min..max tiles off, it runs at `speed` times its pace for `ticks`;
+ * its next blow within the burst deals `dmg` times its damage and throws the man `knock` tiles more. Again after `cd`
+ * ticks; `once`: only its first blow on each man (a lion's pounce).
+ */
+export interface MobDash { min: number; max: number; ticks: number; speed: number; cd: number; dmg: number; knock?: number; once?: boolean }
 
 export const MOBS: Record<MobKind, MobDef> = {
   // fast, weak, many: the pack swarms
-  wolf: { base: 'militia', hp: 0.55, dmg: 0.6, speed: 1.6, atk: 0.8, armor: 0, block: 0, count: 6, aggro: 12, leash: 26 },
+  wolf: { base: 'militia', hp: 0.55, dmg: 0.6, speed: 1.6, atk: 0.8, armor: 0, block: 0, count: 6, aggro: 12, leash: 26, cry: 'howl' },
   // a charge that throws men back
-  boar: { base: 'militia', hp: 1.3, dmg: 1.1, speed: 1.35, atk: 1.2, armor: 2, block: 0, knock: 1.2, count: 3, aggro: 8, leash: 18 },
+  boar: { base: 'militia', hp: 1.3, dmg: 1.1, speed: 1.35, atk: 1.2, armor: 2, block: 0, knock: 1.2, count: 3, aggro: 8, leash: 18,
+    dash: { min: 3, max: 7, ticks: 10, speed: 1.9, cd: 80, dmg: 1.25 } },
   // slow, tanky, hits hard
-  bear: { base: 'militia', hp: 4, dmg: 2.4, speed: 1.05, atk: 1.5, armor: 4, block: 0, reach: 1.2, count: 2, aggro: 10, leash: 20 },
+  bear: { base: 'militia', hp: 4, dmg: 2.4, speed: 1.05, atk: 1.5, armor: 4, block: 0, reach: 1.2, count: 2, aggro: 10, leash: 20, cry: 'roar' },
   // men with weapons (the base class's kit)
   bandit: { base: 'celt_sword', hp: 0.9, dmg: 1, speed: 1, count: 8, aggro: 14, leash: 30 },
   // harass, then run
   jackal: { base: 'militia', hp: 0.4, dmg: 0.45, speed: 1.55, atk: 0.8, armor: 0, block: 0, count: 6, aggro: 9, leash: 18, skittish: 0.5 },
   // a herd that flees
   ibex: { base: 'militia', hp: 0.6, dmg: 0.3, speed: 1.7, armor: 0, block: 0, count: 5, aggro: 10, leash: 30, passive: true },
+  // W-67 a pride that hunts: quick, hard-hitting, a pounce on each man it goes for; it breaks off once badly mauled
+  lion: { base: 'militia', hp: 1.15, dmg: 1.3, speed: 1.55, atk: 1, armor: 1, block: 0, count: 3, aggro: 12, leash: 24, skittish: 0.3, cry: 'roar',
+    dash: { min: 2.2, max: 6, ticks: 7, speed: 2.4, cd: 40, dmg: 1.8, knock: 0.8, once: true } },
+  // W-67 a great river serpent: slow, armoured, a long venomous bite and a short lunge
+  serpent: { base: 'militia', hp: 2.2, dmg: 1.2, speed: 0.75, atk: 1.6, armor: 3, block: 0, reach: 2.2, venom: true, count: 2, aggro: 7, leash: 14,
+    dash: { min: 1.8, max: 3.6, ticks: 5, speed: 2.6, cd: 60, dmg: 1.3 } },
 };
+
+/** W-67: a mob FX event (the view's ../view/mobFx.ts; the live region forwards these to the players who see them). */
+export const isMobFx = (e: WarEvent): e is MobFxEvent => e.kind === 'mobDash' || e.kind === 'mobCry' || e.kind === 'mobScatter';
 
 /** Unit class of a mob kind: the renderer's sheet id (src/assets/sheets/mob_<kind>/), and back (null: not a mob). */
 export const mobClass = (k: MobKind): string => `mob_${k}`;
@@ -110,6 +135,8 @@ export interface MobHost {
   towers?(): { id: number; x: number; y: number }[];
   /** M7c: foe carts in the region (raid targets). */
   carts?(): { id: number; x: number; y: number; team: number }[];
+  /** W-67: the view's mob FX (a lair roused: cry; a pack breaking off or a herd bolting: scatter). */
+  note?(e: { kind: 'mobCry' | 'mobScatter'; lair: number; mob: MobKind; x: number; y: number }): void;
 }
 
 type LairState = 'home' | 'chase' | 'return' | 'flee' | 'raid';
@@ -198,6 +225,7 @@ export function createMobs(region: RegionData, host: MobHost) {
       // run off away from the foe, about half the leash from the lair
       const f = sq(foe), dx = l.x - f.cx, dy = l.y - f.cy, d = Math.hypot(dx, dy) || 1, k = l.def.leash * 0.5;
       const x = Math.min(host.w - 2, Math.max(1, l.x + (dx / d) * k)), y = Math.min(host.h - 2, Math.max(1, l.y + (dy / d) * k));
+      if (l.state !== 'flee') host.note?.({ kind: 'mobScatter', lair: l.id, mob: l.kind, x: sq(l.squad).cx, y: sq(l.squad).cy });
       l.state = 'flee';
       l.fleeUntil = tick + FLEE_TICKS;
       host.order({ kind: 'move', squad: l.squad, x, y });
@@ -240,6 +268,7 @@ export function createMobs(region: RegionData, host: MobHost) {
       let [foe] = nearestFoe(MOB_TEAM, s.cx, s.cy, l.def.aggro);
       if (foe < 0 && hurt) [foe] = nearestFoe(MOB_TEAM, s.cx, s.cy, l.def.leash * 1.5); // shot at from further off
       if (foe >= 0) {
+        if (l.def.cry) host.note?.({ kind: 'mobCry', lair: l.id, mob: l.kind, x: s.cx, y: s.cy });
         aggro(l, foe);
         if (!l.def.passive) for (const o of lairs) if (o !== l && !o.cleared && o.kind === l.kind && o.state === 'home' && Math.hypot(o.x - l.x, o.y - l.y) < ASSIST) aggro(o, foe);
         return;
@@ -254,8 +283,12 @@ export function createMobs(region: RegionData, host: MobHost) {
       // past the leash, the foe gone, or a skittish pack bloodied: back to the lair
       if (dHome > l.def.leash || !f || f.alive === 0 || s.order !== 'attack' || (l.def.skittish && hp < max * l.def.skittish)) {
         const [next] = f && f.alive > 0 ? [-1] : nearestFoe(MOB_TEAM, s.cx, s.cy, l.def.aggro);
-        if (next >= 0 && dHome <= l.def.leash) aggro(l, next);
-        else goHome(l);
+        const broke = !!l.def.skittish && hp < max * l.def.skittish;
+        if (next >= 0 && dHome <= l.def.leash && !broke) aggro(l, next);
+        else {
+          if (broke) host.note?.({ kind: 'mobScatter', lair: l.id, mob: l.kind, x: s.cx, y: s.cy });
+          goHome(l);
+        }
       } else if (s.target !== l.foe) l.foe = s.target; // the sim's attack moved on to the nearest foe
     } else if (l.state === 'flee') {
       if (tick >= l.fleeUntil || host.arrived(l.squad)) {

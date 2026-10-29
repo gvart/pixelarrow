@@ -93,7 +93,8 @@ export class SandboxRoster {
     } else this.seed();
     // only the player's own spawns draw his men (an ally's or a garrison's squad on his team stays anonymous)
     s.sim.personsFor = (owner, team, cls, count) => (team === myTeam() && owner === 'you' ? this.take(cls, Math.min(count, SQUAD_MAX)) : undefined);
-    s.sim.onEvents = (ev) => this.events(ev);
+    const prev = s.sim.onEvents; // the other listeners (sound, mob FX) keep theirs
+    s.sim.onEvents = (ev) => (prev?.(ev), this.events(ev));
     setInterval(() => this.watch(), 250);
   }
 

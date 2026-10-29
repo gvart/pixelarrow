@@ -23,6 +23,15 @@ const CLASSES = {
   gyges: { scale: 1, canvas: [160, 160] },
   chimera: { scale: 0.55, canvas: [128, 128], template: true },
   scylla_head: { scale: 1, canvas: [128, 160] },
+  // W-67 bosses: the beasts and the Minotaur at the soldier's 33 px/m on a 160 canvas (~4.5 m), the Titan (~11 m) and
+  // the River-God (~10 m) at the giants' 18 px/m
+  griffin: { scale: 0.55, canvas: [160, 160] },
+  savanna_lion: { scale: 0.55, canvas: [160, 160] },
+  moor_bear: { scale: 0.55, canvas: [160, 160] },
+  erymanthian_boar: { scale: 0.55, canvas: [160, 160] },
+  minotaur: { scale: 0.55, canvas: [160, 160] },
+  titan: { scale: 1, canvas: [224, 224] },
+  river_god: { scale: 1, canvas: [192, 192] },
 };
 const FPS = { idle: 8, walk: 10, attack: 12, slash: 12, thrust: 14, shoot: 12, brace: 8, charge: 12, die: 10, block: 10, cheer: 10 };
 const STRIKE = { attack: 6, slash: 6, thrust: 6, shoot: 8, charge: 6 };

@@ -1,0 +1,85 @@
+{
+ "version": 2,
+ "class": "mob_griffin",
+ "image": "mob_griffin.png",
+ "frame": {
+  "w": 161,
+  "h": 158
+ },
+ "anchor": {
+  "x": 83,
+  "y": 148
+ },
+ "anchors": {
+  "south-east": {
+   "x": 78,
+   "y": 148
+  },
+  "north-east": {
+   "x": 73,
+   "y": 144
+  },
+  "south-west": {
+   "x": 83,
+   "y": 148
+  },
+  "north-west": {
+   "x": 87,
+   "y": 144
+  }
+ },
+ "scale": 0.55,
+ "rows": [
+  "south-east",
+  "north-east",
+  "south-west",
+  "north-west"
+ ],
+ "wrap": 25,
+ "colorGroups": {},
+ "tiers": {
+  "basic": {}
+ },
+ "anims": {
+  "idle": {
+   "col": 0,
+   "frames": 12,
+   "fps": 8
+  },
+  "walk": {
+   "col": 12,
+   "frames": 12,
+   "fps": 10
+  },
+  "attack": {
+   "col": 24,
+   "frames": 12,
+   "fps": 12,
+   "strike": 6
+  },
+  "charge": {
+   "col": 36,
+   "frames": 12,
+   "fps": 12,
+   "strike": 6
+  },
+  "die": {
+   "col": 48,
+   "frames": 12,
+   "fps": 10
+  },
+  "hit": {
+   "col": 60,
+   "frames": 4,
+   "fps": 12
+  }
+ },
+ "metal": [],
+ "variation": {
+  "skin": false,
+  "shade": false
+ },
+ "rarity": {
+  "metal": false
+ }
+}

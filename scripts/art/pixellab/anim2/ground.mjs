@@ -2,14 +2,17 @@
 // north-east climbs 25 px over 12 frames, then snaps back on the loop: the "jump" seen when swordsmen attack on the
 // move). Each frame of the clip, in every facing, is shifted up or down so its lowest opaque row sits on the row's
 // anchor (the feet row), in place in src/assets/sheets/<class>/.
-// Usage: node scripts/art/pixellab/anim2/ground.mjs <class> <anim> [<anim> ...]
+// Usage: node scripts/art/pixellab/anim2/ground.mjs <class> <anim> [<anim> ...] [--down]
+//   --down: only move frames down onto the anchor, never up (a beast's paw striking out below its feet keeps the body
+//   where it is instead of lifting it)
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readImage, writeImage } from '../../lib/png.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..');
-const [cls, ...anims] = process.argv.slice(2);
+const down = process.argv.includes('--down');
+const [cls, ...anims] = process.argv.slice(2).filter((a) => a !== '--down');
 const dir = join(ROOT, 'src/assets/sheets', cls);
 const m = JSON.parse(readFileSync(join(dir, 'manifest.json'), 'utf8'));
 const img = readImage(join(dir, m.image));
@@ -24,7 +27,7 @@ for (const name of anims) {
     let bot = -1;
     for (let y = 0; y < FH; y++) for (let x = 0; x < FW; x++) if (img.data[at(x, y) + 3]) bot = y;
     const dy = m.anchors[m.rows[r]].y - bot;
-    if (bot < 0 || !dy) continue;
+    if (bot < 0 || !dy || (down && dy < 0)) continue;
     const f = new Uint8Array(FW * FH * 4);
     for (let y = 0; y < FH; y++) f.set(img.data.subarray(at(0, y), at(FW, y)), y * FW * 4);
     for (let y = 0; y < FH; y++) {

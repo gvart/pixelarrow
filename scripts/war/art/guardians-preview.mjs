@@ -5,7 +5,7 @@
 //   GUARD_drakon_crash_1x.png     the crash (P3) in the yard: crash frames + crash dust, a hoplite line
 //   GUARD_landmarks_1x.png  one panel per guardian at its landmark piece
 // Usage: node scripts/war/art/guardians-preview.mjs [out dir]   (default shots/war/landmarks in the main checkout)
-import { mkdirSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readImage, writeImage } from '../../art/lib/png.mjs';
@@ -103,6 +103,29 @@ const men = (c, cls, n, x, y, dx, dy, row = 'north-east', anim = 'idle') => {
   put(c, man, x + man.ax, H - 30); x += man.img.w;
   for (const f of fs) { put(c, f, x + f.ax - 10, H - 30); x += f.img.w - 20; }
   writeImage(join(OUT, 'GUARD_lineup_1x.png'), c);
+}
+
+// 1b. W-67 bosses: a lineup beside a hoplite, Brontes and Drakon (GUARD_w67_lineup_1x.png), and per boss its clips,
+// south-west and north-west rows, every third frame (GUARD_w67_<kind>_1x.png)
+{
+  const W67 = ['mob_griffin', 'mob_savanna_lion', 'mob_moor_bear', 'mob_erymanthian_boar', 'mob_minotaur', 'mob_river_god', 'mob_titan']
+    .filter((c) => existsSync(join(ROOT, 'src/assets/sheets', c, 'manifest.json')));
+  const order = ['hoplite', 'mob_chimera', ...W67, 'mob_brontes', 'mob_drakon'];
+  const fs = order.map((c) => frame(c, 'idle', 'south-west'));
+  const W = fs.reduce((s, f) => s + f.img.w - 20, 60), H = Math.max(...fs.map((f) => f.ay)) + 60;
+  const c = ground(W, H);
+  let x = 30;
+  for (const f of fs) { put(c, f, x + f.ax - 10, H - 30); x += f.img.w - 20; }
+  writeImage(join(OUT, 'GUARD_w67_lineup_1x.png'), c);
+  for (const cls of W67) {
+    const { m } = sheet(cls);
+    const cells = [];
+    for (const [anim, a] of Object.entries(m.anims)) for (let i = 0; i < a.frames; i += 3) cells.push([anim, i]);
+    const sample = frame(cls, 'idle', 'south-west'), cw = sample.img.w, ch = sample.img.h;
+    const d = ground(cells.length * cw + 20, 2 * ch + 20);
+    ['south-west', 'north-west'].forEach((row, r) => cells.forEach(([anim, i], k) => put(d, frame(cls, anim, row, i), 10 + k * cw + sample.ax, 10 + r * ch + sample.ay)));
+    writeImage(join(OUT, `GUARD_w67_${cls.slice(4)}_1x.png`), d);
+  }
 }
 
 // 2. Drakon on the keep roof (P2) breathing on the yard; 3. the crash (P3)

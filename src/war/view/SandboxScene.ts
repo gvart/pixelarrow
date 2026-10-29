@@ -36,6 +36,8 @@ import { ShotLayer } from './shots';
 import { BODY, SPRITE_ZOOM, UnitLayer } from './units';
 import { peakAt } from './peaks';
 import { NeutralLayer } from './neutral';
+import { MobFx } from './mobFx';
+import { isMobFx } from '../sim/mobs';
 import { BuildMode } from './build/buildMode';
 import { workClip } from './build/work';
 import { SiegeArt } from './siege/siegeArt';
@@ -158,6 +160,8 @@ export class SandboxScene extends Phaser.Scene {
   private units!: UnitLayer;
   /** Lairs and claim banners (neutral regions). */
   private neutral!: NeutralLayer;
+  /** W-67: mob FX (a beast's burst, a lair's cry, a pack scattering). */
+  mobFx!: MobFx;
   private shots!: ShotLayer;
   /** M7d: landmark guardians (perch, clips, their moves' fx, the Warden's mark). */
   guardians!: GuardianLayer;
@@ -223,6 +227,22 @@ export class SandboxScene extends Phaser.Scene {
     else cam.setZoom(this.minZoom()).centerOn(W / 2, H / 2);
 
     this.sim = new SimClient(r);
+    // W-67: mob FX from the sim's events (offline) or the server's mobFx message (live)
+    this.mobFx = new MobFx(this, (x, y) => this.units.feet({ x, y }), (id) => {
+      const d = this.drawn.find((q) => q.u.id === id);
+      return d && this.units.feet(d);
+    });
+    const fxView = () => {
+      const a = this.wpx(0, 0), b = this.wpx(this.cameras.main.width, this.cameras.main.height);
+      return { x: a.x, y: a.y, right: b.x, bottom: b.y };
+    };
+    const prevEv = this.sim.onEvents;
+    this.sim.onEvents = (ev) => {
+      prevEv?.(ev);
+      const fx = ev.filter(isMobFx);
+      if (fx.length) this.mobFx.push(fx, this.time.now, this.cameras.main.zoom, fxView());
+    };
+    this.sim.serverTaps.add((m) => { if (m.t === 'mobFx') this.mobFx.push(m.ev, this.time.now, this.cameras.main.zoom, fxView()); });
     this.input.mouse!.disableContextMenu();
     this.keys = this.input.keyboard!.addKeys('SHIFT') as Record<string, Phaser.Input.Keyboard.Key>;
     // every key goes through the war's bindings (../input): build mode's keys win while it is on, a selected own
@@ -638,6 +658,7 @@ export class SandboxScene extends Phaser.Scene {
     this.sel.sync(this.drawn);
     // M7d: guardians perched or flying, and their squads' units not drawn (the Chimera's other heads)
     const bosses = this.sim.cur?.bosses;
+    this.build.layer.guards = (bosses ?? []).filter((b) => b.state !== 'slain' && b.state !== 'away').map((b) => ({ x: b.x, y: b.y }));
     if (bosses) {
       this.guardians.update(bosses, this.sim.cur?.buildings ?? [], this.sim.cur?.units ?? []);
       if (this.guardians.hidden.size) this.drawn = this.drawn.filter((d) => !this.guardians.hidden.has(d.u.id));
@@ -657,7 +678,8 @@ export class SandboxScene extends Phaser.Scene {
     this.units.draw(this.drawn, view, cam.zoom, this.sim.replay?.picked ?? this.sel.units, at, this.sim.squads, shots, occluded);
     this.micro.update(this.drawn, this.sel.units, view, cam.zoom, this.guardians.watch);
     const cur = this.sim.cur;
-    if (cur?.lairs || cur?.claims) this.neutral.draw(cur.lairs ?? [], cur.claims ?? [], cam.zoom);
+    if (cur?.lairs || cur?.claims) this.neutral.draw(cur.lairs ?? [], cur.claims ?? [], cam.zoom, bosses);
+    this.mobFx.draw(cam.zoom, this.time.now, view);
     if (bosses || cur?.warden) this.guardians.draw(bosses ?? [], cur?.warden, cam.zoom, this.time.now, this.sim.since(this.time.now), view, this.moved && this.input.isOver ? this.wpx(p.x, p.y) : null);
     this.shots.update(at.snap, shots);
     this.shots.draw(at, cam.zoom, cam.zoom >= SPRITE_ZOOM);

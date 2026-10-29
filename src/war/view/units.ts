@@ -111,8 +111,6 @@ const images = import.meta.glob<string>(
   ['../../assets/sheets/militia/*.png', '../../assets/sheets/hoplite/*.png', '../../assets/sheets/celt_sword/*.png', '../../assets/sheets/archer/*.png', '../../assets/sheets/slinger/*.png', '../../assets/sheets/javelineer/*.png', '../../assets/sheets/mob_*/*.png', '../../assets/sheets/civ_*/*.png'],
   { eager: true, query: '?url', import: 'default' },
 );
-/** E3: classes drawn with another class's sheet at their own manifest scale (the Erymanthian Boar: the boar, huge). */
-const SHEET_ALIAS: Readonly<Record<string, { from: string; scale: number }>> = { mob_great_boar: { from: 'mob_boar', scale: 1.4 } };
 /** Texture side every GPU takes: a taller sheet is split into pieces of whole bands. */
 const MAX_TEX = 4096;
 /** Screen quadrant (x right, y down) -> sheet row name. */
@@ -257,10 +255,6 @@ export class UnitLayer {
     for (const [path, m] of Object.entries(manifests)) {
       const cls = path.split('/').at(-2)!, img = sheetImages.get(cls);
       if (img) this.pending.set(cls, [m, img]);
-    }
-    for (const [cls, a] of Object.entries(SHEET_ALIAS)) {
-      const p = this.pending.get(a.from);
-      if (p) this.pending.set(cls, [{ ...p[0], class: cls, scale: a.scale } as SheetManifest, p[1]]);
     }
     this.lookIndex = addLookPipeline(scene, [...this.pending].map(([cls, [m]]) => [cls, m] as [string, SheetManifest]), TEAM_TINT);
     const loadsImg = sheetImages.get(LOADS_KEY);
@@ -418,10 +412,19 @@ export class UnitLayer {
   }
   private drawCorpses(n: number, now: number): number {
     for (let i = this.corpses.length - 1; i >= 0; i--) {
-      const c = this.corpses[i], sheet = this.sheet(c.cls)!, def = sheet.clips.get('die'), el = now - c.t0;
-      if (el > 12000) { this.corpses.splice(i, 1); continue; }
+      const c = this.corpses[i], sheet = this.sheet(c.cls);
+      // the corpse is stamped on the scene clock, drawn on the sim's (AnimTime): start it at its first draw
+      if (c.t0 > now) c.t0 = now;
+      const el = now - c.t0;
+      if (el > 12000 || !sheet) { this.corpses.splice(i, 1); continue; }
+      const def = sheet.clips.get('die');
       const fx = Math.cos(c.facing), fy = Math.sin(c.facing), sx = fx - fy, sy = fx + fy;
-      const q = sheet.rows[(sx < 0 ? 1 : 0) + (sy < 0 ? 2 : 0)], frames = sheet.frames.get('die')![q.row];
+      // a die row may be missing or empty (east rows are mirrors): take the first row that has frames, else skip
+      const die = sheet.frames.get('die') ?? [];
+      let q = sheet.rows[(sx < 0 ? 1 : 0) + (sy < 0 ? 2 : 0)];
+      if (!die[q?.row]?.length) q = sheet.rows.find((r) => die[r.row]?.length) ?? q;
+      const frames = die[q?.row];
+      if (!frames?.length) { this.corpses.splice(i, 1); continue; }
       const [key, frame] = frames[Math.min(frames.length - 1, Math.floor((el / 1000) * (def?.fps ?? 10)))];
       const f = this.feet({ x: c.x, y: c.y });
       let img = this.pool[n];

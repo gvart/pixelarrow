@@ -29,9 +29,18 @@
  *    frenzied, she calls two maenad packs.
  *  - The Titan of the Navel: P1 boulders from the arena (range 6-30, area 2.5, breaks wood); P2 (< 50%) stomps (knock 3) and
  *    tears the ramp gates. Achelous the River-God: a giant, a serpent in the channels (venom, aloft but from the
- *    fords), a bull that charges through the ranks (knock 2). The Minotaur and the pocket bosses fight as brutes.
+ *    fords), a bull that charges through the ranks (knock 2); from P2 on, once a phase, a surge: a wave that throws the
+ *    men in its band back and staggers them.
  *  - The Erymanthian Boar (E3, the boar wood of Erymanthos): gores through the ranks every 10 s (the bull's charge, knock 2);
  *    P2 (< 50%) enraged, the sounder comes: two boar packs from its wallow.
+ *  - W-67 signature moves of the beasts with their own bodies: the Griffin dives on the back ranks (its archers first),
+ *    knocking the men under it down; the Lion pounces on the nearest man after a crouch and roars the press round it
+ *    back (staggered); the Bear rears and mauls a short cone (knock 3); the Minotaur charges in a straight line through a
+ *    squad, stunned a moment if a wall stops it.
+ *
+ * Telegraphs (W-67): a signature move (dive, pounce, roar, maul, the charges, the surge) winds up first: the guardian
+ * stands braced (pinned: no blows, still in reach of blades) while its mark lies on the ground (BossSnap `tele`), and it
+ * lands on what is in the mark when it lands: men moved out of it are spared.
  *
  * The kill: a `bossSlain` event (killers: owners of the squads that hurt it, the last blow first) at the body; the region
  * room drops its loot (src/data/warBosses.ts bossLoot, bossGoods) as a pile there; the sandbox does the same. Respawn:
@@ -60,6 +69,8 @@ export interface BossHost {
   /** Raw damage (no armour, no blow) to a man; venom: a venomous bite. */
   hurt(u: BUnit, dmg: number, venom?: boolean): void;
   knock(u: BUnit, fx: number, fy: number, tiles: number): void;
+  /** W-67: stagger a man (half pace) for `ticks`. */
+  slow(u: BUnit, ticks: number): void;
   /** Put a man at (x,y) (a flight, a perch). */
   place(u: BUnit, x: number, y: number): void;
   /** The man leaves the field, unreported (an escape). */
@@ -86,7 +97,7 @@ export interface BossHost {
   mobTeam: number; neutralTeam: number;
 }
 
-type Ai = 'drakon' | 'scylla' | 'brontes' | 'gyges' | 'chimera' | 'king' | 'maenads' | 'titan' | 'river' | 'brute' | 'boar';
+type Ai = 'drakon' | 'scylla' | 'brontes' | 'gyges' | 'chimera' | 'king' | 'maenads' | 'titan' | 'river' | 'brute' | 'boar' | 'griffin' | 'lion' | 'bear' | 'minotaur';
 /**
  * Per guardian: its AI, sheet, body (hp, damage a blow, armour, reach, seconds a blow, speed), aggro and leash radii, its
  * guard or thiasos, and its parts (linked targets: Scylla's heads, the Chimera's heads).
@@ -100,19 +111,19 @@ export const GUARDIANS: Readonly<Record<string, GDef>> = {
   drakon: { ai: 'drakon', cls: 'mob_drakon', hp: 18000, dmg: 8, armor: 2, reach: 2.6, atk: 2, speed: 1.1, aggro: 18, leash: 30 },
   scylla: { ai: 'scylla', cls: 'mob_scylla_head', hp: 10000, dmg: 10, armor: 4, reach: 3, atk: 3, speed: 0.8, aggro: 14, leash: 40, parts: { n: 6, hp: 1200, dmg: 10 } },
   bandit_king: { ai: 'king', cls: 'mob_bandit_king', hp: 6000, dmg: 22, armor: 6, reach: 1.6, atk: 1.1, speed: 1.05, aggro: 10, leash: 14, guard: { cls: 'mob_bandit_guard', n: 11, hp: 150, dmg: 14, armor: 4 } },
-  river_god: { ai: 'river', cls: 'mob_brontes', hp: 30000, dmg: 20, armor: 4, reach: 2.4, atk: 1.8, speed: 0.9, aggro: 16, leash: 26 },
-  titan: { ai: 'titan', cls: 'mob_brontes', hp: 16000, dmg: 30, armor: 4, reach: 2.6, atk: 2, speed: 0.8, aggro: 30, leash: 30 },
-  minotaur: { ai: 'brute', cls: 'mob_bandit_captain', hp: 12000, dmg: 50, armor: 4, reach: 1.8, atk: 1.2, speed: 1.1, aggro: 10, leash: 16 },
+  river_god: { ai: 'river', cls: 'mob_river_god', hp: 30000, dmg: 20, armor: 4, reach: 2.4, atk: 1.8, speed: 0.9, aggro: 16, leash: 26 },
+  titan: { ai: 'titan', cls: 'mob_titan', hp: 16000, dmg: 30, armor: 4, reach: 2.6, atk: 2, speed: 0.8, aggro: 30, leash: 30 },
+  minotaur: { ai: 'minotaur', cls: 'mob_minotaur', hp: 11000, dmg: 44, armor: 4, reach: 1.8, atk: 1.2, speed: 1.1, aggro: 10, leash: 16 },
   brontes: { ai: 'brontes', cls: 'mob_brontes', hp: 8000, dmg: 30, armor: 4, reach: 2.2, atk: 1.8, speed: 0.85, aggro: 25, leash: 22 },
   grove_queen: { ai: 'maenads', cls: 'mob_maenad_queen', hp: 4000, dmg: 30, armor: 4, reach: 1.6, atk: 1, speed: 1.3, aggro: 14, leash: 24, guard: { cls: 'mob_maenad', n: 8, hp: 90, dmg: 14, armor: 2 } },
-  // E3: the mob_boar sheet drawn huge (src/war/view/units.ts SHEET_ALIAS); gores through the ranks, the sounder at half hp
-  erymanthian_boar: { ai: 'boar', cls: 'mob_great_boar', hp: 7000, dmg: 34, armor: 5, reach: 2, atk: 1.4, speed: 1.25, aggro: 14, leash: 24 },
+  // E3: gores through the ranks, the sounder at half hp (W-67: its own sheet, mob_erymanthian_boar)
+  erymanthian_boar: { ai: 'boar', cls: 'mob_erymanthian_boar', hp: 7000, dmg: 34, armor: 5, reach: 2, atk: 1.4, speed: 1.25, aggro: 14, leash: 24 },
   gyges: { ai: 'gyges', cls: 'mob_gyges', hp: 10000, dmg: 12, armor: 4, reach: 2.4, atk: 1.6, speed: 0.9, aggro: 20, leash: 30 },
   chimera: { ai: 'chimera', cls: 'mob_chimera', hp: 2200, dmg: 16, armor: 6, reach: 1.8, atk: 1.3, speed: 1.15, aggro: 14, leash: 22, parts: { n: 3, hp: 2200, dmg: 16 } },
   maenad_queen: { ai: 'maenads', cls: 'mob_maenad_queen', hp: 2500, dmg: 26, armor: 3, reach: 1.6, atk: 1, speed: 1.3, aggro: 14, leash: 24, guard: { cls: 'mob_maenad', n: 6, hp: 80, dmg: 12, armor: 2 } },
-  moor_bear: { ai: 'brute', cls: 'mob_bear', hp: 5000, dmg: 40, armor: 6, reach: 1.6, atk: 1.5, speed: 1.05, aggro: 12, leash: 20 },
-  griffin: { ai: 'brute', cls: 'mob_bear', hp: 4500, dmg: 40, armor: 5, reach: 1.6, atk: 1.3, speed: 1.3, aggro: 14, leash: 22 },
-  savanna_lion: { ai: 'brute', cls: 'mob_bear', hp: 4500, dmg: 45, armor: 9, reach: 1.6, atk: 1.2, speed: 1.3, aggro: 14, leash: 22 },
+  moor_bear: { ai: 'bear', cls: 'mob_moor_bear', hp: 5000, dmg: 40, armor: 6, reach: 1.6, atk: 1.5, speed: 1.05, aggro: 12, leash: 20 },
+  griffin: { ai: 'griffin', cls: 'mob_griffin', hp: 4500, dmg: 40, armor: 5, reach: 1.6, atk: 1.3, speed: 1.3, aggro: 14, leash: 22 },
+  savanna_lion: { ai: 'lion', cls: 'mob_savanna_lion', hp: 4500, dmg: 45, armor: 9, reach: 1.6, atk: 1.2, speed: 1.3, aggro: 14, leash: 22 },
 };
 
 /** Timings (ticks) and reach of the special moves. */
@@ -135,11 +146,23 @@ export const MOVES = {
   boulder: { every: 60, range: 30, min: 6, r: 2.5, share: 0.1, wood: 400 },
   stomp: { every: 100, r: 4, share: 0.08, knock: 3, gates: 6, gateDmg: 600 },
   bite: { every: 30, r: 3 },
-  charge: { every: 100, range: 10, w: 1.5, share: 0.15, knock: 2 },
+  charge: { every: 100, range: 10, w: 1.5, share: 0.11, knock: 2, wind: 12, min: 6, through: 3 },
+  /**
+   * W-67 signature moves: `wind` ticks braced with the mark on the ground before it lands (a leap: `wind` crouched, then
+   * `fly` in the air); cadence `every`; reach and the share of a man's max hp each deals.
+   */
+  dive: { every: 120, wind: 8, fly: 12, range: 16, min: 4, r: 2.5, share: 0.12, knock: 2 },
+  pounce: { every: 90, wind: 10, fly: 4, range: 8, min: 2.5, r: 1.6, share: 0.12, knock: 2 },
+  roar: { every: 220, wind: 8, r: 5, n: 3, knock: 1.5, slow: 20 },
+  maul: { every: 70, wind: 12, len: 3.4, half: 0.75, share: 0.1, knock: 3 },
+  bull: { every: 140, wind: 15, range: 12, min: 3, len: 12, w: 1.3, share: 0.1, knock: 2, stun: 30, fly: 8 },
+  surge: { delay: 30, wind: 20, reach: 28, len: 10, past: 6, w: 3, share: 0.04, push: 3, slow: 30 },
   fx: 20,
   /** Ticks without a blow either way, away from home, before a guardian on the ground walks back to its post. */
   stall: 200,
 };
+/** W-67: a man staggered by a roar or a surge walks at this share of his pace. */
+export const BOSS_SLOW = 0.5;
 /** 24 h unheld before a slain guardian is back (ticks); retried every 10 min while the region is held. */
 export const BOSS = { respawn: 864000, retry: 6000 };
 /** Raid scaling: the raid a guardian of each tier expects (foe squads near), max hp per squad over it, the cap. */
@@ -155,7 +178,14 @@ interface Run {
   main: number; phase: number; state: BossSnap['state'];
   scale: number; raid: number;
   next: number; next2: number; perch: number; perchAt: number;
-  fly: { x0: number; y0: number; x1: number; y1: number; t0: number; t1: number; then: 'perch' | 'land' | 'crash' | 'charge' } | null;
+  fly: { x0: number; y0: number; x1: number; y1: number; t0: number; t1: number; then: 'perch' | 'land' | 'crash' | 'charge' | 'dive' | 'pounce' | 'wall' } | null;
+  /**
+   * W-67: the signature move it winds up: its mark (x,y to tx,ty, r), set at t0, launched at `go` (braced till then; we
+   * pinned it: `held`), landing at `at`; a charge stopped by a wall short of its length (`wall`).
+   */
+  tele?: { kind: Fx['kind']; x: number; y: number; tx: number; ty: number; r: number; t0: number; go: number; at: number; held: boolean; wall?: boolean } | null;
+  /** W-67: stunned (pinned) until this tick (the Minotaur in a wall); the River-God's surge due at this tick (0: none). */
+  stun?: number; surge?: number;
   fleeAt: number; respawnAt: number; guardN: number;
   /** Last tick a blow landed on it or one of its men, or one of theirs on a foe (or it went home for want of one). */
   hitAt?: number;
@@ -325,6 +355,9 @@ export function createBosses(region: RegionData, host: BossHost) {
     r.next2 = tick + 45;
     r.perch = 0;
     r.perchAt = 0;
+    r.tele = null;
+    r.stun = 0;
+    r.surge = 0;
     if (r.ai === 'chimera') {
       r.sq = host.spawn(g.cls, g.parts!.n, e.x, e.y, { ...st, maxHp: g.parts!.hp, dmg: g.parts!.dmg }, r.i);
       const s = sqOf(r.sq)!;
@@ -358,6 +391,11 @@ export function createBosses(region: RegionData, host: BossHost) {
   const enter = (r: Run, p: number) => {
     const e = entries[r.i], u = body(r)!, g = def(r);
     host.note({ t: tick, kind: 'bossPhase', region: region.id, boss: r.id, phase: p });
+    // a move wound up is lost in the phase change
+    if (r.tele && !r.fly) {
+      if (r.tele.held) pin(u, false);
+      r.tele = null;
+    }
     switch (r.ai) {
       case 'drakon':
         if (p === 1) {
@@ -415,40 +453,127 @@ export function createBosses(region: RegionData, host: BossHost) {
         break;
       case 'river':
         if (p === 1) {
-          // a serpent in the channels: only a man on a ford reaches it
-          u.cls = 'mob_scylla_head';
+          // in the channels (one body, mob_river_god, in every phase): only a man on a ford reaches him
           u.venom = true;
           const [cx, cy] = e.flats ?? [e.x, e.y];
           host.place(u, cx, cy);
           pin(u, true, 2);
           r.state = 'perch';
+          r.surge = tick + MOVES.surge.delay;
         } else if (p === 2) {
-          u.cls = 'mob_boar';
           u.venom = false;
           pin(u, false);
           host.place(u, e.x, e.y);
           setSt(u, { knock: 3 });
           r.state = 'fight';
+          r.surge = tick + MOVES.surge.delay;
         }
         break;
       default:
     }
   };
 
-  /** A charge through the ranks to the densest foe within MOVES.charge.range: the men on its line hit and thrown back. */
+  /** Foe men within w of the segment (x,y)-(tx,ty). */
+  const band = (x: number, y: number, tx: number, ty: number, w: number): BUnit[] => {
+    const d = Math.hypot(tx - x, ty - y) || 1;
+    return foesIn(x, y, d + w).filter((m) => {
+      const k = ((m.x - x) * (tx - x) + (m.y - y) * (ty - y)) / (d * d);
+      return k >= 0 && k <= 1 && Math.hypot(x + (tx - x) * k - m.x, y + (ty - y) * k - m.y) <= w;
+    });
+  };
+  /**
+   * W-67: wind a move up: braced where it stands (pinned, unless it is already: a perch, the channels), facing its mark,
+   * the mark on the ground; launched `go` ticks on, landing `at` ticks on.
+   */
+  const windUp = (r: Run, u: BUnit, kind: Fx['kind'], tx: number, ty: number, rad: number, go: number, at = go, wall = false) => {
+    const held = !u.pin;
+    if (held) pin(u, true, 0);
+    if (tx !== u.x || ty !== u.y) u.facing = Math.atan2(ty - u.y, tx - u.x);
+    r.tele = { kind, x: u.x, y: u.y, tx, ty, r: rad, t0: tick, go: tick + go, at: tick + at, held, wall };
+  };
+  /**
+   * The end of a straight run of `len` from u through (tx,ty): where the ground stops it (a wall, a cliff, the edge),
+   * and whether it was stopped short.
+   */
+  const runTo = (u: BUnit, tx: number, ty: number, len: number): { x: number; y: number; wall: boolean } => {
+    const d = Math.hypot(tx - u.x, ty - u.y) || 1, ux = (tx - u.x) / d, uy = (ty - u.y) / d, z = host.level(u.x, u.y);
+    let x = u.x, y = u.y;
+    for (let s = 0.5; s <= len + 1e-9; s += 0.5) {
+      const nx = u.x + ux * s, ny = u.y + uy * s;
+      if (!host.open(nx, ny) || Math.abs(host.level(nx, ny) - z) > 1) return { x, y, wall: true };
+      (x = nx), (y = ny);
+    }
+    return { x, y, wall: false };
+  };
+  /** A charge through the ranks to the densest foe within MOVES.charge.range: wound up on a line, then the men on it hit and thrown back. */
   const gore = (r: Run, u: BUnit) => {
     r.next = tick + MOVES.charge.every;
     const t = densest(u.x, u.y, MOVES.charge.range);
     if (!t || !host.open(t.x, t.y)) return;
-    const d = Math.hypot(t.x - u.x, t.y - u.y) || 1;
-    const line = foesIn(u.x, u.y, d + 1).filter((m) => {
-      const k = ((m.x - u.x) * (t.x - u.x) + (m.y - u.y) * (t.y - u.y)) / (d * d);
-      return k >= 0 && k <= 1 && Math.hypot(u.x + (t.x - u.x) * k - m.x, u.y + (t.y - u.y) * k - m.y) <= MOVES.charge.w;
-    });
-    blast(line, MOVES.charge.share, u.x, u.y, MOVES.charge.knock);
-    fx(r, 'charge', u.x, u.y, t.x, t.y, MOVES.charge.w);
-    flyTo(r, t.x, t.y, 6, 'land');
-    u.aloft = 0;
+    // on through them: past its man by `through`, at least `min` long (the ground permitting)
+    const d = Math.hypot(t.x - u.x, t.y - u.y), end = runTo(u, t.x, t.y, Math.max(MOVES.charge.min, d + MOVES.charge.through));
+    if (Math.hypot(end.x - u.x, end.y - u.y) < 1) return;
+    windUp(r, u, 'charge', end.x, end.y, MOVES.charge.w, MOVES.charge.wind);
+  };
+  /** The Griffin's mark: the densest of the foe's missile men within reach (not at its feet), else of any. */
+  const backRank = (u: BUnit, range: number, min: number): BUnit | null => {
+    const fs = foesIn(u.x, u.y, range).filter((m) => (m.x - u.x) ** 2 + (m.y - u.y) ** 2 >= min * min && host.open(m.x, m.y));
+    const bows = fs.filter((m) => m.st.range > 0), pick = bows.length ? bows : fs;
+    let best: BUnit | null = null, bn = -1;
+    for (const m of pick) {
+      let n = 0;
+      for (const o of fs) if ((o.x - m.x) ** 2 + (o.y - m.y) ** 2 <= 9) n++;
+      if (n > bn) (bn = n), (best = m);
+    }
+    return best;
+  };
+  /** The nearest foe man between min and max tiles away (the Lion's pounce). */
+  const nearestBetween = (u: BUnit, min: number, max: number): BUnit | null => {
+    let best: BUnit | null = null, bd = max * max;
+    for (const m of foesIn(u.x, u.y, max)) {
+      const d = (m.x - u.x) ** 2 + (m.y - u.y) ** 2;
+      if (d >= min * min && d < bd && host.open(m.x, m.y)) (bd = d), (best = m);
+    }
+    return best;
+  };
+  /** The move wound up goes: a leap takes off, the rest land now on what is in the mark. */
+  const launch = (r: Run, u: BUnit) => {
+    const t = r.tele!;
+    if (t.kind === 'dive' || t.kind === 'pounce') {
+      flyTo(r, t.tx, t.ty, Math.max(1, t.at - tick), t.kind);
+      return;
+    }
+    r.tele = null;
+    if (t.held) pin(u, false);
+    switch (t.kind) {
+      case 'charge': {
+        const bull = r.ai === 'minotaur';
+        blast(band(t.x, t.y, t.tx, t.ty, t.r), bull ? MOVES.bull.share : MOVES.charge.share, t.x, t.y, bull ? MOVES.bull.knock : MOVES.charge.knock);
+        fx(r, 'charge', t.x, t.y, t.tx, t.ty, t.r);
+        flyTo(r, t.tx, t.ty, bull ? MOVES.bull.fly : 6, t.wall ? 'wall' : 'land');
+        u.aloft = 0;
+        break;
+      }
+      case 'roar':
+        for (const m of foesIn(u.x, u.y, t.r)) (host.knock(m, u.x, u.y, MOVES.roar.knock), host.slow(m, MOVES.roar.slow));
+        fx(r, 'roar', u.x, u.y, u.x, u.y, t.r);
+        break;
+      case 'maul':
+        blast(cone(t.x, t.y, t.tx, t.ty, t.r, MOVES.maul.half), MOVES.maul.share, t.x, t.y, MOVES.maul.knock);
+        fx(r, 'maul', t.x, t.y, t.tx, t.ty, t.r);
+        break;
+      case 'surge': {
+        // the wave throws the men in its band back along it and staggers them
+        const d = Math.hypot(t.tx - t.x, t.ty - t.y) || 1, ux = (t.tx - t.x) / d, uy = (t.ty - t.y) / d;
+        for (const m of band(t.x, t.y, t.tx, t.ty, t.r)) {
+          host.hurt(m, Math.max(1, m.maxHp * MOVES.surge.share));
+          if (m.alive) (host.knock(m, m.x - ux, m.y - uy, MOVES.surge.push), host.slow(m, MOVES.surge.slow));
+        }
+        fx(r, 'surge', t.x, t.y, t.tx, t.ty, t.r);
+        break;
+      }
+      default:
+    }
   };
 
   const think = (r: Run) => {
@@ -472,8 +597,29 @@ export function createBosses(region: RegionData, host: BossHost) {
           call(r, 'mob_wolf', 'wolf', MOVES.crash.packs, MOVES.crash.pack, px, py, MOVES.crash.packHp, MOVES.crash.packDmg);
         } else if (f.then === 'charge') {
           blast(foesIn(u.x, u.y, MOVES.charge.w * 2), MOVES.charge.share, f.x0, f.y0, MOVES.charge.knock);
+        } else if (f.then === 'dive' || f.then === 'pounce') {
+          // W-67: the leap lands on its mark: the men still in it knocked down
+          const m = f.then === 'dive' ? MOVES.dive : MOVES.pounce, rad = r.tele?.r ?? m.r;
+          blast(foesIn(u.x, u.y, rad), m.share, u.x, u.y, m.knock);
+          fx(r, f.then, f.x0, f.y0, u.x, u.y, rad);
+          r.tele = null;
+        } else if (f.then === 'wall') {
+          // W-67: the Minotaur's charge into a wall: stunned a moment
+          pin(u, true);
+          r.stun = tick + MOVES.bull.stun;
+          fx(r, 'wall', u.x, u.y, u.x, u.y, 1);
         }
       }
+      return;
+    }
+    if (r.stun) {
+      if (tick < r.stun) return;
+      r.stun = 0;
+      pin(u, false);
+    }
+    // W-67: a move wound up: braced till it goes
+    if (r.tele) {
+      if (tick >= r.tele.go) launch(r, u);
       return;
     }
     switch (r.ai) {
@@ -615,6 +761,17 @@ export function createBosses(region: RegionData, host: BossHost) {
         }
         break;
       case 'river':
+        if (r.surge && tick >= r.surge && r.phase >= 1) {
+          // W-67: the surge, once a phase from P2: a wave at the densest of them
+          const t = densest(u.x, u.y, MOVES.surge.reach);
+          if (t) {
+            r.surge = 0;
+            const d = Math.hypot(t.x - u.x, t.y - u.y) || 1;
+            const len = Math.min(MOVES.surge.reach, Math.max(MOVES.surge.len, d + MOVES.surge.past)); // rolls out past the men it is aimed at
+            windUp(r, u, 'surge', u.x + ((t.x - u.x) / d) * len, u.y + ((t.y - u.y) / d) * len, MOVES.surge.w, MOVES.surge.wind);
+            return;
+          }
+        }
         if (r.phase === 1) {
           if (tick >= r.next) {
             r.next = tick + MOVES.bite.every;
@@ -629,6 +786,51 @@ export function createBosses(region: RegionData, host: BossHost) {
       case 'boar':
         engage(s, e.x, e.y, g.aggro, g.leash, r);
         if (r.state === 'fight' && tick >= r.next) gore(r, u);
+        break;
+      case 'griffin':
+        // W-67: dives on the back ranks
+        engage(s, e.x, e.y, g.aggro, g.leash, r);
+        if (r.state === 'fight' && tick >= r.next) {
+          r.next = tick + MOVES.dive.every;
+          const t = backRank(u, MOVES.dive.range, MOVES.dive.min);
+          if (t) windUp(r, u, 'dive', t.x, t.y, MOVES.dive.r, MOVES.dive.wind, MOVES.dive.wind + MOVES.dive.fly);
+        }
+        break;
+      case 'lion':
+        // W-67: roars the press round it back; pounces on the nearest man a few strides off
+        engage(s, e.x, e.y, g.aggro, g.leash, r);
+        if (r.state !== 'fight') break;
+        if (tick >= r.next2 && foesIn(u.x, u.y, MOVES.roar.r).length >= MOVES.roar.n) {
+          r.next2 = tick + MOVES.roar.every;
+          windUp(r, u, 'roar', u.x, u.y, MOVES.roar.r, MOVES.roar.wind);
+        } else if (tick >= r.next) {
+          const t = nearestBetween(u, MOVES.pounce.min, MOVES.pounce.range);
+          if (t) (r.next = tick + MOVES.pounce.every), windUp(r, u, 'pounce', t.x, t.y, MOVES.pounce.r, MOVES.pounce.wind, MOVES.pounce.wind + MOVES.pounce.fly);
+        }
+        break;
+      case 'bear':
+        // W-67: rears up and mauls the men before it
+        engage(s, e.x, e.y, g.aggro, g.leash, r);
+        if (r.state === 'fight' && tick >= r.next) {
+          const t = nearestFoe(u.x, u.y, MOVES.maul.len);
+          if (t) {
+            r.next = tick + MOVES.maul.every;
+            const d = Math.hypot(t.x - u.x, t.y - u.y) || 1;
+            windUp(r, u, 'maul', u.x + ((t.x - u.x) / d) * MOVES.maul.len, u.y + ((t.y - u.y) / d) * MOVES.maul.len, MOVES.maul.len, MOVES.maul.wind);
+          }
+        }
+        break;
+      case 'minotaur':
+        // W-67: a bull's charge in a straight line through a squad (stunned if a wall stops it)
+        engage(s, e.x, e.y, g.aggro, g.leash, r);
+        if (r.state === 'fight' && tick >= r.next) {
+          const t = densest(u.x, u.y, MOVES.bull.range);
+          if (t) {
+            r.next = tick + MOVES.bull.every;
+            const end = runTo(u, t.x, t.y, MOVES.bull.len);
+            if (Math.hypot(end.x - u.x, end.y - u.y) >= MOVES.bull.min) windUp(r, u, 'charge', end.x, end.y, MOVES.bull.w, MOVES.bull.wind, MOVES.bull.wind, end.wall);
+          }
+        }
         break;
       default:
         engage(s, e.x, e.y, g.aggro, g.leash, r);
@@ -657,6 +859,7 @@ export function createBosses(region: RegionData, host: BossHost) {
     r.state = 'slain';
     r.respawnAt = tick + BOSS.respawn;
     r.fly = null;
+    r.tele = null;
     const by = Object.entries(r.dmg).sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1)).map(([o]) => o).filter((o) => o !== r.last);
     const killers = r.last ? [r.last, ...by] : by;
     host.note({ t: tick, kind: 'bossSlain', region: region.id, boss: r.id, killers, x: u.x, y: u.y });
@@ -740,7 +943,7 @@ export function createBosses(region: RegionData, host: BossHost) {
         const g = GUARDIANS[e.boss] ?? GUARDIANS.moor_bear;
         const r: Run = {
           i, id: e.boss, ai: g.ai, x: e.x, y: e.y, sq: -1, parts: -1, called: [], main: -1, phase: 0, state: 'idle', scale: 1, raid: 0,
-          next: 0, next2: 0, perch: 0, perchAt: 0, fly: null, fleeAt: -1, respawnAt: 0, guardN: -1, dmg: {}, last: '', fx: null,
+          next: 0, next2: 0, perch: 0, perchAt: 0, fly: null, fleeAt: -1, respawnAt: 0, guardN: -1, dmg: {}, last: '', fx: null, tele: null, stun: 0, surge: 0,
         };
         runs.push(r);
         spawnRun(r);
@@ -759,6 +962,7 @@ export function createBosses(region: RegionData, host: BossHost) {
       for (const s of [r.sq, r.parts, ...r.called]) for (const u of sqOf(s)?.units ?? []) if (u.alive) host.vanish(u);
       r.called = [];
       r.fly = null;
+      r.tele = null;
       r.state = away ? 'away' : 'slain';
       r.respawnAt = tick + Math.max(0, Math.round(left));
       if (away) r.guardN = Math.ceil((def(r).guard?.n ?? 0) / 2);
@@ -845,6 +1049,7 @@ export function createBosses(region: RegionData, host: BossHost) {
           state: r.state, raid: r.raid, scale: r.scale,
           ...(parts ? { parts } : {}), ...(gone ? { respawnIn: Math.max(0, r.respawnAt - tick) } : {}),
           ...(r.fx && tick - r.fx.at < MOVES.fx ? { fx: { kind: r.fx.kind, x: r.fx.x, y: r.fx.y, tx: r.fx.tx, ty: r.fx.ty, r: r.fx.r, t: tick - r.fx.at } } : {}),
+          ...(r.tele && !gone ? { tele: { kind: r.tele.kind, x: r.tele.x, y: r.tele.y, tx: r.tele.tx, ty: r.tele.ty, r: r.tele.r, in: Math.max(0, r.tele.at - tick), of: r.tele.at - r.tele.t0 } } : {}),
           ...(hide?.length ? { hide } : {}),
         };
       });

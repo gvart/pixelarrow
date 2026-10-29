@@ -113,9 +113,10 @@ export function mountStory(s: SandboxScene): void {
     if (t.kind === 'choice') return null;
     const p = ps[0];
     if (t.kind === 'clear') {
-      // the camp's men while they live (they wander), else its spot
+      // the camp's men while they live (they wander; a named lead first: the marker names him), else its spot
       const l = (cur?.lairs ?? []).find((x) => Math.hypot(x.x - p.x, x.y - p.y) < 0.5 && x.state !== 'cleared'), sq = l && cur?.squads.find((x) => x.id === l.squad);
-      const u = sq && cur?.units.find((x) => x.squad === sq.id && x.state !== 'dead');
+      const lead = t.name && sq ? cur?.units.find((x) => x.id === sq.units[0] && x.state !== 'dead') : undefined;
+      const u = lead ?? (sq && cur?.units.find((x) => x.squad === sq.id && x.state !== 'dead'));
       return u ? { x: u.x, y: u.y } : p;
     }
     return p;
@@ -132,7 +133,7 @@ export function mountStory(s: SandboxScene): void {
         goal: `${step.goal}${marks}`, progress: `${i + 1}/${path.length}`, frac: i / path.length,
         where: step.where, reward: r.goods,
         pay: t.kind === 'choice' ? 'Each choice pays its own way' : [r.more, Object.keys(r.goods).length ? `Paid when done, into ${payTo}` : r.more ? '' : 'The story goes on'].filter(Boolean).join(' · '),
-        at: target(step, sv), label: step.label,
+        at: target(step, sv), label: t.kind === 'clear' && t.name ? t.name : step.label, // a named foe: his full name, once
         story: i === 0 && t.kind !== 'choice' ? [story.backstory, step.story] : [step.story],
         ...(t.kind === 'choice' ? { choices: t.options.map((o) => { const rp = rewardParts(o.reward); return { id: o.id, label: o.label, text: [o.text, rp.more, Object.entries(rp.goods).map(([k, n]) => `+${n} ${k}`).join(', ')].filter(Boolean).join(' · ') }; }) } : {}),
       };

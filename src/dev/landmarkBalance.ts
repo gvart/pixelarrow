@@ -40,6 +40,11 @@ export const STAGING: Readonly<Record<string, readonly [number, number]>> = {
   siren: [47, 312], // the beach under Scylla's cave
   delta: [236, 373], // the mud island south of the temple
   omphalos: [450, 258], // the foot of the east ramp
+  // W-67: the pocket bosses (depth 2) and the Minotaur, below their posts (src/war/scenarios/bosses.ts)
+  moors: [169, 113],
+  kimmeria: [237, 217],
+  savanna: [189, 229],
+  minotaur: [397, 214],
 };
 /** Mixed raid of n squads: a line of heavies, then missiles, then lights. */
 const MIX = ['hoplite', 'archer', 'celt_sword', 'slinger', 'peltast', 'archer', 'thureophoros', 'javelineer', 'hoplite', 'archer'];
@@ -171,6 +176,11 @@ export const FIGHTS: readonly { boss: string; region: string; squads: readonly n
   { boss: 'chimera', region: 'canyons', squads: [1, 4], seeds: SEEDS },
   { boss: 'grove_queen', region: 'erymanthos', squads: [1, 4], seeds: SEEDS },
   { boss: 'erymanthian_boar', region: 'erymanthos', squads: [1, 4], seeds: SEEDS },
+  // W-67: the pocket bosses (tier 1: a raid of 3) and the Minotaur (tier 3: 5), with their signature moves
+  { boss: 'moor_bear', region: 'moors', squads: [1, 3], seeds: SEEDS },
+  { boss: 'griffin', region: 'kimmeria', squads: [1, 3], seeds: SEEDS },
+  { boss: 'savanna_lion', region: 'savanna', squads: [1, 3], seeds: SEEDS },
+  { boss: 'minotaur', region: 'omphalos', squads: [1, 5], seeds: SEEDS },
 ];
 
 /** Raid to take a region of each depth (docs/WAR.md "Living regions" -> "Balance"). */
