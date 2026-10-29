@@ -15,7 +15,7 @@
  */
 import type { SandboxScene } from '../../SandboxScene';
 import { draggable } from '../drag';
-import { fitHeight, icon } from '../kit';
+import { icon } from '../kit';
 import { cardHtml, CARD_W } from './card';
 import { markers } from './markers';
 import { mountMemorial } from './memorial';
@@ -98,7 +98,6 @@ export function mountRoster(s: SandboxScene, mk: Mk): RosterHooks {
           scarMarks(g, row.p.scars ?? 0);
         } else lastC = ''; // the sheet is not in yet: try again
       }
-      fitHeight(card);
     }
     for (const f of unTip) f();
   };

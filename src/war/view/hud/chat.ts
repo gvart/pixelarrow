@@ -37,6 +37,8 @@ export interface ChatView {
   focus(m: Mark): void;
   /** A scope's name ("World map", a region's). */
   where(at: string): string;
+  /** Whether Enter may open the panel now (a region's left window holds that corner: the chat waits). */
+  canOpen?(): boolean;
   /** W-69: the man (or item) a Shift+click on this element links, beside the `data-chat-link` ones. */
   linkAt?(el: HTMLElement): ChatLinkData | null;
   /** W-69: draw a linked man's portrait into his card's canvas. */
@@ -486,7 +488,7 @@ export function mountChat(v: ChatView): ChatHandle {
 
   addEventListener('keydown', (e: KeyboardEvent) => {
     const a = keys.act(e);
-    if (a === 'chat.open' && !open) { e.preventDefault(); setOpen(true); }
+    if (a === 'chat.open' && !open && (v.canOpen?.() ?? true)) { e.preventDefault(); setOpen(true); }
     else if (a === 'chat.mark' && chan === 'ally') { e.preventDefault(); arm(armed ? MARK_KINDS[(MARK_KINDS.indexOf(armed) + 1) % MARK_KINDS.length] : lastKind); }
     else if (a === 'back' && armed) arm(null);
     else if (a === 'back' && open) setOpen(false);

@@ -18,13 +18,10 @@ import type { SandboxScene } from '../SandboxScene';
 import { doneNow, GUIDE_STEPS, guideOpen, newWatch, watchEvents, type GuideSave, type GuideSpots, type GuideStepId } from '../../net/guide';
 import { ownCentre } from '../entry';
 import { myTeam } from '../side';
-import { fitHeight, icon, leftPanelOpen } from './kit';
+import { icon } from './kit';
 import { ghostIcon } from './souls';
 import { fill, GUIDE_INTRO, GUIDE_LORE, guideGiver } from '../../net/questLore';
 import { metres, placeMarker, questBanner, questMarker, rewardChips } from './quest';
-
-/** Art px the guide leaves free at the bottom left: the minimap and the alliance chat's tab over it. */
-const GUIDE_BOTTOM = 212;
 
 type Mk = (id: string, css: string, html?: string) => HTMLElement;
 
@@ -180,7 +177,7 @@ export function mountGuide(s: SandboxScene, mk: Mk): void {
 
   const place = (m: HTMLElement, p: { x: number; y: number } | null, label: string) => placeMarker(s, m, p, label, [el, ...[document.getElementById('rfQuest')].filter((x): x is HTMLElement => !!x)]);
 
-  let last = '', shown = false, closing = false, announced = false, fitH = 0;
+  let last = '', shown = false, closing = false, announced = false;
   const frame = () => {
     requestAnimationFrame(frame);
     const cur = s.sim.cur;
@@ -192,7 +189,7 @@ export function mountGuide(s: SandboxScene, mk: Mk): void {
     if (!save) return; // online: no word from the server yet (or no guide for him here)
     const list = steps, open = list.filter((st) => !save!.done.includes(st.id));
     if (g.offline) for (const id of doneNow(watch, cur)) finish(id, true);
-    const on = !save!.hidden && !leftPanelOpen() && (open.length > 0 || shown);
+    const on = !save!.hidden && (open.length > 0 || shown);
     if (!on) {
       el.style.display = mStep.style.display = mHome.style.display = 'none';
       return;
@@ -225,8 +222,8 @@ export function mountGuide(s: SandboxScene, mk: Mk): void {
       const fresh = save!.done.length === 0;
       questBanner({ kind: 'start', head: fresh ? 'New quest' : 'Quest continues', title: fresh ? 'The First Hour' : lore(now.id).goal, giver: from, text: fresh ? fill(GUIDE_INTRO, town) : lore(now.id).story, ...(fresh ? {} : { reward: now.reward as Record<string, number>, pay: payLine }) });
     }
-    // it stops above the alliance chat's tab and the minimap (bottom left): a long step scrolls inside
-    if (html !== last || innerHeight !== fitH) { if (html !== last) el.innerHTML = last = html; fitH = innerHeight; fitHeight(el, GUIDE_BOTTOM); }
+    // the HUD layout stops it above the chat and the minimap (./layout.ts): a long step scrolls inside
+    if (html !== last) el.innerHTML = last = html;
     if (!now && !closing && (closing = true)) setTimeout(() => { if (save) { save.hidden = true; if (key) saveGuide(key, save); } }, 12000);
   };
   requestAnimationFrame(frame);

@@ -9,12 +9,13 @@ import { manLink } from '../../net/chatLinks';
 import { worldRegion } from '../../world/graph';
 import type { SandboxScene } from '../SandboxScene';
 import { mountChat } from './chat';
-import { uiZoom } from './kit';
+import { leftPanelOpen, uiZoom } from './kit';
+import { GAP, TOP } from './layout';
 import { sandboxRoster } from './roster/state';
 import { portrait, PORTRAIT_H, PORTRAIT_W, scarMarks } from './roster/portrait';
 
-/** Above the round minimap (168 px at the bottom left). */
-const ABOVE_MINI = 184;
+/** The guide's folded header (./guide.ts): the open chat leaves it room. */
+const GUIDE_HEAD = 34;
 /** The open log's height: 164 px, less on a short window so the panel stays under the top-left cards; at least 72. */
 export const LOG_H = 164, LOG_MIN = 72;
 /** The log height that keeps the open panel's top `gap` below `above` (CSS px), given its rect now and its log's height. */
@@ -31,17 +32,15 @@ export function mountRegionChat(s: SandboxScene): void {
     link,
     scope: id,
     zoom: uiZoom,
+    // the HUD layout stacks it over the minimap and the legend (./layout.ts); open on a short window, the log gives
+    // up height rather than run over the guide's header (the top-left column folds to make room)
     place: (el, open) => {
-      const lg = document.getElementById('rfLegend');
-      const up = lg && lg.offsetHeight > 0 && getComputedStyle(lg).opacity !== '0' && getComputedStyle(lg).display !== 'none';
       el.style.left = '4px';
-      el.style.bottom = `${up ? Math.max(ABOVE_MINI, (innerHeight - lg.getBoundingClientRect().top + 4) / uiZoom()) : ABOVE_MINI}px`;
-      // open on a short window: the log gives up height rather than run over the quest tracker (the events card
-      // steps aside while the chat is open: ./worldEvents.ts)
       if (!open) return;
-      const g = document.getElementById('rfGuide'), above = g && g.style.display !== 'none' ? g.getBoundingClientRect().bottom : 0;
-      el.style.setProperty('--ch-log-h', `${chatLogFit(el.getBoundingClientRect().top, uiZoom(), parseFloat(el.style.getPropertyValue('--ch-log-h')) || LOG_H, above)}px`);
+      const z = uiZoom(), above = (TOP + GUIDE_HEAD + GAP) * z;
+      el.style.setProperty('--ch-log-h', `${chatLogFit(el.getBoundingClientRect().top, z, parseFloat(el.style.getPropertyValue('--ch-log-h')) || LOG_H, above)}px`);
     },
+    canOpen: () => !leftPanelOpen(),
     project: (m) => {
       if (m.at !== id) return null;
       const p = s.toScreen(m.x, m.y), r = canvas();

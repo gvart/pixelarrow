@@ -95,6 +95,7 @@ import { activityText, waitText } from './activity';
 import { mountTopBar } from './topBar';
 import { tipHtml } from './theme';
 import { portrait } from './roster/portrait';
+import { mountLayout } from './layout';
 
 const SHAPES = ['line', 'column', 'wedge', 'loose'] as const;
 /** W-60: a building's cost hints count the store of its area (the nearest store of yours this near), never a total. */
@@ -488,6 +489,7 @@ export function hud(s: SandboxScene): void {
   mountStory(s); // W-65: the region's story chain: its giver, banners and tracked card (./story.ts)
   mountEncounters(s); // W-65: random encounters on the road: banners, the card for a while, who waits there (./encounter.ts)
   mountRegionChat(s); // W-62 E6: the alliance chat above the minimap, map marks (./chat.ts)
+  mountLayout(); // the zones: where every docked panel and window sits, none over another (./layout.ts)
   mountGate(s); // the online cap's line and the idle kick (./gate.ts)
   mountReplay(s, mk); // W-62 E5: the replay recorder, "Watch the battle", replay mode and clips (../replay)
   const groups = mountGroups(s, mk, tipOn); // W-53: the control group bar over the card, numbers on the map

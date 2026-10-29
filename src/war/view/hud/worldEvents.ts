@@ -14,7 +14,6 @@ import { EVENT_LOOK, eventIcon } from '../../world-view/eventLook';
 import type { SandboxScene } from '../SandboxScene';
 import { sandboxRoster } from './roster/state';
 import { tipper } from './roster/ui';
-import { leftPanelOpen } from './kit';
 import { eventHelp, eventWhen } from './explain';
 
 type Mk = (id: string, css: string, html?: string) => HTMLElement;
@@ -76,12 +75,10 @@ export function mountWorldEvents(s: SandboxScene, mk: Mk): void {
     }
     place();
   };
-  /** Shown while there is an event to tell, under the quest tracker while it shows (both top left), else in the corner. */
+  /** Shown while there is an event to tell; the HUD layout puts it under the guide (./layout.ts). */
   const place = () => {
-    el.style.display = has && !leftPanelOpen() && !document.querySelector('#rfChat.open') ? '' : 'none';
+    el.style.display = has ? '' : 'none';
     if (el.style.display === 'none') tip.style.display = 'none';
-    const g = document.getElementById('rfGuide'), z = Number(el.style.zoom) || 1;
-    el.style.top = g && g.style.display !== 'none' ? `${Math.round(g.getBoundingClientRect().bottom / z + 6)}px` : '4px';
   };
 
   const onServer = (m: ServerMsg) => {

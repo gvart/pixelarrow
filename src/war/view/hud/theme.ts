@@ -164,8 +164,8 @@ export const THEME_CSS = `
 /* favour has its chip in the bar; its menu button stays (its key, its window's place) but out of sight */
 #rfMenus #rfFavourBtn{display:none}
 
-/* ---- panels anchored at the top sit below the top bar ---- */
-#rfGuide,#rfDev,#rfQBanner,#rfQuest,#rfTunnel,#rfTown,#rfTownCard,#rfWorks,#rfFavour,#rfWorldEv,#rfTasks,#rfSettleNote,#rfPlotBar,#rfHoldings,#rfCrown,#cfWp,#cfTree,#rfMarket,#rfHandoff,#rfGuard,#rfLand,#rpToast,#rpTop,#mmPanel,#rrPanel,#rrCard,#rrToasts{margin-top:var(--hud-top)}
+/* ---- panels anchored at the top sit below the top bar (the zoned ones: ./layout.ts) ---- */
+#rfDev,#rfQBanner,#rfQuest,#rfTunnel,#rfTown,#rfTownCard,#rfWorks,#rfFavour,#rfTasks,#rfSettleNote,#rfPlotBar,#rfHoldings,#rfCrown,#rfGuard,#rfLand,#rpToast,#rpTop,#rrToasts{margin-top:var(--hud-top)}
 #rfTown,#rfTownCard,#rfQBanner,#rfTunnel,#rfGuard,#rrToasts,#rpToast,#rpTop,#rfPlotBar{margin-top:calc(var(--hud-top) + 10px)}
 
 /* ---- the command panel, bottom centre ---- */
