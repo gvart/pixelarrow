@@ -1,0 +1,21 @@
+src/war/view/hud/armyPanel.ts
+  s_f08b12c690e0d6::t_dba11d78e04250 31-32
+tests/armyPanel.test.ts
+  s_f08b12c690e0d6::t_af68c436c368cd 17
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "d5a7a0a0173011787f4eab4a773c204009f29705",
+  "prompts": {},
+  "sessions": {
+    "s_f08b12c690e0d6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e4ed4b42-9ff5-404c-b2dd-32a044e85f29",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
