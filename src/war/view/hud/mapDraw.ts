@@ -6,7 +6,8 @@
  * or buildings see them, and the camera's view (a rectangle: the screen in tile space, turned back upright).
  * Fog of war (W-39, ../fog.ts): the player's team's fog grid shades the map in the black glaze (dark unexplored, explored
  * dimmed to about 55%, soft edges), rebuilt only when the grid's version changes; the sim client already hides foes out of
- * sight and keeps foe buildings as last seen; lairs, claim points and resource badges show once their ground is explored.
+ * sight and keeps foe buildings as last seen; lairs, claim points and resource badges show once their ground is explored
+ * (claim points always while the player holds no ground in the region).
  * On the minimap the player's own ground (his team's influence), buildings, claim points and squads are lit over it all,
  * so his holdings read at a glance whatever the fog.
  */
@@ -17,6 +18,7 @@ import { hex, TEAM_RGB } from '../mapModes';
 import { BUILDING_ICON, UI } from './kit';
 import { myTeam, slot } from '../side';
 import { drawPins } from './pins';
+import { groundless } from './claimCard';
 
 /** How far own men and buildings see, in tiles (enemies beyond are not marked). */
 export const VISION = 24;
@@ -222,10 +224,18 @@ export function drawMap(g: CanvasRenderingContext2D, s: SandboxScene, f: MapXf, 
     badge(g, x, y, r, TEAM[slot(b.team)] ?? '#ccc', m);
     drawIcon(g, BUILDING_ICON[b.type] ?? 'bld-camp', x, y, 13 * m);
   }
-  // claim points: the banner icon on a disc ringed in the owner's colour (cream open, grey locked)
+  // claim points: the banner icon on a disc ringed in the owner's colour (cream open, grey locked). While the player
+  // holds no ground in the region every banner shows, fog or not, those he could take under a pulsing gold glow: where
+  // to claim is the first thing a newcomer has to find (./claimCard.ts)
+  const lost = groundless(s), beat = 0.6 + 0.4 * Math.sin(performance.now() / 260);
   for (const cl of cur?.claims ?? []) {
-    if (!explored(s, cl.x, cl.y)) continue;
+    if (!lost && !explored(s, cl.x, cl.y)) continue;
     const [x, y] = P(cl.x, cl.y), r = (full ? 8 : 5.5) * m;
+    if (lost && !(cl.state === 'claimed' && cl.team === myTeam())) {
+      const glow = g.createRadialGradient(x, y, 0, x, y, r * 3);
+      glow.addColorStop(0, `rgba(246,212,138,${0.7 * beat})`); glow.addColorStop(1, 'rgba(246,212,138,0)');
+      g.fillStyle = glow; g.beginPath(); g.arc(x, y, r * 3, 0, Math.PI * 2); g.fill();
+    }
     const ring = cl.state === 'claimed' ? TEAM[slot(cl.team)] ?? '#ccc' : cl.state === 'locked' ? '#8a786a' : '#f6d48a';
     badge(g, x, y, r, ring, m);
     if (!drawIcon(g, 'mk-claim', x, y, r * 1.7)) { g.fillStyle = ring; g.fillRect(x - m, y - r * 0.6, 2 * m, r * 1.2); }
