@@ -37,6 +37,7 @@ export type ToWorker =
   | { t: 'lair'; kind: MobKind; x: number; y: number; count?: number; lead?: true } // W-62 the guide (offline): one weak lair on the new player's way
   | { t: 'hurtBoss'; boss: string; to: number; part?: number } // M7d dev and scenarios: a guardian (or its part: a head) down to a share of its hp
   | { t: 'soul'; x: number; y: number; cls: string; level?: number; site?: 'shrine' | 'ruin' | 'battlefield' | 'lair' } // W-60 dev and scenarios: a soul waits there
+  | { t: 'dismiss'; person: WarPerson; life: number; bar: { owner: string; ticks: number } } // W-68 offline: a man dismissed (gear dropped), his soul at a shrine
   | { t: 'hunger'; squad: number; sat: number } // W-60 dev and scenarios: a squad's men at this satiety
   | { t: 'feed'; team: number; squad: number | null; res: 'food' | 'ration'; n: number } // W-60 scenarios: food into packs or a store
   | { t: 'takeRegion'; team: number } // M7g dev and scripts: every claim point to the team (a landmark takes its capture damage)
@@ -183,6 +184,7 @@ onmessage = (e: MessageEvent<ToWorker>) => {
     else if (b && g && g.hp > g.maxHp * m.to) b.hurtBoss(m.boss, g.hp - g.maxHp * m.to, 'you');
   }
   else if (m.t === 'soul') build(sim)?.spawnSoul(m.x, m.y, m.cls, m.level, m.site);
+  else if (m.t === 'dismiss') { const b = build(sim); if (b) (b.dismissPerson(m.person.id), b.spawnNamedSoul(m.person, m.life, m.bar)); }
   else if (m.t === 'pile') build(sim)?.dropPile(m.x, m.y, [], m.items);
   else if (m.t === 'feed') { const b = build(sim); if (b) feedSim(b, m.team, m.squad, m.res, m.n); }
   else if (m.t === 'hunger') { const b = build(sim); b?.setSatiety(b.snapshot().squads[m.squad]?.units ?? [], m.sat); }

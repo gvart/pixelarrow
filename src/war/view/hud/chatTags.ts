@@ -31,8 +31,8 @@ export function markedLink(t: Element): ChatLinkData | null {
 export const tagHtml = (l: ChatLinkData, i: number) =>
   `<span class="ch-tag" data-li="${i}">[<span${l.k === 'item' ? ` style="color:${rarityHex(l.it.rarity)}"` : ''}>${esc(linkLabel(l))}</span>]</span>`;
 
-/** The bare roster the soldier card asks (a linked man has no offers and no captor). */
-const NO_ROSTER = { offers: () => [], captorOf: () => undefined } as unknown as SandboxRoster;
+/** The bare roster the soldier card asks (a linked man has no offers, no captor, no Dismiss). */
+const NO_ROSTER = { offers: () => [], takenNote: () => 'Captive', dismissable: () => false } as unknown as SandboxRoster;
 
 let styled = false;
 /** The hover card's element: the item card in the tooltip frame, the soldier card as it is. */

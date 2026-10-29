@@ -240,6 +240,10 @@ export const ROSTER_CSS = `
 .rr-node{display:flex;padding:1px;border:1px solid #7a5a28;background:#1c120d}
 .rr-rec{display:flex;align-items:center;gap:10px;margin-top:9px;padding-top:6px;border-top:1px solid var(--rf-rule)}
 .rr-rec>span{display:inline-flex;align-items:center;gap:4px}
+.rr-dismiss{margin-top:6px;padding:6px 7px;border:1px solid var(--rf-rule);border-radius:4px;background:rgba(143,202,255,.07);font-size:12px;line-height:1.4}
+.rr-cap-row{cursor:default}
+.rr-cap-row .rf-tbtn{height:20px;padding:0 7px;font-size:11px}
+.rr-cap-row .rf-tbtn[disabled]{opacity:.55;cursor:default}
 .rr-up{color:var(--rf-good)}.rr-down{color:var(--rf-bad)}
 .rr-toast{transition:opacity .4s, transform .4s;display:flex;align-items:center;gap:4px}
 @media (prefers-reduced-motion:reduce){.rr-pending,.rr-lvup,.rr-skill.free .rr-med{animation:none!important}}

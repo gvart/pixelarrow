@@ -98,10 +98,13 @@ export function mountSouls(s: SandboxScene, mk: Mk, tipOn: (el: HTMLElement, htm
     soul = p?.so ?? null;
     el.style.display = p ? '' : 'none';
     if (!p) return void (last = '');
-    const full = armyFull(), so = p.so, mine = so.claim !== undefined && so.team === myTeam();
+    const so = p.so, mine = so.claim !== undefined && so.team === myTeam();
+    // W-68: a named soul (a released captive, a dismissed man) by name; one this player dismissed is not his to claim for a while
+    const owner = s.sim.cur?.squads.find((q) => q.id === p.squad)?.owner, tick = s.sim.cur?.tick ?? 0;
+    const barred = !!so.bar && so.bar.owner === owner && tick < so.bar.at, full = armyFull() || barred;
     const state = so.contested ? '<span style="color:var(--rf-bad)">contested</span>' : mine ? `<span style="color:var(--rf-gold)">claiming ${Math.round((so.claim ?? 0) * 100)}%</span>` : `<span class="rf-dim">${Math.round(p.d)} tiles · fades ${mmss(so.left)}</span>`;
-    const html = `<div style="display:flex;align-items:center;gap:7px">${ghostIcon(so.cls, 24)}<div style="min-width:0"><div class="rf-name" style="font-size:13px">Soul · ${esc(SandboxRoster.className(so.cls))} <span class="rf-lv">L${so.level}</span></div><div style="font-size:11px">${state}</div></div>
-      <button class="rf-tbtn${full ? '' : ' pri'}" data-act="claim" ${full ? 'data-full="1"' : ''} style="margin-left:6px">${full ? `Army full ${ARMY_MAX}/${ARMY_MAX}` : 'Claim'}</button></div>`;
+    const html = `<div style="display:flex;align-items:center;gap:7px">${ghostIcon(so.cls, 24)}<div style="min-width:0"><div class="rf-name" style="font-size:13px">Soul · ${so.name ? `${esc(so.name)}, ` : ''}${esc(SandboxRoster.className(so.cls))} <span class="rf-lv">L${so.level}</span></div><div style="font-size:11px">${state}</div></div>
+      <button class="rf-tbtn${full ? '' : ' pri'}" data-act="claim" ${full ? 'data-full="1"' : ''} style="margin-left:6px">${barred ? `Yours in ${mmss(so.bar!.at - tick)}` : full ? `Army full ${ARMY_MAX}/${ARMY_MAX}` : 'Claim'}</button></div>`;
     if (html !== last) el.innerHTML = last = html;
   };
   el.addEventListener('click', (e) => {
