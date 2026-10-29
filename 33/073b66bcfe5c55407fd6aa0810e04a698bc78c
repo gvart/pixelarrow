@@ -1,0 +1,52 @@
+tests/war/guardianBar.test.ts
+  s_f08b12c690e0d6::t_10c7e817c432cd 2-3,12-13,20-21
+src/war/view/hud/roster/toast.ts
+  s_f08b12c690e0d6::t_d63afe71bc6a80 3
+src/war/view/hud/bossBanner.ts
+  s_f08b12c690e0d6::t_45be5b7a3b88e9 17,92,128-129
+src/war/view/hud/layout.ts
+  s_f08b12c690e0d6::t_bf8bca8365f5a2 61,110,161-168,177-179,187-190,204-206,242-243
+src/war/view/hud/quest.ts
+  s_f08b12c690e0d6::t_d63afe71bc6a80 158-159,239-240
+  s_f08b12c690e0d6::t_45be5b7a3b88e9 14,143
+src/war/view/hud/settlements.ts
+  s_f08b12c690e0d6::t_c3c415d76d1200 29
+src/war/view/hud/peace.ts
+  s_f08b12c690e0d6::t_c3c415d76d1200 25,138
+src/war/menu/settings.ts
+  s_f08b12c690e0d6::t_9cc8ee9c58b76b 185
+src/war/view/hud/favour.ts
+  s_f08b12c690e0d6::t_c3c415d76d1200 12
+src/war/view/hud/crown.ts
+  s_f08b12c690e0d6::t_c3c415d76d1200 30
+src/war/view/hud/netStats.ts
+  s_f08b12c690e0d6::t_ef02a5bbfe1ca0 6-7,11-12,35,75-78,80
+src/war/view/hud/guardianBar.ts
+  s_f08b12c690e0d6::t_a169d088ac18d3 54-59,63,65-66,71-75,135,138
+  s_f08b12c690e0d6::t_396cb9abc4af8e 93,99,112-115,122-125,201
+  s_f08b12c690e0d6::t_10c7e817c432cd 136-137
+src/war/view/hud/theme.ts
+  s_f08b12c690e0d6::t_45be5b7a3b88e9 168-169
+src/war/view/hud/tasks.ts
+  s_f08b12c690e0d6::t_c3c415d76d1200 16
+src/war/view/hud/roster/index.ts
+  s_f08b12c690e0d6::t_d63afe71bc6a80 25,157
+src/war/view/hud/holder.ts
+  s_f08b12c690e0d6::t_c3c415d76d1200 14
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "33073b66bcfe5c55407fd6aa0810e04a698bc78c",
+  "prompts": {},
+  "sessions": {
+    "s_f08b12c690e0d6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e4ed4b42-9ff5-404c-b2dd-32a044e85f29",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
