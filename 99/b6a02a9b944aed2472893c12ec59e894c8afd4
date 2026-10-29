@@ -1,0 +1,30 @@
+src/war/view/hud/guide.ts
+  s_f08b12c690e0d6::t_debf79887167b0 178
+  s_f08b12c690e0d6::t_9386ad8cc279e4 86,211,213,215
+src/war/view/hud/claimCard.ts
+  s_f08b12c690e0d6::t_debf79887167b0 79
+src/war/view/hud/layout.ts
+  s_f08b12c690e0d6::t_debf79887167b0 207-235,264
+src/war/view/hud/pins.ts
+  s_f08b12c690e0d6::t_debf79887167b0 23-24,117-118,146-148
+  s_f08b12c690e0d6::t_36e6a570c71db7 15
+src/war/view/hud/quest.ts
+  s_f08b12c690e0d6::t_7d9d6cd23ec6da 106-113,116-117,119-122,125
+  s_f08b12c690e0d6::t_debf79887167b0 14,95,97,99-101,245
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "99b6a02a9b944aed2472893c12ec59e894c8afd4",
+  "prompts": {},
+  "sessions": {
+    "s_f08b12c690e0d6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e4ed4b42-9ff5-404c-b2dd-32a044e85f29",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
