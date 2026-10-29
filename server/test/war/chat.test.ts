@@ -1,9 +1,11 @@
-/** W-62 E6 alliance chat over the world's chat sockets (server/src/war/world/chat.ts, src/war/net/chat.ts). */
+/** W-62 E6 alliance chat and the W-69 World channel and links over the world's chat sockets (server/src/war/world/chat.ts, src/war/net/chat.ts). */
 import { env, SELF } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
 import { SIM_VERSION } from '../../../src/sim/version';
 import { CHAT_KEEP, CHAT_RATE, type ChatServerMsg } from '../../../src/war/net/chat';
 import { isBad, maskText } from '../../../src/war/net/chatFilter';
+import { itemLink, LINK_CHAR, manLink } from '../../../src/war/net/chatLinks';
+import { makePerson } from '../../../src/war/sim/roster';
 import { ChatGate } from '../../src/war/world/chat';
 import { api, BASE, devLogin } from '../helpers';
 
@@ -165,5 +167,61 @@ describe('alliance chat over the world socket', () => {
     await sa.next('chat');
     expect(sa.msgs.some((m) => (m as { t: string }).t === 'world')).toBe(false);
     sa.ws.close(1000);
+  });
+});
+
+describe('world chat and links', () => {
+  it('a World line reaches every alliance and the allianceless; an alliance line stays in it', async () => {
+    const a = await member(8651, 0, 'Agesilaos'), b = await member(8652, 0, 'Teleutias'), c = await member(8653, 2, 'Konon');
+    const d = await devLogin(8654, 'Loner');
+    const [sa, sb, sc, sd] = await Promise.all([chat(a.token), chat(b.token), chat(c.token), chat(d.token)]);
+    for (const s of [sa, sb, sc, sd]) await s.next('chat');
+    sa.send({ t: 'say', text: 'hello world', ch: 'world' });
+    for (const s of [sa, sb, sc, sd]) expect(said(await s.next('said'))).toMatchObject({ pid: a.playerId, text: 'hello world', ch: 'world' });
+    sa.send({ t: 'say', text: 'allies only' });
+    for (const s of [sa, sb]) expect(said(await s.next('said'))).toMatchObject({ text: 'allies only' });
+    // one without an alliance may speak to the world, not to an alliance
+    sd.send({ t: 'say', phrase: 18, ch: 'world' });
+    expect(said(await sc.next('said'))).toMatchObject({ pid: d.playerId, phrase: 18, ch: 'world' });
+    sd.send({ t: 'say', text: 'anyone?' });
+    expect(await sd.next('chatError')).toEqual({ t: 'chatError', code: 'noAlliance' });
+    await sd.next('said');
+    expect(sc.msgs.some((m) => m.t === 'said' && m.msg.text === 'allies only')).toBe(false);
+    expect(sd.msgs.some((m) => m.t === 'said' && m.msg.text === 'allies only')).toBe(false);
+    // the other alliance reports a World line; history carries both channels
+    sa.send({ t: 'say', text: 'you are useless', ch: 'world' });
+    let w = said(await sc.next('said'));
+    while (w.text !== 'you are useless') w = said(await sc.next('said'));
+    sc.send({ t: 'report', id: w.id });
+    expect(await sc.next('chatError')).toEqual({ t: 'chatError', code: 'reported' });
+    expect((await env.DB!.prepare('SELECT alliance, reporter_id FROM war_chat_reports WHERE msg_id = ?1').bind(w.id).first())).toEqual({ alliance: -1, reporter_id: c.playerId });
+    const again = await chat(c.token);
+    const h = (await again.next('chat')) as Extract<ChatServerMsg, { t: 'chat' }>;
+    expect(h.msgs.some((m) => m.text === 'hello world' && m.ch === 'world')).toBe(true);
+    expect(h.msgs.some((m) => m.text === 'allies only')).toBe(false);
+    for (const s of [sa, sb, sc, sd, again]) s.ws.close(1000);
+  });
+
+  it('relays linked items and own men, masked; refuses a man not the sender\'s', async () => {
+    const a = await member(8661, 1, 'Iphikrates'), b = await member(8662, 3, 'Chabrias');
+    const [sa, sb] = await Promise.all([chat(a.token), chat(b.token)]);
+    await sa.next('chat');
+    await sb.next('chat');
+    const man = makePerson('w69-damon', 'hoplite', { level: 3, tier: 1, name: 'Damon' });
+    const sword = itemLink({ uid: 'w69-it', def: 'kopis', rarity: 'rare', cond: 90, mk: 'sh1t smith' });
+    const tag = (i: number) => String.fromCharCode(LINK_CHAR + i);
+    sa.send({ t: 'say', ch: 'world', text: `look ${tag(0)} and ${tag(1)}`, links: [sword, manLink(man)] });
+    expect(await sa.next('chatError')).toEqual({ t: 'chatError', code: 'link' }); // not his man (yet)
+    await env.DB!.prepare('INSERT INTO war_persons (id, player_id, cls, name) VALUES (?1, ?2, ?3, ?4)').bind(man.id, a.playerId, 'hoplite', 'Damon').run();
+    sa.send({ t: 'say', ch: 'world', text: `look ${tag(0)} and ${tag(1)}${tag(5)}`, links: [sword, manLink(man)] });
+    const got = said(await sb.next('said'));
+    expect(got.text).toBe(`look ${tag(0)} and ${tag(1)}`); // the stray tag dropped
+    expect(got.links).toEqual([{ ...sword, it: { ...(sword as Extract<typeof sword, { k: 'item' }>).it, mk: '*** smith' } }, manLink(man)]);
+    sa.send({ t: 'say', text: 'bad', links: [{ k: 'item', it: { uid: 'x', def: 'nope', rarity: 'rare', cond: 1 } }] });
+    expect(await sa.next('error' as ChatServerMsg['t'])).toMatchObject({ code: 'parse' });
+    const h = (await (await chat(b.token)).next('chat')) as Extract<ChatServerMsg, { t: 'chat' }>;
+    expect(h.msgs.find((m) => m.id === got.id)).toEqual(got);
+    sa.ws.close(1000);
+    sb.ws.close(1000);
   });
 });
