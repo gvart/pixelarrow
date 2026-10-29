@@ -15,6 +15,8 @@ import { bar, fitHeight, icon } from './kit';
 import { rarityHex } from './roster/ui';
 import { draggable } from './drag';
 import { myTeam } from '../side';
+import { itemLinkAttr } from './chatTags';
+import type { Item } from '../../../data/items';
 
 type Mk = (id: string, css: string, html?: string) => HTMLElement;
 const W = 236;
@@ -40,7 +42,9 @@ function grouped(list: HoldItem[]): { it: HoldItem; n: number }[] {
   }
   return out;
 }
-const itemLine = (it: HoldItem, n: number) => `<span style="color:${rarityHex(it.rarity)}">${itemName(it)}</span>${n > 1 ? ` <b class="rf-num">×${n}</b>` : ''}${it.q !== undefined && Q[it.q] ? ` <span class="rf-dim">${Q[it.q]}</span>` : ''}`;
+/** W-69: Shift+click with the chat open links it (./chatTags.ts). */
+const holdLink = (it: HoldItem) => itemLinkAttr({ uid: it.uid, def: it.def, rarity: it.rarity, cond: 100, ...(it.q !== undefined ? { q: it.q } : {}) } as Item);
+const itemLine = (it: HoldItem, n: number) => `<span style="color:${rarityHex(it.rarity)}" ${holdLink(it)}>${itemName(it)}</span>${n > 1 ? ` <b class="rf-num">×${n}</b>` : ''}${it.q !== undefined && Q[it.q] ? ` <span class="rf-dim">${Q[it.q]}</span>` : ''}`;
 
 /** What a holder holds as a compact HTML block (the hover card and the panel's head). */
 export function holderSummary(h: Holder): string {

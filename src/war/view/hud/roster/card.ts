@@ -33,6 +33,7 @@ import type { WarPerson } from '../../../types';
 import { glyph } from '../glyph';
 import { ATTR_ICON, ATTR_NAME, attrCard, card, KIND_TERM, SKILL_ICON, SKILL_NAME, skillCard, STAT_TERM, statCard, TERMS, termCard } from '../codex';
 import { nodeIcon } from '../craft/tree';
+import { itemLinkAttr } from '../chatTags';
 
 export const CARD_W = snapW(296);
 const SLOT_LABEL: Record<Slot, string> = { weapon: 'Weapon', armor: 'Armour', helmet: 'Helmet', shield: 'Shield', trinket: 'Trinket' };
@@ -55,7 +56,7 @@ const tip = (html: string) => `data-tip="${esc(html)}"`;
 function slot(p: WarPerson, s: Slot): string {
   const it = p.hero.equip[s];
   if (!it) return `<div class="rr-slot empty" ${tip(card({ icon: SLOT_GHOST[s], name: SLOT_LABEL[s], kind: 'empty slot', w: 190, more: '<div class="rf-dim">Put on one from the stash below.</div>' }))}>${glyph(SLOT_GHOST[s], 20)}</div>`;
-  return `<div class="rr-slot" data-unequip="${s}" ${tip(itemTip(it, p.hero.attrs, { tone: 'dim', icon: 'ui:chest', text: 'Click: back to the stash' }))}>${itemIcon(it, 26)}${itemBadges(it)}</div>`;
+  return `<div class="rr-slot" data-unequip="${s}" ${itemLinkAttr(it)} ${tip(itemTip(it, p.hero.attrs, { tone: 'dim', icon: 'ui:chest', text: 'Click: back to the stash' }))}>${itemIcon(it, 26)}${itemBadges(it)}</div>`;
 }
 
 /** The stash under the paper doll (M5h): items he may put on first (click), the rest dimmed with why not. */
@@ -63,7 +64,7 @@ function stashRow(C: SandboxCraft, p: WarPerson): string {
   const items = C.stash().filter((x) => !x.away);
   if (!items.length) return `<span class="rf-dim">${glyph('ui:anvil', 14)} empty: a smith makes gear at a forge</span>`;
   const rows = items.map((x) => ({ x, why: C.equipBlock(p, x.item) })).sort((a, b) => Number(!!a.why) - Number(!!b.why));
-  return rows.map(({ x, why }) => `<div class="rr-slot${why ? ' no' : ''}" ${why ? '' : `data-equip="${esc(x.item.uid)}"`} ${tip(itemTip(x.item, p.hero.attrs, why ? { tone: 'bad', icon: 'ui:lock', text: why } : { tone: 'good', icon: 'ui:plus', text: 'Click: put it on' }))}>${itemIcon(x.item, 26)}${itemBadges(x.item)}</div>`).join('');
+  return rows.map(({ x, why }) => `<div class="rr-slot${why ? ' no' : ''}" ${why ? '' : `data-equip="${esc(x.item.uid)}"`} ${itemLinkAttr(x.item)} ${tip(itemTip(x.item, p.hero.attrs, why ? { tone: 'bad', icon: 'ui:lock', text: why } : { tone: 'good', icon: 'ui:plus', text: 'Click: put it on' }))}>${itemIcon(x.item, 26)}${itemBadges(x.item)}</div>`).join('');
 }
 
 /** A civilian's trade instead of skills (M5h): nodes taken as icons, points left, the tree button. */

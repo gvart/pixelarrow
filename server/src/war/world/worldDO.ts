@@ -21,9 +21,10 @@
  *    home with their gear) and the next season begins with fresh owners and score. Men, gear and titles stay.
  *  - Sockets (/ws/war/world, hibernation API): the Worker authenticates and forwards x-player-id and x-alliance; each
  *    gets the snapshot on connect and again after changes, at most once per PUSH_MS. Messages: src/war/net/world.ts.
- *  - W-62 E6 chat (`?chat=1`: a chat-only socket, tagged `chat:<alliance>`, no snapshots): on connect the alliance's
- *    last messages and the player's mutes; a message or mark goes to every chat socket of the sender's alliance only,
- *    through the rate gate (./chat.ts ChatGate), free text masked and kept in D1 (./chat.ts).
+ *  - W-62 E6 chat (`?chat=1`: a chat-only socket, tagged `chat:<alliance>` and `chat`, no snapshots): on connect the
+ *    alliance's and the World channel's last messages and the player's mutes; a message or mark goes to every chat
+ *    socket of the sender's alliance only, a W-69 World message (`ch: 'world'`) to every chat socket; both through the
+ *    rate gate (./chat.ts ChatGate), free text masked and kept in D1 (./chat.ts), linked men checked as the sender's.
  *  - W-63: notify() passes a region room's notice (a settlement attacked) to players' world sockets; the rollover sweeps
  *    the settlements once every region wrote what persists of them (../settlements.ts seasonSweep).
  *  - W-64: the rollover also ends every crown's term (../crown.ts crownSeason); notify() carries crown news too. The
@@ -49,7 +50,7 @@ import { snapOf, World, type ArriveResult, type DepartResult, type Ports, type R
 import { WORLD_REGIONS } from '../../../../src/war/world/regions';
 import type { Crest } from '../../../../src/war/net/world';
 import { buildBoard, crestsOf, recordSeason } from './seasonWar';
-import { ChatGate, chatHistory, chatMute, chatMutes, chatReport, chatStore } from './chat';
+import { ChatGate, chatHistory, chatMute, chatMutes, chatOwns, chatReport, chatStore, WORLD } from './chat';
 import type { ChatMsg, Mark } from '../../../../src/war/net/chat';
 import { seasonSweep } from '../settlements';
 import { crownMap, crownSeason } from '../crown';
@@ -340,11 +341,11 @@ export class WarWorldDO extends DurableObject<Env> {
       this.gateRun();
       return upgraded(client, request);
     }
-    this.ctx.acceptWebSocket(server, chat ? [`p:${pid}`, `chat:${alliance ?? 'none'}`] : [`p:${pid}`]);
+    this.ctx.acceptWebSocket(server, chat ? [`p:${pid}`, `chat:${alliance ?? 'none'}`, 'chat'] : [`p:${pid}`]);
     server.serializeAttachment({ pid, alliance, ...(chat ? { chat: request.headers.get('x-player-name') || `Player ${pid}` } : {}) } satisfies Attachment);
     if (chat) {
       const d = this.env.DB;
-      send(server, { t: 'chat', you: pid, msgs: d && alliance !== null ? await chatHistory(d, alliance) : [], muted: d ? await chatMutes(d, pid) : [] });
+      send(server, { t: 'chat', you: pid, msgs: d ? await chatHistory(d, alliance) : [], muted: d ? await chatMutes(d, pid) : [] });
     } else send(server, { t: 'world', ...(await this.snapshot(pid, alliance)) });
     return upgraded(client, request);
   }
@@ -371,25 +372,28 @@ export class WarWorldDO extends DurableObject<Env> {
     if (me.chat === undefined) return send(ws, { t: 'error', code: 'parse', detail: 'not a chat socket' });
     const d = this.env.DB, now = Date.now();
     if (m.t === 'mute') return void (d && (await chatMute(d, me.pid, m.pid, m.on, now)));
-    if (me.alliance === null) return send(ws, { t: 'chatError', code: 'noAlliance' });
     if (m.t === 'report') {
       if (d) await chatReport(d, me.pid, me.alliance, m.id, now);
       return send(ws, { t: 'chatError', code: 'reported' });
     }
+    const world = m.t === 'say' && m.ch === 'world';
+    if (me.alliance === null && !world) return send(ws, { t: 'chatError', code: 'noAlliance' });
     if (m.t === 'say' && m.text !== undefined && !m.text.trim()) return;
+    if (m.t === 'say' && m.links && d && !(await chatOwns(d, me.pid, m.links))) return send(ws, { t: 'chatError', code: 'link' });
     const g = this.gate.check(me.pid, now);
     if (!g.ok) return send(ws, { t: 'chatError', code: g.code, ...(g.until ? { until: g.until } : {}) });
     if (m.t === 'mark') {
       const mark: Mark = { id: ++this.markSeq, pid: me.pid, name: me.chat, kind: m.kind, at: m.at, x: m.x, y: m.y, t: now };
-      return this.toAlliance(me.alliance, { t: 'marked', mark });
+      return this.toChat(`chat:${me.alliance}`, { t: 'marked', mark });
     }
-    const said = m.phrase !== undefined ? { phrase: m.phrase } : { text: m.text! };
-    const msg: ChatMsg = d ? await chatStore(d, me.alliance, me.pid, me.chat, said, now) : { id: ++this.markSeq, pid: me.pid, name: me.chat, at: now, ...said };
-    this.toAlliance(me.alliance, { t: 'said', msg });
+    const said = m.phrase !== undefined ? { phrase: m.phrase } : { text: m.text!, ...(m.links ? { links: m.links } : {}) };
+    const msg: ChatMsg = d ? await chatStore(d, world ? WORLD : me.alliance!, me.pid, me.chat, said, now) : { id: ++this.markSeq, pid: me.pid, name: me.chat, at: now, ...said, ...(world ? { ch: 'world' as const } : {}) };
+    this.toChat(world ? 'chat' : `chat:${me.alliance}`, { t: 'said', msg });
   }
 
-  private toAlliance(alliance: AllianceId, m: WorldServerMsg): void {
-    for (const ws of this.ctx.getWebSockets(`chat:${alliance}`)) send(ws, m);
+  /** Every chat socket under a tag: `chat:<alliance>` an alliance's, `chat` all (W-69 World). */
+  private toChat(tag: string, m: WorldServerMsg): void {
+    for (const ws of this.ctx.getWebSockets(tag)) send(ws, m);
   }
 
   async webSocketClose(ws: WebSocket, code?: number): Promise<void> {
