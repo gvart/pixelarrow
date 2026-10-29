@@ -1,0 +1,31 @@
+src/war/view/hud/roster/state.ts
+  s_f08b12c690e0d6::t_f9451f84194449 238,252
+src/war/view/hud/roster/ui.ts
+  s_f08b12c690e0d6::t_49656ae1e25d69 244-245
+src/war/view/hud/roster/card.ts
+  s_f08b12c690e0d6::t_3c2cabb2ca0d6c 136
+src/war/view/soulRise.ts
+  s_f08b12c690e0d6::t_cb8eab104ce4ae 44,49
+  s_f08b12c690e0d6::t_f9451f84194449 17-21
+  s_f08b12c690e0d6::t_ec4a48c647cd1a 16
+src/war/view/SandboxScene.ts
+  s_f08b12c690e0d6::t_ec4a48c647cd1a 61,658
+src/war/view/hud/roster/index.ts
+  s_f08b12c690e0d6::t_f9451f84194449 146
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "d3fe19968126c2433c9629e0a2187985d4bf49fe",
+  "prompts": {},
+  "sessions": {
+    "s_f08b12c690e0d6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e4ed4b42-9ff5-404c-b2dd-32a044e85f29",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
