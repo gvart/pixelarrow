@@ -83,7 +83,7 @@ const CSS = `
 #rfGuide.flash li.cur{animation:gdFlash .9s ease-out}
 @keyframes gdFlash{0%{background:#3d2a12}100%{background:var(--rf-sunk)}}
 #rfGuide .gd-giver{font:italic 11.5px/1.3 Inter,sans-serif;color:var(--rf-muted);margin:-1px 0 3px}
-#rfGuide .gd-story{display:block;margin-top:2px;color:var(--rf-ink);font:italic 12px/15px Inter,sans-serif;opacity:.88}
+#rfGuide .gd-story{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;margin-top:2px;color:var(--rf-ink);font:italic 12px/15px Inter,sans-serif;opacity:.88}
 #rfGuide .gd-where{display:block;margin-top:3px;color:var(--rf-muted);font-size:12px;line-height:15px}
 #rfGuide .gd-where b,#rfGuide .gd-pay b{font:700 10px/15px Inter,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--rf-muted);margin-right:4px}
 #rfGuide .gd-pay{display:block;margin-top:2px;color:var(--rf-muted);font-size:11px}
@@ -175,7 +175,7 @@ export function mountGuide(s: SandboxScene, mk: Mk): void {
     return near(stores.map((b) => ({ x: b.x, y: b.y }))) ?? g.spots.home;
   };
 
-  const place = (m: HTMLElement, p: { x: number; y: number } | null, label: string) => placeMarker(s, m, p, label, [el, ...[document.getElementById('rfQuest')].filter((x): x is HTMLElement => !!x)]);
+  const place = (m: HTMLElement, p: { x: number; y: number } | null, label: string) => placeMarker(s, m, p, label);
 
   let last = '', shown = false, closing = false, announced = false;
   const frame = () => {
@@ -208,11 +208,11 @@ export function mountGuide(s: SandboxScene, mk: Mk): void {
     const html = folded
       ? `${head}${now ? `<div class="gd-one">${STEP_ICON[now.id]()}<span style="flex:1;min-width:0">${lore(now.id).goal}</span>${t ? `<span class="gd-far">${metres(far)}</span>` : ''}</div>` : ''}`
       : `${head}<div class="gd-giver">Given by ${from}</div>
-      <ol>${list.map((st) => {
+      <ol>${save!.done.length ? `<li class="ok"><span class="bx"></span><span class="t">${save!.done.length} ${save!.done.length === 1 ? 'step' : 'steps'} done</span></li>` : ''}${list.map((st) => {
         const l = lore(st.id);
-        if (save!.done.includes(st.id)) return `<li class="ok"><span class="bx"></span><span class="t">${l.goal}</span></li>`;
+        if (save!.done.includes(st.id)) return ''; // the finished steps fold into one line
         if (st !== now) return `<li><span class="bx"></span><span class="t">${l.goal}</span></li>`;
-        return `<li class="cur">${STEP_ICON[st.id]()}<div style="min-width:0;flex:1"><span class="t">${l.goal}</span><span class="gd-story">“${l.story}”</span>
+        return `<li class="cur">${STEP_ICON[st.id]()}<div style="min-width:0;flex:1"><span class="t">${l.goal}</span><span class="gd-story" title="${l.story.replace(/"/g, '&quot;')}">“${l.story}”</span>
           <span class="gd-where"><b>Where</b>${l.where}</span>
           <div class="gd-meta">${rewardChips(st.reward as Record<string, number>)}${t ? `<span class="gd-far">${metres(far)} away</span>` : ''}</div><span class="gd-pay">${payLine}</span></div></li>`;
       }).join('')}</ol>${now ? '' : '<div class="gd-hint" style="padding:4px 0 0">Your men know their way now. Next, beyond your home: clear the lair guarding a claim banner, right-click the banner with your men and hold it, and you build there too.</div>'}`;

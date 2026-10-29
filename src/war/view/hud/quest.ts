@@ -11,7 +11,7 @@ import { ownCentre } from '../entry';
 import { myTeam } from '../side';
 import { icon, leftPanelOpen, uiZoom } from './kit';
 import { esc } from './roster/ui';
-import { laneBusy } from './layout';
+import { clearOfHud, laneBusy, markerArea } from './layout';
 
 type Mk = (id: string, css: string, html?: string) => HTMLElement;
 type P = { x: number; y: number };
@@ -92,34 +92,37 @@ export function questMarker(cls: string): HTMLElement {
 
 /**
  * Place marker `m` over tile point p (label's first part), or on the screen's edge towards it (the whole label, an arrow
- * turned at it). The edge spot keeps below the cards in `avoid` (the trackers top left).
+ * turned at it). The edge spot keeps off every docked panel (./layout.ts).
  */
-export function placeMarker(s: SandboxScene, m: HTMLElement, p: P | null, label: string, avoid: readonly HTMLElement[] = []): void {
+export function placeMarker(s: SandboxScene, m: HTMLElement, p: P | null, label: string): void {
   if (!p) return void (m.style.display = 'none');
-  const cam = s.cameras.main, q = s.toScreen(p.x, p.y), W = cam.width, H = cam.height;
-  // the open play area: clear of the minimap, buttons and command card (the HUD is zoomed with the UI scale)
-  const z = uiZoom(), x0 = 90, x1 = W - 120 * z, y0 = 70, y1 = H - 225 * z;
+  const q = s.toScreen(p.x, p.y);
+  // the open play area: under the top bar's plaque, inside the edges (the HUD's zones are zoomed with the UI scale)
+  const { x0, x1, y0, y1 } = markerArea();
   m.style.display = 'flex';
   const lb = m.querySelector<HTMLElement>('.lb')!, ar = m.querySelector<SVGElement>('.ar')!;
   if (q.x > x0 && q.y > y0 + 20 && q.x < x1 && q.y < y1 + 40) {
-    m.classList.remove('edge');
-    m.style.left = `${q.x}px`;
-    m.style.top = `${q.y - 26}px`;
     lb.textContent = label.split(' · ')[0];
-    return;
+    // over its point, unless a panel stands there: then as an edge pointer beside the panel, turned at it
+    const hw = lb.offsetWidth / 2 + 4, mid = q.y - 26 - 20, free = clearOfHud(q.x, mid, hw, 20);
+    if (free.x === q.x && free.y === mid) {
+      m.classList.remove('edge');
+      m.style.left = `${q.x}px`;
+      m.style.top = `${q.y - 26}px`;
+      return;
+    }
   }
   // off screen (or under the HUD): on the edge of the open play area, along the line from its middle
-  const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, dx = q.x - cx, dy = q.y - cy;
-  const k = Math.min((x1 - cx) / Math.abs(dx || 1e-6), (y1 - cy) / Math.abs(dy || 1e-6)), at = { x: cx + dx * k, y: cy + dy * k };
-  for (const el of avoid) {
-    if (el.style.display === 'none') continue;
-    const tr = el.getBoundingClientRect();
-    if (at.x > tr.left - 50 && at.x < tr.right + 50 && at.y > tr.top - 20 && at.y < tr.bottom + 20) at.y = tr.bottom + 24;
-  }
+  const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+  const k = Math.min((x1 - cx) / Math.abs(q.x - cx || 1e-6), (y1 - cy) / Math.abs(q.y - cy || 1e-6), 1);
   m.classList.add('edge');
+  lb.textContent = label;
+  // centred on its point: keep the label and its arrow off the panels and inside the window
+  const hw = lb.offsetWidth / 2 + 24, at = clearOfHud(cx + (q.x - cx) * k, cy + (q.y - cy) * k, hw, 18);
+  at.x = Math.max(hw - 18, Math.min(innerWidth - hw + 18, at.x));
   m.style.left = `${at.x}px`;
   m.style.top = `${at.y}px`;
-  lb.textContent = label;
+  const dx = q.x - at.x, dy = q.y - at.y;
   const a = Math.atan2(dy, dx), r = Math.hypot((lb.offsetWidth / 2) * Math.cos(a), 9 * Math.sin(a)) + 16; // just past the label's edge
   ar.style.transform = `rotate(${a}rad) translateX(${r}px)`;
 }
@@ -237,10 +240,9 @@ export function mountQuestTracker(s: SandboxScene, mk: Mk): void {
       return;
     }
     // top right, under the corner buttons (./layout.ts; the guide holds the top left)
-    const g = document.getElementById('rfGuide');
     el.style.display = '';
     const far = v.at ? metres(Math.hypot(v.at.x - me.x, v.at.y - me.y)) : '';
-    placeMarker(s, mark, v.at, `${v.label}${far ? ` · ${far}` : ''}`, [el, ...(g ? [g] : [])]);
+    placeMarker(s, mark, v.at, `${v.label}${far ? ` · ${far}` : ''}`);
     // on the screen's edge beside the guide's marker: a row lower, so both read
     for (const o of document.querySelectorAll<HTMLElement>('.gd-mk.on,.gd-mk.home')) {
       if (o.style.display === 'none' || mark.style.display === 'none' || !mark.classList.contains('edge')) continue;

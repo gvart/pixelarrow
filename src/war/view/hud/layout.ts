@@ -204,6 +204,35 @@ const CSS = `.hud-off{display:none!important}`;
 /** Is a banner other than `id` in the centre lane now (they take turns: ./quest.ts, ./bossBanner.ts)? */
 export const laneBusy = (id: string): boolean => ZONES.lane.some((o) => o !== id && (document.getElementById(o)?.style.display ?? 'none') !== 'none');
 
+/** The docked boxes as last placed (CSS px), for the map's edge pointers to keep off. */
+let docked: { l: number; t: number; r: number; b: number }[] = [];
+
+/** The open play area for the map's edge pointers (CSS px): under the bar's plaque, inside the window's edges. */
+export function markerArea(): { x0: number; y0: number; x1: number; y1: number } {
+  const z = uiZoom();
+  return { x0: 80 * z, y0: (TOP_C + 16) * z, x1: innerWidth - 80 * z, y1: innerHeight - 24 * z };
+}
+
+/**
+ * A pointer at (x, y) with a label `hw` by `hh` either side (CSS px), moved off every docked panel: out by the shortest
+ * way that stays in `a`, a few rounds for panels side by side.
+ */
+export function clearOfHud(x: number, y: number, hw: number, hh: number, a = markerArea()): { x: number; y: number } {
+  for (let round = 0; round < 3; round++) {
+    let moved = false;
+    for (const d of docked) {
+      const l = d.l - hw, r = d.r + hw, t = d.t - hh, b = d.b + hh;
+      if (x <= l || x >= r || y <= t || y >= b) continue;
+      const outs = [{ x: l, y }, { x: r, y }, { x, y: t }, { x, y: b }].filter((p) => p.x >= a.x0 && p.x <= a.x1 && p.y >= a.y0 && p.y <= a.y1);
+      if (!outs.length) continue;
+      ({ x, y } = outs.reduce((m, p) => (Math.hypot(p.x - x, p.y - y) < Math.hypot(m.x - x, m.y - y) ? p : m)));
+      moved = true;
+    }
+    if (!moved) break;
+  }
+  return { x, y };
+}
+
 /** Measure the zoned panels each frame and put them in place. */
 export function mountLayout(): void {
   const st = document.createElement('style');
@@ -232,6 +261,7 @@ export function mountLayout(): void {
       (stacks[zone] ??= []).push({ id, w: r.width / ez, h, ...(MIN[id] !== undefined ? { min: MIN[id] } : {}), ...(YIELDS.has(id) ? { yields: true } : {}), ...(SIDE_BY_SIDE.has(id) ? { dx: Math.round(r.left / ez - EDGE) } : zone === 'bc' ? { dx: r.left / ez - (f.w - r.width / ez) / 2 } : {}) });
     }
     const placed = solve(f, stacks);
+    docked = Object.values(placed).filter((p) => !p.off).map((p) => ({ l: p.x * z, t: p.y * z, r: (p.x + p.w) * z, b: (p.y + p.h) * z }));
     for (const [id, p] of Object.entries(placed)) {
       const el = els.get(id)!, zone = zoneOf.get(id)!;
       if (p.off) { el.classList.add('hud-off'); continue; }
