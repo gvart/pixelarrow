@@ -34,6 +34,41 @@ export function clock(ms: number): string {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 
+/**
+ * After a wipe: his men he can field (not wounded, not captive), the tunnel's next rise, and his wounded and captive men
+ * with the first of each back (GET /api/war/tunnel; offline: no wounded or captives).
+ */
+export interface WipeState { fit: number; nextAt: number | null; wounded: number; woundedAt: number | null; captive: number; captiveAt: number | null }
+
+/** The "Your army is destroyed" card: no man he can field, and a man to come (a rise, a wounded man healing, a captive). */
+export const wiped = (t: WipeState): boolean => t.fit === 0 && (t.nextAt !== null || t.wounded > 0 || t.captive > 0);
+
+/** A wait: "7:42" under an hour, else "4 h 12 m". */
+export function span(ms: number): string {
+  if (ms < 3_600_000) return clock(ms);
+  const m = Math.ceil(ms / 60_000);
+  return `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} m` : ''}`;
+}
+
+/** The first man to stand again: when (null: not known) and how (the card's headline). */
+export function wipeNext(t: WipeState): { at: number | null; text: string } {
+  const c = [
+    t.nextAt !== null && { at: t.nextAt, text: 'The next man rises in' },
+    t.wounded > 0 && t.woundedAt !== null && { at: t.woundedAt, text: 'Your first wounded man is fit in' },
+    t.captive > 0 && t.captiveAt !== null && { at: t.captiveAt, text: 'Your first captive walks home in' },
+  ].filter((x): x is { at: number; text: string } => !!x).sort((a, b) => a.at - b.at)[0];
+  return c ? { at: c.at, text: c.text } : { at: null, text: 'Your next man stands in' };
+}
+
+/** The card's detail line (none when the tunnel alone brings him back): "Next shade rises in 7:42 · 3 wounded heal in 4 h 12 m · 8 held captive, back in 21 h or by ransom". */
+export function wipeLine(t: WipeState, now: number): string {
+  const p: string[] = [];
+  if (t.nextAt !== null && (t.wounded > 0 || t.captive > 0)) p.push(`Next shade rises in ${span(t.nextAt - now)}`);
+  if (t.wounded > 0) p.push(`${t.wounded} wounded heal${t.woundedAt !== null ? ` in ${span(t.woundedAt - now)}` : ''}`);
+  if (t.captive > 0) p.push(`${t.captive} held captive, back${t.captiveAt !== null ? ` in ${span(t.captiveAt - now)}` : ''} or by ransom`);
+  return p.join(' · ');
+}
+
 /** The HUD and building line: "Next shade rises in 7:42, 3/6" (null: nothing pending). */
 export function tunnelLine(alive: number, nextAt: number | null, now: number): string | null {
   if (nextAt === null || alive >= TUNNEL.floor) return null;
