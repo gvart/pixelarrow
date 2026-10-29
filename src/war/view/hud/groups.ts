@@ -21,7 +21,7 @@ export const GROUPS_CSS = `
 #rfGroups .rf-btn .cnt{position:absolute;left:2px;top:1px;font:700 9px/1 Inter,sans-serif;color:var(--rf-gold);text-shadow:0 1px 0 #050506,0 0 2px #050506}
 #rfGroups .rf-btn:disabled .key{opacity:.55}`;
 
-export function mountGroups(s: SandboxScene, mk: Mk, tipOn: TipOn): { refresh(bottom: number, show: boolean): void } {
+export function mountGroups(s: SandboxScene, mk: Mk, tipOn: TipOn): { refresh(show: boolean): void } {
   const bar = mk('rfGroups', 'left:50%;transform:translateX(-50%);display:none;gap:2px;pointer-events:auto');
   const btns = Array.from({ length: 9 }, (_, i) => {
     const n = i + 1, b = document.createElement('button');
@@ -76,9 +76,8 @@ export function mountGroups(s: SandboxScene, mk: Mk, tipOn: TipOn): { refresh(bo
   });
 
   return {
-    refresh(bottom, show) {
+    refresh(show) {
       bar.style.display = show && s.sel.groups.size ? 'flex' : 'none';
-      bar.style.bottom = `${bottom}px`;
       if (show) draw();
     },
   };

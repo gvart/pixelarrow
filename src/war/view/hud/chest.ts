@@ -18,7 +18,7 @@ import type { SandboxScene } from '../SandboxScene';
 import { keys } from '../../input/keys';
 import { myTeam } from '../side';
 import { draggable } from './drag';
-import { bar, fitHeight, icon } from './kit';
+import { bar, icon } from './kit';
 import { GOOD_INFO, goodCard, goodIcon, goodName } from './goods';
 import { sandboxRoster } from './roster/state';
 import { nameOf, sandboxCraft } from './craft/state';
@@ -227,8 +227,6 @@ export function mountChest(s: SandboxScene, mk: Mk, tipOn: (el: HTMLElement, htm
       const b2 = el.querySelector<HTMLElement>('.ch-body');
       if (b2) b2.scrollTop = top;
     }
-    fitHeight(el);
-    el.style.maxHeight = '';
     unTip();
   };
   const toggle = (on = !open) => { open = on; last = ''; render(); };

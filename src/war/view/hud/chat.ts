@@ -76,6 +76,7 @@ ${edges} .edge .nm{position:absolute;left:0;top:20px;transform:translateX(-50%);
 
 const CSS = `
 #rfChat{position:fixed;z-index:4;width:340px;pointer-events:none;color:var(--rf-ink);font:var(--rf-body)}
+#rfChat:not(.open){width:auto;max-width:340px}
 #rfChat .ch-tab{pointer-events:auto;display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px 0 6px;margin-top:3px;cursor:pointer;background:rgba(10,11,13,.82);border:1px solid var(--rf-rule);box-shadow:inset 0 1px 0 rgba(239,207,134,.08);font:700 11px/1 Cinzel,serif;color:var(--rf-title);letter-spacing:.05em}
 #rfChat .ch-tab:hover{border-color:var(--rf-line);background:rgba(44,28,21,.92)}
 #rfChat .ch-tab .k{font:600 10px/1 Inter,sans-serif;color:var(--rf-muted);letter-spacing:0;padding:2px 4px;border:1px solid var(--rf-rule);background:var(--rf-sunk)}
@@ -99,7 +100,7 @@ const CSS = `
 #rfChat.open .ch-log{height:var(--ch-log-h,164px);max-height:none;overflow-y:auto;padding:3px 2px 3px 3px;background:var(--rf-sunk);border:1px solid var(--rf-rule);box-shadow:inset 0 1px 3px rgba(0,0,0,.6)}
 #rfChat .ch-l{position:relative;padding:2px 5px;font:600 12px/1.35 Inter,sans-serif;color:var(--rf-ink);word-wrap:break-word;overflow-wrap:anywhere;transition:opacity .6s}
 #rfChat:not(.open) .ch-l{background:linear-gradient(90deg,rgba(10,11,13,.78) 60%,rgba(10,11,13,0));text-shadow:0 1px 0 #050506,0 0 3px #050506}
-#rfChat:not(.open) .ch-l.old{opacity:0}
+#rfChat:not(.open) .ch-l.old{display:none}
 #rfChat.open .ch-l:hover{background:var(--rf-hover)}
 #rfChat .ch-l .tm{font:600 10px/1 Inter,sans-serif;color:var(--rf-disabled);margin-right:4px}
 #rfChat:not(.open) .ch-l .tm{display:none}

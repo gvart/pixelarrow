@@ -177,15 +177,17 @@ export const ZONES: Record<Anchor, readonly string[]> = {
   tr: [],
   lane: [],
   bl: ['minimap', 'rfLegend', 'rfChat'],
-  bc: [],
-  br: [],
+  bc: ['rpBar', 'rfCard', 'rfBuild', 'rfGroups', 'rfSoul'],
+  br: ['rfDock'],
   lwin: ['rrPanel', 'rrCard', 'rfMarket', 'rfHandoff', 'cfWp', 'cfTree', 'mmPanel'],
-  rwin: [],
+  rwin: ['rfChest'],
 };
 /** Shrinkable panels: their least height (art px). */
 const MIN: Record<string, number> = { rfGuide: 34 };
 /** Panels that give way while a left window is open. */
 const YIELDS = new Set(['rfGuide', 'rfWorldEv', 'rfChat']);
+/** Measured, never moved: the dock plate (its buttons sit on it by their own CSS). */
+const FIXED = new Set(['rfDock']);
 /** Placed by their bottom edge (bottom-up zones). */
 const FROM_BOTTOM = new Set<Anchor>(['bl', 'bc', 'br', 'rwin']);
 /** Windows: they keep a dragged place and get a max height. */
@@ -220,12 +222,13 @@ export function mountLayout(): void {
       const zone = zoneOf.get(id)!, ez = Number(el.style.zoom) || 1;
       if (WINDOWS.has(zone) && el.dataset.moved) continue;
       const h = el.dataset.hudClamp ? el.scrollHeight + el.offsetHeight - el.clientHeight : r.height / ez;
-      (stacks[zone] ??= []).push({ id, w: r.width / ez, h, ...(MIN[id] !== undefined ? { min: MIN[id] } : {}), ...(YIELDS.has(id) ? { yields: true } : {}), ...(SIDE_BY_SIDE.has(id) ? { dx: Math.round(r.left / ez - EDGE) } : {}) });
+      (stacks[zone] ??= []).push({ id, w: r.width / ez, h, ...(MIN[id] !== undefined ? { min: MIN[id] } : {}), ...(YIELDS.has(id) ? { yields: true } : {}), ...(SIDE_BY_SIDE.has(id) ? { dx: Math.round(r.left / ez - EDGE) } : zone === 'bc' ? { dx: r.left / ez - (f.w - r.width / ez) / 2 } : {}) });
     }
     const placed = solve(f, stacks);
     for (const [id, p] of Object.entries(placed)) {
       const el = els.get(id)!, zone = zoneOf.get(id)!;
       if (p.off) { el.classList.add('hud-off'); continue; }
+      if (FIXED.has(id)) continue;
       el.style.marginTop = '0';
       if (FROM_BOTTOM.has(zone)) { el.style.top = 'auto'; el.style.bottom = `${Math.round(f.h - p.y - p.h)}px`; }
       else { el.style.bottom = 'auto'; el.style.top = `${Math.round(p.y)}px`; }
