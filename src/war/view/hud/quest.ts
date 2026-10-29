@@ -11,6 +11,7 @@ import { ownCentre } from '../entry';
 import { myTeam } from '../side';
 import { icon, leftPanelOpen, uiZoom } from './kit';
 import { esc } from './roster/ui';
+import { laneBusy } from './layout';
 
 type Mk = (id: string, css: string, html?: string) => HTMLElement;
 type P = { x: number; y: number };
@@ -139,7 +140,7 @@ export interface Banner {
   pay?: string;
 }
 const queue: Banner[] = [];
-let showing = false, seq = 0;
+let showing = false;
 /** Show a quest banner (one at a time, each about 5 s; later ones wait their turn). */
 export function questBanner(b: Banner): void {
   style();
@@ -154,6 +155,8 @@ function next(): void {
     return;
   }
   showing = true;
+  // the centre lane takes one banner at a time (a guardian's speaks first)
+  if (laneBusy('rfQBanner')) { queue.unshift(b); setTimeout(next, 400); return; }
   if (!el) {
     el = document.createElement('div');
     el.id = 'rfQBanner';
@@ -165,14 +168,6 @@ function next(): void {
   el.innerHTML = `<div class="qb-k">${esc(b.head)}</div><div class="qb-t">${esc(b.title)}</div>${b.giver ? `<div class="qb-g">${esc(b.giver)}</div>` : ''}${b.text ? `<div class="qb-x">${esc(b.text)}</div>` : ''}${b.reward && Object.keys(b.reward).length ? `<div class="qb-r">${rewardChips(b.reward)}</div>` : ''}${b.pay ? `<div class="qb-p">${esc(b.pay)}</div>` : ''}`;
   el.classList.remove('out');
   el.style.display = '';
-  // just below the small notices at the top centre (./roster/toast.ts), never over them
-  const z = Number(el.style.zoom) || 1, my = ++seq, below = () => {
-    if (my !== seq || el!.style.display === 'none') return;
-    const t = document.getElementById('rrToasts'), bottom = t && t.children.length ? t.getBoundingClientRect().bottom : 0;
-    el!.style.top = `${Math.max(44, Math.round(bottom / z) + 6)}px`;
-    requestAnimationFrame(below);
-  };
-  below();
   const life = b.text ? 6500 : 4500;
   setTimeout(() => el!.classList.add('out'), life);
   setTimeout(() => { el!.style.display = 'none'; next(); }, life + 500);
@@ -241,9 +236,8 @@ export function mountQuestTracker(s: SandboxScene, mk: Mk): void {
       el.style.display = mark.style.display = 'none';
       return;
     }
-    // top right, under the corner buttons (the guide holds the top left)
-    const g = document.getElementById('rfGuide'), corner = document.getElementById('rfDev'), z = Number(el.style.zoom) || 1;
-    el.style.top = `${corner ? Math.round(corner.getBoundingClientRect().bottom / z) + 6 : 40}px`;
+    // top right, under the corner buttons (./layout.ts; the guide holds the top left)
+    const g = document.getElementById('rfGuide');
     el.style.display = '';
     const far = v.at ? metres(Math.hypot(v.at.x - me.x, v.at.y - me.y)) : '';
     placeMarker(s, mark, v.at, `${v.label}${far ? ` · ${far}` : ''}`, [el, ...(g ? [g] : [])]);

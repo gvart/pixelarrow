@@ -13,7 +13,7 @@ import { WAR_SEASON } from '../../world/alliances';
 import type { SandboxScene } from '../SandboxScene';
 import { draggable } from './drag';
 import { glyph } from './glyph';
-import { closeCornerWindows, CORNER_BOTTOM, fitHeight, icon, menuBtn, setBadge } from './kit';
+import { closeCornerWindows, icon, menuBtn, setBadge } from './kit';
 import { esc, tipper } from './roster/ui';
 import { keys } from '../../input/keys';
 import { TASK_LORE } from '../../net/questLore';
@@ -176,7 +176,6 @@ export function mountTasks(s: SandboxScene, mk: Mk): void {
     win.innerHTML = `<div class="rf-head rf-ph">${icon('trade-contract', 32)}<div style="flex:1;min-width:0"><div class="rf-name">Tasks</div><div class="sub">${done} of ${v.tasks.length} claimed${online() ? '' : ' · offline'}</div></div><button class="rf-tbtn x" data-act="close" title="close (Esc)">×</button></div>
       ${tasksHtml(v, online())}<div class="mk-msg rf-dim" style="min-height:15px${bad ? ';color:var(--rf-bad)' : ''}">${esc(msg)}</div>`;
     win.scrollTop = scroll;
-    fitHeight(win, CORNER_BOTTOM);
   };
   const load = async () => {
     if (online()) {

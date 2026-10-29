@@ -27,7 +27,7 @@ import { WORKS, WONDER } from '../../net/works';
 import type { SandboxScene } from '../SandboxScene';
 import { draggable } from './drag';
 import { glyph } from './glyph';
-import { closeCornerWindows, CORNER_BOTTOM, fitHeight, icon, menuBtn, setBadge } from './kit';
+import { closeCornerWindows, icon, menuBtn, setBadge } from './kit';
 import { esc, tipper } from './roster/ui';
 import { keys } from '../../input/keys';
 import { fill, ORDER_LORE } from '../../net/questLore';
@@ -398,7 +398,6 @@ export function mountCrown(s: SandboxScene, mk: Mk): void {
     const sure = armed ? win.querySelector<HTMLElement>(`[data-sure="${armed}"]`) : null;
     if (sure) (sure.classList.add('sure'), (sure.textContent = 'Confirm'));
     win.scrollTop = scroll;
-    fitHeight(win, CORNER_BOTTOM);
   };
   const arm = (key: string | null, text = '') => {
     clearTimeout(disarm);

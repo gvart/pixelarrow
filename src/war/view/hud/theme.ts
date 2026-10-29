@@ -165,8 +165,8 @@ export const THEME_CSS = `
 #rfMenus #rfFavourBtn{display:none}
 
 /* ---- panels anchored at the top sit below the top bar (the zoned ones: ./layout.ts) ---- */
-#rfDev,#rfQBanner,#rfQuest,#rfTunnel,#rfTown,#rfTownCard,#rfWorks,#rfFavour,#rfTasks,#rfSettleNote,#rfPlotBar,#rfHoldings,#rfCrown,#rfGuard,#rfLand,#rpToast,#rpTop,#rrToasts{margin-top:var(--hud-top)}
-#rfTown,#rfTownCard,#rfQBanner,#rfTunnel,#rfGuard,#rrToasts,#rpToast,#rpTop,#rfPlotBar{margin-top:calc(var(--hud-top) + 10px)}
+#rfSettleNote,#rfPlotBar{margin-top:var(--hud-top)}
+#rfPlotBar{margin-top:calc(var(--hud-top) + 10px)}
 
 /* ---- the command panel, bottom centre ---- */
 #rfCard .hud-cmd{position:relative;display:flex;align-items:stretch;padding:5px 6px 5px 5px;border-width:4px 5px 4px;box-shadow:var(--hud-frame)}

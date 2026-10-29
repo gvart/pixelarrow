@@ -22,7 +22,7 @@ import { mountMemorial } from './memorial';
 import { FILTERS, panelHtml, PANEL_W, SORTS, type Filter, type Sort } from './panel';
 import { portrait, PORTRAIT_H, PORTRAIT_W, scarMarks } from './portrait';
 import { sandboxRoster } from './state';
-import { placeToasts, toaster } from './toast';
+import { toaster } from './toast';
 import { loadItemAtlas, ROSTER_CSS, tipper } from './ui';
 import { loadGlyphs } from '../glyph';
 import { sandboxCraft } from '../craft/state';
@@ -72,7 +72,6 @@ export function mountRoster(s: SandboxScene, mk: Mk): RosterHooks {
     panel.style.display = open ? '' : 'none';
     const row = sel ? R.rows().find((r) => r.p.id === sel) : undefined;
     card.style.display = row ? '' : 'none';
-    placeToasts(toasts, card);
     if (!card.dataset.moved) card.style.left = open ? `${PANEL_W + 8}px` : '4px';
     if (open) {
       // above the minimap (bottom left, about 190 art px) and below the band
@@ -155,7 +154,7 @@ export function mountRoster(s: SandboxScene, mk: Mk): RosterHooks {
     else if (a === 'back' && (sel || open)) { if (sel) sel = null; else open = false; render(); }
   });
 
-  R.onNote = toaster(toasts, (pid) => { open = true; show(pid); }, () => placeToasts(toasts, card));
+  R.onNote = toaster(toasts, (pid) => { open = true; show(pid); });
   R.onChange = render;
   markers(s);
   mountMemorial(s, mk, R); // E3: the home memorial (graves, trophies) and its panel

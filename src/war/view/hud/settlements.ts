@@ -26,7 +26,7 @@ import type { TownLevelSnap } from '../../types';
 import type { SandboxScene } from '../SandboxScene';
 import { PlotLayer } from '../plots';
 import { draggable } from './drag';
-import { closeCornerWindows, CORNER_BOTTOM, fitHeight, menuBtn, setBadge } from './kit';
+import { closeCornerWindows, menuBtn, setBadge } from './kit';
 import { keys } from '../../input/keys';
 import { tipper } from './roster/ui';
 import type { CrownNewsKind } from '../../net/world';
@@ -267,7 +267,6 @@ export function mountSettlements(s: SandboxScene, mk: Mk): void {
     const scroll = win.scrollTop;
     win.innerHTML = holdingsHtml({ inbox, realm: realm(), world: known(), now: Date.now(), online: online() || !!inbox, msg, bad, busy, armed });
     win.scrollTop = scroll;
-    fitHeight(win, CORNER_BOTTOM);
   }
   function toggleHoldings(on = win.style.display === 'none'): void {
     if (on) closeCornerWindows(btn.id);

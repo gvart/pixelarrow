@@ -58,7 +58,7 @@ export interface Box {
   dx?: number;
 }
 /** Where a panel goes (art px, top-left corner), or `off`: no room, or giving way. */
-export interface Placed { x: number; y: number; w: number; h: number; off?: boolean }
+export interface Placed { x: number; y: number; w: number; h: number; off?: boolean; /** Centre zones: the widest it may be here. */ cap?: number }
 export interface Frame { w: number; h: number }
 export type Stacks = Partial<Record<Anchor, Box[]>>;
 
@@ -107,7 +107,7 @@ export function solve(f: Frame, st: Stacks): Record<string, Placed> {
     live.forEach((b, i) => {
       const w = Math.min(b.w, cap);
       if (y + hs[i] > limit) return void off(b);
-      out[b.id] = { x: xOf(b, w), y, w, h: hs[i] };
+      out[b.id] = { x: xOf(b, w), y, w, h: hs[i], ...(cap < Infinity ? { cap } : {}) };
       y += hs[i] + GAP;
     });
     return y - GAP;
@@ -158,13 +158,14 @@ export function solve(f: Frame, st: Stacks): Record<string, Placed> {
     const sides = shown(['tl', 'tr', 'lwin', 'rwin', 'bl', 'br']).filter((p) => meets(y0, y1, p.y, p.y + p.h));
     return [Math.max(0, ...sides.filter((p) => p.x + p.w / 2 < f.w / 2).map((p) => p.x + p.w)), Math.min(f.w, ...sides.filter((p) => p.x + p.w / 2 >= f.w / 2).map((p) => p.x))];
   };
-  const tc = st.tc ?? [];
-  const [tl0, tr0] = span(TOP_C, TOP_C + tc.reduce((a, b) => a + b.h + GAP, 0));
-  const tcBottom = tc.length ? down(tc, TOP_C, bcTop - GAP, (b, w) => centre(b, w), Math.max(0, 2 * Math.min(f.w / 2 - tl0, tr0 - f.w / 2) - 2 * GAP)) : TOP_C - GAP;
-  // the lane: centred in the room left between the sides (an open chat on the left moves a banner right)
-  const lane = st.lane ?? [], laneTop = Math.max(tcBottom + GAP, Math.round(f.h * 0.14));
-  const [l0, r0] = span(laneTop, laneTop + lane.reduce((a, b) => a + b.h + GAP, 0));
-  down(lane, laneTop, bcTop - GAP, (_b, w) => Math.max(l0 + GAP, Math.min((f.w - w) / 2, r0 - GAP - w)), Math.max(0, r0 - l0 - 2 * GAP));
+  /** A centre stack from `top`: centred on the screen where it can be, else in the room between the sides. */
+  const middle = (list: Box[], top: number) => {
+    const [l0, r0] = span(top, top + list.reduce((a, b) => a + b.h + GAP, 0));
+    return down(list, top, bcTop - GAP, (_b, w) => Math.max(l0 + GAP, Math.min((f.w - w) / 2, r0 - GAP - w)), Math.max(0, r0 - l0 - 2 * GAP));
+  };
+  const tc = st.tc ?? [], tcBottom = tc.length ? middle(tc, TOP_C) : TOP_C - GAP;
+  // the lane: one banner at a time under the top centre (an open chat on the left moves it right)
+  middle(st.lane ?? [], Math.max(tcBottom + GAP, Math.round(f.h * 0.14)));
   return out;
 }
 
@@ -173,9 +174,9 @@ export function solve(f: Frame, st: Stacks): Record<string, Placed> {
 /** Which panel goes where, in stacking order (top-down, or bottom-up for bl / bc / br / rwin). */
 export const ZONES: Record<Anchor, readonly string[]> = {
   tl: ['rfGuide', 'rfWorldEv'],
-  tc: [],
-  tr: [],
-  lane: [],
+  tc: ['rfTown', 'rfTownCard', 'rpTop', 'rfGuard', 'rfTunnel', 'rpToast', 'rrToasts'],
+  tr: ['rfDev', 'rfNet', 'rfQuest', 'rfWorks', 'rfFavour', 'rfTasks', 'rfHoldings', 'rfCrown', 'rfHolder', 'rfLand'],
+  lane: ['rfQBanner', 'rfBossBanner'],
   bl: ['minimap', 'rfLegend', 'rfChat'],
   bc: ['rpBar', 'rfCard', 'rfBuild', 'rfGroups', 'rfSoul'],
   br: ['rfDock'],
@@ -183,7 +184,10 @@ export const ZONES: Record<Anchor, readonly string[]> = {
   rwin: ['rfChest'],
 };
 /** Shrinkable panels: their least height (art px). */
-const MIN: Record<string, number> = { rfGuide: 34 };
+const MIN: Record<string, number> = {
+  rfGuide: 34, rfQuest: 60, rfLand: 30, rfTownCard: 120,
+  rfWorks: 120, rfFavour: 120, rfTasks: 120, rfHoldings: 120, rfCrown: 120, rfHolder: 120,
+};
 /** Panels that give way while a left window is open. */
 const YIELDS = new Set(['rfGuide', 'rfWorldEv', 'rfChat']);
 /** Measured, never moved: the dock plate (its buttons sit on it by their own CSS). */
@@ -196,6 +200,9 @@ const WINDOWS = new Set<Anchor>(['lwin', 'rwin']);
 const SIDE_BY_SIDE = new Set(['rrCard', 'rfHandoff', 'cfTree']);
 
 const CSS = `.hud-off{display:none!important}`;
+
+/** Is a banner other than `id` in the centre lane now (they take turns: ./quest.ts, ./bossBanner.ts)? */
+export const laneBusy = (id: string): boolean => ZONES.lane.some((o) => o !== id && (document.getElementById(o)?.style.display ?? 'none') !== 'none');
 
 /** Measure the zoned panels each frame and put them in place. */
 export function mountLayout(): void {
@@ -232,6 +239,8 @@ export function mountLayout(): void {
       el.style.marginTop = '0';
       if (FROM_BOTTOM.has(zone)) { el.style.top = 'auto'; el.style.bottom = `${Math.round(f.h - p.y - p.h)}px`; }
       else { el.style.bottom = 'auto'; el.style.top = `${Math.round(p.y)}px`; }
+      // the centre zones: placed by their middle (they keep their translateX(-50%)), no wider than the room
+      if (p.cap !== undefined) { el.style.left = `${Math.round(p.x + p.w / 2)}px`; el.style.maxWidth = `${Math.floor(p.cap)}px`; }
       const want = stacks[zone]!.find((b) => b.id === id)!;
       if (p.h < want.h - 0.5) {
         Object.assign(el.style, { maxHeight: `${Math.floor(p.h)}px`, overflowY: 'auto', scrollbarWidth: 'thin', scrollbarColor: '#5f4b2a #050506' });

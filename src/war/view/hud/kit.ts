@@ -211,9 +211,6 @@ export function closeCornerWindows(except: string): void {
   for (const id of CORNER_WINDOWS) if (id !== except) { const b = document.getElementById(id); if (b?.classList.contains('on')) b.click(); }
 }
 
-/** The bottom margin of a right-hand window: clear of the menu bar (chest, roster, build and the menus) in the bottom-right corner. */
-export const CORNER_BOTTOM = 52;
-
 /** The menu bar, bottom right, left of the chest, roster and build buttons (made by ./hud.ts); its buttons sort by `order`. */
 export const MENU_BAR = 'rfMenus';
 const shortKey = (id: ActionId) => keys.label(id).replace('Shift+', '⇧');
