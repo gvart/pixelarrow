@@ -29,6 +29,7 @@ import { HUNGER, hungerStage } from '../../sim/food';
 import type { BuildingSnap } from '../../types';
 import { storeNear } from '../../net/economy';
 import { tipHtml } from './theme';
+import { itemLinkAttr } from './chatTags';
 export { STORE_NEAR, storeNear } from '../../net/economy'; // W-60: shared with the server's `stock` message
 
 type Mk = (id: string, css: string, html?: string) => HTMLElement;
@@ -147,7 +148,7 @@ function cellHtml(x: Cell): string {
     return `<div class="rf-cell" data-tip="${esc(goodCard(x.res, more))}">${icon(goodIcon(x.res))}<span class="n">${fmt(x.n)}</span></div>`;
   }
   const it = x.item, worn = it.cond / (it.mc ?? 100) < 0.5;
-  return `<div class="rf-cell" style="border-color:${rarityHex(it.rarity)}88" data-tip="${esc(itemTip(it, undefined, x.note ? { tone: 'dim', icon: 'ui:chest', text: x.note } : undefined))}">${itemIcon(it, 28)}${itemBadges(it, 9)}${worn ? '<i class="w" title="worn"></i>' : ''}${(x.n ?? 1) > 1 ? `<span class="n">×${x.n}</span>` : ''}</div>`;
+  return `<div class="rf-cell" style="border-color:${rarityHex(it.rarity)}88" ${itemLinkAttr(it)} data-tip="${esc(itemTip(it, undefined, x.note ? { tone: 'dim', icon: 'ui:chest', text: x.note } : undefined))}">${itemIcon(it, 28)}${itemBadges(it, 9)}${worn ? '<i class="w" title="worn"></i>' : ''}${(x.n ?? 1) > 1 ? `<span class="n">×${x.n}</span>` : ''}</div>`;
 }
 
 function grid(cells: Cell[], empty: string): string {
