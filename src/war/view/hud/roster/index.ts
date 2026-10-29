@@ -143,7 +143,7 @@ export function mountRoster(s: SandboxScene, mk: Mk): RosterHooks {
     else if (a?.dataset.act === 'dismissYes') {
       const pid = sel;
       dismissing = sel = null;
-      void R.dismiss(pid, (cls, x, y) => soulRise(s, cls, x, y)).then(render);
+      void R.dismiss(pid, (cls, x, y, id) => soulRise(s, cls, x, y, id)).then(render);
     }
     render();
   });

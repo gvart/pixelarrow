@@ -13,8 +13,12 @@ const RISE_MS = 2600, LIFT = 140, BEAM_H = 300, BEAM_W = 30;
 interface Rise { cls: string; x: number; y: number; at: number; id: number }
 const scenes = new WeakMap<SandboxScene, Rise[]>();
 
-/** Play a soul rising at tile (x, y), a man of `cls`. */
-export function soulRise(s: SandboxScene, cls: string, x: number, y: number): void {
+/** Men dismissed here (person ids): their bodies are not drawn (he left; he did not fall); claimed again, he stands as before. */
+export const dismissed = new Set<string>();
+
+/** Play a soul rising at tile (x, y), a man of `cls` (person `pid`: his body goes). */
+export function soulRise(s: SandboxScene, cls: string, x: number, y: number, pid?: string): void {
+  if (pid) dismissed.add(pid);
   const list = scenes.get(s);
   if (list) list.push({ cls, x, y, at: performance.now(), id: 9000 + list.length });
 }
@@ -37,12 +41,12 @@ export function mountSoulRise(s: SandboxScene): void {
       // the beam: rises in, holds, fades
       let g = beams[i];
       if (!g) beams.push((g = s.add.graphics().setBlendMode(Phaser.BlendModes.ADD)));
-      const a = (k < 0.2 ? k / 0.2 : k > 0.7 ? Math.max(0, (1 - k) / 0.3) : 1) * 0.55;
+      const a = (k < 0.2 ? k / 0.2 : k > 0.7 ? Math.max(0, (1 - k) / 0.3) : 1) * 0.35;
       const fx = s.iso.sx(r.x, r.y), fy = s.iso.sy(r.x, r.y, s.iso.zAt(r.x, r.y)), h = BEAM_H * Math.min(1, k * 2.5);
       g.clear().setVisible(true).setDepth(10 + (r.x + r.y) / 4096 + 0.25);
       g.fillGradientStyle(0xbfe3ff, 0xbfe3ff, 0x8fcaff, 0x8fcaff, 0, 0, a, a);
       g.fillRect(fx - BEAM_W / 2, fy - h, BEAM_W, h);
-      g.fillGradientStyle(0xffffff, 0xffffff, 0xffffff, 0xffffff, 0, 0, a * 0.8, a * 0.8);
+      g.fillGradientStyle(0xffffff, 0xffffff, 0xffffff, 0xffffff, 0, 0, a * 0.5, a * 0.5);
       g.fillRect(fx - BEAM_W / 6, fy - h, BEAM_W / 3, h);
       g.fillStyle(0x8fcaff, a * 0.6).fillEllipse(fx, fy, BEAM_W * 1.6, BEAM_W * 0.55);
     });

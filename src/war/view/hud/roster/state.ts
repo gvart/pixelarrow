@@ -235,7 +235,7 @@ export class SandboxRoster {
    * W-68: dismiss him: his gear drops where he stands, his soul rises (`rise`: the view plays it where his man stood) and
    * waits at a shrine for anyone to claim, not this player for CAPTIVE.barMs. Online the server does it; offline the sim.
    */
-  async dismiss(pid: string, rise: (cls: string, x: number, y: number) => void): Promise<void> {
+  async dismiss(pid: string, rise: (cls: string, x: number, y: number, pid: string) => void): Promise<void> {
     const row = this.rows().find((x) => x.p.id === pid);
     if (!row || !this.dismissable(row)) return;
     const u = row.unit && row.unit.state !== 'dead' ? row.unit : undefined;
@@ -249,7 +249,7 @@ export class SandboxRoster {
       this.roster.remove(pid);
       this.sent.delete(pid);
     }
-    if (u) rise(row.p.hero.cls ?? 'militia', u.x, u.y);
+    if (u) rise(row.p.hero.cls ?? 'militia', u.x, u.y, pid);
     this.onNote?.({ kind: 'info', text: `${row.p.hero.name} is dismissed: his soul rises to the sky` });
     if (this.s.sim.net) await this.pull();
     else this.onChange?.();

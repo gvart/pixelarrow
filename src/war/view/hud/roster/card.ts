@@ -133,6 +133,7 @@ export function cardHtml(R: SandboxRoster, r: Row, C?: SandboxCraft, dev = false
   return `<div class="rf-card rr-card">
     <div class="rf-head"><span class="rf-name" style="font-size:16px">${esc(h.name)}</span>${crest}<span style="flex:1"></span><button class="rf-tbtn x" data-act="closeCard" data-tip="close (Esc)">✕</button></div>
     <div class="rr-sub">${unitIcon(h.cls ?? 'militia', 16)}<span>${SandboxRoster.className(h.cls)}</span><span class="dot">·</span>${whereHtml(R, r)}</div>
+    ${confirm ? dismissBox(r) : ''}
     <div class="rr-line" ${tip(card({ icon: 'ui:xp', name: `Level ${h.level}`, kind: `${h.xp} of ${need} XP to level ${h.level + 1}`, w: 210, more: `<div>${TERMS.xp.text()}</div>` }))}><span class="rr-lv">${h.level}</span><div class="rr-bar xp"><i style="width:${Math.round(100 * Math.min(1, h.xp / need))}%"></i></div><span class="rf-dim">${h.xp} / ${need} XP</span></div>
     ${hp}
     ${fed}
@@ -166,6 +167,5 @@ export function cardHtml(R: SandboxRoster, r: Row, C?: SandboxCraft, dev = false
       ${R.dismissable(r) && !confirm ? `<button class="rf-tbtn" data-act="dismiss" ${tip(card({ icon: 'power:second_wind', name: 'Dismiss', w: 220, more: '<div>Let him go for good: his gear drops where he stands, his soul rises to a shrine for anyone to claim. Asks first.</div>' }))}>Dismiss</button>` : ''}
       <button class="rf-tbtn" data-act="tree" data-tip="${esc(card({ icon: 'ui:tgstar', name: civ ? 'Profession tree' : 'Skill tree', w: 210, more: civ ? '<div>His trade: the nodes by level, what each opens.</div>' : '<div>His attributes, his two skill slots and the elite rank, by level.</div>' }))}">${glyph('ui:tgstar', 13)} ${civ ? 'Profession' : 'Skill tree'}</button>
     </div>
-    ${confirm ? dismissBox(r) : ''}
   </div>`;
 }
