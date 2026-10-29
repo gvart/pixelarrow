@@ -65,7 +65,7 @@ describe('war roster API', () => {
     expect(await claim(me.playerId, '7302-x')).toBe(false);
   });
 
-  it('counts the wounded, captive and training men toward the army cap', async () => {
+  it('counts the wounded and training men toward the army cap; a captive is not his (W-68)', async () => {
     const me = await devLogin(7308);
     expect((await post(me.token, '/dev/seed', {})).status).toBe(200);
     const ids = (await roster(me.token)).persons.map((p) => p.id);
@@ -75,8 +75,9 @@ describe('war roster API', () => {
     await DB().prepare("UPDATE war_persons SET state = 'captive', until_at = ?2 WHERE id = ?1").bind(ids[1], far).run();
     await DB().prepare("UPDATE war_persons SET state = 'training', until_at = ?2, train_to = 'archer' WHERE id = ?1").bind(ids[2], far).run();
     const r = await roster(me.token);
-    expect(r.caps).toMatchObject({ army: ARMY_MAX, fighters: ARMY_MAX, fit: ARMY_MAX - 3 });
-    expect(await claim(me.playerId, '7308-a')).toBe(false);
+    expect(r.caps).toMatchObject({ army: ARMY_MAX, fighters: ARMY_MAX - 1, fit: ARMY_MAX - 3 });
+    expect(await claim(me.playerId, '7308-a')).toBe(true);
+    expect(await claim(me.playerId, '7308-b')).toBe(false);
   });
 
   it('counts the men of every region toward one cap', async () => {
@@ -222,12 +223,13 @@ describe('fight write-back', () => {
     ].sort((x, y) => x.player_id - y.player_id));
     // the hero read back is the one written
     expect(personOf(after[0]!).hero.xp).toBe(a.hero.xp + 30);
-    // timers: healed and released men are fit again once their time is up
+    // timers: the healed are fit again once their time is up; a captive's 24 h up: released, a soul (W-68), no man of his
     await DB().prepare('UPDATE war_persons SET until_at = 1 WHERE id IN (?1, ?2)').bind(b.id, c.id).run();
     const r = await roster(me.token);
     expect(r.persons.find((p) => p.id === b.id)!.state).toBe('active');
-    expect(r.persons.find((p) => p.id === c.id)!.state).toBe('active');
+    expect(r.persons.find((p) => p.id === c.id)).toBeUndefined();
+    expect((await row(c.id))!.state).toBe('soul');
     expect(r.persons.find((p) => p.id === d.id)!.state).toBe('dead');
-    expect(r.caps.fighters).toBe(ARMY_MAX - 1);
+    expect(r.caps.fighters).toBe(ARMY_MAX - 2);
   });
 });

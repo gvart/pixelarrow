@@ -1,14 +1,18 @@
-/** M5e captives held at forts, freed by raids (server/src/war/persons.ts applyFight, freeRaided, releaseRegion). */
+/** M5e captives held at forts, released by raids (W-68: as souls; server/src/war/persons.ts applyFight, freeRaided, releaseRegion). */
 import { env } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
 import { api, devLogin } from '../helpers';
-import { applyFight, CAPTIVE_MS, claimForJoin, freeRaided, HEAL, HOLD_MAX, releaseRegion, type PersonRow } from '../../src/war/persons';
+import { applyFight, CAPTIVE_MS, claimForJoin, freeRaided, HOLD_MAX, releaseRegion, type PersonRow } from '../../src/war/persons';
+import { CAPTIVE } from '../../../src/war/sim/captives';
+import type { SoulSpawn } from '../../src/war/captives';
 import type { FightReport, PersonResult } from '../../../src/war/types';
 
 const DB = () => env.DB!;
 const REGION = 'test-ridge';
 const row = (id: string) => DB().prepare('SELECT * FROM war_persons WHERE id = ?1').bind(id).first<PersonRow>();
 const post = (token: string, path: string, json: unknown = {}) => api(`/api/war${path}`, { method: 'POST', token, json });
+/** The raiding room itself wakes the souls (its shrine), as the DO does. */
+const live: SoulSpawn = async () => 'ok';
 
 /** The player's squad taken captive by team 1 in one fight, held at `forts[i]` (undefined: no fort). */
 async function captured(me: { playerId: number; token: string }, foe: { playerId: number }, forts: (number | undefined)[], fightId: string, now = Date.now()) {
@@ -29,20 +33,20 @@ async function captured(me: { playerId: number; token: string }, foe: { playerId
 }
 
 describe('captives held at a fort', () => {
-  it('a raid on a fort frees the captives held there (home, wounded); others stay; repeating it changes nothing', async () => {
+  it('a raid on a fort releases the captives held there (souls at a shrine); others stay; repeating it changes nothing', async () => {
     const me = await devLogin(7811), foe = await devLogin(7812);
     const now = Date.now();
     const [a, b, c] = await captured(me, foe, [3, 3, 7], 'raid:f:1', now - 1000);
     expect(await row(a)).toMatchObject({ state: 'captive', held_at: REGION, held_fort: 3, captor_pid: foe.playerId });
-    expect(await freeRaided(DB(), REGION, [3, 3], now)).toBe(2);
-    for (const id of [a, b]) expect(await row(id)).toMatchObject({ state: 'wounded', until_at: now + HEAL.field, player_id: me.playerId, captor: null, captor_pid: null, held_at: null, held_fort: null });
+    expect(await freeRaided(DB(), REGION, [3, 3], now, live)).toBe(2);
+    for (const id of [a, b]) expect(await row(id)).toMatchObject({ state: 'soul', until_at: now + CAPTIVE.soulMs, player_id: me.playerId, captor: null, captor_pid: null, held_fort: null });
     expect(await row(c)).toMatchObject({ state: 'captive', held_fort: 7 });
-    expect(await freeRaided(DB(), REGION, [3], now)).toBe(0);
-    expect(await freeRaided(DB(), 'elsewhere', [7], now)).toBe(0);
+    expect(await freeRaided(DB(), REGION, [3], now, live)).toBe(0);
+    expect(await freeRaided(DB(), 'elsewhere', [7], now, live)).toBe(0);
     // a man taken after the raid (a retried write) stays held
     await DB().prepare('UPDATE war_persons SET until_at = ?2 WHERE id = ?1').bind(c, now + 5000 + CAPTIVE_MS).run();
-    expect(await freeRaided(DB(), REGION, [7], now)).toBe(0);
-    expect(await freeRaided(DB(), REGION, [7], now + 5000)).toBe(1);
+    expect(await freeRaided(DB(), REGION, [7], now, live)).toBe(0);
+    expect(await freeRaided(DB(), REGION, [7], now + 5000, live)).toBe(1);
   });
 
   it(`a fort holds ${HOLD_MAX}; the rest go free, wounded; no fort: held, but no raid frees him`, async () => {
@@ -53,9 +57,9 @@ describe('captives held at a fort', () => {
     expect(await row(a)).toMatchObject({ state: 'captive', held_fort: 5 });
     expect(await row(b)).toMatchObject({ state: 'wounded', held_fort: null, captor_pid: null });
     expect(await row(c)).toMatchObject({ state: 'captive', held_fort: null, held_at: REGION });
-    // a fresh room: its forts are gone, their captives go free; the one held nowhere stays
+    // a fresh room: its forts are gone, their captives are released (souls the room wakes); the one held nowhere stays
     await releaseRegion(DB(), REGION);
-    expect(await row(a)).toMatchObject({ state: 'wounded', held_at: null });
+    expect(await row(a)).toMatchObject({ state: 'soul', held_at: REGION });
     expect(await row(c)).toMatchObject({ state: 'captive' });
   });
 });

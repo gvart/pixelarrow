@@ -7,6 +7,9 @@
  *
  * Net mode (?net=, the live war): the server keeps the persons, so the roster is his (GET /api/war/roster, again every
  * PULL_MS and after a choice) instead of the local seed, and a level-up choice goes up as POST /persons/:id/level.
+ *
+ * W-68: a captured man is no man of his army any more (the roster notes who took him and where); the captives he holds
+ * (net) with ask-to-join and release; dismiss (his soul rises where he stood, ../../soulRise.ts).
  */
 import { CIV_CLASSES, CLASSES, isCivClass, isClassId } from '../../../../data/classes';
 import { freeName } from '../../../../data/names';
@@ -16,6 +19,7 @@ import { xpToNext } from '../../../../data/units';
 import { applyOffer, createRoster, grantXp, levelOffers, makePerson, type LevelOffer, type Roster } from '../../../sim/roster';
 import { ATTR_IDS, ATTR_MAX, POINTS_PER_LEVEL, type AttrId } from '../../../../data/perks';
 import { ARMY_MAX, SQUAD_MAX } from '../../../sim/soldiers';
+import { CAPTIVE } from '../../../sim/captives';
 import { ALLIANCES } from '../../../world/alliances';
 import { WORLD_REGIONS } from '../../../world/regions';
 import type { Item, Slot } from '../../../../data/items';
@@ -43,7 +47,15 @@ export interface NetPerson {
   id: string; cls: string; name: string; level: number; xp: number; kills: number; battles: number; attrs: Partial<Record<AttrId, number>>;
   skills?: WarSkillId[]; gear?: Partial<Record<Slot, Item>>; honours?: WarPerson['honours']; state: string; region: string | null;
   pending: { points: number }; perks?: string[]; deeds?: WarPerson['deeds']; scars?: number;
+  /** W-68: who holds him, and where (a captive). */
+  captorName?: string; heldAt?: string | null;
 }
+
+/** W-68: a captive the player holds (GET /api/war/roster `captives`). */
+export interface HeldCaptive { id: string; name: string; cls: string; level: number; owner: number; ownerName: string; until: number | null; askAt: number | null; refused: boolean; heldAt: string | null }
+
+/** A region's name by id. */
+const regionName = (id: string | null | undefined) => (id ? (WORLD_REGIONS.find((w) => w.id === id)?.name ?? id) : 'the field');
 
 /** The server's man as the card's person: his class's fresh hero with the server's level, points, attributes, gear and record. */
 export function netPerson(n: NetPerson): WarPerson {
@@ -73,6 +85,10 @@ export class SandboxRoster {
   /** Persons sent to the field (until the fight that took them is reported). */
   private sent = new Set<string>();
   private captor = new Map<string, number>();
+  /** W-68 net: "Captured by <player> at <region>" by person id; the captives he holds; his fighters (the cap). */
+  private taken = new Map<string, string>();
+  private held: HeldCaptive[] = [];
+  private fighters: number | null = null;
   private names = new Set<string>();
   private n = 0;
   /** E3: where and when each of the fallen fell (the memorial's graves), the trophies of guardians his men slew. */
@@ -123,14 +139,18 @@ export class SandboxRoster {
 
   /** Net mode: the server's roster in place of the one held (the fallen and the captive in their state). */
   async pull(): Promise<void> {
-    const r = await this.s.sim.api<{ persons?: NetPerson[] }>('GET', 'roster');
+    const r = await this.s.sim.api<{ persons?: NetPerson[]; captives?: HeldCaptive[]; caps?: { fighters: number } }>('GET', 'roster');
     if (!r?.persons) return;
     const ro = createRoster(), gone: PersonResult[] = [];
     this.netRegion.clear();
+    this.taken.clear();
+    this.held = r.captives ?? [];
+    this.fighters = r.caps?.fighters ?? null;
     for (const n of r.persons) {
       const p = netPerson(n);
       ro.add(p);
       this.netRegion.set(p.id, n.region);
+      if (n.state === 'captive') this.taken.set(p.id, `Captured by ${n.captorName ?? 'a foe'} at ${regionName(n.heldAt)}`);
       const st = NET_STATE[n.state];
       if (st) gone.push({ pid: p.id, owner: 'you', team: myTeam(), state: st, xp: 0, kills: 0, dmg: 0, levelUps: 0, hero: p.hero });
     }
@@ -175,9 +195,64 @@ export class SandboxRoster {
     });
   }
 
-  /** The army (W-58): his fighters counted against ARMY_MAX (civilians are the household; the fallen do not count). */
+  /** The army (W-58): his fighters counted against ARMY_MAX (civilians are the household; the fallen and, W-68, the captive do not count). */
   army(): { men: number; max: number } {
-    return { men: this.roster.all().filter((p) => !isCivClass(p.hero.cls) && this.roster.state(p.id) !== 'dead').length, max: ARMY_MAX };
+    return { men: this.roster.all().filter((p) => !isCivClass(p.hero.cls) && this.roster.state(p.id) !== 'dead' && this.roster.state(p.id) !== 'captive').length, max: ARMY_MAX };
+  }
+
+  /** W-68: the note on a man of his taken captive: "Captured by <player> at <region>" (offline: by team n). */
+  takenNote(pid: string): string {
+    return this.taken.get(pid) ?? `Captured by team ${this.captor.get(pid) ?? '?'} at ${this.s.region?.name ?? 'the field'}`;
+  }
+
+  /** W-68 net: the captives he holds. */
+  captives(): readonly HeldCaptive[] {
+    return this.held;
+  }
+
+  /** W-68: is his army full (ask-to-join refused)? */
+  full(): boolean {
+    return (this.fighters ?? this.army().men) >= ARMY_MAX;
+  }
+
+  /** W-68 net: ask a captive to join, or release him; the answer as a note, then the roster again. */
+  async captive(id: string, act: 'join' | 'release'): Promise<void> {
+    const c = this.held.find((x) => x.id === id);
+    const r = await this.s.sim.api<{ joined?: boolean; error?: string | { message?: string } }>('POST', `captives/${id}/${act}`);
+    const e = r?.error;
+    if (e) this.onNote?.({ kind: 'info', text: typeof e === 'string' ? e : (e.message ?? 'refused') });
+    else if (act === 'release') this.onNote?.({ kind: 'info', text: `${c?.name ?? 'He'} is free: his soul rises to a shrine` });
+    else this.onNote?.({ kind: 'info', text: r?.joined ? `${c?.name ?? 'He'} joins your army` : `${c?.name ?? 'He'} refuses to serve you` });
+    await this.pull();
+  }
+
+  /** W-68: may he be dismissed (a soldier of his, fit or wounded)? */
+  dismissable(r: Row): boolean {
+    return !isCivClass(r.p.hero.cls) && (r.where === 'field' || r.where === 'away' || r.where === 'wounded');
+  }
+
+  /**
+   * W-68: dismiss him: his gear drops where he stands, his soul rises (`rise`: the view plays it where his man stood) and
+   * waits at a shrine for anyone to claim, not this player for CAPTIVE.barMs. Online the server does it; offline the sim.
+   */
+  async dismiss(pid: string, rise: (cls: string, x: number, y: number, pid: string) => void): Promise<void> {
+    const row = this.rows().find((x) => x.p.id === pid);
+    if (!row || !this.dismissable(row)) return;
+    const u = row.unit && row.unit.state !== 'dead' ? row.unit : undefined;
+    if (this.s.sim.net) {
+      const r = await this.s.sim.api<{ error?: string | { message?: string } }>('POST', `persons/${pid}/dismiss`);
+      const e = r?.error;
+      if (e) return void this.onNote?.({ kind: 'info', pid, text: typeof e === 'string' ? e : (e.message ?? 'refused') });
+    } else {
+      const p = makePerson(pid, row.p.hero.cls ?? 'militia', { level: row.p.hero.level });
+      this.s.sim.dismiss({ ...row.p, hero: { ...row.p.hero, equip: p.hero.equip } }, CAPTIVE.soulMs / 100, { owner: 'you', ticks: CAPTIVE.barMs / 100 });
+      this.roster.remove(pid);
+      this.sent.delete(pid);
+    }
+    if (u) rise(row.p.hero.cls ?? 'militia', u.x, u.y, pid);
+    this.onNote?.({ kind: 'info', text: `${row.p.hero.name} is dismissed: his soul rises to the sky` });
+    if (this.s.sim.net) await this.pull();
+    else this.onChange?.();
   }
 
   /** W-66 offline: a man the Tunnel of Shades raised (level 1, starter gear), the first one the next spawn of his class takes. */
@@ -191,10 +266,6 @@ export class SandboxRoster {
   /** W-66: the classes of his fallen fighters, latest first (the tunnel raises their like). */
   fallenClasses(): string[] {
     return [...this.graves].sort((a, b) => b[1].at - a[1].at).map(([id]) => this.roster.get(id)?.hero.cls ?? '').filter((c) => c && !isCivClass(c));
-  }
-
-  captorOf(pid: string): number | undefined {
-    return this.captor.get(pid);
   }
 
   /** What he may take now: an open skill slot first, and his unspent points beside it (a pending skill does not hold them back). */

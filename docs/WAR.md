@@ -702,8 +702,8 @@ count toward the 600 cap inside a 10% quota, so 12 gives 45–50 players per reg
 inside the owner's 50–60 hope.
 
 **Decided (W-58):** a player has at most N = 12 fighters **in total**, counted across all regions. There is no reserve
-and no barracks pool; the 12 may be split across regions as he likes. Wounded, captive and training men count; the
-dead and the retired free their place; civilians are the household, outside the cap. A claimed soul joins only under 12
+and no barracks pool; the 12 may be split across regions as he likes. Wounded and training men count; the dead, the
+retired and (W-68) the captive free their place; civilians are the household, outside the cap. A claimed soul joins only under 12
 (refused past it, W-60), the start squad is up to 12, a transfer moves at most 12. One constant: `ARMY_MAX`
 (`src/war/sim/soldiers.ts`; `SQUAD_MAX`, `MAX_SQUAD` and `TRANSFER_MAX` follow it).
 
@@ -717,7 +717,7 @@ dead and the retired free their place; civilians are the household, outside the 
 | skills | 2 slots, unlocked at levels 3 and 7, picked from the family pool (≤ 4) | perks, reshaped |
 | equipment | weapon (civilians: tool), armour, helmet, shield/offhand, trinket; item tier 1–3 × 5 rarities | `src/data/items.ts`, `gearRules.ts` requirements and class limits |
 | honours | ≤ 3 battle traits ("Veteran of Kleisoura", "Held the Ford"): +2% to one stat, mostly a name | `src/data/traits.ts` shape |
-| state | `fit` / `wounded(until, where)` / `captive(by, since)` / `dead`; kills, battles, home town | `Hero.wound` |
+| state | `fit` / `wounded(until, where)` / `captive(by, since)` / `dead` / `soul` (W-68: released or dismissed, a named soul at a shrine) / `faded`; kills, battles, home town | `Hero.wound` |
 | deeds, scars (E3) | ≤ 8 deeds, names only, each once: First blood, Man-slayer (10th kill), Boar-slayer / Bane of … (struck a guardian slain in the fight), Held the gate (fit by his fort or camp), Last man standing, Survivor (fell wounded and lived); a wound lived through leaves a scar (≤ 3, cosmetic: red slashes on his portrait and under him) | `src/war/sim/deeds.ts` |
 
 The dead stay dead (E3): each gets a grave on his player's home memorial (the home town's first statue; graves stand
@@ -863,10 +863,11 @@ player's (`notOwner` otherwise); the field is optional, so the wire stays additi
 | Fall | at 0 HP wounded with `woundedShare` 0.7 (+3% per END above 5, + physician, cap 0.9), else dead; the dead drop their gear |
 | Heal | wounded leave with the squad; timer: field 6 h, camp 3 h, town 2 h, physician's house 1 h |
 | Gear drops | a physical loot pile anyone may carry off (W-46, "Trade" → "Loot piles") |
-| Capture | a wounded man on a tile the enemy holds when the fight ends (no friendly within 15 tiles) becomes `captive` in the captor's nearest fort (≤ 20 per fort, extra are freed) |
-| Prisoners | captor pays 1 food/h each; ransom = 30 × level silver, the owner pays or declines; a raid reaching the fort frees all; after 24 h they walk home. No execution or conversion |
+| Capture | a wounded man on a tile the enemy holds when the fight ends (no friendly within 15 tiles) becomes `captive` in the captor's nearest fort (≤ 20 per fort, extra are freed). W-68: he leaves his owner's army at once (his slot frees; the roster notes "Captured by <player> at <region>"); his gear drops in a pile where he fell |
+| Prisoners | W-68 (`src/war/sim/captives.ts`, `server/src/war/captives.ts`): the captor pays 1 food/h each and sees them at the foot of his roster. After 2 h he may ask one to join: he refuses for good with 30% + 5% a level above 1 (fixed per man), else he joins the captor's army at home with his level, class and record in starter kit (only under 12: "Army full"); one transfer (`movePerson`) that a later men trade (W-69) reuses. The captor may release him at any time; after 24 h unclaimed, a raid reaching the fort, the fort's region starting over or an unpaid captor release him too. Released, his soul wakes at a shrine of that region (else the nearest region with one) with his level and class, for anyone to claim. No ransom, no execution |
+| Dismiss | W-68: a roster action on a fit or wounded soldier, confirmed in the card (Dismiss / Keep). His gear drops where he stands (a pile in his live region; at home into the strongroom); his soul rises to the sky where he stood (a soul-tinted ghost lifting in a column of light, `src/war/view/soulRise.ts`) and wakes at a shrine as for a release. Its dismisser cannot claim him for 1 h (no free reset of gear or wounds) |
 | Veterans | survivors keep XP, gear and honours; gear wears per fight (`cond`), a smith repairs it |
-| Roster | N = 12 men in total across all regions (fit, wounded, captive, promoting; W-58) + household; no reserve; at the cap a soul's claim is refused until a man falls or retires |
+| Roster | N = 12 men in total across all regions (fit, wounded, promoting; W-58; not the captive, W-68) + household; no reserve; at the cap a soul's claim is refused until a man falls, retires, is taken or is dismissed |
 | Retire | returns half the gear value and leaves one honour on the alliance memorial; a level-10 soldier may retire into a civilian class at level 5 |
 
 Household: separate from the N fighters, size `min(4, 1 + fit soldiers ÷ 4)` (with N = 12: 4). Separate so the
@@ -919,6 +920,7 @@ in the menu (W-56), and after that a man joins only as a claimed soul.
 | Cap | only while the player has fewer than ARMY_MAX = 12 fighters across all regions; else the claim is refused ("army full") and the soul waits on |
 | Contest | two sides at him stall the claim (contested); the wild at him with no claimer takes him (lost); a foe who stands there first claims him |
 | Fade | unclaimed he fades after 10 min (the view fades him over the last minute) |
+| Named | W-68: a released captive or a dismissed man wakes as himself (name, level, class, record; starter kit) at a shrine, waits 6 h (he is a veteran: longer than a stranger's soul) and does not count toward the 4 souls of a region; claimed, the same person moves to the claimer; faded or taken by the wild, he is gone. Server: `war_persons.state = 'soul'` with `held_at` the region (a room not running wakes him when it starts; migration 0050) |
 
 Online the region room gates on the player's whole army (D1 `armyCount`, refreshed on join and after each claim) and
 tells him `soul` claimed or refused; the DO writes the new man (`claimSoul`: an insert that checks the cap itself, so
@@ -936,16 +938,16 @@ server: `server/src/war/raise.ts`, D1 `war_tunnel.next_at` (0048); view: `src/wa
 
 | Rule | Value |
 | --- | --- |
-| Floor | while he has fewer than 6 living men (what armyCount counts: every region, wounded and captive too), one rises at home every 10 min, up to 6; past 6 men come only from souls |
+| Floor | W-68: while he has fewer than 6 men who can fight (fit, every region; the wounded do not count here, captives are not his), one rises at home every 10 min, up to 6 and never past 12 in all (the wounded still fill the army); past 6 men come only from souls |
 | The man | level 1 in starter kit, the class of one of his latest fallen (of the start classes, else militia), plus his divine favour bonus (raiseBonus) |
 | Clock | starts on the first read below the floor; settled lazily on `GET /api/war/tunnel` { alive, floor, nextAt, pending }, the roster read and a region join (no live room needed); a compare-and-set on next_at and a capped insert keep racing reads to one man each |
 | No tunnel | before his first squad (a player who never had a man) |
 
-His last man who can fight fallen (the rest dead, wounded or captive; `wiped` in the rules), the HUD shows "Your army
-is destroyed" (the shades of the fallen walk back through the tunnel, the time until his first man is back: the next
-rise, or his first wounded man fit or captive home, whichever comes first, with a line on each; a button home to watch
-it; the menu shows the same before the title). No reset. GET /api/war/tunnel carries `fit`, `wounded`, `woundedAt`,
-`captive`, `captiveAt` for it.
+His last man who can fight fallen (the rest dead or wounded; captives are not his; `wiped` in the rules), the HUD
+shows "Your army is destroyed" (the shades of the fallen walk back through the tunnel, the time until his first man is
+back: the next rise, or his first wounded man fit, whichever comes first, with a line on each; a button home to watch
+it; the menu shows the same before the title). A wipe of 11 taken captive and 1 dead starts the tunnel at once. No
+reset. GET /api/war/tunnel carries `fit`, `wounded`, `woundedAt` for it.
 In the home town a line of shades stands before the mouth, one for each man to come, its far end fading into the
 dark; at each rise the front shade walks in, flashes and stands there as the man, and the line steps up. The countdown
 ("Next shade rises in 7:42, 3/6") shows over the tunnel and as a pill at the top of the HUD. Offline the same rule runs
@@ -996,7 +998,7 @@ badge; the title screen shows it beside the name), a short banner on a level gai
 | Level-up | toast on the squad card; a gold banner on the card opens the tree; at levels 3 and 7 a choice of 2 skills with a stat preview |
 | Skill tree | no legend: taken lit gold, open a breathing bronze ring with a cost badge, locked dark iron with a lock and the level it opens at |
 | Descriptions | CK3-style cards (`src/war/view/hud/codex.ts`): icon, kind, a flavour line, effects as coloured values with icons; terms are nested tooltips (a held tooltip takes the pointer). Numbers come from the sim data |
-| Live | squad active on the command card; veteran pips on unit bars; capture and ransom notices |
+| Live | squad active on the command card; veteran pips on unit bars; capture notices; the captives held (ask to join, release) |
 
 ### Reuse and drop
 
@@ -1030,7 +1032,7 @@ XP per job = the recipe's tier (1–3; dishes, remedies and refining 1).
 | 6 | Heavy Armour (Armourer, Journeyman): heavy armour, closed helmets | Quartermaster (Salt Pork): march stores; fed squads' upkeep −25% | Field Tent (Bonesetter): tent kit |
 | 7 | Master (Journeyman): tier 3 of his families | Big Pot (2 dish nodes): batch ×1.5 | Iatreion (Bonesetter): his infirmary L3 heals in 1 h |
 | 8 | Masterwork\* (Master): +2 craft grade, masterwork chance | Feast\* (Big Pot): feast | Anatomist (Triage): remedies batch ×1.5 |
-| 10 | **Reforger**: re-rolls one random stat (ITEMS.md "Reforging", for materials + silver 2/5/10 by tier) · **Goldsmith**: trinkets, salvage returns 60% | **Head Cook**: dishes last +50% · **Symposiarch**: after a won fight a fed squad's wounded heal 1 h sooner | **Asclepiad**: once a fight, the first man to die within 10 tiles is wounded instead · **Proxenos of the sick**: captives he holds heal, ransom +30% |
+| 10 | **Reforger**: re-rolls one random stat (ITEMS.md "Reforging", for materials + silver 2/5/10 by tier) · **Goldsmith**: trinkets, salvage returns 60% | **Head Cook**: dishes last +50% · **Symposiarch**: after a won fight a fed squad's wounded heal 1 h sooner | **Asclepiad**: once a fight, the first man to die within 10 tiles is wounded instead · **Proxenos of the sick**: captives he holds heal |
 
 | L | Engineer | Merchant | Forager |
 | --- | --- | --- | --- |
@@ -1044,7 +1046,7 @@ XP per job = the recipe's tier (1–3; dishes, remedies and refining 1).
 | 6 | Instrument Maker (Toolmaker): tools T3 | Broker (Contracts): 4 contracts, escrowed hand-offs (M6) | Weaver: flax on farms, linen |
 | 7 | Artillerist (Rams): oxybeles; stone thrower crew −1 | Banker (Broker): letters of credit backed by his escrowed coin | Presser: oil at an olive press |
 | 8 | Sapper\* (Rams): engine damage +30% | Factor (Appraiser): 3 standing buy orders that fill while he is offline | Herb Finder: herbs from forest and marsh gathering |
-| 10 | **Poliorcetes**: siege tower · **Archimedes**: throwers and oxybeles on stone towers, range +20% | **Emporos**: convoy +1 cart; his cart is a stall in own influence · **Proxenos**: ransom −30%, buys back fallen gear from the enemy salvage pool | **Steward**: refining −20% input, batch ×1.5 · **Pathfinder**: works in neutral regions with no squad near, flees ×1.3 faster |
+| 10 | **Poliorcetes**: siege tower · **Archimedes**: throwers and oxybeles on stone towers, range +20% | **Emporos**: convoy +1 cart; his cart is a stall in own influence · **Proxenos**: buys back fallen gear from the enemy salvage pool | **Steward**: refining −20% input, batch ×1.5 · **Pathfinder**: works in neutral regions with no squad near, flees ×1.3 faster |
 
 Identities: smith = gear (weaponsmith or armourer), cook = squad buffs, physician = fewer deaths and faster heals,
 engineer = sieges, forts and every class's tools, merchant = silver and caravans, forager = raw and refined goods.
@@ -1220,7 +1222,7 @@ pile); it moves only by being carried and changes hands only by a hand-off, a fi
 | Source | silver from the silver nodes (Siren, Ammon, Omphalos) minted at a forge L2: silver 1 → coin 20, 30 s, any smith | the money supply is the contested silver: whoever holds it prints money, and it costs miners and a road home |
 | Back | coin 20 → silver 1 at a forge; rent and tax are coin paid to players, moved, not destroyed | coin never falls below its silver, so no runaway inflation |
 | Carried | 200 coin = 1 load, kept in strongboxes (a store's coin) like any good | coin is raided like grain |
-| Game costs | ransom, respec, training kit, Reforger: the "silver" prices elsewhere in this doc become coin 1:1; bullion inputs (T3 gear, stall L3) stay silver | one currency, one bullion |
+| Game costs | respec, training kit, Reforger: the "silver" prices elsewhere in this doc become coin 1:1; bullion inputs (T3 gear, stall L3) stay silver | one currency, one bullion |
 
 ### Goods live in places
 
@@ -1304,7 +1306,7 @@ an unheld town charges nothing.
 | --- | --- | --- |
 | killed | all to a pile | every piece to the pile, −25 condition each (the M5d rule replaced) |
 | wounded, carried off with his squad | all to a pile | kept |
-| captured | all to a pile | all to a pile at the capture tile; he walks home in a militia tunic when ransomed or freed |
+| captured | all to a pile | all to a pile at the capture tile; joined to his captor or claimed as a soul, he wears his class's starter kit |
 | cart wrecked (0 HP) or chest or store burnt | all to a pile; fire spoils half the goods | – |
 
 | Pile rule | Value |
@@ -1348,7 +1350,7 @@ hurts; the player still has his squad, his level and his home strongroom.
 | war stash (`war_items` minted to a player) | `war_items.place` = holder id + region, or a person id; the stash screen lists where your things are |
 | merchant stub (sells surplus for silver) | removed: the merchant runs a stall, drives carts, brokers |
 | upkeep from server food | from the network where the squad stands, or its porters and carts; unpaid: the existing penalty |
-| recruit, train, ransom, respec | coin or food from the home strongroom |
+| recruit, train, respec | coin or food from the home strongroom |
 | M5d gear drops (winner picks up, rare+ at 50%) | loot piles above |
 
 ### Performance and ownership

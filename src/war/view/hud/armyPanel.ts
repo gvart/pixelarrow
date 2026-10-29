@@ -1,7 +1,8 @@
 /**
  * The command panel's army state (bottom centre, ./hud.ts): with nothing selected the panel shows his army instead of
- * leaving the bottom empty. Men alive of ARMY_MAX across all regions (the roster), how many stand here; a click (or the
- * select-all key) selects the men here; none here: where they are; after a full wipe the Tunnel of Shades countdown
+ * leaving the bottom empty. Men of ARMY_MAX across all regions (the roster: the wounded count, W-68 captives do not),
+ * how many stand here; a click (or the
+ * select-all key) selects the men here; none here: where they are; with no man who can fight the Tunnel of Shades countdown
  * (the clock of ./tunnel.ts, never a second one).
  */
 import { clock, TUNNEL } from '../../sim/tunnel';
@@ -19,7 +20,7 @@ export interface ArmyView {
   here: number;
   /** Elsewhere: region name and men there. */
   away: [string, number][];
-  /** The tunnel after a full wipe (null: not wiped): men risen so far, the next rise and the clock now. */
+  /** The tunnel with no man who can fight (null: not wiped): men who can fight, the next rise and the clock now. */
   wipe: { alive: number; nextAt: number | null; now: number } | null;
   /** The select-all key's label. */
   key: string;

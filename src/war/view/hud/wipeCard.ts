@@ -1,7 +1,7 @@
 /**
  * W-66 the "Your army is destroyed" card (docs/WAR.md "Tunnel of Shades"), shared by the region HUD (./tunnel.ts) and
  * the world map (../../world-view/main.ts): a lore line, a live countdown to his first man back (the tunnel's next rise,
- * a wounded man fit or a captive home: whichever comes first, and what each will bring), a button home to watch the
+ * a wounded man fit: whichever comes first, and what each will bring), a button home to watch the
  * tunnel, Close. No Phaser here: the world map loads it too.
  */
 import { span, TUNNEL, wipeLine, wipeNext, type WipeState } from '../../sim/tunnel';
@@ -10,7 +10,7 @@ export interface WipeCard {
   el: HTMLElement;
   shown(): boolean;
   show(on: boolean): void;
-  /** The countdown at `now` to his first man back (the next rise, a wounded man fit, a captive home; null: not known yet). */
+  /** The countdown at `now` to his first man back (the next rise, a wounded man fit; null: not known yet). */
   set(t: WipeState | null, now: number): void;
 }
 

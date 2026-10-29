@@ -152,9 +152,12 @@ export const setSoulSource = (f: (() => readonly SoulSnap[]) | null): void => vo
  * W-66: the Tunnel of Shades' line (./tunnelLine.ts) while the shades art is missing: ghosts drawn as souls are, each
  * with its own alpha; `solid`: the man he becomes at the mouth (his class in plain colours, `flash` 0..1 a white burst).
  */
-export interface ShadeGhost { id: number; cls: string; x: number; y: number; alpha: number; solid?: boolean; flash?: number }
+export interface ShadeGhost { id: number; cls: string; x: number; y: number; alpha: number; solid?: boolean; flash?: number; lift?: number }
 let shadeSource: (() => readonly ShadeGhost[]) | null = null;
 export const setShadeSource = (f: (() => readonly ShadeGhost[]) | null): void => void (shadeSource = f);
+/** W-68: a dismissed man's soul rising to the sky (./soulRise.ts): ghosts drawn as souls are, `lift` px up. */
+let riseSource: (() => readonly ShadeGhost[]) | null = null;
+export const setRiseSource = (f: (() => readonly ShadeGhost[]) | null): void => void (riseSource = f);
 
 /** Fetch and decode the class sheets (before the game starts: big ones are split, see buildSheet). */
 export async function loadSheetImages(onProgress?: (f: number) => void): Promise<Map<string, HTMLImageElement>> {
@@ -464,7 +467,7 @@ export class UnitLayer {
       }
     }
     // W-66: the tunnel's line of shades and the man rising at its mouth
-    for (const g of shadeSource?.() ?? []) {
+    for (const g of [...(shadeSource?.() ?? []), ...(riseSource?.() ?? [])]) {
       const sheet = this.sheet(g.cls, now) ?? this.sheet('militia', now);
       const clip = sheet?.frames.get('idle') ?? sheet?.frames.values().next().value;
       if (!sheet || !clip) continue;
@@ -476,7 +479,7 @@ export class UnitLayer {
       for (const glow of [true, false]) {
         let im = this.soulPool[n++];
         if (!im) this.soulPool.push((im = this.scene.add.image(0, 0, key)));
-        im.setTexture(key, frame).setOrigin(q.ox, q.oy).setPosition(Math.round(f.x), Math.round(f.y - (g.solid ? 0 : 8) + bob)).setVisible(true)
+        im.setTexture(key, frame).setOrigin(q.ox, q.oy).setPosition(Math.round(f.x), Math.round(f.y - (g.solid ? 0 : 8) - (g.lift ?? 0) + bob)).setVisible(true)
           .setScale(sheet.scale * (glow ? 1.14 + (g.flash ?? 0) * 0.3 : 1)).setDepth(depth + (glow ? -1e-5 : 0));
         if (glow) im.setBlendMode(Phaser.BlendModes.ADD).setTintFill(g.solid ? 0xffffff : 0x8fcaff).setAlpha((g.solid ? (g.flash ?? 0) : 0.6 * pulse) * g.alpha);
         else if (g.solid) im.setBlendMode(Phaser.BlendModes.NORMAL).setTint(0xffffff).setAlpha(g.alpha);

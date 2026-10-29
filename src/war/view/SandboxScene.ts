@@ -58,6 +58,7 @@ import { keys as warKeys } from '../input/keys';
 import { myTeam } from './side';
 import { Feel } from './feel/feel';
 import { AmbientLayer } from './feel/ambient';
+import { dismissed } from './soulRise';
 
 const CLIMB = ['climb', 'walk'] as const;
 const CARRY = ['carry', 'walk'] as const;
@@ -654,7 +655,7 @@ export class SandboxScene extends Phaser.Scene {
     // E4: impacts shake the camera; a hit-stop holds the drawn units, clips and missiles (the sim runs on)
     this.feel.update(this.sim.cur, view, this.time.now);
     const stopped = this.feel.frozen(this.time.now) && !!this.heldAt;
-    if (!stopped) this.drawn = this.sim.units();
+    if (!stopped) this.drawn = dismissed.size ? this.sim.units().filter((d) => d.u.state !== 'dead' || !d.u.pid || !dismissed.has(d.u.pid)) : this.sim.units(); // W-68: a dismissed man's body goes
     this.sel.sync(this.drawn);
     // M7d: guardians perched or flying, and their squads' units not drawn (the Chimera's other heads)
     const bosses = this.sim.cur?.bosses;

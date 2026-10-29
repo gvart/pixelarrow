@@ -8,6 +8,8 @@
  *   E3                     the home memorial: graves and trophies by the town's statues, its panel (./memorial.ts)
  *   W-53                   a click on a field row selects that man in the world too, on a squad's heading its men
  *                          (shift adds); the selected men's rows carry a gold edge
+ *   W-68                   the captives he holds at the panel's foot (Ask to join, Release); Dismiss on the card asks
+ *                          in the card (Dismiss / Keep), then his soul rises where he stood (../../soulRise.ts)
  *
  * Panel and card re-render at 4 Hz while open, only when their HTML changed (so hover and scroll hold).
  */
@@ -27,6 +29,7 @@ import { sandboxCraft } from '../craft/state';
 import { tipHtml } from '../theme';
 import type { Slot } from '../../../../data/items';
 import { keys } from '../../../input/keys';
+import { mountSoulRise, soulRise } from '../../soulRise';
 
 type Mk = (id: string, css: string, html?: string) => HTMLElement;
 /** The dev panel (F1, ../hud.ts) is open: the cards show their dev buttons. */
@@ -59,6 +62,9 @@ export function mountRoster(s: SandboxScene, mk: Mk): RosterHooks {
 
   let filter: Filter = 'all', sort: Sort = 'level', sel: string | null = null, open = false;
   let lastP = '', lastC = '';
+  /** W-68: the man whose dismissal waits on the card's confirm. */
+  let dismissing: string | null = null;
+  mountSoulRise(s);
   const unTip = [tipper(panel, tip), tipper(card, tip), tipper(btnBox, tip)];
 
   const render = () => {
@@ -80,7 +86,8 @@ export function mountRoster(s: SandboxScene, mk: Mk): RosterHooks {
       }
     }
     if (row) {
-      const html = cardHtml(R, row, C, devOn());
+      if (dismissing !== row.p.id) dismissing = null;
+      const html = cardHtml(R, row, C, devOn(), dismissing === row.p.id);
       if (html !== lastC) {
         card.innerHTML = lastC = html;
         const c = card.querySelector<HTMLCanvasElement>('#rrPort'), img = portrait(s, row.p.hero.cls ?? 'militia');
@@ -102,7 +109,9 @@ export function mountRoster(s: SandboxScene, mk: Mk): RosterHooks {
   panel.addEventListener('click', (e) => {
     const t = e.target as HTMLElement;
     const f = t.closest<HTMLElement>('[data-filter]'), a = t.closest<HTMLElement>('[data-act]'), so = t.closest<HTMLElement>('[data-sort]'), r = t.closest<HTMLElement>('[data-pid]');
-    const sq = t.closest<HTMLElement>('[data-squad]');
+    const sq = t.closest<HTMLElement>('[data-squad]'), cap = t.closest<HTMLElement>('[data-capact]');
+    if (cap) { if (!(cap as HTMLButtonElement).disabled) void R.captive(cap.dataset.cap!, cap.dataset.capact as 'join' | 'release').then(render); return; }
+    if (t.closest('[data-capid]')) return;
     if (sq) s.sel.set(s.drawn.filter((d) => d.u.squad === Number(sq.dataset.squad) && d.u.state !== 'dead').map((d) => d.u.id), e.shiftKey); // W-53: a squad's men
     else if (f) filter = (FILTERS.find(([x]) => x === f.dataset.filter)?.[0] ?? 'all');
     else if (so) sort = SORTS[(SORTS.indexOf(sort) + 1) % SORTS.length];
@@ -129,6 +138,13 @@ export function mountRoster(s: SandboxScene, mk: Mk): RosterHooks {
     else if (a?.dataset.act === 'tree') hooks.tree?.(sel);
     else if (a?.dataset.act === 'closeCard') sel = null;
     else if (a?.dataset.act === 'xp') R.devXp(sel);
+    else if (a?.dataset.act === 'dismiss') dismissing = sel;
+    else if (a?.dataset.act === 'dismissNo') dismissing = null;
+    else if (a?.dataset.act === 'dismissYes') {
+      const pid = sel;
+      dismissing = sel = null;
+      void R.dismiss(pid, (cls, x, y, id) => soulRise(s, cls, x, y, id)).then(render);
+    }
     render();
   });
   for (const el of [panel, card]) el.addEventListener('wheel', (e) => e.stopPropagation(), { passive: true });

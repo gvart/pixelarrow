@@ -202,6 +202,11 @@ export class SimClient {
     this.send({ t: 'soul', x, y, cls, level, site });
   }
 
+  /** W-68 offline: dismiss a man (his gear drops where he stands) and wake him as a named soul at a shrine here. */
+  dismiss(person: WarPerson, life: number, bar: { owner: string; ticks: number }): void {
+    this.send({ t: 'dismiss', person, life, bar });
+  }
+
   /** W-60 scenarios: food or rations into a squad's packs, or (null) the first standing store of `team`. */
   feed(team: number, squad: number | null, res: 'food' | 'ration', n: number): void {
     this.send({ t: 'feed', team, squad, res, n });

@@ -82,6 +82,8 @@ export interface Roster {
   fit(): WarPerson[];
   /** M5g: replace a person's record (a level-up choice, dev XP); unknown ids are ignored. */
   update(p: WarPerson): void;
+  /** W-68: he leaves the roster (dismissed). */
+  remove(id: string): void;
   /** M5e: promote a fit person to the elite `to` at once (the server adds the time and the fortress); returns why not, or null. */
   promote(id: string, to: string): string | null;
 }
@@ -115,6 +117,7 @@ export function createRoster(): Roster {
     state: (id) => states.get(id) ?? 'fit',
     fit: () => [...persons.values()].filter((p) => (states.get(p.id) ?? 'fit') === 'fit'),
     update: (p) => void (persons.has(p.id) && persons.set(p.id, p)),
+    remove: (id) => void (persons.delete(id), states.delete(id)),
     promote(id, to) {
       const p = persons.get(id);
       if (!p) return 'no such person';

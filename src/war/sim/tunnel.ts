@@ -1,13 +1,15 @@
 /**
  * W-66 the Tunnel of Shades (docs/WAR.md "Tunnel of Shades"): the anti-reroll floor. Every home town has a tunnel;
- * while a player has fewer than TUNNEL.floor living men (what armyCount counts), the shades of his fallen walk back
- * through it, one man every TUNNEL.everyMs, up to the floor. Raised men are level 1 in starter gear; past the floor
+ * while a player has fewer than TUNNEL.floor men who can fight (W-68: fit, not wounded; captives are not his), the
+ * shades of his fallen walk back through it, one man every TUNNEL.everyMs, up to the floor and never past ARMY_MAX
+ * (the wounded still count there). Raised men are level 1 in starter gear; past the floor
  * men come only from souls. Pure and lazy: the server (server/src/war/raise.ts) and the offline sandbox
  * (src/war/view/hud/tunnel.ts) both keep one stored `nextAt` per player and settle it on read.
  */
 export const TUNNEL = { floor: 6, everyMs: 10 * 60_000 } as const;
 
-export interface TunnelState { alive: number; nextAt: number | null }
+/** alive: his men who can fight (the floor counts them); room: how many more his army takes under ARMY_MAX (default: no limit). */
+export interface TunnelState { alive: number; nextAt: number | null; room?: number }
 export interface TunnelSettle { raise: number; nextAt: number | null; alive: number; pending: number }
 
 /**
@@ -17,14 +19,15 @@ export interface TunnelSettle { raise: number; nextAt: number | null; alive: num
  */
 export function settleTunnel(s: TunnelState, now: number): TunnelSettle {
   let alive = s.alive, nextAt = s.nextAt, raise = 0;
-  if (alive >= TUNNEL.floor) return { raise: 0, nextAt: null, alive, pending: 0 };
+  const room = s.room ?? Infinity;
+  if (alive >= TUNNEL.floor || room <= 0) return { raise: 0, nextAt: null, alive, pending: Math.max(0, TUNNEL.floor - alive) };
   if (nextAt === null) nextAt = now + TUNNEL.everyMs;
-  while (nextAt <= now && alive < TUNNEL.floor) {
+  while (nextAt <= now && alive < TUNNEL.floor && raise < room) {
     raise++;
     alive++;
     nextAt += TUNNEL.everyMs;
   }
-  if (alive >= TUNNEL.floor) nextAt = null;
+  if (alive >= TUNNEL.floor || raise >= room) nextAt = null;
   return { raise, nextAt, alive, pending: TUNNEL.floor - alive };
 }
 
@@ -35,13 +38,13 @@ export function clock(ms: number): string {
 }
 
 /**
- * After a wipe: his men he can field (not wounded, not captive), the tunnel's next rise, and his wounded and captive men
- * with the first of each back (GET /api/war/tunnel; offline: no wounded or captives).
+ * After a wipe: his men he can field (not wounded), the tunnel's next rise, and his wounded men with the first back
+ * (GET /api/war/tunnel; offline: no wounded). W-68: captives are not his any more, so they are not here.
  */
-export interface WipeState { fit: number; nextAt: number | null; wounded: number; woundedAt: number | null; captive: number; captiveAt: number | null }
+export interface WipeState { fit: number; nextAt: number | null; wounded: number; woundedAt: number | null }
 
-/** The "Your army is destroyed" card: no man he can field, and a man to come (a rise, a wounded man healing, a captive). */
-export const wiped = (t: WipeState): boolean => t.fit === 0 && (t.nextAt !== null || t.wounded > 0 || t.captive > 0);
+/** The "Your army is destroyed" card: no man he can field, and a man to come (a rise, a wounded man healing). */
+export const wiped = (t: WipeState): boolean => t.fit === 0 && (t.nextAt !== null || t.wounded > 0);
 
 /** A wait: "7:42" under an hour, else "4 h 12 m". */
 export function span(ms: number): string {
@@ -55,17 +58,15 @@ export function wipeNext(t: WipeState): { at: number | null; text: string } {
   const c = [
     t.nextAt !== null && { at: t.nextAt, text: 'The next man rises in' },
     t.wounded > 0 && t.woundedAt !== null && { at: t.woundedAt, text: 'Your first wounded man is fit in' },
-    t.captive > 0 && t.captiveAt !== null && { at: t.captiveAt, text: 'Your first captive walks home in' },
   ].filter((x): x is { at: number; text: string } => !!x).sort((a, b) => a.at - b.at)[0];
   return c ? { at: c.at, text: c.text } : { at: null, text: 'Your next man stands in' };
 }
 
-/** The card's detail line (none when the tunnel alone brings him back): "Next shade rises in 7:42 · 3 wounded heal in 4 h 12 m · 8 held captive, back in 21 h or by ransom". */
+/** The card's detail line (none when the tunnel alone brings him back): "Next shade rises in 7:42 · 3 wounded heal in 4 h 12 m". */
 export function wipeLine(t: WipeState, now: number): string {
   const p: string[] = [];
-  if (t.nextAt !== null && (t.wounded > 0 || t.captive > 0)) p.push(`Next shade rises in ${span(t.nextAt - now)}`);
+  if (t.nextAt !== null && t.wounded > 0) p.push(`Next shade rises in ${span(t.nextAt - now)}`);
   if (t.wounded > 0) p.push(`${t.wounded} wounded heal${t.woundedAt !== null ? ` in ${span(t.woundedAt - now)}` : ''}`);
-  if (t.captive > 0) p.push(`${t.captive} held captive, back${t.captiveAt !== null ? ` in ${span(t.captiveAt - now)}` : ''} or by ransom`);
   return p.join(' · ');
 }
 

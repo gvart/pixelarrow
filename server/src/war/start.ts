@@ -49,6 +49,12 @@ async function startRow(d: D1Database, pid: number): Promise<StartRow | null> {
   return d.prepare('SELECT alliance, home, started_at FROM war_alliance_members WHERE season = ?1 AND player_id = ?2').bind(WAR_SEASON.id, pid).first<StartRow>();
 }
 
+/** W-68: his home region this season (his alliance's home when he picked none; null: no alliance yet). */
+export async function homeRegion(d: D1Database, pid: number): Promise<string | null> {
+  const r = await startRow(d, pid);
+  return r ? (r.home ?? ALLIANCES[r.alliance as AllianceId]?.home ?? null) : null;
+}
+
 /** Has he men (any not dead)? A dev-seeded player is started without the menu's steps. */
 async function hasMen(d: D1Database, pid: number): Promise<boolean> {
   return !!(await d.prepare("SELECT 1 FROM war_persons WHERE player_id = ?1 AND state NOT IN ('dead', 'retired') LIMIT 1").bind(pid).first());

@@ -8,7 +8,7 @@
  *             attributes with their value and 15 pips
  *   battle    the baked numbers, two columns, an icon each
  *   skills    the two slots as medallions (a free one glows, a closed one shows the level it opens at); civilians: trade
- *   honours, stash, the record (kills, battles) and the Skill tree button
+ *   honours, stash, the record (kills, battles), Dismiss (W-68: an in-card confirm, Dismiss / Keep) and the Skill tree button
  *
  * Every icon, number and skill has a description card (../codex.ts) with nested terms (../tooltip.ts). Dev buttons show
  * only while the dev panel is open. Pure HTML; ./index.ts mounts it, fills the portrait canvas (#rrPort) and routes
@@ -87,17 +87,26 @@ function offers(R: SandboxRoster, p: WarPerson): string {
 
 /** What he is doing and where: squad and activity in the field, the region he is in, wounded, captive, fallen. */
 function whereHtml(R: SandboxRoster, r: Row): string {
-  const h = r.p.hero, now = doingText(r);
+  const now = doingText(r);
   if (r.where === 'field') return `${glyph('ui:banner', 14)}<span>Squad #${r.squad} · ${esc(now.startsWith('In ') ? now : `${now} in ${r.region}`)}</span>`;
   if (r.where === 'away') return `${glyph('ui:flag', 14)}<span>${esc(now)}</span>`;
   const t = { wounded: 'wounded', captive: 'captive', dead: 'fallen' }[r.where];
-  const extra = r.where === 'captive' ? `, held by team ${R.captorOf(r.p.id) ?? '?'} · ransom ${30 * h.level} silver` : '';
-  return `<span class="rr-where" ${tip(termCard(t))}>${glyph(TERMS[t].icon, 14)}<span>${TERMS[t].name}${extra}</span></span>`;
+  if (r.where === 'captive') return `<span class="rr-where" ${tip(termCard(t))}>${glyph(TERMS[t].icon, 14)}<span>${esc(R.takenNote(r.p.id))}</span></span>`; // W-68
+  return `<span class="rr-where" ${tip(termCard(t))}>${glyph(TERMS[t].icon, 14)}<span>${TERMS[t].name}</span></span>`;
 }
 
 const pips = (v: number) => `<div class="rr-pips">${Array.from({ length: ATTR_MAX }, (_, i) => `<i class="${i < Math.min(v, ATTR_BASE) ? 'b' : i < v ? 'on' : ''}"></i>`).join('')}</div>`;
 
-export function cardHtml(R: SandboxRoster, r: Row, C?: SandboxCraft, dev = false): string {
+/** W-68: the in-card confirm before he is dismissed (like a building's demolish): what happens, Dismiss / Keep. */
+function dismissBox(r: Row): string {
+  return `<div class="rr-dismiss">
+    <div><b>Dismiss ${esc(r.p.hero.name)}?</b></div>
+    <div class="rf-dim">His gear drops where he stands. His soul rises to the sky and wakes at a shrine, his level and class kept, for anyone to claim (you only after an hour).</div>
+    <div style="display:flex;gap:4px;justify-content:flex-end;margin-top:4px"><button class="rf-tbtn pri" data-act="dismissYes">Dismiss</button><button class="rf-tbtn" data-act="dismissNo">Keep</button></div>
+  </div>`;
+}
+
+export function cardHtml(R: SandboxRoster, r: Row, C?: SandboxCraft, dev = false, confirm = false): string {
   const p = r.p, civ = isCivClass(p.hero.cls), h = p.hero, need = xpToNext(h.level), rank = rankOf(h.cls, h.level), st = warStatsOf(p);
   const held = p.skills ?? [];
   const skills = SKILL_LEVELS.map((lv, i) => {
@@ -124,6 +133,7 @@ export function cardHtml(R: SandboxRoster, r: Row, C?: SandboxCraft, dev = false
   return `<div class="rf-card rr-card">
     <div class="rf-head"><span class="rf-name" style="font-size:16px">${esc(h.name)}</span>${crest}<span style="flex:1"></span><button class="rf-tbtn x" data-act="closeCard" data-tip="close (Esc)">✕</button></div>
     <div class="rr-sub">${unitIcon(h.cls ?? 'militia', 16)}<span>${SandboxRoster.className(h.cls)}</span><span class="dot">·</span>${whereHtml(R, r)}</div>
+    ${confirm ? dismissBox(r) : ''}
     <div class="rr-line" ${tip(card({ icon: 'ui:xp', name: `Level ${h.level}`, kind: `${h.xp} of ${need} XP to level ${h.level + 1}`, w: 210, more: `<div>${TERMS.xp.text()}</div>` }))}><span class="rr-lv">${h.level}</span><div class="rr-bar xp"><i style="width:${Math.round(100 * Math.min(1, h.xp / need))}%"></i></div><span class="rf-dim">${h.xp} / ${need} XP</span></div>
     ${hp}
     ${fed}
@@ -154,6 +164,7 @@ export function cardHtml(R: SandboxRoster, r: Row, C?: SandboxCraft, dev = false
       ${scars ? `<span ${tip(card({ icon: 'power:rend', name: `${scars} ${scars === 1 ? 'scar' : 'scars'}`, w: 180, more: '<div>Heavy wounds he lived through: marks on him (a red slash under him when selected), no effect.</div>' }))}>${glyph('power:rend', 15)}<b>${scars}</b></span>` : ''}
       <span style="flex:1"></span>
       ${dev && r.where !== 'dead' ? '<button class="rf-tbtn" data-act="xp" data-tip="dev: one level of XP">+XP</button>' : ''}
+      ${R.dismissable(r) && !confirm ? `<button class="rf-tbtn" data-act="dismiss" ${tip(card({ icon: 'power:second_wind', name: 'Dismiss', w: 220, more: '<div>Let him go for good: his gear drops where he stands, his soul rises to a shrine for anyone to claim. Asks first.</div>' }))}>Dismiss</button>` : ''}
       <button class="rf-tbtn" data-act="tree" data-tip="${esc(card({ icon: 'ui:tgstar', name: civ ? 'Profession tree' : 'Skill tree', w: 210, more: civ ? '<div>His trade: the nodes by level, what each opens.</div>' : '<div>His attributes, his two skill slots and the elite rank, by level.</div>' }))}">${glyph('ui:tgstar', 13)} ${civ ? 'Profession' : 'Skill tree'}</button>
     </div>
   </div>`;

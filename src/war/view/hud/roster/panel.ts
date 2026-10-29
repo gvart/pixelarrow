@@ -4,13 +4,19 @@
  * icon, name with his rank crest and a gold star when a level-up waits, the XP line, what he is doing and where
  * (./doing.ts), his hunger mark in the field (W-60, ../hunger.ts), his level as a disc, and his state as one mark: the HP bar in the field, a flag in another region, a
  * bleeding heart when wounded, a lock when captive, a skull when fallen (each with its card). Filter tabs and a sort.
+ * W-68: a man of his taken captive is noted "Captured by <player> at <region>" and no longer counts in his army; the
+ * captives he holds are listed at the foot (Ask to join after 2 h, Release; data-cap and data-capact).
  * Dev buttons show only while the dev panel is open. Pure HTML from the rows; ./index.ts mounts it and routes the clicks (data-pid, data-filter,
  * data-sort, data-act).
  */
 import { xpToNext } from '../../../../data/units';
 import { snapW, UNIT_ICON } from '../kit';
 import { rankOf } from './markers';
-import { SandboxRoster, type Row, type Where } from './state';
+import { SandboxRoster, type HeldCaptive, type Row, type Where } from './state';
+import { span } from '../../../sim/tunnel';
+import { WORLD_REGIONS } from '../../../world/regions';
+
+const WORLD_NAMES = new Map(WORLD_REGIONS.map((w) => [w.id, w.name]));
 import { esc } from './ui';
 import { doingText } from './doing';
 import { glyph } from '../glyph';
@@ -32,7 +38,7 @@ export function armyHead(army: { men: number; max: number }): string {
   const over = army.men > army.max;
   const more = over
     ? `<div>This scenario spawns ${army.men} of your men, more than the cap of ${army.max}: a sandbox test, not a real army. In a game your whole army is at most ${army.max} men.</div>`
-    : `<div>Your whole army: at most ${army.max} men, split across your regions as you like. The wounded and captive count; the fallen free their place.</div>`;
+    : `<div>Your whole army: at most ${army.max} men, split across your regions as you like. The wounded count; the fallen and the captive free their place.</div>`;
   return `<span class="rf-dim rf-num" style="white-space:nowrap" ${tip(card({ icon: 'ui:people', name: over ? 'Sandbox army' : `${army.men} of ${army.max} men`, w: 210, more }))}>${over ? 'sandbox' : `${army.men} / ${army.max} men`}</span>`;
 }
 
@@ -47,24 +53,25 @@ const CMP: Record<Sort, (a: Row, b: Row) => number> = {
 };
 const tip = (html: string) => `data-tip="${esc(html)}"`;
 
-function stateCell(r: Row, captor: number | undefined): string {
+function stateCell(r: Row, taken: string): string {
   if (r.where === 'field' && r.unit) {
     const v = hpOf(r);
     return `<div class="rr-bar hp sm" ${tip(card({ icon: 'ui:heart', name: `Health ${Math.ceil(r.unit.hp)} / ${r.unit.maxHp}`, w: 180, kind: 'in the field' }))}><i style="width:${Math.round(100 * v)}%"></i></div>`;
   }
   if (r.where === 'away') return `<span class="rr-mark" ${tip(card({ icon: 'ui:flag', name: `In ${esc(r.region)}`, w: 200, more: '<div>Fit, in another region: not on this map.</div>' }))}>${glyph('ui:flag', 16)}</span>`;
   if (r.where === 'wounded') return `<span class="rr-mark" ${tip(termCard('wounded'))}>${glyph('power:blood_price', 18)}</span>`;
-  if (r.where === 'captive') return `<span class="rr-mark" ${tip(card({ icon: 'ui:lock', name: 'Captive', kind: `held by team ${captor ?? '?'}`, w: 200, more: `<div>Ransom ${30 * r.p.hero.level} silver, a raid on the fort, or he walks home after a day.</div>` }))}>${glyph('ui:lock', 17)}</span>`;
+  if (r.where === 'captive') return `<span class="rr-mark" ${tip(card({ icon: 'ui:lock', name: 'Captive', kind: esc(taken), w: 220, more: '<div>No longer in your army: his place is free. His captor may win him over, or let his soul go; a raid on the fort frees him. After a day his soul goes free by itself.</div>' }))}>${glyph('ui:lock', 17)}</span>`;
   return `<span class="rr-mark" ${tip(termCard('fallen'))}>${glyph('ui:skull', 17)}</span>`;
 }
 
 /** What he does and where: "Marching · Test Ridge", "In Dodona". */
-const doing = (r: Row) => {
+const doing = (r: Row, taken: string) => {
+  if (r.where === 'captive') return taken;
   const t = doingText(r);
   return t.startsWith('In ') ? t : `${t} · ${r.region}`;
 };
 
-function row(r: Row, sel: string | null, pending: boolean, captor: number | undefined, picked: ReadonlySet<number>): string {
+function row(r: Row, sel: string | null, pending: boolean, taken: string, picked: ReadonlySet<number>): string {
   const h = r.p.hero, need = xpToNext(h.level), rank = rankOf(h.cls, h.level);
   const crest = rank === 'elite' ? `<span ${tip(termCard('elite'))}>${glyph('ui:captain', 13)}</span>` : rank === 'veteran' ? `<span ${tip(card({ icon: 'ui:star', name: 'Veteran', w: 170, more: '<div>Level 3 or more.</div>' }))}>${glyph('ui:star', 11)}</span>` : '';
   const hon = (r.p.honours ?? []).length ? `<span ${tip(card({ icon: 'ui:laurel', name: 'Honours', w: 190, more: (r.p.honours ?? []).map((x) => `<div>${esc(x.name)}</div>`).join('') }))}>${glyph('ui:laurel', 13)}</span>` : '';
@@ -74,11 +81,41 @@ function row(r: Row, sel: string | null, pending: boolean, captor: number | unde
     <div style="flex:1;min-width:0">
       <div style="display:flex;align-items:center;gap:3px"><span class="rr-nm">${esc(h.name)}</span>${crest}${hon}<span style="flex:1"></span>${r.where === 'field' ? hungerBadge(r.unit?.sat, 13) : ''}${up}</div>
       <div class="rr-xp" ${tip(card({ icon: 'ui:xp', name: `${h.xp} / ${need} XP`, kind: `to level ${h.level + 1}`, w: 170 }))}><i style="width:${Math.round(100 * Math.min(1, h.xp / need))}%"></i></div>
-      <div class="rr-doing">${esc(doing(r))}</div>
+      <div class="rr-doing">${esc(doing(r, taken))}</div>
     </div>
     <span class="rr-lv sm" ${tip(card({ icon: 'ui:xp', name: `Level ${h.level}`, w: 150 }))}>${h.level}</span>
-    <div class="rr-st">${stateCell(r, captor)}</div>
+    <div class="rr-st">${stateCell(r, taken)}</div>
   </div>`;
+}
+
+/**
+ * W-68: the captives he holds, at the foot of the list: who, whose, where, when he goes free; Ask to join (after 2 h;
+ * greyed until then, when his army is full or once he refused) and Release.
+ */
+export function captivesHtml(R: SandboxRoster, now = Date.now()): string {
+  const cs = R.captives();
+  if (!cs.length) return '';
+  const full = R.full();
+  const one = (c: HeldCaptive) => {
+    const wait = c.askAt !== null && now < c.askAt ? c.askAt - now : 0;
+    const [label, why] = c.refused ? ['Refused', 'He refused to serve you: you can only release him.']
+      : wait ? [`Ask in ${span(wait)}`, 'A captive may be asked to join 2 hours after he was taken.']
+      : full ? ['Army full', 'Your army is full: dismiss or lose a man first.'] : ['Ask to join', ''];
+    const odds = `He may refuse for good: 30% and 5% more a level above 1 (${Math.min(100, 30 + 5 * Math.max(0, c.level - 1))}% at level ${c.level}).`;
+    const ask = `<button class="rf-tbtn${label === 'Ask to join' ? ' pri' : ''}" data-capact="join" data-cap="${esc(c.id)}"${label === 'Ask to join' ? '' : ' disabled'} ${tip(card({ icon: 'ui:people', name: 'Ask him to join', w: 230, more: `<div>He joins your army with his level, class and record, in starter kit.</div><div class="rf-dim">${odds}</div>${why ? `<div class="rf-dim">${why}</div>` : ''}` }))}>${label}</button>`;
+    const free = `<button class="rf-tbtn" data-capact="release" data-cap="${esc(c.id)}" ${tip(card({ icon: 'power:second_wind', name: 'Release', w: 220, more: '<div>Let him go: his soul wakes at a shrine of this region, with his level and class, for anyone to claim.</div>' }))}>Release</button>`;
+    const left = c.until !== null ? `free in ${span(Math.max(0, c.until - now))}` : '';
+    return `<div class="rr-row rr-cap-row" data-capid="${esc(c.id)}">
+      <div style="width:24px;height:24px;flex:none"><img src="war/ui/icons/24/${UNIT_ICON[c.cls] ?? 'unit-militia'}.png" srcset="war/ui/icons/24/${UNIT_ICON[c.cls] ?? 'unit-militia'}@2x.png 2x" width="24" height="24" alt=""></div>
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:3px"><span class="rr-nm">${esc(c.name)}</span><span class="rf-dim" style="font-size:11px">${esc(SandboxRoster.className(c.cls))}</span></div>
+        <div class="rr-doing">${esc(c.ownerName)}'s · ${esc(c.heldAt ? (WORLD_NAMES.get(c.heldAt) ?? c.heldAt) : 'held')}${left ? ` · ${left}` : ''}</div>
+        <div style="display:flex;gap:3px;margin-top:3px">${ask}${free}</div>
+      </div>
+      <span class="rr-lv sm">${c.level}</span>
+    </div>`;
+  };
+  return `<div class="rf-cap rr-cap rr-grp" ${tip(card({ icon: 'ui:lock', name: 'Captives you hold', w: 230, more: '<div>Held in your fort; each costs a food an hour. After a day unclaimed his soul goes free by itself.</div>' }))}>${glyph('ui:lock', 13)}Captives you hold <span class="rf-dim">${cs.length}</span></div>${cs.map(one).join('')}`;
 }
 
 /** W-61: the season's titles strip under the roster's tabs (../peace.ts sets it; '' none). */
@@ -98,7 +135,7 @@ export function panelHtml(R: SandboxRoster, filter: Filter, sort: Sort, sel: str
       groups.set(k, g);
     }
   const army = R.army();
-  const body = [...groups].map(([k, g]) => `<div class="rf-cap rr-cap rr-grp"${g.squad !== undefined ? ` data-squad="${g.squad}" data-tip="select these men in the field (shift adds)" style="cursor:pointer"` : ''}>${glyph(g.icon, 13)}${esc(k)} <span class="rf-dim">${g.rs.length}</span></div>${g.rs.map((r) => row(r, sel, R.offers(r.p.id).length > 0, R.captorOf(r.p.id), picked)).join('')}`).join('');
+  const body = [...groups].map(([k, g]) => `<div class="rf-cap rr-cap rr-grp"${g.squad !== undefined ? ` data-squad="${g.squad}" data-tip="select these men in the field (shift adds)" style="cursor:pointer"` : ''}>${glyph(g.icon, 13)}${esc(k)} <span class="rf-dim">${g.rs.length}</span></div>${g.rs.map((r) => row(r, sel, R.offers(r.p.id).length > 0, r.where === 'captive' ? R.takenNote(r.p.id) : '', picked)).join('')}`).join('') + (filter === 'field' ? '' : captivesHtml(R));
   return `<div class="rf-card" style="padding:4px 4px 5px">
     <div class="rf-head" style="padding:0 2px 4px">
       <span class="rf-name" style="font-size:16px">Roster</span>${armyHead(army)}

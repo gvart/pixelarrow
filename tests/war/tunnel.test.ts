@@ -70,23 +70,37 @@ describe('the Tunnel of Shades', () => {
 });
 
 describe('the army destroyed card (wiped)', () => {
-  const none: WipeState = { fit: 0, nextAt: null, wounded: 0, woundedAt: null, captive: 0, captiveAt: null };
+  const none: WipeState = { fit: 0, nextAt: null, wounded: 0, woundedAt: null };
   const H = 60 * MIN;
 
-  it('shows with no man he can field: all dead (a rise pending), or the rest wounded or captive', () => {
+  it('shows with no man he can field: all dead (a rise pending), or the rest wounded', () => {
     expect(wiped({ ...none, nextAt: T0 + 10 * MIN })).toBe(true);
-    // the owner's wipe online: 11 taken captive, 1 dead; the floor counts the captives, so no rise is pending
-    expect(wiped({ ...none, captive: 11, captiveAt: T0 + 24 * H })).toBe(true);
     expect(wiped({ ...none, wounded: 3, woundedAt: T0 + 6 * H })).toBe(true);
-    expect(wiped({ ...none, fit: 1, captive: 11, captiveAt: T0 + 24 * H })).toBe(false);
+    expect(wiped({ ...none, fit: 1, wounded: 3, woundedAt: T0 + 6 * H })).toBe(false);
     expect(wiped(none)).toBe(false); // never had a man
   });
 
+  it('W-68: the wipe online (11 taken captive, 1 dead): the captives are not his, so the tunnel starts at once and the card shows', () => {
+    const st = settleTunnel({ alive: 0, nextAt: null, room: 12 }, T0);
+    expect(st).toMatchObject({ raise: 0, nextAt: T0 + TUNNEL.everyMs, pending: TUNNEL.floor });
+    expect(wiped({ ...none, nextAt: st.nextAt })).toBe(true);
+  });
+
+  it('W-68: the floor counts men who can fight; the wounded still fill the army (no rise past ARMY_MAX)', () => {
+    // 2 fit, 4 wounded: 4 rise in time
+    expect(settleTunnel({ alive: 2, nextAt: T0, room: 6 }, T0 + 60 * MIN)).toMatchObject({ raise: 4, alive: 6, nextAt: null });
+    // 3 fit, 8 wounded: room for one, then the clock stops
+    expect(settleTunnel({ alive: 3, nextAt: T0, room: 1 }, T0 + 60 * MIN)).toMatchObject({ raise: 1, alive: 4, nextAt: null });
+    // a full army of the wounded: no clock at all
+    expect(settleTunnel({ alive: 0, nextAt: null, room: 0 }, T0)).toMatchObject({ raise: 0, nextAt: null });
+  });
+
   it('counts down to his first man back, and says what each will bring', () => {
-    const t: WipeState = { fit: 0, nextAt: null, wounded: 3, woundedAt: T0 + 4 * H + 12 * MIN, captive: 8, captiveAt: T0 + 21 * H };
+    const t: WipeState = { fit: 0, nextAt: null, wounded: 3, woundedAt: T0 + 4 * H + 12 * MIN };
     expect(wipeNext(t)).toEqual({ at: T0 + 4 * H + 12 * MIN, text: 'Your first wounded man is fit in' });
-    expect(wipeLine(t, T0)).toBe('3 wounded heal in 4 h 12 m · 8 held captive, back in 21 h or by ransom');
+    expect(wipeLine(t, T0)).toBe('3 wounded heal in 4 h 12 m');
     expect(wipeNext({ ...t, nextAt: T0 + 7 * MIN })).toEqual({ at: T0 + 7 * MIN, text: 'The next man rises in' });
+    expect(wipeLine({ ...t, nextAt: T0 + 7 * MIN }, T0)).toBe('Next shade rises in 7:00 · 3 wounded heal in 4 h 12 m');
     expect(wipeLine({ ...none, nextAt: T0 + 7 * MIN }, T0)).toBe(''); // the headline says it all
     expect(span(7 * MIN + 42_000)).toBe('7:42');
   });
