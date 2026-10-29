@@ -14,6 +14,7 @@ import { haltChat } from '../../net/chatLink';
 import { injectMenuCss } from '../../menu/style';
 import type { SandboxScene } from '../SandboxScene';
 import { icon, ring, uiZoom } from './kit';
+import { Z } from './theme';
 
 export const IDLE_MS = 15 * 60_000;
 export const WARN_MS = 60_000;
@@ -33,7 +34,7 @@ export function waitText(ms: number): string {
 }
 
 const CSS = `
-.gt-modal{z-index:30;background:radial-gradient(ellipse at center,rgba(5,6,7,.35),rgba(5,6,7,.78))}
+.gt-modal{z-index:${Z.wipe};background:radial-gradient(ellipse at center,rgba(5,6,7,.35),rgba(5,6,7,.78))}
 body.gt-clean .rf:not(#rfGate),body.gt-clean .gd-mk{visibility:hidden}
 .gt-modal.soft{background:rgba(5,6,7,.38)}
 .gt-card{width:320px;text-align:left}

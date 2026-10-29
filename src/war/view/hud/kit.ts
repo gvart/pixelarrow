@@ -7,7 +7,7 @@
 import type { BuildingType, SiegeType } from '../../types';
 import type { ActionId } from '../../input/actions';
 import { keys } from '../../input/keys';
-import { THEME_CSS, tipHtml, TOKENS } from './theme';
+import { THEME_CSS, tipHtml, TOKENS, Z } from './theme';
 
 export const UI = 'war/ui/';
 const url = (f: string) => `url(${UI}${f})`;
@@ -85,7 +85,7 @@ ${BLOCKED.map((x) => `.rf ${x},.rf ${x} *`).join(',')}{cursor:${cursor('invalid'
 export { TOKENS };
 
 export const CSS = TOKENS + CURSORS + `
-.rf{position:fixed;z-index:4;color:var(--rf-ink);font:var(--rf-body);user-select:none;image-rendering:pixelated;box-sizing:border-box;font-variant-numeric:tabular-nums}
+.rf{position:fixed;z-index:${Z.docked};color:var(--rf-ink);font:var(--rf-body);user-select:none;image-rendering:pixelated;box-sizing:border-box;font-variant-numeric:tabular-nums}
 .rf *{box-sizing:border-box}
 .rf img{image-rendering:pixelated;display:block}
 .rf-tip{pointer-events:none;white-space:nowrap;line-height:1.4}
@@ -210,9 +210,6 @@ const CORNER_WINDOWS = ['rfWorksBtn', 'rfTasksBtn', 'rfCrownBtn', 'rfHoldingsBtn
 export function closeCornerWindows(except: string): void {
   for (const id of CORNER_WINDOWS) if (id !== except) { const b = document.getElementById(id); if (b?.classList.contains('on')) b.click(); }
 }
-
-/** The bottom margin of a right-hand window: clear of the menu bar (chest, roster, build and the menus) in the bottom-right corner. */
-export const CORNER_BOTTOM = 52;
 
 /** The menu bar, bottom right, left of the chest, roster and build buttons (made by ./hud.ts); its buttons sort by `order`. */
 export const MENU_BAR = 'rfMenus';

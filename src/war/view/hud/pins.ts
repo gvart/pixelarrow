@@ -12,7 +12,7 @@ import type { SandboxScene } from '../SandboxScene';
 import { ownCentre } from '../entry';
 import { myTeam } from '../side';
 import { markCss } from './chat';
-import { uiZoom } from './kit';
+import { clearOfHud, markerArea } from './layout';
 import { pinAlpha, PinStore, type Pin } from './pinStore';
 
 export interface PinView {
@@ -20,6 +20,8 @@ export interface PinView {
   project(p: Pin): { x: number; y: number } | null;
   /** The open play area (client px) the edge pointers keep to (a marker anywhere in the window shows as its pennant). */
   area(): { x0: number; y0: number; x1: number; y1: number };
+  /** An edge pointer at (x, y) moved off the view's panels (client px; `hw`, `hh` its half size). */
+  clear?(x: number, y: number, hw: number, hh: number): { x: number; y: number };
   /** Centre the view on a marker. */
   focus(p: Pin): void;
   /** How far it is (" · 29 m"), or ''. */
@@ -112,7 +114,8 @@ export function mountPins(v: PinView): PinHandle {
       x.edge.style.display = '';
       const cx = (a.x0 + a.x1) / 2, cy = (a.y0 + a.y1) / 2, dx = q.x - cx, dy = q.y - cy;
       const k = Math.min((a.x1 - cx) / Math.abs(dx || 1e-6), (a.y1 - cy) / Math.abs(dy || 1e-6));
-      x.edge.style.transform = `translate(${cx + dx * k}px,${cy + dy * k}px)`;
+      const at = v.clear?.(cx + dx * k, cy + dy * k, 60, 28) ?? { x: cx + dx * k, y: cy + dy * k };
+      x.edge.style.transform = `translate(${at.x}px,${at.y}px)`;
       x.edge.style.opacity = fade;
       const nm = x.edge.querySelector<HTMLElement>('.nm')!, text = `Marker ${p.n}${v.far(p)}`;
       if (nm.textContent !== text) nm.textContent = text;
@@ -140,8 +143,9 @@ export function mountRegionPins(s: SandboxScene): void {
   const canvas = () => s.game.canvas.getBoundingClientRect();
   const h = mountPins({
     project: (p) => { const q = s.toScreen(p.x, p.y), r = canvas(); return { x: q.x + r.left, y: q.y + r.top }; },
-    // clear of the minimap, buttons and command card, as the guide's pointers (./guide.ts)
-    area: () => { const r = canvas(), z = uiZoom(); return { x0: r.left + 90, y0: r.top + 70, x1: r.right - 120 * z, y1: r.bottom - 225 * z }; },
+    // clear of the HUD's panels, as the guide's pointers (./layout.ts)
+    area: markerArea,
+    clear: (x, y, hw, hh) => clearOfHud(x, y, hw, hh),
     focus: (p) => s.focus(p.x, p.y),
     hidden: () => s.mapOpen,
     far: (p) => {

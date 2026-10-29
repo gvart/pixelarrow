@@ -11,7 +11,7 @@
 import type { HoldItem, ResourceKind, SquadId } from '../../types';
 import type { SandboxScene } from '../SandboxScene';
 import { holderKey, itemName, type Holder } from '../trade/tradeControls';
-import { bar, fitHeight, icon } from './kit';
+import { bar, icon } from './kit';
 import { rarityHex } from './roster/ui';
 import { draggable } from './drag';
 import { myTeam } from '../side';
@@ -141,7 +141,6 @@ export function mountTrade(s: SandboxScene, mk: Mk, btn: (id: string, ic: string
       const next = render(h);
       if (next !== html) { html = next; panel.innerHTML = next; }
       panel.style.display = '';
-      fitHeight(panel);
     }
   };
 

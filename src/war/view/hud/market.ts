@@ -28,7 +28,7 @@ import {
 import { draggable } from './drag';
 import { goodCard, goodName } from './goods';
 import { esc, tipper } from './roster/ui';
-import { bar, fitHeight, icon } from './kit';
+import { bar, icon } from './kit';
 import { glyph } from './glyph';
 import { stockAtHand } from './chest';
 import { keys } from '../../input/keys';
@@ -376,7 +376,6 @@ export function mountMarket(s: SandboxScene, mk: Mk): MarketHud {
       <div class="mk-tabs">${TABS.map((t) => `<button class="rf-tab${t === tab ? ' on' : ''}" data-tab="${t}">${TAB_NAME[t]}</button>`).join('')}</div>
       ${BODY[tab]()}<div class="mk-msg rf-dim${bad ? ' bad' : ''}">${msg}</div>`;
     win.scrollTop = scroll;
-    fitHeight(win);
     win.style.overflowX = 'hidden';
     unTip();
   };

@@ -11,12 +11,13 @@ import { ownCentre } from '../entry';
 import { myTeam } from '../side';
 import { icon, leftPanelOpen, uiZoom } from './kit';
 import { esc } from './roster/ui';
+import { clearOfHud, laneBusy, markerArea, Z } from './layout';
 
 type Mk = (id: string, css: string, html?: string) => HTMLElement;
 type P = { x: number; y: number };
 
 const CSS = `
-.gd-mk{position:fixed;z-index:2;pointer-events:none;transform:translate(-50%,-100%);display:none;flex-direction:column;align-items:center;font:700 13px/1 Inter,sans-serif;color:var(--rf-gold);text-shadow:0 1px 0 #050506,0 0 3px #050506;white-space:nowrap}
+.gd-mk{position:fixed;z-index:${Z.mark};pointer-events:none;transform:translate(-50%,-100%);display:none;flex-direction:column;align-items:center;font:700 13px/1 Inter,sans-serif;color:var(--rf-gold);text-shadow:0 1px 0 #050506,0 0 3px #050506;white-space:nowrap}
 .gd-mk .lb{padding:4px 7px;background:rgba(10,11,13,.82);box-shadow:inset 0 0 0 1px #6a5326}
 .gd-mk .ch{width:0;height:0;margin-top:3px;border:9px solid transparent;border-top:13px solid var(--rf-gold);border-bottom:0;filter:drop-shadow(0 1px 0 #050506)}
 .gd-mk.on .ch,.gd-mk.trk .ch{animation:gdBob 1.1s ease-in-out infinite}
@@ -30,7 +31,7 @@ const CSS = `
 .gd-mk.trk{color:#f3e2b8}.gd-mk.trk .lb{box-shadow:inset 0 0 0 1px #b38a3e;background:rgba(36,22,10,.88)}
 .gd-mk.trk .ch{border-top-color:#f3e2b8}.gd-mk.trk .ar{color:#f3e2b8}
 @keyframes gdBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
-#rfQBanner{left:50%;top:44px;transform:translateX(-50%);z-index:6;pointer-events:none;width:340px;padding:7px 12px 9px;text-align:center;transition:opacity .45s,transform .45s}
+#rfQBanner{left:50%;top:44px;transform:translateX(-50%);z-index:${Z.banner};pointer-events:none;width:340px;padding:7px 12px 9px;text-align:center;transition:opacity .45s,transform .45s}
 #rfQBanner.out{opacity:0;transform:translateX(-50%) translateY(-6px)}
 #rfQBanner .qb-k{font:700 10px/1 Inter,sans-serif;letter-spacing:.14em;text-transform:uppercase;color:var(--rf-gold)}
 #rfQBanner .qb-t{margin-top:4px;font:700 16px/1.15 Cinzel,serif;color:var(--rf-title)}
@@ -41,7 +42,7 @@ const CSS = `
 #rfQBanner .gd-rw img,#rfQuest .gd-rw img{width:14px;height:14px}
 #rfQBanner .qb-p{margin-top:4px;font-size:11px;color:var(--rf-muted)}
 #rfQBanner.done .qb-k{color:var(--rf-good)}
-#rfQuest{right:4px;top:40px;width:244px;z-index:3;pointer-events:auto;padding:5px 8px 7px}
+#rfQuest{right:4px;top:40px;width:244px;pointer-events:auto;padding:5px 8px 7px}
 #rfQuest .qt-h{display:flex;align-items:center;gap:6px;padding-bottom:4px;margin-bottom:3px;border-bottom:1px solid var(--rf-rule)}
 #rfQuest .qt-k{font:700 10px/1 Inter,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--rf-gold)}
 #rfQuest .qt-n{margin-left:auto;font:700 11px/1 Inter,sans-serif;color:var(--rf-gold)}
@@ -91,34 +92,37 @@ export function questMarker(cls: string): HTMLElement {
 
 /**
  * Place marker `m` over tile point p (label's first part), or on the screen's edge towards it (the whole label, an arrow
- * turned at it). The edge spot keeps below the cards in `avoid` (the trackers top left).
+ * turned at it). The edge spot keeps off every docked panel (./layout.ts).
  */
-export function placeMarker(s: SandboxScene, m: HTMLElement, p: P | null, label: string, avoid: readonly HTMLElement[] = []): void {
+export function placeMarker(s: SandboxScene, m: HTMLElement, p: P | null, label: string): void {
   if (!p) return void (m.style.display = 'none');
-  const cam = s.cameras.main, q = s.toScreen(p.x, p.y), W = cam.width, H = cam.height;
-  // the open play area: clear of the minimap, buttons and command card (the HUD is zoomed with the UI scale)
-  const z = uiZoom(), x0 = 90, x1 = W - 120 * z, y0 = 70, y1 = H - 225 * z;
+  const q = s.toScreen(p.x, p.y);
+  // the open play area: under the top bar's plaque, inside the edges (the HUD's zones are zoomed with the UI scale)
+  const { x0, x1, y0, y1 } = markerArea();
   m.style.display = 'flex';
   const lb = m.querySelector<HTMLElement>('.lb')!, ar = m.querySelector<SVGElement>('.ar')!;
   if (q.x > x0 && q.y > y0 + 20 && q.x < x1 && q.y < y1 + 40) {
-    m.classList.remove('edge');
-    m.style.left = `${q.x}px`;
-    m.style.top = `${q.y - 26}px`;
     lb.textContent = label.split(' · ')[0];
-    return;
+    // over its point, unless a panel stands there: then as an edge pointer beside the panel, turned at it
+    const hw = lb.offsetWidth / 2 + 4, mid = q.y - 26 - 20, free = clearOfHud(q.x, mid, hw, 20);
+    if (free.x === q.x && free.y === mid) {
+      m.classList.remove('edge');
+      m.style.left = `${q.x}px`;
+      m.style.top = `${q.y - 26}px`;
+      return;
+    }
   }
   // off screen (or under the HUD): on the edge of the open play area, along the line from its middle
-  const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, dx = q.x - cx, dy = q.y - cy;
-  const k = Math.min((x1 - cx) / Math.abs(dx || 1e-6), (y1 - cy) / Math.abs(dy || 1e-6)), at = { x: cx + dx * k, y: cy + dy * k };
-  for (const el of avoid) {
-    if (el.style.display === 'none') continue;
-    const tr = el.getBoundingClientRect();
-    if (at.x > tr.left - 50 && at.x < tr.right + 50 && at.y > tr.top - 20 && at.y < tr.bottom + 20) at.y = tr.bottom + 24;
-  }
+  const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+  const k = Math.min((x1 - cx) / Math.abs(q.x - cx || 1e-6), (y1 - cy) / Math.abs(q.y - cy || 1e-6), 1);
   m.classList.add('edge');
+  lb.textContent = label;
+  // centred on its point: keep the label and its arrow off the panels and inside the window
+  const hw = lb.offsetWidth / 2 + 24, at = clearOfHud(cx + (q.x - cx) * k, cy + (q.y - cy) * k, hw, 18);
+  at.x = Math.max(hw - 18, Math.min(innerWidth - hw + 18, at.x));
   m.style.left = `${at.x}px`;
   m.style.top = `${at.y}px`;
-  lb.textContent = label;
+  const dx = q.x - at.x, dy = q.y - at.y;
   const a = Math.atan2(dy, dx), r = Math.hypot((lb.offsetWidth / 2) * Math.cos(a), 9 * Math.sin(a)) + 16; // just past the label's edge
   ar.style.transform = `rotate(${a}rad) translateX(${r}px)`;
 }
@@ -139,7 +143,7 @@ export interface Banner {
   pay?: string;
 }
 const queue: Banner[] = [];
-let showing = false, seq = 0;
+let showing = false;
 /** Show a quest banner (one at a time, each about 5 s; later ones wait their turn). */
 export function questBanner(b: Banner): void {
   style();
@@ -154,6 +158,8 @@ function next(): void {
     return;
   }
   showing = true;
+  // the centre lane takes one banner at a time (a guardian's speaks first)
+  if (laneBusy('rfQBanner')) { queue.unshift(b); setTimeout(next, 400); return; }
   if (!el) {
     el = document.createElement('div');
     el.id = 'rfQBanner';
@@ -165,14 +171,6 @@ function next(): void {
   el.innerHTML = `<div class="qb-k">${esc(b.head)}</div><div class="qb-t">${esc(b.title)}</div>${b.giver ? `<div class="qb-g">${esc(b.giver)}</div>` : ''}${b.text ? `<div class="qb-x">${esc(b.text)}</div>` : ''}${b.reward && Object.keys(b.reward).length ? `<div class="qb-r">${rewardChips(b.reward)}</div>` : ''}${b.pay ? `<div class="qb-p">${esc(b.pay)}</div>` : ''}`;
   el.classList.remove('out');
   el.style.display = '';
-  // just below the small notices at the top centre (./roster/toast.ts), never over them
-  const z = Number(el.style.zoom) || 1, my = ++seq, below = () => {
-    if (my !== seq || el!.style.display === 'none') return;
-    const t = document.getElementById('rrToasts'), bottom = t && t.children.length ? t.getBoundingClientRect().bottom : 0;
-    el!.style.top = `${Math.max(44, Math.round(bottom / z) + 6)}px`;
-    requestAnimationFrame(below);
-  };
-  below();
   const life = b.text ? 6500 : 4500;
   setTimeout(() => el!.classList.add('out'), life);
   setTimeout(() => { el!.style.display = 'none'; next(); }, life + 500);
@@ -241,12 +239,10 @@ export function mountQuestTracker(s: SandboxScene, mk: Mk): void {
       el.style.display = mark.style.display = 'none';
       return;
     }
-    // top right, under the corner buttons (the guide holds the top left)
-    const g = document.getElementById('rfGuide'), corner = document.getElementById('rfDev'), z = Number(el.style.zoom) || 1;
-    el.style.top = `${corner ? Math.round(corner.getBoundingClientRect().bottom / z) + 6 : 40}px`;
+    // top right, under the corner buttons (./layout.ts; the guide holds the top left)
     el.style.display = '';
     const far = v.at ? metres(Math.hypot(v.at.x - me.x, v.at.y - me.y)) : '';
-    placeMarker(s, mark, v.at, `${v.label}${far ? ` · ${far}` : ''}`, [el, ...(g ? [g] : [])]);
+    placeMarker(s, mark, v.at, `${v.label}${far ? ` · ${far}` : ''}`);
     // on the screen's edge beside the guide's marker: a row lower, so both read
     for (const o of document.querySelectorAll<HTMLElement>('.gd-mk.on,.gd-mk.home')) {
       if (o.style.display === 'none' || mark.style.display === 'none' || !mark.classList.contains('edge')) continue;

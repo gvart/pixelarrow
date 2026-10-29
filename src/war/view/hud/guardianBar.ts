@@ -51,22 +51,28 @@ const cost = (c: Partial<Record<string, number>>) => Object.entries(c).filter(([
 
 const CSS = `
 #rfGuard{display:flex;flex-direction:column;gap:4px;pointer-events:none}
-#rfGuard .g{padding:6px 10px 8px;width:420px}
-#rfGuard .gt{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
-#rfGuard .gb{position:relative;height:12px;margin-top:5px;background:var(--rf-sunk);border:1px solid var(--rf-line)}
+#rfGuard{width:420px}
+#rfGuard .g{padding:4px 10px 6px}
+#rfGuard .gt{display:flex;align-items:baseline;gap:10px;white-space:nowrap}
+#rfGuard .gt .rf-name{flex:none;font-size:13px}
+#rfGuard .gt .gn{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
+#rfGuard .gb{position:relative;height:10px;margin-top:4px;background:var(--rf-sunk);border:1px solid var(--rf-line)}
 #rfGuard .gb i{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(#d0503c,#8a2418)}
 #rfGuard .gb s{position:absolute;top:-4px;bottom:-4px;width:3px;margin-left:-1px;background:var(--rf-gold);text-decoration:none;box-shadow:0 0 0 1px #000}
 #rfGuard .gb s.off{background:var(--rf-disabled)}
-#rfGuard .gn{margin-top:3px;font-size:11px}
+#rfGuard .gn{font-size:11px}
 #rfGuard .w{padding:4px 10px;color:var(--rf-bad);font-weight:700}
-#rfGuard.many{gap:3px}
-#rfGuard.many .g{padding:3px 8px 4px;width:330px}
+#rfGuard.many{gap:3px;width:330px}
+#rfGuard.many .g{padding:3px 8px 4px}
 #rfGuard.many .gt .rf-name{font-size:12px}
 #rfGuard.many .gt .rf-dim{font-size:10.5px}
 #rfGuard.many .gb{height:7px;margin-top:3px}
 #rfGuard.many .gb s{top:-3px;bottom:-3px}
-#rfGuard.many .gn{margin-top:2px;font-size:10px}
-#rfLand{padding:8px 10px 10px;width:270px;font-size:11px;line-height:1.35}
+#rfGuard.many .gn{font-size:10px}
+#rfLand{padding:8px 10px 10px;width:270px;font-size:11px;line-height:1.35;pointer-events:auto}
+#rfLand .rf-head{display:flex;align-items:center;gap:6px;cursor:pointer}
+#rfLand.shut{padding:5px 10px 6px}
+#rfLand .lm-chev{color:var(--rf-gold);font-size:11px}
 #rfLand h4{margin:6px 0 1px;font:var(--rf-title-font);font-size:11px;color:var(--rf-accent)}
 #rfLand p{margin:0}
 #rfLand .lr{display:flex;align-items:center;gap:8px;margin-top:7px}
@@ -84,12 +90,13 @@ export function mountGuardians(s: SandboxScene, mk: Mk): void {
   const bar = mk('rfGuard', 'top:52px;left:50%;transform:translateX(-50%);pointer-events:none');
   const panel = lm ? mk('rfLand', 'top:96px;right:8px;display:none', '') : null;
   if (panel) panel.className = 'rf rf-card';
-  let open = true;
+  let open = false;
   addEventListener('keydown', (e: KeyboardEvent) => {
     if (keys.is(e, 'panel.guardian')) open = !open;
   });
   // M7g: the Restore button sends restoreLandmark with the selected squad (the sim checks the engineer and the goods)
   panel?.addEventListener('click', (e) => {
+    if ((e.target as HTMLElement).closest('.rf-head')) { open = !open; render(); return; }
     if (!(e.target as HTMLElement).closest('[data-act="restore"]')) return;
     const q = s.build.squad();
     if (q !== null) s.sim.order({ kind: 'restoreLandmark', squad: q });
@@ -99,20 +106,22 @@ export function mountGuardians(s: SandboxScene, mk: Mk): void {
     const cur = s.sim.cur;
     if (!cur) return;
     const held = (cur.claims ?? []).some((c) => c.state === 'claimed');
-    // under the replay's offer toast while it shows (../replay: "The guardian is slain · Watch the battle"), never under it
-    const toast = document.getElementById('rpToast'), z = Number(bar.style.zoom) || 1;
-    bar.style.top = `${toast && toast.style.display !== 'none' && toast.offsetHeight ? Math.max(52, Math.round(toast.getBoundingClientRect().bottom / z) + 4) : 52}px`;
     bar.classList.toggle('many', (cur.bosses ?? []).length > 1); // two guardians (Omphalos): slimmer, clear of the landmark panel
     bar.innerHTML = (cur.bosses ?? []).map((b) => guardianHtml(b, held)).join('') + (cur.warden ? `<div class="rf-card w">Rim Warden strike marked: ${Math.ceil(cur.warden.in / 10)} s</div>` : '');
     if (panel && lm) {
-      panel.style.display = open ? 'block' : 'none';
-      if (!open) return;
-      const html = landmarkHtml(lm, (cur.buildings ?? []).filter((b) => b.landmark), cur.bosses ?? [], cur.landmark, restoreWhy(s, lm, cur.landmark));
+      // folded by default to its title row (click it or L); open, the whole card
+      panel.style.display = 'block';
+      panel.classList.toggle('shut', !open);
+      const html = !open ? landmarkHead(lm, false) : landmarkHtml(lm, (cur.buildings ?? []).filter((b) => b.landmark), cur.bosses ?? [], cur.landmark, restoreWhy(s, lm, cur.landmark));
       if (html !== shown) panel.innerHTML = shown = html; // only when it changes, so a click lands on the same button
     }
   };
   setInterval(render, 200);
 }
+
+/** The landmark panel's title row: its name, the L key and a chevron (open or folded). */
+const landmarkHead = (lm: Landmark, open: boolean) =>
+  `<div class="rf-head" title="${open ? 'Fold' : 'Open'} (L)"><span class="rf-name">${lm.name}</span><kbd class="hud-kbd" style="margin-left:auto">L</kbd><span class="lm-chev">${open ? '▴' : '▾'}</span></div>`;
 
 /** One guardian's bar: hp with a pip per phase threshold, what it does now, its parts and the raid. */
 export function guardianHtml(b: BossSnap, held = false): string {
@@ -123,8 +132,10 @@ export function guardianHtml(b: BossSnap, held = false): string {
     : [b.phases.length > 1 ? `phase ${b.phase + 1}/${b.phases.length}` : '', PHASE_NOTE[b.id]?.[b.phase] ?? ''].filter(Boolean).join(': ') + (STATE_NOTE[b.state] && b.state !== 'flee' ? ` (${STATE_NOTE[b.state]})` : '');
   const parts = b.parts ? `heads ${b.parts.alive}/${b.parts.total}` : '';
   const raid = b.raid ? `raid ${b.raid} ${b.raid === 1 ? 'squad' : 'squads'}${b.scale > 1.001 ? `, hp x${b.scale.toFixed(1)}` : ''}` : '';
-  return `<div class="rf-card g"><div class="gt"><span class="rf-name">${b.name}</span><span class="rf-dim">${gone ? '' : `${Math.ceil(b.hp)} / ${Math.ceil(b.maxHp)}`}</span></div>
-<div class="gb"><i style="width:${(share * 100).toFixed(1)}%"></i>${pips}</div><div class="gn rf-dim">${[note, parts, raid].filter((x) => x.trim()).join(' · ')}</div></div>`;
+  // one compact row over the bar: the name, the phase (or why it is gone) and the hp; the phase's words on hover
+  const all = [note, parts, raid].filter((x) => x.trim()).join(' · '), tag = gone ? note : [b.phases.length > 1 ? `phase ${b.phase + 1}/${b.phases.length}` : '', parts, raid].filter(Boolean).join(' · ');
+  return `<div class="rf-card g" title="${all.replace(/"/g, '&quot;')}"><div class="gt"><span class="rf-name">${b.name}</span><span class="rf-dim gn">${tag}</span><span class="rf-dim">${gone ? '' : `${Math.ceil(b.hp)} / ${Math.ceil(b.maxHp)}`}</span></div>
+<div class="gb"><i style="width:${(share * 100).toFixed(1)}%"></i>${pips}</div></div>`;
 }
 
 /**
@@ -187,7 +198,7 @@ export function landmarkHtml(lm: Landmark, pieces: BuildingSnap[], bosses: BossS
     for (const [r, v] of Object.entries(d.cost) as [ResourceKind, number][]) patch[r] = (patch[r] ?? 0) + v * k * gap * 0.5;
   }
   const restore = restored ? '' : `<div class="lr"><button class="rf-tbtn pri" data-act="restore"${why ? ' disabled' : ''}>Restore</button>${why ? `<span class="why">${why}</span>` : '<span class="rf-dim">the selected squad\'s engineer leads it</span>'}</div>`;
-  return `<div class="rf-head"><span class="rf-name">${lm.name}</span><span class="rf-dim" style="margin-left:auto">L</span></div>
+  return `${landmarkHead(lm, true)}
 <h4>Holder</h4><p>${holder}</p>
 <h4>State</h4><p>${state}</p>
 <h4>Patch (Fortifier L5)</h4><p>${Object.keys(patch).length ? cost(patch) : 'walls, towers and gates at 60% or more'}</p>

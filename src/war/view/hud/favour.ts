@@ -9,7 +9,7 @@ import { FAVOUR_EARN, FAVOUR_MAX, FAVOUR_REASON, favourTitle, favourUnlocks, fav
 import type { SandboxScene } from '../SandboxScene';
 import { draggable } from './drag';
 import { glyph } from './glyph';
-import { closeCornerWindows, CORNER_BOTTOM, fitHeight, icon, menuBtn, setBadge } from './kit';
+import { closeCornerWindows, icon, menuBtn, setBadge } from './kit';
 import { esc, tipper } from './roster/ui';
 import { keys } from '../../input/keys';
 import { questBanner } from './quest';
@@ -129,7 +129,6 @@ export function mountFavour(s: SandboxScene, mk: Mk): void {
     win.innerHTML = `<div class="rf-head rf-ph">${glyph('ui:laurel', 30)}<div style="flex:1;min-width:0"><div class="rf-name">Divine favour</div><div class="sub">Level ${v.level} · ${esc(v.title)}${online() ? '' : ' · offline'}</div></div><button class="rf-tbtn x" data-act="close" title="close (Esc)">×</button></div>
       ${favourHtml(v, Date.now())}`;
     win.scrollTop = scroll;
-    fitHeight(win, CORNER_BOTTOM);
   };
   /** A fresh view: a level gained since the last one seen shows the banner. */
   const take = (x: FavourView) => {

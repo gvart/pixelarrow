@@ -3,10 +3,13 @@
  * round trip to the region server (ping), the server's tick time, snapshots a second, kilobytes a second, the page's
  * fps, and a warning when the server has sent nothing for over a second ("region idle" instead while the server says
  * no armies stand there or its loop rests). Offline (the local sim): fps and the sim's
- * step time. The figures come from ../../net/client.ts stats through the sim worker (SimClient.netInfo), once a second.
+ * step time. A dev readout: shown in a dev build or with ?dev, top right under the dev row (./layout.ts), never over the
+ * game menu. The figures come from ../../net/client.ts stats through the sim worker (SimClient.netInfo), once a second.
  */
 import type Phaser from 'phaser';
 import type { SimClient } from '../simClient';
+import { uiZoom } from './kit';
+import { Z } from './layout';
 
 export const NET_STATS_KEY = 'war.netStats';
 const EVENT = 'war-netstats';
@@ -29,7 +32,7 @@ export function setNetStatsOn(on: boolean): void {
   dispatchEvent(new CustomEvent(EVENT, { detail: on }));
 }
 
-const CSS = `#rfNet{position:fixed;left:8px;top:50%;transform:translateY(-50%);z-index:30;pointer-events:none;padding:4px 7px;min-width:96px;
+const CSS = `#rfNet{position:fixed;right:4px;top:36px;z-index:${Z.docked};pointer-events:none;padding:4px 7px;min-width:96px;
   background:color-mix(in srgb,var(--rf-sunk,#050506) 82%,transparent);border:1px solid var(--rf-rule,#2b2c2f);border-radius:3px;
   font:600 10.5px/1.45 Inter,system-ui,sans-serif;color:var(--rf-muted,#a8a194);font-variant-numeric:tabular-nums;white-space:nowrap}
 #rfNet b{color:var(--rf-ink,#ece6d8);font-weight:700}#rfNet .good{color:var(--rf-good,#9fd47a)}#rfNet .warn{color:var(--rf-gold,#e0b867)}
@@ -69,7 +72,12 @@ export function mountNetStats(game: Phaser.Game, sim: SimClient, net: boolean): 
     }
     el.innerHTML = html;
   };
+  const dev = import.meta.env.DEV || new URLSearchParams(location.search).has('dev');
+  const zoom = () => { el.style.zoom = String(uiZoom()); };
+  zoom();
+  addEventListener('resize', zoom);
   const set = (on: boolean) => {
+    on &&= dev;
     el.style.display = on ? '' : 'none';
     clearInterval(timer);
     if (net) sim.netStats(on);

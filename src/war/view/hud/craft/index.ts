@@ -17,7 +17,6 @@ import type { RosterHooks } from '../roster';
 import { sandboxRoster } from '../roster/state';
 import { esc, tipper } from '../roster/ui';
 import { draggable } from '../drag';
-import { fitHeight } from '../kit';
 import { sandboxCraft } from './state';
 import { profTree } from './tree';
 import { GRAPH_CSS, markGraph, panelWidth, paintGraph, type TreeView } from '../tree/graph';
@@ -111,9 +110,6 @@ export function mountCraft(s: SandboxScene, mk: Mk, roster: RosterHooks): void {
         const l2 = wpEl.querySelector<HTMLElement>('.wp-list');
         if (l2) l2.scrollTop = top;
       }
-      // down to the minimap (168 art px and its margin), scrolling past it
-      fitHeight(wpEl);
-      wpEl.style.maxHeight = `${Math.max(240, Math.floor(innerHeight / (Number(wpEl.style.zoom) || 1)) - 4 - 176)}px`;
     }
     const v = treePid ? treeView(treePid) : null;
     treeEl.style.display = v ? '' : 'none';
@@ -134,7 +130,6 @@ export function mountCraft(s: SandboxScene, mk: Mk, roster: RosterHooks): void {
       const g = treeEl.querySelector<HTMLElement>('[data-h=graph]')!;
       paintGraph(g, v.graph);
       markGraph(g, ask);
-      fitHeight(treeEl);
     }
     for (const f of unTip) f();
   };

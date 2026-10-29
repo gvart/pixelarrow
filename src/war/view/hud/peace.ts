@@ -22,7 +22,7 @@ import { myTeam } from '../side';
 import { settleHosts } from './settlements';
 import { keys } from '../../input/keys';
 import { draggable } from './drag';
-import { closeCornerWindows, CORNER_BOTTOM, fitHeight, icon, LEFT_PANELS, menuBtn } from './kit';
+import { closeCornerWindows, icon, LEFT_PANELS, menuBtn } from './kit';
 import { esc, tipper } from './roster/ui';
 import { setTitlesLine } from './roster/panel';
 import { offlineWorks, titlesHtml, titlesStrip, townBadge, townCard, worksHtml, type GiveForm, type PeaceStats, type TitleRow } from './peaceCards';
@@ -122,7 +122,6 @@ export function mountPeace(s: SandboxScene, mk: Mk): void {
         // fits the window (the terms form makes it long): scrolls inside, keeps its place, the form's send in view
         const top = tcard.scrollTop, had = !!tcard.querySelector('[data-sa="send-terms"]');
         tcard.innerHTML = host.card();
-        fitHeight(tcard);
         tcard.scrollTop = top;
         if (!had) tcard.querySelector('[data-sa="send-terms"]')?.scrollIntoView({ block: 'nearest' });
       }
@@ -136,7 +135,7 @@ export function mountPeace(s: SandboxScene, mk: Mk): void {
     badge.classList.toggle('on', open);
     if (t) badge.innerHTML = townBadge(t);
     tcard.style.display = open && t ? '' : 'none';
-    if (open) (tcard.innerHTML = townCard(t)), fitHeight(tcard);
+    if (open) tcard.innerHTML = townCard(t);
   };
   setInterval(draw, 500);
   addEventListener('keydown', (e: KeyboardEvent) => { if (keys.act(e) === 'back' && open) ((open = false), (key = ''), draw()); });
@@ -192,7 +191,6 @@ export function mountPeace(s: SandboxScene, mk: Mk): void {
       <div class="rf-tabs">${(['works', 'titles'] as const).map((t) => `<button class="rf-tab${t === tab ? ' on' : ''}" data-tab="${t}">${t === 'works' ? 'Works' : 'Titles'}</button>`).join('')}</div>
       ${tab === 'works' ? worksHtml(works, online(), form, home()) : titlesHtml(titles, stats, s.sim.playerId ?? null)}<div class="mk-msg rf-dim" style="min-height:15px${bad ? ';color:var(--rf-bad)' : ''}">${esc(msg)}</div>`;
     win.scrollTop = scroll;
-    fitHeight(win, CORNER_BOTTOM);
   };
   const load = async () => {
     if (!online()) return render();

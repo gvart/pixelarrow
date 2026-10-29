@@ -14,6 +14,7 @@ import type { BossSnap } from '../../types';
 import type { SandboxScene } from '../SandboxScene';
 import { warBoss } from '../../../data/warBosses';
 import { uiZoom } from './kit';
+import { laneBusy, Z } from './layout';
 import { esc } from './roster/ui';
 
 export type VoiceKind = 'wake' | 'phase' | 'slain' | 'fled' | 'back';
@@ -58,7 +59,7 @@ export function voiceLine(v: Voice): string | null {
 }
 
 const CSS = `
-#rfBossBanner{left:50%;top:120px;z-index:6;pointer-events:none;min-width:300px;padding:8px 26px 11px;text-align:center;transform:translateX(-50%);transition:opacity .5s,transform .5s;animation:bbIn .45s cubic-bezier(.2,.7,.3,1)}
+#rfBossBanner{left:50%;top:120px;z-index:${Z.banner};pointer-events:none;min-width:300px;padding:8px 26px 11px;text-align:center;transform:translateX(-50%);transition:opacity .5s,transform .5s;animation:bbIn .45s cubic-bezier(.2,.7,.3,1)}
 #rfBossBanner.out{opacity:0;transform:translateX(-50%) translateY(-6px)}
 @keyframes bbIn{from{opacity:0;transform:translateX(-50%) scale(.94)}to{opacity:1;transform:translateX(-50%) scale(1)}}
 #rfBossBanner .bb-k{font:700 10px/1 Inter,sans-serif;letter-spacing:.18em;text-transform:uppercase;color:var(--rf-gold)}
@@ -88,7 +89,7 @@ const LIFE: Record<VoiceKind, number> = { wake: 6000, phase: 4200, slain: 6500, 
 const EPITAPH_AFTER = 1600;
 
 const queue: { v: Voice; name: string }[] = [];
-let showing = false, seq = 0;
+let showing = false;
 
 /** Show a guardian's line (one banner at a time; later ones wait their turn). `name`: its name as the bar shows it. */
 export function bossVoice(v: Voice, name: string): void {
@@ -124,6 +125,8 @@ function next(): void {
     return;
   }
   showing = true;
+  // the centre lane takes one banner at a time (./layout.ts): a quest banner up finishes first
+  if (laneBusy('rfBossBanner')) { queue.unshift(q); setTimeout(next, 400); return; }
   if (!el) {
     el = document.createElement('div');
     el.id = 'rfBossBanner';
@@ -137,14 +140,6 @@ function next(): void {
   el.style.animation = 'none';
   void el.offsetWidth;
   el.style.animation = '';
-  // under the guardian bar (./guardianBar.ts), never over it
-  const z = Number(el.style.zoom) || 1, my = ++seq, below = () => {
-    if (my !== seq || el!.style.display === 'none') return;
-    const g = document.getElementById('rfGuard'), bottom = g && g.children.length ? g.getBoundingClientRect().bottom : 0;
-    el!.style.top = `${Math.max(84, Math.round(bottom / z) + 4)}px`;
-    requestAnimationFrame(below);
-  };
-  below();
   const life = LIFE[q.v.kind];
   setTimeout(() => el!.classList.add('out'), life);
   setTimeout(() => { el!.style.display = 'none'; next(); }, life + 500);

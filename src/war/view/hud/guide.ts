@@ -18,13 +18,10 @@ import type { SandboxScene } from '../SandboxScene';
 import { doneNow, GUIDE_STEPS, guideOpen, newWatch, watchEvents, type GuideSave, type GuideSpots, type GuideStepId } from '../../net/guide';
 import { ownCentre } from '../entry';
 import { myTeam } from '../side';
-import { fitHeight, icon, leftPanelOpen } from './kit';
+import { icon } from './kit';
 import { ghostIcon } from './souls';
 import { fill, GUIDE_INTRO, GUIDE_LORE, guideGiver } from '../../net/questLore';
 import { metres, placeMarker, questBanner, questMarker, rewardChips } from './quest';
-
-/** Art px the guide leaves free at the bottom left: the minimap and the alliance chat's tab over it. */
-const GUIDE_BOTTOM = 212;
 
 type Mk = (id: string, css: string, html?: string) => HTMLElement;
 
@@ -61,7 +58,7 @@ const STEP_ICON: Record<GuideStepId, () => string> = {
 const TARGET: Record<GuideStepId, string> = { soul: 'Soul', gather: 'Wood', lair: 'Bandits', build: 'Camp', haul: 'Store' };
 
 const CSS = `
-#rfGuide{left:4px;top:4px;width:262px;z-index:3;pointer-events:auto;padding:5px 8px 7px}
+#rfGuide{left:4px;top:4px;width:262px;pointer-events:auto;padding:5px 8px 7px}
 #rfGuide .gd-h{display:flex;align-items:center;gap:6px;padding-bottom:4px;margin-bottom:3px;border-bottom:1px solid var(--rf-rule);cursor:pointer}
 #rfGuide .gd-one{display:flex;align-items:center;gap:6px;font:700 12px/16px Inter,sans-serif;color:var(--rf-title)}
 #rfGuide .gd-one .gd-far{font-weight:600}
@@ -86,7 +83,7 @@ const CSS = `
 #rfGuide.flash li.cur{animation:gdFlash .9s ease-out}
 @keyframes gdFlash{0%{background:#3d2a12}100%{background:var(--rf-sunk)}}
 #rfGuide .gd-giver{font:italic 11.5px/1.3 Inter,sans-serif;color:var(--rf-muted);margin:-1px 0 3px}
-#rfGuide .gd-story{display:block;margin-top:2px;color:var(--rf-ink);font:italic 12px/15px Inter,sans-serif;opacity:.88}
+#rfGuide .gd-story{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;margin-top:2px;color:var(--rf-ink);font:italic 12px/15px Inter,sans-serif;opacity:.88}
 #rfGuide .gd-where{display:block;margin-top:3px;color:var(--rf-muted);font-size:12px;line-height:15px}
 #rfGuide .gd-where b,#rfGuide .gd-pay b{font:700 10px/15px Inter,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--rf-muted);margin-right:4px}
 #rfGuide .gd-pay{display:block;margin-top:2px;color:var(--rf-muted);font-size:11px}
@@ -178,9 +175,9 @@ export function mountGuide(s: SandboxScene, mk: Mk): void {
     return near(stores.map((b) => ({ x: b.x, y: b.y }))) ?? g.spots.home;
   };
 
-  const place = (m: HTMLElement, p: { x: number; y: number } | null, label: string) => placeMarker(s, m, p, label, [el, ...[document.getElementById('rfQuest')].filter((x): x is HTMLElement => !!x)]);
+  const place = (m: HTMLElement, p: { x: number; y: number } | null, label: string) => placeMarker(s, m, p, label);
 
-  let last = '', shown = false, closing = false, announced = false, fitH = 0;
+  let last = '', shown = false, closing = false, announced = false;
   const frame = () => {
     requestAnimationFrame(frame);
     const cur = s.sim.cur;
@@ -192,7 +189,7 @@ export function mountGuide(s: SandboxScene, mk: Mk): void {
     if (!save) return; // online: no word from the server yet (or no guide for him here)
     const list = steps, open = list.filter((st) => !save!.done.includes(st.id));
     if (g.offline) for (const id of doneNow(watch, cur)) finish(id, true);
-    const on = !save!.hidden && !leftPanelOpen() && (open.length > 0 || shown);
+    const on = !save!.hidden && (open.length > 0 || shown);
     if (!on) {
       el.style.display = mStep.style.display = mHome.style.display = 'none';
       return;
@@ -211,11 +208,11 @@ export function mountGuide(s: SandboxScene, mk: Mk): void {
     const html = folded
       ? `${head}${now ? `<div class="gd-one">${STEP_ICON[now.id]()}<span style="flex:1;min-width:0">${lore(now.id).goal}</span>${t ? `<span class="gd-far">${metres(far)}</span>` : ''}</div>` : ''}`
       : `${head}<div class="gd-giver">Given by ${from}</div>
-      <ol>${list.map((st) => {
+      <ol>${save!.done.length ? `<li class="ok"><span class="bx"></span><span class="t">${save!.done.length} ${save!.done.length === 1 ? 'step' : 'steps'} done</span></li>` : ''}${list.map((st) => {
         const l = lore(st.id);
-        if (save!.done.includes(st.id)) return `<li class="ok"><span class="bx"></span><span class="t">${l.goal}</span></li>`;
+        if (save!.done.includes(st.id)) return ''; // the finished steps fold into one line
         if (st !== now) return `<li><span class="bx"></span><span class="t">${l.goal}</span></li>`;
-        return `<li class="cur">${STEP_ICON[st.id]()}<div style="min-width:0;flex:1"><span class="t">${l.goal}</span><span class="gd-story">“${l.story}”</span>
+        return `<li class="cur">${STEP_ICON[st.id]()}<div style="min-width:0;flex:1"><span class="t">${l.goal}</span><span class="gd-story" title="${l.story.replace(/"/g, '&quot;')}">“${l.story}”</span>
           <span class="gd-where"><b>Where</b>${l.where}</span>
           <div class="gd-meta">${rewardChips(st.reward as Record<string, number>)}${t ? `<span class="gd-far">${metres(far)} away</span>` : ''}</div><span class="gd-pay">${payLine}</span></div></li>`;
       }).join('')}</ol>${now ? '' : '<div class="gd-hint" style="padding:4px 0 0">Your men know their way now. Next, beyond your home: clear the lair guarding a claim banner, right-click the banner with your men and hold it, and you build there too.</div>'}`;
@@ -225,8 +222,8 @@ export function mountGuide(s: SandboxScene, mk: Mk): void {
       const fresh = save!.done.length === 0;
       questBanner({ kind: 'start', head: fresh ? 'New quest' : 'Quest continues', title: fresh ? 'The First Hour' : lore(now.id).goal, giver: from, text: fresh ? fill(GUIDE_INTRO, town) : lore(now.id).story, ...(fresh ? {} : { reward: now.reward as Record<string, number>, pay: payLine }) });
     }
-    // it stops above the alliance chat's tab and the minimap (bottom left): a long step scrolls inside
-    if (html !== last || innerHeight !== fitH) { if (html !== last) el.innerHTML = last = html; fitH = innerHeight; fitHeight(el, GUIDE_BOTTOM); }
+    // the HUD layout stops it above the chat and the minimap (./layout.ts): a long step scrolls inside
+    if (html !== last) el.innerHTML = last = html;
     if (!now && !closing && (closing = true)) setTimeout(() => { if (save) { save.hidden = true; if (key) saveGuide(key, save); } }, 12000);
   };
   requestAnimationFrame(frame);

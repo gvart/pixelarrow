@@ -14,6 +14,7 @@ describe('army panel state', () => {
   it('men here: a click selects them', () => {
     const v = armyText(base);
     expect(v.count).toBe('<b>8</b> / 12 men · <b>5</b> here');
+    expect(armyText({ ...base, men: 41, here: 36 }).count).toBe('<b>41</b> men · <b>36</b> here');
     expect(v.line).toBe('Click or Ctrl+A: select the 5 here');
     expect(v.pick).toBe(true);
   });

@@ -74,6 +74,7 @@ ${edges} .edge .nm{position:absolute;left:0;top:20px;transform:translateX(-50%);
 
 const CSS = `
 #rfChat{position:fixed;z-index:4;width:340px;pointer-events:none;color:var(--rf-ink);font:var(--rf-body)}
+#rfChat:not(.open){width:auto;max-width:340px}
 #rfChat .ch-tab{pointer-events:auto;display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px 0 6px;margin-top:3px;cursor:pointer;background:rgba(10,11,13,.82);border:1px solid var(--rf-rule);box-shadow:inset 0 1px 0 rgba(239,207,134,.08);font:700 11px/1 Cinzel,serif;color:var(--rf-title);letter-spacing:.05em}
 #rfChat .ch-tab:hover{border-color:var(--rf-line);background:rgba(44,28,21,.92)}
 #rfChat .ch-tab .k{font:600 10px/1 Inter,sans-serif;color:var(--rf-muted);letter-spacing:0;padding:2px 4px;border:1px solid var(--rf-rule);background:var(--rf-sunk)}
@@ -97,7 +98,7 @@ const CSS = `
 #rfChat.open .ch-log{height:var(--ch-log-h,164px);max-height:none;overflow-y:auto;padding:3px 2px 3px 3px;background:var(--rf-sunk);border:1px solid var(--rf-rule);box-shadow:inset 0 1px 3px rgba(0,0,0,.6)}
 #rfChat .ch-l{position:relative;padding:2px 5px;font:600 12px/1.35 Inter,sans-serif;color:var(--rf-ink);word-wrap:break-word;overflow-wrap:anywhere;transition:opacity .6s}
 #rfChat:not(.open) .ch-l{background:linear-gradient(90deg,rgba(10,11,13,.78) 60%,rgba(10,11,13,0));text-shadow:0 1px 0 #050506,0 0 3px #050506}
-#rfChat:not(.open) .ch-l.old{opacity:0}
+#rfChat:not(.open) .ch-l.old{display:none}
 #rfChat.open .ch-l:hover{background:var(--rf-hover)}
 #rfChat .ch-l .tm{font:600 10px/1 Inter,sans-serif;color:var(--rf-disabled);margin-right:4px}
 #rfChat:not(.open) .ch-l .tm{display:none}
@@ -122,7 +123,11 @@ const CSS = `
 #rfChat .ch-pop.on ~ .ch-box [data-a="phrases"],#rfChat .ch-ib.on{border-color:var(--rf-title);background:var(--rf-sel);box-shadow:inset 0 0 0 1px #050506}
 #rfChat .ch-ib svg{display:block}
 #rfChat .ch-sep{width:1px;height:17px;background:var(--rf-rule);margin:0 2px}
-#rfChat input.ch-in{flex:1;min-width:0;width:auto;height:23px;padding:0 6px;font:600 12px/1 Inter,sans-serif;color:var(--rf-ink);background:var(--rf-sunk);border:1px solid var(--rf-line);outline:none;user-select:text}
+#rfChat .ch-field{position:relative;flex:1;min-width:0;display:flex}
+#rfChat .ch-mirror{position:absolute;inset:0;padding:0 7px;overflow:hidden;white-space:pre;pointer-events:none;font:600 12px/23px Inter,sans-serif;color:var(--rf-ink);background:var(--rf-sunk)}
+#rfChat .ch-mirror .chip{color:var(--hud-gold-hi);background:rgba(155,122,60,.28);border-radius:2px;box-shadow:0 0 0 1px var(--hud-gold-lo)}
+#rfChat input.ch-in{position:relative;flex:1;min-width:0;width:auto;height:23px;padding:0 6px;font:600 12px/1 Inter,sans-serif;color:transparent;caret-color:var(--rf-ink);background:transparent;border:1px solid var(--rf-line);outline:none;user-select:text}
+#rfChat input.ch-in::selection{color:transparent;background:rgba(143,196,232,.35)}
 #rfChat input.ch-in:focus{border-color:var(--rf-accent);box-shadow:0 0 0 1px rgba(207,162,90,.25)}
 #rfChat input.ch-in::placeholder{color:var(--rf-disabled)}
 #rfChat .ch-cnt{position:absolute;right:6px;bottom:100%;margin-bottom:2px;font:600 10px/1 Inter,sans-serif;color:var(--rf-disabled)}
@@ -202,7 +207,7 @@ export function mountChat(v: ChatView): ChatHandle {
   root.innerHTML = `<div class="ch-mutes rf-card"></div><div class="ch-pop rf-card"><div class="rf-sec">Quick phrases</div>${PHRASES.map((p, i) => `<button data-ph="${i}" title="${esc(p)}">${esc(p)}</button>`).join('')}</div>
     <div class="ch-box"><div class="ch-head"><span class="ch-dot"></span><button class="ch-chan" data-ch="ally">Alliance<span class="u"></span></button><button class="ch-chan" data-ch="world">World<span class="u"></span></button><span class="sub"></span><span style="margin-left:auto;display:flex;gap:3px"><button class="rf-tbtn" data-a="mutes" style="height:19px;padding:0 6px;font-size:10.5px;display:none"></button><button class="rf-tbtn x" data-a="close" title="Close (Esc)" style="height:19px;width:19px">×</button></span></div>
     <div class="ch-log"></div>
-    <div class="ch-bar" style="position:relative"><button class="ch-ib" data-a="phrases" title="Quick phrases">${ICON_QUOTE}</button><span class="ch-sep ch-mk-sep"></span>${MARK_KINDS.map((k) => `<button class="ch-ib" data-mk="${k}" title="${MARK_INFO[k].name}: then click the map">${markIcon(k, 13, MARK_INFO[k].color)}</button>`).join('')}<span class="ch-sep"></span><input class="ch-in" maxlength="${CHAT_MAX}" spellcheck="false" autocomplete="off"><span class="ch-cnt"></span><button class="ch-ib" data-a="send" title="Send (Enter)">${ICON_SEND}</button></div></div>
+    <div class="ch-bar" style="position:relative"><button class="ch-ib" data-a="phrases" title="Quick phrases">${ICON_QUOTE}</button><span class="ch-sep ch-mk-sep"></span>${MARK_KINDS.map((k) => `<button class="ch-ib" data-mk="${k}" title="${MARK_INFO[k].name}: then click the map">${markIcon(k, 13, MARK_INFO[k].color)}</button>`).join('')}<span class="ch-sep"></span><span class="ch-field"><span class="ch-mirror" aria-hidden="true"></span><input class="ch-in" maxlength="${CHAT_MAX}" spellcheck="false" autocomplete="off"></span><span class="ch-cnt"></span><button class="ch-ib" data-a="send" title="Send (Enter)">${ICON_SEND}</button></div></div>
     <div class="ch-tab" data-a="open"><span class="ch-dot"></span><span class="nm"></span><span class="u" style="display:none"></span><span class="w"></span><span class="k"></span></div>`;
   root.addEventListener('pointerdown', (e) => e.stopPropagation());
   root.addEventListener('wheel', (e) => e.stopPropagation());
@@ -299,7 +304,26 @@ export function mountChat(v: ChatView): ChatHandle {
   input.addEventListener('blur', () => { keys.suspend(false); keys.release(); });
   /** The field's length as sent (a tag one character), and its limit with the tags' names let in. */
   const draft = () => encodeDraft(input.value, picked);
+  /** The tags Shift+clicked in, as they stand in the field now: [start, end) each. */
+  const tagSpans = () => {
+    const out: [number, number][] = [];
+    for (const l of picked) {
+      const tag = `[${linkLabel(l)}]`;
+      for (let at = input.value.indexOf(tag); at >= 0; at = input.value.indexOf(tag, at + 1)) if (!out.some(([a]) => a === at)) { out.push([at, at + tag.length]); break; }
+    }
+    return out.sort((a, b) => a[0] - b[0]);
+  };
+  const mirror = $('.ch-mirror');
+  const paint = () => {
+    const v0 = input.value, spans = tagSpans();
+    let html = '', from = 0;
+    for (const [a, b] of spans) { html += esc(v0.slice(from, a)) + `<span class="chip">${esc(v0.slice(a, b))}</span>`; from = b; }
+    mirror.innerHTML = html + esc(v0.slice(from));
+    mirror.scrollLeft = input.scrollLeft;
+  };
+  for (const ev of ['scroll', 'keyup', 'select', 'pointerup'] as const) input.addEventListener(ev, () => (mirror.scrollLeft = input.scrollLeft));
   const count = () => {
+    paint();
     const d = draft(), n = d.text.length;
     input.maxLength = CHAT_MAX + d.links.reduce((a, l) => a + linkLabel(l).length + 1, 0);
     cnt.textContent = n > CHAT_MAX - 40 ? `${n}/${CHAT_MAX}` : '';
@@ -309,6 +333,15 @@ export function mountChat(v: ChatView): ChatHandle {
     e.stopPropagation();
     if (e.key === 'Enter') { e.preventDefault(); sendText(); setOpen(false); }
     else if (e.key === 'Escape') { e.preventDefault(); setOpen(false); }
+    else if ((e.key === 'Backspace' || e.key === 'Delete') && input.selectionStart === input.selectionEnd) {
+      // a tag goes as one piece
+      const at = input.selectionStart ?? 0, hit = tagSpans().find(([a, b]) => (e.key === 'Backspace' ? at > a && at <= b : at >= a && at < b));
+      if (!hit) return;
+      e.preventDefault();
+      input.value = input.value.slice(0, hit[0]) + input.value.slice(hit[1]);
+      input.setSelectionRange(hit[0], hit[0]);
+      count();
+    }
   });
   const sendText = () => {
     const d = draft(), t = d.text.trim();

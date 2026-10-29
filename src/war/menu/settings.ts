@@ -182,7 +182,7 @@ function displayHtml(): string {
     <label class="mn-row" style="height:28px"><input type="checkbox" data-shake ${shakeOn() ? 'checked' : ''}>Screen shake</label>
     <div class="rf-dim" style="font-size:11.5px">Walls coming down, rams and guardians' blows shake the view a little. Off: the view stays still.</div>
     <div class="rf-cap" style="margin-top:12px">Network</div>
-    <label class="mn-row" style="height:28px"><input type="checkbox" data-netstats ${netStatsOn() ? 'checked' : ''}>Network stats</label>
+    ${import.meta.env.DEV || new URLSearchParams(location.search).has('dev') ? `<label class="mn-row" style="height:28px"><input type="checkbox" data-netstats ${netStatsOn() ? 'checked' : ''}>Network stats (dev)</label>` : ''}
     <div class="rf-dim" style="font-size:11.5px">A small readout at the left edge: ping to the region server, its tick time, snapshots and data a second, frames a second, and a warning when the server stops answering.</div>`;
 }
 

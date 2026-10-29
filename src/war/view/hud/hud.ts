@@ -95,6 +95,7 @@ import { activityText, waitText } from './activity';
 import { mountTopBar } from './topBar';
 import { tipHtml } from './theme';
 import { portrait } from './roster/portrait';
+import { mountLayout } from './layout';
 
 const SHAPES = ['line', 'column', 'wedge', 'loose'] as const;
 /** W-60: a building's cost hints count the store of its area (the nearest store of yours this near), never a total. */
@@ -395,7 +396,7 @@ export function hud(s: SandboxScene): void {
   let tab: Tab = 'Camp';
   const barW = snapW(Math.max(...Object.values(TABS).map((t) => t.length)) * SLOT - 2 + 12); // the longest tab
   const build = mk('rfBuild', `left:50%;bottom:4px;transform:translateX(-50%);width:${barW}px;pointer-events:auto;display:none`,
-    `<div style="position:absolute;left:0;bottom:100%;margin-bottom:2px;display:flex;flex-direction:column;align-items:flex-start;gap:2px"><div id="bStatus" class="rf-label" style="display:none;white-space:normal;max-width:${barW}px"></div></div>
+    `<div id="bStatus" class="rf-label" style="display:none;white-space:normal;margin:0 0 4px;width:fit-content;max-width:${barW}px"></div>
     <div id="bTabs" style="display:flex;padding-left:6px;align-items:flex-end;height:23px"></div>
     <div class="rf-card" style="padding:2px 0 3px"><div id="bTools" style="display:flex;gap:2px;height:30px"></div></div>`);
   const bTabs = build.querySelector<HTMLElement>('#bTabs')!, bTools = build.querySelector<HTMLElement>('#bTools')!;
@@ -488,6 +489,7 @@ export function hud(s: SandboxScene): void {
   mountStory(s); // W-65: the region's story chain: its giver, banners and tracked card (./story.ts)
   mountEncounters(s); // W-65: random encounters on the road: banners, the card for a while, who waits there (./encounter.ts)
   mountRegionChat(s); // W-62 E6: the alliance chat above the minimap, map marks (./chat.ts)
+  mountLayout(); // the zones: where every docked panel and window sits, none over another (./layout.ts)
   mountGate(s); // the online cap's line and the idle kick (./gate.ts)
   mountReplay(s, mk); // W-62 E5: the replay recorder, "Watch the battle", replay mode and clips (../replay)
   const groups = mountGroups(s, mk, tipOn); // W-53: the control group bar over the card, numbers on the map
@@ -670,18 +672,8 @@ export function hud(s: SandboxScene): void {
     // build bar
     build.style.display = m.active ? '' : 'none';
     hBtn.classList.toggle('on', m.active);
-    // the bar sits above the card when both show
-    build.style.bottom = card.style.display === 'none' ? '4px' : `${card.offsetHeight + 8}px`;
-    // a narrow window: the bar would run into the dock (chest, roster, build: bottom right), so it sits above that row
-    const dock = document.getElementById('rfChestBtn');
-    if (m.active && card.style.display === 'none' && dock && build.getBoundingClientRect().right > dock.getBoundingClientRect().left - 4) build.style.bottom = '42px';
-    groups.refresh(card.style.display === 'none' ? 4 : card.offsetHeight + 8, !m.active);
-    // the soul prompt (./souls.ts) sits over whatever is stacked bottom centre
-    const soul = document.getElementById('rfSoul');
-    if (soul && soul.style.display !== 'none') {
-      const tops = [card, build, document.getElementById('rfGroups')].filter((x): x is HTMLElement => !!x && x.style.display !== 'none').map((x) => (parseFloat(x.style.bottom) || 0) + x.offsetHeight);
-      soul.style.bottom = `${Math.max(132, ...tops.map((t) => t + 6))}px`;
-    }
+    // the card, the bar or the groups and the soul prompt stack bottom centre (./layout.ts)
+    groups.refresh(!m.active);
     if (m.active) held = C.engineerNodes();
     for (const [x, d] of toolBtns) {
       x.classList.toggle('on', JSON.stringify(d.tool) === JSON.stringify(m.tool));
