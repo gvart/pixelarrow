@@ -225,10 +225,13 @@ export const THEME_CSS = `
 #rfCard .hud-chip.bad{color:var(--hud-bad);box-shadow:inset 0 0 0 1px #6e2c20}
 #rfCard .hud-pips{display:flex;flex-wrap:wrap;gap:2px;margin-top:5px;max-width:100%}
 #rfCard .hud-pips:empty{display:none}
-#rfCard .hud-pip{position:relative;width:11px;height:15px;padding:0;border:0;border-radius:1px;background:#0b0c0e;box-shadow:inset 0 0 0 1px #34322c,0 0 0 1px var(--hud-edge);overflow:hidden;transition:box-shadow var(--hud-fast),transform var(--hud-fast)}
-#rfCard .hud-pip i{position:absolute;left:1px;right:1px;bottom:1px;height:calc((100% - 2px) * var(--hp,1));background:linear-gradient(90deg,var(--hud-hp-b),var(--hud-hp-a));transition:height var(--hud-med) var(--hud-ease)}
-#rfCard .hud-pip.mid i{background:linear-gradient(90deg,#b8892f,#f0cf7c)}
-#rfCard .hud-pip.low i{background:linear-gradient(90deg,#9a2e1c,#ec6a50)}
+#rfCard .hud-pip{position:relative;width:18px;height:26px;padding:0;border:0;border-radius:1px;background:radial-gradient(ellipse at 50% 35%,#3a3f49,#16181d 75%,#0b0c0e);box-shadow:inset 0 0 0 1px #34322c,0 0 0 1px var(--hud-edge);overflow:hidden;transition:box-shadow var(--hud-fast),transform var(--hud-fast)}
+#rfCard .hud-pip .fig{position:absolute;left:0;top:0;width:18px;height:21px;background:center/100% 100% no-repeat}
+#rfCard .hud-pip::after{content:'';position:absolute;left:1px;right:1px;bottom:1px;height:3px;background:#07080a}
+#rfCard .hud-pip i{position:absolute;left:1px;bottom:1px;z-index:1;width:calc((100% - 2px) * var(--hp,1));height:3px;background:linear-gradient(180deg,var(--hud-hp-a),var(--hud-hp-b));transition:width var(--hud-med) var(--hud-ease)}
+#rfCard .hud-pip.mid i{background:linear-gradient(180deg,#f0cf7c,#b8892f)}
+#rfCard .hud-pip.low i{background:linear-gradient(180deg,#ec6a50,#9a2e1c)}
+#rfCard .hud-pip.low .fig{filter:saturate(.6) brightness(.85)}
 #rfCard .hud-pip:hover{box-shadow:inset 0 0 0 1px var(--hud-gold-hi),0 0 0 1px var(--hud-edge),0 0 6px rgba(226,189,104,.5);transform:translateY(-1px)}
 #rfCard .hud-pip.on{box-shadow:inset 0 0 0 1px var(--hud-gold-hi),0 0 0 1px var(--hud-edge)}
 #rfCard .hud-more{font:var(--hud-small);color:var(--hud-muted);align-self:center;margin-left:2px}

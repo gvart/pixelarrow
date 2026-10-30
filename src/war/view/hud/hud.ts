@@ -94,7 +94,7 @@ import { myTeam } from '../side';
 import { activityText, waitText } from './activity';
 import { mountTopBar } from './topBar';
 import { tipHtml } from './theme';
-import { portrait } from './roster/portrait';
+import { portrait, portraitIcon } from './roster/portrait';
 import { mountLayout } from './layout';
 
 const SHAPES = ['line', 'column', 'wedge', 'loose'] as const;
@@ -218,8 +218,6 @@ export function hud(s: SandboxScene): void {
     <div class="rf-sep" id="cSep2"></div>
     <div id="cSlots" style="display:flex;gap:2px;align-items:center"></div></div>`;
   draggable(card, '#cSel'); // the selection's name plate moves the command card
-  /** Art px the card is slid right of the centre, clear of the minimap (refresh). */
-  let cardShift = 0;
   const $ = (id: string) => card.querySelector<HTMLElement>('#' + id)!;
   /** An icon button: id, icon, tooltip, key hint, click. */
   const btn = (id: string, ic: string, tipText: string | (() => string), key: string, run: () => void, cls = 'rf-btn') => {
@@ -327,7 +325,7 @@ export function hud(s: SandboxScene): void {
     $('cStat').style.display = stat ? '' : 'none';
     if (stat) { $('cStat').className = `bk-stat ${stat.tone}`; $('cStat').textContent = stat.text; }
   };
-  const SEL_SQUAD = 184, SEL_BLD = 236;
+  const SEL_SQUAD = 238, SEL_BLD = 236;
   /** The panel's bar: a fill (hp, construction, burn) with its numbers on it. */
   const hudBar = (kind: string, v: number, text: string) => `<div class="hud-hp"><i class="${kind}" style="width:${(Math.max(0, Math.min(1, v)) * 100).toFixed(1)}%"></i><span>${text}</span></div>`;
   /** The portrait: the class's sprite (the roster's portrait) for men, else the icon. */
@@ -345,7 +343,8 @@ export function hud(s: SandboxScene): void {
     }
     if ($('cLv').textContent !== lv) $('cLv').textContent = lv;
   };
-  // ---------- a pip per man of the selected squads: his hp; click selects him, shift adds him (../select.ts) ----------
+  // ---------- an icon per man of the selected squads (his class, an hp strip under it); click selects him, shift adds him (../select.ts) ----------
+  /** Icons shown, two rows of twelve; past that the last place says how many more. */
   const PIPS_MAX = 24;
   let pipKey = '';
   const pipTip = (id: number) => {
@@ -359,21 +358,24 @@ export function hud(s: SandboxScene): void {
     if (b) { s.sel.set([Number(b.dataset.uid)], e.shiftKey); refresh(); }
   });
   const setPips = (ids: number[]) => {
-    const shown = ids.slice(0, PIPS_MAX), key = shown.join(',') + '|' + ids.length;
+    const byId = new Map((s.sim.cur?.units ?? []).map((u) => [u.id, u]));
+    const shown = ids.length > PIPS_MAX ? ids.slice(0, PIPS_MAX - 1) : ids;
+    // the class icon of each (null until his sheet is in: the key changes when it comes, and the strip is redrawn)
+    const art = shown.map((id) => { const cls = byId.get(id)?.cls; return cls ? portraitIcon(s, cls) : null; });
+    const key = shown.map((id, i) => `${id}${art[i] ? '' : '?'}`).join(',') + '|' + ids.length;
     const box = $('cPips');
     if (key !== pipKey) {
       pipKey = key;
-      box.replaceChildren(...shown.map((id) => {
+      box.replaceChildren(...shown.map((id, i) => {
         const b = document.createElement('button');
         b.className = 'hud-pip';
         b.dataset.uid = String(id);
-        b.innerHTML = '<i></i>';
+        b.innerHTML = `<span class="fig"${art[i] ? ` style="background-image:url(${art[i]})"` : ''}></span><i></i>`;
         tipOn(b, () => pipTip(id));
         return b;
       }));
-      if (ids.length > PIPS_MAX) box.insertAdjacentHTML('beforeend', `<span class="hud-more">+${ids.length - PIPS_MAX}</span>`);
+      if (ids.length > shown.length) box.insertAdjacentHTML('beforeend', `<span class="hud-more">+${ids.length - shown.length}</span>`);
     }
-    const byId = new Map((s.sim.cur?.units ?? []).map((u) => [u.id, u]));
     for (const b of box.querySelectorAll<HTMLElement>('.hud-pip')) {
       const u = byId.get(Number(b.dataset.uid)), f = u ? Math.max(0, Math.min(1, u.hp / (u.maxHp || 1))) : 0;
       b.style.setProperty('--hp', f.toFixed(3));
@@ -619,8 +621,8 @@ export function hud(s: SandboxScene): void {
       setHead(UNIT_ICON[cls] ?? 'unit-militia', byCls.size > 1 ? 'Mixed' : CLASS_NAME[cls] ?? civName(cls) ?? nice(cls), `<b>${men.length}</b> ${men.length === 1 ? 'man' : 'men'}${byCls.size > 1 ? `, ${byCls.size} classes` : ''}${fed}`, hudBar('hp', hp / max, `${Math.ceil(hp)} / ${Math.ceil(max)}`),
         civ ? civInfo(s, own[0]) : e ? `crews ${SIEGE_NAME[e.type]} · ${e.state}${e.burning ? ' · burning' : ''}` : `${s.sim.cur ? activityText(q, s.sim.cur, { nodes: s.sim.nodes, goal: s.lastCommand }) : q.order}${q.fed ? ' · fed' : ''}${sc.status ? ' · ' + sc.status : ''}`, undefined, chips);
       setPortrait(byCls.size ? cls : null, lv ? `Lv ${Number.isInteger(lv) ? lv : lv.toFixed(1)}` : '');
-      // the pips: every living man of the selected squads (a man picked alone keeps his squad's row)
-      const ownSet = new Set(own);
+      // the icons: every living man of the squads any selected man is in (a man picked alone keeps his squad's row)
+      const ownSet = new Set([...own, ...men.map((d) => d.u.squad)]);
       setPips((s.sim.cur?.units ?? []).filter((u) => ownSet.has(u.squad) && u.state !== 'dead').map((u) => u.id));
       const slots: HTMLElement[] = [];
       const act = activesOf(s, own)[0];
@@ -660,14 +662,6 @@ export function hud(s: SandboxScene): void {
     $('cFrame').style.display = idle ? 'none' : '';
     army.refresh(idle);
     card.style.display = '';
-    // the panel widened (a man's card docked) would run under the minimap: it slides right, clear of it
-    if (card.style.display !== 'none' && !card.dataset.moved) {
-      const slid = (n: number) => (n ? `translateX(calc(-50% + ${n}px))` : 'translateX(-50%)');
-      if (card.style.transform !== slid(cardShift)) cardShift = 0; // put back (a double click on its plate)
-      const z = Number(card.style.zoom) || 1, left = card.getBoundingClientRect().left - cardShift * z;
-      const shift = Math.round(Math.max(0, mini.el.getBoundingClientRect().right + 4 - left) / z);
-      if (shift !== cardShift || card.style.transform !== slid(shift)) { cardShift = shift; card.style.transform = slid(shift); }
-    }
 
     // build bar
     build.style.display = m.active ? '' : 'none';
