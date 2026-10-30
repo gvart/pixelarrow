@@ -15,6 +15,7 @@ import { draggable } from './drag';
 import { glyph } from './glyph';
 import { closeCornerWindows, icon, menuBtn, setBadge } from './kit';
 import { esc, tipper } from './roster/ui';
+import { chip, details, qcard } from './qcard';
 import { keys } from '../../input/keys';
 import { TASK_LORE } from '../../net/questLore';
 import { isTracked, nearest, questBanner, restoreTrack, track, type TrackView } from './quest';
@@ -32,8 +33,6 @@ const METRIC_ICON: Record<TaskMetric, () => string> = {
   caravan: () => icon('trade-wagon', 32), guard: () => glyph('ui:shield', 30), labour: () => glyph('ui:people', 30),
   workGoods: () => icon('node-engineer-master-builder', 32), sellAlliance: () => icon('node-merchant-emporos', 32), contract: () => icon('trade-contract', 32),
 };
-const ICONED = new Set(['food', 'wood', 'stone', 'marble', 'coin', 'silver']);
-const gi = (r: string) => (ICONED.has(r) ? icon('res-' + r) : `<span class="rf-dim">${r}</span>`);
 
 /** "5h 12m", "3d 4h", "12m". */
 export const until = (ms: number) => {
@@ -58,14 +57,10 @@ const amount = (t: TaskView) => `${fmt(t.have / t.per)}/${fmt(t.need / t.per)}${
 
 let closer: (() => void) | null = null;
 
-/** One task card. */
+/** One task card: the compact card (./qcard.ts), its goal with the metric's icon, the bar, progress, reward and score
+ * as chips, Track and Claim or the reroll; the title, giver, story, where and how it pays behind (i) / hover. */
 function card(t: TaskView, rerolls: number, online: boolean): string {
   const f = Math.min(1, t.have / t.need), done = ready(t);
-  const num = `${fmt(t.have / t.per)}<span class="rf-dim">/${fmt(t.need / t.per)}${t.unit ? ` ${t.unit}` : ''}</span>`;
-  const rw = Object.entries(t.reward).map(([r, n]) => `<span class="rf-ichip gold" data-tip="${attr(`<b class="k">Reward</b> · ${n} ${r}<br><span class="rf-dim tip-w">into your home strongroom</span>`)}">${gi(r)}${n}</span>`).join('');
-  const sc = t.score === 'peace'
-    ? `<span class="rf-ichip good" data-tip="${attr(`<b class="k">Peace score</b> · +${t.pts} for your alliance<br><span class="rf-dim tip-w">tasks add at most ${TASKS.peaceCap} a day per alliance</span>`)}">${glyph('ui:laurel', 18)}+${t.pts}</span>`
-    : `<span class="rf-ichip tk-war" data-tip="${attr(`<b class="k">War score</b> · +${t.pts} for your alliance<br><span class="rf-dim tip-w">feats add at most ${TASKS.warCap} a day per alliance</span>`)}">${glyph('ui:swords', 18)}+${t.pts}</span>`;
   const act = t.claimed
     ? `<span class="tk-claimed">${glyph('ui:check', 14)}Claimed</span>`
     : done
@@ -73,16 +68,13 @@ function card(t: TaskView, rerolls: number, online: boolean): string {
       : `<button class="rf-tbtn tk-re" data-act="reroll" data-k="${t.kind}" data-s="${t.slot}"${online && rerolls > 0 ? '' : ' disabled'} data-tip="${attr(rerolls > 0 ? `<b class="k">Reroll</b> · draw another task<br><span class="rf-dim tip-w">${rerolls} free reroll left today; its progress starts now</span>` : '<b class="k">Reroll</b> · none left today<br><span class="rf-dim tip-w">one free reroll each UTC day</span>')}">↻</button>`;
   const lore = TASK_LORE[t.metric], key = taskKey(t), on = isTracked(key);
   const trk = t.claimed ? '' : `<button class="rf-tbtn tk-trk${on ? ' on' : ''}" data-act="track" data-k="${t.kind}" data-s="${t.slot}" data-tip="${attr(on ? '<b class="k">Tracked</b><br><span class="rf-dim tip-w">click to stop tracking</span>' : '<b class="k">Track</b><br><span class="rf-dim tip-w">pin it on screen, with a marker on the nearest target</span>')}">${on ? 'Tracked' : 'Track'}</button>`;
-  return `<div class="tk-card rf-well${done ? ' ready' : ''}${t.claimed ? ' claimed' : ''}">
-    <div class="tk-ic">${METRIC_ICON[t.metric]()}</div>
-    <div class="tk-body"><div class="tk-top"><span class="tk-name">${esc(t.title)}</span><span class="rf-num tk-n">${num}</span></div>
-      <div class="tk-giver">${esc(lore.giver.name)}, ${esc(lore.giver.title)}</div>
-      <div class="tk-story">“${esc(lore.story)}”</div>
-      <div class="tk-line"><b>Goal</b><span>${esc(t.hint)}</span></div>
-      <div class="tk-line"><b>Where</b><span>${esc(lore.where)}</span></div>
-      <div class="tk-prog"><div class="rf-bar"><i class="${done || t.claimed ? 'ok' : 'construction'}" style="width:${(f * 100).toFixed(1)}%"></i></div></div>
-      <div class="tk-foot">${rw}${sc}<span class="tk-act">${trk}${act}</span></div>
-      <div class="tk-pay rf-dim">${t.claimed ? 'Paid into your home strongroom' : done ? 'Done: press Claim, the reward goes into your home strongroom' : 'When done, press Claim here: the reward goes into your home strongroom'}</div></div></div>`;
+  const pay = t.claimed ? 'Paid into your home strongroom' : done ? 'Done: press Claim, the reward goes into your home strongroom' : 'When done, press Claim here: the reward goes into your home strongroom';
+  return `<div class="tk-card rf-well${done ? ' ready' : ''}${t.claimed ? ' claimed' : ''}">${qcard({
+    key, icon: METRIC_ICON[t.metric](), goal: lore.goal, bar: done || t.claimed ? 1 : f,
+    chips: chip.prog(amount(t), done || t.claimed) + chip.reward(t.reward) + chip.score(`+${t.pts}`, t.score !== 'peace'),
+    cta: `${trk}${act}`,
+    more: details({ title: t.title, story: lore.story, lines: [['Goal', t.hint], ['Where', lore.where], ['Pay', pay]], from: `${lore.giver.name}, ${lore.giver.title}` }),
+  })}</div>`;
 }
 
 /** The panel's body: the daily and the weekly section, the rerolls and the wonder's boost. */
@@ -97,26 +89,14 @@ export function tasksHtml(v: TasksView, online: boolean): string {
 }
 
 const CSS = `
-.tk-card{display:flex;gap:8px;padding:5px 6px;margin-bottom:4px}
+.tk-card{padding:6px 7px;margin-bottom:4px}
 .tk-card.ready{border-color:#6a5326;box-shadow:inset 0 0 0 1px #3a2a14,0 0 6px rgba(224,184,103,.25)}
 .tk-card.claimed{opacity:.6}
-.tk-ic{width:40px;height:40px;flex:none;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 65%,#2b2f37,#0d0f12);border:1px solid var(--rf-line);box-shadow:inset 0 0 0 1px #050506}
-.tk-body{flex:1;min-width:0}
-.tk-top{display:flex;align-items:baseline;gap:6px}
-.tk-name{flex:1;min-width:0;font:700 13px/1.15 Cinzel,serif;color:var(--rf-title);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.tk-n{font:700 12px/1 Inter,sans-serif;color:var(--rf-gold)}.claimed .tk-n,.ready .tk-n{color:var(--rf-good)}
-.tk-giver{font:italic 11px/1.3 Inter,sans-serif;color:var(--rf-muted);margin-top:1px}
-.tk-story{font:italic 11.5px/1.3 Inter,sans-serif;color:var(--rf-ink);opacity:.85;margin-top:2px}
-.tk-line{display:flex;gap:5px;font-size:11.5px;line-height:1.3;margin-top:2px}.tk-line b{flex:none;width:38px;font:700 9.5px/15px Inter,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--rf-muted)}
-.tk-pay{font-size:10.5px;margin-top:3px}
-.tk-trk{height:22px;padding:0 6px;margin-right:4px;font-size:11px}.tk-trk.on{color:var(--rf-gold);border-color:#6a5326}
-.tk-prog{margin:4px 0}.tk-prog .rf-bar{width:100%}
-.tk-foot{display:flex;align-items:center;gap:4px;flex-wrap:wrap}.tk-foot .rf-ichip{height:20px}.tk-foot .rf-tbtn{height:22px}
-.tk-war{color:#e08a6a;border-color:#5a2c22}
-.tk-act{margin-left:auto}
+.tk-card .qc-cta{display:flex;gap:4px;align-items:center}
+.tk-trk.on{color:var(--rf-gold);border-color:#6a5326}
 .tk-re{width:26px;padding:0;font-size:14px}
-.tk-claimed{display:inline-flex;align-items:center;gap:3px;font:600 11px/1 Inter,sans-serif;color:var(--rf-good)}
-.tk-note{display:flex;align-items:center;justify-content:space-between;margin-top:4px;font-size:11px}
+.tk-claimed{display:inline-flex;align-items:center;gap:3px;font:600 12px/1 Inter,sans-serif;color:var(--rf-good)}
+.tk-note{display:flex;align-items:center;justify-content:space-between;margin-top:4px;font-size:12px}
 #rfTasksBtn{position:relative}
 `;
 
@@ -142,7 +122,7 @@ export function mountTasks(s: SandboxScene, mk: Mk): void {
       const p = was.get(taskKey(t));
       if (!p || p.id !== t.id || t.claimed || t.have <= p.have + 1e-6) continue;
       if (ready(t)) questBanner({ kind: 'ready', head: `${t.kind === 'daily' ? 'Daily' : 'Weekly'} task done`, title: t.title, giver: `${TASK_LORE[t.metric].giver.name}, ${TASK_LORE[t.metric].giver.title}`, reward: t.reward, pay: 'Claim it in Tasks: the reward goes into your home strongroom' });
-      else sandboxRoster(s).onNote?.({ kind: 'info', text: `${t.title}: ${amount(t)}` });
+      else sandboxRoster(s).onNote?.({ kind: 'info', text: TASK_LORE[t.metric].goal, icon: METRIC_ICON[t.metric](), chips: chip.prog(amount(t)) });
     }
   };
   /** The tracked task's card: fresh from the last read; its marker on the nearest target of its kind here. */
@@ -153,7 +133,7 @@ export function mountTasks(s: SandboxScene, mk: Mk): void {
       if (!t || t.claimed) return null;
       const lore = TASK_LORE[t.metric], at = taskTarget(t.metric, me);
       return {
-        kind: `${t.kind === 'daily' ? 'Daily' : 'Weekly'} task`, title: t.title, giver: `${lore.giver.name}, ${lore.giver.title}`, goal: t.hint,
+        kind: `${t.kind === 'daily' ? 'Daily' : 'Weekly'} task`, title: t.title, giver: `${lore.giver.name}, ${lore.giver.title}`, goal: lore.goal, icon: METRIC_ICON[t.metric](),
         progress: amount(t), frac: t.have / t.need, where: lore.where, reward: t.reward,
         pay: ready(t) ? 'Done: claim it in Tasks' : 'Claim in Tasks when done, into your home strongroom', at: at?.p ?? null, label: at?.label ?? '',
       };

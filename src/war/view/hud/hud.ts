@@ -68,7 +68,10 @@ import { mountSouls } from './souls';
 import { mountTunnel } from './tunnel';
 import { mountArmyPanel } from './armyPanel';
 import { mountWorldEvents } from './worldEvents';
-import { claimFirst, claimFirstHtml, mountClaimCard, showNearestClaim } from './claimCard';
+import { claimFirst, mountClaimCard, showNearestClaim } from './claimCard';
+import { claimNeed } from './explain';
+import { depthOf } from '../../sim/depth';
+import { chip, details, qcard } from './qcard';
 import { mountRegionChat } from './chatRegion';
 import { mountPeace } from './peace';
 import { mountSettlements } from './settlements';
@@ -85,7 +88,7 @@ import { mountReplay } from '../replay';
 import { RECIPES } from '../../../data/recipes';
 import { allCivilians, civBuild, civGather, civInfo, civName, civTips, civWork } from './cardCiv';
 import { buildCard, term } from './codex';
-import { loadGlyphs } from './glyph';
+import { glyph, loadGlyphs } from './glyph';
 import { TIP_CSS, tipChain } from './tooltip';
 import { GROUPS_CSS, mountGroups } from './groups';
 import { keys } from '../../input/keys';
@@ -404,6 +407,16 @@ export function hud(s: SandboxScene): void {
   const bTabs = build.querySelector<HTMLElement>('#bTabs')!, bTools = build.querySelector<HTMLElement>('#bTools')!;
   const bStatus = build.querySelector<HTMLElement>('#bStatus')!;
   bStatus.addEventListener('click', (e) => { if ((e.target as HTMLElement).closest('[data-show-banner]')) showNearestClaim(s); });
+  /** No ground here yet: the compact card (./qcard.ts) with what a claim needs as chips; the full rule (`hint`) behind (i). */
+  const claimFirstCard = (hint: string) => {
+    const n = claimNeed(depthOf(s.region));
+    return `<div style="pointer-events:auto;min-width:240px">${qcard({
+      key: 'claimFirst', icon: icon('mk-claim'), goal: 'Claim a banner to build',
+      chips: chip.any(icon('unit-hoplite'), `${n.men} men`, '', 'Men to hold the banner') + (n.players > 1 ? chip.any(glyph('ui:people', 16), `${n.players}+ players`) : '') + chip.time(`${n.secs} s`),
+      cta: '<button class="rf-tbtn pri" data-show-banner>Show banner</button>',
+      more: details({ story: hint }),
+    })}</div>`;
+  };
   for (const t of Object.keys(TABS) as Tab[]) {
     const b = document.createElement('button');
     b.className = 'rf-tab';
@@ -676,7 +689,7 @@ export function hud(s: SandboxScene): void {
     // no ground of his in the region yet: say how to get some instead of a silent red ghost (./claimCard.ts)
     const cf = !m.claimArmed && m.active && claimFirst(s);
     const status = m.claimArmed ? 'click the map to claim (influence r 20)' : cf || (m.tool ? m.status || 'R rotate · Esc cancel · shift keeps the tool' : '');
-    if (bStatus.dataset.t !== status) { bStatus.dataset.t = status; if (cf) bStatus.innerHTML = claimFirstHtml(cf); else bStatus.textContent = status; }
+    if (bStatus.dataset.t !== status) { bStatus.dataset.t = status; if (cf) bStatus.innerHTML = claimFirstCard(cf); else bStatus.textContent = status; }
     bStatus.style.display = status ? '' : 'none';
   };
   setInterval(refresh, 200);

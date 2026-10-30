@@ -19,9 +19,10 @@ import { doneNow, GUIDE_STEPS, guideOpen, newWatch, watchEvents, type GuideSave,
 import { ownCentre } from '../entry';
 import { myTeam } from '../side';
 import { icon } from './kit';
+import { chip, details, qcard } from './qcard';
 import { ghostIcon } from './souls';
 import { fill, GUIDE_INTRO, GUIDE_LORE, guideGiver } from '../../net/questLore';
-import { metres, placeMarker, questBanner, questMarker, rewardChips } from './quest';
+import { metres, placeMarker, questBanner, questMarker } from './quest';
 
 type Mk = (id: string, css: string, html?: string) => HTMLElement;
 
@@ -34,6 +35,8 @@ export interface GuideSetup {
 }
 
 let setup: GuideSetup | null = null;
+/** The chain's last word: what comes after the first hour. */
+const END = 'Your men know their way now. Next, beyond your home: clear the lair guarding a claim banner, right-click the banner with your men and hold it, and you build there too.';
 /** ../main.ts: the guide for this page (null: none, e.g. a scenario). */
 export const setGuide = (g: GuideSetup | null) => void (setup = g);
 
@@ -48,9 +51,17 @@ export function loadGuide(key: string): GuideSave | null {
 const saveGuide = (key: string, g: GuideSave) => { try { localStorage.setItem(key, JSON.stringify(g)); } catch { /* storage blocked: progress is forgotten */ } };
 export { guideOpen };
 
+/** Each step's verb icon, and what its key chip acts on. */
 const STEP_ICON: Record<GuideStepId, () => string> = {
-  soul: () => ghostIcon('hoplite', 20),
+  soul: () => icon('mk-claim'),
   gather: () => icon('act-gather'),
+  lair: () => icon('act-attack'),
+  build: () => icon('act-build'),
+  haul: () => icon('act-unload'),
+};
+const STEP_ON: Record<GuideStepId, () => string> = {
+  soul: () => ghostIcon('hoplite', 16),
+  gather: () => icon('res-wood'),
   lair: () => icon('lair-bandit'),
   build: () => icon('bld-camp'),
   haul: () => icon('trade-chest'),
@@ -59,34 +70,15 @@ const TARGET: Record<GuideStepId, string> = { soul: 'Soul', gather: 'Wood', lair
 
 const CSS = `
 #rfGuide{left:4px;top:4px;width:262px;pointer-events:auto;padding:5px 8px 7px}
-#rfGuide .gd-h{display:flex;align-items:center;gap:6px;padding-bottom:4px;margin-bottom:3px;border-bottom:1px solid var(--rf-rule);cursor:pointer}
-#rfGuide .gd-one{display:flex;align-items:center;gap:6px;font:700 12px/16px Inter,sans-serif;color:var(--rf-title)}
-#rfGuide .gd-one .gd-far{font-weight:600}
+#rfGuide .gd-h{display:flex;align-items:center;gap:6px;padding-bottom:4px;margin-bottom:4px;border-bottom:1px solid var(--rf-rule);cursor:pointer}
 #rfGuide .gd-h .rf-name{font-size:13px}
-#rfGuide .gd-n{margin-left:auto;font:700 11px/1 Inter,sans-serif;color:var(--rf-gold)}
+#rfGuide .gd-n{margin-left:auto;font:700 12px/1 Inter,sans-serif;color:var(--rf-gold)}
 #rfGuide .gd-x,#rfGuide .gd-fold{width:18px;height:18px;min-width:18px;padding:0;font-size:12px}
-#rfGuide ol{list-style:none;margin:0;padding:0}
-#rfGuide li{display:flex;align-items:flex-start;gap:6px;padding:2px 0;color:var(--rf-disabled);font-size:12px;line-height:16px}
-#rfGuide li .bx{flex:none;width:11px;height:11px;margin-top:2px;border:1px solid var(--rf-rule);background:var(--rf-sunk)}
-#rfGuide li.ok{color:var(--rf-muted)}
-#rfGuide li.ok .bx{border-color:#3f5a2c;background:#1d2a14;position:relative}
-#rfGuide li.ok .bx:after{content:'';position:absolute;left:3px;top:0;width:3px;height:6px;border:solid var(--rf-good);border-width:0 2px 2px 0;transform:rotate(45deg)}
-#rfGuide li.ok .t{text-decoration:line-through;text-decoration-color:rgba(187,165,140,.5)}
-#rfGuide li.cur{color:var(--rf-ink);margin:2px -4px;padding:4px 4px 5px;background:var(--rf-sunk);box-shadow:inset 2px 0 0 var(--rf-gold)}
-#rfGuide li.cur .ic{flex:none;margin-top:-1px}
-#rfGuide li.cur .t{font:700 12px/16px Inter,sans-serif;color:var(--rf-title)}
-#rfGuide .gd-hint{display:block;margin-top:1px;color:var(--rf-muted);font-size:12px;line-height:15px}
-#rfGuide .gd-meta{display:flex;align-items:center;gap:6px;margin-top:4px}
-#rfGuide .gd-rw{display:inline-flex;align-items:center;gap:2px;padding:1px 5px 1px 2px;border:1px solid #6a5326;background:#1c140c;color:var(--rf-gold);font:700 11px/14px Inter,sans-serif}
-#rfGuide .gd-rw img{width:14px;height:14px}
-#rfGuide .gd-far{margin-left:auto;color:var(--rf-muted);font-size:11px}
-#rfGuide.flash li.cur{animation:gdFlash .9s ease-out}
+#rfGuide .gd-cur{margin:0 -4px;padding:5px 4px;background:var(--rf-sunk);box-shadow:inset 2px 0 0 var(--rf-gold)}
+#rfGuide .gd-next{display:flex;align-items:center;gap:6px;margin-top:5px;font:600 13px/1.3 Inter,sans-serif;color:var(--rf-muted)}
+#rfGuide .gd-next .ic{width:18px;height:18px;opacity:.8}
+#rfGuide.flash .gd-cur{animation:gdFlash .9s ease-out}
 @keyframes gdFlash{0%{background:#3d2a12}100%{background:var(--rf-sunk)}}
-#rfGuide .gd-giver{font:italic 11.5px/1.3 Inter,sans-serif;color:var(--rf-muted);margin:-1px 0 3px}
-#rfGuide .gd-story{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;margin-top:2px;color:var(--rf-ink);font:italic 12px/15px Inter,sans-serif;opacity:.88}
-#rfGuide .gd-where{display:block;margin-top:3px;color:var(--rf-muted);font-size:12px;line-height:15px}
-#rfGuide .gd-where b,#rfGuide .gd-pay b{font:700 10px/15px Inter,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--rf-muted);margin-right:4px}
-#rfGuide .gd-pay{display:block;margin-top:2px;color:var(--rf-muted);font-size:11px}
 `;
 
 export function mountGuide(s: SandboxScene, mk: Mk): void {
@@ -100,7 +92,7 @@ export function mountGuide(s: SandboxScene, mk: Mk): void {
   const mStep = questMarker('on'), mHome = questMarker('home');
 
   const team = myTeam(), watch = newWatch(team, g.spots.lair), giver = guideGiver(team), from = `${giver.name}, ${giver.title}`;
-  const town = { town: g.town }, lore = (id: GuideStepId) => ({ goal: fill(GUIDE_LORE[id].goal, town), story: fill(GUIDE_LORE[id].story, town), where: fill(GUIDE_LORE[id].where, town) });
+  const town = { town: g.town }, lore = (id: GuideStepId) => ({ goal: fill(GUIDE_LORE[id].goal, town), key: GUIDE_LORE[id].key, story: fill(GUIDE_LORE[id].story, town), where: fill(GUIDE_LORE[id].where, town) });
   const payLine = `Paid when done, into your ${g.offline ? 'stores' : 'home strongroom'}`;
   // offline: the save in localStorage (key set on the first snapshot); online: the server's latest `guide` message
   let key: string | null = null, save: GuideSave | null = null;
@@ -112,7 +104,7 @@ export function mountGuide(s: SandboxScene, mk: Mk): void {
     questBanner({
       kind: 'done', head: nx ? 'Step done' : 'The First Hour is done', title: lore(id).goal, giver: from,
       ...(paid ? { reward: st.reward as Record<string, number>, pay: `Paid into your ${g.offline ? 'stores' : 'home strongroom'}` } : { pay: 'Your army is full: no soul to claim, nothing paid' }),
-      text: nx ? `Next: ${lore(nx.id).goal}.` : 'Your men know their way now. Next, beyond your home: clear the lair guarding a claim banner, right-click the banner with your men and hold it, and you build there too.',
+      text: nx ? `Next: ${lore(nx.id).goal}.` : END,
     });
     el.classList.remove('flash');
     void el.offsetWidth;
@@ -204,18 +196,21 @@ export function mountGuide(s: SandboxScene, mk: Mk): void {
     // on screen the town speaks for itself; on the edge beside the step's marker it gives way
     const near = Math.hypot(parseFloat(mHome.style.left) - parseFloat(mStep.style.left), parseFloat(mHome.style.top) - parseFloat(mStep.style.top)) < 140;
     if (!mHome.classList.contains('edge') || (mStep.style.display !== 'none' && near)) mHome.style.display = 'none';
-    const head = `<div class="gd-h" title="${folded ? 'Show all the steps' : 'Fold to the current step'}">${icon('mk-claim')}<span class="rf-name">The First Hour</span><span class="gd-n">${list.length - open.length}/${list.length}</span><button class="rf-tbtn gd-fold">${folded ? '+' : '−'}</button><button class="rf-tbtn x gd-x" title="Hide the guide for good">×</button></div>`;
-    const html = folded
-      ? `${head}${now ? `<div class="gd-one">${STEP_ICON[now.id]()}<span style="flex:1;min-width:0">${lore(now.id).goal}</span>${t ? `<span class="gd-far">${metres(far)}</span>` : ''}</div>` : ''}`
-      : `${head}<div class="gd-giver">Given by ${from}</div>
-      <ol>${save!.done.length ? `<li class="ok"><span class="bx"></span><span class="t">${save!.done.length} ${save!.done.length === 1 ? 'step' : 'steps'} done</span></li>` : ''}${list.map((st) => {
-        const l = lore(st.id);
-        if (save!.done.includes(st.id)) return ''; // the finished steps fold into one line
-        if (st !== now) return `<li><span class="bx"></span><span class="t">${l.goal}</span></li>`;
-        return `<li class="cur">${STEP_ICON[st.id]()}<div style="min-width:0;flex:1"><span class="t">${l.goal}</span><span class="gd-story" title="${l.story.replace(/"/g, '&quot;')}">“${l.story}”</span>
-          <span class="gd-where"><b>Where</b>${l.where}</span>
-          <div class="gd-meta">${rewardChips(st.reward as Record<string, number>)}${t ? `<span class="gd-far">${metres(far)} away</span>` : ''}</div><span class="gd-pay">${payLine}</span></div></li>`;
-      }).join('')}</ol>${now ? '' : '<div class="gd-hint" style="padding:4px 0 0">Your men know their way now. Next, beyond your home: clear the lair guarding a claim banner, right-click the banner with your men and hold it, and you build there too.</div>'}`;
+    const head = `<div class="gd-h" title="${folded ? 'Show the reward and the next step' : 'Fold to one line'}">${icon('mk-claim')}<span class="rf-name">The First Hour</span><span class="gd-n">${list.length - open.length}/${list.length}</span><button class="rf-tbtn gd-fold">${folded ? '+' : '−'}</button><button class="rf-tbtn x gd-x" title="Hide the guide for good">×</button></div>`;
+    // the open step as a compact card (./qcard.ts): its verb, goal, the key that does it, the reward and the way; the
+    // story, where in full, the giver and the pay behind (i) / hover. Folded: no reward and no next step.
+    const card = (st: (typeof list)[number]) => {
+      const l = lore(st.id);
+      return qcard({
+        key: `guide:${st.id}`, icon: STEP_ICON[st.id](), goal: l.goal,
+        chips: chip.key(l.key, STEP_ON[st.id]()) + (folded ? '' : chip.reward(st.reward as Record<string, number>)) + (t ? chip.dist(metres(far)) : ''),
+        more: details({ story: l.story, lines: [['Where', l.where], ['Pay', payLine]], from: `Given by ${from}` }),
+      });
+    };
+    const after = now ? list.filter((st) => st !== now && !save!.done.includes(st.id)) : [];
+    const html = now
+      ? `${head}<div class="gd-cur">${card(now)}</div>${folded || !after.length ? '' : `<div class="gd-next" title="${after.map((st) => lore(st.id).goal).join(', ')}">${STEP_ICON[after[0].id]()}<span>Then: ${lore(after[0].id).goal}</span></div>`}`
+      : `${head}<div class="gd-cur">${qcard({ key: 'guide:end', icon: icon('mk-claim'), goal: 'Claim ground beyond home', more: details({ story: END }) })}</div>`;
     if (!announced && now) {
       // the quest starts (or picks up again): who gives it and why
       announced = true;

@@ -25,6 +25,7 @@ import { ownCentre } from '../entry';
 import { SPRITE_ZOOM } from '../units';
 import { myTeam } from '../side';
 import { questBanner, track, trackedNow, type Tracked, type TrackView } from './quest';
+import { triggerIcon } from './qcard';
 
 const KEY = (region: string) => `pa.war.enc.${region}`;
 function load(key: string): EncSave | null {
@@ -106,7 +107,7 @@ export function mountEncounters(s: SandboxScene): void {
       if (!o || !d || !st) return null;
       const i = d.steps.indexOf(st), t = st.trigger, r = rewardParts(st.reward);
       return {
-        kind: `Encounter · ${region.name}`, title: d.title, giver: d.figure ? d.figure.name : 'On the road',
+        kind: `Encounter · ${region.name}`, title: d.title, giver: d.figure ? d.figure.name : 'On the road', icon: triggerIcon(t.kind),
         goal: st.goal, progress: `${i + 1}/${d.steps.length}`, frac: -1, where: where(st), reward: r.goods,
         pay: t.kind === 'choice' ? 'Each choice pays its own way' : [r.more, Object.keys(r.goods).length ? `Paid when done, into ${payTo}` : r.more ? '' : 'The road goes on'].filter(Boolean).join(' · '),
         at: t.kind === 'choice' ? { x: o.x, y: o.y } : { x: o.tx, y: o.ty }, label: st.label,
