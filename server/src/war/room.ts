@@ -32,6 +32,7 @@
 import { createSim } from '../../../src/war/sim';
 import { createBots, type Bots } from '../../../src/war/sim/bots';
 import type { SecretEvent } from '../../../src/war/sim/secrets';
+import { wildDeeds, type WildDeed } from '../../../src/war/net/mastery';
 import { isClassId } from '../../../src/data/classes';
 import { DeltaEncoder } from '../../../src/war/net/codec';
 import { interestRect, seesBoss, visibleTo, type Rect, type TeamVision } from '../../../src/war/net/interest';
@@ -281,6 +282,8 @@ export class WarRoom {
   private allySent = new WeakMap<EconomyFeed, string>();
   /** W-62 E7: men carrying wood and stone home, tallied for the tasks (the DO books `gathered`). */
   private gather = new GatherWatch();
+  /** W-73: each lair's state as last seen (src/war/net/mastery.ts wildDeeds). */
+  private wildSeen = new Map<number, string>();
   /** W-62: world events running in this region (the DO sets them: src/war/world/events.ts). */
   private worldEvents: WorldEvent[] = [];
   /** W-62: the first-hour guide of the home alliance's new players (./guide.ts). */
@@ -1070,7 +1073,7 @@ export class WarRoom {
     return labour.length || guards.length || works.length ? { labour, guards, works } : null;
   }
 
-  tick(now: () => number = () => 0): { frames: Map<number, Uint8Array>; msgs: Map<number, ServerMsg[]>; admitted: Map<number, ServerMsg>; fights: Fight[]; crafted: Crafted[]; bosses: BossSlain[]; sacrilege: number[]; freed: string[]; raided: number[]; captured: { cart: number; from: string; team: number; to: string }[]; souls: SoulClaim[]; faded: string[]; peace: Peace | null; times: TickTimes; guided: GuideDone[]; storied: StoryDone[]; met: EncounterDone[]; gathered: [number, TaskMetric, number][]; settle: SettleOut | null } {
+  tick(now: () => number = () => 0): { frames: Map<number, Uint8Array>; msgs: Map<number, ServerMsg[]>; admitted: Map<number, ServerMsg>; fights: Fight[]; crafted: Crafted[]; bosses: BossSlain[]; sacrilege: number[]; freed: string[]; raided: number[]; captured: { cart: number; from: string; team: number; to: string }[]; souls: SoulClaim[]; faded: string[]; peace: Peace | null; times: TickTimes; guided: GuideDone[]; storied: StoryDone[]; met: EncounterDone[]; wild: WildDeed[]; gathered: [number, TaskMetric, number][]; settle: SettleOut | null } {
     const t0 = now();
     // M6i: carts' owners before the step (a capture names only the taker)
     const cartWas = new Map((this.snap.sieges ?? []).filter((e) => e.owner !== undefined).map((e) => [e.id, { owner: e.owner!, team: e.team }]));
@@ -1197,7 +1200,7 @@ export class WarRoom {
     for (const [pid, ms] of this.later) if (this.players.get(pid)?.online) for (const m of ms) tell(pid, m);
     this.later.clear();
     this.lastTick = this.snap.tick;
-    return { frames, msgs, admitted, fights, crafted, bosses, sacrilege, freed, raided, captured, souls, faded, guided: g.done, storied: st.done, met: en.done, peace: this.peace(), gathered: tick % LABOUR_EVERY === 0 ? this.gather.drain() : [], settle, times: { stepMs: t1 - t0, snapMs: t2 - t1, netMs: now() - t2 } };
+    return { frames, msgs, admitted, fights, crafted, bosses, sacrilege, freed, raided, captured, souls, faded, guided: g.done, storied: st.done, met: en.done, wild: wildDeeds(this.snap, evs, this.wildSeen), peace: this.peace(), gathered: tick % LABOUR_EVERY === 0 ? this.gather.drain() : [], settle, times: { stepMs: t1 - t0, snapMs: t2 - t1, netMs: now() - t2 } };
   }
 
   /**

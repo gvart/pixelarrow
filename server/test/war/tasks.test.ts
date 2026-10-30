@@ -59,7 +59,8 @@ describe('tasks (E7)', () => {
   it('drawn on first read; progress from the tallies of their period; a claim pays and scores once', async () => {
     const p = await player(8801, 2);
     const v = await tasksOf(DB(), p, MON);
-    expect(v.tasks.filter((t) => t.kind === 'daily').map((t) => t.id)).toEqual(drawTasks(S, periodOf('daily', MON), p).map((t) => t.id));
+    // alone in his alliance: the solo draw (W-73)
+    expect(v.tasks.filter((t) => t.kind === 'daily').map((t) => t.id)).toEqual(drawTasks(S, periodOf('daily', MON), p, true).map((t) => t.id));
     expect(v.tasks.filter((t) => t.kind === 'weekly')).toHaveLength(TASKS.weekly);
     expect(v.rerolls).toBe(TASKS.rerolls);
     const t = v.tasks[0];
@@ -104,7 +105,7 @@ describe('tasks (E7)', () => {
   it('one free reroll a day: a fresh task whose progress starts now; claimed tasks stay', async () => {
     const p = await player(8821, 0);
     const v = await tasksOf(DB(), p, MON), old = v.tasks[1];
-    const next = rerollTask(S, periodOf('daily', MON), p, v.tasks.filter((x) => x.kind === 'daily').map((x) => x.id), old.id)!;
+    const next = rerollTask(S, periodOf('daily', MON), p, v.tasks.filter((x) => x.kind === 'daily').map((x) => x.id), old.id, true)!;
     await tallyStmt(DB(), p, next.metric, 5, MON).run(); // done before the reroll: does not count
     const r = await rerollOne(DB(), p, 'daily', 1, MON);
     expect(r.id).toBe(next.id);

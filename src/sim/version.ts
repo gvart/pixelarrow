@@ -16,5 +16,7 @@
  *    per-region seeds (clients on 2 reload).
  * 4: new-creatures: scorpion, harpy, cyclops and drake mob kinds, Drakon calls
  *    drakes, sturdier chiefs (clients on 3 reload).
+ * 5: solo-loop: chiefs tuned for a solo army of 12, solo tasks, legendary
+ *    gear only as guardian trophies, region mastery (clients on 4 reload).
  */
-export const SIM_VERSION = 4;
+export const SIM_VERSION = 5;

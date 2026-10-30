@@ -6,13 +6,16 @@
  * Steps, in the order the road gives them: claim a soul (one waits a little way down the road from the entry), gather
  * wood or stone (the nearest node), drive off a bandit pair on the road home (offline the guide adds that weak lair;
  * ../sim/mobs.ts add), raise a camp in the home town (the alliance's influence round the town: server room HOME_CLAIM_R),
- * bring goods into a store (offline a delivery into his store, online a stow or a hand-off). A step whose condition is met
- * early counts at once; the tracker points at the first one still open.
+ * bring goods into a store (offline a delivery into his store, online a stow or a hand-off), and the hand-off (W-73): walk
+ * to the exit towards the nearest neighbour with a region chain (guideNext), whose giver waits by its well. A step whose
+ * condition is met early counts at once; the tracker points at the first one still open.
  */
 import type { MobKind, ResourceKind, RegionData, Snapshot, WarEvent } from '../types';
 import { entrySpot } from '../view/entry';
+import { storyOf } from '../../data/warStories';
+import { edge, worldRegion } from '../world/graph';
 
-export type GuideStepId = 'soul' | 'gather' | 'lair' | 'build' | 'haul';
+export type GuideStepId = 'soul' | 'gather' | 'lair' | 'build' | 'haul' | 'next';
 /** reward: paid into his stores (offline); never wood or stone, which the haul step counts. */
 export interface GuideStep { id: GuideStepId; title: string; hint: string; reward: Partial<Record<ResourceKind, number>> }
 
@@ -22,7 +25,25 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
   { id: 'lair', title: 'Drive off the bandits', hint: 'Two bandits lurk on the road home. Attack them.', reward: { coin: 30 } },
   { id: 'build', title: 'Raise a camp at home', hint: 'Press B, pick Camp and place it on your town\'s ground.', reward: { food: 40 } },
   { id: 'haul', title: 'Bring goods into a store', hint: 'Gatherers carry their loads to your nearest store.', reward: { coin: 50 } },
+  { id: 'next', title: 'Find the next storyteller', hint: 'Walk your men out of home towards the region whose giver waits by the well.', reward: { coin: 20 } },
 ];
+
+/**
+ * W-73 the guide's hand-off: of the home's neighbours with a region chain (src/data/warStories.ts), the one whose exit
+ * lies nearest the home town (ties: the home's adjacency order); its giver and the exit tile towards it. Null: none.
+ */
+export function guideNext(home: string, region: Pick<RegionData, 'w' | 'h' | 'entries' | 'prebuilt'>): { region: string; name: string; giver: string; exit: { x: number; y: number } } | null {
+  const town = homeAnchor(region);
+  let best: { region: string; name: string; giver: string; exit: { x: number; y: number } } | null = null, bd = Infinity;
+  for (const id of worldRegion(home)?.adj ?? []) {
+    const story = storyOf(id), e = edge(home, id), side = e?.sideA;
+    const ent = side ? region.entries.find((x) => x.side === side) : undefined;
+    if (!story || !ent) continue;
+    const exit = { x: ent.x + ent.w / 2, y: ent.y + ent.h / 2 }, d = Math.hypot(exit.x - town.x, exit.y - town.y);
+    if (d < bd) (bd = d), (best = { region: id, name: worldRegion(id)!.name, giver: story.giver.name, exit });
+  }
+  return best;
+}
 
 /** The weak lair on a new player's road (2 bandits: 12 hoplites win it without a loss), tiles along the road from the entry. */
 export const GUIDE_LAIR: { kind: MobKind; count: number; at: number } = { kind: 'bandit', count: 2, at: 90 };
@@ -114,9 +135,11 @@ export interface GuideWatch {
   lair: { x: number; y: number } | null;
   /** Server notes and sim events that finished a step. */
   flags: Set<GuideStepId>;
+  /** W-73: the exit towards the hand-off's region (guideNext; null: no hand-off here). */
+  next: { x: number; y: number } | null;
 }
 
-export const newWatch = (team: number, lair: { x: number; y: number } | null, owner?: string): GuideWatch => ({ team, ...(owner ? { owner } : {}), had: new Set(), stock0: -1, lair, flags: new Set() });
+export const newWatch = (team: number, lair: { x: number; y: number } | null, owner?: string, next: { x: number; y: number } | null = null): GuideWatch => ({ team, ...(owner ? { owner } : {}), had: new Set(), stock0: -1, lair, flags: new Set(), next });
 
 /**
  * Sim events that finish a step: a soul claimed by a squad of his (team, or owner online). Online a claim refused
@@ -152,5 +175,6 @@ export function doneNow(w: GuideWatch, s: Snapshot): Set<GuideStepId> {
   }
   if ((s.buildings ?? []).some((b) => b.team === w.team && b.state === 'done' && !b.pre && !w.had.has(b.id) && near(b.x, b.y))) out.add('build');
   if (!w.owner && goods(s, w.team) >= w.stock0 + HAUL_GOODS) out.add('haul');
+  if (w.next && men.some((u) => Math.hypot(u.x - w.next!.x, u.y - w.next!.y) < GUIDE_NEAR)) out.add('next'); // W-73: at the exit
   return out;
 }

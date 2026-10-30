@@ -9,6 +9,8 @@
  *  - Held the gate: he stood fit through a fight with foes in it, within DEED.gate tiles of his team's fort or camp.
  *  - Last man standing: the only one of his team in the fight (at least DEED.last of them) to walk off fit.
  *  - Survivor: he fell wounded and lived (a scar too, up to SCARS_MAX).
+ *  - Banner of <region> (W-73): his player mastered the region (src/war/net/mastery.ts) while he stood there; given by
+ *    the server, not a fight.
  */
 import { bossDeed } from '../../data/warBosses';
 import type { Deed } from '../types';
@@ -29,6 +31,8 @@ export type PlainDeed = keyof typeof DEED_NAME;
 
 export const plainDeed = (id: PlainDeed): Deed => ({ id, name: DEED_NAME[id] });
 export const slayerDeed = (boss: string): Deed => ({ id: `slayer:${boss}`, name: bossDeed(boss) });
+/** W-73: the banner of a mastered region. */
+export const masteryDeed = (region: string, name: string): Deed => ({ id: `banner:${region}`, name: `Banner of ${name}` });
 
 /** The deeds of `had` not yet in `have`, in order (none twice), and the record with them (at most DEEDS_MAX). */
 export function addDeeds(have: readonly Deed[] | undefined, had: readonly Deed[]): { all: Deed[]; fresh: Deed[] } {

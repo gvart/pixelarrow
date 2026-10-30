@@ -32,6 +32,7 @@ const METRIC_ICON: Record<TaskMetric, () => string> = {
   wins: () => glyph('ui:swords', 30), kills: () => glyph('ui:skull', 30), soul: () => icon('res-asphodel', 32),
   caravan: () => icon('trade-wagon', 32), guard: () => glyph('ui:shield', 30), labour: () => glyph('ui:people', 30),
   workGoods: () => icon('node-engineer-master-builder', 32), sellAlliance: () => icon('node-merchant-emporos', 32), contract: () => icon('trade-contract', 32),
+  chief: () => glyph('ui:beast', 30), secret: () => glyph('ui:eye', 30), encounter: () => glyph('ui:march', 30), lair: () => glyph('ui:raid', 30),
 };
 
 /** "5h 12m", "3d 4h", "12m". */
@@ -40,12 +41,12 @@ export const until = (ms: number) => {
   return d ? `${d}d ${h}h` : h ? `${h}h ${m % 60}m` : `${m % 60}m`;
 };
 
-/** The offline view: this player's draw, nothing done. */
+/** The offline view: this player's draw (alone offline: no partner tasks, W-73), nothing done. */
 export function offlineTasks(pid: number, now: number): TasksView {
   const tasks: TaskView[] = [];
   for (const kind of ['daily', 'weekly'] as const) {
     const p = periodOf(kind, now);
-    drawTasks(WAR_SEASON.id, p, pid).forEach((t, slot) => tasks.push({ kind, slot, id: t.id, title: t.title, hint: t.hint, metric: t.metric, have: 0, need: t.n, per: t.per ?? 1, unit: t.unit ?? '', reward: t.reward, score: t.score, pts: t.pts, claimed: false, ends: p.ends }));
+    drawTasks(WAR_SEASON.id, p, pid, true).forEach((t, slot) => tasks.push({ kind, slot, id: t.id, title: t.title, hint: t.hint, metric: t.metric, have: 0, need: t.n, per: t.per ?? 1, unit: t.unit ?? '', reward: t.reward, score: t.score, pts: t.pts, claimed: false, ends: p.ends }));
   }
   return { tasks, rerolls: TASKS.rerolls, boost: 1, now };
 }
@@ -144,7 +145,8 @@ export function mountTasks(s: SandboxScene, mk: Mk): void {
     const pick = (xs: readonly { x: number; y: number }[], label: string) => { const p = nearest(xs, me); return p ? { p, label } : null; };
     if (m === 'gatherWood' || m === 'gatherStone') return pick(s.sim.nodes.filter((n) => n.res === (m === 'gatherWood' ? 'wood' : 'stone') && n.amount > 0), m === 'gatherWood' ? 'Tree' : 'Boulder');
     if (m === 'soul') return pick(cur?.souls ?? [], 'Soul');
-    if (m === 'kills' || m === 'wins') return pick((cur?.lairs ?? []).filter((l) => l.state !== 'cleared'), 'Lair');
+    if (m === 'kills' || m === 'wins' || m === 'lair') return pick((cur?.lairs ?? []).filter((l) => l.state !== 'cleared'), 'Lair');
+    if (m === 'chief') return pick((cur?.lairs ?? []).filter((l) => l.chief?.alive), 'Chief');
     if (m === 'deliver') return pick((cur?.buildings ?? []).filter((b) => b.team === team && b.state === 'done' && ['camp', 'storehouse', 'fort', 'warehouse'].includes(b.type)), 'Store');
     return null;
   };
