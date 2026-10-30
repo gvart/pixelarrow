@@ -21,30 +21,46 @@ const regionName = (id: string) => worldRegion(id)?.name ?? id;
 
 // ------------------------------------------------------------------ world events
 
-export interface EventHelp { what: string; todo: string; rule: string }
+export interface EventHelp {
+  /** The card's main line: a short imperative, about six words. */
+  goal: string;
+  /** What it pays, as a chip's text ("+20 score"). */
+  gain: string;
+  what: string;
+  todo: string;
+  rule: string;
+}
 
-/** One event in plain words: what it is (one line), what to do, and the full rule with its reward (the tooltip). */
+/** One event in plain words: the goal and its gain (the card), what it is, what to do, and the full rule (the details). */
 export function eventHelp(e: Pick<WorldEvent, 'kind' | 'region'>): EventHelp {
   const where = regionName(e.region);
   const boss = WAR_BOSSES.find((b) => b.region === e.region)?.name ?? 'its guardian';
   const lm = LANDMARKS.find((l) => l.region === e.region)?.name ?? 'the landmark';
   const H: Record<WorldEventKind, EventHelp> = {
     soulStorm: {
+      goal: `Claim souls in ${where}`,
+      gain: 'new men',
       what: `fallen warriors rise ${STORM.chance}x as often in ${where}, a chance for new men`,
       todo: 'Go there with a squad and claim the souls (E on a soul)',
       rule: `Souls wake at shrines, ruins, old battlefields and lairs ${STORM.chance}x as often, up to ${STORM.max} at once instead of ${SOUL.max}. Stand a man within ${SOUL.reach} tiles of one for ${SOUL.channel * TICK_S} s and he joins your squad, his class and level with him, while you have fewer than ${ARMY_MAX} men. Unclaimed, a soul fades after ${Math.round(SOUL.life * TICK_S / 60)} min.`,
     },
     bossWake: {
+      goal: `Slay ${boss.replace(/^The /, 'the ')}`,
+      gain: `loot x${WAKE.loot}`,
       what: `${cap(boss)} wakes in ${where}, stronger (hp x${WAKE.hp}) but with double loot`,
       todo: 'Bring a strong force, best with allies, and slay it',
       rule: `The guardian comes back now even if it was slain (unless the region is held), with ${WAKE.hp}x its hp. Killed while the event runs, it drops its rare goods ${WAKE.loot} times over.`,
     },
     caravanRush: {
+      goal: `Haul goods to ${where}`,
+      gain: `+${RUSH.perLoad} a load`,
       what: `every convoy reaching ${where} with cargo scores your alliance points`,
       todo: 'Haul goods there by cart or wagon (world map: H, the haul planner)',
       rule: `Each convoy that arrives at the ${where} market with cargo scores its alliance ${RUSH.perLoad} point a load, at most ${RUSH.cap} an arrival.`,
     },
     landmarkSiege: {
+      goal: `Take ${lm}`,
+      gain: `+${SIEGE.capture}`,
       what: `${lm} in ${where} is open to take, for alliance score`,
       todo: 'Defeat its guardian, claim its point, then keep men in it',
       rule: `Capturing the landmark while the event runs scores the captor ${SIEGE.capture}; the alliance holding it at the end with a garrison inside scores ${SIEGE.held} more.`,
