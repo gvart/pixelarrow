@@ -31,10 +31,20 @@ describe('world regions (scripts/war/regions)', () => {
     expect(tin).toEqual(['achelous', 'kleisoura']);
   });
 
-  it('gives neutral regions lairs and a claim point, homes none', () => {
+  it('gives neutral regions a claim point, homes only weak outskirts lairs (no chiefs, 60+ tiles from town)', () => {
+    const WEAK = ['wolf', 'boar', 'jackal', 'scorpion'];
     for (const { w, r } of regions) {
-      if (w.role === 'home') expect(r.lairs ?? []).toHaveLength(0);
-      else expect(r.claimPoints?.length).toBeGreaterThan(0);
+      if (w.role !== 'home') {
+        expect(r.claimPoints?.length, w.id).toBeGreaterThan(0);
+        continue;
+      }
+      expect(r.lairs?.length, w.id).toBeGreaterThan(0);
+      const court = r.safe?.[0];
+      for (const l of r.lairs ?? []) {
+        expect(l.chief, w.id).toBeFalsy();
+        expect(WEAK, `${w.id} ${l.kind}`).toContain(l.kind);
+        if (court) expect(Math.hypot(l.x - (court.x + court.w / 2), l.y - (court.y + court.h / 2)), w.id).toBeGreaterThan(60);
+      }
     }
   });
 });
