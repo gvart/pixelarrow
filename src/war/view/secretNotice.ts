@@ -7,9 +7,8 @@
 import type { WarEvent } from '../types';
 import type { SandboxScene } from './SandboxScene';
 import { myTeam } from './side';
-import { chip } from './hud/qcard';
-
-type Note = { kind: 'info'; text: string; chips?: string };
+import type { Note } from './hud/roster/state';
+import { glyph } from './hud/glyph';
 
 /** The notice of one event for this player, or null. */
 export function secretText(e: WarEvent, team: number, playerId: number | null): string | null {
@@ -34,8 +33,11 @@ export function secretNotices(s: SandboxScene, note: (n: Note) => void): void {
       if (rose && e.kind === 'warlord' && e.what === 'took') continue; // his places laid with his rise: one notice
       const text = secretText(e, myTeam(), s.sim.playerId);
       if (!text) continue;
-      // a raid's warning: the words, and the time left as a chip (W-70: chips carry the numbers)
-      if (e.kind === 'warlord' && e.what === 'warn' && e.in) note({ kind: 'info', text: text.replace(/ in \d+ s$/, ''), chips: chip.time(`${Math.round(e.in / 10)} s`, 'bad', 'Until his men reach it') });
+      // a raid's warning (W-70): a war icon, the words, the time left counting down in a chip, and "Go there"
+      if (e.kind === 'warlord' && e.what === 'warn' && e.in) {
+        const { x, y } = e;
+        note({ kind: 'info', icon: glyph('ui:swords', 18), text: text.replace(/ in \d+ s$/, ''), for: e.in * 100, act: { label: 'Go there', run: () => s.focus(x, y) } });
+      }
       else note({ kind: 'info', text });
     }
   };
