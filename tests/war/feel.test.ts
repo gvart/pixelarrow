@@ -3,7 +3,7 @@ import type { BuildingSnap, Snapshot, UnitSnap } from '../../src/war/types';
 import { HitStop, ImpactWatch, isElite } from '../../src/war/view/feel/impacts';
 import { CameraShake, shakeFalloff } from '../../src/war/view/feel/shake';
 import { blowVol, dinLevel, heavyBlow, isBeast, weightSfx } from '../../src/war/view/sound/mix';
-import { FLASH, FLASH_GAP, HitWatch, HOLD, HOLD_GAP, MAX_PUFFS, NUDGE_MS } from '../../src/war/view/feel/hits';
+import { BIG_FLASH_ALPHA, FLASH, FLASH_ALPHA, FLASH_GAP, flashAlpha, HitWatch, HOLD, HOLD_GAP, MAX_PUFFS, NUDGE_MS } from '../../src/war/view/feel/hits';
 import { MOB_KINDS } from '../../src/war/sim/mobs';
 import { CHIEF_KINDS } from '../../src/data/warWild';
 import { GUARDIANS } from '../../src/war/sim/bosses';
@@ -197,5 +197,13 @@ describe('mobs at true size', () => {
     for (const k of MOB_KINDS) expect(VIEW_SCALE[`mob_${k}`] ?? 1, k).toBeGreaterThanOrEqual(1);
     expect(VIEW_SCALE.mob_bear).toBeGreaterThan(VIEW_SCALE.mob_wolf);
     for (const g of Object.values(GUARDIANS)) expect(VIEW_SCALE[g.cls] ?? 1, g.cls).toBeGreaterThanOrEqual(1);
+  });
+
+  it('a hit flash on a chief or a big guardian is softer, so a huge sprite reads as hit, not as a white blank', () => {
+    expect(flashAlpha(1, false)).toBe(FLASH_ALPHA);
+    expect(flashAlpha(VIEW_SCALE.mob_bear, false)).toBe(FLASH_ALPHA);
+    expect(flashAlpha(1, true)).toBe(BIG_FLASH_ALPHA);
+    expect(flashAlpha(2.5, false)).toBe(BIG_FLASH_ALPHA);
+    expect(BIG_FLASH_ALPHA).toBeLessThanOrEqual(0.5);
   });
 });

@@ -39,6 +39,13 @@ export interface HitPose { flash: boolean; ox: number; oy: number; hold: boolean
 interface Mark { flashAt: number; puffAt: number; holdAt: number; holdUntil: number; nudgeAt: number; sx: number; sy: number; amp: number }
 
 export const FLASH = 70;
+/** The flash's strength (alpha of the white copy): full on a man or a beast, softer on a chief or a big guardian so a
+ * huge sprite reads as hit, not as a white blank. scale: the sheet's draw scale over a soldier's. */
+export const FLASH_ALPHA = 0.75;
+export const BIG_FLASH_ALPHA = 0.45;
+export function flashAlpha(scale: number, chief: boolean): number {
+  return chief || scale >= 1.8 ? BIG_FLASH_ALPHA : FLASH_ALPHA;
+}
 export const FLASH_GAP = 220;
 export const PUFF_GAP = 380;
 export const NUDGE = 3;
