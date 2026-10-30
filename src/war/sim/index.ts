@@ -52,7 +52,7 @@ import { BRAZIER, BUILDINGS, FIELD, WALLS, WORK_DEFENCE } from './economy';
 import { BOG, buildGrid, canEnter, DECK, findPath, flushSectors, FOREST, lineClear, lineCost, nearestOpen, pullPath, stepCost, tileAt, UPHILL, walkClear, type Grid } from './grid';
 import { createWorks, type Worker } from './works';
 import { createSiege, LADDER } from './siege';
-import { createMobs, MOB_OWNER, MOB_TEAM, mobClass } from './mobs';
+import { createMobs, MOB_OWNER, MOB_TEAM, mobClass, type SpawnScale } from './mobs';
 import { createRoam, ROAM_OWNER } from './roam';
 import { createSecrets } from './secrets';
 import { BOSS, BOSS_SLOW, createBosses } from './bosses';
@@ -611,23 +611,25 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       return true;
     },
   });
+  /** A wild squad of `owner` (lairs: MOB_OWNER; W-72 warlords: theirs) on MOB_TEAM, scaled as a lair's. */
+  const spawnWild = (owner: string, kind: MobKind, count: number, x: number, y: number, k: SpawnScale) => {
+    const id = api.spawnSquad(owner, MOB_TEAM, mobClass(kind), count, x, y);
+    // M7c: depth and the host's elite guard over the kind's stats; a captain leads (the first man)
+    squads[id]?.units.forEach((u, i) => {
+      const hp = k.hp * (i === 0 && k.lead ? k.lead.hp : 1), dmg = k.dmg * (i === 0 && k.lead ? k.lead.dmg : 1);
+      const armor = i === 0 ? k.lead?.armor ?? 0 : 0;
+      if (hp === 1 && dmg === 1 && !armor) return;
+      u.st = { ...u.st, maxHp: u.st.maxHp * hp, dmg: u.st.dmg * dmg, rangedDmg: u.st.rangedDmg * dmg, armor: u.st.armor + armor };
+      u.maxHp = u.hp = u.st.maxHp;
+    });
+    // W-65: a bandit captain (a host's or a story's named foe) wears the captain's sheet; his stats stay as set above
+    const lead = k.lead && kind === 'bandit' ? squads[id]?.units[0] : undefined;
+    if (lead) lead.cls = 'mob_bandit_captain';
+    return id;
+  };
   const mobs = createMobs(region, {
     squads,
-    spawn: (kind, count, x, y, k) => {
-      const id = api.spawnSquad(MOB_OWNER, MOB_TEAM, mobClass(kind), count, x, y);
-      // M7c: depth and the host's elite guard over the kind's stats; a captain leads (the first man)
-      squads[id]?.units.forEach((u, i) => {
-        const hp = k.hp * (i === 0 && k.lead ? k.lead.hp : 1), dmg = k.dmg * (i === 0 && k.lead ? k.lead.dmg : 1);
-        const armor = i === 0 ? k.lead?.armor ?? 0 : 0;
-        if (hp === 1 && dmg === 1 && !armor) return;
-        u.st = { ...u.st, maxHp: u.st.maxHp * hp, dmg: u.st.dmg * dmg, rangedDmg: u.st.rangedDmg * dmg, armor: u.st.armor + armor };
-        u.maxHp = u.hp = u.st.maxHp;
-      });
-      // W-65: a bandit captain (a host's or a story's named foe) wears the captain's sheet; his stats stay as set above
-      const lead = k.lead && kind === 'bandit' ? squads[id]?.units[0] : undefined;
-      if (lead) lead.cls = 'mob_bandit_captain';
-      return id;
-    },
+    spawn: (kind, count, x, y, k) => spawnWild(MOB_OWNER, kind, count, x, y, k),
     held: (on) => works.setFallback(on ? MOB_TEAM : NEUTRAL_TEAM),
     captainDown: (lair, by) => note({ t: tick, kind: 'captainSlain', lair, by }),
     // world-fill: a chief's loot falls where he did (src/data/warBosses.ts chiefLoot; the same kill, the same pile)
@@ -3758,6 +3760,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     spawnMobs: () => (mobs.spawn(), bosses.spawn()),
     addLair: (d) => mobs.add(d),
     spawnRoam: () => roam.spawn(),
+    spawnWild: (owner, kind, count, x, y, k) => spawnWild(owner, kind, count, x, y, k ?? { hp: 1, dmg: 1 }),
     addRoamer: (d) => roam.add(d),
     spawnGuardians: () => bosses.spawn(),
     wakeGuardians: (k) => (bosses.spawn(), bosses.wake(k)),

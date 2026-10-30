@@ -16,5 +16,7 @@
  *    per-region seeds (clients on 2 reload).
  * 4: new-creatures: scorpion, harpy, cyclops and drake mob kinds, Drakon calls
  *    drakes, sturdier chiefs (clients on 3 reload).
+ * 5: warlords (W-72 proposal): rival warlords hold, grow and raid (src/war/sim/warlords.ts), wild squads for any
+ *    owner (spawnWild), the wild's bots see without fog (clients on 4 reload).
  */
-export const SIM_VERSION = 4;
+export const SIM_VERSION = 5;

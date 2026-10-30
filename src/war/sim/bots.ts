@@ -46,6 +46,7 @@ import { decodeGraph, encodeGraph } from './state';
 import type { BuildingSnap, Order, RegionData, SiegeSnap, Snapshot, SquadId, WarBuildSim, WarSim } from '../types';
 import { warStats } from './classes';
 import { OXY } from './siege';
+import { MOB_TEAM } from './mobs';
 
 export type Behaviour =
   | { kind: 'attackMove'; x: number; y: number }
@@ -182,7 +183,7 @@ export function createBots(sim: WarSim, every = 5): Bots {
 
   /** What `team` knows of the field: its own side whole, foes as seen or remembered (see the header). */
   const viewOf = (snap: Snapshot, cs: Centre[], team: number): { cs: Centre[]; snap: Snapshot } => {
-    if (!vis) return { cs, snap };
+    if (!vis || team === MOB_TEAM) return { cs, snap }; // W-72: the wild has no fog (a warlord's men see the field)
     let mem = memo.get(team);
     if (!mem) memo.set(team, (mem = new Map()));
     const seen = new Set<SquadId>();
