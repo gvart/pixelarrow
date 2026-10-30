@@ -48,7 +48,7 @@ export interface WarArt {
 }
 
 /** The biome libraries under public/war/biomes/. */
-export const BIOMES = ['elaia', 'kyrene', 'mountains', 'dodona'] as const;
+export const BIOMES = ['elaia', 'kyrene', 'mountains', 'dodona', 'moors'] as const;
 const PIECE = 2048;
 /** A well-mixed position hash (autotile's hash is linear in its low bits: `% 4` repeats every 4 tiles). */
 const mix = (x: number, y: number, k: number) => {

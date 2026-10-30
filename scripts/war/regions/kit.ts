@@ -71,7 +71,7 @@ export interface Style {
 const STYLE: Style = { dry: 0.05, dryHigh: true, meadow: 0.1, dune: 0.3, trees: 1, bushes: 1, tufts: 0, wayside: false };
 
 /** Biome libraries a region may name (public/war/biomes/<name>; 'global' is the base set). */
-export const BIOMES = ['global', 'elaia', 'kyrene', 'mountains', 'dodona'] as const;
+export const BIOMES = ['global', 'elaia', 'kyrene', 'mountains', 'dodona', 'moors'] as const;
 export type BiomeName = (typeof BIOMES)[number];
 
 /** Region side, in units. */
@@ -283,13 +283,15 @@ export class Kit {
   forest(...bs: Blob[]) { for (const b of bs) this.paint('forest', b, { on: ['grass', 'dirt'] }); }
   /**
    * Water body: `deep` core (bed 0) with a shallow rim `shore` units wide, a sand beach `beach` units wide at most a level
-   * over the water; or all shallow (pools, lagoons). Over everything but rock.
+   * over the water; or all shallow (pools, lagoons). Over everything but rock. `bed`: a shallow pool lying at that level
+   * with the land round it left as it is (a bog pool up on a moor, not a pit to the sea's level).
    */
-  waterBody(b: Blob, o: { deep?: boolean; shore?: number; beach?: number; rough?: number; beachTerrain?: string } = {}) {
+  waterBody(b: Blob, o: { deep?: boolean; shore?: number; beach?: number; rough?: number; beachTerrain?: string; bed?: number } = {}) {
     const s = this.seed(), shore = o.shore ?? 2, beach = o.beach ?? 3, deep = o.deep ?? true;
     this.each((i, x, y) => {
       if (this.terrain[i] === 'rock') return;
       const e = this.e(b, x, y, o.rough ?? 4, s);
+      if (o.bed !== undefined) { if (e > 0) (this.water[i] = 1), (this.height[i] = o.bed), (this.terrain[i] = 'marsh'); return; }
       if (e > (deep ? shore : 0)) (this.water[i] = deep ? 2 : 1), (this.height[i] = 0), (this.terrain[i] = deep ? 'dirt' : 'sand');
       else if (e > 0) (this.water[i] = 1), (this.height[i] = deep ? 0 : this.height[i]), (this.terrain[i] = 'sand');
       else if (e > -beach && !this.water[i]) {
@@ -574,21 +576,43 @@ export class Kit {
     this.townReqs.push({ kind: 'near', ids, at: [this.simTile(at[0]), this.simTile(at[1])], n: o.n, r0: o.r0 ?? 0, r1: o.r1, gap: o.gap ?? 4, street: o.street ?? 0, water: !!o.water, town: o.town ?? this.townAt(at) });
   }
   /**
-   * A home agora or a frontier town's square (docs/WAR.md "Trade towns"), after the square and its roads: the square
-   * paved, two stoas facing over it, rows of stalls on its north and south sides, statues, a well and the price board
-   * round a clear centre (the market spot, the claim point), a temple off the square (or near `o.temple`: an entry
-   * town whose square lies in the road band's no-build corridor puts it in one of its quarters).
+   * A home agora or a frontier town's square (docs/WAR.md "Trade towns"), after the square and its roads, the market spot
+   * (the claim point) kept clear, a temple off the square (or near `o.temple`: an entry town whose square lies in the
+   * road band's no-build corridor puts it in one of its quarters). `o.layout` gives a town its own square:
+   * - 'classic' (default): paved round a beaten-earth heart, two stoas facing over it, rows of stalls on its north and
+   *   south sides, statues, a well and the price board;
+   * - 'bazaar' (Kyrene): a caravan market on beaten earth, no stoas or statues: stalls in three clusters round the
+   *   well, the caravans' warehouses and goods heaped between (the region script dresses it with awnings and jars);
+   * - 'quay' (Stymphalia): a lake-side market paved but for a small beaten patch under the banner, one long stoa on its north side, the fish stalls in a
+   *   line down its west side toward the jetty, a single statue, goods heaped by the causeway landing.
    */
-  agora(p: Pt, half = 6.5, o: { temple?: Pt } = {}) {
+  agora(p: Pt, half = 6.5, o: { temple?: Pt; layout?: 'classic' | 'bazaar' | 'quay' } = {}) {
     const tx = Math.round(this.simTile(p[0])), ty = Math.round(this.simTile(p[1])), town = this.townAt(p, 'agora');
+    const layout = o.layout ?? 'classic';
     if (this.K === 2) for (let i = 0; i < this.N; i++) if (this.terrain[i] === 'road') this.streets.add(i);
-    // paved, but for a beaten-earth heart round the market spot (the claim banner stands on open ground)
-    this.each((i, x, y) => { if (!this.water[i] && this.terrain[i] !== 'rock' && Math.max(Math.abs(x - p[0]), Math.abs(y - p[1])) <= half && Math.hypot(x - p[0], y - p[1]) > 3.2) this.terrain[i] = 'road'; });
+    // the ground: paved (a classic square but for a beaten-earth heart round the market spot), a bazaar beaten earth
+    const ground = layout === 'bazaar' ? 'dirt' : 'road', heart = layout === 'classic' ? 3.2 : layout === 'quay' ? 2 : -1; // the claim banner stands on beaten earth
+    this.each((i, x, y) => { if (!this.water[i] && this.terrain[i] !== 'rock' && this.terrain[i] !== 'road' && Math.max(Math.abs(x - p[0]), Math.abs(y - p[1])) <= half && Math.hypot(x - p[0], y - p[1]) > heart) this.terrain[i] = ground; });
     const S = (id: string, dx: number, dy: number) => this.structure(T(id), tx + dx, ty + dy, true, town);
-    S('stoa', -12, -9); S('stoa', 10, 3);
-    // stalls in rows on the north and south sides, a second row at the west and east ends (the square check keeps <= 15% closed)
-    for (const [k, dx] of [-10, -7, 5, 8].entries()) for (const [n, dy] of [-11, -7, 5, 9].entries()) if (n === 0 || n === 3 || k === 0 || k === 3) S(['stall-a', 'stall-b', 'stall-c'][(k + n) % 3], dx, dy);
-    S('statue', -6, -6); S('statue', 5, 5); S('well', 5, -6); S('board', -6, 5); S('goods', -3, -9); S('goods', 2, 10);
+    const stalls = ['stall-a', 'stall-b', 'stall-c'];
+    if (layout === 'bazaar') {
+      // three stall clusters (NW, W, SE: the crossing roads keep the middle open) round the well, the caravans'
+      // warehouses at the west and south-east ends, goods heaped between, the board by the well
+      for (const [n, [cx, cy]] of ([[-12, -12], [-12, 0], [4, 5]] as const).entries()) for (const [m, [dx, dy]] of ([[0, 0], [3, 0], [0, 3]] as const).entries()) S(stalls[(n + m) % 3], cx + dx, cy + dy);
+      S('well', -6, -5); S('board', -7, 3);
+      S('warehouse', -11, 7); S('warehouse', 4, 11); S('goods', -6, -8); S('goods', 3, 3); S('goods', -7, 10); S('goods', 9, 9);
+    } else if (layout === 'quay') {
+      // the stoa along the north side; the fish stalls down the west side, two by the east landing; one statue, the well
+      S('stoa', -6, -12); S('stoa', 0, -12);
+      for (const [n, dy] of [-7, -4, -1, 2, 5].entries()) S(stalls[n % 3], -11, dy);
+      S('stall-c', 8, -6); S('stall-a', 8, -2);
+      S('statue', 4, 5); S('well', -5, 6); S('board', 5, -6); S('goods', -8, 9); S('goods', -6, 9); S('goods', 10, 5);
+    } else {
+      S('stoa', -12, -9); S('stoa', 10, 3);
+      // stalls in rows on the north and south sides, a second row at the west and east ends (the square check keeps <= 15% closed)
+      for (const [k, dx] of [-10, -7, 5, 8].entries()) for (const [n, dy] of [-11, -7, 5, 9].entries()) if (n === 0 || n === 3 || k === 0 || k === 3) S(stalls[(k + n) % 3], dx, dy);
+      S('statue', -6, -6); S('statue', 5, 5); S('well', 5, -6); S('board', -6, 5); S('goods', -3, -9); S('goods', 2, 10);
+    }
     this.scatterTown([T('temple')], o.temple ?? p, { n: 1, r0: o.temple ? 0 : 16, r1: 30, street: 4, town });
   }
   /**
@@ -1451,6 +1475,11 @@ function visualLayer(k: Kit): Out {
         else if (t0 === 'sand' && sandAll(i)) out = height[i] >= 2 || fbm(x, y, 5, 78) > style.dune ? 'dune' : fbm(x, y, 6, 79) > 0.35 ? 'reg' : 'sand';
       } else if (b === 'elaia' && t0 === 'grass') {
         if ((style.dryHigh && height[i] >= 2) || fbm(x, y, 7, 86) > style.dry) out = 'dry';
+      } else if (b === 'moors') {
+        // heather over peat, black hags of bare peat where it is wettest, the marsh a black bog
+        if (t0 === 'grass' || t0 === 'forest') out = fbm(x, y, 5, 87) > 0.42 ? 'peat' : 'heath';
+        else if (t0 === 'dirt') out = 'peat';
+        else if (t0 === 'marsh') out = 'bog';
       }
     }
     kind[i] = KINDS.indexOf(k.paved[i] && t0 === 'road' && PAVED.has(BIOMES[biome[i]]) ? 'paving' : out);
@@ -1500,7 +1529,7 @@ export function build(def: RegionDef): Built {
   const log: string[] = [];
   // a biome terrain stays only where every tile round its cell is of that biome
   {
-    const OWN: Record<string, string[]> = { mountains: ['scree', 'meadow', 'gravel', 'drift'], elaia: ['dry', 'rossa', 'marble', 'grove', 'ruin'], kyrene: ['dune', 'hardpan', 'redrock', 'reg', 'salt', 'oasis', 'rubble'] };
+    const OWN: Record<string, string[]> = { mountains: ['scree', 'meadow', 'gravel', 'drift'], elaia: ['dry', 'rossa', 'marble', 'grove', 'ruin'], kyrene: ['dune', 'hardpan', 'redrock', 'reg', 'salt', 'oasis', 'rubble'], moors: ['heath', 'peat', 'bog'] };
     const ownerOf = new Map(Object.entries(OWN).flatMap(([b, ks]) => ks.map((kk) => [KINDS.indexOf(kk as Kind), BIOMES.indexOf(b as BiomeName)])));
     for (let fy = 0; fy < FH; fy++) for (let fx = 0; fx < FW; fx++) {
       const j = fy * FW + fx, b = ownerOf.get(fine.kind[j]);
@@ -1576,6 +1605,19 @@ export function build(def: RegionDef): Built {
     if (water[i] || t === 'road' || spotTiles.has(i) || (agora && Math.max(Math.abs(x - agora[0]), Math.abs(y - agora[1])) <= 17) || cleared(x, y)) continue; // no wild trees in the agora and clearings
     const p = hsh(x, y, 1), q = hsh(x, y, 2), fx = x + 0.3 + 0.4 * hsh(x, y, 3), fy = y + 0.3 + 0.4 * hsh(x, y, 4);
     const nearWater = ring(x, y, (j) => water[j] > 0), kk = kindAt(fx, fy);
+    if (b === 'moors') {
+      // the Grey Moors (public/war/biomes/moors): heather and dead bracken over the heath, bog cotton in the bog and round
+      // its pools, a rare wind-bent hawthorn, granite boulders; no woods (a forest blob is a thicket of heather)
+      if (t === 'rock') { if (p < 0.12 && ring(x, y, (j) => terrain[j] !== 'rock' && !water[j])) put(pick(['boulder-a', 'boulder-b', 'boulder-a'], q), fx, fy); }
+      else if (t === 'marsh' || kk === 'bog') { if (p < 0.14) put(pick(['moors/bog-cotton', 'moors/bog-cotton', 'moors/bog-cotton', 'reeds'], q), fx, fy); else if (p < 0.142) put('dead-tree', fx, fy); }
+      else if (nearWater) { if (p < 0.12) put('moors/bog-cotton', fx, fy); }
+      else if (kk === 'heath' || kk === 'peat' || t === 'forest') {
+        const thick = t === 'forest' ? 3 : 1;
+        if (p < 0.0025 * thick) put('moors/hawthorn', fx, fy);
+        else if (p < (kk === 'peat' ? 0.02 : 0.08) * thick * st.bushes) put(pick(['moors/heather', 'moors/bracken', 'moors/heather'], q), fx, fy);
+      }
+      continue;
+    }
     if (t === 'forest') {
       const edge = ring(x, y, (j) => terrain[j] !== 'forest');
       const trees = b === 'mountains' ? FIRS : b === 'elaia' ? E(['holm-oak', 'stone-pine', 'holm-oak', 'cypress-tall', 'olive-tall']) : b === 'kyrene' ? Y(['acacia', 'acacia-old', 'tamarisk', 'thorn-tree']) : b === 'dodona' ? DWOOD : WOODS;
@@ -1638,7 +1680,8 @@ export function build(def: RegionDef): Built {
     const open = new Set(['grass', 'sand', 'dirt']);
     for (let n = objects.length - 1; n >= 0; n--) {
       const o = objects[n], t = terrain[at(Math.floor(o.x), Math.floor(o.y))], fk2 = KINDS[fine.kind[cellOf(o.x, o.y)]];
-      if ((fk2 !== t && !(KINDS.indexOf(fk2) > KINDS.indexOf('deep') && open.has(t))) || !footSeen(o.x, o.y)) objects.splice(n, 1);
+      const moor = fk2 === 'heath' || fk2 === 'peat' || fk2 === 'bog'; // the moors' kinds stand on its grass, forest and marsh
+      if ((fk2 !== t && !(KINDS.indexOf(fk2) > KINDS.indexOf('deep') && (open.has(t) || moor))) || !footSeen(o.x, o.y)) objects.splice(n, 1);
     }
   }
   // crags and spires on the lips of the rock's cliff bands, scree fans under walls
@@ -1657,7 +1700,7 @@ export function build(def: RegionDef): Built {
     } else if (terrain[i] !== 'rock' && height[i] >= 2) {
       const wall = Math.max(fzAt(fx - 1, fy), fzAt(fx, fy - 1), fzAt(fx - 1, fy - 1)) - z >= 3;
       // the talus of the cliff's own stone (art.ts draws the biome's cliff material over the face)
-      const b = B(i), tal = b === 'elaia' ? 'elaia/talus-lime' : b === 'mountains' ? 'mountains/talus-granite' : b === 'kyrene' ? 'kyrene/talus-red' : 'scree';
+      const b = B(i), tal = b === 'elaia' ? 'elaia/talus-lime' : b === 'mountains' || b === 'moors' ? 'mountains/talus-granite' : b === 'kyrene' ? 'kyrene/talus-red' : 'scree';
       if (wall && p < 0.12 && footSeen(ox, oy) && !ring(x, y, (j) => water[j] > 0)) put(tal, ox, oy); // not on a shore (it stood in the water)
     }
   }

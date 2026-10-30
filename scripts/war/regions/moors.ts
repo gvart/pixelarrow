@@ -5,12 +5,14 @@
  * tor, on the bones of the first Dodonan army to march east; bears and wolves.
  * Layout (Gemini reference shots/war/regions/proto/moors.png; W-52 set pieces, ./setpieces.ts): the brown moor (h6-7)
  * stands on a three-level wall over its low rim (h3-4). Three great granite tors rise over it in stepped walls: the big one fills the
- * north-west (h8-9, h11-12, h14-15 tiers to a crown of granite stacks) with its ring of standing stones on top and the bear's
+ * north-west (h8-9, h11-12, h14-15 tiers to a crown of granite stacks, moors/tor-a sprites) with its ring of standing stones on top and the bear's
  * cave at its foot; a lower one in the south-west (h8-9, h12-13); and the broad flat-topped east tor (h8-9, top h12-13, 30+ tiles
  * across) with one path up its walls, the fortress over the Saddle road, the iron at its foot. A black peat bog with
  * pools splits the moor from north-east to south-west; the one stone causeway carries the road over it. The roads from
  * Dodona's two entries meet west of the bog at the claim point; beyond the causeway they part for the Saddle and
  * Erymanthos.
+ * Look (regions-look, PROMPTS_ART §49): the moors library (public/war/biomes/moors) over the whole region: heather over
+ * peat, black bog, granite walls, granite tor stacks, standing stones, bog cotton, wind-bent hawthorns; no pine woods.
  */
 import type { Kit, Pt, RegionDef } from './kit.ts';
 import { pocketBoss } from './tiers.ts';
@@ -25,14 +27,12 @@ const bx = (y: number) => 176 - 0.42 * y + 8 * Math.sin(y / 19);
 
 const def: RegionDef = {
   id: 'moors',
-  style: { meadow: 0.3, dry: -0.2, trees: 0.06, bushes: 0.5, tufts: 0.04 },
+  style: { meadow: 0.3, dry: -0.2, trees: 0.06, bushes: 0.6, tufts: 0 },
   build(k: Kit) {
     const N = k.entry('dodona-e'), W = k.entry('dodona-s'), E = k.entry('saddle'), S = k.entry('erymanthos');
     k.fill(4);
-    k.zone('elaia', () => 99); // the moor's dry brown grass
-    k.zone('mountains', [60, 56, 50, 46, 0], 6);
-    k.zone('mountains', [50, 196, 30, 24, 0], 6);
-    k.zone('mountains', [198, 150, 36, 32, 0], 6);
+    // the moors library (public/war/biomes/moors): heather over peat, black bog, granite walls, tors and standing stones
+    k.zone('moors', () => 99);
     // the moor a tier over its rim
     relief(k, (x, y, s) => (Math.min(x, y, 256 - x, 256 - y) + 6 * Math.sin((x + y) / 17 + s) + 4 * fbm(x, y, 8, s) > 18 ? 6.3 : 3.2) + 0.7 * fbm(x, y, 22, s + 1)); // three-level walls over the rim
     // the brown heather over the moor
@@ -45,9 +45,6 @@ const def: RegionDef = {
       const t = big.t(x, y);
       return t < 0 ? NaN : profile([[0, 8.4], [0.9, 9], [1, 11.4], [1.9, 12], [2, 14.2], [3, 15]], t) + 0.35 * fbm(x, y, 8, s);
     }, { cliffs: [[9, 11.4], [12, 14.2]] });
-    // the granite stacks of the crowns
-    k.rockMass([50, 46, 10, 8, 0.4], { rough: 1.2, foot: 7 });
-    k.rockMass([48, 192, 7, 5, 0.2], { rough: 1, foot: 7 });
     const sw = massif(k, { outline: blob([50, 196], 30, 24, [1, 0.9, 1.1, 0.95, 1, 1.05, 0.9, 1]), crown: blob([52, 194], 10, 8, [1, 1.1, 0.9, 1, 1]), base: 5, tiers: 2, steps: [2, 2], wobble: 0.25 });
     const east = massif(k, { outline: blob([198, 150], 36, 32, [1, 0.95, 1.05, 0.9, 1, 1.1, 0.95, 1]), crown: blob([196, 150], 18, 16, [1, 1.05, 0.95, 1, 1.05, 1]), base: 5, tiers: 2, steps: [2, 2], wobble: 0.2 });
     k.spot('fortress', [196, 150]);
@@ -56,26 +53,36 @@ const def: RegionDef = {
       const t = m.t(x, y);
       return t < 0 ? NaN : profile([[0, 8.4], [0.9, 9], [1, 12], [2, 12.8]], t) + 0.4 * fbm(x, y, 9, s);
     }, { cliffs: [[9, 12]] });
-    // granite stacks on the tors (rock): the big tor's crown ringed with them, others on the shoulders
-    for (const b of [[72, 42, 6, 4, 0.4], [40, 64, 5, 5, 0], [44, 40, 5, 4, 0], [30, 84, 4, 3, 0.2], [92, 40, 4, 3, 0], [24, 40, 3, 4, 0], [222, 134, 4, 3, 0.2], [176, 172, 4, 3, 0], [222, 168, 4, 3, 0], [64, 204, 5, 4, 0], [40, 184, 4, 3, 0], [36, 210, 3, 3, 0]] as const) k.rockMass([...b], { rough: 0.8, foot: 7 });
-    k.patch('mountains', 'gravel', [56, 52, 14, 12, 0.2], ['dirt', 'grass'], undefined, 10);
-    // the bog: marsh with black pools along its line, a spring stream out of it
-    for (let y = -10; y <= 266; y += 22) k.paint('marsh', [bx(y), y, 16, 14, 0.6], { on: ['grass', 'dirt'], rough: 5 });
-    for (const y of [10, 46, 92, 160, 196, 238]) k.waterBody([bx(y) + ((y * 7) % 9) - 4, y, 5, 3, 0.5], { deep: true, shore: 1, beach: 0, rough: 1.2 });
+    // the granite tors' own stacks (moors/tor-a, tor-b) on the crowns and shoulders, the big tor's ring of standing stones
+    // (granite sprites, not rock terrain: rock masses drew as smooth grey mountain cones): the big tor's crown a heap of
+    // great stacks, the south-west tor's crown three, smaller stacks on the shoulders and the east tor's rim
+    for (const [x, y] of [[46, 42], [54, 40], [50, 48], [42, 50], [58, 47], [47, 56], [38, 44], [52, 192], [46, 196], [56, 198]] as const) k.piece('moors/tor-a', [x, y], { r: 2 });
+    for (const [x, y] of [[72, 42], [40, 64], [44, 34], [30, 84], [92, 40], [24, 40], [222, 134], [176, 172], [222, 168], [64, 204], [40, 184], [36, 210], [184, 160], [214, 140], [180, 140]] as const) k.piece('moors/tor-b', [x, y], { r: 3, n: 2, gap: 3 });
+    for (let n = 0; n < 9; n++) { const a = (n / 9) * 2 * Math.PI; k.piece('moors/standing-stone', [68 + 6 * Math.cos(a), 60 + 4 * Math.sin(a)], { r: 1 }); }
+    // the bog: a broad black peat bog with pools all along its line, a spring stream out of it
+    for (let y = -10; y <= 266; y += 16) k.paint('marsh', [bx(y), y, 22, 16, 0.6], { on: ['grass', 'dirt', 'forest'], rough: 6 });
+    k.each((i) => { if (k.terrain[i] === 'marsh' && k.height[i] > 5) k.height[i] = 5; }); // the bog a level under the moor
+    for (let y = 2; y <= 250; y += 11) {
+      if (Math.abs(y - 126) < 9) continue; // the causeway's line stays dry
+      const off = 9 * Math.sin(y * 1.7), big = (y * 13) % 3 === 0, c: [number, number] = [bx(y) + off, y];
+      // black pools lying in the bog at its own level (no pits down to the sea's level)
+      k.waterBody([c[0], c[1], big ? 6 : 3.5, big ? 4 : 2.5, (y % 7) / 7], { deep: false, rough: 1.2, bed: Math.min(5, k.height[k.at(c)]) });
+    }
+    // peat cuttings by the drovers' track: stacks of drying turves on the bare peat
+    for (const [x, y] of [[118, 100], [134, 142], [204, 104], [112, 176]] as const) { k.patch('moors', 'peat', [x, y, 7, 5, 0.3], ['grass']); k.piece('moors/peat-stack', [x, y], { r: 4, n: 3, gap: 2 }); }
     k.river([[bx(150) + 8, 150], [150, 176], [150, 214], [160, 262]], { half: 1, deep: false, bed: 5, bank: 1 });
     // roads: Dodona's two meet at the claim point west of the bog; the causeway; on to the Saddle and Erymanthos;
     // the paths up the tors
     const hub: Pt = [94, 120];
     k.road([N, [124, 30], [112, 70], hub], { w: 1.3, grade: 3 });
     k.road([W, [30, 126], [60, 124], hub], { w: 1.3, grade: 3 });
-    k.causeway([[bx(126) - 14, 126], [bx(126) + 14, 126]], 1.6, 5);
+    k.causeway([[bx(126) - 14, 126], [bx(126) + 14, 126]], 1.6, 6);
     k.road([hub, [bx(126) - 14, 126], [bx(126) + 14, 126], [176, 124], [214, 122], [236, 128], E], { w: 1.3, grade: 3 });
     k.road([[176, 124], [168, 170], [146, 210], [130, 236], S], { w: 1.3, grade: 3 });
     k.spot('causeway', [bx(126), 126]);
     k.road([[176, 124], [168, 136], [170, 150], [180, 154], [190, 152], [196, 150]], { w: 1, grade: 1.3 });
     k.road([hub, [96, 96], [86, 78], [74, 70], [68, 62]], { w: 1, grade: 1.3 });
     // the standing stones on the big tor, cairns, the ruined shepherd's hut by the hub
-    k.piece('mountains/cairn', [66, 60], { r: 7, n: 5, gap: 4 });
     k.piece('mountains/cairn', [196, 150], { r: 9, n: 2, gap: 6 });
     k.piece('watchtower', [192, 146], { r: 4 });
     k.village([90, 150], 3);
