@@ -36,7 +36,7 @@ export type StoryTrigger =
   /** Follow the marks: his men reach each in turn. */
   | { kind: 'track'; marks: readonly Pt[] }
   /** A camp or a named foe spawned for him at the spot (`lead`: its first man a captain, x2 hp); done once it is cleared with his men near. */
-  | { kind: 'clear'; at: Pt; mob: MobKind; count: number; lead?: true; name?: string }
+  | { kind: 'clear'; at: Pt; mob: MobKind; count: number; lead?: true; name?: string; /** world-fill: led by this chief (src/data/warBosses.ts; count: his escort's). */ chief?: string }
   /** A captive (a soul at the spot) his squad claims (or would, with a full army: freed, he goes his way). */
   | { kind: 'rescue'; at: Pt; cls: string; level: number; name: string }
   /** A choice on the story card: each option pays and leads on (no `next`: the chain ends). */
@@ -74,6 +74,8 @@ export interface Story {
   end: string;
   /** Paid when the chain ends (either branch). */
   reward?: StoryReward;
+  /** world-fill: a hidden quest (no giver, no "!"): it begins when men walk onto `giver.at` (src/war/sim/secrets.ts). */
+  hidden?: true;
 }
 
 /** A player's progress in one region's story. at: the open step (null: not begun); n: marks reached; picks: choices made. */
@@ -97,7 +99,7 @@ export type StoryNote =
 
 /** What a run spawns and pays through (the server room, the offline page, tests). `at`: his men's middle (or the step's spot). */
 export interface StoryHost {
-  addLair(d: { kind: MobKind; x: number; y: number; count: number; lead?: true }): void;
+  addLair(d: { kind: MobKind; x: number; y: number; count?: number; lead?: true; chief?: string }): void;
   spawnSoul(x: number, y: number, cls: string, level: number): void;
   give(reward: StoryReward, at: { x: number; y: number }, item: Item | null): void;
 }
@@ -236,7 +238,7 @@ export class StoryRun {
       if (ls.some((l) => l.state !== 'cleared')) return void (this.seen = true);
       if (this.seen || s.tick - this.asked < RESPAWN) return;
       this.asked = s.tick;
-      this.host.addLair({ kind: t.mob, x: p.x, y: p.y, count: t.count, ...(t.lead ? { lead: true as const } : {}) });
+      this.host.addLair({ kind: t.mob, x: p.x, y: p.y, ...(t.chief ? { chief: t.chief } : { count: t.count }), ...(t.lead ? { lead: true as const } : {}) });
       return;
     }
     const here = (s.souls ?? []).filter((x) => Math.hypot(x.x - p.x, x.y - p.y) < STORY_R.soul);

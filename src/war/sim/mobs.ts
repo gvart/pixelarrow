@@ -30,11 +30,11 @@
  */
 import type { ClaimSnap, LairSnap, MobFxEvent, MobKind, NodeSnap, Order, RegionData, SquadId, WarEvent } from '../types';
 import type { ClassId } from '../../data/classes';
-import { depthRule, HOST } from './depth';
+import { depthOf, depthRule, HOST } from './depth';
+import { chiefKind, chiefRespawn, warChief, type WarChief } from '../../data/warBosses';
 
 export const MOB_TEAM = 7;
 export const MOB_OWNER = 'mob';
-export const MOB_KINDS: readonly MobKind[] = ['wolf', 'boar', 'bear', 'bandit', 'jackal', 'ibex', 'lion', 'serpent'];
 
 /**
  * Per kind: stats over a base class (multipliers on hp and damage, absolute speed and attack time), pack size, and the
@@ -83,6 +83,9 @@ export const MOBS: Record<MobKind, MobDef> = {
     dash: { min: 1.8, max: 3.6, ticks: 5, speed: 2.6, cd: 60, dmg: 1.3 } },
 };
 
+/** Every mob kind (the region schema's lair enum reads it): a new kind is a row of MOBS (and of roam.ts NATURE). */
+export const MOB_KINDS = Object.keys(MOBS) as readonly MobKind[];
+
 /** W-67: a mob FX event (the view's ../view/mobFx.ts; the live region forwards these to the players who see them). */
 export const isMobFx = (e: WarEvent): e is MobFxEvent => e.kind === 'mobDash' || e.kind === 'mobCry' || e.kind === 'mobScatter';
 
@@ -104,7 +107,7 @@ const RESPAWN_CLEAR = 20; // no foe this near the lair when it comes back
 /** Claim channel: ticks (30 s), men of the squad within `at` of the banner, foes within `contest` interrupt; influence radius. */
 export const CLAIM = { ticks: 300, men: 3, at: 5, contest: 14, r: 20 };
 
-export interface MobUnit { x: number; y: number; hp: number; maxHp: number; alive: boolean }
+export interface MobUnit { id?: number; x: number; y: number; hp: number; maxHp: number; alive: boolean }
 export interface MobSquad { id: SquadId; owner: string; team: number; alive: number; civ?: boolean; cx: number; cy: number; units: MobUnit[]; order: Order['kind']; target: SquadId; claimPt: number }
 /** M7c: stat multipliers of a spawned pack (depth, elite guard) and of its first man (a captain). */
 export interface SpawnScale { hp: number; dmg: number; lead?: { hp: number; dmg: number } }
@@ -135,6 +138,8 @@ export interface MobHost {
   towers?(): { id: number; x: number; y: number }[];
   /** M7c: foe carts in the region (raid targets). */
   carts?(): { id: number; x: number; y: number; team: number }[];
+  /** world-fill: a chief (mini-boss) fell at (x,y) (by: the team of the squad it fought last, -1 unknown): his loot pile. */
+  chiefDown?(lair: number, chief: WarChief, x: number, y: number, by: number): void;
   /** W-67: the view's mob FX (a lair roused: cry; a pack breaking off or a herd bolting: scatter). */
   note?(e: { kind: 'mobCry' | 'mobScatter'; lair: number; mob: MobKind; x: number; y: number }): void;
 }
@@ -151,6 +156,8 @@ interface Lair {
   lead?: true;
   /** W-62: an added lair (addLair, the guide's early win): never comes back once cleared. */
   once?: boolean;
+  /** world-fill: led by a chief (his man the squad's first), alive; his lair comes back after chiefRespawn. */
+  chief?: WarChief; chiefAlive?: boolean;
 }
 
 interface Claim { id: number; x: number; y: number; r: number; lairs: number[]; team: number; squad: SquadId; progress: number; contested: boolean }
@@ -188,8 +195,11 @@ export function createMobs(region: RegionData, host: MobHost) {
 
   const spawnLair = (l: Lair) => {
     const g = l.captain ? HOST.guard : { hp: 1, dmg: 1 };
-    l.squad = host.spawn(l.kind, l.count, l.x, l.y, { hp: rule.mob * g.hp, dmg: rule.mob * g.dmg, ...(l.captain || l.lead ? { lead: HOST.captain } : {}) });
+    const ck = l.chief ? chiefKind(l.chief.id) : undefined;
+    const lead = ck ? { hp: ck.hp, dmg: ck.dmg } : l.captain || l.lead ? HOST.captain : undefined;
+    l.squad = host.spawn(l.kind, l.count, l.x, l.y, { hp: rule.mob * g.hp, dmg: rule.mob * g.dmg, ...(lead ? { lead } : {}) });
     l.capAlive = l.captain;
+    if (l.chief) l.chiefAlive = true;
     l.raidUntil = 0;
     if (l.def.base === 'militia') host.order({ kind: 'formation', squad: l.squad, shape: 'loose' });
     l.state = 'home';
@@ -246,10 +256,15 @@ export function createMobs(region: RegionData, host: MobHost) {
       host.captainDown?.(l.id, l.foe >= 0 ? sq(l.foe).team : -1);
       holding();
     }
+    if (l.chiefAlive && !s.units[0]?.alive) {
+      l.chiefAlive = false;
+      const u = s.units[0];
+      host.chiefDown?.(l.id, l.chief!, u?.x ?? s.cx, u?.y ?? s.cy, l.foe >= 0 ? sq(l.foe).team : -1);
+    }
     if (s.alive === 0) {
       l.cleared = true;
       l.capAlive = false;
-      l.respawnAt = tick + rule.respawn;
+      l.respawnAt = tick + (l.chief ? chiefRespawn(depthOf(region)) : rule.respawn);
       holding();
       l.state = 'home';
       if (l.nodes.length) host.lockNodes(l.nodes, false);
@@ -403,6 +418,12 @@ export function createMobs(region: RegionData, host: MobHost) {
     host.order({ kind: 'attackBuilding', squad: l.squad, siege: cart });
   };
 
+  /** world-fill: a chief lair as the view draws him (name plate, scale, tint over his kind's sheet). */
+  const chiefSnap = (l: Lair, s: MobSquad | undefined) => {
+    const c = l.chief!, k = chiefKind(c.id)!;
+    return { id: c.id, name: c.name, title: c.title, unit: s?.units[0]?.id ?? -1, alive: !l.cleared && !!l.chiefAlive, scale: k.scale, tint: k.tint };
+  };
+
   return {
     /** Save and restore (./state.ts). */
     saveRoot: () => ({ lairs, claims, spawned, tick, gates, held, raidAt }),
@@ -452,7 +473,8 @@ export function createMobs(region: RegionData, host: MobHost) {
         const def = MOBS[d.kind];
         const guard = def.passive ? [] : nodes.filter((n) => n.obj !== undefined && (n.x - d.x) ** 2 + (n.y - d.y) ** 2 <= GUARD_R * GUARD_R).map((n) => n.id);
         const captain = !!d.captain && d.kind === 'bandit';
-        const l: Lair = { id, kind: d.kind, def, x: d.x, y: d.y, count: d.count ?? (captain ? 12 : def.count), squad: -1, state: 'home', cleared: false, respawnAt: 0, nodes: guard, wanderAt: 0, fleeUntil: 0, hpSeen: Infinity, foe: -1, captain, capAlive: false, post: -1, raidUntil: 0 };
+        const chief = d.chief ? warChief(d.chief) : undefined, ck = chief ? chiefKind(chief.id) : undefined;
+        const l: Lair = { id, kind: d.kind, def, x: d.x, y: d.y, count: d.count ?? (captain ? 12 : ck ? ck.escort + 1 : def.count), ...(chief && ck ? { chief } : {}), squad: -1, state: 'home', cleared: false, respawnAt: 0, nodes: guard, wanderAt: 0, fleeUntil: 0, hpSeen: Infinity, foe: -1, captain, capAlive: false, post: -1, raidUntil: 0 };
         lairs.push(l);
       });
       // M7c: the host's other bandit lairs of a captain's zone stand on its towers, nearest first
@@ -485,9 +507,10 @@ export function createMobs(region: RegionData, host: MobHost) {
      */
     /** W-62: some lair was added (the snapshot then carries the lairs in a region with none of its own). */
     added: () => lairs.some((l) => l.once),
-    add(d: { kind: MobKind; x: number; y: number; count?: number; lead?: true }): number {
+    add(d: { kind: MobKind; x: number; y: number; count?: number; lead?: true; chief?: string }): number {
       const def = MOBS[d.kind];
-      const l: Lair = { id: lairs.length, kind: d.kind, def, x: d.x, y: d.y, count: d.count ?? def.count, squad: -1, state: 'home', cleared: false, respawnAt: 0, nodes: [], wanderAt: 0, fleeUntil: 0, hpSeen: Infinity, foe: -1, captain: false, capAlive: false, post: -1, raidUntil: 0, once: true, ...(d.lead ? { lead: true as const } : {}) };
+      const chief = d.chief ? warChief(d.chief) : undefined, ck = chief ? chiefKind(chief.id) : undefined;
+      const l: Lair = { id: lairs.length, kind: d.kind, def, x: d.x, y: d.y, count: d.count ?? (ck ? ck.escort + 1 : def.count), ...(chief && ck ? { chief } : {}), squad: -1, state: 'home', cleared: false, respawnAt: 0, nodes: [], wanderAt: 0, fleeUntil: 0, hpSeen: Infinity, foe: -1, captain: false, capAlive: false, post: -1, raidUntil: 0, once: true, ...(d.lead ? { lead: true as const } : {}) };
       lairs.push(l);
       spawnLair(l);
       return l.id;
@@ -522,6 +545,7 @@ export function createMobs(region: RegionData, host: MobHost) {
           id: l.id, kind: l.kind, x: l.x, y: l.y, squad: l.squad, alive: l.cleared ? 0 : (s?.alive ?? 0), count: l.count,
           state: l.cleared ? 'cleared' : l.state === 'raid' ? 'chase' : l.state, aggro: l.def.aggro, leash: l.def.leash, guard: l.def.passive ? 0 : GUARD_R, nodes: l.nodes.length,
           ...(l.captain ? { captain: l.capAlive } : {}),
+          ...(l.chief ? { chief: chiefSnap(l, s) } : {}),
           ...(l.cleared ? { respawnIn: Math.max(0, l.respawnAt - tick) } : {}),
         };
       }),

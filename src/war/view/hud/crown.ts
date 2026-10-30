@@ -29,6 +29,7 @@ import { draggable } from './drag';
 import { glyph } from './glyph';
 import { closeCornerWindows, icon, menuBtn, setBadge } from './kit';
 import { esc, tipper } from './roster/ui';
+import { chip, details, qcard } from './qcard';
 import { keys } from '../../input/keys';
 import { fill, ORDER_LORE } from '../../net/questLore';
 import { homeAnchor } from '../../net/guide';
@@ -225,13 +226,15 @@ function orderCard(o: CrownOrder, v: CrownView): string {
        ${mayEnd ? `<button class="rf-tbtn" data-act="endOrder" data-id="${o.id}" data-sure="endOrder:${o.id}" data-tip="${attr(war ? '<b class="k">Close and pay</b><br><span class="rf-dim tip-w">the bounty goes out by shares now</span>' : '<b class="k">Call off</b><br><span class="rf-dim tip-w">what is unpaid goes back to the treasury</span>')}">${war ? 'Pay out' : 'Call off'}</button>` : ''}`;
   const lore = orderLore(o), on = isTracked(orderKey(o));
   const trk = open ? `<button class="rf-tbtn cr-trk${on ? ' on' : ''}" data-act="trackOrder" data-id="${o.id}" data-tip="${attr(on ? '<b class="k">Tracked</b><br><span class="rf-dim tip-w">click to stop tracking</span>' : '<b class="k">Track</b><br><span class="rf-dim tip-w">pin it on screen, with a marker on its spot</span>')}">${on ? 'Tracked' : 'Track'}</button>` : '';
-  return `<div class="cr-order rf-well ${k.cls}${open ? '' : ' closed'}">
-    <div class="cr-oic">${glyph(k.glyph, 26)}</div>
-    <div class="cr-ob"><div class="cr-otop"><span class="cr-okind">${k.name}</span><span class="cr-owhere">${where}</span>${o.bounty > 0 ? `<span class="rf-ichip gold cr-bounty" data-tip="${attr(`<b class="k">Bounty</b> · ${fmt(o.bounty)} coin<br><span class="rf-dim tip-w">${war ? 'shared by everyone whose men fight there (1 + kills each)' : 'paid pro rata as goods come in'}</span>`)}">${icon('res-coin')}${fmt(o.bounty)}</span>` : ''}</div>
-      <div class="cr-ogiver">Posted by ${esc(lore.giver)}</div>
-      ${open ? `<div class="cr-ostory">“${esc(lore.story)}”</div><div class="cr-oline"><b>Goal</b><span>${esc(lore.goal)}</span></div><div class="cr-oline"><b>Pay</b><span>${esc(lore.pay)}</span></div>` : ''}
-      ${prog}
-      <div class="cr-ofoot"><span class="rf-dim">${open ? `${until(o.expires - v.now)} left` : 'closed'}</span><span class="cr-oact">${trk}${act}</span></div></div></div>`;
+  // the compact card (./qcard.ts): kind and place over the goal, bounty and time as chips; the story, pay and who
+  // posted it behind (i) / hover
+  const bounty = o.bounty > 0 ? `<span class="rf-ichip gold cr-bounty" data-tip="${attr(`<b class="k">Bounty</b> · ${fmt(o.bounty)} coin<br><span class="rf-dim tip-w">${war ? 'shared by everyone whose men fight there (1 + kills each)' : 'paid pro rata as goods come in'}</span>`)}">${icon('res-coin')}${fmt(o.bounty)}</span>` : '';
+  return `<div class="cr-order rf-well ${k.cls}${open ? '' : ' closed'}">${qcard({
+    key: orderKey(o), icon: glyph(k.glyph, 24), kind: `${k.name} · ${regionName(o.region)}`, goal: lore.goal,
+    chips: `${bounty}${open ? chip.time(`${until(o.expires - v.now)} left`) : ''}`, cta: `<span class="cr-oact">${trk}${act}</span>`,
+    extra: prog,
+    more: details({ title: `${k.name}: ${where.replace(/&amp;/g, '&')}`, story: lore.story, lines: [['Pay', lore.pay]], from: `Posted by ${lore.giver}` }),
+  })}</div>`;
 }
 
 function ordersHtml(v: CrownView, form: OrderForm): string {
@@ -327,21 +330,13 @@ const CSS = `
 .cr-pb{flex:1}.cr-sig{font:700 13px/1 Cinzel,serif;color:var(--rf-gold);min-width:34px;text-align:right}
 .cr-rk{display:flex;align-items:center;gap:6px;padding:3px 4px;border-bottom:1px solid #1a1c20;font-size:11.5px}.cr-rk.me{background:var(--rf-sel)}
 .cr-rn{width:14px;text-align:right;color:var(--rf-muted);font:700 11px/1 Cinzel,serif}.cr-rkn{flex:1;min-width:0;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.cr-rk b{min-width:24px;text-align:right;color:var(--rf-gold)}
-.cr-order{display:flex;gap:7px;padding:5px 6px;margin-bottom:4px}.cr-order.closed{opacity:.6}
+.cr-order{padding:6px 7px;margin-bottom:4px}.cr-order.closed{opacity:.6}
 .cr-order.war{border-left:3px solid #b42c22}.cr-order.def{border-left:3px solid #2e6c9c}.cr-order.rally{border-left:3px solid var(--rf-gold)}.cr-order.sup{border-left:3px solid #6a8a3a}
-.cr-oic{width:40px;height:40px;flex:none;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 65%,#2b2f37,#0d0f12);border:1px solid var(--rf-line)}
-.cr-ob{flex:1;min-width:0}
-.cr-otop{display:flex;align-items:center;gap:5px}
-.cr-okind{font:700 13px/1 Cinzel,serif;color:var(--rf-title)}.war .cr-okind{color:#f08a70}.def .cr-okind{color:#8ab8e0}.sup .cr-okind{color:var(--rf-good)}
-.cr-owhere{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11.5px}
 .cr-bounty{height:20px}
-.cr-prog{display:flex;align-items:center;gap:6px;margin:4px 0;font-size:11px}.cr-prog .rf-bar{flex:1}
+.cr-prog{display:flex;align-items:center;gap:6px;margin:5px 0 0;font-size:12px}.cr-prog .rf-bar{flex:1}
 .cr-pn{display:inline-flex;align-items:center;gap:2px;white-space:nowrap;font:700 12px/1 Inter,sans-serif;color:var(--rf-gold)}
-.cr-ogiver{font:italic 11px/1.3 Inter,sans-serif;color:var(--rf-muted);margin-top:2px}
-.cr-ostory{font:italic 11.5px/1.3 Inter,sans-serif;color:var(--rf-ink);opacity:.85;margin-top:2px}
-.cr-oline{display:flex;gap:5px;font-size:11.5px;line-height:1.3;margin-top:2px}.cr-oline b{flex:none;width:34px;font:700 9.5px/15px Inter,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--rf-muted)}
 .cr-trk.on{color:var(--rf-gold);border-color:#6a5326}
-.cr-ofoot{display:flex;align-items:center;gap:4px;font-size:11px}.cr-oact{margin-left:auto;display:flex;gap:3px;align-items:center}.cr-ofoot .rf-tbtn,.cr-pact .rf-tbtn{height:22px}
+.cr-oact{margin-left:auto;display:flex;gap:3px;align-items:center}.cr-oact .rf-tbtn,.cr-pact .rf-tbtn{height:22px}
 .cr-st{font:600 11px/1 Inter,sans-serif;text-transform:capitalize;color:var(--rf-muted)}.cr-st.done,.cr-st.active{color:var(--rf-good)}.cr-st.broken,.cr-st.refused{color:var(--rf-bad)}.cr-st.offered{color:var(--rf-gold)}
 .cr-post{padding:6px 7px}.cr-kinds{display:flex;gap:3px}.cr-kinds .rf-tbtn{flex:1;gap:3px}
 .cr-none{padding:8px 6px;font-size:11.5px;text-align:center;border:1px dashed var(--rf-rule)}
@@ -415,7 +410,7 @@ export function mountCrown(s: SandboxScene, mk: Mk): void {
       const l = orderLore(o), here = s.region?.id === o.region;
       const at = !here ? null : o.kind === 'supply' ? homeAnchor(s.region) : o.x !== null && o.y !== null ? { x: o.x, y: o.y } : null;
       return {
-        kind: 'Order of the crown', title: `${ORDER[o.kind].name}: ${l.where}`, giver: l.giver, goal: l.goal,
+        kind: 'Order of the crown', title: `${ORDER[o.kind].name}: ${l.where}`, giver: l.giver, goal: l.goal, icon: glyph(ORDER[o.kind].glyph, 24),
         progress: o.kind === 'supply' ? `${fmt(o.delivered)}/${fmt(o.n)}` : `${until(o.expires - Date.now())} left`, frac: o.kind === 'supply' && o.n ? o.delivered / o.n : -1,
         where: here ? (o.kind === 'supply' ? 'Here: your warehouse (your strongroom at home), then Deliver in the Crown panel' : o.target ?? 'This region') : `${regionName(o.region)}: travel there on the world map (Shift+W)`,
         reward: o.bounty > 0 ? { coin: o.bounty - o.paid } : {}, pay: l.pay, at, label: o.kind === 'supply' ? 'Turn in' : (o.target ?? ORDER[o.kind].name),

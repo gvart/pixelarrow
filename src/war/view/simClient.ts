@@ -100,7 +100,7 @@ export class SimClient {
         if (e.data.server.t === 'welcome') (this.playerId = e.data.server.you.id), setMyTeam(e.data.server.you.team);
         else this.onServer?.(e.data.server);
         for (const f of this.serverTaps) f(e.data.server);
-        if (e.data.server.t === 'bossEv') this.onEvents?.(e.data.server.ev); // W-67, live: guardian events as the local sim's
+        if (e.data.server.t === 'bossEv' || e.data.server.t === 'secret') this.onEvents?.(e.data.server.ev); // W-67, live: guardian events as the local sim's; world-fill: hidden quests
         return;
       }
       if ('reply' in e.data) {

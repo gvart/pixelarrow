@@ -10,7 +10,7 @@ import { WORLD_REGIONS } from '../../../src/war/world/regions';
 import { edge } from '../../../src/war/world/graph';
 import { WAR_SEASON } from '../../../src/war/world/alliances';
 import { WarRoom } from '../../src/war/room';
-import { regionVersion, WAR_REGIONS, warRegion } from '../../src/war/regions';
+import { regionSeed, regionVersion, WAR_REGIONS, warRegion } from '../../src/war/regions';
 import { edition, storeState, type WarRegionDO } from '../../src/war/regionDO';
 import { remembered, storeMemory } from '../../src/war/memory';
 
@@ -18,6 +18,20 @@ const army = (region: string, pid: number, team: number): JoinMsg => ({ t: 'join
 type Ensure = { ensure(region: string): Promise<WarRoom | null> };
 
 describe('region maps', () => {
+  it('world-fill: gives every region its own sim seed (stable, never 0)', () => {
+    const seeds = WAR_REGIONS.map(regionSeed);
+    expect(new Set(seeds).size).toBe(WAR_REGIONS.length);
+    expect(seeds.every((s) => Number.isInteger(s) && s > 0)).toBe(true);
+    expect(regionSeed('moors')).toBe(regionSeed('moors'));
+  });
+  it('world-fill: the region DO starts each room on its region seed', async () => {
+    const stub = env.WAR_REGION.get(env.WAR_REGION.newUniqueId());
+    await runInDurableObject(stub, async (o: WarRegionDO) => {
+      const opts = (o as unknown as { options(r: string): { seed: number } | null }).options.bind(o);
+      expect(opts('moors')?.seed).toBe(regionSeed('moors'));
+      expect(opts('krios')?.seed).toBe(regionSeed('krios'));
+    });
+  });
   it('hosts every world region and the test map, each on its own authored map', () => {
     expect(new Set(WAR_REGIONS)).toEqual(new Set([...WORLD_REGIONS.map((r) => r.id), 'test-ridge']));
     const ridge = warRegion('test-ridge')!;

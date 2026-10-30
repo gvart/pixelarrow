@@ -32,14 +32,28 @@ describe('world events in plain words', () => {
     expect(eventWhen({ startAt: 0, endAt: 125_000 }, 1000)).toBe('ends in 2:04');
   });
 
-  it('the region card shows the line, the task, the clock and a map link, the rule in its tooltip', () => {
+  it('the region card is a compact card: a short goal, chips for the clock and place, a map button; the rest in details', () => {
     const e = { id: 0, kind: 'soulStorm' as const, region: 'kleisoura', startAt: 3_657_000, endAt: 9e9 };
-    const t = text(eventCardHtml(e, 'Kleisoura Pass', false, 0));
-    expect(t).toContain('Next: Soul storm');
-    expect(t).toContain('starts in 1:00:57');
+    const html = eventCardHtml(e, 'Kleisoura Pass', false, 0), t = text(html);
+    expect(t).toContain('Next · Soul storm');
+    expect(t).toContain('Claim souls in Kleisoura Pass');
+    expect(html).toMatch(/class="qc-chip" title="starts in 1:00:57">.*in 1:00:57/);
     expect(t).toContain('Show on map');
-    expect(t).toContain('When it starts: Go there with a squad');
-    expect(eventCardHtml(e, 'Kleisoura Pass', false, 0)).toMatch(/data-tip="[^"]*Stand a man within/);
+    // the details fold: what to do and the full rule, behind (i)
+    const more = html.slice(html.indexOf('class="qc-more"'));
+    expect(html).toContain('data-qc-i');
+    expect(text(more)).toContain('When it starts Go there with a squad');
+    expect(text(more)).toContain('Stand a man within');
+    expect(html.indexOf('Stand a man within')).toBeGreaterThan(html.indexOf('class="qc-more"'));
+  });
+
+  it('every event has a short goal, about six words, with no numbers', () => {
+    for (const kind of EVENT_KINDS) for (const region of EVENT_REGIONS[kind]) {
+      const g = eventHelp({ kind, region }).goal;
+      expect(g.split(' ').length, g).toBeLessThanOrEqual(7);
+      expect(g, g).not.toMatch(/[0-9]/);
+    }
+    expect(eventHelp({ kind: 'bossWake', region: 'canyons' }).goal).toBe('Slay the Chimera');
   });
 });
 

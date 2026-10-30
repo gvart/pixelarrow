@@ -22,7 +22,7 @@ export interface DepthRule {
 }
 
 export const DEPTH: readonly DepthRule[] = [
-  { mob: 1, respawn: 6000, claim: { ticks: 300, men: 3, players: 1 }, yield: 1, lairs: [0, 0], score: 0 },
+  { mob: 1, respawn: 6000, claim: { ticks: 300, men: 3, players: 1 }, yield: 1, lairs: [2, 4], score: 0 }, // world-fill: weak outskirts lairs
   { mob: 1, respawn: 6000, claim: { ticks: 300, men: 3, players: 1 }, yield: 1, lairs: [3, 5], score: 0 },
   { mob: 1.25, respawn: 12000, claim: { ticks: 600, men: 6, players: 1 }, yield: 1.25, lairs: [4, 6], score: 1 },
   { mob: 1.5, respawn: 18000, claim: { ticks: 900, men: 9, players: 2 }, yield: 1.5, lairs: [5, 7], score: 2 },

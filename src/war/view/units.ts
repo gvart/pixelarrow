@@ -87,7 +87,7 @@ function addOutlineShader(scene: Phaser.Scene): Quad | null {
 
 const manifests = import.meta.glob<SheetManifest>('../../assets/sheets/*/manifest.json', { eager: true, import: 'default' });
 const images = import.meta.glob<string>(
-  ['../../assets/sheets/militia/*.png', '../../assets/sheets/hoplite/*.png', '../../assets/sheets/celt_sword/*.png', '../../assets/sheets/archer/*.png', '../../assets/sheets/slinger/*.png', '../../assets/sheets/javelineer/*.png', '../../assets/sheets/mob_*/*.png', '../../assets/sheets/civ_*/*.png'],
+  '../../assets/sheets/*/*.png',
   { eager: true, query: '?url', import: 'default' },
 );
 /** Texture side every GPU takes: a taller sheet is split into pieces of whole bands. */
@@ -320,6 +320,8 @@ export class UnitLayer {
   scaleOf(cls: string): number {
     return this.sheets.get(cls)?.scale ?? 1;
   }
+  /** world-fill: a unit's own multiply tint over its team's (a chief, ./chiefs.ts), or undefined. */
+  tintOf: ((id: number) => number | undefined) | null = null;
   /** A unit drawn with an outline over everything in this colour (the man-sized guardians: the King, a queen), or undefined. */
   mark: ((id: number) => number | undefined) | null = null;
 
@@ -557,7 +559,7 @@ export class UnitLayer {
         useQuad(img, this.look).setTint(code.tint).setTint2(code.fx).setTintMode(LOOK_MODE).setAlpha(1);
       } else {
         useQuad(img, d.team === NEUTRAL_TEAM ? null : (this.dye[slot(d.team) & 3] ?? null)); // W-65: roaming folk wear their own colours
-        img.setTint(TEAM_TINT[slot(d.team)] ?? 0xffffff).setTintMode(MULTIPLY).setAlpha(1);
+        img.setTint(this.tintOf?.(u.id) ?? TEAM_TINT[slot(d.team)] ?? 0xffffff).setTintMode(MULTIPLY).setAlpha(1);
       }
       if (po?.flash) img.setTint(0xfff4e0).setTintMode(FILL);
       // hidden behind higher ground (the sprite would draw over the baked terrain: not drawn) or behind a wall or object

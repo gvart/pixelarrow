@@ -11,6 +11,7 @@ import { ownCentre } from '../entry';
 import { myTeam } from '../side';
 import { icon, leftPanelOpen, uiZoom } from './kit';
 import { esc } from './roster/ui';
+import { chip, details, qcard } from './qcard';
 import { clearOfHud, laneBusy, markerArea, Z } from './layout';
 
 type Mk = (id: string, css: string, html?: string) => HTMLElement;
@@ -33,33 +34,19 @@ const CSS = `
 @keyframes gdBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
 #rfQBanner{left:50%;top:44px;transform:translateX(-50%);z-index:${Z.banner};pointer-events:none;width:340px;padding:7px 12px 9px;text-align:center;transition:opacity .45s,transform .45s}
 #rfQBanner.out{opacity:0;transform:translateX(-50%) translateY(-6px)}
-#rfQBanner .qb-k{font:700 10px/1 Inter,sans-serif;letter-spacing:.14em;text-transform:uppercase;color:var(--rf-gold)}
-#rfQBanner .qb-t{margin-top:4px;font:700 16px/1.15 Cinzel,serif;color:var(--rf-title)}
-#rfQBanner .qb-g{margin-top:3px;font:italic 12px/1.3 Inter,sans-serif;color:var(--rf-muted)}
-#rfQBanner .qb-x{margin-top:4px;font-size:12px;line-height:1.35;color:var(--rf-ink)}
+#rfQBanner .qb-k{font:700 10.5px/1 Inter,sans-serif;letter-spacing:.14em;text-transform:uppercase;color:var(--rf-gold)}
+#rfQBanner .qb-t{margin-top:4px;font:700 17px/1.15 Cinzel,serif;color:var(--rf-title)}
+#rfQBanner .qb-x{margin-top:5px;font:500 13px/1.4 Inter,sans-serif;color:var(--rf-ink)}
 #rfQBanner .qb-r{display:flex;justify-content:center;flex-wrap:wrap;gap:4px;margin-top:6px}
-#rfQBanner .qb-r .gd-rw,#rfQuest .gd-rw{display:inline-flex;align-items:center;gap:2px;padding:1px 5px 1px 2px;border:1px solid #6a5326;background:#1c140c;color:var(--rf-gold);font:700 11px/14px Inter,sans-serif}
-#rfQBanner .gd-rw img,#rfQuest .gd-rw img{width:14px;height:14px}
-#rfQBanner .qb-p{margin-top:4px;font-size:11px;color:var(--rf-muted)}
+#rfQBanner .qb-p{margin-top:5px;font:600 12.5px/1.3 Inter,sans-serif;color:var(--rf-ink)}
 #rfQBanner.done .qb-k{color:var(--rf-good)}
-#rfQuest{right:4px;top:40px;width:244px;pointer-events:auto;padding:5px 8px 7px}
-#rfQuest .qt-h{display:flex;align-items:center;gap:6px;padding-bottom:4px;margin-bottom:3px;border-bottom:1px solid var(--rf-rule)}
-#rfQuest .qt-k{font:700 10px/1 Inter,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--rf-gold)}
-#rfQuest .qt-n{margin-left:auto;font:700 11px/1 Inter,sans-serif;color:var(--rf-gold)}
-#rfQuest .qt-x{width:18px;height:18px;min-width:18px;padding:0;font-size:12px}
-#rfQuest .qt-t{font:700 13px/1.2 Cinzel,serif;color:var(--rf-title)}
-#rfQuest .qt-g{font:italic 11.5px/1.3 Inter,sans-serif;color:var(--rf-muted);margin-top:1px}
-#rfQuest .qt-row{display:flex;gap:5px;margin-top:4px;font-size:12px;line-height:15px;color:var(--rf-ink)}
-#rfQuest .qt-row b{flex:none;width:38px;font:700 10px/15px Inter,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--rf-muted)}
-#rfQuest .qt-row span{min-width:0;flex:1}
-#rfQuest .qt-pay{display:flex;flex-wrap:wrap;align-items:center;gap:3px}
-#rfQuest .qt-pay i{font-style:normal;color:var(--rf-muted);font-size:11px;flex-basis:100%}
-#rfQuest .rf-bar{width:100%;margin-top:4px}
-#rfQuest .qt-s{margin-top:4px;font:italic 12px/15px Inter,sans-serif;color:var(--rf-ink);opacity:.9}
-#rfQuest .qt-s+.qt-s{margin-top:3px}
+#rfQuest{right:4px;top:40px;width:250px;pointer-events:auto;padding:5px 8px 7px}
+#rfQuest .qt-h{display:flex;align-items:center;gap:6px;padding-bottom:4px;margin-bottom:5px;border-bottom:1px solid var(--rf-rule)}
+#rfQuest .qt-k{font:700 10.5px/1 Inter,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--rf-gold)}
+#rfQuest .qt-x{margin-left:auto;width:18px;height:18px;min-width:18px;padding:0;font-size:12px}
 #rfQuest .qt-ch{display:flex;flex-direction:column;gap:4px;margin-top:6px}
-#rfQuest .qt-ch button{display:block;width:100%;height:auto;text-align:left;padding:4px 7px;font:700 12px/15px Inter,sans-serif;white-space:normal}
-#rfQuest .qt-ch button i{display:block;font:400 11px/14px Inter,sans-serif;color:var(--rf-muted);font-style:normal}
+#rfQuest .qt-ch button{display:block;width:100%;height:auto;text-align:left;padding:4px 7px;font:700 13px/16px Inter,sans-serif;white-space:normal}
+#rfQuest .qt-ch button i{display:block;font:500 12px/15px Inter,sans-serif;color:var(--rf-ink);font-style:normal;opacity:.85}
 `;
 let styled = false;
 const style = () => {
@@ -72,11 +59,6 @@ const style = () => {
 
 /** Tiles to metres (1 tile = 2 m, W-18). */
 export const metres = (d: number) => `${Math.round(d * 2)} m`;
-
-const ICONED = new Set(['food', 'wood', 'stone', 'marble', 'coin', 'silver']);
-/** Reward chips: +n with the good's icon. */
-export const rewardChips = (reward: Record<string, number>) =>
-  Object.entries(reward).filter(([, n]) => n > 0).map(([r, n]) => `<span class="gd-rw">${ICONED.has(r) ? icon(`res-${r}`) : `${esc(r)} `}+${Math.round(n * 100) / 100}</span>`).join('');
 
 // ---------------------------------------------------------------- world marker
 
@@ -168,7 +150,8 @@ function next(): void {
   }
   el.style.zoom = String(uiZoom());
   el.classList.toggle('done', b.kind !== 'start');
-  el.innerHTML = `<div class="qb-k">${esc(b.head)}</div><div class="qb-t">${esc(b.title)}</div>${b.giver ? `<div class="qb-g">${esc(b.giver)}</div>` : ''}${b.text ? `<div class="qb-x">${esc(b.text)}</div>` : ''}${b.reward && Object.keys(b.reward).length ? `<div class="qb-r">${rewardChips(b.reward)}</div>` : ''}${b.pay ? `<div class="qb-p">${esc(b.pay)}</div>` : ''}`;
+  // the giver waits on the card's details; the banner keeps the title, a line, the reward chips and how it pays
+  el.innerHTML = `<div class="qb-k">${esc(b.head)}</div><div class="qb-t">${esc(b.title)}</div>${b.text ? `<div class="qb-x">${esc(b.text)}</div>` : ''}${b.reward && Object.keys(b.reward).length ? `<div class="qb-r">${chip.reward(b.reward)}</div>` : ''}${b.pay ? `<div class="qb-p">${esc(b.pay)}</div>` : ''}`;
   el.classList.remove('out');
   el.style.display = '';
   const life = b.text ? 6500 : 4500;
@@ -195,8 +178,10 @@ export interface TrackView {
   /** Where its marker points in this region (null: elsewhere, or nothing to point at); `turnIn`: the label says so. */
   at: P | null;
   label: string;
-  /** W-65 a story: its lines in italics under the title (the backstory, the step's story). */
+  /** W-65 a story: its lines in the details fold (the backstory, the step's story). */
   story?: string[];
+  /** The goal's verb icon (HTML); the quest's mark when left out. */
+  icon?: string;
   /** W-65 a story's open choice: a button each (Tracked.act gets its id). */
   choices?: { id: string; label: string; text: string }[];
 }
@@ -249,12 +234,15 @@ export function mountQuestTracker(s: SandboxScene, mk: Mk): void {
       const dy = parseFloat(mark.style.top) - parseFloat(o.style.top);
       if (Math.abs(parseFloat(mark.style.left) - parseFloat(o.style.left)) < 170 && Math.abs(dy) < 30) mark.style.top = `${parseFloat(o.style.top) + (dy < 0 ? -32 : 32)}px`;
     }
-    const html = `<div class="qt-h">${icon('mk-claim')}<span class="qt-k">${esc(v.kind)}</span><span class="qt-n">${esc(v.progress)}</span><button class="rf-tbtn x qt-x" title="Stop tracking">×</button></div>
-      <div class="qt-t">${esc(v.title)}</div><div class="qt-g">${esc(v.giver)}</div>${(v.story ?? []).map((l) => `<div class="qt-s">“${esc(l)}”</div>`).join('')}
-      ${v.frac >= 0 ? `<div class="rf-bar"><i class="${v.frac >= 1 ? 'ok' : 'construction'}" style="width:${(Math.min(1, v.frac) * 100).toFixed(1)}%"></i></div>` : ''}
-      <div class="qt-row"><b>Goal</b><span>${esc(v.goal)}</span></div>
-      <div class="qt-row"><b>Where</b><span>${esc(v.where)}${far ? ` <span class="rf-dim">(${far})</span>` : ''}</span></div>
-      <div class="qt-row"><b>Pay</b><span class="qt-pay">${rewardChips(v.reward)}<i>${esc(v.pay)}</i></span></div>${v.choices?.length ? `<div class="qt-ch">${v.choices.map((c) => `<button class="rf-tbtn" data-act="${esc(c.id)}">${esc(c.label)}<i>${esc(c.text)}</i></button>`).join('')}</div>` : ''}`;
+    // a compact card (./qcard.ts): the goal with its verb, the bar, progress, reward and the way as chips; the title,
+    // giver, story, where and pay behind (i) / hover
+    const done = v.frac >= 1;
+    const html = `<div class="qt-h">${icon('mk-claim')}<span class="qt-k">${esc(v.kind)}</span><button class="rf-tbtn x qt-x" title="Stop tracking">×</button></div>${qcard({
+      key: `trk:${tracked!.key}`, icon: v.icon ?? icon('mk-claim'), goal: v.goal, ...(v.frac >= 0 ? { bar: v.frac } : {}),
+      chips: chip.prog(v.progress, done) + chip.reward(v.reward) + chip.dist(far),
+      more: details({ title: v.title, story: v.story, lines: [['Where', v.where], ['Pay', v.pay]], from: v.giver }),
+      ...(v.choices?.length ? { extra: `<div class="qt-ch">${v.choices.map((c) => `<button class="rf-tbtn" data-act="${esc(c.id)}">${esc(c.label)}<i>${esc(c.text)}</i></button>`).join('')}</div>` } : {}),
+    })}`;
     if (html !== last) el.innerHTML = last = html;
   };
   requestAnimationFrame(frame);

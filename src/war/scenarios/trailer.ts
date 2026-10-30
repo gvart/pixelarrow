@@ -96,7 +96,7 @@ export const TRAILER_SCENARIOS: Scenario[] = [
     },
   },
   {
-    // Kimmeria's lairs are squads 0..5 (the ibex herd of the north-east, 3, among them); the archers are 6
+    // Kimmeria's lairs are squads 0..7 (world-fill: 2 chiefs among them; the ibex herd of the north-east, 3); the archers are 8
     id: 'trailer-hunt',
     name: 'Trailer: ibex hunt',
     goal: 'Eight archers below the north-east ibex herd of the Kimmerian hills loose on it; the herd bolts.',
@@ -104,46 +104,46 @@ export const TRAILER_SCENARIOS: Scenario[] = [
     neutral: true,
     squads: [you('archer', [454, 92], 8)],
     camera: { x: 454, y: 86, zoom: 1 },
-    after: { orders: [], settle: 10, squads: [], then: [{ kind: 'attack', squad: 6, target: 3 }] },
+    after: { orders: [], settle: 10, squads: [], then: [{ kind: 'attack', squad: 8, target: 3 }] },
   },
   {
-    // the Gorge: lairs 0..2, Gyges 3 at the anvil; the raid 4..7 up from the narrows
+    // the Gorge: lairs 0..8 (world-fill), Gyges 9 at the anvil; the raid 10..13 up from the narrows
     id: 'landmark-forge',
     name: "Titan's Forge",
     goal: 'A 4-squad raid comes up from the narrows on Gyges, chained at the anvil of the forge.',
     region: 'gorge',
     neutral: true,
-    ...raid(['hoplite', 'hoplite', 'archer', 'archer'], [252, 182], [258, 158], 4),
+    ...raid(['hoplite', 'hoplite', 'archer', 'archer'], [252, 182], [258, 158], 10),
     camera: { x: 260, y: 155, zoom: 1 },
   },
   {
-    // the Red Canyons: lairs 0..1, the Chimera 2 at the hold; the raid 3..6 up from the mesa
+    // the Red Canyons: lairs 0..8 (world-fill), the Chimera 9 at the hold; the raid 10..13 up from the mesa
     id: 'landmark-hold',
     name: 'Obsidian Hold',
     goal: 'A 4-squad raid climbs from the mesa on the Chimera at the Obsidian Hold.',
     region: 'canyons',
     neutral: true,
-    ...raid(['hoplite', 'hoplite', 'celt_sword', 'archer'], [163, 178], [161, 156], 3),
+    ...raid(['hoplite', 'hoplite', 'celt_sword', 'archer'], [163, 178], [161, 156], 10),
     camera: { x: 161, y: 155, zoom: 1 },
   },
   {
-    // the Siren Estuary: lairs 0..1, Scylla 2 and her heads 3; the raid 4..7 over the tidal flats
+    // the Siren Estuary: lairs 0..9 (world-fill), Scylla 10 and her heads 11; the raid 12..15 over the tidal flats
     id: 'landmark-watchtower',
     name: 'Rim Watchtower',
     goal: "A 4-squad raid crosses the tidal flats to Scylla's sea cave below the Rim Watchtower.",
     region: 'siren',
     neutral: true,
-    ...raid(['hoplite', 'hoplite', 'archer', 'archer'], [72, 300], [55, 292], 4),
+    ...raid(['hoplite', 'hoplite', 'archer', 'archer'], [72, 300], [55, 292], 12),
     camera: { x: 52, y: 292, zoom: 1 },
   },
   {
-    // Omphalos: lairs 0..3, the Titan 4 at the arena, the Minotaur 5; the raid 6..10 from the temple streets
+    // Omphalos: lairs 0..9 (world-fill), the Titan 10 at the arena, the Minotaur 11; the raid 12..16 from the temple streets
     id: 'landmark-temple',
     name: 'Temple City arena',
     goal: 'A 5-squad raid comes out of the ruined temple streets into the arena, where the Titan hurls boulders.',
     region: 'omphalos',
     neutral: true,
-    ...raid(['hoplite', 'hoplite', 'hoplite', 'archer', 'archer'], [368, 286], [384, 272], 6),
+    ...raid(['hoplite', 'hoplite', 'hoplite', 'archer', 'archer'], [368, 286], [384, 272], 12),
     camera: { x: 384, y: 272, zoom: 1 },
   },
 ];

@@ -77,19 +77,19 @@ describe('M7d landmark scenarios', () => {
     return sim;
   };
 
-  it('landmark-citadel: Drakon is squad 3 and meets the 4-squad raid at the gate', () => {
+  it('landmark-citadel: Drakon is squad 10 and meets the 4-squad raid at the gate', () => {
     const sim = play('landmark-citadel');
     sim.step();
-    expect(sim.snapshot().bosses![0].squad).toBe(3);
-    expect(sim.snapshot().squads[4].owner).toBe('you');
+    expect(sim.snapshot().bosses![0].squad).toBe(10);
+    expect(sim.snapshot().squads[11].owner).toBe('you');
     for (let t = 0; t < 900 && sim.snapshot().bosses![0].hp === sim.snapshot().bosses![0].maxHp; t++) sim.step();
     expect(sim.snapshot().bosses![0].hp).toBeLessThan(sim.snapshot().bosses![0].maxHp);
   });
 
-  it('landmark-deadcity: the King is squad 7 and the 3-squad raid climbs the butte to his guard', () => {
+  it('landmark-deadcity: the King is squad 10 and the 3-squad raid climbs the butte to his guard', () => {
     const sim = play('landmark-deadcity');
     sim.step();
-    expect(sim.snapshot().bosses![0]).toMatchObject({ id: 'bandit_king', squad: 7 });
+    expect(sim.snapshot().bosses![0]).toMatchObject({ id: 'bandit_king', squad: 10 });
     let falls = 0;
     for (let t = 0; t < 3000 && falls === 0; t++) {
       sim.step();

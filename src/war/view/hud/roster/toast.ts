@@ -16,7 +16,8 @@ export function toaster(box: HTMLElement, open: (pid: string) => void, place: ()
     t.className = 'rf-label rr-toast';
     t.style.pointerEvents = 'auto';
     t.style.cursor = n.pid ? 'pointer' : 'default';
-    t.innerHTML = `${icon(ICON[n.kind])}<span style="color:${COLOR[n.kind]}">${esc(n.text)}</span>`;
+    // a quest notice (../qcard.ts): its own verb icon, the short goal, then its chips
+    t.innerHTML = `${n.icon ?? icon(ICON[n.kind])}<span class="rr-tt" style="color:${COLOR[n.kind]}">${esc(n.text)}</span>${n.chips ?? ''}`;
     if (n.pid) t.onclick = () => open(n.pid!);
     box.appendChild(t);
     while (box.children.length > MAX) box.firstElementChild!.remove();

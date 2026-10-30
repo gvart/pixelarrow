@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { offlineTasks, tasksHtml, until } from '../../src/war/view/hud/tasks';
 import { offlineWorks, worksHtml } from '../../src/war/view/hud/peaceCards';
 import { DAILY, TASKS, WEEKLY } from '../../src/war/net/tasks';
-import { fill, GUIDE_LORE, ORDER_LORE, TASK_LORE } from '../../src/war/net/questLore';
+import { CONTRACT_HOW, fill, GUIDE_LORE, ORDER_LORE, TASK_LORE } from '../../src/war/net/questLore';
 import { GUIDE_STEPS } from '../../src/war/net/guide';
 import { WONDER } from '../../src/war/net/works';
 
@@ -41,7 +41,26 @@ describe('quest lore on the tasks, the guide and the orders', () => {
     expect(html).toContain('Where');
     expect(html).toContain('press Claim here: the reward goes into your home strongroom');
     expect(html.match(/data-act="track"/g)).toHaveLength(v.tasks.length);
-    expect(fill('Raise a camp in {town}', { town: 'Dodona' })).toBe('Raise a camp in Dodona');
+    expect(fill('Build a camp in {town}', { town: 'Dodona' })).toBe('Build a camp in Dodona');
+  });
+
+  it('every guide step, task, contract and order has a short goal (about six words, no numbers) and a guide step its key', () => {
+    const goals = [...Object.values(GUIDE_LORE).map((l) => l.goal), ...Object.values(TASK_LORE).map((l) => l.goal), ...Object.values(CONTRACT_HOW).map((c) => c.short), ...Object.values(ORDER_LORE).map((o) => o.goal)];
+    for (const g of goals) {
+      expect(g.split(' ').length, g).toBeLessThanOrEqual(6);
+      expect(g, g).not.toMatch(/[0-9]/);
+    }
+    for (const s of GUIDE_STEPS) expect(GUIDE_LORE[s.id].key).toMatch(/^(rmb|auto|[A-Z])$/);
+  });
+
+  it('a task card leads with its goal and chips; the title, story and where wait in the details fold', () => {
+    const v = offlineTasks(42, NOW), t = v.tasks[0], lore = TASK_LORE[t.metric], html = tasksHtml(v, true);
+    const card = html.slice(html.indexOf('data-qc="task:daily'), html.indexOf('data-qc="task:daily:' + t.ends + ':1"'));
+    const more = card.indexOf('class="qc-more"');
+    expect(card.indexOf(lore.goal)).toBeLessThan(more);
+    expect(card).toContain('qc-chip');
+    for (const x of [t.title, lore.story, lore.giver.name]) expect(card.indexOf(x), x).toBeGreaterThan(more);
+    expect(card).not.toMatch(/italic/);
   });
 });
 

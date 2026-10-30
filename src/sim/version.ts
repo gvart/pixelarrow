@@ -12,5 +12,7 @@
  *
  * 2: sim train 2 (V5-019), the baseline: every v5 rule change ships under
  *    this number, with no further bump.
+ * 3: world-fill: the war sim's chiefs, hidden quests, drifting roaming life and
+ *    per-region seeds (clients on 2 reload).
  */
-export const SIM_VERSION = 2;
+export const SIM_VERSION = 3;

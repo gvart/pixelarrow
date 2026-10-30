@@ -2,18 +2,19 @@
  * W-62 world events in a region (src/war/world/events.ts): the region server tells every client the events running
  * anywhere and the next (`worldEvents`, on join and whenever one opens or closes). A small card at the top left names
  * the running one (here first) or the next one to come, in plain words (./explain.ts): what it is, what to do, and
- * "starts in" / "ends in"; its tooltip holds the full rule and reward, and a click (or its Show on map link) opens the
+ * "starts in" / "ends in" as chips (./qcard.ts); its details fold holds the full rule, and a click (or Show on map) opens the
  * world map with that region selected. An event that opens while you play shows as a short note too (the roster's
  * toasts). The card stacks under the first-hour tracker (./guide.ts) and gives way to a left panel (forge, market,
  * roster, memorial) and to the open alliance chat (./chat.ts) below it.
  */
 import type { ServerMsg } from '../../net/protocol';
-import { EVENT_INFO, type WorldEvent } from '../../world/events';
+import { EVENT_INFO, type WorldEvent, type WorldEventKind } from '../../world/events';
 import { worldRegion } from '../../world/graph';
 import { EVENT_LOOK, eventIcon } from '../../world-view/eventLook';
 import type { SandboxScene } from '../SandboxScene';
 import { sandboxRoster } from './roster/state';
-import { tipper } from './roster/ui';
+import { icon } from './kit';
+import { chip, details, qcard } from './qcard';
 import { eventHelp, eventWhen } from './explain';
 
 type Mk = (id: string, css: string, html?: string) => HTMLElement;
@@ -34,24 +35,39 @@ export function worldHref(focus?: string): string {
   return `world.html?${w}`;
 }
 
-/** The card's inner HTML for event e (`mine`: it is in this region; `soon`: it has not started). */
+/** The timer chip's text: the clock while it runs ("8:29"), "in 1:00:57" before it starts. */
+const when = (e: WorldEvent, now: number) => (e.startAt > now ? `in ${clock(e.startAt - now)}` : clock(e.endAt - now));
+
+/** What an event pays, as a chip. */
+const GAIN: Record<WorldEventKind, (t: string) => string> = {
+  soulStorm: (t) => chip.any(icon('unit-hoplite'), t, 'good', 'Souls to claim: new men'),
+  bossWake: (t) => chip.any(icon('trade-pile'), t, 'gold', 'Its rare goods drop more times over'),
+  caravanRush: (t) => chip.score(t),
+  landmarkSiege: (t) => chip.score(t),
+};
+
+/** The event's toast: its icon, the short goal, where and how long. */
+export const eventToast = (e: WorldEvent, where: string, now = Date.now()) =>
+  ({ kind: 'info' as const, icon: eventIcon(e.kind, 22), text: eventHelp(e).goal, chips: chip.where(where === 'here' ? 'here' : where) + chip.time(clock(e.endAt - now)) });
+
+/** The card's inner HTML for event e (`mine`: it is in this region; `soon`: it has not started): the compact card
+ * (./qcard.ts), the event's name over its goal, the timer, place and gain as chips, Show on map; the rest in details. */
 export function eventCardHtml(e: WorldEvent, where: string, mine: boolean, now: number): string {
-  const h = eventHelp(e), c = EVENT_LOOK[e.kind].color, soon = e.startAt > now, name = worldRegion(e.region)?.name ?? e.region;
-  const tip = `<b>${EVENT_INFO[e.kind].name}</b> · ${esc(name)}<div style="margin-top:3px">${esc(h.rule)}</div><div class="rf-dim" style="margin-top:3px">World events come about every 3 h, somewhere on the map. Click the card to see this one on the world map.</div>`;
-  return `<div data-tip="${attr(tip)}" style="display:flex;gap:7px;align-items:flex-start;cursor:pointer">${eventIcon(e.kind, 22)}<div style="min-width:0;flex:1">
-    <div style="display:flex;gap:6px;align-items:baseline"><b style="color:${c}">${soon ? 'Next: ' : ''}${EVENT_INFO[e.kind].name}</b><span class="rf-dim" style="font-size:12px">${mine ? 'here' : esc(where)}</span></div>
-    <div style="font-size:12px;line-height:1.35">${esc(cap(h.what))}.</div>
-    <div style="font-size:12px;line-height:1.35;color:var(--rf-gold)">${soon ? 'When it starts: ' : ''}${esc(h.todo)}.</div>
-    <div style="display:flex;align-items:baseline;gap:8px;margin-top:2px;font-size:12px"><span class="rf-num" data-clock>${eventWhen(e, now)}</span><span data-act="map" style="margin-left:auto;color:var(--rf-title);text-decoration:underline">Show on map</span></div></div></div>`;
+  const h = eventHelp(e), soon = e.startAt > now, name = worldRegion(e.region)?.name ?? e.region;
+  return qcard({
+    key: `event:${e.kind}`, icon: eventIcon(e.kind, 24), kind: `${soon ? 'Next · ' : ''}${EVENT_INFO[e.kind].name}`, tone: EVENT_LOOK[e.kind].color, goal: h.goal,
+    chips: `<span data-clock style="display:contents">${chip.time(when(e, now), '', eventWhen(e, now))}</span>${chip.where(mine ? 'here' : where)}${GAIN[e.kind](h.gain)}`,
+    cta: '<button class="rf-tbtn" data-act="map">Show on map</button>',
+    more: details({ title: `${EVENT_INFO[e.kind].name} · ${name}`, story: `${cap(h.what)}.`, lines: [[soon ? 'When it starts' : 'To do', `${h.todo}.`], ['Rule', h.rule]], from: 'World events come about every 3 h, somewhere on the map.' }),
+  });
 }
 
 export function mountWorldEvents(s: SandboxScene, mk: Mk): void {
   const el = mk('rfWorldEv', 'top:4px;left:4px;width:264px;display:none;pointer-events:auto;padding:5px 8px');
   el.className = 'rf rf-card';
-  const tip = mk('rfWorldEvTip', 'display:none;z-index:7;width:300px;white-space:normal;line-height:1.35');
-  tip.className = 'rf rf-tip';
   let events: WorldEvent[] = [], next: WorldEvent | null = null;
   const seen = new Set<string>();
+  let heard = false;
   const here = () => s.region?.id;
   const where = (e: WorldEvent) => (e.region === here() ? 'here' : worldRegion(e.region)?.name ?? e.region);
 
@@ -69,8 +85,8 @@ export function mountWorldEvents(s: SandboxScene, mk: Mk): void {
         el.dataset.region = e.region;
         el.innerHTML = eventCardHtml(e, where(e), e.region === here(), now);
       } else {
-        const t = el.querySelector<HTMLElement>('[data-clock]');
-        if (t) t.textContent = eventWhen(e, now);
+        const t = el.querySelector<HTMLElement>('[data-clock] span span');
+        if (t) t.textContent = when(e, now);
       }
     }
     place();
@@ -78,31 +94,29 @@ export function mountWorldEvents(s: SandboxScene, mk: Mk): void {
   /** Shown while there is an event to tell; the HUD layout puts it under the guide (./layout.ts). */
   const place = () => {
     el.style.display = has ? '' : 'none';
-    if (el.style.display === 'none') tip.style.display = 'none';
   };
 
   const onServer = (m: ServerMsg) => {
     if (m.t !== 'worldEvents') return;
-    const first = !events.length && !seen.size;
+    // the first word on joining: only the events here are news (later, any event that opens is)
+    const first = !heard;
+    heard = true;
     events = m.events;
     next = m.next;
     for (const e of m.events) {
       const k = `${e.kind}:${e.startAt}`;
       if (seen.has(k)) continue;
       seen.add(k);
-      if (!first || e.region === here()) sandboxRoster(s).onNote?.({ kind: 'info', text: eventNote(e, where(e)) });
+      if (!first || e.region === here()) sandboxRoster(s).onNote?.(eventToast(e, where(e)));
     }
     render();
   };
 
   // a click (or its Show on map link): the world map, that region selected and centred
   el.addEventListener('click', () => { if (el.dataset.region) location.href = worldHref(el.dataset.region); });
-  tipper(el, tip);
   s.sim.serverTaps.add(onServer);
   setInterval(render, 1000);
   setInterval(place, 200);
 }
 
-const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-const attr = (t: string) => t.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
 const cap = (t: string) => t[0].toUpperCase() + t.slice(1);
