@@ -1,0 +1,38 @@
+.claude/agents/lore-writer.md
+  s_0dd3a9d3e5007a::t_d2ce3ce3c415b4 1-2,4-84
+  s_0dd3a9d3e5007a::t_79af02b5264fe1 3
+.claude/agents/pixel-animator.md
+  s_0dd3a9d3e5007a::t_fae1c7d0d394bc 1-2,4-75,77-99
+  s_0dd3a9d3e5007a::t_aa322f4ae44dc5 76
+  s_0dd3a9d3e5007a::t_771f96f2760afc 3
+.claude/skills/pixelarrow-playbook/SKILL.md
+  s_0dd3a9d3e5007a::t_3a53ed64a3008b 43-44,57-58
+  s_0dd3a9d3e5007a::t_d3baaa7c61bdd4 1-42,45-56
+.claude/agents/game-designer.md
+  s_0dd3a9d3e5007a::t_27c09eca2c8147 1-2,4-89
+  s_0dd3a9d3e5007a::t_df9c7cb7a6b2f5 3
+.claude/agents/hud-reviewer.md
+  s_0dd3a9d3e5007a::t_e675ac458b4226 1-2,4-95
+  s_0dd3a9d3e5007a::t_43c364d6050765 3
+.claude/agents/art-director.md
+  s_0dd3a9d3e5007a::t_87ce5b70ec2093 48-49
+  s_0dd3a9d3e5007a::t_d42b6bbf6f786c 51
+  s_0dd3a9d3e5007a::t_b14833aff79bf4 1-2,4-47,50,52-86
+  s_0dd3a9d3e5007a::t_8147442e85917a 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "54895bc1a22680373917190d43389ca73e0c95a5",
+  "prompts": {},
+  "sessions": {
+    "s_0dd3a9d3e5007a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b6130d3d-c070-494f-98d5-046db89f2d1c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
