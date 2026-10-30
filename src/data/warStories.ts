@@ -443,7 +443,7 @@ const CHALK: Story = {
 
 const KURGANS: Story = {
   id: 'chieftain-mound', region: 'skythia-s', title: 'The Chieftain\'s Mound',
-  giver: { name: 'Madyes', title: 'keeper of the mounds', at: [424, 393], cls: 'civ_cook' },
+  giver: { name: 'Madyes', title: 'watcher of the grave-steppe', at: [424, 393], cls: 'civ_cook' },
   hook: 'Grave robbers opened the oldest mound.',
   backstory: 'The mounds here are older than any alliance, and I keep them. Three nights ago robbers sank a shaft into the oldest, north of the village, and took the gold torc from the chieftain\'s chest. He sleeps lightly without it. Bring it back before he wakes and comes for it himself.',
   steps: [
