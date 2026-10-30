@@ -1,0 +1,121 @@
+public/war/lairs/lairs.json
+  s_0dd3a9d3e5007a::t_b3d3e8067331d1 187-188,191,196-197,200
+  s_0dd3a9d3e5007a::t_a718ac2b789427 163-186,189-190,192-195,198-199,201-242
+src/war/view/hud/explain.ts
+  s_0dd3a9d3e5007a::t_294620ff522849 91
+src/war/regions/siren.json
+  s_0dd3a9d3e5007a::t_089c7fd313e213 1
+scripts/art/lairs/compose.mjs
+  s_0dd3a9d3e5007a::t_51de7875b3a4f3 119-124,127-135
+  s_0dd3a9d3e5007a::t_b3d3e8067331d1 125-126
+tests/war/roam.test.ts
+  s_0dd3a9d3e5007a::t_e2f3eb7912b100 241
+src/war/view/neutral.ts
+  s_0dd3a9d3e5007a::t_294620ff522849 21
+public/war/mobs.json
+  s_0dd3a9d3e5007a::t_506e5f408a6853 11-15
+src/war/sim/mobs.ts
+  s_0dd3a9d3e5007a::t_9e43ee9c2c6164 123,209
+  s_0dd3a9d3e5007a::t_23c7968bcdaa76 84-93
+  s_0dd3a9d3e5007a::t_017777afa72f57 308-310,312
+src/war/regions/canyons.json
+  s_0dd3a9d3e5007a::t_089c7fd313e213 1
+src/war/regions/kyrene-e.json
+  s_0dd3a9d3e5007a::t_089c7fd313e213 1
+src/sim/version.ts
+  s_0dd3a9d3e5007a::t_f2974a8e7437fd 17-18,20
+tests/war/bosses.test.ts
+  s_0dd3a9d3e5007a::t_fdefbcb282844c 87,89
+  s_0dd3a9d3e5007a::t_d88bdf7872b17e 88
+src/war/regions/ammon.json
+  s_0dd3a9d3e5007a::t_089c7fd313e213 1
+scripts/war/regions/saddle.ts
+  s_0dd3a9d3e5007a::t_c453108ce97e92 62
+src/war/regions/ammos.json
+  s_0dd3a9d3e5007a::t_089c7fd313e213 1
+src/data/warWild.ts
+  s_0dd3a9d3e5007a::t_af7d8da8255890 38-40,42-48
+  s_0dd3a9d3e5007a::t_f0a68d6d54d1d1 41
+  s_0dd3a9d3e5007a::t_9e43ee9c2c6164 28-29
+  s_0dd3a9d3e5007a::t_de804ff15a4eb1 77,85-90,94-96
+  s_0dd3a9d3e5007a::t_dea7d0400a1b27 91-93
+scripts/war/regions/stymphalia.ts
+  s_0dd3a9d3e5007a::t_c453108ce97e92 90
+src/war/types.ts
+  s_0dd3a9d3e5007a::t_45cbeb7ebcae6f 73
+src/war/regions/omphalos.json
+  s_0dd3a9d3e5007a::t_089c7fd313e213 1
+scripts/war/regions/omphalos.ts
+  s_0dd3a9d3e5007a::t_c453108ce97e92 74
+scripts/war/regions/kyrene-s.ts
+  s_0dd3a9d3e5007a::t_c453108ce97e92 78-79
+src/war/regions/kyrene-s.json
+  s_0dd3a9d3e5007a::t_089c7fd313e213 1
+src/war/regions/saddle.json
+  s_0dd3a9d3e5007a::t_dea7d0400a1b27 1
+src/war/view/sound/mix.ts
+  s_0dd3a9d3e5007a::t_c8e805ab57fdb6 30,131
+scripts/war/regions/kyrene-n.ts
+  s_0dd3a9d3e5007a::t_c453108ce97e92 93-94
+src/war/view/mobFx.ts
+  s_0dd3a9d3e5007a::t_294620ff522849 31
+src/war/view/hud/fullMap.ts
+  s_0dd3a9d3e5007a::t_5c388318da60d3 27
+scripts/war/regions/gorge.ts
+  s_0dd3a9d3e5007a::t_c453108ce97e92 69,71
+tests/war/newCreatures.test.ts
+  s_0dd3a9d3e5007a::t_1d787636169e9d 1-2,5-87,89-91,93-94,96-98,109,111-139
+  s_0dd3a9d3e5007a::t_a6eba885552671 88
+  s_0dd3a9d3e5007a::t_921013a0e85f05 3-4,92
+  s_0dd3a9d3e5007a::t_dd30d3c48a3577 95,99-100,106-108,110
+  s_0dd3a9d3e5007a::t_86ac0623fc13c1 103-105
+  s_0dd3a9d3e5007a::t_3ca071d231ca63 101-102
+src/war/regions/krios.json
+  s_0dd3a9d3e5007a::t_dea7d0400a1b27 1
+scripts/war/regions/kyrene-e.ts
+  s_0dd3a9d3e5007a::t_c453108ce97e92 71-72
+scripts/war/regions/krios.ts
+  s_0dd3a9d3e5007a::t_c453108ce97e92 68,70
+src/war/sim/bosses.ts
+  s_0dd3a9d3e5007a::t_376d28b633bbec 134,332-334,599
+src/war/scenarios/mobs.ts
+  s_0dd3a9d3e5007a::t_e5d6c18d400c0d 18-21
+src/war/regions/gorge.json
+  s_0dd3a9d3e5007a::t_089c7fd313e213 1
+src/war/sim/roam.ts
+  s_0dd3a9d3e5007a::t_294620ff522849 87-90
+src/war/view/devPanel.ts
+  s_0dd3a9d3e5007a::t_294620ff522849 33
+src/war/regions/kyrene-n.json
+  s_0dd3a9d3e5007a::t_089c7fd313e213 1
+scripts/war/regions/world.ts
+  s_0dd3a9d3e5007a::t_c453108ce97e92 28-29,52,57,64
+docs/WAR.md
+  s_0dd3a9d3e5007a::t_0dfcbdfe4a8c10 440
+  s_0dd3a9d3e5007a::t_376d28b633bbec 617
+  s_0dd3a9d3e5007a::t_556d42cf877356 131
+src/war/sim/index.ts
+  s_0dd3a9d3e5007a::t_9e43ee9c2c6164 621-623
+scripts/war/regions/ammos.ts
+  s_0dd3a9d3e5007a::t_c453108ce97e92 85-86
+src/war/regions/savanna.json
+  s_0dd3a9d3e5007a::t_089c7fd313e213 1
+src/war/regions/stymphalia.json
+  s_0dd3a9d3e5007a::t_089c7fd313e213 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "390295048005b7294282f5502b8e0e3705d5c869",
+  "prompts": {},
+  "sessions": {
+    "s_0dd3a9d3e5007a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b6130d3d-c070-494f-98d5-046db89f2d1c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
