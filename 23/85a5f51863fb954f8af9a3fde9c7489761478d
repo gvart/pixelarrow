@@ -1,0 +1,64 @@
+src/war/view/sound/warAudio.ts
+  s_0dd3a9d3e5007a::t_c08dfba3327916 27-28,153-155,164,171-173
+src/war/view/mobScale.ts
+  s_0dd3a9d3e5007a::t_6aaa162a5a0dbc 1-11
+src/war/view/chiefs.ts
+  s_0dd3a9d3e5007a::t_8c7578c4e00ad2 34-35,49
+src/data/warWild.ts
+  s_0dd3a9d3e5007a::t_a6012c39319951 26,38-48
+tests/war/feel.test.ts
+  s_0dd3a9d3e5007a::t_799dc1d9c047ec 5-9,117-176,182-201
+  s_0dd3a9d3e5007a::t_b59662855ca5e9 177-181
+  s_0dd3a9d3e5007a::t_6aaa162a5a0dbc 10
+src/war/view/feel/feel.ts
+  s_0dd3a9d3e5007a::t_c802ecf05f75b8 6-7,12,20-22,31-37,49-51
+  s_0dd3a9d3e5007a::t_49b5cd9504e3e8 52-53
+src/war/view/feel/sparks.ts
+  s_0dd3a9d3e5007a::t_eafbfcd0c0cfb1 1-33,35,37-81
+  s_0dd3a9d3e5007a::t_171ffd2a70c31c 34,36
+src/war/view/sound/mix.ts
+  s_0dd3a9d3e5007a::t_11bd7803109bfd 42-60
+scripts/art/pixellab/mobs/sizes.mjs
+  s_0dd3a9d3e5007a::t_f3f452fe445d59 1-16,18-22
+  s_0dd3a9d3e5007a::t_cf61d86f679c47 17
+src/war/view/units.ts
+  s_0dd3a9d3e5007a::t_a076d79a60063f 128-131,204
+  s_0dd3a9d3e5007a::t_cdd291c6232f4f 559-565
+  s_0dd3a9d3e5007a::t_a772866c35f573 389,406,493-495,606-613
+  s_0dd3a9d3e5007a::t_bf55df5cc42f4d 581-587
+  s_0dd3a9d3e5007a::t_c8f37a96559678 387-388,405,496-501,503-504,513-516,518,520,530-537
+  s_0dd3a9d3e5007a::t_d1439d94dfb506 596
+  s_0dd3a9d3e5007a::t_6aaa162a5a0dbc 34
+  s_0dd3a9d3e5007a::t_bb3a7e6d4f98b0 317-318
+  s_0dd3a9d3e5007a::t_309ee01e0461d8 333,335,539
+  s_0dd3a9d3e5007a::t_f40243904b2b90 614-625
+  s_0dd3a9d3e5007a::t_8e976de364b3f0 331-332,334
+  s_0dd3a9d3e5007a::t_48ea4b1be338b3 33
+  s_0dd3a9d3e5007a::t_385e6892ee823d 538
+src/war/view/micro.ts
+  s_0dd3a9d3e5007a::t_9702321a4c1698 103,106
+  s_0dd3a9d3e5007a::t_8e976de364b3f0 105
+src/war/view/feel/hits.ts
+  s_0dd3a9d3e5007a::t_a772866c35f573 56-58
+  s_0dd3a9d3e5007a::t_f9af52529ea70d 21-22,112
+  s_0dd3a9d3e5007a::t_9906363d3a81b4 1-20,23-55,59-111,113-174
+src/war/view/SandboxScene.ts
+  s_0dd3a9d3e5007a::t_8c7578c4e00ad2 699
+  s_0dd3a9d3e5007a::t_f9af52529ea70d 61,186-187,227,295,668-672,701
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "2385a5f51863fb954f8af9a3fde9c7489761478d",
+  "prompts": {},
+  "sessions": {
+    "s_0dd3a9d3e5007a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b6130d3d-c070-494f-98d5-046db89f2d1c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
