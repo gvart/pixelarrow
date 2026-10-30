@@ -131,7 +131,7 @@ export const MOVES = {
   sweep: { every: 100, r: 3, share: 0.015, knock: 2 },
   breath: { every: 100, len: 14, half: 0.32, share: 0.05, reach: 18 },
   perchFor: 300, flight: 20,
-  crash: { r: 4, share: 0.1, knock: 3, packs: 2, pack: 4, packHp: 1.2, packDmg: 1 },
+  crash: { r: 4, share: 0.1, knock: 3, packs: 2, pack: 3, packHp: 0.8, packDmg: 1 },
   enrage: { dmg: 1.1, atk: 0.75 },
   snatch: { every: 100, water: 4, head: 8 },
   headStrike: { every: 30, r: 4 },
@@ -329,7 +329,9 @@ export function createBosses(region: RegionData, host: BossHost) {
   const call = (r: Run, cls: string, kind: MobKind | null, n: number, count: number, x: number, y: number, hpk: number, dmgk: number) => {
     for (let k = 0; k < n; k++) {
       const a = (2 * Math.PI * k) / n + 0.6, px = x + Math.cos(a) * 3, py = y + Math.sin(a) * 3;
-      const base = kind === 'wolf' ? { maxHp: 22 * hpk, dmg: 5.4 * dmgk, speed: 1.6, reach: 1.9, atkTicks: 8, armor: 2 } : { maxHp: 90 * hpk, dmg: 14 * dmgk, speed: 1.3, reach: 1.4, atkTicks: 10, armor: 2 };
+      const base = kind === 'wolf' ? { maxHp: 22 * hpk, dmg: 5.4 * dmgk, speed: 1.6, reach: 1.9, atkTicks: 8, armor: 2 }
+        : kind === 'drake' ? { maxHp: 68 * hpk, dmg: 12.6 * dmgk, speed: 1.45, reach: 1.4, atkTicks: 11, armor: 3 }
+        : { maxHp: 90 * hpk, dmg: 14 * dmgk, speed: 1.3, reach: 1.4, atkTicks: 10, armor: 2 };
       const id = host.spawn(cls, count, px, py, base, -1);
       if (id >= 0) r.called.push(id);
     }
@@ -594,7 +596,7 @@ export function createBosses(region: RegionData, host: BossHost) {
           fx(r, 'crash', u.x, u.y, u.x, u.y, MOVES.crash.r);
           setSt(u, { dmg: g.dmg * MOVES.enrage.dmg, atkTicks: Math.max(1, Math.round(g.atk * 10 * MOVES.enrage.atk)), knock: 1 });
           const [px, py] = e.pit ?? [e.x, e.y];
-          call(r, 'mob_wolf', 'wolf', MOVES.crash.packs, MOVES.crash.pack, px, py, MOVES.crash.packHp, MOVES.crash.packDmg);
+          call(r, 'mob_drake', 'drake', MOVES.crash.packs, MOVES.crash.pack, px, py, MOVES.crash.packHp, MOVES.crash.packDmg);
         } else if (f.then === 'charge') {
           blast(foesIn(u.x, u.y, MOVES.charge.w * 2), MOVES.charge.share, f.x0, f.y0, MOVES.charge.knock);
         } else if (f.then === 'dive' || f.then === 'pounce') {

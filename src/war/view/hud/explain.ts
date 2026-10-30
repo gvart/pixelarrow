@@ -88,7 +88,7 @@ export function claimNeed(depth: number): ClaimNeed {
 /** "hold it with 3 men for 30 s", with "of 2+ players" where the depth asks it. */
 export const holdText = (n: ClaimNeed) => `hold it with ${n.men} men${n.players > 1 ? ` of ${n.players}+ players` : ''} for ${n.secs} s`;
 
-const KIND: Record<LairSnap['kind'], [string, string]> = { wolf: ['wolf pack', 'wolf packs'], boar: ['boar herd', 'boar herds'], bear: ['bear den', 'bear dens'], bandit: ['bandit camp', 'bandit camps'], jackal: ['jackal pack', 'jackal packs'], ibex: ['ibex herd', 'ibex herds'], lion: ['lion pride', 'lion prides'], serpent: ['serpent nest', 'serpent nests'] };
+const KIND: Record<LairSnap['kind'], [string, string]> = { wolf: ['wolf pack', 'wolf packs'], boar: ['boar herd', 'boar herds'], bear: ['bear den', 'bear dens'], bandit: ['bandit camp', 'bandit camps'], jackal: ['jackal pack', 'jackal packs'], ibex: ['ibex herd', 'ibex herds'], lion: ['lion pride', 'lion prides'], serpent: ['serpent nest', 'serpent nests'], scorpion: ['scorpion nest', 'scorpion nests'], harpy: ['harpy roost', 'harpy roosts'], cyclops: ['cyclops cave', 'cyclops caves'], drake: ['drake brood', 'drake broods'] };
 
 /** Why a locked claim point is shut, as "defeat X first": the region's boss, its bandit captain, else the guard lairs of its zone. */
 export function claimBlocker(c: Pick<ClaimSnap, 'lairs'>, lairs: readonly LairSnap[], bosses: readonly BossSnap[]): string {

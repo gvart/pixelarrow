@@ -87,7 +87,7 @@ const def: RegionDef = {
     k.piece('elaia/beehives', [70, 200], { r: 8, n: 2 });
     k.piece('dodona/oracle-grove', [62, 26], { r: 10 });
     // fauna: the Stymphalian harpies on the isle, river serpents in the east marsh and at the Ladon's mouth
-    k.lair('wolf', [167, 86], { count: 10, as: 'Stymphalian harpies' });
+    k.lair('harpy', [167, 86], { count: 6, as: 'Stymphalian harpies' });
     k.lair('boar', [214, 160], { as: 'river serpents' });
     k.lair('boar', [40, 132], { as: 'river serpents' });
     k.claim([148, 124], 120);

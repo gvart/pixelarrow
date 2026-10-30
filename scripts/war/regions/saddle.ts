@@ -59,7 +59,7 @@ const def: RegionDef = {
     k.resource('stone', [76, 196], 3, 10);
     k.resource('stone', [180, 210], 2, 10);
     // fauna: the cyclops on the ore, wolves on the moor side and in the spur woods
-    k.lair('bear', [172, 86], { count: 8, as: 'cyclops' });
+    k.lair('cyclops', [172, 86], { as: 'cyclops' });
     k.lair('wolf', [44, 150], { as: 'wolves' });
     k.lair('wolf', [218, 186], { as: 'wolves' });
     k.claim([118, 104], 160);

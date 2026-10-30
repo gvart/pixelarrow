@@ -14,5 +14,7 @@
  *    this number, with no further bump.
  * 3: world-fill: the war sim's chiefs, hidden quests, drifting roaming life and
  *    per-region seeds (clients on 2 reload).
+ * 4: new-creatures: scorpion, harpy, cyclops and drake mob kinds, Drakon calls
+ *    drakes, sturdier chiefs (clients on 3 reload).
  */
-export const SIM_VERSION = 3;
+export const SIM_VERSION = 4;

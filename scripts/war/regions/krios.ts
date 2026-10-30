@@ -65,9 +65,9 @@ const def: RegionDef = {
     k.piece('mountains/eagle-nest', [130, 76], { r: 10, onRock: true });
     k.forest([30, 132, 12, 8, 0.3], [232, 160, 10, 7, -0.2], [146, 238, 6, 8, 0.1]);
     // fauna: the cyclops on the ore shelf, wolves on the west heath and in the east defile
-    k.lair('bear', [86, 184], { count: 10, as: 'cyclops' });
+    k.lair('cyclops', [86, 184], { as: 'cyclops' });
     k.lair('wolf', [36, 120], { as: 'wolves' });
-    k.lair('wolf', [206, 132], { as: 'wolves' });
+    k.lair('drake', [206, 132], { as: 'drakes' });
     k.claim([126, 226], 140);
   },
 };

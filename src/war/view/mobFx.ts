@@ -28,7 +28,7 @@ const MAX_RINGS = 12;
 const LOD_DUST = 0.3;
 /** Ms of the sim tick (the burst's ticks). */
 const TICK = 100;
-const DUST: Record<MobKind, number> = { wolf: 0xb8ae98, boar: 0xa89070, bear: 0xa09078, bandit: 0xb8a888, jackal: 0xd8c498, ibex: 0xc0bab0, lion: 0xdcc898, serpent: 0x8a7c58 };
+const DUST: Record<MobKind, number> = { wolf: 0xb8ae98, boar: 0xa89070, bear: 0xa09078, bandit: 0xb8a888, jackal: 0xd8c498, ibex: 0xc0bab0, lion: 0xdcc898, serpent: 0x8a7c58, scorpion: 0xd0b480, harpy: 0xb0a898, cyclops: 0x988870, drake: 0x8a7a68 };
 const CRY = { howl: 0xc8d4e0, roar: 0xe8b060 } as const;
 
 export class MobFx {
