@@ -2,6 +2,7 @@
  "class": "mob_savanna_lion",
  "raw": "docs/v5/pixellab/GUARD/raw/savanna_lion",
  "rotations": "docs/v5/pixellab/GUARD/raw/savanna_lion/rot",
+ "upsheet": "after build.mjs, drawn at true size: node scripts/art/pixellab/mobs/upsheet.mjs mob_savanna_lion 1.35",
  "shrink": 1,
  "scale": 0.55,
  "canvas": [

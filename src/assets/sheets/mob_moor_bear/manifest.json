@@ -3,29 +3,29 @@
  "class": "mob_moor_bear",
  "image": "mob_moor_bear.png",
  "frame": {
-  "w": 161,
-  "h": 161
+  "w": 185,
+  "h": 185
  },
  "anchor": {
-  "x": 81,
-  "y": 159
+  "x": 93,
+  "y": 183
  },
  "anchors": {
   "south-east": {
-   "x": 80,
-   "y": 159
+   "x": 92,
+   "y": 183
   },
   "north-east": {
-   "x": 85,
-   "y": 148
+   "x": 98,
+   "y": 170
   },
   "south-west": {
-   "x": 81,
-   "y": 159
+   "x": 93,
+   "y": 183
   },
   "north-west": {
-   "x": 75,
-   "y": 148
+   "x": 86,
+   "y": 170
   }
  },
  "scale": 0.55,
@@ -35,7 +35,7 @@
   "south-west",
   "north-west"
  ],
- "wrap": 25,
+ "wrap": 22,
  "colorGroups": {},
  "tiers": {
   "basic": {}

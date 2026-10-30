@@ -2,7 +2,8 @@
  "class": "mob_lion",
  "character": "216ccef6-b1fc-42db-99c8-8c60f6e61828",
  "raw": "docs/v5/pixellab/MOBS/raw/lion",
- "shrink": 0.72,
+ "shrink": 1.26,
+ "pre2x": true,
  "scale": 0.55,
  "canvas": [92, 92],
  "pad": [12, 12],
@@ -11,7 +12,7 @@
   "walk": { "fps": 10, "template": "mob_lion_walk", "job": { "south-east": "mirror:south-west", "north-east": "mirror:north-west" } },
   "run": { "fps": 14, "template": "mob_lion_run", "job": { "south-east": "mirror:south-west", "north-east": "mirror:north-west" } },
   "attack": { "fps": 12, "strike": 5, "template": "mob_lion_attack", "job": { "south-east": "mirror:south-west", "north-east": "mirror:north-west" } },
-  "die": { "fps": 10, "job": { "south-east": "mirror:south-west", "north-east": "mirror:north-west", "south-west": "a1", "north-west": "a1" } },
+  "die": { "fps": 10, "job": { "south-east": "mirror:south-west", "north-east": "mirror:north-west", "south-west": "a1", "north-west": "a1" }, "keep": [1, 1, 2, 3, 4, 5, 6, 7] },
   "hit": { "fps": 12, "of": "die", "frames": [0, 1, 1, 0] }
  }
 }

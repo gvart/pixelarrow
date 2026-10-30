@@ -14,13 +14,14 @@
 //   "tint"?: { "hue", "chroma", "lift"? } (recolour the palette: a mob drawn from another's frames, see tint())
 //   "shadow"?: true (cut the flat grey ground shadow PixelLab draws under some views)
 //   "rotations"?: "<dir with <facing>.png>" (a base made by editing, not a fetched character: palette from these)
+//   "pre2x"?: true (Scale2x each frame before shrinking by shrink / 2: true size above the source's, see scale2x())
 // }
 // A clip job may be "mirror:<facing>": that facing's frames flipped left-right (civilians: two facings generated).
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { readImage, writeImage } from '../../lib/png.mjs';
 import { alphaBox, blank, crop, paste } from '../../lib/ops.mjs';
-import { paletteOf, shrink } from './shrink.mjs';
+import { dropSpecks, paletteOf, scale2x, shrink } from './shrink.mjs';
 import { oklab } from '../remap.mjs';
 
 const ROWS = ['south-east', 'north-east', 'south-west', 'north-west'];
@@ -153,32 +154,8 @@ function findRotation(dir) {
 const pal = paletteOf(ROWS.map(rot));
 if (spec.tint) for (const p of pal) p.rgb = tint(p.lab, spec.tint);
 const cache = new Map();
-function dropSpecks(s) {
-  const { w, h, data } = s;
-  const seen = new Uint8Array(w * h);
-  const comps = [];
-  for (let i = 0; i < w * h; i++) {
-    if (seen[i] || !data[i * 4 + 3]) continue;
-    const comp = [i];
-    seen[i] = 1;
-    for (let k = 0; k < comp.length; k++) {
-      const p = comp[k], x = p % w, y = (p - x) / w;
-      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
-        const nx = x + dx, ny = y + dy, q = ny * w + nx;
-        if (nx < 0 || ny < 0 || nx >= w || ny >= h || seen[q] || !data[q * 4 + 3]) continue;
-        seen[q] = 1;
-        comp.push(q);
-      }
-    }
-    comps.push(comp);
-  }
-  // keep the body: drop bits under 4 px and any bit under a tenth of the biggest (dust, spray)
-  const big = Math.max(0, ...comps.map((c) => c.length));
-  for (const comp of comps) if (comp.length < 4 || comp.length < big / 10) for (const p of comp) data[p * 4 + 3] = 0;
-  return s;
-}
 const small = (img) => {
-  return dropSpecks(shrink(img, spec.shrink, pal, cache));
+  return dropSpecks(spec.pre2x ? shrink(scale2x(img), spec.shrink / 2, pal, cache) : shrink(img, spec.shrink, pal, cache));
 };
 
 // a mob drawn from another's frames (the jackal from the wolf): every palette colour keeps its lightness (plus `lift`)

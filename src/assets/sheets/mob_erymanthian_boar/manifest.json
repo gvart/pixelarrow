@@ -3,29 +3,29 @@
  "class": "mob_erymanthian_boar",
  "image": "mob_erymanthian_boar.png",
  "frame": {
-  "w": 158,
-  "h": 149
+  "w": 205,
+  "h": 184
  },
  "anchor": {
-  "x": 77,
-  "y": 134
+  "x": 100,
+  "y": 174
  },
  "anchors": {
   "south-east": {
-   "x": 81,
-   "y": 134
+   "x": 105,
+   "y": 174
   },
   "north-east": {
-   "x": 83,
-   "y": 140
+   "x": 108,
+   "y": 182
   },
   "south-west": {
-   "x": 77,
-   "y": 134
+   "x": 100,
+   "y": 174
   },
   "north-west": {
-   "x": 75,
-   "y": 140
+   "x": 98,
+   "y": 182
   }
  },
  "scale": 0.55,
@@ -35,7 +35,7 @@
   "south-west",
   "north-west"
  ],
- "wrap": 25,
+ "wrap": 19,
  "colorGroups": {},
  "tiers": {
   "basic": {}

@@ -2,6 +2,7 @@
  "class": "mob_chimera",
  "raw": "docs/v5/pixellab/GUARD/raw/chimera",
  "rotations": "docs/v5/pixellab/GUARD/raw/chimera/rot",
+ "upsheet": "after build.mjs, drawn at true size: node scripts/art/pixellab/mobs/upsheet.mjs mob_chimera 1.38 attack:5=6:0,2",
  "shrink": 1,
  "scale": 0.55,
  "canvas": [

@@ -3,6 +3,7 @@
  "character": "433df7e6-7eeb-4a34-9092-00d333a20314",
  "raw": "docs/v5/pixellab/MOBS/raw/serpent",
  "rotations": "docs/v5/pixellab/MOBS/raw/serpent/rot",
+ "upsheet": "the clip jobs expired (404) by the true-size pass: the shipped 0.6 sheet was redrawn by node scripts/art/pixellab/mobs/upsheet.mjs mob_serpent 1.2",
  "shrink": 0.6,
  "scale": 0.55,
  "canvas": [132, 132],

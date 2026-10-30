@@ -3,29 +3,29 @@
  "class": "mob_harpy",
  "image": "mob_harpy.png",
  "frame": {
-  "w": 68,
-  "h": 68
+  "w": 88,
+  "h": 88
  },
  "anchor": {
-  "x": 34,
-  "y": 62
+  "x": 44,
+  "y": 80
  },
  "anchors": {
   "south-east": {
-   "x": 34,
-   "y": 60
+   "x": 44,
+   "y": 80
   },
   "north-east": {
-   "x": 35,
-   "y": 62
+   "x": 44,
+   "y": 80
   },
   "south-west": {
-   "x": 34,
-   "y": 62
+   "x": 44,
+   "y": 80
   },
   "north-west": {
-   "x": 34,
-   "y": 62
+   "x": 43,
+   "y": 81
   }
  },
  "scale": 0.55,
@@ -35,7 +35,7 @@
   "south-west",
   "north-west"
  ],
- "wrap": 60,
+ "wrap": 46,
  "colorGroups": {},
  "tiers": {
   "basic": {}

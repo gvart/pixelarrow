@@ -3,29 +3,29 @@
  "class": "mob_drake",
  "image": "mob_drake.png",
  "frame": {
-  "w": 78,
-  "h": 76
+  "w": 94,
+  "h": 90
  },
  "anchor": {
-  "x": 40,
-  "y": 71
+  "x": 48,
+  "y": 85
  },
  "anchors": {
   "south-east": {
-   "x": 39,
-   "y": 71
+   "x": 47,
+   "y": 85
   },
   "north-east": {
-   "x": 38,
-   "y": 70
+   "x": 46,
+   "y": 84
   },
   "south-west": {
-   "x": 40,
-   "y": 71
+   "x": 48,
+   "y": 85
   },
   "north-west": {
-   "x": 40,
-   "y": 70
+   "x": 49,
+   "y": 84
   }
  },
  "scale": 0.55,
@@ -35,7 +35,7 @@
   "south-west",
   "north-west"
  ],
- "wrap": 52,
+ "wrap": 43,
  "colorGroups": {},
  "tiers": {
   "basic": {}

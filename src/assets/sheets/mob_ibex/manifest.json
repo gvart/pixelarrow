@@ -3,29 +3,29 @@
  "class": "mob_ibex",
  "image": "mob_ibex.png",
  "frame": {
-  "w": 44,
-  "h": 44
+  "w": 64,
+  "h": 63
  },
  "anchor": {
-  "x": 23,
-  "y": 36
+  "x": 35,
+  "y": 53
  },
  "anchors": {
   "south-east": {
-   "x": 21,
-   "y": 36
+   "x": 30,
+   "y": 53
   },
   "north-east": {
-   "x": 22,
-   "y": 41
+   "x": 32,
+   "y": 59
   },
   "south-west": {
-   "x": 23,
-   "y": 36
+   "x": 35,
+   "y": 53
   },
   "north-west": {
-   "x": 23,
-   "y": 41
+   "x": 34,
+   "y": 59
   }
  },
  "scale": 0.55,

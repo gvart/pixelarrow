@@ -3,29 +3,29 @@
  "class": "mob_scorpion",
  "image": "mob_scorpion.png",
  "frame": {
-  "w": 60,
-  "h": 59
+  "w": 69,
+  "h": 68
  },
  "anchor": {
-  "x": 31,
-  "y": 56
+  "x": 35,
+  "y": 64
  },
  "anchors": {
   "south-east": {
-   "x": 30,
-   "y": 56
+   "x": 34,
+   "y": 64
   },
   "north-east": {
-   "x": 30,
-   "y": 56
+   "x": 35,
+   "y": 64
   },
   "south-west": {
-   "x": 31,
-   "y": 56
+   "x": 35,
+   "y": 64
   },
   "north-west": {
-   "x": 31,
-   "y": 56
+   "x": 35,
+   "y": 64
   }
  },
  "scale": 0.55,
@@ -35,6 +35,7 @@
   "south-west",
   "north-west"
  ],
+ "wrap": 59,
  "colorGroups": {},
  "tiers": {
   "basic": {}

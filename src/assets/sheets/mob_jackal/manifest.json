@@ -3,29 +3,29 @@
  "class": "mob_jackal",
  "image": "mob_jackal.png",
  "frame": {
-  "w": 36,
-  "h": 34
+  "w": 42,
+  "h": 38
  },
  "anchor": {
-  "x": 21,
-  "y": 30
+  "x": 24,
+  "y": 33
  },
  "anchors": {
   "south-east": {
-   "x": 16,
-   "y": 30
-  },
-  "north-east": {
-   "x": 18,
+   "x": 19,
    "y": 33
   },
+  "north-east": {
+   "x": 20,
+   "y": 37
+  },
   "south-west": {
-   "x": 21,
-   "y": 30
+   "x": 24,
+   "y": 33
   },
   "north-west": {
-   "x": 19,
-   "y": 32
+   "x": 22,
+   "y": 36
   }
  },
  "scale": 0.55,

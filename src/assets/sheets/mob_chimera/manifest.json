@@ -3,29 +3,29 @@
  "class": "mob_chimera",
  "image": "mob_chimera.png",
  "frame": {
-  "w": 128,
-  "h": 120
+  "w": 176,
+  "h": 165
  },
  "anchor": {
-  "x": 59,
-  "y": 118
+  "x": 81,
+  "y": 163
  },
  "anchors": {
   "south-east": {
-   "x": 70,
-   "y": 118
+   "x": 97,
+   "y": 163
   },
   "north-east": {
-   "x": 56,
-   "y": 116
+   "x": 77,
+   "y": 160
   },
   "south-west": {
-   "x": 59,
-   "y": 118
+   "x": 81,
+   "y": 163
   },
   "north-west": {
-   "x": 73,
-   "y": 116
+   "x": 101,
+   "y": 160
   }
  },
  "scale": 0.55,
@@ -35,7 +35,7 @@
   "south-west",
   "north-west"
  ],
- "wrap": 32,
+ "wrap": 23,
  "colorGroups": {},
  "tiers": {
   "basic": {}

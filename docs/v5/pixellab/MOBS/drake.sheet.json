@@ -3,7 +3,7 @@
  "character": "f9f4388f-5304-4a4a-9bdd-06b5a7b44c9f",
  "raw": "docs/v5/pixellab/MOBS/raw/drake",
  "rotations": "docs/v5/pixellab/MOBS/raw/drake/rot",
- "shrink": 0.5,
+ "shrink": 0.6,
  "scale": 0.55,
  "canvas": [160, 160],
  "pad": [0, 0],

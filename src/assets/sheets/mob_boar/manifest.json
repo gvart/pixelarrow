@@ -3,29 +3,29 @@
  "class": "mob_boar",
  "image": "mob_boar.png",
  "frame": {
-  "w": 42,
-  "h": 42
+  "w": 65,
+  "h": 67
  },
  "anchor": {
-  "x": 23,
-  "y": 36
+  "x": 35,
+  "y": 58
  },
  "anchors": {
   "south-east": {
-   "x": 21,
-   "y": 37
+   "x": 33,
+   "y": 59
   },
   "north-east": {
-   "x": 21,
-   "y": 39
+   "x": 32,
+   "y": 62
   },
   "south-west": {
-   "x": 23,
-   "y": 36
+   "x": 35,
+   "y": 58
   },
   "north-west": {
-   "x": 22,
-   "y": 39
+   "x": 34,
+   "y": 62
   }
  },
  "scale": 0.55,
