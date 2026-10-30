@@ -33,6 +33,7 @@
  *   server -> wild                                          W-65: the region's lairs, claim points and roaming groups (on change)
  *   server -> allies                                        the players whose men are his friends (his alliance, pacts; on change)
  *   server -> bossEv                                        W-67: this tick's guardian events his team sees (phase, slain, fled, back, Warden strike)
+ *   server -> secret                                        world-fill: his hidden quests' events (found, a step, done)
  *   server -> binary frame                                   (snapshot delta or keyframe; with the guardians his team sees)
  */
 import { z } from 'zod';
@@ -41,7 +42,7 @@ import type { NodeRow } from './economy';
 import type { BridgePlan, BuildingType, GoodKind, Order, PlaceResult, SquadId, TownLevelSnap, WallPlan } from '../types';
 
 /** Bumped on any wire change (messages or the binary frame layout). */
-export const NET_VERSION = 11;
+export const NET_VERSION = 12;
 /** Positions go out in 1/QUANT tile steps. */
 export const QUANT = 8;
 /** Ticks between keyframes (a full frame of what the client sees; deltas in between). */
@@ -269,6 +270,8 @@ export type ServerMsg =
    * guardian or the struck patch; the view gets them as sim events. Bars, banners and move FX ride on the frame's bosses.
    */
   | { t: 'bossEv'; ev: BossEvent[] }
+  /** world-fill: this tick's events of his own hidden quests (src/war/sim/secrets.ts) and the chiefs his team slew; the view gets them as sim events (the notice). */
+  | { t: 'secret'; ev: (import('../sim/secrets').SecretEvent | Extract<import('../types').WarEvent, { kind: 'chiefSlain' }>)[] }
   /**
    * W-60: a soul his squad went for: claimed (the new man's person id, class, level and name), refused (his army is full:
    * `have` men across all regions, ARMY_MAX at most).

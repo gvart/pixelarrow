@@ -23,6 +23,11 @@ export interface RegionData {
     captain?: boolean;
     /** world-fill: a local mini-boss leads this lair (src/data/warBosses.ts WAR_CHIEFS id): he and his escort of the kind. */
     chief?: string }[];
+  /**
+   * world-fill: hidden quest spots (src/data/warStories.ts hiddenStories): men walking onto (x,y) find it (no marker);
+   * `quest` names its template, `then` is where its next step lies (a cache, a camp, a beast's lair).
+   */
+  secrets?: { x: number; y: number; quest: string; then: [number, number] }[];
   /** Region claim banners: open once every guard lair of `lairs` (indices into lairs) is cleared; r: influence radius once claimed. */
   claimPoints?: { x: number; y: number; lairs: number[]; r?: number }[];
   /**
@@ -786,6 +791,9 @@ export type WarEvent =
   // M7c: a bandit host's captain fell (its claim point may open)
   | { t: number; kind: 'captainSlain'; lair: number; by: number }
   // world-fill: a local mini-boss (src/data/warBosses.ts WAR_CHIEFS) fell where (x,y); his loot pile lies there
+  // world-fill: a hidden quest (src/war/sim/secrets.ts) of player `owner`: found (text: what and the hook), a step done or
+  // the next one told (text: its goal), done (text: its end; goods: what fell at his men); (x,y) the hidden spot
+  | { t: number; kind: 'secret'; what: 'found' | 'step' | 'done'; quest: string; owner: string; team: number; title: string; text: string; x: number; y: number; goods?: Partial<Record<GoodKind, number>> }
   | { t: number; kind: 'chiefSlain'; lair: number; chief: string; name: string; by: number; x: number; y: number }
   // M7d: a guardian entered phase `phase` (index into its WarBoss phases); escaped (the Bandit King by the postern: back
   // after a while with half his host); came back (24 h unheld: full hp, its landmark reset); a Rim Warden strike landed
