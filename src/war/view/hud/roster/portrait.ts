@@ -89,6 +89,38 @@ export function portrait(scene: Phaser.Scene, cls: string): HTMLCanvasElement | 
   return out;
 }
 
+/** A man's icon in the card's strip (../hud.ts): CSS px, drawn at 2x. */
+export const ICON_W = 18, ICON_H = 21;
+const icons = new Map<string, string>();
+
+/**
+ * The class's small icon for the card's soldier strip: the head and shoulders of its portrait (team colour as there),
+ * as a data URL, cached; null before the portrait is in.
+ */
+export function portraitIcon(scene: Phaser.Scene, cls: string): string | null {
+  const p = portrait(scene, cls);
+  if (!p) return null;
+  const key = byClass.has(cls) && urlOf.has(cls) ? cls : 'militia';
+  const hit = icons.get(key);
+  if (hit) return hit;
+  // the figure's top: the first row with paint in the middle third (a raised spear off to a side does not count)
+  const d = p.getContext('2d')!.getImageData(0, 0, p.width, p.height).data, x0 = Math.floor(p.width / 3), x1 = Math.ceil((p.width * 2) / 3);
+  let top = 0;
+  find: for (let y = 0; y < p.height; y++) for (let x = x0; x < x1; x++) if (d[(y * p.width + x) * 4 + 3] > 8) { top = y; break find; }
+  // a crop of the icon's shape from just above the head, about the upper half of the figure
+  const ch = Math.round((p.height - top) * 0.5), cw = Math.round((ch * ICON_W) / ICON_H);
+  const out = document.createElement('canvas');
+  out.width = ICON_W * 2;
+  out.height = ICON_H * 2;
+  const c = out.getContext('2d')!;
+  c.imageSmoothingEnabled = true;
+  c.imageSmoothingQuality = 'high';
+  c.drawImage(p, Math.round((p.width - cw) / 2), Math.max(0, top - 4), cw, ch, 0, 0, out.width, out.height);
+  const url = out.toDataURL();
+  icons.set(key, url);
+  return url;
+}
+
 /** E3: his scars as dark-red slashes in the portrait's top corner (2x canvas px), one per heavy wound lived through. */
 export function scarMarks(g: CanvasRenderingContext2D, n: number): void {
   for (let i = 0; i < Math.min(3, n); i++) {
