@@ -3634,3 +3634,56 @@ fixed the ones that stopped short: Skythia East's upland road now ends at the ch
 both tiers to a cairn on top (it stopped under the second wall); Kyrene's butte road starts off the north road (it began
 in open sand) and the escarpment road ends at a watch post; the gorge path to the forge starts off the west road; the
 Western Heath coast track starts at a coast watch tower.
+
+## 50. Region identity 2 (regions-look 2): relief, water edge, four more regions, road ends
+
+Agent brief: "Grey Moors finish: tors as big readable landmarks with real relief, black peat water in the bog pools,
+broken ground and peat cuttings visible at zoom 1/2. The shallow-to-deep water edge not blocky (renderer, done
+properly). Shoot every region at zoom 1/2 against `shots/war/regions/proto`, give 3-4 of the most generic, met-early
+ones their identity (existing parts first, PixelLab cap 40). Roads that climb onto terraces with nothing at the top:
+give the worst ten a destination with existing props." No Gemini or PixelLab calls were needed (0 generations).
+
+**Survey.** Every region shot at zoom 1/2 and set beside its reference (ffmpeg hstack, 400 px tall). Furthest from
+the reference and met early (home entries): Cape of Winds (elaia-s: flat green vs a sun-bleached limestone cape),
+Western Heath (dodona-w: khaki plain vs dark heath and bogs), Eastbank Floodplain (kyrene-w: green meadow vs Nile
+fields and palms), Ladon Oakwood (dodona-s: open grass with copses vs one dark oak wood round the river loop). Also
+far: elaia-w, elaia-n, kyrene-s (next pass).
+
+**Tors with relief** (`Kit.tor(blob, blocks, { rough, joint })`): impassable rock drawn as stacked flat-topped blocks.
+It sets `torZ` per tile (the sim level x 4 + the block's rise, joints jittered by two fbm octaves) and leaves `Kit.rock`
+alone, so the cell keeps the moors biome (setting `rock` flipped it to mountains and drew beige massif cones). Big tor:
+a massif with a two-wall profile (h7-8 then h11-12, crown h14-15) plus granite `rock` visual only on the wall lips
+(neighbour three levels lower within 0.6-1.2 units); granite over whole tops read as a grey smear. Moors crags scatter
+`tor-b` on lips only, no spires.
+
+**Peat water** (`relief.ts peatWater`): water in a moors-biome water body under 40000 cells takes a peat tint graded by
+the water code's distance (11,9,7 at 0.9-0.68), its shore halves a darker shore tint; the sea stays sea (a moors coast
+went black before the size rule). Moor roads take a mud tint. The moors stream: bed 3, bank 0, its sand turned back
+to heath.
+
+**Water edge** (`relief.ts waterField`, `art.ts`): the deep/shallow tile boundary was a hard diamond staircase. All
+water now draws the shallow tiles; over them one RGBA light field per region (distance to land, blurred signed
+shallow/deep distance) fills deep colour `23,35,45` at `0.74 x smoothstep((S + 2.5) / 5)`, turquoise near land, navy
+far out, as a bilinear `CanvasPattern` with `DOMMatrix([FW, FH, -FW, FH, OX, OY - z x LH])` over pixel-exact rect runs
+of lit water cells (image smoothing on only for that fill).
+
+**Regions (script only):**
+- Cape of Winds: `style { dry: -0.35, dryHigh, trees 0.12, bushes 0.5 }` (dry Elaia ground everywhere), `marble` visual
+  on wall lips and the cape's end, a ruin patch with fallen stones at the fort, outcrops, talus, maquis, stone pines.
+- Western Heath: the moors zone over all of it, hummocky lowland, the ridge as `Kit.tor` blocks (h5/10/14) instead of
+  `rockMass`, a seven-stone ring, peat stacks, hawthorns.
+- Eastbank Floodplain: the Kyrene library over all of it, seven extra field blocks laid square (angle 0, `plot 9,
+  wide 6`; tilted fields stair-stepped), date and doum palms along the three channels and the River Road, trees 0.07
+  (at 0.3 the flat-topped acacias read as savanna).
+- Ladon Oakwood: new `style.oaks` (Dodona forest and scatter from oak/beech only, no pines and firs), the forest closed
+  over every grass tile 3.5+ units off a road but the fords, crossroads and south clearing (`fbm > -0.3`), river sand
+  turned to earth banks, the watch post's ruined court on the crown (wall-ruin, fallen stone, debris).
+
+**Roads that led somewhere.** Logged every `road()` polyline from a sim `Kit` and listed ends not at the map edge,
+not within 6 units of another road and not within 12 of a piece, town, lair or claim; 17 of them climb 2+ levels.
+Kept as they are: Omphalos' ramps (the temple city's gate forts are a landmark, not pieces), Kyrene South's outcrop
+path (well and ruin 12 units off). Given a destination: Pirate Coves' spine path a wayside shrine and fallen stones;
+Dodona's four ridge-arm tracks a watch post each in a cleared patch of the pine wood (under the trees it vanished);
+Boreas Fjords' headland ramp a shrine and cairn; Ammos' four ramps a ruined watch post, a cairn by a sanded ruin, a
+rock pillar with a cairn and a shrine; Skythia West's ledge a watch post and its spur a standing stone; the canyons'
+mesa track a cairn.
