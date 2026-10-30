@@ -70,7 +70,7 @@ export const chip = {
   /** The way to the target ("656 m"). */
   dist: (text: string) => (text ? chip.any(icon('act-move'), text, '', 'How far it is') : ''),
   /** A timer ("ends in 8:29"). */
-  time: (text: string, cls = '') => chip.any(glyph('ui:hourglass', 16), text, cls),
+  time: (text: string, cls = '', tip = '') => chip.any(glyph('ui:hourglass', 16), text, cls, tip),
   /** Progress ("3/5", "0/40 stone"). */
   prog: (text: string, done = false) => (text ? chip.any(done ? glyph('ui:check', 14) : '', text, done ? 'good' : '', 'Progress') : ''),
   /** A place ("Krios Glacier"). */

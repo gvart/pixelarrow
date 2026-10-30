@@ -35,6 +35,9 @@ export function worldHref(focus?: string): string {
   return `world.html?${w}`;
 }
 
+/** The timer chip's text: the clock while it runs ("8:29"), "in 1:00:57" before it starts. */
+const when = (e: WorldEvent, now: number) => (e.startAt > now ? `in ${clock(e.startAt - now)}` : clock(e.endAt - now));
+
 /** What an event pays, as a chip. */
 const GAIN: Record<WorldEventKind, (t: string) => string> = {
   soulStorm: (t) => chip.any(icon('unit-hoplite'), t, 'good', 'Souls to claim: new men'),
@@ -53,7 +56,7 @@ export function eventCardHtml(e: WorldEvent, where: string, mine: boolean, now: 
   const h = eventHelp(e), soon = e.startAt > now, name = worldRegion(e.region)?.name ?? e.region;
   return qcard({
     key: `event:${e.kind}`, icon: eventIcon(e.kind, 24), kind: `${soon ? 'Next · ' : ''}${EVENT_INFO[e.kind].name}`, tone: EVENT_LOOK[e.kind].color, goal: h.goal,
-    chips: `<span data-clock>${chip.time(eventWhen(e, now))}</span>${chip.where(mine ? 'here' : where)}${GAIN[e.kind](h.gain)}`,
+    chips: `<span data-clock style="display:contents">${chip.time(when(e, now), '', eventWhen(e, now))}</span>${chip.where(mine ? 'here' : where)}${GAIN[e.kind](h.gain)}`,
     cta: '<button class="rf-tbtn" data-act="map">Show on map</button>',
     more: details({ title: `${EVENT_INFO[e.kind].name} · ${name}`, story: `${cap(h.what)}.`, lines: [[soon ? 'When it starts' : 'To do', `${h.todo}.`], ['Rule', h.rule]], from: 'World events come about every 3 h, somewhere on the map.' }),
   });
@@ -83,7 +86,7 @@ export function mountWorldEvents(s: SandboxScene, mk: Mk): void {
         el.innerHTML = eventCardHtml(e, where(e), e.region === here(), now);
       } else {
         const t = el.querySelector<HTMLElement>('[data-clock] span span');
-        if (t) t.textContent = eventWhen(e, now);
+        if (t) t.textContent = when(e, now);
       }
     }
     place();

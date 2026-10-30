@@ -37,7 +37,7 @@ describe('world events in plain words', () => {
     const html = eventCardHtml(e, 'Kleisoura Pass', false, 0), t = text(html);
     expect(t).toContain('Next · Soul storm');
     expect(t).toContain('Claim souls in Kleisoura Pass');
-    expect(html).toMatch(/class="qc-chip"[^>]*>.*starts in 1:00:57/);
+    expect(html).toMatch(/class="qc-chip" title="starts in 1:00:57">.*in 1:00:57/);
     expect(t).toContain('Show on map');
     // the details fold: what to do and the full rule, behind (i)
     const more = html.slice(html.indexOf('class="qc-more"'));
