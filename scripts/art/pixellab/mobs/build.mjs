@@ -21,7 +21,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 
 import { join } from 'node:path';
 import { readImage, writeImage } from '../../lib/png.mjs';
 import { alphaBox, blank, crop, paste } from '../../lib/ops.mjs';
-import { paletteOf, shrink } from './shrink.mjs';
+import { dropSpecks, paletteOf, scale2x, shrink } from './shrink.mjs';
 import { oklab } from '../remap.mjs';
 
 const ROWS = ['south-east', 'north-east', 'south-west', 'north-west'];
@@ -154,52 +154,9 @@ function findRotation(dir) {
 const pal = paletteOf(ROWS.map(rot));
 if (spec.tint) for (const p of pal) p.rgb = tint(p.lab, spec.tint);
 const cache = new Map();
-function dropSpecks(s) {
-  const { w, h, data } = s;
-  const seen = new Uint8Array(w * h);
-  const comps = [];
-  for (let i = 0; i < w * h; i++) {
-    if (seen[i] || !data[i * 4 + 3]) continue;
-    const comp = [i];
-    seen[i] = 1;
-    for (let k = 0; k < comp.length; k++) {
-      const p = comp[k], x = p % w, y = (p - x) / w;
-      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
-        const nx = x + dx, ny = y + dy, q = ny * w + nx;
-        if (nx < 0 || ny < 0 || nx >= w || ny >= h || seen[q] || !data[q * 4 + 3]) continue;
-        seen[q] = 1;
-        comp.push(q);
-      }
-    }
-    comps.push(comp);
-  }
-  // keep the body: drop bits under 4 px and any bit under a tenth of the biggest (dust, spray)
-  const big = Math.max(0, ...comps.map((c) => c.length));
-  for (const comp of comps) if (comp.length < 4 || comp.length < big / 10) for (const p of comp) data[p * 4 + 3] = 0;
-  return s;
-}
 const small = (img) => {
   return dropSpecks(spec.pre2x ? shrink(scale2x(img), spec.shrink / 2, pal, cache) : shrink(img, spec.shrink, pal, cache));
 };
-
-// Scale2x (EPX): a 2x enlargement that rounds diagonals instead of doubling stairs; with `pre2x` a frame drawn smaller
-// than its true size is enlarged so and then shrunk by shrink / 2 (a bear at 1.2: no source pixel is drawn wider than
-// another on screen, the sheet itself is at true size)
-function scale2x(img) {
-  const { w, h, data } = img;
-  const o = blank(w * 2, h * 2);
-  const px = (x, y) => (x < 0 || y < 0 || x >= w || y >= h ? -1 : (y * w + x) * 4);
-  const same = (i, j) => i >= 0 && j >= 0 ? data[i + 3] === data[j + 3] && (!data[i + 3] || (data[i] === data[j] && data[i + 1] === data[j + 1] && data[i + 2] === data[j + 2])) : i === j;
-  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-    const P = px(x, y), A = px(x, y - 1), B = px(x + 1, y), C = px(x - 1, y), D = px(x, y + 1);
-    let e = [P, P, P, P];
-    if (A >= 0 && B >= 0 && C >= 0 && D >= 0 && !same(A, D) && !same(C, B)) {
-      e = [same(C, A) ? A : P, same(A, B) ? B : P, same(C, D) ? C : P, same(D, B) ? D : P];
-    }
-    e.forEach((s, k) => o.data.set(data.subarray(s, s + 4), ((y * 2 + (k >> 1)) * w * 2 + x * 2 + (k & 1)) * 4));
-  }
-  return o;
-}
 
 // a mob drawn from another's frames (the jackal from the wolf): every palette colour keeps its lightness (plus `lift`)
 // and takes the hue `hue` (degrees, OKLab) at chroma `chroma`; colours darker than L 0.22 (outline) stay as they are

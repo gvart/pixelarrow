@@ -3,29 +3,29 @@
  "class": "mob_griffin",
  "image": "mob_griffin.png",
  "frame": {
-  "w": 161,
-  "h": 158
+  "w": 187,
+  "h": 179
  },
  "anchor": {
-  "x": 83,
-  "y": 148
+  "x": 96,
+  "y": 168
  },
  "anchors": {
   "south-east": {
-   "x": 78,
-   "y": 148
+   "x": 90,
+   "y": 168
   },
   "north-east": {
-   "x": 73,
-   "y": 144
+   "x": 85,
+   "y": 163
   },
   "south-west": {
-   "x": 83,
-   "y": 148
+   "x": 96,
+   "y": 168
   },
   "north-west": {
-   "x": 87,
-   "y": 144
+   "x": 101,
+   "y": 163
   }
  },
  "scale": 0.55,
@@ -35,7 +35,7 @@
   "south-west",
   "north-west"
  ],
- "wrap": 25,
+ "wrap": 21,
  "colorGroups": {},
  "tiers": {
   "basic": {}

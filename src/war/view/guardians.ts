@@ -131,7 +131,7 @@ export class GuardianLayer {
   /** A man-sized guardian (the King, a queen) is outlined in gold over everything (./units.ts mark). */
   mark(id: number): number | undefined {
     const b = this.states.get(id);
-    return b && (this.drawn(id)?.scale ?? 2) <= 1.05 && b.state !== 'flight' ? 0xffc23d : undefined;
+    return b && (this.drawn(id)?.ring ?? 2) <= 1.05 && b.state !== 'flight' ? 0xffc23d : undefined;
   }
 
   /** A guardian's silhouette on screen (world px; the whole frame, wings and all), from how it was drawn last. */

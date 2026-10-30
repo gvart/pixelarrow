@@ -2,6 +2,7 @@
  "class": "mob_griffin",
  "raw": "docs/v5/pixellab/GUARD/raw/griffin",
  "rotations": "docs/v5/pixellab/GUARD/raw/griffin/rot",
+ "upsheet": "after build.mjs, drawn at true size: node scripts/art/pixellab/mobs/upsheet.mjs mob_griffin 1.16 --white 200 charge:1=0",
  "shrink": 1,
  "scale": 0.55,
  "canvas": [

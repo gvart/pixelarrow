@@ -2,6 +2,7 @@
  "class": "mob_minotaur",
  "raw": "docs/v5/pixellab/GUARD/raw/minotaur",
  "rotations": "docs/v5/pixellab/GUARD/raw/minotaur/rot",
+ "upsheet": "after build.mjs, drawn at true size: node scripts/art/pixellab/mobs/upsheet.mjs mob_minotaur 1.08 attack:4=5:0,2 attack:5=6:1,3",
  "shrink": 1,
  "scale": 0.55,
  "canvas": [

@@ -3,29 +3,29 @@
  "class": "mob_minotaur",
  "image": "mob_minotaur.png",
  "frame": {
-  "w": 161,
-  "h": 161
+  "w": 174,
+  "h": 173
  },
  "anchor": {
-  "x": 69,
-  "y": 158
+  "x": 75,
+  "y": 171
  },
  "anchors": {
   "south-east": {
-   "x": 92,
-   "y": 158
+   "x": 99,
+   "y": 171
   },
   "north-east": {
-   "x": 75,
-   "y": 154
+   "x": 81,
+   "y": 166
   },
   "south-west": {
-   "x": 69,
-   "y": 158
+   "x": 75,
+   "y": 171
   },
   "north-west": {
-   "x": 85,
-   "y": 154
+   "x": 92,
+   "y": 166
   }
  },
  "scale": 0.55,
@@ -35,7 +35,7 @@
   "south-west",
   "north-west"
  ],
- "wrap": 25,
+ "wrap": 23,
  "colorGroups": {},
  "tiers": {
   "basic": {}

@@ -124,7 +124,7 @@ interface Sheet {
   fw: number; fh: number;
 }
 /** How a watched unit (a guardian) was drawn this frame: its clip and frame, row, feet (world px), origin and scale. */
-export interface DrawnAs { clip: string; frame: number; row: string; x: number; y: number; ox: number; oy: number; scale: number; fw: number; fh: number }
+export interface DrawnAs { clip: string; frame: number; row: string; x: number; y: number; ox: number; oy: number; scale: number; ring: number; fw: number; fh: number }
 /** The manifest scale of a soldier sheet: 33 px/m (public/war/guardians.json). */
 const SOLDIER_SCALE = 0.55;
 /** A mob's dark rim (the outline shader) so a brown beast reads on olive ground; a chief's in dull bronze. */
@@ -557,7 +557,7 @@ export class UnitLayer {
       // facing, projected: a tile-space direction (dx, dy) runs (dx - dy, (dx + dy) / 2) on screen
       const qi = this.quadrant(u.id, l?.facing ?? d.facing), q = sheet.rows[qi];
       const p = this.anim.pick(d, sheet.clips, at, units, shots);
-      if (this.watch.has(u.id)) this.drawnAs.set(u.id, { clip: p.clip, frame: p.frame, row: QUADRANT[qi], x: f.x, y: f.y, ox: q.ox, oy: q.oy, scale: sheet.scale, fw: sheet.fw, fh: sheet.fh });
+      if (this.watch.has(u.id)) this.drawnAs.set(u.id, { clip: p.clip, frame: p.frame, row: QUADRANT[qi], x: f.x, y: f.y, ox: q.ox, oy: q.oy, scale: sheet.scale, ring: sheet.ring, fw: sheet.fw, fh: sheet.fh });
       let [key, frame] = sheet.frames.get(p.clip)![q.row][p.frame];
       const po = this.pose?.(u.id, at.now), hp = u.state !== 'dead' ? this.hit?.(u.id, at.now) : undefined;
       // a hit-stop (a guardian's beat, a heavy blow) holds the frame it began on
