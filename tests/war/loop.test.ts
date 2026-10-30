@@ -11,8 +11,9 @@ import { createSim } from '../../src/war/sim';
 import type { WarBuildSim } from '../../src/war/types';
 
 const MOORS = parseRegion(moors);
-/** The moors' lair-free claim point 1 (the buyer's ground in the smoke), its bear lair 4 and claim point 2 behind it. */
-const PAL = { x: 185, y: 301 };
+/** The moors' lair-free claim point 1 (the buyer's ground in the smoke), its bear lair 4 and claim point 2 behind it. The
+ * palisade site sits on the flat moor top west of the claim point's hamlet, clear of the rim step down to the south-east. */
+const PAL = { x: 166, y: 292 };
 
 function run(sim: WarBuildSim, ticks: number, until?: () => boolean): number {
   for (let t = 0; t < ticks; t++) {
