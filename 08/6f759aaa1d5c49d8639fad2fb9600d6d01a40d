@@ -1,0 +1,21 @@
+tests/war/tasksHud.test.ts
+  s_0dd3a9d3e5007a::t_5ff6c793ae359b 6,44-63
+tests/war/explainHelp.test.ts
+  s_0dd3a9d3e5007a::t_c127f069b4b061 35,37-40,42-56
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "086f759aaa1d5c49d8639fad2fb9600d6d01a40d",
+  "prompts": {},
+  "sessions": {
+    "s_0dd3a9d3e5007a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b6130d3d-c070-494f-98d5-046db89f2d1c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
