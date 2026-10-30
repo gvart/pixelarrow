@@ -218,8 +218,6 @@ export function hud(s: SandboxScene): void {
     <div class="rf-sep" id="cSep2"></div>
     <div id="cSlots" style="display:flex;gap:2px;align-items:center"></div></div>`;
   draggable(card, '#cSel'); // the selection's name plate moves the command card
-  /** Art px the card is slid right of the centre, clear of the minimap (refresh). */
-  let cardShift = 0;
   const $ = (id: string) => card.querySelector<HTMLElement>('#' + id)!;
   /** An icon button: id, icon, tooltip, key hint, click. */
   const btn = (id: string, ic: string, tipText: string | (() => string), key: string, run: () => void, cls = 'rf-btn') => {
@@ -660,14 +658,6 @@ export function hud(s: SandboxScene): void {
     $('cFrame').style.display = idle ? 'none' : '';
     army.refresh(idle);
     card.style.display = '';
-    // the panel widened (a man's card docked) would run under the minimap: it slides right, clear of it
-    if (card.style.display !== 'none' && !card.dataset.moved) {
-      const slid = (n: number) => (n ? `translateX(calc(-50% + ${n}px))` : 'translateX(-50%)');
-      if (card.style.transform !== slid(cardShift)) cardShift = 0; // put back (a double click on its plate)
-      const z = Number(card.style.zoom) || 1, left = card.getBoundingClientRect().left - cardShift * z;
-      const shift = Math.round(Math.max(0, mini.el.getBoundingClientRect().right + 4 - left) / z);
-      if (shift !== cardShift || card.style.transform !== slid(shift)) { cardShift = shift; card.style.transform = slid(shift); }
-    }
 
     // build bar
     build.style.display = m.active ? '' : 'none';

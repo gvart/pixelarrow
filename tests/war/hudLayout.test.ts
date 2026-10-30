@@ -88,6 +88,27 @@ describe('HUD zones', () => {
     expect(p.rrCard.y + p.rrCard.h).toBeLessThanOrEqual(p.rfChat.y - GAP);
   });
 
+  it('the bottom-centre column shares one centre line, moved right as one clear of the minimap', () => {
+    // 1520x750 at UI scale 1.25: a card wide enough to meet the minimap under the build bar and the soul prompt
+    const f = { w: 1520 / 1.25, h: 750 / 1.25 }, wide = b('rfCard', 880, 110);
+    const p = solve(f, { bl: [mini, chatShut], bc: [wide, b('rfBuild', 474, 146), b('rfSoul', 315, 50)], br: [dock] });
+    const mid = (q: Placed) => q.x + q.w / 2;
+    expect(mid(p.rfBuild)).toBeCloseTo(mid(p.rfCard));
+    expect(mid(p.rfSoul)).toBeCloseTo(mid(p.rfCard));
+    expect(p.rfCard.x).toBeGreaterThanOrEqual(p.minimap.x + p.minimap.w + GAP);
+    expect(p.rfCard.y + p.rfCard.h).toBe(f.h - 4); // on the bottom edge, not lifted over the minimap
+    for (const id of ['rfCard', 'rfBuild', 'rfSoul']) {
+      expect(meet(p[id], p.minimap), `${id} meets the minimap`).toBe(false);
+      expect(meet(p[id], p.rfChat), `${id} meets the chat`).toBe(false);
+    }
+  });
+
+  it('the bottom-centre column stays centred when nothing is in its way', () => {
+    const f = FRAMES['1920x1080'], p = solve(f, { bl: [mini], bc: [card, b('rfBuild', 420, 80)], br: [dock] });
+    expect(p.rfCard.x + p.rfCard.w / 2).toBeCloseTo(f.w / 2);
+    expect(p.rfBuild.x + p.rfBuild.w / 2).toBeCloseTo(f.w / 2);
+  });
+
   it('the chest opens above the command card where they would meet', () => {
     const f = FRAMES['1100x700'], wide = b('rfCard', 600, 90), p = solve(f, { bc: [wide], br: [dock], rwin: [b('rfChest', 330, 300)] });
     expect(p.rfChest.y + p.rfChest.h).toBeLessThanOrEqual(p.rfCard.y - GAP);

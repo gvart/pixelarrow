@@ -112,7 +112,22 @@ export function solve(f: Frame, st: Stacks): Record<string, Placed> {
   // the bottom corners, then the bottom centre clear of them
   const brTop = up(st.br ?? [], f.h - EDGE, right);
   up(st.bl ?? [], f.h - EDGE, (b) => (b.beside && lwinOpen && lwinRight + GAP + b.w <= f.w - EDGE ? lwinRight + GAP : left(b)));
-  const bcTop = up(st.bc ?? [], f.h - EDGE, centre, () => shown(['bl', 'br']));
+  // the bottom centre is one column on one centre line: where a panel of it would meet a bottom corner's stack, the
+  // whole column moves sideways (as far as the other corner allows); a panel still in the way is lifted over it
+  const bc = st.bc ?? [];
+  let need = 0, room = Infinity, cy = f.h - EDGE;
+  for (const b of bc) {
+    if (b.yields && lwinOpen) continue;
+    const x0 = centre(b), y0 = cy - b.h;
+    cy = y0 - GAP;
+    for (const p of shown(['bl', 'br'])) {
+      if (!meets(y0, y0 + b.h, p.y - GAP, p.y + p.h + GAP)) continue;
+      if (p.x + p.w / 2 < f.w / 2) need = Math.max(need, p.x + p.w + GAP - x0);
+      else room = Math.min(room, p.x - GAP - x0 - b.w);
+    }
+  }
+  const shift = Math.max(0, Math.min(need, room));
+  const bcTop = up(bc, f.h - EDGE, (b) => centre(b) + shift, () => shown(['bl', 'br']));
   /** The highest top among the bottom boxes a box over [x0, x1] would meet. */
   const floor = (x0: number, x1: number, zs: Anchor[]) => Math.min(f.h - EDGE, ...shown(zs).filter((p) => meets(x0, x1, p.x, p.x + p.w)).map((p) => p.y));
 
@@ -260,7 +275,7 @@ export function mountLayout(): void {
       const zone = zoneOf.get(id)!, ez = Number(el.style.zoom) || 1;
       if (WINDOWS.has(zone) && el.dataset.moved) continue;
       const h = el.dataset.hudClamp ? el.scrollHeight + el.offsetHeight - el.clientHeight : r.height / ez;
-      (stacks[zone] ??= []).push({ id, w: r.width / ez, h, ...(MIN[id] !== undefined ? { min: MIN[id] } : {}), ...(yields(id, el) ? { yields: true } : {}), ...(chatOpen(id, el) ? { beside: true } : {}), ...(SIDE_BY_SIDE.has(id) ? { dx: Math.round(r.left / ez - EDGE) } : zone === 'bc' ? { dx: r.left / ez - (f.w - r.width / ez) / 2 } : {}) });
+      (stacks[zone] ??= []).push({ id, w: r.width / ez, h, ...(MIN[id] !== undefined ? { min: MIN[id] } : {}), ...(yields(id, el) ? { yields: true } : {}), ...(chatOpen(id, el) ? { beside: true } : {}), ...(SIDE_BY_SIDE.has(id) ? { dx: Math.round(r.left / ez - EDGE) } : zone === 'bc' && el.dataset.moved ? { dx: r.left / ez - (f.w - r.width / ez) / 2 } : {}) });
     }
     // a centre modal up (the wipe card, the game menu): the lane's banners wait under it, unseen
     if (stacks.lane && [...document.querySelectorAll(MODALS)].some((m) => m.getClientRects().length > 0)) { for (const b of stacks.lane) els.get(b.id)!.classList.add('hud-off'); delete stacks.lane; }
@@ -287,6 +302,8 @@ export function mountLayout(): void {
       }
       else { el.style.bottom = 'auto'; el.style.top = `${Math.round(p.y)}px`; }
       // the centre zones: placed by their middle (they keep their translateX(-50%)), no wider than the room
+      // the bottom centre: placed by its middle on the column's centre line (a dragged card keeps its own place)
+      if (zone === 'bc' && !el.dataset.moved) el.style.left = `${Math.round(p.x + p.w / 2)}px`;
       if (p.cap !== undefined) { el.style.left = `${Math.round(p.x + p.w / 2)}px`; el.style.maxWidth = `${Math.floor(p.cap)}px`; }
       const want = stacks[zone]!.find((b) => b.id === id)!;
       if (p.h < want.h - 0.5) {
