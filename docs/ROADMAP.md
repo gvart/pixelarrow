@@ -81,8 +81,11 @@ Still enforced by code. The ADRs themselves were removed; see the note at the en
   `px_corrupt_*`. `validate` repairs v6 fields with defaults on every load;
   new fields must be optional with defaults. A future bump adds one `n → n+1`
   migration.
-- (ADR-0003) Stay on Phaser 3.90 (`package.json`). The Phaser 4.2.1 upgrade
-  failed its gate on first-draw time (1.4-2x slower first sheet open).
+- (ADR-0003) Phaser 4.2 (`package.json`). The v5 gate (4.2.1 opened the
+  campaign's first sheet 1.4-2x slower) measured a screen that is gone; on the
+  war sandbox 4.2.1 boots and draws as fast as 3.90. Our sprite shaders (look,
+  team dye, outline) are BatchHandlerQuad render nodes with their own tint step
+  (`src/war/view/quadShader.ts`), each with its own `shaderName`.
 - (ADR-0004) Battle pointer input is pure and tested in `src/ui/input/`
   (`hitTest.ts`, `gestures.ts`); the scene only routes events and carries out
   the result. New pointer behaviour goes there first, with a test. `HitState`

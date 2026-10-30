@@ -27,6 +27,10 @@ describe('war per-man look', () => {
     expect(lookCode(2, 1, lookOf('p-9', 'hoplite'))).toEqual(lookCode(2, 1, lookOf('p-9', 'hoplite')));
   });
 
+  it('fits the look code of the last palette block in the two bytes the shader reads', () => {
+    expect(lookCode(63, 3, { ...lookOf('p-9', 'hoplite'), tier: 2 }).fx).toBeLessThan(1 << 16); // buildPalette keeps 64 blocks
+  });
+
   it('skews skin by folk: Celts fairer than Phoenicians', () => {
     const mean = (cls: string) => Array.from({ length: 400 }, (_, i) => lookOf(`m${i}`, cls).skin).reduce((a, b) => a + b, 0) / 400;
     expect(mean('celt_sword')).toBeLessThan(mean('falx') + 0.6);
@@ -68,7 +72,7 @@ describe('war per-man look', () => {
       const y0 = pal.index.get(cls)! * PAL_ROWS, at = (x: number, y: number) => { const o = (y * PAL_W + x) * 4; return (pal.data[o] << 16) | (pal.data[o + 1] << 8) | pal.data[o + 2]; };
       const k = at(0, y0), mult: [number, number, number] = [k >> 16, (k >> 8) & 255, k & 255];
       const look = lookOf('slot-check', cls, { level: 9 }), code = lookCode(0, 0, look);
-      expect(code.fx).toBe(8 + 2); // elite, team 0, block 0
+      expect(code.fx).toBe(2); // elite, team 0, block 0
       for (const [g, cs] of Object.entries(m.colorGroups ?? {})) {
         if (!(g in GROUP_ID)) continue;
         cs.forEach((c, i) => {

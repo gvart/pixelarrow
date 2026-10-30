@@ -216,5 +216,5 @@ function shadeLook(img: Phaser.GameObjects.Image, glow: Phaser.GameObjects.Image
   const bob = Math.sin(t / 600) * 3, pulse = 0.75 + 0.25 * Math.sin(t / 400);
   img.setPosition(img.x, Math.round(img.y - 8 + bob)).setTint(0xe4f2ff).setAlpha(0.72);
   glow.setTexture(img.texture.key, img.frame.name).setOrigin(img.originX, img.originY).setPosition(img.x, img.y).setFlipX(img.flipX)
-    .setScale(img.scaleX * 1.14, img.scaleY * 1.14).setDepth(img.depth - 1e-5).setBlendMode('ADD').setTintFill(0x8fcaff).setAlpha(0.6 * pulse).setVisible(true);
+    .setScale(img.scaleX * 1.14, img.scaleY * 1.14).setDepth(img.depth - 1e-5).setBlendMode('ADD').setTint(0x8fcaff).setTintMode(Phaser.TintModes.FILL).setAlpha(0.6 * pulse).setVisible(true);
 }

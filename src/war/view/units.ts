@@ -8,7 +8,7 @@
  * behind higher ground, a wall or a stone object show as a team-coloured outline over it; hidden
  * foes are simply hidden.
  * The sheets wear red; every team wears its alliance's colour, as on the world map (../world/palette.ts; ./side.ts):
- * Dodona blue, Skythia gold, Kyrene red, Elaia purple. A class whose manifest has colour groups draws through LOOK
+ * Dodona blue, Skythia gold, Kyrene red, Elaia purple. A class whose manifest has colour groups draws through the look
  * (./lookShader.ts): each man's own look (./look.ts: skin, cloak, crest, trim, hair, gear tier) in his team's colours;
  * other sheets draw through a dye shader per team that turns the red cloth to its colour (Kyrene keeps the red).
  * The player's own men stand out by a full, wider foot ring; foes' rings are fainter.
@@ -27,7 +27,8 @@ import type { Lift } from './build/buildingLayer';
 import { myTeam, slot } from './side';
 import { DYE_GLSL, RED_W_GLSL, lookCode, lookHero, lookHeroesVersion, lookOf, type Look } from './look';
 import { TEAM_INT } from '../world/palette';
-import { LOOK, addLookPipeline } from './lookShader';
+import { LOOK_MODE, addLookPipeline } from './lookShader';
+import { addQuadShader, useQuad } from './quadShader';
 import { NEUTRAL_TEAM } from '../sim/economy';
 
 /** Each team's marker colour (rings, outlines, flags): its alliance's, as the world map draws it. */
@@ -41,41 +42,27 @@ export const BODY = 28;
 const FALLBACK_CLASS = 'militia';
 /** micro: the ring of the one man picked out of his block (./micro.ts): white, wider, pulsing. */
 const PICK_RING = 0xffffff;
-/** The dye pipeline per team (none: Kyrene keeps the art's red). */
+/** The dye shader's node name per team (none: Kyrene keeps the art's red). */
 const TEAM_DYE = DYE_GLSL.map((d, t) => (d ? `WarTeamDye${t}` : null));
+const MULTIPLY = Phaser.TintModes.MULTIPLY, FILL = Phaser.TintModes.FILL;
+type Quad = Phaser.Renderer.WebGL.RenderNodes.BatchHandlerQuad;
 
 /**
- * Phaser's single-texture sprite shader plus a dye of saturated red pixels (cloaks, crests, shield paint) to a team's
- * colour (./look.ts DYE_GLSL); skin, bronze and leather (green well above blue) keep their colours.
+ * Phaser's sprite shader with a dye of saturated red pixels (cloaks, crests, shield paint) to a team's colour
+ * (./look.ts DYE_GLSL) before its tint; skin, bronze and leather (green well above blue) keep their colours.
  * Textures are premultiplied, so the dye runs on un-premultiplied colour.
  */
-const SWAP_FRAG = (dye: string) => `
-precision mediump float;
-uniform sampler2D uMainSampler;
-varying vec2 outTexCoord;
-varying float outTintEffect;
-varying vec4 outTint;
-void main() {
-  vec4 t = texture2D(uMainSampler, outTexCoord);
+const SWAP_HEADER = (dye: string) => `
+vec4 applyDye(vec4 t) {
   vec3 c = t.a > 0.0 ? t.rgb / t.a : t.rgb;
   float w = ${RED_W_GLSL};
   c = mix(c, ${dye}, w);
-  t.rgb = c * t.a;
-  vec4 texel = vec4(outTint.bgr * outTint.a, outTint.a);
-  vec4 color = t * texel;
-  if (outTintEffect == 1.0) color.rgb = mix(t.rgb, outTint.bgr * outTint.a, t.a);
-  else if (outTintEffect == 2.0) color = texel;
-  gl_FragColor = color;
+  return applyTint(vec4(c * t.a, t.a));
 }`;
 
-function addSwapPipeline(scene: Phaser.Scene): boolean {
-  const r = scene.renderer;
-  if (!(r instanceof Phaser.Renderer.WebGL.WebGLRenderer)) return false;
-  DYE_GLSL.forEach((d, t) => {
-    const name = TEAM_DYE[t];
-    if (d && name && !r.pipelines.has(name)) r.pipelines.add(name, new Phaser.Renderer.WebGL.Pipelines.SinglePipeline({ game: scene.game, fragShader: SWAP_FRAG(d) }));
-  });
-  return true;
+/** Per team its dye node (null: none, or no WebGL). */
+function addSwapShaders(scene: Phaser.Scene): (Quad | null)[] {
+  return DYE_GLSL.map((d, t) => (d ? addQuadShader(scene, TEAM_DYE[t]!, { header: SWAP_HEADER(d), fn: 'applyDye' }) : null));
 }
 
 const OUTLINE = 'WarOutline';
@@ -83,27 +70,19 @@ const OUTLINE = 'WarOutline';
  * A hidden man's outline: the tint colour on each transparent pixel next to an opaque one, one screen px out (the
  * neighbour step is the screen-px derivative of the texture coordinate). Batched like any sprite: no framebuffer pass.
  */
-const OUTLINE_FRAG = `
-#extension GL_OES_standard_derivatives : enable
-precision mediump float;
-uniform sampler2D uMainSampler;
-varying vec2 outTexCoord;
-varying float outTintEffect;
-varying vec4 outTint;
-void main() {
+const OUTLINE_HEADER = `
+vec4 applyOutline(vec4 t) {
   vec2 dx = vec2(dFdx(outTexCoord.x), 0.0), dy = vec2(0.0, dFdy(outTexCoord.y));
-  float a = texture2D(uMainSampler, outTexCoord).a;
-  float n = max(max(texture2D(uMainSampler, outTexCoord + dx).a, texture2D(uMainSampler, outTexCoord - dx).a),
-                max(texture2D(uMainSampler, outTexCoord + dy).a, texture2D(uMainSampler, outTexCoord - dy).a));
-  float edge = step(0.5, n) * (1.0 - step(0.5, a));
-  gl_FragColor = vec4(outTint.bgr, 1.0) * outTint.a * edge;
+  float n = max(max(getTexture(outTexCoord + dx).a, getTexture(outTexCoord - dx).a),
+                max(getTexture(outTexCoord + dy).a, getTexture(outTexCoord - dy).a));
+  float edge = step(0.5, n) * (1.0 - step(0.5, t.a));
+  return vec4(outTint.bgr, 1.0) * outTint.a * edge;
 }`;
 
-function addOutlinePipeline(scene: Phaser.Scene): boolean {
+function addOutlineShader(scene: Phaser.Scene): Quad | null {
   const r = scene.renderer;
-  if (!(r instanceof Phaser.Renderer.WebGL.WebGLRenderer) || !r.gl.getExtension('OES_standard_derivatives')) return false;
-  if (!r.pipelines.has(OUTLINE)) r.pipelines.add(OUTLINE, new Phaser.Renderer.WebGL.Pipelines.SinglePipeline({ game: scene.game, fragShader: OUTLINE_FRAG }));
-  return true;
+  if (!(r instanceof Phaser.Renderer.WebGL.WebGLRenderer) || !r.gl.getExtension('OES_standard_derivatives')) return null;
+  return addQuadShader(scene, OUTLINE, { header: OUTLINE_HEADER, fn: 'applyOutline', extensions: '#extension GL_OES_standard_derivatives : enable' });
 }
 
 const manifests = import.meta.glob<SheetManifest>('../../assets/sheets/*/manifest.json', { eager: true, import: 'default' });
@@ -242,10 +221,12 @@ export class UnitLayer {
   /** Shadow and ring of each raised unit, drawn in its layer slot (gUnder lies under every wall). */
   private rings: Phaser.GameObjects.Graphics[] = [];
   private gUnder: Phaser.GameObjects.Graphics;
-  private swap: boolean;
-  private outline: boolean;
-  /** Per class with colour groups: its block in the look palette (none: no look pipeline). */
-  private lookIndex: Map<string, number> | null;
+  /** Per team its dye node (null: none, or no WebGL). */
+  private dye: (Quad | null)[];
+  private outline: Quad | null;
+  private look: Quad | null = null;
+  /** Per class with colour groups: its block in the look palette (none: no look shader). */
+  private lookIndex: Map<string, number> | null = null;
   /** Draw men in their own looks (false: as before, the team swap; for A/B perf checks). */
   lookOn = true;
   /** Per unit: his look code, and what it was made from. */
@@ -253,13 +234,14 @@ export class UnitLayer {
   private ids = 0;
 
   constructor(private scene: Phaser.Scene, private iso: IsoMap, sheetImages: Map<string, HTMLImageElement>) {
-    this.swap = addSwapPipeline(scene);
-    this.outline = addOutlinePipeline(scene);
+    this.dye = addSwapShaders(scene);
+    this.outline = addOutlineShader(scene);
     for (const [path, m] of Object.entries(manifests)) {
       const cls = path.split('/').at(-2)!, img = sheetImages.get(cls);
       if (img) this.pending.set(cls, [m, img]);
     }
-    this.lookIndex = addLookPipeline(scene, [...this.pending].map(([cls, [m]]) => [cls, m] as [string, SheetManifest]), TEAM_TINT);
+    const look = addLookPipeline(scene, [...this.pending].map(([cls, [m]]) => [cls, m] as [string, SheetManifest]), TEAM_TINT);
+    if (look) ({ node: this.look, index: this.lookIndex } = look);
     const loadsImg = sheetImages.get(LOADS_KEY);
     if (loadsImg) buildLoads(scene, loadsImg);
     this.gUnder = scene.add.graphics().setDepth(9);
@@ -291,10 +273,8 @@ export class UnitLayer {
     const sx = dx - dy, sy = dx + dy, q = sheet.rows[(sx < 0 ? 1 : 0) + (sy < 0 ? 2 : 0)];
     const [key, frame] = sheet.frames.get(clip)![q.row][Math.floor((Math.abs(ms) * c.fps) / 1000) % c.n];
     img.setTexture(key, frame).setOrigin(q.ox, q.oy).setPosition(Math.round(x), Math.round(y)).setScale(sheet.scale).setDepth(depth).setVisible(true).setAlpha(1);
-    const dye = TEAM_DYE[slot(team) & 3];
-    if (this.swap && dye) img.setPipeline(dye);
-    else if (this.swap) img.resetPipeline();
-    img.setTint(TEAM_TINT[slot(team)] ?? 0xffffff);
+    useQuad(img, this.dye[slot(team) & 3] ?? null);
+    img.setTint(TEAM_TINT[slot(team)] ?? 0xffffff).setTintMode(MULTIPLY);
     return true;
   }
 
@@ -434,8 +414,8 @@ export class UnitLayer {
       if (!img) this.pool.push((img = this.scene.add.image(0, 0, key)));
       n++;
       img.setTexture(key, frame).setOrigin(q.ox, q.oy).setPosition(Math.round(f.x), Math.round(f.y)).setScale(sheet.scale).setVisible(true)
-        .setDepth(Math.max(10 + this.depthOf(c.x, c.y) / 4096 + 0.24, this.ground?.(c) || 0)).setTint(0xffffff).setAlpha(el > 10000 ? (12000 - el) / 2000 : 1);
-      if (this.swap) img.resetPipeline();
+        .setDepth(Math.max(10 + this.depthOf(c.x, c.y) / 4096 + 0.24, this.ground?.(c) || 0)).setTint(0xffffff).setTintMode(MULTIPLY).setAlpha(el > 10000 ? (12000 - el) / 2000 : 1);
+      useQuad(img, null);
     }
     return n;
   }
@@ -462,8 +442,8 @@ export class UnitLayer {
         if (!im) this.soulPool.push((im = this.scene.add.image(0, 0, key)));
         im.setTexture(key, frame).setOrigin(q.ox, q.oy).setPosition(Math.round(f.x), Math.round(f.y - 8 + bob)).setVisible(true)
           .setScale(sheet.scale * (glow ? 1.14 : 1)).setDepth(depth + (glow ? -1e-5 : 0));
-        if (glow) im.setBlendMode(Phaser.BlendModes.ADD).setTintFill(0x8fcaff).setAlpha(0.6 * pulse * fade);
-        else im.setBlendMode(Phaser.BlendModes.NORMAL).setTint(0xe4f2ff).setAlpha(0.72 * fade);
+        if (glow) im.setBlendMode(Phaser.BlendModes.ADD).setTint(0x8fcaff).setTintMode(FILL).setAlpha(0.6 * pulse * fade);
+        else im.setBlendMode(Phaser.BlendModes.NORMAL).setTint(0xe4f2ff).setTintMode(MULTIPLY).setAlpha(0.72 * fade);
       }
     }
     // W-66: the tunnel's line of shades and the man rising at its mouth
@@ -481,9 +461,9 @@ export class UnitLayer {
         if (!im) this.soulPool.push((im = this.scene.add.image(0, 0, key)));
         im.setTexture(key, frame).setOrigin(q.ox, q.oy).setPosition(Math.round(f.x), Math.round(f.y - (g.solid ? 0 : 8) - (g.lift ?? 0) + bob)).setVisible(true)
           .setScale(sheet.scale * (glow ? 1.14 + (g.flash ?? 0) * 0.3 : 1)).setDepth(depth + (glow ? -1e-5 : 0));
-        if (glow) im.setBlendMode(Phaser.BlendModes.ADD).setTintFill(g.solid ? 0xffffff : 0x8fcaff).setAlpha((g.solid ? (g.flash ?? 0) : 0.6 * pulse) * g.alpha);
-        else if (g.solid) im.setBlendMode(Phaser.BlendModes.NORMAL).setTint(0xffffff).setAlpha(g.alpha);
-        else im.setBlendMode(Phaser.BlendModes.NORMAL).setTint(0xe4f2ff).setAlpha(0.72 * g.alpha);
+        if (glow) im.setBlendMode(Phaser.BlendModes.ADD).setTint(g.solid ? 0xffffff : 0x8fcaff).setTintMode(FILL).setAlpha((g.solid ? (g.flash ?? 0) : 0.6 * pulse) * g.alpha);
+        else if (g.solid) im.setBlendMode(Phaser.BlendModes.NORMAL).setTint(0xffffff).setTintMode(MULTIPLY).setAlpha(g.alpha);
+        else im.setBlendMode(Phaser.BlendModes.NORMAL).setTint(0xe4f2ff).setTintMode(MULTIPLY).setAlpha(0.72 * g.alpha);
       }
     }
     for (let i = n; i < this.soulPool.length; i++) this.soulPool[i].setVisible(false);
@@ -574,15 +554,12 @@ export class UnitLayer {
       img.setDepth(depth);
       const code = this.lookOn ? this.code(d, sheet.cls) : undefined;
       if (code) {
-        img.setPipeline(LOOK).setTint(code.tint).setAlpha(1);
-        img.tintFill = code.fx as unknown as boolean; // the look's tint effect (lookCode), passed through to the shader as is
+        useQuad(img, this.look).setTint(code.tint).setTint2(code.fx).setTintMode(LOOK_MODE).setAlpha(1);
       } else {
-        const dye = d.team === NEUTRAL_TEAM ? null : TEAM_DYE[slot(d.team) & 3]; // W-65: roaming folk wear their own colours
-        if (this.swap && dye) img.setPipeline(dye);
-        else if (this.swap) img.resetPipeline();
-        img.setTint(TEAM_TINT[slot(d.team)] ?? 0xffffff).setAlpha(1);
+        useQuad(img, d.team === NEUTRAL_TEAM ? null : (this.dye[slot(d.team) & 3] ?? null)); // W-65: roaming folk wear their own colours
+        img.setTint(TEAM_TINT[slot(d.team)] ?? 0xffffff).setTintMode(MULTIPLY).setAlpha(1);
       }
-      if (po?.flash) img.setTintFill(0xfff4e0);
+      if (po?.flash) img.setTint(0xfff4e0).setTintMode(FILL);
       // hidden behind higher ground (the sprite would draw over the baked terrain: not drawn) or behind a wall or object
       // (drawn under it): the player's own men (and the selected) get a thin team-coloured outline over everything, no
       // fill; a hidden foe is simply hidden
@@ -593,13 +570,13 @@ export class UnitLayer {
         let gh = this.ghosts[this.nGhost];
         if (!gh) {
           this.ghosts.push((gh = this.scene.add.image(0, 0, key).setDepth(10.8)));
-          if (this.outline) gh.setPipeline(OUTLINE);
+          useQuad(gh, this.outline);
         }
         this.nGhost++;
         gh.setTexture(key, frame).setOrigin(q.ox, q.oy).setPosition(img.x, img.y).setScale(sheet.scale).setVisible(true);
         if (mk !== undefined) gh.setScale(sheet.scale * (po?.sx ?? 1), sheet.scale * (po?.sy ?? 1));
-        if (this.outline) gh.setTint(mk ?? team).setAlpha(mk !== undefined ? (hidden || occluded.has(u.id) ? 1 : 0.9) : 0.55);
-        else gh.setTintFill(mk ?? team).setAlpha(0.25); // no shader: a faint silhouette
+        if (this.outline) gh.setTint(mk ?? team).setTintMode(MULTIPLY).setAlpha(mk !== undefined ? (hidden || occluded.has(u.id) ? 1 : 0.9) : 0.55);
+        else gh.setTint(mk ?? team).setTintMode(FILL).setAlpha(0.25); // no shader: a faint silhouette
       }
     }
     return n;
@@ -626,7 +603,7 @@ export class UnitLayer {
   }
 
   /**
-   * A man's look code for the LOOK shader (undefined: his sheet has no colour groups, or no WebGL), made once per man
+   * A man's look code for the look shader (undefined: his sheet has no colour groups, or no WebGL), made once per man
    * and again when his class, team, level or gear source (setLookHeroes) changes. Seeded by his person id; a class-spawned man by his unit id.
    */
   private code(d: DrawUnit, cls: string): { fx: number; tint: number } | undefined {

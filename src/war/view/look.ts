@@ -336,12 +336,12 @@ export function buildPalette(sheets: Iterable<[string, SheetManifest]>): LookPal
 }
 
 /**
- * What a sprite carries to the shader: its tint effect (8 + (class block x 4 + team slot) x 3 + tier; Phaser's own
- * effects are 0-2) and its tint (0xRRGGBB: R = skin << 5 | cloak << 2 | crest, G = trim << 6 | hair << 3).
+ * What a sprite carries to the shader (./lookShader.ts): its secondary tint (fx: (class block x 4 + team slot) x 3 +
+ * tier) and its tint (0xRRGGBB: R = skin << 5 | cloak << 2 | crest, G = trim << 6 | hair << 3).
  */
 export function lookCode(ci: number, team: number, look: Look): { fx: number; tint: number } {
   return {
-    fx: 8 + ((ci * 4 + (team & 3)) * 3 + look.tier),
+    fx: (ci * 4 + (team & 3)) * 3 + look.tier,
     tint: (((look.skin << 5) | (look.cloak << 2) | look.crest) << 16) | (((look.trim << 6) | (look.hair << 3)) << 8),
   };
 }
