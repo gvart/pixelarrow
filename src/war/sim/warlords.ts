@@ -69,6 +69,8 @@ export interface Warlords {
   /** After each sim step (and the bots'): his decisions every WARLORD.think ticks; the notes of this tick. */
   tick(snap: Snapshot): WarlordNote[];
   snaps(): WarlordSnap[];
+  /** Dev and scenarios: each warlord picks a raid target at his next pass. */
+  raidNow(): void;
   /** His men here (all warlords). */
   men(): number;
   memory(): WarlordMemory;
@@ -379,7 +381,7 @@ export function createWarlords(region: RegionData, sim: WarBuildSim, bots: Bots,
           say(l, 'raid', `${fill(l.def.lines.warn, 'what', w.what)}!`, w.x, w.y, { team: w.team });
         }
       }
-    } else if (!l.warn && tick >= l.raidAt && !l.parties.some((x) => x.raid && x.raid.phase !== 'home')) {
+    } else if (!l.warn && tick >= l.raidAt && l.holds.some((h) => h.state === 'held' && h.at < tick) && !l.parties.some((x) => x.raid && x.raid.phase !== 'home')) {
       l.raidAt = tick + Math.round(R.every / Math.min(players, R.maxDiv)) + rng.int(0, 600);
       const w = raidTarget(l);
       if (w) {
@@ -414,6 +416,9 @@ export function createWarlords(region: RegionData, sim: WarBuildSim, bots: Bots,
       ...(l.warn ? { raid: { x: l.warn.x, y: l.warn.y, team: l.warn.team, in: Math.max(0, l.warn.at - tick) } } : {}),
     })),
     men: () => (snap ? menAll() : 0),
+    raidNow() {
+      for (const l of lords) l.raidAt = 0;
+    },
     memory: () => ({
       fallen: Object.fromEntries(lords.flatMap((l) => (l.fallen !== null ? [[l.def.id, l.fallen]] : []))),
       freed: Object.fromEntries(lords.map((l) => [l.def.id, { ...l.freed }])),
