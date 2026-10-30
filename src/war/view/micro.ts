@@ -100,9 +100,10 @@ export class Micro {
     }
   }
 
-  /** World px over a man's feet his bar floats at: just over his head (a soldier is 2 BODY tall), at his sheet's scale. */
+  /** World px over a man's feet his bar floats at: just over his head (a soldier is 2 BODY tall), at his sheet's scale; a mob's over its frame. */
   private above(d: DrawUnit): number {
-    return BAR.above * this.units.scaleOf(d.u.cls);
+    const top = d.u.cls.startsWith('mob_') ? this.units.topOf(d.u.cls, d.u.id) : undefined;
+    return top !== undefined ? top + 4 : BAR.above * this.units.scaleOf(d.u.cls);
   }
 
   private showCard(drawn: readonly DrawUnit[]): void {
