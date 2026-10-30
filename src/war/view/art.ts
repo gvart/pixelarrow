@@ -21,7 +21,7 @@ import { columnTops, type MassifDef, type Massifs } from './massifs';
 import { buildFineArt, SmoothFrames, type CliffRoles, type FineArt } from './fineArt';
 import { HH, HW, IsoMap, LH, SIDE, ZBASE } from './iso';
 import type { BakeOpts } from './terrain';
-import { FOAM_H, FOAM_NX, FOAM_NY, FOAM_PX, FOAM_PY, FOAM_W, foamSprite, groundTint, relief, RELIEF_FILL, SHADOW_H, SHORE_WATER, SHORE_WET, SHADOW_W, TINT_FILL, treeShadow } from './relief';
+import { FOAM_H, FOAM_NX, FOAM_NY, FOAM_PX, FOAM_PY, FOAM_W, foamSprite, groundTint, PEAT_SHORE, peatWater, relief, RELIEF_FILL, SHADOW_H, SHORE_WATER, SHORE_WET, SHADOW_W, TINT_FILL, treeShadow } from './relief';
 import { relightTree } from './treeLight';
 import { PeakPainter } from './peaks';
 import { wallStone, wallTexture, type Stone } from './rockFace';
@@ -231,6 +231,8 @@ export class ArtBaker {
   private foam: Uint8Array;
   /** Per visual cell: its ground tint (./relief.ts TINT_FILL code, 0 none). */
   private tint: Uint8Array;
+  /** Per visual cell: drawn in the moors' set (its water is black peat water). */
+  private peat: (j: number) => boolean;
   /** The tile set whose walls are basalt (the mountains' in a desert region), -1 none. */
   private basalt = -1;
   /** Per visual cell: how its rock wall's front is smoothed (CUT_*), 0 none. */
@@ -303,6 +305,10 @@ export class ArtBaker {
       const x = j % iso.fw, y = (j / iso.fw) | 0;
       return this.setOf[(y >> 1) * r.w + (x >> 1)] === this.basalt && !iso.peakAt((x >> 1) + 0.5, (y >> 1) + 0.5);
     });
+    // the moors' bog pools: black peat water (./relief.ts peatWater)
+    const moors = art.sets.findIndex((s) => s.name === 'moors');
+    this.peat = (j) => moors >= 0 && this.setOf[(((j / iso.fw) | 0) >> 1) * r.w + ((j % iso.fw) >> 1)] === moors;
+    peatWater(iso.fk, this.shade, this.foam, this.tint, this.peat);
     this.cut = this.cuts();
   }
 
@@ -715,6 +721,7 @@ export class ArtBaker {
             for (const j of [i - 1, i + 1, i - fw, i + fw]) if (j >= 0 && j < shade.length && isWet(j) === w && shade[j]) return shade[j];
             return dflt;
           };
+          if (this.peat(i)) { add(256 + PEAT_SHORE, wet); add(side(false, SHORE_WET), dry); if (t && !own) add(256 + t, dry); continue; }
           add(side(true, SHORE_WATER), wet); add(side(false, SHORE_WET), dry);
           if (t) add(256 + t, dry);
           continue;

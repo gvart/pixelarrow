@@ -204,7 +204,9 @@ export function relief(fw: number, fh: number, fk: Uint8Array, fz: Float32Array)
  * tiles repeat every 2 m). Per visual cell a code into TINT_FILL (0 none), filled by ./art.ts under the relief light:
  *  - salt: the pale sand the salt pans lie in (the salt tiles bleached white at load, ./art.ts bleach), about half of it;
  *  - redrock: ochre, rust-dark and dusty patches of a few tens of metres over the red tableland;
- *  - basalt: the ground on the desert's dark volcanic stone (./art.ts), near black.
+ *  - basalt: the ground on the desert's dark volcanic stone (./art.ts), near black;
+ *  - peat water: the moors' bog pools near black (peatWater), lighter only at the very edge where the bed shows;
+ *  - heath: rust-red heather and dark wet hollows of a few tens of metres over the moor (the reference's mottled moor).
  */
 const TINTS: [string, number[]][] = [
   ['214,193,150', [0.62, 0.46, 0.28, 0.14]], // pale sand over salt
@@ -212,12 +214,36 @@ const TINTS: [string, number[]][] = [
   ['86,32,18', [0.2, 0.13, 0.07]], // rust-dark over red rock
   ['236,184,146', [0.16, 0.1, 0.05]], // dust over red rock
   ['12,10,13', [0.78, 0.7, 0.62]], // basalt: rock, then other ground, a little dithered
+  ['11,9,7', [0.9, 0.85, 0.78, 0.68]], // peat water: open water, then toward the shore
+  ['132,52,36', [0.2, 0.13, 0.07]], // rust heather over the heath
+  ['20,14,11', [0.26, 0.17, 0.08]], // dark wet peat over the heath
+  ['40,27,18', [0.6, 0.52]], // peat mud over the moors' tracks (peatWater)
 ];
 /** Fill per code (index 0 unused); the first code of each tint in TINT0. */
 export const TINT_FILL: string[] = [''];
 const TINT0: number[] = [];
 for (const [rgb, as] of TINTS) { TINT0.push(TINT_FILL.length); for (const a of as) TINT_FILL.push(`rgba(${rgb},${a})`); }
-const ROCK = K('rock'), SALT = K('salt'), REDROCK = K('redrock'), PAVED = new Set(['road', 'paving', 'shallow', 'deep'].map(K));
+const ROAD = K('road'), ROCK = K('rock'), SALT = K('salt'), REDROCK = K('redrock'), HEATH = K('heath'), PAVED = new Set(['road', 'paving', 'shallow', 'deep'].map(K));
+
+/** The peat water tint at the shore (a shore cell's water half, ./art.ts). */
+export const PEAT_SHORE = TINT0[5] + 3;
+
+/**
+ * Black peat water (the moors' bog pools, regions-look 2), and the moors' tracks in peat mud: the water cells where `peat` holds lose their lit turquoise
+ * shallows, open-water shade and surf (code, foam) and take the near-black peat tint instead, graded by the distance
+ * from the shore their water shade carried (the edge a little lighter, where the bed shows).
+ */
+export function peatWater(fk: Uint8Array, code: Uint8Array, foam: Uint8Array, tint: Uint8Array, peat: (j: number) => boolean): void {
+  for (let j = 0; j < fk.length; j++) {
+    if ((fk[j] !== SHALLOW && fk[j] !== DEEP) || !peat(j)) continue;
+    const s = code[j], d = s >= WATER0 && s < WATER0 + NWATER ? s - WATER0 : NWATER;
+    tint[j] = TINT0[5] + Math.max(0, 3 - (d >> 1));
+    code[j] = 0;
+    foam[j] = 0;
+  }
+  // the tracks over the moor trodden into dark peat mud (the global road is pale dust)
+  for (let j = 0; j < fk.length; j++) if (fk[j] === ROAD && peat(j)) tint[j] = TINT0[8] + (hash(j, 7, 86) % 4 === 0 ? 1 : 0);
+}
 
 /**
  * The tint code of every visual cell (fw x fh, kinds fk): an index into TINT_FILL, 0 none. `basalt`: the cells on the
@@ -237,6 +263,10 @@ export function groundTint(fw: number, fh: number, fk: Uint8Array, basalt: (j: n
       const a = 0.7 * noise(x, y, 34, 74) + 0.3 * noise(x, y, 11, 75), b = 0.7 * noise(x, y, 52, 76) + 0.3 * noise(x, y, 15, 77);
       const d = ((hash(x, y, 78) & 255) / 255 - 0.5) * 0.04;
       out[j] = a > 0.12 ? step(1, a - 0.12 + d, 0.07) : b > 0.15 ? step(2, b - 0.15 + d, 0.07) : a < -0.25 ? step(3, -0.25 - a + d, 0.07) : 0;
+    } else if (k === HEATH) {
+      const a = 0.7 * noise(x, y, 30, 81) + 0.3 * noise(x, y, 9, 82), b = 0.7 * noise(x, y, 40, 83) + 0.3 * noise(x, y, 12, 84);
+      const d = ((hash(x, y, 85) & 255) / 255 - 0.5) * 0.04;
+      out[j] = a > 0.1 ? step(6, a - 0.1 + d, 0.07) : b < -0.2 ? step(7, -0.2 - b + d, 0.07) : 0;
     }
   }
   return out;
