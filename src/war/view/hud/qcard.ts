@@ -64,7 +64,7 @@ const MOUSE = '<svg class="qc-mouse" viewBox="0 0 12 16" width="11" height="15" 
 
 export const chip = {
   /** Any chip: an icon (HTML) and a short text. */
-  any: (ic: string, text: string, cls = '', tip = '') => `<span class="qc-chip${cls ? ` ${cls}` : ''}"${tip ? ` title="${esc(tip)}"` : ''}>${ic}${text ? `<span>${esc(text)}</span>` : ''}</span>`,
+  any: (ic: string, text: string, cls = '', tip = '') => (style(), `<span class="qc-chip${cls ? ` ${cls}` : ''}"${tip ? ` title="${esc(tip)}"` : ''}>${ic}${text ? `<span>${esc(text)}</span>` : ''}</span>`),
   /** The reward: one gold chip a good, its icon and +n. */
   reward: (r: Record<string, number>) => Object.entries(r).filter(([, n]) => n > 0).map(([g, n]) => chip.any(ICONED.has(g) ? icon(`res-${g}`) : '', `${ICONED.has(g) ? '' : `${g} `}+${Math.round(n * 100) / 100}`, 'gold', `Reward: ${Math.round(n * 100) / 100} ${g}`)).join(''),
   /** The way to the target ("656 m"). */
@@ -119,6 +119,8 @@ const CSS = `
 .qc-more p b,#qcTip p b{font-weight:700;color:var(--hud-title)}
 .qc-more .qc-from,#qcTip .qc-from{color:var(--hud-muted);margin-bottom:0}
 .qc-mt{margin-bottom:4px;font:700 13px/1.2 Cinzel,serif;color:var(--hud-title)}
+.rr-toast .rr-tt{font:700 13px/1.25 Inter,system-ui,sans-serif}
+.rr-toast .qc-chip{height:19px;margin-left:2px}
 #qcTip{position:fixed;z-index:${Z.tip};pointer-events:none;width:280px;display:none}
 `;
 
@@ -164,3 +166,7 @@ function style(): void {
 function hide(): void {
   if (tip) tip.style.display = 'none';
 }
+
+/** A story or encounter step's verb icon, by its trigger (../../sim/stories.ts, ../../sim/encounters.ts). */
+export const TRIGGER_ICON: Record<string, string> = { talk: 'act-assign', reach: 'act-move', track: 'act-move', clear: 'act-attack', rescue: 'mk-claim', choice: 'trade-contract', guide: 'act-escort' };
+export const triggerIcon = (kind: string) => icon(TRIGGER_ICON[kind] ?? 'mk-claim');

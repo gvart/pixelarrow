@@ -24,6 +24,7 @@ import { myTeam } from '../side';
 import { leftPanelOpen } from './kit';
 import { esc } from './roster/ui';
 import { questBanner, restoreTrack, track, trackedKey, type Tracked, type TrackView } from './quest';
+import { triggerIcon } from './qcard';
 
 type P = { x: number; y: number };
 
@@ -31,7 +32,7 @@ const CSS = `
 .st-giver{position:fixed;z-index:2;pointer-events:none;transform:translate(-50%,-100%);display:none;flex-direction:column;align-items:center;white-space:nowrap;text-shadow:0 1px 0 #050506,0 0 3px #050506}
 .st-giver .bang{display:flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:radial-gradient(circle at 40% 35%,#ffe48a,#e0a325 60%,#8a5a12);box-shadow:0 0 0 2px #2a1a08,0 0 10px rgba(255,210,87,.75);font:900 19px/1 Inter,sans-serif;color:#2a1a08;text-shadow:none;animation:gdBob 1.1s ease-in-out infinite}
 .st-giver .nm{margin-top:2px;padding:2px 6px;background:rgba(10,11,13,.82);box-shadow:inset 0 0 0 1px #6a5326;font:700 11px/1.2 Inter,sans-serif;color:#f3e2b8}
-.st-giver .hk{margin-top:2px;max-width:220px;white-space:normal;text-align:center;font:italic 11px/1.3 Inter,sans-serif;color:var(--rf-muted)}
+.st-giver .hk{margin-top:2px;max-width:220px;white-space:normal;text-align:center;font:600 12px/1.3 Inter,sans-serif;color:var(--rf-ink)}
 `;
 
 const KEY = (region: string) => `pa.war.story.${region}`;
@@ -129,7 +130,7 @@ export function mountStory(s: SandboxScene): void {
       const path = storyPath(story, sv), i = Math.max(0, path.indexOf(step)), t = step.trigger, r = rewardParts(step.reward);
       const marks = t.kind === 'track' ? ` (${sv.n}/${t.marks.length})` : '';
       return {
-        kind: `Story · ${region.name}`, title: story.title, giver: `Given by ${giverLine}`,
+        kind: `Story · ${region.name}`, title: story.title, giver: `Given by ${giverLine}`, icon: triggerIcon(t.kind),
         goal: `${step.goal}${marks}`, progress: `${i + 1}/${path.length}`, frac: i / path.length,
         where: step.where, reward: r.goods,
         pay: t.kind === 'choice' ? 'Each choice pays its own way' : [r.more, Object.keys(r.goods).length ? `Paid when done, into ${payTo}` : r.more ? '' : 'The story goes on'].filter(Boolean).join(' · '),
