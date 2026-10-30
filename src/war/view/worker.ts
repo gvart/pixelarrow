@@ -12,6 +12,8 @@ import { createSim as createFakeSim } from '../fake/sim';
 import { createSim } from '../sim';
 import { bossPile } from '../sim/bossLoot';
 import { createBots, type Behaviour, type Bots } from '../sim/bots';
+import { createWarlords, type WarlordNote, type Warlords } from '../sim/warlords';
+import { WARLORD } from '../../data/warWarlords';
 import { feedSim, goOrder, prebuildSim } from '../scenarios/run';
 import type { ScenarioGo } from '../scenarios/types';
 import type { Item } from '../../data/items';
@@ -42,6 +44,7 @@ export type ToWorker =
   | { t: 'feed'; team: number; squad: number | null; res: 'food' | 'ration'; n: number } // W-60 scenarios: food into packs or a store
   | { t: 'takeRegion'; team: number } // M7g dev and scripts: every claim point to the team (a landmark takes its capture damage)
   | { t: 'skip'; ticks: number } // scenarios: step this many ticks at once
+  | { t: 'warlords'; age: number; players: number; raid?: boolean } // W-72 proposal, scenarios: run the region's rival warlords (src/war/sim/warlords.ts)
   | { t: 'damage'; id: number; dmg: number } // dev: damage a building (scripts: a breach)
   | { t: 'finishSite'; id: number } // dev console: a site done at once
   | { t: 'devUnits'; ids: number[]; op: 'kill' | 'hurt' | 'heal' } // dev console: strike down, hurt or heal men
@@ -72,6 +75,9 @@ let sim: WarSim | null = null;
 let net: Net | null = null;
 let netTimer = 0;
 let brains: Bots | null = null;
+/** W-72 proposal (offline scenarios): the region's warlords, and their notes since the last post. */
+let lords: Warlords | null = null;
+const lordNotes: WarlordNote[] = [];
 const scripted = new Set<number>();
 let timer = 0;
 let inflSent = -1;
@@ -84,7 +90,9 @@ function tick(): void {
   if (!sim) return;
   sim.step();
   brains!.tick();
-  const snap = sim.snapshot();
+  const snap0 = sim.snapshot();
+  if (lords) lordNotes.push(...lords.tick(snap0));
+  const snap = lords ? { ...snap0, warlords: lords.snaps() } : snap0;
   if (snap.tick % 20 === 0) bots(sim, snap);
   // the influence mask when it changed, the resource nodes now and then (the economy view, ./build)
   const b = build(sim), infl = b && snap.influenceVersion !== inflSent ? b.influence() : null;
@@ -94,7 +102,7 @@ function tick(): void {
   const g = b?.teamGrid(me), fog = g && g.version !== fogSent ? { ...g, state: g.state.slice() } : undefined;
   if (g) fogSent = g.version;
   // M5d event log (falls, captures, level-ups) when there is any
-  const ev = b?.events();
+  const ev = [...(b?.events() ?? []), ...lordNotes.splice(0)];
   // M7d: a slain guardian's loot falls as a pile where it fell (the region room does this for the live game)
   for (const e of ev ?? []) if (e.kind === 'bossSlain' && b) {
     const p = bossPile(b.region.id, 'sandbox', e);
@@ -140,8 +148,9 @@ onmessage = (e: MessageEvent<ToWorker>) => {
     const nodes = new Map<number, NodeSnap>();
     let nodesNew = false, infl: InfluenceMap | undefined, fog: FogGrid | undefined, stock: Snapshot['stock'], town: Snapshot['townLevels'];
     let wild: Pick<Snapshot, 'lairs' | 'claims' | 'roam'> | undefined; // W-65: the lairs and claim points, kept on every snapshot
+    let warlords: Snapshot['warlords']; // W-72 proposal
     net = createNet(url, m.region.id, m.dev, (snap, stats) => {
-      postMessage({ snap: stock || town || wild ? { ...snap, ...(stock ? { stock } : {}), ...(town ? { townLevels: town } : {}), ...wild } : snap, stats, nodes: nodesNew ? [...nodes.values()] : undefined, influence: infl, fog });
+      postMessage({ snap: stock || town || wild || warlords ? { ...snap, ...(stock ? { stock } : {}), ...(town ? { townLevels: town } : {}), ...wild, ...(warlords ? { warlords } : {}) } : snap, stats, nodes: nodesNew ? [...nodes.values()] : undefined, influence: infl, fog });
       nodesNew = false;
       infl = undefined;
       fog = undefined;
@@ -155,6 +164,10 @@ onmessage = (e: MessageEvent<ToWorker>) => {
       else if (server.t === 'stock') stock = { [server.team]: server.goods }; // W-60: the store his men stand next to only ({} away from every store)
       else if (server.t === 'town') town = server.town ? [server.town] : []; // W-61: his team's town level
       else if (server.t === 'wild') wild = { lairs: server.lairs, claims: server.claims, ...(server.roam ? { roam: server.roam } : {}) };
+      else if (server.t === 'warlords') {
+        if (server.list) warlords = server.list; // W-72 proposal: the region's warlords, kept on every snapshot
+        if (server.ev?.length) postMessage({ server });
+      }
       else postMessage({ server });
     });
     return;
@@ -198,7 +211,22 @@ onmessage = (e: MessageEvent<ToWorker>) => {
   else if (m.t === 'finishBridges') build(sim)?.finishBridges(m.team);
   else if (m.t === 'cart') build(sim)?.spawnCart(m.team, m.owner, m.type, m.x, m.y);
   else if (m.t === 'prebuild') prebuild(sim, m.team, m.max);
-  else if (m.t === 'skip') { for (let i = 0; i < m.ticks; i++) { sim.step(); brains!.tick(); } tick(); }
+  else if (m.t === 'skip') {
+    let t = lords ? sim.snapshot().tick : 0;
+    for (let i = 0; i < m.ticks; i++) {
+      sim.step();
+      brains!.tick();
+      if (lords && ++t % WARLORD.think === 0) lordNotes.push(...lords.tick(sim.snapshot()));
+    }
+    tick();
+  }
+  else if (m.t === 'warlords') {
+    const b = build(sim);
+    lords = b ? createWarlords(b.region, b, brains!, 1) : null;
+    lords?.setAge(m.age);
+    lords?.setPlayers(m.players);
+    if (m.raid) lords?.raidNow();
+  }
   else if (m.t === 'check') postMessage({ reply: m.id, place: build(sim)?.checkPlacement(m.team, m.type, m.x, m.y, m.rot) ?? null });
   else if (m.t === 'checkWall') postMessage({ reply: m.id, wall: build(sim)?.checkWall(m.team, m.wall) ?? null });
   else if (m.t === 'checkBridge') postMessage({ reply: m.id, bridge: build(sim)?.checkBridge(m.team, m.bridge) ?? null });
