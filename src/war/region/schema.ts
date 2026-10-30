@@ -43,6 +43,8 @@ export const regionSchema = z
     visual: z.object({ scale: z.literal(2), rle: ints() }).optional(),
     biomes: z.object({ names: z.array(z.string().min(1)).min(1), rle: ints() }).optional(),
     lairs: z.array(z.object({ kind: z.enum(MOB_KINDS as [MobKind, ...MobKind[]]) /* world-fill: the kinds of src/war/sim/mobs.ts MOBS */, x: z.number().min(0), y: z.number().min(0), count: z.number().int().positive().optional(), as: z.string().optional(), captain: z.boolean().optional(), chief: z.string().optional() })).optional(),
+    /** world-fill (additive): hidden quest spots (src/war/types.ts RegionData.secrets). */
+    secrets: z.array(z.object({ x: z.number().min(0), y: z.number().min(0), quest: z.string().min(1), then: z.tuple([z.number().min(0), z.number().min(0)]) })).optional(),
     claimPoints: z.array(z.object({ x: z.number().min(0), y: z.number().min(0), lairs: z.array(z.number().int().min(0)), r: z.number().positive().optional() })).optional(),
     /** M6d (additive): safe zones with their gates, caravan yards, ambush spots (src/war/sim/trade.ts; ./zones.ts). */
     safe: z.array(z.object({ ...rect, gates: z.array(z.object(rect)).optional() })).optional(),

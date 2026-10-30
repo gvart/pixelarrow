@@ -39,6 +39,7 @@ import { readImage } from '../../art/lib/png.mjs';
 import { BRIEF, byId, sideOf, type Side, type WorldRegion } from './world.ts';
 import { TRADE_ZONES } from '../../../src/war/region/zones.ts';
 import { runChecks, waterChecks, type Check } from './checks.ts';
+import { fillWild } from './fill.ts';
 
 export type { Pt, Sample };
 export { fbm };
@@ -97,7 +98,7 @@ const NODE_IDS: Record<string, string[]> = {
 export const off = (p: Sample, k: number): Pt => [p.x - p.ty * k, p.y + p.tx * k];
 export const pt = (p: { x: number; y: number }): Pt => [p.x, p.y];
 
-interface Lair { kind: MobKind; x: number; y: number; count?: number; as?: string; captain?: boolean }
+interface Lair { kind: MobKind; x: number; y: number; count?: number; as?: string; captain?: boolean; chief?: string }
 interface Req { kind: 'piece'; id: string; at: Pt; r: number; onRock: boolean; n: number; gap: number }
 /** where: only at these unit points; packed: plants touch (a sown plot: no clear ring, no road gap). */
 interface RowsReq { kind: 'rows'; ids: string[]; b: Blob; dx: number; dy: number; seed: number; on: Kind[]; where?: (x: number, y: number) => boolean; packed?: boolean; idAt?: (x: number, y: number) => string; anyGround?: boolean }
@@ -2107,6 +2108,27 @@ export function build(def: RegionDef): Built {
     return -1;
   }
   const reach = (x: number, y: number) => { const j = nearestWalk(Math.floor(x), Math.floor(y)); return j >= 0 && seen[j] === 1; };
+  // world-fill (./fill.ts): lairs up to the depth table, the chiefs and the hidden quest spots, on the last pass
+  const secrets: { x: number; y: number; quest: string; then: [number, number] }[] = [];
+  {
+    const w = k.world, home = w.role === 'home';
+    const keep: { x: number; y: number; r: number }[] = [
+      ...k.towns.map((t) => { const [x, y] = tileOf(t.at); return { x, y, r: home ? 80 : 40 }; }),
+      ...claimPoints.map((c) => ({ x: c.x, y: c.y, r: 30 })),
+      ...Object.values(k.spots).map((p) => ({ x: k.toTile(p[0]), y: k.toTile(p[1]), r: 16 })),
+      ...entries.map((e) => ({ x: e.x + e.w / 2, y: e.y + e.h / 2, r: 34 })),
+      ...guardians.map((g) => ({ x: g.x, y: g.y, r: 50 })),
+      ...prebuilt.map((b) => ({ x: b.x, y: b.y, r: 10 })),
+      ...storyPoints(w.id).map(([x, y]) => ({ x, y, r: 30 })),
+    ];
+    const f = fillWild({
+      id: w.id, role: w.role, family: w.family, depth: REGION_DEPTH[w.id] ?? 1, fauna: w.fauna, W, H,
+      ground: (x, y) => ground(x, y), roadDist: (x, y) => k.roadDist[at(x, y)] ?? 0, reach, lairs, keep,
+    });
+    lairs.push(...f.lairs);
+    secrets.push(...f.secrets);
+    log.push(f.log);
+  }
   const cut: string[] = [];
   entries.forEach((e, n) => { if (!reach(e.x + e.w / 2, e.y + e.h / 2)) cut.push(`entry ${k.sides[n].id}`); });
   for (const [name, p] of Object.entries(k.spots)) if (!/Narrows[AB]?\d*$/.test(name) && !reach(k.toTile(p[0]) + 0.5, k.toTile(p[1]) + 0.5)) cut.push(`spot ${name}`);
@@ -2135,13 +2157,25 @@ export function build(def: RegionDef): Built {
   const json = {
     id: w.id, name: w.name, w: W, h: H, cells: { rle: encodeCells(height, terrain, water) }, entries, noBuild,
     objs: encodeObjects(objects), blocked, visual: { scale: 2 as const, rle: encodeVisual(fine.kind, fine.z) },
-    biomes: { names: [...BIOMES], rle: encodeBiomes(biome) }, lairs, claimPoints, ...(prebuilt.length ? { prebuilt } : {}),
+    biomes: { names: [...BIOMES], rle: encodeBiomes(biome) }, lairs, claimPoints, ...(secrets.length ? { secrets } : {}), ...(prebuilt.length ? { prebuilt } : {}),
     ...(guardians.length ? { guardians } : {}), ...(REGION_DEPTH[w.id] === 4 && w.role === 'neutral' && w.sea?.length ? { rim: w.sea[0] } : {}), meta,
   };
   const spots: Record<string, Pt> = {};
   for (const s of k.sides) spots[`entry_${s.id}`] = k.entry(s.id, 5);
   Object.assign(spots, k.spots);
   return { json, spots, claims: claimPoints, log, checks, bytes: 0 };
+}
+
+/**
+ * world-fill: the tile points of a region's story (src/data/warStories.ts: its giver, clues, marks and camps), read from
+ * the source text (the kit runs under node, which cannot load that module's imports), so the fill keeps clear of them.
+ */
+function storyPoints(id: string): [number, number][] {
+  const src = readFileSync(fileURLToPath(new URL('../../../src/data/warStories.ts', import.meta.url)), 'utf8');
+  const at = src.indexOf(`region: '${id}'`);
+  if (at < 0) return [];
+  const end = src.indexOf('\n};', at), body = src.slice(at, end < 0 ? undefined : end);
+  return [...body.matchAll(/\[(\d+(?:\.\d+)?), (\d+(?:\.\d+)?)\]/g)].map((m) => [Number(m[1]), Number(m[2])]);
 }
 
 /**

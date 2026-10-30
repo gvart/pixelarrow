@@ -18,7 +18,7 @@ import { ECONOMY_SCENARIOS } from './economy';
 import { BUILDING_SCENARIOS } from './building';
 import { SIEGE_SCENARIOS } from './siege';
 import { PEACE_SCENARIOS } from './peace';
-import { MOB_SCENARIOS } from './mobs';
+import { MOB_SCENARIOS, WILD_SCENARIOS } from './mobs';
 import { BOSS_SCENARIOS } from './bosses';
 import { CIVILIAN_SCENARIOS } from './civilians';
 import { FOG_SCENARIOS } from './fog';
@@ -553,7 +553,7 @@ export const SCENARIOS: Scenario[] = [
     },
   },
   // M7d landmark raids (src/war/sim/bosses.ts; tile points from src/war/regions/<id>.json guardians). Neutral play: the
-  // region's lairs spawn first (krios: 3 lairs, Drakon squad 3, the raid 4..7; ammon: 7 lairs, the King 7, the raid 8..13)
+  // region's lairs spawn first (world-fill: krios 10 lairs, Drakon squad 10, the raid 11..14; ammon 10 lairs, the King 10, the raid 11..13)
   {
     id: 'landmark-citadel',
     name: "Drakon's Citadel",
@@ -571,10 +571,10 @@ export const SCENARIOS: Scenario[] = [
     neutral: true,
     after: {
       orders: [
-        { kind: 'attackMove', squad: 4, x: 280, y: 363 },
-        { kind: 'attackMove', squad: 5, x: 282, y: 363 },
-        { kind: 'attackMove', squad: 6, x: 284, y: 366 },
-        { kind: 'attackMove', squad: 7, x: 286, y: 366 },
+        { kind: 'attackMove', squad: 11, x: 280, y: 363 },
+        { kind: 'attackMove', squad: 12, x: 282, y: 363 },
+        { kind: 'attackMove', squad: 13, x: 284, y: 366 },
+        { kind: 'attackMove', squad: 14, x: 286, y: 366 },
       ],
       squads: [],
     },
@@ -595,9 +595,9 @@ export const SCENARIOS: Scenario[] = [
     neutral: true,
     after: {
       orders: [
-        { kind: 'attackMove', squad: 8, x: 361, y: 249 },
-        { kind: 'attackMove', squad: 9, x: 361, y: 249 },
-        { kind: 'attackMove', squad: 10, x: 361, y: 249 },
+        { kind: 'attackMove', squad: 11, x: 361, y: 249 },
+        { kind: 'attackMove', squad: 12, x: 361, y: 249 },
+        { kind: 'attackMove', squad: 13, x: 361, y: 249 },
       ],
       squads: [],
     },
@@ -618,6 +618,7 @@ export const SCENARIOS: Scenario[] = [
   ...SIEGE_SCENARIOS,
   ...PEACE_SCENARIOS,
   ...MOB_SCENARIOS,
+  ...WILD_SCENARIOS,
   ...BOSS_SCENARIOS,
   ...CIVILIAN_SCENARIOS,
   ...FOG_SCENARIOS,
