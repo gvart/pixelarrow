@@ -24,7 +24,7 @@ export interface VoiceMem { phase: number; state: BossSnap['state']; woke: boole
 
 const gone = (s: BossSnap['state']) => s === 'slain' || s === 'away';
 /** Fighting, hurt or past its first phase: awake (a perched one shooting at nobody is not). */
-const awake = (b: BossSnap) => b.state === 'fight' || b.state === 'flight' || b.state === 'flee' || b.phase > 0 || b.hp < b.maxHp * 0.999;
+export const awake = (b: BossSnap) => b.state === 'fight' || b.state === 'flight' || b.state === 'flee' || b.phase > 0 || b.hp < b.maxHp * 0.999;
 
 /** The first sight of a guardian: one already awake (or down) does not wake again. */
 export const voiceMem = (b: BossSnap): VoiceMem => ({ phase: b.phase, state: b.state, woke: gone(b.state) || awake(b) });
