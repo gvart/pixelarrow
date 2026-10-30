@@ -11,7 +11,7 @@
 import type { SandboxScene } from '../SandboxScene';
 import { depthOf } from '../../sim/depth';
 import { myTeam } from '../side';
-import { claimFirstHint, claimView } from './explain';
+import { claimFirstHint, claimLord, claimView } from './explain';
 import { ownCentre } from '../entry';
 import { metres, placeMarker, questMarker } from './quest';
 import type { ClaimSnap } from '../../types';
@@ -32,7 +32,7 @@ export function claimAt(s: SandboxScene, p: { x: number; y: number }): ClaimSnap
 
 /** The card's HTML for claim point c. */
 export function claimCardHtml(s: SandboxScene, c: ClaimSnap): string {
-  const cur = s.sim.cur, v = claimView(c, myTeam(), depthOf(s.region), cur?.lairs ?? [], cur?.bosses ?? []);
+  const cur = s.sim.cur, v = claimView(c, myTeam(), depthOf(s.region), cur?.lairs ?? [], cur?.bosses ?? [], claimLord(cur?.warlords, c.id));
   return `<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:2px"><b style="color:var(--rf-title)">Claim point</b><span style="color:${TONE[v.tone]};font-weight:700">${v.label}</span></div>
     <div>${v.state}</div><div style="margin-top:3px;color:var(--rf-gold)">${v.next}</div>
     <div class="rf-dim" style="margin-top:4px;font-size:11px">A held point is ground you build on. The alliance with the most points holds the region.</div>`;

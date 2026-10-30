@@ -699,7 +699,7 @@ export class SandboxScene extends Phaser.Scene {
     this.units.draw(this.drawn, view, cam.zoom, this.sim.replay?.picked ?? this.sel.units, at, this.sim.squads, shots, occluded);
     this.micro.update(this.drawn, this.sel.units, view, cam.zoom, this.guardians.watch);
     const cur = this.sim.cur;
-    if (cur?.lairs || cur?.claims) this.neutral.draw(cur.lairs ?? [], cur.claims ?? [], cam.zoom, bosses);
+    if (cur?.lairs || cur?.claims) this.neutral.draw(cur.lairs ?? [], cur.claims ?? [], cam.zoom, bosses, cur.warlords);
     this.warlordLayer.draw(cur?.warlords, cam.zoom, this.time.now);
     this.chiefs.draw((id) => { const d = this.drawn.find((q) => q.u.id === id && q.u.state !== 'dead'); return d ? { ...this.units.feet(d), top: this.units.topOf(d.u.cls, id) } : null; }, cam.zoom, cam.zoom >= SPRITE_ZOOM);
     this.mobFx.draw(cam.zoom, this.time.now, view);
