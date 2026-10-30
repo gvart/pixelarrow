@@ -21,6 +21,8 @@ export interface ChatLink {
   send(m: ChatOut): void;
   /** live: the socket is up (offline: always). */
   readonly live: boolean;
+  /** No server at all (an offline page): the chat says so and takes no input. */
+  readonly offline?: boolean;
 }
 
 /**
@@ -87,7 +89,15 @@ export class NetChat implements ChatLink {
   }
 }
 
-/** Offline: the player is pid 1; Kallias, Myrto and Brasidas are about. */
+/** An offline page: no server, no one to talk to; the panel says so (never made-up allies). */
+export class OfflineChat implements ChatLink {
+  readonly live = false;
+  readonly offline = true;
+  start(on: (m: ChatServerMsg) => void): void { on({ t: 'chat', you: 1, msgs: [], muted: [] }); }
+  send(): void {}
+}
+
+/** Dev (?chat=1): a made-up alliance to click through; the player is pid 1; Kallias, Myrto and Brasidas are about. */
 export class MockChat implements ChatLink {
   readonly live = true;
   private on: (m: ChatServerMsg) => void = () => undefined;

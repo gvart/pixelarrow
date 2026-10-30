@@ -2,7 +2,7 @@
  * M6k market panels in the red-figure kit (docs/WAR.md "Trade"; data: ../trade/market.ts, the server in net mode, a
  * local stub offline). Two draggable windows:
  *
- *   Market (K, the corner's Market button)   tabs over one town (this region):
+ *   Market (K, the top bar's Market button)   tabs over one town (this region):
  *     Stall       rent a stall or warehouse (rent a day from the strongroom), the stall's level and upgrade, what each
  *                 holds against its 20 loads, stow goods in from the selected squad (out again); your men in the court
  *     Offers      list a sell offer or a buy order: the escrow it takes out of the stall, standing (Trader); your open
@@ -28,10 +28,9 @@ import {
 import { draggable } from './drag';
 import { goodCard, goodName } from './goods';
 import { esc, tipper } from './roster/ui';
-import { bar, icon } from './kit';
+import { bar, icon, menuBtn } from './kit';
 import { glyph } from './glyph';
 import { stockAtHand } from './chest';
-import { keys } from '../../input/keys';
 import { myTeam } from '../side';
 
 type Mk = (id: string, css: string, html?: string) => HTMLElement;
@@ -171,15 +170,9 @@ export function mountMarket(s: SandboxScene, mk: Mk): MarketHud {
   hand.classList.add('rf-card');
   draggable(hand, '.rf-head');
 
-  // the corner's Market button (K), in dev only
-  const corner = document.getElementById('rfDev');
-  const mBtn = document.createElement('button');
-  mBtn.className = 'rf-tbtn';
-  mBtn.id = 'rfMarketBtn';
-  mBtn.textContent = 'Market K';
-  mBtn.title = 'the market here: stall, offers, price board, contracts, letters (K)';
+  // the top bar's Market button (K: ./kit.ts menuBtn clicks it)
+  const mBtn = menuBtn('rfMarketBtn', 'node-merchant-trader', 'Market', 'buy and sell here: your stall, offers, prices, contracts and letters', 'panel.market', 1);
   mBtn.onclick = () => toggle();
-  if (import.meta.env.DEV) corner?.insertBefore(mBtn, corner.children[1] ?? null); // players open it with K
 
   const say = (t: string, isBad = false) => { msg = t; bad = isBad; };
   const run = async <T>(p: Promise<Res<T>>, okText: (v: T) => string): Promise<boolean> => {
@@ -216,7 +209,7 @@ export function mountMarket(s: SandboxScene, mk: Mk): MarketHud {
       const loads = siteLoads(x.goods), paid = x.paid_to === null ? 'no rent here' : x.paid_to < Date.now() ? '<span style="color:var(--rf-bad)">rent due: locked after 3 days</span>' : `paid ${inH(x.paid_to - Date.now())} ahead`;
       const up = kind === 'stall' ? STALL_UPGRADE[x.level + 1] : undefined;
       return `<div style="margin:4px 0 6px"><div class="mk-row">${icon(kind === 'stall' ? 'trade-rent' : 'trade-chest')}<span style="flex:1"><b>${kind === 'stall' ? `Stall L${x.level}` : 'Warehouse'}</b> <span class="rf-dim">${paid}</span></span>${up ? btn('upgrade', `Upgrade L${x.level + 1}`, true, '', `takes ${Object.entries(up).map(([r, n]) => `${n} ${r}`).join(' + ')} from the stall: ${STALL_OFFERS[x.level + 1]} offers`) : ''}</div>
-        ${bar('ok', loads / SITE_LOADS, W - 20)}<div class="rf-dim" style="margin:2px 0 3px">${fmt(loads)} / ${SITE_LOADS} loads${kind === 'stall' ? ` · ${mine.offers.length} / ${STALL_OFFERS[x.level]} offers` : ''}</div><div style="display:flex;flex-wrap:wrap">${goodsLine(x.goods)}</div></div>`;
+        ${bar('ok', loads / SITE_LOADS, W - 20)}<div class="rf-dim" style="margin:2px 0 3px">${fmt(loads)} / ${SITE_LOADS} full${kind === 'stall' ? ` · ${mine.offers.length} / ${STALL_OFFERS[x.level]} offers` : ''}</div><div style="display:flex;flex-wrap:wrap">${goodsLine(x.goods)}</div></div>`;
     };
     const q = own(), court = inCourt();
     const rented = mine.sites.filter((x) => x.kind !== 'strongroom').map((x) => x.kind);
@@ -273,7 +266,7 @@ export function mountMarket(s: SandboxScene, mk: Mk): MarketHud {
       : !o ? (side === 'buy' ? `nobody sells ${goodName(pick).toLowerCase()} here` : `nobody buys ${goodName(pick).toLowerCase()} here`)
       : side === 'buy' && (sg.coin ?? 0) < total ? `needs ${total} coin in your stall (you have ${Math.floor(sg.coin ?? 0)})`
       : side === 'sell' && (sg[pick] ?? 0) < n ? `needs ${n} ${goodName(pick).toLowerCase()} in your stall (you have ${Math.floor(sg[pick] ?? 0)})`
-      : after > SITE_LOADS + 1e-6 ? `the stall holds ${SITE_LOADS} loads` : '';
+      : after > SITE_LOADS + 1e-6 ? 'the stall is full' : '';
     const canStow = st && side === 'sell' && (sg[pick] ?? 0) < n && (home[pick] ?? 0) >= 1;
     const stowN = Math.min(Math.floor(home[pick] ?? 0), Math.max(1, Math.ceil(n - (sg[pick] ?? 0))));
     const deal = `<div class="mk-deal rf-well">
@@ -282,7 +275,7 @@ export function mountMarket(s: SandboxScene, mk: Mk): MarketHud {
       <div class="mk-dr"><span class="rf-step">${btn('dstep', '−', n > 1, 'data-d="-1"', '', 'rf-tbtn')}<input type="number" data-f="dn" min="1" value="${n}">${btn('dstep', '+', !!o && n < o.n, 'data-d="1"', '', 'rf-tbtn')}</span>
         ${btn('dmax', 'Max', !!o, '', side === 'buy' ? 'as many as this offer has and your stall\'s coin pays' : 'as many as your stall holds, up to what is wanted', 'rf-tbtn mk-b')}
         <span class="mk-x">× <b>${price ?? '–'}</b> ${icon('res-coin')} = <b class="mk-tot">${price !== null ? total : '–'}</b> ${icon('res-coin')}</span></div>
-      <div class="mk-cap"><span>Stall</span>${bar(after > SITE_LOADS ? 'burn' : 'ok', Math.min(1, after / SITE_LOADS), 140)}<span class="rf-num">${fmt(loads)} → ${fmt(Math.max(0, after))} / ${SITE_LOADS} loads</span><span class="rf-dim">· ${fmt(sg.coin ?? 0)} coin in it</span></div>
+      <div class="mk-cap"><span>Stall</span>${bar(after > SITE_LOADS ? 'burn' : 'ok', Math.min(1, after / SITE_LOADS), 140)}<span class="rf-num">${fmt(loads)} → ${fmt(Math.max(0, after))} / ${SITE_LOADS} full</span><span class="rf-dim">· ${fmt(sg.coin ?? 0)} coin in it</span></div>
       <div class="mk-go">${btn('deal', `${side === 'buy' ? 'Buy' : 'Sell'} ${n} ${goodName(pick).toLowerCase()}`, !short, '', '', 'rf-tbtn pri big')}${canStow ? btn('stowPick', `Move ${stowN} into the stall`, true, `data-n="${stowN}"`, 'from your store into the stall, then sell', 'rf-tbtn') : ''}</div>
       ${short ? `<div class="rf-hint mk-why">${short}</div>` : `<div class="rf-dim mk-why">${side === 'buy' ? `from ${o ? `#${o.player || 'trader'}'s stall` : ''}: into your stall, then haul it out` : 'out of your stall; the coin lands in it (5% tax)'}</div>`}
     </div>`;
@@ -372,7 +365,7 @@ export function mountMarket(s: SandboxScene, mk: Mk): MarketHud {
   const render = () => {
     if (win.style.display === 'none') return;
     const scroll = win.scrollTop;
-    win.innerHTML = `<div class="rf-head rf-ph">${icon('node-merchant-trader', 32)}<div style="flex:1;min-width:0"><div class="rf-name">Market of ${town(T)}</div><div class="sub">${isTown ? 'players\' offers only' : 'no market here'}${M.live ? '' : ' · offline'} · <span style="color:var(--rf-gold)">${Math.floor(s.sim.cur?.stock?.[myTeam()]?.coin ?? 0)}</span> coin at home</div></div>${btn('handoff', 'Hand-off', true, '', 'trade with a player here, both present: each puts in a half, both confirm')}<button class="rf-tbtn x" data-act="close" title="close (K)">×</button></div>
+    win.innerHTML = `<div class="rf-head rf-ph">${icon('node-merchant-trader', 32)}<div style="flex:1;min-width:0"><div class="rf-name">Market of ${town(T)}</div><div class="sub">${isTown ? 'players\' offers only' : 'no market here'}${M.live ? '' : ' · offline'} · <span style="color:var(--rf-gold)">${Math.floor(s.sim.cur?.stock?.[myTeam()]?.coin ?? 0)}</span> coin at home</div></div>${btn('handoff', 'Trade in person', true, '', 'trade with a player standing here: each puts in his half, both confirm')}<button class="rf-tbtn x" data-act="close" title="close (K)">×</button></div>
       <div class="mk-tabs">${TABS.map((t) => `<button class="rf-tab${t === tab ? ' on' : ''}" data-tab="${t}">${TAB_NAME[t]}</button>`).join('')}</div>
       ${BODY[tab]()}<div class="mk-msg rf-dim${bad ? ' bad' : ''}">${msg}</div>`;
     win.scrollTop = scroll;
@@ -469,7 +462,7 @@ export function mountMarket(s: SandboxScene, mk: Mk): MarketHud {
     const open = h?.state === 'open', me = M.me, theirs = h?.halves[withId], mineH = h?.halves[me];
     const left = open && h?.until !== undefined ? Math.max(0, Math.ceil((h.until - (s.sim.cur?.tick ?? 0)) / 10)) : null;
     const halfBox = (title: string, g: Goods | undefined, ok: boolean, edit: boolean) => `<div class="mk-half${ok ? ' ok' : ''}"><div class="rf-cap">${title}${ok ? ' <span style="color:var(--rf-good)">✓</span>' : ''}</div><div style="display:flex;flex-wrap:wrap;min-height:24px">${g && Object.keys(g).length ? goodsLine(g) : '<span class="rf-dim">nothing yet</span>'}</div>${edit ? `<div style="display:flex;flex-wrap:wrap;gap:2px;margin-top:3px">${Object.keys(half).map((r) => `<button class="rf-tbtn mk-b" data-act="hDel" data-r="${r}" title="take out">${gi(r)}${fmt(half[r])} ×</button>`).join('')}</div>` : ''}</div>`;
-    hand.innerHTML = `<div class="rf-head">${icon('act-unload', 32)}<div style="flex:1;min-width:0"><div class="rf-name">Hand-off</div><div class="rf-dim">both here, carriers within 4 tiles${left !== null ? ` · <b style="color:var(--rf-ink)">${left} s</b> left` : ''}</div></div><button class="rf-tbtn x" data-act="hClose" title="close">×</button></div>
+    hand.innerHTML = `<div class="rf-head">${icon('act-unload', 32)}<div style="flex:1;min-width:0"><div class="rf-name">Trade in person</div><div class="rf-dim">both here, carriers within 8 m${left !== null ? ` · <b style="color:var(--rf-ink)">${left} s</b> left` : ''}</div></div><button class="rf-tbtn x" data-act="hClose" title="close">×</button></div>
       <div class="mk-row" style="margin-top:4px;white-space:nowrap"><span class="rf-dim">with</span>${M.live ? `<span class="rf-dim">player</span><input type="number" data-h="with" min="1" value="${withId || ''}" style="width:80px" ${open ? 'disabled' : ''}>` : '<b>Lykon</b> <span class="rf-dim">a made-up trader</span>'}</div>
       <div style="display:flex;gap:4px;margin:4px 0">${halfBox('You give', open ? mineH?.goods : half, !!h?.ok.includes(me), true)}${halfBox('You get', theirs?.goods, !!h?.ok.includes(withId), false)}</div>
       <div class="mk-form"><select data-h="res">${opts(GOODS, hRes)}</select><input type="number" data-h="n" min="1" value="${hN}">${btn('hAdd', '+ add', true)}<span class="rf-dim" style="flex:1;text-align:right;white-space:nowrap">${M.live ? (own().length ? `squad #${own()[0]}` : 'select a squad') : 'your stock'}</span></div>
@@ -501,9 +494,6 @@ export function mountMarket(s: SandboxScene, mk: Mk): MarketHud {
     mBtn.classList.toggle('on', on);
     if (on) { render(); void load(); }
   };
-  addEventListener('keydown', (e: KeyboardEvent) => {
-    if (keys.is(e, 'panel.market')) toggle();
-  });
   // timers (rent, the hand-off countdown) and what the region holds: once a second while shown
   setInterval(() => {
     if (hand.style.display !== 'none' && h?.state === 'open') renderHand();

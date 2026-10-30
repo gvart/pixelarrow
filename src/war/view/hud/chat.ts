@@ -21,6 +21,7 @@ import { markedLink, mountTagTip, tagHtml } from './chatTags';
 import type { ChatLink } from '../../net/chatLink';
 import { keys } from '../../input/keys';
 import { loadSound } from '../sound/mix';
+import { NEEDS_SERVER } from './theme';
 
 export interface ChatView {
   link: ChatLink;
@@ -104,9 +105,9 @@ const CSS = `
 #rfChat:not(.open) .ch-l .tm{display:none}
 #rfChat .ch-l .n{color:var(--rf-title);font-weight:700;cursor:default}
 #rfChat .ch-l .n.me{color:var(--rf-gold)}
-#rfChat .ch-l .ph{color:var(--rf-gold);font-style:italic}
+#rfChat .ch-l .ph{color:var(--rf-gold)}
 #rfChat .ch-l .ph::before{content:'\\201C'}#rfChat .ch-l .ph::after{content:'\\201D'}
-#rfChat .ch-l.sys{color:var(--rf-muted);font-style:italic;font-size:11.5px}
+#rfChat .ch-l.sys{color:var(--rf-muted);font-size:12px}
 #rfChat .ch-l.sys.bad{color:var(--rf-bad)}
 #rfChat .ch-l.mk{cursor:pointer}
 #rfChat .ch-l.mk .mi{display:inline-block;vertical-align:-3px;margin-right:3px}
@@ -256,7 +257,7 @@ export function mountChat(v: ChatView): ChatHandle {
 
   function render(): void {
     const now = Date.now(), shown = lines.filter((l) => (l.pid === undefined || !muted.has(l.pid)) && (!l.ch || l.ch === chan));
-    const list = open ? shown : shown.slice(-SHOWN);
+    const list = open ? shown : v.link.offline ? [] : shown.slice(-SHOWN);
     log.innerHTML = list.map((l, i) => `<div class="ch-l ${l.cls}${!open && now - l.at > LINE_FADE_MS ? ' old' : ''}" data-i="${shown.length - list.length + i}">${l.html}</div>`).join('');
     (log as HTMLElement & { _rows?: Line[] })._rows = shown;
     if (!open || pinned) log.scrollTop = log.scrollHeight;
@@ -264,7 +265,7 @@ export function mountChat(v: ChatView): ChatHandle {
     tabName.textContent = CH_NAME[chan];
     unreadEl.style.display = unread[chan] ? '' : 'none';
     unreadEl.textContent = String(Math.min(unread[chan], 99));
-    tabOther.textContent = unread[other] ? `${CH_NAME[other]} ${Math.min(unread[other], 99)}` : '';
+    tabOther.textContent = v.link.offline ? 'offline' : unread[other] ? `${CH_NAME[other]} ${Math.min(unread[other], 99)}` : '';
     for (const b of root.querySelectorAll<HTMLElement>('[data-ch]')) {
       const c = b.dataset.ch as ChatChannel, u = b.querySelector<HTMLElement>('.u')!;
       b.classList.toggle('on', c === chan);
@@ -272,10 +273,10 @@ export function mountChat(v: ChatView): ChatHandle {
       u.textContent = String(Math.min(unread[c], 99));
     }
     root.classList.toggle('world', chan === 'world');
-    input.placeholder = chan === 'world' ? 'Message every alliance…' : 'Message allies…';
+    input.placeholder = v.link.offline ? NEEDS_SERVER : chan === 'world' ? 'Message every alliance…' : 'Message allies…';
     keyEl.textContent = keys.label('chat.open') || 'Enter';
     for (const d of root.querySelectorAll('.ch-dot')) d.classList.toggle('off', !v.link.live);
-    sub.textContent = v.link.live ? (chan === 'world' ? 'everyone' : 'allies only') : 'connecting…';
+    sub.textContent = v.link.offline ? 'offline' : v.link.live ? (chan === 'world' ? 'everyone' : 'allies only') : 'connecting…';
     mutesBtn.style.display = muted.size ? '' : 'none';
     mutesBtn.textContent = `Muted ${muted.size}`;
     for (const b of root.querySelectorAll<HTMLElement>('[data-mk]')) b.classList.toggle('on', armed === b.dataset.mk);
@@ -495,6 +496,13 @@ export function mountChat(v: ChatView): ChatHandle {
   }
 
   // ---------- wire ----------
+  // offline: no one to talk to; the field and the marks are off, one line says why
+  if (v.link.offline) {
+    root.classList.add('offline');
+    input.readOnly = true; // focused, it keeps the keys from the game; nothing to send
+    for (const b of root.querySelectorAll<HTMLButtonElement>('.ch-bar button, [data-ch="world"]')) b.disabled = true;
+    push({ at: Date.now(), cls: 'sys', html: esc(`Chat ${NEEDS_SERVER.charAt(0).toLowerCase()}${NEEDS_SERVER.slice(1)}.`) }, true);
+  }
   v.link.start((m: ChatServerMsg) => {
     if (m.t === 'chat') {
       you = m.you;
@@ -520,7 +528,7 @@ export function mountChat(v: ChatView): ChatHandle {
   addEventListener('keydown', (e: KeyboardEvent) => {
     const a = keys.act(e);
     if (a === 'chat.open' && !open) { e.preventDefault(); setOpen(true); }
-    else if (a === 'chat.mark' && chan === 'ally') { e.preventDefault(); arm(armed ? MARK_KINDS[(MARK_KINDS.indexOf(armed) + 1) % MARK_KINDS.length] : lastKind); }
+    else if (a === 'chat.mark' && chan === 'ally' && !v.link.offline) { e.preventDefault(); arm(armed ? MARK_KINDS[(MARK_KINDS.indexOf(armed) + 1) % MARK_KINDS.length] : lastKind); }
     else if (a === 'back' && armed) arm(null);
     else if (a === 'back' && open) setOpen(false);
   });
