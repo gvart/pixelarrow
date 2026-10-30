@@ -13,8 +13,8 @@ import type { EncounterDef } from '../war/sim/encounters';
 const LIST: EncounterDef[] = [
   {
     id: 'ambush', title: 'Ambush!', weight: 3, near: [6, 8],
-    lore: 'The reeds part and bronze glints. Deserters of the old muster spring from cover, hungry for your packs.',
-    end: 'They fled or fell. Their purses were lighter than their boasts.',
+    lore: 'The reeds part and bronze glints. Men who walked too near the rim spring from cover, mist in their eyes, hungry for your packs.',
+    end: 'They fell without a word. Whatever looked out of their eyes has gone back to the mist.',
     steps: [
       { id: 'fight', goal: 'Beat off the ambush', label: 'Ambush', text: 'They are on you. Close ranks.', trigger: { kind: 'clear', mob: 'bandit', count: 3 }, reward: { goods: { coin: 8, food: 10 } } },
     ],
@@ -104,7 +104,7 @@ const LIST: EncounterDef[] = [
   },
   {
     id: 'toll', title: 'Toll of the Road', weight: 1, minDepth: 2, near: [8, 11],
-    lore: 'Bandits bar the path with an overturned cart. ‘A toll for Hermes,’ grins their chief. Pay it in blood, or go round.',
+    lore: 'Men in cast-off Warden grey bar the path with a cart. ‘A toll, as the Wardens took,’ grins their chief. Pay it in blood, or go round.',
     end: 'The road is open, for a while.',
     steps: [
       {
@@ -217,22 +217,22 @@ const LIST: EncounterDef[] = [
         ] },
       },
       { id: 'trail', goal: 'Follow the poisoner\'s trail', label: 'Trail', text: 'Hemlock leaves crushed underfoot.', trigger: { kind: 'track', marks: 2 } },
-      { id: 'poisoner', goal: 'Catch the well-poisoners', label: 'Poisoners', text: 'Bandits, waiting for the hamlet to empty.', trigger: { kind: 'clear', mob: 'bandit', count: 2 }, reward: { goods: { coin: 12, herbs: 4 } } },
+      { id: 'poisoner', goal: 'Catch the well-poisoners', label: 'Poisoners', text: 'Two of the hamlet\'s own, paid in silver to empty it.', trigger: { kind: 'clear', mob: 'bandit', count: 2 }, reward: { goods: { coin: 12, herbs: 4 } } },
     ],
   },
   {
-    id: 'map', title: 'A Deserter\'s Map', weight: 1,
-    lore: 'A dead man under a cork-oak, a scrap of hide in his fist: a charcoal map, three marks, and a cross by a split rock.',
-    end: 'Whatever he ran with, he never came back for it.',
+    id: 'map', title: 'A Dead Runner\'s Map', weight: 1,
+    lore: 'A runner in Warden grey lies dead under a cork-oak, a scrap of hide in his fist: three marks, and a cross by a split rock.',
+    end: 'Whatever he carried for the Wardens, it never reached them.',
     steps: [
       { id: 'marks', goal: 'Follow the marks on the map', label: 'Map', text: 'The first mark: a cairn with a white stone on top.', trigger: { kind: 'track', marks: 3, off: 8 } },
       {
         id: 'dig', goal: 'Dig at the split rock?', label: 'Cache', text: 'The ground under the rock rings hollow.', trigger: { kind: 'choice', options: [
-          { id: 'dig', label: 'Dig', text: 'A muster chest: bronze, coin, a good helm.', reward: { goods: { bronze: 6, coin: 10 }, item: { def: 'chalcidian', rarity: 'common' } }, risk: { chance: 0.3, text: 'His old comrades followed the same map.', next: 'comrades' } },
+          { id: 'dig', label: 'Dig', text: 'A Warden strongbox: bronze, coin, a good helm.', reward: { goods: { bronze: 6, coin: 10 }, item: { def: 'chalcidian', rarity: 'common' } }, risk: { chance: 0.3, text: 'The men who killed him followed the same map.', next: 'comrades' } },
           { id: 'leave', label: 'Leave it buried', text: 'Some debts follow the coin.' },
         ] },
       },
-      { id: 'comrades', goal: 'Drive off his old comrades', label: 'Deserters', text: 'They want what he stole from them.', trigger: { kind: 'clear', mob: 'bandit', count: 3 }, reward: { goods: { bronze: 6, coin: 10 } }, next: 'end' },
+      { id: 'comrades', goal: 'Drive off his killers', label: 'Killers', text: 'They want what he died carrying.', trigger: { kind: 'clear', mob: 'bandit', count: 3 }, reward: { goods: { bronze: 6, coin: 10 } }, next: 'end' },
     ],
   },
   {

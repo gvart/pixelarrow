@@ -481,7 +481,7 @@ tiles away.
 
 | Kind | Steps | Pays |
 | --- | --- | --- |
-| Ambush! | bandits spring from cover: beat them off | coin, food |
+| Ambush! | rim-touched men spring from cover: beat them off | coin, food |
 | A Wounded Deserter | reach him; bind his wound / take his gear / leave | a soul (hoplite L2) / a dory and coin / nothing |
 | The Wayside Herm | reach it; take the offerings (35%: robbers, fight) / offer / pass | coin / herbs |
 | A Buried Cache | reach it; dig (30%: the region's beasts, fight) / leave | iron, coin |
@@ -498,7 +498,7 @@ tiles away.
 | Tracks of a Stolen Herd | follow 3 marks (track); the rustlers at the trail's end | food, hides, coin |
 | The Unburied Shade | reach him; the rites / enlist him / take the obol (50%: carrion beasts) | a votive shield / a soul (hoplite L2) / coin |
 | The Poisoned Well (elaia, dodona, kyrene) | seal it / hunt the poisoner: 2 marks, then bandits / leave | food, herbs / coin, herbs |
-| A Deserter's Map | follow 3 marks; dig (30%: his old comrades) / leave | bronze, coin, a helm |
+| A Dead Runner's Map | follow 3 marks; dig (30%: his killers) / leave | bronze, coin, a helm |
 | The Speaking Oak (dodona, mountains) | reach it; ask for victory / the road / take a cauldron (50%: keepers) | a charm / food / bronze |
 
 Progress: offline localStorage `pa.war.enc.<region>` (`?encounter=<kind>` springs one at once for tools); online the
