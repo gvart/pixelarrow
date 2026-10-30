@@ -1,0 +1,100 @@
+src/war/view/chiefs.ts
+  s_0dd3a9d3e5007a::t_53667f43bee08a 34-35,49
+src/war/view/hud/wipeCard.ts
+  s_0dd3a9d3e5007a::t_53667f43bee08a 23,25-26
+src/war/view/sound/warAudio.ts
+  s_0dd3a9d3e5007a::t_53667f43bee08a 27-28,153-155,164,171-173
+src/data/warWild.ts
+  s_0dd3a9d3e5007a::t_53667f43bee08a 26,38-48,53-54,57,69-73
+src/data/warEncounters.ts
+  s_0dd3a9d3e5007a::t_53667f43bee08a 16-17,28,107,176,195,220,224-226,231,235
+public/war/landmarks/landmarks.json
+  s_0dd3a9d3e5007a::t_53667f43bee08a 121-124,126-129,131-216,254,292,315
+scripts/war/art/landmarks.mjs
+  s_0dd3a9d3e5007a::t_53667f43bee08a 50-51,82,287-288,297
+src/war/world-view/main.ts
+  s_0dd3a9d3e5007a::t_4bb27b0c44bfd2 89
+  s_0dd3a9d3e5007a::t_53667f43bee08a 85
+src/data/warBosses.ts
+  s_0dd3a9d3e5007a::t_53667f43bee08a 48,57,59,61,63,66,69,73,75,77,81,84,87,90,93,95
+src/war/view/feel/hits.ts
+  s_0dd3a9d3e5007a::t_53667f43bee08a 1-174
+src/war/view/relief.ts
+  s_0dd3a9d3e5007a::t_53667f43bee08a 165,179
+src/war/view/sound/mix.ts
+  s_0dd3a9d3e5007a::t_53667f43bee08a 42-60
+src/war/view/main.ts
+  s_0dd3a9d3e5007a::t_53667f43bee08a 33-34,55,64-74
+scripts/war/art/buildings.mjs
+  s_0dd3a9d3e5007a::t_53667f43bee08a 408-410,417,422,436
+src/war/view/mobScale.ts
+  s_0dd3a9d3e5007a::t_53667f43bee08a 1-11
+tests/war/hudLayout.test.ts
+  s_0dd3a9d3e5007a::t_53667f43bee08a 6,124-153
+scripts/war/art/fill-mark.mjs
+  s_0dd3a9d3e5007a::t_53667f43bee08a 1-47
+src/war/view/hud/quest.ts
+  s_0dd3a9d3e5007a::t_53667f43bee08a 15,106
+src/war/view/SandboxScene.ts
+  s_0dd3a9d3e5007a::t_53667f43bee08a 61,186-187,227,295,668-672,699,701
+docs/WAR.md
+  s_0dd3a9d3e5007a::t_53667f43bee08a 15-20,25-42,421-423,464,484,501
+tests/war/feel.test.ts
+  s_0dd3a9d3e5007a::t_53667f43bee08a 5-10,117-201
+src/war/view/hud/mapDraw.ts
+  s_0dd3a9d3e5007a::t_53667f43bee08a 7-8,67
+tests/war/secrets.test.ts
+  s_0dd3a9d3e5007a::t_53667f43bee08a 9,122-133
+  s_0dd3a9d3e5007a::t_bfd284141f2bb2 134-136
+src/war/view/feel/feel.ts
+  s_0dd3a9d3e5007a::t_53667f43bee08a 6-7,12,20-22,31-37,49-51
+  s_0dd3a9d3e5007a::t_10b8ad10d6a0ac 52-53
+src/war/view/hud/roster/ui.ts
+  s_0dd3a9d3e5007a::t_53667f43bee08a 194
+src/war/net/questLore.ts
+  s_0dd3a9d3e5007a::t_53667f43bee08a 21-25,41,47,53,59,65,70-81,102,108
+src/war/view/feel/sparks.ts
+  s_0dd3a9d3e5007a::t_53667f43bee08a 1-81
+src/war/world-view/map.ts
+  s_0dd3a9d3e5007a::t_53667f43bee08a 703-707,710,715,876,896,935-972
+  s_0dd3a9d3e5007a::t_8725c47c8b34b0 973-974
+src/war/view/units.ts
+  s_0dd3a9d3e5007a::t_53667f43bee08a 33-34,128-131,204,317-318,331-335,387-389,405-406,493-501,503-504,513-516,518,520,530-539,559-565,581-587,596,606-625
+src/war/view/micro.ts
+  s_0dd3a9d3e5007a::t_53667f43bee08a 103,105-106
+src/war/view/art.ts
+  s_0dd3a9d3e5007a::t_53667f43bee08a 53-59,192-208,389-398,403-414,469-477,495-499,650,722-725,729-739,746-747,749,751-754,834,898-900,903,905-906,911,913-914,971-974,979,994-999,1002,1009
+docs/playbook/PROMPTS_ART.md
+  s_0dd3a9d3e5007a::t_53667f43bee08a 3539-3563
+src/war/view/hud/theme.ts
+  s_0dd3a9d3e5007a::t_53667f43bee08a 56-57,119,125
+tests/war/chiefs.test.ts
+  s_0dd3a9d3e5007a::t_53667f43bee08a 82
+scripts/art/pixellab/mobs/sizes.mjs
+  s_0dd3a9d3e5007a::t_53667f43bee08a 1-22
+public/war/buildings/objects.json
+  s_0dd3a9d3e5007a::t_53667f43bee08a 127-188
+src/data/warStories.ts
+  s_0dd3a9d3e5007a::t_53667f43bee08a 14,59,105,151,197,238,284,307,324,365,400,440,486,521,561,596,636,682,693,728,745-746,748,752,757,762-763,768,814,860,895,912,915,935,952,964,975,1004,1015,1039-1040,1049-1068,1071-1099,1103-1114,1118-1128,1132-1146,1150-1161,1171,1177
+  s_0dd3a9d3e5007a::t_9fdeb500f47e3a 1182
+src/war/view/hud/layout.ts
+  s_0dd3a9d3e5007a::t_53667f43bee08a 219-264,269-270,272,284,287,300-317,325-329,332,385-387
+src/war/view/iso.ts
+  s_0dd3a9d3e5007a::t_53667f43bee08a 107,119-121
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "a994215759c9ffc0ac4e63a46252723949f7bd77",
+  "prompts": {},
+  "sessions": {
+    "s_0dd3a9d3e5007a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b6130d3d-c070-494f-98d5-046db89f2d1c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
