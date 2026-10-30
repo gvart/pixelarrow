@@ -9,8 +9,10 @@ export interface Moment { kind: 'fight' | 'siege' | 'boss'; from: number; to: nu
 
 /** Men fallen in one fight to call it big. */
 export const BIG_FIGHT = 10;
-/** Ticks without a fall or a breach that end a fight (12 s). */
+/** Ticks without a fall, a breach or a blow being struck that end a fight (12 s). */
 export const QUIET = 120;
+/** A fight still on with nobody falling (a lord with deep hp, or blows far off) is told after this long without a fall (90 s). */
+export const STALL = 900;
 /** Ticks shown before the first blow and after the last. */
 const PRE = 50;
 const POST = 30;
@@ -22,7 +24,7 @@ export class Moments {
   /** Moments found, newest last (a few kept for the scrub bar's marks). */
   readonly found: Moment[] = [];
   onMoment: ((m: Moment) => void) | null = null;
-  private fight: { from: number; last: number; fell: number; razed: number } | null = null;
+  private fight: { from: number; last: number; blow: number; fell: number; razed: number } | null = null;
   private boss: { id: string; at: number } | null = null;
 
   reset(): void {
@@ -33,9 +35,11 @@ export class Moments {
   feed(n: FrameNote): void {
     const f = this.fight;
     if (n.fell || n.razed) {
-      if (f) (f.last = n.tick), (f.fell += n.fell), (f.razed += n.razed);
-      else this.fight = { from: n.tick, last: n.tick, fell: n.fell, razed: n.razed };
-    } else if (f && n.tick - f.last > QUIET) {
+      if (f) (f.last = f.blow = n.tick), (f.fell += n.fell), (f.razed += n.razed);
+      else this.fight = { from: n.tick, last: n.tick, blow: n.tick, fell: n.fell, razed: n.razed };
+    } else if (f && n.striking) f.blow = n.tick;
+    // over once no blow is struck for QUIET (men still swinging at a lord hold the result), or nobody fell for STALL
+    if (f && this.fight === f && (n.tick - f.blow > QUIET || n.tick - f.last > STALL)) {
       this.fight = null;
       if (f.fell >= BIG_FIGHT || f.razed) this.emit({ kind: f.razed ? 'siege' : 'fight', from: f.from - PRE, to: f.last + POST, fell: f.fell, razed: f.razed });
     }
