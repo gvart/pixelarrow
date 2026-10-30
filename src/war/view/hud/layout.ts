@@ -100,7 +100,7 @@ export function solve(f: Frame, st: Stacks): Record<string, Placed> {
     let y = top;
     live.forEach((b, i) => {
       const w = Math.min(b.w, cap);
-      if (y + hs[i] > limit) return void off(b);
+      if (y + hs[i] > limit + 1e-6) return void off(b); // a shrunk panel fills its room exactly: float drift is no overflow
       out[b.id] = { x: xOf(b, w), y, w, h: hs[i], ...(cap < Infinity ? { cap } : {}) };
       y += hs[i] + GAP;
     });

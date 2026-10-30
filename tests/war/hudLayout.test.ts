@@ -109,6 +109,14 @@ describe('HUD zones', () => {
     expect(p.rfBuild.x + p.rfBuild.w / 2).toBeCloseTo(f.w / 2);
   });
 
+  it('a shrunk menu window that fills its column to the card stays shown (no float drift leaves it out)', () => {
+    // measured live at 1280x720 (UI scale 1.25), a 12-man squad selected, Tasks opened
+    const f = { w: 1024, h: 576 }, wide = b('rfCard', 541.6, 100.1);
+    const p = solve(f, { tr: [b('rfDev', 162.9625, 23), b('rfTasks', 360, 491.3, { min: 120 })], bl: [mini], bc: [wide], br: [dock] });
+    expect(p.rfTasks.off).toBeUndefined();
+    expect(p.rfTasks.y + p.rfTasks.h).toBeLessThanOrEqual(p.rfCard.y - GAP + 1e-6);
+  });
+
   it('the chest opens above the command card where they would meet', () => {
     const f = FRAMES['1100x700'], wide = b('rfCard', 600, 90), p = solve(f, { bc: [wide], br: [dock], rwin: [b('rfChest', 330, 300)] });
     expect(p.rfChest.y + p.rfChest.h).toBeLessThanOrEqual(p.rfCard.y - GAP);
