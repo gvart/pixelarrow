@@ -1,8 +1,9 @@
 import { z } from 'zod';
-import type { RegionData } from '../types';
+import type { MobKind, RegionData } from '../types';
 import { expandRegion, MAX_HEIGHT } from './compact';
 import { TRADE_ZONES } from './zones';
 import { BUILDINGS } from '../sim/economy';
+import { MOB_KINDS } from '../sim/mobs';
 
 const TERRAIN = ['grass', 'forest', 'sand', 'marsh', 'rock', 'road', 'snow', 'dirt'] as const;
 export { MAX_HEIGHT };
@@ -41,7 +42,7 @@ export const regionSchema = z
     blocked: ints().optional(),
     visual: z.object({ scale: z.literal(2), rle: ints() }).optional(),
     biomes: z.object({ names: z.array(z.string().min(1)).min(1), rle: ints() }).optional(),
-    lairs: z.array(z.object({ kind: z.enum(['wolf', 'boar', 'bear', 'bandit', 'jackal', 'ibex', 'lion', 'serpent']), x: z.number().min(0), y: z.number().min(0), count: z.number().int().positive().optional(), as: z.string().optional(), captain: z.boolean().optional() })).optional(),
+    lairs: z.array(z.object({ kind: z.enum(MOB_KINDS as [MobKind, ...MobKind[]]) /* world-fill: the kinds of src/war/sim/mobs.ts MOBS */, x: z.number().min(0), y: z.number().min(0), count: z.number().int().positive().optional(), as: z.string().optional(), captain: z.boolean().optional(), chief: z.string().optional() })).optional(),
     claimPoints: z.array(z.object({ x: z.number().min(0), y: z.number().min(0), lairs: z.array(z.number().int().min(0)), r: z.number().positive().optional() })).optional(),
     /** M6d (additive): safe zones with their gates, caravan yards, ambush spots (src/war/sim/trade.ts; ./zones.ts). */
     safe: z.array(z.object({ ...rect, gates: z.array(z.object(rect)).optional() })).optional(),

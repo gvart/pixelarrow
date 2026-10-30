@@ -39,7 +39,10 @@
  * Neutral regions (W-12, ./mobs.ts): spawnMobs() puts a squad of team MOB_TEAM on every region lair; the mob controller
  * orders them each tick (wander, aggro, leash back). claimRegion walks a squad to a claim point, where it channels.
  */
-import { Rng } from '../../sim/rng';
+import { hashString, Rng } from '../../sim/rng';
+import { makeItem } from '../../game/heroes';
+import { chiefLoot } from '../../data/warBosses';
+import { depthOf } from './depth';
 import type { BuildingType, Deed, FightReport, GoodKind, Order, PersonResult, RegionData, RegionMemory, ResourceKind, ShotSnap, Snapshot, SquadId, SquadSnap, UnitId, UnitSnap, WarBuildSim, WarEvent, WarPerson, WarSkillId } from '../types';
 import { salvageValue, type Item } from '../../data/items';
 import { warStats, warStatsOf, type WarStats } from './classes';
@@ -625,6 +628,14 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     },
     held: (on) => works.setFallback(on ? MOB_TEAM : NEUTRAL_TEAM),
     captainDown: (lair, by) => note({ t: tick, kind: 'captainSlain', lair, by }),
+    // world-fill: a chief's loot falls where he did (src/data/warBosses.ts chiefLoot; the same kill, the same pile)
+    chiefDown: (lair, chief, x, y, by) => {
+      const drop = chiefLoot(chief.id, depthOf(region), `${region.id}:${seed}:${lair}:${tick}`);
+      const lots: Lot[] = Object.entries(drop.goods).filter(([, n]) => n > 0).map(([r, n]) => ({ r: r as GoodKind, n, o: region.id }));
+      const items = drop.item ? [{ ...makeItem(new Rng(hashString(`${region.id}:${seed}:${lair}:${tick}:chief`) || 1), { nextId: 0 }, drop.item.def, drop.item.rarity), uid: `chief:${region.id}:${seed}:${lair}:${tick}` }] : [];
+      piles.drop(x, y, lots, items, tick);
+      note({ t: tick, kind: 'chiefSlain', lair, chief: chief.id, name: chief.name, by, x, y });
+    },
     note: (e) => note({ t: tick, ...e }), // W-67 mob FX
     towers: () => works.prebuilt().filter((b) => b.def.wall === 'tower' && (b.team === MOB_TEAM || b.team === NEUTRAL_TEAM) && (b.state === 'done' || b.state === 'damaged')).map((b) => ({ id: b.id, x: b.x, y: b.y })),
     carts: () => siege.snaps(tick).filter((e) => isCartType(e.type) && e.state !== 'destroyed' && e.team !== MOB_TEAM).map((e) => ({ id: e.id, x: e.x, y: e.y, team: e.team })),

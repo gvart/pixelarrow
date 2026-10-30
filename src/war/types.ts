@@ -20,7 +20,9 @@ export interface RegionData {
   /** Neutral fauna (W-12, src/war/sim/mobs.ts): a lair or camp of one mob kind at (x,y), its pack size (default per kind). */
   lairs?: { kind: MobKind; x: number; y: number; count?: number;
     /** M7c: a bandit host's captain (bandit kind): he and his elite guard; the claim points holding this lair open once he falls. */
-    captain?: boolean }[];
+    captain?: boolean;
+    /** world-fill: a local mini-boss leads this lair (src/data/warBosses.ts WAR_CHIEFS id): he and his escort of the kind. */
+    chief?: string }[];
   /** Region claim banners: open once every guard lair of `lairs` (indices into lairs) is cleared; r: influence radius once claimed. */
   claimPoints?: { x: number; y: number; lairs: number[]; r?: number }[];
   /**
@@ -407,6 +409,8 @@ export interface LairSnap {
   id: number; kind: MobKind; x: number; y: number; squad: SquadId; alive: number; count: number;
   /** M7c: a bandit host's captain lair (claim opens once he falls), its captain alive. */
   captain?: boolean;
+  /** world-fill: a chief's lair (src/data/warBosses.ts): who leads it, his unit, alive, and how he is drawn (scale, tint). */
+  chief?: { id: string; name: string; title: string; unit: UnitId; alive: boolean; scale: number; tint: number };
   state: 'home' | 'chase' | 'return' | 'flee' | 'cleared'; aggro: number; leash: number; guard: number; nodes: number; respawnIn?: number;
 }
 /**
@@ -612,7 +616,7 @@ export interface WarBuildSim extends WarSim {
   /** W-65: one roaming group on the given road (tests, tools); its id. */
   addRoamer(d: import('./sim/roam').RoamDef): number;
   /** W-62 (src/war/sim/mobs.ts add): one more lair spawned now, outside any claim zone, never back once cleared (the guide's early win); its lair id. */
-  addLair(d: { kind: MobKind; x: number; y: number; count?: number; /** W-65: led by a captain (a story's named foe). */ lead?: true }): number;
+  addLair(d: { kind: MobKind; x: number; y: number; count?: number; /** W-65: led by a captain (a story's named foe). */ lead?: true; /** world-fill: led by this chief (src/data/warBosses.ts WAR_CHIEFS). */ chief?: string }): number;
   /** M7a (src/war/sim/prebuilt.ts): the region's towns; a team's recruit pool (an hour) and cap from its houses; its favour and prestige (score an hour, capped); the upkeep multiplier of its squad resting at (x,y) (a well near). */
   towns(): TownSnap[];
   /** W-61 (src/war/sim/townLevel.ts): every team's town level here (measured every few seconds; `measure` now). */
@@ -781,6 +785,8 @@ export type WarEvent =
   | { t: number; kind: 'razed'; building: number; type: BuildingType; owner: number; by: number; sacrilege?: true }
   // M7c: a bandit host's captain fell (its claim point may open)
   | { t: number; kind: 'captainSlain'; lair: number; by: number }
+  // world-fill: a local mini-boss (src/data/warBosses.ts WAR_CHIEFS) fell where (x,y); his loot pile lies there
+  | { t: number; kind: 'chiefSlain'; lair: number; chief: string; name: string; by: number; x: number; y: number }
   // M7d: a guardian entered phase `phase` (index into its WarBoss phases); escaped (the Bandit King by the postern: back
   // after a while with half his host); came back (24 h unheld: full hp, its landmark reset); a Rim Warden strike landed
   | { t: number; kind: 'bossPhase'; region: string; boss: string; phase: number }
