@@ -88,6 +88,15 @@ const def: RegionDef = {
     for (const [x, y] of [[116, 124], [144, 124], [116, 144], [146, 146], [130, 118], [124, 150]] as Pt[]) {
       k.piece(['kyrene/amphora-stack', 'kyrene/handcart', 'kyrene/palm-pot'][(x + y) % 3], [x, y], { r: 4, n: 2, gap: 2 });
     }
+    // roads to somewhere (regions-look 2, PROMPTS_ART §51): the ramps end at a ruined watch post, a cairn by a sanded ruin, a
+    // rock pillar with its cairn and a desert shrine
+    k.piece('kyrene/ruin-wall', [190, 82], { r: 6, n: 2, gap: 3 });
+    k.piece('kyrene/ruin-corner', [194, 78], { r: 6 });
+    k.piece('mountains/cairn', [50, 100], { r: 6 });
+    k.piece('kyrene/ruin-sanded', [46, 96], { r: 6 });
+    k.piece('kyrene/rock-pillar', [56, 176], { r: 6 });
+    k.piece('mountains/cairn', [60, 172], { r: 6 });
+    k.piece('elaia/shrine', [190, 196], { r: 6 });
     k.claim([130, 134], 160);
   },
 };

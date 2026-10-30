@@ -85,6 +85,9 @@ const def: RegionDef = {
     k.lair('bandit', [44, 50], { as: 'pirates' });
     k.lair('boar', [70, 170], { as: 'boars' });
     k.lair('boar', [214, 210], { as: 'boars' });
+    // roads to somewhere (regions-look 2, PROMPTS_ART §51): the south cove path ends on the spine at a wayside shrine
+    k.piece('elaia/shrine', [112, 118], { r: 6 });
+    k.piece('elaia/wall-fallen-stone', [114, 122], { r: 5, n: 2, gap: 2 });
     k.claim(hub, 160);
   },
 };

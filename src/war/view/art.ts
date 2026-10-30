@@ -21,7 +21,7 @@ import { columnTops, type MassifDef, type Massifs } from './massifs';
 import { buildFineArt, SmoothFrames, type CliffRoles, type FineArt } from './fineArt';
 import { HH, HW, IsoMap, LH, SIDE, ZBASE } from './iso';
 import type { BakeOpts } from './terrain';
-import { FOAM_H, FOAM_NX, FOAM_NY, FOAM_PX, FOAM_PY, FOAM_W, foamSprite, groundTint, relief, RELIEF_FILL, SHADOW_H, SHORE_WATER, SHORE_WET, SHADOW_W, TINT_FILL, treeShadow } from './relief';
+import { FOAM_H, FOAM_NX, FOAM_NY, FOAM_PX, FOAM_PY, FOAM_W, foamSprite, groundTint, PEAT_SHORE, peatWater, relief, RELIEF_FILL, SHADOW_H, SHORE_WET, SHADOW_W, TINT_FILL, treeShadow, waterField } from './relief';
 import { relightTree } from './treeLight';
 import { PeakPainter } from './peaks';
 import { wallStone, wallTexture, type Stone } from './rockFace';
@@ -231,6 +231,13 @@ export class ArtBaker {
   private foam: Uint8Array;
   /** Per visual cell: its ground tint (./relief.ts TINT_FILL code, 0 none). */
   private tint: Uint8Array;
+  /** Per visual cell: drawn in the moors' set (its water is black peat water). */
+  private peat: (j: number) => boolean;
+  /** Per visual cell: water lit by the smooth water field (not peat). */
+  private lit: (j: number) => boolean;
+  /** The water light, one pixel per visual cell (./relief.ts waterField), filled as a smoothed pattern over the water. */
+  private waterLight: HTMLCanvasElement;
+  private waterPat: { ctx: CanvasRenderingContext2D; pat: CanvasPattern } | null = null;
   /** The tile set whose walls are basalt (the mountains' in a desert region), -1 none. */
   private basalt = -1;
   /** Per visual cell: how its rock wall's front is smoothed (CUT_*), 0 none. */
@@ -303,7 +310,34 @@ export class ArtBaker {
       const x = j % iso.fw, y = (j / iso.fw) | 0;
       return this.setOf[(y >> 1) * r.w + (x >> 1)] === this.basalt && !iso.peakAt((x >> 1) + 0.5, (y >> 1) + 0.5);
     });
+    // the moors' bog pools: black peat water (./relief.ts peatWater)
+    // (inland water only: the sea stays sea-coloured)
+    const moors = art.sets.findIndex((s) => s.name === 'moors'), sea = this.offMap();
+    this.peat = (j) => moors >= 0 && !sea[j] && this.setOf[(((j / iso.fw) | 0) >> 1) * r.w + ((j % iso.fw) >> 1)] === moors;
+    peatWater(iso.fk, this.shade, this.foam, this.tint, this.peat);
+    // the water's light as one smooth field (./relief.ts waterField), not a flat diamond per cell
+    this.lit = (j) => (iso.fk[j] === SHALLOW_K || iso.fk[j] === DEEP_K) && !this.peat(j);
+    this.waterLight = canvas(iso.fw, iso.fh);
+    this.waterLight.getContext('2d')!.putImageData(new ImageData(waterField(iso.fw, iso.fh, iso.fk, this.lit), iso.fw, iso.fh), 0, 0);
+    for (let j = 0; j < this.shade.length; j++) if (this.lit(j)) this.shade[j] = 0;
     this.cut = this.cuts();
+  }
+
+  /** Per visual cell: 1 = water of a body of SEA cells or more (4-neighbour, through water): the sea, not pools and streams. */
+  private offMap(): Uint8Array {
+    const { fw, fh, fk } = this.iso, n = fw * fh, out = new Uint8Array(n), seen = new Uint8Array(n), SEA = 40000;
+    const wet = (j: number) => fk[j] === SHALLOW_K || fk[j] === DEEP_K;
+    for (let s = 0; s < n; s++) {
+      if (seen[s] || !wet(s)) continue;
+      const body = [s];
+      seen[s] = 1;
+      for (let h = 0; h < body.length; h++) {
+        const j = body[h], x = j % fw;
+        for (const i of [x > 0 ? j - 1 : -1, x < fw - 1 ? j + 1 : -1, j - fw, j + fw]) if (i >= 0 && i < n && !seen[i] && wet(i)) { seen[i] = 1; body.push(i); }
+      }
+      if (body.length >= SEA) for (const j of body) out[j] = 1;
+    }
+    return out;
   }
 
   /** The stone of the rock wall under visual cell i (one of `drop` levels), null: no rock wall (a strip cliff or none). */
@@ -367,7 +401,9 @@ export class ArtBaker {
       const terrain: TerrainKind[] = new Array(cw * ch), water: (0 | 1 | 2)[] = new Array(cw * ch), z = new Float32Array(cw * ch);
       for (let y = 0; y < ch; y++) for (let x = 0; x < cw; x++) {
         const j = (fy0 + y) * fw + fx0 + x, k = KINDS[fk[j]], c = y * cw + x;
-        water[c] = k === 'deep' ? 2 : k === 'shallow' ? 1 : 0;
+        // all water drawn with the shallow tiles: the deep is the smooth water field's (./relief.ts waterField), so no hard
+        // shallow-to-deep tile seam runs along the cell staircase
+        water[c] = k === 'deep' || k === 'shallow' ? 1 : 0;
         terrain[c] = water[c] ? 'dirt' : (k as TerrainKind);
         z[c] = iso.fz[j];
       }
@@ -650,9 +686,11 @@ export class ArtBaker {
     const paths = new Map<number, Path2D>(), stamps = new Map<number, number[]>();
     let foam: Path2D | null = null, wave: Path2D | null = null;
     const blobs: number[] = [];
+    // the water's light per level: pixel-exact diamond runs (no antialiased seams between rows), the shore cells' water halves
+    const water = new Map<number, Path2D>(), wpath = (z: number) => { let q = water.get(z); if (!q) water.set(z, (q = new Path2D())); return q; };
     for (; u <= Math.min(umax, v, 2 * (fw - 1) - v); u += 2) {
-      const x = (u + v) / 2, y = (v - u) / 2, i = y * fw + x, s = shade[i], t = tint[i];
-      if ((!s && !t && !this.foam[i]) || code[i] < 0 || this.peaks?.covers(x >> 1, y >> 1)) continue;
+      const x = (u + v) / 2, y = (v - u) / 2, i = y * fw + x, s = shade[i], t = tint[i], lit = this.lit(i);
+      if ((!s && !t && !this.foam[i] && !lit) || code[i] < 0 || this.peaks?.covers(x >> 1, y >> 1)) continue;
       const ty = Math.round(iso.OY + v * FH - fz[i] * LH);
       if (ty - 2 * LH > y0 + h || ty + 2 * FH + 2 * LH < y0) continue;
       const tx = iso.OX + u * FW - FW;
@@ -693,7 +731,7 @@ export class ArtBaker {
           blobs.push(M[0] + j * 3, M[1]);
         }
       }
-      if (!s && !t) continue;
+      if (!s && !t && !lit) continue;
       // the cell's diamond into its light's path and its tint's (tints keyed past the light codes)
       const p = new Path2D();
       if (iso.ramp[i]) { // through the ramp's corners
@@ -715,16 +753,31 @@ export class ArtBaker {
             for (const j of [i - 1, i + 1, i - fw, i + fw]) if (j >= 0 && j < shade.length && isWet(j) === w && shade[j]) return shade[j];
             return dflt;
           };
-          add(side(true, SHORE_WATER), wet); add(side(false, SHORE_WET), dry);
+          if (this.peat(i)) { add(256 + PEAT_SHORE, wet); add(side(false, SHORE_WET), dry); if (t && !own) add(256 + t, dry); continue; }
+          if (wet) wpath(fz[i]).addPath(wet);
+          add(side(false, SHORE_WET), dry);
           if (t) add(256 + t, dry);
           continue;
         }
         // a plain diamond: stamped as a pixel-exact sprite (cells of one row and the next meet without the antialiased
         // seam two path fills leave, which drew the water as a grid of dotted lines)
+        if (lit) {
+          const q = wpath(fz[i]), X = Math.round(tx);
+          for (let r = 0; r < 2 * FH; r++) { const half = FW * (1 - Math.abs(r + 0.5 - FH) / FH), a = Math.ceil(FW - half - 0.5), b = Math.floor(FW + half - 0.5); if (b >= a) q.rect(X + a, ty + r, b - a + 1, 1); }
+        }
         for (const key of [t ? 256 + t : 0, s]) if (key) { let q = stamps.get(key); if (!q) stamps.set(key, (q = [])); q.push(Math.round(tx), ty); }
         continue;
       }
       for (const key of [t ? 256 + t : 0, s]) if (key) { let q = paths.get(key); if (!q) paths.set(key, (q = new Path2D())); q.addPath(p); }
+    }
+    if (water.size) {
+      if (this.waterPat?.ctx !== ctx) this.waterPat = { ctx, pat: ctx.createPattern(this.waterLight, 'no-repeat')! };
+      const pat = this.waterPat.pat, sm = ctx.imageSmoothingEnabled;
+      ctx.imageSmoothingEnabled = true;
+      ctx.fillStyle = pat;
+      // pattern pixel (x, y) at the centre of visual cell (x, y) at level z (./iso.ts sx, sy)
+      for (const [z, q] of water) { pat.setTransform(new DOMMatrix([FW, FH, -FW, FH, iso.OX, iso.OY - z * LH])); ctx.fill(q); }
+      ctx.imageSmoothingEnabled = sm;
     }
     for (const pass of [1, 0]) {
       for (const [s, p] of paths) {

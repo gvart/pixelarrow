@@ -67,8 +67,10 @@ export interface Style {
   tufts: number;
   /** A wayside at every claim point away from a town and a landmark (a cairn or shrine, a cart, stones, scrub by its biome), so a bare crossing with only the flag reads as a place. */
   wayside: boolean;
+  /** Dodona zones: broadleaf oak and beech wood only (no pines and firs). */
+  oaks: boolean;
 }
-const STYLE: Style = { dry: 0.05, dryHigh: true, meadow: 0.1, dune: 0.3, trees: 1, bushes: 1, tufts: 0, wayside: false };
+const STYLE: Style = { dry: 0.05, dryHigh: true, meadow: 0.1, dune: 0.3, trees: 1, bushes: 1, tufts: 0, wayside: false, oaks: false };
 
 /** Biome libraries a region may name (public/war/biomes/<name>; 'global' is the base set). */
 export const BIOMES = ['global', 'elaia', 'kyrene', 'mountains', 'dodona', 'moors'] as const;
@@ -132,6 +134,8 @@ export class Kit {
   readonly fallCell: Uint8Array;
   /** Water cells of a river() whose bed steps down along its course (`bed` a function); all other water lies level. */
   readonly riverCell: Uint8Array;
+  /** Granite tor cells (Kit.tor): the visual level the block stands at (-1: none). */
+  readonly torZ: Int16Array;
   /** Deep water a road bridge decked over (road `bridges`): cell -> its height, water and terrain before. */
   readonly deckWas = new Map<number, [number, number, string]>();
 
@@ -152,6 +156,7 @@ export class Kit {
     this.zoneOverride = new Uint8Array(this.N);
     this.paved = new Uint8Array(this.N);
     this.fallCell = new Uint8Array(this.N);
+    this.torZ = new Int16Array(this.N).fill(-1);
     this.riverCell = new Uint8Array(this.N);
     this.style = { ...STYLE, ...def.style };
     const w = byId.get(def.id);
@@ -270,6 +275,25 @@ export class Kit {
       this.terrain[i] = 'rock';
       this.water[i] = 0;
     } else if (e > -5 && this.terrain[i] !== 'rock') this.height[i] = Math.max(this.height[i], foot ?? this.height[i] + 1);
+  }
+  /**
+   * A granite tor (the moors): impassable rock over blob b, drawn as stacked flat-topped blocks with sheer granite walls
+   * (not a ridged peak): `blocks` [depth into the blob (units), visual levels over the ground] in rising order, the deepest
+   * one a cell reaches its top; the joints are jittered so the blocks read as stacked slabs. The sim height is left.
+   */
+  tor(b: Blob, blocks: [number, number][], o: { rough?: number; joint?: number } = {}) {
+    const s = this.seed(), s2 = this.seed();
+    this.each((i, x, y) => {
+      if (this.water[i]) return;
+      const e = this.e(b, x, y, o.rough ?? 1, s);
+      if (e <= 0) return;
+      const j = e + (o.joint ?? 0.6) * (fbm(x, y, 1.7, s2) + 0.6 * fbm(x, y, 0.7, s2 + 1));
+      let r = 0;
+      for (const [d, v] of blocks) if (j >= d) r = v;
+      if (!r) return;
+      this.terrain[i] = 'rock'; // (not mountain rock: Kit.rock stays, so the cell keeps its biome and no massif covers it)
+      this.torZ[i] = Math.max(this.torZ[i], Math.min(ZVIS, RELIEF * this.height[i] + r));
+    });
   }
   /** Paint a terrain over a blob (only over `on` terrains, default grass), optionally only within a height band. */
   paint(t: string, b: Blob, o: { on?: string[]; minH?: number; maxH?: number; rough?: number } = {}) {
@@ -1384,7 +1408,10 @@ function visualLayer(k: Kit): Out {
         soft[i] = 0;
       }
     }
-    if (terrain[i] === 'rock' && rock[i] > -Infinity && !crag[i]) {
+    if (terrain[i] === 'rock' && k.torZ[i] >= 0 && !crag[i]) {
+      z = k.torZ[i]; // a granite tor's block (Kit.tor)
+      soft[i] = 0;
+    } else if (terrain[i] === 'rock' && rock[i] > -Infinity && !crag[i]) {
       const e = rock[i] + 1.2 * fbm(x, y, 5, 41);
       const peak = PEAK_LO + (PEAK_HI - PEAK_LO) * (0.65 * ridged(x, y, 11, 43) + 0.35 * ridged(x, y, 5, 44)) ** 1.6;
       rise[i] = e < 0.6 ? 0 : STEP * Math.floor(Math.min(SLOPE * (e - 0.6), peak - 3) / STEP);
@@ -1599,6 +1626,8 @@ export function build(def: RegionDef): Built {
   // the Dodona library's own woods and floor (public/war/biomes/dodona): its oaks, beeches and silver firs among the
   // global pines, ferns, bramble, mossy stumps and logs, mushrooms and boulders under them
   const DWOOD = [...NORTH, 'dodona/oak-a', 'dodona/beech-a', 'dodona/fir-silver', 'dodona/oak-b', 'dodona/beech-young', 'dodona/fir-silver-b', 'dodona/pitch-pine'];
+  const DOAKS = ['dodona/oak-a', 'dodona/oak-b', 'oak', 'dodona/oak-a', 'dodona/beech-a', 'dodona/oak-b', 'dodona/beech-young', 'oak'];
+  const DTREES = st.oaks ? DOAKS : DWOOD;
   const DFLOOR = ['dodona/fern-a', 'dodona/fern-c', 'dodona/bramble', 'dodona/fern-b', 'dodona/stump-moss', 'dodona/fern-a', 'dodona/log-fallen', 'dodona/mushrooms', 'dodona/boulder-moss-a', 'dodona/fern-c', 'dodona/stump-a', 'dodona/boulder-moss-b', 'bush-a'];
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     const i = y * W + x, t = terrain[i], b = B(i);
@@ -1620,7 +1649,7 @@ export function build(def: RegionDef): Built {
     }
     if (t === 'forest') {
       const edge = ring(x, y, (j) => terrain[j] !== 'forest');
-      const trees = b === 'mountains' ? FIRS : b === 'elaia' ? E(['holm-oak', 'stone-pine', 'holm-oak', 'cypress-tall', 'olive-tall']) : b === 'kyrene' ? Y(['acacia', 'acacia-old', 'tamarisk', 'thorn-tree']) : b === 'dodona' ? DWOOD : WOODS;
+      const trees = b === 'mountains' ? FIRS : b === 'elaia' ? E(['holm-oak', 'stone-pine', 'holm-oak', 'cypress-tall', 'olive-tall']) : b === 'kyrene' ? Y(['acacia', 'acacia-old', 'tamarisk', 'thorn-tree']) : b === 'dodona' ? DTREES : WOODS;
       if (p < (edge ? 0.16 : 0.3) * Math.min(1, st.trees)) put(pick(trees, q), fx, fy);
       else if (p < (b === 'dodona' ? 0.42 : 0.34)) put(pick(b === 'elaia' ? MAQUIS : b === 'mountains' ? ALPINE : b === 'kyrene' ? Y(['saltbush', 'broom']) : b === 'dodona' ? DFLOOR : ['bush-a', 'bush-b'], q), fx, fy);
     } else if (t === 'marsh') {
@@ -1658,7 +1687,7 @@ export function build(def: RegionDef): Built {
     } else if (t === 'grass' && !nearWater) {
       const dry = height[i] >= 2 && b !== 'dodona';
       if (b === 'dodona') {
-        if (p < 0.03 * st.trees) put(pick(DWOOD, q), fx, fy);
+        if (p < 0.03 * st.trees) put(pick(DTREES, q), fx, fy);
         else if (p < 0.05 * st.bushes) put(pick(['bush-a', 'bush-b', 'mountains/juniper'], q), fx, fy);
         else if (p < 0.075 * st.bushes) put(pick(DFLOOR, q), fx, fy);
       } else if (dry && p < 0.05 * st.trees) put(pick(['olive-a', 'olive-b', 'olive-a', 'cypress'], q), fx, fy);
@@ -1694,6 +1723,7 @@ export function build(def: RegionDef): Built {
       const lip = Math.max(z - fzAt(fx + 1, fy), z - fzAt(fx, fy + 1), z - fzAt(fx + 1, fy + 1)) >= 3;
       let id = '';
       if (kk === 'snow') id = p < 0.012 ? 'crag-snow' : '';
+      else if (B(i) === 'moors') id = lip && p < 0.05 ? 'moors/tor-b' : p < 0.01 ? 'boulder-a' : ''; // a granite tor's loose blocks, no spires
       else if (lip) id = p < 0.03 ? pick(z >= 18 ? ['spire', 'crag-a', 'crag-b'] : ['crag-b', 'outcrop', 'crag-a'], q) : '';
       else if (p < 0.008) id = pick(['outcrop', 'crag-b', 'boulder-a'], q);
       if (id && footSeen(ox, oy)) put(id, ox, oy);

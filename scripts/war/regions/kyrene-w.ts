@@ -17,11 +17,14 @@ import { massif, profile, relief } from './setpieces.ts';
 
 const def: RegionDef = {
   id: 'kyrene-w',
-  style: { dry: 0.4, trees: 0.4, bushes: 0.5 },
+  style: { dry: 0.4, trees: 0.07, bushes: 0.3 },
   build(k: Kit) {
     const W = k.entry('achelous'), E = k.entry('kyrene'), N = k.entry('savanna'), NE = k.entry('kyrene-n'), SE = k.entry('kyrene-s');
     k.fill(1);
-    k.zone('kyrene', [236, 128, 80, 170, 0], 10);
+    // identity (regions-look 2, PROMPTS_ART §51): a Nile bank, not a green meadow: the Kyrene library over all of it
+    // (date palms, tamarisk and reeds instead of oaks and pines), the floodplain a patchwork of fields between the
+    // channels, palms lining the channels, the sand escarpment over it
+    k.zone('kyrene', () => 99);
     // the desert-edge tier behind its sand cliff
     // W-52 set piece (./setpieces.ts): the desert edge fills the east third, rising from the floodplain in two sand
     // walls (h5-6, h8-10) along a bold curving front
@@ -69,6 +72,16 @@ const def: RegionDef = {
     k.fields([126, 186, 22, 14, 0.5], 0.5);
     k.fields([168, 80, 16, 12, -0.4], -0.4);
     k.fields([118, 160, 14, 8, 0.2], 0.2);
+    for (const [x, y, rx, ry, a] of [[104, 96, 12, 9, 0.3], [130, 60, 10, 8, -0.2], [100, 232, 14, 9, 0.1], [150, 236, 10, 8, 0.4], [124, 110, 9, 6, 0.6], [92, 34, 9, 6, -0.1], [160, 40, 9, 8, 0.2]] as const) k.fields([x, y, rx, ry, a], 0, { plot: 9, wide: 6 });
+    // date palms along the channels and the River Road's bank, doum palms by the huts
+    ch.forEach((c, n) => {
+      for (let m = 1; m < c.length; m++) for (let f = 0.15; f < 1; f += 0.34) {
+        const x = c[m - 1][0] + (c[m][0] - c[m - 1][0]) * f, y = c[m - 1][1] + (c[m][1] - c[m - 1][1]) * f, side = (m + n) % 2 ? 3.2 : -3.2;
+        k.piece(['kyrene/date-palm-tall', 'kyrene/date-palm-mid', 'kyrene/date-palm-clump', 'kyrene/date-palm-fruit'][(m + n) % 4], [x + side, y - side * 0.4], { r: 1.5 });
+      }
+    });
+    for (const x of [86, 112, 152, 184]) k.piece('kyrene/date-palm-tall', [x, 135], { r: 2 });
+    for (const [x, y] of [[150, 214], [200, 74], [140, 100]] as const) k.piece('kyrene/doum-palm', [x, y], { r: 6, n: 2, gap: 3 });
     k.resource('food', [126, 186], 5, 16);
     k.resource('food', [168, 80], 4, 12);
     // the town: the agora, the quarters either side of the road band, the jetty; farm huts; a ruined span

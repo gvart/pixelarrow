@@ -15,7 +15,7 @@ import { massif, profile, relief } from './setpieces.ts';
 
 const def: RegionDef = {
   id: 'elaia-s',
-  style: { wayside: true, dry: 0.15, dryHigh: false, trees: 0.08, bushes: 0.12 },
+  style: { wayside: true, dry: -0.35, dryHigh: true, trees: 0.12, bushes: 0.5, tufts: 0.05 },
   build(k: Kit) {
     const N = k.entry('elaia'), E = k.entry('delta'), SW = k.entry('elaia-w'), SE = k.entry('elaia-e');
     k.fill(2);
@@ -56,6 +56,22 @@ const def: RegionDef = {
     k.road([SW, [30, 214], [70, 206], [110, 200], [150, 192], hub, [222, 200], [244, 212], SE], { w: 1.1, grade: 2, fill: true });
     k.road([[150, 192], [156, 210], [160, 222]], { w: 1, grade: 1.5 });
     k.road([[136, 116], [150, 106], [158, 102]], { w: 0.9, grade: 1.5 }); // the brigands' step
+    // identity (regions-look 2, PROMPTS_ART §51): a sun-bleached limestone cape, not a lawn: pale limestone on the lip of
+    // every wall and in bare sheets on the steep tiers, outcrops and talus along the walls, the fort's ground fallen
+    // stone, maquis and stone pines on the steps
+    const lip = (x: number, y: number) => {
+      const h = k.height[k.at([x, y])];
+      for (const d of [0.7, 1.5]) for (let a = 0; a < 8; a++) { const j = k.at([x + d * Math.cos(a * Math.PI / 4), y + d * Math.sin(a * Math.PI / 4)]); if (j >= 0 && k.height[j] <= h - 2) return true; }
+      return false;
+    };
+    k.patchWhere('elaia', 'marble', (x, y) => lip(x, y) || (cape.t(x, y) > 0.3 && fbm(x, y, 5, 61) > 0.45), ['grass', 'dirt']);
+    k.patch('elaia', 'ruin', [42, 40, 9, 7, 0.3], ['grass', 'dirt']);
+    for (const [x, y] of [[34, 46], [48, 34], [54, 48], [30, 36], [44, 52]] as const) k.piece(['elaia/wall-fallen-stone', 'elaia/debris-stone'][(x + y) % 2], [x, y], { r: 3 });
+    for (let n = 0; n < 26; n++) {
+      const x = 12 + ((n * 97) % 236), y = 12 + ((n * 61) % 200);
+      if (cape.t(x, y) > 0.2) k.piece(['elaia/marble-outcrop-a', 'elaia/marble-outcrop-b', 'elaia/talus-lime', 'elaia/maquis-b'][n % 4], [x, y], { r: 5 });
+    }
+    for (const [x, y] of [[100, 30], [150, 60], [120, 90], [196, 150], [90, 170], [230, 170], [20, 160]] as const) k.piece('elaia/stone-pine', [x, y], { r: 6, n: 2, gap: 3 });
     // the ruined fort on the summit, the goats' terraces, scrub and pines
     k.piece('wall-ruin', [42, 40], { r: 12, n: 6, gap: 5 });
     k.piece('watchtower', [36, 34], { r: 4 });

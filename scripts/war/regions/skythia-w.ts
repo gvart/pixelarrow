@@ -71,6 +71,9 @@ const def: RegionDef = {
     k.lair('bandit', [44, 132], { as: 'bandits' });
     k.lair('bear', [96, 90], { as: 'bears' });
     k.lair('bear', [154, 80], { as: 'bears' });
+    // roads to somewhere (regions-look 2, PROMPTS_ART §51): the ledge track ends at a watch post, the spur's at a standing stone
+    k.piece('mountains/watch-post', [32, 116], { r: 6 });
+    k.piece('moors/standing-stone', [60, 106], { r: 6 });
     k.claim([196, 128], 160);
   },
 };

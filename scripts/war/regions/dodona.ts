@@ -72,6 +72,12 @@ const def: RegionDef = {
     k.paint('forest', [36, 128, 34, 140, 0], { on: ['grass'], minH: 3 });
     k.paint('forest', [220, 128, 34, 140, 0], { on: ['grass'], minH: 3 });
     k.forest([70, 40, 34, 22, 0.3], [180, 60, 26, 24, -0.2], [74, 206, 34, 24, 0.4], [186, 216, 30, 22, -0.3], [104, 64, 12, 8, 0.5], [86, 186, 12, 8, 0.1], [240, 190, 14, 30, 0.1], [12, 190, 10, 30, 0]);
+    // roads to somewhere (regions-look 2, PROMPTS_ART §51): each arm track ends at a watch post in a clearing on the
+    // archers' ground
+    for (const p of [[14, 84], [12, 188], [242, 84], [242, 186]] as [number, number][]) {
+      k.paint('grass', [p[0], p[1], 6, 5, 0], { on: ['forest'], rough: 1.5 });
+      k.piece('mountains/watch-post', p, { r: 6 });
+    }
     // resources (food 2, wood 3, stone 2, iron 2) and set pieces
     k.resource('iron', [242, 60], 3, 12);
     // the home agora and the town round it: houses and workshops along the roads, farms and a press beyond
