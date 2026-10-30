@@ -17,10 +17,10 @@ describe('M5h6 verify lines', () => {
     }
   });
 
-  it('a master smith makes about one legendary a play week', () => {
-    const { leg } = legendaryRate();
-    expect(leg).toBeGreaterThanOrEqual(BAL.legendariesPerWeek[0]);
-    expect(leg).toBeLessThanOrEqual(BAL.legendariesPerWeek[1]);
+  it('W-73: a master smith makes no legendary (guardian trophies only), several epics a play week', () => {
+    const { leg, top } = legendaryRate();
+    expect(leg).toBe(0);
+    expect(top).toBeGreaterThan(2);
   });
 });
 

@@ -361,7 +361,7 @@ Depth is how far a region lies from the living halls, counted in danger rather t
 | Lifelines stay reachable | a rim region's salt, silver and iron fields lie outside its landmark, guarded by depth-4 lairs only: a 2–3 squad raid clears one and hauls for the hour until it respawns, so coin and salt flow early; holding the region needs the boss |
 | Warden strikes (depth 4 rim) | the outermost 12 tiles to the dead water are a no-build band; every 15 min a Rim Warden strikes a marked 8×8 patch of it (10 s telegraph, 60% max hp to every man in it, buildings untouched) |
 | Bandit host | a captain (bandit ×2 hp, ×1.25 damage, with his 12-man lair) + 3–6 bandit lairs that hold a town: they man its pre-built walls and towers, keep its gates shut and send an 8-man raid party at carts on an adjacent route every 30 min (M6j) |
-| Boss tiers (`src/data/warBosses.ts`) | tier = depth − 1, except Omphalos (tier 3): depth 2 → tier 1, depth 3 → tier 2, depth 4 → tier 3; the four signature legendaries stay on the rim |
+| Boss tiers (`src/data/warBosses.ts`) | tier = depth − 1, except Omphalos (tier 3): depth 2 → tier 1, depth 3 → tier 2, depth 4 → tier 3; the four signature legendaries stay on the rim. W-73 trophies: legendary gear drops only as a guardian's trophy, the first piece of a kill (tier 1: 25% of kills, tiers 2–3: every kill; on the rim 25% of trophies are a signature piece), named after the guardian ("Kopis of the Chimera", `Item.tr`) with every random stat at its top step (the bake's cap); the other picks are rare or epic |
 
 Today's boss list needs four moves for this to be symmetric (each home faces the same guardians at the same depth):
 the Lion of the Savanna and the Griffin drop to tier 1, the Panoply of Alexander moves to the new Bandit King of Ammon,
@@ -1184,11 +1184,12 @@ Craft grade **G** = crafter level (1–10) + tool tier − 1 + ⌊tool rarity ra
 | 1–3 | 80 | 18 | 2 | 0 | 0 |
 | 4–6 | 60 | 30 | 9 | 1 | 0 |
 | 7–9 | 42 | 36 | 18 | 4 | 0 |
-| 10–12 | 30 | 36 | 24 | 9.95 | 0.05 |
-| 13–15 | 20 | 34 | 30 | 15.85 | 0.15 |
-| 16+ | 12 | 30 | 34 | 23.7 | 0.3 |
+| 10–12 | 30 | 36 | 24 | 10 | 0 |
+| 13–15 | 20 | 34 | 30 | 16 | 0 |
+| 16+ | 12 | 30 | 34 | 24 | 0 |
 
-Tier caps rarity (T1 ≤ rare, T2 ≤ epic, T3 any; the excess falls one step). Random stats and an epic/legendary power
+Tier caps rarity (T1 ≤ rare, T2 and T3 ≤ epic; the excess falls one step). W-73: no smith makes a legendary; legendary
+gear is a guardian trophy only (below). Random stats and an epic power
 then roll exactly as a drop's (`itemAffixes`, `itemPower`), seeded by the order and stored on the item (`aff`, `pow`).
 
 | Quality | Chance | Base stats | Random-stat steps | Max condition | Wear |

@@ -11,7 +11,8 @@
  *
  * Pure and seeded: the same kill (seed) always drops the same table.
  */
-import { BASE_ITEMS, type Rarity } from './items';
+import { BASE_ITEMS, ITEMS, RARITIES, type Item, type Rarity } from './items';
+import { AFFIX_STEPS, encodeAffixes, itemAffixes } from './affixes';
 import { setPieces } from './sets';
 import { Rng, hashString } from '../sim/rng';
 import type { RareGood } from './warLandmarks';
@@ -95,11 +96,14 @@ export const WAR_BOSSES: readonly WarBoss[] = [
     voice: { title: "Horror of the Temple Maze", wake: "Bull-born, maze-bound. The Wardens shut me in with their oath.", phases: [], epitaph: "No thread leads out. Only the oath, and the dark." } },
 ];
 
-/** Per tier: pieces dropped, rarity weights of each, the least item tier, and the chance the first is a signature legendary. */
-export const BOSS_TIERS: Record<BossTier, { picks: number; rarity: readonly (readonly [Rarity, number])[]; minTier: number; signature: number }> = {
-  1: { picks: 2, rarity: [['rare', 70], ['epic', 28], ['legendary', 2]], minTier: 2, signature: 0 },
-  2: { picks: 3, rarity: [['rare', 40], ['epic', 50], ['legendary', 10]], minTier: 3, signature: 0 },
-  3: { picks: 4, rarity: [['rare', 15], ['epic', 55], ['legendary', 30]], minTier: 3, signature: 0.25 },
+/**
+ * Per tier: pieces dropped, rarity weights of the plain picks (rare or epic), the least item tier, the chance a kill
+ * drops its trophy (W-73: the only legendary in the war; the first piece), and the chance the trophy is a signature.
+ */
+export const BOSS_TIERS: Record<BossTier, { picks: number; rarity: readonly (readonly [Rarity, number])[]; minTier: number; trophy: number; signature: number }> = {
+  1: { picks: 2, rarity: [['rare', 70], ['epic', 30]], minTier: 2, trophy: 0.25, signature: 0 },
+  2: { picks: 3, rarity: [['rare', 40], ['epic', 60]], minTier: 3, trophy: 1, signature: 0 },
+  3: { picks: 4, rarity: [['rare', 15], ['epic', 85]], minTier: 3, trophy: 1, signature: 0.25 },
 };
 
 const BY_ID = new Map(WAR_BOSSES.map((b) => [b.id, b]));
@@ -119,7 +123,18 @@ export const bossDeed = (boss: string): string => {
   return b?.deed ?? `Bane of ${(b?.name ?? boss).replace(/^the /, '')}`;
 };
 
-export interface BossDrop { def: string; rarity: Rarity }
+export interface BossDrop { def: string; rarity: Rarity; /** W-73: the kill's trophy (legendary; asTrophy). */ trophy?: true }
+
+/**
+ * W-73: a dropped item made the guardian's trophy: his name on it (Item.tr) and every random stat at its top step, so
+ * it sits at the war bake's cap (named legendaries keep their fixed stats).
+ */
+export function asTrophy(item: Item, boss: string): Item {
+  const b = warBoss(boss), def = ITEMS[item.def];
+  const top = AFFIX_STEPS[RARITIES.indexOf('legendary')][1];
+  const aff = def?.fixed ? null : encodeAffixes(itemAffixes(item).map(([k]) => [k, top]));
+  return { ...item, ...(b ? { tr: b.name } : {}), ...(aff ? { aff } : {}) };
+}
 
 /** M7e: the goods a kill of `boss` drops into its loot pile (its rare good; none for most). */
 export const bossGoods = (boss: string): { r: RareGood; n: number }[] => {
@@ -142,8 +157,9 @@ export function bossLoot(boss: string, seed: string): BossDrop[] {
   const pool = BASE_ITEMS.filter((d) => d.tier >= t.minTier);
   const out: BossDrop[] = [];
   for (let i = 0; i < t.picks; i++) {
-    if (i === 0 && b.signature.length && rng.chance(t.signature)) {
-      out.push({ def: rng.pick(signatureItems(rng.pick(b.signature))), rarity: 'legendary' });
+    if (i === 0 && rng.chance(t.trophy)) {
+      const sig = b.signature.length > 0 && rng.chance(t.signature);
+      out.push({ def: sig ? rng.pick(signatureItems(rng.pick(b.signature))) : rng.pick(pool).id, rarity: 'legendary', trophy: true });
       continue;
     }
     out.push({ def: rng.pick(pool).id, rarity: rng.weighted(t.rarity) });

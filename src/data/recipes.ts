@@ -243,19 +243,19 @@ export function craftGrade(o: { level: number; toolTier?: number; toolRarity?: R
 /**
  * Rarity odds (common .. legendary, percent) by G band: 1-3, 4-6, 7-9, 10-12, 13-15, 16+. M5h6: legendary 0.05 / 0.15 /
  * 0.3% (was 1 / 2 / 4%), so a master smith (G 17) makes about one a play week (scripts/war/balance.mjs); the rest went
- * to epic.
+ * to epic. W-73: no legendary at all (legendaries are guardian trophies only, src/data/warBosses.ts); its share went to epic.
  */
 export const RARITY_ODDS: readonly (readonly [number, number, number, number, number])[] = [
   [80, 18, 2, 0, 0],
   [60, 30, 9, 1, 0],
   [42, 36, 18, 4, 0],
-  [30, 36, 24, 9.95, 0.05],
-  [20, 34, 30, 15.85, 0.15],
-  [12, 30, 34, 23.7, 0.3],
+  [30, 36, 24, 10, 0],
+  [20, 34, 30, 16, 0],
+  [12, 30, 34, 24, 0],
 ];
 export const oddsRow = (g: number) => RARITY_ODDS[Math.min(5, Math.floor((Math.max(1, g) - 1) / 3))];
-/** Highest rarity rank a tier may roll (T1 rare, T2 epic, T3 any). */
-export const TIER_CAP = [2, 2, 3, 4];
+/** Highest rarity rank a tier may roll (T1 rare, T2 and T3 epic: W-73, no smith makes a legendary). */
+export const TIER_CAP = [2, 2, 3, 3];
 
 /** Quality chances (fractions): crude max(0, 30 - 3G)%, masterwork (Masterwork node) 5% + 1% per G above 8, at most 15%. */
 export const crudeChance = (g: number) => Math.max(0, 30 - 3 * g) / 100;
