@@ -189,6 +189,23 @@ const WET = new Set([KINDS.indexOf('shallow'), KINDS.indexOf('deep')]);
 /** Zoomed out (the baked levels) objects shorter than this (m) are left out, but crops (a sown plot reads as a field). */
 export const LOD_METRES = 2;
 
+/** A 1 m cell's top diamond (2 FW x 2 FH) in one colour, pixel exact (the cells tile it without gaps or overlaps). */
+const DIAMONDS = new Map<string, HTMLCanvasElement>();
+function diamond(fill: string): HTMLCanvasElement {
+  let c = DIAMONDS.get(fill);
+  if (c) return c;
+  c = canvas(2 * FW, 2 * FH);
+  const g = c.getContext('2d')!;
+  g.fillStyle = fill;
+  for (let y = 0; y < 2 * FH; y++) {
+    // the pixels whose centres lie in the diamond: |x + 0.5 - FW| / FW + |y + 0.5 - FH| / FH <= 1
+    const half = FW * (1 - Math.abs(y + 0.5 - FH) / FH), x0 = Math.ceil(FW - half - 0.5), x1 = Math.floor(FW + half - 0.5);
+    if (x1 >= x0) g.fillRect(x0, y, x1 - x0 + 1, 1);
+  }
+  DIAMONDS.set(fill, c);
+  return c;
+}
+
 export class ArtBaker {
   /** Per visual cell: atlas frame (sheet * 64 + mask * 4 + quadrant, or VARIANT + variant * 64 + frame * 4 + quadrant), -1 none. */
   private code: Int32Array;
@@ -449,6 +466,15 @@ export class ArtBaker {
     });
     const W: number[] = [];
     for (let j = -2; j <= 1; j++) for (let i = -2; i <= 1; i++) W.push(Math.exp(-((i + 0.5) ** 2 + (j + 0.5) ** 2) / (2 * 1.3 * 1.3)));
+    // a cell drawn by a smoothed transition frame (a sheet's mask other than all-one-terrain)
+    const trans = (x: number, y: number) => {
+      if (x < 0 || y < 0 || x >= fw || y >= fh) return false;
+      const c = code[y * fw + x], m = (c & 63) >> 2;
+      return c >= 0 && c < VARIANT * 64 && m !== 0 && m !== 15;
+    };
+    // the sheets whose corner shares follow the real coast (land against water: their weights count every land kind)
+    const wetSheet = art.tiles.sheets.map((sh) => sh.first === 'shallow' || sh.second === 'shallow');
+    const freeVertex = (vx: number, vy: number) => trans(vx - 1, vy - 1) && trans(vx, vy - 1) && trans(vx - 1, vy) && trans(vx, vy);
     for (let y = 0; y < fh; y++) for (let x = 0; x < fw; x++) {
       const c = code[y * fw + x];
       if (c < 0 || c >= VARIANT * 64) continue;
@@ -466,7 +492,11 @@ export class ArtBaker {
           if (q > 0) wa += q * W[n]; else if (q < 0) wb -= q * W[n];
         }
         let g = wa + wb > 0 ? Math.round((8 * wa) / (wa + wb)) : 4;
-        g = m & (8 >> k) ? Math.max(5, g) : Math.min(3, g);
+        // held on the mask's side of 0.5 only where a cell round the vertex is drawn whole (its edge cannot move) or off a
+        // shore; between shore transition cells the contour follows the smoothed coast across the vertex, so a shore at a
+        // slant is not a row of one-cell teeth
+        if (!wetSheet[s] || !freeVertex(vx, vy)) g = m & (8 >> k) ? Math.max(5, g) : Math.min(3, g);
+        else g = Math.max(1, Math.min(7, g));
         packed |= g << (4 * k);
       }
       out[y * fw + x] = packed;
@@ -617,7 +647,7 @@ export class ArtBaker {
     const { iso, shade, code, tint } = this, { fw, fh, fz, fk } = iso;
     let u = Math.max(umin, -v, v - 2 * (fh - 1));
     if ((u + v) & 1) u++;
-    const paths = new Map<number, Path2D>();
+    const paths = new Map<number, Path2D>(), stamps = new Map<number, number[]>();
     let foam: Path2D | null = null, wave: Path2D | null = null;
     const blobs: number[] = [];
     for (; u <= Math.min(umax, v, 2 * (fw - 1) - v); u += 2) {
@@ -689,26 +719,39 @@ export class ArtBaker {
           if (t) add(256 + t, dry);
           continue;
         }
-        p.moveTo(tx + FW, ty); p.lineTo(tx + 2 * FW, ty + FH); p.lineTo(tx + FW, ty + 2 * FH); p.lineTo(tx, ty + FH); p.closePath();
+        // a plain diamond: stamped as a pixel-exact sprite (cells of one row and the next meet without the antialiased
+        // seam two path fills leave, which drew the water as a grid of dotted lines)
+        for (const key of [t ? 256 + t : 0, s]) if (key) { let q = stamps.get(key); if (!q) stamps.set(key, (q = [])); q.push(Math.round(tx), ty); }
+        continue;
       }
       for (const key of [t ? 256 + t : 0, s]) if (key) { let q = paths.get(key); if (!q) paths.set(key, (q = new Path2D())); q.addPath(p); }
     }
-    for (const pass of [1, 0]) for (const [s, p] of paths) {
-      if ((s >= 256 ? 1 : 0) !== pass) continue;
-      ctx.fillStyle = s >= 256 ? TINT_FILL[s - 256] : RELIEF_FILL[s];
-      ctx.fill(p);
+    for (const pass of [1, 0]) {
+      for (const [s, p] of paths) {
+        if ((s >= 256 ? 1 : 0) !== pass) continue;
+        ctx.fillStyle = s >= 256 ? TINT_FILL[s - 256] : RELIEF_FILL[s];
+        ctx.fill(p);
+      }
+      for (const [s, q] of stamps) {
+        if ((s >= 256 ? 1 : 0) !== pass) continue;
+        const im = diamond(s >= 256 ? TINT_FILL[s - 256] : RELIEF_FILL[s]);
+        for (let k = 0; k < q.length; k += 2) ctx.drawImage(im, q[k], q[k + 1]);
+      }
     }
     // surf: a foam line along each shore edge and a broken wave line a little out in the water
     if (!foam) return;
     ctx.lineCap = 'round';
     // soft spray blobs over the edge midpoints hide the cell staircase of the shore; a thin line keeps its edge
     const fs = foamSprite();
+    // (all kept soft: a bright white line traced every step of a shore that crosses the grid)
+    ctx.globalAlpha = 0.55;
     for (let k = 0; k < blobs.length; k += 2) ctx.drawImage(fs, blobs[k] - FOAM_W / 2, blobs[k + 1] - FOAM_H / 2);
+    ctx.globalAlpha = 1;
     // a soft band over the smoothed line covers most of the cell teeth where the shore crosses the grid
-    ctx.lineWidth = 7; ctx.strokeStyle = 'rgba(214,232,228,0.22)'; ctx.stroke(foam);
-    ctx.lineWidth = 3.5; ctx.strokeStyle = 'rgba(228,240,236,0.3)'; ctx.stroke(foam);
-    ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(236,244,236,0.45)'; ctx.stroke(foam);
-    ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(220,236,236,0.3)'; ctx.stroke(wave!);
+    ctx.lineWidth = 8; ctx.strokeStyle = 'rgba(190,220,216,0.14)'; ctx.stroke(foam);
+    ctx.lineWidth = 3.5; ctx.strokeStyle = 'rgba(214,234,230,0.18)'; ctx.stroke(foam);
+    ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(230,242,236,0.3)'; ctx.stroke(foam);
+    ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(220,236,236,0.2)'; ctx.stroke(wave!);
     ctx.lineCap = 'butt';
   }
 
