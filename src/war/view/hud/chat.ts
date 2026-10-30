@@ -119,6 +119,7 @@ const CSS = `
 #rfChat .ch-acts button:hover{color:var(--rf-bad);border-color:#6a2c1c}
 #rfChat .ch-bar{display:none;align-items:center;gap:3px;margin-top:5px}
 #rfChat.open .ch-bar{display:flex}
+#rfChat.offline .ch-bar .ch-ib,#rfChat.offline .ch-bar .ch-sep,#rfChat.offline .ch-cnt{display:none}#rfChat.offline .ch-log{display:none}
 #rfChat .ch-ib{width:24px;height:23px;flex:none;padding:0;display:flex;align-items:center;justify-content:center;background:var(--rf-raised);border:1px solid var(--rf-rule);cursor:pointer;position:relative}
 #rfChat .ch-ib:hover{border-color:var(--rf-accent);background:var(--rf-hover)}
 #rfChat .ch-pop.on ~ .ch-box [data-a="phrases"],#rfChat .ch-ib.on{border-color:var(--rf-title);background:var(--rf-sel);box-shadow:inset 0 0 0 1px #050506}
@@ -496,12 +497,11 @@ export function mountChat(v: ChatView): ChatHandle {
   }
 
   // ---------- wire ----------
-  // offline: no one to talk to; the field and the marks are off, one line says why
+  // offline: no one to talk to; no log, no marks, the read-only field says why
   if (v.link.offline) {
     root.classList.add('offline');
     input.readOnly = true; // focused, it keeps the keys from the game; nothing to send
     for (const b of root.querySelectorAll<HTMLButtonElement>('.ch-bar button, [data-ch="world"]')) b.disabled = true;
-    push({ at: Date.now(), cls: 'sys', html: esc(`Chat ${NEEDS_SERVER.charAt(0).toLowerCase()}${NEEDS_SERVER.slice(1)}.`) }, true);
   }
   v.link.start((m: ChatServerMsg) => {
     if (m.t === 'chat') {
