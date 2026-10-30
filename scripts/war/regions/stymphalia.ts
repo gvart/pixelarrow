@@ -68,7 +68,7 @@ const def: RegionDef = {
     k.forest([60, 20, 34, 12, 0.2], [198, 22, 30, 12, -0.2], [236, 70, 16, 34, 0.1], [238, 196, 14, 30, -0.1], [166, 86, 6, 4, 0.4]);
     // town pieces: houses, stalls, the timber yard, a shrine; fishing huts and a watch post on the shores
     // the causeway town: the agora mid-lake, the walled market court east of it, houses on the island, jetties
-    k.agora([148, 124]);
+    k.agora([148, 124], 7, { layout: 'quay' }); // the lake-side fish market: one long stoa, stalls down the jetty side
     k.court(1);
     k.houses([148, 124], 18, 16, 40);
     k.outskirts([148, 124], 3, 30, 46);

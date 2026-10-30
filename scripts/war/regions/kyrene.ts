@@ -41,6 +41,8 @@ const def: RegionDef = {
     k.oasis([166, 122], 2.4);
     k.square([140, 168], 7);
     k.spot('homeCamp', [140, 168]);
+    // the town stands on the terrace's sand (no floodplain grass round the houses)
+    k.paint('sand', [146, 170, 22, 20, 0], { on: ['grass'], rough: 4 });
     // the red butte (fort site), a lone mesa on the floodplain's west side
     k.plateau([176, 98, 18, 13, 0.5], 6, { terrain: 'sand' });
     k.spot('fortSite', [178, 95]);
@@ -71,8 +73,17 @@ const def: RegionDef = {
     k.resource('stone', [186, 230], 3, 12);
     k.resource('dates', [154, 150], 4, 10);
     // the home agora and the town round it; gardens and presses toward the oasis
-    k.agora([140, 168]);
+    // the caravan bazaar (no stoas or statues): stall clusters round the well, warehouses, awnings, jars, camels at rest
+    k.agora([140, 168], 7, { layout: 'bazaar' });
     k.houses([140, 168], 18, 16, 40, ['house-a', 'house-b', 'storehouse', 'house-a', 'workshop', 'forge']);
+    k.piece('kyrene/stall-awning', [146, 162], { r: 3, n: 2, gap: 3 });
+    k.piece('kyrene/stall-awning', [134, 174], { r: 3 });
+    k.piece('kyrene/palm-pot', [137, 165], { r: 3, n: 3, gap: 2 });
+    k.piece('kyrene/amphora-stack', [143, 173], { r: 3, n: 3, gap: 2 });
+    k.piece('kyrene/handcart', [145, 170], { r: 3 });
+    k.piece('kyrene/camels', [150, 176], { r: 5 });
+    k.piece('kyrene/date-palm-tall', [130, 160], { r: 6, n: 3, gap: 4 });
+    k.piece('kyrene/date-palm-mid', [152, 160], { r: 6, n: 2, gap: 4 });
     k.outskirts([140, 168], 4, 32, 54, ['olive-press', 'farm', 'cottage']);
     k.piece('kyrene/mesa', [72, 120], { r: 16 });
     k.piece('kyrene/butte', [36, 84], { r: 16 });

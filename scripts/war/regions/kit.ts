@@ -576,21 +576,43 @@ export class Kit {
     this.townReqs.push({ kind: 'near', ids, at: [this.simTile(at[0]), this.simTile(at[1])], n: o.n, r0: o.r0 ?? 0, r1: o.r1, gap: o.gap ?? 4, street: o.street ?? 0, water: !!o.water, town: o.town ?? this.townAt(at) });
   }
   /**
-   * A home agora or a frontier town's square (docs/WAR.md "Trade towns"), after the square and its roads: the square
-   * paved, two stoas facing over it, rows of stalls on its north and south sides, statues, a well and the price board
-   * round a clear centre (the market spot, the claim point), a temple off the square (or near `o.temple`: an entry
-   * town whose square lies in the road band's no-build corridor puts it in one of its quarters).
+   * A home agora or a frontier town's square (docs/WAR.md "Trade towns"), after the square and its roads, the market spot
+   * (the claim point) kept clear, a temple off the square (or near `o.temple`: an entry town whose square lies in the
+   * road band's no-build corridor puts it in one of its quarters). `o.layout` gives a town its own square:
+   * - 'classic' (default): paved round a beaten-earth heart, two stoas facing over it, rows of stalls on its north and
+   *   south sides, statues, a well and the price board;
+   * - 'bazaar' (Kyrene): a caravan market on beaten earth, no stoas or statues: stalls in three clusters round the
+   *   well, the caravans' warehouses and goods heaped between (the region script dresses it with awnings and jars);
+   * - 'quay' (Stymphalia): a lake-side market paved but for a small beaten patch under the banner, one long stoa on its north side, the fish stalls in a
+   *   line down its west side toward the jetty, a single statue, goods heaped by the causeway landing.
    */
-  agora(p: Pt, half = 6.5, o: { temple?: Pt } = {}) {
+  agora(p: Pt, half = 6.5, o: { temple?: Pt; layout?: 'classic' | 'bazaar' | 'quay' } = {}) {
     const tx = Math.round(this.simTile(p[0])), ty = Math.round(this.simTile(p[1])), town = this.townAt(p, 'agora');
+    const layout = o.layout ?? 'classic';
     if (this.K === 2) for (let i = 0; i < this.N; i++) if (this.terrain[i] === 'road') this.streets.add(i);
-    // paved, but for a beaten-earth heart round the market spot (the claim banner stands on open ground)
-    this.each((i, x, y) => { if (!this.water[i] && this.terrain[i] !== 'rock' && Math.max(Math.abs(x - p[0]), Math.abs(y - p[1])) <= half && Math.hypot(x - p[0], y - p[1]) > 3.2) this.terrain[i] = 'road'; });
+    // the ground: paved (a classic square but for a beaten-earth heart round the market spot), a bazaar beaten earth
+    const ground = layout === 'bazaar' ? 'dirt' : 'road', heart = layout === 'classic' ? 3.2 : layout === 'quay' ? 2 : -1; // the claim banner stands on beaten earth
+    this.each((i, x, y) => { if (!this.water[i] && this.terrain[i] !== 'rock' && this.terrain[i] !== 'road' && Math.max(Math.abs(x - p[0]), Math.abs(y - p[1])) <= half && Math.hypot(x - p[0], y - p[1]) > heart) this.terrain[i] = ground; });
     const S = (id: string, dx: number, dy: number) => this.structure(T(id), tx + dx, ty + dy, true, town);
-    S('stoa', -12, -9); S('stoa', 10, 3);
-    // stalls in rows on the north and south sides, a second row at the west and east ends (the square check keeps <= 15% closed)
-    for (const [k, dx] of [-10, -7, 5, 8].entries()) for (const [n, dy] of [-11, -7, 5, 9].entries()) if (n === 0 || n === 3 || k === 0 || k === 3) S(['stall-a', 'stall-b', 'stall-c'][(k + n) % 3], dx, dy);
-    S('statue', -6, -6); S('statue', 5, 5); S('well', 5, -6); S('board', -6, 5); S('goods', -3, -9); S('goods', 2, 10);
+    const stalls = ['stall-a', 'stall-b', 'stall-c'];
+    if (layout === 'bazaar') {
+      // three stall clusters (NW, W, SE: the crossing roads keep the middle open) round the well, the caravans'
+      // warehouses at the west and south-east ends, goods heaped between, the board by the well
+      for (const [n, [cx, cy]] of ([[-12, -12], [-12, 0], [4, 5]] as const).entries()) for (const [m, [dx, dy]] of ([[0, 0], [3, 0], [0, 3]] as const).entries()) S(stalls[(n + m) % 3], cx + dx, cy + dy);
+      S('well', -6, -5); S('board', -7, 3);
+      S('warehouse', -11, 7); S('warehouse', 4, 11); S('goods', -6, -8); S('goods', 3, 3); S('goods', -7, 10); S('goods', 9, 9);
+    } else if (layout === 'quay') {
+      // the stoa along the north side; the fish stalls down the west side, two by the east landing; one statue, the well
+      S('stoa', -6, -12); S('stoa', 0, -12);
+      for (const [n, dy] of [-7, -4, -1, 2, 5].entries()) S(stalls[n % 3], -11, dy);
+      S('stall-c', 8, -6); S('stall-a', 8, -2);
+      S('statue', 4, 5); S('well', -5, 6); S('board', 5, -6); S('goods', -8, 9); S('goods', -6, 9); S('goods', 10, 5);
+    } else {
+      S('stoa', -12, -9); S('stoa', 10, 3);
+      // stalls in rows on the north and south sides, a second row at the west and east ends (the square check keeps <= 15% closed)
+      for (const [k, dx] of [-10, -7, 5, 8].entries()) for (const [n, dy] of [-11, -7, 5, 9].entries()) if (n === 0 || n === 3 || k === 0 || k === 3) S(stalls[(k + n) % 3], dx, dy);
+      S('statue', -6, -6); S('statue', 5, 5); S('well', 5, -6); S('board', -6, 5); S('goods', -3, -9); S('goods', 2, 10);
+    }
     this.scatterTown([T('temple')], o.temple ?? p, { n: 1, r0: o.temple ? 0 : 16, r1: 30, street: 4, town });
   }
   /**
