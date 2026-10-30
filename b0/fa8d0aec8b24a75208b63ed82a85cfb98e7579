@@ -1,0 +1,19 @@
+src/war/view/hud/guide.ts
+  s_0dd3a9d3e5007a::t_99dad4bf63a181 22,25,38-39,54,56,58-64,73,75,77-80,95,107,199-213
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "b0fa8d0aec8b24a75208b63ed82a85cfb98e7579",
+  "prompts": {},
+  "sessions": {
+    "s_0dd3a9d3e5007a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b6130d3d-c070-494f-98d5-046db89f2d1c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
