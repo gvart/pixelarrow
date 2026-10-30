@@ -1,0 +1,20 @@
+docs/WAR.md
+  s_0dd3a9d3e5007a::t_0579c0997f9494 466-473,523-532
+  s_0dd3a9d3e5007a::t_abd4ac15214cc6 533
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "e3356d6b6c71db63586bfba6bd38921a49da4ef7",
+  "prompts": {},
+  "sessions": {
+    "s_0dd3a9d3e5007a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b6130d3d-c070-494f-98d5-046db89f2d1c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
