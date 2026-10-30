@@ -17,7 +17,7 @@ import { massif, profile, relief } from './setpieces.ts';
 
 const def: RegionDef = {
   id: 'dodona-s',
-  style: { wayside: true, trees: 0.4, bushes: 0.08 },
+  style: { wayside: true, trees: 0.9, bushes: 0.3, oaks: true },
   build(k: Kit) {
     const N = k.entry('dodona'), S = k.entry('stymphalia'), E = k.entry('moors'), SW = k.entry('dodona-w'), SE = k.entry('dodona-e');
     k.fill(5);
@@ -52,6 +52,7 @@ const def: RegionDef = {
     // the Ladon's loop: deep, two fords and the broken bridge's narrows
     const L: Pt[] = [[-6, 128], [28, 110], [52, 80], [84, 56], [120, 46], [164, 50], [202, 70], [222, 106], [222, 146], [206, 180], [222, 204], [262, 214]];
     k.river(L, { half: 8, bed: 1, bank: 0.35, fords: [[84, 56], [222, 140]], fordHalf: 2.2, narrows: [[[36, 100], 2.6]], name: 'ladon' });
+    k.each((i) => { if (k.terrain[i] === 'sand') k.terrain[i] = 'dirt'; }); // steep earth banks (reference), not pale river sand
     k.spot('narrows', [84, 56]);
     k.spot('brokenBridge', [36, 100]);
     // roads: the Lake Road over the west ford and down the loop's west side, the Moors road over the east ford, the
@@ -73,6 +74,18 @@ const def: RegionDef = {
     // the oaks: the hill's flanks and the outer banks; the clearings by the roads stay open
     k.paint('forest', [134, 116, 54, 50, 0.2], { on: ['grass'], minH: 8, maxH: 8, rough: 5 });
     k.forest([40, 28, 44, 22, -0.6], [150, 18, 34, 12, 0], [236, 44, 20, 34, 0.2], [246, 170, 12, 26, 0], [26, 168, 24, 28, 0.3], [40, 240, 30, 16, -0.2], [186, 246, 30, 10, 0], [92, 238, 20, 14, 0.3], [192, 112, 10, 30, 0], [70, 170, 14, 12, 0.4]);
+    // identity (regions-look 2, PROMPTS_ART §50): the reference is one dark oak wood round the loop, not open grass
+    // with copses: the wood closes over the whole plain (broadleaf only, style.oaks), only the roads' verges, the
+    // fords, the crossroads and the south clearing stay open
+    {
+      const s = k.seed();
+      const open: [number, number, number][] = [[124, 196, 16], [180, 222, 30], [84, 56, 10], [222, 140, 10], [36, 100, 10]];
+      k.each((i, x, y) => {
+        if (k.water[i] || k.terrain[i] !== 'grass' || k.roadDist[i] < 3.5) return;
+        if (open.some(([cx, cy, r]) => Math.hypot(x - cx, y - cy) < r)) return;
+        if (fbm(x, y, 9, s) > -0.3) k.terrain[i] = 'forest';
+      });
+    }
     // the clearing in the south corner: fields, hives and herbs, the woodcutters' hamlet
     k.fields([200, 232, 18, 12, -0.6], 0.5);
     k.piece('elaia/beehives', [168, 214], { r: 6, n: 2 });
@@ -85,6 +98,11 @@ const def: RegionDef = {
     // the ruined watch post on the hill, the shrine by the Lake Road
     k.piece('watchtower', [138, 114], { r: 4 });
     k.piece('wall-ruin', [132, 122], { r: 5, n: 2, gap: 4 });
+    // the watch post's ruined court on the bare crown, as in the reference
+    k.piece('wall-ruin', [128, 110], { r: 4, n: 2, gap: 3 });
+    k.piece('wall-ruin', [146, 120], { r: 4, n: 2, gap: 3 });
+    k.piece('elaia/wall-fallen-stone', [136, 124], { r: 7, n: 4, gap: 2 });
+    k.piece('elaia/debris-stone', [130, 116], { r: 8, n: 4, gap: 2 });
     k.piece('dodona/oak-sacred', [104, 24], { r: 8 });
     // fauna: boars in the hill oaks and south woods, wolves in the north woods
     k.lair('boar', [156, 92], { as: 'boars' });

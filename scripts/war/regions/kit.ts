@@ -67,8 +67,10 @@ export interface Style {
   tufts: number;
   /** A wayside at every claim point away from a town and a landmark (a cairn or shrine, a cart, stones, scrub by its biome), so a bare crossing with only the flag reads as a place. */
   wayside: boolean;
+  /** Dodona zones: broadleaf oak and beech wood only (no pines and firs). */
+  oaks: boolean;
 }
-const STYLE: Style = { dry: 0.05, dryHigh: true, meadow: 0.1, dune: 0.3, trees: 1, bushes: 1, tufts: 0, wayside: false };
+const STYLE: Style = { dry: 0.05, dryHigh: true, meadow: 0.1, dune: 0.3, trees: 1, bushes: 1, tufts: 0, wayside: false, oaks: false };
 
 /** Biome libraries a region may name (public/war/biomes/<name>; 'global' is the base set). */
 export const BIOMES = ['global', 'elaia', 'kyrene', 'mountains', 'dodona', 'moors'] as const;
@@ -1624,6 +1626,8 @@ export function build(def: RegionDef): Built {
   // the Dodona library's own woods and floor (public/war/biomes/dodona): its oaks, beeches and silver firs among the
   // global pines, ferns, bramble, mossy stumps and logs, mushrooms and boulders under them
   const DWOOD = [...NORTH, 'dodona/oak-a', 'dodona/beech-a', 'dodona/fir-silver', 'dodona/oak-b', 'dodona/beech-young', 'dodona/fir-silver-b', 'dodona/pitch-pine'];
+  const DOAKS = ['dodona/oak-a', 'dodona/oak-b', 'oak', 'dodona/oak-a', 'dodona/beech-a', 'dodona/oak-b', 'dodona/beech-young', 'oak'];
+  const DTREES = st.oaks ? DOAKS : DWOOD;
   const DFLOOR = ['dodona/fern-a', 'dodona/fern-c', 'dodona/bramble', 'dodona/fern-b', 'dodona/stump-moss', 'dodona/fern-a', 'dodona/log-fallen', 'dodona/mushrooms', 'dodona/boulder-moss-a', 'dodona/fern-c', 'dodona/stump-a', 'dodona/boulder-moss-b', 'bush-a'];
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     const i = y * W + x, t = terrain[i], b = B(i);
@@ -1645,7 +1649,7 @@ export function build(def: RegionDef): Built {
     }
     if (t === 'forest') {
       const edge = ring(x, y, (j) => terrain[j] !== 'forest');
-      const trees = b === 'mountains' ? FIRS : b === 'elaia' ? E(['holm-oak', 'stone-pine', 'holm-oak', 'cypress-tall', 'olive-tall']) : b === 'kyrene' ? Y(['acacia', 'acacia-old', 'tamarisk', 'thorn-tree']) : b === 'dodona' ? DWOOD : WOODS;
+      const trees = b === 'mountains' ? FIRS : b === 'elaia' ? E(['holm-oak', 'stone-pine', 'holm-oak', 'cypress-tall', 'olive-tall']) : b === 'kyrene' ? Y(['acacia', 'acacia-old', 'tamarisk', 'thorn-tree']) : b === 'dodona' ? DTREES : WOODS;
       if (p < (edge ? 0.16 : 0.3) * Math.min(1, st.trees)) put(pick(trees, q), fx, fy);
       else if (p < (b === 'dodona' ? 0.42 : 0.34)) put(pick(b === 'elaia' ? MAQUIS : b === 'mountains' ? ALPINE : b === 'kyrene' ? Y(['saltbush', 'broom']) : b === 'dodona' ? DFLOOR : ['bush-a', 'bush-b'], q), fx, fy);
     } else if (t === 'marsh') {
@@ -1683,7 +1687,7 @@ export function build(def: RegionDef): Built {
     } else if (t === 'grass' && !nearWater) {
       const dry = height[i] >= 2 && b !== 'dodona';
       if (b === 'dodona') {
-        if (p < 0.03 * st.trees) put(pick(DWOOD, q), fx, fy);
+        if (p < 0.03 * st.trees) put(pick(DTREES, q), fx, fy);
         else if (p < 0.05 * st.bushes) put(pick(['bush-a', 'bush-b', 'mountains/juniper'], q), fx, fy);
         else if (p < 0.075 * st.bushes) put(pick(DFLOOR, q), fx, fy);
       } else if (dry && p < 0.05 * st.trees) put(pick(['olive-a', 'olive-b', 'olive-a', 'cypress'], q), fx, fy);
