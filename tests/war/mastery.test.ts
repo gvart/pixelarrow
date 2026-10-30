@@ -64,3 +64,16 @@ describe('region mastery (W-73)', () => {
     expect(wildDeeds(snap, [{ ...ev, what: 'step' }], new Map())).toEqual([]);
   });
 });
+
+describe('the mastery chip (W-73)', () => {
+  it('shows have/need chips for what the region holds, and the badge once mastered', async () => {
+    const { masteryHtml } = await import('../../src/war/view/hud/mastery');
+    const v = { region: 'r', lairs: [2, 6] as [number, number], chiefs: [0, 0] as [number, number], secrets: [1, 3] as [number, number], done: false };
+    const html = masteryHtml(v, 'Grey Moors');
+    expect(html).toContain('2/6');
+    expect(html).toContain('1/3');
+    expect(html).not.toContain('0/0');
+    expect(html).not.toContain('Mastered');
+    expect(masteryHtml({ ...v, lairs: [6, 6], secrets: [3, 3], done: true }, 'Grey Moors')).toContain('Mastered');
+  });
+});

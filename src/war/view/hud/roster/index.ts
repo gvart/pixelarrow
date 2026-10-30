@@ -31,6 +31,7 @@ import type { Slot } from '../../../../data/items';
 import { keys } from '../../../input/keys';
 import { mountSoulRise, soulRise } from '../../soulRise';
 import { secretNotices } from '../../secretNotice';
+import { mountMastery } from '../mastery';
 
 type Mk = (id: string, css: string, html?: string) => HTMLElement;
 /** The dev panel (F1, ../hud.ts) is open: the cards show their dev buttons. */
@@ -157,6 +158,7 @@ export function mountRoster(s: SandboxScene, mk: Mk): RosterHooks {
 
   R.onNote = toaster(toasts, (pid) => { open = true; show(pid); });
   secretNotices(s, (n) => R.onNote?.(n)); // world-fill: hidden quests and slain chiefs as notes
+  mountMastery(s, (n) => R.onNote?.(n)); // W-73: the region mastery chip and its toast
   R.onChange = render;
   markers(s);
   mountMemorial(s, mk, R); // E3: the home memorial (graves, trophies) and its panel
