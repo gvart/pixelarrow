@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { claimBlocker, claimFirstHint, claimNeed, claimView, eventHelp, eventLine, eventWhen, takeLine, TERRITORY } from '../../src/war/view/hud/explain';
+import { claimBlocker, claimFirstHint, claimNeed, claimView, eventHelp, eventLine, eventWhen, metres, takeLine, TERRITORY } from '../../src/war/view/hud/explain';
 import { EVENT_KINDS, EVENT_REGIONS } from '../../src/war/world/events';
 import { regionCardHtml, type CardCtx } from '../../src/war/world-view/regionCard';
 import { eventCardHtml } from '../../src/war/view/hud/worldEvents';
@@ -79,7 +79,8 @@ describe('claiming in plain words', () => {
     expect(claimView(claim(), 0, 1, [], []).next).toContain('hold it with 3 men for 30 s');
     const ch = claimView(claim({ state: 'channel', progress: 0.4, squad: 3 }), 0, 1, [], []);
     expect(ch.label).toBe('Claiming 12/30 s');
-    expect(ch.next).toContain('Keep 3 men within 5 tiles');
+    expect(ch.next).toContain(`Keep 3 men within ${metres(5)}`); // distances read in metres, never tiles
+    expect(ch.next).not.toContain('tiles');
     expect(claimView(claim({ state: 'channel', men: 9, players: 2 }), 0, 3, [], []).next).toContain('2+ players');
     expect(claimView(claim({ state: 'claimed', team: 2 }), 0, 1, [], []).label).toBe('Held: Kyrene');
     expect(claimView(claim({ state: 'claimed', team: 0 }), 0, 1, [], []).next).toContain('B');

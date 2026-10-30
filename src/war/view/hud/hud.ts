@@ -354,7 +354,7 @@ export function hud(s: SandboxScene): void {
     const u = s.sim.cur?.units.find((x) => x.id === id);
     if (!u) return '';
     const nm = CLASS_NAME[u.cls] ?? civName(u.cls) ?? nice(u.cls);
-    return tipHtml(`${nm}${u.level ? ` · Lv ${u.level}` : ''}`, `${Math.ceil(u.hp)} / ${Math.ceil(u.maxHp)} hp${u.sat !== undefined ? ` · fed ${Math.round(u.sat)}%` : ''}${u.wounded ? ' · wounded' : ''}<div class="rf-dim" style="margin-top:3px">click: select him · shift+click: add him</div>`);
+    return tipHtml(`${nm}${u.level ? ` · level ${u.level}` : ''}`, `${Math.ceil(u.hp)} / ${Math.ceil(u.maxHp)} hp${u.sat !== undefined ? ` · fed ${Math.round(u.sat)}%` : ''}${u.wounded ? ' · wounded' : ''}<div class="rf-dim" style="margin-top:3px">click: select him · shift+click: add him</div>`);
   };
   $('cPips').addEventListener('click', (e) => {
     const b = (e.target as HTMLElement).closest<HTMLElement>('[data-uid]');
@@ -413,7 +413,7 @@ export function hud(s: SandboxScene): void {
     return `<div style="pointer-events:auto;min-width:240px">${qcard({
       key: 'claimFirst', icon: icon('mk-claim'), goal: 'Claim a banner to build',
       chips: chip.any(icon('unit-hoplite'), `${n.men} men`, '', 'Men to hold the banner') + (n.players > 1 ? chip.any(glyph('ui:people', 16), `${n.players}+ players`) : '') + chip.time(`${n.secs} s`),
-      cta: '<button class="rf-tbtn pri" data-show-banner>Show banner</button>',
+      cta: '<button class="rf-tbtn pri" data-show-banner>Show claim point</button>',
       more: details({ story: hint }),
     })}</div>`;
   };
@@ -626,14 +626,14 @@ export function hud(s: SandboxScene): void {
       const tag = men.reduce((a, d) => Math.max(a, d.u.tag ?? 0), 0);
       $('cTag').style.display = tag ? '' : 'none';
       if (tag) $('cTag').textContent = `⚔ tagged ${Math.ceil(tag / 10)} s`;
-      // level and food: the selected men's average (what exists: no morale in the sim)
-      const lvls = men.filter((d) => d.u.level), lv = lvls.length ? lvls.reduce((a, d) => a + d.u.level!, 0) / lvls.length : 0;
+      // level (whole levels: one, or the lowest to the highest) and food (the average; no morale in the sim)
+      const lvls = men.filter((d) => d.u.level).map((d) => d.u.level!), lo = lvls.length ? Math.min(...lvls) : 0, hi = lvls.length ? Math.max(...lvls) : 0;
       const fedMen = men.filter((d) => d.u.sat !== undefined), sat = fedMen.length ? fedMen.reduce((a, d) => a + d.u.sat!, 0) / fedMen.length : -1;
       const fed = sat >= 0 ? ` · <span class="hud-fed ${sat >= 60 ? 'good' : sat >= 30 ? 'warn' : 'bad'}" title="how fed they are (food: the squad chest)">fed ${Math.round(sat)}%</span>` : '';
       const chips = q.blessed ? '<span class="hud-chip gold">Blessed</span>' : '';
       setHead(UNIT_ICON[cls] ?? 'unit-militia', byCls.size > 1 ? 'Mixed' : CLASS_NAME[cls] ?? civName(cls) ?? nice(cls), `<b>${men.length}</b> ${men.length === 1 ? 'man' : 'men'}${byCls.size > 1 ? `, ${byCls.size} classes` : ''}${fed}`, hudBar('hp', hp / max, `${Math.ceil(hp)} / ${Math.ceil(max)}`),
         civ ? civInfo(s, own[0]) : e ? `crews ${SIEGE_NAME[e.type]} · ${e.state}${e.burning ? ' · burning' : ''}` : `${s.sim.cur ? activityText(q, s.sim.cur, { nodes: s.sim.nodes, goal: s.lastCommand }) : q.order}${q.fed ? ' · fed' : ''}${sc.status ? ' · ' + sc.status : ''}`, undefined, chips);
-      setPortrait(byCls.size ? cls : null, lv ? `Lv ${Number.isInteger(lv) ? lv : lv.toFixed(1)}` : '');
+      setPortrait(byCls.size ? cls : null, hi ? `Level ${lo === hi ? lo : `${lo}–${hi}`}` : '');
       // the icons: every living man of the squads any selected man is in (a man picked alone keeps his squad's row)
       const ownSet = new Set([...own, ...men.map((d) => d.u.squad)]);
       setPips((s.sim.cur?.units ?? []).filter((u) => ownSet.has(u.squad) && u.state !== 'dead').map((u) => u.id));

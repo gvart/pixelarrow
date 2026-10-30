@@ -1,10 +1,10 @@
 /**
  * W-62 E6: the alliance chat in a region view (./chat.ts), above the minimap (above the map mode's legend while it
  * shows). Live regions (?net) follow the world's chat socket; a region opened offline from the world map (?world, or
- * ?chat=1 anywhere) gets the mock alliance. Marks here are this region's tile points. W-69: a Shift+click links a man
+ * ?chat=1 anywhere) shows the chat greyed: it needs the server (?chat=1 alone, dev, gets a made-up alliance). Marks here are this region's tile points. W-69: a Shift+click links a man
  * from his roster row, his squad pip or the docked man card (items carry their own `data-chat-link`).
  */
-import { MockChat, NetChat } from '../../net/chatLink';
+import { MockChat, NetChat, OfflineChat } from '../../net/chatLink';
 import { manLink } from '../../net/chatLinks';
 import { worldRegion } from '../../world/graph';
 import type { SandboxScene } from '../SandboxScene';
@@ -18,7 +18,7 @@ export { chatLogFit, LOG_H, LOG_MIN } from './layout';
 export function mountRegionChat(s: SandboxScene): void {
   const q = new URLSearchParams(location.search);
   if (!q.has('net') && !q.has('world') && !q.has('chat')) return;
-  const link = q.has('net') ? new NetChat(Number(q.get('dev')) || null) : new MockChat();
+  const link = q.has('net') ? new NetChat(Number(q.get('dev')) || null) : q.has('chat') ? new MockChat() : new OfflineChat();
   const id = s.region.id;
   const canvas = () => s.game.canvas.getBoundingClientRect();
   mountChat({

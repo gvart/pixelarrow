@@ -13,6 +13,7 @@ import { icon, leftPanelOpen, uiZoom } from './kit';
 import { esc } from './roster/ui';
 import { chip, details, qcard } from './qcard';
 import { clearOfHud, clearOnRay, laneBusy, markerArea, Z } from './layout';
+import { metres } from './explain';
 
 type Mk = (id: string, css: string, html?: string) => HTMLElement;
 type P = { x: number; y: number };
@@ -57,8 +58,7 @@ const style = () => {
   document.head.appendChild(st);
 };
 
-/** Tiles to metres (1 tile = 2 m, W-18). */
-export const metres = (d: number) => `${Math.round(d * 2)} m`;
+export { metres };
 
 // ---------------------------------------------------------------- world marker
 
@@ -82,6 +82,9 @@ export function placeMarker(s: SandboxScene, m: HTMLElement, p: P | null, label:
   // the open play area: under the top bar's plaque, inside the edges (the HUD's zones are zoomed with the UI scale)
   const { x0, x1, y0, y1 } = markerArea();
   m.style.display = 'flex';
+  // the label reads at the HUD's 13 px body size: it grows with the UI scale (up to 1.25x, so an edge pointer still fits between the bottom panels; the marker is not zoomed)
+  const fs = `${Math.round(13 * Math.min(uiZoom(), 1.25))}px`;
+  if (m.style.fontSize !== fs) m.style.fontSize = fs;
   const lb = m.querySelector<HTMLElement>('.lb')!, ar = m.querySelector<SVGElement>('.ar')!;
   if (q.x > x0 && q.y > y0 + 20 && q.x < x1 && q.y < y1 + 40) {
     lb.textContent = label.split(' · ')[0];

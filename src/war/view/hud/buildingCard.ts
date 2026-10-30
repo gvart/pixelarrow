@@ -18,6 +18,7 @@ import { labourText } from '../build/buildMode';
 import { BUILDING_ICON, icon } from './kit';
 import { nameOf } from './craft/state';
 import { myTeam } from '../side';
+import { metres } from './explain';
 
 type Mk = (id: string, css: string, html?: string) => HTMLElement;
 type Bill = Partial<Record<ResourceKind, number>>;
@@ -28,10 +29,10 @@ export const PRE_FUNCTION: Record<string, string> = {
   cottage: 'a cottage of the town: part of its standing',
   tent: 'a tent of the town: part of its standing',
   temple: `blessing: a squad 30 s in its precinct is blessed 15 min (wounded share +0.05, heal x1.15); favour +${PREBUILT.temple!.favour} score an hour`,
-  shrine: `blessing within ${PREBUILT.shrine!.bless} tiles; favour +${PREBUILT.shrine!.favour} score an hour`,
+  shrine: `blessing within ${metres(PREBUILT.shrine!.bless ?? 0)}; favour +${PREBUILT.shrine!.favour} score an hour`,
   stoa: 'covered market hall: 2 stall sites under its roof and a store of its owner\'s network',
   statue: `prestige +${PREBUILT.statue!.prestige} score an hour; a retired soldier's honour engraved on it`,
-  well: `water: fires within ${WELL.rest} tiles beaten out x${WELL.douse} faster; a foe beside it 30 s fouls it 30 min`,
+  well: `water: fires within ${metres(WELL.rest)} beaten out x${WELL.douse} faster; a foe beside it 30 s fouls it 30 min`,
   jetty: 'fishing: a food node your gatherers bring in (40, regrows 0.2/s); a landing site',
   warehouse: 'rented warehouse (20 loads) in a trade town; elsewhere a store',
   board: 'the price board: razed, the town shows no prices until rebuilt',
@@ -39,7 +40,7 @@ export const PRE_FUNCTION: Record<string, string> = {
   tunnel: 'the Tunnel of Shades: while you have fewer than 6 men, the shades of your fallen walk back through it, one man every 10 min',
   stall: 'a rented site in a trade court', stall2: 'a rented site in a trade court', stall3: 'a rented site in a trade court',
   workshop: 'the town\'s working quarter: engines, carts and tools', forge: 'the town\'s working quarter: arms and armour',
-  storehouse: 'a store: men within 6 tiles eat from it', cookhouse: 'cooks grain and onions into rations: feed twice, weigh half',
+  storehouse: 'a store: men within 12 m eat from it', cookhouse: 'cooks grain and onions into rations: feed twice, weigh half',
   olivePress: 'olives: food, and pressed into oil', farm: 'a food field: men eat it plain or as rations',
   stoneTower: 'platform for 9 men, a door', woodTower: 'platform for 6 men over the road',
   stoneWall: 'walkway wall', stoneGate: 'opens for its owner (neutral: open; bandit-held: shut)',

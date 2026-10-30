@@ -88,7 +88,7 @@ function offers(R: SandboxRoster, p: WarPerson): string {
 /** What he is doing and where: squad and activity in the field, the region he is in, wounded, captive, fallen. */
 function whereHtml(R: SandboxRoster, r: Row): string {
   const now = doingText(r);
-  if (r.where === 'field') return `${glyph('ui:banner', 14)}<span>Squad #${r.squad} · ${esc(now.startsWith('In ') ? now : `${now} in ${r.region}`)}</span>`;
+  if (r.where === 'field') return `${glyph('ui:banner', 14)}<span>${R.squadName(r.squad)} · ${esc(now.startsWith('In ') ? now : `${now} in ${r.region}`)}</span>`;
   if (r.where === 'away') return `${glyph('ui:flag', 14)}<span>${esc(now)}</span>`;
   const t = { wounded: 'wounded', captive: 'captive', dead: 'fallen' }[r.where];
   if (r.where === 'captive') return `<span class="rr-where" ${tip(termCard(t))}>${glyph(TERMS[t].icon, 14)}<span>${esc(R.takenNote(r.p.id))}</span></span>`; // W-68

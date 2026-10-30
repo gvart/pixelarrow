@@ -18,6 +18,9 @@ const GRAIN = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w
  * The HUD's z-order, one table for every panel (./layout.ts places them): map markers < docked panels < windows < centre
  * banners < tooltips < modals.
  */
+/** Why a server-only window or the chat does not work offline: one line, the same everywhere. */
+export const NEEDS_SERVER = 'Needs the server: play online';
+
 export const Z = {
   /** Quest and story markers on the map, chat pings. */
   mark: 2,
@@ -100,6 +103,7 @@ export const THEME_CSS = `
 .rf-btn:active,.rf-btn.press{background:var(--hud-slot-bg);transform:translateY(1px);box-shadow:inset 0 0 0 1px var(--hud-gold-lo),inset 0 3px 8px rgba(0,0,0,.8),0 0 0 1px var(--hud-edge)}
 .rf-btn:active .ic,.rf-btn.press .ic{transform:none}
 .rf-btn.on{background:radial-gradient(circle at 50% 35%,#3d3522,#17140d 72%);box-shadow:inset 0 0 0 1px var(--hud-gold-hi),inset 0 0 0 2px rgba(0,0,0,.55),inset 0 0 10px rgba(226,189,104,.35),0 0 0 1px var(--hud-edge),0 0 8px rgba(226,189,104,.4)}
+.rf-btn.off .ic{filter:grayscale(1) brightness(.55)}.rf-btn.off .key{opacity:.5}
 .rf-btn:disabled{background:radial-gradient(circle at 50% 35%,#1b1d21,#0c0d0f 72%);box-shadow:inset 0 0 0 1px #2c2b28,0 0 0 1px var(--hud-edge)}
 .rf-btn:disabled .ic{opacity:.38;filter:grayscale(.85)}
 .rf button:focus-visible{outline:1px solid var(--hud-gold-hi);outline-offset:1px}

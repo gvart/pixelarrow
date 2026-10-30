@@ -187,7 +187,7 @@ export class MapData {
     }
     const pal: RGB[] = [...kinds.map((k) => RES_RGB[k]), [180, 44, 34]];
     return { mode, pal, alpha: 0.6, at, fine: false, line: 'color', hatch: [GUARD],
-      legend: [...kinds.filter((k) => seen.has(k)).map((k) => ({ c: RES_RGB[k], label: k[0].toUpperCase() + k.slice(1) })), { c: pal[GUARD], label: 'Guarded by a lair', hatch: true }] };
+      legend: [...kinds.filter((k) => seen.has(k)).map((k) => ({ c: RES_RGB[k], label: k[0].toUpperCase() + k.slice(1) })), { c: pal[GUARD], label: 'Guarded by beasts', hatch: true }] };
   }
 
   private disc(cx: number, cy: number, rad: number, f: (i: number) => void): void {

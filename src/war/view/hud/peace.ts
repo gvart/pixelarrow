@@ -22,7 +22,7 @@ import { myTeam } from '../side';
 import { settleHosts } from './settlements';
 import { keys } from '../../input/keys';
 import { draggable } from './drag';
-import { closeCornerWindows, icon, LEFT_PANELS, menuBtn } from './kit';
+import { closeCornerWindows, icon, LEFT_PANELS, menuBtn, serverOnly, showWhy } from './kit';
 import { esc, tipper } from './roster/ui';
 import { setTitlesLine } from './roster/panel';
 import { offlineWorks, titlesHtml, titlesStrip, townBadge, townCard, worksHtml, type GiveForm, type PeaceStats, type TitleRow } from './peaceCards';
@@ -239,11 +239,14 @@ export function mountPeace(s: SandboxScene, mk: Mk): void {
     render();
   });
   const b = menuBtn('rfWorksBtn', 'node-engineer-master-builder', 'Alliance works', 'works and the season\'s titles', 'panel.works', 3);
-  b.onclick = () => toggle();
+  let demo = false;
+  const off = () => serverOnly(b, !online() && !demo);
+  off();
+  b.onclick = () => (off() ? showWhy(b) : toggle());
   // dev: fill the panels offline (screenshots, layout checks)
   if (import.meta.env.DEV) (window as unknown as { __peace: unknown }).__peace = {
     titles: (t: TitleRow[], m: PeaceStats | null) => ((titles = t), (stats = m), strip(), render()),
-    works: (w: WorkView[]) => ((works = w), render()),
+    works: (w: WorkView[]) => ((works = w), (demo = true), off(), render()),
     tab: (x: typeof tab) => ((tab = x), render()),
   };
 }
