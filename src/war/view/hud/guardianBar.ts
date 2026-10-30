@@ -27,6 +27,8 @@ import { LANDMARK_FUNCTION } from '../../../data/warLore';
 import { keys } from '../../input/keys';
 import { myTeam } from '../side';
 import { stockAtHand } from './chest';
+import { awake } from './bossBanner';
+import { RAID } from '../../sim/bosses';
 export { LANDMARK_FUNCTION };
 
 type Mk = (id: string, css: string, html?: string) => HTMLElement;
@@ -106,8 +108,10 @@ export function mountGuardians(s: SandboxScene, mk: Mk): void {
     const cur = s.sim.cur;
     if (!cur) return;
     const held = (cur.claims ?? []).some((c) => c.state === 'claimed');
-    bar.classList.toggle('many', (cur.bosses ?? []).length > 1); // two guardians (Omphalos): slimmer, clear of the landmark panel
-    bar.innerHTML = (cur.bosses ?? []).map((b) => guardianHtml(b, held)).join('') + (cur.warden ? `<div class="rf-card w">Rim Warden strike marked: ${Math.ceil(cur.warden.in / 10)} s</div>` : '');
+    const men = (cur.units ?? []).filter((u) => u.state !== 'dead' && s.sim.squads.get(u.squad)?.team === myTeam());
+    const vis = (cur.bosses ?? []).filter((b) => guardianShown(b, men));
+    bar.classList.toggle('many', vis.length > 1); // two guardians (Omphalos): slimmer, clear of the landmark panel
+    bar.innerHTML = vis.map((b) => guardianHtml(b, held)).join('') + (cur.warden ? `<div class="rf-card w">Rim Warden strike marked: ${Math.ceil(cur.warden.in / 10)} s</div>` : '');
     if (panel && lm) {
       // folded by default to its title row (click it or L); open, the whole card
       panel.style.display = 'block';
@@ -117,6 +121,15 @@ export function mountGuardians(s: SandboxScene, mk: Mk): void {
     }
   };
   setInterval(render, 200);
+}
+
+/**
+ * A guardian's bar shows only while it matters: awake (fighting, hurt, past its first phase) or with the player's men
+ * within its raid reach (RAID.r tiles). A guardian sitting idle far off (or slain or away out there) shows nothing.
+ */
+export function guardianShown(b: BossSnap, men: readonly { x: number; y: number }[]): boolean {
+  if (b.state !== 'slain' && b.state !== 'away' && awake(b)) return true;
+  return men.some((u) => (u.x - b.x) ** 2 + (u.y - b.y) ** 2 <= RAID.r * RAID.r);
 }
 
 /** The landmark panel's title row: its name, the L key and a chevron (open or folded). */

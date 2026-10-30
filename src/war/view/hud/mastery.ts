@@ -16,9 +16,9 @@ import { esc } from './roster/ui';
 
 const CSS = `
 #rfMastery{position:absolute;top:50%;transform:translateY(-50%);display:flex;gap:4px;align-items:center;pointer-events:auto;white-space:nowrap}
-#rfMastery .qc-chip{height:20px;font-size:12px}
+#rfMastery .qc-chip{height:20px;font-size:13px}
 #rfMastery .qc-chip.done{color:var(--hud-good)}
-#rfMastery .ms-badge{display:inline-flex;align-items:center;gap:4px;height:20px;padding:0 7px 0 4px;border-radius:2px;font:700 12px/1 Cinzel,serif;letter-spacing:.06em;color:var(--hud-gold-hi);background:#1c140c;box-shadow:inset 0 0 0 1px var(--hud-gold-lo),0 0 6px rgba(226,189,104,.35)}
+#rfMastery .ms-badge{display:inline-flex;align-items:center;gap:4px;height:20px;padding:0 7px 0 4px;border-radius:2px;font:700 13px/1 Cinzel,serif;letter-spacing:.06em;color:var(--hud-gold-hi);background:#1c140c;box-shadow:inset 0 0 0 1px var(--hud-gold-lo),0 0 6px rgba(226,189,104,.35)}
 `;
 
 const ROWS: [WildKind, keyof Pick<MasteryView, 'lairs' | 'chiefs' | 'secrets'>, string, string][] = [
@@ -27,9 +27,16 @@ const ROWS: [WildKind, keyof Pick<MasteryView, 'lairs' | 'chiefs' | 'secrets'>, 
   ['secret', 'secrets', 'ui:eye', 'Hidden quests found and finished'],
 ];
 
-/** The chip's inner HTML for a view (pure: tests). */
-export function masteryHtml(v: MasteryView, name: string): string {
+/**
+ * The chip's inner HTML for a view (pure: tests). `compact`: one chip with the sum (a narrow window, where the three
+ * would run into the resources), each count in its tooltip.
+ */
+export function masteryHtml(v: MasteryView, name: string, compact = false): string {
   if (v.done) return `<span class="ms-badge" title="${esc(`You mastered ${name}: every lair, chief and hidden quest`)}">${glyph('ui:banner', 16)}Mastered</span>`;
+  if (compact) {
+    const rows = ROWS.filter(([, k]) => v[k][1] > 0), have = rows.reduce((a, [, k]) => a + v[k][0], 0), all = rows.reduce((a, [, k]) => a + v[k][1], 0);
+    return chip.any(glyph('ui:banner', 16), `${have}/${all}`, '', `Mastery of ${name}: ${rows.map(([, k, , tip]) => `${tip.toLowerCase()} ${v[k][0]}/${v[k][1]}`).join(', ')}`);
+  }
   return ROWS.filter(([, k]) => v[k][1] > 0)
     .map(([, k, g, tip]) => chip.any(glyph(g, 16), `${v[k][0]}/${v[k][1]}`, v[k][0] === v[k][1] ? 'done' : '', `${tip} in ${name} (region mastery)`))
     .join('');
@@ -45,21 +52,27 @@ export function mountMastery(s: SandboxScene, note: (n: Note) => void): void {
   el.id = 'rfMastery';
   let v: MasteryView = masteryView(s.region.id, need, []), shown = '';
   const render = () => {
-    const html = masteryHtml(v, name);
-    if (html !== shown) el.innerHTML = shown = html;
     // in the bar beside the plaque (it clips its own children; under it the toasts and banners come down): right of
-    // it, else left of it when the right-hand buttons reach that far (narrow windows)
+    // it, else left of it when the right-hand buttons reach that far, else (narrow windows: it would run into the
+    // resources) one chip with the sum
     const plaque = document.querySelector<HTMLElement>('#rfTop .tb-plaque');
     if (!plaque) return;
     if (!el.isConnected) plaque.parentElement?.appendChild(el);
     const half = Math.ceil(plaque.offsetWidth / 2) + 8;
-    el.style.right = '';
-    el.style.left = `calc(50% + ${half}px)`;
-    const box = el.getBoundingClientRect(), edge = (sel: string, side: 'left' | 'right') => {
+    const edge = (sel: string, side: 'left' | 'right') => {
       const xs = [...document.querySelectorAll<HTMLElement>(sel)].filter((x) => x.offsetWidth > 0).map((x) => x.getBoundingClientRect()[side]);
       return side === 'left' ? Math.min(Infinity, ...xs) : Math.max(-Infinity, ...xs);
     };
-    if (box.right + 6 > edge('#rfTop .tb-r > *', 'left')) (el.style.left = ''), (el.style.right = `calc(50% + ${half}px)`);
+    for (const compact of [false, true]) {
+      const html = masteryHtml(v, name, compact);
+      if (html !== shown) el.innerHTML = shown = html;
+      el.style.right = '';
+      el.style.left = `calc(50% + ${half}px)`;
+      if (el.getBoundingClientRect().right + 6 <= edge('#rfTop .tb-r > *', 'left')) return;
+      el.style.left = '';
+      el.style.right = `calc(50% + ${half}px)`;
+      if (el.getBoundingClientRect().left - 6 >= edge('#rfTop .tb-l > *', 'right')) return;
+    }
   };
   const set = (nv: MasteryView) => {
     const won = nv.done && !v.done;

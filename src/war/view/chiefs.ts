@@ -39,8 +39,9 @@ export class ChiefLayer {
       if (!f) continue;
       let t = this.plates[n];
       if (!t) {
-        t = this.scene.add.text(0, 0, '', { fontFamily: 'serif', fontSize: '12px', color: '#ffe27a', backgroundColor: '#1b1612c8', padding: { x: 4, y: 2 }, align: 'center' })
-          .setOrigin(0.5, 1).setDepth(11.4);
+        // the HUD's 13px label (as the warlords' and the claim points' plates), sharp at any zoom
+        t = this.scene.add.text(0, 0, '', { fontFamily: 'Inter, sans-serif', fontSize: '13px', fontStyle: 'bold', color: '#ffe27a', backgroundColor: '#1b1612e0', padding: { x: 6, y: 3 }, align: 'center' })
+          .setOrigin(0.5, 1).setDepth(11.4).setResolution(2);
         this.plates.push(t);
       }
       n++;

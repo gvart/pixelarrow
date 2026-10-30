@@ -11,6 +11,8 @@ const FRAMES: Record<string, Frame> = {
   '1440x900': { w: 1440 / 1.5, h: 900 / 1.5 },
   '1920x1080': { w: 1920 / 1.75, h: 1080 / 1.75 },
   '1100x700': { w: 1100 / 1.25, h: 700 / 1.25 },
+  '1280x720': { w: 1280, h: 720 },
+  '1520x750': { w: 1520, h: 750 },
 };
 
 const b = (id: string, w: number, h: number, o: Partial<Box> = {}): Box => ({ id, w, h, ...o });
@@ -30,6 +32,8 @@ const STATES: Record<string, Stacks> = {
     tc: [b('rfGuard', 400, 60), b('rfTunnel', 300, 26)], lane: [b('rfBossBanner', 400, 110)],
     tr: [b('rfDev', 163, 24), b('rfNet', 100, 60), b('rfLand', 290, 30, { min: 30 })], bl: [mini, chatOpen], bc: [card], br: [dock],
   },
+  // W-73: the mastered toast (icon, words, two chips) wider than the room between the guide and the Tasks window: capped
+  'mastered-toast-tasks': { tl: [guide], tc: [b('rrToasts', 510, 30)], tr: [b('rfTasks', 430, 520, { min: 120 })], bl: [mini, chatShut], bc: [card], br: [dock] },
   'wipe': { tl: [guide], tc: [b('rfTunnel', 330, 26), b('rrToasts', 240, 40)], lane: [b('rfQBanner', 340, 146)], bl: [mini, chatShut], br: [dock] },
 };
 

@@ -30,7 +30,7 @@ import { TEAM_INT } from '../world/palette';
 import { LOOK_MODE, addLookPipeline } from './lookShader';
 import { addQuadShader, useQuad } from './quadShader';
 import { NEUTRAL_TEAM } from '../sim/economy';
-import type { HitPose } from './feel/hits';
+import { flashAlpha, type HitPose } from './feel/hits';
 import { VIEW_SCALE } from './mobScale';
 
 /** Each team's marker colour (rings, outlines, flags): its alliance's, as the world map draws it. */
@@ -602,14 +602,14 @@ export class UnitLayer {
         useQuad(img, d.team === NEUTRAL_TEAM ? null : (this.dye[slot(d.team) & 3] ?? null)); // W-65: roaming folk wear their own colours
         img.setTint(this.tintOf?.(u.id) ?? TEAM_TINT[slot(d.team)] ?? 0xffffff).setTintMode(MULTIPLY).setAlpha(1);
       }
-      if (po?.flash) img.setTint(0xfff4e0).setTintMode(FILL);
-      else if (hp?.flash && !hidden) {
-        // a blow's flash: the same frame added over him in white, so he blazes up and keeps his shape
+      if ((po?.flash || hp?.flash) && !hidden) {
+        // a blow's flash: the same frame added over him in white, so he blazes up and keeps his shape; softer on a
+        // chief or a guardian (a 2.5x bear fully white is a blank, not a hit)
         let fl = this.flashes[this.nFlash];
         if (!fl) this.flashes.push((fl = this.scene.add.image(0, 0, key).setBlendMode(Phaser.BlendModes.ADD)));
         this.nFlash++;
         fl.setTexture(key, frame).setOrigin(q.ox, q.oy).setPosition(img.x, img.y).setScale(img.scaleX, img.scaleY).setDepth(depth + 2e-7).setVisible(true)
-          .setTint(0xfff0d8).setTintMode(FILL).setAlpha(0.75);
+          .setTint(0xfff0d8).setTintMode(FILL).setAlpha(flashAlpha(sheet.scale, po !== undefined || this.tintOf?.(u.id) !== undefined));
       }
       // a mob's dark rim, one screen px out, just over it (a chief's bronze): beasts read on any ground
       if (!hidden && this.outline && sheet.cls.startsWith('mob_')) {

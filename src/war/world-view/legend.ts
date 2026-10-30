@@ -11,6 +11,7 @@ const disc = (inner: string, ring: string, bg = '#17100d') => `<span class="lg-d
 const img = (src: string, w = 18, h = 18) => `<img src="${src}" width="${w}" height="${h}" alt="">`;
 const crown = `<svg width="16" height="14" viewBox="0 0 16 14" aria-hidden="true"><path d="M1 12V3l4 4 3-6 3 6 4-4v9z" fill="#e0b867" stroke="#6b4a14" stroke-width="1.2"/></svg>`;
 
+const pennant = `<svg width="18" height="22" viewBox="0 0 18 22" aria-hidden="true"><line x1="3" y1="21" x2="3" y2="3" stroke="#0e0907" stroke-width="3.5" stroke-linecap="round"/><line x1="3" y1="21" x2="3" y2="3" stroke="#6b4a2a" stroke-width="1.6" stroke-linecap="round"/><path d="M4 4h12l-3.5 4.5L16 13H4z" fill="#b04a3a" stroke="#0e0907" stroke-width="1.2"/><circle cx="3" cy="3" r="2.2" fill="#e0b867" stroke="#0e0907" stroke-width="1"/></svg>`;
 const row = (look: string, text: string, sub = '') => `<div class="lg-row"><span class="lg-look">${look}</span><span>${text}${sub ? `<span class="lg-sub">${sub}</span>` : ''}</span></div>`;
 
 /** The key's HTML; `color(a)` is an alliance's map colour, `you` the player's alliance (null: none). */
@@ -41,6 +42,8 @@ export function legendHtml(color: (a: number) => string, you: number | null): st
       ${row(`<span class="lg-seal">${img('war/ui/icons/24/bld-storehouse.png', 13, 13)}</span>`, 'Settlement', 'bigger: a higher level')}
       ${row(disc(eventIcon('soulStorm', 14), EVENT_LOOK.soulStorm.color), 'World event', 'with its time left')}
       ${row(disc(img('war/ui/icons/24/trade-cart.png', 14, 14), color(you ?? 0)), 'Cart on the road')}
+      ${row(pennant, 'Warlord', 'his hall; smaller: lands he raids')}
+      ${row(disc('<span style="font:700 13px/1 serif;color:#f2d48a">★</span>', '#e0b867'), 'Mastered', 'every lair, chief and hidden quest')}
     </div></div>
     </div>`;
 }

@@ -247,6 +247,6 @@ export const ROSTER_CSS = `
 .rr-cap-row .rf-tbtn{height:20px;padding:0 7px;font-size:11px}
 .rr-cap-row .rf-tbtn[disabled]{opacity:.55;cursor:default}
 .rr-up{color:var(--rf-good)}.rr-down{color:var(--rf-bad)}
-.rr-toast{transition:opacity .4s, transform .4s;display:flex;align-items:center;gap:4px}
+.rr-toast{transition:opacity .4s, transform .4s;display:flex;align-items:center;gap:4px;flex-wrap:wrap;justify-content:center;row-gap:3px;max-width:100%;box-sizing:border-box}
 @media (prefers-reduced-motion:reduce){.rr-pending,.rr-lvup,.rr-skill.free .rr-med{animation:none!important}}
 `;
