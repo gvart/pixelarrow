@@ -1,0 +1,25 @@
+docs/WAR.md
+  s_0dd3a9d3e5007a::t_c131d1fab29e64 938,943
+tests/war/selectClick.test.ts
+  s_0dd3a9d3e5007a::t_62c717e5b7eb37 1-24
+src/war/view/SandboxScene.ts
+  s_0dd3a9d3e5007a::t_c131d1fab29e64 11
+src/war/view/select.ts
+  s_0dd3a9d3e5007a::t_ce106d35a1d34a 4-5,28-39,46,102-107
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "b244c052327c0928ffdfb07995dec0a5ff46e9f8",
+  "prompts": {},
+  "sessions": {
+    "s_0dd3a9d3e5007a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b6130d3d-c070-494f-98d5-046db89f2d1c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
