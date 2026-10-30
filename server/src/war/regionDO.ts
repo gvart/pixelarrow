@@ -702,6 +702,7 @@ export class WarRegionDO extends DurableObject<Env> {
     const room = await this.ensure(region);
     if (!room) return { error: 'region', detail: region };
     await this.caughtUp();
+    if (to === room.guide.nextRegion) room.guide.mark(pid, 'next'); // W-73: the guide's hand-off, closed on the way out
     const r = room.depart(pid, who, side, foeRadius);
     if ('error' in r) return r;
     const d = this.env.DB;

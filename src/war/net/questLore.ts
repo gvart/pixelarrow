@@ -34,6 +34,18 @@ export interface StepLore {
   /** Where to go. */
   where: string;
 }
+/**
+ * The guide's last line, once its steps are done: it hands the player on to the nearest region chain's giver (W-65),
+ * where the spine begins (docs/WAR.md "Lore": every chain ends with a shard of the Wardens' oath). Wired as the guide's
+ * sixth step (src/war/net/guide.ts guideNext, W-73): `{giver}` the giver's name, `{region}` the region's name.
+ */
+export const GUIDE_NEXT: StepLore = {
+  goal: 'Find {giver} by the well',
+  key: 'rmb',
+  story: 'Every grief on Metaxy ends in a shard of the Wardens\' broken oath, and {giver} carries one without knowing it. Gather them. Whoever holds Omphalos swears the oath anew, and the rim holds one more season.',
+  where: '{region}, by the village well: the gold "!" marks him. Select your men and right-click beside him.',
+};
+
 export const GUIDE_LORE: Record<GuideStepId, StepLore> = {
   soul: {
     goal: 'Claim the fallen hoplite',
@@ -65,19 +77,9 @@ export const GUIDE_LORE: Record<GuideStepId, StepLore> = {
     story: 'When the season turns, a hall with empty stores fades first, and what fades drinks Lethe: no name, no grave, no one who remembers. Fill yours.',
     where: 'Your nearest camp or store, marked in gold. Your gatherers carry their loads there by themselves.',
   },
+  next: GUIDE_NEXT,
 };
 
-/**
- * The guide's last line, once its steps are done: it hands the player on to the nearest region chain's giver (W-65),
- * where the spine begins (docs/WAR.md "Lore": every chain ends with a shard of the Wardens' oath). Text only, not wired
- * yet (the step belongs to server/src/war/guide.ts): `{giver}` the giver's name, `{region}` the region's name.
- */
-export const GUIDE_NEXT: StepLore = {
-  goal: 'Find {giver} by the well',
-  key: 'rmb',
-  story: 'Every grief on Metaxy ends in a shard of the Wardens\' broken oath, and {giver} carries one without knowing it. Gather them. Whoever holds Omphalos swears the oath anew, and the rim holds one more season.',
-  where: '{region}, by the village well: the gold "!" marks him. Select your men and right-click beside him.',
-};
 
 /** The daily and weekly tasks' givers and stories, by what they count. */
 export interface TaskLore {

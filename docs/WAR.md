@@ -690,6 +690,12 @@ The menu is the game's front page (`index.html`, play.pixelarrow.app; `src/war/m
 Continue (into the region where most of his men stand, else his home), World map, Settings and Sign out. Players made
 by the dev routes (`/api/war/world/dev/alliance`, `/api/war/dev/seed`, DEV_AUTH only) count as started.
 
+The first hour (W-62, `src/war/net/guide.ts`, online `server/src/war/guide.ts`) runs in the home region: claim a soul,
+gather, drive off the bandit pair, raise a camp, bring goods into a store. W-73 adds a sixth step, the hand-off
+(`GUIDE_NEXT` in `src/war/net/questLore.ts`: "Find {giver} by the well"): of the home's neighbours with a region chain
+(W-65), the one whose exit lies nearest the home town; the marker points at that exit, and the step closes (20 coin)
+when his men reach it or he departs for that region. The chain's giver then takes over with his own "!".
+
 ## Controls
 
 Every war key is an action in `src/war/input/actions.ts` (the campaign's rebinding system, moved): each has two keys,
