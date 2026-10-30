@@ -311,8 +311,9 @@ export class ArtBaker {
       return this.setOf[(y >> 1) * r.w + (x >> 1)] === this.basalt && !iso.peakAt((x >> 1) + 0.5, (y >> 1) + 0.5);
     });
     // the moors' bog pools: black peat water (./relief.ts peatWater)
-    const moors = art.sets.findIndex((s) => s.name === 'moors');
-    this.peat = (j) => moors >= 0 && this.setOf[(((j / iso.fw) | 0) >> 1) * r.w + ((j % iso.fw) >> 1)] === moors;
+    // (inland water only: the sea stays sea-coloured)
+    const moors = art.sets.findIndex((s) => s.name === 'moors'), sea = this.offMap();
+    this.peat = (j) => moors >= 0 && !sea[j] && this.setOf[(((j / iso.fw) | 0) >> 1) * r.w + ((j % iso.fw) >> 1)] === moors;
     peatWater(iso.fk, this.shade, this.foam, this.tint, this.peat);
     // the water's light as one smooth field (./relief.ts waterField), not a flat diamond per cell
     this.lit = (j) => (iso.fk[j] === SHALLOW_K || iso.fk[j] === DEEP_K) && !this.peat(j);
@@ -320,6 +321,23 @@ export class ArtBaker {
     this.waterLight.getContext('2d')!.putImageData(new ImageData(waterField(iso.fw, iso.fh, iso.fk, this.lit), iso.fw, iso.fh), 0, 0);
     for (let j = 0; j < this.shade.length; j++) if (this.lit(j)) this.shade[j] = 0;
     this.cut = this.cuts();
+  }
+
+  /** Per visual cell: 1 = water of a body of SEA cells or more (4-neighbour, through water): the sea, not pools and streams. */
+  private offMap(): Uint8Array {
+    const { fw, fh, fk } = this.iso, n = fw * fh, out = new Uint8Array(n), seen = new Uint8Array(n), SEA = 40000;
+    const wet = (j: number) => fk[j] === SHALLOW_K || fk[j] === DEEP_K;
+    for (let s = 0; s < n; s++) {
+      if (seen[s] || !wet(s)) continue;
+      const body = [s];
+      seen[s] = 1;
+      for (let h = 0; h < body.length; h++) {
+        const j = body[h], x = j % fw;
+        for (const i of [x > 0 ? j - 1 : -1, x < fw - 1 ? j + 1 : -1, j - fw, j + fw]) if (i >= 0 && i < n && !seen[i] && wet(i)) { seen[i] = 1; body.push(i); }
+      }
+      if (body.length >= SEA) for (const j of body) out[j] = 1;
+    }
+    return out;
   }
 
   /** The stone of the rock wall under visual cell i (one of `drop` levels), null: no rock wall (a strip cliff or none). */

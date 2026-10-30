@@ -111,7 +111,8 @@ const def: RegionDef = {
       });
       k.piece('moors/peat-stack', [x, y], { r: 5, n: 4, gap: 2 });
     }
-    k.river([[bx(150) + 8, 150], [150, 176], [150, 214], [160, 262]], { half: 1, deep: false, bed: 3, bank: 1 });
+    k.river([[bx(150) + 8, 150], [150, 176], [150, 214], [160, 262]], { half: 1, deep: false, bed: 3, bank: 0 });
+    k.each((i) => { if (k.terrain[i] === 'sand') k.terrain[i] = 'grass'; }); // the stream's banks heather, not river sand
     // roads: Dodona's two meet at the claim point west of the bog; the causeway; on to the Saddle and Erymanthos;
     // the paths up the tors
     const hub: Pt = [94, 120];
