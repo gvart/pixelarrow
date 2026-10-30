@@ -89,6 +89,9 @@ export const DELETION_MAP: Record<string, TableRule> = {
   // W-66: his divine favour (per account) and what earned it
   war_favour: { rule: 'delete', pid: ['player_id'] },
   war_favour_log: { rule: 'delete', pid: ['player_id'] },
+  // W-73: his deeds toward region mastery and the regions he mastered
+  war_mastery: { rule: 'delete', pid: ['player_id'] },
+  war_mastery_done: { rule: 'delete', pid: ['player_id'] },
   display_name_history: { rule: 'delete', pid: ['player_id'], via: 'one row is written back at the tombstone step so the freed name stays held 30 days' },
 
   // Kept against the tombstone.
