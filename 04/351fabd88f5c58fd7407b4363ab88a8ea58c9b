@@ -1,0 +1,39 @@
+src/war/view/art.ts
+  s_0dd3a9d3e5007a::t_f8b3c2552e0cf7 24,234-235,308-311,724
+src/war/view/relief.ts
+  s_0dd3a9d3e5007a::t_f8b3c2552e0cf7 207,217,227-231,233-243,246
+  s_0dd3a9d3e5007a::t_79a3b1f5caeac6 226,232,244-245
+  s_0dd3a9d3e5007a::t_c0f9b62fb846d0 208-209,218-219,266-269
+  s_0dd3a9d3e5007a::t_29614d774ac1b7 220
+scripts/war/regions/kit.ts
+  s_0dd3a9d3e5007a::t_a97a238ca49ed0 292
+  s_0dd3a9d3e5007a::t_434094fbb7c8b3 135-136,157,277-287,289-291,293-295,1409-1412
+  s_0dd3a9d3e5007a::t_2f6bb04ef0180e 288,1722
+src/war/regions/moors.json
+  s_0dd3a9d3e5007a::t_b9a73f0150337e 1
+scripts/war/regions/moors.ts
+  s_0dd3a9d3e5007a::t_b741642b3bcefa 103-104,106-113
+  s_0dd3a9d3e5007a::t_a2284f4073a294 105
+  s_0dd3a9d3e5007a::t_2f6bb04ef0180e 86
+  s_0dd3a9d3e5007a::t_df984bca31df70 18-19,32,35,38-45,48-50,53,58-60,69-85,88-89,91-92,95,100,114,120,125
+  s_0dd3a9d3e5007a::t_b9a73f0150337e 61-68
+  s_0dd3a9d3e5007a::t_f5076fe4e91e8a 54-55,57
+src/war/regions/moors.spots.ts
+  s_0dd3a9d3e5007a::t_b741642b3bcefa 7,12
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "04351fabd88f5c58fd7407b4363ab88a8ea58c9b",
+  "prompts": {},
+  "sessions": {
+    "s_0dd3a9d3e5007a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b6130d3d-c070-494f-98d5-046db89f2d1c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
