@@ -11,6 +11,7 @@
 import type { Pt, Story } from '../war/sim/stories';
 import type { MobKind, RegionData } from '../war/types';
 import { depthOf } from '../war/sim/depth';
+import { WORLD_REGIONS } from '../war/world/regions';
 import { chiefsOfKind, warChief } from './warBosses';
 
 const TEETH: Story = {
@@ -1035,6 +1036,8 @@ export interface HiddenCtx {
   /** The region's fighting beast (its lairs' first non-bandit, non-passive kind; wolves if none) and a chief of it not leading a lair here. */
   beast: MobKind; chief: string | null;
   depth: number;
+  /** The region's flavour (landOf); absent: the plain text. */
+  land?: Land;
 }
 export interface HiddenTemplate {
   id: string;
@@ -1043,62 +1046,119 @@ export interface HiddenTemplate {
   make(c: HiddenCtx): Pick<Story, 'title' | 'hook' | 'backstory' | 'steps' | 'end' | 'reward'>;
 }
 
+/** A hidden quest's flavour, by the ground it lies in: the cold north, the steppe, the sand, the wet south. */
+export type Land = 'north' | 'steppe' | 'sand' | 'south';
+/** A region's flavour from its biome (a coast by its side of the map); the plateau and unknown maps have none. */
+export function landOf(id: string): Land | undefined {
+  const w = WORLD_REGIONS.find((x) => x.id === id);
+  if (!w) return undefined;
+  switch (w.biome) {
+    case 'dodona': case 'mountains': return 'north';
+    case 'skythia': return 'steppe';
+    case 'kyrene': return 'sand';
+    case 'marsh': case 'elaia': return 'south';
+    case 'coast': return w.pos.y < 0 ? 'north' : w.pos.x > 0 ? 'sand' : 'south';
+    default: return undefined;
+  }
+}
+
+/** The words a hidden quest tells (its rules stay the template's): the plain text and one per land. */
+interface HiddenText { title: string; hook: string; backstory: string; story: string; end: string }
+const told = (c: HiddenCtx, t: { plain: HiddenText } & Partial<Record<Land, HiddenText>>): HiddenText => (c.land && t[c.land]) || t.plain;
+
 const pay = (c: HiddenCtx, coin: number) => Math.round(coin * (1 + 0.5 * c.depth));
+
+const CORPSE = {
+  plain: { title: 'The Dead Man\'s Note', hook: 'A traveller lies in the grass, a wax tablet in his fist.', backstory: '"They came out of the brush at dusk. If you read this, they are still near. Take what I carried, and pay them back for me."', story: 'Tracks lead off from the body, fresh.', end: 'You bury him under a cairn. His purse was not empty.' },
+  north: { title: 'The Frozen Runner', hook: 'A runner frozen stiff in the bracken, a wax tablet in his fist.', backstory: '"Word for the fort: the mist is lower this season. Something took my legs at dusk. If you read this, it is near. Pay it back."', story: 'Drag marks in the frost, and blood frozen black.', end: 'You cairn him where he fell. His word never reached the fort. No one is at the fort to read it.' },
+  steppe: { title: 'The Rider Who Fell', hook: 'A dead rider in the long grass, his horse gone, a tablet in his belt.', backstory: '"They ran my horse down, then me. I rode to warn the mounds. If you read this, they are close. Take my purse and pay them."', story: 'Hoofprints, then other prints over them, fresh.', end: 'You lay him on his back to face the sky, as riders are laid. His purse was not empty.' },
+  sand: { title: 'The Water-Carrier', hook: 'A water-carrier face down in the sand, his skins slashed, a tablet in his fist.', backstory: '"They came for the water, not for me. They took both. If you read this, they are still near. Take my coin and pay them."', story: 'Tracks lead off over the dune, the sand still damp where the skins bled.', end: 'You heap stones over him against the jackals. His purse was not empty.' },
+  south: { title: 'The Fisherman\'s Note', hook: 'A fisherman at the water\'s edge, a tablet tied to his wrist.', backstory: '"Something came up out of the reeds and took my brother whole. If you read this, it is still near. Take what I have and pay it back."', story: 'Wet tracks lead off from the body through crushed reeds.', end: 'You give him to the water, as his people would. His purse was not empty.' },
+};
+const CACHE = {
+  plain: { title: 'The Smuggler\'s Cache', hook: 'A cairn with a mark scratched under the top stone.', backstory: 'Smugglers of the old roads marked their caches this way: a cairn, and the goods a short walk off.', story: 'Loose stones, and under them a sealed jar.', end: 'The jar is yours. Whoever buried it will not be back.' },
+  north: { title: 'The Miner\'s Cache', hook: 'A cairn on the slope, a pick-mark cut under its top stone.', backstory: 'Iron-diggers hid ore from their overseers this way: a cairn, and the jar a short walk off.', story: 'Loose scree, and under it a sealed jar of ore and coin.', end: 'The jar is yours. The digger who hid it is still under the mountain.' },
+  steppe: { title: 'The Horse-Thief\'s Cache', hook: 'A cairn on the steppe, a horse-brand scratched under the top stone.', backstory: 'Horse-thieves buried what they could not ride away with, under a brand only their own could read.', story: 'Turf cut and laid back, and under it a sealed jar.', end: 'The jar is yours. Whoever buried it was buried first.' },
+  sand: { title: 'The Salt-Runner\'s Cache', hook: 'A cairn in the sand, two wavy lines cut under the top stone.', backstory: 'Salt-runners mark their caches against the walking dunes: a cairn, and the jar where the sand lies shallow.', story: 'Warm sand, then a sealed jar, its salt still dry.', end: 'The jar is yours. The dunes would have had it by spring.' },
+  south: { title: 'The Pirate\'s Cache', hook: 'A cairn above the tide line, an anchor scratched under the top stone.', backstory: 'Pirates of the coast buried what they meant to come back for. Most were hanged first.', story: 'Shingle, then wet sand, then a sealed jar wrapped in tarred sail.', end: 'The jar is yours. Its owner swings on a headland somewhere.' },
+};
+const SHRINE = {
+  plain: { title: 'The Forgotten Shrine', hook: 'Moss over an altar; old offerings, gnawed bones around it.', backstory: 'Someone made offerings here once. Something big has been feeding on them since, and it sleeps close by.', story: 'It lifts its head from the bones. It is larger than it should be.', end: 'The altar is clean again. A little warmth stays in the stone.' },
+  north: { title: 'The Oak Shrine', hook: 'A split oak hung with rusted bells, gnawed bones round its roots.', backstory: 'The north prayed to Zeus of the oak here. Something big has fed on the offerings since, and it sleeps close by.', story: 'It lifts its head from the roots, and the bells stop.', end: 'The bells ring once in a wind you cannot feel. The oak is clean again.' },
+  steppe: { title: 'The Stone Idol', hook: 'A stone idol on a mound, its bowl full of gnawed bones.', backstory: 'Riders left mare\'s milk here for the gods of the open sky. Something big drinks it now, and sleeps close by.', story: 'It rises from behind the mound, milk and blood on its jaws.', end: 'The idol looks out over the grass again, toward the rim.' },
+  sand: { title: 'The Squat God', hook: 'A rock-cut niche with a squat desert god, bones heaped at his feet.', backstory: 'Caravans left dates and blood here for safe passage. Something big has fed on them since, and it sleeps close by.', story: 'It uncurls in the shade of the niche. It is larger than it should be.', end: 'The squat god grins in his niche. Caravans will stop here again.' },
+  south: { title: 'The Nymph\'s Spring', hook: 'A spring with a carved nymph, choked with moss and gnawed bones.', backstory: 'Farmers poured wine here for the spring\'s nymph. Something big drinks from it now, and sleeps close by.', story: 'It lifts its head from the water. The nymph\'s face is scratched away.', end: 'The spring runs clear again. A little warmth stays in the stone.' },
+};
+const RUIN = {
+  plain: { title: 'The Ruined Watch-Post', hook: 'A tumbled tower; a fresh fire-pit inside.', backstory: 'The Wardens\' men kept this post until the Wardens went into the mist. Robbers sleep here now, with a strongbox.', story: 'Boot prints, the Wardens\' mark scratched out on the wall, and voices beyond it.', end: 'The strongbox holds a season\'s tolls, and the post\'s last order: "Hold until relieved."' },
+  north: { title: 'The Dark Beacon', hook: 'A beacon tower tumbled on a crag; a fresh fire-pit in its shell.', backstory: 'The Wardens lit this beacon when the mist came low. It has been dark since they left. Robbers sleep in it now, with a strongbox.', story: 'Cold ash in the beacon bowl, warm ash by the door, and voices inside.', end: 'The strongbox holds a season\'s tolls. The beacon bowl is still full of wood no one lit.' },
+  steppe: { title: 'The Empty Watch-Mound', hook: 'A watch-mound, its palisade fallen; smoke rising from inside.', backstory: 'The Wardens watched the steppe from mounds like this one. Their riders left with them. Robbers sleep here now, with a strongbox.', story: 'Horse dung, a cookfire, and voices behind the fallen palisade.', end: 'The strongbox holds a season\'s tolls, and a Warden\'s horn no one has blown since.' },
+  sand: { title: 'The Buried Post', hook: 'A watch-post half drowned in sand; voices inside.', backstory: 'The Wardens kept the caravan roads from this post. The sand has it now, and robbers, with a strongbox.', story: 'Sand to the window-sills, a cookfire, and men arguing over a box.', end: 'The strongbox holds a season\'s tolls. The dunes will finish the post by spring.' },
+  south: { title: 'The Drowned Post', hook: 'A watch-tower with its foot in the water; a fire-pit inside.', backstory: 'The Wardens watched the water from this tower. When they left, the water came in. Robbers sleep in it now, with a strongbox.', story: 'Wet boot prints up the stair, and voices in the tower room.', end: 'The strongbox holds a season\'s tolls. The water is still rising.' },
+};
 
 export const HIDDEN: readonly HiddenTemplate[] = [
   {
     id: 'corpse', find: 'A dead man with a note',
-    make: (c) => ({
-      title: 'The Dead Man\'s Note', hook: 'A traveller lies in the grass, a wax tablet in his fist.',
-      backstory: '"They came out of the brush at dusk. If you read this, they are still near. Take what I carried, and pay them back for me."',
-      steps: [{
-        id: 'killers', goal: 'Hunt down what killed him', label: 'Killers', story: 'Tracks lead off from the body, fresh.', where: 'Close by, where the tracks lead.',
-        trigger: { kind: 'clear', at: c.then, mob: c.beast, count: 3 + Math.min(3, c.depth) },
-      }],
-      end: 'You bury him under a cairn. His purse was not empty.',
-      reward: { goods: { coin: pay(c, 14), hides: 4 } },
-    }),
+    make: (c) => {
+      const t = told(c, CORPSE);
+      return {
+        title: t.title, hook: t.hook, backstory: t.backstory,
+        steps: [{
+          id: 'killers', goal: 'Hunt down what killed him', label: 'Killers', story: t.story, where: 'Close by, where the tracks lead.',
+          trigger: { kind: 'clear', at: c.then, mob: c.beast, count: 3 + Math.min(3, c.depth) },
+        }],
+        end: t.end,
+        reward: { goods: { coin: pay(c, 14), hides: 4 } },
+      };
+    },
   },
   {
     id: 'cache', find: 'A cairn marked with a hidden sign',
-    make: (c) => ({
-      title: 'The Smuggler\'s Cache', hook: 'A cairn with a mark scratched under the top stone.',
-      backstory: 'Smugglers of the old roads marked their caches this way: a cairn, and the goods a short walk off.',
-      steps: [{
-        id: 'dig', goal: 'Dig up the cache', label: 'Cache', story: 'Loose stones, and under them a sealed jar.', where: 'A short walk from the cairn.',
-        trigger: { kind: 'reach', at: c.then }, reward: { goods: { coin: pay(c, 10), iron: 4 + c.depth, salt: 3 } },
-      }],
-      end: 'The jar is yours. Whoever buried it will not be back.',
-    }),
+    make: (c) => {
+      const t = told(c, CACHE);
+      return {
+        title: t.title, hook: t.hook, backstory: t.backstory,
+        steps: [{
+          id: 'dig', goal: 'Dig up the cache', label: 'Cache', story: t.story, where: 'A short walk from the cairn.',
+          trigger: { kind: 'reach', at: c.then }, reward: { goods: { coin: pay(c, 10), iron: 4 + c.depth, salt: 3 } },
+        }],
+        end: t.end,
+      };
+    },
   },
   {
     id: 'shrine', find: 'A forgotten shrine',
-    make: (c) => ({
-      title: 'The Forgotten Shrine', hook: 'Moss over an altar; old offerings, gnawed bones around it.',
-      backstory: 'Someone made offerings here once. Something big has been feeding on them since, and it sleeps close by.',
-      steps: c.chief ? [{
-        id: 'beast', goal: 'Slay the beast that haunts the shrine', label: 'Beast', story: 'It lifts its head from the bones. It is larger than it should be.', where: 'Its lair by the shrine.',
-        trigger: { kind: 'clear', at: c.then, mob: c.beast, count: 1, chief: c.chief, name: warChief(c.chief)?.name ?? 'the beast' }, reward: { item: { def: 'eye_bead', rarity: 'rare' } },
-      }] : [{
-        id: 'beast', goal: 'Drive off the beasts at the shrine', label: 'Beasts', story: 'They feed on the offerings, and will not share.', where: 'By the shrine.',
-        trigger: { kind: 'clear', at: c.then, mob: c.beast, count: 4 },
-      }],
-      end: 'The altar is clean again. A little warmth stays in the stone.',
-      reward: { goods: { coin: pay(c, 16) } },
-    }),
+    make: (c) => {
+      const t = told(c, SHRINE);
+      return {
+        title: t.title, hook: t.hook, backstory: t.backstory,
+        steps: c.chief ? [{
+          id: 'beast', goal: 'Slay the beast that haunts the shrine', label: 'Beast', story: t.story, where: 'Its lair by the shrine.',
+          trigger: { kind: 'clear', at: c.then, mob: c.beast, count: 1, chief: c.chief, name: warChief(c.chief)?.name ?? 'the beast' }, reward: { item: { def: 'eye_bead', rarity: 'rare' } },
+        }] : [{
+          id: 'beast', goal: 'Drive off the beasts at the shrine', label: 'Beasts', story: 'They feed on the offerings, and will not share.', where: 'By the shrine.',
+          trigger: { kind: 'clear', at: c.then, mob: c.beast, count: 4 },
+        }],
+        end: t.end,
+        reward: { goods: { coin: pay(c, 16) } },
+      };
+    },
   },
   {
     id: 'ruin', find: 'A ruined watch-post',
-    make: (c) => ({
-      title: 'The Ruined Watch-Post', hook: 'A tumbled tower; a fresh fire-pit inside.',
-      backstory: 'The post fell long ago, but someone sleeps here now: deserters, by the boot prints, with a strongbox.',
-      steps: [
-        { id: 'look', goal: 'Search the ruin', label: 'Ruin', story: 'Boot prints, a tally scratched on the wall, and voices beyond it.', where: 'Inside the ruin, a few steps on.', trigger: { kind: 'reach', at: c.then } },
-        { id: 'camp', goal: 'Break the deserters', label: 'Deserters', story: 'They grab their spears. Their leader keeps the strongbox.', where: 'In the ruin.', trigger: { kind: 'clear', at: c.then, mob: 'bandit', count: 3 + Math.min(3, c.depth), lead: true } },
-      ],
-      end: 'The strongbox holds a season\'s tolls.',
-      reward: { goods: { coin: pay(c, 18), bronze: 3 } },
-    }),
+    make: (c) => {
+      const t = told(c, RUIN);
+      return {
+        title: t.title, hook: t.hook, backstory: t.backstory,
+        steps: [
+          { id: 'look', goal: 'Search the ruin', label: 'Ruin', story: t.story, where: 'Inside the ruin, a few steps on.', trigger: { kind: 'reach', at: c.then } },
+          { id: 'camp', goal: 'Break the robbers in the ruin', label: 'Robbers', story: 'They grab their spears. Their leader keeps the strongbox.', where: 'In the ruin.', trigger: { kind: 'clear', at: c.then, mob: 'bandit', count: 3 + Math.min(3, c.depth), lead: true } },
+        ],
+        end: t.end,
+        reward: { goods: { coin: pay(c, 18), bronze: 3 } },
+      };
+    },
   },
 ];
 const HIDDEN_BY_ID = new Map(HIDDEN.map((h) => [h.id, h]));
@@ -1108,16 +1168,17 @@ export function hiddenStories(r: RegionData): Story[] {
   const lairs = r.lairs ?? [];
   const beast = lairs.find((l) => l.kind !== 'bandit' && l.kind !== 'ibex')?.kind ?? 'wolf';
   const used = new Set(lairs.flatMap((l) => (l.chief ? [l.chief] : [])));
-  const depth = depthOf(r);
+  const depth = depthOf(r), land = landOf(r.id);
   return (r.secrets ?? []).flatMap((s, n): Story[] => {
     const t = HIDDEN_BY_ID.get(s.quest);
     if (!t) return [];
     const pool = chiefsOfKind(beast).filter((c) => !used.has(c.id));
     const chief = pool.length ? pool[n % pool.length].id : null;
-    const m = t.make({ at: [s.x, s.y], then: s.then, beast, chief, depth });
+    const m = t.make({ at: [s.x, s.y], then: s.then, beast, chief, depth, land });
     return [{ id: `hidden:${r.id}:${n}`, region: r.id, hidden: true, giver: { name: t.find, title: '', at: [s.x, s.y], cls: '' }, ...m }];
   });
 }
+
 
 /*
  * Template (copy, fill, add to STORIES):

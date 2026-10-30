@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { createSim } from '../../src/war/sim';
-import { HIDDEN, hiddenStories } from '../../src/data/warStories';
+import { HIDDEN, hiddenStories, landOf, type Land } from '../../src/data/warStories';
 import { HIDDEN_IDS } from '../../src/data/warWild';
 import { WORLD_REGIONS } from '../../src/war/regions/index';
 import { parseRegion } from '../../src/war/region/schema';
@@ -116,6 +116,21 @@ describe('hidden quests', () => {
       expect(st.length, r.id).toBeGreaterThanOrEqual(depthOf(region) <= 1 ? 2 : 3);
       for (const s of region.secrets ?? []) {
         for (const l of region.lairs ?? []) expect(Math.hypot(l.x - s.then[0], l.y - s.then[1]), `${r.id} ${s.quest}`).toBeGreaterThanOrEqual(26);
+      }
+    }
+  });
+
+  it('tells each template in the flavour of its ground: every land of the world has its own words, goals of 7 words at most', () => {
+    const lands = new Set(WORLD_REGIONS.map((r) => landOf(r.id)).filter((l): l is Land => !!l));
+    expect(lands.size).toBeGreaterThanOrEqual(4);
+    const c = { at: [0, 0] as [number, number], then: [5, 0] as [number, number], beast: 'wolf' as const, chief: 'greymaw', depth: 1 };
+    for (const h of HIDDEN) {
+      const plain = h.make(c);
+      for (const land of lands) {
+        const m = h.make({ ...c, land });
+        expect(m.title, `${h.id} ${land}`).not.toBe(plain.title);
+        for (const t of [m.hook, m.backstory, m.end]) expect(t.trim(), `${h.id} ${land}`).not.toBe('');
+        for (const st of m.steps) expect(st.goal.split(' ').length, st.goal).toBeLessThanOrEqual(7);
       }
     }
   });
