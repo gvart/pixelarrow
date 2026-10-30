@@ -935,12 +935,12 @@ Every soldier is a unit: the player selects any of his men and orders them alone
 
 | Input | Does |
 | --- | --- |
-| click, shift+click | select a man; shift adds him or drops him; a click on open ground clears |
+| click, shift+click | select the man's whole squad; shift adds or drops that squad; a click on open ground clears |
 | click in a block's gaps | select that block (all its men) |
 | one man selected | his card docked in the command panel (`src/war/view/hud/manCard.ts`), his pip lit: fall back Z, rejoin Shift+Z, to the rear rank Ctrl+Z |
 | hold Alt | every man's health bar |
 | drag a box, shift+box | select every man of yours inside; shift adds |
-| double-click a man | every man of his class on screen |
+| double-click a man | that one man alone (shift: added to the selection before the first click) |
 | Ctrl+A, Esc | all your men; nobody (Esc first closes a tool, the radial or an armed button) |
 | Ctrl+1–9, 1–9 | store the selection as control group n; select group n, a second tap centres the camera on it |
 | Alt+1–4 | formation line, column, wedge, loose |

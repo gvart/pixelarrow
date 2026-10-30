@@ -1,9 +1,9 @@
 /**
  * W-53 unit control: the player's selection is a set of his men, not of squads (docs/WAR.md "Unit control").
  *
- *   click a man           select him (shift: add or drop him); a click on open ground clears
+ *   click a man           select his whole squad (shift: add or drop that squad); a click on open ground clears
+ *   double-click a man    that one man alone (shift: him added to what was selected before the first click)
  *   box                   select every man of yours inside (shift adds)
- *   double-click a man    every man of his class on screen
  *   Ctrl+A                all your men; Esc clears (when no tool, menu or panel takes it)
  *   Ctrl+1-9              the selection becomes control group n; 1-9 selects it again, a second tap centres on it
  *   Alt+1-4               formation line / column / wedge / loose
@@ -25,13 +25,25 @@ const SHAPES = ['line', 'column', 'wedge', 'loose'] as const;
 /** The formation actions (Alt+1-4 by default), in SHAPES order. */
 const FORMS: ActionId[] = ['form.line', 'form.column', 'form.wedge', 'form.loose'];
 
+/**
+ * The men a click on own man `man` selects (playtest 2026-10-31: a click that picked one man sent him to die alone).
+ * A single click takes his whole squad (`squad`: its live men); shift toggles that squad in `sel`. The second click of
+ * a double-click narrows to the man himself, from `before` (the selection before the first click) with shift.
+ */
+export function clickPick(sel: readonly UnitId[], before: readonly UnitId[], squad: readonly UnitId[], man: UnitId, shift: boolean, twice: boolean): UnitId[] {
+  if (twice) return shift ? [...before.filter((id) => id !== man), man] : [man];
+  if (!shift) return [...squad];
+  if (squad.every((id) => sel.includes(id))) return sel.filter((id) => !squad.includes(id));
+  return [...sel, ...squad.filter((id) => !sel.includes(id))];
+}
+
 export class Selection {
   /** Selected own men, in the order picked (the first one's squad leads). */
   readonly units = new Set<UnitId>();
   /** Control groups 1-9: their men as last stored. */
   readonly groups = new Map<number, UnitId[]>();
   private live = new Map<UnitId, DrawUnit>();
-  private last = { id: -1, t: 0 };
+  private last = { id: -1, t: 0, before: [] as UnitId[] };
   private tap = { n: 0, t: 0 };
 
   constructor(private s: SandboxScene) {
@@ -87,11 +99,12 @@ export class Selection {
   /** A left click on own man d (null: on nothing of ours). */
   click(d: DrawUnit | null, shift: boolean, now: number): void {
     if (!d) { if (!shift) this.clear(); return; }
-    const twice = this.last.id === d.u.id && now - this.last.t < DOUBLE_MS;
-    this.last = { id: d.u.id, t: now };
-    if (twice) return this.set(this.onScreen().filter((x) => x.u.cls === d.u.cls).map((x) => x.u.id), shift);
-    if (shift && this.units.has(d.u.id)) { this.units.delete(d.u.id); this.set([], true); return; }
-    this.set([d.u.id], shift);
+    const twice = this.last.id === d.u.id && now - this.last.t < DOUBLE_MS, sel = [...this.units];
+    const squad = [...this.live.values()].filter((x) => x.u.squad === d.u.squad).map((x) => x.u.id);
+    const pick = clickPick(sel, this.last.before, squad, d.u.id, shift, twice);
+    // a third quick click starts over (a fresh double-click); the first one remembers what it changed from
+    this.last = twice ? { id: -1, t: 0, before: [] } : { id: d.u.id, t: now, before: sel };
+    this.set(pick);
   }
 
   /** Control group n stored from the selection (none selected: the group goes). */
@@ -122,14 +135,6 @@ export class Selection {
     for (const d of this.live.values()) if (d.u.squad === lead) inLead++;
     if (ids.length === inLead && this.men().every((d) => d.u.squad === lead)) return o;
     return { ...o, units: ids };
-  }
-
-  private onScreen(): DrawUnit[] {
-    const cam = this.s.cameras.main;
-    return [...this.live.values()].filter((d) => {
-      const p = this.s.toScreen(d.x, d.y);
-      return p.x >= 0 && p.y >= 0 && p.x <= cam.width && p.y <= cam.height;
-    });
   }
 
   private key(e: KeyboardEvent): void {

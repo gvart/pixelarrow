@@ -8,7 +8,7 @@
  * PixelLab soldier sprites (./units.ts); RTS camera and squad controls picking through the height field (./iso.ts).
  *
  *   drag / middle-drag / space+drag pan (a middle click without a drag: a personal marker, ./hud/pins.ts), WASD/arrows, screen-edge pan; wheel zooms to the cursor
- *   left click / box: select own men (shift adds); double-click: his class on screen; Ctrl+A all, Esc none;
+ *   left click: a man's whole squad, double-click: that man alone; box: own men inside (shift adds); Ctrl+A all, Esc none;
  *   Ctrl+1-9 / 1-9 control groups (./select.ts, W-53)
  *   E or right click: the context action on the hovered target, named by the label at the cursor; hold either for a
  *   radial menu of every action there (./interact.ts: attack, crew / uncrew, raise / push ladder, ignite, extinguish,
