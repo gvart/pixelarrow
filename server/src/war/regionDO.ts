@@ -70,7 +70,7 @@ import { log, logError } from '../telemetry/log';
 import { applyBossKill } from './bosses';
 import { addFavour, encounterFavour, favourTick, storyFavour } from './favour';
 import type { WarlordMemory, WarlordNote } from '../../../src/war/sim/warlords';
-import { WARLORD } from '../../../src/data/warWarlords';
+import { domainOf, warlord, WARLORD } from '../../../src/data/warWarlords';
 /** W-72 proposal: a day of the warlords' age. */
 const DAY_MS = 86_400_000;
 import { masteryOf, recordWild } from './mastery';
@@ -297,6 +297,8 @@ export class WarRegionDO extends DurableObject<Env> {
     this.lordsFrom = this.worldEv?.start ?? kept?.from ?? Date.now();
     if (fresh && kept?.mem) room.recallWarlords(kept.mem);
     room.setWarlordAge((Date.now() - this.lordsFrom) / DAY_MS);
+    // a fall told while this room slept (a restored room too): his bands here go
+    for (const [id, at] of Object.entries(kept?.mem?.fallen ?? {})) room.warlordFell(id, at);
     if (!kept) await this.ctx.storage.put(key, { from: this.lordsFrom, mem: null });
   }
 
@@ -310,6 +312,31 @@ export class WarRegionDO extends DurableObject<Env> {
         if (pid !== null) this.write(`favour warlord ${pid}`, () => addFavour(this.env, pid, amount, n.what === 'fallen' ? 'boss' : 'lair'));
       }
     }
+  }
+
+  /** W-72 proposal: a lord fallen here is told to the other regions of his domain (his bands there are recalled). */
+  private tellFallen(room: WarRoom, notes: readonly WarlordNote[]): void {
+    if (this.lordsFrom === null) return;
+    const at = (Date.now() - this.lordsFrom) / DAY_MS;
+    for (const n of notes) {
+      const w = n.what === 'fallen' ? warlord(n.warlord) : undefined;
+      if (!w) continue;
+      for (const r of domainOf(w))
+        if (r !== room.region.id && WAR_REGIONS.includes(r))
+          this.ctx.waitUntil(regionStub(this.env, r).warlordFell(r, w.id, at).catch((e: unknown) => logError('war_warlord_fell_failed', e, { region: r })));
+    }
+  }
+
+  /** W-72 proposal (RPC from his seat's WarRegionDO): he fell at this age (days); kept for the next room, applied to a live one. */
+  async warlordFell(region: string, id: string, at: number): Promise<void> {
+    const key = `warlords:${WAR_SEASON.id}`;
+    const kept = await this.ctx.storage.get<{ from: number; mem: WarlordMemory | null }>(key);
+    const mem: WarlordMemory = kept?.mem ?? { fallen: {}, freed: {} };
+    if ((mem.fallen[id] ?? -Infinity) >= at) return;
+    mem.fallen[id] = at;
+    await this.ctx.storage.put(key, { from: kept?.from ?? this.worldEv?.start ?? Date.now(), mem });
+    const room = this.room;
+    if (room && room.region.id === region) room.warlordFell(id, at), this.save();
   }
 
   /** W-62: the world events from DO storage, else asked of the world (a room that never heard them). */
@@ -1079,7 +1106,7 @@ export class WarRegionDO extends DurableObject<Env> {
     if (r.met.length) this.met(r.met); // W-65
     if (r.wild.length) this.wild(room, r.wild); // W-73
     favourTick(this.env, room, (w, f) => this.write(w, f)); // W-66: lairs cleared, land held
-    if (r.warlord.length) this.warlordFavour(r.warlord); // W-72 proposal
+    if (r.warlord.length) this.warlordFavour(r.warlord), this.tellFallen(room, r.warlord); // W-72 proposal
     if (this.lordsFrom !== null && room.currentTick % 600 === 0) room.setWarlordAge((Date.now() - this.lordsFrom) / DAY_MS);
     if (d && r.crafted.length) this.write('crafted', () => applyCrafts(d, room.region.id, room.run, r.crafted, Date.now()));
     if (d) for (const b of r.bosses) this.write(`boss ${b.boss}`, () => applyBossKill(d, room.region.id, room.run, b, Date.now()));

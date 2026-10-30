@@ -378,6 +378,11 @@ export class WarRoom {
     this.warlords?.recall(m);
   }
 
+  /** W-72 proposal: his seat's room says he fell at this age (days): his bands here are recalled. */
+  warlordFell(id: string, at: number): void {
+    this.warlords?.fell(id, at);
+  }
+
   /** Players with living fighting men here (the warlords' pressure). */
   present(): number {
     const pids = new Set<string>();

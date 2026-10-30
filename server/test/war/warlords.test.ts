@@ -52,6 +52,22 @@ describe('W-72 warlords in the live room', () => {
     expect(new WarRoom({ region: flat(SEAT), seed: 1, cap: 600 }).warlords).toBeNull();
   });
 
+  it('a march room told of his fall recalls his bands there and keeps it across a save and restore', () => {
+    const region = flat(MARCH);
+    const room = new WarRoom({ region, seed: 2, cap: 600, warlords: true });
+    room.setWarlordAge(WARLORD.grow.marchDay);
+    room.join(1, join(1, 0, MARCH));
+    const { step, notes } = live(room);
+    step(WARLORD.think * 2);
+    expect(room.warlords!.snaps()[0].holds.length).toBeGreaterThan(0);
+    room.warlordFell(W.id, WARLORD.grow.marchDay);
+    step(WARLORD.think * 2);
+    expect(room.warlords!.snaps()[0]).toMatchObject({ fallen: true, holds: [] });
+    expect(notes(1).some((n) => n.what === 'recall')).toBe(true);
+    const back = WarRoom.restore({ region, seed: 2, cap: 600, warlords: true }, room.saveState(), new Map());
+    expect(back.warlordMemory()!.fallen[W.id]).toBe(WARLORD.grow.marchDay);
+  });
+
   it('a raid is warned only to the target team; the warlords survive a save and restore', () => {
     const region = flat(MARCH);
     const room = new WarRoom({ region, seed: 3, cap: 600, warlords: true });
