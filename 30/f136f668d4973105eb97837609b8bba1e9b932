@@ -1,0 +1,29 @@
+docs/playbook/SOUND.md
+  s_0dd3a9d3e5007a::t_0237057c0c877f 124-126
+  s_0dd3a9d3e5007a::t_25ca7d7c020703 43,95,123,127-130
+src/audio/bank.ts
+  s_0dd3a9d3e5007a::t_0237057c0c877f 43-45,49-51,56-63,66-71,73-77
+scripts/war/gen-sounds.mjs
+  s_0dd3a9d3e5007a::t_4b0ea00150cf46 150,153-161,165
+  s_0dd3a9d3e5007a::t_122309f07b109d 17,89-97,99,102,112-120,128
+  s_0dd3a9d3e5007a::t_e4c91e1bfcf945 98
+  s_0dd3a9d3e5007a::t_0237057c0c877f 167
+  s_0dd3a9d3e5007a::t_b10766eaf74857 11,16,103,105-111,121-127,129,143
+  s_0dd3a9d3e5007a::t_1c63ddf8d5a133 104
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "30f136f668d4973105eb97837609b8bba1e9b932",
+  "prompts": {},
+  "sessions": {
+    "s_0dd3a9d3e5007a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b6130d3d-c070-494f-98d5-046db89f2d1c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
