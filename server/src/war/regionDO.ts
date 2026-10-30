@@ -69,6 +69,10 @@ import type { AttrId } from '../../../src/data/perks';
 import { log, logError } from '../telemetry/log';
 import { applyBossKill } from './bosses';
 import { addFavour, encounterFavour, favourTick, storyFavour } from './favour';
+import type { WarlordMemory, WarlordNote } from '../../../src/war/sim/warlords';
+import { WARLORD } from '../../../src/data/warWarlords';
+/** W-72 proposal: a day of the warlords' age. */
+const DAY_MS = 86_400_000;
 import { elapsedTicks, loadMemory, MEMORY_KEY, remembered, storeMemory, writeMemory } from './memory';
 import type { WorldEvent } from '../../../src/war/world/events';
 import { settleTunnelFor } from './raise';
@@ -183,7 +187,10 @@ export class WarRegionDO extends DurableObject<Env> {
   /** M7f: the region memory last written to D1. */
   private memory = '';
   /** W-62: the world events as the world last told them (null: not loaded yet). */
-  private worldEv: { events: WorldEvent[]; next: WorldEvent | null } | null = null;
+  private worldEv: { events: WorldEvent[]; next: WorldEvent | null; start?: number } | null = null;
+  /** W-72 proposal: when the warlords' age counts from (the season's start; else the first room here this season). */
+  private lordsFrom: number | null = null;
+  private lordMem = '';
   /** W-63: the region's settlements as last polled; each player's view as last sent; persisted pieces as last reported. */
   private settles: RoomSettlement[] = [];
   private settleSent = new Map<number, string>();
@@ -214,7 +221,7 @@ export class WarRegionDO extends DurableObject<Env> {
     const wild = !!(data.lairs?.length || data.guardians?.length);
     // a home is its alliance's from the season's start: it builds there at once (WarRoom home anchor)
     const home = ALLIANCES.find((a) => a.home === region)?.id;
-    return { region: data, seed: regionSeed(region), cap: Number(this.env.WAR_CAP) || DEFAULT_CAP, allowArmy: this.env.DEV_AUTH === '1', allowDev: this.env.DEV_AUTH === '1', wild, home, roam: true };
+    return { region: data, seed: regionSeed(region), cap: Number(this.env.WAR_CAP) || DEFAULT_CAP, allowArmy: this.env.DEV_AUTH === '1', allowDev: this.env.DEV_AUTH === '1', wild, home, roam: true, warlords: true };
   }
 
   /**
@@ -265,6 +272,7 @@ export class WarRegionDO extends DurableObject<Env> {
       if (d && this.room) await this.wakeSouls(this.room, d).catch((e) => logError('war_souls_wake_failed', e, { region }));
       await this.ctx.storage.put('region', region);
       await this.loadEvents();
+      if (this.room) await this.startWarlords(this.room, !restored);
       if (this.room) await this.applyEvents(this.room);
     });
     return this.room;
@@ -274,6 +282,32 @@ export class WarRegionDO extends DurableObject<Env> {
   private async wakeSouls(room: WarRoom, d: D1Database, now = Date.now()): Promise<void> {
     const rows = (await d.prepare(`SELECT ${COLS} FROM war_persons WHERE state = 'soul' AND held_at = ?1 AND until_at > ?2`).bind(room.region.id, now).all<PersonRow>()).results;
     for (const r of rows) wakeIn(room, namedSoul(r, now));
+  }
+
+  /**
+   * W-72 proposal: the warlords' clock (days since the season's start, else since the first room here this season) and,
+   * on a fresh room, what they left behind (fallen lords, places freed) from DO storage.
+   */
+  private async startWarlords(room: WarRoom, fresh: boolean): Promise<void> {
+    if (!room.warlords) return;
+    const key = `warlords:${WAR_SEASON.id}`;
+    const kept = await this.ctx.storage.get<{ from: number; mem: WarlordMemory | null }>(key);
+    this.lordsFrom = this.worldEv?.start ?? kept?.from ?? Date.now();
+    if (fresh && kept?.mem) room.recallWarlords(kept.mem);
+    room.setWarlordAge((Date.now() - this.lordsFrom) / DAY_MS);
+    if (!kept) await this.ctx.storage.put(key, { from: this.lordsFrom, mem: null });
+  }
+
+  /** W-72 proposal: favour for a warlord's place freed or his fall, to the players whose men were by it. */
+  private warlordFavour(notes: readonly WarlordNote[]): void {
+    for (const n of notes) {
+      if (n.what !== 'freed' && n.what !== 'fallen') continue;
+      const amount = n.what === 'fallen' ? WARLORD.favour.lord : WARLORD.favour.holding;
+      for (const o of n.near ?? []) {
+        const pid = ownerPid(o);
+        if (pid !== null) this.write(`favour warlord ${pid}`, () => addFavour(this.env, pid, amount, n.what === 'fallen' ? 'boss' : 'lair'));
+      }
+    }
   }
 
   /** W-62: the world events from DO storage, else asked of the world (a room that never heard them). */
@@ -297,7 +331,7 @@ export class WarRegionDO extends DurableObject<Env> {
 
   /** W-62 (RPC from WarWorldDO): the world events running now (any region) and the next; applied here, told to all. */
   async worldEvents(region: string, events: WorldEvent[], next: WorldEvent | null): Promise<void> {
-    this.worldEv = { events, next };
+    this.worldEv = { events, next, ...(this.worldEv?.start !== undefined ? { start: this.worldEv.start } : {}) };
     await this.ctx.storage.put('worldEvents', this.worldEv);
     const room = this.room;
     if (!room || room.region.id !== region) return;
@@ -886,6 +920,13 @@ export class WarRegionDO extends DurableObject<Env> {
     // M7f: what the region remembers once it empties (DO storage always; D1 when it changed)
     const mem = room.memory(), mjson = JSON.stringify(mem), rem = remembered(mem, Date.now(), WAR_SEASON.id, regionVersion(room.region.id));
     this.saving = this.saving.then(() => storeMemory(this.ctx.storage, rem)).catch((e) => logError('war_memory_failed', e));
+    // W-72 proposal: what the warlords leave behind (fallen lords, places freed), kept for the next room here
+    const lm = room.warlordMemory(), ljson = lm ? JSON.stringify(lm) : '';
+    if (lm && this.lordsFrom !== null && ljson !== this.lordMem) {
+      this.lordMem = ljson;
+      const from = this.lordsFrom;
+      this.saving = this.saving.then(() => this.ctx.storage.put(`warlords:${WAR_SEASON.id}`, { from, mem: lm })).catch((e) => logError('war_warlords_save_failed', e));
+    }
     // M6e: what its holders hold, for the stash screen (D1 snapshot; the room state above is the truth)
     const d = this.env.DB, rows = room.holdRows();
     if (d && mjson !== this.memory) {
@@ -1010,6 +1051,8 @@ export class WarRegionDO extends DurableObject<Env> {
     if (r.storied.length) this.storied(r.storied); // W-65
     if (r.met.length) this.met(r.met); // W-65
     favourTick(this.env, room, (w, f) => this.write(w, f)); // W-66: lairs cleared, land held
+    if (r.warlord.length) this.warlordFavour(r.warlord); // W-72 proposal
+    if (this.lordsFrom !== null && room.currentTick % 600 === 0) room.setWarlordAge((Date.now() - this.lordsFrom) / DAY_MS);
     if (d && r.crafted.length) this.write('crafted', () => applyCrafts(d, room.region.id, room.run, r.crafted, Date.now()));
     if (d) for (const b of r.bosses) this.write(`boss ${b.boss}`, () => applyBossKill(d, room.region.id, room.run, b, Date.now()));
     // M7f: a temple or shrine razed costs the razer's alliance score

@@ -261,7 +261,8 @@ export class WarWorldDO extends DurableObject<Env> {
   /** W-62: the world events running now and the next (a region room asks on its start). */
   async worldEvents(now = Date.now()) {
     const w = await this.ensure();
-    return { events: w.activeEvents(now), next: w.nextEvent(now) };
+    // W-72 proposal: the season's start too (the region rooms' warlords count their age from it)
+    return { events: w.activeEvents(now), next: w.nextEvent(now), start: w.st.season.startAt };
   }
 
   private async crownFor(now: number): Promise<CrownMap | undefined> {
