@@ -1,0 +1,23 @@
+server/test/war/warlords.test.ts
+  s_0dd3a9d3e5007a::t_8c4a0868575a8b 55-70
+server/src/war/room.ts
+  s_0dd3a9d3e5007a::t_c223ec2bb0eef5 381-385
+server/src/war/regionDO.ts
+  s_0dd3a9d3e5007a::t_c223ec2bb0eef5 73,300-301,317-341,1109
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "ff9127ec70dc614349ebf9445c952f0aa6a3a023",
+  "prompts": {},
+  "sessions": {
+    "s_0dd3a9d3e5007a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b6130d3d-c070-494f-98d5-046db89f2d1c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
