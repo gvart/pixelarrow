@@ -18,7 +18,7 @@ import { depthOf } from '../sim/depth';
 import { claimView } from './hud/explain';
 import type { SandboxScene } from './SandboxScene';
 
-const DEN: Record<LairSnap['kind'], number> = { wolf: 0x9aa0a8, boar: 0x8a6a4a, bear: 0x5a4030, bandit: 0xc09040, jackal: 0xc8a868, ibex: 0xd8d0b8, lion: 0xb08848, serpent: 0x5a6a40 };
+const DEN: Record<LairSnap['kind'], number> = { wolf: 0x9aa0a8, boar: 0x8a6a4a, bear: 0x5a4030, bandit: 0xc09040, jackal: 0xc8a868, ibex: 0xd8d0b8, lion: 0xb08848, serpent: 0x5a6a40, scorpion: 0xa07838, harpy: 0x8a8090, cyclops: 0x6a6058, drake: 0x7a3a28 };
 const R2 = Math.SQRT2;
 const LABEL: Phaser.Types.GameObjects.Text.TextStyle = { fontFamily: 'Inter, sans-serif', fontSize: '13px', fontStyle: 'bold', color: '#f0e0b0', stroke: '#140c08', strokeThickness: 4, align: 'center' };
 const LABEL_TONE = { good: '#9ed46a', bad: '#ff7a5a', warn: '#e0b867', '': '#f4ead0' } as const;

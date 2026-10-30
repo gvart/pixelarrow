@@ -8,6 +8,10 @@
   "jackal": { "sheet": "mob_jackal", "hostile": true, "tier": 1, "pack": true, "shoulderM": 0.65, "attack": "bite", "biomes": ["kyrene"], "note": "the wolf's frames, smaller and tinted sandy" },
   "ibex": { "sheet": "mob_ibex", "hostile": false, "flees": true, "tier": 0, "pack": true, "shoulderM": 0.9, "attack": null, "biomes": ["mountains"] },
   "lion": { "sheet": "mob_lion", "hostile": true, "tier": 2, "pack": true, "shoulderM": 1.0, "attack": "pounce", "biomes": ["kyrene", "savanna"], "note": "W-67: a hunting pride of lionesses (the maned Nemean lion is the boss mob_savanna_lion); leaps on the first blow at each man" },
-  "serpent": { "sheet": "mob_serpent", "hostile": true, "tier": 2, "pack": false, "lengthM": 6, "attack": "bite", "venom": true, "biomes": ["kyrene", "elaia", "floodplain", "fens"], "note": "W-67: a great river serpent (anaconda-like), slow, a venomous bite and a short lunge" }
+  "serpent": { "sheet": "mob_serpent", "hostile": true, "tier": 2, "pack": false, "lengthM": 6, "attack": "bite", "venom": true, "biomes": ["kyrene", "elaia", "floodplain", "fens"], "note": "W-67: a great river serpent (anaconda-like), slow, a venomous bite and a short lunge" },
+  "scorpion": { "sheet": "mob_scorpion", "hostile": true, "tier": 2, "pack": true, "lengthM": 1.6, "attack": "sting", "venom": true, "biomes": ["kyrene", "canyons"], "note": "a giant desert scorpion, armoured, a venomous sting" },
+  "harpy": { "sheet": "mob_harpy", "hostile": true, "tier": 1, "pack": true, "heightM": 1.5, "attack": "dive", "biomes": ["gorge", "siren", "stymphalia"], "note": "a winged hag that dives on its first blow, weak once caught" },
+  "cyclops": { "sheet": "mob_cyclops", "hostile": true, "tier": 3, "pack": false, "heightM": 3.6, "attack": "club", "biomes": ["krios", "saddle"], "note": "a one-eyed giant with a club; few, very hard to kill, throws men back" },
+  "drake": { "sheet": "mob_drake", "hostile": true, "tier": 2, "pack": true, "lengthM": 2.4, "attack": "rush", "biomes": ["mountains"], "note": "a wingless scaled drake (Drakon's brood); rushes the last tiles" }
  }
 }

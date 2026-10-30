@@ -238,7 +238,7 @@ describe('W-65 a region comes alive', () => {
     expect(e.filter((k) => k === 'pack')).toHaveLength(DENSITY[1].packs);
     expect(e.filter((k) => k === 'caravan')).toHaveLength(DENSITY[1].caravans);
     expect(e.filter((k) => k === 'traveller').length).toBeGreaterThan(0);
-    expect(entry.snapshot().roam!.filter((g) => g.kind === 'pack').every((g) => g.mob === 'jackal' || g.mob === 'lion')).toBe(true); // its fauna (W-67: lions and scorpions)
+    expect(entry.snapshot().roam!.filter((g) => g.kind === 'pack').every((g) => g.mob === 'jackal' || g.mob === 'lion' || g.mob === 'scorpion')).toBe(true); // its fauna (W-67: lions and scorpions)
     const home = createSim(parseRegion(dodona) as RegionData, 1);
     home.spawnRoam();
     const h = kinds(home);

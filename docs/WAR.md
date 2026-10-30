@@ -128,7 +128,7 @@ home.
 | elaia-w | Pirate Coves | entry | rocky coves and pine headlands | headlands h3–4, coves, sea caves | pirates, boars | food 1, wood 2 | elaia, elaia-n, elaia-s, siren |
 | elaia-s | Cape of Winds | entry | rocky goat cape | stepped cape h2–5, cliff edges, one beach | boars, bandits | food 1, stone 2 | elaia, elaia-w, elaia-e, delta |
 | elaia-e | Westbank Vineyards | entry | vine terraces on the Great River's west bank | terraces h1–3, the deep Great River on the east edge, fordable side channels | boars, wolves | food 2, wood 1 | elaia, elaia-n, elaia-s, achelous, bacchae |
-| krios | Krios Glacier | neutral (edge N) | snow peaks at the north end of the Iron Teeth | h7 peaks impassable, glacier tongue h5 (snow), one icy col | cyclops (lair), wolves | stone 1, iron 2 | dodona-n, skythia-n, kleisoura |
+| krios | Krios Glacier | neutral (edge N) | snow peaks at the north end of the Iron Teeth | h7 peaks impassable, glacier tongue h5 (snow), one icy col | cyclops (lair), drakes, wolves | stone 1, iron 2 | dodona-n, skythia-n, kleisoura |
 | siren | Siren Estuary | neutral (edge W) | the Ladon's estuary, sea stacks and sea caves | tidal flats (shallow), deep channel, cliffs h4 | kraken (lair), harpies | food 1, salt 1, silver 1 | dodona-w, elaia-w, stymphalia |
 | ammon | Ammon Salt Flats | neutral (edge E) | white salt flats, a dead lake, red buttes | flats h1 (fast, no cover), buttes h5 (fortress spots) | scorpions, lions | salt 2, silver 1 | skythia-e, kyrene-e, ammos |
 | delta | Achelous Delta | neutral (edge S) | the Great River's delta marsh | maze of deep channels and shallow fords, mud islands h0–1 | hydra (lair), river serpents | food 2, iron 1, salt 1 | elaia-s, kyrene-s, achelous |
@@ -437,7 +437,7 @@ zone. Each room runs on its own seed (the region id hashed), so wander, roads an
 
 | Piece | Where | What |
 | --- | --- | --- |
-| Chief (local mini-boss) | 1 per entry, 2 deeper; none at home | a named beast or bandit chief (src/data/warWild.ts `WAR_CHIEFS`) on his kind's art, drawn 1.2–1.45x and tinted, his name and title over his head; leads an escort of his kind (`CHIEF_KINDS`: hp x2.6–9 and damage x1.5–2.6 over a man of his kind, before depth); his kill drops a pile (10–25 coin and a few hides or iron, x(1 + depth/2), an item at 35–50%); his lair comes back after 37.5 min (depth 1) to 60 min (rim) |
+| Chief (local mini-boss) | 1 per entry, 2 deeper; none at home | a named beast or bandit chief (src/data/warWild.ts `WAR_CHIEFS`) on his kind's art, drawn 1.2–1.45x and tinted, his name and title over his head; leads an escort of his kind (`CHIEF_KINDS`: hp x2–100 and damage x1.2–2.6 over a man of his kind, before depth, and +6 armour, so 20 men take 60–90 s to bring him down at depth 2; a chief never breaks off); his kill drops a pile (10–25 coin and a few hides or iron, x(1 + depth/2), an item at 35–50%); his lair comes back after 37.5 min (depth 1) to 60 min (rim) |
 | Hidden quest | 2 per entry, 3 deeper; none at home | no giver and no marker: men walking onto the spot (a dead man with a note, a cairn, a forgotten shrine, a ruined watch-post) begin the player's own run on the story runner (src/war/sim/secrets.ts), told as a short notice; 1–2 steps a short walk off (hunt the killers, dig a cache, the shrine's chief, a deserters' camp); pays a pile at his men, his alone for 10 min (10–20 coin and a few goods, x(1 + depth/2)) |
 
 ### Random encounters
@@ -614,7 +614,7 @@ fixed seeds, 20 min limit).
 
 | Guardian | HP, damage, armour | Moves | Measured (seeds 1–8; one squad, then the target raid) |
 | --- | --- | --- | --- |
-| Drakon | 18000, 8, 2 | sweep 1.5% (10 s, r 3), breath 5% (10 s), crash 10% + 2 × 4 drakes (hp ×1.2), enrage ×1.1 | up the switchbacks with a ram to the shut barbican gate (no open ground under it): 1 squad 0/8 (stalls at the roof, 60%); 4 squads + ram 8/8 in 4.9–13.6 min, 2–43 of 48 lost; 6 squads + ram 8/8 in 6.4–14.8 min, 0–51 of 72 |
+| Drakon | 18000, 8, 2 | sweep 1.5% (10 s, r 3), breath 5% (10 s), crash 10% + 2 × 3 drakes (hp ×0.8 of a drake), enrage ×1.1 | up the switchbacks with a ram to the shut barbican gate (no open ground under it): 1 squad 0/8 (stalls at the roof, 60%); 4 squads + ram 8/8 in 4.9–13.6 min, 2–43 of 48 lost; 6 squads + ram 8/8 in 6.4–14.8 min, 0–51 of 72 |
 | Bandit King of Ammon | 6000, 22, 6 + 11 guards × 150 (14 dmg) | flees under 30% | 1 squad 0/8 (wiped in 3.5 min); 2 squads 3/8; 3 squads 8/8 in 4.0–7.3 min, 3–22 of 36 lost. The host's lairs hold the quarters off the King's street and seldom join |
 | Brontes | 8000, 30, 4 | rocks 6% (6 s, r 1.8), down under 85% | 1 squad 0/8 (wiped); 4 squads 8/8 in 1.8–3.6 min, 0–2 lost |
 | Gyges | 10000, 12, 4 | three blows of 12 at once (2.5 s) | 1 squad 0/8; 4 squads 8/8 in 3.0–4.1 min, 16–23 lost |

@@ -75,8 +75,8 @@ const def: RegionDef = {
     k.forest([70, 120, 6, 4, 0]);
     k.village([192, 108], 3);
     // fauna: scorpions in the salt hollow and the dunes, lions under the ridge
-    k.lair('jackal', [66, 206], { as: 'scorpions' });
-    k.lair('jackal', [70, 124], { as: 'scorpions' });
+    k.lair('scorpion', [66, 206], { as: 'scorpions' });
+    k.lair('scorpion', [70, 124], { as: 'scorpions' });
     k.lair('lion', [214, 204], { as: 'lions' });
     k.lair('lion', [220, 72], { as: 'lions' });
     k.claim(hub, 160);

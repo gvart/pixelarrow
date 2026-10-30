@@ -116,6 +116,23 @@ const LAIRS = {
     live: [['kyrene/reeds', -64, -18], ['kyrene/reeds', 58, -24], ['part:nest', 0, 14, { scale: 1.25 }], ['objects/reeds', -84, 20], ['kyrene/debris-mud', 64, 30, { scale: 0.7 }]],
     cleared: [['kyrene/reeds', -64, -18], ['kyrene/reeds', 58, -24], ['part:nest', 0, 14, { scale: 1.25 }], ['kyrene/debris-mud', 64, 30, { scale: 0.7 }]],
   },
+  // new-creatures: from the same parts and props (no new PixelLab parts)
+  scorpion: {
+    live: [['kyrene/boulder-red', -60, -10], ['kyrene/rocks-red', 56, -6], ['part:burrow', 4, 12], ['part:burrow', -44, 30, { scale: 0.6 }], ['kyrene/camelthorn', 70, 26, { scale: 0.8 }], ['part:bones', 30, 34, { scale: 0.5 }]],
+    cleared: [['kyrene/boulder-red', -60, -10], ['kyrene/rocks-red', 56, -6], ['part:burrow', 4, 12], ['part:bones', 30, 34, { scale: 0.5 }]],
+  },
+  harpy: {
+    live: [['objects/outcrop', -6, -6, { scale: 0.5 }], ['objects/dead-tree', -66, -20, { scale: 0.6 }], ['part:nest', 24, 18, { scale: 0.9 }], ['part:bones', -30, 32, { scale: 0.6 }], ['part:ribs', 60, 34, { scale: 0.55 }]],
+    cleared: [['objects/outcrop', -6, -6, { scale: 0.5 }], ['objects/dead-tree', -66, -20, { scale: 0.6 }], ['part:nest', 24, 18, { scale: 0.9 }], ['part:bones', -30, 32, { scale: 0.6 }]],
+  },
+  cyclops: {
+    live: [['part:cave', 6, 10, { scale: 1.3 }], ['mountains/boulder-field', -84, 22, { scale: 0.7 }], ['part:ribs', 58, 34, { scale: 0.8 }], ['part:campfire', -30, 40], ['mountains/alpine-grass', 80, 20]],
+    cleared: [['part:cave', 6, 10, { scale: 1.3 }], ['mountains/boulder-field', -84, 22, { scale: 0.7 }], ['part:ribs', 58, 34, { scale: 0.8 }], ['part:campfire-cold', -30, 40]],
+  },
+  drake: {
+    live: [['mountains/rockfall', -36, -6, { scale: 0.7 }], ['objects/scree', 60, -4, { scale: 0.8 }], ['part:ribs', 6, 14], ['part:bones', -50, 32, { scale: 0.7 }], ['part:bones', 46, 34, { scale: 0.55, flip: true }], ['mountains/juniper', 86, 24, { scale: 0.7 }]],
+    cleared: [['mountains/rockfall', -36, -6, { scale: 0.7 }], ['objects/scree', 60, -4, { scale: 0.8 }], ['part:ribs', 6, 14], ['part:bones', -50, 32, { scale: 0.7 }]],
+  },
 };
 
 mkdirSync(OUT, { recursive: true });

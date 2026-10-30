@@ -68,8 +68,8 @@ const def: RegionDef = {
     k.forest([40, 40, 6, 5, 0]);
     // fauna: the bandit camp on the salt, scorpions in the dunes and on the bar's head
     k.lair('bandit', [96, 164], { as: 'bandits' });
-    k.lair('jackal', [32, 82], { as: 'scorpions' });
-    k.lair('jackal', [44, 220], { as: 'scorpions' });
+    k.lair('scorpion', [32, 82], { as: 'scorpions' });
+    k.lair('scorpion', [44, 220], { as: 'scorpions' });
     k.lair('bandit', [160, 30], { as: 'bandits' });
     k.claim(hub, 160);
   },

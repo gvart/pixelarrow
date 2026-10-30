@@ -84,6 +84,9 @@ describe('guardians (M7d)', () => {
     run(sim, MOVES.flight + 2);
     expect(boss(sim).state).toBe('fight');
     expect(sim.snapshot().squads.length).toBe(squads0 + MOVES.crash.packs);
+    const called = sim.snapshot().squads.slice(squads0).flatMap((q) => q.units);
+    expect(called.length).toBeGreaterThan(0);
+    expect(sim.snapshot().units.filter((u) => called.includes(u.id)).every((u) => u.cls === 'mob_drake')).toBe(true);
     // the kill opens the claim point and names the killers
     events(sim);
     sim.hurtBoss('drakon', 1e9, 'p:7');

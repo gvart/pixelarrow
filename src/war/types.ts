@@ -70,7 +70,7 @@ export interface PrebuiltEntry {
 }
 export interface TileRect { x: number; y: number; w: number; h: number }
 export interface SafeRect extends TileRect { gates?: TileRect[] }
-export type MobKind = 'wolf' | 'boar' | 'bear' | 'bandit' | 'jackal' | 'ibex' | 'lion' | 'serpent';
+export type MobKind = 'wolf' | 'boar' | 'bear' | 'bandit' | 'jackal' | 'ibex' | 'lion' | 'serpent' | 'scorpion' | 'harpy' | 'cyclops' | 'drake';
 export type SquadId = number; export type UnitId = number;
 /**
  * W-53 unit control: any order with a squad may name `units` (living men of that squad's owner and team, in any of his

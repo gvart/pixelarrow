@@ -25,8 +25,8 @@ export interface WarChief {
 export interface ChiefKind {
   /** Draw scale over the kind's sheet, and a multiply tint (0xffffff: none). */
   scale: number; tint: number;
-  /** Hp and damage over a man of his kind. */
-  hp: number; dmg: number;
+  /** Hp and damage over a man of his kind, and armour on top of his (a chief fight lasts 60-90 s against 20 men). */
+  hp: number; dmg: number; armor: number;
   /** Men of his kind with him. */
   escort: number;
   /** His kill drops (a pile where he fell): coin and goods, each x (1 + per x depth); an item at `item.chance`. */
@@ -35,13 +35,17 @@ export interface ChiefKind {
 
 const BEAST_ITEM = { chance: 0.35, rarity: [['uncommon', 60], ['rare', 35], ['epic', 5]] as const };
 export const CHIEF_KINDS: Readonly<Record<string, ChiefKind>> = {
-  wolf: { scale: 1.4, tint: 0xc4c8d8, hp: 7, dmg: 2.2, escort: 5, loot: { coin: 12, goods: { hides: 6 }, per: 0.5, item: BEAST_ITEM } },
-  boar: { scale: 1.35, tint: 0xa88a78, hp: 4.5, dmg: 1.8, escort: 2, loot: { coin: 12, goods: { hides: 6, food: 10 }, per: 0.5, item: BEAST_ITEM } },
-  bear: { scale: 1.3, tint: 0x9a8a80, hp: 2.6, dmg: 1.5, escort: 1, loot: { coin: 15, goods: { hides: 8 }, per: 0.5, item: BEAST_ITEM } },
-  bandit: { scale: 1.2, tint: 0xd8b890, hp: 5, dmg: 1.6, escort: 6, loot: { coin: 25, goods: { iron: 4 }, per: 0.5, item: { chance: 0.5, rarity: [['uncommon', 45], ['rare', 45], ['epic', 10]] } } },
-  jackal: { scale: 1.45, tint: 0xd8b070, hp: 9, dmg: 2.6, escort: 5, loot: { coin: 10, goods: { hides: 5 }, per: 0.5, item: BEAST_ITEM } },
-  lion: { scale: 1.35, tint: 0xe0a860, hp: 4.5, dmg: 1.7, escort: 2, loot: { coin: 15, goods: { hides: 8 }, per: 0.5, item: BEAST_ITEM } },
-  serpent: { scale: 1.35, tint: 0x8ab088, hp: 3, dmg: 1.5, escort: 1, loot: { coin: 15, goods: { hides: 6, herbs: 4 }, per: 0.5, item: BEAST_ITEM } },
+  wolf: { scale: 1.4, tint: 0xc4c8d8, hp: 73, dmg: 2.2, armor: 6, escort: 5, loot: { coin: 12, goods: { hides: 6 }, per: 0.5, item: BEAST_ITEM } },
+  boar: { scale: 1.35, tint: 0xa88a78, hp: 29, dmg: 1.8, armor: 6, escort: 2, loot: { coin: 12, goods: { hides: 6, food: 10 }, per: 0.5, item: BEAST_ITEM } },
+  bear: { scale: 1.3, tint: 0x9a8a80, hp: 7, dmg: 1.5, armor: 6, escort: 1, loot: { coin: 15, goods: { hides: 8 }, per: 0.5, item: BEAST_ITEM } },
+  bandit: { scale: 1.2, tint: 0xd8b890, hp: 19, dmg: 1.6, armor: 6, escort: 6, loot: { coin: 25, goods: { iron: 4 }, per: 0.5, item: { chance: 0.5, rarity: [['uncommon', 45], ['rare', 45], ['epic', 10]] } } },
+  jackal: { scale: 1.45, tint: 0xd8b070, hp: 100, dmg: 2.6, armor: 6, escort: 5, loot: { coin: 10, goods: { hides: 5 }, per: 0.5, item: BEAST_ITEM } },
+  lion: { scale: 1.35, tint: 0xe0a860, hp: 33, dmg: 1.7, armor: 6, escort: 2, loot: { coin: 15, goods: { hides: 8 }, per: 0.5, item: BEAST_ITEM } },
+  serpent: { scale: 1.35, tint: 0x8ab088, hp: 15.5, dmg: 1.5, armor: 6, escort: 1, loot: { coin: 15, goods: { hides: 6, herbs: 4 }, per: 0.5, item: BEAST_ITEM } },
+  scorpion: { scale: 1.4, tint: 0x6a5048, hp: 20, dmg: 1.6, armor: 6, escort: 2, loot: { coin: 15, goods: { hides: 4, herbs: 4 }, per: 0.5, item: BEAST_ITEM } },
+  harpy: { scale: 1.3, tint: 0xa898b8, hp: 58, dmg: 1.8, armor: 6, escort: 3, loot: { coin: 12, goods: { linen: 3 }, per: 0.5, item: BEAST_ITEM } },
+  cyclops: { scale: 1.2, tint: 0xc0a890, hp: 3.6, dmg: 1.2, armor: 6, escort: 1, loot: { coin: 25, goods: { bronze: 4, food: 10 }, per: 0.5, item: { chance: 0.5, rarity: [['uncommon', 40], ['rare', 48], ['epic', 12]] } } },
+  drake: { scale: 1.35, tint: 0xd07858, hp: 20, dmg: 1.6, armor: 6, escort: 2, loot: { coin: 15, goods: { hides: 8 }, per: 0.5, item: BEAST_ITEM } },
 };
 
 /** The named chiefs (a region's fill pass picks from those of its lair kinds; hidden quests name theirs). */
@@ -70,7 +74,7 @@ export const WAR_CHIEFS: readonly WarChief[] = [
   { id: 'sly_hunger', name: 'Sly Hunger', title: 'The grinning pack-mother', kind: 'jackal' },
   { id: 'dust_tail', name: 'Dust-Tail', title: 'Pack-leader of the waste', kind: 'jackal' },
   { id: 'old_carrion', name: 'Old Carrion', title: 'It follows the dying', kind: 'jackal' },
-  { id: 'stingmother', name: 'the Sting-Mother', title: 'Queen of the burrows', kind: 'jackal' },
+  { id: 'gnaw_jaw', name: 'Gnaw-Jaw', title: 'Jackal of the tombs', kind: 'jackal' },
   { id: 'scarmane', name: 'Old Scarmane', title: 'Lion of the dry grass', kind: 'lion' },
   { id: 'aithon', name: 'Aithon the Red', title: 'Lion of the kopjes', kind: 'lion' },
   { id: 'thorn_lion', name: 'the Thorn-Lion', title: 'Lion of the scrub', kind: 'lion' },
@@ -78,6 +82,18 @@ export const WAR_CHIEFS: readonly WarChief[] = [
   { id: 'old_coil', name: 'Old Coil', title: 'Serpent of the ford', kind: 'serpent' },
   { id: 'mud_drinker', name: 'the Mud-Drinker', title: 'Serpent of the fens', kind: 'serpent' },
   { id: 'old_hiss', name: 'Old Hiss', title: 'Serpent of the reed beds', kind: 'serpent' },
+  { id: 'stingmother', name: 'the Sting-Mother', title: 'Queen of the burrows', kind: 'scorpion' },
+  { id: 'black_tail', name: 'Black-Tail', title: 'Scorpion of the salt flats', kind: 'scorpion' },
+  { id: 'old_pincer', name: 'Old Pincer', title: 'Scorpion of the dry wadis', kind: 'scorpion' },
+  { id: 'kelaino', name: 'Kelaino the Dark', title: 'Mother of the roost', kind: 'harpy' },
+  { id: 'aello', name: 'Aello Storm-Swift', title: 'Harpy of the cliffs', kind: 'harpy' },
+  { id: 'okypete', name: 'Okypete', title: 'The swift-wing', kind: 'harpy' },
+  { id: 'stone_eye', name: 'Old Stone-Eye', title: 'Cyclops of the high caves', kind: 'cyclops' },
+  { id: 'glacier_maw', name: 'Glacier-Maw', title: 'Cyclops of the glacier', kind: 'cyclops' },
+  { id: 'cairn_breaker', name: 'Cairn-Breaker', title: 'Cyclops of the passes', kind: 'cyclops' },
+  { id: 'ember_jaw', name: 'Ember-Jaw', title: 'Eldest of the brood', kind: 'drake' },
+  { id: 'scale_mother', name: 'the Scale-Mother', title: 'Drake of the bone pits', kind: 'drake' },
+  { id: 'ashwyrm', name: 'Ashwyrm', title: 'Drake of the scree', kind: 'drake' },
 ];
 
 const CHIEF_BY_ID = new Map(WAR_CHIEFS.map((c) => [c.id, c]));

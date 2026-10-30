@@ -1,0 +1,12 @@
+[
+ {"anim": "idle", "dir": "south-west", "attempt": "a1", "job": "767a29e9-ad94-44fd-ba14-f044e8829d0f", "mode": "pixminimax", "frames": 12, "pl": "south"},
+ {"anim": "walk", "dir": "south-west", "attempt": "a1", "job": "da54f36a-60d2-4d8e-991f-373a5c311418", "mode": "pixminimax", "frames": 12, "pl": "south"},
+ {"anim": "attack", "dir": "south-west", "attempt": "a1", "job": "e91a5ee4-2d99-464f-81bc-2d922e7a587d", "mode": "pixminimax", "frames": 12, "pl": "south"},
+ {"anim": "die", "dir": "south-west", "attempt": "a1", "job": "0a5595c5-6ae3-43e5-94d8-10b3e9526436", "mode": "pixminimax", "frames": 12, "pl": "south"},
+ {"anim": "idle", "dir": "north-west", "attempt": "a1", "job": "071b6ea5-754b-4d1c-aaee-4d8a67485f7e", "mode": "pixminimax", "frames": 12, "pl": "west"},
+ {"anim": "walk", "dir": "north-west", "attempt": "a1", "job": "c112fd44-c4dc-4594-a36a-72cd6404cf52", "mode": "pixminimax", "frames": 12, "pl": "west", "note": "the club vanished behind him: replaced by a2"},
+ {"anim": "attack", "dir": "north-west", "attempt": "a1", "job": "c28ba6b3-04de-47a6-baf6-f4937d5c1deb", "mode": "pixminimax", "frames": 12, "pl": "west"},
+ {"anim": "die", "dir": "north-west", "attempt": "a1", "job": "ec3a6507-b6fa-424a-a01e-7b6cbfab1d91", "mode": "pixminimax", "frames": 12, "pl": "west", "note": "turned his face to the viewer on frames 1-2: replaced by a2"},
+ {"anim": "walk", "dir": "north-west", "attempt": "a2", "job": "af92e49d-e647-4df6-a81a-f17d86d7d096", "mode": "pixminimax", "frames": 12, "pl": "west", "seed": 11},
+ {"anim": "die", "dir": "north-west", "attempt": "a2", "job": "76a84dbc-940b-4d30-8dda-ef1c67f61c57", "mode": "pixminimax", "frames": 12, "pl": "west", "seed": 11}
+]

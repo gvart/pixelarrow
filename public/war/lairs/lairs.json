@@ -160,6 +160,86 @@
      "y": 90
     }
    }
+  },
+  "scorpion": {
+   "live": {
+    "file": "scorpion-live.png",
+    "w": 190,
+    "h": 103,
+    "anchor": {
+     "x": 98,
+     "y": 67
+    }
+   },
+   "cleared": {
+    "file": "scorpion-cleared.png",
+    "w": 177,
+    "h": 103,
+    "anchor": {
+     "x": 98,
+     "y": 67
+    }
+   }
+  },
+  "harpy": {
+   "live": {
+    "file": "harpy-live.png",
+    "w": 193,
+    "h": 174,
+    "anchor": {
+     "x": 105,
+     "y": 138
+    }
+   },
+   "cleared": {
+    "file": "harpy-cleared.png",
+    "w": 163,
+    "h": 172,
+    "anchor": {
+     "x": 105,
+     "y": 138
+    }
+   }
+  },
+  "cyclops": {
+   "live": {
+    "file": "cyclops-live.png",
+    "w": 240,
+    "h": 180,
+    "anchor": {
+     "x": 142,
+     "y": 138
+    }
+   },
+   "cleared": {
+    "file": "cyclops-cleared.png",
+    "w": 240,
+    "h": 180,
+    "anchor": {
+     "x": 142,
+     "y": 138
+    }
+   }
+  },
+  "drake": {
+   "live": {
+    "file": "drake-live.png",
+    "w": 221,
+    "h": 131,
+    "anchor": {
+     "x": 92,
+     "y": 95
+    }
+   },
+   "cleared": {
+    "file": "drake-cleared.png",
+    "w": 221,
+    "h": 130,
+    "anchor": {
+     "x": 92,
+     "y": 95
+    }
+   }
   }
  }
 }

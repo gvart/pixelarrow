@@ -81,6 +81,16 @@ export const MOBS: Record<MobKind, MobDef> = {
   // W-67 a great river serpent: slow, armoured, a long venomous bite and a short lunge
   serpent: { base: 'militia', hp: 2.2, dmg: 1.2, speed: 0.75, atk: 1.6, armor: 3, block: 0, reach: 2.2, venom: true, count: 2, aggro: 7, leash: 14,
     dash: { min: 1.8, max: 3.6, ticks: 5, speed: 2.6, cd: 60, dmg: 1.3 } },
+  // new-creatures: a giant desert scorpion: plated (hard to cut), a slow venomous sting from a little off; it holds its ground
+  scorpion: { base: 'militia', hp: 1.5, dmg: 1.05, speed: 1.15, atk: 1.4, armor: 5, block: 0, reach: 1.4, venom: true, count: 3, aggro: 8, leash: 16 },
+  // new-creatures: harpies: quick and frail, a swooping rake on each man (a short leap), they scatter once badly hurt
+  harpy: { base: 'militia', hp: 0.7, dmg: 0.9, speed: 1.8, atk: 0.9, armor: 0, block: 0, count: 4, aggro: 14, leash: 26, skittish: 0.4,
+    dash: { min: 2.5, max: 7, ticks: 7, speed: 2.4, cd: 45, dmg: 1.6, knock: 0.5, once: true } },
+  // new-creatures: a one-eyed giant: very slow, a club that smashes men away; few, each a fight of its own
+  cyclops: { base: 'militia', hp: 8, dmg: 3.2, speed: 0.9, atk: 2, armor: 3, block: 0, reach: 1.7, knock: 1.6, count: 2, aggro: 10, leash: 18, cry: 'roar' },
+  // new-creatures: Drakon's brood (his escort from the bone pit, and the Krios crags): a scaled lunge and bite
+  drake: { base: 'militia', hp: 1.7, dmg: 1.4, speed: 1.45, atk: 1.1, armor: 3, block: 0, reach: 1.2, count: 3, aggro: 12, leash: 22, cry: 'roar',
+    dash: { min: 2, max: 5, ticks: 6, speed: 2.2, cd: 50, dmg: 1.4, knock: 0.6 } },
 };
 
 /** Every mob kind (the region schema's lair enum reads it): a new kind is a row of MOBS (and of roam.ts NATURE). */
@@ -110,7 +120,7 @@ export const CLAIM = { ticks: 300, men: 3, at: 5, contest: 14, r: 20 };
 export interface MobUnit { id?: number; x: number; y: number; hp: number; maxHp: number; alive: boolean }
 export interface MobSquad { id: SquadId; owner: string; team: number; alive: number; civ?: boolean; cx: number; cy: number; units: MobUnit[]; order: Order['kind']; target: SquadId; claimPt: number }
 /** M7c: stat multipliers of a spawned pack (depth, elite guard) and of its first man (a captain). */
-export interface SpawnScale { hp: number; dmg: number; lead?: { hp: number; dmg: number } }
+export interface SpawnScale { hp: number; dmg: number; lead?: { hp: number; dmg: number; armor?: number } }
 /** M7d stub: a region boss as the claim gate sees it (alive: it holds the region and keeps its claim points shut). */
 export interface BossGate { id: string; alive: boolean }
 
@@ -196,7 +206,7 @@ export function createMobs(region: RegionData, host: MobHost) {
   const spawnLair = (l: Lair) => {
     const g = l.captain ? HOST.guard : { hp: 1, dmg: 1 };
     const ck = l.chief ? chiefKind(l.chief.id) : undefined;
-    const lead = ck ? { hp: ck.hp, dmg: ck.dmg } : l.captain || l.lead ? HOST.captain : undefined;
+    const lead = ck ? { hp: ck.hp, dmg: ck.dmg, armor: ck.armor } : l.captain || l.lead ? HOST.captain : undefined;
     l.squad = host.spawn(l.kind, l.count, l.x, l.y, { hp: rule.mob * g.hp, dmg: rule.mob * g.dmg, ...(lead ? { lead } : {}) });
     l.capAlive = l.captain;
     if (l.chief) l.chiefAlive = true;
@@ -295,10 +305,11 @@ export function createMobs(region: RegionData, host: MobHost) {
       }
     } else if (l.state === 'chase') {
       const f = l.foe >= 0 ? sq(l.foe) : undefined;
-      // past the leash, the foe gone, or a skittish pack bloodied: back to the lair
-      if (dHome > l.def.leash || !f || f.alive === 0 || s.order !== 'attack' || (l.def.skittish && hp < max * l.def.skittish)) {
+      // past the leash, the foe gone, or a skittish pack bloodied (a chief's never breaks): back to the lair
+      const skittish = l.chiefAlive ? 0 : l.def.skittish ?? 0;
+      if (dHome > l.def.leash || !f || f.alive === 0 || s.order !== 'attack' || (skittish && hp < max * skittish)) {
         const [next] = f && f.alive > 0 ? [-1] : nearestFoe(MOB_TEAM, s.cx, s.cy, l.def.aggro);
-        const broke = !!l.def.skittish && hp < max * l.def.skittish;
+        const broke = !!skittish && hp < max * skittish;
         if (next >= 0 && dHome <= l.def.leash && !broke) aggro(l, next);
         else {
           if (broke) host.note?.({ kind: 'mobScatter', lair: l.id, mob: l.kind, x: s.cx, y: s.cy });

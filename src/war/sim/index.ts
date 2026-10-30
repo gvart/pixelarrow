@@ -618,8 +618,9 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       // M7c: depth and the host's elite guard over the kind's stats; a captain leads (the first man)
       squads[id]?.units.forEach((u, i) => {
         const hp = k.hp * (i === 0 && k.lead ? k.lead.hp : 1), dmg = k.dmg * (i === 0 && k.lead ? k.lead.dmg : 1);
-        if (hp === 1 && dmg === 1) return;
-        u.st = { ...u.st, maxHp: u.st.maxHp * hp, dmg: u.st.dmg * dmg, rangedDmg: u.st.rangedDmg * dmg };
+        const armor = i === 0 ? k.lead?.armor ?? 0 : 0;
+        if (hp === 1 && dmg === 1 && !armor) return;
+        u.st = { ...u.st, maxHp: u.st.maxHp * hp, dmg: u.st.dmg * dmg, rangedDmg: u.st.rangedDmg * dmg, armor: u.st.armor + armor };
         u.maxHp = u.hp = u.st.maxHp;
       });
       // W-65: a bandit captain (a host's or a story's named foe) wears the captain's sheet; his stats stay as set above

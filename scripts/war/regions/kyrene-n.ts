@@ -90,8 +90,8 @@ const def: RegionDef = {
     // fauna: lions by the copper and in the north scrub, scorpions in the hills
     k.lair('lion', [154, by(154) + 46], { as: 'lions' });
     k.lair('lion', [196, 64], { as: 'lions' });
-    k.lair('jackal', [58, 64], { as: 'scorpions' });
-    k.lair('jackal', [210, 206], { as: 'scorpions' });
+    k.lair('scorpion', [58, 64], { as: 'scorpions' });
+    k.lair('scorpion', [210, 206], { as: 'scorpions' });
     // thornscrub: clumps of thorn trees and acacias on the hills both sides of the band (the scatter's bushes are too small
     // to show zoomed out)
     for (const b of [[50, 50, 10, 7, 0.4], [80, 76, 8, 6, 0], [190, 56, 10, 6, -0.3], [222, 90, 8, 6, 0], [176, 92, 7, 5, 0],

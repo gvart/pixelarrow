@@ -71,7 +71,7 @@ const def: RegionDef = {
     k.lair('bear', [166, 140], { count: 12, as: 'titan' });
     k.lair('bear', [184, 176], { count: 8, as: 'minotaur' });
     k.lair('wolf', [150, 70], { as: 'wolves' });
-    k.lair('wolf', [96, 196], { as: 'harpies' });
+    k.lair('harpy', [96, 196], { as: 'harpies' });
     k.claim(C.spots.templeSquare, 150);
   },
 };

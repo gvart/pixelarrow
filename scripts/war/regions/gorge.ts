@@ -66,9 +66,9 @@ const def: RegionDef = {
     k.piece('watchtower', [150, 140], { r: 6 });
     k.piece('mountains/eagle-nest', [86, 90], { r: 10, onRock: false });
     // fauna: harpies by the copper on the floor, river serpents at the ford and below the falls
-    k.lair('wolf', [92, 160], { as: 'harpies' });
+    k.lair('harpy', [92, 160], { as: 'harpies' });
     k.lair('boar', [110, 200], { as: 'river serpents' });
-    k.lair('wolf', [180, 60], { as: 'harpies' });
+    k.lair('harpy', [180, 60], { as: 'harpies' });
     k.claim([138, 124], 160);
   },
 };

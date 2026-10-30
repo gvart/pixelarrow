@@ -1,0 +1,18 @@
+{
+ "class": "mob_harpy",
+ "character": "8217ed71-9a40-4df4-bcd4-c0193d779994",
+ "raw": "docs/v5/pixellab/MOBS/raw/harpy",
+ "rotations": "docs/v5/pixellab/MOBS/raw/harpy/rot",
+ "shrink": 0.42,
+ "scale": 0.55,
+ "canvas": [160, 160],
+ "pad": [0, 0],
+ "clips": {
+  "idle": { "fps": 6, "job": { "south-east": "mirror:south-west", "north-east": "mirror:north-west", "south-west": "a1", "north-west": "a1" } },
+  "walk": { "fps": 10, "job": { "south-east": "mirror:south-west", "north-east": "mirror:north-west", "south-west": "a1", "north-west": "a1" } },
+  "run": { "fps": 14, "of": "walk", "frames": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] },
+  "attack": { "fps": 12, "strike": 6, "job": { "south-east": "mirror:south-west", "north-east": "mirror:north-west", "south-west": "a1", "north-west": "a2" } },
+  "die": { "fps": 10, "job": { "south-east": "mirror:south-west", "north-east": "mirror:north-west", "south-west": "a2", "north-west": "a2" } },
+  "hit": { "fps": 12, "of": "die", "frames": [0, 1, 1, 0] }
+ }
+}
