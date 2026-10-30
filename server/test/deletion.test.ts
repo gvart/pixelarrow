@@ -81,23 +81,16 @@ const NOT_SEEDED = new Set(['players', 'deletion_jobs', 'ban_tombstones']);
 
 interface Seeded {
   pid: number;
-  /** The legacy players.telegram_id mirror, also its dev identity's subject. */
-  legacyId: number;
   email: string;
   token: string;
   /** table -> the rowids seeded for this player. */
   rows: Map<string, number[]>;
 }
 
-/**
- * A player with a dev identity (stored under the legacy 'telegram' kind), the
- * legacy players.telegram_id set (as old production rows have it), a password
- * identity and a row in every table that references players.
- */
+/** A player with a dev and a password identity and a row in every table that references players. */
 async function seedEverywhere(): Promise<Seeded> {
   const me = await devLogin(++devId);
-  await DB().prepare('UPDATE players SET telegram_id = ?2 WHERE id = ?1').bind(me.playerId, devId).run();
-  const s: Seeded = { pid: me.playerId, legacyId: devId, email: `gone${devId}@example.com`, token: me.token, rows: new Map() };
+  const s: Seeded = { pid: me.playerId, email: `gone${devId}@example.com`, token: me.token, rows: new Map() };
   const cols = await schemaCols();
   const byTable = new Map<string, Col[]>();
   for (const c of cols) byTable.set(c.table, [...(byTable.get(c.table) ?? []), c]);
@@ -113,13 +106,11 @@ async function seedEverywhere(): Promise<Seeded> {
   for (const table of order) {
     const rule = DELETION_MAP[table];
     const pidCols = new Set([...(rule.pid ?? []), ...(rule.kept ?? [])]);
-    const tgCols = new Set(rule.tg ?? []);
     const over = OVERRIDE[table]?.(s) ?? {};
     const values: Record<string, unknown> = {};
     for (const c of byTable.get(table)!) {
       if (c.column in over) values[c.column] = over[c.column];
       else if (pidCols.has(c.column) || c.references === 'players') values[c.column] = s.pid;
-      else if (tgCols.has(c.column)) values[c.column] = s.legacyId;
       else if (c.references) {
         const parent = await DB().prepare(`SELECT ${c.to ?? 'rowid'} AS v FROM ${c.references} WHERE rowid = ?1`).bind(s.rows.get(c.references)![0]).first<{ v: unknown }>();
         values[c.column] = parent!.v;
@@ -152,8 +143,8 @@ const count = async (sql: string, ...binds: unknown[]) => (await DB().prepare(`S
 async function rowsOf(s: Seeded): Promise<Record<string, number>> {
   const out: Record<string, number> = {};
   for (const [table, rule] of Object.entries(DELETION_MAP)) {
-    const conds = [...(rule.pid ?? []), ...(rule.kept ?? [])].map((c) => `${c} = ?1`).concat((rule.tg ?? []).map((c) => `${c} = ?2`));
-    if (conds.length) out[table] = await count(`${table} WHERE ${conds.join(' OR ')}`, ...(rule.tg?.length ? [s.pid, s.legacyId] : [s.pid]));
+    const conds = [...(rule.pid ?? []), ...(rule.kept ?? [])].map((c) => `${c} = ?1`);
+    if (conds.length) out[table] = await count(`${table} WHERE ${conds.join(' OR ')}`, s.pid);
   }
   return out;
 }
@@ -186,11 +177,9 @@ describe('deleteAccount (ADR-0009 §7)', () => {
     expect(p).toMatchObject({
       display_name: DELETED_NAME,
       display_name_key: `deleted:${victim.pid}`,
-      telegram_id: null,
       username: null,
       first_name: null,
       language_code: null,
-      is_premium: 0,
       public_boards: 0,
       deleted_at: now,
     });

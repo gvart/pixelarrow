@@ -9,9 +9,9 @@
  * in it can run twice without harm. An interrupted run is finished by the daily
  * cron (finishDeletions).
  *
- *   revoke     sessions, identities (and password hashes), email tokens,
- *              throttle keys, legacy link and bot rows, support requests;
- *              a banned player's identities go to ban_tombstones as hashes
+ *   revoke     sessions, identities (and password hashes), email tokens and
+ *              throttle keys; a banned player's identities go to
+ *              ban_tombstones as hashes
  *   leave      market listings, regions and garrisons, clan (leadership passes
  *              on, an empty clan is disbanded), duel queue, open sockets
  *   purge      every `delete` table of DELETION_MAP
@@ -121,11 +121,9 @@ const STEPS: ((x: Ctx) => Promise<D1PreparedStatement[]>)[] = [revoke, leave, pu
 
 async function revoke(x: Ctx): Promise<D1PreparedStatement[]> {
   const { db, pid } = x;
-  const p = await db.prepare('SELECT telegram_id, banned_at FROM players WHERE id = ?1').bind(pid).first<{ telegram_id: number | null; banned_at: number | null }>();
+  const p = await db.prepare('SELECT banned_at FROM players WHERE id = ?1').bind(pid).first<{ banned_at: number | null }>();
   const ids = (await db.prepare('SELECT kind, subject, email FROM auth_identities WHERE player_id = ?1').bind(pid).all<{ kind: IdentityKind; subject: string; email: string | null }>()).results;
   const emails = ids.filter((i) => i.kind === 'password').map((i) => i.subject);
-  // The legacy external id (no longer written): rows keyed by it still go.
-  const tg = p?.telegram_id ?? null;
   if (x.opts.beforeRevoke && emails.length) {
     try {
       await x.opts.beforeRevoke(ids.filter((i) => i.kind === 'password').map((i) => i.email ?? i.subject));
@@ -153,14 +151,9 @@ async function revoke(x: Ctx): Promise<D1PreparedStatement[]> {
   stmts.push(
     db.prepare('DELETE FROM sessions WHERE player_id = ?1').bind(pid),
     db.prepare(`DELETE FROM email_tokens WHERE player_id = ?1 OR email_norm IN (${inList(emails, 2)})`).bind(pid, ...emails),
-    db.prepare('DELETE FROM link_codes WHERE player_id = ?1 OR telegram_id = ?2').bind(pid, tg),
-    db.prepare('DELETE FROM link_conflicts WHERE player_id = ?1 OR other_player_id = ?1').bind(pid),
     db.prepare(`DELETE FROM auth_throttle WHERE key IN (${inList(keys, 1)})`).bind(...keys),
-    db.prepare('DELETE FROM bot_state WHERE telegram_id = ?1').bind(tg),
-    db.prepare('DELETE FROM support_requests WHERE player_id = ?1 OR telegram_id = ?2').bind(pid, tg),
     // password_hashes go with their identity (ON DELETE CASCADE).
     db.prepare('DELETE FROM auth_identities WHERE player_id = ?1').bind(pid),
-    db.prepare('UPDATE players SET telegram_id = NULL WHERE id = ?1').bind(pid),
   );
   return stmts;
 }
@@ -191,9 +184,9 @@ async function leave(x: Ctx): Promise<D1PreparedStatement[]> {
 }
 
 /**
- * Hard-deletes every `delete` table of DELETION_MAP by the player's id (the
- * legacy external id is gone by now; revoke took those rows). The cron's sweep of a
- * finished deletion keeps display_name_history: it holds the freed name.
+ * Hard-deletes every `delete` table of DELETION_MAP by the player's id. The
+ * cron's sweep of a finished deletion keeps display_name_history: it holds the
+ * freed name.
  */
 function purgeStatements(db: D1Database, pid: number, sweep = false): D1PreparedStatement[] {
   return [
@@ -219,8 +212,8 @@ async function tombstone(x: Ctx): Promise<D1PreparedStatement[]> {
       .bind(pid, now, DELETED_NAME),
     db
       .prepare(
-        `UPDATE players SET display_name = ?3, display_name_key = 'deleted:' || id, telegram_id = NULL, username = NULL, first_name = NULL,
-           language_code = NULL, is_premium = 0, public_boards = 0, ban_reason = NULL, analytics_opt_out = 1, name_changed_at = NULL,
+        `UPDATE players SET display_name = ?3, display_name_key = 'deleted:' || id, username = NULL, first_name = NULL,
+           language_code = NULL, public_boards = 0, ban_reason = NULL, analytics_opt_out = 1, name_changed_at = NULL,
            name_locked_until = NULL, deleted_at = COALESCE(deleted_at, ?2)
          WHERE id = ?1`,
       )

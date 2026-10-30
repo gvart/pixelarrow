@@ -1,7 +1,7 @@
 /**
  * The schema-driven half of the deletion contract (ADR-0009 §7, M-ID-5, M-DL-6):
  * every table of the migrated schema is classified in DELETION_MAP, and every
- * column that can hold a player id or a legacy external id is named by its entry.
+ * column that can hold a player id is named by its entry.
  * Adding a table or a player column without classifying it fails here.
  */
 import { env } from 'cloudflare:test';
@@ -28,7 +28,7 @@ describe('DELETION_MAP covers the schema', () => {
     const tables = new Set(cols.map((c) => c.table));
     for (const [table, rule] of Object.entries(DELETION_MAP)) {
       expect(tables.has(table), `${table} is in DELETION_MAP but not in the schema`).toBe(true);
-      for (const col of [...(rule.pid ?? []), ...(rule.tg ?? []), ...(rule.kept ?? [])]) {
+      for (const col of [...(rule.pid ?? []), ...(rule.kept ?? [])]) {
         expect(cols.some((c) => c.table === table && c.column === col), `${table}.${col}`).toBe(true);
       }
     }
@@ -48,9 +48,8 @@ describe('DELETION_MAP covers the schema', () => {
       ...(await schema()),
       { table: 'clans', column: 'founder', references: 'players' },
       { table: 'online_profiles', column: 'attacker_id', references: null },
-      { table: 'notify_settings', column: 'telegram_chat', references: null },
     ];
-    expect(unclassified(cols)).toEqual(['clans.founder: player column not in DELETION_MAP', 'notify_settings.telegram_chat: player column not in DELETION_MAP', 'online_profiles.attacker_id: player column not in DELETION_MAP']);
+    expect(unclassified(cols)).toEqual(['clans.founder: player column not in DELETION_MAP', 'online_profiles.attacker_id: player column not in DELETION_MAP']);
   });
 
   it('spots player columns by foreign key and by name', () => {
@@ -58,10 +57,9 @@ describe('DELETION_MAP covers the schema', () => {
       { table: 't', column: 'player_id', references: null },
       { table: 't', column: 'owner', references: 'players' },
       { table: 't', column: 'killed_by', references: null },
-      { table: 't', column: 'telegram_id', references: null },
       { table: 't', column: 'shard_id', references: null },
       { table: 't', column: 'clan_id', references: 'clans' },
     ];
-    expect(playerColumnsOf(cols).map((c) => c.column)).toEqual(['player_id', 'owner', 'killed_by', 'telegram_id']);
+    expect(playerColumnsOf(cols).map((c) => c.column)).toEqual(['player_id', 'owner', 'killed_by']);
   });
 });

@@ -41,8 +41,8 @@ server/
     middleware.ts     requireSession, requirePlayable, db() -> 503 when not configured
     crypto.ts, body.ts, errors.ts, players.ts, rateLimit.ts, ban.ts
   migrations/                D1 schema, applied in order by CI; 0017-0020 accounts, 0006 ops,
-                             0019 public stats, 0021+ the war; 0027 and 0036 drop the old war's and
-                             the legacy game's tables
+                             0019 public stats, 0021+ the war; 0027, 0036 and 0051 drop the
+                             tables and columns the game no longer uses
   scripts/deploy-config.mjs  CI: wrangler.jsonc -> wrangler.deploy.json (fills/drops D1 id)
   scripts/d1-restore.mjs     point-in-time restore (docs/OPS.md "Backups")
   test/                      vitest in workerd (@cloudflare/vitest-pool-workers)
@@ -95,9 +95,8 @@ by Turnstile.
 
 **Dev login:** with `DEV_AUTH=1` (only in the local `.dev.vars`; never set it in
 production) `POST /api/auth/dev` takes `{ "dev": { "id": 1, "first_name":
-"Dev" } }`; the war's sandbox and world pages sign in this way. Dev players are
-stored as identities of the old `telegram` kind (the table's CHECK allows no
-other); `server/src/auth/identity.ts` calls it `DEV_KIND`.
+"Dev" } }`; the war's sandbox and world pages sign in this way, as identities of
+kind `dev`.
 
 ### Sim version
 

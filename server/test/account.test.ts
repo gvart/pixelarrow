@@ -51,7 +51,7 @@ describe('GET /api/account', () => {
     const now = Date.now();
     await DB().batch([
       DB().prepare(`INSERT INTO auth_identities (player_id, kind, subject, email, verified_at, created_at) VALUES (?1, 'password', 'jane.doe@gmail.com', 'Jane.Doe@gmail.com', ?2, ?2)`).bind(me.playerId, now),
-      DB().prepare(`INSERT INTO purchases (telegram_payment_charge_id, player_id, product_id, currency, stars_amount, payload, created_at) VALUES (?1, ?2, 'founder', 'XTR', 100, '{}', ?3)`).bind(`ch_${me.playerId}`, me.playerId, now),
+      DB().prepare(`INSERT INTO purchases (player_id, product_id, currency, stars_amount, payload, created_at) VALUES (?1, 'founder', 'XTR', 100, '{}', ?2)`).bind(me.playerId, now),
     ]);
     const body = await account(me.token);
     expect(body.identities).toContainEqual({ kind: 'password', emailMasked: 'j***@g***.com' });

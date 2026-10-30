@@ -6,13 +6,8 @@ import type { PlayerRow } from '../players';
 import { generateDisplayName } from '../names/generate';
 import { nameKey } from '../names/validate';
 
-/**
- * The identity kind and session method of a dev player (DEV_AUTH=1). Stored
- * as 'telegram': the CHECK constraints on auth_identities.kind and
- * sessions.method allow only the old values, and rebuilding those tables isn't
- * worth it. Production rows of this kind are legacy and sign nobody in.
- */
-export const DEV_KIND = 'telegram';
+/** The identity kind and session method of a dev player (DEV_AUTH=1, local only). */
+export const DEV_KIND = 'dev';
 export type DevKind = typeof DEV_KIND;
 /** What auth_identities.kind holds. */
 export type IdentityKind = DevKind | 'password';
