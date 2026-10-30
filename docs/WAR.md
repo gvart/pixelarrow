@@ -327,7 +327,7 @@ Depth is how far a region lies from the living halls, counted in danger rather t
 
 | Depth | Regions | Guardian | Mob hp and damage | Lairs | Boss | Claim channel | Lair respawn | Node yield | Score an hour | Boss loot |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 0 | 4 homes | none | – | 0 | – | owned | – | as authored | – | – |
+| 0 | 4 homes | weak outskirts lairs (wolves, boars, jackals, half packs) | ×1.0 | 2–4 | – | owned | 10 min | as authored | – | – |
 | 1 | 16 entries | packs (fauna tier 1–2), a bandit camp on the road entries | ×1.0 | 3–5 | none | 30 s, 3 men (today) | 10 min | ×1.0 | 0 | – |
 | 2 | 4 frontier towns, 4 inner pockets | towns: a bandit host; pockets: a tier-1 boss + packs | ×1.25 | 4–6 | tier 1 (pockets) | 60 s, 6 men | 20 min | ×1.25 | 1 (towns 3) | tier 1 |
 | 3 | 4 gates | a tier-2 boss in its landmark + a tier-3 lair + packs | ×1.5 | 5–7 | tier 2 | 90 s, 9 men from 2+ players | 30 min | ×1.5 + a rare good | 2 (+2 landmark) | tier 2 |
@@ -415,17 +415,30 @@ W-65 (`src/war/sim/roam.ts`): besides the lairs, groups move about every region 
 
 | Depth | Packs | Patrols | Caravans | Travellers |
 | --- | --- | --- | --- | --- |
-| 0 | 0 | 0 | 1 | 3 |
-| 1 | 2 | 1 (with a bandit camp) | 1 | 2 |
-| 2 | 3 | 2 | 1 | 2 |
-| 3 | 3 | 2 | 1 | 1 |
-| 4 | 4 | 2 | 0 | 1 |
+| 0 | 2 (half size) | 0 | 1 | 3 |
+| 1 | 3 | 2 (with a bandit camp) | 1 | 2 |
+| 2 | 4 | 3 | 1 | 2 |
+| 3 | 4 | 3 | 1 | 2 |
+| 4 | 5 | 3 | 0 | 1 |
 
 Roaming folk (NEUTRAL_TEAM) are meek: players' men and theirs do not fight until a player attacks them (the whole group
-then turns on that team); beasts and bandits fight them as anyone. A group with no player's man within 90 tiles holds
-and does not think, so dormant regions catch up cheaply. A wiped-out group comes back at the start of its road after 10
+then turns on that team); beasts and bandits fight them as anyone. A group with no player's man within 90 tiles looks
+at no foe but drifts (world-fill): packs graze and roam their territory at half pace, patrols and travellers walk their
+roads, caravans hold; so a region is alive when someone arrives and dormant regions still catch up cheaply. A wiped-out group comes back at the start of its road after 10
 minutes; the survivors of a broken caravan walk on as travellers. Maps show roaming groups as small dots by kind where
 your men see them.
+
+### Wild fill, chiefs and hidden quests
+
+world-fill (the region kit's last pass, scripts/war/regions/fill.ts): every region gets lairs up to the top of its
+depth's range (homes 2–4 weak ones on their outskirts, far from the town ground), placed on open, reachable ground off
+the roads and clear of towns, landmarks, entries, spots and the region story's places. The added lairs join no claim
+zone. Each room runs on its own seed (the region id hashed), so wander, roads and rolls differ between regions.
+
+| Piece | Where | What |
+| --- | --- | --- |
+| Chief (local mini-boss) | 1 per entry, 2 deeper; none at home | a named beast or bandit chief (src/data/warWild.ts `WAR_CHIEFS`) on his kind's art, drawn 1.2–1.45x and tinted, his name and title over his head; leads an escort of his kind (`CHIEF_KINDS`: hp x2.6–9 and damage x1.5–2.6 over a man of his kind, before depth); his kill drops a pile (10–25 coin and a few hides or iron, x(1 + depth/2), an item at 35–50%); his lair comes back after 37.5 min (depth 1) to 60 min (rim) |
+| Hidden quest | 2 per entry, 3 deeper; none at home | no giver and no marker: men walking onto the spot (a dead man with a note, a cairn, a forgotten shrine, a ruined watch-post) begin the player's own run on the story runner (src/war/sim/secrets.ts), told as a short notice; 1–2 steps a short walk off (hunt the killers, dig a cache, the shrine's chief, a deserters' camp); pays a pile at his men, his alone for 10 min (10–20 coin and a few goods, x(1 + depth/2)) |
 
 ### Random encounters
 
