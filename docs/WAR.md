@@ -418,7 +418,9 @@ goods (stores offline, home strongroom online), an item (a pile at his men, roll
 Progress: offline localStorage `pa.war.story.<region>`, online the region DO's storage `story:<season>:<pid>`; a run
 started again from its save (reload, region woken) spawns what its open step needs. Every depth 1-2 neutral has a full
 chain (24); the lion and serpent regions fight their own beasts in their steps (a pride, a nest), and the Kimmerian
-Hills' chain ends by sending the player at the Griffin (the guardian is never a step). The file ends with a template. A step's named bandit
+Hills' chain ends by sending the player at the Griffin (the guardian is never a step). Every chain's `end` line carries
+the spine beat: one shard of the Wardens' oath, its line in quotes (Lore lists them), found on a foe, a cairn, a
+dead man or under the region's guardian; told only, no item. The file ends with a template. A step's named bandit
 lead wears the captain's sheet (as does a host's captain) and his name stands under his feet while he lives. Foes stand
 25+ tiles from the region's own lairs (tests/war/stories.test.ts).
 

@@ -55,7 +55,7 @@ const TEETH: Story = {
       },
     },
   ],
-  end: 'Mnason pours water on the stones. The Teeth breathe a little warmer.',
+  end: 'Mnason pours water on the stones, and the Teeth breathe a little warmer. In Lykon\'s tally-sack lies a shard of the Wardens\' oath: "Nothing from below comes up." The shafts say otherwise.',
   reward: { goods: { coin: 60 } },
 };
 
@@ -101,7 +101,7 @@ const SLOPES: Story = {
       },
     },
   ],
-  end: 'Opoia walks her husband home along the Tin Road. The pines are quiet tonight.',
+  end: 'Opoia walks her husband home along the Tin Road. Under Skyles\' saddle-cloth, wrapped like a relic, was a shard of the Wardens\' oath: "The roads are kept in every season."',
   reward: { goods: { coin: 50, food: 30 } },
 };
 
@@ -147,7 +147,7 @@ const HEATH: Story = {
       trigger: { kind: 'rescue', at: [208, 265], cls: 'hoplite', level: 2, name: 'Kleitos' },
     },
   ],
-  end: 'Aithra hears no voice in the bog tonight. The heath is only a heath.',
+  end: 'Aithra hears no voice in the bog tonight. Where the drowned stone stood, the peat gives up an older piece, a shard of the Wardens\' oath: "The forsworn walk until they keep it."',
   reward: { goods: { coin: 50 } },
 };
 
@@ -193,7 +193,7 @@ const LAGOON: Story = {
       },
     },
   ],
-  end: 'Eryxo cuts the first salt in a season. She sets a handful aside for you.',
+  end: 'Eryxo cuts the first salt in a season and sets a handful aside for you. Under the Salt-King\'s seat lay a shard of the Wardens\' oath: "Salt on every threshold, against the dark." She salts her door that night.',
   reward: { goods: { coin: 50, salt: 10 } },
 };
 
@@ -234,7 +234,7 @@ const CAPE: Story = {
       trigger: { kind: 'talk' }, reward: { item: { def: 'pelte', rarity: 'uncommon' } },
     },
   ],
-  end: 'Melanthios laughs into the wind. "Then he is a soldier. Keep him fed."',
+  end: 'Melanthios laughs into the wind. "Then he is a soldier. Keep him fed." The Eye of the Cape sat on a shard of the Wardens\' oath: "We face the wind that blows outward." The wind still blows that way.',
   reward: { goods: { coin: 40, food: 40 } },
 };
 
@@ -280,7 +280,7 @@ const MOORS: Story = {
       },
     },
   ],
-  end: 'Sthenelos lies down on the tor. The Great Bear sleeps on. One day, someone will wake her.',
+  end: 'Sthenelos lies down on the tor. The cairn\'s last stone is no granite but a shard of the Wardens\' oath: "Our names fall before our watch does." The rest of it lies in the Great Bear\'s den, and she sleeps on.',
   reward: { goods: { coin: 80 } },
 };
 
@@ -320,7 +320,7 @@ const FJORDS: Story = {
       },
     },
   ],
-  end: 'Phereklos sits by the well and listens to the north. Whatever he hears, he does not say.',
+  end: 'Phereklos sits by the well and listens to the north. Wedged in the keel where the Hound slept was a shard of the Wardens\' oath: "No keel passes the grey water." Whatever the wind tells him, he does not say.',
   reward: { goods: { coin: 50 } },
 };
 
@@ -361,7 +361,7 @@ const OAKWOOD: Story = {
       trigger: { kind: 'talk' }, reward: { item: { def: 'sauroter_dory', rarity: 'rare' } },
     },
   ],
-  end: 'Kleodora cuts the name into the lintel of her door. "Wood forgets," she says. "Stone forgets slower."',
+  end: 'Kleodora cuts the name into her lintel. "Wood forgets," she says. "Stone forgets slower." The spear-butt stood in a shard of the Wardens\' oath: "No name goes to Lethe while we stand." They no longer stand.',
   reward: { goods: { coin: 50, food: 20 } },
 };
 
@@ -396,7 +396,7 @@ const STEPPE: Story = {
       trigger: { kind: 'talk' }, reward: { soul: { cls: 'archer', level: 3, name: 'Saulios' } },
     },
   ],
-  end: 'Saulios puts his face in her mane and says nothing for a long time. Then he asks where you ride next.',
+  end: 'Saulios puts his face in her mane and says nothing for a long time. Her bridle was knotted round a shard of the Wardens\' oath: "No rider goes over the edge." Then he asks where you ride next.',
   reward: { goods: { coin: 40, food: 30 }, item: { def: 'horse_pendant', rarity: 'uncommon' } },
 };
 
@@ -436,7 +436,7 @@ const CHALK: Story = {
       },
     },
   ],
-  end: 'Ariston goes back to his chisel. On the next face he cuts, the eyes are open.',
+  end: 'Ariston goes back to his chisel; on the next face he cuts, the eyes are open. Under Bias\' work he finds an older cutting, a shard of the Wardens\' oath: "No shade leaps, and none is pushed."',
   reward: { goods: { coin: 50 } },
 };
 
@@ -482,7 +482,7 @@ const KURGANS: Story = {
       trigger: { kind: 'clear', at: [400, 182], mob: 'wolf', count: 6, lead: true, name: 'the Chieftain\'s Hounds' }, reward: { goods: { hides: 10 } },
     },
   ],
-  end: 'Madyes sits on the mound\'s shoulder and watches the Desert Road. The old chieftain sleeps, or pretends to.',
+  end: 'Madyes sits on the mound\'s shoulder and watches the Desert Road. The chieftain keeps a shard of the Wardens\' oath under his tongue: "We watch from the high places." He sleeps, or pretends to.',
   reward: { goods: { coin: 40 } },
 };
 
@@ -517,7 +517,7 @@ const DUNES: Story = {
       trigger: { kind: 'talk' }, reward: { item: { def: 'bes_amulet', rarity: 'rare' } },
     },
   ],
-  end: 'By morning the ghost has dug the well clear. The water is sweet. No one in the village saw him do it.',
+  end: 'By morning the ghost has dug the well clear, and the water is sweet. At the bottom lay what he died digging toward, a shard of the Wardens\' oath: "We dig until the water comes."',
   reward: { goods: { coin: 50, salt: 10 } },
 };
 
@@ -557,7 +557,7 @@ const COVES: Story = {
       },
     },
   ],
-  end: 'On the headland, someone has taken down the rope at last.',
+  end: 'On the headland, someone has taken down the rope at last. The noose was knotted round a shard of the Wardens\' oath: "The drowned are let ashore." Neleus came ashore. The rope was waiting.',
   reward: { goods: { coin: 30, food: 20 } },
 };
 
@@ -592,7 +592,7 @@ const VINEYARDS: Story = {
       trigger: { kind: 'talk' }, reward: { item: { def: 'hermes_token', rarity: 'rare' } },
     },
   ],
-  end: 'Oinopion plants the cutting where the old vine stood and pours the last of last year\'s wine on it. "For your next crossing," he says.',
+  end: 'Oinopion plants the cutting and pours the last of last year\'s wine on it. "For your next crossing." The old root had grown round a shard of the Wardens\' oath: "Every crossing is poured for."',
   reward: { goods: { coin: 40, oil: 10 } },
 };
 
@@ -632,7 +632,7 @@ const PASS: Story = {
       },
     },
   ],
-  end: 'Tin moves through Kleisoura once-taxed again. Whose tin, and whose silence, is another matter.',
+  end: 'Tin moves through Kleisoura once-taxed again; whose silence, is another matter. The Wardens\' toll-stone cracks as you pass, and a shard of the Wardens\' oath falls at your feet: "One toll at the pass, and no more."',
   reward: { goods: { coin: 40 } },
 };
 
@@ -678,7 +678,7 @@ const LAKE: Story = {
       },
     },
   ],
-  end: 'Nikias builds a new ferry. He does not look at the isle when he rows past it.',
+  end: 'Nikias builds a new ferry and does not look at the isle when he rows past. Kalamos wore a shard of the Wardens\' oath on a cord: "What nests on the isle stays on it." Nothing stayed.',
   reward: { goods: { coin: 40 } },
 };
 
@@ -724,7 +724,7 @@ const FORD: Story = {
       trigger: { kind: 'rescue', at: [218, 193], cls: 'hoplite', level: 3, name: 'Philomelos' },
     },
   ],
-  end: 'Deinias waits on the bank. When Philomelos comes over, the two old soldiers do not speak; they stand together and look at the river.',
+  end: 'Deinias and Philomelos stand together and look at the river, and do not speak. Among the obols in Porthmeus\' fare-box lay a shard of the Wardens\' oath: "The dead cross free."',
   reward: { goods: { coin: 50 }, item: { def: 'knucklebones', rarity: 'rare' } },
 };
 
@@ -764,7 +764,7 @@ const OASIS: Story = {
       },
     },
   ],
-  end: 'Hanno sits by the water and watches the dunes. For the first time, he is not waiting for anyone.',
+  end: 'Hanno sits by the water and watches the dunes, waiting for no one. The cairn of bells was built on a shard of the Wardens\' oath: "No one is left waiting in the sand."',
   reward: { goods: { coin: 40, salt: 10 } },
 };
 
@@ -810,7 +810,7 @@ const BACCHAE: Story = {
       trigger: { kind: 'talk' }, reward: { item: { def: 'knucklebones', rarity: 'rare' } },
     },
   ],
-  end: 'Komatas does not go up into the hills again. On still nights, the whole village can hear the singing.',
+  end: 'Komatas does not go up into the hills again; on still nights the village hears the singing. Lykidas died holding a shard of the Wardens\' oath: "We look outward, never in." He looked in.',
   reward: { goods: { coin: 50 } },
 };
 
@@ -856,7 +856,7 @@ const WADI: Story = {
       },
     },
   ],
-  end: 'Eurybatos fills a skin at the village well and pours it out in the wadi, as he does every morning. Today he does it smiling.',
+  end: 'Eurybatos pours a skin out in the wadi, as every morning; today he smiles. Agathon\'s map was weighted with a shard of the Wardens\' oath: "No army thirsts behind us." One did.',
   reward: { goods: { coin: 50, copper: 10 } },
 };
 
@@ -891,7 +891,7 @@ const FLOOD: Story = {
       trigger: { kind: 'talk' }, reward: { item: { def: 'serpent_ring', rarity: 'rare' } },
     },
   ],
-  end: 'Amasis lays the rings out on the threshing floor, one by one, and the village comes to find its own. One ring nobody claims. He gives it to you.',
+  end: 'Amasis lays the rings out, and the village comes to find its own. One ring nobody claims: its stone is a shard of the Wardens\' oath, "When the water rises, we stand in it." He gives it to you.',
   reward: { goods: { coin: 40, food: 30 } },
 };
 
@@ -931,7 +931,7 @@ const FENS: Story = {
       },
     },
   ],
-  end: 'Phaenna walks the pole path alone that evening, tying fresh rags to each pole. The reeds are only reeds.',
+  end: 'Phaenna walks the pole path alone, tying fresh rags to each pole. The last pole stands in a shard of the Wardens\' oath: "The dead lie as their own would lay them." Now they do.',
   reward: { goods: { coin: 50 } },
 };
 
@@ -971,7 +971,7 @@ const KIMMERIANS: Story = {
       },
     },
   ],
-  end: 'Teushpa looks up at the broken gate on the fort hill. The rest of the Kimmerians\' gold lies under the Griffin, and the Griffin does not sleep. "When you are ready," he says.',
+  end: 'Teushpa looks up at the broken gate. Under the Griffin, with the gold, lies his people\'s share, a shard of the Wardens\' oath: "The mist takes no people whole." "It lied," he says. "When you are ready."',
   reward: { goods: { coin: 50, bronze: 10 } },
 };
 
@@ -1011,7 +1011,7 @@ const SAVANNA: Story = {
       },
     },
   ],
-  end: 'Pyrrhias hangs the scored shield over the village gate. Under the great kopje the Lion of the Savanna still sleeps. His hide turns blades. His own claws do not.',
+  end: 'Pyrrhias hangs the scored shield over the gate. Under the great kopje the Lion sleeps on a shard of the Wardens\' oath: "We are the hide between the dead and the dark." His hide turns blades. His own claws do not.',
   reward: { goods: { coin: 50, copper: 10 } },
 };
 
