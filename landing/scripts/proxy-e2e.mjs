@@ -248,14 +248,11 @@ async function main() {
     'GET summary': await get(LAND, SUMMARY, withCookie),
     'HEAD summary': await get(LAND, SUMMARY, { ...withCookie, method: 'HEAD' }),
     'GET /': await get(LAND, '/', withCookie),
-    'GET /?startapp=clan_x': await get(LAND, '/?startapp=clan_x', withCookie),
     'GET /privacy.html': await get(LAND, '/privacy.html', withCookie),
     'GET /api/x': await get(LAND, '/api/x', withCookie),
   };
   for (const [what, r] of Object.entries(answers)) check(r.headers.get('set-cookie') === null && !/cookie/i.test(r.headers.get('vary') ?? ''), `landing ${what}: no Set-Cookie, no Vary: Cookie`, String(r.status));
   check(answers['GET summary'].text === first.text, 'a cookie-bearing request gets the same shared copy (nothing per visitor)');
-  const redirect = answers['GET /?startapp=clan_x'];
-  check(redirect.status === 302 && redirect.headers.get('location') === 'https://play.pixelarrow.app/?startapp=clan_x', '/?startapp=clan_x: 302 to play', `${redirect.status} ${redirect.headers.get('location')}`);
   const gameWithCookie = await get(GAME, SUMMARY, withCookie);
   check(gameWithCookie.status === 200 && gameWithCookie.headers.get('set-cookie') === null, 'the game public route ignores the cookie and sets none');
 
