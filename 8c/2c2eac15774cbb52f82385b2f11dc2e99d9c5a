@@ -1,0 +1,80 @@
+src/war/view/hud/buildingCard.ts
+  s_0dd3a9d3e5007a::t_b2a7b88920081f 32
+  s_0dd3a9d3e5007a::t_579d0fd73a112a 21,35
+  s_0dd3a9d3e5007a::t_0718e98fdcdfc9 43
+src/war/view/mapModes.ts
+  s_0dd3a9d3e5007a::t_603abea84b1125 190
+src/war/view/hud/roster/state.ts
+  s_0dd3a9d3e5007a::t_eac4079920de91 29
+  s_0dd3a9d3e5007a::t_8b7d5b91294fd1 410-414
+src/war/view/hud/souls.ts
+  s_0dd3a9d3e5007a::t_579d0fd73a112a 20
+  s_0dd3a9d3e5007a::t_c1ea45b0824343 107
+  s_0dd3a9d3e5007a::t_fd4d437ec32ac8 106
+src/war/view/hud/holder.ts
+  s_0dd3a9d3e5007a::t_0718e98fdcdfc9 78
+src/war/view/hud/chest.ts
+  s_0dd3a9d3e5007a::t_eac4079920de91 21,100,148,214
+  s_0dd3a9d3e5007a::t_579d0fd73a112a 33,91,130
+src/war/view/hud/fullMap.ts
+  s_0dd3a9d3e5007a::t_579d0fd73a112a 20,331
+src/war/view/hud/hunger.ts
+  s_0dd3a9d3e5007a::t_579d0fd73a112a 10,31
+src/war/view/hud/explain.ts
+  s_0dd3a9d3e5007a::t_b60b395bd160db 21-22,47,126-127,131-133,135,141,144,154,156-157,176
+src/war/view/hud/quest.ts
+  s_0dd3a9d3e5007a::t_2449984c33e873 85-86
+  s_0dd3a9d3e5007a::t_b2a7b88920081f 61
+  s_0dd3a9d3e5007a::t_78f1a9b75c6a57 16
+  s_0dd3a9d3e5007a::t_bc55efee9a6bfb 87
+src/war/view/hud/settleCards.ts
+  s_0dd3a9d3e5007a::t_0718e98fdcdfc9 311
+src/war/view/hud/guardianBar.ts
+  s_0dd3a9d3e5007a::t_cf1f41b21560b1 134
+tests/war/guardianBar.test.ts
+  s_0dd3a9d3e5007a::t_cf1f41b21560b1 17,20-21
+src/war/view/hud/roster/card.ts
+  s_0dd3a9d3e5007a::t_eac4079920de91 91
+src/war/view/hud/roster/ui.ts
+  s_0dd3a9d3e5007a::t_cb3e8976111fd2 74,76
+src/war/view/hud/claimCard.ts
+  s_0dd3a9d3e5007a::t_603abea84b1125 76
+src/war/view/hud/hud.ts
+  s_0dd3a9d3e5007a::t_f16669af99eb15 357
+  s_0dd3a9d3e5007a::t_491279247a1bc0 416
+  s_0dd3a9d3e5007a::t_cd67ed864680fc 629-630,636
+src/war/view/hud/kit.ts
+  s_0dd3a9d3e5007a::t_8b7d5b91294fd1 7,273-281
+  s_0dd3a9d3e5007a::t_b79bd1deb0db73 10-11
+  s_0dd3a9d3e5007a::t_23dbb7118cba0d 232,235,246-262,282
+  s_0dd3a9d3e5007a::t_b05f4f56940b5f 263,283
+src/war/view/hud/codex.ts
+  s_0dd3a9d3e5007a::t_579d0fd73a112a 17,274
+  s_0dd3a9d3e5007a::t_cb3e8976111fd2 42-43
+  s_0dd3a9d3e5007a::t_fd4d437ec32ac8 242,293
+tests/war/explainHelp.test.ts
+  s_0dd3a9d3e5007a::t_b4e2fee749d4a7 2,82-83
+src/war/view/hud/theme.ts
+  s_0dd3a9d3e5007a::t_23dbb7118cba0d 106
+  s_0dd3a9d3e5007a::t_b79bd1deb0db73 21-23
+src/war/view/hud/roster/panel.ts
+  s_0dd3a9d3e5007a::t_eac4079920de91 34,39,41,131,151
+src/war/net/questLore.ts
+  s_0dd3a9d3e5007a::t_09a150c266d833 36
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "8c2c2eac15774cbb52f82385b2f11dc2e99d9c5a",
+  "prompts": {},
+  "sessions": {
+    "s_0dd3a9d3e5007a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b6130d3d-c070-494f-98d5-046db89f2d1c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
