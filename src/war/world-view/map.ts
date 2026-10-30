@@ -700,14 +700,19 @@ export class WorldMap {
       ...[...spots.events.values()].map(([x, y, r]) => [x - r - 10, y - r - 10, x + r + 150 * s, y + r + 10] as Box),
       ...[...spots.banners].map(([id, [x, y, b]]) => [x, y, x + 38 * b + (10 * String(st.squads.get(id)).length + 14) * s, y + 56 * b] as Box),
       ...spots.crowns.map(([x, y, r, name]) => [x - r - 4, y - r - 4, x + r + (8 * name.length + 18) * s, y + r + 4] as Box),
+      // W-63 settlements: their seal (and the outer ring of a town or city)
+      ...(st.settlements ?? []).flatMap((w) => {
+        const p = this.settlementSpot(w), r = SETTLE_LOOK[levelKind(w.level)].r * s + 6 * s;
+        return p ? [[p[0] - r, p[1] - r, p[0] + r, p[1] + r] as Box] : [];
+      }),
       ...st.convoys.map((c) => {
         const q = 32 * s, [x, y] = this.transitPos({ ...c, men: 0, state: 'moving' }, st.now).map((v) => Math.round(v / q) * q);
-        return [x - 16 * s - q / 2, y - 16 * s - q / 2, x + 16 * s + 64 * s + q / 2, y + 16 * s + q / 2] as Box;
+        return [x - 16 * s - q / 2, y - 16 * s - q / 2, x + 16 * s + 100 * s + q / 2, y + 16 * s + q / 2] as Box;
       }),
       // squads on the road, snapped to a coarse step so the names re-flow now and then, not every frame
       ...st.transit.map((t) => {
         const q = 32 * s, [x, y] = this.transitPos(t, st.now).map((v) => Math.round(v / q) * q);
-        return [x - 20 * s - q / 2, y - 43 * s - q / 2, x + 18 * s + (8 * (String(t.men).length + 10) + 10) * s + q / 2, y + 8 * s + q / 2] as Box;
+        return [x - 20 * s - q / 2, y - 43 * s - q / 2, x + 18 * s + (8 * String(t.men).length + 112) * s + q / 2, y + 8 * s + q / 2] as Box;
       }),
     ];
     const key = `${this.k.toFixed(3)}|${obstacles.map((o) => o.map(Math.round).join(',')).join(';')}`;
@@ -868,7 +873,7 @@ export class WorldMap {
       const [x, y] = this.transitPos(t, st.now);
       g.drawImage(pic('markers/transit'), x - 20 * s, y - 40 * s, 40 * s, 48 * s);
       const left = Math.max(0, Math.ceil((t.arriveAt - st.now) / 1000));
-      this.badge(g, t.state === 'queued' ? `${t.men} · waiting` : `${t.men} · ${clock(left)}`, x + 18 * s, y - 34 * s, s, false);
+      this.countBadge(g, 'unit-hoplite', t.men, t.state === 'queued' ? null : left, x + 18 * s, y - 34 * s, s);
     }
   }
 
@@ -888,7 +893,7 @@ export class WorldMap {
       const ic = this.pics[c.kind === 'wagon' ? 'trade-wagon' : c.kind === 'handcart' ? 'trade-cart' : 'act-load'];
       if (ic) g.drawImage(ic, x - 12 * s, y - 12 * s, 24 * s, 24 * s);
       const left = Math.max(0, Math.ceil((c.arriveAt - st.now) / 1000));
-      this.badge(g, `${c.loads} · ${clock(left)}`, x + r + 2 * s, y, s, false);
+      this.countBadge(g, 'act-load', c.loads, left, x + r + 2 * s, y, s);
     }
   }
 
@@ -925,6 +930,46 @@ export class WorldMap {
     g.fill();
     g.stroke();
     g.restore();
+  }
+
+  /**
+   * A count and a time left on the road, each after its icon (a men or loads icon, a clock), so "12 · 1:36" reads as
+   * "12 men, 1:36 to go"; `secs` null: waiting to set out.
+   */
+  private countBadge(g: CanvasRenderingContext2D, icon: string, n: number, secs: number | null, x: number, y: number, s: number): void {
+    g.font = `600 ${13 * s}px Inter, sans-serif`;
+    g.textAlign = 'left';
+    g.textBaseline = 'middle';
+    const ic = 14 * s, pad = 5 * s, gap = 3 * s, a = String(n), b = secs === null ? 'waiting' : clock(secs);
+    const wa = g.measureText(a).width, wb = g.measureText(b).width;
+    const w = pad + ic + gap + wa + 7 * s + ic + gap + wb + pad;
+    g.fillStyle = '#17100d';
+    g.strokeStyle = '#7a3418';
+    g.lineWidth = 2 * s;
+    g.fillRect(x, y - 9 * s, w, 18 * s);
+    g.strokeRect(x, y - 9 * s, w, 18 * s);
+    let cx = x + pad;
+    const pic = this.pics[icon];
+    if (pic) { g.imageSmoothingEnabled = true; g.drawImage(pic, cx, y - ic / 2, ic, ic); g.imageSmoothingEnabled = false; }
+    cx += ic + gap;
+    g.fillStyle = '#f0d9b5';
+    g.fillText(a, cx, y + 1 * s);
+    cx += wa + 7 * s;
+    // a clock: a ring and two hands
+    const r = ic / 2 - 1 * s, ox = cx + ic / 2;
+    g.beginPath();
+    g.arc(ox, y, r, 0, Math.PI * 2);
+    g.lineWidth = 1.6 * s;
+    g.strokeStyle = '#e0b867';
+    g.stroke();
+    g.beginPath();
+    g.moveTo(ox, y - r * 0.65);
+    g.lineTo(ox, y);
+    g.lineTo(ox + r * 0.5, y + r * 0.2);
+    g.stroke();
+    cx += ic + gap;
+    g.fillStyle = '#f0d9b5';
+    g.fillText(b, cx, y + 1 * s);
   }
 
   private badge(g: CanvasRenderingContext2D, text: string, x: number, y: number, s: number, on: boolean, edge?: string): void {
