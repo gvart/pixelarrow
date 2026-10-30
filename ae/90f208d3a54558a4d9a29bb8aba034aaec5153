@@ -1,0 +1,35 @@
+src/data/warBosses.ts
+  s_0dd3a9d3e5007a::t_b806b925135eb5 48,57,59,61,63,66,69,73,75,77,81,84,87,90,93,95
+src/data/warWild.ts
+  s_0dd3a9d3e5007a::t_b806b925135eb5 53-54,57,69-73
+tests/war/chiefs.test.ts
+  s_0dd3a9d3e5007a::t_b806b925135eb5 84
+src/data/warEncounters.ts
+  s_0dd3a9d3e5007a::t_b806b925135eb5 16-17,28,107,176,195,220,224-226,231,235
+tests/war/secrets.test.ts
+  s_0dd3a9d3e5007a::t_b806b925135eb5 9,122-133
+  s_0dd3a9d3e5007a::t_7b39e6035488b3 134-136
+docs/WAR.md
+  s_0dd3a9d3e5007a::t_b806b925135eb5 15-20,25-42,421-423,464,484,501
+src/data/warStories.ts
+  s_0dd3a9d3e5007a::t_b806b925135eb5 14,59,105,151,197,238,284,307,324,365,400,440,486,521,561,596,636,682,693,728,745-746,748,752,757,762-763,768,814,860,895,912,915,935,952,964,975,1004,1015,1039-1040,1049-1068,1071-1099,1103-1114,1118-1128,1132-1146,1150-1161,1171,1177
+  s_0dd3a9d3e5007a::t_6ee554848540cf 1182
+src/war/net/questLore.ts
+  s_0dd3a9d3e5007a::t_b806b925135eb5 21-25,41,47,53,59,65,70-81,102,108
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "ae90f208d3a54558a4d9a29bb8aba034aaec5153",
+  "prompts": {},
+  "sessions": {
+    "s_0dd3a9d3e5007a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b6130d3d-c070-494f-98d5-046db89f2d1c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
