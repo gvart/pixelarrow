@@ -12,7 +12,7 @@
  *   double1 = player id         double2 = days since install (-1 unknown)
  *   double3.. = the event's number props, in the order declared below
  *
- * Nothing here may carry personal data: no names, usernames, Telegram ids,
+ * Nothing here may carry personal data: no names, usernames, emails,
  * free text. Strings are enums or short [a-z0-9_] ids; numbers are bounded.
  */
 
@@ -58,7 +58,7 @@ export const ANALYTICS_EVENTS = {
   /** Server-derived once per player: their first hex captured from a neutral or a player. */
   first_capture: { source: 'server' },
   clan_join: { source: 'server', strings: { how: en('create', 'invite') } },
-  /** A Drachmae pack (or legacy entitlement) paid with Telegram Stars. */
+  /** A Drachmae pack (or legacy entitlement) bought; nothing is sold now. */
   purchase: { source: 'server', strings: { pack: { kind: 'id' } }, numbers: { drachmae: int(0, 10_000_000), stars: int(0, 1_000_000) } },
   first_purchase: { source: 'server', strings: { pack: { kind: 'id' } } },
   pass_claim: { source: 'server', strings: { track: en('free', 'premium') }, numbers: { tier: int(0, 1000) } },

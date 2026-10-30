@@ -5,11 +5,10 @@
  *
  * Browser rules this follows:
  *  - The AudioContext is only created (and resumed) inside a user gesture —
- *    iOS Safari / Telegram's WebView keep it silent otherwise. `unlock()` is
- *    called from global pointer/touch/key listeners and is cheap when running.
- *  - Backgrounded (page hidden, Telegram 'deactivated') or muted: the context
- *    is suspended, which stops all processing (CPU/battery) and the music
- *    clock with it; it resumes on return (or on the next tap, where iOS insists).
+ *    iOS Safari keeps it silent otherwise. `unlock()` is called from global
+ *    pointer/touch/key listeners and is cheap when running.
+ *  - Backgrounded (page hidden) or muted: the context is suspended, which
+ *    stops all processing (CPU/battery) and the music clock with it; it resumes on return (or on the next tap, where iOS insists).
  *  - No Web Audio at all (old WebView, some headless browsers): every call is a no-op.
  *
  *  - A paused battle (`setPaused`) fades music and field sounds out and refuses
@@ -153,7 +152,7 @@ export class AudioEngine {
     this.applyRunning();
   }
 
-  /** Page / Telegram went to the background (true) or came back (false). */
+  /** The page went to the background (true) or came back (false). */
   setHidden(hidden: boolean): void {
     this.hidden = hidden;
     this.applyRunning();
