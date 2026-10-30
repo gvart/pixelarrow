@@ -21,8 +21,9 @@ const def: RegionDef = {
   build(k: Kit) {
     const E = k.entry('dodona'), NE = k.entry('dodona-n'), SE = k.entry('dodona-s'), S = k.entry('siren');
     k.fill(3);
-    k.zone('elaia', () => 99); // the heath's dry brown grass (Elaia's dry kind)
-    k.zone('mountains', [30, 128, 34, 170, 0], 8);
+    // the moors library (public/war/biomes/moors, regions-look 2): heather over peat, black bog pools, granite walls and
+    // tors, as the reference's dark heath (it was Elaia's dry grass: a khaki plain)
+    k.zone('moors', () => 99);
     k.zone('dodona', [244, 128, 22, 150, 0], 8);
     // the high heath: an L along the west coast and the north edge, two tiers over the sunken heath
     const high = massif(k, {
@@ -34,7 +35,7 @@ const def: RegionDef = {
     // wall four levels over it, its lower tier rolling up to a two-level wall and the upper heath at h10-11
     relief(k, (x, y, s) => {
       const t = high.t(x, y);
-      if (t < 0) return 2.9 + 0.8 * fbm(x, y, 26, s);
+      if (t < 0) return 2.9 + 0.8 * fbm(x, y, 26, s) + 0.55 * fbm(x, y, 5, s + 3); // broken, hummocky heath
       return profile([[0, 7], [0.9, 8.2], [1, 10], [2, 11.4]], t) + 0.5 * fbm(x, y, 12, s + 1);
     }, { cliffs: [[3.8, 7], [8.2, 10]] });
     // the sea under the cliffs, the cove cut into them
@@ -59,7 +60,9 @@ const def: RegionDef = {
       return d;
     };
     k.lift((x, y, s) => { const d = dR(x, y) + 1.2 * Math.sin(x / 7 + s) + Math.sin(y / 5); return d < 4.5 ? 8 : d < 9 ? 6 : NaN; });
-    for (const [x, y] of [[170, 82], [162, 120], [150, 170], [143, 190]] as const) k.rockMass([x, y, 3, 7, 0.2], { rough: 0.8, foot: 2 });
+    // its crest a broken line of granite tors (Kit.tor: stacked blocks, not mountain cones), clitter at their feet
+    for (const [x, y] of [[170, 82], [162, 120], [150, 170], [143, 190]] as const) k.tor([x, y, 3, 7, 0.2], [[0, 5], [1.3, 10], [2.4, 14]], { rough: 1.2, joint: 0.8 });
+    for (const [x, y] of [[176, 96], [158, 146], [168, 64], [136, 204], [176, 128]] as const) k.piece('moors/tor-b', [x, y], { r: 4, n: 2, gap: 3 });
     k.spot('ridge', [158, 134]);
     // roads: the coast track along the cliff tops to Siren; Dodona's road over the ridge's saddle to it; the side
     // tracks from Dodona's other entries
@@ -70,8 +73,12 @@ const def: RegionDef = {
     k.road([NE, [232, 40], [190, 36], [150, 40], [100, 52], [60, 64], [44, 64]], { w: 1.1, grade: 2.4 });
     k.road([SE, [230, 212], [190, 226], [150, 244], [124, 250]], { w: 1.1, grade: 3 });
     k.road([[44, 64], [34, 64], [28, 64]], { w: 1, grade: 1.5 });
-    // standing stones, cairns, a shepherds' hamlet, wind-bent trees
-    k.piece('mountains/cairn', [120, 180], { r: 10, n: 3, gap: 5 });
+    // standing stones on the heath (the oath-breakers' ring), peat stacks by the bogs, cairns, a shepherds' hamlet,
+    // wind-bent hawthorns
+    for (let n = 0; n < 7; n++) { const a = (n / 7) * 2 * Math.PI; k.piece('moors/standing-stone', [118 + 5 * Math.cos(a), 168 + 3.5 * Math.sin(a)], { r: 1 }); }
+    for (const [x, y] of [[80, 34], [124, 32], [44, 120], [160, 236]] as const) k.piece('moors/peat-stack', [x, y], { r: 5, n: 2, gap: 3 });
+    for (const [x, y] of [[100, 160], [190, 150], [130, 80], [70, 150], [220, 160]] as const) k.piece('moors/hawthorn', [x, y], { r: 6 });
+    k.piece('mountains/cairn', [128, 186], { r: 8, n: 2, gap: 5 });
     k.piece('mountains/cairn', [200, 90], { r: 8, n: 3, gap: 5 });
     k.piece('mountains/cairn', [80, 40], { r: 6, n: 2, gap: 4 });
     k.village([200, 170], 4);
