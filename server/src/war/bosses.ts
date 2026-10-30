@@ -7,7 +7,7 @@
  * nothing is minted. E3: every killer takes its trophy home (war_trophies, migrations/0041_war_veterans.sql), shown in his
  * home town (src/war/view/memorial.ts).
  */
-import { bossTrophy, warBoss, bossLoot } from '../../../src/data/warBosses';
+import { asTrophy, bossTrophy, warBoss, bossLoot } from '../../../src/data/warBosses';
 import { makeItem } from '../../../src/game/heroes';
 import { Rng, hashString } from '../../../src/sim/rng';
 import type { WarEvent } from '../../../src/war/types';
@@ -25,7 +25,10 @@ export function bossItems(region: string, run: string, e: BossSlain): Item[] {
   if (!warBoss(e.boss)) return [];
   const id = bossKillKey(region, run, e);
   const rng = new Rng(hashString(`${id}:items`) || 1), ids = { nextId: 0 };
-  return bossLoot(e.boss, id).map((d, i) => ({ ...makeItem(rng, ids, d.def, d.rarity), uid: `boss:${id}:${i}` }));
+  return bossLoot(e.boss, id).map((d, i) => {
+    const it = { ...makeItem(rng, ids, d.def, d.rarity), uid: `boss:${id}:${i}` };
+    return d.trophy ? asTrophy(it, e.boss) : it; // W-73: the guardian's trophy
+  });
 }
 
 /** Writes one boss kill; false when it was written already (or names no boss / no player). */

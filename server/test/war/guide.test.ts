@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { NET_VERSION, parseClientMsg, type JoinMsg, type ServerMsg } from '../../../src/war/net/protocol';
-import { GUIDE_LAIR, GUIDE_STEPS, guideSpots } from '../../../src/war/net/guide';
+import { GUIDE_LAIR, GUIDE_STEPS, guideNext, guideSpots } from '../../../src/war/net/guide';
 import { ARMY_MAX } from '../../../src/war/sim/soldiers';
 import { WarRoom } from '../../src/war/room';
 import { warRegion } from '../../src/war/regions';
@@ -19,6 +19,20 @@ const spot = guideSpots(region, 0);
 const guideLairs = (room: WarRoom) => (room.snapshot().lairs ?? []).filter((l) => Math.hypot(l.x - spot.lair.x, l.y - spot.lair.y) < 0.5);
 
 describe('W-62 guide in the home room', () => {
+  it('W-73 the hand-off: after the five steps the guide stays open on `next`; departing for its region closes it, paid', () => {
+    const room = home();
+    room.join(1, join(1, 0, 6));
+    room.tick();
+    const five = GUIDE_STEPS.filter((st) => st.id !== 'next').map((st) => st.id);
+    expect(room.startGuide(1, { v: 1, done: [...five] })).toEqual({ t: 'guide', done: five });
+    expect(room.guide.open).toEqual([1]);
+    expect(room.guide.nextRegion).toBe(guideNext('dodona', region)!.region);
+    room.guide.mark(1, 'next'); // the DO's depart for room.guide.nextRegion
+    const r = room.tick();
+    expect(r.guided).toEqual([expect.objectContaining({ pid: 1, step: 'next', paid: true, reward: GUIDE_STEPS.find((st) => st.id === 'next')!.reward })]);
+    expect(room.guide.open).toEqual([]);
+  });
+
   it('a new player: the bandit pair wakes on his road; beating it is told and paid, his save follows', () => {
     const room = home();
     room.join(1, join(1, 0, 6));

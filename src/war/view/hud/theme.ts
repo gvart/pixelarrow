@@ -18,6 +18,9 @@ const GRAIN = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w
  * The HUD's z-order, one table for every panel (./layout.ts places them): map markers < docked panels < windows < centre
  * banners < tooltips < modals.
  */
+/** Why a server-only window or the chat does not work offline: one line, the same everywhere. */
+export const NEEDS_SERVER = 'Needs the server: play online';
+
 export const Z = {
   /** Quest and story markers on the map, chat pings. */
   mark: 2,
@@ -50,8 +53,8 @@ export const TOKENS = `:root{
   --hud-edge:#030304;--hud-rule:#2b2c2f;--hud-good:#8ccf5e;--hud-bad:#ec6a50;--hud-warn:#e8b54a;--hud-link:#8fc4e8;
   --hud-hp-a:#86d66c;--hud-hp-b:#3f9a32;--hud-hp-c:#25621d;--hud-build-a:#f0cf7c;--hud-build-b:#b8892f;--hud-burn-a:#ffb257;--hud-burn-b:#c6461f;
   --hud-ok-a:#e8c776;--hud-ok-b:#a57a2a;
-  --hud-display:700 14px/1.1 Cinzel,serif;--hud-body:600 12px/1.3 Inter,system-ui,sans-serif;--hud-small:600 10.5px/1.2 Inter,system-ui,sans-serif;
-  --hud-key-font:700 8.5px/1 Inter,system-ui,sans-serif;
+  --hud-display:700 14px/1.1 Cinzel,serif;--hud-body:600 13px/1.3 Inter,system-ui,sans-serif;--hud-small:600 12px/1.2 Inter,system-ui,sans-serif;
+  --hud-key-font:700 10px/1 Inter,system-ui,sans-serif;
   --hud-bevel:inset 0 1px 0 rgba(255,236,190,.07),inset 0 -1px 0 rgba(0,0,0,.5);
   --hud-frame:inset 0 1px 0 rgba(226,189,104,.55),inset 0 0 0 1px var(--hud-bronze),inset 0 0 0 2px rgba(0,0,0,.55),inset 0 2px 0 1px rgba(255,236,190,.05),0 0 0 1px var(--hud-edge),0 8px 22px rgba(0,0,0,.5);
   --hud-frame-hi:inset 0 1px 0 rgba(246,220,152,.8),inset 0 0 0 1px var(--hud-gold-lo),inset 0 0 0 2px rgba(0,0,0,.55),0 0 0 1px var(--hud-edge),0 0 14px rgba(226,189,104,.18),0 8px 22px rgba(0,0,0,.5);
@@ -100,6 +103,7 @@ export const THEME_CSS = `
 .rf-btn:active,.rf-btn.press{background:var(--hud-slot-bg);transform:translateY(1px);box-shadow:inset 0 0 0 1px var(--hud-gold-lo),inset 0 3px 8px rgba(0,0,0,.8),0 0 0 1px var(--hud-edge)}
 .rf-btn:active .ic,.rf-btn.press .ic{transform:none}
 .rf-btn.on{background:radial-gradient(circle at 50% 35%,#3d3522,#17140d 72%);box-shadow:inset 0 0 0 1px var(--hud-gold-hi),inset 0 0 0 2px rgba(0,0,0,.55),inset 0 0 10px rgba(226,189,104,.35),0 0 0 1px var(--hud-edge),0 0 8px rgba(226,189,104,.4)}
+.rf-btn.off .ic{filter:grayscale(1) brightness(.55)}.rf-btn.off .key{opacity:.5}
 .rf-btn:disabled{background:radial-gradient(circle at 50% 35%,#1b1d21,#0c0d0f 72%);box-shadow:inset 0 0 0 1px #2c2b28,0 0 0 1px var(--hud-edge)}
 .rf-btn:disabled .ic{opacity:.38;filter:grayscale(.85)}
 .rf button:focus-visible{outline:1px solid var(--hud-gold-hi);outline-offset:1px}
@@ -112,13 +116,13 @@ export const THEME_CSS = `
 .rf-btn .rf-badge.gold{background:linear-gradient(180deg,var(--hud-gold-hi),var(--hud-gold))}
 .rf-btn .badge{left:auto;right:1px;top:auto;bottom:1px}
 /* text buttons: stone with a bronze rim; .pri is the gilded one */
-.rf-tbtn{height:23px;padding:0 9px;border:0;border-image:none;border-radius:3px;color:var(--hud-ink);font:600 12px/1 Inter,system-ui,sans-serif;background:linear-gradient(180deg,#2a2e35,#181a1f);box-shadow:inset 0 0 0 1px var(--hud-bronze),inset 0 1px 0 1px rgba(255,236,190,.05),0 0 0 1px var(--hud-edge);transition:box-shadow var(--hud-fast) var(--hud-ease),color var(--hud-fast),filter var(--hud-fast)}
+.rf-tbtn{height:23px;padding:0 9px;border:0;border-image:none;border-radius:3px;color:var(--hud-ink);font:600 13px/1 Inter,system-ui,sans-serif;background:linear-gradient(180deg,#2a2e35,#181a1f);box-shadow:inset 0 0 0 1px var(--hud-bronze),inset 0 1px 0 1px rgba(255,236,190,.05),0 0 0 1px var(--hud-edge);transition:box-shadow var(--hud-fast) var(--hud-ease),color var(--hud-fast),filter var(--hud-fast)}
 .rf-tbtn:hover{border-image:none;color:var(--hud-gold-hi);box-shadow:inset 0 0 0 1px var(--hud-gold),0 0 0 1px var(--hud-edge),0 0 8px rgba(226,189,104,.3)}
 .rf-tbtn:active{border-image:none;padding-top:1px;background:linear-gradient(180deg,#15171b,#22252b)}
 .rf-tbtn.on,.rf-tbtn.pri{border-image:none;color:#fff3d6;background:linear-gradient(180deg,#7a6234,#4a3a1e 55%,#33281a);box-shadow:inset 0 0 0 1px var(--hud-gold),inset 0 1px 0 1px rgba(255,236,190,.2),0 0 0 1px var(--hud-edge)}
 .rf-tbtn.pri:hover{filter:brightness(1.12)}
 .rf-tbtn:disabled{border-image:none;color:var(--hud-disabled);background:linear-gradient(180deg,#1c1e22,#141518);box-shadow:inset 0 0 0 1px #2c2b28,0 0 0 1px var(--hud-edge)}
-.rf-tab{height:22px;padding:0 10px;margin-right:2px;border:0;border-image:none;border-radius:3px 3px 0 0;color:var(--hud-muted);font:600 12px/1 Inter,system-ui,sans-serif;background:linear-gradient(180deg,#202329,#14161a);box-shadow:inset 0 1px 0 rgba(255,236,190,.05),inset 1px 0 0 var(--hud-bronze-lo),inset -1px 0 0 var(--hud-bronze-lo),inset 0 1px 0 1px var(--hud-bronze-lo);transition:color var(--hud-fast),background var(--hud-fast)}
+.rf-tab{height:22px;padding:0 10px;margin-right:2px;border:0;border-image:none;border-radius:3px 3px 0 0;color:var(--hud-muted);font:600 13px/1 Inter,system-ui,sans-serif;background:linear-gradient(180deg,#202329,#14161a);box-shadow:inset 0 1px 0 rgba(255,236,190,.05),inset 1px 0 0 var(--hud-bronze-lo),inset -1px 0 0 var(--hud-bronze-lo),inset 0 1px 0 1px var(--hud-bronze-lo);transition:color var(--hud-fast),background var(--hud-fast)}
 .rf-tab:hover{border-image:none;color:var(--hud-ink);background:linear-gradient(180deg,#2a2e35,#181a1f)}
 .rf-tab.on{border-image:none;color:var(--hud-title);height:23px;margin-bottom:-1px;background:linear-gradient(180deg,#2c2a22,var(--hud-panel-hi));box-shadow:inset 0 2px 0 var(--hud-gold),inset 1px 0 0 var(--hud-bronze),inset -1px 0 0 var(--hud-bronze)}
 /* bars: a sunk track, a glossy fill; the fill's width is the value (./kit.ts bar) */

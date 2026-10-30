@@ -14,11 +14,11 @@ const tip = (b: BossSnap) => /title="([^"]*)"/.exec(guardianHtml(b))![1];
 
 describe('guardian bar note', () => {
   it('a one-phase guardian with no phase line: just the raid, one squad singular', () => {
-    expect(note(boss)).toBe('raid 1 squad');
+    expect(note(boss)).toBe('1 squad near');
   });
   it('phases and lines join with one separator each', () => {
-    expect(note({ ...boss, id: 'drakon', phases: [1, 0.6, 0.3], phase: 1, raid: 3 })).toBe('phase 2/3 · raid 3 squads');
-    expect(tip({ ...boss, id: 'drakon', phases: [1, 0.6, 0.3], phase: 1, raid: 3 })).toBe('phase 2/3: on the roofs: fire breath, out of melee reach · raid 3 squads');
+    expect(note({ ...boss, id: 'drakon', phases: [1, 0.6, 0.3], phase: 1, raid: 3 })).toBe('phase 2/3 · 3 squads near');
+    expect(tip({ ...boss, id: 'drakon', phases: [1, 0.6, 0.3], phase: 1, raid: 3 })).toBe('phase 2/3: on the roofs: fire breath, out of melee reach · 3 squads near');
     expect(note({ ...boss, phases: [1, 0.5], raid: 0 })).toBe('phase 1/2');
   });
 });

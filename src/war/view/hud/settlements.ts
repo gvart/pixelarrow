@@ -26,7 +26,7 @@ import type { TownLevelSnap } from '../../types';
 import type { SandboxScene } from '../SandboxScene';
 import { PlotLayer } from '../plots';
 import { draggable } from './drag';
-import { closeCornerWindows, menuBtn, setBadge } from './kit';
+import { closeCornerWindows, menuBtn, serverOnly, setBadge, showWhy } from './kit';
 import { keys } from '../../input/keys';
 import { tipper } from './roster/ui';
 import type { CrownNewsKind } from '../../net/world';
@@ -255,11 +255,11 @@ export function mountSettlements(s: SandboxScene, mk: Mk): void {
   draggable(win, '.rf-head');
   tipper(win, tip);
   const btn = menuBtn('rfHoldingsBtn', 'mk-claim', 'Holdings', 'your settlements, requests to settle, terms and truces', 'panel.holdings', 2);
-  btn.onclick = () => toggleHoldings();
+  const off = () => serverOnly(btn, !online() && !list.length && !realm().length && !waiting());
+  btn.onclick = () => (off() ? showWhy(btn) : toggleHoldings());
   const drawBtn = () => {
-    const n = waiting();
-    setBadge(btn, n);
-    btn.style.display = online() || list.length || realm().length || n ? '' : 'none';
+    setBadge(btn, waiting());
+    off();
   };
   function renderHoldings(): void {
     drawBtn();

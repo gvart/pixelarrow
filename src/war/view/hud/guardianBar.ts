@@ -131,7 +131,7 @@ export function guardianHtml(b: BossSnap, held = false): string {
     ? b.state === 'slain' ? (held ? 'slain: stays down while the region is held' : `slain: back in ${mins(b.respawnIn ?? 0)} unless the region is held`) : `escaped by the postern: back in ${mins(b.respawnIn ?? 0)}`
     : [b.phases.length > 1 ? `phase ${b.phase + 1}/${b.phases.length}` : '', PHASE_NOTE[b.id]?.[b.phase] ?? ''].filter(Boolean).join(': ') + (STATE_NOTE[b.state] && b.state !== 'flee' ? ` (${STATE_NOTE[b.state]})` : '');
   const parts = b.parts ? `heads ${b.parts.alive}/${b.parts.total}` : '';
-  const raid = b.raid ? `raid ${b.raid} ${b.raid === 1 ? 'squad' : 'squads'}${b.scale > 1.001 ? `, hp x${b.scale.toFixed(1)}` : ''}` : '';
+  const raid = b.raid ? `${b.raid} ${b.raid === 1 ? 'squad' : 'squads'} near${b.scale > 1.001 ? `, tougher ×${b.scale.toFixed(1)}` : ''}` : '';
   // one compact row over the bar: the name, the phase (or why it is gone) and the hp; the phase's words on hover
   const all = [note, parts, raid].filter((x) => x.trim()).join(' · '), tag = gone ? note : [b.phases.length > 1 ? `phase ${b.phase + 1}/${b.phases.length}` : '', parts, raid].filter(Boolean).join(' · ');
   return `<div class="rf-card g" title="${all.replace(/"/g, '&quot;')}"><div class="gt"><span class="rf-name">${b.name}</span><span class="rf-dim gn">${tag}</span><span class="rf-dim">${gone ? '' : `${Math.ceil(b.hp)} / ${Math.ceil(b.maxHp)}`}</span></div>

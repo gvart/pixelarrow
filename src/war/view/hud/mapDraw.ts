@@ -4,8 +4,8 @@
  * the iso camera (tile +x runs down-right, +y down-left), and the markers over it: buildings by owner (footprints; the
  * main ones as an icon badge on the full map), lairs by beast, claim banners, own squads, enemy squads only where own men
  * or buildings see them, and the camera's view (a rectangle: the screen in tile space, turned back upright).
- * Fog of war (W-39, ../fog.ts): the player's team's fog grid shades the map in the black glaze (dark unexplored, explored
- * dimmed to about 55%, soft edges), rebuilt only when the grid's version changes; the sim client already hides foes out of
+ * Fog of war (W-39, ../fog.ts): the player's team's fog grid shades the map in the black glaze (unexplored at about a third of its light, explored
+ * at about two thirds, soft edges), rebuilt only when the grid's version changes; the sim client already hides foes out of
  * sight and keeps foe buildings as last seen; lairs, claim points and resource badges show once their ground is explored
  * (claim points always while the player holds no ground in the region).
  * On the minimap the player's own ground (his team's influence), buildings, claim points and squads are lit over it all,
@@ -64,7 +64,7 @@ export function mapCanvas(s: SandboxScene): HTMLCanvasElement {
 
 const fogged = new WeakMap<SandboxScene, { ver: number; cv: HTMLCanvasElement }>();
 /** The fog's shade: the black glaze; alpha over unexplored and explored cells (visible: clear). */
-const GLAZE = [14, 9, 7], FOG_DARK = 232, FOG_DIM = 115;
+const GLAZE = [14, 9, 7], FOG_DARK = 170, FOG_DIM = 80;
 
 /** The player's team's fog, one px per vision cell (cached per version); null with fog off or none yet. */
 function fogCanvas(s: SandboxScene): { cv: HTMLCanvasElement; g: FogGrid } | null {

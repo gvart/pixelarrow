@@ -31,15 +31,14 @@ const SORT_NAME: Record<Sort, string> = { level: 'Level', name: 'Name', class: '
 export const PANEL_W = snapW(236);
 
 /**
- * The head's army count, "n / 12 men"; never over the cap: a sandbox scenario that spawns more of your men than the
- * cap reads "sandbox" (its tooltip gives the count).
+ * The head's army count, "n / 12 men"; a test scenario that spawns more of your men than the cap reads just "n men".
  */
 export function armyHead(army: { men: number; max: number }): string {
   const over = army.men > army.max;
   const more = over
-    ? `<div>This scenario spawns ${army.men} of your men, more than the cap of ${army.max}: a sandbox test, not a real army. In a game your whole army is at most ${army.max} men.</div>`
+    ? `<div>This test field gives you ${army.men} men, more than the cap of ${army.max}. In a game your whole army is at most ${army.max} men.</div>`
     : `<div>Your whole army: at most ${army.max} men, split across your regions as you like. The wounded count; the fallen and the captive free their place.</div>`;
-  return `<span class="rf-dim rf-num" style="white-space:nowrap" ${tip(card({ icon: 'ui:people', name: over ? 'Sandbox army' : `${army.men} of ${army.max} men`, w: 210, more }))}>${over ? 'sandbox' : `${army.men} / ${army.max} men`}</span>`;
+  return `<span class="rf-dim rf-num" style="white-space:nowrap" ${tip(card({ icon: 'ui:people', name: over ? `${army.men} men` : `${army.men} of ${army.max} men`, w: 210, more }))}>${over ? `${army.men} men` : `${army.men} / ${army.max} men`}</span>`;
 }
 
 const GROUP: Record<Exclude<Where, 'field' | 'away'>, [string, string]> = { wounded: ['Wounded', 'power:blood_price'], captive: ['Captive', 'ui:lock'], dead: ['Fallen', 'ui:skull'] };
@@ -129,7 +128,7 @@ export function panelHtml(R: SandboxRoster, filter: Filter, sort: Sort, sel: str
   const bySquad = (a: Row, b: Row) => (a.squad ?? 0) - (b.squad ?? 0);
   for (const w of ORDER)
     for (const r of rows.filter((x) => x.where === w).sort((a, b) => bySquad(a, b) || CMP[sort](a, b))) {
-      const k = w === 'field' ? `Squad #${r.squad} · ${SandboxRoster.className(r.p.hero.cls)}` : w === 'away' ? `In ${r.region}` : GROUP[w][0];
+      const k = w === 'field' ? `${R.squadName(r.squad)} · ${SandboxRoster.className(r.p.hero.cls)}` : w === 'away' ? `In ${r.region}` : GROUP[w][0];
       const g = groups.get(k) ?? { icon: w === 'field' ? 'ui:banner' : w === 'away' ? 'ui:flag' : GROUP[w][1], rs: [], squad: w === 'field' ? r.squad : undefined };
       g.rs.push(r);
       groups.set(k, g);
@@ -149,7 +148,7 @@ export function panelHtml(R: SandboxRoster, filter: Filter, sort: Sort, sel: str
     <div style="display:flex;gap:3px;margin-top:5px;padding:0 2px">
       ${dev ? '<button class="rf-tbtn" data-act="xpAll" data-tip="dev: one level of XP to every fit soldier">+XP all</button>' : ''}
       <span style="flex:1"></span>
-      <button class="rf-tbtn" data-act="endFight" data-tip="${esc(card({ icon: 'ui:flag', name: 'End the fight', w: 220, more: '<div>Write the fight back now: XP, wounds and captives. It ends by itself a few seconds after the last blow.</div>' }))}">${glyph('ui:flag', 13)} End fight</button>
+      ${dev ? `<button class="rf-tbtn" data-act="endFight" data-tip="${esc(card({ icon: 'ui:flag', name: 'End the fight', w: 220, more: '<div>dev: write the fight back now (XP, wounds, captives). It ends by itself a few seconds after the last blow.</div>' }))}">${glyph('ui:flag', 13)} End fight</button>` : ''}
     </div>
   </div>`;
 }

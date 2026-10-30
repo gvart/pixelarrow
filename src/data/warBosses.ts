@@ -11,7 +11,8 @@
  *
  * Pure and seeded: the same kill (seed) always drops the same table.
  */
-import { BASE_ITEMS, type Rarity } from './items';
+import { BASE_ITEMS, ITEMS, RARITIES, type Item, type Rarity } from './items';
+import { AFFIX_STEPS, encodeAffixes, itemAffixes } from './affixes';
 import { setPieces } from './sets';
 import { Rng, hashString } from '../sim/rng';
 import type { RareGood } from './warLandmarks';
@@ -45,7 +46,7 @@ export interface WarBoss {
 /**
  * W-67: a guardian's lines (grim Greek myth, the world between death and the afterlife, W-42; 12 words at most). `title`
  * under its name on the wake banner; `wake` its taunt; `phases[i]` as it enters phase i + 1; `epitaph` at its death;
- * `fled` and `back` for one that escapes (the Bandit King). `mute`: a beast, its lines are told, not said.
+ * `fled` and `back` for one that escapes (the Bandit King). `mute`: its lines are told, not said (the Erymanthian Boar; every other guardian speaks of the oath it failed).
  */
 export interface BossVoice {
   title: string; wake: string; phases: readonly string[]; epitaph: string; fled?: string; back?: string; mute?: true;
@@ -54,52 +55,55 @@ export interface BossVoice {
 export const WAR_BOSSES: readonly WarBoss[] = [
   // depth 2 pockets: tier 1, no signature
   { id: 'moor_bear', name: 'Great Bear of the Moors', region: 'moors', tier: 1, signature: [], phases: [1] ,
-    voice: { title: 'Warden of the Heather', mute: true, wake: 'The Great Bear rises from the heather, and the moor falls silent.', phases: [], epitaph: 'It lies down in the heather it guarded. The moor is open.' } },
+    voice: { title: "Last Watch of the Moors", wake: "The Wardens bid me keep this march. I keep it still.", phases: [], epitaph: "Tell the Wardens the moor held. Tell them no one came." } },
   { id: 'griffin', name: 'Griffin of the Kimmerian Hills', region: 'kimmeria', tier: 1, signature: [], phases: [1] ,
-    voice: { title: 'Gold-Keeper of the Crags', mute: true, wake: 'A shriek from the crags: the Griffin guards its gold.', phases: [], epitaph: 'The Griffin falls from the grey sky. Its hoard lies unwatched.' } },
+    voice: { title: "Gold-Keeper of the Broken Gate", wake: "I watched the mist take the Kimmerians whole. Not their gold.", phases: [], epitaph: "I kept their gold. I could not keep them." } },
   { id: 'savanna_lion', name: 'Lion of the Savanna', region: 'savanna', tier: 1, signature: [], phases: [1] ,
-    voice: { title: 'Lord of the Burnt Grass', mute: true, wake: 'The grass parts. The Lion has your scent, shade.', phases: [], epitaph: 'The Lion breathes its last into the dust it ruled.' } },
+    voice: { title: "Lord of the Burnt Grass", wake: "My hide was the rim's shield once. Now I wear it alone.", phases: [], epitaph: "Skin me with my own claws. The oath had softer hide." } },
   { id: 'maenad_queen', name: 'the Maenad Queen', region: 'bacchae', tier: 1, signature: [], phases: [1] ,
-    voice: { title: 'Queen of the Bacchae', wake: 'Dance with us, dead man. You will dance until you tear.', phases: [], epitaph: 'The flutes fall silent. The god still drinks.' } },
+    voice: { title: "Queen of the Bacchae", wake: "Wardens gone, the god is ours. Dance, dead man, until you tear.", phases: [], epitaph: "The flutes stop. Out past the rim, something else is dancing." } },
   // depth 3 gates: tier 2, each in its landmark
   { id: 'brontes', name: 'Brontes the Cyclops', region: 'saddle', tier: 2, signature: [], landmark: 'cyclopean_gatehouse', phases: [1, 0.85], rare: { good: 'starIron', n: 10 } ,
-    voice: { title: 'Thunder of the Saddle Gate', wake: 'Little shades at my gate. I will bury you under it.', phases: ['Enough stones. I come down to break you myself.'], epitaph: 'My thunder is spent. Let the gate fall with me.' } },
+    voice: { title: "Thunder of the Saddle Gate", wake: "I walled this gate for the Wardens. They left. I stayed.", phases: ["Enough stones. I keep their oath with my own hands."], epitaph: "Tell them the gate held longer than their word." } },
   // M7d: the Oracle Grove's guardians are the god's maenads and their queen (the art built them; docs/WAR.md "Landmarks")
   { id: 'grove_queen', name: 'the Maenad Queen of the Grove', region: 'erymanthos', tier: 2, signature: [], landmark: 'oracle_grove', phases: [1, 0.4], rare: { good: 'asphodel', n: 10 } ,
-    voice: { title: 'Voice of the Oracle Grove', wake: 'The oracle foretold you. It foretold your bones as well.', phases: ['Sisters, come! Tear them as we tore the king!'], epitaph: 'The grove will speak again. It will not speak of you.' } },
+    voice: { title: "Voice of the Oracle Grove", wake: "Memory or Lethe, shade? The Wardens drank from the left spring.", phases: ["Sisters, come! Tear them as we tore the forsworn!"], epitaph: "Lethe takes me now. No one will remember this grove." } },
   // E3: the Erymanthian Boar (Heracles' fourth labour) roots in a meadow by the south road below the Grove: a second guardian of the
   // region (both keep its claim points shut, as the Titan and the Minotaur do Omphalos'); its tusks are its trophy
   { id: 'erymanthian_boar', name: 'the Erymanthian Boar', region: 'erymanthos', tier: 2, signature: [], phases: [1, 0.5], trophy: 'the tusks of the Erymanthian Boar', deed: 'Boar-slayer' ,
-    voice: { title: 'Terror of Erymanthos', mute: true, wake: 'The Boar lowers its tusks. The snow remembers Heracles.', phases: ['Bristles rise, blood in its eye: the sounder answers its squeal.'], epitaph: 'The Boar falls where no hero chained it. Take the tusks.' } },
+    voice: { title: "Terror of Erymanthos", mute: true, wake: "The Boar lowers its tusks. An old Warden brand scars its flank.", phases: ["Bristles rise, blood in its eye: the sounder answers its squeal."], epitaph: "The Boar falls. Its brand reads: kept until relieved. No one came." } },
   { id: 'gyges', name: 'Gyges the Hundred-Handed', region: 'gorge', tier: 2, signature: [], landmark: 'titans_forge', phases: [1, 0.5], rare: { good: 'titanBronze', n: 10 } ,
-    voice: { title: 'Chained Giant of the Forge', wake: 'A hundred hands, and every one of them wants your throat.', phases: ['The chains of Zeus are broken. Now run, little shades.'], epitaph: 'Chained by gods, slain by ghosts. Tartarus will laugh.' } },
+    voice: { title: "Chained Giant of the Forge", wake: "They chained me here to forge the oath-bronze. Then they forgot me.", phases: ["Their chains rust like their word. Now run, little shades."], epitaph: "Forged for an oath no one keeps. Let the falls cool me." } },
   { id: 'chimera', name: 'the Chimera', region: 'canyons', tier: 2, signature: [], landmark: 'obsidian_hold', phases: [1], rare: { good: 'obsidian', n: 10 } ,
-    voice: { title: 'Fire of the Obsidian Hold', mute: true, wake: 'Lion roars, goat bleats, serpent hisses: the Chimera wakes in fire.', phases: [], epitaph: 'Three heads, one death. The fire in the hold goes cold.' } },
+    voice: { title: "Fire of the Obsidian Hold", wake: "Three throats swore to burn whatever climbs the vent. You climbed.", phases: [], epitaph: "Something still climbs the vent. Who burns it now?" } },
   // depth 4 rim edges: tier 3, the four signature legendaries
   // a dragon on the titan frozen in the glacier: the aegis of the god who threw the titans down
   { id: 'drakon', name: 'Drakon the White', region: 'krios', tier: 3, signature: ['aegis_of_zeus'], landmark: 'drakons_citadel', phases: [1, 0.6, 0.565], rare: { good: 'dragonbone', n: 20 } ,
-    voice: { title: 'Guardian of the Citadel', wake: "I sleep on a titan's corpse. You will lie beside it.", phases: ['Burn, then. Ash does not climb to heaven.', 'Enough! I will bring the citadel down upon you.'], epitaph: 'The ice takes me back. Take the aegis, and fear Zeus.' } },
+    voice: { title: "Guardian of the Citadel", wake: "I sleep on the titan the Wardens froze. Lie down beside it.", phases: ["Burn, then. Ash cannot climb to Elysion.", "Enough! Their citadel falls on you, as it fell on me."], epitaph: "The ice takes me back. Hold the north, if anyone can." } },
   // the estuary where the sea meets the rim: the sea god's trident
   { id: 'scylla', name: 'Scylla of the Estuary', region: 'siren', tier: 3, signature: ['poseidon_trident'], landmark: 'rim_watchtower', phases: [1, 0.5], rare: { good: 'nereidPearl', n: 15 } ,
-    voice: { title: 'Devourer of the Estuary', wake: 'Six mouths, and every one of them hungry for the dead.', phases: ['You drag me from my cave? Then come closer.'], epitaph: 'Once I was a nymph. Now I am nothing at all.' } },
+    voice: { title: "Devourer of the Estuary", wake: "The beacon is dark. Every ship that comes now is mine.", phases: ["You drag me from my cave? The Abyss waits behind me."], epitaph: "Light the beacon, then. Something bigger than me is coming." } },
   // the oracle that named Alexander son of a god: his armour on a king of thieves
   { id: 'bandit_king', name: 'the Bandit King of Ammon', region: 'ammon', tier: 3, signature: ['alexander'], landmark: 'dead_city', phases: [1, 0.6, 0.3] ,
-    voice: { title: 'King of the Dead City', wake: "Ammon's dead city is mine, and so is all you carry.", phases: ['To the palace! Make them pay for every street.', 'Hold them. A king does not die in the gutter.'], epitaph: "Take Alexander's armour, then. It never fit me.", fled: 'Laugh while you can. I will be back for the rest.', back: 'Miss me? The dead city never forgets its king.' } },
+    voice: { title: "King of the Dead City", wake: "Wardens gone, gods silent. Ammon's dead city is mine. Pay its king.", phases: ["To the palace! Make them pay for every street.", "Hold them. A king does not die in the gutter."], epitaph: "Take the conqueror's armour. It kept nothing out either.", fled: "Laugh while you can. I will be back for the rest.", back: "Miss me? The dead city never forgets its king." } },
   // the river that fought Achilles at Troy, here as the Achelous: the arms of Achilles
   { id: 'river_god', name: 'Achelous the River-God', region: 'delta', tier: 3, signature: ['achilles'], landmark: 'sunken_temple', phases: [1, 0.66, 0.33] ,
-    voice: { title: 'Lord of the Sunken Temple', wake: 'I fought Achilles at Troy. You are no Achilles.', phases: ['Water takes every shape. Try to hold me now.', 'As a bull, then. Heracles took a horn; you take nothing.'], epitaph: 'The river runs on without me. It always has.' } },
+    voice: { title: "Lord of the Sunken Temple", wake: "I held this delta beside the Wardens. You are no Warden.", phases: ["Water takes every shape. Try to hold me now.", "As a bull, then. The sea is rising behind you."], epitaph: "The river runs on. Soon the Abyss drinks it too." } },
   // the navel of the in-between: two guardians, two fights at once
   { id: 'titan', name: 'the Titan of the Navel', region: 'omphalos', tier: 3, signature: [], landmark: 'temple_city', phases: [1, 0.5] ,
-    voice: { title: 'Keeper of the Navel', wake: 'I held up the sky. I can hold back the dead.', phases: ['Then I shake the Navel until the world splits.'], epitaph: 'The Navel is yours. May it weigh on you as on me.' } },
+    voice: { title: "Keeper of the Navel", wake: "I held up the sky. Now I hold the oath-stone. Earn it.", phases: ["Then I shake the Navel until the rim splits."], epitaph: "Swear it at the Navel. Break it, and Lethe drinks you." } },
   { id: 'minotaur', name: 'the Minotaur', region: 'omphalos', tier: 3, signature: [], landmark: 'temple_city', phases: [1] ,
-    voice: { title: 'Horror of the Temple Maze', mute: true, wake: "A bellow from the temple's dark: the Minotaur smells the dead.", phases: [], epitaph: 'The bull-man falls. No thread is needed to leave now.' } },
+    voice: { title: "Horror of the Temple Maze", wake: "Bull-born, maze-bound. The Wardens shut me in with their oath.", phases: [], epitaph: "No thread leads out. Only the oath, and the dark." } },
 ];
 
-/** Per tier: pieces dropped, rarity weights of each, the least item tier, and the chance the first is a signature legendary. */
-export const BOSS_TIERS: Record<BossTier, { picks: number; rarity: readonly (readonly [Rarity, number])[]; minTier: number; signature: number }> = {
-  1: { picks: 2, rarity: [['rare', 70], ['epic', 28], ['legendary', 2]], minTier: 2, signature: 0 },
-  2: { picks: 3, rarity: [['rare', 40], ['epic', 50], ['legendary', 10]], minTier: 3, signature: 0 },
-  3: { picks: 4, rarity: [['rare', 15], ['epic', 55], ['legendary', 30]], minTier: 3, signature: 0.25 },
+/**
+ * Per tier: pieces dropped, rarity weights of the plain picks (rare or epic), the least item tier, the chance a kill
+ * drops its trophy (W-73: the only legendary in the war; the first piece), and the chance the trophy is a signature.
+ */
+export const BOSS_TIERS: Record<BossTier, { picks: number; rarity: readonly (readonly [Rarity, number])[]; minTier: number; trophy: number; signature: number }> = {
+  1: { picks: 2, rarity: [['rare', 70], ['epic', 30]], minTier: 2, trophy: 0.25, signature: 0 },
+  2: { picks: 3, rarity: [['rare', 40], ['epic', 60]], minTier: 3, trophy: 1, signature: 0 },
+  3: { picks: 4, rarity: [['rare', 15], ['epic', 85]], minTier: 3, trophy: 1, signature: 0.25 },
 };
 
 const BY_ID = new Map(WAR_BOSSES.map((b) => [b.id, b]));
@@ -119,7 +123,18 @@ export const bossDeed = (boss: string): string => {
   return b?.deed ?? `Bane of ${(b?.name ?? boss).replace(/^the /, '')}`;
 };
 
-export interface BossDrop { def: string; rarity: Rarity }
+export interface BossDrop { def: string; rarity: Rarity; /** W-73: the kill's trophy (legendary; asTrophy). */ trophy?: true }
+
+/**
+ * W-73: a dropped item made the guardian's trophy: his name on it (Item.tr) and every random stat at its top step, so
+ * it sits at the war bake's cap (named legendaries keep their fixed stats).
+ */
+export function asTrophy(item: Item, boss: string): Item {
+  const b = warBoss(boss), def = ITEMS[item.def];
+  const top = AFFIX_STEPS[RARITIES.indexOf('legendary')][1];
+  const aff = def?.fixed ? null : encodeAffixes(itemAffixes(item).map(([k]) => [k, top]));
+  return { ...item, ...(b ? { tr: b.name } : {}), ...(aff ? { aff } : {}) };
+}
 
 /** M7e: the goods a kill of `boss` drops into its loot pile (its rare good; none for most). */
 export const bossGoods = (boss: string): { r: RareGood; n: number }[] => {
@@ -142,8 +157,9 @@ export function bossLoot(boss: string, seed: string): BossDrop[] {
   const pool = BASE_ITEMS.filter((d) => d.tier >= t.minTier);
   const out: BossDrop[] = [];
   for (let i = 0; i < t.picks; i++) {
-    if (i === 0 && b.signature.length && rng.chance(t.signature)) {
-      out.push({ def: rng.pick(signatureItems(rng.pick(b.signature))), rarity: 'legendary' });
+    if (i === 0 && rng.chance(t.trophy)) {
+      const sig = b.signature.length > 0 && rng.chance(t.signature);
+      out.push({ def: sig ? rng.pick(signatureItems(rng.pick(b.signature))) : rng.pick(pool).id, rarity: 'legendary', trophy: true });
       continue;
     }
     out.push({ def: rng.pick(pool).id, rarity: rng.weighted(t.rarity) });

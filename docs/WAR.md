@@ -12,13 +12,34 @@ owner to confirm; Greek "the in-between"), one continent hung between death and 
 - **Ascension.** The alliance that wins a season (hegemony, or the top season score) **ascends to Elysion**: its
   warriors' names are set in the season's roll of honour, their legacy carries into the next season, and the world
   is reborn for those still waiting.
-- **Erasure.** The forgotten drink from **Lethe**: an alliance that keeps losing is struck from history and from the
-  universe, as if it had never lived. In play this is flavour for the season reset and the standings, not a wipe of
-  anyone's account.
+- **Erasure.** What fades drinks **Lethe**, and Lethe is true erasure: name, deeds, grave and every memory of the
+  drinker go, as if he had never lived. An alliance that keeps losing is struck out this way. In play this is flavour
+  for the season reset and the standings, not a wipe of anyone's account.
+- **The player is a demigod.** He died a mortal and woke on Metaxy as what his blood always was: a god's child. The
+  dead feel that blood; souls wake near him and come to his banner (Souls, the Tunnel of Shades and Divine favour
+  below). One identity everywhere: the guide's intro (`src/war/net/questLore.ts` GUIDE_INTRO) says it once.
 - **The edge.** Metaxy has no ocean. Its shores (fjords, coves, lagoons, the tables below still call them coasts)
   meet a narrow fringe of grey dead water that dissolves into mist and then **the Abyss**. Colossal **Rim Wardens**
   watch from it: sea serpents coiled in the mist, titans half-sunk in the void, winged horrors over the cliffs. They
   forbid anyone to go further; the map ends where they stand.
+- **The enemy is the Abyss; the broken oath is the spine.** The Wardens once swore by Horkos to keep the rim, and
+  every region kept one line of that oath on its boundary stone. They broke it and withdrew into the mist (the
+  Kleisoura toll-stone is the first clue; why they broke it nobody on Metaxy knows), and every stone cracked. Since
+  then Metaxy thins: each season the Abyss leans closer, and from the mist the Wardens only strike (Warden strikes).
+  Every region chain ends with one **shard of the oath** in its `end` line, carried by a guardian, a cairn or a dead
+  man; the guardians speak of the oath they failed (`src/data/warBosses.ts` voice). Whoever holds Omphalos re-swears
+  the oath and seals the rim for one more season (the season's win, told). The shards' lines, by region, are the
+  oath's text: the cold shafts "Nothing from below comes up", the fjords "No keel passes the grey water", the heath
+  "The forsworn walk until they keep it", the oakwood "No name goes to Lethe while we stand", the frost steppe "No
+  rider goes over the edge", the chalk coast "No shade leaps, and none is pushed", the eastern slopes "The roads are
+  kept in every season", the kurgans "We watch from the high places", the wadi "No army thirsts behind us", the
+  lagoon "Salt on every threshold, against the dark", the dunes "We dig until the water comes", the floodplain "When
+  the water rises, we stand in it", the fens "The dead lie as their own would lay them", the coves "The drowned are
+  let ashore", the cape "We face the wind that blows outward", the vineyards "Every crossing is poured for", Kleisoura
+  "One toll at the pass, and no more", Stymphalia "What nests on the isle stays on it", the Achelous "The dead cross
+  free", Ammos "No one is left waiting in the sand", the moors "Our names fall before our watch does", Kimmeria "The
+  mist takes no people whole", the savanna "We are the hide between the dead and the dark", Bacchae "We look
+  outward, never in". The last line, sworn at Omphalos: "If we break, let Lethe drink us."
 - **Omphalos.** The navel of the in-between: the ruined temple on the mesa is where the way up opens, so holding it
   scores most (10 an hour) and holding it with three frontier towns ends the season (hegemony).
 - **Homes never fall** because a dead warrior cannot die twice: in his own hall he always wakes again. What can be
@@ -340,7 +361,7 @@ Depth is how far a region lies from the living halls, counted in danger rather t
 | Lifelines stay reachable | a rim region's salt, silver and iron fields lie outside its landmark, guarded by depth-4 lairs only: a 2–3 squad raid clears one and hauls for the hour until it respawns, so coin and salt flow early; holding the region needs the boss |
 | Warden strikes (depth 4 rim) | the outermost 12 tiles to the dead water are a no-build band; every 15 min a Rim Warden strikes a marked 8×8 patch of it (10 s telegraph, 60% max hp to every man in it, buildings untouched) |
 | Bandit host | a captain (bandit ×2 hp, ×1.25 damage, with his 12-man lair) + 3–6 bandit lairs that hold a town: they man its pre-built walls and towers, keep its gates shut and send an 8-man raid party at carts on an adjacent route every 30 min (M6j) |
-| Boss tiers (`src/data/warBosses.ts`) | tier = depth − 1, except Omphalos (tier 3): depth 2 → tier 1, depth 3 → tier 2, depth 4 → tier 3; the four signature legendaries stay on the rim |
+| Boss tiers (`src/data/warBosses.ts`) | tier = depth − 1, except Omphalos (tier 3): depth 2 → tier 1, depth 3 → tier 2, depth 4 → tier 3; the four signature legendaries stay on the rim. W-73 trophies: legendary gear drops only as a guardian's trophy, the first piece of a kill (tier 1: 25% of kills, tiers 2–3: every kill; on the rim 25% of trophies are a signature piece), named after the guardian ("Kopis of the Chimera", `Item.tr`) with every random stat at its top step (the bake's cap); the other picks are rare or epic |
 
 Today's boss list needs four moves for this to be symmetric (each home faces the same guardians at the same depth):
 the Lion of the Savanna and the Griffin drop to tier 1, the Panoply of Alexander moves to the new Bandit King of Ammon,
@@ -397,7 +418,9 @@ goods (stores offline, home strongroom online), an item (a pile at his men, roll
 Progress: offline localStorage `pa.war.story.<region>`, online the region DO's storage `story:<season>:<pid>`; a run
 started again from its save (reload, region woken) spawns what its open step needs. Every depth 1-2 neutral has a full
 chain (24); the lion and serpent regions fight their own beasts in their steps (a pride, a nest), and the Kimmerian
-Hills' chain ends by sending the player at the Griffin (the guardian is never a step). The file ends with a template. A step's named bandit
+Hills' chain ends by sending the player at the Griffin (the guardian is never a step). Every chain's `end` line carries
+the spine beat: one shard of the Wardens' oath, its line in quotes (Lore lists them), found on a foe, a cairn, a
+dead man or under the region's guardian; told only, no item. The file ends with a template. A step's named bandit
 lead wears the captain's sheet (as does a host's captain) and his name stands under his feet while he lives. Foes stand
 25+ tiles from the region's own lairs (tests/war/stories.test.ts).
 
@@ -437,8 +460,21 @@ zone. Each room runs on its own seed (the region id hashed), so wander, roads an
 
 | Piece | Where | What |
 | --- | --- | --- |
-| Chief (local mini-boss) | 1 per entry, 2 deeper; none at home | a named beast or bandit chief (src/data/warWild.ts `WAR_CHIEFS`) on his kind's art, drawn 1.2–1.45x and tinted, his name and title over his head; leads an escort of his kind (`CHIEF_KINDS`: hp x2–100 and damage x1.2–2.6 over a man of his kind, before depth, and +6 armour, so 20 men take 60–90 s to bring him down at depth 2; a chief never breaks off); his kill drops a pile (10–25 coin and a few hides or iron, x(1 + depth/2), an item at 35–50%); his lair comes back after 37.5 min (depth 1) to 60 min (rim) |
-| Hidden quest | 2 per entry, 3 deeper; none at home | no giver and no marker: men walking onto the spot (a dead man with a note, a cairn, a forgotten shrine, a ruined watch-post) begin the player's own run on the story runner (src/war/sim/secrets.ts), told as a short notice; 1–2 steps a short walk off (hunt the killers, dig a cache, the shrine's chief, a deserters' camp); pays a pile at his men, his alone for 10 min (10–20 coin and a few goods, x(1 + depth/2)) |
+| Chief (local mini-boss) | 1 per entry, 2 deeper; none at home | a named beast or bandit chief (src/data/warWild.ts `WAR_CHIEFS`) on his kind's art, drawn 1.6x and tinted, his name and title over his head; leads an escort of his kind (`CHIEF_KINDS`: hp x2.85–76 and damage x1.2–2.6 over a man of his kind, before depth, and +6 armour, so a solo player's whole army (12 men, W-58) takes 60–90 s to bring him down: level 2 at depth 1, level 3 at depth 2 (measured 64–81 s for hoplites; 20 level-1 men take ~50–57 s); a chief never breaks off); his kill drops a pile (10–25 coin and a few hides or iron, x(1 + depth/2), an item at 35–50%); his lair comes back after 37.5 min (depth 1) to 60 min (rim) |
+| Hidden quest | 2 per entry, 3 deeper; none at home | no giver and no marker: men walking onto the spot (a dead man with a note, a cairn, a forgotten shrine, a ruined watch-post) begin the player's own run on the story runner (src/war/sim/secrets.ts), told as a short notice; 1–2 steps a short walk off (hunt the killers, dig a cache, the shrine's chief, robbers in an abandoned Warden post); the words follow the region's ground (`landOf`: the cold north, the steppe, the sand, the wet south; the rules stay the template's); pays a pile at his men, his alone for 10 min (10–20 coin and a few goods, x(1 + depth/2)) |
+
+#### Region mastery (W-73)
+
+Per player and season, a region is **mastered** when his men have cleared every lair it was built with, slain every
+chief among them and finished every hidden quest in it (`src/war/net/mastery.ts`; D1 `war_mastery`,
+`war_mastery_done`, 0052; `server/src/war/mastery.ts`). Each counts once: a lair respawned and cleared again adds
+nothing, and the lairs and chiefs a hidden quest spawns feed the tasks only. A lair or chief counts for every player
+with fit men within 20 tiles when it falls (shared with friends who fought beside him). Mastering pays once: 300
+divine favour (reason "Region mastered"), the deed **Banner of <region>** on each of his men standing there (their
+record and grave), and the badge on the region's mastery chip. A home has no chiefs or hidden quests: its outskirts
+lairs master it. The chip (`src/war/view/hud/mastery.ts`) shows lairs, chiefs and hidden quests have/need under the
+region name; online the room sends it on join and on each deed; offline the client keeps it from the local sim for the
+session.
 
 ### Rival warlords (W-72 proposal)
 
@@ -494,7 +530,7 @@ tiles away.
 
 | Kind | Steps | Pays |
 | --- | --- | --- |
-| Ambush! | bandits spring from cover: beat them off | coin, food |
+| Ambush! | rim-touched men spring from cover: beat them off | coin, food |
 | A Wounded Deserter | reach him; bind his wound / take his gear / leave | a soul (hoplite L2) / a dory and coin / nothing |
 | The Wayside Herm | reach it; take the offerings (35%: robbers, fight) / offer / pass | coin / herbs |
 | A Buried Cache | reach it; dig (30%: the region's beasts, fight) / leave | iron, coin |
@@ -511,7 +547,7 @@ tiles away.
 | Tracks of a Stolen Herd | follow 3 marks (track); the rustlers at the trail's end | food, hides, coin |
 | The Unburied Shade | reach him; the rites / enlist him / take the obol (50%: carrion beasts) | a votive shield / a soul (hoplite L2) / coin |
 | The Poisoned Well (elaia, dodona, kyrene) | seal it / hunt the poisoner: 2 marks, then bandits / leave | food, herbs / coin, herbs |
-| A Deserter's Map | follow 3 marks; dig (30%: his old comrades) / leave | bronze, coin, a helm |
+| A Dead Runner's Map | follow 3 marks; dig (30%: his killers) / leave | bronze, coin, a helm |
 | The Speaking Oak (dodona, mountains) | reach it; ask for victory / the road / take a cauldron (50%: keepers) | a charm / food / bronze |
 
 Progress: offline localStorage `pa.war.enc.<region>` (`?encounter=<kind>` springs one at once for tools); online the
@@ -689,6 +725,12 @@ The menu is the game's front page (`index.html`, play.pixelarrow.app; `src/war/m
 `GET /api/war/start` gives the step (alliance, home, squad, done) and the choices. A returning player gets
 Continue (into the region where most of his men stand, else his home), World map, Settings and Sign out. Players made
 by the dev routes (`/api/war/world/dev/alliance`, `/api/war/dev/seed`, DEV_AUTH only) count as started.
+
+The first hour (W-62, `src/war/net/guide.ts`, online `server/src/war/guide.ts`) runs in the home region: claim a soul,
+gather, drive off the bandit pair, raise a camp, bring goods into a store. W-73 adds a sixth step, the hand-off
+(`GUIDE_NEXT` in `src/war/net/questLore.ts`: "Find {giver} by the well"): of the home's neighbours with a region chain
+(W-65), the one whose exit lies nearest the home town; the marker points at that exit, and the step closes (20 coin)
+when his men reach it or he departs for that region. The chain's giver then takes over with his own "!".
 
 ## Controls
 
@@ -1021,7 +1063,7 @@ badge; the title screen shows it beside the name), a short banner on a level gai
   Apollo, Shield of Zeus, Titan-slayer, Ichor-blooded, Star of Olympus, Olympian-touched.
 - **Earning:** battle won 20, fought 4, each kill 2 (20 kills a fight at most); lair cleared 40 (players with men
   within 20 tiles); guardian slain 150 (each killer); daily task 40, weekly 150; story step 25, chain ended 150;
-  encounter step 10, ended 30; land every 10 min: 1 per claim point his alliance holds where his men stand (3 at
+  encounter step 10, ended 30; a region mastered 300 (W-73); land every 10 min: 1 per claim point his alliance holds where his men stand (3 at
   most) and 2 if it owns the region, at most 30 an hour across regions.
 - **Bonus, newly raised men only** (claimed souls; tunnel raises): +1 unspent attribute point at levels 3, 6, 9, 12
   (4 at most); the starting kit lifted to uncommon at level 5, rare at level 10. A max-favour fresh man (4 points,
@@ -1184,11 +1226,12 @@ Craft grade **G** = crafter level (1–10) + tool tier − 1 + ⌊tool rarity ra
 | 1–3 | 80 | 18 | 2 | 0 | 0 |
 | 4–6 | 60 | 30 | 9 | 1 | 0 |
 | 7–9 | 42 | 36 | 18 | 4 | 0 |
-| 10–12 | 30 | 36 | 24 | 9.95 | 0.05 |
-| 13–15 | 20 | 34 | 30 | 15.85 | 0.15 |
-| 16+ | 12 | 30 | 34 | 23.7 | 0.3 |
+| 10–12 | 30 | 36 | 24 | 10 | 0 |
+| 13–15 | 20 | 34 | 30 | 16 | 0 |
+| 16+ | 12 | 30 | 34 | 24 | 0 |
 
-Tier caps rarity (T1 ≤ rare, T2 ≤ epic, T3 any; the excess falls one step). Random stats and an epic/legendary power
+Tier caps rarity (T1 ≤ rare, T2 and T3 ≤ epic; the excess falls one step). W-73: no smith makes a legendary; legendary
+gear is a guardian trophy only (below). Random stats and an epic power
 then roll exactly as a drop's (`itemAffixes`, `itemPower`), seeded by the order and stored on the item (`aff`, `pow`).
 
 | Quality | Chance | Base stats | Random-stat steps | Max condition | Wear |
@@ -1219,10 +1262,10 @@ Expected values, no dice. A play week = 14 h at the forge + 7 unattended queues 
 | Check | Result | Target |
 | --- | --- | --- |
 | fresh kit for 12, T1 forge, one slot | worst hoplite 1.1 h (wood 132, flax 72, copper / tin / iron 36); others 0.2–1 h; T2 forge ≤ 0.6 h, T3 ≤ 0.3 h | ≤ 2 h |
-| legendaries of a master smith a week | 352 tier-3 crafts × 0.3% = 1.06 (copper and tin 1063 each, silver 176: tin and silver come from neutrals) | ~1 |
-| one max squad (48 legendary pieces), 3 master smiths | 333 crafts a legendary; 4–22 play weeks (archer 4, gallic 4.5, rhomphaia 8, royal guard 21, sacred band 22) | drops (beast loot 15% legendary) are the faster road |
-| rarity mix | crafted T3 at G 17: 12 / 30 / 34 / 23.7 / 0.3%; T1 at a T1 forge (G 4) 60 / 30 / 10; T1 drops 85 / 14 / 1, T3 drops 30 / 40 / 25 / 5 | crafted ≥ drops below legendary |
-| power through `warStatsOf` (L10, attributes 15) | max crafted kit = drop-legendary kit = the cap on every clamped stat (royal guard HP 52 → 60, dmg 10 → 12.6, armour 8.8 → 10.5) | ≤ cap; max squad ≤ 35% vs 2N (tests/war/balance.test.ts) |
+| epics of a master smith a week (W-73: no crafted legendary) | 352 tier-3 crafts × 24% = 84.5 epics, 0 legendaries (copper and tin 1063 each, silver 176: tin and silver come from neutrals) | legendaries only as guardian trophies (tier 1: 25% of kills, tiers 2–3: every kill) |
+| one max squad (48 epic pieces, already at the cap), 3 master smiths | 4 crafts an epic; 0.1–0.3 play weeks (was 4–22 weeks for 48 legendaries that added nothing over epic) | a legendary is prestige (a guardian's name), never power past the cap |
+| rarity mix | crafted T3 at G 17: 12 / 30 / 34 / 24 / 0%; T1 at a T1 forge (G 4) 60 / 30 / 10; T1 drops 85 / 14 / 1, T3 drops 30 / 40 / 25 / 5 | crafted ≥ drops below legendary |
+| power through `warStatsOf` (L10, attributes 15) | max crafted (epic) kit = drop-legendary kit = the cap on every clamped stat (royal guard HP 52 → 60, dmg 10 → 12.6, armour 8.8 → 10.5) | ≤ cap; max squad ≤ 35% vs 2N (tests/war/balance.test.ts) |
 
 ### Workplaces
 
@@ -1487,3 +1530,18 @@ the roster's tabs, in the Works panel's Titles tab (the standings, with your own
 panel and after the holder's home on the map: **Merchant Prince** (coin sold at his stalls), **Master Builder** (man-hours sold
 under build contracts or given to works), **Warden** (hours held under guard contracts), **Warlord** (foes his men
 struck down this season, war_player_stats; not the men's lifetime kills).
+
+### Daily and weekly tasks (W-62, W-73 solo)
+
+Pools, draw and lore: `src/war/net/tasks.ts`, `src/war/net/questLore.ts` `TASK_LORE`; tallies and claims:
+`server/src/war/tasks.ts`. 3 daily and 2 weekly tasks, drawn per player and period (no metric twice), one reroll a day.
+
+- **Partner tasks** need another player: selling to another alliance (`d-sell`, `w-sell`), guard contracts
+  (`d-guard`, `w-guard`) and market contracts (`d-contract`, `w-contract`). A player draws (and rerolls into) them
+  only while at least 2 other members of his alliance did anything the tally counts in the last 3 UTC days
+  (`PARTNERS`); otherwise he draws solo. Offline he is always solo. The draw is fixed for the period once made.
+- **Solo tasks of the wild**: slay a named chief (daily 1, 35 coin; weekly 4, 200), finish a hidden quest (daily 1,
+  30; weekly 3, 160), see a road encounter through to its end (daily 1, 25), clear lairs (daily 2, 30; weekly 12,
+  180). A lair or a chief counts for every player with fit men within 20 tiles (of the lair, of where the chief fell;
+  the chief's slaying team only); a hidden quest for its owner; an encounter on its end (a lapse does not count).
+  Respawned lairs and chiefs count again for the tasks.

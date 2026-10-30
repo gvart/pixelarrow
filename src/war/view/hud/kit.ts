@@ -4,10 +4,11 @@
  * setting (auto by viewport, 0.75x / 1x / 1.25x / 1.5x / 2x; W-34) snapped to quarter device pixels and drawn nearest-neighbour
  * (image-rendering: pixelated, the @1x / @2x asset by device pixel ratio), so the pixel art stays sharp.
  */
-import type { BuildingType, SiegeType } from '../../types';
+import type { BuildingType, SiegeType, SquadSnap } from '../../types';
 import type { ActionId } from '../../input/actions';
 import { keys } from '../../input/keys';
-import { THEME_CSS, tipHtml, TOKENS, Z } from './theme';
+import { NEEDS_SERVER, THEME_CSS, tipHtml, TOKENS, Z } from './theme';
+export { NEEDS_SERVER };
 
 export const UI = 'war/ui/';
 const url = (f: string) => `url(${UI}${f})`;
@@ -228,9 +229,10 @@ export function menuBtn(id: string, ic: string, name: string, what: string, acti
     const badge = b.querySelector('.rf-badge');
     b.innerHTML = icon(ic) + `<span class="key">${shortKey(action)}</span>`;
     if (badge) b.appendChild(badge);
-    b.dataset.tip = tipHtml(name, what, keys.label(action));
+    b.dataset.tip = tipHtml(name, b.classList.contains('off') ? NEEDS_SERVER : what, keys.label(action));
   };
   paint();
+  repaint.set(b, paint);
   keys.onChange(paint);
   document.getElementById(MENU_BAR)?.appendChild(b);
   addEventListener('keydown', (e: KeyboardEvent) => {
@@ -241,6 +243,24 @@ export function menuBtn(id: string, ic: string, name: string, what: string, acti
   return b;
 }
 
+const repaint = new WeakMap<HTMLElement, () => void>();
+/**
+ * A menu bar button whose window needs the server: offline (`off`) it greys out and its tooltip says why. Returns
+ * `off`; the caller's click handler calls `showWhy` instead of opening an empty window.
+ */
+export function serverOnly(b: HTMLButtonElement, off: boolean): boolean {
+  if (b.classList.contains('off') !== off) {
+    b.classList.toggle('off', off);
+    repaint.get(b)?.();
+  }
+  return off;
+}
+/** A click or the key on a greyed button: its tooltip (the reason) shows for a moment. */
+export function showWhy(b: HTMLElement): void {
+  b.dispatchEvent(new PointerEvent('pointerover', { bubbles: true }));
+  setTimeout(() => { if (!b.matches(':hover')) b.dispatchEvent(new PointerEvent('pointerout', { bubbles: true })); }, 2500);
+}
+
 /** A count on a menu bar button (0 hides it); `gold` for something to collect rather than to answer. */
 export function setBadge(b: HTMLElement, n: number, gold = false): void {
   let el = b.querySelector<HTMLElement>('.rf-badge');
@@ -248,6 +268,17 @@ export function setBadge(b: HTMLElement, n: number, gold = false): void {
   if (!el) { el = document.createElement('b'); el.className = 'rf-badge'; b.appendChild(el); }
   el.classList.toggle('gold', gold);
   el.textContent = String(n);
+}
+
+/**
+ * A squad as the player reads it: "Squad 2", its place among its owner's squads (never the sim's id). Empty squads
+ * (merged away) do not count.
+ */
+export function squadName(squads: readonly SquadSnap[] | undefined, id: number): string {
+  const q = squads?.find((x) => x.id === id);
+  if (!q) return 'Squad';
+  const mine = squads!.filter((x) => x.owner === q.owner && x.team === q.team && (x.units.length > 0 || x.id === id)).map((x) => x.id).sort((a, b) => a - b);
+  return `Squad ${mine.indexOf(id) + 1}`;
 }
 
 /** A bar: kind hp / construction / burn / ok, value 0..1, width in art px. */

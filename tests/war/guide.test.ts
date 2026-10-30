@@ -13,7 +13,9 @@ import { parseRegion } from '../../src/war/region/schema';
 import { createSim } from '../../src/war/sim';
 import { buildGrid, findPath, tileAt } from '../../src/war/sim/grid';
 import { ARMY_MAX } from '../../src/war/sim/soldiers';
-import { doneNow, GUIDE_LAIR, GUIDE_SOUL, GUIDE_STEPS, guideSpots, HOME_R, newWatch, watchEvents, type GuideStepId } from '../../src/war/net/guide';
+import { doneNow, GUIDE_LAIR, GUIDE_SOUL, GUIDE_STEPS, guideNext, guideSpots, HOME_R, newWatch, watchEvents, type GuideStepId } from '../../src/war/net/guide';
+import { storyOf } from '../../src/data/warStories';
+import { adjacent } from '../../src/war/world/graph';
 import type { RegionData, WarBuildSim } from '../../src/war/types';
 
 const HOMES: [string, unknown][] = [['dodona', dodonaJson], ['elaia', elaiaJson], ['kyrene', kyreneJson], ['skythia', skythiaJson]];
@@ -38,14 +40,17 @@ describe('W-62 guide spots', () => {
 });
 
 describe('W-62 the first-hour chain (sim side)', () => {
-  it('soul, gather, bandit pair, camp and haul run to completion on dodona', () => {
-    const r = parseRegion(dodonaJson) as RegionData, sp = guideSpots(r, 0);
+  it('soul, gather, bandit pair, camp, haul and the hand-off (W-73) run to completion on dodona', () => {
+    const r = parseRegion(dodonaJson) as RegionData, sp = guideSpots(r, 0), next = guideNext('dodona', r)!;
+    // the hand-off: the nearest neighbour with a region chain, its giver, and the exit towards it
+    expect(adjacent('dodona', next.region)).toBe(true);
+    expect(next.giver).toBe(storyOf(next.region)!.giver.name);
     const sim: WarBuildSim = createSim(r, 7) as WarBuildSim;
     sim.claim(0, sp.home.x, sp.home.y, HOME_R); // the home alliance's ground (the server room does it)
     const sq = sim.spawnSquad('you', 0, 'hoplite', ARMY_MAX - 1, sp.entry.x, sp.entry.y);
     const soul = sim.spawnSoul(sp.soul.x, sp.soul.y, GUIDE_SOUL.cls, GUIDE_SOUL.level, 'shrine');
     sim.addLair({ kind: GUIDE_LAIR.kind, x: sp.lair.x, y: sp.lair.y, count: GUIDE_LAIR.count });
-    const w = newWatch(0, sp.lair), at: Partial<Record<GuideStepId, number>> = {};
+    const w = newWatch(0, sp.lair, undefined, next.exit), at: Partial<Record<GuideStepId, number>> = {};
     const run = (max: number, step: GuideStepId) => {
       for (let t = 0; t < max && !at[step]; t++) {
         sim.step();
@@ -90,6 +95,10 @@ describe('W-62 the first-hour chain (sim side)', () => {
     const wood = nearest(['wood', 'stone'], spot!);
     sim.order({ kind: 'gather', squad: sq, node: wood.id });
     run(3000, 'haul');
+    expect(at.next).toBeUndefined();
+
+    sim.order({ kind: 'move', squad: sq, x: next.exit.x, y: next.exit.y });
+    run(14000, 'next'); // the long road round the town to the south exit
     expect(Object.keys(at).sort()).toEqual(GUIDE_STEPS.map((s) => s.id).sort());
   }, 60_000);
 });

@@ -39,6 +39,25 @@ export function strikeSfx(cls: string, roll: number): SfxId | null {
   return cls.startsWith('mob_') ? 'clashHeavy' : 'clash';
 }
 
+/** Beasts that hit with their whole weight (club, pounce, charge, maul): their blows are felt (../feel/hits.ts). */
+const HEAVY = /^mob_(bear|boar|lion|cyclops|erymanthian_boar|moor_bear|savanna_lion|minotaur|griffin|chimera|brontes|gyges|titan|river_god|drakon|scylla_head)$/;
+/** A beast (not a bandit or a maenad: men with iron): its blows and wounds kick dust, not sparks. */
+const BEASTLY = /^mob_(?!bandit|maenad)/;
+
+/** Does `cls` strike heavily (a big beast); `big`: a chief or a guardian, whatever his kind. */
+export function heavyBlow(cls: string, big = false): boolean {
+  return big || HEAVY.test(cls);
+}
+
+export function isBeast(cls: string): boolean {
+  return BEASTLY.test(cls);
+}
+
+/** The layer under a heavy blow's own sound: the body's weight landing (null: an ordinary blow). */
+export function weightSfx(cls: string, big = false): SfxId | null {
+  return heavyBlow(cls, big) ? 'thud' : null;
+}
+
 /**
  * Did a unit (or engine) strike since the last snapshot the sound layer took? `swing` is the ticks since its last blow
  * (0: this tick), `gap` the ticks since that snapshot. The view takes one snapshot per render frame, so under load (a

@@ -280,9 +280,10 @@ export function powerText(p: ItemPower, template = POWERS[p.id].text, sec = 's')
 }
 
 /** The name an item shows: "Keen Iron xiphos of Frenzy". Set pieces and named items keep their own name. */
-export function itemDisplayName(item: Pick<Item, 'uid' | 'def' | 'rarity'> & { aff?: string; pow?: string }): string {
+export function itemDisplayName(item: Pick<Item, 'uid' | 'def' | 'rarity'> & { aff?: string; pow?: string; tr?: string }): string {
   const def = itemDef(item.def);
   if (def.named || def.set) return def.name;
+  if (item.tr) return `${def.name} of ${item.tr}`; // W-73: a guardian's trophy keeps the guardian's name
   const aff = itemAffixes(item);
   const pow = itemPower(item);
   const word = aff.length ? `${AFFIXES[aff[0][0]].word} ` : '';

@@ -14,7 +14,7 @@ import { FALL } from '../../sim/soldiers';
 import { COVERED, LADDER, MANTLET, RAM, SIEGE, THROWER } from '../../sim/siege';
 import type { BuildingType, SiegeType, WarSkillId } from '../../types';
 import { glyph } from './glyph';
-import { TERRITORY } from './explain';
+import { metres, TERRITORY } from './explain';
 
 const pc = (v: number) => `${Math.round(v * 1000) / 10}%`;
 const num = (v: number) => String(Math.round(v * 100) / 100);
@@ -39,8 +39,8 @@ export const TERMS: Record<string, Term> = {
   accuracy: { name: 'Accuracy', icon: 'ui:eye', text: () => `The chance a blow or missile hits. Missiles lose up to ${pc(COMBAT.falloff)} of it at full range and hit men in forest less. Raised by ${term('agi')}.` },
   blow: { name: 'Blow', icon: 'ui:hourglass', text: () => `Seconds between two blows (or shots). ${term('agi')} shortens it.` },
   survive: { name: 'Survive', icon: 'power:second_wind', text: () => `When he falls, the chance he is only ${term('wounded', 'wounded')} and not killed: ${pc(FALL.wounded)}, +${pc(FALL.perEnd)} for each point of ${term('end')} above ${ATTR_BASE}, more with a ${term('civ_physician', 'Physician')} near; at most ${pc(FALL.cap)}.` },
-  reach: { name: 'Reach', icon: 'ui:spear', text: () => 'How far his weapon strikes, in tiles. A long spear hits first.' },
-  range: { name: 'Range', icon: 'ui:aimed', text: () => 'How far his missiles fly, in tiles; farther from higher ground.' },
+  reach: { name: 'Reach', icon: 'ui:spear', text: () => 'How far his weapon strikes, in metres. A long spear hits first.' },
+  range: { name: 'Range', icon: 'ui:aimed', text: () => 'How far his missiles fly, in metres; farther from higher ground.' },
   ammo: { name: 'Ammunition', icon: 'item:gorytos_bow', text: () => 'Missiles he carries into a fight. Once spent he fights hand to hand.' },
   str: { name: 'Strength', icon: 'ui:bond', text: () => attrText('str') },
   agi: { name: 'Agility', icon: 'ui:fast', text: () => attrText('agi') },
@@ -239,7 +239,7 @@ export const BUILD_TEXT: Partial<Record<BuildingType, BuildText>> = {
   stoneBridge: { role: 'Crossing', flavour: 'Arches that will outlast their builders.', for: 'a lasting way across a river that fire cannot take.' },
   stakes: { role: 'Field work', flavour: 'A horse will not run onto a point.', for: 'slows and hurts foes crossing it; engines cannot pass.' },
   ditch: { role: 'Field work', flavour: 'Dig, and let the ground fight for you.', for: 'foes cross it slowly and engines not at all; it costs only work.' },
-  chest: { role: 'Store', flavour: 'Oak, iron bands and a lock.', for: `holds ${BUILDINGS.chest.chest} loads of your goods, yours alone; up to ${CHEST.cap} in a region. A foe loots it only with none of your men within ${CHEST.guard} tiles.` },
+  chest: { role: 'Store', flavour: 'Oak, iron bands and a lock.', for: `holds ${BUILDINGS.chest.chest} pack loads of your goods, yours alone; up to ${CHEST.cap} in a region. A foe loots it only with none of your men within ${metres(CHEST.guard)}.` },
 };
 /** Each building's purpose in one short line (the building card's first line; the CK3 card above is its tooltip). */
 export const BUILD_LINE: Partial<Record<BuildingType, string>> = {
@@ -271,7 +271,7 @@ export const BUILD_LINE: Partial<Record<BuildingType, string>> = {
 };
 export const SIEGE_TEXT: Partial<Record<SiegeType, BuildText>> = {
   ram: { role: 'Engine', flavour: 'A tree trunk, an iron head and six strong backs.', for: `breaks gates and walls: ${RAM.dmg} damage a stroke against wood.` },
-  stoneThrower: { role: 'Engine', flavour: 'Torsion, timber and a stone the size of a man\'s chest.', for: `hurls stones up to ${THROWER.range} tiles at walls and towers; deploy it first (Y).` },
+  stoneThrower: { role: 'Engine', flavour: 'Torsion, timber and a stone the size of a man\'s chest.', for: `hurls stones up to ${metres(THROWER.range)} at walls and towers; deploy it first (Y).` },
   siegeLadder: { role: 'Engine', flavour: 'Up and over, before they push it down.', for: `raised against a wall, men climb to its ${term('walkway')}; defenders may push it off (a fall costs ${pc(LADDER.fall)} of a man's health).` },
   mantlet: { role: 'Engine', flavour: 'A wicker wall on wheels.', for: `men behind it dodge ${pc(MANTLET.cover)} of missiles as it rolls forward.` },
   coveredRam: { role: 'Engine', flavour: 'A roof of wet hides over the ram\'s crew.', for: `a ram whose crew dodges ${pc(COVERED.cover)} of missiles; it burns slower.` },
@@ -290,7 +290,7 @@ const nice = (t: BuildingType) => {
 /** The facts of building type t as effect lines: claim, store, workplace, yields, walls, upgrade, fire. */
 export function buildingFacts(t: BuildingType): string[] {
   const d = BUILDINGS[t], out: string[] = [];
-  if (d.influence) out.push(fx('ui:flag', `claims ${val(String(d.influence), '')} tiles around it (${term('influence')})`));
+  if (d.influence) out.push(fx('ui:flag', `claims ${val(metres(d.influence), '')} around it (${term('influence')})`));
   if (d.store) out.push(fx('ui:chest', `a ${term('store')} of your goods`));
   if (d.workplace && d.workplace.kind !== 'press') {
     const rs = Object.values(RECIPES).filter((r) => r.at === d.workplace!.kind && r.lv <= d.workplace!.level);

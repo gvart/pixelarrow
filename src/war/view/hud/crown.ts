@@ -27,7 +27,7 @@ import { WORKS, WONDER } from '../../net/works';
 import type { SandboxScene } from '../SandboxScene';
 import { draggable } from './drag';
 import { glyph } from './glyph';
-import { closeCornerWindows, icon, menuBtn, setBadge } from './kit';
+import { closeCornerWindows, icon, menuBtn, serverOnly, setBadge, showWhy } from './kit';
 import { esc, tipper } from './roster/ui';
 import { chip, details, qcard } from './qcard';
 import { keys } from '../../input/keys';
@@ -518,7 +518,9 @@ export function mountCrown(s: SandboxScene, mk: Mk): void {
     const t = e.target as HTMLElement;
     if (t.matches('[data-sel="region"],[data-sel="res"],[data-sel="to"]')) keepForm();
   });
-  btn.onclick = () => toggle();
+  const off = () => serverOnly(btn, !online() && !demo);
+  off();
+  btn.onclick = () => (off() ? showWhy(btn) : toggle());
   // Esc: an armed button first, then the window (before the selection and the game menu hear it)
   addEventListener('keydown', (e: KeyboardEvent) => {
     if (win.style.display === 'none' || keys.act(e) !== 'back') return;
@@ -533,7 +535,7 @@ export function mountCrown(s: SandboxScene, mk: Mk): void {
   setTimeout(() => void load(), 5000);
   // dev: fill the panel offline (screenshots, layout checks)
   if (import.meta.env.DEV) (window as unknown as { __crown: unknown }).__crown = {
-    view: (x: CrownView) => ((demo = true), (v = x), render()),
+    view: (x: CrownView) => ((demo = true), (v = x), off(), render()),
     open: (t: Tab = 'court') => ((tab = t), toggle(true)),
     tab: (t: Tab) => ((tab = t), render()),
   };

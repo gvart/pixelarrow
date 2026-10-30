@@ -3,10 +3,10 @@
  * arithmetic over the data, no dice: expected values, so the same data gives the same report.
  *
  *  - kits: time and goods for a home's forge to equip N fresh trained soldiers (T1 common kit) at a T1 / T2 / T3 forge,
- *    and one max squad (N elites in tier-3 legendaries) at a T3 forge;
- *  - legendaries a master smith makes in a play week;
+ *    and one max squad (N elites in tier-3 epics) at a T3 forge;
+ *  - epics a master smith makes in a play week (W-73: no smith makes a legendary; they are guardian trophies only);
  *  - the rarity mix of crafted items against drops (src/game/heroes.ts rollRarity, beast loot);
- *  - power through warStatsOf: a fresh kit, a max crafted kit and the drop-legendary kit on an L10 soldier.
+ *  - power through warStatsOf: a fresh kit, a max crafted (epic) kit and the drop-legendary kit on an L10 soldier.
  */
 import { CIV_TOOLS } from '../data/classes';
 import { classGearBlocker } from '../data/gearRules';
@@ -18,6 +18,7 @@ import { crafterRefusal, CRAFT, itemRecipe } from '../war/sim/crafting';
 import { CLAMP, CLAMP_BASE, freshHero, kitItem, warStats, warStatsOf, type WarStats } from '../war/sim/classes';
 import { freshCivilian, workRate } from '../war/sim/civilians';
 import type { Hero } from '../data/units';
+import { BOSS_TIERS } from '../data/warBosses';
 
 /** The assumptions the report is written against. */
 export const BAL = {
@@ -25,7 +26,7 @@ export const BAL = {
   /** Hours a week a player keeps his forge queued (2 h a day); between sessions the queue (CRAFT.queue orders) runs out once. */
   playHours: 14, sessions: 7,
   /** Verify lines (docs/impl M5h6). */
-  kitHours: 2, legendariesPerWeek: [0.7, 1.5] as [number, number],
+  kitHours: 2,
 };
 
 /** The trained classes a home trains (server/src/war/persons.ts TRAINS: barracks, range). */
@@ -120,12 +121,12 @@ export function freshKits(): KitRow[] {
   return out;
 }
 
-/** Expected crafts for one legendary of a tier-3 item at grade g. */
-export const craftsPerLegendary = (g: number) => 1 / craftOdds(g, 3)[4];
+/** Expected crafts for one epic of a tier-3 item at grade g (W-73: epic is the best a smith makes). */
+export const craftsPerEpic = (g: number) => 1 / craftOdds(g, 3)[3];
 
-/** One max squad (N elites, every kit slot legendary) at the T3 forge: expected crafts, forge hours (all 3 slots), play weeks. */
+/** One max squad (N elites, every kit slot epic) at the T3 forge: expected crafts, forge hours (all 3 slots), play weeks. */
 export function maxSquad(cls: string) {
-  const s = SMITHS[2], g = smithGrade(s), per = craftsPerLegendary(g);
+  const s = SMITHS[2], g = smithGrade(s), per = craftsPerEpic(g);
   const b = bill(t3Kit(cls), s, BAL.N * per);
   const hours = b.forgeSecs / 3600 / s.wp;
   return { cls, g, per, crafts: b.items, hours, weeks: hours / weekHours(s), bill: b };
@@ -137,14 +138,14 @@ export function weekHours(s: Smith): number {
   return BAL.playHours + (BAL.sessions * CRAFT.queue * kitSecs('hoplite')) / smithWork(s) / 3600;
 }
 
-/** Legendaries one master smith (T3 forge, one slot) makes a play week crafting tier-3 kit pieces. */
+/** Epics (`top`) and legendaries (`leg`, W-73: none) one master smith (T3 forge, one slot) makes a play week crafting tier-3 kit pieces. */
 export function legendaryRate() {
   const s = SMITHS[2], g = smithGrade(s), work = smithWork(s);
   const kit = t3Kit('hoplite'), avgSecs = kit.reduce((a, d) => a + (itemRecipe(d)?.secs ?? 0), 0) / kit.length;
   const crafts = (weekHours(s) * 3600 * work) / avgSecs;
-  const leg = crafts * craftOdds(g, 3)[4];
+  const leg = crafts * craftOdds(g, 3)[4], top = crafts * craftOdds(g, 3)[3];
   const b = bill(kit, s, crafts / kit.length);
-  return { g, work, crafts, leg, bill: b };
+  return { g, work, crafts, leg, top, bill: b };
 }
 
 // ------------------------------------------------------------------ power
@@ -155,12 +156,12 @@ function maxHero(cls: string, equip: Partial<Record<string, Item>>): Hero {
   return { ...h, level: 10, attrs: { str: 15, agi: 15, end: 15, wil: 15 }, equip: { ...h.equip, ...equip } };
 }
 
-/** The best crafted kit: tier 3, legendary, masterwork, every random-stat line at its top step on the cap-relevant stats. */
+/** The best crafted kit: tier 3, epic (W-73: the smith's best), masterwork, every random-stat line at its top step on the cap-relevant stats. */
 export function maxCraftedKit(cls: string): Partial<Record<string, Item>> {
   const out: Partial<Record<string, Item>> = {};
   for (const slot of ['weapon', 'shield', 'helmet', 'armor'] as const) {
     const def = kitItem(cls, slot, 2);
-    if (def) out[slot] = { uid: `mx-${slot}`, def, rarity: 'legendary', cond: 100, q: 2, mc: 100, aff: 'dmg:3,hp:3,armor:3,block:3' };
+    if (def) out[slot] = { uid: `mx-${slot}`, def, rarity: 'epic', cond: 100, q: 2, mc: 100, aff: 'dmg:3,hp:3,armor:3,block:3' };
   }
   return out;
 }
@@ -221,13 +222,14 @@ export function craftBalanceReport(): string {
   L.push(`  worst at T1: ${f1(worst)} h ${worst <= BAL.kitHours ? 'OK' : 'OVER'}`);
 
   const lr = legendaryRate();
-  L.push('', `Legendaries a master smith makes a play week (G ${lr.g}, ${Math.round(lr.crafts)} tier-3 crafts, ${pct(craftOdds(lr.g, 3)[4])} each): ${lr.leg.toFixed(2)} (target ${BAL.legendariesPerWeek.join('-')})`);
+  L.push('', `A master smith's play week (G ${lr.g}, ${Math.round(lr.crafts)} tier-3 crafts): ${lr.top.toFixed(1)} epics (${pct(craftOdds(lr.g, 3)[3])} each), ${lr.leg.toFixed(2)} legendaries (W-73: guardian trophies only)`);
+  L.push(`  guardian trophies (the only legendaries): ${Object.entries(BOSS_TIERS).map(([t, v]) => `tier ${t} ${pct(v.trophy)} a kill`).join(', ')}`);
   L.push(`  goods that week: ${goodsText(lr.bill.raw)}`);
 
-  L.push('', `One max squad (${BAL.N} elites, 4 legendary tier-3 pieces each) at the T3 forge, 3 master smiths:`);
+  L.push('', `One max squad (${BAL.N} elites, 4 epic tier-3 pieces each) at the T3 forge, 3 master smiths:`);
   for (const cls of ELITES) {
     const m = maxSquad(cls);
-    L.push(`  ${cls.padEnd(12)} ${Math.round(m.crafts)} crafts (${Math.round(m.per)} per legendary), ${Math.round(m.hours)} forge h = ${f1(m.weeks)} play weeks; ${goodsText(m.bill.raw)}`);
+    L.push(`  ${cls.padEnd(12)} ${Math.round(m.crafts)} crafts (${Math.round(m.per)} per epic), ${Math.round(m.hours)} forge h = ${f1(m.weeks)} play weeks; ${goodsText(m.bill.raw)}`);
   }
 
   L.push('', 'Rarity mix (common / uncommon / rare / epic / legendary):');
@@ -237,7 +239,7 @@ export function craftBalanceReport(): string {
   }
   for (const [k, v] of Object.entries(DROP_ODDS)) L.push(`  ${k}`.padEnd(40) + v.map(pct).join(' / '));
 
-  L.push('', 'Power through warStatsOf (L10, attributes 15): fresh kit / max crafted kit / drop-legendary kit / cap');
+  L.push('', 'Power through warStatsOf (L10, attributes 15): fresh kit / max crafted (epic) kit / drop-legendary kit / cap');
   for (const cls of ELITES) {
     const p = powerRows(cls);
     L.push(`  ${cls}`);

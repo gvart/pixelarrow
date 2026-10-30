@@ -18,7 +18,7 @@ import type { SandboxScene } from '../SandboxScene';
 import { keys } from '../../input/keys';
 import { myTeam } from '../side';
 import { draggable } from './drag';
-import { bar, icon } from './kit';
+import { bar, icon, squadName } from './kit';
 import { GOOD_INFO, goodCard, goodIcon, goodName } from './goods';
 import { sandboxRoster } from './roster/state';
 import { nameOf, sandboxCraft } from './craft/state';
@@ -30,6 +30,7 @@ import type { BuildingSnap } from '../../types';
 import { storeNear } from '../../net/economy';
 import { tipHtml } from './theme';
 import { itemLinkAttr } from './chatTags';
+import { metres } from './explain';
 export { STORE_NEAR, storeNear } from '../../net/economy'; // W-60: shared with the server's `stock` message
 
 type Mk = (id: string, css: string, html?: string) => HTMLElement;
@@ -87,7 +88,7 @@ export const SOURCES: ((c: ChestCtx) => Section | null)[] = [
     const worst = Math.min(...men.map((u) => u.sat!));
     const parts = [['fed', 0, 80], ['hungry', 1, (HUNGER.hungry + HUNGER.starving) / 2], ['starving', 2, 0]] as const;
     const line = parts.filter(([, i]) => by[i]).map(([n, i, sat]) => `<span style="display:inline-flex;align-items:center;gap:3px;margin-right:8px">${hungerBadge(sat, 14)}<b class="rf-num">${by[i]}</b><span class="rf-dim">${n}</span></span>`).join('');
-    const foot = `<div class="ch-cap" style="flex-wrap:wrap">${line}</div><div class="ch-cap rf-dim">${glyph('goods:march_rations', 14)}<span style="width:auto">a ration (+${HUNGER.ration}) or ${glyph('ui:food', 14)} food (+${HUNGER.food}) from their packs, else from a store within ${HUNGER.storeR} tiles</span></div>`;
+    const foot = `<div class="ch-cap" style="flex-wrap:wrap">${line}</div><div class="ch-cap rf-dim">${glyph('goods:march_rations', 14)}<span style="width:auto">a ration (+${HUNGER.ration}) or ${glyph('ui:food', 14)} food (+${HUNGER.food}) from their packs, else from a store within ${metres(HUNGER.storeR)}</span></div>`;
     return { id: 'food', label: `Food ${hungerBadge(worst, 13)}`, filter: 'goods', cells: [], foot, empty: '' };
   },
   // goods in hand (gatherers' loads) and in a crewed cart
@@ -96,7 +97,7 @@ export const SOURCES: ((c: ChestCtx) => Section | null)[] = [
     for (const u of menOf(c)) if (u.carry && u.load) g[u.carry] = (g[u.carry] ?? 0) + u.load;
     for (const q of c.squads) { const e = c.s.siege.engineOf(q); for (const [r, n] of Object.entries(e?.cargo ?? {})) g[r] = (g[r] ?? 0) + (n ?? 0); }
     const men = menOf(c), packs = men.reduce((a, u) => a + (u.pack ?? 0), 0), cap = men.length * PORTER.loads;
-    const foot = cap ? `<div class="ch-cap"><span>Packs</span>${bar('ok', packs / cap, 150)}<b class="rf-num">${fmt(packs)} / ${cap}</b><span class="rf-dim">loads</span></div>` : '';
+    const foot = cap ? `<div class="ch-cap"><span>Packs</span>${bar('ok', packs / cap, 150)}<b class="rf-num">${fmt(packs)} / ${cap}</b></div>` : '';
     return { id: 'goods', label: 'Carried goods', filter: 'goods', cells: Object.entries(g).filter(([, n]) => n > 0.05).map(([res, n]) => ({ kind: 'good', res, n })), foot, empty: 'their hands are empty' };
   },
   // the gear they wear
@@ -126,7 +127,7 @@ export const SOURCES: ((c: ChestCtx) => Section | null)[] = [
 function townSections(store: BuildingSnap): Section[] {
   const st = (store.goods ?? {}) as Record<string, number>;
   const rank = (r: string) => (r === 'ration' ? 0 : r === 'food' ? 1 : 2);
-  const goods: Cell[] = Object.entries(st).filter(([, n]) => n > 0.05).sort((a, b) => rank(a[0]) - rank(b[0])).map(([res, n]) => ({ kind: 'good', res, n, ...(rank(res) < 2 ? { note: `your men within ${HUNGER.storeR} tiles eat from it` } : {}) }));
+  const goods: Cell[] = Object.entries(st).filter(([, n]) => n > 0.05).sort((a, b) => rank(a[0]) - rank(b[0])).map(([res, n]) => ({ kind: 'good', res, n, ...(rank(res) < 2 ? { note: `your men within ${metres(HUNGER.storeR)} eat from it` } : {}) }));
   const items: Cell[] = (store.list ?? []).map((i) => ({ kind: 'item', item: { uid: i.uid, def: i.def, rarity: i.rarity, cond: 100, ...(i.q !== undefined ? { q: i.q } : {}) } as Item, note: 'in this store' }));
   return [
     { id: 'store', label: 'In this store', filter: 'goods', cells: goods, empty: 'the store is empty' },
@@ -144,7 +145,7 @@ function sorted(cells: Cell[], by: Sort): Cell[] {
 
 function cellHtml(x: Cell): string {
   if (x.kind === 'good') {
-    const more = `<div class="cx-fx"><span>${x.res.startsWith('p:') ? 'in the team supplies' : 'here'}: <b class="cx-v">${fmt(x.n)}</b>${x.res === 'coin' ? ` <span class="rf-dim">(${fmt(x.n / 200)} loads)</span>` : ''}</span></div>${x.note ? `<div class="rf-dim">${x.note}</div>` : ''}`;
+    const more = `<div class="cx-fx"><span>${x.res.startsWith('p:') ? 'in the team supplies' : 'here'}: <b class="cx-v">${fmt(x.n)}</b></span></div>${x.note ? `<div class="rf-dim">${x.note}</div>` : ''}`;
     return `<div class="rf-cell" data-tip="${esc(goodCard(x.res, more))}">${icon(goodIcon(x.res))}<span class="n">${fmt(x.n)}</span></div>`;
   }
   const it = x.item, worn = it.cond / (it.mc ?? 100) < 0.5;
@@ -210,7 +211,7 @@ export function mountChest(s: SandboxScene, mk: Mk, tipOn: (el: HTMLElement, htm
     const qs = squads(), sel = s.siege.own().length > 0, store = townStore(qs);
     const ctx: ChestCtx = { s, squads: qs };
     const men = (s.sim.cur?.units ?? []).filter((u) => qs.includes(u.squad) && u.state !== 'dead').length;
-    const who = sel ? (qs.length === 1 ? `Squad #${qs[0]}` : `${qs.length} squads`) : 'All your men here';
+    const who = sel ? (qs.length === 1 ? squadName(s.sim.cur?.squads, qs[0]) : `${qs.length} squads`) : 'All your men here';
     const sections = tab === 'squad' ? SOURCES.map((f) => f(ctx)).filter((x): x is Section => !!x) : store ? townSections(store) : [];
     const shown = sections.filter((x) => filter === 'all' || x.filter === filter);
     const body = tab === 'town' && !store

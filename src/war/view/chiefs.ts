@@ -31,8 +31,8 @@ export class ChiefLayer {
     return this.live.get(id)?.tint;
   }
 
-  /** Name plates over the chiefs drawn on screen (`feet`: where a unit's feet are, world px; null: not drawn). */
-  draw(feet: (id: number) => { x: number; y: number } | null, zoom: number, show: boolean): void {
+  /** Name plates over the chiefs drawn on screen (`feet`: where a unit's feet are, world px, and his drawn height `top`; null: not drawn). */
+  draw(feet: (id: number) => { x: number; y: number; top?: number } | null, zoom: number, show: boolean): void {
     let n = 0;
     if (show) for (const [id, c] of this.live) {
       const f = feet(id);
@@ -46,7 +46,7 @@ export class ChiefLayer {
       n++;
       const text = `${c.name}\n${c.title}`;
       if (t.text !== text) t.setText(text);
-      t.setPosition(Math.round(f.x), Math.round(f.y - BODY * 2.1 * c.scale)).setScale(1 / zoom).setVisible(true);
+      t.setPosition(Math.round(f.x), Math.round(f.y - (f.top !== undefined ? f.top + 6 : BODY * 2.1 * c.scale))).setScale(1 / zoom).setVisible(true);
     }
     for (let i = n; i < this.plates.length; i++) this.plates[i].setVisible(false);
   }

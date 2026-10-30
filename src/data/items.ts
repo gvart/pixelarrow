@@ -541,6 +541,8 @@ export interface Item {
   mc?: number;
   /** Maker's name ("Nikias of Dodona"), crafted items only. */
   mk?: string;
+  /** W-73: a guardian's trophy (legendary): the guardian's name, shown in the item's name ("Kopis of Drakon"). */
+  tr?: string;
 }
 
 /** Base stats by crafted quality (crude, fine, masterwork). */

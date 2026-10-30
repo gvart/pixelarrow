@@ -15,7 +15,7 @@
 import type { ServerMsg } from '../../net/protocol';
 import type { WarEvent } from '../../types';
 import type { SandboxScene } from '../SandboxScene';
-import { doneNow, GUIDE_STEPS, guideOpen, newWatch, watchEvents, type GuideSave, type GuideSpots, type GuideStepId } from '../../net/guide';
+import { doneNow, GUIDE_STEPS, guideNext, guideOpen, newWatch, watchEvents, type GuideSave, type GuideSpots, type GuideStepId } from '../../net/guide';
 import { ownCentre } from '../entry';
 import { myTeam } from '../side';
 import { icon } from './kit';
@@ -58,6 +58,7 @@ const STEP_ICON: Record<GuideStepId, () => string> = {
   lair: () => icon('act-attack'),
   build: () => icon('act-build'),
   haul: () => icon('act-unload'),
+  next: () => icon('mk-claim'),
 };
 const STEP_ON: Record<GuideStepId, () => string> = {
   soul: () => ghostIcon('hoplite', 16),
@@ -65,8 +66,9 @@ const STEP_ON: Record<GuideStepId, () => string> = {
   lair: () => icon('lair-bandit'),
   build: () => icon('bld-camp'),
   haul: () => icon('trade-chest'),
+  next: () => icon('act-move'),
 };
-const TARGET: Record<GuideStepId, string> = { soul: 'Soul', gather: 'Wood', lair: 'Bandits', build: 'Camp', haul: 'Store' };
+const TARGET: Record<GuideStepId, string> = { soul: 'Soul', gather: 'Wood', lair: 'Bandits', build: 'Camp', haul: 'Store', next: 'Road' };
 
 const CSS = `
 #rfGuide{left:4px;top:4px;width:262px;pointer-events:auto;padding:5px 8px 7px}
@@ -91,16 +93,18 @@ export function mountGuide(s: SandboxScene, mk: Mk): void {
   el.classList.add('rf-card');
   const mStep = questMarker('on'), mHome = questMarker('home');
 
-  const team = myTeam(), watch = newWatch(team, g.spots.lair), giver = guideGiver(team), from = `${giver.name}, ${giver.title}`;
-  const town = { town: g.town }, lore = (id: GuideStepId) => ({ goal: fill(GUIDE_LORE[id].goal, town), key: GUIDE_LORE[id].key, story: fill(GUIDE_LORE[id].story, town), where: fill(GUIDE_LORE[id].where, town) });
+  // W-73 the hand-off: the nearest neighbour with a region chain, its giver and the exit towards it
+  const hand = guideNext(s.region.id, s.region);
+  const team = myTeam(), watch = newWatch(team, g.spots.lair, undefined, hand?.exit ?? null), giver = guideGiver(team), from = `${giver.name}, ${giver.title}`;
+  const town = { town: g.town, giver: hand?.giver ?? 'the storyteller', region: hand?.name ?? 'the next region' }, lore = (id: GuideStepId) => ({ goal: fill(GUIDE_LORE[id].goal, town), key: GUIDE_LORE[id].key, story: fill(GUIDE_LORE[id].story, town), where: fill(GUIDE_LORE[id].where, town) });
   const payLine = `Paid when done, into your ${g.offline ? 'stores' : 'home strongroom'}`;
   // offline: the save in localStorage (key set on the first snapshot); online: the server's latest `guide` message
   let key: string | null = null, save: GuideSave | null = null;
-  const steps = GUIDE_STEPS;
+  const steps = hand ? GUIDE_STEPS : GUIDE_STEPS.filter((x) => x.id !== 'next');
 
   /** A step done: told as a banner (its reward, how it was paid, the next step), the tracker flashes. */
   const told = (id: GuideStepId, paid: boolean) => {
-    const st = GUIDE_STEPS.find((x) => x.id === id)!, nx = GUIDE_STEPS.find((x) => x.id !== id && !save?.done.includes(x.id));
+    const st = GUIDE_STEPS.find((x) => x.id === id)!, nx = steps.find((x) => x.id !== id && !save?.done.includes(x.id));
     questBanner({
       kind: 'done', head: nx ? 'Step done' : 'The First Hour is done', title: lore(id).goal, giver: from,
       ...(paid ? { reward: st.reward as Record<string, number>, pay: `Paid into your ${g.offline ? 'stores' : 'home strongroom'}` } : { pay: 'Your army is full: no soul to claim, nothing paid' }),
@@ -163,6 +167,7 @@ export function mountGuide(s: SandboxScene, mk: Mk): void {
       return near(ls);
     }
     if (id === 'build') return g.spots.home;
+    if (id === 'next') return hand?.exit ?? null;
     const stores = (cur?.buildings ?? []).filter((b) => b.team === team && b.state === 'done' && ['camp', 'storehouse', 'fort'].includes(b.type));
     return near(stores.map((b) => ({ x: b.x, y: b.y }))) ?? g.spots.home;
   };
@@ -190,7 +195,7 @@ export function mountGuide(s: SandboxScene, mk: Mk): void {
     el.style.display = '';
     const now = list.find((st) => !save!.done.includes(st.id)), me = ownCentre(cur, team) ?? g.spots.entry;
     const t = now ? target(now.id, me) : null, far = t ? Math.hypot(t.x - me.x, t.y - me.y) : 0;
-    place(mStep, t, now ? `${now.id === 'build' ? g.town : TARGET[now.id]} · ${metres(far)}` : '');
+    place(mStep, t, now ? `${now.id === 'build' ? g.town : now.id === 'next' && hand ? hand.name : TARGET[now.id]} · ${metres(far)}` : '');
     const towards = now && (now.id === 'soul' || now.id === 'gather' || now.id === 'lair');
     place(mHome, towards ? g.spots.home : null, `${g.town} · ${metres(Math.hypot(g.spots.home.x - me.x, g.spots.home.y - me.y))}`);
     // on screen the town speaks for itself; on the edge beside the step's marker it gives way

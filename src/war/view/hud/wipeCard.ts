@@ -20,10 +20,10 @@ export function wipeCard(el: HTMLElement, home: string, watch: () => void): Wipe
   el.style.cssText = 'position:fixed;inset:0;display:none;pointer-events:auto;background:radial-gradient(ellipse at center,rgba(8,10,20,.55),rgba(0,0,0,.82));align-items:center;justify-content:center;z-index:30';
   el.innerHTML = `<div class="rf-card" style="width:380px;max-width:calc(100vw - 32px);padding:16px 18px 14px;text-align:center">
     <div class="rf-name" style="font-size:20px;margin-bottom:8px">Your army is destroyed</div>
-    <div class="rf-dim" style="font-style:italic;line-height:1.45;margin-bottom:12px">The shades of your fallen walk back through the Tunnel of Shades in ${home}. The dead do not stay idle on Metaxy for long.</div>
+    <div class="rf-dim" style="font-size:13px;line-height:1.45;margin-bottom:12px">The shades of your fallen walk back through the Tunnel of Shades in ${home}. The dead do not stay idle on Metaxy for long.</div>
     <div style="margin-bottom:4px"><span id="rfWipeH">The next man rises in</span> <b id="rfWipeT" style="color:var(--hud-gold-hi);font:700 16px/1 Cinzel,serif">…</b></div>
-    <div id="rfWipeL" style="font-size:12px;margin-bottom:6px"></div>
-    <div class="rf-dim" style="font-size:11.5px;margin-bottom:14px">Until ${TUNNEL.floor} men stand again, one rises every ${TUNNEL.everyMs / 60_000} minutes, level 1 in starter kit. Past ${TUNNEL.floor}, men come only from souls.</div>
+    <div id="rfWipeL" style="font-size:13px;margin-bottom:6px"></div>
+    <div class="rf-dim" style="font-size:13px;line-height:1.4;margin-bottom:14px">Until ${TUNNEL.floor} men stand again, one rises every ${TUNNEL.everyMs / 60_000} minutes, level 1 in starter kit. Past ${TUNNEL.floor}, men come only from souls.</div>
     <div style="display:flex;gap:8px;justify-content:center"><button class="rf-tbtn pri" id="rfWipeGo" style="height:28px;padding:0 14px">Watch the tunnel</button><button class="rf-tbtn" id="rfWipeX" style="height:28px">Close</button></div>
   </div>`;
   const t = el.querySelector<HTMLElement>('#rfWipeT')!, head = el.querySelector<HTMLElement>('#rfWipeH')!, line = el.querySelector<HTMLElement>('#rfWipeL')!;

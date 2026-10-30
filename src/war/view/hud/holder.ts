@@ -75,7 +75,7 @@ export function mountTrade(s: SandboxScene, mk: Mk, btn: (id: string, ic: string
   const nearSalvage = () => T.nearest(own(), (h) => h.kind === 'pile' && h.list.length > 0);
   const bLoad = btn('tLoad', 'act-load', () => { const h = nearTake(); return tipK('Load', h ? `from the nearest ${h.name}: a load a man every 2 s` : 'no pile, chest, store or cart of yours within reach', 'E on it'); }, '', () => { const h = nearTake(); if (h) T.load(own(), h); });
   const bUnload = btn('tUnload', 'act-unload', () => { const h = nearPut(); return tipK('Unload', h ? `into the nearest ${h.name}` : 'no chest, store or cart of yours within reach', 'E on it'); }, '', () => { const h = nearPut(); if (h) T.unload(own(), h); });
-  const bEscort = btn('tEscort', 'act-escort', () => { const h = nearCart(); return tipK('Escort', h ? `keep round the ${h.name}, take on foes within 12 tiles of it` : 'no cart of yours within reach', 'E on it'); }, '', () => { const h = nearCart(); if (h) T.escort(own(), h); });
+  const bEscort = btn('tEscort', 'act-escort', () => { const h = nearCart(); return tipK('Escort', h ? `keep round the ${h.name}, take on foes within 24 m of it` : 'no cart of yours within reach', 'E on it'); }, '', () => { const h = nearCart(); if (h) T.escort(own(), h); });
   const bSalvage = btn('tSalvage', 'act-build', () => { const h = nearSalvage(); return tipK('Salvage', h ? `break up ${itemName(h.list[0])} in the pile for its goods (30 s)` : 'no pile with gear within reach', ''); }, '', () => { const h = nearSalvage(); if (h) T.salvage(own(), h, h.list[0]); });
 
   const slots = (q: SquadId[]): HTMLElement[] => {

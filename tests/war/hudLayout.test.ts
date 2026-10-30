@@ -3,7 +3,7 @@
  * screens) at the four audited windows, no two placed panels meet and none leaves the window.
  */
 import { describe, expect, it } from 'vitest';
-import { GAP, solve, TOP, type Box, type Frame, type Placed, type Stacks } from '../../src/war/view/hud/layout';
+import { clearOnRay, GAP, sideClosers, solve, TOP, type Box, type Frame, type Placed, type Rect, type Stacks } from '../../src/war/view/hud/layout';
 
 /** The audit's windows in art px (CSS px / the auto UI scale). */
 const FRAMES: Record<string, Frame> = {
@@ -120,5 +120,35 @@ describe('HUD zones', () => {
   it('the chest opens above the command card where they would meet', () => {
     const f = FRAMES['1100x700'], wide = b('rfCard', 600, 90), p = solve(f, { bc: [wide], br: [dock], rwin: [b('rfChest', 330, 300)] });
     expect(p.rfChest.y + p.rfChest.h).toBeLessThanOrEqual(p.rfCard.y - GAP);
+  });
+
+  it('one window a side: the market opening closes the roster and its card, a companion opens beside its window', () => {
+    expect(sideClosers(['rrPanel', 'rrCard'], ['rrPanel', 'rrCard', 'rfMarket'])).toEqual(['rrPanel', 'rrCard']);
+    expect(sideClosers(['rfMarket'], ['rfMarket', 'rfHandoff'])).toEqual([]); // the hand-off beside the market
+    expect(sideClosers(['rrPanel'], ['rrPanel', 'rrCard'])).toEqual([]); // the soldier card beside the roster
+    expect(sideClosers(['rfTasks'], ['rfTasks', 'rfChest'])).toEqual([]); // the right side is the menus' own
+    expect(sideClosers([], ['rrPanel', 'rrCard'])).toEqual([]); // opened together
+  });
+
+  // 1280x720 at UI scale 1.25 in CSS px: the minimap bottom left, the command card bottom centre, the dock bottom right
+  const HUD_1280: Rect[] = [{ l: 5, t: 505, r: 215, b: 715 }, { l: 302, t: 590, r: 979, b: 715 }, { l: 1146, t: 674, r: 1279, b: 719 }];
+  const area = { x0: 100, y0: 80, x1: 1180, y1: 690 };
+  const under = (p: { x: number; y: number }, hw: number, hh: number) => HUD_1280.some((d) => p.x > d.l - hw && p.x < d.r + hw && p.y > d.t - hh && p.y < d.b + hh);
+
+  it('an edge pointer towards the bottom-left corner stays clear of the minimap and the card, pointing the same way', () => {
+    const cx = 640, cy = 385, ex = 120, ey = 690, at = clearOnRay(cx, cy, ex, ey, 90, 18, area, HUD_1280);
+    expect(under(at, 90, 18)).toBe(false);
+    expect(at.x).toBeLessThan(cx);
+    expect(at.y).toBeGreaterThan(cy);
+  });
+
+  it('an edge pointer below the card keeps clear of it', () => {
+    const at = clearOnRay(640, 385, 640, 690, 110, 18, area, HUD_1280);
+    expect(under(at, 110, 18)).toBe(false);
+    expect(at.y).toBeLessThanOrEqual(590 - 18);
+  });
+
+  it('an edge pointer with nothing in its way stays on the edge', () => {
+    expect(clearOnRay(640, 385, 1180, 200, 80, 18, area, HUD_1280)).toEqual({ x: 1180, y: 200 });
   });
 });

@@ -6,8 +6,10 @@
  * The DO pays the step's reward into his home strongroom and keeps his save in its storage (`guide:<season>:<pid>`).
  * A full army (ARMY_MAX men across every region) has no soul to claim: the step closes unpaid at once, or when a claim
  * of his is refused. The haul step closes on a stow in, a hand-off done or a caravan (a transit's cargo) arriving here.
+ * W-73 the last step, the hand-off to the nearest region chain (guideNext), closes when his men reach the exit towards
+ * it, or when he departs for that region (the DO's depart marks it).
  */
-import { doneNow, GUIDE_LAIR, GUIDE_STEPS, guideOpen, guideSpots, newWatch, watchEvents, type GuideSave, type GuideStepId, type GuideWatch } from '../../../src/war/net/guide';
+import { doneNow, GUIDE_LAIR, GUIDE_STEPS, guideNext, guideOpen, guideSpots, newWatch, watchEvents, type GuideSave, type GuideStepId, type GuideWatch } from '../../../src/war/net/guide';
 import type { ServerMsg } from '../../../src/war/net/protocol';
 import { ARMY_MAX } from '../../../src/war/sim/soldiers';
 import type { RegionData, Snapshot, WarBuildSim, WarEvent } from '../../../src/war/types';
@@ -39,7 +41,7 @@ export class RoomGuide {
     if (this.home === undefined || team !== this.home) return null;
     const s: GuideSave = save ?? { v: 1, done: [] };
     if (!guideOpen(s)) return RoomGuide.msg(s);
-    const spot = guideSpots(this.region, team).lair, run: Run = this.runs.get(pid) ?? { pid, save: s, watch: newWatch(team, spot, `p:${pid}`) };
+    const spot = guideSpots(this.region, team).lair, run: Run = this.runs.get(pid) ?? { pid, save: s, watch: newWatch(team, spot, `p:${pid}`, guideNext(this.region.id, this.region)?.exit ?? null) };
     this.runs.set(pid, run);
     if (!s.done.includes('lair')) {
       const here = (snap.lairs ?? []).filter((l) => Math.hypot(l.x - spot.x, l.y - spot.y) < 0.5);
@@ -61,6 +63,11 @@ export class RoomGuide {
   /** A step done outside the sim (stow, hand-off, caravan). */
   mark(pid: number, step: GuideStepId): void {
     this.runs.get(pid)?.watch.flags.add(step);
+  }
+
+  /** W-73: the hand-off's region from here (the DO marks `next` when he departs for it). */
+  get nextRegion(): string | null {
+    return this.home === undefined ? null : guideNext(this.region.id, this.region)?.region ?? null;
   }
 
   /** He left the region: his run ends (it starts again from his save next time). */

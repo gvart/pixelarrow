@@ -59,6 +59,7 @@ import { blockAt } from './microRules';
 import { keys as warKeys } from '../input/keys';
 import { myTeam } from './side';
 import { Feel } from './feel/feel';
+import { Sparks } from './feel/sparks';
 import { AmbientLayer } from './feel/ambient';
 import { dismissed } from './soulRise';
 
@@ -185,6 +186,8 @@ export class SandboxScene extends Phaser.Scene {
   private keys!: Record<string, Phaser.Input.Keyboard.Key>;
   /** E4: impacts' shake and hit-stop (./feel/feel.ts); the render time and missiles held through a stop. */
   feel!: Feel;
+  /** The puffs of ordinary blows: sparks, dust (./feel/sparks.ts). */
+  sparks!: Sparks;
   /** E4: chimney smoke, birds and townsfolk (./feel/ambient.ts; with the art only). */
   ambient: AmbientLayer | null = null;
   private heldAt: ReturnType<SimClient['time']> | null = null;
@@ -225,6 +228,7 @@ export class SandboxScene extends Phaser.Scene {
     this.shots = new ShotLayer(this, this.iso);
     this.fog = new FogLayer(this, this.iso, r);
     this.feel = new Feel(this.iso);
+    this.sparks = new Sparks(this);
     this.units.anim.override = workClip;
     this.gUi = this.add.graphics().setDepth(11);
 
@@ -292,6 +296,7 @@ export class SandboxScene extends Phaser.Scene {
     const gd = (this.guardians = new GuardianLayer(this, this.iso, (d) => this.units.feet(d), r.guardians ?? []));
     const ch = (this.chiefs = new ChiefLayer(this));
     this.units.pose = (id, now) => gd.fx.poseOf(id, now) ?? ch.pose(id);
+    this.units.hit = (id, now) => this.feel.pose(id, now);
     this.units.tintOf = (id) => ch.tint(id);
     this.units.watch = gd.watch;
     this.units.mark = (id) => gd.mark(id);
@@ -664,6 +669,11 @@ export class SandboxScene extends Phaser.Scene {
     // E4: impacts shake the camera; a hit-stop holds the drawn units, clips and missiles (the sim runs on)
     this.feel.update(this.sim.cur, view, this.time.now);
     const stopped = this.feel.frozen(this.time.now) && !!this.heldAt;
+    for (const h of this.feel.struck) {
+      if (!h.puff) continue;
+      const f = this.units.feet({ x: h.x, y: h.y }), top = h.cls.startsWith('mob_') ? this.units.topOf(h.cls, h.id) : undefined;
+      this.sparks.add(h.puff, f.x, f.y, top !== undefined ? top * 0.8 : BODY * 2 * this.units.scaleOf(h.cls), h.sx, h.sy, h.heavy, this.time.now, cam.zoom);
+    }
     if (!stopped) this.drawn = dismissed.size ? this.sim.units().filter((d) => d.u.state !== 'dead' || !d.u.pid || !dismissed.has(d.u.pid)) : this.sim.units(); // W-68: a dismissed man's body goes
     this.sel.sync(this.drawn);
     // M7d: guardians perched or flying, and their squads' units not drawn (the Chimera's other heads)
@@ -691,8 +701,9 @@ export class SandboxScene extends Phaser.Scene {
     const cur = this.sim.cur;
     if (cur?.lairs || cur?.claims) this.neutral.draw(cur.lairs ?? [], cur.claims ?? [], cam.zoom, bosses);
     this.warlordLayer.draw(cur?.warlords, cam.zoom, this.time.now);
-    this.chiefs.draw((id) => { const d = this.drawn.find((q) => q.u.id === id && q.u.state !== 'dead'); return d ? this.units.feet(d) : null; }, cam.zoom, cam.zoom >= SPRITE_ZOOM);
+    this.chiefs.draw((id) => { const d = this.drawn.find((q) => q.u.id === id && q.u.state !== 'dead'); return d ? { ...this.units.feet(d), top: this.units.topOf(d.u.cls, id) } : null; }, cam.zoom, cam.zoom >= SPRITE_ZOOM);
     this.mobFx.draw(cam.zoom, this.time.now, view);
+    this.sparks.draw(cam.zoom, this.time.now, view);
     if (bosses || cur?.warden) this.guardians.draw(bosses ?? [], cur?.warden, cam.zoom, this.time.now, this.sim.since(this.time.now), view, this.moved && this.input.isOver ? this.wpx(p.x, p.y) : null);
     this.shots.update(at.snap, shots);
     this.shots.draw(at, cam.zoom, cam.zoom >= SPRITE_ZOOM);

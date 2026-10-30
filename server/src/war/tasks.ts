@@ -13,10 +13,12 @@
  *  - Claim: done and not claimed: the reward (times the wonder's task boost) into his home strongroom, its score to his
  *    alliance as peace ('tasks') or war ('feats') score, each capped a UTC day (TASKS.peaceCap / warCap).
  *  - Reroll: TASKS.rerolls a UTC day across his daily and weekly tasks, of a task not yet claimed.
+ *  - W-73 solo: a player whose alliance has fewer than PARTNERS.min other members active (a tally row) in the last
+ *    PARTNERS.days UTC days draws and rerolls no partner task (selling abroad, guard and market contracts).
  */
 import { ApiError } from '../errors';
 import { WAR_SEASON } from '../../../src/war/world/alliances';
-import { dayOf, drawTasks, periodOf, rerollTask, taskDef, TASKS, type TaskDef, type TaskKind, type TaskMetric, type TaskPeriod, type TasksView, type TaskView } from '../../../src/war/net/tasks';
+import { dayOf, drawTasks, PARTNERS, periodOf, rerollTask, taskDef, TASKS, type TaskDef, type TaskKind, type TaskMetric, type TaskPeriod, type TasksView, type TaskView } from '../../../src/war/net/tasks';
 import type { FightReport } from '../../../src/war/types';
 import type { Env } from '../env';
 import { batch, ensureHolder, putStmt, strongroom } from './holders';
@@ -47,14 +49,26 @@ export async function tallyOf(db: D1Database, pid: number, from: number, to: num
   return Object.fromEntries(rows.map((r) => [r.metric, r.n]));
 }
 
+/** W-73: no realistic partner for the partner tasks: under PARTNERS.min other members of his alliance active lately. */
+export async function soloOf(db: D1Database, pid: number, now: number, season = WAR_SEASON.id): Promise<boolean> {
+  const a = await allianceOf(db, pid, season);
+  if (a === null) return true;
+  const r = await db
+    .prepare(`SELECT COUNT(DISTINCT t.player_id) AS n FROM war_task_tally t JOIN war_alliance_members m ON m.season = t.season AND m.player_id = t.player_id
+      WHERE t.season = ?1 AND m.alliance = ?2 AND t.player_id != ?3 AND t.day > ?4`)
+    .bind(season, a, pid, dayOf(now) - PARTNERS.days)
+    .first<{ n: number }>();
+  return (r?.n ?? 0) < PARTNERS.min;
+}
+
 interface TaskRow { slot: number; task: string; base: number; claimed_at: number | null }
 
 /** The period's rows, drawn now when there are none. */
-async function rowsOf(db: D1Database, pid: number, p: TaskPeriod, season: number): Promise<TaskRow[]> {
+async function rowsOf(db: D1Database, pid: number, p: TaskPeriod, season: number, now: number): Promise<TaskRow[]> {
   const q = () => db.prepare('SELECT slot, task, base, claimed_at FROM war_tasks WHERE season = ?1 AND player_id = ?2 AND period = ?3 ORDER BY slot').bind(season, pid, p.key).all<TaskRow>();
   const got = (await q()).results;
   if (got.length) return got;
-  await db.batch(drawTasks(season, p, pid).map((t, slot) => db.prepare('INSERT OR IGNORE INTO war_tasks (season, player_id, period, slot, task) VALUES (?1, ?2, ?3, ?4, ?5)').bind(season, pid, p.key, slot, t.id)));
+  await db.batch(drawTasks(season, p, pid, await soloOf(db, pid, now, season)).map((t, slot) => db.prepare('INSERT OR IGNORE INTO war_tasks (season, player_id, period, slot, task) VALUES (?1, ?2, ?3, ?4, ?5)').bind(season, pid, p.key, slot, t.id)));
   return (await q()).results;
 }
 
@@ -79,7 +93,7 @@ export async function tasksOf(db: D1Database, pid: number, now: number, season =
   const a = await allianceOf(db, pid, season), boost = a === null ? 1 : (await perksOf(db, a, season)).tasks ?? 1;
   const tasks: TaskView[] = [];
   for (const kind of ['daily', 'weekly'] as const) {
-    const p = periodOf(kind, now), rows = await rowsOf(db, pid, p, season), tally = await tallyOf(db, pid, p.from, p.to, season);
+    const p = periodOf(kind, now), rows = await rowsOf(db, pid, p, season, now), tally = await tallyOf(db, pid, p.from, p.to, season);
     for (const r of rows) {
       const t = taskDef(r.task);
       if (t) tasks.push(view(kind, p, r, t, tally, boost));
@@ -121,7 +135,7 @@ export async function rerollOne(db: D1Database, pid: number, kind: TaskKind, slo
   const { v, t } = await find(db, pid, kind, slot, now, season), p = periodOf(kind, now);
   if (t.claimed) throw new ApiError(409, 'claimed', 'Claimed tasks stay');
   if (v.rerolls <= 0) throw new ApiError(409, 'no_reroll', 'No reroll left today');
-  const next = rerollTask(season, p, pid, v.tasks.filter((x) => x.kind === kind).map((x) => x.id), t.id);
+  const next = rerollTask(season, p, pid, v.tasks.filter((x) => x.kind === kind).map((x) => x.id), t.id, await soloOf(db, pid, now, season));
   if (!next) throw new ApiError(409, 'no_task', 'Nothing else to draw');
   const base = (await tallyOf(db, pid, p.from, p.to, season))[next.metric] ?? 0, day = dayOf(now);
   const u = await db

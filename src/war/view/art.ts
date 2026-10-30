@@ -50,6 +50,13 @@ export interface WarArt {
 /** The biome libraries under public/war/biomes/. */
 export const BIOMES = ['elaia', 'kyrene', 'mountains', 'dodona'] as const;
 const PIECE = 2048;
+/** A well-mixed position hash (autotile's hash is linear in its low bits: `% 4` repeats every 4 tiles). */
+const mix = (x: number, y: number, k: number) => {
+  let h = hash(x, y, k);
+  h = Math.imul(h ^ (h >>> 16), 0x45d9f3b);
+  h = Math.imul(h ^ (h >>> 16), 0x45d9f3b);
+  return (h ^ (h >>> 16)) >>> 0;
+};
 
 interface TilesJson extends TilesMeta { cliffs?: { id: string; file: string; frames?: number; roles?: CliffRoles }[] }
 
@@ -181,6 +188,23 @@ const SHALLOW_K = KINDS.indexOf('shallow'), DEEP_K = KINDS.indexOf('deep');
 const WET = new Set([KINDS.indexOf('shallow'), KINDS.indexOf('deep')]);
 /** Zoomed out (the baked levels) objects shorter than this (m) are left out, but crops (a sown plot reads as a field). */
 export const LOD_METRES = 2;
+
+/** A 1 m cell's top diamond (2 FW x 2 FH) in one colour, pixel exact (the cells tile it without gaps or overlaps). */
+const DIAMONDS = new Map<string, HTMLCanvasElement>();
+function diamond(fill: string): HTMLCanvasElement {
+  let c = DIAMONDS.get(fill);
+  if (c) return c;
+  c = canvas(2 * FW, 2 * FH);
+  const g = c.getContext('2d')!;
+  g.fillStyle = fill;
+  for (let y = 0; y < 2 * FH; y++) {
+    // the pixels whose centres lie in the diamond: |x + 0.5 - FW| / FW + |y + 0.5 - FH| / FH <= 1
+    const half = FW * (1 - Math.abs(y + 0.5 - FH) / FH), x0 = Math.ceil(FW - half - 0.5), x1 = Math.floor(FW + half - 0.5);
+    if (x1 >= x0) g.fillRect(x0, y, x1 - x0 + 1, 1);
+  }
+  DIAMONDS.set(fill, c);
+  return c;
+}
 
 export class ArtBaker {
   /** Per visual cell: atlas frame (sheet * 64 + mask * 4 + quadrant, or VARIANT + variant * 64 + frame * 4 + quadrant), -1 none. */
@@ -362,14 +386,30 @@ export class ArtBaker {
     for (let fy = 0; fy < fh; fy++) for (let fx = 0; fx < fw; fx++) {
       const j = fy * fw + fx, c = raw[j], q = (fy & 1) * 2 + (fx & 1);
       if (c < 0) { code[j] = -1; continue; }
-      if (c < VARIANT) { code[j] = (c >> 4) * 64 + (c & 15) * 4 + q; continue; }
-      const v = (c - VARIANT) >> 4, x0 = fx & ~1, y0 = fy & ~1;
-      let whole = true;
-      for (let k = 0; k < 4; k++) { const r = raw[(y0 + (k >> 1)) * fw + x0 + (k & 1)]; if (r < VARIANT || (r - VARIANT) >> 4 !== v) whole = false; }
-      const f = whole ? hash(fx >> 1, fy >> 1) % vars[v].frames : 0;
-      code[j] = VARIANT * 64 + v * 64 * 16 + f * 4 + q;
+      // a full cell (one terrain all round, its 2 m tile whole) takes any quadrant of any variant frame, by a well-mixed
+      // hash: the fills' marks then fall at random, not on the 2 m lattice (ticks on sand, scratches on the moors)
+      if (c < VARIANT) {
+        const m = c & 15, free = (m === 0 || m === 15) && this.wholeTile(raw, fx, fy, c);
+        code[j] = (c >> 4) * 64 + m * 4 + (free ? mix(fx, fy, 3) & 3 : q);
+        continue;
+      }
+      const v = (c - VARIANT) >> 4, whole = this.wholeTile(raw, fx, fy, -1, v);
+      const f = whole ? mix(fx, fy, 1) % vars[v].frames : 0;
+      code[j] = VARIANT * 64 + v * 64 * 16 + f * 4 + (whole ? mix(fx, fy, 2) & 3 : q);
     }
     return code;
+  }
+
+  /** Every cell of (fx, fy)'s 2 m tile and of its 4 neighbours' draws frame code `c` (or, c < 0, variant v): the cell is deep in one fill. */
+  private wholeTile(raw: Int32Array, fx: number, fy: number, c: number, v = -1): boolean {
+    const { fw, fh } = this.iso;
+    for (const [dx, dy] of [[0, 0], [-1, 0], [1, 0], [0, -1], [0, 1]]) {
+      const x = fx + dx, y = fy + dy;
+      if (x < 0 || y < 0 || x >= fw || y >= fh) continue;
+      const r = raw[y * fw + x];
+      if (c >= 0 ? r !== c : r < VARIANT || (r - VARIANT) >> 4 !== v) return false;
+    }
+    return true;
   }
 
   /** As TerrainBaker.bake; `objects` bakes the map objects in too (the overview). */
@@ -426,6 +466,15 @@ export class ArtBaker {
     });
     const W: number[] = [];
     for (let j = -2; j <= 1; j++) for (let i = -2; i <= 1; i++) W.push(Math.exp(-((i + 0.5) ** 2 + (j + 0.5) ** 2) / (2 * 1.3 * 1.3)));
+    // a cell drawn by a smoothed transition frame (a sheet's mask other than all-one-terrain)
+    const trans = (x: number, y: number) => {
+      if (x < 0 || y < 0 || x >= fw || y >= fh) return false;
+      const c = code[y * fw + x], m = (c & 63) >> 2;
+      return c >= 0 && c < VARIANT * 64 && m !== 0 && m !== 15;
+    };
+    // the sheets whose corner shares follow the real coast (land against water: their weights count every land kind)
+    const wetSheet = art.tiles.sheets.map((sh) => sh.first === 'shallow' || sh.second === 'shallow');
+    const freeVertex = (vx: number, vy: number) => trans(vx - 1, vy - 1) && trans(vx, vy - 1) && trans(vx - 1, vy) && trans(vx, vy);
     for (let y = 0; y < fh; y++) for (let x = 0; x < fw; x++) {
       const c = code[y * fw + x];
       if (c < 0 || c >= VARIANT * 64) continue;
@@ -443,7 +492,11 @@ export class ArtBaker {
           if (q > 0) wa += q * W[n]; else if (q < 0) wb -= q * W[n];
         }
         let g = wa + wb > 0 ? Math.round((8 * wa) / (wa + wb)) : 4;
-        g = m & (8 >> k) ? Math.max(5, g) : Math.min(3, g);
+        // held on the mask's side of 0.5 only where a cell round the vertex is drawn whole (its edge cannot move) or off a
+        // shore; between shore transition cells the contour follows the smoothed coast across the vertex, so a shore at a
+        // slant is not a row of one-cell teeth
+        if (!wetSheet[s] || !freeVertex(vx, vy)) g = m & (8 >> k) ? Math.max(5, g) : Math.min(3, g);
+        else g = Math.max(1, Math.min(7, g));
         packed |= g << (4 * k);
       }
       out[y * fw + x] = packed;
@@ -594,7 +647,7 @@ export class ArtBaker {
     const { iso, shade, code, tint } = this, { fw, fh, fz, fk } = iso;
     let u = Math.max(umin, -v, v - 2 * (fh - 1));
     if ((u + v) & 1) u++;
-    const paths = new Map<number, Path2D>();
+    const paths = new Map<number, Path2D>(), stamps = new Map<number, number[]>();
     let foam: Path2D | null = null, wave: Path2D | null = null;
     const blobs: number[] = [];
     for (; u <= Math.min(umax, v, 2 * (fw - 1) - v); u += 2) {
@@ -666,26 +719,39 @@ export class ArtBaker {
           if (t) add(256 + t, dry);
           continue;
         }
-        p.moveTo(tx + FW, ty); p.lineTo(tx + 2 * FW, ty + FH); p.lineTo(tx + FW, ty + 2 * FH); p.lineTo(tx, ty + FH); p.closePath();
+        // a plain diamond: stamped as a pixel-exact sprite (cells of one row and the next meet without the antialiased
+        // seam two path fills leave, which drew the water as a grid of dotted lines)
+        for (const key of [t ? 256 + t : 0, s]) if (key) { let q = stamps.get(key); if (!q) stamps.set(key, (q = [])); q.push(Math.round(tx), ty); }
+        continue;
       }
       for (const key of [t ? 256 + t : 0, s]) if (key) { let q = paths.get(key); if (!q) paths.set(key, (q = new Path2D())); q.addPath(p); }
     }
-    for (const pass of [1, 0]) for (const [s, p] of paths) {
-      if ((s >= 256 ? 1 : 0) !== pass) continue;
-      ctx.fillStyle = s >= 256 ? TINT_FILL[s - 256] : RELIEF_FILL[s];
-      ctx.fill(p);
+    for (const pass of [1, 0]) {
+      for (const [s, p] of paths) {
+        if ((s >= 256 ? 1 : 0) !== pass) continue;
+        ctx.fillStyle = s >= 256 ? TINT_FILL[s - 256] : RELIEF_FILL[s];
+        ctx.fill(p);
+      }
+      for (const [s, q] of stamps) {
+        if ((s >= 256 ? 1 : 0) !== pass) continue;
+        const im = diamond(s >= 256 ? TINT_FILL[s - 256] : RELIEF_FILL[s]);
+        for (let k = 0; k < q.length; k += 2) ctx.drawImage(im, q[k], q[k + 1]);
+      }
     }
     // surf: a foam line along each shore edge and a broken wave line a little out in the water
     if (!foam) return;
     ctx.lineCap = 'round';
     // soft spray blobs over the edge midpoints hide the cell staircase of the shore; a thin line keeps its edge
     const fs = foamSprite();
+    // (all kept soft: a bright white line traced every step of a shore that crosses the grid)
+    ctx.globalAlpha = 0.55;
     for (let k = 0; k < blobs.length; k += 2) ctx.drawImage(fs, blobs[k] - FOAM_W / 2, blobs[k + 1] - FOAM_H / 2);
+    ctx.globalAlpha = 1;
     // a soft band over the smoothed line covers most of the cell teeth where the shore crosses the grid
-    ctx.lineWidth = 7; ctx.strokeStyle = 'rgba(214,232,228,0.22)'; ctx.stroke(foam);
-    ctx.lineWidth = 3.5; ctx.strokeStyle = 'rgba(228,240,236,0.3)'; ctx.stroke(foam);
-    ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(236,244,236,0.45)'; ctx.stroke(foam);
-    ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(220,236,236,0.3)'; ctx.stroke(wave!);
+    ctx.lineWidth = 8; ctx.strokeStyle = 'rgba(190,220,216,0.14)'; ctx.stroke(foam);
+    ctx.lineWidth = 3.5; ctx.strokeStyle = 'rgba(214,234,230,0.18)'; ctx.stroke(foam);
+    ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(230,242,236,0.3)'; ctx.stroke(foam);
+    ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(220,236,236,0.2)'; ctx.stroke(wave!);
     ctx.lineCap = 'butt';
   }
 
@@ -765,6 +831,7 @@ class Faces {
   private se = new Path2D(); private sw = new Path2D(); private foot = new Path2D();
   private dark = new Path2D(); private lit = new Path2D(); private rim = new Path2D();
   private streakLit = new Path2D(); private streakDark = new Path2D(); private upper = new Path2D(); private lip = new Path2D();
+  private low = new Path2D(); private mid = new Path2D();
   private any = false;
   /** Rock walls of the row: [stone, x, y, tx, ty, drop, OX, OY, cut, lift]. */
   private walls: [Stone, number, number, number, number, number, number, number, number, Lift][] = [];
@@ -828,18 +895,23 @@ class Faces {
     const quad = (p: Path2D, ax: number, ay: number, bx2: number, by2: number, d0: number, d1: number) => {
       p.moveTo(ax, ay + d0); p.lineTo(bx2, by2 + d0); p.lineTo(bx2, by2 + d1); p.lineTo(ax, ay + d1); p.closePath();
     };
+    // the tip of a rock wall running across the grid (walled down both faces): both faces lit alike, so the zigzag of
+    // cells reads as one wall front facing the viewer, not as stripes of light and shade
+    const zig = stone && (cut & CUT_TIP) !== 0;
     if (dE >= 2) {
       const d = dE * LH, t = Faces.top(0, rx, ry + o[0], bx, by + o[1], cut);
-      Faces.face(this.se, t, rx, ry, bx, by, d);
+      Faces.face(zig ? this.mid : this.se, t, rx, ry, bx, by, d);
       this.rimOf(x, y, t, stone, 0);
-      if (dE >= 3) { quad(this.foot, rx, ry, bx, by, d * 0.6, d); Faces.face(this.upper, t, rx, ry, bx, by, d * 0.25); }
+      // light falls off down the face: lit under the lip, two steps of shade toward the foot (a wall reads as a mass, not a flat strip)
+      quad(this.low, rx, ry, bx, by, d * 0.35, d); quad(this.foot, rx, ry, bx, by, d * 0.65, d); Faces.face(this.upper, t, rx, ry, bx, by, d * 0.22);
       if (dE >= 3) this.detail(x, y, rx, ry, bx, by, dE, z, 0, stone);
     }
     if (dS >= 2) {
       const d = dS * LH, t = Faces.top(1, bx, by + o[1], lx, ly + o[2], cut);
-      Faces.face(this.sw, t, bx, by, lx, ly, d);
+      Faces.face(zig ? this.mid : this.sw, t, bx, by, lx, ly, d);
       this.rimOf(x, y, t, stone, 1);
-      if (dS >= 3) { quad(this.foot, bx, by, lx, ly, d * 0.6, d); Faces.face(this.upper, t, bx, by, lx, ly, d * 0.25); }
+      // light falls off down the face: lit under the lip, two steps of shade toward the foot (a wall reads as a mass, not a flat strip)
+      quad(this.low, bx, by, lx, ly, d * 0.35, d); quad(this.foot, bx, by, lx, ly, d * 0.65, d); Faces.face(this.upper, t, bx, by, lx, ly, d * 0.22);
       if (dS >= 3) this.detail(x, y, bx, by, lx, ly, dS, z, 1, stone);
     }
   }
@@ -896,12 +968,15 @@ class Faces {
       // both faces mapped from the world (16 px per cell along the wall, LH per level down it), so strata stay level
       const p = (WALL_PAT[st] ??= ctx.createPattern(wallTexture(st), 'repeat')!), d = drop * LH;
       const rx = tx + 2 * FW, ry = ty + FH, bx = tx + FW, by = ty + 2 * FH, lx = tx, ly = ty + FH;
-      p.setTransform(new DOMMatrix([-1, 0.5, 0, 1, OX + (x + 1) * FW, OY + (x + 1) * FH]));
+      // a tip of a wall running across the grid: its strata level across the screen (the run's cells share a top height),
+      // not in a chevron per cell
+      const zig = (cut & CUT_TIP) !== 0;
+      p.setTransform(zig ? new DOMMatrix([1, 0, 0, 1, OX, OY - 7 * LH]) : new DOMMatrix([-1, 0.5, 0, 1, OX + (x + 1) * FW, OY + (x + 1) * FH]));
       ctx.fillStyle = p;
       const se = new Path2D();
       Faces.face(se, Faces.top(0, rx, ry + o[0], bx, by + o[1], cut), rx, ry, bx, by, d);
       ctx.fill(se);
-      p.setTransform(new DOMMatrix([1, 0.5, 0, 1, OX - (y + 1) * FW, OY + (y + 1) * FH]));
+      if (!zig) p.setTransform(new DOMMatrix([1, 0.5, 0, 1, OX - (y + 1) * FW, OY + (y + 1) * FH]));
       const sw = new Path2D();
       Faces.face(sw, Faces.top(1, bx, by + o[1], lx, ly + o[2], cut), bx, by, lx, ly, d);
       ctx.fill(sw);
@@ -916,19 +991,22 @@ class Faces {
       ctx.restore();
       this.notches.length = 0;
     }
-    ctx.fillStyle = 'rgba(14,16,30,0.17)'; ctx.fill(this.se);
-    ctx.fillStyle = 'rgba(255,238,200,0.08)'; ctx.fill(this.sw);
-    ctx.fillStyle = 'rgba(10,10,20,0.15)'; ctx.fill(this.foot);
+    // light from the upper left: the SW faces lit, the SE faces in shade
+    ctx.fillStyle = 'rgba(14,16,30,0.3)'; ctx.fill(this.se);
+    ctx.fillStyle = 'rgba(255,238,200,0.1)'; ctx.fill(this.sw);
+    ctx.fillStyle = 'rgba(14,16,30,0.1)'; ctx.fill(this.mid);
+    ctx.fillStyle = 'rgba(10,10,20,0.1)'; ctx.fill(this.low);
+    ctx.fillStyle = 'rgba(10,10,20,0.14)'; ctx.fill(this.foot);
     ctx.fillStyle = 'rgba(16,8,6,0.42)'; ctx.fill(this.lip);
     ctx.strokeStyle = 'rgba(255,242,214,0.3)'; ctx.lineWidth = 1.5; ctx.stroke(this.rim);
-    ctx.fillStyle = 'rgba(255,238,200,0.07)'; ctx.fill(this.upper);
+    ctx.fillStyle = 'rgba(255,238,200,0.09)'; ctx.fill(this.upper);
     ctx.fillStyle = 'rgba(255,240,214,0.09)'; ctx.fill(this.streakLit);
     ctx.fillStyle = 'rgba(10,10,18,0.14)'; ctx.fill(this.streakDark);
     ctx.lineWidth = 1;
     ctx.strokeStyle = 'rgba(12,10,8,0.55)'; ctx.stroke(this.dark);
     ctx.strokeStyle = 'rgba(255,240,210,0.22)'; ctx.stroke(this.lit);
     this.se = new Path2D(); this.sw = new Path2D(); this.foot = new Path2D(); this.dark = new Path2D(); this.lit = new Path2D(); this.rim = new Path2D();
-    this.streakLit = new Path2D(); this.streakDark = new Path2D(); this.upper = new Path2D(); this.lip = new Path2D();
+    this.streakLit = new Path2D(); this.streakDark = new Path2D(); this.upper = new Path2D(); this.lip = new Path2D(); this.low = new Path2D(); this.mid = new Path2D();
     this.any = false;
   }
 }

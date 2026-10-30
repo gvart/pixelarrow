@@ -7,6 +7,8 @@ import { describe, expect, it } from 'vitest';
 import { createSim } from '../../src/war/sim';
 import { CHIEF_KINDS, chiefLoot, chiefRespawn, chiefsOfKind, WAR_CHIEFS, warChief } from '../../src/data/warBosses';
 import { MOBS, RESPAWN } from '../../src/war/sim/mobs';
+import { makePerson } from '../../src/war/sim/roster';
+import { ARMY_MAX } from '../../src/war/sim/soldiers';
 import type { RegionData, WarBuildSim, WarEvent } from '../../src/war/types';
 
 function flat(lairs: RegionData['lairs'], n = 96): RegionData {
@@ -54,12 +56,12 @@ describe('chiefs', () => {
     expect(men[0].maxHp).toBeCloseTo(men[1].maxHp * CHIEF_KINDS.wolf.hp, 3);
   });
 
-  it('his death drops a pile and a chiefSlain event; the lair stays clear past a plain lair respawn', () => {
+  it('a solo army (12 men, level 2) kills him; his death drops a pile and a chiefSlain event; the lair stays clear past a plain lair respawn', () => {
     const sim = createSim(flat([{ kind: 'boar', x: 40.5, y: 40.5, chief: 'tuskmother' }]), 3);
     const evs: WarEvent[] = [];
     sim.spawnMobs();
     const l = sim.snapshot().lairs![0];
-    const me = sim.spawnSquad('you', 0, 'hoplite', 24, l.x + 8, l.y);
+    const me = sim.spawnSquad('you', 0, 'hoplite', ARMY_MAX, l.x + 8, l.y, Array.from({ length: ARMY_MAX }, (_, k) => makePerson(`p${k}`, 'hoplite', { level: 2 })));
     sim.order({ kind: 'attack', squad: me, target: l.squad });
     run(sim, 4000, () => (evs.push(...sim.events()), sim.snapshot().lairs![0].state === 'cleared'));
     const after = sim.snapshot();
@@ -79,7 +81,7 @@ describe('chiefs', () => {
     const sim = createSim(flat([]), 3);
     const id = sim.addLair({ kind: 'bandit', x: 40.5, y: 40.5, chief: 'one_ear' });
     const s = sim.snapshot(), l = s.lairs![id];
-    expect(l.chief?.name).toBe('One-Ear Nikon');
+    expect(l.chief?.name).toBe(warChief('one_ear')!.name);
     expect(s.units.find((u) => u.id === l.chief!.unit)?.cls).toBe('mob_bandit_captain');
   });
 });

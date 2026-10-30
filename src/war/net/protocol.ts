@@ -34,6 +34,7 @@
  *   server -> allies                                        the players whose men are his friends (his alliance, pacts; on change)
  *   server -> bossEv                                        W-67: this tick's guardian events his team sees (phase, slain, fled, back, Warden strike)
  *   server -> secret                                        world-fill: his hidden quests' events (found, a step, done)
+ *   server -> mastery                                       W-73: his mastery of this region (on join and on a deed of the wild)
  *   server -> warlords                                      W-72 proposal: the region's warlords (on change) and their notes
  *   server -> binary frame                                   (snapshot delta or keyframe; with the guardians his team sees)
  */
@@ -43,7 +44,7 @@ import type { NodeRow } from './economy';
 import type { BridgePlan, BuildingType, GoodKind, Order, PlaceResult, SquadId, TownLevelSnap, WallPlan } from '../types';
 
 /** Bumped on any wire change (messages or the binary frame layout). */
-export const NET_VERSION = 13;
+export const NET_VERSION = 14;
 /** Positions go out in 1/QUANT tile steps. */
 export const QUANT = 8;
 /** Ticks between keyframes (a full frame of what the client sees; deltas in between). */
@@ -272,6 +273,8 @@ export type ServerMsg =
    */
   | { t: 'bossEv'; ev: BossEvent[] }
   /** world-fill: this tick's events of his own hidden quests (src/war/sim/secrets.ts) and the chiefs his team slew; the view gets them as sim events (the notice). */
+  /** W-73: his mastery of this region (src/war/net/mastery.ts): on join, and when a deed of the wild counted for it. */
+  | ({ t: 'mastery' } & import('./mastery').MasteryView)
   | { t: 'secret'; ev: (import('../sim/secrets').SecretEvent | Extract<import('../types').WarEvent, { kind: 'chiefSlain' }>)[] }
   /**
    * W-72 proposal (src/war/sim/warlords.ts): the region's warlords (holdings, a raid in warning) on join and when they

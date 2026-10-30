@@ -162,7 +162,7 @@ export function relief(fw: number, fh: number, fk: Uint8Array, fz: Float32Array)
   const shore = distance(fw, fh, (j) => !wet(j), (j) => wet(j), 24);
   const sf = new Float32Array(n);
   for (let j = 0; j < n; j++) sf[j] = shore[j];
-  const shoreF = blur(sf, fw, fh, 1);
+  const shoreF = blur(blur(sf, fw, fh, 1), fw, fh, 1); // twice: the shading falls off in a smooth band, not in diamonds
   const damp = distance(fw, fh, wet, (j, f) => !wet(j) && Math.abs(fz[j] - fz[f]) <= 1, 4);
   const out = new Uint8Array(n), foam = new Uint8Array(n);
   let ray = 0;
@@ -176,7 +176,7 @@ export function relief(fw: number, fh: number, fk: Uint8Array, fz: Float32Array)
         const land = (i: number) => !wet(i) && fz[i] >= fz[j] - 1;
         foam[j] = (x < fw - 1 && land(j + 1) ? FOAM_PX : 0) | (x > 0 && land(j - 1) ? FOAM_NX : 0) | (y < fh - 1 && land(j + fw) ? FOAM_PY : 0) | (y > 0 && land(j - fw) ? FOAM_NY : 0);
       }
-      out[j] = WATER0 + Math.max(0, Math.min(NWATER - 1, Math.round(shoreF[j] - 1 + ((hash(x, y, 6) & 255) / 255 - 0.5) * 0.9 + (shoreF[j] > 9 ? (shoreF[j] - 9) * 0.5 : 0))));
+      out[j] = WATER0 + Math.max(0, Math.min(NWATER - 1, Math.round(shoreF[j] - 1 + ((Math.imul(hash(x, y, 6) ^ (hash(x, y, 6) >>> 15), 0x2c1b3c6d) >>> 24) / 255 - 0.5) * 0.5 + (shoreF[j] > 9 ? (shoreF[j] - 9) * 0.5 : 0))));
       continue;
     }
     if (damp[j] <= 2 && !ROCKY.has(k)) { out[j] = WET0 + (damp[j] === 1 ? 3 : 1); continue; }

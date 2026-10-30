@@ -3536,3 +3536,28 @@ draws dragon attacks with flame arcs even with "no fire": the build's chroma cut
 arc stays and needs a frame swap. (4) A second Pro Flash base in another facing comes back in its own palette; snapping
 it into the first base's colours is free and exact. (5) A back view hides a club held in front of the body; the model
 lets it vanish and reappear between frames, so ask for it to be "always seen" or keep only the frames where it shows.
+
+## 48. Shared ground, wall and water art (tiles pass)
+
+Agent brief (art audit follow-up): "Fort and citadel walls use a giant crazy-paving stone texture at the wrong pixel
+scale; ground repeats visibly (ticks on sand, scratches on the moors, flat striped cliff faces); water and coast edges
+are stair-stepped with bright foam tracing every tile step, roads end at cliffs. Fix the shared rendering and textures,
+not the region scripts. PixelLab about 2-3 + 4 generations only if needed." Own critique of sandbox shots at 1520x750,
+zoom 1 and 1/2 (krios Citadel, stymphalia market, kyrene river narrows and market, grey moors). **0 PixelLab and 0
+Gemini generations:** every fix came from the renderer or the existing art.
+
+| Item | Found | Fixed | Rejected (why) |
+| --- | --- | --- | --- |
+| crazy-paving walls | landmarks.mjs `big()` sampled the cyclopean elevation at half rate (every texel 2 x 2 px) for the giants' walls and the Citadel curtain; the build-mode stone wall was cyclopean all the way up | `bigCyc` at 1:1; the Citadel curtain (`M.curtain(2.4)`) and the stone wall kit (buildings.mjs `stoneFace`) are isodomic ashlar over a cyclopean socle, as the towers | a new PixelLab wall texture (the ashlar elevation already matched the towers) |
+| ground lattice | a full cell drew quadrant (x & 1, y & 1) of its 2 m tile, and the variant pick `hash(x, y) % frames` is linear in its low bits (`% 4` repeats every 4 tiles), so a fill's marks fell on a grid | art.ts `fineCodes`: a cell deep in one fill (itself and its 4 neighbours) takes any quadrant of any variant frame by a well-mixed hash | mirroring frames (flips the upper-left light) |
+| sand ticks | a brown comma baked into the global sand fill, so it sits on every sand tile of every set (kyrene's market) | `node scripts/war/art/fill-mark.mjs public/war/tiles/var-sand.png 0 33 12 47 28 -16` patches it out of every tile PNG that carries the fill; rerun it after `build.mjs` rebuilds the tiles | |
+| striped cliffs | a rock wall running across the grid is a zigzag of SE and SW faces: alternating light drew vertical stripes and the sheared strata chevrons | Faces: wall tips (CUT_TIP) share one light and an unsheared texture (level strata); the other faces get a stronger SW/SE split and two steps of shade toward the foot | |
+| water grid | the baked light was filled as one path per row, so every cell edge between rows had an antialiased seam: a dotted diamond grid over open water | plain cells stamp a pixel-exact diamond sprite per light code (`diamond()`); water distance shading blurred twice, smaller jitter | |
+| shore teeth | the corner shares of shore cells were held on the autotile mask's side of 0.5, so the smoothed waterline could not leave the one-cell staircase | between shore transition cells (all four round the vertex) the share is free (1..7 eighths); held elsewhere, and off-shore sheets keep the clamp (their kinds and the drawn buffer disagree: a sand/grass edge turned into a sawtooth when freed) | |
+| bright surf | four layers of near-white foam over every shore edge | surf alphas about halved, blobs at 0.55 | |
+| roads ending at cliffs | the road runs in the region data stop at plateau walls | **open**: a ramp or a fading end needs the road routing (regions-look) | |
+
+**Lessons:** (1) A texture's pixel scale is set where it is sampled: look for `u / 2`-style samplers before blaming the
+art. (2) `hash(x, y) % n` with the autotile hash repeats on a 4-tile lattice; mix it first. (3) Translucent path fills
+drawn in separate calls seam on shared edges; stamp pixel-exact sprites for per-cell light. (4) A fill mark is in every
+sheet that draws that fill: patch it by exact pixel match across all tile PNGs, not one file.

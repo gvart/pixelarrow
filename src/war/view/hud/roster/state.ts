@@ -26,6 +26,7 @@ import type { Item, Slot } from '../../../../data/items';
 import type { FightReport, Order, PersonResult, UnitSnap, WarEvent, WarPerson, WarSkillId } from '../../../types';
 import type { SandboxScene } from '../../SandboxScene';
 import { myTeam } from '../../side';
+import { squadName } from '../kit';
 
 /** away: fit, in another region (no reserve, W-58: every man stands in some region). */
 export type Where = 'field' | 'away' | 'wounded' | 'captive' | 'dead';
@@ -406,6 +407,11 @@ export class SandboxRoster {
   }
 
   /** Class display name. */
+  /** A squad's name for the player ("Squad 2", ../kit.ts squadName). */
+  squadName(id: number | undefined): string {
+    return squadName(this.s.sim.cur?.squads, id ?? -1);
+  }
+
   static className(cls: string | undefined): string {
     if (isCivClass(cls)) return CIV_CLASSES[cls].name;
     return CLASSES[isClassId(cls ?? '') ? (cls as keyof typeof CLASSES) : 'militia'].name;
