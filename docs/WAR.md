@@ -463,6 +463,14 @@ zone. Each room runs on its own seed (the region id hashed), so wander, roads an
 | Chief (local mini-boss) | 1 per entry, 2 deeper; none at home | a named beast or bandit chief (src/data/warWild.ts `WAR_CHIEFS`) on his kind's art, drawn 1.6x and tinted, his name and title over his head; leads an escort of his kind (`CHIEF_KINDS`: hp x2.85–76 and damage x1.2–2.6 over a man of his kind, before depth, and +6 armour, so a solo player's whole army (12 men, W-58) takes 60–90 s to bring him down: level 2 at depth 1, level 3 at depth 2 (measured 64–81 s for hoplites; 20 level-1 men take ~50–57 s); a chief never breaks off); his kill drops a pile (10–25 coin and a few hides or iron, x(1 + depth/2), an item at 35–50%); his lair comes back after 37.5 min (depth 1) to 60 min (rim) |
 | Hidden quest | 2 per entry, 3 deeper; none at home | no giver and no marker: men walking onto the spot (a dead man with a note, a cairn, a forgotten shrine, a ruined watch-post) begin the player's own run on the story runner (src/war/sim/secrets.ts), told as a short notice; 1–2 steps a short walk off (hunt the killers, dig a cache, the shrine's chief, robbers in an abandoned Warden post); the words follow the region's ground (`landOf`: the cold north, the steppe, the sand, the wet south; the rules stay the template's); pays a pile at his men, his alone for 10 min (10–20 coin and a few goods, x(1 + depth/2)) |
 
+Hidden quest markers (W-76 proposal): the spot itself stays unmarked, but once found the open step is his to follow.
+Each "next step" line of a run carries the step's spot and its marker label (`secret` event `to`; none for a choice);
+the page keeps its owner's open steps (`src/war/view/secretSteps.ts`: his team, online his `p:<pid>` men only; a quest
+drops once done) and shows the nearest as a quiet violet marker over the spot, or on the screen's edge with an arrow
+towards it (`src/war/view/hud/quest.ts` mountSecretMarker), and every open one as a small violet diamond on the minimap
+and full map. Nobody else sees it: online the room sends the lines to their owner alone, and on his join (a new feed)
+his open steps again with no text (`sim.hiddenOpen`, no notice). Offline the markers last for the page's session.
+
 #### Region mastery (W-73)
 
 Per player and season, a region is **mastered** when his men have cleared every lair it was built with, slain every
@@ -511,6 +519,17 @@ bandits never fight them), owner `warlord:<id>`; the wild has no fog, so his bot
 Online: the room sends `warlords` (the region's warlords, their holdings and a raid in warning; on change) and the
 notes (rise, took, warn, raid, freed, fallen) to the players they concern. Offline nothing runs unless a scenario asks.
 Each region runs on its own; his seat's room tells the march rooms of his fall (region to region, kept in their storage for a room that sleeps), so the recall reaches every region of his domain.
+
+World map (W-76 proposal): each domain room's world report (`WarRoom.summary` `lords`, sent only when it changes) has
+per warlord the places he holds there (his hall counted), the men in them, a raid warned (seconds left, rounded up to
+10; 0 once out) and his fall (the age he fell at); the region DO turns those into wall-clock times (`lordReport`: raid
+`at`, `backAt` = the age's start + (fall + 3 days)) and the world keeps them on the region's state (`RegionState.lords`,
+in the world feed; no new endpoint, no per-client work). The map (`src/war/world-view/lords.ts`) draws his pennants from
+them: a land no room has reported keeps its domain pennant, a land reported holding nothing has none, a raid rings its
+land's pennant in red until 4 min after it set out, and a lord fallen in any report shows only his hall's pennant, grey
+and lowered. His hover card: a tag for the fall ("Fallen · back in 1d 6h") or the raid ("Raid on Teeth Foothills ·
+0:42", then "Raiding …"), his hall, places held and men as a rough count ("~15"), the lands held. A room that empties
+leaves its last report: holdings as last seen, a stale raid fades, a fall ends at `backAt`.
 
 ### Random encounters
 
