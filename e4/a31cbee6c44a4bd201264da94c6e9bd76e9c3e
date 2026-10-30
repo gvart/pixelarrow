@@ -1,0 +1,22 @@
+docs/WAR.md
+  s_0dd3a9d3e5007a::t_4e402aecbccec3 472
+src/war/sim/warlords.ts
+  s_0dd3a9d3e5007a::t_2668864cb31069 384
+  s_0dd3a9d3e5007a::t_51a6d183bc91b8 72-73,419-421
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "e4a31cbee6c44a4bd201264da94c6e9bd76e9c3e",
+  "prompts": {},
+  "sessions": {
+    "s_0dd3a9d3e5007a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b6130d3d-c070-494f-98d5-046db89f2d1c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
