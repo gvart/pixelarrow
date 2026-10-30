@@ -71,7 +71,7 @@ export interface Style {
 const STYLE: Style = { dry: 0.05, dryHigh: true, meadow: 0.1, dune: 0.3, trees: 1, bushes: 1, tufts: 0, wayside: false };
 
 /** Biome libraries a region may name (public/war/biomes/<name>; 'global' is the base set). */
-export const BIOMES = ['global', 'elaia', 'kyrene', 'mountains', 'dodona'] as const;
+export const BIOMES = ['global', 'elaia', 'kyrene', 'mountains', 'dodona', 'moors'] as const;
 export type BiomeName = (typeof BIOMES)[number];
 
 /** Region side, in units. */
@@ -283,13 +283,15 @@ export class Kit {
   forest(...bs: Blob[]) { for (const b of bs) this.paint('forest', b, { on: ['grass', 'dirt'] }); }
   /**
    * Water body: `deep` core (bed 0) with a shallow rim `shore` units wide, a sand beach `beach` units wide at most a level
-   * over the water; or all shallow (pools, lagoons). Over everything but rock.
+   * over the water; or all shallow (pools, lagoons). Over everything but rock. `bed`: a shallow pool lying at that level
+   * with the land round it left as it is (a bog pool up on a moor, not a pit to the sea's level).
    */
-  waterBody(b: Blob, o: { deep?: boolean; shore?: number; beach?: number; rough?: number; beachTerrain?: string } = {}) {
+  waterBody(b: Blob, o: { deep?: boolean; shore?: number; beach?: number; rough?: number; beachTerrain?: string; bed?: number } = {}) {
     const s = this.seed(), shore = o.shore ?? 2, beach = o.beach ?? 3, deep = o.deep ?? true;
     this.each((i, x, y) => {
       if (this.terrain[i] === 'rock') return;
       const e = this.e(b, x, y, o.rough ?? 4, s);
+      if (o.bed !== undefined) { if (e > 0) (this.water[i] = 1), (this.height[i] = o.bed), (this.terrain[i] = 'marsh'); return; }
       if (e > (deep ? shore : 0)) (this.water[i] = deep ? 2 : 1), (this.height[i] = 0), (this.terrain[i] = deep ? 'dirt' : 'sand');
       else if (e > 0) (this.water[i] = 1), (this.height[i] = deep ? 0 : this.height[i]), (this.terrain[i] = 'sand');
       else if (e > -beach && !this.water[i]) {
@@ -1451,6 +1453,11 @@ function visualLayer(k: Kit): Out {
         else if (t0 === 'sand' && sandAll(i)) out = height[i] >= 2 || fbm(x, y, 5, 78) > style.dune ? 'dune' : fbm(x, y, 6, 79) > 0.35 ? 'reg' : 'sand';
       } else if (b === 'elaia' && t0 === 'grass') {
         if ((style.dryHigh && height[i] >= 2) || fbm(x, y, 7, 86) > style.dry) out = 'dry';
+      } else if (b === 'moors') {
+        // heather over peat, black hags of bare peat where it is wettest, the marsh a black bog
+        if (t0 === 'grass' || t0 === 'forest') out = fbm(x, y, 5, 87) > 0.42 ? 'peat' : 'heath';
+        else if (t0 === 'dirt') out = 'peat';
+        else if (t0 === 'marsh') out = 'bog';
       }
     }
     kind[i] = KINDS.indexOf(k.paved[i] && t0 === 'road' && PAVED.has(BIOMES[biome[i]]) ? 'paving' : out);
@@ -1500,7 +1507,7 @@ export function build(def: RegionDef): Built {
   const log: string[] = [];
   // a biome terrain stays only where every tile round its cell is of that biome
   {
-    const OWN: Record<string, string[]> = { mountains: ['scree', 'meadow', 'gravel', 'drift'], elaia: ['dry', 'rossa', 'marble', 'grove', 'ruin'], kyrene: ['dune', 'hardpan', 'redrock', 'reg', 'salt', 'oasis', 'rubble'] };
+    const OWN: Record<string, string[]> = { mountains: ['scree', 'meadow', 'gravel', 'drift'], elaia: ['dry', 'rossa', 'marble', 'grove', 'ruin'], kyrene: ['dune', 'hardpan', 'redrock', 'reg', 'salt', 'oasis', 'rubble'], moors: ['heath', 'peat', 'bog'] };
     const ownerOf = new Map(Object.entries(OWN).flatMap(([b, ks]) => ks.map((kk) => [KINDS.indexOf(kk as Kind), BIOMES.indexOf(b as BiomeName)])));
     for (let fy = 0; fy < FH; fy++) for (let fx = 0; fx < FW; fx++) {
       const j = fy * FW + fx, b = ownerOf.get(fine.kind[j]);
@@ -1576,6 +1583,19 @@ export function build(def: RegionDef): Built {
     if (water[i] || t === 'road' || spotTiles.has(i) || (agora && Math.max(Math.abs(x - agora[0]), Math.abs(y - agora[1])) <= 17) || cleared(x, y)) continue; // no wild trees in the agora and clearings
     const p = hsh(x, y, 1), q = hsh(x, y, 2), fx = x + 0.3 + 0.4 * hsh(x, y, 3), fy = y + 0.3 + 0.4 * hsh(x, y, 4);
     const nearWater = ring(x, y, (j) => water[j] > 0), kk = kindAt(fx, fy);
+    if (b === 'moors') {
+      // the Grey Moors (public/war/biomes/moors): heather and dead bracken over the heath, bog cotton in the bog and round
+      // its pools, a rare wind-bent hawthorn, granite boulders; no woods (a forest blob is a thicket of heather)
+      if (t === 'rock') { if (p < 0.12 && ring(x, y, (j) => terrain[j] !== 'rock' && !water[j])) put(pick(['boulder-a', 'boulder-b', 'boulder-a'], q), fx, fy); }
+      else if (t === 'marsh' || kk === 'bog') { if (p < 0.14) put(pick(['moors/bog-cotton', 'moors/bog-cotton', 'moors/bog-cotton', 'reeds'], q), fx, fy); else if (p < 0.142) put('dead-tree', fx, fy); }
+      else if (nearWater) { if (p < 0.12) put('moors/bog-cotton', fx, fy); }
+      else if (kk === 'heath' || kk === 'peat' || t === 'forest') {
+        const thick = t === 'forest' ? 3 : 1;
+        if (p < 0.0025 * thick) put('moors/hawthorn', fx, fy);
+        else if (p < (kk === 'peat' ? 0.02 : 0.08) * thick * st.bushes) put(pick(['moors/heather', 'moors/bracken', 'moors/heather'], q), fx, fy);
+      }
+      continue;
+    }
     if (t === 'forest') {
       const edge = ring(x, y, (j) => terrain[j] !== 'forest');
       const trees = b === 'mountains' ? FIRS : b === 'elaia' ? E(['holm-oak', 'stone-pine', 'holm-oak', 'cypress-tall', 'olive-tall']) : b === 'kyrene' ? Y(['acacia', 'acacia-old', 'tamarisk', 'thorn-tree']) : b === 'dodona' ? DWOOD : WOODS;
@@ -1638,7 +1658,8 @@ export function build(def: RegionDef): Built {
     const open = new Set(['grass', 'sand', 'dirt']);
     for (let n = objects.length - 1; n >= 0; n--) {
       const o = objects[n], t = terrain[at(Math.floor(o.x), Math.floor(o.y))], fk2 = KINDS[fine.kind[cellOf(o.x, o.y)]];
-      if ((fk2 !== t && !(KINDS.indexOf(fk2) > KINDS.indexOf('deep') && open.has(t))) || !footSeen(o.x, o.y)) objects.splice(n, 1);
+      const moor = fk2 === 'heath' || fk2 === 'peat' || fk2 === 'bog'; // the moors' kinds stand on its grass, forest and marsh
+      if ((fk2 !== t && !(KINDS.indexOf(fk2) > KINDS.indexOf('deep') && (open.has(t) || moor))) || !footSeen(o.x, o.y)) objects.splice(n, 1);
     }
   }
   // crags and spires on the lips of the rock's cliff bands, scree fans under walls
@@ -1657,7 +1678,7 @@ export function build(def: RegionDef): Built {
     } else if (terrain[i] !== 'rock' && height[i] >= 2) {
       const wall = Math.max(fzAt(fx - 1, fy), fzAt(fx, fy - 1), fzAt(fx - 1, fy - 1)) - z >= 3;
       // the talus of the cliff's own stone (art.ts draws the biome's cliff material over the face)
-      const b = B(i), tal = b === 'elaia' ? 'elaia/talus-lime' : b === 'mountains' ? 'mountains/talus-granite' : b === 'kyrene' ? 'kyrene/talus-red' : 'scree';
+      const b = B(i), tal = b === 'elaia' ? 'elaia/talus-lime' : b === 'mountains' || b === 'moors' ? 'mountains/talus-granite' : b === 'kyrene' ? 'kyrene/talus-red' : 'scree';
       if (wall && p < 0.12 && footSeen(ox, oy) && !ring(x, y, (j) => water[j] > 0)) put(tal, ox, oy); // not on a shore (it stood in the water)
     }
   }

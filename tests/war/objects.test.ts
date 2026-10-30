@@ -3,6 +3,7 @@ import objectsJson from '../../public/war/objects/objects.json';
 import elaiaJson from '../../public/war/biomes/elaia/objects.json';
 import kyreneJson from '../../public/war/biomes/kyrene/objects.json';
 import mountainsJson from '../../public/war/biomes/mountains/objects.json';
+import moorsJson from '../../public/war/biomes/moors/objects.json';
 import ridgeJson from '../../src/war/regions/test-ridge.json';
 import { SPOTS } from '../../src/war/regions/test-ridge.spots';
 import { parseRegion } from '../../src/war/region/schema';
@@ -13,7 +14,7 @@ import type { RegionData } from '../../src/war/types';
 type Def = { id: string; kind?: string; footprint: number[]; blocksMovement: boolean };
 const globalDefs = objectsJson.objects as Def[];
 // biome objects are named `<biome>/<id>` in regions
-const defs = [...globalDefs, ...Object.entries({ elaia: elaiaJson, kyrene: kyreneJson, mountains: mountainsJson }).flatMap(([b, j]) => (j.objects as Def[]).map((d) => ({ ...d, id: `${b}/${d.id}` })))];
+const defs = [...globalDefs, ...Object.entries({ elaia: elaiaJson, kyrene: kyreneJson, mountains: mountainsJson, moors: moorsJson }).flatMap(([b, j]) => (j.objects as Def[]).map((d) => ({ ...d, id: `${b}/${d.id}` })))];
 
 describe('map objects', () => {
   it('the sim table matches objects.json (every global blocker; the biome blockers regions place)', () => {

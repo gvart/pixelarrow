@@ -3561,3 +3561,48 @@ Gemini generations:** every fix came from the renderer or the existing art.
 art. (2) `hash(x, y) % n` with the autotile hash repeats on a 4-tile lattice; mix it first. (3) Translucent path fills
 drawn in separate calls seam on shared edges; stamp pixel-exact sprites for per-cell light. (4) A fill mark is in every
 sheet that draws that fill: patch it by exact pixel match across all tile PNGs, not one file.
+
+## 49. Region identity (regions-look)
+
+Agent brief (art audit follow-up): "Give regions their identity back. Grey Moors: the reference is dark peat, heather,
+granite tors and bog pools, the build is pale olive grass with pines (PixelLab about 6-10). Lagoon Coast: an empty brown
+plain with octagonal salt pans, no terraced cliffs, a bare sand spit (region script only). Kyrene and Stymphalia share
+the same stalls, statues and stoa with square pads. Roads end at cliffs or in open ground. If cheap: the blocky
+shallow-to-deep water edge." Shots: 1520x750 at zoom 1/2 and 1, side by side with `shots/war/regions/proto/<id>.png`.
+
+### Grey Moors: the moors library (8 PixelLab generations, 0 Gemini)
+
+**Ground: recoloured, not generated.** A biome set whose terrain is called `grass` must draw the global grass pixel for
+pixel (qa.mjs), so the moor is three new visual kinds `heath`, `peat`, `bog` (src/war/regions/visual.ts) with their own
+sets: `scripts/war/art/moors.mjs` maps every global grass-X sheet to heath-X (the pixels nearer the grass fill than X's
+through the heath map, X's through its own: dirt -> peat, marsh -> bog, road/rock/sand/water unchanged; the side band
+keeps the global earth), and var-grass/dirt/marsh to var-heath/peat/bog. Maps (HSL, the fill's lightness kept): heath
+`hue 26 -> 8 (mauve 350 on the brightest blades), sat 0.16-0.24, l x 0.6-0.72`; peat `hue 22, sat 0.22, l x 0.45`; bog
+`hue 52, sat 0.16, l x 1.05`. Rejected: hue 22 -> -12 at l x 0.8-0.9 (salmon pink heath), bog at l x 0.55-0.68 (pitch
+black, no texture). `bog-shallow` and `peat-road` were dropped: their full bog/peat tiles came from another fill than
+heath-bog's and heath-peat's (qa: "base must be identical"), so those pairs get a heath verge. Walls: the mountains'
+granite cliff, copied. Rerun `node scripts/war/art/moors.mjs` after `build.mjs` rebuilds the global tiles.
+
+**Objects** (`create_map_object`, high top-down, high detail, detailed shading; built by `scripts/war/art/moors-objects.mjs
+<raw dir>`: trimmed, scaled, graded, binary alpha, foot anchor; raws `shots/war/pixellab/moors/raw/<id>.png`). Tail of
+every prompt: `seen from a high isometric three-quarter view, dark epic desaturated colours, heavy shadows, [lit from
+the upper left,] only the <thing> on a fully transparent background, no ground, no grass, no base under it` (plants:
+`no ground, no soil, no base under it`).
+
+| id | Call | Canvas | Subject (verbatim) | Result |
+| --- | --- | --- | --- | --- |
+| tor-a | `2f89d339` | 200 x 200 | `one granite tor of a high moor: a big weathered outcrop of grey granite made of huge rounded stacked slabs and blocks piled in uneven layers like a stack of worn pillows, deep horizontal and vertical joints between the blocks, a few fallen blocks at its foot, pale lichen patches` | kept; a green grass disc under it dropped by colour; lilac grey, sat 0.6 |
+| tor-b | `daf58dd4` | 128 x 112 | `one small granite tor of a high moor: a low lumpy stack of three or four rounded weathered grey granite blocks piled on each other, cracked joints, one block leaning, pale lichen` | kept, scale 0.8 |
+| heather | `75879d75` | 64 x 48 | `one low rounded clump of moorland heather, dense wiry dark brown woody stems covered in tiny dull purple and rust-red heather flowers, wider than tall` | far too purple: sat 0.3, val 0.7 |
+| bracken | `b154d519` | 72 x 52 | `one wide clump of dead brown moorland bracken and dark heather tangled together, dry rust-brown fern fronds curling over dark purple-brown heather, wider than tall` | kept |
+| peat-stack | `83121956` | 72 x 56 | `a stack of cut peat turves drying on a moor: small dark brown-black rectangular bricks of peat stacked into a neat low pile, about knee high, a wooden peat spade leaning against it` | a stepped pyramid; kept small (0.6), only at the cuttings |
+| bog-cotton | `1e37cbc5` | 48 x 48 | `one tussock of bog rushes and cotton grass from a peat bog, stiff dark olive-brown rush blades with a few small white fluffy cotton grass heads on thin stalks` (+ `no water`) | a ring of grey pebbles at its foot dropped |
+| standing-stone | `18ec6166` | 48 x 104 | `one ancient standing stone of a moorland stone ring: a single tall rough slab of weathered grey granite standing upright, about twice a man's height, narrower at the top, pale lichen and dark streaks` | moss at the foot dropped (qa ground patch) |
+| hawthorn | `4c303ce7` | 96 x 120 | `one stunted old hawthorn tree of a windswept moor, a short gnarled dark grey trunk bent hard to one side by the wind, a small lopsided crown of sparse dark twisted branches with a few dull dark green leaves` | kept |
+
+**Region script** (`moors.ts`): the moors zone over everything (was elaia dry grass and mountains on the tors); the
+tors' crowns are clusters of tor-a sprites, not `rockMass` (rock terrain drew as smooth grey mountain cones); the bog a
+level under the moor with pools at its own level (`waterBody({ bed })`, new: every water body used to cut a pit down to
+level 0 with 16 m granite walls); the causeway a level over the bog; a ring of standing stones on the big tor; peat
+cuttings with stacks by the tracks. Kit scatter for the moors: heather and bracken, bog cotton in the bog and round
+pools, rare hawthorns, no pines.

@@ -18,6 +18,10 @@ export const OBJECT_BLOCKS: Record<string, readonly [number, number]> = {
   'kyrene/oasis-spring': [2, 1],
   'kyrene/well': [1, 1],
   'kyrene/nomad-tent': [2, 2],
+  'moors/tor-a': [3, 3],
+  'moors/tor-b': [2, 2],
+  'moors/standing-stone': [1, 1],
+  'moors/peat-stack': [1, 1],
 };
 
 /** The tiles an object with footprint (fw, fh) centred on its foot point (x, y) covers. */

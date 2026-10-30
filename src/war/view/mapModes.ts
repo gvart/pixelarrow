@@ -48,10 +48,11 @@ const KIND_RGB: Record<string, RGB> = {
   gravel: [150, 140, 122], dry: [168, 150, 92], rossa: [170, 98, 66], marble: [214, 208, 196], grove: [96, 112, 56], dune: [222, 192, 132],
   hardpan: [186, 152, 110], redrock: [160, 82, 56], reg: [176, 146, 104], salt: [230, 224, 214], oasis: [72, 128, 72],
   paving: [176, 168, 150], drift: [214, 220, 226], rubble: [150, 120, 92], ruin: [150, 146, 132],
+  heath: [104, 78, 70], peat: [70, 54, 44], bog: [48, 44, 38],
 };
 /** Biome names for players. */
-export const BIOME_NAME: Record<string, string> = { global: 'Temperate', elaia: 'Elaia olive hills', kyrene: 'Kyrene desert', mountains: 'Mountains' };
-const BIOME_RGB: Record<string, RGB> = { global: [104, 144, 74], elaia: [177, 173, 63], kyrene: [192, 106, 60], mountains: [122, 130, 140] };
+export const BIOME_NAME: Record<string, string> = { global: 'Temperate', elaia: 'Elaia olive hills', kyrene: 'Kyrene desert', mountains: 'Mountains', moors: 'Grey Moors heath' };
+const BIOME_RGB: Record<string, RGB> = { global: [104, 144, 74], elaia: [177, 173, 63], kyrene: [192, 106, 60], mountains: [122, 130, 140], moors: [104, 78, 70] };
 export const RES_RGB: Record<ResourceKind | 'olives', RGB> = {
   food: [214, 188, 116], wood: [140, 156, 96], stone: [168, 168, 176], marble: [244, 240, 228], copper: [222, 120, 60], tin: [140, 170, 196],
   iron: [150, 70, 60], bronze: [200, 140, 60], silver: [200, 220, 240], coin: [230, 200, 90], salt: [250, 210, 220], pitch: [92, 58, 28], olives: [150, 160, 50],
