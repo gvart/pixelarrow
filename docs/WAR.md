@@ -1226,10 +1226,10 @@ Expected values, no dice. A play week = 14 h at the forge + 7 unattended queues 
 | Check | Result | Target |
 | --- | --- | --- |
 | fresh kit for 12, T1 forge, one slot | worst hoplite 1.1 h (wood 132, flax 72, copper / tin / iron 36); others 0.2–1 h; T2 forge ≤ 0.6 h, T3 ≤ 0.3 h | ≤ 2 h |
-| legendaries of a master smith a week | 352 tier-3 crafts × 0.3% = 1.06 (copper and tin 1063 each, silver 176: tin and silver come from neutrals) | ~1 |
-| one max squad (48 legendary pieces), 3 master smiths | 333 crafts a legendary; 4–22 play weeks (archer 4, gallic 4.5, rhomphaia 8, royal guard 21, sacred band 22) | drops (beast loot 15% legendary) are the faster road |
-| rarity mix | crafted T3 at G 17: 12 / 30 / 34 / 23.7 / 0.3%; T1 at a T1 forge (G 4) 60 / 30 / 10; T1 drops 85 / 14 / 1, T3 drops 30 / 40 / 25 / 5 | crafted ≥ drops below legendary |
-| power through `warStatsOf` (L10, attributes 15) | max crafted kit = drop-legendary kit = the cap on every clamped stat (royal guard HP 52 → 60, dmg 10 → 12.6, armour 8.8 → 10.5) | ≤ cap; max squad ≤ 35% vs 2N (tests/war/balance.test.ts) |
+| epics of a master smith a week (W-73: no crafted legendary) | 352 tier-3 crafts × 24% = 84.5 epics, 0 legendaries (copper and tin 1063 each, silver 176: tin and silver come from neutrals) | legendaries only as guardian trophies (tier 1: 25% of kills, tiers 2–3: every kill) |
+| one max squad (48 epic pieces, already at the cap), 3 master smiths | 4 crafts an epic; 0.1–0.3 play weeks (was 4–22 weeks for 48 legendaries that added nothing over epic) | a legendary is prestige (a guardian's name), never power past the cap |
+| rarity mix | crafted T3 at G 17: 12 / 30 / 34 / 24 / 0%; T1 at a T1 forge (G 4) 60 / 30 / 10; T1 drops 85 / 14 / 1, T3 drops 30 / 40 / 25 / 5 | crafted ≥ drops below legendary |
+| power through `warStatsOf` (L10, attributes 15) | max crafted (epic) kit = drop-legendary kit = the cap on every clamped stat (royal guard HP 52 → 60, dmg 10 → 12.6, armour 8.8 → 10.5) | ≤ cap; max squad ≤ 35% vs 2N (tests/war/balance.test.ts) |
 
 ### Workplaces
 
