@@ -36,7 +36,8 @@ import { MOCK_MASTERED, MOCK_SETTLEMENTS, MockSource, NetSource, travelMs, type 
 import { REGION_DEPTH } from '../sim/depth';
 import { LANDMARK_FUNCTION } from '../../data/warLore';
 import { landmarkOfRegion } from '../../data/warLandmarks';
-import { domainOf, warlord, WARLORDS } from '../../data/warWarlords';
+import { domainOf, warlord } from '../../data/warWarlords';
+import { lordInfo, lordMarks, roughMen } from './lords';
 import { bossesOfRegion } from '../../data/warBosses';
 import { keys } from '../input/keys';
 import { mountGameMenu } from '../menu/gameMenu';
@@ -158,8 +159,10 @@ let mouse = { x: 0, y: 0 };
 let hoverLm: string | null = null;
 /** W-72: the warlord pennant under the pointer (his id); W-73: the mastery star under it (its region). */
 let hoverLord: string | null = null, hoverMastered: string | null = null;
-// W-72: each warlord's hall and the lands his bands take and raid (src/data/warWarlords.ts domainOf)
-st.warlords = WARLORDS.flatMap((w) => domainOf(w).map((region, i) => ({ id: w.id, region, seat: i === 0, tint: w.tint })));
+// W-72: each warlord's hall and the lands his bands take and raid; W-76 proposal: as the region rooms last reported (./lords.ts)
+const lordsNow = () => void (st.warlords = lordMarks([...st.regions.values()], Date.now()));
+lordsNow();
+setInterval(lordsNow, 5000); // a raid's ring fades, a fallen lord comes back
 
 function say(text: string, ms = 3500): void {
   toast.textContent = text;
@@ -372,15 +375,21 @@ function landmarkCard(id: string): string {
     <div class="rc-mine" style="margin-top:8px">+2 score an hour while restored and garrisoned${w.garrisoned ? ' · <b style="color:var(--rf-good)">earning now</b>' : ''}</div>`;
 }
 
-/** W-72: a warlord's hover card: his name and title, his hall, his band, the lands he raids from. */
+/** A span of time from afar: days and hours, else the clock. */
+const span = (ms: number) => { const s = Math.max(0, Math.ceil(ms / 1000)); return s >= 86_400 ? `${Math.floor(s / 86_400)}d ${Math.floor((s % 86_400) / 3600)}h` : clock(s); };
+/** W-72: a warlord's hover card; W-76 proposal: live, a fall or a raid as a tag, his places and rough men, the lands held. */
 function lordCard(id: string): string {
   const w = warlord(id);
   if (!w) return '';
-  const [seat, ...lands] = domainOf(w), col = `#${w.tint.toString(16).padStart(6, '0')}`;
-  const emblem = `<span class="rc-crest" style="--c:${col}"><img src="war/ui/icons/24/act-attack.png" width="28" height="28" alt=""></span>`;
+  const [seat, ...lands] = domainOf(w), col = `#${w.tint.toString(16).padStart(6, '0')}`, now = Date.now(), v = lordInfo(id, [...st.regions.values()], now);
+  const emblem = `<span class="rc-crest" style="--c:${v.backAt ? '#5a524c' : col}"><img src="war/ui/icons/24/act-attack.png" width="28" height="28" alt=""></span>`;
+  const tags = v.backAt ? `<span class="rc-tag good">Fallen · back in ${span(v.backAt - now)}</span>`
+    : v.raid ? `<span class="rc-tag bad">${v.raid.at > now ? `Raid on ${name(v.raid.region)} · ${span(v.raid.at - now)}` : `Raiding ${name(v.raid.region)}`}</span>` : '';
+  const held = v.known ? (v.lands.length ? `Holds ${v.lands.map(name).join(', ')}.` : 'Holds nothing now.') : `Raids from ${lands.map(name).join(' and ')}.`;
   return `${cardHead(emblem, esc(w.name), `${esc(w.title.charAt(0).toUpperCase() + w.title.slice(1))} · a rival warlord`)}
-    <div class="rc-tiles">${tile('Hall', name(seat))}${tile('Band', esc(w.band.replace(/^the /, 'The ')))}${tile('Danger', dangerHtml(REGION_DEPTH[seat] ?? 2))}</div>
-    <div class="rc-note">His bands raid from ${lands.map(name).join(' and ')}.</div>`;
+    ${tags ? `<div class="rc-tags">${tags}</div>` : ''}
+    <div class="rc-tiles">${tile('Hall', name(seat))}${v.backAt ? tile('Band', esc(w.band.replace(/^the /, 'The '))) : tile('Places', v.known ? String(v.holds) : '?', 'Claim points and lairs his men hold')}${v.backAt ? '' : tile('Men', v.known ? roughMen(v.men) : '?', 'His garrisons, as last seen')}</div>
+    ${v.backAt ? '' : `<div class="rc-note">${held}</div>`}`;
 }
 
 /** W-73: a mastered region's hover card. */
@@ -569,6 +578,7 @@ function apply(v: WorldView): void {
   st.emblems = emblems(v.titles ?? []);
   st.events = v.snap.events?.active ?? [];
   st.crown = v.snap.crown; // W-64: monarchs and pacts
+  lordsNow(); // W-76 proposal: the warlords as the rooms last reported them
   if (haul.open) renderHaul();
   if (st.squadAt && !st.squads.has(st.squadAt)) selectRegion(st.selected);
   renderBand();

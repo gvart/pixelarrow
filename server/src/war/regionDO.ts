@@ -49,7 +49,7 @@
  */
 import { DurableObject } from 'cloudflare:workers';
 import type { Env } from '../env';
-import { WarRoom, type ClaimTaking, type RoomOptions, type RoomState, type TickTimes } from './room';
+import { lordReport, WarRoom, type ClaimTaking, type RoomOptions, type RoomState, type TickTimes } from './room';
 import { regionSeed, regionVersion, WAR_REGIONS, warRegion } from './regions';
 import { DEFAULT_CAP, parseClientMsg, type HandoffMsg, type JoinMsg, type MendMsg, type ServerMsg, type StowMsg } from '../../../src/war/net/protocol';
 import { cartArrived, contract, deliver, guardCheck, labourDone, sealedFor, workContracts } from './contracts';
@@ -814,11 +814,13 @@ export class WarRegionDO extends DurableObject<Env> {
   /** M4: tell the world what its map shows of this region, when it changed (world regions only). */
   private report(room: WarRoom, now = false): void {
     if (!isWorldRegion(room.region.id) || (!now && room.currentTick % REPORT_TICKS !== 0)) return;
-    const s = JSON.stringify(room.summary());
+    const sum = room.summary(), s = JSON.stringify(sum);
     if (s === this.reported) return;
     this.reported = s;
     const world = this.world();
-    this.ctx.waitUntil(world.report(room.region.id, room.summary()).then(() => undefined, (e) => {
+    // W-76 proposal: the warlords' raid seconds and fall ages in wall-clock times
+    const { lords, ...rest } = sum, rep = lords ? { ...rest, lords: lordReport(lords, this.lordsFrom ?? Date.now(), Date.now()) } : rest;
+    this.ctx.waitUntil(world.report(room.region.id, rep).then(() => undefined, (e) => {
       this.reported = '';
       logError('war_report_failed', e, { region: room.region.id });
     }));

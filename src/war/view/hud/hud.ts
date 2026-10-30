@@ -80,7 +80,7 @@ import { mountTasks } from './tasks';
 import { mountFavour } from './favour';
 import { mountCrown } from './crown';
 import { mountGuide } from './guide';
-import { mountQuestTracker } from './quest';
+import { mountQuestTracker, mountSecretMarker } from './quest';
 import { mountRegionPins } from './pins';
 import { mountStory } from './story';
 import { mountEncounters } from './encounter';
@@ -500,6 +500,7 @@ export function hud(s: SandboxScene): void {
   mountClaimCard(s, mk); // the claim point card at the cursor (./claimCard.ts)
   mountGuide(s, mk); // W-62: the first-hour quest tracker, top left, and its world markers (./guide.ts)
   mountQuestTracker(s, mk); // the tracked task or order, top right, and its marker (./quest.ts)
+  mountSecretMarker(s); // W-76 proposal: his open hidden quest step's quiet marker (./quest.ts)
   mountRegionPins(s); // personal markers on middle click, this player only (./pins.ts)
   mountStory(s); // W-65: the region's story chain: its giver, banners and tracked card (./story.ts)
   mountEncounters(s); // W-65: random encounters on the road: banners, the card for a while, who waits there (./encounter.ts)

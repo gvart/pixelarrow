@@ -3556,6 +3556,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
 
   const api: WarBuildSim = {
     region,
+    hiddenOpen: (owner) => secrets.open(owner),
     exportState(): SimState {
       let base = fresh.get(region);
       if (!base) fresh.set(region, (base = roots.get(createSim(region, seed))!()));

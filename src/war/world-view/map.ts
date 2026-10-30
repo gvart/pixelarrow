@@ -66,8 +66,11 @@ export interface MapState {
   /** W-73: the regions the player has mastered this season (a gold star by the centre). */
   mastered?: ReadonlySet<string>;
 }
-/** W-72: one warlord pennant on the map: whose, in which region, his hall or one of his lands. */
-export interface WarlordMark { id: string; region: string; seat: boolean; tint: number }
+/**
+ * W-72: one warlord pennant on the map: whose, in which region, his hall or one of his lands; W-76 proposal (./lords.ts):
+ * places and men there as last reported, a raid warned or out (a pulsing red ring), fallen (his hall's pennant struck).
+ */
+export interface WarlordMark { id: string; region: string; seat: boolean; tint: number; holds?: number; men?: number; raid?: boolean; fallen?: true }
 /** Where a pennant stands (pole foot, map px) and its cloth's size; a mastery star's centre and radius. */
 type LordSpot = WarlordMark & { x: number; y: number; w: number; h: number };
 interface StarSpot { region: string; x: number; y: number; r: number }
@@ -475,7 +478,17 @@ export class WorldMap {
   private drawLords(g: CanvasRenderingContext2D, st: MapState): void {
     const s = Math.max(1, 0.8 / this.k);
     for (const p of this.lordSpots(st)) {
-      const top = p.y - p.h * 2.3, col = `#${p.tint.toString(16).padStart(6, '0')}`;
+      // W-76: fallen, the cloth hangs grey half down the pole
+      const top = p.y - p.h * 2.3, ct = top + (p.fallen ? p.h * 0.9 : 0), col = p.fallen ? '#5a524c' : `#${p.tint.toString(16).padStart(6, '0')}`;
+      if (p.raid) {
+        // W-76: a raid warned or out: a red ring pulsing round the pole's foot
+        const k = 0.5 + 0.5 * Math.sin(st.now / 220);
+        g.beginPath();
+        g.ellipse(p.x, p.y, (9 + 4 * k) * s, (4.5 + 2 * k) * s, 0, 0, Math.PI * 2);
+        g.lineWidth = 2.4 * s;
+        g.strokeStyle = `rgba(224,74,58,${0.55 + 0.45 * k})`;
+        g.stroke();
+      }
       g.lineCap = 'round';
       g.beginPath();
       g.moveTo(p.x, p.y);
@@ -487,11 +500,11 @@ export class WorldMap {
       g.lineWidth = 2.2 * s;
       g.stroke();
       g.beginPath();
-      g.moveTo(p.x + 1 * s, top + 2 * s);
-      g.lineTo(p.x + p.w, top + 2 * s);
-      g.lineTo(p.x + p.w * 0.72, top + 2 * s + p.h / 2);
-      g.lineTo(p.x + p.w, top + 2 * s + p.h);
-      g.lineTo(p.x + 1 * s, top + 2 * s + p.h);
+      g.moveTo(p.x + 1 * s, ct + 2 * s);
+      g.lineTo(p.x + p.w, ct + 2 * s);
+      g.lineTo(p.x + p.w * 0.72, ct + 2 * s + p.h / 2);
+      g.lineTo(p.x + p.w, ct + 2 * s + p.h);
+      g.lineTo(p.x + 1 * s, ct + 2 * s + p.h);
       g.closePath();
       g.fillStyle = col;
       g.fill();

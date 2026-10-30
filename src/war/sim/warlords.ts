@@ -444,6 +444,7 @@ export function createWarlords(region: RegionData, sim: WarBuildSim, bots: Bots,
       lord: l.lord >= 0 && alive(units.get(l.lord)) ? l.lord : -1,
       holds: l.holds.map((h) => ({ place: h.place, x: h.x, y: h.y, men: snap ? holdMen(h) : 0, unit: h.hall ? l.lord : h.lt, state: h.state })),
       ...(l.warn ? { raid: { x: l.warn.x, y: l.warn.y, team: l.warn.team, in: Math.max(0, l.warn.at - tick) } } : {}),
+      ...(l.parties.some((p) => p.raid && p.raid.phase !== 'home') ? { raiding: true as const } : {}),
     })),
     men: () => (snap ? menAll() : 0),
     raidNow(after = 0) {

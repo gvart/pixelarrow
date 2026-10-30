@@ -14,6 +14,7 @@ import { esc } from './roster/ui';
 import { chip, details, qcard } from './qcard';
 import { clearOfHud, clearOnRay, laneBusy, markerArea, Z } from './layout';
 import { metres } from './explain';
+import { noteSecrets, secretSteps } from '../secretSteps';
 
 type Mk = (id: string, css: string, html?: string) => HTMLElement;
 type P = { x: number; y: number };
@@ -32,6 +33,8 @@ const CSS = `
 .gd-mk .ar{color:var(--rf-gold)}
 .gd-mk.trk{color:#f3e2b8}.gd-mk.trk .lb{box-shadow:inset 0 0 0 1px #b38a3e;background:rgba(36,22,10,.88)}
 .gd-mk.trk .ch{border-top-color:#f3e2b8}.gd-mk.trk .ar{color:#f3e2b8}
+.gd-mk.sec{color:#d9cdea}.gd-mk.sec .lb{font-size:.92em;padding:3px 6px;background:rgba(14,11,20,.78);box-shadow:inset 0 0 0 1px #5d4f78}
+.gd-mk.sec .ch{border-width:7px;border-top-width:10px;border-top-color:#b9a6d8}.gd-mk.sec .ar{color:#b9a6d8}
 @keyframes gdBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
 #rfQBanner{left:50%;top:44px;transform:translateX(-50%);z-index:${Z.banner};pointer-events:none;width:340px;padding:7px 12px 9px;text-align:center;transition:opacity .45s,transform .45s}
 #rfQBanner.out{opacity:0;transform:translateX(-50%) translateY(-6px)}
@@ -247,6 +250,34 @@ export function mountQuestTracker(s: SandboxScene, mk: Mk): void {
       ...(v.choices?.length ? { extra: `<div class="qt-ch">${v.choices.map((c) => `<button class="rf-tbtn" data-act="${esc(c.id)}">${esc(c.label)}<i>${esc(c.text)}</i></button>`).join('')}</div>` } : {}),
     })}`;
     if (html !== last) el.innerHTML = last = html;
+  };
+  requestAnimationFrame(frame);
+}
+
+/**
+ * W-76 proposal: the player's open hidden quest step (../secretSteps.ts; the nearest when several): a quiet violet
+ * marker over its spot, or on the screen's edge towards it. His alone: the `secret` lines are his.
+ */
+export function mountSecretMarker(s: SandboxScene): void {
+  style();
+  const mark = questMarker('sec');
+  const prev = s.sim.onEvents;
+  s.sim.onEvents = (ev) => {
+    prev?.(ev);
+    noteSecrets(ev, myTeam(), s.sim.playerId);
+  };
+  const frame = () => {
+    requestAnimationFrame(frame);
+    const me = ownCentre(s.sim.cur, myTeam()), p = me && !leftPanelOpen() ? nearest([...secretSteps().values()], me) : null;
+    if (!p || !me) return void (mark.style.display = 'none');
+    placeMarker(s, mark, p, `${p.label} · ${metres(Math.hypot(p.x - me.x, p.y - me.y))}`);
+    // on the screen's edge beside another marker: a row lower, so both read
+    if (!mark.classList.contains('edge')) return;
+    for (const o of document.querySelectorAll<HTMLElement>('.gd-mk.on,.gd-mk.home,.gd-mk.trk')) {
+      if (o.style.display === 'none' || !o.classList.contains('edge')) continue;
+      const dy = parseFloat(mark.style.top) - parseFloat(o.style.top);
+      if (Math.abs(parseFloat(mark.style.left) - parseFloat(o.style.left)) < 170 && Math.abs(dy) < 30) mark.style.top = `${parseFloat(o.style.top) + (dy < 0 ? -32 : 32)}px`;
+    }
   };
   requestAnimationFrame(frame);
 }

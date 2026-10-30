@@ -55,7 +55,8 @@ import { bossGoods } from '../../../src/data/warBosses';
 import { STORM, WAKE, type WorldEvent } from '../../../src/war/world/events';
 import { craftKey } from './crafting';
 import { bundleGoods, contents, fill, room as freeLoads, takeAll, takeOut, type Bundle } from './cargo';
-import type { TransitCargo } from '../../../src/war/net/world';
+import type { LordWorld, TransitCargo } from '../../../src/war/net/world';
+import { WARLORD } from '../../../src/data/warWarlords';
 
 /** What of bundle b went across (b less the rest r): goods and uids to take back. */
 function subtract(b: Bundle, r: Bundle): { goods: Record<string, number>; uids: string[] } {
@@ -214,7 +215,20 @@ export function homeAnchor(region: RegionData): { x: number; y: number } {
 /** M7f: a landmark as the room reports it to the world (src/war/net/world.ts LandmarkWorld; back: minutes, not a time). */
 export interface LandmarkReport { id: string; holder: number; guardian: 'alive' | 'slain' | 'away'; back?: number; state: LandmarkSnap['state']; hp: number; garrisoned: boolean }
 /** What the room tells the world (World.report). */
-export interface Summary { live: number[]; claims: number[]; channel: number[]; landmark?: LandmarkReport; prestige?: number[]; ruined?: boolean; town?: number[] }
+export interface Summary { live: number[]; claims: number[]; channel: number[]; landmark?: LandmarkReport; prestige?: number[]; ruined?: boolean; town?: number[]; lords?: LordSummary[] }
+/**
+ * W-76 proposal: a warlord as this room sees him, for the world map: places he holds here (his hall counted) and the men
+ * in them, a raid warned (seconds left, in tens; 0: under way), and his fall (the warlords' age he fell at, while down).
+ */
+export interface LordSummary { id: string; holds: number; men: number; raid?: number; fell?: number }
+/** W-76 proposal: the room's lords in wall-clock times (`from`: when the warlords' age counts from; epoch ms). */
+export function lordReport(lords: readonly LordSummary[], from: number, now: number): LordWorld[] {
+  return lords.map(({ raid, fell, ...l }) => ({
+    ...l,
+    ...(raid !== undefined ? { raid: { at: now + raid * 1000 } } : {}),
+    ...(fell !== undefined ? { backAt: from + (fell + WARLORD.back) * 86_400_000 } : {}),
+  }));
+}
 
 interface Player {
   pid: number;
@@ -289,6 +303,8 @@ export class WarRoom {
   private lordSent = new WeakMap<EconomyFeed, string>();
   /** The `allies` message last sent on each client's feed (a new feed, a rejoin, sends it again). */
   private allySent = new WeakMap<EconomyFeed, string>();
+  /** W-76 proposal: the feeds told their player's open hidden quest steps (on join; then the `secret` lines carry them). */
+  private secretSent = new WeakSet<EconomyFeed>();
   /** W-62 E7: men carrying wood and stone home, tallied for the tasks (the DO books `gathered`). */
   private gather = new GatherWatch();
   /** W-73: each lair's state as last seen (src/war/net/mastery.ts wildDeeds). */
@@ -713,6 +729,15 @@ export class WarRoom {
     const tl = Array<number>(n).fill(0);
     for (const t of this.snap.townLevels ?? []) if (t.team >= 0 && t.team < n) tl[t.team] = Math.max(tl[t.team], t.level);
     if (tl.some((v) => v > 0)) out.town = tl;
+    // W-76 proposal: the warlords here, for the world map (rounded: a report only when it changes)
+    if (this.warlords) {
+      const fell = this.warlords.memory().fallen;
+      out.lords = this.warlords.snaps().map((w) => ({
+        id: w.id, holds: w.holds.filter((h) => h.state === 'held').length, men: w.holds.reduce((a, h) => a + h.men, 0),
+        ...(w.raid ? { raid: Math.ceil(w.raid.in / 100) * 10 } : w.raiding ? { raid: 0 } : {}),
+        ...(w.fallen && fell[w.id] !== undefined ? { fell: fell[w.id] } : {}),
+      }));
+    }
     if (this.region.prebuilt?.length) {
       const pr = Array.from({ length: n }, (_, t) => Math.round(this.sim.prestige(t) * 100) / 100);
       if (pr.some((v) => v > 0)) out.prestige = pr;
@@ -1295,6 +1320,12 @@ export class WarRoom {
           wildKey ??= JSON.stringify(wild);
           if (this.wildSent.get(feed) !== wildKey) (this.wildSent.set(feed, wildKey), push(p.pid, wild));
         }
+      }
+      // W-76 proposal: his open hidden quest steps (their markers), on join
+      if (!this.secretSent.has(feed)) {
+        this.secretSent.add(feed);
+        const open = this.sim.hiddenOpen(`p:${p.pid}`);
+        if (open.length) push(p.pid, { t: 'secret', ev: open });
       }
       // W-72 proposal: the region's warlords (holdings, a raid in warning); on join and when it changed
       if (this.warlords && (!this.lordSent.has(feed) || this.snap.tick % WILD_EVERY === 0)) {

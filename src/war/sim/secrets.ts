@@ -15,7 +15,7 @@ import { hiddenStories } from '../../data/warStories';
 import type { GoodKind, LairSnap, MobKind, RegionData, Snapshot, SoulSnap, WarEvent } from '../types';
 import { MOB_TEAM } from './mobs';
 import { NEUTRAL_TEAM } from './economy';
-import { STORY_R, StoryRun, type Story, type StoryHost, type StoryNote, type StoryReward, type StorySave } from './stories';
+import { STORY_R, StoryRun, stepOf, storySpots, type Story, type StoryHost, type StoryNote, type StoryReward, type StorySave, type StorySpots } from './stories';
 
 /** Ticks between looks. */
 const THINK = 10;
@@ -87,9 +87,15 @@ export function createSecrets(region: RegionData, host: SecretHost) {
         x: spot[0], y: spot[1], ...(goods ? { goods } : {}),
       });
     }
-    // the step after: its goal as the next line (the found notice then says what to do)
-    const r = runs.get(`${n}|${owner}`), next = r?.step;
-    if (next && notes.length && notes.at(-1)!.kind !== 'end') host.note({ t: tick, kind: 'secret', what: 'step', quest: story.id, owner, team, title: story.title, text: `${next.goal}: ${next.story}`, x: spot[0], y: spot[1] });
+    // the step after: its goal as the next line (the found notice then says what to do), and where it is (W-76)
+    const r = runs.get(`${n}|${owner}`);
+    if (r?.step && notes.length && notes.at(-1)!.kind !== 'end') host.note(nextLine(story, r.spots, r.save, owner, team, `${r.step.goal}: ${r.step.story}`));
+  };
+  /** The `secret` line of a save's open step: its text, and its spot and marker label (none for a choice). */
+  const nextLine = (story: Story, spots: StorySpots, save: StorySave, owner: string, team: number, text: string): SecretEvent => {
+    const st = stepOf(story, save)!, t = st.trigger, ps = spots.steps[st.id] ?? [], spot = story.giver.at;
+    const p = t.kind === 'talk' ? spots.giver : t.kind === 'track' ? ps[Math.min(save.n, ps.length - 1)] : ps[0];
+    return { t: tick, kind: 'secret', what: 'step', quest: story.id, owner, team, title: story.title, text, x: spot[0], y: spot[1], ...(p ? { to: { x: p.x, y: p.y, label: st.label } } : {}) };
   };
 
   return {
@@ -97,6 +103,14 @@ export function createSecrets(region: RegionData, host: SecretHost) {
     loadRoot: (o: { tick: number }) => void ((tick = o.tick), runs.clear()),
     /** The hidden quests here (tests, tools). */
     stories: (): readonly Story[] => stories,
+    /** W-76 proposal: player `owner`'s open steps, as their `secret` lines with no text (a fresh connection's markers). */
+    open(owner: string): SecretEvent[] {
+      return stories.flatMap((story, n) => {
+        const key = `${n}|${owner}`, v = saves[key];
+        if (!v || !stepOf(story, v.save)) return [];
+        return [nextLine(story, runs.get(key)?.spots ?? storySpots(region, story), v.save, owner, v.team, '')];
+      });
+    },
     /** A player's save of quest n (tests). */
     save: (n: number, owner: string): StorySave | null => saves[`${n}|${owner}`]?.save ?? null,
     tick(t: number) {

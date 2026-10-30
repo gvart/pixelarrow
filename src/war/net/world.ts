@@ -112,7 +112,16 @@ export interface RegionState {
   ruined?: boolean;
   /** W-61: the best town level per alliance here (score an hour: src/war/world/season.ts PEACE.town). */
   town?: number[];
+  /** W-76 proposal: the rival warlords of its domain as its room last reported them (none: no room has, or no domain here). */
+  lords?: LordWorld[];
 }
+
+/**
+ * W-76 proposal: a rival warlord (src/data/warWarlords.ts id) as one region room last reported him: places he holds there
+ * (his hall counted) and the men in them, a raid warned or out (at: when it sets out, epoch ms; past: under way), fallen
+ * until `backAt` (epoch ms).
+ */
+export interface LordWorld { id: string; holds: number; men: number; raid?: { at: number }; backAt?: number }
 
 /**
  * M7f: a landmark on the world map (src/data/warLandmarks.ts id): who holds it (-1: its guardian or nobody), its guardian
