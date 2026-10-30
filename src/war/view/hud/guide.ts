@@ -97,7 +97,7 @@ export function mountGuide(s: SandboxScene, mk: Mk): void {
   const hand = guideNext(s.region.id, s.region);
   const team = myTeam(), watch = newWatch(team, g.spots.lair, undefined, hand?.exit ?? null), giver = guideGiver(team), from = `${giver.name}, ${giver.title}`;
   const town = { town: g.town, giver: hand?.giver ?? 'the storyteller', region: hand?.name ?? 'the next region' }, lore = (id: GuideStepId) => ({ goal: fill(GUIDE_LORE[id].goal, town), key: GUIDE_LORE[id].key, story: fill(GUIDE_LORE[id].story, town), where: fill(GUIDE_LORE[id].where, town) });
-  const payLine = `Paid when done, into your ${g.offline ? 'stores' : 'home strongroom'}`;
+  const payLine = 'Paid when done, sent home to your strongroom (the top bar shows only the store by your men)';
   // offline: the save in localStorage (key set on the first snapshot); online: the server's latest `guide` message
   let key: string | null = null, save: GuideSave | null = null;
   const steps = hand ? GUIDE_STEPS : GUIDE_STEPS.filter((x) => x.id !== 'next');
@@ -107,7 +107,7 @@ export function mountGuide(s: SandboxScene, mk: Mk): void {
     const st = GUIDE_STEPS.find((x) => x.id === id)!, nx = steps.find((x) => x.id !== id && !save?.done.includes(x.id));
     questBanner({
       kind: 'done', head: nx ? 'Step done' : 'The First Hour is done', title: lore(id).goal, giver: from,
-      ...(paid ? { reward: st.reward as Record<string, number>, pay: `Paid into your ${g.offline ? 'stores' : 'home strongroom'}` } : { pay: 'Your army is full: no soul to claim, nothing paid' }),
+      ...(paid ? { reward: st.reward as Record<string, number>, pay: 'Sent home to your strongroom' } : { pay: 'Your army is full: no soul to claim, nothing paid' }),
       text: nx ? `Next: ${lore(nx.id).goal}.` : END,
     });
     el.classList.remove('flash');
