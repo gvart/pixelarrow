@@ -31,6 +31,7 @@
  */
 import { createSim } from '../../../src/war/sim';
 import { createBots, type Bots } from '../../../src/war/sim/bots';
+import { createWarlords, type WarlordMemory, type WarlordNote, type Warlords } from '../../../src/war/sim/warlords';
 import type { SecretEvent } from '../../../src/war/sim/secrets';
 import { wildDeeds, type WildDeed } from '../../../src/war/net/mastery';
 import { isClassId } from '../../../src/data/classes';
@@ -145,6 +146,8 @@ export interface RoomState {
   stormed?: number[];
   /** The war season and authored region version it was saved on (the DO sets it; another one starts the region over). */
   edition?: string;
+  /** W-72 proposal: the region's warlords (src/war/sim/warlords.ts exportState). */
+  warlords?: unknown;
   /** W-63: players' own alliances, who placed each camp or fort site, camps already reported to found(). */
   settle?: { own: [number, number][]; campBy: [number, number][]; tried: number[] };
 }
@@ -189,6 +192,8 @@ export interface RoomOptions {
   wild?: boolean;
   /** W-65: a fresh room starts the region's roaming life (src/war/sim/roam.ts; homes too). Default false (tests, tools). */
   roam?: boolean;
+  /** W-72 proposal: run the region's rival warlords (src/war/sim/warlords.ts) when it lies in a domain. Default false (tests, tools). */
+  warlords?: boolean;
   /**
    * The alliance whose home this region is: a fresh room (a new season, docs/WAR.md depth 0 "owned") gives it an
    * influence anchor of HOME_CLAIM_R at its home town, so it may build at home from the start (homes have no claim points).
@@ -236,6 +241,8 @@ export interface SoulClaim { pid: number; person: WarPerson; squad: SquadId; uni
 export class WarRoom {
   readonly sim: WarBuildSim;
   readonly bots: Bots;
+  /** W-72 proposal: the region's rival warlords (null: none here, or not asked for). */
+  readonly warlords: Warlords | null;
   readonly region: RegionData;
   readonly per: number[];
   readonly epoch: string;
@@ -278,6 +285,8 @@ export class WarRoom {
   private townSent = new Map<number, string>();
   /** W-65: the `wild` message last sent on each client's feed (a new feed, a rejoin, sends it again). */
   private wildSent = new WeakMap<EconomyFeed, string>();
+  /** W-72 proposal: the `warlords` list last sent on each client's feed. */
+  private lordSent = new WeakMap<EconomyFeed, string>();
   /** The `allies` message last sent on each client's feed (a new feed, a rejoin, sends it again). */
   private allySent = new WeakMap<EconomyFeed, string>();
   /** W-62 E7: men carrying wood and stone home, tallied for the tasks (the DO books `gathered`). */
@@ -311,6 +320,7 @@ export class WarRoom {
     this.region = o.region;
     this.sim = createSim(o.region, o.seed);
     this.bots = createBots(this.sim);
+    this.warlords = o.warlords ? createWarlords(o.region, this.sim, this.bots, o.seed) : null;
     this.per = o.quotas ?? splitQuota(o.cap, ALLIANCES);
     this.live = this.per.map(() => 0);
     // default: the sim's fog of war (W-39); VisionMap (the plain radius rule) is the fallback hook for tests and tools
@@ -352,6 +362,35 @@ export class WarRoom {
   setWorldEvents(evs: WorldEvent[]): void {
     this.worldEvents = evs;
     this.sim.setSoulStorm(evs.some((e) => e.kind === 'soulStorm') ? STORM.chance : 1);
+  }
+
+  /** W-72 proposal: the warlords' age (days since the season began; the DO's clock). */
+  setWarlordAge(days: number): void {
+    this.warlords?.setAge(days);
+  }
+
+  /** W-72 proposal: what the region's warlords leave behind once the room empties (fallen lords, places freed), and back. */
+  warlordMemory(): WarlordMemory | null {
+    return this.warlords?.memory() ?? null;
+  }
+
+  recallWarlords(m: WarlordMemory): void {
+    this.warlords?.recall(m);
+  }
+
+  /** W-72 proposal: his seat's room says he fell at this age (days): his bands here are recalled. */
+  warlordFell(id: string, at: number): void {
+    this.warlords?.fell(id, at);
+  }
+
+  /** Players with living fighting men here (the warlords' pressure). */
+  present(): number {
+    const pids = new Set<string>();
+    for (const u of this.snap.units) {
+      const o = u.state !== 'dead' && !u.cls.startsWith('civ_') ? this.owners[u.squad] : undefined;
+      if (o?.startsWith('p:')) pids.add(o);
+    }
+    return pids.size;
   }
 
   /** W-62: a boss wake: the region's guardians back now (unless the region is held) and stronger. */
@@ -1073,7 +1112,7 @@ export class WarRoom {
     return labour.length || guards.length || works.length ? { labour, guards, works } : null;
   }
 
-  tick(now: () => number = () => 0): { frames: Map<number, Uint8Array>; msgs: Map<number, ServerMsg[]>; admitted: Map<number, ServerMsg>; fights: Fight[]; crafted: Crafted[]; bosses: BossSlain[]; sacrilege: number[]; freed: string[]; raided: number[]; captured: { cart: number; from: string; team: number; to: string }[]; souls: SoulClaim[]; faded: string[]; peace: Peace | null; times: TickTimes; guided: GuideDone[]; storied: StoryDone[]; met: EncounterDone[]; wild: WildDeed[]; gathered: [number, TaskMetric, number][]; settle: SettleOut | null } {
+  tick(now: () => number = () => 0): { frames: Map<number, Uint8Array>; msgs: Map<number, ServerMsg[]>; admitted: Map<number, ServerMsg>; fights: Fight[]; crafted: Crafted[]; bosses: BossSlain[]; sacrilege: number[]; freed: string[]; raided: number[]; captured: { cart: number; from: string; team: number; to: string }[]; souls: SoulClaim[]; faded: string[]; peace: Peace | null; times: TickTimes; guided: GuideDone[]; storied: StoryDone[]; met: EncounterDone[]; wild: WildDeed[]; gathered: [number, TaskMetric, number][]; settle: SettleOut | null; warlord: WarlordNote[] } {
     const t0 = now();
     // M6i: carts' owners before the step (a capture names only the taker)
     const cartWas = new Map((this.snap.sieges ?? []).filter((e) => e.owner !== undefined).map((e) => [e.id, { owner: e.owner!, team: e.team }]));
@@ -1081,6 +1120,8 @@ export class WarRoom {
     this.bots.tick();
     const t1 = now();
     this.snap = this.sim.snapshot();
+    // W-72 proposal: the warlords think on this snapshot (their spawns show from the next)
+    const warlord = this.warlords ? (this.warlords.setPlayers(this.present()), this.warlords.tick(this.snap)) : [];
     const evs = this.sim.events();
     const crafted = evs.filter((e): e is Crafted => e.kind === 'crafted');
     const bosses = evs.filter((e): e is BossSlain => e.kind === 'bossSlain');
@@ -1195,12 +1236,18 @@ export class WarRoom {
       });
       if (ev.length) tell(p.pid, { t: 'bossEv', ev });
     }
+    // W-72 proposal: warlord notes; a raid's warning and the raid itself to the target team only
+    if (warlord.length) for (const p of this.players.values()) {
+      if (!p.online) continue;
+      const ev = warlord.filter((e) => e.team === undefined || e.team === p.team);
+      if (ev.length) tell(p.pid, { t: 'warlords', ev });
+    }
     // W-63: camps to found, attacks on settlements; messages owed since the last tick (a banner changed)
     const settle = this.settleTick();
     for (const [pid, ms] of this.later) if (this.players.get(pid)?.online) for (const m of ms) tell(pid, m);
     this.later.clear();
     this.lastTick = this.snap.tick;
-    return { frames, msgs, admitted, fights, crafted, bosses, sacrilege, freed, raided, captured, souls, faded, guided: g.done, storied: st.done, met: en.done, wild: wildDeeds(this.snap, evs, this.wildSeen), peace: this.peace(), gathered: tick % LABOUR_EVERY === 0 ? this.gather.drain() : [], settle, times: { stepMs: t1 - t0, snapMs: t2 - t1, netMs: now() - t2 } };
+    return { frames, msgs, admitted, fights, crafted, bosses, sacrilege, freed, raided, captured, souls, faded, guided: g.done, storied: st.done, met: en.done, wild: wildDeeds(this.snap, evs, this.wildSeen), peace: this.peace(), gathered: tick % LABOUR_EVERY === 0 ? this.gather.drain() : [], settle, warlord, times: { stepMs: t1 - t0, snapMs: t2 - t1, netMs: now() - t2 } };
   }
 
   /**
@@ -1214,6 +1261,7 @@ export class WarRoom {
     const infl = this.sim.influence();
     let nodes: ReturnType<WarBuildSim['resourceNodes']> | null = null;
     let wild: ServerMsg | null = null, wildKey: string | null = null;
+    let lords: ServerMsg | null = null, lordKey: string | null = null;
     const push = (pid: number, m: ServerMsg) => (out.get(pid) ?? out.set(pid, []).get(pid)!).push(m);
     for (const p of on) {
       const feed = p.feed!;
@@ -1247,6 +1295,12 @@ export class WarRoom {
           wildKey ??= JSON.stringify(wild);
           if (this.wildSent.get(feed) !== wildKey) (this.wildSent.set(feed, wildKey), push(p.pid, wild));
         }
+      }
+      // W-72 proposal: the region's warlords (holdings, a raid in warning); on join and when it changed
+      if (this.warlords && (!this.lordSent.has(feed) || this.snap.tick % WILD_EVERY === 0)) {
+        lords ??= { t: 'warlords', list: this.warlords.snaps() };
+        lordKey ??= JSON.stringify(lords);
+        if (this.lordSent.get(feed) !== lordKey) (this.lordSent.set(feed, lordKey), push(p.pid, lords));
       }
       if (this.snap.tick % NODES_EVERY && !feed.fresh) continue;
       const g = this.sim.teamGrid(p.team);
@@ -1303,6 +1357,7 @@ export class WarRoom {
       spawns: this.spawns, died, lastBlow: this.lastBlow, inFight: this.inFight, queue: this.queue, pids,
       sim: this.sim.exportState(), bots: this.bots.exportState(), run: this.run, mends: this.mends, stormed: [...this.stormed],
       settle: { own: [...this.own], campBy: [...this.campBy], tried: [...this.tried] },
+      ...(this.warlords ? { warlords: this.warlords.exportState() } : {}),
     };
   }
 
@@ -1315,6 +1370,7 @@ export class WarRoom {
     const r = new WarRoom({ ...o, wild: false, roam: false });
     r.sim.importState(st.sim);
     r.bots.importState(st.bots);
+    if (st.warlords && r.warlords) r.warlords.importState(st.warlords);
     st.owners.forEach((x, i) => x !== null && (r.owners[i] = x));
     st.teams.forEach((x, i) => x !== null && (r.teams[i] = x));
     r.spawns = st.spawns;

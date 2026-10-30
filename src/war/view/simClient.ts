@@ -101,6 +101,7 @@ export class SimClient {
         else this.onServer?.(e.data.server);
         for (const f of this.serverTaps) f(e.data.server);
         if (e.data.server.t === 'bossEv' || e.data.server.t === 'secret') this.onEvents?.(e.data.server.ev); // W-67, live: guardian events as the local sim's; world-fill: hidden quests
+        if (e.data.server.t === 'warlords' && e.data.server.ev) this.onEvents?.(e.data.server.ev); // W-72 proposal: warlord notes
         return;
       }
       if ('reply' in e.data) {
@@ -228,6 +229,11 @@ export class SimClient {
 
   spawnMobs(): void {
     this.send({ t: 'mobs' });
+  }
+
+  /** W-72 proposal (scenarios): run the region's rival warlords at this age (days) and pressure (players). */
+  startWarlords(age: number, players: number, raid?: number): void {
+    this.send({ t: 'warlords', age, players, ...(raid !== undefined ? { raid } : {}) });
   }
 
   /** W-65: start the region's roaming life. */

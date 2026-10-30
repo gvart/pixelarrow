@@ -23,6 +23,8 @@ export interface ScenarioHost {
   spawnMobs(): void;
   /** W-65: start the region's roaming life (src/war/sim/roam.ts). */
   spawnRoam?(): void;
+  /** W-72 proposal: run the region's rival warlords (src/war/sim/warlords.ts). */
+  startWarlords?(age: number, players: number, raid?: number): void;
   hurtBossTo(boss: string, to: number): void;
   /** W-60: a soul at (x,y); a squad's men at this satiety. */
   spawnSoul(x: number, y: number, cls: string, level?: number, site?: 'shrine' | 'ruin' | 'battlefield' | 'lair'): void;
@@ -119,6 +121,8 @@ export function applyScenario(h: ScenarioHost, sc: Scenario, around?: (q: Scenar
   for (const so of sc.souls ?? []) h.spawnSoul(so.x, so.y, so.cls, so.level, so.site);
   for (const hg of sc.hunger ?? []) h.hunger(hg.squad, hg.sat);
   for (const f of sc.food ?? []) h.feed(me, f.squad ?? null, f.res, f.n);
+  // W-72 proposal, last: his first raid looks at the ground as the scenario left it
+  if (sc.warlords) h.startWarlords?.(sc.warlords.age, sc.warlords.players, sc.warlords.raid);
 }
 
 /** Step the sim and its bots one tick. */

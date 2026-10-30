@@ -317,6 +317,8 @@ export interface Snapshot {
   claims?: ClaimSnap[];
   /** W-65: the roaming groups (src/war/sim/roam.ts), once any. */
   roam?: RoamSnap[];
+  /** W-72 proposal: the region's rival warlords (src/war/sim/warlords.ts; the room or a scenario fills it, never the sim). */
+  warlords?: WarlordSnap[];
   /** M6c: loot piles on the field. */
   piles?: PileSnap[];
   /** M7a: towns of pre-built pieces (grouped by claim point). */
@@ -409,6 +411,17 @@ export interface RoamSnap {
   mob?: MobKind; cart?: number; pilgrim?: true;
   /** No player's man near: it holds and does not think (cheap). */
   asleep?: true;
+}
+/**
+ * W-72 proposal (src/war/sim/warlords.ts, src/data/warWarlords.ts): a rival warlord as the view draws him here: his name,
+ * look, whether this is his seat, fallen, his lord's unit (-1: none here or dead), his holdings (place key `c<i>` claim
+ * point or `l<i>` lair, where, men alive, its lieutenant's unit, marching there or held) and a raid in warning (where,
+ * whose, ticks left).
+ */
+export interface WarlordSnap {
+  id: string; name: string; title: string; band: string; kind: MobKind; tint: number; scale: number; seat: boolean; fallen?: true; lord: UnitId;
+  holds: { place: string; x: number; y: number; men: number; unit: UnitId; state: 'marching' | 'held' }[];
+  raid?: { x: number; y: number; team: number; in: number };
 }
 export interface LairSnap {
   id: number; kind: MobKind; x: number; y: number; squad: SquadId; alive: number; count: number;
@@ -618,6 +631,11 @@ export interface WarBuildSim extends WarSim {
   spawnMobs(): void;
   /** W-65 (src/war/sim/roam.ts): start the region's roaming life (packs, patrols, caravans, travellers by depth; once). */
   spawnRoam(): void;
+  /**
+   * W-72 proposal (src/war/sim/warlords.ts): a squad of mob kind `kind` for `owner` on MOB_TEAM at (x,y), scaled as a
+   * lair's (k: hp and damage over the kind, its first man `lead` over that; a bandit lead wears the captain's sheet).
+   */
+  spawnWild(owner: string, kind: MobKind, count: number, x: number, y: number, k?: import('./sim/mobs').SpawnScale): SquadId;
   /** W-65: one roaming group on the given road (tests, tools); its id. */
   addRoamer(d: import('./sim/roam').RoamDef): number;
   /** W-62 (src/war/sim/mobs.ts add): one more lair spawned now, outside any claim zone, never back once cleared (the guide's early win); its lair id. */
@@ -725,6 +743,8 @@ export interface WarBuildSim extends WarSim {
   importState(s: SimState): void;
   /** M5e: these persons' living men leave the field at once, unreported (D1 already sent them home). */
   dropPersons(ids: string[]): void;
+  /** W-72 proposal: this squad's living men leave the field at once, unreported (a fallen warlord's band gone over the border). */
+  dropSquad(squad: SquadId): void;
   /** M4 transfer out: the fight so far of these persons' living men (XP, kills, as endFight), reported now and cleared. */
   reportPersons(ids: string[]): PersonResult[];
   /** M4 transfer in: these persons' living men take the hit points they lost elsewhere (by person id; never below 1). */
@@ -795,6 +815,9 @@ export type WarEvent =
   // the next one told (text: its goal), done (text: its end; goods: what fell at his men); (x,y) the hidden spot
   | { t: number; kind: 'secret'; what: 'found' | 'step' | 'done'; quest: string; owner: string; team: number; title: string; text: string; x: number; y: number; goods?: Partial<Record<GoodKind, number>> }
   | { t: number; kind: 'chiefSlain'; lair: number; chief: string; name: string; by: number; x: number; y: number }
+  // W-72 proposal (src/war/sim/warlords.ts): a warlord rises, takes a place, warns of a raid on `team`'s target (in ticks),
+  // sends the raid, loses a place, falls; near: owners with men by it (favour); text: his line, filled in
+  | { t: number; kind: 'warlord'; what: 'rise' | 'took' | 'warn' | 'raid' | 'freed' | 'fallen' | 'recall'; warlord: string; name: string; text: string; x: number; y: number; place?: string; team?: number; in?: number; near?: string[] }
   // M7d: a guardian entered phase `phase` (index into its WarBoss phases); escaped (the Bandit King by the postern: back
   // after a while with half his host); came back (24 h unheld: full hp, its landmark reset); a Rim Warden strike landed
   | { t: number; kind: 'bossPhase'; region: string; boss: string; phase: number }

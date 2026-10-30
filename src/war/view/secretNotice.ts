@@ -1,6 +1,7 @@
 /**
  * world-fill notices: the player's hidden quests (src/war/sim/secrets.ts `secret` events: found, the next step, done)
- * and a chief his men slew (`chiefSlain`), told through the roster's toasts (./hud/roster/toast.ts, the `info` kind;
+ * and a chief his men slew (`chiefSlain`), and W-72 (proposal) rival warlords' notes (`warlord`: a raid's warning only to
+ * its target team), told through the roster's toasts (./hud/roster/toast.ts, the `info` kind;
  * its look is the toast's). Offline the events are the local sim's; live they come as the `secret` message.
  */
 import type { WarEvent } from '../types';
@@ -11,6 +12,7 @@ type Note = { kind: 'info'; text: string };
 
 /** The notice of one event for this player, or null. */
 export function secretText(e: WarEvent, team: number, playerId: number | null): string | null {
+  if (e.kind === 'warlord') return e.team === undefined || e.team === team ? e.text : null;
   if (e.kind === 'chiefSlain') return e.by === team ? `${e.name} is slain: his spoils lie where he fell` : null;
   if (e.kind !== 'secret' || e.team !== team || (playerId !== null && e.owner !== `p:${playerId}`)) return null;
   if (e.what === 'found') return `Hidden: ${e.title}. ${e.text}`;
@@ -26,7 +28,9 @@ export function secretNotices(s: SandboxScene, note: (n: Note) => void): void {
   const prev = s.sim.onEvents;
   s.sim.onEvents = (ev) => {
     prev?.(ev);
+    const rose = ev.some((e) => e.kind === 'warlord' && e.what === 'rise');
     for (const e of ev) {
+      if (rose && e.kind === 'warlord' && e.what === 'took') continue; // his places laid with his rise: one notice
       const text = secretText(e, myTeam(), s.sim.playerId);
       if (text) note({ kind: 'info', text });
     }

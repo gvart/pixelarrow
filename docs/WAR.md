@@ -476,6 +476,42 @@ lairs master it. The chip (`src/war/view/hud/mastery.ts`) shows lairs, chiefs an
 region name; online the room sends it on join and on each deed; offline the client keeps it from the local sim for the
 session.
 
+### Rival warlords (W-72 proposal)
+
+The NPC factions logged in W-65: rivals, never helpers. They give a solo player (12 men, W-58) something to push back
+past the chiefs, at his own scale, while busy servers still feel them. The director is `src/war/sim/warlords.ts` (data
+`src/data/warWarlords.ts`): it runs beside the region room's bots, reads the room's snapshot and drives its men through
+the public sim API and the bots' `hold` and `attackMove` (deterministic: its own Rng keyed by region, seed and warlord).
+Server only: the region room runs it (`server/src/war/room.ts`); offline it runs only in sandbox scenarios.
+
+| Warlord | Seat (depth 2) | Marches (depth 1, his bands) | Men |
+| --- | --- | --- | --- |
+| Harpalos, Lord of the Toll | Kleisoura Pass | Teeth Foothills, Teeth Eastern Slopes | bandits |
+| Kelaino, Mother of the Reeds | Lake Stymphalia | Ladon Oakwood, Lakeshore Fens | harpies |
+| Skiron the Drowner, Ford-Lord | Achelous Ford | Westbank Vineyards, Eastbank Floodplain | bandits |
+| Auge, the Pride-Mother | Ammos Dunes | Kurgan Hills, Thornscrub Rise | lions |
+
+One per mid-neutral, each between two homes at the same distance (symmetry). His **domain** is his seat and its
+neighbours of depth 1–2 that are no home (derived from the world graph). Men are team MOB_TEAM (the wild: beasts and
+bandits never fight them), owner `warlord:<id>`; the wild has no fog, so his bots see the whole field.
+
+| Piece | Rule |
+| --- | --- |
+| Places | the region's claim points (index order) and its authored lairs of his kind (camps, dens). Never a point an alliance holds, never ground under any alliance's influence, never a place freed in the last 2 h. The seat's first place is claim point 0 (his hall) |
+| Age | days since the season began (the region DO from the world's season start; 0 in tests unless set) |
+| Holdings | seat: 1 + ⌊age / 2⌋; march: none before day 1, then 1 + ⌊(age − 1) / 3⌋; at most 3 a region, and at most 1 + the players present. A fresh room lays out what his age gives at once (he was busy while nobody looked); later places are taken by a band marching from his nearest holding (march: from the border facing his seat), taken once it stands on the place |
+| Garrison | one squad holding the place (bots `hold`, radius 10): 5 men at depth 1, 7 at depth 2, +1 a day held, at most 9 / 11; x(1 + 0.15 x (players − 1)), never over 12. Its first man is his lieutenant (hp x2, damage x1.25, armour +2; bandits wear the captain's sheet) |
+| The lord | at his hall in the seat: hp x14, damage x1.8, armour +6 over a man of his kind; name and title over his head |
+| Reinforce | every 10 min with players present a holding short of men gets them, marching in from the nearest other holding (march: from the border). Only a quiet holding (no foe man within 20 tiles), except his hall: while another of his holdings in the seat stands, men come to it even under attack |
+| Freed | a holding whose garrison is all down is freed: a loot pile on the spot (24 coin and 3 goods of his kind, x(1 + depth/2)) and 60 favour to each player with men within 20 tiles; a claim point under it is then claimed by the normal rules (its guard lairs too) |
+| Fallen | the lord down: 120 coin, 8 goods and an item (uncommon or better), x(1 + depth/2), and 200 favour to each player near; his bands everywhere in his domain are recalled: every holding and party walks to the region's border and leaves the field there (or after 90 s), the places free with nothing dropped ("Word of his fall reaches …"); he is back after 3 days of age, grown from nothing again |
+| Raids | with players present and a holding of his standing, every 20 min (÷ players, at most ÷ 3) he picks the nearest undefended target within 110 tiles of a holding: an alliance's finished building that is no wall, gate, tower, bridge or stair, with no fighting man of its team within 16 tiles; else a cart with no man of its team within 10. Telegraphed 60 s ahead: the target team hears "<name>'s men ride for your <thing> in 60 s" and sees a mark on it. Then 4 (depth 1) / 6 (depth 2) men + 2 per extra player (at most 12) march on it (attackMove), batter it, and go home after 90 s at it or once it falls; a beaten raid party drops nothing |
+| Budget | at most 60 warlord men in a region; the director thinks every 10 ticks |
+
+Online: the room sends `warlords` (the region's warlords, their holdings and a raid in warning; on change) and the
+notes (rise, took, warn, raid, freed, fallen) to the players they concern. Offline nothing runs unless a scenario asks.
+Each region runs on its own; his seat's room tells the march rooms of his fall (region to region, kept in their storage for a room that sleeps), so the recall reaches every region of his domain.
+
 ### Random encounters
 
 W-65 (`src/war/sim/encounters.ts`, the kinds `src/data/warEncounters.ts`, the HUD `src/war/view/hud/encounter.ts`): while

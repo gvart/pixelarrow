@@ -37,6 +37,7 @@ import { BODY, SPRITE_ZOOM, UnitLayer } from './units';
 import { ChiefLayer } from './chiefs';
 import { peakAt } from './peaks';
 import { NeutralLayer } from './neutral';
+import { lordPlates, WarlordLayer } from './warlords';
 import { MobFx } from './mobFx';
 import { isMobFx } from '../sim/mobs';
 import { BuildMode } from './build/buildMode';
@@ -163,6 +164,8 @@ export class SandboxScene extends Phaser.Scene {
   private units!: UnitLayer;
   /** Lairs and claim banners (neutral regions). */
   private neutral!: NeutralLayer;
+  /** W-72 proposal: rival warlords' banners and raid marks (./warlords.ts). */
+  private warlordLayer!: WarlordLayer;
   /** W-67: mob FX (a beast's burst, a lair's cry, a pack scattering). */
   mobFx!: MobFx;
   private shots!: ShotLayer;
@@ -220,6 +223,7 @@ export class SandboxScene extends Phaser.Scene {
     this.peaky = this.peakChunks();
     this.units = new UnitLayer(this, this.iso, this.sheetImages);
     this.neutral = new NeutralLayer(this, (p) => this.units.feet(p), (x, y) => this.depthAt(x, y));
+    this.warlordLayer = new WarlordLayer(this, (p) => this.units.feet(p));
     if (this.objects) this.units.depthOf = (x, y) => this.objects!.depth(x, y);
     this.shots = new ShotLayer(this, this.iso);
     this.fog = new FogLayer(this, this.iso, r);
@@ -691,11 +695,12 @@ export class SandboxScene extends Phaser.Scene {
     this.units.settle(this.drawn, this.time.now);
     const occluded = this.objects?.draw(view, cam.zoom, this.drawn, (d) => this.units.feet(d), BODY) ?? new Set<number>();
     if (cam.zoom >= SPRITE_ZOOM) this.build.layer.occluded(this.drawn, occluded);
-    this.chiefs.update(this.sim.cur?.lairs);
+    this.chiefs.update(this.sim.cur?.warlords ? [...(this.sim.cur.lairs ?? []), ...lordPlates(this.sim.cur.warlords)] : this.sim.cur?.lairs); // W-72: a warlord's plate is a chief's
     this.units.draw(this.drawn, view, cam.zoom, this.sim.replay?.picked ?? this.sel.units, at, this.sim.squads, shots, occluded);
     this.micro.update(this.drawn, this.sel.units, view, cam.zoom, this.guardians.watch);
     const cur = this.sim.cur;
     if (cur?.lairs || cur?.claims) this.neutral.draw(cur.lairs ?? [], cur.claims ?? [], cam.zoom, bosses);
+    this.warlordLayer.draw(cur?.warlords, cam.zoom, this.time.now);
     this.chiefs.draw((id) => { const d = this.drawn.find((q) => q.u.id === id && q.u.state !== 'dead'); return d ? { ...this.units.feet(d), top: this.units.topOf(d.u.cls, id) } : null; }, cam.zoom, cam.zoom >= SPRITE_ZOOM);
     this.mobFx.draw(cam.zoom, this.time.now, view);
     this.sparks.draw(cam.zoom, this.time.now, view);

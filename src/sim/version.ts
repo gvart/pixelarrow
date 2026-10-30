@@ -18,5 +18,7 @@
  *    drakes, sturdier chiefs (clients on 3 reload).
  * 5: solo-loop: chiefs tuned for a solo army of 12, solo tasks, legendary
  *    gear only as guardian trophies, region mastery (clients on 4 reload).
+ * 6: warlords (W-72 proposal): rival warlords hold, grow and raid (src/war/sim/warlords.ts), wild squads for any
+ *    owner (spawnWild), the wild's bots see without fog (clients on 5 reload).
  */
-export const SIM_VERSION = 5;
+export const SIM_VERSION = 6;
