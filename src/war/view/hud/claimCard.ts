@@ -67,9 +67,6 @@ export function showNearestClaim(s: SandboxScene): void {
   if (c) s.focus(c.x, c.y);
 }
 
-/** The build bar status's HTML for the claim-first hint: the words and a button to the nearest banner. */
-export const claimFirstHtml = (hint: string) => `${hint} <button class="rf-tbtn" data-show-banner style="pointer-events:auto;height:18px;padding:0 6px;font-size:11px;vertical-align:baseline">Show banner</button>`;
-
 export function mountClaimCard(s: SandboxScene, mk: Mk): void {
   // the nearest banner to take while he has no ground here (the guide's markers stand in his home, where he has)
   const mark = questMarker('on');
