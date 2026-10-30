@@ -30,6 +30,8 @@ import { ARMY_MAX } from '../sim/soldiers';
 import { WORLD_REGIONS } from '../regions';
 import { chatBusy } from './hud/chat';
 import { escPanelOpen } from './hud/kit';
+import { closeTopWindow, windowOpen } from './hud/layout';
+import { keys } from '../input/keys';
 import { loader, watchScene } from './loadScreen';
 import { mountNetStats } from './hud/netStats';
 import { homeTunnel, tunnelHost } from './hud/tunnel';
@@ -50,7 +52,7 @@ mountGameMenu({
     return !s.build.active && !s.build.tool && !s.interact.open && !s.siege.armed && !s.mapOpen && s.sel.units.size === 0
       && !document.querySelector('#rfModes.open') && !chatBusy() && !escPanelOpen()
       && document.getElementById('rfPlotBar')?.style.display !== 'flex' // W-63: Esc cancels the plot picker first
-      && !['rfCrown', 'rfHoldings'].some((id) => { const w = document.getElementById(id); return !!w && w.style.display !== 'none'; }); // and closes these windows
+      && !windowOpen(); // and closes the open windows, the newest first
   },
   world: q.has('world') ? () => document.getElementById('rfWorld')?.click() : undefined,
   hooks: {
@@ -59,6 +61,17 @@ mountGameMenu({
     onSound: (v) => (audio ? audio.apply(v) : saveSound(v)),
   },
 });
+// Esc with a window open: the newest window closes, only it (before the windows' own Esc, the selection's, the game
+// menu's). Build mode, a typed chat line, the open map, the map modes and the plot picker keep their own Esc first.
+addEventListener('keydown', (e: KeyboardEvent) => {
+  const s = live;
+  if (!s?.sel || keys.act(e) !== 'back' || e.repeat) return;
+  if (s.build.active || s.build.tool || s.interact.open || s.siege.armed || s.mapOpen || chatBusy() || document.querySelector('#rfModes.open')) return;
+  if (document.getElementById('rfPlotBar')?.style.display === 'flex') return;
+  const at = e.target as HTMLElement;
+  if (at.closest?.('input,textarea,select') && !at.closest('.rf')) return;
+  if (closeTopWindow()) { e.preventDefault(); e.stopImmediatePropagation(); }
+}, true);
 // the terrain bake worker starts now: its art loads while the page loads its own (it gets the region once loaded)
 const baker = BakeClient.start(q);
 
