@@ -5,7 +5,7 @@ import { ApiError, badRequest } from '../errors';
 import { clientIp, db, requireSession } from '../middleware';
 import { bannedError } from '../ban';
 import { publicPlayer, type PlayerRow } from '../players';
-import { playerByTelegramIdentity, upsertTelegramPlayer } from '../auth/identity';
+import { DEV_KIND, playerByDevIdentity, upsertDevPlayer } from '../auth/identity';
 import { isBanTombstoned } from '../account/banTombstone';
 import { clearSessionCookie, sessionCookie } from '../auth/cookies';
 import { createSession, deviceLabel, listSessions, revokeAll, revokeSession, type Method } from '../auth/sessions';
@@ -47,10 +47,9 @@ export const auth = new Hono<AppEnv>();
 
 /**
  * Dev sign-in (DEV_AUTH=1, local only): `{ dev: { id, first_name } }` signs in
- * the dev player with that id, made on first use. The Telegram Mini App login
- * (initData) is gone; the path stays because the war dev pages call it.
+ * the dev player with that id, made on first use.
  */
-auth.post('/telegram', async (c) => {
+auth.post('/dev', async (c) => {
   if (!devAuthAllowed(c.env)) throw new ApiError(403, 'forbidden', 'Dev auth is disabled');
   const text = await c.req.text();
   if (text.length > MAX_BODY) throw new ApiError(413, 'too_large', 'Body too large');
@@ -66,15 +65,15 @@ auth.post('/telegram', async (c) => {
   const now = Date.now();
 
   const d = db(c.env);
-  if ((await playerByTelegramIdentity(d, user.id))?.banned_at) throw bannedError();
-  // A deleted banned player's Telegram id stays refused for 180 days (ADR-0009 §7.7).
-  if (await isBanTombstoned(d, () => peppersFromEnv(c.env), 'telegram', String(user.id), now)) throw bannedError();
-  const { prev, player } = await upsertTelegramPlayer(d, user, now);
+  if ((await playerByDevIdentity(d, user.id))?.banned_at) throw bannedError();
+  // A deleted banned player's identity stays refused for 180 days (ADR-0009 §7.7).
+  if (await isBanTombstoned(d, () => peppersFromEnv(c.env), DEV_KIND, String(user.id), now)) throw bannedError();
+  const { prev, player } = await upsertDevPlayer(d, user, now);
   if (!optedOut(c) && !prev?.analytics_opt_out) {
     for (const event of retentionEvents(prev, now)) writeEvent(c.env, requestCtx(c, player.id, 'server', daysSince(player.created_at, now)), event, {});
   }
   // A bearer session: the war dev pages send it as a header and a socket subprotocol.
-  const { token, session } = await createSession(d, player.id, 'bearer', 'telegram', deviceLabel(c.req.header('user-agent')), now, now);
+  const { token, session } = await createSession(d, player.id, 'bearer', DEV_KIND, deviceLabel(c.req.header('user-agent')), now, now);
   return c.json({ token, expiresAt: session.expiresAt, player: publicPlayer(player) });
 });
 
@@ -160,9 +159,9 @@ async function cookieSession(
   return c.json({ ...(purpose ? { purpose } : {}), ...extra, player: publicPlayer(player), expiresAt: session.expiresAt });
 }
 
-/** The email and bot notices of identity changes (account/notices.ts), sent after the response. */
+/** The email notices of identity changes (account/notices.ts), sent after the response. */
 export function notifier(c: Context<AppEnv>, d: FlowDeps): Notifier {
-  return notifierFor(c.env, d.mail, d.defer, c.req.header('accept-language'));
+  return notifierFor(d.mail, d.defer, c.req.header('accept-language'));
 }
 
 const CHECK_EMAIL = { status: 'check_email' } as const;

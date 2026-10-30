@@ -21,8 +21,8 @@ function appVersion(): string {
 /** Heavy test files (see test.projects below): tests/war. */
 const SCENARIO = ['tests/war/**/*.test.ts'];
 
-// Relative base: the build works at a domain root, under a sub-path such as
-// https://gvart.github.io/pixelarrow/ and inside Telegram's webview alike.
+// Relative base: the build works at a domain root and under a sub-path such as
+// https://gvart.github.io/pixelarrow/ alike.
 // All art is generated in code, so there are no runtime asset URLs to fix up.
 export default defineConfig({
   base: './',

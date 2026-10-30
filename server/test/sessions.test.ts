@@ -1,11 +1,12 @@
 /**
  * V6-ACCT-02: server-side sessions, transports, the Origin check, the online
- * gate and the telegram identity mirror (ADR-0008 §1, §3, §7).
+ * gate and the dev sign-in (ADR-0008 §1, §3, §7).
  */
 import { env, SELF } from 'cloudflare:test';
-import { afterEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { CACHE_TTL_MS, createSession, forgetSessions, hashToken, LIFETIME, lookupSession, pruneAuth, TOUCH_EVERY_MS } from '../src/auth/sessions';
 import { sessionCookie, clearSessionCookie } from '../src/auth/cookies';
+import { DEV_KIND } from '../src/auth/identity';
 import { generateDisplayName } from '../src/names/generate';
 import { nameKey } from '../src/names/validate';
 import { api, BASE, devLogin, GAME_ORIGIN } from './helpers';
@@ -14,21 +15,6 @@ import { SIM_VERSION } from '../../src/sim/version';
 const DB = () => env.DB!;
 const HOUR = 3_600_000;
 const DAY = 24 * HOUR;
-
-/** Players whose `players.telegram_id` mirror differs from their telegram identity (must always be none). */
-async function mirrorMismatches(): Promise<unknown[]> {
-  const r = await DB()
-    .prepare(
-      `SELECT p.id, p.telegram_id, i.subject FROM players p
-       LEFT JOIN auth_identities i ON i.player_id = p.id AND i.kind = 'telegram'
-       WHERE (p.telegram_id IS NULL) != (i.id IS NULL) OR CAST(p.telegram_id AS TEXT) != i.subject`,
-    )
-    .all();
-  return r.results;
-}
-afterEach(async () => {
-  expect(await mirrorMismatches()).toEqual([]);
-});
 
 let seq = 0;
 /** A player with no log-in identity (as a deleted-identity or test-only row would be). */
@@ -84,7 +70,7 @@ describe('session store', () => {
     forgetSessions();
     expect(await lookupSession(DB(), fresh.token, 'cookie', t0 + LIFETIME.cookie.absolute)).toBeNull();
     // Bearer: 24 h.
-    const b = await createSession(DB(), playerId, 'bearer', 'telegram', null, t0);
+    const b = await createSession(DB(), playerId, 'bearer', DEV_KIND, null, t0);
     expect(b.session.expiresAt - t0).toBe(DAY);
     forgetSessions();
     expect(await lookupSession(DB(), b.token, 'bearer', t0 + DAY - 1)).not.toBeNull();
@@ -94,7 +80,7 @@ describe('session store', () => {
   it('caches a positive lookup for at most 30 s', async () => {
     const { playerId } = await devLogin(610003);
     const t0 = Date.now();
-    const { token, session } = await createSession(DB(), playerId, 'bearer', 'telegram', null, t0);
+    const { token, session } = await createSession(DB(), playerId, 'bearer', DEV_KIND, null, t0);
     expect(await lookupSession(DB(), token, 'bearer', t0)).not.toBeNull();
     // Revoked by another isolate (straight in D1, this isolate's cache untouched).
     await DB().prepare('DELETE FROM sessions WHERE id_hash = ?1').bind(session.sid).run();
@@ -106,7 +92,7 @@ describe('session store', () => {
     const { playerId } = await devLogin(610004);
     const now = Date.now();
     const live = await createSession(DB(), playerId, 'cookie', 'password', null, now);
-    const old = await createSession(DB(), playerId, 'bearer', 'telegram', null, now - 2 * DAY);
+    const old = await createSession(DB(), playerId, 'bearer', DEV_KIND, null, now - 2 * DAY);
     const idle = await createSession(DB(), playerId, 'cookie', 'password', null, now - 8 * DAY);
     await DB().batch([
       DB().prepare("INSERT INTO email_tokens (token_hash, purpose, email_norm, email, created_at, expires_at, used_at) VALUES ('t-used', 'reset', 'a@b.c', 'a@b.c', ?1, ?2, ?1)").bind(now, now + HOUR),
@@ -250,21 +236,21 @@ describe('revocation and the device list', () => {
   });
 });
 
-describe('Telegram log-in', () => {
-  it('issues a 24 h bearer session and writes the identity with its mirror', async () => {
+describe('dev sign-in', () => {
+  it('issues a 24 h bearer session and writes the identity', async () => {
     const before = Date.now();
-    const res = await api('/api/auth/telegram', { method: 'POST', json: { dev: { id: 610401, first_name: 'Kleon' } }, headers: { 'cf-connecting-ip': '10.61.4.1', 'user-agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0) Telegram' } });
+    const res = await api('/api/auth/dev', { method: 'POST', json: { dev: { id: 610401, first_name: 'Kleon' } }, headers: { 'cf-connecting-ip': '10.61.4.1', 'user-agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0) Version/17.0 Mobile Safari/604.1' } });
     expect(res.status).toBe(200);
     expect(res.headers.get('set-cookie')).toBeNull();
     const body = await res.json<{ token: string; expiresAt: number; player: { id: number; displayName: string } }>();
     expect(body.expiresAt - before).toBeGreaterThanOrEqual(DAY);
     expect(body.expiresAt - Date.now()).toBeLessThanOrEqual(DAY);
     const row = await DB().prepare('SELECT transport, method, device FROM sessions WHERE id_hash = ?1').bind(await hashToken(body.token)).first();
-    expect(row).toEqual({ transport: 'bearer', method: 'telegram', device: 'Telegram on iOS' });
-    // A generated display name, never the Telegram name (ADR-0009 N-DN-2).
+    expect(row).toEqual({ transport: 'bearer', method: DEV_KIND, device: 'Safari on iOS' });
+    // A generated display name, never the first name (ADR-0009 N-DN-2).
     expect(body.player.displayName).toMatch(/^[A-Z][a-z]+[A-Z][a-z]+\d{4}$/);
     expect(body.player.displayName).not.toContain('Kleon');
-    const ident = await DB().prepare("SELECT subject FROM auth_identities WHERE kind = 'telegram' AND player_id = ?1").bind(body.player.id).first();
+    const ident = await DB().prepare('SELECT subject FROM auth_identities WHERE kind = ?2 AND player_id = ?1').bind(body.player.id, DEV_KIND).first();
     expect(ident).toEqual({ subject: '610401' });
     // A second log-in keeps the player and the name, with a new session.
     const again = await devLogin(610401, 'Kleon the Second');

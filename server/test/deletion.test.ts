@@ -11,6 +11,7 @@ import { DELETED_NAME, DELETION_STEPS, deleteAccount, finishDeletions } from '..
 import { DELETION_MAP, playerColumnsOf, type SchemaColumn } from '../src/account/deletionMap';
 import { banIdentityHash } from '../src/account/banTombstone';
 import { peppersFromEnv } from '../src/auth/password';
+import { DEV_KIND } from '../src/auth/identity';
 import { emailKeyHash } from '../src/auth/throttle';
 import { nameKeyHeld } from '../src/players';
 import { playerNames } from '../src/war/store';
@@ -20,7 +21,7 @@ import { api, devLogin } from './helpers';
 const DB = () => env.DB!;
 const DAY = 86_400_000;
 
-let tg = 7_400_000;
+let devId = 7_400_000;
 let uniq = 1_000_000;
 beforeEach(() => resetRateLimits());
 
@@ -80,17 +81,16 @@ const NOT_SEEDED = new Set(['players', 'deletion_jobs', 'ban_tombstones']);
 
 interface Seeded {
   pid: number;
-  tg: number;
   email: string;
   token: string;
   /** table -> the rowids seeded for this player. */
   rows: Map<string, number[]>;
 }
 
-/** A player with a telegram and a password identity and a row in every table that references players. */
+/** A player with a dev and a password identity and a row in every table that references players. */
 async function seedEverywhere(): Promise<Seeded> {
-  const me = await devLogin(++tg);
-  const s: Seeded = { pid: me.playerId, tg, email: `gone${tg}@example.com`, token: me.token, rows: new Map() };
+  const me = await devLogin(++devId);
+  const s: Seeded = { pid: me.playerId, email: `gone${devId}@example.com`, token: me.token, rows: new Map() };
   const cols = await schemaCols();
   const byTable = new Map<string, Col[]>();
   for (const c of cols) byTable.set(c.table, [...(byTable.get(c.table) ?? []), c]);
@@ -106,13 +106,11 @@ async function seedEverywhere(): Promise<Seeded> {
   for (const table of order) {
     const rule = DELETION_MAP[table];
     const pidCols = new Set([...(rule.pid ?? []), ...(rule.kept ?? [])]);
-    const tgCols = new Set(rule.tg ?? []);
     const over = OVERRIDE[table]?.(s) ?? {};
     const values: Record<string, unknown> = {};
     for (const c of byTable.get(table)!) {
       if (c.column in over) values[c.column] = over[c.column];
       else if (pidCols.has(c.column) || c.references === 'players') values[c.column] = s.pid;
-      else if (tgCols.has(c.column)) values[c.column] = s.tg;
       else if (c.references) {
         const parent = await DB().prepare(`SELECT ${c.to ?? 'rowid'} AS v FROM ${c.references} WHERE rowid = ?1`).bind(s.rows.get(c.references)![0]).first<{ v: unknown }>();
         values[c.column] = parent!.v;
@@ -145,8 +143,8 @@ const count = async (sql: string, ...binds: unknown[]) => (await DB().prepare(`S
 async function rowsOf(s: Seeded): Promise<Record<string, number>> {
   const out: Record<string, number> = {};
   for (const [table, rule] of Object.entries(DELETION_MAP)) {
-    const conds = [...(rule.pid ?? []), ...(rule.kept ?? [])].map((c) => `${c} = ?1`).concat((rule.tg ?? []).map((c) => `${c} = ?2`));
-    if (conds.length) out[table] = await count(`${table} WHERE ${conds.join(' OR ')}`, ...(rule.tg?.length ? [s.pid, s.tg] : [s.pid]));
+    const conds = [...(rule.pid ?? []), ...(rule.kept ?? [])].map((c) => `${c} = ?1`);
+    if (conds.length) out[table] = await count(`${table} WHERE ${conds.join(' OR ')}`, s.pid);
   }
   return out;
 }
@@ -179,11 +177,9 @@ describe('deleteAccount (ADR-0009 §7)', () => {
     expect(p).toMatchObject({
       display_name: DELETED_NAME,
       display_name_key: `deleted:${victim.pid}`,
-      telegram_id: null,
       username: null,
       first_name: null,
       language_code: null,
-      is_premium: 0,
       public_boards: 0,
       deleted_at: now,
     });
@@ -194,8 +190,8 @@ describe('deleteAccount (ADR-0009 §7)', () => {
   });
 
   it('shows the player as "Deleted player" to others and holds the freed name for 30 days', async () => {
-    const victim = await devLogin(++tg);
-    const other = await devLogin(++tg);
+    const victim = await devLogin(++devId);
+    const other = await devLogin(++devId);
     const key = (await DB().prepare('SELECT display_name_key AS k FROM players WHERE id = ?1').bind(victim.playerId).first<{ k: string }>())!.k;
     const now = Date.now();
     expect(await deleteAccount(env, victim.playerId, 'self', now)).toBe('done');
@@ -204,12 +200,12 @@ describe('deleteAccount (ADR-0009 §7)', () => {
     expect(await nameKeyHeld(DB(), key, other.playerId, now + 31 * DAY)).toBe(false);
   });
 
-  it('ends every session at once, and the Telegram user who comes back gets a new, empty player', async () => {
-    const me = await devLogin(++tg);
+  it('ends every session at once, and the dev id that comes back gets a new, empty player', async () => {
+    const me = await devLogin(++devId);
     expect((await api('/api/me', { token: me.token })).status).toBe(200);
     expect(await deleteAccount(env, me.playerId, 'self')).toBe('done');
     expect((await api('/api/me', { token: me.token })).status).toBe(401);
-    const again = await devLogin(tg);
+    const again = await devLogin(devId);
     expect(again.playerId).not.toBe(me.playerId);
   });
 
@@ -234,7 +230,7 @@ describe('leaving shared structures', () => {
   }
 
   it('a leader hands the clan to the longest-serving officer; an empty clan is disbanded with its invites', async () => {
-    const [leader, member, officer, loner] = await Promise.all([devLogin(++tg), devLogin(++tg), devLogin(++tg), devLogin(++tg)]);
+    const [leader, member, officer, loner] = await Promise.all([devLogin(++devId), devLogin(++devId), devLogin(++devId), devLogin(++devId)]);
     const clan = await clanOf([
       { pid: leader.playerId, role: 'leader', joined: 1 },
       { pid: member.playerId, role: 'member', joined: 2 },
@@ -280,7 +276,7 @@ describe('resumable deletion jobs', () => {
   }
 
   it('the daily housekeeping cron finishes interrupted runs', async () => {
-    const me = await devLogin(++tg);
+    const me = await devLogin(++devId);
     expect(await deleteAccount(env, me.playerId, 'self', Date.now(), { maxSteps: 1 })).toBe('resumable');
     const ctx = createExecutionContext();
     worker.scheduled(createScheduledController({ cron: '17 3 * * *', scheduledTime: Date.now() }), env, ctx);
@@ -289,14 +285,14 @@ describe('resumable deletion jobs', () => {
   });
 
   it('a request on a started job resumes it instead of starting over', async () => {
-    const me = await devLogin(++tg);
+    const me = await devLogin(++devId);
     expect(await deleteAccount(env, me.playerId, 'conflict', Date.now(), { maxSteps: 2 })).toBe('resumable');
     expect(await deleteAccount(env, me.playerId, 'self')).toBe('done');
     expect(await DB().prepare('SELECT reason FROM deletion_jobs WHERE player_id = ?1').bind(me.playerId).first()).toEqual({ reason: 'conflict' });
   });
 
   it('the cron sweeps rows written for a player after the deletion finished (a match settling late)', async () => {
-    const me = await devLogin(++tg);
+    const me = await devLogin(++devId);
     const now = Date.now();
     expect(await deleteAccount(env, me.playerId, 'self', now)).toBe('done');
     await DB().prepare("INSERT INTO duel_ratings (player_id, ladder, updated_at) VALUES (?1, 'live', ?2)").bind(me.playerId, now).run();
@@ -319,14 +315,14 @@ describe('ban tombstones (ADR-0009 §7.7)', () => {
   };
 
   async function bannedWithEmail() {
-    const me = await devLogin(++tg);
-    const email = `banned${tg}@example.com`;
+    const me = await devLogin(++devId);
+    const email = `banned${devId}@example.com`;
     const now = Date.now();
     await DB().batch([
       DB().prepare(`INSERT INTO auth_identities (player_id, kind, subject, email, verified_at, created_at) VALUES (?1, 'password', ?2, ?2, ?3, ?3)`).bind(me.playerId, email, now),
       DB().prepare("UPDATE players SET banned_at = ?2, ban_reason = 'cheating' WHERE id = ?1").bind(me.playerId, now - DAY),
     ]);
-    return { ...me, tg, email, now };
+    return { ...me, devId, email, now };
   }
 
   it('keeps only peppered hashes of a deleted banned player’s identities, for 180 days', async () => {
@@ -334,41 +330,41 @@ describe('ban tombstones (ADR-0009 §7.7)', () => {
     expect(await deleteAccount(env, b.playerId, 'admin', b.now)).toBe('done');
     const pepper = peppersFromEnv(env).current;
     const rows = (await DB().prepare('SELECT identity_hash, banned_at, expires_at FROM ban_tombstones WHERE identity_hash IN (?1, ?2)').bind(
-      await banIdentityHash(pepper, 'telegram', String(b.tg)),
+      await banIdentityHash(pepper, DEV_KIND, String(b.devId)),
       await banIdentityHash(pepper, 'password', b.email),
     ).all<{ banned_at: number; expires_at: number }>()).results;
     expect(rows).toHaveLength(2);
     for (const r of rows) expect(r).toMatchObject({ banned_at: b.now - DAY, expires_at: b.now + 180 * DAY });
     // Nothing else of the identities survives anywhere.
-    expect(await count('auth_identities WHERE subject IN (?1, ?2)', String(b.tg), b.email)).toBe(0);
+    expect(await count('auth_identities WHERE subject IN (?1, ?2)', String(b.devId), b.email)).toBe(0);
     expect(await DB().prepare('SELECT ban_reason, banned_at FROM players WHERE id = ?1').bind(b.playerId).first()).toEqual({ ban_reason: null, banned_at: b.now - DAY });
   });
 
-  it('blocks Telegram log-in and sign-up with the same identities', async () => {
+  it('blocks the dev sign-in and sign-up with the same identities', async () => {
     const b = await bannedWithEmail();
     expect(await deleteAccount(env, b.playerId, 'admin', b.now)).toBe('done');
-    const tgLogin = await api('/api/auth/telegram', { method: 'POST', json: { dev: { id: b.tg, first_name: 'Again' } }, headers: { 'cf-connecting-ip': '10.9.9.9' } });
-    expect(tgLogin.status).toBe(403);
-    expect((await tgLogin.json<{ error: { code: string } }>()).error.code).toBe('banned');
+    const again = await api('/api/auth/dev', { method: 'POST', json: { dev: { id: b.devId, first_name: 'Again' } }, headers: { 'cf-connecting-ip': '10.9.9.9' } });
+    expect(again.status).toBe(403);
+    expect((await again.json<{ error: { code: string } }>()).error.code).toBe('banned');
     const verify = await signup(b.email);
     expect(verify.status).toBe(403);
-    expect(await count('auth_identities WHERE subject IN (?1, ?2)', String(b.tg), b.email)).toBe(0);
+    expect(await count('auth_identities WHERE subject IN (?1, ?2)', String(b.devId), b.email)).toBe(0);
   });
 
   it('lets the identities of a deleted player who was not banned sign up again', async () => {
-    const me = await devLogin(++tg);
-    const email = `fine${tg}@example.com`;
+    const me = await devLogin(++devId);
+    const email = `fine${devId}@example.com`;
     await DB().prepare(`INSERT INTO auth_identities (player_id, kind, subject, email, verified_at, created_at) VALUES (?1, 'password', ?2, ?2, 1, 1)`).bind(me.playerId, email).run();
     expect(await deleteAccount(env, me.playerId, 'self')).toBe('done');
     expect((await signup(email)).status).toBe(200);
-    expect((await devLogin(tg)).playerId).not.toBe(me.playerId);
+    expect((await devLogin(devId)).playerId).not.toBe(me.playerId);
   });
 
   it('expire after 180 days (the cron prunes them)', async () => {
     const b = await bannedWithEmail();
     expect(await deleteAccount(env, b.playerId, 'admin', b.now)).toBe('done');
     await finishDeletions(env, b.now + 181 * DAY);
-    const h = await banIdentityHash(peppersFromEnv(env).current, 'telegram', String(b.tg));
+    const h = await banIdentityHash(peppersFromEnv(env).current, DEV_KIND, String(b.devId));
     expect(await count('ban_tombstones WHERE identity_hash = ?1', h)).toBe(0);
   });
 });
@@ -379,7 +375,7 @@ describe('admin deletion', () => {
     api(`/api/admin/players/${pid}/delete`, { method: 'POST', token: ADMIN, json: { requestId, reason: 'deletion requested by email' } });
 
   it('deletes a player (e.g. a banned email-only player who asked support) and audits it', async () => {
-    const me = await devLogin(++tg);
+    const me = await devLogin(++devId);
     await DB().prepare('UPDATE players SET banned_at = ?2 WHERE id = ?1').bind(me.playerId, Date.now()).run();
     const r = await del(me.playerId);
     expect(r.status).toBe(200);
@@ -389,7 +385,7 @@ describe('admin deletion', () => {
   });
 
   it('needs the admin token', async () => {
-    const me = await devLogin(++tg);
+    const me = await devLogin(++devId);
     expect((await api(`/api/admin/players/${me.playerId}/delete`, { method: 'POST', token: me.token, json: { requestId: 'req_abcdefgh', reason: 'nope' } })).status).toBe(401);
     expect(await count('deletion_jobs WHERE player_id = ?1', me.playerId)).toBe(0);
   });

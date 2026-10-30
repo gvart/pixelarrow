@@ -1,6 +1,6 @@
 /**
- * Add an email and password (Telegram → web) and change the email (ADR-0009
- * §2 and §4; M-LK-3, M-ID-2). Both are requested by a signed-in, re-authed
+ * Add an email and password to an account without one, and change the
+ * email (ADR-0009 §2 and §4; M-LK-3, M-ID-2). Both are requested by a signed-in, re-authed
  * player and complete only when the emailed link is opened: no identity row
  * exists before that proof, and `UNIQUE(kind, subject)` is checked then.
  *
@@ -158,7 +158,7 @@ export async function verifyAddEmail(d: FlowDeps, notify: Notifier, token: strin
 /**
  * POST /api/auth/verify, purpose change_email: the password identity's
  * subject and email become the new address in place (the password stays).
- * The old address and the Telegram chat are told.
+ * The old address is told.
  */
 export async function verifyChangeEmail(d: FlowDeps, notify: Notifier, token: string): Promise<PlayerRow> {
   const { th, row, player } = await liveToken(d, 'change_email', token);

@@ -20,19 +20,7 @@ async function call(url: string, env: Env, init?: RequestInit): Promise<Response
 }
 
 describe('landing Worker: home page', () => {
-  it('sends old ?startapp= links to play with the query kept', async () => {
-    const res = await call('https://pixelarrow.app/?startapp=clan_x&utm=a', stubEnv());
-    expect(res.status).toBe(302);
-    expect(res.headers.get('location')).toBe('https://play.pixelarrow.app/?startapp=clan_x&utm=a');
-  });
-
-  it('sends ?tgWebAppStartParam= launches to play with the query kept', async () => {
-    const res = await call('https://pixelarrow.app/?tgWebAppStartParam=duel_7', stubEnv());
-    expect(res.status).toBe(302);
-    expect(res.headers.get('location')).toBe('https://play.pixelarrow.app/?tgWebAppStartParam=duel_7');
-  });
-
-  it('serves the landing page otherwise, never framable', async () => {
+  it('serves the landing page, never framable', async () => {
     const res = await call('https://pixelarrow.app/?utm_source=x', stubEnv());
     expect(res.status).toBe(200);
     expect(await res.text()).toBe(ASSET_BODY);
@@ -192,7 +180,6 @@ describe('landing Worker: /api/public/v1/summary proxy', () => {
       await call(url, env, { headers, method: 'HEAD' }),
       await call(url, env, { headers: { cookie: '__Host-pa_sid=another' } }),
       await call(url, env, { headers, method: 'POST' }),
-      await call('https://pixelarrow.app/?startapp=clan_x', env, { headers }),
       await call('https://pixelarrow.app/', env, { headers }),
       await call('https://pixelarrow.app/api/public/v1/players', env, { headers }),
     ];

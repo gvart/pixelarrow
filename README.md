@@ -53,7 +53,7 @@ cd .. && npm run dev                   # vite on :5173, proxies /api and /ws to 
 ```
 
 With `DEV_AUTH=1` in `.dev.vars` the war pages sign in as a dev player
-(`POST /api/auth/telegram { dev }`). `API_PROXY=http://host:port` changes the
+(`POST /api/auth/dev { dev }`). `API_PROXY=http://host:port` changes the
 proxy target.
 
 ### Deployment

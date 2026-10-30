@@ -12,7 +12,7 @@ import { describe, expect, it } from 'vitest';
 /** The last migration applied in production; later ones run over the seeded rows. */
 const PRODUCTION_HEAD = '0016_sim_version.sql';
 const PLAYERS = 6;
-/** Tables a later migration drops on purpose (0027: the old route-graph war, W-01; 0036: the legacy game). */
+/** Tables a later migration drops on purpose (0027: the old route-graph war, W-01; 0036: the legacy game; 0051: Telegram). */
 const DROPPED = new Set([
   'online_garrisons', 'online_camp_buildings', 'online_camps', 'online_regions', 'online_shards', 'market_audit', 'market_listings',
   'merchant_orders', 'merchant_daily', 'world_boss_chests', 'world_boss_loot', 'world_boss_damage', 'world_bosses', 'battle_tickets', '_keep_merchant_orders',
@@ -20,7 +20,16 @@ const DROPPED = new Set([
   'online_items', 'online_heroes', 'online_consumables', 'consumable_daily', 'shop_orders', 'cosmetic_loadout', 'pass_claims', 'pass_progress', 'notify_log',
   'bot_meta', 'duel_heroes', 'duel_items', 'duel_orders', 'duel_tickets', 'duel_queue_state', 'duel_loadouts', 'duel_defences', 'duel_attacks',
   'duel_season_rewards', 'duel_ladder_stars', 'duel_ladder_chests', 'loot_pity',
+  // 0051: links, the bot, notifications and support
+  'link_codes', 'link_conflicts', 'bot_state', 'notify_settings', 'notify_outbox', 'support_requests',
 ]);
+/** Columns a later migration drops on purpose (0051: Telegram); the kept columns must keep every value. */
+const DROPPED_COLUMNS: Record<string, string[]> = {
+  purchases: ['telegram_payment_charge_id'],
+  client_errors: ['tg_version'],
+};
+/** players columns that keep their values from 0016 on (0017 rebuilt the table, 0051 dropped telegram_id). */
+const PLAYER_COLUMNS = ['id', 'username', 'first_name', 'created_at', 'last_seen_at'];
 const ROWS = 3;
 
 interface Column { name: string; type: string; pk: number }
@@ -94,8 +103,8 @@ describe('migrations over a populated database', () => {
     const before = new Map<string, string[]>();
     for (const t of names) {
       const cols = t === 'players'
-        ? ['id', 'telegram_id', 'username', 'first_name', 'created_at', 'last_seen_at']
-        : columns.get(t)!.map((c) => c.name);
+        ? PLAYER_COLUMNS
+        : columns.get(t)!.map((c) => c.name).filter((c) => !DROPPED_COLUMNS[t]?.includes(c));
       before.set(t, await snapshot(db, t, cols));
       expect(before.get(t)!.length, t).toBeGreaterThan(0);
     }
@@ -108,12 +117,17 @@ describe('migrations over a populated database', () => {
     expect(names.filter((t) => !kept.has(t) && !DROPPED.has(t)), 'tables lost by a migration').toEqual([]);
     for (const t of names.filter((n) => kept.has(n))) {
       const cols = t === 'players'
-        ? ['id', 'telegram_id', 'username', 'first_name', 'created_at', 'last_seen_at']
-        : columns.get(t)!.map((c) => c.name);
+        ? PLAYER_COLUMNS
+        : columns.get(t)!.map((c) => c.name).filter((c) => !DROPPED_COLUMNS[t]?.includes(c));
       expect(await snapshot(db, t, cols), t).toEqual(before.get(t));
     }
-    const identities = await db.prepare("SELECT count(*) AS n FROM auth_identities WHERE kind = 'telegram'").first<{ n: number }>();
+    // 0017 gave each player a telegram identity; 0051 turned them into dev identities.
+    const identities = await db.prepare("SELECT count(*) AS n FROM auth_identities WHERE kind = 'dev'").first<{ n: number }>();
     expect(identities?.n).toBe(PLAYERS);
+    for (const [t, dropped] of Object.entries({ ...DROPPED_COLUMNS, players: ['telegram_id', 'is_premium'] })) {
+      const cols = (await db.prepare('SELECT name FROM pragma_table_info(?)').bind(t).all<{ name: string }>()).results.map((c) => c.name);
+      expect(cols.filter((c) => dropped.includes(c)), t).toEqual([]);
+    }
     // The rebuilt players table hands out ids after the copied ones.
     const seq = await db.prepare("SELECT seq FROM sqlite_sequence WHERE name = 'players'").first<{ seq: number }>();
     const max = await db.prepare('SELECT max(id) AS id FROM players').first<{ id: number }>();

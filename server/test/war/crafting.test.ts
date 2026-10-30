@@ -229,18 +229,12 @@ describe('migration 0023 over rows', () => {
     const all = env.TEST_MIGRATIONS;
     const at = all.findIndex((m) => m.name === '0023_war_crafting.sql');
     await applyD1Migrations(db, all.slice(0, at));
-    await db.batch([
-      db.prepare("INSERT INTO players (id, telegram_id, name) VALUES (90001, 90001, 'm')"),
-      db.prepare("INSERT INTO war_persons (id, player_id, cls, state) VALUES ('wp1', 90001, 'civ_smith', 'active')"),
-      db.prepare("INSERT INTO war_items (uid, player_id, item) VALUES ('wi1', 90001, '{}')"),
-    ]).catch(async () => {
-      // players columns differ by migration: fall back to the minimum the table needs
-      const cols = (await db.prepare('SELECT name, "notnull", dflt_value FROM pragma_table_info(?)').bind('players').all<{ name: string; notnull: number; dflt_value: unknown }>()).results;
-      const need = cols.filter((c) => c.notnull && c.dflt_value === null && c.name !== 'id');
-      await db.prepare(`INSERT INTO players (id${need.map((c) => `, ${c.name}`).join('')}) VALUES (90001${need.map(() => ", 'x'").join('')})`).run();
-      await db.prepare("INSERT INTO war_persons (id, player_id, cls, state) VALUES ('wp1', 90001, 'civ_smith', 'active')").run();
-      await db.prepare("INSERT INTO war_items (uid, player_id, item) VALUES ('wi1', 90001, '{}')").run();
-    });
+    // players columns differ by migration: the minimum the table needs
+    const cols = (await db.prepare('SELECT name, "notnull", dflt_value FROM pragma_table_info(?)').bind('players').all<{ name: string; notnull: number; dflt_value: unknown }>()).results;
+    const need = cols.filter((c) => c.notnull && c.dflt_value === null && c.name !== 'id');
+    await db.prepare(`INSERT INTO players (id${need.map((c) => `, ${c.name}`).join('')}) VALUES (90001${need.map(() => ", 'x'").join('')})`).run();
+    await db.prepare("INSERT INTO war_persons (id, player_id, cls, state) VALUES ('wp1', 90001, 'civ_smith', 'active')").run();
+    await db.prepare("INSERT INTO war_items (uid, player_id, item) VALUES ('wi1', 90001, '{}')").run();
     await applyD1Migrations(db, all.slice(at, at + 1));
     expect(await db.prepare("SELECT perks, respec_at FROM war_persons WHERE id = 'wp1'").first()).toEqual({ perks: '[]', respec_at: null });
     expect(await db.prepare("SELECT region FROM war_items WHERE uid = 'wi1'").first()).toEqual({ region: null });

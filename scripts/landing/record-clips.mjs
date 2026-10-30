@@ -53,7 +53,6 @@ async function openGame(w, h) {
     page.on('close', () => console.log('PAGE CLOSE'));
   }
   await apiDown(page);
-  await page.route('**/telegram.org/**', (r) => r.abort());
   await page.clock.install();
   await page.goto(base + '?lang=en');
   await page.waitForFunction(() => window.__game?.scene.isActive('Menu'), null, { timeout: 90000 });

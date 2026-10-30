@@ -11,30 +11,29 @@ const NOW = Date.UTC(2026, 9, 13, 12, 0, 0);
 const DAY = 86_400_000;
 
 /**
- * Seeded players get large, distinctive ids and Telegram ids, so a scan of the
- * snapshot can find any leak. They start opted out of public boards
- * (`public_boards = 0`); `named()` opts players in.
+ * Seeded players get large, distinctive ids, so a scan of the snapshot can
+ * find any leak. They start opted out of public
+ * boards (`public_boards = 0`); `named()` opts players in.
  */
 let seq = 0;
-async function seedPlayer(o: { banned?: boolean; lastSeen?: number } = {}): Promise<{ id: number; tg: number; first: string; user: string }> {
+async function seedPlayer(o: { banned?: boolean; lastSeen?: number } = {}): Promise<{ id: number; first: string; user: string }> {
   seq++;
   const max = (await db.prepare('SELECT MAX(id) AS m FROM players').first<{ m: number | null }>())?.m ?? 0;
   const id = Math.max(9_100_000, max) + 7;
-  const tg = 7_700_000_000 + seq;
   const first = `Firstname${seq}x`;
-  const user = `user_${seq}_tg`;
+  const user = `user_${seq}_u`;
   await db
     .prepare(
-      "INSERT INTO players (id, telegram_id, username, first_name, display_name, display_name_key, created_at, last_seen_at, banned_at, public_boards) VALUES (?1, ?2, ?3, ?4, 'Seed' || ?1, 'seed' || ?1, ?5, ?6, ?7, 0)",
+      "INSERT INTO players (id, username, first_name, display_name, display_name_key, created_at, last_seen_at, banned_at, public_boards) VALUES (?1, ?2, ?3, 'Seed' || ?1, 'seed' || ?1, ?4, ?5, ?6, 0)",
     )
-    .bind(id, tg, user, first, NOW - 30 * DAY, o.lastSeen ?? NOW - DAY, o.banned ? NOW - DAY : null)
+    .bind(id, user, first, NOW - 30 * DAY, o.lastSeen ?? NOW - DAY, o.banned ? NOW - DAY : null)
     .run();
-  seeded.push({ id, tg, first, user });
-  return { id, tg, first, user };
+  seeded.push({ id, first, user });
+  return { id, first, user };
 }
 
-/** Everything seeded that must never reach the snapshot: player ids, Telegram ids, first names, usernames. */
-const seeded: { id: number; tg: number; first: string; user: string }[] = [];
+/** Everything seeded that must never reach the snapshot: player ids, first names, usernames. */
+const seeded: { id: number; first: string; user: string }[] = [];
 
 /** Wraps the D1 binding and records every SQL statement prepared through it. */
 function spyDb(): { db: D1Database; sql: string[] } {
@@ -57,7 +56,7 @@ async function warBattle(): Promise<void> {
     .run();
 }
 /** A seeded player with a public display name (and the given privacy state). */
-async function named(o: { banned?: boolean; deleted?: boolean; optedOut?: boolean } = {}): Promise<{ id: number; tg: number; first: string; user: string; name: string }> {
+async function named(o: { banned?: boolean; deleted?: boolean; optedOut?: boolean } = {}): Promise<{ id: number; first: string; user: string; name: string }> {
   const p = await seedPlayer({ banned: o.banned });
   const name = `Nick${p.id % 100_000}`;
   await db
@@ -169,19 +168,18 @@ describe('public snapshot (ADR-0010 §2)', () => {
     for (const q of writes) expect(q).toMatch(/^INSERT INTO (public_snapshot|stats_counters) /);
   });
 
-  it('a recursive scan of the snapshot finds no seeded id, Telegram id, Telegram name or email', async () => {
+  it('a recursive scan of the snapshot finds no seeded id, name or email', async () => {
     const snap = await buildPublicSnapshot(env, NOW);
     expect(snap.war.players.length + snap.bossSlayers.length).toBeGreaterThan(0); // the scan sees real rows
-    const ids = new Set(seeded.flatMap((p) => [p.id, p.tg]));
-    const texts = seeded.flatMap((p) => [p.first, p.user, String(p.tg), String(p.id)]);
-    const tgPlayers = (await db.prepare('SELECT id, telegram_id, first_name, username FROM players').all<{ id: number; telegram_id: number; first_name: string | null; username: string | null }>()).results;
-    for (const p of tgPlayers) {
+    const ids = new Set(seeded.map((p) => p.id));
+    const texts = seeded.flatMap((p) => [p.first, p.user, String(p.id)]);
+    const players = (await db.prepare('SELECT id, first_name, username FROM players').all<{ id: number; first_name: string | null; username: string | null }>()).results;
+    for (const p of players) {
       if (p.id > 1000) ids.add(p.id); // small ids would collide with counts and ranks; the seeded ones are large
-      ids.add(p.telegram_id);
       if (p.first_name) texts.push(p.first_name);
       if (p.username) texts.push(p.username);
     }
-    const BAD_KEYS = /^(id|pid|playerId|player_id|telegram.*|tg.*|username|first_?name|email|clanId|code|rd|vol|lastSeen.*)$/i;
+    const BAD_KEYS = /^(id|pid|playerId|player_id|username|first_?name|email|clanId|code|rd|vol|lastSeen.*)$/i;
     const walk = (v: unknown, path: string): void => {
       if (Array.isArray(v)) return v.forEach((x, i) => walk(x, `${path}[${i}]`));
       if (v && typeof v === 'object') {

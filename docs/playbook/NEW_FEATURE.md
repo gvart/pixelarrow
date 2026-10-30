@@ -196,9 +196,9 @@ Wait on real conditions, never fixed sleeps (`settled()`, `steadyBtn` in `script
 ## 11. The platform rule (V5-076)
 
 Neutral interfaces in `src/platform/core/` (auth, payments, storage, haptics, back button, share, safe area, input
-hints, notifications), one adapter folder per platform (`telegram/`, `web/`; later `steam/`, `mobile/`), the
+hints, notifications), one adapter folder per platform (`web/`; later `steam/`, `mobile/`), the
 platform detected once at startup. Game code imports the interface, never an adapter; per-platform behaviour gets
-its own interface and one tested adapter per platform. A story that adds `if (isTelegram)` to a scene fails review.
+its own interface and one tested adapter per platform. A story that adds a platform check to a scene fails review.
 
 ## Checklist
 

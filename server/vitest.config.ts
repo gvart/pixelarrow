@@ -15,7 +15,6 @@ export default defineConfig({
         // A second, empty database: test/migrations.test.ts migrates it with seeded rows.
         d1Databases: ['MIGRATE_DB'],
         bindings: {
-          TELEGRAM_BOT_TOKEN: '123456:TEST-TOKEN',
           DEV_AUTH: '1',
           // Test-only pepper values (ADR-0008 §2); production peppers are Worker secrets.
           PASSWORD_PEPPER: btoa('test-pepper-0123456789abcdefghij'),

@@ -1,6 +1,6 @@
 /**
  * Generated display names (ADR-0009 §6, M-DN-2): `<Adjective><Unit><4 digits>`,
- * never the Telegram name. Every name it returns passes `validate.ts`.
+ * never a username. Every name it returns passes `validate.ts`.
  */
 import { validateDisplayName } from './validate';
 

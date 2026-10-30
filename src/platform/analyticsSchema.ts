@@ -12,7 +12,7 @@
  *   double1 = player id         double2 = days since install (-1 unknown)
  *   double3.. = the event's number props, in the order declared below
  *
- * Nothing here may carry personal data: no names, usernames, Telegram ids,
+ * Nothing here may carry personal data: no names, usernames, emails,
  * free text. Strings are enums or short [a-z0-9_] ids; numbers are bounded.
  */
 
@@ -39,7 +39,7 @@ const BATTLE_RESULTS = ['win', 'loss', 'draw'] as const;
 
 export const ANALYTICS_EVENTS = {
   /** Client boot (once per app launch). */
-  session_start: { source: 'client', strings: { tg: { kind: 'id' }, lang: en('en', 'ru', 'other') }, numbers: {} },
+  session_start: { source: 'client', strings: { lang: en('en', 'ru', 'other') }, numbers: {} },
   /** Server: first sign-in of a new player. */
   install: { source: 'server' },
   /** Server: first sign-in on calendar day 1 / 7 after install (UTC), from players.created_at and last_seen_at. */
@@ -58,7 +58,7 @@ export const ANALYTICS_EVENTS = {
   /** Server-derived once per player: their first hex captured from a neutral or a player. */
   first_capture: { source: 'server' },
   clan_join: { source: 'server', strings: { how: en('create', 'invite') } },
-  /** A Drachmae pack (or legacy entitlement) paid with Telegram Stars. */
+  /** A Drachmae pack (or legacy entitlement) bought; nothing is sold now. */
   purchase: { source: 'server', strings: { pack: { kind: 'id' } }, numbers: { drachmae: int(0, 10_000_000), stars: int(0, 1_000_000) } },
   first_purchase: { source: 'server', strings: { pack: { kind: 'id' } } },
   pass_claim: { source: 'server', strings: { track: en('free', 'premium') }, numbers: { tier: int(0, 1000) } },

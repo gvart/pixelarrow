@@ -2,15 +2,14 @@
  * Ban tombstones (ADR-0009 §7.7, M-DL-5): when a banned player is deleted,
  * each of their log-in identities survives only as
  * b64url(SHA-256(pepper ‖ kind ‖ 0x00 ‖ subject)) for 180 days. Sign-up,
- * Telegram log-in and linking refuse an identity found here. The current and
+ * adding an email and the dev sign-in refuse an identity found here. The current and
  * the previous pepper are both checked, so a pepper rotation keeps them.
  */
 import { b64urlEncode, utf8 } from '../crypto';
 import type { Pepper, PepperSet } from '../auth/password';
+import type { IdentityKind } from '../auth/identity';
 
 export const BAN_TOMBSTONE_MS = 180 * 86_400_000;
-
-export type IdentityKind = 'telegram' | 'password';
 
 export async function banIdentityHash(pepper: Pepper, kind: IdentityKind, subject: string): Promise<string> {
   const tail = utf8(`${kind}\u0000${subject}`);

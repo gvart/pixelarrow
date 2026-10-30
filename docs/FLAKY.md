@@ -16,9 +16,9 @@ With fewer than 3 runs a case is only **suspected**.
 - **Cause:** suspected timing/async: a text measured before it settled (wrap or fade). Not element parity (F8).
 - **Fix:** none yet.
 
-### F6 · `tutorial-smoke` web, `duel-smoke` Telegram and web (suspected, load timeouts)
+### F6 · `tutorial-smoke` and `duel-smoke` (suspected, load timeouts)
 
-- **Seen:** all three timed out once at load ≈ 42, then passed. `duel-smoke` Telegram failed "[ladder] deselecting
+- **Seen:** each timed out once at load ≈ 42, then passed. `duel-smoke` failed "[ladder] deselecting
   in battle keeps the game running" once beside a full layout matrix (it reads `loop.frame` 600 ms apart).
 - **Partly fixed (V6-RSCR-08, V6-QA-SPEED):** below 5 fps Phaser's `TimeStep.smoothDelta` hands scenes 16.7 ms a
   frame whatever the frame took, so game clocks ran at 1/15 to 1/70 of real time. `tutorial-smoke` now waits on the
@@ -60,7 +60,7 @@ With fewer than 3 runs a case is only **suspected**.
 - **F3** · `audio-smoke.mjs` web "juice tiers sound": the fight ran into first contact (an auto-pause) between two
   evaluates, gating all five tiers. Fix: resume, feed and pause in one evaluate after earlier voices end; every
   fixed sleep is a state wait. 10/10 PASS under load.
-- **F4** · `smoke.mjs` Telegram "tap on the map plans a route" / "party marched": tapped before the map took taps and
+- **F4** · `smoke.mjs` "tap on the map plans a route" / "party marched": tapped before the map took taps and
   polled the route. Fix: `mapReady()`, `mapPointFree` (the `onDown` hit test), routes counted in `window.__routes`,
   `worldDiag` on a dropped tap.
 - **F8** · layout-check element parity on live scenes: each size staged a different moment. Fix (PARITY-STABLE,
@@ -74,12 +74,12 @@ With fewer than 3 runs a case is only **suspected**.
 
 ## Not flaky (for the record)
 
-- `smoke.mjs` and `audio-smoke.mjs` Telegram "no console errors": the preview `/api` proxy answered 502 every time;
+- `smoke.mjs` and `audio-smoke.mjs` "no console errors": the preview `/api` proxy answered 502 every time;
   both now stub the API as down (503).
 - `online-smoke.mjs` web shop stuck on "Opening the shop..." signed out: a game bug, **GATE02-B1**, fixed.
 
 ## Watch list (fixed sleeps still in place, not yet seen to flake)
 
 `online-smoke.mjs` (`waitForTimeout(3000)` after load, 600-1500 ms between scenes) and `fullscreen-smoke.mjs`
-(Telegram, 300-900 ms). If one flakes, replace the sleep with a state wait (`settled()`, `steady()`, `nextFrame()` in
+(300-900 ms). If one flakes, replace the sleep with a state wait (`settled()`, `steady()`, `nextFrame()` in
 `scripts/lib/harness.mjs`, `untilInPage()` in `scripts/lib/settle.mjs`) and add a row above.

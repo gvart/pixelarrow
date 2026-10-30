@@ -146,9 +146,9 @@ const JS = `'use strict';
         card('Analytics Engine', o.analyticsEngine ? 'on' : 'off')));
     },
     Players: async () => {
-      const q = h('input', { placeholder: 'id, Telegram id, username or name', size: 30 });
+      const q = h('input', { placeholder: 'id, username or name', size: 30 });
       const results = h('div', {});
-      const search = async () => { results.replaceChildren(h('p', { class: 'muted' }, '...')); try { const r = await api('GET', '/players?q=' + encodeURIComponent(q.value)); results.replaceChildren(table(r.players, ['id', 'display_name', 'telegram_id', 'username', 'first_name', 'created_at', 'last_seen_at', 'banned_at'], (p) => openPlayer(p.id))); } catch (e) { results.replaceChildren(errBox(e)); } };
+      const search = async () => { results.replaceChildren(h('p', { class: 'muted' }, '...')); try { const r = await api('GET', '/players?q=' + encodeURIComponent(q.value)); results.replaceChildren(table(r.players, ['id', 'display_name', 'username', 'first_name', 'created_at', 'last_seen_at', 'banned_at'], (p) => openPlayer(p.id))); } catch (e) { results.replaceChildren(errBox(e)); } };
       show(h('h1', {}, 'Players'), h('form', { class: 'row', onsubmit: (e) => { e.preventDefault(); search(); } }, q, h('button', { type: 'submit' }, 'Search')), results);
       search();
     },
@@ -156,7 +156,7 @@ const JS = `'use strict';
       const r = await api('GET', '/errors');
       const detail = h('div', {});
       show(h('h1', {}, 'Client errors'), h('p', { class: 'muted' }, 'Grouped by fingerprint (kind, message, top frame, app version); kept 30 days after last seen.'),
-        table(r.errors, ['last_seen', 'count', 'kind', 'message', 'scene', 'app_version', 'platform', 'tg_version'], (e) => detail.replaceChildren(h('h2', {}, e.message), h('pre', {}, e.stack || '(no stack)'), h('h2', {}, 'Breadcrumbs (latest)'), h('pre', {}, e.breadcrumbs || ''), h('h2', {}, 'Device'), h('pre', {}, e.device || ''))),
+        table(r.errors, ['last_seen', 'count', 'kind', 'message', 'scene', 'app_version', 'platform'], (e) => detail.replaceChildren(h('h2', {}, e.message), h('pre', {}, e.stack || '(no stack)'), h('h2', {}, 'Breadcrumbs (latest)'), h('pre', {}, e.breadcrumbs || ''), h('h2', {}, 'Device'), h('pre', {}, e.device || ''))),
         detail);
     },
     Season: async () => {
@@ -183,7 +183,7 @@ const JS = `'use strict';
       show(
         h('p', {}, h('button', { onclick: () => select('Players') }, '< Players')),
         h('h1', {}, 'Player #' + p.id + ' ' + p.display_name + ' ', p.username ? '@' + p.username : '', ' ', p.first_name || ''),
-        h('p', { class: p.banned_at ? 'err' : 'muted' }, p.banned_at ? 'BANNED ' + fmtTime(p.banned_at) + ': ' + (p.ban_reason || '') : 'Telegram id ' + p.telegram_id + ' / joined ' + fmtTime(p.created_at) + ' / last seen ' + fmtTime(p.last_seen_at) + (p.analytics_opt_out ? ' / analytics off' : '')),
+        h('p', { class: p.banned_at ? 'err' : 'muted' }, p.banned_at ? 'BANNED ' + fmtTime(p.banned_at) + ': ' + (p.ban_reason || '') : 'joined ' + fmtTime(p.created_at) + ' / last seen ' + fmtTime(p.last_seen_at) + (p.analytics_opt_out ? ' / analytics off' : '')),
         h('fieldset', {}, h('legend', {}, 'Actions'),
           p.banned_at
             ? actionForm('Unban', [], (reason, requestId) => api('POST', '/players/' + id + '/unban', { requestId, reason }).then((x) => (setTimeout(reload, 800), x)))

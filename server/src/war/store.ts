@@ -84,7 +84,7 @@ export async function membership(db: D1Database, season: number, pid: number): P
   return r ? { clanId: r.clan_id, role: r.role } : null;
 }
 
-/** Public names by player id: display_name only, never Telegram data (ADR-0009 §6, N-DN-1). */
+/** Public names by player id: display_name only, never usernames (ADR-0009 §6, N-DN-1). */
 export async function playerNames(db: D1Database, ids: number[]): Promise<Map<number, string>> {
   const out = new Map<number, string>();
   const uniq = [...new Set(ids.filter((x) => Number.isSafeInteger(x)))];

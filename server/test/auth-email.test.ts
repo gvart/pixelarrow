@@ -6,7 +6,7 @@
  * (DEV_EMAIL=1 in vitest.config.ts).
  */
 import { env } from 'cloudflare:test';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { api, GAME_ORIGIN } from './helpers';
 import { hashToken } from '../src/auth/sessions';
 import { hashPassword, peppersFromEnv, PBKDF2_ITERATIONS } from '../src/auth/password';
@@ -16,17 +16,6 @@ const PW = 'battle-standard-42';
 let n = 0;
 const fresh = (p: string) => `${p}.${++n}.${Date.now()}@Example.com`;
 const norm = (e: string) => e.toLowerCase();
-
-afterEach(async () => {
-  // The identity–mirror invariant holds after every identity write (ADR-0008 §1).
-  const bad = await DB()
-    .prepare(
-      `SELECT p.id FROM players p LEFT JOIN auth_identities i ON i.player_id = p.id AND i.kind = 'telegram'
-       WHERE (p.telegram_id IS NULL) != (i.id IS NULL) OR CAST(p.telegram_id AS TEXT) != i.subject`,
-    )
-    .all();
-  expect(bad.results).toEqual([]);
-});
 
 interface Mail {
   to_addr: string;
@@ -99,9 +88,8 @@ describe('sign-up and verification', () => {
     const v = await post('/api/auth/verify', { token });
     expect(v.status).toBe(200);
     expect(v.headers.get('set-cookie')).toMatch(/^__Host-pa_sid=pa2_[A-Za-z0-9_-]{43}; Path=\/; Secure; HttpOnly; SameSite=Lax; Max-Age=2592000$/);
-    const player = (await v.json<{ player: { id: number; displayName: string; telegramId: null } }>()).player;
+    const player = (await v.json<{ player: { id: number; displayName: string } }>()).player;
     expect(player.displayName).toMatch(/^[A-Z][a-z]+[A-Z][a-z]+\d{4}$/);
-    expect(player.telegramId).toBeNull();
     const ident = await DB().prepare(`SELECT kind, subject, email, verified_at FROM auth_identities WHERE player_id = ?1`).bind(player.id).first();
     expect(ident).toMatchObject({ kind: 'password', subject: norm(email), email });
     expect(await sessionsOf(player.id)).toEqual([{ method: 'email_link', transport: 'cookie' }]);

@@ -1,6 +1,6 @@
 /**
  * The public stats snapshot, schema v1 (ADR-0010 §2). Strict: an unknown key
- * anywhere fails validation, so a leaked field (an id, a Telegram name) fails
+ * anywhere fails validation, so a leaked field (an id, a username) fails
  * the cron build instead of reaching the landing page.
  */
 import { z } from 'zod';

@@ -1,20 +1,19 @@
 // App icon set from one painted mark (AS-08, template T-MARK in docs/playbook/PROMPTS_ART.md).
 // The raw is a round red-figure disc on #FF00FF: it is keyed, trimmed and given a clean round alpha,
-// then laid out at every size the web app and the Telegram bot need. Small sizes (≤ 48 px) use the
+// then laid out at every size the web app needs. Small sizes (≤ 48 px) use the
 // inner disc only (the helmet, without the Greek-key ring), so the helmet stays a readable shape.
-// Usage: node scripts/art/appicons.mjs <raw mark> [cover art for the 640x360 Telegram image]
+// Usage: node scripts/art/appicons.mjs <raw mark>
 // Output: public/ (favicon.ico, favicon-32.png, apple-touch-icon.png, icon-192.png, icon-512.png,
-// icon-maskable-512.png) and docs/telegram/ (bot_userpic_640.png, miniapp_cover_640x360.jpg).
-import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
-import { execFileSync } from 'node:child_process';
+// icon-maskable-512.png).
+import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { readImage, writeImage, encodePng } from './lib/png.mjs';
 import { keyOut, trim, fit, blank, paste, flatten, crop } from './lib/ops.mjs';
 import { ROOT } from './lib/manifest.mjs';
 
-const [rawPath, coverPath = join(ROOT, 'public/ui/fresco_campaign.jpg')] = process.argv.slice(2);
+const [rawPath] = process.argv.slice(2);
 if (!rawPath) {
-  console.error('usage: node scripts/art/appicons.mjs <raw mark> [cover art]');
+  console.error('usage: node scripts/art/appicons.mjs <raw mark>');
   process.exit(2);
 }
 /** The game's backdrop (src/ui/tokens.ts bg, index.html theme-color). */
@@ -74,8 +73,6 @@ function ico(images) {
 const disc = roundDisc(trim(keyOut(readImage(rawPath), { tol: 60, fringe: 3 })));
 const small = roundDisc(disc, INNER);
 const pub = join(ROOT, 'public');
-const tg = join(ROOT, 'docs/telegram');
-mkdirSync(tg, { recursive: true });
 const out = (dir, name, img) => (writeImage(join(dir, name), img), console.log(`${name} ${img.w}x${img.h}`));
 
 // web: the whole disc from 180 up; the inner disc (helmet only) for the browser tab
@@ -87,16 +84,3 @@ out(pub, 'icon-192.png', place(disc, 192, 1));
 out(pub, 'icon-512.png', place(disc, 512, 1));
 // maskable: the safe zone is the centred circle of 80% of the size (W3C manifest spec)
 out(pub, 'icon-maskable-512.png', place(disc, 512, 0.8, BG));
-
-// Telegram: the bot's profile picture is shown as a circle; the disc sits inside it with a margin
-out(tg, 'bot_userpic_640.png', place(disc, 640, 0.86, BG));
-// Mini App / description image 640x360: the campaign fresco, the mark in its sky at the upper left
-const cover = fit(readImage(coverPath), 640, 360, { mode: 'cover', ax: 0.5, ay: 0.5 });
-for (let i = 3; i < cover.data.length; i += 4) cover.data[i] = 255;
-const mark = fit(disc, 150, 150, { mode: 'contain' });
-paste(cover, mark, 28, 24);
-const tmp = join(tg, '.cover.png');
-writeImage(tmp, cover);
-execFileSync('sips', ['-s', 'format', 'jpeg', '-s', 'formatOptions', '88', tmp, '--out', join(tg, 'miniapp_cover_640x360.jpg')], { stdio: 'ignore' });
-rmSync(tmp);
-console.log('miniapp_cover_640x360.jpg 640x360');

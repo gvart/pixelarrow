@@ -52,7 +52,7 @@ const HOMES = ['dodona', 'skythia', 'kyrene', 'elaia'];
 // ---------------------------------------------------------------- REST and raw region sockets, one address per player
 async function login(id, name) {
   const ip = `10.9.1.${id % 250}`;
-  const r = await fetch(`${API}/api/auth/telegram`, { method: 'POST', headers: { 'content-type': 'application/json', 'cf-connecting-ip': ip }, body: JSON.stringify({ dev: { id, first_name: name } }) });
+  const r = await fetch(`${API}/api/auth/dev`, { method: 'POST', headers: { 'content-type': 'application/json', 'cf-connecting-ip': ip }, body: JSON.stringify({ dev: { id, first_name: name } }) });
   if (!r.ok) throw new Error(`dev login ${id}: ${r.status} ${await r.text()}`);
   const s = await r.json();
   const call = async (method, path, body) => {

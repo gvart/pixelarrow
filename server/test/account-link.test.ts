@@ -1,14 +1,12 @@
 /**
- * V6-LINK-02 (ADR-0009 §1, §2, §4, §7): re-auth, add email (Telegram → web),
- * change email, unlink, DELETE /api/account, and the email and bot notices on
- * every identity change. Mail goes to dev_outbox (DEV_EMAIL=1); bot calls are
- * recorded by mockTelegram.
+ * V6-LINK-02 (ADR-0009 §1, §2, §4, §7): re-auth, add email, change email,
+ * DELETE /api/account, and the email notices on every identity change. Mail
+ * goes to dev_outbox (DEV_EMAIL=1).
  */
 import { env } from 'cloudflare:test';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { api, BOT_TOKEN, devLogin, GAME_ORIGIN, mockTelegram, type BotCall } from './helpers';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { api, devLogin, GAME_ORIGIN } from './helpers';
 import { forgetSessions } from '../src/auth/sessions';
-import { signInitData } from '../src/telegramAuth';
 import { resetRateLimits } from '../src/rateLimit';
 import { banIdentityHash } from '../src/account/banTombstone';
 import { peppersFromEnv } from '../src/auth/password';
@@ -18,26 +16,11 @@ const PW = 'battle-standard-42';
 const MIN = 60_000;
 let n = 0;
 const fresh = (p: string) => `${p}.${++n}.${Date.now()}@Example.com`;
-let tg = 7_300_000;
+let devId = 7_300_000;
 let ipN = 0;
 const ip = () => `198.19.${Math.floor(++ipN / 250)}.${ipN % 250}`;
 
-let bot: BotCall[] = [];
-beforeEach(() => {
-  resetRateLimits();
-  bot = mockTelegram();
-});
-afterEach(async () => {
-  vi.restoreAllMocks();
-  // The identity–mirror invariant holds after every identity write (M-ID-3).
-  const bad = await DB()
-    .prepare(
-      `SELECT p.id FROM players p LEFT JOIN auth_identities i ON i.player_id = p.id AND i.kind = 'telegram'
-       WHERE (p.telegram_id IS NULL) != (i.id IS NULL) OR CAST(p.telegram_id AS TEXT) != i.subject`,
-    )
-    .all();
-  expect(bad.results).toEqual([]);
-});
+beforeEach(() => resetRateLimits());
 
 interface Mail {
   to_addr: string;
@@ -55,16 +38,6 @@ async function mailTo(to: string, count = 1, timeoutMs = 30_000): Promise<Mail[]
 const linkToken = (m: Mail) => /#t=([A-Za-z0-9_-]{43})/.exec(m.text)?.[1] ?? null;
 const sidOf = (res: Response) => /__Host-pa_sid=(pa2_[A-Za-z0-9_-]{43})/.exec(res.headers.get('set-cookie') ?? '')?.[1] ?? null;
 const errorOf = async (r: Response) => (await r.json<{ error: { code: string } }>()).error.code;
-/** Bot messages sent to a chat (after the response, so this waits a little). */
-async function botTo(chat: number, count = 1): Promise<BotCall[]> {
-  const until = Date.now() + 30_000;
-  for (;;) {
-    const got = bot.filter((c) => c.method === 'sendMessage' && c.params.chat_id === chat);
-    if (got.length >= count || Date.now() > until) return got;
-    await new Promise((r) => setTimeout(r, 20));
-  }
-}
-
 /** Anonymous web forms (fresh IP, game origin, a passing Turnstile token). */
 const form = (path: string, json: Record<string, unknown>) =>
   api(path, { method: 'POST', json: { turnstile: 'XXXX.DUMMY.TOKEN.XXXX', ...json }, headers: { origin: GAME_ORIGIN, 'cf-connecting-ip': ip() } });
@@ -80,11 +53,10 @@ async function webAccount(): Promise<{ email: string; cookie: string; pid: numbe
   return { email, cookie: sidOf(res)!, pid: (await res.json<{ player: { id: number } }>()).player.id };
 }
 
-/** A Telegram player with a bearer session. */
-async function tgAccount(): Promise<{ token: string; pid: number; tgId: number }> {
-  const id = ++tg;
-  const me = await devLogin(id);
-  return { token: me.token, pid: me.playerId, tgId: id };
+/** A dev player (no email) with a bearer session. */
+async function devAccount(): Promise<{ token: string; pid: number }> {
+  const me = await devLogin(++devId);
+  return { token: me.token, pid: me.playerId };
 }
 
 /** Ages the re-auth of every session of the player past the 10-minute window. */
@@ -93,15 +65,12 @@ async function staleReauth(pid: number): Promise<void> {
   forgetSessions(pid);
 }
 
-const initDataFor = (id: number, ageSec = 0) =>
-  signInitData({ auth_date: String(Math.floor(Date.now() / 1000) - ageSec), user: JSON.stringify({ id, first_name: `Tester${id}` }) }, BOT_TOKEN);
-
 type Auth = { token?: string; cookie?: string };
 const reauth = (a: Auth, json: unknown) => api('/api/account/reauth', { method: 'POST', ...a, json, headers: { 'cf-connecting-ip': ip() } });
 
 describe('re-auth (ADR-0009 §1, accounts-v6.md §14 Q1)', () => {
   it('a sensitive action without a fresh proof is 401 reauth_required', async () => {
-    const me = await tgAccount();
+    const me = await devAccount();
     await staleReauth(me.pid);
     const r = await api('/api/account', { method: 'DELETE', token: me.token, json: { confirm: 'DELETE' } });
     expect(r.status).toBe(401);
@@ -126,37 +95,25 @@ describe('re-auth (ADR-0009 §1, accounts-v6.md §14 Q1)', () => {
     expect((await reauth({ cookie: me.cookie }, { password: PW })).status).toBe(401);
   });
 
-  it('a Telegram re-auth needs initData of the same Telegram user, at most 10 minutes old', async () => {
-    const me = await tgAccount();
-    await staleReauth(me.pid);
-    const old = await reauth({ token: me.token }, { initData: await initDataFor(me.tgId, 11 * 60) });
-    expect(old.status).toBe(401);
-    expect(await errorOf(old)).toBe('init_data_expired');
-    const other = await reauth({ token: me.token }, { initData: await initDataFor(me.tgId + 50_000) });
-    expect(other.status).toBe(403);
-    expect(await errorOf(other)).toBe('wrong_account');
-    const forged = await reauth({ token: me.token }, { initData: (await initDataFor(me.tgId)).replace(/hash=[0-9a-f]+/, `hash=${'0'.repeat(64)}`) });
-    expect(forged.status).toBe(401);
-    expect((await reauth({ token: me.token }, { initData: await initDataFor(me.tgId, 60) })).status).toBe(200);
-    const r = await api('/api/account', { method: 'DELETE', token: me.token, json: { confirm: 'nope' } });
-    expect(await errorOf(r)).toBe('confirm_required'); // past the re-auth gate now
-  });
-
   it('a password re-auth on an account without a password is 400 no_password', async () => {
-    const me = await tgAccount();
+    const me = await devAccount();
     const r = await reauth({ token: me.token }, { password: PW });
     expect(r.status).toBe(400);
     expect(await errorOf(r)).toBe('no_password');
   });
 
+  it('takes only a password', async () => {
+    const me = await webAccount();
+    expect((await reauth({ cookie: me.cookie }, { initData: 'auth_date=1&hash=00' })).status).toBe(400);
+  });
 });
 
 const addEmail = (a: Auth, email: string, password = PW) => api('/api/account/email', { method: 'POST', ...a, json: { email, password } });
 const hasPassword = async (pid: number) => !!(await DB().prepare(`SELECT 1 FROM auth_identities WHERE player_id = ?1 AND kind = 'password'`).bind(pid).first());
 
-describe('add email and password, Telegram → web (ADR-0009 §2)', () => {
-  it('completes only through the emailed link: the web gets a cookie session for the same player, with notices by email and bot', async () => {
-    const me = await tgAccount();
+describe('add email and password (ADR-0009 §2)', () => {
+  it('completes only through the emailed link: the web gets a cookie session for the same player, with a notice by email', async () => {
+    const me = await devAccount();
     const email = fresh('add');
     const r = await addEmail({ token: me.token }, email);
     expect(r.status).toBe(202);
@@ -170,23 +127,21 @@ describe('add email and password, Telegram → web (ADR-0009 §2)', () => {
     expect(await res.json()).toMatchObject({ purpose: 'add_email', player: { id: me.pid } });
     const cookie = sidOf(res)!;
     expect((await api('/api/account', { cookie })).status).toBe(200);
-    // The Telegram side is unchanged.
+    // The bearer session is unchanged.
     expect((await api('/api/account', { token: me.token })).status).toBe(200);
     // Log-in on the web with the new password works.
     const login = await form('/api/auth/login', { email, password: PW });
     expect(login.status).toBe(200);
     expect((await login.json<{ player: { id: number } }>()).player.id).toBe(me.pid);
-    // Notices: a confirmation to the address, a bot message to the chat.
+    // Notice: a confirmation to the address.
     const mails = await mailTo(email, 2);
     expect(mails[1].subject).toMatch(/added/i);
-    const [msg] = await botTo(me.tgId);
-    expect(String(msg.params.text)).toMatch(/email/i);
     // Single use.
     expect((await verify(linkToken(m))).status).toBe(400);
   });
 
   it('needs a fresh re-auth', async () => {
-    const me = await tgAccount();
+    const me = await devAccount();
     await staleReauth(me.pid);
     const r = await addEmail({ token: me.token }, fresh('add'));
     expect(r.status).toBe(401);
@@ -194,7 +149,7 @@ describe('add email and password, Telegram → web (ADR-0009 §2)', () => {
   });
 
   it('applies the password policy and refuses a second email', async () => {
-    const me = await tgAccount();
+    const me = await devAccount();
     const short = await addEmail({ token: me.token }, fresh('add'), 'short');
     expect(short.status).toBe(400);
     expect(await errorOf(short)).toBe('too_short');
@@ -205,7 +160,7 @@ describe('add email and password, Telegram → web (ADR-0009 §2)', () => {
   });
 
   it('allows 5 requests per hour per account', async () => {
-    const me = await tgAccount();
+    const me = await devAccount();
     for (let i = 0; i < 5; i++) expect((await addEmail({ token: me.token }, fresh('add'))).status).toBe(202);
     const r = await addEmail({ token: me.token }, fresh('add'));
     expect(r.status).toBe(429);
@@ -214,7 +169,7 @@ describe('add email and password, Telegram → web (ADR-0009 §2)', () => {
 
   it('an address that belongs to another account gets the same 202 and a conflict email; its link links nothing', async () => {
     const other = await webAccount();
-    const me = await tgAccount();
+    const me = await devAccount();
     const r = await addEmail({ token: me.token }, other.email);
     expect(r.status).toBe(202);
     expect(await r.json()).toEqual({ status: 'check_email' });
@@ -227,7 +182,7 @@ describe('add email and password, Telegram → web (ADR-0009 §2)', () => {
   });
 
   it('a ban-tombstoned address is refused when the link is opened', async () => {
-    const me = await tgAccount();
+    const me = await devAccount();
     const email = fresh('banned');
     const now = Date.now();
     const hash = await banIdentityHash(peppersFromEnv(env).current, 'password', email.toLowerCase());
@@ -281,8 +236,8 @@ describe('change email (ADR-0009 §4)', () => {
   });
 
   it('needs re-auth, an existing email and a different address', async () => {
-    const tgOnly = await tgAccount();
-    const r1 = await changeEmail({ token: tgOnly.token }, fresh('x'));
+    const devOnly = await devAccount();
+    const r1 = await changeEmail({ token: devOnly.token }, fresh('x'));
     expect(await errorOf(r1)).toBe('no_password');
     const me = await webAccount();
     const r2 = await changeEmail({ cookie: me.cookie }, me.email.toUpperCase());
@@ -294,94 +249,21 @@ describe('change email (ADR-0009 §4)', () => {
   });
 });
 
-/** A Telegram player who added an email: a bearer session and a cookie session. */
-async function linkedAccount(): Promise<{ token: string; cookie: string; pid: number; tgId: number; email: string }> {
-  const me = await tgAccount();
+/** A dev player who added an email: a bearer session and a cookie session. */
+async function linkedAccount(): Promise<{ token: string; cookie: string; pid: number; email: string }> {
+  const me = await devAccount();
   const email = fresh('linked');
   expect((await addEmail({ token: me.token }, email)).status).toBe(202);
   const [m] = await mailTo(email);
   const res = await verify(linkToken(m));
   expect(res.status).toBe(200);
-  await botTo(me.tgId); // the email_added notice
-  bot.length = 0;
+  await mailTo(email, 2); // the email_added notice
   return { ...me, email, cookie: sidOf(res)! };
 }
-const unlink = (a: Auth, kind: string) => api(`/api/account/identities/${kind}`, { method: 'DELETE', ...a });
 const count = async (sql: string, ...args: unknown[]) => (await DB().prepare(`SELECT COUNT(*) AS n FROM ${sql}`).bind(...args).first<{ n: number }>())!.n;
 
-describe('unlink (ADR-0009 §4)', () => {
-  it('refuses to remove the last sign-in method', async () => {
-    const t = await tgAccount();
-    const r1 = await unlink({ token: t.token }, 'telegram');
-    expect(r1.status).toBe(409);
-    expect(await errorOf(r1)).toBe('last_login_method');
-    const w = await webAccount();
-    const r2 = await unlink({ cookie: w.cookie }, 'password');
-    expect(r2.status).toBe(409);
-    expect(await errorOf(r2)).toBe('last_login_method');
-    expect(await errorOf(await unlink({ cookie: w.cookie }, 'telegram'))).toBe('not_found');
-    expect((await unlink({ cookie: w.cookie }, 'google')).status).toBe(400);
-  });
-
-  it('unlinking Telegram clears the mirror, the bot rows and the bearer sessions; purchases stay; email and bot are told', async () => {
-    const me = await linkedAccount();
-    const now = Date.now();
-    await DB().batch([
-      DB().prepare('INSERT INTO notify_settings (player_id, updated_at) VALUES (?1, ?2)').bind(me.pid, now),
-      DB().prepare(`INSERT INTO bot_state (telegram_id, state, until) VALUES (?1, 'support', ?2)`).bind(me.tgId, now + 60_000),
-      DB().prepare(`INSERT INTO notify_outbox (player_id, type, event, dedupe, data, created_at) VALUES (?1, 'season', 'season_ending', ?2, '{"days":3}', ?3)`).bind(me.pid, `d${me.pid}`, now),
-      DB().prepare(`INSERT INTO purchases (telegram_payment_charge_id, player_id, product_id, currency, stars_amount, payload, created_at) VALUES (?1, ?2, 'founder', 'XTR', 100, '{}', ?3)`).bind(`ch_u${me.pid}`, me.pid, now),
-    ]);
-    const r = await unlink({ cookie: me.cookie }, 'telegram');
-    expect(r.status).toBe(200);
-    expect(await r.json()).toEqual({ ok: true, signedOut: false });
-    expect(await DB().prepare('SELECT telegram_id FROM players WHERE id = ?1').bind(me.pid).first()).toEqual({ telegram_id: null });
-    expect(await count('notify_settings WHERE player_id = ?1', me.pid)).toBe(0);
-    expect(await count('bot_state WHERE telegram_id = ?1', me.tgId)).toBe(0);
-    expect(await count(`notify_outbox WHERE player_id = ?1 AND status = 'pending'`, me.pid)).toBe(0);
-    expect(await count('purchases WHERE player_id = ?1', me.pid)).toBe(1);
-    expect((await api('/api/account', { token: me.token })).status).toBe(401);
-    expect((await api('/api/account', { cookie: me.cookie })).status).toBe(200);
-    const mails = await mailTo(me.email, 3);
-    expect(mails[2].subject).toMatch(/Telegram removed/i);
-    expect(String((await botTo(me.tgId))[0].params.text)).toMatch(/unlinked/i);
-    // The same Telegram user signs in to a new, empty player.
-    const again = await devLogin(me.tgId);
-    expect(again.playerId).not.toBe(me.pid);
-  });
-
-  it('unlinking the email revokes cookie sessions and tells the old address and the bot', async () => {
-    const me = await linkedAccount();
-    const r = await unlink({ token: me.token }, 'password');
-    expect(r.status).toBe(200);
-    expect(await r.json()).toEqual({ ok: true, signedOut: false });
-    expect((await api('/api/account', { cookie: me.cookie })).status).toBe(401);
-    expect((await api('/api/account', { token: me.token })).status).toBe(200);
-    expect((await form('/api/auth/login', { email: me.email, password: PW })).status).toBe(401);
-    const mails = await mailTo(me.email, 3);
-    expect(mails[2].subject).toMatch(/Email removed/i);
-    expect(String((await botTo(me.tgId))[0].params.text)).toMatch(/email was removed/i);
-  });
-
-  it('a session that unlinks its own method is signed out (and the cookie is cleared)', async () => {
-    const me = await linkedAccount();
-    const r = await unlink({ cookie: me.cookie }, 'password');
-    expect(r.status).toBe(200);
-    expect(await r.json()).toEqual({ ok: true, signedOut: true });
-    expect(r.headers.get('set-cookie')).toMatch(/Max-Age=0/);
-  });
-
-  it('needs re-auth', async () => {
-    const me = await linkedAccount();
-    await staleReauth(me.pid);
-    const r = await unlink({ cookie: me.cookie }, 'telegram');
-    expect(r.status).toBe(401);
-    expect(await errorOf(r)).toBe('reauth_required');
-  });
-});
-
 describe('DELETE /api/account (ADR-0009 §7)', () => {
-  it('needs re-auth and the typed confirmation, then deletes, with a confirmation email and a bot notice', async () => {
+  it('needs re-auth and the typed confirmation, then deletes, with a confirmation email', async () => {
     const me = await linkedAccount();
     const bad = await api('/api/account', { method: 'DELETE', cookie: me.cookie, json: { confirm: 'delete' } });
     expect(bad.status).toBe(400);
@@ -390,15 +272,13 @@ describe('DELETE /api/account (ADR-0009 §7)', () => {
     expect(r.status).toBe(200);
     expect(await r.json()).toEqual({ status: 'done' });
     expect(r.headers.get('set-cookie')).toMatch(/Max-Age=0/);
-    const p = await DB().prepare('SELECT deleted_at, telegram_id, display_name FROM players WHERE id = ?1').bind(me.pid).first<{ deleted_at: number | null; telegram_id: number | null; display_name: string }>();
-    expect(p).toMatchObject({ telegram_id: null, display_name: 'Deleted player' });
+    const p = await DB().prepare('SELECT deleted_at, display_name FROM players WHERE id = ?1').bind(me.pid).first<{ deleted_at: number | null; display_name: string }>();
+    expect(p).toMatchObject({ display_name: 'Deleted player' });
     expect(p!.deleted_at).not.toBeNull();
     expect(await count('auth_identities WHERE player_id = ?1', me.pid)).toBe(0);
     // The confirmation email went out before the identities were removed (LINK-04's beforeRevoke hook).
     const mails = await mailTo(me.email, 3);
     expect(mails[2].subject).toMatch(/deleted/i);
-    expect(String((await botTo(me.tgId))[0].params.text)).toMatch(/deleted/i);
     expect((await api('/api/account', { token: me.token })).status).toBe(401);
   });
-
 });

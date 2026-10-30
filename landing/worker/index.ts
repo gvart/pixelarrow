@@ -1,8 +1,7 @@
 // The landing Worker for pixelarrow.app (ADR-0007, ADR-0010 §3–§4). Static assets are served without
-// it; it runs first only for "/" and "/api/public/*" (landing/wrangler.jsonc). It holds no secrets,
+// it; it runs first only for "/api/public/*" (landing/wrangler.jsonc). It holds no secrets,
 // no D1 and no Durable Objects, and forwards nothing from the visitor to the game.
 
-const PLAY_URL = 'https://play.pixelarrow.app/';
 const SUMMARY_PATH = '/api/public/v1/summary';
 /** A second cache key that keeps the last good snapshot for 24 h, served when the game fails. */
 const LAST_GOOD_PATH = '/api/public/v1/summary/__last-good';
@@ -121,9 +120,6 @@ export default {
     }
     // ADR-0010 §5: no other public route exists.
     if (url.pathname.startsWith('/api/')) return secured(json('{"error":"not found"}', 'no-store', 404));
-    if (url.pathname === '/' && (url.searchParams.has('startapp') || url.searchParams.has('tgWebAppStartParam'))) {
-      return Response.redirect(PLAY_URL + url.search, 302);
-    }
     return secured(await env.ASSETS.fetch(request));
   },
 } satisfies ExportedHandler<Env>;

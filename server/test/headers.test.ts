@@ -29,7 +29,7 @@ describe('CORS', () => {
     expect(res.headers.get('access-control-allow-credentials')).toBeNull();
   });
 
-  it.each([APEX, 'https://www.pixelarrow.app', 'https://web.telegram.org', 'https://evil.example', 'null'])('refuses %s', async (origin) => {
+  it.each([APEX, 'https://www.pixelarrow.app', 'https://evil.example', 'null'])('refuses %s', async (origin) => {
     const pre = await preflight(origin);
     expect(pre.headers.get('access-control-allow-origin')).toBeNull();
     const res = await api('/api/health', { headers: { origin } });
@@ -54,7 +54,7 @@ describe('framing', () => {
 });
 
 describe('Origin check for cookie requests (scaffold, finished in V6-ACCT-02)', () => {
-  const postWith = (headers: Record<string, string>) => api('/api/auth/telegram', { method: 'POST', json: { dev: { id: 99001, first_name: 'Csrf' } }, headers });
+  const postWith = (headers: Record<string, string>) => api('/api/auth/dev', { method: 'POST', json: { dev: { id: 99001, first_name: 'Csrf' } }, headers });
 
   it.each([
     ['a foreign origin', { cookie: COOKIE, origin: 'https://evil.example' }],

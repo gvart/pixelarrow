@@ -1,13 +1,13 @@
 /**
  * What account deletion does to every table (ADR-0009 §7, M-ID-5). Every table
- * of the schema has an entry, and every column that can hold a players.id or a
- * Telegram user id is named by it; test/deletion-map.test.ts checks this
- * against the migrated schema, so a new table or player column fails the
- * build until it is classified here.
+ * of the schema has an entry, and every column that can hold a players.id is
+ * named by it; test/deletion-map.test.ts checks this against the migrated
+ * schema, so a new table or player column fails the build until it is
+ * classified here.
  *
  * Rules:
- * - delete          rows of the player are hard-deleted (`pid` and `tg` columns
- *                   are matched; `via` names custom handling in delete.ts)
+ * - delete          rows of the player are hard-deleted (`pid` columns are
+ *                   matched; `via` names custom handling in delete.ts)
  * - keep_tombstone  kept for bookkeeping, audit or moderation, pointing only at
  *                   the tombstone id; no personal data in them
  * - shared_history  other players' history (battles, matches, boards): kept,
@@ -26,8 +26,6 @@ interface TableRule {
   rule: DeletionRule;
   /** Columns holding the player's id that this rule acts on. */
   pid?: string[];
-  /** Columns holding the player's Telegram user id that this rule acts on. */
-  tg?: string[];
   /** Player columns left as they are (they point at another player's row, or at the tombstone). */
   kept?: string[];
   /** Custom handling in delete.ts (cascades, keys, joins). */
@@ -41,11 +39,7 @@ export const DELETION_MAP: Record<string, TableRule> = {
   password_hashes: { rule: 'delete', via: 'cascade from auth_identities' },
   auth_identities: { rule: 'delete', pid: ['player_id'] },
   email_tokens: { rule: 'delete', pid: ['player_id'], via: 'also by the player’s email addresses' },
-  link_codes: { rule: 'delete', pid: ['player_id'], tg: ['telegram_id'] },
-  link_conflicts: { rule: 'delete', pid: ['player_id', 'other_player_id'] },
   auth_throttle: { rule: 'delete', via: 'keys of the player’s addresses and id' },
-  bot_state: { rule: 'delete', tg: ['telegram_id'] },
-  support_requests: { rule: 'delete', pid: ['player_id'], tg: ['telegram_id'] },
 
   // Shared structures: step 'leave'.
   clan_members: { rule: 'delete', pid: ['player_id'], via: 'leadership passes on; an empty clan is disbanded' },
@@ -57,8 +51,6 @@ export const DELETION_MAP: Record<string, TableRule> = {
   duel_profiles: { rule: 'delete', pid: ['player_id'] },
   duel_ratings: { rule: 'delete', pid: ['player_id'] },
   wallets: { rule: 'delete', pid: ['player_id'] },
-  notify_settings: { rule: 'delete', pid: ['player_id'] },
-  notify_outbox: { rule: 'delete', pid: ['player_id'] },
   analytics_milestones: { rule: 'delete', pid: ['player_id'] },
   client_errors: { rule: 'delete', pid: ['last_player'] },
   war_items: { rule: 'delete', pid: ['player_id'] },
@@ -158,12 +150,9 @@ export interface SchemaColumn {
 
 /** Column names that hold a player id without a foreign key saying so. */
 const PID_NAME = /^(player_id|player_[ab]|other_player_id|last_player|(attacker|defender|seller|buyer|holder|owner)(_id)?|actor_id|created_by|killed_by|siege_by)$/;
-/** Column names that hold a Telegram user id (not a payment charge id). */
-const TG_NAME = /^telegram_(id|user|chat)/;
-
-/** The columns that can hold a player id or a Telegram user id. */
+/** The columns that can hold a player id. */
 export function playerColumnsOf(cols: SchemaColumn[]): SchemaColumn[] {
-  return cols.filter((c) => c.references === 'players' || PID_NAME.test(c.column) || TG_NAME.test(c.column));
+  return cols.filter((c) => c.references === 'players' || PID_NAME.test(c.column));
 }
 
 /** What the schema has that DELETION_MAP doesn't classify; empty when complete. */
@@ -173,12 +162,12 @@ export function unclassified(cols: SchemaColumn[]): string[] {
   for (const c of playerColumnsOf(cols)) {
     const r = DELETION_MAP[c.table];
     if (!r || c.table === 'players') continue;
-    if (![...(r.pid ?? []), ...(r.tg ?? []), ...(r.kept ?? [])].includes(c.column)) out.add(`${c.table}.${c.column}: player column not in DELETION_MAP`);
+    if (![...(r.pid ?? []), ...(r.kept ?? [])].includes(c.column)) out.add(`${c.table}.${c.column}: player column not in DELETION_MAP`);
   }
   return [...out].sort();
 }
 
 /** The tables whose matching rows the purge step hard-deletes, in map order. */
 export function purgeTables(): [string, TableRule][] {
-  return Object.entries(DELETION_MAP).filter(([, r]) => r.rule === 'delete' && ((r.pid?.length ?? 0) > 0 || (r.tg?.length ?? 0) > 0));
+  return Object.entries(DELETION_MAP).filter(([, r]) => r.rule === 'delete' && (r.pid?.length ?? 0) > 0);
 }

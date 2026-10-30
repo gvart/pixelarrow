@@ -3,7 +3,7 @@
  *
  *  - an email account: the web session cookie the menu's sign-in set (same-origin fetches and socket upgrades carry it;
  *    no Authorization header, or the server answers two_transports);
- *  - a dev player (local only, wrangler dev with DEV_AUTH=1): POST /api/auth/telegram { dev } gives a bearer token;
+ *  - a dev player (local only, wrangler dev with DEV_AUTH=1): POST /api/auth/dev { dev } gives a bearer token;
  *    the menu's dev login keeps the id in localStorage `war.devId`, and `?dev=<id>` on a page forces one.
  *
  * Order: an asked dev id, else the cookie session, else a kept dev id. None of them: null (the page sends the player
@@ -36,7 +36,7 @@ export function keptDevId(): number | null {
 }
 
 export async function devAuth(id: number, name = `Dev${id}`): Promise<WarAuth> {
-  const res = await fetch('/api/auth/telegram', { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify({ dev: { id, first_name: name } }) });
+  const res = await fetch('/api/auth/dev', { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify({ dev: { id, first_name: name } }) });
   if (!res.ok) throw new Error(`dev login failed (${res.status}): is wrangler dev running with DEV_AUTH=1?`);
   const s = (await res.json()) as { token: string; player: { id: number } };
   return { pid: s.player.id, headers: { ...JSON_HEADERS, authorization: `Bearer ${s.token}` }, protocols: ['pixelarrow.v1', s.token], token: s.token, dev: true };

@@ -118,7 +118,7 @@ const CLANS = [['Fixture Wolves', 'FXW'], ['Fixture Ravens', 'FXR'], ['Fixture L
 async function seed() {
   const ps = [];
   for (const [i, name] of PLAYERS.entries()) {
-    const login = await api('/api/auth/telegram', { method: 'POST', json: { dev: { id: 990_001 + i, first_name: 'Fixture' } } });
+    const login = await api('/api/auth/dev', { method: 'POST', json: { dev: { id: 990_001 + i, first_name: 'Fixture' } } });
     await api('/api/account/name', { method: 'PUT', token: login.token, json: { name } });
     if (i < 9) await api('/api/online/profile', { method: 'POST', token: login.token });
     ps.push({ id: login.player.id, token: login.token });
@@ -190,7 +190,6 @@ async function main() {
     'DEV_AUTH=1', 'DEV_EMAIL=1', `DEV_ORIGINS=http://localhost:${PORTS.game}`,
     `PASSWORD_PEPPER=${randomBytes(32).toString('base64')}`, 'PASSWORD_PEPPER_ID=1',
     'TURNSTILE_SECRET=1x0000000000000000000000000000000AA',
-    'TELEGRAM_BOT_TOKEN=123456:local-e2e', 'TELEGRAM_WEBHOOK_SECRET=local-e2e',
   ].join('\n') + '\n');
 
   wrangler(['d1', 'migrations', 'apply', 'DB', '--local', '--persist-to', join(WORK, 'game-state'), '-c', join(ROOT, 'wrangler.jsonc')]);
@@ -249,14 +248,11 @@ async function main() {
     'GET summary': await get(LAND, SUMMARY, withCookie),
     'HEAD summary': await get(LAND, SUMMARY, { ...withCookie, method: 'HEAD' }),
     'GET /': await get(LAND, '/', withCookie),
-    'GET /?startapp=clan_x': await get(LAND, '/?startapp=clan_x', withCookie),
     'GET /privacy.html': await get(LAND, '/privacy.html', withCookie),
     'GET /api/x': await get(LAND, '/api/x', withCookie),
   };
   for (const [what, r] of Object.entries(answers)) check(r.headers.get('set-cookie') === null && !/cookie/i.test(r.headers.get('vary') ?? ''), `landing ${what}: no Set-Cookie, no Vary: Cookie`, String(r.status));
   check(answers['GET summary'].text === first.text, 'a cookie-bearing request gets the same shared copy (nothing per visitor)');
-  const redirect = answers['GET /?startapp=clan_x'];
-  check(redirect.status === 302 && redirect.headers.get('location') === 'https://play.pixelarrow.app/?startapp=clan_x', '/?startapp=clan_x: 302 to play', `${redirect.status} ${redirect.headers.get('location')}`);
   const gameWithCookie = await get(GAME, SUMMARY, withCookie);
   check(gameWithCookie.status === 200 && gameWithCookie.headers.get('set-cookie') === null, 'the game public route ignores the cookie and sets none');
 

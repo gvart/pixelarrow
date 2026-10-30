@@ -66,9 +66,9 @@ cuts" if that is the owner's call. Name the plan of record (`docs/ROADMAP.md` se
 
 {Examples from past runs: v5 "make pixelarrow a polished, deeper game: UI, art, menus, mechanics, controls,
 progression, onboarding, feel, audio; keep the core loop's heart (formation tactics, morale breaks, flanking,
-javelins)". v6 "pixelarrow.app becomes the landing page, play.pixelarrow.app serves the game for web and
-Telegram; true landscape layouts; mouse and keyboard with rebinding; the platform layer; email accounts linked to
-Telegram; a Payments interface; Turnstile; privacy notice and account deletion".}
+javelins)". v6 "pixelarrow.app becomes the landing page, play.pixelarrow.app serves the game for the web;
+true landscape layouts; mouse and keyboard with rebinding; the platform layer; email accounts;
+a Payments interface; Turnstile; privacy notice and account deletion".}
 
 {Say what the run is NOT (v6: "not a mechanics release; change gameplay only when a device needs it, and then
 design first").}
@@ -95,7 +95,7 @@ design first").}
 - The game is Phaser + TypeScript + Vite (check the version in `package.json`); use `phaser-core` and Context7 for
   the API.
 - **Screen matrix.** Every game screen passes at all of these, and every story's Playwright screenshots cover
-  them (the v5 `scripts/layout-check.mjs` is gone): phone portrait 390x844 (design size), 360x780, 320 wide (Telegram); phone landscape
+  them (the v5 `scripts/layout-check.mjs` is gone): phone portrait 390x844 (design size), 360x780, 320 wide; phone landscape
   844x390; tablet portrait 768x1024, 820x1180; landscape 1024x768, 1280x800, 1440x900, 1920x1080. The landing page
   passes at 320, 390, 768, 1280, 1440, 1920 wide.
 - **Users and compatibility:** {while there are no live users (V5-074): no save migrations or old-client
