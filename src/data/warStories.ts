@@ -11,6 +11,7 @@
 import type { Pt, Story } from '../war/sim/stories';
 import type { MobKind, RegionData } from '../war/types';
 import { depthOf } from '../war/sim/depth';
+import { WORLD_REGIONS } from '../war/world/regions';
 import { chiefsOfKind, warChief } from './warBosses';
 
 const TEETH: Story = {
@@ -55,7 +56,7 @@ const TEETH: Story = {
       },
     },
   ],
-  end: 'Mnason pours water on the stones. The Teeth breathe a little warmer.',
+  end: 'Mnason pours water on the stones, and the Teeth breathe a little warmer. In Lykon\'s tally-sack lies a shard of the Wardens\' oath: "Nothing from below comes up." The shafts say otherwise.',
   reward: { goods: { coin: 60 } },
 };
 
@@ -101,7 +102,7 @@ const SLOPES: Story = {
       },
     },
   ],
-  end: 'Opoia walks her husband home along the Tin Road. The pines are quiet tonight.',
+  end: 'Opoia walks her husband home along the Tin Road. Under Skyles\' saddle-cloth, wrapped like a relic, was a shard of the Wardens\' oath: "The roads are kept in every season."',
   reward: { goods: { coin: 50, food: 30 } },
 };
 
@@ -147,7 +148,7 @@ const HEATH: Story = {
       trigger: { kind: 'rescue', at: [208, 265], cls: 'hoplite', level: 2, name: 'Kleitos' },
     },
   ],
-  end: 'Aithra hears no voice in the bog tonight. The heath is only a heath.',
+  end: 'Aithra hears no voice in the bog tonight. Where the drowned stone stood, the peat gives up an older piece, a shard of the Wardens\' oath: "The forsworn walk until they keep it."',
   reward: { goods: { coin: 50 } },
 };
 
@@ -193,7 +194,7 @@ const LAGOON: Story = {
       },
     },
   ],
-  end: 'Eryxo cuts the first salt in a season. She sets a handful aside for you.',
+  end: 'Eryxo cuts the first salt in a season and sets a handful aside for you. Under the Salt-King\'s seat lay a shard of the Wardens\' oath: "Salt on every threshold, against the dark." She salts her door that night.',
   reward: { goods: { coin: 50, salt: 10 } },
 };
 
@@ -234,7 +235,7 @@ const CAPE: Story = {
       trigger: { kind: 'talk' }, reward: { item: { def: 'pelte', rarity: 'uncommon' } },
     },
   ],
-  end: 'Melanthios laughs into the wind. "Then he is a soldier. Keep him fed."',
+  end: 'Melanthios laughs into the wind. "Then he is a soldier. Keep him fed." The Eye of the Cape sat on a shard of the Wardens\' oath: "We face the wind that blows outward." The wind still blows that way.',
   reward: { goods: { coin: 40, food: 40 } },
 };
 
@@ -280,7 +281,7 @@ const MOORS: Story = {
       },
     },
   ],
-  end: 'Sthenelos lies down on the tor. The Great Bear sleeps on. One day, someone will wake her.',
+  end: 'Sthenelos lies down on the tor. The cairn\'s last stone is no granite but a shard of the Wardens\' oath: "Our names fall before our watch does." The rest of it lies in the Great Bear\'s den, and she sleeps on.',
   reward: { goods: { coin: 80 } },
 };
 
@@ -303,7 +304,7 @@ const FJORDS: Story = {
       trigger: { kind: 'track', marks: [[348, 360], [342, 315], [340, 275]] },
     },
     {
-      id: 'hull', goal: 'Drive the Hound of Boreas from the hull', label: 'The Hound',
+      id: 'hull', goal: 'Drive the Hound from the hull', label: 'The Hound',
       story: 'The longship lies keel-up on the shore, ribs to the sky. The pack sleeps in her belly, and the biggest of them was born in the north wind.',
       where: 'The beached hull on the fjord shore.',
       trigger: { kind: 'clear', at: [338, 232], mob: 'wolf', count: 6, lead: true, name: 'the Hound of Boreas' }, reward: { goods: { hides: 10, coin: 20 } },
@@ -320,7 +321,7 @@ const FJORDS: Story = {
       },
     },
   ],
-  end: 'Phereklos sits by the well and listens to the north. Whatever he hears, he does not say.',
+  end: 'Phereklos sits by the well and listens to the north. Wedged in the keel where the Hound slept was a shard of the Wardens\' oath: "No keel passes the grey water." Whatever the wind tells him, he does not say.',
   reward: { goods: { coin: 50 } },
 };
 
@@ -361,7 +362,7 @@ const OAKWOOD: Story = {
       trigger: { kind: 'talk' }, reward: { item: { def: 'sauroter_dory', rarity: 'rare' } },
     },
   ],
-  end: 'Kleodora cuts the name into the lintel of her door. "Wood forgets," she says. "Stone forgets slower."',
+  end: 'Kleodora cuts the name into her lintel. "Wood forgets," she says. "Stone forgets slower." The spear-butt stood in a shard of the Wardens\' oath: "No name goes to Lethe while we stand." They no longer stand.',
   reward: { goods: { coin: 50, food: 20 } },
 };
 
@@ -396,7 +397,7 @@ const STEPPE: Story = {
       trigger: { kind: 'talk' }, reward: { soul: { cls: 'archer', level: 3, name: 'Saulios' } },
     },
   ],
-  end: 'Saulios puts his face in her mane and says nothing for a long time. Then he asks where you ride next.',
+  end: 'Saulios puts his face in her mane and says nothing for a long time. Her bridle was knotted round a shard of the Wardens\' oath: "No rider goes over the edge." Then he asks where you ride next.',
   reward: { goods: { coin: 40, food: 30 }, item: { def: 'horse_pendant', rarity: 'uncommon' } },
 };
 
@@ -436,7 +437,7 @@ const CHALK: Story = {
       },
     },
   ],
-  end: 'Ariston goes back to his chisel. On the next face he cuts, the eyes are open.',
+  end: 'Ariston goes back to his chisel; on the next face he cuts, the eyes are open. Under Bias\' work he finds an older cutting, a shard of the Wardens\' oath: "No shade leaps, and none is pushed."',
   reward: { goods: { coin: 50 } },
 };
 
@@ -482,7 +483,7 @@ const KURGANS: Story = {
       trigger: { kind: 'clear', at: [400, 182], mob: 'wolf', count: 6, lead: true, name: 'the Chieftain\'s Hounds' }, reward: { goods: { hides: 10 } },
     },
   ],
-  end: 'Madyes sits on the mound\'s shoulder and watches the Desert Road. The old chieftain sleeps, or pretends to.',
+  end: 'Madyes sits on the mound\'s shoulder and watches the Desert Road. The chieftain keeps a shard of the Wardens\' oath under his tongue: "We watch from the high places." He sleeps, or pretends to.',
   reward: { goods: { coin: 40 } },
 };
 
@@ -517,7 +518,7 @@ const DUNES: Story = {
       trigger: { kind: 'talk' }, reward: { item: { def: 'bes_amulet', rarity: 'rare' } },
     },
   ],
-  end: 'By morning the ghost has dug the well clear. The water is sweet. No one in the village saw him do it.',
+  end: 'By morning the ghost has dug the well clear, and the water is sweet. At the bottom lay what he died digging toward, a shard of the Wardens\' oath: "We dig until the water comes."',
   reward: { goods: { coin: 50, salt: 10 } },
 };
 
@@ -557,7 +558,7 @@ const COVES: Story = {
       },
     },
   ],
-  end: 'On the headland, someone has taken down the rope at last.',
+  end: 'On the headland, someone has taken down the rope at last. The noose was knotted round a shard of the Wardens\' oath: "The drowned are let ashore." Neleus came ashore. The rope was waiting.',
   reward: { goods: { coin: 30, food: 20 } },
 };
 
@@ -592,7 +593,7 @@ const VINEYARDS: Story = {
       trigger: { kind: 'talk' }, reward: { item: { def: 'hermes_token', rarity: 'rare' } },
     },
   ],
-  end: 'Oinopion plants the cutting where the old vine stood and pours the last of last year\'s wine on it. "For your next crossing," he says.',
+  end: 'Oinopion plants the cutting and pours the last of last year\'s wine on it. "For your next crossing." The old root had grown round a shard of the Wardens\' oath: "Every crossing is poured for."',
   reward: { goods: { coin: 40, oil: 10 } },
 };
 
@@ -632,7 +633,7 @@ const PASS: Story = {
       },
     },
   ],
-  end: 'Tin moves through Kleisoura once-taxed again. Whose tin, and whose silence, is another matter.',
+  end: 'Tin moves through Kleisoura once-taxed again; whose silence, is another matter. The Wardens\' toll-stone cracks as you pass, and a shard of the Wardens\' oath falls at your feet: "One toll at the pass, and no more."',
   reward: { goods: { coin: 40 } },
 };
 
@@ -678,7 +679,7 @@ const LAKE: Story = {
       },
     },
   ],
-  end: 'Nikias builds a new ferry. He does not look at the isle when he rows past it.',
+  end: 'Nikias builds a new ferry and does not look at the isle when he rows past. Kalamos wore a shard of the Wardens\' oath on a cord: "What nests on the isle stays on it." Nothing stayed.',
   reward: { goods: { coin: 40 } },
 };
 
@@ -689,7 +690,7 @@ const FORD: Story = {
   backstory: 'We broke at the river, and the bridge broke under us. I came over. My company did not. They are on the island still, waiting for a boat, and the Ferrymen charge the dead to cross, as Charon does. My file-leader will not pay. He never paid for anything.',
   steps: [
     {
-      id: 'bridge', goal: 'Go to the broken bridge', label: 'Bridge',
+      id: 'bridge', goal: 'Read the mark on the bridge', label: 'Bridge',
       story: 'The stumps of the bridge, and the company\'s mark scratched on the last stone: a crooked shield and a number, crossed out, crossed out, crossed out.',
       where: 'The broken bridge on the western channel.',
       trigger: { kind: 'reach', at: [168, 240] }, reward: { goods: { coin: 10 } },
@@ -724,7 +725,7 @@ const FORD: Story = {
       trigger: { kind: 'rescue', at: [218, 193], cls: 'hoplite', level: 3, name: 'Philomelos' },
     },
   ],
-  end: 'Deinias waits on the bank. When Philomelos comes over, the two old soldiers do not speak; they stand together and look at the river.',
+  end: 'Deinias and Philomelos stand together and look at the river, and do not speak. Among the obols in Porthmeus\' fare-box lay a shard of the Wardens\' oath: "The dead cross free."',
   reward: { goods: { coin: 50 }, item: { def: 'knucklebones', rarity: 'rare' } },
 };
 
@@ -741,30 +742,30 @@ const OASIS: Story = {
       trigger: { kind: 'reach', at: [372, 162] }, reward: { goods: { coin: 15 } },
     },
     {
-      id: 'battos', goal: 'Bring down Battos the Outrider', label: 'Battos',
-      story: 'Battos rides out at every dust cloud. He has his father\'s jaw and none of his patience.',
+      id: 'battos', goal: 'Bring down Himilko the Outrider', label: 'Himilko',
+      story: 'Himilko rides out at every dust cloud. He has his father\'s jaw and none of his patience.',
       where: 'His riders\' camp in the dunes to the north.',
-      trigger: { kind: 'clear', at: [330, 88], mob: 'bandit', count: 5, lead: true, name: 'Battos the Outrider' }, reward: { goods: { coin: 20, salt: 10 } },
+      trigger: { kind: 'clear', at: [330, 88], mob: 'bandit', count: 5, lead: true, name: 'Himilko the Outrider' }, reward: { goods: { coin: 20, salt: 10 } },
     },
     {
       id: 'father', goal: 'Tell Hanno what his son said', label: 'Hanno',
-      story: 'Beaten, Battos only asks: "Has the caravan come?" Hanno should hear that from you.',
+      story: 'Beaten, Himilko only asks: "Has the caravan come?" Hanno should hear that from you.',
       where: 'Back at the oasis.',
       trigger: { kind: 'talk' },
     },
     {
-      id: 'word', goal: 'Choose what Battos is told', label: 'Hanno',
+      id: 'word', goal: 'Choose what Himilko is told', label: 'Hanno',
       story: 'Hanno is afraid. If his son learns the caravan is dead, he may follow it. If he does not, he will wait forever.',
       where: 'Choose on this card.',
       trigger: {
         kind: 'choice', options: [
-          { id: 'truth', label: 'Tell Battos the truth', text: 'Battos looks at the old man a long time. Then he lays his spear down at his father\'s feet, and picks it up again, and asks to ride with you.', reward: { soul: { cls: 'javelineer', level: 3, name: 'Battos' } } },
-          { id: 'wait', label: 'Let him wait', text: 'Battos goes back to his dunes to wait. His riders leave your carts alone from now on, and pay you to say nothing.', reward: { goods: { coin: 40, silver: 10 } } },
+          { id: 'truth', label: 'Tell Himilko the truth', text: 'Himilko looks at the old man a long time. Then he lays his spear down at his father\'s feet, and picks it up again, and asks to ride with you.', reward: { soul: { cls: 'javelineer', level: 3, name: 'Himilko' } } },
+          { id: 'wait', label: 'Let him wait', text: 'Himilko goes back to his dunes to wait. His riders leave your carts alone from now on, and pay you to say nothing.', reward: { goods: { coin: 40, silver: 10 } } },
         ],
       },
     },
   ],
-  end: 'Hanno sits by the water and watches the dunes. For the first time, he is not waiting for anyone.',
+  end: 'Hanno sits by the water and watches the dunes, waiting for no one. The cairn of bells was built on a shard of the Wardens\' oath: "No one is left waiting in the sand."',
   reward: { goods: { coin: 40, salt: 10 } },
 };
 
@@ -810,7 +811,7 @@ const BACCHAE: Story = {
       trigger: { kind: 'talk' }, reward: { item: { def: 'knucklebones', rarity: 'rare' } },
     },
   ],
-  end: 'Komatas does not go up into the hills again. On still nights, the whole village can hear the singing.',
+  end: 'Komatas does not go up into the hills again; on still nights the village hears the singing. Lykidas died holding a shard of the Wardens\' oath: "We look outward, never in." He looked in.',
   reward: { goods: { coin: 50 } },
 };
 
@@ -856,7 +857,7 @@ const WADI: Story = {
       },
     },
   ],
-  end: 'Eurybatos fills a skin at the village well and pours it out in the wadi, as he does every morning. Today he does it smiling.',
+  end: 'Eurybatos pours a skin out in the wadi, as every morning; today he smiles. Agathon\'s map was weighted with a shard of the Wardens\' oath: "No army thirsts behind us." One did.',
   reward: { goods: { coin: 50, copper: 10 } },
 };
 
@@ -891,7 +892,7 @@ const FLOOD: Story = {
       trigger: { kind: 'talk' }, reward: { item: { def: 'serpent_ring', rarity: 'rare' } },
     },
   ],
-  end: 'Amasis lays the rings out on the threshing floor, one by one, and the village comes to find its own. One ring nobody claims. He gives it to you.',
+  end: 'Amasis lays the rings out, and the village comes to find its own. One ring nobody claims: its stone is a shard of the Wardens\' oath, "When the water rises, we stand in it." He gives it to you.',
   reward: { goods: { coin: 40, food: 30 } },
 };
 
@@ -908,10 +909,10 @@ const FENS: Story = {
       trigger: { kind: 'track', marks: [[228, 256], [220, 232], [236, 205]] },
     },
     {
-      id: 'coil', goal: 'Drive the Old Coil off the path', label: 'Old Coil',
+      id: 'coil', goal: 'Drive the Grave-Coil off the path', label: 'Grave-Coil',
       story: 'Where the path turns east to the isle, the reeds are flattened in a ring. Something old and very long lies in it, with two younger ones, and the bones round them are not all fish.',
       where: 'The reed bed east of the landfall, on the way to the isle.',
-      trigger: { kind: 'clear', at: [300, 240], mob: 'serpent', count: 3, lead: true, name: 'the Old Coil' }, reward: { goods: { hides: 10, coin: 15 } },
+      trigger: { kind: 'clear', at: [300, 240], mob: 'serpent', count: 3, lead: true, name: 'the Grave-Coil' }, reward: { goods: { hides: 10, coin: 15 } },
     },
     {
       id: 'isle', goal: 'Reach the burial isle', label: 'Isle',
@@ -931,7 +932,7 @@ const FENS: Story = {
       },
     },
   ],
-  end: 'Phaenna walks the pole path alone that evening, tying fresh rags to each pole. The reeds are only reeds.',
+  end: 'Phaenna walks the pole path alone, tying fresh rags to each pole. The last pole stands in a shard of the Wardens\' oath: "The dead lie as their own would lay them." Now they do.',
   reward: { goods: { coin: 50 } },
 };
 
@@ -948,7 +949,7 @@ const KIMMERIANS: Story = {
       trigger: { kind: 'reach', at: [330, 140] }, reward: { goods: { coin: 10 } },
     },
     {
-      id: 'wolves', goal: 'Drive off the wolves that follow the griffin', label: 'Wolves',
+      id: 'wolves', goal: 'Drive off the griffin\'s wolves', label: 'Wolves',
       story: 'Where the griffin hunts, the wolves eat after it, and they have grown bold on its leavings. A pack is tearing at a fresh kill further down the slope, and they do not mean to share it.',
       where: 'Down the slope toward the fort hill\'s foot.',
       trigger: { kind: 'clear', at: [345, 180], mob: 'wolf', count: 6 }, reward: { goods: { hides: 10 } },
@@ -960,7 +961,7 @@ const KIMMERIANS: Story = {
       trigger: { kind: 'clear', at: [330, 256], mob: 'bandit', count: 5, lead: true, name: 'Arimaspos One-Eye' }, reward: { goods: { coin: 25, bronze: 5 } },
     },
     {
-      id: 'stag', goal: 'Decide what to do with the gold stag', label: 'Gold stag',
+      id: 'stag', goal: 'Decide the gold stag\'s fate', label: 'Gold stag',
       story: 'In his packs, the best of what he picked from the griffin\'s kills: a gold stag plaque, its legs folded under it, the Kimmerian kind. Teushpa promised you gold. This is gold.',
       where: 'Choose on this card.',
       trigger: {
@@ -971,7 +972,7 @@ const KIMMERIANS: Story = {
       },
     },
   ],
-  end: 'Teushpa looks up at the broken gate on the fort hill. The rest of the Kimmerians\' gold lies under the Griffin, and the Griffin does not sleep. "When you are ready," he says.',
+  end: 'Teushpa looks up at the broken gate. Under the Griffin, with the gold, lies his people\'s share, a shard of the Wardens\' oath: "The mist takes no people whole." "It lied," he says. "When you are ready."',
   reward: { goods: { coin: 50, bronze: 10 } },
 };
 
@@ -1000,7 +1001,7 @@ const SAVANNA: Story = {
       trigger: { kind: 'rescue', at: [333, 113], cls: 'hoplite', level: 3, name: 'Alkimos' },
     },
     {
-      id: 'hide', goal: 'Tell Alkimos how the Lion can be skinned', label: 'Alkimos',
+      id: 'hide', goal: 'Tell Alkimos how to skin the Lion', label: 'Alkimos',
       story: 'Alkimos wants to go back up the great kopje tonight, alone, with a borrowed sword. Pyrrhias has the old story: Herakles cut the hide with the beast\'s own claws.',
       where: 'Choose on this card.',
       trigger: {
@@ -1011,7 +1012,7 @@ const SAVANNA: Story = {
       },
     },
   ],
-  end: 'Pyrrhias hangs the scored shield over the village gate. Under the great kopje the Lion of the Savanna still sleeps. His hide turns blades. His own claws do not.',
+  end: 'Pyrrhias hangs the scored shield over the gate. Under the great kopje the Lion sleeps on a shard of the Wardens\' oath: "We are the hide between the dead and the dark." His hide turns blades. His own claws do not.',
   reward: { goods: { coin: 50, copper: 10 } },
 };
 
@@ -1035,6 +1036,8 @@ export interface HiddenCtx {
   /** The region's fighting beast (its lairs' first non-bandit, non-passive kind; wolves if none) and a chief of it not leading a lair here. */
   beast: MobKind; chief: string | null;
   depth: number;
+  /** The region's flavour (landOf); absent: the plain text. */
+  land?: Land;
 }
 export interface HiddenTemplate {
   id: string;
@@ -1043,62 +1046,119 @@ export interface HiddenTemplate {
   make(c: HiddenCtx): Pick<Story, 'title' | 'hook' | 'backstory' | 'steps' | 'end' | 'reward'>;
 }
 
+/** A hidden quest's flavour, by the ground it lies in: the cold north, the steppe, the sand, the wet south. */
+export type Land = 'north' | 'steppe' | 'sand' | 'south';
+/** A region's flavour from its biome (a coast by its side of the map); the plateau and unknown maps have none. */
+export function landOf(id: string): Land | undefined {
+  const w = WORLD_REGIONS.find((x) => x.id === id);
+  if (!w) return undefined;
+  switch (w.biome) {
+    case 'dodona': case 'mountains': return 'north';
+    case 'skythia': return 'steppe';
+    case 'kyrene': return 'sand';
+    case 'marsh': case 'elaia': return 'south';
+    case 'coast': return w.pos.y < 0 ? 'north' : w.pos.x > 0 ? 'sand' : 'south';
+    default: return undefined;
+  }
+}
+
+/** The words a hidden quest tells (its rules stay the template's): the plain text and one per land. */
+interface HiddenText { title: string; hook: string; backstory: string; story: string; end: string }
+const told = (c: HiddenCtx, t: { plain: HiddenText } & Partial<Record<Land, HiddenText>>): HiddenText => (c.land && t[c.land]) || t.plain;
+
 const pay = (c: HiddenCtx, coin: number) => Math.round(coin * (1 + 0.5 * c.depth));
+
+const CORPSE = {
+  plain: { title: 'The Dead Man\'s Note', hook: 'A traveller lies in the grass, a wax tablet in his fist.', backstory: '"They came out of the brush at dusk. If you read this, they are still near. Take what I carried, and pay them back for me."', story: 'Tracks lead off from the body, fresh.', end: 'You bury him under a cairn. His purse was not empty.' },
+  north: { title: 'The Frozen Runner', hook: 'A runner frozen stiff in the bracken, a wax tablet in his fist.', backstory: '"Word for the fort: the mist is lower this season. Something took my legs at dusk. If you read this, it is near. Pay it back."', story: 'Drag marks in the frost, and blood frozen black.', end: 'You cairn him where he fell. His word never reached the fort. No one is at the fort to read it.' },
+  steppe: { title: 'The Rider Who Fell', hook: 'A dead rider in the long grass, his horse gone, a tablet in his belt.', backstory: '"They ran my horse down, then me. I rode to warn the mounds. If you read this, they are close. Take my purse and pay them."', story: 'Hoofprints, then other prints over them, fresh.', end: 'You lay him on his back to face the sky, as riders are laid. His purse was not empty.' },
+  sand: { title: 'The Water-Carrier', hook: 'A water-carrier face down in the sand, his skins slashed, a tablet in his fist.', backstory: '"They came for the water, not for me. They took both. If you read this, they are still near. Take my coin and pay them."', story: 'Tracks lead off over the dune, the sand still damp where the skins bled.', end: 'You heap stones over him against the jackals. His purse was not empty.' },
+  south: { title: 'The Fisherman\'s Note', hook: 'A fisherman at the water\'s edge, a tablet tied to his wrist.', backstory: '"Something came up out of the reeds and took my brother whole. If you read this, it is still near. Take what I have and pay it back."', story: 'Wet tracks lead off from the body through crushed reeds.', end: 'You give him to the water, as his people would. His purse was not empty.' },
+};
+const CACHE = {
+  plain: { title: 'The Smuggler\'s Cache', hook: 'A cairn with a mark scratched under the top stone.', backstory: 'Smugglers of the old roads marked their caches this way: a cairn, and the goods a short walk off.', story: 'Loose stones, and under them a sealed jar.', end: 'The jar is yours. Whoever buried it will not be back.' },
+  north: { title: 'The Miner\'s Cache', hook: 'A cairn on the slope, a pick-mark cut under its top stone.', backstory: 'Iron-diggers hid ore from their overseers this way: a cairn, and the jar a short walk off.', story: 'Loose scree, and under it a sealed jar of ore and coin.', end: 'The jar is yours. The digger who hid it is still under the mountain.' },
+  steppe: { title: 'The Horse-Thief\'s Cache', hook: 'A cairn on the steppe, a horse-brand scratched under the top stone.', backstory: 'Horse-thieves buried what they could not ride away with, under a brand only their own could read.', story: 'Turf cut and laid back, and under it a sealed jar.', end: 'The jar is yours. Whoever buried it was buried first.' },
+  sand: { title: 'The Salt-Runner\'s Cache', hook: 'A cairn in the sand, two wavy lines cut under the top stone.', backstory: 'Salt-runners mark their caches against the walking dunes: a cairn, and the jar where the sand lies shallow.', story: 'Warm sand, then a sealed jar, its salt still dry.', end: 'The jar is yours. The dunes would have had it by spring.' },
+  south: { title: 'The Pirate\'s Cache', hook: 'A cairn above the tide line, an anchor scratched under the top stone.', backstory: 'Pirates of the coast buried what they meant to come back for. Most were hanged first.', story: 'Shingle, then wet sand, then a sealed jar wrapped in tarred sail.', end: 'The jar is yours. Its owner swings on a headland somewhere.' },
+};
+const SHRINE = {
+  plain: { title: 'The Forgotten Shrine', hook: 'Moss over an altar; old offerings, gnawed bones around it.', backstory: 'Someone made offerings here once. Something big has been feeding on them since, and it sleeps close by.', story: 'It lifts its head from the bones. It is larger than it should be.', end: 'The altar is clean again. A little warmth stays in the stone.' },
+  north: { title: 'The Oak Shrine', hook: 'A split oak hung with rusted bells, gnawed bones round its roots.', backstory: 'The north prayed to Zeus of the oak here. Something big has fed on the offerings since, and it sleeps close by.', story: 'It lifts its head from the roots, and the bells stop.', end: 'The bells ring once in a wind you cannot feel. The oak is clean again.' },
+  steppe: { title: 'The Stone Idol', hook: 'A stone idol on a mound, its bowl full of gnawed bones.', backstory: 'Riders left mare\'s milk here for the gods of the open sky. Something big drinks it now, and sleeps close by.', story: 'It rises from behind the mound, milk and blood on its jaws.', end: 'The idol looks out over the grass again, toward the rim.' },
+  sand: { title: 'The Squat God', hook: 'A rock-cut niche with a squat desert god, bones heaped at his feet.', backstory: 'Caravans left dates and blood here for safe passage. Something big has fed on them since, and it sleeps close by.', story: 'It uncurls in the shade of the niche. It is larger than it should be.', end: 'The squat god grins in his niche. Caravans will stop here again.' },
+  south: { title: 'The Nymph\'s Spring', hook: 'A spring with a carved nymph, choked with moss and gnawed bones.', backstory: 'Farmers poured wine here for the spring\'s nymph. Something big drinks from it now, and sleeps close by.', story: 'It lifts its head from the water. The nymph\'s face is scratched away.', end: 'The spring runs clear again. A little warmth stays in the stone.' },
+};
+const RUIN = {
+  plain: { title: 'The Ruined Watch-Post', hook: 'A tumbled tower; a fresh fire-pit inside.', backstory: 'The Wardens\' men kept this post until the Wardens went into the mist. Robbers sleep here now, with a strongbox.', story: 'Boot prints, the Wardens\' mark scratched out on the wall, and voices beyond it.', end: 'The strongbox holds a season\'s tolls, and the post\'s last order: "Hold until relieved."' },
+  north: { title: 'The Dark Beacon', hook: 'A beacon tower tumbled on a crag; a fresh fire-pit in its shell.', backstory: 'The Wardens lit this beacon when the mist came low. It has been dark since they left. Robbers sleep in it now, with a strongbox.', story: 'Cold ash in the beacon bowl, warm ash by the door, and voices inside.', end: 'The strongbox holds a season\'s tolls. The beacon bowl is still full of wood no one lit.' },
+  steppe: { title: 'The Empty Watch-Mound', hook: 'A watch-mound, its palisade fallen; smoke rising from inside.', backstory: 'The Wardens watched the steppe from mounds like this one. Their riders left with them. Robbers sleep here now, with a strongbox.', story: 'Horse dung, a cookfire, and voices behind the fallen palisade.', end: 'The strongbox holds a season\'s tolls, and a Warden\'s horn no one has blown since.' },
+  sand: { title: 'The Buried Post', hook: 'A watch-post half drowned in sand; voices inside.', backstory: 'The Wardens kept the caravan roads from this post. The sand has it now, and robbers, with a strongbox.', story: 'Sand to the window-sills, a cookfire, and men arguing over a box.', end: 'The strongbox holds a season\'s tolls. The dunes will finish the post by spring.' },
+  south: { title: 'The Drowned Post', hook: 'A watch-tower with its foot in the water; a fire-pit inside.', backstory: 'The Wardens watched the water from this tower. When they left, the water came in. Robbers sleep in it now, with a strongbox.', story: 'Wet boot prints up the stair, and voices in the tower room.', end: 'The strongbox holds a season\'s tolls. The water is still rising.' },
+};
 
 export const HIDDEN: readonly HiddenTemplate[] = [
   {
     id: 'corpse', find: 'A dead man with a note',
-    make: (c) => ({
-      title: 'The Dead Man\'s Note', hook: 'A traveller lies in the grass, a wax tablet in his fist.',
-      backstory: '"They came out of the brush at dusk. If you read this, they are still near. Take what I carried, and pay them back for me."',
-      steps: [{
-        id: 'killers', goal: 'Hunt down what killed him', label: 'Killers', story: 'Tracks lead off from the body, fresh.', where: 'Close by, where the tracks lead.',
-        trigger: { kind: 'clear', at: c.then, mob: c.beast, count: 3 + Math.min(3, c.depth) },
-      }],
-      end: 'You bury him under a cairn. His purse was not empty.',
-      reward: { goods: { coin: pay(c, 14), hides: 4 } },
-    }),
+    make: (c) => {
+      const t = told(c, CORPSE);
+      return {
+        title: t.title, hook: t.hook, backstory: t.backstory,
+        steps: [{
+          id: 'killers', goal: 'Hunt down what killed him', label: 'Killers', story: t.story, where: 'Close by, where the tracks lead.',
+          trigger: { kind: 'clear', at: c.then, mob: c.beast, count: 3 + Math.min(3, c.depth) },
+        }],
+        end: t.end,
+        reward: { goods: { coin: pay(c, 14), hides: 4 } },
+      };
+    },
   },
   {
     id: 'cache', find: 'A cairn marked with a hidden sign',
-    make: (c) => ({
-      title: 'The Smuggler\'s Cache', hook: 'A cairn with a mark scratched under the top stone.',
-      backstory: 'Smugglers of the old roads marked their caches this way: a cairn, and the goods a short walk off.',
-      steps: [{
-        id: 'dig', goal: 'Dig up the cache', label: 'Cache', story: 'Loose stones, and under them a sealed jar.', where: 'A short walk from the cairn.',
-        trigger: { kind: 'reach', at: c.then }, reward: { goods: { coin: pay(c, 10), iron: 4 + c.depth, salt: 3 } },
-      }],
-      end: 'The jar is yours. Whoever buried it will not be back.',
-    }),
+    make: (c) => {
+      const t = told(c, CACHE);
+      return {
+        title: t.title, hook: t.hook, backstory: t.backstory,
+        steps: [{
+          id: 'dig', goal: 'Dig up the cache', label: 'Cache', story: t.story, where: 'A short walk from the cairn.',
+          trigger: { kind: 'reach', at: c.then }, reward: { goods: { coin: pay(c, 10), iron: 4 + c.depth, salt: 3 } },
+        }],
+        end: t.end,
+      };
+    },
   },
   {
     id: 'shrine', find: 'A forgotten shrine',
-    make: (c) => ({
-      title: 'The Forgotten Shrine', hook: 'Moss over an altar; old offerings, gnawed bones around it.',
-      backstory: 'Someone made offerings here once. Something big has been feeding on them since, and it sleeps close by.',
-      steps: c.chief ? [{
-        id: 'beast', goal: 'Slay the beast that haunts the shrine', label: 'Beast', story: 'It lifts its head from the bones. It is larger than it should be.', where: 'Its lair by the shrine.',
-        trigger: { kind: 'clear', at: c.then, mob: c.beast, count: 1, chief: c.chief, name: warChief(c.chief)?.name ?? 'the beast' }, reward: { item: { def: 'eye_bead', rarity: 'rare' } },
-      }] : [{
-        id: 'beast', goal: 'Drive off the beasts at the shrine', label: 'Beasts', story: 'They feed on the offerings, and will not share.', where: 'By the shrine.',
-        trigger: { kind: 'clear', at: c.then, mob: c.beast, count: 4 },
-      }],
-      end: 'The altar is clean again. A little warmth stays in the stone.',
-      reward: { goods: { coin: pay(c, 16) } },
-    }),
+    make: (c) => {
+      const t = told(c, SHRINE);
+      return {
+        title: t.title, hook: t.hook, backstory: t.backstory,
+        steps: c.chief ? [{
+          id: 'beast', goal: 'Slay the beast that haunts the shrine', label: 'Beast', story: t.story, where: 'Its lair by the shrine.',
+          trigger: { kind: 'clear', at: c.then, mob: c.beast, count: 1, chief: c.chief, name: warChief(c.chief)?.name ?? 'the beast' }, reward: { item: { def: 'eye_bead', rarity: 'rare' } },
+        }] : [{
+          id: 'beast', goal: 'Drive off the beasts at the shrine', label: 'Beasts', story: 'They feed on the offerings, and will not share.', where: 'By the shrine.',
+          trigger: { kind: 'clear', at: c.then, mob: c.beast, count: 4 },
+        }],
+        end: t.end,
+        reward: { goods: { coin: pay(c, 16) } },
+      };
+    },
   },
   {
     id: 'ruin', find: 'A ruined watch-post',
-    make: (c) => ({
-      title: 'The Ruined Watch-Post', hook: 'A tumbled tower; a fresh fire-pit inside.',
-      backstory: 'The post fell long ago, but someone sleeps here now: deserters, by the boot prints, with a strongbox.',
-      steps: [
-        { id: 'look', goal: 'Search the ruin', label: 'Ruin', story: 'Boot prints, a tally scratched on the wall, and voices beyond it.', where: 'Inside the ruin, a few steps on.', trigger: { kind: 'reach', at: c.then } },
-        { id: 'camp', goal: 'Break the deserters', label: 'Deserters', story: 'They grab their spears. Their leader keeps the strongbox.', where: 'In the ruin.', trigger: { kind: 'clear', at: c.then, mob: 'bandit', count: 3 + Math.min(3, c.depth), lead: true } },
-      ],
-      end: 'The strongbox holds a season\'s tolls.',
-      reward: { goods: { coin: pay(c, 18), bronze: 3 } },
-    }),
+    make: (c) => {
+      const t = told(c, RUIN);
+      return {
+        title: t.title, hook: t.hook, backstory: t.backstory,
+        steps: [
+          { id: 'look', goal: 'Search the ruin', label: 'Ruin', story: t.story, where: 'Inside the ruin, a few steps on.', trigger: { kind: 'reach', at: c.then } },
+          { id: 'camp', goal: 'Break the robbers in the ruin', label: 'Robbers', story: 'They grab their spears. Their leader keeps the strongbox.', where: 'In the ruin.', trigger: { kind: 'clear', at: c.then, mob: 'bandit', count: 3 + Math.min(3, c.depth), lead: true } },
+        ],
+        end: t.end,
+        reward: { goods: { coin: pay(c, 18), bronze: 3 } },
+      };
+    },
   },
 ];
 const HIDDEN_BY_ID = new Map(HIDDEN.map((h) => [h.id, h]));
@@ -1108,16 +1168,17 @@ export function hiddenStories(r: RegionData): Story[] {
   const lairs = r.lairs ?? [];
   const beast = lairs.find((l) => l.kind !== 'bandit' && l.kind !== 'ibex')?.kind ?? 'wolf';
   const used = new Set(lairs.flatMap((l) => (l.chief ? [l.chief] : [])));
-  const depth = depthOf(r);
+  const depth = depthOf(r), land = landOf(r.id);
   return (r.secrets ?? []).flatMap((s, n): Story[] => {
     const t = HIDDEN_BY_ID.get(s.quest);
     if (!t) return [];
     const pool = chiefsOfKind(beast).filter((c) => !used.has(c.id));
     const chief = pool.length ? pool[n % pool.length].id : null;
-    const m = t.make({ at: [s.x, s.y], then: s.then, beast, chief, depth });
+    const m = t.make({ at: [s.x, s.y], then: s.then, beast, chief, depth, land });
     return [{ id: `hidden:${r.id}:${n}`, region: r.id, hidden: true, giver: { name: t.find, title: '', at: [s.x, s.y], cls: '' }, ...m }];
   });
 }
+
 
 /*
  * Template (copy, fill, add to STORIES):
