@@ -232,8 +232,8 @@ export class SimClient {
   }
 
   /** W-72 proposal (scenarios): run the region's rival warlords at this age (days) and pressure (players). */
-  startWarlords(age: number, players: number, raid?: boolean): void {
-    this.send({ t: 'warlords', age, players, ...(raid ? { raid } : {}) });
+  startWarlords(age: number, players: number, raid?: number): void {
+    this.send({ t: 'warlords', age, players, ...(raid !== undefined ? { raid } : {}) });
   }
 
   /** W-65: start the region's roaming life. */

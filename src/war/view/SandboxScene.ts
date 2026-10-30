@@ -223,7 +223,7 @@ export class SandboxScene extends Phaser.Scene {
     this.peaky = this.peakChunks();
     this.units = new UnitLayer(this, this.iso, this.sheetImages);
     this.neutral = new NeutralLayer(this, (p) => this.units.feet(p), (x, y) => this.depthAt(x, y));
-    this.warlordLayer = new WarlordLayer(this, (p) => this.units.feet(p), (x, y) => this.depthAt(x, y));
+    this.warlordLayer = new WarlordLayer(this, (p) => this.units.feet(p));
     if (this.objects) this.units.depthOf = (x, y) => this.objects!.depth(x, y);
     this.shots = new ShotLayer(this, this.iso);
     this.fog = new FogLayer(this, this.iso, r);

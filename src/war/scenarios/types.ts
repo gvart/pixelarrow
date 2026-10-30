@@ -56,7 +56,7 @@ export interface Scenario {
   /** W-65: the region's roaming life too (packs, patrols, caravans, travellers; src/war/sim/roam.ts). */
   roam?: true;
   /** W-72 proposal: the region's rival warlords at this age (days) and pressure (players present). */
-  warlords?: { age: number; players: number; /** his first raid picked at once (else after 20 min) */ raid?: true };
+  warlords?: { age: number; players: number; /** his first raid picked this many seconds in (else after 20 min) */ raid?: number };
   /** Economy start (M2b): claim anchors, own stock, and sites a squad (index into squads) lays out and builds. */
   economy?: {
     claims: { team: number; x: number; y: number; r?: number }[];

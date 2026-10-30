@@ -44,7 +44,7 @@ export type ToWorker =
   | { t: 'feed'; team: number; squad: number | null; res: 'food' | 'ration'; n: number } // W-60 scenarios: food into packs or a store
   | { t: 'takeRegion'; team: number } // M7g dev and scripts: every claim point to the team (a landmark takes its capture damage)
   | { t: 'skip'; ticks: number } // scenarios: step this many ticks at once
-  | { t: 'warlords'; age: number; players: number; raid?: boolean } // W-72 proposal, scenarios: run the region's rival warlords (src/war/sim/warlords.ts)
+  | { t: 'warlords'; age: number; players: number; raid?: number } // W-72 proposal, scenarios: run the region's rival warlords (src/war/sim/warlords.ts)
   | { t: 'damage'; id: number; dmg: number } // dev: damage a building (scripts: a breach)
   | { t: 'finishSite'; id: number } // dev console: a site done at once
   | { t: 'devUnits'; ids: number[]; op: 'kill' | 'hurt' | 'heal' } // dev console: strike down, hurt or heal men
@@ -225,7 +225,7 @@ onmessage = (e: MessageEvent<ToWorker>) => {
     lords = b ? createWarlords(b.region, b, brains!, 1) : null;
     lords?.setAge(m.age);
     lords?.setPlayers(m.players);
-    if (m.raid) lords?.raidNow();
+    if (m.raid !== undefined) lords?.raidNow(m.raid * 10);
   }
   else if (m.t === 'check') postMessage({ reply: m.id, place: build(sim)?.checkPlacement(m.team, m.type, m.x, m.y, m.rot) ?? null });
   else if (m.t === 'checkWall') postMessage({ reply: m.id, wall: build(sim)?.checkWall(m.team, m.wall) ?? null });

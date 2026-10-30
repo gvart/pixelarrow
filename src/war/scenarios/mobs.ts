@@ -67,11 +67,11 @@ export const WILD_SCENARIOS: Scenario[] = [{
   name: 'Warlord: a raid on your camp',
   group: 'mobs',
   region: 'dodona-e',
-  goal: 'Harpalos\'s Tollmen hold a camp west of your new camp in the Teeth Foothills. Your men are away: his band rides for the camp. You have 60 s.',
+  goal: 'Harpalos\'s Tollmen hold a camp west of your new camp in the Teeth Foothills. Your men are away: in 90 s his band picks the camp, and you get 60 s of warning.',
   check: ['A notice: his men ride for your camp in 60 s', 'A pulsing red ring on the camp with the countdown', 'Then his raid party marches on it and batters it'],
   squads: [you('hoplite', [360, 306])],
   camera: { x: 340, y: 296, zoom: 1 / 2 },
-  warlords: { age: 4, players: 1, raid: true },
+  warlords: { age: 4, players: 1, raid: 90 },
   economy: { claims: [{ team: 0, x: 356, y: 300, r: 22 }], stock: { wood: 200, stone: 100 }, sites: [{ squad: 0, type: 'camp', x: 356, y: 300 }], prebuild: 3000 },
   after: { orders: [{ kind: 'move', squad: 0, x: 420, y: 340 }], settle: 300, squads: [] },
 }];

@@ -24,7 +24,7 @@ export interface ScenarioHost {
   /** W-65: start the region's roaming life (src/war/sim/roam.ts). */
   spawnRoam?(): void;
   /** W-72 proposal: run the region's rival warlords (src/war/sim/warlords.ts). */
-  startWarlords?(age: number, players: number, raid?: boolean): void;
+  startWarlords?(age: number, players: number, raid?: number): void;
   hurtBossTo(boss: string, to: number): void;
   /** W-60: a soul at (x,y); a squad's men at this satiety. */
   spawnSoul(x: number, y: number, cls: string, level?: number, site?: 'shrine' | 'ruin' | 'battlefield' | 'lair'): void;
