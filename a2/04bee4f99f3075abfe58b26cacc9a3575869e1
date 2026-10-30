@@ -1,0 +1,26 @@
+tests/war/guardianBar.test.ts
+  s_0dd3a9d3e5007a::t_8cd3b829f8d55a 8,10,26-40
+  s_0dd3a9d3e5007a::t_91dd66007a4ac2 41
+src/war/view/hud/bossBanner.ts
+  s_0dd3a9d3e5007a::t_cb149d9cc36c19 27
+src/war/view/hud/guardianBar.ts
+  s_0dd3a9d3e5007a::t_cb149d9cc36c19 30-31,111,126-132
+  s_0dd3a9d3e5007a::t_abaac4290818bf 112-114
+  s_0dd3a9d3e5007a::t_35feb2d0c96b61 133-134
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "a204bee4f99f3075abfe58b26cacc9a3575869e1",
+  "prompts": {},
+  "sessions": {
+    "s_0dd3a9d3e5007a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b6130d3d-c070-494f-98d5-046db89f2d1c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
