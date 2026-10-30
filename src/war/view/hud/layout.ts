@@ -217,7 +217,7 @@ const WINDOWS = new Set<Anchor>(['lwin', 'rwin']);
 const SIDE_BY_SIDE = new Set(['rrCard', 'rfHandoff', 'cfTree']);
 
 const CSS = `.hud-off{display:none!important}
-.hud-more{-webkit-mask-image:linear-gradient(#000 calc(100% - 30px),rgba(0,0,0,.2));mask-image:linear-gradient(#000 calc(100% - 30px),rgba(0,0,0,.2))}`;
+.hud-fade-foot{-webkit-mask-image:linear-gradient(#000 calc(100% - 30px),rgba(0,0,0,.2));mask-image:linear-gradient(#000 calc(100% - 30px),rgba(0,0,0,.2))}`;
 
 /** The windows Esc closes, the newest first: the side windows and the menu windows of the tr column. */
 const MENU_WINDOWS = ['rfWorks', 'rfFavour', 'rfTasks', 'rfHoldings', 'rfCrown', 'rfHolder'];
@@ -383,8 +383,8 @@ export function mountLayout(): void {
       }
       else if (el.dataset.hudClamp) { el.style.maxHeight = el.style.overflowY = ''; delete el.dataset.hudClamp; }
       // a clamped panel with more below fades out at its foot: it reads as "scroll on", not cut off
-      if (el.dataset.hudClamp) el.classList.toggle('hud-more', el.scrollTop + el.clientHeight < el.scrollHeight - 2);
-      else if (el.classList.contains('hud-more')) el.classList.remove('hud-more');
+      if (el.dataset.hudClamp) el.classList.toggle('hud-fade-foot', el.scrollTop + el.clientHeight < el.scrollHeight - 2);
+      else if (el.classList.contains('hud-fade-foot')) el.classList.remove('hud-fade-foot');
     }
   };
   requestAnimationFrame(frame);
