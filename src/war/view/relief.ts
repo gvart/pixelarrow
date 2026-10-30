@@ -109,6 +109,40 @@ function blur(src: Float32Array, w: number, h: number, r: number): Float32Array 
   return out;
 }
 
+/** The fill of the global deep water tile, about (public/war/tiles/shallow-deep.png frame 0). */
+const DEEP_RGB = [23, 35, 45];
+
+/**
+ * The water's light as a smooth field (regions-look 2), RGBA per visual cell, drawn by ./art.ts as a bilinear pattern
+ * over the water cells instead of one flat diamond per cell (which drew the water as a stepped mosaic). All water is
+ * drawn with the shallow tiles (./art.ts fineCodes); this field makes the deep:
+ *  - the deep's fill over the deep cells, ramped over about 5 cells across the shallow-to-deep line (a smooth curve, not
+ *    the staircase of a tile seam), a little of the tile's texture left;
+ *  - over it the light by the distance from land: the shallows lit turquoise fading over 8 cells, open water darkening.
+ * `wet`: the cells it covers (others take the shore's value, so the field does not fade at the shoreline).
+ */
+export function waterField(fw: number, fh: number, fk: Uint8Array, wet: (j: number) => boolean): Uint8ClampedArray<ArrayBuffer> {
+  const n = fw * fh;
+  const land = distance(fw, fh, (j) => !wet(j), (i) => wet(i), 40);
+  // drawn shallow: the shallow cells and a band along every shore (as the autotiler laid it between the old tiles)
+  const vs = (j: number) => wet(j) && (fk[j] === SHALLOW || land[j] <= 2);
+  const toS = distance(fw, fh, vs, (i) => wet(i), 8), toD = distance(fw, fh, (j) => wet(j) && !vs(j), (i) => wet(i), 8);
+  const D = new Float32Array(n), S = new Float32Array(n);
+  for (let j = 0; j < n; j++) { D[j] = land[j]; S[j] = !wet(j) ? -6 : vs(j) ? -Math.min(6, toD[j] - 0.5) : Math.min(6, toS[j] - 0.5); }
+  const Db = blur(blur(D, fw, fh, 1), fw, fh, 1), Sb = blur(blur(S, fw, fh, 1), fw, fh, 1);
+  const out = new Uint8ClampedArray(new ArrayBuffer(4 * n));
+  for (let j = 0; j < n; j++) {
+    const d = wet(j) ? Math.max(1, Db[j]) : 1, f = Math.max(0, Math.min(1, (Sb[j] + 2.5) / 5));
+    // the distance light (over), the deep's fill (under)
+    let c1 = [130, 206, 200], a1 = Math.max(0, Math.min(0.34, 0.34 - 0.04 * (d - 1)));
+    if (d > 9.5) { c1 = [6, 18, 40]; a1 = Math.min(0.24, 0.04 * (d - 9.5)); }
+    const a2 = wet(j) ? 0.74 * f * f * (3 - 2 * f) : 0, a = a1 + a2 * (1 - a1);
+    for (let k = 0; k < 3; k++) out[4 * j + k] = a ? (c1[k] * a1 + DEEP_RGB[k] * a2 * (1 - a1)) / a : 0;
+    out[4 * j + 3] = Math.round(255 * a);
+  }
+  return out;
+}
+
 /** Foam bits of a shore water cell: the sides it meets land on (at about its level). */
 export const FOAM_PX = 1, FOAM_NX = 2, FOAM_PY = 4, FOAM_NY = 8;
 
