@@ -216,13 +216,60 @@ const WINDOWS = new Set<Anchor>(['lwin', 'rwin']);
 /** Windows that open beside another one (the soldier card by the roster): placed where they are across. */
 const SIDE_BY_SIDE = new Set(['rrCard', 'rfHandoff', 'cfTree']);
 
-const CSS = `.hud-off{display:none!important}`;
+const CSS = `.hud-off{display:none!important}
+.hud-fade-foot{-webkit-mask-image:linear-gradient(#000 calc(100% - 30px),rgba(0,0,0,.2));mask-image:linear-gradient(#000 calc(100% - 30px),rgba(0,0,0,.2))}`;
+
+/** The windows Esc closes, the newest first: the side windows and the menu windows of the tr column. */
+const MENU_WINDOWS = ['rfWorks', 'rfFavour', 'rfTasks', 'rfHoldings', 'rfCrown', 'rfHolder'];
+const ESC_WINDOWS = [...ZONES.lwin, ...ZONES.rwin, ...MENU_WINDOWS];
+const isShown = (el: HTMLElement | null): el is HTMLElement => !!el && el.style.display !== 'none' && el.getClientRects().length > 0;
+/** The open windows, in the order they opened (the frame loop notes it; one opened this frame comes last). */
+let opened: string[] = [];
+const shownWindows = (): string[] => {
+  const now = ESC_WINDOWS.filter((id) => isShown(document.getElementById(id)));
+  return [...opened.filter((id) => now.includes(id)), ...now.filter((id) => !opened.includes(id))];
+};
+/** Is a window open (Esc closes it before the game menu opens)? */
+export const windowOpen = (): boolean => shownWindows().length > 0;
+/** Hide the tooltips showing now. */
+const hideTips = () => { for (const t of document.querySelectorAll<HTMLElement>('.rf-tip')) if (t.style.display !== 'none') t.style.display = 'none'; };
+/** Close a window by its own close button (its owner keeps its state), else hide it. */
+const closeWindow = (id: string) => {
+  const el = document.getElementById(id);
+  if (!el) return;
+  hideTips(); // a tip over the window goes with it
+  const x = el.querySelector<HTMLElement>('.rf-tbtn.x');
+  if (x) x.click();
+  else el.style.display = 'none';
+};
+/** Esc: close the newest open window; false when none is open. */
+export function closeTopWindow(): boolean {
+  const top = shownWindows().pop();
+  if (!top) return false;
+  closeWindow(top);
+  opened = opened.filter((id) => id !== top);
+  return true;
+}
+/**
+ * One window a side: a left window that opens closes the left windows open before it (the roster when the market
+ * opens), but a companion (the soldier card, the hand-off, the craft tree) opens beside its window.
+ */
+export function sideClosers(was: readonly string[], now: readonly string[]): string[] {
+  const fresh = now.filter((id) => !was.includes(id)), left = (id: string) => ZONES.lwin.includes(id);
+  return fresh.some((id) => left(id) && !SIDE_BY_SIDE.has(id)) ? now.filter((id) => left(id) && !fresh.includes(id)) : [];
+}
+function oneASide(): void {
+  for (const id of sideClosers(opened, shownWindows())) closeWindow(id);
+  opened = shownWindows();
+}
 
 /** Is a banner other than `id` in the centre lane now (they take turns: ./quest.ts, ./bossBanner.ts)? */
 export const laneBusy = (id: string): boolean => ZONES.lane.some((o) => o !== id && (document.getElementById(o)?.style.display ?? 'none') !== 'none');
 
+/** A docked box (CSS px). */
+export interface Rect { l: number; t: number; r: number; b: number }
 /** The docked boxes as last placed (CSS px), for the map's edge pointers to keep off. */
-let docked: { l: number; t: number; r: number; b: number }[] = [];
+let docked: Rect[] = [];
 
 /** The open play area for the map's edge pointers (CSS px): under the bar's plaque, inside the window's edges. */
 export function markerArea(): { x0: number; y0: number; x1: number; y1: number } {
@@ -234,10 +281,10 @@ export function markerArea(): { x0: number; y0: number; x1: number; y1: number }
  * A pointer at (x, y) with a label `hw` by `hh` either side (CSS px), moved off every docked panel: out by the shortest
  * way that stays in `a`, a few rounds for panels side by side.
  */
-export function clearOfHud(x: number, y: number, hw: number, hh: number, a = markerArea()): { x: number; y: number } {
+export function clearOfHud(x: number, y: number, hw: number, hh: number, a = markerArea(), boxes = docked): { x: number; y: number } {
   for (let round = 0; round < 3; round++) {
     let moved = false;
-    for (const d of docked) {
+    for (const d of boxes) {
       const l = d.l - hw, r = d.r + hw, t = d.t - hh, b = d.b + hh;
       if (x <= l || x >= r || y <= t || y >= b) continue;
       const outs = [{ x: l, y }, { x: r, y }, { x, y: t }, { x, y: b }].filter((p) => p.x >= a.x0 && p.x <= a.x1 && p.y >= a.y0 && p.y <= a.y1);
@@ -250,6 +297,24 @@ export function clearOfHud(x: number, y: number, hw: number, hh: number, a = mar
   return { x, y };
 }
 
+/** Does a label `hw` by `hh` either side of (x, y) (CSS px) meet a docked panel? */
+const onHud = (x: number, y: number, hw: number, hh: number, boxes = docked) => boxes.some((d) => x > d.l - hw && x < d.r + hw && y > d.t - hh && y < d.b + hh);
+
+/**
+ * An edge pointer at (ex, ey) on the line from the play area's middle (cx, cy): moved off the docked panels the short
+ * way when that lands clear, else pulled in along its line until clear (a corner full of panels: the minimap, the
+ * command card), so it never hides under one and still points the right way.
+ */
+export function clearOnRay(cx: number, cy: number, ex: number, ey: number, hw: number, hh: number, a = markerArea(), boxes = docked): { x: number; y: number } {
+  const side = clearOfHud(ex, ey, hw, hh, a, boxes);
+  if (!onHud(side.x, side.y, hw, hh, boxes)) return side;
+  for (let t = 1; t > 0; t -= 0.02) {
+    const x = cx + (ex - cx) * t, y = cy + (ey - cy) * t;
+    if (!onHud(x, y, hw, hh, boxes)) return { x, y };
+  }
+  return side;
+}
+
 /** Measure the zoned panels each frame and put them in place. */
 export function mountLayout(): void {
   const st = document.createElement('style');
@@ -257,8 +322,14 @@ export function mountLayout(): void {
   document.head.appendChild(st);
   const zoneOf = new Map<string, Anchor>();
   for (const [z, ids] of Object.entries(ZONES) as [Anchor, readonly string[]][]) for (const id of ids) zoneOf.set(id, z);
+  // a click hides the tooltip it was under (a top-bar button's tip would stay over the window it opened); not a click
+  // inside a held tooltip (its terms open nested cards)
+  addEventListener('pointerdown', (e) => {
+    if (!(e.target as HTMLElement | null)?.closest?.('.rf-tip')) hideTips();
+  }, true);
   const frame = () => {
     requestAnimationFrame(frame);
+    oneASide();
     const z = uiZoom(), f = { w: innerWidth / z, h: innerHeight / z };
     const els = new Map<string, HTMLElement>();
     for (const id of zoneOf.keys()) {
@@ -311,6 +382,9 @@ export function mountLayout(): void {
         el.dataset.hudClamp = '1';
       }
       else if (el.dataset.hudClamp) { el.style.maxHeight = el.style.overflowY = ''; delete el.dataset.hudClamp; }
+      // a clamped panel with more below fades out at its foot: it reads as "scroll on", not cut off
+      if (el.dataset.hudClamp) el.classList.toggle('hud-fade-foot', el.scrollTop + el.clientHeight < el.scrollHeight - 2);
+      else if (el.classList.contains('hud-fade-foot')) el.classList.remove('hud-fade-foot');
     }
   };
   requestAnimationFrame(frame);

@@ -82,11 +82,11 @@ style.textContent = CSS + CARD_CSS + LEGEND_CSS + `
 .st-goal{margin-top:6px;padding:5px 7px;background:var(--rf-sunk);border:1px solid var(--rf-rule);line-height:1.35}
 .st-goal b{color:var(--rf-gold)}
 #wvToast{left:50%;bottom:16px;transform:translateX(-50%);display:none;pointer-events:none;font-size:13px}
-.wt-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px}
+.wt-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:4px}
 .wt-t{display:flex;align-items:center;gap:5px;padding:3px;background:var(--rf-sunk);border:1px solid var(--rf-rule)}
 .wt-t:hover{border-color:var(--rf-accent)}
 .wt-who{display:flex;align-items:center;gap:3px;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.wt-who .wv-sw{width:7px;height:7px}
-.wt-n{font:700 12px/1.15 Cinzel,serif;color:var(--rf-accent);white-space:normal;word-break:keep-all;overflow-wrap:normal;hyphens:none}
+.wt-n{font:700 13px/1.2 Cinzel,serif;color:var(--rf-accent);white-space:normal;word-break:keep-all;overflow-wrap:normal;hyphens:none}
 .we-ev{display:flex;gap:7px;align-items:flex-start;padding:5px;margin-top:4px;background:var(--rf-sunk);border:1px solid var(--rf-rule);border-left:3px solid var(--we-c)}
 .we-ev b{color:var(--we-c)}
 .we-t{font:600 15px/1 Inter,sans-serif;font-variant-numeric:tabular-nums;color:var(--rf-text);margin-left:auto;white-space:nowrap}

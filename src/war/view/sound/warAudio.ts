@@ -24,7 +24,8 @@ import type { SfxId } from '../../../audio/sfx';
 import type { BuildingSnap, MobFxEvent, SiegeSnap, Snapshot, UnitSnap, WarEvent } from '../../types';
 import type { SandboxScene } from '../SandboxScene';
 import { NEUTRAL_TEAM } from '../../sim/economy';
-import { ambienceFor, blowVol, cueSfx, dinLevel, gatherSfx, loadSound, mobSfx, MusicDirector, saveSound, shotSfx, spatial, STATE_TRACK, strikeSfx, struckSince, type AmbSample, type WarSoundSettings } from './mix';
+import { ambienceFor, blowVol, cueSfx, dinLevel, gatherSfx, loadSound, mobSfx, MusicDirector, saveSound, shotSfx, spatial, STATE_TRACK, strikeSfx, struckSince, weightSfx, type AmbSample, type WarSoundSettings } from './mix';
+import { bigUnits } from '../feel/hits';
 import { myTeam } from '../side';
 
 /** Field sounds started per snapshot at most (10 Hz). */
@@ -149,6 +150,9 @@ export class WarAudio {
     this.wants = [];
   }
 
+  /** Chiefs' and guardians' units this snapshot. */
+  private big = new Set<number>();
+
   private roll(): number {
     this.rnd = (Math.imul(this.rnd, 1664525) + 1013904223) >>> 0;
     return this.rnd / 4294967296;
@@ -157,13 +161,16 @@ export class WarAudio {
   private snapshot(cur: Snapshot, gap: number): void {
     const tick = cur.tick;
     // units: blows, work
-    const next = new Map<number, UnitSnap>();
+    const next = new Map<number, UnitSnap>(), big = bigUnits(cur, this.big);
     let work = 0;
     for (const u of cur.units) {
       next.set(u.id, u);
       if (u.state === 'attack' && struckSince(u.swing, gap)) {
         const id = strikeSfx(u.cls, this.roll());
         if (id) this.want(id, u.x, u.y);
+        // a big beast's, a chief's or a guardian's blow: its weight landing under it (with the view's local hit-stop)
+        const w = weightSfx(u.cls, big.has(u.id));
+        if (w) this.want(w, u.x, u.y, 2);
       } else if ((u.state === 'gather' || u.state === 'build') && (tick + u.id) % 9 === 0 && work < 4) {
         const id = u.state === 'build' ? 'hammer' : gatherSfx(u.carry ?? this.nodeRes(u.x, u.y));
         if (id) (this.want(id, u.x, u.y, -1), work++);

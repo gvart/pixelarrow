@@ -47,7 +47,8 @@ const shift = (B, dx, dy, dz = 0) => B.map((b) => ({ ...b, x0: b.x0 + dx, x1: b.
 let M;
 function materials() {
   const cyc = masonry(TEX.cyclo, { mod: 160, top: rough }), iso = masonry(TEX.iso, { mod: 180 }), ash = masonry(TEX.ashlar, { mod: 120 });
-  const big = (T, mod) => { const m = masonry(T, { mod, top: rough }); return (f, x, y, z, u, r) => m(f, x * 0.5, y * 0.5, z, Math.floor(u / 2), Math.floor(r / 2)); }; // blocks twice the size: the giants' walls
+  // the giants' walls: the cyclopean elevation at 1:1 (doubling its pixels read as crazy paving at the wrong pixel scale, §40p)
+  const bigCyc = masonry(TEX.cyclo, { mod: 160, top: rough });
   const ramp = (cs) => cs.map((c) => [...c, 255]);
   const R = {
     mud: ramp([[50, 42, 35], [72, 61, 50], [94, 81, 67], [114, 100, 83], [132, 117, 97]]), // Ammon mudbrick, sun-dried, dulled
@@ -78,7 +79,7 @@ function materials() {
   };
   const ramped = (r, k = 0, s = 9) => (f, x, y, z) => mul(r[Math.min(r.length - 1, Math.floor(nz(x, y, z, k, s) * r.length))], f === 'top' ? 1.05 : 0.92);
   const tiers = (f, x, y, z) => mul(TEX.lime[f === 'top' ? 3 : 1 + (Math.floor(z * 8) % 2)], 0.9 + 0.12 * nz(x, y, z, 21, 3)); // seat steps
-  return { cyc, iso, ash, bigCyc: big(TEX.cyclo, 160), R, mud, rock, ramped, tiers, nz, lime: (i = 3) => (f, x, y, z) => mul(TEX.lime[i], f === 'top' ? 1 : 0.95) };
+  return { cyc, iso, ash, bigCyc, curtain: (socleM) => (f, x, y, z, u, r) => (r < socleM * PPM ? bigCyc : iso)(f, x, y, z, u, r), R, mud, rock, ramped, tiers, nz, lime: (i = 3) => (f, x, y, z) => mul(TEX.lime[i], f === 'top' ? 1 : 0.95) };
 }
 const ironBound = (f, x, y, z) => { const a = f === '+x' || f === '-x' ? y : x, s = (a * 2) % 1 < 0.06 || (z * 2) % 1 < 0.06; return s ? M.R.iron[3] : M.R.iron[1 + Math.floor(hash(Math.floor(a * 2) & 255, Math.floor(z * 2) & 255, 9) * 2)]; };
 const bronzeLeaf = (f, x, y, z) => { const a = f === '+x' || f === '-x' ? y : x; return (z * 3) % 1 < 0.1 || (a * 3) % 1 < 0.08 ? M.R.bronze[1] : M.R.bronze[(z * 3) % 1 > 0.8 ? 3 : 2]; };
@@ -283,8 +284,8 @@ piece({ landmark: 'citadel', id: 'citadel-keep', kind: 'keep', fp: [6, 6], hp: 8
     return { boxes: B, H: 13.3, top: 15.3, banners: [[1.2, S - 1.0, 14.4], [S - 1.8, S - 1.0, 14.4], [S - 1.0, 1.4, 14.4]] };
   } });
 both({ landmark: 'citadel', id: 'citadel-curtain', kind: 'wall', fp: [4, 2], hp: 3000, hpNote: 'a tile (cyclopean wall x2)', material: 'stone', heightM: 9, k: 12, segment: 8,
-  note: '8 m of the curtain, 2 tiles deep: giant cyclopean blocks, the walk at 7 m behind a 1.2 m parapet; segments join end to end in every state',
-  model: (st) => ({ boxes: wallBlock(0, 8, 0, 4, CIT.walk, M.bigCyc, { sides: ['+y', '-y'], paraH: CIT.para, t: 0.55 }), H: CIT.walk, top: CIT.walk + CIT.para, seg: 8, banners: [[3.6, 3.7, CIT.walk + CIT.para]] }) });
+  note: '8 m of the curtain, 2 tiles deep: a cyclopean socle under coursed isodomic ashlar, the walk at 7 m behind a 1.2 m parapet; segments join end to end in every state',
+  model: (st) => ({ boxes: wallBlock(0, 8, 0, 4, CIT.walk, M.curtain(2.4), { sides: ['+y', '-y'], paraH: CIT.para, t: 0.55 }), H: CIT.walk, top: CIT.walk + CIT.para, seg: 8, banners: [[3.6, 3.7, CIT.walk + CIT.para]] }) });
 piece({ landmark: 'citadel', id: 'citadel-tower', kind: 'tower', fp: [3, 3], hp: 3500, material: 'stone', heightM: 13, k: 13, platformM: 10.5,
   note: 'a curtain tower (6 of them), 6 m square, a tiled roof over its fighting chamber; joins the curtain at walk height',
   model: (st) => ({ boxes: sqTower(0.2, 0.2, 5.6, 10.5, { socle: 3, base: M.bigCyc, rise: 1.6, st }), H: 10.5, top: 12.3, banners: [[2.9, 5.9, 10.75]] }) });
@@ -293,7 +294,7 @@ both({ landmark: 'citadel', id: 'citadel-gatehouse', kind: 'gate', fp: [6, 3], h
   model: (st) => {
     const B = [...sqTower(0, 0.2, 4, 10.5, { socle: 3, base: M.bigCyc, rise: 1.3, st, k: 1 }).map((b) => b), ...sqTower(8, 0.2, 4, 10.5, { socle: 3, base: M.bigCyc, rise: 1.3, st, k: 2 })];
     B.push(...shift(gateBoxes('stone', 'x', gate(st), 3, gateOpt(st)), 4, 2.1));
-    B.push(...wallBlock(4, 8, 0.6, 4.4, CIT.walk, M.bigCyc, { sides: ['+y', '-y'], paraH: CIT.para }).map((b) => (b.body ? { ...b, z0: 5.97 } : b)));
+    B.push(...wallBlock(4, 8, 0.6, 4.4, CIT.walk, M.iso, { sides: ['+y', '-y'], paraH: CIT.para }).map((b) => (b.body ? { ...b, z0: 5.97 } : b)));
     return { boxes: B, H: 10.5, top: 12, banners: [[1.8, 4.5, 10.75], [9.8, 4.5, 10.75]] };
   } });
 piece({ landmark: 'citadel', id: 'citadel-bone-pit', kind: 'node', fp: [3, 3], hp: 600, material: 'stone', heightM: 3, k: 15, node: 'dragonbone',

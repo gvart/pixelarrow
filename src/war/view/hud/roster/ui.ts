@@ -191,6 +191,7 @@ export const ROSTER_CSS = `
 .rr-bar.sm{flex:none;width:36px;height:6px}
 .rr-card{padding:4px 8px 8px}
 .rr-sub{display:flex;align-items:center;gap:5px;margin-top:5px;color:var(--rf-muted);white-space:nowrap}
+.rr-sub>span:last-child{white-space:normal;min-width:0;line-height:1.25}
 .rr-sub .dot{opacity:.5}
 .rr-where{display:inline-flex;align-items:center;gap:4px}
 .rr-line{display:flex;align-items:center;gap:7px;margin-top:6px}

@@ -12,7 +12,7 @@ import { myTeam } from '../side';
 import { icon, leftPanelOpen, uiZoom } from './kit';
 import { esc } from './roster/ui';
 import { chip, details, qcard } from './qcard';
-import { clearOfHud, laneBusy, markerArea, Z } from './layout';
+import { clearOfHud, clearOnRay, laneBusy, markerArea, Z } from './layout';
 import { metres } from './explain';
 
 type Mk = (id: string, css: string, html?: string) => HTMLElement;
@@ -103,7 +103,7 @@ export function placeMarker(s: SandboxScene, m: HTMLElement, p: P | null, label:
   m.classList.add('edge');
   lb.textContent = label;
   // centred on its point: keep the label and its arrow off the panels and inside the window
-  const hw = lb.offsetWidth / 2 + 24, at = clearOfHud(cx + (q.x - cx) * k, cy + (q.y - cy) * k, hw, 18);
+  const hw = lb.offsetWidth / 2 + 24, at = clearOnRay(cx, cy, cx + (q.x - cx) * k, cy + (q.y - cy) * k, hw, 18);
   at.x = Math.max(hw - 18, Math.min(innerWidth - hw + 18, at.x));
   m.style.left = `${at.x}px`;
   m.style.top = `${at.y}px`;
