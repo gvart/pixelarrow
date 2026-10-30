@@ -741,25 +741,25 @@ const OASIS: Story = {
       trigger: { kind: 'reach', at: [372, 162] }, reward: { goods: { coin: 15 } },
     },
     {
-      id: 'battos', goal: 'Bring down Battos the Outrider', label: 'Battos',
-      story: 'Battos rides out at every dust cloud. He has his father\'s jaw and none of his patience.',
+      id: 'battos', goal: 'Bring down Himilko the Outrider', label: 'Himilko',
+      story: 'Himilko rides out at every dust cloud. He has his father\'s jaw and none of his patience.',
       where: 'His riders\' camp in the dunes to the north.',
-      trigger: { kind: 'clear', at: [330, 88], mob: 'bandit', count: 5, lead: true, name: 'Battos the Outrider' }, reward: { goods: { coin: 20, salt: 10 } },
+      trigger: { kind: 'clear', at: [330, 88], mob: 'bandit', count: 5, lead: true, name: 'Himilko the Outrider' }, reward: { goods: { coin: 20, salt: 10 } },
     },
     {
       id: 'father', goal: 'Tell Hanno what his son said', label: 'Hanno',
-      story: 'Beaten, Battos only asks: "Has the caravan come?" Hanno should hear that from you.',
+      story: 'Beaten, Himilko only asks: "Has the caravan come?" Hanno should hear that from you.',
       where: 'Back at the oasis.',
       trigger: { kind: 'talk' },
     },
     {
-      id: 'word', goal: 'Choose what Battos is told', label: 'Hanno',
+      id: 'word', goal: 'Choose what Himilko is told', label: 'Hanno',
       story: 'Hanno is afraid. If his son learns the caravan is dead, he may follow it. If he does not, he will wait forever.',
       where: 'Choose on this card.',
       trigger: {
         kind: 'choice', options: [
-          { id: 'truth', label: 'Tell Battos the truth', text: 'Battos looks at the old man a long time. Then he lays his spear down at his father\'s feet, and picks it up again, and asks to ride with you.', reward: { soul: { cls: 'javelineer', level: 3, name: 'Battos' } } },
-          { id: 'wait', label: 'Let him wait', text: 'Battos goes back to his dunes to wait. His riders leave your carts alone from now on, and pay you to say nothing.', reward: { goods: { coin: 40, silver: 10 } } },
+          { id: 'truth', label: 'Tell Himilko the truth', text: 'Himilko looks at the old man a long time. Then he lays his spear down at his father\'s feet, and picks it up again, and asks to ride with you.', reward: { soul: { cls: 'javelineer', level: 3, name: 'Himilko' } } },
+          { id: 'wait', label: 'Let him wait', text: 'Himilko goes back to his dunes to wait. His riders leave your carts alone from now on, and pay you to say nothing.', reward: { goods: { coin: 40, silver: 10 } } },
         ],
       },
     },
@@ -908,10 +908,10 @@ const FENS: Story = {
       trigger: { kind: 'track', marks: [[228, 256], [220, 232], [236, 205]] },
     },
     {
-      id: 'coil', goal: 'Drive the Old Coil off the path', label: 'Old Coil',
+      id: 'coil', goal: 'Drive the Grave-Coil off the path', label: 'Grave-Coil',
       story: 'Where the path turns east to the isle, the reeds are flattened in a ring. Something old and very long lies in it, with two younger ones, and the bones round them are not all fish.',
       where: 'The reed bed east of the landfall, on the way to the isle.',
-      trigger: { kind: 'clear', at: [300, 240], mob: 'serpent', count: 3, lead: true, name: 'the Old Coil' }, reward: { goods: { hides: 10, coin: 15 } },
+      trigger: { kind: 'clear', at: [300, 240], mob: 'serpent', count: 3, lead: true, name: 'the Grave-Coil' }, reward: { goods: { hides: 10, coin: 15 } },
     },
     {
       id: 'isle', goal: 'Reach the burial isle', label: 'Isle',

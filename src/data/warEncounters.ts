@@ -173,7 +173,7 @@ const LIST: EncounterDef[] = [
     end: 'The chains lie empty in the ash.',
     steps: [
       { id: 'camp', goal: 'Break the slavers\' camp', label: 'Slavers', text: 'They drop their whips for spears.', trigger: { kind: 'clear', mob: 'bandit', count: 3 }, reward: { goods: { coin: 8 } } },
-      { id: 'free', goal: 'Free the bound captive', label: 'Captive', text: 'One captive is left, roped to the stake.', trigger: { kind: 'rescue', cls: 'peltast', level: 2, name: 'Lykos' } },
+      { id: 'free', goal: 'Free the bound captive', label: 'Captive', text: 'One captive is left, roped to the stake.', trigger: { kind: 'rescue', cls: 'peltast', level: 2, name: 'Glaukon' } },
     ],
   },
   {
