@@ -40,41 +40,41 @@ export type BeastSample = `beast.${Beast}.${'attack' | 'cry' | 'death'}`;
 export const LOOPS = ['amb.moors', 'amb.surf', 'amb.glacier', 'amb.forest', 'amb.steppe', 'amb.town'] as const;
 export type LoopId = (typeof LOOPS)[number];
 
-const fx = (pri: number, rate: number, cents = 80, level = 1): SampleDef => ({ bus: 'sfx', v: 0, level, cents, pri, rate });
-const ui = (level = 1, cents = 0): SampleDef => ({ bus: 'ui', v: 0, level, cents, pri: 10, rate: 12 });
-const loop = (level = 1): SampleDef => ({ bus: 'amb', v: 0, level, cents: 0, pri: 0, rate: 0, loop: true });
+const fx = (v: number, pri: number, rate: number, cents = 80, level = 1): SampleDef => ({ bus: 'sfx', v, level, cents, pri, rate });
+const ui = (v: number, level = 1, cents = 0): SampleDef => ({ bus: 'ui', v, level, cents, pri: 10, rate: 12 });
+const loop = (level = 1): SampleDef => ({ bus: 'amb', v: 1, level, cents: 0, pri: 0, rate: 0, loop: true });
 
 const beasts = {} as Record<BeastSample, SampleDef>;
 for (const b of BEASTS) {
-  beasts[`beast.${b}.attack`] = fx(4, 6, 100);
-  beasts[`beast.${b}.cry`] = fx(8, 0.6, 60);
-  beasts[`beast.${b}.death`] = fx(6, 3, 80);
+  beasts[`beast.${b}.attack`] = fx(3, 4, 6, 100);
+  beasts[`beast.${b}.cry`] = fx(2, 8, 0.6, 60);
+  beasts[`beast.${b}.death`] = fx(2, 6, 3, 80);
 }
 
 export const SAMPLE_BANK = {
   // combat: men
-  'hit.metal': fx(3, 10),
-  'hit.spear': fx(3, 8),
-  'hit.wood': fx(3, 8),
-  'hit.heavy': fx(7, 5, 60),
-  'death.man': fx(5, 4),
-  'cry.wounded': fx(4, 3, 120),
-  'sting.chief': fx(9, 0.3, 0),
-  'sting.boss': fx(10, 0.3, 0),
+  'hit.metal': fx(4, 3, 10),
+  'hit.spear': fx(3, 3, 8),
+  'hit.wood': fx(3, 3, 8),
+  'hit.heavy': fx(3, 7, 5, 60),
+  'death.man': fx(3, 5, 4),
+  'cry.wounded': fx(3, 4, 3, 120),
+  'sting.chief': fx(1, 9, 0.3, 0),
+  'sting.boss': fx(1, 10, 0.3, 0),
   ...beasts,
   // UI
-  'ui.click': ui(1, 60),
-  'ui.open': ui(),
-  'ui.close': ui(),
-  'ui.error': ui(),
-  'ui.coin': ui(1, 80),
-  'ui.reward': ui(),
+  'ui.click': ui(3, 1, 60),
+  'ui.open': ui(2),
+  'ui.close': ui(2),
+  'ui.error': ui(1),
+  'ui.coin': ui(2, 1, 80),
+  'ui.reward': ui(1),
   // world
-  'world.raidHorn': ui(),
-  'world.warlordFall': ui(),
-  'world.mastery': ui(),
-  'world.secret': ui(),
-  'world.soulWake': ui(),
+  'world.raidHorn': ui(1),
+  'world.warlordFall': ui(1),
+  'world.mastery': ui(1),
+  'world.secret': ui(1),
+  'world.soulWake': ui(1),
   // ambience loops
   'amb.moors': loop(),
   'amb.surf': loop(),

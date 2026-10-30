@@ -40,7 +40,7 @@ Columns: id, variants, seconds, target LUFS (integrated), prompt.
 | --- | --- | --- | --- | --- |
 | hit.metal | 4 | 0.6 | -16 | single bronze sword striking a bronze shield rim, sharp clang with short ring |
 | hit.spear | 3 | 0.6 | -16 | spear point thrusting into a bronze-faced wooden shield, hard knock and scrape |
-| hit.wood | 3 | 0.5 | -16 | heavy blow on a leather-covered wooden shield, dull thick knock |
+| hit.wood | 3 | 0.5 | -16 | loud sword blow on a thick wooden shield, hard wooden crack and knock |
 | hit.heavy | 3 | 0.8 | -14 | huge body slamming into armoured men, deep low thud, ground shake |
 | death.man | 3 | 1.2 | -18 | soldier killed in battle, short choked groan and body falling in armour on dirt |
 | cry.wounded | 3 | 1.0 | -18 | wounded soldier gasping in pain, short hoarse cry |
@@ -92,7 +92,7 @@ Columns: id, variants, seconds, target LUFS (integrated), prompt.
 | ui.click | 3 | 0.5 | -24 | small bronze stud tapped on wood, soft dry click |
 | ui.open | 2 | 0.5 | -24 | leather map case flap opening, soft parchment rustle |
 | ui.close | 2 | 0.5 | -24 | parchment scroll rolled shut, soft leather tap |
-| ui.error | 1 | 0.5 | -22 | dull wooden knock with low muted thump, refusal |
+| ui.error | 1 | 0.5 | -22 | one firm low wooden thump, short and dry, a refusal |
 | ui.coin | 2 | 0.6 | -22 | a few bronze coins dropped into a leather purse |
 | ui.reward | 1 | 1.5 | -20 | treasure chest lid opening, coins and bronze jingle, warm |
 
@@ -120,3 +120,11 @@ Columns: id, variants, seconds, target LUFS (integrated), prompt.
 ## Prompt log
 
 Rerolls go here: date, id, why, the new prompt.
+
+- 2026-10-31, first pass: 120 clips, eleven_text_to_sound_v2, prompt_influence 0.5; with the 6 rerolls below
+  2515 credits in all (about 10 per second of audio asked for; the free tier's 10k a month). Read the spend off
+  `/v1/user/subscription` a minute after a run: the count lags.
+- 2026-10-31, hit.wood 1-3: came back near silent (raw -46 to -49 LUFS); was "heavy blow on a leather-covered wooden
+  shield, dull thick knock", now the table's prompt.
+- 2026-10-31, ui.error 1: near silent (raw -49 LUFS); was "dull wooden knock with low muted thump, refusal".
+- 2026-10-31, hit.metal 1-2: quiet and thin (raw -34 LUFS), same prompt rerolled.
