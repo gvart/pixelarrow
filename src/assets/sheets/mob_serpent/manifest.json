@@ -3,29 +3,29 @@
  "class": "mob_serpent",
  "image": "mob_serpent.png",
  "frame": {
-  "w": 80,
-  "h": 56
+  "w": 96,
+  "h": 67
  },
  "anchor": {
-  "x": 41,
-  "y": 54
+  "x": 49,
+  "y": 65
  },
  "anchors": {
   "south-east": {
-   "x": 39,
-   "y": 54
+   "x": 47,
+   "y": 65
   },
   "north-east": {
-   "x": 38,
-   "y": 50
+   "x": 46,
+   "y": 60
   },
   "south-west": {
-   "x": 41,
-   "y": 54
+   "x": 49,
+   "y": 65
   },
   "north-west": {
-   "x": 41,
-   "y": 50
+   "x": 49,
+   "y": 60
   }
  },
  "scale": 0.55,
@@ -35,7 +35,7 @@
   "south-west",
   "north-west"
  ],
- "wrap": 51,
+ "wrap": 42,
  "colorGroups": {},
  "tiers": {
   "basic": {}

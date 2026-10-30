@@ -33,7 +33,7 @@ for (const kind of KINDS) {
   await page.screenshot({ path: `${out}/${tag}_${kind}_z1.png`, clip: { x: 760 - 260, y: 375 - 160, width: 520, height: 320 } });
   console.log('saved', `${out}/${tag}_${kind}_z1.png`);
   if (kind === 'wolf' || kind === 'bear') {
-    await page.waitForTimeout(3000);
+    await page.waitForTimeout(5000);
     const [fx, fy] = await pack();
     await page.evaluate(([x, y]) => window.__sandbox.focus(x, y, 1), [fx, fy]);
     await page.waitForTimeout(400);

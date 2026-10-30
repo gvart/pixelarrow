@@ -41,11 +41,11 @@ export const CHIEF_KINDS: Readonly<Record<string, ChiefKind>> = {
   bandit: { scale: 1.6, tint: 0xd8b890, hp: 15, dmg: 1.6, armor: 6, escort: 6, loot: { coin: 25, goods: { iron: 4 }, per: 0.5, item: { chance: 0.5, rarity: [['uncommon', 45], ['rare', 45], ['epic', 10]] } } },
   jackal: { scale: 2, tint: 0xd8b070, hp: 76, dmg: 2.6, armor: 6, escort: 5, loot: { coin: 10, goods: { hides: 5 }, per: 0.5, item: BEAST_ITEM } },
   lion: { scale: 2, tint: 0xe0a860, hp: 24, dmg: 1.7, armor: 6, escort: 2, loot: { coin: 15, goods: { hides: 8 }, per: 0.5, item: BEAST_ITEM } },
-  serpent: { scale: 1.6, tint: 0x8ab088, hp: 12.5, dmg: 1.5, armor: 6, escort: 1, loot: { coin: 15, goods: { hides: 6, herbs: 4 }, per: 0.5, item: BEAST_ITEM } },
-  scorpion: { scale: 1.6, tint: 0x6a5048, hp: 15.5, dmg: 1.6, armor: 6, escort: 2, loot: { coin: 15, goods: { hides: 4, herbs: 4 }, per: 0.5, item: BEAST_ITEM } },
-  harpy: { scale: 1.6, tint: 0xa898b8, hp: 43, dmg: 1.8, armor: 6, escort: 3, loot: { coin: 12, goods: { linen: 3 }, per: 0.5, item: BEAST_ITEM } },
+  serpent: { scale: 2, tint: 0x8ab088, hp: 12.5, dmg: 1.5, armor: 6, escort: 1, loot: { coin: 15, goods: { hides: 6, herbs: 4 }, per: 0.5, item: BEAST_ITEM } },
+  scorpion: { scale: 2, tint: 0x6a5048, hp: 15.5, dmg: 1.6, armor: 6, escort: 2, loot: { coin: 15, goods: { hides: 4, herbs: 4 }, per: 0.5, item: BEAST_ITEM } },
+  harpy: { scale: 2, tint: 0xa898b8, hp: 43, dmg: 1.8, armor: 6, escort: 3, loot: { coin: 12, goods: { linen: 3 }, per: 0.5, item: BEAST_ITEM } },
   cyclops: { scale: 1.6, tint: 0xc0a890, hp: 2.85, dmg: 1.2, armor: 6, escort: 1, loot: { coin: 25, goods: { bronze: 4, food: 10 }, per: 0.5, item: { chance: 0.5, rarity: [['uncommon', 40], ['rare', 48], ['epic', 12]] } } },
-  drake: { scale: 1.6, tint: 0xd07858, hp: 14, dmg: 1.6, armor: 6, escort: 2, loot: { coin: 15, goods: { hides: 8 }, per: 0.5, item: BEAST_ITEM } },
+  drake: { scale: 2, tint: 0xd07858, hp: 14, dmg: 1.6, armor: 6, escort: 2, loot: { coin: 15, goods: { hides: 8 }, per: 0.5, item: BEAST_ITEM } },
 };
 
 /** The named chiefs (a region's fill pass picks from those of its lair kinds; hidden quests name theirs). */

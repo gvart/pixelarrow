@@ -3634,3 +3634,36 @@ fixed the ones that stopped short: Skythia East's upland road now ends at the ch
 both tiers to a cairn on top (it stopped under the second wall); Kyrene's butte road starts off the north road (it began
 in open sand) and the escarpment road ends at a watch post; the gorge path to the forge starts off the west road; the
 Western Heath coast track starts at a coast watch tower.
+
+## 50. Beasts at true size (beast-sheets)
+
+W-75 drew the beasts at true size with view-only scales (`src/war/view/mobScale.ts`: wolf 1.5, boar and bear 1.6, lion
+1.75, ...; guardians 1.08-1.38) and chiefs 1.6x on top, so their pixels came out uneven. Every mob sheet is now built at
+its true size and draws at 1 (chiefs of the beast kinds at 2, a whole scale; bandit and cyclops chiefs stay 1.6).
+**0 PixelLab generations**: no new prompts; the art is the shipped art, resampled.
+
+**Route.** (1) Kinds built smaller than their raws (wolf, jackal, boar, ibex, scorpion, harpy, drake): refetch the raws
+(`fetch.mjs <character>`, `fetchjobs.mjs <jobs.json>`, the §47 `clean.mjs` flags again) and rebuild with `shrink` x the
+old view scale (wolf 0.825, jackal 0.5175, boar 0.88, ibex 0.9, scorpion 0.46, harpy 0.546, drake 0.6). Before changing
+the shrink, rebuild at the old one and diff with the shipped PNG: it came back pixel-identical, so the route is sound.
+(2) Kinds whose true size is above their raws (bear 1.2, lion 1.26 of the 68 px character): `"pre2x": true` in the spec
+(Scale2x, then shrink / 2), so no source pixel is doubled unevenly. (3) Sheets built at shrink 1 (the six beast
+guardians) or whose raws are gone (the serpent: its PixMiniMax jobs answer 404 after some weeks; so did the lion's die,
+whose frames were still inside the character zip as `mob_lion_die*` at the job's 92 canvas, input frame first):
+`scripts/art/pixellab/mobs/upsheet.mjs <class> <f> [--white T] [clip:i=j[:rows]]` redraws the shipped sheet by Scale2x
+and an area shrink to f. The exact commands are in each `GUARD/<kind>.sheet.json` (`upsheet`).
+
+**Rings and flashes.** `sheet.scale` did double duty: the selection ring and the guardian's gold man-sized mark read it.
+`RING_SCALE` (mobScale.ts) keeps each remade kind's old ring; the soft beast shadow follows the frame as drawn.
+
+**Frame swaps found on the bigger sheets** (they were there before, too small to see): wolf/jackal SE idle frame 3
+missing from the zip (frame 2 held); boar NW die 0 (pale patch) and SE run 5 (pale mouth); bear SE die 0 (grey spray)
+and SW idle frame 4 missing; lion die 0 (grey spray, all rows); ibex SE run (orange patches: mirrored from SW); moor bear
+NW/NE attack 6 (rubble); Minotaur attack 4 (rubble, front rows) and 5 (back rows); Chimera attack 5 (broken paw, front
+rows); Erymanthian boar and griffin near-white streaks cut (`--white 200`), griffin charge 1.
+
+**Lessons:** (1) Keep the raws' job ids, but do not count on them: refetch a kind's jobs soon after shipping it, or keep
+its cleaned frames. (2) A frame missing from a character zip shifts every later clip of that row; check frame counts per
+direction before a build. (3) Scale2x + area shrink makes a clean 1.1-1.4x redraw of finished pixel art; plain nearest
+at a non-whole scale does not. (4) Open issues: the small lion's walk and run show a doubled head in a few frames (the
+template clips), and the guardians' die clips keep a little dust; both need rerolls, not resampling.

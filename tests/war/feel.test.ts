@@ -197,7 +197,7 @@ describe('mobs at true size', () => {
 
   it('beasts are not drawn smaller than their sheets, and a bear outsizes a wolf', () => {
     for (const k of MOB_KINDS) expect(VIEW_SCALE[`mob_${k}`] ?? 1, k).toBeGreaterThanOrEqual(1);
-    for (const k of ['wolf', 'jackal', 'boar', 'bear', 'lion', 'ibex']) expect(VIEW_SCALE[`mob_${k}`] ?? 1, `${k} at true size: crisp`).toBe(1);
+    for (const k of MOB_KINDS) expect(VIEW_SCALE[`mob_${k}`] ?? 1, `${k} at true size: crisp`).toBe(1);
     expect(bearSheet.frame.w * bearSheet.frame.h).toBeGreaterThan(wolfSheet.frame.w * wolfSheet.frame.h);
     for (const g of Object.values(GUARDIANS)) expect(VIEW_SCALE[g.cls] ?? 1, g.cls).toBeGreaterThanOrEqual(1);
   });
