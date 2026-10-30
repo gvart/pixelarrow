@@ -43,7 +43,7 @@ const rid = () => `req_${crypto.randomUUID().replace(/-/g, '')}`;
 
 describe('POST /api/telemetry/errors', () => {
   const report = (over: Record<string, unknown> = {}) => ({
-    app: { version: 'abc1234', platform: 'android', tg: '8.0' },
+    app: { version: 'abc1234', platform: 'android' },
     device: { w: 390, h: 844, dpr: 3 },
     errors: [{ kind: 'error', message: 'Cannot read properties of undefined (reading "x") at 42', stack: 'TypeError: boom\n    at foo (https://pixelarrow.app/assets/index.js?v=1:10:20)', scene: 'Battle', count: 1, breadcrumbs: [{ t: 1, c: 'scene', m: 'start:Battle' }] }],
     ...over,
@@ -104,7 +104,7 @@ describe('analytics events', () => {
     // A free-text value or a wrong enum is dropped (its column stays, empty).
     expect(normalizeEvent('tutorial_step', { id: 'Hello World!', step: 3.4, extra: 'x' }, 'client')).toEqual({ event: 'tutorial_step', strings: [''], numbers: [3] });
     expect(normalizeEvent('battle_result', { mode: 'offline', result: 'maybe', ticks: 1e12 }, 'client')).toEqual({ event: 'battle_result', strings: ['offline', ''], numbers: [1_000_000] });
-    expect(scrubText('see https://x.app/p?tgWebAppData=user%3D123 and pa2_Qm9vdHN0cmFwVG9rZW5PbmVUd29UaHJlZUZvdXJGaXZlU2l4')).toBe('see https://x.app/p and <redacted>');
+    expect(scrubText('see https://x.app/p?auth=user%3D123 and pa2_Qm9vdHN0cmFwVG9rZW5PbmVUd29UaHJlZUZvdXJGaXZlU2l4')).toBe('see https://x.app/p and <redacted>');
   });
 
   it('accepts allowlisted client events, records first_battle once, honours opt-out', async () => {
@@ -113,7 +113,7 @@ describe('analytics events', () => {
     const res = await post({
       app: { version: 'v123', platform: 'ios' },
       events: [
-        { e: 'session_start', p: { tg: '8.0', lang: 'ru' } },
+        { e: 'session_start', p: { lang: 'ru' } },
         { e: 'tutorial_step', p: { id: 'deploy', step: 2 } },
         { e: 'battle_result', p: { mode: 'offline', result: 'win', ticks: 900 } },
         { e: 'battle_result', p: { mode: 'online', result: 'win' } }, // the server records online results itself
@@ -143,10 +143,10 @@ describe('analytics events', () => {
   });
 
   it('server events: install at first login, once a day', async () => {
-    const tg = 930020;
-    await devLogin(tg);
+    const id = 930020;
+    await devLogin(id);
     expect(events('install')).toHaveLength(1);
-    await devLogin(tg);
+    await devLogin(id);
     expect(events('install')).toHaveLength(1); // same day: no marker
   });
 

@@ -39,7 +39,7 @@ const BATTLE_RESULTS = ['win', 'loss', 'draw'] as const;
 
 export const ANALYTICS_EVENTS = {
   /** Client boot (once per app launch). */
-  session_start: { source: 'client', strings: { tg: { kind: 'id' }, lang: en('en', 'ru', 'other') }, numbers: {} },
+  session_start: { source: 'client', strings: { lang: en('en', 'ru', 'other') }, numbers: {} },
   /** Server: first sign-in of a new player. */
   install: { source: 'server' },
   /** Server: first sign-in on calendar day 1 / 7 after install (UTC), from players.created_at and last_seen_at. */

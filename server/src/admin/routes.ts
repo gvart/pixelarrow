@@ -5,9 +5,9 @@
  * with the same id answers the recorded result and changes nothing again.
  *
  * Reads: overview metrics, player search and detail, client errors, the
- * audit log, seasons and shards, /paysupport tickets (when that table exists).
+ * audit log, seasons and shards.
  * Actions: ban / unban, rename (moderation), adjust Drachmae or season gold,
- * refund a Stars purchase, end / start a season.
+ * end / start a season.
  */
 import { Hono, type Context } from 'hono';
 import { z } from 'zod';

@@ -156,7 +156,7 @@ const JS = `'use strict';
       const r = await api('GET', '/errors');
       const detail = h('div', {});
       show(h('h1', {}, 'Client errors'), h('p', { class: 'muted' }, 'Grouped by fingerprint (kind, message, top frame, app version); kept 30 days after last seen.'),
-        table(r.errors, ['last_seen', 'count', 'kind', 'message', 'scene', 'app_version', 'platform', 'tg_version'], (e) => detail.replaceChildren(h('h2', {}, e.message), h('pre', {}, e.stack || '(no stack)'), h('h2', {}, 'Breadcrumbs (latest)'), h('pre', {}, e.breadcrumbs || ''), h('h2', {}, 'Device'), h('pre', {}, e.device || ''))),
+        table(r.errors, ['last_seen', 'count', 'kind', 'message', 'scene', 'app_version', 'platform'], (e) => detail.replaceChildren(h('h2', {}, e.message), h('pre', {}, e.stack || '(no stack)'), h('h2', {}, 'Breadcrumbs (latest)'), h('pre', {}, e.breadcrumbs || ''), h('h2', {}, 'Device'), h('pre', {}, e.device || ''))),
         detail);
     },
     Season: async () => {

@@ -45,7 +45,6 @@ const ErrorItem = z.object({
 const AppInfo = z.object({
   version: short(40).optional(),
   platform: short(40).optional(),
-  tg: short(16).optional(),
   lang: short(8).optional(),
 });
 const Device = z.object({
@@ -124,7 +123,6 @@ telemetry.post('/errors', async (c) => {
 
   const version = safeTag(body.app.version) || 'unknown';
   const platform = safeTag(body.app.platform);
-  const tg = safeTag(body.app.tg);
   const device = JSON.stringify({ ...body.device, ua: body.device.ua ? scrubText(body.device.ua, 40) : undefined });
   const d = c.env.DB;
   const stmts: D1PreparedStatement[] = [];
@@ -136,22 +134,22 @@ telemetry.post('/errors', async (c) => {
     const crumbs = JSON.stringify((e.breadcrumbs ?? []).slice(-20).map((b) => ({ t: b.t, c: safeTag(b.c), m: scrubText(b.m, 120) })));
     writePoint(c.env, 'errors', {
       indexes: [fp],
-      blobs: [fp, e.kind, message.slice(0, 200), scene ?? '', version, platform, tg],
+      blobs: [fp, e.kind, message.slice(0, 200), scene ?? '', version, platform],
       doubles: [e.count, pid],
     });
     if (d) {
       stmts.push(
         d
           .prepare(
-            `INSERT INTO client_errors (fingerprint, kind, message, stack, scene, app_version, platform, tg_version, breadcrumbs, device, count, last_player, first_seen, last_seen)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?13)
+            `INSERT INTO client_errors (fingerprint, kind, message, stack, scene, app_version, platform, breadcrumbs, device, count, last_player, first_seen, last_seen)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?12)
              ON CONFLICT (fingerprint) DO UPDATE SET
                count = MIN(count + excluded.count, 1000000000), last_seen = excluded.last_seen,
                breadcrumbs = excluded.breadcrumbs, device = excluded.device, platform = excluded.platform,
-               tg_version = excluded.tg_version, scene = COALESCE(excluded.scene, scene),
+               scene = COALESCE(excluded.scene, scene),
                last_player = COALESCE(excluded.last_player, last_player)`,
           )
-          .bind(fp, e.kind, message, stack, scene, version, platform || null, tg || null, crumbs, device, e.count, pid || null, now),
+          .bind(fp, e.kind, message, stack, scene, version, platform || null, crumbs, device, e.count, pid || null, now),
       );
     }
   }
