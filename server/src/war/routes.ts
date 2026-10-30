@@ -25,6 +25,7 @@
  *   GET  /works                               W-61: his alliance's works (progress, needs, contributors; ./works.ts)
  *   POST /works/:id/give { goods }            give goods from his home strongroom to one (at most what it lacks)
  *   GET  /titles                              the season's titles (./peace.ts) and his own season stats
+ *   GET  /mastery                             W-73: the regions he mastered this season { mastered } (the map's stars)
  *   GET  /settlements?region=                 W-63: settlements of a region, or of the world (./settlements.ts)
  *   GET  /settlements/inbox                   requests and offers to settlements he rules, his own, his truces
  *   GET  /settlements/:id                     a settlement and its members
@@ -77,6 +78,7 @@ import { give, worksOf } from './works';
 import { claimTask, rerollOne, tasksOf } from './tasks';
 import { getFavour } from './favour';
 import { statsOf, titles } from './peace';
+import { masteredOf } from './mastery';
 import { allianceOf } from './world/members';
 import { stagesOf } from '../../../src/war/net/works';
 import { GOODS } from '../../../src/war/net/protocol';
@@ -195,6 +197,9 @@ war.get('/titles', requirePlayable, async (c) => {
   const d = db(c.env);
   return c.json({ titles: await titles(d), mine: await statsOf(d, c.get('session').pid) });
 });
+
+/** W-73: the regions this player mastered this season (the world map's stars). */
+war.get('/mastery', requirePlayable, async (c) => c.json({ mastered: await masteredOf(db(c.env), c.get('session').pid) }));
 
 const sid = (s: string) => {
   if (!/^\d{1,10}$/.test(s)) throw badRequest('Bad settlement id');

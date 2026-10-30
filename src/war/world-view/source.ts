@@ -297,6 +297,9 @@ export function mockWorld(now: number): { snap: WorldSnapshot; squads: FieldSqua
 
 /** W-61: the mock's titles. */
 /** W-63 offline: a few settlements with their ties (the player is pid 1: he rules Thermi and its vassal Pella). */
+/** W-73: the mock player's mastered regions (stars on the map). */
+export const MOCK_MASTERED: readonly string[] = ['dodona-e', 'moors'];
+
 export const MOCK_SETTLEMENTS: WorldSettlement[] = [
   { id: 7, region: 'achelous', x: 90, y: 120, r: 24, name: 'Thermi', lord_pid: 1, lord: 'You', level: 3, overlord_id: null, tribute_pct: 0, people: 4 },
   { id: 12, region: 'saddle', x: 300, y: 200, r: 24, name: 'Pella', lord_pid: 1, lord: 'You', level: 2, overlord_id: 7, tribute_pct: 12, people: 2 },

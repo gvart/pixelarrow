@@ -32,10 +32,11 @@ import { convoySeen, HAUL_LOADS, inSight, isChokepoint, MARKET_TOWNS, planHaul, 
 import { CARD_CSS, crest, dangerHtml, loreLine, regionCardHtml, resIcon, type CardCtx } from './regionCard';
 import { LEGEND_CSS, legendHtml } from './legend';
 import { allianceColor, ART, clock, WorldMap, type MapState } from './map';
-import { MOCK_SETTLEMENTS, MockSource, NetSource, travelMs, type WorldSource, type WorldTitle, type WorldView } from './source';
+import { MOCK_MASTERED, MOCK_SETTLEMENTS, MockSource, NetSource, travelMs, type WorldSource, type WorldTitle, type WorldView } from './source';
 import { REGION_DEPTH } from '../sim/depth';
 import { LANDMARK_FUNCTION } from '../../data/warLore';
 import { landmarkOfRegion } from '../../data/warLandmarks';
+import { domainOf, warlord, WARLORDS } from '../../data/warWarlords';
 import { bossesOfRegion } from '../../data/warBosses';
 import { keys } from '../input/keys';
 import { mountGameMenu } from '../menu/gameMenu';
@@ -155,6 +156,10 @@ let ordering: string | null = null;
 let mouse = { x: 0, y: 0 };
 /** M7g: the landmark marker under the pointer (its region id): its card wins over the region's. */
 let hoverLm: string | null = null;
+/** W-72: the warlord pennant under the pointer (his id); W-73: the mastery star under it (its region). */
+let hoverLord: string | null = null, hoverMastered: string | null = null;
+// W-72: each warlord's hall and the lands his bands take and raid (src/data/warWarlords.ts domainOf)
+st.warlords = WARLORDS.flatMap((w) => domainOf(w).map((region, i) => ({ id: w.id, region, seat: i === 0, tint: w.tint })));
 
 function say(text: string, ms = 3500): void {
   toast.textContent = text;
@@ -367,6 +372,23 @@ function landmarkCard(id: string): string {
     <div class="rc-mine" style="margin-top:8px">+2 score an hour while restored and garrisoned${w.garrisoned ? ' · <b style="color:var(--rf-good)">earning now</b>' : ''}</div>`;
 }
 
+/** W-72: a warlord's hover card: his name and title, his hall, his band, the lands he raids from. */
+function lordCard(id: string): string {
+  const w = warlord(id);
+  if (!w) return '';
+  const [seat, ...lands] = domainOf(w), col = `#${w.tint.toString(16).padStart(6, '0')}`;
+  const emblem = `<span class="rc-crest" style="--c:${col}"><img src="war/ui/icons/24/act-attack.png" width="28" height="28" alt=""></span>`;
+  return `${cardHead(emblem, esc(w.name), `${esc(w.title.charAt(0).toUpperCase() + w.title.slice(1))} · a rival warlord`)}
+    <div class="rc-tiles">${tile('Hall', name(seat))}${tile('Band', esc(w.band.replace(/^the /, 'The ')))}${tile('Danger', dangerHtml(REGION_DEPTH[seat] ?? 2))}</div>
+    <div class="rc-note">His bands raid from ${lands.map(name).join(' and ')}.</div>`;
+}
+
+/** W-73: a mastered region's hover card. */
+function masteredCard(id: string): string {
+  const emblem = `<span class="rc-crest" style="--c:#e0b867"><span style="font:700 22px/1 serif;color:#f2d48a">★</span></span>`;
+  return `${cardHead(emblem, `${name(id)} mastered`, 'by you, this season')}<div class="rc-note">Every lair, chief and hidden quest done.</div>`;
+}
+
 /** W-63: a settlement's hover card: its level, lord and region, its overlord with the tribute, its vassals. */
 function settlementCard(id: number): string {
   const list = st.settlements ?? [], w = list.find((x) => x.id === id);
@@ -441,9 +463,9 @@ draggable(haulEl);
 
 function placeCard(): void {
   // the docked card already shows the selected region: no second copy under the pointer
-  if (!st.hover || ordering || (st.hover === st.selected && st.hoverSettle == null && !hoverLm && pin.style.display !== 'none')) return void (card.style.display = 'none');
-  card.innerHTML = st.hoverSettle != null ? settlementCard(st.hoverSettle) : hoverLm ? landmarkCard(hoverLm) : regionCardFor(st.hover);
-  card.style.width = st.hoverSettle != null ? '290px' : hoverLm ? '310px' : '300px';
+  if (!st.hover || ordering || (st.hover === st.selected && st.hoverSettle == null && !hoverLm && !hoverLord && !hoverMastered && pin.style.display !== 'none')) return void (card.style.display = 'none');
+  card.innerHTML = hoverLord ? lordCard(hoverLord) : hoverMastered ? masteredCard(hoverMastered) : st.hoverSettle != null ? settlementCard(st.hoverSettle) : hoverLm ? landmarkCard(hoverLm) : regionCardFor(st.hover);
+  card.style.width = hoverLord ? '290px' : hoverMastered ? '260px' : st.hoverSettle != null ? '290px' : hoverLm ? '310px' : '300px';
   card.style.display = '';
   const z = Number(card.style.zoom) || 1, r = card.getBoundingClientRect();
   let x = mouse.x + 18, y = mouse.y + 18;
@@ -575,6 +597,8 @@ canvas.addEventListener('pointermove', (e) => {
   hoverLm = map.landmarkAt(st, ...map.toMap(e.clientX, e.clientY));
   st.hover = map.eventAt(st, ...map.toMap(e.clientX, e.clientY)) ?? st.hover;
   st.hoverSettle = map.settlementAt(st, ...map.toMap(e.clientX, e.clientY)); // W-63: a settlement's card wins
+  hoverLord = map.lordAt(st, ...map.toMap(e.clientX, e.clientY))?.id ?? null; // W-72, W-73: a pennant's or a star's card wins
+  hoverMastered = hoverLord ? null : map.masteryAt(st, ...map.toMap(e.clientX, e.clientY));
   canvas.style.cursor = st.hover ? 'pointer' : 'default';
   placeCard();
 });
@@ -634,6 +658,16 @@ void WorldMap.load(canvas).then(async (m) => {
   };
   void settlements();
   setInterval(() => void settlements(), 60_000);
+  // W-73: the regions the player mastered this season (a star each), again every minute online
+  const mastered = async () => {
+    if (source.mode === 'offline') return void (st.mastered = new Set(MOCK_MASTERED));
+    const auth = await warAuth(source.devId).catch(() => null);
+    const r = await fetch('/api/war/mastery', { headers: auth?.headers ?? {} }).catch(() => null);
+    const j = r?.ok ? ((await r.json()) as { mastered?: string[] }) : null;
+    if (j?.mastered) st.mastered = new Set(j.mastered);
+  };
+  void mastered();
+  setInterval(() => void mastered(), 60_000);
   try {
     await source.start(apply);
   } catch (e) {

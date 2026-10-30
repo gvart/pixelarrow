@@ -61,7 +61,16 @@ export interface MapState {
   hoverSettle?: number | null;
   /** W-64: each alliance's monarch (a crown by its home) and the pacts and truces between alliances (lines home to home). */
   crown?: CrownMap;
+  /** W-72: each warlord's hall (seat) and the lands his bands take and raid from (a smaller pennant), in his colour. */
+  warlords?: WarlordMark[];
+  /** W-73: the regions the player has mastered this season (a gold star by the centre). */
+  mastered?: ReadonlySet<string>;
 }
+/** W-72: one warlord pennant on the map: whose, in which region, his hall or one of his lands. */
+export interface WarlordMark { id: string; region: string; seat: boolean; tint: number }
+/** Where a pennant stands (pole foot, map px) and its cloth's size; a mastery star's centre and radius. */
+type LordSpot = WarlordMark & { x: number; y: number; w: number; h: number };
+interface StarSpot { region: string; x: number; y: number; r: number }
 
 /** W-63: a region map's side in tiles (every region is 512 x 512), to place a settlement inside its region's shape. */
 const REGION_TILES = 512;
@@ -400,6 +409,126 @@ export class WorldMap {
     return { marks, banners, landmarks, events, crowns };
   }
 
+  private decorCache?: { key: string; lords: LordSpot[]; stars: StarSpot[] };
+  /**
+   * W-72 warlord pennants and W-73 mastery stars: placed after the names (they yield to them, so no name is dropped
+   * for them) and the other markers: the first spot round the region's centre that is inside the region and free.
+   */
+  private decor(st: MapState): { lords: LordSpot[]; stars: StarSpot[] } {
+    const labels = this.layoutLabels(this.ctx, st), s = Math.max(1, 0.8 / this.k);
+    const key = `${this.labelCache?.key}|${(st.warlords ?? []).map((m) => `${m.id}:${m.region}`).join(',')}|${[...(st.mastered ?? [])].join(',')}`;
+    if (this.decorCache?.key === key) return this.decorCache;
+    const placed: Box[] = [...this.lastObstacles, ...labels.map((l) => [l.x - l.w / 2, l.y - l.h / 2, l.x + l.w / 2, l.y + l.h / 2] as Box)];
+    const cost = (b: Box) => placed.reduce((c, p) => c + Math.max(0, Math.min(b[2], p[2]) - Math.max(b[0], p[0])) * Math.max(0, Math.min(b[3], p[3]) - Math.max(b[1], p[1])), 0);
+    // its preferred spots first, then rings round the centre; inside its own region (its middle and both ends), least overlap
+    const ring: number[][] = [];
+    for (let r = 14; r <= 112; r += 14) for (let a = 0; a < 12; a++) ring.push([r * Math.cos((a * Math.PI) / 6), r * Math.sin((a * Math.PI) / 6)]);
+    const pick = (id: string, cands: number[][], box: (x: number, y: number) => Box): [number, number] => {
+      const [cx, cy] = this.art.regions[id].centroid, at = [...cands, ...ring].map(([dx, dy]) => [cx + dx * s, cy + dy * s] as [number, number]);
+      const inside = (b: Box) => [[(b[0] + b[2]) / 2, (b[1] + b[3]) / 2], [b[0], b[3]], [b[2], b[1]]].every(([x, y]) => this.regionAt(x, y) === id);
+      let best = at[0], bc = Infinity;
+      for (const p of at) {
+        const b = box(...p), c = cost(b) + (inside(b) ? 0 : 1e9);
+        if (c < bc) (bc = c), (best = p);
+        if (c === 0) break;
+      }
+      placed.push(box(...best));
+      return best;
+    };
+    const lords: LordSpot[] = [];
+    for (const m of st.warlords ?? []) {
+      if (!this.art.regions[m.region]) continue;
+      const f = m.seat ? 1 : 0.75, w = 22 * s * f, h = 15 * s * f;
+      const box = (x: number, y: number): Box => [x - 4 * s, y - h * 2.4, x + w + 2 * s, y + 2 * s];
+      const [x, y] = pick(m.region, [[-40, 66], [24, 66], [-62, 30], [40, 30], [-24, 96], [-70, -10], [56, -6], [-10, -64], [0, 40], [-30, 10]], box);
+      lords.push({ ...m, x, y, w, h });
+    }
+    const stars: StarSpot[] = [];
+    for (const id of st.mastered ?? []) {
+      if (!this.art.regions[id]) continue;
+      const r = 11 * s, box = (x: number, y: number): Box => [x - r - 3, y - r - 3, x + r + 3, y + r + 3];
+      const [x, y] = pick(id, [[32, 48], [-30, 50], [52, 4], [-52, 4], [0, 72], [10, -56], [0, 30], [24, 20]], box);
+      stars.push({ region: id, x, y, r });
+    }
+    this.decorCache = { key, lords, stars };
+    return this.decorCache;
+  }
+  lordSpots(st: MapState): LordSpot[] {
+    return this.decor(st).lords;
+  }
+  masterySpots(st: MapState): StarSpot[] {
+    return this.decor(st).stars;
+  }
+  /** W-72: the warlord pennant under map point (x, y), else null. */
+  lordAt(st: MapState, x: number, y: number): { id: string; region: string } | null {
+    const s = Math.max(1, 0.8 / this.k);
+    for (const p of this.lordSpots(st)) if (x >= p.x - 4 * s && x <= p.x + p.w + 2 * s && y >= p.y - p.h * 2.4 && y <= p.y + 2 * s) return { id: p.id, region: p.region };
+    return null;
+  }
+  /** W-73: the mastery star under map point (x, y): its region, else null. */
+  masteryAt(st: MapState, x: number, y: number): string | null {
+    for (const p of this.masterySpots(st)) if ((x - p.x) ** 2 + (y - p.y) ** 2 <= (p.r * 1.4) ** 2) return p.region;
+    return null;
+  }
+
+  /** W-72: a warlord's pennant: a dark pole with a gold knob, a swallow-tailed cloth in his colour (his hall's bigger). */
+  private drawLords(g: CanvasRenderingContext2D, st: MapState): void {
+    const s = Math.max(1, 0.8 / this.k);
+    for (const p of this.lordSpots(st)) {
+      const top = p.y - p.h * 2.3, col = `#${p.tint.toString(16).padStart(6, '0')}`;
+      g.lineCap = 'round';
+      g.beginPath();
+      g.moveTo(p.x, p.y);
+      g.lineTo(p.x, top);
+      g.strokeStyle = '#0e0907';
+      g.lineWidth = 4.5 * s;
+      g.stroke();
+      g.strokeStyle = '#6b4a2a';
+      g.lineWidth = 2.2 * s;
+      g.stroke();
+      g.beginPath();
+      g.moveTo(p.x + 1 * s, top + 2 * s);
+      g.lineTo(p.x + p.w, top + 2 * s);
+      g.lineTo(p.x + p.w * 0.72, top + 2 * s + p.h / 2);
+      g.lineTo(p.x + p.w, top + 2 * s + p.h);
+      g.lineTo(p.x + 1 * s, top + 2 * s + p.h);
+      g.closePath();
+      g.fillStyle = col;
+      g.fill();
+      g.lineWidth = 1.8 * s;
+      g.strokeStyle = '#0e0907';
+      g.stroke();
+      g.beginPath();
+      g.arc(p.x, top, (p.seat ? 3.2 : 2.4) * s, 0, Math.PI * 2);
+      g.fillStyle = '#e0b867';
+      g.fill();
+      g.lineWidth = 1.2 * s;
+      g.stroke();
+    }
+  }
+
+  /** W-73: a mastered region: a gold star on a dark disc ringed in gold. */
+  private drawMastery(g: CanvasRenderingContext2D, st: MapState): void {
+    const s = Math.max(1, 0.8 / this.k);
+    for (const { x, y, r } of this.masterySpots(st)) {
+      g.beginPath();
+      g.arc(x, y, r, 0, Math.PI * 2);
+      g.fillStyle = '#17100d';
+      g.fill();
+      g.lineWidth = 2.5 * s;
+      g.strokeStyle = '#e0b867';
+      g.stroke();
+      g.beginPath();
+      for (let i = 0; i < 10; i++) {
+        const a = -Math.PI / 2 + (i * Math.PI) / 5, rr = i % 2 ? r * 0.3 : r * 0.68;
+        g.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr);
+      }
+      g.closePath();
+      g.fillStyle = '#f2d48a';
+      g.fill();
+    }
+  }
+
   /**
    * W-64: the crown layer: a line home to home per pact (solid, in both alliances' colours) or truce (dashed, pale) with
    * its word at the middle, then a gold crown on a dark disc by each monarch's home with his name.
@@ -686,6 +815,7 @@ export class WorldMap {
   }
 
   private labelCache?: { key: string; out: PlacedLabel[] };
+  private lastObstacles: Box[] = [];
 
   /** Collision-free names for this zoom. Order: homes and Omphalos, then market towns and chokepoints, then the rest
    *  (small regions first within a tier). Each name tries, until one overlaps no placed name and no marker: spots well
@@ -716,6 +846,7 @@ export class WorldMap {
       }),
     ];
     const key = `${this.k.toFixed(3)}|${obstacles.map((o) => o.map(Math.round).join(',')).join(';')}`;
+    this.lastObstacles = obstacles;
     if (this.labelCache?.key === key) return this.labelCache.out;
     const tier = (id: string, r: RegionArt) => (r.role === 'home' || r.role === 'center' ? 0 : MARKET_TOWNS.has(id) || isChokepoint(id) ? 1 : 2);
     const order = Object.entries(this.art.regions).sort(([a, ra], [b, rb]) => tier(a, ra) - tier(b, rb) || (this.regionArea(a) - this.regionArea(b)));
@@ -851,6 +982,9 @@ export class WorldMap {
     this.drawEvents(g, st, spots.events);
     this.drawSettlements(g, st);
     this.drawCrown(g, st, spots.crowns);
+    // W-72, W-73: static, under what moves on the roads (a cart passing over a hall hides it only while it passes)
+    this.drawLords(g, st);
+    this.drawMastery(g, st);
     // the player's men: the alliance banner with a count
     const you = st.you ?? 0, key = ALLIANCES[you].key;
     for (const [id, men] of st.squads) {
