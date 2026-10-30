@@ -71,6 +71,9 @@ const def: RegionDef = {
     k.lair('wolf', [34, 100], { as: 'wolves' });
     k.lair('bear', [140, 64], { as: 'bears' });
     k.lair('bear', [222, 56], { as: 'bears' });
+    // roads to somewhere (regions-look 2, PROMPTS_ART §50): the headland ramp ends at a sea shrine and a cairn over the fjords
+    k.piece('elaia/shrine', [138, 108], { r: 6 });
+    k.piece('mountains/cairn', [142, 104], { r: 6 });
     k.claim(hub, 160);
   },
 };

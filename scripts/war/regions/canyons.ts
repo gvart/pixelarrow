@@ -115,6 +115,8 @@ export default composeOnDraft('canyons', { staging: [163, 196], entryBand: 6 }, 
     k.zone('mountains', (_i, x, y) => { const tx = k.tileOfUnit(x) - s.x0, ty = k.tileOfUnit(y) - s.y0; return ring(tx, ty) || lifted.has(key(tx, ty)) ? 99 : 0; });
   }
   // talus and fallen blocks at the cliff feet, copper-stained boulders, scrub and dead thorn trees on the top
+  // roads to somewhere (regions-look 2, PROMPTS_ART §50): the side track up the mesa ends at a cairn
+  k.piece('mountains/cairn', [110.5, 80.25], { r: 6 });
   for (const p of [[124, 40], [146, 70], [110, 122], [60, 124], [160, 124], [200, 136], [150, 160], [120, 200], [146, 230], [86, 182], [176, 92]] as Pt[]) k.piece('kyrene/talus-red', p, { r: 7, n: 3, gap: 3 });
   for (const p of [[30, 160], [40, 220], [200, 200], [220, 40], [180, 30], [230, 170], [100, 240], [24, 40]] as Pt[]) k.piece('kyrene/boulder-red', p, { r: 10, n: 2, gap: 4 });
   for (const b of [[40, 170, 16, 12, 0.3], [70, 230, 14, 10, 0], [200, 190, 18, 12, -0.2], [220, 60, 14, 12, 0.2], [180, 40, 12, 8, 0], [30, 30, 10, 8, 0]] as const)
