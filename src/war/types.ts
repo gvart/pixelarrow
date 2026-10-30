@@ -422,6 +422,8 @@ export interface WarlordSnap {
   id: string; name: string; title: string; band: string; kind: MobKind; tint: number; scale: number; seat: boolean; fallen?: true; lord: UnitId;
   holds: { place: string; x: number; y: number; men: number; unit: UnitId; state: 'marching' | 'held' }[];
   raid?: { x: number; y: number; team: number; in: number };
+  /** W-76 proposal: a raid of his is out (marching on its target or hitting it). */
+  raiding?: true;
 }
 export interface LairSnap {
   id: number; kind: MobKind; x: number; y: number; squad: SquadId; alive: number; count: number;
@@ -609,6 +611,8 @@ export interface NodeSnap { id: number; res: ResourceKind; x: number; y: number;
 export interface FogGrid { team: number; w: number; h: number; cell: number; state: Uint8Array; version: number }
 export interface InfluenceMap { w: number; h: number; mask: Uint8Array; version: number }
 export interface WarBuildSim extends WarSim {
+  /** W-76 proposal: player `owner`'s open hidden quest steps here, as `secret` step events with no text (a fresh connection's markers). */
+  hiddenOpen(owner: string): Extract<WarEvent, { kind: 'secret' }>[];
   checkPlacement(team: number, type: BuildingType, x: number, y: number, rot?: 0 | 1): PlaceResult;
   checkWall(team: number, o: Omit<WallOrder, 'kind' | 'squad'>): WallPlan;
   checkBridge(team: number, o: Omit<BridgeOrder, 'kind' | 'squad'>): BridgePlan;
@@ -812,8 +816,9 @@ export type WarEvent =
   | { t: number; kind: 'captainSlain'; lair: number; by: number }
   // world-fill: a local mini-boss (src/data/warBosses.ts WAR_CHIEFS) fell where (x,y); his loot pile lies there
   // world-fill: a hidden quest (src/war/sim/secrets.ts) of player `owner`: found (text: what and the hook), a step done or
-  // the next one told (text: its goal), done (text: its end; goods: what fell at his men); (x,y) the hidden spot
-  | { t: number; kind: 'secret'; what: 'found' | 'step' | 'done'; quest: string; owner: string; team: number; title: string; text: string; x: number; y: number; goods?: Partial<Record<GoodKind, number>> }
+  // the next one told (text: its goal), done (text: its end; goods: what fell at his men); (x,y) the hidden spot;
+  // W-76 proposal: the next one told also says where it is (to: its spot and marker label; none for a choice)
+  | { t: number; kind: 'secret'; what: 'found' | 'step' | 'done'; quest: string; owner: string; team: number; title: string; text: string; x: number; y: number; goods?: Partial<Record<GoodKind, number>>; to?: { x: number; y: number; label: string } }
   | { t: number; kind: 'chiefSlain'; lair: number; chief: string; name: string; by: number; x: number; y: number }
   // W-72 proposal (src/war/sim/warlords.ts): a warlord rises, takes a place, warns of a raid on `team`'s target (in ticks),
   // sends the raid, loses a place, falls; near: owners with men by it (favour); text: his line, filled in

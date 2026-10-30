@@ -11,6 +11,7 @@
  * On the minimap the player's own ground (his team's influence), buildings, claim points and squads are lit over it all,
  * so his holdings read at a glance whatever the fog.
  */
+import { secretSteps } from '../secretSteps';
 import { MOB_TEAM } from '../../sim/mobs';
 import type { BuildingSnap, FogGrid, RoamSnap } from '../../types';
 import type { SandboxScene } from '../SandboxScene';
@@ -267,6 +268,13 @@ export function drawMap(g: CanvasRenderingContext2D, s: SandboxScene, f: MapXf, 
     g.globalAlpha = 1;
   }
   drawPins(g, P, m, full); // personal markers (./pins.ts)
+  // W-76 proposal: his open hidden quest steps (../secretSteps.ts): a small violet diamond, his alone
+  for (const st of secretSteps().values()) {
+    const [x, y] = P(st.x, st.y), r = (full ? 4.2 : 3) * m;
+    g.beginPath(); g.moveTo(x, y - r); g.lineTo(x + r, y); g.lineTo(x, y + r); g.lineTo(x - r, y); g.closePath();
+    g.lineWidth = 1.6 * m; g.strokeStyle = INK; g.stroke();
+    g.fillStyle = '#b9a6d8'; g.fill();
+  }
   // W-65: roaming groups (src/war/sim/roam.ts) by squad: a small dot by kind where seen (the fog already hid the rest)
   const roam = new Map<number, string>();
   for (const r of s.sim.cur?.roam ?? []) for (const id of r.squads) roam.set(id, ROAM_DOT[r.kind]);

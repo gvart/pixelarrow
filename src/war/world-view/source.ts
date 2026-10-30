@@ -14,8 +14,9 @@ import type { WorldSettlement } from '../net/settlements';
 import { SIM_VERSION } from '../../sim/version';
 import { devAuth, warAuth } from '../net/session';
 import { DEFAULT_CAP, splitQuota } from '../net/protocol';
-import { TRANSFER_MAX, type Crest, type LandmarkWorld, type RegionState, type SeasonBoard, type SeasonSnap, type TransitSnap, type WorldSnapshot } from '../net/world';
+import { TRANSFER_MAX, type Crest, type LandmarkWorld, type LordWorld, type RegionState, type SeasonBoard, type SeasonSnap, type TransitSnap, type WorldSnapshot } from '../net/world';
 import { ALLIANCES, WAR_SEASON } from '../world/alliances';
+import { domainOf, WARLORDS } from '../../data/warWarlords';
 import { edge, worldRegion, WORLD_IDS } from '../world/graph';
 import { allianceRates, FRONTIER_TOWNS, OMPHALOS } from '../world/season';
 import type { AllianceId } from '../world/types';
@@ -244,6 +245,15 @@ export function mockWorld(now: number): { snap: WorldSnapshot; squads: FieldSqua
     gorge: { id: 'titans_forge', holder: 2, guardian: 'slain', state: 'restored', hp: 1, garrisoned: true },
   };
   for (const r of regions) if (lms[r.id]) r.landmark = lms[r.id];
+  // W-76 proposal, the warlords as their rooms last reported: Harpalos in his hall and a march (a raid warned there), one
+  // march freed; Kelaino in her hall; Skiron fallen, back in a day; Auge's lands not reported yet
+  const lordAt = (id: string, l: LordWorld) => (regions.find((r) => r.id === id)!.lords ??= []).push(l);
+  const [harp, kel, ski] = WARLORDS.map(domainOf);
+  lordAt(harp[0], { id: WARLORDS[0].id, holds: 3, men: 26 });
+  lordAt(harp[1], { id: WARLORDS[0].id, holds: 2, men: 13, raid: { at: now + 42_000 } });
+  if (harp[2]) lordAt(harp[2], { id: WARLORDS[0].id, holds: 0, men: 0 });
+  lordAt(kel[0], { id: WARLORDS[1].id, holds: 2, men: 15 });
+  lordAt(ski[0], { id: WARLORDS[2].id, holds: 0, men: 0, backAt: now + 30 * 3600_000 });
   // the player's start (docs/WAR.md Army size: N = 12, one squad per player): one squad of 12 at home, none on the road
   const squads: FieldSquad[] = [{ region: 'dodona', men: 12, classes: { hoplite: 12 }, ids: [] }];
   const transit: TransitSnap[] = [];

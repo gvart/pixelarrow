@@ -32,7 +32,7 @@ import { edge, worldRegion } from '../../../../src/war/world/graph';
 import { WORLD_REGIONS } from '../../../../src/war/world/regions';
 import { allianceRates, FRONTIER_TOWNS, HEGEMONY, hegemon, HOUR_MS, LIVING, OMPHALOS } from '../../../../src/war/world/season';
 import type { AllianceId, SeasonConfig, Side } from '../../../../src/war/world/types';
-import type { AllianceStats, ConvoySnap, LandmarkWorld, RegionState, SeasonResult, SeasonSnap, TransferError, TransferOrder, TransitCargo, TransitSnap, WorldSnapshot } from '../../../../src/war/net/world';
+import type { AllianceStats, ConvoySnap, LandmarkWorld, LordWorld, RegionState, SeasonResult, SeasonSnap, TransferError, TransferOrder, TransitCargo, TransitSnap, WorldSnapshot } from '../../../../src/war/net/world';
 import { loads as holdLoads } from '../../../../src/war/sim/holders';
 import { activeEvents, nextEvent, RUSH, seasonEvents, seasonSeed, SIEGE, type WorldEvent, type WorldEventKind } from '../../../../src/war/world/events';
 import type { SeasonBoard } from '../../../../src/war/net/world';
@@ -133,6 +133,8 @@ export interface RegionReport {
   ruined?: boolean;
   /** W-61: the best town level per alliance here (WarRoom.summary). */
   town?: number[];
+  /** W-76 proposal: its warlords (WarRoom.summary, in wall-clock times: room.ts lordReport). */
+  lords?: LordWorld[];
 }
 
 export type DepartResult = { ids: string[]; off: number; lost?: Record<string, number>; cargo?: TransitCargo } | { error: TransferError; detail?: string };
@@ -318,6 +320,7 @@ export class World {
     if (rep.prestige?.some((v) => v > 0)) next.prestige = Array.from({ length: N }, (_, i) => rep.prestige![i] ?? 0);
     if (rep.ruined) next.ruined = true;
     if (rep.town?.some((v) => v > 0)) next.town = Array.from({ length: N }, (_, i) => rep.town![i] ?? 0);
+    if (rep.lords?.length) next.lords = rep.lords.map((l) => ({ id: String(l.id), holds: l.holds | 0, men: l.men | 0, ...(l.raid ? { raid: { at: +l.raid.at } } : {}), ...(l.backAt !== undefined ? { backAt: +l.backAt } : {}) }));
     // W-62: a landmark taken while its siege runs scores its captor
     const was = cur.landmark?.holder ?? -1, holder = next.landmark?.holder ?? -1;
     if (holder >= 0 && holder !== was && this.eventIn(id, 'landmarkSiege', now)) this.eventScore(holder as AllianceId, SIEGE.capture, now);

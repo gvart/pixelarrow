@@ -42,7 +42,7 @@ export function legendHtml(color: (a: number) => string, you: number | null): st
       ${row(`<span class="lg-seal">${img('war/ui/icons/24/bld-storehouse.png', 13, 13)}</span>`, 'Settlement', 'bigger: a higher level')}
       ${row(disc(eventIcon('soulStorm', 14), EVENT_LOOK.soulStorm.color), 'World event', 'with its time left')}
       ${row(disc(img('war/ui/icons/24/trade-cart.png', 14, 14), color(you ?? 0)), 'Cart on the road')}
-      ${row(pennant, 'Warlord', 'his hall; smaller: lands he raids')}
+      ${row(pennant, 'Warlord', 'his hall; smaller: lands he holds; red ring: a raid; grey: fallen')}
       ${row(disc('<span style="font:700 13px/1 serif;color:#f2d48a">★</span>', '#e0b867'), 'Mastered', 'every lair, chief and hidden quest')}
     </div></div>
     </div>`;
