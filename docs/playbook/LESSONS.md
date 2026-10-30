@@ -66,8 +66,8 @@ The rules that cost the most to learn, one or two lines each, with the decision 
 - **Ship the UI that closes a state before the engine that opens it** (V5-064, V5-070: the deck behind a flag).
 - **A balance miss gets an owner**, a number and a decision, closed by a later story (V5-037, V5-069, V5-073).
 - **Re-measure the ladder after any sim change** with `npm run balance:ladder` (V5-052).
-- **Measure before an engine upgrade.** Phaser 4 opened the first sheet 1.43× slower on low-end renderers; stayed
-  on 3.90 (V5-025, V5-028, ADR-0003).
+- **Measure before an engine upgrade, and again when the game changes.** Phaser 4 opened v5's first sheet 1.43×
+  slower, so v5 stayed on 3.90; the war game measured even and moved to 4.2 (ADR-0003).
 - **No dead controls.** Settings shows only toggles the code honours; a card never sells a missing feature (V5-072).
 - **Compatibility you don't need is cost.** With no users the frozen v1 sim, version floors and migrations went
   (−11.5k lines). Recheck once there are players (V5-074).

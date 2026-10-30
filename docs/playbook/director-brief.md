@@ -118,7 +118,7 @@ design first").}
 - Real-money pricing and payments don't change; ideas go into `{DOCS}/PROPOSALS.md`.
 - Large changes are fine within these limits: build each in its own commits so it can be reverted, and explain it
   in `DECISIONS.md`. An engine upgrade is allowed only as one dedicated early story, measured before and after
-  (v5 measured Phaser 4 and stayed on 3.90, ADR-0003).
+  (Phaser 4.2; v5 had measured it slower on a screen since removed, ADR-0003).
 - Follow the user's global CLAUDE.md: simplicity, surgical changes, semantic commits, no Claude co-author trailer.
 - **Ports and processes** (another loop may run on this machine): check a port is free
   (`lsof -nP -iTCP:<port> -sTCP:LISTEN`) before starting any server, start with `--strictPort`, give each story

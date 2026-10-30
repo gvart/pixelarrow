@@ -1,45 +1,31 @@
 /**
- * The per-man look on the GPU (./look.ts): Phaser's single-texture sprite pipeline whose fragment shader finds a
- * pixel's colour in its class's block of the palette texture (one hashed slot, checked against the exact colour) and
- * draws the man's colour from it; any other saturated red takes his team's dye (./look.ts DYE_GLSL) as ./units.ts does. One pass,
- * batched like any sprite: the look rides in the sprite's tint and tint effect (lookCode), the team multiply
- * (TEAM_TINT) is applied here.
- * The palette sits on texture unit 1, bound before every flush (Phaser's other pipelines forget their bindings on
- * bind, so they rebind unit 1 themselves).
+ * The per-man look on the GPU (./look.ts): Phaser's sprite batcher with its tint step replaced (./quadShader.ts): the
+ * shader finds a pixel's colour in its class's block of the palette texture (one hashed slot, checked against the exact
+ * colour) and draws the man's colour from it; any other saturated red takes his team's dye (./look.ts DYE_GLSL) as
+ * ./units.ts does. One pass, batched like any sprite: a look sprite has tint mode LOOK_MODE, its block (lookCode's `fx`)
+ * rides in the secondary tint and its look in the tint; the team multiply (TEAM_TINT) is applied here. Other tint
+ * modes draw as Phaser's own.
+ * The palette rides in each batch entry as texture 1 (as Phaser's normal maps do), so the texture units stay Phaser's.
  */
 import Phaser from 'phaser';
+import { addQuadShader } from './quadShader';
 import { DYE_GLSL, PAL_ROWS, PAL_VARIANTS, RED_W_GLSL, buildPalette, type LookPalette } from './look';
 import type { SheetManifest } from '../../art/sheetManifest';
 
 export const LOOK = 'WarLook';
+/** The tint mode of a look sprite (Phaser's own are 0-7). */
+export const LOOK_MODE = 8;
 const PALETTE_KEY = 'war-look-palette';
 
 const hex = (c: number) => `vec3(${(((c >> 16) & 255) / 255).toFixed(4)}, ${(((c >> 8) & 255) / 255).toFixed(4)}, ${((c & 255) / 255).toFixed(4)})`;
 
-const frag = (tints: readonly number[], w: number) => `
-#ifdef GL_FRAGMENT_PRECISION_HIGH
-precision highp float;
-#else
-precision mediump float;
-#endif
-uniform sampler2D uMainSampler;
+const header = (tints: readonly number[], w: number) => `
 uniform sampler2D uPalette;
 uniform vec2 uPalSize;
-varying vec2 outTexCoord;
-varying float outTintEffect;
-varying vec4 outTint;
-vec4 pal(float x, float y) { return texture2D(uPalette, vec2((x + 0.5) / uPalSize.x, (y + 0.5) / uPalSize.y)); }
-void main() {
-  vec4 t = texture2D(uMainSampler, outTexCoord);
-  if (outTintEffect < 7.5) { // Phaser's own effects: multiply (0), fill (1), solid (2)
-    vec4 texel = vec4(outTint.bgr * outTint.a, outTint.a);
-    vec4 color = t * texel;
-    if (outTintEffect > 0.5 && outTintEffect < 1.5) color.rgb = mix(t.rgb, outTint.bgr * outTint.a, t.a);
-    else if (outTintEffect > 1.5) color = texel;
-    gl_FragColor = color;
-    return;
-  }
-  float e = floor(outTintEffect - 8.0 + 0.5);
+vec4 pal(float x, float y) { return texture2D(uPalette, vec2((x + 0.5) / uPalSize.x, 1.0 - (y + 0.5) / uPalSize.y)); } // GL orientation: row 0 at the top is v 1
+vec4 applyLook(vec4 t) {
+  if (outTintEffect.a < 7.5) return applyTint(t);
+  float e = floor(outTintEffect.r * 255.0 + 0.5) + 256.0 * floor(outTintEffect.g * 255.0 + 0.5); // the secondary tint 0x00GGBB: .r is its low byte
   float q = floor((e + 0.5) / 3.0), tier = e - q * 3.0;
   float ci = floor((q + 0.5) / 4.0), team = q - ci * 4.0;
   float R = floor(outTint.b * 255.0 + 0.5), G = floor(outTint.g * 255.0 + 0.5);
@@ -65,30 +51,49 @@ void main() {
     c = mix(c, team < 0.5 ? ${DYE_GLSL[0]} : team < 1.5 ? ${DYE_GLSL[1]} : ${DYE_GLSL[3]}, w);
   }
   vec3 tint = team < 0.5 ? ${hex(tints[0])} : team < 1.5 ? ${hex(tints[1])} : team < 2.5 ? ${hex(tints[2])} : ${hex(tints[3])};
-  gl_FragColor = vec4(c * t.a, t.a) * vec4(tint * outTint.a, outTint.a);
+  return vec4(c * t.a, t.a) * vec4(tint * outTint.a, outTint.a);
 }`;
 
-class LookPipeline extends Phaser.Renderer.WebGL.Pipelines.SinglePipeline {
-  palette: WebGLTexture | null = null;
-  boot(): void {
-    super.boot();
-    this.set1i('uPalette', 1);
+type Tex = Phaser.Renderer.WebGL.Wrappers.WebGLTextureWrapper;
+
+/** One texture per batch entry (the sprite's) plus the palette as texture 1. */
+class LookQuad extends Phaser.Renderer.WebGL.RenderNodes.BatchHandlerQuad {
+  palette: Tex | null = null;
+  palSize = [1, 1];
+  updateRenderOptions(o: Phaser.Types.Renderer.WebGL.RenderNodes.BatchHandlerQuadRenderOptions): void {
+    const multi = o.multiTexturing;
+    o.multiTexturing = false;
+    super.updateRenderOptions(o);
+    o.multiTexturing = multi;
   }
-  onBeforeFlush(): void {
-    const gl = this.gl;
-    gl.activeTexture(gl.TEXTURE1);
-    gl.bindTexture(gl.TEXTURE_2D, this.palette);
-    gl.activeTexture(gl.TEXTURE0);
+  finalizeTextureCount(): void {
+    super.finalizeTextureCount(1);
+  }
+  batchTextures(glTexture: Tex): number {
+    const e = this.currentBatchEntry;
+    if (e.texture[0] !== glTexture || e.texture[1] !== this.palette) {
+      this.pushCurrentBatchEntry();
+      const n = this.currentBatchEntry;
+      glTexture.batchUnit = 0;
+      n.texture[0] = glTexture;
+      n.texture[1] = this.palette!;
+      n.unit = 2;
+    }
+    return 0;
+  }
+  setupUniforms(dc: Phaser.Renderer.WebGL.DrawingContext): void {
+    super.setupUniforms(dc);
+    this.programManager.setUniform('uPalette', 1);
+    this.programManager.setUniform('uPalSize', this.palSize);
   }
 }
 
 /**
- * Add the look pipeline and its palette (the sheets with recolourable groups); per class its block in the palette
+ * Add the look node and its palette (the sheets with recolourable groups); per class its block in the palette
  * (lookCode's `ci`). null: no WebGL, or no sheet has groups.
  */
-export function addLookPipeline(scene: Phaser.Scene, sheets: Iterable<[string, SheetManifest]>, tints: readonly number[]): Map<string, number> | null {
-  const r = scene.renderer;
-  if (!(r instanceof Phaser.Renderer.WebGL.WebGLRenderer)) return null;
+export function addLookPipeline(scene: Phaser.Scene, sheets: Iterable<[string, SheetManifest]>, tints: readonly number[]): { node: LookQuad; index: Map<string, number> } | null {
+  if (!(scene.renderer instanceof Phaser.Renderer.WebGL.WebGLRenderer)) return null;
   const pal: LookPalette = buildPalette(sheets);
   if (!pal.index.size) return null;
   if (!scene.textures.exists(PALETTE_KEY)) {
@@ -98,12 +103,9 @@ export function addLookPipeline(scene: Phaser.Scene, sheets: Iterable<[string, S
     c.getContext('2d')!.putImageData(new ImageData(pal.data, pal.w, pal.h), 0, 0);
     scene.textures.addCanvas(PALETTE_KEY, c)!.setFilter(Phaser.Textures.FilterMode.NEAREST);
   }
-  let p = r.pipelines.get(LOOK) as LookPipeline | undefined;
-  if (!p) {
-    p = new LookPipeline({ game: scene.game, fragShader: frag(tints, pal.w) });
-    r.pipelines.add(LOOK, p);
-  }
-  p.palette = (scene.textures.get(PALETTE_KEY).source[0].glTexture as { webGLTexture: WebGLTexture | null } | null)?.webGLTexture ?? null;
-  p.set2f('uPalSize', pal.w, pal.h);
-  return pal.index;
+  const node = addQuadShader<LookQuad>(scene, LOOK, { header: header(tints, pal.w), fn: 'applyLook' }, LookQuad);
+  if (!node) return null;
+  node.palette = scene.textures.get(PALETTE_KEY).source[0].glTexture;
+  node.palSize = [pal.w, pal.h];
+  return { node, index: pal.index };
 }

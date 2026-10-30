@@ -53,7 +53,7 @@ table with a verdict), ai-doctrines (data-driven bot behaviour, readability rule
 
 **Load-bearing contracts** need an ADR (`architecture-decision`): ADR-0001 the server replays the battle sim (any
 change under `src/sim/**`, the data it reads, stat derivation, setup building or order kinds is a rules change);
-ADR-0002 saves; ADR-0003 engine version (Phaser 3.90 kept); ADR-0004 battle input layer; ADR-0005 the UI kit.
+ADR-0002 saves; ADR-0003 engine version (Phaser 4.2); ADR-0004 battle input layer; ADR-0005 the UI kit.
 
 ## 3. Decisions
 

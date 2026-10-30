@@ -2,7 +2,7 @@
 
 A pixel-art browser war set in the ancient Mediterranean: four alliances fight
 a season-long war for one continent of hand-made regions, with real-time
-battles of soldiers you recruit, train and equip. Built with Phaser 3,
+battles of soldiers you recruit, train and equip. Built with Phaser 4,
 TypeScript and Vite; the backend is a Cloudflare Worker with Durable Objects
 and D1.
 
