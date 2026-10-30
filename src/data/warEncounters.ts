@@ -25,7 +25,7 @@ const LIST: EncounterDef[] = [
     lore: 'A hoplite lies by the road, an arrow in his thigh. ‘By Zeus Xenios, friend: water, and I am yours.’',
     end: 'The road takes him one way or another.',
     steps: [
-      { id: 'go', goal: 'Go to the wounded man', label: 'Deserter', text: 'He waves a torn cloak at your men.', trigger: { kind: 'reach' } },
+      { id: 'go', goal: 'Reach the wounded man', label: 'Deserter', text: 'He waves a torn cloak at your men.', trigger: { kind: 'reach' } },
       {
         id: 'judge', goal: 'Decide his fate', label: 'Deserter', text: 'He ran from the muster. He will not run again, he swears.', trigger: { kind: 'choice', options: [
           { id: 'help', label: 'Bind his wound', text: 'He will follow your standard. Claim his soul when a place is free.', reward: { soul: { cls: 'hoplite', level: 2, name: 'Damon' } } },
@@ -192,7 +192,7 @@ const LIST: EncounterDef[] = [
     lore: 'A hoplite by the road, grey as ash, his wound still open. ‘I fell here and no one sang for me. Give me the rites, or I cannot go on.’',
     end: 'Even here, between the worlds, the dead must be honoured.',
     steps: [
-      { id: 'go', goal: 'Go to the grey soldier', label: 'Shade', text: 'His bones lie in the ditch behind him, picked clean.', trigger: { kind: 'reach' } },
+      { id: 'go', goal: 'Kneel by the grey soldier', label: 'Shade', text: 'His bones lie in the ditch behind him, picked clean.', trigger: { kind: 'reach' } },
       {
         id: 'rites', goal: 'Grant him the rites?', label: 'Shade', text: 'An obol for the ferryman, a handful of earth, a song.', trigger: { kind: 'choice', options: [
           { id: 'bury', label: 'Bury him with the rites', text: 'He lays his shield at your feet and walks into the light.', reward: { item: { def: 'votive_shield', rarity: 'common' }, goods: { herbs: 3 } } },

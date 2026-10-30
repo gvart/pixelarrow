@@ -303,7 +303,7 @@ const FJORDS: Story = {
       trigger: { kind: 'track', marks: [[348, 360], [342, 315], [340, 275]] },
     },
     {
-      id: 'hull', goal: 'Drive the Hound of Boreas from the hull', label: 'The Hound',
+      id: 'hull', goal: 'Drive the Hound from the hull', label: 'The Hound',
       story: 'The longship lies keel-up on the shore, ribs to the sky. The pack sleeps in her belly, and the biggest of them was born in the north wind.',
       where: 'The beached hull on the fjord shore.',
       trigger: { kind: 'clear', at: [338, 232], mob: 'wolf', count: 6, lead: true, name: 'the Hound of Boreas' }, reward: { goods: { hides: 10, coin: 20 } },
@@ -689,7 +689,7 @@ const FORD: Story = {
   backstory: 'We broke at the river, and the bridge broke under us. I came over. My company did not. They are on the island still, waiting for a boat, and the Ferrymen charge the dead to cross, as Charon does. My file-leader will not pay. He never paid for anything.',
   steps: [
     {
-      id: 'bridge', goal: 'Go to the broken bridge', label: 'Bridge',
+      id: 'bridge', goal: 'Read the mark on the bridge', label: 'Bridge',
       story: 'The stumps of the bridge, and the company\'s mark scratched on the last stone: a crooked shield and a number, crossed out, crossed out, crossed out.',
       where: 'The broken bridge on the western channel.',
       trigger: { kind: 'reach', at: [168, 240] }, reward: { goods: { coin: 10 } },
@@ -948,7 +948,7 @@ const KIMMERIANS: Story = {
       trigger: { kind: 'reach', at: [330, 140] }, reward: { goods: { coin: 10 } },
     },
     {
-      id: 'wolves', goal: 'Drive off the wolves that follow the griffin', label: 'Wolves',
+      id: 'wolves', goal: 'Drive off the griffin\'s wolves', label: 'Wolves',
       story: 'Where the griffin hunts, the wolves eat after it, and they have grown bold on its leavings. A pack is tearing at a fresh kill further down the slope, and they do not mean to share it.',
       where: 'Down the slope toward the fort hill\'s foot.',
       trigger: { kind: 'clear', at: [345, 180], mob: 'wolf', count: 6 }, reward: { goods: { hides: 10 } },
@@ -960,7 +960,7 @@ const KIMMERIANS: Story = {
       trigger: { kind: 'clear', at: [330, 256], mob: 'bandit', count: 5, lead: true, name: 'Arimaspos One-Eye' }, reward: { goods: { coin: 25, bronze: 5 } },
     },
     {
-      id: 'stag', goal: 'Decide what to do with the gold stag', label: 'Gold stag',
+      id: 'stag', goal: 'Decide the gold stag\'s fate', label: 'Gold stag',
       story: 'In his packs, the best of what he picked from the griffin\'s kills: a gold stag plaque, its legs folded under it, the Kimmerian kind. Teushpa promised you gold. This is gold.',
       where: 'Choose on this card.',
       trigger: {
@@ -1000,7 +1000,7 @@ const SAVANNA: Story = {
       trigger: { kind: 'rescue', at: [333, 113], cls: 'hoplite', level: 3, name: 'Alkimos' },
     },
     {
-      id: 'hide', goal: 'Tell Alkimos how the Lion can be skinned', label: 'Alkimos',
+      id: 'hide', goal: 'Tell Alkimos how to skin the Lion', label: 'Alkimos',
       story: 'Alkimos wants to go back up the great kopje tonight, alone, with a borrowed sword. Pyrrhias has the old story: Herakles cut the hide with the beast\'s own claws.',
       where: 'Choose on this card.',
       trigger: {
