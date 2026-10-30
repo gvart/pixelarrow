@@ -50,6 +50,13 @@ export interface WarArt {
 /** The biome libraries under public/war/biomes/. */
 export const BIOMES = ['elaia', 'kyrene', 'mountains', 'dodona'] as const;
 const PIECE = 2048;
+/** A well-mixed position hash (autotile's hash is linear in its low bits: `% 4` repeats every 4 tiles). */
+const mix = (x: number, y: number, k: number) => {
+  let h = hash(x, y, k);
+  h = Math.imul(h ^ (h >>> 16), 0x45d9f3b);
+  h = Math.imul(h ^ (h >>> 16), 0x45d9f3b);
+  return (h ^ (h >>> 16)) >>> 0;
+};
 
 interface TilesJson extends TilesMeta { cliffs?: { id: string; file: string; frames?: number; roles?: CliffRoles }[] }
 
@@ -362,14 +369,30 @@ export class ArtBaker {
     for (let fy = 0; fy < fh; fy++) for (let fx = 0; fx < fw; fx++) {
       const j = fy * fw + fx, c = raw[j], q = (fy & 1) * 2 + (fx & 1);
       if (c < 0) { code[j] = -1; continue; }
-      if (c < VARIANT) { code[j] = (c >> 4) * 64 + (c & 15) * 4 + q; continue; }
-      const v = (c - VARIANT) >> 4, x0 = fx & ~1, y0 = fy & ~1;
-      let whole = true;
-      for (let k = 0; k < 4; k++) { const r = raw[(y0 + (k >> 1)) * fw + x0 + (k & 1)]; if (r < VARIANT || (r - VARIANT) >> 4 !== v) whole = false; }
-      const f = whole ? hash(fx >> 1, fy >> 1) % vars[v].frames : 0;
-      code[j] = VARIANT * 64 + v * 64 * 16 + f * 4 + q;
+      // a full cell (one terrain all round, its 2 m tile whole) takes any quadrant of any variant frame, by a well-mixed
+      // hash: the fills' marks then fall at random, not on the 2 m lattice (ticks on sand, scratches on the moors)
+      if (c < VARIANT) {
+        const m = c & 15, free = (m === 0 || m === 15) && this.wholeTile(raw, fx, fy, c);
+        code[j] = (c >> 4) * 64 + m * 4 + (free ? mix(fx, fy, 3) & 3 : q);
+        continue;
+      }
+      const v = (c - VARIANT) >> 4, whole = this.wholeTile(raw, fx, fy, -1, v);
+      const f = whole ? mix(fx, fy, 1) % vars[v].frames : 0;
+      code[j] = VARIANT * 64 + v * 64 * 16 + f * 4 + (whole ? mix(fx, fy, 2) & 3 : q);
     }
     return code;
+  }
+
+  /** Every cell of (fx, fy)'s 2 m tile and of its 4 neighbours' draws frame code `c` (or, c < 0, variant v): the cell is deep in one fill. */
+  private wholeTile(raw: Int32Array, fx: number, fy: number, c: number, v = -1): boolean {
+    const { fw, fh } = this.iso;
+    for (const [dx, dy] of [[0, 0], [-1, 0], [1, 0], [0, -1], [0, 1]]) {
+      const x = fx + dx, y = fy + dy;
+      if (x < 0 || y < 0 || x >= fw || y >= fh) continue;
+      const r = raw[y * fw + x];
+      if (c >= 0 ? r !== c : r < VARIANT || (r - VARIANT) >> 4 !== v) return false;
+    }
+    return true;
   }
 
   /** As TerrainBaker.bake; `objects` bakes the map objects in too (the overview). */
@@ -765,6 +788,7 @@ class Faces {
   private se = new Path2D(); private sw = new Path2D(); private foot = new Path2D();
   private dark = new Path2D(); private lit = new Path2D(); private rim = new Path2D();
   private streakLit = new Path2D(); private streakDark = new Path2D(); private upper = new Path2D(); private lip = new Path2D();
+  private low = new Path2D(); private mid = new Path2D();
   private any = false;
   /** Rock walls of the row: [stone, x, y, tx, ty, drop, OX, OY, cut, lift]. */
   private walls: [Stone, number, number, number, number, number, number, number, number, Lift][] = [];
@@ -828,18 +852,23 @@ class Faces {
     const quad = (p: Path2D, ax: number, ay: number, bx2: number, by2: number, d0: number, d1: number) => {
       p.moveTo(ax, ay + d0); p.lineTo(bx2, by2 + d0); p.lineTo(bx2, by2 + d1); p.lineTo(ax, ay + d1); p.closePath();
     };
+    // the tip of a rock wall running across the grid (walled down both faces): both faces lit alike, so the zigzag of
+    // cells reads as one wall front facing the viewer, not as stripes of light and shade
+    const zig = stone && (cut & CUT_TIP) !== 0;
     if (dE >= 2) {
       const d = dE * LH, t = Faces.top(0, rx, ry + o[0], bx, by + o[1], cut);
-      Faces.face(this.se, t, rx, ry, bx, by, d);
+      Faces.face(zig ? this.mid : this.se, t, rx, ry, bx, by, d);
       this.rimOf(x, y, t, stone, 0);
-      if (dE >= 3) { quad(this.foot, rx, ry, bx, by, d * 0.6, d); Faces.face(this.upper, t, rx, ry, bx, by, d * 0.25); }
+      // light falls off down the face: lit under the lip, two steps of shade toward the foot (a wall reads as a mass, not a flat strip)
+      quad(this.low, rx, ry, bx, by, d * 0.35, d); quad(this.foot, rx, ry, bx, by, d * 0.65, d); Faces.face(this.upper, t, rx, ry, bx, by, d * 0.22);
       if (dE >= 3) this.detail(x, y, rx, ry, bx, by, dE, z, 0, stone);
     }
     if (dS >= 2) {
       const d = dS * LH, t = Faces.top(1, bx, by + o[1], lx, ly + o[2], cut);
-      Faces.face(this.sw, t, bx, by, lx, ly, d);
+      Faces.face(zig ? this.mid : this.sw, t, bx, by, lx, ly, d);
       this.rimOf(x, y, t, stone, 1);
-      if (dS >= 3) { quad(this.foot, bx, by, lx, ly, d * 0.6, d); Faces.face(this.upper, t, bx, by, lx, ly, d * 0.25); }
+      // light falls off down the face: lit under the lip, two steps of shade toward the foot (a wall reads as a mass, not a flat strip)
+      quad(this.low, bx, by, lx, ly, d * 0.35, d); quad(this.foot, bx, by, lx, ly, d * 0.65, d); Faces.face(this.upper, t, bx, by, lx, ly, d * 0.22);
       if (dS >= 3) this.detail(x, y, bx, by, lx, ly, dS, z, 1, stone);
     }
   }
@@ -896,12 +925,15 @@ class Faces {
       // both faces mapped from the world (16 px per cell along the wall, LH per level down it), so strata stay level
       const p = (WALL_PAT[st] ??= ctx.createPattern(wallTexture(st), 'repeat')!), d = drop * LH;
       const rx = tx + 2 * FW, ry = ty + FH, bx = tx + FW, by = ty + 2 * FH, lx = tx, ly = ty + FH;
-      p.setTransform(new DOMMatrix([-1, 0.5, 0, 1, OX + (x + 1) * FW, OY + (x + 1) * FH]));
+      // a tip of a wall running across the grid: its strata level across the screen (the run's cells share a top height),
+      // not in a chevron per cell
+      const zig = (cut & CUT_TIP) !== 0;
+      p.setTransform(zig ? new DOMMatrix([1, 0, 0, 1, OX, OY - 7 * LH]) : new DOMMatrix([-1, 0.5, 0, 1, OX + (x + 1) * FW, OY + (x + 1) * FH]));
       ctx.fillStyle = p;
       const se = new Path2D();
       Faces.face(se, Faces.top(0, rx, ry + o[0], bx, by + o[1], cut), rx, ry, bx, by, d);
       ctx.fill(se);
-      p.setTransform(new DOMMatrix([1, 0.5, 0, 1, OX - (y + 1) * FW, OY + (y + 1) * FH]));
+      if (!zig) p.setTransform(new DOMMatrix([1, 0.5, 0, 1, OX - (y + 1) * FW, OY + (y + 1) * FH]));
       const sw = new Path2D();
       Faces.face(sw, Faces.top(1, bx, by + o[1], lx, ly + o[2], cut), bx, by, lx, ly, d);
       ctx.fill(sw);
@@ -916,19 +948,22 @@ class Faces {
       ctx.restore();
       this.notches.length = 0;
     }
-    ctx.fillStyle = 'rgba(14,16,30,0.17)'; ctx.fill(this.se);
-    ctx.fillStyle = 'rgba(255,238,200,0.08)'; ctx.fill(this.sw);
-    ctx.fillStyle = 'rgba(10,10,20,0.15)'; ctx.fill(this.foot);
+    // light from the upper left: the SW faces lit, the SE faces in shade
+    ctx.fillStyle = 'rgba(14,16,30,0.3)'; ctx.fill(this.se);
+    ctx.fillStyle = 'rgba(255,238,200,0.1)'; ctx.fill(this.sw);
+    ctx.fillStyle = 'rgba(14,16,30,0.1)'; ctx.fill(this.mid);
+    ctx.fillStyle = 'rgba(10,10,20,0.1)'; ctx.fill(this.low);
+    ctx.fillStyle = 'rgba(10,10,20,0.14)'; ctx.fill(this.foot);
     ctx.fillStyle = 'rgba(16,8,6,0.42)'; ctx.fill(this.lip);
     ctx.strokeStyle = 'rgba(255,242,214,0.3)'; ctx.lineWidth = 1.5; ctx.stroke(this.rim);
-    ctx.fillStyle = 'rgba(255,238,200,0.07)'; ctx.fill(this.upper);
+    ctx.fillStyle = 'rgba(255,238,200,0.09)'; ctx.fill(this.upper);
     ctx.fillStyle = 'rgba(255,240,214,0.09)'; ctx.fill(this.streakLit);
     ctx.fillStyle = 'rgba(10,10,18,0.14)'; ctx.fill(this.streakDark);
     ctx.lineWidth = 1;
     ctx.strokeStyle = 'rgba(12,10,8,0.55)'; ctx.stroke(this.dark);
     ctx.strokeStyle = 'rgba(255,240,210,0.22)'; ctx.stroke(this.lit);
     this.se = new Path2D(); this.sw = new Path2D(); this.foot = new Path2D(); this.dark = new Path2D(); this.lit = new Path2D(); this.rim = new Path2D();
-    this.streakLit = new Path2D(); this.streakDark = new Path2D(); this.upper = new Path2D(); this.lip = new Path2D();
+    this.streakLit = new Path2D(); this.streakDark = new Path2D(); this.upper = new Path2D(); this.lip = new Path2D(); this.low = new Path2D(); this.mid = new Path2D();
     this.any = false;
   }
 }
