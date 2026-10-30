@@ -34,6 +34,7 @@ import type { BakeJob } from './bakeWorker';
 import { WaterGlints } from './water';
 import { ShotLayer } from './shots';
 import { BODY, SPRITE_ZOOM, UnitLayer } from './units';
+import { ChiefLayer } from './chiefs';
 import { peakAt } from './peaks';
 import { NeutralLayer } from './neutral';
 import { MobFx } from './mobFx';
@@ -166,6 +167,8 @@ export class SandboxScene extends Phaser.Scene {
   private shots!: ShotLayer;
   /** M7d: landmark guardians (perch, clips, their moves' fx, the Warden's mark). */
   guardians!: GuardianLayer;
+  /** world-fill: local mini-bosses drawn larger, tinted and named (./chiefs.ts). */
+  chiefs!: ChiefLayer;
   /** Fog of war over the player's team's unexplored and explored ground (W-39; the sim client hides what it cannot see). */
   private fog!: FogLayer;
   private fogVer = -1;
@@ -283,7 +286,9 @@ export class SandboxScene extends Phaser.Scene {
     // the siege layer draws wall, gate and tower rubble; M7b: a pre-built ruin of anything else is the building layer's
     layer.skip = (b) => (!!sl.art && (b.siege !== undefined || (b.state === 'destroyed' && !!b.rubble && !(b.ruin && !BUILDINGS[b.type].wall)))) || (b.type === 'chest' && !!this.tradeLayer.art && b.state !== 'destroyed');
     const gd = (this.guardians = new GuardianLayer(this, this.iso, (d) => this.units.feet(d), r.guardians ?? []));
-    this.units.pose = (id, now) => gd.fx.poseOf(id, now);
+    const ch = (this.chiefs = new ChiefLayer(this));
+    this.units.pose = (id, now) => gd.fx.poseOf(id, now) ?? ch.pose(id);
+    this.units.tintOf = (id) => ch.tint(id);
     this.units.watch = gd.watch;
     this.units.mark = (id) => gd.mark(id);
     gd.drawn = (id) => this.units.drawnAs.get(id);
@@ -676,10 +681,12 @@ export class SandboxScene extends Phaser.Scene {
     this.units.settle(this.drawn, this.time.now);
     const occluded = this.objects?.draw(view, cam.zoom, this.drawn, (d) => this.units.feet(d), BODY) ?? new Set<number>();
     if (cam.zoom >= SPRITE_ZOOM) this.build.layer.occluded(this.drawn, occluded);
+    this.chiefs.update(this.sim.cur?.lairs);
     this.units.draw(this.drawn, view, cam.zoom, this.sim.replay?.picked ?? this.sel.units, at, this.sim.squads, shots, occluded);
     this.micro.update(this.drawn, this.sel.units, view, cam.zoom, this.guardians.watch);
     const cur = this.sim.cur;
     if (cur?.lairs || cur?.claims) this.neutral.draw(cur.lairs ?? [], cur.claims ?? [], cam.zoom, bosses);
+    this.chiefs.draw((id) => { const d = this.drawn.find((q) => q.u.id === id && q.u.state !== 'dead'); return d ? this.units.feet(d) : null; }, cam.zoom, cam.zoom >= SPRITE_ZOOM);
     this.mobFx.draw(cam.zoom, this.time.now, view);
     if (bosses || cur?.warden) this.guardians.draw(bosses ?? [], cur?.warden, cam.zoom, this.time.now, this.sim.since(this.time.now), view, this.moved && this.input.isOver ? this.wpx(p.x, p.y) : null);
     this.shots.update(at.snap, shots);
