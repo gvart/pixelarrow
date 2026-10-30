@@ -50,7 +50,7 @@
 import { DurableObject } from 'cloudflare:workers';
 import type { Env } from '../env';
 import { WarRoom, type ClaimTaking, type RoomOptions, type RoomState, type TickTimes } from './room';
-import { regionVersion, WAR_REGIONS, warRegion } from './regions';
+import { regionSeed, regionVersion, WAR_REGIONS, warRegion } from './regions';
 import { DEFAULT_CAP, parseClientMsg, type HandoffMsg, type JoinMsg, type MendMsg, type ServerMsg, type StowMsg } from '../../../src/war/net/protocol';
 import { cartArrived, contract, deliver, guardCheck, labourDone, sealedFor, workContracts } from './contracts';
 import { addLabour, bonusesOf, openWorks } from './works';
@@ -214,7 +214,7 @@ export class WarRegionDO extends DurableObject<Env> {
     const wild = !!(data.lairs?.length || data.guardians?.length);
     // a home is its alliance's from the season's start: it builds there at once (WarRoom home anchor)
     const home = ALLIANCES.find((a) => a.home === region)?.id;
-    return { region: data, seed: 1, cap: Number(this.env.WAR_CAP) || DEFAULT_CAP, allowArmy: this.env.DEV_AUTH === '1', allowDev: this.env.DEV_AUTH === '1', wild, home, roam: true };
+    return { region: data, seed: regionSeed(region), cap: Number(this.env.WAR_CAP) || DEFAULT_CAP, allowArmy: this.env.DEV_AUTH === '1', allowDev: this.env.DEV_AUTH === '1', wild, home, roam: true };
   }
 
   /**
