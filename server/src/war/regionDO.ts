@@ -69,6 +69,8 @@ import type { AttrId } from '../../../src/data/perks';
 import { log, logError } from '../telemetry/log';
 import { applyBossKill } from './bosses';
 import { addFavour, encounterFavour, favourTick, storyFavour } from './favour';
+import { masteryOf, recordWild } from './mastery';
+import type { WildDeed } from '../../../src/war/net/mastery';
 import { elapsedTicks, loadMemory, MEMORY_KEY, remembered, storeMemory, writeMemory } from './memory';
 import type { WorldEvent } from '../../../src/war/world/events';
 import { settleTunnelFor } from './raise';
@@ -448,6 +450,7 @@ export class WarRegionDO extends DurableObject<Env> {
     if (res.msg.t === 'welcome') await this.guideStart(pid, room);
     if (res.msg.t === 'welcome') await this.storyStart(pid, room); // W-65
     if (res.msg.t === 'welcome') await this.encounterStart(pid, room); // W-65
+    if (res.msg.t === 'welcome') await this.masteryStart(pid, room); // W-73
     this.save();
     this.start();
     // a rejoin that also names men not here (entering again with some at home): they follow as a fresh squad
@@ -476,6 +479,26 @@ export class WarRegionDO extends DurableObject<Env> {
     if (m) for (const ws of this.ctx.getWebSockets(`p:${pid}`)) send(ws, m);
   }
 
+  /** W-73: his mastery of this region, told to him on a join (the chip). */
+  private async masteryStart(pid: number, room: WarRoom): Promise<void> {
+    const d = this.env.DB;
+    if (!d) return;
+    const v = await masteryOf(d, pid, room.region);
+    for (const ws of this.ctx.getWebSockets(`p:${pid}`)) send(ws, { t: 'mastery', ...v });
+  }
+
+  /** W-73: the tick's deeds of the wild: tallies, mastery rows, a region mastered; progress told to the player. */
+  private wild(room: WarRoom, deeds: readonly WildDeed[]): void {
+    if (!this.env.DB) return;
+    const by = new Map<number, WildDeed[]>();
+    for (const x of deeds) (by.get(x.pid) ?? by.set(x.pid, []).get(x.pid)!).push(x);
+    for (const [pid, xs] of by)
+      this.write(`wild ${pid}`, async () => {
+        const v = await recordWild(this.env, pid, room.region, xs, Date.now());
+        if (v) for (const ws of this.ctx.getWebSockets(`p:${pid}`)) send(ws, { t: 'mastery', ...v });
+      });
+  }
+
   /** W-65: encounter runs moved: the save into storage, goods owed into his home strongroom. */
   private met(done: readonly EncounterDone[]): void {
     const d = this.env.DB;
@@ -483,6 +506,8 @@ export class WarRegionDO extends DurableObject<Env> {
       this.ctx.waitUntil(this.ctx.storage.put(encounterStorageKey(WAR_SEASON.id, g.pid), g.save).catch((e) => logError('war_encounter_save_failed', e)));
       const pay = Object.entries(g.goods).filter(([, n]) => n > 0);
       if (d && g.notes) this.write(`favour encounter ${g.pid}`, () => addFavour(this.env, g.pid, encounterFavour(g.notes), 'encounter')); // W-66
+      const ends = g.notes?.filter((n) => n.kind === 'end').length ?? 0;
+      if (d && ends) this.write(`encounter tally ${g.pid}`, () => tallyStmt(d, g.pid, 'encounter', ends, Date.now()).run()); // W-73 solo tasks
       if (d && pay.length) this.write(`encounter ${g.pid} ${g.save.n}`, () => batch(d, [ensureHolder(d, strongroom(g.pid), 'strongroom', { pid: g.pid }, Date.now()), ...pay.map(([r, n]) => putStmt(d, strongroom(g.pid), r, n))]));
     }
   }
@@ -959,6 +984,7 @@ export class WarRegionDO extends DurableObject<Env> {
       if (w?.t === 'welcome') void this.guideStart(a.pid, room); // W-62: in from the line
       if (w?.t === 'welcome') void this.storyStart(a.pid, room); // W-65
       if (w?.t === 'welcome') void this.encounterStart(a.pid, room); // W-65
+      if (w?.t === 'welcome') void this.masteryStart(a.pid, room); // W-73
       if (w?.t === 'welcome') this.sendSettlements(room, a.pid, true); // W-63
       for (const m of r.msgs.get(a.pid) ?? []) send(ws, m); // the economy view (nodes, influence)
       const f = r.frames.get(a.pid);
@@ -1009,6 +1035,7 @@ export class WarRegionDO extends DurableObject<Env> {
     if (r.guided.length) this.guided(r.guided);
     if (r.storied.length) this.storied(r.storied); // W-65
     if (r.met.length) this.met(r.met); // W-65
+    if (r.wild.length) this.wild(room, r.wild); // W-73
     favourTick(this.env, room, (w, f) => this.write(w, f)); // W-66: lairs cleared, land held
     if (d && r.crafted.length) this.write('crafted', () => applyCrafts(d, room.region.id, room.run, r.crafted, Date.now()));
     if (d) for (const b of r.bosses) this.write(`boss ${b.boss}`, () => applyBossKill(d, room.region.id, room.run, b, Date.now()));

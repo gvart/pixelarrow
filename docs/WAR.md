@@ -463,6 +463,19 @@ zone. Each room runs on its own seed (the region id hashed), so wander, roads an
 | Chief (local mini-boss) | 1 per entry, 2 deeper; none at home | a named beast or bandit chief (src/data/warWild.ts `WAR_CHIEFS`) on his kind's art, drawn 1.2–1.45x and tinted, his name and title over his head; leads an escort of his kind (`CHIEF_KINDS`: hp x2.85–76 and damage x1.2–2.6 over a man of his kind, before depth, and +6 armour, so a solo player's whole army (12 men, W-58) takes 60–90 s to bring him down: level 2 at depth 1, level 3 at depth 2 (measured 64–81 s for hoplites; 20 level-1 men take ~50–57 s); a chief never breaks off); his kill drops a pile (10–25 coin and a few hides or iron, x(1 + depth/2), an item at 35–50%); his lair comes back after 37.5 min (depth 1) to 60 min (rim) |
 | Hidden quest | 2 per entry, 3 deeper; none at home | no giver and no marker: men walking onto the spot (a dead man with a note, a cairn, a forgotten shrine, a ruined watch-post) begin the player's own run on the story runner (src/war/sim/secrets.ts), told as a short notice; 1–2 steps a short walk off (hunt the killers, dig a cache, the shrine's chief, robbers in an abandoned Warden post); the words follow the region's ground (`landOf`: the cold north, the steppe, the sand, the wet south; the rules stay the template's); pays a pile at his men, his alone for 10 min (10–20 coin and a few goods, x(1 + depth/2)) |
 
+#### Region mastery (W-73)
+
+Per player and season, a region is **mastered** when his men have cleared every lair it was built with, slain every
+chief among them and finished every hidden quest in it (`src/war/net/mastery.ts`; D1 `war_mastery`,
+`war_mastery_done`, 0052; `server/src/war/mastery.ts`). Each counts once: a lair respawned and cleared again adds
+nothing, and the lairs and chiefs a hidden quest spawns feed the tasks only. A lair or chief counts for every player
+with fit men within 20 tiles when it falls (shared with friends who fought beside him). Mastering pays once: 300
+divine favour (reason "Region mastered"), the deed **Banner of <region>** on each of his men standing there (their
+record and grave), and the badge on the region's mastery chip. A home has no chiefs or hidden quests: its outskirts
+lairs master it. The chip (`src/war/view/hud/mastery.ts`) shows lairs, chiefs and hidden quests have/need under the
+region name; online the room sends it on join and on each deed; offline the client keeps it from the local sim for the
+session.
+
 ### Random encounters
 
 W-65 (`src/war/sim/encounters.ts`, the kinds `src/data/warEncounters.ts`, the HUD `src/war/view/hud/encounter.ts`): while
@@ -1008,7 +1021,7 @@ badge; the title screen shows it beside the name), a short banner on a level gai
   Apollo, Shield of Zeus, Titan-slayer, Ichor-blooded, Star of Olympus, Olympian-touched.
 - **Earning:** battle won 20, fought 4, each kill 2 (20 kills a fight at most); lair cleared 40 (players with men
   within 20 tiles); guardian slain 150 (each killer); daily task 40, weekly 150; story step 25, chain ended 150;
-  encounter step 10, ended 30; land every 10 min: 1 per claim point his alliance holds where his men stand (3 at
+  encounter step 10, ended 30; a region mastered 300 (W-73); land every 10 min: 1 per claim point his alliance holds where his men stand (3 at
   most) and 2 if it owns the region, at most 30 an hour across regions.
 - **Bonus, newly raised men only** (claimed souls; tunnel raises): +1 unspent attribute point at levels 3, 6, 9, 12
   (4 at most); the starting kit lifted to uncommon at level 5, rare at level 10. A max-favour fresh man (4 points,
@@ -1474,3 +1487,18 @@ the roster's tabs, in the Works panel's Titles tab (the standings, with your own
 panel and after the holder's home on the map: **Merchant Prince** (coin sold at his stalls), **Master Builder** (man-hours sold
 under build contracts or given to works), **Warden** (hours held under guard contracts), **Warlord** (foes his men
 struck down this season, war_player_stats; not the men's lifetime kills).
+
+### Daily and weekly tasks (W-62, W-73 solo)
+
+Pools, draw and lore: `src/war/net/tasks.ts`, `src/war/net/questLore.ts` `TASK_LORE`; tallies and claims:
+`server/src/war/tasks.ts`. 3 daily and 2 weekly tasks, drawn per player and period (no metric twice), one reroll a day.
+
+- **Partner tasks** need another player: selling to another alliance (`d-sell`, `w-sell`), guard contracts
+  (`d-guard`, `w-guard`) and market contracts (`d-contract`, `w-contract`). A player draws (and rerolls into) them
+  only while at least 2 other members of his alliance did anything the tally counts in the last 3 UTC days
+  (`PARTNERS`); otherwise he draws solo. Offline he is always solo. The draw is fixed for the period once made.
+- **Solo tasks of the wild**: slay a named chief (daily 1, 35 coin; weekly 4, 200), finish a hidden quest (daily 1,
+  30; weekly 3, 160), see a road encounter through to its end (daily 1, 25), clear lairs (daily 2, 30; weekly 12,
+  180). A lair or a chief counts for every player with fit men within 20 tiles (of the lair, of where the chief fell;
+  the chief's slaying team only); a hidden quest for its owner; an encounter on its end (a lapse does not count).
+  Respawned lairs and chiefs count again for the tasks.

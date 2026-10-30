@@ -93,6 +93,7 @@ const HERMES: Giver = { name: 'Hermes', title: 'leader of souls' };
 const FACTOR: Giver = { name: 'Mnesarchos', title: 'factor of the agora' };
 const STORES: Giver = { name: 'Phaidra', title: 'keeper of the stores' };
 const HORKOS: Giver = { name: 'The oath-stone', title: 'of Horkos' };
+const HUNTRESS: Giver = { name: 'Atalante', title: 'huntress of the marches' };
 export const TASK_LORE: Record<TaskMetric, TaskLore> = {
   gatherWood: { giver: BUILDER, goal: 'Cut wood', story: 'The works never stop eating timber, and the builders pay for every log.', where: 'Any forest: right-click a tree, your men carry the wood to your nearest store.' },
   gatherStone: { giver: BUILDER, goal: 'Quarry stone', story: 'Stone outlasts the men who lay it, and on Metaxy even the men last. The builders need more.', where: 'Any quarry: right-click a boulder, your men carry the stone to your nearest store.' },
@@ -105,6 +106,10 @@ export const TASK_LORE: Record<TaskMetric, TaskLore> = {
   labour: { giver: BUILDER, goal: 'Work on a building site', story: 'Walls, temples and roads are raised by hands, and yours are idle.', where: 'An alliance work site, or a build contract from the market (K).' },
   workGoods: { giver: BUILDER, goal: 'Give goods to alliance works', story: 'The temple, the roads and the beacons rise from what members give.', where: 'The Works panel: give goods to an alliance work.' },
   sellAlliance: { giver: FACTOR, goal: 'Sell to other alliances', story: 'Silver from another alliance\'s purse weighs the same as ours, and it buys more.', where: 'Your stall at a market town (K): sell to members of other alliances.' },
+  chief: { giver: POLEMARCH, goal: 'Slay a chief of the wild', story: 'Every pack and band out there follows one beast or one man who has tasted the Abyss\'s fog and liked it. Cut off the head and the wild forgets the road for a while.', where: 'A region off your home: the named chief (a plate over his head) holds his lair. Right-click him.' },
+  secret: { giver: HUNTRESS, goal: 'Follow a hidden trail', story: 'Metaxy keeps its dead badly. A note on a corpse, a cairn, a shrine no one tends: each is a grief someone left unfinished, and it pays to finish it.', where: 'Off the roads of a neutral region: walk your men onto something that does not belong. No marker shows it.' },
+  encounter: { giver: HUNTRESS, goal: 'See a road encounter through', story: 'The roads throw up the lost and the hungry. Whether you help, rob or bury them, finish what the road began.', where: 'Any road: march your men and answer the card that comes to you.' },
+  lair: { giver: POLEMARCH, goal: 'Clear lairs off the roads', story: 'Each lair left standing is a mouth the Abyss feeds through. Empty them, and the dead walk home safer.', where: 'Any region: a lair (a den or a camp on the map). Right-click it with your men until none stand.' },
   contract: { giver: HORKOS, goal: 'Fill a market contract', story: 'Horkos, god of oaths, punishes the forsworn even here; ask the Wardens. Give your word and keep it.', where: 'The market (K), Contracts tab: take a contract and fill it.' },
 };
 

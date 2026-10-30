@@ -6,7 +6,7 @@
  *  - Curve: FAVOUR_XP[L] favour reaches level L (200 x (L-1)^2): level 2 in about the first hour of play, level 10 in
  *    a few weeks, FAVOUR_MAX the last.
  *  - Earning (FAVOUR_EARN): battles won and fought, kills, bosses and lairs cleared, tasks claimed, story steps and
- *    chains, encounters, and land held (claim points and the region, paid every LAND_MS while his men stand there,
+ *    chains, encounters, a region mastered (W-73: src/war/net/mastery.ts MASTERY.favour), and land held (claim points and the region, paid every LAND_MS while his men stand there,
  *    at most FAVOUR_EARN.land.hourCap an hour across regions).
  *  - Bonus (favourBonus): only for newly raised men (claimed souls, tunnel raises): unspent attribute points at every
  *    third level (at most FAVOUR_ATTR_MAX) and a better rarity of the starting kit at FAVOUR_GEAR_AT. Capped so a max
@@ -50,10 +50,10 @@ export const FAVOUR_EARN = {
 /** Land pays this often (each region room). */
 export const LAND_MS = 10 * 60_000;
 
-export type FavourReason = 'win' | 'battle' | 'boss' | 'lair' | 'task' | 'story' | 'encounter' | 'land';
+export type FavourReason = 'win' | 'battle' | 'boss' | 'lair' | 'task' | 'story' | 'encounter' | 'land' | 'mastery';
 export const FAVOUR_REASON: Record<FavourReason, string> = {
   win: 'Battle won', battle: 'Battle fought', boss: 'Guardian slain', lair: 'Lair cleared', task: 'Task done',
-  story: 'Story', encounter: 'Encounter', land: 'Land held',
+  story: 'Story', encounter: 'Encounter', land: 'Land held', mastery: 'Region mastered',
 };
 
 /** Extra unspent attribute points at every third level, at most this many. */
