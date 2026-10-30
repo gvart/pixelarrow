@@ -308,7 +308,7 @@ export function crownToast(n: { kind: CrownNewsKind; text: string }): string {
 export function claimToast(a: { region: string; name: string; by: number; here: boolean }): string {
   const where = worldRegion(a.region)?.name ?? a.name ?? a.region, by = ALLIANCES[a.by]?.name ?? 'A foe';
   return `${glyph('ui:swords', 26)}<div class="sx-b"><div class="sx-t">${esc(where)}: your claim point is being taken!</div>
-    <div class="rf-dim">${esc(by)} is at the banner${a.here ? ' here' : ''}. Any of your men within 14 tiles resets it.</div></div><button class="rf-tbtn x" data-sx="x">×</button>`;
+    <div class="rf-dim">${esc(by)} is at the banner${a.here ? ' here' : ''}. Any of your men within 28 m resets it.</div></div><button class="rf-tbtn x" data-sx="x">×</button>`;
 }
 
 /** A claim refused: a pact or truce with the point's holder. */

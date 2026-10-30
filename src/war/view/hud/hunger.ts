@@ -7,6 +7,7 @@ import { HUNGER, HUNGER_NAMES, hungerStage, type HungerStage } from '../../sim/f
 import { card, fx, val } from './codex';
 import { glyph } from './glyph';
 import { esc } from './roster/ui';
+import { metres } from './explain';
 
 const ICON: Record<HungerStage, string> = { 0: 'ui:food', 1: 'power:hunger', 2: 'power:hunger' };
 const TONE: Record<HungerStage, string> = { 0: '#8fbf6a', 1: '#e0a944', 2: '#e05a4a' };
@@ -27,7 +28,7 @@ export function hungerCard(sat: number): string {
     fx: [
       ...effects,
       fx('goods:march_rations', `eats a ration (${val('+' + HUNGER.ration, '')}) or food (${val('+' + HUNGER.food, '')}) from his pack`),
-      fx('ui:chest', `else from a store of yours within ${HUNGER.storeR} tiles`),
+      fx('ui:chest', `else from a store of yours within ${metres(HUNGER.storeR)}`),
     ],
   });
 }

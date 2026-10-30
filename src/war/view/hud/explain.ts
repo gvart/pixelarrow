@@ -18,6 +18,8 @@ import type { BossSnap, ClaimSnap, LairSnap } from '../../types';
 
 const TICK_S = 0.1; // the sim runs at 10 Hz
 const regionName = (id: string) => worldRegion(id)?.name ?? id;
+/** Tiles to metres (1 tile = 2 m, W-18): every distance the player reads is in metres, never tiles. */
+export const metres = (d: number) => `${Math.round(d * 2)} m`;
 
 // ------------------------------------------------------------------ world events
 
@@ -42,7 +44,7 @@ export function eventHelp(e: Pick<WorldEvent, 'kind' | 'region'>): EventHelp {
       gain: 'new men',
       what: `fallen warriors rise ${STORM.chance}x as often in ${where}, a chance for new men`,
       todo: 'Go there with a squad and claim the souls (E on a soul)',
-      rule: `Souls wake at shrines, ruins, old battlefields and lairs ${STORM.chance}x as often, up to ${STORM.max} at once instead of ${SOUL.max}. Stand a man within ${SOUL.reach} tiles of one for ${SOUL.channel * TICK_S} s and he joins your squad, his class and level with him, while you have fewer than ${ARMY_MAX} men. Unclaimed, a soul fades after ${Math.round(SOUL.life * TICK_S / 60)} min.`,
+      rule: `Souls wake at shrines, ruins, old battlefields and lairs ${STORM.chance}x as often, up to ${STORM.max} at once instead of ${SOUL.max}. Stand a man within ${metres(SOUL.reach)} of one for ${SOUL.channel * TICK_S} s and he joins your squad, his class and level with him, while you have fewer than ${ARMY_MAX} men. Unclaimed, a soul fades after ${Math.round(SOUL.life * TICK_S / 60)} min.`,
     },
     bossWake: {
       goal: `Slay ${boss.replace(/^The /, 'the ')}`,
@@ -121,25 +123,25 @@ export function claimView(c: ClaimSnap, you: number, depth: number, lairs: reado
     const who = ALLIANCES[c.team]?.name ?? 'another side', at = Math.floor(c.progress * need.secs);
     const by = c.by !== undefined && c.by >= 0 ? ALLIANCES[c.by]?.name ?? 'another side' : '';
     if (c.team === you) {
-      if (c.taking) return { label: 'Being taken!', tone: 'bad', state: c.taking === 'channel' ? `${by} is taking it: ${at} of ${need.secs} s.` : `${by} is at the banner; ${c.taking === 'defended' ? 'your men hold it off' : 'the claim is reset'}.`, next: `Send men: any of yours within ${CLAIM.contest} tiles resets it, and while one stands within ${CLAIM.r} tiles it cannot run.` };
-      return { label: 'Held: yours', tone: 'good', state: 'Held by your alliance: the ground round it is yours.', next: `Press B to build here; forts and outposts spread your ground further. Keep men near: a foe who clears ${CLAIM.r} tiles round it can take it.` };
+      if (c.taking) return { label: 'Being taken!', tone: 'bad', state: c.taking === 'channel' ? `${by} is taking it: ${at} of ${need.secs} s.` : `${by} is at the banner; ${c.taking === 'defended' ? 'your men hold it off' : 'the claim is reset'}.`, next: `Send men: any of yours within ${metres(CLAIM.contest)} resets it, and while one stands within ${metres(CLAIM.r)} it cannot run.` };
+      return { label: 'Held: yours', tone: 'good', state: 'Held by your alliance: the ground round it is yours.', next: `Press B to build here; forts and outposts spread your ground further. Keep men near: a foe who clears ${metres(CLAIM.r)} round it can take it.` };
     }
     const take = `clear its defenders, then hold it ${need.secs} s to take it`;
     if (c.taking && c.by === you) {
-      if (c.taking === 'channel') return { label: `Taking ${at}/${need.secs} s`, tone: '', state: `Taking it from ${who}: ${at} of ${need.secs} s.`, next: `Keep ${c.men ?? need.men} men within ${CLAIM.at} tiles of the banner; any foe within ${CLAIM.contest} tiles resets it. Done, the town round it is yours at the hp it has.` };
-      if (c.taking === 'defended') return { label: 'Defended', tone: 'bad', state: `Held by ${who}: its men within ${CLAIM.r} tiles keep the claim from running.`, next: `Drive them off, then ${hold}.` };
-      return { label: 'Contested', tone: 'bad', state: `Contested: foes within ${CLAIM.contest} tiles reset the claim.`, next: `Drive them off, then ${hold}.` };
+      if (c.taking === 'channel') return { label: `Taking ${at}/${need.secs} s`, tone: '', state: `Taking it from ${who}: ${at} of ${need.secs} s.`, next: `Keep ${c.men ?? need.men} men within ${metres(CLAIM.at)} of the banner; any foe within ${metres(CLAIM.contest)} resets it. Done, the town round it is yours at the hp it has.` };
+      if (c.taking === 'defended') return { label: 'Defended', tone: 'bad', state: `Held by ${who}: its men within ${metres(CLAIM.r)} keep the claim from running.`, next: `Drive them off, then ${hold}.` };
+      return { label: 'Contested', tone: 'bad', state: `Contested: foes within ${metres(CLAIM.contest)} reset the claim.`, next: `Drive them off, then ${hold}.` };
     }
-    return { label: `Held: ${who}`, tone: 'bad', state: `Held by ${who}: ${take}.${by ? ` ${by} is taking it now.` : ''}`, next: `No man of ${who} may stand within ${CLAIM.r} tiles; then select men, E on the banner and ${hold}. A truce or pact with ${who} forbids it.` };
+    return { label: `Held: ${who}`, tone: 'bad', state: `Held by ${who}: ${take}.${by ? ` ${by} is taking it now.` : ''}`, next: `No man of ${who} may stand within ${metres(CLAIM.r)}; then select men, E on the banner and ${hold}. A truce or pact with ${who} forbids it.` };
   }
   if (c.state === 'locked') {
     const why = claimBlocker(c, lairs, bosses);
     return { label: 'Guarded', tone: 'warn', state: `Guarded: ${why}.`, next: `Then select men, E on the banner and ${hold}.` };
   }
-  if (c.state === 'contested') return { label: 'Contested', tone: 'bad', state: `Contested: foes within ${CLAIM.contest} tiles reset the claim.`, next: `Drive them off, then ${hold}.` };
+  if (c.state === 'contested') return { label: 'Contested', tone: 'bad', state: `Contested: foes within ${metres(CLAIM.contest)} reset the claim.`, next: `Drive them off, then ${hold}.` };
   if (c.state === 'channel') {
     const at = Math.floor(c.progress * need.secs);
-    return { label: `Claiming ${at}/${need.secs} s`, tone: '', state: `Claiming: ${at} of ${need.secs} s.`, next: `Keep ${c.men ?? need.men} men within ${CLAIM.at} tiles of the banner${(c.players ?? 1) > 1 ? ` (men of ${c.players}+ players)` : ''}; any foe within ${CLAIM.contest} tiles resets it.` };
+    return { label: `Claiming ${at}/${need.secs} s`, tone: '', state: `Claiming: ${at} of ${need.secs} s.`, next: `Keep ${c.men ?? need.men} men within ${metres(CLAIM.at)} of the banner${(c.players ?? 1) > 1 ? ` (men of ${c.players}+ players)` : ''}; any foe within ${metres(CLAIM.contest)} resets it.` };
   }
   return { label: 'Unclaimed', tone: '', state: 'Unclaimed: nobody holds this point.', next: `Select men, E (or right click) on the banner and ${hold}. Then B builds on the ground round it.` };
 }
@@ -149,10 +151,10 @@ export function claimFirstHint(claims: readonly ClaimSnap[], you: number, depth:
   const hold = holdText(claimNeed(depth)), none = 'No ground of yours here, so nothing can be built yet.';
   const take = `select your men, right-click the banner and ${hold} with no foes near; its ground is then yours to build on`;
   const open = claims.find((c) => c.state === 'open' || c.state === 'channel' || c.state === 'contested');
-  if (open) return `${none} Take a claim banner (it glows gold on the minimap): ${take}.`;
+  if (open) return `${none} Take a claim point (it glows gold on the minimap): ${take}.`;
   const locked = claims.find((c) => c.state === 'locked');
-  if (locked) return `${none} The claim banner (grey: guarded) opens once you ${claimBlocker(locked, lairs, bosses).replace(/ first$/, '')}; then ${take}.`;
-  if (claims.some((c) => c.state === 'claimed' && c.team !== you)) return `${none} Every claim banner here is held by others. Drive their men off one, then ${take}. Enemy men are never won over: new men come only from souls.`;
+  if (locked) return `${none} The claim point (grey: guarded) opens once you ${claimBlocker(locked, lairs, bosses).replace(/ first$/, '')}; then ${take}.`;
+  if (claims.some((c) => c.state === 'claimed' && c.team !== you)) return `${none} Every claim point here is held by others. Drive their men off one, then ${take}. Enemy men are never won over: new men come only from souls.`;
   return `${none} You build only on your own ground: round a banner you hold, your home town or your forts.`;
 }
 
@@ -171,7 +173,7 @@ export function takeLine(id: string, owner: number, claims: readonly number[] | 
 }
 
 /** The "How territory works" entry (the codex term `territory`). */
-export const TERRITORY = `You build only on your own ground. In a region you do not hold yet, take a claim point: a banner on a pole. A point guarded by beasts, a bandit captain or a region guardian opens once they fall. Then hold it with your men: depth 1 needs ${holdText(claimNeed(1)).replace('hold it with ', '')}, depth 2 ${holdText(claimNeed(2)).replace('hold it with ', '')}, depth 3 ${holdText(claimNeed(3)).replace('hold it with ', '')}, depth 4 ${holdText(claimNeed(4)).replace('hold it with ', '')}. Any foe within ${CLAIM.contest} tiles resets it. A point another alliance holds is taken the same way once no man of theirs stands within ${CLAIM.r} tiles of it, and its town turns at the hp it has; a truce or pact with them forbids it. A held point gives you ground ${CLAIM.r} tiles round it; forts and outposts spread it further, and towns follow their claim point. The alliance holding the most claim points holds the region. Your first camp outside home founds a settlement and makes you its lord. Enemy men are never won over: new men come only from souls (pale ghosts; E on one), up to ${ARMY_MAX}.`;
+export const TERRITORY = `You build only on your own ground. In a region you do not hold yet, take a claim point: a banner on a pole. A point guarded by beasts, a bandit captain or a region guardian opens once they fall. Then hold it with your men: depth 1 needs ${holdText(claimNeed(1)).replace('hold it with ', '')}, depth 2 ${holdText(claimNeed(2)).replace('hold it with ', '')}, depth 3 ${holdText(claimNeed(3)).replace('hold it with ', '')}, depth 4 ${holdText(claimNeed(4)).replace('hold it with ', '')}. Any foe within ${metres(CLAIM.contest)} resets it. A point another alliance holds is taken the same way once no man of theirs stands within ${metres(CLAIM.r)} of it, and its town turns at the hp it has; a truce or pact with them forbids it. A held point gives you ground ${metres(CLAIM.r)} round it; forts and outposts spread it further, and towns follow their claim point. The alliance holding the most claim points holds the region. Your first camp outside home founds a settlement and makes you its lord. Enemy men are never won over: new men come only from souls (pale ghosts; E on one), up to ${ARMY_MAX}.`;
 
 const cap = (t: string) => t[0].toUpperCase() + t.slice(1);
 function clock(ms: number): string {

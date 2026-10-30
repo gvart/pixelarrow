@@ -73,7 +73,7 @@ export function mountClaimCard(s: SandboxScene, mk: Mk): void {
   s.events.on('postupdate', () => {
     const me = groundless(s) ? ownCentre(s.sim.cur, myTeam()) : null, c = me ? nearestClaim(s, me) : null;
     // over the banner's own label (pole and label stand ~140 px over its foot; their label keeps its size on screen: 4 tiles up-screen clears both)
-    placeMarker(s, mark, c && { x: c.x - 4, y: c.y - 4 }, c && me ? `Claim banner · ${metres(Math.hypot(c.x - me.x, c.y - me.y))}` : '');
+    placeMarker(s, mark, c && { x: c.x - 4, y: c.y - 4 }, c && me ? `Claim point · ${metres(Math.hypot(c.x - me.x, c.y - me.y))}` : '');
   });
   const card = mk('rfClaimTip', 'display:none;z-index:6;width:280px;white-space:normal;line-height:1.35');
   card.className = 'rf rf-tip';

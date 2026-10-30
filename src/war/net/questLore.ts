@@ -33,7 +33,7 @@ export interface StepLore {
 }
 export const GUIDE_LORE: Record<GuideStepId, StepLore> = {
   soul: {
-    goal: 'Claim the fallen hoplite',
+    goal: 'Claim the hoplite\'s soul',
     key: 'rmb',
     story: 'A man died in the world above this morning and woke by the road, alone. A soul belongs to the first squad that stands beside him, so reach him before the wild does.',
     where: 'By the road ahead, marked in gold. Select your men and right-click him.',
