@@ -405,18 +405,21 @@ function talus(n, k, wood, D = 0.95, hk = 1) { // ruined (ART-L): a wider, highe
   if (hk > 1) { const a2 = 0.9 + 0.8 * hash(2, k, 27), s2 = 0.5 + 0.25 * hash(2, k, 28), w2 = out > 0 ? v0 + 0.35 : v0 - 0.35 - s2; B.push(box(a2, a2 + s2 * 1.5, w2, w2 + s2, 0, s2 * 0.7, masonry(TEX.cyclo, { row0: 70, top: rough }))); } // a second fallen block
   return B;
 }
+// the stone wall's face: a cyclopean socle (1.3 m, as the stone tower's) under coursed isodomic ashlar, so the face reads at
+// 1:1 like the towers and not as crazy paving (PROMPTS_ART.md §40p)
+const stoneFace = (top) => { const cyc = masonry(TEX.cyclo, { row0: 6, top }), iso = masonry(TEX.iso, { mod: 180, top }); return (f, x, y, z, u, r) => (r < 1.3 * PPM ? cyc : iso)(f, x, y, z, u, r); };
 function cellBoxes(id, mask, open, state) {
   const K = KITS[id], wood = K.material === 'wood', W = K.walkM, kk = 7, axis = runAxis(mask); // one damage seed per kit: runs join
   const exposed = SIDES.filter(([b]) => !(mask & b));
   if (state === 'foundation') return foundation(exposed.map(([, n]) => SIDE_EDGE[n]), K.material, mask, 1);
   const pal = palisadeMat(), done = state === 'done';
   const top = done ? (wood ? planks(axis, 5) : flagsP) : wood ? () => mul(TEX.wood[0], 1.1) : rough;
-  const mat = wood ? (f, x, y, z, u, r) => (f === 'top' ? top(f, x, y) : r % 22 < 3 ? mul(TEX.wood[0], 0.9) : pal(f, x, y, z, u, (r % 60) + 12)) : masonry(TEX.cyclo, { top });
+  const mat = wood ? (f, x, y, z, u, r) => (f === 'top' ? top(f, x, y) : r % 22 < 3 ? mul(TEX.wood[0], 0.9) : pal(f, x, y, z, u, (r % 60) + 12)) : stoneFace(top);
   const body = { x0: 0, x1: 2, y0: 0, y1: 2, z0: 0, z1: W, mat, skip: new Set(SIDES.filter(([b]) => mask & b).map(([, n]) => n)) };
   const prof = state === 'scaffold' ? halfProf(W, kk, SCAF) : state === 'rising' ? halfProf(W, kk, RISE) : state === 'damaged' ? (wood ? stakeProf(W, kk) : wreckProf(W, kk)) : state === 'ruined' ? (wood ? stakeProf(W, kk, 0.12) : wreckProf(W, kk, 1.6, 0.14)) : null;
   const B = prof ? sliced(body, axis, prof) : [body];
   if (done) {
-    const pm = wood ? (f, x, y, z, u, r) => (f === 'top' ? mul(TEX.wood[0], 1.1) : pal(f, x, y, z, u, palRow(r, K.paraH))) : masonry(TEX.cyclo, { row0: Math.round(W * PPM), top: capTop });
+    const pm = wood ? (f, x, y, z, u, r) => (f === 'top' ? mul(TEX.wood[0], 1.1) : pal(f, x, y, z, u, palRow(r, K.paraH))) : masonry(TEX.iso, { row0: Math.round(W * PPM), mod: 180, top: capTop });
     for (const [b, n] of exposed) if (!(open & b)) B.push(paraBox(n, mask, K.para, W, W + K.paraH, pm));
   }
   if (state === 'scaffold') for (const [, n] of exposed) if (n[0] === '+') B.push(...scaffold(n === '+y' ? 'x' : 'y', 0, 2, 2, 1, W * SCAF + 0.5));
@@ -430,7 +433,7 @@ function cellBoxes(id, mask, open, state) {
 // other by the parapet's thickness (the frames see no diagonals); the view draws this post there, over the tile's back
 function postBoxes(id) {
   const K = KITS[id], W = K.walkM, pal = palisadeMat();
-  const pm = K.material === 'wood' ? (f, x, y, z, u, r) => (f === 'top' ? mul(TEX.wood[0], 1.1) : pal(f, x, y, z, u, palRow(r, K.paraH))) : masonry(TEX.cyclo, { row0: Math.round(W * PPM), top: capTop });
+  const pm = K.material === 'wood' ? (f, x, y, z, u, r) => (f === 'top' ? mul(TEX.wood[0], 1.1) : pal(f, x, y, z, u, palRow(r, K.paraH))) : masonry(TEX.iso, { row0: Math.round(W * PPM), mod: 180, top: capTop });
   return [{ x0: 0, x1: K.para, y0: 0, y1: K.para, z0: W, z1: W + K.paraH, mat: pm }];
 }
 const layerSplit = (B, w, h, ox, oy) => [renderBoxes(B.filter((b) => b.layer !== 'front'), w, h, ox, oy), renderBoxes(B.filter((b) => b.layer === 'front'), w, h, ox, oy)];
