@@ -55,10 +55,11 @@ const def: RegionDef = {
     k.road([[128, -4], [132, 30], [142, 66], [148, 100], [140, 140]]);
     k.road([[140, 168], [166, 160], [186, 152], [204, 146], [220, 138], [238, 132], [260, 128]], { grade: 3 });
     k.road([[140, 168], [136, 196], [130, 226], [128, 260]]);
-    k.road([[158, 114], [166, 104], [172, 98]], { fill: true, grade: 2.5 });
+    k.road([[147, 112], [158, 114], [166, 104], [172, 98]], { fill: true, grade: 2.5 }); // off the north road up the butte's ramp
     k.road([[100, 214], [118, 206], [134, 196]]);
     k.road([[186, 74], [166, 80], [146, 86]], { grade: 3 });
-    k.road([[188, 150], [198, 132], [210, 116], [226, 108]], { w: 1.2, grade: 2, fill: true }); // up onto the escarpment
+    k.road([[188, 150], [198, 132], [210, 116], [226, 108]], { w: 1.2, grade: 2, fill: true }); // up onto the escarpment, to a watch post
+    k.piece('mountains/watch-post', [230, 104], { r: 5 });
     // ground: red rock under the cliffs, salt and hardpan pans in the dunes, palms along the floodplain
     k.patch('kyrene', 'redrock', [236, 128, 40, 150, 0], ['sand'], undefined, 5);
     k.patch('kyrene', 'redrock', [176, 98, 19, 14, 0.5], ['sand'], undefined, 6);

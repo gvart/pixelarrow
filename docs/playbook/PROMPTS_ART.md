@@ -3606,3 +3606,31 @@ level under the moor with pools at its own level (`waterBody({ bed })`, new: eve
 level 0 with 16 m granite walls); the causeway a level over the bog; a ring of standing stones on the big tor; peat
 cuttings with stacks by the tracks. Kit scatter for the moors: heather and bracken, bog cotton in the bog and round
 pools, rare hawthorns, no pines.
+
+### Lagoon Coast (kyrene-e): relief and density, no generations
+
+Region script only. What fixed it against the reference: the ochre sand only on the dune tiers (`paint` with
+`minH: 4`), so the coastal flat under the cliffs stays a green scrub belt; two shallow lobes of the lagoon under the
+cliffs (`waterBody(..., { deep: false })`); the salt pans as a 3 x 2 grid of `waterRect` ponds (depth 1, bed 2) on a
+salt crust instead of one blob; the bar widened north and south of its waist (a second `causeway`, half 3.4) so huts,
+tents, palms, carts and camels fit beside the road (`tryPiece` refuses road-adjacent tiles on a 5-tile bar). A road
+rerouted off a cliff needs its haul track back (the nodes check).
+
+### Towns: one square per town (Kyrene, Stymphalia)
+
+`Kit.agora(p, half, { layout })`: `classic` (unchanged: other towns), `bazaar` (Kyrene: beaten earth, no stoas or
+statues, three stall clusters off the crossing roads, warehouses, goods; the script adds awnings, potted palms, jars,
+a cart, camels and date palms, which `piece` can place because the square is not road), `quay` (Stymphalia: paved but
+for a 2-unit beaten patch under the claim banner, which `claim` needs off road, one stoa row, the fish stalls in a
+line, one statue). Kyrene's town ground painted sand round the square, so houses no longer stand on floodplain grass
+rectangles. Tried and dropped: a `kyrene/hardpan` patch over the town (read as dark ploughed earth, a hard diamond
+outline).
+
+### Roads that led nowhere
+
+Found by logging every `road()` polyline and listing ends that are not at the map edge, on another road, or within 7
+units of a spot, town piece, lair, claim point or node. Most hits are deliberate ways up onto a terrace or a fort site;
+fixed the ones that stopped short: Skythia East's upland road now ends at the chalk figure and the mesa track climbs
+both tiers to a cairn on top (it stopped under the second wall); Kyrene's butte road starts off the north road (it began
+in open sand) and the escarpment road ends at a watch post; the gorge path to the forge starts off the west road; the
+Western Heath coast track starts at a coast watch tower.

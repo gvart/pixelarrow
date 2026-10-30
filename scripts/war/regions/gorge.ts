@@ -47,7 +47,7 @@ const def: RegionDef = {
     k.road([[138, 120], [116, 120], [104, 120], [90, 120], [70, 124], [30, 126], W], { w: 1, grade: 40, fill: true, bridges: [[104, 120]], span: 8, pass: 4 });
     k.road([[138, 120], [170, 124], [210, 128], E], { w: 1.4, grade: 4 });
     k.road([[138, 120], [146, 160], [140, 210], [130, 236], S], { w: 1.3, grade: 4 });
-    k.road([[60, 150], [76, 172], [86, 186], [96, 192], [108, 192], [116, 186], [124, 176], [144, 172]], { w: 1, grade: 1.6, pass: 4 });
+    k.road([[62, 126], [60, 150], [76, 172], [86, 186], [96, 192], [108, 192], [116, 186], [124, 176], [144, 172]], { w: 1, grade: 1.6, pass: 4 });
     // M7d / W-48: Titan's Forge, the cave-works on the east rim from the falls to the rock bridge (the roads through it
     // laid first, its streets); Gyges chained before the anvil under the falls' cliff
     const F = titanForge(k, [116, 62]);

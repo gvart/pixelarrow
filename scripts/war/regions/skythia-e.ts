@@ -49,8 +49,9 @@ const def: RegionDef = {
     k.road([[40, 128], [26, 90], [14, 56], NW], { w: 1.1, grade: 3 });
     k.road([[40, 128], [26, 170], [14, 206], SW], { w: 1.1, grade: 3 });
     k.road([[190, 150], [198, 154], [206, 154], [214, 152]], { w: 1, grade: 1.2 });
-    k.road([hub, [210, 60], [216, 30]], { w: 1, grade: 3 });
-    k.road([[26, 90], [40, 70], [50, 50], [40, 30]], { w: 1, grade: 1.6, fill: true });
+    k.road([hub, [210, 60], [204, 44]], { w: 1, grade: 3 }); // out to the chalk figure on the upland
+    k.road([[26, 90], [40, 70], [50, 50], [40, 30], [30, 18]], { w: 1, grade: 1.6, fill: true }); // up both tiers onto the mesa's top, a cairn there
+    k.piece('mountains/cairn', [26, 14], { r: 5 });
     // the chalk figures on the low downs and the upland, hawthorns, a herders' hamlet
     k.patch('elaia', 'marble', [70, 176, 9, 3, 0.4], ['grass']);
     k.patch('elaia', 'marble', [96, 70, 7, 3, -0.5], ['grass']);

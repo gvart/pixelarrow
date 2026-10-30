@@ -65,6 +65,7 @@ const def: RegionDef = {
     // tracks from Dodona's other entries
     const hub: Pt = [52, 128];
     k.road([[44, 10], [44, 64], [52, 100], hub, [52, 170], [64, 214], [100, 244], [124, 250], S], { w: 1.2, grade: 3 });
+    k.piece('watchtower', [44, 8], { r: 5 }); // the coast watch where the cliff-top track starts
     k.road([E, [228, 128], [196, 132], [158, 134], [120, 134], [84, 128], hub], { w: 1.3, grade: 2.4 });
     k.road([NE, [232, 40], [190, 36], [150, 40], [100, 52], [60, 64], [44, 64]], { w: 1.1, grade: 2.4 });
     k.road([SE, [230, 212], [190, 226], [150, 244], [124, 250]], { w: 1.1, grade: 3 });
