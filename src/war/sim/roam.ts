@@ -20,7 +20,9 @@
  *
  * Roaming folk (NEUTRAL_TEAM) are meek (Squad.meek): players' men neither see them as foes nor are seen by them unless
  * they attacked them (Squad.angry, by team); beasts and bandits see them as ever. Density by depth (DENSITY); a group is
- * asleep (holds, no thinking) while no player's man stands within ROAM.wake, so a dormant region's batches stay cheap.
+ * asleep while no player's man stands within ROAM.wake: it looks at no foe, but still drifts (world-fill: packs graze
+ * and roam their territory at ROAM.drift times their pace, patrols and travellers walk their roads, a caravan holds), so
+ * the land is alive when someone arrives and a dormant region's batches stay cheap.
  * A group wiped out (or a caravan that lost its wagon) comes back after ROAM.respawn at the start of its road; the
  * survivors of a broken caravan walk on as travellers.
  */
@@ -54,6 +56,8 @@ export const ROAM = {
   huntR: 22,
   /** A pack's territory round its home (tiles). */
   territory: 28,
+  /** world-fill: asleep (no player near), a group still drifts: packs graze and roam at this times their pace, patrols and travellers walk their roads. */
+  drift: 2,
   /** Travellers run from a fight this near, this far. */
   fightR: 18, flee: 20,
   /** A caravan halts while a foe of it stands this near its wagon. */
@@ -62,11 +66,12 @@ export const ROAM = {
 
 /** Groups per depth (0 homes .. 4 rim): beast packs, bandit patrols, caravans, traveller bands. */
 export const DENSITY: readonly { packs: number; patrols: number; caravans: number; travellers: number }[] = [
-  { packs: 0, patrols: 0, caravans: 1, travellers: 3 },
-  { packs: 2, patrols: 1, caravans: 1, travellers: 2 },
+  // world-fill: more of everything; homes now have weak outskirts lairs, so packs roam them too (half size)
+  { packs: 2, patrols: 0, caravans: 1, travellers: 3 },
   { packs: 3, patrols: 2, caravans: 1, travellers: 2 },
-  { packs: 3, patrols: 2, caravans: 1, travellers: 1 },
-  { packs: 4, patrols: 2, caravans: 0, travellers: 1 },
+  { packs: 4, patrols: 3, caravans: 1, travellers: 2 },
+  { packs: 4, patrols: 3, caravans: 1, travellers: 2 },
+  { packs: 5, patrols: 3, caravans: 0, travellers: 1 },
 ];
 
 /** How a beast kind meets a foe: flee, attack anything within r, charge only what comes this near, or hunt the weak. */
@@ -351,7 +356,15 @@ export function createRoam(region: RegionData, seed: number, host: RoamHost) {
 
   const sleep = (g: Group) => {
     g.asleep = true;
-    if (live(g.squad)) host.order({ kind: 'hold', squad: g.squad });
+    if (g.kind === 'caravan' && live(g.squad)) host.order({ kind: 'hold', squad: g.squad });
+  };
+  /** world-fill: asleep, a calm group drifts: no foe looked at, the walk or the grazing goes on slowly. */
+  const drift = (g: Group, s: RoamSquad | undefined) => {
+    if (!s || g.kind === 'caravan') return;
+    if (g.kind === 'pack') return calmPack(g, s, ROAM.drift);
+    if (g.state === 'rest') {
+      if (tick >= g.until) next(g);
+    } else if (host.arrived(s.id)) next(g);
   };
   const wake = (g: Group) => {
     g.asleep = false;
@@ -427,31 +440,35 @@ export function createRoam(region: RegionData, seed: number, host: RoamHost) {
       return;
     }
     if (g.state === 'hunt') (g.state = 'idle'), (g.until = tick); // the quarry got away
+    calmPack(g, s, 1);
+  };
+
+  /** A calm pack's day (k: its pace stretched, asleep): after a walk a rest; then graze, roam, or move on to another lair of the kind. */
+  const calmPack = (g: Group, s: RoamSquad, k: number) => {
     if (tick < g.until) return;
-    // what next: after a walk a rest; then graze a few steps, roam the territory, or move on to another lair of the kind
     if (g.state !== 'idle') {
       g.state = 'idle';
-      g.until = tick + Math.round(rng.range(120, 360));
+      g.until = tick + Math.round(rng.range(120, 360) * k);
       return;
     }
     const r = rng.next();
     if (r < 0.55) {
       g.state = 'graze';
-      g.until = tick + Math.round(rng.range(40, 90));
+      g.until = tick + Math.round(rng.range(40, 90) * k);
       move(s.id, s.cx + rng.range(-4, 4), s.cy + rng.range(-4, 4));
       return;
     }
     if (r < 0.9 || !g.mob) {
       g.state = 'roam';
-      g.until = tick + 400;
-      const a = rng.range(0, Math.PI * 2), k = rng.range(0.3, 1) * ROAM.territory;
-      move(s.id, g.hx + Math.cos(a) * k, g.hy + Math.sin(a) * k);
+      g.until = tick + 400 * k;
+      const a = rng.range(0, Math.PI * 2), d = rng.range(0.3, 1) * ROAM.territory;
+      move(s.id, g.hx + Math.cos(a) * d, g.hy + Math.sin(a) * d);
       return;
     }
     const others = lairs.filter((l) => l.kind === g.mob && Math.hypot(l.x - g.hx, l.y - g.hy) > 8 && Math.hypot(l.x - g.hx, l.y - g.hy) < 140);
     const o = others.length ? rng.pick(others) : null;
     g.state = 'roam';
-    g.until = tick + 1200;
+    g.until = tick + 1200 * k;
     if (o) (g.hx = o.x), (g.hy = o.y);
     move(s.id, g.hx + rng.range(-6, 6), g.hy + rng.range(-6, 6));
   };
@@ -577,6 +594,7 @@ export function createRoam(region: RegionData, seed: number, host: RoamHost) {
     const awake = anyPlayer(x, y, ROAM.wake);
     if (!awake && calm(g)) {
       if (!g.asleep) sleep(g);
+      drift(g, s);
       return;
     }
     if (g.asleep) wake(g);
@@ -593,7 +611,7 @@ export function createRoam(region: RegionData, seed: number, host: RoamHost) {
     if (d.kind === 'pack') {
       g.mob = d.mob ?? 'wolf';
       g.cls = mobClass(g.mob);
-      g.count = d.count ?? NATURE[g.mob].size;
+      g.count = d.count ?? (depth === 0 ? Math.ceil(NATURE[g.mob].size / 2) : NATURE[g.mob].size); // world-fill: a home's packs are half
     } else if (d.kind === 'patrol') {
       g.mob = 'bandit';
       g.cls = mobClass('bandit');

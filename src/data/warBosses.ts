@@ -15,6 +15,7 @@ import { BASE_ITEMS, type Rarity } from './items';
 import { setPieces } from './sets';
 import { Rng, hashString } from '../sim/rng';
 import type { RareGood } from './warLandmarks';
+import { chiefKind } from './warWild';
 
 export type BossTier = 1 | 2 | 3;
 
@@ -148,4 +149,20 @@ export function bossLoot(boss: string, seed: string): BossDrop[] {
     out.push({ def: rng.pick(pool).id, rarity: rng.weighted(t.rarity) });
   }
   return out;
+}
+
+// ---------------------------------------------------------------- world-fill: local mini-bosses (chiefs)
+
+export { CHIEF_KINDS, WAR_CHIEFS, warChief, chiefKind, chiefsOfKind, chiefRespawn, type WarChief, type ChiefKind } from './warWild';
+
+/** What a kill of chief `id` at `depth` drops; `seed` names the kill (the same seed, the same drop). */
+export function chiefLoot(id: string, depth: number, seed: string): { goods: Record<string, number>; item: BossDrop | null } {
+  const k = chiefKind(id);
+  if (!k) return { goods: {}, item: null };
+  const m = 1 + k.loot.per * depth, goods: Record<string, number> = { coin: Math.round(k.loot.coin * m) };
+  for (const [g, n] of Object.entries(k.loot.goods)) goods[g] = Math.round(n * m);
+  const rng = new Rng(hashString(`${id}:${seed}:chiefloot`) || 1);
+  if (!rng.chance(k.loot.item.chance)) return { goods, item: null };
+  const pool = BASE_ITEMS.filter((d) => d.tier <= 2 + Math.floor(depth / 2));
+  return { goods, item: { def: rng.pick(pool).id, rarity: rng.weighted(k.loot.item.rarity) } };
 }

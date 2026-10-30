@@ -39,7 +39,10 @@
  * Neutral regions (W-12, ./mobs.ts): spawnMobs() puts a squad of team MOB_TEAM on every region lair; the mob controller
  * orders them each tick (wander, aggro, leash back). claimRegion walks a squad to a claim point, where it channels.
  */
-import { Rng } from '../../sim/rng';
+import { hashString, Rng } from '../../sim/rng';
+import { makeItem } from '../../game/heroes';
+import { chiefLoot } from '../../data/warBosses';
+import { depthOf } from './depth';
 import type { BuildingType, Deed, FightReport, GoodKind, Order, PersonResult, RegionData, RegionMemory, ResourceKind, ShotSnap, Snapshot, SquadId, SquadSnap, UnitId, UnitSnap, WarBuildSim, WarEvent, WarPerson, WarSkillId } from '../types';
 import { salvageValue, type Item } from '../../data/items';
 import { warStats, warStatsOf, type WarStats } from './classes';
@@ -51,6 +54,7 @@ import { createWorks, type Worker } from './works';
 import { createSiege, LADDER } from './siege';
 import { createMobs, MOB_OWNER, MOB_TEAM, mobClass } from './mobs';
 import { createRoam, ROAM_OWNER } from './roam';
+import { createSecrets } from './secrets';
 import { BOSS, BOSS_SLOW, createBosses } from './bosses';
 import { createVision } from './vision';
 import { CAPTURE_R, gainXp, SQUAD_MAX, XP } from './soldiers';
@@ -625,6 +629,14 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     },
     held: (on) => works.setFallback(on ? MOB_TEAM : NEUTRAL_TEAM),
     captainDown: (lair, by) => note({ t: tick, kind: 'captainSlain', lair, by }),
+    // world-fill: a chief's loot falls where he did (src/data/warBosses.ts chiefLoot; the same kill, the same pile)
+    chiefDown: (lair, chief, x, y, by) => {
+      const drop = chiefLoot(chief.id, depthOf(region), `${region.id}:${seed}:${lair}:${tick}`);
+      const lots: Lot[] = Object.entries(drop.goods).filter(([, n]) => n > 0).map(([r, n]) => ({ r: r as GoodKind, n, o: region.id }));
+      const items = drop.item ? [{ ...makeItem(new Rng(hashString(`${region.id}:${seed}:${lair}:${tick}:chief`) || 1), { nextId: 0 }, drop.item.def, drop.item.rarity), uid: `chief:${region.id}:${seed}:${lair}:${tick}` }] : [];
+      piles.drop(x, y, lots, items, tick);
+      note({ t: tick, kind: 'chiefSlain', lair, chief: chief.id, name: chief.name, by, x, y });
+    },
     note: (e) => note({ t: tick, ...e }), // W-67 mob FX
     towers: () => works.prebuilt().filter((b) => b.def.wall === 'tower' && (b.team === MOB_TEAM || b.team === NEUTRAL_TEAM) && (b.state === 'done' || b.state === 'damaged')).map((b) => ({ id: b.id, x: b.x, y: b.y })),
     carts: () => siege.snaps(tick).filter((e) => isCartType(e.type) && e.state !== 'destroyed' && e.team !== MOB_TEAM).map((e) => ({ id: e.id, x: e.x, y: e.y, team: e.team })),
@@ -644,6 +656,20 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     range: (lo, hi) => rng.range(lo, hi),
     w: grid.w,
     h: grid.h,
+  });
+
+  // world-fill: the region's hidden quests (./secrets.ts), run per player on the story runner
+  const secrets = createSecrets(region, {
+    squads,
+    lairs: () => mobs.lairSnaps(),
+    souls: () => souls.snaps(tick),
+    addLair: (d) => void mobs.add(d),
+    spawnSoul: (x, y, cls, level) => void api.spawnSoul(x, y, cls, level, 'lair'),
+    give: (owner, name, x, y, goods, items) => {
+      const lots: Lot[] = Object.entries(goods).filter(([, n]) => (n ?? 0) > 0).map(([r, n]) => ({ r: r as GoodKind, n: n!, o: region.id }));
+      piles.drop(x, y, lots, items, tick, 0, { owner, name, until: tick + CLAIM_TICKS });
+    },
+    note: (e) => note(e),
   });
 
   // M7d: the region's guardians (./bosses.ts)
@@ -3238,6 +3264,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     souls.tick(tick);
     mobs.tick(tick);
     roam.tick(tick);
+    secrets.tick(tick);
     bosses.tick(tick);
     towns.tick(tick);
     townLv.tick(tick);
@@ -3520,7 +3547,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
   const saveRoot = () => ({
     grid, rng, squads, units, queue, pathQueue, unitPathQueue, missiles, shots, reslotQueue, tick, loot, log, civs, dresser, souls: souls.saveRoot(),
     crafting: crafting.saveRoot(), works: works.saveRoot(), siege: siege.saveRoot(), mobs: mobs.saveRoot(), vision: vision.saveRoot(), piles: piles.saveRoot(),
-    towns: towns.saveRoot(), bosses: bosses.saveRoot(), landmarks: landmarks.saveRoot(), roam: roam.saveRoot(),
+    towns: towns.saveRoot(), bosses: bosses.saveRoot(), landmarks: landmarks.saveRoot(), roam: roam.saveRoot(), secrets: secrets.saveRoot(),
     townLv: townLv.saveRoot(), bonuses, labourLog, slain,
   });
 
@@ -3550,6 +3577,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       if (r.landmarks) landmarks.loadRoot(r.landmarks);
       if (r.souls) souls.loadRoot(r.souls);
       if (r.roam) roam.loadRoot(r.roam);
+      if (r.secrets) secrets.loadRoot(r.secrets);
     },
     dropPersons(ids) {
       // a resumed region whose save predates a fight write-back: men D1 has already sent home leave without a report

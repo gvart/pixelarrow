@@ -200,23 +200,36 @@ describe('W-65 travellers and sleep', () => {
     expect(alive(sim, folk)).toHaveLength(2);
   });
 
-  it('a group with no player near sleeps (holds, no thinking) and wakes when one comes', () => {
+  it('world-fill: a group with no player near sleeps (looks at no foe) but drifts on its road, and wakes when one comes', () => {
     const sim = createSim(flat(256), 17);
     const g = sim.addRoamer({ kind: 'traveller', route: [[20, 20], [56, 20], [92, 20]], count: 2 });
     run(sim, 2 * ROAM.think);
     expect(group(sim, g).asleep).toBe(true);
     const folk = group(sim, g).squads[0], at = centre(sim, folk);
     run(sim, 300);
-    expect(dist(centre(sim, folk), at)).toBeLessThan(2);
-    sim.spawnSquad('p:1', 0, 'hoplite', 1, at[0] + 60, at[1] + 60);
-    run(sim, 300);
+    expect(group(sim, g).asleep).toBe(true);
+    expect(dist(centre(sim, folk), at)).toBeGreaterThan(5); // still walking its road
+    const now = centre(sim, folk);
+    sim.spawnSquad('p:1', 0, 'hoplite', 1, now[0] + 60, now[1] + 60);
+    run(sim, 30);
     expect(group(sim, g).asleep).toBeUndefined();
-    expect(dist(centre(sim, folk), at)).toBeGreaterThan(5);
+  });
+
+  it('world-fill: an asleep pack grazes and roams its territory, never far from home', () => {
+    const sim = createSim(flat(256), 17);
+    const g = sim.addRoamer({ kind: 'pack', mob: 'boar', route: [[128, 128]] });
+    const pack = group(sim, g).squads[0];
+    const seen: [number, number][] = [];
+    for (let i = 0; i < 30; i++) (run(sim, 200), seen.push(centre(sim, pack)));
+    expect(group(sim, g).asleep).toBe(true);
+    const far = Math.max(...seen.map((p) => dist(p, [128, 128])));
+    expect(far).toBeGreaterThan(3);
+    expect(far).toBeLessThan(ROAM.territory + 10);
   });
 });
 
 describe('W-65 a region comes alive', () => {
-  it('by depth: an entry gets packs, a patrol, a caravan and travellers; a home caravans and travellers only', () => {
+  it('by depth: an entry gets packs, a patrol, a caravan and travellers; a home half packs round its outskirts lairs, no patrol', () => {
     const entry = createSim(parseRegion(kyreneN) as RegionData, 1);
     entry.spawnMobs();
     entry.spawnRoam();
@@ -229,7 +242,8 @@ describe('W-65 a region comes alive', () => {
     const home = createSim(parseRegion(dodona) as RegionData, 1);
     home.spawnRoam();
     const h = kinds(home);
-    expect(h.filter((k) => k === 'pack' || k === 'patrol')).toHaveLength(0);
+    expect(h.filter((k) => k === 'patrol')).toHaveLength(0);
+    expect(h.filter((k) => k === 'pack')).toHaveLength(DENSITY[0].packs);
     expect(h.filter((k) => k === 'traveller').length).toBeGreaterThan(0);
   });
 

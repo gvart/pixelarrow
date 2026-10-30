@@ -94,3 +94,13 @@ export function warRegion(id: string): RegionData | null {
 export function regionVersion(id: string): string {
   return load(id)?.ver ?? '';
 }
+
+/**
+ * world-fill: each region's own sim seed (its id hashed, never 0), so lairs' wander, roaming roads, encounter and loot
+ * rolls differ between regions instead of every room running seed 1.
+ */
+export function regionSeed(id: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < id.length; i++) h = Math.imul(h ^ id.charCodeAt(i), 0x01000193);
+  return (h >>> 0) || 1;
+}

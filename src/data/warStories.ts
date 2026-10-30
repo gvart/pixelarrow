@@ -8,7 +8,10 @@
  * A new story: copy the template at the end of this file, fill it from the region's lore and its spots, and add it to
  * STORIES. tests/war/stories.test.ts walks every story's places from its giver.
  */
-import type { Story } from '../war/sim/stories';
+import type { Pt, Story } from '../war/sim/stories';
+import type { MobKind, RegionData } from '../war/types';
+import { depthOf } from '../war/sim/depth';
+import { chiefsOfKind, warChief } from './warBosses';
 
 const TEETH: Story = {
   id: 'cold-shafts', region: 'dodona-e', title: 'The Cold Shafts',
@@ -1015,6 +1018,106 @@ const SAVANNA: Story = {
 /** The region stories, by region id: every depth 1-2 neutral region has one (tests/war/stories.test.ts). */
 export const STORIES: Readonly<Record<string, Story>> = Object.fromEntries([TEETH, SLOPES, HEATH, LAGOON, CAPE, MOORS, FJORDS, OAKWOOD, STEPPE, CHALK, KURGANS, DUNES, COVES, VINEYARDS, PASS, LAKE, FORD, OASIS, BACCHAE, WADI, FLOOD, FENS, KIMMERIANS, SAVANNA].map((s) => [s.region, s]));
 export const storyOf = (region: string): Story | null => STORIES[region] ?? null;
+
+// ---------------------------------------------------------------- world-fill: hidden quests
+
+/**
+ * world-fill hidden quests: 2-3 in every region past the homes, at spots the region kit's fill pass leaves in the
+ * region JSON (`RegionData.secrets`: a spot, its template and where the next step lies). No giver and no "!": a
+ * player's men walk onto the spot (a dead man with a note, a cairn, a shrine, a ruin) and the chain begins with a short
+ * notice (src/war/sim/secrets.ts runs them on the story runner, per player). Each is 1-3 steps and ends in loot or a
+ * fight with a named chief (src/data/warBosses.ts WAR_CHIEFS). Pays scale with depth and stay modest (the region story
+ * is the big earner).
+ */
+export interface HiddenCtx {
+  /** The spot and the next step's place, tiles. */
+  at: Pt; then: Pt;
+  /** The region's fighting beast (its lairs' first non-bandit, non-passive kind; wolves if none) and a chief of it not leading a lair here. */
+  beast: MobKind; chief: string | null;
+  depth: number;
+}
+export interface HiddenTemplate {
+  id: string;
+  /** What the men find (the notice's first words). */
+  find: string;
+  make(c: HiddenCtx): Pick<Story, 'title' | 'hook' | 'backstory' | 'steps' | 'end' | 'reward'>;
+}
+
+const pay = (c: HiddenCtx, coin: number) => Math.round(coin * (1 + 0.5 * c.depth));
+
+export const HIDDEN: readonly HiddenTemplate[] = [
+  {
+    id: 'corpse', find: 'A dead man with a note',
+    make: (c) => ({
+      title: 'The Dead Man\'s Note', hook: 'A traveller lies in the grass, a wax tablet in his fist.',
+      backstory: '"They came out of the brush at dusk. If you read this, they are still near. Take what I carried, and pay them back for me."',
+      steps: [{
+        id: 'killers', goal: 'Hunt down what killed him', label: 'Killers', story: 'Tracks lead off from the body, fresh.', where: 'Close by, where the tracks lead.',
+        trigger: { kind: 'clear', at: c.then, mob: c.beast, count: 3 + Math.min(3, c.depth) },
+      }],
+      end: 'You bury him under a cairn. His purse was not empty.',
+      reward: { goods: { coin: pay(c, 14), hides: 4 } },
+    }),
+  },
+  {
+    id: 'cache', find: 'A cairn marked with a hidden sign',
+    make: (c) => ({
+      title: 'The Smuggler\'s Cache', hook: 'A cairn with a mark scratched under the top stone.',
+      backstory: 'Smugglers of the old roads marked their caches this way: a cairn, and the goods a short walk off.',
+      steps: [{
+        id: 'dig', goal: 'Dig up the cache', label: 'Cache', story: 'Loose stones, and under them a sealed jar.', where: 'A short walk from the cairn.',
+        trigger: { kind: 'reach', at: c.then }, reward: { goods: { coin: pay(c, 10), iron: 4 + c.depth, salt: 3 } },
+      }],
+      end: 'The jar is yours. Whoever buried it will not be back.',
+    }),
+  },
+  {
+    id: 'shrine', find: 'A forgotten shrine',
+    make: (c) => ({
+      title: 'The Forgotten Shrine', hook: 'Moss over an altar; old offerings, gnawed bones around it.',
+      backstory: 'Someone made offerings here once. Something big has been feeding on them since, and it sleeps close by.',
+      steps: c.chief ? [{
+        id: 'beast', goal: 'Slay the beast that haunts the shrine', label: 'Beast', story: 'It lifts its head from the bones. It is larger than it should be.', where: 'Its lair by the shrine.',
+        trigger: { kind: 'clear', at: c.then, mob: c.beast, count: 1, chief: c.chief, name: warChief(c.chief)?.name ?? 'the beast' }, reward: { item: { def: 'eye_bead', rarity: 'rare' } },
+      }] : [{
+        id: 'beast', goal: 'Drive off the beasts at the shrine', label: 'Beasts', story: 'They feed on the offerings, and will not share.', where: 'By the shrine.',
+        trigger: { kind: 'clear', at: c.then, mob: c.beast, count: 4 },
+      }],
+      end: 'The altar is clean again. A little warmth stays in the stone.',
+      reward: { goods: { coin: pay(c, 16) } },
+    }),
+  },
+  {
+    id: 'ruin', find: 'A ruined watch-post',
+    make: (c) => ({
+      title: 'The Ruined Watch-Post', hook: 'A tumbled tower; a fresh fire-pit inside.',
+      backstory: 'The post fell long ago, but someone sleeps here now: deserters, by the boot prints, with a strongbox.',
+      steps: [
+        { id: 'look', goal: 'Search the ruin', label: 'Ruin', story: 'Boot prints, a tally scratched on the wall, and voices beyond it.', where: 'Inside the ruin, a few steps on.', trigger: { kind: 'reach', at: c.then } },
+        { id: 'camp', goal: 'Break the deserters', label: 'Deserters', story: 'They grab their spears. Their leader keeps the strongbox.', where: 'In the ruin.', trigger: { kind: 'clear', at: c.then, mob: 'bandit', count: 3 + Math.min(3, c.depth), lead: true } },
+      ],
+      end: 'The strongbox holds a season\'s tolls.',
+      reward: { goods: { coin: pay(c, 18), bronze: 3 } },
+    }),
+  },
+];
+const HIDDEN_BY_ID = new Map(HIDDEN.map((h) => [h.id, h]));
+
+/** The hidden quests of a region from its `secrets` (the same on the server, the page and in tests). */
+export function hiddenStories(r: RegionData): Story[] {
+  const lairs = r.lairs ?? [];
+  const beast = lairs.find((l) => l.kind !== 'bandit' && l.kind !== 'ibex')?.kind ?? 'wolf';
+  const used = new Set(lairs.flatMap((l) => (l.chief ? [l.chief] : [])));
+  const depth = depthOf(r);
+  return (r.secrets ?? []).flatMap((s, n): Story[] => {
+    const t = HIDDEN_BY_ID.get(s.quest);
+    if (!t) return [];
+    const pool = chiefsOfKind(beast).filter((c) => !used.has(c.id));
+    const chief = pool.length ? pool[n % pool.length].id : null;
+    const m = t.make({ at: [s.x, s.y], then: s.then, beast, chief, depth });
+    return [{ id: `hidden:${r.id}:${n}`, region: r.id, hidden: true, giver: { name: t.find, title: '', at: [s.x, s.y], cls: '' }, ...m }];
+  });
+}
 
 /*
  * Template (copy, fill, add to STORIES):

@@ -31,6 +31,7 @@
  */
 import { createSim } from '../../../src/war/sim';
 import { createBots, type Bots } from '../../../src/war/sim/bots';
+import type { SecretEvent } from '../../../src/war/sim/secrets';
 import { isClassId } from '../../../src/data/classes';
 import { DeltaEncoder } from '../../../src/war/net/codec';
 import { interestRect, seesBoss, visibleTo, type Rect, type TeamVision } from '../../../src/war/net/interest';
@@ -1172,6 +1173,13 @@ export class WarRoom {
       const r = interestRect(p.cam), ev = mobFx.filter((e) => !r || (e.x >= r.x0 && e.x <= r.x1 && e.y >= r.y0 && e.y <= r.y1));
       if (ev.length) tell(p.pid, { t: 'mobFx', ev });
     }
+    // world-fill: hidden quest events to the player whose quest it is
+    const secretEv = evs.filter((e): e is SecretEvent => e.kind === 'secret');
+    for (const e of secretEv) {
+      const m = /^p:(\d+)$/.exec(e.owner), pid = m ? Number(m[1]) : null;
+      if (pid !== null && this.players.get(pid)?.online) tell(pid, { t: 'secret', ev: [e] });
+    }
+    for (const e of evs) if (e.kind === 'chiefSlain' && e.by >= 0) for (const p of this.players.values()) if (p.online && p.team === e.by) tell(p.pid, { t: 'secret', ev: [e] });
     // W-67: guardian events to the players whose team sees the guardian (where it stands, or fell) or the struck patch
     const bossEv = evs.filter(isBossEvent);
     if (bossEv.length && vision) for (const p of this.players.values()) {
