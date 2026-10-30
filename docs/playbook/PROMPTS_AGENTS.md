@@ -26,7 +26,7 @@ The disk lines (symlinked `node_modules`, `--no-shots`) are for a machine short 
 ```
 You are implementing {STORY_ID}: {ONE_LINE_GOAL}, in pixelarrow, working in your own git worktree.
 
-pixelarrow is a Phaser + TypeScript + Vite game for {PLATFORMS: Telegram and the web}.
+pixelarrow is a Phaser + TypeScript + Vite game for {PLATFORMS: the web}.
 Every screen must pass at {SIZES}. The app has no live users: no backward compatibility for saves, clients or
 server state.
 

@@ -2,8 +2,8 @@
 
 Where the game is going, the architecture it runs on, the invariants the
 code keeps, and what is still open. What is built is described in
-WAR.md and server/README.md. The campaign, duels, the shop and the Telegram
-Mini App were removed (the game is only the browser war).
+WAR.md and server/README.md. The campaign, duels and the shop were removed
+(the game is only the browser war).
 
 ## Vision
 
@@ -11,15 +11,13 @@ Mini App were removed (the game is only the browser war).
   four alliances, live server-run battles in every region and squads that
   transfer between neighbours (WAR.md, docs/impl/global-war-rebuild.md).
   **Clans** serve inside an alliance.
-- **Telegram Stars buy only Drachmae**; Drachmae buy cosmetics and the
-  season pass. No paid power.
-- **Web and desktop as well as Telegram** (v6, below).
+- **The open web**: browsers on phones, tablets and desktops (v6, below).
 
 ## Agreed architecture
 
 Two hosts, two Workers (ADR-0007). The game Worker (`server/`,
 `wrangler.jsonc`) serves the static game and the API on
-**https://play.pixelarrow.app** for the web and Telegram, same origin
+**https://play.pixelarrow.app**, same origin
 (`/api/*`, `/ws/*`), so the game needs no CORS. The landing Worker
 (`landing/`) serves the landing and legal pages on **https://pixelarrow.app**
 (and www). Each builds and deploys on its own (`.github/workflows/deploy.yml`);
@@ -30,8 +28,7 @@ a landing deploy never restarts the game's Durable Objects.
 | Real-time server | **Workers + Durable Objects**: `WarWorldDO` (the one war world), `WarRegionDO` per live war region, `MatchmakerDO` (global duel queue), `DuelDO` per live match. WebSockets use the **hibernation API**. |
 | Persistence | **D1**: accounts, heroes, items, territories, clans, purchases, battle records. DOs hold hot state and flush to D1. |
 | Shared game logic | `src/sim`, `src/war`, `src/online`, `src/duel`, `src/game` run unchanged in the Worker. The server **re-runs every battle from its seed and order log** and accepts only the result it computes. |
-| Auth | Telegram `initData` (HMAC-SHA256 with the bot token, `auth_date` freshness) or email and password; both resolve to one player id (ADR-0008, ADR-0009). |
-| Payments | **Telegram Stars** (`XTR`): `createInvoiceLink`, `WebApp.openInvoice`, a webhook answers `pre_checkout_query` and records `successful_payment` in D1, then grants. The client never decides what was bought. `refundStarPayment` revokes. |
+| Auth | Email and password, server-side sessions; one player id per account (ADR-0008, ADR-0009). |
 | Cost | Workers paid plan (~$5/month): replays need more CPU than the free tier, and DOs require it. |
 
 ### Battle flow online
@@ -95,44 +92,37 @@ Still enforced by code. The ADRs themselves were removed; see the note at the en
   disabled. Hit areas at least `TAP` (44 pt), labels never under `TEXT_MIN`
   6.5, badges are counts (no "!"), must-show facts wrap. Pure rules live in
   `src/ui/mosaic/policy.ts` with tests (removed with the legacy UI).
-- (ADR-0006) Game code reaches the platform only through `src/platform`
-  (facade), `src/platform/core/*` and neutral services, never
-  `src/platform/{telegram,web}/**` or `detect.ts`; it branches on
-  capabilities, never `platform.id`. Only `src/platform/telegram/` touches
-  `window.Telegram`. Adapters import no game code and take an injected `env`.
-  Detection happens once in `selectPlatform()`. A new capability goes into a
-  `core/` interface and every adapter in one commit. Enforced by
-  `tests/platformBoundary.test.ts`.
+- (ADR-0006) Game code reaches the platform only through the
+  `src/platform/core/*` interfaces; the web adapters live in
+  `src/platform/web/`, import no game code and take an injected `env`. A new
+  capability goes into a `core/` interface and its adapter in one commit.
 - (ADR-0007) Two Workers: `pixelarrow` on play.pixelarrow.app (API, DOs, D1,
   crons) and `pixelarrow-landing` on the apex and www (static assets, a `GAME`
-  service binding, no D1 or secrets). Play allows framing only by itself and
-  `https://web.telegram.org`; legal pages live on the apex.
+  service binding, no D1 or secrets). Play allows framing only by itself;
+  legal pages live on the apex.
 - (ADR-0008) Sessions are server-side in D1: token `pa2_` + 32 random bytes,
   only its SHA-256 stored, 30 s per-isolate cache. Web uses the
-  `__Host-pa_sid` cookie (30 days, 7 idle); Telegram a bearer token (24 h) in
-  `Authorization` or `Sec-WebSocket-Protocol`, never in a URL. One transport
+  `__Host-pa_sid` cookie (30 days, 7 idle); the local dev sign-in a bearer
+  token (24 h) in `Authorization` or `Sec-WebSocket-Protocol`, never in a URL. One transport
   per request. Cookie writes and socket upgrades must carry
   `Origin == GAME_URL`.
 - (ADR-0008) Passwords: PBKDF2-HMAC-SHA256, `PBKDF2_ITERATIONS` = 310,000
   (`server/src/auth/password.ts`), peppered with `PASSWORD_PEPPER`, rehashed
   on log-in when parameters change. Identities exist only after proof.
-  Per-IP limits use rate-limit bindings (`RL_AUTH_IP`, `RL_TG_AUTH_IP`,
-  `RL_PUBLIC_IP`), per-account limits D1 `auth_throttle`; Turnstile on web auth
+  Per-IP limits use rate-limit bindings (`RL_AUTH_IP`, `RL_PUBLIC_IP`), per-account limits D1 `auth_throttle`; Turnstile on web auth
   forms, failing closed. Online routes and sockets use `requirePlayable`.
-- (ADR-0009) One `players.id`, at most one Telegram and one password identity;
-  link, unlink, email change, conflict resolution and deletion need re-auth
-  within 10 minutes. Conflicts never merge state, and an account with
-  purchases cannot be the loser. Deletion is immediate and resumable
-  (`server/src/account/delete.ts`).
-- (ADR-0009) Public names are `display_name` only (generated by default,
-  never Telegram names), validated by `server/src/names/` (3-16 chars, no
+- (ADR-0009) One `players.id` and one password identity; adding or changing
+  the email and deletion need re-auth within 10 minutes. Deletion is
+  immediate and resumable (`server/src/account/delete.ts`).
+- (ADR-0009) Public names are `display_name` only (generated by default),
+  validated by `server/src/names/` (3-16 chars, no
   Latin/Cyrillic mix, look-alike folding into `display_name_key`, reserved
   and blocked words). `first_name` and `username` reach only the player's own
   `/api/me`.
 - (ADR-0010) `/api/public/*` has one route, `GET`/`HEAD
   /api/public/v1/summary`: it returns the `public_snapshot` row built by the
   5-minute cron, runs no session middleware, sends no CORS headers, and never
-  carries ids, Telegram fields, emails, money or RD. Boards with fewer than 3
+  carries ids, usernames, emails, money or RD. Boards with fewer than 3
   rows are empty. The landing reaches it through the `PublicApi` RPC
   entrypoint, cached at the edge with a 24 h last-good copy and
   `RL_LANDING_PUBLIC` on misses. A new public route needs a decision first.
@@ -156,11 +146,10 @@ Still enforced by code. The ADRs themselves were removed; see the note at the en
 
 ### Launch blockers
 
-1. **Bot notifications:** done (server/README.md "Bot notifications").
-2. **Payment compliance:** done; the legal texts at pixelarrow.app/terms,
+1. **Payment compliance:** done; the legal texts at pixelarrow.app/terms,
    /privacy, /refunds await the operator's review.
-3. **Monitoring and analytics:** done (docs/OPS.md).
-4. **Backups and the admin panel:** done (docs/OPS.md).
+2. **Monitoring and analytics:** done (docs/OPS.md).
+3. **Backups and the admin panel:** done (docs/OPS.md).
 
 ### Polish
 
@@ -170,8 +159,6 @@ Still enforced by code. The ADRs themselves were removed; see the note at the en
   lairs, world-boss raids or duel challenges yet.
 - The premium season pass (500 Dr) should return about 600 Dr; the reward
   table pays far less (`server/src/economy/catalog.ts` `PASS`).
-- `supporter_banner` should become a Drachmae cosmetic; it is still a legacy
-  Stars entitlement (`server/src/products.ts`).
 - Beast trial with practice copies of the heroes, labelled "Practice"
   (`src/scenes/BeastTrialScene.ts`).
 - Show beast trophies (`trophy_<beast>`) on the hero sheet or the army.
@@ -184,7 +171,7 @@ Still enforced by code. The ADRs themselves were removed; see the note at the en
 
 - Daily login rewards and daily quests that feed pass XP.
 - Clan leaderboards, season titles on profiles, clan chat and clan wars.
-- Referrals through Telegram deep links. Friends lists.
+- Referral links. Friends lists.
 - Shareable battle replays (seed + order log); a raid replay viewer.
 - Abuse protection: trading limits for new accounts, marketplace flags.
 - Low-end phones: 30 fps in a 40-soldier battle; an automatic low-effects mode.
@@ -194,9 +181,9 @@ Still enforced by code. The ADRs themselves were removed; see the note at the en
 
 ## v6: web and desktop
 
-The game runs on the open web (tablets, laptops) as well as in Telegram.
-The platform layer, accounts, linking, nicknames, hosting and the landing are
-in place (see Binding decisions). Still open:
+The game runs on the open web (phones, tablets, laptops). The platform layer,
+accounts, nicknames, hosting and the landing are in place (see Binding
+decisions). Still open:
 
 - **True landscape layouts** for every screen, not a portrait column: scenes
   move off the legacy column one by one (ADR-0013). The layout check covers
@@ -204,10 +191,8 @@ in place (see Binding decisions). Still open:
 - **Mouse and keyboard** everywhere: hover, right-click, wheel zoom, focus
   navigation, battle hotkeys, rebinding (ADR-0012). Touch devices keep the
   touch UI.
-- **Payments.** The `Payments` interface has the Telegram Stars adapter and a
-  web placeholder: the web shop shows purchases as "coming soon" with a
-  reason. A real provider plugs into the web adapter, without touching the
-  shop or the server's grant logic, once the legal side is settled.
+- **Payments.** Nothing is sold. A provider comes as a `core/` interface and
+  a web adapter once the legal side is settled.
 - More platforms (Steam, native mobile) arrive as new adapters under
   `src/platform/`, with no platform checks in game code.
 

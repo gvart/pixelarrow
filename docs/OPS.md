@@ -98,10 +98,9 @@ Alerts: a Cloudflare Notification on the Worker's error rate.
 `src/platform/telemetry.ts` captures `window.onerror`, unhandled rejections
 and exceptions in Phaser's scene loop (re-thrown). Reports carry the last 20
 breadcrumbs (scenes, button ids, never labels), running scenes,
-`__APP_VERSION__` (git sha), Telegram platform/version, language, viewport,
-DPR, OS/engine, device memory, and the session token only to resolve the
-player id. Tokens, `initData`, query strings and e-mails are scrubbed on both
-sides. ≤ 3 sends per error per session, 10 new/min, batched 4 s or
+`__APP_VERSION__` (git sha), platform, language, viewport, DPR, OS/engine,
+device memory, and the session token only to resolve the player id. Tokens,
+query strings and e-mails are scrubbed on both sides. ≤ 3 sends per error per session, 10 new/min, batched 4 s or
 `sendBeacon` on hide.
 
 `POST /api/telemetry/errors` (≤ 10 per batch, 48 KB, rate limited) upserts one
@@ -176,7 +175,7 @@ SELECT blob5 AS pack, SUM(_sample_interval) AS purchases, SUM(double4 * _sample_
 FROM pixelarrow_events WHERE blob1 = 'purchase' AND timestamp > NOW() - INTERVAL '30' DAY GROUP BY pack
 
 -- Client errors per release (blob1 fingerprint, blob2 kind, blob3 message, blob4 scene,
--- blob5 version, blob6 platform, blob7 Telegram version, double1 count, double2 player)
+-- blob5 version, blob6 platform, blob7 legacy `tg` (unused), double1 count, double2 player)
 SELECT blob5 AS version, blob3 AS message, SUM(double1 * _sample_interval) AS occurrences, COUNT(DISTINCT double2) AS players
 FROM pixelarrow_client_errors WHERE timestamp > NOW() - INTERVAL '1' DAY
 GROUP BY version, message ORDER BY occurrences DESC LIMIT 20
@@ -240,7 +239,7 @@ data rendered as text.
 - *Overview:* players (total, new, active), purchases, Stars, refunds,
   Drachmae held, negative wallets, errors 24 h, bans, season, Analytics
   Engine bound.
-- *Players:* search by id, Telegram id, username or first name. Shows
+- *Players:* search by id, username or first name. Shows
   profile, ban, wallet and ledger, purchases, entitlements, season data,
   army, save summary, admin history. Actions: **Ban / Unban** (reason
   required; sessions blocked within a minute, `server/src/ban.ts`); **Adjust
@@ -323,11 +322,8 @@ Owner-only steps, in order. Legal pages (EN/RU, `landing/public/`) are signed of
    `TURNSTILE_SECRET`, `PASSWORD_PEPPER`, `PASSWORD_PEPPER_ID` (plus
    "Operator setup" above).
 5. **GitHub:** environment `production-landing` (same protection as
-   `production`); Actions variables `PUBLIC_TELEGRAM_URL`
-   (`https://t.me/<bot>/<app>` from BotFather `/myapps`),
-   `TELEGRAM_BOT_USERNAME` and, if the Mini App short name isn't `play`,
-   `TELEGRAM_APP_NAME`; check `CLOUDFLARE_API_TOKEN` covers the
-   `pixelarrow.app` zone for Workers custom domains.
+   `production`); check `CLOUDFLARE_API_TOKEN` covers the `pixelarrow.app`
+   zone for Workers custom domains.
 6. **Dry runs:** `landing/`: `npm ci && npm run build && npm run dry-run`;
    `server/`: `npx wrangler deploy --dry-run --config ../wrangler.jsonc`.
 7. **Deploy both sites in one run:** push to `main`, or *Run workflow* on
@@ -341,15 +337,7 @@ Owner-only steps, in order. Legal pages (EN/RU, `landing/public/`) are signed of
    `https://pixelarrow.app/?startapp=test` is a 302 to play;
    `https://pixelarrow.app/api/public/v1/summary` answers JSON (or 503
    `{"state":"unavailable"}` without data).
-9. **Telegram, right after step 7:** @BotFather `/myapps` → Edit Web App URL
-   and `/mybots` → Bot Settings → Menu Button, both
-   `https://play.pixelarrow.app`; run
-   `TELEGRAM_BOT_TOKEN=... TELEGRAM_WEBHOOK_SECRET=... node server/scripts/bot-setup.mjs`;
-   `getWebhookInfo` must show `https://play.pixelarrow.app/api/telegram/webhook`
-   and no `last_error_message`. If web linking uses the Login Widget:
-   `/setdomain` → `play.pixelarrow.app`. Open the Mini App on a phone and
-   Telegram Web and sign in.
-10. **Zone rules** (`pixelarrow.app`): a Single Redirect for hostname
+9. **Zone rules** (`pixelarrow.app`): a Single Redirect for hostname
     `www.pixelarrow.app` to `concat("https://pixelarrow.app", http.request.uri.path)`,
     301, preserve query string; HSTS max-age 6 months, include subdomains,
     preload off for the first weeks.

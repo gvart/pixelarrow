@@ -428,7 +428,7 @@ the whole face uncovered"). A prop the seed carries (the shield) must be exclude
 ## 10. App icon and mark (AS-08)
 
 A family of its own: one object in profile on a round red-figure disc with a Greek-key ring, on #FF00FF. It is the
-app's mark (browser tab, home screen, Telegram bot picture), not an atlas icon, so it takes no `RESERVED_ICONS`
+app's mark (browser tab, home screen), not an atlas icon, so it takes no `RESERVED_ICONS`
 meaning. `Create an image.` + T-MARK with SUBJECT "a single bronze Corinthian hoplite helmet in side profile, facing the
 viewer's left, with a tall arched red horsehair crest; the eye opening is one clear dark almond shape; the helmet and
 crest together fill about 70 percent of the disc" and EXCLUDE "a face or a person inside the helmet, spears". Accepted
