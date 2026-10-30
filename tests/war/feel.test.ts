@@ -2,7 +2,12 @@ import { describe, expect, it } from 'vitest';
 import type { BuildingSnap, Snapshot, UnitSnap } from '../../src/war/types';
 import { HitStop, ImpactWatch, isElite } from '../../src/war/view/feel/impacts';
 import { CameraShake, shakeFalloff } from '../../src/war/view/feel/shake';
-import { blowVol, dinLevel } from '../../src/war/view/sound/mix';
+import { blowVol, dinLevel, heavyBlow, isBeast, weightSfx } from '../../src/war/view/sound/mix';
+import { FLASH, FLASH_GAP, HitWatch, HOLD, HOLD_GAP, MAX_PUFFS, NUDGE_MS } from '../../src/war/view/feel/hits';
+import { MOB_KINDS } from '../../src/war/sim/mobs';
+import { CHIEF_KINDS } from '../../src/data/warWild';
+import { GUARDIANS } from '../../src/war/sim/bosses';
+import { VIEW_SCALE } from '../../src/war/view/mobScale';
 
 describe('E4 melee din', () => {
   it('stays out of a skirmish, rises with the press, full from some 60 men', () => {
@@ -107,5 +112,90 @@ describe('E4 shake', () => {
     c.add(1);
     const off = c.offset(16, 2000, 1);
     expect(Math.hypot(off.x, off.y)).toBe(0);
+  });
+});
+
+describe('ordinary blows felt', () => {
+  // squad 1 is ours (team 0), squad 2 the foe (team 1)
+  const squads = [{ id: 1, owner: 'a', team: 0, units: [], order: 'idle' }, { id: 2, owner: 'b', team: 1, units: [], order: 'idle' }] as unknown as Snapshot['squads'];
+  const at = (tick: number, units: UnitSnap[], o: Partial<Snapshot> = {}) => snap(tick, { units, squads, ...o });
+  const man = (o: Partial<UnitSnap> = {}) => unit(1, { squad: 1, ...o });
+  const foe = (cls: string, o: Partial<UnitSnap> = {}) => unit(2, { squad: 2, cls, x: 11, y: 10, ...o });
+
+  it('a sword blow in reach: a flash, sparks and a nudge away from the striker, once', () => {
+    const w = new HitWatch();
+    w.diff(at(1, [man(), foe('mob_bandit')]), 0);
+    const hits = w.diff(at(2, [man({ hp: 8 }), foe('mob_bandit', { state: 'attack', swing: 0 })]), 100);
+    expect(hits).toHaveLength(1);
+    expect(hits[0]).toMatchObject({ id: 1, by: 2, puff: 'spark', heavy: false, hold: false });
+    expect(hits[0].sx).toBeLessThan(0); // the foe stands east: pushed west on screen
+    expect(w.pose(1, 100)?.flash).toBe(true);
+    expect(w.pose(1, 100 + FLASH)?.flash).toBe(false);
+    expect(Math.hypot(w.pose(1, 150)!.ox, w.pose(1, 150)!.oy)).toBeGreaterThan(1);
+    expect(w.pose(1, 100 + NUDGE_MS + 1)).toBeUndefined();
+    expect(w.diff(at(2, [man({ hp: 8 }), foe('mob_bandit')]), 120)).toEqual([]); // same tick again
+  });
+
+  it('a bear\'s maul: dust, a local hold on both under 80 ms, a small shake; not held again at once', () => {
+    const w = new HitWatch();
+    w.diff(at(1, [man(), foe('mob_bear')]), 0);
+    const [h] = w.diff(at(2, [man({ hp: 6 }), foe('mob_bear', { state: 'attack', swing: 0 })]), 100);
+    expect(h).toMatchObject({ puff: 'dust', heavy: true, hold: true });
+    expect(h.shake).toBeGreaterThan(0);
+    expect(HOLD).toBeLessThanOrEqual(80);
+    expect(w.pose(1, 100 + HOLD - 1)?.hold).toBe(true);
+    expect(w.pose(2, 100 + HOLD - 1)?.hold).toBe(true);
+    expect(w.pose(2, 100 + HOLD + 1)?.hold ?? false).toBe(false);
+    const [h2] = w.diff(at(3, [man({ hp: 2 }), foe('mob_bear', { state: 'attack', swing: 0 })]), 100 + HOLD_GAP / 2);
+    expect(h2.hold).toBe(false);
+  });
+
+  it('a chief or a guardian strikes heavy whatever its kind', () => {
+    const w = new HitWatch();
+    const lairs = [{ id: 1, kind: 'wolf', x: 11, y: 10, squad: 2, alive: 1, count: 1, state: 'chase', aggro: 0, leash: 0, guard: 0, nodes: 0, chief: { id: 'greymaw', name: 'Old Greymaw', title: '', unit: 2, alive: true, scale: 1.6, tint: 0 } }] as Snapshot['lairs'];
+    w.diff(at(1, [man(), foe('mob_wolf')], { lairs }), 0);
+    const [h] = w.diff(at(2, [man({ hp: 7 }), foe('mob_wolf', { state: 'attack', swing: 0 })], { lairs }), 100);
+    expect(h.heavy).toBe(true);
+    expect(heavyBlow('mob_wolf')).toBe(false);
+    expect(weightSfx('mob_wolf', true)).toBe('thud');
+    expect(weightSfx('hoplite')).toBeNull();
+  });
+
+  it('an arrow from afar: a flash only', () => {
+    const w = new HitWatch();
+    w.diff(at(1, [man(), foe('archer', { x: 30 })]), 0);
+    const [h] = w.diff(at(2, [man({ hp: 9 }), foe('archer', { x: 30, state: 'attack', swing: 0 })]), 100);
+    expect(h).toMatchObject({ by: -1, puff: null, hold: false });
+  });
+
+  it('a 24-man melee reads, not strobes: puffs capped a snapshot, a flash a unit at most every FLASH_GAP', () => {
+    const w = new HitWatch();
+    const line = (hp: number, swing: number) => Array.from({ length: 24 }, (_, i) => unit(i + 1, { squad: i < 12 ? 1 : 2, x: 10 + (i % 12), y: i < 12 ? 10 : 11, hp, state: 'attack', swing }));
+    w.diff(at(1, line(10, 5)), 0);
+    const hits = w.diff(at(2, line(9, 0)), 100);
+    expect(hits.filter((h) => h.puff).length).toBeLessThanOrEqual(MAX_PUFFS);
+    // within the gaps: no flash again, and only the men not puffed yet get theirs (the puffs spread over snapshots)
+    const puffed = new Set(hits.filter((h) => h.puff).map((h) => h.id));
+    const next = w.diff(at(3, line(8, 0)), 100 + FLASH_GAP / 2);
+    expect(next.length).toBeLessThanOrEqual(MAX_PUFFS);
+    for (const h of next) expect(puffed.has(h.id)).toBe(false);
+  });
+
+  it('every mob kind has a dust-or-spark rule; beasts kick dust, bandits ring iron', () => {
+    for (const k of MOB_KINDS) expect(typeof isBeast(`mob_${k}`)).toBe('boolean');
+    expect(isBeast('mob_lion')).toBe(true);
+    expect(isBeast('mob_bandit_captain')).toBe(false);
+  });
+});
+
+describe('mobs at true size', () => {
+  it('chiefs stand 1.6x their kind at least', () => {
+    for (const [k, c] of Object.entries(CHIEF_KINDS)) expect(c.scale, k).toBeGreaterThanOrEqual(1.6);
+  });
+
+  it('beasts are not drawn smaller than their sheets, and a bear outsizes a wolf', () => {
+    for (const k of MOB_KINDS) expect(VIEW_SCALE[`mob_${k}`] ?? 1, k).toBeGreaterThanOrEqual(1);
+    expect(VIEW_SCALE.mob_bear).toBeGreaterThan(VIEW_SCALE.mob_wolf);
+    for (const g of Object.values(GUARDIANS)) expect(VIEW_SCALE[g.cls] ?? 1, g.cls).toBeGreaterThanOrEqual(1);
   });
 });

@@ -104,6 +104,7 @@ function lower(z: Float32Array, w: number, low: (j: number) => boolean): void {
  * flat edges or one-level land steps share one level: the level of a flat cell among them (a cliff's or water's), else
  * their mean. A cell is flat when it is water or a 4-neighbour lies two or more levels off (a cliff top or foot), but two
  * such cells of a rock wall (`rock`) a level apart join: the lower one's corner rises to the higher (the wall's rim slopes).
+ * Land a level or less over water joins it too: the bank's corners at the water slope down to the water's level.
  */
 function cornerLevels(fw: number, fh: number, fz: Float32Array, wet: (j: number) => boolean, rock: (j: number) => boolean = () => false): { fc: Float32Array; ramp: Uint8Array } {
   const n = fw * fh, fc = new Float32Array(4 * n), ramp = new Uint8Array(n), hard = new Uint8Array(n);
@@ -115,6 +116,9 @@ function cornerLevels(fw: number, fh: number, fz: Float32Array, wet: (j: number)
   }
   const link = (a: number, b: number) => {
     const d = Math.abs(fz[a] - fz[b]);
+    // a bank a level or less over the water slopes down to it (a beach), so a shore crossing the grid is not a staircase
+    // of risers; water itself stays flat (it is hard: the land's corners take its level)
+    if (wet(a) !== wet(b)) return d <= 1 && !rock(a) && !rock(b) && (wet(a) ? fz[b] >= fz[a] : fz[a] >= fz[b]);
     return d === 0 || (d <= 1 && (!(hard[a] && hard[b]) || (rock(a) && rock(b))) && !wet(a) && !wet(b));
   };
   // the cells round a point: 0 (X-1, Y-1), 1 (X, Y-1), 2 (X-1, Y), 3 (X, Y), and which corner of each the point is
