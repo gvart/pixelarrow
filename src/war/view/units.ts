@@ -30,6 +30,8 @@ import { TEAM_INT } from '../world/palette';
 import { LOOK_MODE, addLookPipeline } from './lookShader';
 import { addQuadShader, useQuad } from './quadShader';
 import { NEUTRAL_TEAM } from '../sim/economy';
+import type { HitPose } from './feel/hits';
+import { VIEW_SCALE } from './mobScale';
 
 /** Each team's marker colour (rings, outlines, flags): its alliance's, as the world map draws it. */
 export const TEAM_COLOR = TEAM_INT;
@@ -123,6 +125,10 @@ interface Sheet {
 export interface DrawnAs { clip: string; frame: number; row: string; x: number; y: number; ox: number; oy: number; scale: number; fw: number; fh: number }
 /** The manifest scale of a soldier sheet: 33 px/m (public/war/guardians.json). */
 const SOLDIER_SCALE = 0.55;
+/** A mob's dark rim (the outline shader) so a brown beast reads on olive ground; a chief's in dull bronze. */
+const RIM = 0x16100b, CHIEF_RIM = 0x8a5a1c;
+/** Beasts (not bandits, maenads: men) lie long on the ground: a wider, soft shadow. */
+const BEAST = /^mob_(?!bandit|maenad)/;
 
 /** W-60: where the souls to draw come from (the HUD sets it: ./hud/souls.ts); none: no souls drawn. */
 let soulSource: (() => readonly SoulSnap[]) | null = null;
@@ -195,7 +201,7 @@ function buildSheet(scene: Phaser.Scene, cls: string, m: SheetManifest, img: HTM
     frames.set(name, byRow);
   }
   const ms = (m as SheetManifest & { scale?: number }).scale ?? SOLDIER_SCALE;
-  return { cls, rows, clips, frames, rowNames: m.rows, loads: (m as SheetManifest & { loads?: SheetLoads }).loads, scale: ms / SOLDIER_SCALE, fw, fh };
+  return { cls, rows, clips, frames, rowNames: m.rows, loads: (m as SheetManifest & { loads?: SheetLoads }).loads, scale: (ms / SOLDIER_SCALE) * (VIEW_SCALE[cls] ?? 1), fw, fh };
 }
 
 /** The load sprites as frames of one texture, named as in src/assets/loads/manifest.json. */
@@ -308,6 +314,8 @@ export class UnitLayer {
    * frame held through a hit-stop. undefined: as drawn.
    */
   pose: ((id: number, now: number) => { sx: number; sy: number; flash: boolean; hold: boolean } | undefined) | null = null;
+  /** Ordinary blows (./feel/hits.ts): a white flash, a nudge (world px) and a local hit-stop. undefined: none. */
+  hit: ((id: number, now: number) => HitPose | undefined) | null = null;
   private held = new Map<number, readonly [string, string]>();
   /** Units on the ground: the least depth to draw over the wall faces they stand in front of (./build/buildingLayer.ts). */
   ground: ((d: { x: number; y: number }) => number) | null = null;
@@ -319,6 +327,11 @@ export class UnitLayer {
   /** A class's draw scale over a soldier's (1 till its sheet is up; guardians up to 2.7). */
   scaleOf(cls: string): number {
     return this.sheets.get(cls)?.scale ?? 1;
+  }
+  /** World px from a mob's feet to the top of its frame as drawn (mob frames are cut close; a chief at his size), undefined till its sheet is up. */
+  topOf(cls: string, id?: number): number | undefined {
+    const sh = this.sheets.get(cls);
+    return sh && sh.rows[0].oy * sh.fh * sh.scale * (id === undefined ? 1 : (this.pose?.(id, this.scene.time.now)?.sy ?? 1));
   }
   /** world-fill: a unit's own multiply tint over its team's (a chief, ./chiefs.ts), or undefined. */
   tintOf: ((id: number) => number | undefined) | null = null;
@@ -371,7 +384,9 @@ export class UnitLayer {
     this.nRing = 0;
     this.nLoad = 0;
     this.packed.clear();
-    this.nUnder[0] = this.nUnder[1] = 0;
+    this.nUnder[0] = this.nUnder[1] = this.nUnder[2] = 0;
+    this.nRim = 0;
+    this.nFlash = 0;
     this.anim.frame(units, squads, at.now);
     if (this.ids !== units.length) {
       this.ids = units.length;
@@ -387,6 +402,8 @@ export class UnitLayer {
     for (let i = this.nGhost; i < this.ghosts.length; i++) this.ghosts[i].setVisible(false);
     for (let i = this.nLoad; i < this.loadPool.length; i++) this.loadPool[i].setVisible(false);
     for (let i = this.nRing; i < this.rings.length; i++) this.rings[i].setVisible(false);
+    for (let i = this.nRim; i < this.rims.length; i++) this.rims[i].setVisible(false);
+    for (let i = this.nFlash; i < this.flashes.length; i++) this.flashes[i].setVisible(false);
     this.unders.forEach((pool, k) => { for (let i = this.nUnder[k]; i < pool.length; i++) pool[i].setVisible(false); });
   }
 
@@ -473,12 +490,18 @@ export class UnitLayer {
 
   private nGhost = 0;
   private nRing = 0;
-  /** Shadows (0) and rings (1) of the men on the ground as pooled images under every wall (gUnder's depth), and how many are shown. */
-  private unders: Phaser.GameObjects.Image[][] = [[], []];
-  private nUnder = [0, 0];
+  /** Blow flashes (additive white copies of a frame), and how many are shown. */
+  private flashes: Phaser.GameObjects.Image[] = [];
+  private nFlash = 0;
+  /** Mobs' rims (outline shader images), and how many are shown. */
+  private rims: Phaser.GameObjects.Image[] = [];
+  private nRim = 0;
+  /** Shadows (0), rings (1) and beasts' soft shadows (2) on the ground as pooled images under every wall (gUnder's depth), and how many are shown. */
+  private unders: Phaser.GameObjects.Image[][] = [[], [], []];
+  private nUnder = [0, 0, 0];
 
-  /** The next pooled shadow (0) or ring (1) image, `key` centred on world px (x, y). */
-  private under(key: string, kind: 0 | 1, x: number, y: number): Phaser.GameObjects.Image {
+  /** The next pooled shadow (0), ring (1) or soft shadow (2) image, `key` centred on world px (x, y). */
+  private under(key: string, kind: 0 | 1 | 2, x: number, y: number): Phaser.GameObjects.Image {
     const pool = this.unders[kind];
     let im = pool[this.nUnder[kind]];
     if (!im) pool.push((im = this.scene.add.image(0, 0, key).setDepth(9)));
@@ -487,13 +510,14 @@ export class UnitLayer {
     return im.setPosition(x, y).setVisible(true);
   }
 
-  /** A white ring texture (30 x 14 world px, `lw` wide) as the Graphics ring drew it, made on first use; and the shadow's. */
-  private ringTex(lw: number): string {
-    const key = `war-ring-${lw}`;
+  /** A white ring texture (30 x 14 world px times `k`, `lw` wide) as the Graphics ring drew it, made on first use; and the shadow's. */
+  private ringTex(lw: number, k = 1): string {
+    k = Math.round(k * 10) / 10;
+    const key = k === 1 ? `war-ring-${lw}` : `war-ring-${lw}-${k}`;
     if (this.scene.textures.exists(key)) return key;
-    const m = Math.ceil(lw / 2) + 1, t = this.scene.textures.createCanvas(key, 30 + 2 * m, 14 + 2 * m)!, c = t.context;
+    const rx = 15 * k, ry = 7 * k, m = Math.ceil(lw / 2) + 1, t = this.scene.textures.createCanvas(key, Math.ceil(2 * rx) + 2 * m, Math.ceil(2 * ry) + 2 * m)!, c = t.context;
     c.strokeStyle = '#fff'; c.lineWidth = lw;
-    c.beginPath(); c.ellipse(15 + m, 7 + m, 15, 7, 0, 0, Math.PI * 2); c.stroke();
+    c.beginPath(); c.ellipse(rx + m, ry + m, rx, ry, 0, 0, Math.PI * 2); c.stroke();
     t.refresh();
     if (!this.scene.textures.exists('war-shadow')) {
       const sh = this.scene.textures.createCanvas('war-shadow', 28, 14)!;
@@ -501,6 +525,16 @@ export class UnitLayer {
       sh.context.beginPath(); sh.context.ellipse(14, 7, 13, 6, 0, 0, Math.PI * 2); sh.context.fill();
       sh.refresh();
     }
+    return key;
+  }
+  /** A soft round shadow (dark in the middle, fading out), stretched to a beast's length. */
+  private softShadow(): string {
+    const key = 'war-shadow-soft';
+    if (this.scene.textures.exists(key)) return key;
+    const t = this.scene.textures.createCanvas(key, 64, 64)!, c = t.context, gr = c.createRadialGradient(32, 32, 4, 32, 32, 32);
+    gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.55, 'rgba(255,255,255,0.7)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+    c.fillStyle = gr; c.fillRect(0, 0, 64, 64);
+    t.refresh();
     return key;
   }
   /** Depth key of a tile point (x + y; the scene sorts past massifs with ./massifs.ts). */
@@ -522,10 +556,13 @@ export class UnitLayer {
       const p = this.anim.pick(d, sheet.clips, at, units, shots);
       if (this.watch.has(u.id)) this.drawnAs.set(u.id, { clip: p.clip, frame: p.frame, row: QUADRANT[qi], x: f.x, y: f.y, ox: q.ox, oy: q.oy, scale: sheet.scale, fw: sheet.fw, fh: sheet.fh });
       let [key, frame] = sheet.frames.get(p.clip)![q.row][p.frame];
-      const po = this.pose?.(u.id, at.now);
-      if (po?.hold && this.held.has(u.id)) [key, frame] = this.held.get(u.id)!;
-      else if (po) this.held.set(u.id, [key, frame]);
-      else this.held.delete(u.id);
+      const po = this.pose?.(u.id, at.now), hp = u.state !== 'dead' ? this.hit?.(u.id, at.now) : undefined;
+      // a hit-stop (a guardian's beat, a heavy blow) holds the frame it began on
+      if (po?.hold || hp?.hold) {
+        const h = this.held.get(u.id);
+        if (h) [key, frame] = h;
+        else this.held.set(u.id, [key, frame]);
+      } else this.held.delete(u.id);
       const team = TEAM_COLOR[slot(d.team)] ?? 0xcccccc;
       const hidden = u.state !== 'dead' && iso.hidden(f.x, f.y - BODY, d.x + d.y, l ? l.z + l.px / LH : iso.zAt(d.x, d.y));
       const depth = l?.depth ?? Math.max(10 + this.depthOf(d.x, d.y) / 4096 + (u.state === 'dead' ? 0 : 0.25), (u.state === 'dead' ? 0 : this.ground?.(d)) || 0);
@@ -541,9 +578,13 @@ export class UnitLayer {
         // a ring at least 1.5 screen px wide; your own men's full and wider (their colour is their alliance's, not yours)
         const sel = selected.has(u.id), own = d.team === myTeam(), w = Math.max(1.5, 1.5 / zoom), pick = this.picked === u.id;
         const ring = pick ? PICK_RING : sel ? 0xffffff : team, lw = pick ? w + 1.5 : sel || own ? w + 0.5 : w;
-        if (r === g && k === 1) { // a man on the ground: pooled images, batched (a Graphics ellipse is re-triangulated every frame)
-          if (!l?.climb) this.under('war-shadow', 0, f.x, f.y).setTint(0x000000).setAlpha(0.28);
-          this.under(this.ringTex(lw), 1, f.x, f.y).setTint(ring).setAlpha(pick ? 0.7 + 0.3 * Math.sin(at.now / 160) : sel || own ? 1 : 0.7);
+        if (r === g && k <= 2.2) { // on the ground: pooled images, batched (a Graphics ellipse is re-triangulated every frame)
+          if (l?.climb) { /* no shadow in mid-air on a ladder */ } else if (BEAST.test(sheet.cls)) {
+            // a beast: a soft shadow as long as its body (its frame's width), under its chief's size too
+            const sw = sheet.fw * 0.72 * k * (po?.sx ?? 1);
+            this.under(this.softShadow(), 2, f.x, f.y).setDisplaySize(sw, sw * 0.4).setTint(0x000000).setAlpha(0.42);
+          } else this.under('war-shadow', 0, f.x, f.y).setTint(0x000000).setAlpha(0.28);
+          this.under(this.ringTex(lw, k), 1, f.x, f.y).setTint(ring).setAlpha(pick ? 0.7 + 0.3 * Math.sin(at.now / 160) : sel || own ? 1 : 0.7);
         } else {
           if (!l?.climb) r.fillStyle(0x000000, 0.28).fillEllipse(f.x, f.y, 26 * k, 12 * k); // no shadow in mid-air on a ladder
           r.lineStyle(lw, ring, sel || own ? 1 : 0.7).strokeEllipse(f.x, f.y, 30 * k, 14 * k);
@@ -552,7 +593,7 @@ export class UnitLayer {
       let img = this.pool[n];
       if (!img) this.pool.push((img = this.scene.add.image(0, 0, key)));
       n++;
-      img.setTexture(key, frame).setOrigin(q.ox, q.oy).setPosition(Math.round(f.x), Math.round(f.y)).setScale(sheet.scale * (po?.sx ?? 1), sheet.scale * (po?.sy ?? 1)).setVisible(true);
+      img.setTexture(key, frame).setOrigin(q.ox, q.oy).setPosition(Math.round(f.x + (hp?.ox ?? 0)), Math.round(f.y + (hp?.oy ?? 0))).setScale(sheet.scale * (po?.sx ?? 1), sheet.scale * (po?.sy ?? 1)).setVisible(true);
       img.setDepth(depth);
       const code = this.lookOn ? this.code(d, sheet.cls) : undefined;
       if (code) {
@@ -562,6 +603,26 @@ export class UnitLayer {
         img.setTint(this.tintOf?.(u.id) ?? TEAM_TINT[slot(d.team)] ?? 0xffffff).setTintMode(MULTIPLY).setAlpha(1);
       }
       if (po?.flash) img.setTint(0xfff4e0).setTintMode(FILL);
+      else if (hp?.flash && !hidden) {
+        // a blow's flash: the same frame added over him in white, so he blazes up and keeps his shape
+        let fl = this.flashes[this.nFlash];
+        if (!fl) this.flashes.push((fl = this.scene.add.image(0, 0, key).setBlendMode(Phaser.BlendModes.ADD)));
+        this.nFlash++;
+        fl.setTexture(key, frame).setOrigin(q.ox, q.oy).setPosition(img.x, img.y).setScale(img.scaleX, img.scaleY).setDepth(depth + 2e-7).setVisible(true)
+          .setTint(0xfff0d8).setTintMode(FILL).setAlpha(0.75);
+      }
+      // a mob's dark rim, one screen px out, just over it (a chief's bronze): beasts read on any ground
+      if (!hidden && this.outline && sheet.cls.startsWith('mob_')) {
+        let rim = this.rims[this.nRim];
+        if (!rim) {
+          this.rims.push((rim = this.scene.add.image(0, 0, key)));
+          useQuad(rim, this.outline);
+        }
+        this.nRim++;
+        const chief = this.tintOf?.(u.id) !== undefined;
+        rim.setTexture(key, frame).setOrigin(q.ox, q.oy).setPosition(img.x, img.y).setScale(img.scaleX, img.scaleY).setDepth(depth + 1e-7).setVisible(true)
+          .setTint(chief ? CHIEF_RIM : RIM).setTintMode(MULTIPLY).setAlpha(u.state === 'dead' ? 0.5 : 0.9);
+      }
       // hidden behind higher ground (the sprite would draw over the baked terrain: not drawn) or behind a wall or object
       // (drawn under it): the player's own men (and the selected) get a thin team-coloured outline over everything, no
       // fill; a hidden foe is simply hidden
