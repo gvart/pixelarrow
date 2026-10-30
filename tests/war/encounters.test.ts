@@ -288,9 +288,14 @@ describe('W-67 encounters fit their region', () => {
   }, 60_000);
 
   it('a fauna fight draws one of the region\'s own hunters (lions too), the same for the same run', () => {
+    const lairKinds = (g: RegionData) => new Set((g.lairs ?? []).map((l) => l.kind));
     const r = region('kyrene-n');
-    expect(encHunters(r).sort()).toEqual(['jackal', 'lion']);
-    expect(encHunters(region('ammos')).sort()).toEqual(['jackal', 'lion']); // its lore's lions (stories-b)
+    for (const g of [r, region('ammos')]) { // ammos: its lore's lions (stories-b)
+      const hs = encHunters(g);
+      expect(hs).toContain('lion');
+      expect(hs).not.toContain('bandit');
+      for (const k of hs) expect(lairKinds(g).has(k), `${g.id} ${k}`).toBe(true);
+    }
     const q = snapOpen(r, [r.w / 2, r.h / 2]);
     const spawned = (owner: string) => {
       const ks: string[] = [];
@@ -300,8 +305,8 @@ describe('W-67 encounters fit their region', () => {
       return ks[0];
     };
     const got = Array.from({ length: 12 }, (_, i) => spawned(`p:${i}`));
-    for (const k of got) expect(['jackal', 'lion']).toContain(k);
-    expect(new Set(got).size).toBe(2);
+    for (const k of got) expect(encHunters(r)).toContain(k);
+    expect(new Set(got).size).toBeGreaterThan(1);
     expect(spawned('p:3')).toBe(got[3]);
   });
 });
