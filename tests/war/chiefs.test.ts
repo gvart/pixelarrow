@@ -79,7 +79,7 @@ describe('chiefs', () => {
     const sim = createSim(flat([]), 3);
     const id = sim.addLair({ kind: 'bandit', x: 40.5, y: 40.5, chief: 'one_ear' });
     const s = sim.snapshot(), l = s.lairs![id];
-    expect(l.chief?.name).toBe('One-Ear Nikon');
+    expect(l.chief?.name).toBe(warChief('one_ear')!.name);
     expect(s.units.find((u) => u.id === l.chief!.unit)?.cls).toBe('mob_bandit_captain');
   });
 });
