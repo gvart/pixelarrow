@@ -1,0 +1,45 @@
+src/audio/loops.ts
+  s_0dd3a9d3e5007a::t_ef0976cd7ad355 1-109
+src/war/view/sound/mix.ts
+  s_0dd3a9d3e5007a::t_19b6c0adc86858 9,102-110,229-230,247
+src/audio/bank.ts
+  s_0dd3a9d3e5007a::t_fdfd390d03a6cc 1-152
+src/audio/engine.ts
+  s_0dd3a9d3e5007a::t_fc41981987d74d 22-24,42-43,58-64,94,111-114,116-118,125,150,204,207-213,218,224-230,253-254,260,294-304,331,381-384,463-467
+src/audio/samples.ts
+  s_0dd3a9d3e5007a::t_bc2e92cdd78bc4 1-171
+tests/war/soundBank.test.ts
+  s_0dd3a9d3e5007a::t_97b455e6fb01e3 2,14-21,25,46
+  s_0dd3a9d3e5007a::t_13cf16f93378e5 184-195,198-199,201-206,208,210-213
+  s_0dd3a9d3e5007a::t_95eccaec0d565c 1,3-13,22-24,26-45,47-183,196-197,200,207,209,214-225
+src/war/view/sound/warAudio.ts
+  s_0dd3a9d3e5007a::t_30fd3be24e4806 130,341-353,361
+  s_0dd3a9d3e5007a::t_b9d55d2bbce298 15-19,27-29,34,44,47,104-106,142,144,147-148,157,178,245,253,257-266,331-336,354-360
+  s_0dd3a9d3e5007a::t_630533bbfb5b2b 362
+scripts/war/gen-sounds.mjs
+  s_0dd3a9d3e5007a::t_eaee7a2a95d3c1 1-139
+docs/playbook/SOUND.md
+  s_0dd3a9d3e5007a::t_7dd413726b673b 1-122
+src/audio/mixer.ts
+  s_0dd3a9d3e5007a::t_8fd04d2d4d88c6 12,97-98,104
+src/war/menu/settings.ts
+  s_0dd3a9d3e5007a::t_caa6f91440378d 4,33,193
+docs/playbook/README.md
+  s_0dd3a9d3e5007a::t_fa21874cdbcbc9 19
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "3a9d07da6e8bd391849fa6671ed440625b5dfa50",
+  "prompts": {},
+  "sessions": {
+    "s_0dd3a9d3e5007a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b6130d3d-c070-494f-98d5-046db89f2d1c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
