@@ -1,6 +1,6 @@
 /**
  * Browser side of the live region (./protocol.ts), used by the sandbox worker's net mode (src/war/view/worker.ts):
- * plays as the page's player (./session.ts: the menu's email session cookie, else a dev player: POST /api/auth/telegram
+ * plays as the page's player (./session.ts: the menu's email session cookie, else a dev player: POST /api/auth/dev
  * { dev } on the page's origin, which the vite dev server proxies to `wrangler dev`; needs DEV_AUTH=1), loads the player's war roster (GET /api/war/roster; M5e) and, when he has no
  * one alive anywhere (a fresh dev id) or `seed` is set, seeds a dev roster (POST /api/war/dev/seed); with men in the
  * field or a few at home he joins with what he has (the seed would replace his men at home). Opens the region socket (the session cookie, or the dev bearer token in the WebSocket protocol), decodes every binary frame into a Snapshot and hands it on.

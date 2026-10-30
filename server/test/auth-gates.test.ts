@@ -3,7 +3,7 @@
  * §6; M-AF-1, N-PW-2): Rate Limiting binding per IP → Turnstile → D1
  * throttle → hash. A spy on PBKDF2 (crypto.subtle.deriveBits) proves no hash
  * runs when an earlier gate refuses; a spy on fetch proves Turnstile is not
- * asked once the IP limit refuses, and never on the Telegram route.
+ * asked once the IP limit refuses, and never on the dev sign-in.
  */
 import { env } from 'cloudflare:test';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -135,11 +135,11 @@ describe('Turnstile runs second', () => {
   });
 });
 
-describe('/api/auth/telegram', () => {
+describe('/api/auth/dev', () => {
   // The binding limit itself (30 / 60 s, N-AF-1) is in auth.test.ts.
-  it('never calls Turnstile (N-AF-3)', async () => {
+  it('never calls Turnstile', async () => {
     const siteverify = siteverifySpy();
-    const res = await api('/api/auth/telegram', { method: 'POST', json: { dev: { id: 7001 } }, headers: { 'cf-connecting-ip': freshIp() } });
+    const res = await api('/api/auth/dev', { method: 'POST', json: { dev: { id: 7001 } }, headers: { 'cf-connecting-ip': freshIp() } });
     expect(res.status).toBe(200);
     expect(siteverify()).toBe(0);
   });

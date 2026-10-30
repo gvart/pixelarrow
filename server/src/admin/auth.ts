@@ -1,8 +1,7 @@
 /**
  * Admin authentication (docs/OPS.md "Admin panel").
  *
- * The panel is a plain browser page outside Telegram, so it cannot use the
- * game's Telegram initData login. It uses a dedicated secret instead:
+ * The panel does not use the game's log-in. It uses a dedicated secret:
  * ADMIN_TOKEN holds one token, or comma-separated `name:token` pairs so each
  * operator has their own token and the audit log names them. A token must be
  * at least 32 characters (`openssl rand -hex 32`). Game session tokens are

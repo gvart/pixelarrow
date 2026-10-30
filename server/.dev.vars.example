@@ -2,9 +2,7 @@
 # (wrangler looks next to wrangler.jsonc): cp server/.dev.vars.example .dev.vars
 # .dev.vars is gitignored; never commit it.
 # Production values are Worker secrets: npx wrangler secret put <NAME>
-TELEGRAM_BOT_TOKEN=123456:replace-with-a-test-bot-token
-TELEGRAM_WEBHOOK_SECRET=replace-with-a-long-random-string
-# Accept { "dev": { "id": 1, "first_name": "Dev" } } logins without Telegram, and Turnstile results
+# Accept { "dev": { "id": 1, "first_name": "Dev" } } dev sign-ins on /api/auth/dev, and Turnstile results
 # from localhost or a testing key. Local only! deploy-config.mjs refuses it in vars.
 DEV_AUTH=1
 # Local origins the Worker accepts for CORS and the cookie Origin check (ADR-0007).

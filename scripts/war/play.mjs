@@ -67,7 +67,7 @@ async function up(url, ms = 120_000) {
 }
 
 async function login(id, name) {
-  const r = await fetch(`${API}/api/auth/telegram`, { method: 'POST', headers: { 'content-type': 'application/json', 'cf-connecting-ip': `10.9.0.${id}` }, body: JSON.stringify({ dev: { id, first_name: name } }) });
+  const r = await fetch(`${API}/api/auth/dev`, { method: 'POST', headers: { 'content-type': 'application/json', 'cf-connecting-ip': `10.9.0.${id}` }, body: JSON.stringify({ dev: { id, first_name: name } }) });
   if (!r.ok) throw new Error(`dev login ${id}: ${r.status} ${await r.text()}`);
   const s = await r.json();
   const headers = { authorization: `Bearer ${s.token}`, 'content-type': 'application/json' };

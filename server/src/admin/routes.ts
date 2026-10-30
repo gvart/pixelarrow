@@ -92,7 +92,7 @@ async function audited<T extends Record<string, unknown>>(
 // ------------------------------------------------------------------ helpers
 
 async function playerOr404(d: D1Database, id: number) {
-  const p = await d.prepare('SELECT * FROM players WHERE id = ?1').bind(id).first<Record<string, unknown> & { id: number; telegram_id: number }>();
+  const p = await d.prepare('SELECT * FROM players WHERE id = ?1').bind(id).first<Record<string, unknown> & { id: number }>();
   if (!p) throw new ApiError(404, 'not_found', 'No such player');
   return p;
 }
@@ -133,7 +133,7 @@ admin.get('/players', async (c) => {
   if (!q) {
     rows = await d.prepare('SELECT * FROM players ORDER BY last_seen_at DESC LIMIT 50').all();
   } else if (/^\d+$/.test(q)) {
-    rows = await d.prepare('SELECT * FROM players WHERE id = ?1 OR telegram_id = ?1 LIMIT 50').bind(Number(q)).all();
+    rows = await d.prepare('SELECT * FROM players WHERE id = ?1 LIMIT 50').bind(Number(q)).all();
   } else {
     const like = `${q.replace(/[%_\\]/g, (m) => `\\${m}`)}%`;
     rows = await d

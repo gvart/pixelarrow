@@ -1,6 +1,6 @@
 /**
  * Cloudflare Turnstile server-side check (ADR-0008 §6, M-AF-2) for the
- * anonymous web auth forms. Never used on /api/auth/telegram (N-AF-3).
+ * anonymous web auth forms.
  *
  * Accepts a token only when siteverify says `success`, the `action` is the
  * endpoint's, the `hostname` is on the allow-list and `challenge_ts` is at most

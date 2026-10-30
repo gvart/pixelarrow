@@ -118,7 +118,7 @@ const CLANS = [['Fixture Wolves', 'FXW'], ['Fixture Ravens', 'FXR'], ['Fixture L
 async function seed() {
   const ps = [];
   for (const [i, name] of PLAYERS.entries()) {
-    const login = await api('/api/auth/telegram', { method: 'POST', json: { dev: { id: 990_001 + i, first_name: 'Fixture' } } });
+    const login = await api('/api/auth/dev', { method: 'POST', json: { dev: { id: 990_001 + i, first_name: 'Fixture' } } });
     await api('/api/account/name', { method: 'PUT', token: login.token, json: { name } });
     if (i < 9) await api('/api/online/profile', { method: 'POST', token: login.token });
     ps.push({ id: login.player.id, token: login.token });
@@ -190,7 +190,6 @@ async function main() {
     'DEV_AUTH=1', 'DEV_EMAIL=1', `DEV_ORIGINS=http://localhost:${PORTS.game}`,
     `PASSWORD_PEPPER=${randomBytes(32).toString('base64')}`, 'PASSWORD_PEPPER_ID=1',
     'TURNSTILE_SECRET=1x0000000000000000000000000000000AA',
-    'TELEGRAM_BOT_TOKEN=123456:local-e2e', 'TELEGRAM_WEBHOOK_SECRET=local-e2e',
   ].join('\n') + '\n');
 
   wrangler(['d1', 'migrations', 'apply', 'DB', '--local', '--persist-to', join(WORK, 'game-state'), '-c', join(ROOT, 'wrangler.jsonc')]);

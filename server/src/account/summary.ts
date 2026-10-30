@@ -1,7 +1,8 @@
 /**
  * The player's own account summary, `GET /api/account` (ADR-0009 key
  * interfaces, accounts-v6.md §8.2 and §14 Q5). Only ever about the caller:
- * the Telegram username and the masked email are the player's own data.
+ * the masked email is the player's own data. Dev and legacy identities are
+ * not listed.
  */
 import { RENAME_COOLDOWN_MS, type PlayerRow } from '../players';
 
@@ -18,7 +19,7 @@ interface NameStatus {
 
 interface AccountSummary {
   displayName: string;
-  identities: ({ kind: 'telegram'; telegramUsername: string | null } | { kind: 'password'; emailMasked: string })[];
+  identities: { kind: 'password'; emailMasked: string }[];
   publicBoards: boolean;
   sessions: number;
   hasPurchases: boolean;
@@ -51,7 +52,7 @@ export async function nameStatus(db: D1Database, p: Pick<PlayerRow, 'id' | 'name
 
 export async function accountSummary(db: D1Database, p: PlayerRow, now: number): Promise<AccountSummary> {
   const [ids, counts] = await db.batch([
-    db.prepare('SELECT kind, subject FROM auth_identities WHERE player_id = ?1 ORDER BY id').bind(p.id),
+    db.prepare(`SELECT subject FROM auth_identities WHERE player_id = ?1 AND kind = 'password' ORDER BY id`).bind(p.id),
     db
       .prepare(
         `SELECT (SELECT COUNT(*) FROM sessions WHERE player_id = ?1 AND expires_at > ?2 AND idle_expires_at > ?2) AS sessions,
@@ -62,9 +63,7 @@ export async function accountSummary(db: D1Database, p: PlayerRow, now: number):
   const c = counts.results[0] as { sessions: number; purchases: number };
   return {
     displayName: p.display_name,
-    identities: (ids.results as { kind: 'telegram' | 'password'; subject: string }[]).map((i) =>
-      i.kind === 'telegram' ? { kind: 'telegram', telegramUsername: p.username } : { kind: 'password', emailMasked: maskEmail(i.subject) },
-    ),
+    identities: (ids.results as { subject: string }[]).map((i) => ({ kind: 'password', emailMasked: maskEmail(i.subject) })),
     publicBoards: p.public_boards === 1,
     sessions: c.sessions,
     hasPurchases: !!c.purchases,

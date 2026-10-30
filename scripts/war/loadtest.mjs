@@ -33,7 +33,7 @@ const rnd = () => ((seed = (seed * 1103515245 + 12345) >>> 0) / 2 ** 32);
 
 async function login(i) {
   for (let tries = 0; tries < 20; tries++) {
-    const res = await fetch(`${URL_}/api/auth/telegram`, {
+    const res = await fetch(`${URL_}/api/auth/dev`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'cf-connecting-ip': `10.77.${i >> 8}.${i & 255}` },
       body: JSON.stringify({ dev: { id: 880000 + i, first_name: `Load${i}` } }),

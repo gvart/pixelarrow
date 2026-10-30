@@ -37,7 +37,8 @@ describe('GET /api/account', () => {
     const body = await account(me.token);
     expect(body).toEqual({
       displayName: me.name,
-      identities: [{ kind: 'telegram', telegramUsername: null }],
+      // the dev identity is not listed
+      identities: [],
       publicBoards: true,
       sessions: 1,
       hasPurchases: false,

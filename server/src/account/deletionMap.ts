@@ -1,9 +1,9 @@
 /**
  * What account deletion does to every table (ADR-0009 §7, M-ID-5). Every table
  * of the schema has an entry, and every column that can hold a players.id or a
- * Telegram user id is named by it; test/deletion-map.test.ts checks this
- * against the migrated schema, so a new table or player column fails the
- * build until it is classified here.
+ * legacy external user id (`telegram_*`, no longer written) is named by it;
+ * test/deletion-map.test.ts checks this against the migrated schema, so a new
+ * table or player column fails the build until it is classified here.
  *
  * Rules:
  * - delete          rows of the player are hard-deleted (`pid` and `tg` columns
@@ -26,7 +26,7 @@ interface TableRule {
   rule: DeletionRule;
   /** Columns holding the player's id that this rule acts on. */
   pid?: string[];
-  /** Columns holding the player's Telegram user id that this rule acts on. */
+  /** Columns holding the player's legacy external user id (players.telegram_id) that this rule acts on. */
   tg?: string[];
   /** Player columns left as they are (they point at another player's row, or at the tombstone). */
   kept?: string[];
@@ -158,10 +158,10 @@ export interface SchemaColumn {
 
 /** Column names that hold a player id without a foreign key saying so. */
 const PID_NAME = /^(player_id|player_[ab]|other_player_id|last_player|(attacker|defender|seller|buyer|holder|owner)(_id)?|actor_id|created_by|killed_by|siege_by)$/;
-/** Column names that hold a Telegram user id (not a payment charge id). */
+/** Column names that hold a legacy external user id (not a payment charge id). */
 const TG_NAME = /^telegram_(id|user|chat)/;
 
-/** The columns that can hold a player id or a Telegram user id. */
+/** The columns that can hold a player id or a legacy external user id. */
 export function playerColumnsOf(cols: SchemaColumn[]): SchemaColumn[] {
   return cols.filter((c) => c.references === 'players' || PID_NAME.test(c.column) || TG_NAME.test(c.column));
 }

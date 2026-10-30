@@ -110,7 +110,7 @@ describe('migration 0029 over a populated database', () => {
     const at = env.TEST_MIGRATIONS.findIndex((m) => m.name.startsWith('0029_'));
     await applyD1Migrations(db, env.TEST_MIGRATIONS.slice(0, at));
     await db.batch([
-      db.prepare("INSERT INTO players (id, telegram_id, display_name, display_name_key, created_at, last_seen_at) VALUES (41, 4100, 'Mig', 'mig', 0, 0)"),
+      db.prepare("INSERT INTO players (id, display_name, display_name_key, created_at, last_seen_at) VALUES (41, 'Mig', 'mig', 0, 0)"),
       db.prepare("INSERT INTO war_stock (player_id, res, amount) VALUES (41, 'food', 120), (41, 'silver', 75)"),
       db.prepare("INSERT INTO war_items (uid, player_id, item, created_at) VALUES ('i1', 41, '{}', 0)"),
       db.prepare("INSERT INTO war_items (uid, player_id, item, created_at, region) VALUES ('i2', 41, '{}', 0, 'test-ridge')"),

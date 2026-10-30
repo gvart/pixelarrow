@@ -1,6 +1,6 @@
 import type { Env } from './env';
 
-/** The game (web and Telegram Mini App) and its API: play.pixelarrow.app (ADR-0007). */
+/** The game and its API: play.pixelarrow.app (ADR-0007). */
 export const gameUrl = (env: Env): string => env.GAME_URL || 'https://play.pixelarrow.app';
 
 /** The landing site, which also serves the legal pages: pixelarrow.app (ADR-0007). */

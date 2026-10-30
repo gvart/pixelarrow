@@ -1,17 +1,12 @@
 /**
  * Re-auth for sensitive actions (ADR-0009 §1, M-LK-1; accounts-v6.md §1.4 and
- * §14 Q1). Link, unlink, email change, conflict resolution and deletion need
+ * §14 Q1). Adding or changing the email and deletion need
  * `sessions.reauth_at` within the last 10 minutes, else `401 reauth_required`,
  * which the client answers with AU-10 "Confirm it's you" and one retry.
  *
- * A fresh proof is:
- * - a password log-in (the session is created with reauth_at = now), or
- *   `POST /api/account/reauth {password}`, which shares the log-in lockout of
- *   the address (5 failures lock it, ADR-0008 §5);
- * - `POST /api/account/reauth {initData}` with Telegram's `auth_date` at most
- *   10 minutes old, for the same Telegram user as the player's identity. A
- *   Telegram session started from older initData starts without a fresh proof
- *   (routes/auth.ts passes `auth_date` as its reauth_at).
+ * A fresh proof is a password log-in (the session is created with
+ * reauth_at = now), or `POST /api/account/reauth {password}`, which shares the
+ * log-in lockout of the address (5 failures lock it, ADR-0008 §5).
  *
  * reauth_at is per session: a proof on one device never unlocks another.
  */
@@ -20,7 +15,6 @@ import { forgetSessions, type Session } from '../auth/sessions';
 import { verifyPassword, type PepperSet } from '../auth/password';
 import { clearLoginFailures, loginLockedFor, recordLoginFailure } from '../auth/throttle';
 import { invalidCredentials } from '../auth/flows';
-import { validateInitData } from '../telegramAuth';
 
 export const REAUTH_WINDOW_MS = 10 * 60_000;
 
@@ -54,17 +48,5 @@ export async function reauthWithPassword(db: D1Database, peppers: PepperSet, s: 
     throw invalidCredentials();
   }
   await clearLoginFailures(db, ident.subject);
-  return markFresh(db, s, now);
-}
-
-/** Re-auth by Telegram initData: a valid HMAC, auth_date ≤ 10 minutes, and the player's own Telegram user. */
-export async function reauthWithInitData(db: D1Database, botToken: string, s: Session, initData: string, now = Date.now()): Promise<number> {
-  const r = await validateInitData(initData, botToken, Math.floor(now / 1000), REAUTH_WINDOW_MS / 1000);
-  if (!r.ok) {
-    if (r.reason === 'expired') throw new ApiError(401, 'init_data_expired', 'Reopen the game to confirm it is you');
-    throw new ApiError(401, 'invalid_init_data', `initData rejected: ${r.reason}`);
-  }
-  const own = await db.prepare(`SELECT subject FROM auth_identities WHERE player_id = ?1 AND kind = 'telegram'`).bind(s.pid).first<{ subject: string }>();
-  if (!own || own.subject !== String(r.user.id)) throw new ApiError(403, 'wrong_account', 'This Telegram account is not linked to this account');
   return markFresh(db, s, now);
 }

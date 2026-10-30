@@ -1,7 +1,7 @@
 /**
  * Deploy-time guard (ADR-0008 Implementation Guidelines, N-SE-4): the local
- * dev switches must never reach production. DEV_AUTH=1 accepts a fake
- * Telegram user and lets localhost pass Turnstile; DEV_EMAIL=1 writes mail to
+ * dev switches must never reach production. DEV_AUTH=1 accepts a dev
+ * sign-in by id and lets localhost pass Turnstile; DEV_EMAIL=1 writes mail to
  * D1 instead of sending it. Both live only in the gitignored .dev.vars (which
  * `wrangler deploy` never uploads); this refuses a config that sets either as
  * a var, at the top level or in any named environment.

@@ -26,9 +26,8 @@ server/
                       /ws upgrades, crons; exports WarRegionDO, WarWorldDO and the PublicApi entrypoint
     env.ts            bindings / secrets types
     urls.ts           GAME_URL (play) and LANDING_URL (apex, legal links) with their defaults; dev origins
-    routes/auth.ts    /api/auth: email sign-up, login, reset, sessions; POST /api/auth/telegram (DEV_AUTH sign-in)
-    account/          /api/account: the account page, emails, renames, deletion (ADR-0009), links to a
-                      Telegram identity and their conflicts
+    routes/auth.ts    /api/auth: email sign-up, login, reset, sessions; POST /api/auth/dev (DEV_AUTH sign-in)
+    account/          /api/account: the account page, emails, renames, deletion (ADR-0009)
     auth/             sessions.ts (pa2 server-side sessions, 30 s cache, prune), identity.ts, cookies.ts
                       (__Host-pa_sid), origin.ts (CSRF), password.ts, throttle.ts, turnstile.ts, flows.ts
     war/              the war: routes, the region and world Durable Objects, persons, market, treasury,
@@ -38,10 +37,9 @@ server/
     admin/            /admin and /api/admin (docs/OPS.md "Admin panel")
     names/            generated display names, the blocklist and the shared validator
     email/            account emails (Email Service, the dev outbox)
-    telegramAuth.ts   initData validation (account links to a Telegram identity)
     simVersion.ts     the ?sim= check of the sockets
-    middleware.ts     requireSession, requirePlayable, db()/secret() -> 503 when not configured
-    crypto.ts, body.ts, errors.ts, players.ts, rateLimit.ts, telegramApi.ts, ban.ts
+    middleware.ts     requireSession, requirePlayable, db() -> 503 when not configured
+    crypto.ts, body.ts, errors.ts, players.ts, rateLimit.ts, ban.ts
   migrations/                D1 schema, applied in order by CI; 0017-0020 accounts, 0006 ops,
                              0019 public stats, 0021+ the war; 0027 and 0036 drop the old war's and
                              the legacy game's tables
@@ -64,9 +62,9 @@ Authenticated routes take the `__Host-pa_sid` cookie or
 | --- | --- | --- | --- |
 | GET | `/api/health` | – | `{ ok, db, secrets: {name: bool} }` (never values) |
 | … | `/api/auth/*` | – / ✓ | email sign-up, verify, login, reset, logout, sessions |
-| POST | `/api/auth/telegram` | – | DEV_AUTH=1 only: `{ dev: { id, first_name } }` → `{ token, expiresAt, player }` |
+| POST | `/api/auth/dev` | – | DEV_AUTH=1 only: `{ dev: { id, first_name } }` → `{ token, expiresAt, player }` |
 | GET | `/api/me` | ✓ | `{ player, session }` |
-| … | `/api/account/*` | ✓ | the account page, emails, rename, deletion, Telegram links |
+| … | `/api/account/*` | ✓ | the account page, emails, rename, deletion |
 | … | `/api/war/*` | ✓ | the war (docs/WAR.md, server/src/war/routes.ts) |
 | … | `/api/war/world/*` | ✓ | the world map: snapshot, transfers |
 | GET | `/ws/war/world`, `/ws/war/:region` | ✓ | the war's sockets |
@@ -96,8 +94,10 @@ The email forms are rate-limited per IP by the `RL_AUTH_IP` binding and gated
 by Turnstile.
 
 **Dev login:** with `DEV_AUTH=1` (only in the local `.dev.vars`; never set it in
-production) `POST /api/auth/telegram` takes `{ "dev": { "id": 1, "first_name":
-"Dev" } }`; the war's sandbox and world pages sign in this way.
+production) `POST /api/auth/dev` takes `{ "dev": { "id": 1, "first_name":
+"Dev" } }`; the war's sandbox and world pages sign in this way. Dev players are
+stored as identities of the old `telegram` kind (the table's CHECK allows no
+other); `server/src/auth/identity.ts` calls it `DEV_KIND`.
 
 ### Sim version
 
@@ -161,9 +161,8 @@ right after.
    *Workers Scripts: Edit* (and the custom-domain permissions it already has),
    **Account → D1: Edit**. Durable Objects are covered by Workers Scripts: Edit.
 4. **Worker secrets** (once; they persist across deploys): `ADMIN_TOKEN`
-   (docs/OPS.md "Operator setup"), `PASSWORD_PEPPER`, `PASSWORD_PEPPER_ID`,
-   `TURNSTILE_SECRET`, and `TELEGRAM_BOT_TOKEN` while account links to Telegram
-   identities remain:
+   (docs/OPS.md "Operator setup"), `PASSWORD_PEPPER`, `PASSWORD_PEPPER_ID` and
+   `TURNSTILE_SECRET`:
    ```bash
    cd server
    npx wrangler secret put ADMIN_TOKEN --config ../wrangler.jsonc

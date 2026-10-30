@@ -1,5 +1,4 @@
 import { env, SELF } from 'cloudflare:test';
-import { vi } from 'vitest';
 import { SIM_VERSION } from '../../src/sim/version';
 
 export const BASE = 'https://test.pixelarrow.local';
@@ -30,7 +29,7 @@ export function api(path: string, init: RequestInit & { token?: string; cookie?:
 let nextIp = 1;
 /** Logs in a fake user through DEV_AUTH (a fresh client IP each time, so the rate limiter stays out of the way). */
 export async function devLogin(id: number, first_name = `Tester${id}`): Promise<{ token: string; playerId: number; name: string }> {
-  const res = await api('/api/auth/telegram', {
+  const res = await api('/api/auth/dev', {
     method: 'POST',
     json: { dev: { id, first_name } },
     headers: { 'cf-connecting-ip': `10.0.0.${nextIp++}` },
@@ -39,26 +38,3 @@ export async function devLogin(id: number, first_name = `Tester${id}`): Promise<
   const body = await res.json<{ token: string; player: { id: number; displayName: string } }>();
   return { token: body.token, playerId: body.player.id, name: body.player.displayName };
 }
-
-export interface BotCall {
-  method: string;
-  params: Record<string, unknown>;
-}
-
-/** Intercepts fetch() to api.telegram.org; returns the recorded calls. */
-export function mockTelegram(results: Record<string, unknown> = {}): BotCall[] {
-  const calls: BotCall[] = [];
-  const real = globalThis.fetch;
-  vi.spyOn(globalThis, 'fetch').mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
-    const url = new URL(input instanceof Request ? input.url : String(input));
-    if (url.hostname !== 'api.telegram.org') return real(input, init);
-    const method = url.pathname.split('/').pop()!;
-    const params = JSON.parse(String(init?.body ?? '{}')) as Record<string, unknown>;
-    calls.push({ method, params });
-    return Response.json({ ok: true, result: method in results ? results[method] : true });
-  });
-  return calls;
-}
-
-export const BOT_TOKEN = env.TELEGRAM_BOT_TOKEN!;
-

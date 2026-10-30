@@ -39,9 +39,8 @@
     // Where the war's Durable Objects are created (server/src/war/placement.ts, docs/OPS.md "War DO placement"):
     // a locationHint (weur, enam, ...). An object never moves: a change reaches only objects created after it.
     "WAR_DO_HINT": "weur"
-    // Secrets (wrangler secret put, never here): TELEGRAM_BOT_TOKEN (account
-    // links to Telegram identities), ADMIN_TOKEN, PASSWORD_PEPPER, PASSWORD_PEPPER_ID,
-    // TURNSTILE_SECRET. DEV_AUTH and DEV_EMAIL are local-only (.dev.vars);
+    // Secrets (wrangler secret put, never here): ADMIN_TOKEN, PASSWORD_PEPPER,
+    // PASSWORD_PEPPER_ID, TURNSTILE_SECRET. DEV_AUTH and DEV_EMAIL are local-only (.dev.vars);
     // deploy-config.mjs refuses a config that sets either.
   },
   // Per-IP rate limits for the auth routes and the public stats API (ADR-0008 §5), enforced per
@@ -91,7 +90,7 @@
     { "tag": "v4", "new_sqlite_classes": ["WarWorldDO"] },
     // the old shard rooms of the route-graph war (W-01: deleted with M4)
     { "tag": "v5", "deleted_classes": ["RegionDO"] },
-    // duels removed with the campaign and the Telegram Mini App
+    // duels removed with the campaign
     { "tag": "v6", "deleted_classes": ["MatchmakerDO", "DuelDO"] }
   ],
   // Analytics Engine (docs/OPS.md "Analytics"): product events and client

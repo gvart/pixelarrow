@@ -11,9 +11,9 @@ const NOW = Date.UTC(2026, 9, 13, 12, 0, 0);
 const DAY = 86_400_000;
 
 /**
- * Seeded players get large, distinctive ids and Telegram ids, so a scan of the
- * snapshot can find any leak. They start opted out of public boards
- * (`public_boards = 0`); `named()` opts players in.
+ * Seeded players get large, distinctive ids and legacy telegram_id values, so
+ * a scan of the snapshot can find any leak. They start opted out of public
+ * boards (`public_boards = 0`); `named()` opts players in.
  */
 let seq = 0;
 async function seedPlayer(o: { banned?: boolean; lastSeen?: number } = {}): Promise<{ id: number; tg: number; first: string; user: string }> {
@@ -33,7 +33,7 @@ async function seedPlayer(o: { banned?: boolean; lastSeen?: number } = {}): Prom
   return { id, tg, first, user };
 }
 
-/** Everything seeded that must never reach the snapshot: player ids, Telegram ids, first names, usernames. */
+/** Everything seeded that must never reach the snapshot: player ids, legacy telegram_id values, first names, usernames. */
 const seeded: { id: number; tg: number; first: string; user: string }[] = [];
 
 /** Wraps the D1 binding and records every SQL statement prepared through it. */
@@ -169,7 +169,7 @@ describe('public snapshot (ADR-0010 §2)', () => {
     for (const q of writes) expect(q).toMatch(/^INSERT INTO (public_snapshot|stats_counters) /);
   });
 
-  it('a recursive scan of the snapshot finds no seeded id, Telegram id, Telegram name or email', async () => {
+  it('a recursive scan of the snapshot finds no seeded id, legacy telegram_id, name or email', async () => {
     const snap = await buildPublicSnapshot(env, NOW);
     expect(snap.war.players.length + snap.bossSlayers.length).toBeGreaterThan(0); // the scan sees real rows
     const ids = new Set(seeded.flatMap((p) => [p.id, p.tg]));

@@ -1,7 +1,7 @@
 /**
  * The schema-driven half of the deletion contract (ADR-0009 §7, M-ID-5, M-DL-6):
  * every table of the migrated schema is classified in DELETION_MAP, and every
- * column that can hold a player id or a Telegram id is named by its entry.
+ * column that can hold a player id or a legacy external id is named by its entry.
  * Adding a table or a player column without classifying it fails here.
  */
 import { env } from 'cloudflare:test';

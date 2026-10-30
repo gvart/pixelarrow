@@ -7,9 +7,10 @@
  */
 import { b64urlEncode, utf8 } from '../crypto';
 import { bannedError } from '../ban';
+import type { DevKind } from './identity';
 
 export type Transport = 'cookie' | 'bearer';
-export type Method = 'telegram' | 'password' | 'email_link';
+export type Method = DevKind | 'password' | 'email_link';
 
 export interface Session {
   /** players.id */
@@ -66,7 +67,7 @@ export function forgetSessions(pid?: number): void {
 /** A short label from the User-Agent, e.g. 'Chrome on macOS'; null when unknown. */
 export function deviceLabel(ua: string | null | undefined): string | null {
   if (!ua) return null;
-  const app = /Telegram/i.test(ua) ? 'Telegram' : /Edg\//.test(ua) ? 'Edge' : /Firefox\//.test(ua) ? 'Firefox' : /Chrome\//.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' : null;
+  const app = /Edg\//.test(ua) ? 'Edge' : /Firefox\//.test(ua) ? 'Firefox' : /Chrome\//.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' : null;
   const os = /iPhone|iPad|iOS/.test(ua) ? 'iOS' : /Android/.test(ua) ? 'Android' : /Mac OS X|Macintosh/.test(ua) ? 'macOS' : /Windows/.test(ua) ? 'Windows' : /Linux/.test(ua) ? 'Linux' : null;
   if (!app && !os) return null;
   return [app ?? 'Browser', os].filter(Boolean).join(' on ');
@@ -79,7 +80,7 @@ export async function createSession(
   method: Method,
   device: string | null,
   now = Date.now(),
-  /** The last fresh proof (ADR-0009 §1): now by default; a Telegram log-in passes initData's auth_date. */
+  /** The last fresh proof (ADR-0009 §1): now by default. */
   reauthAt: number | null = now,
 ): Promise<{ token: string; session: Session }> {
   const token = PREFIX + b64urlEncode(crypto.getRandomValues(new Uint8Array(32)));

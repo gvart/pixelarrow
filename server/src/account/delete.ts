@@ -9,8 +9,8 @@
  * in it can run twice without harm. An interrupted run is finished by the daily
  * cron (finishDeletions).
  *
- *   revoke     sessions, identities (and password hashes), email tokens, link
- *              codes and conflicts, throttle keys, bot rows, support requests;
+ *   revoke     sessions, identities (and password hashes), email tokens,
+ *              throttle keys, legacy link and bot rows, support requests;
  *              a banned player's identities go to ban_tombstones as hashes
  *   leave      market listings, regions and garrisons, clan (leadership passes
  *              on, an empty clan is disbanded), duel queue, open sockets
@@ -27,7 +27,8 @@ import { forgetSessions } from '../auth/sessions';
 import { emailKeyHash } from '../auth/throttle';
 import { NAME_HOLD_MS } from '../players';
 import { log, logError } from '../telemetry/log';
-import { BAN_TOMBSTONE_MS, banIdentityHash, type IdentityKind } from './banTombstone';
+import type { IdentityKind } from '../auth/identity';
+import { BAN_TOMBSTONE_MS, banIdentityHash } from './banTombstone';
 import { purgeTables } from './deletionMap';
 
 type DeletionReason = 'self' | 'conflict' | 'admin';
@@ -123,8 +124,8 @@ async function revoke(x: Ctx): Promise<D1PreparedStatement[]> {
   const p = await db.prepare('SELECT telegram_id, banned_at FROM players WHERE id = ?1').bind(pid).first<{ telegram_id: number | null; banned_at: number | null }>();
   const ids = (await db.prepare('SELECT kind, subject, email FROM auth_identities WHERE player_id = ?1').bind(pid).all<{ kind: IdentityKind; subject: string; email: string | null }>()).results;
   const emails = ids.filter((i) => i.kind === 'password').map((i) => i.subject);
-  const tgIdentity = ids.find((i) => i.kind === 'telegram');
-  const tg = p?.telegram_id ?? (tgIdentity ? Number(tgIdentity.subject) : null);
+  // The legacy external id (no longer written): rows keyed by it still go.
+  const tg = p?.telegram_id ?? null;
   if (x.opts.beforeRevoke && emails.length) {
     try {
       await x.opts.beforeRevoke(ids.filter((i) => i.kind === 'password').map((i) => i.email ?? i.subject));
@@ -191,7 +192,7 @@ async function leave(x: Ctx): Promise<D1PreparedStatement[]> {
 
 /**
  * Hard-deletes every `delete` table of DELETION_MAP by the player's id (the
- * Telegram id is gone by now; revoke took those rows). The cron's sweep of a
+ * legacy external id is gone by now; revoke took those rows). The cron's sweep of a
  * finished deletion keeps display_name_history: it holds the freed name.
  */
 function purgeStatements(db: D1Database, pid: number, sweep = false): D1PreparedStatement[] {

@@ -23,16 +23,11 @@ export interface Env {
   ASSETS?: Fetcher;
   /** The game's URL, play.pixelarrow.app (wrangler.jsonc vars; server/src/urls.ts). */
   GAME_URL?: string;
-  /** The landing site, pixelarrow.app: legal links in bot texts (wrangler.jsonc vars). */
+  /** The landing site, pixelarrow.app (wrangler.jsonc vars). */
   LANDING_URL?: string;
   /** Local only (.dev.vars): comma-separated dev origins for CORS and the Origin check. */
   DEV_ORIGINS?: string;
-  /** Bot username for account link deep links (t.me/<bot>/<app>). */
-  TELEGRAM_BOT_USERNAME?: string;
-  /** Mini App short name in BotFather (default "play"). */
-  TELEGRAM_APP_NAME?: string;
   // Secrets (wrangler secret put ...). Missing ones make the routes that need them answer 503.
-  TELEGRAM_BOT_TOKEN?: string;
   /**
    * Workers Analytics Engine datasets (docs/OPS.md). Absent when the deploy
    * dropped them (server/scripts/deploy-config.mjs): events are then skipped.
@@ -45,7 +40,7 @@ export interface Env {
    * at least 32 characters; without it /admin answers 503.
    */
   ADMIN_TOKEN?: string;
-  /** "1" only in local .dev.vars: the dev sign-in on /api/auth/telegram (the war dev pages). */
+  /** "1" only in local .dev.vars: the dev sign-in on /api/auth/dev (the war dev pages). */
   DEV_AUTH?: string;
   /**
    * Password pepper (secret, ADR-0008 §2): 32 random bytes, base64. The PBKDF2
