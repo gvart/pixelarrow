@@ -12,13 +12,34 @@ owner to confirm; Greek "the in-between"), one continent hung between death and 
 - **Ascension.** The alliance that wins a season (hegemony, or the top season score) **ascends to Elysion**: its
   warriors' names are set in the season's roll of honour, their legacy carries into the next season, and the world
   is reborn for those still waiting.
-- **Erasure.** The forgotten drink from **Lethe**: an alliance that keeps losing is struck from history and from the
-  universe, as if it had never lived. In play this is flavour for the season reset and the standings, not a wipe of
-  anyone's account.
+- **Erasure.** What fades drinks **Lethe**, and Lethe is true erasure: name, deeds, grave and every memory of the
+  drinker go, as if he had never lived. An alliance that keeps losing is struck out this way. In play this is flavour
+  for the season reset and the standings, not a wipe of anyone's account.
+- **The player is a demigod.** He died a mortal and woke on Metaxy as what his blood always was: a god's child. The
+  dead feel that blood; souls wake near him and come to his banner (Souls, the Tunnel of Shades and Divine favour
+  below). One identity everywhere: the guide's intro (`src/war/net/questLore.ts` GUIDE_INTRO) says it once.
 - **The edge.** Metaxy has no ocean. Its shores (fjords, coves, lagoons, the tables below still call them coasts)
   meet a narrow fringe of grey dead water that dissolves into mist and then **the Abyss**. Colossal **Rim Wardens**
   watch from it: sea serpents coiled in the mist, titans half-sunk in the void, winged horrors over the cliffs. They
   forbid anyone to go further; the map ends where they stand.
+- **The enemy is the Abyss; the broken oath is the spine.** The Wardens once swore by Horkos to keep the rim, and
+  every region kept one line of that oath on its boundary stone. They broke it and withdrew into the mist (the
+  Kleisoura toll-stone is the first clue; why they broke it nobody on Metaxy knows), and every stone cracked. Since
+  then Metaxy thins: each season the Abyss leans closer, and from the mist the Wardens only strike (Warden strikes).
+  Every region chain ends with one **shard of the oath** in its `end` line, carried by a guardian, a cairn or a dead
+  man; the guardians speak of the oath they failed (`src/data/warBosses.ts` voice). Whoever holds Omphalos re-swears
+  the oath and seals the rim for one more season (the season's win, told). The shards' lines, by region, are the
+  oath's text: the cold shafts "Nothing from below comes up", the fjords "No keel passes the grey water", the heath
+  "The forsworn walk until they keep it", the oakwood "No name goes to Lethe while we stand", the frost steppe "No
+  rider goes over the edge", the chalk coast "No shade leaps, and none is pushed", the eastern slopes "The roads are
+  kept in every season", the kurgans "We watch from the high places", the wadi "No army thirsts behind us", the
+  lagoon "Salt on every threshold, against the dark", the dunes "We dig until the water comes", the floodplain "When
+  the water rises, we stand in it", the fens "The dead lie as their own would lay them", the coves "The drowned are
+  let ashore", the cape "We face the wind that blows outward", the vineyards "Every crossing is poured for", Kleisoura
+  "One toll at the pass, and no more", Stymphalia "What nests on the isle stays on it", the Achelous "The dead cross
+  free", Ammos "No one is left waiting in the sand", the moors "Our names fall before our watch does", Kimmeria "The
+  mist takes no people whole", the savanna "We are the hide between the dead and the dark", Bacchae "We look
+  outward, never in". The last line, sworn at Omphalos: "If we break, let Lethe drink us."
 - **Omphalos.** The navel of the in-between: the ruined temple on the mesa is where the way up opens, so holding it
   scores most (10 an hour) and holding it with three frontier towns ends the season (hegemony).
 - **Homes never fall** because a dead warrior cannot die twice: in his own hall he always wakes again. What can be
