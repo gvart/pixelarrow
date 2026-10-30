@@ -743,6 +743,8 @@ export interface WarBuildSim extends WarSim {
   importState(s: SimState): void;
   /** M5e: these persons' living men leave the field at once, unreported (D1 already sent them home). */
   dropPersons(ids: string[]): void;
+  /** W-72 proposal: this squad's living men leave the field at once, unreported (a fallen warlord's band gone over the border). */
+  dropSquad(squad: SquadId): void;
   /** M4 transfer out: the fight so far of these persons' living men (XP, kills, as endFight), reported now and cleared. */
   reportPersons(ids: string[]): PersonResult[];
   /** M4 transfer in: these persons' living men take the hit points they lost elsewhere (by person id; never below 1). */
@@ -815,7 +817,7 @@ export type WarEvent =
   | { t: number; kind: 'chiefSlain'; lair: number; chief: string; name: string; by: number; x: number; y: number }
   // W-72 proposal (src/war/sim/warlords.ts): a warlord rises, takes a place, warns of a raid on `team`'s target (in ticks),
   // sends the raid, loses a place, falls; near: owners with men by it (favour); text: his line, filled in
-  | { t: number; kind: 'warlord'; what: 'rise' | 'took' | 'warn' | 'raid' | 'freed' | 'fallen'; warlord: string; name: string; text: string; x: number; y: number; place?: string; team?: number; in?: number; near?: string[] }
+  | { t: number; kind: 'warlord'; what: 'rise' | 'took' | 'warn' | 'raid' | 'freed' | 'fallen' | 'recall'; warlord: string; name: string; text: string; x: number; y: number; place?: string; team?: number; in?: number; near?: string[] }
   // M7d: a guardian entered phase `phase` (index into its WarBoss phases); escaped (the Bandit King by the postern: back
   // after a while with half his host); came back (24 h unheld: full hp, its landmark reset); a Rim Warden strike landed
   | { t: number; kind: 'bossPhase'; region: string; boss: string; phase: number }

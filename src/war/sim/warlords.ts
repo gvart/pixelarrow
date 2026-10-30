@@ -56,6 +56,8 @@ interface Lord {
   reinforceAt: number;
   raidAt: number;
   warn: Warning | null;
+  /** His fall: bands walking to the border, gone there or at `until`. */
+  gone: { squad: SquadId; until: number }[];
 }
 
 /** What the server keeps of a region's warlords between rooms (ages, days). */
@@ -75,6 +77,8 @@ export interface Warlords {
   men(): number;
   memory(): WarlordMemory;
   recall(m: WarlordMemory): void;
+  /** Another region's room tells: he fell at this age (days); his bands here are recalled. */
+  fell(id: string, at: number): void;
   exportState(): unknown;
   importState(s: unknown): void;
 }
@@ -105,7 +109,7 @@ export function createWarlords(region: RegionData, sim: WarBuildSim, bots: Bots,
     const from: [number, number] = seat && cps.length ? [cps[0].x, cps[0].y] : gate;
     const d = (p: Place) => (p.x - from[0]) ** 2 + (p.y - from[1]) ** 2;
     const places = [...cps, ...lairs].sort((a, b) => d(a) - d(b) || (a.key < b.key ? -1 : 1));
-    return { def, seat, gate, places, holds: [], parties: [], freed: {}, fallen: null, born: 0, lord: -1, laid: false, reinforceAt: WARLORD.reinforce, raidAt: WARLORD.raid.every, warn: null };
+    return { def, seat, gate, places, holds: [], parties: [], freed: {}, fallen: null, born: 0, lord: -1, laid: false, reinforceAt: WARLORD.reinforce, raidAt: WARLORD.raid.every, warn: null, gone: [] };
   });
 
   // --- the snapshot as read this pass
@@ -267,7 +271,33 @@ export function createWarlords(region: RegionData, sim: WarBuildSim, bots: Bots,
   const holdMen = (h: Hold) => squadMen(h.squad).length + h.extra.reduce((a, q) => a + squadMen(q).length, 0);
   const down = (l: Lord) => l.fallen !== null && age - l.fallen < WARLORD.back;
 
+  /** His fall: every holding and party here walks off to the border, the places free and nothing dropped. */
+  const withdraw = (l: Lord) => {
+    const until = tick + WARLORD.recall.leave;
+    for (const h of l.holds) {
+      const p = l.places.find((x) => x.key === h.place)!;
+      if (h.state === 'held') say(l, 'recall', fill(fill(WARLORD.recall.line, 'place', placeName(p, l.def.kind)), 'band', l.def.band), h.x, h.y, { place: h.place });
+    }
+    for (const q of [...l.holds.flatMap((h) => [h.squad, ...h.extra]), ...l.parties.map((x) => x.squad)]) {
+      l.gone.push({ squad: q, until });
+      bots.clear(q);
+      sim.order({ kind: 'move', squad: q, x: l.gate[0], y: l.gate[1] });
+    }
+    l.holds = [];
+    l.parties = [];
+    l.warn = null;
+  };
+
   const think = (l: Lord) => {
+    // fallen: what still stands here walks off; the gone leave the field at the border
+    if (down(l) && (l.holds.length || l.parties.length)) withdraw(l);
+    for (const g of [...l.gone]) {
+      const c = centre(g.squad);
+      if (c && tick < g.until && (c[0] - l.gate[0]) ** 2 + (c[1] - l.gate[1]) ** 2 > WARLORD.arrive ** 2) continue;
+      if (c) sim.dropSquad(g.squad);
+      bots.clear(g.squad);
+      l.gone = l.gone.filter((x) => x !== g);
+    }
     // the fallen is back after WARLORD.back days, grown from nothing (his hall laid anew)
     if (l.fallen !== null && !down(l)) (l.born = l.fallen + WARLORD.back), (l.fallen = null), (l.laid = false);
     // a fresh room lays out what his age gives him (at least one player assumed: he was busy while nobody looked)
@@ -430,7 +460,14 @@ export function createWarlords(region: RegionData, sim: WarBuildSim, bots: Bots,
         Object.assign(l.freed, m.freed[l.def.id] ?? {});
       }
     },
-    exportState: () => ({ age, players, lords: lords.map((l) => ({ holds: l.holds, parties: l.parties, freed: l.freed, fallen: l.fallen, born: l.born, lord: l.lord, laid: l.laid, reinforceAt: l.reinforceAt, raidAt: l.raidAt, warn: l.warn })), rng: rng.state }),
+    fell(id, at) {
+      const l = lords.find((x) => x.def.id === id);
+      // a fall already back from, or older than the one he is down for, changes nothing
+      if (!l || age - at >= WARLORD.back || (l.fallen !== null && l.fallen >= at)) return;
+      l.fallen = at;
+      l.lord = -1;
+    },
+    exportState: () => ({ age, players, lords: lords.map((l) => ({ holds: l.holds, parties: l.parties, freed: l.freed, fallen: l.fallen, born: l.born, lord: l.lord, laid: l.laid, reinforceAt: l.reinforceAt, raidAt: l.raidAt, warn: l.warn, gone: l.gone })), rng: rng.state }),
     importState(s) {
       const o = s as { age: number; players: number; lords: Partial<Lord>[]; rng: number };
       age = o.age;

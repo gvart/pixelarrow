@@ -106,6 +106,8 @@ export const WARLORD = {
   cap: 60,
   /** A band is on its place within this many tiles. */
   arrive: 6,
+  /** His fall: his bands walk to the border and are gone there (or after `leave` ticks). */
+  recall: { leave: 900, line: 'Word of his fall reaches {place}. {band} slink off to the border' },
 } as const;
 
 /** Goods his men leave by kind. */

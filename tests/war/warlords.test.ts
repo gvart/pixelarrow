@@ -225,6 +225,27 @@ describe('warlords: beaten piece by piece', () => {
     expect(fresh.lords.snaps()[0].fallen).toBeUndefined();
     expect(fresh.lords.snaps()[0].holds).toHaveLength(1);
   });
+
+  it('his fall recalls his bands: they walk off and leave, the places free without spoils', () => {
+    const x = setup(flat(MARCH, [[80, 80]]), WARLORD.grow.marchDay, 1);
+    run(x, WARLORD.think * 2);
+    const sq = x.sim.snapshot().squads.find((s) => s.owner.startsWith('warlord:'))!;
+    expect(holds(x)).toHaveLength(1);
+    const piles = (x.sim.snapshot().piles ?? []).length;
+    x.notes.length = 0;
+    x.lords.fell(W.id, WARLORD.grow.marchDay); // the seat's room tells: he fell
+    run(x, WARLORD.think * 2);
+    expect(holds(x)).toHaveLength(0);
+    expect(x.lords.snaps()[0].fallen).toBe(true);
+    expect(x.notes.find((n) => n.what === 'recall')).toMatchObject({ warlord: W.id, place: 'c0' });
+    expect(x.notes.some((n) => n.what === 'freed')).toBe(false);
+    run(x, WARLORD.recall.leave + WARLORD.think);
+    expect(men(x, sq.id)).toBe(0);
+    expect((x.sim.snapshot().piles ?? []).length).toBe(piles);
+    // an older fall heard again changes nothing; a fall past his return is ignored
+    x.lords.fell(W.id, -WARLORD.back - 1);
+    expect(x.lords.memory().fallen[W.id]).toBe(WARLORD.grow.marchDay);
+  });
 });
 
 describe('warlords: raids', () => {

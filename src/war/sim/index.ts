@@ -3598,6 +3598,18 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       for (const s of reslotQueue) if (s.alive > 0) reslot(s);
       reslotQueue.clear();
     },
+    dropSquad(id) {
+      // W-72 proposal: a fallen warlord's band leaves the field at its border, unreported
+      for (const u of units) {
+        if (!u.alive || u.squad.id !== id) continue;
+        u.alive = false;
+        u.hp = 0;
+        u.reported = true;
+        u.squad.alive--;
+        u.tgt = null;
+        if (u.job) works.setJob(u, null);
+      }
+    },
     reportPersons(ids) {
       // M4: these living men leave mid-fight (a transfer): their fight so far, reported now, tallies cleared
       const of = new Set(ids), sel = units.filter((u) => u.alive && u.person && of.has(u.person.id));

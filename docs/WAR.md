@@ -504,13 +504,13 @@ bandits never fight them), owner `warlord:<id>`; the wild has no fog, so his bot
 | The lord | at his hall in the seat: hp x14, damage x1.8, armour +6 over a man of his kind; name and title over his head |
 | Reinforce | every 10 min with players present a holding short of men gets them, marching in from the nearest other holding (march: from the border). Only a quiet holding (no foe man within 20 tiles), except his hall: while another of his holdings in the seat stands, men come to it even under attack |
 | Freed | a holding whose garrison is all down is freed: a loot pile on the spot (24 coin and 3 goods of his kind, x(1 + depth/2)) and 60 favour to each player with men within 20 tiles; a claim point under it is then claimed by the normal rules (its guard lairs too) |
-| Fallen | the lord down: 120 coin, 8 goods and an item (uncommon or better), x(1 + depth/2), and 200 favour to each player near; the seat's holdings stop growing, and he is back after 3 days of age, grown from nothing again |
+| Fallen | the lord down: 120 coin, 8 goods and an item (uncommon or better), x(1 + depth/2), and 200 favour to each player near; his bands everywhere in his domain are recalled: every holding and party walks to the region's border and leaves the field there (or after 90 s), the places free with nothing dropped ("Word of his fall reaches …"); he is back after 3 days of age, grown from nothing again |
 | Raids | with players present and a holding of his standing, every 20 min (÷ players, at most ÷ 3) he picks the nearest undefended target within 110 tiles of a holding: an alliance's finished building that is no wall, gate, tower, bridge or stair, with no fighting man of its team within 16 tiles; else a cart with no man of its team within 10. Telegraphed 60 s ahead: the target team hears "<name>'s men ride for your <thing> in 60 s" and sees a mark on it. Then 4 (depth 1) / 6 (depth 2) men + 2 per extra player (at most 12) march on it (attackMove), batter it, and go home after 90 s at it or once it falls; a beaten raid party drops nothing |
 | Budget | at most 60 warlord men in a region; the director thinks every 10 ticks |
 
 Online: the room sends `warlords` (the region's warlords, their holdings and a raid in warning; on change) and the
 notes (rise, took, warn, raid, freed, fallen) to the players they concern. Offline nothing runs unless a scenario asks.
-Each region runs on its own: a lord fallen in his seat does not yet recall his bands in the marches (open).
+Each region runs on its own; his seat's room tells the march rooms of his fall (region to region, kept in their storage for a room that sleeps), so the recall reaches every region of his domain.
 
 ### Random encounters
 
