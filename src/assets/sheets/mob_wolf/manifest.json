@@ -3,29 +3,29 @@
  "class": "mob_wolf",
  "image": "mob_wolf.png",
  "frame": {
-  "w": 44,
-  "h": 41
+  "w": 65,
+  "h": 61
  },
  "anchor": {
-  "x": 26,
-  "y": 35
+  "x": 37,
+  "y": 53
  },
  "anchors": {
   "south-east": {
-   "x": 20,
-   "y": 35
+   "x": 28,
+   "y": 53
   },
   "north-east": {
-   "x": 22,
-   "y": 39
+   "x": 31,
+   "y": 59
   },
   "south-west": {
-   "x": 26,
-   "y": 35
+   "x": 37,
+   "y": 53
   },
   "north-west": {
-   "x": 23,
-   "y": 39
+   "x": 34,
+   "y": 58
   }
  },
  "scale": 0.55,

@@ -8,6 +8,8 @@ import { MOB_KINDS } from '../../src/war/sim/mobs';
 import { CHIEF_KINDS } from '../../src/data/warWild';
 import { GUARDIANS } from '../../src/war/sim/bosses';
 import { VIEW_SCALE } from '../../src/war/view/mobScale';
+import wolfSheet from '../../src/assets/sheets/mob_wolf/manifest.json';
+import bearSheet from '../../src/assets/sheets/mob_bear/manifest.json';
 
 describe('E4 melee din', () => {
   it('stays out of a skirmish, rises with the press, full from some 60 men', () => {
@@ -195,13 +197,14 @@ describe('mobs at true size', () => {
 
   it('beasts are not drawn smaller than their sheets, and a bear outsizes a wolf', () => {
     for (const k of MOB_KINDS) expect(VIEW_SCALE[`mob_${k}`] ?? 1, k).toBeGreaterThanOrEqual(1);
-    expect(VIEW_SCALE.mob_bear).toBeGreaterThan(VIEW_SCALE.mob_wolf);
+    for (const k of ['wolf', 'jackal', 'boar', 'bear', 'lion', 'ibex']) expect(VIEW_SCALE[`mob_${k}`] ?? 1, `${k} at true size: crisp`).toBe(1);
+    expect(bearSheet.frame.w * bearSheet.frame.h).toBeGreaterThan(wolfSheet.frame.w * wolfSheet.frame.h);
     for (const g of Object.values(GUARDIANS)) expect(VIEW_SCALE[g.cls] ?? 1, g.cls).toBeGreaterThanOrEqual(1);
   });
 
   it('a hit flash on a chief or a big guardian is softer, so a huge sprite reads as hit, not as a white blank', () => {
     expect(flashAlpha(1, false)).toBe(FLASH_ALPHA);
-    expect(flashAlpha(VIEW_SCALE.mob_bear, false)).toBe(FLASH_ALPHA);
+    expect(flashAlpha(VIEW_SCALE.mob_bear ?? 1, false)).toBe(FLASH_ALPHA);
     expect(flashAlpha(1, true)).toBe(BIG_FLASH_ALPHA);
     expect(flashAlpha(2.5, false)).toBe(BIG_FLASH_ALPHA);
     expect(BIG_FLASH_ALPHA).toBeLessThanOrEqual(0.5);

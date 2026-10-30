@@ -23,7 +23,7 @@ export interface WarChief {
 
 /** Per mob kind: the chief's look, his stats over a man of his kind (before depth), his escort, and his loot. */
 export interface ChiefKind {
-  /** Draw scale over the kind's sheet (1.6 at least: a chief towers over his escort), and a multiply tint (0xffffff: none). */
+  /** Draw scale over the kind's sheet (1.6 at least: a chief towers over his escort; 2 where the sheet is at true size, a whole scale keeps his pixels even), and a multiply tint (0xffffff: none). */
   scale: number; tint: number;
   /** Hp and damage over a man of his kind, and armour on top of his (a chief fight lasts 60-90 s against a solo player's 12 men, W-58: level 2 at depth 1, level 3 at depth 2). */
   hp: number; dmg: number; armor: number;
@@ -35,12 +35,12 @@ export interface ChiefKind {
 
 const BEAST_ITEM = { chance: 0.35, rarity: [['uncommon', 60], ['rare', 35], ['epic', 5]] as const };
 export const CHIEF_KINDS: Readonly<Record<string, ChiefKind>> = {
-  wolf: { scale: 1.6, tint: 0xc4c8d8, hp: 54, dmg: 2.2, armor: 6, escort: 5, loot: { coin: 12, goods: { hides: 6 }, per: 0.5, item: BEAST_ITEM } },
-  boar: { scale: 1.6, tint: 0xa88a78, hp: 22, dmg: 1.8, armor: 6, escort: 2, loot: { coin: 12, goods: { hides: 6, food: 10 }, per: 0.5, item: BEAST_ITEM } },
-  bear: { scale: 1.6, tint: 0x9a8a80, hp: 5, dmg: 1.5, armor: 6, escort: 1, loot: { coin: 15, goods: { hides: 8 }, per: 0.5, item: BEAST_ITEM } },
+  wolf: { scale: 2, tint: 0xc4c8d8, hp: 54, dmg: 2.2, armor: 6, escort: 5, loot: { coin: 12, goods: { hides: 6 }, per: 0.5, item: BEAST_ITEM } },
+  boar: { scale: 2, tint: 0xa88a78, hp: 22, dmg: 1.8, armor: 6, escort: 2, loot: { coin: 12, goods: { hides: 6, food: 10 }, per: 0.5, item: BEAST_ITEM } },
+  bear: { scale: 2, tint: 0x9a8a80, hp: 5, dmg: 1.5, armor: 6, escort: 1, loot: { coin: 15, goods: { hides: 8 }, per: 0.5, item: BEAST_ITEM } },
   bandit: { scale: 1.6, tint: 0xd8b890, hp: 15, dmg: 1.6, armor: 6, escort: 6, loot: { coin: 25, goods: { iron: 4 }, per: 0.5, item: { chance: 0.5, rarity: [['uncommon', 45], ['rare', 45], ['epic', 10]] } } },
-  jackal: { scale: 1.6, tint: 0xd8b070, hp: 76, dmg: 2.6, armor: 6, escort: 5, loot: { coin: 10, goods: { hides: 5 }, per: 0.5, item: BEAST_ITEM } },
-  lion: { scale: 1.6, tint: 0xe0a860, hp: 24, dmg: 1.7, armor: 6, escort: 2, loot: { coin: 15, goods: { hides: 8 }, per: 0.5, item: BEAST_ITEM } },
+  jackal: { scale: 2, tint: 0xd8b070, hp: 76, dmg: 2.6, armor: 6, escort: 5, loot: { coin: 10, goods: { hides: 5 }, per: 0.5, item: BEAST_ITEM } },
+  lion: { scale: 2, tint: 0xe0a860, hp: 24, dmg: 1.7, armor: 6, escort: 2, loot: { coin: 15, goods: { hides: 8 }, per: 0.5, item: BEAST_ITEM } },
   serpent: { scale: 1.6, tint: 0x8ab088, hp: 12.5, dmg: 1.5, armor: 6, escort: 1, loot: { coin: 15, goods: { hides: 6, herbs: 4 }, per: 0.5, item: BEAST_ITEM } },
   scorpion: { scale: 1.6, tint: 0x6a5048, hp: 15.5, dmg: 1.6, armor: 6, escort: 2, loot: { coin: 15, goods: { hides: 4, herbs: 4 }, per: 0.5, item: BEAST_ITEM } },
   harpy: { scale: 1.6, tint: 0xa898b8, hp: 43, dmg: 1.8, armor: 6, escort: 3, loot: { coin: 12, goods: { linen: 3 }, per: 0.5, item: BEAST_ITEM } },

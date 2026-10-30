@@ -31,7 +31,7 @@ import { LOOK_MODE, addLookPipeline } from './lookShader';
 import { addQuadShader, useQuad } from './quadShader';
 import { NEUTRAL_TEAM } from '../sim/economy';
 import { flashAlpha, type HitPose } from './feel/hits';
-import { VIEW_SCALE } from './mobScale';
+import { RING_SCALE, VIEW_SCALE } from './mobScale';
 
 /** Each team's marker colour (rings, outlines, flags): its alliance's, as the world map draws it. */
 export const TEAM_COLOR = TEAM_INT;
@@ -118,6 +118,8 @@ interface Sheet {
   loads?: SheetLoads;
   /** M7d: draw scale over a soldier's (manifest scale / 0.55: giants 1.8x, Drakon 2.7x), so every guardian stands at true size. */
   scale: number;
+  /** The selection ring's size over a man's (a beast whose sheet is drawn at true size keeps its kind's ring). */
+  ring: number;
   /** Frame size (px). */
   fw: number; fh: number;
 }
@@ -201,7 +203,8 @@ function buildSheet(scene: Phaser.Scene, cls: string, m: SheetManifest, img: HTM
     frames.set(name, byRow);
   }
   const ms = (m as SheetManifest & { scale?: number }).scale ?? SOLDIER_SCALE;
-  return { cls, rows, clips, frames, rowNames: m.rows, loads: (m as SheetManifest & { loads?: SheetLoads }).loads, scale: (ms / SOLDIER_SCALE) * (VIEW_SCALE[cls] ?? 1), fw, fh };
+  const scale = (ms / SOLDIER_SCALE) * (VIEW_SCALE[cls] ?? 1);
+  return { cls, rows, clips, frames, rowNames: m.rows, loads: (m as SheetManifest & { loads?: SheetLoads }).loads, scale, ring: scale * (RING_SCALE[cls] ?? 1), fw, fh };
 }
 
 /** The load sprites as frames of one texture, named as in src/assets/loads/manifest.json. */
@@ -574,14 +577,14 @@ export class UnitLayer {
           this.nRing++;
           r.clear().setDepth(l.depth - 1e-7).setVisible(true);
         }
-        const k = sheet.scale; // a guardian's shadow and ring at its size
+        const k = sheet.ring; // a guardian's shadow and ring at its size
         // a ring at least 1.5 screen px wide; your own men's full and wider (their colour is their alliance's, not yours)
         const sel = selected.has(u.id), own = d.team === myTeam(), w = Math.max(1.5, 1.5 / zoom), pick = this.picked === u.id;
         const ring = pick ? PICK_RING : sel ? 0xffffff : team, lw = pick ? w + 1.5 : sel || own ? w + 0.5 : w;
         if (r === g && k <= 2.2) { // on the ground: pooled images, batched (a Graphics ellipse is re-triangulated every frame)
           if (l?.climb) { /* no shadow in mid-air on a ladder */ } else if (BEAST.test(sheet.cls)) {
             // a beast: a soft shadow as long as its body (its frame's width), under its chief's size too
-            const sw = sheet.fw * 0.72 * k * (po?.sx ?? 1);
+            const sw = sheet.fw * 0.72 * sheet.scale * (po?.sx ?? 1);
             this.under(this.softShadow(), 2, f.x, f.y).setDisplaySize(sw, sw * 0.4).setTint(0x000000).setAlpha(0.42);
           } else this.under('war-shadow', 0, f.x, f.y).setTint(0x000000).setAlpha(0.28);
           this.under(this.ringTex(lw, k), 1, f.x, f.y).setTint(ring).setAlpha(pick ? 0.7 + 0.3 * Math.sin(at.now / 160) : sel || own ? 1 : 0.7);
