@@ -1,0 +1,86 @@
+src/war/view/SandboxScene.ts
+  s_0dd3a9d3e5007a::t_379cc90c1abc9c 61,186-187,227,295,668-672,699,701
+src/war/world-view/map.ts
+  s_0dd3a9d3e5007a::t_379cc90c1abc9c 703-707,710,715,876,896,935-972
+  s_0dd3a9d3e5007a::t_879bbd0765d244 973-974
+scripts/war/art/landmarks.mjs
+  s_0dd3a9d3e5007a::t_379cc90c1abc9c 50-51,82,287-288,297
+src/data/warWild.ts
+  s_0dd3a9d3e5007a::t_2ecb6e12c19831 38-48
+  s_0dd3a9d3e5007a::t_379cc90c1abc9c 26
+docs/playbook/PROMPTS_ART.md
+  s_0dd3a9d3e5007a::t_379cc90c1abc9c 3539-3563
+scripts/war/art/buildings.mjs
+  s_0dd3a9d3e5007a::t_379cc90c1abc9c 408-410,417,422,436
+src/war/view/hud/wipeCard.ts
+  s_0dd3a9d3e5007a::t_379cc90c1abc9c 23,25-26
+tests/war/feel.test.ts
+  s_0dd3a9d3e5007a::t_379cc90c1abc9c 5-10,117-201
+tests/war/hudLayout.test.ts
+  s_0dd3a9d3e5007a::t_379cc90c1abc9c 6,124-153
+src/war/view/hud/layout.ts
+  s_0dd3a9d3e5007a::t_379cc90c1abc9c 219-264,269-270,272,284,287,300-317,325-329,332,385-387
+src/war/view/feel/sparks.ts
+  s_0dd3a9d3e5007a::t_379cc90c1abc9c 1-81
+src/war/view/sound/warAudio.ts
+  s_0dd3a9d3e5007a::t_379cc90c1abc9c 27-28,153-155,164,171-173
+src/war/view/iso.ts
+  s_0dd3a9d3e5007a::t_379cc90c1abc9c 107,119-121
+src/war/view/relief.ts
+  s_0dd3a9d3e5007a::t_379cc90c1abc9c 165,179
+public/war/buildings/objects.json
+  s_0dd3a9d3e5007a::t_379cc90c1abc9c 127-188
+src/war/view/feel/feel.ts
+  s_0dd3a9d3e5007a::t_379cc90c1abc9c 6-7,12,20-22,31-37,49-51
+  s_0dd3a9d3e5007a::t_9279f1af2d143c 52-53
+src/war/view/hud/mapDraw.ts
+  s_0dd3a9d3e5007a::t_379cc90c1abc9c 7-8,67
+src/war/view/mobScale.ts
+  s_0dd3a9d3e5007a::t_379cc90c1abc9c 1-11
+src/war/view/feel/hits.ts
+  s_0dd3a9d3e5007a::t_379cc90c1abc9c 1-174
+src/war/view/chiefs.ts
+  s_0dd3a9d3e5007a::t_379cc90c1abc9c 34-35,49
+src/war/view/art.ts
+  s_0dd3a9d3e5007a::t_379cc90c1abc9c 53-59,192-208,389-398,403-414,469-477,495-499,650,722-725,729-739,746-747,749,751-754,834,898-900,903,905-906,911,913-914,971-974,979,994-999,1002,1009
+scripts/war/art/fill-mark.mjs
+  s_0dd3a9d3e5007a::t_379cc90c1abc9c 1-47
+src/war/view/hud/quest.ts
+  s_0dd3a9d3e5007a::t_379cc90c1abc9c 15,103
+src/war/view/hud/theme.ts
+  s_0dd3a9d3e5007a::t_379cc90c1abc9c 53-54,115,121
+src/war/world-view/main.ts
+  s_0dd3a9d3e5007a::t_379cc90c1abc9c 85,89
+src/war/view/sound/mix.ts
+  s_0dd3a9d3e5007a::t_379cc90c1abc9c 42-60
+src/war/view/units.ts
+  s_0dd3a9d3e5007a::t_379cc90c1abc9c 33-34,128-131,204,317-318,331-335,387-389,405-406,493-501,503-504,513-516,518,520,530-539,559-565,581-587,596,606-625
+src/war/view/micro.ts
+  s_0dd3a9d3e5007a::t_379cc90c1abc9c 103,105-106
+scripts/art/pixellab/mobs/sizes.mjs
+  s_0dd3a9d3e5007a::t_379cc90c1abc9c 1-22
+public/war/landmarks/landmarks.json
+  s_0dd3a9d3e5007a::t_379cc90c1abc9c 121-124,126-129,131-216,254,292,315
+src/war/view/main.ts
+  s_0dd3a9d3e5007a::t_379cc90c1abc9c 33-34,55,64-74
+src/war/view/hud/roster/ui.ts
+  s_0dd3a9d3e5007a::t_379cc90c1abc9c 194
+docs/WAR.md
+  s_0dd3a9d3e5007a::t_a78c2579bec32f 463
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "d07ef6dbe242bba885d7ac7bd43cad9b87fd9ae2",
+  "prompts": {},
+  "sessions": {
+    "s_0dd3a9d3e5007a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b6130d3d-c070-494f-98d5-046db89f2d1c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
