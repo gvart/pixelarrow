@@ -9,7 +9,7 @@
  *                                  └ ui ← clicks, coins, narrator
  *
  * - The player's 0..10 steps map to dB (STEP_DB per step, 0 = off), then a
- *   per-bus trim. Effects drives both the SFX and the UI bus.
+ *   per-bus trim. Effects drives the SFX bus, and the UI bus too unless the war's own UI step is set.
  * - `world` is the pause gate: a paused battle fades music and field sounds
  *   out, and only the UI bus still speaks.
  * - Ducking: a horn (and the army-break chord) pulls the music down while it
@@ -94,12 +94,14 @@ interface MixSettings {
   sound: boolean;
   musicVol: number;
   sfxVol: number;
+  /** 0..10, the UI bus (the war; missing: the effects step). */
+  uiVol?: number;
 }
 
 /** The bus levels for these settings, dB (-Infinity = off). */
 export function busDb(s: MixSettings): Record<Bus, number> {
   const sfx = stepDb(s.sfxVol);
-  return { music: stepDb(s.musicVol) + TRIM_DB.music, sfx: sfx + TRIM_DB.sfx, ui: sfx + TRIM_DB.ui };
+  return { music: stepDb(s.musicVol) + TRIM_DB.music, sfx: sfx + TRIM_DB.sfx, ui: (s.uiVol === undefined ? sfx : stepDb(s.uiVol)) + TRIM_DB.ui };
 }
 
 /** The ambience bed's trim, dB (beds sit under the field sounds). */

@@ -1,7 +1,7 @@
 /**
  * Settings, from the menu and in game (Esc, F10): Controls (every war key, two slots each, rebinding through
  * ../input; replaces the campaign's src/ui/settings/controls.ts and shortcutsSheet.ts), Display (the HUD's UI scale, screen shake, the network readout)
- * and Sound (mute and the four volumes). Everything is kept in localStorage as before: `war.bindings`, `war.uiScale`,
+ * and Sound (mute and the five volumes). Everything is kept in localStorage as before: `war.bindings`, `war.uiScale`,
  * `pixelarrow.war.sound`.
  *
  * Rebinding: click a key (or Enter on it), press the new one. Esc cancels, Backspace or Delete clears the slot. A key
@@ -30,7 +30,7 @@ export interface SettingsHooks {
 
 const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const SCALE_NAME = (v: UiScale) => (v === 'auto' ? 'Auto' : `${v}×`);
-const VOLS: [keyof WarSoundSettings, string][] = [['masterVol', 'Master'], ['musicVol', 'Music'], ['sfxVol', 'Effects'], ['ambVol', 'Ambience']];
+const VOLS: [keyof WarSoundSettings, string][] = [['masterVol', 'Master'], ['musicVol', 'Music'], ['sfxVol', 'Effects'], ['uiVol', 'Interface'], ['ambVol', 'Ambience']];
 
 let open: { close(): void } | null = null;
 export const settingsOpen = () => !!open;
@@ -190,5 +190,5 @@ function soundHtml(s: WarSoundSettings): string {
   return `<div class="rf-cap">Sound</div>
     <label class="mn-row" style="height:28px"><input type="checkbox" data-snd="sound" ${s.sound ? 'checked' : ''}>Sound on</label>
     ${VOLS.map(([k, n]) => `<div class="mn-sl"><span>${n}</span><input type="range" min="0" max="10" step="1" data-snd="${k}" value="${s[k]}"><span class="rf-num" data-v="${k}">${s[k]}</span></div>`).join('')}
-    <div class="rf-dim" style="font-size:11px;margin-top:6px">Defaults: master ${DEFAULT_SOUND.masterVol}, music ${DEFAULT_SOUND.musicVol}, effects ${DEFAULT_SOUND.sfxVol}, ambience ${DEFAULT_SOUND.ambVol}. Every sound is made live in the browser.</div>`;
+    <div class="rf-dim" style="font-size:11px;margin-top:6px">Defaults: master ${DEFAULT_SOUND.masterVol}, music ${DEFAULT_SOUND.musicVol}, effects ${DEFAULT_SOUND.sfxVol}, interface ${DEFAULT_SOUND.uiVol}, ambience ${DEFAULT_SOUND.ambVol}.</div>`;
 }

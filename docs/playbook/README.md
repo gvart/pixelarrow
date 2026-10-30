@@ -16,6 +16,7 @@ GDDs and ADRs of those runs are no longer in the repo; this playbook keeps the m
 | 4 | [ART.md](ART.md) | The image pipeline: art bible essentials, Gemini workflow, process → check → look in game → promote, sizes and budgets | Before any art job |
 | 5 | [PROMPTS_ART.md](PROMPTS_ART.md) | The Gemini and PixelLab prompt templates and the prompts behind shipped art | When you write an image prompt |
 | 6 | [SCENARIOS.md](SCENARIOS.md) | How game content is authored: event cards, the campaign arc, ladder floors, doctrines, names | When you add content |
+| 7 | [SOUND.md](SOUND.md) | The generated sound bank: the list with prompts, durations, variants and loudness; the generator; the mix rules | When you add or reroll a sound |
 | — | [director-brief.md](director-brief.md) | The Director brief as a fill-in template (v5 + v6) | When you start a new multi-agent run |
 
 ## Ground truth that is still in the repo

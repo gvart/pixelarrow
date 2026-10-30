@@ -12,7 +12,11 @@
  *  - guardians: ../bossFx.ts `onCue` beats -> ./mix.ts cueSfx.
  *  - spatial: pan and loudness by screen place and zoom (./mix.ts spatial).
  *  - music: calm / tension / battle / boss by what is near the camera (./mix.ts MusicDirector), crossfaded by the engine.
- *  - ambience: the biome beds round the camera (./mix.ts ambienceFor), sampled twice a second.
+ *  - ambience: the biome beds round the camera (./mix.ts ambienceFor), sampled twice a second; the region's biome loops
+ *    (src/audio/loops.ts) crossfade over them once loaded and take the place of the beds they stand in for.
+ *  - samples: generated sounds (src/audio/bank.ts, docs/playbook/SOUND.md) replace recipes as they load, lazily, on
+ *    first use; beasts bite, cry and die with their own; the world's notices (raids, warlords, mastery, hidden quests,
+ *    souls) have their stingers.
  *  - E4 melee din: a bed under the blows that thickens with the men fighting on screen (./mix.ts dinLevel, the din layer of
  *    src/audio/ambience.ts on the effects bus); the single blows step down under it (blowVol).
  *  - the browser: the context starts on the first user gesture; a hidden tab suspends it.
@@ -20,11 +24,14 @@
  * tab (../../menu/settings.ts; Esc menu, or N) edits them. `window.__warAudio` is the debug handle (scripts and the headless check).
  */
 import { AudioEngine } from '../../../audio/engine';
+import type { SampleId } from '../../../audio/bank';
+import { loopTargets, procCover } from '../../../audio/loops';
+import { WORLD_REGIONS } from '../../world/regions';
 import type { SfxId } from '../../../audio/sfx';
 import type { BuildingSnap, MobFxEvent, SiegeSnap, Snapshot, UnitSnap, WarEvent } from '../../types';
 import type { SandboxScene } from '../SandboxScene';
 import { NEUTRAL_TEAM } from '../../sim/economy';
-import { ambienceFor, blowVol, cueSfx, dinLevel, gatherSfx, loadSound, mobSfx, MusicDirector, saveSound, shotSfx, spatial, STATE_TRACK, strikeSfx, struckSince, weightSfx, type AmbSample, type WarSoundSettings } from './mix';
+import { ambienceFor, beastSample, blowVol, cueSfx, dinLevel, gatherSfx, loadSound, mobSfx, MusicDirector, saveSound, shotSfx, spatial, STATE_TRACK, strikeSfx, struckSince, weightSfx, type AmbSample, type WarSoundSettings } from './mix';
 import { bigUnits } from '../feel/hits';
 import { myTeam } from '../side';
 
@@ -34,10 +41,10 @@ const BUDGET = 8;
 const VOICES = 20;
 const PANELS: Record<string, string> = { rrPanel: 'roster', rrCard: 'soldier', cfTree: 'tree', cfWp: 'workplace', rfBuild: 'build', rfMarket: 'market', rfHandoff: 'handoff', rfLand: 'landmark', rfHolder: 'holder' };
 
-interface Want { id: SfxId; x: number; y: number; pri?: number }
+interface Want { id: SfxId; x: number; y: number; pri?: number; sample?: SampleId }
 
 export class WarAudio {
-  readonly engine = new AudioEngine(undefined, { max: VOICES, perSound: 3, minGap: 0.06 });
+  readonly engine = new AudioEngine(undefined, { max: VOICES, perSound: 3, minGap: 0.06 }, { samples: true });
   settings: WarSoundSettings = loadSound();
   private readonly director = new MusicDirector();
   private tick = -1;
@@ -94,9 +101,9 @@ export class WarAudio {
     this.engine.refresh();
   }
 
-  /** A UI sound (no place). */
-  ui(id: SfxId): void {
-    this.engine.play(id);
+  /** A UI sound (no place); `sample`: the generated one to play instead once loaded. */
+  ui(id: SfxId, sample?: SampleId): void {
+    this.engine.play(id, sample ? { sample } : {});
   }
 
   debug(): Record<string, unknown> {
@@ -120,6 +127,7 @@ export class WarAudio {
       this.ambAt = now;
       this.music(cur);
       this.ambience(cur);
+      this.mastery(now);
     }
   }
 
@@ -131,13 +139,13 @@ export class WarAudio {
   }
 
   /** Play a sound at a tile point now (guardian beats, events: not budgeted). */
-  private at(id: SfxId, x: number, y: number, pri = 0): void {
+  private at(id: SfxId, x: number, y: number, pri = 0, sample?: SampleId): void {
     const p = this.place(x, y);
-    if (p.vol > 0.02) this.engine.play(id, { vol: p.vol, pan: p.pan, pri });
+    if (p.vol > 0.02) this.engine.play(id, { vol: p.vol, pan: p.pan, pri, sample });
   }
 
-  private want(id: SfxId, x: number, y: number, pri = 0): void {
-    this.wants.push({ id, x, y, pri });
+  private want(id: SfxId, x: number, y: number, pri = 0, sample?: SampleId): void {
+    this.wants.push({ id, x, y, pri, sample });
   }
 
   /** Start this snapshot's field sounds: the loudest BUDGET of them. */
@@ -146,7 +154,7 @@ export class WarAudio {
     const placed = this.wants.map((w) => ({ w, p: this.place(w.x, w.y) })).filter((e) => e.p.vol > 0.03);
     placed.sort((a, b) => b.p.vol - a.p.vol);
     const k = blowVol(this.din);
-    for (const { w, p } of placed.slice(0, BUDGET)) this.engine.play(w.id, { vol: p.vol * k, pan: p.pan, pri: (w.pri ?? 0) + p.vol });
+    for (const { w, p } of placed.slice(0, BUDGET)) this.engine.play(w.id, { vol: p.vol * k, pan: p.pan, pri: (w.pri ?? 0) + p.vol, sample: w.sample });
     this.wants = [];
   }
 
@@ -167,7 +175,7 @@ export class WarAudio {
       next.set(u.id, u);
       if (u.state === 'attack' && struckSince(u.swing, gap)) {
         const id = strikeSfx(u.cls, this.roll());
-        if (id) this.want(id, u.x, u.y);
+        if (id) this.want(id, u.x, u.y, 0, beastSample(u.cls, 'attack'));
         // a big beast's, a chief's or a guardian's blow: its weight landing under it (with the view's local hit-stop)
         const w = weightSfx(u.cls, big.has(u.id));
         if (w) this.want(w, u.x, u.y, 2);
@@ -234,7 +242,7 @@ export class WarAudio {
   /** W-67: a mob FX event's sound (a cry carries: heard further than a blow). */
   private mob(e: MobFxEvent): void {
     const id = mobSfx(e.kind, e.mob);
-    if (id) this.at(id, e.x, e.y, e.kind === 'mobCry' ? 5 : 2);
+    if (id) this.at(id, e.x, e.y, e.kind === 'mobCry' ? 5 : 2, e.kind === 'mobCry' ? beastSample(e.mob, 'cry') : undefined);
   }
 
   private events(ev: WarEvent[]): void {
@@ -242,11 +250,20 @@ export class WarAudio {
     for (const e of ev) {
       if (e.kind === 'fall') {
         const u = this.units.get(e.unit);
-        if (u) this.want(e.wounded ? 'woundedCry' : 'death', u.x, u.y, 2);
+        if (u) this.want(e.wounded ? 'woundedCry' : 'death', u.x, u.y, 2, beastSample(u.cls, 'death'));
       } else if (e.kind === 'razed') {
         const b = this.buildings.get(e.building);
         if (b) this.at('wallCollapse', b.x + b.w / 2, b.y + b.h / 2, 5);
-      } else if (e.kind === 'raid') this.ui('warning');
+      } else if (e.kind === 'raid') this.ui('warning', 'world.raidHorn');
+      else if (e.kind === 'chiefSlain') this.at('standardFall', e.x, e.y, 6, 'sting.chief');
+      else if (e.kind === 'warlord') {
+        if (e.what === 'warn' || e.what === 'raid') this.ui('warning', 'world.raidHorn');
+        else if (e.what === 'fallen' || e.what === 'freed') this.ui('standardFall', 'world.warlordFall');
+      } else if (e.kind === 'secret' && e.what === 'found' && e.team === myTeam()) this.ui('chime', 'world.secret');
+      else if (e.kind === 'soulClaimed') {
+        const sq = this.s.sim.squads.get(e.squad);
+        if (sq?.team === myTeam()) this.ui('chime', 'world.soulWake');
+      }
       else if (e.kind === 'captainSlain') {
         const u = this.units.get(e.by);
         if (u) this.at('standardFall', u.x, u.y, 4);
@@ -311,9 +328,36 @@ export class WarAudio {
     this.fireLevel += (Math.min(1, fire) - this.fireLevel) * 0.5;
     sample.built = built / 40;
     sample.fire = this.fireLevel;
-    const lv = ambienceFor(sample, cam.zoom);
+    const proc = ambienceFor(sample, cam.zoom);
+    // the region's biome loops, and the procedural beds they stand in for once loaded
+    const high = Math.max(0, Math.min(1, (0.6 - cam.zoom) / 0.35));
+    const loops = loopTargets({ biome: this.biome(), moors: sample.biome.moors ?? 0, water: sample.deep + sample.shallow, built: sample.built, high });
+    this.engine.loops(loops);
+    const lv = procCover(proc, loops, (id) => this.engine.loopReady(id));
     if (this.din > 0) lv.din = this.din;
     this.engine.ambience(lv);
+  }
+
+  private mastered: boolean | null = null;
+  private born = performance.now();
+
+  /**
+   * W-73: the region mastered (the top bar's chip turns into its gold badge, ../hud/mastery.ts): the fanfare; not for
+   * one already mastered when the visit opens (the chip's first renders, the server's first word).
+   */
+  private mastery(now: number): void {
+    const m = !!document.querySelector('#rfMastery .ms-badge');
+    if (m && this.mastered === false && now - this.born > 8000) this.ui('levelUp', 'world.mastery');
+    this.mastered = m;
+  }
+
+  private biomeOf?: { id: string; biome?: string };
+
+  /** The region's biome (src/war/world/regions.ts); the plain sandbox maps have none. */
+  private biome(): string | undefined {
+    const id = this.s.region.id;
+    if (this.biomeOf?.id !== id) this.biomeOf = { id, biome: WORLD_REGIONS.find((w) => w.id === id)?.biome };
+    return this.biomeOf.biome;
   }
 
   // ---------------------------------------------------------------- the HUD
