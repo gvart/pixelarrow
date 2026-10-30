@@ -1,0 +1,13 @@
+[
+ {"anim": "idle", "dir": "south-west", "attempt": "a1", "job": "4e35f6de-2b84-4374-a098-9ec094ef06c1", "mode": "pixminimax", "frames": 12, "pl": "south"},
+ {"anim": "walk", "dir": "south-west", "attempt": "a1", "job": "b82c3ae6-41ee-4280-a4be-c9c8dc11e1ae", "mode": "pixminimax", "frames": 12, "pl": "south"},
+ {"anim": "attack", "dir": "south-west", "attempt": "a1", "job": "4e34b14d-2d9b-4201-b620-6ea353b1464f", "mode": "pixminimax", "frames": 12, "pl": "south"},
+ {"anim": "die", "dir": "south-west", "attempt": "a1", "job": "3ca3095d-f9f0-49cb-bf9e-3e6d2f467067", "mode": "pixminimax", "frames": 12, "pl": "south", "note": "her face became a vulture's head on frames 1-5: replaced by a2"},
+ {"anim": "idle", "dir": "north-west", "attempt": "a1", "job": "d894da88-707b-442f-85fe-38bb5ed702db", "mode": "pixminimax", "frames": 12, "pl": "west"},
+ {"anim": "walk", "dir": "north-west", "attempt": "a1", "job": "5535716c-930e-4a65-80c0-98ddc7ef8885", "mode": "pixminimax", "frames": 12, "pl": "west"},
+ {"anim": "attack", "dir": "north-west", "attempt": "a1", "job": "970ddd8a-7a7e-4756-9ff7-32456b8095b0", "mode": "pixminimax", "frames": 12, "pl": "west", "note": "turned to the viewer on the strike: replaced by a2"},
+ {"anim": "die", "dir": "north-west", "attempt": "a1", "job": "caa0cf81-5297-45ce-b52c-0ae80948e6fa", "mode": "pixminimax", "frames": 12, "pl": "west", "note": "turned to the viewer with a bird's head: replaced by a2"},
+ {"anim": "die", "dir": "south-west", "attempt": "a2", "job": "a685bfbd-73d3-41f0-b706-d76285ce85f9", "mode": "pixminimax", "frames": 12, "pl": "south", "seed": 11},
+ {"anim": "die", "dir": "north-west", "attempt": "a2", "job": "9186b133-16cb-40c6-a777-e4ae11c3429c", "mode": "pixminimax", "frames": 12, "pl": "west", "seed": 11},
+ {"anim": "attack", "dir": "north-west", "attempt": "a2", "job": "b9f0b9a1-31e3-4da8-adb1-853462b53798", "mode": "pixminimax", "frames": 12, "pl": "west", "seed": 11}
+]

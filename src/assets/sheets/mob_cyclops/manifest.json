@@ -1,0 +1,84 @@
+{
+ "version": 2,
+ "class": "mob_cyclops",
+ "image": "mob_cyclops.png",
+ "frame": {
+  "w": 132,
+  "h": 132
+ },
+ "anchor": {
+  "x": 66,
+  "y": 126
+ },
+ "anchors": {
+  "south-east": {
+   "x": 65,
+   "y": 126
+  },
+  "north-east": {
+   "x": 68,
+   "y": 126
+  },
+  "south-west": {
+   "x": 66,
+   "y": 126
+  },
+  "north-west": {
+   "x": 64,
+   "y": 126
+  }
+ },
+ "scale": 0.55,
+ "rows": [
+  "south-east",
+  "north-east",
+  "south-west",
+  "north-west"
+ ],
+ "wrap": 31,
+ "colorGroups": {},
+ "tiers": {
+  "basic": {}
+ },
+ "anims": {
+  "idle": {
+   "col": 0,
+   "frames": 12,
+   "fps": 8
+  },
+  "walk": {
+   "col": 12,
+   "frames": 12,
+   "fps": 10
+  },
+  "run": {
+   "col": 24,
+   "frames": 12,
+   "fps": 14
+  },
+  "attack": {
+   "col": 36,
+   "frames": 12,
+   "fps": 12,
+   "strike": 5
+  },
+  "die": {
+   "col": 48,
+   "frames": 12,
+   "fps": 10
+  },
+  "hit": {
+   "col": 60,
+   "frames": 4,
+   "fps": 12
+  }
+ },
+ "metal": [],
+ "variation": {
+  "skin": false,
+  "shade": false
+ },
+ "rarity": {
+  "metal": false
+ }
+}

@@ -1,0 +1,83 @@
+{
+ "version": 2,
+ "class": "mob_scorpion",
+ "image": "mob_scorpion.png",
+ "frame": {
+  "w": 60,
+  "h": 59
+ },
+ "anchor": {
+  "x": 31,
+  "y": 56
+ },
+ "anchors": {
+  "south-east": {
+   "x": 30,
+   "y": 56
+  },
+  "north-east": {
+   "x": 30,
+   "y": 56
+  },
+  "south-west": {
+   "x": 31,
+   "y": 56
+  },
+  "north-west": {
+   "x": 31,
+   "y": 56
+  }
+ },
+ "scale": 0.55,
+ "rows": [
+  "south-east",
+  "north-east",
+  "south-west",
+  "north-west"
+ ],
+ "colorGroups": {},
+ "tiers": {
+  "basic": {}
+ },
+ "anims": {
+  "idle": {
+   "col": 0,
+   "frames": 12,
+   "fps": 6
+  },
+  "walk": {
+   "col": 12,
+   "frames": 12,
+   "fps": 12
+  },
+  "run": {
+   "col": 24,
+   "frames": 12,
+   "fps": 16
+  },
+  "attack": {
+   "col": 36,
+   "frames": 12,
+   "fps": 12,
+   "strike": 6
+  },
+  "die": {
+   "col": 48,
+   "frames": 12,
+   "fps": 10
+  },
+  "hit": {
+   "col": 60,
+   "frames": 4,
+   "fps": 12
+  }
+ },
+ "metal": [],
+ "variation": {
+  "skin": false,
+  "shade": false
+ },
+ "rarity": {
+  "metal": false
+ }
+}

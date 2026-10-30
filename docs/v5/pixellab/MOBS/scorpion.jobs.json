@@ -1,0 +1,10 @@
+[
+ {"anim": "idle", "dir": "south-west", "attempt": "a1", "job": "19a880a1-d197-4919-a959-72f054540c87", "mode": "pixminimax", "frames": 12, "pl": "south"},
+ {"anim": "walk", "dir": "south-west", "attempt": "a1", "job": "1eea482e-4141-4217-85a0-c38415e2ae66", "mode": "pixminimax", "frames": 12, "pl": "south"},
+ {"anim": "attack", "dir": "south-west", "attempt": "a1", "job": "3ba7c1da-b921-4bba-96fb-e4f8c01098fa", "mode": "pixminimax", "frames": 12, "pl": "south"},
+ {"anim": "die", "dir": "south-west", "attempt": "a1", "job": "a64798e2-c5b7-4e13-8627-f3685e799ce2", "mode": "pixminimax", "frames": 12, "pl": "south"},
+ {"anim": "idle", "dir": "north-west", "attempt": "a1", "job": "19923001-25e3-4836-8b96-c903992fc023", "mode": "pixminimax", "frames": 12, "pl": "north-west"},
+ {"anim": "walk", "dir": "north-west", "attempt": "a1", "job": "b0178c60-57d4-49b5-a5da-dd68060828a2", "mode": "pixminimax", "frames": 12, "pl": "north-west"},
+ {"anim": "attack", "dir": "north-west", "attempt": "a1", "job": "34bd377a-b553-4ce5-b688-cfa69156b8d8", "mode": "pixminimax", "frames": 12, "pl": "north-west"},
+ {"anim": "die", "dir": "north-west", "attempt": "a1", "job": "0cc322de-95c0-47b1-8d23-254a06db2bca", "mode": "pixminimax", "frames": 12, "pl": "north-west"}
+]
