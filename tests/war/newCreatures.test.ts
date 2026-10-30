@@ -1,13 +1,15 @@
 /**
  * new-creatures (src/war/sim/mobs.ts): giant scorpions (armoured, venomous), harpies (a dive, weak once caught),
  * cyclopes (huge, a club that throws men) and drakes (scaled, a repeated rush); the regions that hold them (Drakon's
- * called drakes: tests/war/bosses.test.ts); and the chiefs' fight length (60-90 s against 20 men at depth 2). Squads are looked up by lair or kind,
+ * called drakes: tests/war/bosses.test.ts); and the chiefs' fight length (60-90 s against a solo player's 12 men: level 2 at depth 1, level 3 at depth 2; W-58). Squads are looked up by lair or kind,
  * never by a fixed id.
  */
 import { describe, expect, it } from 'vitest';
 import { createSim } from '../../src/war/sim';
 import { warStats } from '../../src/war/sim/classes';
 import { MOBS } from '../../src/war/sim/mobs';
+import { makePerson } from '../../src/war/sim/roster';
+import { ARMY_MAX } from '../../src/war/sim/soldiers';
 import { CHIEF_KINDS, chiefsOfKind, warChief } from '../../src/data/warBosses';
 import type { MobKind, RegionData, WarBuildSim, WarEvent } from '../../src/war/types';
 import krios from '../../src/war/regions/krios.json';
@@ -124,16 +126,19 @@ describe('new creatures', () => {
     expect(warChief(chief!.chief!)?.kind).toBe('cyclops');
   });
 
-  it('a chief and his escort hold 20 men of depth 2 for 60-90 s, every kind', () => {
+  it('a chief and his escort hold a solo army (12 men, L2 at depth 1, L3 at depth 2) for 60-90 s, every kind', () => {
     for (const kind of Object.keys(CHIEF_KINDS) as MobKind[]) {
-      const c = chiefsOfKind(kind)[0];
-      const sim = createSim(flat([{ kind, x: 40.5, y: 40.5, chief: c.id }], 2), 3);
-      sim.spawnMobs();
-      const l = lairOf(sim, kind);
-      for (const dy of [0, 4]) sim.order({ kind: 'attack', squad: sim.spawnSquad('you', 0, 'hoplite', 10, l.x + 8, l.y + dy), target: l.squad });
-      const t = run(sim, 1200, [], () => lairOf(sim, kind).chief?.alive === false);
-      expect(t / 10, kind).toBeGreaterThanOrEqual(60);
-      expect(t / 10, kind).toBeLessThanOrEqual(90);
+      for (const [depth, level] of [[1, 2], [2, 3]] as const) {
+        const c = chiefsOfKind(kind)[0];
+        const sim = createSim(flat([{ kind, x: 40.5, y: 40.5, chief: c.id }], depth), 3);
+        sim.spawnMobs();
+        const l = lairOf(sim, kind);
+        const men = Array.from({ length: ARMY_MAX }, (_, k) => makePerson(`p${k}`, 'hoplite', { level }));
+        sim.order({ kind: 'attack', squad: sim.spawnSquad('you', 0, 'hoplite', ARMY_MAX, l.x + 8, l.y, men), target: l.squad });
+        const t = run(sim, 1200, [], () => lairOf(sim, kind).chief?.alive === false);
+        expect(t / 10, `${kind} d${depth}`).toBeGreaterThanOrEqual(60);
+        expect(t / 10, `${kind} d${depth}`).toBeLessThanOrEqual(90);
+      }
     }
   });
 });
