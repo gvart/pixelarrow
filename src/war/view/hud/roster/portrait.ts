@@ -11,7 +11,7 @@ const manifests = import.meta.glob<SheetManifest>('../../../../assets/sheets/*/m
 const byClass = new Map(Object.entries(manifests).map(([p, m]) => [p.split('/').at(-2)!, m]));
 // the sheets the map ships (../../units.ts), by class: the portrait of a class not on the map is cut from these
 const urls = import.meta.glob<string>(
-  ['../../../../assets/sheets/militia/*.png', '../../../../assets/sheets/hoplite/*.png', '../../../../assets/sheets/celt_sword/*.png', '../../../../assets/sheets/archer/*.png', '../../../../assets/sheets/slinger/*.png', '../../../../assets/sheets/javelineer/*.png', '../../../../assets/sheets/civ_*/*.png'],
+  '../../../../assets/sheets/*/*.png',
   { eager: true, query: '?url', import: 'default' },
 );
 const urlOf = new Map(Object.entries(urls).map(([p, u]) => [p.split('/').at(-2)!, u]));
