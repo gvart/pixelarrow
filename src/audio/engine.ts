@@ -19,6 +19,9 @@
  * the "ambient" session), so players use the in-game Sound toggle.
  */
 import { AmbiencePlayer, type AmbLevels } from './ambience';
+import { sampleDef, SFX_SAMPLE, type LoopId, type SampleId } from './bank';
+import type { LoopLevels } from './loops';
+import { SamplePlayer } from './samples';
 import { MusicPlayer, type StingerId, type TrackId } from './music';
 import { AudioRng } from './rng';
 import { busDb, busOf, dbToGain, extraDb, DUCK, DUCK_ATTACK, DUCK_RELEASE, Ducker, GATE_TC, stepDb, type Bus } from './mixer';
@@ -36,6 +39,8 @@ export interface AudioSettings {
   masterVol?: number;
   /** 0..10, the ambience beds (the war; missing: 6). */
   ambVol?: number;
+  /** 0..10, the UI bus (the war; missing: the effects step). */
+  uiVol?: number;
 }
 
 const DEFAULT_AUDIO: AudioSettings = { sound: true, musicVol: 6, sfxVol: 7 };
@@ -50,6 +55,13 @@ export interface PlayOpts {
   pri?: number;
   /** Play on this bus instead of the sound's own (the Effects volume preview is UI: it must sound in a paused battle). */
   bus?: Bus;
+  /** The sample to play instead of the recipe once it is loaded (./bank.ts; default: SFX_SAMPLE of the id). */
+  sample?: SampleId;
+}
+
+export interface EngineOpts {
+  /** Use the sample bank (./bank.ts, ./samples.ts): the war. Off: procedural only. */
+  samples?: boolean;
 }
 
 type CtxFactory = () => AudioContext | null;
@@ -79,6 +91,7 @@ export class AudioEngine {
   private ambBus: GainNode | null = null;
   private amb: AmbiencePlayer | null = null;
   private wantAmb: AmbLevels = {};
+  private wantLoops: LoopLevels = {};
   private ambDirty = false;
   /** The pause gate over music and SFX. */
   private world: GainNode | null = null;
@@ -95,15 +108,21 @@ export class AudioEngine {
   private wantTrack: TrackId | null = null;
   private timer: ReturnType<typeof setInterval> | null = null;
   private rng = new AudioRng((Date.now() ^ 0x5bd1e995) >>> 0);
-  private durs = new Map<SfxId, number>();
+  private durs = new Map<string, number>();
+  /** The sample bank's player (built with the context when `samples` is on). */
+  samples: SamplePlayer | null = null;
+  private loopAt = 0;
   /** Counters for tests and the debug handle. */
-  readonly stats = { played: 0, dropped: 0, stolen: 0, gated: 0 };
+  readonly stats = { played: 0, dropped: 0, stolen: 0, gated: 0, throttled: 0 };
+  /** Samples started, per id (the audio smoke). */
+  readonly bySample: Partial<Record<SampleId, number>> = {};
   /** Sounds started, per id (tests and the audio smoke). */
   readonly byId: Partial<Record<SfxId, number>> = {};
 
   constructor(
     private readonly factory: CtxFactory = defaultFactory,
     limits: Partial<LimiterOpts> = {},
+    private readonly opts: EngineOpts = {},
   ) {
     this.limiter = new VoiceLimiter(limits);
   }
@@ -128,6 +147,7 @@ export class AudioEngine {
       sfxVol: typeof s?.sfxVol === 'number' ? s.sfxVol : DEFAULT_AUDIO.sfxVol,
       masterVol: num(s?.masterVol),
       ambVol: num(s?.ambVol),
+      uiVol: num(s?.uiVol),
     };
     this.applyGains();
     this.applyRunning();
@@ -181,21 +201,33 @@ export class AudioEngine {
   /** Play a sound effect. Returns false if it was not started (no audio, muted, paused field sound, voice limit). */
   play(id: SfxId, o: PlayOpts = {}): boolean {
     const c = this.ctx;
-    if (!c || !this.running() || !this.sfxDuck || !this.sfxBus || !this.uiBus || this.settings.sfxVol <= 0) return false;
+    if (!c || !this.running() || !this.sfxDuck || !this.sfxBus || !this.uiBus) return false;
     const recipe = RECIPES[id];
     if (!recipe) return false;
-    const bus = o.bus ?? busOf(id);
+    // the sample that stands in for the recipe: loaded, it plays; not yet, it loads and the recipe plays meanwhile
+    const sp = this.samples, sid = sp ? (o.sample ?? SFX_SAMPLE[id]) : undefined;
+    const def = sid && sp?.has(sid) ? sampleDef(sid) : undefined;
+    const useSample = !!(def && sid && sp?.ready(sid));
+    if (def && sid && !useSample) void sp?.request(sid);
+    const bus = o.bus ?? (useSample && def ? (def.bus === 'ui' ? 'ui' : 'sfx') : busOf(id));
+    if ((bus === 'ui' ? (this.settings.uiVol ?? this.settings.sfxVol) : this.settings.sfxVol) <= 0) return false;
     if (bus !== 'ui' && this.paused) {
       this.stats.gated++;
       return false;
     }
-    const vol = (LEVEL[id] ?? 1) * (o.vol ?? 1);
+    const vol = (useSample && def ? def.level : (LEVEL[id] ?? 1)) * (o.vol ?? 1);
     if (vol < 0.03) {
       this.stats.dropped++;
       return false;
     }
     const now = c.currentTime;
-    const res = this.limiter.admit(id, PRIORITY[id] + (o.pri ?? 0) + vol, now, this.durs.get(id) ?? 0.5);
+    // crowded fights: a rate cap per sound (./bank.ts SampleThrottle), before a voice is even asked for
+    const key: string = useSample && sid ? sid : id;
+    if (def && sp && !sp.throttle.admit(sid as string, def.rate, now)) {
+      this.stats.throttled++;
+      return false;
+    }
+    const res = this.limiter.admit(key, (useSample && def ? def.pri : PRIORITY[id]) + (o.pri ?? 0) + vol, now, this.durs.get(key) ?? 0.5);
     if (!res.ok) {
       this.stats.dropped++;
       return false;
@@ -218,13 +250,14 @@ export class AudioEngine {
       // a ducking sound keys the duck: it goes past the SFX duck, so it never ducks itself
       head.connect(bus === 'ui' ? this.uiBus : duck ? this.sfxBus : this.sfxDuck);
       const t = now + 0.005;
-      const dur = recipe(c, g, t, this.rng);
+      const dur = (useSample && sid && sp ? sp.start(sid, g, t) : 0) || recipe(c, g, t, this.rng);
+      if (useSample && sid) this.bySample[sid] = (this.bySample[sid] ?? 0) + 1;
       if (duck) {
         this.ducker.add(duck, now, dur);
         this.applyDuck();
       }
       this.byId[id] = (this.byId[id] ?? 0) + 1;
-      this.durs.set(id, dur);
+      this.durs.set(key, dur);
       res.voice.end = t + dur;
       res.voice.stop = () => {
         try {
@@ -258,6 +291,17 @@ export class AudioEngine {
     this.ambDirty = true;
   }
 
+  /** Biome loop levels 0..1 (./loops.ts), crossfaded; without the sample bank a no-op. Remembered until the context exists. */
+  loops(levels: LoopLevels): void {
+    this.wantLoops = levels;
+    this.samples?.setLoops(levels);
+  }
+
+  /** Is this biome loop loaded (its procedural beds step back)? */
+  loopReady(id: LoopId): boolean {
+    return this.samples?.loopReady(id) ?? false;
+  }
+
   get ambienceLayers(): string[] {
     return this.amb?.running ?? [];
   }
@@ -284,6 +328,7 @@ export class AudioEngine {
       settings: this.current,
       mix: this.mix(),
       byId: { ...this.byId },
+      samples: this.samples ? { ...this.samples.stats, loops: this.samples.loops, by: { ...this.bySample } } : null,
     };
   }
 
@@ -333,6 +378,10 @@ export class AudioEngine {
     this.musicDuck.gain.value = 1;
     this.sfxDuck.gain.value = 1;
     this.player = new MusicPlayer(ctx, this.musicDuck);
+    if (this.opts.samples) {
+      this.samples = new SamplePlayer(ctx, this.ambBus, new AudioRng((Date.now() ^ 0x27d4eb2d) >>> 0));
+      this.samples.setLoops(this.wantLoops);
+    }
     this.applyGains();
     // iOS: playing a buffer inside the gesture unlocks output for good
     try {
@@ -411,6 +460,11 @@ export class AudioEngine {
         this.amb.pump(c.currentTime + 0.25);
       }
       p.pump(c.currentTime + 0.25);
+      if (this.samples) {
+        const now = c.currentTime, dt = this.loopAt ? Math.min(0.5, now - this.loopAt) : 0;
+        this.loopAt = now;
+        this.samples.pump(dt);
+      }
     } catch {
       /* ignore */
     }

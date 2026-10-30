@@ -6,6 +6,7 @@
 import type { AmbLevels } from '../../../audio/ambience';
 import type { TrackId } from '../../../audio/music';
 import type { SfxId } from '../../../audio/sfx';
+import { asBeast, beastOf, type SampleId } from '../../../audio/bank';
 
 // ---------------------------------------------------------------- spatial
 
@@ -96,6 +97,15 @@ export function dinLevel(fighting: number): number {
 /** The single blows under a full din: a third quieter, so the bed and the capped hits together never pile up to clip. */
 export function blowVol(din: number): number {
   return 1 - 0.35 * Math.max(0, Math.min(1, din));
+}
+
+/**
+ * A beast's own sample (../../../audio/bank.ts): its bite or claw, its cry, its death; by unit class (`mob_wolf`) or
+ * mob kind (`wolf`). Undefined: men and bandits (the shared hits and deaths).
+ */
+export function beastSample(clsOrKind: string, what: 'attack' | 'cry' | 'death'): SampleId | undefined {
+  const b = beastOf(clsOrKind) ?? asBeast(clsOrKind);
+  return b ? `beast.${b}.${what}` : undefined;
 }
 
 // ---------------------------------------------------------------- guardians
@@ -216,8 +226,8 @@ export function ambienceFor(s: AmbSample, zoom: number): AmbLevels {
 
 // ---------------------------------------------------------------- settings
 
-export interface WarSoundSettings { sound: boolean; masterVol: number; musicVol: number; sfxVol: number; ambVol: number }
-export const DEFAULT_SOUND: WarSoundSettings = { sound: true, masterVol: 8, musicVol: 5, sfxVol: 7, ambVol: 6 };
+export interface WarSoundSettings { sound: boolean; masterVol: number; musicVol: number; sfxVol: number; uiVol: number; ambVol: number }
+export const DEFAULT_SOUND: WarSoundSettings = { sound: true, masterVol: 8, musicVol: 5, sfxVol: 7, uiVol: 7, ambVol: 6 };
 export const SOUND_KEY = 'pixelarrow.war.sound';
 
 const step = (v: unknown, d: number) => (typeof v === 'number' && Number.isFinite(v) ? Math.max(0, Math.min(10, Math.round(v))) : d);
@@ -234,7 +244,7 @@ export function parseSound(raw: string | null): WarSoundSettings {
   const d = DEFAULT_SOUND;
   return {
     sound: typeof o.sound === 'boolean' ? o.sound : d.sound,
-    masterVol: step(o.masterVol, d.masterVol), musicVol: step(o.musicVol, d.musicVol), sfxVol: step(o.sfxVol, d.sfxVol), ambVol: step(o.ambVol, d.ambVol),
+    masterVol: step(o.masterVol, d.masterVol), musicVol: step(o.musicVol, d.musicVol), sfxVol: step(o.sfxVol, d.sfxVol), uiVol: step(o.uiVol, d.uiVol), ambVol: step(o.ambVol, d.ambVol),
   };
 }
 
