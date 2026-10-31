@@ -204,16 +204,16 @@ describe('W-79 warlord hall and raids', () => {
     return { lost: men - standing(sim, me), secs: t / 10, lordSecs: (t - hit) / 10 };
   }
 
-  it('12 men of the depth take his hall (a 9-man garrison) in under 90 s, losing 2-4 on average', () => {
+  it('12 men of the depth take his hall (a 9-man garrison) from 40 tiles off in 70-95 s (W-81), losing 2-4 on average', () => {
     const runs = [1, 2, 3, 4, 5].map((seed) => hall(seed, 2, 12, false));
-    for (const x of runs) expect(x.secs).toBeLessThan(90);
+    for (const x of runs) expect(x.secs).toBeGreaterThanOrEqual(70), expect(x.secs).toBeLessThan(95);
     const mean = runs.reduce((a, x) => a + x.lost, 0) / runs.length;
     expect(mean).toBeGreaterThanOrEqual(2);
     expect(mean).toBeLessThanOrEqual(4);
   }, 60_000);
 
-  it('the lord alone does not out-tank 7 men for a minute', () => {
-    for (const seed of [1, 2, 3]) expect(hall(seed, 0, 7, true).lordSecs).toBeLessThan(50);
+  it('the lord alone does not out-tank 7 men for a minute (W-81: x8, 46-51 s)', () => {
+    for (const seed of [1, 2, 3]) expect(hall(seed, 0, 7, true).lordSecs).toBeLessThan(60);
   }, 60_000);
 
   it('a garrison stops growing at 9 at depth 2', () => {

@@ -85,7 +85,7 @@ export const WARLORD = {
   maxHold: 3,
   /**
    * Garrison men by depth (index), +perDay a day held up to max; x(1 + press x (players - 1)); never over cap. W-79: depth 2
-   * tops out at 9 (11 ground a solo 12 down). W-81: his hall holds `hall` more (after W-79 it fell in ~25 s).
+   * tops out at 9 (11 ground a solo 12 down). W-81: his hall starts `hall` more, still within max (after W-79 it fell in ~25 s).
    */
   garrison: { base: [5, 5, 7, 8, 8], perDay: 1, max: [9, 9, 9, 12, 12], press: 0.15, cap: 12, hall: 2 },
   /** Hold radius of a garrison (tiles). */

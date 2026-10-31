@@ -150,10 +150,10 @@ export function createWarlords(region: RegionData, sim: WarBuildSim, bots: Bots,
   };
 
   const press = () => Math.max(1, players);
-  /** Garrison size of a holding taken at age `since` (his hall: G.hall more). */
+  /** Garrison size of a holding taken at age `since` (his hall: G.hall more, still within G.max). */
   const size = (w: WarlordDef, since: number, hall = false) => {
     const G = WARLORD.garrison, d = Math.min(depth, G.base.length - 1);
-    const base = Math.min(G.max[d], G.base[d] + Math.floor(Math.max(0, age - since) * G.perDay)) + (hall ? G.hall : 0);
+    const base = Math.min(G.max[d], G.base[d] + (hall ? G.hall : 0) + Math.floor(Math.max(0, age - since) * G.perDay));
     return Math.max(1, Math.min(G.cap, Math.round(base * w.men * (1 + G.press * (press() - 1)))));
   };
   /** Holdings his age allows here (and the players present; seat at least his hall). */
