@@ -81,21 +81,25 @@ export const WARLORD = {
   grow: { seat: 2, march: 3, marchDay: 1 },
   /** Places held in one region at most. */
   maxHold: 3,
-  /** Garrison men by depth (index), +perDay a day held up to max; x(1 + press x (players - 1)); never over cap. */
-  garrison: { base: [5, 5, 7, 8, 8], perDay: 1, max: [9, 9, 11, 12, 12], press: 0.15, cap: 12 },
+  /** Garrison men by depth (index), +perDay a day held up to max; x(1 + press x (players - 1)); never over cap. W-79: depth 2 tops out at 9 (11 ground a solo 12 down). */
+  garrison: { base: [5, 5, 7, 8, 8], perDay: 1, max: [9, 9, 9, 12, 12], press: 0.15, cap: 12 },
   /** Hold radius of a garrison (tiles). */
   holdR: 10,
   /** His lieutenant (each garrison's first man) and the lord himself, over a man of his kind. */
   lieutenant: { hp: 2, dmg: 1.25, armor: 2 },
-  lord: { hp: 14, dmg: 1.8, armor: 6 },
+  /** W-79: was hp x14, dmg x1.8, armour +6 (he held 7 men over two minutes); now 7 men of his depth's level fell him in 32-42 s. */
+  lord: { hp: 6, dmg: 1.5, armor: 2 },
   /** Ticks between reinforcements; a holding is quiet with no foe man within `quiet` tiles. */
   reinforce: 6000, quiet: 20,
   /** Ticks a freed place stays free. */
   retake: 72000,
   /** Days of age before a fallen lord is back. */
   back: 3,
-  /** Raids: every `every` ticks (÷ players, at most ÷ maxDiv), warned `warn` ticks ahead; men by depth + perPlayer each extra (≤ max). */
-  raid: { every: 12000, maxDiv: 3, warn: 600, men: [4, 4, 6, 6, 6], perPlayer: 2, max: 12, reach: 110, guard: 16, cartGuard: 10, stay: 900, at: 5 },
+  /**
+   * Raids: every `every` ticks (÷ players, at most ÷ maxDiv), warned `warn` ticks ahead; men by depth + perPlayer each extra (≤ max).
+   * W-79: led by a lieutenant, one more man at depth 1-2 (4 plain bandits died to 6 guards without felling one).
+   */
+  raid: { every: 12000, maxDiv: 3, warn: 600, men: [5, 5, 7, 7, 7], perPlayer: 2, max: 12, reach: 110, guard: 16, cartGuard: 10, stay: 900, at: 5 },
   /** Loot (x(1 + per x depth)) and favour; players with men within `near` tiles share the favour. */
   loot: {
     holding: { coin: 24, goods: 3, per: 0.5 },

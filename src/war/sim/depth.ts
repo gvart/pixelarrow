@@ -22,7 +22,7 @@ export interface DepthRule {
 }
 
 export const DEPTH: readonly DepthRule[] = [
-  { mob: 1, respawn: 6000, claim: { ticks: 300, men: 3, players: 1 }, yield: 1, lairs: [2, 4], score: 0 }, // world-fill: weak outskirts lairs
+  { mob: 0.8, respawn: 6000, claim: { ticks: 300, men: 3, players: 1 }, yield: 1, lairs: [2, 4], score: 0 }, // world-fill: weak outskirts lairs; W-79: x0.8
   { mob: 1, respawn: 6000, claim: { ticks: 300, men: 3, players: 1 }, yield: 1, lairs: [3, 5], score: 0 },
   { mob: 1.25, respawn: 12000, claim: { ticks: 600, men: 6, players: 1 }, yield: 1.25, lairs: [4, 6], score: 1 },
   { mob: 1.5, respawn: 18000, claim: { ticks: 900, men: 9, players: 2 }, yield: 1.5, lairs: [5, 7], score: 2 },
@@ -50,3 +50,14 @@ export const depthRule = (r: Pick<RegionData, 'id' | 'depth'>): DepthRule => DEP
  * `raid.r` tiles.
  */
 export const HOST = { captain: { hp: 2, dmg: 1.25 }, guard: { hp: 1, dmg: 1 }, raid: { every: 18000, men: 8, r: 80 } };
+
+/**
+ * W-79 early mercy (docs/WAR.md "Lifecycle" › Early mercy): in a region of depth `depth` or less (the homes and the
+ * entries) a player's soldier felled by the wild (a blow of MOB_TEAM: beasts, bandits, chiefs, warlords' men) is only
+ * knocked down: he lies `wounded` in the snapshot (`down`), keeps his pack and kit, and once no foe man has fought
+ * within `clear` tiles of him for `rise` ticks he gets up at `hp` of his max and rejoins his squad. Still down after
+ * `giveUp` ticks, he is wounded as before (reported at the next fight report); felled again within `again` ticks of
+ * getting up (he rose among the wild that beat his squad), the fall is a real one. Deeper, and against other players,
+ * a fall is a fall.
+ */
+export const EARLY = { depth: 1, clear: 10, rise: 150, hp: 0.3, giveUp: 1800, again: 600 } as const;

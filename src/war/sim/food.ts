@@ -17,6 +17,11 @@ export const HUNGER = {
   /** Satiety a bite gives: a ration twice plain food (and it weighs half: holders.ts perLoad). */
   ration: 60,
   food: 30,
+  /**
+   * W-79: rations a man's pack holds without making him laden; a new player's start squad marches in with this many each
+   * (online: server/src/war/guide.ts on his first visit home), about two hours fed with no store near.
+   */
+  kit: 8,
   /** A store of his team this near feeds him (tiles). */
   storeR: 6,
   /** Ticks between checks. */
