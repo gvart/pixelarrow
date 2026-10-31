@@ -33,6 +33,7 @@ import { mountSoulRise, soulRise } from '../../soulRise';
 import { secretNotices } from '../../secretNotice';
 import { mountMastery } from '../mastery';
 import { foodNote, foodWarnings, type FoodMemo } from '../foodWatch';
+import { fieldNotes } from '../fieldNotes';
 
 type Mk = (id: string, css: string, html?: string) => HTMLElement;
 /** The dev panel (F1, ../hud.ts) is open: the cards show their dev buttons. */
@@ -159,6 +160,7 @@ export function mountRoster(s: SandboxScene, mk: Mk): RosterHooks {
 
   R.onNote = toaster(toasts, (pid) => { open = true; show(pid); });
   secretNotices(s, (n) => R.onNote?.(n)); // world-fill: hidden quests and slain chiefs as notes
+  fieldNotes(s, (n) => R.onNote?.(n), () => R.rows()); // W-79 a man back on his feet, W-72 a raid beaten (../fieldNotes.ts)
   mountMastery(s, (n) => R.onNote?.(n)); // W-73: the region mastery chip and its toast
   // W-79: food low in a squad's packs, or its men going hungry (../foodWatch.ts)
   const food: FoodMemo = new Map();
