@@ -1,0 +1,21 @@
+src/war/view/interact.ts
+  s_0dd3a9d3e5007a::t_21426d11a2ad85 83-87
+src/war/view/hud/claimCard.ts
+  s_0dd3a9d3e5007a::t_25212e8165fd72 91-93
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "7046a73fb7ffde53f50e0fc398f1d1dd24febe4e",
+  "prompts": {},
+  "sessions": {
+    "s_0dd3a9d3e5007a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b6130d3d-c070-494f-98d5-046db89f2d1c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
