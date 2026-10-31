@@ -523,6 +523,9 @@ export class WarRegionDO extends DurableObject<Env> {
   private async guideStart(pid: number, room: WarRoom): Promise<void> {
     const save = (await this.ctx.storage.get<GuideSave>(guideStorageKey(WAR_SEASON.id, pid))) ?? null;
     const m = room.startGuide(pid, save);
+    // W-79: a new player's rations are packed: his save is kept at once, so they are packed only once
+    const fresh = save ? null : room.guide.saveOf(pid);
+    if (fresh) await this.ctx.storage.put(guideStorageKey(WAR_SEASON.id, pid), fresh);
     if (m) for (const ws of this.ctx.getWebSockets(`p:${pid}`)) send(ws, m);
   }
 

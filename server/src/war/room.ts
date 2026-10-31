@@ -273,6 +273,8 @@ export class WarRoom {
   private lastTick = -1;
   /** Tick each unit was first seen dead. */
   private diedAt: number[] = [];
+  /** W-79: units knocked down (early mercy) as last seen. */
+  private down = new Set<number>();
   private allowArmy: boolean;
   private allowDev: boolean;
   private fightQuiet: number;
@@ -464,7 +466,7 @@ export class WarRoom {
   /** Persons on the field (alive) or waiting in the line. */
   personsHere(): Set<string> {
     const out = new Set<string>();
-    for (const u of this.snap.units) if (u.pid && u.state !== 'dead') out.add(u.pid);
+    for (const u of this.snap.units) if (u.pid && (u.state !== 'dead' || u.down)) out.add(u.pid); // W-79: a man down is still here
     for (const w of this.queue) for (const g of w.groups) for (const p of g.persons ?? []) out.add(p.id);
     return out;
   }
@@ -1175,6 +1177,10 @@ export class WarRoom {
     let blow = false;
     for (const u of this.snap.units) {
       if (u.state === 'attack') blow = true;
+      // W-79 early mercy: a man down who gets up is no corpse; one who stays down for good is a fall to report
+      if (u.state !== 'dead' && this.diedAt[u.id] !== undefined) delete this.diedAt[u.id];
+      if (u.down) this.down.add(u.id);
+      else if (this.down.delete(u.id) && u.state === 'dead') blow = true;
       if (u.state === 'dead') {
         if (this.diedAt[u.id] === undefined) blow = true;
         const d = (this.diedAt[u.id] ??= tick);

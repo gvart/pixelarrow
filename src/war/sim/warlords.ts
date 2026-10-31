@@ -404,7 +404,7 @@ export function createWarlords(region: RegionData, sim: WarBuildSim, bots: Bots,
       l.warn = null;
       if (h && standing(w)) {
         const n = Math.min(R.max, R.men[Math.min(depth, R.men.length - 1)] + R.perPlayer * (players - 1), WARLORD.cap - menAll());
-        const sq = n > 0 ? spawn(l, n, h.x, h.y) : -1;
+        const sq = n > 0 ? spawn(l, n, h.x, h.y, 'lt') : -1; // W-79: a lieutenant leads it
         if (sq >= 0) {
           l.parties.push({ squad: sq, to: h.place, at: tick, raid: { phase: 'march', x: w.x, y: w.y, building: w.building, siege: w.siege, until: tick + R.stay * 4, team: w.team } });
           bots.set(sq, { kind: 'attackMove', x: w.x, y: w.y });

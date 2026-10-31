@@ -42,7 +42,7 @@
 import { hashString, Rng } from '../../sim/rng';
 import { makeItem } from '../../game/heroes';
 import { chiefLoot } from '../../data/warBosses';
-import { depthOf } from './depth';
+import { depthOf, EARLY } from './depth';
 import type { BuildingType, Deed, FightReport, GoodKind, Order, PersonResult, RegionData, RegionMemory, ResourceKind, ShotSnap, Snapshot, SquadId, SquadSnap, UnitId, UnitSnap, WarBuildSim, WarEvent, WarPerson, WarSkillId } from '../types';
 import { salvageValue, type Item } from '../../data/items';
 import { warStats, warStatsOf, type WarStats } from './classes';
@@ -248,6 +248,10 @@ interface Unit extends Worker {
   boss: number;
   // W-60: satiety 0..HUNGER.max (./food.ts); the wild's men keep it full
   sat: number;
+  /** W-79 early mercy (./depth.ts EARLY): knocked down at this tick (undefined: not down); quiet ticks since; the tick he last got up. */
+  downAt?: number;
+  downQ?: number;
+  upAt?: number;
   // micro (`man` order): falling back out of the fight (no blows, no slot), making for (bx, by) behind his block
   back: boolean;
   bx: number;
@@ -2147,6 +2151,38 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
   };
 
   const working = (u: Unit) => u.squad.order === 'gather' || u.squad.order === 'build';
+  // W-79 early mercy (./depth.ts EARLY): this region spares the wild's falls; men down now
+  const early = depthOf(region) <= EARLY.depth;
+  let downs = 0;
+  /** W-79: every HUNGER.every ticks the men down get up once no foe man has fought near them for EARLY.rise ticks, or stay down for good. */
+  const riseTick = () => {
+    const dt = HUNGER.every;
+    for (const u of units) {
+      if (u.downAt === undefined) continue;
+      if (tick - u.downAt >= EARLY.giveUp) {
+        u.downAt = u.downQ = undefined; // a plain wounded fall now: the next fight report takes him
+        downs--;
+        continue;
+      }
+      let foe = false;
+      for (const o of units)
+        if (o.alive && o.fighting && o.squad.team !== u.squad.team && !o.civ && (o.x - u.x) ** 2 + (o.y - u.y) ** 2 <= EARLY.clear * EARLY.clear) {
+          foe = true;
+          break;
+        }
+      u.downQ = foe ? 0 : (u.downQ ?? 0) + dt;
+      if (u.downQ < EARLY.rise) continue;
+      u.downAt = u.downQ = undefined;
+      u.upAt = tick;
+      downs--;
+      u.alive = true;
+      u.wounded = false;
+      u.hp = Math.max(1, u.maxHp * EARLY.hp);
+      u.squad.alive++;
+      reslotQueue.add(u.squad);
+      note({ t: tick, kind: 'rise', unit: u.id });
+    }
+  };
 
   const hurt = (t: Unit, dmg: number, by?: Unit) => {
     if (anySafe && inSafe(t.x, t.y) && dmg !== Infinity) return; // M6d: no combat in a safe zone (a bridge fall aside)
@@ -2170,6 +2206,18 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     t.fighting = false;
     t.moving = false;
     t.tgt = null;
+    // W-79 early mercy: the wild only knocks a soldier down in the homes and entries; he keeps pack and kit
+    if (early && by?.squad.team === MOB_TEAM && t.squad.team !== MOB_TEAM && t.squad.team !== NEUTRAL_TEAM && !t.civ && !(t.upAt !== undefined && tick - t.upAt < EARLY.again)) {
+      t.wounded = true;
+      t.downAt = tick;
+      t.downQ = 0;
+      downs++;
+      t.squad.alive--;
+      reslotQueue.add(t.squad);
+      by.kills++;
+      note({ t: tick, kind: 'fall', unit: t.id, by: by.id, wounded: true, down: true });
+      return;
+    }
     // M5d: by his END (docs/WAR.md "Lifecycle"); M5f: a physician near; M5h: a bandage of his squad, venom
     const bandage = t.squad.bandages > 0 ? (t.squad.bandages--, dresser.has(t.squad.team) ? 2 : 1) : 0;
     t.wounded = rng.chance(fallShare(t.st.ws + (towns.blessed(t.squad.id) ? BLESS.share : 0), physicianNear(t), bandage, t.venomUntil > tick));
@@ -2320,7 +2368,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
   const tradeTick = () => {
     for (const s of squads) {
       if (s.alive === 0) continue;
-      s.laden = s.units.some((u) => u.alive && !!u.pack && loads(u.pack) > 1e-9);
+      s.laden = s.units.some((u) => u.alive && !!u.pack && loads(u.pack) - Math.min(amountOf(u.pack, 'ration'), HUNGER.kit) / perLoad('ration') > 1e-9); // W-79: his own few rations weigh nothing
       if (s.salv) salvTick(s);
       if (!s.xfer || (tick + s.id) % PORTER.every) continue;
       const x = s.xfer, h = holderAt(x.ref), load = x.dir === 'load';
@@ -2558,7 +2606,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     const persons: PersonResult[] = [];
     for (const u of of) {
       const p = u.person;
-      if (!p || u.reported || (u.alive && !u.engaged && !u.obj && !u.repaired)) continue;
+      if (!p || u.reported || u.downAt !== undefined || (u.alive && !u.engaged && !u.obj && !u.repaired)) continue; // W-79: a man down is not reported yet
       const team = u.squad.team;
       let foes = 0;
       for (const [tm, n] of took) if (tm !== team) foes += n;
@@ -3264,6 +3312,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     if (civs.length && tick % SCAN === 0) civScan();
     if (civs.length && tick % CIV.every === 0) civTick();
     if (tick % HUNGER.every === 0) hungerTick();
+    if (downs > 0 && tick % HUNGER.every === 0) riseTick();
     souls.tick(tick);
     mobs.tick(tick);
     roam.tick(tick);
@@ -3703,6 +3752,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
             state: !u.alive ? 'dead' : atk ? 'attack' : u.working ? (u.job ?? 'build') : u.moving ? 'move' : 'idle',
             ...(u.alive && u.doing ? { task: u.doing } : {}),
             ...(u.alive ? {} : { wounded: u.wounded }),
+            ...(u.downAt !== undefined ? { down: true as const } : {}),
             ...(u.person ? { pid: u.person.id, level: u.person.hero.level } : {}),
             ...(u.person?.scars ? { scars: u.person.scars } : {}),
             ...(u.alive && u.civAt && CLIP[u.civ!] ? { work: CLIP[u.civ!] } : {}),

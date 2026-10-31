@@ -20,5 +20,7 @@
  *    gear only as guardian trophies, region mastery (clients on 4 reload).
  * 6: warlords (W-72 proposal): rival warlords hold, grow and raid (src/war/sim/warlords.ts), wild squads for any
  *    owner (spawnWild), the wild's bots see without fog (clients on 5 reload).
+ * 7: early-survival (W-79 proposal): the wild only knocks men down at depth 0-1, home mobs x0.8, march rations
+ *    weigh nothing, a softer warlord lord and hall, lieutenant-led raids (clients on 6 reload).
  */
-export const SIM_VERSION = 6;
+export const SIM_VERSION = 7;

@@ -348,7 +348,7 @@ Depth is how far a region lies from the living halls, counted in danger rather t
 
 | Depth | Regions | Guardian | Mob hp and damage | Lairs | Boss | Claim channel | Lair respawn | Node yield | Score an hour | Boss loot |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 0 | 4 homes | weak outskirts lairs (wolves, boars, jackals, half packs) | ×1.0 | 2–4 | – | owned | 10 min | as authored | – | – |
+| 0 | 4 homes | weak outskirts lairs (wolves, boars, jackals, half packs) | ×0.8 (W-79) | 2–4 | – | owned | 10 min | as authored | – | – |
 | 1 | 16 entries | packs (fauna tier 1–2), a bandit camp on the road entries | ×1.0 | 3–5 | none | 30 s, 3 men (today) | 10 min | ×1.0 | 0 | – |
 | 2 | 4 frontier towns, 4 inner pockets | towns: a bandit host; pockets: a tier-1 boss + packs | ×1.25 | 4–6 | tier 1 (pockets) | 60 s, 6 men | 20 min | ×1.25 | 1 (towns 3) | tier 1 |
 | 3 | 4 gates | a tier-2 boss in its landmark + a tier-3 lair + packs | ×1.5 | 5–7 | tier 2 | 90 s, 9 men from 2+ players | 30 min | ×1.5 + a rare good | 2 (+2 landmark) | tier 2 |
@@ -508,12 +508,12 @@ bandits never fight them), owner `warlord:<id>`; the wild has no fog, so his bot
 | Places | the region's claim points (index order) and its authored lairs of his kind (camps, dens). Never a point an alliance holds, never ground under any alliance's influence, never a place freed in the last 2 h. The seat's first place is claim point 0 (his hall) |
 | Age | days since the season began (the region DO from the world's season start; 0 in tests unless set) |
 | Holdings | seat: 1 + ⌊age / 2⌋; march: none before day 1, then 1 + ⌊(age − 1) / 3⌋; at most 3 a region, and at most 1 + the players present. A fresh room lays out what his age gives at once (he was busy while nobody looked); later places are taken by a band marching from his nearest holding (march: from the border facing his seat), taken once it stands on the place |
-| Garrison | one squad holding the place (bots `hold`, radius 10): 5 men at depth 1, 7 at depth 2, +1 a day held, at most 9 / 11; x(1 + 0.15 x (players − 1)), never over 12. Its first man is his lieutenant (hp x2, damage x1.25, armour +2; bandits wear the captain's sheet) |
-| The lord | at his hall in the seat: hp x14, damage x1.8, armour +6 over a man of his kind; name and title over his head |
+| Garrison | one squad holding the place (bots `hold`, radius 10): 5 men at depth 1, 7 at depth 2, +1 a day held, at most 9 at either (W-79: 11 at depth 2 cost 12 level-3 men 6–7); x(1 + 0.15 x (players − 1)), never over 12. Its first man is his lieutenant (hp x2, damage x1.25, armour +2; bandits wear the captain's sheet) |
+| The lord | at his hall in the seat: hp x6, damage x1.5, armour +2 over a man of his kind (W-79: was x14, x1.8, +6: he held 7 level-3 men 140–180 s alone; now 32–42 s); name and title over his head. 12 hoplites of level 3 take a 9-man hall in 60–80 s losing 2–5 (mean 3), a fresh 7-man hall in ~65 s losing 1–2 |
 | Reinforce | every 10 min with players present a holding short of men gets them, marching in from the nearest other holding (march: from the border). Only a quiet holding (no foe man within 20 tiles), except his hall: while another of his holdings in the seat stands, men come to it even under attack |
 | Freed | a holding whose garrison is all down is freed: a loot pile on the spot (24 coin and 3 goods of his kind, x(1 + depth/2)) and 60 favour to each player with men within 20 tiles; a claim point under it is then claimed by the normal rules (its guard lairs too) |
 | Fallen | the lord down: 120 coin, 8 goods and an item (uncommon or better), x(1 + depth/2), and 200 favour to each player near; his bands everywhere in his domain are recalled: every holding and party walks to the region's border and leaves the field there (or after 90 s), the places free with nothing dropped ("Word of his fall reaches …"); he is back after 3 days of age, grown from nothing again |
-| Raids | with players present and a holding of his standing, every 20 min (÷ players, at most ÷ 3) he picks the nearest undefended target within 110 tiles of a holding: an alliance's finished building that is no wall, gate, tower, bridge or stair, with no fighting man of its team within 16 tiles; else a cart with no man of its team within 10. Telegraphed 60 s ahead: the target team hears "<name>'s men ride for your <thing> in 60 s" and sees a mark on it. Then 4 (depth 1) / 6 (depth 2) men + 2 per extra player (at most 12) march on it (attackMove), batter it, and go home after 90 s at it or once it falls; a beaten raid party drops nothing |
+| Raids | with players present and a holding of his standing, every 20 min (÷ players, at most ÷ 3) he picks the nearest undefended target within 110 tiles of a holding: an alliance's finished building that is no wall, gate, tower, bridge or stair, with no fighting man of its team within 16 tiles; else a cart with no man of its team within 10. Telegraphed 60 s ahead: the target team hears "<name>'s men ride for your <thing> in 60 s" and sees a mark on it. Then 5 (depth 1) / 7 (depth 2) men led by a lieutenant (W-79; before, 4 plain bandits died to 6 guards felling none) + 2 per extra player (at most 12) march on it (attackMove): 6 level-2 guards at depth 1 lose 1–2 men to it, a full 12 none or one, batter it, and go home after 90 s at it or once it falls; a beaten raid party drops nothing |
 | Budget | at most 60 warlord men in a region; the director thinks every 10 ticks |
 
 Online: the room sends `warlords` (the region's warlords, their holdings and a raid in warning; on change) and the
@@ -971,6 +971,7 @@ player's (`notOwner` otherwise); the field is optional, so the wire stays additi
 | Join | W-60: the start squad (W-56), then only claimed souls ("Souls"); no recruit pools, no recruiting, no training |
 | Promote | level 6 + the elite rare kit, 30 min |
 | Fall | at 0 HP wounded with `woundedShare` 0.7 (+3% per END above 5, + physician, cap 0.9), else dead; the dead drop their gear |
+| Early mercy (W-79 proposal) | in the homes and the entries (depth 0–1, `src/war/sim/depth.ts` EARLY) a soldier felled by the wild (a beast's, bandit's, chief's or warlord man's blow) is only knocked down: he lies with his pack and kit (no pile, no battlefield soul), the fight report leaves him out, and once no foe man has fought within 10 tiles of him for 15 s he gets up at 30% hp in his squad. Still down after 3 min he is wounded as before; felled again within 60 s of getting up (left among the wild that beat his squad) the fall is real. Another player's blow, and any fall at depth 2 and deeper, is a fall. Online the room keeps him listed in the field while down (no rejoin claims him twice) and reports him if he stays down for good. Measured: a level-1 start squad (4 hoplites, 3 archers, 3 slingers, 2 javelineers) against a depth-1 bandit lair of 8 lost 3–8 for good before; now 0, every man up within ~20 s of the last blow |
 | Heal | wounded leave with the squad; timer: field 6 h, camp 3 h, town 2 h, physician's house 1 h |
 | Gear drops | a physical loot pile anyone may carry off (W-46, "Trade" → "Loot piles") |
 | Capture | a wounded man on a tile the enemy holds when the fight ends (no friendly within 15 tiles) becomes `captive` in the captor's nearest fort (≤ 20 per fort, extra are freed). W-68: he leaves his owner's army at once (his slot frees; the roster notes "Captured by <player> at <region>"); his gear drops in a pile where he fell |
@@ -1004,6 +1005,12 @@ the same from a standing store of his team within 6 tiles. A dish or a cook's me
 | Fed | 40 and up | — | — | — |
 | Hungry | under 40 (about 18 min unfed from full) | −10% | −10% | — |
 | Starving | under 15 (about 26 min unfed) | −25% | −25% | −0.2% of max a second, never below 25%: hunger never kills |
+
+**March rations (W-79 proposal):** a new player's men march in with `HUNGER.kit` = 8 rations each in their packs
+(online: the home room on his first visit, once: his guide save is kept at once, `server/src/war/guide.ts`). A
+ration eaten below 60 fills him to 100, so 8 keep a man fed about 1 h 50 min and out of Starving past two hours with no
+store near (none: Starving at ~26 min); his own 8 rations weigh nothing (the squad is not laden by them). After the
+first session hunger matters as before: the packs need refilling from a store or a cook.
 
 A squad marches at its slowest man's pace, hunger counted. The cookhouse (and a cook at a camp or store) turns grain
 and onions (food 4, + salt 1 for ×1.5) into 4 rations, a good in the nearest store: a ration feeds twice a food and
