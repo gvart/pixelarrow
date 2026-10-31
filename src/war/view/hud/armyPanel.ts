@@ -12,6 +12,7 @@ import { myTeam } from '../side';
 import { icon } from './kit';
 import { sandboxRoster } from './roster/state';
 import { tunnelHost } from './tunnel';
+import { armyMen } from './souls';
 
 export interface ArmyView {
   /** His fighters alive across all regions, of max. */
@@ -69,10 +70,12 @@ export function mountArmyPanel(s: SandboxScene, card: HTMLElement): { refresh(sh
     refresh(show) {
       el.style.display = show ? '' : 'none';
       if (!show) return;
+      // offline the army is the men on this map, as the sim and the claim prompt count it (./souls.ts armyMen): the local
+      // roster also holds men a scenario never sent, who are not anywhere the player can reach
       const away = new Map<string, number>();
-      for (const r of R.rows()) if (r.where === 'away' && !(r.p.hero.cls ?? '').startsWith('civ_')) away.set(r.region, (away.get(r.region) ?? 0) + 1);
+      if (s.sim.net) for (const r of R.rows()) if (r.where === 'away' && !(r.p.hero.cls ?? '').startsWith('civ_')) away.set(r.region, (away.get(r.region) ?? 0) + 1);
       const t = tunnelHost(s), wiped = !!t && t.ever && t.alive === 0 && t.pending > 0;
-      const v = armyText({ ...R.army(), here: mineHere().length, away: [...away], wipe: wiped ? { alive: t.alive, nextAt: t.nextAt, now: t.now() } : null, key: keys.label('sel.all') });
+      const v = armyText({ ...R.army(), ...(s.sim.net ? {} : { men: armyMen(s) }), here: mineHere().length, away: [...away], wipe: wiped ? { alive: t.alive, nextAt: t.nextAt, now: t.now() } : null, key: keys.label('sel.all') });
       pick = v.pick;
       el.classList.toggle('pick', pick);
       if (cnt.innerHTML !== v.count) cnt.innerHTML = v.count;
