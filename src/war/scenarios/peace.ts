@@ -137,7 +137,7 @@ export const PEACE_SCENARIOS: Scenario[] = [
     id: 'peace-titles',
     name: 'Titles of the season',
     group: 'economy',
-    goal: 'A squad of yours. The season\'s titles (Merchant Prince, Master Builder, Warden, Warlord) show under the roster\'s tabs, in the Works panel and on the world map.',
+    goal: 'A squad of yours. The season\'s titles (Merchant Prince, Master Builder, Warden, Ares-born) show under the roster\'s tabs, in the Works panel and on the world map.',
     check: [
       'R: the roster shows a strip of the titles and their holders (yours in gold) online',
       'Works panel: Titles this season with the value each leads by, and your own line (coin sold, contracts, man-hours, hours held)',

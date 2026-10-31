@@ -295,7 +295,7 @@ export function mockWorld(now: number): { snap: WorldSnapshot; squads: FieldSqua
       { id: 'merchantPrince', name: 'Merchant Prince', pid: 9, player: 'Kallias', alliance: 3 },
       { id: 'masterBuilder', name: 'Master Builder', pid: 1, player: 'Iktinos', alliance: 0 },
       { id: 'warden', name: 'Warden', pid: 11, player: 'Phylax', alliance: 1 },
-      { id: 'warlord', name: 'Warlord', pid: 12, player: 'Brasidas', alliance: 2 },
+      { id: 'warlord', name: 'Ares-born', pid: 12, player: 'Brasidas', alliance: 2 },
     ],
     banners: 43,
   };
@@ -323,7 +323,7 @@ const MOCK_TITLES: WorldTitle[] = [
   { id: 'merchantPrince', name: 'Merchant Prince', player: 'Kallias', alliance: 3, home: 'elaia', value: 4210 },
   { id: 'masterBuilder', name: 'Master Builder', player: 'Iktinos', alliance: 0, home: 'dodona', value: 61.5 },
   { id: 'warden', name: 'Warden', player: 'Phylax', alliance: 1, home: 'skythia', value: 38 },
-  { id: 'warlord', name: 'Warlord', player: 'Brasidas', alliance: 2, home: 'kyrene', value: 214 },
+  { id: 'warlord', name: 'Ares-born', player: 'Brasidas', alliance: 2, home: 'kyrene', value: 214 },
 ];
 
 export class MockSource implements WorldSource {

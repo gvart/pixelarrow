@@ -11,7 +11,7 @@ export const TITLES: Record<string, TitleDef> = {
   merchantPrince: { name: 'Merchant Prince', glyph: 'ui:scales', icon: 'res-coin', metric: 'coin sold', how: 'the most coin sold at his stalls this season' },
   masterBuilder: { name: 'Master Builder', glyph: 'ui:works', icon: 'node-engineer-master-builder', metric: 'man-hours', how: 'the most man-hours of labour sold or given' },
   warden: { name: 'Warden', glyph: 'ui:shield', icon: 'bld-tower-stone', metric: 'hours held', how: 'the most hours held under guard contracts' },
-  warlord: { name: 'Warlord', glyph: 'ui:swords', icon: 'act-attack', metric: 'foes down', how: 'the most foes his men struck down' },
+  warlord: { name: 'Ares-born', glyph: 'ui:swords', icon: 'act-attack', metric: 'foes down', how: 'the most foes his men struck down' },
 };
 export const TITLE_ORDER = Object.keys(TITLES);
 
