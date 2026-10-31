@@ -4,10 +4,12 @@
  *   back up       W-79 early mercy: a man of his knocked down by the wild got up (the sim's `rise` event)
  *   raid beaten   W-72: a warlord's raid on him ended with what it came for still standing (his snapshot's `raiding`
  *                 went out; a `raid` event that felled one of his buildings meanwhile says it was not beaten)
+ *   raid over     the raid's warning toast (../secretNotice.ts) ends once the raid is: beaten, lost or called off
  */
 import type { Snapshot, WarEvent } from '../../types';
 import type { SandboxScene } from '../SandboxScene';
 import { myTeam } from '../side';
+import { raidKey } from '../secretNotice';
 import { glyph } from './glyph';
 import type { Note, Row } from './roster/state';
 
@@ -42,11 +44,27 @@ export function raidsBeaten(cur: Snapshot, team: number, memo: RaidMemo, ev: rea
   return out;
 }
 
+/**
+ * Raids on `team` that are over (the warlords' ids): warned (in `warned`), and now neither warned nor out, or their
+ * lord fell or left the snapshot. Their warning toasts go.
+ */
+export function raidsOver(cur: Snapshot, team: number, warned: Set<string>): string[] {
+  const out: string[] = [], ws = new Map((cur.warlords ?? []).map((w) => [w.id, w]));
+  for (const w of ws.values()) if (w.raid?.team === team && !w.fallen) warned.add(w.id);
+  for (const id of warned) {
+    const w = ws.get(id);
+    if (w && !w.fallen && (w.raid?.team === team || w.raiding)) continue;
+    warned.delete(id);
+    out.push(id);
+  }
+  return out;
+}
+
 export const raidNote = (): Note => ({ kind: 'info', icon: glyph('ui:shield', 18), text: 'Raid beaten' });
 
-/** Chain onto the sim's events and look at its warlords once a second; tell each notice through `note`. */
-export function fieldNotes(s: SandboxScene, note: (n: Note) => void, rows: () => readonly Row[]): void {
-  const memo: RaidMemo = new Map();
+/** Chain onto the sim's events and look at its warlords once a second; tell each notice through `note`, end one by `drop`. */
+export function fieldNotes(s: SandboxScene, note: (n: Note) => void, rows: () => readonly Row[], drop: (key: string) => void = () => {}): void {
+  const memo: RaidMemo = new Map(), warned = new Set<string>();
   let seen: WarEvent[] = [];
   const prev = s.sim.onEvents;
   s.sim.onEvents = (ev) => {
@@ -60,6 +78,7 @@ export function fieldNotes(s: SandboxScene, note: (n: Note) => void, rows: () =>
   setInterval(() => {
     const cur = s.sim.cur;
     if (!cur) return;
+    for (const id of raidsOver(cur, myTeam(), warned)) drop(raidKey(id));
     if (raidsBeaten(cur, myTeam(), memo, seen).length) note(raidNote());
     seen = [];
   }, 1000);

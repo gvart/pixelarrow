@@ -93,7 +93,7 @@ interface CrownSpot { x: number; y: number; r: number; name: string; alliance: n
 /** Context markers with no free spot at this zoom, as one "+N" chip in their region: what they are, in words. */
 interface ClusterSpot { region: string; x: number; y: number; r: number; items: string[] }
 /** The context markers as placed for this zoom (WorldMap.decor). */
-interface Decor { lords: LordSpot[]; stars: StarSpot[]; landmarks: Map<string, [number, number, number]>; crowns: CrownSpot[]; settles: Map<number, [number, number]>; clusters: ClusterSpot[]; words: PactWord[] }
+interface Decor { lords: LordSpot[]; stars: StarSpot[]; landmarks: Map<string, [number, number, number]>; crowns: CrownSpot[]; settles: Map<number, [number, number, number]>; clusters: ClusterSpot[]; words: PactWord[] }
 interface PactWord { x: number; y: number; text: string; edge: string }
 
 /**
@@ -568,9 +568,9 @@ export class WorldMap {
     }
     return { p: best, cost: bc };
   }
-  /** A pennant's box at pole foot (x, y). */
-  private lordBox(m: WarlordMark): { w: number; h: number; box: (x: number, y: number) => Box } {
-    const ps = pennantScale(this.k), f = m.seat || m.raid ? 1 : LAND_F, w = PENNANT_W * ps * f, h = 15 * ps * f;
+  /** A pennant's box at pole foot (x, y), `small` times its size (a lone marker that would fold, drawn compact). */
+  private lordBox(m: WarlordMark, small = 1): { w: number; h: number; box: (x: number, y: number) => Box } {
+    const ps = pennantScale(this.k), f = (m.seat || m.raid ? 1 : LAND_F) * small, w = PENNANT_W * ps * f, h = 15 * ps * f;
     return { w, h, box: (x, y) => [x - 4 * ps, y - h * POLE - 2 * ps, x + w + 2 * ps, y + 2 * ps] };
   }
   private lordOffsets(id: string): [number, number][] {
@@ -585,8 +585,9 @@ export class WorldMap {
    * The context markers, placed after the names and the fixed markers (they yield to both, so no name is dropped for
    * them): warlord pennants (a raid's and a hall's always show), landmarks, crowns, settlements (bigger first), mastery
    * stars; each at its preferred spot, else the first spot round it inside its region that is free. Zoomed out, one
-   * that finds no free spot joins its region's cluster (a "+N" chip: hover lists them, a click zooms in); up close each
-   * takes its least crowded spot.
+   * that finds no free spot joins its region's cluster (a "+N" chip: hover lists them, a click zooms in) once two or
+   * more lack room; a lone one shows itself, compact if it must, where the chip would sit. Up close each takes its least
+   * crowded spot.
    */
   private decor(st: MapState): Decor {
     const labels = this.layoutLabels(this.ctx, st), s = this.u, far = this.far;
@@ -595,66 +596,81 @@ export class WorldMap {
     if (this.decorCache?.key === key) return this.decorCache;
     const names = labels.map((l) => [l.x - l.w / 2, l.y - l.h / 2, l.x + l.w / 2, l.y + l.h / 2] as Box), placed: Box[] = [...this.lastObstacles, ...names];
     const near = (id: string, offs: number[][]) => { const [cx, cy] = this.art.regions[id].centroid; return offs.map(([dx, dy]) => [cx + dx * s, cy + dy * s] as [number, number]); };
-    const clustered = new Map<string, string[]>();
-    /** Its spot: the first free one inside its region; else (`must`, up close, or only a sliver covered) the least crowded, or null (into the cluster). */
-    const pick = (id: string, at: [number, number][], box: (x: number, y: number) => Box, must: boolean, what: string): [number, number] | null => {
+    /** Markers with no room yet, per region: what each is, and how to place it at `small` times its size. */
+    type Sized = (x: number, y: number, small: number) => Box;
+    const clustered = new Map<string, { what: string; at: [number, number][]; box: Sized; put: (p: [number, number], small: number) => void }[]>();
+    const CLUSTER_AT = [[0, 40], [36, 20], [-36, 20], [0, -40]];
+    /** Its spot: the first free one inside its region; else (`must`, up close, or only a sliver covered, `slack` of it) the least crowded, or null. */
+    const spot = (id: string, at: [number, number][], box: (x: number, y: number) => Box, must: boolean, slack = 0.12): [number, number] | null => {
       const { p, cost } = this.spotIn(id, at, box, placed, names), b = box(...p), area = (b[2] - b[0]) * (b[3] - b[1]);
-      if (cost > area * 0.12 && far && !must) {
-        clustered.set(id, [...(clustered.get(id) ?? []), what]);
-        return null;
-      }
+      if (cost > area * slack && far && !must) return null;
       placed.push(b);
       return p;
+    };
+    /** Places it (`put`), else into its region's cluster. */
+    const pick = (id: string, at: [number, number][], box: Sized, what: string, put: (p: [number, number], small: number) => void): void => {
+      const p = spot(id, at, (x, y) => box(x, y, 1), false);
+      if (p) put(p, 1);
+      else clustered.set(id, [...(clustered.get(id) ?? []), { what, at, box, put }]);
     };
     const lords: LordSpot[] = [...this.fixedLords], ls = st.warlords ?? [];
     const landAt = (m: WarlordMark) => {
       if (!this.art.regions[m.region]) return;
-      const { w, h, box } = this.lordBox(m), p = pick(m.region, this.lordOffsets(m.region), box, false, `${warlordName(m.id)}'s land`);
-      if (p) lords.push({ ...m, x: p[0], y: p[1], w, h });
+      pick(m.region, this.lordOffsets(m.region), (x, y, f) => this.lordBox(m, f).box(x, y), `${warlordName(m.id)}'s land`, (p, f) => {
+        const { w, h } = this.lordBox(m, f);
+        lords.push({ ...m, x: p[0], y: p[1], w, h });
+      });
     };
     // M7g: a landmark under the region's centre
     const landmarks = new Map<string, [number, number, number]>();
     for (const [id, r] of st.regions) {
       if (!r.landmark || !this.art.regions[id]) continue;
-      const rr = SIZE.landmark * s, box = (x: number, y: number): Box => [x - rr - 3 * s, y - rr - 3 * s, x + rr + 3 * s, y + rr + 3 * s];
-      const p = pick(id, near(id, [[0, 34], [30, 30], [-30, 30], [0, -34]]), box, false, `Landmark: ${landmarkName(id)}`);
-      if (p) landmarks.set(id, [p[0], p[1], rr]);
+      const rr = (f: number) => SIZE.landmark * s * f, box = (x: number, y: number, f: number): Box => [x - rr(f) - 3 * s, y - rr(f) - 3 * s, x + rr(f) + 3 * s, y + rr(f) + 3 * s];
+      pick(id, near(id, [[0, 34], [30, 30], [-30, 30], [0, -34]]), box, `Landmark: ${landmarkName(id)}`, (p, f) => landmarks.set(id, [p[0], p[1], rr(f)]));
     }
     // W-64: a crown by each monarch's home
     const crowns: CrownSpot[] = [];
     for (const m of st.crown?.monarchs ?? []) {
       const home = homeOf(m.alliance);
       if (!this.art.regions[home]) continue;
-      const rr = SIZE.crown * s, wide = far ? 0 : (8 * m.name.length + 14) * s;
-      const box = (x: number, y: number): Box => [x - rr - 3 * s, y - rr - 3 * s, x + rr + wide + 3 * s, y + rr + 3 * s];
-      const p = pick(home, near(home, [[34, -40], [-34, -40], [40, 30], [-40, 30]]), box, false, `Monarch: ${m.name}`);
-      if (p) crowns.push({ x: p[0], y: p[1], r: rr, name: m.name, alliance: m.alliance });
+      const rr = (f: number) => SIZE.crown * s * f, wide = far ? 0 : (8 * m.name.length + 14) * s;
+      const box = (x: number, y: number, f: number): Box => [x - rr(f) - 3 * s, y - rr(f) - 3 * s, x + rr(f) + wide + 3 * s, y + rr(f) + 3 * s];
+      pick(home, near(home, [[34, -40], [-34, -40], [40, 30], [-40, 30]]), box, `Monarch: ${m.name}`, (p, f) => crowns.push({ x: p[0], y: p[1], r: rr(f), name: m.name, alliance: m.alliance }));
     }
     // W-63: settlements, cities first
-    const settles = new Map<number, [number, number]>();
+    const settles = new Map<number, [number, number, number]>();
     for (const w of [...(st.settlements ?? [])].sort((a, b) => b.level - a.level)) {
       const at = this.settlementSpot(w);
       if (!at) continue;
       // up close its name stands right of the seal
-      const rr = this.settleR(w.level), name = far ? 0 : (7 * w.name.length + 16) * s;
-      const box = (x: number, y: number): Box => [x - rr - 2 * s, y - rr - 2 * s, x + rr + name + 2 * s, y + rr + 2 * s];
-      const p = pick(w.region, [at], box, false, `${w.name}, ${levelName(w.level).toLowerCase()}`);
-      if (p) settles.set(w.id, p);
+      const rr = (f: number) => this.settleR(w.level) * f, name = far ? 0 : (7 * w.name.length + 16) * s;
+      const box = (x: number, y: number, f: number): Box => [x - rr(f) - 2 * s, y - rr(f) - 2 * s, x + rr(f) + name + 2 * s, y + rr(f) + 2 * s];
+      pick(w.region, [at], box, `${w.name}, ${levelName(w.level).toLowerCase()}`, (p, f) => settles.set(w.id, [p[0], p[1], rr(f)]));
     }
     for (const m of ls) if (!m.raid && !m.seat) landAt(m);
     const stars: StarSpot[] = [];
     for (const id of st.mastered ?? []) {
       if (!this.art.regions[id]) continue;
-      const r = SIZE.star * s, box = (x: number, y: number): Box => [x - r - 3 * s, y - r - 3 * s, x + r + 3 * s, y + r + 3 * s];
-      const p = pick(id, near(id, [[32, 48], [-30, 50], [52, 4], [-52, 4], [0, 72], [10, -56], [0, 30], [24, 20]]), box, false, 'Mastered by you');
-      if (p) stars.push({ region: id, x: p[0], y: p[1], r });
+      const r = (f: number) => SIZE.star * s * f, box = (x: number, y: number, f: number): Box => [x - r(f) - 3 * s, y - r(f) - 3 * s, x + r(f) + 3 * s, y + r(f) + 3 * s];
+      pick(id, near(id, [[32, 48], [-30, 50], [52, 4], [-52, 4], [0, 72], [10, -56], [0, 30], [24, 20]]), box, 'Mastered by you', (p, f) => stars.push({ region: id, x: p[0], y: p[1], r: r(f) }));
     }
-    // the clusters: a "+N" chip each, at the least crowded spot near the region's centre
+    // a lone marker with no room shows itself, not a "+1": at a free spot of its own or the chip's, smaller if it must
+    // (at its smallest about the chip's size, it takes the least crowded spot as the chip would)
     const clusters: ClusterSpot[] = [];
     for (const [id, items] of clustered) {
+      if (items.length === 1) {
+        const grid: number[][] = [];
+        for (let dy = -112; dy <= 112; dy += 7) for (let dx = -112; dx <= 112; dx += 7) grid.push([dx, dy]);
+        grid.sort((p, q) => Math.hypot(p[0], p[1] - 30) - Math.hypot(q[0], q[1] - 30)); // nearest the chip's spot first
+        const [m] = items, at = [...m.at, ...near(id, CLUSTER_AT), ...near(id, grid)], SMALL = [1, 0.8, 0.6, 0.45];
+        const fit = SMALL.find((f) => { const p = spot(id, at, (x, y) => m.box(x, y, f), false, 0); if (p) m.put(p, f); return !!p; });
+        if (fit === undefined) m.put(spot(id, at, (x, y) => m.box(x, y, SMALL[SMALL.length - 1]), true)!, SMALL[SMALL.length - 1]);
+        continue;
+      }
+      // two or more: a "+N" chip, at the least crowded spot near the region's centre
       const r = SIZE.cluster * s, box = (x: number, y: number): Box => [x - r - 2 * s, y - r - 2 * s, x + r + 2 * s, y + r + 2 * s];
-      const p = pick(id, near(id, [[0, 40], [36, 20], [-36, 20], [0, -40]]), box, true, '');
-      if (p) clusters.push({ region: id, x: p[0], y: p[1], r, items });
+      const p = spot(id, near(id, CLUSTER_AT), box, true)!;
+      clusters.push({ region: id, x: p[0], y: p[1], r, items: items.map((m) => m.what) });
     }
     // up close, a pact's or truce's word at its line's middle, where it is free (the line and the key say it anyway)
     const words: PactWord[] = [];
@@ -916,7 +932,7 @@ export class WorldMap {
   settlementAt(st: MapState, x: number, y: number): number | null {
     for (const w of st.settlements ?? []) {
       const p = this.decor(st).settles.get(w.id);
-      if (p && (x - p[0]) ** 2 + (y - p[1]) ** 2 <= (this.settleR(w.level) * 1.3) ** 2) return w.id;
+      if (p && (x - p[0]) ** 2 + (y - p[1]) ** 2 <= (p[2] * 1.3) ** 2) return w.id;
     }
     return null;
   }
@@ -929,7 +945,7 @@ export class WorldMap {
     const list = st.settlements ?? [];
     if (!list.length) return;
     const s = this.u, d = this.decor(st), by = new Map(list.map((w) => [w.id, w]));
-    const spot = (w: WorldSettlement): [number, number] | null => d.settles.get(w.id) ?? (() => { const c = d.clusters.find((x) => x.region === w.region); return c ? [c.x, c.y] as [number, number] : null; })();
+    const spot = (w: WorldSettlement): readonly number[] | null => d.settles.get(w.id) ?? (() => { const c = d.clusters.find((x) => x.region === w.region); return c ? [c.x, c.y] as [number, number] : null; })();
     g.save();
     g.lineCap = 'round';
     for (const v of list) {
@@ -938,7 +954,7 @@ export class WorldMap {
       const hot = st.hoverSettle === v.id || st.hoverSettle === o!.id, mine = st.me != null && (v.lord_pid === st.me || o!.lord_pid === st.me);
       const dx = b[0] - a[0], dy = b[1] - a[1], len = Math.hypot(dx, dy) || 1, bend = Math.min(60, len * 0.18);
       const mx = (a[0] + b[0]) / 2 - (dy / len) * bend, my = (a[1] + b[1]) / 2 + (dx / len) * bend;
-      const rb = (d.settles.has(o!.id) ? this.settleR(o!.level) : SIZE.cluster * s) + 4 * s, ra = (d.settles.has(v.id) ? this.settleR(v.level) : SIZE.cluster * s) + 2 * s;
+      const rb = (d.settles.get(o!.id)?.[2] ?? SIZE.cluster * s) + 4 * s, ra = (d.settles.get(v.id)?.[2] ?? SIZE.cluster * s) + 2 * s;
       // stop short of both markers: the arc's ends at their radii, along the curve's end tangents
       const ta = Math.hypot(mx - a[0], my - a[1]) || 1, tb = Math.hypot(b[0] - mx, b[1] - my) || 1;
       const sx = a[0] + ((mx - a[0]) / ta) * ra, sy = a[1] + ((my - a[1]) / ta) * ra, ex = b[0] - ((b[0] - mx) / tb) * rb, ey = b[1] - ((b[1] - my) / tb) * rb;
@@ -983,7 +999,7 @@ export class WorldMap {
     for (const w of [...list].sort((p, q) => p.level - q.level)) {
       const p = d.settles.get(w.id);
       if (!p) continue;
-      const look = SETTLE_LOOK[levelKind(w.level)], r = this.settleR(w.level), [x, y] = p, hot = st.hoverSettle === w.id, mine = st.me != null && w.lord_pid === st.me;
+      const look = SETTLE_LOOK[levelKind(w.level)], [x, y, r] = p, hot = st.hoverSettle === w.id, mine = st.me != null && w.lord_pid === st.me;
       g.beginPath();
       g.arc(x, y + 1.5 * s, r + 1.5 * s, 0, Math.PI * 2);
       g.fillStyle = 'rgba(14,9,7,.55)';

@@ -37,7 +37,9 @@ export interface Note { kind: 'levelUp' | 'capture' | 'dead' | 'info'; pid?: str
   /** A warning with a deadline: the notice stays this long (ms) and counts it down in a timer chip. */
   for?: number;
   /** Its one call to action (W-70), e.g. "Go there" moving the camera to the place. */
-  act?: { label: string; run: () => void } }
+  act?: { label: string; run: () => void };
+  /** Names what it is about (e.g. `raid:<warlord>`): a new notice with the same key replaces it, and `drop(key)` ends it. */
+  key?: string }
 /** E3: a grave on the home memorial: the fallen man (his record as he fell), where and when (ms). */
 export interface Grave { p: WarPerson; region: string; at: number }
 /** E3: a guardian's trophy in the home town. */

@@ -10,6 +10,9 @@ import { myTeam } from './side';
 import type { Note } from './hud/roster/state';
 import { glyph } from './hud/glyph';
 
+/** The key of a warlord's raid warning toast: ../hud/fieldNotes.ts drops it once the raid is over. */
+export const raidKey = (warlord: string) => `raid:${warlord}`;
+
 /** The notice of one event for this player, or null. */
 export function secretText(e: WarEvent, team: number, playerId: number | null): string | null {
   if (e.kind === 'warlord') return e.team === undefined || e.team === team ? e.text : null;
@@ -36,7 +39,7 @@ export function secretNotices(s: SandboxScene, note: (n: Note) => void): void {
       // a raid's warning (W-70): a war icon, the words, the time left counting down in a chip, and "Go there"
       if (e.kind === 'warlord' && e.what === 'warn' && e.in) {
         const { x, y } = e;
-        note({ kind: 'info', icon: glyph('ui:swords', 18), text: text.replace(/ in \d+ s$/, ''), for: e.in * 100, act: { label: 'Go there', run: () => s.focus(x, y) } });
+        note({ kind: 'info', icon: glyph('ui:swords', 18), text: text.replace(/ in \d+ s$/, ''), for: e.in * 100, act: { label: 'Go there', run: () => s.focus(x, y) }, key: raidKey(e.warlord) });
       }
       else note({ kind: 'info', text });
     }
