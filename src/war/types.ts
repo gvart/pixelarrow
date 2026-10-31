@@ -728,6 +728,11 @@ export interface WarBuildSim extends WarSim {
    * this field; the server sets its own (the player's whole army across regions, from D1).
    */
   setSoulGate(gate: ((owner: string) => { ok: boolean; have: number }) | null): void;
+  /**
+   * W-80 (src/war/sim/food.ts): the server's larder behind a store of the team (online: the player's home strongroom):
+   * `want` rations for a man of `owner` by that store; returns how many it gives. Null (default): none.
+   */
+  setLarder(larder: ((owner: string, team: number, want: number) => number) | null): void;
   /** W-60 dev, scenarios and tests: a soul of `cls` (level) at (x,y), as if he woke there; his id. */
   spawnSoul(x: number, y: number, cls: string, level?: number, site?: SoulSnap['site']): number;
   /** W-68: `person` wakes as a named soul at a shrine here for `life` ticks (`bar`: that owner may not claim him for `ticks`); false: no shrine. */

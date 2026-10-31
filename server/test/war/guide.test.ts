@@ -78,6 +78,14 @@ describe('W-62 guide in the home room', () => {
     expect(rations()).toEqual(Array(6).fill(HUNGER.kit));
   });
 
+  it('W-79: the rations reach a squad spawned this very join (the DO starts the guide before any tick)', () => {
+    const room = home();
+    room.join(1, join(1, 0, 6));
+    room.startGuide(1, null);
+    const sq = room.squadsOf(1)[0];
+    expect((room.sim.cargo({ squad: sq })?.slots ?? []).map((x) => amount(x.hold, 'ration'))).toEqual(Array(6).fill(HUNGER.kit));
+  });
+
   it('a full army: the soul step closes unpaid at once; the haul step on a stow mark', () => {
     const room = home();
     room.join(1, join(1, 0, ARMY_MAX));

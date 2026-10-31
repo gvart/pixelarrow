@@ -998,7 +998,8 @@ a region.
 Food is visible and every man eats (`src/war/sim/food.ts` HUNGER; the HUD's `src/war/view/hud/hunger.ts`). Each man of
 a player has a **satiety** 0..100 (the wild's men do not eat). It runs down 100 in 30 minutes; below 60 he eats on his
 own, one bite every second while below: a **ration** (+60) from his pack, else plain **food** (+30) from his pack, else
-the same from a standing store of his team within 6 tiles. A dish or a cook's meal (the fed buff) fills him up.
+the same from a standing store of his team within 6 tiles (or the team's home strongroom behind it). A dish or a
+cook's meal (the fed buff) fills him up.
 
 | Stage | Satiety | Pace | Blows | Health |
 | --- | --- | --- | --- | --- |
@@ -1011,6 +1012,17 @@ the same from a standing store of his team within 6 tiles. A dish or a cook's me
 ration eaten below 60 fills him to 100, so 8 keep a man fed about 1 h 50 min and out of Starving past two hours with no
 store near (none: Starving at ~26 min); his own 8 rations weigh nothing (the squad is not laden by them). After the
 first session hunger matters as before: the packs need refilling from a store or a cook.
+
+**Food at home (W-80 proposal):** a store is where packs refill. Every check (`HUNGER.every`), a soldier within
+`HUNGER.storeR` (6 tiles) of a standing store of his team whose pack holds fewer than `HUNGER.kit` (8) rations tops it
+up to 8: the store's rations first, then the team's strongroom's (offline: the sim's reserve), then plain food packed at
+`HUNGER.packFood` = 2 food a ration (the store's, then the strongroom's), then, online in his alliance's home region,
+his own home strongroom (D1: the room keeps the strongroom's food and rations as the DO read them on his join and after
+each stow, draws from that, and the DO takes what was drawn out of D1 every tick; a take that no longer fits is logged
+and the view read again). A man below 60 then eats from his pack as before. So men standing by any store of theirs
+with food behind it never starve and leave with full packs; a refilled ration is food moved, not food made (2 food in,
+60 satiety out, as two bites of food). Civilians do not pack (they eat from the store). Away from a store nothing
+refills. The low-food and hunger toasts say "refill at a store" / "go to a store".
 
 A squad marches at its slowest man's pace, hunger counted. The cookhouse (and a cook at a camp or store) turns grain
 and onions (food 4, + salt 1 for ×1.5) into 4 rations, a good in the nearest store: a ration feeds twice a food and

@@ -51,6 +51,6 @@ export function foodWarnings(cur: Snapshot, owner: string, memo: FoodMemo): Food
 
 /** The toast of a warning (W-70: an icon, a few plain words, the count in a chip). */
 export function foodNote(w: FoodWarn): Note {
-  if (w.kind === 'pack') return { kind: 'info', icon: glyph('goods:march_rations', 18), text: w.meals ? 'Food low: restock in town' : 'Packs empty: restock in town', chips: chip.any(glyph('goods:march_rations', 16), String(w.meals ?? 0), 'bad', 'Food left in their packs') };
-  return { kind: 'info', icon: glyph('power:hunger', 18), text: w.kind === 'starving' ? 'Men starving: get food in town' : 'Men hungry: get food in town' };
+  if (w.kind === 'pack') return { kind: 'info', icon: glyph('goods:march_rations', 18), text: w.meals ? 'Food low: refill at a store' : 'Packs empty: refill at a store', chips: chip.any(glyph('goods:march_rations', 16), String(w.meals ?? 0), 'bad', 'Food left in their packs') };
+  return { kind: 'info', icon: glyph('power:hunger', 18), text: w.kind === 'starving' ? 'Men starving: go to a store' : 'Men hungry: go to a store' };
 }

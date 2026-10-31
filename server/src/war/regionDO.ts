@@ -509,6 +509,7 @@ export class WarRegionDO extends DurableObject<Env> {
     if (db && res.msg.t === 'welcome') await settleTunnelFor(db, pid, Date.now()); // W-66: the tunnel raises the men due on a join
     if (db && res.msg.t === 'welcome') room.setArmy(pid, await armyCount(db, pid));
     if (res.msg.t === 'welcome') await this.guideStart(pid, room);
+    if (db && res.msg.t === 'welcome') room.setLarder(pid, await goodsOf(db, strongroom(pid))); // W-80: his men eat from it by a home store
     if (res.msg.t === 'welcome') await this.storyStart(pid, room); // W-65
     if (res.msg.t === 'welcome') await this.encounterStart(pid, room); // W-65
     if (res.msg.t === 'welcome') await this.masteryStart(pid, room); // W-73
@@ -587,6 +588,24 @@ export class WarRegionDO extends DurableObject<Env> {
     }
   }
 
+  /**
+   * W-80: rations and food his men drew from his home strongroom (by a home store) out of D1; the room's view of the
+   * strongroom is read again afterwards (a take that no longer fits, spent elsewhere meanwhile, fails and is logged).
+   */
+  private larder(room: WarRoom, drawn: readonly { pid: number; goods: Record<string, number> }[]): void {
+    const d = this.env.DB;
+    if (!d) return;
+    for (const { pid, goods } of drawn)
+      this.write(`larder ${pid}`, async () => {
+        const id = strongroom(pid);
+        try {
+          await batch(d, planTake(d, id, await lotsOf(d, id), goods).stmts);
+        } finally {
+          room.setLarder(pid, await goodsOf(d, id));
+        }
+      });
+  }
+
   /** W-62: guide steps done: the save into storage, the reward into his home strongroom. */
   private guided(done: readonly GuideDone[]): void {
     const d = this.env.DB;
@@ -658,6 +677,7 @@ export class WarRegionDO extends DurableObject<Env> {
         return fail(e);
       }
       send(ws, { t: 'stowed', dir: 'in', site: id, goods: bundleGoods(b), items: b.items.length });
+      if (kind === 'strongroom') room.setLarder(pid, await goodsOf(d, id)); // W-80
       room.guide.mark(pid, 'haul'); // W-62
       const stowed = b.lots.reduce((a, l) => a + l.n, 0);
       if (stowed > 0) this.write('tasks', () => tallyStmt(d, pid, 'deliver', stowed, Date.now()).run()); // W-62 E7
@@ -683,6 +703,7 @@ export class WarRegionDO extends DurableObject<Env> {
       if (rest.lots.length || rest.items.length)
         this.write('stow back', () => d.batch([...rest.lots.map((l) => putStmt(d, id, l.r, l.n, l.o, l.s ?? 0)), ...rest.items.map((it) => placeItemStmt(d, pid, id, it, now))]));
       send(ws, { t: 'stowed', dir: 'out', site: id, goods: bundleGoods(b), items: b.items.length - rest.items.length, ...(rest.lots.length ? { left: bundleGoods(rest) } : {}) });
+      if (kind === 'strongroom') room.setLarder(pid, await goodsOf(d, id)); // W-80
       // W-62 E7: "Fill the stores" counts the day's net, so taking goods out and stowing them back earns nothing
       const out = b.lots.reduce((a, l) => a + l.n, 0) - rest.lots.reduce((a, l) => a + l.n, 0);
       if (out > 0) this.write('tasks', () => tallyStmt(d, pid, 'deliver', -out, Date.now()).run());
@@ -1110,6 +1131,7 @@ export class WarRegionDO extends DurableObject<Env> {
     if (r.storied.length) this.storied(r.storied); // W-65
     if (r.met.length) this.met(r.met); // W-65
     if (r.wild.length) this.wild(room, r.wild); // W-73
+    if (r.larder.length) this.larder(room, r.larder); // W-80
     favourTick(this.env, room, (w, f) => this.write(w, f)); // W-66: lairs cleared, land held
     if (r.warlord.length) this.warlordFavour(r.warlord), this.tellFallen(room, r.warlord); // W-72 proposal
     if (this.lordsFrom !== null && room.currentTick % 600 === 0) room.setWarlordAge((Date.now() - this.lordsFrom) / DAY_MS);
