@@ -53,8 +53,13 @@ const def: RegionDef = {
     k.spot('outcrop', [126, 110]);
     // the long red ridge south-east from the mesa: the defensive line of the Delta way
     k.ridge([[160, 150], [186, 166], [210, 184], [236, 206]], { crest: 8, step: 1.2, top: 2.5, reach: 12, base: 2 });
-    k.patch('kyrene', 'redrock', [198, 178, 46, 8, 0.65], ['sand'], undefined, 4);
+    k.patch('kyrene', 'redrock', [198, 178, 46, 8, 0.65], ['sand', 'rock'], undefined, 4); // (rock: the spine's block tops red, not grey)
     k.spot('ridge', [190, 170]);
+    // identity (PROMPTS_ART §52): the reference's ridge is a broken spine of red rock, not a smooth mound: stacked red blocks
+    // (Kit.tor) along the crest with gaps to cross, red crags, talus and boulders on its flanks
+    for (const b of [[168, 155, 6, 2.2, 0.58], [183, 165, 4, 2, 0.6], [199, 176, 7, 2.4, 0.62], [216, 189, 4, 2, 0.7], [229, 200, 6, 2.2, 0.75]] as [number, number, number, number, number][])
+      k.tor(b, [[0, 3], [0.9, 6], [1.7, 8]], { rough: 0.8, joint: 0.7 });
+    for (const [x, y, id] of [[164, 162, 'kyrene/red-crags'], [176, 156, 'kyrene/talus-red'], [192, 182, 'kyrene/red-crags'], [206, 172, 'kyrene/boulder-red'], [222, 196, 'kyrene/talus-red'], [236, 192, 'kyrene/rocks-red'], [210, 196, 'kyrene/rock-pillar'], [184, 172, 'kyrene/rocks-red']] as const) k.piece(id, [x, y], { r: 4 });
     // the sea, the bluff and the salt hollow
     k.waterBody([128, 268, 220, 34, 0], { shore: 5, beach: 4, rough: 5 });
     k.basin([60, 214, 18, 9, 0.2], 1, 0, 2);
@@ -73,6 +78,8 @@ const def: RegionDef = {
     k.resource('stone', [196, 186], 3, 8);
     k.piece('boulder-b', [60, 214], { r: 8, n: 2 });
     k.forest([70, 120, 6, 4, 0]);
+    // dead thorn trees over the dunes and under the escarpment, as in the reference
+    for (const [x, y] of [[40, 130], [20, 196], [104, 176], [150, 214], [232, 150], [246, 110], [196, 240], [88, 236], [30, 100], [170, 70]] as const) k.piece('kyrene/thorn-tree', [x, y], { r: 6 });
     k.village([192, 108], 3);
     // fauna: scorpions in the salt hollow and the dunes, lions under the ridge
     k.lair('scorpion', [66, 206], { as: 'scorpions' });
