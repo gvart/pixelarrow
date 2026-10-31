@@ -364,7 +364,7 @@ export class WarRoom {
     this.sim.setSoulGate((owner) => {
       const m = /^p:(\d+)$/.exec(owner), pid = m ? Number(m[1]) : null;
       const known = pid !== null ? this.armies.get(pid) : undefined;
-      const have = known ?? this.snap?.units.filter((u) => u.state !== 'dead' && this.owners[u.squad] === owner && !u.cls.startsWith('civ_')).length ?? 0;
+      const have = known ?? this.snap?.units.filter((u) => (u.state !== 'dead' || u.down) && this.owners[u.squad] === owner && !u.cls.startsWith('civ_')).length ?? 0;
       return { ok: have < ARMY_MAX, have };
     });
     // W-80: at the alliance's home, a man by a store of his tops his pack up from his own strongroom (D1, via larders)
