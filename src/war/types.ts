@@ -45,6 +45,8 @@ export interface RegionData {
   guardians?: GuardianEntry[];
   /** M7d: the map side facing the dead water: a depth-4 rim region's Warden strikes fall in its outer band. */
   rim?: 'N' | 'E' | 'S' | 'W';
+  /** Visual only: a palette variant of the region's biome tiles (src/war/view/art.ts loadArt): 'pale-sand', the desert's sand and dunes pale orange. */
+  palette?: 'pale-sand';
 }
 /**
  * M7d: a guardian of the region (src/data/warBosses.ts id) and its posts, in tiles: (x,y) its lair (the yard, the palace,
