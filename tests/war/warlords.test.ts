@@ -13,6 +13,7 @@ import { REGION_DEPTH } from '../../src/war/sim/depth';
 import { WORLD_REGIONS } from '../../src/war/world/regions';
 import { edge } from '../../src/war/world/graph';
 import { parseRegion } from '../../src/war/region/schema';
+import { makePerson } from '../../src/war/sim/roster';
 import type { RegionData, WarBuildSim } from '../../src/war/types';
 
 const files = import.meta.glob('../../src/war/regions/*.json', { eager: true, import: 'default' });
@@ -102,7 +103,7 @@ describe('warlords: holding land', () => {
     expect(s.holds[0]).toMatchObject({ place: 'c0', x: c0.x, y: c0.y, state: 'held' });
     expect(s.lord).toBeGreaterThanOrEqual(0);
     const units = x.sim.snapshot().units, lord = units.find((u) => u.id === s.lord)!, man = units.find((u) => u.squad === lord.squad && u.id !== lord.id)!;
-    expect(lord.maxHp).toBeCloseTo(man.maxHp * WARLORD.lord.hp, 3);
+    expect(lord.maxHp).toBeCloseTo(man.maxHp * WARLORD.lord.hp * W.lord, 3);
     expect(x.sim.snapshot().squads[lord.squad]).toMatchObject({ team: MOB_TEAM, owner: `warlord:${W.id}` });
     expect(x.notes.some((n) => n.what === 'rise')).toBe(true);
   });
@@ -205,6 +206,22 @@ describe('warlords: beaten piece by piece', () => {
     expect(holds(x).map((h) => h.place)).toEqual(['c0']);
   });
 
+  it('W-81: 12 level-3 hoplites take each lord\'s hall in 60-80 s for 1-5 men', () => {
+    for (const w of WARLORDS) {
+      const x = setup(flat(w.seat, [[80, 80]]), 0, 1);
+      run(x, WARLORD.think * 2);
+      const me = x.sim.spawnSquad('p:1', 0, 'hoplite', 12, 80, 98, Array.from({ length: 12 }, (_, k) => makePerson(`p${k}`, 'hoplite', { level: 3 })));
+      x.sim.order({ kind: 'attackMove', squad: me, x: 80, y: 80 });
+      const lordOf = () => x.lords.snaps().find((s) => s.id === w.id)!;
+      const t = run(x, 1200, () => !!lordOf().fallen || men(x, me) === 0);
+      expect(lordOf().fallen, w.id).toBe(true);
+      expect(t / 10, w.id).toBeGreaterThanOrEqual(60);
+      expect(t / 10, w.id).toBeLessThanOrEqual(80);
+      expect(12 - men(x, me), w.id).toBeGreaterThanOrEqual(1);
+      expect(12 - men(x, me), w.id).toBeLessThanOrEqual(5);
+    }
+  });
+
   it('the lord falls: his spoils (an item among them), a fallen note; back after WARLORD.back days, grown from nothing', () => {
     const x = setup(flat(SEAT, [[40, 40]]), 0, 1);
     run(x, WARLORD.think * 2);
@@ -250,14 +267,14 @@ describe('warlords: beaten piece by piece', () => {
 
 describe('warlords: raids', () => {
   /** A march with his holding at (60,80) and team 0's storehouse at (110,80) on its own ground. */
-  function raided(guard: boolean) {
+  function raided(guard: number | boolean) {
     const x = setup(flat(MARCH, [[60, 80]]), WARLORD.grow.marchDay, 1);
     x.sim.claim(0, 112, 80, 14);
     x.sim.order({ kind: 'placeBuilding', team: 0, type: 'storehouse', x: 112, y: 80 });
     run(x, 2);
     const site = x.sim.snapshot().buildings!.find((b) => b.type === 'storehouse')!;
     x.sim.finishSite(site.id);
-    if (guard) x.sim.spawnSquad('p:1', 0, 'hoplite', 6, 112, 86);
+    if (guard) x.sim.spawnSquad('p:1', 0, 'hoplite', guard === true ? 6 : guard, 112, 86);
     run(x, WARLORD.raid.every + WARLORD.raid.warn * 2 + 1200);
     return { x, site: x.sim.snapshot().buildings!.find((b) => b.id === site.id)! };
   }
@@ -269,6 +286,12 @@ describe('warlords: raids', () => {
     expect(warn.text).toContain('storehouse');
     const raid = x.notes.find((n) => n.what === 'raid')!;
     expect(raid.t - warn.t).toBeGreaterThanOrEqual(WARLORD.raid.warn);
+    expect(site.hp).toBeLessThan(site.maxHp);
+  });
+
+  it('W-81: a lightly guarded building (fewer than raid.guarded men) is raided and hurt', () => {
+    const { x, site } = raided(WARLORD.raid.guarded - 1);
+    expect(x.notes.some((n) => n.what === 'raid')).toBe(true);
     expect(site.hp).toBeLessThan(site.maxHp);
   });
 
