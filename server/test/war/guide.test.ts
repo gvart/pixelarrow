@@ -8,6 +8,8 @@ import { describe, expect, it } from 'vitest';
 import { NET_VERSION, parseClientMsg, type JoinMsg, type ServerMsg } from '../../../src/war/net/protocol';
 import { GUIDE_LAIR, GUIDE_STEPS, guideNext, guideSpots } from '../../../src/war/net/guide';
 import { ARMY_MAX } from '../../../src/war/sim/soldiers';
+import { HUNGER } from '../../../src/war/sim/food';
+import { amount } from '../../../src/war/sim/holders';
 import { WarRoom } from '../../src/war/room';
 import { warRegion } from '../../src/war/regions';
 
@@ -61,6 +63,20 @@ describe('W-62 guide in the home room', () => {
     room.tick();
     expect(guideLairs(room).filter((l) => l.state !== 'cleared')).toHaveLength(1);
   }, 60_000);
+
+  it('W-79: a new player marches with HUNGER.kit rations a man, packed once (his save is kept at once)', () => {
+    const room = home();
+    room.join(1, join(1, 0, 6));
+    room.tick();
+    room.startGuide(1, null);
+    const sq = room.squadsOf(1)[0];
+    const rations = () => (room.sim.cargo({ squad: sq })?.slots ?? []).map((x) => amount(x.hold, 'ration'));
+    expect(rations()).toEqual(Array(6).fill(HUNGER.kit));
+    const save = room.guide.saveOf(1)!;
+    expect(save).toEqual({ v: 1, done: [] });
+    room.startGuide(1, save); // he comes back: the DO hands the stored save
+    expect(rations()).toEqual(Array(6).fill(HUNGER.kit));
+  });
 
   it('a full army: the soul step closes unpaid at once; the haul step on a stow mark', () => {
     const room = home();

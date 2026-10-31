@@ -8,10 +8,14 @@
  * of his is refused. The haul step closes on a stow in, a hand-off done or a caravan (a transit's cargo) arriving here.
  * W-73 the last step, the hand-off to the nearest region chain (guideNext), closes when his men reach the exit towards
  * it, or when he departs for that region (the DO's depart marks it).
+ * W-79: on his very first visit (no save) his men's packs get HUNGER.kit rations each (about two hours fed), once: the DO
+ * stores the fresh save at once (saveOf), so a reconnect does not pack them again.
  */
 import { doneNow, GUIDE_LAIR, GUIDE_STEPS, guideNext, guideOpen, guideSpots, newWatch, watchEvents, type GuideSave, type GuideStepId, type GuideWatch } from '../../../src/war/net/guide';
 import type { ServerMsg } from '../../../src/war/net/protocol';
 import { ARMY_MAX } from '../../../src/war/sim/soldiers';
+import { HUNGER } from '../../../src/war/sim/food';
+import { put } from '../../../src/war/sim/holders';
 import type { RegionData, Snapshot, WarBuildSim, WarEvent } from '../../../src/war/types';
 
 /** A step done: the DO pays `reward` (when `paid`) into his strongroom and stores `save`. */
@@ -43,12 +47,27 @@ export class RoomGuide {
     if (!guideOpen(s)) return RoomGuide.msg(s);
     const spot = guideSpots(this.region, team).lair, run: Run = this.runs.get(pid) ?? { pid, save: s, watch: newWatch(team, spot, `p:${pid}`, guideNext(this.region.id, this.region)?.exit ?? null) };
     this.runs.set(pid, run);
+    if (!save) this.pack(pid, snap); // W-79: the start squad's march rations
     if (!s.done.includes('lair')) {
       const here = (snap.lairs ?? []).filter((l) => Math.hypot(l.x - spot.x, l.y - spot.y) < 0.5);
       if (!here.some((l) => l.state !== 'cleared')) this.sim.addLair({ kind: GUIDE_LAIR.kind, x: spot.x, y: spot.y, count: GUIDE_LAIR.count });
     }
     if (army >= ARMY_MAX) this.finish(run, 'soul', false);
     return RoomGuide.msg(s);
+  }
+
+  /** W-79: HUNGER.kit rations into the pack of each of his men here. */
+  private pack(pid: number, snap: Snapshot): void {
+    for (const q of snap.squads) {
+      if (q.owner !== `p:${pid}`) continue;
+      for (const slot of this.sim.cargo({ squad: q.id })?.slots ?? []) put(slot.hold, 'ration', HUNGER.kit, this.region.id);
+    }
+  }
+
+  /** His run's save (the DO stores a new player's at once: his rations are packed). */
+  saveOf(pid: number): GuideSave | null {
+    const r = this.runs.get(pid);
+    return r ? { ...r.save, done: [...r.save.done] } : null;
   }
 
   /** He hid the guide (the tracker's ×). */
