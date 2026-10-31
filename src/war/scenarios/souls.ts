@@ -11,7 +11,7 @@ export const SOUL_SCENARIOS: Scenario[] = [
     check: [
       'Roster (R): a grain-bundle icon by fed men, the amber hunger sign by the hungry, red by the starving; every icon has its card',
       'Soldier card: the satiety bar; its card lists the steps with icons (hungry −10% pace and attack, starving −25% and slow health loss, never below a quarter)',
-      'The hoplites eat from the camp\'s store (Chest I > Town store: the food goes down) and turn fed',
+      'The hoplites pack 8 rations each from the camp\'s store (2 food a ration; Chest I > Town store: the food goes down), eat and turn fed',
       'The slingers eat their rations first (a ration feeds twice a food); Chest > Squad: the Food row',
       'The archers march slower than the others; walk them next to the camp and they eat and recover',
       'Click the camp and a cookhouse in the build bar: each card says in one line what it does with food',
@@ -23,7 +23,7 @@ export const SOUL_SCENARIOS: Scenario[] = [
       orders: [{ kind: 'move', squad: 0, x: HOME[0] + 3, y: HOME[1] + 4 }, { kind: 'move', squad: 1, x: HOME[0] - 4, y: HOME[1] + 5 }, { kind: 'move', squad: 2, x: HOME[0] + 30, y: HOME[1] - 14 }],
       settle: 400, squads: [],
     },
-    food: [{ res: 'food', n: 40 }, { squad: 1, res: 'ration', n: 8 }],
+    food: [{ res: 'food', n: 120 }, { squad: 1, res: 'ration', n: 8 }],
     hunger: [{ squad: 0, sat: 30 }, { squad: 1, sat: 35 }, { squad: 2, sat: 8 }],
   },
   {

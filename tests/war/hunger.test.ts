@@ -120,7 +120,7 @@ describe('W-60 eating', () => {
     sim.order({ kind: 'move', squad: b, x: 4, y: 60 });
     run(sim, 400);
     const store = sim.cargo({ building: 0 })!.slots[0].hold;
-    put(store, 'food', 10, 't');
+    put(store, 'food', 8 + 2 * HUNGER.kit * HUNGER.packFood, 't'); // W-80: each man near packs his kit from it first
     const near = sim.spawnSquad('a', 0, 'hoplite', 2, 33, 33);
     const away = sim.spawnSquad('a', 0, 'hoplite', 2, 55, 55);
     const ids = [...sim.snapshot().squads[near].units, ...sim.snapshot().squads[away].units];

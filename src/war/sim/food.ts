@@ -22,7 +22,9 @@ export const HUNGER = {
    * (online: server/src/war/guide.ts on his first visit home), about two hours fed with no store near.
    */
   kit: 8,
-  /** A store of his team this near feeds him (tiles). */
+  /** W-80: plain food a store packs into one ration when it refills a pack (a ration feeds as two). */
+  packFood: 2,
+  /** A store of his team this near feeds him and refills his pack (tiles). */
   storeR: 6,
   /** Ticks between checks. */
   every: 10,
