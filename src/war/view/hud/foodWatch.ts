@@ -2,8 +2,9 @@
  * W-79 follow-up: the low-food warning (a playtest starved with no word of it). Each of the player's squads gets one
  * toast when its packs run low (FOOD.low bites a man or fewer, src/war/types.ts SquadSnap.meals) and one when a man of
  * it goes hungry (src/war/sim/food.ts hungerStage); each warns again only once the squad has recovered (FOOD.ok bites a
- * man, every man fed past HUNGER.eatAt). Packs already low when a squad is first seen warn only once refilled and run
- * low again. The squad card's fed % and its food mark (`mealsMark`) carry the same colours.
+ * man, every man fed past HUNGER.eatAt). Packs already low when a squad is first seen warn at once. The toast fades; the
+ * squad card's state line (./squadState.ts) keeps the warning up while it is true, and its fed % and food mark
+ * (`mealsMark`) carry the same colours.
  */
 import { HUNGER, hungerStage } from '../../sim/food';
 import type { Snapshot } from '../../types';
@@ -36,15 +37,17 @@ export function foodWarnings(cur: Snapshot, owner: string, memo: FoodMemo): Food
     const men = q.units.map((id) => byId.get(id)).filter((u) => u && u.state !== 'dead' && u.sat !== undefined);
     if (!men.length) continue;
     let m = memo.get(q.id);
-    // first seen: packs already low say nothing (a scenario's or a returning player's men; hunger still warns)
-    if (!m) memo.set(q.id, (m = { pack: q.meals !== undefined && packLevel(q.meals, men.length) !== 'ok', hungry: false }));
+    // first seen: packs already low warn at once too (the squad card's state line keeps it up after the toast)
+    if (!m) memo.set(q.id, (m = { pack: false, hungry: false }));
+    const worst = Math.min(...men.map((u) => u!.sat!)), st = hungerStage(worst);
+    const hungry = !m.hungry && st > 0;
+    if (hungry) { m.hungry = true; out.push({ squad: q.id, kind: st === 2 ? 'starving' : 'hungry' }); }
+    else if (m.hungry && worst >= HUNGER.eatAt) m.hungry = false;
     if (q.meals !== undefined) {
-      if (!m.pack && packLevel(q.meals, men.length) !== 'ok') { m.pack = true; out.push({ squad: q.id, kind: 'pack', meals: q.meals }); }
+      // low packs with a hunger warning in the same breath: the one toast says it (both send him to town for food)
+      if (!m.pack && packLevel(q.meals, men.length) !== 'ok') { m.pack = true; if (!hungry) out.push({ squad: q.id, kind: 'pack', meals: q.meals }); }
       else if (m.pack && q.meals >= FOOD.ok * men.length) m.pack = false;
     }
-    const worst = Math.min(...men.map((u) => u!.sat!)), st = hungerStage(worst);
-    if (!m.hungry && st > 0) { m.hungry = true; out.push({ squad: q.id, kind: st === 2 ? 'starving' : 'hungry' }); }
-    else if (m.hungry && worst >= HUNGER.eatAt) m.hungry = false;
   }
   return out;
 }

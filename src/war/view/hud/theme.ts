@@ -214,6 +214,9 @@ export const THEME_CSS = `
 #rfCard #cCount:empty{display:none}
 #rfCard #cCount b{color:var(--hud-ink)}
 #rfCard .hud-fed.good{color:var(--hud-good)}#rfCard .hud-fed.warn{color:var(--hud-warn)}#rfCard .hud-fed.bad{color:var(--hud-bad)}
+#rfCard #cTag.st-line{display:flex;flex-wrap:wrap;align-items:center;gap:2px 10px;padding:1px 6px;font:700 13px/18px Inter,sans-serif;white-space:normal}
+#rfCard #cTag.st-line.warn{border-color:#6b5320}#rfCard #cTag.st-line span{display:inline-flex;align-items:center;gap:4px}
+#rfCard #cTag .st-bad{color:var(--hud-bad)}#rfCard #cTag .st-warn{color:var(--hud-warn)}
 #rfCard .hud-hp{position:relative;height:13px;border:1px solid var(--hud-edge);border-radius:1px;background:linear-gradient(180deg,#07080a,#131518);box-shadow:0 1px 0 rgba(255,236,190,.06);overflow:hidden}
 #rfCard .hud-hp i{position:absolute;left:0;top:0;bottom:0;box-shadow:inset 0 1px 0 rgba(255,255,255,.3),inset 0 -2px 3px rgba(0,0,0,.25);transition:width var(--hud-med) var(--hud-ease)}
 #rfCard .hud-hp i.hp{background:linear-gradient(180deg,var(--hud-hp-a),var(--hud-hp-b) 55%,var(--hud-hp-c))}
