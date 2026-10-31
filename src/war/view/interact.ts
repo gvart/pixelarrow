@@ -80,6 +80,11 @@ export class Interact {
     window.addEventListener('blur', () => this.close());
   }
 
+  /** The hover label's box on screen while it shows (the claim card sits under it: ./hud/claimCard.ts). */
+  labelBox(): DOMRect | null {
+    return this.el.style.display === 'none' ? null : this.el.getBoundingClientRect();
+  }
+
   /** Is the radial menu open (the scene hides the hover label then)? */
   get open(): boolean {
     return !!this.held?.open;
