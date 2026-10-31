@@ -1,0 +1,27 @@
+tests/war/warlords.test.ts
+  s_0dd3a9d3e5007a::t_ec5c065c0acdbc 16,106,209-224,270,277,292-294,296
+  s_0dd3a9d3e5007a::t_8b2da1e2734125 295,297
+src/data/warWarlords.ts
+  s_0dd3a9d3e5007a::t_59e2c29152d3c6 47,67,86-90,95-99,109
+  s_0dd3a9d3e5007a::t_75c63c0180b1ff 25-26,37,57
+  s_0dd3a9d3e5007a::t_2149a5cc5b2ec0 111
+src/war/sim/warlords.ts
+  s_0dd3a9d3e5007a::t_2149a5cc5b2ec0 128-129,134,242,246,253,258
+  s_0dd3a9d3e5007a::t_75c63c0180b1ff 153-154,156,191,199,387
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "3f4aea0d637c23962e79a4f1a1c86831f703009e",
+  "prompts": {},
+  "sessions": {
+    "s_0dd3a9d3e5007a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b6130d3d-c070-494f-98d5-046db89f2d1c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
