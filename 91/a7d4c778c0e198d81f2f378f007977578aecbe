@@ -1,0 +1,24 @@
+docs/v5/pixellab/MOBS/lion.jobs.json
+  s_0dd3a9d3e5007a::t_8b7ad1db7b97b0 5-7
+src/assets/sheets/mob_lion/manifest.json
+  s_0dd3a9d3e5007a::t_5e371484a90a31 10-11,15-16,19-20,23-24,27-28,46,50,55,60,66,71
+  s_0dd3a9d3e5007a::t_2cd1b972b52abc 7
+docs/v5/pixellab/MOBS/lion.sheet.json
+  s_0dd3a9d3e5007a::t_5a63e61acba6dd 11,14
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "91a7d4c778c0e198d81f2f378f007977578aecbe",
+  "prompts": {},
+  "sessions": {
+    "s_0dd3a9d3e5007a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b6130d3d-c070-494f-98d5-046db89f2d1c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
