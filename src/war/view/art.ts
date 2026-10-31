@@ -29,7 +29,7 @@ import { canvas } from './canvas';
 
 export interface ObjDef { id: string; kind: string; file: string; w: number; h: number; metres: number; anchor: { x: number; y: number }; footprint?: [number, number]; massif?: string; role?: string }
 /** A tile set: the global sheets plus one biome's (its variants replace the global ones per terrain), as indices into WarArt's merged lists. */
-export interface TileSet { name: string; tiles: TilesMeta; sheetIx: number[]; varIx: number[]; earth: string; crag: string; snow?: string; ice?: string }
+export interface TileSet { name: string; /** A region palette variant of the biome's set (RegionData.palette). */ palette?: string; tiles: TilesMeta; sheetIx: number[]; varIx: number[]; earth: string; crag: string; snow?: string; ice?: string }
 export interface WarArt {
   /** Every sheet and variant of every set (fallback: the global one). */
   tiles: TilesMeta;
@@ -41,7 +41,7 @@ export interface WarArt {
   /** Global objects, then each biome's as `<biome>/<id>`. */
   defs: ObjDef[];
   objImg: Map<string, HTMLImageElement>;
-  /** [0] the global set, then one per biome. */
+  /** [0] the global set, then one per biome, then the palette variants. */
   sets: TileSet[];
   /** The mountains' massif pieces (./massifs.ts). */
   massifs: MassifDef[];
@@ -110,6 +110,24 @@ export async function loadArt(base = 'war/', onProgress?: (f: number) => void): 
   // bleached from slate grey to a white crust
   const warm = (file: string, im: HTMLImageElement) => (!file.startsWith('biomes/kyrene/') ? im : file.includes('redrock') ? reimage(redden(im)) : file.includes('salt') ? reimage(bleach(im)) : im);
   const [si, vi] = await Promise.all([Promise.all(si0.map((im, i) => warm(sheets[i].file, im))), Promise.all(vi0.map((im, i) => warm(variants[i].file, im)))]);
+  // the 'pale-sand' palette (RegionData.palette): the desert set again, its sand and dune tiles lifted to the pale
+  // orange of the Southern Dunes reference (appended: 53 sheets of autotile's 64)
+  const kd = sets.findIndex((s) => s.name === 'kyrene');
+  if (kd >= 0) {
+    const sand = (t: string) => t === 'sand' || t === 'dune', set = sets[kd];
+    const pale = async <T>(ix: number[], meta: T[], ims: HTMLImageElement[], on: (m: T) => boolean) => {
+      const out: number[] = [];
+      for (const i of ix) {
+        if (!on(meta[i])) { out.push(i); continue; }
+        ims.push(await reimage(paleSand(ims[i])));
+        out.push(meta.push(meta[i]) - 1);
+      }
+      return out;
+    };
+    const sheetIx = await pale(set.sheetIx, sheets, si, (s) => sand(s.first) || sand(s.second));
+    const varIx = await pale(set.varIx, variants, vi, (v) => sand(v.terrain));
+    sets.push({ ...set, palette: 'pale-sand', sheetIx, varIx, tiles: { sheets: sheetIx.map((i) => sheets[i]), variants: varIx.map((i) => variants[i]), fallback: set.tiles.fallback } });
+  }
   // trees relit for the NW light (./treeLight.ts), back as images so every user keeps one kind of source
   const lit = await Promise.all(defs.map((d, i) => (d.kind === 'tree' ? reimage(relightTree(oi[i])) : oi[i])));
   const objImg = new Map(defs.map((d, i) => [d.id, lit[i]]));
@@ -162,6 +180,35 @@ function bleach(im: HTMLImageElement): HTMLCanvasElement {
   return c;
 }
 /** A canvas as a decoded image (in a worker: an ImageBitmap). */
+/**
+ * The desert's sand (flat olive beige) and dunes (dark brown) lifted to the reference's pale orange, their marks and
+ * lips kept by luminance; red rock, hardpan, reg, salt, water and the tile sides untouched.
+ */
+function paleSand(im: HTMLImageElement): HTMLCanvasElement {
+  const c = canvas(im.width, im.height);
+  const g = c.getContext('2d')!;
+  g.drawImage(im, 0, 0);
+  const d = g.getImageData(0, 0, c.width, c.height), p = d.data;
+  // [hue lo, hue hi, sat lo, light lo, light hi, the class's base light, its target colour]
+  const CLASSES: [number, number, number, number, number, number, [number, number, number]][] = [
+    [24, 33, 0.4, 0.2, 0.42, 0.32, [198, 128, 66]], // dune
+    [36, 50, 0.1, 0.4, 0.62, 0.55, [214, 158, 96]], // sand
+    [34, 44, 0.3, 0.62, 0.8, 0.7, [234, 194, 140]], // the sand's lit lips
+  ];
+  for (let y = 0; y < c.height; y++) for (let x = 0; x < c.width; x++) {
+    const fx = x % 64, fy = y % 48, o = 4 * (y * c.width + x);
+    if (!p[o + 3] || Math.abs(fx - 31.5) / 32 + Math.abs(fy - 15.5) / 16 > 1) continue;
+    const r = p[o] / 255, gr = p[o + 1] / 255, b = p[o + 2] / 255, mx = Math.max(r, gr, b), mn = Math.min(r, gr, b), l = (mx + mn) / 2, dd = mx - mn;
+    if (!dd) continue;
+    const s = dd / (1 - Math.abs(2 * l - 1)), h = ((mx === r ? ((gr - b) / dd) % 6 : mx === gr ? (b - r) / dd + 2 : (r - gr) / dd + 4) * 60 + 360) % 360;
+    const k = CLASSES.find(([h0, h1, s0, l0, l1]) => h >= h0 && h <= h1 && s >= s0 && l >= l0 && l <= l1);
+    if (!k) continue;
+    const f = l / k[5];
+    for (let i = 0; i < 3; i++) p[o + i] = Math.min(255, Math.round(k[6][i] * f));
+  }
+  g.putImageData(d, 0, 0);
+  return c;
+}
 function reimage(c: HTMLCanvasElement): Promise<HTMLImageElement> {
   if (typeof Image === 'undefined') return createImageBitmap(c) as unknown as Promise<HTMLImageElement>;
   const im = new Image();
@@ -258,7 +305,8 @@ export class ArtBaker {
     this.smooth = new SmoothFrames(art);
     this.setOf = new Uint8Array(r.w * r.h);
     if (r.biomes) {
-      const b = decodeBiomes(r.biomes.rle, r.w * r.h), map = r.biomes.names.map((nm) => Math.max(0, art.sets.findIndex((s) => s.name === nm)));
+      const b = decodeBiomes(r.biomes.rle, r.w * r.h), find = (nm: string) => art.sets.findIndex((s) => s.name === nm && s.palette === r.palette);
+      const map = r.biomes.names.map((nm) => Math.max(0, r.palette && find(nm) >= 0 ? find(nm) : art.sets.findIndex((s) => s.name === nm)));
       for (let i = 0; i < b.length; i++) this.setOf[i] = map[b[i]];
     }
     this.code = this.fineCodes();

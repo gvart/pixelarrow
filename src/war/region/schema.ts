@@ -65,6 +65,8 @@ export const regionSchema = z
       postern: z.tuple([z.number(), z.number()]).optional(), pit: z.tuple([z.number(), z.number()]).optional(), flats: z.tuple([z.number(), z.number()]).optional(),
     })).optional(),
     rim: z.enum(['N', 'E', 'S', 'W']).optional(),
+    /** Visual only: the biome tiles' palette variant (src/war/view/art.ts loadArt). */
+    palette: z.enum(['pale-sand']).optional(),
     /** M7c: danger depth (src/war/sim/depth.ts). */
     depth: z.number().int().min(0).max(4).optional(),
     /** World data of a generated region (scripts/war/regions/world.ts): role, biome family, draft flag, neighbours by side, WAR.md fauna and resources. */

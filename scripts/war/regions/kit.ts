@@ -73,8 +73,10 @@ export interface Style {
   pines: boolean;
   /** Elaia zones: a reed fen, marsh thick with reeds only (no saplings), dead trees rare. */
   fen: boolean;
+  /** Kyrene zones: sand and dunes drawn pale orange (RegionData.palette 'pale-sand'), not olive beige and dark brown. */
+  paleSand: boolean;
 }
-const STYLE: Style = { dry: 0.05, dryHigh: true, meadow: 0.1, dune: 0.3, trees: 1, bushes: 1, tufts: 0, wayside: false, oaks: false, pines: false, fen: false };
+const STYLE: Style = { dry: 0.05, dryHigh: true, meadow: 0.1, dune: 0.3, trees: 1, bushes: 1, tufts: 0, wayside: false, oaks: false, pines: false, fen: false, paleSand: false };
 
 /** Biome libraries a region may name (public/war/biomes/<name>; 'global' is the base set). */
 export const BIOMES = ['global', 'elaia', 'kyrene', 'mountains', 'dodona', 'moors'] as const;
@@ -2245,7 +2247,8 @@ export function build(def: RegionDef): Built {
     id: w.id, name: w.name, w: W, h: H, cells: { rle: encodeCells(height, terrain, water) }, entries, noBuild,
     objs: encodeObjects(objects), blocked, visual: { scale: 2 as const, rle: encodeVisual(fine.kind, fine.z) },
     biomes: { names: [...BIOMES], rle: encodeBiomes(biome) }, lairs, claimPoints, ...(secrets.length ? { secrets } : {}), ...(prebuilt.length ? { prebuilt } : {}),
-    ...(guardians.length ? { guardians } : {}), ...(REGION_DEPTH[w.id] === 4 && w.role === 'neutral' && w.sea?.length ? { rim: w.sea[0] } : {}), meta,
+    ...(guardians.length ? { guardians } : {}), ...(REGION_DEPTH[w.id] === 4 && w.role === 'neutral' && w.sea?.length ? { rim: w.sea[0] } : {}),
+    ...(k.style.paleSand ? { palette: 'pale-sand' as const } : {}), meta,
   };
   const spots: Record<string, Pt> = {};
   for (const s of k.sides) spots[`entry_${s.id}`] = k.entry(s.id, 5);
