@@ -158,9 +158,10 @@ export function mountRoster(s: SandboxScene, mk: Mk): RosterHooks {
     else if (a === 'back' && (sel || open)) { if (sel) sel = null; else open = false; render(); }
   });
 
-  R.onNote = toaster(toasts, (pid) => { open = true; show(pid); });
+  const toast = toaster(toasts, (pid) => { open = true; show(pid); });
+  R.onNote = toast;
   secretNotices(s, (n) => R.onNote?.(n)); // world-fill: hidden quests and slain chiefs as notes
-  fieldNotes(s, (n) => R.onNote?.(n), () => R.rows()); // W-79 a man back on his feet, W-72 a raid beaten (../fieldNotes.ts)
+  fieldNotes(s, (n) => R.onNote?.(n), () => R.rows(), toast.drop); // W-79 a man back on his feet, W-72 a raid beaten, its warning gone (../fieldNotes.ts)
   mountMastery(s, (n) => R.onNote?.(n)); // W-73: the region mastery chip and its toast
   // W-79: food low in a squad's packs, or its men going hungry (../foodWatch.ts)
   const food: FoodMemo = new Map();
