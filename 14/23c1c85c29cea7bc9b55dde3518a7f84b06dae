@@ -1,0 +1,25 @@
+server/src/war/room.ts
+  s_0dd3a9d3e5007a::t_d3e18726142ac5 367
+tests/war/earlySurvival.test.ts
+  s_0dd3a9d3e5007a::t_59db11c03258c1 116,118
+  s_0dd3a9d3e5007a::t_8d32f56795af1f 114-115
+  s_0dd3a9d3e5007a::t_25e86da1c78582 100-113,117,119-126
+src/war/sim/index.ts
+  s_0dd3a9d3e5007a::t_ae857481c13bf9 3294
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "1423c1c85c29cea7bc9b55dde3518a7f84b06dae",
+  "prompts": {},
+  "sessions": {
+    "s_0dd3a9d3e5007a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b6130d3d-c070-494f-98d5-046db89f2d1c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
