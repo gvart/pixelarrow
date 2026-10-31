@@ -3791,3 +3791,26 @@ dead-wounded turning alive.
 **Lessons:** (1) A colour cut leaves a puff's darker outline ring behind; when the puff sits inside the next frame's
 body, swap the frame. (2) PixMiniMax at 132 px costs one generation for 12 frames, 128 costs two: pad the 68 px
 rotation onto 132 and crop back.
+
+## 54. Lion idle
+
+The §53 open trace: the small lion's template idle (`mob_lion_idle`, 9 frames) kept a second ear and a ring round the
+face in the SW rows, and since §53 it was drawn smaller and 6 px higher than the rerolled walk, so idle to walk
+popped. A pixel edit could not fix the size; **2 PixelLab generations** (no rerolls): the idle rerolled exactly as
+the §53 walk (PixMiniMax, 12 frames, `view: high top-down`, the character's rotation padded onto 132 at (32, 32),
+cropped back to 92 at (20, 20): `idle/<dir>/a1c`), same subject and pose captions as the walk:
+- SW: `the lioness stands still on the same spot, idle and watchful, breathing slowly: her flanks and ribs rise and fall gently, the head held low and steady and only turning a little to look about, the ears twitching once, the long thin tail swaying slowly behind; the four paws stay planted on the ground and do not move; she does not walk, she does not move away; the same lioness with exactly one head and exactly four legs in every frame; the lioness alone; no dust, no effects`
+- NW: `seen from behind, its back to the viewer in every frame, it never turns round: ` + the SW text with `the head held low and steady facing away` + `she keeps facing away from the viewer towards the upper left in every frame, only her back is seen;` before `the lioness alone`.
+
+Both kept first time: one head, paws planted, tail sways, the loop closes. The anchors come from idle frame 0, so the
+feet line moved to the rotation's (SW y 79 to 85); the attack, still the template clip, was placed off by the same
+amount, so `build.mjs` takes a per-clip `"pad": { "<dir>": [x, y] }` for template clips: lion attack SW [4, 17],
+NW [6, 14] (template idle frame 0 matched onto the rotation: alpha IoU for x, the feet line for y). Raws were gone
+again: `fetch.mjs` for the zip, the die copied out of it (`mob_lion_die*`, input frame dropped), `fetchjobs.mjs` for
+walk and idle; the old spec rebuilt pixel-identical first.
+
+**Lessons:** (1) `fetchjobs.mjs` empties the dir of a job that 404s: rerunning it after copying the die out of the
+zip wipes the die; copy after the last fetch. (2) When one clip of a sheet moves from template to PixMiniMax, check
+every other template clip's frame 0 against the new idle; the template animations are drawn smaller than the
+rotation and off its feet line. (3) Open: the lion's attack is still the template clip, about 15% smaller than idle and
+walk; a PixMiniMax attack reroll would match them.
