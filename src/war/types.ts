@@ -257,7 +257,7 @@ export interface SiegeSnap {
   /** M6k: the cart's first items (uid, def, rarity, quality; at most 8). */
   list?: HoldItem[];
 }
-export interface UnitSnap { id: UnitId; squad: SquadId; x: number; y: number; facing: number; hp: number; maxHp: number; cls: string; state: 'idle' | 'move' | 'attack' | 'dead' | 'gather' | 'build'; wounded?: boolean; /** W-79 early mercy: knocked down, he may rise (sim and server only, not on the wire). */ down?: true; swing?: number; ready?: number; carry?: ResourceKind; load?: number;
+export interface UnitSnap { id: UnitId; squad: SquadId; x: number; y: number; facing: number; hp: number; maxHp: number; cls: string; state: 'idle' | 'move' | 'attack' | 'dead' | 'gather' | 'build'; wounded?: boolean; /** W-79 early mercy: knocked down, he may rise (on the wire since W-81). */ down?: true; swing?: number; ready?: number; carry?: ResourceKind; load?: number;
   /** M2c: what it does at its target while standing there: torching, beating out a fire, pushing a ladder, crewing an engine (state build: building one). */
   task?: 'ignite' | 'extinguish' | 'push' | 'crew';
   /** Height level it stands on (ground, stair or walkway). on: the building whose walkway, platform or stair it stands on. */

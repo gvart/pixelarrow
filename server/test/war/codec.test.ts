@@ -21,6 +21,17 @@ function got(u: UnitSnap) {
 const frame = (s: Snapshot, shots = s.shots ?? []): FrameInput => ({ tick: s.tick, units: s.units, squads: s.squads, shots, buildings: s.buildings ?? [] });
 
 describe('war delta codec', () => {
+  it('W-81: a man knocked down (W-79 down) says so on the wire, and stops saying it once up', () => {
+    const u: UnitSnap = { id: 1, squad: 0, x: 10, y: 10, facing: 0, hp: 0, maxHp: 10, cls: 'hoplite', state: 'dead', wounded: true, down: true };
+    const sq: SquadSnap = { id: 0, owner: 'p:1', team: 0, units: [1], order: 'hold' } as SquadSnap;
+    const enc = new DeltaEncoder(), dec = new DeltaDecoder();
+    expect(dec.apply(enc.encode({ tick: 1, units: [u], squads: [sq], shots: [], buildings: [] }, true)).units[0]).toMatchObject({ down: true, wounded: true });
+    const up: UnitSnap = { ...u, hp: 3, state: 'idle', wounded: undefined, down: undefined };
+    delete up.wounded;
+    delete up.down;
+    expect(dec.apply(enc.encode({ tick: 2, units: [up], squads: [sq], shots: [], buildings: [] }, false)).units[0].down).toBeUndefined();
+  });
+
   it('round-trips a running battle through keyframes and deltas', () => {
     const sim = createSim(region, 3);
     const a = sim.spawnSquad('p:1', 0, 'hoplite', 20, 420, 250);
