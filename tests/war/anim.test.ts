@@ -41,6 +41,21 @@ describe('war clip selection', () => {
     expect(a.pick(unit({ hp: 0, state: 'dead' }), clips, at(200, 3), [foe], []).clip).toBe('fallBack');
   });
 
+  it('a man knocked down gets up by his fall played backwards, then stands; a second fall starts afresh', () => {
+    const a = new Animator(), foe = unit({ id: 2 }, 1, 1);
+    const down = unit({ hp: 0, state: 'dead', wounded: true, down: true });
+    a.pick(down, clips, at(0, 1), [foe], []);
+    expect(a.pick(down, clips, at(5000, 50), [foe], [])).toEqual({ clip: 'fallBack', frame: 11 }); // lying
+    // W-79: up again at 30% hp: the fall runs backwards from where he lay to his feet
+    const up = unit({ hp: 3 });
+    const rise = [5000, 5300, 5600, 5900].map((t) => a.pick(up, clips, at(t, 51), [foe], []));
+    expect(rise.every((p) => p.clip === 'fallBack')).toBe(true);
+    expect(rise.map((p) => p.frame)).toEqual([11, 8, 4, 1]);
+    expect(a.pick(up, clips, at(6100, 52), [foe], []).clip).not.toMatch(/^fall/);
+    // knocked down again: the fall plays from its first frame, not held at the old one's end
+    expect(a.pick(down, clips, at(9000, 90), [foe], []).frame).toBe(0);
+  });
+
   it('desyncs a squad standing idle', () => {
     const a = new Animator(), frames = new Set<number>();
     for (let id = 0; id < 12; id++) frames.add(a.pick(unit({ id }), clips, at(0, 1), [], []).frame);

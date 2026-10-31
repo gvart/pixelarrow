@@ -2,6 +2,7 @@
  * Which clip a soldier plays, and which frame of it, from the 10 Hz snapshots (./units.ts draws it).
  *
  *   dead              fallBack when the blow came from in front, else fallFwd; held on the last frame
+ *   up again          (W-79: knocked down, he rises) that fall played backwards once, from lying to his feet
  *   striking          the class's blow (thrust / slash; shoot / sling / throw while it has missiles, else
  *                     stab) played once per blow, started so its `strike` frame shows on the tick the
  *                     blow lands (the sim's `ready` lets it start early; `swing` places it when late)
@@ -130,7 +131,7 @@ export function strideFrame(c: ClipDef, phase: number): number {
   return Math.min(c.n - 1, Math.floor(phase * c.n));
 }
 
-interface OneShot { name: string; start: number; end: number }
+interface OneShot { name: string; start: number; end: number; /** played backwards (a man getting up) */ back?: true }
 interface Mem {
   hp: number; blow: number; ranged: boolean; one: OneShot | null; loop: string; loopAt: number; fall: OneShot | null; px: number; py: number; t: number; v: number;
   /** Locomotion: cycle phase, the clip shown, the moving gait (hysteresis), since when nearly still (-1: moving). */
@@ -221,7 +222,18 @@ export class Animator {
       else if (raw < STILL && m.still < 0) m.still = now;
     }
 
+    // W-79: alive again after a fall (knocked down, now up): the fall runs backwards, from lying to his feet
+    if (m.fall) {
+      const c = clips.get(m.fall.name)!;
+      m.one = { name: m.fall.name, start: now, end: now + (c.n * 1000) / c.fps, back: true };
+      m.fall = null;
+      m.hp = u.hp;
+    }
     if (m.one && now >= m.one.end) m.one = null;
+    if (m.one?.back) {
+      const c = clips.get(m.one.name)!;
+      return { clip: m.one.name, frame: Math.max(0, c.n - 1 - Math.floor(((now - m.one.start) * c.fps) / 1000)) };
+    }
     const strikeName = this.strikeClip(clips, cls, m.ranged);
     const striking = () => !!m.one && m.one.name === strikeName && now >= m.one.start;
     if (u.state === 'attack') {
