@@ -1,5 +1,6 @@
 {
  "class": "mob_moor_bear",
+ "undust": "last, on the shipped sheet: node scripts/art/pixellab/mobs/undust.mjs mob_moor_bear 0 0 die:8=11! die:9=11! die:10=11!",
  "raw": "docs/v5/pixellab/GUARD/raw/moor_bear",
  "rotations": "docs/v5/pixellab/GUARD/raw/moor_bear/rot",
  "upsheet": "after build.mjs, drawn at true size: node scripts/art/pixellab/mobs/upsheet.mjs mob_moor_bear 1.15 attack:6=7:1,3",

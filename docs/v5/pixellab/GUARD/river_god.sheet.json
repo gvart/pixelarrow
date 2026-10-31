@@ -1,5 +1,6 @@
 {
  "class": "mob_river_god",
+ "undust": "last, on the shipped sheet: node scripts/art/pixellab/mobs/undust.mjs mob_river_god 0 0 die:6=8! die:7=8!",
  "raw": "docs/v5/pixellab/GUARD/raw/river_god",
  "rotations": "docs/v5/pixellab/GUARD/raw/river_god/rot",
  "shrink": 1,
