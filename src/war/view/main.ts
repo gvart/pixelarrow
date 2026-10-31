@@ -27,6 +27,7 @@ import { myTeam, setMyTeam } from './side';
 import { GUIDE_LAIR, GUIDE_SOUL, guideSpots, HOME_R } from '../net/guide';
 import { guideKey, guideOpen, loadGuide, setGuide } from './hud/guide';
 import { ARMY_MAX } from '../sim/soldiers';
+import { HUNGER } from '../sim/food';
 import { WORLD_REGIONS } from '../regions';
 import { chatBusy } from './hud/chat';
 import { escPanelOpen } from './hud/kit';
@@ -87,6 +88,7 @@ void Promise.all([loading, grey ? null : loadArt(undefined, loader?.part('art', 
   const scene = new SandboxScene();
   live = scene;
   let placed = false; // world entry: the camera is on the player's men (the loading screen waits for it)
+  let pack = false; // W-79 offline world entry: his fresh men get their march rations once they stand here
   const game = new Phaser.Game({
     type: Phaser.WEBGL,
     parent: 'game',
@@ -119,6 +121,7 @@ void Promise.all([loading, grey ? null : loadArt(undefined, loader?.part('art', 
       scene.sim.spawn('you', team, 'hoplite', soul ? ARMY_MAX - 1 : ARMY_MAX, at.x, at.y);
       if (soul) scene.sim.spawnSoul(spots!.soul.x, spots!.soul.y, GUIDE_SOUL.cls, GUIDE_SOUL.level, 'shrine');
       if (lair) scene.sim.addLair(GUIDE_LAIR.kind, spots!.lair.x, spots!.lair.y, GUIDE_LAIR.count);
+      pack = offline; // offline his men are new every load: a new player's rations (online: server/src/war/guide.ts)
       game.events.on('poststep', toSquad);
     }
     devPanel(game, scene, sc);
@@ -145,6 +148,7 @@ void Promise.all([loading, grey ? null : loadArt(undefined, loader?.part('art', 
     }
     if (!own) return;
     game.events.off('poststep', toSquad);
+    if (pack) for (const sq of scene.sim.cur?.squads ?? []) if (sq.team === myTeam() && sq.owner === 'you') scene.sim.feed(sq.team, sq.id, 'ration', HUNGER.kit * sq.units.length);
     scene.focus(own.x, own.y, 1); // close enough to know his men
     placed = true;
     // his men selected: their rings and outlines show them through trees and walls, and orders go to them at once

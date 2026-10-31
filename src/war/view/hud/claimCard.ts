@@ -88,7 +88,9 @@ export function mountClaimCard(s: SandboxScene, mk: Mk): void {
     // beside the cursor, kept on screen (above it near the bottom)
     const r = s.game.canvas.getBoundingClientRect(), z = Number(card.style.zoom) || 1, t = card.getBoundingClientRect();
     const x = Math.min(r.left + p.x + 18, innerWidth - t.width - 4);
-    let y = r.top + p.y + 42; // under the context action's label (../interact.ts)
+    // under the context action's label (../interact.ts), a clear gap below its measured box (it grows with the UI scale)
+    const lb = s.interact.labelBox();
+    let y = Math.max(r.top + p.y + 42, lb ? lb.bottom + 8 : 0);
     if (y + t.height > innerHeight - 4) y = r.top + p.y - t.height - 12;
     card.style.left = `${Math.round(Math.max(4, x) / z)}px`;
     card.style.top = `${Math.round(Math.max(4, y) / z)}px`;

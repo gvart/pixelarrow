@@ -3777,6 +3777,11 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
           if (s.bandages > 0) snap.bandages = s.bandages;
           if (s.theriacUntil > tick) snap.theriac = true;
           if (towns.blessed(s.id)) snap.blessed = true;
+          if (s.team !== MOB_TEAM && s.team !== NEUTRAL_TEAM && !s.civ) {
+            let m = 0;
+            for (const u of s.units) if (u.alive && u.pack) m += Math.floor(amountOf(u.pack, 'ration')) + Math.floor(amountOf(u.pack, 'food'));
+            snap.meals = m; // W-79: the HUD warns when the packs run low
+          }
           const st = s.units[0]?.st;
           if (st && st.range > 0 && st.missile === 'arrow') {
             const why = fireBlock(s);

@@ -32,6 +32,7 @@ import { keys } from '../../../input/keys';
 import { mountSoulRise, soulRise } from '../../soulRise';
 import { secretNotices } from '../../secretNotice';
 import { mountMastery } from '../mastery';
+import { foodNote, foodWarnings, type FoodMemo } from '../foodWatch';
 
 type Mk = (id: string, css: string, html?: string) => HTMLElement;
 /** The dev panel (F1, ../hud.ts) is open: the cards show their dev buttons. */
@@ -159,6 +160,12 @@ export function mountRoster(s: SandboxScene, mk: Mk): RosterHooks {
   R.onNote = toaster(toasts, (pid) => { open = true; show(pid); });
   secretNotices(s, (n) => R.onNote?.(n)); // world-fill: hidden quests and slain chiefs as notes
   mountMastery(s, (n) => R.onNote?.(n)); // W-73: the region mastery chip and its toast
+  // W-79: food low in a squad's packs, or its men going hungry (../foodWatch.ts)
+  const food: FoodMemo = new Map();
+  setInterval(() => {
+    const cur = s.sim.cur, me = s.sim.playerId;
+    if (cur) for (const w of foodWarnings(cur, me !== null ? `p:${me}` : 'you', food)) R.onNote?.(foodNote(w));
+  }, 1000);
   R.onChange = render;
   markers(s);
   mountMemorial(s, mk, R); // E3: the home memorial (graves, trophies) and its panel

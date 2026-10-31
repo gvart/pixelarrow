@@ -293,7 +293,9 @@ export interface SquadSnap { id: SquadId; owner: string; team: number; units: Un
   /** M5h: the dish it ate last (while fed), bandages it carries, theriac on (venom ignored). */
   dish?: Product; bandages?: number; theriac?: true;
   /** M7a: blessed at a temple or shrine (wounded share and healing up). */
-  blessed?: true }
+  blessed?: true;
+  /** W-79: bites of food left in its living men's packs (rations and plain food, whole); players' squads only. */
+  meals?: number }
 export interface FireArrowsSnap { on: boolean; available: boolean; reason?: 'noBrazier' | 'noPitch' }
 export type MissileKind = 'arrow' | 'stone' | 'javelin' | 'bolt';
 /**

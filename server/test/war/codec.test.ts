@@ -3,7 +3,7 @@ import { DeltaDecoder, DeltaEncoder, type FrameInput } from '../../../src/war/ne
 import { QUANT } from '../../../src/war/net/protocol';
 import { createSim } from '../../../src/war/sim';
 import { makePerson } from '../../../src/war/sim/roster';
-import type { BuildingSnap, SiegeSnap, Snapshot, SoulSnap, UnitSnap, WarPerson } from '../../../src/war/types';
+import type { BuildingSnap, SiegeSnap, Snapshot, SoulSnap, SquadSnap, UnitSnap, WarPerson } from '../../../src/war/types';
 import { warRegion } from '../../src/war/regions';
 
 const region = warRegion('test-ridge')!;
@@ -137,6 +137,16 @@ describe('war delta codec', () => {
     s = dec.apply(enc.encode(at(170, [{ ...u, sat: undefined }], []), false));
     expect(s.units[0].sat).toBeUndefined();
     expect(s.souls).toBeUndefined();
+  });
+
+  it('W-79: carries the food left in a squad\'s packs, resent when it changes', () => {
+    const sq = { id: 1, owner: 'p:1', team: 0, units: [], order: 'hold', meals: 96 } satisfies SquadSnap as SquadSnap;
+    const enc = new DeltaEncoder(), dec = new DeltaDecoder();
+    const at = (tick: number, squads: SquadSnap[]) => ({ tick, units: [], squads, shots: [], buildings: [] });
+    expect(dec.apply(enc.encode(at(100, [sq]), true)).squads[0].meals).toBe(96);
+    expect(dec.apply(enc.encode(at(110, [{ ...sq, meals: 3 }]), false)).squads[0].meals).toBe(3);
+    expect(dec.apply(enc.encode(at(120, [{ ...sq, meals: 900 }]), false)).squads[0].meals).toBe(254);
+    expect(dec.apply(enc.encode(at(130, [{ ...sq, meals: undefined }]), false)).squads[0].meals).toBeUndefined();
   });
 
   it('W-67: round-trips guardians in a fight (slow part on change, position and hp per tick) and the Warden\'s mark', () => {
