@@ -72,6 +72,7 @@ import { claimFirst, mountClaimCard, showNearestClaim } from './claimCard';
 import { claimNeed } from './explain';
 import { depthOf } from '../../sim/depth';
 import { chip, details, qcard } from './qcard';
+import { mealsMark } from './foodWatch';
 import { mountRegionChat } from './chatRegion';
 import { mountPeace } from './peace';
 import { mountSettlements } from './settlements';
@@ -630,7 +631,10 @@ export function hud(s: SandboxScene): void {
       // level (whole levels: one, or the lowest to the highest) and food (the average; no morale in the sim)
       const lvls = men.filter((d) => d.u.level).map((d) => d.u.level!), lo = lvls.length ? Math.min(...lvls) : 0, hi = lvls.length ? Math.max(...lvls) : 0;
       const fedMen = men.filter((d) => d.u.sat !== undefined), sat = fedMen.length ? fedMen.reduce((a, d) => a + d.u.sat!, 0) / fedMen.length : -1;
-      const fed = sat >= 0 ? ` · <span class="hud-fed ${sat >= 60 ? 'good' : sat >= 30 ? 'warn' : 'bad'}" title="how fed they are (food: the squad chest)">fed ${Math.round(sat)}%</span>` : '';
+      // W-79: and the food left in their squads' packs (./foodWatch.ts)
+      const sqs = new Set(men.map((d) => d.u.squad)), packs = (s.sim.cur?.squads ?? []).filter((x) => sqs.has(x.id) && x.meals !== undefined);
+      const meals = packs.length ? packs.reduce((a, x) => a + x.meals!, 0) : undefined, menIn = (s.sim.cur?.units ?? []).filter((u) => sqs.has(u.squad) && u.state !== 'dead').length;
+      const fed = sat >= 0 ? ` · <span class="hud-fed ${sat >= 60 ? 'good' : sat >= 30 ? 'warn' : 'bad'}" title="how fed they are (food: the squad chest)">fed ${Math.round(sat)}%</span> ${mealsMark(meals, menIn)}` : '';
       const chips = q.blessed ? '<span class="hud-chip gold">Blessed</span>' : '';
       setHead(UNIT_ICON[cls] ?? 'unit-militia', byCls.size > 1 ? 'Mixed' : CLASS_NAME[cls] ?? civName(cls) ?? nice(cls), `<b>${men.length}</b> ${men.length === 1 ? 'man' : 'men'}${byCls.size > 1 ? `, ${byCls.size} classes` : ''}${fed}`, hudBar('hp', hp / max, `${Math.ceil(hp)} / ${Math.ceil(max)}`),
         civ ? civInfo(s, own[0]) : e ? `crews ${SIEGE_NAME[e.type]} · ${e.state}${e.burning ? ' · burning' : ''}` : `${s.sim.cur ? activityText(q, s.sim.cur, { nodes: s.sim.nodes, goal: s.lastCommand }) : q.order}${q.fed ? ' · fed' : ''}${sc.status ? ' · ' + sc.status : ''}`, undefined, chips);
