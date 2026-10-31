@@ -134,7 +134,7 @@ describe('titles (W-61)', () => {
     for (const x of t) expect(x.value).toBeGreaterThan(0);
   });
 
-  it('the Warlord counts kills this season, not his men\'s lifetime kills', async () => {
+  it('the Ares-born title counts kills this season, not his men\'s lifetime kills', async () => {
     const vet = await player(8611, 0), fresh = await player(8612, 1), S = WAR_SEASON.id, now = Date.now();
     // the veteran's man has 500 lifetime kills, all from older seasons; this season he struck down 3, the fresh one 7
     await DB().prepare("INSERT INTO war_persons (id, player_id, cls, name, level, xp, points, kills, battles, attrs, skills, gear, honours, state, created_at, updated_at) VALUES ('wl-vet', ?1, 'hoplite', 'Vet', 9, 0, 0, 500, 80, '{}', '[]', '{}', '[]', 'active', ?2, ?2)").bind(vet, now).run();

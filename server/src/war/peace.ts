@@ -7,7 +7,7 @@
  *  - Peace score (war_peace_score): per alliance, UTC day and kind, capped a day; the points also go to the world
  *    (WarWorldDO.addPeace) by the caller.
  *  - Titles: the season's leader in each stat, at least TITLE.min of it: Merchant Prince (coin sold), Master Builder
- *    (labour), Warden (guard hours), Warlord (kills of his men this season: war_player_stats, not the men's lifetime kills).
+ *    (labour), Warden (guard hours), Ares-born (id warlord; kills of his men this season: war_player_stats, not the men's lifetime kills).
  *  - The stats' season is the world's (STAT_SEASON: one past the last board in war_season_results), not WAR_SEASON.id,
  *    so titles are won anew each season; the crests already earned (war_cosmetics) stay.
  */
@@ -74,7 +74,7 @@ export const TITLES: readonly { id: TitleId; name: string; of: string }[] = [
   { id: 'merchantPrince', name: 'Merchant Prince', of: 'coin sold at his stalls' },
   { id: 'masterBuilder', name: 'Master Builder', of: 'man-hours of labour sold or given' },
   { id: 'warden', name: 'Warden', of: 'hours held under guard contracts' },
-  { id: 'warlord', name: 'Warlord', of: 'foes his men struck down' },
+  { id: 'warlord', name: 'Ares-born', of: 'foes his men struck down' },
 ];
 export interface Title { id: TitleId; name: string; pid: number; player: string; alliance: number; home: string | null; value: number }
 
