@@ -1,0 +1,25 @@
+src/war/world-view/lords.ts
+  s_0dd3a9d3e5007a::t_d6aa0aece2c21c 49-55
+tests/war/worldLords.test.ts
+  s_0dd3a9d3e5007a::t_77b3dac67c67b4 10,49-55
+  s_0dd3a9d3e5007a::t_98f213a6572ac3 56
+src/war/world-view/map.ts
+  s_0dd3a9d3e5007a::t_9f5107a457ce2e 15
+  s_0dd3a9d3e5007a::t_d6aa0aece2c21c 442,445-446,468,480
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "dca6d11c7b3add7c2c71fd48a58c74572a55cd67",
+  "prompts": {},
+  "sessions": {
+    "s_0dd3a9d3e5007a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b6130d3d-c070-494f-98d5-046db89f2d1c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
