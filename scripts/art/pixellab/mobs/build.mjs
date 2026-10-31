@@ -10,7 +10,8 @@
 //     "template": "<animation folder prefix in the character zip>" |
 //     "job": { "<dir>": "<attempt>" } (clips/<anim>/<dir>/<attempt>/) |
 //     "of": "<anim>", "frames": [indices of that clip] (e.g. a hit made from a death's first frames),
-//     "keep"?: [frame indices to keep, in order] | { "<dir>": [...] } } },
+//     "keep"?: [frame indices to keep, in order] | { "<dir>": [...] },
+//     "pad"?: { "<dir>": [x, y] } (a template clip placed off the spec's pad: lines it up with job clips) } },
 //   "tint"?: { "hue", "chroma", "lift"? } (recolour the palette: a mob drawn from another's frames, see tint())
 //   "shadow"?: true (cut the flat grey ground shadow PixelLab draws under some views)
 //   "rotations"?: "<dir with <facing>.png>" (a base made by editing, not a fetched character: palette from these)
@@ -130,7 +131,10 @@ function inpaint(c) {
 
 function rawClip(name, c, dir) {
   if (c.job?.[dir]?.startsWith('mirror:')) return rawClip(name, c, c.job[dir].slice(7)).map(flip);
-  if (c.template && !c.job?.[dir]) return templateFrames(c.template, dir).map((f) => onCanvas(f, PX, PY));
+  if (c.template && !c.job?.[dir]) {
+    const [x, y] = c.pad?.[dir] ?? [PX, PY];
+    return templateFrames(c.template, dir).map((f) => onCanvas(f, x, y));
+  }
   if (c.job) return frames(join(spec.raw, 'clips', name, dir, c.job[dir])).map((f) => onCanvas(f, 0, 0));
   throw new Error(`clip ${name}: template or job`);
 }
