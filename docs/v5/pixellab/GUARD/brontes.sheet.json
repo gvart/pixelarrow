@@ -1,5 +1,6 @@
 {
  "class": "mob_brontes",
+ "undust": "last, on the shipped sheet: node scripts/art/pixellab/mobs/undust.mjs mob_brontes 0 0 die:1=2!",
  "raw": "docs/v5/pixellab/GUARD/raw/brontes",
  "rotations": "docs/v5/pixellab/GUARD/raw/brontes/rot",
  "shrink": 1,

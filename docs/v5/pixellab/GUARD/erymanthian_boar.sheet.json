@@ -1,5 +1,6 @@
 {
  "class": "mob_erymanthian_boar",
+ "undust": "last, on the shipped sheet: node scripts/art/pixellab/mobs/undust.mjs mob_erymanthian_boar 75 125 die:8=11 die:7=8 die:6=7!",
  "raw": "docs/v5/pixellab/GUARD/raw/erymanthian_boar",
  "rotations": "docs/v5/pixellab/GUARD/raw/erymanthian_boar/rot",
  "upsheet": "after build.mjs, drawn at true size: node scripts/art/pixellab/mobs/upsheet.mjs mob_erymanthian_boar 1.3 --white 200",
