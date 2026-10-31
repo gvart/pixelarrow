@@ -182,7 +182,7 @@ export function hud(s: SandboxScene): void {
   const modes = new ModeBar(s);
   document.body.append(modes.el, modes.legend);
   els.push(modes.el, modes.legend);
-  new FullMap(s); // M
+  const full = new FullMap(s); // M: the region map, M again the world map over the region
 
   // ---------- tooltip ----------
   const tip = mk('rfTip', 'display:none;z-index:6');
@@ -454,10 +454,9 @@ export function hud(s: SandboxScene): void {
   const top = mountTopBar(s, tipOn);
   els.push(top.el);
   const menus = top.el.querySelector<HTMLElement>('.tb-r')!;
-  // M4c: back to the world map (world.html); a live region opens the live world as the same dev player, else the mock
-  const goWorld = () => { const q = new URLSearchParams(location.search), w = new URLSearchParams(); if (q.has('net')) { if (q.get('dev')) w.set('dev', q.get('dev')!); } else w.set('offline', '1'); location.href = `world.html?${w}`; };
-  const wbtn = menuBtn('rfWorld', 'mode-altitude', 'World map', 'back to the world map (plain W pans the camera)', 'go.world', 0);
-  wbtn.onclick = goWorld;
+  // M4c: the world map, as an overlay over this region (./fullMap.ts; its World screen button opens world.html)
+  const wbtn = menuBtn('rfWorld', 'mode-altitude', 'World map', 'the world map over this region (plain W pans the camera)', 'go.world', 0);
+  wbtn.onclick = () => full.go('world');
   // ---------- dev only, top right: the dev panel (F1), the UI scale (players set it in Settings, F10), the market (K) ----------
   const corner = mk('rfDev', 'top:4px;right:4px;pointer-events:auto;display:flex;gap:2px;opacity:.8', '');
   const dbtn = tb('DEV', 'dev panel (F1)', () => setDev(dev?.style.display === 'none'));

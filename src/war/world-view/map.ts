@@ -66,6 +66,18 @@ export interface MapState {
   warlords?: WarlordMark[];
   /** W-73: the regions the player has mastered this season (a gold star by the centre). */
   mastered?: ReadonlySet<string>;
+  /** The world overlay over a region (./overlay.ts): the region the player is in, outlined in gold. */
+  here?: string | null;
+}
+/** What is under a map point, the topmost first (WorldMap.pick): its card wins over the region's. */
+export interface MapPick {
+  region: string | null;
+  landmark: string | null;
+  lord: string | null;
+  mastered: string | null;
+  settle: number | null;
+  crown: number | null;
+  cluster: { region: string; items: string[] } | null;
 }
 /**
  * W-72: one warlord pennant on the map: whose, in which region, his hall or one of his lands; W-76 proposal (./lords.ts):
@@ -232,17 +244,88 @@ export class WorldMap {
   /** Fit the whole map into the canvas less the CSS px kept free for panels on each side. */
   fit(free: { top: number; left: number; right: number; bottom: number }): void {
     const w = this.canvas.clientWidth - free.left - free.right, h = this.canvas.clientHeight - free.top - free.bottom, [W, H] = this.art.size;
-    this.k = Math.min(w / W, h / H);
+    this.k = this.fitK = Math.min(w / W, h / H);
     this.x = -free.left / this.k - (w / this.k - W) / 2;
     this.y = -free.top / this.k - (h / this.k - H) / 2;
+    this.settle();
   }
 
-  /** Zoom by `f` about canvas point (cx, cy). */
+  // ---------- the camera's feel: an eased zoom about the pointer, a pan that glides on after a fling, kept on the map ----------
+  /** The zoom the camera eases toward (CSS px per map px). */
+  goal = 0.5;
+  private fitK = 0.2;
+  private anchor: [number, number] | null = null;
+  private vel: [number, number] = [0, 0];
+  private lastPan: { x: number; y: number; t: number } | null = null;
+  private stepAt = 0;
+  /** The zoom range: a little under the fit, up to 3. */
+  private clampK = (k: number) => Math.max(this.fitK * 0.85, Math.min(3, k));
+
+  /** Zoom by `f` about canvas point (cx, cy), at once. */
   zoom(f: number, cx: number, cy: number): void {
     const [mx, my] = this.toMap(cx, cy);
-    this.k = Math.max(0.2, Math.min(3, this.k * f));
+    this.k = this.clampK(this.k * f);
     this.x = mx - cx / this.k;
     this.y = my - cy / this.k;
+    this.settle();
+  }
+  /** Ease toward zoom `k` about canvas point (cx, cy): that map point stays under it. */
+  zoomTo(k: number, cx: number, cy: number): void {
+    this.goal = this.clampK(k);
+    this.anchor = [cx, cy];
+    this.vel = [0, 0];
+  }
+  /** Stop every motion where the camera is now. */
+  settle(): void {
+    this.goal = this.k;
+    this.anchor = null;
+    this.vel = [0, 0];
+    this.lastPan = null;
+  }
+  /** A drag starts: the glide stops. */
+  grab(): void {
+    this.settle();
+  }
+  /** A drag moves the camera to (x, y) at time t (ms); its speed carries on after release. */
+  panTo(x: number, y: number, t: number): void {
+    const l = this.lastPan, dt = l ? t - l.t : 0;
+    if (l && dt > 0) this.vel = [this.vel[0] * 0.4 + ((x - l.x) / dt) * 0.6, this.vel[1] * 0.4 + ((y - l.y) / dt) * 0.6];
+    this.x = x;
+    this.y = y;
+    this.lastPan = { x, y, t };
+    this.keepOnMap();
+  }
+  /** The drag ends at time t: a fling glides on, a stop stays put. */
+  release(t: number): void {
+    if (!this.lastPan || t - this.lastPan.t > 60) this.vel = [0, 0];
+    this.lastPan = null;
+  }
+  /** Keep at least a third of the view over the painting. */
+  private keepOnMap(): void {
+    const [W, H] = this.art.size, vw = this.canvas.clientWidth / this.k, vh = this.canvas.clientHeight / this.k;
+    this.x = Math.max(-vw * 0.67, Math.min(W - vw * 0.33, this.x));
+    this.y = Math.max(-vh * 0.67, Math.min(H - vh * 0.33, this.y));
+  }
+  /** One frame of the camera's easing and glide. */
+  private step(now: number): void {
+    const dt = Math.min(50, this.stepAt ? now - this.stepAt : 16);
+    this.stepAt = now;
+    if (this.anchor) {
+      const [cx, cy] = this.anchor, [mx, my] = this.toMap(cx, cy);
+      this.k += (this.goal - this.k) * (1 - Math.exp(-dt / 65));
+      if (Math.abs(this.goal - this.k) < this.goal * 0.002) (this.k = this.goal), (this.anchor = null);
+      this.x = mx - cx / this.k;
+      this.y = my - cy / this.k;
+      this.keepOnMap();
+    }
+    if (!this.lastPan && (this.vel[0] || this.vel[1])) {
+      this.x += this.vel[0] * dt;
+      this.y += this.vel[1] * dt;
+      const f = Math.exp(-dt / 200);
+      this.vel = [this.vel[0] * f, this.vel[1] * f];
+      if (Math.hypot(...this.vel) * this.k < 0.01) this.vel = [0, 0];
+      this.keepOnMap();
+    }
   }
 
   /** Where a squad on the road is now: from's centre to the crossing to to's centre, by time. */
@@ -261,6 +344,7 @@ export class WorldMap {
   }
 
   draw(st: MapState): void {
+    this.step(performance.now());
     const c = this.canvas, dpr = devicePixelRatio || 1, w = c.clientWidth, h = c.clientHeight;
     if (c.width !== Math.round(w * dpr) || c.height !== Math.round(h * dpr)) (c.width = Math.round(w * dpr)), (c.height = Math.round(h * dpr));
     const g = this.ctx, [W, H] = this.art.size;
@@ -329,6 +413,17 @@ export class WorldMap {
       g.strokeStyle = col;
       g.lineWidth = lw / Math.max(this.k, 0.4);
       g.stroke(p);
+    }
+
+    // the overlay's "you are here": a gold double edge round the region the player is in
+    const here = st.here && this.paths.get(st.here);
+    if (here) {
+      g.strokeStyle = 'rgba(14,9,7,.85)';
+      g.lineWidth = 7 / Math.max(this.k, 0.4);
+      g.stroke(here);
+      g.strokeStyle = `rgba(242,212,138,${0.75 + 0.25 * pulse})`;
+      g.lineWidth = 3.5 / Math.max(this.k, 0.4);
+      g.stroke(here);
     }
 
     // W-62: a region with a world event glows in its colour
@@ -463,6 +558,15 @@ export class WorldMap {
   masterySpots(st: MapState): StarSpot[] {
     return this.decor(st).stars;
   }
+  /** Everything under map point (x, y): the region (or the one whose event marker it is) and the marker on top. */
+  pick(st: MapState, x: number, y: number): MapPick {
+    const lord = this.lordAt(st, x, y)?.id ?? null;
+    return {
+      region: this.eventAt(st, x, y) ?? this.regionAt(x, y), landmark: this.landmarkAt(st, x, y), lord, mastered: lord ? null : this.masteryAt(st, x, y),
+      settle: this.settlementAt(st, x, y), crown: null, cluster: null,
+    };
+  }
+
   /** W-72: the warlord pennant under map point (x, y), else null. */
   lordAt(st: MapState, x: number, y: number): { id: string; region: string } | null {
     const s = pennantScale(this.k);
