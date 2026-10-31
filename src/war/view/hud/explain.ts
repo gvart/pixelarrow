@@ -14,7 +14,7 @@ import { WAR_BOSSES } from '../../../data/warBosses';
 import { LANDMARKS } from '../../../data/warLandmarks';
 import { ALLIANCES } from '../../world/alliances';
 import { worldRegion } from '../../world/graph';
-import type { BossSnap, ClaimSnap, LairSnap } from '../../types';
+import type { BossSnap, ClaimSnap, LairSnap, WarlordSnap } from '../../types';
 
 const TICK_S = 0.1; // the sim runs at 10 Hz
 const regionName = (id: string) => worldRegion(id)?.name ?? id;
@@ -116,9 +116,18 @@ export interface ClaimView {
   next: string;
 }
 
-/** A claim point's state and the next step, for the player of team `you`. */
-export function claimView(c: ClaimSnap, you: number, depth: number, lairs: readonly LairSnap[], bosses: readonly BossSnap[]): ClaimView {
+/** The rival warlord (W-72) whose men hold claim point `i`, if any: his name and title. */
+export function claimLord(ws: readonly WarlordSnap[] | undefined, i: number): { name: string; title: string } | null {
+  const w = (ws ?? []).find((o) => !o.fallen && o.holds.some((h) => h.place === `c${i}` && h.state === 'held'));
+  return w ? { name: w.name, title: w.title } : null;
+}
+
+/** A claim point's state and the next step, for the player of team `you`; `lord`: a rival warlord's men hold it. */
+export function claimView(c: ClaimSnap, you: number, depth: number, lairs: readonly LairSnap[], bosses: readonly BossSnap[], lord: { name: string; title: string } | null = null): ClaimView {
   const need = claimNeed(depth), hold = holdText({ men: c.men ?? need.men, players: c.players ?? need.players, secs: need.secs });
+  if (lord && c.state !== 'claimed' && c.state !== 'locked') {
+    return { label: `Held: ${lord.name}`, tone: 'bad', state: `Held by ${lord.name}, ${lord.title}, and his men.`, next: `Kill his men round the banner, then select men, E on the banner and ${hold}.` };
+  }
   if (c.state === 'claimed') {
     const who = ALLIANCES[c.team]?.name ?? 'another side', at = Math.floor(c.progress * need.secs);
     const by = c.by !== undefined && c.by >= 0 ? ALLIANCES[c.by]?.name ?? 'another side' : '';

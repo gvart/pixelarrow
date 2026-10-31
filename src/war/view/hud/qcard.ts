@@ -121,6 +121,7 @@ const CSS = `
 .qc-mt{margin-bottom:4px;font:700 13px/1.2 Cinzel,serif;color:var(--hud-title)}
 .rr-toast .rr-tt{font:700 13px/1.25 Inter,system-ui,sans-serif}
 .rr-toast .qc-chip{height:19px;margin-left:2px}
+.rr-toast .rr-act{height:21px;padding:0 8px;margin-left:4px;font-size:12px}
 #qcTip{position:fixed;z-index:${Z.tip};pointer-events:none;width:280px;display:none}
 `;
 

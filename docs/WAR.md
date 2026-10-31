@@ -1554,7 +1554,7 @@ in tests/war/wallsMatter.test.ts.
 Each season the leader in each stat (war_season_stats) holds a title, shown as an emblem (the words in its tooltip) under
 the roster's tabs, in the Works panel's Titles tab (the standings, with your own run at each), on the world map's season
 panel and after the holder's home on the map: **Merchant Prince** (coin sold at his stalls), **Master Builder** (man-hours sold
-under build contracts or given to works), **Warden** (hours held under guard contracts), **Warlord** (foes his men
+under build contracts or given to works), **Warden** (hours held under guard contracts), **Ares-born** (id `warlord`; renamed so it never reads as a rival warlord; foes his men
 struck down this season, war_player_stats; not the men's lifetime kills).
 
 ### Daily and weekly tasks (W-62, W-73 solo)

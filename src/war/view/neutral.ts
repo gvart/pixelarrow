@@ -10,12 +10,12 @@
  * (./hud/claimCard.ts).
  */
 import Phaser from 'phaser';
-import type { BossSnap, ClaimSnap, LairSnap } from '../types';
+import type { BossSnap, ClaimSnap, LairSnap, WarlordSnap } from '../types';
 import { TEAM_COLOR } from './units';
 import { HH, HW } from './iso';
 import { myTeam, slot } from './side';
 import { depthOf } from '../sim/depth';
-import { claimView } from './hud/explain';
+import { claimLord, claimView } from './hud/explain';
 import type { SandboxScene } from './SandboxScene';
 
 const DEN: Record<LairSnap['kind'], number> = { wolf: 0x9aa0a8, boar: 0x8a6a4a, bear: 0x5a4030, bandit: 0xc09040, jackal: 0xc8a868, ibex: 0xd8d0b8, lion: 0xb08848, serpent: 0x5a6a40, scorpion: 0xa07838, harpy: 0x8a8090, cyclops: 0x6a6058, drake: 0x7a3a28 };
@@ -55,7 +55,7 @@ export class NeutralLayer {
     }
   }
 
-  draw(lairs: LairSnap[], claims: ClaimSnap[], zoom: number, bosses: readonly BossSnap[] = []): void {
+  draw(lairs: LairSnap[], claims: ClaimSnap[], zoom: number, bosses: readonly BossSnap[] = [], warlords?: readonly WarlordSnap[]): void {
     const g = this.g.clear(), k = 1 / zoom, w = Math.max(1, 1.5 * k);
     lairs.forEach((l, i) => {
       const f = this.feet(l), cleared = l.state === 'cleared';
@@ -92,13 +92,15 @@ export class NeutralLayer {
         b.fillStyle(0x101010, 0.85).fillRect(bx, by, bw, 7);
         b.fillStyle(stop ? 0xff4040 : 0xffe070, 1).fillRect(bx + 1, by + 1, (bw - 2) * (stop ? 1 : c.progress), 5);
       }
-      const v = claimView(c, myTeam(), depthOf((this.scene as SandboxScene).region), lairs, []);
+      const lord = claimLord(warlords, i);
+      const v = claimView(c, myTeam(), depthOf((this.scene as SandboxScene).region), lairs, [], lord);
       const t = this.labels[i] ?? this.labels[this.labels.push(this.scene.add.text(0, 0, '', LABEL).setOrigin(0.5, 1).setResolution(2)) - 1];
       const text = `Claim point\n${v.label}`;
       if (t.text !== text) t.setText(text);
-      // a living guardian standing on the point hides its label (it would draw over him; the hover card still tells)
+      // a living guardian standing on the point hides its label (it would draw over him; the hover card still tells), and
+      // a warlord's holding is named once, by his own label over his war banner (./warlords.ts)
       const guarded = bosses.some((g) => g.state !== 'slain' && g.state !== 'away' && Math.abs(g.x - c.x) < 5 && Math.abs(g.y - c.y) < 5);
-      t.setColor(LABEL_TONE[v.tone]).setScale(k).setPosition(f.x + 10, top - 16).setDepth(b.depth + 0.01).setVisible(!guarded);
+      t.setColor(LABEL_TONE[v.tone]).setScale(k).setPosition(f.x + 10, top - 16).setDepth(b.depth + 0.01).setVisible(!guarded && !lord);
     });
   }
 }

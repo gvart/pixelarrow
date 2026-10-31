@@ -36,8 +36,11 @@ export interface Frame {
   bytes: number;
 }
 
-/** What changed into this frame, for ./moments.ts: men fallen, buildings destroyed, guardians slain (their ids). */
-export interface FrameNote { tick: number; fell: number; razed: number; slain: string[]; units: number }
+/**
+ * What changed into this frame, for ./moments.ts: men fallen, buildings destroyed, guardians slain (their ids), and men
+ * striking (a fight still on, though nobody fell lately: a lord with deep hp).
+ */
+export interface FrameNote { tick: number; fell: number; razed: number; slain: string[]; units: number; striking: number }
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
 
@@ -151,9 +154,10 @@ export class ReplayBuffer {
     const n = s.units.length, pos = new Float32Array(n * 4), small = new Uint16Array(n * 3), tpl: Tpl[] = new Array(n);
     const out = { bytes: 64 + pos.byteLength + small.byteLength + 16 + 8 * n };
     const tpls = new Map<number, Tpl>();
-    let fell = 0;
+    let fell = 0, striking = 0;
     for (let i = 0; i < n; i++) {
       const u = s.units[i], p = this.tpls.get(u.id);
+      if (u.state === 'attack') striking++;
       pos[i * 4] = u.x; pos[i * 4 + 1] = u.y; pos[i * 4 + 2] = u.facing; pos[i * 4 + 3] = u.hp;
       small[i * 3] = u.swing === undefined ? NONE : Math.min(NONE - 1, u.swing);
       small[i * 3 + 1] = u.ready === undefined ? NONE : Math.min(NONE - 1, u.ready);
@@ -198,7 +202,7 @@ export class ReplayBuffer {
     }
     this.pushMs = performance.now() - t0;
     this.maxPushMs = Math.max(this.maxPushMs, this.pushMs);
-    return { tick: s.tick, fell, razed, slain, units: n };
+    return { tick: s.tick, fell, razed, slain, units: n, striking };
   }
 
   /** The index of the newest frame at or before `tick` (0 before the first). */

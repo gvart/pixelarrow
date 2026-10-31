@@ -188,7 +188,7 @@ export function worksHtml(list: WorkView[], online: boolean, form: GiveForm, hom
 
 // ------------------------------------------------------------------ the titles
 
-/** What the player's own stats say for each title (Warlord: not in the peace stats). */
+/** What the player's own stats say for each title (Ares-born: not in the peace stats). */
 const MINE: Record<string, keyof PeaceStats> = { merchantPrince: 'sold', masterBuilder: 'labourHours', warden: 'guardHours' };
 
 /** The season standings: each title's emblem, holder and lead, and the player's own run at it. */

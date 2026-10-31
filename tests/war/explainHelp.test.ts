@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { claimBlocker, claimFirstHint, claimNeed, claimView, eventHelp, eventLine, eventWhen, metres, takeLine, TERRITORY } from '../../src/war/view/hud/explain';
+import { claimBlocker, claimFirstHint, claimLord, claimNeed, claimView, eventHelp, eventLine, eventWhen, metres, takeLine, TERRITORY } from '../../src/war/view/hud/explain';
 import { EVENT_KINDS, EVENT_REGIONS } from '../../src/war/world/events';
 import { regionCardHtml, type CardCtx } from '../../src/war/world-view/regionCard';
 import { eventCardHtml } from '../../src/war/view/hud/worldEvents';
@@ -84,6 +84,18 @@ describe('claiming in plain words', () => {
     expect(claimView(claim({ state: 'channel', men: 9, players: 2 }), 0, 3, [], []).next).toContain('2+ players');
     expect(claimView(claim({ state: 'claimed', team: 2 }), 0, 1, [], []).label).toBe('Held: Kyrene');
     expect(claimView(claim({ state: 'claimed', team: 0 }), 0, 1, [], []).next).toContain('B');
+  });
+
+  it('a point a rival warlord holds names him, never "Unclaimed"', () => {
+    const w = { id: 'h', name: 'Harpalos', title: 'Lord of the Toll', band: 'the Tollmen', kind: 'bandit' as const, tint: 0, scale: 1, seat: true, lord: 5, holds: [{ place: 'c0', x: 10, y: 10, men: 7, unit: 5, state: 'held' as const }] };
+    expect(claimLord([w], 0)).toEqual({ name: 'Harpalos', title: 'Lord of the Toll' });
+    expect(claimLord([w], 1)).toBeNull();
+    expect(claimLord([{ ...w, fallen: true }], 0)).toBeNull();
+    expect(claimLord([{ ...w, holds: [{ ...w.holds[0], state: 'marching' }] }], 0)).toBeNull();
+    const v = claimView(claim(), 0, 1, [], [], claimLord([w], 0));
+    expect(v.label).toBe('Held: Harpalos');
+    expect(v.state).not.toContain('Unclaimed');
+    expect(v.next).toContain('hold it with 3 men for 30 s');
   });
 
   it('a held point: how to take it, the taking, and the holder warned', () => {

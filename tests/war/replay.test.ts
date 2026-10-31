@@ -8,7 +8,7 @@ import { SPOTS } from '../../src/war/regions/test-ridge.spots';
 import { parseRegion } from '../../src/war/region/schema';
 import { createSim } from '../../src/war/sim';
 import { ReplayBuffer, REPLAY_TICKS } from '../../src/war/view/replay/buffer';
-import { Moments } from '../../src/war/view/replay/moments';
+import { BIG_FIGHT, Moments, QUIET, STALL, type Moment } from '../../src/war/view/replay/moments';
 import { ReplayPlayer } from '../../src/war/view/replay/player';
 import type { Snapshot } from '../../src/war/types';
 
@@ -110,5 +110,30 @@ describe('replay playback', () => {
     p.step(1e6);
     expect(p.t).toBe(buf.last);
     expect(p.playing).toBe(false);
+  });
+});
+
+describe('replay moments', () => {
+  const note = (tick: number, fell = 0, striking = 0) => ({ tick, fell, razed: 0, slain: [], units: 40, striking });
+  it('a big fight is told only once no blow is struck any more, not while men still hack at a lord', () => {
+    const m = new Moments(), got: Moment[] = [];
+    m.onMoment = (x) => got.push(x);
+    let t = 0;
+    for (let i = 0; i < BIG_FIGHT + 1; i++) m.feed(note(++t, 1, 20));
+    // his men are down; the lord fights on with deep hp: nobody falls, but blows are struck
+    for (let i = 0; i < QUIET * 3; i++) m.feed(note(++t, 0, 13));
+    expect(got).toEqual([]);
+    m.feed(note(++t, 1, 0)); // he falls
+    for (let i = 0; i <= QUIET + 1; i++) m.feed(note(++t, 0, 0));
+    expect(got.length).toBe(1);
+    expect(got[0].fell).toBe(BIG_FIGHT + 2);
+  });
+  it('blows struck forever (a skirmish far off) still end the fight once nobody fell for STALL', () => {
+    const m = new Moments(), got: Moment[] = [];
+    m.onMoment = (x) => got.push(x);
+    let t = 0;
+    for (let i = 0; i < BIG_FIGHT; i++) m.feed(note(++t, 1, 20));
+    for (let i = 0; i <= STALL + 1; i++) m.feed(note(++t, 0, 4));
+    expect(got.length).toBe(1);
   });
 });

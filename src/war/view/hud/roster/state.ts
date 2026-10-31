@@ -33,7 +33,11 @@ export type Where = 'field' | 'away' | 'wounded' | 'captive' | 'dead';
 /** A person as the panel shows him: where he is, his live man (in the field), his squad and its order, the region's name. */
 export interface Row { p: WarPerson; where: Where; unit?: UnitSnap; squad?: number; order?: Order['kind']; region: string }
 /** A toast; `icon` (HTML) takes the kind's icon's place and `chips` (HTML, ../qcard.ts) follow the text. */
-export interface Note { kind: 'levelUp' | 'capture' | 'dead' | 'info'; pid?: string; text: string; icon?: string; chips?: string }
+export interface Note { kind: 'levelUp' | 'capture' | 'dead' | 'info'; pid?: string; text: string; icon?: string; chips?: string;
+  /** A warning with a deadline: the notice stays this long (ms) and counts it down in a timer chip. */
+  for?: number;
+  /** Its one call to action (W-70), e.g. "Go there" moving the camera to the place. */
+  act?: { label: string; run: () => void } }
 /** E3: a grave on the home memorial: the fallen man (his record as he fell), where and when (ms). */
 export interface Grave { p: WarPerson; region: string; at: number }
 /** E3: a guardian's trophy in the home town. */

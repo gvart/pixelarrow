@@ -18,7 +18,7 @@ import { drawIcon, drawMap, explored, fogAt, FOG_SWATCH, ISO_ROT, ROAM_DOT, squa
 import { keys } from '../../input/keys';
 import { myTeam } from '../side';
 import { groundless } from './claimCard';
-import { metres, claimView } from './explain';
+import { metres, claimLord, claimView } from './explain';
 import { depthOf } from '../../sim/depth';
 
 const CLASS: Record<string, string> = { militia: 'Militia', hoplite: 'Hoplites', celt_sword: 'Swordsmen', archer: 'Archers', slinger: 'Slingers', javelineer: 'Javelineers' };
@@ -332,7 +332,7 @@ export class FullMap {
     if (lair) items.push([`${BEAST[lair.kind] ?? nice(lair.kind)} lair`, fog < 2 ? 'Out of sight' : lair.state === 'cleared' ? 'Cleared' : `${lair.alive} of ${lair.count} left · guards ${metres(lair.guard)}`]);
     const b = l.buildings.find((q) => q.state !== 'destroyed' && Math.abs(q.x - t.x) <= Math.max(q.w / 2, pick / 2) && Math.abs(q.y - t.y) <= Math.max(q.h / 2, pick / 2));
     if (b) items.push([nice(b.type), `${b.team === myTeam() ? 'Yours' : 'Enemy'} · ${b.state}`]);
-    if (c) { const v = claimView(c, myTeam(), depthOf(s.region), l.lairs, s.sim.cur?.bosses ?? []); items.push(['Claim point', `${v.state} ${v.next}`]); }
+    if (c) { const v = claimView(c, myTeam(), depthOf(s.region), l.lairs, s.sim.cur?.bosses ?? [], claimLord(s.sim.cur?.warlords, c.id)); items.push(['Claim point', `${v.state} ${v.next}`]); }
     const nd = l.nodes.find((q) => near(q.x, q.y, Math.max(1, pick / 2)) && explored(s, q.x, q.y));
     if (nd) items.push([nice(nd.res), `${Math.floor(nd.amount)} of ${nd.max} left${nd.guarded ? ' · guarded by a lair' : ''}`]);
     const q = squads(s).find((v) => v.team !== MOB_TEAM && near(v.x, v.y, Math.max(2, pick)));

@@ -69,7 +69,7 @@ export function mountTopBar(s: SandboxScene, tipOn: TipOn): { el: HTMLElement; r
   let stock: Record<string, number> = {}, men = 0;
   const chips = GOODS.map((r) => {
     const c = chip(r, goodIcon(r));
-    tipOn(c, () => tipHtml(goodName(r), Object.keys(stock).length ? `${Math.floor(stock[r] ?? 0)} in the store by your men. Click: the squad chest.` : 'No store of yours by your men: bring them to one to use its goods.', keys.label('panel.chest')));
+    tipOn(c, () => tipHtml(goodName(r), Object.keys(stock).length ? `${Math.floor(stock[r] ?? 0)} in the store by your men. Rewards go home to your strongroom. Click: the squad chest.` : 'No store of yours by your men: bring them to one to use its goods. Rewards go home to your strongroom.', keys.label('panel.chest')));
     return c;
   });
   const menChip = chip('men', 'unit-hoplite');
