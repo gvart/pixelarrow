@@ -3,28 +3,28 @@
  "class": "mob_lion",
  "image": "mob_lion.png",
  "frame": {
-  "w": 100,
-  "h": 89
+  "w": 110,
+  "h": 90
  },
  "anchor": {
-  "x": 57,
+  "x": 62,
   "y": 79
  },
  "anchors": {
   "south-east": {
-   "x": 44,
+   "x": 49,
    "y": 79
   },
   "north-east": {
-   "x": 41,
+   "x": 46,
    "y": 83
   },
   "south-west": {
-   "x": 57,
+   "x": 62,
    "y": 79
   },
   "north-west": {
-   "x": 59,
+   "x": 64,
    "y": 83
   }
  },
@@ -35,7 +35,7 @@
   "south-west",
   "north-west"
  ],
- "wrap": 40,
+ "wrap": 37,
  "colorGroups": {},
  "tiers": {
   "basic": {}
@@ -48,27 +48,27 @@
   },
   "walk": {
    "col": 9,
-   "frames": 8,
-   "fps": 10
+   "frames": 12,
+   "fps": 12
   },
   "run": {
-   "col": 17,
-   "frames": 8,
-   "fps": 14
+   "col": 21,
+   "frames": 12,
+   "fps": 16
   },
   "attack": {
-   "col": 25,
+   "col": 33,
    "frames": 8,
    "fps": 12,
    "strike": 5
   },
   "die": {
-   "col": 33,
+   "col": 41,
    "frames": 8,
    "fps": 10
   },
   "hit": {
-   "col": 41,
+   "col": 49,
    "frames": 4,
    "fps": 12
   }
