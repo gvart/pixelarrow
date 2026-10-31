@@ -33,7 +33,7 @@ describe('W-60 scenarios', () => {
     step(30);
     expect(sats(sim, 0).every((x) => hungerStage(x) === 0)).toBe(true);
     expect(sats(sim, 1).every((x) => hungerStage(x) === 0)).toBe(true);
-    expect(sim.snapshot().buildings!.find((b) => b.id === store.id)!.goods!.food).toBeLessThan(40);
+    expect(sim.snapshot().buildings!.find((b) => b.id === store.id)!.goods!.food).toBeLessThan(120);
     expect(sats(sim, 2).every((x) => hungerStage(x) === 2)).toBe(true);
   });
 

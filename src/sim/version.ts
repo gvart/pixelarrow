@@ -22,5 +22,7 @@
  *    owner (spawnWild), the wild's bots see without fog (clients on 5 reload).
  * 7: early-survival (W-79 proposal): the wild only knocks men down at depth 0-1, home mobs x0.8, march rations
  *    weigh nothing, a softer warlord lord and hall, lieutenant-led raids (clients on 6 reload).
+ * 8: food-home (W-80 proposal): by a store of his team a man's pack refills to 8 rations (2 food a ration) from the
+ *    store, the team's strongroom and, online at home, his own strongroom (clients on 7 reload).
  */
-export const SIM_VERSION = 7;
+export const SIM_VERSION = 8;

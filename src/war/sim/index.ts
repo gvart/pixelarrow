@@ -3240,17 +3240,42 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     }
     return false;
   };
+  // W-80 (./food.ts): the server's larder (online: the player's home strongroom in D1); null offline
+  let larder: ((owner: string, team: number, want: number) => number) | null = null;
+  /**
+   * W-80: by a store of his team a man's pack is topped up to HUNGER.kit rations: the store's (and the team's home
+   * strongroom's) rations first, then HUNGER.packFood plain food packed into each ration, then the server's larder.
+   */
+  const refill = (u: Unit, pack: Hold, from: readonly Hold[]) => {
+    let want = HUNGER.kit - Math.floor(amountOf(pack, 'ration'));
+    for (const h of from) {
+      if (want <= 0) return;
+      const n = Math.min(want, Math.floor(amountOf(h, 'ration')));
+      if (n > 0) putLots(pack, takeHold(h, 'ration', n)), (want -= n);
+    }
+    for (const h of from) {
+      if (want <= 0) return;
+      const n = Math.min(want, Math.floor(amountOf(h, 'food') / HUNGER.packFood));
+      if (n > 0) takeHold(h, 'food', n * HUNGER.packFood), putLots(pack, [{ r: 'ration', n, o: region.id }]), (want -= n);
+    }
+    const n = want > 0 && larder ? Math.min(want, Math.floor(larder(u.squad.owner, u.squad.team, want))) : 0;
+    if (n > 0) putLots(pack, [{ r: 'ration', n, o: region.id }]);
+  };
   /**
    * W-60 (./food.ts): every HUNGER.every ticks the players' men get hungrier; below HUNGER.eatAt each eats a bite from
-   * his pack, else from a store of his team close by; a starving man loses health slowly, never below HUNGER.floor.
+   * his pack, else from a store of his team close by (or the team's home strongroom behind it); a starving man loses
+   * health slowly, never below HUNGER.floor. W-80: by such a store a soldier's pack refills first (refill).
    */
   const hungerTick = () => {
     const sec = HUNGER.every * DT;
     for (const u of units) {
       if (!u.alive || u.squad.team === MOB_TEAM || u.squad.team === NEUTRAL_TEAM) continue;
-      const was = hungerStage(u.sat);
-      u.sat = Math.max(0, u.sat - HUNGER.decay * sec * townLv.perkAt(u.squad.team, u.x, u.y).hunger); // W-61: a levelled town's food keeps
-      if (u.sat < HUNGER.eatAt && !biteFrom(u, u.pack)) biteFrom(u, works.storeNear(u.squad.team, u.x, u.y, HUNGER.storeR));
+      const was = hungerStage(u.sat), team = u.squad.team;
+      u.sat = Math.max(0, u.sat - HUNGER.decay * sec * townLv.perkAt(team, u.x, u.y).hunger); // W-61: a levelled town's food keeps
+      const short = !u.squad.civ && (!u.pack || amountOf(u.pack, 'ration') < HUNGER.kit - 1e-9);
+      const st = short || u.sat < HUNGER.eatAt ? works.storeNear(team, u.x, u.y, HUNGER.storeR) : null;
+      if (st && short) refill(u, (u.pack ??= newHold()), [st, works.reserveOf(team)]);
+      if (u.sat < HUNGER.eatAt && !biteFrom(u, u.pack) && st && !biteFrom(u, st)) biteFrom(u, works.reserveOf(team));
       const now = hungerStage(u.sat);
       if (now === 2 && u.hp > u.maxHp * HUNGER.floor) u.hp = Math.max(u.maxHp * HUNGER.floor, u.hp - u.maxHp * HUNGER.drain * sec);
       if (now !== was) speedOf(u.squad);
@@ -3925,6 +3950,9 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     },
     setSoulGate(g) {
       soulGate = g;
+    },
+    setLarder(f) {
+      larder = f;
     },
     spawnSoul(x, y, cls, level = 1, site = 'shrine') {
       return souls.spawn(x, y, cls, level, site, tick);
