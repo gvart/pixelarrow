@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 vi.mock('../src/war/view/hud/kit', () => ({ icon: () => '' }));
 vi.mock('../src/war/view/hud/roster/state', () => ({ sandboxRoster: () => null }));
 vi.mock('../src/war/view/hud/tunnel', () => ({ tunnelHost: () => undefined }));
+vi.mock('../src/war/view/hud/souls', () => ({ armyMen: () => 0 }));
 vi.mock('../src/war/input/keys', () => ({ keys: { label: () => '' } }));
 vi.mock('../src/war/view/side', () => ({ myTeam: () => 0 }));
 const { armyText } = await import('../src/war/view/hud/armyPanel');
