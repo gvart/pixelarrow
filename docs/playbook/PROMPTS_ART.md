@@ -3720,3 +3720,40 @@ Dodona's four ridge-arm tracks a watch post each in a cleared patch of the pine 
 Boreas Fjords' headland ramp a shrine and cairn; Ammos' four ramps a ruined watch post, a cairn by a sanded ruin, a
 rock pillar with a cairn and a shrine; Skythia West's ledge a watch post and its spur a standing stone; the canyons'
 mesa track a cairn.
+
+## 52. Region identity 3 (region-art): Pirate Coves, Lakeshore Fens, Southern Dunes, units under the Ladon oaks
+
+Agent brief: "elaia-w, elaia-n and kyrene-s are still off their Gemini references: shoot, compare, fix the biggest gaps
+(existing parts first, PixelLab only if truly needed). The Ladon Oakwood canopy may hide units: check a squad under the
+trees at zoom 1/2 and 1, fix it without losing the dark wood." **0 Gemini, 0 PixelLab generations**: all fixes are the
+region scripts, two kit style flags and the canopy rule.
+
+**Method.** Shots at zoom 1/2 on every spot and the claim point (1600x1000, own headless Chromium with `--mute-audio`,
+fog off), the build's `--png` top view for layout, beside `shots/war/regions/proto/<id>.png`. The sandbox clamps the
+camera at 1/2 (`minZoom`); forcing lower zooms leaves unbaked chunks, so whole-region comparisons use the top view.
+Object kinds round a tile came from `expandRegion` over the region JSON (a blue cone in the fen was `bush-b`, a spruce
+sapling).
+
+- **Pirate Coves (elaia-w).** Gaps: the headland was a `mountains` zone (smooth grey slopes, `fir-snow` firs on a sunny
+  coast), its crags `rockMass` cones, the woods holm oak and cypress where the reference has dark resin pines. Fix: the
+  mountains zone dropped (elaia everywhere, the cliffs elaia limestone); the crags and the sea cave rock `Kit.tor`
+  blocks (`[[0, 4], [1.4, 8], [2.6, 11]]`); `marble` visual on every wall lip and in sheets over the crown (h12+,
+  `fbm > 0.1`), as on the Cape of Winds; new `style.pines` (elaia forests from `pine-a`, `pine-b`, stone pine, a holm
+  oak) with `trees 1` and five more wood blobs on the tableland; marble outcrops, talus and maquis pieces on the
+  headland. Tried: extra stone pines on the benches (umbrella crowns everywhere, dropped).
+- **Lakeshore Fens (elaia-n).** Gaps: `dryHigh` turned the whole farm table beige (the reference is olive grass with dark
+  ploughland), the marsh was dotted with `bush-b` spruces and dead trees. Fix: `dry 0.6, dryHigh false`; new
+  `style.fen` (elaia marsh: reeds at 0.34, dead trees 0.3 %); a ploughland block at the crossroads (placed before the
+  other `fields`, so the `fields` spot stays).
+- **Southern Dunes (kyrene-s).** Gaps: the long red ridge was a smooth red mound (the reference: a broken spine of red
+  rock), few dead trees. Fix: five `Kit.tor` blobs along the crest with gaps to cross (`[[0, 3], [0.9, 6], [1.7, 8]]`),
+  the redrock patch over `rock` too (the block tops drew grey and the kit scattered grey spires on their lips),
+  red crags, talus, boulders and a rock pillar on the flanks, ten thorn trees. The `ridge` check still passes (3420
+  open tiles over the land, was 3700). Open: the dune tiles read dark brown next to the reference's pale orange crescents
+  (tile palette, not the script).
+- **Ladon Oakwood (dodona-s), units under the canopy.** Three squads in the closed wood: at zoom 1 and 1/2 nothing of them
+  showed (two or three crowns at the old 0.35 fade still stacked over a man, and only stone objects reported men for
+  the team outline). Fix in `src/war/view/objects.ts`: a crown fades to 0.15 when a man's body *or legs* (a second
+  test point at a third of the body height) are under its pixels, and the man is reported occluded, so the unit layer
+  draws the player's own men's team outline through the wood. Foes under the trees stay hidden (ambush). The wood
+  elsewhere keeps its full dark canopy.

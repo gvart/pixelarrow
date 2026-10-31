@@ -1,8 +1,9 @@
 /**
  * Map objects (trees, rocks, ruins, towers) as live sprites zoomed in, depth sorted with the
  * soldiers by x + y of the foot point (the same key as ./units.ts). A tree with a man behind it
- * (his body under its canopy's pixels) fades so he shows; a man behind a stone object (tower, wall)
- * or a massif is reported as occluded and the unit layer draws his team silhouette through it.
+ * (his body under its canopy's pixels) fades so he shows; a man behind a stone object (tower, wall),
+ * a massif or a canopy is reported as occluded and the unit layer draws his team silhouette through
+ * it (in a closed wood two or three faded crowns still stack over him).
  * Massifs (./massifs.ts) are live sprites too (half-size textures below 1:1); their depth rule
  * comes from Massifs.depth, and objects standing inside a footprint are not drawn. The overview has
  * them baked in (./art.ts).
@@ -21,7 +22,7 @@ import type { DrawUnit } from './simClient';
 const BUCKET = 16; // tiles per bucket side
 const MASK = 4; // px per alpha mask cell
 const CELL = 64; // px per unit hash cell
-const FADE = 0.35;
+const FADE = 0.15;
 /** Depth step between objects of one depth key, by list index (well under a key step of 1/4096 for 10^5 objects). */
 const TIE = 1e-8;
 
@@ -126,7 +127,7 @@ export class ObjectLayer {
 
   /**
    * Show the objects over the view and fade / report the ones hiding units. Returns the ids of
-   * units hidden behind stone objects.
+   * units hidden behind stone objects and canopies.
    */
   draw(view: { x: number; y: number; right: number; bottom: number }, zoom: number, units: DrawUnit[], feet: (d: DrawUnit) => { x: number; y: number }, body: number): Set<number> {
     const hidden = new Set<number>();
@@ -136,17 +137,19 @@ export class ObjectLayer {
       const f = zoom >= 1 ? Phaser.Textures.FilterMode.NEAREST : Phaser.Textures.FilterMode.LINEAR;
       for (const o of new Set([...this.objs, ...this.big].flatMap((q) => (q.def.anim?.ready ? [q.def.key, q.def.anim.key] : [q.def.key])))) this.scene.textures.get(o).setFilter(f);
     }
-    // units by screen cell of their middle
+    // units by screen cell of their middle and of their legs (a low crown in front hides the legs alone)
     this.cells.clear();
     const pts: { x: number; y: number; v: number; id: number }[] = [];
     for (const d of units) {
       if (d.u.state === 'dead') continue;
-      const f = feet(d), p = { x: f.x, y: f.y - body, v: this.depth(d.x, d.y), id: d.u.id };
-      const k = Math.floor(p.x / CELL) * 65536 + Math.floor(p.y / CELL);
-      let c = this.cells.get(k);
-      if (!c) this.cells.set(k, (c = []));
-      c.push(pts.length);
-      pts.push(p);
+      const f = feet(d), v = this.depth(d.x, d.y);
+      for (const y of [f.y - body, f.y - body / 3]) {
+        const p = { x: f.x, y, v, id: d.u.id }, k = Math.floor(p.x / CELL) * 65536 + Math.floor(p.y / CELL);
+        let c = this.cells.get(k);
+        if (!c) this.cells.set(k, (c = []));
+        c.push(pts.length);
+        pts.push(p);
+      }
     }
     const show = (o: Obj) => {
       const d = o.def, ox = o.sx - d.anchor.x, oy = o.sy - d.anchor.y;
@@ -163,7 +166,7 @@ export class ObjectLayer {
             const mx = ((p.x - ox) / MASK) | 0, my = ((p.y - oy) / MASK) | 0;
             if (mx < 0 || my < 0 || mx >= d.mw || my >= d.mh || !d.mask[my * d.mw + mx]) continue;
             covers = true;
-            if (d.hides) hidden.add(p.id);
+            hidden.add(p.id);
           }
         }
       }

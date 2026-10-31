@@ -19,14 +19,11 @@ import { profile, relief, valley } from './setpieces.ts';
 
 const def: RegionDef = {
   id: 'elaia-w',
-  style: { wayside: true, dry: 0.35, dryHigh: false, meadow: 0.2, trees: 0.6, bushes: 0.5 },
+  style: { wayside: true, dry: 0.35, dryHigh: false, meadow: 0.2, trees: 1, bushes: 0.5, pines: true },
   build(k: Kit) {
     const E = k.entry('elaia'), NE = k.entry('elaia-n'), SE = k.entry('elaia-s'), N = k.entry('siren');
     k.fill(3);
     k.zone('elaia', () => 99);
-    k.zone('mountains', [86, 128, 62, 150, 0], 8); // the headland's grey limestone
-    // the sea cave's rock in the southern face (before the sea: rock keeps it out)
-    k.rockMass([24, 166, 6, 4, 0.3], { rough: 0.8 });
     // the sea along the west edge, wider in the north and round the south-west corner; the coves' water
     k.waterBody([-18, 128, 50, 230, 0], { shore: 4, beach: 0, rough: 6 });
     const coves: Pt[] = [[40, 46], [40, 132], [36, 204]], cave: Pt = [32, 176];
@@ -51,9 +48,17 @@ const def: RegionDef = {
     // the ravine: a narrow winding defile under sheer walls
     const rav: Pt[] = [[176, -8], [166, 36], [186, 80], [182, 120], [168, 164], [184, 210], [174, 264]];
     valley(k, rav, { floor: 2, rim: 9, half: 4.5, wall: 0, reach: 2 });
-    // limestone crags standing over the headland's crown and its walls (after the relief: rock rises over the ground)
-    for (const b of [[84, 22, 7, 5, 0.3], [70, 62, 5, 4, 0], [96, 94, 6, 4, -0.3], [76, 104, 5, 4, 0], [134, 48, 5, 8, 0], [140, 200, 5, 8, 0.2], [90, 236, 8, 5, 0], [62, 224, 6, 4, 0]] as [number, number, number, number, number][]) k.rockMass(b, { rough: 1.2, foot: 0 });
-    k.patch('mountains', 'scree', [94, 120, 20, 112, 0], ['grass', 'dirt', 'meadow'], undefined, 11);
+    // limestone crags standing over the headland's crown and its walls as stacked flat-topped blocks (Kit.tor, PROMPTS_ART
+    // §52: rockMass drew smooth beige cones), the sea cave's rock in the southern face
+    for (const b of [[84, 22, 7, 5, 0.3], [70, 62, 5, 4, 0], [96, 94, 6, 4, -0.3], [76, 104, 5, 4, 0], [134, 48, 5, 8, 0], [140, 200, 5, 8, 0.2], [90, 236, 8, 5, 0], [62, 224, 6, 4, 0], [24, 166, 6, 4, 0.3]] as [number, number, number, number, number][]) k.tor(b, [[0, 4], [1.4, 8], [2.6, 11]], { rough: 1.2, joint: 0.8 });
+    // grey limestone (identity, §52): bare rock on the lip of every wall and in sheets over the broken crown, so the
+    // headland reads as the reference's grey massif, not a lawn
+    const lip = (x: number, y: number) => {
+      const h = k.height[k.at([x, y])];
+      for (const d of [0.7, 1.5]) for (let a = 0; a < 8; a++) { const j = k.at([x + d * Math.cos(a * Math.PI / 4), y + d * Math.sin(a * Math.PI / 4)]); if (j >= 0 && k.height[j] <= h - 2) return true; }
+      return false;
+    };
+    k.patchWhere('elaia', 'marble', (x, y) => x < 150 && (lip(x, y) || (k.height[k.at([x, y])] >= 12 && fbm(x, y, 6, 52) > 0.1)), ['grass', 'dirt']);
     k.forest([84, 60, 6, 12, 0.2], [100, 150, 6, 14, 0], [86, 200, 6, 10, 0]);
     k.spot('ridge', [100, 128]);
     // beaches under the walls; the cave in the southern headland's face
@@ -73,7 +78,7 @@ const def: RegionDef = {
     k.road([[124, 100], [116, 140], [108, 176]], { w: 1, grade: 1.4 });
     k.road([[108, 176], [72, 172], [40, 176]], { w: 1, grade: 1.4 });
     // pines on the headland and the tableland, olives on the tableland, the tappers' huts and pitch
-    k.forest([66, 86, 14, 20, 0.3], [62, 166, 12, 16, -0.2], [70, 244, 18, 10, 0], [130, 70, 10, 24, 0], [128, 180, 10, 24, 0], [210, 50, 26, 18, 0.2], [214, 206, 26, 20, 0], [132, 20, 12, 10, 0], [138, 236, 10, 14, 0], [234, 128, 10, 30, 0]);
+    k.forest([196, 100, 10, 18, 0.3], [244, 30, 10, 20, 0], [212, 240, 24, 10, 0], [150, 130, 6, 14, 0], [104, 214, 8, 8, 0], [66, 86, 14, 20, 0.3], [62, 166, 12, 16, -0.2], [70, 244, 18, 10, 0], [130, 70, 10, 24, 0], [128, 180, 10, 24, 0], [210, 50, 26, 18, 0.2], [214, 206, 26, 20, 0], [132, 20, 12, 10, 0], [138, 236, 10, 14, 0], [234, 128, 10, 30, 0]);
     k.rows(['elaia/olive-orchard'], [214, 150, 14, 10, 0.1], { dx: 3, dy: 3 });
     k.piece('dodona/charcoal-pile', [204, 70], { r: 8, n: 2 });
     k.piece('dodona/timber-stand', [70, 176], { r: 10, n: 2 });
@@ -85,6 +90,11 @@ const def: RegionDef = {
     k.lair('bandit', [44, 50], { as: 'pirates' });
     k.lair('boar', [70, 170], { as: 'boars' });
     k.lair('boar', [214, 210], { as: 'boars' });
+    // maquis, outcrops and talus over the headland
+    for (let n = 0; n < 40; n++) {
+      const x = 30 + ((n * 97) % 120), y = 8 + ((n * 61) % 240);
+      k.piece(['elaia/marble-outcrop-a', 'elaia/maquis-b', 'elaia/talus-lime', 'elaia/maquis-a', 'elaia/marble-outcrop-b', 'elaia/maquis-c'][n % 6], [x, y], { r: 5 });
+    }
     // roads to somewhere (regions-look 2, PROMPTS_ART §51): the south cove path ends on the spine at a wayside shrine
     k.piece('elaia/shrine', [112, 118], { r: 6 });
     k.piece('elaia/wall-fallen-stone', [114, 122], { r: 5, n: 2, gap: 2 });
