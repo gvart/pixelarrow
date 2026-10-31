@@ -16,7 +16,7 @@ import { profile, relief } from './setpieces.ts';
 
 const def: RegionDef = {
   id: 'elaia-n',
-  style: { wayside: true, trees: 0.06, bushes: 0.1, dry: 0.4 },
+  style: { wayside: true, trees: 0.06, bushes: 0.1, dry: 0.6, dryHigh: false, fen: true }, // green farm table, a reed fen (PROMPTS_ART §52)
   build(k: Kit) {
     const N = k.entry('stymphalia'), S = k.entry('elaia'), E = k.entry('bacchae'), NW = k.entry('elaia-w'), NE = k.entry('elaia-e');
     k.fill(2);
@@ -59,6 +59,7 @@ const def: RegionDef = {
     k.road([[158, 104], [142, 100], [124, 96]], { w: 0.8, grade: 2 });
     k.road([[70, 182], [40, 200], [28, 224]], { w: 0.9, grade: 2 }); // a track up onto the west bench
     // the farmland: fields and flax by the channels, olive and herb gardens on the bench
+    k.fields([98, 170, 12, 9, 0], 0, { plot: 12, wide: 8 }); // ploughland up to the crossroads, as in the reference
     k.fields([176, 176, 40, 22, 0], 0, { plot: 16, wide: 12 });
     k.fields([66, 182, 40, 26, 0], 0, { plot: 16, wide: 12 });
     k.resource('food', [70, 176], 5, 16);
