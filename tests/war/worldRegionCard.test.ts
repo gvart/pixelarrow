@@ -66,11 +66,21 @@ describe('world map region card', () => {
     expect(docked).toContain('<button class="rf-tbtn pri big rc-go" data-act="enter">');
     expect(docked).toContain('data-act="close"');
   });
+
+  it('the hover card is the glance: no lore, goods or prices, the same header, tiles and action', () => {
+    const market = WORLD_IDS.find((id) => regionTags(id, undefined).some((t) => t.text === 'Market town'))!;
+    const full = regionCardHtml(market, ctx({ region: region(market, 0) })), glance = regionCardHtml(market, ctx({ region: region(market, 0), compact: true }));
+    for (const part of ['rc-lore', 'rc-goods', 'Market prices', 'rc-take']) {
+      expect(full, part).toContain(part);
+      expect(glance, part).not.toContain(part);
+    }
+    for (const part of ['rc-hd', 'rc-tiles', 'Enter region']) expect(glance, part).toContain(part);
+  });
 });
 
 describe('world map key', () => {
   it('explains the colours, lines and markers', () => {
     const t = text(legendHtml(() => '#336699', 0));
-    for (const w of ['Dodona', 'Skythia', 'Kyrene', 'Elaia', 'Unclaimed', 'Fighting', 'Trade road', 'Fealty', 'Pact', 'Truce', 'Your squad', 'Battle', 'Siege', 'Landmark', 'Monarch', 'Settlement', 'World event']) expect(t, w).toContain(w);
+    for (const w of ['Dodona', 'Skythia', 'Kyrene', 'Elaia', 'Unclaimed', 'Fighting', 'Trade road', 'Fealty', 'Pact', 'Truce', 'Your squad', 'Battle', 'Siege', 'Landmark', 'Monarch', 'Settlement', 'World event', 'More here']) expect(t, w).toContain(w);
   });
 });

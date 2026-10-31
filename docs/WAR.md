@@ -766,8 +766,8 @@ win over the region's while it is on.
 | Formations | Alt+1 line, Alt+2 column, Alt+3 wedge, Alt+4 loose |
 | Build mode | B on or off; R rotate, F flip a wall's inside, [ ] bridge width, G gate tool, T tower tool, Backspace drop the wall's start; walls: drag or click start and end, Shift chains |
 | Buildings | with one of yours selected (its keys win over the region's): U upgrade, R repair, Del demolish (Del again or the card's button confirms, Esc keeps it) |
-| View and panels | V cut walls down, M full map, F2-F7 map modes, G boss camera, R roster, K market, L landmark, N sound, Shift+W world map |
-| World map | Enter enter or send, T routes, H haul planner, F fit, + - zoom |
+| View and panels | V cut walls down, M region map, M again the world map over the region (the region keeps running), M a third time or Esc closes; F2-F7 map modes, G boss camera, R roster, K market, L landmark, N sound, Shift+W world map (its World screen button opens the full world screen) |
+| World map | Enter enter or send, T routes, H haul planner, L map key, F fit, + - zoom (the overlay over a region: Enter, L, F, + -) |
 | General | Esc back (fixed; with nothing open: the menu), F10 settings, ? controls, F1 dev panel |
 
 Settings also hold the UI scale (`war.uiScale`) and the sound (`pixelarrow.war.sound`).

@@ -11,7 +11,9 @@ import { TRADE_ROUTES, MARKET_TOWNS, isChokepoint, type ConvoySnap, type HaulPla
 import type { WorldEvent } from '../world/events';
 import { EVENT_INFO } from '../world/events';
 import { EVENT_LOOK } from './eventLook';
-import { levelKind, type LevelKind, type WorldSettlement } from '../net/settlements';
+import { levelKind, levelName, type LevelKind, type WorldSettlement } from '../net/settlements';
+import { warlord } from '../../data/warWarlords';
+import { landmarkOfRegion } from '../../data/warLandmarks';
 import { PENNANT_W, pennantScale } from './lords';
 
 type Box = [number, number, number, number];
@@ -66,6 +68,18 @@ export interface MapState {
   warlords?: WarlordMark[];
   /** W-73: the regions the player has mastered this season (a gold star by the centre). */
   mastered?: ReadonlySet<string>;
+  /** The world overlay over a region (./overlay.ts): the region the player is in, outlined in gold. */
+  here?: string | null;
+}
+/** What is under a map point, the topmost first (WorldMap.pick): its card wins over the region's. */
+export interface MapPick {
+  region: string | null;
+  landmark: string | null;
+  lord: string | null;
+  mastered: string | null;
+  settle: number | null;
+  crown: number | null;
+  cluster: { region: string; items: string[] } | null;
 }
 /**
  * W-72: one warlord pennant on the map: whose, in which region, his hall or one of his lands; W-76 proposal (./lords.ts):
@@ -75,6 +89,28 @@ export interface WarlordMark { id: string; region: string; seat: boolean; tint: 
 /** Where a pennant stands (pole foot, map px) and its cloth's size; a mastery star's centre and radius. */
 type LordSpot = WarlordMark & { x: number; y: number; w: number; h: number };
 interface StarSpot { region: string; x: number; y: number; r: number }
+interface CrownSpot { x: number; y: number; r: number; name: string; alliance: number }
+/** Context markers with no free spot at this zoom, as one "+N" chip in their region: what they are, in words. */
+interface ClusterSpot { region: string; x: number; y: number; r: number; items: string[] }
+/** The context markers as placed for this zoom (WorldMap.decor). */
+interface Decor { lords: LordSpot[]; stars: StarSpot[]; landmarks: Map<string, [number, number, number]>; crowns: CrownSpot[]; settles: Map<number, [number, number]>; clusters: ClusterSpot[]; words: PactWord[] }
+interface PactWord { x: number; y: number; text: string; edge: string }
+
+/**
+ * The map's marker hierarchy: yours first (your squads' banners, your men and carts on the road, the region you are
+ * in), then threats (battles, sieges, world events, raids), then the context (warlord lands and halls, landmarks,
+ * crowns, settlements, mastery stars, pacts). Below NEAR_K the context loses its words and, where it has no room,
+ * huddles into a cluster chip per region; up close everything shows.
+ */
+export const NEAR_K = 0.7;
+/** Marker sizes in units (0.8 CSS px each while zoomed out): radii of the round ones, the battle marker's side. */
+export const SIZE = { event: 17, battle: 42, landmark: 13, crown: 11, star: 10, cluster: 10, convoy: 14, foreignConvoy: 10 } as const;
+/** A land pennant's size against his hall's; the pole's height in cloth heights. */
+const LAND_F = 0.7, POLE = 1.9;
+/** Badge text in units: 12 CSS px while zoomed out. */
+const BADGE_FONT = 15;
+const warlordName = (id: string) => warlord(id)?.name ?? id;
+const landmarkName = (id: string) => landmarkOfRegion(id)?.name ?? id;
 
 /** W-63: a region map's side in tiles (every region is 512 x 512), to place a settlement inside its region's shape. */
 const REGION_TILES = 512;
@@ -232,17 +268,92 @@ export class WorldMap {
   /** Fit the whole map into the canvas less the CSS px kept free for panels on each side. */
   fit(free: { top: number; left: number; right: number; bottom: number }): void {
     const w = this.canvas.clientWidth - free.left - free.right, h = this.canvas.clientHeight - free.top - free.bottom, [W, H] = this.art.size;
-    this.k = Math.min(w / W, h / H);
+    this.k = this.fitK = Math.min(w / W, h / H);
     this.x = -free.left / this.k - (w / this.k - W) / 2;
     this.y = -free.top / this.k - (h / this.k - H) / 2;
+    this.settle();
   }
 
-  /** Zoom by `f` about canvas point (cx, cy). */
+  // ---------- the camera's feel: an eased zoom about the pointer, a pan that glides on after a fling, kept on the map ----------
+  /** The zoom the camera eases toward (CSS px per map px). */
+  goal = 0.5;
+  private fitK = 0.2;
+  private anchor: [number, number] | null = null;
+  private vel: [number, number] = [0, 0];
+  private lastPan: { x: number; y: number; t: number } | null = null;
+  private stepAt = 0;
+  /** The zoom range: a little under the fit, up to 3. */
+  private clampK = (k: number) => Math.max(this.fitK * 0.85, Math.min(3, k));
+
+  /** Zoom by `f` about canvas point (cx, cy), at once. */
   zoom(f: number, cx: number, cy: number): void {
     const [mx, my] = this.toMap(cx, cy);
-    this.k = Math.max(0.2, Math.min(3, this.k * f));
+    this.k = this.clampK(this.k * f);
     this.x = mx - cx / this.k;
     this.y = my - cy / this.k;
+    this.settle();
+  }
+  /** Ease toward zoom `k` about canvas point (cx, cy): that map point stays under it. */
+  zoomTo(k: number, cx: number, cy: number): void {
+    this.goal = this.clampK(k);
+    this.anchor = [cx, cy];
+    this.vel = [0, 0];
+  }
+  /** Stop every motion where the camera is now. */
+  settle(): void {
+    this.goal = this.k;
+    this.anchor = null;
+    this.vel = [0, 0];
+    this.lastPan = null;
+  }
+  /** A drag starts: the glide stops. */
+  grab(): void {
+    this.settle();
+  }
+  /** A drag moves the camera to (x, y) at time t (ms); its speed carries on after release. */
+  panTo(x: number, y: number, t: number): void {
+    const l = this.lastPan, dt = l ? t - l.t : 0;
+    if (l && dt > 0) this.vel = [this.vel[0] * 0.4 + ((x - l.x) / dt) * 0.6, this.vel[1] * 0.4 + ((y - l.y) / dt) * 0.6];
+    this.x = x;
+    this.y = y;
+    this.lastPan = { x, y, t };
+    this.keepOnMap();
+  }
+  /** The drag ends at time t: a fling glides on, a stop stays put. */
+  release(t: number): void {
+    if (!this.lastPan || t - this.lastPan.t > 60) this.vel = [0, 0];
+    this.lastPan = null;
+  }
+  /** Keep at least a third of the view over the painting. */
+  private keepOnMap(): void {
+    const [W, H] = this.art.size, vw = this.canvas.clientWidth / this.k, vh = this.canvas.clientHeight / this.k;
+    this.x = Math.max(-vw * 0.67, Math.min(W - vw * 0.33, this.x));
+    this.y = Math.max(-vh * 0.67, Math.min(H - vh * 0.33, this.y));
+  }
+  /** The camera eases or glides this frame. */
+  get moving(): boolean {
+    return !!this.anchor || !!this.vel[0] || !!this.vel[1];
+  }
+  /** One frame of the camera's easing and glide. */
+  private step(now: number): void {
+    const dt = Math.min(50, this.stepAt ? now - this.stepAt : 16);
+    this.stepAt = now;
+    if (this.anchor) {
+      const [cx, cy] = this.anchor, [mx, my] = this.toMap(cx, cy);
+      this.k += (this.goal - this.k) * (1 - Math.exp(-dt / 65));
+      if (Math.abs(this.goal - this.k) < this.goal * 0.002) (this.k = this.goal), (this.anchor = null);
+      this.x = mx - cx / this.k;
+      this.y = my - cy / this.k;
+      this.keepOnMap();
+    }
+    if (!this.lastPan && (this.vel[0] || this.vel[1])) {
+      this.x += this.vel[0] * dt;
+      this.y += this.vel[1] * dt;
+      const f = Math.exp(-dt / 200);
+      this.vel = [this.vel[0] * f, this.vel[1] * f];
+      if (Math.hypot(...this.vel) * this.k < 0.01) this.vel = [0, 0];
+      this.keepOnMap();
+    }
   }
 
   /** Where a squad on the road is now: from's centre to the crossing to to's centre, by time. */
@@ -261,6 +372,7 @@ export class WorldMap {
   }
 
   draw(st: MapState): void {
+    this.step(performance.now());
     const c = this.canvas, dpr = devicePixelRatio || 1, w = c.clientWidth, h = c.clientHeight;
     if (c.width !== Math.round(w * dpr) || c.height !== Math.round(h * dpr)) (c.width = Math.round(w * dpr)), (c.height = Math.round(h * dpr));
     const g = this.ctx, [W, H] = this.art.size;
@@ -331,6 +443,17 @@ export class WorldMap {
       g.stroke(p);
     }
 
+    // the overlay's "you are here": a gold double edge round the region the player is in
+    const here = st.here && this.paths.get(st.here);
+    if (here) {
+      g.strokeStyle = 'rgba(14,9,7,.85)';
+      g.lineWidth = 7 / Math.max(this.k, 0.4);
+      g.stroke(here);
+      g.strokeStyle = `rgba(242,212,138,${0.75 + 0.25 * pulse})`;
+      g.lineWidth = 3.5 / Math.max(this.k, 0.4);
+      g.stroke(here);
+    }
+
     // W-62: a region with a world event glows in its colour
     for (const e of st.events ?? []) {
       const p = this.paths.get(e.region);
@@ -347,6 +470,10 @@ export class WorldMap {
     }
     if (st.routes) this.drawRoutes(g);
     if (st.haul) this.drawHaul(g, st.haul);
+    // the context's lines and the others' carts pass under the names
+    this.drawPacts(g, st);
+    this.drawFealty(g, st);
+    this.drawConvoys(g, st, false);
     this.drawLabels(g, st);
     this.drawMarkers(g, st);
   }
@@ -383,78 +510,163 @@ export class WorldMap {
     g.restore();
   }
 
-  /** Marker spots in map px (x, y, w, h): a siege fort or battle sword right of the region's centre, the player's
-   *  banner left of it. Labels are laid out round these (never under them). */
-  private markerSpots(st: MapState): { marks: [string, string, number, number, number, number][]; banners: Map<string, [number, number, number]>; landmarks: Map<string, [number, number, number]>; events: Map<string, [number, number, number, WorldEvent]>; crowns: [number, number, number, string, number][] } {
-    const s = Math.max(1, 0.8 / this.k), marks: [string, string, number, number, number, number][] = [], banners = new Map<string, [number, number, number]>();
-    const landmarks = new Map<string, [number, number, number]>(); // M7g: centre and radius of a landmark's marker, under the region's centre
+  /** Icon scale: map px per unit (a unit is 0.8 CSS px while zoomed out, then grows with the zoom). */
+  private get u(): number {
+    return Math.max(1, 0.8 / this.k);
+  }
+  /** Zoomed out (the whole map or most of it): context markers lose their words and huddle into clusters. */
+  get far(): boolean {
+    return this.k < NEAR_K;
+  }
+
+  /**
+   * The fixed markers, yours and the threats, in map px: a siege fort or battle right of the region's centre, a world
+   * event above it, the player's banner left of it. Labels are laid out round these (never under them); the context
+   * markers (./map.ts decor) yield to both.
+   */
+  private markerSpots(st: MapState): { marks: [string, string, number, number, number, number][]; banners: Map<string, [number, number, number]>; events: Map<string, [number, number, number, WorldEvent]> } {
+    const s = this.u, marks: [string, string, number, number, number, number][] = [], banners = new Map<string, [number, number, number]>();
     const events = new Map<string, [number, number, number, WorldEvent]>(); // W-62: a world event's marker, above it
     for (const [id, r] of Object.entries(this.art.regions)) {
       const rs = st.regions.get(id);
       if (!rs) continue;
       const [cx, cy] = r.centroid;
-      if (rs.landmark) landmarks.set(id, [cx, cy + 34 * s, 17 * s]);
       const ev = st.events?.find((e) => e.region === id);
-      if (ev) events.set(id, [cx, cy - 60 * s, 22 * s, ev]);
-      if (rs.besieged) marks.push([id, 'markers/fort', cx + 6 * s, cy - 24 * s, 48 * s, 48 * s]);
-      else if (rs.contested) marks.push([id, 'markers/battle', cx + 4 * s, cy - 28 * s, 56 * s, 56 * s]);
+      if (ev) events.set(id, [cx, cy - 56 * s, SIZE.event * s, ev]);
+      if (rs.besieged) marks.push([id, 'markers/fort', cx + 6 * s, cy - 22 * s, SIZE.battle * s, SIZE.battle * s]);
+      else if (rs.contested) marks.push([id, 'markers/battle', cx + 6 * s, cy - 24 * s, SIZE.battle * s, SIZE.battle * s]);
     }
-    const b = s; // full size: the banner and its count read beside the names (owner feedback)
     for (const id of st.squads.keys()) {
       const r = this.art.regions[id];
-      if (r) banners.set(id, [r.centroid[0] - 44 * b, r.centroid[1] - 28 * b, b]);
+      if (r) banners.set(id, [r.centroid[0] - 44 * s, r.centroid[1] - 28 * s, s]);
     }
-    // W-64: a crown up right of each monarch's home (centre, radius, his name, alliance)
-    const crowns: [number, number, number, string, number][] = [];
-    for (const m of st.crown?.monarchs ?? []) {
-      const r = this.art.regions[homeOf(m.alliance)];
-      if (r) crowns.push([r.centroid[0] + 34 * s, r.centroid[1] - 40 * s, 15 * s, m.name, m.alliance]);
-    }
-    return { marks, banners, landmarks, events, crowns };
+    return { marks, banners, events };
   }
 
-  private decorCache?: { key: string; lords: LordSpot[]; stars: StarSpot[] };
   /**
-   * W-72 warlord pennants and W-73 mastery stars: placed after the names (they yield to them, so no name is dropped
-   * for them) and the other markers: the first spot round the region's centre that is inside the region and free.
+   * The best spot for a w x h box in region `id`: the candidates `at`, then rings round the first and round the centre;
+   * the first inside the region that overlaps nothing in `placed`, else the least crowded inside (`cost` its overlap).
    */
-  private decor(st: MapState): { lords: LordSpot[]; stars: StarSpot[] } {
-    const labels = this.layoutLabels(this.ctx, st), s = Math.max(1, 0.8 / this.k);
-    const key = `${this.labelCache?.key}|${(st.warlords ?? []).map((m) => `${m.id}:${m.region}`).join(',')}|${[...(st.mastered ?? [])].join(',')}`;
+  private spotIn(id: string, at: [number, number][], box: (x: number, y: number) => Box, placed: Box[]): { p: [number, number]; cost: number } {
+    const s = this.u, [cx, cy] = this.art.regions[id].centroid;
+    const ring = (x: number, y: number) => {
+      const out: [number, number][] = [];
+      for (let r = 14; r <= 112; r += 14) for (let a = 0; a < 12; a++) out.push([x + r * s * Math.cos((a * Math.PI) / 6), y + r * s * Math.sin((a * Math.PI) / 6)]);
+      return out;
+    };
+    const cost = (b: Box) => placed.reduce((c, q) => c + Math.max(0, Math.min(b[2], q[2]) - Math.max(b[0], q[0])) * Math.max(0, Math.min(b[3], q[3]) - Math.max(b[1], q[1])), 0);
+    const inside = (b: Box) => [[(b[0] + b[2]) / 2, (b[1] + b[3]) / 2], [b[0], b[3]], [b[2], b[1]]].every(([x, y]) => this.regionAt(x, y) === id);
+    let best = at[0] ?? [cx, cy], bc = Infinity;
+    for (const p of [...at, ...(at.length ? ring(...at[0]) : []), ...ring(cx, cy)]) {
+      const b = box(...p), c = cost(b) + (inside(b) ? 0 : 1e9);
+      if (c < bc) (bc = c), (best = p);
+      if (c === 0) break;
+    }
+    return { p: best, cost: bc };
+  }
+  /** A pennant's box at pole foot (x, y). */
+  private lordBox(m: WarlordMark): { w: number; h: number; box: (x: number, y: number) => Box } {
+    const ps = pennantScale(this.k), f = m.seat || m.raid ? 1 : LAND_F, w = PENNANT_W * ps * f, h = 15 * ps * f;
+    return { w, h, box: (x, y) => [x - 4 * ps, y - h * POLE - 2 * ps, x + w + 2 * ps, y + 2 * ps] };
+  }
+  private lordOffsets(id: string): [number, number][] {
+    const [cx, cy] = this.art.regions[id].centroid, s = this.u;
+    return [[-40, 60], [24, 60], [-62, 26], [40, 26], [-24, 90], [-70, -10], [56, -6], [-10, -60], [0, 40], [-30, 10]].map(([dx, dy]) => [cx + dx * s, cy + dy * s]);
+  }
+  /** A raid's pennant and every hall's: placed with the fixed markers, before the names (which flow round them). */
+  private fixedLords: LordSpot[] = [];
+
+  private decorCache?: { key: string } & Decor;
+  /**
+   * The context markers, placed after the names and the fixed markers (they yield to both, so no name is dropped for
+   * them): warlord pennants (a raid's and a hall's always show), landmarks, crowns, settlements (bigger first), mastery
+   * stars; each at its preferred spot, else the first spot round it inside its region that is free. Zoomed out, one
+   * that finds no free spot joins its region's cluster (a "+N" chip: hover lists them, a click zooms in); up close each
+   * takes its least crowded spot.
+   */
+  private decor(st: MapState): Decor {
+    const labels = this.layoutLabels(this.ctx, st), s = this.u, far = this.far;
+    const key = `${this.labelCache?.key}|${(st.warlords ?? []).map((m) => `${m.id}:${m.region}:${m.raid ? 1 : 0}:${m.fallen ? 1 : 0}`).join(',')}|${[...(st.mastered ?? [])].join(',')}`
+      + `|${[...st.regions.values()].filter((r) => r.landmark).map((r) => r.id).join(',')}|${(st.crown?.monarchs ?? []).map((m) => `${m.alliance}:${m.name}`).join(',')}|${(st.settlements ?? []).map((w) => `${w.id}:${w.level}`).join(',')}`;
     if (this.decorCache?.key === key) return this.decorCache;
     const placed: Box[] = [...this.lastObstacles, ...labels.map((l) => [l.x - l.w / 2, l.y - l.h / 2, l.x + l.w / 2, l.y + l.h / 2] as Box)];
-    const cost = (b: Box) => placed.reduce((c, p) => c + Math.max(0, Math.min(b[2], p[2]) - Math.max(b[0], p[0])) * Math.max(0, Math.min(b[3], p[3]) - Math.max(b[1], p[1])), 0);
-    // its preferred spots first, then rings round the centre; inside its own region (its middle and both ends), least overlap
-    const ring: number[][] = [];
-    for (let r = 14; r <= 112; r += 14) for (let a = 0; a < 12; a++) ring.push([r * Math.cos((a * Math.PI) / 6), r * Math.sin((a * Math.PI) / 6)]);
-    const pick = (id: string, cands: number[][], box: (x: number, y: number) => Box): [number, number] => {
-      const [cx, cy] = this.art.regions[id].centroid, at = [...cands, ...ring].map(([dx, dy]) => [cx + dx * s, cy + dy * s] as [number, number]);
-      const inside = (b: Box) => [[(b[0] + b[2]) / 2, (b[1] + b[3]) / 2], [b[0], b[3]], [b[2], b[1]]].every(([x, y]) => this.regionAt(x, y) === id);
-      let best = at[0], bc = Infinity;
-      for (const p of at) {
-        const b = box(...p), c = cost(b) + (inside(b) ? 0 : 1e9);
-        if (c < bc) (bc = c), (best = p);
-        if (c === 0) break;
+    const near = (id: string, offs: number[][]) => { const [cx, cy] = this.art.regions[id].centroid; return offs.map(([dx, dy]) => [cx + dx * s, cy + dy * s] as [number, number]); };
+    const clustered = new Map<string, string[]>();
+    /** Its spot: the first free one inside its region; else (`must`, up close, or only a sliver covered) the least crowded, or null (into the cluster). */
+    const pick = (id: string, at: [number, number][], box: (x: number, y: number) => Box, must: boolean, what: string): [number, number] | null => {
+      const { p, cost } = this.spotIn(id, at, box, placed), b = box(...p), area = (b[2] - b[0]) * (b[3] - b[1]);
+      if (cost > area * 0.12 && far && !must) {
+        clustered.set(id, [...(clustered.get(id) ?? []), what]);
+        return null;
       }
-      placed.push(box(...best));
-      return best;
+      placed.push(b);
+      return p;
     };
-    const lords: LordSpot[] = [], ps = pennantScale(this.k);
-    for (const m of st.warlords ?? []) {
-      if (!this.art.regions[m.region]) continue;
-      const f = m.seat ? 1 : 0.75, w = PENNANT_W * ps * f, h = 15 * ps * f;
-      const box = (x: number, y: number): Box => [x - 4 * ps, y - h * 2.4, x + w + 2 * ps, y + 2 * ps];
-      const [x, y] = pick(m.region, [[-40, 66], [24, 66], [-62, 30], [40, 30], [-24, 96], [-70, -10], [56, -6], [-10, -64], [0, 40], [-30, 10]], box);
-      lords.push({ ...m, x, y, w, h });
+    const lords: LordSpot[] = [...this.fixedLords], ls = st.warlords ?? [];
+    const landAt = (m: WarlordMark) => {
+      if (!this.art.regions[m.region]) return;
+      const { w, h, box } = this.lordBox(m), p = pick(m.region, this.lordOffsets(m.region), box, false, `${warlordName(m.id)}'s land`);
+      if (p) lords.push({ ...m, x: p[0], y: p[1], w, h });
+    };
+    // M7g: a landmark under the region's centre
+    const landmarks = new Map<string, [number, number, number]>();
+    for (const [id, r] of st.regions) {
+      if (!r.landmark || !this.art.regions[id]) continue;
+      const rr = SIZE.landmark * s, box = (x: number, y: number): Box => [x - rr - 3 * s, y - rr - 3 * s, x + rr + 3 * s, y + rr + 3 * s];
+      const p = pick(id, near(id, [[0, 34], [30, 30], [-30, 30], [0, -34]]), box, false, `Landmark: ${landmarkName(id)}`);
+      if (p) landmarks.set(id, [p[0], p[1], rr]);
     }
+    // W-64: a crown by each monarch's home
+    const crowns: CrownSpot[] = [];
+    for (const m of st.crown?.monarchs ?? []) {
+      const home = homeOf(m.alliance);
+      if (!this.art.regions[home]) continue;
+      const rr = SIZE.crown * s, wide = far ? 0 : (8 * m.name.length + 14) * s;
+      const box = (x: number, y: number): Box => [x - rr - 3 * s, y - rr - 3 * s, x + rr + wide + 3 * s, y + rr + 3 * s];
+      const p = pick(home, near(home, [[34, -40], [-34, -40], [40, 30], [-40, 30]]), box, false, `Monarch: ${m.name}`);
+      if (p) crowns.push({ x: p[0], y: p[1], r: rr, name: m.name, alliance: m.alliance });
+    }
+    // W-63: settlements, cities first
+    const settles = new Map<number, [number, number]>();
+    for (const w of [...(st.settlements ?? [])].sort((a, b) => b.level - a.level)) {
+      const at = this.settlementSpot(w);
+      if (!at) continue;
+      // up close its name stands right of the seal
+      const rr = this.settleR(w.level), name = far ? 0 : (7 * w.name.length + 16) * s;
+      const box = (x: number, y: number): Box => [x - rr - 2 * s, y - rr - 2 * s, x + rr + name + 2 * s, y + rr + 2 * s];
+      const p = pick(w.region, [at], box, false, `${w.name}, ${levelName(w.level).toLowerCase()}`);
+      if (p) settles.set(w.id, p);
+    }
+    for (const m of ls) if (!m.raid && !m.seat) landAt(m);
     const stars: StarSpot[] = [];
     for (const id of st.mastered ?? []) {
       if (!this.art.regions[id]) continue;
-      const r = 11 * s, box = (x: number, y: number): Box => [x - r - 3, y - r - 3, x + r + 3, y + r + 3];
-      const [x, y] = pick(id, [[32, 48], [-30, 50], [52, 4], [-52, 4], [0, 72], [10, -56], [0, 30], [24, 20]], box);
-      stars.push({ region: id, x, y, r });
+      const r = SIZE.star * s, box = (x: number, y: number): Box => [x - r - 3 * s, y - r - 3 * s, x + r + 3 * s, y + r + 3 * s];
+      const p = pick(id, near(id, [[32, 48], [-30, 50], [52, 4], [-52, 4], [0, 72], [10, -56], [0, 30], [24, 20]]), box, false, 'Mastered by you');
+      if (p) stars.push({ region: id, x: p[0], y: p[1], r });
     }
-    this.decorCache = { key, lords, stars };
+    // the clusters: a "+N" chip each, at the least crowded spot near the region's centre
+    const clusters: ClusterSpot[] = [];
+    for (const [id, items] of clustered) {
+      const r = SIZE.cluster * s, box = (x: number, y: number): Box => [x - r - 2 * s, y - r - 2 * s, x + r + 2 * s, y + r + 2 * s];
+      const p = pick(id, near(id, [[0, 40], [36, 20], [-36, 20], [0, -40]]), box, true, '');
+      if (p) clusters.push({ region: id, x: p[0], y: p[1], r, items });
+    }
+    // up close, a pact's or truce's word at its line's middle, where it is free (the line and the key say it anyway)
+    const words: PactWord[] = [];
+    if (!far) for (const p of st.crown?.pacts ?? []) {
+      const a = this.art.regions[homeOf(p.a)]?.centroid, b = this.art.regions[homeOf(p.b)]?.centroid;
+      if (!a || !b) continue;
+      const text = p.kind === 'truce' ? 'TRUCE' : 'PACT', w = (text.length * 9.5 + 10) * s;
+      for (const f of [0.5, 0.42, 0.58, 0.34, 0.66]) {
+        const x = a[0] + (b[0] - a[0]) * f, y = a[1] + (b[1] - a[1]) * f, bx: Box = [x - w / 2, y - 11 * s, x + w / 2, y + 11 * s];
+        if (placed.some((q) => Math.min(bx[2], q[2]) > Math.max(bx[0], q[0]) && Math.min(bx[3], q[3]) > Math.max(bx[1], q[1]))) continue;
+        placed.push(bx);
+        words.push({ x: x - w / 2, y, text, edge: p.kind === 'truce' ? '#f0d9b5' : '#e0b867' });
+        break;
+      }
+    }
+    this.decorCache = { key, lords, stars, landmarks, crowns, settles, clusters, words };
     return this.decorCache;
   }
   lordSpots(st: MapState): LordSpot[] {
@@ -463,10 +675,22 @@ export class WorldMap {
   masterySpots(st: MapState): StarSpot[] {
     return this.decor(st).stars;
   }
+
+  /** Everything under map point (x, y): the region (or the one whose event marker it is) and the marker on top. */
+  pick(st: MapState, x: number, y: number): MapPick {
+    const lord = this.lordAt(st, x, y)?.id ?? null, d = this.decor(st), within = (p: { x: number; y: number; r: number }, f = 1.3) => (x - p.x) ** 2 + (y - p.y) ** 2 <= (p.r * f) ** 2;
+    const cl = lord ? undefined : d.clusters.find((c) => within(c, 1.4));
+    const crown = lord || cl ? undefined : d.crowns.find((c) => within(c));
+    return {
+      region: this.eventAt(st, x, y) ?? this.regionAt(x, y), landmark: lord || cl ? null : this.landmarkAt(st, x, y), lord, mastered: lord || cl ? null : this.masteryAt(st, x, y),
+      settle: lord || cl ? null : this.settlementAt(st, x, y), crown: crown ? crown.alliance : null, cluster: cl ? { region: cl.region, items: cl.items } : null,
+    };
+  }
+
   /** W-72: the warlord pennant under map point (x, y), else null. */
   lordAt(st: MapState, x: number, y: number): { id: string; region: string } | null {
     const s = pennantScale(this.k);
-    for (const p of this.lordSpots(st)) if (x >= p.x - 4 * s && x <= p.x + p.w + 2 * s && y >= p.y - p.h * 2.4 && y <= p.y + 2 * s) return { id: p.id, region: p.region };
+    for (const p of this.lordSpots(st)) if (x >= p.x - 4 * s && x <= p.x + p.w + 2 * s && y >= p.y - p.h * POLE && y <= p.y + 2 * s) return { id: p.id, region: p.region };
     return null;
   }
   /** W-73: the mastery star under map point (x, y): its region, else null. */
@@ -476,11 +700,12 @@ export class WorldMap {
   }
 
   /** W-72: a warlord's pennant: a dark pole with a gold knob, a swallow-tailed cloth in his colour (his hall's bigger). */
-  private drawLords(g: CanvasRenderingContext2D, st: MapState): void {
+  private drawLords(g: CanvasRenderingContext2D, st: MapState, raids: boolean): void {
     const s = pennantScale(this.k);
     for (const p of this.lordSpots(st)) {
+      if (!!p.raid !== raids) continue;
       // W-76: fallen, the cloth hangs grey half down the pole
-      const top = p.y - p.h * 2.3, ct = top + (p.fallen ? p.h * 0.9 : 0), col = p.fallen ? '#5a524c' : `#${p.tint.toString(16).padStart(6, '0')}`;
+      const top = p.y - p.h * POLE, ct = top + (p.fallen ? p.h * 0.9 : 0), col = p.fallen ? '#5a524c' : `#${p.tint.toString(16).padStart(6, '0')}`;
       if (p.raid) {
         // W-76: a raid warned or out: a red ring pulsing round the pole's foot
         const k = 0.5 + 0.5 * Math.sin(st.now / 220);
@@ -521,17 +746,29 @@ export class WorldMap {
     }
   }
 
+  /** A dark disc with a ring: the base of every round marker (one look, one shadow). */
+  private disc(g: CanvasRenderingContext2D, x: number, y: number, r: number, ring: string, width: number, dash: number[] = []): void {
+    const s = this.u;
+    g.beginPath();
+    g.arc(x, y + 1.5 * s, r + 1.5 * s, 0, Math.PI * 2);
+    g.fillStyle = 'rgba(14,9,7,.55)';
+    g.fill();
+    g.beginPath();
+    g.arc(x, y, r, 0, Math.PI * 2);
+    g.fillStyle = '#17100d';
+    g.fill();
+    g.lineWidth = width;
+    g.strokeStyle = ring;
+    g.setLineDash(dash);
+    g.stroke();
+    g.setLineDash([]);
+  }
+
   /** W-73: a mastered region: a gold star on a dark disc ringed in gold. */
   private drawMastery(g: CanvasRenderingContext2D, st: MapState): void {
-    const s = Math.max(1, 0.8 / this.k);
+    const s = this.u;
     for (const { x, y, r } of this.masterySpots(st)) {
-      g.beginPath();
-      g.arc(x, y, r, 0, Math.PI * 2);
-      g.fillStyle = '#17100d';
-      g.fill();
-      g.lineWidth = 2.5 * s;
-      g.strokeStyle = '#e0b867';
-      g.stroke();
+      this.disc(g, x, y, r, '#e0b867', 2 * s);
       g.beginPath();
       for (let i = 0; i < 10; i++) {
         const a = -Math.PI / 2 + (i * Math.PI) / 5, rr = i % 2 ? r * 0.3 : r * 0.68;
@@ -543,14 +780,25 @@ export class WorldMap {
     }
   }
 
-  /**
-   * W-64: the crown layer: a line home to home per pact (solid, in both alliances' colours) or truce (dashed, pale) with
-   * its word at the middle, then a gold crown on a dark disc by each monarch's home with his name.
-   */
-  private drawCrown(g: CanvasRenderingContext2D, st: MapState, crowns: [number, number, number, string, number][]): void {
-    const s = Math.max(1, 0.8 / this.k);
+  /** The clusters: "+N" on a dark disc ringed in parchment, what is in it on hover, a click zooms in. */
+  private drawClusters(g: CanvasRenderingContext2D, st: MapState): void {
+    const s = this.u;
+    for (const c of this.decor(st).clusters) {
+      this.disc(g, c.x, c.y, c.r, '#c9ae86', 2 * s);
+      g.font = `700 ${11 * s}px Inter, sans-serif`;
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.fillStyle = '#f0d9b5';
+      g.fillText(`+${c.items.length}`, c.x, c.y + 0.5 * s);
+    }
+  }
+
+  /** W-64: pacts and truces, a line home to home (solid in both alliances' colours, or dashed and pale); its word up close. */
+  private drawPacts(g: CanvasRenderingContext2D, st: MapState): void {
+    const s = this.u, far = this.far;
     g.save();
     g.lineCap = 'round';
+    g.globalAlpha = far ? 0.7 : 1;
     for (const p of st.crown?.pacts ?? []) {
       const a = this.art.regions[homeOf(p.a)]?.centroid, b = this.art.regions[homeOf(p.b)]?.centroid;
       if (!a || !b) continue;
@@ -558,14 +806,14 @@ export class WorldMap {
       const truce = p.kind === 'truce';
       line();
       g.setLineDash([]);
-      g.strokeStyle = 'rgba(14,9,7,.7)';
-      g.lineWidth = 6 * s;
+      g.strokeStyle = 'rgba(14,9,7,.6)';
+      g.lineWidth = 4.5 * s;
       g.stroke();
       if (truce) {
         line();
-        g.setLineDash([10 * s, 7 * s]);
+        g.setLineDash([9 * s, 7 * s]);
         g.strokeStyle = '#f0d9b5';
-        g.lineWidth = 2.6 * s;
+        g.lineWidth = 2 * s;
         g.stroke();
       } else {
         // half in each alliance's colour, meeting at the middle
@@ -575,28 +823,21 @@ export class WorldMap {
           g.moveTo(from[0], from[1]);
           g.lineTo(mx, my);
           g.strokeStyle = TEAM_CSS[team] ?? '#f0d9b5';
-          g.lineWidth = 3 * s;
+          g.lineWidth = 2.4 * s;
           g.stroke();
         }
       }
       g.setLineDash([]);
-      const w = (truce ? 'TRUCE' : 'PACT'), mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
-      g.font = `600 ${13 * s}px Inter, sans-serif`;
-      this.badge(g, w, mx - (g.measureText(w).width + 10 * s) / 2, my, s, false, truce ? '#f0d9b5' : '#e0b867');
     }
     g.restore();
-    for (const [x, y, r, name, a] of crowns) {
-      g.beginPath();
-      g.arc(x, y + 1.5 * s, r + 2 * s, 0, Math.PI * 2);
-      g.fillStyle = 'rgba(14,9,7,.55)';
-      g.fill();
-      g.beginPath();
-      g.arc(x, y, r, 0, Math.PI * 2);
-      g.fillStyle = '#17100d';
-      g.fill();
-      g.lineWidth = 2 * s;
-      g.strokeStyle = TEAM_CSS[a] ?? '#e0b867';
-      g.stroke();
+    if (!far) for (const w of this.decor(st).words) this.badge(g, w.text, w.x, w.y, s, false, w.edge);
+  }
+
+  /** W-64: a gold crown on a dark disc by each monarch's home; his name beside it up close (and on hover). */
+  private drawCrowns(g: CanvasRenderingContext2D, st: MapState): void {
+    const s = this.u;
+    for (const { x, y, r, name, alliance } of this.decor(st).crowns) {
+      this.disc(g, x, y, r, TEAM_CSS[alliance] ?? '#e0b867', 2 * s);
       // the crown: a band and three points
       const w = r * 1.15, h = r * 0.95, bx = x - w / 2, by = y + h * 0.45;
       g.beginPath();
@@ -613,7 +854,7 @@ export class WorldMap {
       g.lineWidth = 1.2 * s;
       g.strokeStyle = '#6b4a14';
       g.stroke();
-      this.badge(g, name, x + r + 3 * s, y, s * 0.85, false, '#e0b867');
+      if (!this.far) this.badge(g, name, x + r + 3 * s, y, s * 0.85, false, '#e0b867');
     }
   }
 
@@ -623,36 +864,30 @@ export class WorldMap {
     return null;
   }
 
-  /** W-62: a world event: its icon on a dark disc ringed in its colour, a pulsing halo, and its name with the time left. */
+  /** W-62: a world event: its icon on a dark disc ringed in its colour, a pulsing halo, and its time left (its name up close). */
   private drawEvents(g: CanvasRenderingContext2D, st: MapState, spots: Map<string, [number, number, number, WorldEvent]>): void {
-    const s = Math.max(1, 0.8 / this.k), pulse = 0.5 + 0.5 * Math.sin(st.now / 260);
+    const s = this.u, pulse = 0.5 + 0.5 * Math.sin(st.now / 260);
     for (const [, [x, y, r, e]] of spots) {
       const look = EVENT_LOOK[e.kind];
       g.beginPath();
-      g.arc(x, y, r + (5 + 5 * pulse) * s, 0, Math.PI * 2);
-      g.fillStyle = hexA(look.color, 0.18 + 0.14 * (1 - pulse));
+      g.arc(x, y, r + (4 + 4 * pulse) * s, 0, Math.PI * 2);
+      g.fillStyle = hexA(look.color, 0.16 + 0.12 * (1 - pulse));
       g.fill();
-      g.beginPath();
-      g.arc(x, y, r, 0, Math.PI * 2);
-      g.fillStyle = '#17100d';
-      g.fill();
-      g.lineWidth = 3.5 * s;
-      g.strokeStyle = look.color;
-      g.stroke();
+      this.disc(g, x, y, r, look.color, 3 * s);
       const ic = this.pics[look.icon];
       if (ic) {
         g.save();
         if (look.ghost) (g.filter = 'grayscale(1) brightness(1.8)'), (g.globalAlpha = 0.85);
-        g.drawImage(ic, x - 15 * s, y - 15 * s, 30 * s, 30 * s);
+        g.drawImage(ic, x - r * 0.72, y - r * 0.72, r * 1.44, r * 1.44);
         g.restore();
       }
-      const left = Math.max(0, Math.ceil((e.endAt - st.now) / 1000));
-      this.badge(g, `${EVENT_INFO[e.kind].name} · ${clock(left)}`, x + r + 3 * s, y, s, false, look.color);
+      const left = clock(Math.max(0, Math.ceil((e.endAt - st.now) / 1000)));
+      this.badge(g, this.far ? left : `${EVENT_INFO[e.kind].name} · ${left}`, x + r + 3 * s, y, s, false, look.color);
     }
   }
 
   private settleAt = new Map<string, [number, number]>();
-  /** W-63: a settlement's spot in map px: its tile point scaled into its region's bounds, pulled toward the centre until inside the shape. */
+  /** W-63: a settlement's home spot in map px: its tile point scaled into its region's bounds, pulled toward the centre until inside the shape. */
   settlementSpot(w: WorldSettlement): [number, number] | null {
     const k = `${w.region}:${w.x}:${w.y}`, had = this.settleAt.get(k);
     if (had) return had;
@@ -668,52 +903,56 @@ export class WorldMap {
     this.settleAt.set(k, out);
     return out;
   }
+  /** A settlement seal's radius in map px: by level, smaller while zoomed out. */
+  private settleR(level: number): number {
+    return SETTLE_LOOK[levelKind(level)].r * this.u * (this.far ? 0.72 : 1);
+  }
 
   /** W-63: the settlement marker under map point (x, y), its id, else null. */
   settlementAt(st: MapState, x: number, y: number): number | null {
-    const s = Math.max(1, 0.8 / this.k);
     for (const w of st.settlements ?? []) {
-      const p = this.settlementSpot(w);
-      if (p && (x - p[0]) ** 2 + (y - p[1]) ** 2 <= (SETTLE_LOOK[levelKind(w.level)].r * s * 1.3) ** 2) return w.id;
+      const p = this.decor(st).settles.get(w.id);
+      if (p && (x - p[0]) ** 2 + (y - p[1]) ** 2 <= (this.settleR(w.level) * 1.3) ** 2) return w.id;
     }
     return null;
   }
 
   /**
-   * W-63: settlements: fealty lines first (vassal to overlord, a solid arc with an arrowhead at the overlord, gold when his), then
-   * a marker per settlement sized by level (camp, village, town, city) on a parchment seal, gold-rimmed when the player rules
-   * it; its name beside it when near (zoomed in) or hovered.
+   * W-63: fealty lines, vassal to overlord (a solid arc with an arrowhead at the overlord, gold when his), between the
+   * seals as placed (a seal in a cluster: from the cluster); thin and faint zoomed out, full when one end is hovered.
    */
-  private drawSettlements(g: CanvasRenderingContext2D, st: MapState): void {
+  private drawFealty(g: CanvasRenderingContext2D, st: MapState): void {
     const list = st.settlements ?? [];
     if (!list.length) return;
-    const s = Math.max(1, 0.8 / this.k), by = new Map(list.map((w) => [w.id, w]));
+    const s = this.u, d = this.decor(st), by = new Map(list.map((w) => [w.id, w]));
+    const spot = (w: WorldSettlement): [number, number] | null => d.settles.get(w.id) ?? (() => { const c = d.clusters.find((x) => x.region === w.region); return c ? [c.x, c.y] as [number, number] : null; })();
     g.save();
     g.lineCap = 'round';
     for (const v of list) {
-      const o = v.overlord_id !== null ? by.get(v.overlord_id) : undefined, a = this.settlementSpot(v), b = o && this.settlementSpot(o);
-      if (!a || !b) continue;
+      const o = v.overlord_id !== null ? by.get(v.overlord_id) : undefined, a = spot(v), b = o && spot(o);
+      if (!a || !b || (a[0] === b[0] && a[1] === b[1])) continue;
       const hot = st.hoverSettle === v.id || st.hoverSettle === o!.id, mine = st.me != null && (v.lord_pid === st.me || o!.lord_pid === st.me);
       const dx = b[0] - a[0], dy = b[1] - a[1], len = Math.hypot(dx, dy) || 1, bend = Math.min(60, len * 0.18);
       const mx = (a[0] + b[0]) / 2 - (dy / len) * bend, my = (a[1] + b[1]) / 2 + (dx / len) * bend;
-      const rb = SETTLE_LOOK[levelKind(o!.level)].r * s + 4 * s, ra = SETTLE_LOOK[levelKind(v.level)].r * s + 2 * s;
+      const rb = (d.settles.has(o!.id) ? this.settleR(o!.level) : SIZE.cluster * s) + 4 * s, ra = (d.settles.has(v.id) ? this.settleR(v.level) : SIZE.cluster * s) + 2 * s;
       // stop short of both markers: the arc's ends at their radii, along the curve's end tangents
       const ta = Math.hypot(mx - a[0], my - a[1]) || 1, tb = Math.hypot(b[0] - mx, b[1] - my) || 1;
       const sx = a[0] + ((mx - a[0]) / ta) * ra, sy = a[1] + ((my - a[1]) / ta) * ra, ex = b[0] - ((b[0] - mx) / tb) * rb, ey = b[1] - ((b[1] - my) / tb) * rb;
       const arc = () => { g.beginPath(); g.moveTo(sx, sy); g.quadraticCurveTo(mx, my, ex, ey); };
+      const thin = this.far && !hot;
+      g.globalAlpha = thin ? 0.55 : 1;
       arc();
       g.strokeStyle = 'rgba(14,9,7,.75)';
-      g.lineWidth = (hot ? 6 : 5) * s;
+      g.lineWidth = (hot ? 6 : thin ? 3.6 : 5) * s;
       g.setLineDash([]);
       g.stroke();
       arc();
       // solid (the trade routes are dashed), gold when it ties the player
       g.strokeStyle = mine ? '#e0b867' : '#c9a6e8';
-      g.globalAlpha = hot ? 1 : 0.9;
-      g.lineWidth = (hot ? 3.4 : 2.6) * s;
+      g.lineWidth = (hot ? 3.4 : thin ? 1.8 : 2.6) * s;
       g.stroke();
       // the arrowhead: tribute and fealty flow to the overlord
-      const ang = Math.atan2(ey - my, ex - mx), h = 9 * s;
+      const ang = Math.atan2(ey - my, ex - mx), h = (thin ? 7 : 9) * s;
       g.beginPath();
       g.moveTo(ex, ey);
       g.lineTo(ex - Math.cos(ang - 0.45) * h, ey - Math.sin(ang - 0.45) * h);
@@ -724,20 +963,29 @@ export class WorldMap {
       g.lineWidth = 1.5 * s;
       g.fill();
       g.stroke();
-      g.globalAlpha = 1;
     }
     g.restore();
-    // markers: small ones first, so a city sits on top
+  }
+
+  /**
+   * W-63: a marker per settlement sized by level (camp, village, town, city) on a parchment seal, gold-rimmed when the
+   * player rules it; its name beside it up close or hovered.
+   */
+  private drawSettlements(g: CanvasRenderingContext2D, st: MapState): void {
+    const list = st.settlements ?? [];
+    if (!list.length) return;
+    const s = this.u, d = this.decor(st);
+    // small ones first, so a city sits on top
     for (const w of [...list].sort((p, q) => p.level - q.level)) {
-      const p = this.settlementSpot(w);
+      const p = d.settles.get(w.id);
       if (!p) continue;
-      const look = SETTLE_LOOK[levelKind(w.level)], r = look.r * s, [x, y] = p, hot = st.hoverSettle === w.id, mine = st.me != null && w.lord_pid === st.me;
+      const look = SETTLE_LOOK[levelKind(w.level)], r = this.settleR(w.level), [x, y] = p, hot = st.hoverSettle === w.id, mine = st.me != null && w.lord_pid === st.me;
       g.beginPath();
-      g.arc(x, y + 1.5 * s, r + 2 * s, 0, Math.PI * 2);
+      g.arc(x, y + 1.5 * s, r + 1.5 * s, 0, Math.PI * 2);
       g.fillStyle = 'rgba(14,9,7,.55)';
       g.fill();
       // a parchment seal (the other markers are dark discs): its rim gold when he rules it
-      if (w.level >= 4) { // a town or city: an outer ring, its walls
+      if (w.level >= 4 && !this.far) { // a town or city up close: an outer ring, its walls
         g.beginPath();
         g.arc(x, y, r + 4 * s, 0, Math.PI * 2);
         g.lineWidth = 2.5 * s;
@@ -754,10 +1002,10 @@ export class WorldMap {
       fill.addColorStop(1, '#c9ae86');
       g.fillStyle = fill;
       g.fill();
-      g.lineWidth = 2.5 * s;
+      g.lineWidth = 2 * s;
       g.strokeStyle = '#0e0907';
       g.stroke();
-      g.lineWidth = (hot ? 2.5 : 1.6) * s;
+      g.lineWidth = (hot ? 2.5 : 1.4) * s;
       g.strokeStyle = mine ? '#e0b867' : hot ? '#fff0d8' : '#7a3418';
       g.beginPath();
       g.arc(x, y, r - 1.5 * s, 0, Math.PI * 2);
@@ -768,13 +1016,13 @@ export class WorldMap {
         g.drawImage(ic, x - r * 0.82, y - r * 0.82, r * 1.64, r * 1.64);
         g.imageSmoothingEnabled = false;
       }
-      if (hot || this.k >= 0.6) this.badge(g, w.name, x + r + 3 * s, y, s * 0.85, hot, mine ? '#e0b867' : undefined);
+      if (hot || !this.far) this.badge(g, w.name, x + r + 3 * s, y, s * 0.85, hot, mine ? '#e0b867' : undefined);
     }
   }
 
   /** M7g: the landmark marker under map point (x, y), its region id, else null. */
   landmarkAt(st: MapState, x: number, y: number): string | null {
-    for (const [id, [cx, cy, r]] of this.markerSpots(st).landmarks) if ((x - cx) ** 2 + (y - cy) ** 2 <= (r * 1.25) ** 2) return id;
+    for (const [id, [cx, cy, r]] of this.decor(st).landmarks) if ((x - cx) ** 2 + (y - cy) ** 2 <= (r * 1.25) ** 2) return id;
     return null;
   }
 
@@ -783,48 +1031,40 @@ export class WorldMap {
    * outer ring once restored (and +2 while garrisoned), dashed while damaged; a pip with the guardian alive (crossed
    * swords, red) or slain / away (a skull, grey).
    */
-  private drawLandmarks(g: CanvasRenderingContext2D, st: MapState, spots: Map<string, [number, number, number]>): void {
-    const s = Math.max(1, 0.8 / this.k), ic = this.pics['bld-fort'];
-    for (const [id, [x, y, r]] of spots) {
+  private drawLandmarks(g: CanvasRenderingContext2D, st: MapState): void {
+    const s = this.u, ic = this.pics['bld-fort'];
+    for (const [id, [x, y, r]] of this.decor(st).landmarks) {
       const lm = st.regions.get(id)?.landmark;
       if (!lm) continue;
       const col = lm.holder >= 0 ? allianceColor(this.art, lm.holder) : lm.guardian === 'alive' ? '#b8402c' : '#8a786a';
       if (lm.state === 'restored') {
         g.beginPath();
-        g.arc(x, y, r + 4 * s, 0, Math.PI * 2);
+        g.arc(x, y, r + 3.5 * s, 0, Math.PI * 2);
         g.strokeStyle = '#e0b867';
-        g.lineWidth = 2.5 * s;
+        g.lineWidth = 2 * s;
         g.stroke();
       }
-      g.beginPath();
-      g.arc(x, y, r, 0, Math.PI * 2);
-      g.fillStyle = '#17100d';
-      g.fill();
-      g.lineWidth = 3.5 * s;
-      g.strokeStyle = col;
-      if (lm.state === 'damaged') g.setLineDash([5 * s, 3 * s]);
-      g.stroke();
-      g.setLineDash([]);
+      this.disc(g, x, y, r, col, 3 * s, lm.state === 'damaged' ? [5 * s, 3 * s] : []);
       if (ic) {
         g.globalAlpha = lm.state === 'damaged' || lm.state === 'unclaimed' ? 0.75 : 1;
-        g.drawImage(ic, x - 12 * s, y - 12 * s, 24 * s, 24 * s);
+        g.drawImage(ic, x - r * 0.72, y - r * 0.72, r * 1.44, r * 1.44);
         g.globalAlpha = 1;
       }
       // the guardian's pip, top right
-      const px = x + r * 0.78, py = y - r * 0.78, pr = 7.5 * s, alive = lm.guardian === 'alive';
+      const px = x + r * 0.78, py = y - r * 0.78, pr = r * 0.44, alive = lm.guardian === 'alive';
       g.beginPath();
       g.arc(px, py, pr, 0, Math.PI * 2);
       g.fillStyle = alive ? '#8a2418' : '#3a2e28';
       g.fill();
-      g.lineWidth = 1.5 * s;
+      g.lineWidth = 1.2 * s;
       g.strokeStyle = '#0e0907';
       g.stroke();
       g.fillStyle = alive ? '#ffe0c8' : '#d8ccc0';
-      g.font = `700 ${10 * s}px "Segoe UI Symbol", "Apple Symbols", sans-serif`;
+      g.font = `700 ${pr * 1.3}px "Segoe UI Symbol", "Apple Symbols", sans-serif`;
       g.textAlign = 'center';
       g.textBaseline = 'middle';
       g.fillText(alive ? '⚔' : '☠', px, py + 0.5 * s);
-      if (lm.state === 'restored' && lm.garrisoned) this.badge(g, '+2', x + r + 3 * s, y + r * 0.55, s * 0.9, false);
+      if (lm.state === 'restored' && lm.garrisoned && !this.far) this.badge(g, '+2', x + r + 3 * s, y + r * 0.55, s * 0.9, false);
     }
   }
 
@@ -837,21 +1077,18 @@ export class WorldMap {
    *  stay inside, then (homes, market towns, chokepoints) a spot just outside with a leader line to the anchor. A home
    *  or Omphalos that still finds nothing keeps its least-crowded spot; any other name is left out at this zoom. */
   private layoutLabels(g: CanvasRenderingContext2D, st: MapState): PlacedLabel[] {
-    const spots = this.markerSpots(st), base = Math.max(14, 13 / this.k), s = Math.max(1, 0.8 / this.k);
+    // while the camera eases or glides, the last layout holds (it scales with the map); it is laid out again once still
+    if (this.labelCache && this.moving) return this.labelCache.out;
+    const spots = this.markerSpots(st), base = Math.max(14, 13 / this.k), s = this.u;
+    // only yours and the threats: the names come before the context markers, which are placed round them (decor)
     const obstacles: Box[] = [
       ...spots.marks.map(([, , x, y, w, h]) => [x, y, x + w, y + h] as Box),
-      ...[...spots.landmarks.values()].map(([x, y, r]) => [x - r - 4, y - r - 4, x + r + 4, y + r + 4] as Box),
-      ...[...spots.events.values()].map(([x, y, r]) => [x - r - 10, y - r - 10, x + r + 150 * s, y + r + 10] as Box),
+      ...[...spots.events.values()].map(([x, y, r]) => [x - r - 8 * s, y - r - 8 * s, x + r + (this.far ? 64 : 160) * s, y + r + 8 * s] as Box),
       ...[...spots.banners].map(([id, [x, y, b]]) => [x, y, x + 38 * b + (10 * String(st.squads.get(id)).length + 14) * s, y + 56 * b] as Box),
-      ...spots.crowns.map(([x, y, r, name]) => [x - r - 4, y - r - 4, x + r + (8 * name.length + 18) * s, y + r + 4] as Box),
-      // W-63 settlements: their seal (and the outer ring of a town or city)
-      ...(st.settlements ?? []).flatMap((w) => {
-        const p = this.settlementSpot(w), r = SETTLE_LOOK[levelKind(w.level)].r * s + 6 * s;
-        return p ? [[p[0] - r, p[1] - r, p[0] + r, p[1] + r] as Box] : [];
-      }),
-      ...st.convoys.map((c) => {
+      // your carts (others' are small and pass under the names)
+      ...st.convoys.filter((c) => c.alliance === st.you).map((c) => {
         const q = 32 * s, [x, y] = this.transitPos({ ...c, men: 0, state: 'moving' }, st.now).map((v) => Math.round(v / q) * q);
-        return [x - 16 * s - q / 2, y - 16 * s - q / 2, x + 16 * s + 100 * s + q / 2, y + 16 * s + q / 2] as Box;
+        return [x - 16 * s - q / 2, y - 16 * s - q / 2, x + 16 * s + 70 * s + q / 2, y + 16 * s + q / 2] as Box;
       }),
       // squads on the road, snapped to a coarse step so the names re-flow now and then, not every frame
       ...st.transit.map((t) => {
@@ -859,6 +1096,14 @@ export class WorldMap {
         return [x - 20 * s - q / 2, y - 43 * s - q / 2, x + 18 * s + (8 * String(t.men).length + 112) * s + q / 2, y + 8 * s + q / 2] as Box;
       }),
     ];
+    // a raid's pennant and every hall's: fixed too, the names flow round them
+    this.fixedLords = [];
+    for (const m of [...(st.warlords ?? [])].sort((a, b) => Number(!!b.raid) - Number(!!a.raid))) {
+      if ((!m.raid && !m.seat) || !this.art.regions[m.region]) continue;
+      const { w, h, box } = this.lordBox(m), { p } = this.spotIn(m.region, this.lordOffsets(m.region), box, obstacles);
+      obstacles.push(box(...p));
+      this.fixedLords.push({ ...m, x: p[0], y: p[1], w, h });
+    }
     const key = `${this.k.toFixed(3)}|${obstacles.map((o) => o.map(Math.round).join(',')).join(';')}`;
     this.lastObstacles = obstacles;
     if (this.labelCache?.key === key) return this.labelCache.out;
@@ -988,58 +1233,58 @@ export class WorldMap {
     }
   }
 
+  /** The markers over the names, by rank: the context (small, wordless zoomed out), then the threats, then yours on top. */
   private drawMarkers(g: CanvasRenderingContext2D, st: MapState): void {
-    const s = Math.max(1, 0.8 / this.k), pic = (n: string) => this.pics[n], spots = this.markerSpots(st);
+    const s = this.u, pic = (n: string) => this.pics[n], spots = this.markerSpots(st);
+    // the context
+    this.drawSettlements(g, st);
+    this.drawLandmarks(g, st);
+    this.drawCrowns(g, st);
+    this.drawMastery(g, st);
+    this.drawLords(g, st, false);
+    this.drawClusters(g, st);
+    // the threats: battles and sieges, raids, world events
     g.imageSmoothingEnabled = false;
     for (const [, name, x, y, w, h] of spots.marks) g.drawImage(pic(name), x, y, w, h);
-    this.drawLandmarks(g, st, spots.landmarks);
+    this.drawLords(g, st, true);
     this.drawEvents(g, st, spots.events);
-    this.drawSettlements(g, st);
-    this.drawCrown(g, st, spots.crowns);
-    // W-72, W-73: static, under what moves on the roads (a cart passing over a hall hides it only while it passes)
-    this.drawLords(g, st);
-    this.drawMastery(g, st);
-    // the player's men: the alliance banner with a count
-    const you = st.you ?? 0, key = ALLIANCES[you].key;
-    for (const [id, men] of st.squads) {
-      const spot = spots.banners.get(id);
-      if (!spot) continue;
-      // left of the region's centre (the battle marker sits right of it)
-      const [bx, by, b] = spot, on = st.squadAt === id;
-      if (on) {
-        g.fillStyle = 'rgba(255,240,216,.35)';
-        g.beginPath();
-        g.ellipse(bx + 20 * b, by + 58 * b, 30 * b, 10 * b, 0, 0, Math.PI * 2);
-        g.fill();
-      }
-      g.drawImage(pic(`banners/${key}`), bx, by, 40 * b, 56 * b);
-      this.badge(g, String(men), bx + 38 * b, by + 14 * b, s * 1.2, on);
-    }
-    this.drawConvoys(g, st);
-    // on the road: the transit marker along the border with its ETA
+    // yours: carts, the men on the road with their ETA, the squads' banners with their count
+    this.drawConvoys(g, st, true);
     for (const t of st.transit) {
       const [x, y] = this.transitPos(t, st.now);
       g.drawImage(pic('markers/transit'), x - 20 * s, y - 40 * s, 40 * s, 48 * s);
       const left = Math.max(0, Math.ceil((t.arriveAt - st.now) / 1000));
       this.countBadge(g, 'unit-hoplite', t.men, t.state === 'queued' ? null : left, x + 18 * s, y - 34 * s, s);
     }
+    const you = st.you ?? 0, key = ALLIANCES[you].key;
+    for (const [id, men] of st.squads) {
+      const spot = spots.banners.get(id);
+      if (!spot) continue;
+      // left of the region's centre (the battle marker sits right of it); a gold glow at its foot: yours
+      const [bx, by, b] = spot, on = st.squadAt === id;
+      g.fillStyle = on ? 'rgba(255,240,216,.45)' : 'rgba(242,212,138,.22)';
+      g.beginPath();
+      g.ellipse(bx + 20 * b, by + 56 * b, 26 * b, 8 * b, 0, 0, Math.PI * 2);
+      g.fill();
+      g.drawImage(pic(`banners/${key}`), bx, by, 40 * b, 56 * b);
+      this.badge(g, String(men), bx + 38 * b, by + 14 * b, s, on, '#e0b867');
+    }
   }
 
-  /** M6l: a cart (or porters' load) on the road: the kit's cart icon on an alliance-coloured disc, loads and ETA. */
-  private drawConvoys(g: CanvasRenderingContext2D, st: MapState): void {
-    const s = Math.max(1, 0.8 / this.k);
+  /**
+   * M6l: a cart (or porters' load) on the road: the kit's cart icon on an alliance-coloured disc; `mine`: yours, with
+   * loads and ETA; else the others' in sight, smaller and wordless zoomed out (under the names).
+   */
+  private drawConvoys(g: CanvasRenderingContext2D, st: MapState, mine: boolean): void {
+    const s = this.u;
     for (const c of st.convoys) {
-      const [x, y] = this.transitPos({ ...c, men: 0, state: 'moving' }, st.now), r = 15 * s;
-      g.beginPath();
-      g.arc(x, y, r, 0, Math.PI * 2);
-      g.fillStyle = '#17100d';
-      g.fill();
-      g.lineWidth = 3 * s;
-      g.strokeStyle = allianceColor(this.art, c.alliance);
-      g.stroke();
+      if ((c.alliance === st.you) !== mine) continue;
+      const [x, y] = this.transitPos({ ...c, men: 0, state: 'moving' }, st.now), r = (mine ? SIZE.convoy : SIZE.foreignConvoy) * s;
+      this.disc(g, x, y, r, allianceColor(this.art, c.alliance), (mine ? 3 : 2) * s);
       if (c.safe) { g.setLineDash([4 * s, 3 * s]); g.strokeStyle = '#9fd47a'; g.lineWidth = 1.5 * s; g.beginPath(); g.arc(x, y, r + 3 * s, 0, Math.PI * 2); g.stroke(); g.setLineDash([]); }
       const ic = this.pics[c.kind === 'wagon' ? 'trade-wagon' : c.kind === 'handcart' ? 'trade-cart' : 'act-load'];
-      if (ic) g.drawImage(ic, x - 12 * s, y - 12 * s, 24 * s, 24 * s);
+      if (ic) { g.imageSmoothingEnabled = true; g.drawImage(ic, x - r * 0.8, y - r * 0.8, r * 1.6, r * 1.6); }
+      if (!mine && this.k < 1) continue; // the others' loads and ETA only close up
       const left = Math.max(0, Math.ceil((c.arriveAt - st.now) / 1000));
       this.countBadge(g, 'act-load', c.loads, left, x + r + 2 * s, y, s);
     }
@@ -1085,17 +1330,17 @@ export class WorldMap {
    * "12 men, 1:36 to go"; `secs` null: waiting to set out.
    */
   private countBadge(g: CanvasRenderingContext2D, icon: string, n: number, secs: number | null, x: number, y: number, s: number): void {
-    g.font = `600 ${13 * s}px Inter, sans-serif`;
+    g.font = `600 ${BADGE_FONT * s}px Inter, sans-serif`;
     g.textAlign = 'left';
     g.textBaseline = 'middle';
-    const ic = 14 * s, pad = 5 * s, gap = 3 * s, a = String(n), b = secs === null ? 'waiting' : clock(secs);
+    const ic = 15 * s, pad = 5 * s, gap = 3 * s, a = String(n), b = secs === null ? 'waiting' : clock(secs);
     const wa = g.measureText(a).width, wb = g.measureText(b).width;
     const w = pad + ic + gap + wa + 7 * s + ic + gap + wb + pad;
     g.fillStyle = '#17100d';
     g.strokeStyle = '#7a3418';
     g.lineWidth = 2 * s;
-    g.fillRect(x, y - 9 * s, w, 18 * s);
-    g.strokeRect(x, y - 9 * s, w, 18 * s);
+    g.fillRect(x, y - 10.5 * s, w, 21 * s);
+    g.strokeRect(x, y - 10.5 * s, w, 21 * s);
     let cx = x + pad;
     const pic = this.pics[icon];
     if (pic) { g.imageSmoothingEnabled = true; g.drawImage(pic, cx, y - ic / 2, ic, ic); g.imageSmoothingEnabled = false; }
@@ -1121,15 +1366,15 @@ export class WorldMap {
   }
 
   private badge(g: CanvasRenderingContext2D, text: string, x: number, y: number, s: number, on: boolean, edge?: string): void {
-    g.font = `600 ${13 * s}px Inter, sans-serif`;
+    g.font = `600 ${BADGE_FONT * s}px Inter, sans-serif`;
     g.textAlign = 'left';
     g.textBaseline = 'middle';
     const w = g.measureText(text).width + 10 * s;
     g.fillStyle = on ? '#3d2414' : '#17100d';
     g.strokeStyle = edge ?? (on ? '#f2b27a' : '#7a3418');
     g.lineWidth = 2 * s;
-    g.fillRect(x, y - 9 * s, w, 18 * s);
-    g.strokeRect(x, y - 9 * s, w, 18 * s);
+    g.fillRect(x, y - 10.5 * s, w, 21 * s);
+    g.strokeRect(x, y - 10.5 * s, w, 21 * s);
     g.fillStyle = '#f0d9b5';
     g.fillText(text, x + 5 * s, y + 1 * s);
   }

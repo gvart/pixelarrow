@@ -5,7 +5,11 @@
  * the mode (icon, name, the question it answers), the six mode tabs (F2-F7), the legend, the markers' key and a card on
  * what is under the cursor (lair, building, claim point, resource, squad, then the ground; under the fog only what team 0
  * knows: "Unexplored" on ground it never saw, no live lair counts out of sight). Wheel zooms at the cursor,
- * drag pans, a click moves the camera there and closes it; M or Esc closes. Opens and closes with a short fade and scale.
+ * drag pans, a click moves the camera there and closes it. Opens and closes with a short fade and scale.
+ *
+ * The M cycle (./mapCycle.ts): M opens it, M again zooms out to the world map, an overlay over the running region
+ * (../../world-view/overlay.ts, imported on the first open and kept), M a third time or Esc closes back to play. The
+ * World button (Shift+W) opens the world map straight away. Each frame says what the next M does.
  */
 import { chiefMarks, guideMark } from '../mapMarks';
 import '@fontsource/cinzel/700.css';
@@ -20,6 +24,8 @@ import { myTeam } from '../side';
 import { groundless } from './claimCard';
 import { metres, claimLord, claimView } from './explain';
 import { depthOf } from '../../sim/depth';
+import { nextStep, stepHint, type MapInput, type MapStep } from './mapCycle';
+import type { WorldOverlay } from '../../world-view/overlay';
 
 const CLASS: Record<string, string> = { militia: 'Militia', hoplite: 'Hoplites', celt_sword: 'Swordsmen', archer: 'Archers', slinger: 'Slingers', javelineer: 'Javelineers' };
 const nice = (t: string) => t.replace(/[A-Z]/g, (c) => ' ' + c.toLowerCase()).replace(/^./, (c) => c.toUpperCase());
@@ -32,6 +38,9 @@ const CSS = `
 #rfFull.on{opacity:1}
 #rfFull .fm-frame{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) scale(.965);transition:transform .18s cubic-bezier(.2,.8,.3,1);padding:6px 8px 8px;pointer-events:auto;display:flex;gap:8px}
 #rfFull.on .fm-frame{transform:translate(-50%,-50%) scale(1)}
+#rfFull.out .fm-frame{transform:translate(-50%,-50%) scale(.42);transition:transform .22s cubic-bezier(.5,0,.8,.4)}
+#rfFull .fm-hint b{color:var(--rf-ink)}
+#rfFull .fm-hint kbd{display:inline-block;padding:1px 4px;margin-right:3px;font:700 11px/1.1 Inter,sans-serif;color:var(--rf-gold);background:#15171b;box-shadow:inset 0 0 0 1px #6a5326}
 #rfFull .fm-map{position:relative;flex:none}
 #rfFull canvas{display:block;cursor:crosshair;image-rendering:auto;box-shadow:0 0 0 1px #5f4b2a,0 0 0 2px #050506}
 #rfFull .fm-title{position:absolute;left:6px;top:6px;pointer-events:none;font:700 17px/1 Cinzel,serif;color:var(--rf-title);letter-spacing:.04em;background:var(--rf-panel);box-shadow:inset 0 0 0 1px var(--rf-rule);padding:5px 8px 4px}
@@ -90,7 +99,7 @@ export class FullMap {
     this.frame = document.createElement('div');
     this.frame.className = 'rf rf-card fm-frame';
     this.frame.innerHTML = `<div class="fm-map"><canvas id="fmMap"></canvas><div class="fm-title" id="fmTitle"></div>
-      <div class="fm-hint">Wheel to zoom · drag to pan · click to go there · M closes</div></div>
+      <div class="fm-hint" id="fmHint"></div></div>
       <div class="fm-panel" id="fmPanel"></div>`;
     this.root.append(this.frame);
     this.cv = this.frame.querySelector('#fmMap')!;
@@ -102,7 +111,7 @@ export class FullMap {
     this.tip.className = 'rf fm-tip';
     this.root.append(this.tip);
     document.body.append(this.root);
-    this.root.addEventListener('pointerdown', (e) => { e.stopPropagation(); if (e.target === this.root) this.close(); });
+    this.root.addEventListener('pointerdown', (e) => { e.stopPropagation(); if (e.target === this.root) this.go('close'); });
     this.root.addEventListener('wheel', (e) => { e.preventDefault(); e.stopPropagation(); if (e.target === this.cv) this.zoomAt(e, e.deltaY > 0 ? 1 / 1.25 : 1.25); }, { passive: false });
     let down: { x: number; y: number; ox: number; oy: number; moved: boolean } | null = null;
     this.cv.addEventListener('pointerdown', (e) => { down = { x: e.clientX, y: e.clientY, ox: this.f.ox, oy: this.f.oy, moved: false }; this.cv.setPointerCapture(e.pointerId); });
@@ -122,20 +131,73 @@ export class FullMap {
     this.cv.addEventListener('pointerup', (e) => {
       if (down && !down.moved) {
         const t = this.tileAt(e);
-        if (t.x >= 0 && t.y >= 0 && t.x <= this.s.map.w && t.y <= this.s.map.h) { this.s.focus(t.x, t.y); this.close(); }
+        if (t.x >= 0 && t.y >= 0 && t.x <= this.s.map.w && t.y <= this.s.map.h) { this.s.focus(t.x, t.y); this.go('close'); }
       }
       down = null;
     });
-    // capture: Esc closes the map before build mode or the siege controls see it
+    // capture: Esc closes a map before build mode or the siege controls see it; the world map's own keys stop there
     addEventListener('keydown', (e: KeyboardEvent) => {
       const a = keys.act(e);
-      if (a === 'view.map') { e.preventDefault(); if (this.open) this.close(); else this.show(); }
-      else if (a === 'back' && this.open) { e.stopImmediatePropagation(); this.close(); }
+      if (a === 'view.map') { e.preventDefault(); e.stopImmediatePropagation(); this.go('map'); }
+      else if (a === 'back' && this.step !== 'play') { e.stopImmediatePropagation(); this.go('back'); }
+      else if (this.step === 'world' && this.world?.key(e)) { e.preventDefault(); e.stopImmediatePropagation(); }
     }, true);
+  }
+
+  // ---------- the M cycle: region map, world map, play ----------
+  private step: MapStep = 'play';
+  private world: WorldOverlay | null = null;
+  private worldLoad: Promise<WorldOverlay> | null = null;
+
+  /** Move the cycle on (M, Esc, the World button, a click that leaves the map). */
+  go(input: MapInput): void {
+    const from = this.step, to = nextStep(from, input);
+    if (to === from) return;
+    this.step = to;
+    if (from === 'region') this.close(to === 'world');
+    if (from === 'world') this.world?.hide();
+    if (to === 'region') this.show();
+    if (to === 'world') void this.showWorld();
+    this.s.mapOpen = to !== 'play';
+  }
+
+  /** The world overlay, made on first need (its module, art and data load once and stay). */
+  private loadWorld(): Promise<WorldOverlay> {
+    const q = new URLSearchParams(location.search), net = q.has('net'), dev = q.get('dev');
+    return (this.worldLoad ??= import('../../world-view/overlay').then(({ WorldOverlay }) => (this.world = new WorldOverlay({
+      here: this.s.region.id, net, dev,
+      enter: (id) => {
+        const p = new URLSearchParams({ region: id, world: '1' });
+        if (net) {
+          p.set('net', `/ws/war/${id}`);
+          if (dev) p.set('dev', dev);
+          p.set('team', q.get('team') ?? String(myTeam()));
+        } else p.set('offline', '1');
+        location.href = `sandbox.html?${p}`;
+      },
+      close: () => this.go('close'),
+      screen: () => { const w = new URLSearchParams(); if (net) { if (dev) w.set('dev', dev); } else w.set('offline', '1'); location.href = `world.html?${w}`; },
+      hint: () => stepHint('world', keys.label('view.map')),
+    }))));
+  }
+
+  private async showWorld(): Promise<void> {
+    const w = await this.loadWorld();
+    if (this.step === 'world' && !w.open) w.show();
+  }
+
+  /** The region map's hint: the mouse, then what M and Esc do. */
+  private hint(): string {
+    const m = keys.label('view.map'), [k, what] = stepHint('region', m).split(': ');
+    return `Wheel zoom · drag pan · click: go there<span style="margin-left:10px"><kbd>${k}</kbd>${what} · <kbd>Esc</kbd>close</span>`;
   }
 
   get open(): boolean {
     return this.root.style.display !== 'none' && !this.closing;
+  }
+  /** The cycle's step now. */
+  get at(): MapStep {
+    return this.step;
   }
 
   show(): void {
@@ -156,10 +218,14 @@ export class FullMap {
     this.f = { k: this.k0, rot: ISO_ROT, cx: w / 2, cy: h / 2, ox: this.cw / 2, oy: this.ch / 2 };
     this.shownMode = '';
     this.card.innerHTML = ''; // no card left from the last open (the fog may have changed)
+    this.frame.querySelector('#fmHint')!.innerHTML = this.hint();
+    this.root.classList.remove('out');
     this.root.style.display = '';
     void this.root.offsetWidth; // start the transition from the closed state
     this.root.classList.add('on');
+    this.step = 'region';
     this.s.mapOpen = true;
+    void this.loadWorld(); // the next M zooms out at once
     // redrawn at 10 Hz, at once on a pan, zoom or hover
     let last = 0;
     const tick = (t: number) => {
@@ -171,16 +237,20 @@ export class FullMap {
     this.raf = requestAnimationFrame(tick);
   }
 
-  close(): void {
+  /** Close; `out`: shrink away as the world map opens over it (the zoom out). */
+  close(out = false): void {
     if (this.root.style.display === 'none' || this.closing) return;
+    this.root.classList.toggle('out', out);
     this.root.classList.remove('on');
     this.tip.style.display = 'none';
-    this.s.mapOpen = false;
+    if (this.step === 'region') this.step = 'play';
+    this.s.mapOpen = this.step !== 'play';
     this.closing = window.setTimeout(() => {
       this.closing = 0;
       this.root.style.display = 'none';
+      this.root.classList.remove('out');
       cancelAnimationFrame(this.raf);
-    }, 170);
+    }, out ? 230 : 170);
   }
 
   /** Backing px per CSS px of the pointer (CSS zoom and the device pixel ratio). */

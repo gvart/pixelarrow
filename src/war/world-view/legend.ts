@@ -44,6 +44,7 @@ export function legendHtml(color: (a: number) => string, you: number | null): st
       ${row(disc(img('war/ui/icons/24/trade-cart.png', 14, 14), color(you ?? 0)), 'Cart on the road')}
       ${row(pennant, 'Warlord', 'his hall; smaller: lands he holds; red ring: a raid; grey: fallen')}
       ${row(disc('<span style="font:700 13px/1 serif;color:#f2d48a">★</span>', '#e0b867'), 'Mastered', 'every lair, chief and hidden quest')}
+      ${row(disc('<span style="font:700 11px/1 Inter,sans-serif;color:#f0d9b5">+2</span>', '#c9ae86'), 'More here', 'small markers with no room at this zoom: hover lists them, click zooms in')}
     </div></div>
     </div>`;
 }

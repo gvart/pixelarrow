@@ -21,24 +21,20 @@
  */
 import '@fontsource/inter/600.css';
 import '@fontsource/cinzel/700.css';
-import type { RegionState } from '../net/world';
 import { ALLIANCES } from '../world/alliances';
 import { worldRegion, WORLD_IDS } from '../world/graph';
 import { bar, CSS, fitHeight, placeTip, uiZoom, UNIT_ICON } from '../view/hud/kit';
 import { loadGlyphs } from '../view/hud/glyph';
 import { medal, titleTip, TITLES, TITLE_ORDER } from '../view/hud/titles';
 import { draggable } from '../view/hud/drag';
-import { convoySeen, HAUL_LOADS, inSight, isChokepoint, MARKET_TOWNS, planHaul, seasonStandings, TRADE_CAP, type HaulKind } from './geo';
-import { CARD_CSS, crest, dangerHtml, loreLine, regionCardHtml, resIcon, type CardCtx } from './regionCard';
+import { HAUL_LOADS, inSight, isChokepoint, MARKET_TOWNS, planHaul, seasonStandings, TRADE_CAP, type HaulKind } from './geo';
+import { CARD_CSS, crest, dangerHtml } from './regionCard';
+import { hoverCard, regionCardFor as regionCardFor0, type CardsCtx } from './cards';
+import { applyView, emptyState, loadMastered, loadSettlements, refreshLords } from './state';
 import { LEGEND_CSS, legendHtml } from './legend';
-import { allianceColor, ART, clock, WorldMap, type MapState } from './map';
-import { MOCK_MASTERED, MOCK_SETTLEMENTS, MockSource, NetSource, travelMs, type WorldSource, type WorldTitle, type WorldView } from './source';
+import { allianceColor, ART, clock, WorldMap, type MapPick } from './map';
+import { MockSource, NetSource, travelMs, type WorldSource, type WorldTitle, type WorldView } from './source';
 import { REGION_DEPTH } from '../sim/depth';
-import { LANDMARK_FUNCTION } from '../../data/warLore';
-import { landmarkOfRegion } from '../../data/warLandmarks';
-import { domainOf, warlord } from '../../data/warWarlords';
-import { lordInfo, lordMarks, roughMen } from './lords';
-import { bossesOfRegion } from '../../data/warBosses';
 import { keys } from '../input/keys';
 import { mountGameMenu } from '../menu/gameMenu';
 import { EVENT_INFO, type WorldEvent } from '../world/events';
@@ -48,7 +44,6 @@ import { chatBusy, mountChat, type ChatHandle } from '../view/hud/chat';
 import { mountPins, type PinHandle } from '../view/hud/pins';
 import { MockChat, NetChat, OfflineChat, worldTaps } from '../net/chatLink';
 import { warAuth } from '../net/session';
-import { levelName } from '../net/settlements';
 import { wipeCard } from '../view/hud/wipeCard';
 import { wiped, type WipeState } from '../sim/tunnel';
 
@@ -152,17 +147,14 @@ let map: WorldMap;
 /** Fit the map between the side panels, under the band. */
 const fit = () => { const z = zoom(); map.fit({ top: 48 * z, left: 200 * z, right: 200 * z, bottom: 12 }); };
 let view: WorldView | null = null;
-const st: MapState = { regions: new Map(), transit: [], squads: new Map(), you: null, hover: null, selected: null, squadAt: null, targets: new Set(), routes: q.get('routes') !== '0', now: Date.now(), convoys: [], haul: null };
+const st = emptyState(q.get('routes') !== '0');
 let ordering: string | null = null;
 let mouse = { x: 0, y: 0 };
-/** M7g: the landmark marker under the pointer (its region id): its card wins over the region's. */
-let hoverLm: string | null = null;
-/** W-72: the warlord pennant under the pointer (his id); W-73: the mastery star under it (its region). */
-let hoverLord: string | null = null, hoverMastered: string | null = null;
-// W-72: each warlord's hall and the lands his bands take and raid; W-76 proposal: as the region rooms last reported (./lords.ts)
-const lordsNow = () => void (st.warlords = lordMarks([...st.regions.values()], Date.now()));
-lordsNow();
-setInterval(lordsNow, 5000); // a raid's ring fades, a fallen lord comes back
+/** What is under the pointer besides its region (a marker's card wins over the region's: ./cards.ts hoverCard). */
+let picked: MapPick | null = null;
+const onMarker = () => !!picked && !!(picked.landmark || picked.lord || picked.mastered || picked.settle != null || picked.crown != null || picked.cluster);
+// W-72: each warlord's hall and the lands his bands take and raid; W-76: as the region rooms last reported (./lords.ts)
+setInterval(() => refreshLords(st), 5000); // a raid's ring fades, a fallen lord comes back
 
 function say(text: string, ms = 3500): void {
   toast.textContent = text;
@@ -332,13 +324,6 @@ function titlesHtml(t: WorldTitle[]): string {
   };
   return `<div class="wt-grid" style="margin-top:6px">${TITLE_ORDER.map(cell).join('')}</div>`;
 }
-/** W-61: the map's emblems: each holder's home region gets his titles' icons after its name. */
-function emblems(t: WorldTitle[]): Map<string, string[]> {
-  const m = new Map<string, string[]>();
-  for (const x of t) if (x.home && TITLES[x.id]) m.set(x.home, [...(m.get(x.home) ?? []), TITLES[x.id].icon]);
-  return m;
-}
-
 /** M6l: today's trade score per alliance against the daily cap. */
 function tradeHtml(ids: number[], trade: number[]): string {
   return `<div class="rf-dim" style="margin:6px 0 2px">Trade score today, up to ${TRADE_CAP}: 1 for each 100 coin sold to other alliances.</div>
@@ -346,86 +331,14 @@ function tradeHtml(ids: number[], trade: number[]): string {
 }
 draggable(seasonEl);
 
-const LM_STATE: Record<string, string> = { guarded: 'Guarded: gates shut', unclaimed: 'Guardian slain, free to claim', damaged: 'Damaged: power asleep', restored: 'Restored: power awake' };
-const RARE_NAME: Record<string, string> = { dragonbone: 'Dragonbone', nereidPearl: 'Nereid pearl', starIron: 'Star iron', asphodel: 'Asphodel', titanBronze: 'Titan bronze', obsidian: 'Obsidian' };
-const kebab = (s: string) => s.replace(/[A-Z]/g, (c) => '-' + c.toLowerCase());
 const colorOf = (a: number) => allianceColor(map.art, a);
-/** A card's header: an emblem, the name and a plain-words line under it. */
-const cardHead = (emblem: string, title: string, sub: string) => `<div class="rc-hd">${emblem}<div class="rc-tt"><div class="rf-name rc-name">${title}</div><div class="rc-sub">${sub}</div></div></div>`;
-const tile = (k: string, v: string, tipText = '') => `<div class="rc-tile"${tipText ? ` data-tip="${tipText}"` : ''}><span class="rc-k">${k}</span><span class="rc-v">${v}</span></div>`;
-
-/** M7g: a landmark's hover card: name, lore, guardian alive or slain (back in), holder and state, danger, rare good, power. */
-function landmarkCard(id: string): string {
-  const lm = landmarkOfRegion(id), r = st.regions.get(id), w = r?.landmark;
-  if (!lm || !w) return regionCardFor(id);
-  const bosses = bossesOfRegion(id).map((b) => b.name.replace(/^the /, 'The ')).join(' and ');
-  const back = w.backAt ? Math.max(0, Math.round((w.backAt - Date.now()) / 1000)) : 0;
-  const guard = w.guardian === 'alive' ? '<span style="color:var(--rf-bad)">Alive</span>' : `${w.guardian === 'slain' ? 'Slain' : 'Escaped'}${back ? ` <span class="dim">· back in ${clock(back)}</span>` : ''}`;
-  const rare = lm.rare ? `<span class="rc-good">${resIcon(kebab(lm.rare))}${RARE_NAME[lm.rare]}</span>` : '';
-  const emblem = `<span class="rc-crest" style="--c:${w.holder >= 0 ? colorOf(w.holder) : '#e0b867'}"><img src="war/ui/icons/24/bld-fort.png" width="28" height="28" alt=""></span>`;
-  return `${cardHead(emblem, lm.name, `Landmark in ${name(id)}`)}
-    <div class="rc-tags"><span class="rc-tag ${w.state === 'restored' ? 'good' : w.state === 'damaged' ? 'bad' : 'gold'}">${LM_STATE[w.state]}${w.holder >= 0 ? ` · ${Math.round(w.hp * 100)}%` : ''}</span></div>
-    <div class="rc-lore">${loreLine(id)}</div>
-    <div class="rc-tiles">${tile('Held by', `${w.holder >= 0 ? `<i class="wv-sw" style="background:${colorOf(w.holder)}"></i>${aName(w.holder)}` : w.guardian === 'alive' ? 'Its guardian' : 'Nobody'}`)}
-      ${tile('Danger', dangerHtml(REGION_DEPTH[id] ?? 1))}
-      ${tile('Guardian', guard)}</div>
-    <div class="rc-note">${w.guardian === 'alive' ? 'Guarded by' : 'Its guardian:'} <b style="color:var(--rf-ink)">${bosses}</b></div>
-    <div class="rc-sec">Its power once held</div><div style="line-height:1.4">${LANDMARK_FUNCTION[lm.id] ?? ''}</div>
-    ${rare ? `<div class="rc-sec">Rare good</div><div class="rc-goods">${rare}</div>` : ''}
-    <div class="rc-mine" style="margin-top:8px">+2 score an hour while restored and garrisoned${w.garrisoned ? ' · <b style="color:var(--rf-good)">earning now</b>' : ''}</div>`;
-}
-
-/** A span of time from afar: days and hours, else the clock. */
-const span = (ms: number) => { const s = Math.max(0, Math.ceil(ms / 1000)); return s >= 86_400 ? `${Math.floor(s / 86_400)}d ${Math.floor((s % 86_400) / 3600)}h` : clock(s); };
-/** W-72: a warlord's hover card; W-76 proposal: live, a fall or a raid as a tag, his places and rough men, the lands held. */
-function lordCard(id: string): string {
-  const w = warlord(id);
-  if (!w) return '';
-  const [seat, ...lands] = domainOf(w), col = `#${w.tint.toString(16).padStart(6, '0')}`, now = Date.now(), v = lordInfo(id, [...st.regions.values()], now);
-  const emblem = `<span class="rc-crest" style="--c:${v.backAt ? '#5a524c' : col}"><img src="war/ui/icons/24/act-attack.png" width="28" height="28" alt=""></span>`;
-  const tags = v.backAt ? `<span class="rc-tag good">Fallen · back in ${span(v.backAt - now)}</span>`
-    : v.raid ? `<span class="rc-tag bad">${v.raid.at > now ? `Raid on ${name(v.raid.region)} · ${span(v.raid.at - now)}` : `Raiding ${name(v.raid.region)}`}</span>` : '';
-  const held = v.known ? (v.lands.length ? `Holds ${v.lands.map(name).join(', ')}.` : 'Holds nothing now.') : `Raids from ${lands.map(name).join(' and ')}.`;
-  return `${cardHead(emblem, esc(w.name), `${esc(w.title.charAt(0).toUpperCase() + w.title.slice(1))} · a rival warlord`)}
-    ${tags ? `<div class="rc-tags">${tags}</div>` : ''}
-    <div class="rc-tiles">${tile('Hall', name(seat))}${v.backAt ? tile('Band', esc(w.band.replace(/^the /, 'The '))) : tile('Places', v.known ? String(v.holds) : '?', 'Claim points and lairs his men hold')}${v.backAt ? '' : tile('Men', v.known ? roughMen(v.men) : '?', 'His garrisons, as last seen')}</div>
-    ${v.backAt ? '' : `<div class="rc-note">${held}</div>`}`;
-}
-
-/** W-73: a mastered region's hover card. */
-function masteredCard(id: string): string {
-  const emblem = `<span class="rc-crest" style="--c:#e0b867"><span style="font:700 22px/1 serif;color:#f2d48a">★</span></span>`;
-  return `${cardHead(emblem, `${name(id)} mastered`, 'by you, this season')}<div class="rc-note">Every lair, chief and hidden quest done.</div>`;
-}
-
-/** W-63: a settlement's hover card: its level, lord and region, its overlord with the tribute, its vassals. */
-function settlementCard(id: number): string {
-  const list = st.settlements ?? [], w = list.find((x) => x.id === id);
-  if (!w) return '';
-  const over = w.overlord_id !== null ? list.find((x) => x.id === w.overlord_id) : null, vas = list.filter((x) => x.overlord_id === w.id);
-  const icon = w.level >= 5 ? 'bld-fort' : w.level >= 4 ? 'bld-tower-stone' : w.level >= 2 ? 'bld-storehouse' : 'bld-camp';
-  const mine = st.me != null && w.lord_pid === st.me, lv = Math.max(1, w.level);
-  const emblem = `<span class="rc-crest" style="--c:${mine ? '#e0b867' : '#7a3418'}"><img src="war/ui/icons/24/${icon}.png" width="28" height="28" alt=""></span>`;
-  return `${cardHead(emblem, esc(w.name), `${levelName(w.level)} in ${name(w.region)}`)}
-    <div class="rc-tiles">${tile('Lord', `${esc(w.lord ?? '?')}${mine ? ' <span class="dim">(you)</span>' : ''}`)}
-      ${tile('Level', `<span class="rc-pips d2">${[1, 2, 3, 4, 5].map((k) => `<i class="${k <= lv ? 'on' : ''}"></i>`).join('')}</span>`, `${levelName(w.level)}: level ${lv} of 5`)}
-      ${tile('People', String(w.people))}</div>
-    <div class="rc-sec">Fealty</div>
-    <div style="line-height:1.45">${over ? `Sworn to <b>${esc(over.name)}</b> <span class="rf-dim">· pays ${w.tribute_pct}% tribute</span>` : '<span class="rf-dim">Free: sworn to nobody</span>'}
-      ${vas.length ? `<br>Vassals: ${vas.map((v) => `${esc(v.name)} <span class="rf-dim">${v.tribute_pct}%</span>`).join(', ')}` : ''}</div>`;
-}
-const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-
-/** The region card (./regionCard.ts) with what this screen knows; `pinned`: the docked copy with real buttons. */
-function regionCardFor(id: string, pinned = false): string {
-  const you = st.you;
-  const mode: CardCtx['mode'] = haul.open ? 'haul' : st.targets.has(id) ? 'march' : st.squadAt === id ? 'squad' : 'enter';
-  return regionCardHtml(id, {
-    you, region: st.regions.get(id), seen: sight(id), mine: st.squads.get(id) ?? 0, quota: view?.quota[you ?? 0] ?? 150,
-    event: view?.snap.events?.active.find((x) => x.region === id && x.endAt > Date.now()), board: view?.boards?.[id],
-    mode: pinned && mode === 'haul' ? 'enter' : mode, pinned, color: colorOf, now: Date.now(),
-  });
-}
+/** What the cards know (./cards.ts); a click's action follows the planner, the selected squad and its targets. */
+const cards: CardsCtx = {
+  st, get view() { return view; }, color: colorOf,
+  mode: (id) => (haul.open ? 'haul' : st.targets.has(id) ? 'march' : st.squadAt === id ? 'squad' : 'enter'),
+};
+/** The region card; `pinned`: the docked copy with real buttons (never in haul mode). */
+const regionCardFor = (id: string, pinned = false) => (pinned && haul.open ? regionCardFor0({ ...cards, mode: () => 'enter' }, id, true) : regionCardFor0(cards, id, pinned));
 
 // ---------- M6l haul planner ----------
 const haul: { open: boolean; from: string; to: string; kind: HaulKind } = { open: false, from: 'dodona', to: 'ammos', kind: 'wagon' };
@@ -472,9 +385,11 @@ draggable(haulEl);
 
 function placeCard(): void {
   // the docked card already shows the selected region: no second copy under the pointer
-  if (!st.hover || ordering || (st.hover === st.selected && st.hoverSettle == null && !hoverLm && !hoverLord && !hoverMastered && pin.style.display !== 'none')) return void (card.style.display = 'none');
-  card.innerHTML = hoverLord ? lordCard(hoverLord) : hoverMastered ? masteredCard(hoverMastered) : st.hoverSettle != null ? settlementCard(st.hoverSettle) : hoverLm ? landmarkCard(hoverLm) : regionCardFor(st.hover);
-  card.style.width = hoverLord ? '290px' : hoverMastered ? '260px' : st.hoverSettle != null ? '290px' : hoverLm ? '310px' : '300px';
+  if (!st.hover || ordering || (st.hover === st.selected && !onMarker() && pin.style.display !== 'none')) return void (card.style.display = 'none');
+  const c = hoverCard(cards, picked ?? { region: st.hover, landmark: null, lord: null, mastered: null, settle: null, crown: null, cluster: null });
+  if (!c) return void (card.style.display = 'none');
+  card.innerHTML = c.html;
+  card.style.width = `${c.width}px`;
   card.style.display = '';
   const z = Number(card.style.zoom) || 1, r = card.getBoundingClientRect();
   let x = mouse.x + 18, y = mouse.y + 18;
@@ -570,15 +485,7 @@ worldTaps.add((m) => {
 
 function apply(v: WorldView): void {
   view = v;
-  st.regions = new Map(v.snap.regions.map((r: RegionState) => [r.id, r]));
-  st.transit = v.snap.transit;
-  st.squads = new Map(v.squads.map((s) => [s.region, s.men]));
-  st.you = v.snap.you.alliance;
-  st.convoys = (v.convoys ?? []).filter((c) => convoySeen(c, st.you as 0 | null, st.regions, ownSquadsIn()));
-  st.emblems = emblems(v.titles ?? []);
-  st.events = v.snap.events?.active ?? [];
-  st.crown = v.snap.crown; // W-64: monarchs and pacts
-  lordsNow(); // W-76 proposal: the warlords as the rooms last reported them
+  applyView(st, v);
   if (haul.open) renderHaul();
   if (st.squadAt && !st.squads.has(st.squadAt)) selectRegion(st.selected);
   renderBand();
@@ -594,6 +501,7 @@ function apply(v: WorldView): void {
 let down: { x: number; y: number; mx: number; my: number; moved: boolean } | null = null;
 canvas.addEventListener('pointerdown', (e) => {
   down = { x: e.clientX, y: e.clientY, mx: map.x, my: map.y, moved: false };
+  map.grab();
   canvas.setPointerCapture(e.pointerId);
 });
 canvas.addEventListener('pointermove', (e) => {
@@ -601,30 +509,30 @@ canvas.addEventListener('pointermove', (e) => {
   if (down) {
     const dx = e.clientX - down.x, dy = e.clientY - down.y;
     if (Math.hypot(dx, dy) > 4) down.moved = true;
-    if (down.moved) (map.x = down.mx - dx / map.k), (map.y = down.my - dy / map.k);
+    if (down.moved) map.panTo(down.mx - dx / map.k, down.my - dy / map.k, e.timeStamp);
   }
-  st.hover = map.regionAt(...map.toMap(e.clientX, e.clientY));
-  hoverLm = map.landmarkAt(st, ...map.toMap(e.clientX, e.clientY));
-  st.hover = map.eventAt(st, ...map.toMap(e.clientX, e.clientY)) ?? st.hover;
-  st.hoverSettle = map.settlementAt(st, ...map.toMap(e.clientX, e.clientY)); // W-63: a settlement's card wins
-  hoverLord = map.lordAt(st, ...map.toMap(e.clientX, e.clientY))?.id ?? null; // W-72, W-73: a pennant's or a star's card wins
-  hoverMastered = hoverLord ? null : map.masteryAt(st, ...map.toMap(e.clientX, e.clientY));
-  canvas.style.cursor = st.hover ? 'pointer' : 'default';
+  picked = map.pick(st, ...map.toMap(e.clientX, e.clientY));
+  st.hover = picked.region;
+  st.hoverSettle = picked.settle; // W-63: a settlement's card wins
+  canvas.style.cursor = picked.cluster ? 'zoom-in' : st.hover ? 'pointer' : 'default';
   placeCard();
 });
 canvas.addEventListener('pointerleave', () => { st.hover = null; placeCard(); });
 canvas.addEventListener('pointerup', (e) => {
   const click = down && !down.moved;
+  if (down?.moved) map.release(e.timeStamp);
   down = null;
   if (!click) return;
   if (e.button === 1) { const [x, y] = map.toMap(e.clientX, e.clientY); return pins?.click(e.clientX, e.clientY, { x, y }, e.shiftKey); }
+  // a cluster of small markers: zoom in until they stand apart
+  if (map.pick(st, ...map.toMap(e.clientX, e.clientY)).cluster) return void map.zoomTo(Math.max(map.goal * 2.2, 0.75), e.clientX, e.clientY);
   const id = map.regionAt(...map.toMap(e.clientX, e.clientY));
   if (haul.open && id) { if (e.shiftKey) haul.from = id; else haul.to = id; renderHaul(); return; }
   if (id && st.targets.has(id)) openOrder(id);
   else selectRegion(id);
 });
 canvas.addEventListener('dblclick', (e) => enter(map.regionAt(...map.toMap(e.clientX, e.clientY))));
-canvas.addEventListener('wheel', (e) => { e.preventDefault(); map.zoom(e.deltaY > 0 ? 1 / 1.15 : 1.15, e.clientX, e.clientY); placeCard(); }, { passive: false });
+canvas.addEventListener('wheel', (e) => { e.preventDefault(); map.zoomTo(map.goal * Math.exp((-Math.sign(e.deltaY) * Math.min(Math.abs(e.deltaY), 120)) / 400), e.clientX, e.clientY); placeCard(); }, { passive: false });
 // Esc with nothing selected or open: the in-game menu; F10: settings (src/war/menu)
 mountGameMenu({ idle: () => !ordering && !st.selected && !haul.open && !boardOpen && !legendOpen && !chatBusy() });
 keys.setContexts(() => ['world', 'global']);
@@ -640,8 +548,8 @@ addEventListener('keydown', (e: KeyboardEvent) => {
   else if (!a && e.key.toLowerCase() === 'b' && !e.ctrlKey && !e.metaKey && !(e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement)) toggleBoard();
   else if (!a && e.key.toLowerCase() === 'l' && !e.ctrlKey && !e.metaKey && !(e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement || e.target instanceof HTMLTextAreaElement)) toggleLegend();
   else if (a === 'world.fit') fit();
-  else if (a === 'world.zoomIn') map.zoom(1.2, innerWidth / 2, innerHeight / 2);
-  else if (a === 'world.zoomOut') map.zoom(1 / 1.2, innerWidth / 2, innerHeight / 2);
+  else if (a === 'world.zoomIn') map.zoomTo(map.goal * 1.35, innerWidth / 2, innerHeight / 2);
+  else if (a === 'world.zoomOut') map.zoomTo(map.goal / 1.35, innerWidth / 2, innerHeight / 2);
 });
 addEventListener('contextmenu', (e) => e.preventDefault());
 
@@ -658,26 +566,11 @@ void WorldMap.load(canvas).then(async (m) => {
   requestAnimationFrame(frame);
   setInterval(() => { renderSquads(); renderSeason(); renderEvents(); renderPin(); }, 1000);
   // W-63: the world's settlements (markers and fealty lines), again every minute online
-  const settlements = async () => {
-    if (source.mode === 'offline') return void ((st.settlements = MOCK_SETTLEMENTS), (st.me = 1));
-    const auth = await warAuth(source.devId).catch(() => null);
-    const r = await fetch('/api/war/settlements', { headers: auth?.headers ?? {} }).catch(() => null);
-    const j = r?.ok ? ((await r.json()) as { settlements?: MapState['settlements'] }) : null;
-    if (j?.settlements) st.settlements = j.settlements;
-    if (auth) st.me = auth.pid;
-  };
-  void settlements();
-  setInterval(() => void settlements(), 60_000);
+  void loadSettlements(source, st);
+  setInterval(() => void loadSettlements(source, st), 60_000);
   // W-73: the regions the player mastered this season (a star each), again every minute online
-  const mastered = async () => {
-    if (source.mode === 'offline') return void (st.mastered = new Set(MOCK_MASTERED));
-    const auth = await warAuth(source.devId).catch(() => null);
-    const r = await fetch('/api/war/mastery', { headers: auth?.headers ?? {} }).catch(() => null);
-    const j = r?.ok ? ((await r.json()) as { mastered?: string[] }) : null;
-    if (j?.mastered) st.mastered = new Set(j.mastered);
-  };
-  void mastered();
-  setInterval(() => void mastered(), 60_000);
+  void loadMastered(source, st);
+  setInterval(() => void loadMastered(source, st), 60_000);
   try {
     await source.start(apply);
   } catch (e) {
@@ -691,7 +584,7 @@ void WorldMap.load(canvas).then(async (m) => {
     (m.x = fc[0] - canvas.clientWidth / 2 / m.k), (m.y = fc[1] - canvas.clientHeight / 2 / m.k);
     selectRegion(focus);
   }
-  (window as unknown as { __world: unknown }).__world = { st, map, source, haul: (from: string, to: string, kind: HaulKind = 'wagon') => { Object.assign(haul, { open: true, from, to, kind }); renderHaul(); renderBand(); }, select: selectRegion, order: openOrder, hover: (id: string | null, x = 0, y = 0, lm = false) => { st.hover = id; hoverLm = lm ? id : null; mouse = { x, y }; placeCard(); } };
+  (window as unknown as { __world: unknown }).__world = { st, map, source, haul: (from: string, to: string, kind: HaulKind = 'wagon') => { Object.assign(haul, { open: true, from, to, kind }); renderHaul(); renderBand(); }, select: selectRegion, order: openOrder, hover: (id: string | null, x = 0, y = 0, lm = false) => { st.hover = id; picked = { region: id, landmark: lm ? id : null, lord: null, mastered: null, settle: null, crown: null, cluster: null }; mouse = { x, y }; placeCard(); } };
 });
 
 // ---------- W-66 his army destroyed (../view/hud/wipeCard.ts): the card over the map, home to watch the tunnel ----------

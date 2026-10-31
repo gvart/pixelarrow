@@ -38,6 +38,8 @@ export interface CardCtx {
   mode: 'enter' | 'march' | 'haul' | 'squad';
   /** Docked (clicked) rather than the hover card: real buttons and a close. */
   pinned?: boolean;
+  /** The hover card: the glance only (header, tags, tiles, event, your men, the action); the docked card has the rest. */
+  compact?: boolean;
   /** An alliance's map colour. */
   color: (a: number) => string;
   now: number;
@@ -164,19 +166,18 @@ export function regionCardHtml(id: string, c: CardCtx): string {
       <div class="rc-tt"><div class="rf-name rc-name">${w.name}</div><div class="rc-sub">${regionKind(id)} · ${BIOME_NAME[w.biome] ?? ''}</div></div>
       ${c.pinned ? '<button class="rf-tbtn x" data-act="close" title="close (Esc)">×</button>' : ''}</div>
     ${tags ? `<div class="rc-tags">${tags}</div>` : ''}
-    ${lore ? `<div class="rc-lore">${lore}</div>` : ''}
+    ${lore && !c.compact ? `<div class="rc-lore">${lore}</div>` : ''}
     <div class="rc-tiles">
       <div class="rc-tile"${tip(`How territory works: ${TERRITORY}`)}><span class="rc-k">Held by</span><span class="rc-v">${owner >= 0 ? `<i class="wv-sw" style="background:${c.color(owner)}"></i>` : ''}${owner === c.you && owner >= 0 ? `<span style="color:var(--rf-gold)">${aName(owner)}</span>` : aName(owner)}</span></div>
       <div class="rc-tile"${tip(`Danger ${depth} of 4. ${DANGER_TIP}`)}><span class="rc-k">Danger</span><span class="rc-v">${dangerHtml(depth)}</span></div>
       <div class="rc-tile"><span class="rc-k">Troops</span>${troopsHtml(c)}</div>
     </div>
-    <div class="rc-take">${esc(takeLine(id, owner, r?.claims, c.you))}</div>
+    ${c.compact ? '' : `<div class="rc-take">${esc(takeLine(id, owner, r?.claims, c.you))}</div>
     ${r && !c.seen ? '<div class="rc-note">Troops show only in and next to your land, or where your men stand.</div>' : ''}
-    ${room}
+    ${room}`}
     ${eventHtml(c)}
     ${c.mine ? `<div class="rc-mine">${c.mine} of your men stand here</div>` : ''}
-    ${goodsHtml(id)}
-    ${pricesHtml(id, c.board, c.now)}
+    ${c.compact ? '' : goodsHtml(id) + pricesHtml(id, c.board, c.now)}
     ${actionHtml(c.mode, c.pinned)}`;
 }
 
