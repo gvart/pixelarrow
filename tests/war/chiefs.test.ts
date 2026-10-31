@@ -5,11 +5,16 @@
  */
 import { describe, expect, it } from 'vitest';
 import { createSim } from '../../src/war/sim';
+import { CHIEF_FIRM } from '../../src/data/warWild';
 import { CHIEF_KINDS, chiefLoot, chiefRespawn, chiefsOfKind, WAR_CHIEFS, warChief } from '../../src/data/warBosses';
 import { MOBS, RESPAWN } from '../../src/war/sim/mobs';
 import { makePerson } from '../../src/war/sim/roster';
 import { ARMY_MAX } from '../../src/war/sim/soldiers';
 import type { RegionData, WarBuildSim, WarEvent } from '../../src/war/types';
+import { parseRegion } from '../../src/war/region/schema';
+
+const REGIONS = import.meta.glob<{ default: RegionData }>('../../src/war/regions/*.json', { eager: true });
+const regions = () => Object.values(REGIONS).map((m) => parseRegion(structuredClone(m.default)));
 
 function flat(lairs: RegionData['lairs'], n = 96): RegionData {
   return {
@@ -75,6 +80,38 @@ describe('chiefs', () => {
     run(sim, RESPAWN + 400);
     expect(sim.snapshot().lairs![0].state).toBe('cleared');
     expect(sim.snapshot().lairs![0].respawnIn).toBeGreaterThan(0);
+  });
+
+  it('W-81: every chief stands on firm ground (no ford or marsh within CHIEF_FIRM tiles: in a bog men lose half their block)', () => {
+    for (const r of regions())
+      for (const l of r.lairs ?? []) {
+        if (!l.chief) continue;
+        let bog = 0;
+        for (let dy = -CHIEF_FIRM; dy <= CHIEF_FIRM; dy++) for (let dx = -CHIEF_FIRM; dx <= CHIEF_FIRM; dx++) {
+          const i = (Math.floor(l.y) + dy) * r.w + Math.floor(l.x) + dx;
+          if (r.water[i] === 1 || r.terrain[i] === 'marsh') bog++;
+        }
+        expect(bog, `${r.id} ${l.chief}`).toBe(0);
+      }
+  });
+
+  it('W-81: Grey Moors\' chiefs on their own ground: 12 level-3 hoplites win in 60-90 s with a few losses, no wipe', () => {
+    const r = regions().find((x) => x.id === 'moors')!;
+    for (const c of r.lairs!.filter((l) => l.chief).map((l) => l.chief!)) {
+      const sim = createSim(r, 3);
+      sim.spawnMobs();
+      const l = sim.snapshot().lairs!.find((x) => x.chief?.id === c)!;
+      const men = Array.from({ length: ARMY_MAX }, (_, k) => makePerson(`p${k}`, 'hoplite', { level: 3 }));
+      const me = sim.spawnSquad('you', 0, 'hoplite', ARMY_MAX, l.x + 8, l.y, men);
+      sim.order({ kind: 'attack', squad: me, target: l.squad });
+      const t = run(sim, 1500, () => sim.snapshot().lairs![l.id].state === 'cleared');
+      const left = sim.snapshot().units.filter((u) => u.squad === me && u.state !== 'dead').length;
+      expect(sim.snapshot().lairs![l.id].state, c).toBe('cleared');
+      expect(t / 10, c).toBeGreaterThanOrEqual(60);
+      expect(t / 10, c).toBeLessThanOrEqual(90);
+      expect(ARMY_MAX - left, c).toBeGreaterThanOrEqual(1);
+      expect(ARMY_MAX - left, c).toBeLessThanOrEqual(6);
+    }
   });
 
   it('addLair with a chief (a hidden quest\'s end) leads it, never comes back', () => {

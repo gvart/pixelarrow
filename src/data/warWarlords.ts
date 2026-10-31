@@ -22,6 +22,8 @@ export interface WarlordDef {
   kind: MobKind;
   /** Men a garrison holds over the bandit baseline (frail kinds come in more, strong ones fewer). */
   men: number;
+  /** W-81: the lord's hp over WARLORD.lord.hp (a frail kind's lord needs more to hold his hall as long). */
+  lord: number;
   /** Banner colour and the lord's multiply tint. */
   tint: number;
   /** Draw scale of the lord over his kind's sheet. */
@@ -32,7 +34,7 @@ export interface WarlordDef {
 
 export const WARLORDS: readonly WarlordDef[] = [
   {
-    id: 'harpalos', name: 'Harpalos', title: 'Lord of the Toll', band: 'the Tollmen', seat: 'kleisoura', kind: 'bandit', men: 1, tint: 0xb04a3a, scale: 1.25,
+    id: 'harpalos', name: 'Harpalos', title: 'Lord of the Toll', band: 'the Tollmen', seat: 'kleisoura', kind: 'bandit', men: 1, lord: 1, tint: 0xb04a3a, scale: 1.25,
     lines: {
       rise: 'Harpalos bars the pass. Every road pays him now.',
       took: 'The Tollmen raise their pikes over {place}.',
@@ -42,7 +44,7 @@ export const WARLORDS: readonly WarlordDef[] = [
     },
   },
   {
-    id: 'kelaino', name: 'Kelaino', title: 'Mother of the Reeds', band: 'the Reed-Brood', seat: 'stymphalia', kind: 'harpy', men: 1.25, tint: 0x6a5a8a, scale: 1.35,
+    id: 'kelaino', name: 'Kelaino', title: 'Mother of the Reeds', band: 'the Reed-Brood', seat: 'stymphalia', kind: 'harpy', men: 1.25, lord: 5, tint: 0x6a5a8a, scale: 1.35,
     lines: {
       rise: 'Kelaino screams over the lake. Her brood wakes.',
       took: 'The Reed-Brood nests at {place}.',
@@ -52,7 +54,7 @@ export const WARLORDS: readonly WarlordDef[] = [
     },
   },
   {
-    id: 'skiron', name: 'Skiron', title: 'the Drowner, Ford-Lord', band: 'the Drowned Men', seat: 'achelous', kind: 'bandit', men: 1, tint: 0x3a6a78, scale: 1.25,
+    id: 'skiron', name: 'Skiron', title: 'the Drowner, Ford-Lord', band: 'the Drowned Men', seat: 'achelous', kind: 'bandit', men: 1, lord: 1, tint: 0x3a6a78, scale: 1.25,
     lines: {
       rise: 'Skiron holds the ford. Who crosses unpaid goes under.',
       took: 'The Drowned Men take {place}.',
@@ -62,7 +64,7 @@ export const WARLORDS: readonly WarlordDef[] = [
     },
   },
   {
-    id: 'auge', name: 'Auge', title: 'the Pride-Mother', band: 'the Pride', seat: 'ammos', kind: 'lion', men: 0.8, tint: 0xc08a3a, scale: 1.4,
+    id: 'auge', name: 'Auge', title: 'the Pride-Mother', band: 'the Pride', seat: 'ammos', kind: 'lion', men: 0.8, lord: 2.5, tint: 0xc08a3a, scale: 1.4,
     lines: {
       rise: 'Auge leads her pride out of the dunes. The herds run.',
       took: 'The Pride lairs at {place}.',
@@ -81,14 +83,20 @@ export const WARLORD = {
   grow: { seat: 2, march: 3, marchDay: 1 },
   /** Places held in one region at most. */
   maxHold: 3,
-  /** Garrison men by depth (index), +perDay a day held up to max; x(1 + press x (players - 1)); never over cap. W-79: depth 2 tops out at 9 (11 ground a solo 12 down). */
-  garrison: { base: [5, 5, 7, 8, 8], perDay: 1, max: [9, 9, 9, 12, 12], press: 0.15, cap: 12 },
+  /**
+   * Garrison men by depth (index), +perDay a day held up to max; x(1 + press x (players - 1)); never over cap. W-79: depth 2
+   * tops out at 9 (11 ground a solo 12 down). W-81: his hall starts `hall` more, still within max (after W-79 it fell in ~25 s).
+   */
+  garrison: { base: [5, 5, 7, 8, 8], perDay: 1, max: [9, 9, 9, 12, 12], press: 0.15, cap: 12, hall: 2 },
   /** Hold radius of a garrison (tiles). */
   holdR: 10,
   /** His lieutenant (each garrison's first man) and the lord himself, over a man of his kind. */
   lieutenant: { hp: 2, dmg: 1.25, armor: 2 },
-  /** W-79: was hp x14, dmg x1.8, armour +6 (he held 7 men over two minutes); now 7 men of his depth's level fell him in 32-42 s. */
-  lord: { hp: 6, dmg: 1.5, armor: 2 },
+  /**
+   * W-79: was hp x14, dmg x1.8, armour +6 (he held 7 men over two minutes), then x6 (his hall fell in ~25 s). W-81: x8 (x his
+   * def's `lord`) and his hall's +2 men: 12 level-3 hoplites take his hall in 62-80 s for 1-5 men.
+   */
+  lord: { hp: 8, dmg: 1.5, armor: 2 },
   /** Ticks between reinforcements; a holding is quiet with no foe man within `quiet` tiles. */
   reinforce: 6000, quiet: 20,
   /** Ticks a freed place stays free. */
@@ -98,8 +106,9 @@ export const WARLORD = {
   /**
    * Raids: every `every` ticks (÷ players, at most ÷ maxDiv), warned `warn` ticks ahead; men by depth + perPlayer each extra (≤ max).
    * W-79: led by a lieutenant, one more man at depth 1-2 (4 plain bandits died to 6 guards without felling one).
+   * W-81: a building is guarded (no raid) only with `guarded` or more fit men within `guard` tiles; a cart with any.
    */
-  raid: { every: 12000, maxDiv: 3, warn: 600, men: [5, 5, 7, 7, 7], perPlayer: 2, max: 12, reach: 110, guard: 16, cartGuard: 10, stay: 900, at: 5 },
+  raid: { every: 12000, maxDiv: 3, warn: 600, men: [5, 5, 7, 7, 7], perPlayer: 2, max: 12, reach: 110, guard: 16, guarded: 4, cartGuard: 10, stay: 900, at: 5 },
   /** Loot (x(1 + per x depth)) and favour; players with men within `near` tiles share the favour. */
   loot: {
     holding: { coin: 24, goods: 3, per: 0.5 },

@@ -102,6 +102,8 @@ export const warChief = (id: string): WarChief | undefined => CHIEF_BY_ID.get(id
 export const chiefKind = (id: string): ChiefKind | undefined => CHIEF_KINDS[warChief(id)?.kind ?? ''];
 /** The chiefs of a kind (the fill pass picks from these). */
 export const chiefsOfKind = (kind: string): WarChief[] => WAR_CHIEFS.filter((c) => c.kind === kind);
+/** W-81: tiles round a chief's lair the region kit keeps clear of ford and marsh (his fight is tuned on firm ground). */
+export const CHIEF_FIRM = 10;
 /** Ticks a slain chief's lair stays clear: 37.5 min at depth 1 (30 at home), 60 on the rim. */
 export const chiefRespawn = (depth: number): number => Math.round(18000 + 4500 * Math.max(0, Math.min(4, depth)));
 

@@ -20,7 +20,7 @@
  *                      but x, y, hp, its countdowns as absolute ticks (respawnIn, tele.in: tick + n, -1 for 0; fx.t: tick - t)
  *   v n, n x boss:     s id | u16 x*QUANT | u16 y*QUANT | v round(hp)   (guardians that moved or were hurt)
  *   u8 warden:         0 unchanged | 1 none | 2 then u16 x y | u8 w h | v strike tick (absolute)
- * Unit fields: POS u16 x*QUANT, u16 y*QUANT | FACE u8 (turns * 256) | HP u16 hp*10 | STATE u8 (state | 8 wounded set | 16 wounded)
+ * Unit fields: POS u16 x*QUANT, u16 y*QUANT | FACE u8 (turns * 256) | HP u16 hp*10 | STATE u8 (state | 8 wounded set | 16 wounded | 32 down, W-79)
  *   | Z u8 | ANIM u8 swing, u8 ready (255 none) | META v squad, u16 maxHp*10, s cls, s person id ('' none), u8 level
  *   | EXTRA v on+1, u8 task, u8 carry, u8 load, v combat tag end tick (absolute; 0 none, the decoder counts down),
  *     u8 satiety (W-60; 255 none)
@@ -48,7 +48,7 @@ function quantise(u: UnitSnap, tick: number): Q {
   return [
     clampU16(Math.round(u.x * QUANT)), clampU16(Math.round(u.y * QUANT)),
     Math.round(((((u.facing % TAU) + TAU) % TAU) / TAU) * 256) & 255,
-    clampU16(Math.round(u.hp * 10)), Math.max(0, STATES.indexOf(u.state)) | w, u8(u.z ?? 0),
+    clampU16(Math.round(u.hp * 10)), Math.max(0, STATES.indexOf(u.state)) | w | (u.down ? 32 : 0), u8(u.z ?? 0),
     u8(u.swing), u8(u.ready), u.on === undefined ? 0 : u.on + 1, Math.max(0, TASKS.indexOf(u.task)), Math.max(0, CARRY.indexOf(u.carry)), u8(u.load ?? 0),
     u.tag ? tick + u.tag : 0, u8(u.sat),
   ];
@@ -304,6 +304,7 @@ export class DeltaDecoder {
         const s = r.u8();
         u.state = STATES[s & 7] ?? 'idle';
         if (s & 8) u.wounded = !!(s & 16); else delete u.wounded;
+        if (s & 32) u.down = true; else delete u.down;
       }
       if (m & Z) u.z = r.u8();
       if (m & ANIM) {

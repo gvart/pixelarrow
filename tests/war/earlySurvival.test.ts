@@ -97,6 +97,33 @@ describe('W-79 early mercy: the wild only knocks men down at home and in the ent
     expect(sim.endFight().persons).toEqual([]);
   });
 
+  it('W-81: a man down still counts for the army cap: with 11 standing and 1 down, a soul refuses him', () => {
+    const r = flat(96);
+    r.depth = 0;
+    const sim = createSim(r, 3) as WarBuildSim;
+    const one = sim.spawnSquad('p:1', 0, 'archer', 1, 20, 20);
+    sim.step();
+    sim.addLair({ kind: 'wolf', x: 20, y: 14, count: 6 });
+    let down = false;
+    for (let t = 0; t < 1200 && !down; t++) {
+      sim.step();
+      down = sim.events().some((e) => e.kind === 'fall' && e.down);
+    }
+    expect(down).toBe(true);
+    const rest = sim.spawnSquad('p:1', 0, 'hoplite', 11, 76, 76);
+    const soul = sim.spawnSoul(77, 76, 'militia', 1, 'shrine');
+    sim.order({ kind: 'claimSoul', squad: rest, soul });
+    expect(sim.snapshot().units.find((u) => u.squad === one)?.down).toBe(true);
+    const evs: string[] = [];
+    for (let t = 0; t < 100; t++) {
+      sim.step();
+      for (const e of sim.events()) if (e.kind === 'soulClaimed' || e.kind === 'soulRefused') evs.push(e.kind);
+    }
+    expect(evs).toContain('soulRefused');
+    expect(evs).not.toContain('soulClaimed');
+    expect(sim.snapshot().units.filter((u) => u.squad === rest && u.state !== 'dead')).toHaveLength(11);
+  });
+
   it('left beside the lair that beat him: he gets up, is felled again, and that fall is real', () => {
     const r = flat(64);
     r.depth = 1;
@@ -204,16 +231,16 @@ describe('W-79 warlord hall and raids', () => {
     return { lost: men - standing(sim, me), secs: t / 10, lordSecs: (t - hit) / 10 };
   }
 
-  it('12 men of the depth take his hall (a 9-man garrison) in under 90 s, losing 2-4 on average', () => {
+  it('12 men of the depth take his hall (a 9-man garrison) from 40 tiles off in 70-95 s (W-81), losing 2-4 on average', () => {
     const runs = [1, 2, 3, 4, 5].map((seed) => hall(seed, 2, 12, false));
-    for (const x of runs) expect(x.secs).toBeLessThan(90);
+    for (const x of runs) expect(x.secs).toBeGreaterThanOrEqual(70), expect(x.secs).toBeLessThan(95);
     const mean = runs.reduce((a, x) => a + x.lost, 0) / runs.length;
     expect(mean).toBeGreaterThanOrEqual(2);
     expect(mean).toBeLessThanOrEqual(4);
   }, 60_000);
 
-  it('the lord alone does not out-tank 7 men for a minute', () => {
-    for (const seed of [1, 2, 3]) expect(hall(seed, 0, 7, true).lordSecs).toBeLessThan(50);
+  it('the lord alone does not out-tank 7 men for a minute (W-81: x8, 46-51 s)', () => {
+    for (const seed of [1, 2, 3]) expect(hall(seed, 0, 7, true).lordSecs).toBeLessThan(60);
   }, 60_000);
 
   it('a garrison stops growing at 9 at depth 2', () => {

@@ -14,7 +14,9 @@
  */
 import type { MobKind } from '../../../src/war/types.ts';
 import { DEPTH } from '../../../src/war/sim/depth.ts';
-import { chiefsOfKind, HIDDEN_IDS } from '../../../src/data/warWild.ts';
+import { CHIEF_FIRM, chiefsOfKind, HIDDEN_IDS } from '../../../src/data/warWild.ts';
+
+export { CHIEF_FIRM };
 import { WORLD } from './world.ts';
 
 type P = [number, number];
@@ -28,6 +30,8 @@ export interface FillIn {
   ground(x: number, y: number): boolean;
   /** Tiles to the nearest road. */
   roadDist(x: number, y: number): number;
+  /** Some ford or marsh within CHIEF_FIRM tiles (a chief fights on firm ground: in a bog men lose their block, W-81). */
+  bog?(x: number, y: number): boolean;
   /** Joined to the first entry. */
   reach(x: number, y: number): boolean;
   lairs: readonly { x: number; y: number; kind: MobKind }[];
@@ -97,7 +101,7 @@ export function fillWild(f: FillIn): { lairs: FillLair[]; secrets: FillSecret[];
   const fighters = kinds.filter((k) => !NO_CHIEF.has(k.kind) && chiefsOfKind(k.kind).length);
   const named = new Set<string>();
   for (let c = 0; c < chiefs && fighters.length; c++) {
-    const p = pick(LAIR_GAP);
+    const p = pick(LAIR_GAP, (q) => (f.bog?.(q[0], q[1]) ? -Infinity : 0));
     if (!p) break;
     const k = fighters[(c + (hash(f.id) % fighters.length)) % fighters.length], pool = chiefsOfKind(k.kind).filter((x) => !named.has(x.id));
     if (!pool.length) continue;

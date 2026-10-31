@@ -39,7 +39,7 @@ import { readImage } from '../../art/lib/png.mjs';
 import { BRIEF, byId, sideOf, type Side, type WorldRegion } from './world.ts';
 import { TRADE_ZONES } from '../../../src/war/region/zones.ts';
 import { runChecks, waterChecks, type Check } from './checks.ts';
-import { fillWild } from './fill.ts';
+import { CHIEF_FIRM, fillWild } from './fill.ts';
 
 export type { Pt, Sample };
 export { fbm };
@@ -2204,6 +2204,13 @@ export function build(def: RegionDef): Built {
     const f = fillWild({
       id: w.id, role: w.role, family: w.family, depth: REGION_DEPTH[w.id] ?? 1, fauna: w.fauna, W, H,
       ground: (x, y) => ground(x, y), roadDist: (x, y) => k.roadDist[at(x, y)] ?? 0, reach, lairs, keep,
+      bog: (x, y) => {
+        for (let dy = -CHIEF_FIRM; dy <= CHIEF_FIRM; dy++) for (let dx = -CHIEF_FIRM; dx <= CHIEF_FIRM; dx++) {
+          const j = at(Math.floor(x) + dx, Math.floor(y) + dy);
+          if (j >= 0 && (water[j] === 1 || terrain[j] === 'marsh')) return true;
+        }
+        return false;
+      },
     });
     lairs.push(...f.lairs);
     secrets.push(...f.secrets);

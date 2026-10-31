@@ -151,7 +151,7 @@ export interface MobHost {
   /** world-fill: a chief (mini-boss) fell at (x,y) (by: the team of the squad it fought last, -1 unknown): his loot pile. */
   chiefDown?(lair: number, chief: WarChief, x: number, y: number, by: number): void;
   /** W-67: the view's mob FX (a lair roused: cry; a pack breaking off or a herd bolting: scatter). */
-  note?(e: { kind: 'mobCry' | 'mobScatter'; lair: number; mob: MobKind; x: number; y: number }): void;
+  note?(e: { kind: 'mobCry' | 'mobScatter' | 'lairCleared'; lair: number; mob: MobKind; x: number; y: number }): void;
 }
 
 type LairState = 'home' | 'chase' | 'return' | 'flee' | 'raid';
@@ -274,6 +274,7 @@ export function createMobs(region: RegionData, host: MobHost) {
     if (s.alive === 0) {
       l.cleared = true;
       l.capAlive = false;
+      host.note?.({ kind: 'lairCleared', lair: l.id, mob: l.kind, x: l.x, y: l.y }); // W-81: an event on the tick (offline the mastery chip counts on events)
       l.respawnAt = tick + (l.chief ? chiefRespawn(depthOf(region)) : rule.respawn);
       holding();
       l.state = 'home';

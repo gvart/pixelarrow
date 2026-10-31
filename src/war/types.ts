@@ -257,7 +257,7 @@ export interface SiegeSnap {
   /** M6k: the cart's first items (uid, def, rarity, quality; at most 8). */
   list?: HoldItem[];
 }
-export interface UnitSnap { id: UnitId; squad: SquadId; x: number; y: number; facing: number; hp: number; maxHp: number; cls: string; state: 'idle' | 'move' | 'attack' | 'dead' | 'gather' | 'build'; wounded?: boolean; /** W-79 early mercy: knocked down, he may rise (sim and server only, not on the wire). */ down?: true; swing?: number; ready?: number; carry?: ResourceKind; load?: number;
+export interface UnitSnap { id: UnitId; squad: SquadId; x: number; y: number; facing: number; hp: number; maxHp: number; cls: string; state: 'idle' | 'move' | 'attack' | 'dead' | 'gather' | 'build'; wounded?: boolean; /** W-79 early mercy: knocked down, he may rise (on the wire since W-81). */ down?: true; swing?: number; ready?: number; carry?: ResourceKind; load?: number;
   /** M2c: what it does at its target while standing there: torching, beating out a fire, pushing a ladder, crewing an engine (state build: building one). */
   task?: 'ignite' | 'extinguish' | 'push' | 'crew';
   /** Height level it stands on (ground, stair or walkway). on: the building whose walkway, platform or stair it stands on. */
@@ -856,6 +856,8 @@ export type WarEvent =
   // (tx,ty); a lair roused from home (wolf howl, lion and bear roar); a pack breaking off or a herd bolting (scatter)
   | { t: number; kind: 'mobDash'; unit: UnitId; mob: MobKind; x: number; y: number; tx: number; ty: number }
   | { t: number; kind: 'mobCry'; lair: number; mob: MobKind; x: number; y: number }
-  | { t: number; kind: 'mobScatter'; lair: number; mob: MobKind; x: number; y: number };
+  | { t: number; kind: 'mobScatter'; lair: number; mob: MobKind; x: number; y: number }
+  // W-81: a lair's last beast or bandit fell (it is `cleared` on this tick's snapshot; the mastery chip counts it offline)
+  | { t: number; kind: 'lairCleared'; lair: number; mob: MobKind; x: number; y: number };
 /** W-67: the mob FX events (the live region sends them to the players whose camera sees them: protocol `mobFx`). */
 export type MobFxEvent = Extract<WarEvent, { kind: 'mobDash' | 'mobCry' | 'mobScatter' }>;

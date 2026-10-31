@@ -3291,7 +3291,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     gate(owner) {
       if (soulGate) return soulGate(owner);
       let have = 0;
-      for (const u of units) if (u.alive && !u.civ && u.squad.owner === owner) have++;
+      for (const u of units) if ((u.alive || u.downAt !== undefined) && !u.civ && u.squad.owner === owner) have++; // W-81: a man down will rise
       return { ok: have < ARMY_MAX, have };
     },
     join(so: Soul, squad: number) {

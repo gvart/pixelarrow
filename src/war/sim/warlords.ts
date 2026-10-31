@@ -125,13 +125,13 @@ export function createWarlords(region: RegionData, sim: WarBuildSim, bots: Bots,
     return [x / men.length, y / men.length];
   };
   const owner = (w: WarlordDef) => `warlord:${w.id}`;
-  /** Living fighting men of other teams within r of (x,y) (team: only that team's). */
-  const foesNear = (x: number, y: number, r: number, team?: number) => {
+  /** At least `n` living fighting men of other teams within r of (x,y) (team: only that team's). */
+  const foesNear = (x: number, y: number, r: number, team?: number, n = 1) => {
     for (const u of snap.units) {
       if (!alive(u) || u.cls.startsWith('civ_')) continue;
       const q = snap.squads[u.squad];
       if (!q || q.team === MOB_TEAM || (team !== undefined ? q.team !== team : q.team >= ALLIANCES.length)) continue;
-      if ((u.x - x) ** 2 + (u.y - y) ** 2 <= r * r) return true;
+      if ((u.x - x) ** 2 + (u.y - y) ** 2 <= r * r && --n <= 0) return true;
     }
     return false;
   };
@@ -150,10 +150,10 @@ export function createWarlords(region: RegionData, sim: WarBuildSim, bots: Bots,
   };
 
   const press = () => Math.max(1, players);
-  /** Garrison size of a holding taken at age `since`. */
-  const size = (w: WarlordDef, since: number) => {
+  /** Garrison size of a holding taken at age `since` (his hall: G.hall more, still within G.max). */
+  const size = (w: WarlordDef, since: number, hall = false) => {
     const G = WARLORD.garrison, d = Math.min(depth, G.base.length - 1);
-    const base = Math.min(G.max[d], G.base[d] + Math.floor(Math.max(0, age - since) * G.perDay));
+    const base = Math.min(G.max[d], G.base[d] + (hall ? G.hall : 0) + Math.floor(Math.max(0, age - since) * G.perDay));
     return Math.max(1, Math.min(G.cap, Math.round(base * w.men * (1 + G.press * (press() - 1)))));
   };
   /** Holdings his age allows here (and the players present; seat at least his hall). */
@@ -188,7 +188,7 @@ export function createWarlords(region: RegionData, sim: WarBuildSim, bots: Bots,
     notes.push({ t: tick, kind: 'warlord', what, warlord: l.def.id, name: l.def.name, text, x, y, ...extra });
 
   const spawn = (l: Lord, n: number, x: number, y: number, lead?: 'lt' | 'lord'): SquadId => {
-    const k = lead === 'lord' ? WARLORD.lord : WARLORD.lieutenant;
+    const k = lead === 'lord' ? { ...WARLORD.lord, hp: WARLORD.lord.hp * l.def.lord } : WARLORD.lieutenant;
     const id = sim.spawnWild(owner(l.def), l.def.kind, Math.min(12, n), x, y, { hp: rule.mob, dmg: rule.mob, ...(lead ? { lead: k } : {}) });
     return id;
   };
@@ -196,7 +196,7 @@ export function createWarlords(region: RegionData, sim: WarBuildSim, bots: Bots,
   const garrison = (l: Lord, p: Place, since: number, march: boolean, from?: [number, number]) => {
     const hall = l.seat && p.key === l.places[0]?.key && !p.lair;
     const [sx, sy] = march && from ? from : [p.x, p.y];
-    const sq = spawn(l, size(l.def, since), sx, sy, hall ? 'lord' : 'lt');
+    const sq = spawn(l, size(l.def, since, hall), sx, sy, hall ? 'lord' : 'lt');
     if (sq < 0) return;
     const h: Hold = { place: p.key, x: p.x, y: p.y, squad: sq, extra: [], state: march ? 'marching' : 'held', since, lt: -1, hall, at: tick };
     l.holds.push(h);
@@ -239,23 +239,23 @@ export function createWarlords(region: RegionData, sim: WarBuildSim, bots: Bots,
   const raidTarget = (l: Lord): Warning | null => {
     const R = WARLORD.raid;
     let best: Warning | null = null, bd = R.reach * R.reach;
-    const consider = (x: number, y: number, team: number, guard: number, w: Omit<Warning, 'x' | 'y' | 'team' | 'from' | 'at'>) => {
+    const consider = (x: number, y: number, team: number, guard: number, men: number, w: Omit<Warning, 'x' | 'y' | 'team' | 'from' | 'at'>) => {
       for (const h of l.holds) {
         if (h.state !== 'held') continue;
         const d = (h.x - x) ** 2 + (h.y - y) ** 2;
-        if (d >= bd || foesNear(x, y, guard, team)) continue;
+        if (d >= bd || foesNear(x, y, guard, team, men)) continue;
         bd = d;
         best = { x, y, team, from: h.place, at: tick + R.warn, ...w };
       }
     };
     for (const b of snap.buildings ?? []) {
       if (b.team < 0 || b.team >= ALLIANCES.length || (b.state !== 'done' && b.state !== 'damaged') || b.ruin || !RAIDABLE(b.type)) continue;
-      consider(b.x, b.y, b.team, R.guard, { building: b.id, what: thing(b.type) });
+      consider(b.x, b.y, b.team, R.guard, R.guarded, { building: b.id, what: thing(b.type) }); // W-81: a few men do not keep him off
     }
     if (!best)
       for (const e of snap.sieges ?? []) {
         if ((e.type !== 'handcart' && e.type !== 'wagon') || e.state === 'destroyed' || e.team === MOB_TEAM) continue;
-        consider(e.x, e.y, e.team, R.cartGuard, { siege: e.id, what: e.type === 'wagon' ? 'wagon' : 'cart' });
+        consider(e.x, e.y, e.team, R.cartGuard, 1, { siege: e.id, what: e.type === 'wagon' ? 'wagon' : 'cart' });
       }
     return best;
   };
@@ -384,7 +384,7 @@ export function createWarlords(region: RegionData, sim: WarBuildSim, bots: Bots,
       l.reinforceAt = tick + WARLORD.reinforce;
       for (const h of l.holds) {
         if (h.state !== 'held' || l.parties.some((x) => x.to === h.place && !x.raid)) continue;
-        const want = size(l.def, h.since) - squadMen(h.squad).length, left = WARLORD.cap - menAll();
+        const want = size(l.def, h.since, h.hall) - squadMen(h.squad).length, left = WARLORD.cap - menAll();
         if (want <= 0 || left <= 0) continue;
         const backed = h.hall && l.holds.some((x) => x !== h && x.state === 'held');
         if (!backed && foesNear(h.x, h.y, WARLORD.quiet)) continue;

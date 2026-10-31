@@ -117,6 +117,9 @@ void Promise.all([loading, grey ? null : loadArt(undefined, loader?.part('art', 
       const save = offline ? loadGuide(guideKey(null)) : null, open = !!spots && guideOpen(save);
       if (spots && offline) scene.sim.claim(team, spots.home.x, spots.home.y, HOME_R);
       if (spots && (!offline || open)) setGuide({ spots, town: region.name, offline });
+      // W-81 offline the region's own lairs, chiefs and guardians stand as the server room's do (region mastery needs
+      // them all), before any added lair (the guide's, a story's) so those keep their ids past the region's
+      if (offline) scene.sim.spawnMobs();
       const soul = offline && open && !save?.done.includes('soul'), lair = offline && open && !save?.done.includes('lair');
       scene.sim.spawn('you', team, 'hoplite', soul ? ARMY_MAX - 1 : ARMY_MAX, at.x, at.y);
       if (soul) scene.sim.spawnSoul(spots!.soul.x, spots!.soul.y, GUIDE_SOUL.cls, GUIDE_SOUL.level, 'shrine');
