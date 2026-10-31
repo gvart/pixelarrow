@@ -69,8 +69,12 @@ export interface Style {
   wayside: boolean;
   /** Dodona zones: broadleaf oak and beech wood only (no pines and firs). */
   oaks: boolean;
+  /** Elaia zones: the woods are dark resin pines and stone pines (a pine coast), not holm oak, cypress and olive. */
+  pines: boolean;
+  /** Elaia zones: a reed fen, marsh thick with reeds only (no saplings), dead trees rare. */
+  fen: boolean;
 }
-const STYLE: Style = { dry: 0.05, dryHigh: true, meadow: 0.1, dune: 0.3, trees: 1, bushes: 1, tufts: 0, wayside: false, oaks: false };
+const STYLE: Style = { dry: 0.05, dryHigh: true, meadow: 0.1, dune: 0.3, trees: 1, bushes: 1, tufts: 0, wayside: false, oaks: false, pines: false, fen: false };
 
 /** Biome libraries a region may name (public/war/biomes/<name>; 'global' is the base set). */
 export const BIOMES = ['global', 'elaia', 'kyrene', 'mountains', 'dodona', 'moors'] as const;
@@ -1649,9 +1653,12 @@ export function build(def: RegionDef): Built {
     }
     if (t === 'forest') {
       const edge = ring(x, y, (j) => terrain[j] !== 'forest');
-      const trees = b === 'mountains' ? FIRS : b === 'elaia' ? E(['holm-oak', 'stone-pine', 'holm-oak', 'cypress-tall', 'olive-tall']) : b === 'kyrene' ? Y(['acacia', 'acacia-old', 'tamarisk', 'thorn-tree']) : b === 'dodona' ? DTREES : WOODS;
+      const trees = b === 'mountains' ? FIRS : b === 'elaia' ? (st.pines ? ['pine-a', 'pine-b', 'elaia/stone-pine', 'pine-a', 'pine-b', 'elaia/holm-oak'] : E(['holm-oak', 'stone-pine', 'holm-oak', 'cypress-tall', 'olive-tall'])) : b === 'kyrene' ? Y(['acacia', 'acacia-old', 'tamarisk', 'thorn-tree']) : b === 'dodona' ? DTREES : WOODS;
       if (p < (edge ? 0.16 : 0.3) * Math.min(1, st.trees)) put(pick(trees, q), fx, fy);
       else if (p < (b === 'dodona' ? 0.42 : 0.34)) put(pick(b === 'elaia' ? MAQUIS : b === 'mountains' ? ALPINE : b === 'kyrene' ? Y(['saltbush', 'broom']) : b === 'dodona' ? DFLOOR : ['bush-a', 'bush-b'], q), fx, fy);
+    } else if (t === 'marsh' && b === 'elaia' && st.fen) {
+      if (p < 0.34) put('reeds', fx, fy);
+      else if (p < 0.343) put('dead-tree', fx, fy);
     } else if (t === 'marsh') {
       if (p < 0.2) put(pick(b === 'kyrene' ? Y(['reeds', 'reeds', 'saltbush']) : ['reeds', 'reeds', 'reeds', 'bush-b'], q), fx, fy);
       else if (p < 0.212) put('dead-tree', fx, fy);
