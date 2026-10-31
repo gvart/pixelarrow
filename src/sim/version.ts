@@ -24,5 +24,7 @@
  *    weigh nothing, a softer warlord lord and hall, lieutenant-led raids (clients on 6 reload).
  * 8: food-home (W-80 proposal): by a store of his team a man's pack refills to 8 rations (2 food a ration) from the
  *    store, the team's strongroom and, online at home, his own strongroom (clients on 7 reload).
+ * 9: tuning-mastery (W-81 proposal): chiefs on firm ground (moors, siren, delta rebuilt), warlord halls hold 60-80 s,
+ *    raids hit lightly guarded buildings, a lairCleared event (clients on 8 reload).
  */
-export const SIM_VERSION = 8;
+export const SIM_VERSION = 9;
