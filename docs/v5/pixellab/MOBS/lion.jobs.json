@@ -2,5 +2,7 @@
  { "anim": "die", "dir": "south-west", "attempt": "a1", "job": "08b32b6e-2f22-4da6-a20d-f8d11fd3feae", "mode": "pixminimax", "frames": 8 },
  { "anim": "die", "dir": "north-west", "attempt": "a1", "job": "a466f358-6551-4724-9380-264b64471339", "mode": "pixminimax", "frames": 8 },
  { "anim": "walk", "dir": "south-west", "attempt": "a1", "job": "e5d33a70-2a01-4cba-a3b5-13029ee24ce0", "mode": "pixminimax", "frames": 12, "canvas": 132 },
- { "anim": "walk", "dir": "north-west", "attempt": "a1", "job": "14663420-cd6e-465d-9073-24238a6ad426", "mode": "pixminimax", "frames": 12, "canvas": 132 }
+ { "anim": "walk", "dir": "north-west", "attempt": "a1", "job": "14663420-cd6e-465d-9073-24238a6ad426", "mode": "pixminimax", "frames": 12, "canvas": 132 },
+ { "anim": "idle", "dir": "south-west", "attempt": "a1", "job": "869bbfe3-38d3-47a2-b2ca-540fc2ff9415", "mode": "pixminimax", "frames": 12, "canvas": 132 },
+ { "anim": "idle", "dir": "north-west", "attempt": "a1", "job": "a38fe48f-e8a0-4cec-88e6-e1ccdc73de59", "mode": "pixminimax", "frames": 12, "canvas": 132 }
 ]
