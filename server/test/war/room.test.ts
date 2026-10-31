@@ -4,6 +4,7 @@ import { CELL, VisionMap } from '../../../src/war/net/interest';
 import { decodeFog, decodeInfluence, encodeFog, encodeInfluence, NODES_EVERY, packNode, STORE_NEAR, unpackNode } from '../../../src/war/net/economy';
 import { NET_VERSION, VISION, WILD_EVERY, type JoinMsg, type ServerMsg } from '../../../src/war/net/protocol';
 import { put } from '../../../src/war/sim/holders';
+import { HUNGER } from '../../../src/war/sim/food';
 import { createSim } from '../../../src/war/sim';
 import { CORPSE_TICKS, HOME_CLAIM_R, homeAnchor, WarRoom } from '../../src/war/room';
 import { warRegion } from '../../src/war/regions';
@@ -375,6 +376,7 @@ describe('W-60 the stock message is the store at hand', () => {
     for (let t = 0; t < 6000 && camps().length < 2; t++) r.tick();
     const near = (cx: number, cy: number) => camps().find((c) => Math.hypot(c.x - cx, c.y - cy) < 4)!;
     const ca = near(ax, ay), cb = near(bx, by);
+    for (const q of [a.squads[0], b.squads[0]]) for (const sl of r.sim.cargo({ squad: q })!.slots) put(sl.hold, 'ration', HUNGER.kit, 't'); // W-80: full packs take nothing from the store
     put(r.sim.cargo({ building: ca.id })!.slots[0].hold, 'food', 10, 't');
     put(r.sim.cargo({ building: cb.id })!.slots[0].hold, 'ration', 6, 't');
     r.sim.addStock(0, 'coin', 500); // the home strongroom: in the team total, never in the message

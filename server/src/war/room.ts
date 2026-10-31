@@ -67,6 +67,7 @@ function subtract(b: Bundle, r: Bundle): { goods: Record<string, number>; uids: 
 }
 import { inRects } from '../../../src/war/sim/trade';
 import { ARMY_MAX } from '../../../src/war/sim/soldiers';
+import { HUNGER } from '../../../src/war/sim/food';
 import { RoomGuide, type GuideDone } from './guide';
 import type { GuideSave } from '../../../src/war/net/guide';
 import { RoomStories, type StoryDone } from './stories';
@@ -331,6 +332,10 @@ export class WarRoom {
   private pacts: RoomPact[] = [];
   private later = new Map<number, ServerMsg[]>();
   private isHome: boolean;
+  /** W-80: per player, his home strongroom's food and rations as the DO last read them, less what his men drew since. */
+  private larders = new Map<number, { food: number; ration: number }>();
+  /** W-80: what his men drew from his strongroom (by a home store) since the DO last booked it. */
+  private drawn = new Map<number, { food: number; ration: number }>();
   /** W-63: why the last order was refused with notYourGround (the DO sends it as the error's detail). */
   refusal = '';
 
@@ -362,6 +367,8 @@ export class WarRoom {
       const have = known ?? this.snap?.units.filter((u) => u.state !== 'dead' && this.owners[u.squad] === owner && !u.cls.startsWith('civ_')).length ?? 0;
       return { ok: have < ARMY_MAX, have };
     });
+    // W-80: at the alliance's home, a man by a store of his tops his pack up from his own strongroom (D1, via larders)
+    if (o.home !== undefined) this.sim.setLarder((owner, team, want) => (team === o.home ? this.draw(owner, want) : 0));
     if (o.wild) this.sim.spawnMobs();
     if (o.roam) this.sim.spawnRoam();
     if (o.home !== undefined) {
@@ -661,6 +668,37 @@ export class WarRoom {
     return { squad, msg };
   }
 
+  /**
+   * W-80: his home strongroom's goods as the DO just read them (on a join, after a stow): what his men may draw here.
+   * Rations and food his men drew and the DO has not booked yet are still to come off.
+   */
+  setLarder(pid: number, goods: Readonly<Record<string, number>>): void {
+    const d = this.drawn.get(pid);
+    this.larders.set(pid, { food: Math.max(0, (goods.food ?? 0) - (d?.food ?? 0)), ration: Math.max(0, (goods.ration ?? 0) - (d?.ration ?? 0)) });
+  }
+
+  /** W-80 (the sim's larder): up to `want` rations for a man of `owner` from his strongroom: rations, else HUNGER.packFood food each. */
+  private draw(owner: string, want: number): number {
+    const m = /^p:(\d+)$/.exec(owner), pid = m ? Number(m[1]) : -1, l = this.larders.get(pid);
+    if (!l) return 0;
+    const r = Math.min(want, Math.floor(l.ration)), f = Math.min(want - r, Math.floor(l.food / HUNGER.packFood));
+    if (r + f <= 0) return 0;
+    const d = this.drawn.get(pid) ?? { food: 0, ration: 0 };
+    l.ration -= r;
+    l.food -= f * HUNGER.packFood;
+    d.ration += r;
+    d.food += f * HUNGER.packFood;
+    this.drawn.set(pid, d);
+    return r + f;
+  }
+
+  /** W-80: what each player's men drew from his strongroom since the last call (the DO takes it out of D1). */
+  private drainDrawn(): { pid: number; goods: Record<string, number> }[] {
+    const out = [...this.drawn].map(([pid, d]) => ({ pid, goods: Object.fromEntries(Object.entries(d).filter(([, n]) => n > 0)) }));
+    this.drawn.clear();
+    return out;
+  }
+
   /** W-60: the player's fighters across all regions now (the DO reads D1); the soul gate counts on it. */
   setArmy(pid: number, n: number): void {
     this.armies.set(pid, n);
@@ -670,6 +708,7 @@ export class WarRoom {
   startGuide(pid: number, save: GuideSave | null): ServerMsg | null {
     const p = this.players.get(pid), owner = `p:${pid}`;
     if (!p) return null;
+    this.snap = this.sim.snapshot(); // W-79: admit() spawned his squads after the last tick; their packs get the rations
     // his whole army (D1, set by the DO), else his fighters on this field (as the soul gate counts)
     const army = this.armies.get(pid) ?? this.snap.units.filter((u) => u.state !== 'dead' && this.owners[u.squad] === owner && !u.cls.startsWith('civ_')).length;
     return this.guide.start(pid, p.team, save, army, this.snap);
@@ -1139,7 +1178,7 @@ export class WarRoom {
     return labour.length || guards.length || works.length ? { labour, guards, works } : null;
   }
 
-  tick(now: () => number = () => 0): { frames: Map<number, Uint8Array>; msgs: Map<number, ServerMsg[]>; admitted: Map<number, ServerMsg>; fights: Fight[]; crafted: Crafted[]; bosses: BossSlain[]; sacrilege: number[]; freed: string[]; raided: number[]; captured: { cart: number; from: string; team: number; to: string }[]; souls: SoulClaim[]; faded: string[]; peace: Peace | null; times: TickTimes; guided: GuideDone[]; storied: StoryDone[]; met: EncounterDone[]; wild: WildDeed[]; gathered: [number, TaskMetric, number][]; settle: SettleOut | null; warlord: WarlordNote[] } {
+  tick(now: () => number = () => 0): { frames: Map<number, Uint8Array>; msgs: Map<number, ServerMsg[]>; admitted: Map<number, ServerMsg>; fights: Fight[]; crafted: Crafted[]; bosses: BossSlain[]; sacrilege: number[]; freed: string[]; raided: number[]; captured: { cart: number; from: string; team: number; to: string }[]; souls: SoulClaim[]; faded: string[]; peace: Peace | null; times: TickTimes; guided: GuideDone[]; storied: StoryDone[]; met: EncounterDone[]; wild: WildDeed[]; larder: { pid: number; goods: Record<string, number> }[]; gathered: [number, TaskMetric, number][]; settle: SettleOut | null; warlord: WarlordNote[] } {
     const t0 = now();
     // M6i: carts' owners before the step (a capture names only the taker)
     const cartWas = new Map((this.snap.sieges ?? []).filter((e) => e.owner !== undefined).map((e) => [e.id, { owner: e.owner!, team: e.team }]));
@@ -1278,7 +1317,7 @@ export class WarRoom {
     for (const [pid, ms] of this.later) if (this.players.get(pid)?.online) for (const m of ms) tell(pid, m);
     this.later.clear();
     this.lastTick = this.snap.tick;
-    return { frames, msgs, admitted, fights, crafted, bosses, sacrilege, freed, raided, captured, souls, faded, guided: g.done, storied: st.done, met: en.done, wild: wildDeeds(this.snap, evs, this.wildSeen), peace: this.peace(), gathered: tick % LABOUR_EVERY === 0 ? this.gather.drain() : [], settle, warlord, times: { stepMs: t1 - t0, snapMs: t2 - t1, netMs: now() - t2 } };
+    return { frames, msgs, admitted, fights, crafted, bosses, sacrilege, freed, raided, captured, souls, faded, guided: g.done, storied: st.done, met: en.done, wild: wildDeeds(this.snap, evs, this.wildSeen), larder: this.drainDrawn(), peace: this.peace(), gathered: tick % LABOUR_EVERY === 0 ? this.gather.drain() : [], settle, warlord, times: { stepMs: t1 - t0, snapMs: t2 - t1, netMs: now() - t2 } };
   }
 
   /**
