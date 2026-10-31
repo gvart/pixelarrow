@@ -851,6 +851,8 @@ export type WarEvent =
   // (tx,ty); a lair roused from home (wolf howl, lion and bear roar); a pack breaking off or a herd bolting (scatter)
   | { t: number; kind: 'mobDash'; unit: UnitId; mob: MobKind; x: number; y: number; tx: number; ty: number }
   | { t: number; kind: 'mobCry'; lair: number; mob: MobKind; x: number; y: number }
-  | { t: number; kind: 'mobScatter'; lair: number; mob: MobKind; x: number; y: number };
+  | { t: number; kind: 'mobScatter'; lair: number; mob: MobKind; x: number; y: number }
+  // W-81: a lair's last beast or bandit fell (it is `cleared` on this tick's snapshot; the mastery chip counts it offline)
+  | { t: number; kind: 'lairCleared'; lair: number; mob: MobKind; x: number; y: number };
 /** W-67: the mob FX events (the live region sends them to the players whose camera sees them: protocol `mobFx`). */
 export type MobFxEvent = Extract<WarEvent, { kind: 'mobDash' | 'mobCry' | 'mobScatter' }>;

@@ -12,6 +12,7 @@ import { hiddenStories } from '../../src/data/warStories';
 import { countsFor, masteryNeed, masteryView, wildDeeds, type WildDeed } from '../../src/war/net/mastery';
 import { WORLD_REGIONS } from '../../src/war/world/regions';
 import type { RegionData, WarBuildSim } from '../../src/war/types';
+import { parseRegion } from '../../src/war/region/schema';
 
 const REGIONS = import.meta.glob<{ default: RegionData }>('../../src/war/regions/*.json', { eager: true });
 const regionJson = (id: string) => Object.entries(REGIONS).find(([k]) => k.endsWith(`/${id}.json`))?.[1].default;
@@ -54,6 +55,28 @@ describe('region mastery (W-73)', () => {
     expect(masteryView('t', need, deeds).done).toBe(true);
     // the same deeds again (a respawned lair cleared again) change nothing
     expect(masteryView('t', need, [...deeds, { pid: 7, kind: 'lair', key: '0' }])).toEqual(masteryView('t', need, deeds));
+  });
+
+  it('W-81: on the real Grey Moors a cleared lair counts when the deeds are read only on ticks with events (the offline chip)', () => {
+    const r = parseRegion(regionJson('moors'));
+    const sim: WarBuildSim = createSim(r, 1);
+    sim.spawnMobs();
+    const l = sim.snapshot().lairs!.find((x) => !x.chief && x.kind === 'wolf')!;
+    const men = Array.from({ length: ARMY_MAX }, (_, k) => makePerson(`p${k}`, 'hoplite', { level: 3 }));
+    const me = sim.spawnSquad('you', 0, 'hoplite', ARMY_MAX, l.x + 8, l.y, men);
+    sim.order({ kind: 'attack', squad: me, target: l.squad });
+    const seen = new Map<number, string>(), deeds: WildDeed[] = [];
+    let cleared = false;
+    for (let t = 0; t < 3000 && !cleared; t++) {
+      sim.step();
+      const ev = sim.events();
+      cleared = sim.snapshot().lairs![l.id].state === 'cleared';
+      if (cleared) expect(ev.some((e) => e.kind === 'lairCleared' && e.lair === l.id)).toBe(true);
+      if (ev.length) deeds.push(...wildDeeds(sim.snapshot(), ev, seen, 0));
+    }
+    expect(cleared).toBe(true);
+    expect(deeds).toContainEqual({ pid: 0, kind: 'lair', key: String(l.id) });
+    expect(masteryView(r.id, masteryNeed(r), deeds).lairs).toEqual([1, r.lairs!.length]);
   });
 
   it('a hidden quest done is its owner\'s deed; offline the local player\'s squads (`you`) map to his pid', () => {
