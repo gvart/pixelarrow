@@ -94,6 +94,7 @@ export function mountMastery(s: SandboxScene, note: (n: Note) => void): void {
     if (got.length) (have.push(...got), set(masteryView(s.region.id, need, have)));
   };
   setInterval(render, 1000); // the top bar may mount after us
+  addEventListener('resize', () => requestAnimationFrame(render)); // a new window size moves the bar's buttons at once
   render();
   // scripts (scripts/war, Playwright): show a progress
   (window as unknown as { __mastery: unknown }).__mastery = { set, need };
