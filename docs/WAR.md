@@ -460,7 +460,7 @@ zone. Each room runs on its own seed (the region id hashed), so wander, roads an
 
 | Piece | Where | What |
 | --- | --- | --- |
-| Chief (local mini-boss) | 1 per entry, 2 deeper; none at home | a named beast or bandit chief (src/data/warWild.ts `WAR_CHIEFS`) on his kind's art, drawn 1.6x and tinted, his name and title over his head; leads an escort of his kind (`CHIEF_KINDS`: hp x2.85–76 and damage x1.2–2.6 over a man of his kind, before depth, and +6 armour, so a solo player's whole army (12 men, W-58) takes 60–90 s to bring him down: level 2 at depth 1, level 3 at depth 2 (measured 64–81 s for hoplites; 20 level-1 men take ~50–57 s); a chief never breaks off); his kill drops a pile (10–25 coin and a few hides or iron, x(1 + depth/2), an item at 35–50%); his lair comes back after 37.5 min (depth 1) to 60 min (rim) |
+| Chief (local mini-boss) | 1 per entry, 2 deeper; none at home | a named beast or bandit chief (src/data/warWild.ts `WAR_CHIEFS`) on his kind's art, drawn 1.6x and tinted, his name and title over his head; while he lives the minimap and the region map mark him fog or not (a gold-ringed lair badge under a crown, named on the region map; `src/war/view/mapMarks.ts`); leads an escort of his kind (`CHIEF_KINDS`: hp x2.85–76 and damage x1.2–2.6 over a man of his kind, before depth, and +6 armour, so a solo player's whole army (12 men, W-58) takes 60–90 s to bring him down: level 2 at depth 1, level 3 at depth 2 (measured 64–81 s for hoplites; 20 level-1 men take ~50–57 s); a chief never breaks off); his kill drops a pile (10–25 coin and a few hides or iron, x(1 + depth/2), an item at 35–50%); his lair comes back after 37.5 min (depth 1) to 60 min (rim) |
 | Hidden quest | 2 per entry, 3 deeper; none at home | no giver and no marker: men walking onto the spot (a dead man with a note, a cairn, a forgotten shrine, a ruined watch-post) begin the player's own run on the story runner (src/war/sim/secrets.ts), told as a short notice; 1–2 steps a short walk off (hunt the killers, dig a cache, the shrine's chief, robbers in an abandoned Warden post); the words follow the region's ground (`landOf`: the cold north, the steppe, the sand, the wet south; the rules stay the template's); pays a pile at his men, his alone for 10 min (10–20 coin and a few goods, x(1 + depth/2)) |
 
 Hidden quest markers (W-76 proposal): the spot itself stays unmarked, but once found the open step is his to follow.
@@ -935,12 +935,12 @@ Every soldier is a unit: the player selects any of his men and orders them alone
 
 | Input | Does |
 | --- | --- |
-| click, shift+click | select a man; shift adds him or drops him; a click on open ground clears |
+| click, shift+click | select the man's whole squad; shift adds or drops that squad; a click on open ground clears |
 | click in a block's gaps | select that block (all its men) |
 | one man selected | his card docked in the command panel (`src/war/view/hud/manCard.ts`), his pip lit: fall back Z, rejoin Shift+Z, to the rear rank Ctrl+Z |
 | hold Alt | every man's health bar |
 | drag a box, shift+box | select every man of yours inside; shift adds |
-| double-click a man | every man of his class on screen |
+| double-click a man | that one man alone (shift: added to the selection before the first click) |
 | Ctrl+A, Esc | all your men; nobody (Esc first closes a tool, the radial or an armed button) |
 | Ctrl+1–9, 1–9 | store the selection as control group n; select group n, a second tap centres the camera on it |
 | Alt+1–4 | formation line, column, wedge, loose |
