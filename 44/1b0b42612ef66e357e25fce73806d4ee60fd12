@@ -1,0 +1,25 @@
+src/war/view/mapMarks.ts
+  s_0dd3a9d3e5007a::t_1700197efbbd57 1-20
+src/war/view/hud/quest.ts
+  s_0dd3a9d3e5007a::t_0ec5154bbfdb88 111-118,121
+tests/war/mapMarks.test.ts
+  s_0dd3a9d3e5007a::t_d3f3cdb76f2b87 1-34
+src/war/view/hud/guide.ts
+  s_0dd3a9d3e5007a::t_7ce8e6ecd0c441 20,166-167,192,199
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "441b0b42612ef66e357e25fce73806d4ee60fd12",
+  "prompts": {},
+  "sessions": {
+    "s_0dd3a9d3e5007a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b6130d3d-c070-494f-98d5-046db89f2d1c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
