@@ -59,9 +59,10 @@ export class WarlordLayer {
         g.fillStyle(w.tint, 1).fillPoints([{ x: f.x - cw / 2, y: top }, { x: f.x + cw / 2, y: top }, { x: f.x + cw / 2, y: top + ch }, { x: f.x, y: top + ch * 0.7 }, { x: f.x - cw / 2, y: top + ch }], true);
         g.lineStyle(2, 0x140808, 1).strokePoints([{ x: f.x - cw / 2, y: top }, { x: f.x + cw / 2, y: top }, { x: f.x + cw / 2, y: top + ch }, { x: f.x, y: top + ch * 0.7 }, { x: f.x - cw / 2, y: top + ch }], true);
         g.fillStyle(0x140808, 0.9).fillCircle(f.x, top + ch * 0.35, cw * 0.18); // his mark
-        // a held claim point is named once, here (./neutral.ts hides its own label): who holds it and his men
+        // a held claim point says who holds it here (./neutral.ts hides its own label), high over the pole: clear of his
+        // plate (./chiefs.ts) and of the gold "Claim point" marker under it (./hud/claimCard.ts)
         const point = big && h.place.startsWith('c');
-        label(!big ? `${capital(w.band)} marching` : point ? `Claim point · held by ${w.name} · ${h.men} men` : `${capital(w.band)}: ${w.name}'s men ${h.men}`, f.x, top - 8, '#ffb39a', w.tint);
+        label(!big ? `${capital(w.band)} marching` : point ? `Held by ${w.name} · ${h.men} men` : `${capital(w.band)}: ${w.name}'s men ${h.men}`, f.x, point ? f.y - 90 - 16 - 90 * k : top - 8, '#ffb39a', w.tint);
       }
       // a raid on my ground in warning: a pulsing ring and the countdown
       const r = w.raid;
