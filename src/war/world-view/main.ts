@@ -514,7 +514,7 @@ canvas.addEventListener('pointermove', (e) => {
   picked = map.pick(st, ...map.toMap(e.clientX, e.clientY));
   st.hover = picked.region;
   st.hoverSettle = picked.settle; // W-63: a settlement's card wins
-  canvas.style.cursor = st.hover ? 'pointer' : 'default';
+  canvas.style.cursor = picked.cluster ? 'zoom-in' : st.hover ? 'pointer' : 'default';
   placeCard();
 });
 canvas.addEventListener('pointerleave', () => { st.hover = null; placeCard(); });
@@ -524,6 +524,8 @@ canvas.addEventListener('pointerup', (e) => {
   down = null;
   if (!click) return;
   if (e.button === 1) { const [x, y] = map.toMap(e.clientX, e.clientY); return pins?.click(e.clientX, e.clientY, { x, y }, e.shiftKey); }
+  // a cluster of small markers: zoom in until they stand apart
+  if (map.pick(st, ...map.toMap(e.clientX, e.clientY)).cluster) return void map.zoomTo(Math.max(map.goal * 2.2, 0.75), e.clientX, e.clientY);
   const id = map.regionAt(...map.toMap(e.clientX, e.clientY));
   if (haul.open && id) { if (e.shiftKey) haul.from = id; else haul.to = id; renderHaul(); return; }
   if (id && st.targets.has(id)) openOrder(id);
