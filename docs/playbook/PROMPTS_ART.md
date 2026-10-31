@@ -3720,3 +3720,37 @@ Dodona's four ridge-arm tracks a watch post each in a cleared patch of the pine 
 Boreas Fjords' headland ramp a shrine and cairn; Ammos' four ramps a ruined watch post, a cairn by a sanded ruin, a
 rock pillar with a cairn and a shrine; Skythia West's ledge a watch post and its spur a standing stone; the canyons'
 mesa track a cairn.
+
+## 52. Animation fixes (anim-fixes): the lion's walk, guardians' dust, getting up
+
+The two open issues of §50, plus W-79's get-up on the client. **2 PixelLab generations** (no rerolls).
+
+**Lion walk** (`mob_lion`). The template `walk-8-frames` and `running-8-frames` clips drew a second ear and head outline
+on the shoulder in nearly every SW frame (the idle has a trace of it too; kept). Rerolled the walk with PixMiniMax, 12
+frames, `view: high top-down`, from the character's own rotations padded onto a 132 canvas at (32, 32) (132, not 128:
+one generation instead of two), then cropped back to the spec's 92 canvas at (20, 20) (`walk/<dir>/a1c`); run is now
+the walk at 16 fps (`"of": "walk"`, as every §47 beast). Subject `a grim lean dusty tawny lioness, a real wild African
+lioness with no mane` (NW `…, seen from behind`), pose `standing on all four legs facing the viewer's lower left` (NW
+`… facing away`):
+- SW: `the lioness walks in place towards the viewer's lower left with a low heavy prowling gait: the four legs step one after another, the big paws lifting and coming down softly, the heavy shoulders rolling, the head held low and forward and steady, the long thin tail swaying behind; she stays on the same spot, she does not move away; the same lioness with exactly one head and exactly four legs in every frame; the lioness alone; no dust, no effects`
+- NW: `seen from behind, its back to the viewer in every frame, it never turns round: the lioness walks in place away from the viewer towards the upper left with a low heavy prowling gait: the four legs step one after another, the big paws lifting and coming down softly, the heavy shoulders and hips rolling, the head held low and forward, the long thin tail swaying behind; she stays on the same spot, she does not move away; the same lioness with exactly one head and exactly four legs in every frame; she keeps facing away from the viewer towards the upper left in every frame, only her back is seen; the lioness alone; no dust, no effects`
+
+Both kept first time: one head in all 12 frames, feet on the anchor line, the back view never turns. The die's raws
+(jobs 404) were copied out of the character zip (`mob_lion_die*`, input frame dropped) into `clips/die/<dir>/a1`;
+the old spec rebuilt pixel-identical before the walk changed.
+
+**Guardians' die dust** (no generation). `scripts/art/pixellab/mobs/undust.mjs` edits a shipped sheet in place:
+`i=j` cuts the mid-light pixels of frame i where clean frame j (about the same pose) is empty; `i=j!` swaps the whole
+frame. Erymanthian boar `75 125 die:8=11 die:7=8 die:6=7!`; moor bear `die:8=11! die:9=11! die:10=11!` (the
+puffs lay inside the lying body's outline); Brontes `die:1=2!` (puffs under the dropped boulder); river god
+`die:6=8! die:7=8!` (a white splash). The commands are in each `GUARD/<kind>.sheet.json` (`undust`). Chimera,
+savanna lion, griffin, Minotaur, Titan, Gyges, Drakon were clean; Scylla's sinking splash is the effect itself.
+
+**Getting up** (W-79, `src/war/view/anim.ts`). A man knocked down lies in his fall clip; when the snapshot has him alive
+again the same fall plays backwards once at its own fps (lying, then to his feet, ~1 s), then the usual pick; a later
+fall starts the clip afresh (the old fall was never cleared). No new art: `down` is not on the wire, the client sees
+dead-wounded turning alive.
+
+**Lessons:** (1) A colour cut leaves a puff's darker outline ring behind; when the puff sits inside the next frame's
+body, swap the frame. (2) PixMiniMax at 132 px costs one generation for 12 frames, 128 costs two: pad the 68 px
+rotation onto 132 and crop back.
