@@ -1,0 +1,44 @@
+src/war/view/hud/mapCycle.ts
+  s_0dd3a9d3e5007a::t_6300b4bd93ee4f 1-17
+src/war/world-view/regionCard.ts
+  s_0dd3a9d3e5007a::t_7118aefac88806 41-42,169,175,177,180
+src/war/world-view/map.ts
+  s_0dd3a9d3e5007a::t_3fd74f45da55ab 69-80,418-428,561-569
+  s_0dd3a9d3e5007a::t_8e9d620de17311 247,250,253-264,267,270-328,347
+tests/war/mapCycle.test.ts
+  s_0dd3a9d3e5007a::t_464ce452fcd7b3 1-37
+src/war/world-view/main.ts
+  s_0dd3a9d3e5007a::t_70c90f84079a59 504,512,523,533,549-550
+  s_0dd3a9d3e5007a::t_25fab66f0d15e9 30-33,35-36,150,153-157,335-341,388-392,488,514-516,567-568,570-571,585
+src/war/view/hud/fullMap.ts
+  s_0dd3a9d3e5007a::t_7cc095d6bc3b30 8-12,27-28,41-43,102,114,134,138,141-143,147-194,198-201,221-222,226,228,240-241,243,246-247,251,253
+src/war/world-view/overlay.ts
+  s_0dd3a9d3e5007a::t_5e5c808bcab9f3 246
+  s_0dd3a9d3e5007a::t_8e9d620de17311 112-113,229
+  s_0dd3a9d3e5007a::t_bf9896d78ac0d1 1-111,114-198,200-202,204,208,214-216,218-228,230-245,247-341
+  s_0dd3a9d3e5007a::t_e33f2ccef1d301 199,203,205-207,209-213,217
+src/war/world-view/state.ts
+  s_0dd3a9d3e5007a::t_f69c8c26fba4bf 1-55
+src/war/world-view/cards.ts
+  s_0dd3a9d3e5007a::t_856618d5af7d40 1-134
+src/war/view/hud/hud.ts
+  s_0dd3a9d3e5007a::t_6b8f8da4d99b66 185,457-459
+docs/WAR.md
+  s_0dd3a9d3e5007a::t_5e5c808bcab9f3 769-770
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "b15ec3613481af7cafc48f1464e715620ac43cd7",
+  "prompts": {},
+  "sessions": {
+    "s_0dd3a9d3e5007a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b6130d3d-c070-494f-98d5-046db89f2d1c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
