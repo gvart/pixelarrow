@@ -10,6 +10,7 @@
  *   v n, n x unit:     v id | u8 mask | fields in mask order (below)
  *   v n, n x removed:  v id (units the client no longer sees)
  *   v n, n x squad:    v id | u8 team | s order | u8 fire (bit0 has, bit1 on, bit2 available, bits 3.. reason) | s owner
+ *                      | u8 meals (W-79: bites left in its men's packs, at most 254; 255 none)
  *                      | s active skill ('' none) [| v ready tick | v buff end tick + 1 (absolute; the decoder counts down)]
  *   v n, n x shot:     u16 x0 y0 x1 y1 | v tick - t0 | u8 t1 - t0 | u8 z0 | u8 z1 | u8 kind | fire<<2 | siege<<3 | z by [| v siege]
  *   v n, n bytes:      JSON { u: BuildingSnap[], r: id[] } of changed / gone buildings (n = 0: none)
@@ -130,7 +131,7 @@ function bossRest(b: BossSnap, tick: number): Omit<BossSnap, 'x' | 'y' | 'hp'> {
 
 /** Squad active as absolute ticks (ready at, buff over at): changes only when it fires. */
 const activeAbs = (s: SquadSnap, tick: number) => (s.active ? [s.active.skill, s.active.ready ? tick + s.active.ready : 0, s.active.on ? tick + s.active.on : 0] as const : null);
-const squadKey = (s: SquadSnap, tick: number) => `${s.team}|${s.order}|${s.owner}|${s.fireArrows ? `${s.fireArrows.on}${s.fireArrows.available}${s.fireArrows.reason}` : ''}|${activeAbs(s, tick)}`;
+const squadKey = (s: SquadSnap, tick: number) => `${s.team}|${s.order}|${s.owner}|${s.meals ?? ''}|${s.fireArrows ? `${s.fireArrows.on}${s.fireArrows.available}${s.fireArrows.reason}` : ''}|${activeAbs(s, tick)}`;
 const enc = new TextEncoder();
 const dec = new TextDecoder();
 
@@ -210,6 +211,7 @@ export class DeltaEncoder {
       const fa = s.fireArrows;
       w.u8(fa ? 1 | (fa.on ? 2 : 0) | (fa.available ? 4 : 0) | (Math.max(0, REASONS.indexOf(fa.reason)) << 3) : 0);
       w.s(s.owner);
+      w.u8(s.meals === undefined ? 255 : Math.min(254, s.meals));
       const a = activeAbs(s, f.tick);
       w.s(a?.[0] ?? '');
       if (a) { w.v(a[1]); w.v(a[2]); }
@@ -330,6 +332,8 @@ export class DeltaDecoder {
     for (let n = r.v(); n > 0; n--) {
       const id = r.v(), team = r.u8(), order = r.s() as SquadSnap['order'], fa = r.u8(), owner = r.s();
       const s: Omit<SquadSnap, 'units'> = { id, owner, team, order };
+      const meals = r.u8();
+      if (meals !== 255) s.meals = meals;
       if (fa & 1) s.fireArrows = { on: !!(fa & 2), available: !!(fa & 4), ...(REASONS[fa >> 3] ? { reason: REASONS[fa >> 3] } : {}) };
       const skill = r.s() as WarSkillId | '';
       if (skill) this.actives.set(id, [skill, r.v(), r.v()]);
