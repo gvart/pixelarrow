@@ -22,6 +22,8 @@ import { myTeam } from '../side';
 import { icon } from './kit';
 import { chip, details, qcard } from './qcard';
 import { ghostIcon } from './souls';
+import { glyph } from './glyph';
+import { sandboxRoster } from './roster/state';
 import { fill, GUIDE_INTRO, GUIDE_LORE, guideGiver } from '../../net/questLore';
 import { metres, placeMarker, questBanner, questMarker } from './quest';
 
@@ -174,6 +176,21 @@ export function mountGuide(s: SandboxScene, mk: Mk): void {
 
   const place = (m: HTMLElement, p: { x: number; y: number } | null, label: string) => placeMarker(s, m, p, label);
 
+  /**
+   * The bandit step's fight, once it starts (his men in combat): a notice with "Go there", so a fight that begins
+   * off screen (the bandits came to his men, or his men walked into them) is found and watched.
+   */
+  let fought = false;
+  const fightCue = (cur: NonNullable<typeof s.sim.cur>) => {
+    if (fought) return;
+    const own = new Set(cur.squads.filter((q) => q.team === team && !q.civ).map((q) => q.id));
+    const men = cur.units.filter((u) => own.has(u.squad) && u.state !== 'dead' && (u.tag ?? 0) > 0);
+    if (!men.length) return;
+    fought = true;
+    const x = men.reduce((a, u) => a + u.x, 0) / men.length, y = men.reduce((a, u) => a + u.y, 0) / men.length;
+    sandboxRoster(s).onNote?.({ kind: 'info', icon: glyph('ui:swords', 18), text: 'Your men fight the bandits', act: { label: 'Go there', run: () => s.focus(x, y) } });
+  };
+
   let last = '', shown = false, closing = false, announced = false;
   const frame = () => {
     requestAnimationFrame(frame);
@@ -197,7 +214,9 @@ export function mountGuide(s: SandboxScene, mk: Mk): void {
     const now = list.find((st) => !save!.done.includes(st.id)), me = ownCentre(cur, team) ?? g.spots.entry;
     const t = now ? target(now.id, me) : null, far = t ? Math.hypot(t.x - me.x, t.y - me.y) : 0;
     setGuideMark(t); // the minimap and the region map mark it too (../mapMarks.ts)
-    place(mStep, t, now ? `${now.id === 'build' ? g.town : now.id === 'next' && hand ? hand.name : TARGET[now.id]} · ${metres(far)}` : '');
+    // the label names what the step's goal names (the last step: its giver, met over the border)
+    place(mStep, t, now ? `${now.id === 'build' ? g.town : now.id === 'next' && hand ? hand.giver : TARGET[now.id]} · ${metres(far)}` : '');
+    if (now?.id === 'lair') fightCue(cur);
     const towards = now && (now.id === 'soul' || now.id === 'gather' || now.id === 'lair');
     place(mHome, towards ? g.spots.home : null, `${g.town} · ${metres(Math.hypot(g.spots.home.x - me.x, g.spots.home.y - me.y))}`);
     // on screen the town speaks for itself; on the edge beside the step's marker it gives way

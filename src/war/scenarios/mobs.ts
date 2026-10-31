@@ -36,16 +36,17 @@ export const MOB_SCENARIOS: Scenario[] = (Object.keys(PACK) as MobKind[]).map((k
 
 /**
  * world-fill on a real region (the Grey Moors, depth 2): its lairs and roaming life, the chief Old Grizzle-Back by his
- * lair (named over his head, drawn larger and tinted) and a hidden cache a short walk west of the men (walk onto the
- * cairn at 382,206: a notice, then dig 8 tiles south-west).
+ * lair north-west of the men (254,90: named over his head, drawn larger and tinted) and a hidden cache far west of them
+ * (walk onto the cairn at 246,210: a notice, then dig a few tiles south-west). The places are the region kit's
+ * (RegionData.secrets, the chiefs' lairs): check them against the region when it is filled again.
  */
 export const WILD_SCENARIOS: Scenario[] = [{
   id: 'world-fill',
   name: 'World fill: chief and hidden cache',
   group: 'mobs',
   region: 'moors',
-  goal: 'The Grey Moors alive: packs and patrols roam, Old Grizzle-Back and his bear hold a lair to the east, and a cairn west of your men hides a cache. Walk onto the cairn, then fight the chief.',
-  check: ['Old Grizzle-Back: a bigger, tinted bear with his name and title over his head', 'Walking onto the cairn (382, 206) shows a notice, then "Dig up the cache"', 'Killing the chief drops a loot pile and a notice'],
+  goal: 'The Grey Moors alive: packs and patrols roam, Old Grizzle-Back holds a bear lair north-west of your men, and a cairn far to the west hides a cache. Walk onto the cairn, then fight the chief.',
+  check: ['Old Grizzle-Back (254, 90): a bigger, tinted bear with his name and title over his head', 'Walking onto the cairn (246, 210) shows a notice, then "Dig up the cache"', 'Killing the chief drops a loot pile and a notice'],
   squads: [you('hoplite', [396, 196]), you('archer', [398, 200], 8)],
   camera: { x: 400, y: 190, zoom: 1 / 2 },
   neutral: true,

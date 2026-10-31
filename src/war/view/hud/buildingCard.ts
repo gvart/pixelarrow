@@ -40,8 +40,8 @@ export const PRE_FUNCTION: Record<string, string> = {
   tunnel: 'the Tunnel of Shades: while you have fewer than 6 men, the shades of your fallen walk back through it, one man every 10 min',
   stall: 'a rented site in a trade court', stall2: 'a rented site in a trade court', stall3: 'a rented site in a trade court',
   workshop: 'the town\'s working quarter: engines, carts and tools', forge: 'the town\'s working quarter: arms and armour',
-  storehouse: 'a store: men within 12 m eat from it', cookhouse: 'cooks grain and onions into rations: feed twice, weigh half',
-  olivePress: 'olives: food, and pressed into oil', farm: 'a food field: men eat it plain or as rations',
+  storehouse: 'a store: men beside it eat and refill their packs', cookhouse: 'cooks grain and onions into rations: feed twice, weigh half',
+  olivePress: 'olives: food, and pressed into oil', farm: 'a food field: bring it to a store, where men eat and refill their packs',
   stoneTower: 'platform for 9 men, a door', woodTower: 'platform for 6 men over the road',
   stoneWall: 'walkway wall', stoneGate: 'opens for its owner (neutral: open; bandit-held: shut)',
 };

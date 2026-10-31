@@ -80,7 +80,9 @@ export function mountClaimCard(s: SandboxScene, mk: Mk): void {
   let shown = '';
   s.events.on('postupdate', () => {
     const p = s.input.activePointer;
-    const c = s.input.isOver && !s.interact.open && !s.build.tool ? claimAt(s, p) : null;
+    // one hover card at a time: a cart's or pile's (./holder.ts) under the cursor too speaks first (E acts on it)
+    const held = document.getElementById('rfHoldTip')?.style.display !== 'none' && !!document.getElementById('rfHoldTip');
+    const c = s.input.isOver && !s.interact.open && !s.build.tool && !held ? claimAt(s, p) : null;
     if (!c) { if (card.style.display !== 'none') card.style.display = 'none'; shown = ''; return; }
     const body = claimCardHtml(s, c);
     if (body !== shown) { shown = body; card.innerHTML = body; }

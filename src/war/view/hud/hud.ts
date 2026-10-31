@@ -73,6 +73,7 @@ import { claimNeed } from './explain';
 import { depthOf } from '../../sim/depth';
 import { chip, details, qcard } from './qcard';
 import { mealsMark } from './foodWatch';
+import { squadState, squadStateHtml } from './squadState';
 import { mountRegionChat } from './chatRegion';
 import { mountPeace } from './peace';
 import { mountSettlements } from './settlements';
@@ -209,7 +210,7 @@ export function hud(s: SandboxScene): void {
   card.innerHTML = `<div class="rf-card hud-cmd" id="cFrame">
     <div class="hud-port" id="cPort"><div id="cIcon"></div><canvas id="cPortCv" width="64" height="80"></canvas><span class="lv" id="cLv"></span></div>
     <div id="cSel" style="display:flex;flex-direction:column;justify-content:center;min-width:0">
-      <div class="hud-head"><div class="rf-name" id="cName"></div><div class="rf-num" id="cCount"></div></div><div class="rf-chip" id="cTag" style="display:none" title="combat tag: no entry to a safe court until it runs out"></div>
+      <div class="hud-head"><div class="rf-name" id="cName"></div><div class="rf-num" id="cCount"></div></div><div class="rf-chip st-line" id="cTag" style="display:none"></div>
       <div id="cBars" style="margin-top:4px;display:flex;flex-direction:column;gap:2px"></div>
       <div class="hud-chips" id="cChips"></div>
       <div class="hud-pips" id="cPips"></div>
@@ -623,16 +624,17 @@ export function hud(s: SandboxScene): void {
       const hp = men.reduce((a, d) => a + d.u.hp, 0), max = men.reduce((a, d) => a + d.u.maxHp, 0) || 1;
       const engines = own.map((x) => sc.engineOf(x)), e = engines.find((x) => x);
       const civ = allCivilians(s, [...s.selected]);
-      // M6d combat tag: the longest left among the selected men (they hit or were hit), no safe court until it runs out
-      const tag = men.reduce((a, d) => Math.max(a, d.u.tag ?? 0), 0);
-      $('cTag').style.display = tag ? '' : 'none';
-      if (tag) $('cTag').textContent = `⚔ tagged ${Math.ceil(tag / 10)} s`;
       // level (whole levels: one, or the lowest to the highest) and food (the average; no morale in the sim)
       const lvls = men.filter((d) => d.u.level).map((d) => d.u.level!), lo = lvls.length ? Math.min(...lvls) : 0, hi = lvls.length ? Math.max(...lvls) : 0;
       const fedMen = men.filter((d) => d.u.sat !== undefined), sat = fedMen.length ? fedMen.reduce((a, d) => a + d.u.sat!, 0) / fedMen.length : -1;
       // W-79: and the food left in their squads' packs (./foodWatch.ts)
       const sqs = new Set(men.map((d) => d.u.squad)), packs = (s.sim.cur?.squads ?? []).filter((x) => sqs.has(x.id) && x.meals !== undefined);
       const meals = packs.length ? packs.reduce((a, x) => a + x.meals!, 0) : undefined, menIn = (s.sim.cur?.units ?? []).filter((u) => sqs.has(u.squad) && u.state !== 'dead').length;
+      // the state line (./squadState.ts): in combat, men knocked down, food: each kept up while it is true
+      const st = squadStateHtml(squadState(s.sim.cur?.units ?? [], sqs, meals)), tagEl = $('cTag');
+      tagEl.style.display = st.html ? '' : 'none';
+      if (tagEl.innerHTML !== st.html) tagEl.innerHTML = st.html;
+      tagEl.className = `rf-chip st-line${st.tone ? ' ' + st.tone : ''}`;
       const fed = sat >= 0 ? ` · <span class="hud-fed ${sat >= 60 ? 'good' : sat >= 30 ? 'warn' : 'bad'}" title="how fed they are (food: the squad chest)">fed ${Math.round(sat)}%</span> ${mealsMark(meals, menIn)}` : '';
       const chips = q.blessed ? '<span class="hud-chip gold">Blessed</span>' : '';
       setHead(UNIT_ICON[cls] ?? 'unit-militia', byCls.size > 1 ? 'Mixed' : CLASS_NAME[cls] ?? civName(cls) ?? nice(cls), `<b>${men.length}</b> ${men.length === 1 ? 'man' : 'men'}${byCls.size > 1 ? `, ${byCls.size} classes` : ''}${fed}`, hudBar('hp', hp / max, `${Math.ceil(hp)} / ${Math.ceil(max)}`),
