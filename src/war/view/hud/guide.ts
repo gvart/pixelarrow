@@ -17,6 +17,7 @@ import type { WarEvent } from '../../types';
 import type { SandboxScene } from '../SandboxScene';
 import { doneNow, GUIDE_STEPS, guideNext, guideOpen, newWatch, watchEvents, type GuideSave, type GuideSpots, type GuideStepId } from '../../net/guide';
 import { ownCentre } from '../entry';
+import { setGuideMark } from '../mapMarks';
 import { myTeam } from '../side';
 import { icon } from './kit';
 import { chip, details, qcard } from './qcard';
@@ -162,9 +163,8 @@ export function mountGuide(s: SandboxScene, mk: Mk): void {
     if (id === 'gather') return near(s.sim.nodes.filter((n) => (n.res === 'wood' || n.res === 'stone') && n.amount > 0));
     if (id === 'lair') {
       const ls = (cur?.lairs ?? []).filter((l) => l.state !== 'cleared');
-      const own = ls.find((l) => Math.hypot(l.x - g.spots.lair.x, l.y - g.spots.lair.y) < 0.5);
-      if (own) { const q = cur?.squads.find((x) => x.id === own.squad), u = q && cur?.units.find((x) => x.id === q.units.find((id) => cur.units[id]?.state !== 'dead')); return u ? { x: u.x, y: u.y } : own; }
-      return near(ls);
+      // the camp itself, where it stands (not a bandit on the move: the marker and the distance would wander)
+      return ls.find((l) => Math.hypot(l.x - g.spots.lair.x, l.y - g.spots.lair.y) < 0.5) ?? near(ls);
     }
     if (id === 'build') return g.spots.home;
     if (id === 'next') return hand?.exit ?? null;
@@ -189,12 +189,14 @@ export function mountGuide(s: SandboxScene, mk: Mk): void {
     const on = !save!.hidden && (open.length > 0 || shown);
     if (!on) {
       el.style.display = mStep.style.display = mHome.style.display = 'none';
+      setGuideMark(null);
       return;
     }
     shown = true;
     el.style.display = '';
     const now = list.find((st) => !save!.done.includes(st.id)), me = ownCentre(cur, team) ?? g.spots.entry;
     const t = now ? target(now.id, me) : null, far = t ? Math.hypot(t.x - me.x, t.y - me.y) : 0;
+    setGuideMark(t); // the minimap and the region map mark it too (../mapMarks.ts)
     place(mStep, t, now ? `${now.id === 'build' ? g.town : now.id === 'next' && hand ? hand.name : TARGET[now.id]} · ${metres(far)}` : '');
     const towards = now && (now.id === 'soul' || now.id === 'gather' || now.id === 'lair');
     place(mHome, towards ? g.spots.home : null, `${g.town} · ${metres(Math.hypot(g.spots.home.x - me.x, g.spots.home.y - me.y))}`);

@@ -108,10 +108,17 @@ export function placeMarker(s: SandboxScene, m: HTMLElement, p: P | null, label:
   // centred on its point: keep the label and its arrow off the panels and inside the window
   const hw = lb.offsetWidth / 2 + 24, at = clearOnRay(cx, cy, cx + (q.x - cx) * k, cy + (q.y - cy) * k, hw, 18);
   at.x = Math.max(hw - 18, Math.min(innerWidth - hw + 18, at.x));
+  const turn = () => {
+    const a = Math.atan2(q.y - at.y, q.x - at.x);
+    return { a, r: Math.hypot((lb.offsetWidth / 2) * Math.cos(a), 9 * Math.sin(a)) + 16 }; // just past the label's edge
+  };
+  // the arrow stays inside the window too (playtest 2026-10-31: a target far below drew it past the bottom edge)
+  const t0 = turn(), ax = at.x + t0.r * Math.cos(t0.a), ay = at.y + t0.r * Math.sin(t0.a), pad = 16;
+  at.x += Math.max(0, pad - ax) - Math.max(0, ax - (innerWidth - pad));
+  at.y += Math.max(0, pad - ay) - Math.max(0, ay - (innerHeight - pad));
   m.style.left = `${at.x}px`;
   m.style.top = `${at.y}px`;
-  const dx = q.x - at.x, dy = q.y - at.y;
-  const a = Math.atan2(dy, dx), r = Math.hypot((lb.offsetWidth / 2) * Math.cos(a), 9 * Math.sin(a)) + 16; // just past the label's edge
+  const { a, r } = turn();
   ar.style.transform = `rotate(${a}rad) translateX(${r}px)`;
 }
 
