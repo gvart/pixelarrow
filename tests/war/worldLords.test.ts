@@ -7,7 +7,7 @@
 import { describe, expect, it } from 'vitest';
 import { domainOf, WARLORDS } from '../../src/data/warWarlords';
 import type { LordWorld, RegionState } from '../../src/war/net/world';
-import { lordInfo, lordMarks, RAID_SHOW_MS } from '../../src/war/world-view/lords';
+import { lordInfo, lordMarks, PENNANT_PX, PENNANT_W, pennantScale, RAID_SHOW_MS } from '../../src/war/world-view/lords';
 
 const W = WARLORDS[0], [SEAT, ...LANDS] = domainOf(W), NOW = 1_000_000_000;
 const region = (id: string, lords?: LordWorld[]): RegionState => ({ id, owner: -1, claims: [0, 0, 0, 0], live: [0, 0, 0, 0], contested: false, besieged: false, ...(lords ? { lords } : {}) });
@@ -45,5 +45,13 @@ describe('live warlords on the world map', () => {
 
   it('every lord gets his own pennants', () => {
     expect(new Set(lordMarks([], NOW).map((m) => m.id))).toEqual(new Set(WARLORDS.map((w) => w.id)));
+  });
+
+  it('a hall pennant reads at fit zoom and stays modest up close: its on-screen width scales with zoom inside PENNANT_PX', () => {
+    const px = (k: number) => PENNANT_W * pennantScale(k) * k;
+    for (const k of [0.2, 0.4, 0.55, 0.85]) expect(px(k)).toBeGreaterThanOrEqual(PENNANT_PX[0] - 1e-9);
+    for (const k of [2, 3]) expect(px(k)).toBeCloseTo(PENNANT_PX[1]);
+    expect(px(1.7)).toBeCloseTo(PENNANT_W * 1.7); // between the bounds: the map's own size
+    expect(px(1.6)).toBeGreaterThan(px(1.5));
   });
 });

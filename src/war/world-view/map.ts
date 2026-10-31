@@ -12,6 +12,7 @@ import type { WorldEvent } from '../world/events';
 import { EVENT_INFO } from '../world/events';
 import { EVENT_LOOK } from './eventLook';
 import { levelKind, type LevelKind, type WorldSettlement } from '../net/settlements';
+import { PENNANT_W, pennantScale } from './lords';
 
 type Box = [number, number, number, number];
 interface PlacedLabel { id: string; lines: string[]; size: number; x: number; y: number; w: number; h: number; big: boolean; leader: [number, number] | null }
@@ -438,11 +439,11 @@ export class WorldMap {
       placed.push(box(...best));
       return best;
     };
-    const lords: LordSpot[] = [];
+    const lords: LordSpot[] = [], ps = pennantScale(this.k);
     for (const m of st.warlords ?? []) {
       if (!this.art.regions[m.region]) continue;
-      const f = m.seat ? 1 : 0.75, w = 22 * s * f, h = 15 * s * f;
-      const box = (x: number, y: number): Box => [x - 4 * s, y - h * 2.4, x + w + 2 * s, y + 2 * s];
+      const f = m.seat ? 1 : 0.75, w = PENNANT_W * ps * f, h = 15 * ps * f;
+      const box = (x: number, y: number): Box => [x - 4 * ps, y - h * 2.4, x + w + 2 * ps, y + 2 * ps];
       const [x, y] = pick(m.region, [[-40, 66], [24, 66], [-62, 30], [40, 30], [-24, 96], [-70, -10], [56, -6], [-10, -64], [0, 40], [-30, 10]], box);
       lords.push({ ...m, x, y, w, h });
     }
@@ -464,7 +465,7 @@ export class WorldMap {
   }
   /** W-72: the warlord pennant under map point (x, y), else null. */
   lordAt(st: MapState, x: number, y: number): { id: string; region: string } | null {
-    const s = Math.max(1, 0.8 / this.k);
+    const s = pennantScale(this.k);
     for (const p of this.lordSpots(st)) if (x >= p.x - 4 * s && x <= p.x + p.w + 2 * s && y >= p.y - p.h * 2.4 && y <= p.y + 2 * s) return { id: p.id, region: p.region };
     return null;
   }
@@ -476,7 +477,7 @@ export class WorldMap {
 
   /** W-72: a warlord's pennant: a dark pole with a gold knob, a swallow-tailed cloth in his colour (his hall's bigger). */
   private drawLords(g: CanvasRenderingContext2D, st: MapState): void {
-    const s = Math.max(1, 0.8 / this.k);
+    const s = pennantScale(this.k);
     for (const p of this.lordSpots(st)) {
       // W-76: fallen, the cloth hangs grey half down the pole
       const top = p.y - p.h * 2.3, ct = top + (p.fallen ? p.h * 0.9 : 0), col = p.fallen ? '#5a524c' : `#${p.tint.toString(16).padStart(6, '0')}`;

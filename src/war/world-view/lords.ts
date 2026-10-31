@@ -46,3 +46,10 @@ export function lordInfo(id: string, regions: readonly RegionState[], now: numbe
 
 /** Men as a rough count ("~10"): a garrison is a guess from afar. */
 export const roughMen = (n: number) => (n <= 0 ? '0' : n < 5 ? 'a few' : `~${Math.round(n / 5) * 5}`);
+
+/** A hall's pennant cloth is this wide in map px at scale 1 (a land's is 3/4 of it). */
+export const PENNANT_W = 22;
+/** On screen a hall's cloth is at least this wide (CSS px: it reads at fit zoom) and at most this (no clutter up close). */
+export const PENNANT_PX: readonly [number, number] = [32, 44];
+/** The pennants' scale in map px at camera zoom `k` (screen px per map px): his hall's cloth stays PENNANT_PX wide on screen. */
+export const pennantScale = (k: number): number => Math.min(Math.max(PENNANT_W * k, PENNANT_PX[0]), PENNANT_PX[1]) / (PENNANT_W * k);
