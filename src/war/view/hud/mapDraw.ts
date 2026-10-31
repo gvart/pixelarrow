@@ -12,6 +12,7 @@
  * so his holdings read at a glance whatever the fog.
  */
 import { secretSteps } from '../secretSteps';
+import { chiefMarks, guideMark } from '../mapMarks';
 import { MOB_TEAM } from '../../sim/mobs';
 import type { BuildingSnap, FogGrid, RoamSnap } from '../../types';
 import type { SandboxScene } from '../SandboxScene';
@@ -251,6 +252,18 @@ export function drawMap(g: CanvasRenderingContext2D, s: SandboxScene, f: MapXf, 
     g.globalAlpha = 1;
     if (gone) { g.beginPath(); g.moveTo(x - r * 0.7, y + r * 0.7); g.lineTo(x + r * 0.7, y - r * 0.7); g.lineWidth = 1.5 * m; g.strokeStyle = '#a8907a'; g.stroke(); }
   }
+  // chiefs alive (../mapMarks.ts), fog or not: their lair's badge larger, ringed gold, a crown over it; named on the full map
+  for (const c of chiefMarks(cur?.lairs)) {
+    const [x, y] = P(c.x, c.y), r = (full ? 10 : 6.5) * m;
+    badge(g, x, y, r, '#f6d48a', m, 'rgba(110,23,18,0.92)');
+    if (!drawIcon(g, 'lair-' + c.kind, x, y, r * 1.7)) { g.beginPath(); g.arc(x, y, r * 0.4, 0, Math.PI * 2); g.fillStyle = '#c8a868'; g.fill(); }
+    drawIcon(g, 'menu-crown', x, y - r * 1.25, r * 1.3);
+    if (full) {
+      g.font = `700 ${Math.round(11 * m)}px Inter, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'top';
+      g.lineWidth = 3 * m; g.strokeStyle = INK; g.strokeText(c.name, x, y + r + 3 * m);
+      g.fillStyle = '#f6d48a'; g.fillText(c.name, x, y + r + 3 * m);
+    }
+  }
   // W-60 souls: a pale ghost glow, its ring gold while one of ours claims him, red when contested; fading ones dimmer
   const pulse = 0.75 + 0.25 * Math.sin(performance.now() / 300);
   for (const so of cur?.souls ?? []) {
@@ -274,6 +287,17 @@ export function drawMap(g: CanvasRenderingContext2D, s: SandboxScene, f: MapXf, 
     g.beginPath(); g.moveTo(x, y - r); g.lineTo(x + r, y); g.lineTo(x, y + r); g.lineTo(x - r, y); g.closePath();
     g.lineWidth = 1.6 * m; g.strokeStyle = INK; g.stroke();
     g.fillStyle = '#b9a6d8'; g.fill();
+  }
+  // the first-hour guide's open target (../mapMarks.ts), fog or not: a pulsing gold glow under the world marker's gold chevron
+  const gm = guideMark();
+  if (gm) {
+    const [x, y] = P(gm.x, gm.y), r = (full ? 6 : 4.5) * m;
+    const glow = g.createRadialGradient(x, y, 0, x, y, r * 3);
+    glow.addColorStop(0, `rgba(246,212,138,${0.75 * beat})`); glow.addColorStop(1, 'rgba(246,212,138,0)');
+    g.fillStyle = glow; g.beginPath(); g.arc(x, y, r * 3, 0, Math.PI * 2); g.fill();
+    g.beginPath(); g.moveTo(x - r, y - r * 1.6); g.lineTo(x + r, y - r * 1.6); g.lineTo(x, y); g.closePath();
+    g.lineWidth = 1.6 * m; g.strokeStyle = INK; g.stroke();
+    g.fillStyle = '#f6d48a'; g.fill();
   }
   // W-65: roaming groups (src/war/sim/roam.ts) by squad: a small dot by kind where seen (the fog already hid the rest)
   const roam = new Map<number, string>();
