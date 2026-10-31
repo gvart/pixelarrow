@@ -1,0 +1,35 @@
+src/war/sim/index.ts
+  s_0dd3a9d3e5007a::t_cab52e0725442f 3243-3263,3266-3267,3273-3278,3954-3955
+  s_0dd3a9d3e5007a::t_b6189ce04fb398 3956
+src/sim/version.ts
+  s_0dd3a9d3e5007a::t_45197c1b749860 25-26,28
+tests/war/foodHome.test.ts
+  s_0dd3a9d3e5007a::t_60d38481857f20 1-71,73-86
+  s_0dd3a9d3e5007a::t_1260bfa8155d67 72
+src/war/sim/food.ts
+  s_0dd3a9d3e5007a::t_cab52e0725442f 25-27
+src/war/types.ts
+  s_0dd3a9d3e5007a::t_cab52e0725442f 731-735
+tests/war/soulScenarios.test.ts
+  s_0dd3a9d3e5007a::t_ddf5ced25ec610 36
+tests/war/hunger.test.ts
+  s_0dd3a9d3e5007a::t_1b35fb53d87a23 123
+src/war/scenarios/souls.ts
+  s_0dd3a9d3e5007a::t_ddf5ced25ec610 14,26
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "10dd75a6c4040d7879a38e38b7fdf28810bd92cd",
+  "prompts": {},
+  "sessions": {
+    "s_0dd3a9d3e5007a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b6130d3d-c070-494f-98d5-046db89f2d1c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
