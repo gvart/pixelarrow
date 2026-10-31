@@ -25,7 +25,7 @@ export function squadState(units: readonly UnitSnap[], sqs: ReadonlySet<number>,
   };
 }
 
-const part = (tone: 'bad' | 'warn', g: string, text: string, tip: string) => `<span class="st-${tone}" title="${tip}">${glyph(g, 14)}${text}</span>`;
+const part = (tone: 'bad' | 'warn', g: string, text: string, tip: string) => `<span class="sq-${tone}" title="${tip}">${glyph(g, 14)}${text}</span>`;
 
 /** The line's HTML ('' when all is well) and its worst tone. */
 export function squadStateHtml(st: SquadState): { html: string; tone: 'bad' | 'warn' | '' } {
