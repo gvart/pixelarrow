@@ -670,6 +670,7 @@ export class WarRoom {
   startGuide(pid: number, save: GuideSave | null): ServerMsg | null {
     const p = this.players.get(pid), owner = `p:${pid}`;
     if (!p) return null;
+    this.snap = this.sim.snapshot(); // W-79: admit() spawned his squads after the last tick; their packs get the rations
     // his whole army (D1, set by the DO), else his fighters on this field (as the soul gate counts)
     const army = this.armies.get(pid) ?? this.snap.units.filter((u) => u.state !== 'dead' && this.owners[u.squad] === owner && !u.cls.startsWith('civ_')).length;
     return this.guide.start(pid, p.team, save, army, this.snap);
