@@ -44,11 +44,14 @@ export function soulCard(so: SoulSnap, full: boolean): string {
   });
 }
 
-/** His fighters now: online the roster's (every region, as the server counts), offline his men on this map (as the sim does). */
+/**
+ * His fighters now: online the roster's (every region, as the server counts), offline his men on this map. A man knocked
+ * down (W-79) is still his and gets up soon: he counts, so the claim prompt does not offer a place he is about to retake.
+ */
 export function armyMen(s: SandboxScene): number {
   if (s.sim.net) return sandboxRoster(s).rows().filter((r) => r.where !== 'dead' && !(r.p.hero.cls ?? '').startsWith('civ_')).length;
   const own = new Set((s.sim.cur?.squads ?? []).filter((q) => q.team === myTeam()).map((q) => q.id));
-  return (s.sim.cur?.units ?? []).filter((u) => own.has(u.squad) && u.state !== 'dead' && !u.cls.startsWith('civ_')).length;
+  return (s.sim.cur?.units ?? []).filter((u) => own.has(u.squad) && (u.state !== 'dead' || u.down) && !u.cls.startsWith('civ_')).length;
 }
 
 /** The soul within `r` tiles of tile point (x, y), nearest first (right click and E pick him so). */

@@ -40,9 +40,9 @@ describe('W-79 low-food warnings', () => {
     expect(foodWarnings(snap(0, men), 'you', memo).map((w) => w.kind)).toEqual(['pack']);
   });
 
-  it('packs already low when first seen say nothing; a hungry man always warns, once', () => {
+  it('packs already low when first seen warn at once; a hungry man always warns, once', () => {
     const memo: FoodMemo = new Map();
-    expect(foodWarnings(snap(0, [70, 70]), 'you', memo)).toEqual([]);
+    expect(foodWarnings(snap(0, [70, 70]), 'you', memo)).toEqual([{ squad: 0, kind: 'pack', meals: 0 }]);
     expect(foodWarnings(snap(0, [30, 70]), 'you', memo)).toEqual([{ squad: 0, kind: 'hungry' }]);
     expect(foodWarnings(snap(0, [10, 70]), 'you', memo)).toEqual([]);
     expect(foodWarnings(snap(0, [HUNGER.eatAt, 70]), 'you', memo)).toEqual([]);

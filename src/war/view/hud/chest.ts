@@ -88,7 +88,7 @@ export const SOURCES: ((c: ChestCtx) => Section | null)[] = [
     const worst = Math.min(...men.map((u) => u.sat!));
     const parts = [['fed', 0, 80], ['hungry', 1, (HUNGER.hungry + HUNGER.starving) / 2], ['starving', 2, 0]] as const;
     const line = parts.filter(([, i]) => by[i]).map(([n, i, sat]) => `<span style="display:inline-flex;align-items:center;gap:3px;margin-right:8px">${hungerBadge(sat, 14)}<b class="rf-num">${by[i]}</b><span class="rf-dim">${n}</span></span>`).join('');
-    const foot = `<div class="ch-cap" style="flex-wrap:wrap">${line}</div><div class="ch-cap rf-dim">${glyph('goods:march_rations', 14)}<span style="width:auto">a ration (+${HUNGER.ration}) or ${glyph('ui:food', 14)} food (+${HUNGER.food}) from their packs, else from a store within ${metres(HUNGER.storeR)}</span></div>`;
+    const foot = `<div class="ch-cap" style="flex-wrap:wrap">${line}</div><div class="ch-cap rf-dim">${glyph('goods:march_rations', 14)}<span style="width:auto">within ${metres(HUNGER.storeR)} of a store they eat there and refill their packs to ${HUNGER.kit} rations; away, they eat from their packs</span></div>`;
     return { id: 'food', label: `Food ${hungerBadge(worst, 13)}`, filter: 'goods', cells: [], foot, empty: '' };
   },
   // goods in hand (gatherers' loads) and in a crewed cart
@@ -127,7 +127,7 @@ export const SOURCES: ((c: ChestCtx) => Section | null)[] = [
 function townSections(store: BuildingSnap): Section[] {
   const st = (store.goods ?? {}) as Record<string, number>;
   const rank = (r: string) => (r === 'ration' ? 0 : r === 'food' ? 1 : 2);
-  const goods: Cell[] = Object.entries(st).filter(([, n]) => n > 0.05).sort((a, b) => rank(a[0]) - rank(b[0])).map(([res, n]) => ({ kind: 'good', res, n, ...(rank(res) < 2 ? { note: `your men within ${metres(HUNGER.storeR)} eat from it` } : {}) }));
+  const goods: Cell[] = Object.entries(st).filter(([, n]) => n > 0.05).sort((a, b) => rank(a[0]) - rank(b[0])).map(([res, n]) => ({ kind: 'good', res, n, ...(rank(res) < 2 ? { note: `your men within ${metres(HUNGER.storeR)} eat from it and refill their packs` } : {}) }));
   const items: Cell[] = (store.list ?? []).map((i) => ({ kind: 'item', item: { uid: i.uid, def: i.def, rarity: i.rarity, cond: 100, ...(i.q !== undefined ? { q: i.q } : {}) } as Item, note: 'in this store' }));
   return [
     { id: 'store', label: 'In this store', filter: 'goods', cells: goods, empty: 'the store is empty' },

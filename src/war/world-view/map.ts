@@ -105,6 +105,8 @@ interface PactWord { x: number; y: number; text: string; edge: string }
 export const NEAR_K = 0.7;
 /** Marker sizes in units (0.8 CSS px each while zoomed out): radii of the round ones, the battle marker's side. */
 export const SIZE = { event: 17, battle: 42, landmark: 13, crown: 11, star: 10, cluster: 10, convoy: 14, foreignConvoy: 10 } as const;
+/** A context marker over a region's name costs this many times its overlap (a sliver of a name drops it into the cluster). */
+const NAME_COST = 20;
 /** A land pennant's size against his hall's; the pole's height in cloth heights. */
 const LAND_F = 0.7, POLE = 1.9;
 /** Badge text in units: 12 CSS px while zoomed out. */
@@ -545,16 +547,18 @@ export class WorldMap {
 
   /**
    * The best spot for a w x h box in region `id`: the candidates `at`, then rings round the first and round the centre;
-   * the first inside the region that overlaps nothing in `placed`, else the least crowded inside (`cost` its overlap).
+   * the first inside the region that overlaps nothing in `placed`, else the least crowded inside (`cost` its overlap;
+   * over a box of `names`, the region names, it costs NAME_COST times as much: a marker gives way to a name first).
    */
-  private spotIn(id: string, at: [number, number][], box: (x: number, y: number) => Box, placed: Box[]): { p: [number, number]; cost: number } {
+  private spotIn(id: string, at: [number, number][], box: (x: number, y: number) => Box, placed: Box[], names: Box[] = []): { p: [number, number]; cost: number } {
     const s = this.u, [cx, cy] = this.art.regions[id].centroid;
     const ring = (x: number, y: number) => {
       const out: [number, number][] = [];
       for (let r = 14; r <= 112; r += 14) for (let a = 0; a < 12; a++) out.push([x + r * s * Math.cos((a * Math.PI) / 6), y + r * s * Math.sin((a * Math.PI) / 6)]);
       return out;
     };
-    const cost = (b: Box) => placed.reduce((c, q) => c + Math.max(0, Math.min(b[2], q[2]) - Math.max(b[0], q[0])) * Math.max(0, Math.min(b[3], q[3]) - Math.max(b[1], q[1])), 0);
+    const over = (b: Box, q: Box) => Math.max(0, Math.min(b[2], q[2]) - Math.max(b[0], q[0])) * Math.max(0, Math.min(b[3], q[3]) - Math.max(b[1], q[1]));
+    const cost = (b: Box) => placed.reduce((c, q) => c + over(b, q), 0) + names.reduce((c, q) => c + NAME_COST * over(b, q), 0);
     const inside = (b: Box) => [[(b[0] + b[2]) / 2, (b[1] + b[3]) / 2], [b[0], b[3]], [b[2], b[1]]].every(([x, y]) => this.regionAt(x, y) === id);
     let best = at[0] ?? [cx, cy], bc = Infinity;
     for (const p of [...at, ...(at.length ? ring(...at[0]) : []), ...ring(cx, cy)]) {
@@ -589,12 +593,12 @@ export class WorldMap {
     const key = `${this.labelCache?.key}|${(st.warlords ?? []).map((m) => `${m.id}:${m.region}:${m.raid ? 1 : 0}:${m.fallen ? 1 : 0}`).join(',')}|${[...(st.mastered ?? [])].join(',')}`
       + `|${[...st.regions.values()].filter((r) => r.landmark).map((r) => r.id).join(',')}|${(st.crown?.monarchs ?? []).map((m) => `${m.alliance}:${m.name}`).join(',')}|${(st.settlements ?? []).map((w) => `${w.id}:${w.level}`).join(',')}`;
     if (this.decorCache?.key === key) return this.decorCache;
-    const placed: Box[] = [...this.lastObstacles, ...labels.map((l) => [l.x - l.w / 2, l.y - l.h / 2, l.x + l.w / 2, l.y + l.h / 2] as Box)];
+    const names = labels.map((l) => [l.x - l.w / 2, l.y - l.h / 2, l.x + l.w / 2, l.y + l.h / 2] as Box), placed: Box[] = [...this.lastObstacles, ...names];
     const near = (id: string, offs: number[][]) => { const [cx, cy] = this.art.regions[id].centroid; return offs.map(([dx, dy]) => [cx + dx * s, cy + dy * s] as [number, number]); };
     const clustered = new Map<string, string[]>();
     /** Its spot: the first free one inside its region; else (`must`, up close, or only a sliver covered) the least crowded, or null (into the cluster). */
     const pick = (id: string, at: [number, number][], box: (x: number, y: number) => Box, must: boolean, what: string): [number, number] | null => {
-      const { p, cost } = this.spotIn(id, at, box, placed), b = box(...p), area = (b[2] - b[0]) * (b[3] - b[1]);
+      const { p, cost } = this.spotIn(id, at, box, placed, names), b = box(...p), area = (b[2] - b[0]) * (b[3] - b[1]);
       if (cost > area * 0.12 && far && !must) {
         clustered.set(id, [...(clustered.get(id) ?? []), what]);
         return null;

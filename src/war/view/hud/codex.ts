@@ -219,7 +219,7 @@ export const BUILD_TEXT: Partial<Record<BuildingType, BuildText>> = {
   outpost: { role: 'Holding', flavour: 'Four men and a watch-fire see a long way.', for: `claims ground far from camp and keeps a lookout: it sees over the fog around it.` },
   fort: { role: 'Holding', flavour: 'Stone on stone, until the hill itself is a wall.', for: `the strongpoint of a region: a big claim, a ${term('store')}, healing for the hurt, a lookout, and the place where captives are kept.` },
   barracks: { role: 'Ruin of the old wars', flavour: 'Nobody trains here now: on Metaxy the dead come ready-made.', for: 'only stands in landmarks and towns. Men join you as souls you claim in the field.' },
-  farm: { role: 'Food', flavour: 'Barley, onions and a patient ox.', for: `a field that grows food for gatherers to bring in; it regrows over time. Hungry men eat food as it is, or a ${term('civ_cook', 'Cook')} cooks it into rations.` },
+  farm: { role: 'Food', flavour: 'Barley, onions and a patient ox.', for: `a field that grows food for gatherers to bring to a store; it regrows over time. Men beside a store eat from it and refill their packs with rations (two food make one); a ${term('civ_cook', 'Cook')} cooks it into rations too.` },
   olivePress: { role: 'Food · workplace', flavour: 'The tree of Athena gives twice: fruit, then oil.', for: `a grove that yields food, and a press where a ${term('civ_forager', 'Forager')} makes oil.` },
   woodTower: { role: 'Defence', flavour: 'Timber legs and a good view of the road.', for: `a platform over the wall line: archers on it shoot farther and are hard to reach.` },
   stoneTower: { role: 'Defence', flavour: 'Its door opens only from the inside.', for: `a stone platform with an inner stair: archers on it shoot farther; only your own men use its door.` },
@@ -244,11 +244,11 @@ export const BUILD_TEXT: Partial<Record<BuildingType, BuildText>> = {
 /** Each building's purpose in one short line (the building card's first line; the CK3 card above is its tooltip). */
 export const BUILD_LINE: Partial<Record<BuildingType, string>> = {
   camp: 'Your foothold: claims ground, stores goods, feeds and heals men near',
-  storehouse: 'Stores goods near the work; your men near it eat from it',
+  storehouse: 'Stores goods near the work; men beside it eat and refill their packs',
   outpost: 'Claims distant ground and watches over the fog',
   fort: 'The region\'s strongpoint: claim, store, healing, captives',
   barracks: 'Old barracks: no training now; claim souls for men',
-  farm: 'Grows food: men eat it plain (+30) or a cook makes rations',
+  farm: 'Grows food for your stores: men beside one eat and refill their packs',
   olivePress: 'Olive grove: food your men eat, and oil from a forager',
   woodTower: 'A platform for archers over the wall',
   stoneTower: 'A stone platform for archers; only your men use the door',
