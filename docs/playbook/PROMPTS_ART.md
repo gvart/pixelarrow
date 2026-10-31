@@ -3791,3 +3791,23 @@ dead-wounded turning alive.
 **Lessons:** (1) A colour cut leaves a puff's darker outline ring behind; when the puff sits inside the next frame's
 body, swap the frame. (2) PixMiniMax at 132 px costs one generation for 12 frames, 128 costs two: pad the 68 px
 rotation onto 132 and crop back.
+
+## 54. Dune palette (dune-palette): the Southern Dunes' sand pale orange
+
+The open issue of §52: kyrene-s's dunes read dark brown (in-game ~(117, 78, 43)) beside the reference's pale orange
+crescents (~(185, 118, 63), lit faces ~(220, 150, 80)). **0 Gemini, 0 PixelLab generations**: a region palette
+variant, no shared tile repainted.
+
+- **Cause.** The Kyrene library's `dune` tile is a flat dark brown (122, 80, 43) and its `sand` a flat olive beige
+  (163, 153, 120); Ammos Dunes, Ammon, Lion Savanna, Red Canyons and kyrene-n draw the same tiles.
+- **Fix.** `style.paleSand` (scripts/war/regions/kit.ts) writes `"palette": "pale-sand"` into the region JSON
+  (RegionData.palette, kept by the schema). `loadArt` (src/war/view/art.ts) adds a second Kyrene set with that
+  palette: every sheet and variant with sand or dune in it copied and recoloured by `paleSand` (top diamond only, by
+  hue/saturation/lightness class: dune to (198, 128, 66), sand to (214, 158, 96), the sand's lit lips to
+  (234, 194, 140), each scaled by the pixel's lightness over its class base so the marks stay); red rock, hardpan,
+  reg, salt, water and the tile sides untouched. The baker picks the palette set for a region that names it.
+  10 more sheets (53 of autotile's 64 sheet codes).
+- **Check.** Shots at zoom 1/2 and 1 (own headless Chromium, `--mute-audio`, fog off): kyrene-s dunes ~(190, 124, 65),
+  the beach and salt pan still pale cream, the red mesa and ridge now stand out red on orange as in the reference;
+  Ammos, Ammon and kyrene-n pixel-identical before and after.
+- **Open.** Ammos Dunes reads as dark as kyrene-s did; `paleSand: true` in its script opts it in.
