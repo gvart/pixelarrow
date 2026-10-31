@@ -32,9 +32,9 @@ export function squadStateHtml(st: SquadState): { html: string; tone: 'bad' | 'w
   const out: [string, 'bad' | 'warn'][] = [];
   if (st.combat) out.push([part('bad', 'ui:swords', 'In combat', 'They hit or were hit lately: no safe court until the fighting stops'), 'bad']);
   if (st.down) out.push([part('warn', 'ui:heart', `${st.down} down · rises soon`, 'Knocked down, not dead: he gets up once the fighting near him stops'), 'warn']);
-  if (st.stage === 2) out.push([part('bad', 'power:hunger', 'Starving', 'Men starving: get food in town'), 'bad']);
-  else if (st.pack === 'out') out.push([part('bad', 'goods:march_rations', 'No food', 'Packs empty: restock in town'), 'bad']);
-  else if (st.stage === 1) out.push([part('warn', 'power:hunger', 'Hungry', 'Men hungry: get food in town'), 'warn']);
-  else if (st.pack === 'low') out.push([part('warn', 'goods:march_rations', 'Food low', 'Food low: restock in town'), 'warn']);
+  if (st.stage === 2) out.push([part('bad', 'power:hunger', 'Starving', 'Men starving: go to a store'), 'bad']);
+  else if (st.pack === 'out') out.push([part('bad', 'goods:march_rations', 'No food', 'Packs empty: refill at a store'), 'bad']);
+  else if (st.stage === 1) out.push([part('warn', 'power:hunger', 'Hungry', 'Men hungry: go to a store'), 'warn']);
+  else if (st.pack === 'low') out.push([part('warn', 'goods:march_rations', 'Food low', 'Food low: refill at a store'), 'warn']);
   return { html: out.map(([h]) => h).join(''), tone: out.some(([, t]) => t === 'bad') ? 'bad' : out.length ? 'warn' : '' };
 }
