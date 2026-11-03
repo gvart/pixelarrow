@@ -87,7 +87,12 @@ style.textContent = CSS + CARD_CSS + LEGEND_CSS + `
 .ld-row .n{text-align:right;font-variant-numeric:tabular-nums}
 .ld-who{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 .ld-you{margin-top:4px;padding:3px 5px;background:var(--rf-sel)}
-.sb-paths{display:grid;gap:6px;margin-top:6px}
+#wvSeason{width:300px}
+.wv-tabs .rf-tab{flex:1}
+.sb-paths{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:6px}
+.sb-paths .ld-row{grid-template-columns:18px 12px minmax(0,1fr) 40px;padding:2px 0}
+.sb-paths .ld-row>[data-tip="Level"]{display:none}
+.sb-paths .ld-who{white-space:normal}
 #wvToast{left:50%;bottom:16px;transform:translateX(-50%);display:none;pointer-events:none;font-size:13px}
 .wt-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:4px}
 .wt-t{display:flex;align-items:center;gap:5px;padding:3px;background:var(--rf-sunk);border:1px solid var(--rf-rule)}
@@ -130,7 +135,7 @@ const order = mk('wvOrder', 'rf-card wv-panel', 'display:none;left:50%;bottom:16
 const haulEl = mk('wvHaul', 'rf-card wv-panel', 'display:none;left:50%;bottom:12px;transform:translateX(-50%);width:264px');
 const toast = mk('wvToast', 'rf-label', '');
 const eventsEl = mk('wvEvents', 'rf-card wv-panel', 'left:8px;bottom:12px;width:250px');
-const boardEl = mk('wvBoard', 'rf-card wv-panel', 'display:none;left:50%;top:56px;transform:translateX(-50%);width:360px;z-index:7');
+const boardEl = mk('wvBoard', 'rf-card wv-panel', 'display:none;left:50%;top:56px;transform:translateX(-50%);width:600px;z-index:7');
 const tip = mk('wvTip', 'rf-tip', 'display:none;z-index:8');
 /** The kit's scale a step smaller: the map is the screen here, the panels sit beside it. */
 const zoom = () => Math.max(1, Math.round(uiZoom() * 0.8 * 4) / 4);
@@ -259,6 +264,7 @@ function renderBoard(): void {
     <div class="sb-keep"><div><b style="color:var(--rf-good)">You keep</b><br>banners and crests<br>this roll of honour<br>your season stats</div>
       <div><b style="color:var(--rf-bad)">Starts over</b><br>men, gear and belongings<br>alliance, home and path<br>land, towns and titles</div></div>`;
   boardEl.style.display = '';
+  fitHeight(boardEl, 8);
 }
 function toggleBoard(): void {
   boardOpen = !boardOpen;
@@ -299,7 +305,7 @@ const ladderRow = (r: LadderRow, path: PathId, me: number) => `<div class="ld-ro
 function ladderHtml(v: LaddersView | undefined): string {
   const you = v?.you ?? null, path = ladderTab ?? you?.path ?? PATH_IDS[0], me = view?.snap.you.id ?? -1, rows = v?.ladders[path] ?? [];
   const mine = you && you.path === path;
-  return `<div class="wv-tabs">${PATH_IDS.map((p) => `<button class="rf-tab${p === path ? ' on' : ''}" data-ladder="${p}">${LADDER_NAME[p]}${you?.path === p ? ' <span class="rf-dim">(you)</span>' : ''}</button>`).join('')}</div>
+  return `<div class="wv-tabs">${PATH_IDS.map((p) => `<button class="rf-tab${p === path ? ' on' : ''}" data-ladder="${p}">${LADDER_NAME[p]}</button>`).join('')}</div>
     <div class="ld-hd rf-dim"><span data-tip="Level points earned this season, from your path's work">Level points this season</span></div>
     <div class="ld-rows">${rows.map((r) => ladderRow(r, path, me)).join('') || `<div class="rf-dim" style="padding:4px">Nobody here yet.</div>`}</div>
     ${mine && !rows.some((r) => r.pid === me) ? `<div class="ld-you">${you.place === null ? 'You: no points yet' : `You: place ${you.place}, ${you.points.toLocaleString('en')} points`}</div>` : ''}`;
