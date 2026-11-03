@@ -9,7 +9,7 @@ import { api, devLogin } from '../helpers';
 import { good, setGood } from './goods';
 import { NPC, NPC_CARTS, NPC_HIRE } from '../../../src/data/warNpcTowns';
 import { NET_VERSION } from '../../../src/war/net/protocol';
-import { midPrice, npcGood, npcSpot, NPC_MINT } from '../../../src/war/net/npcMarket';
+import { midPrice, npcDay, npcGood, npcSpot, NPC_MINT } from '../../../src/war/net/npcMarket';
 import { cartCap, workerCap, type PathId } from '../../../src/war/world/start';
 import { getFavour } from '../../src/war/favour';
 import { goodsOf } from '../../src/war/holders';
@@ -105,11 +105,12 @@ describe('prices and purse', () => {
     const t = await player(9603, 'trader');
     walkToTown(t.room, t.pid, t.squad);
     await setGood(t.pid, 'coin', 0);
-    const res = 'iron';
+    const res = 'iron', start = 150; // a purse already run low: it pays less and less (W-180), and then nothing
+    await DB().prepare('INSERT INTO war_npc_towns (town, purse, minted_day, minted) VALUES (?1, ?2, ?3, 0)').bind(HOME, start, npcDay(NOW)).run();
     let paid = 0, stopped = '';
     const days = 3;
     for (let day = 0; day < days; day++) {
-      for (let i = 0; i < 60; i++) {
+      for (let i = 0; i < 400; i++) {
         give(t.room, t.pid, t.squad, res, 10);
         const now = NOW + day * DAY + i * 1000, r = await npcDeal(env, t.room, t.pid, { op: 'sell', res }, now).catch((e: { code?: string }) => e.code ?? String(e));
         if (typeof r === 'string') { stopped = r; break; }
@@ -118,7 +119,7 @@ describe('prices and purse', () => {
       expect(stopped).toBe('purse_empty');
     }
     const end = NOW + (days - 1) * DAY, books = await npcBooks(DB(), HOME, end);
-    expect(paid + books.purse).toBeCloseTo(NPC.purse.start + books.minted, 3);
+    expect(paid + books.purse).toBeCloseTo(start + books.minted, 3);
     expect(books.minted).toBeLessThanOrEqual((days - 1) * NPC_MINT);
     expect(await good(t.pid, 'coin')).toBeCloseTo(paid, 3);
   });

@@ -5,10 +5,10 @@
  */
 import { describe, expect, it } from 'vitest';
 import { NPC, NPC_BASE, NPC_ROLE_GOODS, type NpcGood } from '../../src/data/warNpcTowns';
-import { buyable, costOf, midPrice, NPC_MINT, npcGood, npcGoods, npcOffer, npcSpot, payFor, purseAfter, sellable, stockAfter } from '../../src/war/net/npcMarket';
+import { buyable, costOf, midPrice, NPC_MINT, npcGood, npcGoods, npcOffer, npcSpot, payFor, purseAfter, sellable, stockAfter, type NpcGoodRule } from '../../src/war/net/npcMarket';
 import { parseRegion } from '../../src/war/region/schema';
 import { buildGrid, findPath, tileAt } from '../../src/war/sim/grid';
-import { hops } from '../../src/war/world/graph';
+import { edge, hops } from '../../src/war/world/graph';
 import { WORLD_REGIONS } from '../../src/war/world/regions';
 import type { RegionData } from '../../src/war/types';
 
@@ -66,9 +66,9 @@ describe('W-141 prices', () => {
     }
   });
 
-  it('stock drifts slowly back to par: not much in an hour, most of it in two days', () => {
-    const par = 100, after = (h: number) => stockAfter(160, par, h * 3_600_000);
-    expect(after(1)).toBeGreaterThan(150);
+  it('stock drifts back to par: a little in an hour, most of it in two days', () => {
+    const par = 100, after = (h: number) => stockAfter(160, par, h * 3_600_000), rate = 1 - Math.exp(-1 / NPC.price.recoverHours);
+    expect(after(1)).toBeCloseTo(160 - 60 * rate, 6);
     expect(after(48)).toBeLessThan(par + 2);
     expect(stockAfter(40, par, 48 * 3_600_000)).toBeGreaterThan(par - 2);
   });
@@ -112,9 +112,9 @@ describe('W-142 purses', () => {
 
   it('a town pays only what its purse holds', () => {
     const n = sellable(g, g.par, 10_000, 50);
-    expect(payFor(g, g.par, n)).toBeLessThanOrEqual(50);
+    expect(payFor(g, g.par, n, 50)).toBeLessThanOrEqual(50);
     expect(n).toBeGreaterThan(0);
-    expect(sellable(g, g.par, 10_000, 0)).toBeLessThan(1);
+    expect(payFor(g, g.par, sellable(g, g.par, 10_000, 0), 0), 'an empty purse pays nothing').toBe(0);
   });
 
   it('a town lets go only what it holds, for what you have', () => {
@@ -129,5 +129,108 @@ describe('W-142 purses', () => {
     expect(purseAfter(0, 1000)).toBe(NPC.purse.cap);
     expect(purseAfter(NPC.purse.cap + 500, 30), 'what buyers paid over the cap stays, no more is minted').toBe(NPC.purse.cap + 500);
     expect(purseAfter(100, 0)).toBe(100);
+  });
+});
+
+describe('W-180 a thin purse pays less', () => {
+  const g = npcGoods(WORLD_REGIONS[0].id)[0], full = NPC.purse.start;
+
+  it('a full purse pays the whole price; a thin one less, smoothly, down to its floor', () => {
+    expect(payFor(g, g.par, 100, full * 2)).toBe(payFor(g, g.par, 100));
+    const at = [1, 0.75, 0.5, 0.25, 0].map((f) => payFor(g, g.par, 100, full * f));
+    for (let i = 1; i < at.length; i++) expect(at[i], `${i}`).toBeLessThan(at[i - 1]);
+    expect(payFor(g, g.par, 1, 0)).toBeCloseTo(payFor(g, g.par, 1) * NPC.purse.thin, 0);
+    expect(npcOffer(g, g.par, full / 2).pay).toBeLessThan(npcOffer(g, g.par, full).pay);
+  });
+
+  it('a big sale pays less than the same goods sold at a full purse, and never more than the purse', () => {
+    const n = sellable(g, g.par, 100_000, full);
+    expect(payFor(g, g.par, n, full)).toBeLessThanOrEqual(full);
+    expect(payFor(g, g.par, n, full)).toBeLessThan(payFor(g, g.par, n));
+  });
+});
+
+/** A trader shuttling two towns with the room of two handcarts and his men: the coin he clears each hour, and the purses after. */
+function shuttle(a: string, b: string, hours: number) {
+  const TRIP = edge(a, b)!.ms + 10 * 60_000, ROOM = 160;
+  type Book = { purse: number; stock: Map<string, number> };
+  const open = (t: string): Book => ({ purse: NPC.purse.start, stock: new Map(npcGoods(t).map((g) => [g.res as string, g.par])) });
+  const books: Record<string, Book> = { [a]: open(a), [b]: open(b) };
+  const drift = () => {
+    for (const t of [a, b]) for (const g of npcGoods(t)) books[t].stock.set(g.res, stockAfter(books[t].stock.get(g.res)!, g.par, TRIP));
+  };
+  const rows: number[] = [];
+  let here = a, there = b, now = 0, net = 0, low = NPC.purse.start;
+  while (now < hours * 3_600_000) {
+    const A = books[here], B = books[there];
+    let room = ROOM;
+    const load: { h: NpcGoodRule; n: number }[] = [];
+    for (;;) {
+      let best: { g: NpcGoodRule; h: NpcGoodRule; n: number; net: number; cost: number } | null = null;
+      for (const g of npcGoods(here)) {
+        const h = npcGood(there, g.res);
+        if (!h || load.some((l) => l.h.res === g.res)) continue;
+        const sa = A.stock.get(g.res)!, sb = B.stock.get(g.res)!;
+        for (let n = 10; n <= room && n <= sa; n += 10) {
+          const cost = costOf(g, sa, n), pay = Math.min(payFor(h, sb, n, B.purse), B.purse);
+          if (pay - cost > 0 && (!best || pay - cost > best.net)) best = { g, h, n, net: pay - cost, cost };
+        }
+      }
+      if (!best) break;
+      A.stock.set(best.g.res, A.stock.get(best.g.res)! - best.n);
+      A.purse += best.cost;
+      net -= best.cost;
+      room -= best.n;
+      load.push({ h: best.h, n: best.n });
+    }
+    drift();
+    for (const { h, n } of load) {
+      const st = B.stock.get(h.res)!, pay = Math.min(payFor(h, st, n, B.purse), B.purse);
+      B.stock.set(h.res, st + n);
+      B.purse -= pay;
+      net += pay;
+    }
+    low = Math.min(low, B.purse);
+    now += TRIP;
+    if (now >= (rows.length + 1) * 3_600_000) rows.push(net), (net = 0);
+    [here, there] = [there, here];
+  }
+  return { rows, low };
+}
+
+describe('W-181 a route fades, a longer one pays better', () => {
+  // pairs with goods to carry both ways; derived from the world so a retune or a new region moves the numbers, not the test
+  const pairs = WORLD_REGIONS.flatMap((r) => r.adj.filter((o) => r.id < o).map((o) => [r.id, o] as const));
+
+  it('two towns: the coin an hour falls over hours and does not stop, and no purse is emptied', () => {
+    let fades = 0, faded = 0;
+    for (const [a, b] of pairs) {
+      const { rows, low } = shuttle(a, b, 6);
+      expect(low, `${a} ${b}`).toBeGreaterThan(NPC.purse.start * 0.25);
+      if (rows[0] < 200) continue; // a pair with little to carry between them
+      fades++;
+      expect(Math.max(...rows.slice(1)), `${a} ${b} ${rows}`).toBeLessThan(rows[0]);
+      if (rows[1] > rows[0] * 0.08 && rows[2] > 0) faded++;
+    }
+    expect(fades).toBeGreaterThan(pairs.length / 3);
+    expect(faded / fades, `${faded} of ${fades}`).toBeGreaterThan(0.7);
+  });
+
+  it('per road walked, the best cartload two or three hops off clears more than the best next door', () => {
+    const best = (from: string, h: number) => {
+      let top = 0;
+      for (const w of WORLD_REGIONS) {
+        if (hops(from, w.id) !== h) continue;
+        for (const g of npcGoods(from)) {
+          const y = npcGood(w.id, g.res);
+          if (!y) continue;
+          top = Math.max(top, (payFor(y, y.par, 120, NPC.purse.start) - costOf(g, g.par, 120)) / h);
+        }
+      }
+      return top;
+    };
+    for (const r of WORLD_REGIONS.filter((x) => x.role === 'home')) {
+      expect(Math.max(best(r.id, 2), best(r.id, 3)), r.id).toBeGreaterThan(best(r.id, 1));
+    }
   });
 });
