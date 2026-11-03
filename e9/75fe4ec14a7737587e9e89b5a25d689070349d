@@ -1,0 +1,32 @@
+tests/war/npcMarket.test.ts
+  s_a7d5d20f628c80::t_232b494788823b 163
+server/test/war/soloRuns.test.ts
+  s_a7d5d20f628c80::t_619f38c498fa13 367,386,468
+  s_a7d5d20f628c80::t_a2a115c127023c 487
+  s_a7d5d20f628c80::t_56975aa053f906 24
+  s_a7d5d20f628c80::t_c7e064166c47da 326,472,506,508,511
+  s_a7d5d20f628c80::t_4af84cf0b23652 8-9
+  s_a7d5d20f628c80::t_42d696b315cce4 517
+  s_a7d5d20f628c80::t_e6e1923aa20294 395,419
+  s_a7d5d20f628c80::t_ba2bbb89d45a23 114-115,117
+  s_a7d5d20f628c80::t_fd468f71e1255d 447-450,452,454-459
+  s_a7d5d20f628c80::t_fba8c21b57c537 423-428
+  s_a7d5d20f628c80::t_2c1da082a2048e 451,453,473,476-479,481,484,486,488-491,493-500,503,512-515
+  s_a7d5d20f628c80::t_33c1ebd56ffcf8 15,18-21,34,57-58,116,224-225,227,233,235,317-318,324,332-339,342,345,347,353-366,368-385,387-394,396-408,412,415,417,421-422,429,433-446,462,466,471,474-475,480,482-483,485,501-502,504-505,507,509-510,516,518,520,522-524,527-529
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "e975fe4ec14a7737587e9e89b5a25d689070349d",
+  "prompts": {},
+  "sessions": {
+    "s_a7d5d20f628c80": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1afee479-b44b-46d2-a159-a540e44e7fb8",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
