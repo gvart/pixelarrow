@@ -34,6 +34,9 @@ unless someone is actually there.
 - **W-94 Full feudal hierarchy.** Kings, vassals, titles, tribute and succession ship in this rework, built last. Alliances
   stay the season team, with the hierarchy inside them. *(Alliance nesting is assumed.)*
 
+Decided while building item 2: **W-95 small start, grow to cap**, **W-96 full season reset**, settlements, crowns and
+mastery included (owner confirmed).
+
 Superseded or changed: W-44 (NPC towns, W-93), W-53 (its "cap of 12 stays", W-85), W-56, W-58, W-60 (souls claimable under
 the path's cap), W-66 and W-68 (raised men wait at home; the Tunnel's "up to 6" must fit the 4-soldier cap; W-66's permanent
 favour, W-83), W-81. W-63 is extended by W-94.
@@ -48,22 +51,23 @@ Propose these in the named work item and get the owner's answer before building 
 - [ ] How someone becomes king, how titles pass, tribute rates (item 8).
 - [ ] Perk lists for each path (item 5).
 - [ ] Raid loss limits and how empty towns get guards (item 6).
-- [ ] Family list and what each family's men can do. Only hoplite, militia, archer, slinger, javelineer and celt_sword have
-  work animations; riders wait for mounts (item 4).
-- [ ] Where workers come from. Civilians exist (household `min(4, 1 + fit/4)`), but how they are acquired was not confirmed.
-  That formula also gives a 4-soldier path only 2 civilians.
+- [ ] What each family's men can do, and its stronger classes. The list is three of today's four (item 2, default). Only hoplite,
+  militia, archer, slinger, javelineer and celt_sword have work animations (item 4).
+- [ ] Riders return once mounts exist. Hidden from the start by the owner: no work animations, balance unchecked.
+- [ ] Where more workers come from. A builder or trader starts with 2 (item 2, default), but how others are acquired was not
+  confirmed. The household formula `min(4, 1 + fit/4)` gives 2 guards a cap of 1, under the 2 he starts with: it only
+  blocks retiring into a civilian today.
 - [ ] Whether a trader's cart cap rises above today's 2 (3 with emporos).
 
 Found while bringing `docs/WAR.md` in line (item 1). Each is a rule the decisions touch but do not settle.
 
-- [ ] What each path starts with, men and classes, now the free pick of 12 is gone (item 2).
-- [ ] Season rollover. W-62 carries men, gear and titles over, but W-83 picks the path anew: what happens to a 12-man
-  warrior who turns builder, or who changes family (item 2).
+- [x] What each path starts with, men and classes, now the free pick of 12 is gone. W-95; defaults in `src/war/world/start.ts`.
+- [x] Season rollover. W-96: a full reset, so a 12-man warrior who turns builder starts over like anyone.
 - [ ] Offline players. W-07 holds their men in place. Does an offline man keep staffing a building, gathering, pulling a
   cart or following a `haul` chain, or does "someone is there" mean a player online (items 3, 6)?
 - [ ] Waiting and wounded men. Can a man waiting at home work, fight or be captured; which heal timer runs for a wounded
   man once the group moves on (item 3)?
-- [ ] Classes for builder and trader soldiers. W-86 covers warriors only. Whether a warrior may claim a soul outside his
+- [ ] Classes for builder and trader soldiers. W-86 covers warriors only; they start with hoplites (item 2, default). Whether a warrior may claim a soul outside his
   family, since souls wake by site (item 4). Which of today's "start classes" fallbacks survive.
 - [ ] How levels are paid per path: today's favour amounts are all war and land, region mastery and warlords pay favour,
   and the old bonus on raised men has no place yet (item 5).
@@ -94,7 +98,7 @@ Each item bumps `SIM_VERSION` (`src/sim/version.ts`) and `NET_VERSION` (`src/war
 
 - [x] **1. Rules.** Update `docs/WAR.md` and the W-xx log to match the decisions above.
   verify: each superseded decision is marked. depends on: none.
-- [ ] **2. Wipe and path choice.** Reset migration after `0052` (precedent `0012_map_v3_reset.sql`), a path screen replacing
+- [x] **2. Wipe and path choice.** Reset migration after `0052` (precedent `0012_map_v3_reset.sql`), a path screen replacing
   `squadScreen` in `src/war/menu/screens.ts`, path stored on the player.
   verify: seeded tests, whole-screen shots. depends on: 1.
 - [ ] **3. One region.** Player-level rule at `claimForJoin` (`server/src/war/persons.ts`), remove partial `depart` and

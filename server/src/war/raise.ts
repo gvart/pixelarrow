@@ -9,7 +9,7 @@
  *    class of one of his latest fallen (else militia). Settled lazily from war_tunnel.next_at (migration 0048) on
  *    GET /api/war/tunnel, on the roster read and on a region join, so it needs no live room. The clock moves by a
  *    compare-and-set on next_at and each man's insert checks the floor itself, so two racing reads never pass it.
- *    A player who never had a man (before his start squad) has no tunnel.
+ *    A player who never had a man (before his path's first men) has no tunnel.
  */
 import { makePerson } from '../../../src/war/sim/roster';
 import { settleTunnel, TUNNEL, type WipeState } from '../../../src/war/sim/tunnel';

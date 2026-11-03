@@ -5,17 +5,18 @@
 import { cookieAuth, DEV_KEY, devAuth, type WarAuth } from '../net/session';
 import type { AllianceId, RegionRole } from '../world/types';
 import type { WipeState } from '../sim/tunnel';
+import type { PathId, StartFamily } from '../world/start';
 import { humanCheck } from './turnstile';
 
-export type StartStep = 'alliance' | 'home' | 'squad' | 'done';
+export type StartStep = 'alliance' | 'home' | 'path' | 'done';
 export interface StartView {
   step: StartStep;
   alliance: AllianceId | null;
   home: string | null;
   alliances: { id: AllianceId; name: string; members: number }[];
   homes: { id: string; name: string; role: RegionRole; players: number; men: number; quota: number; refusal: string | null }[];
-  classes: string[];
-  squadMax: number;
+  path: PathId | null;
+  family: StartFamily | null;
 }
 export interface RosterMan { id: string; cls: string; name: string; level: number; state: string; region: string | null; slot: number | null }
 
@@ -92,7 +93,7 @@ export async function deleteAccount(password: string, confirm: string): Promise<
 export const startView = () => call<StartView>('GET', '/api/war/start');
 export const chooseAlliance = (alliance: number) => call<StartView>('POST', '/api/war/start/alliance', { alliance });
 export const chooseHome = (region: string) => call<StartView>('POST', '/api/war/start/home', { region });
-export const pickSquad = (classes: string[]) => call<StartView & { ids: string[] }>('POST', '/api/war/start/squad', { classes });
+export const choosePath = (path: PathId, family: StartFamily | null) => call<StartView & { ids: string[] }>('POST', '/api/war/start/path', { path, ...(family ? { family } : {}) });
 /** W-66: the Tunnel of Shades as the roster reports it (server/src/war/raise.ts TunnelView). */
 export interface TunnelInfo extends WipeState { alive: number; floor: number; nextAt: number | null; pending: number }
 export const roster = () => call<{ persons: RosterMan[]; tunnel?: TunnelInfo }>('GET', '/api/war/roster');

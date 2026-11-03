@@ -90,9 +90,13 @@ export function warRegion(id: string): RegionData | null {
   return load(id)?.data ?? null;
 }
 
-/** The authored region's version (length and hash of its JSON); '' for an unknown id. */
+/** Changed by a wipe of war data (migrations/0053_war_paths.sql): rooms and memories saved before it start over. */
+const WIPE = 'paths';
+
+/** The authored region's version (length and hash of its JSON) and the last wipe; '' for an unknown id. */
 export function regionVersion(id: string): string {
-  return load(id)?.ver ?? '';
+  const ver = load(id)?.ver;
+  return ver ? `${ver}:${WIPE}` : '';
 }
 
 /**

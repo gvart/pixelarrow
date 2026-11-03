@@ -24,8 +24,8 @@
  *  - W-62 world events (src/war/world/events.ts): the season's schedule from its seed; eventTick() opens and closes them
  *    (the DO's alarm: nextAlarm() includes the next boundary), a caravan rush scores convoys arriving with cargo at its
  *    market (due), a landmark siege scores its capture (report) and its garrisoned holder at the end (eventTick). Event
- *    score is kept per alliance (`event`) and in `scores`. newSeason() is the partial reset of the season war: fresh
- *    owners, score and schedule; squads on the road ride on; the last season's board stays (`last`, set by the DO).
+ *    score is kept per alliance (`event`) and in `scores`. newSeason() is the reset of the season war (W-96): fresh
+ *    owners, score and schedule; nobody left on the road; the last season's board stays (`last`, set by the DO).
  */
 import { ALLIANCES, WAR_SEASON } from '../../../../src/war/world/alliances';
 import { edge, worldRegion } from '../../../../src/war/world/graph';
@@ -214,6 +214,7 @@ export class World {
   /** The reset hook: the next season starts now with fresh owners and scores (squads on the road ride on). */
   newSeason(now: number): void {
     this.st.regions = freshRegions();
+    this.st.transit = [];
     this.st.season = freshSeason(this.st.season.id + 1, now, this.season);
   }
 

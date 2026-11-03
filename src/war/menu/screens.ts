@@ -1,19 +1,15 @@
 /**
  * The menu's screens (./main.ts drives them): sign in, the title menu (Continue), alliance, home region on the world
- * map, squad, and the march-in choice. Each renders into the stage and calls back with the player's choice; mouse and
+ * map, path, and the march-in choice. Each renders into the stage and calls back with the player's choice; mouse and
  * keyboard both work (Tab and Enter everywhere, arrows across cards and lists, Esc goes back).
  */
-import { CLASSES, isClassId } from '../../data/classes';
-import { warStats } from '../sim/classes';
-import { FAMILY_OF } from '../sim/skills';
 import { ALLIANCES } from '../world/alliances';
 import { worldRegion } from '../world/graph';
 import type { AllianceId } from '../world/types';
 import { WorldMap, type MapState } from '../world-view/map';
 import type { RegionState, WorldSnapshot } from '../net/world';
-import { icon, UNIT_ICON, uiZoom } from '../view/hud/kit';
-import { card, fx, term, termCard, val } from '../view/hud/codex';
-import { placeTip } from '../view/hud/kit';
+import { icon, uiZoom } from '../view/hud/kit';
+import { FAMILIES, FAMILY_IDS, PATH_IDS, PATHS, type PathId, type StartFamily } from '../world/start';
 import { call, type StartView, type TunnelInfo } from './api';
 import { span, TUNNEL, wipeLine, wipeNext } from '../sim/tunnel';
 import { DIFFICULTY_NAME, HOME_LORE } from './homeLore';
@@ -223,7 +219,7 @@ export function homeScreen(v: StartView, pick: (id: string) => Promise<void>, ba
         <span class="mn-diff d${HOME_LORE[h.id]?.difficulty ?? 2}">${DIFFICULTY_NAME[HOME_LORE[h.id]?.difficulty ?? 2]}</span></button>`).join('')}</div>
       <div class="mn-hd" data-k="detail"></div>
       <div class="mn-msg bad"></div>
-      <div class="mn-cta"><button class="mn-link mn-quiet" data-k="back">‹ Back</button><button class="mn-big pri" data-k="ok" ${sel ? '' : 'disabled'}><div><div class="t">Make ${esc(worldRegion(sel ?? '')?.name ?? 'it')} my home</div><div class="d">Next: muster your squad</div></div><kbd>Enter</kbd></button></div>`;
+      <div class="mn-cta"><button class="mn-link mn-quiet" data-k="back">‹ Back</button><button class="mn-big pri" data-k="ok" ${sel ? '' : 'disabled'}><div><div class="t">Make ${esc(worldRegion(sel ?? '')?.name ?? 'it')} my home</div><div class="d">Next: choose your path</div></div><kbd>Enter</kbd></button></div>`;
     side.querySelector<HTMLElement>('[data-k=back]')!.onclick = back;
     side.querySelector<HTMLElement>('[data-k=ok]')!.onclick = confirm;
     const rows = [...side.querySelectorAll<HTMLButtonElement>('.mn-home')];
@@ -288,170 +284,68 @@ export function homeScreen(v: StartView, pick: (id: string) => Promise<void>, ba
   return () => { alive = false; removeEventListener('resize', layout); canvas.remove(); side.remove(); };
 }
 
-// ------------------------------------------------------------------ squad
+// ------------------------------------------------------------------ path
 
-/** The picker's short names and roles (the full ones are on the class card). */
-const SHORT: Record<string, [string, string]> = {
-  militia: ['Militia', 'Levy · line'], hoplite: ['Hoplite', 'Heavy · line'], celt_sword: ['Swordsman', 'Shock · melee'],
-  archer: ['Archer', 'Missile · long'], slinger: ['Slinger', 'Missile · mid'], javelineer: ['Javelineer', 'Skirmisher'],
-};
-const ROLE: Record<string, { role: string; line: string }> = {
-  militia: { role: 'Levy · line', line: 'Cheap spears: bodies to fill a line, haul stone and hold ground. Brittle in a straight fight.' },
-  hoplite: { role: 'Heavy infantry · line', line: 'The wall: a big shield and a long spear. Holds a line or a gate against anything on foot.' },
-  celt_sword: { role: 'Shock infantry', line: 'Long blades, little armour: breaks a line and finishes the wounded, but melts under arrows.' },
-  archer: { role: 'Missile · long range', line: 'The farthest shot: thins a charge before it lands and shoots best from walls and heights. Weak hand to hand.' },
-  slinger: { role: 'Missile · mid range', line: 'Stones that crack armour at mid range. Light and quick; never let him be caught.' },
-  javelineer: { role: 'Missile · skirmisher', line: 'Heavy javelins thrown close, then a spear: strikes, falls back, strikes again.' },
-};
+const PATH_ICON: Record<PathId, string> = { warrior: 'act-attack', builder: 'act-build', trader: 'trade-cart' };
 
-interface ClassFacts { hp: number; melee: number; missile: number; armour: number; block: number; range: number; speed: number; accuracy: number; blow: number; ammo: number }
-const facts = (cls: string): ClassFacts => {
-  const s = warStats(cls);
-  return { hp: s.maxHp, melee: s.dmg, missile: s.ammo > 0 ? s.rangedDmg : 0, armour: s.armor, block: s.block, range: s.range, speed: s.speed, accuracy: s.accuracy, blow: s.atkTicks / 10, ammo: s.ammo };
-};
-const r1 = (v: number) => String(Math.round(v * 10) / 10), pc = (v: number) => `${Math.round(v * 100)}%`;
-
-/** The class's description card (the HUD's codex style). */
-export function classCard(cls: string, w = 262): string {
-  const f = facts(cls), c = isClassId(cls) ? CLASSES[cls] : null, fam = FAMILY_OF[cls as keyof typeof FAMILY_OF];
-  return card({
-    icon: icon(UNIT_ICON[cls], 32), rawIcon: true, name: c?.name ?? cls, kind: `${ROLE[cls]?.role ?? ''}${fam ? ` · ${fam} family` : ''}`, flavour: c?.desc, w,
-    fx: [
-      fx('ui:heart', `${term('health')} ${val(String(Math.round(f.hp)), '')}`),
-      fx('ui:sword', `${term('melee')} ${val(r1(f.melee), '')} every ${val(r1(f.blow) + ' s', '')} · ${term('reach')} ${val(r1(warStats(cls).reach), '')}`),
-      ...(f.missile ? [fx('ui:throw', `${term('missile')} ${val(r1(f.missile), '')} · ${term('range')} ${val(String(Math.round(f.range)), '')} tiles · ${term('ammo')} ${val(String(f.ammo), '')}`)] : []),
-      fx('ui:armor', `${term('armour')} ${val(r1(f.armour), '')} · ${term('block')} ${val(pc(f.block), '')}`),
-      fx('ui:eye', `${term('accuracy')} ${val(pc(f.accuracy), '')} · pace ${val(`×${r1(f.speed)}`, '')}`),
-    ],
-    more: `<div>${ROLE[cls]?.line ?? ''}</div>`,
-  });
+/** One path, as its card shows it: what you do, what you start with, how far you grow. */
+export function pathCard(id: PathId): string {
+  const p = PATHS[id];
+  return `<div class="rf-card mn-path" tabindex="0" role="radio" aria-checked="false" data-p="${id}">
+    <div class="top"><span class="cx-ic big">${icon(PATH_ICON[id], 32)}</span><span class="nm">${p.name}</span></div>
+    <div class="does">${esc(p.does)}</div>
+    <div class="facts"><div><span>Start:</span> ${esc(p.startText)}</div><div><span>Grows to</span> ${p.cap} soldiers by claiming souls</div></div>
+  </div>`;
 }
 
-/** A 0..5 pip rating of `v` within the classes' span lo..hi: 0 when he has none of it, else 1 (the least) to 5 (the most). */
-export function pips(v: number, lo: number, hi: number): number {
-  if (v <= 0) return 0;
-  return hi - lo < 1e-6 ? 3 : 1 + Math.round(((v - lo) / (hi - lo)) * 4);
-}
-/** What a squad's mix reads as: its line, shock and missile men. */
-const GROUP: Record<string, 'line' | 'shock' | 'missile'> = { militia: 'line', hoplite: 'line', celt_sword: 'shock', archer: 'missile', slinger: 'missile', javelineer: 'missile' };
-export function squadMix(order: readonly string[]): string {
-  const n = { line: 0, shock: 0, missile: 0 };
-  for (const c of order) n[GROUP[c] ?? 'line']++;
-  if (!order.length) return 'No men yet: add some with +';
-  const parts = [`${n.line} line`, `${n.shock} shock`, `${n.missile} missile`];
-  const warn = !n.line ? 'Nobody holds a line.' : !n.missile ? 'Nothing answers archers.' : '';
-  return `${parts.join(' · ')}${warn ? ` <span class="warn">${warn}</span>` : ''}`;
-}
-
-export function squadScreen(stage: HTMLElement, v: StartView, done: (classes: string[]) => Promise<void>, back: () => void): void {
-  const classes = v.classes, max = v.squadMax;
-  const count: Record<string, number> = Object.fromEntries(classes.map((c) => [c, 0]));
-  // a sound default: a shield line with missiles behind
-  Object.assign(count, { hoplite: 4, celt_sword: 2, archer: 3, slinger: 1, javelineer: 2 });
-  for (const c of Object.keys(count)) if (!classes.includes(c)) delete count[c];
-  let focus = 'hoplite', hover: string | null = null;
-  // the pips: each stat rated within the six classes' span (melee as damage a second)
-  const STATS: [string, (f: ClassFacts) => number][] = [['Health', (f) => f.hp], ['Melee', (f) => f.melee / f.blow], ['Missile', (f) => f.missile], ['Armour', (f) => f.armour], ['Pace', (f) => f.speed]];
-  const all = classes.map(facts);
-  const span = STATS.map(([, g]) => { const xs = all.map(g).filter((x) => x > 0); return [Math.min(...xs), Math.max(...xs)] as const; });
-  const total = () => Object.values(count).reduce((a, b) => a + b, 0);
-  const order = () => classes.flatMap((c) => Array(count[c] ?? 0).fill(c) as string[]);
-  stage.innerHTML = `<div class="mn-mu">
-    <div class="mn-mu-l">
-      <div class="mn-mu-h"><span class="mn-step">Step 3 of 3</span><div class="rf-name">Muster your squad</div><div class="mn-sub">Pick up to ${max} men, any mix. Each levels, takes wounds and keeps his gear.</div></div>
-      <div class="mn-sq">${classes.map((c) => {
-        const f = facts(c);
-        return `<div class="rf-card mn-cls" tabindex="0" data-c="${c}">
-          <div class="top"><span class="cx-ic big">${icon(UNIT_ICON[c], 32)}</span><div><div class="nm">${esc(SHORT[c]?.[0] ?? c)}</div><div class="role">${SHORT[c]?.[1] ?? ''}</div></div></div>
-          <div class="pips">${STATS.map(([n, g], k) => {
-            const p = pips(g(f), span[k][0], span[k][1]);
-            return `<span>${n}</span><span class="pp${p ? '' : ' none'}">${p ? '<i class="on"></i>'.repeat(p) + '<i></i>'.repeat(5 - p) : 'none'}</span>`;
-          }).join('')}</div>
-          <div class="cnt"><button class="rf-tbtn" data-d="-1" data-c="${c}" aria-label="one fewer ${esc(SHORT[c]?.[0] ?? c)}" tabindex="-1">−</button><b data-n="${c}">0</b><button class="rf-tbtn" data-d="1" data-c="${c}" aria-label="one more ${esc(SHORT[c]?.[0] ?? c)}" tabindex="-1">+</button></div>
-        </div>`;
-      }).join('')}</div>
+/** W-83: the season's path, and a warrior's family (W-86). The choice is made once: the button says so. */
+export function pathScreen(stage: HTMLElement, done: (path: PathId, family: StartFamily | null) => Promise<void>, back: () => void): void {
+  let path: PathId | null = null, family: StartFamily | null = null, busy = false;
+  stage.innerHTML = `<div class="mn-pa">
+    <div class="mn-mu-h"><span class="mn-step">Step 3 of 3</span><div class="rf-name">Choose your path</div><div class="mn-sub">What you do this season. You choose once and keep it for all 28 days.</div></div>
+    <div class="mn-paths" role="radiogroup" aria-label="Path">${PATH_IDS.map(pathCard).join('')}</div>
+    <div class="rf-card mn-fams" data-k="fams" hidden>
+      <div class="rf-name">Choose your family</div>
+      <div class="mn-sub">All your soldiers come from it, this season and as you grow.</div>
+      <div class="list" role="radiogroup" aria-label="Family">${FAMILY_IDS.map((id) => `<button class="mn-fam" role="radio" aria-checked="false" data-f="${id}"><span class="nm">${esc(FAMILIES[id].name)}</span><span class="does">${esc(FAMILIES[id].does)}</span><span class="men">${esc(FAMILIES[id].startText)}</span></button>`).join('')}</div>
     </div>
-    <div class="mn-mu-r">
-      <div class="rf-card mn-card mn-detail" data-k="card"></div>
-      <div class="rf-card mn-card mn-squad">
-        <div class="mn-row" style="justify-content:space-between;align-items:baseline"><span class="rf-name">Your squad</span><span><span class="mn-count" data-k="total">0</span><span class="mn-of"> / ${max}</span></span></div>
-        <div class="mn-slots" data-k="slots"></div>
-        <div class="mn-mix" data-k="mix"></div>
-        <div class="mn-msg" data-k="msg"></div>
-        <button class="mn-big pri" data-k="go"><div><div class="t" data-k="go-t">Muster</div><div class="d">Then march into your home</div></div></button>
-        <div class="mn-row" style="justify-content:space-between"><button class="mn-link mn-quiet" data-k="back">‹ Back to home</button><button class="mn-link mn-quiet" data-k="clear">Clear all</button></div>
-      </div>
-    </div>
+    <div class="mn-msg" data-k="msg"></div>
+    <div class="mn-cta"><button class="mn-link mn-quiet" data-k="back">‹ Back to home</button><button class="mn-big pri" data-k="go"><div><div class="t" data-k="go-t"></div><div class="d" data-k="go-d"></div></div></button></div>
   </div>`;
   const q = <T extends HTMLElement>(s: string) => stage.querySelector<T>(s)!;
-  // the class card's game terms: their own cards on hover (the HUD's codex)
-  const tip = document.createElement('div');
-  tip.className = 'rf rf-tip';
-  tip.style.cssText = 'display:none;z-index:30';
-  document.body.appendChild(tip);
-  stage.addEventListener('mouseover', (e) => {
-    const t = (e.target as HTMLElement).closest<HTMLElement>('.tt[data-term]');
-    if (!t) return void (tip.style.display = 'none');
-    tip.style.zoom = String(uiZoom());
-    tip.innerHTML = termCard(t.dataset.term!);
-    tip.style.display = '';
-    placeTip(tip, t);
-  });
-  stage.addEventListener('mouseleave', () => (tip.style.display = 'none'));
-  let shown = '';
-  const showCard = () => {
-    const c = hover ?? focus;
-    if (c !== shown) { shown = c; q('[data-k=card]').innerHTML = classCard(c, 276); }
-  };
+  const cards = [...stage.querySelectorAll<HTMLElement>('.mn-path')], fams = [...stage.querySelectorAll<HTMLElement>('.mn-fam')];
+  const go = q<HTMLButtonElement>('[data-k=go]');
   const render = () => {
-    const n = total(), men = order();
-    for (const c of classes) q(`[data-n="${c}"]`).textContent = String(count[c] ?? 0);
-    for (const b of stage.querySelectorAll<HTMLButtonElement>('[data-d]')) b.disabled = b.dataset.d === '1' ? n >= max : !count[b.dataset.c!];
-    for (const el of stage.querySelectorAll<HTMLElement>('.mn-cls')) { el.classList.toggle('on', el.dataset.c === focus); el.classList.toggle('picked', (count[el.dataset.c!] ?? 0) > 0); }
-    q('[data-k=total]').textContent = String(n);
-    q('[data-k=total]').classList.toggle('full', n === max);
-    q('[data-k=slots]').innerHTML = Array.from({ length: max }, (_, i) => men[i]
-      ? `<button class="mn-slot full" data-rm="${men[i]}" title="${esc(CLASSES[men[i] as 'militia'].name)} (click: send home)">${icon(UNIT_ICON[men[i]], 32)}</button>`
-      : '<span class="mn-slot"></span>').join('');
-    q('[data-k=mix]').innerHTML = squadMix(men);
-    q<HTMLButtonElement>('[data-k=go]').disabled = n === 0;
-    q('[data-k=go-t]').textContent = n ? `Muster ${plural(n, 'man', 'men')}` : 'Pick your men';
-    showCard();
-    for (const b of stage.querySelectorAll<HTMLElement>('[data-rm]')) b.onclick = () => { count[b.dataset.rm!]--; render(); };
+    for (const c of cards) { const on = c.dataset.p === path; c.classList.toggle('on', on); c.setAttribute('aria-checked', String(on)); }
+    for (const f of fams) { const on = f.dataset.f === family; f.classList.toggle('on', on); f.setAttribute('aria-checked', String(on)); }
+    q('[data-k=fams]').hidden = path !== 'warrior';
+    const ready = !!path && (path !== 'warrior' || !!family);
+    go.disabled = !ready || busy;
+    q('[data-k=go-t]').textContent = !path ? 'Choose a path' : !ready ? 'Choose a family' : path === 'warrior' ? `Begin as a warrior of the ${FAMILIES[family!].name}` : `Begin as a ${PATHS[path].name.toLowerCase()}`;
+    q('[data-k=go-d]').textContent = ready ? 'You cannot change this until the next season' : 'You can look at each one first';
   };
-  const add = (c: string, d: number) => { count[c] = Math.max(0, Math.min((count[c] ?? 0) + d, (count[c] ?? 0) + max - total())); focus = c; render(); };
-  stage.addEventListener('click', (e) => {
-    const b = (e.target as HTMLElement).closest<HTMLElement>('[data-d]');
-    if (b) return add(b.dataset.c!, Number(b.dataset.d));
-    const card = (e.target as HTMLElement).closest<HTMLElement>('.mn-cls');
-    if (card) { focus = card.dataset.c!; render(); }
-  });
-  const cards = [...stage.querySelectorAll<HTMLElement>('.mn-cls')];
+  const choose = (c: HTMLElement) => { path = c.dataset.p as PathId; if (path !== 'warrior') family = null; render(); };
   for (const c of cards) {
-    c.onmouseenter = () => { hover = c.dataset.c!; showCard(); };
-    c.onmouseleave = () => { hover = null; showCard(); };
-    c.onfocus = () => { focus = c.dataset.c!; render(); };
-    c.onkeydown = (e) => {
-      const k = c.dataset.c!;
-      if (e.key === '+' || e.key === '=' || e.key === 'Enter') { e.preventDefault(); add(k, 1); }
-      else if (e.key === '-' || e.key === 'Backspace') { e.preventDefault(); add(k, -1); }
-    };
+    c.onclick = () => choose(c);
+    c.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); choose(c); } };
   }
+  for (const f of fams) f.onclick = () => { family = f.dataset.f as StartFamily; render(); };
   stage.onkeydown = (e) => {
     if (e.key === 'Escape') return back();
-    arrows(cards, 3)(e);
+    arrows(cards)(e);
+    arrows(fams)(e);
   };
   q('[data-k=back]').onclick = back;
-  q('[data-k=clear]').onclick = () => { for (const c of classes) count[c] = 0; render(); };
-  q('[data-k=go]').onclick = () => {
-    if (!total()) return;
+  go.onclick = () => {
+    if (!path || busy) return;
     const m = q('[data-k=msg]');
+    busy = true;
     m.className = 'mn-msg';
     m.innerHTML = '<span class="mn-spin"></span>';
-    done(order()).then(() => tip.remove()).catch((err) => { m.className = 'mn-msg bad'; m.textContent = (err as Error).message; });
+    render();
+    done(path, family).catch((err) => { busy = false; m.className = 'mn-msg bad'; m.textContent = (err as Error).message; render(); });
   };
   render();
-  cards[1]?.focus();
 }
 
 // ------------------------------------------------------------------ ready: where to land
@@ -459,7 +353,7 @@ export function squadScreen(stage: HTMLElement, v: StartView, done: (classes: st
 export function readyScreen(stage: HTMLElement, home: string, men: number, h: { region(): void; world(): void }): void {
   const name = worldRegion(home)?.name ?? home;
   stage.innerHTML = `<div class="rf-card mn-card" style="width:380px;text-align:left">
-    <div class="mn-h"><span class="rf-name">Your men are mustered</span></div>
+    <div class="mn-h"><span class="rf-name">Your men are ready</span></div>
     <div class="mn-sub" style="margin:0 0 10px">${plural(men, 'man', 'men')} stand ready in ${esc(name)}. Where do you go first?</div>
     <button class="mn-big pri" data-k="region">${icon('act-move', 24)}<div><div class="t">March into ${esc(name)}</div><div class="d">Command your squad on the ground</div></div><kbd>Enter</kbd></button>
     <button class="mn-big" data-k="world">${icon('mode-biomes', 24)}<div><div class="t">Open the world map</div><div class="d">See the war first; enter your home from there</div></div></button>

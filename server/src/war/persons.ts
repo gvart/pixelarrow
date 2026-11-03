@@ -8,7 +8,7 @@
  *    cap a claimed soul is refused.
  *  - Household: min(4, 1 + fit fighters / 4) civilians (M5f brings the classes).
  *  - Souls (W-60, replaces recruiting and training): a man joins only by a claimed soul in a region (claimSoul, the room
- *    and src/war/sim/souls.ts), of the class and level the soul woke with; the start squad (./start.ts) is the other way in.
+ *    and src/war/sim/souls.ts), of the class and level the soul woke with; the path's first men (./start.ts) are the other way in.
  *  - Timers, read lazily: wounded heal after HEAL (field 6 h), captives unclaimed for CAPTIVE_MS (24 h) are released as
  *    souls (./captives.ts), a promotion ends after PROMOTE_MS.
  *  - Promote (docs/WAR.md "Promote"): a fit trained man at home with PROMOTE.level and PROMOTE.honours becomes an elite of his family (src/war/sim/roster.ts promotesTo) in PROMOTE_MS; he pays the elite rare

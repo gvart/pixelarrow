@@ -1,6 +1,6 @@
 /**
  * The game's main menu (index.html, play.pixelarrow.app; docs/WAR.md "Starting a game"): sign in or create an email
- * account (a dev player on a local DEV_AUTH server), then on the first visit the start: alliance, home region, squad
+ * account (a dev player on a local DEV_AUTH server), then on the first visit the start: alliance, home region, path
  * (server/src/war/start.ts); then into the home region (sandbox.html, live) or the world map (world.html). A returning
  * player gets Continue. Settings (controls, display, sound) open from here and in game (Esc, F10).
  */
@@ -12,7 +12,7 @@ import { ALLIANCES } from '../world/alliances';
 import { keptDevId } from '../net/session';
 import * as api from './api';
 import { wiped } from '../sim/tunnel';
-import { allianceScreen, destroyedScreen, esc, homeScreen, readyScreen, signInScreen, squadScreen, titleScreen } from './screens';
+import { allianceScreen, destroyedScreen, esc, homeScreen, pathScreen, readyScreen, signInScreen, titleScreen } from './screens';
 import { openSettings, settingsOpen } from './settings';
 import { injectMenuCss } from './style';
 
@@ -92,7 +92,7 @@ async function route(): Promise<void> {
   }
   if (v.step === 'alliance') return alliance(v);
   if (v.step === 'home') return home(v);
-  if (v.step === 'squad') return squad(v);
+  if (v.step === 'path') return path(v);
   return titleMenu(v);
 }
 
@@ -103,14 +103,14 @@ function alliance(v: api.StartView): void {
 
 function home(v: api.StartView): void {
   clear(true);
-  stop = homeScreen(v, async (id) => { squad(await api.chooseHome(id)); }, () => alliance(v));
+  stop = homeScreen(v, async (id) => { path(await api.chooseHome(id)); }, () => alliance(v));
 }
 
-function squad(v: api.StartView): void {
+function path(v: api.StartView): void {
   clear(false, true);
   bg.classList.add('dim');
-  squadScreen(stage, v, async (classes) => {
-    const done = await api.pickSquad(classes);
+  pathScreen(stage, async (choice, family) => {
+    const done = await api.choosePath(choice, family);
     clear();
     readyScreen(stage, done.home!, done.ids.length, { region: () => enterRegion(done.home!, done.alliance!), world: openWorld });
   }, () => home(v));

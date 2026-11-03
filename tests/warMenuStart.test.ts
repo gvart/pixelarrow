@@ -1,10 +1,9 @@
-// The new player's start screens (src/war/menu/screens.ts): the home picker's lore and detail, the squad picker's pips
-// and mix line.
+// The new player's start screens (src/war/menu/screens.ts): the home picker's lore and detail, the path cards.
 import { describe, expect, it } from 'vitest';
 import { ALLIANCES } from '../src/war/world/alliances';
-import { homeChoices } from '../src/war/world/start';
+import { homeChoices, PATH_IDS, PATHS } from '../src/war/world/start';
 import { HOME_LORE } from '../src/war/menu/homeLore';
-import { homeDetail, pips, squadMix } from '../src/war/menu/screens';
+import { homeDetail, pathCard } from '../src/war/menu/screens';
 import type { AllianceId } from '../src/war/world/types';
 
 const sentences = (t: string) => t.split(/(?<=[.!?])\s+/).filter(Boolean).length;
@@ -49,19 +48,14 @@ describe('home lore', () => {
   });
 });
 
-describe('squad picker', () => {
-  it('rates a stat 1..5 within the classes\' span, 0 when the class has none', () => {
-    expect(pips(0, 3, 9)).toBe(0);
-    expect(pips(3, 3, 9)).toBe(1);
-    expect(pips(9, 3, 9)).toBe(5);
-    expect(pips(6, 3, 9)).toBe(3);
-    expect(pips(5, 5, 5)).toBe(3);
-  });
-
-  it('reads the mix as line, shock and missile men, and warns on a lopsided squad', () => {
-    expect(squadMix(['hoplite', 'militia', 'celt_sword', 'archer'])).toBe('2 line · 1 shock · 1 missile');
-    expect(squadMix(['archer', 'slinger'])).toContain('Nobody holds a line');
-    expect(squadMix(['hoplite', 'celt_sword'])).toContain('Nothing answers archers');
-    expect(squadMix([])).toContain('No men yet');
+describe('path cards', () => {
+  it('say in plain words what the path does, what it starts with and how far it grows', () => {
+    for (const id of PATH_IDS) {
+      const html = pathCard(id), p = PATHS[id];
+      expect(html, id).toContain(p.name);
+      expect(html, id).toContain(p.does);
+      expect(html, id).toContain(p.startText);
+      expect(html, id).toContain(`${p.cap} soldiers`);
+    }
   });
 });

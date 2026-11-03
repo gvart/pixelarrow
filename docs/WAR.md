@@ -12,8 +12,7 @@ owner to confirm; Greek "the in-between"), one continent hung between death and 
 - **Why alliances fight.** Metaxy keeps only the strong. Each season the alliances that hold its heart and its roads
   rise; the rest fade. Nobody fights for land for its own sake: land is how the world measures who is worth keeping.
 - **Ascension.** The alliance that wins a season ("Season score and victory") **ascends to Elysion**: its
-  warriors' names are set in the season's roll of honour, their legacy carries into the next season, and the world
-  is reborn for those still waiting.
+  warriors' names are set in the season's roll of honour, and the world is reborn for those still waiting.
 - **Erasure.** What fades drinks **Lethe**, and Lethe is true erasure: name, deeds, grave and every memory of the
   drinker go, as if he had never lived. An alliance that keeps losing is struck out this way. In play this is flavour
   for the season reset and the standings, not a wipe of anyone's account.
@@ -752,7 +751,8 @@ there. "Open" below means the owner has not decided yet: see
 | Level (W-83, W-84) | resets each season. Levels come from doing the path's work and unlock that path's perks ("Divine favour"). Perk lists: open |
 | Soldier cap (W-85) | warrior 12, builder 4, trader 4; hard. Start numbers, changed only on balance evidence ("Soldiers") |
 | Warrior family (W-86) | a warrior picks one family (e.g. phalanx, Celtic warband, skirmishers); level-ups unlock its stronger classes; no mixing between families. Family list and what its men can do: open |
-| Start | what each path starts with: open ("Starting a game") |
+| Start (W-95) | a small start, grown to the cap by claiming souls: "Starting a game" |
+| New season (W-96) | a full reset for every path: men, gear, belongings and titles. He chooses alliance, home and path anew: "Starting a game" |
 
 ### One region (W-87)
 
@@ -799,8 +799,25 @@ The menu is the game's front page (`index.html`, play.pixelarrow.app; `src/war/m
 | Sign in | email and password, or create an account (the mailed link signs in and comes back); locally also a dev player (DEV_AUTH) | the web session cookie; the war pages play as it (`src/war/net/session.ts`) |
 | Alliance | one of the four, with its players this season | `POST /api/war/start/alliance`; changeable until the path is picked (the home resets) |
 | Home region | the alliance's home or one of its four gate regions, picked on the world map; each shows its lore, difficulty, resources, beasts and roads out (`src/war/menu/homeLore.ts`) | `POST /api/war/start/home`: free = fresh men may come in (`joinRefusal`) and the alliance's quota there has room for a full squad |
-| Path | warrior (and his one family), builder or trader, each shown with what it does; no free pick of men | once per player and season, fixed for its 28 days (W-83); what each path starts with is [open](impl/paths-rework.md#open-design-items); after it men join only as claimed souls (W-60), under the path's cap (W-85) |
+| Path | warrior (and his one family), builder or trader, each shown with what it does, what it starts with and how far it grows; no free pick of men | `POST /api/war/start/path`: once per player and season, fixed for its 28 days (W-83; a second pick is refused `started`); kept on `war_alliance_members`; gives his first men (below); after it soldiers join only as claimed souls (W-60), under the path's cap (W-85) |
 | Land | march into the home region (the live region view, his men selected) or open the world map | |
+
+What each path starts with (W-95; `PATHS` and `FAMILIES` in `src/war/world/start.ts`, the one table to tune; level 1, at home):
+
+| Path | First men | Cap |
+| --- | --- | --- |
+| Warrior, Phalanx (line) | 3 hoplites, 3 militia | 12 |
+| Warrior, Celtic warband (shock) | 6 swordsmen | 12 |
+| Warrior, Skirmishers (missile) | 2 archers, 2 slingers, 2 javelin men | 12 |
+| Builder | 2 hoplites, an engineer, a forager | 4 |
+| Trader | 2 hoplites, a merchant, a forager | 4 |
+
+Riders are not offered until mounts exist; `POST /api/war/start/path` refuses the family. Workers are civilians, outside the cap. Their numbers and how more are gained are [open](impl/paths-rework.md#open-design-items).
+
+A new season (W-96, `server/src/war/seasonWipe.ts`): the world keeps the finished season's board and awards its banners
+and crests; every region starts over, the homes too; nobody stays on the road; then all men, gear, goods, stores, deals,
+settlements, crowns, divine favour, mastery, tasks and guide saves go, with the alliance, home and path. Each player
+comes back to the first step above and may choose differently. Past seasons' boards, banners, crests, stats and chat stay.
 
 `GET /api/war/start` gives the step (alliance, home, path, done) and the choices. A returning player gets
 Continue (into the region his group is in, else his home), World map, Settings and Sign out. Players made
@@ -1552,7 +1569,7 @@ hurts; the player still has his squad, his level and his home strongroom.
 | Alt funnelling | accounts that shared an IP or device in 7 days cannot hand off, fill, contract or capture carts from each other; one-sided hand-offs only within an alliance, ≤ 300 coin (last-fill value) a day to a receiver; receiving needs account age ≥ 48 h and one fight |
 | Wash trading | same-alliance fills score nothing; a town ignores origin stamps of its own region |
 | Caps | 2–3 carts, 4 chests a region, 1 stall + 1 warehouse a town, 2–4 contracts, a letter ≤ 500 coin |
-| Season start | each player gets what his path starts with ([open](impl/paths-rework.md#open-design-items)) and START.food in his home strongroom, no coin and no goods (owner to confirm) |
+| Season start | each player gets what his path starts with ("Starting a game", W-95) and START.food in his home strongroom, no coin and no goods; nothing carries over (W-96) |
 
 ### What changes in today's code
 

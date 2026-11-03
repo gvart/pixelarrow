@@ -17,8 +17,8 @@
  *    where it runs, a banner for everyone).
  *  - W-62 season war: once the season is over the alarm rolls it over (rollover): the board is kept (D1
  *    war_season_results and `last` in the world state), the winners' banners and the titles' crests awarded
- *    (./seasonWar.ts), every region but the homes starts over (WarRegionDO.seasonReset: landmarks and control; its men go
- *    home with their gear) and the next season begins with fresh owners and score. Men, gear and titles stay.
+ *    (./seasonWar.ts), every region starts over (WarRegionDO.seasonReset), every player's men, gear, belongings and
+ *    titles go (W-96, ../seasonWipe.ts) and the next season begins with fresh owners and score.
  *  - Sockets (/ws/war/world, hibernation API): the Worker authenticates and forwards x-player-id and x-alliance; each
  *    gets the snapshot on connect and again after changes, at most once per PUSH_MS. Messages: src/war/net/world.ts.
  *  - W-62 E6 chat (`?chat=1`: a chat-only socket, tagged `chat:<alliance>` and `chat`, no snapshots): on connect the
@@ -52,6 +52,7 @@ import type { Crest } from '../../../../src/war/net/world';
 import { buildBoard, crestsOf, recordSeason } from './seasonWar';
 import { ChatGate, chatHistory, chatMute, chatMutes, chatOwns, chatReport, chatStore, WORLD } from './chat';
 import type { ChatMsg, Mark } from '../../../../src/war/net/chat';
+import { seasonWipe } from '../seasonWipe';
 import { seasonSweep } from '../settlements';
 import { crownMap, crownSeason } from '../crown';
 import type { CrownMap } from '../../../../src/war/net/world';
@@ -195,7 +196,7 @@ export class WarWorldDO extends DurableObject<Env> {
     return (await this.ctx.storage.get<SeasonResult>(`result:${id}`)) ?? null;
   }
 
-  /** The dev reset hook: the season ends now and rolls over (W-62: its board kept, the partial reset); the new id. */
+  /** The dev reset hook: the season ends now and rolls over (its board kept, W-96's full reset); the new id. */
   async resetSeason(now = Date.now()): Promise<number> {
     await this.arriving;
     const w = await this.ensure();
@@ -212,8 +213,9 @@ export class WarWorldDO extends DurableObject<Env> {
   }
 
   /**
-   * W-62 season war: the finished season's board kept and its cosmetics awarded, every region but the homes reset
-   * (landmarks, control; men home with their gear), then the next season with fresh owners, score and events.
+   * W-62 season war, W-96 full reset: the finished season's board kept and its cosmetics awarded, every region starts
+   * over, every player's men, gear, belongings and titles go (../seasonWipe.ts), then the next season with fresh owners,
+   * score and events. Everyone makes his start again.
    */
   private async rollover(w: World, now: number): Promise<void> {
     const s = w.st.season, r = s.ended;
@@ -228,11 +230,12 @@ export class WarWorldDO extends DurableObject<Env> {
       board ??= await buildBoard(undefined, s.id, s.startAt, r, s.event ?? r.scores.map(() => 0));
     }
     const stub = (id: string) => regionStub(this.env, id);
-    await Promise.all(WORLD_REGIONS.filter((x) => x.role !== 'home').map((x) => stub(x.id).seasonReset(x.id).catch((e: unknown) => logError('war_season_reset_failed', e, { region: x.id }))));
+    await Promise.all(WORLD_REGIONS.map((x) => stub(x.id).seasonReset(x.id).catch((e: unknown) => logError('war_season_reset_failed', e, { region: x.id }))));
     // W-63: every region wrote what persists of its settlements; Town level and up, or tended lately, stay; the rest go
     if (d) await seasonSweep(d, now).catch((e: unknown) => logError('war_settle_sweep_failed', e));
     // W-64: every crown's term ends (regents until the new elections), votes void, open orders settle
     if (d) await crownSeason(this.env, now).catch((e: unknown) => logError('war_crown_season_failed', e));
+    if (d) await seasonWipe(d).catch((e: unknown) => logError('war_season_wipe_failed', e));
     w.st.last = board;
     w.newSeason(now);
     this.crests.clear();

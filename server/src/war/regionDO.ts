@@ -36,8 +36,9 @@
  * W-62 world events: the world tells every room the running and next events (worldEvents; kept in DO storage, asked of
  * the world when a room starts with none); the room applies the one in its region (a soul storm, a guardian woken once
  * per event: `woke`) and every client hears them (`worldEvents`). seasonReset (the season war's rollover): the room
- * stops, its clients are closed (4001 'season'), its men go home with their gear (D1), and its saved state and memory
- * are dropped: it starts over from its authored data (landmarks, claim points, guardians).
+ * stops, its clients are closed (4001 'season'), its men go home with their gear (D1; the world then wipes them, W-96),
+ * and its saved state, memory and guide saves are dropped: it starts over from its authored data (landmarks, claim
+ * points, guardians).
  *
  * W-63 shared settlements (./settlements.ts in D1, ./roomSettlements.ts on the field): the region's settlements are
  * polled every SETTLE_POLL ticks (and before each join) into the room, which flies each player's banner by ground and
@@ -393,6 +394,7 @@ export class WarRegionDO extends DurableObject<Env> {
     await this.settled();
     await storeState(this.ctx.storage, null);
     await this.ctx.storage.delete([MEMORY_KEY, 'woke']);
+    await this.ctx.storage.delete([...(await this.ctx.storage.list({ prefix: 'guide:' })).keys()]); // W-96: a new first hour
     this.memory = '';
     this.reported = '';
     this.settles = [];
