@@ -56,7 +56,7 @@
  *   POST /crown/orders/:id/deliver { n }      deliver to a supply quest from his sites in its town
  *   POST /crown/pacts { to, kind }            the Envoy offers a pact or a truce
  *   POST /crown/pacts/:id/:act                accept, refuse, cancel or end one
- *   POST /dev/seed      { squad? }             DEV_AUTH=1 only: a whole army (and civilians) to test with
+ *   POST /dev/seed      { squad?, region? }    DEV_AUTH=1 only: a whole army (and civilians) to test with; region: his home for it
  */
 import { Hono } from 'hono';
 import { z } from 'zod';
@@ -333,7 +333,7 @@ war.route('/start', start);
 
 war.post('/dev/seed', requirePlayable, async (c) => {
   if (c.env.DEV_AUTH !== '1') throw new ApiError(404, 'not_found', 'No such endpoint');
-  const b = await readJson(c, z.object({ squad: group.optional() }), MAX_BODY * 2);
+  const b = await readJson(c, z.object({ squad: group.optional(), region: z.string().regex(/^[a-z0-9_-]{1,40}$/).optional() }), MAX_BODY * 2);
   const ids = await seed(db(c.env), c.get('session').pid, Date.now(), b);
   return c.json({ ids });
 });

@@ -3,7 +3,7 @@
  * `war_items` and `war_fights` (migrations/0021_war_persons.sql). M6e: food and coin live in the player's home
  * strongroom (./holders.ts): captives' upkeep, promotion, ransom and retirement pay from it or into it.
  *
- *  - Army (W-58): at most ARMY_MAX fighters in total, counted across all regions (fit, wounded, training); the dead, the
+ *  - Army: at most ARMY_MAX fighters in total (fit, wounded, training); the dead, the
  *    retired and (W-68) the captive do not count: a captured man is no longer his. No reserve: a fit man is `active` (his `slot` only orders the squad picker). At the
  *    cap a claimed soul is refused.
  *  - Household: min(4, 1 + fit fighters / 4) civilians (M5f brings the classes).
@@ -27,6 +27,9 @@
  *    (household cap).
  *  - Deployment: a room claims persons for its region on join (`region`); while deployed the API leaves them alone and
  *    only the room's fight write-back changes them. Fight writes are one D1 batch keyed by the fight id (idempotent).
+ *  - One region (W-87, src/war/world/group.ts): his men with a `region` (fit or wounded; the wounded lie with the group
+ *    and ride with it, W-98) are in one place or on one road; claimForJoin refuses any other. A man with no region waits
+ *    at home off the field (raised, a captive who joined, W-98) and takes it only there.
  */
 import { ATTR_MAX, type AttrId, type Attrs } from '../../../src/data/perks';
 import { CLASSES, isCivClass, isClassId, type ClassId } from '../../../src/data/classes';
@@ -34,6 +37,8 @@ import { itemValue, ITEMS, type Item, type Slot } from '../../../src/data/items'
 import { classGearBlocker } from '../../../src/data/gearRules';
 import { freeName } from '../../../src/data/names';
 import type { Equipment, Hero } from '../../../src/data/units';
+import { groupAt, groupRefusal, homeRefusal } from '../../../src/war/world/group';
+import { worldRegion } from '../../../src/war/world/graph';
 import { freshHero } from '../../../src/war/sim/classes';
 import { freshCivilian } from '../../../src/war/sim/civilians';
 import { isElite, makePerson, promoteBlocker, promotePerson, spendLevel, type PersonOpts, type SpendRefusal } from '../../../src/war/sim/roster';
@@ -51,6 +56,7 @@ import { fightFavourStmts, withFavour } from './favour';
 import { batch, ensureHolder, goodsOf, HOME, itemsIn, lotsOf, pay as payFrom, placeItemStmt, planTake, putStmt, strongroom } from './holders';
 import { askAt, CAPTIVE } from '../../../src/war/sim/captives';
 import { releaseDue, toSouls, type SoulSpawn } from './captives';
+import { homeRegion } from './start';
 
 /** W-68 soul: released or dismissed, a named soul waiting at a shrine of `held_at`; faded: that soul is gone. */
 export type PersonState = 'active' | 'wounded' | 'captive' | 'dead' | 'training' | 'retired' | 'soul' | 'faded';
@@ -256,6 +262,8 @@ export interface Roster {
   trophies: Trophy[];
   /** W-66: the Tunnel of Shades (./raise.ts): men alive against the floor, the next rise, how many are still to come. */
   tunnel: TunnelView;
+  /** W-87: his home region, where a man waiting at home may take the field (src/war/world/group.ts). */
+  home: string | null;
 }
 
 /** E3: a grave (fallen) or an engraved honour (retired) on the player's home memorial. */
@@ -275,7 +283,7 @@ export async function roster(db: D1Database, pid: number, now: number): Promise<
   await settle(db, pid, now);
   const tunnel = await settleTunnelFor(db, pid, now); // W-66: the men the tunnel raised since the last read
   const up = await db.prepare('SELECT owed, unpaid FROM war_upkeep WHERE player_id = ?1').bind(pid).first<{ owed: number; unpaid: number }>();
-  const [rows, stock, items, held, rate, mem, troph] = await Promise.all([
+  const [rows, stock, items, held, rate, mem, troph, homeAt] = await Promise.all([
     persons(db, pid),
     goodsOf(db, strongroom(pid)),
     itemsIn(db, strongroom(pid)),
@@ -283,6 +291,7 @@ export async function roster(db: D1Database, pid: number, now: number): Promise<
     upkeepRate(db, pid),
     memorial(db, pid),
     trophies(db, pid),
+    homeRegion(db, pid),
   ]);
   const fighters = rows.filter(isFighter).length;
   const fit = rows.filter((r) => r.state === 'active').length;
@@ -300,6 +309,7 @@ export async function roster(db: D1Database, pid: number, now: number): Promise<
     memorial: mem,
     trophies: troph,
     tunnel,
+    home: homeAt,
   };
 }
 
@@ -468,8 +478,9 @@ export async function formSquad(db: D1Database, pid: number, ids: string[], now:
 /**
  * Dev: replace the player's men at home with `squad` (soldiers and civilians, in slot order; default a whole army of
  * hoplites and archers), plus food, DEV_COIN and strongroom gear. His fighters in the field count toward ARMY_MAX.
+ * `region` makes that his home (W-87: a tool's way to start anywhere: a man at home takes the field only at home).
  */
-export async function seed(db: D1Database, pid: number, now: number, o: { squad?: { cls: string; level?: number }[] } = {}): Promise<string[]> {
+export async function seed(db: D1Database, pid: number, now: number, o: { squad?: { cls: string; level?: number }[]; region?: string } = {}): Promise<string[]> {
   await ensureStart(db, pid, now);
   const deployed = (await persons(db, pid)).filter((r) => r.region && isFighter(r)).length;
   const squad = o.squad ?? Array.from({ length: ARMY_MAX }, (_, i) => (i < ARMY_MAX - 4 ? { cls: 'hoplite', level: 1 + (i % 6) } : { cls: 'archer', level: 1 + (i % 4) }));
@@ -490,6 +501,7 @@ export async function seed(db: D1Database, pid: number, now: number, o: { squad?
     ...top('food', START.food),
     ...top('coin', DEV_COIN),
     ...a.map((p, i) => insertPerson(db, pid, p, 'active', i, now)),
+    ...(o.region ? [db.prepare('UPDATE war_alliance_members SET home = ?2 WHERE player_id = ?1').bind(pid, o.region)] : []),
     ...Object.values(spare.equip).filter((x): x is Item => !!x).map((it) => {
       const item = { ...it, uid: `${pid}-seed-${it.def}` };
       return db.prepare('INSERT OR IGNORE INTO war_items (uid, player_id, item, created_at, place) VALUES (?1, ?2, ?3, ?4, ?5)').bind(item.uid, pid, JSON.stringify(item), now, strongroom(pid));
@@ -591,21 +603,32 @@ export async function retire(db: D1Database, pid: number, id: string, civ: strin
 
 // ---------------------------------------------------------------- the region rooms
 
+/** The region or road his group is in (W-87); null: nobody is out. */
+export async function groupOf(db: D1Database, pid: number): Promise<string | null> {
+  const r = await db.prepare("SELECT state, region FROM war_persons WHERE player_id = ?1 AND region IS NOT NULL AND state IN ('active', 'wounded') LIMIT 1").bind(pid).first<{ state: string; region: string | null }>();
+  return r ? groupAt([r]) : null;
+}
+
 /**
- * Claim persons for a join into `region`: every id must be the player's, fit (active) and at home (or
- * already claimed by this region and not on its field, `inRoom`). Returns them grouped as asked, or a refusal reason.
+ * Claim persons for a join into `region`: every id must be the player's, fit (active) and at home (or already claimed by
+ * this region and not on its field, `inRoom`). W-87: refused while his group is elsewhere or on the road, and a man at
+ * home takes the field only in the player's home. Returns them grouped as asked, or a refusal reason.
  */
 export async function claimForJoin(db: D1Database, pid: number, region: string, squads: string[][], inRoom: ReadonlySet<string>, now: number): Promise<WarPerson[][] | string> {
   const ids = squads.flat();
   if (new Set(ids).size !== ids.length) return 'a soldier listed twice';
   await settle(db, pid, now);
+  const far = groupRefusal(await groupOf(db, pid), region);
+  if (far) return far;
   const rows = (await db.prepare(`SELECT ${COLS} FROM war_persons WHERE player_id = ?1 AND id IN (SELECT value FROM json_each(?2))`).bind(pid, JSON.stringify(ids)).all<PersonRow>()).results;
   const by = new Map(rows.map((r) => [r.id, r]));
+  const notHome = rows.some((r) => !r.region) && worldRegion(region) ? homeRefusal(await homeRegion(db, pid), region) : null;
   for (const id of ids) {
     const r = by.get(id);
     if (!r) return `no soldier ${id}`;
     if (r.state !== 'active') return `${r.name} is ${r.state}`;
-    if (inRoom.has(id) || (r.region && r.region !== region)) return `${r.name} is already in the field`;
+    if (inRoom.has(id)) return `${r.name} is already in the field`;
+    if (!r.region && notHome) return notHome;
   }
   const res = await db
     .prepare('UPDATE war_persons SET region = ?3, updated_at = ?4 WHERE player_id = ?1 AND id IN (SELECT value FROM json_each(?2)) AND (region IS NULL OR region = ?3)')
@@ -616,6 +639,34 @@ export async function claimForJoin(db: D1Database, pid: number, region: string, 
     return 'a soldier was taken meanwhile';
   }
   return squads.map((s) => s.map((id) => personOf(by.get(id)!)));
+}
+
+/**
+ * W-98: his fit men off the field who belong on it in `region` now: a healed man lying there, and at his home a man
+ * waiting there. None while his group is elsewhere or on the road.
+ */
+export async function offField(db: D1Database, pid: number, region: string, inRoom: ReadonlySet<string>, now: number): Promise<string[]> {
+  await settle(db, pid, now);
+  if (groupRefusal(await groupOf(db, pid), region)) return [];
+  const atHome = (await homeRegion(db, pid)) === region;
+  const rows = (await db.prepare("SELECT id FROM war_persons WHERE player_id = ?1 AND state = 'active' AND (region = ?2 OR (region IS NULL AND ?3))").bind(pid, region, atHome ? 1 : 0).all<{ id: string }>()).results;
+  return rows.map((r) => r.id).filter((id) => !inRoom.has(id));
+}
+
+/**
+ * W-87: who else rides when his group leaves `region`: the wounded and the men off the field there, and at his home those
+ * waiting there (a man promoting stays: `training`, he comes along the next time).
+ */
+export async function riders(db: D1Database, pid: number, region: string): Promise<string[]> {
+  const atHome = (await homeRegion(db, pid)) === region;
+  const rows = (await db.prepare("SELECT id FROM war_persons WHERE player_id = ?1 AND state IN ('active', 'wounded') AND (region = ?2 OR (region IS NULL AND ?3))").bind(pid, region, atHome ? 1 : 0).all<{ id: string }>()).results;
+  return rows.map((r) => r.id);
+}
+
+/** W-98: the group came home: the fit men waiting there, to fall in. */
+export async function waitingAtHome(db: D1Database, pid: number): Promise<WarPerson[]> {
+  const rows = (await db.prepare(`SELECT ${COLS} FROM war_persons WHERE player_id = ?1 AND state = 'active' AND region IS NULL`).bind(pid).all<PersonRow>()).results;
+  return rows.map(personOf);
 }
 
 /** Persons the room let go (a refused or abandoned join) are home again. */
@@ -697,8 +748,8 @@ export function fightTally(r: FightReport): Map<number, { kills: number; honours
 }
 
 /**
- * Write a fight back (M5d FightReport) in one batch: XP, level and points, kills and battles for all; the wounded go
- * home to heal (HEAL.field), captives are held by the captor's alliance in this region (CAPTIVE_MS), the dead lose
+ * Write a fight back (M5d FightReport) in one batch: XP, level and points, kills and battles for all; the wounded lie
+ * where they are with the group (HEAL.field; W-98: `region` stays and they ride with it), captives are held by the captor's alliance in this region (CAPTIVE_MS), the dead lose
  * their gear (M6c/M6e: it fell in a loot pile in the room, and what anyone picked up is in his pack there: nothing is
  * minted). The war_fights row comes first: a
  * second write of the same fight fails on its key and changes nothing. Returns false for a fight already written.
@@ -750,15 +801,15 @@ export async function applyFight(db: D1Database, fightId: string, region: string
     const bind = (...extra: unknown[]) => [...base11, ...extra, ...Array<null>(5 - extra.length).fill(null), honour, JSON.stringify(deeds), scars];
     if (x.state === 'fit') stmts.push(db.prepare(`UPDATE war_persons SET ${base} WHERE id = ?1 AND player_id = ?2`).bind(...bind()));
     else if (x.state === 'wounded')
-      stmts.push(db.prepare(`UPDATE war_persons SET ${base}, state = 'wounded', until_at = ?12, slot = NULL, region = NULL WHERE id = ?1 AND player_id = ?2`).bind(...bind(now + HEAL.field)));
+      stmts.push(db.prepare(`UPDATE war_persons SET ${base}, state = 'wounded', until_at = ?12, slot = NULL WHERE id = ?1 AND player_id = ?2`).bind(...bind(now + HEAL.field)));
     else if (x.state === 'captive' && !overHold(x.fort))
       stmts.push(
         db
           .prepare(`UPDATE war_persons SET ${base}, state = 'captive', until_at = ?12, captor = ?13, held_at = ?14, captor_pid = ?15, held_fort = ?16, slot = NULL, region = NULL WHERE id = ?1 AND player_id = ?2`)
           .bind(...bind(now + CAPTIVE_MS, x.captor ?? null, region, x.captor !== undefined ? (byTeam.get(x.captor)?.[0] ?? null) : null, x.fort ?? null)),
       );
-    else if (x.state === 'captive') // the fort is full: he goes free, wounded
-      stmts.push(db.prepare(`UPDATE war_persons SET ${base}, state = 'wounded', until_at = ?12, slot = NULL, region = NULL WHERE id = ?1 AND player_id = ?2`).bind(...bind(now + HEAL.field)));
+    else if (x.state === 'captive') // the fort is full: he goes free, wounded, and lies with the group
+      stmts.push(db.prepare(`UPDATE war_persons SET ${base}, state = 'wounded', until_at = ?12, slot = NULL WHERE id = ?1 AND player_id = ?2`).bind(...bind(now + HEAL.field)));
     else {
       stmts.push(db.prepare(`UPDATE war_persons SET ${base}, state = 'dead', until_at = NULL, slot = NULL, region = NULL WHERE id = ?1 AND player_id = ?2`).bind(...bind()));
       // E3: he stays dead; his grave on the home memorial, with his name and deeds

@@ -131,6 +131,7 @@ export async function dismiss(db: D1Database, pid: number, id: string, home: str
   const r = await person(db, pid, id);
   if (!DISMISSABLE.includes(r.state)) throw new ApiError(409, 'not_dismissable', `He is ${r.state}`);
   if (isCivClass(r.cls)) throw new ApiError(409, 'civilian', 'Civilians are not dismissed');
+  if (r.region?.startsWith('>')) throw new ApiError(409, 'on_road', 'He is on the road with the group'); // W-87: nothing happens on the road
   const at = r.region ? await SOULS.dismiss(r.region, id).catch(() => null) : null;
   if (!at) {
     const gear = Object.values(json<Equipment>(r.gear, {})).filter((x): x is Item => !!x);
