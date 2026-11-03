@@ -45,7 +45,7 @@ import { worldRegion } from '../../world/graph';
 type Mk = (id: string, css: string, html?: string) => HTMLElement;
 type Tab = 'Town' | 'Board' | 'Trade' | 'Offers' | 'Stall' | 'Contracts' | 'Letters';
 const PLAYER_TABS: Tab[] = ['Trade', 'Offers', 'Stall', 'Contracts', 'Letters'];
-const TAB_NAME: Record<Tab, string> = { Town: 'Town', Board: 'Town board', Trade: 'Players', Offers: 'My offers', Stall: 'Stall', Contracts: 'Contracts', Letters: 'Letters' };
+const TAB_NAME: Record<Tab, string> = { Town: 'Town', Board: 'Board', Trade: 'Players', Offers: 'My offers', Stall: 'Stall', Contracts: 'Contracts', Letters: 'Letters' };
 /** W-144: what the town's hired hands are called. */
 const HIRE_NAME: Record<string, string> = { civ_forager: 'Forager', civ_cook: 'Cook', civ_engineer: 'Engineer', civ_merchant: 'Merchant', civ_physician: 'Physician', civ_smith: 'Smith' };
 const W = 452;
@@ -472,7 +472,7 @@ export function mountMarket(s: SandboxScene, mk: Mk): MarketHud {
   const lineCard = (l: BoardLine, canTake: boolean) => qcard({
     key: `bd:${l.id}`, icon: icon(KIND_ICON[l.kind], 24), goal: l.goal, kind: l.size === 'errand' ? `${KIND_NAME[l.kind]} · ${l.giver ?? ''}` : KIND_NAME[l.kind],
     chips: `${askChips(l)}${payChips(l.pay, l.gain)}`,
-    cta: l.held ? '<span class="rf-dim">Taken</span>' : btn('bdTake', 'Take', canTake, `data-e="${l.id}"`, canTake ? 'Take this job' : 'Bring your men to the town first', 'rf-tbtn pri'),
+    cta: btn('bdTake', 'Take', canTake, `data-e="${l.id}"`, canTake ? 'Take this job' : 'Bring your men to the town first', 'rf-tbtn pri'),
     more: details({ story: l.story, lines: [
       ['Where', l.kind === 'kill' ? 'Set down in this region once you take it' : l.kind === 'build' ? 'At this town: your men stand at the work' : `Carry it to ${worldName(l.toTown ?? '')}, then back here for your pay`],
       ['Paid', 'From this town\'s purse, when you come back. A poor town pays less; the same work here again pays less for a few hours'],
@@ -484,8 +484,8 @@ export function mountMarket(s: SandboxScene, mk: Mk): MarketHud {
     const where = j.town !== T && (ready || j.kind !== 'trade') ? chip.where(worldName(j.town)) : j.kind === 'trade' && !ready && !deliver ? chip.where(worldName(j.toTown ?? '')) : j.x !== null && !ready ? chip.dist(wayTo(j.x, j.y!)) : '';
     const act = ready ? btn('bdIn', 'Hand in', atBoard, `data-id="${j.id}"`, atBoard ? 'Collect your pay' : `Bring your men to ${worldName(j.town)}`, 'rf-tbtn pri')
       : deliver ? btn('bdGive', 'Unload', here > 0, `data-id="${j.id}"`, here > 0 ? 'Hand over the load' : 'Bring your men to the town', 'rf-tbtn pri')
-      : btn('bdDrop', '×', true, `data-id="${j.id}"`, j.kind === 'trade' ? 'Give it up: the load goes back at this board' : 'Give it up', 'rf-tbtn');
-    return qcard({ key: `bj:${j.id}`, icon: icon(KIND_ICON[j.kind], 24), goal, kind: ready ? 'Done' : KIND_NAME[j.kind], tone: ready ? 'var(--hud-good)' : undefined, ...(j.kind === 'build' && !ready ? { bar: j.done / Math.max(1, j.need) } : {}), chips: `${where}${j.kind === 'build' && !ready ? chip.prog(`${Math.floor((j.done / Math.max(1, j.need)) * 100)}%`) : ''}`, cta: act, more: details({ story: j.story ?? undefined, from: j.giver ?? undefined }) });
+      : btn('bdDrop', 'Drop', true, `data-id="${j.id}"`, j.kind === 'trade' ? 'Give it up: the load goes back at this board' : 'Give it up', 'rf-tbtn');
+    return qcard({ key: `bj:${j.id}`, icon: icon(KIND_ICON[j.kind], 24), goal, kind: ready ? 'Done' : KIND_NAME[j.kind], tone: ready ? 'var(--hud-good)' : undefined, ...(j.kind === 'build' && !ready ? { bar: j.done / Math.max(1, j.need) } : {}), chips: `${where}${j.kind === 'build' && !ready ? chip.prog(`${Math.floor((j.done / Math.max(1, j.need)) * 100)}%`) : ''}${payChips(j.coin, j.points)}`, cta: act, more: details({ story: j.story ?? undefined, from: j.giver ?? undefined }) });
   };
   const boardTab = () => {
     if (!jobBoard) return '<div class="rf-dim mk-none">Reading the board…</div>';
@@ -495,7 +495,7 @@ export function mountMarket(s: SandboxScene, mk: Mk): MarketHud {
     return `<div class="nt-top"><span data-tip="${esc('All the coin the town has to pay with: a poor town pays less.')}">Purse <b class="rf-num">${v.purse}</b> ${icon('res-coin')}</span><span class="rf-dim">your jobs <b class="rf-num" style="color:var(--rf-ink)">${v.jobs.length}</b> / ${BOARD.hold}</span></div>
       <div class="bd-list rf-scroll">
         ${heldCards ? `<div class="bd-h">Your jobs</div>${heldCards}<div class="bd-h">On the board</div>` : ''}
-        ${v.lines.map((l) => `<div class="bd-c">${lineCard(l, can)}</div>`).join('')}
+        ${v.lines.filter((l) => !l.held).map((l) => `<div class="bd-c">${lineCard(l, can)}</div>`).join('')}
       </div>${hint ? `<div class="rf-hint mk-why">${hint}</div>` : ''}`;
   };
 
@@ -503,7 +503,7 @@ export function mountMarket(s: SandboxScene, mk: Mk): MarketHud {
   const render = () => {
     if (win.style.display === 'none') return;
     const scroll = win.scrollTop;
-    win.innerHTML = `<div class="rf-head rf-ph">${icon('node-merchant-trader', 32)}<div style="flex:1;min-width:0"><div class="rf-name">Market of ${town(T)}</div><div class="sub">${tab === 'Town' ? 'the town trades' : isTown ? 'players\' offers only' : 'no market here'}${M.live ? '' : ' · offline'} · <span style="color:var(--rf-gold)">${Math.floor(s.sim.cur?.stock?.[myTeam()]?.coin ?? 0)}</span> coin at home</div></div>${btn('handoff', 'Trade in person', true, '', 'trade with a player standing here: each puts in his half, both confirm')}<button class="rf-tbtn x" data-act="close" title="close (K)">×</button></div>
+    win.innerHTML = `<div class="rf-head rf-ph">${icon('node-merchant-trader', 32)}<div style="flex:1;min-width:0"><div class="rf-name">Market of ${town(T)}</div><div class="sub">${tab === 'Town' ? 'the town trades' : tab === 'Board' ? 'work the town pays for' : isTown ? 'players\' offers only' : 'no market here'}${M.live ? '' : ' · offline'} · <span style="color:var(--rf-gold)">${Math.floor(s.sim.cur?.stock?.[myTeam()]?.coin ?? 0)}</span> coin at home</div></div>${btn('handoff', 'Trade in person', true, '', 'trade with a player standing here: each puts in his half, both confirm')}<button class="rf-tbtn x" data-act="close" title="close (K)">×</button></div>
       <div class="mk-tabs">${TABS.map((t) => `<button class="rf-tab${t === tab ? ' on' : ''}" data-tab="${t}">${TAB_NAME[t]}</button>`).join('')}</div>
       ${BODY[tab]()}<div class="mk-msg rf-dim${bad ? ' bad' : ''}">${msg}</div>`;
     win.scrollTop = scroll;
@@ -537,7 +537,14 @@ export function mountMarket(s: SandboxScene, mk: Mk): MarketHud {
   win.addEventListener('click', (e) => {
     const t = (e.target as HTMLElement).closest<HTMLElement>('[data-tab],[data-act]');
     if (!t || (t as HTMLButtonElement).disabled) return;
-    if (t.dataset.tab) { tab = t.dataset.tab as Tab; say(''); render(); return; }
+    if (t.dataset.tab) {
+      tab = t.dataset.tab as Tab;
+      say('');
+      render();
+      // the board reads his men as they stand now
+      if (tab === 'Board') void M.townBoard({ op: 'view' }).then((r) => { if (!failed(r)) { jobBoard = r.view; render(); } });
+      return;
+    }
     const a = t.dataset.act!, id = t.dataset.id === 'form' ? form.lId : Number(t.dataset.id);
     if (a === 'close') return toggle(false);
     if (a === 'handoff') return openHand();
