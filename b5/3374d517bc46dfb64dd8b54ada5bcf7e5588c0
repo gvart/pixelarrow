@@ -1,0 +1,39 @@
+src/war/view/hud/worldEvents.ts
+  s_a7d5d20f628c80::t_a0059e8c0b3072 14,23-25,81-85
+src/war/view/hud/armyPanel.ts
+  s_a7d5d20f628c80::t_a0059e8c0b3072 80-81
+  s_a7d5d20f628c80::t_44a1b2fa138934 29-30,36,83
+src/war/sim/tunnel.ts
+  s_a7d5d20f628c80::t_48d1e950158d13 68,71,76,79
+src/war/view/hud/tunnel.ts
+  s_a7d5d20f628c80::t_48d1e950158d13 5
+src/war/net/questLore.ts
+  s_a7d5d20f628c80::t_48d1e950158d13 26-28
+tests/war/tunnel.test.ts
+  s_a7d5d20f628c80::t_48d1e950158d13 23,103
+src/war/world-view/map.ts
+  s_a7d5d20f628c80::t_44a1b2fa138934 169-171,1112,1305
+tests/war/guide.test.ts
+  s_a7d5d20f628c80::t_70addfbb8ef199 178,181-182,184
+  s_a7d5d20f628c80::t_48d1e950158d13 7,175-177,179-180,183
+  s_a7d5d20f628c80::t_d33e17cb0df8b2 185-186
+src/war/view/hud/guide.ts
+  s_a7d5d20f628c80::t_48d1e950158d13 281
+  s_a7d5d20f628c80::t_a0059e8c0b3072 90,197-198,201
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "b53374d517bc46dfb64dd8b54ada5bcf7e5588c0",
+  "prompts": {},
+  "sessions": {
+    "s_a7d5d20f628c80": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1afee479-b44b-46d2-a159-a540e44e7fb8",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
