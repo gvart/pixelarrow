@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { ACCESS, TERMS } from '../../src/war/sim/economy';
-import type { BuildingSnap } from '../../src/war/types';
+import type { Access, BuildingSnap } from '../../src/war/types';
 import { accessHtml, accessStep, ACCESS_WORDS, FEE_STEPS, ownsTerms, SHARE_STEPS } from '../../src/war/view/build/access';
 
 const forge = (over: Partial<BuildingSnap> = {}) => ({ id: 'b1', type: 'forge', owner: 'p:me', state: 'done', access: 'alliance', share: 0, fee: 0, ...over }) as BuildingSnap;
 
 describe('the building card access control (W-89)', () => {
   it('one tap moves each setting to its next step and wraps round', () => {
-    let access = ACCESS[0];
+    let access: Access = ACCESS[0];
     for (let i = 0; i < ACCESS.length; i++) {
       const o = accessStep(forge({ access }), 'access', 'p:me');
       expect(o.access).toBe(ACCESS[(i + 1) % ACCESS.length]);

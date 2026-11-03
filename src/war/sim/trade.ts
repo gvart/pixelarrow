@@ -4,8 +4,8 @@
  * (siege-style engines) in ./siege.ts; ./index.ts drives the orders.
  *
  *  - porter: any man carries one load in his pack (PORTER.loads; CARRY goods or 5 items), PORTER.slow pace loaded.
- *    `load` takes from a holder (own store, own chest, own cart, any pile; an enemy chest with no unit of its owner
- *    within CHEST.guard, an enemy store once its influence is gone), `unload` puts into one (own store, own chest, own
+ *    `load` takes from a holder (own store, own chest, own cart, any pile; an enemy chest, store or house with no man of
+ *    its side within CHEST.guard, past its door if it has one, W-130), `unload` puts into one (own store, own chest, own
  *    cart). One load per man every PORTER.every ticks once beside it. A squad crewing a cart loads the cart instead.
  *  - piles (W-46, every fight): a sim object on a tile, not a unit or a building. Everything a fallen man carried goes to
  *    a pile; the killed also leave their worn kit (PILE.wear condition off each piece), the captured leave it at the
