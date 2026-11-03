@@ -918,8 +918,8 @@ region holds 45–50 players, inside the owner's 50–60 hope; builders and trad
 start numbers changed only on balance evidence. There is no reserve and no barracks pool, and all of them are in one
 region or on one road (W-87, "Paths"). Wounded men count; the dead, the retired and (W-68) the captive free their place;
 civilians are the household, outside the cap. A claimed soul joins only under the cap (refused past it, W-60). A transfer
-takes the whole group. One rule for all of it, by path (`ARMY_MAX`, `src/war/sim/soldiers.ts`, and the `SQUAD_MAX`,
-`MAX_SQUAD` and `TRANSFER_MAX` that follow it, give way to it in the rework).
+takes the whole group. One rule for all of it, by path (`ARMY_MAX`, `src/war/sim/soldiers.ts`, and the `SQUAD_MAX` and
+`MAX_SQUAD` that follow it, give way to it in the rework).
 
 ### Record (server-side, one row per person)
 
