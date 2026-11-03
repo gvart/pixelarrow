@@ -10,8 +10,6 @@ export const CROWN = {
   candidates: 3,
   /** Voting window of an election and of a no-confidence vote. */
   voteMs: 24 * HOUR,
-  /** A monarch's term (then a new election; he is regent meanwhile). */
-  termMs: 7 * 24 * HOUR,
   /** A no-confidence petition: signed by this share of the active lords (seen within activeMs) opens the vote. */
   petitionShare: 0.25, activeMs: 7 * 24 * HOUR, petitionMs: 48 * HOUR,
   /** After a failed petition or vote, none again for this long. */
@@ -72,7 +70,7 @@ export function electionWinner(cands: readonly Candidate[], ballots: readonly { 
 /** Signatures a petition needs from `active` members. */
 export const petitionNeed = (active: number) => Math.max(1, Math.ceil(active * CROWN.petitionShare - 1e-9));
 
-/** W-152: a no-confidence vote passes on a majority of all lord weight, cast or not. */
+/** W-152, W-201: a no-confidence vote passes on a majority of the active lords' weight, cast or not. */
 export const confidenceLost = (ballots: readonly { choice: number; weight: number }[], lordWeight: number) =>
   ballots.filter((b) => b.choice === 1).reduce((a, b) => a + b.weight, 0) > lordWeight / 2;
 
@@ -130,8 +128,8 @@ export interface FeudalView {
 export interface CrownView {
   alliance: number | null;
   now: number;
-  monarch: { pid: number; name: string; power: number; since: number | null; ends: number } | null;
-  /** The monarch's term is over and an election runs: he rules as regent until it closes. */
+  monarch: { pid: number; name: string; power: number; since: number | null } | null;
+  /** An election runs while someone holds the crown: he rules as regent until it closes. */
   regent: boolean;
   council: { office: Office; pid: number | null; name: string | null }[];
   treasury: { goods: Record<string, number>; tax: number; taxed: number };
