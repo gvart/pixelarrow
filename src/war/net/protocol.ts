@@ -152,7 +152,7 @@ export const orderSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('extinguish'), squad: id, ...U, ...target }).refine(oneTarget, 'building or siege'),
   // M6 trade (src/war/sim/trade.ts): porters and carts load from and unload into holders, escort a cart, a smith breaks
   // up a pile's item; the room checks the holder exists and the squad may use it, the sim the rest
-  z.object({ kind: z.literal('load'), squad: id, ...U, from: holderRef, res: goodSchema.optional(), n: amount.optional() }),
+  z.object({ kind: z.literal('load'), squad: id, ...U, from: holderRef, res: goodSchema.optional(), n: amount.optional(), send: z.literal(true).optional() }),
   z.object({ kind: z.literal('unload'), squad: id, ...U, to: holderRef, res: goodSchema.optional() }),
   z.object({ kind: z.literal('escort'), squad: id, ...U, cart: id }),
   z.object({ kind: z.literal('salvagePile'), squad: id, ...U, pile: id, uid: z.string().min(1).max(120) }),

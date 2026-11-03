@@ -73,7 +73,7 @@ import { CHEST, NEUTRAL_TEAM } from './economy';
 import { BLESS, createTowns } from './prebuilt';
 import { createLandmarks } from './landmarks';
 import { CART_FORD, CART_UPHILL } from './grid';
-import { amount as amountOf, itemList, loads, move as moveHold, newHold, perLoad, put, putLots, take as takeHold, takeFrom, totals, type Hold, type Lot } from './holders';
+import { amount as amountOf, isTithe, itemList, loads, move as moveHold, newHold, perLoad, putLots, take as takeHold, takeFrom, titheSeal, totals, type Draw, type Hold, type Lot } from './holders';
 import { addDeeds, DEED, plainDeed, SCARS_MAX, slayerDeed } from './deeds';
 import { CART, CLAIM_TICKS, createPiles, ESCORT, inRect, PILE, PORTER, SAFE } from './trade';
 import { CRAFT, itemRecipe } from './crafting';
@@ -269,7 +269,7 @@ interface Unit extends Worker {
 }
 
 /** M6 load / unload under way: the holder, which way, the good and how many goods are still wanted. */
-interface Xfer { ref: HolderRef; dir: 'load' | 'unload'; res?: GoodKind; n: number }
+interface Xfer { ref: HolderRef; dir: 'load' | 'unload'; res?: GoodKind; n: number; send?: true }
 /** A holder as the trade orders see it. */
 interface HolderAt { hold: Hold; x: number; y: number; kind: 'store' | 'chest' | 'cart' | 'pile'; team: number; owner: string; cap: number; id: number }
 
@@ -625,7 +625,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       const packs = units.filter((u) => u.alive && u.squad.owner === c.owner && !!u.pack && (u.x - b.x) ** 2 + (u.y - b.y) ** 2 <= (CIV.at + 4) ** 2).map((u) => u.pack!);
       return takeFrom(c.team === b.team ? [...works.sourcesAt(b.team, b.x, b.y), ...packs] : packs, cost);
     },
-    till: (b, res, n) => put(works.tillOf(b.id), res, n, region.id),
+    till: (b, res, n) => works.payTill(b.id, res, n, region.id),
     out: (b, payer, res, n) => void piles.drop(b.x, b.y + 1, [{ r: res, n, o: region.id }], [], tick, 0, { owner: payer.owner, name: 'Your work', until: tick + CLAIM_TICKS }),
     cart(b, owner, type, check) {
       if (!isCartType(type as never) || siege.carts({ owner }) >= cartCap(pathOf(owner).path) || civRoom(b.team) <= 0) return false;
@@ -1268,6 +1268,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
   const apply = (o: Order) => {
     if (o.kind === 'turnSquad') return void turnSquad(o.squad, o.team);
     if (o.kind === 'rebanner') return void rebanner(o.centre, o.team);
+    if (o.kind === 'setLiege') return void setLiege(o.owner, o.to, o.pct);
     if (o.units && o.squad !== undefined && o.kind !== 'man') {
       // W-53: the named men gather into one squad (one per kind) and it takes the order; a layout goes once, to the first
       const lead = squads[o.squad];
@@ -2325,6 +2326,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     if (h.kind === 'pile') return piles.open(piles.get(h.id)!, s.owner, tick); // E3: a fallen man's kit, his owner's for a while
     if (h.kind === 'cart') return h.owner === s.owner;
     if (h.kind === 'store' && works.piece(h.id)?.def.cache) return !inSafe(h.x, h.y); // M7a: a town's cache: anyone's
+    if (owedHere(s, h)) return true; // W-153: his tribute, set aside there
     if (mayOpen(s, h)) return true;
     if (inSafe(h.x, h.y) || h.team === s.team) return false;
     // W-91: a foe, with nobody of its side at it: only its door is left (tradeTick breaks it first)
@@ -2335,7 +2337,52 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     const b = works.piece(h.id)!;
     return h.kind === 'chest' && !b.def.house ? h.owner === s.owner : works.mayUse(b, s.owner, s.team);
   };
-  const mayPut = (s: Squad, h: HolderAt) => (h.kind === 'store' || h.kind === 'chest' ? !works.piece(h.id)?.def.cache && mayOpen(s, h) : h.kind !== 'pile' && h.owner === s.owner);
+  const mayPut = (s: Squad, h: HolderAt) => (h.kind === 'store' || h.kind === 'chest' ? !works.piece(h.id)?.def.cache && (mayOpen(s, h) || bringsTithe(s, h)) : h.kind !== 'pile' && h.owner === s.owner);
+  /** W-153: tribute for s's player waits in building h. */
+  const owedHere = (s: Squad, h: HolderAt) => {
+    const seal = titheSeal(s.owner);
+    return seal !== undefined && (h.kind === 'store' || h.kind === 'chest') && h.owner !== s.owner && h.hold.lots.some((l) => l.s === seal && l.n > 1e-9);
+  };
+  /** W-153: s carries tribute sealed for the owner of building h. */
+  const bringsTithe = (s: Squad, h: HolderAt) => {
+    const seal = titheSeal(h.owner), c = crewCart(s);
+    if (seal === undefined) return false;
+    const has = (x: Hold | null | undefined) => !!x && x.lots.some((l) => l.s === seal && l.n > 1e-9);
+    return (c >= 0 && has(siege.get(c)!.hold)) || s.units.some((u) => u.alive && has(u.pack));
+  };
+  /**
+   * W-153: what a load by s from h draws, when it touches tribute: his own tribute from another's building (it comes off
+   * unsealed; nothing else moves); the owner's "send" (his liege's part, still sealed); a raider, or a pile: all of it,
+   * the seals gone. Otherwise undefined: the plain goods.
+   */
+  const drawOf = (s: Squad, h: HolderAt, x: Xfer): Draw | undefined => {
+    if (h.kind === 'pile' || ((h.kind === 'store' || h.kind === 'chest') && h.team !== s.team && !mayOpen(s, h))) return { ok: () => true, to: (l) => (isTithe(l) ? undefined : l.s) };
+    if (owedHere(s, h)) {
+      const seal = titheSeal(s.owner);
+      return { ok: (l) => l.s === seal, to: () => undefined, goodsOnly: true };
+    }
+    return x.send ? { ok: isTithe, to: (l) => l.s, goodsOnly: true } : undefined;
+  };
+  /** W-153: what an unload by s into h moves: plain goods if he may put them there, and tribute sealed for its owner, unsealed. */
+  const putOf = (s: Squad, h: HolderAt): Draw | undefined => {
+    const seal = h.kind === 'store' || h.kind === 'chest' ? titheSeal(h.owner) : undefined;
+    if (seal === undefined) return undefined;
+    const open = mayOpen(s, h);
+    return { ok: (l) => l.s === seal || (open && l.s === undefined), to: () => undefined };
+  };
+  /** W-153: the room's oath order: he pays `to` from now; what is set aside follows a new liege, or goes back to him. */
+  const setLiege = (owner: string, to: string | null, pct: number) => {
+    const was = titheSeal(works.lieges.get(owner)?.to), now = titheSeal(to);
+    if (to) works.lieges.set(owner, { to, pct });
+    else works.lieges.delete(owner);
+    if (was === undefined || was === now) return;
+    const reseal = (h: Hold | null | undefined) => {
+      if (h) for (const l of h.lots) if (l.s === was) { if (now === undefined) delete l.s; else l.s = now; }
+    };
+    for (const h of works.ownedHolds(owner)) reseal(h);
+    for (const u of units) if (u.squad.owner === owner) reseal(u.pack);
+    for (const h of siege.cartHolds(owner)) reseal(h);
+  };
   /** What a take from h draws: an own store also opens the home strongroom. */
   const takeHolds = (s: Squad, h: HolderAt): Hold[] => {
     const b = h.kind === 'store' && h.team === s.team ? works.piece(h.id) : null;
@@ -2379,7 +2426,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     const ref = o.kind === 'load' ? o.from : o.to, h = holderAt(ref);
     if (!h || (o.kind === 'load' ? !mayTake(s, h) : !mayPut(s, h))) return;
     stopWork();
-    s.xfer = { ref, dir: o.kind, ...(o.res ? { res: o.res } : {}), n: o.kind === 'load' ? o.n ?? Infinity : Infinity };
+    s.xfer = { ref, dir: o.kind, ...(o.res ? { res: o.res } : {}), n: o.kind === 'load' ? o.n ?? Infinity : Infinity, ...(o.kind === 'load' && o.send ? { send: true as const } : {}) };
     s.order = o.kind;
     const c = crewCart(s);
     if (c >= 0) {
@@ -2399,7 +2446,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
    */
   const lockedTo = (s: Squad, h: HolderAt, id: number | undefined): boolean => {
     const b = id !== undefined ? works.piece(id) : undefined;
-    if (!b || b.lock <= 0 || mayOpen(s, h) || b.def.cache) return false;
+    if (!b || b.lock <= 0 || mayOpen(s, h) || owedHere(s, h) || b.def.cache) return false;
     let men = 0;
     for (const u of s.units) if (u.alive && byHolder(h, u.x, u.y, Math.max(PILE.reach + 0.5, CART.reach))) men++;
     if (!men) return true;
@@ -2427,7 +2474,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
         end();
         continue;
       }
-      const pile = h.kind === 'pile', c = crewCart(s);
+      const pile = h.kind === 'pile', c = crewCart(s), draw = load ? drawOf(s, h, x) : undefined;
       if (load && lockedTo(s, h, x.ref.building)) continue; // W-91: at the door first
       if (c >= 0) {
         const e = siege.get(c)!;
@@ -2440,8 +2487,9 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
         const room = load ? siege.cartCap(c) - loads(e.hold!) : h.cap - loads(h.hold);
         const amt = Math.min(Math.max(1, n) * PORTER.loads, room, x.n / perLoad(x.res));
         let moved = 0;
-        if (load) for (const src of takeHolds(s, h)) moved += moveHold(src, e.hold!, amt - moved, x.res, pile ? 1 : Infinity);
-        else moved = moveHold(e.hold!, h.hold, amt, x.res, Infinity, true);
+        if (load && draw) moved = moveHold(h.hold, e.hold!, amt, x.res, pile ? 1 : Infinity, false, draw);
+        else if (load) for (const src of takeHolds(s, h)) moved += moveHold(src, e.hold!, amt - moved, x.res, Infinity);
+        else moved = moveHold(e.hold!, h.hold, amt, x.res, Infinity, true, putOf(s, h));
         x.n -= moved * perLoad(x.res);
         if (moved <= 1e-9) end();
         continue;
@@ -2463,7 +2511,8 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
           const amt = Math.min(PORTER.loads - loads(pack), x.n / perLoad(x.res));
           let m = 0;
           const was = pack.items.length;
-          for (const src of takeHolds(s, h)) m += moveHold(src, pack, amt - m, x.res, pile ? 1 : Infinity);
+          if (draw) m = moveHold(h.hold, pack, amt, x.res, pile ? 1 : Infinity, false, draw);
+          else for (const src of takeHolds(s, h)) m += moveHold(src, pack, amt - m, x.res, Infinity);
           if (pile && pack.items.length > was) {
             const got = (loot[s.team] ??= []);
             for (const it of pack.items.slice(was)) got.push({ ...it });
@@ -2471,7 +2520,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
           }
           x.n -= m * perLoad(x.res);
           moved += m;
-        } else moved += moveHold(pack, h.hold, Math.min(loads(pack), h.cap - loads(h.hold)), x.res, Infinity, true);
+        } else moved += moveHold(pack, h.hold, Math.min(loads(pack), h.cap - loads(h.hold)), x.res, Infinity, true, putOf(s, h));
       }
       if (!pending && moved <= 1e-9) end();
       // W-55: a man with goods kept off the holder by the crowd at its ring swaps standing points with one beside it who
@@ -3763,6 +3812,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       return !!b && works.mayUse(b, owner, team);
     },
     setTies: works.setTies,
+    liegeOf: (owner) => works.lieges.get(owner) ?? null,
     hurtPersons(lost) {
       // M4: men arriving from another region come in with the hit points they left with
       for (const u of units) {
