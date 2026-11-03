@@ -1,0 +1,39 @@
+docs/WAR.md
+  s_a7d5d20f628c80::t_857b4da90ee65c 1147
+  s_a7d5d20f628c80::t_e1df7560e12210 1201
+  s_a7d5d20f628c80::t_b65be5edb3e962 1044
+  s_a7d5d20f628c80::t_4071ab50ce1221 1168-1171
+  s_a7d5d20f628c80::t_d28c5c87550323 1157
+  s_a7d5d20f628c80::t_e727769820ed49 1162-1163
+  s_a7d5d20f628c80::t_9d9e4bff61df9a 875-877,879-884
+  s_a7d5d20f628c80::t_587c63fd309b2d 890
+  s_a7d5d20f628c80::t_bc0b4dd231042c 1045
+  s_a7d5d20f628c80::t_09733a76e2f23d 1054-1056,1060-1061,1063-1065
+  s_a7d5d20f628c80::t_bc673390c54cbf 861-862,864-866
+  s_a7d5d20f628c80::t_78934797100c53 909
+  s_a7d5d20f628c80::t_0e8355bc5905db 1110-1113
+  s_a7d5d20f628c80::t_d3b61d17d1bcd0 1143-1145
+  s_a7d5d20f628c80::t_726f3165e63e7a 1041
+  s_a7d5d20f628c80::t_5974933af41351 1051
+  s_a7d5d20f628c80::t_756e01205716c6 1129
+  s_a7d5d20f628c80::t_6a55d741355549 916-919
+  s_a7d5d20f628c80::t_1bb2d66b12fb0f 1048
+  s_a7d5d20f628c80::t_45b9e4d62759df 1132
+  s_a7d5d20f628c80::t_76d141faa4af56 1122
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "59e5c0f8b84fc0e6e08e9961ca396a947785f66a",
+  "prompts": {},
+  "sessions": {
+    "s_a7d5d20f628c80": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1afee479-b44b-46d2-a159-a540e44e7fb8",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
