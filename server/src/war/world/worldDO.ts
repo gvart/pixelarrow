@@ -264,7 +264,7 @@ export class WarWorldDO extends DurableObject<Env> {
     const events = w.activeEvents(now), next = w.nextEvent(now);
     for (const r of WORLD_REGIONS) {
       const stub = regionStub(this.env, r.id);
-      this.ctx.waitUntil(stub.worldEvents(r.id, events, next).catch((e: unknown) => logError('war_world_events_failed', e, { region: r.id })));
+      this.ctx.waitUntil(stub.worldEvents(r.id, events, next, w.st.season.startAt).catch((e: unknown) => logError('war_world_events_failed', e, { region: r.id })));
     }
   }
 

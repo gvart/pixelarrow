@@ -15,6 +15,7 @@ import type { Item } from '../../../src/data/items';
 import { WAR_SEASON } from '../../../src/war/world/alliances';
 import { addStats, ownerPid } from './persons';
 import { FAVOUR_EARN, favourStmts } from './favour';
+import { STAT_SEASON } from './peace';
 
 export type BossSlain = Extract<WarEvent, { kind: 'bossSlain' }>;
 
@@ -40,7 +41,7 @@ export async function applyBossKill(db: D1Database, region: string, run: string,
   const last = pids[0];
   const ally = await db.prepare('SELECT alliance FROM war_alliance_members WHERE season = ?1 AND player_id = ?2').bind(WAR_SEASON.id, last).first<{ alliance: number }>();
   const stmts: D1PreparedStatement[] = [
-    db.prepare('INSERT INTO war_boss_kills (id, season, region, boss, alliance, player_id, at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)').bind(id, WAR_SEASON.id, region, e.boss, ally?.alliance ?? null, last, now),
+    db.prepare(`INSERT INTO war_boss_kills (id, season, region, boss, alliance, player_id, at) VALUES (?1, ${STAT_SEASON}, ?2, ?3, ?4, ?5, ?6)`).bind(id, region, e.boss, ally?.alliance ?? null, last, now),
     ...pids.map((p) => addStats(db, p, { bosses: 1 })),
     ...pids.flatMap((p) => favourStmts(db, p, FAVOUR_EARN.boss, 'boss', now)), // W-66 divine favour
     ...pids.map((p) => db.prepare('INSERT INTO war_trophies (kill_id, player_id, season, boss, region, at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)').bind(id, p, WAR_SEASON.id, e.boss, region, now)),

@@ -1,8 +1,9 @@
 /**
  * W-96: a new season is a full reset for every path: men, gear, belongings and titles. Everything a player owned or
- * earned toward this season goes, and he makes his start again (alliance, home, path; ./start.ts). What stays is the
- * record of seasons past and what is not a player's standing: test/war/seasonWipe.test.ts sorts every war table into
- * one or the other, so a new table fails the build until it is placed.
+ * earned toward this season goes, and he makes his start again (alliance, home, path; ./start.ts), his guide save with
+ * his member row. What stays is the record of seasons past and what is not a player's standing:
+ * test/war/seasonWipe.test.ts sorts every war table into one or the other, so a new table fails the build until it is
+ * placed. A region DO's own storage is dropped by WarRegionDO.seasonReset.
  */
 export const SEASON_WIPE = [
   // titles: the crown and the lordships (W-63, W-64, W-94), the demigod's level (W-83), region mastery, tasks
@@ -11,9 +12,11 @@ export const SEASON_WIPE = [
   'war_settlement_log', 'war_settlement_offers', 'war_settlement_members', 'war_settlements',
   'war_favour_log', 'war_favour', 'war_mastery_done', 'war_mastery', 'war_task_tally', 'war_tasks',
   // belongings: strongrooms, stalls, warehouses and what they hold, open deals, things in the field
-  'war_contracts', 'war_letters', 'war_deals', 'war_offers', 'war_gifts', 'war_crafts', 'war_goods', 'war_holders', 'war_region_holds', 'war_region_state',
+  'war_contracts', 'war_letters', 'war_deals', 'war_fills', 'war_board_seen', 'war_offers', 'war_gifts', 'war_crafts', 'war_goods', 'war_holders', 'war_region_holds', 'war_region_state',
   // W-142: the NPC towns' purses and stocks start the season afresh
   'war_npc_towns', 'war_npc_stock',
+  // the alliance's works: raised once a season, and read by WAR_SEASON.id, which does not change
+  'war_work_gifts', 'war_works',
   // men and gear, and what hung on them
   'war_trophies', 'war_memorial', 'war_tunnel', 'war_upkeep', 'war_items', 'war_persons',
   // the start itself: alliance, home and path are chosen anew
