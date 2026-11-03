@@ -2,8 +2,8 @@
  * Fog of war (W-39): per-team vision on a coarse grid of VISION.cell x VISION.cell tiles, recomputed every VISION.every
  * ticks. Deterministic (no rng, fixed iteration order).
  *
- * Viewers: living units (radius by class: archers and slingers, scouts further), standing buildings of the team (towers
- * far, walls a little), lit braziers. A burning building lights its surroundings for every team (no line of sight).
+ * Viewers: living units (radius by class: archers and slingers, scouts further), standing buildings of the team with a
+ * man at them (W-88: towers far, others a little; an empty building sees nothing), lit braziers. A burning building lights its surroundings for every team (no line of sight).
  * Sight runs as rays from the viewer's cell to every cell on the rim of its square: a cell is seen when its top
  * (height + VISION.target) clears the steepest slope met so far along the ray (ridges, cliffs, raised walls block), and
  * the distance plus VISION.forest per forest cell crossed stays within the radius; looking down adds VISION.high tiles
@@ -74,7 +74,6 @@ interface Team { count: Uint16Array; fog: FogGrid; keys: Map<number, Entry>; see
 const FLAT = 64; // key radius flag: a lit area, no line of sight
 const TOWERS = new Set<BuildingType>(['woodTower', 'stoneTower']);
 const OUTPOSTS = new Set<BuildingType>(['outpost', 'fort']);
-const WALLS = new Set<BuildingType>(['palisade', 'rampart', 'stoneWall', 'woodGate', 'stoneGate']);
 const BLIND = new Set<BuildingType>(['woodBridge', 'stoneBridge', 'woodStairs', 'stoneStairs', 'ladder', 'brazier']);
 
 /** Sight radius (tiles) of a unit class. */
@@ -86,9 +85,8 @@ export function sightOf(cls: string): number {
 function buildingSight(b: BuildingSnap): number {
   if (b.state === 'destroyed' || b.state === 'foundation' || b.state === 'scaffold' || b.rubble) return 0;
   if (b.type === 'brazier') return b.lit ? VISION.brazier : 0;
-  if (BLIND.has(b.type)) return 0;
+  if (BLIND.has(b.type) || !b.staffed) return 0;
   if (TOWERS.has(b.type)) return VISION.tower;
-  if (WALLS.has(b.type)) return VISION.wall;
   return OUTPOSTS.has(b.type) ? VISION.building + 4 : VISION.building;
 }
 

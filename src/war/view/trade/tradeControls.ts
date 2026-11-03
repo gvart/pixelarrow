@@ -41,8 +41,8 @@ export function pileHolder(p: PileSnap): Holder {
 }
 export function buildingHolder(b: BuildingSnap): Holder | null {
   if (b.goods === undefined || b.state === 'destroyed') return null;
-  const chest = b.type === 'chest';
-  return { ref: { building: b.id }, kind: chest ? 'chest' : 'store', id: b.id, x: b.x, y: b.y, team: b.team, owner: b.owner ?? '', name: chest ? 'chest' : nice(b.type), goods: b.goods, items: b.items ?? 0, list: b.list ?? [], ...(chest ? { cap: BUILDINGS.chest.chest } : {}) };
+  const chest = !!BUILDINGS[b.type]?.chest; // a chest, or a house (W-90)
+  return { ref: { building: b.id }, kind: chest ? 'chest' : 'store', id: b.id, x: b.x, y: b.y, team: b.team, owner: b.owner ?? '', name: b.type === 'chest' ? 'chest' : b.type === 'privateHouse' ? 'house' : nice(b.type), goods: b.goods, items: b.items ?? 0, list: b.list ?? [], ...(chest ? { cap: BUILDINGS.chest.chest } : {}) };
 }
 
 export class TradeControls {
@@ -90,8 +90,13 @@ export class TradeControls {
     return b ? buildingHolder(b) : null;
   }
 
+  /** His name on holders: online his player id. */
+  private owner(): string {
+    return this.s.sim.playerId ? `p:${this.s.sim.playerId}` : OWNER;
+  }
+
   mine(h: Holder): boolean {
-    return h.kind === 'store' ? h.team === myTeam() : h.kind === 'pile' || h.owner === OWNER;
+    return h.kind === 'store' ? h.team === myTeam() : h.kind === 'pile' || h.owner === this.owner();
   }
 
   /** Own squads' men with a load in their packs, or crewing a cart with cargo. */
@@ -166,10 +171,10 @@ export class TradeControls {
 
   /** May own squads take from h (as the sim's mayTake, minus what the view cannot see)? */
   canTake(h: Holder): boolean {
-    return h.kind === 'pile' || (h.kind === 'cart' ? h.owner === OWNER : true);
+    return h.kind === 'pile' || (h.kind === 'cart' ? h.owner === this.owner() : true);
   }
   canPut(h: Holder): boolean {
-    return h.kind === 'store' ? h.team === myTeam() : h.kind !== 'pile' && h.owner === OWNER;
+    return h.kind === 'store' ? h.team === myTeam() : h.kind !== 'pile' && h.owner === this.owner();
   }
   hasAny(h: Holder): boolean {
     return h.items > 0 || Object.values(h.goods).some((n) => (n ?? 0) > 0.05);

@@ -49,7 +49,7 @@ import { warStats, warStatsOf, withPerks, type WarStats } from './classes';
 import { perkFx } from '../../data/warPerks';
 import { afterArmour, blockChance, COMBAT, heightRange, hitChance, meleeHeight, missileHeight } from './combat';
 import { formationOffsets, type Shape } from './formation';
-import { BRAZIER, BUILDINGS, FIELD, WALLS, WORK_DEFENCE } from './economy';
+import { BRAZIER, BUILDINGS, FIELD, STAFF, WALLS, WORK_DEFENCE } from './economy';
 import { BOG, buildGrid, canEnter, DECK, findPath, flushSectors, FOREST, lineClear, lineCost, nearestOpen, pullPath, stepCost, tileAt, UPHILL, walkClear, type Grid } from './grid';
 import { createWorks, type Worker } from './works';
 import { createSiege, LADDER } from './siege';
@@ -73,7 +73,7 @@ import { CHEST, NEUTRAL_TEAM } from './economy';
 import { BLESS, createTowns } from './prebuilt';
 import { createLandmarks } from './landmarks';
 import { CART_FORD, CART_UPHILL } from './grid';
-import { amount as amountOf, itemList, loads, move as moveHold, newHold, perLoad, putLots, take as takeHold, totals, type Hold, type Lot } from './holders';
+import { amount as amountOf, itemList, loads, move as moveHold, newHold, perLoad, put, putLots, take as takeHold, takeFrom, totals, type Hold, type Lot } from './holders';
 import { addDeeds, DEED, plainDeed, SCARS_MAX, slayerDeed } from './deeds';
 import { CART, CLAIM_TICKS, createPiles, ESCORT, inRect, PILE, PORTER, SAFE } from './trade';
 import { CRAFT, itemRecipe } from './crafting';
@@ -620,6 +620,13 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
   const crafting = createCrafting({
     seed, takeAt: works.takeAt, addAt: works.addAt, emit: note,
     // M6b: a cart rolls out in front of the workshop for the crafter's player, within his cap and the civilian quota
+    // W-89: a crafter of the building's alliance pays from its network there, then his men's packs; a stranger only from packs
+    pay(b, c, cost) {
+      const packs = units.filter((u) => u.alive && u.squad.owner === c.owner && !!u.pack && (u.x - b.x) ** 2 + (u.y - b.y) ** 2 <= (CIV.at + 4) ** 2).map((u) => u.pack!);
+      return takeFrom(c.team === b.team ? [...works.sourcesAt(b.team, b.x, b.y), ...packs] : packs, cost);
+    },
+    till: (b, res, n) => put(works.tillOf(b.id), res, n, region.id),
+    out: (b, payer, res, n) => void piles.drop(b.x, b.y + 1, [{ r: res, n, o: region.id }], [], tick, 0, { owner: payer.owner, name: 'Your work', until: tick + CLAIM_TICKS }),
     cart(b, owner, type, check) {
       if (!isCartType(type as never) || siege.carts({ owner }) >= cartCap(pathOf(owner).path) || civRoom(b.team) <= 0) return false;
       if (check) return true;
@@ -1275,9 +1282,12 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     }
     if (o.kind === 'craft' || o.kind === 'cancelCraft' || o.kind === 'repair' || o.kind === 'salvage') {
       const b = works.piece(o.building);
-      if (b && !b.cancelled && (b.state === 'done' || b.state === 'damaged')) crafting.order(o, b);
+      // W-89: whoever its access lets in queues there; an order with no name acts for the building's own alliance
+      const by = o.kind === 'craft' ? o.by : undefined;
+      if (b && !b.cancelled && (b.state === 'done' || b.state === 'damaged') && (by !== undefined ? works.mayUse(b, by, o.team) : b.team === o.team)) crafting.order(o, b);
       return;
     }
+    if (o.kind === 'setAccess') return void works.setAccess(o.building, o.owner ?? '', o.access, o.share, o.fee); // W-89
     if (o.kind === 'fortify') {
       // M5h3: a Fortifier of the team iron-binds a gate or hangs wet hides, paid at once
       if (engineerNodes(o.team).has('fortifier')) works.fortify(o.team, o.building, o.fort);
@@ -1467,7 +1477,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       // M5f: the men stand round the building (its ring) and work there by class; at a workplace the first of them at
       // its stations inside
       const b = works.piece(o.building);
-      if (!s.civ || !b || b.cancelled || b.team !== s.team || !(b.def.store || b.def.workplace) || (b.state !== 'done' && b.state !== 'damaged')) return;
+      if (!s.civ || !b || b.cancelled || !works.mayUse(b, s.owner, s.team) || !(b.def.store || b.def.workplace) || (b.state !== 'done' && b.state !== 'damaged')) return;
       if (s.order === 'gather' || s.order === 'build') for (const u of s.units) works.setJob(u, null);
       s.order = 'civWork';
       s.work = o.building;
@@ -1475,7 +1485,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       s.node = -1;
       s.path = [];
       s.goal = null;
-      const spots = works.workSpots(o.building).slice(0, Math.max(1, s.alive)).flatMap(([x, y]) => [x, y]);
+      const spots = b.team === s.team ? works.workSpots(o.building).slice(0, Math.max(1, s.alive)).flatMap(([x, y]) => [x, y]) : []; // a stranger works at its door: its floor opens for its alliance
       const pts = [...spots, ...works.ringPoints(o.building, Math.max(1, s.alive) - spots.length / 2, s.cx, s.cy)];
       s.fixed = pts.length ? pts : null;
       if (pts.length) requestPath(s, pts[0], pts[1]);
@@ -1494,7 +1504,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
         : [];
       if (o.kind !== 'gather' && !sites.length) return; // invalid placement: the squad carries on
       if (o.kind !== 'gather' && o.kind !== 'build') perkSites(s.owner, sites);
-      if (o.kind === 'gather' && !works.nodeOk(o.node, s.team)) return; // M7e: rare nodes for the region's holder only
+      if (o.kind === 'gather' && !works.nodeOk(o.node, s.team, s.owner)) return; // M7e: rare nodes for the region's holder only; W-89: a farm its owner lets him use
       s.order = o.kind === 'gather' ? 'gather' : 'build';
       s.sites = sites;
       s.fixed = null;
@@ -2295,7 +2305,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
   const holderAt = (ref: HolderRef): HolderAt | null => {
     if (ref.building !== undefined) {
       const b = works.piece(ref.building), hd = works.holdOf(ref.building);
-      return b && hd ? { hold: hd, x: b.x, y: b.y, kind: b.def.chest ? 'chest' : 'store', team: b.team, owner: b.owner, cap: b.def.chest ? chestCap(b) : Infinity, id: b.id } : null;
+      return b && hd ? { hold: hd, x: b.x, y: b.y, kind: b.def.store || b.def.cache ? 'store' : 'chest', team: b.team, owner: b.owner, cap: b.def.chest ? chestCap(b) : b.def.store ? Infinity : 0, id: b.id } : null;
     }
     if (ref.cart !== undefined) {
       const e = siege.get(ref.cart);
@@ -2315,15 +2325,22 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     if (h.kind === 'pile') return piles.open(piles.get(h.id)!, s.owner, tick); // E3: a fallen man's kit, his owner's for a while
     if (h.kind === 'cart') return h.owner === s.owner;
     if (h.kind === 'store' && works.piece(h.id)?.def.cache) return !inSafe(h.x, h.y); // M7a: a town's cache: anyone's
-    const own = h.kind === 'chest' ? h.owner === s.owner : h.team === s.team;
-    if (own) return true;
+    if (mayOpen(s, h)) return true;
     if (inSafe(h.x, h.y) || h.team === s.team) return false;
-    if (h.kind === 'chest') return !unitNear((u) => u.squad.owner === h.owner, h.x, h.y, CHEST.guard);
-    return works.storeNet(h.id) < 0 && !unitNear((u) => u.squad.team === h.team, h.x, h.y, CHEST.guard);
+    // W-91: a foe, with nobody of its side at it: only its door is left (tradeTick breaks it first)
+    return !unitNear((u) => (h.kind === 'chest' ? u.squad.owner === h.owner : u.squad.team === h.team), h.x, h.y, CHEST.guard);
   };
-  const mayPut = (s: Squad, h: HolderAt) => (h.kind === 'store' ? h.team === s.team && !works.piece(h.id)?.def.cache : h.kind !== 'pile' && h.owner === s.owner);
+  /** W-89: its owner and whoever its access lets in go in by the door; a bare chest and a workplace's till are the owner's alone. */
+  const mayOpen = (s: Squad, h: HolderAt) => {
+    const b = works.piece(h.id)!;
+    return h.kind === 'chest' && !b.def.house ? h.owner === s.owner : works.mayUse(b, s.owner, s.team);
+  };
+  const mayPut = (s: Squad, h: HolderAt) => (h.kind === 'store' || h.kind === 'chest' ? !works.piece(h.id)?.def.cache && mayOpen(s, h) : h.kind !== 'pile' && h.owner === s.owner);
   /** What a take from h draws: an own store also opens the home strongroom. */
-  const takeHolds = (s: Squad, h: HolderAt): Hold[] => (h.kind === 'store' && h.team === s.team ? [h.hold, works.reserveOf(h.team)] : [h.hold]);
+  const takeHolds = (s: Squad, h: HolderAt): Hold[] => {
+    const b = h.kind === 'store' && h.team === s.team ? works.piece(h.id) : null;
+    return b && (!b.owner || b.access === 'alliance' || b.access === 'anyone') ? [h.hold, works.reserveOf(h.team)] : [h.hold];
+  };
   const crewCart = (s: Squad) => (s.siege >= 0 && siege.isCart(s.siege) && siege.get(s.siege)!.crew === s.id ? s.siege : -1);
 
   /** M6: a load, unload, escort or salvagePile order. */
@@ -2376,6 +2393,24 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     else requestPath(s, h.x, h.y);
   };
 
+  /**
+   * W-91: the door of building `id` still stands between foe squad s and its goods: the men at it hit it this pass (every
+   * PORTER.every ticks), its owner hears. True until it gives way.
+   */
+  const lockedTo = (s: Squad, h: HolderAt, id: number | undefined): boolean => {
+    const b = id !== undefined ? works.piece(id) : undefined;
+    if (!b || b.lock <= 0 || mayOpen(s, h) || b.def.cache) return false;
+    let men = 0;
+    for (const u of s.units) if (u.alive && byHolder(h, u.x, u.y, Math.max(PILE.reach + 0.5, CART.reach))) men++;
+    if (!men) return true;
+    const r = works.breakLock(b.id, men, PORTER.every * DT);
+    const ev = { t: tick, building: b.id, type: b.type, x: b.x, y: b.y, team: b.team, owner: b.owner, by: s.team };
+    if (r.tell) note({ ...ev, kind: 'lockAttacked' });
+    if (r.left > 0) return true;
+    note({ ...ev, kind: 'lockBroken' });
+    return false;
+  };
+
   /** Every tick: loads move, one a man (or a crew man at a cart) every PORTER.every ticks; done, the squad holds. */
   const tradeTick = () => {
     for (const s of squads) {
@@ -2393,6 +2428,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
         continue;
       }
       const pile = h.kind === 'pile', c = crewCart(s);
+      if (load && lockedTo(s, h, x.ref.building)) continue; // W-91: at the door first
       if (c >= 0) {
         const e = siege.get(c)!;
         if (!byHolder(h, e.x, e.y, CART.reach)) {
@@ -3140,7 +3176,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
   /** M5h: a civilian as the crafting queue sees him. */
   const crafter = (u: Unit): Crafter => {
     const h = u.person?.hero, tool = h?.equip.weapon;
-    return { id: u.id, prof: u.civ, level: h?.level ?? 1, perks: h?.perks ?? [], tool, work: u.st.work ?? 1, bountiful: toolMods(tool).bountiful, owner: u.squad.owner, name: h?.name ?? 'civilian', ...(u.person ? { pid: u.person.id } : {}) };
+    return { id: u.id, prof: u.civ, level: h?.level ?? 1, perks: h?.perks ?? [], tool, work: u.st.work ?? 1, bountiful: toolMods(tool).bountiful, owner: u.squad.owner, team: u.squad.team, name: h?.name ?? 'civilian', ...(u.person ? { pid: u.person.id } : {}) };
   };
   /** M5h: dishes a squad eats, best first (the M5f rations last). */
   const DISH_PREF: Product[] = ['feast', 'fish_stew', 'lentil_soup', 'black_broth', 'kykeon', 'bread', 'salt_pork'];
@@ -3172,7 +3208,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       if (u.alive && u.civ === 'physician' && heldNodes('physician', u.person?.hero.perks).has('battleDresser')) dresser.add(s.team);
       if (!u.alive || s.flee || s.order !== 'civWork') continue;
       const b = works.piece(s.work);
-      if (!b || b.cancelled || b.team !== s.team || b.state === 'destroyed' || works.dist2(s.work, u.x, u.y) > CIV.at * CIV.at) continue;
+      if (!b || b.cancelled || !works.mayUse(b, s.owner, s.team) || b.state === 'destroyed' || works.dist2(s.work, u.x, u.y) > CIV.at * CIV.at) continue;
       if (!b.def.workplace && !AT_BUILDING.includes(u.civ!)) continue;
       if (u.civ === 'physician' && !b.def.workplace && b.type !== 'camp' && b.type !== 'fort') continue;
       u.civAt = true;
@@ -3351,6 +3387,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     flushSectors(grid); // sites that closed or opened tiles last tick
     if (tick % SCAN === 0) scanNear();
     if (civs.length && tick % SCAN === 0) civScan();
+    if (tick % STAFF.every === 0) works.staffScan(units, MOB_TEAM); // W-88: who stands at what
     if (civs.length && tick % CIV.every === 0) civTick();
     if (tick % HUNGER.every === 0) hungerTick();
     if (downs > 0 && tick % HUNGER.every === 0) riseTick();
@@ -3721,6 +3758,11 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       }
     },
     finishSite: works.finishSite,
+    mayUse(id, owner, team) {
+      const b = works.piece(id);
+      return !!b && works.mayUse(b, owner, team);
+    },
+    setTies: works.setTies,
     hurtPersons(lost) {
       // M4: men arriving from another region come in with the hit points they left with
       for (const u of units) {

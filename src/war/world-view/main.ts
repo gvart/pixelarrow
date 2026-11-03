@@ -483,6 +483,12 @@ worldTaps.add((m) => {
   say(`${worldRegion(c.region)?.name ?? c.name}: your claim point is being taken!`, 10_000);
 });
 
+worldTaps.add((m) => {
+  if (m.t !== 'lockAttacked') return;
+  const c = m as unknown as { region: string; name: string; broken: boolean };
+  say(`${worldRegion(c.region)?.name ?? c.name}: ${c.broken ? 'the door has given way!' : 'men are breaking into your store!'}`, 10_000);
+});
+
 function apply(v: WorldView): void {
   view = v;
   applyView(st, v);

@@ -53,7 +53,7 @@ Propose these in the named work item and get the owner's answer before building 
 
 - [ ] How someone becomes king, how titles pass, tribute rates (item 8).
 - [x] Perk lists for each path. W-110.
-- [ ] Raid loss limits and how empty towns get guards (item 6).
+- [x] Raid loss limits and how empty towns get guards. W-130: what his group can carry; W-134: people, guard contracts stay.
 - [x] What each family's men can do, and its stronger classes. W-112. Only hoplite, militia, archer, slinger, javelineer and
   celt_sword have work animations (item 4): shield-bearers idle at work, see W-113.
 - [ ] Riders return once mounts exist. Hidden from the start by the owner: no work animations, balance unchecked.
@@ -71,20 +71,15 @@ Found while bringing `docs/WAR.md` in line (item 1). Each is a rule the decision
   only his own, the rest stay for someone else. The Tunnel's fallback: W-102.
 - [x] Souls wake by site, so families do not grow alike. W-113. 12 mixed skirmishers losing to chiefs and bandit lairs: W-112.
 - [x] How levels are paid per path. W-111, W-114; the old bonus on raised men went, W-110.
-- [ ] What counts as "working" under W-88 beyond workplaces: stores, stalls with listed offers and Factor's standing
-  orders, temple, shrine and statue score, wells, tower and beacon sight, influence from empty forts, land held and
-  scoring with nobody on it (item 6).
-- [ ] Goods that move with nobody carrying them, against W-87: store networks, the strongroom behind a store, gifts to
-  works from home, W-63 tribute and the owner's share under W-89, and where that share sits (items 6, 8).
-- [ ] Walls and locks. No lock exists in the sim: what it is, what a house holds, how it meets the "never lootable" home
-  strongroom, rented warehouses and the rule that a store is lootable only once its influence is gone (item 6).
-- [ ] Warlord raids after W-91: whether a staffed building can still be picked, now the guard count is gone (item 6).
-- [ ] "Owner" under W-89. Pre-built town pieces follow a claim point, so an alliance owns them, not a player. Whether a
-  pre-built house can be a private house; its table row still reads as a recruit pool, left from before W-60 (item 6).
+- [x] What counts as "working" under W-88 beyond workplaces. W-120..W-123, W-135. Whether empty land scores is item 9.
+- [x] Goods that move with nobody carrying them, and where the owner's share sits. W-124, W-126. Tribute is item 8.
+- [x] Walls and locks. W-130, W-131, W-132.
+- [x] Warlord raids after W-91. W-133.
+- [x] "Owner" under W-89. W-125; the recruit-pool table rows are gone.
 - [ ] NPC towns against W-44: which towns, what prices, and where their coin comes from, since coin is otherwise only
   minted silver and the owner rejected a coin sink in W-72 (item 7).
 - [ ] The hire contract for monsters: a new kind or the guard and escort contracts, and whether it stays inside the
-  alliance as build and guard do. Whether guard contracts are the answer to empty towns (items 6, 7).
+  alliance as build and guard do (item 7). Guard contracts for empty towns: yes, W-134.
 - [ ] What builders and traders do in the guide, tasks and region mastery, which all assume a fighting army (items 7, 9).
 - [ ] Hierarchy against older decisions: W-64's elected crown, one per alliance, against W-94's kings; W-63's settlements
   and vassals across alliances against "the hierarchy inside them" (item 8).
@@ -108,7 +103,7 @@ Each item bumps `SIM_VERSION` (`src/sim/version.ts`) and `NET_VERSION` (`src/war
   verify: scenario tests. depends on: 2.
 - [x] **5. Levels and perks.** Favour track becomes three perk trees (`src/war/view/hud/favour.ts` and the sim).
   verify: tests per path. depends on: 4.
-- [ ] **6. Staffed buildings.** Work only while staffed, access levels, owner's share, private houses, empty-building raids.
+- [x] **6. Staffed buildings.** Work only while staffed, access levels, owner's share, private houses, empty-building raids.
   verify: sim and server tests, `bench:war`. depends on: 3.
 - [ ] **7. Builder and trader loops.** NPC markets, warrior hire contracts, path story chains (`lore-writer`).
   verify: a seeded solo run on each path. depends on: 5, 6.

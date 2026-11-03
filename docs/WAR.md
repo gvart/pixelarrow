@@ -520,7 +520,7 @@ bandits never fight them), owner `warlord:<id>`; the wild has no fog, so his bot
 | Reinforce | every 10 min with players present a holding short of men gets them, marching in from the nearest other holding (march: from the border). Only a quiet holding (no foe man within 20 tiles), except his hall: while another of his holdings in the seat stands, men come to it even under attack |
 | Freed | a holding whose garrison is all down is freed: a loot pile on the spot (24 coin and 3 goods of his kind, x(1 + depth/2)); a claim point under it is then claimed by the normal rules (its guard lairs too) |
 | Fallen | the lord down: 120 coin, 8 goods and an item (uncommon or better), x(1 + depth/2); his bands everywhere in his domain are recalled: every holding and party walks to the region's border and leaves the field there (or after 90 s), the places free with nothing dropped ("Word of his fall reaches …"); he is back after 3 days of age, grown from nothing again |
-| Raids | with players present and a holding of his standing, every 20 min (÷ players, at most ÷ 3) he picks the nearest target within 110 tiles of a holding: an alliance's empty finished building that is no wall, gate, tower, bridge or stair (W-91: no guard count; only its walls and locks protect it; whether a staffed building can be picked and how far a raid may hurt one owner are [open](impl/paths-rework.md#open-design-items)); else a cart with no man of its team within 10. Telegraphed 60 s ahead: the target team hears "<name>'s men ride for your <thing> in 60 s" and sees a mark on it. Then 5 (depth 1) / 7 (depth 2) men led by a lieutenant (W-79; before, 4 plain bandits died to 6 guards felling none) + 2 per extra player (at most 12) march on it (attackMove): 6 level-2 guards at depth 1 lose 1–2 men to it, a full 12 none or one, batter it, and go home after 90 s at it or once it falls; a beaten raid party drops nothing |
+| Raids | with players present and a holding of his standing, every 20 min (÷ players, at most ÷ 3) he picks the nearest target within 110 tiles of a holding: an alliance's empty finished building that is no wall, gate, tower, bridge or stair (W-91: no guard count; only its walls and locks protect it; W-133: if none stands empty, the nearest held by fewer men than his party; a raid takes what its men can carry first, then batters); else a cart with no man of its team within 10. Telegraphed 60 s ahead: the target team hears "<name>'s men ride for your <thing> in 60 s" and sees a mark on it. Then 5 (depth 1) / 7 (depth 2) men led by a lieutenant (W-79; before, 4 plain bandits died to 6 guards felling none) + 2 per extra player (at most 12) march on it (attackMove): 6 level-2 guards at depth 1 lose 1–2 men to it, a full 12 none or one, batter it, and go home after 90 s at it (twice that with goods to take) or once it falls; a beaten raid party's men drop only what they carried |
 | Budget | at most 60 warlord men in a region; the director thinks every 10 ticks |
 
 Online: the room sends `warlords` (the region's warlords, their holdings and a raid in warning; on change) and the
@@ -660,10 +660,10 @@ JSON as **pre-built** buildings (`done`, full hp unless the table says otherwise
 
 | Today (object id) | Becomes | Footprint | HP | Material | Function |
 | --- | --- | --- | --- | --- | --- |
-| town-house-a, town-house-b | house | 3×3 | 900 | stone | population: +0.5 recruits an hour and +2 cap to the town's pool (homes and towns); 1 load of food inside at season start |
-| town-cottage, kyrene/nomad-tent, dodona/hut-ruin (ruined) | cottage / tent | 3×2 / 2×2 | 400 / 150 | wood, burnable | population: +0.25 an hour, +1 cap |
-| town-temple | temple | 4×4 | 3000 | stone | blessing: a squad that stands in its precinct 30 s is blessed 15 min (wounded share +0.05 within the 0.9 cap, heal ×1.15); Elysion favour +0.25 score an hour while intact |
-| elaia/shrine, dodona/oracle-grove, dodona/oak-sacred | shrine | 2×2 | 800 | stone | blessing within 8 tiles; favour +0.1 an hour |
+| town-house-a, town-house-b | house | 3×3 | 900 | stone | part of the town's standing, no recruit pool (W-60); 1 load of food inside at season start; cannot be private (W-125) |
+| town-cottage, kyrene/nomad-tent, dodona/hut-ruin (ruined) | cottage / tent | 3×2 / 2×2 | 400 / 150 | wood, burnable | part of the town's standing, no recruit pool (W-60) |
+| town-temple | temple | 4×4 | 3000 | stone | blessing: a squad that stands in its precinct 30 s is blessed 15 min (wounded share +0.05 within the 0.9 cap, heal ×1.15); Elysion favour +0.25 score an hour while intact and someone is there (W-120) |
+| elaia/shrine, dodona/oracle-grove, dodona/oak-sacred | shrine | 2×2 | 800 | stone | blessing within 8 tiles; favour +0.1 an hour while someone is there (W-120) |
 | town-stoa | stoa | 2×6 | 2000 | stone | covered market hall: 2 stall sites under its roof (each a stall L2 once taken) and a store of its owner's network |
 | town-statue | statue | 1×1 | 400 | stone | prestige +0.1 score an hour; its owner may engrave a retired soldier's honour on it (moved from the home memorial) |
 | town-well, kyrene/well, kyrene/oasis-spring | well | 1×1 | 800 | stone | water: own squads resting within 12 tiles pay upkeep ×0.8; own idle men within 6 tiles of a burning building put it out ×2 faster; a foe beside it 30 s fouls it for 30 min |
@@ -687,10 +687,10 @@ JSON as **pre-built** buildings (`done`, full hp unless the table says otherwise
 | --- | --- |
 | Owner at season start | homes: their alliance; neutral regions: team **neutral** (new team id; mobs never attack it, nobody may use it); bandit-held towns and landmarks: the mob team while the host or boss lives |
 | Who owns a town | a town is the pre-built group round its claim point (the agora's market spot, a village's well): it belongs to the alliance that holds that point; pieces outside any claim radius follow region influence (whoever's covers them), else neutral. Taking the point flips every piece in its radius at once, at the hp it has |
-| Use | a building's function serves those its access setting lets in (W-89, "Paths"), and only while someone works it (W-88); gates open for the owner and allies, neutral gates stand open. Who is the owner of a pre-built piece, which follows its claim point and so an alliance, not a player: [open](impl/paths-rework.md#open-design-items) |
+| Use | a building's function serves those its access setting lets in (W-89, "Paths"), and only while someone works it (W-88); gates open for the owner and allies, neutral gates stand open. A pre-built piece belongs to the alliance that holds its point, access alliance, no terms (W-125) |
 | Capture | no building is taken by itself: buildings follow their claim point or influence, so a town is taken by clearing its guardian or garrison and claiming |
 | Taking a held point | a point another alliance holds is claimed with the same men and seconds as by depth; any foe within 14 tiles resets the channel, and it does not run while a fighting man of the holder stands within the point's radius (clear its defenders first: the men on its walls and towers are men like any other). Done, the holder's anchor goes, every piece in the radius flips at its hp (stores with their goods, influence follows) and the region's holder is recounted; a town whose centre stands outside the radius (a W-63 settlement) keeps its own banner and is taken by its own terms. A pact or truce between the two alliances refuses the claim. The holder's members get a notice "<region>: your claim point is being taken!" (world socket `claimAttacked`, once in 5 min a point and attacker) |
-| Raze | any side may attack a building it does not own (never inside a safe court: court walls, towers, gates and stalls are untouchable while the zone is safe); at 0 hp it becomes a **ruin** in place (rubble footprint: slow ×2, cover, no function) and drops half its goods as a pile. W-91: an empty building is as open to this as a staffed one; only its walls and locks protect it, and raid losses are limited (limit [open](impl/paths-rework.md#open-design-items)) |
+| Raze | any side may attack a building it does not own (never inside a safe court: court walls, towers, gates and stalls are untouchable while the zone is safe); at 0 hp it becomes a **ruin** in place (rubble footprint: slow ×2, cover, no function) and drops half its goods as a pile. W-91: an empty building is as open to this as a staffed one; only its walls and locks protect it. A raider takes what his group can carry (W-130) |
 | Ruined stays ruined | a ruin is rebuilt only by the owner of its ground: 75% of the build cost (stone reused) and 75% labour; landmark pieces only by their restore rule |
 | Repair | a new `repair` order on a damaged building: any squad, engineers ×1.5; per 10% hp, 5% of the build cost and 5% of its labour |
 | Razed town | houses ruined cut the pool (their rate and cap); with ≥ 3/4 of its houses and its temple ruined a town is **ruined**: no pool, no favour, and a frontier town scores 1 an hour instead of 3 until half its houses stand again |
@@ -790,10 +790,18 @@ waits at its next stop until he is back (a map, chat or region tab), then goes o
 
 | Rule | Value |
 | --- | --- |
-| Staffed (W-88) | a building works only while a person is working in it; that person need not be the owner. Which kinds of building this covers beyond workplaces: open |
-| Access and terms (W-89) | each building is set to private, household/vassals, alliance or anyone, with a share of output or a fee kept by the owner. Where that share sits while the owner is elsewhere: open |
-| Private house (W-90) | a player can own a house holding his belongings; only its walls and locks protect it. What a lock is: open |
-| Empty buildings (W-91) | can be attacked; only walls and locks protect them; raid losses are limited so a small builder is not wiped out. The limit and how empty towns get guards: open |
+| Staffed (W-88, W-120, W-121) | a building works only while a man of its side stands within 4 tiles (`STAFF`, scanned once a second on a coarse grid), any class, online or not (W-97). The man need not be the owner |
+| What needs a person (W-120) | anything that produces goods, sells, gives a service, shoots, gives sight or runs a queue: forges and every workplace, stalls and standing orders, temples and shrines, towers, camps, the yields of a farm, press, kiln or jetty (natural nodes regrow regardless). A tower shoots and sees only with a man in it |
+| What needs nobody (W-120) | walls, gates, roads, bridges, wells, statues, boards, town houses, fields, braziers, chests and houses as storage. A store still stores and feeds its network |
+| Land (W-123) | a standing fort keeps its influence; the structure is still there. Whether empty land scores is item 9 |
+| Access and terms (W-89, W-125, W-126) | each building a player built is set to private, household, alliance or anyone (default alliance, a house private) on its card. The owner may keep up to 50% of what others make there and ask up to 100 coin an order (`TERMS`). The server refuses anyone else |
+| Paying (W-126) | a fee is coin, paid when the order starts. A share comes off the goods at the finish; an output that cannot be split (one sword) pays that share of its inputs at the start; a farm pays on delivery. A fee does not apply to gathering. It all waits in the building's own hold until the owner's men fetch it |
+| A stranger at the bench (W-127) | under anyone, foes too: he pays from his men's packs, works at the door, and what he makes lands in a pile claimed for him |
+| Household (W-128) | the owner, the citizens and garrison of his settlement, and the lords of his vassal settlements. One way: a vassal's lord may use his liege's, not the reverse |
+| Private store (W-129) | a store set private or household feeds no network and does not open the strongroom |
+| Private house (W-90, W-132) | a player builds it on ground his side holds, one a region (`HOUSE.cap`): 3x2, 500 hp, wood 40 stone 10, labour 200, 20 loads, private by default, no terms. Pre-built houses cannot be private for now (W-125) |
+| Locks (W-131) | a door with hit points on every house and store: wood 720, stone 1440; one man takes off 1 a second, so 12 men need a minute at a wood door and two at a stone one, on top of any guard. His men standing there mend it, no order or cost. The owner hears at the first blow, every 5 min after and when it breaks (a pre-built store: its whole alliance). A chest and a workplace's own hold have no door |
+| Raids on empty buildings (W-91, W-130) | a foe takes only what his group can carry in packs and carts, as long as none of the building's side stands within 10 tiles (`CHEST.guard`) and no door is left. No safe percentage. Buildings can be damaged, destroyed and rebuilt. Teammates never loot. The home strongroom stays never lootable. W-134: the answer to an empty town is people; a guard under contract is someone there, and there is no automated defence |
 
 ### Winning and solo progress (W-92, W-93)
 
@@ -1449,7 +1457,8 @@ takes 5 off max condition; at max 50 the item can only be salvaged (30% of the i
 
 ### Balance (M5h6, `npm run balance:war`)
 
-Expected values, no dice, measured before W-88 (the unattended queues below no longer run, so these need re-measuring).
+Expected values, no dice, measured before W-88: the 7 unattended queues below no longer run, so the weekly rows and
+the epics count hold only for a smith who stands at his forge those hours (re-measure with `npm run balance:war`).
 A play week = 14 h at the forge + 7 unattended queues of 5. Smiths: T1 forge L4 stone hammer
 (G 4, work ×1.09), T2 L6 journeyman bronze uncommon (G 8, ×1.32), T3 L10 master + Masterwork, iron rare (G 17, ×1.65).
 
@@ -1473,7 +1482,7 @@ A play week = 14 h at the forge + 7 unattended queues of 5. Smiths: T1 forge L4 
 | sorting floor | storehouse upgrade | wood 40, stone 20; 600 | charcoal, linen | wood 40, salt 10: tannery (leather) | – |
 
 Each level adds a crafter slot (1 / 2 / 3 at once) and +1 grade. One queue per workplace, ≤ 5 orders; it runs only while
-a person is working there (W-88), who need not be the owner (W-89 sets who may). Levels are
+a man of its side is within 4 tiles (W-88, W-121), who need not be the owner (W-89 sets who may). Levels are
 building types chained by `upgrade` (`forge` → `forge2` → `forge3`), as walls are; they burn by their material.
 
 ### How it stays light
@@ -1503,8 +1512,7 @@ can progress alone; which towns, at what prices and where their coin comes from 
 [open](impl/paths-rework.md#open-design-items). Everywhere else the game sells nothing, buys nothing and quotes no price.
 Every good sits somewhere on a map (a store, a chest, a house, a cart, a man's back, a loot pile); it moves only by being
 carried and changes hands only by a hand-off, a fill at a stall, a sale in an NPC town, or a raid. Goods that today move
-with nobody carrying them (store networks, the strongroom behind a store, gifts to works) are
-[open](impl/paths-rework.md#open-design-items) under W-87.
+with nobody carrying them are settled by W-124: a store network stays inside one region, work gifts are given at home.
 
 ### Coin
 
@@ -1519,11 +1527,11 @@ with nobody carrying them (store networks, the strongroom behind a store, gifts 
 
 | Holder | Size | Who may take | Notes |
 | --- | --- | --- | --- |
-| store (camp, storehouse, fort) | unlimited, as today | its alliance; enemies by looting | a team's stores joined by its influence in a region form one **network**: crafting and building draw from it; men within 6 tiles eat from the store itself (W-60) |
-| chest | building 1×1, wood 10, 8 loads, owner-only | owner; enemies by looting | ≤ 4 a player a region; holds, never feeds crafting |
-| home strongroom | the home storehouse + one chest a player | never lootable (W-09) | the only safe store outside a trade town; replaces the stash and the treasury table. How it sits beside the private house (W-90) is [open](impl/paths-rework.md#open-design-items) |
-| private house (W-90) | a house a player owns; size [open](impl/paths-rework.md#open-design-items) | its owner; anyone past its walls and locks | holds his belongings; nothing else protects it |
-| rented warehouse | a trade-town site, 20 loads | renter only | safe while rent is paid; unpaid 3 days: locked, never confiscated |
+| store (camp, storehouse, fort) | unlimited, as today | its alliance; enemies past its door, with none of its side within 10 tiles (W-130) | a team's stores joined by its influence in a region form one **network**: crafting and building draw from it; men within 6 tiles eat from the store itself (W-60) |
+| chest | building 1×1, wood 10, 8 loads, owner-only | owner; enemies with none of its side within 10 tiles; no door | ≤ 4 a player a region; holds, never feeds crafting |
+| home strongroom | the home storehouse + one chest a player | never lootable (W-09) | the only safe store outside a trade town; replaces the stash and the treasury table. Homes are the one sanctuary: no door to break, a house elsewhere has one (W-131) |
+| private house (W-90) | built by the player, one a region, 20 loads | its owner and whom he lets in; a foe past its door | holds his belongings; nothing else protects it (W-132) |
+| rented warehouse | a trade-town site, 20 loads | renter only | safe while rent is paid; unpaid 3 days: locked, never confiscated. W-131 sets it under the store rule (door, then what they carry), but a rented site is a server row with no sim building yet, so only a warehouse building has the door |
 | porter | CARRY 10 = 1 load (today's worker load); 5 items = 1 load | his squad | any soldier or civilian; −10% speed loaded |
 | cart | see Carts | its driver's player | captured with its cargo |
 | a man | his worn kit | – | an item is worn or in a holder, nowhere else |
@@ -1535,6 +1543,9 @@ read the store by the selected men (a building's card: the store of its area). N
 A crafted item lands in the workplace's output chest for the crafter's player (no chest of his with room: in the
 maker's pack); equipping needs the man and the item in
 the same region within 4 tiles.
+
+**Goods cross regions only on someone's back (W-124).** A network stays inside one region. The owner's share waits in
+the building's own hold. Rent, tribute and the strongroom's share of them are left to item 8.
 
 ### Carts
 
@@ -1576,7 +1587,7 @@ an unheld town charges nothing.
 
 | Piece | Rule |
 | --- | --- |
-| Sell offer | goods or items already in the seller's stall: what, n, price each; listed while he is offline (whether an unstaffed stall still sells, W-88, is [open](impl/paths-rework.md#open-design-items)) |
+| Sell offer | goods or items already in the seller's stall: what, n, price each; listed while he is offline; it sells only while a man of his is in town, online or not, or the fill is refused (`stall_empty`, W-122) |
 | Buy order | coin escrowed in the stall's strongbox: what, n, price; fills when a seller in town accepts |
 | Fill | in the court, buyer takes an offer (or seller an order): goods stall → buyer's warehouse, coin back, tax to the holder, at once; the buyer hauls it out himself |
 | Price board | an object in each court: per good best ask, best bid, depth, last 10 fills; the world hover card shows the last board your men saw (fog) |
@@ -1619,7 +1630,7 @@ hurts; the player still has his squad, his level and his home strongroom.
 | --- | --- | --- |
 | Capture a cart | an enemy unit beside it 5 s with no owner or ally within 8 tiles: it is his, cargo and all; retaken the same way | the cargo; 5 XP to the squad |
 | Wreck a cart | fight it to 0 HP | a pile |
-| Loot a chest or store | porters at it, no owner unit within 10 tiles: 1 load per 2 s a porter; a store only once its region influence is gone (how this meets W-91's walls and locks is [open](impl/paths-rework.md#open-design-items)) | what they carry |
+| Loot a chest, store or house | porters at it, no man of its side within 10 tiles, its door broken first (a chest has none): 1 load per 2 s a porter, whatever the influence (W-130, W-131); never a home strongroom, never inside a safe court | what they carry, nothing more |
 | Ambush spots | region JSON `ambush` rects (additive: high ground or woods over a road, 1–3 per route region); bandit lairs on the coast tracks | where bots and raiders wait |
 
 ### Season score and anti-abuse

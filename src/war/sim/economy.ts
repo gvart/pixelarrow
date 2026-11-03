@@ -50,6 +50,8 @@ export interface BuildingDef {
   prebuilt?: true;
   /** M7a: a holder anyone may loot (a town's goods cache; gone once empty). */
   cache?: number;
+  /** W-90: a private house: a player builds it, it holds his belongings (`chest` is its loads), at most HOUSE.cap a region. */
+  house?: true;
 }
 
 /**
@@ -114,6 +116,8 @@ export const BUILDINGS: Record<BuildingType, BuildingDef> = {
   sortingFloor2: wp('sorting', 2, { w: 3, h: 3, hp: 800, cost: { wood: 40, salt: 10 }, labour: 200, workers: 6, material: 'wood', store: true }),
   // M6a: a player's chest (docs/WAR.md "Goods live in places")
   chest: { w: 1, h: 1, hp: 150, cost: { wood: 10 }, labour: 20, workers: 2, influence: 0, material: 'wood', burnable: true, chest: 8 },
+  // W-90: a player's private house (art: the town cottage); its door has a lock (LOCK), its goods are his alone
+  privateHouse: { w: 3, h: 2, hp: 500, cost: { wood: 40, stone: 10 }, labour: 200, workers: 4, influence: 0, material: 'wood', burnable: true, chest: 20, house: true },
   // M7a pre-built pieces (docs/WAR.md "Pre-built structures"; functions in ./prebuilt.ts PREBUILT); cost and labour price a rebuild and repairs
   house: { w: 3, h: 3, hp: 900, cost: { stone: 60, wood: 20 }, labour: 500, workers: 6, influence: 0, material: 'stone', prebuilt: true },
   cottage: { w: 3, h: 2, hp: 400, cost: { wood: 40 }, labour: 200, workers: 4, influence: 0, material: 'wood', burnable: true, prebuilt: true },
@@ -149,6 +153,33 @@ export const WALLS = { stoneMelee: 0.25 };
 
 /** M6a chests: most a player places in a region; an enemy loots one only with no unit of its owner within `guard` tiles. */
 export const CHEST = { cap: 4, guard: 10 };
+
+/**
+ * W-88 who is there: every `every` ticks a building counts as staffed while a man of its side stands within `reach` tiles
+ * of its footprint (or on its platform). `reach` is a man's arm and a few steps: he has to be at it, not passing the town.
+ */
+export const STAFF = { every: 10, reach: 4 };
+/** W-89: who may use a building a player owns, narrowest first. */
+export const ACCESS = ['private', 'household', 'alliance', 'anyone'] as const;
+/** W-89: what an owner may ask: at most `share` of the output, at most `fee` coin an order. */
+export const TERMS = { share: 0.5, fee: 100 };
+/**
+ * W-91 locks: a store's or house's door: `wood` or `stone` hit points by the building's material, one man at it takes off
+ * `perMan` a second (so 12 men: a minute at a wood door, two at a stone one); a man of its side at the door mends it as
+ * fast. The owner hears of it at the first blow and again at most every `tell` ticks.
+ */
+export const LOCK = { wood: 720, stone: 1440, perMan: 1, tell: 3000 };
+/** W-90: private houses a player may have in a region. */
+export const HOUSE = { cap: 1 };
+/** Door hit points of a building (0: no lock): every house and store; a town's goods cache and a chest have none. */
+export const lockOf = (d: BuildingDef): number => (d.house || d.store ? LOCK[d.material] : 0);
+/**
+ * W-88: what needs nobody to stand there (a wall, a gate, a road, a well, a statue, a chest or house as storage). Everything
+ * else is scanned for a man: it produces, sells, gives a service, shoots, gives sight or runs a queue only with one there.
+ */
+const PASSIVE_TYPES = new Set<BuildingType>(['well', 'statue', 'board', 'house', 'cottage', 'tent']);
+export const needsPerson = (t: BuildingType, d: BuildingDef): boolean =>
+  !PASSIVE_TYPES.has(t) && d.wall !== 'segment' && d.wall !== 'gate' && !d.bridge && !d.access && !d.field && !d.brazier && !d.chest && !d.cache;
 
 /**
  * W-35 braziers: archers within `radius` tiles (3 tiles = 6 m) of a lit brazier of their team loose fire arrows, each

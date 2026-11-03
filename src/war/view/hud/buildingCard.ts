@@ -9,11 +9,12 @@
 import type { BuildingSnap, BuildingType, ResourceKind } from '../../types';
 import { BUILD_LINE, BUILD_TEXT, buildingFacts, card } from './codex';
 import type { SandboxScene } from '../SandboxScene';
-import { BUILDINGS, NEUTRAL_TEAM, REPAIR, RUIN } from '../../sim/economy';
+import { BUILDINGS, needsPerson, NEUTRAL_TEAM, REPAIR, RUIN } from '../../sim/economy';
 import { MOB_TEAM } from '../../sim/mobs';
 import { PREBUILT, WELL } from '../../sim/prebuilt';
 import { ALLIANCES } from '../../world/alliances';
 import { landmarkOfRegion, type Landmark } from '../../../data/warLandmarks';
+import { ACCESS_WORDS } from '../build/access';
 import { labourText } from '../build/buildMode';
 import { BUILDING_ICON, icon } from './kit';
 import { nameOf } from './craft/state';
@@ -25,11 +26,11 @@ type Bill = Partial<Record<ResourceKind, number>>;
 
 /** What each pre-built type does for its owner (WAR.md "Pre-built structures", function). */
 export const PRE_FUNCTION: Record<string, string> = {
-  house: 'a house of the town: part of its standing (men join as souls, not from houses)',
+  house: 'a house of the town: part of its standing (men join as souls, not from houses); not for sale',
   cottage: 'a cottage of the town: part of its standing',
   tent: 'a tent of the town: part of its standing',
-  temple: `blessing: a squad 30 s in its precinct is blessed 15 min (wounded share +0.05, heal x1.15); favour +${PREBUILT.temple!.favour} score an hour`,
-  shrine: `blessing within ${metres(PREBUILT.shrine!.bless ?? 0)}; favour +${PREBUILT.shrine!.favour} score an hour`,
+  temple: `blessing: a squad 30 s in its precinct is blessed 15 min (wounded share +0.05, heal x1.15); favour +${PREBUILT.temple!.favour} score an hour while someone is there`,
+  shrine: `blessing within ${metres(PREBUILT.shrine!.bless ?? 0)}; favour +${PREBUILT.shrine!.favour} score an hour while someone is there`,
   stoa: 'covered market hall: 2 stall sites under its roof and a store of its owner\'s network',
   statue: `prestige +${PREBUILT.statue!.prestige} score an hour; a retired soldier's honour engraved on it`,
   well: `water: fires within ${metres(WELL.rest)} beaten out x${WELL.douse} faster; a foe beside it 30 s fouls it 30 min`,
@@ -42,7 +43,7 @@ export const PRE_FUNCTION: Record<string, string> = {
   workshop: 'the town\'s working quarter: engines, carts and tools', forge: 'the town\'s working quarter: arms and armour',
   storehouse: 'a store: men beside it eat and refill their packs', cookhouse: 'cooks grain and onions into rations: feed twice, weigh half',
   olivePress: 'olives: food, and pressed into oil', farm: 'a food field: bring it to a store, where men eat and refill their packs',
-  stoneTower: 'platform for 9 men, a door', woodTower: 'platform for 6 men over the road',
+  stoneTower: 'platform for 9 men, a door; it sees only with a man in it', woodTower: 'platform for 6 men over the road; it sees only with a man in it',
   stoneWall: 'walkway wall', stoneGate: 'opens for its owner (neutral: open; bandit-held: shut)',
 };
 const ALLIANCE_SIDE = (team: number) => (team === myTeam() ? 'yours' : ALLIANCES[team]?.name ?? `team ${team}`);
@@ -129,6 +130,7 @@ export function statusOf(b: BuildingSnap): Status {
   if (b.razing !== undefined) return { tone: 'bad', text: `Being torn down (${Math.round(b.razing * 100)}%)` };
   const share = b.hp / Math.max(1, b.maxHp);
   if (b.state === 'damaged') return { tone: 'bad', text: `Damaged (${Math.round(share * 100)}%): repair it` };
+  if (b.lockMax && b.lock !== undefined && b.lock < b.lockMax && b.team === myTeam()) return { tone: b.lock > 0 ? 'gold' : 'bad', text: b.lock > 0 ? `Door damaged (${Math.round((b.lock / b.lockMax) * 100)}%): a man there mends it` : 'Door broken: a man there mends it' };
   const wp = BUILDINGS[b.type]?.workplace;
   if (wp && b.team === myTeam()) {
     const q = b.queue ?? [], on = q.find((o) => o.by >= 0);
@@ -136,6 +138,8 @@ export function statusOf(b: BuildingSnap): Status {
     if (q.length) return { tone: 'gold', text: `${q.length} queued, nobody at work: send a crafter` };
     return { tone: 'dim', text: 'Idle: nothing queued' };
   }
+  // W-88: what does nothing until someone stands at it (a store still stores)
+  if (b.team === myTeam() && !b.staffed && !BUILDINGS[b.type]?.store && BUILDINGS[b.type] && needsPerson(b.type, BUILDINGS[b.type])) return { tone: 'gold', text: BUILDINGS[b.type].wall ? 'Empty: it neither sees nor shoots without a man in it' : 'Empty: it works only with someone here' };
   if (share < 0.999) return { tone: 'gold', text: `Worn (${Math.round(share * 100)}%)` };
   if (BUILDINGS[b.type]?.store && b.team === myTeam()) return { tone: 'good', text: 'Standing · stores your goods' };
   return { tone: b.team === myTeam() ? 'good' : 'dim', text: b.team === myTeam() ? 'Standing' : ownerText(b).replace(/^./, (c) => c.toUpperCase()) };
@@ -146,6 +150,7 @@ export function buildingTip(b: BuildingSnap, region: string): string {
   const base = b.type.replace(/\d$/, '') as BuildingType, text = BUILD_TEXT[base], fn = PRE_FUNCTION[b.type];
   const lm = b.landmark ? landmarkOfRegion(region) : undefined;
   const rows: string[] = [`<span>Owner</span><span>${ownerText(b)}</span>`, `<span>State</span><span>${stateText(b)}</span>`];
+  if (b.access) rows.push(`<span>Open to</span><span>${b.access === 'private' ? 'its owner only' : ACCESS_WORDS[b.access].replace('My', 'its owner\'s')}${b.share ? ` · keeps ${Math.round(b.share * 100)}% of the work` : ''}${b.fee ? ` · fee ${b.fee} coin an order` : ''}</span>`);
   if (!b.ruin && b.hp < b.maxHp - 1e-6) {
     const r = repairBill(b);
     rows.push(`<span>Repair</span><span>${billText(r.step)} per ${Math.round(REPAIR.step * 100)}%; ${billText(r.all)} to full, labour ${labourText(r.labour)}</span>`);

@@ -218,6 +218,8 @@ export async function fill(db: D1Database, pid: number, id: number, n: number, k
   if (o.item_uid) n = 1;
   if (!(n > EPS) || n > o.left + EPS) throw new ApiError(409, 'too_many', `${round(o.left)} left`);
   if (!(await presentIn(db, pid, o.town))) throw new ApiError(409, 'not_present', `Your men must be in ${o.town}`);
+  // W-88 (W-120): a stall sells only with someone at it; offline men in town count (W-97)
+  if (!(await presentIn(db, o.player_id, o.town))) throw new ApiError(409, 'stall_empty', 'Nobody is at that stall: its owner has no men in town');
   const t = mustTown(o.town);
   const seller = o.side === 'sell' ? o.player_id : pid, buyer = o.side === 'sell' ? pid : o.player_id;
   const total = n * o.price, ally = holder >= 0 && t.home === null ? holder : -1, tax = ally >= 0 ? round(total * t.tax) : 0;

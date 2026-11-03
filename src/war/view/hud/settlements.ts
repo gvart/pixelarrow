@@ -30,7 +30,7 @@ import { closeCornerWindows, menuBtn, serverOnly, setBadge, showWhy } from './ki
 import { keys } from '../../input/keys';
 import { tipper } from './roster/ui';
 import type { CrownNewsKind } from '../../net/world';
-import { askFirst, attackToast, claimToast, crownToast, FOUND_HINT, groundToast, peaceToast, holdingsHtml, SETTLE_CSS, settlementBadge, settlementCard, viewerOf, type SettleForm, type Viewer } from './settleCards';
+import { askFirst, attackToast, claimToast, crownToast, FOUND_HINT, groundToast, lockToast, peaceToast, holdingsHtml, SETTLE_CSS, settlementBadge, settlementCard, viewerOf, type SettleForm, type Viewer } from './settleCards';
 
 type Mk = (id: string, css: string, html?: string) => HTMLElement;
 type Api = <T>(method: 'GET' | 'POST', path: string, body?: unknown) => Promise<T | null>;
@@ -325,6 +325,11 @@ export function mountSettlements(s: SandboxScene, mk: Mk): void {
     if (m.t !== 'claimAttacked') return;
     const c = m as unknown as { region: string; name: string; by: number };
     note(claimToast({ ...c, here: c.region === s.region.id }), 'atk', 14_000);
+  });
+  // W-91: the door of his house or store under attack (anywhere)
+  worldTaps.add((m) => {
+    if (m.t !== 'lockAttacked') return;
+    note(lockToast(m as unknown as { region: string; name: string; what: string; broken: boolean; by: number }), 'atk', 14_000);
   });
   // W-64: crown news (an election opened or closed, a new monarch, a pact broken) as a notice
   worldTaps.add((m) => { if (m.t === 'crownNews') note(crownToast(m as unknown as { kind: CrownNewsKind; text: string }), 'crn', 10_000); });

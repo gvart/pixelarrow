@@ -7,7 +7,7 @@
 import { ATTR_BASE, ATTR_EFFECT, ATTR_MAX, POINTS_PER_LEVEL, type AttrId } from '../../../data/perks';
 import { CIV_CLASSES, type CivClassId } from '../../../data/classes';
 import { RECIPES } from '../../../data/recipes';
-import { BUILDINGS, CHEST } from '../../sim/economy';
+import { BUILDINGS, CHEST, HOUSE } from '../../sim/economy';
 import { COMBAT } from '../../sim/combat';
 import { ACTIVE, ACTIVES, FLAG_FX, SKILLS, SKILL_LEVELS, type SkillDef } from '../../sim/skills';
 import { FALL } from '../../sim/soldiers';
@@ -239,6 +239,7 @@ export const BUILD_TEXT: Partial<Record<BuildingType, BuildText>> = {
   stoneBridge: { role: 'Crossing', flavour: 'Arches that will outlast their builders.', for: 'a lasting way across a river that fire cannot take.' },
   stakes: { role: 'Field work', flavour: 'A horse will not run onto a point.', for: 'slows and hurts foes crossing it; engines cannot pass.' },
   ditch: { role: 'Field work', flavour: 'Dig, and let the ground fight for you.', for: 'foes cross it slowly and engines not at all; it costs only work.' },
+  privateHouse: { role: 'Store', flavour: 'Four walls and a door that bars.', for: `holds ${BUILDINGS.privateHouse.chest} pack loads of your belongings, yours alone; ${HOUSE.cap} in a region. Foes must break its door first, which takes time, and you hear of it.` },
   chest: { role: 'Store', flavour: 'Oak, iron bands and a lock.', for: `holds ${BUILDINGS.chest.chest} pack loads of your goods, yours alone; up to ${CHEST.cap} in a region. A foe loots it only with none of your men within ${metres(CHEST.guard)}.` },
 };
 /** Each building's purpose in one short line (the building card's first line; the CK3 card above is its tooltip). */
@@ -266,6 +267,7 @@ export const BUILD_LINE: Partial<Record<BuildingType, string>> = {
   woodBridge: 'A quick way across the river; it burns', stoneBridge: 'A lasting way across the river',
   stakes: 'Slows and hurts foes crossing it', ditch: 'Foes cross slowly; engines not at all',
   chest: 'Holds 8 loads of your goods, yours alone',
+  privateHouse: 'Your own house: your belongings behind a locked door',
   woodGate: 'Opens for your men, shuts out the rest', stoneGate: 'Opens for your men, shuts out the rest',
   brazier: 'Lights fire arrows for archers near it', pitchKiln: 'Boils pitch from wood',
 };

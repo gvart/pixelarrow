@@ -51,7 +51,7 @@ export const BUILDING_ICON: Record<BuildingType, string> & Record<string, string
   camp: 'bld-camp', storehouse: 'bld-storehouse', outpost: 'bld-outpost', fort: 'bld-fort', barracks: 'bld-barracks', farm: 'bld-farm', olivePress: 'bld-olive-press',
   palisade: 'bld-palisade', rampart: 'bld-rampart', stoneWall: 'bld-stone-wall', woodStairs: 'bld-stairs-wood', stoneStairs: 'bld-stairs-stone', ladder: 'bld-ladder',
   woodTower: 'bld-tower-wood', stoneTower: 'bld-tower-stone', woodGate: 'bld-gate', stoneGate: 'bld-gate', woodBridge: 'bld-bridge-wood', stoneBridge: 'bld-bridge-stone',
-  brazier: 'bld-brazier', pitchKiln: 'bld-pitch-kiln', chest: 'trade-chest',
+  brazier: 'bld-brazier', pitchKiln: 'bld-pitch-kiln', chest: 'trade-chest', privateHouse: 'bld-storehouse',
   // M5h workplaces (ART-C has no kit icon for them): the level's own done art, shrunk (icon() 'art:')
   forge: 'art:forge-done', forge2: 'art:forge2-done', forge3: 'art:forge3-done', cookhouse: 'art:cookhouse-done', cookhouse2: 'art:cookhouse2-done', cookhouse3: 'art:cookhouse3-done',
   infirmary: 'art:infirmary-done', infirmary2: 'art:infirmary2-done', infirmary3: 'art:infirmary3-done', workshop: 'art:workshop-done', workshop2: 'art:workshop2-done', workshop3: 'art:workshop3-done',

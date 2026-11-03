@@ -101,7 +101,8 @@ describe('a market trade: the buyer brings his coin', () => {
     expect(await goodsOf(DB(), warehouseId(T, b.playerId))).toEqual({ coin: PURSE });
     k.close();
 
-    // 4. the fill: the wood into his warehouse, paid from it, the coin in the seller's stall
+    // 4. the fill: the wood into his warehouse, paid from it, the coin in the seller's stall (W-88: someone of his is at it)
+    await DB().prepare("INSERT INTO war_persons (id, player_id, state, region) VALUES (?1, ?2, 'active', ?3)").bind(`at-stall-${s.playerId}`, s.playerId, T).run();
     const f = await api(`/api/war/trade/offers/${offer}/fill`, { method: 'POST', token: b.token, json: { n: 10, key: 'loop-fill-1' } });
     expect(f.status).toBe(200);
     expect(await f.json()).toMatchObject({ n: 10, price: 3, seller: s.playerId, buyer: b.playerId });

@@ -83,6 +83,9 @@ describe('offers and fills', () => {
     // the buyer must be in town and hold the coin there
     expect(await code(fill(DB(), b.playerId, id, 4, 'k-1', 1, now))).toBe('not_present');
     await present(b.playerId);
+    // W-88: nobody at his stall, no sale; an offline man in town counts (W-97)
+    expect(await code(fill(DB(), b.playerId, id, 4, 'k-1', 1, now))).toBe('stall_empty');
+    await present(s.playerId);
     expect(await code(fill(DB(), b.playerId, id, 4, 'k-1', 1, now))).toBe('no_coin');
     expect(await goodsOf(DB(), escrowId(id))).toEqual({ iron: 8 }); // nothing moved
     await give(warehouseId(T, b.playerId), 'coin', 150);
@@ -96,7 +99,6 @@ describe('offers and fills', () => {
     expect(await goodsOf(DB(), warehouseId(T, b.playerId))).toEqual({ coin: 50, iron: 4 });
     // more than is left is refused; own offers too
     expect(await code(fill(DB(), b.playerId, id, 5, 'k-2', 1, now))).toBe('too_many');
-    await present(s.playerId);
     expect(await code(fill(DB(), s.playerId, id, 1, 'k-3', 1, now))).toBe('own_offer');
     // the board reads the offers and fills
     const bd = await board(DB(), T);
@@ -113,6 +115,7 @@ describe('offers and fills', () => {
     const id = await listOffer(DB(), buyer.playerId, 'ammos', { side: 'buy', res: 'salt', n: 10, price: 6 }, -1, now);
     expect(await goodsOf(DB(), stallId('ammos', buyer.playerId))).toEqual({ coin: 40 });
     await present(seller.playerId, 'ammos');
+    await present(buyer.playerId, 'ammos');
     expect(await code(fill(DB(), seller.playerId, id, 4, 'b-1', -1, now))).toBe('no_salt');
     await give(stallId('ammos', seller.playerId), 'salt', 4, 'siren');
     await fill(DB(), seller.playerId, id, 4, 'b-1', -1, now);
@@ -143,6 +146,8 @@ describe('offers and fills', () => {
       { offer: bid, side: 'buy', res: 'tin', n: 5, price: 7, stall: stallId(town, b.playerId), player: b.playerId },
     ]);
     await present(b.playerId, town);
+    await present(s1.playerId, town);
+    await present(s2.playerId, town);
     // the best ask, partly, over the API: goods out of its escrow into the warehouse, coin from the stall to the seller's
     const r = await api(`/api/war/trade/offers/${bd.offers[0].offer}/fill`, { method: 'POST', token: b.token, json: { n: 4, key: 'board-1' } });
     expect(r.status).toBe(200);

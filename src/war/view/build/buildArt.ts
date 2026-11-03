@@ -58,7 +58,7 @@ const ART_ID: Partial<Record<BuildingType, string>> = {
 const PRE_ART: Partial<Record<BuildingType, string[]>> = {
   house: ['elaia/town-house-a', 'elaia/town-house-b'], cottage: ['elaia/town-cottage'], temple: ['elaia/town-temple'], stoa: ['elaia/town-stoa'],
   statue: ['elaia/town-statue'], well: ['elaia/town-well'], jetty: ['elaia/town-jetty'], board: ['elaia/town-board'], cache: ['elaia/town-goods'],
-  tent: ['kyrene/nomad-tent'], shrine: ['elaia/shrine'],
+  tent: ['kyrene/nomad-tent'], shrine: ['elaia/shrine'], privateHouse: ['elaia/town-cottage'], // W-90: the town cottage's art
 };
 interface LibObj { id: string; file: string; anchor: { x: number; y: number }; footprint?: [number, number] }
 /** M7d: public/war/landmarks/landmarks.json (pieces' sprites per state, the labyrinth kit). */

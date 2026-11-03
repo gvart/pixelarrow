@@ -16,6 +16,21 @@ const ENGINEER = { level: 10, nodes: ['carpenter', 'masterBuilder', 'rams', 'for
 
 export const BUILDING_SCENARIOS: Scenario[] = [
   {
+    id: 'build-access',
+    name: 'Who may use a building',
+    group: 'building',
+    goal: 'A camp, your forge and your house on claimed ground. Select the forge: its card says it is empty and lets you pick who may use it and what you keep. Send the men away: the tower and forge go dark.',
+    check: ['Forge card: Open to, You keep, Fee, each one tap to the next', 'House card: Open to only; only you may use it', 'Status reads Empty while nobody stands there', 'A man at a tower: it sees; gone: it does not'],
+    squads: [you('militia', at(FLAT, -4, 2)), you('militia', at(FLAT, 8, 2)), you('militia', at(FLAT, -8, 8)), you('militia', at(FLAT, 12, 10))],
+    camera: { x: FLAT[0], y: FLAT[1], zoom: 1 / 2 },
+    economy: {
+      claims: [{ team: 0, x: FLAT[0], y: FLAT[1], r: 26 }],
+      stock: { wood: 2000, stone: 2000 },
+      sites: [{ squad: 0, type: 'camp', x: 127, y: 436 }, { squad: 1, type: 'forge', x: 134, y: 436 }, { squad: 2, type: 'privateHouse', x: 120, y: 442 }, { squad: 3, type: 'woodTower', x: 134, y: 444 }],
+      prebuild: 6000,
+    },
+  },
+  {
     id: 'build-each',
     name: 'Place every building',
     group: 'building',

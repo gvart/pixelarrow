@@ -119,6 +119,26 @@ describe('through his buildings', () => {
     expect(top.delivered).toBeCloseTo(0.5 / (1 - fx.siteCost!), 1);
   });
 
+  it('his own house too: a private house costs less and stands stronger', () => {
+    const house = (level: number) => {
+      const sim = createSim(flat(), 1);
+      sim.setPaths(() => way('builder', level));
+      sim.claim(0, 30, 30, 30);
+      const q = sim.spawnSquad('p:1', 0, 'militia', 4, 34, 34, [0, 1, 2, 3].map((k) => makePerson(`m${k}`, 'militia')));
+      sim.order({ kind: 'placeBuilding', squad: q, type: 'camp', x: 30, y: 30 });
+      for (let t = 0; t < 1500 && sim.snapshot().buildings!.find((b) => b.type === 'camp')?.state !== 'done'; t++) sim.step();
+      sim.addStock(0, 'wood', 25); // half its 40 wood and 10 stone
+      sim.order({ kind: 'placeBuilding', squad: q, type: 'privateHouse', x: 22, y: 30 });
+      for (let t = 0; t < 800; t++) sim.step();
+      return sim.snapshot().buildings!.find((b) => b.type === 'privateHouse')!;
+    };
+    const plain = house(1), top = house(FAVOUR_MAX), fx = perkFx('builder', FAVOUR_MAX);
+    expect(plain.maxHp).toBe(BUILDINGS.privateHouse.hp);
+    expect(top.maxHp).toBeCloseTo(plain.maxHp * (1 + fx.siteHp!));
+    expect(plain.delivered).toBeCloseTo(0.5, 1);
+    expect(top.delivered).toBeCloseTo(0.5 / (1 - fx.siteCost!), 1);
+  });
+
   it('a warrior\'s level gives no such thing', () => {
     expect(perkFx('warrior', FAVOUR_MAX).siteCost).toBeUndefined();
     expect(perkFx('warrior', FAVOUR_MAX).siteHp).toBeUndefined();
