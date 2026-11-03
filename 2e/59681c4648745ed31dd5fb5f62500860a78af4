@@ -1,0 +1,75 @@
+src/war/net/protocol.ts
+  s_a7d5d20f628c80::t_ebcb9e0cc146ba 48
+server/test/war/worldEvents.test.ts
+  s_a7d5d20f628c80::t_966ed25ee0b72b 21-22,97,117,204-206,217,219,229
+server/migrations/0056_war_ladders.sql
+  s_a7d5d20f628c80::t_5462d8a1ecf758 1-8
+server/src/war/contracts.ts
+  s_a7d5d20f628c80::t_966ed25ee0b72b 42,348-349,384,418,437
+tests/war/worldView.test.ts
+  s_a7d5d20f628c80::t_966ed25ee0b72b 70
+server/test/war/tasks.test.ts
+  s_a7d5d20f628c80::t_966ed25ee0b72b 59,147
+server/test/war/ladders.test.ts
+  s_a7d5d20f628c80::t_3312add3db9dce 1-157
+server/src/war/tradeRoutes.ts
+  s_a7d5d20f628c80::t_966ed25ee0b72b 174
+server/test/war/peace.test.ts
+  s_a7d5d20f628c80::t_966ed25ee0b72b 14,151
+server/test/war/victory.test.ts
+  s_a7d5d20f628c80::t_30482ea92df637 1-151
+server/src/war/ladders.ts
+  s_a7d5d20f628c80::t_8f3e082804dbc4 1-62
+src/war/net/ladders.ts
+  s_a7d5d20f628c80::t_0c32f36dfa04ed 1-34
+server/test/war/haul.test.ts
+  s_a7d5d20f628c80::t_ebcb9e0cc146ba 2,4
+src/war/world/events.ts
+  s_a7d5d20f628c80::t_966ed25ee0b72b 8-9,12-13,48,50
+server/src/account/deletionMap.ts
+  s_a7d5d20f628c80::t_2b66767360448b 143
+server/src/war/market.ts
+  s_a7d5d20f628c80::t_75de1562fceb03 199-201,210-211,268,272-273,284
+server/src/war/peace.ts
+  s_a7d5d20f628c80::t_88e9d2e564c6e1 2-5
+server/src/war/room.ts
+  s_a7d5d20f628c80::t_1c7018774fab5f 226
+server/src/war/routes.ts
+  s_a7d5d20f628c80::t_e7aad62820a562 81-82,206-208
+server/src/war/tasks.ts
+  s_a7d5d20f628c80::t_798de9cd48924c 4,13,115-116,124
+server/src/war/tradeScore.ts
+  s_a7d5d20f628c80::t_951ee174ce1cf6 2,4,18,23-24,26,33-34
+server/src/war/works.ts
+  s_a7d5d20f628c80::t_9ad5722c230868 29
+server/src/war/world/seasonWar.ts
+  s_a7d5d20f628c80::t_d9e7b4e21b48b9 2-5,7-8,10-11,13-15,21,24,28-29,38-40
+server/src/war/world/world.ts
+  s_a7d5d20f628c80::t_48ad90ea25d47c 25,29,109,111,280
+server/src/war/world/worldDO.ts
+  s_a7d5d20f628c80::t_d6a1ea1737eeec 18-19
+server/test/war/seasonWipe.test.ts
+  s_a7d5d20f628c80::t_6072fd8c121285 22
+src/war/net/works.ts
+  s_a7d5d20f628c80::t_adffa783935b62 32,34,39-41,44,48
+src/war/net/world.ts
+  s_a7d5d20f628c80::t_2cc665db8cdfa5 21,162,166,171
+src/war/world/season.ts
+  s_a7d5d20f628c80::t_0746dbd2552f35 5-6,53,60
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "2e59681c4648745ed31dd5fb5f62500860a78af4",
+  "prompts": {},
+  "sessions": {
+    "s_a7d5d20f628c80": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1afee479-b44b-46d2-a159-a540e44e7fb8",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
