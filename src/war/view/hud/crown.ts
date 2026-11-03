@@ -1,12 +1,14 @@
 /**
  * W-64 the Crown panel (rules: server/src/war/crown.ts; numbers and views: src/war/net/crown.ts), in the red-figure kit
  * like the Works and Tasks windows. The corner button "Crown" (a gold pip when a vote waits for you or an order is new)
- * opens a window of four tabs, after Crusader Kings III's council screen:
+ * opens a window of five tabs, after Crusader Kings III's council screen:
  *
  *   Court      the throne (the monarch's medallion in his alliance's colour, his realm power, the term's bar; Regent
  *              while an election runs after it), the four council seats (office, holder, duty; the monarch appoints and
  *              dismisses there), the treasury (coin and goods, the tax and what it brought; deposit; the Treasurer's
  *              tax, works and contract tools) and the chronicle.
+ *   Oaths      W-150..W-155: whom you serve, who serves you, what is set aside and where, the ballot while one is open,
+ *              the king's heir, and the roll of broken oaths.
  *   Election   the candidates as portraits with their power and a vote bar (your vote marked; your weight), or the
  *              term's countdown and the no-confidence petition (signatures, then yes and no), and the members by power.
  *   Orders     "Orders of the crown": each order's bounty, progress and time, deliver to a quest; the Marshal's and the
@@ -18,7 +20,8 @@
  * (../../net/questLore.ts); Track pins it top right with a marker on its spot or turn-in (./quest.ts), and a new
  * order shows as a banner.
  */
-import { CROWN, OFFICES, type CrownLog, type CrownOrder, type CrownView, type Office, type OrderKind } from '../../net/crown';
+import { FEUDAL, RANK_NAME } from '../../../data/warFeudal';
+import { CROWN, OFFICES, type CrownLog, type CrownOrder, type CrownView, type Office, type OrderKind, type OwedPlace } from '../../net/crown';
 import { GOODS } from '../../net/protocol';
 import { ALLIANCES } from '../../world/alliances';
 import { WORLD_REGIONS } from '../../world/regions';
@@ -36,7 +39,7 @@ import { homeAnchor } from '../../net/guide';
 import { isTracked, questBanner, restoreTrack, track, type TrackView } from './quest';
 
 type Mk = (id: string, css: string, html?: string) => HTMLElement;
-type Tab = 'court' | 'election' | 'orders' | 'envoys';
+type Tab = 'court' | 'oaths' | 'election' | 'orders' | 'envoys';
 const attr = esc;
 const fmt = (n: number) => (n >= 100 ? String(Math.round(n)) : String(Math.round(n * 10) / 10));
 const until = (ms: number) => {
@@ -51,6 +54,7 @@ const TOWNS = [...ALLIANCES.map((a) => a.home), ...FRONTIER_TOWNS, OMPHALOS];
 const SUPPLY_GOODS = GOODS.filter((g) => g !== 'coin').slice(0, 18);
 const ICONED = new Set(['food', 'wood', 'stone', 'marble', 'coin', 'silver']);
 const gi = (r: string) => (ICONED.has(r) ? icon('res-' + r) : `<span class="rf-dim">${esc(r)}</span>`);
+const NOT_LORD = 'only those who rule a settlement vote';
 /** A disabled button's attributes, with the reason as its tip. */
 const why = (reason: string) => ` disabled data-tip="${attr(`<span class="rf-hint">${reason}</span>`)}"`;
 /** What a second click does, for the buttons that ask first (data-sure): shown on the message line while armed. */
@@ -61,6 +65,8 @@ const SURE: Record<string, string> = {
   endOrder: 'Close this order now? Click Confirm to go ahead.',
   pact: 'End this pact with the other alliance? Click Confirm to go ahead.',
   post: 'Post an attack order: every member who fights there shares the bounty. Click Confirm to go ahead.',
+  breakOath: `Break your oath? Your name goes on the roll and you cannot swear again for ${FEUDAL.barMs / 3_600_000} hours. Click Confirm to go ahead.`,
+  abdicate: 'Give up the crown? Click Confirm to go ahead.',
 };
 
 const OFFICE_GLYPH: Record<Office, string> = { marshal: 'ui:standard', treasurer: 'ui:coin', envoy: 'ui:scales', quartermaster: 'ui:amphora' };
@@ -106,6 +112,12 @@ function logText(l: CrownLog): string {
     case 'pact_ended': return `The ${d.kind} with ${esc(allianceName(Number(d.other)))} ends`;
     case 'pact_broken': return `<span class="cr-bad">${who} breaks the ${d.kind} with ${esc(allianceName(Number(d.other)))}</span>`;
     case 'season': return 'A new season: every term ends';
+    case 'oath_sworn': return `${who} swears to <b>${esc(String(d.lord ?? ''))}</b>`;
+    case 'oath_broken': return `<span class="cr-bad">${who} breaks his oath to <b>${esc(String(d.lord ?? ''))}</b></span>`;
+    case 'oath_rate': return `${who} asks ${d.pct}% of those sworn to him`;
+    case 'heir': return d.name ? `${who} names <b>${esc(String(d.name))}</b> his heir` : `${who} names no heir`;
+    case 'abdicated': return `${who} gives up the crown`;
+    case 'lapsed': return `${who} has not been seen for ${FEUDAL.inactiveMs / 3_600_000} hours: the realm votes`;
     default: return esc(l.kind);
   }
 }
@@ -130,7 +142,7 @@ function courtHtml(v: CrownView): string {
           <div class="rf-bar cr-term"><i class="${v.regent ? 'construction' : 'ok'}" style="width:${(v.regent ? 100 : (1 - termF) * 100).toFixed(1)}%"></i></div></div></div>`
     : `<div class="cr-throne rf-well empty"><div class="cr-medal">${CROWN_SVG(38)}<span class="cr-av big vacant" style="width:58px;height:58px">?</span></div>
         <div class="cr-tt"><div class="cr-tier">The throne of ${esc(allianceName(a))}</div><div class="cr-king">The crown is empty</div>
-        <div class="rf-dim cr-why">${v.election ? `The realm votes: closes in ${until(v.election.closes - v.now)}` : 'An election opens once members hold settlements: found one, or swear a vassal'}</div></div></div>`;
+        <div class="rf-dim cr-why">${v.election ? `The realm votes: closes in ${until(v.election.closes - v.now)}` : 'An election opens once members hold settlements: found one'}</div></div></div>`;
   const opts = (sel: number | null) => `<option value="">— choose —</option>${v.members.map((x) => `<option value="${x.pid}"${x.pid === sel ? ' selected' : ''}>${esc(x.name)} · ${fmt(x.power)}</option>`).join('')}`;
   const seats = v.council.map((c) => {
     const o = OFFICES.find((x) => x.id === c.office)!, mine = c.pid === v.me.pid;
@@ -145,7 +157,7 @@ function courtHtml(v: CrownView): string {
   const works = [...WORKS.map((w) => ({ id: w.id, name: w.name })), { id: WONDER.id, name: WONDER.name }];
   const tools = treasurer
     ?`<div class="cr-tools"><div class="cr-tl">${glyph('ui:coin', 14)}Treasurer</div>
-        <div class="cr-line"><span class="rf-dim cr-lab">Tax</span><span class="rf-step"><button class="rf-tbtn" data-act="tax-" >−</button><input data-in="tax" value="${v.treasury.tax}" inputmode="numeric"><button class="rf-tbtn" data-act="tax+">+</button></span><span class="rf-dim">% of sales and tribute, at most ${CROWN.taxMax}</span><button class="rf-tbtn pri cr-go" data-act="tax">Set</button></div>
+        <div class="cr-line"><span class="rf-dim cr-lab">Tax</span><span class="rf-step"><button class="rf-tbtn" data-act="tax-" >−</button><input data-in="tax" value="${v.treasury.tax}" inputmode="numeric"><button class="rf-tbtn" data-act="tax+">+</button></span><span class="rf-dim">% of sales, at most ${CROWN.taxMax}</span><button class="rf-tbtn pri cr-go" data-act="tax">Set</button></div>
         <div class="cr-line"><span class="rf-dim cr-lab">Works</span><select data-sel="work">${works.map((w) => `<option value="${w.id}">${esc(w.name)}</option>`).join('')}</select><select data-sel="workRes">${['coin', 'stone', 'wood', 'marble', 'pitch'].map((g) => `<option>${g}</option>`).join('')}</select><input data-in="workN" value="100" inputmode="numeric" style="width:48px"><button class="rf-tbtn pri cr-go" data-act="fundWork">Give</button></div>
         <div class="cr-line"><span class="rf-dim cr-lab">Contract</span><input data-in="ctId" placeholder="id" style="width:42px"><input data-in="ctCoin" value="50" inputmode="numeric" style="width:48px"><span class="rf-dim">coin to a taken build or guard contract</span><button class="rf-tbtn pri cr-go" data-act="fundContract">Grant</button></div></div>`
     : '';
@@ -164,7 +176,7 @@ function electionHtml(v: CrownView): string {
   let top = '';
   if (e) {
     const total = e.candidates.reduce((x, c) => x + c.votes, 0);
-    top = `<div class="cr-banner">${glyph('ui:podium', 20)}<div><div class="cr-bt">The realm chooses its monarch</div><div class="rf-dim">closes in ${until(e.closes - v.now)} · ties go to the greater realm · your vote weighs ${fmt(v.me.weight)}</div></div></div>
+    top = `<div class="cr-banner">${glyph('ui:podium', 20)}<div><div class="cr-bt">The realm chooses its monarch</div><div class="rf-dim">closes in ${until(e.closes - v.now)} · ties go to the greater realm · ${v.me.weight > 0 ? `your vote counts ${fmt(v.me.weight)}: you and those sworn to you` : 'only those who rule a settlement vote'}</div></div></div>
       <div class="cr-cands">${e.candidates.map((c, i) => {
         const f = total > 0 ? c.votes / total : 0, mine = e.mine === c.pid;
         return `<div class="cr-cand rf-well${mine ? ' voted' : ''}${i === 0 ? ' first' : ''}">
@@ -173,7 +185,7 @@ function electionHtml(v: CrownView): string {
           <div class="cr-cp" data-tip="${attr('<b class="k">Realm power</b><br><span class="rf-dim tip-w">settlement levels, vassals and regions held</span>')}">${glyph('ui:power', 14)}${fmt(c.power)}</div>
           <div class="rf-bar cr-vb"><i class="ok" style="width:${(f * 100).toFixed(1)}%"></i></div>
           <div class="cr-vn"><b>${fmt(c.votes)}</b> <span class="rf-dim">votes · ${Math.round(f * 100)}%</span></div>
-          <button class="rf-tbtn${mine ? '' : ' pri'}" data-act="vote" data-p="${c.pid}"${mine ? why('you voted for him') : ''}>${mine ? `${glyph('ui:check', 12)}Your vote` : 'Vote'}</button></div>`;
+          <button class="rf-tbtn${mine ? '' : ' pri'}" data-act="vote" data-p="${c.pid}"${mine ? why('you voted for him') : v.me.weight <= 0 ? why(NOT_LORD) : ''}>${mine ? `${glyph('ui:check', 12)}Your vote` : 'Vote'}</button></div>`;
       }).join('')}</div>`;
   } else if (v.monarch) {
     top = `<div class="cr-banner">${glyph('ui:hourglass', 20)}<div><div class="cr-bt">${esc(v.monarch.name)} reigns</div><div class="rf-dim">the next election opens when the term ends, in ${until(v.monarch.ends - v.now)}</div></div></div>`;
@@ -184,18 +196,56 @@ function electionHtml(v: CrownView): string {
       const t = p.yes + p.no, fy = t ? p.yes / t : 0;
       conf = `<div class="cr-nc rf-well open"><div class="cr-nct">${glyph('ui:skull', 18)}Vote of no confidence <span class="rf-dim">closes in ${until(p.closes - v.now)}</span></div>
         <div class="cr-yn"><span class="cr-y">Depose ${fmt(p.yes)}</span><div class="cr-ynbar"><i style="width:${(fy * 100).toFixed(1)}%"></i></div><span class="cr-n">${fmt(p.no)} Keep</span></div>
-        <div class="cr-line"><span class="rf-dim">A weighted majority of the votes cast removes the monarch</span><button class="rf-tbtn${p.mine === 1 ? '' : ' pri'} cr-go" data-act="conf" data-y="1" data-sure="conf:1"${p.mine === 1 ? why('you voted to depose') : ''}>Depose</button><button class="rf-tbtn" data-act="conf" data-y="0"${p.mine === 0 ? why('you voted to keep') : ''}>Keep</button></div></div>`;
+        <div class="cr-line"><span class="rf-dim">Over half of all lords' votes, cast or not, removes the monarch</span><button class="rf-tbtn${p.mine === 1 ? '' : ' pri'} cr-go" data-act="conf" data-y="1" data-sure="conf:1"${p.mine === 1 ? why('you voted to depose') : v.me.weight <= 0 ? why(NOT_LORD) : ''}>Depose</button><button class="rf-tbtn" data-act="conf" data-y="0"${p.mine === 0 ? why('you voted to keep') : v.me.weight <= 0 ? why(NOT_LORD) : ''}>Keep</button></div></div>`;
     } else {
       const signs = p?.signs ?? 0, need = p?.need ?? 1, cool = v.petitionCooldown > v.now;
       conf = `<div class="cr-nc rf-well"><div class="cr-nct">${glyph('ui:pen', 18)}Petition of no confidence ${p ? `<span class="rf-dim">lapses in ${until(p.closes - v.now)}</span>` : ''}</div>
         <div class="cr-line"><div class="rf-bar cr-pb"><i class="construction" style="width:${p ? Math.min(100, (signs / need) * 100).toFixed(1) : 0}%"></i></div><b class="cr-sig">${signs}<span class="rf-dim">/${p ? need : '—'}</span></b></div>
-        <div class="cr-line"><span class="rf-dim">${cool ? `A petition failed: none again for ${until(v.petitionCooldown - v.now)}` : `${Math.round(CROWN.petitionShare * 100)}% of the active members sign, then the realm votes for ${until(CROWN.voteMs)}`}</span>
-        <button class="rf-tbtn cr-go" data-act="sign" data-sure="sign"${p?.signed ? why('you signed it') : v.me.monarch ? why('the monarch cannot sign against himself') : cool && !p ? why('a petition failed: wait for the cooldown') : ''}>${p?.signed ? `${glyph('ui:check', 12)}Signed` : 'Sign'}</button></div></div>`;
+        <div class="cr-line"><span class="rf-dim">${cool ? `A petition failed: none again for ${until(v.petitionCooldown - v.now)}` : `${Math.round(CROWN.petitionShare * 100)}% of the active lords sign, then the realm votes for ${until(CROWN.voteMs)}`}</span>
+        <button class="rf-tbtn cr-go" data-act="sign" data-sure="sign"${p?.signed ? why('you signed it') : v.me.monarch ? why('the monarch cannot sign against himself') : v.me.weight <= 0 ? why(NOT_LORD) : cool && !p ? why('a petition failed: wait for the cooldown') : ''}>${p?.signed ? `${glyph('ui:check', 12)}Signed` : 'Sign'}</button></div></div>`;
     }
   }
   const ranks = [...v.members].sort((x, y) => y.power - x.power || x.pid - y.pid).slice(0, 8);
-  const list = ranks.length ? `<div class="rf-sec">Realm power <span class="rf-dim">${v.members.length} members</span></div>${ranks.map((r, i) => `<div class="cr-rk${r.pid === v.me.pid ? ' me' : ''}"><span class="cr-rn">${i + 1}</span>${avatar(r.name, a, 20)}<span class="cr-rkn">${esc(r.name)}</span><span class="rf-dim">weighs ${fmt(r.weight)}</span><b>${fmt(r.power)}</b></div>`).join('')}` : '';
+  const list = ranks.length ? `<div class="rf-sec">Realm power <span class="rf-dim">${v.members.length} members</span></div>${ranks.map((r, i) => `<div class="cr-rk${r.pid === v.me.pid ? ' me' : ''}"><span class="cr-rn">${i + 1}</span>${avatar(r.name, a, 20)}<span class="cr-rkn">${esc(r.name)}</span><span class="rf-dim">${r.lord ? `${fmt(r.weight)} vote${r.weight === 1 ? '' : 's'}` : 'no vote'}</span><b>${fmt(r.power)}</b></div>`).join('')}` : '';
   return `${top}${conf}${list}`;
+}
+
+/** What is set aside and where: one line per place; `act`: the button on it when his men may carry it here. */
+const owedRows = (owed: readonly OwedPlace[], here: string, act: (o: OwedPlace) => string) => owed.map((o) => {
+  const goods = Object.entries(o.goods).filter(([, n]) => n > 0.05).map(([r, n]) => `<span class="rf-ichip">${gi(r)}${fmt(n)}</span>`).join('');
+  return `<div class="cr-owe"><span class="cr-rkn">${esc(o.what === 'stall' ? 'stall' : o.what.replace(/[A-Z]/g, (c) => ' ' + c.toLowerCase()))} <span class="rf-dim">in ${esc(regionName(o.region))}</span></span>${goods}${o.what === 'stall' && o.region === here ? act(o) : ''}</div>`;
+}).join('');
+
+function oathsHtml(v: CrownView, here: string, f: { region: string; men: number; hours: number }): string {
+  const fd = v.feudal, a = v.alliance, name = (p: { name: string }, av = 20) => `${avatar(p.name, a, av)}<span class="cr-rkn"><b>${esc(p.name)}</b>`;
+  // ---------- whom you serve
+  let serve: string;
+  if (fd.rank === 'king') serve = `<div class="rf-dim cr-none">You wear the crown: you swear to no one.</div>`;
+  else if (fd.lord) serve = `<div class="cr-rk">${name(fd.lord)} <span class="rf-dim">${RANK_NAME[fd.lord.rank]}</span></span><span class="rf-ichip gold" data-tip="${attr(`<b class="k">His share</b><br><span class="rf-dim tip-w">${fd.lord.rate}% of what your buildings and stalls earn is set aside for him until it is fetched</span>`)}">${icon('res-coin')}${fd.lord.rate}%</span><button class="rf-tbtn" data-act="breakOath" data-sure="breakOath" data-tip="${attr('<b class="k">Break your oath</b><br><span class="rf-dim tip-w">what is set aside comes back to you; your name goes on the roll</span>')}">Break oath</button></div>`;
+  else if (fd.asked) serve = `<div class="cr-rk">${name(fd.asked)} <span class="rf-dim">asked, ${until(fd.asked.at + FEUDAL.askMs - v.now)} left</span></span><button class="rf-tbtn" data-act="oathAnswer" data-p="${v.me.pid}" data-y="0">Withdraw</button></div>`;
+  else {
+    const king = v.monarch?.pid, lords = v.members.filter((m) => m.pid !== v.me.pid && (fd.rank === 'lord' ? m.pid === king : m.lord));
+    const bar = fd.barUntil > v.now ? `you broke an oath: ${until(fd.barUntil - v.now)} left` : !lords.length ? (fd.rank === 'lord' ? 'a lord swears only to the king, and the crown is empty' : 'nobody rules a settlement yet') : '';
+    serve = bar
+      ? `<div class="rf-dim cr-none">You serve no one: ${bar}.</div>`
+      : `<div class="cr-line cr-rkline"><span class="rf-dim">You serve no one. Swear to</span><select data-sel="oathLord">${lords.map((m) => `<option value="${m.pid}">${esc(m.name)}</option>`).join('')}</select><button class="rf-tbtn pri cr-go" data-act="oath">Swear</button></div>`;
+  }
+  const mineOwed = fd.lord && fd.owed.length ? owedRows(fd.owed, here, () => `<button class="rf-tbtn" data-act="tribute" data-tip="${attr('<b class="k">Send it</b><br><span class="rf-dim tip-w">your men in the market court carry it, sealed, to his store</span>')}">Send</button>`) : '';
+  // ---------- who serves you
+  const asks = fd.asks.map((q) => `<div class="cr-rk">${name(q)} <span class="rf-dim">would swear to you</span></span><button class="rf-tbtn pri" data-act="oathAnswer" data-p="${q.pid}" data-y="1">Accept</button><button class="rf-tbtn" data-act="oathAnswer" data-p="${q.pid}" data-y="0">Refuse</button></div>`).join('');
+  const vassals = fd.vassals.map((x) => `<div class="cr-rk">${name(x)} <span class="rf-dim">${RANK_NAME[x.rank]}</span></span></div>${owedRows(x.owed, here, () => `<button class="rf-tbtn pri" data-act="tribute" data-of="${x.pid}" data-tip="${attr('<b class="k">Fetch it</b><br><span class="rf-dim tip-w">your men in the market court carry it off</span>')}">Fetch</button>`)}`).join('');
+  const rate = fd.rate !== null || fd.rank === 'king' ? `<span class="cr-rate" data-tip="${attr(`<b class="k">Your share</b><br><span class="rf-dim tip-w">what they set aside for you from what they earn, at most ${FEUDAL.rateMax}%</span>`)}">your share <input data-in="rate" value="${fd.rate ?? FEUDAL.rateDefault}" inputmode="numeric">% <button class="rf-tbtn" data-act="rate">Set</button></span>` : '';
+  const call = fd.vassals.length ? `<div class="cr-line"><span class="rf-dim">Call to guard</span><select data-sel="callRegion">${WORLD_REGIONS.map((r) => `<option value="${r.id}"${r.id === f.region ? ' selected' : ''}>${esc(r.name)}</option>`).join('')}</select><input data-in="callMen" value="${f.men}" inputmode="numeric" style="width:30px"><span class="rf-dim">men</span><input data-in="callHours" value="${f.hours}" inputmode="numeric" style="width:30px"><span class="rf-dim">h</span><button class="rf-tbtn cr-go" data-act="call" data-tip="${attr('<b class="k">Call to guard</b><br><span class="rf-dim tip-w">unpaid, and nobody has to come</span>')}">Call</button></div>` : '';
+  const calls = fd.calls.map((c) => `<div class="cr-rk">${glyph('ui:shield', 16)}<span class="cr-rkn"><b>${esc(c.by)}</b> <span class="rf-dim">asks ${c.men} men at ${esc(regionName(c.region))} for ${c.hours} h, unpaid</span></span><button class="rf-tbtn" data-act="answerCall" data-id="${c.id}"${c.taken ? why('taken') : ''}>${c.taken ? 'Taken' : 'Go'}</button></div>`).join('');
+  // ---------- the ballot, while one is open
+  const e = v.election, ballot = e ? `<div class="rf-sec">Vote for the crown <span class="rf-dim">${v.me.weight > 0 ? `your vote counts ${fmt(v.me.weight)}` : NOT_LORD}</span></div>${e.candidates.map((c) => `<div class="cr-rk${e.mine === c.pid ? ' me' : ''}">${name(c, 20)}</span><span class="rf-dim">${fmt(c.votes)}</span><button class="rf-tbtn${e.mine === c.pid ? '' : ' pri'}" data-act="vote" data-p="${c.pid}"${e.mine === c.pid ? why('you voted for him') : v.me.weight <= 0 ? why(NOT_LORD) : ''}>${e.mine === c.pid ? 'Your vote' : 'Vote'}</button></div>`).join('')}` : '';
+  // ---------- the king's heir
+  const heirs = v.members.filter((m) => m.pid !== v.me.pid);
+  const king = v.me.monarch ? `<div class="rf-sec">Your heir <span class="rf-dim">rules at once if you give up the crown</span></div><div class="cr-line"><select data-sel="heir"><option value="">no heir</option>${heirs.map((m) => `<option value="${m.pid}"${m.pid === fd.heir?.pid ? ' selected' : ''}>${esc(m.name)}</option>`).join('')}</select><button class="rf-tbtn" data-act="heir">Name</button><button class="rf-tbtn cr-go" data-act="abdicate" data-sure="abdicate">Give up the crown</button></div>` : fd.heir ? `<div class="cr-line rf-dim">The heir: <b>${esc(fd.heir.name)}</b></div>` : '';
+  const roll = fd.roll.slice(0, 5).map((r) => `<div class="cr-log"><span><b>${esc(r.name)}</b> broke his oath to <b>${esc(r.lord)}</b></span><span class="rf-dim">${ago(v.now - r.at)}</span></div>`).join('');
+  return `<div class="cr-oaths">${ballot}<div class="rf-sec">You serve</div>${serve}${mineOwed ? `<div class="rf-sec">Set aside for him <span class="rf-dim">until it is fetched</span></div>${mineOwed}` : ''}${calls}
+    <div class="rf-sec cr-secrow">They serve you <span class="rf-dim">${fd.vassals.length || 'nobody yet'}</span>${rate}</div>${asks}${vassals}${call}${king}
+    ${roll ? `<div class="cr-chron cr-roll">${roll}</div>` : ''}</div>`;
 }
 
 /** An order's key for tracking. */
@@ -347,6 +397,11 @@ const CSS = `
 .cr-msg{min-height:15px;margin-top:4px;font-size:11.5px;color:var(--rf-good)}.cr-msg::first-letter{text-transform:uppercase}.cr-msg.bad{color:var(--rf-bad)}.cr-msg.ask{color:var(--rf-gold)}
 #rfCrown.busy [data-act]:not([data-act=tab]):not([data-act=close]){pointer-events:none;opacity:.55}
 #rfCrown .rf-tbtn.sure{width:auto!important;padding:0 7px!important;color:var(--rf-bad);box-shadow:0 0 0 1px var(--rf-bad)}
+.cr-owe{display:flex;align-items:center;gap:4px;padding:0 4px 0 28px;font-size:11px}.cr-owe .rf-ichip{height:20px}.cr-owe .rf-tbtn{margin-left:auto;height:22px}
+.cr-rk .rf-tbtn{height:20px}.cr-rkline{margin-top:0}
+#rfCrown .cr-oaths .rf-sec{margin:5px 0 2px}#rfCrown .cr-oaths .cr-rk{padding:1px 4px}#rfCrown .cr-oaths .cr-line{margin-top:2px}#rfCrown .cr-oaths .cr-log{padding:1px 0}
+.cr-secrow{align-items:center}.cr-rate{display:inline-flex;align-items:center;gap:3px;font:600 11px/1 Inter,sans-serif;letter-spacing:0;text-transform:none;color:var(--rf-muted);order:3;flex:none}.cr-rate input{width:30px;height:18px}.cr-rate .rf-tbtn{height:18px}.cr-roll{margin-top:5px}
+#rfCrown{scrollbar-width:auto!important;scrollbar-color:var(--rf-gold) #050506!important}
 #rfCrownBtn{position:relative}
 `;
 
@@ -355,11 +410,12 @@ interface OrderForm { kind: OrderKind; region: string; target: string; res: stri
 /** The empty view (offline, or before the first read). */
 const blank = (pid: number): CrownView => ({
   alliance: null, now: Date.now(), monarch: null, regent: false, council: OFFICES.map((o) => ({ office: o.id, pid: null, name: null })), treasury: { goods: {}, tax: 0, taxed: 0 },
-  election: null, petition: null, petitionCooldown: 0, orders: [], pacts: [], log: [], members: [], me: { pid, power: 0, weight: 1, offices: [], monarch: false },
+  election: null, petition: null, petitionCooldown: 0, orders: [], pacts: [], log: [], members: [], me: { pid, power: 0, weight: 0, offices: [], monarch: false },
+  feudal: { rank: 'free', lord: null, asked: null, vassals: [], asks: [], rate: null, owed: [], barUntil: 0, roll: [], heir: null, calls: [] },
 });
 
 /** Does something wait for him (a vote not cast, a petition vote open)? */
-const waiting = (v: CrownView) => (!!v.election && v.election.mine === null) || (v.petition?.state === 'open' && v.petition.mine === null);
+const waiting = (v: CrownView) => (v.me.weight > 0 && ((!!v.election && v.election.mine === null) || (v.petition?.state === 'open' && v.petition.mine === null))) || v.feudal.asks.length > 0;
 
 export function mountCrown(s: SandboxScene, mk: Mk): void {
   const style = document.createElement('style');
@@ -375,8 +431,11 @@ export function mountCrown(s: SandboxScene, mk: Mk): void {
   let v: CrownView = blank(s.sim.playerId ?? 0), tab: Tab = 'court', msg = '', bad = false, demo = false;
   /** A server call in flight (its buttons wait); the button armed by a first click (data-sure), until a second. */
   let busy = false, armed: string | null = null, disarm = 0;
+  /** W-153: a fetch of tribute sent over the region socket, waiting for its answer. */
+  let fetching = false;
   const form: OrderForm = { kind: 'attack', region: WORLD_REGIONS[0].id, target: '', res: 'stone', n: 100, bounty: 200, hours: 24 };
   const pact = { to: 0, kind: 'pact' as 'pact' | 'truce' };
+  const callForm = { region: s.region?.id ?? WORLD_REGIONS[0].id, men: 4, hours: 4 };
   const btn = menuBtn('rfCrownBtn', 'menu-crown', 'The Crown', 'the crown and council of your alliance', 'panel.crown', 4);
   const render = () => {
     setBadge(btn, +waiting(v));
@@ -384,8 +443,8 @@ export function mountCrown(s: SandboxScene, mk: Mk): void {
     const scroll = win.scrollTop;
     const sub = v.alliance === null ? (online() || demo ? 'no alliance' : 'offline')
       : v.election ? `election · closes in ${until(v.election.closes - v.now)}` : v.monarch ? `${v.regent ? 'regency' : 'reign'} of ${esc(v.monarch.name)}` : 'the crown is empty';
-    const tabs: [Tab, string][] = [['court', 'Court'], ['election', v.election ? 'Election •' : 'Election'], ['orders', `Orders${v.orders.some((o) => o.state === 'open') ? ` ${v.orders.filter((o) => o.state === 'open').length}` : ''}`], ['envoys', 'Envoys']];
-    const body = v.alliance === null ? noAlliance(online() || demo) : tab === 'court' ? courtHtml(v) : tab === 'election' ? electionHtml(v) : tab === 'orders' ? ordersHtml(v, form) : envoysHtml(v, pact);
+    const tabs: [Tab, string][] = [['court', 'Court'], ['oaths', v.feudal.asks.length ? `Oaths ${v.feudal.asks.length}` : 'Oaths'], ['election', v.election ? 'Election •' : 'Election'], ['orders', `Orders${v.orders.some((o) => o.state === 'open') ? ` ${v.orders.filter((o) => o.state === 'open').length}` : ''}`], ['envoys', 'Envoys']];
+    const body = v.alliance === null ? noAlliance(online() || demo) : tab === 'court' ? courtHtml(v) : tab === 'oaths' ? oathsHtml(v, s.region?.id ?? '', callForm) : tab === 'election' ? electionHtml(v) : tab === 'orders' ? ordersHtml(v, form) : envoysHtml(v, pact);
     win.innerHTML = `<div class="rf-head rf-ph">${CROWN_SVG(30)}<div style="flex:1;min-width:0"><div class="rf-name">The Crown${v.alliance !== null ? ` of ${esc(allianceName(v.alliance))}` : ''}</div><div class="sub">${sub}</div></div><button class="rf-tbtn x" data-act="close" title="close (Esc)">×</button></div>
       ${v.alliance === null ? '' : `<div class="rf-tabs">${tabs.map(([k, n]) => `<button class="rf-tab${tab === k ? ' on' : ''}" data-act="tab" data-t="${k}">${n}</button>`).join('')}</div>`}
       ${body}<div class="cr-msg${bad ? ' bad' : armed ? ' ask' : ''}">${esc(busy ? 'sending…' : msg)}</div>`;
@@ -463,6 +522,8 @@ export function mountCrown(s: SandboxScene, mk: Mk): void {
     if (sel('res')) form.res = sel('res');
     for (const k of ['n', 'bounty', 'hours'] as const) if (win.querySelector(`[data-in="${k}"]`)) form[k] = num(k) || form[k];
     if (sel('to')) pact.to = Number(sel('to'));
+    if (sel('callRegion')) callForm.region = sel('callRegion');
+    for (const [k, f] of [['callMen', 'men'], ['callHours', 'hours']] as const) if (win.querySelector(`[data-in="${k}"]`)) callForm[f] = num(k) || callForm[f];
   };
   win.addEventListener('click', (e) => {
     const t = (e.target as HTMLElement).closest<HTMLElement>('[data-act]');
@@ -492,6 +553,29 @@ export function mountCrown(s: SandboxScene, mk: Mk): void {
       inp.value = String(Math.max(0, Math.min(CROWN.taxMax, (Number(inp.value) || 0) + (a === 'tax+' ? 1 : -1))));
       return;
     }
+    if (a === 'oath') return call('oath', { lord: Number(sel('oathLord')) }, () => 'asked: he answers within two days');
+    if (a === 'oathAnswer') return call('oath/answer', { vassal: Number(t.dataset.p), yes: t.dataset.y === '1' }, (r) => (r.state === 'sworn' ? 'he is sworn to you' : r.state === 'withdrawn' ? 'withdrawn' : 'refused'));
+    if (a === 'breakOath') return call('oath/break', {}, () => 'your oath is broken');
+    if (a === 'rate') return call('rate', { pct: Math.round(num('rate')) }, (r) => `your share is ${r.pct}%`);
+    if (a === 'heir') return call('heir', { pid: Number(sel('heir')) || null }, () => (sel('heir') ? 'your heir is named' : 'no heir'));
+    if (a === 'abdicate') return call('abdicate', {}, (r) => (r.monarch ? 'your heir rules' : 'the realm votes'));
+    if (a === 'call') return call('call', { region: callForm.region, men: Math.round(callForm.men), hours: Math.round(callForm.hours) }, () => 'called: those sworn to you may come');
+    if (a === 'answerCall') {
+      void s.sim.api<{ error?: string; message?: string }>('POST', `contracts/${id}/take`, {}).then((r) => {
+        bad = !r || !!r.error;
+        msg = !r ? 'no answer' : r.error ? String(r.message ?? r.error) : 'taken: go and guard';
+        void load();
+      });
+      return;
+    }
+    if (a === 'tribute') {
+      const squad = s.siege.own()[0];
+      if (squad === undefined) return ((bad = true), (msg = 'select your men in the market court first'), render());
+      const of = t.dataset.of ? Number(t.dataset.of) : undefined;
+      fetching = true;
+      s.sim.stow({ dir: 'out', site: 'tribute', squad, ...(of !== undefined ? { of } : {}) });
+      return ((bad = false), (msg = 'they take it up…'), render());
+    }
     if (a === 'vote') return call('vote', { candidate: Number(t.dataset.p) }, () => 'your vote is cast');
     if (a === 'sign') return call('petition', {}, (r) => (r.state === 'open' ? 'the petition carries: the vote is open' : `signed: ${r.signs} of ${r.need}`));
     if (a === 'conf') return call('confidence', { yes: t.dataset.y === '1' }, () => 'your vote is cast');
@@ -517,6 +601,15 @@ export function mountCrown(s: SandboxScene, mk: Mk): void {
   win.addEventListener('change', (e) => {
     const t = e.target as HTMLElement;
     if (t.matches('[data-sel="region"],[data-sel="res"],[data-sel="to"]')) keepForm();
+  });
+  // W-153 the answer to a fetch or send over the region socket
+  s.sim.serverTaps.add((m) => {
+    if (fetching && (m.t === 'stowed' || m.t === 'error')) {
+      fetching = false;
+      bad = m.t === 'error';
+      msg = m.t === 'error' ? String(m.detail ?? '').replace(/^\w+: /, '') : `they carry ${Object.entries(m.goods).map(([r, n]) => `${fmt(n ?? 0)} ${r}`).join(', ')}`;
+      void load();
+    }
   });
   const off = () => serverOnly(btn, !online() && !demo);
   off();

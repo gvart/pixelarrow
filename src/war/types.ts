@@ -153,6 +153,9 @@ type SquadOrder =
   // team's pieces there, stores with their goods) goes to `team`. See WarBuildSim.turnSquad / rebanner.
   | { kind: 'turnSquad'; squad: SquadId; team: number }
   | { kind: 'rebanner'; centre: number; team: number; squad?: undefined }
+  // W-153 (room only): `owner` is sworn to `to` at pct % (to null: to nobody). Tribute set aside so far follows a new
+  // liege, or goes back to him with none. See WarBuildSim.liegeOf.
+  | { kind: 'setLiege'; owner: string; to: string | null; pct: number; squad?: undefined }
   | CraftOrder
   | AccessOrder
   | TradeOrder;
@@ -170,7 +173,8 @@ export interface HolderRef { building?: number; cart?: number; pile?: number }
 export interface CargoRef { squad?: number; persons?: string[]; cart?: number; building?: number; reserve?: number }
 export interface CargoAt { slots: { hold: import('./sim/holders').Hold; cap: number; x: number; y: number }[]; team: number; owner: string }
 export type TradeOrder =
-  | { kind: 'load'; squad: SquadId; from: HolderRef; res?: GoodKind; n?: number }
+  /** W-153 send: the owner's men take the tribute set aside in his building, sealed, to carry to his liege's store. */
+  | { kind: 'load'; squad: SquadId; from: HolderRef; res?: GoodKind; n?: number; send?: true }
   | { kind: 'unload'; squad: SquadId; to: HolderRef; res?: GoodKind }
   | { kind: 'escort'; squad: SquadId; cart: number }
   | { kind: 'salvagePile'; squad: SquadId; pile: number; uid: string };
@@ -588,6 +592,8 @@ export interface BuildingSnap {
   queue?: QueueSnap[];
   /** M6a: a store's or chest's goods and item count; a chest's owner. */
   goods?: Partial<Record<GoodKind, number>>; items?: number; owner?: string;
+  /** W-153: tribute set aside in it (not in `goods`), and for whom (`p:<id>`). */
+  tithe?: Partial<Record<GoodKind, number>>; titheTo?: string;
   /** W-88: a man of its side is at it now. W-89 (a building a player owns): who may use it, his share of the output, his fee an order. */
   staffed?: true; access?: Access; share?: number; fee?: number;
   /** W-91: its door: hit points left of `lockMax` (a house or store; 0: broken). */
@@ -640,6 +646,10 @@ export interface WarBuildSim extends WarSim {
   mayUse(id: number, owner: string, team: number): boolean;
   /** W-89 household: the host says who belongs to an owner's household (his citizens, his vassals). */
   setTies(fn: (owner: string, other: string) => boolean): void;
+  /** W-153: whom `owner` pays and at what %, as the setLiege order set it (null: nobody). */
+  liegeOf(owner: string): { to: string; pct: number } | null;
+  /** W-153: every owner who pays someone, in order. */
+  liegeOwners(): string[];
   /** Scenarios: the team's unfinished bridge pieces done at once (standing bridges at the start). */
   finishBridges(team: number): void;
   /** Dev: site `id` done at once (materials and labour free); false when it is no open site. */

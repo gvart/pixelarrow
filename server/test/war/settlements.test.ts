@@ -9,8 +9,8 @@ import { api, devLogin } from '../helpers';
 import { good, setGood } from './goods';
 import { noteSeen } from '../../src/war/abuse';
 import {
-  accept, expireOffers, farEnough, found, inbox, keeps, logAttack, members, offerGarrison, offerTerms, offerTruce, plotRefusal, rebel, refuse,
-  report, requestSettle, seasonSweep, settlement, SETTLE, tellOf, tributeOf, levy,
+  accept, expireOffers, farEnough, found, inbox, keeps, logAttack, members, offerGarrison, offerTerms, offerTruce, plotRefusal, refuse,
+  report, requestSettle, seasonSweep, settlement, SETTLE, tellOf,
 } from '../../src/war/settlements';
 
 const DB = () => env.DB!;
@@ -25,7 +25,7 @@ const make = (lord: number, n: number, now = Date.now()) => found(DB(), { region
 const pl = async (n: number) => (await devLogin(n)).playerId;
 
 describe('pure rules', () => {
-  it('spacing, plots and tribute', () => {
+  it('spacing and plots', () => {
     const c = { x: 0, y: 0, r: 24 };
     expect(farEnough(c, [{ x: 47, y: 0, r: 24 }])).toBe(false);
     expect(farEnough(c, [{ x: 48, y: 0, r: 24 }])).toBe(true);
@@ -33,9 +33,6 @@ describe('pure rules', () => {
     expect(plotRefusal(c, { x0: 20, y0: 20, x1: 22, y1: 22 }, [])).toMatch(/inside/);
     expect(plotRefusal(c, { x0: 2, y0: 2, x1: 6, y1: 6 }, [{ x0: 6, y0: 6, x1: 8, y1: 8 }])).toMatch(/overlaps/);
     expect(plotRefusal(c, { x0: 2, y0: 2, x1: 6, y1: 6 }, [{ x0: 7, y0: 2, x1: 8, y1: 8 }])).toBeNull();
-    expect(tributeOf(20, { wood: 100, coin: 50 }, 50)).toEqual({ wood: 20, coin: 20 });
-    expect(tributeOf(80, { stone: 100 }, 0)).toEqual({ stone: 30 }); // capped at SETTLE.tributeMax
-    expect(tributeOf(10, { iron: -5 }, 0)).toEqual({});
     const now = 10 * SETTLE.tendMs;
     expect(keeps({ level: 4, tended_at: 0 }, now)).toBe(true);
     expect(keeps({ level: 3, tended_at: now - SETTLE.tendMs + 1 }, now)).toBe(true);
@@ -88,26 +85,19 @@ describe('settle requests', () => {
 });
 
 describe('terms', () => {
-  it('vassal needs presence, a cap and an own settlement; join swaps lord and citizen; no cycles', async () => {
+  it('a take-over needs presence; join swaps lord and citizen; a garrison is the overlord\'s', async () => {
     const a = await pl(9321), b = await pl(9322), c = await pl(9323), now = Date.now();
     const sa = await make(a, 2, now), sb = await make(b, 3, now), sc = await make(c, 4, now);
-    expect(await code(offerTerms(DB(), a, 'vassal', sb, sa, 10, false, now))).toBe('not_present');
-    expect(await code(offerTerms(DB(), a, 'vassal', sb, sa, 31, true, now))).toBe('bad_request');
-    expect(await code(offerTerms(DB(), a, 'vassal', sb, sc, 10, true, now))).toBe('not_lord');
-    const v = await offerTerms(DB(), a, 'vassal', sb, sa, 20, true, now);
-    expect(await accept(DB(), b, v, null, now)).toBe('accepted');
-    const sbRow = await settlement(DB(), sb);
-    expect([sbRow.overlord_id, sbRow.tribute_pct]).toEqual([sa, 20]);
-    // b's vassal-to-be cannot be a's overlord's overlord: no cycle
-    const cyc = await offerTerms(DB(), b, 'vassal', sa, sb, 5, true, now);
-    expect(await code(accept(DB(), a, cyc, null, now))).toBe('cycle');
+    expect(await code(offerTerms(DB(), c, sa, false, now))).toBe('not_present');
+    expect(await code(offerTerms(DB(), a, sa, true, now))).toBe('yours');
+    await DB().prepare('UPDATE war_settlements SET overlord_id = ?2, tribute_pct = 20 WHERE id = ?1').bind(sb, sa).run();
     // garrison: only the overlord's lord, accepted by the vassal
     expect(await code(offerGarrison(DB(), c, sc, sb, now))).toBe('not_vassal');
     const g = await offerGarrison(DB(), a, sa, sb, now);
     await accept(DB(), b, g, null, now);
     expect((await members(DB(), sb)).find((m) => m.player_id === a)?.role).toBe('garrison');
     // join: c offers to take over a's settlement
-    const j = await offerTerms(DB(), c, 'join', sa, null, 0, true, now);
+    const j = await offerTerms(DB(), c, sa, true, now);
     await accept(DB(), a, j, null, now);
     expect((await settlement(DB(), sa)).lord_pid).toBe(c);
     const ms = await members(DB(), sa);
@@ -120,29 +110,10 @@ describe('terms', () => {
     const sa = await make(a, 5, now), sb = await make(b, 6, now);
     await noteSeen(DB(), a, '10.9.9.31', null, now);
     await noteSeen(DB(), b, '10.9.9.31', null, now);
-    expect(await code(offerTerms(DB(), a, 'vassal', sb, sa, 10, true, now))).toBe('linked');
-    expect(await code(offerTerms(DB(), a, 'join', sb, null, 0, true, now))).toBe('linked');
+    expect(await code(offerTerms(DB(), a, sb, true, now))).toBe('linked');
     await setGood(a, 'coin', 100);
     expect(await code(offerTruce(DB(), a, sa, sb, 50, now))).toBe('linked');
     expect(await good(a, 'coin')).toBe(100);
-  });
-});
-
-describe('tribute', () => {
-  it('the overlord\'s lord gets the share of gain and stall coin; logged; nothing without an overlord', async () => {
-    const a = await pl(9341), b = await pl(9342), now = Date.now();
-    const sa = await make(a, 7, now), sb = await make(b, 8, now);
-    expect(await levy(DB(), sb, { wood: 100 }, 0, now)).toBeNull();
-    await accept(DB(), b, await offerTerms(DB(), a, 'vassal', sb, sa, 30, true, now), null, now);
-    await setGood(a, 'coin', 0);
-    const r = await levy(DB(), sb, { wood: 100, coin: 40 }, 60, now + H);
-    expect(r).toEqual({ overlord: sa, lord: a, goods: { wood: 30, coin: 30 } });
-    expect(await good(a, 'wood')).toBe(30);
-    expect(await good(a, 'coin')).toBe(30);
-    expect((await settlement(DB(), sb)).levied_at).toBe(now + H);
-    const log = await DB().prepare("SELECT other_id, detail FROM war_settlement_log WHERE settlement_id = ?1 AND kind = 'tribute'").bind(sb).first<{ other_id: number; detail: string }>();
-    expect(log!.other_id).toBe(sa);
-    expect(JSON.parse(log!.detail).pct).toBe(30);
   });
 });
 
@@ -151,7 +122,7 @@ describe('truces', () => {
     const a = await pl(9351), b = await pl(9352), v = await pl(9353), now = Date.now();
     const sa = await make(a, 9, now), sb = await make(b, 10, now), sv = await make(v, 11, now);
     // sv is a vassal of sb: an attack on sv is an attack on sb
-    await accept(DB(), v, await offerTerms(DB(), b, 'vassal', sv, sb, 10, true, now), null, now);
+    await DB().prepare('UPDATE war_settlements SET overlord_id = ?2, tribute_pct = 10 WHERE id = ?1').bind(sv, sb).run();
     await setGood(a, 'coin', 500);
     await setGood(b, 'coin', 500);
     expect(await code(offerTruce(DB(), a, sa, sb, 600, now))).toBe('no_coin');
@@ -183,22 +154,6 @@ describe('truces', () => {
   });
 });
 
-describe('rebellion', () => {
-  it('the vassal\'s lord ends the tie; the garrison leaves; logged', async () => {
-    const a = await pl(9361), b = await pl(9362), now = Date.now();
-    const sa = await make(a, 12, now), sb = await make(b, 13, now);
-    expect(await code(rebel(DB(), b, sb, now))).toBe('free');
-    await accept(DB(), b, await offerTerms(DB(), a, 'vassal', sb, sa, 15, true, now), null, now);
-    await accept(DB(), b, await offerGarrison(DB(), a, sa, sb, now), null, now);
-    expect(await code(rebel(DB(), a, sb, now))).toBe('not_lord');
-    expect(await rebel(DB(), b, sb, now)).toBe(sa);
-    const s = await settlement(DB(), sb);
-    expect([s.overlord_id, s.tribute_pct]).toEqual([null, 0]);
-    expect((await members(DB(), sb)).some((m) => m.role === 'garrison')).toBe(false);
-    expect((await DB().prepare("SELECT actor_id FROM war_settlement_log WHERE settlement_id = ?1 AND kind = 'rebellion'").bind(sb).first<{ actor_id: number }>())!.actor_id).toBe(b);
-  });
-});
-
 describe('season end', () => {
   it('towns and tended villages persist; the rest go, bonds back, vassals freed', async () => {
     await DB().batch(['war_settlements', 'war_settlement_members', 'war_settlement_offers', 'war_settlement_log'].map((t) => DB().prepare(`DELETE FROM ${t}`)));
@@ -207,7 +162,7 @@ describe('season end', () => {
     await report(DB(), town, { level: 4, persist: { pieces: [1, 2] } }, now);
     await report(DB(), village, { level: 3 }, now);
     await report(DB(), tended, { tended: true }, later - H);
-    await accept(DB(), a, await offerTerms(DB(), b, 'vassal', town, village, 10, true, now), null, now);
+    await DB().prepare('UPDATE war_settlements SET overlord_id = ?2, tribute_pct = 10 WHERE id = ?1').bind(town, village).run();
     await setGood(b, 'coin', 100);
     const t = await offerTruce(DB(), b, village, tended, 60, later - H); // still open at the sweep
     expect(await good(b, 'coin')).toBe(40);

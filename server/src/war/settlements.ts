@@ -7,16 +7,13 @@
  *    `mapOk` checks the map (claim points, landmarks, homes, region rules).
  *  - Settle: a player asks a settlement for a plot; its lord accepts with a rect inside r that overlaps no other plot,
  *    or refuses.
- *  - Terms: a lord whose men stand on another settlement's ground (the caller checks >= SETTLE.presence men) offers
- *    vassal (tribute at most SETTLE.tributeMax %, the offerer's settlement its overlord) or join (any player: on
- *    accept he becomes its lord, the old lord a citizen). Garrison: an overlord's lord asks to garrison his vassal.
+ *  - Terms: a player whose men stand on a settlement's ground (the caller checks >= SETTLE.presence men) offers join: on
+ *    accept he becomes its lord, the old lord a citizen. W-150: overlord_id and tribute_pct only follow oaths inside
+ *    one alliance (./oaths.ts). Garrison: an overlord's lord asks to garrison his vassal.
  *  - Truce: between two settlements' lords, each escrowing `bond` coin from his strongroom; active SETTLE.truceMs. An
  *    attack logged by one side's lord on the other side (or on its vassal) breaks it: both bonds go to the victim's
  *    lord. Expired or ended: bonds back.
- *  - Tribute: the room passes a vassal's store gain since the last levy and its citizens' stall coin; the overlord's
- *    lord gets tribute_pct of it in his strongroom (the caller takes the same out of the vassal's store and stalls).
- *    Ties are exempt from abuse.ts's gift caps, but no tie forms (nor tribute flows) between linked accounts.
- *  - Rebel: a vassal's lord ends the tie (garrison out); logged. Attacks are logged; tellOf() is who must hear.
+ *  - Attacks are logged; tellOf() is who must hear. No tie forms between linked accounts.
  *  - Season end: settlements at Town level (SETTLE.persistLevel) or tended within SETTLE.tendMs persist; the rest go.
  *
  * Offer states: open -> accepted | refused | cancelled | expired; a truce open -> active -> ended | broken.
@@ -24,12 +21,12 @@
 import { WAR_SEASON } from '../../../src/war/world/alliances';
 import { ApiError } from '../errors';
 import { linked } from './abuse';
-import { crownTax } from './crown';
-import { batch, guard, lotsOf, planTake, putLotsStmts, putStmt, round, strongroom, totalsOf, type Goods } from './holders';
+import { batch, guard, lotsOf, planTake, putLotsStmts, strongroom, totalsOf } from './holders';
+import { syncTies } from './oaths';
 
 const HOUR = 3_600_000;
 export const SETTLE = {
-  r: 24, offerMs: 48 * HOUR, tributeMax: 30, presence: 6, truceMs: 7 * 24 * HOUR, bondMax: 5000,
+  r: 24, offerMs: 48 * HOUR, presence: 6, truceMs: 7 * 24 * HOUR, bondMax: 5000,
   tendMs: 72 * HOUR, persistLevel: 4, nameMax: 32,
 };
 
@@ -72,16 +69,6 @@ export function plotRefusal(c: Circle, p: Plot, taken: readonly Plot[]): string 
   if (!plotInside(c, p)) return 'The plot must lie inside the settlement';
   if (taken.some((t) => overlaps(p, t))) return 'The plot overlaps another';
   return null;
-}
-
-/** Tribute on a store gain plus stall coin at `pct` (capped at SETTLE.tributeMax). */
-export function tributeOf(pct: number, gain: Goods, stallCoin: number): Goods {
-  const k = Math.max(0, Math.min(SETTLE.tributeMax, pct)) / 100, out: Goods = {};
-  for (const [res, n] of Object.entries({ ...gain, coin: (gain.coin ?? 0) + Math.max(0, stallCoin) })) {
-    const t = round(Math.max(0, n) * k);
-    if (t > 0) out[res] = t;
-  }
-  return out;
 }
 
 /** Does a settlement persist over the season's end? */
@@ -170,6 +157,7 @@ export async function found(db: D1Database, f: FoundIn, mapOk: (c: Circle) => st
     .bind(f.region, f.centre, c.x, c.y, c.r, name, f.lord, WAR_SEASON.id, now)
     .first<{ id: number }>();
   await db.prepare("INSERT INTO war_settlement_members (settlement_id, player_id, role, since) VALUES (?1, ?2, 'lord', ?3)").bind(r!.id, f.lord, now).run();
+  await syncTies(db, f.lord); // W-150: a sworn man's new settlement flies his oath
   return r!.id;
 }
 
@@ -237,22 +225,13 @@ export async function requestSettle(db: D1Database, pid: number, id: number, now
   return insertOffer(db, { kind: 'settle', from: pid, fromS: null, to: id }, now);
 }
 
-/**
- * Offer terms to a settlement whose ground the offerer's men stand on (`present`, the room's check): vassal (the
- * offerer's settlement `from` its overlord, tribute `pct`) or join (the offerer its lord).
- */
-export async function offerTerms(db: D1Database, pid: number, kind: 'vassal' | 'join', to: number, from: number | null, pct: number, present: boolean, now: number): Promise<number> {
+/** Offer to take a settlement over whose ground the offerer's men stand on (`present`, the room's check). */
+export async function offerTerms(db: D1Database, pid: number, to: number, present: boolean, now: number): Promise<number> {
   if (!present) throw new ApiError(409, 'not_present', `At least ${SETTLE.presence} of your men must stand on its ground`);
   const t = await settlement(db, to);
   if (t.lord_pid === pid) throw new ApiError(409, 'yours', 'It is yours');
-  if (kind === 'vassal') {
-    if (from === null || from === to) throw new ApiError(400, 'bad_request', 'Your settlement to be its overlord');
-    await mustLord(db, pid, from);
-    if (!Number.isInteger(pct) || pct < 0 || pct > SETTLE.tributeMax) throw new ApiError(400, 'bad_request', `Tribute 0 to ${SETTLE.tributeMax} %`);
-    if (t.overlord_id !== null) throw new ApiError(409, 'vassal', 'It has an overlord');
-  }
   await noLink(db, pid, t.lord_pid, now);
-  return insertOffer(db, { kind, from: pid, fromS: kind === 'vassal' ? from : null, to, pct: kind === 'vassal' ? pct : 0 }, now);
+  return insertOffer(db, { kind: 'join', from: pid, fromS: null, to }, now);
 }
 
 /** An overlord's lord asks to garrison his vassal. */
@@ -300,12 +279,6 @@ export async function accept(db: D1Database, pid: number, id: number, plot: Plot
         .bind(s.id, o.from_pid, plot.x0, plot.y0, plot.x1, plot.y1, now),
       markStmt(db, id, 'accepted'),
     );
-  } else if (o.kind === 'vassal') {
-    if (s.overlord_id !== null) throw new ApiError(409, 'vassal', 'It has an overlord');
-    const over = await settlement(db, o.from_settlement!);
-    if (over.lord_pid !== o.from_pid) throw new ApiError(409, 'changed', 'The offerer no longer rules that settlement');
-    if (over.id === s.id || (await overlords(db, over)).some((x) => x.id === s.id)) throw new ApiError(409, 'cycle', 'Your own overlord cannot be your vassal');
-    stmts.push(db.prepare('UPDATE war_settlements SET overlord_id = ?2, tribute_pct = ?3, levied_at = ?4 WHERE id = ?1 AND overlord_id IS NULL').bind(s.id, over.id, o.tribute_pct, now), markStmt(db, id, 'accepted'));
   } else if (o.kind === 'join') {
     stmts.push(
       db.prepare("UPDATE war_settlement_members SET role = 'citizen' WHERE settlement_id = ?1 AND player_id = ?2").bind(s.id, pid),
@@ -324,6 +297,7 @@ export async function accept(db: D1Database, pid: number, id: number, plot: Plot
     stmts.push(...take.stmts, ...putLotsStmts(db, escrow(id, 'to'), take.taken), markStmt(db, id, 'active', now + SETTLE.truceMs));
   }
   await batch(db, stmts);
+  if (o.kind === 'join') await syncTies(db, o.from_pid); // W-150: the new lord's oath, not the old one's
   return o.kind === 'truce' ? 'active' : 'accepted';
 }
 
@@ -353,42 +327,8 @@ export async function inbox(db: D1Database, pid: number, now: number) {
 
 // ---------------------------------------------------------------- ties at work
 
-const logStmt = (db: D1Database, id: number, kind: 'attack' | 'tribute' | 'rebellion' | 'truce_break', other: number | null, actor: number | null, detail: unknown, now: number) =>
+const logStmt = (db: D1Database, id: number, kind: 'attack' | 'truce_break', other: number | null, actor: number | null, detail: unknown, now: number) =>
   db.prepare('INSERT INTO war_settlement_log (settlement_id, kind, other_id, actor_id, detail, at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)').bind(id, kind, other, actor, JSON.stringify(detail), now);
-
-/**
- * Levy a vassal's tribute: `gain` its store's goods gained since the last levy, `stallCoin` its citizens' stall coin
- * since then. The overlord's lord gets the tribute in his strongroom; returns it (null: no overlord, or linked lords),
- * for the caller to take out of the vassal's store and stalls (`extra`: statements that take the stalls' share, in the
- * same batch as the credit).
- */
-export async function levy(db: D1Database, id: number, gain: Goods, stallCoin: number, now: number, extra: readonly D1PreparedStatement[] = []): Promise<{ overlord: number; lord: number; goods: Goods } | null> {
-  const s = await settlement(db, id);
-  if (s.overlord_id === null) return null;
-  const ov = await settlement(db, s.overlord_id);
-  if (await linked(db, s.lord_pid, ov.lord_pid, now)) return null;
-  const goods = tributeOf(s.tribute_pct, gain, stallCoin);
-  await db.batch([
-    ...Object.entries(goods).map(([res, n]) => putStmt(db, strongroom(ov.lord_pid), res, n, s.region)),
-    ...(await crownTax(db, ov.lord_pid, goods.coin ?? 0, strongroom(ov.lord_pid), s.region)), // W-64: the alliance tax on tribute
-    db.prepare('UPDATE war_settlements SET levied_at = ?2 WHERE id = ?1').bind(id, now),
-    logStmt(db, id, 'tribute', ov.id, s.lord_pid, { goods, pct: s.tribute_pct }, now),
-    ...extra,
-  ]);
-  return { overlord: ov.id, lord: ov.lord_pid, goods };
-}
-
-/** A vassal's lord rebels: the tie ends, the overlord's garrison is out. Returns the old overlord. */
-export async function rebel(db: D1Database, pid: number, id: number, now: number): Promise<number> {
-  const s = await mustLord(db, pid, id);
-  if (s.overlord_id === null) throw new ApiError(409, 'free', 'It has no overlord');
-  await db.batch([
-    db.prepare('UPDATE war_settlements SET overlord_id = NULL, tribute_pct = 0 WHERE id = ?1').bind(id),
-    db.prepare("DELETE FROM war_settlement_members WHERE settlement_id = ?1 AND role = 'garrison'").bind(id),
-    logStmt(db, id, 'rebellion', s.overlord_id, pid, {}, now),
-  ]);
-  return s.overlord_id;
-}
 
 /**
  * The room logs an attack by player `by` on settlement `victim`. An attack on a vassal is one on its overlords too:

@@ -36,6 +36,9 @@ const FOE_R = WAR_SEASON.foeRadius;
 /** Print each note as it happens (a long run's progress while tuning). */
 const WATCH = true;
 
+/** A squad and its cart stand this far around the point they were sent to. */
+const FORMATION = 5;
+
 /** A player's whole run: his clock, rooms and what happened. */
 class Run {
   now = START;
@@ -89,13 +92,13 @@ class Run {
     return Math.max(0, ...at.map((u) => Math.hypot(u.x - x, u.y - y)));
   }
   /** Everyone walks to a point (within r): ticks taken. */
-  async walk(x: number, y: number, r = 6, max = 20_000): Promise<number> {
+  async walk(x: number, y: number, r = 6, max = 9000): Promise<number> {
     for (const q of this.squads()) this.room.sim.order({ kind: 'move', squad: q, x: Math.round(x), y: Math.round(y) });
-    return this.until(() => this.far(x, y) <= r, max);
+    return this.until(() => this.far(x, y) <= r + FORMATION, max);
   }
   async toTown() {
     const at = npcSpot(this.room.region);
-    return this.walk(at.x, at.y, 11);
+    return this.walk(at.x, at.y, 8);
   }
 
   /** Every cart crewed by a squad of his (arriving, only the first is). */

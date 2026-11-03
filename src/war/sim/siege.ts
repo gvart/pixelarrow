@@ -29,7 +29,7 @@ import type { ResourceKind, ShotSnap, SiegeSnap, SiegeState, SiegeType } from '.
 import { FIRE, type Works } from './works';
 import type { Rng } from '../../sim/rng';
 import { RECIPES } from '../../data/recipes';
-import { itemList, loads, newHold, totals, type Hold } from './holders';
+import { isTithe, itemList, loads, newHold, totals, type Hold } from './holders';
 import { CART, CART_LOADS, PACK_MULES } from './trade';
 import type { PerkFx } from '../../data/warPerks';
 
@@ -383,6 +383,8 @@ export function createSiege(works: Works, rng: Rng, hooks: SiegeHooks) {
       return { type: e.type as 'handcart' | 'wagon', hold };
     },
     /** M6i (server): a capture between linked accounts is undone: the cart is `owner`'s (team `team`) again. */
+    /** W-153: the holds of `owner`'s carts. */
+    cartHolds: (owner: string) => engines.flatMap((e) => (alive(e) && cart(e) && e.owner === owner && e.hold ? [e.hold] : [])),
     setOwner(id: number, team: number, owner: string): void {
       const e = engines[id];
       if (!alive(e) || !cart(e)) return;
@@ -517,6 +519,7 @@ export function createSiege(works: Works, rng: Rng, hooks: SiegeHooks) {
           if (by && e.cap >= CART.capture) {
             e.team = by[0];
             e.owner = by[1];
+            if (e.hold) e.hold.lots = e.hold.lots.map((l) => (isTithe(l) ? { r: l.r, n: l.n, o: l.o } : l)); // W-153: seized, tribute is plain loot
             e.crew = -1;
             e.mode = 'none';
             e.goal = null;

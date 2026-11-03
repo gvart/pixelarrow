@@ -12,6 +12,10 @@ import { NET_VERSION } from '../../../src/war/net/protocol';
 import { midPrice, npcGood, npcSpot, NPC_MINT } from '../../../src/war/net/npcMarket';
 import { cartCap, workerCap, type PathId } from '../../../src/war/world/start';
 import { getFavour } from '../../src/war/favour';
+import { goodsOf } from '../../src/war/holders';
+import { answerOath, owedBy, rateOf, swear, tributePlace } from '../../src/war/oaths';
+import { joinAlliance } from '../../src/war/world/members';
+import { WAR_SEASON } from '../../../src/war/world/alliances';
 import { npcBooks, npcDeal, npcView } from '../../src/war/npcMarket';
 import { claimForJoin } from '../../src/war/persons';
 import { warRegion } from '../../src/war/regions';
@@ -149,6 +153,28 @@ describe('level from trade (W-111, W-148)', () => {
     const d = (await npcDeal(env, t.room, t.pid, { op: 'sell', res: 'iron', n: 10 }, NOW)).done;
     expect(await fav()).toBeGreaterThan(f0);
     expect(await fav()).toBeLessThanOrEqual(f0 + d.coin);
+  });
+});
+
+describe('tribute on a sale to a town (W-153)', () => {
+  it('his liege\'s part stays at the town under his name, and no coin is made or lost', async () => {
+    const t = await player(9611, 'trader'), lord = (await devLogin(9612)).playerId;
+    await joinAlliance(DB(), lord, 0 as never, NOW, WAR_SEASON.id);
+    await DB().prepare("INSERT INTO war_settlements (region, centre_piece, x, y, r, name, lord_pid, level, founded_season, tended_at, levied_at) VALUES ('dodona', 9612, 10, 10, 24, 'S', ?1, 1, 1, 0, 0)").bind(lord).run();
+    await swear(DB(), t.pid, lord, NOW, WAR_SEASON.id);
+    expect(await answerOath(DB(), lord, t.pid, true, NOW, WAR_SEASON.id)).toBe('sworn');
+    walkToTown(t.room, t.pid, t.squad);
+    await setGood(t.pid, 'coin', 0);
+    const purse0 = (await npcBooks(DB(), HOME, NOW)).purse, rate = await rateOf(DB(), lord, WAR_SEASON.id);
+    expect(rate).toBeGreaterThan(0);
+    give(t.room, t.pid, t.squad, 'iron', 10);
+    const d = (await npcDeal(env, t.room, t.pid, { op: 'sell', res: 'iron', n: 10 }, NOW)).done;
+    expect(d.tribute).toBeCloseTo((d.coin * rate) / 100, 1);
+    expect((await goodsOf(DB(), tributePlace(HOME, t.pid))).coin).toBeCloseTo(d.tribute!, 3);
+    expect(await good(t.pid, 'coin')).toBeCloseTo(d.coin - d.tribute!, 3);
+    expect((await goodsOf(DB(), `sr:${lord}`)).coin ?? 0).toBe(0); // nothing teleports
+    expect(purse0 - (await npcBooks(DB(), HOME, NOW)).purse).toBeCloseTo(d.coin, 3);
+    expect(await owedBy(DB(), t.pid)).toEqual([{ region: HOME, what: 'stall', goods: { coin: d.tribute } }]);
   });
 });
 

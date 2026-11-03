@@ -86,6 +86,10 @@ export const DELETION_MAP: Record<string, TableRule> = {
   war_crown_offices: { rule: 'delete', pid: ['player_id'] },
   war_crown_ballots: { rule: 'delete', pid: ['player_id'] },
   war_crown_shares: { rule: 'delete', pid: ['player_id'] },
+  // W-150: his oaths, either way, his rate and what is set aside for or by him
+  war_oaths: { rule: 'delete', pid: ['vassal_pid', 'lord_pid'] },
+  war_oath_rates: { rule: 'delete', pid: ['player_id'] },
+  war_tribute_held: { rule: 'delete', pid: ['payer_pid', 'receiver_pid'] },
   // W-66: his divine favour (per account) and what earned it
   war_favour: { rule: 'delete', pid: ['player_id'] },
   war_favour_log: { rule: 'delete', pid: ['player_id'] },
@@ -118,7 +122,7 @@ export const DELETION_MAP: Record<string, TableRule> = {
   war_settlements: { rule: 'shared_history', kept: ['lord_pid'] },
   war_settlement_log: { rule: 'shared_history', kept: ['actor_id'] },
   // W-64: the alliance's crown (its monarch the tombstone until the next election), its votes, orders, pacts and chronicle
-  war_crowns: { rule: 'shared_history', kept: ['monarch_pid'] },
+  war_crowns: { rule: 'shared_history', kept: ['monarch_pid', 'heir_pid'] },
   war_crown_votes: { rule: 'shared_history', kept: ['target_pid', 'winner_pid'] },
   war_crown_orders: { rule: 'shared_history', kept: ['posted_by'] },
   war_crown_pacts: { rule: 'shared_history', kept: ['offered_by', 'answered_by', 'broken_by'] },

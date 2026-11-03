@@ -481,7 +481,7 @@ export function mountMarket(s: SandboxScene, mk: Mk): MarketHud {
     if (a === 'nPick') { form.nPick = t.dataset.r!; render(); return; }
     if (a === 'nStep') { form.nN = Math.max(1, form.nN + Number(t.dataset.d)); render(); return; }
     if (a === 'nBuy') { void run(M.npc({ op: 'buy', res: form.nPick as never, n: form.nN }), (r) => `bought ${fmt(r.n ?? 0)} ${form.nPick} for ${r.coin} coin`); return; }
-    if (a === 'nSell') { void run(M.npc({ op: 'sell', res: form.nPick as never, n: form.nN }), (r) => `sold ${fmt(r.n ?? 0)} ${form.nPick} for ${r.coin} coin`); return; }
+    if (a === 'nSell') { void run(M.npc({ op: 'sell', res: form.nPick as never, n: form.nN }), (r) => `sold ${fmt(r.n ?? 0)} ${form.nPick} for ${r.coin} coin${r.tribute ? `, ${fmt(r.tribute)} of it set aside here for your liege` : ''}`); return; }
     if (a === 'nHire') { void run(M.npc({ op: 'hire', cls: form.nHire as never }), (r) => `hired for ${r.coin} coin: he stands with your men`); return; }
     if (a === 'nCart') { void run(M.npc({ op: 'cart', cart: form.nCart as never }), (r) => `bought for ${r.coin} coin: it rolls up beside your men`); return; }
     // the trade screen: pick a good, buy or sell, how many, then the deal (a fill of the best offer that is not yours)

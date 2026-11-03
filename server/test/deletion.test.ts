@@ -75,6 +75,10 @@ const OVERRIDE: Record<string, (s: Seeded) => Record<string, unknown>> = {
   war_crown_ballots: () => ({ stage: 'ballot' }),
   war_crown_orders: () => ({ kind: 'rally', bounty: 0, state: 'done' }),
   war_crown_pacts: () => ({ kind: 'pact', state: 'ended' }),
+  // W-150
+  war_oaths: () => ({ state: 'sworn' }),
+  war_oath_rates: () => ({ pct: 10 }),
+  war_tribute_held: () => ({ goods: '{}' }),
 };
 /** Created by the deletion itself, or seeded by hand below. */
 const NOT_SEEDED = new Set(['players', 'deletion_jobs', 'ban_tombstones']);

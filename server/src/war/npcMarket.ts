@@ -16,6 +16,7 @@ import { ApiError } from '../errors';
 import { fill, room as freeLoads, takeOut, type Bundle, type Slot } from './cargo';
 import { cappedStmts, FAVOUR_EARN } from './favour';
 import { batch, ensureHolder, goodsOf, guard, HOME, lotsOf, planTake, putStmt, strongroom } from './holders';
+import { tributeCut, tributePlace } from './oaths';
 import { statStmt } from './peace';
 import { claimForJoin, IN_ARMY, insertPerson, joinCheck, joinError, nameFor, newId, WORKER } from './persons';
 import type { WarRoom } from './room';
@@ -142,18 +143,21 @@ export async function npcDeal(env: Pick<Env, 'DB'>, room: WarRoom, pid: number, 
     const plan = await planSell(db, town, res, want, now), b = takeOut(slots, { [res]: plan.n })!;
     // W-111, W-147: only goods carried in from another land pay his level; a town's own goods sold back to it do not
     const far = b.lots.filter((l) => l.o !== town && !(home && l.o === HOME)).reduce((t, l) => t + l.n, 0), abroad = Math.floor((plan.coin * far) / plan.n);
+    // W-153: a sale is sale income: his liege's part stays at this town under his name until someone's men fetch it (./regionDO.ts stowTribute)
+    const cut = await tributeCut(db, pid, plan.coin), kept = plan.coin - cut;
     try {
       await batch(db, [
         ...plan.stmts, statStmt(db, pid, 'sold', plan.coin), ...(abroad > 0 ? await cappedStmts(db, pid, abroad * FAVOUR_EARN.sold, 'sold', now) : []),
-        ...(home ? [ensureHolder(db, strongroom(pid), 'strongroom', { pid }, now), putStmt(db, strongroom(pid), 'coin', plan.coin, town)] : []),
+        ...(home ? [ensureHolder(db, strongroom(pid), 'strongroom', { pid }, now), putStmt(db, strongroom(pid), 'coin', kept, town)] : []),
+        ...(cut > 0 ? [putStmt(db, tributePlace(town, pid), 'coin', cut)] : []),
       ]);
     } catch (e) {
       fill(slots.map((s) => ({ ...s, cap: Infinity })), b);
       throw e;
     }
-    if (!home) npcGive(room, slots, { lots: [{ r: 'coin', n: plan.coin, o: town }], items: [] });
+    if (!home) npcGive(room, slots, { lots: [{ r: 'coin', n: kept, o: town }], items: [] });
     room.storyTrade(pid, 'sell', plan.coin, abroad);
-    return { done: { t: 'npcDone', op: 'sell', coin: plan.coin, res, n: plan.n } };
+    return { done: { t: 'npcDone', op: 'sell', coin: plan.coin, res, n: plan.n, ...(cut > 0 ? { tribute: cut } : {}) } };
   }
 
   if (m.op === 'buy') {

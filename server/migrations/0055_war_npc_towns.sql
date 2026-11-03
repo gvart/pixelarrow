@@ -21,7 +21,8 @@ CREATE TABLE war_npc_stock (
 
 ALTER TABLE war_alliance_members ADD COLUMN start_cart INTEGER NOT NULL DEFAULT 0;
 
-DROP TABLE IF EXISTS war_contracts;
+-- W-146: hunt, its target; on 0054's table
+ALTER TABLE war_contracts RENAME TO war_contracts_old;
 CREATE TABLE war_contracts (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
   kind        TEXT NOT NULL CHECK (kind IN ('carry', 'supply', 'escort', 'build', 'guard', 'hunt')),
@@ -29,7 +30,7 @@ CREATE TABLE war_contracts (
   to_town     TEXT NOT NULL,
   poster      INTEGER NOT NULL REFERENCES players(id),
   taker       INTEGER REFERENCES players(id),
-  reward      INTEGER NOT NULL CHECK (reward > 0),
+  reward      INTEGER NOT NULL CHECK (reward >= 0 AND (reward > 0 OR kind = 'guard')),
   res         TEXT,
   n           REAL NOT NULL DEFAULT 0,
   delivered   REAL NOT NULL DEFAULT 0,
@@ -40,11 +41,14 @@ CREATE TABLE war_contracts (
   men         INTEGER NOT NULL DEFAULT 0,
   paid        REAL NOT NULL DEFAULT 0,
   away        REAL NOT NULL DEFAULT 0,
-  target      TEXT,
   state       TEXT NOT NULL DEFAULT 'open' CHECK (state IN ('open', 'taken', 'done', 'expired', 'cancelled', 'broken')),
   deadline    INTEGER NOT NULL,
-  created_at  INTEGER NOT NULL
+  created_at  INTEGER NOT NULL,
+  target      TEXT
 );
+INSERT INTO war_contracts (id, kind, town, to_town, poster, taker, reward, res, n, delivered, value, deposit, region, site, men, paid, away, state, deadline, created_at)
+  SELECT id, kind, town, to_town, poster, taker, reward, res, n, delivered, value, deposit, region, site, men, paid, away, state, deadline, created_at FROM war_contracts_old;
+DROP TABLE war_contracts_old;
 CREATE INDEX war_contracts_town ON war_contracts (town, state);
 CREATE INDEX war_contracts_poster ON war_contracts (poster, state);
 CREATE INDEX war_contracts_region ON war_contracts (region, state);

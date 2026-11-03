@@ -44,8 +44,7 @@
  * polled every SETTLE_POLL ticks (and before each join) into the room, which flies each player's banner by ground and
  * turns squads and towns whose banner changed; clients hear `settlements` when their view changes. Finished camps are
  * founded, attacks logged (the lords told over the world), level, tending and persisting pieces reported every
- * SETTLE_REPORT, tribute levied every LEVY_MS (the vassal's store gain and its citizens' stall coin since the last levy,
- * taken out of them). PRESENCE.check asks the room (presence RPC). A fresh room lays its settlements' persisting pieces
+ * SETTLE_REPORT with the tribute set aside in its buildings (W-153). PRESENCE.check asks the room (presence RPC). A fresh room lays its settlements' persisting pieces
  * down again under their lord's alliance; seasonReset writes them first.
  */
 import { DurableObject } from 'cloudflare:workers';
@@ -60,7 +59,7 @@ import { contractPoints, scorePeace } from './peace';
 import { handoffDone, handoffRefusal, linkedCaptures } from './abuse';
 import { loads } from '../../../src/war/sim/holders';
 import { ApiError } from '../errors';
-import { batch, ensureHolder, guard, lotsOf, placeItemStmt, planTake, putStmt, strongroom } from './holders';
+import { batch, ensureHolder, guard, lotsOf, placeItemStmt, planTake, putStmt, strongroom, totalsOf } from './holders';
 import { loadsIn, SITE, site } from './market';
 import { holderOf } from './tradeRoutes';
 import { bundleGoods, bundleLoads, type Bundle } from './cargo';
@@ -103,10 +102,10 @@ import type { StorySave } from '../../../src/war/sim/stories';
 import { fightTallies, tallyStmt } from './tasks';
 import type { GuideSave } from '../../../src/war/net/guide';
 import { bookFight, pactAttack, pactsOf } from './crown';
-import { found, levy, logAttack, PRESENCE, report as reportSettlement, SETTLE, tributeOf } from './settlements';
+import { found, logAttack, PRESENCE, report as reportSettlement } from './settlements';
+import { liegeOf, reportHeld, sworn, tributePlace } from './oaths';
 import { foundRefusal, loadRegionSettlements, tiedTo, type Persist, type RoomSettlement } from './roomSettlements';
 import { goodsOf } from './holders';
-import { stallId } from './market';
 
 const TICK_MS = 100;
 /** Ticks between summaries to the world map (sent only when changed). */
@@ -144,9 +143,6 @@ const SETTLE_POLL = 100;
 /** W-98: how often (ticks) the room looks for his men healed here or waiting for a group at home. */
 const MUSTER_POLL = 600;
 const SETTLE_REPORT = 600;
-export const LEVY_MS = 6 * 3_600_000;
-const levyKey = (id: number) => `levy:${id}`;
-interface LevyBase { store: Record<string, number>; stalls: Record<number, number> }
 
 /** W-63: the terms route asks the settlement's region room whether the offerer's men stand on its ground; the level route hands it a spend (LIVE). */
 export function wirePresence(env: Env): void {
@@ -205,6 +201,8 @@ export class WarRegionDO extends DurableObject<Env> {
   private settles: RoomSettlement[] = [];
   private settleSent = new Map<number, string>();
   private persisted = new Map<number, string>();
+  /** W-153: the tribute set aside here as last reported. */
+  private heldKey = '';
   /** The catch-up running in slices (caughtUp), shared by every caller meanwhile. */
   private draining: Promise<number> | null = null;
 
@@ -669,6 +667,7 @@ export class WarRegionDO extends DurableObject<Env> {
       send(ws, { t: 'error', code: 'badTarget', detail: `${e.code}: ${e.message}` });
     };
     if (m.site === 'contract') return this.stowContract(ws, pid, room, m, from);
+    if (m.site === 'tribute') return this.stowTribute(ws, pid, room, m, from);
     const kind = m.site;
     let id: string;
     try {
@@ -744,6 +743,33 @@ export class WarRegionDO extends DurableObject<Env> {
       if (!(e instanceof ApiError)) throw e;
       return send(ws, { t: 'error', code: 'badTarget', detail: `${e.code}: ${e.message}` });
     }
+    this.save();
+  }
+
+  /**
+   * W-153: tribute on sales, set aside at a stall in this town, goes on someone's back: the liege's own men in the court
+   * (`of`: whose stall; the goods are his now), or the payer's own, sealed for the liege's store. What does not fit stays.
+   */
+  private async stowTribute(ws: WebSocket, pid: number, room: WarRoom, m: StowMsg, from: { squad?: number; cart?: number }): Promise<void> {
+    const d = this.env.DB!, payer = m.of ?? pid, region = room.region.id;
+    const refuse = (detail: string) => send(ws, { t: 'error', code: 'badTarget', detail });
+    if (m.dir !== 'out') return refuse('tribute: only out');
+    if (!room.inCourt(pid, from)) return refuse('not_in_court: Bring them into the market court');
+    const lord = await liegeOf(d, payer);
+    if (lord === null || (m.of !== undefined && lord !== pid)) return refuse('not_sworn: Nothing is owed to you here');
+    const place = tributePlace(region, payer), lots = await lotsOf(d, place), seal = m.of === undefined ? -lord : undefined;
+    let b: Bundle;
+    try {
+      const plan = planTake(d, place, lots, Object.keys(m.goods ?? {}).length ? (m.goods as Record<string, number>) : totalsOf(lots));
+      await batch(d, plan.stmts);
+      b = { lots: plan.taken.map((l) => ({ r: l.res as never, n: l.amount, o: l.origin, ...(seal !== undefined ? { s: seal } : {}) })), items: [] };
+    } catch (e) {
+      if (!(e instanceof ApiError)) throw e;
+      return refuse(`${e.code}: ${e.message}`);
+    }
+    const rest = room.giveCargo(pid, from, b);
+    if (rest.lots.length) this.write('stow back', () => d.batch(rest.lots.map((l) => putStmt(d, place, l.r, l.n, l.o))));
+    send(ws, { t: 'stowed', dir: 'out', site: place, goods: bundleGoods(b), items: 0, ...(rest.lots.length ? { left: bundleGoods(rest) } : {}) });
     this.save();
   }
 
@@ -1252,6 +1278,7 @@ export class WarRegionDO extends DurableObject<Env> {
     if (!d) return;
     this.settles = await loadRegionSettlements(d, room.region.id);
     room.setSettlements(this.settles);
+    room.setOaths(await sworn(d)); // W-150
     // W-64: pacts and truces in force (a claim on a point of an alliance at peace with one's own is refused)
     const now = Date.now();
     room.setPacts((await pactsOf(d)).filter((p) => p.ends_at === null || p.ends_at > now).map((p) => ({ a: p.alliance_a, b: p.alliance_b, kind: p.kind })));
@@ -1338,8 +1365,10 @@ export class WarRegionDO extends DurableObject<Env> {
   /** Every SETTLE_POLL: the settlements again; every SETTLE_REPORT their reports; tribute when a levy is due. */
   private async pollSettlements(room: WarRoom): Promise<void> {
     await this.loadSettlements(room);
-    if (room.currentTick % SETTLE_REPORT === 3) await this.reportSettlements(room);
-    for (const s of this.settles) if (s.overlord !== null) await this.levyOne(room, s);
+    if (room.currentTick % SETTLE_REPORT === 3) {
+      await this.reportSettlements(room);
+      await this.reportTithes(room);
+    }
   }
 
   /** Level, tending and persisting pieces into D1 (`all`: the pieces even when unchanged; `persist`: only them, the season's end). */
@@ -1353,48 +1382,12 @@ export class WarRegionDO extends DurableObject<Env> {
     }
   }
 
-  /**
-   * A vassal's tribute, every LEVY_MS: its store gain and its citizens' stall coin since the last levy (DO storage keeps
-   * where they stood then); the overlord's lord credited, the same taken out of the store (the room) and the stalls (the
-   * credit's batch). A failed levy puts the store's share back.
-   */
-  async levyOne(room: WarRoom, s: RoomSettlement, now = Date.now()): Promise<void> {
-    const d = this.env.DB!, region = room.region.id;
-    const citizens = s.members.filter((m) => m.role === 'citizen').map((m) => m.pid);
-    const stalls: Record<number, number> = {};
-    for (const pid of citizens) stalls[pid] = (await goodsOf(d, stallId(region, pid))).coin ?? 0;
-    const store = room.storeGoods(s.id);
-    const base = await this.ctx.storage.get<LevyBase>(levyKey(s.id));
-    if (!base) return void (await this.ctx.storage.put(levyKey(s.id), { store, stalls } satisfies LevyBase));
-    if (now - s.leviedAt < LEVY_MS) return;
-    const gain: Record<string, number> = {};
-    for (const [k, n] of Object.entries(store)) if (n - (base.store[k] ?? 0) > 1e-6) gain[k] = n - (base.store[k] ?? 0);
-    const k = Math.max(0, Math.min(SETTLE.tributeMax, s.tribute)) / 100, coin: Record<number, number> = {}, takeStall: Record<number, number> = {};
-    for (const pid of citizens) {
-      coin[pid] = Math.max(0, stalls[pid] - (base.stalls[pid] ?? 0));
-      const t = Math.round(coin[pid] * k * 1000) / 1000;
-      if (t > 0) takeStall[pid] = t;
-    }
-    const stallCoin = Object.values(coin).reduce((a, b) => a + b, 0), fromStalls = Object.values(takeStall).reduce((a, b) => a + b, 0);
-    const want = tributeOf(s.tribute, gain, stallCoin), fromStore: Record<string, number> = { ...want };
-    if (fromStore.coin !== undefined) fromStore.coin = Math.round((fromStore.coin - fromStalls) * 1000) / 1000;
-    for (const [g, n] of Object.entries(fromStore)) if (n <= 1e-9) delete fromStore[g];
-    if (!room.takeStore(s.id, fromStore)) return;
-    let got: Awaited<ReturnType<typeof levy>> = null;
-    try {
-      const extra: D1PreparedStatement[] = [];
-      for (const [pid, n] of Object.entries(takeStall)) {
-        const id = stallId(region, Number(pid));
-        extra.push(...planTake(d, id, await lotsOf(d, id), { coin: n }).stmts);
-      }
-      got = await levy(d, s.id, gain, stallCoin, now, extra);
-    } finally {
-      if (!got) room.putStore(s.id, fromStore);
-    }
-    const after: Record<number, number> = {};
-    for (const pid of citizens) after[pid] = stalls[pid] - (takeStall[pid] ?? 0);
-    await this.ctx.storage.put(levyKey(s.id), { store: room.storeGoods(s.id), stalls: after } satisfies LevyBase);
-    this.save();
+  /** W-153: what is set aside in this region's buildings into D1, when it changed: both sides read it from anywhere. */
+  async reportTithes(room: WarRoom): Promise<void> {
+    const rows = room.titheReports(), key = JSON.stringify(rows);
+    if (key === this.heldKey) return;
+    await reportHeld(this.env.DB!, room.region.id, rows);
+    this.heldKey = key;
   }
 
   /** RPC (POST /persons/:id/level on a man in this region): his living man takes the spend; see WarRoom.levelUp. */

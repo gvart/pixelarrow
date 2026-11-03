@@ -2,6 +2,7 @@
  * W-64 crown and council: the rules' numbers and the views the Crown panel (src/war/view/hud/crown.ts) reads from
  * /api/war/crown (server/src/war/crown.ts).
  */
+import type { Rank } from '../../data/warFeudal';
 
 const HOUR = 3_600_000;
 export const CROWN = {
@@ -11,13 +12,11 @@ export const CROWN = {
   voteMs: 24 * HOUR,
   /** A monarch's term (then a new election; he is regent meanwhile). */
   termMs: 7 * 24 * HOUR,
-  /** A vote's weight: 1 + weightPer x the level of his best settlement, at most 1 + weightMax. */
-  weightPer: 0.1, weightMax: 0.5,
-  /** A no-confidence petition: signed by this share of the active members (seen within activeMs) opens the vote. */
+  /** A no-confidence petition: signed by this share of the active lords (seen within activeMs) opens the vote. */
   petitionShare: 0.25, activeMs: 7 * 24 * HOUR, petitionMs: 48 * HOUR,
   /** After a failed petition or vote, none again for this long. */
   cooldownMs: 24 * HOUR,
-  /** The alliance tax (% of members' market sales and tribute received). */
+  /** The alliance tax (% of members' market sales). */
   taxMax: 10,
   /** Orders: most open at once per alliance, the largest bounty, the longest they run. */
   ordersMax: 8, bountyMax: 5000, orderHoursMax: 72,
@@ -53,8 +52,8 @@ export function realmPower(pid: number, all: readonly RealmSettlement[]): number
   return own + vassals + new Set(mine.map((s) => s.region)).size;
 }
 
-/** A vote's weight from the level of the best settlement he lives in (0: none). */
-export const voteWeight = (level: number) => 1 + Math.min(CROWN.weightMax, CROWN.weightPer * Math.max(0, level));
+/** W-151: a lord's vote weighs his vassals plus one; who rules no settlement has no vote. */
+export const voteWeight = (lord: boolean, vassals: number) => (lord ? 1 + Math.max(0, vassals) : 0);
 
 export interface Candidate { pid: number; name: string; power: number }
 
@@ -74,11 +73,9 @@ export function electionWinner(cands: readonly Candidate[], ballots: readonly { 
 /** Signatures a petition needs from `active` members. */
 export const petitionNeed = (active: number) => Math.max(1, Math.ceil(active * CROWN.petitionShare - 1e-9));
 
-/** A no-confidence vote passes on a weighted majority of the votes cast (yes over no). */
-export const confidenceLost = (ballots: readonly { choice: number; weight: number }[]) => {
-  const yes = ballots.filter((b) => b.choice === 1).reduce((a, b) => a + b.weight, 0), no = ballots.filter((b) => b.choice === 0).reduce((a, b) => a + b.weight, 0);
-  return yes > no;
-};
+/** W-152: a no-confidence vote passes on a majority of all lord weight, cast or not. */
+export const confidenceLost = (ballots: readonly { choice: number; weight: number }[], lordWeight: number) =>
+  ballots.filter((b) => b.choice === 1).reduce((a, b) => a + b.weight, 0) > lordWeight / 2;
 
 /** Bounty split by shares (coin rounded down to a hundredth); what is left over goes back. */
 export function splitBounty(bounty: number, shares: readonly { pid: number; share: number }[]): { pay: Map<number, number>; rest: number } {
@@ -94,7 +91,7 @@ export function splitBounty(bounty: number, shares: readonly { pid: number; shar
 
 // ---------------------------------------------------------------- views
 
-export interface CrownMember { pid: number; name: string; power: number; weight: number }
+export interface CrownMember { pid: number; name: string; power: number; weight: number; lord: boolean; vassals: number }
 export interface CrownOrder {
   id: number; kind: OrderKind; by: string; byPid: number; region: string; target: string | null; x: number | null; y: number | null;
   res: string | null; n: number; delivered: number; bounty: number; paid: number; state: string; expires: number;
@@ -105,6 +102,32 @@ export interface CrownPact { id: number; kind: PactKind; a: number; b: number; s
 export interface CrownElection { id: number; closes: number; candidates: (Candidate & { votes: number })[]; mine: number | null }
 export interface CrownPetition { id: number; state: 'petition' | 'open'; signs: number; need: number; closes: number; signed: boolean; yes: number; no: number; mine: number | null }
 export interface CrownLog { kind: string; actor: string | null; detail: Record<string, unknown>; at: number }
+/** W-150..W-159: a place tribute waits: a stall in a town, or a building of a region. */
+export interface OwedPlace { region: string; what: string; goods: Record<string, number> }
+export interface FeudalPerson { pid: number; name: string; rank: Rank }
+export interface FeudalView {
+  rank: Rank;
+  /** Whom he is sworn to, and the rate he pays. */
+  lord: (FeudalPerson & { rate: number; since: number }) | null;
+  /** A request of his not yet answered. */
+  asked: { pid: number; name: string; at: number } | null;
+  /** Those sworn to him and what each has set aside for him. */
+  vassals: (FeudalPerson & { since: number; owed: OwedPlace[] })[];
+  /** Requests to swear to him. */
+  asks: { pid: number; name: string; at: number }[];
+  /** The rate he sets on those sworn to him (null: he is no lord). */
+  rate: number | null;
+  /** What he has set aside for his liege. */
+  owed: OwedPlace[];
+  /** Until when a broken oath bars him (0: no bar). */
+  barUntil: number;
+  /** The alliance's roll: who broke an oath this season. */
+  roll: { name: string; lord: string; at: number }[];
+  /** The king's heir (seen by all). */
+  heir: { pid: number; name: string } | null;
+  /** Calls to guard from his liege: unpaid, his to answer or not. */
+  calls: { id: number; region: string; men: number; hours: number; by: string; taken: boolean }[];
+}
 export interface CrownView {
   alliance: number | null;
   now: number;
@@ -122,4 +145,5 @@ export interface CrownView {
   log: CrownLog[];
   members: CrownMember[];
   me: { pid: number; power: number; weight: number; offices: Office[]; monarch: boolean };
+  feudal: FeudalView;
 }
