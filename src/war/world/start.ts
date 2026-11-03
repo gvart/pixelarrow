@@ -22,10 +22,10 @@ export type PathId = 'warrior' | 'builder' | 'trader';
  * his first men in slot order, soldiers first (a warrior's come from FAMILIES). The guards (hoplites) and the workers
  * (civilians) are defaults the owner has not fixed: docs/impl/paths-rework.md.
  */
-export const PATHS: Record<PathId, { name: string; does: string; cap: number; workers: number; carts: number; startText: string; start: readonly string[] }> = {
+export const PATHS: Record<PathId, { name: string; does: string; cap: number; workers: number; carts: number; startText: string; start: readonly string[]; /** W-145: the cart he starts with. */ startCart?: 'handcart' }> = {
   warrior: { name: 'Warrior', does: 'You fight. Beat beasts and rival armies, and take land for your alliance.', cap: 12, workers: 2, carts: 1, startText: '6 soldiers of one family', start: [] },
   builder: { name: 'Builder', does: 'You build. Raise the towns, walls and workshops your alliance needs.', cap: 4, workers: 6, carts: 1, startText: '2 guards, an engineer, a forager', start: ['hoplite', 'hoplite', 'civ_engineer', 'civ_forager'] },
-  trader: { name: 'Trader', does: 'You trade. Gather goods, drive carts between towns and sell at a profit.', cap: 4, workers: 3, carts: 4, startText: '2 guards, a merchant, a forager', start: ['hoplite', 'hoplite', 'civ_merchant', 'civ_forager'] },
+  trader: { name: 'Trader', does: 'You trade. Gather goods, drive carts between towns and sell at a profit.', cap: 4, workers: 3, carts: 4, startText: '2 guards, a merchant, a forager, a handcart', start: ['hoplite', 'hoplite', 'civ_merchant', 'civ_forager'], startCart: 'handcart' },
 };
 export const PATH_IDS = Object.keys(PATHS) as PathId[];
 

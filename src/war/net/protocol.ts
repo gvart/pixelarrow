@@ -45,7 +45,7 @@ import type { NodeRow } from './economy';
 import type { BridgePlan, BuildingType, GoodKind, Order, PlaceResult, SquadId, TownLevelSnap, WallPlan } from '../types';
 
 /** Bumped on any wire change (messages or the binary frame layout). */
-export const NET_VERSION = 21;
+export const NET_VERSION = 22;
 /** Positions go out in 1/QUANT tile steps. */
 export const QUANT = 8;
 /** Ticks between keyframes (a full frame of what the client sees; deltas in between). */
@@ -196,6 +196,10 @@ const baseMsgSchema = z.discriminatedUnion('t', [
     t: z.literal('handoff'), op: z.enum(['offer', 'confirm', 'cancel']), with: z.number().int().positive(),
     squad: id.optional(), cart: id.optional(), goods: z.partialRecord(goodSchema, amount).optional(), uids: z.array(z.string().min(1).max(120)).max(20).optional(),
   }).refine((o) => o.op !== 'offer' || (o.squad === undefined) !== (o.cart === undefined), 'an offer names its squad or cart'),
+  // W-143..W-145: a deal with this region's NPC town, his men and carts standing there: goods sold or bought, a worker hired, a cart bought
+  z.object({
+    t: z.literal('npc'), op: z.enum(['sell', 'buy', 'hire', 'cart']), res: goodSchema.optional(), n: amount.optional(), cls: z.string().regex(/^civ_[a-z_]{1,20}$/).optional(), cart: z.enum(['handcart', 'wagon']).optional(),
+  }).refine((o) => (o.op !== 'sell' && o.op !== 'buy') || !!o.res, 'a deal names its good').refine((o) => o.op !== 'hire' || !!o.cls, 'a hire names the worker').refine((o) => o.op !== 'cart' || !!o.cart, 'names the cart'),
   // W-62: the first-hour guide: hide it for good (the tracker's ×)
   z.object({ t: z.literal('guide'), op: z.literal('hide') }),
   // W-65: a choice at the open choice step of the region's story (src/war/sim/stories.ts)
@@ -218,6 +222,7 @@ export type JoinMsg = Extract<ClientMsg, { t: 'join' }>;
 export type MendMsg = Extract<ClientMsg, { t: 'mend' }>;
 export type StowMsg = Extract<ClientMsg, { t: 'stow' }>;
 export type HandoffMsg = Extract<ClientMsg, { t: 'handoff' }>;
+export type NpcMsg = Extract<ClientMsg, { t: 'npc' }>;
 
 /** Why a join or an order was turned down. */
 export type Refusal = 'version' | 'region' | 'player' | 'team' | 'army' | 'squads' | 'quota';
@@ -251,6 +256,8 @@ export type ServerMsg =
   | { t: 'checked'; id: number; result: PlaceResult | WallPlan | BridgePlan | null }
   /** M6f: a stow went through: what moved (goods by good, item count) and what did not fit (left where it was). */
   | { t: 'stowed'; dir: 'in' | 'out'; site: string; goods: Record<string, number>; items: number; left?: Record<string, number> }
+  /** W-143: an NPC town's deal done: what changed hands. */
+  | { t: 'npcDone'; op: 'sell' | 'buy' | 'hire' | 'cart'; coin: number; res?: string; n?: number }
   /** M6g: the hand-off window with `with`: open (halves by player, who confirmed, until tick), done, or closed (`why`). */
   | { t: 'handoff'; with: number; state: 'open' | 'done' | 'closed'; halves?: Record<number, { goods: Record<string, number>; uids: string[] }>; ok?: number[]; until?: number; why?: string }
   /** Resource nodes his team sees that changed (packed rows, ./economy.ts), and ids gone. */

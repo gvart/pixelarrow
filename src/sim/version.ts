@@ -32,5 +32,7 @@
  *    skirmishers, souls of every family at every site (clients on 10 reload).
  * 12: paths-staffed (W-88..W-91, W-120..W-135): buildings work and see only with a man at them, access and terms, private
  *    houses, locks, raids limited by carry (clients on 11 reload).
+ * 13: paths-loops (W-140..W-149): NPC towns, path story chains and their triggers, a trader's first cart (clients on 12
+ *    reload).
  */
-export const SIM_VERSION = 12;
+export const SIM_VERSION = 13;
