@@ -22,7 +22,7 @@ import { db, requirePlayable } from '../middleware';
 import { makePerson } from '../../../src/war/sim/roster';
 import { DEFAULT_CAP, splitQuota } from '../../../src/war/net/protocol';
 import { ALLIANCES, WAR_SEASON } from '../../../src/war/world/alliances';
-import { homeChoices, homeRefusal, pathRefusal, pathStart, type PathId, type StartFamily } from '../../../src/war/world/start';
+import { homeChoices, homeRefusal, menRefusal, NO_PATH, pathRefusal, pathStart, type PathId, type PlayerPath, type StartFamily } from '../../../src/war/world/start';
 import type { AllianceId, RegionRole } from '../../../src/war/world/types';
 import { ensureStart, insertPerson, nameFor, newId } from './persons';
 import { allianceCounts, joinAlliance } from './world/members';
@@ -53,6 +53,12 @@ async function startRow(d: D1Database, pid: number): Promise<StartRow | null> {
 export async function homeRegion(d: D1Database, pid: number): Promise<string | null> {
   const r = await startRow(d, pid);
   return r ? (r.home ?? ALLIANCES[r.alliance as AllianceId]?.home ?? null) : null;
+}
+
+/** W-85, W-101: his path as the limits read it (NO_PATH: no alliance yet, or a dev player). */
+export async function pathOf(d: D1Database, pid: number): Promise<PlayerPath> {
+  const r = await startRow(d, pid);
+  return r?.path ? { path: r.path, family: r.family } : NO_PATH;
 }
 
 /** Has he men (any not dead)? A dev-seeded player is started without the menu's steps. */
@@ -113,12 +119,14 @@ export async function pickPath(d: D1Database, pid: number, path: string, family:
   if (!r.home) throw new ApiError(409, 'no_home', 'Choose a home region first');
   const why = pathRefusal(path, family);
   if (why) throw new ApiError(409, 'bad_path', why);
+  const first = pathStart(path as PathId, family as StartFamily | null);
+  if (menRefusal({ path: path as PathId, family: family as StartFamily | null }, first)) throw new ApiError(409, 'bad_path', `${path} cannot hold his own first men`);
   await ensureStart(d, pid, now);
   // the start is claimed first, so two racing picks make one path
   const claim = await d.prepare('UPDATE war_alliance_members SET started_at = ?3, path = ?4, family = ?5 WHERE season = ?1 AND player_id = ?2 AND started_at IS NULL').bind(WAR_SEASON.id, pid, now, path, family).run();
   if (!claim.meta.changes) throw started();
   const taken = new Set<string>();
-  const men = pathStart(path as PathId, family as StartFamily | null).map((cls, k) => {
+  const men = first.map((cls, k) => {
     const p = makePerson(newId(pid), cls);
     return { ...p, hero: { ...p.hero, name: nameFor(cls, taken, k) } };
   });

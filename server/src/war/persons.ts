@@ -3,10 +3,11 @@
  * `war_items` and `war_fights` (migrations/0021_war_persons.sql). M6e: food and coin live in the player's home
  * strongroom (./holders.ts): captives' upkeep, promotion, ransom and retirement pay from it or into it.
  *
- *  - Army: at most ARMY_MAX fighters in total (fit, wounded, training); the dead, the
+ *  - Army (W-85): at most his path's cap of fighters in total (fit, wounded, training); the dead, the
  *    retired and (W-68) the captive do not count: a captured man is no longer his. No reserve: a fit man is `active` (his `slot` only orders the squad picker). At the
  *    cap a claimed soul is refused.
- *  - Household: min(4, 1 + fit fighters / 4) civilians (M5f brings the classes).
+ *  - Household (W-103): his path's workers, civilians outside the army cap.
+ *  - W-101: every way in passes src/war/world/start.ts manRefusal; a warrior holds only his family. The inserts count again.
  *  - Souls (W-60, replaces recruiting and training): a man joins only by a claimed soul in a region (claimSoul, the room
  *    and src/war/sim/souls.ts), of the class and level the soul woke with; the path's first men (./start.ts) are the other way in.
  *  - Timers, read lazily: wounded heal after HEAL (field 6 h), captives unclaimed for CAPTIVE_MS (24 h) are released as
@@ -43,6 +44,7 @@ import { freshHero } from '../../../src/war/sim/classes';
 import { freshCivilian } from '../../../src/war/sim/civilians';
 import { isElite, makePerson, promoteBlocker, promotePerson, spendLevel, type PersonOpts, type SpendRefusal } from '../../../src/war/sim/roster';
 import { legalSkills, SKILL_LEVELS } from '../../../src/war/sim/skills';
+import { manRefusal, mayHold, menRefusal, pathStart, soldierCap, workerCap, type JoinRefusal, type PathId, type StartFamily } from '../../../src/war/world/start';
 import { ARMY_MAX } from '../../../src/war/sim/soldiers';
 import { HONOURS_MAX } from '../../../src/war/sim/honours';
 import type { Deed, FightReport, HonourStat, WarPerson, WarSkillId } from '../../../src/war/types';
@@ -56,7 +58,7 @@ import { fightFavourStmts, withFavour } from './favour';
 import { batch, ensureHolder, goodsOf, HOME, itemsIn, lotsOf, pay as payFrom, placeItemStmt, planTake, putStmt, strongroom } from './holders';
 import { askAt, CAPTIVE } from '../../../src/war/sim/captives';
 import { releaseDue, toSouls, type SoulSpawn } from './captives';
-import { homeRegion } from './start';
+import { homeRegion, pathOf } from './start';
 
 /** W-68 soul: released or dismissed, a named soul waiting at a shrine of `held_at`; faded: that soul is gone. */
 export type PersonState = 'active' | 'wounded' | 'captive' | 'dead' | 'training' | 'retired' | 'soul' | 'faded';
@@ -78,11 +80,6 @@ export const HOLD_MAX = 20;
 export const UPKEEP = { captive: 1 };
 /** Unpaid upkeep stops growing past this many hours of the player's rate. */
 export const UPKEEP_DEBT_HOURS = 24;
-
-/** Civilians a player may keep (docs/WAR.md "Household"). */
-export function householdCap(fit: number): number {
-  return Math.min(4, 1 + Math.floor(fit / 4));
-}
 
 export interface PersonRow {
   id: string; player_id: number; cls: string; name: string; level: number; xp: number; points: number; kills: number; battles: number;
@@ -135,9 +132,11 @@ export function view(r: PersonRow, names: ReadonlyMap<number, string> = new Map(
 }
 
 export const COLS = 'id, player_id, cls, name, level, xp, points, kills, battles, attrs, skills, gear, honours, state, until_at, captor, held_at, slot, region, train_to, captor_pid, perks, respec_at, held_fort, deeds, scars, refused, bar_pid, bar_until';
-/** W-68: the states of a man in his player's army (ARMY_MAX counts them; a captive is not his). */
+/** W-68: the states of a man in his player's army (his path's caps count them; a captive is not his). */
 export const IN_ARMY = "state IN ('active', 'wounded', 'training')";
+const IN_ARMY_STATES: ReadonlySet<PersonState> = new Set(['active', 'wounded', 'training']);
 const FIGHTER = "cls NOT LIKE 'civ\\_%' ESCAPE '\\'";
+const WORKER = "cls LIKE 'civ\\_%' ESCAPE '\\'";
 
 /** The player's upkeep in food per hour: the captives he holds (W-60: his men eat in the field). */
 export async function upkeepRate(db: D1Database, pid: number): Promise<number> {
@@ -219,7 +218,7 @@ export async function persons(db: D1Database, pid: number): Promise<PersonRow[]>
   return r.results;
 }
 
-/** Fighters (ARMY_MAX counts them, in every region): soldiers fit, wounded or training (W-68: not captive); civilians are the household. */
+/** Fighters (his path's cap counts them): soldiers fit, wounded or training (W-68: not captive); civilians are the household. */
 const isFighter = (r: PersonRow) => (r.state === 'active' || r.state === 'wounded' || r.state === 'training') && !isCivClass(r.cls);
 
 export async function person(db: D1Database, pid: number, id: string): Promise<PersonRow> {
@@ -247,7 +246,8 @@ export async function ensureStart(db: D1Database, pid: number, now: number): Pro
 
 export interface Roster {
   persons: ReturnType<typeof view>[];
-  caps: { army: number; household: number; fighters: number; fit: number };
+  /** W-85, W-103: his path's soldier and worker caps, his soldiers now and those fit; his path and family (the HUD's limits). */
+  caps: { army: number; household: number; fighters: number; fit: number; path: PathId | null; family: StartFamily | null };
   /** The home strongroom: its goods (food, coin, ...) and items (equip from here). */
   stock: Record<string, number>;
   items: Item[];
@@ -283,7 +283,7 @@ export async function roster(db: D1Database, pid: number, now: number): Promise<
   await settle(db, pid, now);
   const tunnel = await settleTunnelFor(db, pid, now); // W-66: the men the tunnel raised since the last read
   const up = await db.prepare('SELECT owed, unpaid FROM war_upkeep WHERE player_id = ?1').bind(pid).first<{ owed: number; unpaid: number }>();
-  const [rows, stock, items, held, rate, mem, troph, homeAt] = await Promise.all([
+  const [rows, stock, items, held, rate, mem, troph, homeAt, way] = await Promise.all([
     persons(db, pid),
     goodsOf(db, strongroom(pid)),
     itemsIn(db, strongroom(pid)),
@@ -292,13 +292,14 @@ export async function roster(db: D1Database, pid: number, now: number): Promise<
     memorial(db, pid),
     trophies(db, pid),
     homeRegion(db, pid),
+    pathOf(db, pid),
   ]);
   const fighters = rows.filter(isFighter).length;
   const fit = rows.filter((r) => r.state === 'active').length;
   const names = await playerNames(db, [...rows.map((r) => (r.state === 'captive' ? r.captor_pid : null)), ...held.results.map((r) => r.player_id)]);
   return {
     persons: rows.map((r) => view(r, names)),
-    caps: { army: ARMY_MAX, household: householdCap(fit), fighters, fit },
+    caps: { army: soldierCap(way.path), household: workerCap(way.path), fighters, fit, path: way.path, family: way.family },
     stock,
     items,
     captives: held.results.map((r) => ({
@@ -341,10 +342,28 @@ export function nameFor(cls: string, taken: Set<string>, k: number): string {
   return n;
 }
 
-/** The player's fighters now, counted across all regions (ARMY_MAX bounds them; W-58; W-68: captives are not his). */
+/** The player's fighters now (his path's cap bounds them; W-68: captives are not his). */
 export async function armyCount(db: D1Database, pid: number): Promise<number> {
   const r = await db.prepare(`SELECT COUNT(*) AS n FROM war_persons WHERE player_id = ?1 AND ${IN_ARMY} AND ${FIGHTER}`).bind(pid).first<{ n: number }>();
   return r?.n ?? 0;
+}
+
+/** W-103: his workers now (civilians in his household; a captive is not his). */
+export async function workerCount(db: D1Database, pid: number): Promise<number> {
+  const r = await db.prepare(`SELECT COUNT(*) AS n FROM war_persons WHERE player_id = ?1 AND ${IN_ARMY} AND ${WORKER}`).bind(pid).first<{ n: number }>();
+  return r?.n ?? 0;
+}
+
+/** W-101: why this man may not join `pid` now (his path's one check on what he has), or null. */
+export async function joinCheck(db: D1Database, pid: number, cls: string): Promise<JoinRefusal | null> {
+  const [way, soldiers, workers] = await Promise.all([pathOf(db, pid), armyCount(db, pid), workerCount(db, pid)]);
+  return manRefusal(way, cls, { soldiers, workers });
+}
+
+/** The API's refusal for a man his path will not take. */
+export function joinError(why: JoinRefusal, name: string): ApiError {
+  if (why === 'family') return new ApiError(409, 'wrong_family', `${name} is not of your people`);
+  return why === 'household' ? new ApiError(409, 'household_full', 'Your household is full') : new ApiError(409, 'army_full', 'Your army is full');
 }
 
 /** W-68: his fighters who can fight now (fit: not wounded, not promoting); the tunnel's floor counts them. */
@@ -358,7 +377,7 @@ export async function fitCount(db: D1Database, pid: number): Promise<number> {
  * W-68 for the tunnel, fewer than `fitCap` fit ones), checked in the insert itself (two writers at once cannot pass it);
  * a run with no change: refused.
  */
-export function insertCapped(db: D1Database, pid: number, p: WarPerson, region: string | null, cap: number, now: number, fitCap = ARMY_MAX): D1PreparedStatement {
+export function insertCapped(db: D1Database, pid: number, p: WarPerson, region: string | null, cap: number, now: number, fitCap = cap): D1PreparedStatement {
   const h = p.hero;
   return db
     .prepare(
@@ -373,32 +392,36 @@ export function insertCapped(db: D1Database, pid: number, p: WarPerson, region: 
 
 /**
  * W-68 (and W-69's trade later): move person `id`, in state `from`, to player `to`'s army: active, at `region` (null:
- * at home), his level, class and record kept (`gear`: what he wears now; default: as he is). Only while `to` has fewer
- * than ARMY_MAX fighters, checked in the update itself; false: refused, nothing written.
+ * at home), his level, class and record kept (`gear`: what he wears now; default: as he is). Only if `to`'s path may hold
+ * him (W-101) and under its cap of his kind (W-85, W-103), counted in the update itself; false: refused, nothing written.
  */
 export async function movePerson(db: D1Database, id: string, to: number, o: { from: PersonState; region: string | null; gear?: Equipment }, now: number): Promise<boolean> {
+  const [way, man] = await Promise.all([pathOf(db, to), db.prepare('SELECT cls FROM war_persons WHERE id = ?1').bind(id).first<{ cls: string }>()]);
+  if (!man || !mayHold(way, man.cls)) return false;
+  const civ = isCivClass(man.cls);
   const r = await db
     .prepare(
       `UPDATE war_persons SET player_id = ?2, state = 'active', until_at = NULL, captor = NULL, captor_pid = NULL, held_at = NULL, held_fort = NULL,
          slot = NULL, refused = 0, bar_pid = NULL, bar_until = NULL, region = ?4, gear = COALESCE(?5, gear), updated_at = ?6
-       WHERE id = ?1 AND state = ?3 AND (SELECT COUNT(*) FROM war_persons WHERE player_id = ?2 AND ${IN_ARMY} AND ${FIGHTER}) < ?7`,
+       WHERE id = ?1 AND state = ?3 AND (SELECT COUNT(*) FROM war_persons WHERE player_id = ?2 AND ${IN_ARMY} AND ${civ ? WORKER : FIGHTER}) < ?7`,
     )
-    .bind(id, to, o.from, o.region, o.gear ? JSON.stringify(o.gear) : null, now, ARMY_MAX)
+    .bind(id, to, o.from, o.region, o.gear ? JSON.stringify(o.gear) : null, now, civ ? workerCap(way.path) : soldierCap(way.path))
     .run();
   return (r.meta?.changes ?? 0) > 0;
 }
 
 /**
  * W-60: a soul the player's squad claimed in `region` (src/war/sim/souls.ts) becomes his man there: active, deployed in
- * that region, the class and level he woke with (W-66: plus ./raise.ts raiseBonus). Only while the player has fewer than
- * ARMY_MAX fighters, checked in the insert itself (two regions claiming at once cannot pass the cap); false: refused
- * (the army is full), nothing written.
+ * that region, the class and level he woke with (W-66: plus ./raise.ts raiseBonus). Only if his path may hold him (W-101)
+ * and under its cap, checked in the insert itself (two claims at once cannot pass it); false: refused, nothing written.
  */
 export async function claimSoul(db: D1Database, pid: number, p: WarPerson, region: string, now: number): Promise<boolean> {
   // W-68: a named soul (a released captive, a dismissed man) is moved to the claimer as himself, in the kit he woke in
   if (await db.prepare("SELECT 1 FROM war_persons WHERE id = ?1 AND state = 'soul'").bind(p.id).first()) return movePerson(db, p.id, pid, { from: 'soul', region, gear: p.hero.equip }, now);
+  const way = await pathOf(db, pid);
+  if (!mayHold(way, p.hero.cls ?? 'militia')) return false;
   Object.assign(p, withFavour(p, await raiseBonus(db, pid))); // W-66: his player's favour bonus (the DO hands the live man the same)
-  const r = await insertCapped(db, pid, p, region, ARMY_MAX, now).run();
+  const r = await insertCapped(db, pid, p, region, soldierCap(way.path), now).run();
   return (r.meta?.changes ?? 0) > 0;
 }
 
@@ -460,7 +483,7 @@ export async function levelUp(db: D1Database, pid: number, id: string, attrs: Pa
 /** The squad order, in slot order: these take slots 0..; every other fit man at home loses his slot. */
 export async function formSquad(db: D1Database, pid: number, ids: string[], now: number): Promise<void> {
   if (new Set(ids).size !== ids.length) throw new ApiError(400, 'bad_request', 'A soldier stands in one slot');
-  if (ids.length > ARMY_MAX) throw new ApiError(409, 'squad_full', `A squad is at most ${ARMY_MAX}`);
+  if (ids.length > ARMY_MAX) throw new ApiError(409, 'squad_full', `A squad is at most ${ARMY_MAX}`); // the engine's bound: he cannot name more men than he has
   await settle(db, pid, now);
   const rows = await persons(db, pid);
   const by = new Map(rows.map((r) => [r.id, r]));
@@ -476,16 +499,18 @@ export async function formSquad(db: D1Database, pid: number, ids: string[], now:
 }
 
 /**
- * Dev: replace the player's men at home with `squad` (soldiers and civilians, in slot order; default a whole army of
- * hoplites and archers), plus food, DEV_COIN and strongroom gear. His fighters in the field count toward ARMY_MAX.
+ * Dev: replace the player's men at home with `squad` (soldiers and civilians, in slot order; default: with no path a
+ * whole army of hoplites and archers, on a path his first men), plus food, DEV_COIN and strongroom gear. W-101: the path's
+ * check, on top of his men in the field.
  * `region` makes that his home (W-87: a tool's way to start anywhere: a man at home takes the field only at home).
  */
 export async function seed(db: D1Database, pid: number, now: number, o: { squad?: { cls: string; level?: number }[]; region?: string } = {}): Promise<string[]> {
   await ensureStart(db, pid, now);
-  const deployed = (await persons(db, pid)).filter((r) => r.region && isFighter(r)).length;
-  const squad = o.squad ?? Array.from({ length: ARMY_MAX }, (_, i) => (i < ARMY_MAX - 4 ? { cls: 'hoplite', level: 1 + (i % 6) } : { cls: 'archer', level: 1 + (i % 4) }));
-  const fighters = squad.filter((g) => !isCivClass(g.cls)).length;
-  if (deployed + fighters > ARMY_MAX) throw new ApiError(409, 'army_full', `Your army is at most ${ARMY_MAX} men (${deployed} in the field)`);
+  const way = await pathOf(db, pid);
+  const inField = (await persons(db, pid)).filter((r) => r.region && IN_ARMY_STATES.has(r.state));
+  const squad = o.squad ?? (way.path ? pathStart(way.path, way.family).map((cls) => ({ cls })) : Array.from({ length: ARMY_MAX }, (_, i) => (i < ARMY_MAX - 4 ? { cls: 'hoplite', level: 1 + (i % 6) } : { cls: 'archer', level: 1 + (i % 4) })));
+  const refused = menRefusal(way, squad.map((g) => g.cls), { soldiers: inField.filter((r) => !isCivClass(r.cls)).length, workers: inField.filter((r) => isCivClass(r.cls)).length });
+  if (refused) throw joinError(refused, 'A man of that squad');
   const taken = new Set<string>();
   const make = (g: { cls: string; level?: number }, k: number) => {
     const opts: PersonOpts = { level: g.level ?? 1, tier: (g.level ?? 1) >= 6 ? 1 : 0 };
@@ -535,7 +560,7 @@ export function promoteCost(cls: ClassId): number {
 
 /**
  * Promote a fit man at home to the elite `cls` (docs/WAR.md "Promote"): PROMOTE.level and PROMOTE.honours, an elite of
- * his family. Pays promoteCost (the elite rare kit), puts his old gear in the stash; he is
+ * his family (W-101: one his path may hold; he keeps his place, so no cap). Pays promoteCost (the elite rare kit), puts his old gear in the stash; he is
  * `training` for PROMOTE_MS and out of the squad, then the elite with the kit on (settle). Returns when he is done.
  */
 export async function promote(db: D1Database, pid: number, id: string, cls: string, now: number): Promise<number> {
@@ -543,7 +568,7 @@ export async function promote(db: D1Database, pid: number, id: string, cls: stri
   await settle(db, pid, now);
   const r = await person(db, pid, id);
   home(r);
-  const why = promoteBlocker(personOf(r), cls);
+  const why = promoteBlocker(personOf(r), cls) ?? (mayHold(await pathOf(db, pid), cls) ? null : `your path holds no ${cls}`);
   if (why || !isClassId(cls)) throw new ApiError(409, 'not_promotable', why ?? `${cls} is no class`);
   const price = promoteCost(cls);
   const until = now + PROMOTE_MS;
@@ -564,7 +589,7 @@ export const RETIRE_CIV = { from: 10, at: 5 };
 /**
  * Retire a fit man at home (docs/WAR.md "Retire"): half his gear's value back as coin, his first honour on the
  * memorial; he leaves the roster (state retired). `civ`: a level-10 soldier becomes that civilian class at level 5
- * instead (within the household cap), with the class's first tool. Returns the coin paid back.
+ * instead (within his path's worker cap, W-103), with the class's first tool. Returns the coin paid back.
  */
 export async function retire(db: D1Database, pid: number, id: string, civ: string | undefined, now: number): Promise<number> {
   await ensureStart(db, pid, now);
@@ -579,10 +604,8 @@ export async function retire(db: D1Database, pid: number, id: string, civ: strin
   if (civ !== undefined) {
     if (!isCivClass(civ)) throw new ApiError(400, 'bad_request', `${civ} is no civilian class`);
     if (r.level < RETIRE_CIV.from) throw new ApiError(409, 'level', `Only a level ${RETIRE_CIV.from} soldier retires into a trade`);
-    const rows = await persons(db, pid);
-    const fit = rows.filter((x) => x.state === 'active' && !isCivClass(x.cls) && x.id !== id).length;
-    const household = rows.filter((x) => isCivClass(x.cls) && x.state !== 'dead').length;
-    if (household >= householdCap(fit)) throw new ApiError(409, 'household_full', `Your household holds ${householdCap(fit)}`);
+    const refused = await joinCheck(db, pid, civ);
+    if (refused) throw joinError(refused, r.name);
     const p = makePerson(id, civ, { level: RETIRE_CIV.at, name: r.name });
     stmts.push(
       db

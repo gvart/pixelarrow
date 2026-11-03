@@ -5,6 +5,7 @@ import { api, devLogin } from '../helpers';
 import { applyFight, armyCount, claimForJoin, claimSoul, personOf, START, type PersonRow } from '../../src/war/persons';
 import { makePerson } from '../../../src/war/sim/roster';
 import { ARMY_MAX } from '../../../src/war/sim/soldiers';
+import { workerCap } from '../../../src/war/world/start';
 import { warStatsOf } from '../../../src/war/sim/classes';
 import type { FightReport } from '../../../src/war/types';
 
@@ -43,7 +44,7 @@ describe('war roster API', () => {
     const r0 = await roster(me.token);
     expect(r0.persons).toEqual([]);
     expect(r0.stock.food).toBe(START.food);
-    expect(r0.caps).toMatchObject({ army: ARMY_MAX, household: 1 });
+    expect(r0.caps).toMatchObject({ army: ARMY_MAX, household: workerCap(null) });
     expect((r0 as unknown as { pools?: unknown }).pools).toBeUndefined();
     expect((await post(me.token, '/recruit', { town: 'home', count: 1 })).status).toBe(404);
     expect(await claim(me.playerId, '7302-0', 'archer', 3)).toBe(true);

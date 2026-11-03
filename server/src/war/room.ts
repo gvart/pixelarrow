@@ -67,7 +67,7 @@ function subtract(b: Bundle, r: Bundle): { goods: Record<string, number>; uids: 
   return { goods: Object.fromEntries(Object.entries(g).filter(([, n]) => n > 1e-9)), uids: b.items.filter((i) => !left.has(i.uid)).map((i) => i.uid) };
 }
 import { inRects } from '../../../src/war/sim/trade';
-import { ARMY_MAX } from '../../../src/war/sim/soldiers';
+import { manRefusal, NO_PATH, soldierCap, type PlayerPath } from '../../../src/war/world/start';
 import { HUNGER } from '../../../src/war/sim/food';
 import { RoomGuide, type GuideDone } from './guide';
 import type { GuideSave } from '../../../src/war/net/guide';
@@ -140,6 +140,8 @@ export interface RoomState {
   queue: Waiting[];
   /** Person ids on the field (alive), for the D1 check on restore. */
   pids: string[];
+  /** W-85, W-101: who is on what path. */
+  paths?: [number, PlayerPath][];
   sim: SimState;
   bots: unknown;
   /** M5h4: the region run (crafted event keys) and stash items at its workplaces. */
@@ -297,6 +299,8 @@ export class WarRoom {
   private fogRuns = new Map<number, { v: number; runs: number[] }>();
   /** W-60: each player's fighters across all regions (D1, set by the DO on join and after each claim): the soul gate. */
   private armies = new Map<number, number>();
+  /** W-85, W-101: who is on what path (the DO reads D1 on a join and an arrival; saved, so a resumed room still gates him). */
+  private paths = new Map<number, PlayerPath>();
   /** W-61: guard contracts the DO watches here (poster's team), the alliance works open at this home region, town sent. */
   private guards: GuardWatch[] = [];
   private workSites: { work: WorkId; team: number; x: number; y: number }[] = [];
@@ -360,13 +364,17 @@ export class WarRoom {
     this.epoch = o.epoch ?? `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
     this.fightQuiet = o.fightQuiet ?? FIGHT_QUIET;
     this.run = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
-    // W-60: a soul joins only while the player's whole army (every region, D1) is under ARMY_MAX; without a count from
-    // the DO (dev armies, tests) his fighters on this field
-    this.sim.setSoulGate((owner) => {
-      const m = /^p:(\d+)$/.exec(owner), pid = m ? Number(m[1]) : null;
-      const known = pid !== null ? this.armies.get(pid) : undefined;
-      const have = known ?? this.snap?.units.filter((u) => (u.state !== 'dead' || u.down) && this.owners[u.squad] === owner && !u.cls.startsWith('civ_')).length ?? 0;
-      return { ok: have < ARMY_MAX, have };
+    // W-60, W-101: a soul joins only if the player's path lets him: of his people, and under his cap on his whole army
+    // (D1); without a count from the DO (dev armies, tests) his fighters on this field. Workers on this field: the DO's
+    // write (./persons.ts claimSoul) has the last word.
+    const pidOf = (owner: string) => (/^p:(\d+)$/.test(owner) ? Number(owner.slice(2)) : -1);
+    const pathFor = (owner: string): PlayerPath => this.paths.get(pidOf(owner)) ?? NO_PATH;
+    this.sim.setPaths(pathFor);
+    this.sim.setSoulGate((owner, cls) => {
+      const count = (civ: boolean) => this.snap?.units.filter((u) => (u.state !== 'dead' || u.down) && this.owners[u.squad] === owner && u.cls.startsWith('civ_') === civ).length ?? 0;
+      const soldiers = this.armies.get(pidOf(owner)) ?? count(false), workers = count(true);
+      const why = manRefusal(pathFor(owner), cls, { soldiers, workers });
+      return { ok: !why, have: isCivClass(cls) ? workers : soldiers, ...(why ? { why } : {}) };
     });
     // W-80: at the alliance's home, a man by a store of his tops his pack up from his own strongroom (D1, via larders)
     if (o.home !== undefined) this.sim.setLarder((owner, team, want) => (team === o.home ? this.draw(owner, want) : 0));
@@ -736,7 +744,12 @@ export class WarRoom {
     return out;
   }
 
-  /** W-60: the player's fighters across all regions now (the DO reads D1); the soul gate counts on it. */
+  /** W-85, W-101: the player's path (the DO reads D1); the soul gate and the cart cap read it. */
+  setPath(pid: number, way: PlayerPath): void {
+    this.paths.set(pid, way);
+  }
+
+  /** W-60: the player's fighters now (the DO reads D1); the soul gate counts on it. */
   setArmy(pid: number, n: number): void {
     this.armies.set(pid, n);
   }
@@ -748,7 +761,7 @@ export class WarRoom {
     this.snap = this.sim.snapshot(); // W-79: admit() spawned his squads after the last tick; their packs get the rations
     // his whole army (D1, set by the DO), else his fighters on this field (as the soul gate counts)
     const army = this.armies.get(pid) ?? this.snap.units.filter((u) => u.state !== 'dead' && this.owners[u.squad] === owner && !u.cls.startsWith('civ_')).length;
-    return this.guide.start(pid, p.team, save, army, this.snap);
+    return this.guide.start(pid, p.team, save, army, soldierCap((this.paths.get(pid) ?? NO_PATH).path), this.snap);
   }
 
   /** W-65: a welcomed player's story here (his save from the DO): the message to send him, null when there is none. */
@@ -1306,7 +1319,7 @@ export class WarRoom {
         souls.push({ pid, person: e.person, squad: e.squad, unit: e.unit });
         if (this.armies.has(pid)) this.armies.set(pid, this.armies.get(pid)! + 1);
         if (this.players.get(pid)?.online) tell(pid, { t: 'soul', state: 'claimed', soul: e.soul, squad: e.squad, pid: e.person.id, cls: e.person.hero.cls, level: e.person.hero.level, name: e.person.hero.name });
-      } else if (this.players.get(pid)?.online) tell(pid, { t: 'soul', state: 'refused', soul: e.soul, squad: e.squad, have: e.have });
+      } else if (this.players.get(pid)?.online) tell(pid, { t: 'soul', state: 'refused', soul: e.soul, squad: e.squad, have: e.have, why: e.why });
     }
     // W-62: guide steps done (the DO pays and stores them), told to the player
     const g = this.guide.tick(this.snap, evs);
@@ -1470,6 +1483,7 @@ export class WarRoom {
       spawns: this.spawns, died, lastBlow: this.lastBlow, inFight: this.inFight, queue: this.queue, pids,
       sim: this.sim.exportState(), bots: this.bots.exportState(), run: this.run, mends: this.mends, stormed: [...this.stormed],
       settle: { own: [...this.own], campBy: [...this.campBy], tried: [...this.tried] },
+      paths: [...this.paths],
       ...(this.warlords ? { warlords: this.warlords.exportState() } : {}),
     };
   }
@@ -1494,6 +1508,7 @@ export class WarRoom {
     if (st.run) r.run = st.run;
     r.mends = st.mends ?? [];
     r.stormed = new Set(st.stormed ?? []);
+    r.paths = new Map(st.paths ?? []);
     r.own = new Map(st.settle?.own ?? []);
     r.campBy = new Map(st.settle?.campBy ?? []);
     r.tried = new Set(st.settle?.tried ?? []);
