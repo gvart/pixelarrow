@@ -1,0 +1,30 @@
+server/test/war/ladders.test.ts
+  s_a7d5d20f628c80::t_adbe211fea20d3 174
+  s_a7d5d20f628c80::t_c2ad79c9fef9c1 8,11,159-173,175-205
+  s_a7d5d20f628c80::t_be5d30b8eb82d5 206
+src/war/net/ladders.ts
+  s_a7d5d20f628c80::t_c2ad79c9fef9c1 30-33
+server/src/war/world/worldDO.ts
+  s_a7d5d20f628c80::t_c2ad79c9fef9c1 51,193-198
+  s_a7d5d20f628c80::t_a0f63dc7c5444b 199-200
+server/src/account/delete.ts
+  s_a7d5d20f628c80::t_c2ad79c9fef9c1 16-17,34-35,186-189
+server/src/account/deletionMap.ts
+  s_a7d5d20f628c80::t_c2ad79c9fef9c1 137,143-147
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "43b41efc21342637ccf6c283c115c1a899cfc182",
+  "prompts": {},
+  "sessions": {
+    "s_a7d5d20f628c80": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1afee479-b44b-46d2-a159-a540e44e7fb8",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
