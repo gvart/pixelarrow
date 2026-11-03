@@ -194,6 +194,11 @@ describe('hired workers (W-144)', () => {
     while (last === 'ok' && n++ < cap + 2) last = await code(npcDeal(env, t.room, t.pid, { op: 'hire', cls: 'civ_engineer' }, NOW));
     expect(last).toBe('household_full');
     expect(await count()).toBe(cap);
+    // every one of them on the field, with the workers he had: a squad each would run into MAX_SQUADS
+    t.room.tick(() => NOW);
+    const q = t.room.squadsOf(t.pid), civ = t.room.sim.snapshot().units.filter((u) => q.includes(u.squad) && u.state !== 'dead' && u.cls.startsWith('civ_'));
+    expect(civ.length).toBe(cap);
+    expect(q.length).toBe(2); // the men he joined with, and one squad of all the hired
   });
 
   it('no coin, no man; a soldier cannot be hired here', async () => {

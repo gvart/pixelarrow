@@ -196,7 +196,7 @@ export async function npcDeal(env: Pick<Env, 'DB'>, room: WarRoom, pid: number, 
       throw e;
     }
     const got = await claimForJoin(db, pid, town, [[id]], room.personsHere(), now);
-    const fell = typeof got === 'string' ? null : room.muster(pid, got[0]); // no room now: he waits off the field for the next poll
+    const fell = typeof got === 'string' ? null : room.hired(pid, got[0]); // no room now: he waits off the field for the next poll
     room.storyTrade(pid, 'hire', cost, 0);
     return { done: { t: 'npcDone', op: 'hire', coin: cost }, welcome: fell?.msg };
   }

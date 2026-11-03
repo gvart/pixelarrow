@@ -712,6 +712,22 @@ export class WarRoom {
     return { msg: p.online ? { t: 'welcome', v: NET_VERSION, region: this.region.id, you: { id: pid, team: p.team }, squads: this.squadsOf(pid), tick: this.currentTick, quota: this.quota() } : null };
   }
 
+  /**
+   * W-144: a hired worker falls in with the workers standing here, in their squad and on their work; a squad of his own
+   * would take one of MAX_SQUADS, and the next hire would wait off the field. None here, or that squad full: as any man.
+   */
+  hired(pid: number, persons: WarPerson[]): { msg: ServerMsg | null } | null {
+    const p = this.players.get(pid);
+    if (!p || !persons.length) return null;
+    const units = (q: SquadId) => (this.snap.squads[q]?.units ?? []).map((u) => this.snap.units[u]).filter((u) => u && u.state !== 'dead');
+    const into = this.squadsOf(pid).find((q) => units(q).length > 0 && units(q).every((u) => isCivClass(u.cls)));
+    if (into === undefined || units(into).length + persons.length > MAX_SQUAD || this.queue.some((w) => w.join.team === p.team) || this.live[p.team] + persons.length > this.per[p.team]) return this.muster(pid, persons);
+    const at = units(into)[0], id = this.spawn(ownerOf(pid), p.team, { cls: persons[0].hero.cls ?? 'militia', count: persons.length, persons }, { x: at.x, y: at.y });
+    this.sim.order({ kind: 'merge', squad: id, into });
+    this.snap = this.sim.snapshot();
+    return { msg: null };
+  }
+
   /** The players this room knows, in the field or watching (the DO's muster poll). */
   playerIds(): number[] {
     return [...this.players.keys()];
