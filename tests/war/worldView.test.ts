@@ -67,11 +67,10 @@ describe('world view sources', () => {
     expect(travelMs('dodona', 'dodona-n')).toBe(100_000);
   });
 
-  it('maps the live convoys, boards and trade score onto the map', () => {
+  it('maps the live convoys and boards onto the map', () => {
     const { snap } = mockWorld(0);
     const live = {
       ...snap,
-      score: { ...snap.score, trade: [5, 0, 12, 0] },
       convoys: <LiveConvoy[]>[
         { id: 7, from: 'kleisoura', to: 'dodona-e', men: 6, departAt: 0, arriveAt: 1000, state: 'moving' as const, alliance: 1 as const, cart: 'wagon' as const, loads: 9.5, goods: { tin: 300, iron: 900, food: 20, salt: 1 }, items: 2, mine: false },
         { id: 8, from: 'dodona', to: 'moors', men: 4, departAt: 0, arriveAt: 1000, state: 'moving' as const, alliance: 0 as const, loads: 1.2, goods: { hides: 30 }, items: 0, mine: true },
@@ -83,7 +82,6 @@ describe('world view sources', () => {
     // men only travel as squads, not convoys
     expect(t.convoys!.map((c) => [c.id, c.kind, c.cargo])).toEqual([[7, 'wagon', 'iron, tin, food, 2 items'], [8, 'porters', 'hides']]);
     expect(t.boards!.stymphalia).toEqual({ at: 50, fills: 1, rows: [{ good: 'oil', ask: 5, bid: null, depth: 120 }, { good: 'tin', ask: 11, bid: 9, depth: 45 }] });
-    expect(t.trade).toEqual([5, 0, 12, 0]);
     // the server already filtered by fog: the map keeps them all
     expect(convoySeen(t.convoys![0], 3, new Map(), new Set())).toBe(true);
   });

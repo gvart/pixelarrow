@@ -55,7 +55,6 @@ import { DEFAULT_CAP, parseClientMsg, type HandoffMsg, type JoinMsg, type MendMs
 import { cartArrived, contract, deliver, guardCheck, huntDeeds, labourDone, sealedFor, workContracts } from './contracts';
 import { npcDeal } from './npcMarket';
 import { addLabour, bonusesOf, openWorks } from './works';
-import { contractPoints, scorePeace } from './peace';
 import { handoffDone, handoffRefusal, linkedCaptures } from './abuse';
 import { loads } from '../../../src/war/sim/holders';
 import { ApiError } from '../errors';
@@ -806,8 +805,6 @@ export class WarRegionDO extends DurableObject<Env> {
         if (r.refused) throw new ApiError(409, 'refused', r.refused);
         await batch(d, r.stmts);
         send(ws, { t: 'stowed', dir: 'in', site: `ct:${id}`, goods: bundleGoods(b), items: 0 });
-        // W-61: a filled carry or supply contract scores its taker's alliance (peace score, capped a day)
-        if (r.done) this.write('peace', async () => scorePeace(this.env, await allianceOf(d, pid), 'contracts', contractPoints(c.reward), Date.now()));
       } catch (e) {
         room.giveCargo(pid, from, b);
         return fail(e);

@@ -22,11 +22,11 @@
  *    a leg under way finishes but no new one starts while the player is offline: the chain waits at the stop (`held`,
  *    no alarm) until wake(pid) on his next socket; a new order of his replaces it. Convoys are seen
  *    like squads, by alliances with men in or next to either end; Safe Roads (the merchant node): only by alliances
- *    with men at the destination. Trade score (addTrade) adds to the season score as it comes.
+ *    with men at the destination.
  *  - W-62 world events (src/war/world/events.ts): the season's schedule from its seed; eventTick() opens and closes them
  *    (the DO's alarm: nextAlarm() includes the next boundary), a caravan rush scores convoys arriving with cargo at its
  *    market (due), a landmark siege scores its capture (report) and its garrisoned holder at the end (eventTick). Event
- *    score is kept per alliance (`event`) and in `scores`. newSeason() is the reset of the season war (W-96): fresh
+ *    score is kept per alliance (`event`), a record outside `scores` (W-163). newSeason() is the reset of the season war (W-96): fresh
  *    owners, score and schedule; nobody left on the road; the last season's board stays (`last`, set by the DO).
  */
 import { ALLIANCES, WAR_SEASON } from '../../../../src/war/world/alliances';
@@ -106,12 +106,9 @@ export interface SeasonState {
   accruedAt: number;
   hegemony: { alliance: AllianceId; since: number } | null;
   ended: SeasonResult | null;
-  /** M6h: trade score per alliance (also in `scores`). */
-  trade?: number[];
-  /** W-61: peace score per kind and alliance (also in `scores`); transfer time share per alliance (its road work). */
-  peace?: Record<string, number[]>;
+  /** W-61: transfer time share per alliance (its road work). */
   travel?: number[];
-  /** W-62: the schedule's seed; world events are opened and closed up to `evAt`; event score per alliance (also in `scores`). */
+  /** W-62: the schedule's seed; world events are opened and closed up to `evAt`; W-163: event points per alliance, a record, not in `scores`. */
   seed?: number;
   evAt?: number;
   event?: number[];
@@ -136,8 +133,6 @@ export interface RegionReport {
   landmark?: { id: string; holder: number; guardian: 'alive' | 'slain' | 'away'; back?: number; state: LandmarkWorld['state']; hp: number; garrisoned: boolean };
   prestige?: number[];
   ruined?: boolean;
-  /** W-61: the best town level per alliance here (WarRoom.summary). */
-  town?: number[];
   /** W-76 proposal: its warlords (WarRoom.summary, in wall-clock times: room.ts lordReport). */
   lords?: LordWorld[];
 }
@@ -282,12 +277,11 @@ export class World {
     return { started, ended, changed: started.length > 0 || ended.length > 0 };
   }
 
-  /** W-62: event score `pts` to alliance `a` (after the season is brought up to now). */
+  /** W-62, W-163: event points `pts` to alliance `a`'s record (after the season is brought up to now). */
   eventScore(a: AllianceId, pts: number, now: number): void {
     this.advance(now);
     const s = this.st.season;
     if (s.ended || !(pts > 0) || a < 0 || a >= N) return;
-    s.scores[a] += pts;
     (s.event ??= zeros())[a] += pts;
   }
 
@@ -328,7 +322,6 @@ export class World {
     }
     if (rep.prestige?.some((v) => v > 0)) next.prestige = Array.from({ length: N }, (_, i) => rep.prestige![i] ?? 0);
     if (rep.ruined) next.ruined = true;
-    if (rep.town?.some((v) => v > 0)) next.town = Array.from({ length: N }, (_, i) => rep.town![i] ?? 0);
     if (rep.lords?.length) next.lords = rep.lords.map((l) => ({ id: String(l.id), holds: l.holds | 0, men: l.men | 0, ...(l.raid ? { raid: { at: +l.raid.at } } : {}), ...(l.backAt !== undefined ? { backAt: +l.backAt } : {}) }));
     // W-62: a landmark taken while its siege runs scores its captor
     const was = cur.landmark?.holder ?? -1, holder = next.landmark?.holder ?? -1;
@@ -345,24 +338,6 @@ export class World {
     const s = this.st.season;
     if (s.ended || a < 0 || a >= N) return;
     s.scores[a] -= LIVING.sacrilege;
-  }
-
-  /** M6h: trade score `pts` to alliance `a` (after the season is brought up to now). */
-  addTrade(a: AllianceId, pts: number, now: number): void {
-    this.advance(now);
-    const s = this.st.season;
-    if (s.ended || !(pts > 0)) return;
-    s.scores[a] += pts;
-    (s.trade ??= zeros())[a] += pts;
-  }
-
-  /** W-61: peace score `pts` of `kind` (volume, contracts, works) to alliance `a`. */
-  addPeace(a: AllianceId, kind: string, pts: number, now: number): void {
-    this.advance(now);
-    const s = this.st.season;
-    if (s.ended || !(pts > 0) || a < 0 || a >= N) return;
-    s.scores[a] += pts;
-    ((s.peace ??= {})[kind] ??= zeros())[a] += pts;
   }
 
   /** W-61: alliance `a`'s transfers take `k` of the time (its road work) for the rest of the season. */
@@ -521,8 +496,6 @@ export class World {
       omphalos: owner(OMPHALOS), towns: Object.fromEntries(FRONTIER_TOWNS.map((t) => [t, owner(t)])),
       hegemony: s.hegemony && !s.ended ? { ...s.hegemony, endsAt: s.hegemony.since + HEGEMONY.ms } : null,
       ended: s.ended,
-      trade: (s.trade ?? zeros()).map(Math.floor),
-      ...(s.peace ? { peace: Object.fromEntries(Object.entries(s.peace).map(([k, v]) => [k, v.map(Math.floor)])) } : {}),
       ...(s.event ? { event: s.event.map(Math.floor) } : {}),
     };
   }

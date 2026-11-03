@@ -21,7 +21,6 @@ export const CROWN = {
   /** Orders: most open at once per alliance, the largest bounty, the longest they run. */
   ordersMax: 8, bountyMax: 5000, orderHoursMax: 72,
   /** Score of an order fulfilled (peace for a quest, war for a war goal; the tasks' daily caps). */
-  orderPts: 3,
   /** Pacts and truces: how long one runs once accepted, how long an offer stands. */
   pactMs: 7 * 24 * HOUR, truceMs: 48 * HOUR, offerMs: 48 * HOUR,
 } as const;

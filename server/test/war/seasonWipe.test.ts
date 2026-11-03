@@ -19,7 +19,7 @@ const count = async (t: string, where = '1 = 1', ...b: unknown[]) => (await DB()
 const KEPT = [
   'war_season_results', 'war_cosmetics', 'war_season_stats', 'war_player_stats', 'war_boss_kills', 'war_fills', 'war_treasury_log',
   'war_chat', 'war_chat_mutes', 'war_chat_reports', 'war_seen', 'war_fights',
-  'war_works', 'war_work_gifts', 'war_peace_score', 'war_trade_score', 'war_board_seen',
+  'war_works', 'war_work_gifts', 'war_board_seen',
 ];
 
 describe('W-96 season wipe', () => {

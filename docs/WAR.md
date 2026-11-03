@@ -289,27 +289,32 @@ gorge – bacchae – erymanthos) is as short as the road through Omphalos but r
 
 ### Season score and victory
 
-| Source | Score | Notes |
+Land decides the one alliance win (W-92, W-160). The race counts **land-hours**: what the ground an alliance holds yields
+it each hour (W-161).
+
+| Source | Land-hours | Notes |
 | --- | --- | --- |
 | Omphalos | 10 an hour | only while no enemy squad stands on the plateau |
-| Frontier town (Kleisoura, Stymphalia, Achelous, Ammos) | 3 an hour | town square held |
+| Frontier town (Kleisoura, Stymphalia, Achelous, Ammos) | 3 an hour | town square held; ruined, 1 |
 | Gate (saddle, erymanthos, gorge, canyons) | 2 an hour | |
 | Other claimed neutral | 1 an hour | |
 | Restored landmark, garrisoned | +2 an hour | ≤ 6 an hour an alliance ("Living regions") |
 | Temples, shrines, statues held intact | 0.25 / 0.1 / 0.1 an hour | ≤ 2 an hour an alliance; razing a temple or shrine −10 |
-| Trade sale of goods from ≥ 3 transfers away ("Trade") | 1 per 100 coin of price, ≤ 60 a day | traders score, not only armies |
-| Razing an enemy home building | 5 | homes never fall (W-09) |
-| Town level (W-61, "Peaceful play") | 0.25 / 0.5 / 1 / 1.5 an hour for Hamlet / Village / Town / City | each region's best town of the alliance; ≤ 3 an hour an alliance |
-| Trade volume (W-61) | 1 per 200 coin sold through a player's stall to another alliance | ≤ 40 a day an alliance |
-| Contract filled (W-61) | 2 + reward / 100 | carry, supply, build, guard; ≤ 30 a day an alliance |
-| Alliance work raised (W-61) | 30 once | temple, road and bridge, beacon line |
 
-Victory (W-92): land decides the one alliance win. **Hegemony** ends the season early when one alliance holds Omphalos
-and 3 of the 4 frontier towns for 24 h; builders and traders win it by supplying the war, and each path also has its own
-ranked ladder ("Paths"). If nobody reaches hegemony, the highest score at the season's end wins today, and that score
-also counts trade, contracts and works: whether this fallback and its caps stay is
-[open](impl/paths-rework.md#open-design-items). The old war (DESIGN_V2) ranked by capitals; here homes cannot
-fall, so the score sits on the centre and the roads, which a trailing side can still raid back.
+Empty land keeps scoring (W-164): land stays held until someone takes it, with or without men on it. Only foes on the
+plateau stop Omphalos.
+
+Nothing else moves the race (W-162, W-163). Trade, contracts, works, town levels, tasks and crown orders pay in coin,
+levels and perks, not in land, so W-61's per-alliance caps are gone. World events earn **event points**: a record shown on
+the roll of honour, not counted toward the win.
+
+| How it ends | Winner |
+| --- | --- |
+| **Hegemony**: one alliance holds Omphalos and 3 of the 4 frontier towns for 24 h | that alliance, and the season ends early. Builders and traders win it by supplying the war |
+| Day 28 with no hegemony (W-160) | the most land-hours. An exact tie, or nobody holding land: no winner, no banner |
+
+The old war (DESIGN_V2) ranked by capitals; here homes cannot fall, so the score sits on the centre and the roads, which a
+trailing side can still raid back. Each path has its own ladder ("Paths" › "Ladders").
 
 ### Balance check
 
@@ -698,7 +703,7 @@ JSON as **pre-built** buildings (`done`, full hp unless the table says otherwise
 | Ruined stays ruined | a ruin is rebuilt only by the owner of its ground: 75% of the build cost (stone reused) and 75% labour; landmark pieces only by their restore rule |
 | Repair | a new `repair` order on a damaged building: any squad, engineers ×1.5; per 10% hp, 5% of the build cost and 5% of its labour |
 | Razed town | houses ruined cut the pool (their rate and cap); with ≥ 3/4 of its houses and its temple ruined a town is **ruined**: no pool, no favour, and a frontier town scores 1 an hour instead of 3 until half its houses stand again |
-| Sacrilege | razing a temple or shrine costs the razer's alliance 10 score; no score is ever gained by razing outside homes (the home rule of 5 stays) |
+| Sacrilege | razing a temple or shrine costs the razer's alliance 10 score; no score is ever gained by razing outside homes |
 | Homes | home pre-built pieces belong to the home alliance and may be razed by raiders, never its hall (W-09) |
 
 ### Balance
@@ -797,7 +802,7 @@ waits at its next stop until he is back (a map, chat or region tab), then goes o
 | Staffed (W-88, W-120, W-121) | a building works only while a man of its side stands within 4 tiles (`STAFF`, scanned once a second on a coarse grid), any class, online or not (W-97). The man need not be the owner |
 | What needs a person (W-120) | anything that produces goods, sells, gives a service, shoots, gives sight or runs a queue: forges and every workplace, stalls and standing orders, temples and shrines, towers, camps, the yields of a farm, press, kiln or jetty (natural nodes regrow regardless). A tower shoots and sees only with a man in it |
 | What needs nobody (W-120) | walls, gates, roads, bridges, wells, statues, boards, town houses, fields, braziers, chests and houses as storage. A store still stores and feeds its network |
-| Land (W-123) | a standing fort keeps its influence; the structure is still there. Whether empty land scores is item 9 |
+| Land (W-123, W-164) | a standing fort keeps its influence; the structure is still there. Empty land keeps scoring ("Season score and victory") |
 | Access and terms (W-89, W-125, W-126) | each building a player built is set to private, household, alliance or anyone (default alliance, a house private) on its card. The owner may keep up to 50% of what others make there and ask up to 100 coin an order (`TERMS`). The server refuses anyone else |
 | Paying (W-126) | a fee is coin, paid when the order starts. A share comes off the goods at the finish; an output that cannot be split (one sword) pays that share of its inputs at the start; a farm pays on delivery. A fee does not apply to gathering. It all waits in the building's own hold until the owner's men fetch it |
 | A stranger at the bench (W-127) | under anyone, foes too: he pays from his men's packs, works at the door, and what he makes lands in a pile claimed for him |
@@ -812,10 +817,21 @@ waits at its next stop until he is back (a map, chat or region tab), then goes o
 | Rule | Value |
 | --- | --- |
 | Alliance win (W-92) | one, decided by land: "Season score and victory". Builders and traders win it by supplying the war |
-| Ladders (W-92) | each path has its own ranked ladder. What each one ranks: open |
+| Ladders (W-92, W-165) | one a path: see below |
 | Solo builder or trader (W-93) | path story chains (W-147) and NPC towns that buy and sell, hire workers and sell carts: "NPC towns" |
 | Solo warrior (W-93) | can be hired for monsters: the `hunt` contract (W-146, "Hand-offs, contracts, letters") |
 | Not given (W-72 stands) | no AI ally squads, no solo claim exceptions; warlords stay rivals |
+
+### Ladders (W-165..W-169)
+
+| Rule | Value |
+| --- | --- |
+| Ladders | three a season: warriors, builders, traders. A player stands only on his own path's (W-83 locks it); a player with no path on none |
+| Ranked by | level points earned this season (W-111, the `war_favour` total). A tie goes to whoever got there first |
+| First places (W-166) | warrior **Ares-born**, builder **Master Builder**, trader **Merchant Prince**: shown as W-61's emblems. The Warden title is gone; guard hours stay a season stat |
+| Warrior family (W-167) | shows beside his name; no ladder of its own |
+| Standings panel (W-169) | the alliance race, then your path's ladder (top 20 and your place); the other two are one tap away. `GET /api/war/ladders` |
+| Season's end (W-168) | the roll of honour (`war_season_results`) records the winning alliance, the land-hours and each path's top 3; banners go to the winners, crests to the first places; then W-96's reset runs |
 
 ### Feudal hierarchy (W-94, W-150..W-155)
 
@@ -1707,14 +1723,12 @@ hurts; the player still has his squad, his level and his home strongroom.
 | Loot a chest, store or house | porters at it, no man of its side within 10 tiles, its door broken first (a chest has none): 1 load per 2 s a porter, whatever the influence (W-130, W-131); never a home strongroom, never inside a safe court | what they carry, nothing more |
 | Ambush spots | region JSON `ambush` rects (additive: high ground or woods over a road, 1–3 per route region); bandit lairs on the coast tracks | where bots and raiders wait |
 
-### Season score and anti-abuse
+### Anti-abuse
 
 | Rule | Value |
 | --- | --- |
-| Trade score | a fill or a paid carry or supply contract: 1 per 100 coin when the goods' **origin** (stamped when gathered, made or minted) is ≥ 3 transfers from the town and the two players are of different alliances; ≤ 60 a day an alliance |
-| Raid score | none: raiding pays in cargo |
 | Alt funnelling | accounts that shared an IP or device in 7 days cannot hand off, fill, contract or capture carts from each other; one-sided hand-offs only within an alliance, ≤ 300 coin (last-fill value) a day to a receiver; receiving needs account age ≥ 48 h and one fight |
-| Wash trading | same-alliance fills score nothing; a town ignores origin stamps of its own region |
+| Wash trading | W-148: only goods carried in from another land pay a level; W-111: at most 600 an hour |
 | Caps | 2–3 carts, 4 chests a region, 1 stall + 1 warehouse a town, 2–4 contracts, a letter ≤ 500 coin |
 | Season start | each player gets what his path starts with ("Starting a game", W-95) and START.food in his home strongroom, no coin and no goods; nothing carries over (W-96) |
 
@@ -1744,10 +1758,9 @@ touched only on load, unload, pick-up, capture or loot. Bench: 600 units with 40
 
 ## Peaceful play (W-61)
 
-A player on the builder or trader path spends the whole season at it and still matters (W-83, W-92). Whether the score,
-its caps and these titles stay as they are beside the path ladders is
-[open](impl/paths-rework.md#open-design-items). Weights live in code: `src/war/sim/townLevel.ts`
-(levels, perks), `src/war/net/works.ts` (works), `src/war/world/season.ts` PEACE (score), `server/src/war/contracts.ts`
+A player on the builder or trader path spends the whole season at it and still matters (W-83, W-92): he supplies the war,
+earns his levels and climbs his ladder. W-61's peace score is gone (W-162). Weights live in code: `src/war/sim/townLevel.ts`
+(levels, perks), `src/war/net/works.ts` (works), `server/src/war/contracts.ts`
 GUARD and BUILD, `src/war/sim/economy.ts` WALLS.
 
 ### Town level
@@ -1767,7 +1780,6 @@ map's edge nor 3000 tiles) and whether every wall piece is stone.
 | 5 City | 10 kinds, 60% stone, closed, every wall piece stone | chests +6; hunger 25% slower; souls ×2; repairs ×1.4 |
 
 The badge at the top centre of the HUD shows it; its card lists the measures, the perks and what the next level needs.
-The season score reads each region's best town level per alliance (table above).
 
 ### Alliance works
 
@@ -1813,11 +1825,10 @@ in tests/war/wallsMatter.test.ts.
 
 ### Titles
 
-Each season the leader in each stat (war_season_stats) holds a title, shown as an emblem (the words in its tooltip) under
-the roster's tabs, in the Works panel's Titles tab (the standings, with your own run at each), on the world map's season
-panel and after the holder's home on the map: **Merchant Prince** (coin sold at his stalls), **Master Builder** (man-hours sold
-under build contracts or given to works), **Warden** (hours held under guard contracts), **Ares-born** (id `warlord`; renamed so it never reads as a rival warlord; foes his men
-struck down this season, war_player_stats; not the men's lifetime kills).
+W-166: a title is first place on a path's ladder ("Paths" › "Ladders"), shown as an emblem (the words in its tooltip) under
+the roster's tabs, in the Works panel's Titles tab, on the world map's standings panel and after the holder's home on the
+map: **Ares-born** (warriors; id `warlord`, renamed so it never reads as a rival warlord), **Master Builder** (builders),
+**Merchant Prince** (traders).
 
 ### Daily and weekly tasks (W-62, W-73 solo)
 

@@ -11,7 +11,7 @@
  *                alliance buildings): its art, one big progress bar, the goods and labour as have/need chips, the top
  *                three givers and the bonus it grants as a reward chip (E7: the alliance's wonder heads the tab, its stage
  *                track with each stage's perk and its top five givers); pick a card to contribute goods from your home
- *                strongroom. Titles, the season's standings: each title's emblem, holder and lead, and your own run at it.
+ *                strongroom. Titles: each path's first place, its emblem, holder and level points, and your season's stats.
  *                The roster strip shows the titles as emblems (./titles.ts).
  * Online the panels read /api/war/works and /api/war/titles; offline they show the works' needs only.
  */
@@ -84,7 +84,6 @@ const CSS = `
 .ti-row.me{background:var(--rf-sel)}
 .ti-name{font:700 13px/1.1 Cinzel,serif;color:var(--rf-title)}
 .ti-who{margin-top:2px}
-.ti-you{display:flex;align-items:center;gap:5px;margin-top:3px;font-size:11px}
 .ti-v{display:flex;flex-direction:column;align-items:flex-end;gap:2px}.ti-v b{font-size:15px;color:var(--rf-gold)}.ti-v span{font-size:10.5px}
 .ti-strip{display:flex;flex-wrap:wrap;gap:3px 8px;margin:5px 2px 0}
 .ti-s{display:inline-flex;align-items:center;gap:4px;font:600 11px/1 Inter,sans-serif;color:var(--rf-ink)}.ti-s.me{color:var(--rf-gold)}

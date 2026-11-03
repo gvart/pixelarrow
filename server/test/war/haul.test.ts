@@ -1,9 +1,8 @@
 /**
- * M6h world trade (docs/WAR.md "Carts", "Season score and anti-abuse"): transits carry cargo (survive a transfer and a
+ * M6h world trade (docs/WAR.md "Carts", "Anti-abuse"): transits carry cargo (survive a transfer and a
  * restart), wagons and loaded porters travel slower, a haul chains its legs with the player offline, convoys are seen
- * per fog and Safe Roads, and the trade score's rules and daily cap.
+ * per fog and Safe Roads.
  */
-import { env } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
 import { NET_VERSION, type JoinMsg } from '../../../src/war/net/protocol';
 import type { TransitCargo } from '../../../src/war/net/world';
@@ -12,9 +11,6 @@ import { makePerson } from '../../../src/war/sim/roster';
 import { WarRoom } from '../../src/war/room';
 import { warRegion } from '../../src/war/regions';
 import { CARGO_TRAVEL, World, type ArriveResult, type Ports } from '../../src/war/world/world';
-import { fillHook, scoreOf, TRADE } from '../../src/war/tradeScore';
-import { devLogin } from '../helpers';
-import type { Env } from '../../src/env';
 
 const T0 = 2_000_000;
 const CARGO: TransitCargo = { packs: { p1: { lots: [{ r: 'iron', n: 10, o: 'siren' }], items: [] } }, carts: [{ type: 'wagon', lots: [{ r: 'salt', n: 60, o: 'ammos' }], items: [] }] };
@@ -129,23 +125,5 @@ describe('convoys on the world map', () => {
     expect(see(1)).toEqual([1, 2]);
     expect(w.convoys(7, 0)[0]).toMatchObject({ mine: true, cart: 'wagon', goods: { iron: 10, salt: 60 }, alliance: 0 });
     expect(w.snapshot(7, 0, { members: [0, 0, 0, 0], clans: [0, 0, 0, 0] }, T0).convoys).toHaveLength(2);
-  });
-});
-
-describe('trade score', () => {
-  it('counts goods of an origin >= 3 transfers away, between alliances, at most 60 a day; same alliance nothing', async () => {
-    const far = WORLD_REGIONS.find((r) => hops(r.id, 'kleisoura') >= TRADE.hops)!.id, near = WORLD_REGIONS.find((r) => hops(r.id, 'kleisoura') === 1)!.id;
-    expect(scoreOf('kleisoura', [{ origin: far, amount: 10 }], 500)).toBe(5);
-    expect(scoreOf('kleisoura', [{ origin: near, amount: 10 }], 500)).toBe(0);
-    expect(scoreOf('kleisoura', [{ origin: 'kleisoura', amount: 5 }, { origin: far, amount: 5 }], 1000)).toBe(5);
-    const a = await devLogin(8301), b = await devLogin(8302), c = await devLogin(8303);
-    for (const [p, al] of [[a, 0], [b, 1], [c, 0]] as const) await env.DB!.prepare('INSERT INTO war_alliance_members (season, player_id, alliance, joined_at) VALUES (1, ?1, ?2, 0)').bind(p.playerId, al).run();
-    const hook = fillHook(env as unknown as Env), now = Date.now();
-    const lots = [{ res: 'iron', origin: far, seal: 0, amount: 100 }];
-    expect((await hook({ town: 'kleisoura', seller: a.playerId, buyer: c.playerId, lots, coin: 5000, now })).score).toBe(0); // same alliance
-    const s = await hook({ town: 'kleisoura', seller: a.playerId, buyer: b.playerId, lots, coin: 9000, now });
-    expect(s.score).toBe(TRADE.cap);
-    await env.DB!.batch(s.stmts);
-    expect((await hook({ town: 'kleisoura', seller: a.playerId, buyer: b.playerId, lots, coin: 900, now })).score).toBe(0); // capped today
   });
 });

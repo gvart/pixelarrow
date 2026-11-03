@@ -48,7 +48,6 @@ import { batch, goodsOf, guard, HOME, lotsOf, planTake, putLotsStmts, putStmt, s
 import { townOf } from './market';
 import { barUntil, crownPassedStmts, owedBy, rankOf, rateOf } from './oaths';
 import { json, fightTally } from './persons';
-import { scorePeace } from './peace';
 import { WAR_REGIONS } from './regions';
 import { payStmts } from './tasks';
 import { give as giveWork } from './works';
@@ -490,7 +489,6 @@ async function closeOrder(env: Env, o: OrderRow, state: 'done' | 'expired' | 'ca
     if (e instanceof ApiError && e.code === 'changed') return 0; // closed meanwhile
     throw e;
   }
-  if (paid > 0) await scorePeace(env, o.alliance, 'feats', CROWN.orderPts, now);
   return paid;
 }
 
@@ -542,7 +540,6 @@ export async function deliver(env: Env, pid: number, id: number, n: number, now:
     ...payStmts(db, pid, { coin: pay }, now),
     ...(done ? [logStmt(db, season, a, 'quest_done', pid, { id, res: o.res, n: o.n, bounty: o.bounty }, now)] : []),
   ]);
-  if (done) await scorePeace(env, a, 'tasks', CROWN.orderPts, now);
   return { n: k, paid: pay, done };
 }
 

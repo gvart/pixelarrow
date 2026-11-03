@@ -55,16 +55,16 @@ export function eventHelp(e: Pick<WorldEvent, 'kind' | 'region'>): EventHelp {
     caravanRush: {
       goal: `Haul goods to ${where}`,
       gain: `+${RUSH.perLoad} a load`,
-      what: `every convoy reaching ${where} with cargo scores your alliance points`,
+      what: `every convoy reaching ${where} with cargo earns your alliance event points`,
       todo: 'Haul goods there by cart or wagon (world map: H, the haul planner)',
-      rule: `Each convoy that arrives at the ${where} market with cargo scores its alliance ${RUSH.perLoad} point a load, at most ${RUSH.cap} an arrival.`,
+      rule: `Each convoy that arrives at the ${where} market with cargo earns its alliance ${RUSH.perLoad} event point a load, at most ${RUSH.cap} an arrival. Event points go on the roll of honour; only land wins the season.`,
     },
     landmarkSiege: {
       goal: `Take ${lm}`,
       gain: `+${SIEGE.capture}`,
-      what: `${lm} in ${where} is open to take, for alliance score`,
+      what: `${lm} in ${where} is open to take, for event points and its land`,
       todo: 'Defeat its guardian, claim its point, then keep men in it',
-      rule: `Capturing the landmark while the event runs scores the captor ${SIEGE.capture}; the alliance holding it at the end with a garrison inside scores ${SIEGE.held} more.`,
+      rule: `Capturing the landmark while the event runs earns the captor ${SIEGE.capture} event points; the alliance holding it at the end with a garrison inside earns ${SIEGE.held} more. Event points go on the roll of honour; only land wins the season.`,
     },
   };
   return H[e.kind];

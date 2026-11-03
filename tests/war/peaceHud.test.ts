@@ -33,7 +33,7 @@ describe('W-61 peace HUD', () => {
   });
 
   it('the roster strip is emblems with the words in the tooltip', () => {
-    const html = titlesStrip([{ id: 'warden', name: 'Warden', pid: 2, player: 'Phylax', alliance: 1, home: 'skythia', value: 38 }], 2);
+    const html = titlesStrip([{ id: 'masterBuilder', name: 'Master Builder', pid: 2, player: 'Phylax', alliance: 1, home: 'skythia', value: 38 }], 2);
     expect(html).toContain('rf-medal me');
     expect(html).toContain('data-tip=');
     expect(titlesStrip([], null)).toBe('');

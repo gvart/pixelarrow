@@ -2,7 +2,8 @@
  * Season score and victory (docs/WAR.md "Season score and victory"), shared by the server (WarWorldDO accrues it) and
  * the world screen. A region yields its owner, per hour: Omphalos 10 while no enemy squad stands on the plateau, a
  * frontier town 3, a gate 2, any other claimed neutral 1; homes and entries nothing. Hegemony: one alliance holds
- * Omphalos and HEGEMONY.towns of the four frontier towns for HEGEMONY.ms, and the season ends early.
+ * Omphalos and HEGEMONY.towns of the four frontier towns for HEGEMONY.ms, and the season ends early; else the most
+ * land-hours at the end (W-160): only what held ground yields counts (W-161).
  */
 import { ALLIANCES } from './alliances';
 import { worldRegion } from './graph';
@@ -29,14 +30,6 @@ export const SCORE = { omphalos: 10, town: 3, gate: 2, neutral: 1, ruinedTown: 1
  */
 export const LIVING = { landmark: 2, landmarkCap: 6, prestigeCap: 2, sacrilege: 10 } as const;
 export const HEGEMONY = { towns: 3, ms: 24 * 3600_000 } as const;
-/**
- * W-61 peace score (docs/WAR.md "Season score and victory", "Peaceful play"): what builders and traders add to their
- * alliance. volume: a point per `volume` coin sold through a player's stall to another alliance, at most `volumeCap` a
- * day; contracts: a contract filled scores `contract` + its reward / `contractPer`, at most `contractCap` a day; works:
- * an alliance work completed, `work` once; town: an hour, by each region's best town level of the alliance
- * (`town[level]`), at most `townCap` an hour. Daily caps per alliance and UTC day.
- */
-export const PEACE = { volume: 200, volumeCap: 40, contract: 2, contractPer: 100, contractCap: 30, work: 30, town: [0, 0, 0.25, 0.5, 1, 1.5], townCap: 3 } as const;
 export const HOUR_MS = 3600_000;
 
 /** What the score reads of a region (RegionState fits). */
@@ -44,8 +37,6 @@ export interface ScoredRegion {
   id: string; owner: number; live: number[];
   /** M7f: its landmark's holder and whether it is garrisoned; favour and prestige per alliance; a ruined frontier town. */
   landmark?: { holder: number; garrisoned: boolean }; prestige?: number[]; ruined?: boolean;
-  /** W-61: the best town level per alliance in the region. */
-  town?: number[];
 }
 
 /** Score per hour the region yields its owner now. */
@@ -59,15 +50,14 @@ export function scoreRate(r: ScoredRegion): number {
 
 /** Score per hour per alliance: the regions it owns, plus its garrisoned landmarks and its favour and prestige (capped). */
 export function allianceRates(regions: Iterable<ScoredRegion>): number[] {
-  const out = ALLIANCES.map(() => 0), lm = ALLIANCES.map(() => 0), pr = ALLIANCES.map(() => 0), tw = ALLIANCES.map(() => 0);
+  const out = ALLIANCES.map(() => 0), lm = ALLIANCES.map(() => 0), pr = ALLIANCES.map(() => 0);
   for (const r of regions) {
     if (r.owner >= 0 && r.owner < out.length) out[r.owner] += scoreRate(r);
     const h = r.landmark?.holder ?? -1;
     if (r.landmark?.garrisoned && h >= 0 && h < out.length) lm[h] += LIVING.landmark;
     r.prestige?.forEach((v, i) => i < pr.length && (pr[i] += v));
-    r.town?.forEach((lv, i) => i < tw.length && (tw[i] += PEACE.town[Math.max(0, Math.min(PEACE.town.length - 1, lv))]));
   }
-  return out.map((x, i) => x + Math.min(LIVING.landmarkCap, lm[i]) + Math.min(LIVING.prestigeCap, pr[i]) + Math.min(PEACE.townCap, tw[i]));
+  return out.map((x, i) => x + Math.min(LIVING.landmarkCap, lm[i]) + Math.min(LIVING.prestigeCap, pr[i]));
 }
 
 /** The alliance holding Omphalos and HEGEMONY.towns frontier towns, if one does. */
