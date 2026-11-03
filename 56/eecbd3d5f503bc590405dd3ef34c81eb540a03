@@ -1,0 +1,23 @@
+docs/WAR.md
+  s_a7d5d20f628c80::t_c09e7b2c73a6cb 753-754,837,922-929,1087,1093,1099-1102,1157-1158,1167-1168,1173-1176,1190,1192,1301,1517
+docs/impl/global-war-rebuild.md
+  s_a7d5d20f628c80::t_c09e7b2c73a6cb 118-123,229
+docs/impl/paths-rework.md
+  s_a7d5d20f628c80::t_c09e7b2c73a6cb 38-40,43,59-61,69-72,108
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "56eecbd3d5f503bc590405dd3ef34c81eb540a03",
+  "prompts": {},
+  "sessions": {
+    "s_a7d5d20f628c80": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1afee479-b44b-46d2-a159-a540e44e7fb8",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
