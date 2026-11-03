@@ -5,9 +5,10 @@
  */
 import { env, runInDurableObject } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
-import { LADDER, TITLE_OF, type LaddersView } from '../../../src/war/net/ladders';
+import { LADDER, TITLE_OF, type Ladders, type LaddersView } from '../../../src/war/net/ladders';
 import { PAYS, type FavourReason } from '../../../src/war/net/favour';
 import { FAMILIES, FAMILY_IDS, PATH_IDS, type PathId, type StartFamily } from '../../../src/war/world/start';
+import { DELETED_NAME, deleteAccount } from '../../src/account/delete';
 import { addFavour } from '../../src/war/favour';
 import { ladders, laddersView, titles } from '../../src/war/ladders';
 import { worldStub } from '../../src/war/world/routes';
@@ -153,5 +154,53 @@ describe('the roll of honour (W-168)', () => {
     const after = await ladders(DB());
     for (const p of PATH_IDS) expect(after[p]).toEqual([]);
     expect(await DB().prepare('SELECT season FROM war_season_results WHERE season = ?1').bind(out.s).first()).not.toBeNull();
+  });
+});
+
+describe('account deletion and the roll of honour (W-168)', () => {
+  it('replaces his name in D1 and in the world, keeps the place, touches no one else and no NPC town', async () => {
+    const gone = await onPath(8891, 'builder'), other = await onPath(8892, 'builder');
+    await pay(gone.playerId, 900_000);
+    await pay(other.playerId, 800_000);
+    const world = worldStub(env);
+    const s = await runInDurableObject(world, async (o: WarWorldDO) => {
+      const id = (await o.standings()).season.id;
+      await o.resetSeason();
+      return id;
+    });
+    const before = JSON.parse((await DB().prepare('SELECT ladders FROM war_season_results WHERE season = ?1').bind(s).first<{ ladders: string }>())!.ladders) as Ladders;
+    const name = before.builder.find((r) => r.pid === gone.playerId)!.player, otherName = before.builder.find((r) => r.pid === other.playerId)!.player;
+    expect(name).not.toBe(DELETED_NAME);
+    await DB().prepare("INSERT OR REPLACE INTO war_npc_towns (town, purse, minted_day, minted) VALUES ('dodona', 500, 0, 0)").run();
+
+    expect(await deleteAccount(env, gone.playerId, 'self')).toBe('done');
+
+    const row = await DB().prepare('SELECT ladders FROM war_season_results WHERE season = ?1').bind(s).first<{ ladders: string }>();
+    expect(row!.ladders).not.toContain(name);
+    const check = (l: Ladders) => {
+      expect(l.builder.find((r) => r.pid === gone.playerId)).toMatchObject({ player: DELETED_NAME, place: 1 });
+      expect(l.builder.find((r) => r.pid === other.playerId)).toMatchObject({ player: otherName, place: 2 });
+    };
+    check(JSON.parse(row!.ladders) as Ladders);
+    check((await runInDurableObject(world, (o: WarWorldDO) => o.snapshot(other.playerId, null))).last!.ladders);
+    expect(await DB().prepare("SELECT purse FROM war_npc_towns WHERE town = 'dodona'").first<{ purse: number }>()).toEqual({ purse: 500 });
+  });
+
+  it('a deletion removes his oaths, rates and tribute and his place on the live ladders', async () => {
+    const me = await onPath(8893, 'trader'), lord = await onPath(8894, 'builder');
+    await pay(me.playerId, 700);
+    const t = await DB().prepare('SELECT season FROM war_alliance_members WHERE player_id = ?1').bind(me.playerId).first<{ season: number }>();
+    await DB().batch([
+      DB().prepare("INSERT INTO war_oaths (season, vassal_pid, lord_pid, alliance, state, asked_at) VALUES (?1, ?2, ?3, 0, 'sworn', 0)").bind(t!.season, me.playerId, lord.playerId),
+      DB().prepare('INSERT INTO war_oath_rates (season, player_id, pct) VALUES (?1, ?2, 10)').bind(t!.season, me.playerId),
+      DB().prepare("INSERT INTO war_tribute_held (region, building, type, payer_pid, receiver_pid, goods) VALUES ('dodona', 1, 'forge', ?1, ?2, '{}')").bind(me.playerId, lord.playerId),
+    ]);
+    expect(await deleteAccount(env, me.playerId, 'self')).toBe('done');
+    const n = async (sql: string) => (await DB().prepare(sql).bind(me.playerId).first<{ n: number }>())!.n;
+    expect(await n('SELECT COUNT(*) AS n FROM war_oaths WHERE vassal_pid = ?1 OR lord_pid = ?1')).toBe(0);
+    expect(await n('SELECT COUNT(*) AS n FROM war_oath_rates WHERE player_id = ?1')).toBe(0);
+    expect(await n('SELECT COUNT(*) AS n FROM war_tribute_held WHERE payer_pid = ?1 OR receiver_pid = ?1')).toBe(0);
+    expect(await n('SELECT COUNT(*) AS n FROM war_alliance_members WHERE player_id = ?1')).toBe(0);
+    expect((await ladders(DB())).trader.some((r) => r.pid === me.playerId)).toBe(false);
   });
 });

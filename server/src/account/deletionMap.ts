@@ -134,14 +134,17 @@ export const DELETION_MAP: Record<string, TableRule> = {
   online_seasons: { rule: 'not_player_keyed' },
   stats_counters: { rule: 'not_player_keyed' },
   war_fights: { rule: 'not_player_keyed' },
-  // M6e: goods by holder id (`sr:<player>`, stalls, escrows); a deleted player's holder rows go, their lots stay inert
+  // M6e: goods by holder id (`sr:<player>`, stalls, escrows, W-153 `tr:<town>:<payer>`); a deleted player's holder rows go, their lots stay inert
   war_goods: { rule: 'not_player_keyed' },
   war_board_seen: { rule: 'not_player_keyed' },
   war_works: { rule: 'not_player_keyed' },
   war_alliance_clans: { rule: 'not_player_keyed' },
   war_region_state: { rule: 'not_player_keyed' },
-  // W-62, W-168: a finished season's roll of honour (its top places' names inside the JSON, like the public boards)
-  war_season_results: { rule: 'not_player_keyed' },
+  // W-142: an NPC town's purse and stock: town-level, no player in them
+  war_npc_towns: { rule: 'not_player_keyed' },
+  war_npc_stock: { rule: 'not_player_keyed' },
+  // W-62, W-168: a finished season's roll of honour: other players' history, a deleted player's name replaced in its JSON
+  war_season_results: { rule: 'shared_history', via: 'ladders JSON rewritten in delete.ts step leave' },
   public_snapshot: { rule: 'derived' },
   dev_outbox: { rule: 'dev_only' },
 };

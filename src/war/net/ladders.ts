@@ -27,6 +27,10 @@ export interface LadderRow {
 }
 export type Ladders = Record<PathId, LadderRow[]>;
 
+/** Ladders with a deleted player's name replaced (account deletion; the roll of honour keeps the place). */
+export const renamedOnLadders = (l: Ladders, pid: number, name: string): Ladders =>
+  Object.fromEntries(Object.entries(l).map(([p, rows]) => [p, rows.map((r) => (r.pid === pid ? { ...r, player: name } : r))])) as Ladders;
+
 /** GET /api/war/ladders: the ladders and where the player stands (null: no path, no ladder). */
 export interface LaddersView {
   ladders: Ladders;

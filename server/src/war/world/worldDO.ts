@@ -48,6 +48,7 @@ import { boardsSeen, hasNode } from '../tradeScore';
 import type { TransitCargo } from '../../../../src/war/net/world';
 import { snapOf, World, type ArriveResult, type DepartResult, type Ports, type RegionReport, type WorldState } from './world';
 import { WORLD_REGIONS } from '../../../../src/war/world/regions';
+import { renamedOnLadders } from '../../../../src/war/net/ladders';
 import type { Crest } from '../../../../src/war/net/world';
 import { buildBoard, crestsOf, recordSeason } from './seasonWar';
 import { ChatGate, chatHistory, chatMute, chatMutes, chatOwns, chatReport, chatStore, WORLD } from './chat';
@@ -187,6 +188,14 @@ export class WarWorldDO extends DurableObject<Env> {
   /** The season is over: its result is frozen in the world state; it is also kept on its own key for later rewards. */
   private async seasonEnded(r: SeasonResult, id: number): Promise<void> {
     await this.ctx.storage.put(`result:${id}`, r);
+  }
+
+  /** Account deletion: the last season's roll, kept here for the map, shows `name` for this player. */
+  async renameOnRoll(pid: number, name: string): Promise<void> {
+    const w = await this.ensure();
+    if (!w.st.last) return;
+    w.st.last = { ...w.st.last, ladders: renamedOnLadders(w.st.last.ladders, pid, name) };
+    await this.commit(w);
   }
 
   /** A finished season's result (null: none, or not over yet). */
