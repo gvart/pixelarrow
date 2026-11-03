@@ -278,6 +278,123 @@ describe('W-152 succession', () => {
   });
 });
 
+describe('W-200..W-202 a king rules until deposed', () => {
+  const crownedLog = async (S: number, a: number, kinds: string) => (await DB().prepare(`SELECT kind FROM war_crown_log WHERE season = ?1 AND alliance = ?2 AND kind IN (${kinds})`).bind(S, a).all()).results.length;
+
+  it('he stays past a week, and past two: no election opens, no regency, nothing lapses while he plays', async () => {
+    const S = fresh(), a = 2;
+    const { king, b, now } = await crowned(S, a);
+    const elections = await crownedLog(S, a, "'election'");
+    for (let t = now + 48 * H; t <= now + 14 * 24 * H; t += 48 * H) {
+      await seen(king, t);
+      const v = await crownView(env, b, t, S);
+      expect(v.monarch!.pid).toBe(king);
+      expect(v.election).toBeNull();
+      expect(v.regent).toBe(false);
+    }
+    expect(await crownedLog(S, a, "'election'")).toBe(elections);
+  });
+
+  it('abdicating hands on with no election: the heir simply reigns', async () => {
+    const S = fresh(), a = 2;
+    const { king, b, c, now } = await crowned(S, a);
+    await nameHeir(env, king, b, now, S);
+    expect(await abdicate(env, king, now, S)).toBe(b);
+    const v = await crownView(env, c, now, S);
+    expect(v.monarch!.pid).toBe(b);
+    expect(v.election).toBeNull();
+    expect(v.regent).toBe(false);
+  });
+
+  it('his sworn men prop him up until they rebel: lords fail while sworn, break their oaths and depose him; he may not stand', async () => {
+    const S = fresh(), a = 3;
+    const { king, b, c, now } = await crowned(S, a);
+    const d = await member(a, S), man = await member(a, S);
+    await lordOf(d);
+    await oathed(b, king, now, S);
+    await oathed(c, king, now, S);
+    await oathed(man, king, now, S);
+    // king 1 + 3 sworn, b, c, d 1 each: 7. Three yes is no majority: he holds
+    expect((await membersOf(DB(), a, S)).find((m) => m.pid === king)!.weight).toBe(4);
+    await sign(env, d, now, S);
+    for (const p of [b, c, d]) await confidence(env, p, true, now, S);
+    const held = now + CROWN.voteMs;
+    await seen(king, held);
+    expect((await crownView(env, d, held, S)).monarch!.pid).toBe(king);
+    // the rebels break their oaths (named on the roll, as ever): king 2, b, c, d 1 each: 5, and three yes carries it
+    const later = held + CROWN.cooldownMs;
+    for (const p of [king, b, c, d, man]) await seen(p, later);
+    await breakOath(DB(), b, later, S);
+    await breakOath(DB(), c, later, S);
+    await sign(env, d, later, S);
+    for (const p of [b, c, d]) await confidence(env, p, true, later, S);
+    await confidence(env, king, false, later, S);
+    const t = later + CROWN.voteMs;
+    for (const p of [king, b, c, d]) await seen(p, t);
+    const v = await crownView(env, b, t, S);
+    expect(v.log.some((l) => l.kind === 'deposed')).toBe(true);
+    expect(v.monarch).toBeNull();
+    expect(v.election!.candidates.map((k) => k.pid)).not.toContain(king); // W-202
+    // nobody votes: the strongest of those who stand takes it, not the fallen king
+    const u = await crownView(env, king, v.election!.closes, S);
+    expect(u.monarch!.pid).toBe(b);
+    expect(u.me.monarch).toBe(false);
+  });
+
+  it('a king who stops playing is replaced: unseen 72 h the crown goes, and he cannot win it back by standing absent', async () => {
+    const S = fresh(), a = 1;
+    const { king, b, c, now } = await crowned(S, a); // the king is the strongest by far: he would win an empty vote
+    await seen(king, now);
+    const t = now + FEUDAL.inactiveMs;
+    for (const p of [b, c]) await seen(p, t);
+    const v = await crownView(env, b, t, S);
+    expect(v.monarch).toBeNull();
+    expect(v.election!.candidates.map((k) => k.pid)).toEqual([b, c]); // W-202
+    const closes = v.election!.closes;
+    await seen(b, closes);
+    expect((await crownView(env, c, closes, S)).monarch!.pid).toBe(b); // nobody voted: still not him
+    // the bar is that one election: back and playing, he may stand again at the next
+    await seen(king, closes);
+    await seen(b, closes);
+    await abdicate(env, b, closes, S);
+    expect((await crownView(env, king, closes, S)).election!.candidates.map((k) => k.pid)).toContain(king);
+  });
+
+  it('a lone lord alone stands even so: a bar never leaves a realm with no one to crown', async () => {
+    const S = fresh(), a = 0, now = Date.now(), lone = await member(a, S);
+    await lordOf(lone);
+    await advance(env, a, now, S);
+    const closes = (await electionOf(S, a))!.closes_at;
+    await seen(lone, closes);
+    expect((await crownView(env, lone, closes, S)).monarch!.pid).toBe(lone);
+    const t = closes + FEUDAL.inactiveMs;
+    await seen(lone, closes);
+    const v = await crownView(env, lone, t, S);
+    expect(v.monarch).toBeNull();
+    expect(v.election!.candidates.map((k) => k.pid)).toEqual([lone]);
+  });
+
+  it('a king who only looks in cannot lock it: absent lords and men do not count, so those still playing can depose him', async () => {
+    const S = fresh(), a = 2;
+    const { king, b, c, now } = await crowned(S, a);
+    const gone = [await member(a, S), await member(a, S), await member(a, S)], men = [await member(a, S), await member(a, S), await member(a, S)];
+    for (const g of gone) await lordOf(g);
+    for (const m of men) await oathed(m, king, now, S);
+    // eight days on: the three lords and the king's three men have not played for a week; he looks in every other day
+    const t0 = now + CROWN.activeMs + 24 * H;
+    for (const p of [king, b, c]) await seen(p, t0);
+    await sign(env, b, t0, S);
+    await confidence(env, b, true, t0, S);
+    await confidence(env, c, true, t0, S);
+    const t = t0 + CROWN.voteMs;
+    for (const p of [king, b, c]) await seen(p, t);
+    // all weight: king 4 + 2 + 3 = 9, two yes fails. Active: king 1 + b + c = 3, two yes carries it
+    const v = await crownView(env, b, t, S);
+    expect(v.log.some((l) => l.kind === 'deposed')).toBe(true);
+    expect(v.monarch).toBeNull();
+  });
+});
+
 describe('W-153 tribute on sales', () => {
   it('sits at the stall, the rate is the lord\'s (0 to 20), both sides see it, and no coin is made or lost', async () => {
     const S = WAR_SEASON.id, a = 2, now = Date.now(), town = ALLIANCES[a].home;

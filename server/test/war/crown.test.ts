@@ -10,7 +10,7 @@ import { devLogin } from '../helpers';
 import { good, setGood } from './goods';
 import { joinAlliance } from '../../src/war/world/members';
 import {
-  advance, answerPact, appoint, bookFight, confidence, crownMap, crownSeason, crownTax, crownView, deliver, deposit, endOrder, fundWork, membersOf, offerPact,
+  abdicate, advance, answerPact, appoint, bookFight, confidence, crownMap, crownSeason, crownTax, crownView, deliver, deposit, endOrder, fundWork, membersOf, offerPact,
   pactAttack, postOrder, setTax, sign, treasuryOf, vote,
 } from '../../src/war/crown';
 import { goodsOf, putStmt } from '../../src/war/holders';
@@ -93,7 +93,7 @@ describe('pure rules', () => {
 });
 
 describe('election', () => {
-  it('the top three by power stand; weighted votes elect; the term runs a week, then a new election with a regent', async () => {
+  it('the top three by power stand; weighted votes elect; W-200: he reigns on with no term, past a week', async () => {
     const S = fresh(), a = 0, now = Date.now();
     const [p1, p2, p3, p4, v1, v2] = [await member(a, S), await member(a, S), await member(a, S), await member(a, S), await member(a, S), await member(a, S)];
     await settle(p1, 4);
@@ -120,24 +120,27 @@ describe('election', () => {
     expect(closes - now).toBe(CROWN.voteMs);
     view = await crownView(env, p2, closes, S);
     expect(view.monarch!.pid).toBe(p2);
-    expect(view.monarch!.ends).toBe(closes + CROWN.termMs);
     expect(view.election).toBeNull();
     expect(view.me.monarch).toBe(true);
     expect(view.log[0].kind).toBe('crowned');
-    // the term ends: a new election opens and he stays as regent
-    await seen(p2, closes + CROWN.termMs);
-    view = await crownView(env, p2, closes + CROWN.termMs, S);
-    expect(view.election).not.toBeNull();
-    expect(view.regent).toBe(true);
+    // a week on: no election, no regency
+    const week = closes + 7 * 24 * H;
+    await seen(p2, week);
+    view = await crownView(env, p2, week, S);
+    expect(view.election).toBeNull();
+    expect(view.regent).toBe(false);
     expect(view.monarch!.pid).toBe(p2);
-    // nobody votes: the strongest (v1) wins; the old council goes with the old monarch
-    await appoint(env, p2, 'marshal', p3, closes + CROWN.termMs, S);
+    // he steps down with no heir: nobody votes, the strongest (v1) wins; the old council goes with the old monarch
+    await appoint(env, p2, 'marshal', p3, week, S);
+    await abdicate(env, p2, week, S);
+    view = await crownView(env, p1, week, S);
+    expect(view.election).not.toBeNull();
     view = await crownView(env, p1, view.election!.closes, S);
     expect(view.monarch!.pid).toBe(v1);
     expect(view.council.every((c) => c.pid === null)).toBe(true);
   });
 
-  it('the season ends every term; no candidates, no election', async () => {
+  it('the season ends every reign (a regent until the new election); no candidates, no election', async () => {
     const S = fresh();
     const { king, now } = await crowned(S, 2);
     await crownSeason(env, now + H, S);

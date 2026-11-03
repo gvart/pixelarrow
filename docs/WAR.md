@@ -820,6 +820,12 @@ waits at its next stop until he is back (a map, chat or region tab), then goes o
 | Nobody else in the world (W-184) | every NPC town's board always has fights, works and loads for any path: "Town boards" |
 | Not given (W-72 stands) | no AI ally squads, no solo claim exceptions; warlords stay rivals |
 
+### Balance by path (W-203)
+
+`npm run balance:war` (`-- --paths` for this table alone) ends with a table of each path played from his real start and grown (`src/dev/pathBalance.ts`): a
+warrior hunting an entry region's lairs and a builder raising a town on the sim, a builder's board labour worked out, and a
+trader's road on the market rules. It leaves out tasks and stories; the whole game stays in `server/test/war/townBoardRuns.test.ts`.
+
 ### Ladders (W-165..W-169)
 
 | Rule | Value |
@@ -846,15 +852,21 @@ The hierarchy lives inside one alliance and is wiped each season (W-96). Any pat
 man who founds a settlement keeps his oath. Other alliances are refused. Join terms, garrisons and citizens stay from
 W-63; vassal terms by force, levy and rebellion went. Citizens of a settlement may still come from another alliance.
 
-**The crown (W-151, W-152).** W-64's weekly elected term stands. Only lords vote or sign, each weighing his vassals plus
-one. The top three by realm power stand. The king may name an heir from his alliance. The crown passes:
+**The crown (W-151, W-152, W-200..W-202).** A king rules until he falls; there is no term. An election opens only when
+the crown is empty or has fallen. Only lords vote or sign, each weighing his vassals plus one. The top three by realm power
+stand. The king may name an heir from his alliance. The crown passes:
 
 | When | What happens |
 |---|---|
-| He gives it up | the heir rules at once for the rest of the term; no heir, an election |
-| No confidence | W-64's petition, a quarter of the active lords, then over half of all lord weight, cast or not; the heir rules until the election closes |
+| He gives it up | the heir simply reigns; no heir, an election |
+| No confidence | W-64's petition, a quarter of the active lords, then over half of the active lords' weight, cast or not; the heir rules until the election closes |
 | Unseen 72 h, counted from the later of his last visit and taking the crown | an election; the heir rules until it closes |
-| Term ends | an election, the king as regent as before |
+| The season ends | an election, the king as regent |
+
+**Rebelling.** Active means seen within 7 days, for a lord and for each man counted in his weight, so absent men cannot
+keep a king on his throne. Those sworn to the king count for him while they are active; lords who want him gone may break
+their oaths first (the roll and the 24 h bar, below), which moves that weight off him. A king deposed or lapsed cannot
+stand in the election that follows unless nobody else can, so an empty vote does not hand him back the crown.
 
 No heir means an empty throne until the election closes. The old council goes when the crown passes.
 
@@ -882,13 +894,9 @@ The king's powers stay W-64's: offices, pacts, orders with bounties. Nobody comm
 ### Open questions
 
 - **Riders.** Held back from the start until the war sim has mounts: no work animations, balance unchecked (W-86).
-- **The king's weekly term (for the owner).** W-151 kept W-64's weekly term and regency under lord-weighted votes. A king
-  who can change every week may not suit a 28-day hierarchy of sworn lords.
 - **Rented warehouses have no door of their own (W-206).** The warehouse pieces have the store's door, but a rented site is
   a server row tied to no piece, so breaking one reaches no rented goods. Should rented goods be raidable at the Great Fair,
   the one unsafe market? That would end "safe while rent is paid" there.
-- **The balance tool runs pathless.** `npm run balance:war` measures a player with no path (W-106), so its rows do not
-  show the caps and perks of each path; the solo runs (`server/test/war/soloRuns.test.ts`) do.
 - **Empty towns.** A 4-man builder has almost nothing protecting an empty town; balance may push the cap up (W-85, W-91).
 - **Families without work animations.** Only hoplite, militia, archer, slinger, javelineer and celt_sword have them;
   the others, shield-bearers among them, swing their strike at work until they have their own (W-113, W-205).
