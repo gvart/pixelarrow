@@ -1,0 +1,42 @@
+src/war/view/hud/explain.ts
+  s_a7d5d20f628c80::t_26b192e97ea928 184
+  s_a7d5d20f628c80::t_6b08116fbc8de1 46
+src/war/menu/screens.ts
+  s_a7d5d20f628c80::t_6b08116fbc8de1 377
+src/war/view/hud/roster/state.ts
+  s_a7d5d20f628c80::t_6b08116fbc8de1 21-22,101-102,153,160,210,212,227
+src/war/view/interact.ts
+  s_a7d5d20f628c80::t_1f64a4c9b0ef11 214
+src/war/view/hud/roster/panel.ts
+  s_a7d5d20f628c80::t_c09e7b2c73a6cb 2
+src/war/view/tunnelLine.ts
+  s_a7d5d20f628c80::t_6b08116fbc8de1 105
+src/war/view/hud/armyPanel.ts
+  s_a7d5d20f628c80::t_cc1313f823575a 8
+  s_a7d5d20f628c80::t_c09e7b2c73a6cb 3
+  s_a7d5d20f628c80::t_6b08116fbc8de1 25,34,78
+src/war/view/hud/wipeCard.ts
+  s_a7d5d20f628c80::t_6b08116fbc8de1 26
+src/war/view/hud/tunnel.ts
+  s_a7d5d20f628c80::t_6b08116fbc8de1 42-43,74,136,189
+src/war/view/hud/souls.ts
+  s_a7d5d20f628c80::t_6b08116fbc8de1 5-6,9,34,39,61-69,74-75,88,114,117,135,143
+tests/armyPanel.test.ts
+  s_a7d5d20f628c80::t_cc1313f823575a 29,32
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "e56fa653e54a0519cadd5fb5ef31591e593129e9",
+  "prompts": {},
+  "sessions": {
+    "s_a7d5d20f628c80": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1afee479-b44b-46d2-a159-a540e44e7fb8",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
