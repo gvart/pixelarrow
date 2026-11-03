@@ -226,7 +226,9 @@ function oathsHtml(v: CrownView, here: string, f: { region: string; men: number;
   else {
     const king = v.monarch?.pid, lords = v.members.filter((m) => m.pid !== v.me.pid && (fd.rank === 'lord' ? m.pid === king : m.lord));
     const bar = fd.barUntil > v.now ? `you broke an oath: ${until(fd.barUntil - v.now)} left` : !lords.length ? (fd.rank === 'lord' ? 'a lord swears only to the king, and the crown is empty' : 'nobody rules a settlement yet') : '';
-    serve = `<div class="cr-line cr-rkline"><span class="rf-dim">You serve no one.</span><select data-sel="oathLord">${lords.map((m) => `<option value="${m.pid}">${esc(m.name)}</option>`).join('')}</select><button class="rf-tbtn pri cr-go" data-act="oath"${bar ? why(bar) : ''}>Swear</button></div>`;
+    serve = bar
+      ? `<div class="rf-dim cr-none">You serve no one: ${bar}.</div>`
+      : `<div class="cr-line cr-rkline"><span class="rf-dim">You serve no one. Swear to</span><select data-sel="oathLord">${lords.map((m) => `<option value="${m.pid}">${esc(m.name)}</option>`).join('')}</select><button class="rf-tbtn pri cr-go" data-act="oath">Swear</button></div>`;
   }
   const mineOwed = fd.lord && fd.owed.length ? owedRows(fd.owed, here, () => `<button class="rf-tbtn" data-act="tribute" data-tip="${attr('<b class="k">Send it</b><br><span class="rf-dim tip-w">your men in the market court carry it, sealed, to his store</span>')}">Send</button>`) : '';
   // ---------- who serves you
