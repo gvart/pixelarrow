@@ -4,7 +4,7 @@
  * the lair step still open) it wakes the guide's bandit pair on the road from his entry (one pair at a time per team:
  * a later new player gets a fresh pair once the last one fell), watches his men each tick, and tells him each step done.
  * The DO pays the step's reward into his home strongroom and keeps his save in its storage (`guide:<season>:<pid>`).
- * A full army (ARMY_MAX men across every region) has no soul to claim: the step closes unpaid at once, or when a claim
+ * A full army (his path's cap) has no soul to claim: the step closes unpaid at once, or when a claim
  * of his is refused. The haul step closes on a stow in, a hand-off done or a caravan (a transit's cargo) arriving here.
  * W-73 the last step, the hand-off to the nearest region chain (guideNext), closes when his men reach the exit towards
  * it, or when he departs for that region (the DO's depart marks it).
@@ -13,7 +13,6 @@
  */
 import { doneNow, GUIDE_LAIR, GUIDE_STEPS, guideNext, guideOpen, guideSpots, newWatch, watchEvents, type GuideSave, type GuideStepId, type GuideWatch } from '../../../src/war/net/guide';
 import type { ServerMsg } from '../../../src/war/net/protocol';
-import { ARMY_MAX } from '../../../src/war/sim/soldiers';
 import { HUNGER } from '../../../src/war/sim/food';
 import { put } from '../../../src/war/sim/holders';
 import type { RegionData, Snapshot, WarBuildSim, WarEvent } from '../../../src/war/types';
@@ -38,10 +37,10 @@ export class RoomGuide {
   }
 
   /**
-   * A player of `team` (with `army` men in all) is in: his run starts if this is his alliance's home and his guide is
-   * open. The message to send him (null: no guide here).
+   * A player of `team` (with `army` men in all, `cap` at most, W-85) is in: his run starts if this is his alliance's home
+   * and his guide is open. The message to send him (null: no guide here).
    */
-  start(pid: number, team: number, save: GuideSave | null, army: number, snap: Snapshot): ServerMsg | null {
+  start(pid: number, team: number, save: GuideSave | null, army: number, cap: number, snap: Snapshot): ServerMsg | null {
     if (this.home === undefined || team !== this.home) return null;
     const s: GuideSave = save ?? { v: 1, done: [] };
     if (!guideOpen(s)) return RoomGuide.msg(s);
@@ -52,7 +51,7 @@ export class RoomGuide {
       const here = (snap.lairs ?? []).filter((l) => Math.hypot(l.x - spot.x, l.y - spot.y) < 0.5);
       if (!here.some((l) => l.state !== 'cleared')) this.sim.addLair({ kind: GUIDE_LAIR.kind, x: spot.x, y: spot.y, count: GUIDE_LAIR.count });
     }
-    if (army >= ARMY_MAX) this.finish(run, 'soul', false);
+    if (army >= cap) this.finish(run, 'soul', false);
     return RoomGuide.msg(s);
   }
 
@@ -105,7 +104,7 @@ export class RoomGuide {
   /** After a step: the steps done this tick (the DO pays and stores them) and the messages to tell. */
   tick(snap: Snapshot, evs: readonly WarEvent[]): { done: GuideDone[]; msgs: [number, ServerMsg][] } {
     for (const r of [...this.runs.values()]) {
-      if (evs.some((e) => e.kind === 'soulRefused' && e.owner === r.watch.owner)) this.finish(r, 'soul', false); // a full army: nothing to claim
+      if (evs.some((e) => e.kind === 'soulRefused' && e.why === 'full' && e.owner === r.watch.owner)) this.finish(r, 'soul', false); // a full army: nothing to claim (a stranger, W-101: another soul will do)
       watchEvents(r.watch, snap, evs);
       for (const step of doneNow(r.watch, snap)) this.finish(r, step, true);
     }

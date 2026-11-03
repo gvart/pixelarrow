@@ -23,7 +23,7 @@ export function wipeCard(el: HTMLElement, home: string, watch: () => void): Wipe
     <div class="rf-dim" style="font-size:13px;line-height:1.45;margin-bottom:12px">The shades of your fallen walk back through the Tunnel of Shades in ${home}. The dead do not stay idle on Metaxy for long.</div>
     <div style="margin-bottom:4px"><span id="rfWipeH">The next man rises in</span> <b id="rfWipeT" style="color:var(--hud-gold-hi);font:700 16px/1 Cinzel,serif">…</b></div>
     <div id="rfWipeL" style="font-size:13px;margin-bottom:6px"></div>
-    <div class="rf-dim" style="font-size:13px;line-height:1.4;margin-bottom:14px">Until ${TUNNEL.floor} men stand again, one rises every ${TUNNEL.everyMs / 60_000} minutes, level 1 in starter kit. Past ${TUNNEL.floor}, men come only from souls.</div>
+    <div class="rf-dim" style="font-size:13px;line-height:1.4;margin-bottom:14px">Until ${TUNNEL.floor} men stand again, or your army's limit if that is less, one rises every ${TUNNEL.everyMs / 60_000} minutes, level 1 in starter kit. Past that, men come only from souls.</div>
     <div style="display:flex;gap:8px;justify-content:center"><button class="rf-tbtn pri" id="rfWipeGo" style="height:28px;padding:0 14px">Watch the tunnel</button><button class="rf-tbtn" id="rfWipeX" style="height:28px">Close</button></div>
   </div>`;
   const t = el.querySelector<HTMLElement>('#rfWipeT')!, head = el.querySelector<HTMLElement>('#rfWipeH')!, line = el.querySelector<HTMLElement>('#rfWipeL')!;

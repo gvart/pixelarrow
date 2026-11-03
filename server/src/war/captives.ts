@@ -20,8 +20,7 @@ import type { Item } from '../../../src/data/items';
 import type { WarPerson } from '../../../src/war/types';
 import { ApiError } from '../errors';
 import { placeItemStmt, strongroom } from './holders';
-import { armyCount, COLS, json, kitOf, movePerson, person, personOf, type PersonRow, type PersonState } from './persons';
-import { ARMY_MAX } from '../../../src/war/sim/soldiers';
+import { COLS, joinCheck, joinError, json, kitOf, movePerson, person, personOf, type PersonRow, type PersonState } from './persons';
 import { isCivClass } from '../../../src/data/classes';
 
 /** What a region's room is handed to wake a named soul: the man, how long he waits, the owner barred and how long. */
@@ -104,19 +103,20 @@ export async function releaseCaptive(db: D1Database, captor: number, id: string,
 
 /**
  * The captor asks a captive to join (after CAPTIVE.askMs): refused for good (he can only be released now), or he joins
- * the captor's army at home with his level, class and record, in his class's starter kit. A full army: refused before
- * he is asked.
+ * the captor's army at home with his level, class and record, in his class's starter kit. W-101: a man his path may not
+ * hold, or a full army, is refused before he is asked.
  */
 export async function askToJoin(db: D1Database, captor: number, id: string, now: number): Promise<{ joined: boolean }> {
   const r = await held(db, captor, id);
   if (r.refused) throw new ApiError(409, 'refused', `${r.name} refused to join you: you can only release him`);
   if (r.until_at !== null && now < askAt(r.until_at)) throw new ApiError(409, 'too_soon', `${r.name} may be asked ${Math.ceil((askAt(r.until_at) - now) / 60_000)} min from now`);
-  if ((await armyCount(db, captor)) >= ARMY_MAX) throw new ApiError(409, 'army_full', `Your army is full (${ARMY_MAX})`);
+  const why = await joinCheck(db, captor, r.cls);
+  if (why) throw joinError(why, r.name);
   if (refuses(r.id, r.level)) {
     await db.prepare("UPDATE war_persons SET refused = 1, updated_at = ?2 WHERE id = ?1 AND state = 'captive'").bind(id, now).run();
     return { joined: false };
   }
-  if (!(await movePerson(db, id, captor, { from: 'captive', region: null, gear: kitOf(r.cls, r.id, now) }, now))) throw new ApiError(409, 'army_full', `Your army is full (${ARMY_MAX})`);
+  if (!(await movePerson(db, id, captor, { from: 'captive', region: null, gear: kitOf(r.cls, r.id, now) }, now))) throw joinError('full', r.name);
   return { joined: true };
 }
 

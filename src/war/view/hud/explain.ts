@@ -9,7 +9,6 @@ import { EVENT_INFO, RUSH, SIEGE, STORM, WAKE, type WorldEvent, type WorldEventK
 import { DEPTH, REGION_DEPTH } from '../../sim/depth';
 import { CLAIM } from '../../sim/mobs';
 import { SOUL } from '../../sim/souls';
-import { ARMY_MAX } from '../../sim/soldiers';
 import { WAR_BOSSES } from '../../../data/warBosses';
 import { LANDMARKS } from '../../../data/warLandmarks';
 import { ALLIANCES } from '../../world/alliances';
@@ -44,7 +43,7 @@ export function eventHelp(e: Pick<WorldEvent, 'kind' | 'region'>): EventHelp {
       gain: 'new men',
       what: `fallen warriors rise ${STORM.chance}x as often in ${where}, a chance for new men`,
       todo: 'Go there with a squad and claim the souls (E on a soul)',
-      rule: `Souls wake at shrines, ruins, old battlefields and lairs ${STORM.chance}x as often, up to ${STORM.max} at once instead of ${SOUL.max}. Stand a man within ${metres(SOUL.reach)} of one for ${SOUL.channel * TICK_S} s and he joins your squad, his class and level with him, while you have fewer than ${ARMY_MAX} men. Unclaimed, a soul fades after ${Math.round(SOUL.life * TICK_S / 60)} min.`,
+      rule: `Souls wake at shrines, ruins, old battlefields and lairs ${STORM.chance}x as often, up to ${STORM.max} at once instead of ${SOUL.max}. Stand a man within ${metres(SOUL.reach)} of one for ${SOUL.channel * TICK_S} s and he joins your squad, his class and level with him, while your army has room and he is of your people. Unclaimed, a soul fades after ${Math.round(SOUL.life * TICK_S / 60)} min.`,
     },
     bossWake: {
       goal: `Slay ${boss.replace(/^The /, 'the ')}`,
@@ -182,7 +181,7 @@ export function takeLine(id: string, owner: number, claims: readonly number[] | 
 }
 
 /** The "How territory works" entry (the codex term `territory`). */
-export const TERRITORY = `You build only on your own ground. In a region you do not hold yet, take a claim point: a banner on a pole. A point guarded by beasts, a bandit captain or a region guardian opens once they fall. Then hold it with your men: depth 1 needs ${holdText(claimNeed(1)).replace('hold it with ', '')}, depth 2 ${holdText(claimNeed(2)).replace('hold it with ', '')}, depth 3 ${holdText(claimNeed(3)).replace('hold it with ', '')}, depth 4 ${holdText(claimNeed(4)).replace('hold it with ', '')}. Any foe within ${metres(CLAIM.contest)} resets it. A point another alliance holds is taken the same way once no man of theirs stands within ${metres(CLAIM.r)} of it, and its town turns at the hp it has; a truce or pact with them forbids it. A held point gives you ground ${metres(CLAIM.r)} round it; forts and outposts spread it further, and towns follow their claim point. The alliance holding the most claim points holds the region. Your first camp outside home founds a settlement and makes you its lord. Enemy men are never won over: new men come only from souls (pale ghosts; E on one), up to ${ARMY_MAX}.`;
+export const TERRITORY = `You build only on your own ground. In a region you do not hold yet, take a claim point: a banner on a pole. A point guarded by beasts, a bandit captain or a region guardian opens once they fall. Then hold it with your men: depth 1 needs ${holdText(claimNeed(1)).replace('hold it with ', '')}, depth 2 ${holdText(claimNeed(2)).replace('hold it with ', '')}, depth 3 ${holdText(claimNeed(3)).replace('hold it with ', '')}, depth 4 ${holdText(claimNeed(4)).replace('hold it with ', '')}. Any foe within ${metres(CLAIM.contest)} resets it. A point another alliance holds is taken the same way once no man of theirs stands within ${metres(CLAIM.r)} of it, and its town turns at the hp it has; a truce or pact with them forbids it. A held point gives you ground ${metres(CLAIM.r)} round it; forts and outposts spread it further, and towns follow their claim point. The alliance holding the most claim points holds the region. Your first camp outside home founds a settlement and makes you its lord. Enemy men are never won over: new men come only from souls (pale ghosts; E on one), up to your path's limit.`;
 
 const cap = (t: string) => t[0].toUpperCase() + t.slice(1);
 function clock(ms: number): string {

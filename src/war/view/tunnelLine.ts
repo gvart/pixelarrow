@@ -102,7 +102,7 @@ export function mountTunnelLine(s: SandboxScene, host: TunnelHost): void {
       }
     }
     for (let i = used; i < sprites.length; i++) sprites[i].setVisible(false);
-    const line = tunnelLine(host.alive, host.nextAt, host.now());
+    const line = tunnelLine(host.alive, host.nextAt, host.now(), host.floor);
     label.setVisible(!!line);
     if (line) label.setText(line).setPosition(Math.round(s.iso.sx(t.x, t.y)), Math.round(s.iso.sy(t.x, t.y, s.iso.zAt(t.x, t.y)) - 150));
   });

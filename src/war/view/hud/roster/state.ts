@@ -18,7 +18,8 @@ import { plainDeed, slayerDeed, type PlainDeed } from '../../../sim/deeds';
 import { xpToNext } from '../../../../data/units';
 import { applyOffer, createRoster, grantXp, levelOffers, makePerson, type LevelOffer, type Roster } from '../../../sim/roster';
 import { ATTR_IDS, ATTR_MAX, POINTS_PER_LEVEL, type AttrId } from '../../../../data/perks';
-import { ARMY_MAX, SQUAD_MAX } from '../../../sim/soldiers';
+import { SQUAD_MAX } from '../../../sim/soldiers';
+import { NO_PATH, soldierCap, type PlayerPath } from '../../../world/start';
 import { CAPTIVE } from '../../../sim/captives';
 import { ALLIANCES } from '../../../world/alliances';
 import { WORLD_REGIONS } from '../../../world/regions';
@@ -97,6 +98,8 @@ export class SandboxRoster {
   private taken = new Map<string, string>();
   private held: HeldCaptive[] = [];
   private fighters: number | null = null;
+  /** W-85, W-101: his path (the server's roster; offline, none). */
+  way: PlayerPath = NO_PATH;
   private names = new Set<string>();
   private n = 0;
   /** E3: where and when each of the fallen fell (the memorial's graves), the trophies of guardians his men slew. */
@@ -147,13 +150,14 @@ export class SandboxRoster {
 
   /** Net mode: the server's roster in place of the one held (the fallen and the captive in their state). */
   async pull(): Promise<void> {
-    const r = await this.s.sim.api<{ persons?: NetPerson[]; captives?: HeldCaptive[]; caps?: { fighters: number } }>('GET', 'roster');
+    const r = await this.s.sim.api<{ persons?: NetPerson[]; captives?: HeldCaptive[]; caps?: { fighters: number; path: PlayerPath['path']; family: PlayerPath['family'] } }>('GET', 'roster');
     if (!r?.persons) return;
     const ro = createRoster(), gone: PersonResult[] = [];
     this.netRegion.clear();
     this.taken.clear();
     this.held = r.captives ?? [];
     this.fighters = r.caps?.fighters ?? null;
+    if (r.caps) this.way = { path: r.caps.path, family: r.caps.family };
     for (const n of r.persons) {
       const p = netPerson(n);
       ro.add(p);
@@ -203,9 +207,9 @@ export class SandboxRoster {
     });
   }
 
-  /** The army (W-58): his fighters counted against ARMY_MAX (civilians are the household; the fallen and, W-68, the captive do not count). */
+  /** The army (W-85): his fighters counted against his path's cap (civilians are the household; the fallen and, W-68, the captive do not count). */
   army(): { men: number; max: number } {
-    return { men: this.roster.all().filter((p) => !isCivClass(p.hero.cls) && this.roster.state(p.id) !== 'dead' && this.roster.state(p.id) !== 'captive').length, max: ARMY_MAX };
+    return { men: this.roster.all().filter((p) => !isCivClass(p.hero.cls) && this.roster.state(p.id) !== 'dead' && this.roster.state(p.id) !== 'captive').length, max: soldierCap(this.way.path) };
   }
 
   /** W-68: the note on a man of his taken captive: "Captured by <player> at <region>" (offline: by team n). */
@@ -220,7 +224,7 @@ export class SandboxRoster {
 
   /** W-68: is his army full (ask-to-join refused)? */
   full(): boolean {
-    return (this.fighters ?? this.army().men) >= ARMY_MAX;
+    return (this.fighters ?? this.army().men) >= soldierCap(this.way.path);
   }
 
   /** W-68 net: ask a captive to join, or release him; the answer as a note, then the roster again. */

@@ -44,7 +44,7 @@ import type { NodeRow } from './economy';
 import type { BridgePlan, BuildingType, GoodKind, Order, PlaceResult, SquadId, TownLevelSnap, WallPlan } from '../types';
 
 /** Bumped on any wire change (messages or the binary frame layout). */
-export const NET_VERSION = 18;
+export const NET_VERSION = 19;
 /** Positions go out in 1/QUANT tile steps. */
 export const QUANT = 8;
 /** Ticks between keyframes (a full frame of what the client sees; deltas in between). */
@@ -55,7 +55,7 @@ export const WILD_EVERY = 20;
 export const VISION = 28;
 /** Tiles added round the client's camera rect. */
 export const CAMERA_MARGIN = 8;
-/** Men per squad (the whole army, ARMY_MAX) and squads per player. */
+/** Men per squad (the biggest army, ARMY_MAX) and squads per player. */
 export const MAX_SQUAD = ARMY_MAX;
 export const MAX_SQUADS = 3;
 /** Live soldier cap per region (W-06), split evenly between the alliances unless quotas are given. */
@@ -126,7 +126,7 @@ export const orderSchema = z.discriminatedUnion('kind', [
   // tear down a finished building of the player's team (a quarter of its materials back; the sim checks the rest)
   z.object({ kind: z.literal('demolish'), building: id }),
   z.object({ kind: z.literal('claimRegion'), squad: id, ...U, point: id }),
-  // W-60: walk to soul `soul` and claim him (the room's gate: fewer than ARMY_MAX men across all regions)
+  // W-60: walk to soul `soul` and claim him (the room's gate: his path's, W-85, W-101)
   z.object({ kind: z.literal('claimSoul'), squad: id, ...U, soul: id }),
   // M7a: mend a damaged building of the player's team; rebuild a ruin on its ground
   z.object({ kind: z.literal('repairBuilding'), squad: id, ...U, building: id }),
@@ -282,10 +282,10 @@ export type ServerMsg =
    */
   | { t: 'warlords'; list?: import('../types').WarlordSnap[]; ev?: import('../sim/warlords').WarlordNote[] }
   /**
-   * W-60: a soul his squad went for: claimed (the new man's person id, class, level and name), refused (his army is full:
-   * `have` men across all regions, ARMY_MAX at most).
+   * W-60: a soul his squad went for: claimed (the new man's person id, class, level and name), refused (`why`, W-101: his
+   * army or household is full, `have` men; or he is not of his people).
    */
-  | { t: 'soul'; state: 'claimed' | 'refused'; soul: number; squad: SquadId; pid?: string; cls?: string; level?: number; name?: string; have?: number }
+  | { t: 'soul'; state: 'claimed' | 'refused'; soul: number; squad: SquadId; pid?: string; cls?: string; level?: number; name?: string; have?: number; why?: import('../world/start').JoinRefusal }
   /** W-62: the world events running now (any region; src/war/world/events.ts) and the next, on join and whenever one opens or closes. */
   | { t: 'worldEvents'; events: import('../world/events').WorldEvent[]; next: import('../world/events').WorldEvent | null }
   /**

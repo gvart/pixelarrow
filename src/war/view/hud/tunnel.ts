@@ -39,6 +39,8 @@ const SPAWN_AFTER = 2800;
 /** A rise the line shows: when (performance ms) and of what class. */
 export interface Rise { at: number; cls: string }
 export interface TunnelHost extends WipeState {
+  /** W-102: the floor he rises to: min(TUNNEL.floor, his path's cap). */
+  floor: number;
   /** Men alive (what the floor counts), the next rise on the tunnel clock (null: none pending), men still to come. */
   alive: number; nextAt: number | null; pending: number;
   /** He ever had men (before his first squad there is no tunnel). */
@@ -69,6 +71,7 @@ export function mountTunnel(s: SandboxScene, mk: Mk): TunnelHost {
   const R = sandboxRoster(s);
   let speed = 1, base = Date.now(), at0 = base; // offline: tunnel clock = at0 + (Date.now() - base) * speed
   const host: TunnelHost = {
+    floor: TUNNEL.floor,
     alive: 0, nextAt: null, pending: 0, ever: false, rises: [], fit: 0, wounded: 0, woundedAt: null,
     now: () => (s.sim.net ? Date.now() : at0 + (Date.now() - base) * speed),
     tunnel: () => homeTunnel(s),
@@ -130,7 +133,7 @@ export function mountTunnel(s: SandboxScene, mk: Mk): TunnelHost {
       // the men risen since the last read: by this read, or by another (the roster's) once the clock ran out
       const raised = t.raised || (known && due && t.alive > was ? t.alive - was : 0);
       known = true;
-      Object.assign(host, { alive: t.alive, nextAt: t.nextAt, pending: t.pending, fit: t.fit, wounded: t.wounded, woundedAt: t.woundedAt });
+      Object.assign(host, { alive: t.alive, floor: t.floor, nextAt: t.nextAt, pending: t.pending, fit: t.fit, wounded: t.wounded, woundedAt: t.woundedAt });
       host.ever ||= t.pending < TUNNEL.floor || t.alive > 0 || t.nextAt !== null || t.wounded > 0;
       for (let k = 0; k < raised; k++) host.rises.push({ at: performance.now() + k * 1200, cls: classFor(s, k) });
       if (raised || t.alive > was) void R.pull();
@@ -183,7 +186,7 @@ export function mountTunnel(s: SandboxScene, mk: Mk): TunnelHost {
       if (hereWas > 0 && here === 0) for (const ms of [1500, 5000]) setTimeout(() => void pull(), ms);
       hereWas = here;
     } else offline();
-    const line = host.ever ? tunnelLine(host.alive, host.nextAt, host.now()) : null;
+    const line = host.ever ? tunnelLine(host.alive, host.nextAt, host.now(), host.floor) : null;
     pill.style.display = line ? 'flex' : 'none';
     if (line) pillText.textContent = line;
     // his last man he can field fell (the rest dead or wounded): the card once (again only after men stood once more)

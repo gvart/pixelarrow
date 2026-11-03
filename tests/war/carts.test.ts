@@ -8,6 +8,7 @@ import { buildGrid, canEnter, CART_UPHILL, stepCost } from '../../src/war/sim/gr
 import { makePerson } from '../../src/war/sim/roster';
 import { SIEGE } from '../../src/war/sim/siege';
 import { CART, CART_LOADS } from '../../src/war/sim/trade';
+import { cartCap, NO_PATH, PATHS, type PlayerPath } from '../../src/war/world/start';
 import type { BuildingType, RegionData, SiegeSnap, TerrainKind, WarBuildSim } from '../../src/war/types';
 import { flat } from './flatRegion';
 
@@ -23,8 +24,9 @@ const carts = (sim: WarBuildSim): SiegeSnap[] => (sim.snapshot().sieges ?? []).f
 const cart = (sim: WarBuildSim, id: number) => sim.snapshot().sieges!.find((e) => e.id === id)!;
 
 /** A camp (0) and a workshop (1) of team 0, an engineer of `owner` at the workshop making `n` handcarts. */
-function withCarts(n: number, owner = 'a', seed = 1): WarBuildSim {
+function withCarts(n: number, owner = 'a', seed = 1, way: PlayerPath = NO_PATH): WarBuildSim {
   const sim = createSim(flat(96), seed);
+  sim.setPaths(() => way);
   sim.claim(0, 40, 40, 40);
   const types: BuildingType[] = ['camp', 'workshop'];
   for (const t of types) for (const [r, v] of Object.entries(BUILDINGS[t].cost)) sim.addStock(0, r as never, v);
@@ -39,7 +41,7 @@ function withCarts(n: number, owner = 'a', seed = 1): WarBuildSim {
   const eng = sim.spawnSquad(owner, 0, 'civ_engineer', 1, 40, 45, [makePerson(`${owner}-eng`, 'civ_engineer')]);
   sim.order({ kind: 'civWork', squad: eng, building: 1 });
   for (let k = 0; k < n; k++) sim.order({ kind: 'craft', team: 0, building: 1, recipe: 'handcart' });
-  run(sim, 900 * n, () => carts(sim).length >= Math.min(n, CART.cap));
+  run(sim, 900 * n, () => carts(sim).length >= Math.min(n, cartCap(way.path)));
   return sim;
 }
 
@@ -103,23 +105,48 @@ describe('M6b ground rules', () => {
 });
 
 describe('M6b carts', () => {
-  it('handcart and wagon recipes at a workshop; carts in the civilian quota; a player has at most CART.cap', () => {
+  it('handcart and wagon recipes at a workshop; carts in the civilian quota; W-104: a trader has at most his path\'s carts', () => {
     expect(RECIPES.handcart).toMatchObject({ kind: 'cart', at: 'workshop', lv: 1, inputs: { wood: 30, hides: 2 }, secs: 60 });
     expect(RECIPES.wagon).toMatchObject({ kind: 'cart', at: 'workshop', lv: 2, inputs: { wood: 80, bronze: 4, hides: 6, food: 40 }, secs: 180 });
     expect(SIEGE.handcart).toMatchObject({ hp: 200, crew: 2 });
     expect(SIEGE.wagon).toMatchObject({ hp: 450, crew: 1 });
     expect(CART_LOADS).toEqual({ handcart: 6, wagon: 12 });
-    const sim = withCarts(CART.cap + 1);
+    const cap = PATHS.trader.carts;
+    const sim = withCarts(cap + 1, 'a', 1, { path: 'trader', family: null });
     run(sim, 1500);
     const cs = carts(sim);
-    expect(cs).toHaveLength(CART.cap); // the third waits in the queue
+    expect(cs).toHaveLength(cap); // the last allowed is built, the next waits in the queue
     for (const c of cs) expect(c).toMatchObject({ owner: 'a', team: 0, state: 'idle', cap: 6 });
     expect(building(sim, 1).queue?.length).toBe(1);
     // the quota: civilians and carts together
-    const room = Math.floor(CIV_QUOTA / 1) - 1 - CART.cap;
+    const room = Math.floor(CIV_QUOTA / 1) - 1 - cap;
     const civ = sim.spawnSquad('a', 0, 'civ_cook', 12, 50, 60);
     expect(civ).toBeGreaterThanOrEqual(0);
     expect(sim.snapshot().squads[civ].units.length).toBe(Math.min(12, room));
+  });
+
+  it('W-104: a warrior or a builder builds his one cart, the next waits; an Emporos adds none', () => {
+    for (const way of [{ path: 'warrior', family: 'line' }, { path: 'builder', family: null }] as PlayerPath[]) {
+      const sim = withCarts(PATHS[way.path!].carts + 1, 'a', 1, way);
+      run(sim, 1500);
+      expect(carts(sim), way.path!).toHaveLength(PATHS[way.path!].carts);
+      expect(building(sim, 1).queue?.length, way.path!).toBe(1);
+    }
+    const sim = withCarts(PATHS.warrior.carts + 1, 'a', 1, { path: 'warrior', family: 'line' });
+    const m = makePerson('a-merchant', 'civ_merchant', { level: 10 });
+    sim.spawnSquad('a', 0, 'civ_merchant', 1, 40, 60, [{ ...m, hero: { ...m.hero, perks: ['emporos'] as never } }]);
+    run(sim, 1500);
+    expect(carts(sim)).toHaveLength(PATHS.warrior.carts);
+  });
+
+  it('W-105: a seized cart is his even past his cap (the cap stops building, not taking)', () => {
+    const sim = withCarts(2, 'a', 1, { path: 'trader', family: null });
+    sim.setPaths((owner) => (owner === 'f' ? { path: 'warrior', family: 'line' } : { path: 'trader', family: null }));
+    for (const s of sim.snapshot().squads) if (s.owner === 'a') sim.order({ kind: 'move', squad: s.id, x: 90, y: 90 });
+    run(sim, 400);
+    for (const c of carts(sim)) sim.spawnSquad('f', 1, 'hoplite', 2, c.x + 1, c.y + 1);
+    run(sim, CART.capture + 40);
+    expect(carts(sim).filter((c) => c.owner === 'f').length).toBeGreaterThan(PATHS.warrior.carts);
   });
 
   it('two men pull a handcart, one alone at half pace; it takes loads at a store; a foe beside it with none of its side near takes it; it is taken back', () => {

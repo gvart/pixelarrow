@@ -80,7 +80,7 @@ import { elapsedTicks, loadMemory, MEMORY_KEY, remembered, storeMemory, writeMem
 import type { WorldEvent } from '../../../src/war/world/events';
 import { settleTunnelFor } from './raise';
 import { applyFight, armyCount, claimForJoin, claimSoul, COLS, deployed, freeRaided, groupOf, LIVE, offField, ownerPid, release, releaseRegion, riders, settle, waitingAtHome, type PersonRow } from './persons';
-import { homeRegion } from './start';
+import { homeRegion, pathOf } from './start';
 import { namedSoul, SOULS, type NamedSoul, type SoulSpawn } from './captives';
 import { soulSites } from '../../../src/war/sim/souls';
 import { applyCrafts, keepMends, returnMends, takeForMend } from './crafting';
@@ -511,6 +511,7 @@ export class WarRegionDO extends DurableObject<Env> {
     if (res.msg.t === 'refused' && persons) this.write('release', () => release(this.env.DB!, region, m.squads!.flat()));
     // W-60: the soul gate counts his whole army (every region)
     if (db && res.msg.t === 'welcome') await settleTunnelFor(db, pid, Date.now()); // W-66: the tunnel raises the men due on a join
+    if (db && res.msg.t === 'welcome') room.setPath(pid, await pathOf(db, pid)); // W-85, W-101: his limits
     if (db && res.msg.t === 'welcome') room.setArmy(pid, await armyCount(db, pid));
     if (res.msg.t === 'welcome') await this.guideStart(pid, room);
     if (db && res.msg.t === 'welcome') room.setLarder(pid, await goodsOf(db, strongroom(pid))); // W-80: his men eat from it by a home store
@@ -844,6 +845,7 @@ export class WarRegionDO extends DurableObject<Env> {
     await this.caughtUp();
     const road = `>${region}`, now = Date.now();
     await settle(d, pid, now);
+    room.setPath(pid, await pathOf(d, pid)); // W-85, W-101: his limits, here too
     const got = await deployed(d, road, ids);
     const waiting = (await homeRegion(d, pid)) === region ? await waitingAtHome(d, pid) : [];
     const persons = [...ids.flatMap((id) => got.get(id) ?? []), ...waiting];

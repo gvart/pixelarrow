@@ -3,8 +3,8 @@
  * alliance, then his path for the season (W-83), which gives his first men (W-95). Pure rules shared by the server
  * (server/src/war/start.ts, the one that decides) and the menu (src/war/menu, which shows the same).
  */
-import { ARMY_MAX } from '../sim/soldiers';
-import type { Family } from '../sim/skills';
+import { isCivClass, type ClassId } from '../../data/classes';
+import { FAMILY_OF, type Family } from '../sim/skills';
 import { joinRefusal, type HeldRegion } from './access';
 import { ALLIANCES } from './alliances';
 import { WORLD_REGIONS } from './regions';
@@ -17,14 +17,15 @@ export type StartClass = (typeof START_CLASSES)[number];
 export type PathId = 'warrior' | 'builder' | 'trader';
 
 /**
- * What each path is and starts with (W-85, W-95): the one table to tune. `cap` is the soldiers he may grow to; `start`
- * is his first men in slot order, soldiers first (a warrior's come from FAMILIES). The guards (hoplites) and the workers
+ * What each path is and starts with (W-85, W-95): the one table to tune. `cap` is the soldiers he may grow to, `workers`
+ * the civilians he may keep (W-103; not soldiers, outside `cap`), `carts` the carts he may have built (W-104); `start` is
+ * his first men in slot order, soldiers first (a warrior's come from FAMILIES). The guards (hoplites) and the workers
  * (civilians) are defaults the owner has not fixed: docs/impl/paths-rework.md.
  */
-export const PATHS: Record<PathId, { name: string; does: string; cap: number; startText: string; start: readonly string[] }> = {
-  warrior: { name: 'Warrior', does: 'You fight. Beat beasts and rival armies, and take land for your alliance.', cap: 12, startText: '6 soldiers of one family', start: [] },
-  builder: { name: 'Builder', does: 'You build. Raise the towns, walls and workshops your alliance needs.', cap: 4, startText: '2 guards, an engineer, a forager', start: ['hoplite', 'hoplite', 'civ_engineer', 'civ_forager'] },
-  trader: { name: 'Trader', does: 'You trade. Gather goods, drive carts between towns and sell at a profit.', cap: 4, startText: '2 guards, a merchant, a forager', start: ['hoplite', 'hoplite', 'civ_merchant', 'civ_forager'] },
+export const PATHS: Record<PathId, { name: string; does: string; cap: number; workers: number; carts: number; startText: string; start: readonly string[] }> = {
+  warrior: { name: 'Warrior', does: 'You fight. Beat beasts and rival armies, and take land for your alliance.', cap: 12, workers: 2, carts: 1, startText: '6 soldiers of one family', start: [] },
+  builder: { name: 'Builder', does: 'You build. Raise the towns, walls and workshops your alliance needs.', cap: 4, workers: 6, carts: 1, startText: '2 guards, an engineer, a forager', start: ['hoplite', 'hoplite', 'civ_engineer', 'civ_forager'] },
+  trader: { name: 'Trader', does: 'You trade. Gather goods, drive carts between towns and sell at a profit.', cap: 4, workers: 3, carts: 4, startText: '2 guards, a merchant, a forager', start: ['hoplite', 'hoplite', 'civ_merchant', 'civ_forager'] },
 };
 export const PATH_IDS = Object.keys(PATHS) as PathId[];
 
@@ -37,6 +38,54 @@ export const FAMILIES: Record<StartFamily, { name: string; does: string; startTe
   missile: { name: 'Skirmishers', does: 'Bows, slings and javelins. Weak up close.', startText: '2 archers, 2 slingers, 2 javelins', start: ['archer', 'archer', 'slinger', 'slinger', 'javelineer', 'javelineer'] },
 };
 export const FAMILY_IDS = Object.keys(FAMILIES) as StartFamily[];
+
+/** A player's choice as the limits read it (both null: no path, a dev player or the offline sandbox). */
+export interface PlayerPath { path: PathId | null; family: StartFamily | null }
+export const NO_PATH: PlayerPath = { path: null, family: null };
+
+const most = (k: 'cap' | 'workers' | 'carts') => Math.max(...PATH_IDS.map((p) => PATHS[p][k]));
+/** The limits of a path; with none (dev, the sandbox) the most any path has. */
+export const soldierCap = (path: PathId | null): number => (path ? PATHS[path].cap : most('cap'));
+export const workerCap = (path: PathId | null): number => (path ? PATHS[path].workers : most('workers'));
+export const cartCap = (path: PathId | null): number => (path ? PATHS[path].carts : most('carts'));
+
+/**
+ * W-101: may this player hold a man of `cls` at all? A warrior only of his family (W-86: a real man does not change his
+ * people); a builder or trader any soldier but a rider (riders return with mounts); every path a worker; no path, anyone.
+ */
+export function mayHold(p: PlayerPath, cls: string): boolean {
+  if (!p.path || isCivClass(cls)) return true;
+  const fam = FAMILY_OF[cls as ClassId];
+  return p.path === 'warrior' ? fam === p.family : fam !== undefined && fam !== 'rider';
+}
+
+export type JoinRefusal = 'family' | 'full' | 'household';
+/**
+ * The one check every man joining a player passes (start, soul, Tunnel, captive, promotion, dev tools), given the
+ * soldiers and workers he has now. Null: he may join. The server's inserts check the count again to close races.
+ */
+export function manRefusal(p: PlayerPath, cls: string, have: { soldiers: number; workers: number }): JoinRefusal | null {
+  if (!mayHold(p, cls)) return 'family';
+  if (isCivClass(cls)) return have.workers >= workerCap(p.path) ? 'household' : null;
+  return have.soldiers >= soldierCap(p.path) ? 'full' : null;
+}
+
+/** The check over a list joining one by one, on top of `have` (a path's first men, a dev squad). */
+export function menRefusal(p: PlayerPath, classes: readonly string[], have = { soldiers: 0, workers: 0 }): JoinRefusal | null {
+  const n = { ...have };
+  for (const cls of classes) {
+    const why = manRefusal(p, cls, n);
+    if (why) return why;
+    if (isCivClass(cls)) n.workers++;
+    else n.soldiers++;
+  }
+  return null;
+}
+
+/** W-102: who the Tunnel raises with none of his fallen to bring back: a militiaman, or for a warrior who may not hold one, his family's first. */
+export function raiseClass(p: PlayerPath): string {
+  return mayHold(p, 'militia') ? 'militia' : FAMILIES[p.family!].start[0];
+}
 
 /** Where an alliance's new players may make their home: its home region and its four entry regions. */
 export function homeChoices(alliance: AllianceId): WorldRegion[] {
@@ -55,7 +104,7 @@ export function homeRefusal(id: string, alliance: AllianceId, st: HomeState | nu
   if (!r) return `${id} is not a home of ${ALLIANCES[alliance].name}`;
   const why = joinRefusal(id, alliance, st);
   if (why) return why;
-  if ((st?.live[alliance] ?? 0) + ARMY_MAX > quota) return `${r.name} is full: ${ALLIANCES[alliance].name}'s ${quota} men already stand there`;
+  if ((st?.live[alliance] ?? 0) + soldierCap(null) > quota) return `${r.name} is full: ${ALLIANCES[alliance].name}'s ${quota} men already stand there`;
   return null;
 }
 

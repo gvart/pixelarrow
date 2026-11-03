@@ -2,11 +2,11 @@
  * W-60 souls on the HUD (docs/WAR.md "Souls"; src/war/sim/souls.ts): the newly dead wait on the map as pale ghosts
  * (../units.ts draws them from this module's source, ./mapDraw.ts marks them on the minimap and full map). With men of
  * yours selected and a soul in sight, a prompt names him (class, level, where he woke, how long until he fades) and its
- * Claim button sends the squad to him (claimSoul), as right click or E on him does (../interact.ts). He joins only while your army is under ARMY_MAX: at 12 the button
- * says so and the claim is refused with a clear note; a claim that goes through, or one the sim or the server refuses,
+ * Claim button sends the squad to him (claimSoul), as right click or E on him does (../interact.ts). He joins only if your path lets him (W-85, W-101: under your cap, of your
+ * people): else the button says so and the claim is refused with a clear note; a claim that goes through, or one the sim or the server refuses,
  * shows as a note too (the roster's toasts).
  */
-import { ARMY_MAX } from '../../sim/soldiers';
+import { mayHold, soldierCap, type JoinRefusal } from '../../world/start';
 import { SOUL } from '../../sim/souls';
 import type { ServerMsg } from '../../net/protocol';
 import type { SoulSnap, WarEvent } from '../../types';
@@ -31,12 +31,12 @@ export const ghostIcon = (cls: string, px = 24) =>
   `<img src="war/ui/icons/24/${UNIT_ICON[cls] ?? 'unit-militia'}.png" srcset="war/ui/icons/24/${UNIT_ICON[cls] ?? 'unit-militia'}@2x.png 2x" width="${px}" height="${px}" alt="" style="filter:grayscale(1) brightness(1.7) drop-shadow(0 0 3px #9fd4ff) drop-shadow(0 0 6px #9fd4ff);opacity:.85">`;
 
 /** The codex card of a soul. */
-export function soulCard(so: SoulSnap, full: boolean): string {
+export function soulCard(so: SoulSnap, why: string | undefined): string {
   return card({
     icon: ghostIcon(so.cls, 26), rawIcon: true, name: `Soul of a ${SandboxRoster.className(so.cls).toLowerCase()}`, kind: `level ${so.level} · woke ${SITE[so.site]}`, w: 240,
     flavour: 'He died in the world above and woke here. Claim him before he fades, or before another does.',
     fx: [
-      fx('ui:people', full ? `your army is full: ${val(`${ARMY_MAX} / ${ARMY_MAX}`, 'neg')} men, he cannot join` : `joins the squad you send, as a level ${so.level} ${SandboxRoster.className(so.cls).toLowerCase()}`),
+      fx('ui:people', why ? `he cannot join: ${val(why, 'neg')}` : `joins the squad you send, as a level ${so.level} ${SandboxRoster.className(so.cls).toLowerCase()}`),
       fx('ui:hourglass', `fades in ${val(mmss(so.left), '')}`),
       fx('ui:swords', `foes or beasts beside him take him first; two sides at him: ${val('contested', 'neg')}`),
       fx('ui:clock', `stand by him ${SOUL.channel / 10} s to claim`),
@@ -58,13 +58,21 @@ export function armyMen(s: SandboxScene): number {
 export const soulAt = (s: SandboxScene, x: number, y: number, r = 1.5): SoulSnap | null =>
   (s.sim.cur?.souls ?? []).reduce<SoulSnap | null>((a, so) => (Math.hypot(so.x - x, so.y - y) <= r && (!a || Math.hypot(so.x - x, so.y - y) < Math.hypot(a.x - x, a.y - y)) ? so : a), null);
 
-/** Why squad men may not claim now (the army is full), else undefined. */
-export const claimWhy = (s: SandboxScene): string | undefined => (armyMen(s) >= ARMY_MAX ? `army full ${ARMY_MAX}/${ARMY_MAX}` : undefined);
+/** His soldier cap (W-85). */
+const capOf = (s: SandboxScene) => soldierCap(sandboxRoster(s).way.path);
+/** Why his men may not claim this soul now (W-101: not of his people; the army is full), else undefined. */
+export const claimWhy = (s: SandboxScene, so: SoulSnap): string | undefined =>
+  !mayHold(sandboxRoster(s).way, so.cls) ? 'not of your people' : armyMen(s) >= capOf(s) ? `army full ${capOf(s)}/${capOf(s)}` : undefined;
+
+/** The note for a refused claim (W-101). */
+const refusal = (why: JoinRefusal, have: number, cap: number) =>
+  why === 'family' ? 'Claim refused: he is not of your people. Leave him for another player' : why === 'household' ? 'Claim refused: your household is full' : `Claim refused: your army is full (${have} / ${cap} men). A soul joins only when a man falls or retires`;
 
 /** Send `squad` to claim soul `so` (the prompt's button, right click and E), with the roster's note; refused when the army is full. */
 export function claimSoul(s: SandboxScene, squad: number, so: SoulSnap): void {
   const note = (text: string, kind: 'dead' | 'info') => sandboxRoster(s).onNote?.({ kind, text });
-  if (claimWhy(s)) return note(`Your army is full (${ARMY_MAX} / ${ARMY_MAX} men): the soul cannot join until a man falls or retires`, 'dead');
+  const why = claimWhy(s, so);
+  if (why) return note(refusal(why === 'not of your people' ? 'family' : 'full', armyMen(s), capOf(s)), 'dead');
   s.sim.order({ kind: 'claimSoul', squad, soul: so.id });
   note(`Your men go to claim the soul of a ${SandboxRoster.className(so.cls).toLowerCase()}`, 'info');
 }
@@ -77,9 +85,7 @@ export function mountSouls(s: SandboxScene, mk: Mk, tipOn: (el: HTMLElement, htm
   el.className = 'rf rf-card';
   el.style.padding = '5px 8px';
   let soul: SoulSnap | null = null;
-  tipOn(el, () => (soul ? soulCard(soul, armyFull()) : ''));
-
-  const armyFull = () => !!claimWhy(s);
+  tipOn(el, () => (soul ? soulCard(soul, claimWhy(s, soul)) : ''));
 
   /** The soul nearest the selected squads' centre within SEE_R, and the squad to send. */
   const pick = (): { so: SoulSnap; squad: number; d: number } | null => {
@@ -105,10 +111,10 @@ export function mountSouls(s: SandboxScene, mk: Mk, tipOn: (el: HTMLElement, htm
     const so = p.so, mine = so.claim !== undefined && so.team === myTeam();
     // W-68: a named soul (a released captive, a dismissed man) by name; one this player dismissed is not his to claim for a while
     const owner = s.sim.cur?.squads.find((q) => q.id === p.squad)?.owner, tick = s.sim.cur?.tick ?? 0;
-    const barred = !!so.bar && so.bar.owner === owner && tick < so.bar.at, full = armyFull() || barred;
+    const refused = claimWhy(s, so), barred = !!so.bar && so.bar.owner === owner && tick < so.bar.at, full = !!refused || barred;
     const state = so.contested ? '<span style="color:var(--rf-bad)">contested</span>' : mine ? `<span style="color:var(--rf-gold)">claiming ${Math.round((so.claim ?? 0) * 100)}%</span>` : `<span class="rf-dim">${metres(p.d)} · fades ${mmss(so.left)}</span>`;
     const html = `<div style="display:flex;align-items:center;gap:7px">${ghostIcon(so.cls, 24)}<div style="min-width:0"><div class="rf-name" style="font-size:13px">Soul · ${so.name ? `${esc(so.name)}, ` : ''}${esc(SandboxRoster.className(so.cls))} <span class="rf-lv">L${so.level}</span></div><div style="font-size:12px">${state}</div></div>
-      <button class="rf-tbtn${full ? '' : ' pri'}" data-act="claim" ${full ? 'data-full="1"' : ''} style="margin-left:6px">${barred ? `Yours in ${mmss(so.bar!.at - tick)}` : full ? `Army full ${ARMY_MAX}/${ARMY_MAX}` : 'Claim'}</button></div>`;
+      <button class="rf-tbtn${full ? '' : ' pri'}" data-act="claim" ${full ? 'data-full="1"' : ''} style="margin-left:6px">${barred ? `Yours in ${mmss(so.bar!.at - tick)}` : refused ? esc(refused[0].toUpperCase() + refused.slice(1)) : 'Claim'}</button></div>`;
     if (html !== last) el.innerHTML = last = html;
   };
   el.addEventListener('click', (e) => {
@@ -126,7 +132,7 @@ export function mountSouls(s: SandboxScene, mk: Mk, tipOn: (el: HTMLElement, htm
     for (const e of ev) {
       if ((e.kind === 'soulClaimed' || e.kind === 'soulRefused') && !once(`${e.kind}:${e.soul}:${e.t}`)) continue;
       if (e.kind === 'soulClaimed' && ownSquad(e.squad)) note(`${e.person.hero.name}, a level ${e.person.hero.level} ${SandboxRoster.className(e.person.hero.cls).toLowerCase()}, joins your squad`, 'levelUp');
-      else if (e.kind === 'soulRefused' && ownSquad(e.squad)) note(`Claim refused: your army is full (${e.have} / ${ARMY_MAX} men). A soul joins only when a man falls or retires`, 'dead');
+      else if (e.kind === 'soulRefused' && ownSquad(e.squad)) note(refusal(e.why, e.have, capOf(s)), 'dead');
     }
   };
   let seq = 0;
@@ -134,7 +140,7 @@ export function mountSouls(s: SandboxScene, mk: Mk, tipOn: (el: HTMLElement, htm
     if (m.t !== 'soul') return;
     if (!once(`srv:${m.state}:${m.soul}:${m.state === 'refused' ? seq++ : ''}`)) return;
     if (m.state === 'claimed') note(`${m.name ?? 'A new man'}, a level ${m.level ?? 1} ${SandboxRoster.className(m.cls).toLowerCase()}, joins your squad`, 'levelUp');
-    else note(`Claim refused: your army is full (${m.have ?? ARMY_MAX} / ${ARMY_MAX} men across all regions). A soul joins only when a man falls or retires`, 'dead');
+    else note(refusal(m.why ?? 'full', m.have ?? capOf(s), capOf(s)), 'dead');
   };
   // chain onto the sim client's single hooks (the roster and the market hold them too); re-chain if one is set anew
   let ev: typeof s.sim.onEvents = null, sv: typeof s.sim.onServer = null;

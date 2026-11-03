@@ -1,5 +1,5 @@
 /**
- * The roster panel (M5g, R; W-55, W-58): the player's army, "n / ARMY_MAX men" in the head (every man stands in some
+ * The roster panel (M5g, R; W-55, W-58): the player's army, "n / his path's cap men" in the head (every man stands in some
  * region), grouped by squad in the field, by the other region he is in, wounded, captive and fallen. A row: class
  * icon, name with his rank crest and a gold star when a level-up waits, the XP line, what he is doing and where
  * (./doing.ts), his hunger mark in the field (W-60, ../hunger.ts), his level as a disc, and his state as one mark: the HP bar in the field, a flag in another region, a
