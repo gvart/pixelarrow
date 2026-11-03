@@ -1,0 +1,29 @@
+tests/war/pathBalance.test.ts
+  s_a7d5d20f628c80::t_547a3377c32c17 1-21
+scripts/war/balance.mjs
+  s_a7d5d20f628c80::t_1f6d9d8a466130 4-5,24-25
+  s_a7d5d20f628c80::t_3de1b23f19985a 7,16-23
+src/dev/pathBalance.ts
+  s_a7d5d20f628c80::t_b33bd31135854a 1-8,12-15,17-26,30-70,72-84,86-105,107-115,117,120,127-129,131,133-135,137-196,211,215-220,222-248,259-260,262-298,300-337,340-354
+  s_a7d5d20f628c80::t_69a244b2e66c9b 9-11,85,106,119,132,136,197-210,212-214,338-339
+  s_a7d5d20f628c80::t_1f6d9d8a466130 16,27,29,71,221,249-258,261,299
+  s_a7d5d20f628c80::t_6107c940fd6c91 28,118
+  s_a7d5d20f628c80::t_92acd5df355e99 116,121-126
+  s_a7d5d20f628c80::t_cb8cddda96c511 130
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "4e83bd2cabd42f492b81d5ca93dc756cb60ec91f",
+  "prompts": {},
+  "sessions": {
+    "s_a7d5d20f628c80": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1afee479-b44b-46d2-a159-a540e44e7fb8",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
