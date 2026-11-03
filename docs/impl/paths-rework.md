@@ -35,10 +35,12 @@ unless someone is actually there.
   stay the season team, with the hierarchy inside them. *(Alliance nesting is assumed.)*
 
 Decided while building item 2: **W-95 small start, grow to cap**, **W-96 full season reset**, settlements, crowns and
-mastery included (owner confirmed). Item 3, by the desk, overrulable: **W-97**, **W-98**, **W-99**, **W-100**.
+mastery included (owner confirmed). Item 3, by the desk, overrulable: **W-97**, **W-98**, **W-99**, **W-100**. Item 4, by the
+desk, overrulable: **W-101** who may join, **W-102** Tunnel under the cap, **W-103** workers, **W-104** carts, **W-105** a seized
+cart, **W-106** no path.
 
 Superseded or changed: W-44 (NPC towns, W-93), W-53 (its "cap of 12 stays", W-85), W-56, W-58, W-60 (souls claimable under
-the path's cap), W-66 and W-68 (raised men wait at home; the Tunnel's "up to 6" must fit the 4-soldier cap; W-66's permanent
+the path's cap), W-66 and W-68 (raised men wait at home; the Tunnel's "up to 6" fits the cap, W-102; W-66's permanent
 favour, W-83), W-81. W-63 is extended by W-94.
 
 Also assumed: wipe and reshard freely, with no migration of old data (no live users); existing sprites are reused, with
@@ -54,10 +56,9 @@ Propose these in the named work item and get the owner's answer before building 
 - [ ] What each family's men can do, and its stronger classes. The list is three of today's four (item 2, default). Only hoplite,
   militia, archer, slinger, javelineer and celt_sword have work animations (item 4).
 - [ ] Riders return once mounts exist. Hidden from the start by the owner: no work animations, balance unchecked.
-- [ ] Where more workers come from. A builder or trader starts with 2 (item 2, default), but how others are acquired was not
-  confirmed. The household formula `min(4, 1 + fit/4)` gives 2 guards a cap of 1, under the 2 he starts with: it only
-  blocks retiring into a civilian today.
-- [ ] Whether a trader's cart cap rises above today's 2 (3 with emporos).
+- [ ] Where more workers come from. A builder or trader starts with 2 (item 2, default), and W-103 sets how many he may keep,
+  but the only way to gain one today is a level-10 soldier retiring into a trade. A trader with no engineer cannot build a cart.
+- [x] Whether a trader's cart cap rises. W-104: trader 4, warrior 1, builder 1, Emporos adds none.
 
 Found while bringing `docs/WAR.md` in line (item 1). Each is a rule the decisions touch but do not settle.
 
@@ -65,8 +66,10 @@ Found while bringing `docs/WAR.md` in line (item 1). Each is a rule the decision
 - [x] Season rollover. W-96: a full reset, so a 12-man warrior who turns builder starts over like anyone.
 - [x] Offline players. W-97: men are there whether he is online or not; no new road leg starts while he is offline.
 - [x] Waiting and wounded men. W-98: a waiting man is off the field; the wounded travel with the group on their usual timer.
-- [ ] Classes for builder and trader soldiers. W-86 covers warriors only; they start with hoplites (item 2, default). Whether a warrior may claim a soul outside his
-  family, since souls wake by site (item 4). Which of today's "start classes" fallbacks survive.
+- [x] Classes for builder and trader soldiers, and a soul outside a warrior's family. W-101: any non-rider guard; a warrior
+  only his own, the rest stay for someone else. The Tunnel's fallback: W-102.
+- [ ] Souls wake by site, so families do not grow alike: swordsmen wake only at lairs and old battlefields, and 12 mixed
+  skirmishers lost to the chiefs and bandit lairs in the seeded check under a plain attack order (item 5, or a balance pass).
 - [ ] How levels are paid per path: today's favour amounts are all war and land, region mastery and warlords pay favour,
   and the old bonus on raised men has no place yet (item 5).
 - [ ] What counts as "working" under W-88 beyond workplaces: stores, stalls with listed offers and Factor's standing
@@ -102,7 +105,7 @@ Each item bumps `SIM_VERSION` (`src/sim/version.ts`) and `NET_VERSION` (`src/war
 - [x] **3. One region.** Player-level rule at `claimForJoin` (`server/src/war/persons.ts`), remove partial `depart` and
   `TransferOrder` splits, raised men and captives wait at home.
   verify: transfer and join tests. depends on: 2.
-- [ ] **4. Soldier limits.** Path caps replacing `ARMY_MAX` use, one family for warriors.
+- [x] **4. Soldier limits.** Path caps replacing `ARMY_MAX` use, one family for warriors.
   verify: scenario tests. depends on: 2.
 - [ ] **5. Levels and perks.** Favour track becomes three perk trees (`src/war/view/hud/favour.ts` and the sim).
   verify: tests per path. depends on: 4.

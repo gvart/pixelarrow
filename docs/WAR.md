@@ -750,7 +750,8 @@ there. "Open" below means the owner has not decided yet: see
 | Path (W-83) | warrior, builder or trader, chosen at season start and fixed for the 28 days |
 | Level (W-83, W-84) | resets each season. Levels come from doing the path's work and unlock that path's perks ("Divine favour"). Perk lists: open |
 | Soldier cap (W-85) | warrior 12, builder 4, trader 4; hard. Start numbers, changed only on balance evidence ("Soldiers") |
-| Warrior family (W-86) | a warrior picks one family (e.g. phalanx, Celtic warband, skirmishers); level-ups unlock its stronger classes; no mixing between families. Family list and what its men can do: open |
+| Warrior family (W-86) | a warrior picks one family (e.g. phalanx, Celtic warband, skirmishers); level-ups unlock its stronger classes; no mixing between families (W-101: he claims or raises only his own). Family list and what its men can do: open |
+| Workers, carts (W-103, W-104) | workers: warrior 2, builder 6, trader 3, not soldiers, outside the cap. Carts: trader 4, warrior 1, builder 1 |
 | Start (W-95) | a small start, grown to the cap by claiming souls: "Starting a game" |
 | New season (W-96) | a full reset for every path: men, gear, belongings and titles. He chooses alliance, home and path anew: "Starting a game" |
 
@@ -833,7 +834,7 @@ What each path starts with (W-95; `PATHS` and `FAMILIES` in `src/war/world/start
 | Builder | 2 hoplites, an engineer, a forager | 4 |
 | Trader | 2 hoplites, a merchant, a forager | 4 |
 
-Riders are not offered until mounts exist; `POST /api/war/start/path` refuses the family. Workers are civilians, outside the cap. Their numbers and how more are gained are [open](impl/paths-rework.md#open-design-items).
+Riders are not offered until mounts exist; `POST /api/war/start/path` refuses the family. The limits sit in the same table: workers (W-103: warrior 2, builder 6, trader 3; civilians, outside the cap) and carts (W-104: trader 4, warrior 1, builder 1). Every man joining a player, from this start on, passes one check (`manRefusal`, W-101). How more workers are gained is [open](impl/paths-rework.md#open-design-items).
 
 A new season (W-96, `server/src/war/seasonWipe.ts`): the world keeps the finished season's board and awards its banners
 and crests; every region starts over, the homes too; nobody stays on the road; then all men, gear, goods, stores, deals,
@@ -918,8 +919,14 @@ region holds 45–50 players, inside the owner's 50–60 hope; builders and trad
 start numbers changed only on balance evidence. There is no reserve and no barracks pool, and all of them are in one
 region or on one road (W-87, "Paths"). Wounded men count; the dead, the retired and (W-68) the captive free their place;
 civilians are the household, outside the cap. A claimed soul joins only under the cap (refused past it, W-60). A transfer
-takes the whole group. One rule for all of it, by path (`ARMY_MAX`, `src/war/sim/soldiers.ts`, and the `SQUAD_MAX` and
-`MAX_SQUAD` that follow it, give way to it in the rework).
+takes the whole group. One rule for all of it, by path: `manRefusal` in `src/war/world/start.ts`, which the start, a soul,
+the Tunnel, a captive, promotion and the dev seed all pass, with the numbers in `PATHS`. `ARMY_MAX` (`src/war/sim/soldiers.ts`)
+and the `SQUAD_MAX` and `MAX_SQUAD` that follow it are only the engine's size for the biggest path; a player with no path (dev
+tools, the offline sandbox) has the most of each limit (W-106).
+
+**Who may join (W-101):** a warrior only men of his family: he cannot claim a soul or raise a man of another, who stays in
+the world for someone else, as a real man would not change his people. A builder or trader takes any soldier but a rider as a
+guard, up to his cap. Promotion stays within a family. Workers join any path, under its worker cap.
 
 ### Record (server-side, one row per person)
 
@@ -1077,21 +1084,22 @@ player's (`notOwner` otherwise); the field is optional, so the wire stays additi
 | Stage | Rule |
 | --- | --- |
 | Join | what his path starts with ([open](impl/paths-rework.md#open-design-items)), then only claimed souls ("Souls", W-60); no recruit pools, no recruiting, no training |
-| Promote | level 6 + the elite rare kit, 30 min |
+| Promote | level 6 + the elite rare kit, 30 min; an elite of his own family (W-101) |
 | Fall | at 0 HP wounded with `woundedShare` 0.7 (+3% per END above 5, + physician, cap 0.9), else dead; the dead drop their gear |
 | Early mercy (W-79 proposal) | in the homes and the entries (depth 0–1, `src/war/sim/depth.ts` EARLY) a soldier felled by the wild (a beast's, bandit's, chief's or warlord man's blow) is only knocked down: he lies with his pack and kit (no pile, no battlefield soul), the fight report leaves him out, and once no foe man has fought within 10 tiles of him for 15 s he gets up at 30% hp in his squad. Still down after 3 min he is wounded as before; felled again within 60 s of getting up (left among the wild that beat his squad) the fall is real. Another player's blow, and any fall at depth 2 and deeper, is a fall. Online the room keeps him listed in the field while down (no rejoin claims him twice) and reports him if he stays down for good. W-81: a man down counts toward his army for a soul's claim (he will rise), and `down` rides on the wire (unit state bit 32, NET_VERSION 17) so the squad card shows it online too. Measured: a level-1 squad (4 hoplites, 3 archers, 3 slingers, 2 javelineers) against a depth-1 bandit lair of 8 lost 3–8 for good before; now 0, every man up within ~20 s of the last blow |
 | Heal | wounded leave with the squad and stay in his group (W-87); timer: field 6 h, camp 3 h, town 2 h, physician's house 1 h; his timer runs on wherever the group goes (W-98) |
 | Gear drops | a physical loot pile anyone may carry off (W-46, "Trade" → "Loot piles") |
 | Capture | a wounded man on a tile the enemy holds when the fight ends (no friendly within 15 tiles) becomes `captive` in the captor's nearest fort (≤ 20 per fort, extra are freed). W-68: he leaves his owner's army at once (his slot frees; the roster notes "Captured by <player> at <region>"); his gear drops in a pile where he fell |
-| Prisoners | W-68 (`src/war/sim/captives.ts`, `server/src/war/captives.ts`): the captor pays 1 food/h each and sees them at the foot of his roster. After 2 h he may ask one to join: he refuses for good with 30% + 5% a level above 1 (fixed per man), else he joins the captor's army at home with his level, class and record in starter kit (only under the path's cap: "Army full"), and waits there until the captor's group comes home (W-87); one transfer (`movePerson`) that a later men trade (W-69) reuses. The captor may release him at any time; after 24 h unclaimed, a raid reaching the fort, the fort's region starting over or an unpaid captor release him too. Released, his soul wakes at a shrine of that region (else the nearest region with one) with his level and class, for anyone to claim. No ransom, no execution |
+| Prisoners | W-68 (`src/war/sim/captives.ts`, `server/src/war/captives.ts`): the captor pays 1 food/h each and sees them at the foot of his roster. After 2 h he may ask one to join: he refuses for good with 30% + 5% a level above 1 (fixed per man), else he joins the captor's army at home with his level, class and record in starter kit (only under the path's cap, "Army full", and of his people, W-101: both refused before he is asked, so he has not refused), and waits there until the captor's group comes home (W-87); one transfer (`movePerson`) that a later men trade (W-69) reuses. The captor may release him at any time; after 24 h unclaimed, a raid reaching the fort, the fort's region starting over or an unpaid captor release him too. Released, his soul wakes at a shrine of that region (else the nearest region with one) with his level and class, for anyone to claim. No ransom, no execution |
 | Dismiss | W-68: a roster action on a fit or wounded soldier, confirmed in the card (Dismiss / Keep). His gear drops where he stands (a pile in his live region; at home into the strongroom); his soul rises to the sky where he stood (a soul-tinted ghost lifting in a column of light, `src/war/view/soulRise.ts`) and wakes at a shrine as for a release. Its dismisser cannot claim him for 1 h (no free reset of gear or wounds) |
 | Veterans | survivors keep XP, gear and honours; gear wears per fight (`cond`), a smith repairs it |
 | Roster | N men in total, the path's cap (fit, wounded, promoting; W-85; not the captive, W-68) + household, all in one region or on one road (W-87); no reserve; at the cap a soul's claim is refused until a man falls, retires, is taken or is dismissed |
 | Retire | returns half the gear value and leaves one honour on the alliance memorial; a level-10 soldier may retire into a civilian class at level 5 |
 
-Household: separate from the N soldiers, and in his one group with them (W-87). Civilians exist, but how they are
-acquired is [open](impl/paths-rework.md#open-design-items); so is the size, since today's `min(4, 1 + fit soldiers ÷ 4)`
-gives a 4-soldier path only 2.
+Household: separate from the N soldiers, and in his one group with them (W-87). W-103: its size is the path's, warrior 2,
+builder 6, trader 3 (`PATHS`, start numbers), counting workers fit, wounded or training (not a captive). Past it a veteran
+cannot retire into a trade, nor a worker's soul or captive join. How workers are otherwise acquired is
+[open](impl/paths-rework.md#open-design-items).
 
 In the region civilians are live units on the 600 cap inside a 10% sub-quota (60, split per alliance like W-06): a
 separate cap would add bodies beyond the sim budget, and they cost the same per tick as soldiers. They are weak,
@@ -1146,9 +1154,8 @@ the old field upkeep is gone; only captives cost their captor 1 food an hour.
 Every warrior on Metaxy died in the world above (Lore); the newly dead wake as **souls** across the regions and wait
 to be claimed (`src/war/sim/souls.ts`). There are no recruit pools, no recruiting, no training and no training
 buildings (barracks stand only as pre-built pieces of landmarks and towns); a new player starts with what his path
-gives ([open](impl/paths-rework.md#open-design-items)), and after that a man joins only as a claimed soul. A soul wakes
-as the class his site gives: whether a warrior may claim one outside his family (W-86), and in what form, is
-[open](impl/paths-rework.md#open-design-items).
+gives ("Starting a game"), and after that a man joins only as a claimed soul. A soul wakes as the class his site gives: a
+warrior can only claim one of his family (W-101), and the rest stay for someone else.
 
 | Rule | Value |
 | --- | --- |
@@ -1157,14 +1164,16 @@ as the class his site gives: whether a warrior may claim one outside his family 
 | Class | by site: shrine hoplite, archer or militia; ruin militia, slinger or javelineer; lair swordsman, hoplite or archer; a battlefield the class most of its fallen were |
 | Level | shrine and ruin 1, battlefield 2, lair 3, + half the region's depth (rounded down), at most 6: the rarer, better souls wait in dangerous places |
 | Claim | the claimSoul order walks a squad to him; a man of it within 2.5 tiles for 3 s claims him and he joins that squad, his class and level, as a fresh person |
-| Cap | only while the player has fewer soldiers than his path's cap (W-85: warrior 12, builder 4, trader 4); else the claim is refused ("army full") and the soul waits on |
+| Cap | only while the player has fewer soldiers than his path's cap (W-85: warrior 12, builder 4, trader 4); else the claim is refused ("army full") and the soul waits on. A named worker counts against the worker cap instead (W-103) |
+| Family | W-101: a warrior's claim on a man of another family is refused ("not of your people"); his claim is dropped and the soul waits on, open to the next player. Unlike a full army, this does not close the guide's soul step: another soul will do |
 | Contest | two sides at him stall the claim (contested); the wild at him with no claimer takes him (lost); a foe who stands there first claims him |
 | Fade | unclaimed he fades after 10 min (the view fades him over the last minute) |
 | Named | W-68: a released captive or a dismissed man wakes as himself (name, level, class, record; starter kit) at a shrine, waits 6 h (he is a veteran: longer than a stranger's soul) and does not count toward the 4 souls of a region; claimed, the same person moves to the claimer; faded or taken by the wild, he is gone. Server: `war_persons.state = 'soul'` with `held_at` the region (a room not running wakes him when it starts; migration 0050) |
 
-Online the region room gates on the player's whole army (D1 `armyCount`, refreshed on join and after each claim) and
-tells him `soul` claimed or refused; the DO writes the new man (`claimSoul`: an insert that checks the cap itself, so
-two claims at once cannot pass it; a refused insert takes the man off the field). A soul draws as a pale,
+Online the region room gates on the player's path and whole army (D1 `pathOf`, `armyCount`, refreshed on join and after each
+claim; the path is saved with the room) and tells him `soul` claimed or refused, with why; the DO writes the new man (`claimSoul`:
+it checks the family, and the insert checks the cap itself, so two claims at once cannot pass it; a refused insert takes the man
+off the field). A soul draws as a pale,
 glowing ghost of his class sheet (tinted, see-through, an additive glow; no new art) and shows on the minimap and the
 full map; with men selected near one, a prompt names him (class, level, site, fade timer) and its Claim button sends
 them, or reads "Army full" with his count and cap (12/12, 4/4); right click or E on the soul gives the same claim order (greyed in the radial while
@@ -1178,9 +1187,9 @@ server: `server/src/war/raise.ts`, D1 `war_tunnel.next_at` (0048); view: `src/wa
 
 | Rule | Value |
 | --- | --- |
-| Floor | W-68: while he has fewer than 6 men who can fight, or fewer than his path's cap if that is smaller (so 4 for a builder or trader; the wounded do not count here, captives are not his), one rises at home every 10 min, up to that floor and never past the path's cap in all (the wounded still fill the army); past the floor men come only from souls |
+| Floor | W-68, W-102: while he has fewer than `min(6, his path's cap)` men who can fight (so 4 for a builder or trader; the wounded do not count here, captives are not his), one rises at home every 10 min, up to that floor and never past the room left under the path's cap (the wounded still fill the army; with room for 1, one rises and the clock stops); past the floor men come only from souls |
 | Waits at home | W-87, W-98: a man raised while the group is away waits at home, off the field, until it comes home; he never crosses to it alone ("One region") |
-| The man | level 1 in starter kit, the class of one of his latest fallen his path allows (the classes a family or path allows are [open](impl/paths-rework.md#open-design-items)), plus his divine favour bonus (raiseBonus, itself open: "Divine favour") |
+| The man | level 1 in starter kit, the class of one of his latest fallen his path may hold (W-101), else a militiaman, or for a warrior who may not hold one his family's first class (`raiseClass`), plus his divine favour bonus (raiseBonus, itself open: "Divine favour") |
 | Clock | starts on the first read below the floor; settled lazily on `GET /api/war/tunnel` { alive, floor, nextAt, pending }, the roster read and a region join (no live room needed); a compare-and-set on next_at and a capped insert keep racing reads to one man each |
 | No tunnel | before his first man (a player who never had one) |
 
@@ -1289,7 +1298,7 @@ XP per job = the recipe's tier (1–3; dishes, remedies and refining 1).
 | 6 | Instrument Maker (Toolmaker): tools T3 | Broker (Contracts): 4 contracts, escrowed hand-offs (M6) | Weaver: flax on farms, linen |
 | 7 | Artillerist (Rams): oxybeles; stone thrower crew −1 | Banker (Broker): letters of credit backed by his escrowed coin | Presser: oil at an olive press |
 | 8 | Sapper\* (Rams): engine damage +30% | Factor (Appraiser): 3 standing buy orders that fill while he is offline | Herb Finder: herbs from forest and marsh gathering |
-| 10 | **Poliorcetes**: siege tower · **Archimedes**: throwers and oxybeles on stone towers, range +20% | **Emporos**: convoy +1 cart; his cart is a stall in own influence · **Proxenos**: buys back fallen gear from the enemy salvage pool | **Steward**: refining −20% input, batch ×1.5 · **Pathfinder**: works in neutral regions with no squad near, flees ×1.3 faster |
+| 10 | **Poliorcetes**: siege tower · **Archimedes**: throwers and oxybeles on stone towers, range +20% | **Emporos**: his cart is a stall in own influence · **Proxenos**: buys back fallen gear from the enemy salvage pool | **Steward**: refining −20% input, batch ×1.5 · **Pathfinder**: works in neutral regions with no squad near, flees ×1.3 faster |
 
 Identities: smith = gear (weaponsmith or armourer), cook = squad buffs, physician = fewer deaths and faster heals,
 engineer = sieges, forts and every class's tools, merchant = silver and caravans, forager = raw and refined goods.
@@ -1505,7 +1514,7 @@ the same region within 4 tiles.
 | Rule | Value |
 | --- | --- |
 | Ground | road ×1.3; shallow ford ×0.5; slope up ×0.6; sand ×0.5; forest and marsh only on a road; no stairs, walkways or ladders; bridges ≥ 2 wide |
-| Per player | 2 carts in the world (Emporos 3; whether a trader's cap rises is [open](impl/paths-rework.md#open-design-items)), all in his one group (W-87); a convoy = his carts and the squads escorting them |
+| Per player | W-104: by path, trader 4, warrior 1, builder 1 (`PATHS`; merchants are the logistics path, and Emporos adds none). The cap stops building, not taking: a seized cart is his even past it (W-105). All in his one group (W-87); a convoy = his carts and the squads escorting them |
 | `escort` order (new `Order` kind) | the squad keeps a column round the cart, engages enemies within 12 tiles of it, returns past 20 |
 | Under attack | the cart halts while an enemy is within 8 tiles, resumes 10 s after; it never fights |
 | Between regions | carts and loaded porters ride the world transfer with the whole group (W-87), cargo on the transit row; wagon ×1.5 travel time, porters ×1.2; a `haul` order chains transfers along the world path for that group, only while he is online (W-97), and no cart ever drives on its own (no automated drovers) |
