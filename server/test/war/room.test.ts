@@ -251,6 +251,27 @@ describe('WarRoom corpses', () => {
   });
 });
 
+describe('WarRoom town work (W-205)', () => {
+  it('shows his idle men at a held Build job as working, on the wire only, until they walk or the job ends', () => {
+    const r = room();
+    r.join(1, join(1, 0, 6, 'militia'));
+    const dec = new DeltaDecoder();
+    const run = (n: number) => { for (let t = 0; t < n; t++) for (const f of r.tick().frames.values()) dec.apply(f); };
+    const states = () => new Set([...dec.units.values()].map((u) => u.state));
+    run(5);
+    expect(states()).toEqual(new Set(['idle']));
+    const m = r.snapshot().units[0];
+    r.watchTownJob({ id: 1, pid: 1, x: m.x + 2, y: m.y });
+    run(2);
+    expect(states()).toEqual(new Set(['build']));
+    expect(new Set(r.snapshot().units.map((u) => u.state)), 'the sim still has them standing').toEqual(new Set(['idle']));
+    expect(dec.units.get(m.id)!.facing).toBeCloseTo(0, 1);
+    r.unwatchTownJob(1);
+    run(2);
+    expect(states()).toEqual(new Set(['idle']));
+  });
+});
+
 describe('WarRoom determinism', () => {
   it('replays the same joins and orders to the same world, the same as a bare sim', () => {
     const run = () => {

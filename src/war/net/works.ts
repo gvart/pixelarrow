@@ -5,7 +5,7 @@
  * stands, and the whole alliance has its lasting bonus for the rest of the season. Shared by the server
  * (server/src/war/works.ts) and the HUD's works panel; the sites come from the region data (`workSite`).
  */
-import type { RegionData } from '../types';
+import type { RegionData, UnitSnap } from '../types';
 
 export type WorkId = 'temple' | 'road' | 'beacons' | 'wonder';
 export interface WorkBonus {
@@ -64,6 +64,18 @@ export function foldBonus(done: Iterable<[id: string, stages: number]>): WorkBon
 export const WORK_R = 10;
 /** Most labour one man gives a second (1: a man-second each second). */
 export const LABOUR_EVERY = 100; // ticks between labour counts (10 s)
+
+/**
+ * W-205 how a man looks on the wire: standing free within WORK_R of a town job his owner holds (the room counts his labour
+ * there) he is drawn at work, turned to it, and heard; once he walks, fights or the job ends he is as the sim says.
+ */
+export function atTownWork(u: UnitSnap, owner: string | undefined, jobs: readonly { owner: string; x: number; y: number }[]): UnitSnap {
+  if (u.state !== 'idle' || u.work || u.task) return u;
+  for (const j of jobs) {
+    if (j.owner === owner && (u.x - j.x) ** 2 + (u.y - j.y) ** 2 <= WORK_R * WORK_R) return { ...u, state: 'build', facing: Math.atan2(j.y - u.y, j.x - u.x) };
+  }
+  return u;
+}
 
 /**
  * Where work `id` stands in region `r` (fixed by the region data): the temple at its first temple or shrine; the road

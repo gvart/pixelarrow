@@ -78,8 +78,23 @@ describe('war clip selection', () => {
     expect(pick({ state: 'move', carry: 'stone', load: 2 })).toBe('walk');
     // a sheet without work clips idles at work and walks with its load
     expect(pick({ state: 'gather', carry: 'wood', load: 1 }, clips)).toBe('idle');
-    expect(pick({ state: 'build' }, clips)).toBe('idle');
+    expect(pick({ state: 'build' }, clips), 'W-205: at a work a man swings what he has').toBe('thrust');
     expect(pick({ state: 'move', carry: 'wood', load: 1 }, clips)).toBe('walk');
+  });
+
+  it('W-205: a man at work takes one blow a swing, when the clip reaches its strike', () => {
+    const a = new Animator();
+    a.override = workClips;
+    const blows = () => {
+      let n = 0;
+      for (let now = 0; now < 2400; now += 50) {
+        const p = a.pick(unit({ state: 'build' }), clips, at(now, 1), [], []);
+        if (a.workBlow(1, p.frame, clips.get(p.clip)!.strike)) n++;
+      }
+      return n;
+    };
+    expect(blows()).toBeGreaterThanOrEqual(2);
+    expect(a.workBlow(99, 7, 7), 'no such unit').toBe(false);
   });
 
   it('civilians: their job clip at work, run when fleeing, die and hit by the civ sheet names', () => {

@@ -884,13 +884,14 @@ The king's powers stay W-64's: offices, pacts, orders with bounties. Nobody comm
 - **Riders.** Held back from the start until the war sim has mounts: no work animations, balance unchecked (W-86).
 - **The king's weekly term (for the owner).** W-151 kept W-64's weekly term and regency under lord-weighted votes. A king
   who can change every week may not suit a 28-day hierarchy of sworn lords.
-- **Rented warehouses have no door.** W-131 puts them under the store rule, but a rented site is a server row with no sim
-  building, so only a warehouse building has the door ("Trade").
+- **Rented warehouses have no door of their own (W-206).** The warehouse pieces have the store's door, but a rented site is
+  a server row tied to no piece, so breaking one reaches no rented goods. Should rented goods be raidable at the Great Fair,
+  the one unsafe market? That would end "safe while rent is paid" there.
 - **The balance tool runs pathless.** `npm run balance:war` measures a player with no path (W-106), so its rows do not
   show the caps and perks of each path; the solo runs (`server/test/war/soloRuns.test.ts`) do.
 - **Empty towns.** A 4-man builder has almost nothing protecting an empty town; balance may push the cap up (W-85, W-91).
 - **Families without work animations.** Only hoplite, militia, archer, slinger, javelineer and celt_sword have them;
-  shield-bearers idle at work (W-113).
+  the others, shield-bearers among them, swing their strike at work until they have their own (W-113, W-205).
 - **The feudal hierarchy** is the least played part of the rework; its numbers (`src/data/warFeudal.ts`) are untested
   in real seasons (W-150..W-159).
 
@@ -1613,7 +1614,7 @@ with nobody carrying them are settled by W-124: a store network stays inside one
 | chest | building 1×1, wood 10, 8 loads, owner-only | owner; enemies with none of its side within 10 tiles; no door | ≤ 4 a player a region; holds, never feeds crafting |
 | home strongroom | the home storehouse + one chest a player | never lootable (W-09) | the only safe store outside a trade town; replaces the stash and the treasury table. Homes are the one sanctuary: no door to break, a house elsewhere has one (W-131) |
 | private house (W-90) | built by the player, one a region, 20 loads | its owner and whom he lets in; a foe past its door | holds his belongings; nothing else protects it (W-132) |
-| rented warehouse | a trade-town site, 20 loads | renter only | safe while rent is paid; unpaid 3 days: locked, never confiscated. W-131 sets it under the store rule (door, then what they carry), but a rented site is a server row with no sim building yet, so only a warehouse building has the door |
+| rented warehouse | a trade-town site, 20 loads | renter only | safe while rent is paid; unpaid 3 days: locked, never confiscated. A rented site is a server row tied to no piece, so only a warehouse building has the door (W-206) |
 | porter | CARRY 10 = 1 load (today's worker load); 5 items = 1 load | his squad | any soldier or civilian; −10% speed loaded |
 | cart | see Carts | its driver's player | captured with its cargo |
 | a man | his worn kit | – | an item is worn or in a holder, nowhere else |
@@ -1719,7 +1720,7 @@ empty and needs no other player. Numbers: `src/data/warTownBoard.ts`; listing an
 | --- | --- |
 | Listing (W-184) | seeded by town and a 4 h window: three fights, two works, two loads |
 | Kill (W-185) | a named band or chief of what lives there, set down in the region when taken, on walkable ground away from its lairs; his men clear it. Dropped, the band stays |
-| Build (W-185) | a work at that town, repair 1800 or raise 5400 worker-seconds; his men stand within 10 tiles of it |
+| Build (W-185) | a work at that town, repair 1800 or raise 5400 worker-seconds; his men stand within 10 tiles of it, and standing free there they are seen and heard at work, turned to it (W-205) |
 | Trade (W-185, W-192) | a sealed load from the town's stock to a named town 1 or 2 hops off, 2 or 5 loads, physically carried, into that town's stock; he comes back to the board for his pay. It can't be sold. A load he gives up goes back only at the board |
 | Sizes, honest (W-193) | a fight's size follows his men whole, never under a starting family, and its pay follows the band. Three shares of his strength: 0.45, 0.85, 1.35. Nothing is scaled so a weak group can win. The card says Easy (strength ratio 1.6 and up), Fair (1), Hard (0.6) or Deadly, reading his men as they stand, hurt men weaker |
 | Any path (W-186) | any path takes any kind; his own kind lists first and pays x1.25 (warrior Kill, builder Build, trader Trade) |

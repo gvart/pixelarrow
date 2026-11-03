@@ -386,6 +386,8 @@ export class UnitLayer {
   ground: ((d: { x: number; y: number }) => number) | null = null;
   /** Units whose drawn frame is kept in `drawnAs` (the guardians: their mouths and silhouettes for ./bossFx.ts). */
   watch: ReadonlySet<number> = new Set();
+  /** W-205: a man at work brings his tool down in front of him at world px (x, y): ./feel/sparks.ts. */
+  workDust: ((x: number, y: number) => void) | null = null;
   readonly drawnAs = new Map<number, DrawnAs>();
   /** micro (./micro.ts): the man picked out of his block (a wider, pulsing white ring), -1 none. */
   picked = -1;
@@ -619,6 +621,7 @@ export class UnitLayer {
       // facing, projected: a tile-space direction (dx, dy) runs (dx - dy, (dx + dy) / 2) on screen
       const qi = this.quadrant(u.id, l?.facing ?? d.facing), q = sheet.rows[qi];
       const p = this.anim.pick(d, sheet.clips, at, units, shots);
+      if (u.state === 'build' && this.workDust && this.anim.workBlow(u.id, p.frame, sheet.clips.get(p.clip)!.strike) && p.clip !== 'idle') this.workDust(f.x + (Math.cos(d.facing) - Math.sin(d.facing)) * 14, f.y + (Math.cos(d.facing) + Math.sin(d.facing)) * 7);
       if (this.watch.has(u.id)) this.drawnAs.set(u.id, { clip: p.clip, frame: p.frame, row: QUADRANT[qi], x: f.x, y: f.y, ox: q.ox, oy: q.oy, scale: sheet.scale, ring: sheet.ring, fw: sheet.fw, fh: sheet.fh });
       let [key, frame] = sheet.frames.get(p.clip)![q.row][p.frame];
       const po = this.pose?.(u.id, at.now), hp = u.state !== 'dead' ? this.hit?.(u.id, at.now) : undefined;
