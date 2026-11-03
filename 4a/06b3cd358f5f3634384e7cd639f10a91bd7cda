@@ -1,0 +1,29 @@
+src/war/view/anim.ts
+  s_a7d5d20f628c80::t_db91d2821a0f30 63-64,140-141,190-197,206
+src/war/view/SandboxScene.ts
+  s_a7d5d20f628c80::t_db91d2821a0f30 232
+src/war/view/units.ts
+  s_a7d5d20f628c80::t_db91d2821a0f30 389-390,624
+src/war/view/feel/sparks.ts
+  s_a7d5d20f628c80::t_db91d2821a0f30 5,17-18,24,50-54
+  s_a7d5d20f628c80::t_34725d318196fa 55-56
+tests/war/anim.test.ts
+  s_a7d5d20f628c80::t_db91d2821a0f30 81,85-97
+  s_a7d5d20f628c80::t_9090b8ef9d5e08 98-99
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "4a06b3cd358f5f3634384e7cd639f10a91bd7cda",
+  "prompts": {},
+  "sessions": {
+    "s_a7d5d20f628c80": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1afee479-b44b-46d2-a159-a540e44e7fb8",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
