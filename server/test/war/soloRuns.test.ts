@@ -3,8 +3,8 @@
  * start API to a mid-game goal, nobody else in the world. A small bot gives the orders a player would; the clock is game
  * time (ticks, the border's travel time). Lists come from the data, so a retune moves the numbers, not the script.
  *
- *   Trader: walks to the town, gathers a first load, works his chain, then runs the best goods between home and the best
- *           neighbour, buying carts and workers from the profit.
+ *   Trader: walks to the town, gathers a first load, works his chain, then carries what pays best down any road, on to
+ *           fresh towns as stocks and purses run shallow, buying a cart and a worker from the profit.
  *   Builder: gathers, raises his chain's buildings, sells what he gathers, hires up to his cap, and goes on building.
  */
 import { env } from 'cloudflare:test';
@@ -35,7 +35,7 @@ const post = (token: string, path: string, json: unknown) => api(`/api/war/start
 const START = Date.UTC(2031, 0, 6, 8);
 const FOE_R = WAR_SEASON.foeRadius;
 /** Print each note as it happens (a long run's progress while tuning). */
-const WATCH = true;
+const WATCH = false;
 
 /** A squad and its cart stand this far around the point they were sent to. */
 const FORMATION = 5;
@@ -74,8 +74,8 @@ class Run {
       const pay = Object.entries(g.goods).filter(([, n]) => n > 0);
       if (pay.length) await batch(DB(), [ensureHolder(DB(), strongroom(this.pid), 'strongroom', { pid: this.pid }, this.now), ...pay.map(([k, n]) => putStmt(DB(), strongroom(this.pid), k, n, 'story'))]);
     }
-    const pz = (r as unknown as { peace?: { labour: { pid: number; secs: number }[] } | null }).peace;
-    if (pz) for (const [pid, n] of builtFavour(this.room, pz.labour.map((l) => [l.pid, l.secs] as const))) await addFavour(env, pid, n, 'built', this.now);
+    const pz = r.peace;
+    if (pz) for (const [pid, n] of builtFavour(this.room, [...pz.labour.map((l) => [l.pid, l.secs] as const), ...pz.works.flatMap((w) => Object.entries(w.by).map(([p, secs]) => [Number(p), secs] as const))])) await addFavour(env, pid, n, 'built', this.now);
   }
 
   async until(done: () => boolean, max: number): Promise<number> {
@@ -108,7 +108,6 @@ class Run {
       }
       if (this.far(x, y) > r + FORMATION) for (const q of this.squads()) this.room.sim.order({ kind: 'move', squad: q, x: Math.round(x), y: Math.round(y) });
     }
-    if (WATCH && tk >= max) console.log('STUCK', this.room.region.id, Math.round(x), Math.round(y), JSON.stringify(this.squads()), JSON.stringify(this.men().map((u) => [u.cls, Math.round(u.x), Math.round(u.y), u.state, u.squad])), JSON.stringify(this.squads().map((q) => this.room.sim.snapshot().squads[q]?.order)), JSON.stringify((this.room.sim.snapshot().sieges ?? []).filter((e) => this.room.cartsOf(this.pid).includes(e.id)).map((e) => [e.id, e.type, Math.round(e.x), Math.round(e.y), e.state, e.crew])));
     return tk;
   }
   async toTown() {
@@ -167,7 +166,7 @@ class Run {
     if ('error' in inn) throw new Error(`arrive: ${inn.error}`);
     this.stuck.clear();
     // he is online: he takes them over at once, as the client's rejoin does
-    this.room.join(this.pid, { t: 'join', v: NET_VERSION, region: to, playerId: this.pid, team: 0 });
+    this.room.join(this.pid, { t: 'join', v: NET_VERSION, region: to, playerId: this.pid, team: 0, squads: [] }, []);
     this.room.setPath(this.pid, await pathOf(DB(), this.pid));
     await this.tick();
     this.crewCarts();
@@ -211,20 +210,26 @@ function nodeNear(run: Run, res: string, x: number, y: number) {
 const stored = (run: Run, res: string) => (run.room.sim.snapshot().buildings ?? []).filter((b) => b.team === 0 && b.goods).reduce((a, b) => a + (b.goods?.[res as GoodKind] ?? 0), 0);
 const storeWith = (run: Run, res: string) => (run.room.sim.snapshot().buildings ?? []).filter((b) => b.team === 0 && (b.goods?.[res as GoodKind] ?? 0) >= 5).sort((a, b) => (b.goods?.[res as GoodKind] ?? 0) - (a.goods?.[res as GoodKind] ?? 0))[0];
 
-/** The good worth carrying from `v` to `w` for this coin and room: most profit; null: none pays. */
-function cargoFor(v: NpcView, w: NpcView, coin: number, room: number): { res: string; n: number; net: number } | null {
-  let best: { res: string; n: number; net: number } | null = null;
-  for (const g of npcGoods(v.town)) {
-    const h = npcGoods(w.town).find((x) => x.res === g.res);
-    const sv = v.goods.find((x) => x.res === g.res), sw = w.goods.find((x) => x.res === g.res);
-    if (!h || !sv || !sw) continue;
-    for (let n = 10; n <= room; n += 10) {
-      const cost = costOf(g, sv.stock, n), pay = Math.min(payFor(h, sw.stock, n), w.purse), net = pay - cost;
-      if (cost > coin) break;
-      if (net > 0 && (!best || net > best.net)) best = { res: g.res, n, net };
+/** What to carry from `v` to `w` for this coin and these free loads: the goods with most profit first; [] when none pays. */
+function cargoFor(v: NpcView, w: NpcView, coin: number, loads: number): { res: string; n: number; net: number }[] {
+  const out: { res: string; n: number; net: number }[] = [];
+  for (;;) {
+    let best: { res: string; n: number; net: number; cost: number } | null = null;
+    for (const g of npcGoods(v.town)) {
+      const h = npcGoods(w.town).find((x) => x.res === g.res);
+      const sv = v.goods.find((x) => x.res === g.res), sw = w.goods.find((x) => x.res === g.res);
+      if (!h || !sv || !sw || out.some((o) => o.res === g.res)) continue;
+      for (let n = 10; n <= Math.floor(loads * perLoad(g.res)) && n <= sv.stock; n += 10) {
+        const cost = costOf(g, sv.stock, n), pay = Math.min(payFor(h, sw.stock, n), w.purse - out.reduce((a, o) => a + o.net, 0)), net = pay - cost;
+        if (cost > coin) break;
+        if (net > 0 && (!best || net > best.net)) best = { res: g.res, n, net, cost };
+      }
     }
+    if (!best) return out;
+    out.push(best);
+    coin -= best.cost;
+    loads -= best.n / perLoad(best.res as GoodKind);
   }
-  return best;
 }
 
 async function chooseStep(run: Run, option: string) {
@@ -260,9 +265,10 @@ describe('W-93 a solo run on each path', () => {
 
     // the road, back and forth, with what pays, spending as he goes
     let trips = 0, sold = 0, hired = 0, carts = run.room.cartsOf(run.pid).length;
+    const seen = new Map<string, number>();
     const goalLevel = 4, goalCarts = 2;
     const level = async () => (await getFavour(env, run.pid)).level;
-    while (trips < 40 && !((await level()) >= goalLevel && carts >= goalCarts && hired >= workerCap('trader') - 2)) {
+    while (trips < 80 && !((await level()) >= goalLevel && carts >= goalCarts && hired >= workerCap('trader') - 2)) {
       // from home, to whichever neighbour pays best now (a town's purse runs dry: W-142); from there, home
       const here = run.room.region.id, atHome = here === run.home;
       const v = await npcView(DB(), here, run.now), coin = await run.coin();
@@ -277,21 +283,25 @@ describe('W-93 a solo run on each path', () => {
         hired++;
         await run.note('hired a worker');
       }
-      const left = await run.coin(), room = run.roomFor('iron');
-      let there = run.home, plan: ReturnType<typeof cargoFor> = null;
-      for (const to of atHome ? worldRegion(run.home)!.adj : [run.home]) {
-        const p = cargoFor(v, await npcView(DB(), to, run.now), left, room);
-        if (atHome && !plan) there = to;
-        if (p && (!plan || p.net > plan.net)) { plan = p; there = to; }
+      // where the goods pay best: any road out of here. A town's stock and purse are shallow (W-141, W-142), so when
+      // nothing pays he walks on to the town he saw longest ago, and home for his strongroom now and then
+      const left = await run.coin(), loads = freeLoads(run.room.npcSlots(run.pid));
+      let there = '', plan: ReturnType<typeof cargoFor> = [], best = 0;
+      seen.set(here, trips);
+      for (const to of worldRegion(here)!.adj) {
+        if (!atHome && to !== run.home && (seen.get(to) ?? -99) > trips - 6) continue; // no bouncing between two towns abroad
+        const p = cargoFor(v, await npcView(DB(), to, run.now), left, loads), net = p.reduce((a, o) => a + o.net, 0);
+        if (net > best) { best = net; plan = p; there = to; }
       }
-      if (plan) await run.deal({ op: 'buy', res: plan.res as GoodKind, n: plan.n });
+      if (!there) there = atHome ? [...worldRegion(here)!.adj].sort((a, b) => (seen.get(a) ?? -99) - (seen.get(b) ?? -99))[0] : run.home;
+      for (const p of plan) await run.deal({ op: 'buy', res: p.res as GoodKind, n: p.n });
       await run.cross(there);
       await run.toTown();
       const got = await run.sellAll();
       sold += got;
       trips++;
       await chooseStep(run, 'self'); // his chain's last choice, when it is open
-      await run.note(`trip ${trips}: carried ${plan ? `${plan.n} ${plan.res}` : 'nothing'}, sold ${got}`);
+      await run.note(`trip ${trips}: ${here} to ${there}, carried ${plan.map((p) => `${p.n} ${p.res}`).join(', ') || 'nothing'}, sold ${got}`);
     }
     const f = await getFavour(env, run.pid);
     console.log(`TRADER ${run.mins().toFixed(0)} min, L${f.level}, xp ${Math.floor(f.xp)}, ${trips} trips, ${sold} coin sold, ${carts} carts, ${hired} hired\n${run.log.join('\n')}`);
@@ -332,7 +342,15 @@ describe('W-93 a solo run on each path', () => {
       if (!site) return false;
       run.room.sim.order({ kind: 'build', squad: civ(), site: site.id });
       const n = built(type);
-      await run.until(() => built(type) > n, 12_000);
+      // what the site still waits for he gathers, and goes back to it
+      for (let i = 0; i < 20 && built(type) <= n; i++) {
+        await run.until(() => built(type) > n, 1800);
+        const lack = Object.entries((run.room.sim.snapshot().buildings ?? []).find((b) => b.id === site.id)?.waiting ?? {}).filter(([, v]) => (v ?? 0) > 0);
+        if (built(type) > n || !lack.length) continue;
+        const [res, v] = lack[0], was = stored(run, res);
+        if (gather(res)) await run.until(() => stored(run, res) >= was + (v ?? 0) + 5, 6000);
+        run.room.sim.order({ kind: 'build', squad: civ(), site: site.id });
+      }
       return built(type) > n;
     };
 
