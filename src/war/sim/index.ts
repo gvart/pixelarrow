@@ -50,7 +50,7 @@ import { perkFx } from '../../data/warPerks';
 import { afterArmour, blockChance, COMBAT, heightRange, hitChance, meleeHeight, missileHeight } from './combat';
 import { formationOffsets, type Shape } from './formation';
 import { BRAZIER, BUILDINGS, FIELD, STAFF, WALLS, WORK_DEFENCE } from './economy';
-import { BOG, buildGrid, canEnter, DECK, findPath, flushSectors, FOREST, lineClear, lineCost, nearestOpen, pullPath, stepCost, tileAt, UPHILL, walkClear, type Grid } from './grid';
+import { BOG, buildGrid, canEnter, DECK, findPath, flushSectors, FOREST, lineClear, lineCost, nearestOpen, pullPath, stepCost, tileAt, UPHILL, walkClear, type Grid, cartLand, nearestLand } from './grid';
 import { createWorks, type Worker } from './works';
 import { createSiege, LADDER } from './siege';
 import { createMobs, MOB_OWNER, MOB_TEAM, mobClass, type SpawnScale } from './mobs';
@@ -512,6 +512,8 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     }
   };
 
+  /** W-145: the ground carts roll on (./grid.ts cartLand), worked out at the first cart. */
+  let rollable: Uint8Array | null = null;
   const siege = createSiege(works, rng, {
     cartFx: fxOf,
 
@@ -3955,7 +3957,8 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     damageBuilding: works.damage,
     finishBridges: works.finishBridges,
     spawnCart: (team, owner, type, x, y, crew) => {
-      const id = siege.cart(team, owner, type, x, y);
+      const [cx, cy] = nearestLand(grid, (rollable ??= cartLand(grid)), x, y); // W-145: a cart is set down where it can roll
+      const id = siege.cart(team, owner, type, cx, cy);
       if (crew !== undefined) apply({ kind: 'crew', squad: crew, siege: id }); // at once: a haul's next leg may leave before a tick
       return id;
     },

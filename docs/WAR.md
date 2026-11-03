@@ -1645,7 +1645,7 @@ whose men stand at it. Data: `src/data/warNpcTowns.ts`; the rules, shared: `src/
 | Level (W-148) | a sale pays the trader's level (W-111) only for goods from another land: a town's own goods sold back to it, or what he gathered at home and sold at home, pay coin and no level. Carrying over a border pays as before |
 | Tribute (W-153) | a sale to a town is sale income: his liege's part stays at the town under his name, as at a stall, until someone's men fetch it |
 | Hired workers (W-144) | forager 120, cook 150, engineer, merchant, physician or smith 200. One of his own people from then on, under W-103's cap, standing with his men; the coin goes into the purse |
-| Carts (W-145) | a trader starts with one handcart, given at his first join. A town sells a handcart for 180 and a wagon for 600 under W-104's cap (the coin into the purse). Builders still build them |
+| Carts (W-145) | a trader starts with one handcart, given at his first join. A town sells a handcart for 180 and a wagon for 600 under W-104's cap (the coin into the purse). Builders still build them. A cart coming in over a border or bought is set down on the nearest ground carts can roll on, never in the trees |
 
 Numbers are start numbers (`NPC`, `NPC_HIRE`, `NPC_CARTS`). Tests: `tests/war/npcMarket.test.ts` (rules), `server/test/war/npcMarket.test.ts`
 (bound on coin: all paid out plus the purse = start + minted), `server/test/war/soloRuns.test.ts` (the solo game).

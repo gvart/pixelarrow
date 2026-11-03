@@ -12,6 +12,7 @@ import { describe, expect, it } from 'vitest';
 import { api, devLogin } from '../helpers';
 import { good } from './goods';
 import { NPC_CARTS, NPC_HIRE } from '../../../src/data/warNpcTowns';
+import { storyOf } from '../../../src/data/warStories';
 import { NET_VERSION } from '../../../src/war/net/protocol';
 import { costOf, npcGoods, npcSpot, payFor, type NpcView } from '../../../src/war/net/npcMarket';
 import { perLoad } from '../../../src/war/sim/holders';
@@ -46,6 +47,8 @@ class Run {
   room!: WarRoom;
   rooms = new Map<string, WarRoom>();
   persons: WarPerson[] = [];
+  /** Men who stopped answering a move order here: the road clears them on the next crossing. */
+  stuck = new Set<number>();
   constructor(readonly pid: number, readonly token: string, readonly path: PathId, readonly home: string) {}
 
   roomOf(id: string): WarRoom {
@@ -88,13 +91,25 @@ class Run {
   pull = () => this.squads().find((q) => this.room.sim.snapshot().units.some((u) => u.squad === q && !u.cls.startsWith('civ_')));
   /** How far the furthest of his men and carts stands from a point. */
   far(x: number, y: number) {
-    const at = [...this.men(), ...(this.room.sim.snapshot().sieges ?? []).filter((e) => this.room.cartsOf(this.pid).includes(e.id))];
+    const at = [...this.men().filter((u) => !this.stuck.has(u.id)), ...(this.room.sim.snapshot().sieges ?? []).filter((e) => this.room.cartsOf(this.pid).includes(e.id))];
     return Math.max(0, ...at.map((u) => Math.hypot(u.x - x, u.y - y)));
   }
   /** Everyone walks to a point (within r): ticks taken. */
-  async walk(x: number, y: number, r = 6, max = 9000): Promise<number> {
+  async walk(x: number, y: number, r = 3, max = 6000): Promise<number> {
     for (const q of this.squads()) this.room.sim.order({ kind: 'move', squad: q, x: Math.round(x), y: Math.round(y) });
-    return this.until(() => this.far(x, y) <= r + FORMATION, max);
+    // as a player would: a man left behind is told again, and one who still does not budge is left (counted in `stuck`)
+    let tk = 0;
+    while (tk < max && this.far(x, y) > r + FORMATION) {
+      const was = new Map(this.men().map((u) => [u.id, [u.x, u.y]]));
+      tk += await this.until(() => this.far(x, y) <= r + FORMATION, 600);
+      for (const u of this.men()) {
+        const p = was.get(u.id);
+        if (p && Math.hypot(u.x - p[0], u.y - p[1]) < 0.5 && Math.hypot(u.x - x, u.y - y) > r + FORMATION) this.stuck.add(u.id);
+      }
+      if (this.far(x, y) > r + FORMATION) for (const q of this.squads()) this.room.sim.order({ kind: 'move', squad: q, x: Math.round(x), y: Math.round(y) });
+    }
+    if (WATCH && tk >= max) console.log('STUCK', this.room.region.id, Math.round(x), Math.round(y), JSON.stringify(this.squads()), JSON.stringify(this.men().map((u) => [u.cls, Math.round(u.x), Math.round(u.y), u.state, u.squad])), JSON.stringify(this.squads().map((q) => this.room.sim.snapshot().squads[q]?.order)), JSON.stringify((this.room.sim.snapshot().sieges ?? []).filter((e) => this.room.cartsOf(this.pid).includes(e.id)).map((e) => [e.id, e.type, Math.round(e.x), Math.round(e.y), e.state, e.crew])));
+    return tk;
   }
   async toTown() {
     const at = npcSpot(this.room.region);
@@ -150,6 +165,9 @@ class Run {
     const stay = this.persons.filter((p) => out.ids.includes(p.id));
     const inn = this.room.arrive(this.pid, 0, stay, back, out.lost, out.cargo);
     if ('error' in inn) throw new Error(`arrive: ${inn.error}`);
+    this.stuck.clear();
+    // he is online: he takes them over at once, as the client's rejoin does
+    this.room.join(this.pid, { t: 'join', v: NET_VERSION, region: to, playerId: this.pid, team: 0 });
     this.room.setPath(this.pid, await pathOf(DB(), this.pid));
     await this.tick();
     this.crewCarts();
@@ -178,6 +196,13 @@ async function begin(id: number, path: PathId, alliance: number, home: string): 
   return run;
 }
 
+/** To the giver, then the place his chain's first step names. */
+async function walkIn(run: Run) {
+  const story = storyOf(run.home, run.path)!, first = story.steps[0].trigger;
+  await run.walk(story.giver.at[0], story.giver.at[1]);
+  if (first.kind === 'reach') await run.walk(first.at[0], first.at[1]);
+}
+
 /** The wood node nearest a point that nobody guards. */
 function nodeNear(run: Run, res: string, x: number, y: number) {
   return run.room.sim.resourceNodes().filter((n) => n.res === res && n.amount > 5 && !n.guarded).sort((a, b) => Math.hypot(a.x - x, a.y - y) - Math.hypot(b.x - x, b.y - y))[0];
@@ -185,15 +210,6 @@ function nodeNear(run: Run, res: string, x: number, y: number) {
 /** What his team's stores near the town hold. */
 const stored = (run: Run, res: string) => (run.room.sim.snapshot().buildings ?? []).filter((b) => b.team === 0 && b.goods).reduce((a, b) => a + (b.goods?.[res as GoodKind] ?? 0), 0);
 const storeWith = (run: Run, res: string) => (run.room.sim.snapshot().buildings ?? []).filter((b) => b.team === 0 && (b.goods?.[res as GoodKind] ?? 0) >= 5).sort((a, b) => (b.goods?.[res as GoodKind] ?? 0) - (a.goods?.[res as GoodKind] ?? 0))[0];
-
-/** The neighbour and goods paying best from this home, by the data's prices at par. */
-function bestPartner(home: string): string {
-  const net = (a: string, b: string) => Math.max(...npcGoods(a).map((g) => {
-    const h = npcGoods(b).find((x) => x.res === g.res);
-    return h ? payFor(h, h.par, 50) - costOf(g, g.par, 50) : -1e9;
-  }));
-  return [...worldRegion(home)!.adj].sort((a, b) => net(home, b) + net(b, home) - net(home, a) - net(a, home))[0];
-}
 
 /** The good worth carrying from `v` to `w` for this coin and room: most profit; null: none pays. */
 function cargoFor(v: NpcView, w: NpcView, coin: number, room: number): { res: string; n: number; net: number } | null {
@@ -220,20 +236,18 @@ describe('W-93 a solo run on each path', () => {
   it('a trader, alone, from his start to a second cart, his workers and a level by trade', async () => {
     const run = await begin(9851, 'trader', 0, 'dodona');
     expect(run.room.giveCart(run.pid, 'handcart')).not.toBeNull(); // the start cart the DO hands out on the first join
-    const partner = bestPartner(run.home);
-    await run.note(`start, partner ${partner}, ${run.men().length} men, ${run.room.cartsOf(run.pid).length} cart`);
+    await run.note(`start, ${run.men().length} men, ${run.room.cartsOf(run.pid).length} cart`);
 
     // the walk in: past the giver and the story's first place, to the town
     const town = npcSpot(run.room.region);
-    await run.walk(town.x, town.y - 14, 8);
-    await run.walk(290, 345, 3);
+    await walkIn(run);
     await run.note('walked in; first step');
 
     // a first load: his forager and merchant cut wood near the town while it lasts
     const near = nodeNear(run, 'wood', town.x, town.y)!;
     run.room.sim.order({ kind: 'gather', squad: run.civ()!, node: near.id });
     const wood0 = stored(run, 'wood');
-    await run.until(() => stored(run, 'wood') >= wood0 + 40, 12_000);
+    await run.until(() => stored(run, 'wood') >= wood0 + 100, 12_000);
     await run.note(`gathered ${Math.floor(stored(run, 'wood') - wood0)} wood`);
     await run.toTown();
     const st = storeWith(run, 'wood')!;
@@ -249,9 +263,9 @@ describe('W-93 a solo run on each path', () => {
     const goalLevel = 4, goalCarts = 2;
     const level = async () => (await getFavour(env, run.pid)).level;
     while (trips < 40 && !((await level()) >= goalLevel && carts >= goalCarts && hired >= workerCap('trader') - 2)) {
-      const here = run.room.region.id, there = here === run.home ? partner : run.home;
-      const [v, w] = await Promise.all([npcView(DB(), here, run.now), npcView(DB(), there, run.now)]);
-      const coin = await run.coin();
+      // from home, to whichever neighbour pays best now (a town's purse runs dry: W-142); from there, home
+      const here = run.room.region.id, atHome = here === run.home;
+      const v = await npcView(DB(), here, run.now), coin = await run.coin();
       // spend the surplus at the town: a second cart first, then hands
       if (carts < goalCarts && coin >= NPC_CARTS.handcart + 100) {
         await run.deal({ op: 'cart', cart: 'handcart' });
@@ -263,7 +277,13 @@ describe('W-93 a solo run on each path', () => {
         hired++;
         await run.note('hired a worker');
       }
-      const left = await run.coin(), plan = cargoFor(v, w, left, run.roomFor('iron'));
+      const left = await run.coin(), room = run.roomFor('iron');
+      let there = run.home, plan: ReturnType<typeof cargoFor> = null;
+      for (const to of atHome ? worldRegion(run.home)!.adj : [run.home]) {
+        const p = cargoFor(v, await npcView(DB(), to, run.now), left, room);
+        if (atHome && !plan) there = to;
+        if (p && (!plan || p.net > plan.net)) { plan = p; there = to; }
+      }
       if (plan) await run.deal({ op: 'buy', res: plan.res as GoodKind, n: plan.n });
       await run.cross(there);
       await run.toTown();
@@ -284,8 +304,7 @@ describe('W-93 a solo run on each path', () => {
     const run = await begin(9852, 'builder', 0, 'dodona');
     const town = npcSpot(run.room.region);
     await run.note(`start, ${run.men().length} men`);
-    await run.walk(town.x, town.y - 14, 8);
-    await run.walk(290, 345, 3);
+    await walkIn(run);
     await run.note('walked in; first step');
 
     const civ = () => run.civ()!;
