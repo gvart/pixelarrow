@@ -10,8 +10,8 @@ import { ALLIANCES } from './alliances';
 import { WORLD_REGIONS } from './regions';
 import type { AllianceId, WorldRegion } from './types';
 
-/** The six classes the Tunnel of Shades raises (server/src/war/raise.ts). */
-export const START_CLASSES = ['militia', 'hoplite', 'celt_sword', 'archer', 'slinger', 'javelineer'] as const;
+/** The classes the Tunnel of Shades raises (server/src/war/raise.ts): the first men of every path and family. */
+export const START_CLASSES = ['militia', 'hoplite', 'celt_sword', 'archer', 'slinger', 'javelineer', 'thureophoros'] as const;
 export type StartClass = (typeof START_CLASSES)[number];
 
 export type PathId = 'warrior' | 'builder' | 'trader';
@@ -31,16 +31,21 @@ export const PATH_IDS = Object.keys(PATHS) as PathId[];
 
 /** Riders return with mounts. */
 export type StartFamily = Exclude<Family, 'rider'>;
-/** The warrior's families (W-86; src/war/sim/skills.ts) and his first men in each (W-95). */
-export const FAMILIES: Record<StartFamily, { name: string; does: string; startText: string; start: readonly string[] }> = {
-  line: { name: 'Phalanx', does: 'Spears and big shields. They hold the line.', startText: '3 hoplites, 3 militia', start: ['hoplite', 'hoplite', 'hoplite', 'militia', 'militia', 'militia'] },
-  shock: { name: 'Celtic warband', does: 'Long swords, little armour. They hit hard.', startText: '6 swordsmen', start: ['celt_sword', 'celt_sword', 'celt_sword', 'celt_sword', 'celt_sword', 'celt_sword'] },
-  missile: { name: 'Skirmishers', does: 'Bows, slings and javelins. Weak up close.', startText: '2 archers, 2 slingers, 2 javelins', start: ['archer', 'archer', 'slinger', 'slinger', 'javelineer', 'javelineer'] },
+/**
+ * The warrior's families (W-86; src/war/sim/skills.ts), his first men in each (W-95), and the demigod level each of the
+ * family's stronger classes joins at (W-112; a class not listed: from the start). A family's men must clear bandit lairs
+ * and have a way to chiefs: tests/war/familyFights.test.ts.
+ */
+export const FAMILIES: Record<StartFamily, { name: string; does: string; startText: string; start: readonly string[]; unlocks: Readonly<Partial<Record<ClassId, number>>> }> = {
+  line: { name: 'Phalanx', does: 'Spears and big shields. They hold the line.', startText: '6 hoplites', start: ['hoplite', 'hoplite', 'hoplite', 'hoplite', 'hoplite', 'hoplite'], unlocks: { royal_guard: 6, sacred_band: 9 } },
+  shock: { name: 'Celtic warband', does: 'Long swords, little armour. They hit hard.', startText: '6 swordsmen', start: ['celt_sword', 'celt_sword', 'celt_sword', 'celt_sword', 'celt_sword', 'celt_sword'], unlocks: { falx: 4, gallic: 6, rhomphaia: 9 } },
+  missile: { name: 'Skirmishers', does: 'Shields in front, javelins and bows behind.', startText: '5 shield-bearers, 2 javelins', start: ['thureophoros', 'thureophoros', 'thureophoros', 'thureophoros', 'thureophoros', 'javelineer', 'javelineer'], unlocks: { peltast: 4 } },
 };
 export const FAMILY_IDS = Object.keys(FAMILIES) as StartFamily[];
 
 /** A player's choice as the limits read it (both null: no path, a dev player or the offline sandbox). */
-export interface PlayerPath { path: PathId | null; family: StartFamily | null }
+/** `level`: his demigod level this season (W-84; none: 1). */
+export interface PlayerPath { path: PathId | null; family: StartFamily | null; level?: number }
 export const NO_PATH: PlayerPath = { path: null, family: null };
 
 const most = (k: 'cap' | 'workers' | 'carts') => Math.max(...PATH_IDS.map((p) => PATHS[p][k]));
@@ -51,21 +56,26 @@ export const cartCap = (path: PathId | null): number => (path ? PATHS[path].cart
 
 /**
  * W-101: may this player hold a man of `cls` at all? A warrior only of his family (W-86: a real man does not change his
- * people); a builder or trader any soldier but a rider (riders return with mounts); every path a worker; no path, anyone.
+ * people) and at the level the class joins (W-112); a builder or trader any soldier but a rider (riders return with
+ * mounts); every path a worker; no path, anyone.
  */
 export function mayHold(p: PlayerPath, cls: string): boolean {
   if (!p.path || isCivClass(cls)) return true;
   const fam = FAMILY_OF[cls as ClassId];
-  return p.path === 'warrior' ? fam === p.family : fam !== undefined && fam !== 'rider';
+  if (p.path !== 'warrior') return fam !== undefined && fam !== 'rider';
+  return fam === p.family && (p.level ?? 1) >= unlockLevel(p.family, cls);
 }
 
-export type JoinRefusal = 'family' | 'full' | 'household';
+/** W-112: the demigod level a class of the family joins a warrior at. */
+export const unlockLevel = (family: StartFamily | null, cls: string): number => (family && FAMILIES[family].unlocks[cls as ClassId]) || 1;
+
+export type JoinRefusal = 'family' | 'locked' | 'full' | 'household';
 /**
  * The one check every man joining a player passes (start, soul, Tunnel, captive, promotion, dev tools), given the
  * soldiers and workers he has now. Null: he may join. The server's inserts check the count again to close races.
  */
 export function manRefusal(p: PlayerPath, cls: string, have: { soldiers: number; workers: number }): JoinRefusal | null {
-  if (!mayHold(p, cls)) return 'family';
+  if (!mayHold(p, cls)) return p.path === 'warrior' && FAMILY_OF[cls as ClassId] === p.family ? 'locked' : 'family';
   if (isCivClass(cls)) return have.workers >= workerCap(p.path) ? 'household' : null;
   return have.soldiers >= soldierCap(p.path) ? 'full' : null;
 }

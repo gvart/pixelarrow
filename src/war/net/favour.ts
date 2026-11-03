@@ -1,20 +1,18 @@
 /**
- * W-66 divine favour (docs/WAR.md "Divine favour"): the player is a demigod who leads mortals; his favour with the gods
- * grows forever (per account, never reset by a season) and makes the men he raises better. Shared by the server
- * (server/src/war/favour.ts: earning, D1) and the HUD's Divine favour panel (src/war/view/hud/favour.ts).
+ * W-66, W-83, W-84 the demigod's level (docs/WAR.md "Levels and perks"): the player is a demigod who leads mortals; his
+ * favour with the gods grows through the season from his path's work and resets with it. Levels unlock his path's perks
+ * (src/data/warPerks.ts) and, for a warrior, his family's stronger classes (src/war/world/start.ts FAMILIES). Shared by
+ * the server (server/src/war/favour.ts: earning, D1) and the HUD's panel (src/war/view/hud/favour.ts).
  *
  *  - Curve: FAVOUR_XP[L] favour reaches level L (200 x (L-1)^2): level 2 in about the first hour of play, level 10 in
  *    a few weeks, FAVOUR_MAX the last.
- *  - Earning (FAVOUR_EARN): battles won and fought, kills, bosses and lairs cleared, tasks claimed, story steps and
- *    chains, encounters, a region mastered (W-73: src/war/net/mastery.ts MASTERY.favour), and land held (claim points and the region, paid every LAND_MS while his men stand there,
- *    at most FAVOUR_EARN.land.hourCap an hour across regions).
- *  - Bonus (favourBonus): only for newly raised men (claimed souls, tunnel raises): unspent attribute points at every
- *    third level (at most FAVOUR_ATTR_MAX) and a better rarity of the starting kit at FAVOUR_GEAR_AT. Capped so a max
- *    favour fresh man stays below a level 3 to 4 veteran (who has 4 to 6 points, a skill and his deeds).
+ *  - Earning (FAVOUR_EARN, W-111): each reason pays the paths in PAYS only: a warrior fights and holds land, a builder
+ *    builds and raises works, a trader sells and carries. Tasks, stories and encounters pay every path. Land, goods sold
+ *    and goods carried are capped an hour (HOUR_CAP).
  */
-import { normalizeItem, RARITIES, RARITY_LABEL, rarityRank, type Rarity } from '../../data/items';
-import type { Equipment } from '../../data/units';
-import type { WarPerson } from '../types';
+import { CLASSES, type ClassId } from '../../data/classes';
+import { PERKS, type Perk } from '../../data/warPerks';
+import { FAMILIES, type PathId, type StartFamily } from '../world/start';
 
 export const FAVOUR_MAX = 12;
 /** Favour (total) to reach each level; index = level (0 and 1: none). */
@@ -45,51 +43,36 @@ export const FAVOUR_EARN = {
   /** A story step done, the story's chain ended; an encounter step, an encounter ended. */
   storyStep: 25, storyEnd: 150, encounterStep: 10, encounterEnd: 30,
   /** Land, each pay: per claim point his alliance holds where his men stand (at most claimsCap), the region his alliance owns. */
-  land: { claim: 1, claimsCap: 3, region: 2, hourCap: 30 },
+  land: { claim: 1, claimsCap: 3, region: 2 },
+  /** W-111 a builder: each second one of his men works on a site or at an alliance work; each good he gives to a work. */
+  built: { labour: 0.03, gift: 1 },
+  /** W-111 a trader: each coin of goods he sells; each load he brings over a border. */
+  sold: 0.2, carried: 2,
 } as const;
 /** Land pays this often (each region room). */
 export const LAND_MS = 10 * 60_000;
 
-export type FavourReason = 'win' | 'battle' | 'boss' | 'lair' | 'task' | 'story' | 'encounter' | 'land' | 'mastery';
+export type FavourReason = 'win' | 'battle' | 'boss' | 'lair' | 'land' | 'built' | 'sold' | 'carried' | 'task' | 'story' | 'encounter';
 export const FAVOUR_REASON: Record<FavourReason, string> = {
-  win: 'Battle won', battle: 'Battle fought', boss: 'Guardian slain', lair: 'Lair cleared', task: 'Task done',
-  story: 'Story', encounter: 'Encounter', land: 'Land held', mastery: 'Region mastered',
+  win: 'Battle won', battle: 'Battle fought', boss: 'Guardian slain', lair: 'Lair cleared', land: 'Land held',
+  built: 'Building', sold: 'Goods sold', carried: 'Goods carried', task: 'Task done', story: 'Story', encounter: 'Encounter',
 };
+/** W-111: the one path each kind of work pays; the rest pay every path. */
+export const PAYS: Partial<Record<FavourReason, PathId>> = { win: 'warrior', battle: 'warrior', boss: 'warrior', lair: 'warrior', land: 'warrior', built: 'builder', sold: 'trader', carried: 'trader' };
+/** Most favour an hour from these (one count a player: only one path earns each). */
+export const HOUR_CAP: Partial<Record<FavourReason, number>> = { land: 30, sold: 600, carried: 600 };
 
-/** Extra unspent attribute points at every third level, at most this many. */
-export const FAVOUR_ATTR_MAX = 4;
-/** Levels the starting kit's rarity steps up (common -> uncommon -> rare). */
-export const FAVOUR_GEAR_AT: readonly number[] = [5, 10];
+/** One row of the panel: what a level gives this player. */
+export type PerkRow = Pick<Perk, 'level' | 'name' | 'text'>;
 
-export interface FavourBonus { attr: number; gearTier: number; trait?: string }
-
-/** What favour level `level` gives a newly raised man. */
-export function favourBonus(level: number): FavourBonus {
-  const l = Math.max(1, Math.min(FAVOUR_MAX, Math.floor(level)));
-  return { attr: Math.min(FAVOUR_ATTR_MAX, Math.floor(l / 3)), gearTier: FAVOUR_GEAR_AT.filter((x) => l >= x).length };
-}
-
-/** The rarity a gear tier lifts the starting kit to. */
-export const gearRarity = (tier: number): Rarity => RARITIES[Math.max(0, Math.min(2, tier))];
-
-/** The man with the bonus: `attr` more unspent points; each kit piece below the tier's rarity lifted to it. Pure. */
-export function withFavour(p: WarPerson, b: FavourBonus): WarPerson {
-  if (!b.attr && !b.gearTier) return p;
-  const to = gearRarity(b.gearTier), equip: Equipment = {};
-  for (const [slot, it] of Object.entries(p.hero.equip)) {
-    if (!it) continue;
-    const up = rarityRank(it.rarity) < rarityRank(to) ? { ...it, rarity: to } : { ...it };
-    equip[slot as keyof Equipment] = normalizeItem(up); // set pieces and named items keep their own rarity
-  }
-  return { ...p, hero: { ...p.hero, points: p.hero.points + b.attr, equip } };
-}
-
-/** What each level unlocks for new men, for the panel: the bonus that changed there (empty: only the title). */
-export function favourUnlocks(level: number): string[] {
-  const b = favourBonus(level), a = favourBonus(level - 1), out: string[] = [];
-  if (level > 1 && b.attr > a.attr) out.push(`+${b.attr} attribute point${b.attr > 1 ? 's' : ''}`);
-  if (level > 1 && b.gearTier > a.gearTier) out.push(`${RARITY_LABEL[gearRarity(b.gearTier)]} starting kit`);
-  return out;
+/** W-110, W-86: all a path gives by level; a warrior's new classes among the perks. No path: nothing. */
+export function perkRows(path: PathId | null, family: StartFamily | null = null): PerkRow[] {
+  if (!path) return [];
+  const classes = path === 'warrior' && family ? Object.entries(FAMILIES[family].unlocks) : [];
+  return [
+    ...PERKS[path].map(({ level, name, text }) => ({ level, name, text })),
+    ...classes.map(([cls, level]) => ({ level: level as number, name: 'New men', text: `${CLASSES[cls as ClassId].name} can join you.` })),
+  ].sort((a, b) => a.level - b.level);
 }
 
 /** GET /api/war/favour. */
@@ -97,11 +80,11 @@ export interface FavourView {
   xp: number; level: number; title: string;
   /** Favour at the start of this level and of the next (null: the last level). */
   from: number; next: number | null;
-  bonus: FavourBonus;
+  path: PathId | null; family: StartFamily | null;
   recent: { at: number; amount: number; reason: FavourReason }[];
 }
 
-export function favourView(xp: number, recent: FavourView['recent'] = []): FavourView {
+export function favourView(xp: number, recent: FavourView['recent'] = [], path: PathId | null = null, family: StartFamily | null = null): FavourView {
   const level = favourLevel(xp);
-  return { xp, level, title: favourTitle(level), from: FAVOUR_XP[level], next: level < FAVOUR_MAX ? FAVOUR_XP[level + 1] : null, bonus: favourBonus(level), recent };
+  return { xp, level, title: favourTitle(level), from: FAVOUR_XP[level], next: level < FAVOUR_MAX ? FAVOUR_XP[level + 1] : null, path, family, recent };
 }

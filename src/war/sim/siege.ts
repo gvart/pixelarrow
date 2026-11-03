@@ -31,6 +31,7 @@ import type { Rng } from '../../sim/rng';
 import { RECIPES } from '../../data/recipes';
 import { itemList, loads, newHold, totals, type Hold } from './holders';
 import { CART, CART_LOADS, PACK_MULES } from './trade';
+import type { PerkFx } from '../../data/warPerks';
 
 const DT = 0.1;
 
@@ -111,6 +112,8 @@ export interface SiegeHooks {
   wreck?(e: Readonly<Engine>, burnt: boolean): void;
   /** M6b: the crew of e holds this merchant node (Pack Mules). */
   crewNode?(crew: number, node: string): boolean;
+  /** W-84: what the cart owner's perks add (src/data/warPerks.ts). */
+  cartFx?(owner: string): PerkFx;
 }
 
 export function createSiege(works: Works, rng: Rng, hooks: SiegeHooks) {
@@ -125,7 +128,7 @@ export function createSiege(works: Works, rng: Rng, hooks: SiegeHooks) {
   const cart = (e: Engine) => e.hold !== null;
   let tickNow = 0;
   /** M6b: loads a cart holds (a wagon whose crew holds Pack Mules: PACK_MULES). */
-  const cartCap = (e: Engine) => (e.type === 'wagon' && e.crew >= 0 && hooks.crewNode?.(e.crew, 'packMules') ? PACK_MULES : CART_LOADS[e.type as 'handcart' | 'wagon'] ?? 0);
+  const cartCap = (e: Engine) => (e.type === 'wagon' && e.crew >= 0 && hooks.crewNode?.(e.crew, 'packMules') ? PACK_MULES : CART_LOADS[e.type as 'handcart' | 'wagon'] ?? 0) + (hooks.cartFx?.(e.owner).cartLoads ?? 0);
   const built = (e: Engine | undefined): e is Engine => alive(e) && e.state !== 'building';
   const crewHere = (e: Engine) => (e.crew >= 0 ? hooks.crewNear(e.crew, e.x, e.y, e.type === 'wagon' ? CART.driver : CREW_R) : 0);
   const has = (team: number, node: string) => hooks.nodes(team).has(node);
@@ -177,7 +180,7 @@ export function createSiege(works: Works, rng: Rng, hooks: SiegeHooks) {
     const lone = e.type === 'handcart' && n === 1;
     if (n < need(e) && !lone) return false;
     if (e.state === 'deployed' || (cart(e) && e.halt > tickNow)) return false;
-    let budget = e.def.speed * DT * (lone ? 0.5 : 1);
+    let budget = e.def.speed * DT * (lone ? 0.5 : 1) * (cart(e) ? 1 + (hooks.cartFx?.(e.owner).cartSpeed ?? 0) : 1);
     while (budget > 0 && e.pi < e.path.length / 2) {
       const tx = e.path[e.pi * 2], ty = e.path[e.pi * 2 + 1];
       const dx = tx - e.x, dy = ty - e.y, d = Math.hypot(dx, dy);
@@ -345,9 +348,9 @@ export function createSiege(works: Works, rng: Rng, hooks: SiegeHooks) {
     },
     /** M6b: a finished cart of `owner` (team `team`) at (x,y), empty and idle; its id. */
     cart(team: number, owner: string, type: SiegeType, x: number, y: number): number {
-      const def = SIEGE[type];
+      const def = SIEGE[type], hp = def.hp * (1 + (hooks.cartFx?.(owner).cartHp ?? 0));
       engines.push({
-        id: engines.length, type, def, team, x, y, facing: 0, hp: def.hp, maxHp: def.hp, state: 'idle', labour: def.labour, crew: -1,
+        id: engines.length, type, def, team, x, y, facing: 0, hp, maxHp: hp, state: 'idle', labour: def.labour, crew: -1,
         mode: 'none', goal: null, path: [], pi: 0, target: -1, wall: null, ladder: -1, cd: 0, swingAt: -1, prog: 0, burn: 0, kindle: 0, tower: false,
         owner, hold: newHold(), halt: 0, cap: 0, capT: -1, capO: '',
       });

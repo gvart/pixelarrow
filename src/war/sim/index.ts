@@ -45,7 +45,8 @@ import { chiefLoot } from '../../data/warBosses';
 import { depthOf, EARLY } from './depth';
 import type { BuildingType, Deed, FightReport, GoodKind, Order, PersonResult, RegionData, RegionMemory, ResourceKind, ShotSnap, Snapshot, SquadId, SquadSnap, UnitId, UnitSnap, WarBuildSim, WarEvent, WarPerson, WarSkillId } from '../types';
 import { salvageValue, type Item } from '../../data/items';
-import { warStats, warStatsOf, type WarStats } from './classes';
+import { warStats, warStatsOf, withPerks, type WarStats } from './classes';
+import { perkFx } from '../../data/warPerks';
 import { afterArmour, blockChance, COMBAT, heightRange, hitChance, meleeHeight, missileHeight } from './combat';
 import { formationOffsets, type Shape } from './formation';
 import { BRAZIER, BUILDINGS, FIELD, WALLS, WORK_DEFENCE } from './economy';
@@ -384,6 +385,16 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
   let tick = 0;
   /** W-85, W-101..W-104: each owner's path (setPaths; not saved: the host sets it again on a resume). */
   let pathOf: (owner: string) => PlayerPath = () => NO_PATH;
+  /** W-84: the perks of an owner at his demigod level. */
+  const fxOf = (owner: string) => {
+    const w = pathOf(owner);
+    return perkFx(w.path, w.level);
+  };
+  /** W-84: sites placed or upgraded by this owner's men take his perks. */
+  const perkSites = (owner: string, ids: readonly number[]) => {
+    const fx = fxOf(owner);
+    if (fx.siteCost || fx.siteHp) for (const id of ids) works.perkSite(id, fx.siteCost ?? 0, fx.siteHp ?? 0);
+  };
   let stepMs = 0;
   // M6c: loot piles; items picked up per team since the last report; the event log
   const piles = createPiles(region);
@@ -502,6 +513,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
   };
 
   const siege = createSiege(works, rng, {
+    cartFx: fxOf,
 
     path: (team, x0, y0, x1, y1) => {
       grid.team = team;
@@ -1434,7 +1446,9 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     }
     if (o.kind === 'upgrade') {
       if (s.order === 'gather' || s.order === 'build') for (const u of s.units) works.setJob(u, null);
-      if (!works.upgrade(o.building, s.team) && !works.siteOk(o.building, s.team)) return;
+      const up = works.upgrade(o.building, s.team);
+      if (up) perkSites(s.owner, [o.building]);
+      if (!up && !works.siteOk(o.building, s.team)) return;
       s.order = 'build';
       s.fixed = null;
       s.sites = [o.building];
@@ -1479,6 +1493,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
         : o.kind === 'build' ? (works.siteOk(o.site, s.team) ? [o.site] : [])
         : [];
       if (o.kind !== 'gather' && !sites.length) return; // invalid placement: the squad carries on
+      if (o.kind !== 'gather' && o.kind !== 'build') perkSites(s.owner, sites);
       if (o.kind === 'gather' && !works.nodeOk(o.node, s.team)) return; // M7e: rare nodes for the region's holder only
       s.order = o.kind === 'gather' ? 'gather' : 'build';
       s.sites = sites;
@@ -2527,7 +2542,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
 
   /** M5d: a person's new hero after a level-up: baked again (HP keeps its wounds). */
   const rebake = (u: Unit) => {
-    const st = warStatsOf(u.person!);
+    const st = withPerks(warStatsOf(u.person!), fxOf(u.squad.owner));
     u.hp = Math.max(1, Math.min(st.maxHp, u.hp + st.maxHp - u.maxHp));
     u.maxHp = st.maxHp;
     u.st = st;
@@ -2997,6 +3012,9 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     // M5h node effects: Master Builder, the forager's yields (Woodsman, Prospector, Pitchman, Herb Finder, Weaver), Field Surgeon
     const held = u.civ ? heldNodes(u.civ, u.person?.hero.perks) : null;
     if (held?.has('masterBuilder') && u.brate) u.brate *= FORAGE.masterBuilder;
+    // W-84: the demigod's quick hands, on every man of his who works
+    const work = fxOf(u.squad.owner).work;
+    if (work) (u.wrate = (u.wrate ?? 1) * (1 + work)), (u.brate = (u.brate ?? 1) * (1 + work));
     u.gmul = undefined;
     if (u.civ === 'forager' && held) {
       const m: Partial<Record<ResourceKind, number>> = {};
@@ -3723,7 +3741,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
         if (count === 0) return -1;
       }
       const [ax, ay] = openPoint(x, y);
-      const sts = ps ? ps.map((p) => warStatsOf(p)) : null;
+      const sts = ps ? ps.map((p) => withPerks(warStatsOf(p), fxOf(owner))) : null;
       const st = sts?.[0] ?? warStats(cls);
       const s: Squad = {
         id: squads.length, owner, team, units: [], alive: count, shape: 'line', offsets: formationOffsets('line', count, rng),
@@ -3948,6 +3966,9 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     },
     setPaths(f) {
       pathOf = f ?? (() => NO_PATH);
+    },
+    refreshPerks(owner) {
+      for (const u of units) if (u.alive && u.person && u.squad.owner === owner) rebake(u);
     },
     setSoulGate(g) {
       soulGate = g;

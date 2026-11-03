@@ -10,9 +10,9 @@ import type { WarSkillId } from '../types';
 export type Family = 'line' | 'shock' | 'missile' | 'rider';
 
 export const FAMILY_OF: Partial<Record<ClassId, Family>> = {
-  militia: 'line', hoplite: 'line', thureophoros: 'line', royal_guard: 'line', sacred_band: 'line',
+  militia: 'line', hoplite: 'line', royal_guard: 'line', sacred_band: 'line',
   celt_sword: 'shock', falx: 'shock', rhomphaia: 'shock', gallic: 'shock', fanatic: 'shock',
-  archer: 'missile', slinger: 'missile', javelineer: 'missile', peltast: 'missile',
+  archer: 'missile', slinger: 'missile', javelineer: 'missile', peltast: 'missile', thureophoros: 'missile',
   companion: 'rider', thessalian: 'rider', horse_archer: 'rider', chariot: 'rider',
 };
 

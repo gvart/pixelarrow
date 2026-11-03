@@ -68,7 +68,7 @@ describe('the table', () => {
 describe('W-101 who may join', () => {
   it('a warrior holds only his family; the rest stay out, riders among them', () => {
     for (const f of FAMILY_IDS)
-      for (const c of Object.keys(FAMILY_OF)) expect(mayHold(warrior(f), c), `${f} ${c}`).toBe(family(c) === f);
+      for (const c of Object.keys(FAMILY_OF)) expect(mayHold({ ...warrior(f), level: 12 }, c), `${f} ${c}`).toBe(family(c) === f);
   });
 
   it('a builder or trader holds any soldier but a rider', () => {
@@ -78,7 +78,7 @@ describe('W-101 who may join', () => {
 
   it('every path may hold a worker, and every soul a site wakes has someone to go to', () => {
     for (const p of ALL) expect(mayHold(p, 'civ_cook'), name(p)).toBe(true);
-    for (const cls of Object.values(SOUL_CLASSES).flat()) expect(ALL.some((p) => p.path === 'warrior' && mayHold(p, cls)), cls).toBe(true);
+    for (const cls of Object.values(SOUL_CLASSES).flat()) expect(ALL.some((p) => p.path === 'warrior' && mayHold({ ...p, level: 12 }, cls)), cls).toBe(true);
     expect(RIDERS.length).toBeGreaterThan(0);
   });
 

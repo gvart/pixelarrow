@@ -735,6 +735,8 @@ export interface WarBuildSim extends WarSim {
    * sandbox, dev). The host sets it again on a resume: not part of the sim's state.
    */
   setPaths(paths: ((owner: string) => import('./world/start').PlayerPath) | null): void;
+  /** W-84: the owner's demigod level changed: his living men take his perks now. */
+  refreshPerks(owner: string): void;
   /**
    * W-80 (src/war/sim/food.ts): the server's larder behind a store of the team (online: the player's home strongroom):
    * `want` rations for a man of `owner` by that store; returns how many it gives. Null (default): none.
@@ -837,8 +839,8 @@ export type WarEvent =
   | { t: number; kind: 'secret'; what: 'found' | 'step' | 'done'; quest: string; owner: string; team: number; title: string; text: string; x: number; y: number; goods?: Partial<Record<GoodKind, number>>; to?: { x: number; y: number; label: string } }
   | { t: number; kind: 'chiefSlain'; lair: number; chief: string; name: string; by: number; x: number; y: number }
   // W-72 proposal (src/war/sim/warlords.ts): a warlord rises, takes a place, warns of a raid on `team`'s target (in ticks),
-  // sends the raid, loses a place, falls; near: owners with men by it (favour); text: his line, filled in
-  | { t: number; kind: 'warlord'; what: 'rise' | 'took' | 'warn' | 'raid' | 'freed' | 'fallen' | 'recall'; warlord: string; name: string; text: string; x: number; y: number; place?: string; team?: number; in?: number; near?: string[] }
+  // sends the raid, loses a place, falls; text: his line, filled in
+  | { t: number; kind: 'warlord'; what: 'rise' | 'took' | 'warn' | 'raid' | 'freed' | 'fallen' | 'recall'; warlord: string; name: string; text: string; x: number; y: number; place?: string; team?: number; in?: number; }
   // M7d: a guardian entered phase `phase` (index into its WarBoss phases); escaped (the Bandit King by the postern: back
   // after a while with half his host); came back (24 h unheld: full hp, its landmark reset); a Rim Warden strike landed
   | { t: number; kind: 'bossPhase'; region: string; boss: string; phase: number }
