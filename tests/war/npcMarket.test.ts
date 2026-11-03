@@ -160,7 +160,7 @@ function shuttle(a: string, b: string, hours: number) {
     for (const t of [a, b]) for (const g of npcGoods(t)) books[t].stock.set(g.res, stockAfter(books[t].stock.get(g.res)!, g.par, TRIP));
   };
   const rows: number[] = [];
-  let here = a, there = b, now = 0, net = 0, low = NPC.purse.start;
+  let here = a, there = b, now = 0, net = 0, low: number = NPC.purse.start;
   while (now < hours * 3_600_000) {
     const A = books[here], B = books[there];
     let room = ROOM;

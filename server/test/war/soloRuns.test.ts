@@ -5,19 +5,23 @@
  *
  *   Trader: walks to the town, gathers a first load, works his chain, then carries what pays best down any road, on to
  *           fresh towns as stocks and purses run shallow, buying a cart and a worker from the profit.
- *   Builder: gathers, raises his chain's buildings, sells what he gathers, hires up to his cap, and goes on building.
+ *   Builder: gathers, raises his chain's buildings, hires a smith and smelts bought metal for sale, hires up to his cap, raises
+ *           a town of many kinds, then gives coin and labour to the alliance's wonder.
  */
 import { env } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
 import { api, devLogin } from '../helpers';
 import { good } from './goods';
-import { NPC_CARTS, NPC_HIRE } from '../../../src/data/warNpcTowns';
+import { NPC, NPC_CARTS, NPC_HIRE } from '../../../src/data/warNpcTowns';
 import { storyOf } from '../../../src/data/warStories';
 import { NET_VERSION } from '../../../src/war/net/protocol';
-import { costOf, npcGoods, npcSpot, payFor, type NpcView } from '../../../src/war/net/npcMarket';
+import { costOf, npcGood, npcGoods, npcSpot, payFor, type NpcView } from '../../../src/war/net/npcMarket';
+import { WONDER, workSite } from '../../../src/war/net/works';
+import { CRAFT } from '../../../src/war/sim/crafting';
+import { BUILDINGS } from '../../../src/war/sim/economy';
 import { perLoad } from '../../../src/war/sim/holders';
 import type { BuildingType, GoodKind, WarPerson } from '../../../src/war/types';
-import { WAR_SEASON } from '../../../src/war/world/alliances';
+import { ALLIANCES, WAR_SEASON } from '../../../src/war/world/alliances';
 import { edge, worldRegion } from '../../../src/war/world/graph';
 import { cartCap, workerCap, type PathId } from '../../../src/war/world/start';
 import { room as freeLoads } from '../../src/war/cargo';
@@ -27,6 +31,7 @@ import { npcDeal, npcView } from '../../src/war/npcMarket';
 import { claimForJoin } from '../../src/war/persons';
 import { warRegion } from '../../src/war/regions';
 import { WarRoom } from '../../src/war/room';
+import { give } from '../../src/war/works';
 import { pathOf } from '../../src/war/start';
 import { cargoFactor } from '../../src/war/world/world';
 
@@ -49,6 +54,8 @@ class Run {
   persons: WarPerson[] = [];
   /** Men who stopped answering a move order here: the road clears them on the next crossing. */
   stuck = new Set<number>();
+  /** Every man ever counted in `stuck`: the runs expect none (the sim's crew fix: tests/war/crewWalk.test.ts). */
+  stuckEver: string[] = [];
   constructor(readonly pid: number, readonly token: string, readonly path: PathId, readonly home: string) {}
 
   roomOf(id: string): WarRoom {
@@ -104,7 +111,10 @@ class Run {
       tk += await this.until(() => this.far(x, y) <= r + FORMATION, 600);
       for (const u of this.men()) {
         const p = was.get(u.id);
-        if (p && Math.hypot(u.x - p[0], u.y - p[1]) < 0.5 && Math.hypot(u.x - x, u.y - y) > r + FORMATION) this.stuck.add(u.id);
+        if (p && Math.hypot(u.x - p[0], u.y - p[1]) < 0.5 && Math.hypot(u.x - x, u.y - y) > r + FORMATION) {
+          this.stuck.add(u.id);
+          this.stuckEver.push(`${this.room.region.id} ${u.cls} at ${Math.round(u.x)},${Math.round(u.y)}, going to ${Math.round(x)},${Math.round(y)}`);
+        }
       }
       if (this.far(x, y) > r + FORMATION) for (const q of this.squads()) this.room.sim.order({ kind: 'move', squad: q, x: Math.round(x), y: Math.round(y) });
     }
@@ -211,18 +221,18 @@ const stored = (run: Run, res: string) => (run.room.sim.snapshot().buildings ?? 
 const storeWith = (run: Run, res: string) => (run.room.sim.snapshot().buildings ?? []).filter((b) => b.team === 0 && (b.goods?.[res as GoodKind] ?? 0) >= 5).sort((a, b) => (b.goods?.[res as GoodKind] ?? 0) - (a.goods?.[res as GoodKind] ?? 0))[0];
 
 /** What to carry from `v` to `w` for this coin and these free loads: the goods with most profit first; [] when none pays. */
-function cargoFor(v: NpcView, w: NpcView, coin: number, loads: number): { res: string; n: number; net: number }[] {
-  const out: { res: string; n: number; net: number }[] = [];
+function cargoFor(v: NpcView, w: NpcView, coin: number, loads: number): { res: string; n: number; net: number; pay: number }[] {
+  const out: { res: string; n: number; net: number; pay: number }[] = [];
   for (;;) {
-    let best: { res: string; n: number; net: number; cost: number } | null = null;
+    let best: { res: string; n: number; net: number; cost: number; pay: number } | null = null;
     for (const g of npcGoods(v.town)) {
       const h = npcGoods(w.town).find((x) => x.res === g.res);
       const sv = v.goods.find((x) => x.res === g.res), sw = w.goods.find((x) => x.res === g.res);
       if (!h || !sv || !sw || out.some((o) => o.res === g.res)) continue;
       for (let n = 10; n <= Math.floor(loads * perLoad(g.res)) && n <= sv.stock; n += 10) {
-        const cost = costOf(g, sv.stock, n), pay = Math.min(payFor(h, sw.stock, n), w.purse - out.reduce((a, o) => a + o.net, 0)), net = pay - cost;
+        const cost = costOf(g, sv.stock, n), spent = out.reduce((a, o) => a + o.pay, 0), pay = Math.min(payFor(h, sw.stock, n, w.purse - spent), w.purse - spent), net = pay - cost;
         if (cost > coin) break;
-        if (net > 0 && (!best || net > best.net)) best = { res: g.res, n, net, cost };
+        if (net > 0 && (!best || net > best.net)) best = { res: g.res, n, net, cost, pay };
       }
     }
     if (!best) return out;
@@ -304,109 +314,218 @@ describe('W-93 a solo run on each path', () => {
       await run.note(`trip ${trips}: ${here} to ${there}, carried ${plan.map((p) => `${p.n} ${p.res}`).join(', ') || 'nothing'}, sold ${got}`);
     }
     const f = await getFavour(env, run.pid);
-    console.log(`TRADER ${run.mins().toFixed(0)} min, L${f.level}, xp ${Math.floor(f.xp)}, ${trips} trips, ${sold} coin sold, ${carts} carts, ${hired} hired\n${run.log.join('\n')}`);
+    console.log(`TRADER ${run.mins().toFixed(0)} min, L${f.level}, xp ${Math.floor(f.xp)}, ${trips} trips, ${sold} coin sold, ${carts} carts, ${hired} hired, stuck ${run.stuckEver.length}\n${run.log.join('\n')}`);
+    expect(run.stuckEver).toEqual([]);
     expect(f.level).toBeGreaterThanOrEqual(goalLevel);
     expect(carts).toBeLessThanOrEqual(cartCap('trader'));
     expect(carts).toBeGreaterThanOrEqual(goalCarts);
   }, 900_000);
 
-  it('a builder, alone, from his start to his workers, his buildings and a level by building', async () => {
+  it('a builder, alone: his chain, his hands, a town of many kinds, a forge that earns and a share in the alliance works', async () => {
     const run = await begin(9852, 'builder', 0, 'dodona');
+    run.room.setWorks(0, [WONDER.id]); // what the DO tells the room at his alliance's home
     const town = npcSpot(run.room.region);
     await run.note(`start, ${run.men().length} men`);
     await walkIn(run);
     await run.note('walked in; first step');
 
-    const civ = () => run.civ()!;
+    const snap = () => run.room.sim.snapshot();
+    const orderOf = (q: number) => snap().squads[q].order;
+    /** His hands: everyone but the smith at the forge. */
+    let smithSquad = -1;
+    const gang = () => run.squads().filter((q) => q !== smithSquad);
+    const civ = () => gang().find((q) => snap().units.some((u) => u.squad === q && u.cls.startsWith('civ_'))) ?? gang()[0];
+    const all = (o: (q: number) => Parameters<typeof run.room.sim.order>[0]) => { for (const q of gang()) run.room.sim.order(o(q)); };
+    const idle = () => gang().every((q) => orderOf(q) === 'hold');
     const gather = (res: string) => {
       const n = nodeNear(run, res, town.x, town.y);
-      if (n) run.room.sim.order({ kind: 'gather', squad: civ(), node: n.id });
+      if (n) all((squad) => ({ kind: 'gather', squad, node: n.id }));
       return !!n;
     };
-    /** A spot near the town for this type. */
+    /** A spot near the town for this type: close, so what he makes is a few steps from the market. */
     const spot = (type: BuildingType): [number, number] | null => {
-      for (let d = 12; d < 60; d += 2) for (let a = 0; a < 16; a++) {
+      for (let d = 10; d < 80; d += 2) for (let a = 0; a < 16; a++) {
         const x = Math.round(town.x + Math.cos((a / 8) * Math.PI) * d), y = Math.round(town.y + Math.sin((a / 8) * Math.PI) * d);
         if (run.room.sim.checkPlacement(0, type, x, y).ok) return [x, y];
       }
       return null;
     };
-    const built = (type: string) => (run.room.sim.snapshot().buildings ?? []).filter((b) => b.type === type && b.owner === `p:${run.pid}` && b.state === 'done').length;
-    /** Lays it out and his workers raise it. */
+    const mine = () => (snap().buildings ?? []).filter((b) => b.owner === `p:${run.pid}`);
+    const built = (type: string) => mine().filter((b) => b.type === type && b.state === 'done').length;
+    const toTown = async () => {
+      all((squad) => ({ kind: 'move', squad, x: Math.round(town.x), y: Math.round(town.y) }));
+      await run.until(() => run.men().filter((u) => gang().includes(u.squad)).every((u) => Math.hypot(u.x - town.x, u.y - town.y) < NPC.reach - 1), 3000);
+    };
+    const storeNear = () => (snap().buildings ?? []).filter((b) => b.team === 0 && b.state === 'done' && BUILDINGS[b.type as BuildingType].store).sort((a, b) => Math.hypot(a.x - town.x, a.y - town.y) - Math.hypot(b.x - town.x, b.y - town.y))[0];
+    /** All he and his can carry of a good from the stores, sold at the town. */
+    const sellStored = async (res: string, keep = 0) => {
+      let got = 0;
+      for (let i = 0; i < 6 && stored(run, res) > keep + 5; i++) {
+        const st = storeWith(run, res);
+        if (!st) break;
+        all((squad) => ({ kind: 'load', squad, from: { building: st.id }, res: res as GoodKind }));
+        await run.tick(); // orders land on the next tick
+        await run.until(idle, 1500);
+        await toTown();
+        const r = await run.sellAll();
+        got += r;
+        if (!r) break;
+      }
+      return got;
+    };
+    /** `n` of a good bought at the town and put away in his nearest store. */
+    const buyIn = async (res: GoodKind, n: number) => {
+      let left = n;
+      await toTown();
+      while (left > 0.5) {
+        const d = await run.deal({ op: 'buy', res, n: Math.min(left, run.roomFor(res)) }).catch(() => null);
+        if (!d?.n) return false;
+        left -= d.n;
+        const st = storeNear();
+        all((squad) => ({ kind: 'unload', squad, to: { building: st.id }, res }));
+        await run.tick(); // orders land on the next tick
+        await run.until(idle, 1500);
+        await toTown();
+      }
+      return true;
+    };
+    /** What he still lacks of a good, gathered into his stores. */
+    const gatherIn = async (res: string, need: number) => {
+      const goal = stored(run, res) + need;
+      if (gather(res)) await run.until(() => stored(run, res) >= goal, 3000);
+      return stored(run, res) >= goal;
+    };
+    /** What `cost` still lacks: bought when the coin is there, else gathered. */
+    const supply = async (cost: Partial<Record<string, number>>) => {
+      for (const [res, n] of Object.entries(cost)) {
+        const need = (n ?? 0) - stored(run, res);
+        if (need <= 0) continue;
+        const rule = npcGood(run.room.region.id, res), coin = await run.coin();
+        if (rule && coin >= costOf(rule, rule.par, need) * 2) await buyIn(res as GoodKind, need);
+        else if (!(await gatherIn(res, need)) && rule) await buyIn(res as GoodKind, need);
+      }
+    };
+    /** Lays it out and all his hands raise it. */
     const raise = async (type: BuildingType) => {
       const at = spot(type);
       if (!at) return false;
+      await supply(BUILDINGS[type].cost);
       run.room.sim.order({ kind: 'placeBuilding', squad: civ(), type, x: at[0], y: at[1] });
       await run.tick();
-      const site = (run.room.sim.snapshot().buildings ?? []).filter((b) => b.type === type && b.owner === `p:${run.pid}` && b.state !== 'done').at(-1);
+      const site = mine().filter((b) => b.type === type && b.state !== 'done').at(-1);
       if (!site) return false;
-      run.room.sim.order({ kind: 'build', squad: civ(), site: site.id });
+      all((squad) => ({ kind: 'build', squad, site: site.id }));
       const n = built(type);
-      // what the site still waits for he gathers, and goes back to it
-      for (let i = 0; i < 20 && built(type) <= n; i++) {
+      for (let i = 0; i < 4 && built(type) <= n; i++) {
         await run.until(() => built(type) > n, 1800);
-        const lack = Object.entries((run.room.sim.snapshot().buildings ?? []).find((b) => b.id === site.id)?.waiting ?? {}).filter(([, v]) => (v ?? 0) > 0);
-        if (built(type) > n || !lack.length) continue;
-        const [res, v] = lack[0], was = stored(run, res);
-        if (gather(res)) await run.until(() => stored(run, res) >= was + (v ?? 0) + 5, 6000);
-        run.room.sim.order({ kind: 'build', squad: civ(), site: site.id });
+        const lack = Object.entries((snap().buildings ?? []).find((b) => b.id === site.id)?.waiting ?? {}).filter(([, v]) => (v ?? 0) > 0);
+        if (built(type) > n) break;
+        // stores out of the site's reach do not feed it: what it still waits for he fetches, whatever they hold
+        for (const [res, v] of lack) {
+          const rule = npcGood(run.room.region.id, res), need = (v ?? 0) + 5;
+          if (rule && (await run.coin()) >= costOf(rule, rule.par, need) * 2) await buyIn(res as GoodKind, need);
+          else if (!(await gatherIn(res, need)) && rule) await buyIn(res as GoodKind, need);
+        }
+        all((squad) => ({ kind: 'build', squad, site: site.id }));
       }
       return built(type) > n;
     };
-
-    /** Gather until the stores hold `n` more `res`. */
-    const stock = async (res: string, n: number) => {
-      const need = n - stored(run, res);
-      if (need <= 0) return;
-      gather(res);
-      const goal = stored(run, res) + need;
-      await run.until(() => stored(run, res) >= goal, 18_000);
+    /** His smith at his forge: goods in, a queue of smelts, the bronze sold. What his hands make earns more than what they cut. */
+    const earned = { bronze: 0, raw: 0, gifts: 0, smelts: 0 };
+    const forgeRound = async () => {
+      const forge = mine().find((b) => b.type.startsWith('forge') && b.state === 'done');
+      const smith = snap().units.find((u) => u.cls === 'civ_smith' && run.squads().includes(u.squad) && u.state !== 'dead');
+      if (!forge || !smith) return;
+      if (smithSquad < 0) {
+        const before = new Set(run.squads());
+        run.room.sim.order({ kind: 'detach', squad: smith.squad, unitIds: [smith.id] });
+        await run.tick();
+        await run.tick();
+        smithSquad = run.squads().find((q) => !before.has(q)) ?? smith.squad;
+      }
+      run.room.sim.order({ kind: 'civWork', squad: smithSquad, building: forge.id });
+      // what his purse can start: a few lots, more as the sales come in. One order is one copper and one tin
+      const here = run.room.region.id, copper = npcGood(here, 'copper'), tin = npcGood(here, 'tin');
+      if (!copper || !tin) return;
+      const lot = costOf(copper, copper.par, 1) + costOf(tin, tin.par, 1);
+      const lots = Math.min(CRAFT.queue * 4, Math.floor(((await run.coin()) * 0.8) / lot));
+      const have = Math.floor(Math.min(stored(run, 'copper'), stored(run, 'tin')));
+      if (have < CRAFT.queue && lots >= 1) {
+        await buyIn('copper', lots);
+        await buyIn('tin', lots);
+      }
+      const n = Math.min(CRAFT.queue, Math.floor(Math.min(stored(run, 'copper'), stored(run, 'tin'))));
+      for (let i = 0; i < n; i++) run.room.sim.order({ kind: 'craft', team: 0, building: forge.id, recipe: 'smelt' });
+      earned.smelts += n;
     };
-    /** Goods out of the stores into packs and sold at the town. */
-    const sellStored = async (res: string, keep: number) => {
-      const st = storeWith(run, res);
-      if (!st || stored(run, res) <= keep + 5) return 0;
-      run.room.sim.order({ kind: 'load', squad: civ(), from: { building: st.id }, res: res as GoodKind });
-      await run.until(() => run.room.sim.snapshot().squads[civ()].order === 'hold', 3000);
-      const at = npcSpot(run.room.region);
-      run.room.sim.order({ kind: 'move', squad: civ(), x: Math.round(at.x), y: Math.round(at.y) });
-      await run.until(() => run.room.npcSlots(run.pid).some((s) => s.hold.lots.some((l) => l.r === res)), 3000);
-      return run.sellAll();
-    };
 
-    await stock('wood', 60);
+    await supply({ wood: 60 });
     await run.note(`wood ${Math.floor(stored(run, 'wood'))}`);
     expect(await raise('storehouse')).toBe(true);
     await run.note('raised a storehouse');
-    await run.tick();
+    await chooseStep(run, 'own');
 
-    const goalLevel = 3;
+    const goalLevel = 4, maxMins = 480;
     const workers = () => run.men().filter((u) => u.cls.startsWith('civ_')).length;
     const level = async () => (await getFavour(env, run.pid)).level;
-    for (let round = 0; round < 60 && !((await level()) >= goalLevel && workers() >= workerCap('builder')); round++) {
-      if (workers() < workerCap('builder')) {
-        await stock('wood', 80);
-        const got = await sellStored('wood', 0);
-        if (await run.coin() >= NPC_HIRE.civ_forager) {
-          const d = await run.deal({ op: 'hire', cls: 'civ_forager' }).catch((e: Error) => e.message);
-          await run.tick();
-          await run.note(`sold ${got}; hire: ${JSON.stringify(d)}, ${workers()} workers`);
-        } else await run.note(`sold ${got}: coin ${Math.floor(await run.coin())}`);
+    const townLevel = () => Math.max(0, ...(snap().townLevels ?? []).filter((t) => t.team === 0).map((t) => t.level));
+    // the town he raises: each kind of building a step up the town's level, each with its use. Then the alliance's wonder
+    const plan: BuildingType[] = ['privateHouse', 'forge', 'farm', 'cookhouse', 'workshop', 'olivePress', 'stall', 'infirmary', 'pitchKiln', 'outpost'];
+    const hire = [...Array(workerCap('builder'))].map((_, i) => (i === 0 ? 'civ_smith' : 'civ_forager'));
+    for (let round = 0; round < 200 && run.mins() < maxMins && !((await level()) >= goalLevel && !plan.length && workers() >= workerCap('builder')); round++) {
+      const forged = () => mine().some((b) => b.type === 'forge' && b.state === 'done');
+      // the smith first: wood sold until he is paid for. The other hands from what the forge leaves over
+      if (forged() && hire[0] === 'civ_smith') {
+        const got = await sellStored('wood', 40);
+        earned.raw += got;
+        if ((await run.coin()) < NPC_HIRE.civ_smith) {
+          await gatherIn('wood', 80);
+          await run.note(`sold ${got} wood; coin ${Math.floor(await run.coin())}`);
+          continue;
+        }
       }
-      await stock('wood', 60);
-      if (!built('privateHouse')) {
-        await stock('stone', 10);
-        await stock('wood', 40);
-        await raise('privateHouse');
-        await run.note('raised his house');
-      } else if (await raise('storehouse')) await run.note('raised a storehouse');
-      else break;
+      if (hire.length && workers() < workerCap('builder') && forged() && (await run.coin()) >= NPC_HIRE[hire[0]] + (hire[0] === 'civ_smith' ? 0 : 200)) {
+        const cls = hire.shift()!;
+        await run.deal({ op: 'hire', cls });
+        await run.tick();
+        await run.note(`hired ${cls}, ${workers()} workers`);
+      }
+      // the next piece of the town, when he can pay what he cannot cut himself and still fill the forge
+      const next = plan[0], coin = await run.coin(), rules = next ? Object.entries(BUILDINGS[next].cost) : [];
+      const dear = rules.reduce((a, [res, n]) => {
+        const rule = npcGood(run.room.region.id, res), need = (n ?? 0) - stored(run, res);
+        return a + (rule && need > 0 ? costOf(rule, rule.par, need) : 0);
+      }, 0);
+      if (next && (!forged() || coin >= dear * 2 + 150)) {
+        const ok = await raise(next);
+        plan.shift();
+        await run.note(`${next}: ${ok ? 'raised' : 'failed'}; town level ${townLevel()}`);
+      } else if (!next) {
+        // the town stands: the alliance's works, coin from his strongroom and his men on the site
+        const c = Math.floor(await run.coin());
+        const put = c >= 400 ? await give(env as never, run.pid, WONDER.id, { coin: c - 250 }, run.now).catch(() => null) : null;
+        if (put) earned.gifts += put.coin ?? 0;
+        const site = workSite(WONDER.id, run.room.region, ALLIANCES[0].quadrant);
+        all((squad) => ({ kind: 'move', squad, x: Math.round(site.x), y: Math.round(site.y) }));
+        await run.until(() => false, 3000);
+        await run.note(`gave ${put?.coin ?? 0} coin to a work, 5 min on the wonder`);
+      } else if (coin < 200) {
+        earned.raw += await sellStored('wood', 40);
+        await gatherIn('wood', 60);
+      }
+      await forgeRound();
+      await run.until(() => false, 15 * 10 * CRAFT.queue); // a queue of smelts, 15 s each
+      earned.bronze += await sellStored('bronze');
       await chooseStep(run, 'own'); // his chain's last choice, when it is open
+      if (round % 5 === 4) await run.note(`so far: bronze ${earned.bronze}, raw ${earned.raw}, smelts ${earned.smelts}, gifts ${earned.gifts}`);
     }
-    const f = await getFavour(env, run.pid);
-    console.log(`BUILDER ${run.mins().toFixed(0)} min, L${f.level}, xp ${Math.floor(f.xp)}, ${workers()} workers, ${built('storehouse')} storehouses, ${built('privateHouse')} houses\n${run.log.join('\n')}`);
+    const f = await getFavour(env, run.pid), kinds = [...new Set(mine().filter((b) => b.state === 'done').map((b) => b.type))];
+    console.log(`BUILDER ${run.mins().toFixed(0)} min, L${f.level}, xp ${Math.floor(f.xp)}, ${workers()} workers, town level ${townLevel()}, kinds ${kinds.join(' ')}, storehouses ${built('storehouse')}, earned ${JSON.stringify(earned)}, stuck ${run.stuckEver.length}\n${run.log.join('\n')}`);
+    expect(run.stuckEver).toEqual([]);
     expect(f.level).toBeGreaterThanOrEqual(goalLevel);
     expect(workers()).toBe(workerCap('builder'));
-    expect(built('privateHouse')).toBeGreaterThanOrEqual(1);
+    expect(built('storehouse'), 'no filler').toBeLessThanOrEqual(3);
+    expect(townLevel()).toBeGreaterThanOrEqual(2);
+    expect(earned.bronze, 'what he makes earns more than what he cuts').toBeGreaterThan(earned.raw);
   }, 900_000);
 });
