@@ -20,7 +20,7 @@ export type PathId = 'warrior' | 'builder' | 'trader';
  * What each path is and starts with (W-85, W-95): the one table to tune. `cap` is the soldiers he may grow to, `workers`
  * the civilians he may keep (W-103; not soldiers, outside `cap`), `carts` the carts he may have built (W-104); `start` is
  * his first men in slot order, soldiers first (a warrior's come from FAMILIES). The guards (hoplites) and the workers
- * (civilians) are defaults the owner has not fixed: docs/impl/paths-rework.md.
+ * (civilians) are defaults the owner has not fixed (W-95).
  */
 export const PATHS: Record<PathId, { name: string; does: string; cap: number; workers: number; carts: number; startText: string; start: readonly string[]; /** W-145: the cart he starts with. */ startCart?: 'handcart' }> = {
   warrior: { name: 'Warrior', does: 'You fight. Beat beasts and rival armies, and take land for your alliance.', cap: 12, workers: 2, carts: 1, startText: '6 soldiers of one family', start: [] },

@@ -1,6 +1,7 @@
 /** W-66 the Tunnel of Shades rule (src/war/sim/tunnel.ts): the floor of 6, one man every 10 min, settled lazily. */
 import { describe, expect, it } from 'vitest';
-import { clock, settleTunnel, span, TUNNEL, tunnelLine, wiped, wipeLine, wipeNext, type TunnelState, type WipeState } from '../../src/war/sim/tunnel';
+import { clock, settleTunnel, span, TUNNEL, tunnelHint, tunnelLine, wiped, wipeLine, wipeNext, type TunnelState, type WipeState } from '../../src/war/sim/tunnel';
+import { PATHS } from '../../src/war/world/start';
 
 const MIN = 60_000;
 const T0 = 1_000_000;
@@ -21,6 +22,17 @@ describe('the Tunnel of Shades', () => {
   it('the wipe: 0 men start the clock, 6 pending, nothing yet', () => {
     expect(settleTunnel({ alive: 0, nextAt: null }, T0)).toEqual({ raise: 0, nextAt: T0 + 10 * MIN, alive: 0, pending: 6 });
     expect(tunnelLine(0, T0 + 10 * MIN, T0 + 2 * MIN + 18_000)).toBe('Next fighter rises in 7:42 · 0/6');
+  });
+
+  it('W-102 a builder or trader: the pill counts to his cap, says so, and is gone at a full cap, the wounded filling it too', () => {
+    const floor = Math.min(TUNNEL.floor, PATHS.builder.cap), cap = PATHS.builder.cap;
+    const under = settleTunnel({ alive: cap - 1, nextAt: null, room: 1, floor }, T0);
+    expect(tunnelLine(under.alive, under.nextAt, T0, floor)).toBe(`Next fighter rises in 10:00 · ${cap - 1}/${floor}`);
+    expect(tunnelHint(floor)).toContain(`fewer than ${floor} men`);
+    const full = settleTunnel({ alive: cap, nextAt: T0 + MIN, room: 0, floor }, T0);
+    expect(tunnelLine(full.alive, full.nextAt, T0, floor)).toBeNull();
+    const woundedFill = settleTunnel({ alive: cap - 1, nextAt: T0 + MIN, room: 0, floor }, T0);
+    expect(tunnelLine(woundedFill.alive, woundedFill.nextAt, T0, floor)).toBeNull();
   });
 
   it('0 men: 1 man after 10 min, then one every 10 min up to 6, never past it', () => {

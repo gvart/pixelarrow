@@ -131,8 +131,7 @@ async function warBoards(db: D1Database, world: Standings | null): Promise<Pick<
 async function bosses(db: D1Database): Promise<PublicSummaryV1['bosses']> {
   const rows = (
     await db
-      .prepare('SELECT boss, alliance, COUNT(*) AS n, MIN(at) AS first FROM war_boss_kills WHERE season = ?1 GROUP BY boss, alliance')
-      .bind(WAR_SEASON.id)
+      .prepare(`SELECT boss, alliance, COUNT(*) AS n, MIN(at) AS first FROM war_boss_kills WHERE season = ${STAT_SEASON} GROUP BY boss, alliance`)
       .all<{ boss: string; alliance: number | null; n: number; first: number }>()
   ).results;
   return WAR_BOSSES.flatMap((b) => {

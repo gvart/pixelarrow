@@ -37,8 +37,8 @@
  * the world when a room starts with none); the room applies the one in its region (a soul storm, a guardian woken once
  * per event: `woke`) and every client hears them (`worldEvents`). seasonReset (the season war's rollover): the room
  * stops, its clients are closed (4001 'season'), its men go home with their gear (D1; the world then wipes them, W-96),
- * and its saved state, memory and guide saves are dropped: it starts over from its authored data (landmarks, claim
- * points, guardians).
+ * and everything in its storage but its name is dropped (W-96: state, memory, story, encounter and warlord saves): it
+ * starts over from its authored data (landmarks, claim points, guardians).
  *
  * W-63 shared settlements (./settlements.ts in D1, ./roomSettlements.ts on the field): the region's settlements are
  * polled every SETTLE_POLL ticks (and before each join) into the room, which flies each player's banner by ground and
@@ -75,7 +75,7 @@ import { domainOf, warlord } from '../../../src/data/warWarlords';
 const DAY_MS = 86_400_000;
 import { masteryOf, recordWild } from './mastery';
 import type { WildDeed } from '../../../src/war/net/mastery';
-import { elapsedTicks, loadMemory, MEMORY_KEY, remembered, storeMemory, writeMemory } from './memory';
+import { elapsedTicks, loadMemory, remembered, storeMemory, writeMemory } from './memory';
 import type { WorldEvent } from '../../../src/war/world/events';
 import { settleTunnelFor } from './raise';
 import { applyFight, armyCount, claimForJoin, claimSoul, COLS, deployed, freeRaided, groupOf, LIVE, offField, ownerPid, release, releaseRegion, riders, settle, waitingAtHome, type PersonRow } from './persons';
@@ -351,8 +351,8 @@ export class WarRegionDO extends DurableObject<Env> {
   }
 
   /** W-62 (RPC from WarWorldDO): the world events running now (any region) and the next; applied here, told to all. */
-  async worldEvents(region: string, events: WorldEvent[], next: WorldEvent | null): Promise<void> {
-    this.worldEv = { events, next, ...(this.worldEv?.start !== undefined ? { start: this.worldEv.start } : {}) };
+  async worldEvents(region: string, events: WorldEvent[], next: WorldEvent | null, start = this.worldEv?.start): Promise<void> {
+    this.worldEv = { events, next, ...(start !== undefined ? { start } : {}) };
     await this.ctx.storage.put('worldEvents', this.worldEv);
     const room = this.room;
     if (!room || room.region.id !== region) return;
@@ -363,7 +363,8 @@ export class WarRegionDO extends DurableObject<Env> {
 
   /**
    * W-62 (RPC from WarWorldDO, the season's rollover): the region starts over. Its loop stops, its clients are closed,
-   * queued writes finish, its men (and their gear) go home in D1, and its saved state and memory are dropped.
+   * queued writes finish, its men (and their gear) go home in D1, and all it keeps but its name goes: the saves here are
+   * keyed by WAR_SEASON.id, which stays 1 across seasons, so they would otherwise outlive W-96's reset.
    */
   async seasonReset(region: string): Promise<void> {
     // W-63: what persists of its settlements goes to D1 first (seasonSweep, after every region, keeps or drops them)
@@ -384,7 +385,12 @@ export class WarRegionDO extends DurableObject<Env> {
     }
     await this.settled();
     await storeState(this.ctx.storage, null);
-    await this.ctx.storage.delete([MEMORY_KEY, 'woke']);
+    const stale = [...(await this.ctx.storage.list()).keys()].filter((k) => k !== 'region');
+    for (let i = 0; i < stale.length; i += 128) await this.ctx.storage.delete(stale.slice(i, i + 128)); // a delete takes 128 keys
+    this.worldEv = null; // the world announces the new season's next
+    this.lordsFrom = null;
+    this.lordMem = '';
+    this.heldKey = '';
     this.memory = '';
     this.reported = '';
     this.settles = [];

@@ -1,6 +1,6 @@
 /**
  * W-66 the Tunnel of Shades on the HUD (docs/WAR.md "Tunnel of Shades"; rules: src/war/sim/tunnel.ts). While the player
- * has fewer than 6 men who can fight (W-68: not wounded; captives are not his), one rises from his home town's tunnel
+ * has fewer than min(6, his cap) men who can fight (W-68: not wounded; captives are not his), one rises from his home town's tunnel
  * every 10 min:
  *  - the countdown pill, top centre: "Next fighter rises in 7:42 · 3/6";
  *  - when his last man he can field falls (the rest dead or wounded), the "Your army is destroyed" card: a lore
@@ -11,9 +11,9 @@
  * pulls the roster again. Offline the same rule runs here on a local clock (his men on this map count), the raised man
  * spawns at the mouth, and a dev button runs the clock x60.
  */
-import { settleTunnel, TUNNEL, tunnelLine, wiped, type WipeState } from '../../sim/tunnel';
+import { settleTunnel, TUNNEL, tunnelHint, tunnelLine, wiped, type WipeState } from '../../sim/tunnel';
 import { ARMY_MAX } from '../../sim/soldiers';
-import { START_CLASSES } from '../../world/start';
+import { soldierCap, START_CLASSES } from '../../world/start';
 import { ALLIANCES } from '../../world/alliances';
 import { WORLD_REGIONS } from '../../world/regions';
 import type { BuildingSnap } from '../../types';
@@ -83,7 +83,6 @@ export function mountTunnel(s: SandboxScene, mk: Mk): TunnelHost {
   // ---------- the countdown pill ----------
   const pill = mk('rfTunnel', 'left:50%;top:46px;transform:translateX(-50%);display:none;pointer-events:auto;padding:4px 10px;align-items:center;gap:6px;white-space:nowrap');
   pill.className = 'rf rf-card';
-  pill.title = 'The Tunnel of Shades: while you have fewer than 6 men, one rises in your home town every 10 min';
   pill.innerHTML = glyph('ui:hourglass', 16);
   const pillText = document.createElement('span');
   pill.append(pillText);
@@ -157,11 +156,11 @@ export function mountTunnel(s: SandboxScene, mk: Mk): TunnelHost {
   const offline = () => {
     const now = host.now(), t = homeTunnel(s);
     if (Date.now() > inflightUntil) inflight = 0;
-    const alive = armyMen(s) + inflight;
+    const alive = armyMen(s) + inflight, cap = soldierCap(R.way.path), floor = Math.min(TUNNEL.floor, cap); // W-102, as the server
     host.ever ||= alive > 0 || R.fallenClasses().length > 0;
-    if (!host.ever || !t) return void Object.assign(host, { alive, fit: alive, nextAt: null, pending: 0 });
-    const st = settleTunnel({ alive, nextAt: host.nextAt }, now);
-    Object.assign(host, { alive: st.alive, fit: st.alive, nextAt: st.nextAt, pending: st.pending }); // offline: no wounded
+    if (!host.ever || !t) return void Object.assign(host, { alive, floor, fit: alive, nextAt: null, pending: 0 });
+    const st = settleTunnel({ alive, nextAt: host.nextAt, room: cap - alive, floor }, now);
+    Object.assign(host, { alive: st.alive, floor, fit: st.alive, nextAt: st.nextAt, pending: st.pending }); // offline: no wounded
     for (let k = 0; k < st.raise; k++) {
       const cls = classFor(s, host.rises.length), rise = { at: performance.now() + k * 1200, cls };
       host.rises.push(rise);
@@ -188,7 +187,7 @@ export function mountTunnel(s: SandboxScene, mk: Mk): TunnelHost {
     } else offline();
     const line = host.ever ? tunnelLine(host.alive, host.nextAt, host.now(), host.floor) : null;
     pill.style.display = line ? 'flex' : 'none';
-    if (line) pillText.textContent = line;
+    if (line) (pillText.textContent = line), (pill.title = tunnelHint(host.floor));
     // his last man he can field fell (the rest dead or wounded): the card once (again only after men stood once more)
     const dead = host.ever && wiped(host);
     if (dead && !shown) (shown = true), wipe.show(true);
