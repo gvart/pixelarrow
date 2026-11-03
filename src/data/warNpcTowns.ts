@@ -15,7 +15,7 @@ export type NpcGood = keyof typeof NPC_BASE;
 /** The goods each kind of town deals in, on top of what its land yields. */
 export const NPC_ROLE_GOODS: Record<RegionRole, readonly NpcGood[]> = {
   home: ['food', 'wood', 'stone', 'salt', 'hides', 'copper', 'tin', 'iron', 'marble', 'charcoal', 'leather', 'linen', 'oil', 'bronze'],
-  entry: ['food', 'wood', 'stone', 'salt', 'hides', 'herbs', 'flax'],
+  entry: ['food', 'wood', 'stone', 'salt', 'hides', 'herbs', 'flax', 'copper', 'iron'],
   neutral: ['food', 'wood', 'stone', 'salt', 'hides', 'copper', 'tin', 'iron', 'pitch'],
   center: ['food', 'wood', 'stone', 'salt', 'hides', 'copper', 'tin', 'iron', 'marble', 'bronze', 'leather', 'linen', 'oil'],
 };
@@ -24,7 +24,7 @@ export const NPC = {
   /** Tiles from the town's spot within which his men and carts deal with it. */
   reach: 14,
   /** W-141 a good's price by the hops to its nearest land that yields it: at + per x hops, hops up to `far`; a good no land yields: `made`. */
-  distance: { at: 0.6, per: 0.25, far: 4, made: 1.1 },
+  distance: { at: 0.6, per: 0.5, far: 4, made: 1.4 },
   /** W-141 stock a town keeps of a good: `made` if its land does not yield it, else `land` x its land's points. */
   par: { made: 120, land: 150 },
   /** W-141 price by stock: 1 + slope x (1 - stock / par), within min..max; the town's edge either way; hours for stock to go 63% back to par. */
