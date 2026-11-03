@@ -1,0 +1,78 @@
+server/test/war/npcMarket.test.ts
+  s_a7d5d20f628c80::t_c6ded79b85d207 12,64-102
+  s_a7d5d20f628c80::t_bbcb73196ecc3f 103-104
+server/src/war/cargo.ts
+  s_a7d5d20f628c80::t_160e36aae17c0f 58-62
+src/sim/version.ts
+  s_a7d5d20f628c80::t_7e4ccf3722e54d 42
+src/war/sim/encounters.ts
+  s_a7d5d20f628c80::t_160e36aae17c0f 48-49,64-65,144-145,399-402,433
+  s_a7d5d20f628c80::t_7e4ccf3722e54d 86-87,256
+server/src/war/encounters.ts
+  s_a7d5d20f628c80::t_7e4ccf3722e54d 9-11,20-25,32-33,66-70,80-85,104-106
+  s_a7d5d20f628c80::t_160e36aae17c0f 15,54-58
+  s_a7d5d20f628c80::t_bf1fc71c13f4dd 59,107-108
+src/war/view/trade/market.ts
+  s_a7d5d20f628c80::t_845aa6169609f7 14,216,228
+tests/war/npcMarket.test.ts
+  s_a7d5d20f628c80::t_845aa6169609f7 8,237-286
+  s_a7d5d20f628c80::t_edad71b3dab457 287
+src/war/net/protocol.ts
+  s_a7d5d20f628c80::t_7e4ccf3722e54d 49
+src/data/warNpcTowns.ts
+  s_a7d5d20f628c80::t_845aa6169609f7 37-42
+server/src/war/npcMarket.ts
+  s_a7d5d20f628c80::t_845aa6169609f7 8,74,79-80,87,95
+server/test/war/townBoardRuns.test.ts
+  s_a7d5d20f628c80::t_160e36aae17c0f 12,14,52-53,57,184-195,288,426
+  s_a7d5d20f628c80::t_7e4ccf3722e54d 13,19,24,39-40,161,165,180,182-183,196-199,201,248-264,266,393-397,431-435
+  s_a7d5d20f628c80::t_8a25e5cedc6b83 231-234
+  s_a7d5d20f628c80::t_1df24d27d4b47a 173,175-176
+  s_a7d5d20f628c80::t_ccef579a575bc7 159-160,164,178
+  s_a7d5d20f628c80::t_8d3fb617dc7912 16,18,162,177,214-230,235-237
+  s_a7d5d20f628c80::t_f9e56c3c56d68b 32-36,64-66,78,101-114,116-120,122-123,156,405,441,445,453-456,459-461,464-465
+  s_a7d5d20f628c80::t_502a058d5b64a4 150,169-170,179,200,202-206,208-212,238-247
+  s_a7d5d20f628c80::t_0891e7c72b0129 207,213
+  s_a7d5d20f628c80::t_5063b8e4f9a115 181
+server/src/war/townBoard.ts
+  s_a7d5d20f628c80::t_f9e56c3c56d68b 193
+src/war/view/hud/market.ts
+  s_a7d5d20f628c80::t_845aa6169609f7 24,346,349,351,357
+server/test/war/encounters.test.ts
+  s_a7d5d20f628c80::t_160e36aae17c0f 89,94,97-100,104-105,109,111-136
+  s_a7d5d20f628c80::t_dcc900e479105f 83
+  s_a7d5d20f628c80::t_c6ded79b85d207 10-12,52-82,84-88,90-93,95-96,101-103,106-108,110,137
+  s_a7d5d20f628c80::t_8172db1b7c9b54 138
+server/src/war/room.ts
+  s_a7d5d20f628c80::t_7e4ccf3722e54d 77,687
+  s_a7d5d20f628c80::t_f9e56c3c56d68b 1274,1302-1312
+server/test/war/favour.test.ts
+  s_a7d5d20f628c80::t_c6ded79b85d207 121-124
+tests/war/encounters.test.ts
+  s_a7d5d20f628c80::t_c6ded79b85d207 382-393
+src/data/warEncounters.ts
+  s_a7d5d20f628c80::t_160e36aae17c0f 15-16,18,26-32
+  s_a7d5d20f628c80::t_7e4ccf3722e54d 13-14,17,19,21-25,33-34
+server/test/war/soloRun.ts
+  s_a7d5d20f628c80::t_7e4ccf3722e54d 12-13,20,53-56,82-88,196-197,245-247
+src/war/net/npcMarket.ts
+  s_a7d5d20f628c80::t_845aa6169609f7 10-11,14-15,64-93,153-155,158-170
+server/src/war/favour.ts
+  s_a7d5d20f628c80::t_f9e56c3c56d68b 156,162,190,195
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "6949a9fd69439773389e6b1d9ba2b09cc8f1c0d2",
+  "prompts": {},
+  "sessions": {
+    "s_a7d5d20f628c80": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1afee479-b44b-46d2-a159-a540e44e7fb8",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
