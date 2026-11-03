@@ -817,6 +817,7 @@ waits at its next stop until he is back (a map, chat or region tab), then goes o
 | Ladders (W-92, W-165) | one a path: see below |
 | Solo builder or trader (W-93) | path story chains (W-147) and NPC towns that buy and sell, hire workers and sell carts: "NPC towns" |
 | Solo warrior (W-93) | can be hired for monsters: the `hunt` contract (W-146, "Hand-offs, contracts, letters") |
+| Nobody else in the world (W-184) | every NPC town's board always has fights, works and loads for any path: "Town boards" |
 | Not given (W-72 stands) | no AI ally squads, no solo claim exceptions; warlords stay rivals |
 
 ### Ladders (W-165..W-169)
@@ -881,8 +882,6 @@ The king's powers stay W-64's: offices, pacts, orders with bounties. Nobody comm
 ### Open questions
 
 - **Riders.** Held back from the start until the war sim has mounts: no work animations, balance unchecked (W-86).
-- **A builder's L3 to L4.** About 94 minutes (150 to 244) of mostly repeated wonder labour in the solo run: is that the
-  mid-game we want (W-183)?
 - **The king's weekly term (for the owner).** W-151 kept W-64's weekly term and regency under lord-weighted votes. A king
   who can change every week may not suit a 28-day hierarchy of sworn lords.
 - **Rented warehouses have no door.** W-131 puts them under the store rule, but a rented site is a server row with no sim
@@ -921,7 +920,7 @@ Riders are not offered until mounts exist; `POST /api/war/start/path` refuses th
 
 A new season (W-96, `server/src/war/seasonWipe.ts`): the world keeps the finished season's board and awards its banners
 and crests; every region starts over, the homes too; nobody stays on the road; then all men, gear, goods, stores, deals,
-settlements, crowns, oaths, divine favour, mastery, tasks, alliance works, NPC towns' stocks, a town's recent trades and
+settlements, crowns, oaths, divine favour, mastery, tasks, alliance works, NPC towns' stocks, a town's recent trades, town board contracts and
 the guide saves go, with the alliance, home and path, and each region's own storage (its story, encounter and warlord
 saves). Each player comes back to the first step above, may choose differently, and gets his new path's guide from its
 first step. Past seasons' boards, banners, crests, stats and boss kills, and chat, stay.
@@ -1709,6 +1708,40 @@ Numbers are start numbers (`NPC`, `NPC_HIRE`, `NPC_CARTS`). Tests: `tests/war/np
 | Fill | in the court, buyer takes an offer (or seller an order): goods stall → buyer's warehouse, coin back, tax to the holder, at once; the buyer hauls it out himself |
 | Price board | an object in each court: per good best ask, best bid, depth, last 10 fills; the world hover card shows the last board your men saw (fog) |
 | Stall level | L1 4 offers; L2 8 + caravan goods; L3 12 + letters of credit; Trader and Factor add standing orders |
+
+### Town boards (W-184..W-194)
+
+Low player activity never stops anyone playing. Every NPC town keeps a board (the Board tab of its panel) that is never
+empty and needs no other player. Numbers: `src/data/warTownBoard.ts`; listing and pay: `src/war/net/townBoard.ts`; server:
+`server/src/war/townBoard.ts`. Offline, the board can be read and a job taken; only the server pays.
+
+| Rule | Value |
+| --- | --- |
+| Listing (W-184) | seeded by town and a 4 h window: three fights, two works, two loads |
+| Kill (W-185) | a named band or chief of what lives there, set down in the region when taken, on walkable ground away from its lairs; his men clear it. Dropped, the band stays |
+| Build (W-185) | a work at that town, repair 1800 or raise 5400 worker-seconds; his men stand within 10 tiles of it |
+| Trade (W-185, W-192) | a sealed load from the town's stock to a named town 1 or 2 hops off, 2 or 5 loads, physically carried, into that town's stock; he comes back to the board for his pay. It can't be sold. A load he gives up goes back only at the board |
+| Sizes, honest (W-193) | a fight's size follows his men whole, never under a starting family, and its pay follows the band. Three shares of his strength: 0.45, 0.85, 1.35. Nothing is scaled so a weak group can win. The card says Easy (strength ratio 1.6 and up), Fair (1), Hard (0.6) or Deadly, reading his men as they stand, hurt men weaker |
+| Any path (W-186) | any path takes any kind; his own kind lists first and pays x1.25 (warrior Kill, builder Build, trader Trade) |
+| Physical (W-187) | taking and handing in mean his men stand at the board's town |
+| Coin (W-187) | paid from that town's purse: a thin purse pays less (W-180). Coin stays bounded (W-142) |
+| Level points (W-188) | on his path the job's points; off it a quarter. A builder's labour on a board's work earns 0.6 of his own works' rate (the town gives the materials). Points don't depend on the purse |
+| Limits (W-189) | he holds 3; they survive going offline and the listing moving on. Each repeat of a kind at a town takes 0.3 off the pay, 0.2 at the least, recovering over 4 h |
+| Errands (W-190) | a town's giver has a short repeatable job of the player's own kind once that town's chain is over or if it has none, in the compact card and the region's mood |
+| Rest (W-194) | hurt men standing at a town with no foe within 20 tiles get back 0.5% of their health a second (half a physician). Online only |
+| Season (W-191) | a new season clears accepted jobs and heat |
+
+Seeded solo runs, 8 game hours, no other player (`server/test/war/townBoardRuns.test.ts`, playing the boards only):
+
+| Path | L2 | L3 | L4 | L5 | L6 | Contracts | Longest same work at one town |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Warrior | 8 | 44 | 107 | 234 | | 52 | 8 min |
+| Builder (before: 42, 150, 244) | 27 | 85 | 158 | 323 | 449 | 43 | 42 min |
+| Trader (before: 60, 162, 265) | 55 | 159 | 306 | 542 | | 9 | 8 min |
+
+Never fewer than 69 lines within 2 hops, 18 of his own kind he could take; never idle. A builder's L3 to L4 is 73 minutes
+(was 94) of varied town work and road (W-183's question). A trader on boards alone runs slower than his own margin loop
+past L3; the boards are there for when the loop dries up.
 
 ### Hand-offs, contracts, letters
 

@@ -13,7 +13,7 @@ Project agents in `.claude/agents/`: `art-director`, `pixel-animator`, `game-des
 | Change | Read first |
 | --- | --- |
 | Any feature, start to merge | `docs/playbook/NEW_FEATURE.md` §1 pillars, §3 decisions, §7 gates; `docs/playbook/LESSONS.md` (all, short) |
-| Mechanic / rule / economy | `docs/WAR.md` (the section of the system), `docs/impl/global-war-rebuild.md` "Decisions" (W-01..W-183; next is W-184), `docs/ROADMAP.md` "Binding decisions" (ADR-0001 sim version) |
+| Mechanic / rule / economy | `docs/WAR.md` (the section of the system), `docs/impl/global-war-rebuild.md` "Decisions" (W-01..W-194; next is W-195), `docs/ROADMAP.md` "Binding decisions" (ADR-0001 sim version) |
 | Neutral world: lairs, chiefs, roaming, encounters, hidden quests | `docs/WAR.md` "Living regions" → "Region lore and depth", "Roaming life", "Wild fill, chiefs and hidden quests", "Random encounters" |
 | Story, quests, givers, chief names | `docs/WAR.md` "Lore", "Region stories (W-65)"; `docs/playbook/SCENARIOS.md` "The general recipe"; template at the end of `src/data/warStories.ts` |
 | HUD / UI | W-70 in the impl doc; `src/war/view/hud/qcard.ts` header; `docs/playbook/ART.md` §1 (contrast, one job per colour); `docs/playbook/LESSONS.md` "Taps and controls", "Text and fonts" |
