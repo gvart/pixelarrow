@@ -35,7 +35,7 @@ unless someone is actually there.
   stay the season team, with the hierarchy inside them. *(Alliance nesting is assumed.)*
 
 Decided while building item 2: **W-95 small start, grow to cap**, **W-96 full season reset**, settlements, crowns and
-mastery included (owner confirmed).
+mastery included (owner confirmed). Item 3, by the desk, overrulable: **W-97**, **W-98**, **W-99**, **W-100**.
 
 Superseded or changed: W-44 (NPC towns, W-93), W-53 (its "cap of 12 stays", W-85), W-56, W-58, W-60 (souls claimable under
 the path's cap), W-66 and W-68 (raised men wait at home; the Tunnel's "up to 6" must fit the 4-soldier cap; W-66's permanent
@@ -63,10 +63,8 @@ Found while bringing `docs/WAR.md` in line (item 1). Each is a rule the decision
 
 - [x] What each path starts with, men and classes, now the free pick of 12 is gone. W-95; defaults in `src/war/world/start.ts`.
 - [x] Season rollover. W-96: a full reset, so a 12-man warrior who turns builder starts over like anyone.
-- [ ] Offline players. W-07 holds their men in place. Does an offline man keep staffing a building, gathering, pulling a
-  cart or following a `haul` chain, or does "someone is there" mean a player online (items 3, 6)?
-- [ ] Waiting and wounded men. Can a man waiting at home work, fight or be captured; which heal timer runs for a wounded
-  man once the group moves on (item 3)?
+- [x] Offline players. W-97: men are there whether he is online or not; no new road leg starts while he is offline.
+- [x] Waiting and wounded men. W-98: a waiting man is off the field; the wounded travel with the group on their usual timer.
 - [ ] Classes for builder and trader soldiers. W-86 covers warriors only; they start with hoplites (item 2, default). Whether a warrior may claim a soul outside his
   family, since souls wake by site (item 4). Which of today's "start classes" fallbacks survive.
 - [ ] How levels are paid per path: today's favour amounts are all war and land, region mastery and warlords pay favour,
@@ -101,7 +99,7 @@ Each item bumps `SIM_VERSION` (`src/sim/version.ts`) and `NET_VERSION` (`src/war
 - [x] **2. Wipe and path choice.** Reset migration after `0052` (precedent `0012_map_v3_reset.sql`), a path screen replacing
   `squadScreen` in `src/war/menu/screens.ts`, path stored on the player.
   verify: seeded tests, whole-screen shots. depends on: 1.
-- [ ] **3. One region.** Player-level rule at `claimForJoin` (`server/src/war/persons.ts`), remove partial `depart` and
+- [x] **3. One region.** Player-level rule at `claimForJoin` (`server/src/war/persons.ts`), remove partial `depart` and
   `TransferOrder` splits, raised men and captives wait at home.
   verify: transfer and join tests. depends on: 2.
 - [ ] **4. Soldier limits.** Path caps replacing `ARMY_MAX` use, one family for warriors.

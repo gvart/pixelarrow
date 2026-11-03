@@ -757,12 +757,33 @@ there. "Open" below means the owner has not decided yet: see
 ### One region (W-87)
 
 All of a player's people (soldiers and civilians) and carts are in one region or on one road, and travel as one group.
-A transfer takes everyone: no partial departure, nobody left behind, no men in other regions. The one exception is a man
-who joins far from his group: a man raised by the tunnel or a captive who joins waits at home until the group comes home
-("Tunnel of Shades", "Lifecycle"). Inside a region his men may stand and work apart as he likes (W-53).
+Inside a region his men may stand and work apart as he likes (W-53). Nothing a player owns acts unless someone is there: no
+automated drovers, no self-firing towers, nothing automated.
 
-Nothing a player owns acts unless someone is there: no automated drovers, no self-firing towers, nothing automated. How
-this meets an offline player's men (W-07: they stay in place and hold) is open.
+| Rule | Value |
+| --- | --- |
+| Transfer | names nobody: `{ from, to, path? }` takes the whole group: every man on the field, the wounded, men off the field, every cart. One transit a player; a second order while he is on the road is refused |
+| Foes | refused while a foe (mobs included) is within 20 tiles of any one man or cart, however far the rest stand. Nobody leaves |
+| A man down (W-79) | refused until he is up: nobody is left lying. He gets up 15 s after the fighting stops near him, or is wounded after 3 min |
+| One speed | the slowest thing it brings: any wagon ×1.5, else loaded packs ×1.2 (never both). The off-exit time counts from its furthest man or cart |
+| Carts | all of his go, crewed or not, wherever they stand. On arrival the first is crewed by the men; the others stand beside it uncrewed until he orders it |
+| Full quota | the whole group waits at the border (`queued`), cart and all, and comes in together; it stands on no field and cannot be ordered |
+| On the road | nothing happens: no fight, no hunger, no dismissal. A wound's timer runs and a man healed on the road walks in. A pack whose man is gone anyway (a crash, a wipe) comes in with the first man |
+| Joins | refused while his group is in another region or on the road (he may still watch). A man at home takes the field only in his home region: nobody walks in from the roster |
+| Dev | `POST /api/war/dev/seed { region }` makes that region his home (tools starting elsewhere) |
+
+Waiting and wounded men (W-98):
+
+| Man | Rule |
+| --- | --- |
+| Raised, or a captive who joined, while the group is away | waits at home, off the field: he cannot work, fight, be attacked or be captured. He counts toward the cap and the tunnel's floor. He joins when the group is next at home, on its arrival or within a minute (`pollMuster`). Standing at home he may be equipped and promoted |
+| Group at home when he comes | falls in beside it. A man at home a join did not name falls in too; when the group leaves home everyone at home goes with it, except a man promoting, who waits |
+| Wounded | stays with the group: he lies off the field and rides with it, on his usual timer. Healed, he falls in beside the group, online or not |
+| All wounded | a group with nobody on his feet does not march. It holds its region, so men raised at home keep waiting until the first man heals (6 h at most). He may come back to it whoever holds the region |
+
+Offline men (W-97): men are physically there whether he is online or not. They hold and keep doing their last order on the spot
+(W-07 stands; soldiers at work too, as civilians). A road leg already started finishes, but no new leg starts: a `haul` chain
+waits at its next stop until he is back (a map, chat or region tab), then goes on. A new order of his replaces the chain.
 
 ### Buildings need people (W-88..W-91)
 
@@ -1059,7 +1080,7 @@ player's (`notOwner` otherwise); the field is optional, so the wire stays additi
 | Promote | level 6 + the elite rare kit, 30 min |
 | Fall | at 0 HP wounded with `woundedShare` 0.7 (+3% per END above 5, + physician, cap 0.9), else dead; the dead drop their gear |
 | Early mercy (W-79 proposal) | in the homes and the entries (depth 0–1, `src/war/sim/depth.ts` EARLY) a soldier felled by the wild (a beast's, bandit's, chief's or warlord man's blow) is only knocked down: he lies with his pack and kit (no pile, no battlefield soul), the fight report leaves him out, and once no foe man has fought within 10 tiles of him for 15 s he gets up at 30% hp in his squad. Still down after 3 min he is wounded as before; felled again within 60 s of getting up (left among the wild that beat his squad) the fall is real. Another player's blow, and any fall at depth 2 and deeper, is a fall. Online the room keeps him listed in the field while down (no rejoin claims him twice) and reports him if he stays down for good. W-81: a man down counts toward his army for a soul's claim (he will rise), and `down` rides on the wire (unit state bit 32, NET_VERSION 17) so the squad card shows it online too. Measured: a level-1 squad (4 hoplites, 3 archers, 3 slingers, 2 javelineers) against a depth-1 bandit lair of 8 lost 3–8 for good before; now 0, every man up within ~20 s of the last blow |
-| Heal | wounded leave with the squad and stay in his group (W-87); timer: field 6 h, camp 3 h, town 2 h, physician's house 1 h; which timer runs once the group moves on is [open](impl/paths-rework.md#open-design-items) |
+| Heal | wounded leave with the squad and stay in his group (W-87); timer: field 6 h, camp 3 h, town 2 h, physician's house 1 h; his timer runs on wherever the group goes (W-98) |
 | Gear drops | a physical loot pile anyone may carry off (W-46, "Trade" → "Loot piles") |
 | Capture | a wounded man on a tile the enemy holds when the fight ends (no friendly within 15 tiles) becomes `captive` in the captor's nearest fort (≤ 20 per fort, extra are freed). W-68: he leaves his owner's army at once (his slot frees; the roster notes "Captured by <player> at <region>"); his gear drops in a pile where he fell |
 | Prisoners | W-68 (`src/war/sim/captives.ts`, `server/src/war/captives.ts`): the captor pays 1 food/h each and sees them at the foot of his roster. After 2 h he may ask one to join: he refuses for good with 30% + 5% a level above 1 (fixed per man), else he joins the captor's army at home with his level, class and record in starter kit (only under the path's cap: "Army full"), and waits there until the captor's group comes home (W-87); one transfer (`movePerson`) that a later men trade (W-69) reuses. The captor may release him at any time; after 24 h unclaimed, a raid reaching the fort, the fort's region starting over or an unpaid captor release him too. Released, his soul wakes at a shrine of that region (else the nearest region with one) with his level and class, for anyone to claim. No ransom, no execution |
@@ -1158,7 +1179,7 @@ server: `server/src/war/raise.ts`, D1 `war_tunnel.next_at` (0048); view: `src/wa
 | Rule | Value |
 | --- | --- |
 | Floor | W-68: while he has fewer than 6 men who can fight, or fewer than his path's cap if that is smaller (so 4 for a builder or trader; the wounded do not count here, captives are not his), one rises at home every 10 min, up to that floor and never past the path's cap in all (the wounded still fill the army); past the floor men come only from souls |
-| Waits at home | W-87: a man raised while the group is away waits at home until it comes home; he never crosses to it alone. What a waiting man can do, and be done to, is [open](impl/paths-rework.md#open-design-items) |
+| Waits at home | W-87, W-98: a man raised while the group is away waits at home, off the field, until it comes home; he never crosses to it alone ("One region") |
 | The man | level 1 in starter kit, the class of one of his latest fallen his path allows (the classes a family or path allows are [open](impl/paths-rework.md#open-design-items)), plus his divine favour bonus (raiseBonus, itself open: "Divine favour") |
 | Clock | starts on the first read below the floor; settled lazily on `GET /api/war/tunnel` { alive, floor, nextAt, pending }, the roster read and a region join (no live room needed); a compare-and-set on next_at and a capped insert keep racing reads to one man each |
 | No tunnel | before his first man (a player who never had one) |
@@ -1487,7 +1508,7 @@ the same region within 4 tiles.
 | Per player | 2 carts in the world (Emporos 3; whether a trader's cap rises is [open](impl/paths-rework.md#open-design-items)), all in his one group (W-87); a convoy = his carts and the squads escorting them |
 | `escort` order (new `Order` kind) | the squad keeps a column round the cart, engages enemies within 12 tiles of it, returns past 20 |
 | Under attack | the cart halts while an enemy is within 8 tiles, resumes 10 s after; it never fights |
-| Between regions | carts and loaded porters ride the world transfer with the whole group (W-87), cargo on the transit row; wagon ×1.5 travel time, porters ×1.2; a `haul` order chains transfers along the world path for that group, and no cart ever drives on its own (no automated drovers). Whether the chain goes on while he is offline (W-07 holds men in place) is [open](impl/paths-rework.md#open-design-items) |
+| Between regions | carts and loaded porters ride the world transfer with the whole group (W-87), cargo on the transit row; wagon ×1.5 travel time, porters ×1.2; a `haul` order chains transfers along the world path for that group, only while he is online (W-97), and no cart ever drives on its own (no automated drovers) |
 | World map | in transit seen like squads (by alliances with men in or next to either end); Safe Roads: only by alliances with men at the destination |
 | Fire | wood: torches and fire arrows ignite it like a wood building |
 
