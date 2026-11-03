@@ -1,7 +1,7 @@
 /**
  * W-73 the solo loop on the server: a player with no active alliance partner draws no partner task (and gets them back
  * once two others are active); the wild's deeds (lairs, chiefs, hidden quests, encounters) count for the solo tasks;
- * region mastery counts each deed of the region once and, when complete, pays favour and the banner once.
+ * region mastery counts each deed of the region once and, when complete, gives the banner once.
  */
 import { env } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
@@ -12,7 +12,7 @@ import { getFavour } from '../../src/war/favour';
 import { joinAlliance } from '../../src/war/world/members';
 import { WAR_REGIONS, warRegion } from '../../src/war/regions';
 import { dayOf, taskDef } from '../../../src/war/net/tasks';
-import { MASTERY, masteryNeed } from '../../../src/war/net/mastery';
+import { masteryNeed } from '../../../src/war/net/mastery';
 import { masteryDeed } from '../../../src/war/sim/deeds';
 import type { Deed, RegionData } from '../../../src/war/types';
 import { NET_VERSION, type JoinMsg } from '../../../src/war/net/protocol';
@@ -45,7 +45,7 @@ describe('solo tasks on the server (W-73)', () => {
 });
 
 describe('region mastery on the server (W-73)', () => {
-  it('each deed counts once; the last one masters the region: favour and the banner once, tallies for the tasks', async () => {
+  it('each deed counts once; the last one masters the region: the banner once, tallies for the tasks', async () => {
     const r = WAR_REGIONS.map((id) => warRegion(id)!).find((x) => (x.lairs ?? []).some((l) => l.chief) && (x.secrets ?? []).length)!;
     const need = masteryNeed(r), me = await player(8911, 2);
     await DB().prepare("INSERT INTO war_persons (id, player_id, cls, name, level, xp, points, kills, battles, attrs, skills, gear, honours, state, region, created_at, updated_at) VALUES ('ms-1', ?1, 'hoplite', 'Damon', 3, 0, 0, 0, 0, '{}', '[]', '{}', '[]', 'active', ?2, ?3, ?3)").bind(me, r.id, MON).run();
@@ -58,13 +58,13 @@ describe('region mastery on the server (W-73)', () => {
     expect(await recordWild(env, me, r, [{ kind: 'chief', key: 'not-of-this-region' }], MON, S)).toBeNull();
     const v = await recordWild(env, me, r, all.slice(2), MON, S);
     expect(v).toMatchObject({ region: r.id, done: true, lairs: [need.lairs.length, need.lairs.length], chiefs: [need.chiefs.length, need.chiefs.length], secrets: [need.secrets.length, need.secrets.length] });
-    expect((await getFavour(env, me)).xp).toBe(fav0 + MASTERY.favour);
+    expect((await getFavour(env, me)).xp).toBe(fav0); // W-114: mastery no longer pays a level
     expect(await masteredOf(DB(), me, S)).toEqual([r.id]);
     const deeds = JSON.parse((await DB().prepare("SELECT deeds FROM war_persons WHERE id = 'ms-1'").first<{ deeds: string }>())!.deeds) as Deed[];
     expect(deeds).toEqual([masteryDeed(r.id, r.name)]);
     // again: nothing more
     await recordWild(env, me, r, all, MON, S);
-    expect((await getFavour(env, me)).xp).toBe(fav0 + MASTERY.favour);
+    expect((await getFavour(env, me)).xp).toBe(fav0); // W-114: mastery no longer pays a level
     expect((await masteryOf(DB(), me, r, S)).done).toBe(true);
     const t = await tallyOf(DB(), me, dayOf(MON), dayOf(MON) + 1, S);
     expect(t.lair).toBe(need.lairs.length * 2 + 1);
@@ -74,7 +74,7 @@ describe('region mastery on the server (W-73)', () => {
 });
 
 describe('region mastery end to end (W-81)', () => {
-  it('his men clear every lair in the room: the room\'s wild deeds master the region, 300 favour and the banner on his men', async () => {
+  it('his men clear every lair in the room: the room\'s wild deeds master the region, the banner on his men', async () => {
     const n = 96;
     const r: RegionData = {
       id: 'w81-flat', name: 'Flat Hollow', w: n, h: n, depth: 0, height: Array(n * n).fill(1), terrain: Array(n * n).fill('grass'), water: Array(n * n).fill(0),
@@ -100,7 +100,7 @@ describe('region mastery end to end (W-81)', () => {
     const fav0 = (await getFavour(env, me)).xp;
     const v = await recordWild(env, me, r, deeds, MON, S);
     expect(v).toMatchObject({ region: r.id, done: true, lairs: [2, 2] });
-    expect((await getFavour(env, me)).xp).toBe(fav0 + MASTERY.favour);
+    expect((await getFavour(env, me)).xp).toBe(fav0); // W-114: mastery no longer pays a level
     expect(await masteredOf(DB(), me, S)).toEqual([r.id]);
     const row = await DB().prepare("SELECT deeds FROM war_persons WHERE id = 'w81-0'").first<{ deeds: string }>();
     expect(JSON.parse(row!.deeds) as Deed[]).toEqual([masteryDeed(r.id, r.name)]);

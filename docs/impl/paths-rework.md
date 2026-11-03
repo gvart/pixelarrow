@@ -37,7 +37,8 @@ unless someone is actually there.
 Decided while building item 2: **W-95 small start, grow to cap**, **W-96 full season reset**, settlements, crowns and
 mastery included (owner confirmed). Item 3, by the desk, overrulable: **W-97**, **W-98**, **W-99**, **W-100**. Item 4, by the
 desk, overrulable: **W-101** who may join, **W-102** Tunnel under the cap, **W-103** workers, **W-104** carts, **W-105** a seized
-cart, **W-106** no path.
+cart, **W-106** no path. Item 5, by the desk, overrulable: **W-110** perk tables, **W-111** what pays a level, **W-112** families,
+**W-113** souls, **W-114** mastery and warlords.
 
 Superseded or changed: W-44 (NPC towns, W-93), W-53 (its "cap of 12 stays", W-85), W-56, W-58, W-60 (souls claimable under
 the path's cap), W-66 and W-68 (raised men wait at home; the Tunnel's "up to 6" fits the cap, W-102; W-66's permanent
@@ -51,10 +52,10 @@ PixelLab only for real gaps.
 Propose these in the named work item and get the owner's answer before building them.
 
 - [ ] How someone becomes king, how titles pass, tribute rates (item 8).
-- [ ] Perk lists for each path (item 5).
+- [x] Perk lists for each path. W-110.
 - [x] Raid loss limits and how empty towns get guards. W-130: what his group can carry; W-134: people, guard contracts stay.
-- [ ] What each family's men can do, and its stronger classes. The list is three of today's four (item 2, default). Only hoplite,
-  militia, archer, slinger, javelineer and celt_sword have work animations (item 4).
+- [x] What each family's men can do, and its stronger classes. W-112. Only hoplite, militia, archer, slinger, javelineer and
+  celt_sword have work animations (item 4): shield-bearers idle at work, see W-113.
 - [ ] Riders return once mounts exist. Hidden from the start by the owner: no work animations, balance unchecked.
 - [ ] Where more workers come from. A builder or trader starts with 2 (item 2, default), and W-103 sets how many he may keep,
   but the only way to gain one today is a level-10 soldier retiring into a trade. A trader with no engineer cannot build a cart.
@@ -68,10 +69,8 @@ Found while bringing `docs/WAR.md` in line (item 1). Each is a rule the decision
 - [x] Waiting and wounded men. W-98: a waiting man is off the field; the wounded travel with the group on their usual timer.
 - [x] Classes for builder and trader soldiers, and a soul outside a warrior's family. W-101: any non-rider guard; a warrior
   only his own, the rest stay for someone else. The Tunnel's fallback: W-102.
-- [ ] Souls wake by site, so families do not grow alike: swordsmen wake only at lairs and old battlefields, and 12 mixed
-  skirmishers lost to the chiefs and bandit lairs in the seeded check under a plain attack order (item 5, or a balance pass).
-- [ ] How levels are paid per path: today's favour amounts are all war and land, region mastery and warlords pay favour,
-  and the old bonus on raised men has no place yet (item 5).
+- [x] Souls wake by site, so families do not grow alike. W-113. 12 mixed skirmishers losing to chiefs and bandit lairs: W-112.
+- [x] How levels are paid per path. W-111, W-114; the old bonus on raised men went, W-110.
 - [x] What counts as "working" under W-88 beyond workplaces. W-120..W-123, W-135. Whether empty land scores is item 9.
 - [x] Goods that move with nobody carrying them, and where the owner's share sits. W-124, W-126. Tribute is item 8.
 - [x] Walls and locks. W-130, W-131, W-132.
@@ -102,7 +101,7 @@ Each item bumps `SIM_VERSION` (`src/sim/version.ts`) and `NET_VERSION` (`src/war
   verify: transfer and join tests. depends on: 2.
 - [x] **4. Soldier limits.** Path caps replacing `ARMY_MAX` use, one family for warriors.
   verify: scenario tests. depends on: 2.
-- [ ] **5. Levels and perks.** Favour track becomes three perk trees (`src/war/view/hud/favour.ts` and the sim).
+- [x] **5. Levels and perks.** Favour track becomes three perk trees (`src/war/view/hud/favour.ts` and the sim).
   verify: tests per path. depends on: 4.
 - [x] **6. Staffed buildings.** Work only while staffed, access levels, owner's share, private houses, empty-building raids.
   verify: sim and server tests, `bench:war`. depends on: 3.

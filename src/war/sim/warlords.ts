@@ -10,7 +10,7 @@
  * Each warlord here holds places (claim points, lairs of his kind) with a garrison on the bots' `hold`, takes more as he
  * ages (a band on `attackMove` from his nearest holding, or over the border facing his seat), tops his garrisons up,
  * raids undefended alliance buildings and carts after a warning, and loses a place when its garrison is down (a loot
- * pile; the owners with men near earn favour on the server). In his seat his hall holds the lord himself; the lord down,
+ * pile). In his seat his hall holds the lord himself; the lord down,
  * he is fallen for WARLORD.back days. Deterministic: no clock but `age` (days, advanced a tick at a time), no Rng but
  * its own; the snapshot read only in id order.
  */
@@ -135,14 +135,6 @@ export function createWarlords(region: RegionData, sim: WarBuildSim, bots: Bots,
     }
     return false;
   };
-  const ownersNear = (x: number, y: number, r: number) => {
-    const out = new Set<string>();
-    for (const u of snap.units) {
-      const q = alive(u) ? snap.squads[u.squad] : undefined;
-      if (q && q.owner.startsWith('p:') && (u.x - x) ** 2 + (u.y - y) ** 2 <= r * r) out.add(q.owner);
-    }
-    return [...out].sort();
-  };
   const menAll = () => {
     let n = 0;
     for (const q of snap.squads) if (q.team === MOB_TEAM && q.owner.startsWith('warlord:')) n += squadMen(q.id).length;
@@ -223,7 +215,7 @@ export function createWarlords(region: RegionData, sim: WarBuildSim, bots: Bots,
     const p = l.places.find((x) => x.key === h.place)!;
     const drop = warlordLoot(l.def, 'holding', depth, `${region.id}:${seed}:${h.place}:${tick}`);
     sim.dropPile(h.x, h.y, Object.entries(drop.goods).map(([r, n]) => ({ r: r as never, n, o: region.id })), []);
-    say(l, 'freed', fill(l.def.lines.freed, 'place', placeName(p, l.def.kind)), h.x, h.y, { place: h.place, near: ownersNear(h.x, h.y, WARLORD.favour.near) });
+    say(l, 'freed', fill(l.def.lines.freed, 'place', placeName(p, l.def.kind)), h.x, h.y, { place: h.place });
   };
   const fall = (l: Lord, x: number, y: number) => {
     l.fallen = age;
@@ -232,7 +224,7 @@ export function createWarlords(region: RegionData, sim: WarBuildSim, bots: Bots,
     const drop = warlordLoot(l.def, 'lord', depth, `${region.id}:${seed}:${l.def.id}:${tick}`);
     const items = drop.item ? [{ ...makeItem(new Rng(hashString(`${region.id}:${seed}:${l.def.id}:${tick}:lord`) || 1), { nextId: 0 }, drop.item.def, drop.item.rarity), uid: `warlord:${region.id}:${seed}:${l.def.id}:${tick}` }] : [];
     sim.dropPile(x, y, Object.entries(drop.goods).map(([r, n]) => ({ r: r as never, n, o: region.id })), items);
-    say(l, 'fallen', l.def.lines.fallen, x, y, { near: ownersNear(x, y, WARLORD.favour.near) });
+    say(l, 'fallen', l.def.lines.fallen, x, y);
   };
 
   /** Raid targets: the nearest undefended alliance building or cart within reach of a holding of his. */

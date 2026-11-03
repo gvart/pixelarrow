@@ -2103,6 +2103,15 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
      * A done wall piece of `team` with a next tier becomes a site for it in place: new materials and labour, the old piece
      * standing meanwhile (state scaffold, upgradeFrom in the snapshot). False if it cannot.
      */
+    /** W-84: a site just placed or upgraded by a builder with perks: fewer goods, a stronger piece. */
+    perkSite(id: number, costCut: number, hpUp: number): void {
+      const b = buildings[id];
+      if (!b) return;
+      for (const r of Object.keys(b.cost) as ResourceKind[]) b.cost[r]! *= 1 - costCut;
+      b.costSum *= 1 - costCut;
+      b.maxHp *= 1 + hpUp;
+      if (!b.prev) b.hp *= 1 + hpUp;
+    },
     upgrade(id: number, team: number): boolean {
       const b = buildings[id];
       if (!b || b.cancelled || b.team !== team || b.state !== 'done' || !b.def.upgrade) return false;

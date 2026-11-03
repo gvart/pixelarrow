@@ -17,7 +17,7 @@ owner to confirm; Greek "the in-between"), one continent hung between death and 
   drinker go, as if he had never lived. An alliance that keeps losing is struck out this way. In play this is flavour
   for the season reset and the standings, not a wipe of anyone's account.
 - **The player is a demigod.** He died a mortal and woke on Metaxy as what his blood always was: a god's child. The
-  dead feel that blood; souls wake near him and come to his banner (Souls, the Tunnel of Shades and Divine favour
+  dead feel that blood; souls wake near him and come to his banner (Souls, the Tunnel of Shades and Levels and perks
   below). He walks no field and has no sprite (W-82): his power acts through his men, buildings and carts. One identity
   everywhere: the guide's intro (`src/war/net/questLore.ts` GUIDE_INTRO) says it once.
 - **The edge.** Metaxy has no ocean. Its shores (fjords, coves, lagoons, the tables below still call them coasts)
@@ -482,8 +482,8 @@ Per player and season, a region is **mastered** when his men have cleared every 
 chief among them and finished every hidden quest in it (`src/war/net/mastery.ts`; D1 `war_mastery`,
 `war_mastery_done`, 0052; `server/src/war/mastery.ts`). Each counts once: a lair respawned and cleared again adds
 nothing, and the lairs and chiefs a hidden quest spawns feed the tasks only. A lair or chief counts for every player
-with fit men within 20 tiles when it falls (shared with friends who fought beside him). Mastering pays once: 300
-divine favour (reason "Region mastered"), the deed **Banner of <region>** on each of his men standing there (their
+with fit men within 20 tiles when it falls (shared with friends who fought beside him). Mastering pays once (no level, W-114):
+the deed **Banner of <region>** on each of his men standing there (their
 record and grave), and the badge on the region's mastery chip. A home has no chiefs or hidden quests: its outskirts
 lairs master it. The chip (`src/war/view/hud/mastery.ts`) shows lairs, chiefs and hidden quests have/need under the
 region name; online the room sends it on join and on each deed; offline the client keeps it from the local sim for the
@@ -518,8 +518,8 @@ bandits never fight them), owner `warlord:<id>`; the wild has no fog, so his bot
 | Garrison | one squad holding the place (bots `hold`, radius 10): 5 men at depth 1, 7 at depth 2, +1 a day held, at most 9 at either (W-79: 11 at depth 2 cost 12 level-3 men 6–7); x(1 + 0.15 x (players − 1)), never over 12. Its first man is his lieutenant (hp x2, damage x1.25, armour +2; bandits wear the captain's sheet) |
 | The lord | at his hall in the seat: hp x8 (x his own factor: Harpalos and Skiron 1, Auge 2.5, Kelaino 5, so a frail kind's lord holds as long), damage x1.5, armour +2 over a man of his kind; his hall starts with 2 more men than the garrison rule (still at most its max: 9 at depth 2); name and title over his head. W-81 (W-79's x6 hall fell in 20–50 s, a harpy hall in ~22 s for no loss): 12 hoplites of level 3 take a fresh hall in 62–80 s losing 1–5 (flat and the real seats, seeds 5–6) |
 | Reinforce | every 10 min with players present a holding short of men gets them, marching in from the nearest other holding (march: from the border). Only a quiet holding (no foe man within 20 tiles), except his hall: while another of his holdings in the seat stands, men come to it even under attack |
-| Freed | a holding whose garrison is all down is freed: a loot pile on the spot (24 coin and 3 goods of his kind, x(1 + depth/2)) and 60 favour to each player with men within 20 tiles; a claim point under it is then claimed by the normal rules (its guard lairs too) |
-| Fallen | the lord down: 120 coin, 8 goods and an item (uncommon or better), x(1 + depth/2), and 200 favour to each player near; his bands everywhere in his domain are recalled: every holding and party walks to the region's border and leaves the field there (or after 90 s), the places free with nothing dropped ("Word of his fall reaches …"); he is back after 3 days of age, grown from nothing again |
+| Freed | a holding whose garrison is all down is freed: a loot pile on the spot (24 coin and 3 goods of his kind, x(1 + depth/2)); a claim point under it is then claimed by the normal rules (its guard lairs too) |
+| Fallen | the lord down: 120 coin, 8 goods and an item (uncommon or better), x(1 + depth/2); his bands everywhere in his domain are recalled: every holding and party walks to the region's border and leaves the field there (or after 90 s), the places free with nothing dropped ("Word of his fall reaches …"); he is back after 3 days of age, grown from nothing again |
 | Raids | with players present and a holding of his standing, every 20 min (÷ players, at most ÷ 3) he picks the nearest target within 110 tiles of a holding: an alliance's empty finished building that is no wall, gate, tower, bridge or stair (W-91: no guard count; only its walls and locks protect it; W-133: if none stands empty, the nearest held by fewer men than his party; a raid takes what its men can carry first, then batters); else a cart with no man of its team within 10. Telegraphed 60 s ahead: the target team hears "<name>'s men ride for your <thing> in 60 s" and sees a mark on it. Then 5 (depth 1) / 7 (depth 2) men led by a lieutenant (W-79; before, 4 plain bandits died to 6 guards felling none) + 2 per extra player (at most 12) march on it (attackMove): 6 level-2 guards at depth 1 lose 1–2 men to it, a full 12 none or one, batter it, and go home after 90 s at it (twice that with goods to take) or once it falls; a beaten raid party's men drop only what they carried |
 | Budget | at most 60 warlord men in a region; the director thinks every 10 ticks |
 
@@ -748,9 +748,9 @@ there. "Open" below means the owner has not decided yet: see
 | --- | --- |
 | Demigod (W-82) | every player, on every path. Never a field unit, no sprite; his power acts through his men, buildings and carts |
 | Path (W-83) | warrior, builder or trader, chosen at season start and fixed for the 28 days |
-| Level (W-83, W-84) | resets each season. Levels come from doing the path's work and unlock that path's perks ("Divine favour"). Perk lists: open |
+| Level (W-83, W-84) | resets each season. Levels come from doing the path's work and unlock that path's perks ("Levels and perks") |
 | Soldier cap (W-85) | warrior 12, builder 4, trader 4; hard. Start numbers, changed only on balance evidence ("Soldiers") |
-| Warrior family (W-86) | a warrior picks one family (e.g. phalanx, Celtic warband, skirmishers); level-ups unlock its stronger classes; no mixing between families (W-101: he claims or raises only his own). Family list and what its men can do: open |
+| Warrior family (W-86) | a warrior picks one family (phalanx, Celtic warband, skirmishers); level-ups unlock its stronger classes (W-112); no mixing between families (W-101: he claims or raises only his own). Each family clears bandit lairs and has a way to chiefs: `tests/war/familyFights.test.ts` |
 | Workers, carts (W-103, W-104) | workers: warrior 2, builder 6, trader 3, not soldiers, outside the cap. Carts: trader 4, warrior 1, builder 1 |
 | Start (W-95) | a small start, grown to the cap by claiming souls: "Starting a game" |
 | New season (W-96) | a full reset for every path: men, gear, belongings and titles. He chooses alliance, home and path anew: "Starting a game" |
@@ -836,9 +836,9 @@ What each path starts with (W-95; `PATHS` and `FAMILIES` in `src/war/world/start
 
 | Path | First men | Cap |
 | --- | --- | --- |
-| Warrior, Phalanx (line) | 3 hoplites, 3 militia | 12 |
+| Warrior, Phalanx (line) | 6 hoplites | 12 |
 | Warrior, Celtic warband (shock) | 6 swordsmen | 12 |
-| Warrior, Skirmishers (missile) | 2 archers, 2 slingers, 2 javelin men | 12 |
+| Warrior, Skirmishers (missile) | 5 shield-bearers, 2 javelin men (W-112) | 12 |
 | Builder | 2 hoplites, an engineer, a forager | 4 |
 | Trader | 2 hoplites, a merchant, a forager | 4 |
 
@@ -961,7 +961,7 @@ objective. Civilians: 1 per job (meal batch, bar, trade, site, patient). A wound
 
 | Skill family | Classes (souls) | Elite at L6 (+ rare kit) | Skills (P passive baked, F flag, A squad active) |
 | --- | --- | --- | --- |
-| Line | hoplite, thureophoros | royal_guard, sacred_band | Shield Drill P (+6% block, +1 armour), Phalangite P (+0.15 reach, +1 dmg), Hold Fast F (+30% block while the squad holds), **Shield Wall A** |
+| Line | hoplite | royal_guard, sacred_band | Shield Drill P (+6% block, +1 armour), Phalangite P (+0.15 reach, +1 dmg), Hold Fast F (+30% block while the squad holds), **Shield Wall A** |
 | Shock | celt_sword, falx | rhomphaia, gallic | Brawler P (+1.2 dmg), Shield Breaker P (−10% target block), Finisher F (+30% dmg vs men < 40% HP), **Berserk A** |
 | Missile | archer, slinger, javelineer, peltast | Cretan-set archer | Deep Quiver P (+40% ammo, +1 range), Eagle Eye P (+6% accuracy), Fire Archer F (brazier reach ×2, half pitch), **Volley A** |
 | Rider | companion, thessalian, horse_archer | chariot | Horsemanship P, Lance Charge F, Ride Down F, **Wheel and Re-charge A**; only once the war sim has mounts |
@@ -1169,7 +1169,7 @@ warrior can only claim one of his family (W-101), and the rest stay for someone 
 | --- | --- |
 | Where | shrines and temples, up to 4 ruins of the region (spaced 16 tiles), its lairs, and old battlefields: a 12 x 12 tile cell where 6 men fell (at most 6 a region) |
 | Spawn | a roll every 2 min per site without a soul: shrine 12%, ruin 8%, battlefield 20%, lair 5%; at most 4 souls in a region at once |
-| Class | by site: shrine hoplite, archer or militia; ruin militia, slinger or javelineer; lair swordsman, hoplite or archer; a battlefield the class most of its fallen were |
+| Class | by site, every family at every site (W-113): `SOUL_CLASSES` in `src/war/sim/souls.ts`; the stronger classes wake at ruins, battlefields and lairs; a battlefield the class most of its fallen were |
 | Level | shrine and ruin 1, battlefield 2, lair 3, + half the region's depth (rounded down), at most 6: the rarer, better souls wait in dangerous places |
 | Claim | the claimSoul order walks a squad to him; a man of it within 2.5 tiles for 3 s claims him and he joins that squad, his class and level, as a fresh person |
 | Cap | only while the player has fewer soldiers than his path's cap (W-85: warrior 12, builder 4, trader 4); else the claim is refused ("army full") and the soul waits on. A named worker counts against the worker cap instead (W-103) |
@@ -1197,7 +1197,7 @@ server: `server/src/war/raise.ts`, D1 `war_tunnel.next_at` (0048); view: `src/wa
 | --- | --- |
 | Floor | W-68, W-102: while he has fewer than `min(6, his path's cap)` men who can fight (so 4 for a builder or trader; the wounded do not count here, captives are not his), one rises at home every 10 min, up to that floor and never past the room left under the path's cap (the wounded still fill the army; with room for 1, one rises and the clock stops); past the floor men come only from souls |
 | Waits at home | W-87, W-98: a man raised while the group is away waits at home, off the field, until it comes home; he never crosses to it alone ("One region") |
-| The man | level 1 in starter kit, the class of one of his latest fallen his path may hold (W-101), else a militiaman, or for a warrior who may not hold one his family's first class (`raiseClass`), plus his divine favour bonus (raiseBonus, itself open: "Divine favour") |
+| The man | level 1 in starter kit, the class of one of his latest fallen his path may hold (W-101), else a militiaman, or for a warrior who may not hold one his family's first class (`raiseClass`). Plain: no bonus (W-110) |
 | Clock | starts on the first read below the floor; settled lazily on `GET /api/war/tunnel` { alive, floor, nextAt, pending }, the roster read and a region join (no live room needed); a compare-and-set on next_at and a capped insert keep racing reads to one man each |
 | No tunnel | before his first man (a player who never had one) |
 
@@ -1218,25 +1218,57 @@ opens on the tunnel; a man risen (by any read) with his group at home plays the 
 join reloads his men at home). The pong carries `idle` (no armies here, or the loop rests): the network readout then says "region idle", not
 "server stalled".
 
-### Divine favour (W-66)
+### Levels and perks (W-66, W-83, W-84, W-110..W-114)
 
-The player is a demigod who leads mortals. W-83, W-84: this track becomes the demigod's level on his path. It resets
-each season, levels come from doing that path's work, and each path has its own perks in place of the one bonus below.
-The perk lists are [open](impl/paths-rework.md#open-design-items), and so is which work pays which path: the curve,
-amounts and bonus below are today's numbers, to be re-cut per path. Rules and amounts: `src/war/net/favour.ts`; D1 `war_favour` and `war_favour_log`
-(0047); earning hooks: `server/src/war/favour.ts`; panel: Divine favour on the menu bar (Shift+F, its level as a
-badge; the title screen shows it beside the name), a short banner on a level gained.
+The player is a demigod who leads mortals. His favour with the gods grows through the season from his path's work and
+resets with it; 12 levels open his path's perks. Rules: `src/war/net/favour.ts`; perks: `src/data/warPerks.ts`; D1
+`war_favour` and `war_favour_log` (0047); earning hooks: `server/src/war/favour.ts`; panel: the level chip on the top
+bar (Shift+F), a short banner on a level gained. Titles: Hero, Demigod, Heroes' Kin, Favoured of Ares, Spear of Athena,
+Herald of Hermes, Hand of Apollo, Shield of Zeus, Titan-slayer, Ichor-blooded, Star of Olympus, Olympian-touched.
 
-- **Curve:** level L at 200 x (L-1)^2 favour: level 2 at 200 (about the first hour), 5 at 3200, 10 at 16200 (weeks),
-  12 the last. Titles: Hero, Demigod, Heroes' Kin, Favoured of Ares, Spear of Athena, Herald of Hermes, Hand of
-  Apollo, Shield of Zeus, Titan-slayer, Ichor-blooded, Star of Olympus, Olympian-touched.
-- **Earning:** battle won 20, fought 4, each kill 2 (20 kills a fight at most); lair cleared 40 (players with men
-  within 20 tiles); guardian slain 150 (each killer); daily task 40, weekly 150; story step 25, chain ended 150;
-  encounter step 10, ended 30; a region mastered 300 (W-73); land every 10 min: 1 per claim point his alliance holds where his men stand (3 at
-  most) and 2 if it owns the region, at most 30 an hour across regions.
-- **Bonus, newly raised men only** (claimed souls; tunnel raises): +1 unspent attribute point at levels 3, 6, 9, 12
-  (4 at most); the starting kit lifted to uncommon at level 5, rare at level 10. A max-favour fresh man (4 points,
-  rare kit) stays below a level 3 to 4 veteran (4 to 6 points, a skill, his deeds).
+- **Curve:** level L at 200 x (L-1)^2 favour: level 2 at 200, 5 at 3200, 10 at 16200, 12 at 24200.
+- **Earning (W-111), each pays one path:**
+
+| Path | Work | Pays |
+| --- | --- | --- |
+| Warrior | fight won / fought, each kill (20 a fight at most) | 20 / 4, 2 |
+| Warrior | lair cleared (men within 20 tiles), guardian slain | 40, 150 |
+| Warrior | land every 10 min: per claim point his alliance holds where his men stand (3 at most), the region it owns | 1, 2; 30 an hour at most |
+| Builder | each second one of his men works on a site (building, upgrading, mending) or stands at an alliance work | 0.03 |
+| Builder | each good he gives to an alliance work | 1 |
+| Trader | each coin of goods sold | 0.2; 600 an hour with loads carried |
+| Trader | each load brought over a border, packs and carts | 2; same cap |
+| All | daily task, weekly; story step, chain; encounter step, end | 40, 150; 25, 150; 10, 30 |
+
+  Region mastery and warlords pay no level (W-114): only a fighting army can earn them. Their loot, deed and badge stay.
+- **Perks (W-110):** one short table a path, one perk a level at most, each one number on his men, the sites his men
+  place or the carts he owns. None acts by itself (W-87, W-88). They sit on top of a man's clamp ("Clamp"), since they
+  are the player's and not the man's; a level gained reaches his living men in the region within 30 s. Offline there is
+  no path, so no perks.
+
+| Level | Warrior | Builder | Trader |
+| --- | --- | --- | --- |
+| 2 | +15% health | men work +10% | carts +2 loads |
+| 3 | +15% damage | | men gather +10% |
+| 4 | new class | sites cost -10% | |
+| 5 | wounded share +0.1 | +15% health | carts +25% tough |
+| 6 | new class | | carts +15% speed |
+| 7 | +1 armour | sites +20% strong | |
+| 8 | +10% health | | +15% health |
+| 9 | new class | men work +15% | |
+| 10 | +10% damage | sites cost -10% | carts +2 loads |
+| 11 | wounded share +0.1 | | |
+| 12 | | sites +20% strong | carts +15% speed |
+
+- **New classes (W-86, W-112):** a warrior holds his family's first classes from the start; the rest join at a level
+  (`FAMILIES` in `src/war/world/start.ts`): Phalanx royal guard 6, sacred band 9; Celtic warband falx 4, Gallic warband
+  6, rhomphaia 9; Skirmishers peltast 4. A locked soul stays for someone else; promotion to a locked elite is refused.
+  Builders and traders keep W-101: any non-rider guard, no level.
+- **Family fights (W-112):** the Skirmishers lost nearly every fight as 12 pure missile men, since nothing stood in
+  front of them. The thureophoros moved to them as a shield screen, with one man more at the start. Measured in
+  `tests/war/familyFights.test.ts`, line in front, on a flat map, 3 seeds: first men at level 1 clear wolf, boar and bear
+  lairs; level 3 men at demigod level 3 clear a bandit lair; 12 level 3 men at demigod level 5 beat bandit, wolf, boar
+  and bear chiefs. Six or seven level 1 men still lose to a whole bandit lair (8 men) in every family: first grow.
 
 ### Anti-oversaturation
 
@@ -1480,8 +1512,7 @@ can progress alone; which towns, at what prices and where their coin comes from 
 [open](impl/paths-rework.md#open-design-items). Everywhere else the game sells nothing, buys nothing and quotes no price.
 Every good sits somewhere on a map (a store, a chest, a house, a cart, a man's back, a loot pile); it moves only by being
 carried and changes hands only by a hand-off, a fill at a stall, a sale in an NPC town, or a raid. Goods that today move
-with nobody carrying them (store networks, the strongroom behind a store, gifts to works) are
-[open](impl/paths-rework.md#open-design-items) under W-87.
+with nobody carrying them are settled by W-124: a store network stays inside one region, work gifts are given at home.
 
 ### Coin
 

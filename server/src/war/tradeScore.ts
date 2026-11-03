@@ -21,6 +21,7 @@ import { json } from './persons';
 import { tradeRefusal } from './abuse';
 import { peacePoints, statStmt } from './peace';
 import { tallyStmt } from './tasks';
+import { cappedStmts, FAVOUR_EARN } from './favour';
 import { PEACE } from '../../../src/war/world/season';
 
 export const TRADE = { per: 100, hops: 3, cap: 60 };
@@ -50,7 +51,7 @@ export function fillHook(env: Env, peace: { alliance: number | null; volume: num
     const db = env.DB!;
     await tradeRefusal(db, f.seller, f.buyer, f.now);
     // W-64: the alliance tax's share of the sale, out of the seller's stall into his crown's treasury
-    const sold = [statStmt(db, f.seller, 'sold', f.coin), ...(await crownTax(db, f.seller, f.coin, stallId(f.town, f.seller)))];
+    const sold = [statStmt(db, f.seller, 'sold', f.coin), ...(await crownTax(db, f.seller, f.coin, stallId(f.town, f.seller))), ...(await cappedStmts(db, f.seller, f.coin * FAVOUR_EARN.sold, 'sold', f.now))]; // W-111 a trader's level
     const [sa, ba] = await Promise.all([allianceOf(db, f.seller), allianceOf(db, f.buyer)]);
     if (sa === null || ba === null || sa === ba) return { score: 0, stmts: sold };
     const vol = await peacePoints(db, sa, 'volume', f.coin / PEACE.volume, f.now);

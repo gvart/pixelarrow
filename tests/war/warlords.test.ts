@@ -179,7 +179,6 @@ describe('warlords: beaten piece by piece', () => {
     expect(holds(x)).toHaveLength(0);
     const freed = x.notes.find((n) => n.what === 'freed')!;
     expect(freed).toMatchObject({ place: h.place, warlord: W.id });
-    expect(freed.near).toContain('p:1');
     expect(men(x, me)).toBeGreaterThanOrEqual(6);
     expect((x.sim.snapshot().piles ?? []).length).toBeGreaterThan(0);
     x.sim.order({ kind: 'claimRegion', squad: me, point: 0 });

@@ -1,26 +1,23 @@
 /**
- * W-66 divine favour: the level curve, the bonus and its caps, earning from each source (fights, guardians, tasks,
- * stories, encounters, lairs, land) and claimSoul raising a man with his player's bonus.
+ * W-66, W-84 the demigod's level: the curve, earning from each source (fights, guardians, tasks, stories, encounters,
+ * lairs, land). By path: ./perks.test.ts.
  */
 import { env } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
 import { api, devLogin } from '../helpers';
 import { addFavour, encounterFavour, favourStmts, favourTick, fightFavour, getFavour, LAND_TICKS, landFavour, lairsCleared, storyFavour, FAVOUR_LOG } from '../../src/war/favour';
-import { applyFight, claimSoul, type PersonRow } from '../../src/war/persons';
+import { applyFight } from '../../src/war/persons';
+import { makePerson } from '../../../src/war/sim/roster';
 import { applyBossKill } from '../../src/war/bosses';
 import { claimTask, tallyStmt, tasksOf } from '../../src/war/tasks';
 import { joinAlliance } from '../../src/war/world/members';
-import { FAVOUR_ATTR_MAX, FAVOUR_EARN, FAVOUR_MAX, FAVOUR_XP, favourBonus, favourLevel, favourTitle, withFavour } from '../../../src/war/net/favour';
-import { makePerson } from '../../../src/war/sim/roster';
-import { POINTS_PER_LEVEL } from '../../../src/data/perks';
+import { FAVOUR_EARN, FAVOUR_MAX, FAVOUR_XP, favourLevel, favourTitle, HOUR_CAP } from '../../../src/war/net/favour';
 import type { FightReport, Snapshot } from '../../../src/war/types';
 
 const DB = () => env.DB!;
 const xpOf = async (pid: number) => (await getFavour(env, pid)).xp;
-const setXp = (pid: number, xp: number) =>
-  DB().prepare('INSERT INTO war_favour (player_id, xp, level, updated_at) VALUES (?1, ?2, ?3, 0) ON CONFLICT (player_id) DO UPDATE SET xp = ?2, level = ?3').bind(pid, xp, favourLevel(xp)).run();
 
-describe('the curve and the bonus', () => {
+describe('the curve', () => {
   it('level 2 at 200, level 10 at 16200, capped at FAVOUR_MAX', () => {
     expect(favourLevel(0)).toBe(1);
     expect(favourLevel(199)).toBe(1);
@@ -32,38 +29,14 @@ describe('the curve and the bonus', () => {
     expect(favourTitle(1)).toBe('Hero');
     expect(favourTitle(FAVOUR_MAX)).toBe('Olympian-touched');
   });
-
-  it('points at every third level, kit at 5 and 10; a max-level fresh man stays below a level 3-4 veteran', () => {
-    expect(favourBonus(1)).toEqual({ attr: 0, gearTier: 0 });
-    expect(favourBonus(2)).toEqual({ attr: 0, gearTier: 0 });
-    expect(favourBonus(3)).toEqual({ attr: 1, gearTier: 0 });
-    expect(favourBonus(5)).toEqual({ attr: 1, gearTier: 1 });
-    expect(favourBonus(6)).toEqual({ attr: 2, gearTier: 1 });
-    expect(favourBonus(9)).toEqual({ attr: 3, gearTier: 1 });
-    expect(favourBonus(10)).toEqual({ attr: 3, gearTier: 2 });
-    const max = favourBonus(FAVOUR_MAX);
-    expect(max).toEqual({ attr: FAVOUR_ATTR_MAX, gearTier: 2 });
-    expect(favourBonus(99)).toEqual(max);
-    // a level 4 veteran has 3 levels of points (and a skill at 3, and his deeds)
-    expect(max.attr).toBeLessThan(3 * POINTS_PER_LEVEL);
-    // the kit: common -> uncommon -> rare, never past it
-    const p = makePerson('fav-kit', 'hoplite');
-    expect(Object.values(p.hero.equip).every((it) => it!.rarity === 'common')).toBe(true);
-    const q = withFavour(p, favourBonus(5)), r = withFavour(p, max);
-    expect(Object.values(q.hero.equip).every((it) => it!.rarity === 'uncommon')).toBe(true);
-    expect(Object.values(r.hero.equip).every((it) => it!.rarity === 'rare')).toBe(true);
-    expect(r.hero.points).toBe(p.hero.points + FAVOUR_ATTR_MAX);
-    expect(p.hero.equip.weapon!.rarity).toBe('common'); // pure
-    expect(withFavour(p, favourBonus(1))).toBe(p);
-  });
 });
 
 describe('earning', () => {
   it('adds up, levels up in D1, keeps the newest FAVOUR_LOG rows; GET /api/war/favour', async () => {
     const me = await devLogin(6601);
     expect(await getFavour(env, me.playerId)).toMatchObject({ xp: 0, level: 1, title: 'Hero', next: 200, recent: [] });
-    expect(await addFavour(env, me.playerId, 150, 'win')).toBe(150);
-    expect(await addFavour(env, me.playerId, 0, 'win')).toBe(0);
+    await addFavour(env, me.playerId, 150, 'win');
+    await addFavour(env, me.playerId, 0, 'win');
     await addFavour(env, me.playerId, 60, 'task');
     const row = await DB().prepare('SELECT xp, level FROM war_favour WHERE player_id = ?1').bind(me.playerId).first();
     expect(row).toEqual({ xp: 210, level: 2 });
@@ -77,7 +50,7 @@ describe('earning', () => {
     expect((await DB().prepare('SELECT level FROM war_favour WHERE player_id = ?1').bind(me.playerId).first<{ level: number }>())!.level).toBe(favourLevel(20235));
     const r = await api('/api/war/favour', { token: me.token });
     expect(r.status).toBe(200);
-    expect(await r.json()).toMatchObject({ xp: 20235, level: 11, title: favourTitle(11), bonus: favourBonus(11) });
+    expect(await r.json()).toMatchObject({ xp: 20235, level: 11, title: favourTitle(11) });
     expect((await api('/api/war/favour')).status).toBe(401);
   });
 
@@ -161,32 +134,15 @@ describe('earning', () => {
     expect(await xpOf(far.playerId)).toBe(L.claim);
     // the hour's cap across regions
     const t = Date.UTC(2031, 0, 6, 12, 5);
-    let got = 0;
-    for (let i = 0; i < 20; i++) got += await addFavour(env, far.playerId, 4, 'land', t);
-    expect(got).toBe(L.hourCap);
-    expect(await addFavour(env, far.playerId, 4, 'land', t + 3_600_000)).toBe(4);
+    const was = await xpOf(far.playerId);
+    for (let i = 0; i < 20; i++) await addFavour(env, far.playerId, 4, 'land', t);
+    expect(await xpOf(far.playerId)).toBe(was + HOUR_CAP.land!);
+    await addFavour(env, far.playerId, 4, 'land', t + 3_600_000);
+    expect(await xpOf(far.playerId)).toBe(was + HOUR_CAP.land! + 4);
   });
 });
 
-describe('claimSoul with favour', () => {
-  it('a claimed soul takes his player\'s bonus (points, kit) in D1 and in the person the room holds', async () => {
-    const me = await devLogin(6609);
-    const plain = makePerson('soul-fav-0', 'hoplite');
-    expect(await claimSoul(DB(), me.playerId, plain, 'test-ridge', Date.now())).toBe(true);
-    const row0 = await DB().prepare('SELECT points, gear FROM war_persons WHERE id = ?1').bind('soul-fav-0').first<PersonRow>();
-    expect(row0!.points).toBe(0);
-    await setXp(me.playerId, FAVOUR_XP[10]);
-    const p = makePerson('soul-fav-1', 'hoplite');
-    expect(await claimSoul(DB(), me.playerId, p, 'test-ridge', Date.now())).toBe(true);
-    const row = await DB().prepare('SELECT points, gear FROM war_persons WHERE id = ?1').bind('soul-fav-1').first<PersonRow>();
-    expect(row!.points).toBe(favourBonus(10).attr);
-    const gear = JSON.parse(row!.gear) as Record<string, { rarity: string }>;
-    expect(Object.values(gear).every((it) => it.rarity === 'rare')).toBe(true);
-    // the DO hands the room this same person (setPerson)
-    expect(p.hero.points).toBe(favourBonus(10).attr);
-    expect(p.hero.equip.weapon!.rarity).toBe('rare');
-  });
-
+describe('favourStmts', () => {
   it('favourStmts writes nothing for nothing', () => {
     expect(favourStmts(DB(), 1, 0, 'win', 0)).toEqual([]);
   });

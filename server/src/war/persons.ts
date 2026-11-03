@@ -53,8 +53,8 @@ import { trophies, type Trophy } from './bosses';
 import { ApiError } from '../errors';
 import { STAT_SEASON } from './peace';
 import { randomToken } from './store';
-import { raiseBonus, settleTunnelFor, type TunnelView } from './raise';
-import { fightFavourStmts, withFavour } from './favour';
+import { settleTunnelFor, type TunnelView } from './raise';
+import { fightFavourStmts } from './favour';
 import { batch, ensureHolder, goodsOf, HOME, itemsIn, lotsOf, pay as payFrom, placeItemStmt, planTake, putStmt, strongroom } from './holders';
 import { askAt, CAPTIVE } from '../../../src/war/sim/captives';
 import { releaseDue, toSouls, type SoulSpawn } from './captives';
@@ -363,6 +363,7 @@ export async function joinCheck(db: D1Database, pid: number, cls: string): Promi
 /** The API's refusal for a man his path will not take. */
 export function joinError(why: JoinRefusal, name: string): ApiError {
   if (why === 'family') return new ApiError(409, 'wrong_family', `${name} is not of your people`);
+  if (why === 'locked') return new ApiError(409, 'class_locked', `${name} will not follow you yet: a higher level first`);
   return why === 'household' ? new ApiError(409, 'household_full', 'Your household is full') : new ApiError(409, 'army_full', 'Your army is full');
 }
 
@@ -412,7 +413,7 @@ export async function movePerson(db: D1Database, id: string, to: number, o: { fr
 
 /**
  * W-60: a soul the player's squad claimed in `region` (src/war/sim/souls.ts) becomes his man there: active, deployed in
- * that region, the class and level he woke with (W-66: plus ./raise.ts raiseBonus). Only if his path may hold him (W-101)
+ * that region, the class and level he woke with. Only if his path may hold him (W-101)
  * and under its cap, checked in the insert itself (two claims at once cannot pass it); false: refused, nothing written.
  */
 export async function claimSoul(db: D1Database, pid: number, p: WarPerson, region: string, now: number): Promise<boolean> {
@@ -420,7 +421,6 @@ export async function claimSoul(db: D1Database, pid: number, p: WarPerson, regio
   if (await db.prepare("SELECT 1 FROM war_persons WHERE id = ?1 AND state = 'soul'").bind(p.id).first()) return movePerson(db, p.id, pid, { from: 'soul', region, gear: p.hero.equip }, now);
   const way = await pathOf(db, pid);
   if (!mayHold(way, p.hero.cls ?? 'militia')) return false;
-  Object.assign(p, withFavour(p, await raiseBonus(db, pid))); // W-66: his player's favour bonus (the DO hands the live man the same)
   const r = await insertCapped(db, pid, p, region, soldierCap(way.path), now).run();
   return (r.meta?.changes ?? 0) > 0;
 }

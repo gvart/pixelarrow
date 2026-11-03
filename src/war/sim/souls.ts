@@ -46,12 +46,12 @@ export const SOUL = {
   stormMax: 10,
 };
 
-/** The classes a site wakes, by kind (the six with war sprites). */
+/** The classes a site wakes, by kind (W-113: every family at every site, the stronger classes at the rougher ones). */
 export const SOUL_CLASSES: Record<SoulSite, readonly string[]> = {
-  shrine: ['hoplite', 'archer', 'militia'],
-  ruin: ['militia', 'slinger', 'javelineer'],
-  battlefield: ['hoplite', 'celt_sword', 'archer', 'javelineer'],
-  lair: ['celt_sword', 'hoplite', 'archer'],
+  shrine: ['hoplite', 'archer', 'militia', 'celt_sword', 'thureophoros'],
+  ruin: ['militia', 'slinger', 'javelineer', 'celt_sword', 'thureophoros', 'peltast'],
+  battlefield: ['hoplite', 'celt_sword', 'archer', 'javelineer', 'thureophoros', 'falx', 'peltast'],
+  lair: ['celt_sword', 'hoplite', 'archer', 'thureophoros', 'falx', 'fanatic'],
 };
 /** Base level by site; + half the region's depth (rounded down), at most SOUL_LEVEL_MAX. */
 export const SOUL_LEVEL: Record<SoulSite, number> = { shrine: 1, ruin: 1, battlefield: 2, lair: 3 };

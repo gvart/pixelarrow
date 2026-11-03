@@ -109,12 +109,11 @@ export const WARLORD = {
    * W-133: he picks what stands empty within `guard` tiles, else what fewer men than his party hold; a cart only with none.
    */
   raid: { every: 12000, maxDiv: 3, warn: 600, men: [5, 5, 7, 7, 7], perPlayer: 2, max: 12, reach: 110, guard: 16, cartGuard: 10, stay: 900, at: 5 },
-  /** Loot (x(1 + per x depth)) and favour; players with men within `near` tiles share the favour. */
+  /** Loot (x(1 + per x depth)). */
   loot: {
     holding: { coin: 24, goods: 3, per: 0.5 },
     lord: { coin: 120, goods: 8, per: 0.5, rarity: [['uncommon', 50], ['rare', 40], ['epic', 10]] as readonly (readonly [Rarity, number])[] },
   },
-  favour: { holding: 60, lord: 200, near: 20 },
   /** Warlord men in one region at most. */
   cap: 60,
   /** A band is on its place within this many tiles. */

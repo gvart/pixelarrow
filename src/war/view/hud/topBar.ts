@@ -5,7 +5,7 @@
  *            the region; a click opens the squad chest (I)
  *   centre   a plaque: the region's name; online the season, its day and the time left (GET /api/war/world each
  *            minute), offline the sandbox's clock
- *   right    divine favour (level, title and the way to the next level; a click opens its window, ./favour.ts), the
+ *   right    your level (level, title and the way to the next; a click opens its window, ./favour.ts), the
  *            menu buttons (World, Replay, Holdings, Works, Crown, Tasks: ./kit.ts menuBtn fills the slot), Settings
  * Panels anchored at the top sit below it (./theme.ts, --hud-top).
  */
@@ -91,7 +91,7 @@ export function mountTopBar(s: SandboxScene, tipOn: TipOn): { el: HTMLElement; r
   fav.onclick = () => document.getElementById('rfFavourBtn')?.click();
   tipOn(fav, () => {
     const v = favourNow();
-    return tipHtml(`Divine favour · level ${v.level}`, `${esc(v.title)}: it makes the men you raise better. ${v.next === null ? 'The highest level.' : `${v.xp} / ${v.next} favour to level ${v.level + 1}.`}`, keys.label('panel.favour'));
+    return tipHtml(`Your perks · level ${v.level}`, `${esc(v.title)}: your level opens your path's perks. ${v.next === null ? 'The highest level.' : `${v.xp} / ${v.next} favour to level ${v.level + 1}.`}`, keys.label('panel.favour'));
   });
   const gear = $<HTMLButtonElement>('.tb-gear');
   // the settings open on their key (the game menu's handler, ../../menu/gameMenu.ts, with the page's hooks)

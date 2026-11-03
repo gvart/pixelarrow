@@ -748,7 +748,20 @@ export class WarRoom {
 
   /** W-85, W-101: the player's path (the DO reads D1); the soul gate and the cart cap read it. */
   setPath(pid: number, way: PlayerPath): void {
+    const was = this.paths.get(pid)?.level ?? 1;
     this.paths.set(pid, way);
+    if ((way.level ?? 1) !== was) this.sim.refreshPerks(`p:${pid}`); // W-84: his men here take his new perks
+  }
+
+  /** W-84: the players whose demigod level this room keeps. */
+  pathPlayers(): number[] {
+    return [...this.paths.keys()];
+  }
+
+  /** W-84: a player's level changed somewhere (the DO's poll). */
+  setLevel(pid: number, level: number): void {
+    const way = this.paths.get(pid);
+    if (way) this.setPath(pid, { ...way, level });
   }
 
   /** W-60: the player's fighters now (the DO reads D1); the soul gate counts on it. */
