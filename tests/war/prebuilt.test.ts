@@ -65,11 +65,16 @@ describe('M7a pieces', () => {
 });
 
 describe('M7a functions', () => {
-  it('houses give the owner a recruit pool and cap; temple favour and statue prestige an hour (capped)', () => {
+  it('houses give the owner a recruit pool and cap; temple favour (W-88: with someone at it) and statue prestige an hour (capped)', () => {
     const sim = createSim(town(), 3);
     expect(sim.population(0)).toEqual({ rate: 0, cap: 0 });
     sim.claim(0, 20, 20, 14);
     expect(sim.population(0)).toEqual({ rate: 1, cap: 4 });
+    run(sim, 12);
+    expect(sim.prestige(0)).toBeCloseTo(0.1); // an empty temple earns nothing; a statue just stands
+    const temple = sim.snapshot().buildings!.find((b) => b.type === 'temple')!;
+    sim.spawnSquad('a', 0, 'militia', 1, temple.x + temple.w / 2 + 1, temple.y);
+    run(sim, 12);
     expect(sim.prestige(0)).toBeCloseTo(0.25 + 0.1);
     expect(sim.towns().find((t) => t.claim === 0)).toMatchObject({ team: 0, houses: 2, standing: 2, ruined: false });
     // a house down: its rate and cap go; both and the temple: the town is ruined (no pool, no favour)

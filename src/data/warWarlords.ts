@@ -108,7 +108,7 @@ export const WARLORD = {
    * W-79: led by a lieutenant, one more man at depth 1-2 (4 plain bandits died to 6 guards without felling one).
    * W-81: a building is guarded (no raid) only with `guarded` or more fit men within `guard` tiles; a cart with any.
    */
-  raid: { every: 12000, maxDiv: 3, warn: 600, men: [5, 5, 7, 7, 7], perPlayer: 2, max: 12, reach: 110, guard: 16, guarded: 4, cartGuard: 10, stay: 900, at: 5 },
+  raid: { every: 12000, maxDiv: 3, warn: 600, men: [5, 5, 7, 7, 7], perPlayer: 2, max: 12, reach: 110, guard: 16, cartGuard: 10, stay: 900, at: 5 },
   /** Loot (x(1 + per x depth)) and favour; players with men within `near` tiles share the favour. */
   loot: {
     holding: { coin: 24, goods: 3, per: 0.5 },

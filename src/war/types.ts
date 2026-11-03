@@ -154,6 +154,7 @@ type SquadOrder =
   | { kind: 'turnSquad'; squad: SquadId; team: number }
   | { kind: 'rebanner'; centre: number; team: number; squad?: undefined }
   | CraftOrder
+  | AccessOrder
   | TradeOrder;
 /**
  * M6 trade (src/war/sim/trade.ts). load: the squad's men walk to a holder and each takes a load into his pack every
@@ -183,10 +184,14 @@ export type TradeOrder =
  * team stock, dishes and remedies to the team's supplies.
  */
 export type CraftOrder =
-  | { kind: 'craft'; squad?: undefined; team: number; building: number; recipe: string }
+  | { kind: 'craft'; squad?: undefined; team: number; building: number; recipe: string; by?: string }
   | { kind: 'cancelCraft'; squad?: undefined; team: number; building: number; order: number }
   | { kind: 'repair'; squad?: undefined; team: number; building: number; owner: string; item: Item }
   | { kind: 'salvage'; squad?: undefined; team: number; building: number; owner: string; item: Item };
+/** W-89: who may use a building a player owns (src/war/sim/economy.ts ACCESS), narrowest first. */
+export type Access = 'private' | 'household' | 'alliance' | 'anyone';
+/** W-89: its owner sets who may use it and what he keeps (share of the output 0..TERMS.share, or a coin fee an order). */
+export type AccessOrder = { kind: 'setAccess'; squad?: undefined; building: number; owner?: string; access?: Access; share?: number; fee?: number };
 // --- M2c siege (src/war/sim/siege.ts, fire and breaches in works.ts; docs/impl/global-war-rebuild.md W-29) ---
 export type SiegeType = 'ram' | 'stoneThrower' | 'siegeLadder' | 'mantlet' | 'coveredRam' | 'oxybeles' | 'siegeTower'
   // M6b carts (built at a workshop, a player's; trade.ts CART): a handcart pulled by 2 men, a wagon with a driver
@@ -495,8 +500,8 @@ export type BuildingType =
   // M5h workplaces (docs/WAR.md "Workplaces"): chains of 3 levels by `upgrade`; the sorting floor upgrades a storehouse
   | 'forge' | 'forge2' | 'forge3' | 'cookhouse' | 'cookhouse2' | 'cookhouse3' | 'infirmary' | 'infirmary2' | 'infirmary3'
   | 'workshop' | 'workshop2' | 'workshop3' | 'stall' | 'stall2' | 'stall3' | 'sortingFloor' | 'sortingFloor2'
-  // M6a: a player's chest (1x1, owner-only, never feeds crafting)
-  | 'chest'
+  // M6a: a player's chest (1x1, owner-only, never feeds crafting); W-90: his private house (a bigger chest with a lock)
+  | 'chest' | 'privateHouse'
   // M7a pre-built pieces (docs/WAR.md "Pre-built structures"; placed only by the region, rebuilt from ruins)
   | 'house' | 'cottage' | 'tent' | 'temple' | 'shrine' | 'stoa' | 'statue' | 'well' | 'jetty' | 'warehouse' | 'board' | 'cache'
   // W-66: the Tunnel of Shades in every home town (src/war/sim/tunnel.ts: the fallen walk back through it)
@@ -583,6 +588,10 @@ export interface BuildingSnap {
   queue?: QueueSnap[];
   /** M6a: a store's or chest's goods and item count; a chest's owner. */
   goods?: Partial<Record<GoodKind, number>>; items?: number; owner?: string;
+  /** W-88: a man of its side is at it now. W-89 (a building a player owns): who may use it, his share of the output, his fee an order. */
+  staffed?: true; access?: Access; share?: number; fee?: number;
+  /** W-91: its door: hit points left of `lockMax` (a house or store; 0: broken). */
+  lock?: number; lockMax?: number;
   /** M7a: a pre-built piece (landmark: restored only by its rule); a ruin (rubble, no function; rebuilt by its ground's owner); a fouled well; under repair. */
   pre?: true; landmark?: true; ruin?: true; fouled?: true; mend?: true;
   /** Demolish ordered: how far the tear-down is (0..1); it comes down at 1 (src/war/sim/economy.ts DEMOLISH). */
@@ -627,6 +636,10 @@ export interface WarBuildSim extends WarSim {
   /** `at`: into or out of the stores by that point (addAt / takeAt), else the home strongroom. */
   addStock(team: number, res: GoodKind, n: number, at?: { x: number; y: number }): void;
   damageBuilding(id: number, dmg: number): void;
+  /** W-89: may this player of this team use building id (its access)? */
+  mayUse(id: number, owner: string, team: number): boolean;
+  /** W-89 household: the host says who belongs to an owner's household (his citizens, his vassals). */
+  setTies(fn: (owner: string, other: string) => boolean): void;
   /** Scenarios: the team's unfinished bridge pieces done at once (standing bridges at the start). */
   finishBridges(team: number): void;
   /** Dev: site `id` done at once (materials and labour free); false when it is no open site. */
@@ -815,6 +828,8 @@ export type WarEvent =
   | { t: number; kind: 'pickup'; drop: number; team: number; items: number }
   // M6b: a cart taken by `team` (its new owner `owner`)
   | { t: number; kind: 'cartCaptured'; cart: number; team: number; owner: string }
+  /** W-91: men are breaking the door of a house or store (at the first blow, again every LOCK.tell ticks); it has given way. */
+  | { t: number; kind: 'lockAttacked' | 'lockBroken'; building: number; type: BuildingType; x: number; y: number; team: number; owner: string; by: number }
   | { t: number; kind: 'capture'; unit: UnitId; pid: string; captor: number }
   | { t: number; kind: 'levelUp'; unit: UnitId; pid: string; level: number }
   // M5e: a holding building (fort, camp) of `team` raided: foe soldiers `by` reached it with none of its team near, or it fell

@@ -80,7 +80,7 @@ import { GatherWatch } from './taskWatch';
 import type { TaskMetric } from '../../../src/war/net/tasks';
 import { ALLIANCES as ALLIANCE_LIST } from '../../../src/war/world/alliances';
 import { BUILDINGS } from '../../../src/war/sim/economy';
-import { bannerOf, buildRefusal, netOf, ownBuildings, piecesOf, storesOf, type Persist, type Piece, type RoomSettlement } from './roomSettlements';
+import { bannerOf, buildRefusal, householdOf, netOf, ownBuildings, piecesOf, storesOf, type Persist, type Piece, type RoomSettlement } from './roomSettlements';
 import { SETTLE } from './settlements';
 import type { SettlementNet } from '../../../src/war/net/protocol';
 
@@ -161,6 +161,8 @@ export interface RoomState {
 export interface FoundReq { centre: number; x: number; y: number; lord: number }
 /** A held claim point being taken: its holder hears it (once per ATTACK_COOLDOWN a point and attacker). */
 export interface ClaimTaking { point: number; holder: number; by: number }
+/** W-91: a door under attack or given way, for its owner (the DO tells him, online or not). */
+export type LockEvent = Extract<WarEvent, { kind: 'lockAttacked' | 'lockBroken' }>;
 /**
  * W-63: what the room saw this tick of the settlements: camps to found, attacks on them (player `by`, settlement
  * `victim`); and held claim points being taken (`taking`).
@@ -861,7 +863,7 @@ export class WarRoom {
     if (squad !== undefined && this.owners[squad] !== me) return 'notOwner';
     // W-53: every man named must be his (in any of his squads), as the last snapshot shows him
     if (o.units?.some((id) => { const u = this.snap.units[id]?.id === id ? this.snap.units[id] : this.snap.units.find((x) => x.id === id); return !u || this.owners[u.squad] !== me; })) return 'notOwner';
-    if (squad === undefined && o.kind !== 'cancelSite' && o.kind !== 'placeBuilding' && o.kind !== 'placeWall' && o.kind !== 'placeBridge' && o.kind !== 'upgrade' && o.kind !== 'demolish' && o.kind !== 'craft' && o.kind !== 'cancelCraft' && o.kind !== 'fortify') return 'bad';
+    if (squad === undefined && o.kind !== 'cancelSite' && o.kind !== 'placeBuilding' && o.kind !== 'placeWall' && o.kind !== 'placeBridge' && o.kind !== 'upgrade' && o.kind !== 'demolish' && o.kind !== 'craft' && o.kind !== 'cancelCraft' && o.kind !== 'fortify' && o.kind !== 'setAccess') return 'bad';
     const inside = (x: number, y: number) => x >= 0 && y >= 0 && x < this.region.w && y < this.region.h;
     const allIn = (a?: number[]) => !a || a.every((v, i) => (i % 2 ? v < this.region.h : v < this.region.w) && v >= 0);
     const ownSite = (id: number) => this.snap.buildings?.find((b) => b.id === id)?.team === p.team;
@@ -877,7 +879,14 @@ export class WarRoom {
       }
       const b = h.building !== undefined ? building(h.building) : undefined;
       if (!b) return false;
-      return !put || (b.type === 'chest' ? b.owner === me : b.team === p.team);
+      return !put || (BUILDINGS[b.type].chest && !BUILDINGS[b.type].house ? b.owner === me : this.sim.mayUse(b.id, me, p.team));
+    };
+    /** W-89: a building a player owns is his to tear down or change; what its access lets him in to, he may work. */
+    const notHis = (id: number) => { const b = this.snap.buildings?.find((x) => x.id === id); return !!b?.owner && b.owner !== me; };
+    const shut = (id: number): OrderError => {
+      if (!this.snap.buildings?.some((b) => b.id === id)) return 'badTarget';
+      this.refusal = 'Its owner keeps it closed to you';
+      return 'notAllowed';
     };
     switch (o.kind) {
       case 'attack':
@@ -908,14 +917,20 @@ export class WarRoom {
       case 'cancelSite':
         if (!ownSite(o.site)) return 'badTarget';
         break;
+      case 'setAccess':
+        if (notHis(o.building) || !this.snap.buildings?.find((b) => b.id === o.building)?.owner) return 'notOwner';
+        break;
+      case 'civWork':
+      case 'craft': // M5h: a workplace his team's, or (W-89) one whose owner lets him in
+        if (!this.sim.mayUse(o.building, me, p.team)) return shut(o.building);
+        break;
       case 'upgrade':
       case 'demolish':
       case 'build':
-      case 'civWork':
-      case 'craft': // M5h: a workplace of his team
       case 'cancelCraft':
       case 'fortify': // M5h3: a building of his team
         if (!ownSite(o.kind === 'build' ? o.site : o.building)) return 'badTarget';
+        if ((o.kind === 'upgrade' || o.kind === 'demolish') && notHis(o.building)) return 'notOwner';
         break;
       case 'load':
         if (!holder(o.from, false)) return 'badTarget';
@@ -940,7 +955,7 @@ export class WarRoom {
     const why = this.groundRefusal(pid, p.team, o);
     if (why) return (this.refusal = why), 'notYourGround';
     if (o.kind === 'placeBuilding' && (o.type === 'camp' || o.type === 'fort')) this.pendingCamps.push({ pid, team: p.team, type: o.type, x: o.x, y: o.y, tick: this.currentTick });
-    const sent = (squad === undefined && o.kind !== 'cancelSite' ? { ...o, team: p.team } : o) as Order;
+    const sent = (o.kind === 'setAccess' ? { ...o, owner: me } : o.kind === 'craft' ? { ...o, team: p.team, by: me } : squad === undefined && o.kind !== 'cancelSite' ? { ...o, team: p.team } : o) as Order;
     if (squad !== undefined) this.bots.clear(squad);
     this.sim.order(sent);
     this.log.push({ tick: this.currentTick, o: sent });
@@ -956,6 +971,7 @@ export class WarRoom {
     const p = this.players.get(pid);
     if (!p?.online) return 'notJoined';
     if (this.snap.buildings?.find((b) => b.id === building)?.team !== p.team) return 'badTarget';
+    if (!this.sim.mayUse(building, ownerOf(pid), p.team)) return 'notAllowed';
     if (this.mends.some((m) => m.uid === item.uid)) return 'bad';
     const o: Order = { kind, team: p.team, building, owner: ownerOf(pid), item };
     this.sim.order(o);
@@ -1228,7 +1244,7 @@ export class WarRoom {
     return labour.length || guards.length || works.length ? { labour, guards, works } : null;
   }
 
-  tick(now: () => number = () => 0): { frames: Map<number, Uint8Array>; msgs: Map<number, ServerMsg[]>; admitted: Map<number, ServerMsg>; fights: Fight[]; crafted: Crafted[]; bosses: BossSlain[]; sacrilege: number[]; freed: string[]; raided: number[]; captured: { cart: number; from: string; team: number; to: string }[]; souls: SoulClaim[]; faded: string[]; peace: Peace | null; times: TickTimes; guided: GuideDone[]; storied: StoryDone[]; met: EncounterDone[]; wild: WildDeed[]; larder: { pid: number; goods: Record<string, number> }[]; gathered: [number, TaskMetric, number][]; settle: SettleOut | null; warlord: WarlordNote[] } {
+  tick(now: () => number = () => 0): { frames: Map<number, Uint8Array>; msgs: Map<number, ServerMsg[]>; admitted: Map<number, ServerMsg>; fights: Fight[]; crafted: Crafted[]; bosses: BossSlain[]; locks: LockEvent[]; sacrilege: number[]; freed: string[]; raided: number[]; captured: { cart: number; from: string; team: number; to: string }[]; souls: SoulClaim[]; faded: string[]; peace: Peace | null; times: TickTimes; guided: GuideDone[]; storied: StoryDone[]; met: EncounterDone[]; wild: WildDeed[]; larder: { pid: number; goods: Record<string, number> }[]; gathered: [number, TaskMetric, number][]; settle: SettleOut | null; warlord: WarlordNote[] } {
     const t0 = now();
     // M6i: carts' owners before the step (a capture names only the taker)
     const cartWas = new Map((this.snap.sieges ?? []).filter((e) => e.owner !== undefined).map((e) => [e.id, { owner: e.owner!, team: e.team }]));
@@ -1367,7 +1383,7 @@ export class WarRoom {
     for (const [pid, ms] of this.later) if (this.players.get(pid)?.online) for (const m of ms) tell(pid, m);
     this.later.clear();
     this.lastTick = this.snap.tick;
-    return { frames, msgs, admitted, fights, crafted, bosses, sacrilege, freed, raided, captured, souls, faded, guided: g.done, storied: st.done, met: en.done, wild: wildDeeds(this.snap, evs, this.wildSeen), larder: this.drainDrawn(), peace: this.peace(), gathered: tick % LABOUR_EVERY === 0 ? this.gather.drain() : [], settle, warlord, times: { stepMs: t1 - t0, snapMs: t2 - t1, netMs: now() - t2 } };
+    return { frames, msgs, admitted, fights, crafted, bosses, sacrilege, freed, raided, locks: evs.filter((e): e is LockEvent => e.kind === 'lockAttacked' || e.kind === 'lockBroken'), captured, souls, faded, guided: g.done, storied: st.done, met: en.done, wild: wildDeeds(this.snap, evs, this.wildSeen), larder: this.drainDrawn(), peace: this.peace(), gathered: tick % LABOUR_EVERY === 0 ? this.gather.drain() : [], settle, warlord, times: { stepMs: t1 - t0, snapMs: t2 - t1, netMs: now() - t2 } };
   }
 
   /**
@@ -1554,6 +1570,7 @@ export class WarRoom {
   /** The region's settlements (the DO's D1 poll). Towns and squads whose banner changed turn now, in id order (logged orders). */
   setSettlements(list: readonly RoomSettlement[]): void {
     this.settles = [...list].sort((a, b) => a.id - b.id);
+    this.sim.setTies(householdOf(this.settles));
     for (const s of this.settles) {
       if (s.team === null || s.team >= this.per.length) continue;
       const t = this.snap.townLevels?.find((x) => x.id === s.centre);

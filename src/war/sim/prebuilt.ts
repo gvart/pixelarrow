@@ -5,10 +5,10 @@
  * bandit host holds the region; a piece brought to 0 hp is a ruin until its ground's owner rebuilds it).
  *
  * Only the owner (an alliance team, never neutral or mob) uses a piece's function:
- *  - houses, cottages, tents: population, the town's recruit pool an hour and its cap (the server's recruit pool) and
- *    room for as many more civilians on the field;
+ *  - houses, cottages, tents: part of the town's standing (W-60: men join as souls, not from houses) and room for as many
+ *    more civilians on the field;
  *  - temples and shrines: a squad of the owner standing in the precinct BLESS.stand ticks is blessed BLESS.ticks
- *    (wounded share + BLESS.share, healing x BLESS.heal); favour (score an hour, the server);
+ *    (wounded share + BLESS.share, healing x BLESS.heal); favour (score an hour, the server) only while someone is there (W-88);
  *  - statues: prestige (score an hour); favour and prestige together at most PRESTIGE_CAP an hour a team;
  *  - wells: own squads resting near pay upkeep x WELL.upkeep (the server asks upkeepAt), fires near are beaten out
  *    x WELL.douse faster; a foe standing beside one WELL.foul ticks fouls it for WELL.fouled ticks (no function);
@@ -81,7 +81,7 @@ export function createTowns(works: Works, host: PreHost) {
           if (up(b)) (standing++, (pool += f.pop), (cap += f.cap ?? 0));
         }
         if (b.type === 'temple') (temples++, up(b) && templesUp++);
-        if (up(b)) (favour += f.favour ?? 0), (prestige += f.prestige ?? 0);
+        if (up(b)) (favour += b.staff ? f.favour ?? 0 : 0), (prestige += f.prestige ?? 0); // W-88: a temple or shrine needs a priest there; a statue just stands
       }
       const ruined = houses > 0 && houses - standing >= houses * TOWN_RUIN && (temples === 0 || templesUp === 0);
       out.push({ claim: zone, team, houses, standing, pool: ruined ? 0 : pool, cap: ruined ? 0 : cap, favour: ruined ? 0 : favour, prestige, ruined });

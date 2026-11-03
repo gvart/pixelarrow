@@ -311,6 +311,13 @@ export function claimToast(a: { region: string; name: string; by: number; here: 
     <div class="rf-dim">${esc(by)} is at the banner${a.here ? ' here' : ''}. Any of your men within 28 m resets it.</div></div><button class="rf-tbtn x" data-sx="x">×</button>`;
 }
 
+/** W-91: men are breaking into his house or store (the world socket's lockAttacked). */
+export function lockToast(a: { region: string; name: string; what: string; broken: boolean; by: number }): string {
+  const where = worldRegion(a.region)?.name ?? a.name ?? a.region, by = ALLIANCES[a.by]?.name ?? 'Raiders', what = a.what === 'privateHouse' ? 'house' : a.what.replace(/[0-9]+$/, '').replace(/([A-Z])/g, ' $1').toLowerCase();
+  return `${glyph('ui:lock', 26)}<div class="sx-b"><div class="sx-t">${esc(where)}: ${a.broken ? `the door of your ${esc(what)} has given way!` : `men at the door of your ${esc(what)}!`}</div>
+    <div class="rf-dim">${esc(by)}. ${a.broken ? 'They take what they can carry.' : 'Nobody of yours is there to stop them.'}</div></div><button class="rf-tbtn x" data-sx="x">×</button>`;
+}
+
 /** A claim refused: a pact or truce with the point's holder. */
 export const peaceToast = (detail: string | undefined) => `${glyph('ui:laurel', 22)}<div class="sx-b"><div class="sx-t">You can't take this point</div><div class="rf-dim">${esc(detail || 'A pact or truce with its holder is in force')}</div></div><button class="rf-tbtn x" data-sx="x">×</button>`;
 

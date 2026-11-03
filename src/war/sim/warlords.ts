@@ -35,7 +35,7 @@ interface Place { key: string; x: number; y: number; lair: boolean }
 /** squad: its garrison; extra: men home from a raid with no room in it (they hold beside it); lt: the first man (the lord in his hall). */
 interface Hold { place: string; x: number; y: number; squad: SquadId; extra: SquadId[]; state: 'marching' | 'held'; since: number; lt: UnitId; hall: boolean; at: number }
 /** A party on the move: reinforcements for a holding, or a raid (warned, marching, at its target, going home). */
-interface Party { squad: SquadId; to: string; at: number; raid?: { phase: 'march' | 'hit' | 'home'; x: number; y: number; building?: number; siege?: number; until: number; team: number } }
+interface Party { squad: SquadId; to: string; at: number; raid?: { phase: 'march' | 'hit' | 'home'; x: number; y: number; building?: number; siege?: number; until: number; team: number; loot?: boolean } }
 interface Warning { x: number; y: number; team: number; building?: number; siege?: number; from: string; at: number; what: string }
 
 interface Lord {
@@ -248,15 +248,19 @@ export function createWarlords(region: RegionData, sim: WarBuildSim, bots: Bots,
         best = { x, y, team, from: h.place, at: tick + R.warn, ...w };
       }
     };
-    for (const b of snap.buildings ?? []) {
-      if (b.team < 0 || b.team >= ALLIANCES.length || (b.state !== 'done' && b.state !== 'damaged') || b.ruin || !RAIDABLE(b.type)) continue;
-      consider(b.x, b.y, b.team, R.guard, R.guarded, { building: b.id, what: thing(b.type) }); // W-81: a few men do not keep him off
-    }
-    if (!best)
-      for (const e of snap.sieges ?? []) {
-        if ((e.type !== 'handcart' && e.type !== 'wagon') || e.state === 'destroyed' || e.team === MOB_TEAM) continue;
-        consider(e.x, e.y, e.team, R.cartGuard, 1, { siege: e.id, what: e.type === 'wagon' ? 'wagon' : 'cart' });
+    // W-91: what stands empty first (nearest); else what fewer men hold than he would send: he does not fight an even battle
+    const party = Math.min(R.max, R.men[Math.min(depth, R.men.length - 1)] + R.perPlayer * (players - 1));
+    for (const held of [1, party]) {
+      for (const b of snap.buildings ?? []) {
+        if (b.team < 0 || b.team >= ALLIANCES.length || (b.state !== 'done' && b.state !== 'damaged') || b.ruin || !RAIDABLE(b.type)) continue;
+        consider(b.x, b.y, b.team, R.guard, held, { building: b.id, what: thing(b.type) });
       }
+      if (best) return best;
+    }
+    for (const e of snap.sieges ?? []) {
+        if ((e.type !== 'handcart' && e.type !== 'wagon') || e.state === 'destroyed' || e.team === MOB_TEAM) continue;
+      consider(e.x, e.y, e.team, R.cartGuard, 1, { siege: e.id, what: e.type === 'wagon' ? 'wagon' : 'cart' });
+    }
     return best;
   };
   const standing = (w: Warning | NonNullable<Party['raid']>) => {
@@ -355,7 +359,16 @@ export function createWarlords(region: RegionData, sim: WarBuildSim, bots: Bots,
         r.phase = 'hit';
         r.until = tick + WARLORD.raid.stay;
         bots.clear(pt.squad);
-        sim.order({ kind: 'attackBuilding', squad: pt.squad, ...(r.building !== undefined ? { building: r.building } : { siege: r.siege }) });
+        // W-91: goods behind a door: his men break in and fill their packs first (the time at the door is on top of the stay), then batter it
+        const goods = r.building !== undefined ? snap.buildings?.find((x) => x.id === r.building) : undefined;
+        if (goods?.goods && Object.values(goods.goods).some((n) => (n ?? 0) >= 1)) {
+          r.loot = true;
+          r.until += WARLORD.raid.stay;
+          sim.order({ kind: 'load', squad: pt.squad, from: { building: r.building! } });
+        } else sim.order({ kind: 'attackBuilding', squad: pt.squad, ...(r.building !== undefined ? { building: r.building } : { siege: r.siege }) });
+      } else if (r?.loot && r.phase === 'hit' && tick < r.until && standing(r) && snap.squads[pt.squad]?.order !== 'load') {
+        r.loot = false; // packs full (or the door kept them out): the rest of the stay at the walls
+        sim.order({ kind: 'attackBuilding', squad: pt.squad, building: r.building! });
       } else if (r && (r.phase === 'march' || r.phase === 'hit') && (tick >= r.until || !standing(r))) {
         r.phase = 'home';
         const home = h ?? l.holds.find((x) => x.state === 'held');

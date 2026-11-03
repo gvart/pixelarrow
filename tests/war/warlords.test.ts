@@ -4,6 +4,8 @@
  * Every expectation derives from WARLORDS, WARLORD and the world graph.
  */
 import { describe, expect, it } from 'vitest';
+import { CARRY } from '../../src/war/sim/economy';
+import { PORTER } from '../../src/war/sim/trade';
 import { createSim } from '../../src/war/sim';
 import { createBots, type Bots } from '../../src/war/sim/bots';
 import { createWarlords, type WarlordNote, type Warlords } from '../../src/war/sim/warlords';
@@ -289,16 +291,33 @@ describe('warlords: raids', () => {
     expect(site.hp).toBeLessThan(site.maxHp);
   });
 
-  it('W-81: a lightly guarded building (fewer than raid.guarded men) is raided and hurt', () => {
-    const { x, site } = raided(WARLORD.raid.guarded - 1);
+  it('W-91: a lightly held building (fewer men than he would send) is raided and hurt', () => {
+    const { x, site } = raided(WARLORD.raid.men[1] - 1);
     expect(x.notes.some((n) => n.what === 'raid')).toBe(true);
     expect(site.hp).toBeLessThan(site.maxHp);
   });
 
-  it('a guarded building is left alone', () => {
-    const { x, site } = raided(true);
+  it('W-91: one held as strongly as his party is left alone', () => {
+    const { x, site } = raided(WARLORD.raid.men[1]);
     expect(x.notes.some((n) => n.what === 'warn')).toBe(false);
     expect(site.hp).toBe(site.maxHp);
+  });
+
+  it('W-91: goods behind the door: his men break it, take what their packs hold, and no more', () => {
+    const x = setup(flat(MARCH, [[60, 80]]), WARLORD.grow.marchDay, 1);
+    x.sim.claim(0, 112, 80, 14);
+    x.sim.order({ kind: 'placeBuilding', team: 0, type: 'storehouse', x: 112, y: 80 });
+    run(x, 2);
+    const id = x.sim.snapshot().buildings!.find((b) => b.type === 'storehouse')!.id;
+    x.sim.finishSite(id);
+    x.sim.cargo({ building: id })!.slots[0].hold.lots.push({ r: 'wood', n: 1000, o: 't' });
+    run(x, WARLORD.raid.every + WARLORD.raid.warn * 2 + 6000);
+    const s = x.sim.snapshot().buildings!.find((b) => b.id === id)!;
+    expect(x.notes.some((n) => n.what === 'raid')).toBe(true);
+    expect(s.lock).toBeLessThan(s.lockMax!);
+    const taken = 1000 - (s.goods?.wood ?? 1000);
+    expect(taken).toBeLessThanOrEqual(WARLORD.raid.max * PORTER.loads * CARRY);
+    if (s.state !== 'destroyed') expect(s.goods?.wood).toBeGreaterThan(800);
   });
 
   it('his men never pass the region cap', () => {

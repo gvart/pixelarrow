@@ -225,6 +225,8 @@ export type WorldServerMsg =
   | { t: 'settlementAttacked'; settlement: number; name: string; region: string; by: number; broken: number[] }
   /** A claim point his alliance holds in `region` (named `name`) is being taken by alliance `by`. */
   | { t: 'claimAttacked'; region: string; name: string; point: number; by: number }
+  /** W-91: men are breaking the door of his house or store (broken: it has given way). */
+  | { t: 'lockAttacked'; region: string; name: string; what: string; broken: boolean; by: number }
   /** W-64: crown news for every member of the alliances concerned (elections, a new monarch, a pact or truce broken). */
   | { t: 'crownNews'; kind: CrownNewsKind; text: string; region?: string }
   | ChatServerMsg;

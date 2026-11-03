@@ -39,12 +39,13 @@
  *   server -> binary frame                                   (snapshot delta or keyframe; with the guardians his team sees)
  */
 import { z } from 'zod';
+import { ACCESS } from '../sim/economy';
 import { ARMY_MAX } from '../sim/soldiers';
 import type { NodeRow } from './economy';
 import type { BridgePlan, BuildingType, GoodKind, Order, PlaceResult, SquadId, TownLevelSnap, WallPlan } from '../types';
 
 /** Bumped on any wire change (messages or the binary frame layout). */
-export const NET_VERSION = 19;
+export const NET_VERSION = 20;
 /** Positions go out in 1/QUANT tile steps. */
 export const QUANT = 8;
 /** Ticks between keyframes (a full frame of what the client sees; deltas in between). */
@@ -68,7 +69,7 @@ const num = z.number().finite();
 const id = z.number().int().min(0).max(2 ** 31);
 /** Flat x,y tile points of a wall or bridge drag (and its towers, gates, inside point). */
 const pts = (max: number) => z.array(num).max(max * 2).refine((a) => a.length % 2 === 0, 'x,y pairs');
-const BUILDING_TYPES = ['camp', 'storehouse', 'outpost', 'fort', 'barracks', 'farm', 'olivePress', 'palisade', 'rampart', 'stoneWall', 'woodStairs', 'stoneStairs', 'ladder', 'woodTower', 'stoneTower', 'woodGate', 'stoneGate', 'woodBridge', 'stoneBridge', 'brazier', 'pitchKiln',
+const BUILDING_TYPES = ['privateHouse', 'camp', 'storehouse', 'outpost', 'fort', 'barracks', 'farm', 'olivePress', 'palisade', 'rampart', 'stoneWall', 'woodStairs', 'stoneStairs', 'ladder', 'woodTower', 'stoneTower', 'woodGate', 'stoneGate', 'woodBridge', 'stoneBridge', 'brazier', 'pitchKiln',
   // M5h workplaces (L2/L3 come by upgrade; listed for checks of every type)
   'forge', 'forge2', 'forge3', 'cookhouse', 'cookhouse2', 'cookhouse3', 'infirmary', 'infirmary2', 'infirmary3', 'workshop', 'workshop2', 'workshop3', 'stall', 'stall2', 'stall3', 'sortingFloor', 'sortingFloor2', 'chest',
   // M5h3 Fortifier field tiles; towerBridge (listed for checks: the sim never places one)
@@ -125,6 +126,8 @@ export const orderSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('cancelSite'), site: id }),
   // tear down a finished building of the player's team (a quarter of its materials back; the sim checks the rest)
   z.object({ kind: z.literal('demolish'), building: id }),
+  // W-89: the owner of a building sets who may use it and what he keeps (the room puts his name on it; the sim clamps the terms)
+  z.object({ kind: z.literal('setAccess'), building: id, access: z.enum(ACCESS).optional(), share: z.number().min(0).max(1).optional(), fee: z.number().min(0).max(100000).optional() }),
   z.object({ kind: z.literal('claimRegion'), squad: id, ...U, point: id }),
   // W-60: walk to soul `soul` and claim him (the room's gate: his path's, W-85, W-101)
   z.object({ kind: z.literal('claimSoul'), squad: id, ...U, soul: id }),
@@ -220,7 +223,7 @@ export type HandoffMsg = Extract<ClientMsg, { t: 'handoff' }>;
 export type Refusal = 'version' | 'region' | 'player' | 'team' | 'army' | 'squads' | 'quota';
 /** notYourGround (W-63): a build inside a settlement off the player's plot (its lord: on another's plot); the detail says why. */
 /** atPeace (W-64): a claim on a point held by an alliance his own has a pact or truce with; the detail says which. */
-export type OrderError = 'notOwner' | 'notJoined' | 'badTarget' | 'bad' | 'forbidden' | 'notYourGround' | 'atPeace';
+export type OrderError = 'notOwner' | 'notJoined' | 'badTarget' | 'bad' | 'forbidden' | 'notYourGround' | 'atPeace' | 'notAllowed';
 
 /**
  * W-63: a settlement of the region as its room sends it (server/src/war/settlements.ts): its centre piece and ground

@@ -31,8 +31,8 @@
  * higher bank) at BRIDGE.cost; unbuilt water stays closed. A piece brought to 0 hp (fire, stone throwers) collapses: its
  * tiles go back to water and `fall` drops the men on them.
  */
-import type { BridgeAxis, BridgeOrder, BridgePlan, BuildingSnap, BuildingType, BuildState, GoodKind, InfluenceMap, NodeSnap, PlaceReason, PlaceResult, RegionData, ResourceKind, WallOrder, WallPlan } from '../types';
-import { BRAZIER, BRIDGE, BUILDINGS, CHEST, FIELD, KILN, PINES, CANCEL_REFUND, DEMOLISH, CARRY, CLAIM_RADIUS, lineTiles, NEUTRAL_TEAM, rectTiles, REPAIR, RESOURCE_NODES, rotated, RUIN, SEGMENT, WALL_KIT, type BuildingDef, type Spot } from './economy';
+import type { Access, BridgeAxis, BridgeOrder, BridgePlan, BuildingSnap, BuildingType, BuildState, GoodKind, InfluenceMap, NodeSnap, PlaceReason, PlaceResult, RegionData, ResourceKind, WallOrder, WallPlan } from '../types';
+import { BRAZIER, BRIDGE, BUILDINGS, CHEST, FIELD, HOUSE, KILN, LOCK, lockOf, needsPerson, PINES, CANCEL_REFUND, DEMOLISH, CARRY, CLAIM_RADIUS, lineTiles, NEUTRAL_TEAM, rectTiles, STAFF, TERMS, REPAIR, RESOURCE_NODES, rotated, RUIN, SEGMENT, WALL_KIT, type BuildingDef, type Spot } from './economy';
 import { DECK, LADDER, lineClear, STAIR, tileAt, type Grid } from './grid';
 import { amount, empty, itemList, newHold, put, take, takeFrom, totals, type Cost, type Hold } from './holders';
 import { depthRule } from './depth';
@@ -65,7 +65,7 @@ export const FIRE = {
 /** M5h3 Fortifier works: iron-bound gate (hp x`iron`), wet hides (catch chance x`wet` for `wetTicks`), their costs. */
 export const FORT = { iron: 1.5, ironCost: { iron: 10, charcoal: 10 }, wet: 0.5, wetTicks: 6000, wetCost: 1 };
 
-export interface WorkSquad { team: number; sites: number[]; node: number }
+export interface WorkSquad { team: number; owner: string; sites: number[]; node: number }
 /** The part of a sim unit the works drive. */
 export interface Worker {
   id: number; x: number; y: number; facing: number; alive: boolean;
@@ -126,6 +126,10 @@ interface Building {
   pre: Pre | null; lastBy: number; mend: boolean; credit: number;
   /** Demolish ordered: the tick it comes down (0 none). */
   raze: number;
+  /** W-88: a man of its side is at it (staffScan). W-89: who may use it, the owner's share of the output and fee an order (only with an owner). */
+  staff: boolean; access: Access; share: number; fee: number;
+  /** W-91: its door's hit points left (lockOf(def): none); the tick its owner last heard of an attack on it. */
+  lock: number; lockTold: number;
 }
 /**
  * M7a pre-built state: its entry (index into region.prebuilt), the claim point whose holder owns it (-1: influence), a
@@ -254,11 +258,13 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
   // exact cache: rebuilt whenever influence or any store's standing changes (storeVer), so a resumed sim agrees
   let storeVer = 0;
   const netCache = new Map<string, { v: number; s: number; list: Building[] }>();
+  /** W-89: a store its owner keeps to himself (or his household) feeds no network: it is reached by carrying goods out. */
+  const shared = (b: Building) => !b.owner || b.access === 'alliance' || b.access === 'anyone';
   const netStores = (team: number, net: number): Building[] => {
     if (net < 0) return [];
     const k = `${team}:${net}`, c = netCache.get(k);
     if (c && c.v === infl.version && c.s === storeVer) return c.list;
-    const list = storeList.filter((b) => b.team === team && standing(b) && storeNet(b) === net);
+    const list = storeList.filter((b) => b.team === team && standing(b) && shared(b) && storeNet(b) === net);
     netCache.set(k, { v: infl.version, s: storeVer, list });
     return list;
   };
@@ -281,6 +287,25 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
     }
     put(best ? best.hold! : reserveOf(team), r, n, o);
   };
+
+  // --- W-88, W-89 who is there and who may use it ---
+  const STAFF_CELL = 3; // the scan's grid: 8 tiles a cell
+  const staffHead = new Int32Array(((w >> STAFF_CELL) + 1) * ((h >> STAFF_CELL) + 1));
+  let staffNext = new Int32Array(64);
+  /** W-89 household: the host says who belongs to whose household (his citizens and vassals). Not saved: the host sets it again. */
+  let ties: (owner: string, other: string) => boolean = () => false;
+  /** May `owner` of `team` use b? A piece nobody owns (pre-built, a wall): its alliance. Its owner always; the rest by its access. */
+  const mayUse = (b: Pick<Building, 'owner' | 'team' | 'access'>, owner: string, team: number): boolean => {
+    if (!b.owner) return team === b.team;
+    if (b.owner === owner) return true;
+    if (b.access === 'anyone') return true;
+    if (b.access === 'alliance') return team === b.team;
+    return b.access === 'household' && !!owner && ties(b.owner, owner);
+  };
+  /** The building's own hold, where the owner's share waits (a store or chest: its contents; else made when first paid). */
+  const tillOf = (b: Building): Hold => (b.hold ??= newHold());
+  /** Only what someone may use has terms: a piece that needs a person, or a house. A chest stays its owner's, a wall is everyone's. */
+  const hasTerms = (b: Building) => needsPerson(b.type, b.def) || !!b.def.house;
 
   // --- influence ---
   const repaint = () => {
@@ -487,7 +512,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
       hp: def.hp, maxHp: def.hp, saved: [], users: 0, node: -1, slots: [], slotUser: [], cancelled: false,
       base: [grid.height[t]], inside: [tiles[0], tiles[1]], decked: false, attach: under && under.decked ? under.id : -1, door: -1, prev: null,
       burn: 0, kindle: 0, rubble: false, siege: -1, push: 0, bridge: null, fuel: BRAZIER.life, iron: false, wet: 0, hold: null, owner: '',
-      pre: null, lastBy: -1, mend: false, credit: 0, raze: 0,
+      pre: null, lastBy: -1, mend: false, credit: 0, raze: 0, staff: false, access: 'alliance', share: 0, fee: 0, lock: 0, lockTold: -LOCK.tell,
     };
     buildings.push(b);
     braziers.push(b);
@@ -618,7 +643,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
       base: [], inside: inside ?? homeOf(team), decked: false, attach, door: -1, prev: null,
       burn: 0, kindle: 0, rubble: false, siege: -1, push: 0, bridge: null, fuel: 0, iron: false, wet: 0,
       hold: def.store || def.chest || def.cache ? newHold() : null, owner,
-      pre: null, lastBy: -1, mend: false, credit: 0, raze: 0,
+      pre: null, lastBy: -1, mend: false, credit: 0, raze: 0, staff: false, access: def.house && owner ? 'private' : 'alliance', share: 0, fee: 0, lock: lockOf(def), lockTold: -LOCK.tell,
     };
     if (def.store) storeList.push(b);
     for (let i = 0; i < tiles.length; i += 2) {
@@ -675,7 +700,8 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
 
   const place = (team: number, type: BuildingType, x: number, y: number, rot: 0 | 1 = 0, owner = ''): number => {
     // M6a: a chest is a player's (CHEST.cap a player a region)
-    if (BUILDINGS[type].chest && (!owner || buildings.filter((b) => b.owner === owner && b.def.chest && !b.cancelled && b.state !== 'destroyed').length >= CHEST.cap)) return -1;
+    const house = !!BUILDINGS[type].house; // W-90: a house is a player's too (HOUSE.cap)
+    if (BUILDINGS[type].chest && (!owner || buildings.filter((b) => b.owner === owner && b.def.chest && !!b.def.house === house && !b.cancelled && b.state !== 'destroyed').length >= (house ? HOUSE.cap : CHEST.cap))) return -1;
     const r = checkPlacement(team, type, x, y, rot);
     if (!r.ok) return -1;
     if (BUILDINGS[type].brazier) return addBrazier(team, r.tiles);
@@ -1134,7 +1160,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
     // M6c: a store or chest that falls leaves its contents in a pile (burnt: fire spoils half the goods)
     if (b.hold && !empty(b.hold)) {
       hooks.spill?.(b.x, b.y, b.hold, b.burn > 0);
-      b.hold = { lots: [], items: [] };
+      b.hold = b.def.store || b.def.chest ? { lots: [], items: [] } : null;
     }
     b.state = 'destroyed';
     b.hp = 0;
@@ -1387,15 +1413,15 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
     const cps = region.claimPoints ?? [];
     return cps.length ? cps.some((_, z) => zoneTeam(z) === team) : claims.some((c) => c.team === team);
   };
-  /** Node n is shut to `team`: a guard lair locks it, or it is a rare node of a region the team does not hold. */
-  const shut = (n: Node, team: number) => !!n.locked || (!!n.rare && !holds(team));
+  /** Node n is shut to `team`: a guard lair locks it, a rare node of a region the team does not hold, or (W-89) a farm its owner keeps from him. */
+  const shut = (n: Node, team: number, owner = '') => !!n.locked || (!!n.rare && !holds(team)) || (n.building !== undefined && !!buildings[n.building].owner && !mayUse(buildings[n.building], owner, team));
   /** Nearest node of resource res with a free slot within r of (x,y), the given one first. */
-  const findNode = (res: ResourceKind, x: number, y: number, r: number, first: number, team: number): Node | null => {
+  const findNode = (res: ResourceKind, x: number, y: number, r: number, first: number, team: number, owner = ''): Node | null => {
     const f = nodes[first];
-    if (f && f.res === res && f.amount >= 1 && f.users < f.slots && !shut(f, team)) return f;
+    if (f && f.res === res && f.amount >= 1 && f.users < f.slots && !shut(f, team, owner)) return f;
     let best: Node | null = null, bd = r * r;
     for (const n of nodes) {
-      if (n.res !== res || n.amount < 1 || n.users >= n.slots || shut(n, team)) continue;
+      if (n.res !== res || n.amount < 1 || n.users >= n.slots || shut(n, team, owner)) continue;
       const d = (n.x - x) ** 2 + (n.y - y) ** 2;
       if (d < bd) (bd = d), (best = n);
     }
@@ -1408,8 +1434,13 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
     if (!s) return null;
     if (!at(s.tiles, u)) return walkTo(u, ...spot(s.tiles, u, s.x, s.y));
     const st = s.hold!, o = region.id;
-    if (u.carry) put(st, u.carry, u.load * (u.gmul?.[u.carry] ?? 1), o);
-    const n = nodes[u.wnode];
+    const n = nodes[u.wnode], farm = n?.building !== undefined ? buildings[n.building] : null;
+    if (u.carry) {
+      // W-89: the owner of the farm or press keeps his share, in the building's own hold
+      const got = u.load * (u.gmul?.[u.carry] ?? 1), cut = farm && farm.owner && farm.share > 0 && farm.owner !== u.squad.owner ? got * farm.share : 0;
+      if (cut > 0) put(tillOf(farm!), u.carry, cut, o);
+      put(st, u.carry, got - cut, o);
+    }
     // M5h: Herb Finder (forest and marsh nodes), Weaver (farms)
     if (u.herbs && n?.obj !== undefined && FORAGE_TERRAIN.has(region.terrain[tileAt(grid, n.x, n.y)])) put(st, 'herbs', u.load * FORAGE_SHARE.herbs, o);
     if (u.flax && n?.building !== undefined && buildings[n.building]?.type === 'farm') put(st, 'flax', u.load * FORAGE_SHARE.flax, o);
@@ -1422,7 +1453,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
   const gather = (u: Worker): Act => {
     let n = u.wnode >= 0 ? nodes[u.wnode] : null;
     if (u.load > 0 && (u.load >= CARRY - 1e-6 || (n && u.carry !== n.res))) return deliver(u);
-    if (n && shut(n, u.squad.team)) {
+    if (n && shut(n, u.squad.team, u.squad.owner)) {
       // a guard lair came back (or the region was lost: a rare node): off this node
       n.users--;
       u.wnode = -1;
@@ -1430,7 +1461,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
     }
     if (!n || n.amount < 1) {
       const from = n ?? nodes[u.squad.node];
-      const next = from ? findNode(from.res, from.x, from.y, NEAR_NODE, u.squad.node, u.squad.team) : null;
+      const next = from ? findNode(from.res, from.x, from.y, NEAR_NODE, u.squad.node, u.squad.team, u.squad.owner) : null;
       if (!next) {
         if (u.wnode >= 0) (nodes[u.wnode].users--, (u.wnode = -1));
         return u.load > 0 ? deliver(u) : null;
@@ -1929,26 +1960,89 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
       else take(reserveOf(team), res, -n);
     },
     takeAt,
+    sourcesAt: sources,
     addAt,
     haveAt,
     /** W-60: the hold of the nearest standing store of `team` within r tiles of (x,y) (null: none so near). */
     storeNear(team: number, x: number, y: number, r: number): Hold | null {
       let best: Building | null = null, bd = r * r;
       for (const b of storeList) {
-        if (b.team !== team || !b.hold || !standing(b)) continue;
+        if (b.team !== team || !b.hold || !standing(b) || !shared(b)) continue;
         const d = (b.x - x) ** 2 + (b.y - y) ** 2;
         if (d <= bd) (bd = d), (best = b);
       }
       return best?.hold ?? null;
     },
     netAt,
+    mayUse,
+    setTies(fn: (owner: string, other: string) => boolean) {
+      ties = fn;
+    },
+    /** W-89: its owner sets who may use his building and what he keeps; false when `owner` does not own it (pre-built pieces stay the alliance's). */
+    setAccess(id: number, owner: string, access?: Access, share?: number, fee?: number): boolean {
+      const b = buildings[id];
+      if (!b || b.cancelled || !owner || b.owner !== owner || !hasTerms(b)) return false;
+      if (access) {
+        if (b.access !== access && b.def.store) storeVer++;
+        b.access = access;
+      }
+      if (share !== undefined) b.share = Math.max(0, Math.min(TERMS.share, share));
+      if (fee !== undefined) b.fee = Math.max(0, Math.min(TERMS.fee, Math.round(fee)));
+      return true;
+    },
+    /** W-89: where the owner's share and fees of building id wait until he collects them. */
+    tillOf: (id: number): Hold => tillOf(buildings[id]),
+    /** W-88: every STAFF.every ticks: who stands at what. The men go in a coarse grid once a scan, so a scan stays near linear. */
+    staffScan(men: readonly { alive: boolean; x: number; y: number; squad: { team: number } }[], mob: number) {
+      const cw = (w >> STAFF_CELL) + 1;
+      staffHead.fill(-1);
+      if (staffNext.length < men.length) staffNext = new Int32Array(men.length * 2);
+      for (let i = 0; i < men.length; i++) {
+        const u = men[i];
+        if (!u.alive) continue;
+        const c = ((u.y >> STAFF_CELL) * cw + (u.x >> STAFF_CELL)) | 0;
+        if (c < 0 || c >= staffHead.length) continue;
+        staffNext[i] = staffHead[c];
+        staffHead[c] = i;
+      }
+      const secs = STAFF.every * DT;
+      for (const b of buildings) {
+        const lockMax = lockOf(b.def), mending = b.lock < lockMax;
+        if (b.team === NEUTRAL_TEAM || b.team === mob || b.team < 0 || b.cancelled || (b.state !== 'done' && b.state !== 'damaged') || (!mending && !needsPerson(b.type, b.def))) {
+          b.staff = false;
+          continue;
+        }
+        const r = STAFF.reach + Math.max(b.w, b.h) / 2, r2 = STAFF.reach * STAFF.reach;
+        const x0 = Math.max(0, Math.floor(b.x - r)) >> STAFF_CELL, x1 = Math.min(w - 1, Math.ceil(b.x + r)) >> STAFF_CELL;
+        const y0 = Math.max(0, Math.floor(b.y - r)) >> STAFF_CELL, y1 = Math.min(h - 1, Math.ceil(b.y + r)) >> STAFF_CELL;
+        let n = 0;
+        for (let cy = y0; cy <= y1; cy++)
+          for (let cx = x0; cx <= x1; cx++)
+            for (let i = staffHead[cy * cw + cx]; i >= 0; i = staffNext[i]) {
+              const u = men[i];
+              if (u.squad.team !== b.team) continue;
+              const dx = Math.max(Math.abs(u.x - b.x) - b.w / 2, 0), dy = Math.max(Math.abs(u.y - b.y) - b.h / 2, 0);
+              if (dx * dx + dy * dy <= r2) n++;
+            }
+        b.staff = n > 0;
+        if (n > 0 && mending) b.lock = Math.min(lockMax, b.lock + n * LOCK.perMan * secs); // his men at the door mend it
+      }
+    },
+    /** W-91: `men` men at the door of building id for `secs` seconds; the hit points left, and whether the owner should hear. */
+    breakLock(id: number, men: number, secs: number): { left: number; tell: boolean } {
+      const b = buildings[id];
+      b.lock = Math.max(0, b.lock - men * LOCK.perMan * secs);
+      const tell = tick - b.lockTold >= LOCK.tell;
+      if (tell) b.lockTold = tick;
+      return { left: b.lock, tell };
+    },
     /** The network of store building id (-1: not a standing store, or cut off). */
     storeNet: (id: number) => (buildings[id] && buildings[id].def.store && standing(buildings[id]) ? storeNet(buildings[id]) : -1),
     /** The live hold of building id (store, chest), or null. */
     holdOf: (id: number): Hold | null => (buildings[id] && standing(buildings[id]) ? buildings[id].hold : null),
     reserveOf,
     influence: () => infl,
-    nodeOk: (id: number, team = -1) => id >= 0 && id < nodes.length && nodes[id].max > 0 && !nodes[id].locked && (!nodes[id].rare || holds(team)),
+    nodeOk: (id: number, team = -1, owner = '') => id >= 0 && id < nodes.length && nodes[id].max > 0 && !shut(nodes[id], team, owner),
     /** Mobs (./mobs.ts): a living guard lair locks its nodes (no gathering), clearing it frees them. */
     lockNodes(ids: number[], on: boolean) {
       for (const id of ids) if (nodes[id]) nodes[id].locked = on;
@@ -2247,6 +2341,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
       if (++tick % REGROW_TICKS === 0)
         for (const n of regrowing) {
           if (n.amount >= n.max) continue;
+          if (n.building !== undefined && !buildings[n.building].staff) continue; // W-88: a farm, press, kiln or jetty needs a man at it
           let add = Math.min(n.max - n.amount, n.regrow * DT * REGROW_TICKS);
           if (n.kiln !== undefined) {
             // W-35: a kiln burns its team's wood into pitch
@@ -2289,6 +2384,9 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
           ...(b.bridge ? { bridge: { axis: b.bridge.axis, dir: b.bridge.dir, width: b.bridge.width, part: b.bridge.part, deck: b.bridge.deck, rows: b.bridge.rows } } : {}),
           ...(b.hold && b.state !== 'destroyed' ? { goods: totals(b.hold), ...(b.hold.items.length ? { items: b.hold.items.length, list: itemList(b.hold) } : {}) } : {}),
           ...(b.owner ? { owner: b.owner } : {}),
+          ...(b.staff ? { staffed: true as const } : {}),
+          ...(b.owner && hasTerms(b) ? { access: b.access, ...(b.share ? { share: b.share } : {}), ...(b.fee ? { fee: b.fee } : {}) } : {}),
+          ...(lockOf(b.def) && b.state !== 'destroyed' ? { lock: b.lock, lockMax: lockOf(b.def) } : {}),
           ...(b.pre ? { pre: true as const, ...(b.pre.landmark ? { landmark: true as const } : {}), ...(region.prebuilt?.[b.pre.i]?.art ? { art: region.prebuilt[b.pre.i].art } : {}), ...(b.pre.ruin ? { ruin: true as const } : {}), ...(b.pre.fouled > tick ? { fouled: true as const } : {}) } : {}),
           ...(b.mend ? { mend: true as const } : {}),
           ...(b.raze ? { razing: Math.min(1, 1 - (b.raze - tick) / DEMOLISH.ticks) } : {}),

@@ -52,6 +52,17 @@ export function bannerOf(list: readonly RoomSettlement[], pid: number): RoomSett
 export const tiedTo = (list: readonly RoomSettlement[], pid: number): boolean =>
   list.some((s) => s.members.some((m) => m.pid === pid) || s.overlordLords.includes(pid));
 
+/**
+ * W-89 household, as the sim asks it (owners `p:<id>`): `other` is a citizen or the garrison of a settlement `owner` is
+ * lord of, or the lord of a settlement under him.
+ */
+export const householdOf = (list: readonly RoomSettlement[]) => (owner: string, other: string): boolean => {
+  const m = /^p:(\d+)$/.exec(owner), o = /^p:(\d+)$/.exec(other);
+  if (!m || !o) return false;
+  const lord = Number(m[1]), pid = Number(o[1]);
+  return list.some((s) => (s.lord === lord && s.members.some((x) => x.pid === pid)) || (s.lord === pid && s.overlordLords.includes(lord)));
+};
+
 const inCircle = (s: { x: number; y: number; r: number }, x: number, y: number) => (x - s.x) ** 2 + (y - s.y) ** 2 <= s.r * s.r;
 const inPlot = (p: Plot, x: number, y: number) => x >= p.x0 && x <= p.x1 && y >= p.y0 && y <= p.y1;
 

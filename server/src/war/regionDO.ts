@@ -50,7 +50,7 @@
  */
 import { DurableObject } from 'cloudflare:workers';
 import type { Env } from '../env';
-import { lordReport, WarRoom, type ClaimTaking, type RoomOptions, type RoomState, type TickTimes } from './room';
+import { lordReport, WarRoom, type ClaimTaking, type LockEvent, type RoomOptions, type RoomState, type TickTimes } from './room';
 import { regionSeed, regionVersion, WAR_REGIONS, warRegion } from './regions';
 import { DEFAULT_CAP, parseClientMsg, type HandoffMsg, type JoinMsg, type MendMsg, type ServerMsg, type StowMsg } from '../../../src/war/net/protocol';
 import { cartArrived, contract, deliver, guardCheck, labourDone, sealedFor, workContracts } from './contracts';
@@ -1195,6 +1195,7 @@ export class WarRegionDO extends DurableObject<Env> {
     if (d && st?.found.length) this.write('found', () => this.foundAll(room, st.found));
     if (d && st?.attacks.length) this.write('attacks', () => this.attacked(room, st.attacks));
     if (d && st?.taking.length) this.write('claims taken', () => this.claimsTaken(room, st.taking));
+    if (d && r.locks.length) this.write('locks', () => this.locksTold(room, r.locks));
     if (d && !catching && room.currentTick % SETTLE_POLL === 3) this.write('settle poll', () => this.pollSettlements(room));
     if (d && !catching && room.currentTick % MUSTER_POLL === 5) this.write('muster poll', () => this.pollMuster(room));
     // W-62: an event that ran out while the world could not tell us ends here too
@@ -1294,6 +1295,17 @@ export class WarRegionDO extends DurableObject<Env> {
       // W-64: a pact or truce between the attacker's alliance and the victim's breaks; both alliances hear it
       const p = await pactAttack(d, a.by, a.victim, Date.now());
       if (p.tell.length && this.env.WAR_WORLD) await this.world().notify(p.tell, { t: 'crownNews', kind: 'pactBroken', text: p.text, region }).catch((e) => logError('war_crown_notify_failed', e, { region }));
+    }
+  }
+
+  /** W-91: a door under attack or broken: its owner hears it on his world sockets (a piece nobody owns: its whole alliance). */
+  private async locksTold(room: WarRoom, list: readonly LockEvent[]): Promise<void> {
+    const d = this.env.DB!, region = room.region.id;
+    if (!this.env.WAR_WORLD) return;
+    for (const e of list) {
+      const m = /^p:(\d+)$/.exec(e.owner);
+      const pids = m ? [Number(m[1])] : (await d.prepare('SELECT player_id FROM war_alliance_members WHERE season = ?1 AND alliance = ?2').bind(WAR_SEASON.id, e.team).all<{ player_id: number }>()).results.map((x) => x.player_id);
+      if (pids.length) await this.world().notify(pids, { t: 'lockAttacked', region, name: room.region.name, what: e.type, broken: e.kind === 'lockBroken', by: e.by }).catch((err) => logError('war_lock_notify_failed', err, { region }));
     }
   }
 

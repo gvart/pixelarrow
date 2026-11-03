@@ -7,6 +7,12 @@
  * (`craftRoll`, seeded by the sim seed, building and order) for items; the item leaves in a `crafted` event for the
  * server to mint. Goods go to the nearest store of that network, dishes, remedies and kits to the team supplies; a cart
  * (M6b) rolls out beside the workshop for the crafter's player.
+ *
+ * W-88: nothing runs without a crafter at work there (`work` is only called with those at it). W-89: a crafter who is not
+ * the owner pays the owner's terms: the fee at the start of an order; the share off the goods at the end, or, for what
+ * cannot be split (an item, a dish, a cart, a repair), that share of its inputs at the start. All of it goes to the
+ * building's own hold (deps.till). A crafter of another alliance pays from his men's packs (deps.pay), and what he makes
+ * falls beside the building for him (deps.out): that network is not his.
  */
 import { CIV_TOOLS } from '../../data/classes';
 import { itemDef, ITEMS, type Item } from '../../data/items';
@@ -31,16 +37,22 @@ export const CRAFT = {
 /** A civilian at work at a workplace, as the queue sees him. */
 export interface Crafter {
   id: number; prof: ProfId | null; level: number; perks: readonly string[]; tool?: Item; work: number; bountiful: number;
-  owner: string; name: string; pid?: string;
+  owner: string; name: string; pid?: string; team: number;
 }
-interface Placed { id: number; team: number; def: BuildingDef; x: number; y: number }
-interface QOrder { id: number; kind: 'craft' | 'repair' | 'salvage'; recipe: Recipe; item?: Item; owner?: string; by: number; left: number; total: number; taken: Goods | null }
+interface Placed { id: number; team: number; def: BuildingDef; x: number; y: number; owner?: string; share?: number; fee?: number }
+interface QOrder { id: number; kind: 'craft' | 'repair' | 'salvage'; recipe: Recipe; item?: Item; owner?: string; by: number; left: number; total: number; taken: Goods | null; payer?: { team: number; owner: string } }
 
 export interface CraftDeps {
   seed: number;
   /** Pay from the store network of `team` at (x,y) (M6a); false (nothing taken) when it lacks any of it. */
   takeAt(team: number, x: number, y: number, cost: Partial<Record<ResourceKind, number>>): boolean;
   addAt(team: number, x: number, y: number, res: GoodKind, n: number): void;
+  /** W-89: a crafter pays `cost` (his alliance's network there, or, a stranger, his men's packs); false: nothing taken. */
+  pay?(b: Placed, c: Crafter, cost: Goods): boolean;
+  /** W-89: the owner's cut lands in the building's own hold. */
+  till?(b: Placed, res: GoodKind, n: number): void;
+  /** W-89: goods of a crafter of another alliance fall beside the building, his for a while. */
+  out?(b: Placed, payer: { team: number; owner: string }, res: GoodKind, n: number): void;
   emit(ev: WarEvent): void;
   /** M6b: a cart of `owner` rolls out of workshop b (false: no room, his cap or the quota; the order waits). */
   cart?(b: Placed, owner: string, type: string, check: boolean): boolean;
@@ -77,16 +89,39 @@ export function createCrafting(deps: CraftDeps) {
     return s;
   };
 
+  /** Goods back to who paid, or out of the shop: his network there, or beside the building for a stranger. */
+  const give = (b: Placed, payer: { team: number; owner: string } | undefined, res: GoodKind, n: number) => {
+    if (payer && payer.team !== b.team && deps.out) deps.out(b, payer, res, n);
+    else deps.addAt(b.team, b.x, b.y, res, n);
+  };
+  /** The owner's terms on crafter c at b: nothing for the owner himself or a piece nobody owns. */
+  const termsOf = (b: Placed, c: Crafter) => (b.owner && b.owner !== c.owner ? { share: b.share ?? 0, fee: b.fee ?? 0 } : { share: 0, fee: 0 });
+  /** Pay for order x as c starts it: the inputs, the fee and (what cannot be split) the owner's share of the inputs. False: nothing taken. */
+  const start = (b: Placed, x: QOrder, c: Crafter): boolean => {
+    const inputs = inputsOf(x, c), t = termsOf(b, c), split = x.kind === 'craft' && !!x.recipe.out.good;
+    const cut: Goods = {};
+    if (t.share > 0 && !split) for (const [k, v] of Object.entries(inputs) as [keyof Goods, number][]) cut[k] = v * t.share;
+    if (t.fee > 0) cut.coin = (cut.coin ?? 0) + t.fee;
+    const cost: Goods = { ...inputs };
+    for (const [k, v] of Object.entries(cut) as [keyof Goods, number][]) cost[k] = (cost[k] ?? 0) + v;
+    const paid = c.team === b.team && !Object.keys(cut).length ? deps.takeAt(b.team, b.x, b.y, cost) : !!deps.pay?.(b, c, cost);
+    if (!paid) return false;
+    for (const [k, v] of Object.entries(cut) as [ResourceKind, number][]) deps.till?.(b, k, v);
+    x.taken = inputs;
+    x.payer = { team: c.team, owner: c.owner };
+    return true;
+  };
+
   /** Queue an order at workplace b (done, of the order's team); false: refused (kind, level, queue full, nothing to mend). */
   const order = (o: CraftOrder, b: Placed): boolean => {
     const wp = b.def.workplace;
-    if (!wp || b.team !== o.team) return false;
+    if (!wp) return false;
     const q = queues.get(b.id) ?? [];
     if (o.kind === 'cancelCraft') {
       const i = q.findIndex((x) => x.id === o.order);
       if (i < 0) return false;
       const [x] = q.splice(i, 1);
-      if (x.taken) for (const [k, v] of Object.entries(x.taken) as [ResourceKind, number][]) deps.addAt(b.team, b.x, b.y, k, v);
+      if (x.taken) for (const [k, v] of Object.entries(x.taken) as [ResourceKind, number][]) give(b, x.payer, k, v);
       return true;
     }
     if (q.length >= CRAFT.queue) return false;
@@ -121,7 +156,7 @@ export function createCrafting(deps: CraftDeps) {
 
   /** An order is done: its output. Returns the XP of the job. */
   const finish = (b: Placed, x: QOrder, c: Crafter, tick: number): number => {
-    const r = x.recipe, team = b.team, held = heldNodes(r.prof, c.perks);
+    const r = x.recipe, team = c.team, held = heldNodes(r.prof, c.perks), payer = { team: c.team, owner: c.owner };
     const ev = (what: 'craft' | 'repair' | 'salvage', item: Item, owner: string) =>
       deps.emit({ t: tick, kind: 'crafted', order: x.id, building: b.id, team, owner, ...(c.pid ? { pid: c.pid } : {}), recipe: r.id, what, item });
     if (x.kind === 'repair') {
@@ -131,7 +166,7 @@ export function createCrafting(deps: CraftDeps) {
     }
     if (x.kind === 'salvage') {
       const share = held.has('goldsmith') ? CRAFT.goldsmith : CRAFT.salvage;
-      for (const [k, v] of Object.entries(r.inputs) as [ResourceKind, number][]) if (Math.floor(v * share) > 0) deps.addAt(team, b.x, b.y, k, Math.floor(v * share));
+      for (const [k, v] of Object.entries(r.inputs) as [ResourceKind, number][]) if (Math.floor(v * share) > 0) give(b, payer, k, Math.floor(v * share));
       ev('salvage', x.item!, x.owner!);
       return 1;
     }
@@ -142,14 +177,18 @@ export function createCrafting(deps: CraftDeps) {
       return r.xp;
     }
     if (r.kind === 'cart') {
-      deps.cart?.(b, c.owner, r.out.engine!, false);
+      deps.cart?.({ ...b, team }, c.owner, r.out.engine!, false);
       return r.xp;
     }
     const node = BATCH_NODES[r.kind];
     // M6a: coin is exact (1 silver : 20 coin), no batch bonus
     const n = r.kind === 'coin' ? r.out.n : r.out.n * (node && held.has(node) ? CRAFT.batch : 1) * (r.kind === 'smelt' && held.has('alloy') ? CRAFT.alloy : 1) * (1 + c.bountiful);
-    if (r.out.good) deps.addAt(team, b.x, b.y, r.out.good, n);
-    else if (r.out.product) supply(team)[r.out.product] = (supply(team)[r.out.product] ?? 0) + n;
+    if (r.out.good) {
+      // W-89: the owner's share of the goods stays in his building
+      const cut = n * termsOf(b, c).share;
+      if (cut > 0) deps.till?.(b, r.out.good, cut);
+      give(b, payer, r.out.good, n - cut);
+    } else if (r.out.product) supply(team)[r.out.product] = (supply(team)[r.out.product] ?? 0) + n;
     return r.xp;
   };
 
@@ -170,8 +209,8 @@ export function createCrafting(deps: CraftDeps) {
     for (const c of slots) {
       let x = q.find((o) => o.by === c.id);
       if (!x) {
-        x = q.find((o) => o.by < 0 && may(c, o) && (o.recipe.kind !== 'cart' || !!deps.cart?.(b, c.owner, o.recipe.out.engine!, true))
-          && (o.taken || deps.takeAt(b.team, b.x, b.y, (o.taken = inputsOf(o, c))) || ((o.taken = null), false)));
+        x = q.find((o) => o.by < 0 && may(c, o) && (o.recipe.kind !== 'cart' || !!deps.cart?.({ ...b, team: c.team }, c.owner, o.recipe.out.engine!, true))
+          && (!!o.taken || start(b, o, c)));
         if (!x) continue;
         x.by = c.id;
       }
