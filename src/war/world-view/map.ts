@@ -97,7 +97,7 @@ interface Decor { lords: LordSpot[]; stars: StarSpot[]; landmarks: Map<string, [
 interface PactWord { x: number; y: number; text: string; edge: string }
 
 /**
- * The map's marker hierarchy: yours first (your squads' banners, your men and carts on the road, the region you are
+ * The map's marker hierarchy: yours first (your men's one banner, or their one road, your carts, the region you are
  * in), then threats (battles, sieges, world events, raids), then the context (warlord lands and halls, landmarks,
  * crowns, settlements, mastery stars, pacts). Below NEAR_K the context loses its words and, where it has no room,
  * huddles into a cluster chip per region; up close everything shows.
@@ -1111,7 +1111,7 @@ export class WorldMap {
         return [x - 16 * s - q / 2, y - 16 * s - q / 2, x + 16 * s + 70 * s + q / 2, y + 16 * s + q / 2] as Box;
       }),
       // squads on the road, snapped to a coarse step so the names re-flow now and then, not every frame
-      ...st.transit.map((t) => {
+      ...st.transit.slice(0, 1).map((t) => {
         const q = 32 * s, [x, y] = this.transitPos(t, st.now).map((v) => Math.round(v / q) * q);
         return [x - 20 * s - q / 2, y - 43 * s - q / 2, x + 18 * s + (8 * String(t.men).length + 112) * s + q / 2, y + 8 * s + q / 2] as Box;
       }),
@@ -1270,7 +1270,8 @@ export class WorldMap {
     this.drawEvents(g, st, spots.events);
     // yours: carts, the men on the road with their ETA, the squads' banners with their count
     this.drawConvoys(g, st, true);
-    for (const t of st.transit) {
+    // W-87 one group, one road: the server sends his own transit
+    for (const t of st.transit.slice(0, 1)) {
       const [x, y] = this.transitPos(t, st.now);
       g.drawImage(pic('markers/transit'), x - 20 * s, y - 40 * s, 40 * s, 48 * s);
       const left = Math.max(0, Math.ceil((t.arriveAt - st.now) / 1000));

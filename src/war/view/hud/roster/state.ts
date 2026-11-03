@@ -19,7 +19,7 @@ import { xpToNext } from '../../../../data/units';
 import { applyOffer, createRoster, grantXp, levelOffers, makePerson, type LevelOffer, type Roster } from '../../../sim/roster';
 import { ATTR_IDS, ATTR_MAX, POINTS_PER_LEVEL, type AttrId } from '../../../../data/perks';
 import { SQUAD_MAX } from '../../../sim/soldiers';
-import { NO_PATH, soldierCap, type PlayerPath } from '../../../world/start';
+import { FAMILY_IDS, NO_PATH, PATH_IDS, soldierCap, type PathId, type PlayerPath, type StartFamily } from '../../../world/start';
 import { CAPTIVE } from '../../../sim/captives';
 import { ALLIANCES } from '../../../world/alliances';
 import { WORLD_REGIONS } from '../../../world/regions';
@@ -80,6 +80,13 @@ export function netPerson(n: NetPerson): WarPerson {
 const NET_STATE: Record<string, PersonResult['state']> = { wounded: 'wounded', captive: 'captive', dead: 'dead' };
 const rosters = new WeakMap<SandboxScene, SandboxRoster>();
 
+/** The offline sandbox's path: `?path=builder`, `?path=warrior&family=shock`; none or nonsense: no path. */
+export function offlineWay(search: string): PlayerPath {
+  const q = new URLSearchParams(search), path = q.get('path') as PathId | null, family = q.get('family') as StartFamily | null;
+  if (!path || !PATH_IDS.includes(path)) return NO_PATH;
+  return { path, family: path === 'warrior' ? (family && FAMILY_IDS.includes(family) ? family : 'line') : null };
+}
+
 /** The scene's roster (made on first call; call before the scenario spawns, so its squads get persons). */
 export function sandboxRoster(s: SandboxScene): SandboxRoster {
   let r = rosters.get(s);
@@ -98,8 +105,11 @@ export class SandboxRoster {
   private taken = new Map<string, string>();
   private held: HeldCaptive[] = [];
   private fighters: number | null = null;
-  /** W-85, W-101: his path (the server's roster; offline, none). */
+  /** W-85, W-101: his path (the server's roster; offline, ?path= and ?family=, else none). */
   way: PlayerPath = NO_PATH;
+  /** His home region (the server's roster; offline null). `known`: the roster has answered, so `way` is his. */
+  homeId: string | null = null;
+  known = false;
   private names = new Set<string>();
   private n = 0;
   /** E3: where and when each of the fallen fell (the memorial's graves), the trophies of guardians his men slew. */
@@ -117,7 +127,11 @@ export class SandboxRoster {
     if (s.sim.net) {
       void this.pull();
       setInterval(() => void this.pull(), PULL_MS);
-    } else this.seed();
+    } else {
+      this.way = offlineWay(location.search);
+      this.known = true;
+      this.seed();
+    }
     // only the player's own spawns draw his men (an ally's or a garrison's squad on his team stays anonymous)
     s.sim.personsFor = (owner, team, cls, count) => (team === myTeam() && owner === 'you' ? this.take(cls, Math.min(count, SQUAD_MAX)) : undefined);
     const prev = s.sim.onEvents; // the other listeners (sound, mob FX) keep theirs
@@ -150,7 +164,7 @@ export class SandboxRoster {
 
   /** Net mode: the server's roster in place of the one held (the fallen and the captive in their state). */
   async pull(): Promise<void> {
-    const r = await this.s.sim.api<{ persons?: NetPerson[]; captives?: HeldCaptive[]; caps?: { fighters: number; path: PlayerPath['path']; family: PlayerPath['family'] } }>('GET', 'roster');
+    const r = await this.s.sim.api<{ persons?: NetPerson[]; captives?: HeldCaptive[]; caps?: { fighters: number; path: PlayerPath['path']; family: PlayerPath['family']; home?: string | null } }>('GET', 'roster');
     if (!r?.persons) return;
     const ro = createRoster(), gone: PersonResult[] = [];
     this.netRegion.clear();
@@ -158,6 +172,8 @@ export class SandboxRoster {
     this.held = r.captives ?? [];
     this.fighters = r.caps?.fighters ?? null;
     if (r.caps) this.way = { path: r.caps.path, family: r.caps.family };
+    this.homeId = r.caps?.home ?? null;
+    this.known = true;
     for (const n of r.persons) {
       const p = netPerson(n);
       ro.add(p);
@@ -194,17 +210,27 @@ export class SandboxRoster {
   rows(): Row[] {
     const live = new Map<string, UnitSnap>();
     for (const u of this.s.sim.cur?.units ?? []) if (u.pid) live.set(u.pid, u);
-    const here = this.s.region?.name ?? 'this region', homeId = ALLIANCES[myTeam()]?.home;
-    const home = WORLD_REGIONS.find((w) => w.id === homeId)?.name ?? 'your home';
+    const here = this.s.region?.name ?? 'this region', home = this.homeName();
     return this.roster.all().map((p) => {
       const st = this.roster.state(p.id), unit = live.get(p.id);
       if (st !== 'fit') return { p, where: st === 'captive' ? 'captive' : st, region: here };
       // net mode: any live man of his is in the field (the server sent him); at rest he stands where the server says
-      const at = this.netRegion.get(p.id), away = at ? (WORLD_REGIONS.find((w) => w.id === at)?.name ?? at) : home;
+      const at = this.netRegion.get(p.id), road = at?.startsWith('>') ? at.slice(1) : null, away = at ? (WORLD_REGIONS.find((w) => w.id === (road ?? at))?.name ?? (road ?? at)) : home;
       if (!unit || !(this.sent.has(p.id) || this.s.sim.net)) return { p, where: 'away', region: away };
       if (unit.state === 'dead') return { p, where: unit.wounded ? 'wounded' : 'dead', unit, squad: unit.squad, region: here };
       return { p, where: 'field', unit, squad: unit.squad, order: this.s.sim.squads.get(unit.squad)?.order, region: here };
     });
+  }
+
+  /** His home's name (W-98: men waiting there). */
+  homeName(): string {
+    const id = this.homeId ?? ALLIANCES[myTeam()]?.home;
+    return WORLD_REGIONS.find((w) => w.id === id)?.name ?? 'your home';
+  }
+
+  /** W-87: is this man on the road with the group? */
+  onRoad(pid: string): boolean {
+    return !!this.netRegion.get(pid)?.startsWith('>');
   }
 
   /** The army (W-85): his fighters counted against his path's cap (civilians are the household; the fallen and, W-68, the captive do not count). */

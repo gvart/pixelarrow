@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { adjacent, WORLD_IDS } from '../../src/war/world/graph';
 import { FRONTIER_TOWNS, inSight, isChokepoint, MARKET_TOWNS, PURPOSE, scoreRate, seasonStandings, TRADE_ROUTES } from '../../src/war/world-view/geo';
-import { fieldSquads, liveTrade, mockWorld, travelMs } from '../../src/war/world-view/source';
+import { fieldSquads, liveTrade, waitingHome, mockWorld, travelMs } from '../../src/war/world-view/source';
 import { convoySeen } from '../../src/war/world-view/geo';
 import type { ConvoySnap as LiveConvoy, RegionState } from '../../src/war/net/world';
 
@@ -46,12 +46,28 @@ describe('world view geography', () => {
 });
 
 describe('world view sources', () => {
-  it('groups deployed men per region, not those at home or on the road', () => {
+  it('W-87 one group: the men away, not those waiting at home; on the road, no banner', () => {
+    const away = [
+      { id: 'a', cls: 'hoplite', state: 'active', region: 'moors' },
+      { id: 'b', cls: 'hoplite', state: 'active', region: 'dodona' },
+      { id: 'c', cls: 'hoplite', state: 'active', region: null },
+      { id: 'x', cls: 'hoplite', state: 'dead', region: 'moors' },
+    ];
+    expect(fieldSquads(away, 'dodona')).toEqual([{ region: 'moors', men: 1, classes: { hoplite: 1 }, ids: ['a'] }]);
+    expect(waitingHome(away, 'dodona')).toBe(2);
+    const road = [{ id: 'a', cls: 'hoplite', state: 'active', region: '>moors' }, { id: 'b', cls: 'hoplite', state: 'active', region: 'dodona' }];
+    expect(fieldSquads(road, 'dodona')).toEqual([]);
+    expect(waitingHome(road, 'dodona')).toBe(1);
+    const home = [{ id: 'a', cls: 'hoplite', state: 'active', region: 'dodona' }];
+    expect(fieldSquads(home, 'dodona')).toHaveLength(1);
+    expect(waitingHome(home, 'dodona')).toBe(0);
+  });
+
+  it('deployed men, not those with no place', () => {
     const s = fieldSquads([
       { id: 'a', cls: 'hoplite', state: 'active', region: 'moors' },
       { id: 'b', cls: 'archer', state: 'active', region: 'moors' },
       { id: 'c', cls: 'hoplite', state: 'active', region: null },
-      { id: 'd', cls: 'hoplite', state: 'active', region: '>saddle' },
       { id: 'e', cls: 'hoplite', state: 'active', region: 'test-ridge' },
     ]);
     expect(s).toEqual([{ region: 'moors', men: 2, classes: { hoplite: 1, archer: 1 }, ids: ['a', 'b'] }]);

@@ -262,16 +262,16 @@ draggable(eventsEl);
 
 const CLASS_NAME: Record<string, string> = { militia: 'militia', hoplite: 'hoplites', celt_sword: 'swordsmen', archer: 'archers', slinger: 'slingers', javelineer: 'javelineers' };
 function renderSquads(): void {
-  const now = Date.now(), sq = view?.squads ?? [], tr = st.transit;
-  const rows = sq.map((s) => `<div class="wv-sq rf-row${st.squadAt === s.region ? ' on' : ''}" data-region="${s.region}" data-tip="Select it: the regions it can march to glow">
-      <b>${name(s.region)}</b><span class="rf-num">${s.men} men</span>
-      <span class="cls">${Object.entries(s.classes).map(([c, n]) => `<span title="${n} ${CLASS_NAME[c] ?? c}">${UNIT_ICON[c] ? `<img src="war/ui/icons/24/${UNIT_ICON[c]}.png" width="18" height="18" alt="">` : ''}${n} ${CLASS_NAME[c] ?? c.replace('_', ' ')}</span>`).join('')}</span></div>`).join('');
-  const road = tr.map((t) => `<div class="wv-row"><span style="flex:1">${name(t.from)} → ${name(t.to)}</span><span class="rf-num">${t.men}</span>
-      <span class="${t.state === 'queued' ? 'wv-flag bad' : 'rf-num'}"${t.state === 'queued' ? ' data-tip="The region is full for your alliance: they march in when there is room"' : ''}>${t.state === 'queued' ? 'waiting: full' : clock(Math.max(0, Math.ceil((t.arriveAt - now) / 1000)))}</span></div>`).join('');
-  squadsEl.innerHTML = `<div class="rf-head"><span class="rf-name">Your squads</span></div>
-    ${rows || '<div class="rf-dim" style="padding:4px">None in the field yet: enter a region to deploy.</div>'}
-    ${tr.length ? `<div class="rf-cap" style="margin-top:8px">Marching <span class="rf-dim">${tr.length}</span></div>${road}` : ''}
-    <div class="wv-hint">Click a squad, then a glowing region to march. Double-click any region to enter it.</div>`;
+  const now = Date.now(), sq = view?.squads[0], road = st.transit[0] ?? null, waiting = view?.waiting ?? 0;
+  const place = sq ? `<div class="wv-sq rf-row${st.squadAt === sq.region ? ' on' : ''}" data-region="${sq.region}" data-tip="Select them: the lands they can march to glow">
+      <b>${name(sq.region)}</b><span class="rf-num">${sq.men} men</span>
+      <span class="cls">${Object.entries(sq.classes).map(([c, n]) => `<span title="${n} ${CLASS_NAME[c] ?? c}">${UNIT_ICON[c] ? `<img src="war/ui/icons/24/${UNIT_ICON[c]}.png" width="18" height="18" alt="">` : ''}${n} ${CLASS_NAME[c] ?? c.replace('civ_', '').replace('_', ' ')}</span>`).join('')}</span></div>` : '';
+  const way = road ? `<div class="wv-row"><span style="flex:1">${name(road.from)} → ${name(road.to)}</span><span class="rf-num">${road.men}</span>
+      <span class="${road.state === 'queued' ? 'wv-flag bad' : 'rf-num'}"${road.state === 'queued' ? ' data-tip="The land is full for your alliance: they march in when there is room"' : ''}>${road.state === 'queued' ? 'waiting: full' : clock(Math.max(0, Math.ceil((road.arriveAt - now) / 1000)))}</span></div>` : '';
+  squadsEl.innerHTML = `<div class="rf-head"><span class="rf-name">Your men</span></div>
+    ${place}${way}${!place && !way ? '<div class="rf-dim" style="padding:4px">Enter your home to bring them onto the field.</div>' : ''}
+    ${waiting ? `<div class="wv-row" data-tip="Men raised while your group was away. They join when it comes home."><span style="flex:1">Waiting at home</span><span class="rf-num">${waiting}</span></div>` : ''}
+    <div class="wv-hint">${road ? 'Everyone travels together.' : 'Click them, then a glowing land to march. Double-click any land to enter it.'}</div>`;
 }
 squadsEl.addEventListener('click', (e) => {
   const r = (e.target as HTMLElement).closest<HTMLElement>('[data-region]')?.dataset.region;
@@ -452,7 +452,7 @@ async function sendOrder(): Promise<void> {
   const from = st.squadAt, to = ordering;
   if (!from || !to) return;
   closeOrder();
-  say(`sending the squad to ${name(to)}…`);
+  say(`sending your men to ${name(to)}…`);
   const r = await source.transfer(from, to);
   if ('error' in r) say(`transfer refused: ${r.error}`, 5000);
   else say(`${r.ok.reduce((s, t) => s + t.men, 0)} men on the road to ${name(to)}`);
