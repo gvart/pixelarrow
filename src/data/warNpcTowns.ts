@@ -24,7 +24,7 @@ export const NPC = {
   /** Tiles from the town's spot within which his men and carts deal with it. */
   reach: 14,
   /** W-141 a good's price by the hops to its nearest land that yields it: at + per x hops, hops up to `far`; a good no land yields: `made`. */
-  distance: { at: 0.62, per: 0.45, far: 4, made: 1.4 },
+  distance: { at: 0.62, per: 0.45, far: 4, made: 1.7 },
   /** W-141 stock a town keeps of a good: `made` if its land does not yield it, else `land` x its land's points. */
   par: { made: 800, land: 500 },
   /** W-141 price by stock: 1 + slope x (1 - stock / par), within min..max; the town's edge either way; hours for stock to go 63% back to par. */
