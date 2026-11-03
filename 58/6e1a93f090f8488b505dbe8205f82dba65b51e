@@ -1,0 +1,30 @@
+server/src/war/captives.ts
+  s_a7d5d20f628c80::t_d73f7c57ede930 134
+server/src/war/persons.ts
+  s_a7d5d20f628c80::t_333f1532309c15 481,504
+  s_a7d5d20f628c80::t_bf90e49b00331a 607
+  s_a7d5d20f628c80::t_d73f7c57ede930 6,30-32,40-41,59,265-266,286,294,312,483,606,608-611,613-615,621-622,625,630-631,644-671,751-752,804,811-812
+server/src/war/routes.ts
+  s_a7d5d20f628c80::t_d73f7c57ede930 336
+  s_a7d5d20f628c80::t_333f1532309c15 59
+src/war/world/group.ts
+  s_a7d5d20f628c80::t_c36e054f87fe04 1-32
+src/war/world/access.ts
+  s_a7d5d20f628c80::t_bf90e49b00331a 2-6
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "586e1a93f090f8488b505dbe8205f82dba65b51e",
+  "prompts": {},
+  "sessions": {
+    "s_a7d5d20f628c80": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1afee479-b44b-46d2-a159-a540e44e7fb8",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
