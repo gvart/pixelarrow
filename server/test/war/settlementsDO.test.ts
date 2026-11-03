@@ -1,7 +1,7 @@
 /**
- * W-63 shared settlements wired into the region DO (server/src/war/regionDO.ts) and the world (worldDO): tribute levied
- * out of the vassal's store and stalls, an attack on a vassal told to its overlord (and his men let in), terms gated on
- * presence, and the season's end keeping a Town while an untended Hamlet decays.
+ * W-63 shared settlements wired into the region DO (server/src/war/regionDO.ts) and the world (worldDO): an attack on a
+ * vassal told to its overlord (and his men let in), terms gated on presence, and the season's end keeping a Town while an
+ * untended Hamlet decays.
  */
 import { env, runInDurableObject } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
@@ -14,15 +14,13 @@ import { ownerOf } from '../../src/war/room';
 import type { RoomSettlement } from '../../src/war/roomSettlements';
 import { tiedTo } from '../../src/war/roomSettlements';
 import { found, seasonSweep, SETTLE } from '../../src/war/settlements';
-import { ensureHolder, goodsOf, putStmt, strongroom } from '../../src/war/holders';
-import { stallId } from '../../src/war/market';
 import { regionStub } from '../../src/war/placement';
 
 const DB = () => env.DB!;
 const H = 3_600_000;
 const stub = (region: string) => regionStub(env, region);
 const ally = (pid: number, a: number) => DB().prepare('INSERT INTO war_alliance_members (season, player_id, alliance, joined_at) VALUES (?1, ?2, ?3, 0) ON CONFLICT (season, player_id) DO UPDATE SET alliance = ?3').bind(WAR_SEASON.id, pid, a).run();
-type Priv = { ensure(r: string): Promise<WarRoom>; loadSettlements(r: WarRoom): Promise<void>; settles: RoomSettlement[]; levyOne(r: WarRoom, s: RoomSettlement, now?: number): Promise<void>; attacked(r: WarRoom, l: { by: number; victim: number }[]): Promise<void>; world(): unknown };
+type Priv = { ensure(r: string): Promise<WarRoom>; loadSettlements(r: WarRoom): Promise<void>; settles: RoomSettlement[]; attacked(r: WarRoom, l: { by: number; victim: number }[]): Promise<void>; world(): unknown };
 const priv = (o: WarRegionDO) => o as unknown as Priv;
 
 /** A settlement in `region` whose camp stands in the DO's room (team `team`), its store holding `goods`. */
@@ -36,41 +34,6 @@ async function settled(o: WarRegionDO, region: string, lord: number, team: numbe
   const id = await found(DB(), { region, centre: centre!, x: b.x, y: b.y, lord }, () => null, Date.now());
   return { room, id, centre: centre!, x: b.x, y: b.y };
 }
-
-describe('W-63 tribute', () => {
-  it('a levy credits the overlord and takes the same out of the vassal\'s store and its citizens\' stalls', async () => {
-    const L = (await devLogin(9501)).playerId, V = (await devLogin(9502)).playerId, C = (await devLogin(9503)).playerId;
-    await ally(L, 1), await ally(V, 2), await ally(C, 2);
-    await runInDurableObject(stub('moors'), async (o: WarRegionDO) => {
-      const over = await found(DB(), { region: 'kimmeria', centre: 1, x: 100, y: 100, lord: L }, () => null, Date.now());
-      const { room, id } = await settled(o, 'moors', V, 2, 140, 140, { wood: 100 });
-      await DB().batch([
-        DB().prepare('UPDATE war_settlements SET overlord_id = ?2, tribute_pct = 20, levied_at = 0 WHERE id = ?1').bind(id, over),
-        DB().prepare("INSERT INTO war_settlement_members (settlement_id, player_id, role, since) VALUES (?1, ?2, 'citizen', 0)").bind(id, C),
-        ensureHolder(DB(), stallId('moors', C), 'stall', { pid: C, town: 'moors' }, 0),
-        putStmt(DB(), stallId('moors', C), 'coin', 10),
-      ]);
-      await priv(o).loadSettlements(room);
-      const s = () => priv(o).settles.find((x) => x.id === id)!;
-      await priv(o).levyOne(room, s()); // the first look: where they stand
-      expect(await goodsOf(DB(), strongroom(L))).toEqual({});
-      room.putStore(id, { wood: 50 });
-      await DB().batch([putStmt(DB(), stallId('moors', C), 'coin', 100)]);
-      await priv(o).levyOne(room, s());
-      expect(await goodsOf(DB(), strongroom(L))).toEqual({ wood: 10, coin: 20 });
-      expect(room.storeGoods(id).wood).toBeCloseTo(140);
-      expect((await goodsOf(DB(), stallId('moors', C))).coin).toBeCloseTo(90);
-      // not due again for LEVY_MS
-      room.putStore(id, { wood: 50 });
-      await priv(o).loadSettlements(room);
-      await priv(o).levyOne(room, s());
-      expect(await goodsOf(DB(), strongroom(L))).toEqual({ wood: 10, coin: 20 });
-      await priv(o).levyOne(room, s(), Date.now() + 7 * H);
-      expect((await goodsOf(DB(), strongroom(L))).wood).toBeCloseTo(20);
-      expect(room.storeGoods(id).wood).toBeCloseTo(180);
-    });
-  });
-});
 
 describe('W-63 attacks and access', () => {
   it('an attack on a vassal is told to its overlord; his men may come into its region whoever holds it', async () => {

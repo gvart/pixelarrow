@@ -19,7 +19,6 @@ import { ALLIANCES } from '../../../src/war/world/alliances';
 import type { FightReport } from '../../../src/war/types';
 import { fill, listOffer, rentSite, stallId, warehouseId } from '../../src/war/market';
 import { fillHook } from '../../src/war/tradeScore';
-import { levy } from '../../src/war/settlements';
 
 const DB = () => env.DB!;
 const code = async (p: Promise<unknown>) => p.then(() => 'ok', (e: { code?: string }) => e.code ?? String(e));
@@ -43,6 +42,8 @@ async function settle(lord: number, level: number, region = 'kyrene', overlord: 
   return id;
 }
 const electionOf = async (season: number, a: number) => (await DB().prepare("SELECT * FROM war_crown_votes WHERE season = ?1 AND alliance = ?2 AND kind = 'election' ORDER BY id DESC").bind(season, a).first<{ id: number; state: string; closes_at: number; winner_pid: number | null }>());
+/** Seen then: a monarch not lapsing while a test moves time on. */
+const seen = (pid: number, at: number) => DB().prepare('UPDATE players SET last_seen_at = ?2 WHERE id = ?1').bind(pid, at).run();
 const coinIn = async (place: string) => Math.round(((await goodsOf(DB(), place)).coin ?? 0) * 100) / 100;
 
 /** Crown a monarch: three members by power, `king` the strongest; the election closes with no votes. */
@@ -54,6 +55,7 @@ async function crowned(season: number, a = 1) {
   await settle(c, 1);
   await advance(env, a, now, season);
   const e = (await electionOf(season, a))!;
+  await seen(king, e.closes_at);
   await advance(env, a, e.closes_at, season);
   return { king, b, c, now: e.closes_at };
 }
@@ -74,9 +76,9 @@ describe('pure rules', () => {
   it('candidates, weights, ties and the bounty split', () => {
     const m = [{ pid: 4, name: 'd', power: 2 }, { pid: 1, name: 'a', power: 5 }, { pid: 3, name: 'c', power: 5 }, { pid: 2, name: 'b', power: 0 }, { pid: 5, name: 'e', power: 1 }];
     expect(candidatesOf(m).map((c) => c.pid)).toEqual([1, 3, 4]);
-    expect(voteWeight(0)).toBe(1);
-    expect(voteWeight(3)).toBeCloseTo(1.3);
-    expect(voteWeight(9)).toBe(1 + CROWN.weightMax);
+    expect(voteWeight(true, 0)).toBe(1);
+    expect(voteWeight(true, 3)).toBe(4);
+    expect(voteWeight(false, 3)).toBe(0);
     const cs = [{ pid: 1, name: 'a', power: 3 }, { pid: 2, name: 'b', power: 6 }];
     expect(electionWinner(cs, [{ choice: 1, weight: 1.5 }, { choice: 2, weight: 1 }])!.pid).toBe(1); // weight wins
     expect(electionWinner(cs, [{ choice: 1, weight: 1 }, { choice: 2, weight: 1 }])!.pid).toBe(2); // a tie: the higher power
@@ -99,20 +101,21 @@ describe('election', () => {
     await settle(p3, 2);
     await settle(p4, 1); // fourth: not a candidate
     await settle(v1, 5); // a city: v1 is the strongest
+    await settle(v2, 1);
     let view = await crownView(env, p1, now, S);
     expect(view.monarch).toBeNull();
     expect(view.election!.candidates.map((c) => c.pid)).toEqual([v1, p1, p2]);
     expect(view.election!.candidates[0].power).toBe(6);
     expect(await code(vote(env, p2, p4, now, S))).toBe('bad_request');
-    // p1 (weight 1.4) and v2 (1) vote p2; v1 (1.5) votes himself: 2.4 against 1.5
+    // every lord here weighs 1 (nobody is sworn to them): p1 and v2 vote p2, v1 himself
     await vote(env, p1, p2, now, S);
     await vote(env, v2, p2, now, S);
     await vote(env, v1, v1, now, S);
-    await vote(env, p3, v1, now, S); // 1.2: 2.7 against 2.4
+    await vote(env, p3, v1, now, S); // 2 against 2
     view = await crownView(env, v2, now, S);
-    expect(view.election!.candidates.find((c) => c.pid === v1)!.votes).toBeCloseTo(2.7);
-    await vote(env, p3, p2, now, S); // he changes his mind: 3.6 against 1.5
-    expect((await membersOf(DB(), a, S)).find((m) => m.pid === p3)!.weight).toBeCloseTo(1.2);
+    expect(view.election!.candidates.find((c) => c.pid === v1)!.votes).toBe(2);
+    await vote(env, p3, p2, now, S); // he changes his mind: 3 against 1
+    expect((await membersOf(DB(), a, S)).find((m) => m.pid === p3)!.weight).toBe(1);
     const closes = view.election!.closes;
     expect(closes - now).toBe(CROWN.voteMs);
     view = await crownView(env, p2, closes, S);
@@ -122,12 +125,14 @@ describe('election', () => {
     expect(view.me.monarch).toBe(true);
     expect(view.log[0].kind).toBe('crowned');
     // the term ends: a new election opens and he stays as regent
+    await seen(p2, closes + CROWN.termMs);
     view = await crownView(env, p2, closes + CROWN.termMs, S);
     expect(view.election).not.toBeNull();
     expect(view.regent).toBe(true);
     expect(view.monarch!.pid).toBe(p2);
     // nobody votes: the strongest (v1) wins; the old council goes with the old monarch
     await appoint(env, p2, 'marshal', p3, closes + CROWN.termMs, S);
+    await seen(v1, view.election!.closes);
     view = await crownView(env, p1, view.election!.closes, S);
     expect(view.monarch!.pid).toBe(v1);
     expect(view.council.every((c) => c.pid === null)).toBe(true);
@@ -147,10 +152,11 @@ describe('election', () => {
 });
 
 describe('no confidence', () => {
-  it('a petition of a quarter of the active members opens the vote; a majority removes the monarch; a new election opens', async () => {
+  it('a petition of a quarter of the active lords opens the vote; a majority of lord weight removes the monarch; a new election opens', async () => {
     const S = fresh(), a = 1;
     const { king, b, c, now } = await crowned(S, a);
-    const others = [await member(a, S), await member(a, S), await member(a, S), await member(a, S), await member(a, S)]; // 8 members: 2 signatures
+    const others = [await member(a, S), await member(a, S), await member(a, S), await member(a, S), await member(a, S)]; // 8 lords: 2 signatures
+    for (const o of others) await settle(o, 1);
     expect(await code(sign(env, king, now, S))).toBe('yours');
     let s = await sign(env, b, now, S);
     expect(s).toMatchObject({ signs: 1, need: 2, state: 'petition' });
@@ -160,8 +166,10 @@ describe('no confidence', () => {
     await confidence(env, b, true, now, S);
     await confidence(env, c, true, now, S);
     await confidence(env, others[0], true, now, S);
+    await confidence(env, others[1], true, now, S);
+    await confidence(env, others[2], true, now, S); // 5 of 8
     await confidence(env, king, false, now, S);
-    await confidence(env, others[1], false, now, S);
+    await confidence(env, others[3], false, now, S);
     let view = await crownView(env, b, now, S);
     expect(view.petition).toMatchObject({ state: 'open', signs: 2, mine: 1 });
     view = await crownView(env, b, now + CROWN.voteMs, S);
@@ -174,15 +182,17 @@ describe('no confidence', () => {
   it('a held vote keeps him and shuts petitions for a while; an unsigned petition lapses', async () => {
     const S = fresh(), a = 3;
     const { king, b, c, now } = await crowned(S, a);
-    await sign(env, b, now, S); // 3 members: one signature opens it
+    await sign(env, b, now, S); // 3 lords: one signature opens it
     await confidence(env, b, true, now, S);
     await confidence(env, king, false, now, S);
     await confidence(env, c, false, now, S);
+    await seen(king, now + CROWN.voteMs);
     let view = await crownView(env, b, now + CROWN.voteMs, S);
     expect(view.monarch!.pid).toBe(king);
     expect(view.petitionCooldown).toBe(now + CROWN.voteMs + CROWN.cooldownMs);
     expect(await code(sign(env, c, now + CROWN.voteMs + H, S))).toBe('cooldown');
     // after the cooldown a petition again (opens at once: 1 of 3 signs)
+    await seen(king, now + CROWN.voteMs + CROWN.cooldownMs + H);
     expect((await sign(env, c, now + CROWN.voteMs + CROWN.cooldownMs + H, S)).state).toBe('open');
     view = await crownView(env, c, now + CROWN.voteMs + CROWN.cooldownMs + H, S);
     expect(view.petition!.state).toBe('open');
@@ -237,28 +247,21 @@ describe('council and treasury', () => {
 });
 
 describe('the tax where coin is earned', () => {
-  it('a market fill and a vassal\'s tribute pay the seller\'s and the overlord\'s alliance tax', async () => {
+  it('a market fill pays the seller\'s alliance tax', async () => {
     const T = 'kleisoura', now = Date.now();
-    const seller = await member(0, 1), buyer = await member(1, 1), vassal = await member(1, 1);
+    const seller = await member(0, 1), buyer = await member(1, 1);
     await DB().prepare('INSERT INTO war_crowns (season, alliance, tax_pct) VALUES (1, 0, 10) ON CONFLICT (season, alliance) DO UPDATE SET tax_pct = 10').run();
     await setGood(seller, 'coin', 100);
     await setGood(buyer, 'coin', 100);
     await rentSite(DB(), seller, T, 'stall', 1, now);
     await rentSite(DB(), buyer, T, 'warehouse', 1, now);
     await DB().batch([putStmt(DB(), stallId(T, seller), 'iron', 10, 'dodona'), putStmt(DB(), stallId(T, seller), 'coin', 20), putStmt(DB(), warehouseId(T, buyer), 'coin', 150)]);
-    await DB().prepare("INSERT INTO war_persons (id, player_id, state, region) VALUES (?1, ?2, 'active', ?3)").bind(`cr-${buyer}`, buyer, T).run();
+    await DB().prepare("INSERT INTO war_persons (id, player_id, state, region) VALUES (?1, ?2, 'active', ?3), (?4, ?5, 'active', ?3)").bind(`cr-${buyer}`, buyer, T, `cr-${seller}`, seller).run();
     const id = await listOffer(DB(), seller, T, { side: 'sell', res: 'iron', n: 8, price: 25 }, 1, now);
     const f = await fill(DB(), buyer, id, 4, 'cr-1', 1, now, fillHook(env));
     expect(f.tax).toBe(5);
     expect(await coinIn(stallId(T, seller))).toBe(20 + 95 - 10); // the sale less the town's and the crown's tax
     expect(await coinIn(treasuryOf(0, 1))).toBe(10);
-    // tribute: the overlord's lord (alliance 0) gets 20 % of the vassal's 100 coin, less his crown's 10 %
-    const over = await settle(seller, 3), sv = await settle(vassal, 1, 'kyrene', over);
-    await DB().prepare('UPDATE war_settlements SET tribute_pct = 20 WHERE id = ?1').bind(sv).run();
-    const before = await good(seller, 'coin');
-    expect((await levy(DB(), sv, { coin: 100 }, 0, now))!.goods).toEqual({ coin: 20 });
-    expect(await good(seller, 'coin')).toBe(before + 18);
-    expect(await coinIn(treasuryOf(0, 1))).toBe(12);
   });
 });
 

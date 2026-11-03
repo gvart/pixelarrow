@@ -648,6 +648,8 @@ export interface WarBuildSim extends WarSim {
   setTies(fn: (owner: string, other: string) => boolean): void;
   /** W-153: whom `owner` pays and at what %, as the setLiege order set it (null: nobody). */
   liegeOf(owner: string): { to: string; pct: number } | null;
+  /** W-153: every owner who pays someone, in order. */
+  liegeOwners(): string[];
   /** Scenarios: the team's unfinished bridge pieces done at once (standing bridges at the start). */
   finishBridges(team: number): void;
   /** Dev: site `id` done at once (materials and labour free); false when it is no open site. */

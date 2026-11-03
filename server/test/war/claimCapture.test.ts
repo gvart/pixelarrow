@@ -87,7 +87,7 @@ describe('taking a held claim point (room)', () => {
     r.sim.finishSite(camp.id);
     steps(r, 60);
     const s: RoomSettlement = {
-      id: 5, centre: camp.id, x: camp.x, y: camp.y, r: 24, name: 'Akra', lord: 1, lordName: 'One', team: 0, level: 1, overlord: null, tribute: 0, leviedAt: 0,
+      id: 5, centre: camp.id, x: camp.x, y: camp.y, r: 24, name: 'Akra', lord: 1, lordName: 'One', team: 0, level: 1, overlord: null, tribute: 0,
       overlordLords: [], members: [{ pid: 1, role: 'lord', plot: null }],
     };
     r.setSettlements([s]);

@@ -355,7 +355,8 @@ interface OrderForm { kind: OrderKind; region: string; target: string; res: stri
 /** The empty view (offline, or before the first read). */
 const blank = (pid: number): CrownView => ({
   alliance: null, now: Date.now(), monarch: null, regent: false, council: OFFICES.map((o) => ({ office: o.id, pid: null, name: null })), treasury: { goods: {}, tax: 0, taxed: 0 },
-  election: null, petition: null, petitionCooldown: 0, orders: [], pacts: [], log: [], members: [], me: { pid, power: 0, weight: 1, offices: [], monarch: false },
+  election: null, petition: null, petitionCooldown: 0, orders: [], pacts: [], log: [], members: [], me: { pid, power: 0, weight: 0, offices: [], monarch: false },
+  feudal: { rank: 'free', lord: null, asked: null, vassals: [], asks: [], rate: null, owed: [], barUntil: 0, roll: [], heir: null, calls: [] },
 });
 
 /** Does something wait for him (a vote not cast, a petition vote open)? */

@@ -80,7 +80,7 @@ import { GatherWatch } from './taskWatch';
 import type { TaskMetric } from '../../../src/war/net/tasks';
 import { ALLIANCES as ALLIANCE_LIST } from '../../../src/war/world/alliances';
 import { BUILDINGS } from '../../../src/war/sim/economy';
-import { bannerOf, buildRefusal, householdOf, netOf, ownBuildings, piecesOf, storesOf, type Persist, type Piece, type RoomSettlement } from './roomSettlements';
+import { bannerOf, buildRefusal, householdOf, netOf, ownBuildings, piecesOf, storesOf, type Oath, type Persist, type Piece, type RoomSettlement } from './roomSettlements';
 import { SETTLE } from './settlements';
 import type { SettlementNet } from '../../../src/war/net/protocol';
 
@@ -1076,6 +1076,7 @@ export class WarRoom {
   }
 
   private handoffs = new Map<string, HandoffWindow>();
+  private oaths: readonly Oath[] = [];
   private static hkey = (a: number, b: number) => (a < b ? `${a}:${b}` : `${b}:${a}`);
 
   /** The two carriers stand within HANDOFF.reach tiles of each other (any man of a squad, or the cart). */
@@ -1580,10 +1581,28 @@ export class WarRoom {
     return t !== null && t < this.per.length ? t : null;
   }
 
+  /** W-150: the oaths in force (the DO's D1 poll): the household, and in the log whom each owner pays, as it changes. */
+  setOaths(list: readonly Oath[]): void {
+    this.oaths = list;
+    this.sim.setTies(householdOf(this.settles, list));
+    const want = new Map(list.map((o) => [`p:${o.vassal}`, o]));
+    for (const owner of this.sim.liegeOwners()) if (!want.has(owner)) this.roomOrder({ kind: 'setLiege', owner, to: null, pct: 0 });
+    for (const [owner, o] of want) {
+      const cur = this.sim.liegeOf(owner);
+      if (cur?.to !== `p:${o.lord}` || cur.pct !== o.pct) this.roomOrder({ kind: 'setLiege', owner, to: `p:${o.lord}`, pct: o.pct });
+    }
+  }
+
+  /** W-153: the tribute set aside in this region's buildings, for the world to read (./oaths.ts reportHeld). */
+  titheReports(): { building: number; type: string; payer: number; receiver: number; goods: Record<string, number> }[] {
+    const pid = (o?: string) => Number(/^p:(\d+)$/.exec(o ?? '')?.[1] ?? 0);
+    return (this.snap.buildings ?? []).flatMap((b) => (b.tithe && pid(b.owner) && pid(b.titheTo) ? [{ building: b.id, type: b.type, payer: pid(b.owner), receiver: pid(b.titheTo), goods: b.tithe as Record<string, number> }] : []));
+  }
+
   /** The region's settlements (the DO's D1 poll). Towns and squads whose banner changed turn now, in id order (logged orders). */
   setSettlements(list: readonly RoomSettlement[]): void {
     this.settles = [...list].sort((a, b) => a.id - b.id);
-    this.sim.setTies(householdOf(this.settles));
+    this.sim.setTies(householdOf(this.settles, this.oaths));
     for (const s of this.settles) {
       if (s.team === null || s.team >= this.per.length) continue;
       const t = this.snap.townLevels?.find((x) => x.id === s.centre);
@@ -1703,36 +1722,6 @@ export class WarRoom {
       for (const [k, n] of Object.entries(at ? contents(at.slots).goods : {})) out[k] = (out[k] ?? 0) + n;
     }
     return out;
-  }
-
-  /** Take `goods` out of the settlement's stores (all or nothing). */
-  takeStore(id: number, goods: Record<string, number>): boolean {
-    const s = this.settlement(id), want = Object.entries(goods).filter(([, n]) => n > 1e-9);
-    if (!want.length) return true;
-    if (!s) return false;
-    const have = this.storeGoods(id);
-    if (want.some(([k, n]) => (have[k] ?? 0) + 1e-6 < n)) return false;
-    const left = Object.fromEntries(want);
-    for (const b of storesOf(this.snap, s)) {
-      const at = this.sim.cargo({ building: b.id });
-      if (!at) continue;
-      const g = contents(at.slots).goods, part: Record<string, number> = {};
-      for (const [k, n] of Object.entries(left)) {
-        const t = Math.min(n, g[k] ?? 0);
-        if (t > 1e-9) (part[k] = t), (left[k] = n - t);
-      }
-      if (Object.keys(part).length) takeOut(at.slots, part);
-    }
-    this.snap = this.sim.snapshot();
-    return true;
-  }
-
-  /** Goods back into the settlement's first store (a levy that failed). */
-  putStore(id: number, goods: Record<string, number>): void {
-    const s = this.settlement(id), b = s ? storesOf(this.snap, s)[0] : undefined;
-    const at = b ? this.sim.cargo({ building: b.id }) : null;
-    if (at) fill(at.slots.map((x) => ({ ...x, cap: Infinity })), { lots: Object.entries(goods).map(([r, n]) => ({ r: r as never, n, o: this.region.id })), items: [] });
-    this.snap = this.sim.snapshot();
   }
 
   /**

@@ -3,17 +3,19 @@
  * views: src/war/net/crown.ts). One crown per alliance and season; state moves lazily (`advance`, on every read and act).
  *
  *  - Realm power: the levels of the settlements a member rules (W-63), his vassals' levels and one per region held.
- *  - Election: when the crown is empty or the term is over, the top CROWN.candidates by power stand; members vote for
- *    CROWN.voteMs (weight 1 + a capped bonus by the level of their best settlement); the most weight wins, ties to the
- *    higher power. The winner reigns CROWN.termMs from the close; a new monarch's council is dismissed. While an
+ *  - Election: when the crown is empty or the term is over, the top CROWN.candidates by power stand; the lords vote for
+ *    CROWN.voteMs (W-151: weight 1 + their vassals; who rules no settlement has no vote); the most weight wins, ties to
+ *    the higher power. The winner reigns CROWN.termMs from the close; a new monarch's council is dismissed. While an
  *    election runs after a term the old monarch stays as regent (he still acts).
- *  - No confidence: a petition signed by CROWN.petitionShare of the active members (seen within CROWN.activeMs) within
- *    CROWN.petitionMs opens a vote of CROWN.voteMs; a weighted majority of yes removes the monarch (no regent) and a new
- *    election opens. A failed petition or vote: none again for CROWN.cooldownMs.
+ *  - No confidence: a petition signed by CROWN.petitionShare of the active lords (seen within CROWN.activeMs) within
+ *    CROWN.petitionMs opens a vote of CROWN.voteMs; a majority of all lord weight removes the monarch and a new election
+ *    opens. A failed petition or vote: none again for CROWN.cooldownMs.
+ *  - Succession (W-152): the monarch names an heir. On his abdication the heir rules at once. Deposed, or not seen for
+ *    FEUDAL.inactiveMs, the crown goes to election and the heir rules until it closes; no heir: it stands empty.
  *  - Council: the monarch appoints and dismisses the Marshal, Treasurer, Envoy and Quartermaster (members; one office
  *    each). The monarch may also use every office's tools.
  *  - Treasury (war_goods `cr:<season>:<alliance>`): members deposit coin; the alliance tax (Treasurer, 0..CROWN.taxMax %)
- *    takes its share of members' market sales (./tradeScore.ts fill hook) and tribute received (./settlements.ts levy);
+ *    takes its share of members' market sales (./tradeScore.ts fill hook);
  *    the Treasurer gives from it to works (./works.ts give) and tops up the reward of the alliance's taken build and
  *    guard contracts (at most their reward again per grant).
  *  - Orders are bounties, not control: the bounty is held from the treasury when posted. Marshal: attack and defend
@@ -31,10 +33,11 @@
  *  - Season: the world's rollover (`crownSeason`) ends every term (the monarch regent until the new election closes),
  *    voids running votes and settles open orders.
  */
+import { FEUDAL, type Rank } from '../../../src/data/warFeudal';
 import { ALLIANCES, WAR_SEASON } from '../../../src/war/world/alliances';
 import {
   candidatesOf, confidenceLost, CROWN, electionWinner, OFFICES, petitionNeed, realmPower, splitBounty, voteWeight,
-  type Candidate, type CrownMember, type CrownOrder, type CrownPact, type CrownView, type Office, type OrderKind, type PactKind, type RealmSettlement,
+  type Candidate, type CrownMember, type CrownOrder, type CrownPact, type CrownView, type FeudalView, type Office, type OrderKind, type PactKind, type RealmSettlement,
 } from '../../../src/war/net/crown';
 import type { FightReport } from '../../../src/war/types';
 import type { Env } from '../env';
@@ -43,6 +46,7 @@ import { linked } from './abuse';
 import { contract, fromSites } from './contracts';
 import { batch, goodsOf, guard, HOME, lotsOf, planTake, putLotsStmts, putStmt, strongroom, type Goods } from './holders';
 import { townOf } from './market';
+import { barUntil, crownPassedStmts, owedBy, rankOf, rateOf } from './oaths';
 import { json, fightTally } from './persons';
 import { scorePeace } from './peace';
 import { WAR_REGIONS } from './regions';
@@ -58,7 +62,7 @@ const EPS = 1e-6;
 export const treasuryOf = (a: number, season = WAR_SEASON.id) => `cr:${season}:${a}`;
 const cents = (n: number) => Math.floor(n * 100 + EPS) / 100;
 
-interface CrownRow { season: number; alliance: number; monarch_pid: number | null; crowned_at: number | null; term_ends: number; tax_pct: number; taxed: number }
+interface CrownRow { season: number; alliance: number; monarch_pid: number | null; heir_pid: number | null; crowned_at: number | null; term_ends: number; tax_pct: number; taxed: number }
 interface VoteRow { id: number; season: number; alliance: number; kind: 'election' | 'confidence'; state: 'petition' | 'open' | 'closed'; target_pid: number | null; candidates: string; opens_at: number; closes_at: number; result: string; winner_pid: number | null; created_at: number }
 export interface OrderRow { id: number; season: number; alliance: number; kind: OrderKind; posted_by: number; region: string; target: string | null; x: number | null; y: number | null; res: string | null; n: number; delivered: number; bounty: number; paid: number; state: string; expires_at: number; closed_at: number | null; created_at: number }
 interface PactRow { id: number; season: number; alliance_a: number; alliance_b: number; kind: PactKind; state: string; offered_by: number; answered_by: number | null; broken_by: number | null; expires_at: number; ends_at: number | null; created_at: number }
@@ -92,10 +96,15 @@ export async function membersOf(db: D1Database, a: number, season = WAR_SEASON.i
     .all<{ pid: number; name: string | null }>()).results;
   if (!rows.length) return [];
   const all = await realm(db);
-  const best = new Map((await db
-    .prepare("SELECT mm.player_id AS pid, MAX(s.level) AS lv FROM war_settlement_members mm JOIN war_settlements s ON s.id = mm.settlement_id WHERE mm.role != 'garrison' GROUP BY mm.player_id")
-    .all<{ pid: number; lv: number }>()).results.map((r) => [r.pid, r.lv]));
-  return rows.map((r) => ({ pid: r.pid, name: r.name ?? `#${r.pid}`, power: realmPower(r.pid, all), weight: voteWeight(best.get(r.pid) ?? 0) }));
+  const lords = new Set(all.map((s) => s.lord_pid));
+  const sworn = new Map((await db
+    .prepare("SELECT lord_pid AS pid, COUNT(*) AS n FROM war_oaths WHERE season = ?1 AND state = 'sworn' GROUP BY lord_pid")
+    .bind(season)
+    .all<{ pid: number; n: number }>()).results.map((r) => [r.pid, r.n]));
+  return rows.map((r) => {
+    const lord = lords.has(r.pid), vassals = sworn.get(r.pid) ?? 0;
+    return { pid: r.pid, name: r.name ?? `#${r.pid}`, power: realmPower(r.pid, all), weight: voteWeight(lord, vassals), lord, vassals };
+  });
 }
 
 // ---------------------------------------------------------------- the lazy clock
@@ -105,6 +114,28 @@ async function ballotsOf(db: D1Database, id: number, stage: 'sign' | 'ballot') {
 }
 
 type News = { kind: CrownNewsKind; text: string };
+
+const heirName = async (db: D1Database, c: CrownRow) => (c.heir_pid === null ? null : await nameOf(db, c.heir_pid));
+
+/**
+ * W-152: the crown falls from its monarch: to his heir (still of the alliance), else it stands empty. His council goes;
+ * `ends` is the new term's end (`at`: an election opens now, the heir rules until it closes).
+ */
+async function fallStmts(db: D1Database, c: CrownRow, season: number, at: number, ends: number): Promise<D1PreparedStatement[]> {
+  const heir = c.heir_pid !== null && (await allianceOf(db, c.heir_pid, season)) === c.alliance ? c.heir_pid : null;
+  return [
+    db.prepare('UPDATE war_crowns SET monarch_pid = ?3, heir_pid = NULL, crowned_at = CASE WHEN ?3 IS NULL THEN crowned_at ELSE ?4 END, term_ends = ?5 WHERE season = ?1 AND alliance = ?2').bind(season, c.alliance, heir, at, ends),
+    db.prepare('DELETE FROM war_crown_offices WHERE season = ?1 AND alliance = ?2').bind(season, c.alliance),
+    ...(await crownPassedStmts(db, season, c.monarch_pid, heir)),
+  ];
+}
+
+/** W-152: when he was last seen: his login or his latest session's touch. */
+const seenAt = async (db: D1Database, pid: number) =>
+  (await db
+    .prepare('SELECT max(coalesce(p.last_seen_at, 0), coalesce((SELECT MAX(s.last_seen_at) FROM sessions s WHERE s.player_id = p.id), 0)) AS at FROM players p WHERE p.id = ?1')
+    .bind(pid)
+    .first<{ at: number }>())?.at ?? 0;
 
 /** Close a vote whose time is up (an election crowns its winner; a lost confidence vote removes the monarch); an election's news. */
 async function closeVote(db: D1Database, v: VoteRow, season: number): Promise<News | null> {
@@ -119,22 +150,18 @@ async function closeVote(db: D1Database, v: VoteRow, season: number): Promise<Ne
     stmts.push(close({ votes }, w?.pid ?? null));
     if (w) {
       stmts.push(db.prepare('UPDATE war_crowns SET monarch_pid = ?3, crowned_at = ?4, term_ends = ?5 WHERE season = ?1 AND alliance = ?2').bind(season, v.alliance, w.pid, at, at + CROWN.termMs));
-      if (w.pid !== c.monarch_pid) stmts.push(db.prepare('DELETE FROM war_crown_offices WHERE season = ?1 AND alliance = ?2').bind(season, v.alliance));
+      if (w.pid !== c.monarch_pid) stmts.push(db.prepare('DELETE FROM war_crown_offices WHERE season = ?1 AND alliance = ?2').bind(season, v.alliance), db.prepare('UPDATE war_crowns SET heir_pid = NULL WHERE season = ?1 AND alliance = ?2').bind(season, v.alliance), ...(await crownPassedStmts(db, season, c.monarch_pid, w.pid)));
       stmts.push(logStmt(db, season, v.alliance, 'crowned', w.pid, { name: w.name, votes: votes[w.pid] ?? 0, again: w.pid === c.monarch_pid }, at));
       news = { kind: 'monarch', text: `${w.name} is crowned${w.pid === c.monarch_pid ? ' again' : ''} in ${ALLIANCES[v.alliance].name}` };
     } else news = { kind: 'electionClosed', text: `The election in ${ALLIANCES[v.alliance].name} closed with no winner` };
   } else if (v.state === 'petition') {
     stmts.push(close({ failed: 'signatures' }), logStmt(db, season, v.alliance, 'petition_failed', null, {}, at));
   } else {
-    const ballots = await ballotsOf(db, v.id, 'ballot'), lost = confidenceLost(ballots);
+    const ballots = await ballotsOf(db, v.id, 'ballot'), lordWeight = (await membersOf(db, v.alliance, season)).reduce((x, m) => x + m.weight, 0), lost = confidenceLost(ballots, lordWeight);
     const yes = ballots.filter((b) => b.choice === 1).reduce((x, b) => x + b.weight, 0), no = ballots.filter((b) => b.choice === 0).reduce((x, b) => x + b.weight, 0);
     stmts.push(close({ yes, no, lost }));
     if (lost && c.monarch_pid !== null && c.monarch_pid === v.target_pid) {
-      stmts.push(
-        db.prepare('UPDATE war_crowns SET monarch_pid = NULL, term_ends = ?3 WHERE season = ?1 AND alliance = ?2 AND monarch_pid = ?4').bind(season, v.alliance, at, v.target_pid),
-        db.prepare('DELETE FROM war_crown_offices WHERE season = ?1 AND alliance = ?2').bind(season, v.alliance),
-        logStmt(db, season, v.alliance, 'deposed', v.target_pid, { yes, no }, at),
-      );
+      stmts.push(...(await fallStmts(db, c, season, at, at)), logStmt(db, season, v.alliance, 'deposed', v.target_pid, { yes, no, heir: await heirName(db, c) }, at));
     } else stmts.push(logStmt(db, season, v.alliance, 'confidence_held', v.target_pid, { yes, no }, at));
   }
   return batch(db, stmts).then(
@@ -182,6 +209,13 @@ export async function advance(env: Env, a: number, now: number, season = WAR_SEA
   for (const v of due) { const n = await closeVote(db, v, season); if (n) news.push(n); }
   await settleOrders(env, a, now, season);
   await expirePacts(db, now, season);
+  // W-152: a king not seen for FEUDAL.inactiveMs: the crown goes to election, his heir rules until it closes
+  const was = await crownOf(db, a, season);
+  if (was.monarch_pid !== null && (await seenAt(db, was.monarch_pid)) + FEUDAL.inactiveMs <= now) {
+    const name = await nameOf(db, was.monarch_pid);
+    await batch(db, [...(await fallStmts(db, was, season, now, now)), logStmt(db, season, a, 'lapsed', was.monarch_pid, { name, heir: await heirName(db, was) }, now)]);
+    news.push({ kind: 'monarch', text: was.heir_pid === null ? `${name} is gone: the crown of ${ALLIANCES[a].name} stands empty` : `${name} is gone: ${await heirName(db, was)} rules ${ALLIANCES[a].name} until the election` });
+  }
   const c = await crownOf(db, a, season);
   const open = await db.prepare("SELECT 1 FROM war_crown_votes WHERE season = ?1 AND alliance = ?2 AND kind = 'election' AND state = 'open'").bind(season, a).first();
   if (!open && (c.monarch_pid === null || c.term_ends <= now)) { const n = await openElection(db, a, now, season); if (n) news.push(n); }
@@ -200,25 +234,33 @@ async function mustHold(db: D1Database, a: number, pid: number, o: Office | 'cro
   if (!(await holds(db, a, pid, o, season))) throw new ApiError(403, 'not_office', o === 'crown' ? 'Only the monarch may' : `Only the ${OFFICES.find((x) => x.id === o)!.name} or the monarch may`);
 }
 
-const weightOf = async (db: D1Database, a: number, pid: number, season: number) => (await membersOf(db, a, season)).find((m) => m.pid === pid)?.weight ?? 1;
+const weightOf = async (db: D1Database, a: number, pid: number, season: number) => (await membersOf(db, a, season)).find((m) => m.pid === pid)?.weight ?? 0;
 
 // ---------------------------------------------------------------- votes
+
+/** W-151: only lords vote and sign; their weight. */
+async function mustLordVote(db: D1Database, a: number, pid: number, season: number): Promise<number> {
+  const w = await weightOf(db, a, pid, season);
+  if (!(w > 0)) throw new ApiError(403, 'not_lord', 'Only lords vote: rule a settlement first');
+  return w;
+}
 
 /** Vote (or change one's vote) in the running election. */
 export async function vote(env: Env, pid: number, candidate: number, now: number, season = WAR_SEASON.id): Promise<void> {
   const db = env.DB!, a = await mustMember(db, pid, season);
   await advance(env, a, now, season);
+  const weight = await mustLordVote(db, a, pid, season);
   const v = await db.prepare("SELECT * FROM war_crown_votes WHERE season = ?1 AND alliance = ?2 AND kind = 'election' AND state = 'open'").bind(season, a).first<VoteRow>();
   if (!v) throw new ApiError(409, 'no_election', 'No election runs');
   if (!json<Candidate[]>(v.candidates, []).some((c) => c.pid === candidate)) throw new ApiError(400, 'bad_request', 'Not a candidate');
   await db
     .prepare("INSERT INTO war_crown_ballots (vote_id, player_id, stage, choice, weight, at) VALUES (?1, ?2, 'ballot', ?3, ?4, ?5) ON CONFLICT (vote_id, player_id, stage) DO UPDATE SET choice = ?3, weight = ?4, at = ?5")
-    .bind(v.id, pid, candidate, await weightOf(db, a, pid, season), now)
+    .bind(v.id, pid, candidate, weight, now)
     .run();
 }
 
 const activeCount = async (db: D1Database, a: number, now: number, season: number) =>
-  (await db.prepare('SELECT COUNT(*) AS n FROM war_alliance_members m JOIN players p ON p.id = m.player_id WHERE m.season = ?1 AND m.alliance = ?2 AND p.last_seen_at >= ?3').bind(season, a, now - CROWN.activeMs).first<{ n: number }>())?.n ?? 0;
+  (await db.prepare('SELECT COUNT(*) AS n FROM war_alliance_members m JOIN players p ON p.id = m.player_id WHERE m.season = ?1 AND m.alliance = ?2 AND p.last_seen_at >= ?3 AND m.player_id IN (SELECT lord_pid FROM war_settlements)').bind(season, a, now - CROWN.activeMs).first<{ n: number }>())?.n ?? 0;
 
 /** Until when no petition may start: a failed petition or vote shuts it for CROWN.cooldownMs. */
 async function cooldownOf(db: D1Database, a: number, season: number): Promise<number> {
@@ -234,6 +276,7 @@ export async function sign(env: Env, pid: number, now: number, season = WAR_SEAS
   const db = env.DB!, a = await mustMember(db, pid, season), c = await advance(env, a, now, season);
   if (c.monarch_pid === null) throw new ApiError(409, 'no_monarch', 'The crown is empty');
   if (c.monarch_pid === pid) throw new ApiError(409, 'yours', 'You wear the crown');
+  await mustLordVote(db, a, pid, season);
   if (await db.prepare("SELECT 1 FROM war_crown_votes WHERE season = ?1 AND alliance = ?2 AND kind = 'election' AND state = 'open'").bind(season, a).first()) throw new ApiError(409, 'election', 'An election runs already');
   let v = await db.prepare("SELECT * FROM war_crown_votes WHERE season = ?1 AND alliance = ?2 AND kind = 'confidence' AND state IN ('petition', 'open')").bind(season, a).first<VoteRow>();
   if (v?.state === 'open') throw new ApiError(409, 'voting', 'The vote is open: cast yours');
@@ -265,10 +308,34 @@ export async function confidence(env: Env, pid: number, yes: boolean, now: numbe
   await advance(env, a, now, season);
   const v = await db.prepare("SELECT * FROM war_crown_votes WHERE season = ?1 AND alliance = ?2 AND kind = 'confidence' AND state = 'open'").bind(season, a).first<VoteRow>();
   if (!v) throw new ApiError(409, 'no_vote', 'No vote of confidence runs');
+  const weight = await mustLordVote(db, a, pid, season);
   await db
     .prepare("INSERT INTO war_crown_ballots (vote_id, player_id, stage, choice, weight, at) VALUES (?1, ?2, 'ballot', ?3, ?4, ?5) ON CONFLICT (vote_id, player_id, stage) DO UPDATE SET choice = ?3, weight = ?4, at = ?5")
-    .bind(v.id, pid, yes ? 1 : 0, await weightOf(db, a, pid, season), now)
+    .bind(v.id, pid, yes ? 1 : 0, weight, now)
     .run();
+}
+
+// ---------------------------------------------------------------- succession
+
+/** W-152: the monarch names his heir (a member; null: none). */
+export async function nameHeir(env: Env, pid: number, heir: number | null, now: number, season = WAR_SEASON.id): Promise<void> {
+  const db = env.DB!, a = await mustMember(db, pid, season);
+  await advance(env, a, now, season);
+  await mustHold(db, a, pid, 'crown', season);
+  if (heir === pid) throw new ApiError(400, 'bad_request', 'Another member');
+  if (heir !== null && (await allianceOf(db, heir, season)) !== a) throw new ApiError(409, 'not_member', 'Not a member of your alliance');
+  await db.batch([
+    db.prepare('UPDATE war_crowns SET heir_pid = ?3 WHERE season = ?1 AND alliance = ?2').bind(season, a, heir),
+    logStmt(db, season, a, 'heir', pid, { name: heir === null ? null : await nameOf(db, heir) }, now),
+  ]);
+}
+
+/** W-152: the monarch steps down: his heir rules at once for what is left of the term; no heir: the crown goes to election. */
+export async function abdicate(env: Env, pid: number, now: number, season = WAR_SEASON.id): Promise<number | null> {
+  const db = env.DB!, a = await mustMember(db, pid, season), c = await advance(env, a, now, season);
+  await mustHold(db, a, pid, 'crown', season);
+  await batch(db, [...(await fallStmts(db, c, season, now, c.heir_pid === null ? now : c.term_ends)), logStmt(db, season, a, 'abdicated', pid, { heir: await heirName(db, c) }, now)]);
+  return (await advance(env, a, now, season)).monarch_pid;
 }
 
 // ---------------------------------------------------------------- council, tax, treasury
@@ -609,7 +676,8 @@ export async function crownView(env: Env, pid: number, now: number, season = WAR
   const db = env.DB!, a = await allianceOf(db, pid, season);
   const empty: CrownView = {
     alliance: null, now, monarch: null, regent: false, council: OFFICES.map((o) => ({ office: o.id, pid: null, name: null })), treasury: { goods: {}, tax: 0, taxed: 0 },
-    election: null, petition: null, petitionCooldown: 0, orders: [], pacts: [], log: [], members: [], me: { pid, power: 0, weight: 1, offices: [], monarch: false },
+    election: null, petition: null, petitionCooldown: 0, orders: [], pacts: [], log: [], members: [], me: { pid, power: 0, weight: 0, offices: [], monarch: false },
+    feudal: { rank: 'free', lord: null, asked: null, vassals: [], asks: [], rate: null, owed: [], barUntil: 0, roll: [], heir: null, calls: [] },
   };
   if (a === null) return empty;
   const c = await advance(env, a, now, season);
@@ -669,6 +737,38 @@ export async function crownView(env: Env, pid: number, now: number, season = WAR
     orders, pacts,
     log: logRows.map((l) => ({ kind: l.kind, actor: l.actor, detail: json<Record<string, unknown>>(l.detail, {}), at: l.at })),
     members,
-    me: { pid, power: me?.power ?? 0, weight: me?.weight ?? 1, offices: offices.filter((o) => o.pid === pid).map((o) => o.office), monarch: c.monarch_pid === pid },
+    me: { pid, power: me?.power ?? 0, weight: me?.weight ?? 0, offices: offices.filter((o) => o.pid === pid).map((o) => o.office), monarch: c.monarch_pid === pid },
+    feudal: await feudalOf(db, pid, c, members, now, season),
+  };
+}
+
+/** W-150..W-159: his place in the chain, from anywhere in the world. */
+async function feudalOf(db: D1Database, pid: number, c: CrownRow, members: readonly CrownMember[], now: number, season: number): Promise<FeudalView> {
+  const a = c.alliance, by = new Map(members.map((m) => [m.pid, m]));
+  const rows = (await db.prepare('SELECT * FROM war_oaths WHERE season = ?1 AND alliance = ?2 AND (vassal_pid = ?3 OR lord_pid = ?3)').bind(season, a, pid).all<{ vassal_pid: number; lord_pid: number; state: string; asked_at: number; since: number | null }>()).results;
+  const mine = rows.find((r) => r.vassal_pid === pid), live = (r?: { state: string; asked_at: number }) => !!r && r.state === 'asked' && r.asked_at + FEUDAL.askMs > now;
+  const sworn = mine?.state === 'sworn', name = (p: number) => by.get(p)?.name ?? `#${p}`;
+  const rank = (p: number, isSworn: boolean): Rank => rankOf(c.monarch_pid === p, !!by.get(p)?.lord, isSworn);
+  const sworners = rows.filter((r) => r.lord_pid === pid && r.state === 'sworn');
+  const vassals = [];
+  for (const r of sworners) vassals.push({ pid: r.vassal_pid, name: name(r.vassal_pid), rank: rank(r.vassal_pid, true), since: r.since ?? 0, owed: await owedBy(db, r.vassal_pid) });
+  const roll = (await db.prepare("SELECT l.detail, l.at, p.display_name AS name FROM war_crown_log l LEFT JOIN players p ON p.id = l.actor_id WHERE l.season = ?1 AND l.alliance = ?2 AND l.kind = 'oath_broken' ORDER BY l.at DESC, l.id DESC LIMIT 10").bind(season, a).all<{ detail: string; at: number; name: string | null }>()).results;
+  const calls = !sworn ? [] : (await db
+    .prepare("SELECT id, region, men, n AS hours, taker, state FROM war_contracts WHERE poster = ?1 AND kind = 'guard' AND reward = 0 AND state IN ('open', 'taken') ORDER BY id DESC LIMIT 5")
+    .bind(mine!.lord_pid)
+    .all<{ id: number; region: string; men: number; hours: number; taker: number | null; state: string }>()).results.filter((k) => k.state === 'open' || k.taker === pid);
+  const lord = !!by.get(pid)?.lord || c.monarch_pid === pid;
+  return {
+    rank: rank(pid, sworn),
+    lord: sworn ? { pid: mine!.lord_pid, name: name(mine!.lord_pid), rank: rank(mine!.lord_pid, false), rate: await rateOf(db, mine!.lord_pid, season), since: mine!.since ?? 0 } : null,
+    asked: live(mine) ? { pid: mine!.lord_pid, name: name(mine!.lord_pid), at: mine!.asked_at } : null,
+    vassals,
+    asks: rows.filter((r) => r.lord_pid === pid && live(r)).map((r) => ({ pid: r.vassal_pid, name: name(r.vassal_pid), at: r.asked_at })),
+    rate: lord ? await rateOf(db, pid, season) : null,
+    owed: sworn ? await owedBy(db, pid) : [],
+    barUntil: await barUntil(db, a, pid, season),
+    roll: roll.map((r) => ({ name: r.name ?? '?', lord: String(json<{ lord?: string }>(r.detail, {}).lord ?? '?'), at: r.at })),
+    heir: c.heir_pid === null ? null : { pid: c.heir_pid, name: name(c.heir_pid) },
+    calls: calls.map((k) => ({ id: k.id, region: k.region, men: k.men, hours: k.hours, by: name(mine!.lord_pid), taken: k.taker === pid })),
   };
 }

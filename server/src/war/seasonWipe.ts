@@ -7,6 +7,7 @@
 export const SEASON_WIPE = [
   // titles: the crown and the lordships (W-63, W-64, W-94), the demigod's level (W-83), region mastery, tasks
   'war_crown_shares', 'war_crown_orders', 'war_crown_ballots', 'war_crown_votes', 'war_crown_offices', 'war_crown_pacts', 'war_crown_log', 'war_crowns',
+  'war_oaths', 'war_oath_rates', 'war_tribute_held',
   'war_settlement_log', 'war_settlement_offers', 'war_settlement_members', 'war_settlements',
   'war_favour_log', 'war_favour', 'war_mastery_done', 'war_mastery', 'war_task_tally', 'war_tasks',
   // belongings: strongrooms, stalls, warehouses and what they hold, open deals, things in the field

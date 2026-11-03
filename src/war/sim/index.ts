@@ -3813,6 +3813,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     },
     setTies: works.setTies,
     liegeOf: (owner) => works.lieges.get(owner) ?? null,
+    liegeOwners: () => [...works.lieges.keys()].sort(),
     hurtPersons(lost) {
       // M4: men arriving from another region come in with the hit points they left with
       for (const u of units) {
