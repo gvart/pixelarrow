@@ -1,0 +1,35 @@
+server/test/war/feudal.test.ts
+  s_a7d5d20f628c80::t_ba9a4ba8c0c014 252-264
+server/test/war/tributeRoom.test.ts
+  s_a7d5d20f628c80::t_519861c5504d93 1-21,23-33,35-37,44,46-49,51-102,104-128,130-161
+  s_a7d5d20f628c80::t_1dd9690dabd951 22,38-42,50
+  s_a7d5d20f628c80::t_a8deebd89da825 34,43,45
+  s_a7d5d20f628c80::t_a951598a20dbd3 103,129
+tests/war/tributeHolder.test.ts
+  s_a7d5d20f628c80::t_51e9030a3e2f70 1-90
+docs/WAR.md
+  s_a7d5d20f628c80::t_5a8f574586f631 838
+server/src/war/crown.ts
+  s_a7d5d20f628c80::t_5a8f574586f631 212,214
+src/war/view/hud/crown.ts
+  s_a7d5d20f628c80::t_a951598a20dbd3 220,241,246,401-402,404
+  s_a7d5d20f628c80::t_ebcb1237e23444 237,247-248,400,403
+docs/impl/global-war-rebuild.md
+  s_a7d5d20f628c80::t_5a8f574586f631 147
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "f9af6cbdd39536e9b1dfe54f8292bcc44c42c07c",
+  "prompts": {},
+  "sessions": {
+    "s_a7d5d20f628c80": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1afee479-b44b-46d2-a159-a540e44e7fb8",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
