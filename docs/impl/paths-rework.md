@@ -34,8 +34,8 @@ unless someone is actually there.
 - **W-94 Full feudal hierarchy.** Kings, vassals, titles, tribute and succession ship in this rework, built last. Alliances
   stay the season team, with the hierarchy inside them. *(Alliance nesting is assumed.)*
 
-Decided while building item 2: **W-95 small start, grow to cap**, **W-96 full season reset**. W-96 also takes W-63's
-season-end persistence with it; the owner has not named that: see the log.
+Decided while building item 2: **W-95 small start, grow to cap**, **W-96 full season reset**, settlements, crowns and
+mastery included (owner confirmed).
 
 Superseded or changed: W-44 (NPC towns, W-93), W-53 (its "cap of 12 stays", W-85), W-56, W-58, W-60 (souls claimable under
 the path's cap), W-66 and W-68 (raised men wait at home; the Tunnel's "up to 6" must fit the 4-soldier cap; W-66's permanent
@@ -51,9 +51,9 @@ Propose these in the named work item and get the owner's answer before building 
 - [ ] How someone becomes king, how titles pass, tribute rates (item 8).
 - [ ] Perk lists for each path (item 5).
 - [ ] Raid loss limits and how empty towns get guards (item 6).
-- [ ] What each family's men can do, and its stronger classes. The list is today's four (item 2, default). Only hoplite,
-  militia, archer, slinger, javelineer and celt_sword have work animations; Riders can be picked but have none, and wait
-  for mounts (item 4).
+- [ ] What each family's men can do, and its stronger classes. The list is three of today's four (item 2, default). Only hoplite,
+  militia, archer, slinger, javelineer and celt_sword have work animations (item 4).
+- [ ] Riders return once mounts exist. Hidden from the start by the owner: no work animations, balance unchecked.
 - [ ] Where more workers come from. A builder or trader starts with 2 (item 2, default), but how others are acquired was not
   confirmed. The household formula `min(4, 1 + fit/4)` gives 2 guards a cap of 1, under the 2 he starts with: it only
   blocks retiring into a civilian today.

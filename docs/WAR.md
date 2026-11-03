@@ -809,11 +809,10 @@ What each path starts with (W-95; `PATHS` and `FAMILIES` in `src/war/world/start
 | Warrior, Phalanx (line) | 3 hoplites, 3 militia | 12 |
 | Warrior, Celtic warband (shock) | 6 swordsmen | 12 |
 | Warrior, Skirmishers (missile) | 2 archers, 2 slingers, 2 javelin men | 12 |
-| Warrior, Riders (rider) | 4 Thessalian horse, 2 horse archers | 12 |
 | Builder | 2 hoplites, an engineer, a forager | 4 |
 | Trader | 2 hoplites, a merchant, a forager | 4 |
 
-Workers are civilians, outside the cap. Their numbers and how more are gained are [open](impl/paths-rework.md#open-design-items).
+Riders are not offered until mounts exist; `POST /api/war/start/path` refuses the family. Workers are civilians, outside the cap. Their numbers and how more are gained are [open](impl/paths-rework.md#open-design-items).
 
 A new season (W-96, `server/src/war/seasonWipe.ts`): the world keeps the finished season's board and awards its banners
 and crests; every region starts over, the homes too; nobody stays on the road; then all men, gear, goods, stores, deals,
