@@ -20,7 +20,7 @@ Write it in two or three sentences and test it against the pillars (V5-017):
 | P5 One sim, everywhere | Does the battle sim stay deterministic and shared with the server? |
 
 Reject it if it needs an anti-pillar: micro/APM, a hero brawler, pay for power, hidden information as difficulty,
-an economy builder. It must not invent a feature in a mockup or prompt ([ART.md](ART.md) §3), nor silently remove
+an economy builder (except the global war's builder and trader paths, W-83; its demigod stays unseen, W-82). It must not invent a feature in a mockup or prompt ([ART.md](ART.md) §3), nor silently remove
 an element, piece of information or action: list a screen's real elements from the scene code before redesigning.
 
 ## 2. The GDD
