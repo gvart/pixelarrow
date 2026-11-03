@@ -136,13 +136,11 @@ export const DELETION_MAP: Record<string, TableRule> = {
   war_fights: { rule: 'not_player_keyed' },
   // M6e: goods by holder id (`sr:<player>`, stalls, escrows); a deleted player's holder rows go, their lots stay inert
   war_goods: { rule: 'not_player_keyed' },
-  war_trade_score: { rule: 'not_player_keyed' },
   war_board_seen: { rule: 'not_player_keyed' },
   war_works: { rule: 'not_player_keyed' },
-  war_peace_score: { rule: 'not_player_keyed' },
   war_alliance_clans: { rule: 'not_player_keyed' },
   war_region_state: { rule: 'not_player_keyed' },
-  // W-62: a finished season's board (its title holders' names inside the JSON, like the public boards)
+  // W-62, W-168: a finished season's roll of honour (its top places' names inside the JSON, like the public boards)
   war_season_results: { rule: 'not_player_keyed' },
   public_snapshot: { rule: 'derived' },
   dev_outbox: { rule: 'dev_only' },

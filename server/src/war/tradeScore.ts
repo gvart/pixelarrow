@@ -1,16 +1,11 @@
 /**
- * Trade score and what alliances saw of the boards (M6h; docs/WAR.md "Season score and anti-abuse"; migrations/0032).
+ * What a fill does beyond the goods, and what alliances saw of the boards (M6h; docs/WAR.md "Anti-abuse"; migrations/0032).
  *
- *  - A fill scores TRADE.per coin a point for its goods whose origin (the region they were gathered, made or minted
- *    in) lies TRADE.hops or more transfers from the town (a town ignores its own region's stamps: 0 transfers), and
- *    only between players of different alliances (same-alliance fills score nothing). Points go to the seller's
- *    alliance, at most TRADE.cap a UTC day (war_trade_score), and into the season score (WarWorldDO.addTrade).
+ *  - The fill hook: anti-abuse, the seller's season stat and level, the alliance's tax, his liege's part.
  *  - Boards seen: whenever an alliance's man trades or reads the board in a town, its board is kept for the alliance
  *    (the world map's hover card shows the last one).
  */
 import { heldNodes } from '../../../src/data/professions';
-import { hops } from '../../../src/war/world/graph';
-import { WAR_SEASON } from '../../../src/war/world/alliances';
 import type { AllianceId } from '../../../src/war/world/types';
 import type { BoardSeen } from '../../../src/war/net/world';
 import type { Env } from '../env';
@@ -20,51 +15,23 @@ import { crownTax } from './crown';
 import { allianceOf } from './world/members';
 import { json } from './persons';
 import { tradeRefusal } from './abuse';
-import { peacePoints, statStmt } from './peace';
+import { statStmt } from './peace';
 import { tallyStmt } from './tasks';
 import { cappedStmts, FAVOUR_EARN } from './favour';
-import { PEACE } from '../../../src/war/world/season';
-
-export const TRADE = { per: 100, hops: 3, cap: 60 };
-const DAY = 86_400_000;
-
-/** The score of goods worth `coin` in all (lots by origin) sold in `town`: origins >= TRADE.hops transfers away count. */
-export function scoreOf(town: string, lots: readonly { origin: string; amount: number }[], coin: number): number {
-  const total = lots.reduce((a, l) => a + l.amount, 0);
-  if (!(total > 0)) return 0;
-  const far = lots.filter((l) => l.origin !== town && hops(l.origin, town) >= TRADE.hops && Number.isFinite(hops(l.origin, town))).reduce((a, l) => a + l.amount, 0);
-  return (coin * (far / total)) / TRADE.per;
-}
-
-/** Points the alliance may still score today. */
-async function room(db: D1Database, alliance: number, now: number): Promise<number> {
-  const r = await db.prepare('SELECT points FROM war_trade_score WHERE season = ?1 AND alliance = ?2 AND day = ?3').bind(WAR_SEASON.id, alliance, Math.floor(now / DAY)).first<{ points: number }>();
-  return Math.max(0, TRADE.cap - (r?.points ?? 0));
-}
 
 /**
- * The fill hook: anti-abuse first (M6i), then the score and its daily row. W-61: the seller's coin sold (titles) on every
- * fill; between alliances also the volume peace score (capped a day), handed back in `peace` for the caller to send.
- * W-64: the seller's alliance tax (./crown.ts crownTax) on every fill. W-153: his liege's part set aside at the stall.
+ * The fill hook: anti-abuse first (M6i), then the seller's coin sold and level on every fill, W-64 the alliance tax,
+ * W-153 his liege's part set aside at the stall; between alliances, the sell-abroad task's tally.
  */
-export function fillHook(env: Env, peace: { alliance: number | null; volume: number } = { alliance: null, volume: 0 }): FillHook {
+export function fillHook(env: Env): FillHook {
   return async (f) => {
     const db = env.DB!;
     await tradeRefusal(db, f.seller, f.buyer, f.now);
     // W-64: the alliance tax's share of the sale, out of the seller's stall into his crown's treasury
     const sold = [statStmt(db, f.seller, 'sold', f.coin), ...(await crownTax(db, f.seller, f.coin, stallId(f.town, f.seller))), ...(await saleTribute(db, f.seller, f.coin, f.town)), ...(await cappedStmts(db, f.seller, f.coin * FAVOUR_EARN.sold, 'sold', f.now))]; // W-111 a trader's level
     const [sa, ba] = await Promise.all([allianceOf(db, f.seller), allianceOf(db, f.buyer)]);
-    if (sa === null || ba === null || sa === ba) return { score: 0, stmts: sold };
-    const vol = await peacePoints(db, sa, 'volume', f.coin / PEACE.volume, f.now);
-    peace.alliance = sa;
-    peace.volume = vol.pts;
-    const abroad = tallyStmt(db, f.seller, 'sellAlliance', f.coin, f.now); // E7 tasks
-    const pts = Math.min(scoreOf(f.town, f.lots, f.coin), await room(db, sa, f.now));
-    if (!(pts > 0)) return { score: 0, stmts: [...sold, abroad, ...vol.stmts] };
-    return {
-      score: pts,
-      stmts: [...sold, abroad, ...vol.stmts, db.prepare('INSERT INTO war_trade_score (season, alliance, day, points) VALUES (?1, ?2, ?3, ?4) ON CONFLICT (season, alliance, day) DO UPDATE SET points = points + ?4').bind(WAR_SEASON.id, sa, Math.floor(f.now / DAY), pts)],
-    };
+    if (sa === null || ba === null || sa === ba) return { stmts: sold };
+    return { stmts: [...sold, tallyStmt(db, f.seller, 'sellAlliance', f.coin, f.now)] }; // E7 tasks
   };
 }
 

@@ -1,7 +1,7 @@
 /**
  * W-62 E7 daily and weekly tasks, server-posted (pools and the draw: src/war/net/tasks.ts; migrations/0042). Player
  * contracts stay in ./contracts.ts; the council's treasury quests (W-64) can reuse the tally (`tallyOf` over any days)
- * and the payout (`payStmts`, `scoreTask`).
+ * and the payout (`payStmts`).
  *
  *  - Tally: what the server sees a player do, per UTC day and metric (war_task_tally), booked where it happens:
  *    the room's men carrying wood or stone home (./taskWatch.ts GatherWatch, via the region DO), stows in less stows out
@@ -10,8 +10,7 @@
  *  - Tasks: drawn on the first read of a period (war_tasks), the same for a player whatever the device; progress is the
  *    tally over the period's days less the row's `base` (a reroll starts at what was there already, a first draw at 0:
  *    what he did earlier that day counts).
- *  - Claim: done and not claimed: the reward (times the wonder's task boost) into his home strongroom, its score to his
- *    alliance as peace ('tasks') or war ('feats') score, each capped a UTC day (TASKS.peaceCap / warCap).
+ *  - Claim: done and not claimed: the reward (times the wonder's task boost) into his home strongroom.
  *  - Reroll: TASKS.rerolls a UTC day across his daily and weekly tasks, of a task not yet claimed.
  *  - W-73 solo: a player whose alliance has fewer than PARTNERS.min other members active (a tally row) in the last
  *    PARTNERS.days UTC days draws and rerolls no partner task (selling abroad, guard and market contracts).
@@ -22,7 +21,6 @@ import { dayOf, drawTasks, PARTNERS, periodOf, rerollTask, taskDef, TASKS, type 
 import type { FightReport } from '../../../src/war/types';
 import type { Env } from '../env';
 import { batch, ensureHolder, putStmt, strongroom } from './holders';
-import { scorePeace } from './peace';
 import { fightTally } from './persons';
 import { addFavour, FAVOUR_EARN } from './favour';
 import { allianceOf } from './world/members';
@@ -114,12 +112,8 @@ export const payStmts = (db: D1Database, pid: number, goods: Record<string, numb
   ...Object.entries(goods).filter(([, n]) => n > 0).map(([r, n]) => putStmt(db, strongroom(pid), r, n)),
 ];
 
-/** A task's score to the player's alliance: peace ('tasks') or war ('feats'), capped a UTC day. Returns what counted. */
-export const scoreTask = async (env: Env, pid: number, score: TaskDef['score'], pts: number, now: number): Promise<number> =>
-  scorePeace(env, await allianceOf(env.DB!, pid), score === 'peace' ? 'tasks' : 'feats', pts, now);
-
-/** Claim a done task: the reward into his strongroom, the score to his alliance. */
-export async function claimTask(env: Env, pid: number, kind: TaskKind, slot: number, now: number, season = WAR_SEASON.id): Promise<{ reward: Record<string, number>; pts: number }> {
+/** Claim a done task: the reward into his strongroom and his level points. */
+export async function claimTask(env: Env, pid: number, kind: TaskKind, slot: number, now: number, season = WAR_SEASON.id): Promise<{ reward: Record<string, number> }> {
   const db = env.DB!, { t } = await find(db, pid, kind, slot, now, season), p = periodOf(kind, now);
   if (t.claimed) throw new ApiError(409, 'claimed', 'Claimed already');
   if (t.have < t.need - 1e-6) throw new ApiError(409, 'not_done', `${t.title} is not done yet`);
@@ -127,7 +121,7 @@ export async function claimTask(env: Env, pid: number, kind: TaskKind, slot: num
   if (!u.meta.changes) throw new ApiError(409, 'claimed', 'Claimed already');
   await batch(db, payStmts(db, pid, t.reward, now));
   await addFavour(env, pid, FAVOUR_EARN.task[kind], 'task', now); // W-66 divine favour
-  return { reward: t.reward, pts: await scoreTask(env, pid, t.score, t.pts, now) };
+  return { reward: t.reward };
 }
 
 /** Reroll a task not yet claimed (TASKS.rerolls a day): the next of his order; its progress starts from now. */

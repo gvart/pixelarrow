@@ -223,7 +223,7 @@ export function homeAnchor(region: RegionData): { x: number; y: number } {
 /** M7f: a landmark as the room reports it to the world (src/war/net/world.ts LandmarkWorld; back: minutes, not a time). */
 export interface LandmarkReport { id: string; holder: number; guardian: 'alive' | 'slain' | 'away'; back?: number; state: LandmarkSnap['state']; hp: number; garrisoned: boolean }
 /** What the room tells the world (World.report). */
-export interface Summary { live: number[]; claims: number[]; channel: number[]; landmark?: LandmarkReport; prestige?: number[]; ruined?: boolean; town?: number[]; lords?: LordSummary[] }
+export interface Summary { live: number[]; claims: number[]; channel: number[]; landmark?: LandmarkReport; prestige?: number[]; ruined?: boolean; lords?: LordSummary[] }
 /**
  * W-76 proposal: a warlord as this room sees him, for the world map: places he holds here (his hall counted) and the men
  * in them, a raid warned (seconds left, in tens; 0: under way), and his fall (the warlords' age he fell at, while down).
@@ -849,10 +849,6 @@ export class WarRoom {
         state: lm.state, hp: Math.round(lm.hp * 100) / 100, garrisoned: lm.garrisoned,
       };
     }
-    // W-61: the best town level per alliance (season score an hour)
-    const tl = Array<number>(n).fill(0);
-    for (const t of this.snap.townLevels ?? []) if (t.team >= 0 && t.team < n) tl[t.team] = Math.max(tl[t.team], t.level);
-    if (tl.some((v) => v > 0)) out.town = tl;
     // W-76 proposal: the warlords here, for the world map (rounded: a report only when it changes)
     if (this.warlords) {
       const fell = this.warlords.memory().fallen;

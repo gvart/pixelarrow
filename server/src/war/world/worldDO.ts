@@ -15,8 +15,8 @@
  *  - W-62 world events (src/war/world/events.ts): the same alarm opens and closes them (next due wins: arrivals, retries,
  *    event boundaries, the season's end); each change is told to every region room (WarRegionDO.worldEvents: the effect
  *    where it runs, a banner for everyone).
- *  - W-62 season war: once the season is over the alarm rolls it over (rollover): the board is kept (D1
- *    war_season_results and `last` in the world state), the winners' banners and the titles' crests awarded
+ *  - W-62 season war: once the season is over the alarm rolls it over (rollover): the roll of honour is kept (W-168; D1
+ *    war_season_results and `last` in the world state), the winners' banners and the first places' crests awarded
  *    (./seasonWar.ts), every region starts over (WarRegionDO.seasonReset), every player's men, gear, belongings and
  *    titles go (W-96, ../seasonWipe.ts) and the next season begins with fresh owners and score.
  *  - Sockets (/ws/war/world, hibernation API): the Worker authenticates and forwards x-player-id and x-alliance; each
@@ -159,20 +159,6 @@ export class WarWorldDO extends DurableObject<Env> {
     if ('error' in t) return t;
     await this.commit(w);
     return { transit: snapOf(t) };
-  }
-
-  /** M6h: trade score to an alliance (a scoring fill or contract). */
-  async addTrade(alliance: AllianceId, pts: number): Promise<void> {
-    const w = await this.ensure();
-    w.addTrade(alliance, pts, Date.now());
-    await this.commit(w);
-  }
-
-  /** W-61: peace score to an alliance (volume, contracts, works: server/src/war/peace.ts). */
-  async addPeace(alliance: AllianceId, kind: string, pts: number): Promise<void> {
-    const w = await this.ensure();
-    w.addPeace(alliance, kind, pts, Date.now());
-    await this.commit(w);
   }
 
   /** W-61: an alliance work stood: its transfer bonus (a road) for the rest of the season. */

@@ -11,15 +11,13 @@ import { goodsOf, putStmt } from '../../src/war/holders';
 import { rentSite, stallId } from '../../src/war/market';
 import { GUARD, guardCheck, labourDone, postContract, takeContract, contract } from '../../src/war/contracts';
 import { addLabour, bonusesOf, give as giveWork, openWorks, worksOf } from '../../src/war/works';
-import { statsOf, titles } from '../../src/war/peace';
+import { statsOf } from '../../src/war/peace';
 import { joinAlliance } from '../../src/war/world/members';
 import { WarRoom } from '../../src/war/room';
 import { warRegion } from '../../src/war/regions';
 import { World } from '../../src/war/world/world';
 import { NET_VERSION } from '../../../src/war/net/protocol';
-import { allianceRates, PEACE } from '../../../src/war/world/season';
 import { WORKS, LABOUR_EVERY } from '../../../src/war/net/works';
-import { WAR_SEASON } from '../../../src/war/world/alliances';
 
 const DB = () => env.DB!;
 const code = async (p: Promise<unknown>) => p.then(() => 'ok', (e: { code?: string }) => e.code ?? String(e));
@@ -56,8 +54,6 @@ describe('build contracts (W-61)', () => {
     const s = await statsOf(DB(), al);
     expect(s.contracts).toBe(1);
     expect(s.labourHours).toBeCloseTo(2, 3);
-    const pts = await DB().prepare("SELECT SUM(points) AS p FROM war_peace_score WHERE alliance = 0 AND kind = 'contracts'").first<{ p: number }>();
-    expect(pts!.p).toBeGreaterThanOrEqual(PEACE.contract + 100 / PEACE.contractPer - 1e-6);
   });
 });
 
@@ -120,31 +116,6 @@ describe('alliance works (W-61)', () => {
     expect(await addLabour(env, 1, 'temple', { [a]: 100 }, now, season)).toBe(0);
     expect(await openWorks(DB(), 1, season)).toEqual(['road', 'beacons', 'wonder']);
     expect((await bonusesOf(DB(), season)).get(1)).toEqual({ repairCost: temple.bonus.repairCost });
-    const pts = await DB().prepare("SELECT SUM(points) AS p FROM war_peace_score WHERE alliance = 1 AND kind = 'works'").first<{ p: number }>();
-    expect(pts!.p).toBe(PEACE.work);
-  });
-});
-
-describe('titles (W-61)', () => {
-  it('the season leader in coin sold, labour, guard hours', async () => {
-    const t = await titles(DB(), WAR_SEASON.id);
-    const ids = t.map((x) => x.id);
-    expect(ids).toContain('masterBuilder');
-    expect(ids).toContain('warden');
-    for (const x of t) expect(x.value).toBeGreaterThan(0);
-  });
-
-  it('the Ares-born title counts kills this season, not his men\'s lifetime kills', async () => {
-    const vet = await player(8611, 0), fresh = await player(8612, 1), S = WAR_SEASON.id, now = Date.now();
-    // the veteran's man has 500 lifetime kills, all from older seasons; this season he struck down 3, the fresh one 7
-    await DB().prepare("INSERT INTO war_persons (id, player_id, cls, name, level, xp, points, kills, battles, attrs, skills, gear, honours, state, created_at, updated_at) VALUES ('wl-vet', ?1, 'hoplite', 'Vet', 9, 0, 0, 500, 80, '{}', '[]', '{}', '[]', 'active', ?2, ?2)").bind(vet, now).run();
-    await DB().batch([
-      DB().prepare('INSERT INTO war_player_stats (season, player_id, kills) VALUES (?1, ?2, 3), (?1, ?3, 7)').bind(S, vet, fresh),
-      DB().prepare('INSERT INTO war_player_stats (season, player_id, kills) VALUES (?1, ?2, 400)').bind(S - 1, vet),
-    ]);
-    const w = (await titles(DB(), S)).find((x) => x.id === 'warlord');
-    expect(w?.pid).toBe(fresh);
-    expect(w?.value).toBe(7);
   });
 });
 
@@ -177,15 +148,8 @@ describe('the room counts (W-61)', () => {
     expect(peace!.guards).toEqual([{ id: 77, held: true, secs: LABOUR_EVERY / 10 }, { id: 78, held: false, secs: LABOUR_EVERY / 10 }]);
   });
 
-  it('the world scores town levels an hour (capped) and peace points; a road speeds transfers', () => {
-    const rates = allianceRates([{ id: 'x', owner: -1, live: [0, 0, 0, 0], town: [5, 2, 0, 0] }, { id: 'y', owner: -1, live: [0, 0, 0, 0], town: [5, 0, 0, 0] }, { id: 'z', owner: -1, live: [0, 0, 0, 0], town: [5, 0, 0, 0] }]);
-    expect(rates[0]).toBe(PEACE.townCap);
-    expect(rates[1]).toBe(PEACE.town[2]);
+  it('a road speeds transfers', () => {
     const w = new World();
-    const t0 = Date.now();
-    w.addPeace(0, 'volume', 5, t0);
-    expect(w.seasonSnap(t0).peace!.volume[0]).toBe(5);
-    expect(w.seasonSnap(t0).scores[0]).toBe(5);
     w.setTravel(2, 0.85);
     expect(w.st.season.travel![2]).toBe(0.85);
   });

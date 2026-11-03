@@ -6,7 +6,6 @@
  * (server/src/war/works.ts) and the HUD's works panel; the sites come from the region data (`workSite`).
  */
 import type { RegionData } from '../types';
-import { PEACE } from '../world/season';
 
 export type WorkId = 'temple' | 'road' | 'beacons' | 'wonder';
 export interface WorkBonus {
@@ -30,23 +29,23 @@ export const workDef = (id: string): WorkDef | undefined => WORKS.find((w) => w.
 /**
  * W-62 E7 alliance projects: the works' top tier, one great wonder per alliance and season, raised in big stages (each
  * stage its goods and labour like a work, the next opening when one is done). Every stage done gives the whole alliance
- * its perk for the rest of the season and scores its `score` (peace, works kind). Stands at the home town's heart.
+ * its perk for the rest of the season. Stands at the home town's heart.
  */
-export interface WorkStage { name: string; goods: Record<string, number>; labour: number; bonus: WorkBonus; score: number; text: string }
+export interface WorkStage { name: string; goods: Record<string, number>; labour: number; bonus: WorkBonus; text: string }
 export const WONDER = {
   id: 'wonder' as const, name: 'Hall of the Twelve', site: 'the heart of the home town',
   text: 'The alliance\'s great wonder, raised in three stages by many hands',
   stages: [
-    { name: 'Foundations', goods: { stone: 2000, wood: 1500, coin: 600 }, labour: 60, bonus: { travel: 0.95 }, score: 40, text: 'Transfers 5% faster' },
-    { name: 'Colonnade', goods: { marble: 600, stone: 1200, bronze: 200 }, labour: 90, bonus: { sight: 1 }, score: 60, text: 'Men see 1 tile further, towers 2' },
-    { name: 'Gilded roof', goods: { marble: 300, silver: 120, pitch: 200, coin: 1500 }, labour: 120, bonus: { repairCost: 0.85, tasks: 1.5 }, score: 100, text: 'Repairs 15% cheaper, task rewards +50%' },
+    { name: 'Foundations', goods: { stone: 2000, wood: 1500, coin: 600 }, labour: 60, bonus: { travel: 0.95 }, text: 'Transfers 5% faster' },
+    { name: 'Colonnade', goods: { marble: 600, stone: 1200, bronze: 200 }, labour: 90, bonus: { sight: 1 }, text: 'Men see 1 tile further, towers 2' },
+    { name: 'Gilded roof', goods: { marble: 300, silver: 120, pitch: 200, coin: 1500 }, labour: 120, bonus: { repairCost: 0.85, tasks: 1.5 }, text: 'Repairs 15% cheaper, task rewards +50%' },
   ] as readonly WorkStage[],
 };
-/** Every work as stages (a plain work is one stage; its score the peace score's `work`); undefined: no such work. */
+/** Every work as stages (a plain work is one stage); undefined: no such work. */
 export function stagesOf(id: string): readonly WorkStage[] | undefined {
   if (id === WONDER.id) return WONDER.stages;
   const w = workDef(id);
-  return w ? [{ name: w.name, goods: w.goods, labour: w.labour, bonus: w.bonus, score: PEACE.work, text: w.text }] : undefined;
+  return w ? [{ name: w.name, goods: w.goods, labour: w.labour, bonus: w.bonus, text: w.text }] : undefined;
 }
 /** The perks of `done` stages of each work, folded: shares multiply, sight adds. */
 export function foldBonus(done: Iterable<[id: string, stages: number]>): WorkBonus {

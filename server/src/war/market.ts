@@ -196,9 +196,9 @@ export async function presentIn(db: D1Database, pid: number, town: string): Prom
   return !!(await db.prepare("SELECT 1 FROM war_persons WHERE player_id = ?1 AND region = ?2 AND state = 'active' LIMIT 1").bind(pid, town).first());
 }
 
-export interface FillResult { id: string; offer: number; n: number; price: number; tax: number; seller: number; buyer: number; score: number }
-/** Extra statements and the trade score of a fill (M6h; M6i checks), given the goods moved. */
-export type FillHook = (f: { town: string; seller: number; buyer: number; lots: GoodLot[]; coin: number; now: number }) => Promise<{ score: number; stmts: D1PreparedStatement[] }>;
+export interface FillResult { id: string; offer: number; n: number; price: number; tax: number; seller: number; buyer: number }
+/** Extra statements of a fill (M6h; M6i checks), given the goods moved. */
+export type FillHook = (f: { town: string; seller: number; buyer: number; lots: GoodLot[]; coin: number; now: number }) => Promise<{ stmts: D1PreparedStatement[] }>;
 
 /**
  * Take n of offer `id` (the taker `pid`, present in its town): a sell offer is bought, a buy order is sold into. One
@@ -207,8 +207,8 @@ export type FillHook = (f: { town: string; seller: number; buyer: number; lots: 
 export async function fill(db: D1Database, pid: number, id: number, n: number, key: string, holder: number, now: number, hook?: FillHook): Promise<FillResult> {
   const fid = `${pid}:${key}`;
   const done = async () => {
-    const f = await db.prepare('SELECT id, offer_id, n, price, tax, seller, buyer, score FROM war_fills WHERE id = ?1').bind(fid).first<{ id: string; offer_id: number; n: number; price: number; tax: number; seller: number; buyer: number; score: number }>();
-    return f ? { id: f.id, offer: f.offer_id, n: f.n, price: f.price, tax: f.tax, seller: f.seller, buyer: f.buyer, score: f.score } : null;
+    const f = await db.prepare('SELECT id, offer_id, n, price, tax, seller, buyer FROM war_fills WHERE id = ?1').bind(fid).first<{ id: string; offer_id: number; n: number; price: number; tax: number; seller: number; buyer: number }>();
+    return f ? { id: f.id, offer: f.offer_id, n: f.n, price: f.price, tax: f.tax, seller: f.seller, buyer: f.buyer } : null;
   };
   const again = await done();
   if (again) return again;
@@ -265,12 +265,12 @@ export async function fill(db: D1Database, pid: number, id: number, n: number, k
   }
   stmts.push(putStmt(db, sellerStall.id, 'coin', total - tax));
   if (tax > 0) stmts.push(putStmt(db, taxBox(o.town, ally), 'coin', tax));
-  const extra = hook ? await hook({ town: o.town, seller, buyer, lots: moved, coin: total, now }) : { score: 0, stmts: [] };
+  const extra = hook ? await hook({ town: o.town, seller, buyer, lots: moved, coin: total, now }) : { stmts: [] };
   const left = o.left - n <= EPS ? 0 : o.left - n;
   try {
     await db.batch([
-      db.prepare('INSERT INTO war_fills (id, offer_id, town, res, item_uid, n, price, tax, seller, buyer, ally, score, at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)')
-        .bind(fid, id, o.town, o.res, o.item_uid, n, o.price, tax, seller, buyer, ally >= 0 ? ally : null, extra.score, now),
+      db.prepare('INSERT INTO war_fills (id, offer_id, town, res, item_uid, n, price, tax, seller, buyer, ally, at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)')
+        .bind(fid, id, o.town, o.res, o.item_uid, n, o.price, tax, seller, buyer, ally >= 0 ? ally : null, now),
       guard(db, "(SELECT left FROM war_offers WHERE id = ?1 AND state = 'open') >= ?2 - 0.000001", id, n),
       db.prepare("UPDATE war_offers SET left = ?2, state = CASE WHEN ?2 <= 0 THEN 'done' ELSE 'open' END, updated_at = ?3 WHERE id = ?1").bind(id, left, now),
       ...stmts, ...extra.stmts,
@@ -281,7 +281,7 @@ export async function fill(db: D1Database, pid: number, id: number, n: number, k
     throw e;
   }
   if (left <= 0 && o.standing) await rearm(db, o, now).catch(() => undefined);
-  return { id: fid, offer: id, n, price: o.price, tax, seller, buyer, score: extra.score };
+  return { id: fid, offer: id, n, price: o.price, tax, seller, buyer };
 }
 
 /** A standing offer filled out lists itself again from its owner's stall, as far as the stall still has its escrow. */

@@ -5,12 +5,12 @@
  *
  *  - bossWake: a region's guardian wakes: back now if slain or away (and the region unheld), its hp x WAKE.hp; its kill
  *    while the event runs drops its rare goods twice (server/src/war/room.ts).
- *  - caravanRush: a frontier market pays a bonus: every convoy that arrives there with cargo scores its alliance
- *    RUSH.perLoad a load, at most RUSH.cap an arrival (server/src/war/world/world.ts due).
+ *  - caravanRush: every convoy that arrives at a frontier market with cargo earns its alliance event points (W-163: a
+ *    record, not the win): RUSH.perLoad a load, at most RUSH.cap an arrival (server/src/war/world/world.ts due).
  *  - soulStorm: souls wake in one region STORM.chance times as often, up to STORM.max at once, rolled twice as often
  *    (src/war/sim/souls.ts).
- *  - landmarkSiege: a landmark is open to take: its capture scores the captor SIEGE.capture, and its holder at the end
- *    with the landmark garrisoned SIEGE.held (world.ts report and eventTick).
+ *  - landmarkSiege: a landmark is open to take: its capture earns the captor SIEGE.capture event points, and its holder
+ *    at the end with the landmark garrisoned SIEGE.held (world.ts report and eventTick).
  *
  * Roughly one event every EVENTS.every (± EVENTS.jitter), each EVENTS.minMs..maxMs long, never two at once; the kinds
  * come round in a shuffled cycle of four so each shows as often.
@@ -45,9 +45,9 @@ export const EVENT_REGIONS: Record<WorldEventKind, readonly string[]> = {
 /** Names and the one-line rule each shows (world map card, region banner). */
 export const EVENT_INFO: Record<WorldEventKind, { name: string; rule: string }> = {
   bossWake: { name: 'Boss wakes', rule: `its guardian is back and stronger (hp x${WAKE.hp}); slain now it drops its rare goods twice` },
-  caravanRush: { name: 'Caravan rush', rule: `every convoy arriving with cargo scores ${RUSH.perLoad} a load (up to ${RUSH.cap})` },
+  caravanRush: { name: 'Caravan rush', rule: `every convoy arriving with cargo earns ${RUSH.perLoad} event point a load (up to ${RUSH.cap})` },
   soulStorm: { name: 'Soul storm', rule: `souls wake ${STORM.chance}x as often, up to ${STORM.max} at once` },
-  landmarkSiege: { name: 'Landmark siege', rule: `take the landmark for +${SIEGE.capture}; hold it garrisoned to the end for +${SIEGE.held}` },
+  landmarkSiege: { name: 'Landmark siege', rule: `take the landmark for ${SIEGE.capture} event points; hold it garrisoned to the end for ${SIEGE.held} more` },
 };
 
 /** The season's seed: from its id and start. */

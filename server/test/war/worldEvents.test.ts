@@ -18,7 +18,8 @@ import type { WarWorldDO } from '../../src/war/world/worldDO';
 import { WarRoom } from '../../src/war/room';
 import { warRegion } from '../../src/war/regions';
 import { remembered, writeMemory } from '../../src/war/memory';
-import { statStmt, statsOf, titles } from '../../src/war/peace';
+import { addFavour } from '../../src/war/favour';
+import { statStmt, statsOf } from '../../src/war/peace';
 import { worldStub } from '../../src/war/placement';
 
 const T0 = 1_000_000;
@@ -93,7 +94,7 @@ describe('W-62 world alarm', () => {
 });
 
 describe('W-62 event effects in the world', () => {
-  it('caravan rush: a convoy with cargo arriving at its market scores its loads, at most RUSH.cap; outside it nothing', async () => {
+  it('caravan rush: a convoy with cargo arriving at its market earns event points for its loads, at most RUSH.cap; outside it nothing', async () => {
     const w = new World(freshWorld(T0)), e = first(w, 'caravanRush');
     const from = worldRegion(e.region)!.adj[0];
     const send = async (pid: number, a: AllianceId, at: number) => {
@@ -113,7 +114,7 @@ describe('W-62 event effects in the world', () => {
     expect(w.seasonSnap(e.startAt + 1).event).toEqual([0, pts, 0, 0]);
   });
 
-  it('landmark siege: its capture scores the captor; the garrisoned holder at its end scores again', () => {
+  it('landmark siege: its capture earns the captor event points; the garrisoned holder at its end again', () => {
     const w = new World(freshWorld(T0)), e = first(w, 'landmarkSiege');
     const lm = (holder: number, garrisoned: boolean) => ({ id: 'x', holder, guardian: 'slain' as const, state: 'restored' as const, hp: 1, garrisoned });
     const claims = [0, 0, 1, 0];
@@ -200,22 +201,22 @@ describe('W-62 season war', () => {
     mem.claims = mem.claims.map(() => 2);
     mem.landmark = { captured: true, restored: true };
     await writeMemory(DB(), 'krios', remembered(mem, Date.now()));
-    await statStmt(DB(), b.playerId, 'sold', 500).run(); // b: Merchant Prince
+    await statStmt(DB(), b.playerId, 'sold', 500).run();
+    await DB().prepare("UPDATE war_alliance_members SET path = 'trader' WHERE player_id = ?1").bind(b.playerId).run();
+    await addFavour(env, b.playerId, 500, 'sold'); // b: first among traders, Merchant Prince
 
     const world = worldStub(env);
     const out = await runInDurableObject(world, async (o: WarWorldDO) => {
       const id = (await o.standings()).season.id;
       await o.report('saddle', { live: [0, 0, 12, 0], claims: [0, 0, 1, 0], channel: [0, 0, 0, 0] });
-      await o.addTrade(2, 50);
       const next = await o.resetSeason();
       return { id, next, snap: await o.snapshot(a.playerId, 2), bs: await o.snapshot(b.playerId, 1) };
     });
     expect(out.next).toBe(out.id + 1);
     // the board
-    const row = await DB().prepare('SELECT * FROM war_season_results WHERE season = ?1').bind(out.id).first<{ winner: number; reason: string; scores: string; titles: string }>();
+    const row = await DB().prepare('SELECT * FROM war_season_results WHERE season = ?1').bind(out.id).first<{ winner: number; reason: string; scores: string; ladders: string }>();
     expect(row).toMatchObject({ winner: 2, reason: 'time' });
-    expect(JSON.parse(row!.scores)[2]).toBeGreaterThanOrEqual(50);
-    expect(JSON.parse(row!.titles)).toEqual([expect.objectContaining({ id: 'merchantPrince', pid: b.playerId })]);
+    expect(JSON.parse(row!.ladders).trader).toEqual([expect.objectContaining({ place: 1, pid: b.playerId })]);
     expect(out.snap.last).toMatchObject({ season: out.id, winner: 2, banners: expect.any(Number) });
     // cosmetics: the winners' banner, the title's crest
     expect(out.snap.crests).toEqual([{ season: out.id, kind: 'banner', alliance: 2 }]);
@@ -225,11 +226,9 @@ describe('W-62 season war', () => {
     expect(out.snap.regions.find((r) => r.id === 'saddle')!.owner).toBe(-1);
     expect(out.snap.regions.find((r) => r.id === 'skythia')!.owner).toBe(1);
     expect(await DB().prepare("SELECT region FROM war_region_state WHERE region = 'krios'").first()).toBeNull();
-    // W-96: every man and his gear gone; the crests stay; the titles are won anew
+    // W-96: every man and his gear gone; the crests stay; the season's stats are kept and counted anew
     expect(await persons()).toEqual([]);
     expect(await items()).toBe(0);
-    expect((await titles(DB(), out.id)).map((t) => [t.id, t.pid])).toEqual([['merchantPrince', b.playerId]]);
-    expect(await titles(DB())).toEqual([]);
     expect((await statsOf(DB(), b.playerId)).sold).toBe(0);
     await statStmt(DB(), b.playerId, 'sold', 7).run();
     expect((await statsOf(DB(), b.playerId)).sold).toBe(7);
