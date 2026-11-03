@@ -30,11 +30,10 @@
  *   GET  /settlements/inbox                   requests and offers to settlements he rules, his own, his truces
  *   GET  /settlements/:id                     a settlement and its members
  *   POST /settlements/:id/settle              ask its lord for a plot
- *   POST /settlements/:id/terms { kind, from?, tribute? }  vassal (his settlement `from` overlord) or join; his men
- *                                             must stand on its ground (PRESENCE, the room's check)
+ *   POST /settlements/:id/terms               offer to take it over; his men must stand on its ground (PRESENCE, the
+ *                                             room's check)
  *   POST /settlements/:id/garrison { from }   an overlord's lord asks to garrison his vassal
  *   POST /settlements/:id/truce { from, bond } a truce between his settlement `from` and this one, bond escrowed
- *   POST /settlements/:id/rebel               a vassal's lord ends the tie
  *   POST /settlements/offers/:id/accept { plot? } the asked lord accepts (a settle request: with the plot)
  *   POST /settlements/offers/:id/refuse       the asked lord refuses, or the offerer withdraws
  *   GET  /tasks                               W-62 E7: his daily and weekly tasks (drawn on first read), progress, rerolls
@@ -50,6 +49,8 @@
  *   POST /crown/tax { pct }                   the Treasurer sets the alliance tax
  *   POST /crown/deposit { coin }              coin of his strongroom into the treasury
  *   POST /crown/works/:id { goods }           the Treasurer gives treasury goods to a work
+ *   POST /crown/oath { lord }, /crown/oath/answer { vassal, yes }, /crown/oath/break   W-150: swear, answer, break
+ *   POST /crown/rate { pct }, /crown/heir { pid }, /crown/abdicate, /crown/call { region, men, hours }   W-152..W-155
  *   POST /crown/contracts/:id { coin }        the Treasurer tops up a taken build or guard contract
  *   POST /crown/orders { kind, region, ... }  the Marshal or the Quartermaster posts an order (bounty from the treasury)
  *   POST /crown/orders/:id/end                its office ends it (a war goal pays out)
@@ -82,9 +83,12 @@ import { masteredOf } from './mastery';
 import { allianceOf } from './world/members';
 import { stagesOf } from '../../../src/war/net/works';
 import { GOODS } from '../../../src/war/net/protocol';
-import { accept, inbox, offerGarrison, offerTerms, offerTruce, PRESENCE, rebel, refuse, requestSettle, settlement, settlementsOf, settlementView, SETTLE } from './settlements';
+import { accept, inbox, offerGarrison, offerTerms, offerTruce, PRESENCE, refuse, requestSettle, settlement, settlementsOf, settlementView, SETTLE } from './settlements';
 import { WAR_REGIONS } from './regions';
-import { answerPact, appoint, confidence, crownView, deliver, deposit as crownDeposit, endOrder, fundContract, fundWork, offerPact, postOrder, setTax, sign, vote } from './crown';
+import { abdicate, answerPact, appoint, confidence, crownView, deliver, deposit as crownDeposit, endOrder, fundContract, fundWork, nameHeir, offerPact, postOrder, setTax, sign, vote } from './crown';
+import { answerOath, breakOath, setRate, swear } from './oaths';
+import { callGuard } from './contracts';
+import { FEUDAL } from '../../../src/data/warFeudal';
 import { CROWN, OFFICES, type Office } from '../../../src/war/net/crown';
 import { settleTunnelFor } from './raise';
 import { equip, formSquad, levelUp, promote, retire, roster, seed, settle } from './persons';
@@ -221,9 +225,8 @@ war.post('/settlements/:id/settle', requirePlayable, async (c) => c.json({ offer
 
 war.post('/settlements/:id/terms', requirePlayable, async (c) => {
   const id = sid(c.req.param('id')), pid = c.get('session').pid, d = db(c.env);
-  const b = await readJson(c, z.object({ kind: z.enum(['vassal', 'join']), from: num.optional(), tribute: z.number().int().min(0).max(SETTLE.tributeMax).optional() }), MAX_BODY);
   const present = await PRESENCE.check(pid, await settlement(d, id));
-  return c.json({ offer: await offerTerms(d, pid, b.kind, id, b.from ?? null, b.tribute ?? 0, present, Date.now()) });
+  return c.json({ offer: await offerTerms(d, pid, id, present, Date.now()) });
 });
 
 war.post('/settlements/:id/garrison', requirePlayable, async (c) => {
@@ -235,8 +238,6 @@ war.post('/settlements/:id/truce', requirePlayable, async (c) => {
   const b = await readJson(c, z.object({ from: num, bond: z.number().int().min(1).max(SETTLE.bondMax) }), MAX_BODY);
   return c.json({ offer: await offerTruce(db(c.env), c.get('session').pid, b.from, sid(c.req.param('id')), b.bond, Date.now()) });
 });
-
-war.post('/settlements/:id/rebel', requirePlayable, async (c) => c.json({ overlord: await rebel(db(c.env), c.get('session').pid, sid(c.req.param('id')), Date.now()) }));
 
 war.post('/settlements/offers/:id/accept', requirePlayable, async (c) => {
   const tile = z.number().int().min(0).max(4096);
@@ -280,6 +281,32 @@ war.post('/crown/confidence', requirePlayable, async (c) => {
   const b = await readJson(c, z.object({ yes: z.boolean() }), MAX_BODY);
   await confidence(c.env, c.get('session').pid, b.yes, Date.now());
   return c.json({ ok: true });
+});
+// W-150..W-159: oaths, tribute rate, succession and the call to guard
+war.post('/crown/oath', requirePlayable, async (c) => {
+  const b = await readJson(c, z.object({ lord: pidNum }), MAX_BODY);
+  await swear(db(c.env), c.get('session').pid, b.lord, Date.now());
+  return c.json({ state: 'asked' });
+});
+war.post('/crown/oath/answer', requirePlayable, async (c) => {
+  const b = await readJson(c, z.object({ vassal: pidNum, yes: z.boolean() }), MAX_BODY);
+  return c.json({ state: await answerOath(db(c.env), c.get('session').pid, b.vassal, b.yes, Date.now()) });
+});
+war.post('/crown/oath/break', requirePlayable, async (c) => c.json({ barUntil: await breakOath(db(c.env), c.get('session').pid, Date.now()) }));
+war.post('/crown/rate', requirePlayable, async (c) => {
+  const b = await readJson(c, z.object({ pct: z.number().int().min(0).max(FEUDAL.rateMax) }), MAX_BODY);
+  return c.json({ pct: await setRate(db(c.env), c.get('session').pid, b.pct, Date.now()) });
+});
+war.post('/crown/heir', requirePlayable, async (c) => {
+  const b = await readJson(c, z.object({ pid: pidNum.nullable() }), MAX_BODY);
+  await nameHeir(c.env, c.get('session').pid, b.pid, Date.now());
+  return c.json({ ok: true });
+});
+war.post('/crown/abdicate', requirePlayable, async (c) => c.json({ monarch: await abdicate(c.env, c.get('session').pid, Date.now()) }));
+war.post('/crown/call', requirePlayable, async (c) => {
+  const b = await readJson(c, z.object({ region: z.string().min(1).max(40), men: z.number().int().min(1), hours: z.number().int().min(1) }), MAX_BODY);
+  if (!WAR_REGIONS.includes(b.region)) throw badRequest('No such region');
+  return c.json({ contract: await callGuard(db(c.env), c.get('session').pid, b.region, b.men, b.hours, Date.now()) });
 });
 war.post('/crown/appoint', requirePlayable, async (c) => {
   const b = await readJson(c, z.object({ office: z.enum(OFFICES.map((o) => o.id) as [Office, ...Office[]]), pid: pidNum.nullable() }), MAX_BODY);

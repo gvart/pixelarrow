@@ -45,7 +45,7 @@ import type { NodeRow } from './economy';
 import type { BridgePlan, BuildingType, GoodKind, Order, PlaceResult, SquadId, TownLevelSnap, WallPlan } from '../types';
 
 /** Bumped on any wire change (messages or the binary frame layout). */
-export const NET_VERSION = 21;
+export const NET_VERSION = 22;
 /** Positions go out in 1/QUANT tile steps. */
 export const QUANT = 8;
 /** Ticks between keyframes (a full frame of what the client sees; deltas in between). */
@@ -152,7 +152,7 @@ export const orderSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('extinguish'), squad: id, ...U, ...target }).refine(oneTarget, 'building or siege'),
   // M6 trade (src/war/sim/trade.ts): porters and carts load from and unload into holders, escort a cart, a smith breaks
   // up a pile's item; the room checks the holder exists and the squad may use it, the sim the rest
-  z.object({ kind: z.literal('load'), squad: id, ...U, from: holderRef, res: goodSchema.optional(), n: amount.optional() }),
+  z.object({ kind: z.literal('load'), squad: id, ...U, from: holderRef, res: goodSchema.optional(), n: amount.optional(), send: z.literal(true).optional() }),
   z.object({ kind: z.literal('unload'), squad: id, ...U, to: holderRef, res: goodSchema.optional() }),
   z.object({ kind: z.literal('escort'), squad: id, ...U, cart: id }),
   z.object({ kind: z.literal('salvagePile'), squad: id, ...U, pile: id, uid: z.string().min(1).max(120) }),
@@ -188,7 +188,7 @@ const baseMsgSchema = z.discriminatedUnion('t', [
   // M6f: goods and items between the player's squad packs (or his cart) and his site here: his stall or warehouse in
   // a market town's court, his home strongroom at home; `in` from the field into the site, `out` back
   z.object({
-    t: z.literal('stow'), dir: z.enum(['in', 'out']), site: z.enum(['stall', 'warehouse', 'strongroom', 'contract']), squad: id.optional(), cart: id.optional(),
+    t: z.literal('stow'), dir: z.enum(['in', 'out']), site: z.enum(['stall', 'warehouse', 'strongroom', 'contract', 'tribute']), of: z.number().int().positive().optional(), squad: id.optional(), cart: id.optional(),
     goods: z.partialRecord(goodSchema, amount).optional(), uids: z.array(z.string().min(1).max(120)).max(20).optional(), contract: id.optional(),
   }).refine((o) => (o.squad === undefined) !== (o.cart === undefined), 'squad or cart').refine((o) => (o.site === 'contract') === (o.contract !== undefined), 'a contract site names its contract'),
   // M6g: the hand-off window with player `with` (both here, carriers within 4 tiles): offer (or change) my half, confirm, cancel

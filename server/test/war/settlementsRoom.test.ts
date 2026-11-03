@@ -20,7 +20,7 @@ const steps = (r: WarRoom, n: number) => {
 };
 const at = { x: 60, y: 60 };
 const town = (o: Partial<RoomSettlement> = {}): RoomSettlement => ({
-  id: 1, centre: -1, ...at, r: 24, name: 'Akra', lord: 10, lordName: 'Lykos', team: 1, level: 1, overlord: null, tribute: 0, leviedAt: 0, overlordLords: [],
+  id: 1, centre: -1, ...at, r: 24, name: 'Akra', lord: 10, lordName: 'Lykos', team: 1, level: 1, overlord: null, tribute: 0, overlordLords: [],
   members: [{ pid: 10, role: 'lord', plot: null }, { pid: 20, role: 'citizen', plot: { x0: 50, y0: 50, x1: 55, y1: 55 } }], ...o,
 });
 const hp = (r: WarRoom, squads: number[]) => r.snapshot().units.filter((u) => squads.includes(u.squad) && u.state !== 'dead').reduce((a, u) => a + u.hp, 0);
@@ -172,7 +172,6 @@ describe('W-63 what persists', () => {
     const c = campOf(r, 1);
     const s = town({ id: 3, centre: c.id, x: c.x, y: c.y, lord: 1, team: 0, members: [{ pid: 1, role: 'lord', plot: null }] });
     r.setSettlements([s]);
-    expect(r.takeStore(3, {})).toBe(true);
     r.order(1, { kind: 'move', squad: r.squadsOf(1)[0], x: c.x + 4, y: c.y + 4 });
     steps(r, 300);
     const [rep] = r.settlementReports();
@@ -187,9 +186,6 @@ describe('W-63 what persists', () => {
     expect(b.hp).toBeCloseTo(b.maxHp / 2, 0);
     f.setSettlements([{ ...s, centre: centre! }]);
     expect(f.storeGoods(3).wood).toBeCloseTo(25);
-    expect(f.takeStore(3, { wood: 30 })).toBe(false);
-    expect(f.takeStore(3, { wood: 20 })).toBe(true);
-    expect(f.storeGoods(3).wood).toBeCloseTo(5);
     // blocked tiles: dropped
     expect(room().restorePieces(0, s, [{ ...pieces[0], x: -50, y: -50 }])).toBeNull();
   });

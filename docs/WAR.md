@@ -797,7 +797,7 @@ waits at its next stop until he is back (a map, chat or region tab), then goes o
 | Access and terms (W-89, W-125, W-126) | each building a player built is set to private, household, alliance or anyone (default alliance, a house private) on its card. The owner may keep up to 50% of what others make there and ask up to 100 coin an order (`TERMS`). The server refuses anyone else |
 | Paying (W-126) | a fee is coin, paid when the order starts. A share comes off the goods at the finish; an output that cannot be split (one sword) pays that share of its inputs at the start; a farm pays on delivery. A fee does not apply to gathering. It all waits in the building's own hold until the owner's men fetch it |
 | A stranger at the bench (W-127) | under anyone, foes too: he pays from his men's packs, works at the door, and what he makes lands in a pile claimed for him |
-| Household (W-128) | the owner, the citizens and garrison of his settlement, and the lords of his vassal settlements. One way: a vassal's lord may use his liege's, not the reverse |
+| Household (W-128, W-155) | the owner, the citizens and garrison of his settlement, and those sworn directly to him, one step. One way: a vassal may use his liege's, not the reverse |
 | Private store (W-129) | a store set private or household feeds no network and does not open the strongroom |
 | Private house (W-90, W-132) | a player builds it on ground his side holds, one a region (`HOUSE.cap`): 3x2, 500 hp, wood 40 stone 10, labour 200, 20 loads, private by default, no terms. Pre-built houses cannot be private for now (W-125) |
 | Locks (W-131) | a door with hit points on every house and store: wood 720, stone 1440; one man takes off 1 a second, so 12 men need a minute at a wood door and two at a stone one, on top of any guard. His men standing there mend it, no order or cost. The owner hears at the first blow, every 5 min after and when it breaks (a pre-built store: its whole alliance). A chest and a workplace's own hold have no door |
@@ -813,12 +813,53 @@ waits at its next stop until he is back (a map, chat or region tab), then goes o
 | Solo warrior (W-93) | can be hired for monsters. The contract's form: open |
 | Not given (W-72 stands) | no AI ally squads, no solo claim exceptions; warlords stay rivals |
 
-### Feudal hierarchy (W-94)
+### Feudal hierarchy (W-94, W-150..W-155)
 
-Kings, vassals, titles, tribute and succession, built last, on top of W-63's shared settlements: anyone may found a
-settlement and be its lord, others ask to settle, and a vassal settlement pays tribute for protection and may rebel.
-Alliances stay the season team, with the hierarchy inside them. How someone becomes king, how titles pass and tribute
-rates: open. So is how this sits with W-64's crown and W-63's settlements across alliances.
+The hierarchy lives inside one alliance and is wiped each season (W-96). Any path can hold any rank. Numbers:
+`src/data/warFeudal.ts`.
+
+| Rank | Who |
+|---|---|
+| Vassal | sworn to one lord, or to the king |
+| Lord | rules a settlement; a fort outside the homes founds one, so a builder is the natural lord |
+| King | the crown holder, one per alliance; swears to nobody |
+
+**Oaths (W-150).** A man asks, his lord answers within 48 h. One oath at a time; a lord swears only to the king. A sworn
+man who founds a settlement keeps his oath. Other alliances are refused. Join terms, garrisons and citizens stay from
+W-63; vassal terms by force, levy and rebellion went. Citizens of a settlement may still come from another alliance.
+
+**The crown (W-151, W-152).** W-64's weekly elected term stands. Only lords vote or sign, each weighing his vassals plus
+one. The top three by realm power stand. The king may name an heir from his alliance. The crown passes:
+
+| When | What happens |
+|---|---|
+| He gives it up | the heir rules at once for the rest of the term; no heir, an election |
+| No confidence | W-64's petition, a quarter of the active lords, then over half of all lord weight, cast or not; the heir rules until the election closes |
+| Unseen 72 h, counted from the later of his last visit and taking the crown | an election; the heir rules until it closes |
+| Term ends | an election, the king as regent as before |
+
+No heir means an empty throne until the election closes. The old council goes when the crown passes.
+
+**Tribute (W-153).** Each lord sets a share of 0..20%, default 10, on what those sworn to him earn; the king too. It falls
+on the owner's share of a building (till, fee, farm share) and on a sale's price at his stall. It does not cascade:
+tribute collected is not income. The crown's tax falls on sales, not on tribute.
+
+Nothing teleports. A building's part sits in that building's hold, a stall's part beside the stall (`tr:<town>:<payer>`),
+and both sides see what waits and where, however far away. It moves on someone's back:
+
+- The liege's men load it at the building, or stow it out of the stall from the market court. It is his from then on.
+- The payer's men may carry it, sealed: it unloads only into a store or chest of the liege.
+- Raiders, piles and seized carts strip the seal, so raided tribute is plain loot.
+
+Offline the same rule runs in the sim.
+
+**Bonds (W-154, W-155).** A vassal may break his oath at any time. His name goes on the alliance's roll and he cannot
+swear again for 24 h. What was set aside comes back to him, sealed goods lose the seal, his liege's garrison leaves.
+Nothing else. When the crown passes, lords sworn to the old king are freed with no mark and swear again; his plain vassals
+stay his; the new king's own oath ends. A lord or king may call those sworn to him to guard: a guard contract with no fee,
+no stall, only they may take it, and nobody has to.
+
+The king's powers stay W-64's: offices, pacts, orders with bounties. Nobody commands another player's men.
 
 ## Starting a game
 
@@ -1545,7 +1586,7 @@ maker's pack); equipping needs the man and the item in
 the same region within 4 tiles.
 
 **Goods cross regions only on someone's back (W-124).** A network stays inside one region. The owner's share waits in
-the building's own hold. Rent, tribute and the strongroom's share of them are left to item 8.
+the building's own hold, and so does tribute until it is fetched (W-153).
 
 ### Carts
 

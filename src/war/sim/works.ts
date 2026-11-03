@@ -34,7 +34,7 @@
 import type { Access, BridgeAxis, BridgeOrder, BridgePlan, BuildingSnap, BuildingType, BuildState, GoodKind, InfluenceMap, NodeSnap, PlaceReason, PlaceResult, RegionData, ResourceKind, WallOrder, WallPlan } from '../types';
 import { BRAZIER, BRIDGE, BUILDINGS, CHEST, FIELD, HOUSE, KILN, LOCK, lockOf, needsPerson, PINES, CANCEL_REFUND, DEMOLISH, CARRY, CLAIM_RADIUS, lineTiles, NEUTRAL_TEAM, rectTiles, STAFF, TERMS, REPAIR, RESOURCE_NODES, rotated, RUIN, SEGMENT, WALL_KIT, type BuildingDef, type Spot } from './economy';
 import { DECK, LADDER, lineClear, STAIR, tileAt, type Grid } from './grid';
-import { amount, empty, itemList, newHold, put, take, takeFrom, totals, type Cost, type Hold } from './holders';
+import { amount, empty, isTithe, itemList, newHold, put, take, takeFrom, titheIn, titheSeal, totals, type Cost, type Hold } from './holders';
 import { depthRule } from './depth';
 
 const DT = 0.1;
@@ -304,6 +304,20 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
   };
   /** The building's own hold, where the owner's share waits (a store or chest: its contents; else made when first paid). */
   const tillOf = (b: Building): Hold => (b.hold ??= newHold());
+  /** W-153: whom each owner pays (the room's setLiege order). */
+  const lieges = new Map<string, { to: string; pct: number }>();
+  /** W-89 + W-153: n of res reaches the owner's till, his liege's part of it set aside there, sealed for the liege. */
+  const payTill = (b: Building, res: GoodKind, n: number, o: string) => {
+    const hold = tillOf(b), l = lieges.get(b.owner), seal = titheSeal(l?.to), cut = l && seal !== undefined ? n * (l.pct / 100) : 0;
+    if (cut > 0) put(hold, res, cut, o, seal);
+    put(hold, res, n - cut, o);
+  };
+  /** W-153: the snapshot's view of the tribute in it. */
+  const titheSnap = (b: Building) => {
+    const t = b.hold && b.state !== 'destroyed' ? titheIn(b.hold) : undefined;
+    if (!t) return {};
+    return { tithe: t, titheTo: `p:${-b.hold!.lots.find((l) => isTithe(l) && l.n > 1e-9)!.s!}` };
+  };
   /** Only what someone may use has terms: a piece that needs a person, or a house. A chest stays its owner's, a wall is everyone's. */
   const hasTerms = (b: Building) => needsPerson(b.type, b.def) || !!b.def.house;
 
@@ -1438,7 +1452,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
     if (u.carry) {
       // W-89: the owner of the farm or press keeps his share, in the building's own hold
       const got = u.load * (u.gmul?.[u.carry] ?? 1), cut = farm && farm.owner && farm.share > 0 && farm.owner !== u.squad.owner ? got * farm.share : 0;
-      if (cut > 0) put(tillOf(farm!), u.carry, cut, o);
+      if (cut > 0) payTill(farm!, u.carry, cut, o);
       put(st, u.carry, got - cut, o);
     }
     // M5h: Herb Finder (forest and marsh nodes), Weaver (farms)
@@ -1769,7 +1783,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
 
   return {
     /** Save and restore (./state.ts): the closure state (the decoder refills the containers in place; `tick` is set back). */
-    saveRoot: () => ({ nodes, nodeAt, regrowing, buildings, braziers, occ, noBuild, reserve, storeList, claims, infl, pathQueue, waits, active, cutOff, waitAt, burning, tick, fields, prebuilt, fallback }),
+    saveRoot: () => ({ lieges, nodes, nodeAt, regrowing, buildings, braziers, occ, noBuild, reserve, storeList, claims, infl, pathQueue, waits, active, cutOff, waitAt, burning, tick, fields, prebuilt, fallback }),
     loadRoot: (o: { tick: number; fields: number; fallback: number }) => void ((tick = o.tick), (fields = o.fields), (fallback = o.fallback)),
     /** M7a: lay out the region's pre-built pieces (once, at the start), owned by `start` (NEUTRAL_TEAM, or MOB_TEAM when held). */
     prebuild,
@@ -1992,6 +2006,10 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
     },
     /** W-89: where the owner's share and fees of building id wait until he collects them. */
     tillOf: (id: number): Hold => tillOf(buildings[id]),
+    payTill: (id: number, res: GoodKind, n: number, o: string) => payTill(buildings[id], res, n, o),
+    lieges,
+    /** W-153: the holds of the buildings `owner` owns. */
+    ownedHolds: (owner: string): Hold[] => buildings.flatMap((b) => (b.owner === owner && b.hold ? [b.hold] : [])),
     /** W-88: every STAFF.every ticks: who stands at what. The men go in a coarse grid once a scan, so a scan stays near linear. */
     staffScan(men: readonly { alive: boolean; x: number; y: number; squad: { team: number } }[], mob: number) {
       const cw = (w >> STAFF_CELL) + 1;
@@ -2392,6 +2410,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
           ...(b.push > 0 && b.state !== 'destroyed' ? { push: Math.min(1, b.push) } : {}),
           ...(b.bridge ? { bridge: { axis: b.bridge.axis, dir: b.bridge.dir, width: b.bridge.width, part: b.bridge.part, deck: b.bridge.deck, rows: b.bridge.rows } } : {}),
           ...(b.hold && b.state !== 'destroyed' ? { goods: totals(b.hold), ...(b.hold.items.length ? { items: b.hold.items.length, list: itemList(b.hold) } : {}) } : {}),
+          ...titheSnap(b),
           ...(b.owner ? { owner: b.owner } : {}),
           ...(b.staff ? { staffed: true as const } : {}),
           ...(b.owner && hasTerms(b) ? { access: b.access, ...(b.share ? { share: b.share } : {}), ...(b.fee ? { fee: b.fee } : {}) } : {}),

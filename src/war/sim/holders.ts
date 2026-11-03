@@ -8,7 +8,10 @@ import type { Item } from '../../data/items';
 import type { GoodKind, HoldItem } from '../types';
 import { CARRY } from './economy';
 
-/** s (M6g): sealed under carry contract s: unloads only at its destination (the server's bridge), never into a sim holder. */
+/**
+ * s (M6g): sealed under carry contract s: unloads only at its destination (the server's bridge), never into a sim holder.
+ * s < 0 (W-153): tribute set aside for player -s: no network, craft or plain load draws it (see `Draw`).
+ */
 export interface Lot { r: GoodKind; n: number; o: string; s?: number }
 export interface Hold { lots: Lot[]; items: Item[] }
 export type Cost = Partial<Record<GoodKind, number>>;
@@ -23,17 +26,33 @@ export const RATION_LOAD = 2 * CARRY;
 export const perLoad = (r: GoodKind | string | undefined) => (r === 'coin' ? COIN_LOAD : r === 'ration' ? RATION_LOAD : CARRY);
 const EPS = 1e-9;
 
+/** W-153: a lot set aside as tribute. */
+export const isTithe = (l: Lot) => l.s !== undefined && l.s < 0;
+/** W-153: the seal of tribute owed to owner `p:<id>` (no other owner can be owed any). */
+export const titheSeal = (owner: string | null | undefined): number | undefined => {
+  const m = owner ? /^p:(\d+)$/.exec(owner) : null;
+  return m ? -Number(m[1]) : undefined;
+};
+/** W-153: tribute in a hold, as totals. */
+export function titheIn(h: Hold): Cost | undefined {
+  let out: Cost | undefined;
+  for (const l of h.lots) if (isTithe(l) && l.n > EPS) (out ??= {})[l.r] = (out[l.r] ?? 0) + l.n;
+  return out;
+}
+/** W-153: which lots a move draws and the seal they end with (a move without one leaves tribute where it is). */
+export interface Draw { ok: (l: Lot) => boolean; to: (l: Lot) => number | undefined; goodsOnly?: true }
+
 export const newHold = (): Hold => ({ lots: [], items: [] });
 
 export function amount(h: Hold, r: GoodKind): number {
   let s = 0;
-  for (const l of h.lots) if (l.r === r) s += l.n;
+  for (const l of h.lots) if (l.r === r && !isTithe(l)) s += l.n;
   return s;
 }
 
 /** Goods of a hold as totals. */
 export function totals(h: Hold, out: Cost = {}): Cost {
-  for (const l of h.lots) out[l.r] = (out[l.r] ?? 0) + l.n;
+  for (const l of h.lots) if (!isTithe(l)) out[l.r] = (out[l.r] ?? 0) + l.n;
   return out;
 }
 
@@ -56,12 +75,12 @@ export function putLots(h: Hold, lots: readonly Lot[]): void {
   for (const l of lots) put(h, l.r, l.n, l.o, l.s);
 }
 
-/** Take up to n of r from h, oldest lot first; the lots taken. */
+/** Take up to n of r from h, oldest lot first (tribute stays); the lots taken. */
 export function take(h: Hold, r: GoodKind, n: number): Lot[] {
   const out: Lot[] = [];
   for (let i = 0; i < h.lots.length && n > EPS; ) {
     const l = h.lots[i];
-    if (l.r !== r) {
+    if (l.r !== r || isTithe(l)) {
       i++;
       continue;
     }
@@ -103,20 +122,21 @@ export function takeFrom(holds: readonly Hold[], cost: Cost): boolean {
 
 /**
  * Move at most `max` loads of goods (good `r`, or the most plentiful first) and items from a to b; the loads moved.
- * `unsealed` (an unload): sealed lots (M6g) stay where they are.
+ * `unsealed` (an unload): sealed lots (M6g) stay where they are. Tribute stays too, unless `draw` picks the lots.
  */
-export function move(a: Hold, b: Hold, max: number, r?: GoodKind, maxItems = Infinity, unsealed = false): number {
+export function move(a: Hold, b: Hold, max: number, r?: GoodKind, maxItems = Infinity, unsealed = false, draw?: Draw): number {
   let left = max;
-  const ok = (x: Lot) => x.n > EPS && (!unsealed || x.s === undefined);
+  const ok = (x: Lot) => x.n > EPS && (draw ? draw.ok(x) : !isTithe(x) && (!unsealed || x.s === undefined));
   while (left > EPS) {
     const l = r ? a.lots.find((x) => x.r === r && ok(x)) : [...a.lots].sort((x, y) => y.n - x.n).find(ok);
     if (l) {
       const n = Math.min(l.n, left * perLoad(l.r));
-      putLots(b, unsealed ? takeLot(l, n) : take(a, l.r, n));
+      if (draw) for (const t of takeLot(l, n)) put(b, t.r, t.n, t.o, draw.to(l));
+      else putLots(b, unsealed ? takeLot(l, n) : take(a, l.r, n));
       left -= n / perLoad(l.r);
       continue;
     }
-    if (r || !a.items.length || left < 1 / ITEMS_PER_LOAD - EPS || maxItems-- <= 0) break;
+    if (r || draw?.goodsOnly || !a.items.length || left < 1 / ITEMS_PER_LOAD - EPS || maxItems-- <= 0) break;
     b.items.push(a.items.shift()!);
     left -= 1 / ITEMS_PER_LOAD;
   }

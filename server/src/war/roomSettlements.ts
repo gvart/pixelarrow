@@ -26,7 +26,7 @@ export interface RoomSettlement {
   lord: number; lordName: string;
   /** Its banner: the lord's alliance (null: he serves none this season). */
   team: number | null;
-  level: number; overlord: number | null; tribute: number; leviedAt: number;
+  level: number; overlord: number | null; tribute: number;
   /** Lords of its overlords, nearest first (an attack on it is one on them; their men may come in). */
   overlordLords: number[];
   members: TieMember[];
@@ -52,15 +52,18 @@ export function bannerOf(list: readonly RoomSettlement[], pid: number): RoomSett
 export const tiedTo = (list: readonly RoomSettlement[], pid: number): boolean =>
   list.some((s) => s.members.some((m) => m.pid === pid) || s.overlordLords.includes(pid));
 
+/** W-150: an oath in force and its rate (./oaths.ts sworn). */
+export interface Oath { vassal: number; lord: number; pct: number }
+
 /**
  * W-89 household, as the sim asks it (owners `p:<id>`): `other` is a citizen or the garrison of a settlement `owner` is
- * lord of, or the lord of a settlement under him.
+ * lord of, or (W-155) sworn directly to him. One way, one step: not his vassals' vassals, not his own liege.
  */
-export const householdOf = (list: readonly RoomSettlement[]) => (owner: string, other: string): boolean => {
+export const householdOf = (list: readonly RoomSettlement[], oaths: readonly Oath[] = []) => (owner: string, other: string): boolean => {
   const m = /^p:(\d+)$/.exec(owner), o = /^p:(\d+)$/.exec(other);
   if (!m || !o) return false;
   const lord = Number(m[1]), pid = Number(o[1]);
-  return list.some((s) => (s.lord === lord && s.members.some((x) => x.pid === pid)) || (s.lord === pid && s.overlordLords.includes(lord)));
+  return oaths.some((x) => x.lord === lord && x.vassal === pid) || list.some((s) => s.lord === lord && s.members.some((x) => x.pid === pid));
 };
 
 const inCircle = (s: { x: number; y: number; r: number }, x: number, y: number) => (x - s.x) ** 2 + (y - s.y) ** 2 <= s.r * s.r;
@@ -132,7 +135,7 @@ export async function loadRegionSettlements(db: D1Database, region: string): Pro
   const rows = (await db
     .prepare('SELECT s.*, p.display_name AS lord_name FROM war_settlements s LEFT JOIN players p ON p.id = s.lord_pid WHERE s.region = ?1 ORDER BY s.id')
     .bind(region)
-    .all<{ id: number; centre_piece: number; x: number; y: number; r: number; name: string; lord_pid: number; lord_name: string | null; level: number; overlord_id: number | null; tribute_pct: number; levied_at: number }>()).results;
+    .all<{ id: number; centre_piece: number; x: number; y: number; r: number; name: string; lord_pid: number; lord_name: string | null; level: number; overlord_id: number | null; tribute_pct: number }>()).results;
   if (!rows.length) return [];
   const ms = (await db
     .prepare('SELECT m.* FROM war_settlement_members m JOIN war_settlements s ON s.id = m.settlement_id WHERE s.region = ?1 ORDER BY m.since, m.player_id')
@@ -149,7 +152,7 @@ export async function loadRegionSettlements(db: D1Database, region: string): Pro
     }
     out.push({
       id: r.id, centre: r.centre_piece, x: r.x, y: r.y, r: r.r || SETTLE.r, name: r.name, lord: r.lord_pid, lordName: r.lord_name ?? `Player ${r.lord_pid}`,
-      team: await allianceOf(db, r.lord_pid), level: r.level, overlord: r.overlord_id, tribute: r.tribute_pct, leviedAt: r.levied_at, overlordLords: lords,
+      team: await allianceOf(db, r.lord_pid), level: r.level, overlord: r.overlord_id, tribute: r.tribute_pct, overlordLords: lords,
       members: ms.filter((m) => m.settlement_id === r.id).map((m) => ({ pid: m.player_id, role: m.role, plot: m.x0 === null ? null : { x0: m.x0, y0: m.y0!, x1: m.x1!, y1: m.y1! } })),
     });
   }

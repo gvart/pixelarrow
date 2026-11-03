@@ -103,8 +103,8 @@ describe('W-89 on the wire', () => {
 
 describe('W-89 household', () => {
   const s = (id: number, lord: number, pids: number[], over: number[] = []) => ({ id, lord, members: pids.map((pid) => ({ pid })), overlordLords: over }) as never;
-  it('his citizens and his vassals\' lords; nobody else, and no reach upwards', () => {
-    const tied = householdOf([s(1, 10, [10, 11]), s(2, 20, [20, 21], [10])]);
+  it('his citizens and those sworn to him; nobody else, and no reach upwards', () => {
+    const tied = householdOf([s(1, 10, [10, 11]), s(2, 20, [20, 21], [10])], [{ vassal: 20, lord: 10, pct: 10 }]);
     expect(tied('p:10', 'p:11')).toBe(true);
     expect(tied('p:10', 'p:20')).toBe(true);
     expect(tied('p:10', 'p:21')).toBe(false);

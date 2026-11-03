@@ -32,5 +32,6 @@
  *    skirmishers, souls of every family at every site (clients on 10 reload).
  * 12: paths-staffed (W-88..W-91, W-120..W-135): buildings work and see only with a man at them, access and terms, private
  *    houses, locks, raids limited by carry (clients on 11 reload).
+ * 13: paths-feudal (W-153): tribute set aside in a building for its owner's liege, the setLiege order (clients on 12 reload).
  */
-export const SIM_VERSION = 12;
+export const SIM_VERSION = 13;

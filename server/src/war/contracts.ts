@@ -28,6 +28,7 @@
  */
 import { heldNodes } from '../../../src/data/professions';
 import { ApiError } from '../errors';
+import { liegeOf } from './oaths';
 import { batch, guard, lotsOf, planTake, putLotsStmts, putStmt, strongroom, totalsOf, type GoodLot } from './holders';
 import { intoOf, presentIn, site, stallId, townOf } from './market';
 import { json } from './persons';
@@ -193,6 +194,19 @@ export async function postContract(db: D1Database, pid: number, town: string, c:
   return id;
 }
 
+/**
+ * W-155: a lord or king calls those sworn to him to guard his town: a guard contract with no fee and no stall. Nobody must
+ * answer: whoever takes it holds it like any guard contract, and only those sworn to him may.
+ */
+export async function callGuard(db: D1Database, pid: number, region: string, men: number, hours: number, now: number): Promise<number> {
+  if (!(men >= 1) || men > GUARD.men || !(hours >= 1) || hours > GUARD.hours) throw new ApiError(400, 'bad_request', `1 to ${GUARD.men} men for 1 to ${GUARD.hours} hours`);
+  if (!(await db.prepare("SELECT 1 FROM war_oaths WHERE lord_pid = ?1 AND state = 'sworn' LIMIT 1").bind(pid).first())) throw new ApiError(409, 'no_vassals', 'Nobody is sworn to you');
+  return (await db
+    .prepare("INSERT INTO war_contracts (kind, town, to_town, poster, reward, n, region, men, state, deadline, created_at) VALUES ('guard', ?1, ?1, ?2, 0, ?3, ?1, ?4, 'open', ?5, ?6) RETURNING id")
+    .bind(region, pid, hours, men, now + (hours + 24) * HOUR, now)
+    .first<{ id: number }>())!.id;
+}
+
 export async function contract(db: D1Database, id: number): Promise<ContractRow> {
   const c = await db.prepare('SELECT * FROM war_contracts WHERE id = ?1').bind(id).first<ContractRow>();
   if (!c) throw new ApiError(404, 'not_found', 'No such contract');
@@ -222,6 +236,7 @@ export async function takeContract(db: D1Database, pid: number, id: number, now:
   if (work(c.kind)) {
     const [a, b] = await Promise.all([allianceOf(db, pid), allianceOf(db, c.poster)]);
     if (a === null || a !== b) throw new ApiError(409, 'not_ally', 'Only a man of the same alliance works or guards his town');
+    if (c.kind === 'guard' && c.reward === 0 && (await liegeOf(db, pid)) !== c.poster) throw new ApiError(409, 'not_sworn', 'That call is for those sworn to him');
   }
   const dep = c.kind === 'carry' ? await fromSites(db, pid, c.town, { coin: c.deposit }) : { stmts: [], taken: [] };
   await batch(db, [

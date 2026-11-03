@@ -15,6 +15,7 @@ import type { AllianceId } from '../../../src/war/world/types';
 import type { BoardSeen } from '../../../src/war/net/world';
 import type { Env } from '../env';
 import { stallId, type Board, type FillHook } from './market';
+import { saleTribute } from './oaths';
 import { crownTax } from './crown';
 import { allianceOf } from './world/members';
 import { json } from './persons';
@@ -44,14 +45,14 @@ async function room(db: D1Database, alliance: number, now: number): Promise<numb
 /**
  * The fill hook: anti-abuse first (M6i), then the score and its daily row. W-61: the seller's coin sold (titles) on every
  * fill; between alliances also the volume peace score (capped a day), handed back in `peace` for the caller to send.
- * W-64: the seller's alliance tax (./crown.ts crownTax) on every fill.
+ * W-64: the seller's alliance tax (./crown.ts crownTax) on every fill. W-153: his liege's part set aside at the stall.
  */
 export function fillHook(env: Env, peace: { alliance: number | null; volume: number } = { alliance: null, volume: 0 }): FillHook {
   return async (f) => {
     const db = env.DB!;
     await tradeRefusal(db, f.seller, f.buyer, f.now);
     // W-64: the alliance tax's share of the sale, out of the seller's stall into his crown's treasury
-    const sold = [statStmt(db, f.seller, 'sold', f.coin), ...(await crownTax(db, f.seller, f.coin, stallId(f.town, f.seller))), ...(await cappedStmts(db, f.seller, f.coin * FAVOUR_EARN.sold, 'sold', f.now))]; // W-111 a trader's level
+    const sold = [statStmt(db, f.seller, 'sold', f.coin), ...(await crownTax(db, f.seller, f.coin, stallId(f.town, f.seller))), ...(await saleTribute(db, f.seller, f.coin, f.town)), ...(await cappedStmts(db, f.seller, f.coin * FAVOUR_EARN.sold, 'sold', f.now))]; // W-111 a trader's level
     const [sa, ba] = await Promise.all([allianceOf(db, f.seller), allianceOf(db, f.buyer)]);
     if (sa === null || ba === null || sa === ba) return { score: 0, stmts: sold };
     const vol = await peacePoints(db, sa, 'volume', f.coin / PEACE.volume, f.now);
