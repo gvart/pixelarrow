@@ -1,5 +1,5 @@
 /**
- * W-150..W-159 the feudal hierarchy's numbers (docs/WAR.md "Feudal hierarchy"), read by the sim, the server and the HUD.
+ * W-150..W-155 the feudal hierarchy's numbers (docs/WAR.md "Feudal hierarchy"), read by the sim, the server and the HUD.
  */
 const HOUR = 3_600_000;
 export const FEUDAL = {

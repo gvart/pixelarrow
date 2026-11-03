@@ -1,5 +1,5 @@
 /**
- * W-150..W-159 the feudal chain (server/src/war/oaths.ts, ./crown.ts, ./regionDO.ts stowTribute): swearing inside one
+ * W-150..W-155 the feudal chain (server/src/war/oaths.ts, ./crown.ts, ./regionDO.ts stowTribute): swearing inside one
  * alliance, election weight, heir, no confidence, the 72-hour lapse, tribute collected in person with coin conserved, the
  * oath break and its bar, cross-alliance refused, and a season reset clearing it all.
  */

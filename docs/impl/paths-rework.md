@@ -51,7 +51,7 @@ PixelLab only for real gaps.
 
 Propose these in the named work item and get the owner's answer before building them.
 
-- [ ] How someone becomes king, how titles pass, tribute rates (item 8).
+- [x] How someone becomes king, how titles pass, tribute rates. W-151, W-152, W-153.
 - [x] Perk lists for each path. W-110.
 - [x] Raid loss limits and how empty towns get guards. W-130: what his group can carry; W-134: people, guard contracts stay.
 - [x] What each family's men can do, and its stronger classes. W-112. Only hoplite, militia, archer, slinger, javelineer and
@@ -72,7 +72,7 @@ Found while bringing `docs/WAR.md` in line (item 1). Each is a rule the decision
 - [x] Souls wake by site, so families do not grow alike. W-113. 12 mixed skirmishers losing to chiefs and bandit lairs: W-112.
 - [x] How levels are paid per path. W-111, W-114; the old bonus on raised men went, W-110.
 - [x] What counts as "working" under W-88 beyond workplaces. W-120..W-123, W-135. Whether empty land scores is item 9.
-- [x] Goods that move with nobody carrying them, and where the owner's share sits. W-124, W-126. Tribute is item 8.
+- [x] Goods that move with nobody carrying them, and where the owner's share sits. W-124, W-126, tribute W-153.
 - [x] Walls and locks. W-130, W-131, W-132.
 - [x] Warlord raids after W-91. W-133.
 - [x] "Owner" under W-89. W-125; the recruit-pool table rows are gone.
@@ -81,8 +81,7 @@ Found while bringing `docs/WAR.md` in line (item 1). Each is a rule the decision
 - [ ] The hire contract for monsters: a new kind or the guard and escort contracts, and whether it stays inside the
   alliance as build and guard do (item 7). Guard contracts for empty towns: yes, W-134.
 - [ ] What builders and traders do in the guide, tasks and region mastery, which all assume a fighting army (items 7, 9).
-- [ ] Hierarchy against older decisions: W-64's elected crown, one per alliance, against W-94's kings; W-63's settlements
-  and vassals across alliances against "the hierarchy inside them" (item 8).
+- [x] Hierarchy against older decisions. The crown holder is the king (W-151); vassals stay inside one alliance (W-150).
 - [ ] No hegemony by day 28. Today the top score wins, and it counts trade, contracts, works and town level as well as
   land: does that fallback stay under "land decides"? Do W-61's per-alliance score caps stay? What does each path's
   ladder rank, and do W-61's titles become it (item 9)?
@@ -107,7 +106,7 @@ Each item bumps `SIM_VERSION` (`src/sim/version.ts`) and `NET_VERSION` (`src/war
   verify: sim and server tests, `bench:war`. depends on: 3.
 - [ ] **7. Builder and trader loops.** NPC markets, warrior hire contracts, path story chains (`lore-writer`).
   verify: a seeded solo run on each path. depends on: 5, 6.
-- [ ] **8. Feudal hierarchy.** Kings, vassals, titles, tribute, succession on top of W-63.
+- [x] **8. Feudal hierarchy.** Kings, vassals, titles, tribute, succession on top of W-63.
   verify: scenario tests. depends on: 6; owner answer on the open item.
 - [ ] **9. Winning and HUD.** Path ladders, remove multi-region UI (`armyPanel.ts`, `roster/state.ts`, `world-view/map.ts`,
   `titleMenu`), guide per path.
