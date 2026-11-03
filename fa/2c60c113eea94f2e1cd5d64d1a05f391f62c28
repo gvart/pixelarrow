@@ -1,0 +1,37 @@
+server/test/war/feudal.test.ts
+  s_a7d5d20f628c80::t_a259c9b2c98efd 281-397
+docs/WAR.md
+  s_a7d5d20f628c80::t_a259c9b2c98efd 823-828,855-857,861-862,864-869
+server/src/war/crown.ts
+  s_a7d5d20f628c80::t_a259c9b2c98efd 6-9,11-13,33,64,122,124,127,133-134,136,150,158,174-181,224,266-278,348,671,675,742
+src/war/net/crown.ts
+  s_a7d5d20f628c80::t_a259c9b2c98efd 73,131-132
+src/dev/pathBalance.ts
+  s_a7d5d20f628c80::t_a259c9b2c98efd 1-354
+tests/war/pathBalance.test.ts
+  s_a7d5d20f628c80::t_a259c9b2c98efd 1-21
+src/war/view/hud/crown.ts
+  s_a7d5d20f628c80::t_a259c9b2c98efd 140,189,197,343
+server/test/war/crown.test.ts
+  s_a7d5d20f628c80::t_a259c9b2c98efd 13,96,126-131,133-137,143
+scripts/war/balance.mjs
+  s_a7d5d20f628c80::t_a259c9b2c98efd 4-5,7,16-25
+docs/impl/global-war-rebuild.md
+  s_a7d5d20f628c80::t_a259c9b2c98efd 194-197
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "fa2c60c113eea94f2e1cd5d64d1a05f391f62c28",
+  "prompts": {},
+  "sessions": {
+    "s_a7d5d20f628c80": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1afee479-b44b-46d2-a159-a540e44e7fb8",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
