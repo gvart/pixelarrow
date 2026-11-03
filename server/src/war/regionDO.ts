@@ -69,9 +69,9 @@ import type { WarPerson, WarSkillId } from '../../../src/war/types';
 import type { AttrId } from '../../../src/data/perks';
 import { log, logError } from '../telemetry/log';
 import { applyBossKill } from './bosses';
-import { addFavour, encounterFavour, favourTick, storyFavour } from './favour';
+import { addFavour, builtFavour, encounterFavour, FAVOUR_EARN, favourTick, levelsOf, storyFavour } from './favour';
 import type { WarlordMemory, WarlordNote } from '../../../src/war/sim/warlords';
-import { domainOf, warlord, WARLORD } from '../../../src/data/warWarlords';
+import { domainOf, warlord } from '../../../src/data/warWarlords';
 /** W-72 proposal: a day of the warlords' age. */
 const DAY_MS = 86_400_000;
 import { masteryOf, recordWild } from './mastery';
@@ -133,6 +133,9 @@ const HISTORY = 600;
 const SAVE_TICKS = 300;
 /** D1 write attempts before a write is dropped (logged). */
 const WRITE_TRIES = 5;
+/** W-111: the loads a group brought over a border, packs and carts. */
+const cargoLoads = (c: TransitCargo) => [...Object.values(c.packs), ...(c.carts ?? [])].reduce((a, b) => a + bundleLoads(b as Bundle), 0);
+
 /** W-61: ticks between polls of the region's guard contracts, open works and work bonuses (30 s). */
 const PEACE_POLL = 300;
 /** W-63: ticks between polls of the region's settlements (10 s), between their reports to D1 (60 s); ms between levies. */
@@ -304,18 +307,6 @@ export class WarRegionDO extends DurableObject<Env> {
     // a fall told while this room slept (a restored room too): his bands here go
     for (const [id, at] of Object.entries(kept?.mem?.fallen ?? {})) room.warlordFell(id, at);
     if (!kept) await this.ctx.storage.put(key, { from: this.lordsFrom, mem: null });
-  }
-
-  /** W-72 proposal: favour for a warlord's place freed or his fall, to the players whose men were by it. */
-  private warlordFavour(notes: readonly WarlordNote[]): void {
-    for (const n of notes) {
-      if (n.what !== 'freed' && n.what !== 'fallen') continue;
-      const amount = n.what === 'fallen' ? WARLORD.favour.lord : WARLORD.favour.holding;
-      for (const o of n.near ?? []) {
-        const pid = ownerPid(o);
-        if (pid !== null) this.write(`favour warlord ${pid}`, () => addFavour(this.env, pid, amount, n.what === 'fallen' ? 'boss' : 'lair'));
-      }
-    }
   }
 
   /** W-72 proposal: a lord fallen here is told to the other regions of his domain (his bands there are recalled). */
@@ -856,7 +847,10 @@ export class WarRegionDO extends DurableObject<Env> {
     }
     const r = room.arrive(pid, team, persons, side, lost, cargo);
     if ('error' in r) return r;
-    if (cargo) room.guide.mark(pid, 'haul'); // W-62: a caravan in
+    if (cargo) {
+      room.guide.mark(pid, 'haul'); // W-62: a caravan in
+      this.write(`favour carried ${pid}`, () => addFavour(this.env, pid, cargoLoads(cargo) * FAVOUR_EARN.carried, 'carried')); // W-111
+    }
     await d.batch([
       mark,
       ...(waiting.length ? [d.prepare('UPDATE war_persons SET region = ?1, updated_at = ?3 WHERE region IS NULL AND id IN (SELECT value FROM json_each(?2))').bind(region, JSON.stringify(waiting.map((p) => p.id)), now)] : []),
@@ -1162,7 +1156,6 @@ export class WarRegionDO extends DurableObject<Env> {
       const ok = await claimSoul(d, c.pid, c.person, room.region.id, Date.now());
       if (!ok) room.sim.dropPersons([c.person.id]);
       else await tallyStmt(d, c.pid, 'soul', 1, Date.now()).run(); // W-62 E7
-      if (ok) room.sim.setPerson(c.person); // W-66: the live man takes the favour bonus claimSoul wrote
       room.setArmy(c.pid, await armyCount(d, c.pid));
     });
     if (r.guided.length) this.guided(r.guided);
@@ -1171,7 +1164,7 @@ export class WarRegionDO extends DurableObject<Env> {
     if (r.wild.length) this.wild(room, r.wild); // W-73
     if (r.larder.length) this.larder(room, r.larder); // W-80
     favourTick(this.env, room, (w, f) => this.write(w, f)); // W-66: lairs cleared, land held
-    if (r.warlord.length) this.warlordFavour(r.warlord), this.tellFallen(room, r.warlord); // W-72 proposal
+    if (r.warlord.length) this.tellFallen(room, r.warlord); // W-72 proposal
     if (this.lordsFrom !== null && room.currentTick % 600 === 0) room.setWarlordAge((Date.now() - this.lordsFrom) / DAY_MS);
     if (d && r.crafted.length) this.write('crafted', () => applyCrafts(d, room.region.id, room.run, r.crafted, Date.now()));
     if (d) for (const b of r.bosses) this.write(`boss ${b.boss}`, () => applyBossKill(d, room.region.id, room.run, b, Date.now()));
@@ -1188,6 +1181,8 @@ export class WarRegionDO extends DurableObject<Env> {
       for (const l of pz.labour) await labourDone(this.env, l.pid, region, l.site, l.secs, at);
       for (const g of pz.guards) await guardCheck(this.env, g.id, g.held, g.secs, at);
       for (const w of pz.works) await addLabour(this.env, w.team, w.work, w.by, at);
+      // W-111: a builder's level, from the same labour
+      for (const [pid, n] of builtFavour(room, [...pz.labour.map((l) => [l.pid, l.secs] as const), ...pz.works.flatMap((w) => Object.entries(w.by).map(([p, secs]) => [Number(p), secs] as const))])) await addFavour(this.env, pid, n, 'built', at);
     });
     if (d && !catching && room.currentTick % PEACE_POLL === 1) this.write('peace poll', () => this.pollPeace(room));
     // W-63: camps founded, attacks logged and told; the settlements polled, reported and levied
@@ -1225,6 +1220,9 @@ export class WarRegionDO extends DurableObject<Env> {
     if (home) room.setWorks(home.id, await openWorks(d, home.id));
     const b = await bonusesOf(d);
     for (const a of ALLIANCES) room.sim.setBonus(a.id, b.get(a.id) ?? {});
+    // W-84: levels gained anywhere reach his men here
+    const players = room.pathPlayers();
+    if (players.length) for (const [pid, level] of await levelsOf(d, players)) room.setLevel(pid, level);
   }
 
   // ---------------------------------------------------------------- W-63 shared settlements

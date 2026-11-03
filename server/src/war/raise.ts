@@ -1,8 +1,6 @@
 /**
- * W-66 raising men: the Tunnel of Shades (rules: src/war/sim/tunnel.ts) and the bonus every raised or claimed man gets.
+ * W-66 raising men: the Tunnel of Shades (rules: src/war/sim/tunnel.ts).
  *
- *  - raiseBonus: what a man raised by the tunnel or claimed as a soul (./persons.ts claimSoul) gets on top of his class
- *    and level: his player's divine favour (./favour.ts bonusOf, applied with withFavour).
  *  - The tunnel: while the player has fewer than min(TUNNEL.floor, his path's cap) men who can fight (W-102; W-68 fitCount:
  *    fit; the wounded do not count here but still fill the army under the cap; captives are not his), one man rises at
  *    home every TUNNEL.everyMs, level 1 in starter gear, of the class of one of his latest fallen his path may hold
@@ -16,14 +14,6 @@ import { settleTunnel, TUNNEL, type WipeState } from '../../../src/war/sim/tunne
 import { mayHold, raiseClass, soldierCap, START_CLASSES, type PlayerPath } from '../../../src/war/world/start';
 import { pathOf } from './start';
 import { armyCount, fitCount, insertCapped, nameFor, newId } from './persons';
-import { bonusOf, withFavour, type FavourBonus } from './favour';
-
-export type RaiseBonus = FavourBonus;
-
-/** The bonus a man raised or claimed by `pid` gets now: his divine favour's (./favour.ts bonusOf). */
-export async function raiseBonus(db: D1Database, pid: number): Promise<RaiseBonus> {
-  return bonusOf({ DB: db }, pid);
-}
 
 /**
  * alive: what the floor counts (fitCount, = fit); wounded (with the first back): the wipe card's WipeState
@@ -61,10 +51,9 @@ export async function settleTunnelFor(db: D1Database, pid: number, now: number, 
 
 /** n men rise at home: level 1, starter gear, the classes of his latest fallen his path may hold; each insert checks the floor and his cap. */
 async function raiseMen(db: D1Database, pid: number, way: PlayerPath, floor: number, n: number, now: number): Promise<number> {
-  const [fallen, names, bonus] = await Promise.all([
+  const [fallen, names] = await Promise.all([
     db.prepare("SELECT cls FROM war_persons WHERE player_id = ?1 AND state = 'dead' ORDER BY updated_at DESC, id LIMIT ?2").bind(pid, TUNNEL.floor).all<{ cls: string }>(),
     db.prepare("SELECT name FROM war_persons WHERE player_id = ?1 AND state IN ('active', 'wounded', 'training')").bind(pid).all<{ name: string }>(),
-    raiseBonus(db, pid),
   ]);
   const start = START_CLASSES as readonly string[];
   const classes = fallen.results.map((r) => r.cls).filter((c) => start.includes(c) && mayHold(way, c));
@@ -72,7 +61,7 @@ async function raiseMen(db: D1Database, pid: number, way: PlayerPath, floor: num
   const stmts = Array.from({ length: n }, (_, k) => {
     const cls = classes[k % Math.max(1, classes.length)] ?? raiseClass(way);
     const p = makePerson(newId(pid), cls);
-    const man = withFavour({ ...p, hero: { ...p.hero, name: nameFor(cls, taken, k) } }, bonus);
+    const man = { ...p, hero: { ...p.hero, name: nameFor(cls, taken, k) } };
     return insertCapped(db, pid, man, null, soldierCap(way.path), now, floor);
   });
   const res = await db.batch(stmts);
