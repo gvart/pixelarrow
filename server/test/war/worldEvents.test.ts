@@ -29,8 +29,9 @@ const DB = () => env.DB!;
 const cargo: TransitCargo = { packs: { m1: { lots: [{ r: 'wood', n: 30, o: 'dodona' }], items: [] } } };
 function ports(withCargo = false): Ports {
   return {
-    depart: async (_from, _pid, who) => ({ ids: Array.isArray(who) ? who : ['m1'], off: 0, ...(withCargo ? { cargo } : {}) }),
+    depart: async (_from, pid) => ({ ids: [`m${pid}`], off: 0, ...(withCargo ? { cargo } : {}) }),
     arrive: async () => ({ ok: true }),
+    online: () => true,
   };
 }
 const first = (w: World, kind: WorldEvent['kind']) => w.events().find((e) => e.kind === kind)!;
@@ -61,7 +62,7 @@ describe('W-62 world alarm', () => {
   it('next due wins: an arrival before the first event; every event opens and closes; the season still ends on time', async () => {
     const w = new World(freshWorld(T0)), list = w.events();
     expect(w.nextAlarm()).toBe(list[0].startAt);
-    const t = await w.transfer(7, 0, { from: 'dodona', to: 'dodona-e', squad: 1 }, T0, ports());
+    const t = await w.transfer(7, 0, { from: 'dodona', to: 'dodona-e' }, T0, ports());
     if ('error' in t) throw new Error(t.error);
     expect(t.arriveAt).toBeLessThan(list[0].startAt);
     expect(w.nextAlarm()).toBe(t.arriveAt);
@@ -96,7 +97,7 @@ describe('W-62 event effects in the world', () => {
     const w = new World(freshWorld(T0)), e = first(w, 'caravanRush');
     const from = worldRegion(e.region)!.adj[0];
     const send = async (pid: number, a: AllianceId, at: number) => {
-      const t = await w.transfer(pid, a, { from, to: e.region, ids: [`m${pid}`] }, at, ports(true));
+      const t = await w.transfer(pid, a, { from, to: e.region }, at, ports(true));
       if ('error' in t) throw new Error(t.error);
       return t;
     };

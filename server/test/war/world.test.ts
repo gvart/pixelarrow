@@ -27,10 +27,10 @@ const squad = (prefix: string, n = 12, cls = 'hoplite') => Array.from({ length: 
 /** Fake rooms: every squad departs fine; `room` men fit per region and alliance before arrivals are refused. */
 function fakes(room = Infinity, off = 0) {
   const arrived: { to: string; pid: number; alliance: AllianceId; ids: string[]; side: Side }[] = [];
-  const departed: { from: string; squad: number | string[]; side: Side }[] = [];
+  const departed: { from: string; pid: number; side: Side }[] = [];
   const men = new Map<string, number>();
   const ports: Ports = {
-    depart: async (from, _pid, sq, side) => (departed.push({ from, squad: sq, side }), { ids: Array.isArray(sq) ? sq : [`m${sq}a`, `m${sq}b`], off }),
+    depart: async (from, pid, side) => (departed.push({ from, pid, side }), { ids: [`m${pid}a`, `m${pid}b`], off }),
     arrive: async (to, pid, alliance, ids, side): Promise<ArriveResult> => {
       const k = `${to}|${alliance}`, n = men.get(k) ?? 0;
       if (n + ids.length > room) return { error: 'full' };
@@ -38,6 +38,7 @@ function fakes(room = Infinity, off = 0) {
       arrived.push({ to, pid, alliance, ids, side });
       return { ok: true };
     },
+    online: () => true,
   };
   return { ports, arrived, departed, men };
 }
@@ -45,10 +46,10 @@ function fakes(room = Infinity, off = 0) {
 describe('World', () => {
   it('moves a squad over a border: travel time, a marker for its player only, arrival at the facing entry', async () => {
     const w = new World(), f = fakes();
-    const t = await w.transfer(7, 0, { from: 'dodona', to: 'dodona-e', squad: 3 }, T0, f.ports);
+    const t = await w.transfer(7, 0, { from: 'dodona', to: 'dodona-e' }, T0, f.ports);
     if ('error' in t) throw new Error(t.error);
     const e = edge('dodona', 'dodona-e')!;
-    expect(f.departed).toEqual([{ from: 'dodona', squad: 3, side: 'E' }]);
+    expect(f.departed).toEqual([{ from: 'dodona', pid: 7, side: 'E' }]);
     expect(t).toMatchObject({ from: 'dodona', to: 'dodona-e', men: 2, state: 'moving', departAt: T0, arriveAt: T0 + e.ms, side: 'W' });
     const counts = { members: [1, 0, 0, 0], clans: [0, 0, 0, 0] };
     expect(w.snapshot(7, 0, counts, T0).transit).toEqual([{ id: t.id, from: 'dodona', to: 'dodona-e', men: 2, departAt: T0, arriveAt: T0 + e.ms, state: 'moving' }]);
@@ -58,45 +59,37 @@ describe('World', () => {
     expect(await w.due(T0 + e.ms - 1, f.ports)).toBe(false);
     expect(f.arrived).toEqual([]);
     expect(await w.due(T0 + e.ms, f.ports)).toBe(true);
-    expect(f.arrived).toEqual([{ to: 'dodona-e', pid: 7, alliance: 0, ids: ['m3a', 'm3b'], side: 'W' }]);
+    expect(f.arrived).toEqual([{ to: 'dodona-e', pid: 7, alliance: 0, ids: ['m7a', 'm7b'], side: 'W' }]);
     expect(w.st.transit).toEqual([]);
     expect(w.nextDue()).toBeNull();
   });
 
-  it('a transfer by person ids needs no room squad id', async () => {
-    const w = new World(), f = fakes();
-    const t = await w.transfer(7, 0, { from: 'dodona', to: 'dodona-e', ids: ['p1', 'p2', 'p3'] }, T0, f.ports);
-    if ('error' in t) throw new Error(t.error);
-    expect(f.departed).toEqual([{ from: 'dodona', squad: ['p1', 'p2', 'p3'], side: 'E' }]);
-    expect(t).toMatchObject({ men: 3, ids: ['p1', 'p2', 'p3'] });
-  });
-
   it('a squad away from the exit zone takes longer', async () => {
     const w = new World(), f = fakes(Infinity, 40);
-    const t = await w.transfer(7, 0, { from: 'dodona', to: 'dodona-n', squad: 0 }, T0, f.ports);
+    const t = await w.transfer(7, 0, { from: 'dodona', to: 'dodona-n' }, T0, f.ports);
     if ('error' in t) throw new Error(t.error);
     expect(t.arriveAt - T0).toBe(edge('dodona', 'dodona-n')!.ms + 40 * w.season.offExitMsPerTile);
   });
 
   it('enforces adjacency, known regions and an alliance; a room refusal is passed on', async () => {
     const w = new World(), f = fakes();
-    expect(await w.transfer(7, 0, { from: 'dodona', to: 'kleisoura', squad: 0 }, T0, f.ports)).toMatchObject({ error: 'notAdjacent' });
-    expect(await w.transfer(7, 0, { from: 'dodona', to: 'atlantis', squad: 0 }, T0, f.ports)).toMatchObject({ error: 'region' });
-    expect(await w.transfer(7, null, { from: 'dodona', to: 'dodona-e', squad: 0 }, T0, f.ports)).toMatchObject({ error: 'noAlliance' });
+    expect(await w.transfer(7, 0, { from: 'dodona', to: 'kleisoura' }, T0, f.ports)).toMatchObject({ error: 'notAdjacent' });
+    expect(await w.transfer(7, 0, { from: 'dodona', to: 'atlantis' }, T0, f.ports)).toMatchObject({ error: 'region' });
+    expect(await w.transfer(7, null, { from: 'dodona', to: 'dodona-e' }, T0, f.ports)).toMatchObject({ error: 'noAlliance' });
     expect(f.departed).toEqual([]);
     const foes: Ports = { ...f.ports, depart: async () => ({ error: 'foes', detail: 'a foe within 20 tiles' }) };
-    expect(await w.transfer(7, 0, { from: 'dodona', to: 'dodona-e', squad: 0 }, T0, foes)).toMatchObject({ error: 'foes' });
+    expect(await w.transfer(7, 0, { from: 'dodona', to: 'dodona-e' }, T0, foes)).toMatchObject({ error: 'foes' });
     const down: Ports = { ...f.ports, depart: async () => Promise.reject(new Error('evicted')) };
-    expect(await w.transfer(7, 0, { from: 'dodona', to: 'dodona-e', squad: 0 }, T0, down)).toMatchObject({ error: 'unavailable' });
+    expect(await w.transfer(7, 0, { from: 'dodona', to: 'dodona-e' }, T0, down)).toMatchObject({ error: 'unavailable' });
     expect(w.st.transit).toEqual([]);
   });
 
   it('queues arrivals while the quota is full, first come first served', async () => {
     const w = new World(), f = fakes(2); // room for one squad of 2 per region and alliance
     f.men.set('kleisoura|0', 2); // full already
-    const a = await w.transfer(1, 0, { from: 'dodona-e', to: 'kleisoura', squad: 1 }, T0, f.ports);
-    const b = await w.transfer(2, 0, { from: 'dodona-e', to: 'kleisoura', squad: 2 }, T0 + 1000, f.ports);
-    const c = await w.transfer(3, 1, { from: 'skythia-w', to: 'kleisoura', squad: 3 }, T0, f.ports); // another alliance: own quota
+    const a = await w.transfer(1, 0, { from: 'dodona-e', to: 'kleisoura' }, T0, f.ports);
+    const b = await w.transfer(2, 0, { from: 'dodona-e', to: 'kleisoura' }, T0 + 1000, f.ports);
+    const c = await w.transfer(3, 1, { from: 'skythia-w', to: 'kleisoura' }, T0, f.ports); // another alliance: own quota
     if ('error' in a || 'error' in b || 'error' in c) throw new Error('refused');
     const at = Math.max(a.arriveAt, b.arriveAt, c.arriveAt);
     expect(await w.due(at, f.ports)).toBe(true);
@@ -227,17 +220,16 @@ describe('WarRoom transfers', () => {
     expect(warRegion('atlantis')).toBeNull();
   });
 
-  it('a squad departs: its men leave the field without a corpse or a fight; foes near or a stranger squad refuse', () => {
+  it('a group departs: its men leave the field without a corpse or a fight; foes near or a stranger refuse', () => {
     const r = new WarRoom({ region, seed: 1, cap: 600 });
     const g = squad('a');
     r.join(1, join(1, 0, [g.map((p) => p.id)]), [g]);
     r.tick();
-    const [s] = r.squadsOf(1);
-    expect(r.depart(2, s, 'N', 20)).toMatchObject({ error: 'notOwner' });
-    const out = r.depart(1, s, 'N', 20); // team 0 spawned on the north entry
+    expect(r.depart(2, 'N', 20)).toMatchObject({ error: 'notOwner' });
+    const out = r.depart(1, 'N', 20); // team 0 spawned on the north entry
     expect(out).toEqual({ ids: g.map((p) => p.id), off: 0, lost: {} });
     expect(r.quota().live[0]).toBe(0);
-    expect(r.depart(1, s, 'N', 20)).toMatchObject({ error: 'notOwner' }); // gone already
+    expect(r.depart(1, 'N', 20)).toMatchObject({ error: 'notOwner' }); // gone already
     const t = r.tick();
     expect(t.fights).toEqual([]);
     expect(r.squadsOf(1)).toEqual([]);
@@ -246,33 +238,14 @@ describe('WarRoom transfers', () => {
     const h = squad('b');
     r.join(1, join(1, 0, [h.map((p) => p.id)]), [h]);
     r.tick();
-    const [s2] = r.squadsOf(1);
-    expect((r.depart(1, s2, 'S', 0) as { off: number }).off).toBeGreaterThan(400);
+    expect((r.depart(1, 'S', 0) as { off: number }).off).toBeGreaterThan(400);
     const k = squad('c'), f = squad('d');
     r.join(1, join(1, 0, [k.map((p) => p.id)]), [k]);
     r.join(3, { ...join(3, 1, [f.map((p) => p.id)]) }, [f]);
     r.tick();
     const [s3] = r.squadsOf(1);
-    expect(r.depart(1, s3, 'N', 1000)).toMatchObject({ error: 'foes' }); // the foe squad on the east entry is within 1000
+    expect(r.depart(1, 'N', 1000)).toMatchObject({ error: 'foes' }); // the foe squad on the east entry is within 1000
     expect(r.squadsOf(1)).toContain(s3);
-  });
-
-  it('departs by person ids: some of his men, from one or more squads; strangers or men not here refuse', () => {
-    const r = new WarRoom({ region, seed: 1, cap: 600 });
-    const g = squad('a', 6), h = squad('b', 6), x = squad('x', 4);
-    r.join(1, join(1, 0, [g.map((p) => p.id), h.map((p) => p.id)]), [g, h]);
-    r.join(2, join(2, 0, [x.map((p) => p.id)]), [x]);
-    r.tick();
-    expect(r.depart(1, [g[0].id, x[0].id], 'N', 20)).toMatchObject({ error: 'notOwner' }); // one is not his
-    expect(r.depart(1, [g[0].id, 'nobody'], 'N', 20)).toMatchObject({ error: 'notOwner' });
-    const pick = [g[0].id, g[1].id, h[0].id];
-    const out = r.depart(1, pick, 'N', 20);
-    if ('error' in out) throw new Error(out.error);
-    expect(out.ids.sort()).toEqual([...pick].sort());
-    r.tick();
-    expect(r.quota().live[0]).toBe(13);
-    expect(r.squadsOf(1)).toHaveLength(2); // both squads still stand, smaller
-    expect([...r.personsHere()].some((id) => pick.includes(id))).toBe(false);
   });
 
   it('a squad leaving mid-fight takes its hit points along and hands its unsaved fight XP to write back', () => {
@@ -289,7 +262,7 @@ describe('WarRoom transfers', () => {
     for (let i = 0; i < 3000 && (hurt().length < 3 || foeLost() < 200); i++) r.tick();
     expect(hurt().length).toBeGreaterThanOrEqual(3);
     const before = new Map(r.snapshot().units.filter((u) => u.squad === mine && u.state !== 'dead').map((u) => [u.pid!, u.maxHp - u.hp]));
-    const out = r.depart(1, mine, 'N', 0);
+    const out = r.depart(1, 'N', 0);
     if ('error' in out) throw new Error(out.error);
     for (const [pid, n] of before) expect(out.lost[pid] ?? 0).toBe(n);
     expect(out.fight!.report.persons.length).toBeGreaterThan(0);
@@ -379,11 +352,11 @@ async function connect<M extends { t: string }>(path: string, token: string): Pr
 }
 
 describe('WarWorldDO', () => {
-  it('transfers a squad from one region room to the next, across an eviction, and the player rejoins it there', async () => {
+  it('transfers his group from one region room to the next, across an eviction, and the player rejoins it there', async () => {
     const me = await devLogin(7501);
-    expect((await api('/api/war/world/transfer', { method: 'POST', token: me.token, json: { from: 'dodona-e', to: 'kleisoura', squad: 0 } })).status).toBe(409); // no alliance
+    expect((await api('/api/war/world/transfer', { method: 'POST', token: me.token, json: { from: 'dodona-e', to: 'kleisoura' } })).status).toBe(409); // no alliance
     expect((await api('/api/war/world/dev/alliance', { method: 'POST', token: me.token, json: { alliance: 0 } })).status).toBe(200);
-    await api('/api/war/dev/seed', { method: 'POST', token: me.token, json: {} });
+    await api('/api/war/dev/seed', { method: 'POST', token: me.token, json: { region: 'dodona-e' } }); // W-87: men come in from home only at home: a dev start makes this his
     const ids = (await env.DB!.prepare("SELECT id FROM war_persons WHERE player_id = ?1 AND state = 'active' ORDER BY slot").bind(me.playerId).all<{ id: string }>()).results.map((r) => r.id);
     const where = async () => (await env.DB!.prepare('SELECT DISTINCT region FROM war_persons WHERE player_id = ?1 AND id IN (SELECT value FROM json_each(?2))').bind(me.playerId, JSON.stringify(ids)).all<{ region: string | null }>()).results.map((r) => r.region);
 
@@ -394,14 +367,14 @@ describe('WarWorldDO', () => {
     const a = await connect<ServerMsg>('/ws/war/dodona-e', me.token);
     a.send({ t: 'join', v: NET_VERSION, region: 'dodona-e', playerId: me.playerId, team: 0, squads: [ids] } satisfies JoinMsg);
     const wa = (await a.next('welcome')) as Extract<ServerMsg, { t: 'welcome' }>;
-    const sq = wa.squads[0];
+    expect(wa.squads.length).toBeGreaterThan(0);
     expect(await where()).toEqual(['dodona-e']);
 
-    expect((await api('/api/war/world/transfer', { method: 'POST', token: me.token, json: { from: 'dodona-e', to: 'skythia', squad: sq } })).status).toBe(409); // not adjacent
-    expect((await api('/api/war/world/transfer', { method: 'POST', token: me.token, json: { from: 'dodona-e', to: 'kleisoura', squad: sq, ids } })).status).toBe(400); // one or the other
-    expect((await api('/api/war/world/transfer', { method: 'POST', token: me.token, json: { from: 'dodona-e', to: 'kleisoura', ids: ['nobody'] } })).status).toBe(409); // not his man there
-    // over the world socket, by person ids (no room squad id needed)
-    map.send({ t: 'transfer', from: 'dodona-e', to: 'kleisoura', ids });
+    expect((await api('/api/war/world/transfer', { method: 'POST', token: me.token, json: { from: 'dodona-e', to: 'skythia' } })).status).toBe(409); // not adjacent
+    expect((await api('/api/war/world/transfer', { method: 'POST', token: me.token, json: { from: 'dodona-e', to: 'kleisoura', ids } })).status).toBe(400); // W-87: the order names nobody
+    expect((await api('/api/war/world/transfer', { method: 'POST', token: me.token, json: { from: 'kleisoura', to: 'dodona-e' } })).status).toBe(409); // none of his men stand there
+    // over the world socket
+    map.send({ t: 'transfer', from: 'dodona-e', to: 'kleisoura' });
     const tr = (await map.next('transferred')) as Extract<WorldServerMsg, { t: 'transferred' }>;
     expect(tr.transit).toMatchObject({ from: 'dodona-e', to: 'kleisoura', men: ids.length, state: 'moving' });
     expect(tr.transit.arriveAt - tr.transit.departAt).toBeGreaterThan(edge('dodona-e', 'kleisoura')!.ms); // left from the north entry, not the east

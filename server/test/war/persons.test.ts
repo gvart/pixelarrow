@@ -80,16 +80,16 @@ describe('war roster API', () => {
     expect(await claim(me.playerId, '7308-b')).toBe(false);
   });
 
-  it('counts the men of every region toward one cap', async () => {
+  it('counts all his men toward one cap, in one region', async () => {
     const me = await devLogin(7309);
     await post(me.token, '/dev/seed', {});
     const ids = (await roster(me.token)).persons.map((p) => p.id);
     const half = ARMY_MAX / 2;
     expect(Array.isArray(await claimForJoin(DB(), me.playerId, 'test-ridge', [ids.slice(0, half)], new Set(), Date.now()))).toBe(true);
-    expect(Array.isArray(await claimForJoin(DB(), me.playerId, 'elsewhere', [ids.slice(half)], new Set(), Date.now()))).toBe(true);
+    expect(await claimForJoin(DB(), me.playerId, 'elsewhere', [ids.slice(half)], new Set(), Date.now())).toMatch(/Your group is in/); // W-87
+    expect(Array.isArray(await claimForJoin(DB(), me.playerId, 'test-ridge', [ids.slice(half)], new Set(), Date.now()))).toBe(true);
     const r = await roster(me.token);
-    expect(r.persons.filter((p) => p.region === 'test-ridge')).toHaveLength(half);
-    expect(r.persons.filter((p) => p.region === 'elsewhere')).toHaveLength(half);
+    expect(r.persons.filter((p) => p.region === 'test-ridge')).toHaveLength(ARMY_MAX);
     expect(r.caps.fighters).toBe(ARMY_MAX);
     expect(await claim(me.playerId, '7309-a')).toBe(false);
     // a dev seed of more men at home is refused too: the field already holds the whole army
@@ -158,7 +158,8 @@ describe('war roster API', () => {
     expect((await roster(me.token)).persons.filter((p) => p.region === 'test-ridge')).toHaveLength(ARMY_MAX);
     expect(await (await post(me.token, `/persons/${ids[0]}/equip`, { slot: 'helmet', uid: null })).json()).toMatchObject({ error: { code: 'deployed' } });
     // a second claim of the same men (another region) fails, and so does a claim of unknown or unfit ones
-    expect(await claimForJoin(DB(), me.playerId, 'elsewhere', [ids.slice(0, 2)], new Set(), Date.now())).toMatch(/already in the field/);
+    expect(await claimForJoin(DB(), me.playerId, 'elsewhere', [ids.slice(0, 2)], new Set(), Date.now())).toMatch(/Your group is in/);
+    expect(await claimForJoin(DB(), me.playerId, 'test-ridge', [ids.slice(0, 2)], new Set(ids), Date.now())).toMatch(/already in the field/);
     expect(await claimForJoin(DB(), me.playerId, 'test-ridge', [['nobody']], new Set(), Date.now())).toMatch(/no soldier/);
     expect(await claimForJoin(DB(), me.playerId, 'test-ridge', [[ids[0], ids[0]]], new Set(), Date.now())).toMatch(/twice/);
     // but a level-up reaches a man in a region (every man stands in one, W-58): kept in D1, handed to the room's living man
@@ -204,7 +205,7 @@ describe('fight write-back', () => {
     const snap = async () => Promise.all([a, b, c, d].map((p) => row(p.id)));
     const after = await snap();
     expect(after[0]).toMatchObject({ state: 'active', xp: a.hero.xp + 30, kills: a.hero.kills + 1, region: 'test-ridge' });
-    expect(after[1]).toMatchObject({ state: 'wounded', region: null, slot: null });
+    expect(after[1]).toMatchObject({ state: 'wounded', region: 'test-ridge', slot: null }); // W-98: he lies with the group
     expect(after[1]!.until_at).toBe(t + 6 * 3_600_000);
     expect(after[2]).toMatchObject({ state: 'captive', captor: 1, held_at: 'test-ridge', region: null });
     expect(after[3]).toMatchObject({ state: 'dead', gear: '{}', region: null });
