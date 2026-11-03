@@ -84,7 +84,7 @@ function meanMult(a: number, b: number, par: number): number {
  * empty one, along the deal as the purse falls. So coin leaving a town slows before it runs out, a margin ends with coin
  * still in the purse, and a dearer route (a longer one) can draw it lower. `nominal`: the price at a full purse.
  */
-const thinPurse = (nominal: number, purse: number): number => {
+export const thinPurse = (nominal: number, purse: number): number => {
   const full = NPC.purse.start, floor = NPC.purse.thin, b = 1 - floor;
   return purse - nominal / 2 >= full ? nominal : (nominal * (floor + (b * Math.max(0, purse)) / full)) / (1 + (nominal * b) / (2 * full));
 };

@@ -10,8 +10,10 @@
  *                      "field" side of a stow or hand-off is the store by his men (W-60, as online); coin is the team's.
  */
 import { NPC, NPC_CARTS, NPC_HIRE } from '../../../data/warNpcTowns';
+import { BOARD } from '../../../data/warTownBoard';
 import { costOf, npcGood, npcGoods, npcOffer, payFor, stockAfter, type NpcView } from '../../net/npcMarket';
-import type { NpcMsg, ServerMsg, StowMsg } from '../../net/protocol';
+import type { BoardMsg, NpcMsg, ServerMsg, StowMsg } from '../../net/protocol';
+import { armyStrength, boardEntries, boardLines, boardWindow, windowEnd, type BoardView } from '../../net/townBoard';
 import type { SandboxScene } from '../SandboxScene';
 import { myTeam } from '../side';
 import { storeAtHand } from '../hud/chest';
@@ -29,6 +31,8 @@ export interface Board { town: string; goods: Record<string, BoardRow>; offers: 
 export type ContractKind = 'carry' | 'supply' | 'escort' | 'build' | 'guard' | 'hunt';
 /** W-143: a done deal with the town (the wire's npcDone). */
 export type NpcDone = Omit<Extract<ServerMsg, { t: 'npcDone' }>, 't'>;
+/** W-184: the town's board as he reads it, a hand-in's pay. */
+export type BoardDone = { view: BoardView; paid?: { coin: number; points: number } };
 /** W-61 build: `n` worker-seconds on site `site` in `region`; guard: `n` hours with `men` men in the poster's town in `region`; `paid` so far. */
 export interface Contract { id: number; kind: ContractKind; town: string; to_town: string; poster: number; taker: number | null; reward: number; res: string | null; n: number; delivered: number; value: number; deposit: number; target?: string | null; state: string; deadline: number; region?: string | null; site?: number | null; men?: number; paid?: number }
 export interface ContractIn { kind: ContractKind; toTown: string; reward: number; res?: string; n?: number; value?: number; loads?: number; deadline: number; region?: string; site?: number; hours?: number; men?: number; target?: string }
@@ -73,6 +77,10 @@ export interface Market {
   npcTown(town: string): Promise<Res<NpcView>>;
   /** W-143 a deal with the town, his men standing at it. */
   npc(m: Omit<NpcMsg, 't'>): Promise<Res<NpcDone>>;
+  /** W-184 this town's board: read it, take a line, deliver, hand in, drop. */
+  townBoard(m: Omit<BoardMsg, 't'>): Promise<Res<BoardDone>>;
+  /** W-185: told when a contract of his comes ready, whichever tab is open. */
+  onBoard(f: (v: BoardView) => void): void;
 }
 
 const key = () => `k${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
@@ -87,11 +95,13 @@ export function netMarket(s: SandboxScene): Market {
   };
   const letters: Letter[] = [];
   const subs: ((h: Handoff) => void)[] = [];
-  let stowDone: ((r: Res<{ goods: Goods }>) => void) | null = null, npcDone: ((r: Res<NpcDone>) => void) | null = null;
+  let stowDone: ((r: Res<{ goods: Goods }>) => void) | null = null, npcDone: ((r: Res<NpcDone>) => void) | null = null, boardDone: ((r: Res<BoardDone>) => void) | null = null, boardTold: ((v: BoardView) => void) | null = null;
   s.sim.onServer = (m: ServerMsg) => {
     if (m.t === 'handoff') for (const f of subs) f({ with: m.with, state: m.state, halves: m.halves ?? {}, ok: m.ok ?? [], until: m.until, why: m.why });
     else if (m.t === 'stowed') { stowDone?.({ goods: m.goods }); stowDone = null; }
     else if (m.t === 'npcDone') { npcDone?.(m); npcDone = null; }
+    else if (m.t === 'boardView') { if (boardDone) boardDone(m); else boardTold?.(m.view); boardDone = null; }
+    else if (m.t === 'error' && boardDone) { boardDone({ error: (m.detail ?? m.code).replace(/^\w+: /, '') }); boardDone = null; }
     else if (m.t === 'error' && npcDone) { npcDone({ error: (m.detail ?? m.code).replace(/^\w+: /, '') }); npcDone = null; }
     else if (m.t === 'error' && stowDone) { stowDone({ error: m.detail ?? m.code }); stowDone = null; }
   };
@@ -130,6 +140,8 @@ export function netMarket(s: SandboxScene): Market {
     on: (f) => { subs.push(f); },
     npcTown: (t) => api('GET', `${t}/npc`),
     npc: (m) => new Promise((done) => { npcDone = done; s.sim.npc(m); }),
+    townBoard: (m) => new Promise((done) => { boardDone = done; s.sim.board(m); }),
+    onBoard: (f) => { boardTold = f; },
   };
 }
 
@@ -178,6 +190,25 @@ export class LocalMarket implements Market {
     b.at += dt;
     return b;
   }
+
+  // W-184: offline the board can be read and a line taken, to see it; the world's books (the band, the labour, the pay) are the server's
+  private held: BoardView['jobs'] = [];
+  townBoard(m: Omit<BoardMsg, 't'>): Promise<Res<BoardDone>> {
+    const r = this.s.region, b = this.book(r.id), now = this.now(), win = boardWindow(now), team = myTeam();
+    const men = (this.s.sim.cur?.units ?? []).filter((u) => u.state !== 'dead' && !u.cls.startsWith('civ_') && this.s.sim.squads.get(u.squad)?.team === team).map((u) => ({ cls: u.cls, level: u.level }));
+    const army = armyStrength(men), f = { army, path: null };
+    const read = (): BoardView => ({ town: r.id, purse: Math.floor(b.purse), until: windowEnd(win), jobs: this.held, lines: boardLines(boardEntries(r, win, { ...f, errand: false }), { ...f, heat: () => 0, purse: b.purse, held: new Set(this.heldLines), depth: 0 }) });
+    if (m.op === 'view') return ok({ view: read() });
+    if (m.op !== 'take') return no('That is settled on the server: this is a look at the board');
+    const e = read().lines.find((l) => l.id === m.entry);
+    if (!e) return no('That line is gone from the board');
+    if (this.held.length >= BOARD.hold) return no(`You hold ${BOARD.hold} already: finish or drop one`);
+    this.heldLines.push(e.id);
+    this.held.push({ id: this.held.length + 1, kind: e.kind, town: r.id, goal: e.goal, state: 'taken', done: 0, need: e.labour ?? e.n ?? 1, x: e.site?.x ?? null, y: e.site?.y ?? null, toTown: e.toTown ?? null, res: e.res ?? null, n: e.n ?? 0, coin: e.coin, points: e.points, errand: false });
+    return ok({ view: read() });
+  }
+  private heldLines: string[] = [];
+  onBoard(): void {}
 
   npcTown(town: string) {
     if (!npcGoods(town).length) return no('There is no town here');

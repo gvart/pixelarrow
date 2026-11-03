@@ -42,10 +42,11 @@ import { z } from 'zod';
 import { ACCESS } from '../sim/economy';
 import { ARMY_MAX } from '../sim/soldiers';
 import type { NodeRow } from './economy';
+import type { BoardView } from './townBoard';
 import type { BridgePlan, BuildingType, GoodKind, Order, PlaceResult, SquadId, TownLevelSnap, WallPlan } from '../types';
 
 /** Bumped on any wire change (messages or the binary frame layout). */
-export const NET_VERSION = 24;
+export const NET_VERSION = 25;
 /** Positions go out in 1/QUANT tile steps. */
 export const QUANT = 8;
 /** Ticks between keyframes (a full frame of what the client sees; deltas in between). */
@@ -200,6 +201,8 @@ const baseMsgSchema = z.discriminatedUnion('t', [
   z.object({
     t: z.literal('npc'), op: z.enum(['sell', 'buy', 'hire', 'cart']), res: goodSchema.optional(), n: amount.optional(), cls: z.string().regex(/^civ_[a-z_]{1,20}$/).optional(), cart: z.enum(['handcart', 'wagon']).optional(),
   }).refine((o) => (o.op !== 'sell' && o.op !== 'buy') || !!o.res, 'a deal names its good').refine((o) => o.op !== 'hire' || !!o.cls, 'a hire names the worker').refine((o) => o.op !== 'cart' || !!o.cart, 'names the cart'),
+  // W-184..W-190: this town's board, his men standing there: read it, take a line, deliver a load, hand in or drop what he holds
+  z.object({ t: z.literal('board'), op: z.enum(['view', 'take', 'deliver', 'handin', 'drop']), entry: z.string().regex(/^[a-z0-9.]{1,16}$/).optional(), job: id.optional() }),
   // W-62: the first-hour guide: hide it for good (the tracker's ×)
   z.object({ t: z.literal('guide'), op: z.literal('hide') }),
   // W-65: a choice at the open choice step of the region's story (src/war/sim/stories.ts)
@@ -223,6 +226,7 @@ export type MendMsg = Extract<ClientMsg, { t: 'mend' }>;
 export type StowMsg = Extract<ClientMsg, { t: 'stow' }>;
 export type HandoffMsg = Extract<ClientMsg, { t: 'handoff' }>;
 export type NpcMsg = Extract<ClientMsg, { t: 'npc' }>;
+export type BoardMsg = Extract<ClientMsg, { t: 'board' }>;
 
 /** Why a join or an order was turned down. */
 export type Refusal = 'version' | 'region' | 'player' | 'team' | 'army' | 'squads' | 'quota';
@@ -258,6 +262,8 @@ export type ServerMsg =
   | { t: 'stowed'; dir: 'in' | 'out'; site: string; goods: Record<string, number>; items: number; left?: Record<string, number> }
   /** W-143: an NPC town's deal done: what changed hands. */
   | { t: 'npcDone'; op: 'sell' | 'buy' | 'hire' | 'cart'; coin: number; res?: string; n?: number; /** W-153: his liege's part of a sale, set aside at the town. */ tribute?: number }
+  /** W-184: the town's board as he reads it (the answer to every `board` op, and when a contract of his comes ready); `paid`: a hand-in's pay. */
+  | { t: 'boardView'; view: BoardView; paid?: { coin: number; points: number } }
   /** M6g: the hand-off window with `with`: open (halves by player, who confirmed, until tick), done, or closed (`why`). */
   | { t: 'handoff'; with: number; state: 'open' | 'done' | 'closed'; halves?: Record<number, { goods: Record<string, number>; uids: string[] }>; ok?: number[]; until?: number; why?: string }
   /** Resource nodes his team sees that changed (packed rows, ./economy.ts), and ids gone. */
