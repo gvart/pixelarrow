@@ -2,6 +2,8 @@
 
 Living rules of the browser global war. Why each region matters: "Strategic geography". Decisions: `docs/impl/global-war-rebuild.md` (W-01..W-17, temporary).
 
+**This file leads the code during the paths rework (W-82..W-94):** it states the target rules, and the code catches up item by item. Plan and open questions: [`docs/impl/paths-rework.md`](impl/paths-rework.md).
+
 ## Lore
 
 W-42. Every warrior here died in the real world. They did not reach an afterlife: they woke on **Metaxy** (proposal,
@@ -9,7 +11,7 @@ owner to confirm; Greek "the in-between"), one continent hung between death and 
 
 - **Why alliances fight.** Metaxy keeps only the strong. Each season the alliances that hold its heart and its roads
   rise; the rest fade. Nobody fights for land for its own sake: land is how the world measures who is worth keeping.
-- **Ascension.** The alliance that wins a season (hegemony, or the top season score) **ascends to Elysion**: its
+- **Ascension.** The alliance that wins a season ("Season score and victory") **ascends to Elysion**: its
   warriors' names are set in the season's roll of honour, their legacy carries into the next season, and the world
   is reborn for those still waiting.
 - **Erasure.** What fades drinks **Lethe**, and Lethe is true erasure: name, deeds, grave and every memory of the
@@ -17,7 +19,8 @@ owner to confirm; Greek "the in-between"), one continent hung between death and 
   for the season reset and the standings, not a wipe of anyone's account.
 - **The player is a demigod.** He died a mortal and woke on Metaxy as what his blood always was: a god's child. The
   dead feel that blood; souls wake near him and come to his banner (Souls, the Tunnel of Shades and Divine favour
-  below). One identity everywhere: the guide's intro (`src/war/net/questLore.ts` GUIDE_INTRO) says it once.
+  below). He walks no field and has no sprite (W-82): his power acts through his men, buildings and carts. One identity
+  everywhere: the guide's intro (`src/war/net/questLore.ts` GUIDE_INTRO) says it once.
 - **The edge.** Metaxy has no ocean. Its shores (fjords, coves, lagoons, the tables below still call them coasts)
   meet a narrow fringe of grey dead water that dissolves into mist and then **the Abyss**. Colossal **Rim Wardens**
   watch from it: sea serpents coiled in the mist, titans half-sunk in the void, winged horrors over the cliffs. They
@@ -253,7 +256,7 @@ little); T3 crafting needs silver and marble, so a high-end army needs Omphalos,
 
 Market towns: the 4 home agoras, 4 frontier towns (Kleisoura toll fort, Stymphalia causeway town, Achelous bridge
 town, Ammos caravanserai) and the Great Fair on Omphalos. The four frontier towns are safe-zone exchanges ("Trade");
-prices are only player offers, so the money is in hauling what is scarce across a frontier or through the centre.
+prices there are only player offers, so the money is in hauling what is scarce across a frontier or through the centre.
 
 | Route | Regions | Goods typically moved | Chokepoints on it | Raiding pays |
 | --- | --- | --- | --- | --- |
@@ -302,8 +305,11 @@ gorge – bacchae – erymanthos) is as short as the road through Omphalos but r
 | Contract filled (W-61) | 2 + reward / 100 | carry, supply, build, guard; ≤ 30 a day an alliance |
 | Alliance work raised (W-61) | 30 once | temple, road and bridge, beacon line |
 
-Victory: **hegemony** ends the season early when one alliance holds Omphalos and 3 of the 4 frontier towns for 24 h;
-otherwise the highest score at the season's end wins. The old war (DESIGN_V2) ranked by capitals; here homes cannot
+Victory (W-92): land decides the one alliance win. **Hegemony** ends the season early when one alliance holds Omphalos
+and 3 of the 4 frontier towns for 24 h; builders and traders win it by supplying the war, and each path also has its own
+ranked ladder ("Paths"). If nobody reaches hegemony, the highest score at the season's end wins today, and that score
+also counts trade, contracts and works: whether this fallback and its caps stay is
+[open](impl/paths-rework.md#open-design-items). The old war (DESIGN_V2) ranked by capitals; here homes cannot
 fall, so the score sits on the centre and the roads, which a trailing side can still raid back.
 
 ### Balance check
@@ -460,7 +466,7 @@ zone. Each room runs on its own seed (the region id hashed), so wander, roads an
 
 | Piece | Where | What |
 | --- | --- | --- |
-| Chief (local mini-boss) | 1 per entry, 2 deeper; none at home | a named beast or bandit chief (src/data/warWild.ts `WAR_CHIEFS`) on his kind's art, drawn 1.6x and tinted, his name and title over his head; while he lives the minimap and the region map mark him fog or not (a gold-ringed lair badge under a crown, named on the region map; `src/war/view/mapMarks.ts`); leads an escort of his kind (`CHIEF_KINDS`: hp x2.85–76 and damage x1.2–2.6 over a man of his kind, before depth, and +6 armour, so a solo player's whole army (12 men, W-58) takes 60–90 s to bring him down: level 2 at depth 1, level 3 at depth 2 (measured 64–81 s for hoplites; 20 level-1 men take ~50–57 s); a chief never breaks off; W-81: he stands on firm ground, no ford or marsh within 10 tiles (`CHIEF_FIRM`, the region kit): in a bog men's block halves and every blow is weaker and slower, and Bloodmuzzle in the Grey Moors marsh held 12 level-3 men 169 s for 7 dead; moved, 77 s for 2); his kill drops a pile (10–25 coin and a few hides or iron, x(1 + depth/2), an item at 35–50%); his lair comes back after 37.5 min (depth 1) to 60 min (rim) |
+| Chief (local mini-boss) | 1 per entry, 2 deeper; none at home | a named beast or bandit chief (src/data/warWild.ts `WAR_CHIEFS`) on his kind's art, drawn 1.6x and tinted, his name and title over his head; while he lives the minimap and the region map mark him fog or not (a gold-ringed lair badge under a crown, named on the region map; `src/war/view/mapMarks.ts`); leads an escort of his kind (`CHIEF_KINDS`: hp x2.85–76 and damage x1.2–2.6 over a man of his kind, before depth, and +6 armour, so a solo warrior's whole army (12 men, W-85) takes 60–90 s to bring him down: level 2 at depth 1, level 3 at depth 2 (measured 64–81 s for hoplites; 20 level-1 men take ~50–57 s); a chief never breaks off; W-81: he stands on firm ground, no ford or marsh within 10 tiles (`CHIEF_FIRM`, the region kit): in a bog men's block halves and every blow is weaker and slower, and Bloodmuzzle in the Grey Moors marsh held 12 level-3 men 169 s for 7 dead; moved, 77 s for 2); his kill drops a pile (10–25 coin and a few hides or iron, x(1 + depth/2), an item at 35–50%); his lair comes back after 37.5 min (depth 1) to 60 min (rim) |
 | Hidden quest | 2 per entry, 3 deeper; none at home | no giver and no marker: men walking onto the spot (a dead man with a note, a cairn, a forgotten shrine, a ruined watch-post) begin the player's own run on the story runner (src/war/sim/secrets.ts), told as a short notice; 1–2 steps a short walk off (hunt the killers, dig a cache, the shrine's chief, robbers in an abandoned Warden post); the words follow the region's ground (`landOf`: the cold north, the steppe, the sand, the wet south; the rules stay the template's); pays a pile at his men, his alone for 10 min (10–20 coin and a few goods, x(1 + depth/2)) |
 
 Hidden quest markers (W-76 proposal): the spot itself stays unmarked, but once found the open step is his to follow.
@@ -488,7 +494,7 @@ tick, so the offline chip (which reads deeds on ticks with events) counts it.
 
 ### Rival warlords (W-72 proposal)
 
-The NPC factions logged in W-65: rivals, never helpers. They give a solo player (12 men, W-58) something to push back
+The NPC factions logged in W-65: rivals, never helpers. They give a solo warrior (12 men, W-85) something to push back
 past the chiefs, at his own scale, while busy servers still feel them. The director is `src/war/sim/warlords.ts` (data
 `src/data/warWarlords.ts`): it runs beside the region room's bots, reads the room's snapshot and drives its men through
 the public sim API and the bots' `hold` and `attackMove` (deterministic: its own Rng keyed by region, seed and warlord).
@@ -515,7 +521,7 @@ bandits never fight them), owner `warlord:<id>`; the wild has no fog, so his bot
 | Reinforce | every 10 min with players present a holding short of men gets them, marching in from the nearest other holding (march: from the border). Only a quiet holding (no foe man within 20 tiles), except his hall: while another of his holdings in the seat stands, men come to it even under attack |
 | Freed | a holding whose garrison is all down is freed: a loot pile on the spot (24 coin and 3 goods of his kind, x(1 + depth/2)) and 60 favour to each player with men within 20 tiles; a claim point under it is then claimed by the normal rules (its guard lairs too) |
 | Fallen | the lord down: 120 coin, 8 goods and an item (uncommon or better), x(1 + depth/2), and 200 favour to each player near; his bands everywhere in his domain are recalled: every holding and party walks to the region's border and leaves the field there (or after 90 s), the places free with nothing dropped ("Word of his fall reaches …"); he is back after 3 days of age, grown from nothing again |
-| Raids | with players present and a holding of his standing, every 20 min (÷ players, at most ÷ 3) he picks the nearest undefended or lightly guarded target within 110 tiles of a holding: an alliance's finished building that is no wall, gate, tower, bridge or stair, with fewer than 4 fighting men of its team within 16 tiles (W-81: before, a single man kept him off); else a cart with no man of its team within 10. Telegraphed 60 s ahead: the target team hears "<name>'s men ride for your <thing> in 60 s" and sees a mark on it. Then 5 (depth 1) / 7 (depth 2) men led by a lieutenant (W-79; before, 4 plain bandits died to 6 guards felling none) + 2 per extra player (at most 12) march on it (attackMove): 6 level-2 guards at depth 1 lose 1–2 men to it, a full 12 none or one, batter it, and go home after 90 s at it or once it falls; a beaten raid party drops nothing |
+| Raids | with players present and a holding of his standing, every 20 min (÷ players, at most ÷ 3) he picks the nearest target within 110 tiles of a holding: an alliance's empty finished building that is no wall, gate, tower, bridge or stair (W-91: no guard count; only its walls and locks protect it; whether a staffed building can be picked and how far a raid may hurt one owner are [open](impl/paths-rework.md#open-design-items)); else a cart with no man of its team within 10. Telegraphed 60 s ahead: the target team hears "<name>'s men ride for your <thing> in 60 s" and sees a mark on it. Then 5 (depth 1) / 7 (depth 2) men led by a lieutenant (W-79; before, 4 plain bandits died to 6 guards felling none) + 2 per extra player (at most 12) march on it (attackMove): 6 level-2 guards at depth 1 lose 1–2 men to it, a full 12 none or one, batter it, and go home after 90 s at it or once it falls; a beaten raid party drops nothing |
 | Budget | at most 60 warlord men in a region; the director thinks every 10 ticks |
 
 Online: the room sends `warlords` (the region's warlords, their holdings and a raid in warning; on change) and the
@@ -545,7 +551,7 @@ clear: foes added as a once-lair, +1 man per two depths, `fauna` one of the regi
 reach him, then the nearest town, he walks behind your men; track: marks 9 tiles apart, each rolled on from the last,
 the trail's end the next step's spot; rescue: a captive's soul at the spot, done once his squad claims him or is
 refused). A kind may keep to regions with a biome on 25% of the ground, or with a lair of some beast. Each pays a little: coin and goods, now and then an item (a pile at your men) or a soul (claimable once a man
-has fallen, the 12-man cap). It takes the tracked card while open and gives it back after; who waits at the spot is
+has fallen, the path's cap). It takes the tracked card while open and gives it back after; who waits at the spot is
 painted from the existing sheets (no sim unit). An open step lapses after 3 minutes (a guide 9) or with all his men 70
 tiles away.
 
@@ -682,10 +688,10 @@ JSON as **pre-built** buildings (`done`, full hp unless the table says otherwise
 | --- | --- |
 | Owner at season start | homes: their alliance; neutral regions: team **neutral** (new team id; mobs never attack it, nobody may use it); bandit-held towns and landmarks: the mob team while the host or boss lives |
 | Who owns a town | a town is the pre-built group round its claim point (the agora's market spot, a village's well): it belongs to the alliance that holds that point; pieces outside any claim radius follow region influence (whoever's covers them), else neutral. Taking the point flips every piece in its radius at once, at the hp it has |
-| Use | only the owner uses a building's function; gates open for the owner and allies, neutral gates stand open |
+| Use | a building's function serves those its access setting lets in (W-89, "Paths"), and only while someone works it (W-88); gates open for the owner and allies, neutral gates stand open. Who is the owner of a pre-built piece, which follows its claim point and so an alliance, not a player: [open](impl/paths-rework.md#open-design-items) |
 | Capture | no building is taken by itself: buildings follow their claim point or influence, so a town is taken by clearing its guardian or garrison and claiming |
 | Taking a held point | a point another alliance holds is claimed with the same men and seconds as by depth; any foe within 14 tiles resets the channel, and it does not run while a fighting man of the holder stands within the point's radius (clear its defenders first: the men on its walls and towers are men like any other). Done, the holder's anchor goes, every piece in the radius flips at its hp (stores with their goods, influence follows) and the region's holder is recounted; a town whose centre stands outside the radius (a W-63 settlement) keeps its own banner and is taken by its own terms. A pact or truce between the two alliances refuses the claim. The holder's members get a notice "<region>: your claim point is being taken!" (world socket `claimAttacked`, once in 5 min a point and attacker) |
-| Raze | any side may attack a building it does not own (never inside a safe court: court walls, towers, gates and stalls are untouchable while the zone is safe); at 0 hp it becomes a **ruin** in place (rubble footprint: slow ×2, cover, no function) and drops half its goods as a pile |
+| Raze | any side may attack a building it does not own (never inside a safe court: court walls, towers, gates and stalls are untouchable while the zone is safe); at 0 hp it becomes a **ruin** in place (rubble footprint: slow ×2, cover, no function) and drops half its goods as a pile. W-91: an empty building is as open to this as a staffed one; only its walls and locks protect it, and raid losses are limited (limit [open](impl/paths-rework.md#open-design-items)) |
 | Ruined stays ruined | a ruin is rebuilt only by the owner of its ground: 75% of the build cost (stone reused) and 75% labour; landmark pieces only by their restore rule |
 | Repair | a new `repair` order on a damaged building: any squad, engineers ×1.5; per 10% hp, 5% of the build cost and 5% of its labour |
 | Razed town | houses ruined cut the pool (their rate and cap); with ≥ 3/4 of its houses and its temple ruined a town is **ruined**: no pool, no favour, and a frontier town scores 1 an hour instead of 3 until half its houses stand again |
@@ -731,6 +737,59 @@ under rams (64 a blow on stone every 3 s, about 2 min for one ram) and throwers;
 | Strong but takeable | a restored landmark is a finished fort; it falls to a siege like any other (rams, towers, throwers), and its new holder inherits the breaches |
 | Symmetry | every home has, at the same distance, two bandit-held towns (each shared with a neighbour), one tier-1 pocket boss, two depth-3 and two depth-4 landmarks |
 
+## Paths (W-82..W-94)
+
+Every player is an unseen demigod on a season-locked path, in a world where nothing works unless someone is actually
+there. "Open" below means the owner has not decided yet: see
+[Open design items](impl/paths-rework.md#open-design-items).
+
+### The demigod and his path
+
+| Rule | Value |
+| --- | --- |
+| Demigod (W-82) | every player, on every path. Never a field unit, no sprite; his power acts through his men, buildings and carts |
+| Path (W-83) | warrior, builder or trader, chosen at season start and fixed for the 28 days |
+| Level (W-83, W-84) | resets each season. Levels come from doing the path's work and unlock that path's perks ("Divine favour"). Perk lists: open |
+| Soldier cap (W-85) | warrior 12, builder 4, trader 4; hard. Start numbers, changed only on balance evidence ("Soldiers") |
+| Warrior family (W-86) | a warrior picks one family (e.g. phalanx, Celtic warband, skirmishers); level-ups unlock its stronger classes; no mixing between families. Family list and what its men can do: open |
+| Start | what each path starts with: open ("Starting a game") |
+
+### One region (W-87)
+
+All of a player's people (soldiers and civilians) and carts are in one region or on one road, and travel as one group.
+A transfer takes everyone: no partial departure, nobody left behind, no men in other regions. The one exception is a man
+who joins far from his group: a man raised by the tunnel or a captive who joins waits at home until the group comes home
+("Tunnel of Shades", "Lifecycle"). Inside a region his men may stand and work apart as he likes (W-53).
+
+Nothing a player owns acts unless someone is there: no automated drovers, no self-firing towers, nothing automated. How
+this meets an offline player's men (W-07: they stay in place and hold) is open.
+
+### Buildings need people (W-88..W-91)
+
+| Rule | Value |
+| --- | --- |
+| Staffed (W-88) | a building works only while a person is working in it; that person need not be the owner. Which kinds of building this covers beyond workplaces: open |
+| Access and terms (W-89) | each building is set to private, household/vassals, alliance or anyone, with a share of output or a fee kept by the owner. Where that share sits while the owner is elsewhere: open |
+| Private house (W-90) | a player can own a house holding his belongings; only its walls and locks protect it. What a lock is: open |
+| Empty buildings (W-91) | can be attacked; only walls and locks protect them; raid losses are limited so a small builder is not wiped out. The limit and how empty towns get guards: open |
+
+### Winning and solo progress (W-92, W-93)
+
+| Rule | Value |
+| --- | --- |
+| Alliance win (W-92) | one, decided by land: "Season score and victory". Builders and traders win it by supplying the war |
+| Ladders (W-92) | each path has its own ranked ladder. What each one ranks: open |
+| Solo builder or trader (W-93) | path story chains, and NPC towns that buy and sell. Which towns and at what prices: open |
+| Solo warrior (W-93) | can be hired for monsters. The contract's form: open |
+| Not given (W-72 stands) | no AI ally squads, no solo claim exceptions; warlords stay rivals |
+
+### Feudal hierarchy (W-94)
+
+Kings, vassals, titles, tribute and succession, built last, on top of W-63's shared settlements: anyone may found a
+settlement and be its lord, others ask to settle, and a vassal settlement pays tribute for protection and may rebel.
+Alliances stay the season team, with the hierarchy inside them. How someone becomes king, how titles pass and tribute
+rates: open. So is how this sits with W-64's crown and W-63's settlements across alliances.
+
 ## Starting a game
 
 The menu is the game's front page (`index.html`, play.pixelarrow.app; `src/war/menu/`), styled with the HUD kit.
@@ -738,20 +797,22 @@ The menu is the game's front page (`index.html`, play.pixelarrow.app; `src/war/m
 | Step | What | Rule (server `server/src/war/start.ts`, shared `src/war/world/start.ts`) |
 | --- | --- | --- |
 | Sign in | email and password, or create an account (the mailed link signs in and comes back); locally also a dev player (DEV_AUTH) | the web session cookie; the war pages play as it (`src/war/net/session.ts`) |
-| Alliance | one of the four, with its players this season | `POST /api/war/start/alliance`; changeable until the squad is picked (the home resets) |
+| Alliance | one of the four, with its players this season | `POST /api/war/start/alliance`; changeable until the path is picked (the home resets) |
 | Home region | the alliance's home or one of its four gate regions, picked on the world map; each shows its lore, difficulty, resources, beasts and roads out (`src/war/menu/homeLore.ts`) | `POST /api/war/start/home`: free = fresh men may come in (`joinRefusal`) and the alliance's quota there has room for a full squad |
-| Squad | up to N = 12 men, any mix of the six classes with war sprites (militia, hoplite, swordsman, archer, slinger, javelineer), each shown with its codex card | `POST /api/war/start/squad`: 1..12 of those classes, once per player and season; fresh L1 men, active in slot order; after it men join only as claimed souls (W-60) |
+| Path | warrior (and his one family), builder or trader, each shown with what it does; no free pick of men | once per player and season, fixed for its 28 days (W-83); what each path starts with is [open](impl/paths-rework.md#open-design-items); after it men join only as claimed souls (W-60), under the path's cap (W-85) |
 | Land | march into the home region (the live region view, his men selected) or open the world map | |
 
-`GET /api/war/start` gives the step (alliance, home, squad, done) and the choices. A returning player gets
-Continue (into the region where most of his men stand, else his home), World map, Settings and Sign out. Players made
+`GET /api/war/start` gives the step (alliance, home, path, done) and the choices. A returning player gets
+Continue (into the region his group is in, else his home), World map, Settings and Sign out. Players made
 by the dev routes (`/api/war/world/dev/alliance`, `/api/war/dev/seed`, DEV_AUTH only) count as started.
 
 The first hour (W-62, `src/war/net/guide.ts`, online `server/src/war/guide.ts`) runs in the home region: claim a soul,
 gather, drive off the bandit pair, raise a camp, bring goods into a store. W-73 adds a sixth step, the hand-off
 (`GUIDE_NEXT` in `src/war/net/questLore.ts`: "Find {giver} by the well"): of the home's neighbours with a region chain
 (W-65), the one whose exit lies nearest the home town; the marker points at that exit, and the step closes (20 coin)
-when his men reach it or he departs for that region. The chain's giver then takes over with his own "!".
+when his men reach it or he departs for that region. The chain's giver then takes over with his own "!". The guide
+becomes one per path (W-83); the steps above assume a fighting army and what the other paths do instead is
+[open](impl/paths-rework.md#open-design-items).
 
 ## Controls
 
@@ -787,6 +848,7 @@ Build mode (B) places sites on own influence; the selected men build them, else 
 | Blocked pieces | ordered lines build their valid pieces and skip the blocked ones; the status names why (rock, water, outside influence, overlap, too steep, on a resource, no-build zone) |
 | Joins | a line starting or ending on an own wall, tower or gate joins it there (those tiles are not counted as overlap) |
 | Towers and gates | normal build tools; a gate dropped on an own wall replaces that stretch (and the inner row behind it on a 2-deep wall: the passage); a tower takes the wall tiles under it; the gate turns along the wall under the cursor |
+| Staffed (W-88) | a finished building works only while a person is working in it ("Paths") |
 | Stalled sites | `BuildingSnap.waiting` (goods the store network lacks), `stalled` (`noWorkers`, `noStore`); the site card and a floating note say "Waiting for 6 wood" |
 | Demolish | an own finished building (not a pre-built piece): the card's Demolish asks in the card (Demolish / Keep), then it comes down in 5 s (`DEMOLISH`), no rubble; its goods and 25% of its materials go to the nearest store of its network |
 | Activity | the squad card says what the men do (`activityText` in `src/war/view/hud/activity.ts`): Marching to …, Building palisade (62%), Waiting for wood, Gathering wood, Fighting, Holding |
@@ -796,10 +858,12 @@ Build mode (B) places sites on own influence; the selected men build them, else 
 
 Every soldier is a persistent person (W-10, W-37); civilians are the same record with a non-combat class (W-38).
 Built on the single-player hero (`src/data/units.ts` `Hero`, `src/sim/stats.ts` `computeStats`); the live sim only
-sees the baked stat block. Numbers are first-pass targets for balance tests. **N** = fighters per player (below);
-every other cap is written in terms of N.
+sees the baked stat block. Numbers are first-pass targets for balance tests. **N** = the soldier cap of the player's
+path (below); every other cap is written in terms of N.
 
-### Army size N (W-58: N = 12 is the whole army)
+### Soldier caps (W-85: warrior 12, builder 4, trader 4)
+
+Why 12 is the warrior's number, against the 600 cap:
 
 | N | Players per region (600 cap) | With the 10% civilian quota | Attachment (a) | Formations (b) | Verdict |
 | --- | --- | --- | --- | --- | --- |
@@ -808,22 +872,22 @@ every other cap is written in terms of N.
 | 10 | 60 | 54 | very good | line 5×2, thin wedge | fallback if 50 players feels empty |
 | 8 | 75 | 67 | best | 4×2 reads as a blob; lines and flanks lose meaning | no |
 
-Recommendation: **N = 12 fighters per player**, every one of them a unit the player can command on his own (W-53,
-"Unit control" below): any man or any mix of his men takes an order, so there are no fixed detachments. (d) Civilians
-count toward the 600 cap inside a 10% quota, so 12 gives 45–50 players per region,
-inside the owner's 50–60 hope.
+Every man is a unit the player can command on his own (W-53, "Unit control" below): any man or any mix of his men takes
+an order, so there are no fixed detachments. (d) Civilians count toward the 600 cap inside a 10% quota, so an all-warrior
+region holds 45–50 players, inside the owner's 50–60 hope; builders and traders leave more room.
 
-**Decided (W-58):** a player has at most N = 12 fighters **in total**, counted across all regions. There is no reserve
-and no barracks pool; the 12 may be split across regions as he likes. Wounded and training men count; the dead, the
-retired and (W-68) the captive free their place; civilians are the household, outside the cap. A claimed soul joins only under 12
-(refused past it, W-60), the start squad is up to 12, a transfer moves at most 12. One constant: `ARMY_MAX`
-(`src/war/sim/soldiers.ts`; `SQUAD_MAX`, `MAX_SQUAD` and `TRANSFER_MAX` follow it).
+**Decided (W-85):** a player has at most N soldiers **in total**: warrior 12, builder 4, trader 4. These are hard caps,
+start numbers changed only on balance evidence. There is no reserve and no barracks pool, and all of them are in one
+region or on one road (W-87, "Paths"). Wounded men count; the dead, the retired and (W-68) the captive free their place;
+civilians are the household, outside the cap. A claimed soul joins only under the cap (refused past it, W-60). A transfer
+takes the whole group. One rule for all of it, by path (`ARMY_MAX`, `src/war/sim/soldiers.ts`, and the `SQUAD_MAX`,
+`MAX_SQUAD` and `TRANSFER_MAX` that follow it, give way to it in the rework).
 
 ### Record (server-side, one row per person)
 
 | Field | Rule | Reused from |
 | --- | --- | --- |
-| class | picked at the start, or the class his soul woke as (W-60) → elite at level 6 | `src/data/classes.ts` |
+| class | as his path starts him ([open](impl/paths-rework.md#open-design-items)), or the class his soul woke as (W-60) → elite at level 6 | `src/data/classes.ts` |
 | level, xp | 1–10, `xpToNext = 40 × level`; +2 attribute points per level | `MAX_LEVEL`, `xpToNext`, `POINTS_PER_LEVEL` |
 | attributes | STR, AGI, END, WIL (5 neutral, max 15); class spread on joining. WIL drives survival and the squad active cooldown (no morale in the war) | `src/data/perks.ts` `ATTR_*` |
 | skills | 2 slots, unlocked at levels 3 and 7, picked from the family pool (≤ 4) | perks, reshaped |
@@ -842,12 +906,16 @@ objective. Civilians: 1 per job (meal batch, bar, trade, site, patient). A wound
 
 ### Classes
 
-| Family | Classes (start squad, souls) | Elite at L6 (+ rare kit) | Skills (P passive baked, F flag, A squad active) |
+| Skill family | Classes (souls) | Elite at L6 (+ rare kit) | Skills (P passive baked, F flag, A squad active) |
 | --- | --- | --- | --- |
 | Line | hoplite, thureophoros | royal_guard, sacred_band | Shield Drill P (+6% block, +1 armour), Phalangite P (+0.15 reach, +1 dmg), Hold Fast F (+30% block while the squad holds), **Shield Wall A** |
 | Shock | celt_sword, falx | rhomphaia, gallic | Brawler P (+1.2 dmg), Shield Breaker P (−10% target block), Finisher F (+30% dmg vs men < 40% HP), **Berserk A** |
 | Missile | archer, slinger, javelineer, peltast | Cretan-set archer | Deep Quiver P (+40% ammo, +1 range), Eagle Eye P (+6% accuracy), Fire Archer F (brazier reach ×2, half pitch), **Volley A** |
 | Rider | companion, thessalian, horse_archer | chariot | Horsemanship P, Lance Charge F, Ride Down F, **Wheel and Re-charge A**; only once the war sim has mounts |
+
+These are the skill pools. A warrior's one family (W-86) is a different cut, chosen at season start; its list and what
+its men can do are [open](impl/paths-rework.md#open-design-items), as are the classes a builder's or trader's soldiers
+may be.
 
 Non-combat classes (W-38), six, each with its own loop and a tool in the weapon slot (same tiers and rarities):
 
@@ -970,30 +1038,31 @@ player's (`notOwner` otherwise); the field is optional, so the wire stays additi
 
 | Stage | Rule |
 | --- | --- |
-| Join | W-60: the start squad (W-56), then only claimed souls ("Souls"); no recruit pools, no recruiting, no training |
+| Join | what his path starts with ([open](impl/paths-rework.md#open-design-items)), then only claimed souls ("Souls", W-60); no recruit pools, no recruiting, no training |
 | Promote | level 6 + the elite rare kit, 30 min |
 | Fall | at 0 HP wounded with `woundedShare` 0.7 (+3% per END above 5, + physician, cap 0.9), else dead; the dead drop their gear |
-| Early mercy (W-79 proposal) | in the homes and the entries (depth 0–1, `src/war/sim/depth.ts` EARLY) a soldier felled by the wild (a beast's, bandit's, chief's or warlord man's blow) is only knocked down: he lies with his pack and kit (no pile, no battlefield soul), the fight report leaves him out, and once no foe man has fought within 10 tiles of him for 15 s he gets up at 30% hp in his squad. Still down after 3 min he is wounded as before; felled again within 60 s of getting up (left among the wild that beat his squad) the fall is real. Another player's blow, and any fall at depth 2 and deeper, is a fall. Online the room keeps him listed in the field while down (no rejoin claims him twice) and reports him if he stays down for good. W-81: a man down counts toward his army for a soul's claim (he will rise), and `down` rides on the wire (unit state bit 32, NET_VERSION 17) so the squad card shows it online too. Measured: a level-1 start squad (4 hoplites, 3 archers, 3 slingers, 2 javelineers) against a depth-1 bandit lair of 8 lost 3–8 for good before; now 0, every man up within ~20 s of the last blow |
-| Heal | wounded leave with the squad; timer: field 6 h, camp 3 h, town 2 h, physician's house 1 h |
+| Early mercy (W-79 proposal) | in the homes and the entries (depth 0–1, `src/war/sim/depth.ts` EARLY) a soldier felled by the wild (a beast's, bandit's, chief's or warlord man's blow) is only knocked down: he lies with his pack and kit (no pile, no battlefield soul), the fight report leaves him out, and once no foe man has fought within 10 tiles of him for 15 s he gets up at 30% hp in his squad. Still down after 3 min he is wounded as before; felled again within 60 s of getting up (left among the wild that beat his squad) the fall is real. Another player's blow, and any fall at depth 2 and deeper, is a fall. Online the room keeps him listed in the field while down (no rejoin claims him twice) and reports him if he stays down for good. W-81: a man down counts toward his army for a soul's claim (he will rise), and `down` rides on the wire (unit state bit 32, NET_VERSION 17) so the squad card shows it online too. Measured: a level-1 squad (4 hoplites, 3 archers, 3 slingers, 2 javelineers) against a depth-1 bandit lair of 8 lost 3–8 for good before; now 0, every man up within ~20 s of the last blow |
+| Heal | wounded leave with the squad and stay in his group (W-87); timer: field 6 h, camp 3 h, town 2 h, physician's house 1 h; which timer runs once the group moves on is [open](impl/paths-rework.md#open-design-items) |
 | Gear drops | a physical loot pile anyone may carry off (W-46, "Trade" → "Loot piles") |
 | Capture | a wounded man on a tile the enemy holds when the fight ends (no friendly within 15 tiles) becomes `captive` in the captor's nearest fort (≤ 20 per fort, extra are freed). W-68: he leaves his owner's army at once (his slot frees; the roster notes "Captured by <player> at <region>"); his gear drops in a pile where he fell |
-| Prisoners | W-68 (`src/war/sim/captives.ts`, `server/src/war/captives.ts`): the captor pays 1 food/h each and sees them at the foot of his roster. After 2 h he may ask one to join: he refuses for good with 30% + 5% a level above 1 (fixed per man), else he joins the captor's army at home with his level, class and record in starter kit (only under 12: "Army full"); one transfer (`movePerson`) that a later men trade (W-69) reuses. The captor may release him at any time; after 24 h unclaimed, a raid reaching the fort, the fort's region starting over or an unpaid captor release him too. Released, his soul wakes at a shrine of that region (else the nearest region with one) with his level and class, for anyone to claim. No ransom, no execution |
+| Prisoners | W-68 (`src/war/sim/captives.ts`, `server/src/war/captives.ts`): the captor pays 1 food/h each and sees them at the foot of his roster. After 2 h he may ask one to join: he refuses for good with 30% + 5% a level above 1 (fixed per man), else he joins the captor's army at home with his level, class and record in starter kit (only under the path's cap: "Army full"), and waits there until the captor's group comes home (W-87); one transfer (`movePerson`) that a later men trade (W-69) reuses. The captor may release him at any time; after 24 h unclaimed, a raid reaching the fort, the fort's region starting over or an unpaid captor release him too. Released, his soul wakes at a shrine of that region (else the nearest region with one) with his level and class, for anyone to claim. No ransom, no execution |
 | Dismiss | W-68: a roster action on a fit or wounded soldier, confirmed in the card (Dismiss / Keep). His gear drops where he stands (a pile in his live region; at home into the strongroom); his soul rises to the sky where he stood (a soul-tinted ghost lifting in a column of light, `src/war/view/soulRise.ts`) and wakes at a shrine as for a release. Its dismisser cannot claim him for 1 h (no free reset of gear or wounds) |
 | Veterans | survivors keep XP, gear and honours; gear wears per fight (`cond`), a smith repairs it |
-| Roster | N = 12 men in total across all regions (fit, wounded, promoting; W-58; not the captive, W-68) + household; no reserve; at the cap a soul's claim is refused until a man falls, retires, is taken or is dismissed |
+| Roster | N men in total, the path's cap (fit, wounded, promoting; W-85; not the captive, W-68) + household, all in one region or on one road (W-87); no reserve; at the cap a soul's claim is refused until a man falls, retires, is taken or is dismissed |
 | Retire | returns half the gear value and leaves one honour on the alliance memorial; a level-10 soldier may retire into a civilian class at level 5 |
 
-Household: separate from the N fighters, size `min(4, 1 + fit soldiers ÷ 4)` (with N = 12: 4). Separate so the
-squad stays whole; tied to fit soldiers so nobody plays without an army (a merchant still needs a squad to escort
-caravans). A trade-minded player fields a small guard squad and a full household.
+Household: separate from the N soldiers, and in his one group with them (W-87). Civilians exist, but how they are
+acquired is [open](impl/paths-rework.md#open-design-items); so is the size, since today's `min(4, 1 + fit soldiers ÷ 4)`
+gives a 4-soldier path only 2.
 
 In the region civilians are live units on the 600 cap inside a 10% sub-quota (60, split per alliance like W-06): a
 separate cap would add bodies beyond the sim budget, and they cost the same per tick as soldiers. They are weak,
-flee, can be captured, and work only inside own influence or with a squad within 15 tiles.
+flee, can be captured, and work only inside own influence, with a squad within 15 tiles, or in a building whose terms let
+them in (W-89).
 
-Into the economy (M6), never instead of fighting: rations, bronze, iron, gear, repairs, salves and engines are stock
-or buffs that **soldiers consume**; merchants move and sell it to other players ("Trade"). No civilian claims land, wins a siege or holds
-a region.
+Into the economy (M6): rations, bronze, iron, gear, repairs, salves and engines are stock or buffs that **soldiers
+consume**; merchants move and sell it to other players ("Trade"). No civilian claims land, wins a siege or holds a
+region; builders and traders win by supplying the war (W-92).
 
 ### Food and hunger (W-60)
 
@@ -1038,8 +1107,10 @@ the old field upkeep is gone; only captives cost their captor 1 food an hour.
 
 Every warrior on Metaxy died in the world above (Lore); the newly dead wake as **souls** across the regions and wait
 to be claimed (`src/war/sim/souls.ts`). There are no recruit pools, no recruiting, no training and no training
-buildings (barracks stand only as pre-built pieces of landmarks and towns); a new player starts with the 12 he picks
-in the menu (W-56), and after that a man joins only as a claimed soul.
+buildings (barracks stand only as pre-built pieces of landmarks and towns); a new player starts with what his path
+gives ([open](impl/paths-rework.md#open-design-items)), and after that a man joins only as a claimed soul. A soul wakes
+as the class his site gives: whether a warrior may claim one outside his family (W-86), and in what form, is
+[open](impl/paths-rework.md#open-design-items).
 
 | Rule | Value |
 | --- | --- |
@@ -1048,17 +1119,17 @@ in the menu (W-56), and after that a man joins only as a claimed soul.
 | Class | by site: shrine hoplite, archer or militia; ruin militia, slinger or javelineer; lair swordsman, hoplite or archer; a battlefield the class most of its fallen were |
 | Level | shrine and ruin 1, battlefield 2, lair 3, + half the region's depth (rounded down), at most 6: the rarer, better souls wait in dangerous places |
 | Claim | the claimSoul order walks a squad to him; a man of it within 2.5 tiles for 3 s claims him and he joins that squad, his class and level, as a fresh person |
-| Cap | only while the player has fewer than ARMY_MAX = 12 fighters across all regions; else the claim is refused ("army full") and the soul waits on |
+| Cap | only while the player has fewer soldiers than his path's cap (W-85: warrior 12, builder 4, trader 4); else the claim is refused ("army full") and the soul waits on |
 | Contest | two sides at him stall the claim (contested); the wild at him with no claimer takes him (lost); a foe who stands there first claims him |
 | Fade | unclaimed he fades after 10 min (the view fades him over the last minute) |
 | Named | W-68: a released captive or a dismissed man wakes as himself (name, level, class, record; starter kit) at a shrine, waits 6 h (he is a veteran: longer than a stranger's soul) and does not count toward the 4 souls of a region; claimed, the same person moves to the claimer; faded or taken by the wild, he is gone. Server: `war_persons.state = 'soul'` with `held_at` the region (a room not running wakes him when it starts; migration 0050) |
 
 Online the region room gates on the player's whole army (D1 `armyCount`, refreshed on join and after each claim) and
 tells him `soul` claimed or refused; the DO writes the new man (`claimSoul`: an insert that checks the cap itself, so
-two regions claiming at once cannot pass 12; a refused insert takes the man off the field). A soul draws as a pale,
+two claims at once cannot pass it; a refused insert takes the man off the field). A soul draws as a pale,
 glowing ghost of his class sheet (tinted, see-through, an additive glow; no new art) and shows on the minimap and the
 full map; with men selected near one, a prompt names him (class, level, site, fade timer) and its Claim button sends
-them, or reads "Army full 12/12"; right click or E on the soul gives the same claim order (greyed in the radial while
+them, or reads "Army full" with his count and cap (12/12, 4/4); right click or E on the soul gives the same claim order (greyed in the radial while
 the army is full).
 
 ### Tunnel of Shades (W-66)
@@ -1069,10 +1140,11 @@ server: `server/src/war/raise.ts`, D1 `war_tunnel.next_at` (0048); view: `src/wa
 
 | Rule | Value |
 | --- | --- |
-| Floor | W-68: while he has fewer than 6 men who can fight (fit, every region; the wounded do not count here, captives are not his), one rises at home every 10 min, up to 6 and never past 12 in all (the wounded still fill the army); past 6 men come only from souls |
-| The man | level 1 in starter kit, the class of one of his latest fallen (of the start classes, else militia), plus his divine favour bonus (raiseBonus) |
+| Floor | W-68: while he has fewer than 6 men who can fight, or fewer than his path's cap if that is smaller (so 4 for a builder or trader; the wounded do not count here, captives are not his), one rises at home every 10 min, up to that floor and never past the path's cap in all (the wounded still fill the army); past the floor men come only from souls |
+| Waits at home | W-87: a man raised while the group is away waits at home until it comes home; he never crosses to it alone. What a waiting man can do, and be done to, is [open](impl/paths-rework.md#open-design-items) |
+| The man | level 1 in starter kit, the class of one of his latest fallen his path allows (the classes a family or path allows are [open](impl/paths-rework.md#open-design-items)), plus his divine favour bonus (raiseBonus, itself open: "Divine favour") |
 | Clock | starts on the first read below the floor; settled lazily on `GET /api/war/tunnel` { alive, floor, nextAt, pending }, the roster read and a region join (no live room needed); a compare-and-set on next_at and a capped insert keep racing reads to one man each |
-| No tunnel | before his first squad (a player who never had a man) |
+| No tunnel | before his first man (a player who never had one) |
 
 His last man who can fight fallen (the rest dead or wounded; captives are not his; `wiped` in the rules), the HUD
 shows "Your army is destroyed" (the shades of the fallen walk back through the tunnel, the time until his first man is
@@ -1082,19 +1154,21 @@ reset. GET /api/war/tunnel carries `fit`, `wounded`, `woundedAt` for it.
 In the home town a line of shades stands before the mouth, one for each man to come, its far end fading into the
 dark; at each rise the front shade walks in, flashes and stands there as the man, and the line steps up. The countdown
 ("Next shade rises in 7:42, 3/6") shows over the tunnel and as a pill at the top of the HUD. Offline the same rule runs
-on a local clock (his men on the map count; the raised man joins the map at the mouth), with a dev x60 button.
+on a local clock (his men on the map count; the raised man stands at the mouth), with a dev x60 button.
 
 Online with no man he is never on a blank page: the card shows in a region, over the world map
 (`src/war/view/hud/wipeCard.ts`) and on the menu after a reload, with a live countdown. A join naming nobody
 (`[['none']]`) watches the region: welcomed with no squad, never queued, and the room streams to him. At home the camera
-opens on the tunnel; a man risen (by any read) plays the line's rise and then marches in (the join reloads his men at
-home). The pong carries `idle` (no armies here, or the loop rests): the network readout then says "region idle", not
+opens on the tunnel; a man risen (by any read) with his group at home plays the line's rise and then marches in (the
+join reloads his men at home). The pong carries `idle` (no armies here, or the loop rests): the network readout then says "region idle", not
 "server stalled".
 
 ### Divine favour (W-66)
 
-The player is a demigod who leads mortals. His divine favour is per account and never resets with a season: it is
-the reason to keep an account. Rules and amounts: `src/war/net/favour.ts`; D1 `war_favour` and `war_favour_log`
+The player is a demigod who leads mortals. W-83, W-84: this track becomes the demigod's level on his path. It resets
+each season, levels come from doing that path's work, and each path has its own perks in place of the one bonus below.
+The perk lists are [open](impl/paths-rework.md#open-design-items), and so is which work pays which path: the curve,
+amounts and bonus below are today's numbers, to be re-cut per path. Rules and amounts: `src/war/net/favour.ts`; D1 `war_favour` and `war_favour_log`
 (0047); earning hooks: `server/src/war/favour.ts`; panel: Divine favour on the menu bar (Shift+F, its level as a
 badge; the title screen shows it beside the name), a short banner on a level gained.
 
@@ -1124,7 +1198,7 @@ badge; the title screen shows it beside the name), a short banner on a level gai
 
 | Surface | Content |
 | --- | --- |
-| Roster panel | "n / 12 men" in the head; squads in the field, men in other regions, household; under each man what he is doing and where (Marching, Building, Gathering, Fighting, Holding, Wounded, In <region>); one state mark per man (HP bar, flag, bleeding heart, lock, skull), level disc, gold star for a waiting level-up; drag to swap |
+| Roster panel | "n / cap men" in the head; squads in the field, men waiting at home, household; under each man what he is doing (Marching, Building, Gathering, Fighting, Holding, Wounded, Waiting at home); one state mark per man (HP bar, flag, bleeding heart, lock, skull), level disc, gold star for a waiting level-up; drag to swap |
 | Soldier card | paper doll (empty slots show a faint outline), class and elite, level disc and XP bar, 4 attributes with pips, battle numbers with icons, 2 skill medallions, honours, stash, kills and battles |
 | Level-up | toast on the squad card; a gold banner on the card opens the tree; at levels 3 and 7 a choice of 2 skills with a stat preview |
 | Skill tree | no legend: taken lit gold, open a breathing bronze ring with a cost badge, locked dark iron with a lock and the level it opens at |
@@ -1296,7 +1370,8 @@ takes 5 off max condition; at max 50 the item can only be salvaged (30% of the i
 
 ### Balance (M5h6, `npm run balance:war`)
 
-Expected values, no dice. A play week = 14 h at the forge + 7 unattended queues of 5. Smiths: T1 forge L4 stone hammer
+Expected values, no dice, measured before W-88 (the unattended queues below no longer run, so these need re-measuring).
+A play week = 14 h at the forge + 7 unattended queues of 5. Smiths: T1 forge L4 stone hammer
 (G 4, work ×1.09), T2 L6 journeyman bronze uncommon (G 8, ×1.32), T3 L10 master + Masterwork, iron rare (G 17, ×1.65).
 
 | Check | Result | Target |
@@ -1318,7 +1393,8 @@ Expected values, no dice. A play week = 14 h at the forge + 7 unattended queues 
 | market stall | 2×2 | wood 30; 400 | offers, contracts | stone 60 (agora): caravan goods | marble 20, silver 10: letters of credit |
 | sorting floor | storehouse upgrade | wood 40, stone 20; 600 | charcoal, linen | wood 40, salt 10: tannery (leather) | – |
 
-Each level adds a crafter slot (1 / 2 / 3 at once) and +1 grade. One queue per workplace, ≤ 5 orders. Levels are
+Each level adds a crafter slot (1 / 2 / 3 at once) and +1 grade. One queue per workplace, ≤ 5 orders; it runs only while
+a person is working there (W-88), who need not be the owner (W-89 sets who may). Levels are
 building types chained by `upgrade` (`forge` → `forge2` → `forge3`), as walls are; they burn by their material.
 
 ### How it stays light
@@ -1343,9 +1419,13 @@ building types chained by `upgrade` (`forge` → `forge2` → `forge3`), as wall
 
 ## Trade
 
-W-11, W-44, W-46. A fully player-driven economy: the game sells nothing, buys nothing and quotes no price. Every good
-is gathered, made or minted by a player and sits somewhere on a map (a store, a chest, a cart, a man's back, a loot
-pile); it moves only by being carried and changes hands only by a hand-off, a fill at a stall, or a raid.
+W-11, W-44, W-46, W-93. A player-driven economy with one exception: NPC towns buy and sell (W-93), so a builder or trader
+can progress alone; which towns, at what prices and where their coin comes from are
+[open](impl/paths-rework.md#open-design-items). Everywhere else the game sells nothing, buys nothing and quotes no price.
+Every good sits somewhere on a map (a store, a chest, a house, a cart, a man's back, a loot pile); it moves only by being
+carried and changes hands only by a hand-off, a fill at a stall, a sale in an NPC town, or a raid. Goods that today move
+with nobody carrying them (store networks, the strongroom behind a store, gifts to works) are
+[open](impl/paths-rework.md#open-design-items) under W-87.
 
 ### Coin
 
@@ -1362,7 +1442,8 @@ pile); it moves only by being carried and changes hands only by a hand-off, a fi
 | --- | --- | --- | --- |
 | store (camp, storehouse, fort) | unlimited, as today | its alliance; enemies by looting | a team's stores joined by its influence in a region form one **network**: crafting and building draw from it; men within 6 tiles eat from the store itself (W-60) |
 | chest | building 1×1, wood 10, 8 loads, owner-only | owner; enemies by looting | ≤ 4 a player a region; holds, never feeds crafting |
-| home strongroom | the home storehouse + one chest a player | never lootable (W-09) | the only safe store outside a trade town; replaces the stash and the treasury table |
+| home strongroom | the home storehouse + one chest a player | never lootable (W-09) | the only safe store outside a trade town; replaces the stash and the treasury table. How it sits beside the private house (W-90) is [open](impl/paths-rework.md#open-design-items) |
+| private house (W-90) | a house a player owns; size [open](impl/paths-rework.md#open-design-items) | its owner; anyone past its walls and locks | holds his belongings; nothing else protects it |
 | rented warehouse | a trade-town site, 20 loads | renter only | safe while rent is paid; unpaid 3 days: locked, never confiscated |
 | porter | CARRY 10 = 1 load (today's worker load); 5 items = 1 load | his squad | any soldier or civilian; −10% speed loaded |
 | cart | see Carts | its driver's player | captured with its cargo |
@@ -1386,10 +1467,10 @@ the same region within 4 tiles.
 | Rule | Value |
 | --- | --- |
 | Ground | road ×1.3; shallow ford ×0.5; slope up ×0.6; sand ×0.5; forest and marsh only on a road; no stairs, walkways or ladders; bridges ≥ 2 wide |
-| Per player | 2 carts in the world (Emporos 3); a convoy = his carts and the squads escorting them |
+| Per player | 2 carts in the world (Emporos 3; whether a trader's cap rises is [open](impl/paths-rework.md#open-design-items)), all in his one group (W-87); a convoy = his carts and the squads escorting them |
 | `escort` order (new `Order` kind) | the squad keeps a column round the cart, engages enemies within 12 tiles of it, returns past 20 |
 | Under attack | the cart halts while an enemy is within 8 tiles, resumes 10 s after; it never fights |
-| Between regions | carts and loaded porters ride the world transfer, cargo on the transit row; wagon ×1.5 travel time, porters ×1.2; a `haul` order chains transfers along the world path and keeps driving offline (W-07) |
+| Between regions | carts and loaded porters ride the world transfer with the whole group (W-87), cargo on the transit row; wagon ×1.5 travel time, porters ×1.2; a `haul` order chains transfers along the world path for that group, and no cart ever drives on its own (no automated drovers). Whether the chain goes on while he is offline (W-07 holds men in place) is [open](impl/paths-rework.md#open-design-items) |
 | World map | in transit seen like squads (by alliances with men in or next to either end); Safe Roads: only by alliances with men at the destination |
 | Fire | wood: torches and fire arrows ignite it like a wood building |
 
@@ -1416,7 +1497,7 @@ an unheld town charges nothing.
 
 | Piece | Rule |
 | --- | --- |
-| Sell offer | goods or items already in the seller's stall: what, n, price each; listed while he is offline |
+| Sell offer | goods or items already in the seller's stall: what, n, price each; listed while he is offline (whether an unstaffed stall still sells, W-88, is [open](impl/paths-rework.md#open-design-items)) |
 | Buy order | coin escrowed in the stall's strongbox: what, n, price; fills when a seller in town accepts |
 | Fill | in the court, buyer takes an offer (or seller an order): goods stall → buyer's warehouse, coin back, tax to the holder, at once; the buyer hauls it out himself |
 | Price board | an object in each court: per good best ask, best bid, depth, last 10 fills; the world hover card shows the last board your men saw (fog) |
@@ -1429,7 +1510,7 @@ an unheld town charges nothing.
 | Hand-off | anywhere both players have a unit within 4 tiles: both confirm one window (cart, chest or porter loads, items, coin) within 60 s; swapped at once, nothing in flight |
 | Escrowed hand-off (Broker) | each side drops its half at the broker's stall when it can; collected once both are in; refunded after 48 h |
 | Contract (2 open, Broker 4) | posted at a stall, coin escrowed: **carry** (take these sealed loads from A to B; the carrier escrows 50% of the declared value), **supply** (deliver n of a good to my warehouse by a time), **escort** (paid when my cart arrives with ≥ 75% of its cargo); sealed loads unload only at B |
-| Work contracts (W-61) | **build** (an ally's men raise one of my sites, paid as they labour) and **guard** (an ally holds my town for n hours, paid an hour at a time): "Peaceful play" |
+| Work contracts (W-61) | **build** (an ally's men raise one of my sites, paid as they labour) and **guard** (an ally holds my town for n hours, paid an hour at a time): "Peaceful play". A warrior's hire for monsters (W-93) is new; its form is [open](impl/paths-rework.md#open-design-items) |
 | Letter of credit (Banker, stall L3) | the banker escrows coin in his strongbox at town B and sells at A a letter for his own fee; the letter is an item named to its buyer, redeemable only by him at B, so a stolen one is worthless |
 
 ### Loot piles (W-46, every fight)
@@ -1459,7 +1540,7 @@ hurts; the player still has his squad, his level and his home strongroom.
 | --- | --- | --- |
 | Capture a cart | an enemy unit beside it 5 s with no owner or ally within 8 tiles: it is his, cargo and all; retaken the same way | the cargo; 5 XP to the squad |
 | Wreck a cart | fight it to 0 HP | a pile |
-| Loot a chest or store | porters at it, no owner unit within 10 tiles: 1 load per 2 s a porter; a store only once its region influence is gone | what they carry |
+| Loot a chest or store | porters at it, no owner unit within 10 tiles: 1 load per 2 s a porter; a store only once its region influence is gone (how this meets W-91's walls and locks is [open](impl/paths-rework.md#open-design-items)) | what they carry |
 | Ambush spots | region JSON `ambush` rects (additive: high ground or woods over a road, 1–3 per route region); bandit lairs on the coast tracks | where bots and raiders wait |
 
 ### Season score and anti-abuse
@@ -1471,7 +1552,7 @@ hurts; the player still has his squad, his level and his home strongroom.
 | Alt funnelling | accounts that shared an IP or device in 7 days cannot hand off, fill, contract or capture carts from each other; one-sided hand-offs only within an alliance, ≤ 300 coin (last-fill value) a day to a receiver; receiving needs account age ≥ 48 h and one fight |
 | Wash trading | same-alliance fills score nothing; a town ignores origin stamps of its own region |
 | Caps | 2–3 carts, 4 chests a region, 1 stall + 1 warehouse a town, 2–4 contracts, a letter ≤ 500 coin |
-| Season start | each player gets his squad and START.food in his home strongroom, no coin and no goods (owner to confirm) |
+| Season start | each player gets what his path starts with ([open](impl/paths-rework.md#open-design-items)) and START.food in his home strongroom, no coin and no goods (owner to confirm) |
 
 ### What changes in today's code
 
@@ -1499,7 +1580,9 @@ touched only on load, unload, pick-up, capture or loot. Bench: 600 units with 40
 
 ## Peaceful play (W-61)
 
-A player can spend a whole season trading or building and still matter. Weights live in code: `src/war/sim/townLevel.ts`
+A player on the builder or trader path spends the whole season at it and still matters (W-83, W-92). Whether the score,
+its caps and these titles stay as they are beside the path ladders is
+[open](impl/paths-rework.md#open-design-items). Weights live in code: `src/war/sim/townLevel.ts`
 (levels, perks), `src/war/net/works.ts` (works), `src/war/world/season.ts` PEACE (score), `server/src/war/contracts.ts`
 GUARD and BUILD, `src/war/sim/economy.ts` WALLS.
 
@@ -1545,7 +1628,8 @@ an icon checklist, the perks as icon chips and the next level's perks greyed.
 
 Posted in a market town's Contracts tab like the others, the reward escrowed from the stall; they need only the stall
 (no merchant node), count against the 2 open contracts, and are taken only by a member of the poster's alliance (his
-men stand among the poster's on the field; a truce for hired foes is not built). The tab is a job board of parchment
+men stand among the poster's on the field; a truce for hired foes is not built). Taking one brings the taker's whole
+group to that region (W-87). The tab is a job board of parchment
 cards (type, reward, route, time left, a rough risk by type, poster) with type filters; posting is four short steps
 (type, where, pay and time, a preview of the card) with the escrowed reward shown as "held until done".
 
@@ -1556,8 +1640,8 @@ cards (type, reward, route, time left, a rough risk by type, poster) with type f
 
 ### Walls that matter
 
-A man's blow or an arrow on a stone wall, gate or tower counts a quarter (`WALLS.stoneMelee`). A raid with no ram (the
-whole army is at most 12) needs over 20 minutes at a stone gate or tower, while a crewed ram breaks the gate in a few
+A man's blow or an arrow on a stone wall, gate or tower counts a quarter (`WALLS.stoneMelee`). A raid with no ram (a
+warrior's whole army is at most 12) needs over 20 minutes at a stone gate or tower, while a crewed ram breaks the gate in a few
 minutes and ladders raise as before: walls stop raids, not sieges. Wood stays cheap and weak (a wooden gate falls to the
 same raid in under 5 minutes). Only a player's walls resist so: a guardian's landmark (neutral or the wild's) keeps the
 full blow, as its raids are tuned (see "Balance"); once an alliance holds it, its stone resists like any other. Seeded
@@ -1573,7 +1657,8 @@ struck down this season, war_player_stats; not the men's lifetime kills).
 
 ### Daily and weekly tasks (W-62, W-73 solo)
 
-Pools, draw and lore: `src/war/net/tasks.ts`, `src/war/net/questLore.ts` `TASK_LORE`; tallies and claims:
+The solo tasks and region mastery assume a fighting army; what a builder or trader draws instead is
+[open](impl/paths-rework.md#open-design-items). Pools, draw and lore: `src/war/net/tasks.ts`, `src/war/net/questLore.ts` `TASK_LORE`; tallies and claims:
 `server/src/war/tasks.ts`. 3 daily and 2 weekly tasks, drawn per player and period (no metric twice), one reroll a day.
 
 - **Partner tasks** need another player: selling to another alliance (`d-sell`, `w-sell`), guard contracts
