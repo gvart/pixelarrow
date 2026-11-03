@@ -914,13 +914,21 @@ comes back to the first step above and may choose differently. Past seasons' boa
 Continue (into the region his group is in, else his home), World map, Settings and Sign out. Players made
 by the dev routes (`/api/war/world/dev/alliance`, `/api/war/dev/seed`, DEV_AUTH only) count as started.
 
-The first hour (W-62, `src/war/net/guide.ts`, online `server/src/war/guide.ts`) runs in the home region: claim a soul,
-gather, drive off the bandit pair, raise a camp, bring goods into a store. W-73 adds a sixth step, the hand-off
+The first hour (W-62, `src/war/net/guide.ts`, online `server/src/war/guide.ts`) is one chain per path (W-83, W-170),
+saved in D1 (0057):
+
+- **Warrior**: claim a soul of his family, gather, drive off the bandit pair, raise a camp, hand-off to the story giver.
+  The fight points only at the guide's own camp of two, which every family wins with no man lost (W-171).
+- **Builder**: gather, build a house of his own, set who may use it, start a workplace with a man in it, hand-off to the
+  builder chain.
+- **Trader**: load the handcart, carry the goods to the next land's town, sell, hire or buy, hand-off to the trader chain.
+  His run goes on in the next land.
+
+W-73 adds the hand-off
 (`GUIDE_NEXT` in `src/war/net/questLore.ts`: "Find {giver} by the well"): of the home's neighbours with a region chain
 (W-65), the one whose exit lies nearest the home town; the marker points at that exit, and the step closes (20 coin)
-when his men reach it or he departs for that region. The chain's giver then takes over with his own "!". The guide
-becomes one per path (W-83); the steps above assume a fighting army and what the other paths do instead is
-[open](impl/paths-rework.md#open-design-items).
+when his men reach it or he departs for that region. The chain's giver then takes over with his own "!".
+The world event card tells a path its own events, and an upcoming one gives way to the guide (W-174).
 
 ## Controls
 
@@ -1832,8 +1840,9 @@ map: **Ares-born** (warriors; id `warlord`, renamed so it never reads as a rival
 
 ### Daily and weekly tasks (W-62, W-73 solo)
 
-The solo tasks and region mastery assume a fighting army; what a builder or trader draws instead is
-[open](impl/paths-rework.md#open-design-items). Pools, draw and lore: `src/war/net/tasks.ts`, `src/war/net/questLore.ts` `TASK_LORE`; tallies and claims:
+A path draws only its own metrics (`PATH_TASKS`, W-172): a builder or trader never gets a fighting-army task. New for them:
+finish a building of your own (`built`), sell carried goods to a town beyond your land (`townSale`). Region mastery is
+hidden for builder and trader (W-173). Tasks pay goods and level points, no score. Pools, draw and lore: `src/war/net/tasks.ts`, `src/war/net/questLore.ts` `TASK_LORE`; tallies and claims:
 `server/src/war/tasks.ts`. 3 daily and 2 weekly tasks, drawn per player and period (no metric twice), one reroll a day.
 
 - **Partner tasks** need another player: selling to another alliance (`d-sell`, `w-sell`), guard contracts

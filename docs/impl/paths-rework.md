@@ -78,8 +78,8 @@ Found while bringing `docs/WAR.md` in line (item 1). Each is a rule the decision
 - [x] "Owner" under W-89. W-125; the recruit-pool table rows are gone.
 - [x] NPC towns against W-44: W-140 which, W-141 prices, W-142 the purse, W-143 standing there, W-148 what pays a level, W-149 who.
 - [x] The hire contract for monsters: W-146 `hunt`, inside the alliance. Guard contracts for empty towns: yes, W-134.
-- [ ] What builders and traders do in the guide, tasks and region mastery, which all assume a fighting army (item 9; item 7 gave
-  them their own story chains, W-147).
+- [x] What builders and traders do in the guide, tasks and region mastery, which all assume a fighting army (item 9; item 7 gave
+  them their own story chains, W-147). W-170..W-175.
 - [x] Hierarchy against older decisions. The crown holder is the king (W-151); vassals stay inside one alliance (W-150).
 - [x] No hegemony by day 28, W-61's caps, what each ladder ranks, W-61's titles. W-160..W-169.
 
@@ -105,10 +105,11 @@ Each item bumps `SIM_VERSION` (`src/sim/version.ts`) and `NET_VERSION` (`src/war
   verify: a seeded solo run on each path. depends on: 5, 6.
 - [x] **8. Feudal hierarchy.** Kings, vassals, titles, tribute, succession on top of W-63.
   verify: scenario tests. depends on: 6; owner answer on the open item.
-- [ ] **9. Winning and HUD.** Remove multi-region UI (`armyPanel.ts`, `roster/state.ts`, `world-view/map.ts`,
+- [x] **9. Winning and HUD.** Remove multi-region UI (`armyPanel.ts`, `roster/state.ts`, `world-view/map.ts`,
   `titleMenu`), guide per path.
   verify: `balance:war`, `hud-reviewer` shots. depends on: 7, 8.
   - [x] Winning half: land-decided win, three path ladders, standings panel, roll of honour (W-160..W-169).
+  - [x] HUD half: one place and one road on the HUD, map and title; a guide and tasks per path; a first fight every family wins; gate shots at three sizes (W-170..W-175).
 
 Items 3 and 4 can run in parallel only if their file sets stay apart; both touch persons and units, so check first.
 
