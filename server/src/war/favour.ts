@@ -1,27 +1,28 @@
 /**
- * W-66 divine favour in D1 (rules and amounts: src/war/net/favour.ts; tables: migrations/0047_war_favour.sql). Per
- * account, never reset by a season. Earned where the events are already written, each hook one call:
+ * W-66, W-84 the demigod's level in D1 (rules and amounts: src/war/net/favour.ts; tables: migrations/0047_war_favour.sql).
+ * Per player, reset with the season (./seasonWipe.ts). Each reason pays only its path (W-111: the SQL checks it, so every
+ * hook stays one call). Earned where the events are already written:
  *
  *   fights won, fought and kills   persons.ts applyFight (fightFavourStmts, in the fight's own batch: written once)
  *   guardians slain                bosses.ts applyBossKill (favourStmts, in the kill's batch)
- *   tasks claimed                  tasks.ts claimTask (addFavour)
- *   story steps and chains         regionDO.ts storied (storyFavour)
- *   encounters                     regionDO.ts met (encounterFavour)
- *   lairs cleared, land held       regionDO.ts outputs (favourTick: a lair turning cleared pays the players with men
- *                                  near it; every LAND_MS each player with men standing in the region is paid for his
- *                                  alliance's claim points there and the region if it owns it, capped an hour)
- *
- * And spent: a newly raised man takes favourBonus of his player's level (claimSoul in persons.ts via `favoured`; the
- * tunnel's raise.ts wires `raiseBonus` to `bonusOf`).
+ *   lairs cleared, land held       regionDO.ts outputs (favourTick)
+ *   work on sites, alliance works  regionDO.ts outputs (builtFavour); goods given to a work: works.ts give
+ *   goods sold                     tradeScore.ts fillHook (cappedStmts)
+ *   goods carried over a border    regionDO.ts arrive
+ *   tasks claimed                  tasks.ts claimTask (addFavour), every path
+ *   story steps and chains         regionDO.ts storied (storyFavour), every path
+ *   encounters                     regionDO.ts met (encounterFavour), every path
  */
 import type { Env } from '../env';
-import { FAVOUR_EARN, FAVOUR_MAX, FAVOUR_XP, favourBonus, favourLevel, favourView, LAND_MS, withFavour, type FavourBonus, type FavourReason, type FavourView } from '../../../src/war/net/favour';
+import { WAR_SEASON } from '../../../src/war/world/alliances';
+import { FAVOUR_EARN, FAVOUR_MAX, FAVOUR_XP, favourLevel, favourView, HOUR_CAP, LAND_MS, PAYS, type FavourReason, type FavourView } from '../../../src/war/net/favour';
+import type { PathId, StartFamily } from '../../../src/war/world/start';
 import type { StoryNote } from '../../../src/war/sim/stories';
 import type { EncNote } from '../../../src/war/sim/encounters';
-import type { FightReport, Snapshot, WarPerson } from '../../../src/war/types';
+import type { FightReport, Snapshot } from '../../../src/war/types';
 import { fightTally } from './persons';
 
-export { favourBonus, favourLevel, withFavour, FAVOUR_EARN, type FavourBonus, type FavourReason, type FavourView };
+export { favourLevel, FAVOUR_EARN, type FavourReason, type FavourView };
 
 /** Log rows kept per player. */
 export const FAVOUR_LOG = 20;
@@ -34,61 +35,88 @@ type DbEnv = Pick<Env, 'DB'>;
 
 /** The level of `x` (an SQL expression of the new total) by the curve. */
 const levelSql = (x: string) => `CASE ${Array.from({ length: FAVOUR_MAX - 1 }, (_, i) => FAVOUR_MAX - i).map((l) => `WHEN ${x} >= ${FAVOUR_XP[l]} THEN ${l}`).join(' ')} ELSE 1 END`;
-const UPSERT = `INSERT INTO war_favour (player_id, xp, level, updated_at) VALUES (?1, ?2, ${levelSql('?2')}, ?3)
+/** W-111: an SQL test that this reason pays player ?1: its path is his, or he has none (dev tools). */
+const paysSql = (reason: FavourReason) => {
+  const only = PAYS[reason];
+  return only ? `COALESCE((SELECT path FROM war_alliance_members WHERE season = ${WAR_SEASON.id} AND player_id = ?1), '${only}') = '${only}'` : '1';
+};
+const upsert = (reason: FavourReason) => `INSERT INTO war_favour (player_id, xp, level, updated_at) SELECT ?1, ?2, ${levelSql('?2')}, ?3 WHERE ${paysSql(reason)}
   ON CONFLICT (player_id) DO UPDATE SET xp = xp + ?2, level = ${levelSql('xp + ?2')}, updated_at = ?3`;
 
-/** The statements that add `amount` favour for `reason` (the total, the level, a log row, the log trimmed). */
+/** The statements that add `amount` favour for `reason` if it pays his path (the total, the level, a log row, the log trimmed). */
 export function favourStmts(db: D1Database, pid: number, amount: number, reason: FavourReason, now: number): D1PreparedStatement[] {
   const n = Math.round(amount);
   if (!(n > 0)) return [];
   return [
-    db.prepare(UPSERT).bind(pid, n, now),
-    db.prepare('INSERT INTO war_favour_log (player_id, at, amount, reason) VALUES (?1, ?2, ?3, ?4)').bind(pid, now, n, reason),
+    db.prepare(upsert(reason)).bind(pid, n, now),
+    db.prepare(`INSERT INTO war_favour_log (player_id, at, amount, reason) SELECT ?1, ?2, ?3, ?4 WHERE ${paysSql(reason)}`).bind(pid, now, n, reason),
     db.prepare('DELETE FROM war_favour_log WHERE player_id = ?1 AND id <= (SELECT id FROM war_favour_log WHERE player_id = ?1 ORDER BY id DESC LIMIT 1 OFFSET ?2)').bind(pid, FAVOUR_LOG),
   ];
 }
 
-/** Add favour to the player (land: within FAVOUR_EARN.land.hourCap an hour, across regions). Returns what was added. */
-export async function addFavour(env: DbEnv, pid: number, amount: number, reason: FavourReason, now = Date.now()): Promise<number> {
-  const db = env.DB;
-  let n = Math.round(amount);
-  if (!db || !(n > 0)) return 0;
-  if (reason === 'land') {
-    const hour = Math.floor(now / HOUR);
-    const r = await db.prepare('SELECT land_hour, land_n FROM war_favour WHERE player_id = ?1').bind(pid).first<{ land_hour: number; land_n: number }>();
-    const had = r?.land_hour === hour ? r.land_n : 0;
-    n = Math.min(n, FAVOUR_EARN.land.hourCap - had);
-    if (n <= 0) return 0;
-    await db.batch([
-      ...favourStmts(db, pid, n, reason, now),
-      db.prepare('UPDATE war_favour SET land_hour = ?2, land_n = ?3 WHERE player_id = ?1').bind(pid, hour, had + n),
-    ]);
-    return n;
-  }
-  await db.batch(favourStmts(db, pid, n, reason, now));
-  return n;
+/** favourStmts within the reason's HOUR_CAP (land, goods sold and carried; one count: only one path earns each). */
+export async function cappedStmts(db: D1Database, pid: number, amount: number, reason: FavourReason, now: number): Promise<D1PreparedStatement[]> {
+  const cap = HOUR_CAP[reason];
+  if (cap === undefined) return favourStmts(db, pid, amount, reason, now);
+  const hour = Math.floor(now / HOUR);
+  const r = await db.prepare('SELECT land_hour, land_n FROM war_favour WHERE player_id = ?1').bind(pid).first<{ land_hour: number; land_n: number }>();
+  const had = r?.land_hour === hour ? r.land_n : 0, n = Math.min(Math.round(amount), cap - had);
+  if (!(n > 0)) return [];
+  return [
+    ...favourStmts(db, pid, n, reason, now),
+    db.prepare(`UPDATE war_favour SET land_hour = ?2, land_n = ?3 WHERE player_id = ?1 AND ${paysSql(reason)}`).bind(pid, hour, had + n),
+  ];
 }
 
-/** The player's favour: total, level, title, the bonus and what earned it recently (newest first). */
+/** Add favour to the player, if the reason pays his path and within its cap. */
+export async function addFavour(env: DbEnv, pid: number, amount: number, reason: FavourReason, now = Date.now()): Promise<void> {
+  const db = env.DB;
+  if (!db) return;
+  const stmts = await cappedStmts(db, pid, amount, reason, now);
+  if (stmts.length) await db.batch(stmts);
+}
+
+/** The player's level, path and what earned it recently (newest first). */
 export async function getFavour(env: DbEnv, pid: number): Promise<FavourView> {
   const db = env.DB;
   if (!db) return favourView(0);
-  const [row, log] = await Promise.all([
+  const [row, log, way] = await Promise.all([
     db.prepare('SELECT xp FROM war_favour WHERE player_id = ?1').bind(pid).first<{ xp: number }>(),
     db.prepare('SELECT at, amount, reason FROM war_favour_log WHERE player_id = ?1 ORDER BY id DESC LIMIT ?2').bind(pid, FAVOUR_LOG).all<FavourView['recent'][number]>(),
+    db.prepare('SELECT path, family FROM war_alliance_members WHERE season = ?1 AND player_id = ?2').bind(WAR_SEASON.id, pid).first<{ path: PathId | null; family: StartFamily | null }>(),
   ]);
-  return favourView(row?.xp ?? 0, log.results);
+  return favourView(row?.xp ?? 0, log.results, way?.path ?? null, way?.family ?? null);
 }
 
-/** The bonus the player's newly raised men take now (raise.ts: `raiseBonus` = this). */
-export async function bonusOf(env: DbEnv, pid: number): Promise<FavourBonus> {
-  const r = await env.DB?.prepare('SELECT level FROM war_favour WHERE player_id = ?1').bind(pid).first<{ level: number }>();
-  return favourBonus(r?.level ?? 1);
+/** W-84: the demigod levels of these players (the region room keeps its men's perks up to date); no row: level 1. */
+export async function levelsOf(db: D1Database, pids: readonly number[]): Promise<Map<number, number>> {
+  const rows = (await db.prepare('SELECT player_id AS pid, level FROM war_favour WHERE player_id IN (SELECT value FROM json_each(?1))').bind(JSON.stringify(pids)).all<{ pid: number; level: number }>()).results;
+  return new Map(pids.map((p) => [p, rows.find((r) => r.pid === p)?.level ?? 1]));
 }
 
-/** A newly raised man with his player's favour bonus (unspent points, his kit's rarity). */
-export async function favoured(db: D1Database, pid: number, p: WarPerson): Promise<WarPerson> {
-  return withFavour(p, await bonusOf({ DB: db }, pid));
+/** Favour of labour owed by player, paid in lumps of BUILT_LUMP so the log reads and D1 stays quiet (each room's own). */
+const BUILT = new WeakMap<object, Map<number, number>>();
+const BUILT_LUMP = 10;
+/**
+ * W-111: a room's labour since the last call, worker-seconds by player (sites and alliance works): what to pay now.
+ * Pure but for the room's running count.
+ */
+export function builtFavour(room: object, secs: readonly (readonly [number, number])[]): [number, number][] {
+  let owed = BUILT.get(room);
+  if (!owed) BUILT.set(room, (owed = new Map()));
+  const touched = new Set<number>(), out: [number, number][] = [];
+  for (const [pid, n] of secs) {
+    owed.set(pid, (owed.get(pid) ?? 0) + n * FAVOUR_EARN.built.labour);
+    touched.add(pid);
+  }
+  for (const pid of touched) {
+    const have = owed.get(pid)!;
+    if (have < BUILT_LUMP) continue;
+    const pay = Math.floor(have);
+    owed.set(pid, have - pay);
+    out.push([pid, pay]);
+  }
+  return out;
 }
 
 /** A fight's favour per player: won or fought, and his men's kills (at most killCap). Pure. */

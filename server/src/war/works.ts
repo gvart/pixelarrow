@@ -28,6 +28,7 @@ import { warRegion } from './regions';
 import { json } from './persons';
 import { scorePeace, statStmt } from './peace';
 import { tallyStmt } from './tasks';
+import { FAVOUR_EARN, favourStmts } from './favour';
 import { worldStub } from './world/routes';
 
 const EPS = 1e-6;
@@ -143,6 +144,7 @@ export async function give(env: Env, pid: number, id: string, goods: Record<stri
       db.prepare(`UPDATE war_work_gifts SET ${add('goods', k, n)} WHERE season = ?1 AND alliance = ?2 AND work = ?3 AND player_id = ?4`).bind(season, a, w.id, pid),
     ]),
     ...(from ? [] : [tallyStmt(db, pid, 'workGoods', Object.values(take).reduce((x, y) => x + y, 0), now, season)]), // E7 tasks
+    ...(from ? [] : favourStmts(db, pid, Object.values(take).reduce((x, y) => x + y, 0) * FAVOUR_EARN.built.gift, 'built', now)), // W-111 a builder's level
   ]);
   await finish(env, a, w.id, now, season);
   return take;

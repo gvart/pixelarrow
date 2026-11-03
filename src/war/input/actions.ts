@@ -133,7 +133,7 @@ const DEFS: ActionDef[] = [
   def('panel.crown', 'region', 'View and panels', 'The crown and council', [k('KeyC')]),
   def('panel.holdings', 'region', 'View and panels', 'Holdings: your settlements', [k('KeyO')]),
   def('panel.works', 'region', 'View and panels', 'Alliance works and titles', [k('KeyU')]),
-  def('panel.favour', 'region', 'View and panels', 'Divine favour', [k('KeyF', { shift: true })]),
+  def('panel.favour', 'region', 'View and panels', 'Your perks', [k('KeyF', { shift: true })]),
   def('replay.open', 'region', 'View and panels', 'Replay the last 3 minutes', [k('KeyR', { shift: true })]),
   def('go.world', 'region', 'View and panels', 'Back to the world map', [k('KeyW', { shift: true })]),
 

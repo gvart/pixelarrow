@@ -28,5 +28,7 @@
  *    raids hit lightly guarded buildings, a lairCleared event (clients on 8 reload).
  * 10: paths-limits (W-85, W-101..W-104): a soul's gate and the cart cap read the owner's path, Emporos no longer adds a
  *    cart (clients on 9 reload).
+ * 11: paths-perks (W-110..W-114): perks through men, sites and carts, classes by level, the shield-bearer in the
+ *    skirmishers, souls of every family at every site (clients on 10 reload).
  */
-export const SIM_VERSION = 10;
+export const SIM_VERSION = 11;

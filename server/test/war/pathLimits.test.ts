@@ -60,7 +60,7 @@ describe('the roster and the start', () => {
     const dev = await devLogin(8110);
     expect(await pathOf(DB(), dev.playerId)).toEqual({ path: null, family: null });
     const b = await onPath(8111, 'builder');
-    expect(await pathOf(DB(), b.playerId)).toEqual({ path: 'builder', family: null });
+    expect(await pathOf(DB(), b.playerId)).toMatchObject({ path: 'builder', family: null });
   });
 });
 

@@ -41,12 +41,12 @@ export interface StartView {
   family: StartFamily | null;
 }
 
-interface StartRow { alliance: number; home: string | null; started_at: number | null; path: PathId | null; family: StartFamily | null }
+interface StartRow { alliance: number; home: string | null; started_at: number | null; path: PathId | null; family: StartFamily | null; level: number | null }
 
 const quotaOf = (env: Env, a: AllianceId) => splitQuota(Number(env.WAR_CAP) || DEFAULT_CAP)[a];
 
 async function startRow(d: D1Database, pid: number): Promise<StartRow | null> {
-  return d.prepare('SELECT alliance, home, started_at, path, family FROM war_alliance_members WHERE season = ?1 AND player_id = ?2').bind(WAR_SEASON.id, pid).first<StartRow>();
+  return d.prepare('SELECT alliance, home, started_at, path, family, (SELECT level FROM war_favour WHERE player_id = ?2) AS level FROM war_alliance_members WHERE season = ?1 AND player_id = ?2').bind(WAR_SEASON.id, pid).first<StartRow>();
 }
 
 /** W-68: his home region this season (his alliance's home when he picked none; null: no alliance yet). */
@@ -58,7 +58,7 @@ export async function homeRegion(d: D1Database, pid: number): Promise<string | n
 /** W-85, W-101: his path as the limits read it (NO_PATH: no alliance yet, or a dev player). */
 export async function pathOf(d: D1Database, pid: number): Promise<PlayerPath> {
   const r = await startRow(d, pid);
-  return r?.path ? { path: r.path, family: r.family } : NO_PATH;
+  return r?.path ? { path: r.path, family: r.family, level: r.level ?? 1 } : NO_PATH;
 }
 
 /** Has he men (any not dead)? A dev-seeded player is started without the menu's steps. */

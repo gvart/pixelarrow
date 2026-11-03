@@ -1,6 +1,6 @@
 /**
  * W-73 region mastery and the wild's solo deeds (docs/WAR.md "Wild fill, chiefs and hidden quests" › "Region mastery").
- * Shared by the server (server/src/war/mastery.ts: D1, the tallies, favour, the banner deed) and the HUD's mastery chip
+ * Shared by the server (server/src/war/mastery.ts: D1, the tallies, the banner deed) and the HUD's mastery chip
  * (src/war/view/hud/mastery.ts; offline it keeps the progress itself from the local sim).
  *
  *  - A deed of the wild (wildDeeds, pure over a tick's snapshot and events): a lair turning cleared (every player with
@@ -8,8 +8,7 @@
  *    of where he fell), a hidden quest done (its owner). They feed the solo tasks (lair, chief, secret) and mastery.
  *  - Mastery, per player and region: every lair the region was built with (RegionData.lairs: a respawning lair counts
  *    once, by its id), every chief among them (by chief id) and every hidden quest (hiddenStories). A quest's own
- *    lairs and chiefs (added later) feed the tasks only. All done: the region is mastered once, for MASTERY.favour divine
- *    favour, the banner deed on his men standing there (src/war/sim/deeds.ts masteryDeed) and a badge on the chip.
+ *    lairs and chiefs (added later) feed the tasks only. All done: the region is mastered once, for the banner deed on his men standing there (src/war/sim/deeds.ts masteryDeed) and a badge on the chip.
  */
 import { hiddenStories } from '../../data/warStories';
 import type { RegionData, Snapshot, WarEvent } from '../types';
@@ -17,8 +16,6 @@ import type { RegionData, Snapshot, WarEvent } from '../types';
 export const MASTERY = {
   /** Tiles from a lair (or a fallen chief) within which a player's living men share the deed. */
   near: 20,
-  /** Divine favour for mastering a region. */
-  favour: 300,
 } as const;
 
 export type WildKind = 'lair' | 'chief' | 'secret';

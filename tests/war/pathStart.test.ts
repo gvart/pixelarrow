@@ -16,7 +16,8 @@ describe('path starts', () => {
   it('a warrior starts about 6 men, all of his one family, under his cap', () => {
     for (const f of FAMILY_IDS) {
       const men = pathStart('warrior', f);
-      expect(men.length, f).toBe(6);
+      expect(men.length, f).toBeGreaterThanOrEqual(6);
+      expect(men.length, f).toBeLessThanOrEqual(7); // W-112: the skirmishers' screen is one man more
       expect(men.length, f).toBeLessThanOrEqual(PATHS.warrior.cap);
       for (const c of men) expect(FAMILY_OF[c as keyof typeof FAMILY_OF], `${f}: ${c}`).toBe(f);
     }

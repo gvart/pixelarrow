@@ -63,14 +63,14 @@ describe('the Tunnel of Shades', () => {
     expect(await settleTunnelFor(DB(), me.playerId, T0 + 120 * MIN)).toMatchObject({ alive: ARMY_MAX, nextAt: null, pending: 0, raised: 0 });
   });
 
-  it('a raised man takes his player\'s divine favour bonus', async () => {
+  it('W-110: a raised man comes plain, whatever his player\'s level: perks act on the living, not on the kit', async () => {
     const me = await wiped(7666);
     await DB().prepare('INSERT INTO war_favour (player_id, xp, level, updated_at) VALUES (?1, 0, 6, ?2)').bind(me.playerId, T0).run();
     await settleTunnelFor(DB(), me.playerId, T0);
     expect((await settleTunnelFor(DB(), me.playerId, T0 + 10 * MIN)).raised).toBe(1);
     const man = await DB().prepare("SELECT level, points, gear FROM war_persons WHERE player_id = ?1 AND state = 'active'").bind(me.playerId).first<{ level: number; points: number; gear: string }>();
-    expect(man).toMatchObject({ level: 1, points: 2 });
-    expect(Object.values(JSON.parse(man!.gear) as Record<string, { rarity: string }>).every((it) => it.rarity === 'uncommon')).toBe(true);
+    expect(man).toMatchObject({ level: 1, points: 0 });
+    expect(Object.values(JSON.parse(man!.gear) as Record<string, { rarity: string }>).every((it) => it.rarity === 'common')).toBe(true);
   });
 
   it('the wipe state: 0 alive, 6 pending, the first rise 10 min after the read; GET /api/war/tunnel and the roster show it', async () => {

@@ -19,6 +19,7 @@ import { mobKindOf, MOBS } from './mobs';
 import { F, MAX_FLAGS, SKILLS } from './skills';
 import { woundedShare } from './soldiers';
 import { CIV, workRate } from './civilians';
+import type { PerkFx } from '../../data/warPerks';
 
 export interface WarStats {
   maxHp: number;
@@ -130,6 +131,13 @@ export function freshHero(cls: string, id = `war-${classId(cls)}`): Hero {
     look: { skin: 0, hair: 0, hairStyle: 0, beard: 0, tunic: 'tunicWhite' }, equip, kills: 0, battles: 0,
     group: def.group, attrs: { ...def.attrs }, points: 0, perks: [], wound: 0, cls: cid,
   };
+}
+
+/** W-84: a baked man with his demigod's perks on top (src/data/warPerks.ts), past the clamp: they are the player's, not the man's. */
+export function withPerks(s: WarStats, fx: PerkFx): WarStats {
+  if (!fx.hp && !fx.dmg && !fx.armor && !fx.wounded) return s;
+  const hp = 1 + (fx.hp ?? 0), dmg = 1 + (fx.dmg ?? 0);
+  return { ...s, maxHp: Math.round(s.maxHp * hp), dmg: s.dmg * dmg, rangedDmg: s.rangedDmg * dmg, armor: s.armor + (fx.armor ?? 0), ws: Math.min(0.9, s.ws + (fx.wounded ?? 0)) };
 }
 
 /** Item powers that work as war flags. */
