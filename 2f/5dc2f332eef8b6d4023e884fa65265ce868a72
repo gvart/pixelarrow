@@ -1,0 +1,21 @@
+scripts/war/town-board-shots.mjs
+  s_a7d5d20f628c80::t_624e3d7f8f039d 1-46
+src/war/view/hud/market.ts
+  s_a7d5d20f628c80::t_c20bdf443d889f 48,475,487-488,498,506,540-547
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "2f5dc2f332eef8b6d4023e884fa65265ce868a72",
+  "prompts": {},
+  "sessions": {
+    "s_a7d5d20f628c80": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1afee479-b44b-46d2-a159-a540e44e7fb8",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
