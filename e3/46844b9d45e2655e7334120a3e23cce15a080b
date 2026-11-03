@@ -1,0 +1,105 @@
+tests/war/worldView.test.ts
+  s_a7d5d20f628c80::t_0199a98b95ab95 86
+src/war/world/events.ts
+  s_a7d5d20f628c80::t_0199a98b95ab95 8-9,12-13,48,50
+docs/impl/paths-rework.md
+  s_a7d5d20f628c80::t_0199a98b95ab95 41,74,84,108,111
+src/war/world-view/source.ts
+  s_a7d5d20f628c80::t_0199a98b95ab95 18-19,41-42,45,47-48,164,170,174,224,234,238,314,320,323-338,371
+  s_a7d5d20f628c80::t_0504dbcdbd57af 128
+src/war/world-view/main.ts
+  s_a7d5d20f628c80::t_0199a98b95ab95 15,19,26,28,30,36,43-44,83-95,138,181,194,242,251,253,255-256,259-260,264-265,267,297-312,319,321,329-333,336-337
+server/test/war/victory.test.ts
+  s_a7d5d20f628c80::t_0199a98b95ab95 1-151
+server/src/war/contracts.ts
+  s_a7d5d20f628c80::t_0199a98b95ab95 42,348-349,384,418,437
+src/war/view/hud/titles.ts
+  s_a7d5d20f628c80::t_0199a98b95ab95 2,11-13
+src/war/net/protocol.ts
+  s_a7d5d20f628c80::t_0199a98b95ab95 48
+server/src/account/deletionMap.ts
+  s_a7d5d20f628c80::t_0199a98b95ab95 137,143-147
+docs/WAR.md
+  s_a7d5d20f628c80::t_0199a98b95ab95 292-295,298,303-317,706,805,820,825-835,1726,1731,1761-1763,1828-1831
+server/src/war/tradeScore.ts
+  s_a7d5d20f628c80::t_0199a98b95ab95 2,4,18,23-24,26,33-34
+server/src/war/routes.ts
+  s_a7d5d20f628c80::t_0199a98b95ab95 81-82,206-207
+  s_a7d5d20f628c80::t_7fc26649bf7ecd 208
+server/test/war/peace.test.ts
+  s_a7d5d20f628c80::t_0199a98b95ab95 14,151
+server/test/war/haul.test.ts
+  s_a7d5d20f628c80::t_0199a98b95ab95 2,4
+docs/impl/global-war-rebuild.md
+  s_a7d5d20f628c80::t_0199a98b95ab95 161-170
+server/src/war/world/seasonWar.ts
+  s_a7d5d20f628c80::t_0199a98b95ab95 2-5,7-8,10-11,13-15,21,24,28-29,38-40
+server/migrations/0056_war_ladders.sql
+  s_a7d5d20f628c80::t_0199a98b95ab95 1-8
+src/war/view/hud/peaceCards.ts
+  s_a7d5d20f628c80::t_0199a98b95ab95 169,191,194,196
+src/war/view/hud/explain.ts
+  s_a7d5d20f628c80::t_0199a98b95ab95 58,60,65,67
+scripts/war/standings-shots.mjs
+  s_a7d5d20f628c80::t_0199a98b95ab95 1-28
+server/src/war/peace.ts
+  s_a7d5d20f628c80::t_0199a98b95ab95 2-5
+src/war/net/world.ts
+  s_a7d5d20f628c80::t_0199a98b95ab95 21,162,166,171
+src/war/scenarios/peace.ts
+  s_a7d5d20f628c80::t_0199a98b95ab95 4,125,128-130
+server/src/war/world/world.ts
+  s_a7d5d20f628c80::t_0199a98b95ab95 25,29,109,111,280
+src/war/net/ladders.ts
+  s_a7d5d20f628c80::t_0199a98b95ab95 1-38
+server/src/war/room.ts
+  s_a7d5d20f628c80::t_0199a98b95ab95 226
+server/src/war/market.ts
+  s_a7d5d20f628c80::t_0199a98b95ab95 199-201,210-211,268,272-273,284
+server/test/war/seasonWipe.test.ts
+  s_a7d5d20f628c80::t_0199a98b95ab95 22
+src/war/world/season.ts
+  s_a7d5d20f628c80::t_0199a98b95ab95 5-6,53,60
+tests/war/peaceHud.test.ts
+  s_a7d5d20f628c80::t_0199a98b95ab95 36
+server/src/war/world/worldDO.ts
+  s_a7d5d20f628c80::t_0199a98b95ab95 18-19,51,193-198
+  s_a7d5d20f628c80::t_712fa0bfc4959a 199-200
+server/src/war/works.ts
+  s_a7d5d20f628c80::t_0199a98b95ab95 29
+server/test/war/tasks.test.ts
+  s_a7d5d20f628c80::t_0199a98b95ab95 59,153
+server/src/account/delete.ts
+  s_a7d5d20f628c80::t_0199a98b95ab95 16-17,34-35,186-189
+server/src/war/tradeRoutes.ts
+  s_a7d5d20f628c80::t_0199a98b95ab95 174
+src/war/view/hud/peace.ts
+  s_a7d5d20f628c80::t_0199a98b95ab95 14
+src/war/net/works.ts
+  s_a7d5d20f628c80::t_0199a98b95ab95 32,34,39-41,44,48
+server/src/war/tasks.ts
+  s_a7d5d20f628c80::t_0199a98b95ab95 4,13,117
+  s_a7d5d20f628c80::t_4df12f6fdc2566 118,126
+server/test/war/worldEvents.test.ts
+  s_a7d5d20f628c80::t_0199a98b95ab95 21-22,97,117,204-206,217,219,229
+server/src/war/ladders.ts
+  s_a7d5d20f628c80::t_0199a98b95ab95 1-62
+server/test/war/ladders.test.ts
+  s_a7d5d20f628c80::t_0199a98b95ab95 1-206
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "e346844b9d45e2655e7334120a3e23cce15a080b",
+  "prompts": {},
+  "sessions": {
+    "s_a7d5d20f628c80": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1afee479-b44b-46d2-a159-a540e44e7fb8",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
