@@ -1,0 +1,19 @@
+src/war/view/hud/crown.ts
+  s_a7d5d20f628c80::t_4a3ecee09944fd 140,189,197,343
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "adfa0ebdeefa0f424924da103f0e53efa6a0feeb",
+  "prompts": {},
+  "sessions": {
+    "s_a7d5d20f628c80": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1afee479-b44b-46d2-a159-a540e44e7fb8",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
