@@ -76,7 +76,7 @@ export const chip = {
   /** A place ("Krios Glacier"). */
   where: (text: string) => chip.any(glyph('ui:map', 16), text),
   /** Alliance score (+n, war or peace). */
-  score: (text: string, war = false) => chip.any(glyph(war ? 'ui:swords' : 'ui:laurel', 16), text, war ? 'war' : 'good', `${war ? 'War' : 'Peace'} score for your alliance`),
+  score: (text: string) => chip.any(glyph('ui:laurel', 16), text, 'good', 'Event points for your alliance'),
   /**
    * The input that does it: a key as a keycap ('B'), 'rmb' as a right-click mouse, 'auto' as "by itself"; with the
    * thing it acts on (an icon, HTML) after it.

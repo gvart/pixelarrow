@@ -85,7 +85,7 @@ export const boosted = (reward: Record<string, number>, boost: number): Record<s
 const view = (kind: TaskKind, p: TaskPeriod, r: TaskRow, t: TaskDef, tally: Partial<Record<TaskMetric, number>>, boost: number): TaskView => ({
   kind, slot: r.slot, id: t.id, title: t.title, hint: t.hint, metric: t.metric,
   have: Math.max(0, Math.min(t.n, (tally[t.metric] ?? 0) - r.base)), need: t.n, per: t.per ?? 1, unit: t.unit ?? '',
-  reward: boosted(t.reward, boost), score: t.score, pts: t.pts, claimed: r.claimed_at !== null, ends: p.ends,
+  reward: boosted(t.reward, boost), claimed: r.claimed_at !== null, ends: p.ends,
 });
 
 /** The player's tasks now (drawn on first read), their progress, rerolls left and the wonder's boost. */

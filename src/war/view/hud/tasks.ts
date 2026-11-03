@@ -2,7 +2,7 @@
  * W-62 E7 the Tasks panel (rules: src/war/net/tasks.ts, server/src/war/tasks.ts), in the red-figure kit like the Works
  * window (./peace.ts): the corner button "Tasks" (a gold pip when one is ready to claim) opens a window with today's
  * three tasks and the week's two, each a card: its icon, title, the hint as a dim line, a progress bar with have / need,
- * the reward and score chips, and Claim (when done) or the reroll (one free a UTC day). The resets count down in the
+ * the reward chips, and Claim (when done) or the reroll (one free a UTC day). The resets count down in the
  * section heads. Online it reads /api/war/tasks (polled each minute for the pip); offline it shows the draw, unprogressed.
  * Each card names its giver and story (../../net/questLore.ts), where to go and how it pays (Claim here, into the home
  * strongroom); Track pins it top right with a marker on its nearest target (./quest.ts). Progress ticks show as
@@ -48,7 +48,7 @@ export function offlineTasks(pid: number, now: number, path: PathId | null = nul
   const tasks: TaskView[] = [];
   for (const kind of ['daily', 'weekly'] as const) {
     const p = periodOf(kind, now);
-    drawTasks(WAR_SEASON.id, p, pid, true, path).forEach((t, slot) => tasks.push({ kind, slot, id: t.id, title: t.title, hint: t.hint, metric: t.metric, have: 0, need: t.n, per: t.per ?? 1, unit: t.unit ?? '', reward: t.reward, score: t.score, pts: t.pts, claimed: false, ends: p.ends }));
+    drawTasks(WAR_SEASON.id, p, pid, true, path).forEach((t, slot) => tasks.push({ kind, slot, id: t.id, title: t.title, hint: t.hint, metric: t.metric, have: 0, need: t.n, per: t.per ?? 1, unit: t.unit ?? '', reward: t.reward, claimed: false, ends: p.ends }));
   }
   return { tasks, rerolls: TASKS.rerolls, boost: 1, now };
 }
@@ -60,7 +60,7 @@ const amount = (t: TaskView) => `${fmt(t.have / t.per)}/${fmt(t.need / t.per)}${
 
 let closer: (() => void) | null = null;
 
-/** One task card: the compact card (./qcard.ts), its goal with the metric's icon, the bar, progress, reward and score
+/** One task card: the compact card (./qcard.ts), its goal with the metric's icon, the bar, progress and reward
  * as chips, Track and Claim or the reroll; the title, giver, story, where and how it pays behind (i) / hover. */
 function card(t: TaskView, rerolls: number, online: boolean): string {
   const f = Math.min(1, t.have / t.need), done = ready(t);
@@ -74,7 +74,7 @@ function card(t: TaskView, rerolls: number, online: boolean): string {
   const pay = t.claimed ? 'Paid into your home strongroom' : done ? 'Done: press Claim, the reward goes into your home strongroom' : 'When done, press Claim here: the reward goes into your home strongroom';
   return `<div class="tk-card rf-well${done ? ' ready' : ''}${t.claimed ? ' claimed' : ''}">${qcard({
     key, icon: METRIC_ICON[t.metric](), goal: lore.goal, bar: done || t.claimed ? 1 : f,
-    chips: chip.prog(amount(t), done || t.claimed) + chip.reward(t.reward) + chip.score(`+${t.pts}`, t.score !== 'peace'),
+    chips: chip.prog(amount(t), done || t.claimed) + chip.reward(t.reward),
     cta: `${trk}${act}`,
     more: details({ title: t.title, story: lore.story, lines: [['Goal', t.hint], ['Where', lore.where], ['Pay', pay]], from: `${lore.giver.name}, ${lore.giver.title}` }),
   })}</div>`;
@@ -195,12 +195,12 @@ export function mountTasks(s: SandboxScene, mk: Mk): void {
       return render();
     }
     if (a !== 'claim' && a !== 'reroll') return;
-    void s.sim.api<{ reward?: Record<string, number>; pts?: number; task?: TaskView; error?: string; message?: string }>('POST', `tasks/${t.dataset.k}/${t.dataset.s}/${a}`).then((r) => {
+    void s.sim.api<{ reward?: Record<string, number>; task?: TaskView; error?: string; message?: string }>('POST', `tasks/${t.dataset.k}/${t.dataset.s}/${a}`).then((r) => {
       bad = !r || !!r.error;
-      msg = !r ? 'no answer' : r.error ? (r.message ?? r.error) : a === 'claim' ? `claimed: ${Object.entries(r.reward ?? {}).map(([g, n]) => `${n} ${g}`).join(', ')}${r.pts ? ` · +${fmt(r.pts)} score` : ''}` : `new task: ${r.task?.title ?? ''}`;
+      msg = !r ? 'no answer' : r.error ? (r.message ?? r.error) : a === 'claim' ? `claimed: ${Object.entries(r.reward ?? {}).map(([g, n]) => `${n} ${g}`).join(', ')}` : `new task: ${r.task?.title ?? ''}`;
       const done = v.tasks.find((x) => x.kind === t.dataset.k && x.slot === Number(t.dataset.s));
       if (r && !r.error && a === 'claim' && done) {
-        questBanner({ kind: 'done', head: 'Reward paid', title: done.title, giver: `${TASK_LORE[done.metric].giver.name}, ${TASK_LORE[done.metric].giver.title}`, reward: r.reward ?? done.reward, pay: `Into your home strongroom${r.pts ? ` · +${fmt(r.pts)} ${done.score} score for your alliance` : ''}` });
+        questBanner({ kind: 'done', head: 'Reward paid', title: done.title, giver: `${TASK_LORE[done.metric].giver.name}, ${TASK_LORE[done.metric].giver.title}`, reward: r.reward ?? done.reward, pay: 'Into your home strongroom' });
         if (isTracked(taskKey(done))) track(null);
       }
       void load();

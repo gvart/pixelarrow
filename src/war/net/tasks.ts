@@ -6,7 +6,7 @@
  * carrying wood or stone home, goods stowed in, fights won, foes struck down, souls claimed, caravans in, guard hours,
  * labour, goods given to works, coin sold to another alliance, contracts filled, and the wild a player can face alone
  * (W-73 solo loop: chiefs slain, hidden quests finished, encounters seen through, lairs cleared). A task done is claimed for its reward
- * (coin and goods into the home strongroom) and score (peace or war, capped a day per alliance); one free reroll a day.
+ * (coin and goods into the home strongroom); one free reroll a day.
  * Shared by the server and the HUD's Tasks panel (src/war/view/hud/tasks.ts).
  */
 import { hashString, Rng } from '../../sim/rng';
@@ -25,7 +25,6 @@ export const PATH_TASKS: Record<PathId, readonly TaskMetric[]> = {
   trader: ['townSale', 'caravan', 'sellAlliance', 'contract', 'gatherWood', 'gatherStone', 'deliver'],
 };
 export type TaskKind = 'daily' | 'weekly';
-export type TaskScore = 'peace' | 'war';
 
 export interface TaskDef {
   id: string; metric: TaskMetric; title: string; hint: string;
@@ -33,52 +32,52 @@ export interface TaskDef {
   n: number;
   /** Shown as n / per with this unit (hours: 3600, 'h'). */
   per?: number; unit?: string;
-  reward: Record<string, number>; score: TaskScore; pts: number;
+  reward: Record<string, number>;
   /** W-73: needs another player (a buyer abroad, a contract's poster): drawn only while the player has partners. */
   partner?: true;
 }
 
 const H = 3600;
 export const DAILY: readonly TaskDef[] = [
-  { id: 'd-wood', metric: 'gatherWood', title: 'Fell timber', hint: 'Your men carry 60 wood home to a store', n: 60, reward: { coin: 25 }, score: 'peace', pts: 2 },
-  { id: 'd-stone', metric: 'gatherStone', title: 'Work the quarry', hint: 'Your men carry 40 stone home to a store', n: 40, reward: { coin: 25 }, score: 'peace', pts: 2 },
-  { id: 'd-deliver', metric: 'deliver', title: 'Fill the stores', hint: 'Stow 50 goods into a warehouse, stall or strongroom', n: 50, reward: { coin: 20 }, score: 'peace', pts: 2 },
-  { id: 'd-wins', metric: 'wins', title: 'Carry the field', hint: 'Win 2 fights: your men walk off, the foe does not', n: 2, reward: { coin: 30 }, score: 'war', pts: 3 },
-  { id: 'd-kills', metric: 'kills', title: 'Thin their ranks', hint: 'Your men strike down 8 foes', n: 8, reward: { coin: 30 }, score: 'war', pts: 3 },
-  { id: 'd-soul', metric: 'soul', title: 'Call a soul', hint: 'Claim a soul at a shrine, ruin, battlefield or lair', n: 1, reward: { coin: 20, food: 10 }, score: 'war', pts: 2 },
-  { id: 'd-caravan', metric: 'caravan', title: 'Bring a caravan in', hint: 'Arrive in a region with goods on your men or carts', n: 1, reward: { coin: 35 }, score: 'peace', pts: 3 },
-  { id: 'd-guard', metric: 'guard', title: 'Stand guard', hint: 'Hold a town for an hour under a guard contract', n: H, per: H, unit: 'h', reward: { coin: 35 }, score: 'war', pts: 3, partner: true },
-  { id: 'd-labour', metric: 'labour', title: 'Lend your hands', hint: 'An hour of labour at a work or a build contract', n: H, per: H, unit: 'h', reward: { coin: 25 }, score: 'peace', pts: 2 },
-  { id: 'd-work', metric: 'workGoods', title: 'Feed the works', hint: 'Give 40 goods to an alliance work', n: 40, reward: { coin: 20 }, score: 'peace', pts: 3 },
-  { id: 'd-sell', metric: 'sellAlliance', title: 'Trade abroad', hint: 'Sell 150 coin of goods to another alliance', n: 150, reward: { coin: 20 }, score: 'peace', pts: 3, partner: true },
-  { id: 'd-chief', metric: 'chief', title: 'Bring down a chief', hint: 'Your men slay a named chief of the wild', n: 1, reward: { coin: 35 }, score: 'war', pts: 3 },
-  { id: 'd-secret', metric: 'secret', title: 'Follow a hidden trail', hint: 'Finish a hidden quest in a region', n: 1, reward: { coin: 30 }, score: 'peace', pts: 3 },
-  { id: 'd-encounter', metric: 'encounter', title: 'Answer the road', hint: 'See a random encounter through to its end', n: 1, reward: { coin: 25 }, score: 'peace', pts: 2 },
-  { id: 'd-lair', metric: 'lair', title: 'Clear the roads', hint: 'Your men clear 2 lairs', n: 2, reward: { coin: 30 }, score: 'war', pts: 3 },
-  { id: 'd-built', metric: 'built', title: 'Raise a roof', hint: 'Finish a building of your own', n: 1, reward: { coin: 30 }, score: 'peace', pts: 3 },
-  { id: 'd-town', metric: 'townSale', title: 'Sell it far from home', hint: 'Sell 100 coin of carried goods to a town beyond their land', n: 100, reward: { coin: 30 }, score: 'peace', pts: 3 },
-  { id: 'd-contract', metric: 'contract', title: 'Keep your word', hint: 'Fill a contract (carry, supply, escort, build, guard)', n: 1, reward: { coin: 30 }, score: 'peace', pts: 3, partner: true },
+  { id: 'd-wood', metric: 'gatherWood', title: 'Fell timber', hint: 'Your men carry 60 wood home to a store', n: 60, reward: { coin: 25 } },
+  { id: 'd-stone', metric: 'gatherStone', title: 'Work the quarry', hint: 'Your men carry 40 stone home to a store', n: 40, reward: { coin: 25 } },
+  { id: 'd-deliver', metric: 'deliver', title: 'Fill the stores', hint: 'Stow 50 goods into a warehouse, stall or strongroom', n: 50, reward: { coin: 20 } },
+  { id: 'd-wins', metric: 'wins', title: 'Carry the field', hint: 'Win 2 fights: your men walk off, the foe does not', n: 2, reward: { coin: 30 } },
+  { id: 'd-kills', metric: 'kills', title: 'Thin their ranks', hint: 'Your men strike down 8 foes', n: 8, reward: { coin: 30 } },
+  { id: 'd-soul', metric: 'soul', title: 'Call a soul', hint: 'Claim a soul at a shrine, ruin, battlefield or lair', n: 1, reward: { coin: 20, food: 10 } },
+  { id: 'd-caravan', metric: 'caravan', title: 'Bring a caravan in', hint: 'Arrive in a region with goods on your men or carts', n: 1, reward: { coin: 35 } },
+  { id: 'd-guard', metric: 'guard', title: 'Stand guard', hint: 'Hold a town for an hour under a guard contract', n: H, per: H, unit: 'h', reward: { coin: 35 }, partner: true },
+  { id: 'd-labour', metric: 'labour', title: 'Lend your hands', hint: 'An hour of labour at a work or a build contract', n: H, per: H, unit: 'h', reward: { coin: 25 } },
+  { id: 'd-work', metric: 'workGoods', title: 'Feed the works', hint: 'Give 40 goods to an alliance work', n: 40, reward: { coin: 20 } },
+  { id: 'd-sell', metric: 'sellAlliance', title: 'Trade abroad', hint: 'Sell 150 coin of goods to another alliance', n: 150, reward: { coin: 20 }, partner: true },
+  { id: 'd-chief', metric: 'chief', title: 'Bring down a chief', hint: 'Your men slay a named chief of the wild', n: 1, reward: { coin: 35 } },
+  { id: 'd-secret', metric: 'secret', title: 'Follow a hidden trail', hint: 'Finish a hidden quest in a region', n: 1, reward: { coin: 30 } },
+  { id: 'd-encounter', metric: 'encounter', title: 'Answer the road', hint: 'See a random encounter through to its end', n: 1, reward: { coin: 25 } },
+  { id: 'd-lair', metric: 'lair', title: 'Clear the roads', hint: 'Your men clear 2 lairs', n: 2, reward: { coin: 30 } },
+  { id: 'd-built', metric: 'built', title: 'Raise a roof', hint: 'Finish a building of your own', n: 1, reward: { coin: 30 } },
+  { id: 'd-town', metric: 'townSale', title: 'Sell it far from home', hint: 'Sell 100 coin of carried goods to a town beyond their land', n: 100, reward: { coin: 30 } },
+  { id: 'd-contract', metric: 'contract', title: 'Keep your word', hint: 'Fill a contract (carry, supply, escort, build, guard)', n: 1, reward: { coin: 30 }, partner: true },
 ];
 export const WEEKLY: readonly TaskDef[] = [
-  { id: 'w-wood', metric: 'gatherWood', title: 'The great felling', hint: 'Your men carry 600 wood home to a store', n: 600, reward: { coin: 150, marble: 10 }, score: 'peace', pts: 8 },
-  { id: 'w-wins', metric: 'wins', title: 'A season of victories', hint: 'Win 10 fights', n: 10, reward: { coin: 200 }, score: 'war', pts: 10 },
-  { id: 'w-caravan', metric: 'caravan', title: 'Merchant roads', hint: 'Bring 4 caravans in', n: 4, reward: { coin: 200 }, score: 'peace', pts: 10 },
-  { id: 'w-sell', metric: 'sellAlliance', title: 'Silver from abroad', hint: 'Sell 1500 coin of goods to other alliances', n: 1500, reward: { coin: 150, silver: 5 }, score: 'peace', pts: 10, partner: true },
-  { id: 'w-guard', metric: 'guard', title: 'The long watch', hint: 'Hold towns for 6 hours under guard contracts', n: 6 * H, per: H, unit: 'h', reward: { coin: 220 }, score: 'war', pts: 10, partner: true },
-  { id: 'w-work', metric: 'workGoods', title: 'Pillar of the alliance', hint: 'Give 400 goods to alliance works', n: 400, reward: { coin: 150 }, score: 'peace', pts: 10 },
-  { id: 'w-souls', metric: 'soul', title: 'Gather the shades', hint: 'Claim 5 souls', n: 5, reward: { coin: 120, food: 40 }, score: 'war', pts: 8 },
-  { id: 'w-chiefs', metric: 'chief', title: 'Chief-breaker', hint: 'Your men slay 4 named chiefs', n: 4, reward: { coin: 200 }, score: 'war', pts: 10 },
-  { id: 'w-secrets', metric: 'secret', title: 'Keeper of secrets', hint: 'Finish 3 hidden quests', n: 3, reward: { coin: 160 }, score: 'peace', pts: 8 },
-  { id: 'w-lairs', metric: 'lair', title: 'Warden of the roads', hint: 'Your men clear 12 lairs', n: 12, reward: { coin: 180 }, score: 'war', pts: 10 },
-  { id: 'w-built', metric: 'built', title: 'A town of your making', hint: 'Finish 5 buildings of your own', n: 5, reward: { coin: 180 }, score: 'peace', pts: 10 },
-  { id: 'w-town', metric: 'townSale', title: 'A name on every road', hint: 'Sell 1000 coin of carried goods to towns beyond their land', n: 1000, reward: { coin: 180 }, score: 'peace', pts: 10 },
-  { id: 'w-contract', metric: 'contract', title: 'A trusted name', hint: 'Fill 5 contracts', n: 5, reward: { coin: 200 }, score: 'peace', pts: 10, partner: true },
+  { id: 'w-wood', metric: 'gatherWood', title: 'The great felling', hint: 'Your men carry 600 wood home to a store', n: 600, reward: { coin: 150, marble: 10 } },
+  { id: 'w-wins', metric: 'wins', title: 'A season of victories', hint: 'Win 10 fights', n: 10, reward: { coin: 200 } },
+  { id: 'w-caravan', metric: 'caravan', title: 'Merchant roads', hint: 'Bring 4 caravans in', n: 4, reward: { coin: 200 } },
+  { id: 'w-sell', metric: 'sellAlliance', title: 'Silver from abroad', hint: 'Sell 1500 coin of goods to other alliances', n: 1500, reward: { coin: 150, silver: 5 }, partner: true },
+  { id: 'w-guard', metric: 'guard', title: 'The long watch', hint: 'Hold towns for 6 hours under guard contracts', n: 6 * H, per: H, unit: 'h', reward: { coin: 220 }, partner: true },
+  { id: 'w-work', metric: 'workGoods', title: 'Pillar of the alliance', hint: 'Give 400 goods to alliance works', n: 400, reward: { coin: 150 } },
+  { id: 'w-souls', metric: 'soul', title: 'Gather the shades', hint: 'Claim 5 souls', n: 5, reward: { coin: 120, food: 40 } },
+  { id: 'w-chiefs', metric: 'chief', title: 'Chief-breaker', hint: 'Your men slay 4 named chiefs', n: 4, reward: { coin: 200 } },
+  { id: 'w-secrets', metric: 'secret', title: 'Keeper of secrets', hint: 'Finish 3 hidden quests', n: 3, reward: { coin: 160 } },
+  { id: 'w-lairs', metric: 'lair', title: 'Warden of the roads', hint: 'Your men clear 12 lairs', n: 12, reward: { coin: 180 } },
+  { id: 'w-built', metric: 'built', title: 'A town of your making', hint: 'Finish 5 buildings of your own', n: 5, reward: { coin: 180 } },
+  { id: 'w-town', metric: 'townSale', title: 'A name on every road', hint: 'Sell 1000 coin of carried goods to towns beyond their land', n: 1000, reward: { coin: 180 } },
+  { id: 'w-contract', metric: 'contract', title: 'A trusted name', hint: 'Fill 5 contracts', n: 5, reward: { coin: 200 }, partner: true },
 ];
 export const taskDef = (id: string): TaskDef | undefined => DAILY.find((t) => t.id === id) ?? WEEKLY.find((t) => t.id === id);
 const pool = (k: TaskKind) => (k === 'daily' ? DAILY : WEEKLY);
 
-/** Tasks a period; free rerolls a UTC day; score a task may add per alliance and UTC day (peace kind 'tasks', war 'feats'). */
-export const TASKS = { daily: 3, weekly: 2, rerolls: 1, peaceCap: 24, warCap: 24 } as const;
+/** Tasks a period; free rerolls a UTC day. */
+export const TASKS = { daily: 3, weekly: 2, rerolls: 1 } as const;
 /**
  * W-73 partners: a player has a realistic partner for the partner tasks (`partner`) while at least `min` other members
  * of his alliance did anything the tally counts in the last `days` UTC days (today included); else he draws solo.
@@ -124,7 +123,7 @@ export function rerollTask(season: number, p: Pick<TaskPeriod, 'kind' | 'key'>, 
 export interface TaskView {
   kind: TaskKind; slot: number; id: string; title: string; hint: string; metric: TaskMetric;
   have: number; need: number; per: number; unit: string;
-  reward: Record<string, number>; score: TaskScore; pts: number;
+  reward: Record<string, number>;
   claimed: boolean; ends: number;
 }
 /** The panel's whole answer. */
