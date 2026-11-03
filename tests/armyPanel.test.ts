@@ -26,9 +26,9 @@ describe('army panel state', () => {
     expect(v.pick).toBe(false);
   });
   it('after a wipe: the tunnel countdown', () => {
-    const v = armyText({ ...base, men: 0, here: 0, wipe: { alive: 0, nextAt: 462_000, now: 0 } });
+    const v = armyText({ ...base, men: 0, here: 0, wipe: { alive: 0, floor: 6, nextAt: 462_000, now: 0 } });
     expect(v.line).toBe('Next man rises in 7:42 · 0/6');
     expect(v.tone).toBe('gold');
-    expect(armyText({ ...base, here: 0, wipe: { alive: 0, nextAt: null, now: 0 } }).line).toBe('Next man rises in … · 0/6');
+    expect(armyText({ ...base, here: 0, wipe: { alive: 0, floor: 6, nextAt: null, now: 0 } }).line).toBe('Next man rises in … · 0/6');
   });
 });

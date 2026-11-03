@@ -374,7 +374,7 @@ export function destroyedScreen(stage: HTMLElement, home: string, t: TunnelInfo,
     <div class="mn-sub" style="margin:0 0 10px;font-style:italic">The shades of your fallen walk back through the Tunnel of Shades in ${esc(name)}.</div>
     <div style="margin-bottom:4px"><span data-k="h"></span> <b data-k="t" style="color:#bfe0ff">…</b></div>
     <div data-k="l" style="font-size:12px;margin-bottom:6px"></div>
-    <div class="rf-dim" style="font-size:11.5px;margin-bottom:12px">Until ${TUNNEL.floor} men stand again, one rises every ${TUNNEL.everyMs / 60_000} minutes. Past ${TUNNEL.floor}, men come only from souls.</div>
+    <div class="rf-dim" style="font-size:11.5px;margin-bottom:12px">Until ${TUNNEL.floor} men stand again, or your army's limit if that is less, one rises every ${TUNNEL.everyMs / 60_000} minutes. Past that, men come only from souls.</div>
     <button class="mn-big pri" data-k="watch">${icon('act-move', 24)}<div><div class="t">Watch the tunnel</div><div class="d">Go home to ${esc(name)}</div></div><kbd>Enter</kbd></button>
     <button class="mn-big" data-k="back">${icon('act-cancel', 24)}<div><div class="t">Back</div></div></button>
   </div>`;

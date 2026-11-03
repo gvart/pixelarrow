@@ -211,7 +211,7 @@ export class Interact {
 
     // W-60: a soul under the cursor: the lead squad goes to claim him (as the prompt's Claim button)
     const so = soulAt(s, t.x, t.y);
-    if (so) return [act(`claim soul (${SandboxRoster.className(so.cls).toLowerCase()} L${so.level})`, 'act-assign', so, 0x9fd4ff, () => claimSoul(s, own[0], so), claimWhy(s)), move];
+    if (so) return [act(`claim soul (${SandboxRoster.className(so.cls).toLowerCase()} L${so.level})`, 'act-assign', so, 0x9fd4ff, () => claimSoul(s, own[0], so), claimWhy(s, so)), move];
 
     // M6k trade (./trade/tradeControls.ts): own carts, loot piles, chests
     const th = s.trade.at(t);

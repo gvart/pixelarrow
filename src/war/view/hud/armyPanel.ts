@@ -1,11 +1,11 @@
 /**
  * The command panel's army state (bottom centre, ./hud.ts): with nothing selected the panel shows his army instead of
- * leaving the bottom empty. Men of ARMY_MAX across all regions (the roster: the wounded count, W-68 captives do not),
+ * leaving the bottom empty. Men of his path's cap across all regions (the roster: the wounded count, W-68 captives do not),
  * how many stand here; a click (or the
  * select-all key) selects the men here; none here: where they are; with no man who can fight the Tunnel of Shades countdown
  * (the clock of ./tunnel.ts, never a second one).
  */
-import { clock, TUNNEL } from '../../sim/tunnel';
+import { clock } from '../../sim/tunnel';
 import { keys } from '../../input/keys';
 import type { SandboxScene } from '../SandboxScene';
 import { myTeam } from '../side';
@@ -22,7 +22,7 @@ export interface ArmyView {
   /** Elsewhere: region name and men there. */
   away: [string, number][];
   /** The tunnel with no man who can fight (null: not wiped): men who can fight, the next rise and the clock now. */
-  wipe: { alive: number; nextAt: number | null; now: number } | null;
+  wipe: { alive: number; floor: number; nextAt: number | null; now: number } | null;
   /** The select-all key's label. */
   key: string;
 }
@@ -31,7 +31,7 @@ export interface ArmyView {
 export function armyText(v: ArmyView): { count: string; line: string; tone: 'gold' | 'dim'; pick: boolean } {
   // over the cap (a sandbox scenario, men from souls past it): the count alone, not "41 / 12"
   const count = `<b>${v.men}</b>${v.men > v.max ? '' : ` / ${v.max}`} men · <b>${v.here}</b> here`;
-  if (v.wipe) return { count, line: `Next man rises in ${v.wipe.nextAt === null ? '…' : clock(v.wipe.nextAt - v.wipe.now)} · ${v.wipe.alive}/${TUNNEL.floor}`, tone: 'gold', pick: false };
+  if (v.wipe) return { count, line: `Next man rises in ${v.wipe.nextAt === null ? '…' : clock(v.wipe.nextAt - v.wipe.now)} · ${v.wipe.alive}/${v.wipe.floor}`, tone: 'gold', pick: false };
   if (v.here) return { count, line: `Click${v.key ? ` or ${v.key}` : ''}: select the ${v.here} here`, tone: 'dim', pick: true };
   const away = v.away.map(([r, n]) => `${n} in ${r}`).join(', ');
   return { count, line: away ? `No men here · ${away}` : 'No men here', tone: 'dim', pick: false };
@@ -75,7 +75,7 @@ export function mountArmyPanel(s: SandboxScene, card: HTMLElement): { refresh(sh
       const away = new Map<string, number>();
       if (s.sim.net) for (const r of R.rows()) if (r.where === 'away' && !(r.p.hero.cls ?? '').startsWith('civ_')) away.set(r.region, (away.get(r.region) ?? 0) + 1);
       const t = tunnelHost(s), wiped = !!t && t.ever && t.alive === 0 && t.pending > 0;
-      const v = armyText({ ...R.army(), ...(s.sim.net ? {} : { men: armyMen(s) }), here: mineHere().length, away: [...away], wipe: wiped ? { alive: t.alive, nextAt: t.nextAt, now: t.now() } : null, key: keys.label('sel.all') });
+      const v = armyText({ ...R.army(), ...(s.sim.net ? {} : { men: armyMen(s) }), here: mineHere().length, away: [...away], wipe: wiped ? { alive: t.alive, floor: t.floor, nextAt: t.nextAt, now: t.now() } : null, key: keys.label('sel.all') });
       pick = v.pick;
       el.classList.toggle('pick', pick);
       if (cnt.innerHTML !== v.count) cnt.innerHTML = v.count;
