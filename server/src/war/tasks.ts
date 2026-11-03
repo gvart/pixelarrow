@@ -15,6 +15,7 @@
  *  - Reroll: TASKS.rerolls a UTC day across his daily and weekly tasks, of a task not yet claimed.
  *  - W-73 solo: a player whose alliance has fewer than PARTNERS.min other members active (a tally row) in the last
  *    PARTNERS.days UTC days draws and rerolls no partner task (selling abroad, guard and market contracts).
+ *  - W-172: he draws only what his path does (PATH_TASKS).
  */
 import { ApiError } from '../errors';
 import { WAR_SEASON } from '../../../src/war/world/alliances';
@@ -25,6 +26,7 @@ import { batch, ensureHolder, putStmt, strongroom } from './holders';
 import { scorePeace } from './peace';
 import { fightTally } from './persons';
 import { addFavour, FAVOUR_EARN } from './favour';
+import { pathOf } from './start';
 import { allianceOf } from './world/members';
 import { perksOf } from './works';
 
@@ -68,7 +70,7 @@ async function rowsOf(db: D1Database, pid: number, p: TaskPeriod, season: number
   const q = () => db.prepare('SELECT slot, task, base, claimed_at FROM war_tasks WHERE season = ?1 AND player_id = ?2 AND period = ?3 ORDER BY slot').bind(season, pid, p.key).all<TaskRow>();
   const got = (await q()).results;
   if (got.length) return got;
-  await db.batch(drawTasks(season, p, pid, await soloOf(db, pid, now, season)).map((t, slot) => db.prepare('INSERT OR IGNORE INTO war_tasks (season, player_id, period, slot, task) VALUES (?1, ?2, ?3, ?4, ?5)').bind(season, pid, p.key, slot, t.id)));
+  await db.batch(drawTasks(season, p, pid, await soloOf(db, pid, now, season), (await pathOf(db, pid)).path).map((t, slot) => db.prepare('INSERT OR IGNORE INTO war_tasks (season, player_id, period, slot, task) VALUES (?1, ?2, ?3, ?4, ?5)').bind(season, pid, p.key, slot, t.id)));
   return (await q()).results;
 }
 
@@ -135,7 +137,7 @@ export async function rerollOne(db: D1Database, pid: number, kind: TaskKind, slo
   const { v, t } = await find(db, pid, kind, slot, now, season), p = periodOf(kind, now);
   if (t.claimed) throw new ApiError(409, 'claimed', 'Claimed tasks stay');
   if (v.rerolls <= 0) throw new ApiError(409, 'no_reroll', 'No reroll left today');
-  const next = rerollTask(season, p, pid, v.tasks.filter((x) => x.kind === kind).map((x) => x.id), t.id, await soloOf(db, pid, now, season));
+  const next = rerollTask(season, p, pid, v.tasks.filter((x) => x.kind === kind).map((x) => x.id), t.id, await soloOf(db, pid, now, season), (await pathOf(db, pid)).path);
   if (!next) throw new ApiError(409, 'no_task', 'Nothing else to draw');
   const base = (await tallyOf(db, pid, p.from, p.to, season))[next.metric] ?? 0, day = dayOf(now);
   const u = await db

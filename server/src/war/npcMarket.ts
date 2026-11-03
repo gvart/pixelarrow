@@ -21,6 +21,7 @@ import { statStmt } from './peace';
 import { claimForJoin, IN_ARMY, insertPerson, joinCheck, joinError, nameFor, newId, WORKER } from './persons';
 import type { WarRoom } from './room';
 import { pathOf } from './start';
+import { tallyStmt } from './tasks';
 import { allianceOf } from './world/members';
 
 interface Purse { purse: number; read: number | null; day: number; minted: number }
@@ -147,7 +148,7 @@ export async function npcDeal(env: Pick<Env, 'DB'>, room: WarRoom, pid: number, 
     const cut = await tributeCut(db, pid, plan.coin), kept = plan.coin - cut;
     try {
       await batch(db, [
-        ...plan.stmts, statStmt(db, pid, 'sold', plan.coin), ...(abroad > 0 ? await cappedStmts(db, pid, abroad * FAVOUR_EARN.sold, 'sold', now) : []),
+        ...plan.stmts, statStmt(db, pid, 'sold', plan.coin), ...(abroad > 0 ? [tallyStmt(db, pid, 'townSale', abroad, now), ...(await cappedStmts(db, pid, abroad * FAVOUR_EARN.sold, 'sold', now))] : []),
         ...(home ? [ensureHolder(db, strongroom(pid), 'strongroom', { pid }, now), putStmt(db, strongroom(pid), 'coin', kept, town)] : []),
         ...(cut > 0 ? [putStmt(db, tributePlace(town, pid), 'coin', cut)] : []),
       ]);

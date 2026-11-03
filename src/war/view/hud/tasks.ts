@@ -10,6 +10,7 @@
  */
 import { DAY_MS, drawTasks, periodOf, TASKS, type TaskKind, type TaskMetric, type TasksView, type TaskView } from '../../net/tasks';
 import { WAR_SEASON } from '../../world/alliances';
+import type { PathId } from '../../world/start';
 import type { SandboxScene } from '../SandboxScene';
 import { draggable } from './drag';
 import { glyph } from './glyph';
@@ -32,6 +33,7 @@ const METRIC_ICON: Record<TaskMetric, () => string> = {
   wins: () => glyph('ui:swords', 30), kills: () => glyph('ui:skull', 30), soul: () => icon('res-asphodel', 32),
   caravan: () => icon('trade-wagon', 32), guard: () => glyph('ui:shield', 30), labour: () => glyph('ui:people', 30),
   workGoods: () => icon('node-engineer-master-builder', 32), sellAlliance: () => icon('node-merchant-emporos', 32), contract: () => icon('trade-contract', 32),
+  built: () => icon('act-build', 32), townSale: () => icon('trade-wagon', 32),
   chief: () => glyph('ui:beast', 30), secret: () => glyph('ui:eye', 30), encounter: () => glyph('ui:march', 30), lair: () => glyph('ui:raid', 30),
 };
 
@@ -42,11 +44,11 @@ export const until = (ms: number) => {
 };
 
 /** The offline view: this player's draw (alone offline: no partner tasks, W-73), nothing done. */
-export function offlineTasks(pid: number, now: number): TasksView {
+export function offlineTasks(pid: number, now: number, path: PathId | null = null): TasksView {
   const tasks: TaskView[] = [];
   for (const kind of ['daily', 'weekly'] as const) {
     const p = periodOf(kind, now);
-    drawTasks(WAR_SEASON.id, p, pid, true).forEach((t, slot) => tasks.push({ kind, slot, id: t.id, title: t.title, hint: t.hint, metric: t.metric, have: 0, need: t.n, per: t.per ?? 1, unit: t.unit ?? '', reward: t.reward, score: t.score, pts: t.pts, claimed: false, ends: p.ends }));
+    drawTasks(WAR_SEASON.id, p, pid, true, path).forEach((t, slot) => tasks.push({ kind, slot, id: t.id, title: t.title, hint: t.hint, metric: t.metric, have: 0, need: t.n, per: t.per ?? 1, unit: t.unit ?? '', reward: t.reward, score: t.score, pts: t.pts, claimed: false, ends: p.ends }));
   }
   return { tasks, rerolls: TASKS.rerolls, boost: 1, now };
 }
@@ -112,7 +114,8 @@ export function mountTasks(s: SandboxScene, mk: Mk): void {
   draggable(win, '.rf-head');
   tipper(win, tip);
   const online = () => !!s.sim.net;
-  let v: TasksView = offlineTasks(s.sim.playerId ?? 0, Date.now()), msg = '', bad = false;
+  const way = () => sandboxRoster(s).way.path;
+  let v: TasksView = offlineTasks(s.sim.playerId ?? 0, Date.now(), way()), msg = '', bad = false;
   // progress since the last read (by task key): ticks as toasts, a task done as a banner (not on the first read)
   let seen: Map<string, { have: number; id: string }> | null = null;
   const feedback = () => {
@@ -163,7 +166,7 @@ export function mountTasks(s: SandboxScene, mk: Mk): void {
     if (online()) {
       const r = await s.sim.api<TasksView>('GET', 'tasks');
       if (r?.tasks) v = r;
-    } else v = offlineTasks(s.sim.playerId ?? 0, Date.now());
+    } else v = offlineTasks(s.sim.playerId ?? 0, Date.now(), way());
     feedback();
     for (const t of v.tasks) restoreTrack(tracker(taskKey(t)));
     render();
@@ -211,7 +214,7 @@ export function mountTasks(s: SandboxScene, mk: Mk): void {
   if (import.meta.env.DEV) (window as unknown as { __tasks: unknown }).__tasks = {
     view: (x: TasksView) => ((v = x), feedback(), render()),
     open: () => toggle(true),
-    offline: (pid: number, now = Date.now()) => ((v = offlineTasks(pid, now)), render()),
+    offline: (pid: number, now = Date.now()) => ((v = offlineTasks(pid, now, way())), render()),
     DAY_MS,
   };
 }
