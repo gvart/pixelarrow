@@ -1,0 +1,50 @@
+src/war/sim/soldiers.ts
+  s_a7d5d20f628c80::t_7a31b34ad637f2 8-9
+src/sim/version.ts
+  s_a7d5d20f628c80::t_1f64a4c9b0ef11 29-30
+  s_a7d5d20f628c80::t_6b08116fbc8de1 32
+src/war/sim/index.ts
+  s_a7d5d20f628c80::t_18a2900b61e651 80,385-386
+  s_a7d5d20f628c80::t_7a31b34ad637f2 82,612,3282,3288-3293,3949-3950
+  s_a7d5d20f628c80::t_4d742abdb2944f 3951
+src/war/sim/tunnel.ts
+  s_a7d5d20f628c80::t_18a2900b61e651 4-5,11-15,25-26,28,33-34,77-79
+src/war/types.ts
+  s_a7d5d20f628c80::t_7a31b34ad637f2 123,729-730,732-737,855
+src/war/world/start.ts
+  s_a7d5d20f628c80::t_7a31b34ad637f2 6-7,20-22,25-28,42-89,107
+src/data/professions.ts
+  s_a7d5d20f628c80::t_18a2900b61e651 106
+tests/war/pathLimits.test.ts
+  s_a7d5d20f628c80::t_1f64a4c9b0ef11 10,25,31,39
+  s_a7d5d20f628c80::t_85dc56ee55ad73 1-9,11-24,26-30,32-38,40-162
+src/war/sim/trade.ts
+  s_a7d5d20f628c80::t_7a31b34ad637f2 25-26
+src/war/net/guide.ts
+  s_a7d5d20f628c80::t_18a2900b61e651 146-147,151
+src/war/sim/souls.ts
+  s_a7d5d20f628c80::t_7a31b34ad637f2 6-7,19,74,77-78,176,178
+tests/war/carts.test.ts
+  s_a7d5d20f628c80::t_cc1313f823575a 142-143,145-147,149
+  s_a7d5d20f628c80::t_1f64a4c9b0ef11 11,27,29,44,108,114-115,118,122,128-136,138-141,144,148,150
+  s_a7d5d20f628c80::t_83e176bf05c84b 137
+  s_a7d5d20f628c80::t_326f76c11d7c9c 151
+src/war/net/protocol.ts
+  s_a7d5d20f628c80::t_18a2900b61e651 47,58,129,285-286,288
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "9e8e71bbbbcdcb5d4884a3d2b11cff9d0a45a8cf",
+  "prompts": {},
+  "sessions": {
+    "s_a7d5d20f628c80": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1afee479-b44b-46d2-a159-a540e44e7fb8",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
