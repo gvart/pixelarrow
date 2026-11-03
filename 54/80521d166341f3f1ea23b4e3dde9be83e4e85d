@@ -1,0 +1,23 @@
+docs/WAR.md
+  s_a7d5d20f628c80::t_c05065421b2cd9 749,881-897,920,924-927,1028,1055,1178
+src/war/world/start.ts
+  s_a7d5d20f628c80::t_c05065421b2cd9 23
+.claude/skills/pixelarrow-playbook/SKILL.md
+  s_a7d5d20f628c80::t_c05065421b2cd9 16
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "5480521d166341f3f1ea23b4e3dde9be83e4e85d",
+  "prompts": {},
+  "sessions": {
+    "s_a7d5d20f628c80": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1afee479-b44b-46d2-a159-a540e44e7fb8",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
