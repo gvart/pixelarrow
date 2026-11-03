@@ -8,7 +8,7 @@ const thermi: SettlementNet = { id: 7, centre: 70, x: 100, y: 100, r: 24, name: 
 const larissa: WorldSettlement = { id: 9, region: 'achelous', x: 200, y: 200, r: 24, name: 'Larissa', lord_pid: 1, lord: 'You', level: 4, overlord_id: null, tribute_pct: 0, people: 3 };
 const ctx = (over: Partial<SettleCtx> = {}): SettleCtx => ({
   s: thermi, viewer: 'visitor', detail: null, world: [larissa], realm: [larissa], men: 2, town: null, inbox: null,
-  form: { open: null, kind: 'vassal', tribute: 12, from: null, bond: 500 }, msg: '', bad: false, online: true, now: 0, ...over,
+  form: { open: null, from: null, bond: 500 }, msg: '', bad: false, online: true, now: 0, ...over,
 });
 const offer = (o: Partial<OfferRow>): OfferRow => ({ id: 1, kind: 'settle', from_pid: 3, from_name: 'Myrto', from_settlement: null, to_settlement: 7, to_name: 'Thermi', tribute_pct: 0, bond: 0, state: 'open', expires_at: 3_600_000 * 47, ends_at: null, ...o });
 
@@ -46,17 +46,15 @@ describe('W-63 settlement HUD', () => {
     expect(settlementCard(ctx({ men: 6 }))).not.toMatch(/data-sa="terms" disabled/);
   });
 
-  it('the terms form: vassal with the tribute slider at most 30 %, or join', () => {
-    const v = settlementCard(ctx({ men: 8, form: { open: 'terms', kind: 'vassal', tribute: 12, from: 9, bond: 500 } }));
-    expect(v).toContain('type="range" min="0" max="30"');
-    expect(v).toContain('Thermi pays 12% of the goods');
-    const j = settlementCard(ctx({ men: 8, form: { open: 'terms', kind: 'join', tribute: 12, from: 9, bond: 500 } }));
+  it('the terms form: it joins your land; oaths are no terms', () => {
+    const j = settlementCard(ctx({ men: 8, form: { open: 'terms', from: 9, bond: 500 } }));
     expect(j).toContain('Kallias becomes a citizen and you its lord');
+    expect(j).not.toContain('type="range"');
   });
 
-  it('a vassal lord may rebel; an overlord may garrison; a pending ask can be withdrawn', () => {
+  it('a sworn lord shows his overlord and share; an overlord may garrison; a pending ask can be withdrawn', () => {
     const vas = settlementCard(ctx({ s: { ...thermi, role: 'lord', overlord: 9, tribute: 15 }, viewer: 'lord' }));
-    expect(vas).toContain('data-sa="rebel"');
+    expect(vas).not.toContain('data-sa="rebel"');
     expect(vas).toContain('Larissa');
     expect(vas).toContain('15%');
     const over = settlementCard(ctx({ s: { ...thermi, overlord: 9 }, viewer: 'overlord' }));
@@ -67,7 +65,7 @@ describe('W-63 settlement HUD', () => {
   });
 
   it('the Holdings panel words each offer and its accept, with a clock', () => {
-    expect(offerText(offer({ kind: 'vassal', from_settlement: 9, tribute_pct: 12, from_name: 'Kallias' }), [larissa], true)).toContain('becomes a vassal of <b>Larissa</b>');
+    expect(offerText(offer({ kind: 'join', from_name: 'Kallias' }), [larissa], true)).toContain('demands <b>Thermi</b> join his land');
     const html = holdingsHtml({ inbox: { incoming: [offer({})], outgoing: [], truces: [] }, realm: [larissa], world: [larissa], now: 0, online: true, msg: '', bad: false });
     expect(html).toContain('Give a plot…');
     expect(html).toContain('data-sa="refuse:1"');
@@ -78,15 +76,14 @@ describe('W-63 settlement HUD', () => {
     expect(crownToast({ kind: 'pactBroken', text: '<b>' })).toContain('&lt;b&gt;');
   });
 
-  it('accepting vassal terms or a join asks first; offline buttons say why; a request in flight waits', () => {
-    const base = { inbox: { incoming: [offer({ id: 2, kind: 'vassal', from_settlement: 9, tribute_pct: 12 })], outgoing: [], truces: [] }, realm: [larissa], world: [larissa], now: 0, online: true, msg: '', bad: false };
-    expect(askFirst('vassal')).toMatch(/pays tribute/);
+  it('accepting a join asks first; offline buttons say why; a request in flight waits', () => {
+    const base = { inbox: { incoming: [offer({ id: 2, kind: 'join', from_settlement: 9 })], outgoing: [], truces: [] }, realm: [larissa], world: [larissa], now: 0, online: true, msg: '', bad: false };
     expect(askFirst('join')).toMatch(/become a citizen/);
     expect(askFirst('settle')).toBeNull();
     expect(holdingsHtml(base)).not.toContain('hd-ask');
     const armed = holdingsHtml({ ...base, armed: 'accept:2' });
     expect(armed).toMatch(/class="rf-tbtn st-bad sure" data-sa="accept:2"/);
-    expect(armed).toContain('Click Swear fealty again to confirm');
+    expect(armed).toContain('Click Yield again to confirm');
     expect(holdingsHtml({ ...base, online: false })).toMatch(/data-sa="accept:2" disabled data-tip="[^"]*offline: answers need the server/);
     const busy = holdingsHtml({ ...base, busy: true });
     expect(busy).toContain('class="st-busy"');

@@ -5,7 +5,7 @@
  *                its level ring, name and your standing; click for the settlement card (./settleCards.ts): level,
  *                banner, lord, overlord and tribute, vassals, citizens and plots, truces, the next level's needs and
  *                the actions your standing allows (ask to settle with the banner warning, offer terms, garrison,
- *                truce, rebel); disabled ones say why
+ *                truce); disabled ones say why
  *   top right    Holdings (the corner button, a count when something waits): your settlements, requests and offers
  *                with their clocks, accept or refuse (a plot request opens the plot picker on the ground: ../plots.ts),
  *                what you sent, your truces
@@ -61,7 +61,7 @@ export function mountSettlements(s: SandboxScene, mk: Mk): void {
   let msg = '', bad = false, ver = 0, pinned: number | null = null;
   /** A request in flight (the actions wait); the Holdings accept armed by a first click, until a second. */
   let busy = false, armed: string | null = null, disarm = 0;
-  const form: SettleForm = { open: null, kind: 'vassal', tribute: 10, from: null, bond: 500 };
+  const form: SettleForm = { open: null, from: null, bond: 500 };
   const me = () => (online() ? s.sim.playerId : MOCK_ME);
   const plots = new PlotLayer(s, mk);
 
@@ -168,12 +168,11 @@ export function mountSettlements(s: SandboxScene, mk: Mk): void {
     if (busy && k !== 'close' && k !== 'goto') return;
     if (armed && a !== armed) (armed = null), renderHoldings();
     if (k === 'close-form') return ((form.open = null), ver++);
-    if (k === 'terms' || k === 'truce' || k === 'rebel') {
+    if (k === 'terms' || k === 'truce') {
       form.open = form.open === k ? null : k;
       form.from ??= realm().find((r) => r.id !== x?.id)?.id ?? null;
       return ver++;
     }
-    if (k === 'kind') return ((form.kind = arg as SettleForm['kind']), ver++);
     if (k === 'bond') return ((form.bond = Math.max(1, Math.min(SETTLE_UI.bondMax, form.bond + id))), ver++);
     if (k === 'holdings') return toggleHoldings(true);
     if (k === 'close') return toggleHoldings(false);
@@ -182,17 +181,16 @@ export function mountSettlements(s: SandboxScene, mk: Mk): void {
     if (k === 'accept') return accept(id);
     if (!x) return;
     if (k === 'settle') return void post(`settlements/${x.id}/settle`).then((r) => answer(r, `Asked: ${x.lordName} answers within ${left(SETTLE_UI.offerMs)}`));
-    if (k === 'send-terms') return void post(`settlements/${x.id}/terms`, form.kind === 'vassal' ? { kind: 'vassal', from: form.from, tribute: form.tribute } : { kind: 'join' }).then((r) => answer(r, 'Terms sent'));
+    if (k === 'send-terms') return void post(`settlements/${x.id}/terms`).then((r) => answer(r, 'Terms sent'));
     if (k === 'garrison') return void post(`settlements/${x.id}/garrison`, { from: x.overlord }).then((r) => answer(r, 'Asked to garrison'));
     if (k === 'send-truce') return void post(`settlements/${x.id}/truce`, { from: form.from, bond: form.bond }).then((r) => answer(r, `Truce offered: ${form.bond} coin held`));
-    if (k === 'send-rebel') return void post(`settlements/${x.id}/rebel`).then((r) => answer(r, 'You are free: no more tribute'));
   };
   /** Accept: a plot request picks the plot on the ground first (in its region only). */
   const accept = (id: number) => {
     const o = inbox?.incoming.find((x) => x.id === id);
     if (!o) return;
     const yes = (plot?: Plot) => void post(`settlements/offers/${id}/accept`, plot ? { plot } : {}).then((r) => answer(r, o.kind === 'settle' ? `${o.from_name ?? 'They'} settled` : o.kind === 'truce' ? 'Truce sealed' : 'Accepted'));
-    // giving something up (tribute, the lordship) asks first: the first click arms, a second within 5 s accepts
+    // giving something up (the lordship) asks first: the first click arms, a second within 5 s accepts
     const key = `accept:${id}`;
     if (askFirst(o.kind) && armed !== key) {
       clearTimeout(disarm);
@@ -236,13 +234,7 @@ export function mountSettlements(s: SandboxScene, mk: Mk): void {
     },
     input: (e) => {
       const el = e.target as HTMLInputElement, f = el.dataset.sf;
-      if (f === 'tribute') {
-        form.tribute = Math.max(0, Math.min(SETTLE_UI.tributeMax, Math.round(Number(el.value)) || 0));
-        // in place: drawing the card again would drop the slider mid-drag
-        const card = el.closest('.st-form'), pct = card?.querySelector('.st-pct'), note = card?.querySelector('.st-note');
-        if (pct) pct.textContent = `${form.tribute}%`;
-        if (note) note.textContent = note.textContent!.replace(/\d+% of/, `${form.tribute}% of`);
-      } else if (f === 'bond') form.bond = Math.max(1, Math.min(SETTLE_UI.bondMax, Math.floor(Number(el.value)) || 1));
+      if (f === 'bond') form.bond = Math.max(1, Math.min(SETTLE_UI.bondMax, Math.floor(Number(el.value)) || 1));
       else if (f === 'from') (form.from = Number(el.value)), ver++;
     },
   });
@@ -395,10 +387,9 @@ function offlineBackend(get: () => { list: SettlementNet[]; world: WorldSettleme
       return put({ inbox: { ...ib, incoming: ib.incoming.filter((x) => x.id !== id) } }), { state: 'accepted' };
     }
     const to = st.list.find((x) => x.id === id) ?? st.world.find((x) => x.id === id);
-    const b = (body ?? {}) as { kind?: OfferRow['kind']; from?: number; tribute?: number; bond?: number };
-    const kind: OfferRow['kind'] = what === 'terms' ? (b.kind ?? 'vassal') : what === 'garrison' ? 'garrison' : what === 'truce' ? 'truce' : 'settle';
-    if (what === 'rebel') return { overlord: 0 };
-    const o: OfferRow = { id: ++seq, kind, from_pid: MOCK_ME, from_name: 'You', from_settlement: b.from ?? null, to_settlement: id, to_name: to?.name ?? '?', tribute_pct: b.tribute ?? 0, bond: b.bond ?? 0, state: 'open', expires_at: Date.now() + SETTLE_UI.offerMs, ends_at: null };
+    const b = (body ?? {}) as { from?: number; bond?: number };
+    const kind: OfferRow['kind'] = what === 'terms' ? 'join' : what === 'garrison' ? 'garrison' : what === 'truce' ? 'truce' : 'settle';
+    const o: OfferRow = { id: ++seq, kind, from_pid: MOCK_ME, from_name: 'You', from_settlement: b.from ?? null, to_settlement: id, to_name: to?.name ?? '?', tribute_pct: 0, bond: b.bond ?? 0, state: 'open', expires_at: Date.now() + SETTLE_UI.offerMs, ends_at: null };
     return put({ inbox: { ...ib, outgoing: [...ib.outgoing, o] } }), { offer: o.id };
   };
 }

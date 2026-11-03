@@ -35,7 +35,7 @@ export const bannerOf = (s: Pick<SettlementNet, 'team' | 'lordName'>) => (s.team
 export const settleWarning = (s: Pick<SettlementNet, 'team' | 'lordName'>) => `Your men fight under ${bannerOf(s)} banner in this region`;
 
 /** The open form on the card and what it holds. */
-export interface SettleForm { open: 'terms' | 'truce' | 'rebel' | null; kind: 'vassal' | 'join'; tribute: number; from: number | null; bond: number }
+export interface SettleForm { open: 'terms' | 'truce' | null; from: number | null; bond: number }
 
 export interface SettleCtx {
   s: SettlementNet;
@@ -92,7 +92,7 @@ function fealty(c: SettleCtx): string {
   const row = (av: string, k: string, v: string, chip = '') => `<div class="st-row">${av}<span class="st-k">${k}</span><span class="st-v">${v}</span>${chip}</div>`;
   const out = [row(avatar(s.lordName, 'lord'), 'Lord', `<b>${esc(s.lordName)}</b>`, glyph('ui:laurel', 14))];
   if (s.overlord !== null) out.push(row(avatar(over?.name ?? '?', 'over'), 'Overlord', `<b>${esc(over?.name ?? `Settlement ${s.overlord}`)}</b>${over?.lord ? ` <span class="rf-dim">· ${esc(over.lord)}</span>` : ''}`,
-    `<span class="rf-ichip gold st-trib" data-tip="${esc(`<b class="k">Tribute</b> · ${s.tribute}% of the goods and coin it gains goes to its overlord's lord`)}">${icon('res-coin')}${s.tribute}%</span>`));
+    `<span class="rf-ichip gold st-trib" data-tip="${esc(`<b class="k">Tribute</b> · its lord sets aside ${s.tribute}% of his earnings for his own lord, who has it fetched`)}">${icon('res-coin')}${s.tribute}%</span>`));
   else out.push(row(`<span class="st-av free">${glyph('ui:flag', 14)}</span>`, 'Overlord', '<span class="rf-dim">none · owes no tribute</span>'));
   if (vassals.length) out.push(`<div class="st-vas">${vassals.map((v) => `<span class="st-vchip" data-tip="${esc(`<b class="k">${esc(v.name)}</b> · ${levelName(v.level)}, ${esc(worldRegion(v.region)?.name ?? v.region)}<br>lord ${esc(v.lord ?? '?')} · pays ${v.tribute_pct}%`)}">${glyph('ui:standard', 13)}${esc(v.name)}<i>${v.tribute_pct}%</i></span>`).join('')}</div>`);
   return `<div class="rf-sec">Fealty${vassals.length ? ` <span class="rf-dim">${vassals.length} vassal${vassals.length === 1 ? '' : 's'}</span>` : ''}</div>${out.join('')}`;
@@ -134,7 +134,7 @@ function growth(c: SettleCtx): string {
 /** The pending offer the player sent here, if any. */
 const pendingOf = (c: SettleCtx): OfferRow | undefined => c.inbox?.outgoing.find((o) => o.to_settlement === c.s.id);
 
-const KIND_WORD: Record<OfferRow['kind'], string> = { settle: 'Asked for a plot', vassal: 'Offered vassal terms', join: 'Demanded it join you', garrison: 'Asked to garrison', truce: 'Offered a truce' };
+const KIND_WORD: Record<OfferRow['kind'], string> = { settle: 'Asked for a plot', join: 'Demanded it join you', garrison: 'Asked to garrison', truce: 'Offered a truce' };
 
 /** The action footer: what the player may do here, by standing; disabled ones say why. */
 function actions(c: SettleCtx): string {
@@ -150,34 +150,24 @@ function actions(c: SettleCtx): string {
       out.push(`<div class="st-warn">${glyph('ui:banner', 16)}<span>${esc(settleWarning(s))}</span></div>`);
     }
     out.push(`<div class="st-acts">${viewer === 'visitor' ? btn('settle', 'Ask to settle', { pri: true, why: pend ? 'you have asked already' : '', tip: '<b class="k">Ask to settle</b><br><span class="rf-dim tip-w">its lord gives you a plot inside the ring, or refuses</span>' }) : ''}
-      ${btn('terms', 'Offer terms', { on: form.open === 'terms', why: short, tip: '<b class="k">Offer terms</b><br><span class="rf-dim tip-w">your men stand on its ground: offer it vassalage under your settlement, or demand it join your land</span>' })}
+      ${btn('terms', 'Offer terms', { on: form.open === 'terms', why: short, tip: '<b class="k">Offer terms</b><br><span class="rf-dim tip-w">your men stand on its ground: demand it join your land</span>' })}
       ${btn('truce', 'Truce', { on: form.open === 'truce', why: others.length ? '' : 'found a settlement of your own first', tip: '<b class="k">Truce</b><br><span class="rf-dim tip-w">both lords put up a bond; who breaks it loses both</span>' })}</div>`);
   } else if (viewer === 'overlord') {
     out.push(`<div class="st-acts">${btn('garrison', 'Garrison', { pri: true, why: s.role === 'garrison' ? 'your men garrison it already' : '', tip: '<b class="k">Garrison</b><br><span class="rf-dim tip-w">ask its lord to let your men in: they fight under its banner here</span>' })}
       ${btn('truce', 'Truce', { on: form.open === 'truce', why: 'it is your vassal' })}</div>`);
   } else if (viewer === 'lord') {
     const wait = (c.inbox?.incoming ?? []).filter((o) => o.to_settlement === s.id).length;
-    out.push(`<div class="st-acts">${btn('holdings', `Requests${wait ? ` <b class="st-n">${wait}</b>` : ''}`, { pri: wait > 0, tip: '<b class="k">Holdings</b><br><span class="rf-dim tip-w">requests to settle, terms offered, truces</span>' })}
-      ${s.overlord !== null ? btn('rebel', 'Rebel', { bad: true, on: form.open === 'rebel', tip: '<b class="k">Rebel</b><br><span class="rf-dim tip-w">end the tie: no more tribute, its garrison goes</span>' }) : ''}</div>`);
+    out.push(`<div class="st-acts">${btn('holdings', `Requests${wait ? ` <b class="st-n">${wait}</b>` : ''}`, { pri: wait > 0, tip: '<b class="k">Holdings</b><br><span class="rf-dim tip-w">requests to settle, terms offered, truces</span>' })}</div>`);
   }
   return out.join('') + formHtml(c, others);
 }
 
-/** The open form: terms (vassal with the tribute slider, or join), a truce bond, or the rebellion's confirm. */
+/** The open form: terms (it joins your land), or a truce bond. */
 function formHtml(c: SettleCtx, others: readonly WorldSettlement[]): string {
   const { form, s } = c;
   if (form.open === 'terms') {
-    const seg = (k: SettleForm['kind'], label: string) => `<button class="rf-tbtn${form.kind === k ? ' on' : ''}" data-sa="kind:${k}">${label}</button>`;
-    const from = others.find((o) => o.id === form.from) ?? others[0];
-    const body = form.kind === 'vassal'
-      ? (from ? `<div class="st-fr"><span class="rf-dim">Overlord</span>${others.length > 1 ? `<select data-sf="from">${others.map((o) => `<option value="${o.id}"${o.id === from.id ? ' selected' : ''}>${esc(o.name)}</option>`).join('')}</select>` : `<b>${esc(from.name)}</b>`}</div>
-        <div class="st-fr"><span class="rf-dim">Tribute</span><input type="range" min="0" max="${SETTLE_UI.tributeMax}" step="1" value="${form.tribute}" data-sf="tribute"><b class="st-pct">${form.tribute}%</b></div>
-        <div class="rf-dim st-note">${esc(s.name)} pays ${form.tribute}% of the goods and coin it gains to you; your men may garrison it; an attack on it is one on you.</div>`
-        : `<div class="rf-hint st-note">Found a settlement of your own first: it becomes the overlord.</div>`)
-      : `<div class="rf-dim st-note">${esc(s.lordName)} becomes a citizen and you its lord; its citizens keep their plots.</div>`;
-    const ok = form.kind === 'join' || !!from;
-    return `<div class="st-form"><div class="st-seg">${seg('vassal', 'Become our vassal')}${seg('join', 'Join our land')}</div>${body}
-      <div class="st-acts"><button class="rf-tbtn pri" data-sa="send-terms"${ok ? '' : ` disabled data-tip="${esc('<span class="rf-hint">found a settlement of your own first: it becomes the overlord</span>')}"`}>Send terms</button><button class="rf-tbtn" data-sa="close-form">Cancel</button><span class="rf-dim st-exp">answer within ${left(SETTLE_UI.offerMs)}</span></div></div>`;
+    return `<div class="st-form"><div class="rf-dim st-note">${esc(s.lordName)} becomes a citizen and you its lord; its citizens keep their plots.</div>
+      <div class="st-acts"><button class="rf-tbtn pri" data-sa="send-terms">Send terms</button><button class="rf-tbtn" data-sa="close-form">Cancel</button><span class="rf-dim st-exp">answer within ${left(SETTLE_UI.offerMs)}</span></div></div>`;
   }
   if (form.open === 'truce') {
     const from = others.find((o) => o.id === form.from) ?? others[0];
@@ -186,10 +176,6 @@ function formHtml(c: SettleCtx, others: readonly WorldSettlement[]): string {
       <div class="st-fr"><span class="rf-dim">Bond</span><span class="rf-step"><button class="rf-tbtn" data-sa="bond:-100">−</button><input type="number" min="1" max="${SETTLE_UI.bondMax}" value="${form.bond}" data-sf="bond"><button class="rf-tbtn" data-sa="bond:100">+</button></span>${icon('res-coin')}</div>
       <div class="rf-dim st-note">Both lords escrow ${form.bond} coin for 7 days; an attack by either side breaks it and the other takes both bonds.</div>
       <div class="st-acts"><button class="rf-tbtn pri" data-sa="send-truce">Offer truce</button><button class="rf-tbtn" data-sa="close-form">Cancel</button></div></div>`;
-  }
-  if (form.open === 'rebel') {
-    return `<div class="st-form bad"><div class="rf-hint st-note">Rebel against your overlord? The tribute stops and their garrison leaves; they will hear of it.</div>
-      <div class="st-acts"><button class="rf-tbtn st-bad" data-sa="send-rebel">Rebel</button><button class="rf-tbtn" data-sa="close-form">Stay loyal</button></div></div>`;
   }
   return '';
 }
@@ -213,7 +199,7 @@ export function settlementBadge(s: SettlementNet, viewer: Viewer, wait: number):
 
 // ------------------------------------------------------------------ the Holdings panel
 
-const KIND_ICON: Record<OfferRow['kind'], string> = { settle: 'ui:people', vassal: 'ui:standard', join: 'ui:banner', garrison: 'ui:shield', truce: 'ui:bond' };
+const KIND_ICON: Record<OfferRow['kind'], string> = { settle: 'ui:people', join: 'ui:banner', garrison: 'ui:shield', truce: 'ui:bond' };
 const b = (t: string | null | undefined) => `<b>${esc(t ?? '?')}</b>`;
 
 /** An offer in words, for the asked lord (incoming) or its sender (outgoing). */
@@ -221,21 +207,19 @@ export function offerText(o: OfferRow, world: readonly WorldSettlement[], incomi
   const fromS = world.find((w) => w.id === o.from_settlement)?.name;
   if (incoming) switch (o.kind) {
     case 'settle': return `${b(o.from_name)} asks for a plot in ${b(o.to_name)}`;
-    case 'vassal': return `${b(o.from_name)} offers terms: ${b(o.to_name)} becomes a vassal of ${b(fromS)}, tribute <b class="st-gold">${o.tribute_pct}%</b>`;
     case 'join': return `${b(o.from_name)} demands ${b(o.to_name)} join his land: he becomes its lord, you a citizen`;
     case 'garrison': return `${b(o.from_name)} of ${b(fromS)}, your overlord, would garrison ${b(o.to_name)}`;
     case 'truce': return `${b(o.from_name)} of ${b(fromS)} offers a truce with ${b(o.to_name)}, a bond of <b class="st-gold">${o.bond}</b> coin each`;
   }
   switch (o.kind) {
     case 'settle': return `You asked for a plot in ${b(o.to_name)}`;
-    case 'vassal': return `You offered ${b(o.to_name)} vassalage under ${b(fromS)} at ${o.tribute_pct}%`;
     case 'join': return `You demanded ${b(o.to_name)} join your land`;
     case 'garrison': return `You asked to garrison ${b(o.to_name)}`;
     case 'truce': return `You offered ${b(o.to_name)} a truce, bond ${o.bond} coin`;
   }
 }
 
-const ACCEPT: Record<OfferRow['kind'], string> = { settle: 'Give a plot…', vassal: 'Swear fealty', join: 'Yield', garrison: 'Let them in', truce: 'Seal truce' };
+const ACCEPT: Record<OfferRow['kind'], string> = { settle: 'Give a plot…', join: 'Yield', garrison: 'Let them in', truce: 'Seal truce' };
 
 /** The clock on an offer: time left as words and a draining bar (red under 6 h). */
 const clockOf = (until: number, span: number, now: number) => {
@@ -252,9 +236,8 @@ export interface HoldingsCtx {
   busy?: boolean; armed?: string | null;
 }
 
-/** Accepting these gives something up (you pay tribute, or lose the lordship): the first click only asks. */
+/** Accepting this gives something up (the lordship): the first click only asks. */
 const ASK_FIRST: Partial<Record<OfferRow['kind'], string>> = {
-  vassal: 'Your settlement pays tribute to theirs. Click Swear fealty again to confirm.',
   join: 'You hand over your settlement and become a citizen. Click Yield again to confirm.',
 };
 /** The line shown while an accept is armed. */

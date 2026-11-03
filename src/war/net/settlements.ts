@@ -5,11 +5,11 @@
  */
 import { TOWN_LEVELS } from '../sim/townLevel';
 
-/** Mirrors the server's SETTLE (server/src/war/settlements.ts): offers live 48 h, tribute at most 30 %, 6 men to offer terms. */
-export const SETTLE_UI = { offerMs: 48 * 3_600_000, tributeMax: 30, presence: 6, truceMs: 7 * 24 * 3_600_000, bondMax: 5000 } as const;
+/** Mirrors the server's SETTLE (server/src/war/settlements.ts): offers live 48 h, 6 men to offer terms. */
+export const SETTLE_UI = { offerMs: 48 * 3_600_000, presence: 6, truceMs: 7 * 24 * 3_600_000, bondMax: 5000 } as const;
 
 export type SettleRole = 'lord' | 'citizen' | 'garrison';
-export type OfferKind = 'settle' | 'vassal' | 'join' | 'garrison' | 'truce';
+export type OfferKind = 'settle' | 'join' | 'garrison' | 'truce';
 
 /** GET /settlements?region= : a row of the world's (or a region's) settlements. */
 export interface WorldSettlement {

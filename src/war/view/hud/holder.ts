@@ -53,7 +53,7 @@ export function holderSummary(h: Holder): string {
   const items = grouped(h.list).map(({ it, n }) => `<div>${itemLine(it, n)}</div>`).join('');
   const more = h.items > h.list.length ? `<div class="rf-dim">+${h.items - h.list.length} more</div>` : '';
   const fill = h.cap !== undefined && h.loads !== undefined ? `<div class="rf-dim" style="margin-top:2px">${fmt(h.loads)} / ${h.cap} loads${h.left !== undefined ? ` · gone in ${mmss(h.left)}` : ''}</div>` : '';
-  return `<div style="display:flex;flex-wrap:wrap;max-width:${W - 16}px">${goods || (h.items ? '' : '<span class="rf-dim">empty</span>')}</div>${items}${more}${fill}`;
+  return `<div style="display:flex;flex-wrap:wrap;max-width:${W - 16}px">${goods || (h.items ? '' : '<span class="rf-dim">empty</span>')}</div>${items}${more}${fill}${h.tithe ? `<div class="rf-dim" style="margin-top:2px">Set aside for the lord: ${(Object.entries(h.tithe) as [ResourceKind, number][]).map(([r, n]) => `${fmt(n)} ${r}`).join(', ')}</div>` : ''}`;
 }
 
 export interface TradeHud { slots(own: SquadId[]): HTMLElement[]; refresh(): void }

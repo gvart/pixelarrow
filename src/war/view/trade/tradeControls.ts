@@ -28,6 +28,8 @@ export type HolderKind = 'cart' | 'pile' | 'chest' | 'store';
 export interface Holder {
   ref: HolderRef; kind: HolderKind; id: number; x: number; y: number; team: number; owner: string; name: string;
   goods: Partial<Record<ResourceKind, number>>; items: number; list: HoldItem[]; loads?: number; cap?: number; left?: number;
+  /** W-153: set aside here for the owner's lord, and whom for. */
+  tithe?: Partial<Record<ResourceKind, number>>; titheTo?: string;
 }
 export const itemName = (it: HoldItem) => { try { return itemDef(it.def).name; } catch { return it.def; } };
 export const holderKey = (r: HolderRef) => (r.cart !== undefined ? `c${r.cart}` : r.pile !== undefined ? `p${r.pile}` : `b${r.building}`);
@@ -42,7 +44,7 @@ export function pileHolder(p: PileSnap): Holder {
 export function buildingHolder(b: BuildingSnap): Holder | null {
   if (b.goods === undefined || b.state === 'destroyed') return null;
   const chest = !!BUILDINGS[b.type]?.chest; // a chest, or a house (W-90)
-  return { ref: { building: b.id }, kind: chest ? 'chest' : 'store', id: b.id, x: b.x, y: b.y, team: b.team, owner: b.owner ?? '', name: b.type === 'chest' ? 'chest' : b.type === 'privateHouse' ? 'house' : nice(b.type), goods: b.goods, items: b.items ?? 0, list: b.list ?? [], ...(chest ? { cap: BUILDINGS.chest.chest } : {}) };
+  return { ref: { building: b.id }, kind: chest ? 'chest' : 'store', id: b.id, x: b.x, y: b.y, team: b.team, owner: b.owner ?? '', name: b.type === 'chest' ? 'chest' : b.type === 'privateHouse' ? 'house' : nice(b.type), goods: b.goods, items: b.items ?? 0, list: b.list ?? [], ...(chest ? { cap: BUILDINGS.chest.chest } : {}), ...(b.tithe ? { tithe: b.tithe, titheTo: b.titheTo } : {}) };
 }
 
 export class TradeControls {
@@ -211,12 +213,15 @@ export class TradeControls {
       for (const it of h.list.slice(0, 3)) o.push(opt(`salvage ${itemName(it)}`, 'act-build', () => this.salvage(own, h, it), sm.length ? undefined : 'needs a smith'));
       return [...o, move];
     }
+    // W-153: what is set aside here: his lord's men collect it, his own carry it sealed
+    if (h.tithe && h.titheTo === this.owner()) o.push(opt('collect the tribute', 'act-load', () => this.load(own, h)));
+    else if (h.tithe && h.owner === this.owner()) o.push(opt('send the tribute to your lord', 'act-load', () => this.send(own, (squad) => ({ kind: 'load', squad, from: h.ref, send: true }), h, 'send the tribute')));
     if (!mine) {
       o.push(opt(`loot ${h.name}`, 'act-load', () => this.load(own, h), empty ? 'nothing in it' : undefined));
       return o;
     }
     const unl = opt(`unload into ${h.name}`, 'act-unload', () => this.unload(own, h), !laden ? 'nothing carried' : full);
     const lf = opt(`load from ${h.name}`, 'act-load', () => this.load(own, h), empty ? `${h.name} is empty` : undefined);
-    return laden ? [unl, lf] : [lf, unl];
+    return laden ? [...o, unl, lf] : [...o, lf, unl];
   }
 }
