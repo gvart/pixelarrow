@@ -835,7 +835,7 @@ one. The top three by realm power stand. The king may name an heir from his alli
 |---|---|
 | He gives it up | the heir rules at once for the rest of the term; no heir, an election |
 | No confidence | W-64's petition, a quarter of the active lords, then over half of all lord weight, cast or not; the heir rules until the election closes |
-| Unseen 72 h | an election; the heir rules until it closes |
+| Unseen 72 h, counted from the later of his last visit and taking the crown | an election; the heir rules until it closes |
 | Term ends | an election, the king as regent as before |
 
 No heir means an empty throne until the election closes. The old council goes when the crown passes.

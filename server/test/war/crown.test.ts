@@ -132,7 +132,6 @@ describe('election', () => {
     expect(view.monarch!.pid).toBe(p2);
     // nobody votes: the strongest (v1) wins; the old council goes with the old monarch
     await appoint(env, p2, 'marshal', p3, closes + CROWN.termMs, S);
-    await seen(v1, view.election!.closes);
     view = await crownView(env, p1, view.election!.closes, S);
     expect(view.monarch!.pid).toBe(v1);
     expect(view.council.every((c) => c.pid === null)).toBe(true);

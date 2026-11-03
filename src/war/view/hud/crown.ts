@@ -217,7 +217,7 @@ const owedRows = (owed: readonly OwedPlace[], here: string, act: (o: OwedPlace) 
 }).join('');
 
 function oathsHtml(v: CrownView, here: string, f: { region: string; men: number; hours: number }): string {
-  const fd = v.feudal, a = v.alliance, name = (p: { name: string }, av = 24) => `${avatar(p.name, a, av)}<span class="cr-rkn"><b>${esc(p.name)}</b>`;
+  const fd = v.feudal, a = v.alliance, name = (p: { name: string }, av = 20) => `${avatar(p.name, a, av)}<span class="cr-rkn"><b>${esc(p.name)}</b>`;
   // ---------- whom you serve
   let serve: string;
   if (fd.rank === 'king') serve = `<div class="rf-dim cr-none">You wear the crown: you swear to no one.</div>`;
@@ -234,18 +234,18 @@ function oathsHtml(v: CrownView, here: string, f: { region: string; men: number;
   // ---------- who serves you
   const asks = fd.asks.map((q) => `<div class="cr-rk">${name(q)} <span class="rf-dim">would swear to you</span></span><button class="rf-tbtn pri" data-act="oathAnswer" data-p="${q.pid}" data-y="1">Accept</button><button class="rf-tbtn" data-act="oathAnswer" data-p="${q.pid}" data-y="0">Refuse</button></div>`).join('');
   const vassals = fd.vassals.map((x) => `<div class="cr-rk">${name(x)} <span class="rf-dim">${RANK_NAME[x.rank]}</span></span></div>${owedRows(x.owed, here, () => `<button class="rf-tbtn pri" data-act="tribute" data-of="${x.pid}" data-tip="${attr('<b class="k">Fetch it</b><br><span class="rf-dim tip-w">your men in the market court carry it off</span>')}">Fetch</button>`)}`).join('');
-  const rate = fd.rate !== null || fd.rank === 'king' ? `<div class="cr-line"><span class="rf-dim">Your share of what they earn</span><span class="rf-step"><input data-in="rate" value="${fd.rate ?? FEUDAL.rateDefault}" inputmode="numeric" style="width:36px"></span><span class="rf-dim">% (at most ${FEUDAL.rateMax})</span><button class="rf-tbtn cr-go" data-act="rate">Set</button></div>` : '';
+  const rate = fd.rate !== null || fd.rank === 'king' ? `<span class="cr-rate" data-tip="${attr(`<b class="k">Your share</b><br><span class="rf-dim tip-w">what they set aside for you from what they earn, at most ${FEUDAL.rateMax}%</span>`)}">your share <input data-in="rate" value="${fd.rate ?? FEUDAL.rateDefault}" inputmode="numeric">% <button class="rf-tbtn" data-act="rate">Set</button></span>` : '';
   const call = fd.vassals.length ? `<div class="cr-line"><span class="rf-dim">Call to guard</span><select data-sel="callRegion">${WORLD_REGIONS.map((r) => `<option value="${r.id}"${r.id === f.region ? ' selected' : ''}>${esc(r.name)}</option>`).join('')}</select><input data-in="callMen" value="${f.men}" inputmode="numeric" style="width:30px"><span class="rf-dim">men</span><input data-in="callHours" value="${f.hours}" inputmode="numeric" style="width:30px"><span class="rf-dim">h</span><button class="rf-tbtn cr-go" data-act="call" data-tip="${attr('<b class="k">Call to guard</b><br><span class="rf-dim tip-w">unpaid, and nobody has to come</span>')}">Call</button></div>` : '';
   const calls = fd.calls.map((c) => `<div class="cr-rk">${glyph('ui:shield', 16)}<span class="cr-rkn"><b>${esc(c.by)}</b> <span class="rf-dim">asks ${c.men} men at ${esc(regionName(c.region))} for ${c.hours} h, unpaid</span></span><button class="rf-tbtn" data-act="answerCall" data-id="${c.id}"${c.taken ? why('taken') : ''}>${c.taken ? 'Taken' : 'Go'}</button></div>`).join('');
   // ---------- the ballot, while one is open
-  const e = v.election, ballot = e ? `<div class="rf-sec">Vote for the crown <span class="rf-dim">closes in ${until(e.closes - v.now)} · ${v.me.weight > 0 ? `your vote counts ${fmt(v.me.weight)}` : NOT_LORD}</span></div>${e.candidates.map((c) => `<div class="cr-rk${e.mine === c.pid ? ' me' : ''}">${name(c, 20)}</span><span class="rf-dim">${fmt(c.votes)}</span><button class="rf-tbtn${e.mine === c.pid ? '' : ' pri'}" data-act="vote" data-p="${c.pid}"${e.mine === c.pid ? why('you voted for him') : v.me.weight <= 0 ? why(NOT_LORD) : ''}>${e.mine === c.pid ? 'Your vote' : 'Vote'}</button></div>`).join('')}` : '';
+  const e = v.election, ballot = e ? `<div class="rf-sec">Vote for the crown <span class="rf-dim">${v.me.weight > 0 ? `your vote counts ${fmt(v.me.weight)}` : NOT_LORD}</span></div>${e.candidates.map((c) => `<div class="cr-rk${e.mine === c.pid ? ' me' : ''}">${name(c, 20)}</span><span class="rf-dim">${fmt(c.votes)}</span><button class="rf-tbtn${e.mine === c.pid ? '' : ' pri'}" data-act="vote" data-p="${c.pid}"${e.mine === c.pid ? why('you voted for him') : v.me.weight <= 0 ? why(NOT_LORD) : ''}>${e.mine === c.pid ? 'Your vote' : 'Vote'}</button></div>`).join('')}` : '';
   // ---------- the king's heir
   const heirs = v.members.filter((m) => m.pid !== v.me.pid);
   const king = v.me.monarch ? `<div class="rf-sec">Your heir <span class="rf-dim">rules at once if you give up the crown</span></div><div class="cr-line"><select data-sel="heir"><option value="">no heir</option>${heirs.map((m) => `<option value="${m.pid}"${m.pid === fd.heir?.pid ? ' selected' : ''}>${esc(m.name)}</option>`).join('')}</select><button class="rf-tbtn" data-act="heir">Name</button><button class="rf-tbtn cr-go" data-act="abdicate" data-sure="abdicate">Give up the crown</button></div>` : fd.heir ? `<div class="cr-line rf-dim">The heir: <b>${esc(fd.heir.name)}</b></div>` : '';
   const roll = fd.roll.slice(0, 5).map((r) => `<div class="cr-log"><span><b>${esc(r.name)}</b> broke his oath to <b>${esc(r.lord)}</b></span><span class="rf-dim">${ago(v.now - r.at)}</span></div>`).join('');
-  return `${ballot}<div class="rf-sec">You serve</div>${serve}${mineOwed ? `<div class="rf-sec">Set aside for him <span class="rf-dim">until it is fetched</span></div>${mineOwed}` : ''}${calls}
-    <div class="rf-sec">They serve you <span class="rf-dim">${fd.vassals.length || 'nobody yet'}</span></div>${asks}${vassals}${rate}${call}${king}
-    ${roll ? `<div class="rf-sec">Broken oaths</div><div class="cr-chron">${roll}</div>` : ''}`;
+  return `<div class="cr-oaths">${ballot}<div class="rf-sec">You serve</div>${serve}${mineOwed ? `<div class="rf-sec">Set aside for him <span class="rf-dim">until it is fetched</span></div>${mineOwed}` : ''}${calls}
+    <div class="rf-sec cr-secrow">They serve you <span class="rf-dim">${fd.vassals.length || 'nobody yet'}</span>${rate}</div>${asks}${vassals}${call}${king}
+    ${roll ? `<div class="cr-chron cr-roll">${roll}</div>` : ''}</div>`;
 }
 
 /** An order's key for tracking. */
@@ -397,8 +397,11 @@ const CSS = `
 .cr-msg{min-height:15px;margin-top:4px;font-size:11.5px;color:var(--rf-good)}.cr-msg::first-letter{text-transform:uppercase}.cr-msg.bad{color:var(--rf-bad)}.cr-msg.ask{color:var(--rf-gold)}
 #rfCrown.busy [data-act]:not([data-act=tab]):not([data-act=close]){pointer-events:none;opacity:.55}
 #rfCrown .rf-tbtn.sure{width:auto!important;padding:0 7px!important;color:var(--rf-bad);box-shadow:0 0 0 1px var(--rf-bad)}
-.cr-owe{display:flex;align-items:center;gap:4px;padding:2px 4px 2px 30px;font-size:11px}.cr-owe .rf-ichip{height:20px}.cr-owe .rf-tbtn{margin-left:auto;height:22px}
-.cr-rk .rf-tbtn{height:22px}.cr-rkline{margin-top:0}
+.cr-owe{display:flex;align-items:center;gap:4px;padding:0 4px 0 28px;font-size:11px}.cr-owe .rf-ichip{height:20px}.cr-owe .rf-tbtn{margin-left:auto;height:22px}
+.cr-rk .rf-tbtn{height:20px}.cr-rkline{margin-top:0}
+#rfCrown .cr-oaths .rf-sec{margin:5px 0 2px}#rfCrown .cr-oaths .cr-rk{padding:1px 4px}#rfCrown .cr-oaths .cr-line{margin-top:2px}#rfCrown .cr-oaths .cr-log{padding:1px 0}
+.cr-secrow{align-items:center}.cr-rate{display:inline-flex;align-items:center;gap:3px;font:600 11px/1 Inter,sans-serif;letter-spacing:0;text-transform:none;color:var(--rf-muted);order:3;flex:none}.cr-rate input{width:30px;height:18px}.cr-rate .rf-tbtn{height:18px}.cr-roll{margin-top:5px}
+#rfCrown{scrollbar-width:auto!important;scrollbar-color:var(--rf-gold) #050506!important}
 #rfCrownBtn{position:relative}
 `;
 

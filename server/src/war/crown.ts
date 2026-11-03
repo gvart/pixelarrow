@@ -209,9 +209,9 @@ export async function advance(env: Env, a: number, now: number, season = WAR_SEA
   for (const v of due) { const n = await closeVote(db, v, season); if (n) news.push(n); }
   await settleOrders(env, a, now, season);
   await expirePacts(db, now, season);
-  // W-152: a king not seen for FEUDAL.inactiveMs: the crown goes to election, his heir rules until it closes
+  // W-152: a king not seen for FEUDAL.inactiveMs since he took the crown: it goes to election, his heir rules until it closes
   const was = await crownOf(db, a, season);
-  if (was.monarch_pid !== null && (await seenAt(db, was.monarch_pid)) + FEUDAL.inactiveMs <= now) {
+  if (was.monarch_pid !== null && Math.max(await seenAt(db, was.monarch_pid), was.crowned_at ?? 0) + FEUDAL.inactiveMs <= now) {
     const name = await nameOf(db, was.monarch_pid);
     await batch(db, [...(await fallStmts(db, was, season, now, now)), logStmt(db, season, a, 'lapsed', was.monarch_pid, { name, heir: await heirName(db, was) }, now)]);
     news.push({ kind: 'monarch', text: was.heir_pid === null ? `${name} is gone: the crown of ${ALLIANCES[a].name} stands empty` : `${name} is gone: ${await heirName(db, was)} rules ${ALLIANCES[a].name} until the election` });

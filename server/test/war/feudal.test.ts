@@ -249,6 +249,19 @@ describe('W-152 succession', () => {
     expect(w.election).not.toBeNull();
   });
 
+  it('an absent winner gets his full 72 hours from the moment he takes the crown', async () => {
+    const S = fresh(), a = 2, now = Date.now(), winner = await member(a, S);
+    await lordOf(winner);
+    await advance(env, a, now, S);
+    const closes = (await electionOf(S, a))!.closes_at;
+    await seen(winner, closes - FEUDAL.inactiveMs - H); // long gone before the vote closed
+    expect((await crownView(env, winner, closes, S)).monarch?.pid).toBe(winner);
+    expect((await crownView(env, winner, closes + FEUDAL.inactiveMs - 1, S)).monarch?.pid).toBe(winner);
+    const v = await crownView(env, winner, closes + FEUDAL.inactiveMs, S);
+    expect(v.monarch).toBeNull();
+    expect(v.log.some((l) => l.kind === 'lapsed')).toBe(true);
+  });
+
   it('a crown that passes frees the lords sworn to the old king; his plain vassals stay his; the new king swears to nobody', async () => {
     const S = fresh(), a = 0;
     const { king, b, c, now } = await crowned(S, a);
