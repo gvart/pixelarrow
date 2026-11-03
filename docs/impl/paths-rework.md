@@ -34,8 +34,9 @@ unless someone is actually there.
 - **W-94 Full feudal hierarchy.** Kings, vassals, titles, tribute and succession ship in this rework, built last. Alliances
   stay the season team, with the hierarchy inside them. *(Alliance nesting is assumed.)*
 
-Superseded or changed: W-56, W-58, W-60 (souls claimable under the path's cap), W-66 and W-68 (raised men wait at home;
-the Tunnel's "up to 6" must fit the 4-soldier cap), W-81. W-63 is extended by W-94.
+Superseded or changed: W-44 (NPC towns, W-93), W-53 (its "cap of 12 stays", W-85), W-56, W-58, W-60 (souls claimable under
+the path's cap), W-66 and W-68 (raised men wait at home; the Tunnel's "up to 6" must fit the 4-soldier cap; W-66's permanent
+favour, W-83), W-81. W-63 is extended by W-94.
 
 Also assumed: wipe and reshard freely, with no migration of old data (no live users); existing sprites are reused, with
 PixelLab only for real gaps.
@@ -50,13 +51,48 @@ Propose these in the named work item and get the owner's answer before building 
 - [ ] Family list and what each family's men can do. Only hoplite, militia, archer, slinger, javelineer and celt_sword have
   work animations; riders wait for mounts (item 4).
 - [ ] Where workers come from. Civilians exist (household `min(4, 1 + fit/4)`), but how they are acquired was not confirmed.
+  That formula also gives a 4-soldier path only 2 civilians.
 - [ ] Whether a trader's cart cap rises above today's 2 (3 with emporos).
+
+Found while bringing `docs/WAR.md` in line (item 1). Each is a rule the decisions touch but do not settle.
+
+- [ ] What each path starts with, men and classes, now the free pick of 12 is gone (item 2).
+- [ ] Season rollover. W-62 carries men, gear and titles over, but W-83 picks the path anew: what happens to a 12-man
+  warrior who turns builder, or who changes family (item 2).
+- [ ] Offline players. W-07 holds their men in place. Does an offline man keep staffing a building, gathering, pulling a
+  cart or following a `haul` chain, or does "someone is there" mean a player online (items 3, 6)?
+- [ ] Waiting and wounded men. Can a man waiting at home work, fight or be captured; which heal timer runs for a wounded
+  man once the group moves on (item 3)?
+- [ ] Classes for builder and trader soldiers. W-86 covers warriors only. Whether a warrior may claim a soul outside his
+  family, since souls wake by site (item 4). Which of today's "start classes" fallbacks survive.
+- [ ] How levels are paid per path: today's favour amounts are all war and land, region mastery and warlords pay favour,
+  and the old bonus on raised men has no place yet (item 5).
+- [ ] What counts as "working" under W-88 beyond workplaces: stores, stalls with listed offers and Factor's standing
+  orders, temple, shrine and statue score, wells, tower and beacon sight, influence from empty forts, land held and
+  scoring with nobody on it (item 6).
+- [ ] Goods that move with nobody carrying them, against W-87: store networks, the strongroom behind a store, gifts to
+  works from home, W-63 tribute and the owner's share under W-89, and where that share sits (items 6, 8).
+- [ ] Walls and locks. No lock exists in the sim: what it is, what a house holds, how it meets the "never lootable" home
+  strongroom, rented warehouses and the rule that a store is lootable only once its influence is gone (item 6).
+- [ ] Warlord raids after W-91: whether a staffed building can still be picked, now the guard count is gone (item 6).
+- [ ] "Owner" under W-89. Pre-built town pieces follow a claim point, so an alliance owns them, not a player. Whether a
+  pre-built house can be a private house; its table row still reads as a recruit pool, left from before W-60 (item 6).
+- [ ] NPC towns against W-44: which towns, what prices, and where their coin comes from, since coin is otherwise only
+  minted silver and the owner rejected a coin sink in W-72 (item 7).
+- [ ] The hire contract for monsters: a new kind or the guard and escort contracts, and whether it stays inside the
+  alliance as build and guard do. Whether guard contracts are the answer to empty towns (items 6, 7).
+- [ ] What builders and traders do in the guide, tasks and region mastery, which all assume a fighting army (items 7, 9).
+- [ ] Hierarchy against older decisions: W-64's elected crown, one per alliance, against W-94's kings; W-63's settlements
+  and vassals across alliances against "the hierarchy inside them" (item 8).
+- [ ] No hegemony by day 28. Today the top score wins, and it counts trade, contracts, works and town level as well as
+  land: does that fallback stay under "land decides"? Do W-61's per-alliance score caps stay? What does each path's
+  ladder rank, and do W-61's titles become it (item 9)?
 
 ## Work items
 
 Each item bumps `SIM_VERSION` (`src/sim/version.ts`) and `NET_VERSION` (`src/war/net/protocol.ts`) as needed.
 
-- [ ] **1. Rules.** Update `docs/WAR.md` and the W-xx log to match the decisions above.
+- [x] **1. Rules.** Update `docs/WAR.md` and the W-xx log to match the decisions above.
   verify: each superseded decision is marked. depends on: none.
 - [ ] **2. Wipe and path choice.** Reset migration after `0052` (precedent `0012_map_v3_reset.sql`), a path screen replacing
   `squadScreen` in `src/war/menu/screens.ts`, path stored on the player.
