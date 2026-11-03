@@ -83,7 +83,7 @@ if (baker) void loading.then((r) => baker.region(r), () => {});
 void loading.then((r) => (loader?.name(r.name), loader?.set('region', 1)), () => {});
 const grey = q.get('art') === 'grey';
 if (grey) loader?.set('art', 1);
-void Promise.all([loading, grey ? null : loadArt(undefined, loader?.part('art', 'Gathering the land…')), loadSheetImages(loader?.part('sheets'))]).then(([region, art, sheets]) => {
+void Promise.all([loading, grey ? null : loadArt(undefined, loader?.part('art', 'Gathering the land…')), loadSheetImages()]).then(([region, art, sheets]) => {
   loader?.set('scene', 0.5, 'Pitching the camp…');
   const scene = new SandboxScene();
   live = scene;

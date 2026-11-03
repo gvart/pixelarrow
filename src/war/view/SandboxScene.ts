@@ -33,7 +33,7 @@ import type { BakeClient } from './bakeClient';
 import type { BakeJob } from './bakeWorker';
 import { WaterGlints } from './water';
 import { ShotLayer } from './shots';
-import { BODY, SPRITE_ZOOM, UnitLayer } from './units';
+import { BODY, SPRITE_ZOOM, UnitLayer, type SheetImages } from './units';
 import { ChiefLayer } from './chiefs';
 import { peakAt } from './peaks';
 import { NeutralLayer } from './neutral';
@@ -161,7 +161,7 @@ export class SandboxScene extends Phaser.Scene {
   /** Overview bands asked of the worker, and back. */
   private bandsAsked = 0;
   private bandsDone = 0;
-  private units!: UnitLayer;
+  units!: UnitLayer;
   /** Lairs and claim banners (neutral regions). */
   private neutral!: NeutralLayer;
   /** W-72 proposal: rival warlords' banners and raid marks (./warlords.ts). */
@@ -176,7 +176,7 @@ export class SandboxScene extends Phaser.Scene {
   /** Fog of war over the player's team's unexplored and explored ground (W-39; the sim client hides what it cannot see). */
   private fog!: FogLayer;
   private fogVer = -1;
-  private sheetImages = new Map<string, HTMLImageElement>();
+  private sheetImages!: SheetImages;
   private gUi!: Phaser.GameObjects.Graphics;
   private markers: { x: number; y: number; t: number; c: number }[] = [];
   private box: { x0: number; y0: number; x1: number; y1: number } | null = null;
@@ -197,7 +197,7 @@ export class SandboxScene extends Phaser.Scene {
     super('Sandbox');
   }
 
-  init(data: { region: RegionData; art?: WarArt | null; sheets: Map<string, HTMLImageElement>; baker?: BakeClient | null }): void {
+  init(data: { region: RegionData; art?: WarArt | null; sheets: SheetImages; baker?: BakeClient | null }): void {
     this.region = data.region;
     this.art = data.art ?? null;
     this.sheetImages = data.sheets;

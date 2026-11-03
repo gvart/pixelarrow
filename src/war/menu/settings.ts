@@ -1,7 +1,7 @@
 /**
  * Settings, from the menu and in game (Esc, F10): Controls (every war key, two slots each, rebinding through
  * ../input; replaces the campaign's src/ui/settings/controls.ts and shortcutsSheet.ts), Display (the HUD's UI scale, screen shake, the network readout)
- * and Sound (mute and the five volumes). Everything is kept in localStorage as before: `war.bindings`, `war.uiScale`,
+ * and Sound (mute and the five volumes), and from the menu Account (delete the account and all its data). Everything is kept in localStorage as before: `war.bindings`, `war.uiScale`,
  * `pixelarrow.war.sound`.
  *
  * Rebinding: click a key (or Enter on it), press the new one. Esc cancels, Backspace or Delete clears the slot. A key
@@ -17,7 +17,7 @@ import { injectMenuCss } from './style';
 import { setShakeOn, shakeOn } from '../view/feel/shake';
 import { netStatsOn, setNetStatsOn } from '../view/hud/netStats';
 
-export type SettingsTab = 'controls' | 'display' | 'sound';
+export type SettingsTab = 'controls' | 'display' | 'sound' | 'account';
 
 export interface SettingsHooks {
   /** The UI scale changed (the HUD re-zooms). */
@@ -26,6 +26,8 @@ export interface SettingsHooks {
   onSound?: (s: WarSoundSettings) => void;
   /** Current sound settings (the live mixer's), else the stored ones. */
   sound?: () => WarSoundSettings;
+  /** Shows the Account tab (the menu, signed in by email): deletes the account; the settings close when it is done. */
+  deleteAccount?: (password: string, confirm: string) => Promise<void>;
 }
 
 const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -44,7 +46,7 @@ export function openSettings(tab: SettingsTab = 'controls', hooks: SettingsHooks
   modal.style.zoom = String(uiZoom());
   modal.innerHTML = `<div class="rf-card mn-card mn-set" role="dialog" aria-label="Settings">
     <div class="mn-h"><span class="rf-name">Settings</span><button class="rf-tbtn x" data-k="close" title="Close (Esc)" style="margin-left:auto">✕</button></div>
-    <div class="mn-tabs" role="tablist">${(['controls', 'display', 'sound'] as SettingsTab[]).map((t) => `<button class="rf-tab" role="tab" data-tab="${t}">${t[0].toUpperCase() + t.slice(1)}</button>`).join('')}</div>
+    <div class="mn-tabs" role="tablist">${(['controls', 'display', 'sound', ...(hooks.deleteAccount ? ['account'] : [])] as SettingsTab[]).map((t) => `<button class="rf-tab" role="tab" data-tab="${t}">${t[0].toUpperCase() + t.slice(1)}</button>`).join('')}</div>
     <div class="body"></div>
     <div class="mn-row" style="margin-top:8px;padding-top:8px;border-top:1px solid var(--rf-rule)"><span class="mn-msg" data-k="msg" style="margin:0;flex:1"></span><button class="rf-tbtn" data-k="reset">Reset all keys</button><button class="rf-tbtn pri" data-k="done">Done</button></div>
   </div>`;
@@ -59,6 +61,7 @@ export function openSettings(tab: SettingsTab = 'controls', hooks: SettingsHooks
     modal.querySelector<HTMLElement>('[data-k=reset]')!.style.display = cur === 'controls' ? '' : 'none';
     if (cur === 'controls') body.innerHTML = controlsHtml(capture);
     else if (cur === 'display') body.innerHTML = displayHtml();
+    else if (cur === 'account') body.innerHTML = accountHtml();
     else body.innerHTML = soundHtml(hooks.sound?.() ?? loadSound());
   };
   const keyBtn = (id: ActionId, slot: Slot) => body.querySelector<HTMLElement>(`[data-key="${id}"][data-slot="${slot}"]`);
@@ -121,6 +124,7 @@ export function openSettings(tab: SettingsTab = 'controls', hooks: SettingsHooks
     if (el.dataset.k === 'close' || el.dataset.k === 'done') return close();
     if (el.dataset.k === 'reset') { keys.set(defaultBindings()); say('Every key is back to its default.', 'good'); return render(); }
     if (el.dataset.tab) { cur = el.dataset.tab as SettingsTab; say(''); return render(); }
+    if (el.dataset.k === 'delete') return void deleteAccount(el as HTMLButtonElement);
     if (el.dataset.key) return startCapture(el.dataset.key as ActionId, Number(el.dataset.slot) as Slot);
     if (el.dataset.def) { keys.set(resetAction(keys.map, el.dataset.def as ActionId)); say(`"${ACTIONS[el.dataset.def as ActionId].label}" is back to its default.`); return render(); }
     if (el.dataset.scale) {
@@ -132,6 +136,20 @@ export function openSettings(tab: SettingsTab = 'controls', hooks: SettingsHooks
       return render();
     }
   });
+  const deleteAccount = async (btn: HTMLButtonElement) => {
+    const pass = body.querySelector<HTMLInputElement>('[data-acc=pass]')!.value, word = body.querySelector<HTMLInputElement>('[data-acc=word]')!.value.trim();
+    if (!pass) return say('Enter your password.', 'bad');
+    if (word !== 'DELETE') return say('Type DELETE to confirm.', 'bad');
+    btn.disabled = true;
+    say('Deleting…');
+    try {
+      await hooks.deleteAccount!(pass, word);
+      close();
+    } catch (e) {
+      btn.disabled = false;
+      say((e as Error).message, 'bad');
+    }
+  };
   const setSound = (s: WarSoundSettings) => {
     if (hooks.onSound) hooks.onSound(s);
     else saveSound(s);
@@ -184,6 +202,14 @@ function displayHtml(): string {
     <div class="rf-cap" style="margin-top:12px">Network</div>
     ${import.meta.env.DEV || new URLSearchParams(location.search).has('dev') ? `<label class="mn-row" style="height:28px"><input type="checkbox" data-netstats ${netStatsOn() ? 'checked' : ''}>Network stats (dev)</label>` : ''}
     <div class="rf-dim" style="font-size:11.5px">A small readout at the left edge: ping to the region server, its tick time, snapshots and data a second, frames a second, and a warning when the server stops answering.</div>`;
+}
+
+function accountHtml(): string {
+  return `<div class="rf-cap">Delete account</div>
+    <div style="font-size:12.5px;line-height:1.4;margin:4px 0 10px">Your account and everything in it go for good: your men, squads, progress, clan place, market listings, chat and sign-ins. <b style="color:var(--rf-bad)">It is immediate and cannot be undone.</b> Other players will see "Deleted player" in place of your name.</div>
+    <label class="mn-lab" for="mnAccPass">Password</label><input class="mn-in" id="mnAccPass" data-acc="pass" type="password" autocomplete="current-password">
+    <label class="mn-lab" for="mnAccWord">Type DELETE to confirm</label><input class="mn-in" id="mnAccWord" data-acc="word" autocomplete="off" spellcheck="false">
+    <button class="rf-tbtn" data-k="delete" style="color:var(--rf-bad)">Delete my account forever</button>`;
 }
 
 function soundHtml(s: WarSoundSettings): string {

@@ -4,6 +4,11 @@
 /*
   Content-Security-Policy: frame-ancestors 'self'
 
+# Vite's build output: every file name carries its content hash, so a browser keeps it for good (no revalidation of
+# ~250 files on each region entry, every one a page load of sandbox.html).
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
 # The standalone email-link pages (V6-ACCT-06; ADR-0008 §4, M-AF-6). Their links carry a token in
 # #t=: never send a Referer, never frame them (the reset form is a clickjacking target), and allow nothing but this origin plus Cloudflare Turnstile (a new-link form).
 # This CSP adds to the one above (both apply, so frame-ancestors is 'none' here).

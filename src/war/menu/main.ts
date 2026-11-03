@@ -146,17 +146,23 @@ async function titleMenu(v: api.StartView): Promise<void> {
   titleScreen(stage, { name, alliance: v.alliance, home: v.home, men, where, favour }, {
     continue: () => enterRegion(where ?? v.home!, v.alliance ?? 0),
     world: openWorld,
-    settings: () => openSettings('controls', { onScale: zoom }),
+    settings: () => openSettings('controls', settingsHooks()),
     signOut: () => void api.signOut().then(signIn),
   });
 }
+
+/** An email account (not a dev player) gets the Account tab: deleting it goes back to the sign-in. */
+const settingsHooks = () => {
+  const a = api.signedIn();
+  return { onScale: zoom, ...(a && !a.dev ? { deleteAccount: (p: string, w: string) => api.deleteAccount(p, w).then(signIn) } : {}) };
+};
 
 keys.setContexts(() => ['global']);
 addEventListener('keydown', (e: KeyboardEvent) => {
   if (settingsOpen()) return;
   const a = keys.act(e);
-  if (a === 'menu.settings') { e.preventDefault(); openSettings('controls', { onScale: zoom }); }
-  else if (a === 'help.keys' && !(e.target instanceof HTMLInputElement)) { e.preventDefault(); openSettings('controls', { onScale: zoom }); }
+  if (a === 'menu.settings') { e.preventDefault(); openSettings('controls', settingsHooks()); }
+  else if (a === 'help.keys' && !(e.target instanceof HTMLInputElement)) { e.preventDefault(); openSettings('controls', settingsHooks()); }
 });
 
 void api.resume().then((a) => (a ? route() : signIn()), () => signIn());

@@ -28,7 +28,7 @@ export class ApiError extends Error {
 let auth: WarAuth | null = null;
 export const signedIn = () => auth;
 
-export async function call<T>(method: 'GET' | 'POST', path: string, body?: unknown): Promise<T> {
+export async function call<T>(method: 'GET' | 'POST' | 'DELETE', path: string, body?: unknown): Promise<T> {
   const r = await fetch(path, { method, credentials: 'same-origin', headers: auth?.headers ?? { 'content-type': 'application/json' }, ...(body !== undefined ? { body: JSON.stringify(body) } : {}) });
   const j = (await r.json().catch(() => ({}))) as T & { error?: { code?: string; message?: string } | string; message?: string };
   if (!r.ok) {
@@ -78,6 +78,14 @@ export async function devSignIn(id: number): Promise<void> {
 export async function signOut(): Promise<void> {
   if (auth && !auth.dev) await call('POST', '/api/auth/logout').catch(() => undefined);
   try { localStorage.removeItem(DEV_KEY); } catch { /* none kept */ }
+  auth = null;
+}
+
+/** Deletes the account and all its data for good (server/src/account/delete.ts): the password proves it's you, then DELETE. */
+export async function deleteAccount(password: string, confirm: string): Promise<void> {
+  if (!auth || auth.dev) throw new ApiError('no_password', 'Only an email account can be deleted here', 0);
+  await call('POST', '/api/account/reauth', { password });
+  await call('DELETE', '/api/account', { confirm });
   auth = null;
 }
 
