@@ -3,8 +3,8 @@
  * entry, ahead of ./main.ts's big import graph) until the region is playable, then a short fade. Every way in lands
  * here: the menu's muster and home pick, the world map's travel, a settlement jump (each a page load of sandbox.html).
  *
- * The bar is real progress, weighted by PARTS: the region file, the terrain and object art (per image), the soldier
- * sheets, the scene, the first snapshot, the building / siege / trade art, the camera on the player's men, and the
+ * The bar is real progress, weighted by PARTS: the region file, the terrain and object art (per image), the sheets of
+ * the classes in the first snapshot (the rest load after, ./units.ts SheetImages), the scene, the first snapshot, the building / siege / trade art, the camera on the player's men, and the
  * chunks the view shows baked. `watchScene` decides the region is ready (see `sceneReady`).
  *
  * The failure path: a boot error, or no progress for STALL_MS, turns the card into a message with Retry (a reload) and
@@ -72,12 +72,14 @@ export interface SceneState {
   art: boolean;
   /** The camera stands where the player starts. */
   camera: boolean;
+  /** The sheets of every class in the snapshot are in. */
+  sheets: boolean;
   /** Visible chunks still to bake (-1 before the first frame). */
   pending: number;
 }
 
-/** Playable: the snapshot in, the art settled, the camera placed and every chunk it shows baked. */
-export const sceneReady = (s: SceneState): boolean => s.snap && s.art && s.camera && s.pending === 0;
+/** Playable: the snapshot in, the art settled, the camera placed, the units' sheets in and every chunk it shows baked. */
+export const sceneReady = (s: SceneState): boolean => s.snap && s.art && s.camera && s.sheets && s.pending === 0;
 
 const CSS = TOKENS + `
 #rfLoad{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;background:#0e0907;color:var(--rf-ink);
@@ -225,9 +227,9 @@ export class LoadScreen {
 }
 
 /**
- * Follow the scene to ready, frame by frame: the first snapshot, the art, the camera (`camera()`: placed; world entry
+ * Follow the scene to ready, frame by frame: the first snapshot and its classes' sheets, the art, the camera (`camera()`: placed; world entry
  * waits for the player's men, at most CAMERA_WAIT_MS after the first snapshot), then the view's chunks; ready held two
- * frames (the sprites drawn over the baked ground), then `done`.
+ * frames (the sprites drawn over the baked ground), then `done` and the other sheets in the background.
  */
 export function watchScene(ld: LoadScreen, s: SandboxScene, camera: () => boolean): void {
   let art = false, snapAt = 0, most = 0, held = 0;
@@ -239,13 +241,15 @@ export function watchScene(ld: LoadScreen, s: SandboxScene, camera: () => boolea
     if (!ld.loading) { s.game.events.off('poststep', tick); return; }
     const now = performance.now(), snap = !!s.sim.cur;
     if (snap && !snapAt) (snapAt = now), ld.set('snapshot', 1, 'Mustering your men…');
+    const sh = snap ? s.units.sheetsIn(s.sim.cur!.units.map((u) => u.cls)) : null;
+    if (sh) ld.set('sheets', sh.of ? sh.have / sh.of : 1);
     const cam = snap && (camera() || now - snapAt > CAMERA_WAIT_MS);
     if (cam) ld.set('camera', 1, 'Painting the ground…');
     // the chunks the view wants once the camera is placed: the bar follows them down to none
     if (cam && s.viewPending > 0) most = Math.max(most, s.viewPending);
     if (cam && s.viewPending >= 0 && most) ld.set('view', 1 - s.viewPending / most);
-    held = sceneReady({ snap, art, camera: cam, pending: s.viewPending }) ? held + 1 : 0;
-    if (held >= 2) ld.done();
+    held = sceneReady({ snap, art, camera: cam, sheets: !!sh && sh.have === sh.of, pending: s.viewPending }) ? held + 1 : 0;
+    if (held >= 2) ld.done(), s.units.fetchRest();
   };
   s.game.events.on('poststep', tick);
 }

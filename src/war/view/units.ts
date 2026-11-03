@@ -146,18 +146,58 @@ export const setShadeSource = (f: (() => readonly ShadeGhost[]) | null): void =>
 let riseSource: (() => readonly ShadeGhost[]) | null = null;
 export const setRiseSource = (f: (() => readonly ShadeGhost[]) | null): void => void (riseSource = f);
 
-/** Fetch and decode the class sheets (before the game starts: big ones are split, see buildSheet). */
-export async function loadSheetImages(onProgress?: (f: number) => void): Promise<Map<string, HTMLImageElement>> {
-  const out = new Map<string, HTMLImageElement>(), total = Object.keys(images).length + 1;
-  await Promise.all(Object.entries(images).map(async ([path, url]) => {
-    const im = new Image();
-    await new Promise((ok, fail) => { im.onload = ok; im.onerror = () => fail(new Error(`sheet ${url} failed to load`)); im.src = url; });
-    out.set(path.split('/').at(-2)!, im);
-    onProgress?.(out.size / total);
-  }));
+const urlOf = new Map(Object.entries(images).map(([p, u]) => [p.split('/').at(-2)!, u]));
+const manifestOf = new Map(Object.entries(manifests).map(([p, m]) => [p.split('/').at(-2)!, m]));
+
+/**
+ * The class sheet images, fetched on first ask: all of them are ~38 MB, a region shows a few. The loading screen waits
+ * for the classes of the first snapshot (./loadScreen.ts watchScene); the rest come in the background once it is up.
+ */
+export class SheetImages {
+  readonly img = new Map<string, HTMLImageElement>();
+  /** Asked classes: in, or settled with no image (failed: drawn as militia). */
+  private asked = new Map<string, Promise<void>>();
+  private settled = new Set<string>();
+
+  /** Fetch cls's sheet once (no sheet of that name: nothing). */
+  want(cls: string): Promise<void> {
+    let p = this.asked.get(cls);
+    if (p) return p;
+    const url = urlOf.get(cls);
+    p = !url ? Promise.resolve() : new Promise<void>((ok) => {
+      const im = new Image();
+      im.onload = () => (this.img.set(cls, im), ok());
+      im.onerror = () => (console.error(`sheet ${url} failed to load`), ok());
+      im.src = url;
+    }).finally(() => this.settled.add(cls));
+    if (!url) this.settled.add(cls);
+    this.asked.set(cls, p);
+    return p;
+  }
+
+  /** cls is in, or will never be (unknown or failed). */
+  done(cls: string): boolean {
+    return this.settled.has(cls);
+  }
+
+  /** Every sheet not asked yet, two at a time (after the region is up: a class that shows later is mostly in by then). */
+  async rest(): Promise<void> {
+    const left = [...urlOf.keys()].filter((c) => !this.asked.has(c));
+    const next = async (): Promise<void> => { const c = left.shift(); if (c) { await this.want(c); return next(); } };
+    await Promise.all([next(), next()]);
+  }
+}
+
+/** The sheet loader with the load sprites and the fallback class in (before the game starts: big sheets are split, see buildSheet). */
+export async function loadSheetImages(onProgress?: (f: number) => void): Promise<SheetImages> {
+  const out = new SheetImages();
   const im = new Image();
-  await new Promise((ok, fail) => { im.onload = ok; im.onerror = () => fail(new Error(`loads ${loadsUrl} failed to load`)); im.src = loadsUrl; });
-  out.set(LOADS_KEY, im);
+  await Promise.all([
+    out.want(FALLBACK_CLASS),
+    new Promise((ok, fail) => { im.onload = ok; im.onerror = () => fail(new Error(`loads ${loadsUrl} failed to load`)); im.src = loadsUrl; }),
+  ]);
+  out.img.set(LOADS_KEY, im);
+  onProgress?.(1);
   return out;
 }
 
@@ -242,16 +282,12 @@ export class UnitLayer {
   private codes = new Map<number, { cls: string; team: number; pid?: string; level?: number; ver: number; fx: number; tint: number }>();
   private ids = 0;
 
-  constructor(private scene: Phaser.Scene, private iso: IsoMap, sheetImages: Map<string, HTMLImageElement>) {
+  constructor(private scene: Phaser.Scene, private iso: IsoMap, private sheetImages: SheetImages) {
     this.dye = addSwapShaders(scene);
     this.outline = addOutlineShader(scene);
-    for (const [path, m] of Object.entries(manifests)) {
-      const cls = path.split('/').at(-2)!, img = sheetImages.get(cls);
-      if (img) this.pending.set(cls, [m, img]);
-    }
-    const look = addLookPipeline(scene, [...this.pending].map(([cls, [m]]) => [cls, m] as [string, SheetManifest]), TEAM_TINT);
+    const look = addLookPipeline(scene, Object.entries(manifests).filter(([p]) => urlOf.has(p.split('/').at(-2)!)).map(([p, m]) => [p.split('/').at(-2)!, m] as [string, SheetManifest]), TEAM_TINT);
     if (look) ({ node: this.look, index: this.lookIndex } = look);
-    const loadsImg = sheetImages.get(LOADS_KEY);
+    const loadsImg = sheetImages.img.get(LOADS_KEY);
     if (loadsImg) buildLoads(scene, loadsImg);
     this.gUnder = scene.add.graphics().setDepth(9);
   }
@@ -263,6 +299,11 @@ export class UnitLayer {
   private sheet(cls: string, now?: number): Sheet | undefined {
     let sh = this.sheets.get(cls);
     if (sh) return sh;
+    if (!this.pending.has(cls)) {
+      const m = manifestOf.get(cls), img = this.sheetImages.img.get(cls);
+      if (m && img) this.pending.set(cls, [m, img]);
+      else void this.sheetImages.want(cls);
+    }
     const p = this.pending.get(cls);
     if (!p || (now !== undefined && now === this.builtAt)) return undefined;
     if (now !== undefined) this.builtAt = now;
@@ -285,6 +326,27 @@ export class UnitLayer {
     useQuad(img, this.dye[slot(team) & 3] ?? null);
     img.setTint(TEAM_TINT[slot(team)] ?? 0xffffff).setTintMode(MULTIPLY);
     return true;
+  }
+
+  /** cls has a sheet still to come: loading, or in and waiting to be uploaded. */
+  private waits(cls: string): boolean {
+    return this.pending.has(cls) || (manifestOf.has(cls) && !this.sheetImages.done(cls));
+  }
+
+  /** Every class named has its sheet in (or never will); asks for the missing ones. For the loading screen. */
+  sheetsIn(classes: Iterable<string>): { have: number; of: number } {
+    let have = 0, of = 0;
+    for (const c of new Set(classes)) {
+      of++;
+      if (this.sheetImages.done(c)) have++;
+      else void this.sheetImages.want(c);
+    }
+    return { have, of };
+  }
+
+  /** The sheets no class here asked for yet, in the background. */
+  fetchRest(): void {
+    void this.sheetImages.rest();
   }
 
   /** The frame time a sheet was last built at (one a frame: a soldier's is up to ~0.1 s of texture upload). */
@@ -551,8 +613,8 @@ export class UnitLayer {
       if (l?.hide) continue; // inside a tower
       const f = this.feet(d);
       if (f.x < view.x - padX || f.x > view.right + padX || f.y < view.y - padBot || f.y > view.bottom + padTop) continue;
-      // a class whose sheet waits for a later frame is not drawn this one (an unknown class draws as militia)
-      const sheet = this.sheet(u.cls, at.now) ?? (this.pending.has(u.cls) ? undefined : this.sheet(FALLBACK_CLASS, at.now));
+      // a class whose sheet waits for a later frame (or is still loading) is not drawn this one (an unknown class draws as militia)
+      const sheet = this.sheet(u.cls, at.now) ?? (this.waits(u.cls) ? undefined : this.sheet(FALLBACK_CLASS, at.now));
       if (!sheet) continue;
       // facing, projected: a tile-space direction (dx, dy) runs (dx - dy, (dx + dy) / 2) on screen
       const qi = this.quadrant(u.id, l?.facing ?? d.facing), q = sheet.rows[qi];

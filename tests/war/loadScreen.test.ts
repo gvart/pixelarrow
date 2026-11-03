@@ -25,11 +25,12 @@ describe('loading screen', () => {
   });
 
   it('is ready only with the snapshot, the art, the camera and the view baked', () => {
-    const ok = { snap: true, art: true, camera: true, pending: 0 };
+    const ok = { snap: true, art: true, camera: true, sheets: true, pending: 0 };
     expect(sceneReady(ok)).toBe(true);
     expect(sceneReady({ ...ok, snap: false })).toBe(false);
     expect(sceneReady({ ...ok, art: false })).toBe(false);
     expect(sceneReady({ ...ok, camera: false })).toBe(false);
+    expect(sceneReady({ ...ok, sheets: false })).toBe(false);
     expect(sceneReady({ ...ok, pending: 3 })).toBe(false);
     expect(sceneReady({ ...ok, pending: -1 })).toBe(false); // before the first frame
   });
