@@ -1,0 +1,105 @@
+server/src/war/persons.ts
+  s_a7d5d20f628c80::t_33b6f309e8c0b1 56-57,366,416
+server/src/war/regionDO.ts
+  s_a7d5d20f628c80::t_33b6f309e8c0b1 72,74,136-138,850-853,1167,1184-1185,1224-1226
+server/src/war/favour.ts
+  s_a7d5d20f628c80::t_33b6f309e8c0b1 2-4,8-14,17-19,22,25,38-43,46,51-52,57-72,74-76,79,83,86,88,91-94,97-119
+src/war/net/mastery.ts
+  s_a7d5d20f628c80::t_33b6f309e8c0b1 3,11
+src/war/sim/works.ts
+  s_a7d5d20f628c80::t_33b6f309e8c0b1 2106-2114
+tests/war/pathLimits.test.ts
+  s_a7d5d20f628c80::t_33b6f309e8c0b1 71,81
+tests/war/perks.test.ts
+  s_a7d5d20f628c80::t_b4b11760a437e4 122-141
+  s_a7d5d20f628c80::t_33b6f309e8c0b1 1-121,142-225
+server/src/war/start.ts
+  s_a7d5d20f628c80::t_33b6f309e8c0b1 44,49,61
+src/war/sim/warlords.ts
+  s_a7d5d20f628c80::t_33b6f309e8c0b1 13,218,227
+src/war/view/hud/mastery.ts
+  s_a7d5d20f628c80::t_33b6f309e8c0b1 11,81
+tests/war/familyFights.test.ts
+  s_a7d5d20f628c80::t_33b6f309e8c0b1 1-57
+server/src/war/works.ts
+  s_a7d5d20f628c80::t_33b6f309e8c0b1 31,147
+src/war/net/favour.ts
+  s_a7d5d20f628c80::t_33b6f309e8c0b1 2-5,9-11,13-15,46-50,55,57-58,60-63,65-66,68-75,83,87,89
+src/war/sim/classes.ts
+  s_a7d5d20f628c80::t_33b6f309e8c0b1 22,136-140
+  s_a7d5d20f628c80::t_8d975f78ebedda 141-142
+server/src/war/tradeScore.ts
+  s_a7d5d20f628c80::t_33b6f309e8c0b1 24,54
+server/test/war/soloLoop.test.ts
+  s_a7d5d20f628c80::t_33b6f309e8c0b1 4,15,48,61,67,77,103
+docs/impl/paths-rework.md
+  s_a7d5d20f628c80::t_8b311aabc6965b 72-73
+  s_a7d5d20f628c80::t_33b6f309e8c0b1 40-41,55,57-58,104
+src/war/types.ts
+  s_a7d5d20f628c80::t_33b6f309e8c0b1 751-752,857-858
+src/war/view/hud/souls.ts
+  s_a7d5d20f628c80::t_33b6f309e8c0b1 9,66,70
+server/src/war/raise.ts
+  s_a7d5d20f628c80::t_33b6f309e8c0b1 2,54,64
+server/test/war/tunnel.test.ts
+  s_a7d5d20f628c80::t_33b6f309e8c0b1 66,72-73
+src/war/sim/skills.ts
+  s_a7d5d20f628c80::t_33b6f309e8c0b1 13,15
+server/test/war/pathLimits.test.ts
+  s_a7d5d20f628c80::t_33b6f309e8c0b1 63
+server/src/war/mastery.ts
+  s_a7d5d20f628c80::t_33b6f309e8c0b1 7,12,31
+server/src/war/room.ts
+  s_a7d5d20f628c80::t_33b6f309e8c0b1 751,753-764
+src/data/warWarlords.ts
+  s_a7d5d20f628c80::t_33b6f309e8c0b1 112
+src/data/warPerks.ts
+  s_a7d5d20f628c80::t_33b6f309e8c0b1 1-61
+src/sim/version.ts
+  s_a7d5d20f628c80::t_8b311aabc6965b 33-34,36
+  s_a7d5d20f628c80::t_33b6f309e8c0b1 31-32
+server/test/war/perks.test.ts
+  s_a7d5d20f628c80::t_33b6f309e8c0b1 1-131
+src/war/sim/index.ts
+  s_a7d5d20f628c80::t_33b6f309e8c0b1 48-49,388-397,516,1459-1461,1506,2581,3051-3053,3786,4012-4013
+  s_a7d5d20f628c80::t_97ab3ed550fa83 4014
+src/war/view/hud/topBar.ts
+  s_a7d5d20f628c80::t_33b6f309e8c0b1 8,94
+src/war/input/actions.ts
+  s_a7d5d20f628c80::t_33b6f309e8c0b1 136
+docs/WAR.md
+  s_a7d5d20f628c80::t_33b6f309e8c0b1 20,485-486,521-522,751,753,839,841,964,1172,1200,1221-1271
+  s_a7d5d20f628c80::t_1a93e0c408434c 1515
+src/war/world/start.ts
+  s_a7d5d20f628c80::t_33b6f309e8c0b1 13-14,34-42,47-48,59-60,65-66,69-72,78
+docs/impl/global-war-rebuild.md
+  s_a7d5d20f628c80::t_8b311aabc6965b 124-128
+src/war/net/protocol.ts
+  s_a7d5d20f628c80::t_8b311aabc6965b 48
+tests/war/pathStart.test.ts
+  s_a7d5d20f628c80::t_33b6f309e8c0b1 19-20
+src/war/sim/siege.ts
+  s_a7d5d20f628c80::t_33b6f309e8c0b1 34,115-116,131,183,351,353
+src/war/sim/souls.ts
+  s_a7d5d20f628c80::t_33b6f309e8c0b1 49,51-54
+server/test/war/favour.test.ts
+  s_a7d5d20f628c80::t_33b6f309e8c0b1 2-3,9-10,14,20,38-39,53,137-141,145
+src/war/view/hud/favour.ts
+  s_a7d5d20f628c80::t_33b6f309e8c0b1 2-6,8-9,13,27-32,37-41,43,48-51,64-67,69,71,97-100,116,120,123,131
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "6dfdcdc3c4a8ca1a8ff367c39400e566eed60eda",
+  "prompts": {},
+  "sessions": {
+    "s_a7d5d20f628c80": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1afee479-b44b-46d2-a159-a540e44e7fb8",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
