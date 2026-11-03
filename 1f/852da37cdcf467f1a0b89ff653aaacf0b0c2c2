@@ -1,0 +1,44 @@
+server/src/war/persons.ts
+  s_a7d5d20f628c80::t_18a2900b61e651 6,9-10,47,61,135,137,139,221,249-250,286,295,302,345,351-368,380,395-396,399-401,406,408,415-416,421-422,424,486,502-504,509-513,563,571,592,607-608
+server/src/war/regionDO.ts
+  s_a7d5d20f628c80::t_18a2900b61e651 514,848
+  s_a7d5d20f628c80::t_6b08116fbc8de1 83
+server/test/war/persons.test.ts
+  s_a7d5d20f628c80::t_d534c4cf7461fb 8,47
+server/src/war/start.ts
+  s_a7d5d20f628c80::t_6b08116fbc8de1 25
+  s_a7d5d20f628c80::t_18a2900b61e651 58-63,122-123,129
+server/test/war/pathLimits.test.ts
+  s_a7d5d20f628c80::t_c65260da771d03 14,91,156,160,183,187-188
+  s_a7d5d20f628c80::t_ea5efa9571456c 287
+  s_a7d5d20f628c80::t_558387f2faad4f 265
+  s_a7d5d20f628c80::t_a30809ffba4e42 1-13,15-90,92-155,157-159,161-182,184-186,189-264,266-286,288-302,304-308
+  s_a7d5d20f628c80::t_06b2cbb9e1e659 303
+server/src/war/guide.ts
+  s_a7d5d20f628c80::t_c09e7b2c73a6cb 7
+  s_a7d5d20f628c80::t_18a2900b61e651 40-41,43,54,107
+server/src/war/raise.ts
+  s_a7d5d20f628c80::t_18a2900b61e651 6-9,16-17,36-37,45-46,49,57,59,62-63,70,73,76
+server/src/war/room.ts
+  s_a7d5d20f628c80::t_c22f37630e61da 370-371,375
+  s_a7d5d20f628c80::t_18a2900b61e651 70,143-144,302-303,367-369,372-374,376-377,747-752,764,1322,1486,1511
+server/src/war/captives.ts
+  s_a7d5d20f628c80::t_18a2900b61e651 106-107,113-114,119
+  s_a7d5d20f628c80::t_6b08116fbc8de1 23
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "1f852da37cdcf467f1a0b89ff653aaacf0b0c2c2",
+  "prompts": {},
+  "sessions": {
+    "s_a7d5d20f628c80": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1afee479-b44b-46d2-a159-a540e44e7fb8",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
