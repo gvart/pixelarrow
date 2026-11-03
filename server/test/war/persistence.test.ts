@@ -102,7 +102,8 @@ describe('WarRoom with persons', () => {
       const row = once.find((x) => x.id === p.pid) as { state: string; xp: number; battles: number; region: string | null };
       expect(row.state).toBe(p.state === 'fit' ? 'active' : p.state);
       expect(row.xp).toBe(p.hero.xp);
-      if (p.state !== 'fit') expect(row.region).toBeNull();
+      if (p.state === 'wounded') expect(row.region).toBe('test-ridge'); // W-98: he lies with the group
+      if (p.state === 'dead' || p.state === 'captive') expect(row.region).toBeNull();
     }
     expect(f.report.persons.some((p) => p.xp > 0)).toBe(true);
     // the fight is over: no second report while all is quiet
@@ -190,24 +191,6 @@ async function connect(token: string): Promise<Client> {
 const stats = async () => (await (await SELF.fetch(`${BASE}/api/war/test-ridge/stats`)).json<{ units: number; online: number; running: boolean }>());
 
 describe('WarRegionDO persistence', () => {
-  it('a rejoin also brings the men named from home as a fresh squad', async () => {
-    const me = await devLogin(7404);
-    await api('/api/war/dev/seed', { method: 'POST', token: me.token, json: {} });
-    const rows = (await env.DB!.prepare("SELECT id FROM war_persons WHERE player_id = ?1 AND state = 'active' ORDER BY slot").bind(me.playerId).all<{ id: string }>()).results.map((r) => r.id);
-    const deployed = async () => (await env.DB!.prepare("SELECT COUNT(*) AS n FROM war_persons WHERE player_id = ?1 AND region = 'test-ridge'").bind(me.playerId).first<{ n: number }>())!.n;
-    const c = await connect(me.token);
-    c.send(join(me.playerId, 0, [rows.slice(0, 6)]));
-    expect(await c.next('welcome')).toMatchObject({ squads: [expect.any(Number)] });
-    c.ws.close(1000);
-    await new Promise((r) => setTimeout(r, 200));
-    const again = await connect(me.token);
-    again.send(join(me.playerId, 0, [rows.slice(6)]));
-    expect(((await again.next('welcome')) as Extract<ServerMsg, { t: 'welcome' }>).squads).toHaveLength(1); // the rejoin
-    expect(((await again.next('welcome')) as Extract<ServerMsg, { t: 'welcome' }>).squads).toHaveLength(2); // and the men from home
-    expect(await deployed()).toBe(12);
-    again.ws.close(1000);
-  });
-
   it('W-66: a player with no man at home watches the region (a join naming nobody), its loop streams, the pong says idle', async () => {
     const me = await devLogin(7409);
     const c = await connect(me.token);

@@ -29,7 +29,7 @@
  * room queues it; every tick's `crafted` events are written back (applyCrafts: minted items, repairs, salvage; keyed,
  * idempotent) and mend items whose order went go back to the stash.
  *
- * M4 world: WarWorldDO calls depart / arrive over RPC for transfers between regions (./world/world.ts): a departing
+ * M4 world: WarWorldDO calls depart / arrive over RPC for transfers between regions (./world/world.ts, W-87: the whole group): a departing
  * squad's unsaved fight (XP, kills) is written to D1 before it leaves and its hit points ride along; a world region
  * reports its summary (live men, claim points, claims in progress) to the world every REPORT_TICKS when it changed.
  *
@@ -79,7 +79,8 @@ import type { WildDeed } from '../../../src/war/net/mastery';
 import { elapsedTicks, loadMemory, MEMORY_KEY, remembered, storeMemory, writeMemory } from './memory';
 import type { WorldEvent } from '../../../src/war/world/events';
 import { settleTunnelFor } from './raise';
-import { applyFight, armyCount, claimForJoin, claimSoul, COLS, deployed, freeRaided, LIVE, ownerPid, release, releaseRegion, type PersonRow } from './persons';
+import { applyFight, armyCount, claimForJoin, claimSoul, COLS, deployed, freeRaided, groupOf, LIVE, offField, ownerPid, release, releaseRegion, riders, settle, waitingAtHome, type PersonRow } from './persons';
+import { homeRegion } from './start';
 import { namedSoul, SOULS, type NamedSoul, type SoulSpawn } from './captives';
 import { soulSites } from '../../../src/war/sim/souls';
 import { applyCrafts, keepMends, returnMends, takeForMend } from './crafting';
@@ -136,6 +137,8 @@ const WRITE_TRIES = 5;
 const PEACE_POLL = 300;
 /** W-63: ticks between polls of the region's settlements (10 s), between their reports to D1 (60 s); ms between levies. */
 const SETTLE_POLL = 100;
+/** W-98: how often (ticks) the room looks for his men healed here or waiting for a group at home. */
+const MUSTER_POLL = 600;
 const SETTLE_REPORT = 600;
 export const LEVY_MS = 6 * 3_600_000;
 const levyKey = (id: number) => `levy:${id}`;
@@ -477,7 +480,7 @@ export class WarRegionDO extends DurableObject<Env> {
       const a = await allianceOf(db, pid);
       if (a === null) return send(ws, { t: 'refused', reason: 'team', detail: 'join an alliance first' });
       m = { ...m, team: a };
-      if (room.spawnsNew(pid)) {
+      if (room.spawnsNew(pid) && (await groupOf(db, pid)) !== region) { // W-87: his group lying here (all wounded) needs no leave
         const st = await this.world().regionState(region).catch(() => null);
         const why = joinRefusal(region, a, st, tiedTo(this.settles, pid));
         if (why) return send(ws, { t: 'refused', reason: 'region', detail: why });
@@ -494,7 +497,6 @@ export class WarRegionDO extends DurableObject<Env> {
       if (typeof got === 'string') return send(ws, { t: 'refused', reason: 'army', detail: got });
       persons = got;
     }
-    const here = persons ? null : room.personsHere();
     let res: ReturnType<WarRoom['join']>;
     try {
       res = room.join(pid, m, persons);
@@ -515,11 +517,33 @@ export class WarRegionDO extends DurableObject<Env> {
     if (res.msg.t === 'welcome') await this.storyStart(pid, room); // W-65
     if (res.msg.t === 'welcome') await this.encounterStart(pid, room); // W-65
     if (res.msg.t === 'welcome') await this.masteryStart(pid, room); // W-73
+    if (db && res.msg.t === 'welcome') await this.muster(room, pid); // W-98: a healed man here, and at home who waited there
     this.save();
     this.start();
-    // a rejoin that also names men not here (entering again with some at home): they follow as a fresh squad
-    const fresh = here && res.msg.t === 'welcome' ? m.squads?.map((g) => g.filter((id) => id !== 'none' && !here.has(id))).filter((g) => g.length) : undefined;
-    if (fresh?.length && room.spawnsNew(pid)) await this.join(ws, pid, room, { ...m, squads: fresh });
+  }
+
+  /** W-98: his men off the field who belong on it here fall in; no room for them now: they wait for the next poll. */
+  private async muster(room: WarRoom, pid: number): Promise<void> {
+    const d = this.env.DB, region = room.region.id, now = Date.now();
+    if (!d) return;
+    const here = room.personsHere(), ids = await offField(d, pid, region, here, now);
+    if (!ids.length) return;
+    const got = await claimForJoin(d, pid, region, [ids], here, now);
+    if (typeof got === 'string') return;
+    const r = room.muster(pid, got[0]); // no room now: they stay marked here, off the field, for the next poll
+    if (r?.msg) for (const ws of this.ctx.getWebSockets(`p:${pid}`)) send(ws, r.msg);
+  }
+
+  /** Every MUSTER_POLL ticks (W-98): whoever healed here, or waited at home for a group standing there, falls in, online or not. */
+  private async pollMuster(room: WarRoom): Promise<void> {
+    const d = this.env.DB, list = room.playerIds(), now = Date.now();
+    if (!d || !list.length) return;
+    const rows = (await d
+      .prepare("SELECT player_id, id FROM war_persons WHERE player_id IN (SELECT value FROM json_each(?1)) AND ((state = 'active' AND (region = ?2 OR region IS NULL)) OR (state = 'wounded' AND region = ?2 AND until_at <= ?3))")
+      .bind(JSON.stringify(list), room.region.id, now)
+      .all<{ player_id: number; id: string }>()).results;
+    const here = room.personsHere();
+    for (const pid of new Set(rows.filter((r) => !here.has(r.id)).map((r) => r.player_id))) await this.muster(room, pid);
   }
 
   /** W-62: his first-hour guide here (his save from this DO's storage): started by the room, told to him. */
@@ -782,15 +806,16 @@ export class WarRegionDO extends DurableObject<Env> {
   }
 
   /**
-   * M4 (RPC from WarWorldDO): the player's squad leaves for `to` over the entry on `side`; its persons are marked in
-   * transit in D1 (`region = '>' + to`) before the world records the transfer.
+   * M4 (RPC from WarWorldDO, W-87): the player's whole group leaves for `to` over the entry on `side`; every man of it
+   * (the wounded, those off the field, at home those waiting) is marked in transit in D1 (`region = '>' + to`) before the
+   * world records the transfer.
    */
-  async depart(region: string, pid: number, who: number | string[], side: Side, to: string, foeRadius: number): Promise<DepartResult> {
+  async depart(region: string, pid: number, side: Side, to: string, foeRadius: number): Promise<DepartResult> {
     const room = await this.ensure(region);
     if (!room) return { error: 'region', detail: region };
     await this.caughtUp();
     if (to === room.guide.nextRegion) room.guide.mark(pid, 'next'); // W-73: the guide's hand-off, closed on the way out
-    const r = room.depart(pid, who, side, foeRadius);
+    const r = room.depart(pid, side, foeRadius);
     if ('error' in r) return r;
     const d = this.env.DB;
     // their fight so far goes to D1 before they leave (the destination loads them from there); queued writes first
@@ -798,33 +823,42 @@ export class WarRegionDO extends DurableObject<Env> {
       await this.settled();
       await applyFight(d, r.fight.id, region, r.fight.report, Date.now());
     }
-    if (d) await d.prepare('UPDATE war_persons SET region = ?3, updated_at = ?4 WHERE region = ?1 AND id IN (SELECT value FROM json_each(?2))').bind(region, JSON.stringify(r.ids), `>${to}`, Date.now()).run();
+    const ids = d ? [...new Set([...r.ids, ...(await riders(d, pid, region))])] : r.ids;
+    if (d) await d.prepare('UPDATE war_persons SET region = ?2, updated_at = ?3 WHERE player_id = ?4 AND id IN (SELECT value FROM json_each(?1))').bind(JSON.stringify(ids), `>${to}`, Date.now(), pid).run();
     this.save();
     this.report(room, true);
     this.resume(room);
-    return { ids: r.ids, off: r.off, lost: r.lost, ...(r.cargo ? { cargo: r.cargo } : {}) };
+    return { ids, off: r.off, lost: r.lost, ...(r.cargo ? { cargo: r.cargo } : {}) };
   }
 
   /**
-   * M4 (RPC from WarWorldDO): persons `ids` of the player (alliance `team`) in transit to this region come in over the
-   * entry on `side`, if the alliance's quota has room (else the world keeps them waiting). D1 marks them deployed here.
+   * M4 (RPC from WarWorldDO): the group `ids` of the player (alliance `team`) in transit to this region comes in over the
+   * entry on `side`, if the alliance's quota has room (else the world keeps it waiting). D1 marks them all here; the fit
+   * walk in (a man whose wound healed on the road too); the wounded lie with them. W-98: at his home, the men waiting
+   * there fall in.
    */
   async arrive(region: string, pid: number, team: number, ids: string[], side: Side, lost: Record<string, number> = {}, cargo?: TransitCargo): Promise<ArriveResult> {
     const room = await this.ensure(region);
     const d = this.env.DB;
     if (!room || !d) return { error: 'unavailable' };
     await this.caughtUp();
-    const road = `>${region}`;
+    const road = `>${region}`, now = Date.now();
+    await settle(d, pid, now);
     const got = await deployed(d, road, ids);
-    const persons = ids.flatMap((id) => got.get(id) ?? []);
-    if (!persons.length) return { error: 'gone' };
+    const waiting = (await homeRegion(d, pid)) === region ? await waitingAtHome(d, pid) : [];
+    const persons = [...ids.flatMap((id) => got.get(id) ?? []), ...waiting];
+    const mark = d.prepare('UPDATE war_persons SET region = ?1, updated_at = ?4 WHERE region = ?3 AND id IN (SELECT value FROM json_each(?2))').bind(region, JSON.stringify(ids), road, now);
+    if (!persons.length) {
+      await mark.run(); // nobody walks in: whoever is left of them lies here
+      return { error: 'gone' };
+    }
     const r = room.arrive(pid, team, persons, side, lost, cargo);
     if ('error' in r) return r;
     if (cargo) room.guide.mark(pid, 'haul'); // W-62: a caravan in
     await d.batch([
-      d.prepare('UPDATE war_persons SET region = ?1, updated_at = ?4 WHERE region = ?3 AND id IN (SELECT value FROM json_each(?2))').bind(region, JSON.stringify(persons.map((p) => p.id)), road, Date.now()),
-      d.prepare('UPDATE war_persons SET region = NULL WHERE region = ?2 AND id IN (SELECT value FROM json_each(?1))').bind(JSON.stringify(ids), road),
-      ...(cargo ? [tallyStmt(d, pid, 'caravan', 1, Date.now())] : []), // W-62 E7 tasks
+      mark,
+      ...(waiting.length ? [d.prepare('UPDATE war_persons SET region = ?1, updated_at = ?3 WHERE region IS NULL AND id IN (SELECT value FROM json_each(?2))').bind(region, JSON.stringify(waiting.map((p) => p.id)), now)] : []),
+      ...(cargo ? [tallyStmt(d, pid, 'caravan', 1, now)] : []), // W-62 E7 tasks
     ]);
     if (r.msg) for (const ws of this.ctx.getWebSockets(`p:${pid}`)) send(ws, r.msg);
     this.save();
@@ -1160,6 +1194,7 @@ export class WarRegionDO extends DurableObject<Env> {
     if (d && st?.attacks.length) this.write('attacks', () => this.attacked(room, st.attacks));
     if (d && st?.taking.length) this.write('claims taken', () => this.claimsTaken(room, st.taking));
     if (d && !catching && room.currentTick % SETTLE_POLL === 3) this.write('settle poll', () => this.pollSettlements(room));
+    if (d && !catching && room.currentTick % MUSTER_POLL === 5) this.write('muster poll', () => this.pollMuster(room));
     // W-62: an event that ran out while the world could not tell us ends here too
     if (!catching && room.currentTick % PEACE_POLL === 2) void this.applyEvents(room).catch((e) => logError('war_world_events_failed', e));
     // M6i: a cart captured between linked accounts goes back to its owner

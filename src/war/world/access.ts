@@ -1,8 +1,9 @@
 /**
- * Who may join a world region's room with fresh squads (M4; W-09). A player serves his alliance there (the room team
- * is the alliance). New men may come into his own home, a region his alliance holds, an unheld one or a contested
- * one; another alliance's home, or a region a foe holds uncontested, only by marching in over a border (a transfer:
- * into a home that is always by one of its entries). Rejoining squads already standing in the region is always fine.
+ * Who may open a world region's room with no men standing there (M4; W-09). A player serves his alliance there (the
+ * room team is the alliance). He may open his own home, a region his alliance holds, an unheld one or a contested one;
+ * another alliance's home, or a region a foe holds uncontested, only by marching in over a border (a transfer: into a
+ * home that is always by one of its entries). Rejoining his men already standing or lying in the region is always fine.
+ * W-87: this says who may watch; his men themselves come in from home only at home (./group.ts) and else by a transfer.
  * W-63: a player tied to a settlement there (its lord, a citizen or garrison, or the lord of an overlord of one) may
  * bring fresh men into it whoever holds it (settlements are never in homes).
  */

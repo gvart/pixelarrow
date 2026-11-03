@@ -17,6 +17,8 @@ import type { BridgePlan, Order, PlaceResult, Snapshot, WallPlan } from '../type
 import { DeltaDecoder } from './codec';
 import { devAuth, warAuth } from './session';
 import { openGate, type Gate } from './gateLink';
+import { worldRegion } from '../world/graph';
+import { groupAt, groupRefusal, homeRefusal } from '../world/group';
 import { MAX_SQUAD, NET_VERSION, type CheckMsg, type DevMsg, type HandoffMsg, type ServerMsg, type StowMsg } from './protocol';
 
 export interface Net {
@@ -105,16 +107,17 @@ export function createNet(url: string, region: string, devId: number | undefined
     pid = s.pid;
     const auth = s.headers;
     signedIn(auth);
-    const fit = (p: RosterPerson) => p.state === 'active' && !p.region;
-    const all = async () => ((await (await fetch('/api/war/roster', { headers: auth })).json()) as { persons: RosterPerson[] }).persons;
-    const load = async () => (await all()).filter(fit);
-    const roster = await all();
-    home = roster.filter(fit);
+    const all = async () => (await (await fetch('/api/war/roster', { headers: auth })).json()) as { persons: RosterPerson[]; home: string | null };
+    // W-87: only a man waiting at home who may take the field here (src/war/world/group.ts); healed men here the server musters
+    const atHome = ({ persons, home: h }: Awaited<ReturnType<typeof all>>) => (groupRefusal(groupAt(persons), region) || homeRefusal(h, region) ? [] : persons.filter((p) => p.state === 'active' && !p.region));
+    const load = async () => atHome(await all());
+    const first = await all(), roster = first.persons;
+    home = atHome(first);
     reload = async () => void (home = await load());
     // a fresh dev id (nobody, not even fallen) gets a dev roster; an email account makes his start in the menu, and a
     // dev player whose army fell waits on the Tunnel of Shades as an email account does (W-66)
     if (s.dev && (seed || !roster.length)) {
-      const r = await fetch('/api/war/dev/seed', { method: 'POST', headers: auth, body: '{}' });
+      const r = await fetch('/api/war/dev/seed', { method: 'POST', headers: auth, body: JSON.stringify(worldRegion(region) ? { region } : {}) }); // W-87: a dev player starts where he opened
       if (!r.ok) console.warn('[net] seed roster failed', r.status, await r.text());
       home = await load();
     }

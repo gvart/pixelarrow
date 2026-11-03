@@ -70,7 +70,7 @@ describe('a market trade: the buyer brings his coin', () => {
     home.close();
 
     // 2. the world's transfer: out of skythia with the packs, into kleisoura from the east
-    const out = await stub('skythia').depart('skythia', b.playerId, sq, 'W', T, 20);
+    const out = await stub('skythia').depart('skythia', b.playerId, 'W', T, 20);
     if ('error' in out) throw new Error(`depart: ${out.error}`);
     expect(Object.values(out.cargo?.packs ?? {}).flatMap((p) => p.lots).reduce((t, l) => t + (l.r === 'coin' ? l.n : 0), 0)).toBe(PURSE);
     const inn = await stub(T).arrive(T, b.playerId, 1, out.ids, 'E', {}, out.cargo);

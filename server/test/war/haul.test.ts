@@ -17,13 +17,14 @@ import { devLogin } from '../helpers';
 import type { Env } from '../../src/env';
 
 const T0 = 2_000_000;
-const CARGO: TransitCargo = { packs: { p1: { lots: [{ r: 'iron', n: 10, o: 'siren' }], items: [] } }, cart: { type: 'wagon', lots: [{ r: 'salt', n: 60, o: 'ammos' }], items: [] } };
+const CARGO: TransitCargo = { packs: { p1: { lots: [{ r: 'iron', n: 10, o: 'siren' }], items: [] } }, carts: [{ type: 'wagon', lots: [{ r: 'salt', n: 60, o: 'ammos' }], items: [] }] };
 
 function ports(cargo?: TransitCargo) {
   const arrived: { to: string; ids: string[]; cargo?: TransitCargo }[] = [];
   const p: Ports = {
-    depart: async (_f, _pid, who) => ({ ids: Array.isArray(who) ? who : ['p1'], off: 0, ...(cargo ? { cargo } : {}) }),
+    depart: async () => ({ ids: ['p1'], off: 0, ...(cargo ? { cargo } : {}) }),
     arrive: async (to, _pid, _a, ids, _s, _l, c): Promise<ArriveResult> => (arrived.push({ to, ids, ...(c ? { cargo: c } : {}) }), { ok: true }),
+    online: () => true,
   };
   return { p, arrived };
 }
@@ -32,14 +33,14 @@ describe('transits with cargo', () => {
   it('carry their cargo through a restart; a wagon travels x1.5, loaded porters x1.2', async () => {
     const e = edge('dodona', 'dodona-e')!;
     const w = new World(), f = ports(CARGO);
-    const t = await w.transfer(7, 0, { from: 'dodona', to: 'dodona-e', squad: 1 }, T0, f.p);
+    const t = await w.transfer(7, 0, { from: 'dodona', to: 'dodona-e' }, T0, f.p);
     if ('error' in t) throw new Error(t.error);
     expect(t.arriveAt - T0).toBe(Math.round(e.ms * CARGO_TRAVEL.wagon));
     const back = new World(JSON.parse(JSON.stringify(w.st))); // a DO restart: the state from storage
     await back.due(t.arriveAt, f.p);
     expect(f.arrived[0].cargo).toEqual(CARGO);
     const porters = new World(), g = ports({ packs: CARGO.packs });
-    const u = await porters.transfer(7, 0, { from: 'dodona', to: 'dodona-e', squad: 1 }, T0, g.p);
+    const u = await porters.transfer(7, 0, { from: 'dodona', to: 'dodona-e' }, T0, g.p);
     if ('error' in u) throw new Error(u.error);
     expect(u.arriveAt - T0).toBe(Math.round(e.ms * CARGO_TRAVEL.porter));
   });
@@ -53,7 +54,7 @@ describe('transits with cargo', () => {
     a.tick();
     const sq = a.squadsOf(1)[0];
     a.giveCargo(1, { squad: sq }, { lots: [{ r: 'iron', n: 15, o: 'siren' }], items: [] });
-    const out = a.depart(1, sq, region.entries[0].side, 0);
+    const out = a.depart(1, region.entries[0].side, 0);
     if ('error' in out) throw new Error(out.error);
     expect(Object.values(out.cargo!.packs).flatMap((p) => p.lots).reduce((s, l) => s + l.n, 0)).toBe(15);
     const b = new WarRoom({ region, seed: 2, cap: 600 });
@@ -64,16 +65,16 @@ describe('transits with cargo', () => {
 });
 
 describe('haul', () => {
-  it('chains the legs on arrival, the player offline, and reaches the destination', async () => {
+  it('chains the legs on arrival while he is online, and reaches the destination (offline: ./oneRegion.test.ts)', async () => {
     const mid = 'dodona-e', next = WORLD_REGIONS.find((r) => r.id === mid)!.adj.find((x) => x !== 'dodona')!;
     const w = new World(), f = ports();
-    const t = await w.transfer(7, 0, { from: 'dodona', to: mid, ids: ['p1'], path: [next] }, T0, f.p);
+    const t = await w.transfer(7, 0, { from: 'dodona', to: mid, path: [next] }, T0, f.p);
     if ('error' in t) throw new Error(t.error);
     await w.due(t.arriveAt, f.p);
     expect(f.arrived.map((x) => x.to)).toEqual([mid]);
     // the next leg left at once, in the same pass
     const leg = w.st.transit.find((x) => x.to === next)!;
-    expect(leg).toMatchObject({ from: mid, ids: ['p1'] });
+    expect(leg).toMatchObject({ from: mid, ids: ['p1'] }); // a fresh depart of the whole group
     await w.due(leg.arriveAt, f.p);
     expect(f.arrived.map((x) => x.to)).toEqual([mid, next]);
     expect(w.st.transit).toEqual([]);
@@ -83,13 +84,13 @@ describe('haul', () => {
     const region = warRegion('test-ridge')!, side = region.entries[0].side;
     const men = Array.from({ length: 2 }, (_, i) => makePerson(`hc-${i}`, 'militia'));
     const room = new WarRoom({ region, seed: 3, cap: 600 });
-    const cart: TransitCargo = { packs: {}, cart: { type: 'handcart', lots: [{ r: 'wood', n: 30, o: 'dodona' }], items: [] } };
+    const cart: TransitCargo = { packs: {}, carts: [{ type: 'handcart', lots: [{ r: 'wood', n: 30, o: 'dodona' }], items: [] }] };
     const r = room.arrive(1, 0, men, side, {}, cart);
     if ('error' in r) throw new Error(r.error);
-    // the world sends the haul's next leg in the same pass as the arrival (World.due): by person ids, no tick between
-    const out = room.depart(1, men.map((m) => m.id), side, 0);
+    // the world sends the haul's next leg in the same pass as the arrival (World.due): no tick between
+    const out = room.depart(1, side, 0);
     if ('error' in out) throw new Error(out.error);
-    expect(out.cargo?.cart).toMatchObject({ type: 'handcart', lots: [{ r: 'wood', n: 30 }] });
+    expect(out.cargo?.carts).toMatchObject([{ type: 'handcart', lots: [{ r: 'wood', n: 30 }] }]);
   });
 });
 
@@ -98,7 +99,7 @@ describe('kleisoura', () => {
     const region = warRegion('kleisoura')!;
     const men = Array.from({ length: 4 }, (_, i) => makePerson(`kl-${i}`, 'militia'));
     const room = new WarRoom({ region, seed: 1, cap: 600, wild: true }); // its lairs awake, as the region DO has them
-    const r = room.arrive(1, 0, men, 'W', {}, { packs: {}, cart: { type: 'handcart', lots: [{ r: 'wood', n: 30, o: 'dodona' }], items: [] } });
+    const r = room.arrive(1, 0, men, 'W', {}, { packs: {}, carts: [{ type: 'handcart', lots: [{ r: 'wood', n: 30, o: 'dodona' }], items: [] }] });
     if ('error' in r) throw new Error(r.error);
     const join: JoinMsg = { t: 'join', v: NET_VERSION, region: 'kleisoura', playerId: 1, team: 0, squads: [men.map((m) => m.id)] };
     room.join(1, join, [men]);
@@ -114,8 +115,8 @@ describe('kleisoura', () => {
 describe('convoys on the world map', () => {
   it('seen by alliances with men in or next to either end; under Safe Roads only at the destination', async () => {
     const w = new World(), f = ports(CARGO);
-    await w.transfer(7, 0, { from: 'dodona', to: 'dodona-e', squad: 1 }, T0, f.p);
-    await w.transfer(8, 0, { from: 'dodona', to: 'dodona-e', squad: 2 }, T0, f.p, true);
+    await w.transfer(7, 0, { from: 'dodona', to: 'dodona-e' }, T0, f.p);
+    await w.transfer(8, 0, { from: 'dodona', to: 'dodona-e' }, T0, f.p, true);
     const far = WORLD_REGIONS.find((r) => hops(r.id, 'dodona') >= 4 && hops(r.id, 'dodona-e') >= 4)!.id;
     const see = (alliance: 0 | 1) => w.convoys(99, alliance).map((c) => c.id);
     expect(see(1)).toEqual([]);
