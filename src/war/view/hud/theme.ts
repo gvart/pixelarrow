@@ -265,6 +265,8 @@ export const THEME_CSS = `
 #rfCard #cOrders{gap:3px}
 #rfCard #cOrders>div{gap:3px!important}
 #rfCard #cSlots{gap:3px;flex-wrap:wrap;max-width:132px;align-content:center}
+#rfCard #bAccess{grid-template-columns:auto auto;gap:3px 6px;align-items:center;align-content:center;margin-right:6px;font-size:12px;white-space:nowrap}
+#rfCard #bAccess .rf-tbtn{height:21px;min-width:96px;padding:0 6px;font-size:12px}
 
 /* ---- the minimap: a square well in a bronze frame ---- */
 #minimap{border-radius:3px;background:var(--hud-stone);box-shadow:var(--hud-frame)}

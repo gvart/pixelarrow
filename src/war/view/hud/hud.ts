@@ -61,6 +61,7 @@ import { mountTrade } from './holder';
 import { mountMarket } from './market';
 import { mountGuardians } from './guardianBar';
 import { mountBossBanner } from './bossBanner';
+import { accessHtml, accessStep, ownsTerms } from '../build/access';
 import { billText, buildingTip, levelOf, mountBuildingCard, nameOfBuilding, purposeOf, rebuildBill, rebuildWhy, repairBill, repairWhy, statusOf } from './buildingCard';
 import { needChips, shortText } from './goods';
 import { localGoods, mountChest, storeNear } from './chest';
@@ -145,7 +146,7 @@ const TABS: Record<'Camp' | 'Walls' | 'Craft' | 'Siege' | 'Trade', ToolDef[]> = 
     { ...bTool('ditch', 'a tile · foes slow to cross it; labour only', 'Ditch'), node: 'fortifier' },
   ],
   // M6k: a chest (8 loads, yours only) and the carts (crafted at a workshop)
-  Trade: [bTool('chest', '8 loads · yours only · 4 a region', 'Chest'), cartTool('handcart'), cartTool('wagon')],
+  Trade: [bTool('chest', '8 loads · yours only · 4 a region', 'Chest'), bTool('privateHouse', `${BUILDINGS.privateHouse.chest} loads · yours only · a locked door`, 'House'), cartTool('handcart'), cartTool('wagon')],
   Siege: (Object.keys(SIEGE) as SiegeType[]).filter((t) => t !== 'handcart' && t !== 'wagon').map((t) => ({ name: nice(SIEGE_NAME[t]), icon: SIEGE_ICON[t], tool: { kind: 'siege', type: t }, cost: SIEGE[t].cost, labour: SIEGE[t].labour, note: `crew ${SIEGE[t].crew} · a squad builds it`, node: SIEGE[t].node })),
 };
 type Tab = keyof typeof TABS;
@@ -301,6 +302,15 @@ export function hud(s: SandboxScene): void {
   // demolish (Del): two steps, the confirm sits in the card itself (never a browser dialog); Del again or its button tears down
   let razeArmed = -1;
   const bDemolish = btn('bdemolish', 'act-cancel', '', '', () => { const b = m.selectedBuilding(); if (b && !m.demolishWhy(b)) razeArmed = b.id; });
+  // W-89: who may use it and what he keeps: his own building's card only (../build/access.ts)
+  const accessBox = document.createElement('div');
+  accessBox.id = 'bAccess';
+  $('cSlots').before(accessBox); // its own column: the action slots' column is too narrow for it
+  accessBox.addEventListener('click', (e) => {
+    const t = (e.target as HTMLElement).closest<HTMLElement>('[data-acc]')?.dataset.acc as 'access' | 'share' | 'fee' | undefined, b = m.selectedBuilding();
+    if (t && b) s.sim.order(accessStep(b, t, meOwner()));
+  });
+  const meOwner = () => (s.sim.playerId ? `p:${s.sim.playerId}` : 'you');
   const razeBox = document.createElement('div');
   razeBox.id = 'bRazeConfirm';
   razeBox.style.cssText = 'display:flex;align-items:center;gap:4px;font-size:12px;white-space:nowrap;padding:0 2px';
@@ -309,13 +319,14 @@ export function hud(s: SandboxScene): void {
   /** A building key's hint for a tooltip title (the current binding, rebindable on Settings > Controls). */
   const kHint = (id: ActionId) => (keys.label(id) ? ` <kbd class="hud-kbd">${keys.label(id)}</kbd>` : '');
   let shownSlots: HTMLElement[] = [], shownOrders: HTMLElement[] | null = null;
-  const setCard = (ord: boolean, slots: HTMLElement[], selW: number, list = orders) => {
+  const setCard = (ord: boolean, slots: HTMLElement[], selW: number, list = orders, terms = false) => {
     const want = ord ? list : null;
     if (want !== shownOrders) { shownOrders = want; $('cOrders').replaceChildren(...(want ?? [])); }
     if (slots.length !== shownSlots.length || slots.some((x, i) => x !== shownSlots[i])) { shownSlots = slots; $('cSlots').replaceChildren(...slots); }
     $('cSep1').style.display = ord ? '' : 'none';
     $('cOrders').style.display = ord ? 'flex' : 'none';
-    $('cSep2').style.display = slots.length ? '' : 'none';
+    $('cSep2').style.display = slots.length || terms ? '' : 'none';
+    accessBox.style.display = terms ? 'grid' : 'none';
     $('cSel').style.width = `${selW}px`;
   };
   /** The selection head: icon, name (HTML: a level pill may follow), a count line, bars, an info line, a status line; chips (HTML) under the bars. */
@@ -593,7 +604,11 @@ export function hud(s: SandboxScene): void {
             <button class="rf-tbtn pri" data-raze="yes" data-tip="tear it down (${keys.label('bld.demolish') || 'click'})">Demolish</button><button class="rf-tbtn" data-raze="no">Keep</button>`;
           if (razeBox.dataset.h !== html) { razeBox.dataset.h = html; razeBox.innerHTML = html; }
           setCard(false, [razeBox], SEL_BLD);
-        } else setCard(false, [...(up ? [bUp] : []), ...(hurt ? [bRepair] : []), ...(ruin ? [bRebuild] : []), ...(iron ? [bIron] : []), ...(wet ? [bWet] : []), ...(raze ? [bDemolish] : [])], SEL_BLD);
+        } else {
+          const terms = ownsTerms(b, meOwner());
+          if (terms) { const html = accessHtml(b); if (accessBox.dataset.h !== html) { accessBox.dataset.h = html; accessBox.innerHTML = html; } }
+          setCard(false, [...(up ? [bUp] : []), ...(hurt ? [bRepair] : []), ...(ruin ? [bRebuild] : []), ...(iron ? [bIron] : []), ...(wet ? [bWet] : []), ...(raze ? [bDemolish] : [])], SEL_BLD, orders, terms);
+        }
         if (raze) {
           bDemolish.disabled = !!razeWhy;
           bDemolish.dataset.tip = actTip(`Demolish${kHint('bld.demolish')}`, null, `tear it down in ${DEMOLISH.ticks / 10} s; ${Math.round(DEMOLISH.refund * 100)}% of its materials back to the nearest store (${Object.keys(m.demolishRefund(b)).length ? costText(m.demolishRefund(b)) : 'nothing'}) · asks first`, razeWhy);
