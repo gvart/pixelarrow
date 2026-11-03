@@ -5,8 +5,8 @@ import { POINTS_PER_LEVEL } from '../../data/perks';
 import { MAX_LEVEL, xpToNext, type Hero } from '../../data/units';
 
 /**
- * The whole army (docs/WAR.md "Army size", W-58): a player has at most this many fighters in total, counted across all
- * regions, wounded, captive and training men included. No reserve, no barracks pool. Every other cap follows it.
+ * The biggest army any path has (the warrior's, W-85; a player's own cap: src/war/world/start.ts soldierCap). What the
+ * engine sizes for: a whole army in one squad, the wire's bounds, formations.
  */
 export const ARMY_MAX = 12;
 /** Fighters per player squad: a squad may hold the whole army. */

@@ -1,15 +1,18 @@
 /**
  * W-66 the Tunnel of Shades (docs/WAR.md "Tunnel of Shades"): the anti-reroll floor. Every home town has a tunnel;
  * while a player has fewer than TUNNEL.floor men who can fight (W-68: fit, not wounded; captives are not his), the
- * shades of his fallen walk back through it, one man every TUNNEL.everyMs, up to the floor and never past ARMY_MAX
- * (the wounded still count there). Raised men are level 1 in starter gear; past the floor
+ * shades of his fallen walk back through it, one man every TUNNEL.everyMs, up to the floor and never past his path's cap
+ * (W-102: the floor is at most the cap, and the wounded still count there). Raised men are level 1 in starter gear; past the floor
  * men come only from souls. Pure and lazy: the server (server/src/war/raise.ts) and the offline sandbox
  * (src/war/view/hud/tunnel.ts) both keep one stored `nextAt` per player and settle it on read.
  */
 export const TUNNEL = { floor: 6, everyMs: 10 * 60_000 } as const;
 
-/** alive: his men who can fight (the floor counts them); room: how many more his army takes under ARMY_MAX (default: no limit). */
-export interface TunnelState { alive: number; nextAt: number | null; room?: number }
+/**
+ * alive: his men who can fight (the floor counts them); room: how many more his army takes under his path's cap (default:
+ * no limit); floor: W-102's min(TUNNEL.floor, his cap) (default TUNNEL.floor).
+ */
+export interface TunnelState { alive: number; nextAt: number | null; room?: number; floor?: number }
 export interface TunnelSettle { raise: number; nextAt: number | null; alive: number; pending: number }
 
 /**
@@ -19,16 +22,16 @@ export interface TunnelSettle { raise: number; nextAt: number | null; alive: num
  */
 export function settleTunnel(s: TunnelState, now: number): TunnelSettle {
   let alive = s.alive, nextAt = s.nextAt, raise = 0;
-  const room = s.room ?? Infinity;
-  if (alive >= TUNNEL.floor || room <= 0) return { raise: 0, nextAt: null, alive, pending: Math.max(0, TUNNEL.floor - alive) };
+  const room = s.room ?? Infinity, floor = s.floor ?? TUNNEL.floor;
+  if (alive >= floor || room <= 0) return { raise: 0, nextAt: null, alive, pending: 0 };
   if (nextAt === null) nextAt = now + TUNNEL.everyMs;
-  while (nextAt <= now && alive < TUNNEL.floor && raise < room) {
+  while (nextAt <= now && alive < floor && raise < room) {
     raise++;
     alive++;
     nextAt += TUNNEL.everyMs;
   }
-  if (alive >= TUNNEL.floor || raise >= room) nextAt = null;
-  return { raise, nextAt, alive, pending: TUNNEL.floor - alive };
+  if (alive >= floor || raise >= room) nextAt = null;
+  return { raise, nextAt, alive, pending: Math.min(floor - alive, room - raise) };
 }
 
 /** "7:42" for a countdown in ms (never negative). */
@@ -71,7 +74,7 @@ export function wipeLine(t: WipeState, now: number): string {
 }
 
 /** The HUD and building line: "Next shade rises in 7:42, 3/6" (null: nothing pending). */
-export function tunnelLine(alive: number, nextAt: number | null, now: number): string | null {
-  if (nextAt === null || alive >= TUNNEL.floor) return null;
-  return `Next shade rises in ${clock(nextAt - now)}, ${alive}/${TUNNEL.floor}`;
+export function tunnelLine(alive: number, nextAt: number | null, now: number, floor: number = TUNNEL.floor): string | null {
+  if (nextAt === null || alive >= floor) return null;
+  return `Next shade rises in ${clock(nextAt - now)}, ${alive}/${floor}`;
 }

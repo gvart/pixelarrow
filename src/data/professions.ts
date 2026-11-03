@@ -103,7 +103,7 @@ const ALL: ProfNode[] = [
     ['broker', 'Broker', 6, '4 contracts, escrowed hand-offs', { needs: ['contracts'] }],
     ['banker', 'Banker', 7, 'letters of credit between own market towns', { needs: ['broker'] }],
     ['importer', 'Importer', 8, '<= 5 copper or 3 hides a day at x2 price (never tin)', { needs: ['appraiser'] }],
-    ['emporos', 'Emporos', 10, 'caravan +1 wagon, a market for allies it passes', CAP],
+    ['emporos', 'Emporos', 10, 'a market for allies its caravan passes', CAP],
     ['proxenos', 'Proxenos', 10, 'buys back fallen gear from the enemy salvage pool', CAP],
   ]),
   ...tree('forager', [

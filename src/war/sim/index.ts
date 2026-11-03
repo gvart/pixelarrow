@@ -77,9 +77,9 @@ import { addDeeds, DEED, plainDeed, SCARS_MAX, slayerDeed } from './deeds';
 import { CART, CLAIM_TICKS, createPiles, ESCORT, inRect, PILE, PORTER, SAFE } from './trade';
 import { CRAFT, itemRecipe } from './crafting';
 import { blow, HUNGER, hungerStage, pace } from './food';
-import { createSouls, type Soul } from './souls';
+import { createSouls, type Soul, type SoulGate } from './souls';
 import { makePerson } from './roster';
-import { ARMY_MAX } from './soldiers';
+import { cartCap, manRefusal, NO_PATH, type PlayerPath } from '../world/start';
 import { CLASSES, isClassId } from '../../data/classes';
 import { freeName } from '../../data/names';
 import type { HolderRef, MobKind, TeamBonus } from '../types';
@@ -382,6 +382,8 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
   let shots: ShotSnap[] = [];
   const reslotQueue = new Set<Squad>();
   let tick = 0;
+  /** W-85, W-101..W-104: each owner's path (setPaths; not saved: the host sets it again on a resume). */
+  let pathOf: (owner: string) => PlayerPath = () => NO_PATH;
   let stepMs = 0;
   // M6c: loot piles; items picked up per team since the last report; the event log
   const piles = createPiles(region);
@@ -607,7 +609,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     seed, takeAt: works.takeAt, addAt: works.addAt, emit: note,
     // M6b: a cart rolls out in front of the workshop for the crafter's player, within his cap and the civilian quota
     cart(b, owner, type, check) {
-      if (!isCartType(type as never) || siege.carts({ owner }) >= cartCapOf(owner) || civRoom(b.team) <= 0) return false;
+      if (!isCartType(type as never) || siege.carts({ owner }) >= cartCap(pathOf(owner).path) || civRoom(b.team) <= 0) return false;
       if (check) return true;
       const p = works.ringPoints(b.id, 1, b.x, b.y + 10);
       const [x, y] = p.length ? [p[0], p[1]] : openPoint(b.x, b.y + 3);
@@ -2275,11 +2277,6 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
   };
 
   // --- M6 trade (./trade.ts): holders, porters, carts, escorts, piles, safe zones ---
-  /** Most carts a player has out (Emporos: one more). */
-  const cartCapOf = (owner: string) => {
-    for (const u of civs) if (u.alive && u.civ === 'merchant' && u.squad.owner === owner && heldNodes('merchant', u.person?.hero.perks).has('emporos')) return CART.emporos;
-    return CART.cap;
-  };
   const holderAt = (ref: HolderRef): HolderAt | null => {
     if (ref.building !== undefined) {
       const b = works.piece(ref.building), hd = works.holdOf(ref.building);
@@ -3282,17 +3279,18 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     }
   };
   // W-60 souls (./souls.ts): the gate the server may set; default: his fighters on this field
-  let soulGate: ((owner: string) => { ok: boolean; have: number }) | null = null;
+  let soulGate: ((owner: string, cls: string) => SoulGate) | null = null;
   const souls = createSouls(region, seed, {
     chanceAt: (x, y) => townLv.soulsAt(x, y),
     *men() {
       for (const u of units) if (u.alive) yield { x: u.x, y: u.y, team: u.squad.team, squad: u.squad.id, claim: u.squad.soul, owner: u.squad.owner, civ: !!u.civ };
     },
-    gate(owner) {
-      if (soulGate) return soulGate(owner);
-      let have = 0;
-      for (const u of units) if ((u.alive || u.downAt !== undefined) && !u.civ && u.squad.owner === owner) have++; // W-81: a man down will rise
-      return { ok: have < ARMY_MAX, have };
+    gate(owner, cls) {
+      if (soulGate) return soulGate(owner, cls);
+      let soldiers = 0, workers = 0;
+      for (const u of units) if ((u.alive || u.downAt !== undefined) && u.squad.owner === owner) { if (u.civ) workers++; else soldiers++; } // W-81: a man down will rise
+      const why = manRefusal(pathOf(owner), cls, { soldiers, workers });
+      return { ok: !why, have: isCivClass(cls) ? workers : soldiers, ...(why ? { why } : {}) };
     },
     join(so: Soul, squad: number) {
       const into = squads[squad];
@@ -3947,6 +3945,9 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       const out = log;
       log = [];
       return out;
+    },
+    setPaths(f) {
+      pathOf = f ?? (() => NO_PATH);
     },
     setSoulGate(g) {
       soulGate = g;

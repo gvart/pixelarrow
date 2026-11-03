@@ -120,7 +120,7 @@ type SquadOrder =
   // channels there; dropped unless the point is unowned and its zone's guard lairs are cleared.
   | { kind: 'claimRegion'; squad: SquadId; point: number }
   // W-60 souls (src/war/sim/souls.ts): the squad walks to soul `soul` and claims him there; he joins it only while its
-  // owner has fewer than ARMY_MAX men (else a soulRefused event)
+  // owner's path lets him (W-85, W-101; else a soulRefused event)
   | { kind: 'claimSoul'; squad: SquadId; soul: number }
   // M7a: repairBuilding: the squad mends a damaged building of its team to full (src/war/sim/prebuilt.ts REPAIR: per 10%
   // hp, 5% of its cost from the network and 5% of its labour; engineers faster). rebuild: a ruin on the team's ground
@@ -726,10 +726,15 @@ export interface WarBuildSim extends WarSim {
   /** M5d: the sim event log since the last call (kills, falls, objectives, pickups, captures, level-ups). */
   events(): WarEvent[];
   /**
-   * W-60 souls (src/war/sim/souls.ts): who may take one more man. Default: fewer than ARMY_MAX fighters of the owner on
-   * this field; the server sets its own (the player's whole army across regions, from D1).
+   * W-60 souls (src/war/sim/souls.ts): who may take one more man of `cls`. Default: the path's check (setPaths) on the
+   * owner's men on this field; the server sets its own (the player's whole army, from D1).
    */
-  setSoulGate(gate: ((owner: string) => { ok: boolean; have: number }) | null): void;
+  setSoulGate(gate: ((owner: string, cls: string) => import('./sim/souls').SoulGate) | null): void;
+  /**
+   * W-85, W-101..W-104: the path of each owner, which the souls' default gate and the cart cap read. Default: no path (the
+   * sandbox, dev). The host sets it again on a resume: not part of the sim's state.
+   */
+  setPaths(paths: ((owner: string) => import('./world/start').PlayerPath) | null): void;
   /**
    * W-80 (src/war/sim/food.ts): the server's larder behind a store of the team (online: the player's home strongroom):
    * `want` rations for a man of `owner` by that store; returns how many it gives. Null (default): none.
@@ -847,7 +852,7 @@ export type WarEvent =
   // W-60 souls: claimed by `owner`'s squad (the new man, his person and unit), refused (the army is full: `have` men),
   // taken by a foe first (`team`; MOB_TEAM: the wild took him), faded unclaimed
   | { t: number; kind: 'soulClaimed'; soul: number; squad: SquadId; owner: string; unit: UnitId; person: WarPerson }
-  | { t: number; kind: 'soulRefused'; soul: number; squad: SquadId; owner: string; have: number }
+  | { t: number; kind: 'soulRefused'; soul: number; squad: SquadId; owner: string; have: number; why: import('./world/start').JoinRefusal }
   | { t: number; kind: 'soulLost'; soul: number; team: number; pid?: string }
   | { t: number; kind: 'soulFaded'; soul: number; pid?: string }
   // W-65 roaming life (src/war/sim/roam.ts): a caravan arrived and paid `owner` for his escort; one was robbed by `by`

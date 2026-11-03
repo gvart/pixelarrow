@@ -3,7 +3,8 @@
  * appears at a shrine or temple, a ruin, an old battlefield (where SOUL.field men fell close together) or a lair; where
  * he wakes decides his class, and danger his worth: lairs and deeper regions give higher levels, and lair souls are the
  * rarest. A squad ordered to him (claimSoul) and standing within SOUL.reach claims him over SOUL.channel ticks; he joins
- * only while the owner has fewer than ARMY_MAX men (the gate), else the claim is refused and he waits on. More than one
+ * only if the owner's path lets him (the gate, W-85, W-101: under his cap and of his people), else the claim is refused
+ * and he waits on, for that player or the next. More than one
  * side at him stalls the claim (contested); the wild's men at him with no claimer take him (lost). Unclaimed, he fades
  * after SOUL.life ticks. Deterministic: its own Rng (seeded from the sim seed), fixed iteration order.
  *
@@ -15,6 +16,7 @@ import { Rng } from '../../sim/rng';
 import type { RegionData, SoulSnap, WarEvent, WarPerson } from '../types';
 import { depthOf } from './depth';
 import { MOB_TEAM } from './mobs';
+import type { JoinRefusal } from '../world/start';
 
 export type SoulSite = SoulSnap['site'];
 
@@ -69,10 +71,11 @@ interface Cell { n: number; x: number; y: number; by: Record<string, number>; si
 
 /** A living man as the souls see him: his team, squad, the soul his squad is ordered to claim (-1 none), owner, civilian. */
 export interface SoulMan { x: number; y: number; team: number; squad: number; claim: number; owner: string; civ: boolean }
+export interface SoulGate { ok: boolean; have: number; why?: JoinRefusal }
 export interface SoulHost {
   men(): Iterable<SoulMan>;
-  /** May `owner` take one more man (and how many he has). */
-  gate(owner: string): { ok: boolean; have: number };
+  /** May `owner` take one more man, of class `cls` (how many he has; `why`: refused, W-101). */
+  gate(owner: string, cls: string): SoulGate;
   /** The soul joins squad `squad` (a new man): his unit and person; null when he cannot (the squad is gone). */
   join(s: Soul, squad: number): { unit: number; person: WarPerson } | null;
   /** `owner`'s squads give up their claim on soul `soul` (refused). */
@@ -170,9 +173,9 @@ export function createSouls(region: RegionData, seed: number, host: SoulHost) {
     const squad = by.get(team)!;
     let owner = '';
     for (const m of host.men()) if (m.squad === squad) { owner = m.owner; break; }
-    const g = host.gate(owner);
+    const g = host.gate(owner, s.cls);
     if (!g.ok) {
-      host.emit({ t, kind: 'soulRefused', soul: s.id, squad, owner, have: g.have });
+      host.emit({ t, kind: 'soulRefused', soul: s.id, squad, owner, have: g.have, why: g.why ?? 'full' });
       host.stop(owner, s.id);
       s.prog = 0;
       s.team = -1;

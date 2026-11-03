@@ -143,11 +143,12 @@ export const newWatch = (team: number, lair: { x: number; y: number } | null, ow
 
 /**
  * Sim events that finish a step: a soul claimed by a squad of his (team, or owner online). Online a claim refused
- * (his army is full) ends the soul step too: there is nothing to claim, it never sticks.
+ * because his army is full ends the soul step too: there is nothing to claim, it never sticks. A stranger refused (W-101)
+ * does not: another soul will do.
  */
 export function watchEvents(w: GuideWatch, s: Pick<Snapshot, 'squads'> | null, ev: readonly WarEvent[]): void {
   for (const e of ev) {
-    if (e.kind !== 'soulClaimed' && e.kind !== 'soulRefused') continue;
+    if (e.kind !== 'soulClaimed' && !(e.kind === 'soulRefused' && e.why === 'full')) continue;
     if (w.owner ? e.owner === w.owner : e.kind === 'soulClaimed' && s?.squads.find((q) => q.id === e.squad)?.team === w.team) w.flags.add('soul');
   }
 }

@@ -26,5 +26,7 @@
  *    store, the team's strongroom and, online at home, his own strongroom (clients on 7 reload).
  * 9: tuning-mastery (W-81 proposal): chiefs on firm ground (moors, siren, delta rebuilt), warlord halls hold 60-80 s,
  *    raids hit lightly guarded buildings, a lairCleared event (clients on 8 reload).
+ * 10: paths-limits (W-85, W-101..W-104): a soul's gate and the cart cap read the owner's path, Emporos no longer adds a
+ *    cart (clients on 9 reload).
  */
-export const SIM_VERSION = 9;
+export const SIM_VERSION = 10;
