@@ -1,0 +1,22 @@
+docs/impl/global-war-rebuild.md
+  s_a7d5d20f628c80::t_b4f513e72d8297 192-193
+docs/WAR.md
+  s_a7d5d20f628c80::t_b4f513e72d8297 887-889,1617,1723
+  s_a7d5d20f628c80::t_5370feb543dbfb 894
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "4b194a4bb0d4834e8251d0ae0e1387cb14045adf",
+  "prompts": {},
+  "sessions": {
+    "s_a7d5d20f628c80": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1afee479-b44b-46d2-a159-a540e44e7fb8",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
