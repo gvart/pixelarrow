@@ -13,8 +13,8 @@ export const SEASON_WIPE = [
   'war_favour_log', 'war_favour', 'war_mastery_done', 'war_mastery', 'war_task_tally', 'war_tasks',
   // belongings: strongrooms, stalls, warehouses and what they hold, open deals, things in the field
   'war_contracts', 'war_letters', 'war_deals', 'war_fills', 'war_board_seen', 'war_offers', 'war_gifts', 'war_crafts', 'war_goods', 'war_holders', 'war_region_holds', 'war_region_state',
-  // W-142: the NPC towns' purses and stocks start the season afresh
-  'war_npc_towns', 'war_npc_stock',
+  // W-142: the NPC towns' purses and stocks start the season afresh; W-191: what the boards remember of a player
+  'war_npc_towns', 'war_npc_stock', 'war_town_jobs', 'war_town_heat',
   // the alliance's works: raised once a season, and read by WAR_SEASON.id, which does not change
   'war_work_gifts', 'war_works',
   // men and gear, and what hung on them

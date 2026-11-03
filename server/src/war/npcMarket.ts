@@ -104,6 +104,23 @@ export async function planPay(db: D1Database, town: string, coin: number, now: n
   return purseStmts(db, town, p, p.purse + coin);
 }
 
+/**
+ * W-187: a contract's pay out of the purse: never more than it holds. `pay` reads the purse as it stands now, so a thin purse
+ * pays less; none left: nothing, and the books untouched.
+ */
+export async function planPayOut(db: D1Database, town: string, pay: (purse: number) => number, now: number): Promise<{ coin: number; stmts: D1PreparedStatement[] }> {
+  const p = await purseOf(db, town, now), coin = Math.max(0, Math.min(p.purse, pay(p.purse)));
+  return { coin, stmts: coin > 0 ? purseStmts(db, town, p, p.purse - coin) : [] };
+}
+
+/** W-185: a load that leaves or reaches the town under a contract: its stock moved, no coin. */
+export async function planStock(db: D1Database, town: string, res: string, by: number, now: number): Promise<{ stock: number; stmts: D1PreparedStatement[] }> {
+  const s = (await stocksOf(db, town, now)).get(res);
+  if (!s) throw new ApiError(409, 'not_traded', `This town does not deal in ${res}`);
+  if (s.stock + by < -1e-6) throw new ApiError(409, 'sold_out', 'The town has too little left to send');
+  return { stock: s.stock, stmts: stockStmts(db, town, res, s.read, Math.max(0, s.stock + by), now) };
+}
+
 /** What the town has made itself so far (tests: the only coin it ever added to the world); its purse now. */
 export async function npcBooks(db: D1Database, town: string, now: number): Promise<{ purse: number; minted: number }> {
   const p = await purseOf(db, town, now);
@@ -124,6 +141,12 @@ async function takeCoin(db: D1Database, slots: Slot[], coin: number, home: boole
   return { stmts, taken: pack > 0 ? takeOut(slots, { coin: pack }) : null };
 }
 
+/** Is this his home (his strongroom's there)? A place off the world map counts, for tools. */
+export async function isHomeOf(db: D1Database, pid: number, town: string): Promise<boolean> {
+  const a = await allianceOf(db, pid);
+  return !isWorldRegion(town) || (a !== null && homeOf(a) === town);
+}
+
 export interface NpcResult { done: Extract<ServerMsg, { t: 'npcDone' }>; welcome?: ServerMsg | null }
 
 /**
@@ -136,7 +159,7 @@ export async function npcDeal(env: Pick<Env, 'DB'>, room: WarRoom, pid: number, 
   if (!npcGoods(town).length) throw new ApiError(404, 'no_town', 'There is no town here');
   const slots = room.npcSlots(pid);
   if (!slots.length) throw new ApiError(409, 'not_present', 'Your men must stand at the town');
-  const a = await allianceOf(db, pid), home = !isWorldRegion(town) || (a !== null && homeOf(a) === town);
+  const home = await isHomeOf(db, pid, town);
 
   if (m.op === 'sell') {
     const res = m.res!, have = held(slots, res), want = Math.min(m.n ?? have, have);
@@ -223,7 +246,7 @@ async function workerRoom(db: D1Database, pid: number): Promise<number> {
 }
 
 /** A bundle into the packs and carts at the town; what will not fit is set down at their feet. */
-function npcGive(room: WarRoom, slots: readonly (Slot & { x: number; y: number })[], b: Bundle): void {
+export function npcGive(room: WarRoom, slots: readonly (Slot & { x: number; y: number })[], b: Bundle): void {
   const rest = fill(slots, b);
   if (rest.lots.length) room.sim.dropPile(slots[0].x, slots[0].y, rest.lots, []);
 }

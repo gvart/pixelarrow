@@ -52,10 +52,10 @@ export const FAVOUR_EARN = {
 /** Land pays this often (each region room). */
 export const LAND_MS = 10 * 60_000;
 
-export type FavourReason = 'win' | 'battle' | 'boss' | 'lair' | 'land' | 'built' | 'sold' | 'carried' | 'task' | 'story' | 'encounter';
+export type FavourReason = 'win' | 'battle' | 'boss' | 'lair' | 'land' | 'built' | 'sold' | 'carried' | 'task' | 'story' | 'encounter' | 'contract';
 export const FAVOUR_REASON: Record<FavourReason, string> = {
   win: 'Battle won', battle: 'Battle fought', boss: 'Guardian slain', lair: 'Lair cleared', land: 'Land held',
-  built: 'Building', sold: 'Goods sold', carried: 'Goods carried', task: 'Task done', story: 'Story', encounter: 'Encounter',
+  built: 'Building', sold: 'Goods sold', carried: 'Goods carried', task: 'Task done', story: 'Story', encounter: 'Encounter', contract: 'Town contract',
 };
 /** W-111: the one path each kind of work pays; the rest pay every path. */
 export const PAYS: Partial<Record<FavourReason, PathId>> = { win: 'warrior', battle: 'warrior', boss: 'warrior', lair: 'warrior', land: 'warrior', built: 'builder', sold: 'trader', carried: 'trader' };

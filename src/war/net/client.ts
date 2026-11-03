@@ -19,7 +19,7 @@ import { devAuth, warAuth } from './session';
 import { openGate, type Gate } from './gateLink';
 import { worldRegion } from '../world/graph';
 import { groupAt, groupRefusal, homeRefusal } from '../world/group';
-import { MAX_SQUAD, NET_VERSION, type CheckMsg, type DevMsg, type HandoffMsg, type NpcMsg, type ServerMsg, type StowMsg } from './protocol';
+import { MAX_SQUAD, NET_VERSION, type BoardMsg, type CheckMsg, type DevMsg, type HandoffMsg, type NpcMsg, type ServerMsg, type StowMsg } from './protocol';
 
 export interface Net {
   join(team: number, cls: string, count: number): void;
@@ -35,6 +35,8 @@ export interface Net {
   stow(m: Omit<StowMsg, 't'>): void;
   /** W-143: a deal with this region's NPC town (-> npcDone | error). */
   npc(m: Omit<NpcMsg, 't'>): void;
+  /** W-184: this town's board (-> boardView | error). */
+  board(m: Omit<BoardMsg, 't'>): void;
   /** M6g: the hand-off window with another player here (-> handoff to both). */
   handoff(m: Omit<HandoffMsg, 't'>): void;
   /** W-62: hide the first-hour guide for good. */
@@ -211,6 +213,7 @@ export function createNet(url: string, region: string, devId: number | undefined
     mend: (kind, building, uid) => send(() => ({ t: 'mend', kind, building, uid })),
     stow: (m) => send(() => ({ ...m, t: 'stow' })),
     npc: (m) => send(() => ({ ...m, t: 'npc' })),
+    board: (m) => send(() => ({ ...m, t: 'board' })),
     handoff: (m) => send(() => ({ ...m, t: 'handoff' })),
     guideHide: () => send(() => ({ t: 'guide', op: 'hide' })),
     story: (option) => send(() => ({ t: 'story', op: 'choose', option })),

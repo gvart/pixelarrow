@@ -85,6 +85,8 @@ import { BUILDINGS } from '../../../src/war/sim/economy';
 import { bannerOf, buildRefusal, householdOf, netOf, ownBuildings, piecesOf, storesOf, type Oath, type Persist, type Piece, type RoomSettlement } from './roomSettlements';
 import { SETTLE } from './settlements';
 import type { SettlementNet } from '../../../src/war/net/protocol';
+import { BOARD } from '../../../src/data/warTownBoard';
+import type { Band } from '../../../src/war/net/townBoard';
 
 const SIDES = ['N', 'E', 'S', 'W'] as const;
 /** Hold AI radius for an offline player's squads (tiles). */
@@ -118,6 +120,8 @@ export interface Peace {
   labour: { pid: number; site: number; secs: number }[];
   guards: { id: number; held: boolean; secs: number }[];
   works: { team: number; work: WorkId; by: Record<number, number> }[];
+  /** W-185: labour on a town board's Build contracts (his men at its spot). */
+  townJobs?: { id: number; pid: number; secs: number }[];
 }
 
 /** A sim `crafted` event (M5h4): the DO mints or updates the item in D1. */
@@ -307,6 +311,7 @@ export class WarRoom {
   private paths = new Map<number, PlayerPath>();
   /** W-61: guard contracts the DO watches here (poster's team), the alliance works open at this home region, town sent. */
   private guards: GuardWatch[] = [];
+  private townJobs: { id: number; pid: number; x: number; y: number }[] = [];
   private workSites: { work: WorkId; team: number; x: number; y: number }[] = [];
   private townSent = new Map<number, string>();
   /** W-65: the `wild` message last sent on each client's feed (a new feed, a rejoin, sends it again). */
@@ -1265,6 +1270,49 @@ export class WarRoom {
     this.guards = list.slice();
   }
 
+  /** W-185: the taken Build contracts of this town (the DO polls D1; a take adds at once). */
+  setTownJobs(list: readonly { id: number; pid: number; x: number; y: number }[]): void {
+    this.townJobs = list.slice();
+  }
+  watchTownJob(j: { id: number; pid: number; x: number; y: number }): void {
+    this.townJobs.push(j);
+  }
+  unwatchTownJob(id: number): void {
+    this.townJobs = this.townJobs.filter((j) => j.id !== id);
+  }
+
+  /** W-184: his fighters and workers on the field here, for the board's reading of his strength. */
+  armyOf(pid: number): { cls: string; level?: number }[] {
+    const me = ownerOf(pid), snap = this.sim.snapshot();
+    return snap.units.filter((u) => u.state !== 'dead' && !u.wounded && snap.squads[u.squad]?.owner === me).map((u) => ({ cls: u.cls, level: u.level }));
+  }
+
+  /** W-185: a Kill's band: set down where it fights alone, on ground walkable from the town (the lair stays if he drops it). */
+  townBand(b: Band, seed: string): { lair: number; x: number; y: number } {
+    const at = this.bandSpot(seed);
+    return { lair: this.sim.addLair({ kind: b.kind, x: at.x, y: at.y, count: b.count, ...(b.lead ? { lead: true as const } : {}), ...(b.chief ? { chief: b.chief } : {}) }), ...at };
+  }
+  /** W-185: is that band still on its feet? */
+  townBandStands(lair: number | null): boolean {
+    return lair !== null && (this.sim.snapshot().lairs ?? []).some((l) => l.id === lair && l.state !== 'cleared');
+  }
+  private bandSpot(seed: string): { x: number; y: number } {
+    const town = npcSpot(this.region), { near, far, apart, tries } = BOARD.band, lairs = this.sim.snapshot().lairs ?? [];
+    const safe = this.region.safe ?? [];
+    let h = 0x811c9dc5;
+    for (let i = 0; i < seed.length; i++) h = Math.imul(h ^ seed.charCodeAt(i), 0x01000193);
+    for (let i = 0; i < tries; i++) {
+      h = Math.imul(h ^ i, 0x01000193) >>> 0;
+      const a = (h % 360) * (Math.PI / 180), d = near + ((h >>> 9) % (far - near));
+      const x = Math.round(town.x + Math.cos(a) * d), y = Math.round(town.y + Math.sin(a) * d);
+      if (x < 4 || y < 4 || x > this.region.w - 5 || y > this.region.h - 5) continue;
+      if (safe.some((c) => x >= c.x - 8 && x <= c.x + c.w + 8 && y >= c.y - 8 && y <= c.y + c.h + 8)) continue;
+      if (lairs.some((l) => l.state !== 'cleared' && Math.hypot(l.x - x, l.y - y) < apart)) continue;
+      if (this.sim.walkable(town.x, town.y, x, y)) return { x: x + 0.5, y: y + 0.5 };
+    }
+    return { x: town.x + near, y: town.y };
+  }
+
   /** W-61: the works still open of the alliance whose home this is (sites from the region data). */
   setWorks(team: number, ids: readonly WorkId[]): void {
     const q = ALLIANCE_LIST[team]?.quadrant;
@@ -1302,7 +1350,11 @@ export class WarRoom {
       }
       return { team: w.team, work: w.work, by };
     }).filter((w) => Object.keys(w.by).length);
-    return labour.length || guards.length || works.length ? { labour, guards, works } : null;
+    const townJobs = this.townJobs.flatMap((j) => {
+      const n = men.filter((u) => pidOf(this.owners[u.squad]) === j.pid && (u.x - j.x) ** 2 + (u.y - j.y) ** 2 <= WORK_R * WORK_R).length;
+      return n ? [{ id: j.id, pid: j.pid, secs: n * secs }] : [];
+    });
+    return labour.length || guards.length || works.length || townJobs.length ? { labour, guards, works, ...(townJobs.length ? { townJobs } : {}) } : null;
   }
 
   tick(now: () => number = () => 0): { frames: Map<number, Uint8Array>; msgs: Map<number, ServerMsg[]>; admitted: Map<number, ServerMsg>; fights: Fight[]; crafted: Crafted[]; bosses: BossSlain[]; locks: LockEvent[]; sacrilege: number[]; freed: string[]; raided: number[]; captured: { cart: number; from: string; team: number; to: string }[]; souls: SoulClaim[]; faded: string[]; peace: Peace | null; times: TickTimes; guided: GuideDone[]; storied: StoryDone[]; met: EncounterDone[]; wild: WildDeed[]; larder: { pid: number; goods: Record<string, number> }[]; gathered: [number, TaskMetric, number][]; settle: SettleOut | null; warlord: WarlordNote[] } {

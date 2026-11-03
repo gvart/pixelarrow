@@ -82,6 +82,8 @@ export const DELETION_MAP: Record<string, TableRule> = {
   // W-62 E7: his daily and weekly tasks and the tallies behind them
   war_tasks: { rule: 'delete', pid: ['player_id'] },
   war_task_tally: { rule: 'delete', pid: ['player_id'] },
+  war_town_jobs: { rule: 'delete', pid: ['player_id'] },
+  war_town_heat: { rule: 'delete', pid: ['player_id'] },
   // W-64: his council office, ballots and signatures, and his shares in the crown's orders
   war_crown_offices: { rule: 'delete', pid: ['player_id'] },
   war_crown_ballots: { rule: 'delete', pid: ['player_id'] },

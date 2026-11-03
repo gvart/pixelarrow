@@ -51,9 +51,11 @@ import { DurableObject } from 'cloudflare:workers';
 import type { Env } from '../env';
 import { lordReport, WarRoom, type ClaimTaking, type LockEvent, type RoomOptions, type RoomState, type TickTimes } from './room';
 import { regionSeed, regionVersion, WAR_REGIONS, warRegion } from './regions';
-import { DEFAULT_CAP, parseClientMsg, type HandoffMsg, type JoinMsg, type MendMsg, type ServerMsg, type NpcMsg, type StowMsg } from '../../../src/war/net/protocol';
+import { DEFAULT_CAP, parseClientMsg, type BoardMsg, type HandoffMsg, type JoinMsg, type MendMsg, type ServerMsg, type NpcMsg, type StowMsg } from '../../../src/war/net/protocol';
 import { cartArrived, contract, deliver, guardCheck, huntDeeds, labourDone, sealedFor, workContracts } from './contracts';
 import { npcDeal } from './npcMarket';
+import { storyOf } from '../../../src/data/warStories';
+import { boardDeeds, boardLabour, boardOrder, boardView, boardWatch } from './townBoard';
 import { addLabour, bonusesOf, openWorks } from './works';
 import { handoffDone, handoffRefusal, linkedCaptures } from './abuse';
 import { loads } from '../../../src/war/sim/holders';
@@ -451,6 +453,7 @@ export class WarRegionDO extends DurableObject<Env> {
       else if (m.t === 'mend') await this.mend(ws, me.pid, room, m);
       else if (m.t === 'stow') await this.stow(ws, me.pid, room, m);
       else if (m.t === 'npc') await this.npc(ws, me.pid, room, m);
+      else if (m.t === 'board') await this.board(ws, me.pid, room, m);
       else if (m.t === 'handoff') await this.handoff(ws, me.pid, room, m);
       else if (m.t === 'guide') {
         const g = room.guide.hide(me.pid), d = this.env.DB;
@@ -582,6 +585,7 @@ export class WarRegionDO extends DurableObject<Env> {
     for (const [pid, xs] of by)
       this.write(`wild ${pid}`, async () => {
         await huntDeeds(this.env, pid, room.region.id, xs, Date.now()); // W-146
+        if (await boardDeeds(this.env, pid, room.region.id, xs)) await this.boardReady(room, pid); // W-185
         const v = await recordWild(this.env, pid, room.region, xs, Date.now());
         if (v) for (const ws of this.ctx.getWebSockets(`p:${pid}`)) send(ws, { t: 'mastery', ...v });
       });
@@ -746,6 +750,32 @@ export class WarRegionDO extends DurableObject<Env> {
       return send(ws, { t: 'error', code: 'badTarget', detail: `${e.code}: ${e.message}` });
     }
     this.save();
+  }
+
+  /** W-184..W-190: an order at this town's board (./townBoard.ts boardOrder), answered with what he reads after it. */
+  private async board(ws: WebSocket, pid: number, room: WarRoom, m: BoardMsg): Promise<void> {
+    if (!this.env.DB) return send(ws, { t: 'error', code: 'bad', detail: 'no database' });
+    try {
+      send(ws, { t: 'boardView', ...(await boardOrder(this.env, room, pid, m, Date.now(), await this.chainOver(room, pid))) });
+    } catch (e) {
+      if (!(e instanceof ApiError)) throw e;
+      return send(ws, { t: 'error', code: 'badTarget', detail: `${e.code}: ${e.message}` });
+    }
+    this.save();
+  }
+
+  /** W-190: his chain at this town is over, or he has none here: its giver has errands for him. */
+  private async chainOver(room: WarRoom, pid: number): Promise<boolean> {
+    if (!storyOf(room.region.id, (await pathOf(this.env.DB!, pid)).path)) return true;
+    return !!(await this.ctx.storage.get<StorySave>(storyStorageKey(WAR_SEASON.id, pid)))?.done;
+  }
+
+  /** W-185: a contract of his came ready: told, whatever panel he has open. */
+  private async boardReady(room: WarRoom, pid: number): Promise<void> {
+    const sockets = this.ctx.getWebSockets(`p:${pid}`);
+    if (!sockets.length) return;
+    const view = await boardView(this.env, pid, room.region.id, room.armyOf(pid), Date.now(), await this.chainOver(room, pid));
+    for (const ws of sockets) send(ws, { t: 'boardView', view });
   }
 
   /**
@@ -1223,8 +1253,9 @@ export class WarRegionDO extends DurableObject<Env> {
       for (const l of pz.labour) await labourDone(this.env, l.pid, region, l.site, l.secs, at);
       for (const g of pz.guards) await guardCheck(this.env, g.id, g.held, g.secs, at);
       for (const w of pz.works) await addLabour(this.env, w.team, w.work, w.by, at);
+      if (pz.townJobs) for (const pid of await boardLabour(this.env, pz.townJobs)) await this.boardReady(room, pid); // W-185
       // W-111: a builder's level, from the same labour
-      for (const [pid, n] of builtFavour(room, [...pz.labour.map((l) => [l.pid, l.secs] as const), ...pz.works.flatMap((w) => Object.entries(w.by).map(([p, secs]) => [Number(p), secs] as const))])) await addFavour(this.env, pid, n, 'built', at);
+      for (const [pid, n] of builtFavour(room, [...pz.labour.map((l) => [l.pid, l.secs] as const), ...pz.works.flatMap((w) => Object.entries(w.by).map(([p, secs]) => [Number(p), secs] as const)), ...(pz.townJobs ?? []).map((j) => [j.pid, j.secs] as const)])) await addFavour(this.env, pid, n, 'built', at);
     });
     if (d && !catching && room.currentTick % PEACE_POLL === 1) this.write('peace poll', () => this.pollPeace(room));
     // W-63: camps founded, attacks logged and told; the settlements polled, reported and levied
@@ -1259,6 +1290,7 @@ export class WarRegionDO extends DurableObject<Env> {
       if (team !== null) guards.push({ id: c.id, team, taker: c.taker, men: c.men });
     }
     room.setGuards(guards);
+    await boardWatch(this.env, room); // W-185
     const home = ALLIANCES.find((a) => a.home === region);
     if (home) room.setWorks(home.id, await openWorks(d, home.id));
     const b = await bonusesOf(d);
