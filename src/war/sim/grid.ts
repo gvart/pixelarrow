@@ -280,6 +280,60 @@ export function tileAt(g: Grid, x: number, y: number): number {
 }
 
 /**
+ * W-145: the ground carts can roll over, its largest connected piece as a mask. A cart set down anywhere else (a border's
+ * entry in the trees, a clearing behind a cliff) could never move.
+ */
+export function cartLand(g: Grid): Uint8Array {
+  const n = g.w * g.h, seen = new Int32Array(n).fill(-1), team = g.team, stack: number[] = [];
+  g.team = -1;
+  g.cart = g.engine = true;
+  let best = -1, bestN = 0;
+  for (let i = 0; i < n; i++) {
+    if (seen[i] >= 0 || g.cost[i] <= 0 || g.cartMul[i] <= 0) continue;
+    let size = 0;
+    seen[i] = i;
+    stack.push(i);
+    while (stack.length) {
+      const a = stack.pop()!, x = a % g.w;
+      size++;
+      for (const b of [x > 0 ? a - 1 : -1, x < g.w - 1 ? a + 1 : -1, a - g.w, a + g.w]) {
+        if (b >= 0 && b < n && seen[b] < 0 && canEnter(g, a, b)) {
+          seen[b] = i;
+          stack.push(b);
+        }
+      }
+    }
+    if (size > bestN) {
+      bestN = size;
+      best = i;
+    }
+  }
+  g.cart = g.engine = false;
+  g.team = team;
+  return Uint8Array.from(seen, (v) => (v === best ? 1 : 0));
+}
+
+/** The middle of the nearest tile of `land` to (x,y); (x,y) itself if it is on it. */
+export function nearestLand(g: Grid, land: Uint8Array, x: number, y: number): [number, number] {
+  const cx = Math.floor(x), cy = Math.floor(y), at = (tx: number, ty: number) => tx >= 0 && ty >= 0 && tx < g.w && ty < g.h && land[ty * g.w + tx] === 1;
+  if (at(cx, cy)) return [x, y];
+  for (let r = 1; r < Math.max(g.w, g.h); r++) {
+    let best: [number, number] | null = null, bestD = Infinity;
+    for (let d = -r; d <= r; d++) {
+      for (const [tx, ty] of [[cx + d, cy - r], [cx + d, cy + r], [cx - r, cy + d], [cx + r, cy + d]]) {
+        const dist = Math.hypot(tx - cx, ty - cy);
+        if (dist < bestD && at(tx, ty)) {
+          bestD = dist;
+          best = [tx + 0.5, ty + 0.5];
+        }
+      }
+    }
+    if (best) return best;
+  }
+  return [x, y];
+}
+
+/**
  * Can a unit (of team g.team) step from tile a into the adjacent tile b (open, not a foe's gate, not a cliff of 2+ levels,
  * onto or off a deck only by a deck or stair)?
  */

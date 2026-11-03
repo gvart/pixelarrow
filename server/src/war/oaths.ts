@@ -177,15 +177,19 @@ export async function setRate(db: D1Database, pid: number, pct: number, now: num
 
 // ---------------------------------------------------------------- tribute on sales
 
+/** His liege's part of `coin` he earned from a sale (0: nobody's man, or a lord at 0%). */
+export async function tributeCut(db: D1Database, seller: number, coin: number, season = WAR_SEASON.id): Promise<number> {
+  const lord = coin > 0 ? await liegeOf(db, seller, season) : null;
+  return lord === null ? 0 : cents((coin * (await rateOf(db, lord, season))) / 100);
+}
+
 /**
  * A seller's tribute on a sale (./tradeScore.ts fill hook): statements moving his liege's part of the coin aside at his
  * stall, in the fill's batch and after the credit. Nothing moves to the liege: his men come for it.
  */
 export async function saleTribute(db: D1Database, seller: number, coin: number, town: string, season = WAR_SEASON.id): Promise<D1PreparedStatement[]> {
   if (!(coin > 0)) return [];
-  const lord = await liegeOf(db, seller, season);
-  if (lord === null) return [];
-  const cut = cents((coin * (await rateOf(db, lord, season))) / 100);
+  const cut = await tributeCut(db, seller, coin, season);
   if (!(cut > 0)) return [];
   return [
     db.prepare("UPDATE war_goods SET amount = amount - ?3 WHERE place = ?1 AND res = 'coin' AND origin = ?2 AND seal = 0").bind(stallId(town, seller), HOME, cut),

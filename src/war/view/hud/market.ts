@@ -3,6 +3,8 @@
  * local stub offline). Two draggable windows:
  *
  *   Market (K, the top bar's Market button)   tabs over one town (this region):
+ *     Town        W-140: the NPC town: what it buys and sells at what price, its purse, hands and carts for hire. Goods and
+ *                 coin go through the men standing at it (at home, the strongroom's coin too)
  *     Stall       rent a stall or warehouse (rent a day from the strongroom), the stall's level and upgrade, what each
  *                 holds against its 20 loads, stow goods in from the selected squad (out again); your men in the court
  *     Offers      list a sell offer or a buy order: the escrow it takes out of the stall, standing (Trader); your open
@@ -17,6 +19,9 @@
  *   Hand-off (the Market header's button)   both carriers here and within 4 tiles: each puts in a half, both confirm,
  *                 the halves swap at once or not at all; the window closes on a walk-off, a cancel or 60 s
  */
+import { NPC, NPC_CARTS, NPC_HIRE } from '../../../data/warNpcTowns';
+import { warChief } from '../../../data/warWild';
+import { costOf, npcGood, npcSpot, payFor, type NpcView } from '../../net/npcMarket';
 import { CONTRACT_HOW } from '../../net/questLore';
 import { GOODS } from '../../net/protocol';
 import { MARKET_TOWNS } from '../../world-view/geo';
@@ -34,9 +39,11 @@ import { stockAtHand } from './chest';
 import { myTeam } from '../side';
 
 type Mk = (id: string, css: string, html?: string) => HTMLElement;
-type Tab = 'Trade' | 'Offers' | 'Stall' | 'Contracts' | 'Letters';
-const TABS: Tab[] = ['Trade', 'Offers', 'Stall', 'Contracts', 'Letters'];
-const TAB_NAME: Record<Tab, string> = { Trade: 'Trade', Offers: 'My offers', Stall: 'Stall', Contracts: 'Contracts', Letters: 'Letters' };
+type Tab = 'Town' | 'Trade' | 'Offers' | 'Stall' | 'Contracts' | 'Letters';
+const PLAYER_TABS: Tab[] = ['Trade', 'Offers', 'Stall', 'Contracts', 'Letters'];
+const TAB_NAME: Record<Tab, string> = { Town: 'Town', Trade: 'Players', Offers: 'My offers', Stall: 'Stall', Contracts: 'Contracts', Letters: 'Letters' };
+/** W-144: what the town's hired hands are called. */
+const HIRE_NAME: Record<string, string> = { civ_forager: 'Forager', civ_cook: 'Cook', civ_engineer: 'Engineer', civ_merchant: 'Merchant', civ_physician: 'Physician', civ_smith: 'Smith' };
 const W = 452;
 const ICONED = new Set(['food', 'wood', 'stone', 'marble', 'copper', 'tin', 'iron', 'bronze', 'silver', 'salt', 'pitch', 'hides', 'flax', 'herbs', 'charcoal', 'leather', 'linen', 'oil', 'coin']);
 const gi = (r: string | null) => (r && ICONED.has(r) ? icon('res-' + r) : '');
@@ -48,15 +55,17 @@ const opts = (list: readonly string[], cur: string) => list.map((x) => `<option 
 const KIND_TIP: Record<ContractKind, string> = {
   carry: 'carry sealed loads from here to the town; paid on delivery, half its value escrowed by the taker', supply: 'bring the goods to the town; paid as they arrive', escort: 'escort the poster\'s cart there; paid when it arrives with 75% of its cargo',
   build: 'hire an ally\'s men to build your site: paid from escrow as their labour goes in', guard: 'hire an ally to hold your town: paid an hour at a time while enough of his men stay inside; refunded if they leave or fall',
+  hunt: 'hire a warrior of your alliance to kill a lair or chief here: paid from escrow when it falls to his men; refunded at the deadline',
 };
 /** W-61 the job board's types: seal icon, name and a rough risk (0..3) by what the job asks of the taker's men. */
-const KINDS: ContractKind[] = ['carry', 'supply', 'escort', 'build', 'guard'];
+const KINDS: ContractKind[] = ['carry', 'supply', 'escort', 'build', 'guard', 'hunt'];
 const KIND: Record<ContractKind, { icon: string; name: string; risk: number; riskWhy: string }> = {
   carry: { icon: 'trade-wagon', name: 'Carry', risk: 2, riskWhy: 'sealed loads on the road: raiders may waylay the cart' },
   supply: { icon: 'trade-pile', name: 'Supply', risk: 1, riskWhy: 'your own goods on your own road' },
   escort: { icon: 'act-escort', name: 'Escort', risk: 3, riskWhy: 'a cart worth robbing: expect a fight' },
   build: { icon: 'act-build', name: 'Build', risk: 1, riskWhy: 'labour on an ally\'s site' },
   guard: { icon: 'act-hold', name: 'Guard', risk: 3, riskWhy: 'you hold his town when raiders come' },
+  hunt: { icon: 'act-attack', name: 'Hunt', risk: 3, riskWhy: 'a lair or a chief, in its own ground' },
 };
 
 const CSS = `
@@ -116,18 +125,18 @@ const CSS = `
 #rfMarket .ct-t b{font:700 13.5px/1 Cinzel,serif;color:#4a1e0c}
 #rfMarket .ct-route{display:flex;align-items:center;gap:3px;margin-top:4px;font-size:11px;color:#5a3e22;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #rfMarket .ct-pay{display:flex;align-items:center;gap:1px}#rfMarket .ct-pay b{font:700 17px/1 Cinzel,serif;color:#4a1e0c}
-#rfMarket .ct-how{margin:0 0 4px;font:700 13px/1.3 Inter,sans-serif;color:var(--rf-title)}
+#rfMarket .ct-how{margin:0 0 4px;font:700 13px/1.3 Inter,sans-serif;color:#4a1e0c}
 #rfMarket .ct-what{display:flex;align-items:center;gap:3px;margin:5px 0 4px;padding:3px 0;border-top:1px solid rgba(107,74,38,.45);border-bottom:1px solid rgba(107,74,38,.45);min-height:30px;flex-wrap:wrap}
 #rfMarket .ct-sub{margin-left:auto;font-size:10.5px}
 #rfMarket .ct-meta{display:flex;align-items:center;gap:7px;min-height:22px;font-size:10.5px;color:#5a3e22}
-#rfMarket .ct-meta>span{display:inline-flex;align-items:center;gap:2px}
+#rfMarket .ct-meta>span{display:inline-flex;align-items:center;gap:2px;white-space:nowrap}
 #rfMarket .ct-risk .off{opacity:.25}
 #rfMarket .ct-card .rf-pill{background:rgba(42,26,16,.85)}
 #rfMarket .ct-none{display:flex;align-items:center;gap:8px;padding:10px;white-space:normal}
 #rfMarket .ct-step{display:flex;align-items:center;gap:6px;margin:8px 0 4px;font:700 11px/1 Cinzel,serif;letter-spacing:.06em;text-transform:uppercase;color:var(--rf-accent)}
 #rfMarket .ct-step i{font-style:normal;width:16px;height:16px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font:700 10px/1 Inter,sans-serif;color:var(--rf-panel);background:var(--rf-accent)}
 #rfMarket .ct-step::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,var(--rf-line),transparent)}
-#rfMarket .ct-types{display:grid;grid-template-columns:repeat(5,1fr);gap:4px}
+#rfMarket .ct-types{display:grid;grid-template-columns:repeat(6,1fr);gap:4px}
 #rfMarket .ct-type{display:flex;flex-direction:column;align-items:center;gap:2px;height:46px;padding:3px 0;background:var(--rf-sunk);border:1px solid var(--rf-rule);color:var(--rf-muted);font:600 11px/1 Inter,sans-serif}
 #rfMarket .ct-type:hover{border-color:var(--rf-accent);color:var(--rf-ink)}
 #rfMarket .ct-type.on{background:var(--rf-sel);border-color:var(--rf-title);color:var(--rf-title);box-shadow:inset 0 0 0 1px var(--rf-title)}
@@ -139,6 +148,24 @@ const CSS = `
 #rfMarket .ct-esc{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:6px}
 #rfMarket .ct-esc b{font:700 20px/1 Cinzel,serif;color:var(--rf-gold)}
 #rfMarket .ct-esc span{font:700 10px/1 Inter,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--rf-muted)}
+#rfMarket .nt-top{display:flex;align-items:center;gap:10px;margin:5px 0 3px;font-size:11.5px;white-space:nowrap}
+#rfMarket .nt-top>span{display:inline-flex;align-items:center;gap:3px}
+#rfMarket .nt-top .ic{width:16px;height:16px}
+#rfMarket .nt-top b{color:var(--rf-gold)}
+#rfMarket .nt-h,#rfMarket .nt-g{display:grid;grid-template-columns:24px minmax(0,1fr) 44px 44px 44px;gap:4px;align-items:center}
+#rfMarket .nt-h{padding:0 6px 3px 3px;border-bottom:1px solid var(--rf-line);font:700 9.5px/1 Inter,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--rf-muted)}
+#rfMarket .nt-h span{text-align:right}
+#rfMarket .nt-list{height:140px;background:var(--rf-sunk);border:1px solid var(--rf-rule);border-top:0}
+@media (max-height:800px){#rfMarket .nt-list{height:112px}}
+#rfMarket .nt-g{height:28px;padding:0 6px 0 3px;border-bottom:1px solid #1a1c20;cursor:pointer}
+#rfMarket .nt-g .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11.5px}
+#rfMarket .nt-g .rf-num{text-align:right;font-size:12px}
+#rfMarket .nt-g .have.z{color:var(--rf-disabled)}
+#rfMarket .nt-g .ask{color:var(--rf-gold)}#rfMarket .nt-g .pay{color:var(--rf-good)}
+#rfMarket .nt-deal{margin-top:5px;padding:5px 7px}
+#rfMarket .nt-deal .mk-go{margin-top:5px}
+#rfMarket .nt-more{display:flex;align-items:center;gap:4px;margin-top:5px}
+#rfMarket .nt-more select{flex:1;min-width:0}
 `;
 
 export interface MarketHud { open(tab?: Tab): void; refresh(): void }
@@ -150,14 +177,16 @@ export function mountMarket(s: SandboxScene, mk: Mk): MarketHud {
   const M: Market = s.sim.net ? netMarket(s) : new LocalMarket(s);
   const T = s.region.id;
   const isTown = MARKET_TOWNS.has(T) || (s.region.safe?.length ?? 0) > 0;
+  const hasNpc = !!npcGood(T, 'wood');
+  const TABS: Tab[] = hasNpc ? ['Town', ...PLAYER_TABS] : PLAYER_TABS;
 
   // ---------- state ----------
-  let tab: Tab = 'Trade';
+  let tab: Tab = TABS[0], npc: NpcView | null = null;
   let mine: Mine = { sites: [], offers: [] }, board: Board | null = null, contracts: Contract[] = [];
   let msg = '', bad = false;
   const form = { pick: 'tin', dSide: 'buy' as 'buy' | 'sell', dn: 10, side: 'sell' as 'sell' | 'buy', res: 'tin', n: 10, price: 10, standing: false, stowRes: 'iron', stowN: 10, stowSite: 'stall' as 'stall' | 'warehouse', take: 5,
     cKind: 'carry' as ContractKind, cTo: 'stymphalia', cReward: 50, cRes: 'iron', cN: 20, cValue: 300, cLoads: 4, cHours: 24, lTo: 'stymphalia', lAmount: 200, lFee: 10, lId: 0,
-    cRegion: s.region.id, cSite: -1, cWork: 4, cMen: 6, cHold: 6 };
+    cRegion: s.region.id, cSite: -1, cWork: 4, cMen: 6, cHold: 6, cTarget: '', nPick: 'wood', nN: 10, nHire: 'civ_forager', nCart: 'handcart' };
 
   // ---------- the windows ----------
   const win = mk('rfMarket', `top:4px;left:4px;width:${W}px;display:none;pointer-events:auto;padding:4px 8px 8px`);
@@ -183,7 +212,8 @@ export function mountMarket(s: SandboxScene, mk: Mk): MarketHud {
     return true;
   };
   const load = async () => {
-    const [a, b, c] = await Promise.all([M.mine(T), M.board(T), M.contracts(T)]);
+    const [a, b, c, d] = await Promise.all([M.mine(T), M.board(T), M.contracts(T), hasNpc ? M.npcTown(T) : null]);
+    if (d && !failed(d)) npc = d;
     if (!failed(a)) mine = a; else say(a.error, true);
     if (!failed(b)) board = b;
     if (!failed(c)) contracts = c.contracts;
@@ -285,6 +315,42 @@ export function mountMarket(s: SandboxScene, mk: Mk): MarketHud {
       <div><div class="mk-colh"><span>Market</span><span title="what you pay a unit">buy</span><span title="what you get a unit">sell</span></div><div class="mk-list rf-scroll">${market}</div></div>
     </div>${deal}`;
   };
+  // ---------- the NPC town (W-140): the prices move with what is sold and bought, its purse pays ----------
+  /** His men standing at the town: they are who deals (W-87, W-88). */
+  const atTown = () => {
+    const at = npcSpot(s.region);
+    return (s.sim.cur?.units ?? []).filter((u) => u.state !== 'dead' && s.sim.squads.get(u.squad)?.team === myTeam() && Math.hypot(u.x - at.x, u.y - at.y) <= NPC.reach).length;
+  };
+  /** What his carts near the town hold; a man's pack is told only by the deal (offline: the team's goods). */
+  const carriedHere = (): Record<string, number> => {
+    if (!M.live) return stockAtHand(s);
+    const at = npcSpot(s.region), out: Record<string, number> = {};
+    for (const c of s.sim.cur?.sieges ?? []) {
+      if (!c.cargo || c.team !== myTeam() || Math.hypot(c.x - at.x, c.y - at.y) > NPC.reach) continue;
+      for (const [r, n] of Object.entries(c.cargo)) out[r] = (out[r] ?? 0) + (n ?? 0);
+    }
+    return out;
+  };
+  const townTab = () => {
+    if (!npc) return '<div class="rf-dim mk-none">Reading the town\'s prices…</div>';
+    const men = atTown(), have = carriedHere(), pick = npc.goods.find((g) => g.res === form.nPick) ?? npc.goods[0], rule = npcGood(T, pick.res)!;
+    form.nPick = pick.res;
+    const n = Math.max(1, Math.floor(form.nN) || 1), cost = costOf(rule, pick.stock, Math.min(n, pick.stock)), pay = Math.min(payFor(rule, pick.stock, n), npc.purse);
+    const rows = npc.goods.map((g) => `<div class="nt-g rf-row${g.res === pick.res ? ' on' : ''}" data-act="nPick" data-r="${g.res}" data-tip="${esc(`${goodCard(g.res)}<br><span class="rf-dim tip-w">The town holds ${fmt(g.stock)}: selling here lowers the price, buying raises it.</span>`)}">${gi(g.res)}<span class="nm">${goodName(g.res)}</span><span class="rf-num have${(have[g.res] ?? 0) > 0.05 ? '' : ' z'}">${fmt(have[g.res] ?? 0)}</span><span class="rf-num ask">${fmt(g.ask)}</span><span class="rf-num pay">${fmt(g.pay)}</span></div>`).join('');
+    const away = men ? '' : 'walk your men to the town: only those standing there can deal';
+    const hire = `<select data-f="nHire" title="one of your own people from now on, up to your path's cap">${Object.entries(NPC_HIRE).map(([cls, c]) => `<option value="${cls}"${cls === form.nHire ? ' selected' : ''}>${HIRE_NAME[cls] ?? cls} · ${c} coin</option>`).join('')}</select>`;
+    const carts = `<select data-f="nCart" title="rolls up beside your men, up to your path's cap">${(Object.keys(NPC_CARTS) as (keyof typeof NPC_CARTS)[]).map((c) => `<option value="${c}"${c === form.nCart ? ' selected' : ''}>${c === 'wagon' ? 'Wagon' : 'Handcart'} · ${NPC_CARTS[c]} coin</option>`).join('')}</select>`;
+    return `<div class="nt-top"><span data-tip="${esc('All the coin the town has to pay with: what buyers paid it and a small daily mint. An empty town buys nothing.')}">Purse <b class="rf-num">${npc.purse}</b> ${icon('res-coin')}</span><span class="rf-dim">your men here <b class="rf-num" style="color:var(--rf-ink)">${men}</b></span></div>
+      <div class="nt-h"><i></i><i></i><span title="in your carts here">carts</span><span title="what you pay a unit">buy</span><span title="what you get a unit">sell</span></div>
+      <div class="nt-list rf-scroll">${rows}</div>
+      <div class="nt-deal rf-well">
+        <div class="mk-dh">${gi(pick.res)}<b>${goodName(pick.res)}</b><span style="flex:1"></span><span class="rf-step">${btn('nStep', '−', n > 1, 'data-d="-10"', '', 'rf-tbtn')}<input type="number" data-f="nN" min="1" value="${n}">${btn('nStep', '+', true, 'data-d="10"', '', 'rf-tbtn')}</span></div>
+        <div class="mk-go">${btn('nBuy', `Buy · ${cost} ${icon('res-coin')}`, !away, '', '', 'rf-tbtn big')}${btn('nSell', `Sell · ${pay} ${icon('res-coin')}`, !away, '', '', 'rf-tbtn pri big')}</div>
+        ${away ? `<div class="rf-hint mk-why">${away}</div>` : ''}
+      </div>
+      <div class="nt-more">${hire}${btn('nHire', 'Hire', !away)}${carts}${btn('nCart', 'Buy', !away)}</div>`;
+  };
+
   // ---------- contracts: a job board of parchment cards (Battle Brothers, EVE), posting in four short steps ----------
   let posting = false, cFilter: ContractKind | 'all' = 'all';
   /** A job card: type seal, route, reward, what, time, risk, employer, and its action. */
@@ -300,13 +366,17 @@ export function mountMarket(s: SandboxScene, mk: Mk): MarketHud {
       <div class="ct-how" data-tip="${esc(`<b class="k">Goal</b> · ${CONTRACT_HOW[v.kind].goal}<br><b class="k">Pay</b> · ${CONTRACT_HOW[v.kind].pay}`)}">${CONTRACT_HOW[v.kind].short}</div>
       <div class="ct-meta"><span data-tip="time left to take and do it">${glyph('ui:hourglass', 13)}<span data-live="hours">${v.time}</span></span>${risk}<span data-tip="who posted it">${glyph('ui:people', 13)}${v.employer}</span><span style="flex:1"></span>${v.action}</div></div>`;
   };
-  const what = (c: { kind: ContractKind; res: string | null; n: number; delivered: number; value: number; site?: number | null; men?: number; paid?: number }) =>
+  /** W-146: what may be named here: the region's lairs and chiefs, as the deed keys name them. */
+  const targets = () => (s.region.lairs ?? []).flatMap((l, i) => [{ key: `lair:${i}`, name: `${l.kind} lair (${Math.round(l.x)}, ${Math.round(l.y)})` }, ...(l.chief ? [{ key: `chief:${l.chief}`, name: warChief(l.chief)?.name ?? l.chief }] : [])]);
+  const targetName = (key: string) => targets().find((x) => x.key === key)?.name ?? key;
+  const what = (c: { kind: ContractKind; res: string | null; n: number; delivered: number; value: number; site?: number | null; men?: number; paid?: number; target?: string | null }) =>
     c.kind === 'supply' ? `${gi(c.res)}<b>${fmt(c.n)}</b> ${goodName(c.res ?? '').toLowerCase()}${c.delivered ? `<span class="ct-sub">${fmt(c.delivered)} in</span>` : ''}`
     : c.kind === 'carry' ? `${icon('trade-chest')}<b>${fmt(c.n)}</b> sealed loads<span class="ct-sub">worth ${c.value}</span>`
     : c.kind === 'build' ? `${icon('act-build')}site #${c.site ?? '?'} · <b>${fmt(c.delivered / 3600)}/${fmt(c.n / 3600)}</b> man-h${c.paid ? `<span class="ct-sub">${fmt(c.paid)} paid</span>` : ''}`
     : c.kind === 'guard' ? `${icon('unit-hoplite')}<b>${c.men ?? 0}</b> men · <b>${fmt(c.delivered / 3600)}/${fmt(c.n)}</b> h held${c.paid ? `<span class="ct-sub">${fmt(c.paid)} paid</span>` : ''}`
+    : c.kind === 'hunt' ? `${icon('act-attack')}<b>${esc(targetName(c.target ?? ''))}</b>`
     : `${icon('trade-cart')}the poster's cart<span class="ct-sub">75% to arrive</span>`;
-  const route = (kind: ContractKind, from: string, to: string) => `${glyph('ui:map', 12)}${kind === 'build' || kind === 'guard' ? town(from) : `${town(from)} → ${town(to)}`}`;
+  const route = (kind: ContractKind, from: string, to: string) => `${glyph('ui:map', 12)}${kind === 'build' || kind === 'guard' || kind === 'hunt' ? town(from) : `${town(from)} → ${town(to)}`}`;
   const contractsTab = () => (posting ? postView() : boardView());
   const boardView = () => {
     const now = Date.now(), me = M.me;
@@ -316,7 +386,7 @@ export function mountMarket(s: SandboxScene, mk: Mk): MarketHud {
       const action = c.state !== 'open' ? `<span class="rf-pill${c.taker === me ? ' gold' : ''}">${c.taker === me ? 'yours' : 'taken'}</span>`
         : c.poster === me ? '<span class="rf-pill">posted</span>'
         : btn('take', 'Take', can, `data-id="${c.id}" data-tip="${esc(c.kind === 'carry' ? `escrows half its value (${c.deposit || Math.round(c.value / 2)} coin) until delivered` : 'take the job')}"`, '', 'rf-tbtn mk-b pri');
-      return jobCard({ kind: c.kind, reward: c.reward, route: route(c.kind, c.kind === 'build' || c.kind === 'guard' ? c.region ?? c.town : c.town, c.to_town), what: what(c), time: c.state === 'open' ? inH(c.deadline - now) : '—', employer: c.poster === me ? 'you' : `#${c.poster}`, action });
+      return jobCard({ kind: c.kind, reward: c.reward, route: route(c.kind, c.kind === 'build' || c.kind === 'guard' || c.kind === 'hunt' ? c.region ?? c.town : c.town, c.to_town), what: what(c), time: c.state === 'open' ? inH(c.deadline - now) : '—', employer: c.poster === me ? 'you' : `#${c.poster}`, action });
     }).join('');
     const count = (k: ContractKind | 'all') => contracts.filter((c) => k === 'all' || c.kind === k).length;
     const filters = (['all', ...KINDS] as const).map((k) => `<button class="${k === cFilter ? 'on' : ''}" data-act="cfilter" data-v="${k}" data-tip="${esc(k === 'all' ? 'every contract' : `<b class="k">${KIND[k].name}</b> · ${count(k)}`)}">${k === 'all' ? '<b style="font:700 11px/1 Inter,sans-serif">All</b>' : icon(KIND[k].icon)}${count(k) ? `<span class="key">${count(k)}</span>` : ''}</button>`).join('');
@@ -331,16 +401,19 @@ export function mountMarket(s: SandboxScene, mk: Mk): MarketHud {
     const siteSel = `<select data-f="cSite">${sites.map((b) => `<option value="${b.id}"${b.id === form.cSite ? ' selected' : ''}>#${b.id} ${b.type}</option>`).join('') || '<option value="-1">no open site here</option>'}</select>`;
     const lab = (ic: string, tipText: string) => `<span class="ct-lab" data-tip="${esc(tipText)}">${ic}</span>`;
     const to = `${lab(glyph('ui:map', 16), 'the town it goes to')}${sel('cTo', towns)}`;
-    const where = k === 'supply' ? `${to}${lab(gi(form.cRes) || glyph('ui:amphora', 16), 'the good and how much')}${sel('cRes', GOODS.filter((g) => g !== 'coin'))}${num('cN')}`
+    if (k === 'hunt' && !targets().some((x) => x.key === form.cTarget)) form.cTarget = targets()[0]?.key ?? '';
+    const huntSel = `<select data-f="cTarget">${targets().map((x) => `<option value="${x.key}"${x.key === form.cTarget ? ' selected' : ''}>${esc(x.name)}</option>`).join('') || '<option value="">no lair or chief here</option>'}</select>`;
+    const where = k === 'hunt' ? `${lab(icon('act-attack'), 'the lair or chief he must bring down, in this region')}${huntSel}`
+      : k === 'supply' ? `${to}${lab(gi(form.cRes) || glyph('ui:amphora', 16), 'the good and how much')}${sel('cRes', GOODS.filter((g) => g !== 'coin'))}${num('cN')}`
       : k === 'carry' ? `${to}${lab(icon('trade-chest'), 'sealed loads, and what they are worth (the taker escrows half)')}${num('cLoads', 40)}${lab(icon('res-coin'), 'their value')}${num('cValue')}`
       : k === 'build' ? `${lab(icon('act-build'), 'the site they build: one of yours in this region')}${siteSel}${lab(glyph('ui:people', 16), 'man-hours of labour')}${num('cWork', 40)}<span class="rf-dim">man-h</span>`
       : k === 'guard' ? `${lab(glyph('ui:map', 16), 'the region of your town')}<input type="text" data-f="cRegion" value="${esc(form.cRegion)}" style="width:96px">${lab(icon('unit-hoplite'), 'men he keeps inside')}${num('cMen', 40)}<span class="rf-dim">men</span>${lab(glyph('ui:hourglass', 16), 'hours held')}${num('cHold', 40)}<span class="rf-dim">h</span>`
       : `${to}`;
     const types = KINDS.map((x) => `<button class="ct-type${x === k ? ' on' : ''}" data-act="ckind" data-v="${x}" data-tip="${esc(`<b class="k">${KIND[x].name}</b><br><span class="rf-dim tip-w">${KIND_TIP[x]}</span>`)}">${icon(KIND[x].icon)}<span>${KIND[x].name}</span></button>`).join('');
     const hours = [6, 12, 24, 48].map((h) => `<button class="rf-tbtn mk-b${form.cHours === h ? ' on' : ''}" data-act="chours" data-v="${h}">${h} h</button>`).join('');
-    const prevWhat = what({ kind: k, res: form.cRes, n: k === 'supply' ? form.cN : k === 'carry' ? form.cLoads : k === 'build' ? form.cWork * 3600 : form.cHold, delivered: 0, value: form.cValue, site: form.cSite, men: form.cMen });
+    const prevWhat = what({ kind: k, res: form.cRes, n: k === 'supply' ? form.cN : k === 'carry' ? form.cLoads : k === 'build' ? form.cWork * 3600 : form.cHold, delivered: 0, value: form.cValue, site: form.cSite, men: form.cMen, target: form.cTarget });
     const preview = jobCard({ kind: k, reward: form.cReward, route: route(k, k === 'guard' ? form.cRegion : k === 'build' ? s.region.id : T, form.cTo), what: prevWhat, time: `${form.cHours} h`, employer: 'you', action: '', dim: false });
-    const refund = k === 'guard' ? 'paid an hour at a time; the rest back if his men leave or fall' : k === 'build' ? 'paid as the labour goes in; the rest back at the deadline' : 'back to you if nobody does it in time';
+    const refund = k === 'hunt' ? 'paid when it falls to his men; back to you at the deadline' : k === 'guard' ? 'paid an hour at a time; the rest back if his men leave or fall' : k === 'build' ? 'paid as the labour goes in; the rest back at the deadline' : 'back to you if nobody does it in time';
     return `<div class="ct-post">
       <div class="ct-step"><i>1</i>Type</div><div class="ct-types">${types}</div>
       <div class="ct-step"><i>2</i>Where</div><div class="ct-row">${where}</div>
@@ -361,11 +434,11 @@ export function mountMarket(s: SandboxScene, mk: Mk): MarketHud {
       <div class="mk-form"><span class="rf-dim">letter #</span>${num('lId', 60, 0)}${btn('buyL', 'Buy', true, 'data-id="form"')}${btn('redeemL', 'Redeem', true, 'data-id="form"')}</div>`;
   };
 
-  const BODY: Record<Tab, () => string> = { Stall: stallTab, Offers: offersTab, Trade: tradeTab, Contracts: contractsTab, Letters: lettersTab };
+  const BODY: Record<Tab, () => string> = { Town: townTab, Stall: stallTab, Offers: offersTab, Trade: tradeTab, Contracts: contractsTab, Letters: lettersTab };
   const render = () => {
     if (win.style.display === 'none') return;
     const scroll = win.scrollTop;
-    win.innerHTML = `<div class="rf-head rf-ph">${icon('node-merchant-trader', 32)}<div style="flex:1;min-width:0"><div class="rf-name">Market of ${town(T)}</div><div class="sub">${isTown ? 'players\' offers only' : 'no market here'}${M.live ? '' : ' · offline'} · <span style="color:var(--rf-gold)">${Math.floor(s.sim.cur?.stock?.[myTeam()]?.coin ?? 0)}</span> coin at home</div></div>${btn('handoff', 'Trade in person', true, '', 'trade with a player standing here: each puts in his half, both confirm')}<button class="rf-tbtn x" data-act="close" title="close (K)">×</button></div>
+    win.innerHTML = `<div class="rf-head rf-ph">${icon('node-merchant-trader', 32)}<div style="flex:1;min-width:0"><div class="rf-name">Market of ${town(T)}</div><div class="sub">${tab === 'Town' ? 'the town trades' : isTown ? 'players\' offers only' : 'no market here'}${M.live ? '' : ' · offline'} · <span style="color:var(--rf-gold)">${Math.floor(s.sim.cur?.stock?.[myTeam()]?.coin ?? 0)}</span> coin at home</div></div>${btn('handoff', 'Trade in person', true, '', 'trade with a player standing here: each puts in his half, both confirm')}<button class="rf-tbtn x" data-act="close" title="close (K)">×</button></div>
       <div class="mk-tabs">${TABS.map((t) => `<button class="rf-tab${t === tab ? ' on' : ''}" data-tab="${t}">${TAB_NAME[t]}</button>`).join('')}</div>
       ${BODY[tab]()}<div class="mk-msg rf-dim${bad ? ' bad' : ''}">${msg}</div>`;
     win.scrollTop = scroll;
@@ -388,6 +461,7 @@ export function mountMarket(s: SandboxScene, mk: Mk): MarketHud {
   win.addEventListener('change', (e) => {
     const k = (e.target as HTMLElement).dataset.f;
     if (k === 'dn') { form.dn = Math.max(1, Math.floor(form.dn) || 1); render(); }
+    else if (k === 'nN') { form.nN = Math.max(1, Math.floor(form.nN) || 1); render(); }
     else if (tab === 'Contracts' && k && k.startsWith('c') && (e.target as HTMLElement) instanceof HTMLInputElement) render();
   });
   /** Refresh the escrow line without losing the field being typed in. */
@@ -403,6 +477,13 @@ export function mountMarket(s: SandboxScene, mk: Mk): MarketHud {
     if (a === 'close') return toggle(false);
     if (a === 'handoff') return openHand();
     if (a === 'side') { form.side = t.dataset.v as 'sell' | 'buy'; render(); return; }
+    // the town (W-143): the numbers stand as read; the server's are the deal's
+    if (a === 'nPick') { form.nPick = t.dataset.r!; render(); return; }
+    if (a === 'nStep') { form.nN = Math.max(1, form.nN + Number(t.dataset.d)); render(); return; }
+    if (a === 'nBuy') { void run(M.npc({ op: 'buy', res: form.nPick as never, n: form.nN }), (r) => `bought ${fmt(r.n ?? 0)} ${form.nPick} for ${r.coin} coin`); return; }
+    if (a === 'nSell') { void run(M.npc({ op: 'sell', res: form.nPick as never, n: form.nN }), (r) => `sold ${fmt(r.n ?? 0)} ${form.nPick} for ${r.coin} coin${r.tribute ? `, ${fmt(r.tribute)} of it set aside here for your liege` : ''}`); return; }
+    if (a === 'nHire') { void run(M.npc({ op: 'hire', cls: form.nHire as never }), (r) => `hired for ${r.coin} coin: he stands with your men`); return; }
+    if (a === 'nCart') { void run(M.npc({ op: 'cart', cart: form.nCart as never }), (r) => `bought for ${r.coin} coin: it rolls up beside your men`); return; }
     // the trade screen: pick a good, buy or sell, how many, then the deal (a fill of the best offer that is not yours)
     if (a === 'pick') { form.pick = t.dataset.r!; render(); return; }
     if (a === 'dside') { form.dSide = t.dataset.v as 'buy' | 'sell'; render(); return; }
@@ -427,12 +508,13 @@ export function mountMarket(s: SandboxScene, mk: Mk): MarketHud {
     else if (a === 'chours') { form.cHours = Number(t.dataset.v); render(); }
     else if (a === 'creward') { form.cReward = Math.max(1, form.cReward + Number(t.dataset.d)); render(); }
     else if (a === 'post') {
+      if (form.cKind === 'hunt' && !form.cTarget) { say('nothing to hunt in this region', true); render(); return; }
       if (form.cKind === 'build' && form.cSite < 0) { say('lay out a site first: hired men build one of your open sites here', true); render(); return; }
       const hours = form.cKind === 'guard' ? Math.max(form.cHours, form.cHold) : form.cHours;
       void run(M.post(T, {
         kind: form.cKind, toTown: form.cTo, reward: form.cReward, deadline: Date.now() + hours * 3_600_000,
         ...(form.cKind === 'supply' ? { res: form.cRes, n: form.cN } : form.cKind === 'carry' ? { loads: form.cLoads, value: form.cValue }
-          : form.cKind === 'build' ? { region: s.region.id, site: form.cSite, hours: form.cWork } : form.cKind === 'guard' ? { region: form.cRegion, hours: form.cHold, men: form.cMen } : {}),
+          : form.cKind === 'build' ? { region: s.region.id, site: form.cSite, hours: form.cWork } : form.cKind === 'guard' ? { region: form.cRegion, hours: form.cHold, men: form.cMen } : form.cKind === 'hunt' ? { target: form.cTarget } : {}),
       }), (r) => `contract #${r.contract} posted; its reward is held until done`).then((ok) => { if (ok) { posting = false; render(); } });
     }
     else if (a === 'offerL') void run(M.letter(T, form.lTo, form.lAmount, form.lFee), (r) => `letter #${r.letter} offered`);
@@ -497,7 +579,7 @@ export function mountMarket(s: SandboxScene, mk: Mk): MarketHud {
   // timers (rent, the hand-off countdown) and what the region holds: once a second while shown
   setInterval(() => {
     if (hand.style.display !== 'none' && h?.state === 'open') renderHand();
-    if (win.style.display !== 'none' && tab === 'Stall' && !win.contains(document.activeElement)) render();
+    if (win.style.display !== 'none' && (tab === 'Stall' || tab === 'Town') && !win.contains(document.activeElement)) render();
   }, 1000);
 
   return { open: (t) => { if (t) tab = t; toggle(true); if (t) render(); }, refresh: render };

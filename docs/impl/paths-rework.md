@@ -57,8 +57,8 @@ Propose these in the named work item and get the owner's answer before building 
 - [x] What each family's men can do, and its stronger classes. W-112. Only hoplite, militia, archer, slinger, javelineer and
   celt_sword have work animations (item 4): shield-bearers idle at work, see W-113.
 - [ ] Riders return once mounts exist. Hidden from the start by the owner: no work animations, balance unchecked.
-- [ ] Where more workers come from. A builder or trader starts with 2 (item 2, default), and W-103 sets how many he may keep,
-  but the only way to gain one today is a level-10 soldier retiring into a trade. A trader with no engineer cannot build a cart.
+- [x] Where more workers come from. W-144: hired at an NPC town under W-103's cap. A trader with no engineer: W-145, a start
+  handcart and carts sold in towns.
 - [x] Whether a trader's cart cap rises. W-104: trader 4, warrior 1, builder 1, Emporos adds none.
 
 Found while bringing `docs/WAR.md` in line (item 1). Each is a rule the decisions touch but do not settle.
@@ -76,11 +76,10 @@ Found while bringing `docs/WAR.md` in line (item 1). Each is a rule the decision
 - [x] Walls and locks. W-130, W-131, W-132.
 - [x] Warlord raids after W-91. W-133.
 - [x] "Owner" under W-89. W-125; the recruit-pool table rows are gone.
-- [ ] NPC towns against W-44: which towns, what prices, and where their coin comes from, since coin is otherwise only
-  minted silver and the owner rejected a coin sink in W-72 (item 7).
-- [ ] The hire contract for monsters: a new kind or the guard and escort contracts, and whether it stays inside the
-  alliance as build and guard do (item 7). Guard contracts for empty towns: yes, W-134.
-- [ ] What builders and traders do in the guide, tasks and region mastery, which all assume a fighting army (items 7, 9).
+- [x] NPC towns against W-44: W-140 which, W-141 prices, W-142 the purse, W-143 standing there, W-148 what pays a level, W-149 who.
+- [x] The hire contract for monsters: W-146 `hunt`, inside the alliance. Guard contracts for empty towns: yes, W-134.
+- [ ] What builders and traders do in the guide, tasks and region mastery, which all assume a fighting army (item 9; item 7 gave
+  them their own story chains, W-147).
 - [x] Hierarchy against older decisions. The crown holder is the king (W-151); vassals stay inside one alliance (W-150).
 - [ ] No hegemony by day 28. Today the top score wins, and it counts trade, contracts, works and town level as well as
   land: does that fallback stay under "land decides"? Do W-61's per-alliance score caps stay? What does each path's
@@ -104,7 +103,7 @@ Each item bumps `SIM_VERSION` (`src/sim/version.ts`) and `NET_VERSION` (`src/war
   verify: tests per path. depends on: 4.
 - [x] **6. Staffed buildings.** Work only while staffed, access levels, owner's share, private houses, empty-building raids.
   verify: sim and server tests, `bench:war`. depends on: 3.
-- [ ] **7. Builder and trader loops.** NPC markets, warrior hire contracts, path story chains (`lore-writer`).
+- [x] **7. Builder and trader loops.** NPC markets, warrior hire contracts, path story chains (`lore-writer`).
   verify: a seeded solo run on each path. depends on: 5, 6.
 - [x] **8. Feudal hierarchy.** Kings, vassals, titles, tribute, succession on top of W-63.
   verify: scenario tests. depends on: 6; owner answer on the open item.

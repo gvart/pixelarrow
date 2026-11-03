@@ -12,6 +12,8 @@ export const SEASON_WIPE = [
   'war_favour_log', 'war_favour', 'war_mastery_done', 'war_mastery', 'war_task_tally', 'war_tasks',
   // belongings: strongrooms, stalls, warehouses and what they hold, open deals, things in the field
   'war_contracts', 'war_letters', 'war_deals', 'war_offers', 'war_gifts', 'war_crafts', 'war_goods', 'war_holders', 'war_region_holds', 'war_region_state',
+  // W-142: the NPC towns' purses and stocks start the season afresh
+  'war_npc_towns', 'war_npc_stock',
   // men and gear, and what hung on them
   'war_trophies', 'war_memorial', 'war_tunnel', 'war_upkeep', 'war_items', 'war_persons',
   // the start itself: alliance, home and path are chosen anew

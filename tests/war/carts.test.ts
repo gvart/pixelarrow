@@ -68,6 +68,26 @@ describe('M6b a mixed civilian squad at a workshop', () => {
   });
 });
 
+describe('W-145 a cart is set down where it can roll', () => {
+  it('in the trees or a clearing cut off by them: on the nearest open ground, and it rolls from there', () => {
+    const n = 64, r = flat(n), at = (x: number, y: number) => y * n + x;
+    for (let y = 20; y < 40; y++) for (let x = 20; x < 40; x++) r.terrain[at(x, y)] = 'forest';
+    for (let y = 28; y < 32; y++) for (let x = 28; x < 32; x++) r.terrain[at(x, y)] = 'grass'; // a clearing in them
+    const sim = createSim(r, 1), s = sim.spawnSquad('a', 0, 'militia', 2, 18, 30);
+    for (const [x, y] of [[30, 30], [25, 25]]) {
+      const id = sim.spawnCart(0, 'a', 'handcart', x + 0.5, y + 0.5), c = sim.snapshot().sieges!.find((e) => e.id === id)!;
+      expect(c.x < 20 || c.x >= 40 || c.y < 20 || c.y >= 40, `${c.x},${c.y}`).toBe(true);
+    }
+    const open = sim.spawnCart(0, 'a', 'handcart', 10.25, 10.75), c = sim.snapshot().sieges!.find((e) => e.id === open)!;
+    expect([c.x, c.y]).toEqual([10.25, 10.75]); // open ground: where it was put
+    sim.order({ kind: 'crew', squad: s, siege: open });
+    run(sim, 40);
+    sim.order({ kind: 'move', squad: s, x: 10, y: 50 });
+    run(sim, 2000, () => (sim.snapshot().sieges!.find((e) => e.id === open)!.y > 45));
+    expect(sim.snapshot().sieges!.find((e) => e.id === open)!.y).toBeGreaterThan(45);
+  });
+});
+
 describe('M6b ground rules', () => {
   const region = (terrain: TerrainKind[], water: (0 | 1 | 2)[] = terrain.map(() => 0), height = terrain.map(() => 1)): RegionData =>
     ({ id: 'g', name: 'g', w: terrain.length, h: 1, height, terrain, water, entries: [], noBuild: [] });

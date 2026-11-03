@@ -55,7 +55,9 @@ import { bossItems } from './bosses';
 import { bossGoods } from '../../../src/data/warBosses';
 import { STORM, WAKE, type WorldEvent } from '../../../src/war/world/events';
 import { craftKey } from './crafting';
-import { bundleGoods, contents, fill, room as freeLoads, takeAll, takeOut, type Bundle } from './cargo';
+import { bundleGoods, contents, fill, room as freeLoads, takeAll, takeOut, type Bundle, type Slot } from './cargo';
+import { NPC } from '../../../src/data/warNpcTowns';
+import { npcSpot } from '../../../src/war/net/npcMarket';
 import type { LordWorld, TransitCargo } from '../../../src/war/net/world';
 import { WARLORD } from '../../../src/data/warWarlords';
 
@@ -710,6 +712,22 @@ export class WarRoom {
     return { msg: p.online ? { t: 'welcome', v: NET_VERSION, region: this.region.id, you: { id: pid, team: p.team }, squads: this.squadsOf(pid), tick: this.currentTick, quota: this.quota() } : null };
   }
 
+  /**
+   * W-144: a hired worker falls in with the workers standing here, in their squad and on their work; a squad of his own
+   * would take one of MAX_SQUADS, and the next hire would wait off the field. None here, or that squad full: as any man.
+   */
+  hired(pid: number, persons: WarPerson[]): { msg: ServerMsg | null } | null {
+    const p = this.players.get(pid);
+    if (!p || !persons.length) return null;
+    const units = (q: SquadId) => (this.snap.squads[q]?.units ?? []).map((u) => this.snap.units[u]).filter((u) => u && u.state !== 'dead');
+    const into = this.squadsOf(pid).find((q) => units(q).length > 0 && units(q).every((u) => isCivClass(u.cls)));
+    if (into === undefined || units(into).length + persons.length > MAX_SQUAD || this.queue.some((w) => w.join.team === p.team) || this.live[p.team] + persons.length > this.per[p.team]) return this.muster(pid, persons);
+    const at = units(into)[0], id = this.spawn(ownerOf(pid), p.team, { cls: persons[0].hero.cls ?? 'militia', count: persons.length, persons }, { x: at.x, y: at.y });
+    this.sim.order({ kind: 'merge', squad: id, into });
+    this.snap = this.sim.snapshot();
+    return { msg: null };
+  }
+
   /** The players this room knows, in the field or watching (the DO's muster poll). */
   playerIds(): number[] {
     return [...this.players.keys()];
@@ -782,7 +800,7 @@ export class WarRoom {
   /** W-65: a welcomed player's story here (his save from the DO): the message to send him, null when there is none. */
   startStory(pid: number, save: StorySave | null): ServerMsg | null {
     const p = this.players.get(pid);
-    return p ? this.stories.start(pid, p.team, save) : null;
+    return p ? this.stories.start(pid, p.team, save, this.paths.get(pid)?.path ?? null) : null;
   }
 
   /** W-65: his choice at the story's open choice step (told and stored with the next tick). */
@@ -1067,6 +1085,34 @@ export class WarRoom {
   takeCargo(pid: number, from: { squad?: number; cart?: number }, goods: Record<string, number>, uids: string[] = [], seal?: number): Bundle | null {
     const at = this.carrier(pid, from);
     return at ? takeOut(at.slots, goods, uids, seal) : null;
+  }
+
+  /** W-143: every pack and cart of his standing at this region's NPC town (none: he has nobody there, W-87). */
+  npcSlots(pid: number): (Slot & { x: number; y: number })[] {
+    const at = npcSpot(this.region), r2 = NPC.reach ** 2, near = (s: { x: number; y: number }) => (s.x - at.x) ** 2 + (s.y - at.y) ** 2 <= r2;
+    const out: (Slot & { x: number; y: number })[] = [];
+    for (const q of this.squadsOf(pid)) out.push(...(this.sim.cargo({ squad: q })?.slots ?? []).filter(near));
+    for (const c of this.cartsOf(pid)) out.push(...(this.sim.cargo({ cart: c })?.slots ?? []).filter(near));
+    return out;
+  }
+
+  /** W-145: his carts here (W-87: all he has). */
+  cartsOf(pid: number): number[] {
+    const me = ownerOf(pid);
+    return (this.sim.snapshot().sieges ?? []).filter((e) => (e.type === 'handcart' || e.type === 'wagon') && e.owner === me && e.state !== 'destroyed').map((e) => e.id);
+  }
+
+  /** W-145: a cart of his rolls up beside his men, the first of his squads crewing it if it has no other cart. */
+  giveCart(pid: number, type: 'handcart' | 'wagon'): number | null {
+    const p = this.players.get(pid), q = this.squadsOf(pid)[0], at = q === undefined ? null : this.sim.cargo({ squad: q })?.slots[0];
+    if (!p || !at) return null;
+    const crewed = this.cartsOf(pid).length > 0;
+    return this.sim.spawnCart(p.team, ownerOf(pid), type, at.x + 2, at.y, crewed ? undefined : q);
+  }
+
+  /** W-65, W-147: a deal of his with the town, told to his story. */
+  storyTrade(pid: number, op: 'sell' | 'buy' | 'hire' | 'cart', coin: number, abroad: number): void {
+    this.stories.trade(pid, op, coin, abroad, this.sim.snapshot());
   }
 
   /** M6f bridge into the room: a bundle into the player's carrier as far as it has room; what did not fit comes back. */

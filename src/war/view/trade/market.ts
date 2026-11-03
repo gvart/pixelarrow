@@ -9,7 +9,9 @@
  *                      seeded offers and contracts of made-up traders, so the panels can be tried with no server. The
  *                      "field" side of a stow or hand-off is the store by his men (W-60, as online); coin is the team's.
  */
-import type { ServerMsg, StowMsg } from '../../net/protocol';
+import { NPC, NPC_CARTS, NPC_HIRE } from '../../../data/warNpcTowns';
+import { costOf, npcGood, npcGoods, npcOffer, payFor, stockAfter, type NpcView } from '../../net/npcMarket';
+import type { NpcMsg, ServerMsg, StowMsg } from '../../net/protocol';
 import type { SandboxScene } from '../SandboxScene';
 import { myTeam } from '../side';
 import { storeAtHand } from '../hud/chest';
@@ -24,10 +26,12 @@ export interface BoardRow { ask: number | null; bid: number | null; askDepth: nu
 /** An open goods offer on the board (server/src/war/market.ts BoardOffer): `n` left, its stall and owner; best first. */
 export interface BoardOffer { offer: number; side: 'sell' | 'buy'; res: string; n: number; price: number; stall: string; player: number }
 export interface Board { town: string; goods: Record<string, BoardRow>; offers: BoardOffer[]; items: { offer: number; uid: string; price: number }[]; fills: { res: string | null; n: number; price: number; at: number }[] }
-export type ContractKind = 'carry' | 'supply' | 'escort' | 'build' | 'guard';
+export type ContractKind = 'carry' | 'supply' | 'escort' | 'build' | 'guard' | 'hunt';
+/** W-143: a done deal with the town (the wire's npcDone). */
+export type NpcDone = Omit<Extract<ServerMsg, { t: 'npcDone' }>, 't'>;
 /** W-61 build: `n` worker-seconds on site `site` in `region`; guard: `n` hours with `men` men in the poster's town in `region`; `paid` so far. */
-export interface Contract { id: number; kind: ContractKind; town: string; to_town: string; poster: number; taker: number | null; reward: number; res: string | null; n: number; delivered: number; value: number; deposit: number; state: string; deadline: number; region?: string | null; site?: number | null; men?: number; paid?: number }
-export interface ContractIn { kind: ContractKind; toTown: string; reward: number; res?: string; n?: number; value?: number; loads?: number; deadline: number; region?: string; site?: number; hours?: number; men?: number }
+export interface Contract { id: number; kind: ContractKind; town: string; to_town: string; poster: number; taker: number | null; reward: number; res: string | null; n: number; delivered: number; value: number; deposit: number; target?: string | null; state: string; deadline: number; region?: string | null; site?: number | null; men?: number; paid?: number }
+export interface ContractIn { kind: ContractKind; toTown: string; reward: number; res?: string; n?: number; value?: number; loads?: number; deadline: number; region?: string; site?: number; hours?: number; men?: number; target?: string }
 export interface Letter { id: number; town: string; toTown: string; amount: number; fee: number; state: 'offered' | 'sold' | 'redeemed'; mine: 'banker' | 'buyer' }
 export interface Handoff { with: number; state: 'open' | 'done' | 'closed'; halves: Record<number, { goods: Goods; uids: string[] }>; ok: number[]; until?: number; why?: string }
 export type Res<T> = T | { error: string };
@@ -65,6 +69,10 @@ export interface Market {
   /** The hand-off window with player `with`; `on` hears every change (both halves, who confirmed, done or closed). */
   handoff(op: 'offer' | 'confirm' | 'cancel', withId: number, squad: number | null, goods: Goods): void;
   on(f: (h: Handoff) => void): void;
+  /** W-140 what the town of this region deals in, its prices and purse. */
+  npcTown(town: string): Promise<Res<NpcView>>;
+  /** W-143 a deal with the town, his men standing at it. */
+  npc(m: Omit<NpcMsg, 't'>): Promise<Res<NpcDone>>;
 }
 
 const key = () => `k${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
@@ -79,10 +87,12 @@ export function netMarket(s: SandboxScene): Market {
   };
   const letters: Letter[] = [];
   const subs: ((h: Handoff) => void)[] = [];
-  let stowDone: ((r: Res<{ goods: Goods }>) => void) | null = null;
+  let stowDone: ((r: Res<{ goods: Goods }>) => void) | null = null, npcDone: ((r: Res<NpcDone>) => void) | null = null;
   s.sim.onServer = (m: ServerMsg) => {
     if (m.t === 'handoff') for (const f of subs) f({ with: m.with, state: m.state, halves: m.halves ?? {}, ok: m.ok ?? [], until: m.until, why: m.why });
     else if (m.t === 'stowed') { stowDone?.({ goods: m.goods }); stowDone = null; }
+    else if (m.t === 'npcDone') { npcDone?.(m); npcDone = null; }
+    else if (m.t === 'error' && npcDone) { npcDone({ error: (m.detail ?? m.code).replace(/^\w+: /, '') }); npcDone = null; }
     else if (m.t === 'error' && stowDone) { stowDone({ error: m.detail ?? m.code }); stowDone = null; }
   };
   const note = (l: Letter) => { const i = letters.findIndex((x) => x.id === l.id); if (i >= 0) letters[i] = l; else letters.push(l); };
@@ -118,6 +128,8 @@ export function netMarket(s: SandboxScene): Market {
     stow: (dir, site, squad, goods, done) => { stowDone = done; s.sim.stow({ dir, site, squad, goods: goods as WireGoods }); },
     handoff: (op, withId, squad, goods) => s.sim.handoff({ op, with: withId, ...(op === 'offer' && squad !== null ? { squad, goods: goods as WireGoods } : {}) }),
     on: (f) => { subs.push(f); },
+    npcTown: (t) => api('GET', `${t}/npc`),
+    npc: (m) => new Promise((done) => { npcDone = done; s.sim.npc(m); }),
   };
 }
 
@@ -141,6 +153,8 @@ export class LocalMarket implements Market {
   private subs: ((h: Handoff) => void)[] = [];
   private hand: Handoff | null = null;
   private now = () => Date.now();
+  /** W-140: the town's books, offline: coin and goods are the team's, the rules the shared ones. */
+  private books = new Map<string, { purse: number; stock: Map<string, number>; at: number }>();
 
   constructor(private s: SandboxScene) {
     const t = s.region.id, at = this.now();
@@ -154,6 +168,52 @@ export class LocalMarket implements Market {
       { id: ++this.seq, kind: 'escort', town: 'ammos', to_town: t, poster: 9, taker: 4, reward: 120, res: null, n: 0, delivered: 0, value: 0, deposit: 0, state: 'taken', deadline: at + day / 2 },
     );
     this.ls.push({ id: ++this.seq, town: t, toTown: 'stymphalia', amount: 120, fee: 6, state: 'offered', mine: 'buyer' });
+  }
+
+  private book(town: string) {
+    let b = this.books.get(town);
+    if (!b) this.books.set(town, (b = { purse: NPC.purse.start, stock: new Map(npcGoods(town).map((g) => [g.res as string, g.par])), at: this.now() }));
+    const dt = this.now() - b.at;
+    for (const g of npcGoods(town)) b.stock.set(g.res, stockAfter(b.stock.get(g.res) ?? g.par, g.par, dt));
+    b.at += dt;
+    return b;
+  }
+
+  npcTown(town: string) {
+    if (!npcGoods(town).length) return no('There is no town here');
+    const b = this.book(town);
+    return ok<NpcView>({ town, purse: Math.floor(b.purse), goods: npcGoods(town).map((g) => npcOffer(g, b.stock.get(g.res)!)) });
+  }
+
+  npc(m: Omit<NpcMsg, 't'>): Promise<Res<NpcDone>> {
+    const T = this.s.region.id, b = this.book(T), team = myTeam(), have = this.stock();
+    if (m.op === 'hire' || m.op === 'cart') {
+      const coin = m.op === 'hire' ? NPC_HIRE[m.cls!] : NPC_CARTS[m.cart!];
+      if (coin === undefined) return no('Nobody here hires out as that');
+      if (!this.pay(coin)) return no(`It costs ${coin} coin`);
+      b.purse += coin;
+      return ok({ op: m.op, coin });
+    }
+    const g = npcGood(T, m.res!);
+    if (!g) return no('The town does not deal in that');
+    const st = b.stock.get(g.res)!;
+    if (m.op === 'sell') {
+      const n = Math.min(m.n ?? Infinity, have[g.res] ?? 0), coin = n > 0 ? payFor(g, st, n) : 0;
+      if (!(n > 0)) return no(`You have no ${g.res} here`);
+      if (coin > b.purse) return no('The town has no coin left to pay you');
+      this.s.sim.addStock(team, g.res, -n);
+      this.s.sim.addStock(team, 'coin', coin);
+      b.purse -= coin;
+      b.stock.set(g.res, st + n);
+      return ok({ op: 'sell', coin, res: g.res, n });
+    }
+    const n = Math.min(m.n ?? 10, st), coin = n > 0 ? costOf(g, st, n) : 0;
+    if (!(n > 0)) return no('The town has none left');
+    if (!this.pay(coin)) return no(`It costs ${coin} coin`);
+    this.s.sim.addStock(team, g.res, n);
+    b.purse += coin;
+    b.stock.set(g.res, st - n);
+    return ok({ op: 'buy', coin, res: g.res, n });
   }
 
   private stock(): Goods { return { ...(this.s.sim.cur?.stock?.[myTeam()] ?? {}) } as Goods; }
@@ -252,7 +312,7 @@ export class LocalMarket implements Market {
     const id = ++this.seq;
     const work = c.kind === 'build' || c.kind === 'guard';
     const n = c.kind === 'build' ? (c.hours ?? 0) * 3600 : c.kind === 'guard' ? (c.hours ?? 0) : (c.n ?? c.loads ?? 0);
-    this.cs.push({ id, kind: c.kind, town, to_town: work ? town : c.toTown, poster: this.me, taker: null, reward: c.reward, res: c.res ?? null, n, delivered: 0, value: c.value ?? 0, deposit: c.kind === 'carry' ? Math.round((c.value ?? 0) * DEPOSIT) : 0, state: 'open', deadline: c.deadline, ...(work ? { region: c.region ?? town, site: c.site ?? null, men: c.men ?? 0, paid: 0 } : {}) });
+    this.cs.push({ id, kind: c.kind, town, to_town: work ? town : c.toTown, poster: this.me, taker: null, reward: c.reward, res: c.res ?? null, n, delivered: 0, value: c.value ?? 0, ...(c.target ? { target: c.target } : {}), deposit: c.kind === 'carry' ? Math.round((c.value ?? 0) * DEPOSIT) : 0, state: 'open', deadline: c.deadline, ...(work ? { region: c.region ?? town, site: c.site ?? null, men: c.men ?? 0, paid: 0 } : {}) });
     return ok({ contract: id });
   }
 

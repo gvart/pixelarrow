@@ -9,6 +9,7 @@ import type { ServerMsg } from '../../../src/war/net/protocol';
 import { storyOf } from '../../../src/data/warStories';
 import { StoryRun, type StoryHost, type StoryNote, type StorySave } from '../../../src/war/sim/stories';
 import type { RegionData, Snapshot, WarBuildSim, WarEvent } from '../../../src/war/types';
+import type { PathId } from '../../../src/war/world/start';
 
 /** DO storage key of a player's story save in this region (per season: a new season is a new story). */
 export const storyStorageKey = (season: number | string, pid: number) => `story:${season}:${pid}`;
@@ -19,19 +20,17 @@ export interface StoryDone { pid: number; save: StorySave; goods: Record<string,
 export class RoomStories {
   private runs = new Map<number, { run: StoryRun; goods: Record<string, number> }>();
   private moved: { pid: number; notes: StoryNote[] }[] = [];
-  readonly story;
 
-  constructor(private readonly region: RegionData, private readonly sim: WarBuildSim) {
-    this.story = storyOf(region.id);
-  }
+  constructor(private readonly region: RegionData, private readonly sim: WarBuildSim) {}
 
   static msg(save: StorySave, notes?: StoryNote[]): ServerMsg {
     return { t: 'story', save, ...(notes?.length ? { notes } : {}) };
   }
 
   /** A player of `team` is in, his save from the DO: his run starts (none here, or his chain done: told, not run). */
-  start(pid: number, team: number, save: StorySave | null): ServerMsg | null {
-    if (!this.story) return null;
+  start(pid: number, team: number, save: StorySave | null, path: PathId | null = null): ServerMsg | null {
+    const story = storyOf(this.region.id, path); // W-147: a home's chain is his path's
+    if (!story) return null;
     const goods: Record<string, number> = {};
     const host: StoryHost = {
       addLair: (d) => void this.sim.addLair(d),
@@ -42,7 +41,7 @@ export class RoomStories {
         if (r.soul) this.sim.spawnSoul(at.x + 1, at.y, r.soul.cls, r.soul.level, 'lair');
       },
     };
-    const run = this.runs.get(pid)?.run ?? new StoryRun(this.region, this.story, save, { team, owner: `p:${pid}` }, host);
+    const run = this.runs.get(pid)?.run ?? new StoryRun(this.region, story, save, { team, owner: `p:${pid}` }, host);
     if (!run.save.done) this.runs.set(pid, { run, goods });
     return RoomStories.msg(run.save);
   }
@@ -50,6 +49,12 @@ export class RoomStories {
   /** He chose at the open choice step (an unknown option or no choice open: nothing). */
   choose(pid: number, option: string, snap: Snapshot): void {
     const r = this.runs.get(pid), notes = r?.run.choose(snap, option);
+    if (notes?.length) this.moved.push({ pid, notes });
+  }
+
+  /** W-147: a deal of his with the town: his open step may be waiting on it. */
+  trade(pid: number, op: 'sell' | 'buy' | 'hire' | 'cart', coin: number, abroad: number, snap: Snapshot): void {
+    const notes = this.runs.get(pid)?.run.trade(snap, op, coin, abroad);
     if (notes?.length) this.moved.push({ pid, notes });
   }
 

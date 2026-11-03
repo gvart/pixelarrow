@@ -13,6 +13,7 @@ import type { MobKind, RegionData } from '../war/types';
 import { depthOf } from '../war/sim/depth';
 import { WORLD_REGIONS } from '../war/world/regions';
 import { chiefsOfKind, warChief } from './warBosses';
+import type { PathId } from '../war/world/start';
 
 const TEETH: Story = {
   id: 'cold-shafts', region: 'dodona-e', title: 'The Cold Shafts',
@@ -1018,7 +1019,393 @@ const SAVANNA: Story = {
 
 /** The region stories, by region id: every depth 1-2 neutral region has one (tests/war/stories.test.ts). */
 export const STORIES: Readonly<Record<string, Story>> = Object.fromEntries([TEETH, SLOPES, HEATH, LAGOON, CAPE, MOORS, FJORDS, OAKWOOD, STEPPE, CHALK, KURGANS, DUNES, COVES, VINEYARDS, PASS, LAKE, FORD, OASIS, BACCHAE, WADI, FLOOD, FENS, KIMMERIANS, SAVANNA].map((s) => [s.region, s]));
-export const storyOf = (region: string): Story | null => STORIES[region] ?? null;
+// ---------------------------------------------------------------- W-147 path chains at the homes
+
+/**
+ * A builder's and a trader's own chain at each home (shown only to that path; a warrior meets none, as before). No named
+ * foe: a builder or trader has two guards. They ask for the path's work, so they teach it: a builder raises and hires, a
+ * trader sells at the well, buys to carry, and comes back with goods from another land.
+ */
+const OAK_ROOF: Story = {
+  id: 'oak-roof', region: 'dodona', path: 'builder', title: 'A Roof for the Oak',
+  giver: { name: 'Thoas', title: 'carpenter of the first muster', at: [300, 322], cls: 'civ_engineer' },
+  hook: 'They wake in the rain. Build.',
+  backstory: 'The oak whispers the muster and the dead come up shivering under its leaves. In life I roofed halls. Here nobody has lifted a beam for them. Walk the bare ground with me, then raise what they need.',
+  steps: [
+    {
+      id: 'ground', goal: 'Walk the oak\'s bare ground', label: 'Bare ground',
+      story: 'Wet leaves, old post holes, a beam gone to moss. Someone meant to build here, and woke too late.',
+      where: 'South-east of the stalls, by the storehouses.',
+      trigger: { kind: 'reach', at: [290, 345] }, reward: { goods: { wood: 40, coin: 20 } },
+    },
+    {
+      id: 'store', goal: 'Raise a storehouse', label: 'Storehouse',
+      story: 'Timber rots in the rain. Get it under a roof before the next muster wakes.',
+      where: 'Lay it out on your town\'s ground. Your men raise it.',
+      trigger: { kind: 'built', type: 'storehouse' }, reward: { goods: { coin: 30 } },
+    },
+    {
+      id: 'hand', goal: 'Hire a pair of hands', label: 'Town',
+      story: 'Two guards and an old engineer will not roof a town. The dead at the well want work.',
+      where: 'Market, at the town. Your coin, from the packs or the strongroom.',
+      trigger: { kind: 'trade', op: 'hire' }, reward: { goods: { wood: 30 } },
+    },
+    {
+      id: 'house', goal: 'Raise a house of your own', label: 'House',
+      story: 'A man who builds for others sleeps in the rain. Thoas will not have it.',
+      where: 'Lay it out on your town\'s ground. Its door keeps your goods.',
+      trigger: { kind: 'built', type: 'privateHouse' },
+    },
+    {
+      id: 'beam', goal: 'Choose what the last beam holds', label: 'Thoas',
+      story: 'Thoas runs a thumb along the ridge beam. "Over your own door, or over the dead at the oak?"',
+      where: 'Choose on this card.',
+      trigger: {
+        kind: 'choice', options: [
+          { id: 'own', label: 'Your own door', text: 'He nods and asks nothing more. A builder needs a store of coin to build from.', reward: { goods: { coin: 80 } } },
+          { id: 'oak', label: 'Over the dead', text: 'They wake dry tonight. The muster pays you in stone and timber.', reward: { goods: { stone: 40, wood: 40 } } },
+        ],
+      },
+    },
+  ],
+  end: 'Thoas drives the last peg. "The oak stops whispering when it rains now. It listens."',
+  reward: { goods: { coin: 40 } },
+};
+
+const OAK_TOLL: Story = {
+  id: 'oak-toll', region: 'dodona', path: 'trader', title: 'The Oak\'s Toll',
+  giver: { name: 'Kineas', title: 'tally-man of the muster', at: [300, 322], cls: 'civ_merchant' },
+  hook: 'The dead want iron. Who carries it?',
+  backstory: 'Every man who wakes under the oak needs a spear, and every spear wants what the north has not got. I kept the muster\'s tally in life. It has no carters left. Show me you can count and carry.',
+  steps: [
+    {
+      id: 'tally', goal: 'Read the tally at the storehouses', label: 'Tally',
+      story: 'Notches on a storehouse post: what came, what went, whose hands. The last notch is old.',
+      where: 'South-east of the stalls.',
+      trigger: { kind: 'reach', at: [290, 345] }, reward: { goods: { coin: 40 } },
+    },
+    {
+      id: 'sell', goal: 'Sell a load at the town', label: 'Town',
+      story: 'Timber from the oak woods, and a price that falls with every load. Learn where it stops being worth it.',
+      where: 'Gather, or take from a store, then Market at the town.',
+      trigger: { kind: 'trade', op: 'sell', coin: 30 },
+    },
+    {
+      id: 'buy', goal: 'Buy goods to carry out', label: 'Town',
+      story: 'Goods the town has too much of are cheap here and dear elsewhere. That is the whole of the trade.',
+      where: 'Market at the town. Load the cart first.',
+      trigger: { kind: 'trade', op: 'buy', coin: 60 }, reward: { goods: { coin: 30 } },
+    },
+    {
+      id: 'far', goal: 'Sell goods from another land here', label: 'Town',
+      story: 'The road out, the road back. Kineas cuts a notch only for what comes from over a border.',
+      where: 'Bring goods from a town beyond a border and sell them here.',
+      trigger: { kind: 'trade', op: 'sell', coin: 100, abroad: true },
+    },
+    {
+      id: 'notch', goal: 'Choose your mark on the tally', label: 'Kineas',
+      story: 'Kineas holds out the knife. "One notch for you, or one for the muster?"',
+      where: 'Choose on this card.',
+      trigger: {
+        kind: 'choice', options: [
+          { id: 'self', label: 'A notch for you', text: 'A carter who keeps his own count. He pays you for the road.', reward: { goods: { coin: 100 } } },
+          { id: 'muster', label: 'A notch for the muster', text: 'The dead get their iron. The muster gives from what it has.', reward: { goods: { iron: 15, coin: 20 } } },
+        ],
+      },
+    },
+  ],
+  end: 'Kineas blows the dust from the post. For the first time since the shafts fell, the tally runs on.',
+  reward: { goods: { coin: 50 } },
+};
+
+const MOUND_POSTS: Story = {
+  id: 'mound-posts', region: 'skythia', path: 'builder', title: 'Posts on the Mounds',
+  giver: { name: 'Anacharsis', title: 'mound-digger of the steppe', at: [245, 302], cls: 'civ_engineer' },
+  hook: 'The riders sleep on open grass.',
+  backstory: 'Riders who died in the saddle will not learn to live under a roof. I dug their mounds in life, and I know what the wind does. Walk the ground, then build where the wind cannot reach.',
+  steps: [
+    {
+      id: 'lee', goal: 'Find the lee of the mound', label: 'Lee',
+      story: 'On one side the grass lies flat. On the other a man could light a fire.',
+      where: 'West of the stalls, among the storehouses.',
+      trigger: { kind: 'reach', at: [225, 295] }, reward: { goods: { wood: 40, coin: 20 } },
+    },
+    {
+      id: 'store', goal: 'Raise a storehouse in the lee', label: 'Storehouse',
+      story: 'Hides and grain do not last a night on the steppe. Give them walls.',
+      where: 'Lay it out on your town\'s ground. Your men raise it.',
+      trigger: { kind: 'built', type: 'storehouse' }, reward: { goods: { coin: 30 } },
+    },
+    {
+      id: 'hand', goal: 'Hire a hand who keeps his feet', label: 'Town',
+      story: 'Riders will not dig. Somewhere at the well is a man who walked to his death.',
+      where: 'Market, at the town. Your coin, from the packs or the strongroom.',
+      trigger: { kind: 'trade', op: 'hire' }, reward: { goods: { wood: 30 } },
+    },
+    {
+      id: 'house', goal: 'Raise a house against the wind', label: 'House',
+      story: 'Anacharsis laughs. "A door, on the steppe." He hands you the first post anyway.',
+      where: 'Lay it out on your town\'s ground. Its door keeps your goods.',
+      trigger: { kind: 'built', type: 'privateHouse' },
+    },
+    {
+      id: 'wind', goal: 'Choose who shelters first', label: 'Anacharsis',
+      story: 'Snow on the wind, and one roof finished. Riders look at it from their saddles.',
+      where: 'Choose on this card.',
+      trigger: {
+        kind: 'choice', options: [
+          { id: 'horses', label: 'The horses', text: 'The riders say nothing. They bring you hides at dawn.', reward: { goods: { hides: 12, coin: 20 } } },
+          { id: 'tools', label: 'Your tools', text: 'A builder\'s tools outlast the winter. The town pays for what you raised.', reward: { goods: { coin: 80 } } },
+        ],
+      },
+    },
+  ],
+  end: 'Anacharsis sets a post on the highest mound. Riders turn their heads at it now, the way they do for graves.',
+  reward: { goods: { coin: 40 } },
+};
+
+const MOUND_ROAD: Story = {
+  id: 'mound-road', region: 'skythia', path: 'trader', title: 'The Hide Road',
+  giver: { name: 'Scylas', title: 'hide-buyer of the mounds', at: [245, 302], cls: 'civ_merchant' },
+  hook: 'Grass and hides. They want everything else.',
+  backstory: 'Riders have grain and hides, and no patience. In life I bought from them and sold in the south, and I was robbed only twice. The road is still there, and nobody drives it.',
+  steps: [
+    {
+      id: 'mark', goal: 'Find the old road marker', label: 'Marker',
+      story: 'A horse skull on a post, facing south. Scylas set it there himself.',
+      where: 'West of the stalls, among the storehouses.',
+      trigger: { kind: 'reach', at: [225, 295] }, reward: { goods: { coin: 40 } },
+    },
+    {
+      id: 'sell', goal: 'Sell a load at the town', label: 'Town',
+      story: 'The town takes what it has too much of, at a price to match. It is a start.',
+      where: 'Gather, or take from a store, then Market at the town.',
+      trigger: { kind: 'trade', op: 'sell', coin: 30 },
+    },
+    {
+      id: 'buy', goal: 'Buy hides or grain to carry', label: 'Town',
+      story: 'Here they are worth little. Past two borders a man will pay for them gladly.',
+      where: 'Market at the town. Load the cart first.',
+      trigger: { kind: 'trade', op: 'buy', coin: 60 }, reward: { goods: { coin: 30 } },
+    },
+    {
+      id: 'far', goal: 'Sell foreign goods on the steppe', label: 'Town',
+      story: 'The riders turn up for anything from over a border. Iron, most of all.',
+      where: 'Bring goods from a town beyond a border and sell them here.',
+      trigger: { kind: 'trade', op: 'sell', coin: 100, abroad: true },
+    },
+    {
+      id: 'share', goal: 'Settle with Scylas', label: 'Scylas',
+      story: 'Scylas spits on his palm. "A share of the road, or your own road and my blessing."',
+      where: 'Choose on this card.',
+      trigger: {
+        kind: 'choice', options: [
+          { id: 'share', label: 'Take a share', text: 'He counts it out in the old way, twice, then once more.', reward: { goods: { coin: 100 } } },
+          { id: 'hides', label: 'Take his hides', text: 'A last load from his own pile, cheap at the price.', reward: { goods: { hides: 20, coin: 20 } } },
+        ],
+      },
+    },
+  ],
+  end: 'Scylas turns the skull on its post to face you. "You keep the road now. Mind the second robbery."',
+  reward: { goods: { coin: 50 } },
+};
+
+const OASIS_SHADE: Story = {
+  id: 'oasis-shade', region: 'kyrene', path: 'builder', title: 'Shade at the Oasis',
+  giver: { name: 'Aristoteles', title: 'well-digger of Kyrene', at: [276, 336], cls: 'civ_engineer' },
+  hook: 'They died of thirst. Now build them shade.',
+  backstory: 'The caravan woke beside water it never reached in life, and has not moved from it since. I dug wells under these cliffs. Water is not all they need. Walk the red ground with me.',
+  steps: [
+    {
+      id: 'red', goal: 'Walk the red ground', label: 'Red ground',
+      story: 'Copper stains on the stone, and the prints of men who stood still a long time.',
+      where: 'East of the well, by the storehouse.',
+      trigger: { kind: 'reach', at: [305, 335] }, reward: { goods: { wood: 40, coin: 20 } },
+    },
+    {
+      id: 'store', goal: 'Raise a storehouse from the sun', label: 'Storehouse',
+      story: 'Everything left in the open here cracks. Grain, leather, men.',
+      where: 'Lay it out on your town\'s ground. Your men raise it.',
+      trigger: { kind: 'built', type: 'storehouse' }, reward: { goods: { coin: 30 } },
+    },
+    {
+      id: 'hand', goal: 'Hire a man from the well', label: 'Town',
+      story: 'They sit by the water and watch it. One or two of them will stand up for coin.',
+      where: 'Market, at the town. Your coin, from the packs or the strongroom.',
+      trigger: { kind: 'trade', op: 'hire' }, reward: { goods: { wood: 30 } },
+    },
+    {
+      id: 'house', goal: 'Raise a house of your own', label: 'House',
+      story: 'Aristoteles paces it out and leaves no window on the sun side.',
+      where: 'Lay it out on your town\'s ground. Its door keeps your goods.',
+      trigger: { kind: 'built', type: 'privateHouse' },
+    },
+    {
+      id: 'draw', goal: 'Choose who draws first', label: 'Aristoteles',
+      story: 'Evening. The caravan stands at the well, and your workers stand behind you with their tools.',
+      where: 'Choose on this card.',
+      trigger: {
+        kind: 'choice', options: [
+          { id: 'men', label: 'Your workers', text: 'A crew that drinks first builds tomorrow too. The town pays for it.', reward: { goods: { coin: 80 } } },
+          { id: 'caravan', label: 'The caravan', text: 'They drink as if it might stop. In the morning there is copper at your door.', reward: { goods: { copper: 10, stone: 20 } } },
+        ],
+      },
+    },
+  ],
+  end: 'Aristoteles lowers the bucket and listens to it fall. "A wall throws shade. It is the only thing here that gives something away."',
+  reward: { goods: { coin: 40 } },
+};
+
+const OASIS_DEBT: Story = {
+  id: 'oasis-debt', region: 'kyrene', path: 'trader', title: 'The Caravan\'s Debt',
+  giver: { name: 'Battos', title: 'master of the lost caravan', at: [276, 336], cls: 'civ_merchant' },
+  hook: 'We never delivered. I still owe.',
+  backstory: 'I led them into the sand with goods already paid for. We woke here, and the debt woke with us. Copper is all the cliffs give. Carry it to where it is wanted, and bring back what we promised.',
+  steps: [
+    {
+      id: 'loads', goal: 'Count the lost caravan\'s loads', label: 'Loads',
+      story: 'Split sacks, a seal still whole. What the thirst left has lasted longer than the men.',
+      where: 'East of the well, by the storehouse.',
+      trigger: { kind: 'reach', at: [305, 335] }, reward: { goods: { coin: 40 } },
+    },
+    {
+      id: 'sell', goal: 'Sell a load at the well', label: 'Town',
+      story: 'The town pays little for what its own cliffs give. It pays. Battos watches you count.',
+      where: 'Gather, or take from a store, then Market at the town.',
+      trigger: { kind: 'trade', op: 'sell', coin: 30 },
+    },
+    {
+      id: 'buy', goal: 'Buy copper for the road', label: 'Town',
+      story: 'Cheap here, and for good reason. Nobody here needs it. Everybody north does.',
+      where: 'Market at the town. Load the cart first.',
+      trigger: { kind: 'trade', op: 'buy', coin: 60 }, reward: { goods: { coin: 30 } },
+    },
+    {
+      id: 'far', goal: 'Sell goods from beyond the sand', label: 'Town',
+      story: 'The promised goods, at last, in a stranger\'s cart. Battos does not look at them for a while.',
+      where: 'Bring goods from a town beyond a border and sell them here.',
+      trigger: { kind: 'trade', op: 'sell', coin: 100, abroad: true },
+    },
+    {
+      id: 'seal', goal: 'Choose what breaks the seal', label: 'Battos',
+      story: 'He holds out the last unbroken seal. "Paid in full, or paid forward?"',
+      where: 'Choose on this card.',
+      trigger: {
+        kind: 'choice', options: [
+          { id: 'paid', label: 'Paid in full', text: 'He breaks it and pays you what the road was worth, to the coin.', reward: { goods: { coin: 100 } } },
+          { id: 'forward', label: 'Paid forward', text: 'He keeps the seal and gives you the last of the copper instead. The debt goes on with you.', reward: { goods: { copper: 15, coin: 20 } } },
+        ],
+      },
+    },
+  ],
+  end: 'Battos sits down in the shade for the first time since he woke. The rest of the caravan looks at him, and then at the road.',
+  reward: { goods: { coin: 50 } },
+};
+
+const TERRACE_WALL: Story = {
+  id: 'terrace-wall', region: 'elaia', path: 'builder', title: 'Above the Water',
+  giver: { name: 'Phaleas', title: 'terrace-mason of the bay', at: [250, 318], cls: 'civ_engineer' },
+  hook: 'Higher. Water never takes a man twice.',
+  backstory: 'The sea took us, and we woke cutting steps out of the hill. We have not stopped. There is no wall high enough for sailors who drowned. There are only walls not yet built.',
+  steps: [
+    {
+      id: 'line', goal: 'Walk the old flood line', label: 'Flood line',
+      story: 'Salt on the stone at the height of a man\'s chest, far above the bay. Nobody here speaks of it.',
+      where: 'North of the well, by the storehouse.',
+      trigger: { kind: 'reach', at: [245, 300] }, reward: { goods: { wood: 40, coin: 20 } },
+    },
+    {
+      id: 'store', goal: 'Raise a storehouse above the line', label: 'Storehouse',
+      story: 'Oil and grain, up where the salt stops. Phaleas taps each post twice.',
+      where: 'Lay it out on your town\'s ground. Your men raise it.',
+      trigger: { kind: 'built', type: 'storehouse' }, reward: { goods: { coin: 30 } },
+    },
+    {
+      id: 'hand', goal: 'Hire a drowned man\'s hands', label: 'Town',
+      story: 'They are good with rope and bad with sleep. There are plenty at the well.',
+      where: 'Market, at the town. Your coin, from the packs or the strongroom.',
+      trigger: { kind: 'trade', op: 'hire' }, reward: { goods: { wood: 30 } },
+    },
+    {
+      id: 'house', goal: 'Raise a house on the terrace', label: 'House',
+      story: 'Phaleas looks at the sea, then at your house, then cuts one more course of stone.',
+      where: 'Lay it out on your town\'s ground. Its door keeps your goods.',
+      trigger: { kind: 'built', type: 'privateHouse' },
+    },
+    {
+      id: 'course', goal: 'Choose where the last stone goes', label: 'Phaleas',
+      story: 'One good block left. Phaleas sets it down and waits to see where you look.',
+      where: 'Choose on this card.',
+      trigger: {
+        kind: 'choice', options: [
+          { id: 'wall', label: 'On the sea wall', text: 'The terraces sleep a little that night. They pay you in what they cut.', reward: { goods: { stone: 40, marble: 5 } } },
+          { id: 'door', label: 'At your door', text: 'Phaleas shrugs. Everyone builds for his own water. The town pays anyway.', reward: { goods: { coin: 80 } } },
+        ],
+      },
+    },
+  ],
+  end: 'Phaleas climbs down and looks up at it. "Higher," he says. He is almost smiling.',
+  reward: { goods: { coin: 40 } },
+};
+
+const BAY_CARGO: Story = {
+  id: 'bay-cargo', region: 'elaia', path: 'trader', title: 'Cargo for the Bay',
+  giver: { name: 'Aristarchos', title: 'pilot without a ship', at: [250, 318], cls: 'civ_merchant' },
+  hook: 'We sank with a full hold. Fill it again.',
+  backstory: 'My ship went down with oil and marble meant for the north, and the bay gave back everything but the ship. I can read a coast from memory. What I need is someone who will go by road, and come back.',
+  steps: [
+    {
+      id: 'manifest', goal: 'Find the drowned ship\'s manifest', label: 'Manifest',
+      story: 'A wax tablet in a storehouse rafter, the writing still sharp. Nobody here could bear to scrape it.',
+      where: 'North of the well, by the storehouse.',
+      trigger: { kind: 'reach', at: [245, 300] }, reward: { goods: { coin: 40 } },
+    },
+    {
+      id: 'sell', goal: 'Sell a load at the town', label: 'Town',
+      story: 'The bay pays least for what the terraces grow. Aristarchos writes the price down anyway.',
+      where: 'Gather, or take from a store, then Market at the town.',
+      trigger: { kind: 'trade', op: 'sell', coin: 30 },
+    },
+    {
+      id: 'buy', goal: 'Load a cargo for the road', label: 'Town',
+      story: 'Marble and grain, the old manifest over again. This time on wheels.',
+      where: 'Market at the town. Load the cart first.',
+      trigger: { kind: 'trade', op: 'buy', coin: 60 }, reward: { goods: { coin: 30 } },
+    },
+    {
+      id: 'far', goal: 'Sell goods from over the hills', label: 'Town',
+      story: 'He takes one look at the cart and strikes a line from the tablet. "That one arrived."',
+      where: 'Bring goods from a town beyond a border and sell them here.',
+      trigger: { kind: 'trade', op: 'sell', coin: 100, abroad: true },
+    },
+    {
+      id: 'tablet', goal: 'Choose what becomes of the tablet', label: 'Aristarchos',
+      story: 'He holds the wax over a lamp. "Finish it, or keep it. A cargo is a promise either way."',
+      where: 'Choose on this card.',
+      trigger: {
+        kind: 'choice', options: [
+          { id: 'melt', label: 'Melt the tablet', text: 'The last line runs. He pays out what the owners would have paid.', reward: { goods: { coin: 100 } } },
+          { id: 'keep', label: 'Keep the tablet', text: 'He gives it to you, and with it the marble he had put by for the voyage.', reward: { goods: { marble: 10, coin: 20 } } },
+        ],
+      },
+    },
+  ],
+  end: 'Aristarchos looks at the sea without flinching. It is still there, and for once so is everything he was sent to carry.',
+  reward: { goods: { coin: 50 } },
+};
+
+/** W-147: the chains by home and path. */
+export const PATH_STORIES: Readonly<Record<string, Partial<Record<PathId, Story>>>> = {
+  dodona: { builder: OAK_ROOF, trader: OAK_TOLL },
+  skythia: { builder: MOUND_POSTS, trader: MOUND_ROAD },
+  kyrene: { builder: OASIS_SHADE, trader: OASIS_DEBT },
+  elaia: { builder: TERRACE_WALL, trader: BAY_CARGO },
+};
+
+/** W-147: the chain a player meets in a region: his path's at a home, else the region's own. */
+export const storyOf = (region: string, path: PathId | null = null): Story | null => (path ? PATH_STORIES[region]?.[path] : undefined) ?? STORIES[region] ?? null;
+/** W-147: a path chain by its id (the client learns his chain from the server's first word on it). */
+export const pathStoryById = (id: string): Story | null => Object.values(PATH_STORIES).flatMap((by) => Object.values(by)).find((s) => s.id === id) ?? null;
 
 // ---------------------------------------------------------------- world-fill: hidden quests
 

@@ -51,8 +51,9 @@ import { DurableObject } from 'cloudflare:workers';
 import type { Env } from '../env';
 import { lordReport, WarRoom, type ClaimTaking, type LockEvent, type RoomOptions, type RoomState, type TickTimes } from './room';
 import { regionSeed, regionVersion, WAR_REGIONS, warRegion } from './regions';
-import { DEFAULT_CAP, parseClientMsg, type HandoffMsg, type JoinMsg, type MendMsg, type ServerMsg, type StowMsg } from '../../../src/war/net/protocol';
-import { cartArrived, contract, deliver, guardCheck, labourDone, sealedFor, workContracts } from './contracts';
+import { DEFAULT_CAP, parseClientMsg, type HandoffMsg, type JoinMsg, type MendMsg, type ServerMsg, type NpcMsg, type StowMsg } from '../../../src/war/net/protocol';
+import { cartArrived, contract, deliver, guardCheck, huntDeeds, labourDone, sealedFor, workContracts } from './contracts';
+import { npcDeal } from './npcMarket';
 import { addLabour, bonusesOf, openWorks } from './works';
 import { contractPoints, scorePeace } from './peace';
 import { handoffDone, handoffRefusal, linkedCaptures } from './abuse';
@@ -79,7 +80,7 @@ import { elapsedTicks, loadMemory, MEMORY_KEY, remembered, storeMemory, writeMem
 import type { WorldEvent } from '../../../src/war/world/events';
 import { settleTunnelFor } from './raise';
 import { applyFight, armyCount, claimForJoin, claimSoul, COLS, deployed, freeRaided, groupOf, LIVE, offField, ownerPid, release, releaseRegion, riders, settle, waitingAtHome, type PersonRow } from './persons';
-import { homeRegion, pathOf } from './start';
+import { homeRegion, pathOf, takeStartCart } from './start';
 import { namedSoul, SOULS, type NamedSoul, type SoulSpawn } from './captives';
 import { soulSites } from '../../../src/war/sim/souls';
 import { applyCrafts, keepMends, returnMends, takeForMend } from './crafting';
@@ -446,6 +447,7 @@ export class WarRegionDO extends DurableObject<Env> {
       }
       else if (m.t === 'mend') await this.mend(ws, me.pid, room, m);
       else if (m.t === 'stow') await this.stow(ws, me.pid, room, m);
+      else if (m.t === 'npc') await this.npc(ws, me.pid, room, m);
       else if (m.t === 'handoff') await this.handoff(ws, me.pid, room, m);
       else if (m.t === 'guide') {
         const g = room.guide.hide(me.pid);
@@ -501,6 +503,7 @@ export class WarRegionDO extends DurableObject<Env> {
     // W-60: the soul gate counts his whole army (every region)
     if (db && res.msg.t === 'welcome') await settleTunnelFor(db, pid, Date.now()); // W-66: the tunnel raises the men due on a join
     if (db && res.msg.t === 'welcome') room.setPath(pid, await pathOf(db, pid)); // W-85, W-101: his limits
+    if (db && res.msg.t === 'welcome' && (await takeStartCart(db, pid))) room.giveCart(pid, 'handcart'); // W-145: a trader's first cart
     if (db && res.msg.t === 'welcome') room.setArmy(pid, await armyCount(db, pid));
     if (res.msg.t === 'welcome') await this.guideStart(pid, room);
     if (db && res.msg.t === 'welcome') room.setLarder(pid, await goodsOf(db, strongroom(pid))); // W-80: his men eat from it by a home store
@@ -575,6 +578,7 @@ export class WarRegionDO extends DurableObject<Env> {
     for (const x of deeds) (by.get(x.pid) ?? by.set(x.pid, []).get(x.pid)!).push(x);
     for (const [pid, xs] of by)
       this.write(`wild ${pid}`, async () => {
+        await huntDeeds(this.env, pid, room.region.id, xs, Date.now()); // W-146
         const v = await recordWild(this.env, pid, room.region, xs, Date.now());
         if (v) for (const ws of this.ctx.getWebSockets(`p:${pid}`)) send(ws, { t: 'mastery', ...v });
       });
@@ -724,6 +728,20 @@ export class WarRegionDO extends DurableObject<Env> {
       // W-62 E7: "Fill the stores" counts the day's net, so taking goods out and stowing them back earns nothing
       const out = b.lots.reduce((a, l) => a + l.n, 0) - rest.lots.reduce((a, l) => a + l.n, 0);
       if (out > 0) this.write('tasks', () => tallyStmt(d, pid, 'deliver', -out, Date.now()).run());
+    }
+    this.save();
+  }
+
+  /** W-143..W-145: a deal with this region's NPC town (./npcMarket.ts npcDeal): told, the room saved, a hired man fallen in. */
+  private async npc(ws: WebSocket, pid: number, room: WarRoom, m: NpcMsg): Promise<void> {
+    if (!this.env.DB) return send(ws, { t: 'error', code: 'bad', detail: 'no database' });
+    try {
+      const r = await npcDeal(this.env, room, pid, m, Date.now());
+      send(ws, r.done);
+      if (r.welcome) for (const s of this.ctx.getWebSockets(`p:${pid}`)) send(s, r.welcome);
+    } catch (e) {
+      if (!(e instanceof ApiError)) throw e;
+      return send(ws, { t: 'error', code: 'badTarget', detail: `${e.code}: ${e.message}` });
     }
     this.save();
   }

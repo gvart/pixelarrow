@@ -423,7 +423,11 @@ goods (stores offline, home strongroom online), an item (a pile at his men, roll
 Progress: offline localStorage `pa.war.story.<region>`, online the region DO's storage `story:<season>:<pid>`; a run
 started again from its save (reload, region woken) spawns what its open step needs. Every depth 1-2 neutral has a full
 chain (24); the lion and serpent regions fight their own beasts in their steps (a pride, a nest), and the Kimmerian
-Hills' chain ends by sending the player at the Griffin (the guardian is never a step). Every chain's `end` line carries
+Hills' chain ends by sending the player at the Griffin (the guardian is never a step). W-147: a builder and a trader
+have their own chain at each home (`PATH_STORIES`, 8, shown only to that path, none for a warrior; no named foe, they
+have two guards): they teach the path's work by two more steps, **built** (a finished building of that type of his own,
+no pre-built piece) and **trade** (a deal with the region's town: sold, bought, hired or a cart, up to a coin count,
+optionally only for goods from another land). Every chain's `end` line carries
 the spine beat: one shard of the Wardens' oath, its line in quotes (Lore lists them), found on a foe, a cairn, a
 dead man or under the region's guardian; told only, no item. The file ends with a template. A step's named bandit
 lead wears the captain's sheet (as does a host's captain) and his name stands under his feet while he lives. Foes stand
@@ -809,8 +813,8 @@ waits at its next stop until he is back (a map, chat or region tab), then goes o
 | --- | --- |
 | Alliance win (W-92) | one, decided by land: "Season score and victory". Builders and traders win it by supplying the war |
 | Ladders (W-92) | each path has its own ranked ladder. What each one ranks: open |
-| Solo builder or trader (W-93) | path story chains, and NPC towns that buy and sell. Which towns and at what prices: open |
-| Solo warrior (W-93) | can be hired for monsters. The contract's form: open |
+| Solo builder or trader (W-93) | path story chains (W-147) and NPC towns that buy and sell, hire workers and sell carts: "NPC towns" |
+| Solo warrior (W-93) | can be hired for monsters: the `hunt` contract (W-146, "Hand-offs, contracts, letters") |
 | Not given (W-72 stands) | no AI ally squads, no solo claim exceptions; warlords stay rivals |
 
 ### Feudal hierarchy (W-94, W-150..W-155)
@@ -881,7 +885,7 @@ What each path starts with (W-95; `PATHS` and `FAMILIES` in `src/war/world/start
 | Warrior, Celtic warband (shock) | 6 swordsmen | 12 |
 | Warrior, Skirmishers (missile) | 5 shield-bearers, 2 javelin men (W-112) | 12 |
 | Builder | 2 hoplites, an engineer, a forager | 4 |
-| Trader | 2 hoplites, a merchant, a forager | 4 |
+| Trader | 2 hoplites, a merchant, a forager, a handcart (W-145) | 4 |
 
 Riders are not offered until mounts exist; `POST /api/war/start/path` refuses the family. The limits sit in the same table: workers (W-103: warrior 2, builder 6, trader 3; civilians, outside the cap) and carts (W-104: trader 4, warrior 1, builder 1). Every man joining a player, from this start on, passes one check (`manRefusal`, W-101). How more workers are gained is [open](impl/paths-rework.md#open-design-items).
 
@@ -1147,8 +1151,7 @@ player's (`notOwner` otherwise); the field is optional, so the wire stays additi
 
 Household: separate from the N soldiers, and in his one group with them (W-87). W-103: its size is the path's, warrior 2,
 builder 6, trader 3 (`PATHS`, start numbers), counting workers fit, wounded or training (not a captive). Past it a veteran
-cannot retire into a trade, nor a worker's soul or captive join. How workers are otherwise acquired is
-[open](impl/paths-rework.md#open-design-items).
+cannot retire into a trade, nor a worker's soul or captive join. Hired at an NPC town for coin (W-144, "NPC towns").
 
 In the region civilians are live units on the 600 cap inside a 10% sub-quota (60, split per alliance like W-06): a
 separate cap would add bodies beyond the sim budget, and they cost the same per tick as soldiers. They are weak,
@@ -1277,7 +1280,7 @@ Herald of Hermes, Hand of Apollo, Shield of Zeus, Titan-slayer, Ichor-blooded, S
 | Warrior | land every 10 min: per claim point his alliance holds where his men stand (3 at most), the region it owns | 1, 2; 30 an hour at most |
 | Builder | each second one of his men works on a site (building, upgrading, mending) or stands at an alliance work | 0.03 |
 | Builder | each good he gives to an alliance work | 1 |
-| Trader | each coin of goods sold | 0.2; 600 an hour with loads carried |
+| Trader | each coin of goods sold (W-148: to an NPC town, only goods from another land) | 0.2; 600 an hour with loads carried |
 | Trader | each load brought over a border, packs and carts | 2; same cap |
 | All | daily task, weekly; story step, chain; encounter step, end | 40, 150; 25, 150; 10, 30 |
 
@@ -1548,9 +1551,8 @@ building types chained by `upgrade` (`forge` → `forge2` → `forge3`), as wall
 
 ## Trade
 
-W-11, W-44, W-46, W-93. A player-driven economy with one exception: NPC towns buy and sell (W-93), so a builder or trader
-can progress alone; which towns, at what prices and where their coin comes from are
-[open](impl/paths-rework.md#open-design-items). Everywhere else the game sells nothing, buys nothing and quotes no price.
+W-11, W-44, W-46, W-93. A player-driven economy with one exception: NPC towns buy and sell (W-93, "NPC towns"), so a
+builder or trader can progress alone. Everywhere else the game sells nothing, buys nothing and quotes no price.
 Every good sits somewhere on a map (a store, a chest, a house, a cart, a man's back, a loot pile); it moves only by being
 carried and changes hands only by a hand-off, a fill at a stall, a sale in an NPC town, or a raid. Goods that today move
 with nobody carrying them are settled by W-124: a store network stays inside one region, work gifts are given at home.
@@ -1560,6 +1562,7 @@ with nobody carrying them are settled by W-124: a store network stays inside one
 | Rule | Value | Why |
 | --- | --- | --- |
 | Source | silver from the silver nodes (Siren, Ammon, Omphalos) minted at a forge L2: silver 1 → coin 20, 30 s, any smith | the money supply is the contested silver: whoever holds it prints money, and it costs miners and a road home |
+| NPC towns (W-142) | a town's purse: a start sum and a small daily mint of silver under a cap; all else in it was paid by buyers | a bounded trickle: selling without end pays out the purse and stops |
 | Back | coin 20 → silver 1 at a forge; rent and tax are coin paid to players, moved, not destroyed | coin never falls below its silver, so no runaway inflation |
 | Carried | 200 coin = 1 load, kept in strongboxes (a store's coin) like any good | coin is raided like grain |
 | Game costs | respec, training kit, Reforger: the "silver" prices elsewhere in this doc become coin 1:1; bullion inputs (T3 gear, stall L3) stay silver | one currency, one bullion |
@@ -1624,6 +1627,35 @@ an unheld town charges nothing.
 | Limits | ≤ 6 units of a player inside (porters, merchant, drivers) + his carts; the rest wait in the yard; a fighter inside 15 min is walked out; logout walks all his units out |
 | Not a base | goods only in rented sites (1 stall + 1 warehouse a player a town); no army can form inside |
 
+### NPC towns (W-140..W-149)
+
+Every world region's own town (the home towns, entries and neutrals on the map, no new art) buys and sells with anyone
+whose men stand at it. Data: `src/data/warNpcTowns.ts`; the rules, shared: `src/war/net/npcMarket.ts`; the books in D1:
+`server/src/war/npcMarket.ts`, tables `war_npc_towns`, `war_npc_stock`. Market panel, Town tab.
+
+| Rule | Value |
+| --- | --- |
+| Who deals (W-143, W-149) | men and carts of his within 14 tiles of the town's spot (the court's centre, else the middle of its stalls, well, board, storehouses and cottages). Any path, any alliance: a town serves whoever stands in it. Nothing unattended, no remote deals (W-87, W-88) |
+| Goods (W-140) | by the kind of town (`NPC_ROLE_GOODS`: home 14, entry 9, neutral 9, centre 13) and what its own land yields. Never silver: that is the mint's |
+| Base price (W-141) | `NPC_BASE` × distance: 0.6 at a land that yields it, +0.5 a hop to the nearest such land (up to 4), 1.4 for a made good. A far town pays more for the same good |
+| Stock (W-141) | par: 150 × the land's points for its own good, else 120. Selling adds to it, buying takes from it, and it drifts back to par (63% in 12 hours) |
+| Price (W-141) | base × (1 + 0.5 × (1 − stock / par)), held to 0.5..1.5, the deal paying the slope's mean. The town pays 6% under, asks 6% over: buying and selling back always loses |
+| Purse (W-142) | starts at 400. Paid from it, buyers pay into it. Mints silver 5 (coin 100) a UTC day while under 1000. Empty: it buys only as far as the purse goes, and no coin is made |
+| Where goods and coin are (W-143) | out of the packs and carts at the town. Coin he earns lands in those packs; at home in his strongroom, and at home he also pays from it. What does not fit is set down at his feet |
+| Level (W-148) | a sale pays the trader's level (W-111) only for goods from another land: a town's own goods sold back to it, or what he gathered at home and sold at home, pay coin and no level. Carrying over a border pays as before |
+| Tribute (W-153) | a sale to a town is sale income: his liege's part stays at the town under his name, as at a stall, until someone's men fetch it |
+| Hired workers (W-144) | forager 120, cook 150, engineer, merchant, physician or smith 200. One of his own people from then on, under W-103's cap, falling in with the workers he has (their squad, their work; no squad of his own against the 3-squad limit); the coin goes into the purse |
+| Carts (W-145) | a trader starts with one handcart, given at his first join. A town sells a handcart for 180 and a wagon for 600 under W-104's cap (the coin into the purse). Builders still build them. A cart coming in over a border or bought is set down on the nearest ground carts can roll on, never in the trees |
+
+Solo runs (seeded, real sim and D1 rules, nobody else in the world; game time). Trader from dodona: first sale 10 min, L2
+79, second cart 93, a worker 130, L3 204, L4 352 min over 23 hops, 6851 coin sold. Coming and going between two towns
+stalls in about 3 hours (stock back only 63% in 12 hours): the trade has to move on, and a town's whole purse (400) then
+caps a stop. Builder from dodona: house 20 min, L2 52, all 6 workers 120, L3 282 min. His income is thin (gathered wood
+sold at home, 10-30 coin a sale), and after his chain he has only labour for level.
+
+Numbers are start numbers (`NPC`, `NPC_HIRE`, `NPC_CARTS`). Tests: `tests/war/npcMarket.test.ts` (rules), `server/test/war/npcMarket.test.ts`
+(bound on coin: all paid out plus the purse = start + minted), `server/test/war/soloRuns.test.ts` (the solo game).
+
 ### Stalls, offers and the board
 
 | Piece | Rule |
@@ -1641,7 +1673,8 @@ an unheld town charges nothing.
 | Hand-off | anywhere both players have a unit within 4 tiles: both confirm one window (cart, chest or porter loads, items, coin) within 60 s; swapped at once, nothing in flight |
 | Escrowed hand-off (Broker) | each side drops its half at the broker's stall when it can; collected once both are in; refunded after 48 h |
 | Contract (2 open, Broker 4) | posted at a stall, coin escrowed: **carry** (take these sealed loads from A to B; the carrier escrows 50% of the declared value), **supply** (deliver n of a good to my warehouse by a time), **escort** (paid when my cart arrives with ≥ 75% of its cargo); sealed loads unload only at B |
-| Work contracts (W-61) | **build** (an ally's men raise one of my sites, paid as they labour) and **guard** (an ally holds my town for n hours, paid an hour at a time): "Peaceful play". A warrior's hire for monsters (W-93) is new; its form is [open](impl/paths-rework.md#open-design-items) |
+| Work contracts (W-61) | **build** (an ally's men raise one of my sites, paid as they labour) and **guard** (an ally holds my town for n hours, paid an hour at a time): "Peaceful play" |
+| Hunt (W-146) | a warrior's hire for monsters (W-93). Posted at the town of a region with his men standing in it, no stall, naming a lair or a chief there; the reward leaves his home strongroom in escrow (2 open). Any warrior of his alliance may take it. Paid into the taker's strongroom when the target falls to the taker's men; someone else's kill pays nobody, and it stands until the lair is back or the deadline, when the reward goes back |
 | Letter of credit (Banker, stall L3) | the banker escrows coin in his strongbox at town B and sells at A a letter for his own fee; the letter is an item named to its buyer, redeemable only by him at B, so a stolen one is worthless |
 
 ### Loot piles (W-46, every fight)

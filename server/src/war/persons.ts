@@ -136,7 +136,7 @@ export const COLS = 'id, player_id, cls, name, level, xp, points, kills, battles
 export const IN_ARMY = "state IN ('active', 'wounded', 'training')";
 const IN_ARMY_STATES: ReadonlySet<PersonState> = new Set(['active', 'wounded', 'training']);
 const FIGHTER = "cls NOT LIKE 'civ\\_%' ESCAPE '\\'";
-const WORKER = "cls LIKE 'civ\\_%' ESCAPE '\\'";
+export const WORKER = "cls LIKE 'civ\\_%' ESCAPE '\\'";
 
 /** The player's upkeep in food per hour: the captives he holds (W-60: his men eat in the field). */
 export async function upkeepRate(db: D1Database, pid: number): Promise<number> {

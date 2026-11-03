@@ -116,12 +116,13 @@ export const TASK_LORE: Record<TaskMetric, TaskLore> = {
 };
 
 /** The player contracts' job board: the short goal (the card's line), what to do in full, and how the reward is paid. */
-export const CONTRACT_HOW: Record<'carry' | 'supply' | 'escort' | 'build' | 'guard', { short: string; goal: string; pay: string }> = {
+export const CONTRACT_HOW: Record<'carry' | 'supply' | 'escort' | 'build' | 'guard' | 'hunt', { short: string; goal: string; pay: string }> = {
   carry: { short: 'Deliver the sealed loads', goal: 'Load the sealed goods here and unload them at the destination', pay: 'Paid on delivery at the destination, with your deposit back' },
   supply: { short: 'Fill the poster\'s warehouse', goal: 'Bring the goods into the poster\'s warehouse at the destination', pay: 'Paid on delivery, as the goods arrive' },
   escort: { short: 'Escort the cart', goal: 'Guard the poster\'s cart to the destination', pay: 'Paid when the cart arrives with 75% of its cargo' },
   build: { short: 'Work on the building site', goal: 'Put your men to work on the poster\'s building site', pay: 'Paid as you work, an hour of labour at a time' },
   guard: { short: 'Hold the poster\'s town', goal: 'Stand your men inside the poster\'s town', pay: 'Paid each hour held; broken if they leave for 2 min' },
+  hunt: { short: 'Bring down the named foe', goal: 'Kill the named lair or chief with your men', pay: 'Paid when it falls to your men; open to warriors of the poster\'s alliance' },
 };
 
 /** The crown's orders: the story, `{where}` the region or target. */

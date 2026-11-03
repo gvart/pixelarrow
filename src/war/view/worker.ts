@@ -18,7 +18,7 @@ import { feedSim, goOrder, prebuildSim } from '../scenarios/run';
 import type { ScenarioGo } from '../scenarios/types';
 import type { Item } from '../../data/items';
 import { createNet, type Net } from '../net/client';
-import { MAX_SQUAD, type HandoffMsg, type StowMsg } from '../net/protocol';
+import { MAX_SQUAD, type HandoffMsg, type NpcMsg, type StowMsg } from '../net/protocol';
 import { decodeFog, decodeInfluence, unpackNode } from '../net/economy';
 import type { BridgeOrder, BuildingType, FogGrid, InfluenceMap, MobKind, NodeSnap, Order, RegionData, Snapshot, ResourceKind, WallOrder, WarBuildSim, WarPerson, WarSim } from '../types';
 
@@ -61,6 +61,7 @@ export type ToWorker =
   | { t: 'api'; id: number; method: 'GET' | 'POST'; path: string; body?: unknown }
   // M6f-g, net mode only: stow and the hand-off window over the region socket (answers come back as `server`)
   | { t: 'stow'; m: Omit<StowMsg, 't'> }
+  | { t: 'npc'; m: Omit<NpcMsg, 't'> }
   | { t: 'handoff'; m: Omit<HandoffMsg, 't'> }
   | { t: 'guideHide' } // W-62, net mode: hide the first-hour guide for good
   | { t: 'netStats'; on: boolean } // net mode: the network readout (pings, and `net` posted every second) on or off
@@ -264,6 +265,7 @@ function netMessage(n: Net, m: ToWorker): void {
   else if (m.t === 'mend') n.mend(m.kind, m.building, m.uid);
   else if (m.t === 'api') void n.api(m.method, m.path, m.body).then((api) => postMessage({ reply: m.id, api }));
   else if (m.t === 'stow') n.stow(m.m);
+  else if (m.t === 'npc') n.npc(m.m);
   else if (m.t === 'handoff') n.handoff(m.m);
   else if (m.t === 'guideHide') n.guideHide();
   else if (m.t === 'story') n.story(m.option);

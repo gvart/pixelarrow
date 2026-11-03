@@ -8,7 +8,7 @@ import type { ScenarioGo } from '../scenarios/types';
 import type { BridgeOrder, BridgePlan, BuildingSnap, BuildingType, FightReport, FogGrid, InfluenceMap, MobKind, NodeSnap, Order, PlaceResult, RegionData, ResourceKind, Snapshot, SquadSnap, UnitSnap, WallOrder, WallPlan, WarEvent, WarPerson } from '../types';
 import type { ToWorker } from './worker';
 import type { Item } from '../../data/items';
-import type { HandoffMsg, ServerMsg, StowMsg } from '../net/protocol';
+import type { HandoffMsg, NpcMsg, ServerMsg, StowMsg } from '../net/protocol';
 import type { NetStats } from '../net/client';
 import { myTeam, setMyTeam } from './side';
 import { SnapBuffer } from './interp';
@@ -340,6 +340,10 @@ export class SimClient {
   /** M6f net mode: goods between his packs or cart and his site here (answered by `stowed` or `error` on onServer). */
   stow(m: Omit<StowMsg, 't'>): void {
     this.send({ t: 'stow', m });
+  }
+  /** W-143 net mode: a deal with this region's NPC town (answered by `npcDone` or `error` on onServer). */
+  npc(m: Omit<NpcMsg, 't'>): void {
+    this.send({ t: 'npc', m });
   }
 
   /** W-62 net mode: hide the first-hour guide for good (the region server keeps it). */
