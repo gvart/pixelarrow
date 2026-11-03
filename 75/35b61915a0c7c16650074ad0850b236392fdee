@@ -1,0 +1,35 @@
+server/test/war/worldEvents.test.ts
+  s_a7d5d20f628c80::t_f6557372a2b034 32,34,65,100
+server/test/war/persons.test.ts
+  s_a7d5d20f628c80::t_333f1532309c15 83,89-90,92,161-162,208
+server/test/war/world.test.ts
+  s_a7d5d20f628c80::t_df907be8d6a90f 41
+  s_a7d5d20f628c80::t_333f1532309c15 359
+  s_a7d5d20f628c80::t_f6557372a2b034 30,33,49,52,62,69,76-78,81,83,90-92,223,228-229,232,241,247,265,355,357,370,373-377
+server/test/war/haul.test.ts
+  s_a7d5d20f628c80::t_f6557372a2b034 20,25,27,36,43,57,68,71,77,87,90-91,93,102,118-119
+server/test/war/persistence.test.ts
+  s_a7d5d20f628c80::t_333f1532309c15 105-106
+server/test/war/tradeLoop.test.ts
+  s_a7d5d20f628c80::t_f6557372a2b034 73
+server/test/war/oneRegion.test.ts
+  s_a7d5d20f628c80::t_372f65d3a300ba 1-4,6-162,164-170,172-173,175-249,251-307,309-346,355-364,367-371,373-398,400-401,427-435,437,440-442
+  s_a7d5d20f628c80::t_df907be8d6a90f 5,163,171,174,250,308,347-354,365-366,372,399,436,438-439
+  s_a7d5d20f628c80::t_bf90e49b00331a 402-426
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "7535b61915a0c7c16650074ad0850b236392fdee",
+  "prompts": {},
+  "sessions": {
+    "s_a7d5d20f628c80": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1afee479-b44b-46d2-a159-a540e44e7fb8",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
