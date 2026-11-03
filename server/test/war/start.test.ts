@@ -1,19 +1,28 @@
-/** A new player's start (/api/war/start, server/src/war/start.ts): alliance, home region, squad; and every refusal. */
+/** A new player's start (/api/war/start, server/src/war/start.ts): alliance, home region, path; and every refusal. */
 import { env, runInDurableObject } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
 import { api, devLogin } from '../helpers';
-import { ARMY_MAX } from '../../../src/war/sim/soldiers';
-import { homeRefusal, squadRefusal, START_CLASSES } from '../../../src/war/world/start';
+import { isCivClass } from '../../../src/data/classes';
+import { FAMILIES, FAMILY_IDS, homeRefusal, PATH_IDS, PATHS } from '../../../src/war/world/start';
 import { worldStub } from '../../src/war/world/routes';
 import type { StartView } from '../../src/war/start';
-import { claimSoul } from '../../src/war/persons';
-import { makePerson } from '../../../src/war/sim/roster';
+import { claimForJoin, release } from '../../src/war/persons';
+import type { WarPerson } from '../../../src/war/types';
 import type { WarWorldDO } from '../../src/war/world/worldDO';
 import type { World } from '../../src/war/world/world';
 
 const post = (token: string, path: string, json: unknown) => api(`/api/war/start${path}`, { method: 'POST', token, json });
 const view = async (token: string) => (await api('/api/war/start', { token })).json<StartView>();
 const code = async (r: Response) => ((await r.json()) as { error?: { code: string } }).error?.code;
+/** A player at the path step of `alliance`, home in its capital. */
+async function atPath(id: number, alliance = 0, home = 'dodona') {
+  const me = await devLogin(id);
+  expect((await post(me.token, '/alliance', { alliance })).status).toBe(200);
+  expect((await post(me.token, '/home', { region: home })).status).toBe(200);
+  return me;
+}
+type Man = { id: string; cls: string; state: string; slot: number | null; region: string | null; level: number };
+const men = async (token: string) => (await (await api('/api/war/roster', { token })).json<{ persons: Man[] }>()).persons.filter((p) => p.state === 'active').sort((a, b) => a.slot! - b.slot!);
 
 describe('start rules', () => {
   it('a home is one of the alliance\'s, open to fresh men and with room for a squad', () => {
@@ -25,15 +34,6 @@ describe('start rules', () => {
     expect(homeRefusal('dodona-e', 0, { owner: 1, contested: true, live: [5, 40, 0, 0] }, 150)).toBeNull();
     expect(homeRefusal('dodona', 0, { owner: 0, contested: false, live: [140, 0, 0, 0] }, 150)).toMatch(/full/);
   });
-
-  it('a squad is 1..12 men of the six classes with war sprites', () => {
-    expect(squadRefusal(['hoplite'])).toBeNull();
-    expect(squadRefusal([...START_CLASSES, ...START_CLASSES])).toBeNull();
-    expect(squadRefusal([])).toMatch(/at least one/);
-    expect(squadRefusal(Array(ARMY_MAX + 1).fill('archer'))).toMatch(/at most 12/);
-    expect(squadRefusal(['hoplite', 'royal_guard'])).toMatch(/royal_guard/);
-    expect(squadRefusal(['civ_cook'])).toMatch(/civ_cook/);
-  });
 });
 
 describe('start API', () => {
@@ -41,10 +41,10 @@ describe('start API', () => {
     expect((await api('/api/war/start')).status).toBe(401);
   });
 
-  it('happy path: alliance, home, squad; the men stand at home in slot order', async () => {
+  it('happy path: alliance, home, path; the family\'s men stand at home in slot order', async () => {
     const me = await devLogin(7901);
     let v = await view(me.token);
-    expect(v).toMatchObject({ step: 'alliance', alliance: null, home: null, homes: [], squadMax: ARMY_MAX, classes: [...START_CLASSES] });
+    expect(v).toMatchObject({ step: 'alliance', alliance: null, home: null, homes: [], path: null, family: null });
     expect(v.alliances.map((a) => a.name)).toEqual(['Dodona', 'Skythia', 'Kyrene', 'Elaia']);
     const before = v.alliances[1].members;
 
@@ -57,34 +57,73 @@ describe('start API', () => {
     expect(v.homes.find((h) => h.id === 'skythia')).toMatchObject({ role: 'home', refusal: null, quota: 150 });
 
     v = await (await post(me.token, '/home', { region: 'skythia-n' })).json<StartView>();
-    expect(v).toMatchObject({ step: 'squad', home: 'skythia-n' });
+    expect(v).toMatchObject({ step: 'path', home: 'skythia-n' });
     expect(v.homes.find((h) => h.id === 'skythia-n')!.players).toBeGreaterThanOrEqual(1);
 
-    const classes = ['hoplite', 'hoplite', 'hoplite', 'hoplite', 'celt_sword', 'celt_sword', 'archer', 'archer', 'slinger', 'javelineer', 'militia', 'archer'];
-    const rs = await post(me.token, '/squad', { classes });
+    const rs = await post(me.token, '/path', { path: 'warrior', family: 'shock' });
     expect(rs.status).toBe(200);
     const done = await rs.json<StartView & { ids: string[] }>();
-    expect(done).toMatchObject({ step: 'done', alliance: 1, home: 'skythia-n' });
-    expect(done.ids).toHaveLength(12);
+    expect(done).toMatchObject({ step: 'done', alliance: 1, home: 'skythia-n', path: 'warrior', family: 'shock' });
 
-    const roster = await (await api('/api/war/roster', { token: me.token })).json<{ persons: { id: string; cls: string; state: string; slot: number | null; region: string | null; level: number }[] }>();
-    const men = roster.persons.filter((p) => p.state === 'active').sort((a, b) => a.slot! - b.slot!);
-    expect(men.map((p) => p.cls)).toEqual(classes);
-    expect(men.map((p) => p.id)).toEqual(done.ids);
-    expect(men.every((p) => p.region === null && p.level === 1)).toBe(true);
-    expect(new Set(roster.persons.map((p) => p.id)).size).toBe(12);
-    // the start is the whole army: no recruiting (W-60), and a claimed soul is refused
+    const army = await men(me.token);
+    expect(army.map((p) => p.cls)).toEqual(FAMILIES.shock.start);
+    expect(army.map((p) => p.id)).toEqual(done.ids);
+    expect(army.every((p) => p.region === null && p.level === 1)).toBe(true);
+    // no recruiting (W-60): he grows by claiming souls
     expect((await api('/api/war/recruit', { method: 'POST', token: me.token, json: { town: 'home', count: 1 } })).status).toBe(404);
-    expect(await claimSoul(env.DB!, me.playerId, makePerson('soul-start-a', 'archer'), 'skythia-n', Date.now())).toBe(false);
   });
 
-  it('refuses each step out of order, a home that is not free or not the alliance\'s, and a bad squad', async () => {
+  it('W-95: every warrior family starts 6 men of that family, up to his cap of 12 by souls', async () => {
+    let id = 7910;
+    for (const family of FAMILY_IDS) {
+      const me = await atPath(id++);
+      const r = await post(me.token, '/path', { path: 'warrior', family });
+      expect(r.status, family).toBe(200);
+      expect((await men(me.token)).map((p) => p.cls), family).toEqual(FAMILIES[family].start);
+    }
+    expect(PATHS.warrior.cap).toBe(12);
+  });
+
+  it('W-95: a builder and a trader start 2 guards and 2 workers, no family', async () => {
+    let id = 7920;
+    for (const path of ['builder', 'trader'] as const) {
+      const me = await atPath(id++);
+      const done = await (await post(me.token, '/path', { path })).json<StartView & { ids: string[] }>();
+      expect(done).toMatchObject({ step: 'done', path, family: null });
+      const all = await men(me.token);
+      expect(all.map((p) => p.cls)).toEqual(PATHS[path].start);
+      expect(all.filter((p) => !isCivClass(p.cls))).toHaveLength(2);
+      expect(all.filter((p) => isCivClass(p.cls))).toHaveLength(2);
+      expect(PATHS[path].cap).toBe(4);
+      // guards and workers march in together
+      const joined = await claimForJoin(env.DB!, me.playerId, 'dodona', [all.map((p) => p.id)], new Set(), Date.now());
+      expect(typeof joined).not.toBe('string');
+      expect((joined as WarPerson[][])[0].map((p) => p.hero.cls)).toEqual(PATHS[path].start);
+      await release(env.DB!, 'dodona', all.map((p) => p.id));
+      // his strongroom opens with the season's food, as every path's
+      expect((await (await api('/api/war/roster', { token: me.token })).json<{ stock: Record<string, number> }>()).stock.food).toBeGreaterThan(0);
+    }
+  });
+
+  it('W-83: the path is locked once chosen: no second path, family, alliance or home', async () => {
+    const me = await atPath(7930);
+    expect((await post(me.token, '/path', { path: 'builder' })).status).toBe(200);
+    const first = await men(me.token);
+    for (const b of [{ path: 'builder' }, { path: 'trader' }, { path: 'warrior', family: 'line' }]) expect(await code(await post(me.token, '/path', b))).toBe('started');
+    expect(await code(await post(me.token, '/alliance', { alliance: 1 }))).toBe('started');
+    expect(await code(await post(me.token, '/home', { region: 'dodona-e' }))).toBe('started');
+    expect(await view(me.token)).toMatchObject({ step: 'done', path: 'builder', family: null });
+    expect((await men(me.token)).map((p) => p.id)).toEqual(first.map((p) => p.id));
+    for (const path of PATH_IDS) expect(PATHS[path].name.length).toBeGreaterThan(0);
+  });
+
+  it('refuses each step out of order, a home that is not free or not the alliance\'s, and a bad path', async () => {
     const me = await devLogin(7902);
     expect(await code(await post(me.token, '/home', { region: 'dodona' }))).toBe('no_alliance');
-    expect(await code(await post(me.token, '/squad', { classes: ['hoplite'] }))).toBe('no_alliance');
+    expect(await code(await post(me.token, '/path', { path: 'builder' }))).toBe('no_alliance');
     expect((await post(me.token, '/alliance', { alliance: 4 })).status).toBe(400);
     expect((await post(me.token, '/alliance', { alliance: 0 })).status).toBe(200);
-    expect(await code(await post(me.token, '/squad', { classes: ['hoplite'] }))).toBe('no_home');
+    expect(await code(await post(me.token, '/path', { path: 'builder' }))).toBe('no_home');
     // not this alliance's, nor a world region at all
     for (const region of ['skythia', 'kleisoura', 'nowhere']) {
       const r = await post(me.token, '/home', { region });
@@ -105,25 +144,19 @@ describe('start API', () => {
       (await (o as unknown as { ensure(): Promise<World> }).ensure()).region('dodona-w')!.live[0] = 0;
     });
 
-    // switching the alliance before the squad resets the home
+    // switching the alliance before the path resets the home
     expect((await post(me.token, '/home', { region: 'dodona' })).status).toBe(200);
     expect(await (await post(me.token, '/alliance', { alliance: 3 })).json<StartView>()).toMatchObject({ step: 'home', alliance: 3, home: null });
     expect((await post(me.token, '/home', { region: 'elaia-e' })).status).toBe(200);
 
-    for (const classes of [[], Array(ARMY_MAX + 1).fill('hoplite'), ['hoplite', 'companion'], ['civ_smith']]) {
-      const r = await post(me.token, '/squad', { classes });
-      expect(r.status).toBe(409);
-      expect(await code(r)).toBe('bad_squad');
+    for (const b of [{ path: 'hero' }, { path: 'warrior' }, { path: 'warrior', family: 'navy' }, { path: 'builder', family: 'line' }, { path: 'trader', family: 'rider' }]) {
+      const r = await post(me.token, '/path', b);
+      expect(r.status, JSON.stringify(b)).toBe(409);
+      expect(await code(r)).toBe('bad_path');
     }
-    expect((await post(me.token, '/squad', { classes: ['Hoplite'] })).status).toBe(400);
-    expect((await post(me.token, '/squad', { classes: ['archer', 'archer'] })).status).toBe(200);
-
-    // one start: no second squad, no new alliance or home
-    expect(await code(await post(me.token, '/squad', { classes: ['hoplite'] }))).toBe('started');
-    expect(await code(await post(me.token, '/alliance', { alliance: 0 }))).toBe('started');
-    expect(await code(await post(me.token, '/home', { region: 'elaia' }))).toBe('started');
-    const n = await env.DB!.prepare("SELECT COUNT(*) AS n FROM war_persons WHERE player_id = ?1").bind(me.playerId).first<{ n: number }>();
-    expect(n?.n).toBe(2);
+    expect((await post(me.token, '/path', { path: 'Warrior' })).status).toBe(400);
+    expect((await env.DB!.prepare('SELECT COUNT(*) AS n FROM war_persons WHERE player_id = ?1').bind(me.playerId).first<{ n: number }>())?.n).toBe(0);
+    expect((await view(me.token)).step).toBe('path');
   });
 
   it('a player who came in by the dev routes counts as started', async () => {

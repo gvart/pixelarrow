@@ -1,8 +1,8 @@
 /**
  * W-62 world events and the season war: the schedule from the season seed, the world alarm multiplexing arrivals,
  * event boundaries and the season's end, each event's effect (caravan rush, landmark siege in the World; soul storm and
- * boss wake in the region), and the rollover: men, gear and titles kept, landmarks, score and control reset, the board
- * and cosmetics in D1.
+ * boss wake in the region), and the rollover: the board and cosmetics in D1, everything else reset (W-96; what exactly:
+ * ./seasonWipe.test.ts).
  */
 import { env, runInDurableObject } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
@@ -183,14 +183,14 @@ describe('W-62 event effects in the region', () => {
 });
 
 describe('W-62 season war', () => {
-  it('the rollover keeps men, gear and titles; resets landmarks, score and control; keeps the board and awards cosmetics', async () => {
+  it('the rollover keeps the board and awards cosmetics; resets landmarks, score, control and (W-96) every man and his gear', async () => {
     const a = await devLogin(7621), b = await devLogin(7622);
     await api('/api/war/world/dev/alliance', { method: 'POST', token: a.token, json: { alliance: 2 } });
     await api('/api/war/world/dev/alliance', { method: 'POST', token: b.token, json: { alliance: 1 } });
     await api('/api/war/dev/seed', { method: 'POST', token: a.token, json: {} });
     const persons = async () => (await DB().prepare("SELECT id, region FROM war_persons WHERE player_id = ?1 AND state = 'active' ORDER BY id").bind(a.playerId).all<{ id: string; region: string | null }>()).results;
     const items = async () => (await DB().prepare('SELECT COUNT(*) AS n FROM war_items WHERE player_id = ?1').bind(a.playerId).first<{ n: number }>())!.n;
-    const before = await persons(), gear = await items();
+    const before = await persons();
     expect(before.length).toBeGreaterThan(0);
     // three of his men stand in Krios, whose citadel the region remembers taken
     await DB().prepare("UPDATE war_persons SET region = 'krios' WHERE id IN (SELECT value FROM json_each(?1))").bind(JSON.stringify(before.slice(0, 3).map((p) => p.id))).run();
@@ -224,11 +224,9 @@ describe('W-62 season war', () => {
     expect(out.snap.regions.find((r) => r.id === 'saddle')!.owner).toBe(-1);
     expect(out.snap.regions.find((r) => r.id === 'skythia')!.owner).toBe(1);
     expect(await DB().prepare("SELECT region FROM war_region_state WHERE region = 'krios'").first()).toBeNull();
-    // kept: every man (those in Krios home again), his gear, the crests; the titles are won anew
-    const after = await persons();
-    expect(after.map((p) => p.id)).toEqual(before.map((p) => p.id));
-    expect(after.every((p) => p.region === null)).toBe(true);
-    expect(await items()).toBe(gear);
+    // W-96: every man and his gear gone; the crests stay; the titles are won anew
+    expect(await persons()).toEqual([]);
+    expect(await items()).toBe(0);
     expect((await titles(DB(), out.id)).map((t) => [t.id, t.pid])).toEqual([['merchantPrince', b.playerId]]);
     expect(await titles(DB())).toEqual([]);
     expect((await statsOf(DB(), b.playerId)).sold).toBe(0);
