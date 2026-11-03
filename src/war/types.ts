@@ -654,6 +654,8 @@ export interface WarBuildSim extends WarSim {
   finishBridges(team: number): void;
   /** Dev: site `id` done at once (materials and labour free); false when it is no open site. */
   finishSite(id: number): boolean;
+  /** A man walks straight between the two points: no cliff, wall or water between. */
+  walkable(x0: number, y0: number, x1: number, y1: number): boolean;
   /** Dev: these living men struck down (they fall wounded or dead by their END), hurt to a quarter of their hp, or healed. */
   devUnits(ids: number[], op: 'kill' | 'hurt' | 'heal'): void;
   /** M6b scenarios and benches: a finished, empty cart of `owner` (team `team`) at (x,y); its siege id. `crew`: squad crewing it at once. */

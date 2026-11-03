@@ -3957,6 +3957,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       return { stepMs, units: units.filter((u) => u.alive).length, visionMs: vision.ms() };
     },
     checkPlacement: works.checkPlacement,
+    walkable: (x0, y0, x1, y1) => walkClear(grid, x0, y0, x1, y1),
     checkWall: works.checkWall,
     checkBridge: works.checkBridge,
     resourceNodes: works.resourceNodes,

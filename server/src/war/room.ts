@@ -568,7 +568,9 @@ export class WarRoom {
     const r = this.entry(side), e = { x: r.x0, y: r.y0, w: r.x1 - r.x0, h: r.y1 - r.y0 };
     // squads spread over the entry on a 6-tile grid round its centre
     const k = this.spawns++, ox = ((k % 5) - 2) * 6, oy = ((Math.floor(k / 5) % 5) - 2) * 6;
-    const x = Math.min(e.x + e.w - 1, Math.max(e.x + 1, e.x + e.w / 2 + ox)), y = Math.min(e.y + e.h - 1, Math.max(e.y + 1, e.y + e.h / 2 + oy));
+    const cx = e.x + e.w / 2, cy = e.y + e.h / 2;
+    let x = Math.min(e.x + e.w - 1, Math.max(e.x + 1, cx + ox)), y = Math.min(e.y + e.h - 1, Math.max(e.y + 1, cy + oy));
+    if (!at && !this.sim.walkable(cx, cy, x, y)) (x = cx), (y = cy); // a spot cut off from the entry's middle may be a pocket with no way out
     const persons = g.persons?.slice(0, MAX_SQUAD);
     const count = persons?.length ?? Math.min(g.count, MAX_SQUAD);
     const id = this.sim.spawnSquad(owner, team, g.cls, count, at?.x ?? x, at?.y ?? y, persons);
