@@ -1,16 +1,16 @@
 /**
  * A new player's start (/api/war/start/*; docs/WAR.md "Starting a game"; rules in src/war/world/start.ts). Three steps,
- * once per player and season: an alliance, a free home region of it, a squad of up to ARMY_MAX men (his whole army, W-58) of the
- * classes with war sprites. The squad is his first men (active, in slot order); after it, men join only by claiming
- * souls in a region (W-60). Kept in D1 on war_alliance_members (migrations/0037_war_start.sql).
+ * once per player and season: an alliance, a free home region of it, a path (W-83), locked for the season. The path
+ * gives his first men (W-95; active, in slot order); after it, soldiers join only by claiming souls in a region (W-60).
+ * Kept in D1 on war_alliance_members (migrations/0037_war_start.sql, 0053_war_paths.sql).
  *
- *   GET  /                     the step (alliance | home | squad | done), the alliances with their players, the home
- *                              choices of his alliance (players, men there, quota, why not free), the classes
- *   POST /alliance { alliance }  join 0..3 (Dodona, Skythia, Kyrene, Elaia); again before the squad changes it (home reset)
+ *   GET  /                     the step (alliance | home | path | done), the alliances with their players, the home
+ *                              choices of his alliance (players, men there, quota, why not free), his path and family
+ *   POST /alliance { alliance }  join 0..3 (Dodona, Skythia, Kyrene, Elaia); again before the path changes it (home reset)
  *   POST /home     { region }    a free home of his alliance
- *   POST /squad    { classes }   1..ARMY_MAX men of START_CLASSES: the start is done
+ *   POST /path     { path, family? }  warrior (with a family), builder or trader: the start is done
  *
- * Refusals (409): started (the start is done), no_alliance, no_home, home_refused, bad_squad; 400 for a bad body.
+ * Refusals (409): started (the start is done), no_alliance, no_home, home_refused, bad_path; 400 for a bad body.
  * Players who came in by the dev routes (DEV_AUTH: /world/dev/alliance and /dev/seed) count as started once they have men.
  */
 import { Hono } from 'hono';
@@ -20,16 +20,16 @@ import type { AppEnv, Env } from '../env';
 import { ApiError } from '../errors';
 import { db, requirePlayable } from '../middleware';
 import { makePerson } from '../../../src/war/sim/roster';
-import { ARMY_MAX } from '../../../src/war/sim/soldiers';
+import type { Family } from '../../../src/war/sim/skills';
 import { DEFAULT_CAP, splitQuota } from '../../../src/war/net/protocol';
 import { ALLIANCES, WAR_SEASON } from '../../../src/war/world/alliances';
-import { homeChoices, homeRefusal, squadRefusal, START_CLASSES } from '../../../src/war/world/start';
+import { homeChoices, homeRefusal, pathRefusal, pathStart, type PathId } from '../../../src/war/world/start';
 import type { AllianceId, RegionRole } from '../../../src/war/world/types';
 import { ensureStart, insertPerson, nameFor, newId } from './persons';
 import { allianceCounts, joinAlliance } from './world/members';
 import { worldStub } from './world/routes';
 
-export type StartStep = 'alliance' | 'home' | 'squad' | 'done';
+export type StartStep = 'alliance' | 'home' | 'path' | 'done';
 
 export interface StartView {
   step: StartStep;
@@ -37,16 +37,17 @@ export interface StartView {
   home: string | null;
   alliances: { id: AllianceId; name: string; members: number }[];
   homes: { id: string; name: string; role: RegionRole; players: number; men: number; quota: number; refusal: string | null }[];
-  classes: readonly string[];
-  squadMax: number;
+  /** His path and, for a warrior, family (null: not chosen, or a dev player). */
+  path: PathId | null;
+  family: Family | null;
 }
 
-interface StartRow { alliance: number; home: string | null; started_at: number | null }
+interface StartRow { alliance: number; home: string | null; started_at: number | null; path: PathId | null; family: Family | null }
 
 const quotaOf = (env: Env, a: AllianceId) => splitQuota(Number(env.WAR_CAP) || DEFAULT_CAP)[a];
 
 async function startRow(d: D1Database, pid: number): Promise<StartRow | null> {
-  return d.prepare('SELECT alliance, home, started_at FROM war_alliance_members WHERE season = ?1 AND player_id = ?2').bind(WAR_SEASON.id, pid).first<StartRow>();
+  return d.prepare('SELECT alliance, home, started_at, path, family FROM war_alliance_members WHERE season = ?1 AND player_id = ?2').bind(WAR_SEASON.id, pid).first<StartRow>();
 }
 
 /** W-68: his home region this season (his alliance's home when he picked none; null: no alliance yet). */
@@ -63,7 +64,7 @@ async function hasMen(d: D1Database, pid: number): Promise<boolean> {
 async function stepOf(d: D1Database, pid: number, r: StartRow | null): Promise<StartStep> {
   if (!r) return 'alliance';
   if (r.started_at !== null || (await hasMen(d, pid))) return 'done';
-  return r.home ? 'squad' : 'home';
+  return r.home ? 'path' : 'home';
 }
 
 export async function startView(env: Env, pid: number): Promise<StartView> {
@@ -80,12 +81,12 @@ export async function startView(env: Env, pid: number): Promise<StartView> {
     }));
   }
   const home = r?.home ?? (step === 'done' && alliance !== null ? ALLIANCES[alliance].home : null);
-  return { step, alliance, home, alliances: ALLIANCES.map((a) => ({ id: a.id, name: a.name, members: counts.members[a.id] })), homes, classes: START_CLASSES, squadMax: ARMY_MAX };
+  return { step, alliance, home, alliances: ALLIANCES.map((a) => ({ id: a.id, name: a.name, members: counts.members[a.id] })), homes, path: r?.path ?? null, family: r?.family ?? null };
 }
 
 const started = () => new ApiError(409, 'started', 'Your start is made: your men are in the war');
 
-/** Join an alliance (again before the squad: another alliance resets the home). */
+/** Join an alliance (again before the path: another alliance resets the home). */
 export async function chooseAlliance(d: D1Database, pid: number, alliance: AllianceId, now: number): Promise<void> {
   const r = await startRow(d, pid);
   if ((await stepOf(d, pid, r)) === 'done') throw started();
@@ -105,29 +106,27 @@ export async function claimHome(env: Env, pid: number, region: string): Promise<
   await d.prepare('UPDATE war_alliance_members SET home = ?3 WHERE season = ?1 AND player_id = ?2').bind(WAR_SEASON.id, pid, region).run();
 }
 
-/** His first squad, in slot order: fresh L1 men of the classes picked. Ends the start. Returns their ids. */
-export async function pickSquad(d: D1Database, pid: number, classes: string[], now: number): Promise<string[]> {
+/** His path, locked for the season, and its first men in slot order (W-95): fresh L1. Ends the start. Returns their ids. */
+export async function pickPath(d: D1Database, pid: number, path: string, family: string | null, now: number): Promise<string[]> {
   const r = await startRow(d, pid);
   if (!r) throw new ApiError(409, 'no_alliance', 'Choose an alliance first');
   if ((await stepOf(d, pid, r)) === 'done') throw started();
   if (!r.home) throw new ApiError(409, 'no_home', 'Choose a home region first');
-  const why = squadRefusal(classes);
-  if (why) throw new ApiError(409, 'bad_squad', why);
+  const why = pathRefusal(path, family);
+  if (why) throw new ApiError(409, 'bad_path', why);
   await ensureStart(d, pid, now);
-  // the start is claimed first, so two racing picks make one squad
-  const claim = await d.prepare('UPDATE war_alliance_members SET started_at = ?3 WHERE season = ?1 AND player_id = ?2 AND started_at IS NULL').bind(WAR_SEASON.id, pid, now).run();
+  // the start is claimed first, so two racing picks make one path
+  const claim = await d.prepare('UPDATE war_alliance_members SET started_at = ?3, path = ?4, family = ?5 WHERE season = ?1 AND player_id = ?2 AND started_at IS NULL').bind(WAR_SEASON.id, pid, now, path, family).run();
   if (!claim.meta.changes) throw started();
   const taken = new Set<string>();
-  const men = classes.map((cls, k) => {
+  const men = pathStart(path as PathId, family as Family | null).map((cls, k) => {
     const p = makePerson(newId(pid), cls);
     return { ...p, hero: { ...p.hero, name: nameFor(cls, taken, k) } };
   });
   try {
-    await d.batch([
-      ...men.map((p, slot) => insertPerson(d, pid, p, 'active', slot, now)),
-    ]);
+    await d.batch(men.map((p, slot) => insertPerson(d, pid, p, 'active', slot, now)));
   } catch (e) {
-    await d.prepare('UPDATE war_alliance_members SET started_at = NULL WHERE season = ?1 AND player_id = ?2').bind(WAR_SEASON.id, pid).run();
+    await d.prepare('UPDATE war_alliance_members SET started_at = NULL, path = NULL, family = NULL WHERE season = ?1 AND player_id = ?2').bind(WAR_SEASON.id, pid).run();
     throw e;
   }
   return men.map((p) => p.id);
@@ -150,8 +149,8 @@ start.post('/home', requirePlayable, async (c) => {
   return c.json(await startView(c.env, c.get('session').pid));
 });
 
-start.post('/squad', requirePlayable, async (c) => {
-  const b = await readJson(c, z.object({ classes: z.array(z.string().regex(/^[a-z_]{1,24}$/)).max(32) }), MAX_BODY);
-  const ids = await pickSquad(db(c.env), c.get('session').pid, b.classes, Date.now());
+start.post('/path', requirePlayable, async (c) => {
+  const b = await readJson(c, z.object({ path: z.string().regex(/^[a-z_]{1,24}$/), family: z.string().regex(/^[a-z_]{1,24}$/).optional() }), MAX_BODY);
+  const ids = await pickPath(db(c.env), c.get('session').pid, b.path, b.family ?? null, Date.now());
   return c.json({ ids, ...(await startView(c.env, c.get('session').pid)) });
 });
