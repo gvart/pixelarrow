@@ -1,0 +1,117 @@
+server/test/war/npcMarket.test.ts
+  s_a7d5d20f628c80::t_cf10a5d9f4489a 15-18,159-177
+  s_a7d5d20f628c80::t_2a0b188abb0cfd 178-180
+server/src/account/deletionMap.ts
+  s_a7d5d20f628c80::t_536effe03d2982 89-92,125
+server/test/war/crown.test.ts
+  s_a7d5d20f628c80::t_536effe03d2982 45-46,58,79-81,104,110,114,116-118,128,154,157-158,168-169,171,184,188,194,249,251,258
+src/war/net/protocol.ts
+  s_a7d5d20f628c80::t_536effe03d2982 155,191
+  s_a7d5d20f628c80::t_cf10a5d9f4489a 48,260
+src/war/sim/works.ts
+  s_a7d5d20f628c80::t_536effe03d2982 37,307-320,1455,1786,2009-2012,2413
+server/test/war/soloRuns.test.ts
+  s_a7d5d20f628c80::t_cf10a5d9f4489a 39-41,95,97,101
+server/migrations/0055_war_npc_towns.sql
+  s_a7d5d20f628c80::t_cf10a5d9f4489a 1-54
+src/data/warFeudal.ts
+  s_a7d5d20f628c80::t_536effe03d2982 1-17
+server/src/war/contracts.ts
+  s_a7d5d20f628c80::t_536effe03d2982 34,223-235,265
+src/war/view/hud/settleCards.ts
+  s_a7d5d20f628c80::t_536effe03d2982 38,95,137,153,160,165,169-170,202,222,239
+server/test/war/settlements.test.ts
+  s_a7d5d20f628c80::t_536effe03d2982 12-13,28,88,91-93,100,113,125,165
+src/war/view/hud/market.ts
+  s_a7d5d20f628c80::t_cf10a5d9f4489a 484
+server/src/war/roomSettlements.ts
+  s_a7d5d20f628c80::t_536effe03d2982 29,55-57,60,62,66,138,155
+server/test/war/settlementsDO.test.ts
+  s_a7d5d20f628c80::t_536effe03d2982 2-4,23
+server/test/war/tributeRoom.test.ts
+  s_a7d5d20f628c80::t_536effe03d2982 1-161
+docs/WAR.md
+  s_a7d5d20f628c80::t_cf10a5d9f4489a 1646
+  s_a7d5d20f628c80::t_536effe03d2982 804,820,822-866,1592
+tests/war/settleHud.test.ts
+  s_a7d5d20f628c80::t_536effe03d2982 11,49-50,52,55,57,68,79-80,86
+server/test/war/feudal.test.ts
+  s_a7d5d20f628c80::t_536effe03d2982 1-443
+server/src/war/crown.ts
+  s_a7d5d20f628c80::t_536effe03d2982 6-8,10-14,18,36,40,49,65,99-107,118-139,153,160,164,212-218,237,241-247,252,258,263,279,311,314,318-340,679-680,740-772
+server/src/war/settlements.ts
+  s_a7d5d20f628c80::t_536effe03d2982 10-12,16,24-25,29,160,228-229,234,300,330
+src/war/sim/index.ts
+  s_a7d5d20f628c80::t_536effe03d2982 76,272,628,1271,2329,2340-2385,2429,2449,2477,2490-2492,2514-2515,2523,3815-3816
+server/src/war/seasonWipe.ts
+  s_a7d5d20f628c80::t_536effe03d2982 10
+server/test/war/claimCapture.test.ts
+  s_a7d5d20f628c80::t_536effe03d2982 90
+src/war/view/trade/tradeControls.ts
+  s_a7d5d20f628c80::t_536effe03d2982 31-32,47,216-218,225
+server/src/war/room.ts
+  s_a7d5d20f628c80::t_536effe03d2982 85,1109,1614-1631,1635
+tests/war/tributeHolder.test.ts
+  s_a7d5d20f628c80::t_536effe03d2982 1-90
+server/src/war/npcMarket.ts
+  s_a7d5d20f628c80::t_cf10a5d9f4489a 19,146-147,151-152,158,160
+docs/impl/global-war-rebuild.md
+  s_a7d5d20f628c80::t_536effe03d2982 155-160
+src/war/sim/holders.ts
+  s_a7d5d20f628c80::t_536effe03d2982 11-14,29-44,49,55,78,83,125,127,129,134-135,139
+server/test/deletion.test.ts
+  s_a7d5d20f628c80::t_536effe03d2982 78-81
+server/migrations/0054_war_oaths.sql
+  s_a7d5d20f628c80::t_536effe03d2982 1-71
+server/src/war/regionDO.ts
+  s_a7d5d20f628c80::t_536effe03d2982 47,62,105-106,204-205,670,749-775,1281,1368-1371,1385-1390
+server/test/war/settlementsRoom.test.ts
+  s_a7d5d20f628c80::t_536effe03d2982 23
+server/src/war/routes.ts
+  s_a7d5d20f628c80::t_536effe03d2982 33-34,52-53,86,88-91,229,285-310
+src/war/sim/siege.ts
+  s_a7d5d20f628c80::t_536effe03d2982 32,386-387,522
+src/war/types.ts
+  s_a7d5d20f628c80::t_536effe03d2982 156-158,176-177,595-596,649-652
+src/war/view/hud/crown.ts
+  s_a7d5d20f628c80::t_536effe03d2982 4,10-11,23-24,42,57,68-69,115-120,145,160,179,188,199,204-205,209,213-250,400-404,413-414,418,434-435,438,446-447,525-526,556-578,605-612
+  s_a7d5d20f628c80::t_e468de8593a1df 613
+src/sim/version.ts
+  s_a7d5d20f628c80::t_536effe03d2982 35
+  s_a7d5d20f628c80::t_cf10a5d9f4489a 36,39
+src/war/net/settlements.ts
+  s_a7d5d20f628c80::t_536effe03d2982 8-9,12
+server/src/war/tradeScore.ts
+  s_a7d5d20f628c80::t_536effe03d2982 18,48,55
+src/war/view/hud/holder.ts
+  s_a7d5d20f628c80::t_536effe03d2982 56
+server/src/war/oaths.ts
+  s_a7d5d20f628c80::t_536effe03d2982 1-179,186-191,193-226
+  s_a7d5d20f628c80::t_cf10a5d9f4489a 180-185,192
+tests/war/tribute.test.ts
+  s_a7d5d20f628c80::t_536effe03d2982 1-153
+docs/impl/paths-rework.md
+  s_a7d5d20f628c80::t_536effe03d2982 54,75,83,108
+src/war/net/crown.ts
+  s_a7d5d20f628c80::t_536effe03d2982 5,15,19,55-56,76-78,94,105-130,148
+server/test/war/staffed.test.ts
+  s_a7d5d20f628c80::t_536effe03d2982 106-107
+src/war/view/hud/settlements.ts
+  s_a7d5d20f628c80::t_536effe03d2982 8,64,171,184,193,237,390-392
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "9007b63c102b25b1ae5db84b39dcb96e636079ed",
+  "prompts": {},
+  "sessions": {
+    "s_a7d5d20f628c80": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1afee479-b44b-46d2-a159-a540e44e7fb8",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
