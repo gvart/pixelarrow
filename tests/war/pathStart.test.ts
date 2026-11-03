@@ -3,14 +3,14 @@ import { describe, expect, it } from 'vitest';
 import { isCivClass, isClassId } from '../../src/data/classes';
 import { warStats } from '../../src/war/sim/classes';
 import { makePerson } from '../../src/war/sim/roster';
-import { FAMILY_OF, type Family } from '../../src/war/sim/skills';
+import { FAMILY_OF } from '../../src/war/sim/skills';
 import { FAMILIES, FAMILY_IDS, PATH_IDS, PATHS, pathRefusal, pathStart, START_CLASSES } from '../../src/war/world/start';
 
 const soldiers = (men: readonly string[]) => men.filter((c) => !isCivClass(c));
 
 describe('path starts', () => {
-  it('offers the skills\' four families', () => {
-    expect([...FAMILY_IDS].sort()).toEqual([...new Set(Object.values(FAMILY_OF) as Family[])].sort());
+  it('offers every family of the skills but the riders, who return with mounts', () => {
+    expect([...FAMILY_IDS].sort()).toEqual([...new Set(Object.values(FAMILY_OF))].filter((f) => f !== 'rider').sort());
   });
 
   it('a warrior starts about 6 men, all of his one family, under his cap', () => {
@@ -59,6 +59,7 @@ describe('pathRefusal', () => {
     expect(pathRefusal('hero')).toMatch(/not a path/);
     expect(pathRefusal('warrior')).toMatch(/family/);
     expect(pathRefusal('warrior', 'navy')).toMatch(/not a family/);
+    expect(pathRefusal('warrior', 'rider')).toMatch(/not a family/);
     expect(pathRefusal('builder', 'line')).toMatch(/no family/);
   });
 });

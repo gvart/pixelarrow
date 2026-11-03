@@ -3,14 +3,13 @@
  * map, path, and the march-in choice. Each renders into the stage and calls back with the player's choice; mouse and
  * keyboard both work (Tab and Enter everywhere, arrows across cards and lists, Esc goes back).
  */
-import type { Family } from '../sim/skills';
 import { ALLIANCES } from '../world/alliances';
 import { worldRegion } from '../world/graph';
 import type { AllianceId } from '../world/types';
 import { WorldMap, type MapState } from '../world-view/map';
 import type { RegionState, WorldSnapshot } from '../net/world';
 import { icon, uiZoom } from '../view/hud/kit';
-import { FAMILIES, FAMILY_IDS, PATH_IDS, PATHS, type PathId } from '../world/start';
+import { FAMILIES, FAMILY_IDS, PATH_IDS, PATHS, type PathId, type StartFamily } from '../world/start';
 import { call, type StartView, type TunnelInfo } from './api';
 import { span, TUNNEL, wipeLine, wipeNext } from '../sim/tunnel';
 import { DIFFICULTY_NAME, HOME_LORE } from './homeLore';
@@ -300,8 +299,8 @@ export function pathCard(id: PathId): string {
 }
 
 /** W-83: the season's path, and a warrior's family (W-86). The choice is made once: the button says so. */
-export function pathScreen(stage: HTMLElement, done: (path: PathId, family: Family | null) => Promise<void>, back: () => void): void {
-  let path: PathId | null = null, family: Family | null = null, busy = false;
+export function pathScreen(stage: HTMLElement, done: (path: PathId, family: StartFamily | null) => Promise<void>, back: () => void): void {
+  let path: PathId | null = null, family: StartFamily | null = null, busy = false;
   stage.innerHTML = `<div class="mn-pa">
     <div class="mn-mu-h"><span class="mn-step">Step 3 of 3</span><div class="rf-name">Choose your path</div><div class="mn-sub">What you do this season. You choose once and keep it for all 28 days.</div></div>
     <div class="mn-paths" role="radiogroup" aria-label="Path">${PATH_IDS.map(pathCard).join('')}</div>
@@ -330,7 +329,7 @@ export function pathScreen(stage: HTMLElement, done: (path: PathId, family: Fami
     c.onclick = () => choose(c);
     c.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); choose(c); } };
   }
-  for (const f of fams) f.onclick = () => { family = f.dataset.f as Family; render(); };
+  for (const f of fams) f.onclick = () => { family = f.dataset.f as StartFamily; render(); };
   stage.onkeydown = (e) => {
     if (e.key === 'Escape') return back();
     arrows(cards)(e);

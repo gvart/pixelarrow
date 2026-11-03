@@ -20,10 +20,9 @@ import type { AppEnv, Env } from '../env';
 import { ApiError } from '../errors';
 import { db, requirePlayable } from '../middleware';
 import { makePerson } from '../../../src/war/sim/roster';
-import type { Family } from '../../../src/war/sim/skills';
 import { DEFAULT_CAP, splitQuota } from '../../../src/war/net/protocol';
 import { ALLIANCES, WAR_SEASON } from '../../../src/war/world/alliances';
-import { homeChoices, homeRefusal, pathRefusal, pathStart, type PathId } from '../../../src/war/world/start';
+import { homeChoices, homeRefusal, pathRefusal, pathStart, type PathId, type StartFamily } from '../../../src/war/world/start';
 import type { AllianceId, RegionRole } from '../../../src/war/world/types';
 import { ensureStart, insertPerson, nameFor, newId } from './persons';
 import { allianceCounts, joinAlliance } from './world/members';
@@ -39,10 +38,10 @@ export interface StartView {
   homes: { id: string; name: string; role: RegionRole; players: number; men: number; quota: number; refusal: string | null }[];
   /** His path and, for a warrior, family (null: not chosen, or a dev player). */
   path: PathId | null;
-  family: Family | null;
+  family: StartFamily | null;
 }
 
-interface StartRow { alliance: number; home: string | null; started_at: number | null; path: PathId | null; family: Family | null }
+interface StartRow { alliance: number; home: string | null; started_at: number | null; path: PathId | null; family: StartFamily | null }
 
 const quotaOf = (env: Env, a: AllianceId) => splitQuota(Number(env.WAR_CAP) || DEFAULT_CAP)[a];
 
@@ -119,7 +118,7 @@ export async function pickPath(d: D1Database, pid: number, path: string, family:
   const claim = await d.prepare('UPDATE war_alliance_members SET started_at = ?3, path = ?4, family = ?5 WHERE season = ?1 AND player_id = ?2 AND started_at IS NULL').bind(WAR_SEASON.id, pid, now, path, family).run();
   if (!claim.meta.changes) throw started();
   const taken = new Set<string>();
-  const men = pathStart(path as PathId, family as Family | null).map((cls, k) => {
+  const men = pathStart(path as PathId, family as StartFamily | null).map((cls, k) => {
     const p = makePerson(newId(pid), cls);
     return { ...p, hero: { ...p.hero, name: nameFor(cls, taken, k) } };
   });

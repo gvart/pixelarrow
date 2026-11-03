@@ -121,7 +121,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:#0e0907}
 .mn-fams{margin-top:10px;padding:10px 14px 12px}
 .mn-fams .rf-name{font-size:18px}
 .mn-fams .mn-sub{margin:2px 0 8px;font-size:13px;color:#d2bc9e}
-.mn-fams .list{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.mn-fams .list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 .mn-fam{display:flex;flex-direction:column;gap:4px;padding:8px 10px;text-align:left;background:var(--rf-sunk);border:1px solid var(--rf-rule);color:var(--rf-ink);outline:none}
 .mn-fam:hover{border-color:var(--rf-line)}
 .mn-fam:focus-visible{border-color:var(--rf-muted)}

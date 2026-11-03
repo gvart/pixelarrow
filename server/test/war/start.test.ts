@@ -149,7 +149,7 @@ describe('start API', () => {
     expect(await (await post(me.token, '/alliance', { alliance: 3 })).json<StartView>()).toMatchObject({ step: 'home', alliance: 3, home: null });
     expect((await post(me.token, '/home', { region: 'elaia-e' })).status).toBe(200);
 
-    for (const b of [{ path: 'hero' }, { path: 'warrior' }, { path: 'warrior', family: 'navy' }, { path: 'builder', family: 'line' }, { path: 'trader', family: 'rider' }]) {
+    for (const b of [{ path: 'hero' }, { path: 'warrior' }, { path: 'warrior', family: 'navy' }, { path: 'warrior', family: 'rider' }, { path: 'builder', family: 'line' }, { path: 'trader', family: 'rider' }]) {
       const r = await post(me.token, '/path', b);
       expect(r.status, JSON.stringify(b)).toBe(409);
       expect(await code(r)).toBe('bad_path');

@@ -28,14 +28,15 @@ export const PATHS: Record<PathId, { name: string; does: string; cap: number; st
 };
 export const PATH_IDS = Object.keys(PATHS) as PathId[];
 
-/** The warrior's families (W-86; the war skills' four, src/war/sim/skills.ts) and his first men in each (W-95). */
-export const FAMILIES: Record<Family, { name: string; does: string; startText: string; start: readonly string[] }> = {
+/** Riders return with mounts. */
+export type StartFamily = Exclude<Family, 'rider'>;
+/** The warrior's families (W-86; src/war/sim/skills.ts) and his first men in each (W-95). */
+export const FAMILIES: Record<StartFamily, { name: string; does: string; startText: string; start: readonly string[] }> = {
   line: { name: 'Phalanx', does: 'Spears and big shields. They hold the line.', startText: '3 hoplites, 3 militia', start: ['hoplite', 'hoplite', 'hoplite', 'militia', 'militia', 'militia'] },
   shock: { name: 'Celtic warband', does: 'Long swords, little armour. They hit hard.', startText: '6 swordsmen', start: ['celt_sword', 'celt_sword', 'celt_sword', 'celt_sword', 'celt_sword', 'celt_sword'] },
   missile: { name: 'Skirmishers', does: 'Bows, slings and javelins. Weak up close.', startText: '2 archers, 2 slingers, 2 javelins', start: ['archer', 'archer', 'slinger', 'slinger', 'javelineer', 'javelineer'] },
-  rider: { name: 'Riders', does: 'Fast horsemen. They strike and ride away.', startText: '4 horsemen, 2 horse archers', start: ['thessalian', 'thessalian', 'thessalian', 'thessalian', 'horse_archer', 'horse_archer'] },
 };
-export const FAMILY_IDS = Object.keys(FAMILIES) as Family[];
+export const FAMILY_IDS = Object.keys(FAMILIES) as StartFamily[];
 
 /** Where an alliance's new players may make their home: its home region and its four entry regions. */
 export function homeChoices(alliance: AllianceId): WorldRegion[] {
@@ -67,6 +68,6 @@ export function pathRefusal(path: string, family?: string | null): string | null
 }
 
 /** A legal choice's first men, in slot order. */
-export function pathStart(path: PathId, family?: Family | null): readonly string[] {
+export function pathStart(path: PathId, family?: StartFamily | null): readonly string[] {
   return path === 'warrior' ? FAMILIES[family!].start : PATHS[path].start;
 }
