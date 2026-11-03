@@ -60,7 +60,8 @@ const IDLE_ODDS = 3;
 const CHOP = ['chop', 'build', 'idle'] as const;
 const MINE = ['mine', 'chop', 'build', 'idle'] as const;
 const HARVEST = ['harvest', 'idle'] as const;
-const BUILD = ['build', 'chop', 'idle'] as const;
+// W-205: a sheet with no labour clip swings what it has (a strike, a smith's hammer) so no man stands idle at work
+const BUILD = ['build', 'chop', 'mine', 'thrust', 'slash', 'stab', 'attack', 'forge', 'cook', 'trade', 'heal', 'idle'] as const;
 // a loaded man walks: his load is an overlay on the walk (LOADS, drawn by ./units.ts at the sheet's `loads` anchors)
 const CARRY = ['walk'] as const;
 const FLEE = ['run', 'walk'] as const;
@@ -136,6 +137,8 @@ interface Mem {
   hp: number; blow: number; ranged: boolean; one: OneShot | null; loop: string; loopAt: number; fall: OneShot | null; px: number; py: number; t: number; v: number;
   /** Locomotion: cycle phase, the clip shown, the moving gait (hysteresis), since when nearly still (-1: moving). */
   phase: number; loco: string; run: boolean; still: number;
+  /** The last frame seen at work (W-205). */
+  work: number;
 }
 interface SquadAnim { team: number; order: string; foeNear: boolean; fought: number; cheer: number; cx: number; cy: number; r: number; n: number; attacking: boolean }
 export interface Pick { clip: string; frame: number }
@@ -184,6 +187,14 @@ export class Animator {
     return m?.loco ? Math.round(Math.abs(Math.sin(m.phase * 2 * Math.PI))) : 0;
   }
 
+  /** W-205: the frame a man at work just drawn is the blow of his clip (true once a swing). */
+  workBlow(id: number, frame: number, strike: number): boolean {
+    const m = this.mem.get(id);
+    if (!m || m.work === frame) return false;
+    m.work = frame;
+    return frame === strike;
+  }
+
   /** Forget units no longer in the snapshot. */
   prune(alive: Set<number>): void {
     for (const id of this.mem.keys()) if (!alive.has(id)) this.mem.delete(id);
@@ -192,7 +203,7 @@ export class Animator {
   pick(d: DrawUnit, clips: Clips, at: AnimTime, units: DrawUnit[], shots: readonly { by: number }[]): Pick {
     const u = d.u, { now } = at, cls = u.cls;
     let m = this.mem.get(u.id);
-    if (!m) this.mem.set(u.id, (m = { hp: u.hp, blow: -1e9, ranged: !!RANGED[cls], one: null, loop: '', loopAt: now, fall: null, px: d.x, py: d.y, t: now, v: 0, phase: (hash(u.id, 3) % 1000) / 1000, loco: '', run: false, still: -1 }));
+    if (!m) this.mem.set(u.id, (m = { hp: u.hp, blow: -1e9, ranged: !!RANGED[cls], one: null, loop: '', loopAt: now, fall: null, px: d.x, py: d.y, t: now, v: 0, phase: (hash(u.id, 3) % 1000) / 1000, loco: '', run: false, still: -1, work: -1 }));
     // the time render reaches snapshot tick k
     const msAt = (k: number) => now + (k - at.tick) * at.tickMs;
 

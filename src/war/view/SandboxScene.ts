@@ -229,6 +229,7 @@ export class SandboxScene extends Phaser.Scene {
     this.fog = new FogLayer(this, this.iso, r);
     this.feel = new Feel(this.iso);
     this.sparks = new Sparks(this);
+    this.units.workDust = (x, y) => this.sparks.work(x, y, this.time.now, this.cameras.main.zoom);
     this.units.anim.override = workClip;
     this.gUi = this.add.graphics().setDepth(11);
 

@@ -2,7 +2,7 @@
  * The puffs of ordinary blows (./hits.ts): a few hot sparks thrown off where two armed men meet, a low dust burst at the
  * feet where a beast strikes or is struck (a heavy blow: a wider one). Pooled records drawn with two Graphics (dust
  * under the men, sparks over them), stepped alpha and square pixels; a cap on live particles (the oldest go) and none
- * zoomed far out keep a big melee's frame cheap.
+ * zoomed far out keep a big melee's frame cheap. Also the small puff of a man at work (W-205).
  */
 import Phaser from 'phaser';
 import type { PuffKind } from './hits';
@@ -14,11 +14,14 @@ export const MAX_PARTS = 120;
 const LOD = 0.3;
 const SPARK = [0xfff6d0, 0xffd27a, 0xffb347];
 const DUST = 0xa89878;
+/** Least ms between two puffs of work dust (W-205). */
+const WORK_GAP = 120;
 
 export class Sparks {
   private parts: P[] = [];
   private under: Phaser.GameObjects.Graphics;
   private over: Phaser.GameObjects.Graphics;
+  private workAt = -Infinity;
 
   constructor(scene: Phaser.Scene) {
     this.under = scene.add.graphics().setDepth(9.5);
@@ -42,6 +45,13 @@ export class Sparks {
       const a = Math.PI * (i / (n - 1)) + (Math.random() - 0.5) * 0.4, s = (30 + Math.random() * 30) * w;
       this.push({ x: fx + Math.cos(a) * 6 * w, y: fy - 1, vx: Math.cos(a) * s + sx * 20, vy: -Math.sin(a) * s * 0.3, t0: now, life: 420 + Math.random() * 200, r: (6 + Math.random() * 4) * w, c: DUST, spark: false });
     }
+  }
+
+  /** W-205: a tool come down at world px (x, y): two wisps of dust, at most one puff per WORK_GAP so a crew never fills the pool. */
+  work(x: number, y: number, now: number, zoom: number): void {
+    if (zoom < LOD || now - this.workAt < WORK_GAP) return;
+    this.workAt = now;
+    for (const dir of [-1, 1]) this.push({ x: x + dir * 2, y: y - 1, vx: dir * (10 + Math.random() * 14), vy: -8 - Math.random() * 8, t0: now, life: 320 + Math.random() * 160, r: 3 + Math.random() * 2, c: DUST, spark: false });
   }
 
   private push(p: P): void {
