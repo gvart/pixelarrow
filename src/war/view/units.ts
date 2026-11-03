@@ -621,7 +621,7 @@ export class UnitLayer {
       // facing, projected: a tile-space direction (dx, dy) runs (dx - dy, (dx + dy) / 2) on screen
       const qi = this.quadrant(u.id, l?.facing ?? d.facing), q = sheet.rows[qi];
       const p = this.anim.pick(d, sheet.clips, at, units, shots);
-      if (u.state === 'build' && this.workDust && this.anim.workBlow(u.id, p.frame, sheet.clips.get(p.clip)!.strike) && p.clip !== 'idle') this.workDust(f.x + Math.cos(d.facing) * 10 - Math.sin(d.facing) * 10, f.y + (Math.cos(d.facing) + Math.sin(d.facing)) * 5);
+      if (u.state === 'build' && this.workDust && this.anim.workBlow(u.id, p.frame, sheet.clips.get(p.clip)!.strike) && p.clip !== 'idle') this.workDust(f.x + (Math.cos(d.facing) - Math.sin(d.facing)) * 14, f.y + (Math.cos(d.facing) + Math.sin(d.facing)) * 7);
       if (this.watch.has(u.id)) this.drawnAs.set(u.id, { clip: p.clip, frame: p.frame, row: QUADRANT[qi], x: f.x, y: f.y, ox: q.ox, oy: q.oy, scale: sheet.scale, ring: sheet.ring, fw: sheet.fw, fh: sheet.fh });
       let [key, frame] = sheet.frames.get(p.clip)![q.row][p.frame];
       const po = this.pose?.(u.id, at.now), hp = u.state !== 'dead' ? this.hit?.(u.id, at.now) : undefined;

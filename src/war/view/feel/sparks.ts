@@ -14,6 +14,7 @@ export const MAX_PARTS = 120;
 const LOD = 0.3;
 const SPARK = [0xfff6d0, 0xffd27a, 0xffb347];
 const DUST = 0xa89878;
+const WORK_DUST = 0xd8cdb0;
 /** Least ms between two puffs of work dust (W-205). */
 const WORK_GAP = 120;
 
@@ -47,11 +48,11 @@ export class Sparks {
     }
   }
 
-  /** W-205: a tool come down at world px (x, y): two wisps of dust, at most one puff per WORK_GAP so a crew never fills the pool. */
+  /** W-205: a tool come down at world px (x, y): three wisps of dust, at most one puff per WORK_GAP so a crew never fills the pool. */
   work(x: number, y: number, now: number, zoom: number): void {
     if (zoom < LOD || now - this.workAt < WORK_GAP) return;
     this.workAt = now;
-    for (const dir of [-1, 1]) this.push({ x: x + dir * 2, y: y - 1, vx: dir * (10 + Math.random() * 14), vy: -8 - Math.random() * 8, t0: now, life: 320 + Math.random() * 160, r: 3 + Math.random() * 2, c: DUST, spark: false });
+    for (const dir of [-1, 0, 1]) this.push({ x: x + dir * 3, y: y - 1, vx: dir * (12 + Math.random() * 14), vy: -10 - Math.random() * 10, t0: now, life: 360 + Math.random() * 160, r: 5 + Math.random() * 3, c: WORK_DUST, spark: false });
   }
 
   private push(p: P): void {
