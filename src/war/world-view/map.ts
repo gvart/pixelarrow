@@ -166,6 +166,9 @@ export function allianceColor(_art: WorldArt, a: number): string {
   return TEAM_CSS[a] ?? '#888';
 }
 
+/** W-87 a cart riding with his group is on the group's one road: the men's marker tells both. */
+const rides = (c: ConvoySnap, st: MapState): boolean => !!st.transit[0] && c.from === st.transit[0].from && c.to === st.transit[0].to;
+
 export class WorldMap {
   readonly ctx: CanvasRenderingContext2D;
   /** Camera: map px at the canvas's top-left, CSS px per map px. */
@@ -1106,7 +1109,7 @@ export class WorldMap {
       ...[...spots.events.values()].map(([x, y, r]) => [x - r - 8 * s, y - r - 8 * s, x + r + (this.far ? 64 : 160) * s, y + r + 8 * s] as Box),
       ...[...spots.banners].map(([id, [x, y, b]]) => [x, y, x + 38 * b + (10 * String(st.squads.get(id)).length + 14) * s, y + 56 * b] as Box),
       // your carts (others' are small and pass under the names)
-      ...st.convoys.filter((c) => c.alliance === st.you).map((c) => {
+      ...st.convoys.filter((c) => c.alliance === st.you && !rides(c, st)).map((c) => {
         const q = 32 * s, [x, y] = this.transitPos({ ...c, men: 0, state: 'moving' }, st.now).map((v) => Math.round(v / q) * q);
         return [x - 16 * s - q / 2, y - 16 * s - q / 2, x + 16 * s + 70 * s + q / 2, y + 16 * s + q / 2] as Box;
       }),
@@ -1299,7 +1302,7 @@ export class WorldMap {
   private drawConvoys(g: CanvasRenderingContext2D, st: MapState, mine: boolean): void {
     const s = this.u;
     for (const c of st.convoys) {
-      if ((c.alliance === st.you) !== mine) continue;
+      if ((c.alliance === st.you) !== mine || (mine && rides(c, st))) continue;
       const [x, y] = this.transitPos({ ...c, men: 0, state: 'moving' }, st.now), r = (mine ? SIZE.convoy : SIZE.foreignConvoy) * s;
       this.disc(g, x, y, r, allianceColor(this.art, c.alliance), (mine ? 3 : 2) * s);
       if (c.safe) { g.setLineDash([4 * s, 3 * s]); g.strokeStyle = '#9fd47a'; g.lineWidth = 1.5 * s; g.beginPath(); g.arc(x, y, r + 3 * s, 0, Math.PI * 2); g.stroke(); g.setLineDash([]); }

@@ -4,6 +4,7 @@
  * the guide's bandit pair without a loss within 3 minutes of arrival and raise a camp in the home town. W-170: the builder's
  * and the trader's chains close on what they do, on the same watch.
  */
+import { eventForPath } from '../../src/war/view/hud/worldEvents';
 import { describe, expect, it } from 'vitest';
 import dodonaJson from '../../src/war/regions/dodona.json';
 import elaiaJson from '../../src/war/regions/elaia.json';
@@ -169,5 +170,17 @@ describe('W-170 a chain per path', () => {
     const all = guideSteps('builder').map((s) => s.id);
     expect(guideOpen({ v: 1, done: all }, 'builder')).toBe(false);
     expect(guideOpen({ v: 1, done: all }, 'trader')).toBe(true);
+  });
+});
+
+describe('W-174 the world event card tells a path its own events', () => {
+  it('fights to a warrior, a caravan rush to a trader, nothing to a builder', () => {
+    expect(eventForPath('bossWake', 'warrior')).toBe(true);
+    expect(eventForPath('caravanRush', 'warrior')).toBe(false);
+    expect(eventForPath('caravanRush', 'trader')).toBe(true);
+    expect(eventForPath('bossWake', 'trader')).toBe(false);
+    expect(eventForPath('bossWake', 'builder')).toBe(false);
+    expect(eventForPath('caravanRush', 'builder')).toBe(false);
+    expect(eventForPath('bossWake', null)).toBe(true);
   });
 });

@@ -20,7 +20,7 @@ function rng(seed: number): () => number {
 describe('the Tunnel of Shades', () => {
   it('the wipe: 0 men start the clock, 6 pending, nothing yet', () => {
     expect(settleTunnel({ alive: 0, nextAt: null }, T0)).toEqual({ raise: 0, nextAt: T0 + 10 * MIN, alive: 0, pending: 6 });
-    expect(tunnelLine(0, T0 + 10 * MIN, T0 + 2 * MIN + 18_000)).toBe('Next shade rises in 7:42, 0/6');
+    expect(tunnelLine(0, T0 + 10 * MIN, T0 + 2 * MIN + 18_000)).toBe('Next fighter rises in 7:42 · 0/6');
   });
 
   it('0 men: 1 man after 10 min, then one every 10 min up to 6, never past it', () => {
@@ -100,7 +100,7 @@ describe('the army destroyed card (wiped)', () => {
     expect(wipeNext(t)).toEqual({ at: T0 + 4 * H + 12 * MIN, text: 'Your first wounded man is fit in' });
     expect(wipeLine(t, T0)).toBe('3 wounded heal in 4 h 12 m');
     expect(wipeNext({ ...t, nextAt: T0 + 7 * MIN })).toEqual({ at: T0 + 7 * MIN, text: 'The next man rises in' });
-    expect(wipeLine({ ...t, nextAt: T0 + 7 * MIN }, T0)).toBe('Next shade rises in 7:00 · 3 wounded heal in 4 h 12 m');
+    expect(wipeLine({ ...t, nextAt: T0 + 7 * MIN }, T0)).toBe('Next fighter rises in 7:00 · 3 wounded heal in 4 h 12 m');
     expect(wipeLine({ ...none, nextAt: T0 + 7 * MIN }, T0)).toBe(''); // the headline says it all
     expect(span(7 * MIN + 42_000)).toBe('7:42');
   });

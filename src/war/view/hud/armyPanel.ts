@@ -26,12 +26,14 @@ export interface ArmyView {
   wipe: { alive: number; floor: number; nextAt: number | null; now: number } | null;
   /** The select-all key's label. */
   key: string;
+  /** What the count counts: "fighters" for a path whose workers and crew walk beside them (default "men"). */
+  word?: string;
 }
 
 /** What the panel says: the count line, the line under it and its tone, and whether a click selects the men here. */
 export function armyText(v: ArmyView): { count: string; line: string; tone: 'gold' | 'dim'; pick: boolean } {
   // over the cap (a sandbox scenario, men from souls past it): the count alone, not "41 / 12"
-  const count = `<b>${v.men}</b>${v.men > v.max ? '' : ` / ${v.max}`} men${v.waiting ? ` · <b>${v.waiting}</b> at home` : ''}`;
+  const count = `<b>${v.men}</b>${v.men > v.max ? '' : ` / ${v.max}`} ${v.word ?? 'men'}${v.waiting ? ` · <b>${v.waiting}</b> at home` : ''}`;
   if (v.wipe) return { count, line: `Next man rises in ${v.wipe.nextAt === null ? '…' : clock(v.wipe.nextAt - v.wipe.now)} · ${v.wipe.alive}/${v.wipe.floor}`, tone: 'gold', pick: false };
   if (v.here) return { count, line: `Click${v.key ? ` or ${v.key}` : ''}: select them`, tone: 'dim', pick: true };
   if (v.group) return { count, line: v.group.road ? `On the road to ${v.group.region}` : `Your men are in ${v.group.region}`, tone: 'dim', pick: false };
@@ -75,10 +77,10 @@ export function mountArmyPanel(s: SandboxScene, card: HTMLElement): { refresh(sh
       // roster also holds men a scenario never sent, who are not anywhere the player can reach
       // online the rest of his group: men on no field here, at rest in one region or on one road (W-87); men at home wait (W-98)
       const rest = s.sim.net ? R.rows().filter((r) => r.where === 'away' && !(r.p.hero.cls ?? '').startsWith('civ_')) : [];
-      const home = rest.filter((r) => r.region === R.homeName()), there = rest.find((r) => r.region !== R.homeName());
-      const here = mineHere().length, group = here ? null : there ? { region: there.region, road: R.onRoad(there.p.id) } : home.length ? { region: R.homeName(), road: false } : null;
+      const home = rest.filter((r) => r.region === R.homeName()), there = rest.find((r) => r.region !== R.homeName() && r.region !== s.region.name);
+      const here = mineHere().length, group = here ? null : there ? { region: there.region, road: R.onRoad(there.p.id) } : home.length && s.region.name !== R.homeName() ? { region: R.homeName(), road: false } : null;
       const t = tunnelHost(s), wiped = !!t && t.ever && t.alive === 0 && t.pending > 0;
-      const v = armyText({ ...R.army(), ...(s.sim.net ? {} : { men: armyMen(s) }), here, waiting: here || there ? (s.region.name === R.homeName() ? 0 : home.length) : 0, group, wipe: wiped ? { alive: t.alive, floor: t.floor, nextAt: t.nextAt, now: t.now() } : null, key: keys.label('sel.all') });
+      const v = armyText({ word: R.way.path && R.way.path !== 'warrior' ? 'fighters' : 'men', ...R.army(), ...(s.sim.net ? {} : { men: armyMen(s) }), here, waiting: here || there ? (s.region.name === R.homeName() ? 0 : home.length) : 0, group, wipe: wiped ? { alive: t.alive, floor: t.floor, nextAt: t.nextAt, now: t.now() } : null, key: keys.label('sel.all') });
       const title = R.way.path === 'warrior' || !R.way.path ? 'Your army' : 'Your men';
       if (nm.textContent !== title) nm.textContent = title;
       pick = v.pick;

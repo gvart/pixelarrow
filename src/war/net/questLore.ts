@@ -23,9 +23,9 @@ export const guideGiver = (team: number): Giver => GUIDE_GIVER[team] ?? GUIDE_GI
  * a mortal and woke as what his blood always was, a god's child; the dead feel it and wake near him.
  */
 export const GUIDE_INTRO: Record<'warrior' | 'builder' | 'trader', string> = {
-  warrior: 'You died a mortal, and woke on Metaxy as what your blood always was: a god\'s child. The dead feel it and wake near you. Since the Wardens broke their oath the rim thins, and the Abyss leans closer. Walk to {town} with me.',
-  builder: 'You died a mortal, and woke on Metaxy as what your blood always was: a god\'s child. The dead wake with nothing over their heads, and the rim thins. Your hands will raise what stands against it. {town} waits.',
-  trader: 'You died a mortal, and woke on Metaxy as what your blood always was: a god\'s child. No land here has all it needs, and nothing moves unless someone carries it. Your cart is the road. Start from {town}.',
+  warrior: 'You woke on Metaxy, a god\'s child. The dead wake near you.',
+  builder: 'You woke on Metaxy, a god\'s child. The dead wake with no roof.',
+  trader: 'You woke on Metaxy, a god\'s child. Nothing moves unless you carry it.',
 };
 
 export interface StepLore {

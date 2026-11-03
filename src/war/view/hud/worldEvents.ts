@@ -11,6 +11,7 @@ import type { ServerMsg } from '../../net/protocol';
 import { EVENT_INFO, type WorldEvent, type WorldEventKind } from '../../world/events';
 import { worldRegion } from '../../world/graph';
 import { EVENT_LOOK, eventIcon } from '../../world-view/eventLook';
+import type { PathId } from '../../world/start';
 import type { SandboxScene } from '../SandboxScene';
 import { sandboxRoster } from './roster/state';
 import { icon } from './kit';
@@ -18,6 +19,9 @@ import { chip, details, qcard } from './qcard';
 import { eventHelp, eventWhen } from './explain';
 
 type Mk = (id: string, css: string, html?: string) => HTMLElement;
+
+/** W-174 the card tells a path's own events: fights to a warrior, a caravan rush to a trader, nothing to a builder (the world map lists them all). No path: all. */
+export const eventForPath = (kind: WorldEventKind, path: PathId | null): boolean => !path || (path === 'warrior' ? kind !== 'caravanRush' : path === 'trader' && kind === 'caravanRush');
 
 const clock = (ms: number) => {
   const t = Math.max(0, Math.ceil(ms / 1000)), h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), s = t % 60, p = (n: number) => String(n).padStart(2, '0');
@@ -74,8 +78,11 @@ export function mountWorldEvents(s: SandboxScene, mk: Mk): void {
   // built anew only when what it tells changes (the tooltip keeps its anchor); the clock ticks in place
   let key = '', has = false;
   const render = () => {
-    const now = Date.now(), run = events.filter((e) => e.endAt > now).sort((a, b) => Number(b.region === here()) - Number(a.region === here()));
-    const e = run[0] ?? (next && next.startAt > now ? next : null);
+    const now = Date.now(), mine = (e: WorldEvent) => eventForPath(e.kind, sandboxRoster(s).way.path);
+    const run = events.filter((e) => e.endAt > now && mine(e)).sort((a, b) => Number(b.region === here()) - Number(a.region === here()));
+    // W-174 what comes in hours gives way to the first hour's guide: he has one thing to do
+    const guiding = (document.getElementById('rfGuide')?.style.display ?? 'none') !== 'none';
+    const e = run[0] ?? (next && next.startAt > now && mine(next) && !guiding ? next : null);
     has = !!e;
     if (e) {
       const k = `${e.kind}:${e.region}:${e.startAt}:${e.startAt > now}`;

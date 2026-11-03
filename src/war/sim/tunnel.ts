@@ -65,16 +65,16 @@ export function wipeNext(t: WipeState): { at: number | null; text: string } {
   return c ? { at: c.at, text: c.text } : { at: null, text: 'Your next man stands in' };
 }
 
-/** The card's detail line (none when the tunnel alone brings him back): "Next shade rises in 7:42 · 3 wounded heal in 4 h 12 m". */
+/** The card's detail line (none when the tunnel alone brings him back): "Next fighter rises in 7:42 · 3 wounded heal in 4 h 12 m". */
 export function wipeLine(t: WipeState, now: number): string {
   const p: string[] = [];
-  if (t.nextAt !== null && t.wounded > 0) p.push(`Next shade rises in ${span(t.nextAt - now)}`);
+  if (t.nextAt !== null && t.wounded > 0) p.push(`Next fighter rises in ${span(t.nextAt - now)}`);
   if (t.wounded > 0) p.push(`${t.wounded} wounded heal${t.woundedAt !== null ? ` in ${span(t.woundedAt - now)}` : ''}`);
   return p.join(' · ');
 }
 
-/** The HUD and building line: "Next shade rises in 7:42, 3/6" (null: nothing pending). */
+/** The HUD and building line: "Next fighter rises in 7:42 · 3/6" (workers and crew do not count; null: nothing pending). */
 export function tunnelLine(alive: number, nextAt: number | null, now: number, floor: number = TUNNEL.floor): string | null {
   if (nextAt === null || alive >= floor) return null;
-  return `Next shade rises in ${clock(nextAt - now)}, ${alive}/${floor}`;
+  return `Next fighter rises in ${clock(nextAt - now)} · ${alive}/${floor}`;
 }

@@ -87,7 +87,7 @@ const STEP_ON: Record<GuideStepId, (fam: string) => string> = {
   hire: () => icon('res-coin'),
   next: () => icon('act-move'),
 };
-const TARGET: Record<GuideStepId, string> = { soul: 'Soul', gather: 'Wood', lair: 'Bandits', build: 'Camp', house: 'House', access: 'Your house', work: 'Workplace', load: 'Goods', carry: 'Road', sell: 'Town', hire: 'Town', next: 'Road' };
+const TARGET: Record<GuideStepId, string> = { soul: 'Soul', gather: 'Wood', lair: 'Bandits', build: 'Camp', house: 'House', access: 'Your house', work: 'Workplace', load: 'Wood', carry: 'Road', sell: 'Town', hire: 'Town', next: 'Road' };
 
 const CSS = `
 #rfGuide{left:4px;top:4px;width:262px;pointer-events:auto;padding:5px 8px 7px}
@@ -194,11 +194,11 @@ export function mountGuide(s: SandboxScene, mk: Mk): void {
     const nodes = () => s.sim.nodes.filter((n) => (n.res === 'wood' || n.res === 'stone') && n.amount > 0 && !n.guarded);
     const mine = (b: { owner?: string; pre?: true; team: number }) => b.team === team && !b.pre;
     switch (id) {
-      // only a soul he may take (W-101): a stranger would refuse him
-      case 'soul': return near((cur?.souls ?? []).filter((q) => mayHold(R.way, q.cls))) ?? (g.offline ? g.spots.soul : null);
+      // only a soul he may take (W-101: a stranger would refuse him); out of sight online, where the guide's own waits
+      case 'soul': return near((cur?.souls ?? []).filter((q) => mayHold(R.way, q.cls))) ?? g.spots.soul;
       case 'gather': return near(nodes());
       // W-171 the guide's own small camp, where it stands; never the nearest lair, which is a full one
-      case 'lair': return (cur?.lairs ?? []).find((l) => l.state !== 'cleared' && Math.hypot(l.x - g.spots.lair.x, l.y - g.spots.lair.y) < 0.5) ?? null;
+      case 'lair': return g.spots.lair;
       case 'build': case 'house': return g.spots.home;
       case 'access': return near((cur?.buildings ?? []).filter((b) => mine(b) && b.state === 'done')) ?? g.spots.home;
       case 'work': return near((cur?.buildings ?? []).filter((b) => mine(b) && b.state !== 'done')) ?? g.spots.home;
@@ -278,7 +278,7 @@ export function mountGuide(s: SandboxScene, mk: Mk): void {
       // the quest starts (or picks up again): who gives it and why
       announced = true;
       const fresh = save!.done.length === 0;
-      questBanner({ kind: 'start', head: fresh ? 'New quest' : 'Quest continues', title: fresh ? 'The First Hour' : lore(now.id).goal, giver: from, text: fresh ? fill(GUIDE_INTRO[path() ?? 'warrior'], town) : lore(now.id).story, ...(fresh ? {} : { reward: now.reward as Record<string, number>, pay: payLine }) });
+      questBanner({ kind: 'start', head: fresh ? 'New quest' : 'Quest continues', title: fresh ? 'The First Hour' : lore(now.id).goal, giver: from, text: fresh ? GUIDE_INTRO[path() ?? 'warrior'] : undefined, ...(fresh ? {} : { reward: now.reward as Record<string, number>, pay: payLine }) });
     }
     // the HUD layout stops it above the chat and the minimap (./layout.ts): a long step scrolls inside
     if (html !== last) el.innerHTML = last = html;
