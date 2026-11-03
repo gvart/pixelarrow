@@ -1,0 +1,26 @@
+src/war/net/crown.ts
+  s_a7d5d20f628c80::t_4a3ecee09944fd 73,131-132
+server/test/war/crown.test.ts
+  s_a7d5d20f628c80::t_6ca92d281d9dae 13,96,126-131,133-137,143
+server/test/war/feudal.test.ts
+  s_a7d5d20f628c80::t_4a3ecee09944fd 303-306
+  s_a7d5d20f628c80::t_6ca92d281d9dae 281-302,307-397
+server/src/war/crown.ts
+  s_a7d5d20f628c80::t_fd323bc6e9b9fd 6-9,11-13,33,64,122,124,127,133-134,136,150,158,174-181,224,266-278,348,671,675,742
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "4465bf53ce7e5d0821146c56e4d657814154e4b2",
+  "prompts": {},
+  "sessions": {
+    "s_a7d5d20f628c80": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1afee479-b44b-46d2-a159-a540e44e7fb8",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
