@@ -1,0 +1,30 @@
+src/data/warWarlords.ts
+  s_a7d5d20f628c80::t_cb38ed4c283178 109
+tests/war/accessControl.test.ts
+  s_a7d5d20f628c80::t_90f367a6758244 3
+  s_a7d5d20f628c80::t_18b9af421c9f92 10
+docs/impl/global-war-rebuild.md
+  s_a7d5d20f628c80::t_cb38ed4c283178 108,124-139
+docs/impl/paths-rework.md
+  s_a7d5d20f628c80::t_cb38ed4c283178 55,75-79,83,107
+docs/WAR.md
+  s_a7d5d20f628c80::t_cb38ed4c283178 523,663-666,690,693,793-804,1428-1429,1453,1499-1503,1516-1518,1559,1602
+src/war/sim/trade.ts
+  s_a7d5d20f628c80::t_cb38ed4c283178 7-8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "405ce5e6aa43a5323dec3455f291ab1101cb94b1",
+  "prompts": {},
+  "sessions": {
+    "s_a7d5d20f628c80": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1afee479-b44b-46d2-a159-a540e44e7fb8",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
