@@ -1,0 +1,19 @@
+docs/playbook/NEW_FEATURE.md
+  s_a7d5d20f628c80::t_bc4cb541d2780d 23
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "aaf1ede6d6a8f9ccd5f24ff43e8d58529aa1e60a",
+  "prompts": {},
+  "sessions": {
+    "s_a7d5d20f628c80": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1afee479-b44b-46d2-a159-a540e44e7fb8",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
