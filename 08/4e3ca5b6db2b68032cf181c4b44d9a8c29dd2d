@@ -1,0 +1,25 @@
+server/src/war/room.ts
+  s_a7d5d20f628c80::t_e0287125e3bb2f 715-722,724-730
+  s_a7d5d20f628c80::t_0a1dfd4bd39361 723
+server/test/war/npcMarket.test.ts
+  s_a7d5d20f628c80::t_e0287125e3bb2f 197-200
+  s_a7d5d20f628c80::t_82a2a1ed712402 201
+server/src/war/npcMarket.ts
+  s_a7d5d20f628c80::t_e0287125e3bb2f 199
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "084e3ca5b6db2b68032cf181c4b44d9a8c29dd2d",
+  "prompts": {},
+  "sessions": {
+    "s_a7d5d20f628c80": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1afee479-b44b-46d2-a159-a540e44e7fb8",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
