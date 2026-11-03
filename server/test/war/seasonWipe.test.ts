@@ -60,6 +60,9 @@ describe('W-96 season wipe', () => {
       DB().prepare("INSERT INTO war_work_gifts (season, alliance, work, player_id) VALUES (1, 0, 'road', ?1)").bind(pid),
       DB().prepare("INSERT INTO war_fills (id, offer_id, town, res, n, price, tax, seller, buyer, ally, at) VALUES ('wipe-fill', 1, 'dodona', 'food', 1, 1, 0, ?1, ?1, 0, ?2)").bind(pid, now),
       DB().prepare("INSERT INTO war_board_seen (alliance, town, board, at) VALUES (0, 'dodona', '{}', ?1)").bind(now),
+      // W-191: what he held from a town's board, and how much a repeat there weighs
+      DB().prepare("INSERT INTO war_town_jobs (player_id, town, kind, entry, goal, coin, points, created_at) VALUES (?1, 'dodona', 'kill', 'k0.1', 'Hunt', 1, 1, ?2)").bind(pid, now),
+      DB().prepare("INSERT INTO war_town_heat (player_id, town, kind, heat, at) VALUES (?1, 'dodona', 'kill', 1, ?2)").bind(pid, now),
       guideSaveStmt(DB(), pid, { v: 1, done: guideSteps('warrior').map((x) => x.id), hidden: true }),
     ]);
     expect(await guideSaveOf(DB(), pid)).toMatchObject({ hidden: true });
@@ -75,6 +78,7 @@ describe('W-96 season wipe', () => {
     await runInDurableObject(worldStub(env), (o: WarWorldDO) => o.resetSeason());
 
     for (const table of SEASON_WIPE) expect(await count(table), table).toBe(0);
+    expect(SEASON_WIPE).toEqual(expect.arrayContaining(['war_town_jobs', 'war_town_heat']));
     expect((await getFavour(env, pid)).level).toBe(1);
     expect(await guideSaveOf(DB(), pid)).toBeNull();
     // a region's own storage keeps its name and the world's events, whatever else was ever saved in it

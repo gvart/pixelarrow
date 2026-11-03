@@ -1304,13 +1304,18 @@ export class WarRoom {
     for (let i = 0; i < tries; i++) {
       h = Math.imul(h ^ i, 0x01000193) >>> 0;
       const a = (h % 360) * (Math.PI / 180), d = near + ((h >>> 9) % (far - near));
-      const x = Math.round(town.x + Math.cos(a) * d), y = Math.round(town.y + Math.sin(a) * d);
+      const x = Math.round(town.x + Math.cos(a) * d) + 0.5, y = Math.round(town.y + Math.sin(a) * d) + 0.5;
       if (x < 4 || y < 4 || x > this.region.w - 5 || y > this.region.h - 5) continue;
       if (safe.some((c) => x >= c.x - 8 && x <= c.x + c.w + 8 && y >= c.y - 8 && y <= c.y + c.h + 8)) continue;
       if (lairs.some((l) => l.state !== 'cleared' && Math.hypot(l.x - x, l.y - y) < apart)) continue;
-      if (this.sim.walkable(town.x, town.y, x, y)) return { x: x + 0.5, y: y + 0.5 };
+      if (this.sim.walkable(town.x, town.y, x, y)) return { x, y };
     }
-    return { x: town.x + near, y: town.y };
+    // nothing free on the ring: the first walkable ground nearer in, whatever stands there
+    for (let d = near; d > 6; d -= 4) for (let k = 0; k < 8; k++) {
+      const x = town.x + Math.cos((k * Math.PI) / 4) * d, y = town.y + Math.sin((k * Math.PI) / 4) * d;
+      if (this.sim.walkable(town.x, town.y, x, y)) return { x, y };
+    }
+    return { x: town.x, y: town.y };
   }
 
   /** W-61: the works still open of the alliance whose home this is (sites from the region data). */

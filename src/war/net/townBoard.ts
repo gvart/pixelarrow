@@ -206,7 +206,7 @@ export function pathPay(job: { kind: JobKind; coin: number; points: number }, pa
 /** What a job pays him now (W-187, W-189): coin out of this purse, points; rounded down. */
 export function quotePay(job: { kind: JobKind; coin: number; points: number }, path: PathId | null, heat: number, purse: number): { coin: number; points: number } {
   const p = pathPay(job, path), share = repeatShare(heat);
-  return { coin: Math.floor(Math.min(Math.max(0, purse), thinPurse(p.coin * share, purse))), points: Math.floor(p.points * share) };
+  return { coin: Math.floor(Math.min(Math.max(0, purse), thinPurse(p.coin * share, purse))), points: Math.round(p.points * share) };
 }
 
 /** The board's lines as he reads them. */
