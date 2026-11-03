@@ -5,8 +5,8 @@
  *    player `?dev=` or the one kept in localStorage, so the region view opened from here is the same player); a dev
  *    player with no alliance joins `?alliance=` (default Dodona) by the dev route, anyone else makes his start in the
  *    menu (index.html); follows /ws/war/world (polls GET /api/war/world when the socket is
- *    down) and the roster (GET /api/war/roster) for the player's men per region. A transfer sends the roster's person
- *    ids of his men in the region over POST /api/war/world/transfer, TRANSFER_MAX at a time (each arrives as a squad).
+ *    down) and the roster (GET /api/war/roster) for the player's men per region. A transfer (W-87: his whole group)
+ *    goes over POST /api/war/world/transfer.
  *  - MockSource (?offline=1): a made-up mid-season world in memory, transfers run on local timers, so the map can be
  *    browsed with no server.
  */
@@ -14,7 +14,7 @@ import type { WorldSettlement } from '../net/settlements';
 import { SIM_VERSION } from '../../sim/version';
 import { devAuth, warAuth } from '../net/session';
 import { DEFAULT_CAP, splitQuota } from '../net/protocol';
-import { TRANSFER_MAX, type Crest, type LandmarkWorld, type LordWorld, type RegionState, type SeasonBoard, type SeasonSnap, type TransitSnap, type WorldSnapshot } from '../net/world';
+import type { Crest, LandmarkWorld, LordWorld, RegionState, SeasonBoard, SeasonSnap, TransitSnap, WorldSnapshot } from '../net/world';
 import { ALLIANCES, WAR_SEASON } from '../world/alliances';
 import { domainOf, WARLORDS } from '../../data/warWarlords';
 import { edge, worldRegion, WORLD_IDS } from '../world/graph';
@@ -177,10 +177,8 @@ export class NetSource implements WorldSource {
     if (team === null || team === undefined) return { error: 'join an alliance first' };
     try {
       await this.loadRoster();
-      const ids = this.squads.find((s) => s.region === from)?.ids ?? [];
-      if (!ids.length) return { error: `no men of yours stand in ${worldRegion(from)?.name ?? from}` };
-      const ok: TransitSnap[] = [];
-      for (let i = 0; i < ids.length; i += TRANSFER_MAX) ok.push((await this.api<{ transit: TransitSnap }>('POST', '/api/war/world/transfer', { from, to, ids: ids.slice(i, i + TRANSFER_MAX) })).transit);
+      if (!this.squads.some((s) => s.region === from)) return { error: `no men of yours stand in ${worldRegion(from)?.name ?? from}` };
+      const ok = [(await this.api<{ transit: TransitSnap }>('POST', '/api/war/world/transfer', { from, to })).transit];
       if (this.snap) this.snap = { ...this.snap, transit: [...this.snap.transit.filter((t) => !ok.some((o) => o.id === t.id)), ...ok] };
       await this.loadRoster().catch(() => undefined);
       this.view();

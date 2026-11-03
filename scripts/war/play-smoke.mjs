@@ -85,7 +85,7 @@ async function socket(p, region, team, ids) {
   return { send, wait, hello, squad: hello?.squads?.[0], close: () => ws.close() };
 }
 const answer = (m) => m.t === 'stowed' || m.t === 'error';
-/** Men of p at home take `goods` out of the strongroom into their packs, then haul home -> via -> TOWN (one chained transfer). */
+/** Men of p at home take `goods` out of the strongroom into their packs, then march home -> via -> TOWN. */
 async function haul(p, team, via, goods, who) {
   const home = HOMES[team];
   const ros = await p.call('GET', '/api/war/roster');
@@ -97,11 +97,15 @@ async function haul(p, team, via, goods, who) {
   must(out?.t === 'stowed', `${who}: ${JSON.stringify(goods)} out of the strongroom into packs: ${JSON.stringify(out).slice(0, 120)}`);
   await sleep(1500); // the room saves the packs before they leave
   hs.close();
-  const tr = await p.call('POST', '/api/war/world/transfer', { from: home, to: via, ids, path: [TOWN] });
-  let arrived = false;
-  for (let i = 0; i < 60 && !tr.error && !arrived; i++) {
-    arrived = (await p.call('GET', '/api/war/roster')).persons?.some((x) => x.region === TOWN);
-    if (!arrived) await sleep(2000);
+  // W-97: this script holds no world socket, so it is offline: a haul would stop at the first stop; two plain legs
+  let tr, arrived = false;
+  for (const [from, to] of [[home, via], [via, TOWN]]) {
+    tr = await p.call('POST', '/api/war/world/transfer', { from, to });
+    arrived = false;
+    for (let i = 0; i < 60 && !tr.error && !arrived; i++) {
+      arrived = (await p.call('GET', '/api/war/roster')).persons?.some((x) => x.region === to);
+      if (!arrived) await sleep(2000);
+    }
   }
   must(arrived, `${who}'s transfer ${home} -> ${via} -> ${TOWN}: ${JSON.stringify(tr).slice(0, 120)}${arrived ? ', arrived' : ', never arrived'}`);
   const s = await socket(p, TOWN, team, ids);

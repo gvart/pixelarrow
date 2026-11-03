@@ -10,16 +10,15 @@
  *         client -> { t: 'transfer', ...TransferOrder } | { t: 'ping', c }; server -> transferred | error | pong.
  *         W-62 E6: `?chat=1` opens a chat-only socket (no snapshots): alliance chat and map marks, ./chat.ts.
  *
- * Transfer: a squad of the player's standing in region `from` (by its room squad id, or his men there by person id, up
- * to TRANSFER_MAX) leaves it for the adjacent `to`. It may leave from
- * anywhere in `from`: from inside the entry zone that faces `to` it takes the border's travel time; from elsewhere it
- * takes longer, `offExitMsPerTile` (season config) per tile it stands away from that zone (walking there is quicker).
- * No foe may stand within `foeRadius` tiles. In transit the men are on the world map only (a marker from `from` to
- * `to`); on arrival they enter `to` at its entry zone facing `from`, or wait (`queued`) while their alliance's quota
- * there is full. They hold where they arrive; the player takes them over by joining `to`'s room (a rejoin).
+ * Transfer (W-87): the player's whole group in region `from` (every man, the wounded, every cart: the order names nobody)
+ * leaves it for the adjacent `to`, as one transit at one speed. It may leave from anywhere in `from`: from inside the
+ * entry zone that faces `to` it takes the border's travel time; from elsewhere it takes longer, `offExitMsPerTile`
+ * (season config) per tile its furthest man or cart stands away from that zone (walking there is quicker).
+ * No foe may stand within `foeRadius` tiles of any of them. In transit the men are on the world map only (a marker from
+ * `from` to `to`); on arrival they enter `to` at its entry zone facing `from`, or wait (`queued`) while their alliance's
+ * quota there is full. They hold where they arrive; the player takes them over by joining `to`'s room (a rejoin).
  */
 import { z } from 'zod';
-import { ARMY_MAX } from '../sim/soldiers';
 import type { AllianceId } from '../world/types';
 import type { WorldEvent } from '../world/events';
 import { chatClientMsgs, type ChatServerMsg } from './chat';
@@ -27,42 +26,34 @@ import type { PactKind } from './crown';
 
 export type { WorldEvent } from '../world/events';
 
-/** Most men one transfer moves: the whole army (they arrive as one squad). */
-export const TRANSFER_MAX = ARMY_MAX;
-
-const transferFields = z.object({
+/** W-87: names no men, the whole group goes. */
+export const transferSchema = z.object({
   from: z.string().regex(/^[a-z0-9_-]{1,40}$/),
   to: z.string().regex(/^[a-z0-9_-]{1,40}$/),
-  /** The squad id in `from`'s room (as the room's welcome lists it), or: */
-  squad: z.number().int().min(0).max(2 ** 31).optional(),
-  /** the person ids (the roster's) of the player's men standing in `from`, from one or more of his squads there. */
-  ids: z.array(z.string().min(1).max(64)).min(1).max(TRANSFER_MAX).optional(),
-  /** M6h haul: the regions after `to`, in order; the world chains the transfers on arrival, the player offline or not. */
+  /** M6h haul: the regions after `to`, in order; the world chains the transfers on arrival, only while he is online (W-97). */
   path: z.array(z.string().regex(/^[a-z0-9_-]{1,40}$/)).max(12).optional(),
-});
-const oneOf = (o: { squad?: number; ids?: string[] }) => (o.squad === undefined) !== (o.ids === undefined);
-export const transferSchema = transferFields.refine(oneOf, 'squad or ids');
+}).strict();
 export type TransferOrder = z.infer<typeof transferSchema>;
 
 export const worldClientMsgSchema = z.discriminatedUnion('t', [
-  transferFields.extend({ t: z.literal('transfer') }),
+  transferSchema.extend({ t: z.literal('transfer') }),
   z.object({ t: z.literal('ping'), c: z.number().finite() }),
   ...chatClientMsgs, // W-62 E6 alliance chat and marks (./chat.ts)
 ]);
 export type WorldClientMsg = z.infer<typeof worldClientMsgSchema>;
 
-export type TransferError = 'noAlliance' | 'region' | 'notAdjacent' | 'notOwner' | 'foes' | 'unavailable';
+export type TransferError = 'noAlliance' | 'region' | 'notAdjacent' | 'notOwner' | 'foes' | 'down' | 'onRoad' | 'unavailable';
 
-/** M6h: what a transit carries: each man's pack (by person id) and the cart his squad drove, if any. */
+/** M6h: what a transit carries: each man's pack (by person id) and all his carts (W-87: they go with the group). */
 export interface TransitCargo {
   packs: Record<string, { lots: { r: string; n: number; o: string; s?: number }[]; items: import('../../data/items').Item[] }>;
-  cart?: { type: 'handcart' | 'wagon'; lots: { r: string; n: number; o: string; s?: number }[]; items: import('../../data/items').Item[] };
+  carts?: { type: 'handcart' | 'wagon'; lots: { r: string; n: number; o: string; s?: number }[]; items: import('../../data/items').Item[] }[];
 }
 
 /** M6h: a convoy on the world map (any alliance's transit seen by the player's: fog and Safe Roads). */
 export interface ConvoySnap extends TransitSnap {
   alliance: AllianceId;
-  /** The cart it drives (none: men only). */
+  /** The slowest cart it drives (none: men only). */
   cart?: 'handcart' | 'wagon';
   /** Loads it carries, goods by good, items. */
   loads: number;
@@ -244,7 +235,7 @@ export function parseWorldMsg(text: string): WorldClientMsg | null {
     const r = worldClientMsgSchema.safeParse(JSON.parse(text));
     if (!r.success) return null;
     const d = r.data;
-    return (d.t !== 'transfer' || oneOf(d)) && (d.t !== 'say' || (d.text === undefined) !== (d.phrase === undefined)) ? d : null;
+    return (d.t !== 'say' || (d.text === undefined) !== (d.phrase === undefined)) ? d : null;
   } catch {
     return null;
   }

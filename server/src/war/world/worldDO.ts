@@ -124,9 +124,21 @@ export class WarWorldDO extends DurableObject<Env> {
   private ports(): Ports {
     const stub = (id: string) => regionStub(this.env, id);
     return {
-      depart: (from: string, pid: number, who: number | string[], side: Side, to: string, foeRadius: number) => stub(from).depart(from, pid, who, side, to, foeRadius) as Promise<DepartResult>,
+      depart: (from: string, pid: number, side: Side, to: string, foeRadius: number) => stub(from).depart(from, pid, side, to, foeRadius) as Promise<DepartResult>,
       arrive: (to: string, pid: number, alliance: AllianceId, ids: string[], side: Side, lost?: Record<string, number>, cargo?: TransitCargo) => stub(to).arrive(to, pid, alliance, ids, side, lost, cargo) as Promise<ArriveResult>,
+      online: (pid) => this.isOnline(pid),
     };
+  }
+
+  /** W-97: any socket of his here: the map, chat or the gate a region tab holds (admitted). */
+  private isOnline(pid: number): boolean {
+    return this.ctx.getWebSockets(`p:${pid}`).length > 0 || this.gateTabs().some((t) => t.tab.pid === pid && t.tab.in);
+  }
+
+  /** W-97: he is back: a haul waiting for him goes on. */
+  private async wakeHaul(pid: number): Promise<void> {
+    const w = await this.ensure();
+    if (w.wake(pid, Date.now())) await this.commit(w);
   }
 
   /** Save the state, set the alarm for the next arrival (or the season's end) and push the map to sockets. */
@@ -343,10 +355,12 @@ export class WarWorldDO extends DurableObject<Env> {
       this.ctx.acceptWebSocket(server, ['gate']);
       server.serializeAttachment({ pid, alliance, gate: { admin: request.headers.get('x-war-admin') === '1', in: false, at: Date.now(), place: -1 } } satisfies Attachment);
       this.gateRun();
+      await this.wakeHaul(pid);
       return upgraded(client, request);
     }
     this.ctx.acceptWebSocket(server, chat ? [`p:${pid}`, `chat:${alliance ?? 'none'}`, 'chat'] : [`p:${pid}`]);
     server.serializeAttachment({ pid, alliance, ...(chat ? { chat: request.headers.get('x-player-name') || `Player ${pid}` } : {}) } satisfies Attachment);
+    await this.wakeHaul(pid);
     if (chat) {
       const d = this.env.DB;
       send(server, { t: 'chat', you: pid, msgs: d ? await chatHistory(d, alliance) : [], muted: d ? await chatMutes(d, pid) : [] });
@@ -363,7 +377,7 @@ export class WarWorldDO extends DurableObject<Env> {
       if (m.t === 'ping') send(ws, { t: 'pong', c: m.c });
       else if (m.t === 'say' || m.t === 'mark' || m.t === 'mute' || m.t === 'report') await this.chat(ws, me, m);
       else {
-        const r = await this.transfer(me.pid, me.alliance, { from: m.from, to: m.to, squad: m.squad, ids: m.ids });
+        const r = await this.transfer(me.pid, me.alliance, { from: m.from, to: m.to, ...(m.path ? { path: m.path } : {}) });
         send(ws, 'error' in r ? { t: 'error', code: r.error, detail: r.detail } : { t: 'transferred', transit: r.transit });
       }
     } catch (e) {

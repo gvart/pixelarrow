@@ -34,7 +34,8 @@ import { createBots, type Bots } from '../../../src/war/sim/bots';
 import { createWarlords, type WarlordMemory, type WarlordNote, type Warlords } from '../../../src/war/sim/warlords';
 import type { SecretEvent } from '../../../src/war/sim/secrets';
 import { wildDeeds, type WildDeed } from '../../../src/war/net/mastery';
-import { isClassId } from '../../../src/data/classes';
+import { isCivClass, isClassId } from '../../../src/data/classes';
+import { isCartType } from '../../../src/war/sim/siege';
 import { DeltaEncoder } from '../../../src/war/net/codec';
 import { interestRect, seesBoss, visibleTo, type Rect, type TeamVision } from '../../../src/war/net/interest';
 import { isMobFx } from '../../../src/war/sim/mobs';
@@ -105,7 +106,7 @@ export interface Group { cls: string; count: number; persons?: WarPerson[] }
 /** A fight to write back: `id` is unique per room instance (epoch) and tick. */
 export interface Fight { id: string; report: FightReport }
 
-/** A squad gone over a border (M4 transfer out); M6h: with its packs and the cart it drove. */
+/** His group gone over a border (M4 transfer out, W-87); M6h: with its packs and his carts. */
 export interface Departed { ids: string[]; off: number; lost: Record<string, number>; fight?: Fight; cargo?: TransitCargo }
 
 /** W-61: a guard contract the room checks: the poster's team (whose town), the taker, the men he must keep inside. */
@@ -575,67 +576,71 @@ export class WarRoom {
     const centres = this.centres();
     for (const id of this.squadsOf(pid)) {
       const s = this.snap.squads[id];
-      if (s?.civ && (s.order === 'civWork' || s.order === 'gather' || s.order === 'build')) continue; // at work: workplace queues run on
+      if (s && (s.order === 'civWork' || s.order === 'gather' || s.order === 'build')) continue; // W-97: at work: he keeps his last order
       const c = centres.get(id);
       if (c) this.bots.set(id, { kind: 'hold', x: c.x, y: c.y, radius: HOLD_RADIUS });
     }
   }
 
   /**
-   * M4 transfer out: the player's squad `squad` leaves the region over the entry on `side` (src/war/net/world.ts). It
-   * must be a squad of persons with no foe (mobs included) within `foeRadius` tiles. Its men leave the field at once
-   * (off the wire, no corpse). `off`: tiles from the squad's centre to that entry zone (0 inside it). `lost`: hit points
-   * each man is down (they ride along); `fight`: their fight so far not yet written back (XP, kills), for the DO to write
-   * before they leave.
+   * M4 transfer out (W-87): the player's whole group leaves the region over the entry on `side` (src/war/net/world.ts):
+   * every man of his here and every cart of his, crewed or not; nobody stays. It must be men of persons, none down
+   * (W-79: he gets up once no foe is near, or is wounded), with no foe (mobs included) within `foeRadius` tiles of any man
+   * or cart. They leave the field at once (off the wire, no corpse). `off`: tiles from the furthest of them to that entry
+   * zone (0 inside it). `lost`: hit points each man is down (they ride along); `fight`: their fight so far not yet written
+   * back (XP, kills), for the DO to write before they leave.
    */
-  depart(pid: number, who: SquadId | string[], side: Side, foeRadius: number): Departed | { error: 'notOwner' | 'foes'; detail: string } {
+  depart(pid: number, side: Side, foeRadius: number): Departed | { error: 'notOwner' | 'foes' | 'down'; detail: string } {
     this.snap = this.sim.snapshot(); // squads spawned since the last tick
-    let men: Snapshot['units'];
-    if (Array.isArray(who)) {
-      // by person ids: his living men, from any of his squads here
-      const want = new Set(who), mine = new Set(this.squadsOf(pid));
-      men = this.snap.units.filter((u) => u.state !== 'dead' && u.pid && want.has(u.pid) && mine.has(u.squad));
-      if (!men.length || men.length !== want.size) return { error: 'notOwner', detail: 'not all of these men stand here under you' };
-    } else {
-      if (this.owners[who] !== ownerOf(pid) || !this.squadsOf(pid).includes(who)) return { error: 'notOwner', detail: 'not a squad of yours here' };
-      men = this.snap.units.filter((u) => u.squad === who && u.state !== 'dead');
-      if (!men.length || men.some((u) => !u.pid)) return { error: 'notOwner', detail: 'only squads of soldiers (persons) transfer' };
-    }
-    const squads = new Set(men.map((u) => u.squad)), squad = men[0].squad;
-    const team = this.teams[squad];
-    const cx = men.reduce((a, u) => a + u.x, 0) / men.length, cy = men.reduce((a, u) => a + u.y, 0) / men.length;
-    const foe = this.snap.units.some((u) => u.state !== 'dead' && this.teams[u.squad] !== team && (u.x - cx) ** 2 + (u.y - cy) ** 2 <= foeRadius * foeRadius);
+    const me = ownerOf(pid), mine = new Set(this.squadsOf(pid));
+    const ours = this.snap.units.filter((u) => this.owners[u.squad] === me);
+    if (ours.some((u) => u.down)) return { error: 'down', detail: 'a man of yours is down: wait for him to get up' };
+    const men = ours.filter((u) => u.state !== 'dead');
+    if (!men.length) return { error: 'notOwner', detail: 'none of your men stand here' };
+    if (men.some((u) => !u.pid)) return { error: 'notOwner', detail: 'only soldiers (persons) transfer' };
+    const team = this.teams[men[0].squad];
+    const carts = (this.snap.sieges ?? []).filter((e) => e.owner === me && isCartType(e.type) && e.state !== 'destroyed');
+    const spots = [...men, ...carts];
+    const foe = this.snap.units.some((u) => u.state !== 'dead' && this.teams[u.squad] !== team && spots.some((s) => (u.x - s.x) ** 2 + (u.y - s.y) ** 2 <= foeRadius * foeRadius));
     if (foe) return { error: 'foes', detail: `a foe within ${foeRadius} tiles` };
     const e = this.entry(side);
-    const off = Math.hypot(Math.max(e.x0 - cx, 0, cx - e.x1), Math.max(e.y0 - cy, 0, cy - e.y1));
+    const off = Math.max(...spots.map((s) => Math.hypot(Math.max(e.x0 - s.x, 0, s.x - e.x1), Math.max(e.y0 - s.y, 0, s.y - e.y1))));
     const ids = men.map((u) => u.pid!);
     const lost: Record<string, number> = {};
     for (const u of men) if (u.hp < u.maxHp) lost[u.pid!] = u.maxHp - u.hp;
     const persons = this.sim.reportPersons(ids);
-    const fight = persons.length ? { id: `${this.region.id}:${this.epoch}:${this.currentTick}:out${squad}`, report: { tick: this.currentTick, persons, loot: {} } } : undefined;
-    // M6h: their packs and the cart a squad of theirs crews ride the transfer
+    const fight = persons.length ? { id: `${this.region.id}:${this.epoch}:${this.currentTick}:out${pid}`, report: { tick: this.currentTick, persons, loot: {} } } : undefined;
+    // M6h: their packs and all his carts ride the transfer
     const cargo: TransitCargo = { packs: {} };
     for (const id of ids) {
       const at = this.sim.cargo({ persons: [id] });
       const b = at ? takeAll(at.slots) : null;
       if (b && (b.lots.length || b.items.length)) cargo.packs[id] = b;
     }
-    const crewed = (this.snap.sieges ?? []).find((e) => e.owner === ownerOf(pid) && e.crew !== undefined && squads.has(e.crew) && e.state !== 'destroyed');
-    const cart = crewed ? this.sim.stowCart(crewed.id) : null;
-    if (cart) cargo.cart = { type: cart.type, lots: cart.hold.lots.filter((l) => l.n > 1e-9), items: cart.hold.items };
+    for (const c of carts) {
+      const cart = this.sim.stowCart(c.id);
+      if (cart) (cargo.carts ??= []).push({ type: cart.type, lots: cart.hold.lots.filter((l) => l.n > 1e-9), items: cart.hold.items });
+    }
     this.sim.dropPersons(ids);
     for (const u of men) this.diedAt[u.id] = this.currentTick - CORPSE_TICKS; // gone, not fallen: no corpse, no blow
     this.live[team] -= men.length;
     this.snap = this.sim.snapshot();
-    for (const id of squads) if (!this.snap.units.some((u) => u.squad === id && u.state !== 'dead')) this.bots.clear(id);
-    return { ids, off, lost, ...(fight ? { fight } : {}), ...(Object.keys(cargo.packs).length || cargo.cart ? { cargo } : {}) };
+    for (const id of mine) this.bots.clear(id);
+    return { ids, off, lost, ...(fight ? { fight } : {}), ...(Object.keys(cargo.packs).length || cargo.carts ? { cargo } : {}) };
+  }
+
+  /** His men as squads to spawn: soldiers and civilians apart (W-53), so a worker stays a worker. */
+  private parts(persons: WarPerson[]): Group[] {
+    const civ = persons.filter((p) => isCivClass(p.hero.cls ?? '')), men = persons.filter((p) => !isCivClass(p.hero.cls ?? ''));
+    return [men, civ].filter((g) => g.length).map((g) => ({ cls: g[0].hero.cls ?? 'militia', count: g.length, persons: g }));
   }
 
   /**
    * M4 transfer in: `persons` of the player (alliance `team`) arrive over the entry on `side`. Refused (the world keeps
-   * them waiting) while the alliance's quota here is full, its join line is not empty or the player has MAX_SQUADS
-   * here. They hold where they arrive; an online player gets a fresh welcome (his squads), an offline one takes them
-   * over with a join (a rejoin: no new spawn).
+   * them waiting) while the alliance's quota here is full, its join line is not empty or the player would pass
+   * MAX_SQUADS here. They hold where they arrive; an online player gets a fresh welcome (his squads), an offline one takes
+   * them over with a join (a rejoin: no new spawn). `squad`: the first of them, crewing the first cart; the other carts
+   * stand beside it, uncrewed. A pack whose man is gone comes in with the first man (nothing is lost).
    */
   arrive(pid: number, team: number, persons: WarPerson[], side: Side, lost: Record<string, number> = {}, cargo?: TransitCargo): { squad: SquadId; msg: ServerMsg | null } | { error: 'full' | 'team' | 'squads' } {
     // W-63: the banner by ground
@@ -643,29 +648,61 @@ export class WarRoom {
     team = this.bannerTeam(pid) ?? team;
     const p = this.players.get(pid);
     if (team >= this.per.length || (p && p.team !== team)) return { error: 'team' };
-    if (this.squadsOf(pid).length >= MAX_SQUADS) return { error: 'squads' };
+    const parts = this.parts(persons);
+    if (this.squadsOf(pid).length + parts.length > MAX_SQUADS) return { error: 'squads' };
     if (this.queue.some((w) => w.join.team === team) || this.live[team] + persons.length > this.per[team]) return { error: 'full' };
     if (!p) this.players.set(pid, { pid, team, online: false, cam: null, enc: null, sinceKey: -1, bytes: 0 });
-    const squad = this.spawn(ownerOf(pid), team, { cls: persons[0].hero.cls ?? 'militia', count: persons.length, persons }, undefined, side);
+    const spawned = parts.map((g) => this.spawn(ownerOf(pid), team, g, undefined, side)), squad = spawned[0];
     this.sim.hurtPersons(lost);
-    // M6h: each man's pack back; the cart rolls in beside them, crewed by the squad
+    // M6h: each man's pack back; the carts roll in beside them, the first crewed by the squad
     for (const [id, b] of Object.entries(cargo?.packs ?? {})) {
-      const at = this.sim.cargo({ persons: [id] });
-      if (at) fill(at.slots, b as Bundle);
+      const here = persons.some((x) => x.id === id), at = this.sim.cargo({ persons: [here ? id : persons[0].id] });
+      if (at) fill(here ? at.slots : at.slots.map((s) => ({ ...s, cap: Infinity })), b as Bundle);
     }
-    if (cargo?.cart) {
+    (cargo?.carts ?? []).forEach((cart, i) => {
       const e = this.entry(side), men = this.sim.cargo({ squad })!;
-      const x = men.slots[0]?.x ?? (e.x0 + e.x1) / 2, y = men.slots[0]?.y ?? (e.y0 + e.y1) / 2;
-      const c = this.sim.spawnCart(team, ownerOf(pid), cargo.cart.type, x, y, squad);
-      fill(this.sim.cargo({ cart: c })!.slots.map((s) => ({ ...s, cap: Infinity })), cargo.cart as Bundle);
-    }
+      const x = (men.slots[0]?.x ?? (e.x0 + e.x1) / 2) + i * 2, y = men.slots[0]?.y ?? (e.y0 + e.y1) / 2;
+      const c = this.sim.spawnCart(team, ownerOf(pid), cart.type, x, y, i === 0 ? squad : undefined);
+      fill(this.sim.cargo({ cart: c })!.slots.map((s) => ({ ...s, cap: Infinity })), cart as Bundle);
+    });
+    this.snap = this.sim.snapshot(); // a muster or a haul's next leg may come before a tick
     const online = this.players.get(pid)!.online;
     if (!online) {
       const e = this.entry(side);
-      this.bots.set(squad, { kind: 'hold', x: (e.x0 + e.x1) / 2, y: (e.y0 + e.y1) / 2, radius: HOLD_RADIUS * 2 });
+      for (const id of spawned) this.bots.set(id, { kind: 'hold', x: (e.x0 + e.x1) / 2, y: (e.y0 + e.y1) / 2, radius: HOLD_RADIUS * 2 });
     }
     const msg: ServerMsg | null = online ? { t: 'welcome', v: NET_VERSION, region: this.region.id, you: { id: pid, team }, squads: this.squadsOf(pid), tick: this.currentTick, quota: this.quota() } : null;
     return { squad, msg };
+  }
+
+  /**
+   * W-98: his men off the field here (a healed man, one who waited at home) fall in beside the group, or at the team's
+   * entry with nobody standing. null: no room for them now (a full quota, MAX_SQUADS, or he is not in this room): they
+   * wait, the DO tries again. The message: a fresh welcome for an online player.
+   */
+  muster(pid: number, persons: WarPerson[]): { msg: ServerMsg | null } | null {
+    const p = this.players.get(pid);
+    if (!p || !persons.length) return null;
+    const parts = this.parts(persons);
+    if (this.squadsOf(pid).length + parts.length > MAX_SQUADS) return null;
+    if (this.queue.some((w) => w.join.team === p.team) || this.live[p.team] + persons.length > this.per[p.team]) return null;
+    this.snap = this.sim.snapshot();
+    const mine = new Set(this.squadsOf(pid)), men = this.snap.units.filter((u) => u.state !== 'dead' && mine.has(u.squad));
+    const at = men.length ? { x: men.reduce((a, u) => a + u.x, 0) / men.length, y: men.reduce((a, u) => a + u.y, 0) / men.length } : undefined;
+    for (const g of parts) {
+      const id = this.spawn(ownerOf(pid), p.team, g, at);
+      if (!p.online) {
+        const c = at ?? this.sim.snapshot().units.find((u) => u.squad === id);
+        if (c) this.bots.set(id, { kind: 'hold', x: c.x, y: c.y, radius: HOLD_RADIUS });
+      }
+    }
+    this.snap = this.sim.snapshot();
+    return { msg: p.online ? { t: 'welcome', v: NET_VERSION, region: this.region.id, you: { id: pid, team: p.team }, squads: this.squadsOf(pid), tick: this.currentTick, quota: this.quota() } : null };
+  }
+
+  /** The players this room knows, in the field or watching (the DO's muster poll). */
+  playerIds(): number[] {
+    return [...this.players.keys()];
   }
 
   /**
