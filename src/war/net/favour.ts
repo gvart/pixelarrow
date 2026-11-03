@@ -45,7 +45,7 @@ export const FAVOUR_EARN = {
   /** Land, each pay: per claim point his alliance holds where his men stand (at most claimsCap), the region his alliance owns. */
   land: { claim: 1, claimsCap: 3, region: 2 },
   /** W-111 a builder: each second one of his men works on a site or at an alliance work; each good he gives to a work. */
-  built: { labour: 0.03, gift: 1 },
+  built: { labour: 0.03, gift: 0.25 },
   /** W-111 a trader: each coin of goods he sells; each load he brings over a border. */
   sold: 0.2, carried: 2,
 } as const;

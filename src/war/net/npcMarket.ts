@@ -79,8 +79,18 @@ function meanMult(a: number, b: number, par: number): number {
   return (seg(lo, Math.min(hi, sMax), () => max) + seg(Math.max(lo, sMax), Math.min(hi, sMin), line) + seg(Math.max(lo, sMin), hi, () => min)) / (hi - lo);
 }
 
-/** Whole coin the town pays for n sold to it at this stock (rounded down). */
-export const payFor = (g: NpcGoodRule, stock: number, n: number): number => Math.floor(n * g.base * meanMult(stock, stock + n, g.par) * (1 - NPC.price.edge) + EPS);
+/**
+ * W-180 a thin purse pays less: below `NPC.purse.start` the price falls with the purse, to `NPC.purse.thin` of itself at an
+ * empty one, along the deal as the purse falls. So coin leaving a town slows before it runs out, a margin ends with coin
+ * still in the purse, and a dearer route (a longer one) can draw it lower. `nominal`: the price at a full purse.
+ */
+const thinPurse = (nominal: number, purse: number): number => {
+  const full = NPC.purse.start, floor = NPC.purse.thin, b = 1 - floor;
+  return purse - nominal / 2 >= full ? nominal : (nominal * (floor + (b * Math.max(0, purse)) / full)) / (1 + (nominal * b) / (2 * full));
+};
+
+/** Whole coin the town pays for n sold to it at this stock and purse (rounded down); no purse: the price at a full one. */
+export const payFor = (g: NpcGoodRule, stock: number, n: number, purse = Infinity): number => Math.floor(thinPurse(n * g.base * meanMult(stock, stock + n, g.par) * (1 - NPC.price.edge), purse) + EPS);
 /** Whole coin n cost from the town at this stock (rounded up). */
 export const costOf = (g: NpcGoodRule, stock: number, n: number): number => Math.ceil(n * g.base * meanMult(stock, stock - n, g.par) * (1 + NPC.price.edge) - EPS);
 
@@ -96,7 +106,7 @@ function most(want: number, fits: (n: number) => boolean): number {
   return Math.floor(lo * 100) / 100;
 }
 /** The most of `want` this purse pays for. */
-export const sellable = (g: NpcGoodRule, stock: number, want: number, purse: number): number => most(want, (n) => payFor(g, stock, n) <= purse);
+export const sellable = (g: NpcGoodRule, stock: number, want: number, purse: number): number => most(want, (n) => payFor(g, stock, n, purse) <= purse);
 /** The most of `want` this stock lets go for `coin`. */
 export const buyable = (g: NpcGoodRule, stock: number, want: number, coin: number): number => most(Math.min(want, stock), (n) => costOf(g, stock, n) <= coin);
 
@@ -110,10 +120,10 @@ export const purseAfter = (coin: number, days: number): number => (days <= 0 || 
 export interface NpcOffer { res: NpcGood; pay: number; ask: number; stock: number; par: number }
 export interface NpcView { town: string; purse: number; goods: NpcOffer[] }
 
-/** A good's line on the board at this stock: one unit's pay and ask. */
-export const npcOffer = (g: NpcGoodRule, stock: number): NpcOffer => ({
+/** A good's line on the board at this stock and purse: one unit's pay and ask. */
+export const npcOffer = (g: NpcGoodRule, stock: number, purse = Infinity): NpcOffer => ({
   res: g.res, stock, par: g.par,
-  pay: Math.round(midPrice(g, stock) * (1 - NPC.price.edge) * 100) / 100,
+  pay: Math.round(thinPurse(midPrice(g, stock) * (1 - NPC.price.edge), purse) * 100) / 100,
   ask: Math.round(midPrice(g, stock) * (1 + NPC.price.edge) * 100) / 100,
 });
 

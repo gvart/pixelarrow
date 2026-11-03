@@ -182,7 +182,7 @@ export class LocalMarket implements Market {
   npcTown(town: string) {
     if (!npcGoods(town).length) return no('There is no town here');
     const b = this.book(town);
-    return ok<NpcView>({ town, purse: Math.floor(b.purse), goods: npcGoods(town).map((g) => npcOffer(g, b.stock.get(g.res)!)) });
+    return ok<NpcView>({ town, purse: Math.floor(b.purse), goods: npcGoods(town).map((g) => npcOffer(g, b.stock.get(g.res)!, b.purse)) });
   }
 
   npc(m: Omit<NpcMsg, 't'>): Promise<Res<NpcDone>> {
@@ -198,7 +198,7 @@ export class LocalMarket implements Market {
     if (!g) return no('The town does not deal in that');
     const st = b.stock.get(g.res)!;
     if (m.op === 'sell') {
-      const n = Math.min(m.n ?? Infinity, have[g.res] ?? 0), coin = n > 0 ? payFor(g, st, n) : 0;
+      const n = Math.min(m.n ?? Infinity, have[g.res] ?? 0), coin = n > 0 ? payFor(g, st, n, b.purse) : 0;
       if (!(n > 0)) return no(`You have no ${g.res} here`);
       if (coin > b.purse) return no('The town has no coin left to pay you');
       this.s.sim.addStock(team, g.res, -n);

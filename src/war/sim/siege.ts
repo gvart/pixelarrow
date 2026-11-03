@@ -90,6 +90,8 @@ export interface SiegeHooks {
   /** Men within r of (x,y) take a blow of dmg (armour pierce ap). */
   splash(x: number, y: number, r: number, dmg: number, ap: number): void;
   open(x: number, y: number): boolean;
+  /** A man walks straight from one point to the other: no cliff, wall or water between. */
+  walkable(x0: number, y0: number, x1: number, y1: number): boolean;
   /** Move cost of the tile at (x,y) (1 grass). */
   cost(x: number, y: number): number;
   /** M5h3: engineer nodes held by the team's living engineers. */
@@ -499,7 +501,8 @@ export function createSiege(works: Works, rng: Rng, hooks: SiegeHooks) {
         // a mantlet's men stand behind it, in its cover
         const along = e.type === 'mantlet' ? -0.7 - row * 0.8 : 0.9 - row * 0.9, perp = side * (e.type === 'siegeLadder' || e.type === 'mantlet' ? 0.55 : 0.8);
         const x = e.x + c * along - s * perp, y = e.y + s * along + c * perp;
-        if (hooks.open(x, y)) out.push(x, y);
+        // a point over a cliff from the engine is no place beside it: its crew would walk the long way round to get there
+        if (hooks.open(x, y) && hooks.walkable(e.x, e.y, x, y)) out.push(x, y);
         else out.push(e.x, e.y);
       }
       return out;

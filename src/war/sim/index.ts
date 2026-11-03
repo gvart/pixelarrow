@@ -151,6 +151,7 @@ const YIELD_TIGHT = 0.15; // ... and in a narrow place, where they squeeze past 
 const STUCK_TICKS = 8;
 const STUCK_WINDOW = 30; // W-55: ticks over which a walker must get STUCK_NET tiles on, else he re-paths on his own
 const STUCK_NET = 0.5;
+const OWN_ON = 0.15; // a man this near a waypoint of his own way is on it, whatever lies ahead
 const CLIMB_LOOK = 1.5; // tiles ahead a climb is felt
 const FACE = 18; // a standing squad turns to face enemies this near
 const FACE_TURN = 0.08; // rad per tick
@@ -536,6 +537,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       const t = tileAt(grid, x, y);
       return t >= 0 && grid.cost[t] > 0 && grid.deck[t] === 0;
     },
+    walkable: (x0, y0, x1, y1) => walkClear(grid, x0, y0, x1, y1),
     cost(x, y) {
       const t = tileAt(grid, x, y);
       return t >= 0 && grid.cost[t] > 0 ? grid.cost[t] : 1;
@@ -2056,7 +2058,14 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       return [sx, sy];
     }
     if (u.own.length) {
-      while (u.oi < u.own.length / 2 - 1 && Math.hypot(u.own[u.oi * 2] - u.x, u.own[u.oi * 2 + 1] - u.y) < (s.fixed ? 0.5 : 0.3)) u.oi++; // wall-walk climbers: a looser hold on waypoints at a crowded stair foot
+      // wall-walk climbers: a looser hold on waypoints at a crowded stair foot, but only with the next one open from here:
+      // inside that loose hold he may still stand on the tile a cliff closes it from, and turning for it there sends him back
+      // to this one, for ever (a crew man left behind his cart). Then he walks right up to this one first.
+      while (u.oi < u.own.length / 2 - 1) {
+        const d = Math.hypot(u.own[u.oi * 2] - u.x, u.own[u.oi * 2 + 1] - u.y);
+        if (s.fixed ? d >= 0.5 || (d >= OWN_ON && !walkClear(grid, u.x, u.y, u.own[u.oi * 2 + 2], u.own[u.oi * 2 + 3])) : d >= 0.3) break;
+        u.oi++;
+      }
       // W-59: a corner is done once the next one is in sight (two men making for one corner shove each other off it for
       // good; they need not stand on it, only get round it). Not on a wall walk: its stair and deck steps are straight.
       if (!s.fixed && u.oi < u.own.length / 2 - 1 && sees(false, u.x, u.y, u.own[u.oi * 2 + 2], u.own[u.oi * 2 + 3])) u.oi++;
@@ -3948,6 +3957,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       return { stepMs, units: units.filter((u) => u.alive).length, visionMs: vision.ms() };
     },
     checkPlacement: works.checkPlacement,
+    walkable: (x0, y0, x1, y1) => walkClear(grid, x0, y0, x1, y1),
     checkWall: works.checkWall,
     checkBridge: works.checkBridge,
     resourceNodes: works.resourceNodes,

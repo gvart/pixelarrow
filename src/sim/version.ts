@@ -35,5 +35,7 @@
  * 13: paths-feudal (W-153): tribute set aside in a building for its owner's liege, the setLiege order (clients on 12 reload).
  * 14: paths-loops (W-140..W-149): NPC towns, path story chains and their triggers, a trader's first cart (clients on 13
  *    reload).
+ * 15: crew-walk (W-182): a fixed squad takes a waypoint only where the next one can be walked to, no crew point over a
+ *    cliff from its cart (clients on 14 reload).
  */
-export const SIM_VERSION = 14;
+export const SIM_VERSION = 15;

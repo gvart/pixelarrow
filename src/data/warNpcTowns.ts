@@ -24,13 +24,16 @@ export const NPC = {
   /** Tiles from the town's spot within which his men and carts deal with it. */
   reach: 14,
   /** W-141 a good's price by the hops to its nearest land that yields it: at + per x hops, hops up to `far`; a good no land yields: `made`. */
-  distance: { at: 0.6, per: 0.5, far: 4, made: 1.4 },
+  distance: { at: 0.62, per: 0.45, far: 4, made: 1.7 },
   /** W-141 stock a town keeps of a good: `made` if its land does not yield it, else `land` x its land's points. */
-  par: { made: 120, land: 150 },
+  par: { made: 800, land: 500 },
   /** W-141 price by stock: 1 + slope x (1 - stock / par), within min..max; the town's edge either way; hours for stock to go 63% back to par. */
-  price: { slope: 0.5, min: 0.5, max: 1.5, edge: 0.06, recoverHours: 12 },
-  /** W-142 the purse: what it starts the season with; silver minted a UTC day, while under `cap` coin. */
-  purse: { start: 400, mintSilver: 5, cap: 1000 },
+  price: { slope: 0.3, min: 0.5, max: 1.5, edge: 0.06, recoverHours: 4 },
+  /**
+   * W-142 the purse: what it starts the season with; silver minted a UTC day, while under `cap` coin. W-180 `thin`: what share
+   * of its price a town pays at an empty purse, rising to the whole of it at `start`.
+   */
+  purse: { start: 4000, mintSilver: 5, cap: 4000, thin: 0.25 },
 } as const;
 
 /** W-144 what a hired worker costs (W-103 is the cap); paid into the town's purse. */

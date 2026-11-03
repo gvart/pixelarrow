@@ -335,7 +335,7 @@ export function mountMarket(s: SandboxScene, mk: Mk): MarketHud {
     if (!npc) return '<div class="rf-dim mk-none">Reading the town\'s prices…</div>';
     const men = atTown(), have = carriedHere(), pick = npc.goods.find((g) => g.res === form.nPick) ?? npc.goods[0], rule = npcGood(T, pick.res)!;
     form.nPick = pick.res;
-    const n = Math.max(1, Math.floor(form.nN) || 1), cost = costOf(rule, pick.stock, Math.min(n, pick.stock)), pay = Math.min(payFor(rule, pick.stock, n), npc.purse);
+    const n = Math.max(1, Math.floor(form.nN) || 1), cost = costOf(rule, pick.stock, Math.min(n, pick.stock)), pay = Math.min(payFor(rule, pick.stock, n, npc.purse), npc.purse);
     const rows = npc.goods.map((g) => `<div class="nt-g rf-row${g.res === pick.res ? ' on' : ''}" data-act="nPick" data-r="${g.res}" data-tip="${esc(`${goodCard(g.res)}<br><span class="rf-dim tip-w">The town holds ${fmt(g.stock)}: selling here lowers the price, buying raises it.</span>`)}">${gi(g.res)}<span class="nm">${goodName(g.res)}</span><span class="rf-num have${(have[g.res] ?? 0) > 0.05 ? '' : ' z'}">${fmt(have[g.res] ?? 0)}</span><span class="rf-num ask">${fmt(g.ask)}</span><span class="rf-num pay">${fmt(g.pay)}</span></div>`).join('');
     const away = men ? '' : 'walk your men to the town: only those standing there can deal';
     const hire = `<select data-f="nHire" title="one of your own people from now on, up to your path's cap">${Object.entries(NPC_HIRE).map(([cls, c]) => `<option value="${cls}"${cls === form.nHire ? ' selected' : ''}>${HIRE_NAME[cls] ?? cls} · ${c} coin</option>`).join('')}</select>`;

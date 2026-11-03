@@ -1303,7 +1303,7 @@ Herald of Hermes, Hand of Apollo, Shield of Zeus, Titan-slayer, Ichor-blooded, S
 | Warrior | lair cleared (men within 20 tiles), guardian slain | 40, 150 |
 | Warrior | land every 10 min: per claim point his alliance holds where his men stand (3 at most), the region it owns | 1, 2; 30 an hour at most |
 | Builder | each second one of his men works on a site (building, upgrading, mending) or stands at an alliance work | 0.03 |
-| Builder | each good he gives to an alliance work | 1 |
+| Builder | each good he gives to an alliance work (W-183) | 0.25 |
 | Trader | each coin of goods sold (W-148: to an NPC town, only goods from another land) | 0.2; 600 an hour with loads carried |
 | Trader | each load brought over a border, packs and carts | 2; same cap |
 | All | daily task, weekly; story step, chain; encounter step, end | 40, 150; 25, 150; 10, 30 |
@@ -1661,21 +1661,26 @@ whose men stand at it. Data: `src/data/warNpcTowns.ts`; the rules, shared: `src/
 | --- | --- |
 | Who deals (W-143, W-149) | men and carts of his within 14 tiles of the town's spot (the court's centre, else the middle of its stalls, well, board, storehouses and cottages). Any path, any alliance: a town serves whoever stands in it. Nothing unattended, no remote deals (W-87, W-88) |
 | Goods (W-140) | by the kind of town (`NPC_ROLE_GOODS`: home 14, entry 9, neutral 9, centre 13) and what its own land yields. Never silver: that is the mint's |
-| Base price (W-141) | `NPC_BASE` × distance: 0.6 at a land that yields it, +0.5 a hop to the nearest such land (up to 4), 1.4 for a made good. A far town pays more for the same good |
-| Stock (W-141) | par: 150 × the land's points for its own good, else 120. Selling adds to it, buying takes from it, and it drifts back to par (63% in 12 hours) |
-| Price (W-141) | base × (1 + 0.5 × (1 − stock / par)), held to 0.5..1.5, the deal paying the slope's mean. The town pays 6% under, asks 6% over: buying and selling back always loses |
-| Purse (W-142) | starts at 400. Paid from it, buyers pay into it. Mints silver 5 (coin 100) a UTC day while under 1000. Empty: it buys only as far as the purse goes, and no coin is made |
+| Base price (W-141) | `NPC_BASE` × distance: 0.62 at a land that yields it, +0.45 a hop to the nearest such land (up to 4), 1.7 for a made good, so metal bought in a town smelts at a profit (W-183). A far town pays more for the same good |
+| Stock (W-141) | par: 500 × the land's points for its own good, else 800 (W-181; `NPC.par`). Selling adds to it, buying takes from it, and it drifts back to par (63% in 4 hours) |
+| Price (W-141) | base × (1 + 0.3 × (1 − stock / par)), held to 0.5..1.5, the deal paying the slope's mean. The town pays 6% under, asks 6% over: buying and selling back always loses |
+| Purse (W-142) | starts at 4000 (W-181). Paid from it, buyers pay into it. Mints silver 5 (coin 100) a UTC day while under 4000. W-180: a sale pays less as the purse thins, from the full price at a full purse down to a quarter of it at an empty one, smoothly over the sale. It never pays more than the purse holds, and no coin is made |
 | Where goods and coin are (W-143) | out of the packs and carts at the town. Coin he earns lands in those packs; at home in his strongroom, and at home he also pays from it. What does not fit is set down at his feet |
 | Level (W-148) | a sale pays the trader's level (W-111) only for goods from another land: a town's own goods sold back to it, or what he gathered at home and sold at home, pay coin and no level. Carrying over a border pays as before |
 | Tribute (W-153) | a sale to a town is sale income: his liege's part stays at the town under his name, as at a stall, until someone's men fetch it |
 | Hired workers (W-144) | forager 120, cook 150, engineer, merchant, physician or smith 200. One of his own people from then on, under W-103's cap, falling in with the workers he has (their squad, their work; no squad of his own against the 3-squad limit); the coin goes into the purse |
 | Carts (W-145) | a trader starts with one handcart, given at his first join. A town sells a handcart for 180 and a wagon for 600 under W-104's cap (the coin into the purse). Builders still build them. A cart coming in over a border or bought is set down on the nearest ground carts can roll on, never in the trees |
 
-Solo runs (seeded, real sim and D1 rules, nobody else in the world; game time). Trader from dodona: first sale 10 min, L2
-79, second cart 93, a worker 130, L3 204, L4 352 min over 23 hops, 6851 coin sold. Coming and going between two towns
-stalls in about 3 hours (stock back only 63% in 12 hours): the trade has to move on, and a town's whole purse (400) then
-caps a stop. Builder from dodona: house 20 min, L2 52, all 6 workers 120, L3 282 min. His income is thin (gathered wood
-sold at home, 10-30 coin a sale), and after his chain he has only labour for level.
+Solo runs (seeded, real sim and D1 rules, nobody else in the world; game time). Trader from dodona: first sale 8 min, L2 and
+a second cart 60, L3 162, L4 265 min over 18 hops, 7783 coin sold, no man stuck. Between two towns the coin an hour fades over
+hours (kyrene and kyrene-e: 905, 219, 95, 50, 43), and per road walked the best cartload two or three hops off clears more
+than the best next door. Builder from dodona: smith 40 min, L2 42, L3 about 150, L4 244 min, all 6 workers by about 150, 11
+kinds of building round one storehouse. His forge sells about 8000 coin of bronze for about 5500 of metal, against 234 of cut wood; from L3 on his
+level is mostly labour at the wonder, between rounds at the forge. Numbers measured without the wonder's stages ending.
+
+Men keep to their carts and their ground (W-182): a man on a crew point takes a waypoint as done only where the next can be
+walked to from there; a crew point stands only on ground walkable from its cart; an arrival spread into a pocket the cliffs
+cut off is set down at the entry's middle (`tests/war/crewWalk.test.ts`, `server/test/war/arrivals.test.ts`).
 
 Numbers are start numbers (`NPC`, `NPC_HIRE`, `NPC_CARTS`). Tests: `tests/war/npcMarket.test.ts` (rules), `server/test/war/npcMarket.test.ts`
 (bound on coin: all paid out plus the purse = start + minted), `server/test/war/soloRuns.test.ts` (the solo game).
