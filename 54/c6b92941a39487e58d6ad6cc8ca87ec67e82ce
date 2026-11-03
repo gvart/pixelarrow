@@ -1,0 +1,34 @@
+server/src/war/room.ts
+  s_a7d5d20f628c80::t_4493cf0487c9e2 1307,1311,1313-1318
+server/test/war/soloRun.ts
+  s_a7d5d20f628c80::t_2991fc40074440 7,12,14-16,22
+  s_a7d5d20f628c80::t_66333ab7929a5a 17,186,190
+  s_a7d5d20f628c80::t_fb6cf410df76e6 1-6,8-11,13,18-21,23-76,78-185,187-189,191-192,194-246
+  s_a7d5d20f628c80::t_d0367df7118a59 77,193
+server/test/war/soloRuns.test.ts
+  s_a7d5d20f628c80::t_fb6cf410df76e6 18-21,23-24
+  s_a7d5d20f628c80::t_2991fc40074440 14,26
+server/test/war/townBoard.test.ts
+  s_a7d5d20f628c80::t_66333ab7929a5a 110-112,114,177
+  s_a7d5d20f628c80::t_2991fc40074440 8,117,257-258,260-262
+  s_a7d5d20f628c80::t_4493cf0487c9e2 198
+  s_a7d5d20f628c80::t_1f17cf64e2fe7b 1-7,9-109,113,115-116,118-176,178-197,199-256,259,263-264
+src/war/net/townBoard.ts
+  s_a7d5d20f628c80::t_66333ab7929a5a 209
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "54c6b92941a39487e58d6ad6cc8ca87ec67e82ce",
+  "prompts": {},
+  "sessions": {
+    "s_a7d5d20f628c80": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1afee479-b44b-46d2-a159-a540e44e7fb8",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
