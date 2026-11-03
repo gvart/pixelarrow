@@ -78,3 +78,6 @@ export function tunnelLine(alive: number, nextAt: number | null, now: number, fl
   if (nextAt === null || alive >= floor) return null;
   return `Next fighter rises in ${clock(nextAt - now)} · ${alive}/${floor}`;
 }
+
+/** The pill's tooltip, with his own floor (W-102: 4 for a builder or trader). */
+export const tunnelHint = (floor: number): string => `The Tunnel of Shades: while you have fewer than ${floor} men, one rises in your home town every 10 min`;
