@@ -1,0 +1,40 @@
+scripts/war/npc-market-shots.mjs
+  s_a7d5d20f628c80::t_fc6c113c3d5b1a 1-42,44-57
+  s_a7d5d20f628c80::t_b6c91c6f354c51 43
+docs/impl/paths-rework.md
+  s_a7d5d20f628c80::t_d691c3dfc5a8d2 60-61,79-82,107
+src/war/view/hud/market.ts
+  s_a7d5d20f628c80::t_5521248405e5ce 23,370
+  s_a7d5d20f628c80::t_6bce222a70798f 6-7,22,24,42-46,58,61,68,139,154-157,160-164,180-181,184,215-216,318-340,343-345,347-350,352-353,369,371-372,377,379,389,404-407,414,416,437,464,480-484,511,517,582
+  s_a7d5d20f628c80::t_b6c91c6f354c51 128,132,151-153,165-168,189,341-342,346,351,441,485-486
+  s_a7d5d20f628c80::t_fa656799da58c6 158
+  s_a7d5d20f628c80::t_c247b15effc553 159
+src/war/view/trade/market.ts
+  s_a7d5d20f628c80::t_6bce222a70798f 12-14,29-31,33-34,72-75,90,94-95,131-132,156-157,173-218,315
+src/data/warNpcTowns.ts
+  s_a7d5d20f628c80::t_99ccab8b03e835 18,27
+docs/WAR.md
+  s_a7d5d20f628c80::t_d691c3dfc5a8d2 1113
+  s_a7d5d20f628c80::t_280ee7d988da55 426-430,816-817,1513-1514,1524,1589-1610,1628-1629
+  s_a7d5d20f628c80::t_6d7946c6f7fe21 847,1242
+docs/impl/global-war-rebuild.md
+  s_a7d5d20f628c80::t_d691c3dfc5a8d2 145-154
+src/war/net/questLore.ts
+  s_a7d5d20f628c80::t_6bce222a70798f 119,125
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "726dea7f5ccf5d394374b3afda7345870b0ed8b6",
+  "prompts": {},
+  "sessions": {
+    "s_a7d5d20f628c80": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1afee479-b44b-46d2-a159-a540e44e7fb8",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
