@@ -355,7 +355,7 @@ export function readyScreen(stage: HTMLElement, home: string, men: number, h: { 
   stage.innerHTML = `<div class="rf-card mn-card" style="width:380px;text-align:left">
     <div class="mn-h"><span class="rf-name">Your men are ready</span></div>
     <div class="mn-sub" style="margin:0 0 10px">${plural(men, 'man', 'men')} stand ready in ${esc(name)}. Where do you go first?</div>
-    <button class="mn-big pri" data-k="region">${icon('act-move', 24)}<div><div class="t">March into ${esc(name)}</div><div class="d">Command your squad on the ground</div></div><kbd>Enter</kbd></button>
+    <button class="mn-big pri" data-k="region">${icon('act-move', 24)}<div><div class="t">March into ${esc(name)}</div><div class="d">Command your men on the ground</div></div><kbd>Enter</kbd></button>
     <button class="mn-big" data-k="world">${icon('mode-biomes', 24)}<div><div class="t">Open the world map</div><div class="d">See the war first; enter your home from there</div></div></button>
   </div>`;
   stage.querySelector<HTMLElement>('[data-k=region]')!.onclick = h.region;
