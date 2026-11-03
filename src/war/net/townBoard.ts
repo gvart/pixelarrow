@@ -83,7 +83,7 @@ export function armyStrength(men: readonly { cls: string; level?: number; hp?: n
 /** The band's root over depth `depth`: a beast of it. */
 function beastRoot(kind: MobKind, depth: number): number {
   const m = DEPTH[Math.max(0, Math.min(4, depth))].mob, def = MOBS[kind];
-  return manRoot(mobClass(kind)) * m * (def.venom || def.dash ? 1.18 : 1);
+  return manRoot(mobClass(kind)) * m * (def.venom || def.dash ? 1.18 : kind === 'bandit' ? 1.25 : 1);
 }
 export function bandStrength(b: Band, depth: number): number {
   const r = beastRoot(b.kind, depth), ck = b.chief ? CHIEF_KINDS[b.kind] : undefined;

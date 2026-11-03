@@ -14,12 +14,12 @@ export const BOARD = {
   onPath: 1.25,
   offPathPoints: 0.25,
   /** W-189: each hand-in of a kind at a town weighs `per` on the next; the pay falls to `floor`; the weight goes 63% in `recoverHours`, as W-141's stock. */
-  repeat: { per: 0.45, floor: 0.25, recoverHours: 4 },
+  repeat: { per: 0.3, floor: 0.2, recoverHours: 4 },
   /** W-185: a fight's size against his army (never under a starting family: W-193), its base pay. */
   kill: [
-    { size: 'skirmish', share: 0.45, coin: 45, points: 30 },
-    { size: 'even', share: 0.85, coin: 90, points: 65 },
-    { size: 'hard', share: 1.35, coin: 160, points: 120 },
+    { size: 'skirmish', share: 0.45, coin: 45, points: 15 },
+    { size: 'even', share: 0.85, coin: 90, points: 32 },
+    { size: 'hard', share: 1.35, coin: 160, points: 60 },
   ],
   /** W-194: hurt men standing at a town with no foe near get well: this share of their health a second (half a physician's). */
   rest: { perSec: 0.005, foeR: 20 },
@@ -27,15 +27,17 @@ export const BOARD = {
   bandMost: 16,
   /** A rested board's hard fight is led by a named chief (he drops his loot) when the heat on Kill here is under this. */
   chiefHeat: 0.2,
+  /** W-188: a board's work comes with its stone and wood, so a builder's labour on it earns this share of the level points of his own works. */
+  labourFavour: 0.6,
   /** W-185: worker-seconds on site, base pay. */
   build: [
-    { size: 'repair', labour: 1800, coin: 50, points: 35 },
-    { size: 'raise', labour: 5400, coin: 150, points: 110 },
+    { size: 'repair', labour: 1800, coin: 50, points: 8 },
+    { size: 'raise', labour: 5400, coin: 150, points: 20 },
   ],
   /** W-185: hops to the named town (a road or two), loads carried, base pay. */
   trade: [
-    { size: 'near', hops: 1, loads: 2, coin: 60, points: 45 },
-    { size: 'far', hops: 2, loads: 5, coin: 170, points: 130 },
+    { size: 'near', hops: 1, loads: 2, coin: 60, points: 120 },
+    { size: 'far', hops: 2, loads: 5, coin: 170, points: 400 },
   ],
   /** W-190: a giver's errand: the smallest job of his own path's kind, these pays (level points as a story step). */
   errand: { coin: 30, points: 25 },
@@ -46,7 +48,7 @@ export const BOARD = {
 } as const;
 
 /** W-193: how a band is told beside his army (his strength over its: at least this). */
-export const RATING = { easy: 2.2, fair: 1.25, hard: 0.7 } as const;
+export const RATING = { easy: 1.6, fair: 1, hard: 0.6 } as const;
 
 /** What his men may be set to mend at a town, by the prebuilt it stands at: [a small job, a big one]. */
 export const BUILD_WORK: Readonly<Record<string, readonly [string, string]>> = {

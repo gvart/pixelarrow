@@ -55,6 +55,7 @@ import { DEFAULT_CAP, parseClientMsg, type BoardMsg, type HandoffMsg, type JoinM
 import { cartArrived, contract, deliver, guardCheck, huntDeeds, labourDone, sealedFor, workContracts } from './contracts';
 import { npcDeal } from './npcMarket';
 import { storyOf } from '../../../src/data/warStories';
+import { BOARD } from '../../../src/data/warTownBoard';
 import { boardDeeds, boardLabour, boardOrder, boardView, boardWatch } from './townBoard';
 import { addLabour, bonusesOf, openWorks } from './works';
 import { handoffDone, handoffRefusal, linkedCaptures } from './abuse';
@@ -1255,7 +1256,7 @@ export class WarRegionDO extends DurableObject<Env> {
       for (const w of pz.works) await addLabour(this.env, w.team, w.work, w.by, at);
       if (pz.townJobs) for (const pid of await boardLabour(this.env, pz.townJobs)) await this.boardReady(room, pid); // W-185
       // W-111: a builder's level, from the same labour
-      for (const [pid, n] of builtFavour(room, [...pz.labour.map((l) => [l.pid, l.secs] as const), ...pz.works.flatMap((w) => Object.entries(w.by).map(([p, secs]) => [Number(p), secs] as const)), ...(pz.townJobs ?? []).map((j) => [j.pid, j.secs] as const)])) await addFavour(this.env, pid, n, 'built', at);
+      for (const [pid, n] of builtFavour(room, [...pz.labour.map((l) => [l.pid, l.secs] as const), ...pz.works.flatMap((w) => Object.entries(w.by).map(([p, secs]) => [Number(p), secs] as const)), ...(pz.townJobs ?? []).map((j) => [j.pid, j.secs * BOARD.labourFavour] as const)])) await addFavour(this.env, pid, n, 'built', at);
     });
     if (d && !catching && room.currentTick % PEACE_POLL === 1) this.write('peace poll', () => this.pollPeace(room));
     // W-63: camps founded, attacks logged and told; the settlements polled, reported and levied

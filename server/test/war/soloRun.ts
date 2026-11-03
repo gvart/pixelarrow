@@ -20,7 +20,8 @@ import { addFavour, builtFavour, favourTick, getFavour, storyFavour } from '../.
 import { boardDeeds, boardLabour } from '../../src/war/townBoard';
 import { batch, ensureHolder, goodsOf, putStmt, strongroom } from '../../src/war/holders';
 import { npcDeal } from '../../src/war/npcMarket';
-import { applyFight, claimForJoin } from '../../src/war/persons';
+import { BOARD } from '../../../src/data/warTownBoard';
+import { applyFight, claimForJoin, claimSoul, settle } from '../../src/war/persons';
 import { warRegion } from '../../src/war/regions';
 import { WarRoom } from '../../src/war/room';
 import { pathOf } from '../../src/war/start';
@@ -74,10 +75,11 @@ export class Run {
       if (pay.length) await batch(DB(), [ensureHolder(DB(), strongroom(this.pid), 'strongroom', { pid: this.pid }, this.now), ...pay.map(([k, n]) => putStmt(DB(), strongroom(this.pid), k, n, 'story'))]);
     }
     const pz = r.peace;
-    if (pz) for (const [pid, n] of builtFavour(this.room, [...pz.labour.map((l) => [l.pid, l.secs] as const), ...pz.works.flatMap((w) => Object.entries(w.by).map(([p, secs]) => [Number(p), secs] as const)), ...(pz.townJobs ?? []).map((j) => [j.pid, j.secs] as const)])) await addFavour(env, pid, n, 'built', this.now);
+    if (pz) for (const [pid, n] of builtFavour(this.room, [...pz.labour.map((l) => [l.pid, l.secs] as const), ...pz.works.flatMap((w) => Object.entries(w.by).map(([p, secs]) => [Number(p), secs] as const)), ...(pz.townJobs ?? []).map((j) => [j.pid, j.secs * BOARD.labourFavour] as const)])) await addFavour(env, pid, n, 'built', this.now);
     if (pz?.townJobs) await boardLabour(env, pz.townJobs);
     // W-185: the region DO's books for a fighting run: his fights in D1 (men lost, the level), the lairs cleared, what his Kills asked
     for (const f of r.fights) await applyFight(DB(), f.id, this.room.region.id, f.report, this.now);
+    for (const c of r.souls) if (await claimSoul(DB(), this.pid, c.person, this.room.region.id, this.now)) this.persons.push(c.person);
     favourTick(env, this.room, (_w, go) => void (this.pending = this.pending.then(go)));
     if (r.wild.length) await boardDeeds(env, this.pid, this.room.region.id, r.wild);
     await this.pending;
@@ -169,7 +171,10 @@ export class Run {
     this.now += Math.round((e.ms + out.off * WAR_SEASON.offExitMsPerTile) * cargoFactor(out.cargo));
     if (out.cargo) await addFavour(env, this.pid, Object.values(out.cargo.packs).reduce((a, p) => a + p.lots.reduce((b, l) => b + l.n / perLoad(l.r), 0), 0) * 2 + (out.cargo.carts ?? []).reduce((a, c) => a + c.lots.reduce((b, l) => b + l.n / perLoad(l.r), 0), 0) * 2, 'carried', this.now);
     this.room = this.roomOf(to);
-    const stay = this.persons.filter((p) => out.ids.includes(p.id));
+    // W-98: a man whose wound healed walks in with them
+    await settle(DB(), this.pid, this.now);
+    const fit = new Set((await DB().prepare("SELECT id FROM war_persons WHERE player_id = ?1 AND state = 'active'").bind(this.pid).all<{ id: string }>()).results.map((x) => x.id));
+    const stay = this.persons.filter((p) => out.ids.includes(p.id) || fit.has(p.id));
     const inn = this.room.arrive(this.pid, 0, stay, back, out.lost, out.cargo);
     if ('error' in inn) throw new Error(`arrive: ${inn.error}`);
     this.stuck.clear();
