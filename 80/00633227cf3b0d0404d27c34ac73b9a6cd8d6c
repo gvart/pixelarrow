@@ -1,0 +1,30 @@
+server/migrations/0053_war_paths.sql
+  s_a7d5d20f628c80::t_b76609a5a92c9e 1-56
+server/src/war/start.ts
+  s_a7d5d20f628c80::t_128ea0d7c4441c 3-5,7-9,11,13,23,26,32,40-42,45,50,67,84,89,109-110,115-116,118-119,122,127,129,152-154
+server/src/war/raise.ts
+  s_a7d5d20f628c80::t_0f89c34455cd52 12
+src/war/world/start.ts
+  s_a7d5d20f628c80::t_88958d010237e5 3-4,7,13,17-25,28-34,36-39,61-71
+  s_a7d5d20f628c80::t_6131c700bef887 26-27,35
+server/src/war/persons.ts
+  s_a7d5d20f628c80::t_ca23cba399ab8f 11
+server/src/war/regions.ts
+  s_a7d5d20f628c80::t_5863232de1adf6 93-96,98-99
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "8000633227cf3b0d0404d27c34ac73b9a6cd8d6c",
+  "prompts": {},
+  "sessions": {
+    "s_a7d5d20f628c80": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1afee479-b44b-46d2-a159-a540e44e7fb8",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
