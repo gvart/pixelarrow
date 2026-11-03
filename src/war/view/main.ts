@@ -26,6 +26,8 @@ import { saveSound } from './sound/mix';
 import { myTeam, setMyTeam } from './side';
 import { GUIDE_LAIR, GUIDE_SOUL, guideSpots, HOME_R } from '../net/guide';
 import { guideKey, guideOpen, loadGuide, setGuide } from './hud/guide';
+import { offlineWay } from './hud/roster/state';
+import { FAMILIES, NO_PATH, PATHS, pathStart } from '../world/start';
 import { ARMY_MAX } from '../sim/soldiers';
 import { HUNGER } from '../sim/food';
 import { WORLD_REGIONS } from '../regions';
@@ -113,16 +115,23 @@ void Promise.all([loading, grey ? null : loadArt(undefined, loader?.part('art', 
       // W-62 a home region: the first-hour guide (./hud/guide.ts). Offline the sandbox claims the town's ground as the
       // server room does, and while the guide is open a new player walks in with one man short, his first soul waiting
       // down the road, and the guide's bandit pair on the way home
-      const home = WORLD_REGIONS.some((w) => w.id === region.id && w.role === 'home'), offline = !q.has('net'), spots = home ? guideSpots(region, team) : null;
-      const save = offline ? loadGuide(guideKey(null)) : null, open = !!spots && guideOpen(save);
+      // online the server says whether he has a guide here (his home, a trader next door: W-170), so every region gets it ready
+      const offline = !q.has('net'), way = offline ? offlineWay(location.search) : NO_PATH, home = !offline || WORLD_REGIONS.some((w) => w.id === region.id && w.role === 'home'), spots = home ? guideSpots(region, team) : null;
+      const save = offline ? loadGuide(guideKey(null)) : null, open = !!spots && guideOpen(save, way.path);
       if (spots && offline) scene.sim.claim(team, spots.home.x, spots.home.y, HOME_R);
       if (spots && (!offline || open)) setGuide({ spots, town: region.name, offline });
       // W-81 offline the region's own lairs, chiefs and guardians stand as the server room's do (region mastery needs
       // them all), before any added lair (the guide's, a story's) so those keep their ids past the region's
       if (offline) scene.sim.spawnMobs();
-      const soul = offline && open && !save?.done.includes('soul'), lair = offline && open && !save?.done.includes('lair');
-      scene.sim.spawn('you', team, 'hoplite', soul ? ARMY_MAX - 1 : ARMY_MAX, at.x, at.y);
-      if (soul) scene.sim.spawnSoul(spots!.soul.x, spots!.soul.y, GUIDE_SOUL.cls, GUIDE_SOUL.level, 'shrine');
+      const fights = !way.path || way.path === 'warrior', soul = offline && open && fights && !save?.done.includes('soul'), lair = offline && open && fights && !save?.done.includes('lair');
+      if (way.path) {
+        // ?path= : a new player of that path, his first men (W-95) and start cart (W-145), as the server gives them
+        const by = new Map<string, number>();
+        for (const c of pathStart(way.path, way.family)) by.set(c, (by.get(c) ?? 0) + 1);
+        for (const [c, n] of by) scene.sim.spawn('you', team, c, n, at.x, at.y);
+        if (PATHS[way.path].startCart) scene.sim.spawnCart(team, 'you', PATHS[way.path].startCart!, at.x + 3, at.y);
+      } else scene.sim.spawn('you', team, 'hoplite', soul ? ARMY_MAX - 1 : ARMY_MAX, at.x, at.y);
+      if (soul) scene.sim.spawnSoul(spots!.soul.x, spots!.soul.y, way.family ? FAMILIES[way.family].start[0] : 'hoplite', GUIDE_SOUL.level, 'shrine');
       if (lair) scene.sim.addLair(GUIDE_LAIR.kind, spots!.lair.x, spots!.lair.y, GUIDE_LAIR.count);
       pack = offline; // offline his men are new every load: a new player's rations (online: server/src/war/guide.ts)
       game.events.on('poststep', toSquad);

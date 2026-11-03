@@ -247,7 +247,7 @@ export async function ensureStart(db: D1Database, pid: number, now: number): Pro
 export interface Roster {
   persons: ReturnType<typeof view>[];
   /** W-85, W-103: his path's soldier and worker caps, his soldiers now and those fit; his path and family (the HUD's limits). */
-  caps: { army: number; household: number; fighters: number; fit: number; path: PathId | null; family: StartFamily | null };
+  caps: { army: number; household: number; fighters: number; fit: number; path: PathId | null; family: StartFamily | null; home: string | null };
   /** The home strongroom: its goods (food, coin, ...) and items (equip from here). */
   stock: Record<string, number>;
   items: Item[];
@@ -299,7 +299,7 @@ export async function roster(db: D1Database, pid: number, now: number): Promise<
   const names = await playerNames(db, [...rows.map((r) => (r.state === 'captive' ? r.captor_pid : null)), ...held.results.map((r) => r.player_id)]);
   return {
     persons: rows.map((r) => view(r, names)),
-    caps: { army: soldierCap(way.path), household: workerCap(way.path), fighters, fit, path: way.path, family: way.family },
+    caps: { army: soldierCap(way.path), household: workerCap(way.path), fighters, fit, path: way.path, family: way.family, home: await homeRegion(db, pid) },
     stock,
     items,
     captives: held.results.map((r) => ({
