@@ -2,8 +2,6 @@
 
 Living rules of the browser global war. Why each region matters: "Strategic geography". Decisions: `docs/impl/global-war-rebuild.md` (W-01..W-17, temporary).
 
-**This file leads the code during the paths rework (W-82..W-94):** it states the target rules, and the code catches up item by item. Plan and open questions: [`docs/impl/paths-rework.md`](impl/paths-rework.md).
-
 ## Lore
 
 W-42. Every warrior here died in the real world. They did not reach an afterlife: they woke on **Metaxy** (proposal,
@@ -748,8 +746,7 @@ under rams (64 a blow on stone every 3 s, about 2 min for one ram) and throwers;
 ## Paths (W-82..W-94)
 
 Every player is an unseen demigod on a season-locked path, in a world where nothing works unless someone is actually
-there. "Open" below means the owner has not decided yet: see
-[Open design items](impl/paths-rework.md#open-design-items).
+there. What is still undecided: "Open questions" at the end of this section.
 
 ### The demigod and his path
 
@@ -881,6 +878,23 @@ no stall, only they may take it, and nobody has to.
 
 The king's powers stay W-64's: offices, pacts, orders with bounties. Nobody commands another player's men.
 
+### Open questions
+
+- **Riders.** Held back from the start until the war sim has mounts: no work animations, balance unchecked (W-86).
+- **A builder's L3 to L4.** About 94 minutes (150 to 244) of mostly repeated wonder labour in the solo run: is that the
+  mid-game we want (W-183)?
+- **The king's weekly term (for the owner).** W-151 kept W-64's weekly term and regency under lord-weighted votes. A king
+  who can change every week may not suit a 28-day hierarchy of sworn lords.
+- **Rented warehouses have no door.** W-131 puts them under the store rule, but a rented site is a server row with no sim
+  building, so only a warehouse building has the door ("Trade").
+- **The balance tool runs pathless.** `npm run balance:war` measures a player with no path (W-106), so its rows do not
+  show the caps and perks of each path; the solo runs (`server/test/war/soloRuns.test.ts`) do.
+- **Empty towns.** A 4-man builder has almost nothing protecting an empty town; balance may push the cap up (W-85, W-91).
+- **Families without work animations.** Only hoplite, militia, archer, slinger, javelineer and celt_sword have them;
+  shield-bearers idle at work (W-113).
+- **The feudal hierarchy** is the least played part of the rework; its numbers (`src/data/warFeudal.ts`) are untested
+  in real seasons (W-150..W-159).
+
 ## Starting a game
 
 The menu is the game's front page (`index.html`, play.pixelarrow.app; `src/war/menu/`), styled with the HUD kit.
@@ -903,12 +917,14 @@ What each path starts with (W-95; `PATHS` and `FAMILIES` in `src/war/world/start
 | Builder | 2 hoplites, an engineer, a forager | 4 |
 | Trader | 2 hoplites, a merchant, a forager, a handcart (W-145) | 4 |
 
-Riders are not offered until mounts exist; `POST /api/war/start/path` refuses the family. The limits sit in the same table: workers (W-103: warrior 2, builder 6, trader 3; civilians, outside the cap) and carts (W-104: trader 4, warrior 1, builder 1). Every man joining a player, from this start on, passes one check (`manRefusal`, W-101). How more workers are gained is [open](impl/paths-rework.md#open-design-items).
+Riders are not offered until mounts exist; `POST /api/war/start/path` refuses the family. The limits sit in the same table: workers (W-103: warrior 2, builder 6, trader 3; civilians, outside the cap) and carts (W-104: trader 4, warrior 1, builder 1). Every man joining a player, from this start on, passes one check (`manRefusal`, W-101). More workers are hired at an NPC town, under that cap (W-144).
 
 A new season (W-96, `server/src/war/seasonWipe.ts`): the world keeps the finished season's board and awards its banners
 and crests; every region starts over, the homes too; nobody stays on the road; then all men, gear, goods, stores, deals,
-settlements, crowns, divine favour, mastery, tasks and guide saves go, with the alliance, home and path. Each player
-comes back to the first step above and may choose differently. Past seasons' boards, banners, crests, stats and chat stay.
+settlements, crowns, oaths, divine favour, mastery, tasks, alliance works, NPC towns' stocks, a town's recent trades and
+the guide saves go, with the alliance, home and path, and each region's own storage (its story, encounter and warlord
+saves). Each player comes back to the first step above, may choose differently, and gets his new path's guide from its
+first step. Past seasons' boards, banners, crests, stats and boss kills, and chat, stay.
 
 `GET /api/war/start` gives the step (alliance, home, path, done) and the choices. A returning player gets
 Continue (into the region his group is in, else his home), World map, Settings and Sign out. Players made
@@ -1009,7 +1025,7 @@ guard, up to his cap. Promotion stays within a family. Workers join any path, un
 
 | Field | Rule | Reused from |
 | --- | --- | --- |
-| class | as his path starts him ([open](impl/paths-rework.md#open-design-items)), or the class his soul woke as (W-60) → elite at level 6 | `src/data/classes.ts` |
+| class | as his path starts him (W-95), or the class his soul woke as (W-60) → elite at level 6 | `src/data/classes.ts` |
 | level, xp | 1–10, `xpToNext = 40 × level`; +2 attribute points per level | `MAX_LEVEL`, `xpToNext`, `POINTS_PER_LEVEL` |
 | attributes | STR, AGI, END, WIL (5 neutral, max 15); class spread on joining. WIL drives survival and the squad active cooldown (no morale in the war) | `src/data/perks.ts` `ATTR_*` |
 | skills | 2 slots, unlocked at levels 3 and 7, picked from the family pool (≤ 4) | perks, reshaped |
@@ -1036,8 +1052,7 @@ objective. Civilians: 1 per job (meal batch, bar, trade, site, patient). A wound
 | Rider | companion, thessalian, horse_archer | chariot | Horsemanship P, Lance Charge F, Ride Down F, **Wheel and Re-charge A**; only once the war sim has mounts |
 
 These are the skill pools. A warrior's one family (W-86) is a different cut, chosen at season start; its list and what
-its men can do are [open](impl/paths-rework.md#open-design-items), as are the classes a builder's or trader's soldiers
-may be.
+its men can do are W-112's; a builder's or trader's soldiers may be any non-rider guard (W-101).
 
 Non-combat classes (W-38), six, each with its own loop and a tool in the weapon slot (same tiers and rarities):
 
@@ -1160,7 +1175,7 @@ player's (`notOwner` otherwise); the field is optional, so the wire stays additi
 
 | Stage | Rule |
 | --- | --- |
-| Join | what his path starts with ([open](impl/paths-rework.md#open-design-items)), then only claimed souls ("Souls", W-60); no recruit pools, no recruiting, no training |
+| Join | what his path starts with (W-95), then only claimed souls ("Souls", W-60); no recruit pools, no recruiting, no training |
 | Promote | level 6 + the elite rare kit, 30 min; an elite of his own family (W-101) |
 | Fall | at 0 HP wounded with `woundedShare` 0.7 (+3% per END above 5, + physician, cap 0.9), else dead; the dead drop their gear |
 | Early mercy (W-79 proposal) | in the homes and the entries (depth 0–1, `src/war/sim/depth.ts` EARLY) a soldier felled by the wild (a beast's, bandit's, chief's or warlord man's blow) is only knocked down: he lies with his pack and kit (no pile, no battlefield soul), the fight report leaves him out, and once no foe man has fought within 10 tiles of him for 15 s he gets up at 30% hp in his squad. Still down after 3 min he is wounded as before; felled again within 60 s of getting up (left among the wild that beat his squad) the fall is real. Another player's blow, and any fall at depth 2 and deeper, is a fall. Online the room keeps him listed in the field while down (no rejoin claims him twice) and reports him if he stays down for good. W-81: a man down counts toward his army for a soul's claim (he will rise), and `down` rides on the wire (unit state bit 32, NET_VERSION 17) so the squad card shows it online too. Measured: a level-1 squad (4 hoplites, 3 archers, 3 slingers, 2 javelineers) against a depth-1 bandit lair of 8 lost 3–8 for good before; now 0, every man up within ~20 s of the last blow |
