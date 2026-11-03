@@ -1,0 +1,21 @@
+server/test/war/soloRuns.test.ts
+  s_a7d5d20f628c80::t_3f7e7ee8863781 1-35,38-56,60-75,77,79-132,134-263,265-269,271-363,365-372
+  s_a7d5d20f628c80::t_d6a9a306c57889 36-37,57-59,76,78
+  s_a7d5d20f628c80::t_bce5ad3c0b0955 133,264,270,364
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "5398cd4607c8c19bab468a3271f3230423af5a6f",
+  "prompts": {},
+  "sessions": {
+    "s_a7d5d20f628c80": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1afee479-b44b-46d2-a159-a540e44e7fb8",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
