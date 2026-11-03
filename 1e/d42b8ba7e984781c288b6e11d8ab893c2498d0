@@ -1,0 +1,27 @@
+src/war/view/hud/tunnel.ts
+  s_a7d5d20f628c80::t_880dfdd4ff98ef 3,14,16,159,161-163,190
+src/war/sim/tunnel.ts
+  s_a7d5d20f628c80::t_880dfdd4ff98ef 81-83
+tests/war/tunnel.test.ts
+  s_a7d5d20f628c80::t_d88ecc09142477 3-4
+  s_a7d5d20f628c80::t_880dfdd4ff98ef 27-35
+  s_a7d5d20f628c80::t_490d326c8df0bb 36-37
+src/war/view/hud/buildingCard.ts
+  s_a7d5d20f628c80::t_880dfdd4ff98ef 41
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "1ed42b8ba7e984781c288b6e11d8ab893c2498d0",
+  "prompts": {},
+  "sessions": {
+    "s_a7d5d20f628c80": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1afee479-b44b-46d2-a159-a540e44e7fb8",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
