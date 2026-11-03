@@ -1,0 +1,22 @@
+docs/impl/paths-rework.md
+  s_a7d5d20f628c80::t_5f29473b5d0212 37-39
+  s_a7d5d20f628c80::t_0e59119e03749b 95
+  s_a7d5d20f628c80::t_e8a88e4e74acde 54,57-89
+  s_a7d5d20f628c80::t_b9d3d5e7e5423d 90
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "d9906088b703db3f7c6cb9b2bc40d3a05dcf0298",
+  "prompts": {},
+  "sessions": {
+    "s_a7d5d20f628c80": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1afee479-b44b-46d2-a159-a540e44e7fb8",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
