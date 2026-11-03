@@ -1,0 +1,42 @@
+server/src/war/npcMarket.ts
+  s_a7d5d20f628c80::t_68cd39d27a5ec4 1-6,15,24-110
+  s_a7d5d20f628c80::t_042da54cec5c81 7-14,16-23,111-224
+server/test/war/npcMarket.test.ts
+  s_a7d5d20f628c80::t_55c27018af04c3 7,35-36,38,56-59,159,161,163,168
+  s_a7d5d20f628c80::t_a12a57f7fa0596 67-68,91
+  s_a7d5d20f628c80::t_9c399c7ee9bffa 1-6,8-34,37,39-55,60-66,69-90,92-158,160,162,164-167,169-203
+server/src/war/stories.ts
+  s_a7d5d20f628c80::t_4b226977114c42 12,24,31-33,44,55-57
+  s_a7d5d20f628c80::t_892abdef93a3d3 58-60
+server/src/war/seasonWipe.ts
+  s_a7d5d20f628c80::t_4b226977114c42 14-15
+server/migrations/0056_war_npc_towns.sql
+  s_a7d5d20f628c80::t_9c11cc32386262 1-50
+server/src/war/regionDO.ts
+  s_a7d5d20f628c80::t_042da54cec5c81 55-57,84,452,508,583,736-745
+  s_a7d5d20f628c80::t_74b35f650bbb39 746-749
+server/src/war/start.ts
+  s_a7d5d20f628c80::t_4b226977114c42 25,64-69,132
+server/src/war/room.ts
+  s_a7d5d20f628c80::t_042da54cec5c81 787
+  s_a7d5d20f628c80::t_4b226977114c42 58-60,1074-1100
+  s_a7d5d20f628c80::t_a2be06722cbc12 1101
+server/src/war/persons.ts
+  s_a7d5d20f628c80::t_4b226977114c42 139
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "9701124fc0bd5e2035810afdf798a72040efef00",
+  "prompts": {},
+  "sessions": {
+    "s_a7d5d20f628c80": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1afee479-b44b-46d2-a159-a540e44e7fb8",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
