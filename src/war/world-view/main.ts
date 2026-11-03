@@ -12,34 +12,36 @@
  * Keys: Enter enters the hovered / selected region (or sends the transfer being ordered), Esc clears, T trade routes,
  * F fits the map, H the haul planner (M6l: from, to and cart; while it is open a click on the map picks the destination,
  * shift-click the start). Convoys (carts and porters on the road) show by fog and the Safe Roads rule; a market town's
- * hover card shows its price board as your men last saw it; the season panel adds today's trade score. `window.__world` is the screen's state for scripts.
+ * hover card shows its price board as your men last saw it; `window.__world` is the screen's state for scripts.
  * W-63: settlements show as markers sized by level with fealty lines vassal to overlord; hover names lord and ties.
  * W-64: a crown by each monarch's home, pacts and truces as lines home to home; crown news (`crownNews`) as a toast.
  * W-62: world events glow on the map with a marker and their countdown; the events card (bottom left) names the running
- * one, its rule and the next; B opens the season scoreboard (the last season's result, title holders, your banners and
+ * one, its rule and the next; B opens the roll of honour (the last season's result, each path's top places, your banners and
  * crests, what a season's end keeps and resets).
  */
 import '@fontsource/inter/600.css';
 import '@fontsource/cinzel/700.css';
 import { ALLIANCES } from '../world/alliances';
 import { worldRegion, WORLD_IDS } from '../world/graph';
-import { bar, CSS, fitHeight, placeTip, uiZoom, UNIT_ICON } from '../view/hud/kit';
+import { CSS, fitHeight, placeTip, uiZoom, UNIT_ICON } from '../view/hud/kit';
 import { loadGlyphs } from '../view/hud/glyph';
-import { medal, titleTip, TITLES, TITLE_ORDER } from '../view/hud/titles';
+import { medal, TITLES } from '../view/hud/titles';
 import { draggable } from '../view/hud/drag';
-import { HAUL_LOADS, inSight, isChokepoint, MARKET_TOWNS, planHaul, seasonStandings, TRADE_CAP, type HaulKind } from './geo';
+import { HAUL_LOADS, inSight, isChokepoint, MARKET_TOWNS, planHaul, seasonStandings, type HaulKind } from './geo';
 import { CARD_CSS, crest, dangerHtml } from './regionCard';
 import { hoverCard, regionCardFor as regionCardFor0, type CardsCtx } from './cards';
 import { applyView, emptyState, loadMastered, loadSettlements, refreshLords } from './state';
 import { LEGEND_CSS, legendHtml } from './legend';
 import { allianceColor, ART, clock, WorldMap, type MapPick } from './map';
-import { MockSource, NetSource, travelMs, type WorldSource, type WorldTitle, type WorldView } from './source';
+import { MockSource, NetSource, travelMs, type WorldSource, type WorldView } from './source';
 import { REGION_DEPTH } from '../sim/depth';
 import { keys } from '../input/keys';
 import { mountGameMenu } from '../menu/gameMenu';
 import { EVENT_INFO, type WorldEvent } from '../world/events';
 import { EVENT_LOOK, eventIcon } from './eventLook';
 import type { Crest, SeasonBoard } from '../net/world';
+import { TITLE_OF, type LadderRow, type LaddersView } from '../net/ladders';
+import { FAMILIES, PATH_IDS, type PathId } from '../world/start';
 import { chatBusy, mountChat, type ChatHandle } from '../view/hud/chat';
 import { mountPins, type PinHandle } from '../view/hud/pins';
 import { MockChat, NetChat, OfflineChat, worldTaps } from '../net/chatLink';
@@ -78,6 +80,14 @@ style.textContent = CSS + CARD_CSS + LEGEND_CSS + `
 .st-row.hd{color:var(--rf-muted);padding-bottom:1px}
 .st-goal{margin-top:6px;padding:5px 7px;background:var(--rf-sunk);border:1px solid var(--rf-rule);line-height:1.35}
 .st-goal b{color:var(--rf-gold)}
+.ld-hd{margin:5px 0 2px;font-size:11px}
+.ld-rows{max-height:210px;overflow:auto}
+.ld-row{display:grid;grid-template-columns:18px 12px minmax(0,1fr) 22px 40px;gap:0 5px;align-items:center;padding:2px 4px}
+.ld-row.me{background:var(--rf-sel);box-shadow:inset 3px 0 0 var(--rf-title)}
+.ld-row .n{text-align:right;font-variant-numeric:tabular-nums}
+.ld-who{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.ld-you{margin-top:4px;padding:3px 5px;background:var(--rf-sel)}
+.sb-paths{display:grid;gap:6px;margin-top:6px}
 #wvToast{left:50%;bottom:16px;transform:translateX(-50%);display:none;pointer-events:none;font-size:13px}
 .wt-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:4px}
 .wt-t{display:flex;align-items:center;gap:5px;padding:3px;background:var(--rf-sunk);border:1px solid var(--rf-rule)}
@@ -163,6 +173,7 @@ function say(text: string, ms = 3500): void {
   (say as unknown as { t: number }).t = setTimeout(() => (toast.style.display = 'none'), ms) as unknown as number;
 }
 
+const escHtml = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const swatch = (a: number) => `<span class="wv-sw" style="background:${a >= 0 ? allianceColor(map.art, a) : 'transparent'}"></span>`;
 const ownSquadsIn = () => new Set(st.squads.keys());
 const sight = (id: string) => inSight(id, st.you as 0 | null, st.regions, ownSquadsIn());
@@ -175,7 +186,7 @@ function renderBand(): void {
     <button class="rf-tbtn${legendOpen ? ' on' : ''}" data-act="legend" title="what the map's colours, lines and markers mean (L)">Map key<kbd>L</kbd></button>
     <button class="rf-tbtn${st.routes ? ' on' : ''}" data-act="routes" title="show the trade roads (T)">Roads<kbd>T</kbd></button>
     <button class="rf-tbtn${haul.open ? ' on' : ''}" data-act="haul" title="plan a haul: path, travel time, chokepoints and ambush risk (H)">Haul<kbd>H</kbd></button>
-    <button class="rf-tbtn${boardOpen ? ' on' : ''}" data-act="board" title="the season scoreboard: last season's result, titles, your banners (B)">Scoreboard<kbd>B</kbd></button>
+    <button class="rf-tbtn${boardOpen ? ' on' : ''}" data-act="board" title="the roll of honour: last season's winner and top places, your banners (B)">Roll of honour<kbd>B</kbd></button>
     <button class="rf-tbtn" data-act="fit" title="fit the whole map on screen (F)">Fit<kbd>F</kbd></button>`;
 }
 band.addEventListener('click', (e) => {
@@ -223,7 +234,7 @@ eventsEl.addEventListener('click', (e) => {
 
 let boardOpen = q.has('board');
 const ordinal = ['1st', '2nd', '3rd', '4th'];
-/** The season scoreboard: the last finished season (winner, final and event score, title holders), your crests, the rules of the season's end. */
+/** The roll of honour (W-168): the last finished season (winner, land, event points, each path's top places), your crests, the rules of the season's end. */
 function renderBoard(): void {
   if (!boardOpen || !view) return void (boardEl.style.display = 'none');
   const b: SeasonBoard | null = view.snap.last ?? null, crests: Crest[] = view.snap.crests ?? [], now = view.snap.score;
@@ -232,23 +243,21 @@ function renderBoard(): void {
     const w = b.winner;
     return `<div class="sb-win">${w !== null ? `<img src="${ART}banners/${ALLIANCES[w].key}.png" width="24" height="34" alt="">` : ''}<div>
         <div class="rf-name" style="font-size:15px">${w !== null ? `${aName(w)} won season ${b.season}` : `Season ${b.season} ended in a tie`}</div>
-        <div class="rf-dim">${b.reason === 'hegemony' ? 'by hegemony: Omphalos and 3 frontier towns for 24 h' : 'on time, by the highest score'} · ${new Date(b.at).toLocaleDateString()}</div>
+        <div class="rf-dim">${b.reason === 'hegemony' ? 'by hegemony: Omphalos and 3 frontier towns for 24 h' : 'on day 28, by the most land'} · ${new Date(b.at).toLocaleDateString()}</div>
         ${w !== null ? `<div class="rf-dim">${b.banners} player${b.banners === 1 ? '' : 's'} earned the ${aName(w)} banner</div>` : ''}</div></div>
-      <div class="sb-row rf-dim" style="font-size:11px"><span></span><span></span><span>alliance</span><span style="text-align:right">score</span><span style="text-align:right">events</span></div>
+      <div class="sb-row rf-dim" style="font-size:11px"><span></span><span></span><span>alliance</span><span style="text-align:right">land</span><span style="text-align:right" title="A record of world events; it does not count toward the win">events</span></div>
       ${ranked.map((r, i) => `<div class="sb-row${i === 0 && w !== null ? ' top' : ''}"><span class="rf-dim">${ordinal[i]}</span>${swatch(r.a)}<span>${aName(r.a)}${r.a === st.you ? ' <span class="rf-dim">(you)</span>' : ''}</span><span class="rf-num" style="text-align:right">${r.v}</span><span class="rf-num rf-dim" style="text-align:right">${b.event[r.a] ?? 0}</span></div>`).join('')}
-      <div class="rf-cap" style="margin-top:6px">Title holders <span class="rf-dim">each earned his title's crest</span></div>
-      ${b.titles.length ? `<div class="wt-grid">${b.titles.map((t) => `<div class="wt-t">${medal(t.id, 24)}<div style="min-width:0"><div class="wt-who">${t.alliance >= 0 ? swatch(t.alliance) : ''}${t.player}</div><div class="wt-n">${TITLES[t.id]?.name ?? t.name}</div></div></div>`).join('')}</div>` : '<div class="rf-dim">no titles were held</div>'}`;
-  })() : `<div class="rf-dim" style="padding:6px 2px">No season has ended yet. Season ${now.id} ends in ${Math.floor(now.left / 86_400_000)}d ${clock(Math.floor((now.left % 86_400_000) / 1000))}; its board appears here.</div>`;
+      <div class="sb-paths">${PATH_IDS.map((p) => `<div><div class="rf-cap">${LADDER_NAME[p]}</div>${b.ladders[p].map((r) => ladderRow(r, p, -1)).join('') || '<div class="rf-dim">nobody</div>'}</div>`).join('')}</div>`;
+  })() : `<div class="rf-dim" style="padding:6px 2px">No season has ended yet. Season ${now.id} ends in ${Math.floor(now.left / 86_400_000)}d ${clock(Math.floor((now.left % 86_400_000) / 1000))}; its roll appears here.</div>`;
   const mine = crests.length
     ? crests.map((c) => `<span class="sb-crest" title="season ${c.season}">${c.kind === 'banner' ? `<img src="${ART}banners/${ALLIANCES[c.alliance]?.key ?? 'dodona'}.png" width="11" height="15" alt="">${aName(c.alliance)} banner` : `${medal(c.title ?? '', 16)}${TITLES[c.title ?? '']?.name ?? c.title} crest`}<span class="rf-dim">S${c.season}</span></span>`).join('')
-    : '<span class="rf-dim">none yet: win a season with your alliance, or hold a title at its end</span>';
-  boardEl.innerHTML = `<div class="rf-head"><span class="rf-name">Season scoreboard</span><button class="rf-tbtn x" data-act="close" style="margin-left:auto" title="close (B, Esc)">×</button></div>
+    : '<span class="rf-dim">none yet: win a season with your alliance, or end it first on your path\'s ladder</span>';
+  boardEl.innerHTML = `<div class="rf-head"><span class="rf-name">Roll of honour</span><button class="rf-tbtn x" data-act="close" style="margin-left:auto" title="close (B, Esc)">×</button></div>
     ${board}
     <div class="rf-cap" style="margin-top:6px">Your banners and crests</div><div>${mine}</div>
     <div class="rf-cap" style="margin-top:6px">At a season's end</div>
-    <div class="sb-keep"><div><b style="color:var(--rf-good)">You keep</b><br>your men and their levels<br>gear and goods at home<br>banners and crests</div>
-      <div><b style="color:var(--rf-bad)">Starts over</b><br>alliance score, titles<br>region control, claim points<br>landmarks and their guardians</div></div>
-    <div class="rf-dim" style="margin-top:4px">Men out in the regions march home when the next season begins.</div>`;
+    <div class="sb-keep"><div><b style="color:var(--rf-good)">You keep</b><br>banners and crests<br>this roll of honour<br>your season stats</div>
+      <div><b style="color:var(--rf-bad)">Starts over</b><br>men, gear and belongings<br>alliance, home and path<br>land, towns and titles</div></div>`;
   boardEl.style.display = '';
 }
 function toggleBoard(): void {
@@ -279,19 +288,31 @@ squadsEl.addEventListener('click', (e) => {
 });
 draggable(squadsEl);
 
-type SeasonTab = 'titles' | 'trade' | 'peace';
-let seasonTab: SeasonTab = 'titles';
+/** The ladder tab: your path's until you pick another (W-169). */
+let ladderTab: PathId | null = null;
+const LADDER_NAME: Record<PathId, string> = { warrior: 'Warriors', builder: 'Builders', trader: 'Traders' };
+const ladderRow = (r: LadderRow, path: PathId, me: number) => `<div class="ld-row${r.pid === me ? ' me' : ''}"${r.place === 1 ? ` data-tip="<b class=&quot;k&quot;>${TITLE_OF[path].name}</b> · first among ${LADDER_NAME[path].toLowerCase()}"` : ''}>
+    <span class="rf-dim">${r.place === 1 ? medal(TITLE_OF[path].id, 16) : r.place}</span>${r.alliance >= 0 ? swatch(r.alliance) : '<span></span>'}
+    <span class="ld-who"><span>${escHtml(r.player)}</span>${r.family ? `<span class="rf-dim"> · ${FAMILIES[r.family].name}</span>` : ''}</span>
+    <span class="rf-dim" data-tip="Level">L${r.level}</span><span class="n">${r.points.toLocaleString('en')}</span></div>`;
+/** W-169: a ladder and, when you are off its rows, your own place. */
+function ladderHtml(v: LaddersView | undefined): string {
+  const you = v?.you ?? null, path = ladderTab ?? you?.path ?? PATH_IDS[0], me = view?.snap.you.id ?? -1, rows = v?.ladders[path] ?? [];
+  const mine = you && you.path === path;
+  return `<div class="wv-tabs">${PATH_IDS.map((p) => `<button class="rf-tab${p === path ? ' on' : ''}" data-ladder="${p}">${LADDER_NAME[p]}${you?.path === p ? ' <span class="rf-dim">(you)</span>' : ''}</button>`).join('')}</div>
+    <div class="ld-hd rf-dim"><span data-tip="Level points earned this season, from your path's work">Level points this season</span></div>
+    <div class="ld-rows">${rows.map((r) => ladderRow(r, path, me)).join('') || `<div class="rf-dim" style="padding:4px">Nobody here yet.</div>`}</div>
+    ${mine && !rows.some((r) => r.pid === me) ? `<div class="ld-you">${you.place === null ? 'You: no points yet' : `You: place ${you.place}, ${you.points.toLocaleString('en')} points`}</div>` : ''}`;
+}
 function renderSeason(): void {
   if (!view) return;
   const rows = seasonStandings(view.snap.regions), scores = view.scores;
   const ranked = [...rows].sort((a, b) => (scores ? scores[b.id] - scores[a.id] : b.rate - a.rate));
   const holder = view.snap.regions.find((r) => r.id === 'omphalos')?.owner ?? -1;
   const left = view.endsAt ? Math.max(0, Math.floor((view.endsAt - Date.now()) / 1000)) : null;
-  const ids = ranked.map((r) => r.id), tabs: [SeasonTab, string][] = [['titles', 'Titles'], ...(view.trade ? [['trade', 'Trade'] as [SeasonTab, string]] : []), ...(view.snap.score.peace ? [['peace', 'Peace'] as [SeasonTab, string]] : [])];
-  if (!tabs.some(([k]) => k === seasonTab)) seasonTab = 'titles';
-  const body = seasonTab === 'trade' && view.trade ? tradeHtml(ids, view.trade) : seasonTab === 'peace' ? peaceHtml(ids, view.snap.score.peace) : titlesHtml(view.titles ?? []);
+  const heg = view.snap.score.hegemony, scroll = seasonEl.querySelector('.ld-rows')?.scrollTop ?? 0;
   seasonEl.innerHTML = `<div class="rf-head"><span class="rf-name">Season</span><span class="rf-dim" style="margin-left:auto">${left === null ? 'no clock yet' : `${Math.floor(left / 86400)}d ${clock(left % 86400)} left`}</span></div>
-    <div class="st-row hd"><span></span><span>Alliance</span><span class="n" data-tip="Season score so far">Score</span><span class="n" data-tip="Score gained each hour from the land held now">/h</span><span class="n" data-tip="Market towns held">Towns</span></div>
+    <div class="st-row hd"><span></span><span>Alliance</span><span class="n" data-tip="Land held so far: each hour, Omphalos counts 10, a frontier town 3, a gate 2, other land 1. Empty land still counts">Land</span><span class="n" data-tip="What the land held now adds each hour">/h</span><span class="n" data-tip="Market towns held">Towns</span></div>
     ${ranked.map((r) => `<div class="st-row${r.id === st.you ? ' me' : ''}"><img src="${ART}banners/${ALLIANCES[r.id].key}.png" width="12" height="17" alt="">
       <span>${aName(r.id)}</span>
       <span class="n">${scores ? scores[r.id] : '—'}</span>
@@ -299,36 +320,16 @@ function renderSeason(): void {
       <span class="n">${r.towns}</span></div>`).join('')}
     <div class="st-goal" data-tip="Frontier towns held: ${ranked.map((r) => `${aName(r.id)} ${r.frontier} of 4`).join(', ')}">
       <b>Omphalos:</b> ${holder >= 0 ? `held by ${aName(holder)}` : 'unclaimed'}<br>
-      <span class="rf-dim">Hold Omphalos and 3 of the 4 frontier towns for 24 h to win early; else the top score wins.</span></div>
-    <div class="wv-tabs">${tabs.map(([k, l]) => `<button class="rf-tab${seasonTab === k ? ' on' : ''}" data-tab="${k}">${l}</button>`).join('')}</div>
-    ${body}`;
+      ${heg ? `<b>${aName(heg.alliance)} wins in ${clock(Math.max(0, Math.floor((heg.endsAt - Date.now()) / 1000)))}</b> unless someone retakes a town<br>` : ''}
+      <span class="rf-dim">Hold Omphalos and 3 of the 4 frontier towns for 24 h to win early. Otherwise the most land wins on day 28.</span></div>
+    ${ladderHtml(view.ladders)}`;
+  const box = seasonEl.querySelector('.ld-rows');
+  if (box) box.scrollTop = scroll;
 }
 seasonEl.addEventListener('click', (e) => {
-  const t = (e.target as HTMLElement).closest<HTMLElement>('[data-tab]')?.dataset.tab as SeasonTab | undefined;
-  if (t) (seasonTab = t), renderSeason();
+  const t = (e.target as HTMLElement).closest<HTMLElement>('[data-ladder]')?.dataset.ladder as PathId | undefined;
+  if (t) (ladderTab = t), renderSeason();
 });
-
-/** W-61: the peace score per alliance so far (trade volume, contracts filled, works raised). */
-function peaceHtml(ids: number[], peace: Record<string, number[]> | undefined): string {
-  if (!peace) return '';
-  const sum = (a: number) => Object.values(peace).reduce((x, v) => x + (v[a] ?? 0), 0);
-  return `<div class="rf-dim" style="margin:6px 0 2px">Score from peaceful play: goods sold to others, contracts filled, works raised.</div>
-    ${ids.map((a) => `<div class="wv-row" style="padding:2px 4px">${swatch(a)}<span style="flex:1">${aName(a)}</span><span class="rf-dim" data-tip="sold · contracts · works">${['volume', 'contracts', 'works'].map((k) => peace[k]?.[a] ?? 0).join(' · ')}</span><span class="rf-num" style="width:34px;text-align:right">${sum(a)}</span></div>`).join('')}`;
-}
-
-/** W-61: the season's titles: an emblem and holder each (his alliance's colour), the words in the tooltip. */
-function titlesHtml(t: WorldTitle[]): string {
-  const cell = (id: string) => {
-    const x = t.find((y) => y.id === id);
-    return `<div class="wt-t" data-tip="${(x ? titleTip(x) : `<b class="k">${TITLES[id].name}</b> · unclaimed`).replace(/"/g, '&quot;')}">${medal(id, 24)}<div style="min-width:0"><div class="wt-who">${x ? `${x.alliance >= 0 ? swatch(x.alliance) : ''}${x.player}` : '<span class="rf-dim">unclaimed</span>'}</div><div class="wt-n">${TITLES[id].name}</div></div></div>`;
-  };
-  return `<div class="wt-grid" style="margin-top:6px">${TITLE_ORDER.map(cell).join('')}</div>`;
-}
-/** M6l: today's trade score per alliance against the daily cap. */
-function tradeHtml(ids: number[], trade: number[]): string {
-  return `<div class="rf-dim" style="margin:6px 0 2px">Trade score today, up to ${TRADE_CAP}: 1 for each 100 coin sold to other alliances.</div>
-    ${ids.map((a) => `<div class="wv-row" style="padding:2px 4px">${swatch(a)}<span style="flex:1">${aName(a)}</span>${bar(trade[a] >= TRADE_CAP ? 'burn' : 'ok', trade[a] / TRADE_CAP, 56)}<span class="rf-num" style="width:44px;text-align:right">${trade[a]}/${TRADE_CAP}</span></div>`).join('')}`;
-}
 draggable(seasonEl);
 
 const colorOf = (a: number) => allianceColor(map.art, a);

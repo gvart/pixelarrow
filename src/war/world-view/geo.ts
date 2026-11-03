@@ -185,5 +185,3 @@ export function planHaul(from: string, to: string, kind: HaulKind, you: Alliance
 
 /** A town's price board as your men last saw it (WAR.md "Stalls, offers and the board"; fog: the last board seen). */
 export interface BoardSeen { at: number; rows: { good: string; ask: number | null; bid: number | null; depth: number }[]; fills: number }
-/** Trade score per alliance today against the daily cap (WAR.md: <= 60 a day an alliance). */
-export const TRADE_CAP = 60;
