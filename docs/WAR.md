@@ -256,7 +256,7 @@ little); T3 crafting needs silver and marble, so a high-end army needs Omphalos,
 
 Market towns: the 4 home agoras, 4 frontier towns (Kleisoura toll fort, Stymphalia causeway town, Achelous bridge
 town, Ammos caravanserai) and the Great Fair on Omphalos. The four frontier towns are safe-zone exchanges ("Trade");
-prices are only player offers, so the money is in hauling what is scarce across a frontier or through the centre.
+prices there are only player offers, so the money is in hauling what is scarce across a frontier or through the centre.
 
 | Route | Regions | Goods typically moved | Chokepoints on it | Raiding pays |
 | --- | --- | --- | --- | --- |
@@ -1370,7 +1370,8 @@ takes 5 off max condition; at max 50 the item can only be salvaged (30% of the i
 
 ### Balance (M5h6, `npm run balance:war`)
 
-Expected values, no dice. A play week = 14 h at the forge + 7 unattended queues of 5. Smiths: T1 forge L4 stone hammer
+Expected values, no dice, measured before W-88 (the unattended queues below no longer run, so these need re-measuring).
+A play week = 14 h at the forge + 7 unattended queues of 5. Smiths: T1 forge L4 stone hammer
 (G 4, work ×1.09), T2 L6 journeyman bronze uncommon (G 8, ×1.32), T3 L10 master + Masterwork, iron rare (G 17, ×1.65).
 
 | Check | Result | Target |
@@ -1392,7 +1393,8 @@ Expected values, no dice. A play week = 14 h at the forge + 7 unattended queues 
 | market stall | 2×2 | wood 30; 400 | offers, contracts | stone 60 (agora): caravan goods | marble 20, silver 10: letters of credit |
 | sorting floor | storehouse upgrade | wood 40, stone 20; 600 | charcoal, linen | wood 40, salt 10: tannery (leather) | – |
 
-Each level adds a crafter slot (1 / 2 / 3 at once) and +1 grade. One queue per workplace, ≤ 5 orders. Levels are
+Each level adds a crafter slot (1 / 2 / 3 at once) and +1 grade. One queue per workplace, ≤ 5 orders; it runs only while
+a person is working there (W-88), who need not be the owner (W-89 sets who may). Levels are
 building types chained by `upgrade` (`forge` → `forge2` → `forge3`), as walls are; they burn by their material.
 
 ### How it stays light
@@ -1417,9 +1419,13 @@ building types chained by `upgrade` (`forge` → `forge2` → `forge3`), as wall
 
 ## Trade
 
-W-11, W-44, W-46. A fully player-driven economy: the game sells nothing, buys nothing and quotes no price. Every good
-is gathered, made or minted by a player and sits somewhere on a map (a store, a chest, a cart, a man's back, a loot
-pile); it moves only by being carried and changes hands only by a hand-off, a fill at a stall, or a raid.
+W-11, W-44, W-46, W-93. A player-driven economy with one exception: NPC towns buy and sell (W-93), so a builder or trader
+can progress alone; which towns, at what prices and where their coin comes from are
+[open](impl/paths-rework.md#open-design-items). Everywhere else the game sells nothing, buys nothing and quotes no price.
+Every good sits somewhere on a map (a store, a chest, a house, a cart, a man's back, a loot pile); it moves only by being
+carried and changes hands only by a hand-off, a fill at a stall, a sale in an NPC town, or a raid. Goods that today move
+with nobody carrying them (store networks, the strongroom behind a store, gifts to works) are
+[open](impl/paths-rework.md#open-design-items) under W-87.
 
 ### Coin
 
@@ -1436,7 +1442,8 @@ pile); it moves only by being carried and changes hands only by a hand-off, a fi
 | --- | --- | --- | --- |
 | store (camp, storehouse, fort) | unlimited, as today | its alliance; enemies by looting | a team's stores joined by its influence in a region form one **network**: crafting and building draw from it; men within 6 tiles eat from the store itself (W-60) |
 | chest | building 1×1, wood 10, 8 loads, owner-only | owner; enemies by looting | ≤ 4 a player a region; holds, never feeds crafting |
-| home strongroom | the home storehouse + one chest a player | never lootable (W-09) | the only safe store outside a trade town; replaces the stash and the treasury table |
+| home strongroom | the home storehouse + one chest a player | never lootable (W-09) | the only safe store outside a trade town; replaces the stash and the treasury table. How it sits beside the private house (W-90) is [open](impl/paths-rework.md#open-design-items) |
+| private house (W-90) | a house a player owns; size [open](impl/paths-rework.md#open-design-items) | its owner; anyone past its walls and locks | holds his belongings; nothing else protects it |
 | rented warehouse | a trade-town site, 20 loads | renter only | safe while rent is paid; unpaid 3 days: locked, never confiscated |
 | porter | CARRY 10 = 1 load (today's worker load); 5 items = 1 load | his squad | any soldier or civilian; −10% speed loaded |
 | cart | see Carts | its driver's player | captured with its cargo |
@@ -1460,10 +1467,10 @@ the same region within 4 tiles.
 | Rule | Value |
 | --- | --- |
 | Ground | road ×1.3; shallow ford ×0.5; slope up ×0.6; sand ×0.5; forest and marsh only on a road; no stairs, walkways or ladders; bridges ≥ 2 wide |
-| Per player | 2 carts in the world (Emporos 3); a convoy = his carts and the squads escorting them |
+| Per player | 2 carts in the world (Emporos 3; whether a trader's cap rises is [open](impl/paths-rework.md#open-design-items)), all in his one group (W-87); a convoy = his carts and the squads escorting them |
 | `escort` order (new `Order` kind) | the squad keeps a column round the cart, engages enemies within 12 tiles of it, returns past 20 |
 | Under attack | the cart halts while an enemy is within 8 tiles, resumes 10 s after; it never fights |
-| Between regions | carts and loaded porters ride the world transfer, cargo on the transit row; wagon ×1.5 travel time, porters ×1.2; a `haul` order chains transfers along the world path and keeps driving offline (W-07) |
+| Between regions | carts and loaded porters ride the world transfer with the whole group (W-87), cargo on the transit row; wagon ×1.5 travel time, porters ×1.2; a `haul` order chains transfers along the world path for that group, and no cart ever drives on its own (no automated drovers). Whether the chain goes on while he is offline (W-07 holds men in place) is [open](impl/paths-rework.md#open-design-items) |
 | World map | in transit seen like squads (by alliances with men in or next to either end); Safe Roads: only by alliances with men at the destination |
 | Fire | wood: torches and fire arrows ignite it like a wood building |
 
@@ -1490,7 +1497,7 @@ an unheld town charges nothing.
 
 | Piece | Rule |
 | --- | --- |
-| Sell offer | goods or items already in the seller's stall: what, n, price each; listed while he is offline |
+| Sell offer | goods or items already in the seller's stall: what, n, price each; listed while he is offline (whether an unstaffed stall still sells, W-88, is [open](impl/paths-rework.md#open-design-items)) |
 | Buy order | coin escrowed in the stall's strongbox: what, n, price; fills when a seller in town accepts |
 | Fill | in the court, buyer takes an offer (or seller an order): goods stall → buyer's warehouse, coin back, tax to the holder, at once; the buyer hauls it out himself |
 | Price board | an object in each court: per good best ask, best bid, depth, last 10 fills; the world hover card shows the last board your men saw (fog) |
@@ -1503,7 +1510,7 @@ an unheld town charges nothing.
 | Hand-off | anywhere both players have a unit within 4 tiles: both confirm one window (cart, chest or porter loads, items, coin) within 60 s; swapped at once, nothing in flight |
 | Escrowed hand-off (Broker) | each side drops its half at the broker's stall when it can; collected once both are in; refunded after 48 h |
 | Contract (2 open, Broker 4) | posted at a stall, coin escrowed: **carry** (take these sealed loads from A to B; the carrier escrows 50% of the declared value), **supply** (deliver n of a good to my warehouse by a time), **escort** (paid when my cart arrives with ≥ 75% of its cargo); sealed loads unload only at B |
-| Work contracts (W-61) | **build** (an ally's men raise one of my sites, paid as they labour) and **guard** (an ally holds my town for n hours, paid an hour at a time): "Peaceful play" |
+| Work contracts (W-61) | **build** (an ally's men raise one of my sites, paid as they labour) and **guard** (an ally holds my town for n hours, paid an hour at a time): "Peaceful play". A warrior's hire for monsters (W-93) is new; its form is [open](impl/paths-rework.md#open-design-items) |
 | Letter of credit (Banker, stall L3) | the banker escrows coin in his strongbox at town B and sells at A a letter for his own fee; the letter is an item named to its buyer, redeemable only by him at B, so a stolen one is worthless |
 
 ### Loot piles (W-46, every fight)
@@ -1533,7 +1540,7 @@ hurts; the player still has his squad, his level and his home strongroom.
 | --- | --- | --- |
 | Capture a cart | an enemy unit beside it 5 s with no owner or ally within 8 tiles: it is his, cargo and all; retaken the same way | the cargo; 5 XP to the squad |
 | Wreck a cart | fight it to 0 HP | a pile |
-| Loot a chest or store | porters at it, no owner unit within 10 tiles: 1 load per 2 s a porter; a store only once its region influence is gone | what they carry |
+| Loot a chest or store | porters at it, no owner unit within 10 tiles: 1 load per 2 s a porter; a store only once its region influence is gone (how this meets W-91's walls and locks is [open](impl/paths-rework.md#open-design-items)) | what they carry |
 | Ambush spots | region JSON `ambush` rects (additive: high ground or woods over a road, 1–3 per route region); bandit lairs on the coast tracks | where bots and raiders wait |
 
 ### Season score and anti-abuse
@@ -1545,7 +1552,7 @@ hurts; the player still has his squad, his level and his home strongroom.
 | Alt funnelling | accounts that shared an IP or device in 7 days cannot hand off, fill, contract or capture carts from each other; one-sided hand-offs only within an alliance, ≤ 300 coin (last-fill value) a day to a receiver; receiving needs account age ≥ 48 h and one fight |
 | Wash trading | same-alliance fills score nothing; a town ignores origin stamps of its own region |
 | Caps | 2–3 carts, 4 chests a region, 1 stall + 1 warehouse a town, 2–4 contracts, a letter ≤ 500 coin |
-| Season start | each player gets his squad and START.food in his home strongroom, no coin and no goods (owner to confirm) |
+| Season start | each player gets what his path starts with ([open](impl/paths-rework.md#open-design-items)) and START.food in his home strongroom, no coin and no goods (owner to confirm) |
 
 ### What changes in today's code
 
@@ -1573,7 +1580,9 @@ touched only on load, unload, pick-up, capture or loot. Bench: 600 units with 40
 
 ## Peaceful play (W-61)
 
-A player can spend a whole season trading or building and still matter. Weights live in code: `src/war/sim/townLevel.ts`
+A player on the builder or trader path spends the whole season at it and still matters (W-83, W-92). Whether the score,
+its caps and these titles stay as they are beside the path ladders is
+[open](impl/paths-rework.md#open-design-items). Weights live in code: `src/war/sim/townLevel.ts`
 (levels, perks), `src/war/net/works.ts` (works), `src/war/world/season.ts` PEACE (score), `server/src/war/contracts.ts`
 GUARD and BUILD, `src/war/sim/economy.ts` WALLS.
 
@@ -1619,7 +1628,8 @@ an icon checklist, the perks as icon chips and the next level's perks greyed.
 
 Posted in a market town's Contracts tab like the others, the reward escrowed from the stall; they need only the stall
 (no merchant node), count against the 2 open contracts, and are taken only by a member of the poster's alliance (his
-men stand among the poster's on the field; a truce for hired foes is not built). The tab is a job board of parchment
+men stand among the poster's on the field; a truce for hired foes is not built). Taking one brings the taker's whole
+group to that region (W-87). The tab is a job board of parchment
 cards (type, reward, route, time left, a rough risk by type, poster) with type filters; posting is four short steps
 (type, where, pay and time, a preview of the card) with the escrowed reward shown as "held until done".
 
@@ -1630,8 +1640,8 @@ cards (type, reward, route, time left, a rough risk by type, poster) with type f
 
 ### Walls that matter
 
-A man's blow or an arrow on a stone wall, gate or tower counts a quarter (`WALLS.stoneMelee`). A raid with no ram (the
-whole army is at most 12) needs over 20 minutes at a stone gate or tower, while a crewed ram breaks the gate in a few
+A man's blow or an arrow on a stone wall, gate or tower counts a quarter (`WALLS.stoneMelee`). A raid with no ram (a
+warrior's whole army is at most 12) needs over 20 minutes at a stone gate or tower, while a crewed ram breaks the gate in a few
 minutes and ladders raise as before: walls stop raids, not sieges. Wood stays cheap and weak (a wooden gate falls to the
 same raid in under 5 minutes). Only a player's walls resist so: a guardian's landmark (neutral or the wild's) keeps the
 full blow, as its raids are tuned (see "Balance"); once an alliance holds it, its stone resists like any other. Seeded
@@ -1647,7 +1657,8 @@ struck down this season, war_player_stats; not the men's lifetime kills).
 
 ### Daily and weekly tasks (W-62, W-73 solo)
 
-Pools, draw and lore: `src/war/net/tasks.ts`, `src/war/net/questLore.ts` `TASK_LORE`; tallies and claims:
+The solo tasks and region mastery assume a fighting army; what a builder or trader draws instead is
+[open](impl/paths-rework.md#open-design-items). Pools, draw and lore: `src/war/net/tasks.ts`, `src/war/net/questLore.ts` `TASK_LORE`; tallies and claims:
 `server/src/war/tasks.ts`. 3 daily and 2 weekly tasks, drawn per player and period (no metric twice), one reroll a day.
 
 - **Partner tasks** need another player: selling to another alliance (`d-sell`, `w-sell`), guard contracts
