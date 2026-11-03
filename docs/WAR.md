@@ -1644,8 +1644,14 @@ whose men stand at it. Data: `src/data/warNpcTowns.ts`; the rules, shared: `src/
 | Where goods and coin are (W-143) | out of the packs and carts at the town. Coin he earns lands in those packs; at home in his strongroom, and at home he also pays from it. What does not fit is set down at his feet |
 | Level (W-148) | a sale pays the trader's level (W-111) only for goods from another land: a town's own goods sold back to it, or what he gathered at home and sold at home, pay coin and no level. Carrying over a border pays as before |
 | Tribute (W-153) | a sale to a town is sale income: his liege's part stays at the town under his name, as at a stall, until someone's men fetch it |
-| Hired workers (W-144) | forager 120, cook 150, engineer, merchant, physician or smith 200. One of his own people from then on, under W-103's cap, standing with his men; the coin goes into the purse |
+| Hired workers (W-144) | forager 120, cook 150, engineer, merchant, physician or smith 200. One of his own people from then on, under W-103's cap, falling in with the workers he has (their squad, their work; no squad of his own against the 3-squad limit); the coin goes into the purse |
 | Carts (W-145) | a trader starts with one handcart, given at his first join. A town sells a handcart for 180 and a wagon for 600 under W-104's cap (the coin into the purse). Builders still build them. A cart coming in over a border or bought is set down on the nearest ground carts can roll on, never in the trees |
+
+Solo runs (seeded, real sim and D1 rules, nobody else in the world; game time). Trader from dodona: first sale 10 min, L2
+79, second cart 93, a worker 130, L3 204, L4 352 min over 23 hops, 6851 coin sold. Coming and going between two towns
+stalls in about 3 hours (stock back only 63% in 12 hours): the trade has to move on, and a town's whole purse (400) then
+caps a stop. Builder from dodona: house 20 min, L2 52, all 6 workers 120, L3 282 min. His income is thin (gathered wood
+sold at home, 10-30 coin a sale), and after his chain he has only labour for level.
 
 Numbers are start numbers (`NPC`, `NPC_HIRE`, `NPC_CARTS`). Tests: `tests/war/npcMarket.test.ts` (rules), `server/test/war/npcMarket.test.ts`
 (bound on coin: all paid out plus the purse = start + minted), `server/test/war/soloRuns.test.ts` (the solo game).
