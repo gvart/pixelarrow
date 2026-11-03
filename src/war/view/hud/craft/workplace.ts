@@ -156,8 +156,8 @@ export function workplaceHtml(C: SandboxCraft, b: BuildingSnap, crafters: Crafte
       ${compare}
       <div class="wp-in" style="margin-top:6px">${needChips(sel.inputs, stock)}<span class="wp-time" data-tip="${esc(maker ? `${maker.civ!.name} L${maker.civ!.level} works ×${maker.rate.toFixed(2)}` : 'at a crafter\'s base rate')}">${glyph('ui:hourglass', 14)}<b>${secs(sel.secs / (maker?.rate ?? 1))}</b></span></div>
       ${maker ? oddsHtml(C, maker, sel, level) : ''}
-      <button class="rf-tbtn pri big wp-go" data-queue="${sel.id}" ${why ? 'disabled' : ''}>${wp.kind === 'forge' ? 'Forge' : wp.kind === 'cookhouse' ? 'Cook' : 'Make'}</button>
-      ${why || short ? `<div class="wp-why rf-hint" data-tip="${esc(why || `${short}: it waits in the queue until the store holds them`)}">${esc(why || `${short}: it waits in the queue`)}</div>` : ''}
+      <div class="wp-cta"><button class="rf-tbtn pri big wp-go" data-queue="${sel.id}" ${why ? 'disabled' : ''}>${wp.kind === 'forge' ? 'Forge' : wp.kind === 'cookhouse' ? 'Cook' : 'Make'}</button>
+      ${why || short ? `<div class="wp-why rf-hint" data-tip="${esc(why || `${short}: it waits in the queue until the store holds them`)}">${esc(why || `${short}: it waits in the queue`)}</div>` : ''}</div>
     </div>`;
   }
 
@@ -207,7 +207,7 @@ export const WP_CSS = `
 .wp-cr.empty{color:var(--rf-disabled);border-style:dashed;background:none;cursor:default}.wp-cr.extra{opacity:.6}
 .wp-main{display:flex;gap:6px;align-items:stretch}
 .wp-side{width:188px;flex:none;display:flex;flex-direction:column;gap:3px}
-.wp-list{height:192px}
+.wp-list{height:150px}
 .wp-all{height:21px;font-size:11px}
 .wp-g{position:sticky;top:0;z-index:1;font:700 10.5px/1 Cinzel,serif;letter-spacing:.06em;text-transform:uppercase;color:var(--rf-accent);padding:5px 6px 4px;background:#140c09;border-bottom:1px solid var(--rf-rule)}
 .wp-r{display:flex;align-items:center;gap:5px;height:30px;padding:0 5px 0 4px;cursor:pointer;border-bottom:1px solid #1a1c20;box-shadow:inset 3px 0 0 transparent}
@@ -233,6 +233,9 @@ export const WP_CSS = `
 .wp-odds{display:flex;height:6px;box-shadow:0 0 0 1px #050506}.wp-odds i{display:block;height:6px}
 .wp-go{width:100%;margin-top:auto;margin-bottom:0}
 .wp-det .wp-go{margin-top:8px}
+/* on a short window the panel scrolls: the call to action stays in sight at its foot */
+.wp-cta{position:sticky;bottom:0;margin-top:auto;background:var(--rf-sunk)}
+#cfWp.hud-fade-foot{-webkit-mask-image:none;mask-image:none}
 .wp-why{font-size:11px;margin-top:3px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .wp-queue{display:grid;grid-template-columns:repeat(${CRAFT.queue},1fr);gap:3px}
 .wp-qs{position:relative;height:36px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;background:radial-gradient(circle at 50% 35%,#1e2127,#0d0f12);border:1px solid #2b2c2f}

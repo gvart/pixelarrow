@@ -57,7 +57,7 @@ function stateCell(r: Row, taken: string): string {
     const v = hpOf(r);
     return `<div class="rr-bar hp sm" ${tip(card({ icon: 'ui:heart', name: `Health ${Math.ceil(r.unit.hp)} / ${r.unit.maxHp}`, w: 180, kind: 'in the field' }))}><i style="width:${Math.round(100 * v)}%"></i></div>`;
   }
-  if (r.where === 'away') return `<span class="rr-mark" ${tip(card({ icon: 'ui:flag', name: `In ${esc(r.region)}`, w: 200, more: '<div>Fit, in another region: not on this map.</div>' }))}>${glyph('ui:flag', 16)}</span>`;
+  if (r.where === 'away') return `<span class="rr-mark" ${tip(card({ icon: 'ui:flag', name: `In ${esc(r.region)}`, w: 200, more: '<div>Fit, and not on this map. At home he waits until your group comes back.</div>' }))}>${glyph('ui:flag', 16)}</span>`;
   if (r.where === 'wounded') return `<span class="rr-mark" ${tip(termCard('wounded'))}>${glyph('power:blood_price', 18)}</span>`;
   if (r.where === 'captive') return `<span class="rr-mark" ${tip(card({ icon: 'ui:lock', name: 'Captive', kind: esc(taken), w: 220, more: '<div>No longer in your army: his place is free. His captor may win him over, or let his soul go; a raid on the fort frees him. After a day his soul goes free by itself.</div>' }))}>${glyph('ui:lock', 17)}</span>`;
   return `<span class="rr-mark" ${tip(termCard('fallen'))}>${glyph('ui:skull', 17)}</span>`;

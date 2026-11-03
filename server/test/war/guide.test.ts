@@ -1,12 +1,13 @@
 /**
  * W-62 the first-hour guide online (server/src/war/guide.ts): the home room wakes the guide's bandit pair for a new
  * player of the home alliance, tells him each step done (paid) as his men do it, closes the soul step unpaid when his
- * army is full, the haul step on a stow / hand-off / caravan mark, keeps a finished or hidden guide shut, and ignores
+ * army is full, keeps a finished or hidden guide shut, runs a trader's chain next door (W-170), and ignores
  * players of other alliances.
  */
 import { describe, expect, it } from 'vitest';
 import { NET_VERSION, parseClientMsg, type JoinMsg, type ServerMsg } from '../../../src/war/net/protocol';
-import { GUIDE_LAIR, GUIDE_STEPS, guideNext, guideSpots } from '../../../src/war/net/guide';
+import { GUIDE_LAIR, guideAbroad, guideNext, guideSpots, guideSteps } from '../../../src/war/net/guide';
+const GUIDE_STEPS = guideSteps('warrior');
 import { ARMY_MAX } from '../../../src/war/sim/soldiers';
 import { HUNGER } from '../../../src/war/sim/food';
 import { amount } from '../../../src/war/sim/holders';
@@ -21,15 +22,15 @@ const spot = guideSpots(region, 0);
 const guideLairs = (room: WarRoom) => (room.snapshot().lairs ?? []).filter((l) => Math.hypot(l.x - spot.lair.x, l.y - spot.lair.y) < 0.5);
 
 describe('W-62 guide in the home room', () => {
-  it('W-73 the hand-off: after the five steps the guide stays open on `next`; departing for its region closes it, paid', () => {
+  it('W-73 the hand-off: after the other steps the guide stays open on `next`; departing for its region closes it, paid', () => {
     const room = home();
     room.join(1, join(1, 0, 6));
     room.tick();
-    const five = GUIDE_STEPS.filter((st) => st.id !== 'next').map((st) => st.id);
-    expect(room.startGuide(1, { v: 1, done: [...five] })).toEqual({ t: 'guide', done: five });
+    const four = GUIDE_STEPS.filter((st) => st.id !== 'next').map((st) => st.id);
+    expect(room.startGuide(1, { v: 1, done: [...four] })).toEqual({ t: 'guide', done: four });
     expect(room.guide.open).toEqual([1]);
     expect(room.guide.nextRegion).toBe(guideNext('dodona', region)!.region);
-    room.guide.mark(1, 'next'); // the DO's depart for room.guide.nextRegion
+    room.guide.departed(1, room.guide.nextRegion!); // the DO's depart
     const r = room.tick();
     expect(r.guided).toEqual([expect.objectContaining({ pid: 1, step: 'next', paid: true, reward: GUIDE_STEPS.find((st) => st.id === 'next')!.reward })]);
     expect(room.guide.open).toEqual([]);
@@ -86,7 +87,7 @@ describe('W-62 guide in the home room', () => {
     expect((room.sim.cargo({ squad: sq })?.slots ?? []).map((x) => amount(x.hold, 'ration'))).toEqual(Array(6).fill(HUNGER.kit));
   });
 
-  it('a full army: the soul step closes unpaid at once; the haul step on a stow mark', () => {
+  it('a full army: the soul step closes unpaid at once', () => {
     const room = home();
     room.join(1, join(1, 0, ARMY_MAX));
     room.tick();
@@ -95,8 +96,6 @@ describe('W-62 guide in the home room', () => {
     const r = room.tick();
     expect(r.guided).toEqual([expect.objectContaining({ pid: 1, step: 'soul', paid: false, reward: {} })]);
     expect(guideMsgs(r, 1)).toEqual([{ t: 'guide', done: ['soul'], step: 'soul' }]);
-    room.guide.mark(1, 'haul');
-    expect(room.tick().guided).toEqual([expect.objectContaining({ step: 'haul', paid: true })]);
   });
 
   it('a claim refused (army full meanwhile) closes the soul step unpaid, not stuck', () => {
@@ -129,5 +128,60 @@ describe('W-62 guide in the home room', () => {
     expect(room.guide.hide(1)).toEqual({ v: 1, done: [], hidden: true });
     expect(room.startGuide(1, { v: 1, done: [], hidden: true })).toEqual({ t: 'guide', done: [], hidden: true });
     expect(parseClientMsg(JSON.stringify({ t: 'guide', op: 'hide' }))).toEqual({ t: 'guide', op: 'hide' });
+  });
+});
+
+describe('W-170 a chain per path in the room', () => {
+  const far = guideAbroad('dodona', region)!.region;
+  const steps = (r: ReturnType<WarRoom['tick']>) => r.guided.map((g) => g.step);
+
+  it('W-171 a warrior wakes a small camp and a soul of his own family; a builder or trader neither', () => {
+    const room = home();
+    room.setPath(1, { path: 'warrior', family: 'shock' });
+    room.join(1, join(1, 0, 6));
+    room.tick();
+    room.startGuide(1, null, 'dodona');
+    room.tick();
+    expect(guideLairs(room)).toEqual([expect.objectContaining({ kind: GUIDE_LAIR.kind, count: GUIDE_LAIR.count })]);
+    expect((room.snapshot().souls ?? []).filter((q) => Math.hypot(q.x - spot.soul.x, q.y - spot.soul.y) < 5).map((q) => q.cls)).toEqual(['celt_sword']);
+    for (const path of ['builder', 'trader'] as const) {
+      const r = home();
+      r.setPath(2, { path, family: null });
+      r.join(2, join(2, 0, 2));
+      r.tick();
+      expect(r.startGuide(2, null, 'dodona')).toEqual({ t: 'guide', done: [] });
+      r.tick();
+      expect(guideLairs(r)).toEqual([]);
+      expect((r.snapshot().souls ?? []).some((q) => Math.hypot(q.x - spot.soul.x, q.y - spot.soul.y) < 5)).toBe(false);
+    }
+  });
+
+  it('another path\'s work counts for nothing: a builder cutting wood is told gather, never a warrior\'s step', () => {
+    const room = home();
+    room.setPath(1, { path: 'builder', family: null });
+    room.join(1, join(1, 0, 2));
+    room.tick();
+    room.startGuide(1, null, 'dodona');
+    room.guide.mark(1, 'soul');
+    room.guide.mark(1, 'gather');
+    expect(steps(room.tick())).toEqual(['gather']);
+  });
+
+  it('a trader\'s run goes on next door: a sale of carried goods closes what led to it, then what he spends it on; a builder has none there', () => {
+    const r = warRegion(far)!, room = new WarRoom({ region: r, seed: 3, cap: 600 });
+    room.setPath(1, { path: 'trader', family: null });
+    room.join(1, { ...join(1, 0, 2), region: far });
+    room.tick();
+    expect(room.startGuide(1, { v: 1, done: [] }, 'dodona')).toEqual({ t: 'guide', done: [] });
+    room.storyTrade(1, 'hire', 50, 0); // hires before he sells: waits for the sale
+    room.storyTrade(1, 'sell', 80, 0); // his own town's goods back to it: no sale of carried goods
+    expect(steps(room.tick())).not.toContain('sell');
+    room.storyTrade(1, 'sell', 80, 80);
+    expect(steps(room.tick()).sort()).toEqual(['carry', 'load', 'sell']);
+    expect(steps(room.tick())).toEqual(['hire']);
+    room.setPath(2, { path: 'builder', family: null });
+    room.join(2, { ...join(2, 0, 2), region: far });
+    room.tick();
+    expect(room.startGuide(2, null, 'dodona')).toBeNull();
   });
 });

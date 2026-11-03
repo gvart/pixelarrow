@@ -79,7 +79,7 @@ import { elapsedTicks, loadMemory, MEMORY_KEY, remembered, storeMemory, writeMem
 import type { WorldEvent } from '../../../src/war/world/events';
 import { settleTunnelFor } from './raise';
 import { applyFight, armyCount, claimForJoin, claimSoul, COLS, deployed, freeRaided, groupOf, LIVE, offField, ownerPid, release, releaseRegion, riders, settle, waitingAtHome, type PersonRow } from './persons';
-import { homeRegion, pathOf, takeStartCart } from './start';
+import { guideSaveOf, guideSaveStmt, homeRegion, pathOf, takeStartCart } from './start';
 import { namedSoul, SOULS, type NamedSoul, type SoulSpawn } from './captives';
 import { soulSites } from '../../../src/war/sim/souls';
 import { applyCrafts, keepMends, returnMends, takeForMend } from './crafting';
@@ -93,13 +93,12 @@ import { regionStub, runningColo, worldStub } from './placement';
 import type { AllianceId, Side } from '../../../src/war/world/types';
 import { type ArriveResult, type DepartResult } from './world/world';
 import type { TransitCargo } from '../../../src/war/net/world';
-import { guideStorageKey, type GuideDone } from './guide';
+import type { GuideDone } from './guide';
 import { storyStorageKey, type StoryDone } from './stories';
 import { encounterStorageKey, type EncounterDone } from './encounters';
 import type { EncSave } from '../../../src/war/sim/encounters';
 import type { StorySave } from '../../../src/war/sim/stories';
 import { fightTallies, tallyStmt } from './tasks';
-import type { GuideSave } from '../../../src/war/net/guide';
 import { bookFight, pactAttack, pactsOf } from './crown';
 import { found, logAttack, PRESENCE, report as reportSettlement } from './settlements';
 import { liegeOf, reportHeld, sworn, tributePlace } from './oaths';
@@ -386,7 +385,6 @@ export class WarRegionDO extends DurableObject<Env> {
     await this.settled();
     await storeState(this.ctx.storage, null);
     await this.ctx.storage.delete([MEMORY_KEY, 'woke']);
-    await this.ctx.storage.delete([...(await this.ctx.storage.list({ prefix: 'guide:' })).keys()]); // W-96: a new first hour
     this.memory = '';
     this.reported = '';
     this.settles = [];
@@ -449,8 +447,8 @@ export class WarRegionDO extends DurableObject<Env> {
       else if (m.t === 'npc') await this.npc(ws, me.pid, room, m);
       else if (m.t === 'handoff') await this.handoff(ws, me.pid, room, m);
       else if (m.t === 'guide') {
-        const g = room.guide.hide(me.pid);
-        if (g) await this.ctx.storage.put(guideStorageKey(WAR_SEASON.id, me.pid), g);
+        const g = room.guide.hide(me.pid), d = this.env.DB;
+        if (g && d) await guideSaveStmt(d, me.pid, g).run();
       }
       else if (m.t === 'story') room.storyChoose(me.pid, m.option); // W-65
       else if (m.t === 'encounter') room.encounterChoose(me.pid, m.option); // W-65
@@ -538,13 +536,13 @@ export class WarRegionDO extends DurableObject<Env> {
     for (const pid of new Set(rows.filter((r) => !here.has(r.id)).map((r) => r.player_id))) await this.muster(room, pid);
   }
 
-  /** W-62: his first-hour guide here (his save from this DO's storage): started by the room, told to him. */
+  /** W-62: his first-hour guide here (his save from D1, W-170: it follows him abroad): started by the room, told to him. */
   private async guideStart(pid: number, room: WarRoom): Promise<void> {
-    const save = (await this.ctx.storage.get<GuideSave>(guideStorageKey(WAR_SEASON.id, pid))) ?? null;
-    const m = room.startGuide(pid, save);
+    const d = this.env.DB, save = d ? await guideSaveOf(d, pid) : null;
+    const m = room.startGuide(pid, save, d ? await homeRegion(d, pid) : null);
     // W-79: a new player's rations are packed: his save is kept at once, so they are packed only once
     const fresh = save ? null : room.guide.saveOf(pid);
-    if (fresh) await this.ctx.storage.put(guideStorageKey(WAR_SEASON.id, pid), fresh);
+    if (fresh && d) await guideSaveStmt(d, pid, fresh).run();
     if (m) for (const ws of this.ctx.getWebSockets(`p:${pid}`)) send(ws, m);
   }
 
@@ -629,7 +627,7 @@ export class WarRegionDO extends DurableObject<Env> {
   private guided(done: readonly GuideDone[]): void {
     const d = this.env.DB;
     for (const g of done) {
-      this.ctx.waitUntil(this.ctx.storage.put(guideStorageKey(WAR_SEASON.id, g.pid), g.save).catch((e) => logError('war_guide_save_failed', e)));
+      if (d) this.ctx.waitUntil(guideSaveStmt(d, g.pid, g.save).run().catch((e) => logError('war_guide_save_failed', e)));
       const pay = Object.entries(g.reward).filter(([, n]) => n > 0);
       if (d && pay.length) this.write(`guide ${g.pid} ${g.step}`, () => batch(d, [ensureHolder(d, strongroom(g.pid), 'strongroom', { pid: g.pid }, Date.now()), ...pay.map(([r, n]) => putStmt(d, strongroom(g.pid), r, n))]));
     }
@@ -698,7 +696,6 @@ export class WarRegionDO extends DurableObject<Env> {
       }
       send(ws, { t: 'stowed', dir: 'in', site: id, goods: bundleGoods(b), items: b.items.length });
       if (kind === 'strongroom') room.setLarder(pid, await goodsOf(d, id)); // W-80
-      room.guide.mark(pid, 'haul'); // W-62
       const stowed = b.lots.reduce((a, l) => a + l.n, 0);
       if (stowed > 0) this.write('tasks', () => tallyStmt(d, pid, 'deliver', stowed, Date.now()).run()); // W-62 E7
       if (cartLoads > 0) this.write('escort', () => cartArrived(d, pid, region, cartLoads, Date.now()));
@@ -834,7 +831,6 @@ export class WarRegionDO extends DurableObject<Env> {
     if ('error' in s) return tell((w) => ({ t: 'handoff', with: w, state: 'closed', why: s.error }));
     if (d) this.write('handoff', () => handoffDone(d, r.window, s.gave, Date.now()));
     tell((w) => ({ t: 'handoff', with: w, state: 'done', halves }));
-    for (const p of [r.window.a, r.window.b]) room.guide.mark(p, 'haul'); // W-62
     this.save();
   }
 
@@ -847,7 +843,7 @@ export class WarRegionDO extends DurableObject<Env> {
     const room = await this.ensure(region);
     if (!room) return { error: 'region', detail: region };
     await this.caughtUp();
-    if (to === room.guide.nextRegion) room.guide.mark(pid, 'next'); // W-73: the guide's hand-off, closed on the way out
+    room.guide.departed(pid, to); // W-73: the guide's hand-off, closed on the way out
     const r = room.depart(pid, side, foeRadius);
     if ('error' in r) return r;
     const d = this.env.DB;
@@ -889,7 +885,6 @@ export class WarRegionDO extends DurableObject<Env> {
     const r = room.arrive(pid, team, persons, side, lost, cargo);
     if ('error' in r) return r;
     if (cargo) {
-      room.guide.mark(pid, 'haul'); // W-62: a caravan in
       this.write(`favour carried ${pid}`, () => addFavour(this.env, pid, cargoLoads(cargo) * FAVOUR_EARN.carried, 'carried')); // W-111
     }
     await d.batch([

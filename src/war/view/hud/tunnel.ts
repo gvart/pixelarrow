@@ -2,7 +2,7 @@
  * W-66 the Tunnel of Shades on the HUD (docs/WAR.md "Tunnel of Shades"; rules: src/war/sim/tunnel.ts). While the player
  * has fewer than 6 men who can fight (W-68: not wounded; captives are not his), one rises from his home town's tunnel
  * every 10 min:
- *  - the countdown pill, top centre: "Next shade rises in 7:42, 3/6";
+ *  - the countdown pill, top centre: "Next fighter rises in 7:42 · 3/6";
  *  - when his last man he can field falls (the rest dead or wounded), the "Your army is destroyed" card: a lore
  *    line, the time until his first man is back (a rise, a wounded man fit), and a button to his home
  *    town to watch the tunnel (no account reset);

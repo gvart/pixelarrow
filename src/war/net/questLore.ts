@@ -22,7 +22,11 @@ export const guideGiver = (team: number): Giver => GUIDE_GIVER[team] ?? GUIDE_GI
  * The guide's welcome (the start banner): `{town}` is the home town. One identity (docs/WAR.md "Lore"): the player died
  * a mortal and woke as what his blood always was, a god's child; the dead feel it and wake near him.
  */
-export const GUIDE_INTRO = 'You died a mortal, and woke on Metaxy as what your blood always was: a god\'s child. The dead feel it and wake near you. Since the Wardens broke their oath the rim thins, and the Abyss leans closer. Walk to {town} with me.';
+export const GUIDE_INTRO: Record<'warrior' | 'builder' | 'trader', string> = {
+  warrior: 'You woke on Metaxy, a god\'s child. The dead wake near you.',
+  builder: 'You woke on Metaxy, a god\'s child. The dead wake with no roof.',
+  trader: 'You woke on Metaxy, a god\'s child. Nothing moves unless you carry it.',
+};
 
 export interface StepLore {
   /** The objective: a verb and a target, about six words (the card's main line). */
@@ -43,14 +47,14 @@ export const GUIDE_NEXT: StepLore = {
   goal: 'Find {giver} by the well',
   key: 'rmb',
   story: 'Every grief on Metaxy ends in a shard of the Wardens\' broken oath, and {giver} carries one without knowing it. Gather them. Whoever holds Omphalos swears the oath anew, and the rim holds one more season.',
-  where: '{region}, by the village well: the gold "!" marks him. Select your men and right-click beside him.',
+  where: '{region}, by the well: the gold "!" marks him. Select your men and right-click beside him.',
 };
 
 export const GUIDE_LORE: Record<GuideStepId, StepLore> = {
   soul: {
-    goal: 'Claim the hoplite\'s soul',
+    goal: 'Claim the waiting soul',
     key: 'rmb',
-    story: 'A man died in the world above this morning and woke by the road. Your blood called him here, and the wild heard him too. A soul belongs to the first squad that stands beside him.',
+    story: 'A man died in the world above this morning and woke by the road. Your blood called him here, and the wild heard him too. A soul belongs to the first men who stand beside him.',
     where: 'By the road ahead, marked in gold. Select your men and right-click him.',
   },
   gather: {
@@ -71,11 +75,47 @@ export const GUIDE_LORE: Record<GuideStepId, StepLore> = {
     story: 'A warband without a hearth scatters like mist, and the mist comes nearer every season. Plant your camp on {town}\'s ground and give your men a store.',
     where: '{town}, marked in gold. Press B, pick Camp and place it inside the town\'s ground.',
   },
-  haul: {
-    goal: 'Bring goods into a store',
-    key: 'auto',
-    story: 'When the season turns, a hall with empty stores fades first, and what fades drinks Lethe: no name, no grave, no one who remembers. Fill yours.',
-    where: 'Your nearest camp or store, marked in gold. Your gatherers carry their loads there by themselves.',
+  house: {
+    goal: 'Build a house of your own',
+    key: 'B',
+    story: 'A man who builds for others sleeps in the rain. Your house keeps what is yours behind a door, and only its walls and its lock protect it.',
+    where: '{town}, on your town\'s ground. Press B, open Trade, pick Private house and place it. Your men fetch the wood and stone from your store.',
+  },
+  access: {
+    goal: 'Choose who may use your house',
+    key: 'rmb',
+    story: 'Every roof you raise has a door, and you decide who comes through it: you alone, your household, your alliance, or anyone at all.',
+    where: 'Click a building of yours, then change who may use it on its card.',
+  },
+  work: {
+    goal: 'Start a workplace with a man',
+    key: 'B',
+    story: 'Nothing here works by itself. A forge with nobody at it is a cold heap. Put a man at the bench and the town has a trade.',
+    where: 'Press B and build a stall, cookhouse or forge, then keep a man beside it; or start an order at one in town.',
+  },
+  load: {
+    goal: 'Load goods on your handcart',
+    key: 'rmb',
+    story: 'A cart with nothing on it is a slow way to walk. Cut wood or buy what the town has too much of. It is worth more over the border.',
+    where: 'Gather into a store and right-click the store to load, or buy at the town with your men beside the cart.',
+  },
+  carry: {
+    goal: 'Carry your goods to {abroad}',
+    key: 'rmb',
+    story: 'Goods are worth most where they are scarce. Everyone you own goes with you, and the road is safe until you arrive.',
+    where: 'Open the world map, click your men, then {abroad}. Walk to its town on arrival.',
+  },
+  sell: {
+    goal: 'Sell your goods at the town',
+    key: 'K',
+    story: 'A far town pays more, and less with every load you sell it. Watch where the price stops being worth the road.',
+    where: 'With your men at the town, press K and sell what you carried in. The town pays only from its purse.',
+  },
+  hire: {
+    goal: 'Hire a hand or a cart',
+    key: 'K',
+    story: 'Coin is only goods waiting to move. Spend it on what moves more of them: a pair of hands, another cart, the next load.',
+    where: 'With your men at the town, press K: hire a worker, buy a cart, or buy goods to carry home.',
   },
   next: GUIDE_NEXT,
 };
@@ -112,6 +152,8 @@ export const TASK_LORE: Record<TaskMetric, TaskLore> = {
   secret: { giver: HUNTRESS, goal: 'Follow a hidden trail', story: 'Metaxy keeps its dead badly. A note on a corpse, a cairn, a shrine no one tends: each is a grief someone left unfinished, and it pays to finish it.', where: 'Off the roads of a neutral region: walk your men onto something that does not belong. No marker shows it.' },
   encounter: { giver: HUNTRESS, goal: 'See a road encounter through', story: 'The roads throw up the lost and the hungry. Whether you help, rob or bury them, finish what the road began.', where: 'Any road: march your men and answer the card that comes to you.' },
   lair: { giver: POLEMARCH, goal: 'Clear lairs off the roads', story: 'Each lair left standing is a mouth the Abyss feeds through. Empty them, and the dead walk home safer.', where: 'Any region: a lair (a den or a camp on the map). Right-click it with your men until none stand.' },
+  built: { giver: BUILDER, goal: 'Finish a building of your own', story: 'A plan is only a wish until the roof is on. Finish what you lay out.', where: 'Your town\'s ground: press B, lay it out, keep men at the site until it stands.' },
+  townSale: { giver: FACTOR, goal: 'Sell carried goods far from home', story: 'A town pays best for what its own land does not yield. Carry it over a border and sell it there.', where: 'Any town beyond the land the goods came from: stand your men there and press K.' },
   contract: { giver: HORKOS, goal: 'Fill a market contract', story: 'Horkos, god of oaths, punishes the forsworn even here; ask the Wardens. Give your word and keep it.', where: 'The market (K), Contracts tab: take a contract and fill it.' },
 };
 

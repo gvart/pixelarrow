@@ -34,7 +34,7 @@ export interface CardCtx {
   /** A market town's price board as the player's men last saw it (undefined: never). */
   board?: BoardSeen;
   /** What a click does here: enter (default), march (a lit neighbour of the selected squad), haul (the planner is open);
-   * squad: the player's selected squad stands here. */
+   * squad: the player's men, selected, stand here. */
   mode: 'enter' | 'march' | 'haul' | 'squad';
   /** Docked (clicked) rather than the hover card: real buttons and a close. */
   pinned?: boolean;
@@ -107,7 +107,7 @@ export const loreLine = (id: string) => (REGION_LORE[id]?.lore ?? '').replace(/^
 /** The primary action and its key for the card's mode. */
 export function regionAction(mode: CardCtx['mode']): { label: string; act: string; key: string; hint: string } {
   if (mode === 'haul') return { label: 'Haul here', act: 'haul', key: 'Click', hint: 'Shift-click: haul from here' };
-  if (mode === 'march') return { label: 'March here', act: 'march', key: 'Click', hint: 'Sends your selected squad' };
+  if (mode === 'march') return { label: 'March here', act: 'march', key: 'Click', hint: 'Sends all your men' };
   if (mode === 'squad') return { label: 'Enter region', act: 'enter', key: '⏎', hint: 'Click a glowing neighbour to march there' };
   return { label: 'Enter region', act: 'enter', key: '⏎', hint: 'or double-click it' };
 }

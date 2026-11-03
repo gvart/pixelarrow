@@ -13,6 +13,7 @@
  * Refusals (409): started (the start is done), no_alliance, no_home, home_refused, bad_path; 400 for a bad body.
  * Players who came in by the dev routes (DEV_AUTH: /world/dev/alliance and /dev/seed) count as started once they have men.
  */
+import type { GuideSave } from '../../../src/war/net/guide';
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { readJson } from '../body';
@@ -60,6 +61,14 @@ export async function pathOf(d: D1Database, pid: number): Promise<PlayerPath> {
   const r = await startRow(d, pid);
   return r?.path ? { path: r.path, family: r.family, level: r.level ?? 1 } : NO_PATH;
 }
+
+/** W-170: his first-hour guide's save (his member row: it follows him over a border, and a new season starts it anew). */
+export async function guideSaveOf(d: D1Database, pid: number): Promise<GuideSave | null> {
+  const r = await d.prepare('SELECT guide FROM war_alliance_members WHERE season = ?1 AND player_id = ?2').bind(WAR_SEASON.id, pid).first<{ guide: string | null }>();
+  return r?.guide ? (JSON.parse(r.guide) as GuideSave) : null;
+}
+export const guideSaveStmt = (d: D1Database, pid: number, save: GuideSave): D1PreparedStatement =>
+  d.prepare('UPDATE war_alliance_members SET guide = ?3 WHERE season = ?1 AND player_id = ?2').bind(WAR_SEASON.id, pid, JSON.stringify(save));
 
 /** W-145: his first cart, if one is still owed him (a trader's first join): owed once. */
 export async function takeStartCart(d: D1Database, pid: number): Promise<boolean> {

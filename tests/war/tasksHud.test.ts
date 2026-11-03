@@ -4,7 +4,7 @@ import { offlineTasks, tasksHtml, until } from '../../src/war/view/hud/tasks';
 import { offlineWorks, worksHtml } from '../../src/war/view/hud/peaceCards';
 import { DAILY, TASKS, WEEKLY } from '../../src/war/net/tasks';
 import { CONTRACT_HOW, fill, GUIDE_LORE, ORDER_LORE, TASK_LORE } from '../../src/war/net/questLore';
-import { GUIDE_STEPS } from '../../src/war/net/guide';
+import { GUIDE_PATHS } from '../../src/war/net/guide';
 import { WONDER } from '../../src/war/net/works';
 
 const NOW = Date.UTC(2031, 0, 6, 12);
@@ -34,7 +34,7 @@ describe('E7 tasks panel', () => {
 describe('quest lore on the tasks, the guide and the orders', () => {
   it('every task names its giver, story, where to go and how it pays, with Track on open ones', () => {
     for (const t of [...DAILY, ...WEEKLY]) expect(TASK_LORE[t.metric].giver.name).toBeTruthy();
-    for (const s of GUIDE_STEPS) expect(GUIDE_LORE[s.id].story.length).toBeGreaterThan(20);
+    for (const s of Object.values(GUIDE_PATHS).flat()) expect(GUIDE_LORE[s.id].story.length).toBeGreaterThan(20);
     for (const k of ['attack', 'defend', 'rally', 'supply'] as const) expect(ORDER_LORE[k].pay).toBeTruthy();
     const v = offlineTasks(42, NOW), html = tasksHtml(v, true), lore = TASK_LORE[v.tasks[0].metric];
     expect(html).toContain(lore.giver.name);
@@ -50,7 +50,7 @@ describe('quest lore on the tasks, the guide and the orders', () => {
       expect(g.split(' ').length, g).toBeLessThanOrEqual(6);
       expect(g, g).not.toMatch(/[0-9]/);
     }
-    for (const s of GUIDE_STEPS) expect(GUIDE_LORE[s.id].key).toMatch(/^(rmb|auto|[A-Z])$/);
+    for (const s of Object.values(GUIDE_PATHS).flat()) expect(GUIDE_LORE[s.id].key).toMatch(/^(rmb|auto|[A-Z])$/);
   });
 
   it('a task card leads with its goal and chips; the title, story and where wait in the details fold', () => {

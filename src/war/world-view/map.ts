@@ -97,7 +97,7 @@ interface Decor { lords: LordSpot[]; stars: StarSpot[]; landmarks: Map<string, [
 interface PactWord { x: number; y: number; text: string; edge: string }
 
 /**
- * The map's marker hierarchy: yours first (your squads' banners, your men and carts on the road, the region you are
+ * The map's marker hierarchy: yours first (your men's one banner, or their one road, your carts, the region you are
  * in), then threats (battles, sieges, world events, raids), then the context (warlord lands and halls, landmarks,
  * crowns, settlements, mastery stars, pacts). Below NEAR_K the context loses its words and, where it has no room,
  * huddles into a cluster chip per region; up close everything shows.
@@ -165,6 +165,9 @@ function fogTexture(w: number, h: number): HTMLCanvasElement {
 export function allianceColor(_art: WorldArt, a: number): string {
   return TEAM_CSS[a] ?? '#888';
 }
+
+/** W-87 a cart riding with his group is on the group's one road: the men's marker tells both. */
+const rides = (c: ConvoySnap, st: MapState): boolean => !!st.transit[0] && c.from === st.transit[0].from && c.to === st.transit[0].to;
 
 export class WorldMap {
   readonly ctx: CanvasRenderingContext2D;
@@ -1106,12 +1109,12 @@ export class WorldMap {
       ...[...spots.events.values()].map(([x, y, r]) => [x - r - 8 * s, y - r - 8 * s, x + r + (this.far ? 64 : 160) * s, y + r + 8 * s] as Box),
       ...[...spots.banners].map(([id, [x, y, b]]) => [x, y, x + 38 * b + (10 * String(st.squads.get(id)).length + 14) * s, y + 56 * b] as Box),
       // your carts (others' are small and pass under the names)
-      ...st.convoys.filter((c) => c.alliance === st.you).map((c) => {
+      ...st.convoys.filter((c) => c.alliance === st.you && !rides(c, st)).map((c) => {
         const q = 32 * s, [x, y] = this.transitPos({ ...c, men: 0, state: 'moving' }, st.now).map((v) => Math.round(v / q) * q);
         return [x - 16 * s - q / 2, y - 16 * s - q / 2, x + 16 * s + 70 * s + q / 2, y + 16 * s + q / 2] as Box;
       }),
       // squads on the road, snapped to a coarse step so the names re-flow now and then, not every frame
-      ...st.transit.map((t) => {
+      ...st.transit.slice(0, 1).map((t) => {
         const q = 32 * s, [x, y] = this.transitPos(t, st.now).map((v) => Math.round(v / q) * q);
         return [x - 20 * s - q / 2, y - 43 * s - q / 2, x + 18 * s + (8 * String(t.men).length + 112) * s + q / 2, y + 8 * s + q / 2] as Box;
       }),
@@ -1270,7 +1273,8 @@ export class WorldMap {
     this.drawEvents(g, st, spots.events);
     // yours: carts, the men on the road with their ETA, the squads' banners with their count
     this.drawConvoys(g, st, true);
-    for (const t of st.transit) {
+    // W-87 one group, one road: the server sends his own transit
+    for (const t of st.transit.slice(0, 1)) {
       const [x, y] = this.transitPos(t, st.now);
       g.drawImage(pic('markers/transit'), x - 20 * s, y - 40 * s, 40 * s, 48 * s);
       const left = Math.max(0, Math.ceil((t.arriveAt - st.now) / 1000));
@@ -1298,7 +1302,7 @@ export class WorldMap {
   private drawConvoys(g: CanvasRenderingContext2D, st: MapState, mine: boolean): void {
     const s = this.u;
     for (const c of st.convoys) {
-      if ((c.alliance === st.you) !== mine) continue;
+      if ((c.alliance === st.you) !== mine || (mine && rides(c, st))) continue;
       const [x, y] = this.transitPos({ ...c, men: 0, state: 'moving' }, st.now), r = (mine ? SIZE.convoy : SIZE.foreignConvoy) * s;
       this.disc(g, x, y, r, allianceColor(this.art, c.alliance), (mine ? 3 : 2) * s);
       if (c.safe) { g.setLineDash([4 * s, 3 * s]); g.strokeStyle = '#9fd47a'; g.lineWidth = 1.5 * s; g.beginPath(); g.arc(x, y, r + 3 * s, 0, Math.PI * 2); g.stroke(); g.setLineDash([]); }

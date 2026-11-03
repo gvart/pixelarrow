@@ -13,7 +13,7 @@ import { addLabour, bonusesOf, give as giveWork, openWorks, perksOf, worksOf } f
 import { joinAlliance } from '../../src/war/world/members';
 import { DAY_MS, DAILY, dayOf, drawTasks, periodOf, rerollTask, TASKS, taskDef, WEEKLY, type TaskView } from '../../../src/war/net/tasks';
 import { WONDER } from '../../../src/war/net/works';
-import type { FightReport, UnitSnap } from '../../../src/war/types';
+import type { BuildingSnap, FightReport, UnitSnap } from '../../../src/war/types';
 
 const DB = () => env.DB!;
 const code = async (p: Promise<unknown>) => p.then(() => 'ok', (e: { code?: string }) => e.code ?? String(e));
@@ -130,9 +130,9 @@ describe('tasks (E7)', () => {
     // the gather watch: a man cuts wood and drops it at a store: counted; a carrier fetching stone from a store: not
     const w = new GatherWatch(), owner = () => `p:${p}`;
     const u = (id: number, state: UnitSnap['state'], carry?: string, load = 0) => ({ id, squad: 1, x: 0, y: 0, facing: 0, hp: 1, maxHp: 1, cls: 'civ_worker', state, carry, load }) as UnitSnap;
-    expect(w.step([u(1, 'gather', 'wood', 2), u(2, 'move', 'stone', 5)], owner)).toEqual([]);
-    expect(w.step([u(1, 'move', 'wood', 4), u(2, 'move', 'stone', 5)], owner)).toEqual([]);
-    expect(w.step([u(1, 'idle'), u(2, 'idle')], owner)).toEqual([p]); // brought home: the guide's haul step
+    w.step([u(1, 'gather', 'wood', 2), u(2, 'move', 'stone', 5)], owner);
+    w.step([u(1, 'move', 'wood', 4), u(2, 'move', 'stone', 5)], owner);
+    w.step([u(1, 'idle'), u(2, 'idle')], owner); // brought home
     expect(w.drain()).toEqual([[p, 'gatherWood', 4]]);
     expect(w.drain()).toEqual([]);
     // a man who dies with his load gathered nothing
@@ -140,6 +140,12 @@ describe('tasks (E7)', () => {
     w.step([u(3, 'dead', 'stone', 3)], owner);
     w.step([], owner);
     expect(w.drain()).toEqual([]);
+    // W-172 a building of his, newly finished, counts once; what stood at the first look, a town piece or a site do not
+    const b = (id: number, o: object) => ({ id, state: 'done', owner: `p:${p}`, ...o }) as unknown as BuildingSnap;
+    w.built([b(1, {})]);
+    w.built([b(1, {}), b(2, {}), b(3, { pre: true }), b(4, { state: 'building' })]);
+    w.built([b(1, {}), b(2, {})]);
+    expect(w.drain()).toEqual([[p, 'built', 1]]);
   });
 });
 

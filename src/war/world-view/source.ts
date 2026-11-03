@@ -30,6 +30,8 @@ export interface FieldSquad { region: string; men: number; classes: Record<strin
 export interface WorldView {
   snap: WorldSnapshot;
   squads: FieldSquad[];
+  /** W-98 his men waiting at home, off the field. */
+  waiting?: number;
   /** Season score so far per alliance (null: the server keeps none yet) and when the season ends (null: no clock). */
   scores: number[] | null;
   endsAt: number | null;
@@ -66,18 +68,31 @@ export const travelMs = (from: string, to: string) => Math.round((edge(from, to)
 
 interface RosterPerson { id: string; cls: string; state: string; region: string | null }
 
-/** Men per region from a roster: deployed persons (`region` set, not on the road '>x'). */
-export function fieldSquads(persons: RosterPerson[]): FieldSquad[] {
+/**
+ * W-87 his one group from a roster: where it stands (deployed persons, `region` set, not on the road '>x'). W-98: men left at
+ * `home` while the group is away wait off the field, so they make no banner: `waiting` counts them.
+ */
+export function fieldSquads(persons: RosterPerson[], home: string | null = null): FieldSquad[] {
   const by = new Map<string, FieldSquad>();
   for (const p of persons) {
-    if (!p.region || p.region.startsWith('>') || !worldRegion(p.region)) continue;
+    if (!p.region || p.region.startsWith('>') || !worldRegion(p.region) || p.state === 'dead' || p.state === 'captive') continue;
     const s = by.get(p.region) ?? { region: p.region, men: 0, classes: {}, ids: [] };
     s.men++;
     s.ids.push(p.id);
     s.classes[p.cls] = (s.classes[p.cls] ?? 0) + 1;
     by.set(p.region, s);
   }
-  return [...by.values()];
+  // away, and someone stays at home: the group is the other place (on the road: nobody stands in the field at all)
+  const away = persons.some((p) => p.region?.startsWith('>')), rest = [...by.values()].filter((s) => s.region !== home);
+  const group = away ? null : rest[0] ?? by.get(home ?? '') ?? [...by.values()][0] ?? null;
+  return group ? [group] : [];
+}
+
+/** W-98 men waiting at home, off the field, while the group is elsewhere or on the road. */
+export function waitingHome(persons: RosterPerson[], home: string | null): number {
+  const group = fieldSquads(persons, home)[0];
+  if (!home || group?.region === home) return 0;
+  return persons.filter((p) => (p.region === home || (!p.region && p.state === 'active')) && p.state !== 'dead' && p.state !== 'captive').length;
 }
 
 function devPlayerId(q: URLSearchParams): number {
@@ -103,13 +118,14 @@ export class NetSource implements WorldSource {
   private auth: Record<string, string> = {};
   private snap: WorldSnapshot | null = null;
   private squads: FieldSquad[] = [];
+  private waiting = 0;
   private status = 'signing in';
   private emit: (v: WorldView) => void = () => undefined;
 
   constructor(private q = new URLSearchParams(location.search)) {}
 
   private view(): void {
-    if (this.snap) this.emit({ snap: this.snap, squads: this.squads, scores: this.snap.score.scores, endsAt: this.snap.at + this.snap.score.left, quota: QUOTA, status: this.status, ...liveTrade(this.snap), titles: this.titles, ...(this.ladders ? { ladders: this.ladders } : {}) });
+    if (this.snap) this.emit({ snap: this.snap, squads: this.squads, waiting: this.waiting, scores: this.snap.score.scores, endsAt: this.snap.at + this.snap.score.left, quota: QUOTA, status: this.status, ...liveTrade(this.snap), titles: this.titles, ...(this.ladders ? { ladders: this.ladders } : {}) });
   }
 
   private async api<T>(method: 'GET' | 'POST', path: string, body?: unknown): Promise<T> {
@@ -148,7 +164,9 @@ export class NetSource implements WorldSource {
   private ladders: LaddersView | null = null;
   private titlesAt = 0;
   private async loadRoster(): Promise<void> {
-    this.squads = fieldSquads((await this.api<{ persons: RosterPerson[] }>('GET', '/api/war/roster')).persons);
+    const r = await this.api<{ persons: RosterPerson[]; caps?: { home?: string | null } }>('GET', '/api/war/roster'), home = r.caps?.home ?? null;
+    this.squads = fieldSquads(r.persons, home);
+    this.waiting = waitingHome(r.persons, home);
     // W-61, W-165: the titles and ladders, once a minute
     if (Date.now() - this.titlesAt > 60_000) {
       this.titlesAt = Date.now();

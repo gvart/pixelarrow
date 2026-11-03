@@ -3,7 +3,7 @@
  * imports.
  */
 import type { TaskMetric } from '../../../src/war/net/tasks';
-import type { UnitSnap } from '../../../src/war/types';
+import type { BuildingSnap, UnitSnap } from '../../../src/war/types';
 
 const CARRIED = new Set(['wood', 'stone']);
 /**
@@ -14,10 +14,11 @@ const CARRIED = new Set(['wood', 'stone']);
 export class GatherWatch {
   private was = new Map<number, { r: string; n: number; cut: boolean }>();
   private acc = new Map<string, number>();
+  private up = new Set<number>();
+  private looked = false;
 
-  /** One snapshot: returns the players whose men brought a cut load home in it (W-62 guide: the haul step). */
-  step(units: readonly UnitSnap[], ownerOf: (squad: number) => string | undefined): number[] {
-    const home: number[] = [];
+  /** One snapshot: books the loads his men cut and brought home in it. */
+  step(units: readonly UnitSnap[], ownerOf: (squad: number) => string | undefined): void {
     const seen = new Map<number, { r: string; n: number; cut: boolean }>();
     for (const u of units) {
       if (u.state === 'dead') continue;
@@ -31,10 +32,19 @@ export class GatherWatch {
       if (!m) continue;
       const k = `${m[1]}:${prev.r === 'wood' ? 'gatherWood' : 'gatherStone'}`;
       this.acc.set(k, (this.acc.get(k) ?? 0) + prev.n);
-      if (!home.includes(Number(m[1]))) home.push(Number(m[1]));
     }
     this.was = seen;
-    return home;
+  }
+
+  /** W-172 one snapshot: a player's own building newly finished counts once (what stood at the first look does not: a restart). */
+  built(blds: readonly BuildingSnap[]): void {
+    for (const b of blds) {
+      if (b.state !== 'done' || b.pre || !b.owner || this.up.has(b.id)) continue;
+      this.up.add(b.id);
+      const m = this.looked && /^p:(\d+)$/.exec(b.owner);
+      if (m) this.acc.set(`${m[1]}:built`, (this.acc.get(`${m[1]}:built`) ?? 0) + 1);
+    }
+    this.looked = true;
   }
 
   /** The tallies since the last drain: [player, metric, amount]. */

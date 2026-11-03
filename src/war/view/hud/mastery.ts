@@ -13,6 +13,7 @@ import type { Note } from './roster/state';
 import { glyph } from './glyph';
 import { chip } from './qcard';
 import { esc } from './roster/ui';
+import { sandboxRoster } from './roster/state';
 
 const CSS = `
 #rfMastery{position:absolute;top:50%;transform:translateY(-50%);display:flex;gap:4px;align-items:center;pointer-events:auto;white-space:nowrap}
@@ -51,7 +52,14 @@ export function mountMastery(s: SandboxScene, note: (n: Note) => void): void {
   const el = document.createElement('div');
   el.id = 'rfMastery';
   let v: MasteryView = masteryView(s.region.id, need, []), shown = '';
+  // W-173 lairs, chiefs and hidden quests are a fighting army's: a builder or trader cannot earn it, so he is not shown it
+  const noMastery = () => {
+    const p = sandboxRoster(s).way.path;
+    return p === 'builder' || p === 'trader';
+  };
   const render = () => {
+    el.style.display = noMastery() ? 'none' : '';
+    if (noMastery()) return;
     // in the bar beside the plaque (it clips its own children; under it the toasts and banners come down): right of
     // it, else left of it when the right-hand buttons reach that far, else (narrow windows: it would run into the
     // resources) one chip with the sum
@@ -78,7 +86,7 @@ export function mountMastery(s: SandboxScene, note: (n: Note) => void): void {
     const won = nv.done && !v.done;
     v = nv;
     render();
-    if (won) note({ kind: 'info', text: `${name} mastered`, icon: glyph('ui:banner', 30), chips: chip.any(glyph('ui:banner', 16), `Banner of ${name}`, 'gold', 'A deed on your men standing here') });
+    if (won && !noMastery()) note({ kind: 'info', text: `${name} mastered`, icon: glyph('ui:banner', 30), chips: chip.any(glyph('ui:banner', 16), `Banner of ${name}`, 'gold', 'A deed on your men standing here') });
   };
   // online: the server's word; offline: the local sim's deeds, this visit
   s.sim.serverTaps.add((m: ServerMsg) => {

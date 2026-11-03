@@ -155,4 +155,10 @@ describe('HUD zones', () => {
   it('an edge pointer with nothing in its way stays on the edge', () => {
     expect(clearOnRay(640, 385, 1180, 200, 80, 18, area, HUD_1280)).toEqual({ x: 1180, y: 200 });
   });
+
+  it('the workplace window keeps its queue in sight on the smallest window: it fits above the minimap with no scroll', () => {
+    const wp = b('cfWp', 570, 361), out = solve(FRAMES['1280x720'], { bl: [{ ...mini, h: 210 }], bc: [card], lwin: [wp] });
+    expect(out.cfWp.h).toBe(wp.h);
+    expect(meet(out.cfWp, out.minimap)).toBe(false);
+  });
 });

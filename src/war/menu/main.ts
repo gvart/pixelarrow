@@ -120,16 +120,16 @@ function path(v: api.StartView): void {
 let destroyedSeen = false;
 async function titleMenu(v: api.StartView): Promise<void> {
   wait('Mustering…');
-  let men = 0, where: string | null = null, name = '', favour: { level: number; title: string } | undefined, tunnel: api.TunnelInfo | undefined;
+  let men = 0, where: string | null = null, roadTo: string | null = null, name = '', favour: { level: number; title: string } | undefined, tunnel: api.TunnelInfo | undefined;
   try {
     const [r, me] = await Promise.all([api.roster(), api.call<{ player: { displayName: string } }>('GET', '/api/me')]);
     tunnel = r.tunnel;
-    const alive = r.persons.filter((p) => p.state !== 'dead');
+    const alive = r.persons.filter((p) => p.state !== 'dead' && p.state !== 'captive');
     men = alive.length;
-    // where his men stand (the region with most of them), else his home
-    const by = new Map<string, number>();
-    for (const p of alive) if (p.region && !p.region.startsWith('>') && worldRegion(p.region)) by.set(p.region, (by.get(p.region) ?? 0) + 1);
-    where = [...by.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+    // W-87 his group's one place: away from home if anyone is (men left at home just wait, W-98), on the road nowhere yet, else home
+    const places = [...new Set(alive.flatMap((p) => (p.region ? [p.region] : [])))], road = places.find((p) => p.startsWith('>'));
+    roadTo = road ? road.slice(1) : null;
+    where = road ? null : places.find((p) => p !== v.home && worldRegion(p)) ?? places.find((p) => worldRegion(p)) ?? null;
     name = me.player.displayName;
     favour = await api.call<{ level: number; title: string }>('GET', '/api/war/favour').catch(() => undefined); // W-66
   } catch (e) {
@@ -143,8 +143,8 @@ async function titleMenu(v: api.StartView): Promise<void> {
     stop = destroyedScreen(stage, homeTown, tunnel, { watch: () => enterRegion(homeTown, v.alliance ?? 0), back: () => void titleMenu(v), due: () => ((destroyedSeen = false), void titleMenu(v)) });
     return;
   }
-  titleScreen(stage, { name, alliance: v.alliance, home: v.home, men, where, favour }, {
-    continue: () => enterRegion(where ?? v.home!, v.alliance ?? 0),
+  titleScreen(stage, { name, alliance: v.alliance, home: v.home, men, where, roadTo, favour }, {
+    continue: () => (roadTo ? openWorld() : enterRegion(where ?? v.home!, v.alliance ?? 0)),
     world: openWorld,
     settings: () => openSettings('controls', settingsHooks()),
     signOut: () => void api.signOut().then(signIn),

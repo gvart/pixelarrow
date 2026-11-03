@@ -1,11 +1,11 @@
 /**
- * W-62 the quest tracker of the guided first hour (rules and spots: ../../net/guide.ts; giver and stories:
- * ../../net/questLore.ts). Top left: the chain in a card under its giver's name, the open step in full (its goal, story,
- * where to go, reward, how it is paid and how far its target is), the done ones ticked, the rest dim; − folds it to
- * the open step's one line (kept in localStorage; click the header to unfold), × hides the guide for good. It gives way
- * to a left panel (forge, market, roster, memorial). In the world a gold marker floats over the open step's target, or sits on the screen's edge pointing
- * at it when it is off screen; until the build step a quieter one points at the home town. A step done pays its reward
- * and tells it as a banner (./quest.ts), as does the quest's start.
+ * W-62 the quest tracker of the guided first hour, one chain per path (W-170; rules and spots: ../../net/guide.ts; giver
+ * and stories: ../../net/questLore.ts). Top left: the chain in a card, the open step in full (its goal, the key that does it,
+ * reward and how far its target is), − folds it to the open step's one line (kept in localStorage; click the header to
+ * unfold), × hides the guide for good. It gives way to a left panel (forge, market, roster, memorial). In the world a gold
+ * marker floats over the open step's target, or sits on the screen's edge pointing at it when it is off screen; until the
+ * build step a quieter one points at the home town. A step done pays its reward and tells it as a banner (./quest.ts), as
+ * does the quest's start. The first fight points only at the guide's own small camp (W-171), never at a full lair.
  *
  * Offline the page runs the done checks, pays into his stores and keeps progress in localStorage (wrapped: a blocked
  * store just forgets). Online the region server does all three (server/src/war/guide.ts: the reward into his home
@@ -15,7 +15,11 @@
 import type { ServerMsg } from '../../net/protocol';
 import type { WarEvent } from '../../types';
 import type { SandboxScene } from '../SandboxScene';
-import { doneNow, GUIDE_STEPS, guideNext, guideOpen, newWatch, watchEvents, type GuideSave, type GuideSpots, type GuideStepId } from '../../net/guide';
+import { doneNow, guideAbroad, guideExit, guideHand, guideOpen, guideSteps, watchEvents, watchFor, type GuideSave, type GuideSpots, type GuideStep, type GuideStepId, type GuideWatch } from '../../net/guide';
+import { npcSpot } from '../../net/npcMarket';
+import { storyOf } from '../../../data/warStories';
+import { worldRegion } from '../../world/graph';
+import { FAMILIES, mayHold } from '../../world/start';
 import { ownCentre } from '../entry';
 import { setGuideMark } from '../mapMarks';
 import { myTeam } from '../side';
@@ -39,7 +43,7 @@ export interface GuideSetup {
 
 let setup: GuideSetup | null = null;
 /** The chain's last word: what comes after the first hour. */
-const END = 'Your men know their way now. Next, beyond your home: clear the lair guarding a claim banner, right-click the banner with your men and hold it, and you build there too.';
+const END = { warrior: 'Your men know their way now. Next, beyond your home: clear the lair guarding a claim banner, right-click the banner with your men and hold it, and you build there too.', builder: 'Your town has a roof and a trade. Now raise what your alliance needs: its works, its walls, its forts.', trader: 'You know the road now. Keep moving: buy where it is cheap, sell where it is scarce, and supply the war.' };
 /** ../main.ts: the guide for this page (null: none, e.g. a scenario). */
 export const setGuide = (g: GuideSetup | null) => void (setup = g);
 
@@ -60,18 +64,30 @@ const STEP_ICON: Record<GuideStepId, () => string> = {
   gather: () => icon('act-gather'),
   lair: () => icon('act-attack'),
   build: () => icon('act-build'),
-  haul: () => icon('act-unload'),
+  house: () => icon('act-build'),
+  access: () => icon('act-assign'),
+  work: () => icon('act-build'),
+  load: () => icon('act-load'),
+  carry: () => icon('trade-wagon'),
+  sell: () => icon('act-unload'),
+  hire: () => icon('act-handoff'),
   next: () => icon('mk-claim'),
 };
-const STEP_ON: Record<GuideStepId, () => string> = {
-  soul: () => ghostIcon('hoplite', 16),
+const STEP_ON: Record<GuideStepId, (fam: string) => string> = {
+  soul: (cls) => ghostIcon(cls, 16),
   gather: () => icon('res-wood'),
   lair: () => icon('lair-bandit'),
   build: () => icon('bld-camp'),
-  haul: () => icon('trade-chest'),
+  house: () => icon('bld-storehouse'),
+  access: () => icon('bld-storehouse'),
+  work: () => icon('node-engineer-master-builder'),
+  load: () => icon('res-wood'),
+  carry: () => icon('act-move'),
+  sell: () => icon('res-coin'),
+  hire: () => icon('res-coin'),
   next: () => icon('act-move'),
 };
-const TARGET: Record<GuideStepId, string> = { soul: 'Soul', gather: 'Wood', lair: 'Bandits', build: 'Camp', haul: 'Store', next: 'Road' };
+const TARGET: Record<GuideStepId, string> = { soul: 'Soul', gather: 'Wood', lair: 'Bandits', build: 'Camp', house: 'House', access: 'Your house', work: 'Workplace', load: 'Wood', carry: 'Road', sell: 'Town', hire: 'Town', next: 'Road' };
 
 const CSS = `
 #rfGuide{left:4px;top:4px;width:262px;pointer-events:auto;padding:5px 8px 7px}
@@ -96,38 +112,50 @@ export function mountGuide(s: SandboxScene, mk: Mk): void {
   el.classList.add('rf-card');
   const mStep = questMarker('on'), mHome = questMarker('home');
 
-  // W-73 the hand-off: the nearest neighbour with a region chain, its giver and the exit towards it
-  const hand = guideNext(s.region.id, s.region);
-  const team = myTeam(), watch = newWatch(team, g.spots.lair, undefined, hand?.exit ?? null), giver = guideGiver(team), from = `${giver.name}, ${giver.title}`;
-  const town = { town: g.town, giver: hand?.giver ?? 'the storyteller', region: hand?.name ?? 'the next region' }, lore = (id: GuideStepId) => ({ goal: fill(GUIDE_LORE[id].goal, town), key: GUIDE_LORE[id].key, story: fill(GUIDE_LORE[id].story, town), where: fill(GUIDE_LORE[id].where, town) });
-  const payLine = 'Paid when done, sent home to your strongroom (the top bar shows only the store by your men)';
+  // who he is comes with his roster (online, a moment after the welcome); until then the tracker waits
+  const R = sandboxRoster(s), team = myTeam(), giver = guideGiver(team), from = `${giver.name}, ${giver.title}`, payLine = 'Paid when done, sent home to your strongroom';
+  const path = () => R.way.path, homeId = () => R.homeId ?? s.region.id;
+  let watch: GuideWatch | null = null, steps: readonly GuideStep[] = [], town: Record<string, string> = {}, handAt: { x: number; y: number } | null = null, road: { x: number; y: number } | null = null;
+  const lore = (id: GuideStepId) => ({ goal: fill(GUIDE_LORE[id].goal, town), key: GUIDE_LORE[id].key, story: fill(GUIDE_LORE[id].story, town), where: fill(GUIDE_LORE[id].where, town) });
+  /** The chain, its words and its places, for his path, here. */
+  const prepare = () => {
+    const p = path(), here = s.region, abroad = p === 'trader' && here.id !== homeId();
+    const hand = abroad ? null : guideHand(here.id, here, p), out = abroad ? null : p === 'trader' ? guideAbroad(here.id, here) : null;
+    handAt = abroad ? guideExit(here.id, homeId(), here) : hand?.at ?? null;
+    road = out?.exit ?? null;
+    steps = handAt ? guideSteps(p) : guideSteps(p).filter((x) => x.id !== 'next');
+    const home = worldRegion(homeId())?.name ?? g.town;
+    town = { town: g.town, giver: (abroad ? storyOf(homeId(), p)?.giver.name : hand?.giver) ?? 'the storyteller', region: abroad ? home : hand?.region ?? 'the next region', abroad: abroad ? here.name : out?.name ?? 'the next land' };
+    watch = watchFor(p, here, team, undefined, homeId(), g.spots.lair);
+  };
   // offline: the save in localStorage (key set on the first snapshot); online: the server's latest `guide` message
   let key: string | null = null, save: GuideSave | null = null;
-  const steps = hand ? GUIDE_STEPS : GUIDE_STEPS.filter((x) => x.id !== 'next');
 
   /** A step done: told as a banner (its reward, how it was paid, the next step), the tracker flashes. */
   const told = (id: GuideStepId, paid: boolean) => {
-    const st = GUIDE_STEPS.find((x) => x.id === id)!, nx = steps.find((x) => x.id !== id && !save?.done.includes(x.id));
+    const st = steps.find((x) => x.id === id), nx = steps.find((x) => x.id !== id && !save?.done.includes(x.id));
+    if (!st) return;
     questBanner({
       kind: 'done', head: nx ? 'Step done' : 'The First Hour is done', title: lore(id).goal, giver: from,
       ...(paid ? { reward: st.reward as Record<string, number>, pay: 'Sent home to your strongroom' } : { pay: 'Your army is full: no soul to claim, nothing paid' }),
-      text: nx ? `Next: ${lore(nx.id).goal}.` : END,
+      text: nx ? `Next: ${lore(nx.id).goal}.` : END[path() ?? 'warrior'],
     });
     el.classList.remove('flash');
     void el.offsetWidth;
     el.classList.add('flash');
   };
   const finish = (id: GuideStepId, paid: boolean) => {
-    if (!save || save.done.includes(id)) return;
+    const st = steps.find((x) => x.id === id);
+    if (!save || !st || save.done.includes(id)) return;
     save.done.push(id);
     saveGuide(key!, save);
-    if (paid) for (const [r, n] of Object.entries(GUIDE_STEPS.find((x) => x.id === id)!.reward)) s.sim.addStock(team, r as never, n!);
+    if (paid) for (const [r, n] of Object.entries(st.reward)) s.sim.addStock(team, r as never, n!);
     told(id, paid);
   };
 
   if (g.offline) {
     const prevEv = s.sim.onEvents;
-    s.sim.onEvents = (ev: WarEvent[]) => { prevEv?.(ev); watchEvents(watch, s.sim.cur, ev); };
+    s.sim.onEvents = (ev: WarEvent[]) => { prevEv?.(ev); if (watch) watchEvents(watch, s.sim.cur, ev); };
   } else {
     // online the server keeps the guide: its message is the save; `step` just done (paid into his strongroom, unless
     // it closed unpaid: a soul step with a full army)
@@ -161,17 +189,25 @@ export function mountGuide(s: SandboxScene, mk: Mk): void {
   const target = (id: GuideStepId, me: { x: number; y: number }): { x: number; y: number } | null => {
     const cur = s.sim.cur;
     const near = <T extends { x: number; y: number }>(xs: readonly T[]) => xs.reduce<T | null>((a, p) => (!a || Math.hypot(p.x - me.x, p.y - me.y) < Math.hypot(a.x - me.x, a.y - me.y) ? p : a), null);
-    if (id === 'soul') return near(cur?.souls ?? []) ?? (g.offline ? g.spots.soul : null);
-    if (id === 'gather') return near(s.sim.nodes.filter((n) => (n.res === 'wood' || n.res === 'stone') && n.amount > 0));
-    if (id === 'lair') {
-      const ls = (cur?.lairs ?? []).filter((l) => l.state !== 'cleared');
-      // the camp itself, where it stands (not a bandit on the move: the marker and the distance would wander)
-      return ls.find((l) => Math.hypot(l.x - g.spots.lair.x, l.y - g.spots.lair.y) < 0.5) ?? near(ls);
+    const abroad = path() === 'trader' && s.region.id !== homeId();
+    const stores = () => (cur?.buildings ?? []).filter((b) => b.team === team && b.state === 'done' && ['camp', 'storehouse', 'fort', 'warehouse'].includes(b.type));
+    const nodes = () => s.sim.nodes.filter((n) => (n.res === 'wood' || n.res === 'stone') && n.amount > 0 && !n.guarded);
+    const mine = (b: { owner?: string; pre?: true; team: number }) => b.team === team && !b.pre;
+    switch (id) {
+      // only a soul he may take (W-101: a stranger would refuse him); out of sight online, where the guide's own waits
+      case 'soul': return near((cur?.souls ?? []).filter((q) => mayHold(R.way, q.cls))) ?? g.spots.soul;
+      case 'gather': return near(nodes());
+      // W-171 the guide's own small camp, where it stands; never the nearest lair, which is a full one
+      case 'lair': return g.spots.lair;
+      case 'build': case 'house': return g.spots.home;
+      case 'access': return near((cur?.buildings ?? []).filter((b) => mine(b) && b.state === 'done')) ?? g.spots.home;
+      case 'work': return near((cur?.buildings ?? []).filter((b) => mine(b) && b.state !== 'done')) ?? g.spots.home;
+      // no goods yet: where to cut them; his men carrying: the store they load from
+      case 'load': return (cur?.units ?? []).some((u) => u.carry && (u.load ?? 0) > 0) ? near(stores()) ?? near(nodes()) : near(nodes());
+      case 'carry': case 'sell': case 'hire': return abroad ? npcSpot(s.region) : road;
+      case 'next': return handAt;
     }
-    if (id === 'build') return g.spots.home;
-    if (id === 'next') return hand?.exit ?? null;
-    const stores = (cur?.buildings ?? []).filter((b) => b.team === team && b.state === 'done' && ['camp', 'storehouse', 'fort'].includes(b.type));
-    return near(stores.map((b) => ({ x: b.x, y: b.y }))) ?? g.spots.home;
+    return null;
   };
 
   const place = (m: HTMLElement, p: { x: number; y: number } | null, label: string) => placeMarker(s, m, p, label);
@@ -200,9 +236,10 @@ export function mountGuide(s: SandboxScene, mk: Mk): void {
       key = guideKey(null);
       save = loadGuide(key) ?? { v: 1, done: [] };
     }
-    if (!save) return; // online: no word from the server yet (or no guide for him here)
+    if (!save || !R.known) return; // online: no word from the server yet (or no guide for him here)
+    if (!watch) prepare();
     const list = steps, open = list.filter((st) => !save!.done.includes(st.id));
-    if (g.offline) for (const id of doneNow(watch, cur)) finish(id, true);
+    if (g.offline) for (const id of doneNow(watch!, cur)) if (id !== 'hire' || save.done.includes('sell')) finish(id, true);
     const on = !save!.hidden && (open.length > 0 || shown);
     if (!on) {
       el.style.display = mStep.style.display = mHome.style.display = 'none';
@@ -215,9 +252,9 @@ export function mountGuide(s: SandboxScene, mk: Mk): void {
     const t = now ? target(now.id, me) : null, far = t ? Math.hypot(t.x - me.x, t.y - me.y) : 0;
     setGuideMark(t); // the minimap and the region map mark it too (../mapMarks.ts)
     // the label names what the step's goal names (the last step: its giver, met over the border)
-    place(mStep, t, now ? `${now.id === 'build' ? g.town : now.id === 'next' && hand ? hand.giver : TARGET[now.id]} · ${metres(far)}` : '');
+    place(mStep, t, now ? `${now.id === 'build' ? g.town : now.id === 'next' ? town.giver : now.id === 'carry' ? town.abroad : TARGET[now.id]} · ${metres(far)}` : '');
     if (now?.id === 'lair') fightCue(cur);
-    const towards = now && (now.id === 'soul' || now.id === 'gather' || now.id === 'lair');
+    const towards = now && (now.id === 'soul' || now.id === 'gather' || now.id === 'lair') && path() !== 'trader';
     place(mHome, towards ? g.spots.home : null, `${g.town} · ${metres(Math.hypot(g.spots.home.x - me.x, g.spots.home.y - me.y))}`);
     // on screen the town speaks for itself; on the edge beside the step's marker it gives way
     const near = Math.hypot(parseFloat(mHome.style.left) - parseFloat(mStep.style.left), parseFloat(mHome.style.top) - parseFloat(mStep.style.top)) < 140;
@@ -229,19 +266,19 @@ export function mountGuide(s: SandboxScene, mk: Mk): void {
       const l = lore(st.id);
       return qcard({
         key: `guide:${st.id}`, icon: STEP_ICON[st.id](), goal: l.goal,
-        chips: chip.key(l.key, STEP_ON[st.id]()) + (folded ? '' : chip.reward(st.reward as Record<string, number>)) + (t ? chip.dist(metres(far)) : ''),
+        chips: chip.key(l.key, STEP_ON[st.id](R.way.family ? FAMILIES[R.way.family].start[0] : 'hoplite')) + (folded ? '' : chip.reward(st.reward as Record<string, number>)) + (t ? chip.dist(metres(far)) : ''),
         more: details({ story: l.story, lines: [['Where', l.where], ['Pay', payLine]], from: `Given by ${from}` }),
       });
     };
     const after = now ? list.filter((st) => st !== now && !save!.done.includes(st.id)) : [];
     const html = now
       ? `${head}<div class="gd-cur">${card(now)}</div>${folded || !after.length ? '' : `<div class="gd-next" title="${after.map((st) => lore(st.id).goal).join(', ')}">${STEP_ICON[after[0].id]()}<span>Then: ${lore(after[0].id).goal}</span></div>`}`
-      : `${head}<div class="gd-cur">${qcard({ key: 'guide:end', icon: icon('mk-claim'), goal: 'Claim ground beyond home', more: details({ story: END }) })}</div>`;
+      : `${head}<div class="gd-cur">${qcard({ key: 'guide:end', icon: icon('mk-claim'), goal: path() === 'warrior' || !path() ? 'Claim ground beyond home' : path() === 'builder' ? 'Build what your alliance needs' : 'Keep your goods moving', more: details({ story: END[path() ?? 'warrior'] }) })}</div>`;
     if (!announced && now) {
       // the quest starts (or picks up again): who gives it and why
       announced = true;
       const fresh = save!.done.length === 0;
-      questBanner({ kind: 'start', head: fresh ? 'New quest' : 'Quest continues', title: fresh ? 'The First Hour' : lore(now.id).goal, giver: from, text: fresh ? fill(GUIDE_INTRO, town) : lore(now.id).story, ...(fresh ? {} : { reward: now.reward as Record<string, number>, pay: payLine }) });
+      questBanner({ kind: 'start', head: fresh ? 'New quest' : 'Quest continues', title: fresh ? 'The First Hour' : lore(now.id).goal, giver: from, text: fresh ? GUIDE_INTRO[path() ?? 'warrior'] : undefined, ...(fresh ? {} : { reward: now.reward as Record<string, number>, pay: payLine }) });
     }
     // the HUD layout stops it above the chat and the minimap (./layout.ts): a long step scrolls inside
     if (html !== last) el.innerHTML = last = html;

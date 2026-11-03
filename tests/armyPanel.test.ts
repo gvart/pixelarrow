@@ -9,18 +9,20 @@ vi.mock('../src/war/input/keys', () => ({ keys: { label: () => '' } }));
 vi.mock('../src/war/view/side', () => ({ myTeam: () => 0 }));
 const { armyText } = await import('../src/war/view/hud/armyPanel');
 
-const base = { men: 8, max: 12, here: 5, away: [] as [string, number][], wipe: null, key: 'Ctrl+A' };
+const base = { men: 8, max: 12, here: 5, waiting: 0, group: null, wipe: null, key: 'Ctrl+A' };
 
 describe('army panel state', () => {
   it('men here: a click selects them', () => {
     const v = armyText(base);
-    expect(v.count).toBe('<b>8</b> / 12 men · <b>5</b> here');
-    expect(armyText({ ...base, men: 41, here: 36 }).count).toBe('<b>41</b> men · <b>36</b> here');
-    expect(v.line).toBe('Click or Ctrl+A: select the 5 here');
+    expect(v.count).toBe('<b>8</b> / 12 men');
+    expect(armyText({ ...base, men: 41, here: 36 }).count).toBe('<b>41</b> men');
+    expect(armyText({ ...base, waiting: 3 }).count).toBe('<b>8</b> / 12 men · <b>3</b> at home');
+    expect(v.line).toBe('Click or Ctrl+A: select them');
     expect(v.pick).toBe(true);
   });
-  it('none here: where they are, or no men here', () => {
-    expect(armyText({ ...base, here: 0, away: [['Larisa', 4], ['Kleisoura', 2]] }).line).toBe('No men here · 4 in Larisa, 2 in Kleisoura');
+  it('none here: the one place or road they are on, or no men here', () => {
+    expect(armyText({ ...base, here: 0, group: { region: 'Larisa', road: false } }).line).toBe('Your men are in Larisa');
+    expect(armyText({ ...base, here: 0, group: { region: 'Larisa', road: true } }).line).toBe('On the road to Larisa');
     const v = armyText({ ...base, men: 0, here: 0 });
     expect(v.line).toBe('No men here');
     expect(v.pick).toBe(false);
