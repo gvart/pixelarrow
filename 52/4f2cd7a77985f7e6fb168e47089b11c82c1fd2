@@ -1,0 +1,28 @@
+src/war/view/hud/mastery.ts
+  s_a7d5d20f628c80::t_e9652c49233b96 81
+  s_a7d5d20f628c80::t_a3711f434c14ed 11
+src/war/view/hud/favour.ts
+  s_a7d5d20f628c80::t_e9652c49233b96 2-6,8-9,13,27-32,37-41,43,48-51,64-67,69,71,97-100,116,120,123,131
+src/war/input/actions.ts
+  s_a7d5d20f628c80::t_e9652c49233b96 136
+src/war/view/hud/topBar.ts
+  s_a7d5d20f628c80::t_e9652c49233b96 8,94
+src/war/view/hud/souls.ts
+  s_a7d5d20f628c80::t_e9652c49233b96 9,66,70
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "524f2cd7a77985f7e6fb168e47089b11c82c1fd2",
+  "prompts": {},
+  "sessions": {
+    "s_a7d5d20f628c80": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1afee479-b44b-46d2-a159-a540e44e7fb8",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
