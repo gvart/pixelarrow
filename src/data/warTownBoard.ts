@@ -21,6 +21,8 @@ export const BOARD = {
     { size: 'even', share: 0.85, coin: 90, points: 65 },
     { size: 'hard', share: 1.35, coin: 160, points: 120 },
   ],
+  /** W-194: hurt men standing at a town with no foe near get well: this share of their health a second (half a physician's). */
+  rest: { perSec: 0.005, foeR: 20 },
   /** Most men in a band. */
   bandMost: 16,
   /** A rested board's hard fight is led by a named chief (he drops his loot) when the heat on Kill here is under this. */

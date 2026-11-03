@@ -3817,6 +3817,10 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
         else u.hp = Math.max(1, Math.min(u.hp, Math.round(u.maxHp / 4)));
       }
     },
+    tend(ids, share) {
+      const of = new Set(ids);
+      for (const u of units) if (u.alive && of.has(u.id)) u.hp = Math.min(u.maxHp, u.hp + u.maxHp * share);
+    },
     finishSite: works.finishSite,
     mayUse(id, owner, team) {
       const b = works.piece(id);

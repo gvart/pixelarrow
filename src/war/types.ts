@@ -658,6 +658,8 @@ export interface WarBuildSim extends WarSim {
   walkable(x0: number, y0: number, x1: number, y1: number): boolean;
   /** Dev: these living men struck down (they fall wounded or dead by their END), hurt to a quarter of their hp, or healed. */
   devUnits(ids: number[], op: 'kill' | 'hurt' | 'heal'): void;
+  /** W-194: these living men get back this share of their health. */
+  tend(ids: readonly number[], share: number): void;
   /** M6b scenarios and benches: a finished, empty cart of `owner` (team `team`) at (x,y); its siege id. `crew`: squad crewing it at once. */
   spawnCart(team: number, owner: string, type: 'handcart' | 'wagon', x: number, y: number, crew?: number): number;
   /** Spawn the region's lairs (neutral play; once). */

@@ -49,21 +49,23 @@ async function heatsOf(db: D1Database, pid: number, town: string, now: number): 
 }
 
 /** What a player is to the board: path, level and the strength of the men in this list. */
-async function readerOf(db: D1Database, env: Pick<Env, 'DB'>, pid: number, men: readonly { cls: string; level?: number }[]) {
+async function readerOf(db: D1Database, env: Pick<Env, 'DB'>, pid: number, men: readonly { cls: string; level?: number; hp?: number }[]) {
   const [way, fav] = await Promise.all([pathOf(db, pid), getFavour(env, pid)]);
-  return { path: way.path as PathId | null, level: fav.level, army: armyStrength(men.filter((m) => !m.cls.startsWith('civ_')), fav.level) };
+  const fighters = men.filter((m) => !m.cls.startsWith('civ_'));
+  // the band is sized to his men whole; the word on the card reads them as they stand (W-194)
+  return { path: way.path as PathId | null, level: fav.level, whole: armyStrength(fighters.map((m) => ({ cls: m.cls, level: m.level })), fav.level), army: armyStrength(fighters, fav.level) };
 }
 
 /**
  * The board at `town` as `pid` reads it. `men`: his army (fighters and their levels, whichever region they stand in);
  * `chainOver`: his story chain at this town is done, or he has none here (W-190: the giver's errand opens).
  */
-export async function boardView(env: Pick<Env, 'DB'>, pid: number, town: string, men: readonly { cls: string; level?: number }[], now: number, chainOver = false): Promise<BoardView> {
+export async function boardView(env: Pick<Env, 'DB'>, pid: number, town: string, men: readonly { cls: string; level?: number; hp?: number }[], now: number, chainOver = false): Promise<BoardView> {
   const db = env.DB!, r = warRegion(town);
   if (!r || !npcGoods(town).length) throw new ApiError(404, 'no_town', `${town} is no town`);
   const [who, heats, npc, jobs] = await Promise.all([readerOf(db, env, pid, men), heatsOf(db, pid, town, now), npcView(db, town, now), jobsOf(db, pid)]);
   const win = boardWindow(now), chain = who.path ? storyOf(town, who.path) : null;
-  const entries = boardEntries(r, win, { army: who.army, path: who.path, killHeat: heats.kill, errand: chainOver, giver: chain?.giver.name });
+  const entries = boardEntries(r, win, { army: who.whole, path: who.path, killHeat: heats.kill, errand: chainOver, giver: chain?.giver.name });
   return {
     town, purse: npc.purse, until: windowEnd(win),
     lines: boardLines(entries, { army: who.army, path: who.path, heat: (k) => heats[k], purse: npc.purse, held: new Set(jobs.filter((j) => j.town === town).map((j) => j.entry)), depth: depthOf(r) }),

@@ -1282,9 +1282,17 @@ export class WarRoom {
   }
 
   /** W-184: his fighters and workers on the field here, for the board's reading of his strength. */
-  armyOf(pid: number): { cls: string; level?: number }[] {
+  armyOf(pid: number): { cls: string; level?: number; hp: number }[] {
     const me = ownerOf(pid), snap = this.sim.snapshot();
-    return snap.units.filter((u) => u.state !== 'dead' && !u.wounded && snap.squads[u.squad]?.owner === me).map((u) => ({ cls: u.cls, level: u.level }));
+    return snap.units.filter((u) => u.state !== 'dead' && !u.wounded && snap.squads[u.squad]?.owner === me).map((u) => ({ cls: u.cls, level: u.level, hp: u.hp / Math.max(1, u.maxHp) }));
+  }
+
+  /** W-194: hurt men standing at the town with no foe near get well. */
+  private townRest(secs: number): void {
+    const at = npcSpot(this.region), r2 = NPC.reach ** 2, foe2 = BOARD.rest.foeR ** 2, snap = this.sim.snapshot(), live = snap.units.filter((u) => u.state !== 'dead');
+    const men = live.filter((u) => u.hp < u.maxHp && snap.squads[u.squad]?.owner?.startsWith('p:') && (u.x - at.x) ** 2 + (u.y - at.y) ** 2 <= r2);
+    const ids = men.filter((u) => !live.some((o) => snap.squads[o.squad]?.team !== snap.squads[u.squad]?.team && (o.x - u.x) ** 2 + (o.y - u.y) ** 2 <= foe2)).map((u) => u.id);
+    if (ids.length) this.sim.tend(ids, BOARD.rest.perSec * secs);
   }
 
   /** W-185: a Kill's band: set down where it fights alone, on ground walkable from the town (the lair stays if he drops it). */
@@ -1331,6 +1339,7 @@ export class WarRoom {
   private peace(): Peace | null {
     if (this.snap.tick % LABOUR_EVERY !== 0) return null;
     const secs = LABOUR_EVERY / 10;
+    this.townRest(secs);
     const pidOf = (owner: string | null | undefined) => {
       const m = owner ? /^p:(\d+)$/.exec(owner) : null;
       return m ? Number(m[1]) : null;

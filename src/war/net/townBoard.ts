@@ -69,16 +69,16 @@ const rootOf = (hp: number, dps: number) => Math.sqrt(Math.max(0, hp) * Math.max
 const ARMOUR_MET = 4;
 
 /** One man's root by class: his life, his armour against the mean blow, his best blows a second. */
-function manRoot(cls: string, level = 1): number {
+function manRoot(cls: string, level = 1, hp = 1): number {
   const s = warStats(cls), blow = Math.max(afterArmour(s.dmg, ARMOUR_MET, 0) * (10 / Math.max(1, s.atkTicks)), s.range > 0 ? afterArmour(s.rangedDmg, ARMOUR_MET, s.ap) * (10 / Math.max(1, s.shotTicks)) * s.accuracy : 0);
   const life = (s.maxHp * (10 + s.armor)) / 10, up = 1 + 0.04 * Math.max(0, level - 1);
-  return rootOf(life * up, blow * up);
+  return rootOf(life * up * hp, blow * up);
 }
 
-/** His army's strength: fighters only (a worker in a fight counts as what he is). `level`: his demigod's. */
-export function armyStrength(men: readonly { cls: string; level?: number }[], level = 1): number {
+/** His army's strength: fighters only (a worker in a fight counts as what he is). `level`: his demigod's; a man's `hp`: the share of his health he has now. */
+export function armyStrength(men: readonly { cls: string; level?: number; hp?: number }[], level = 1): number {
   const k = 1 + 0.03 * Math.max(0, level - 1);
-  return (men.reduce((a, m) => a + manRoot(m.cls, m.level) * (m.cls.startsWith('civ_') ? 0.4 : 1), 0) * k) ** 2;
+  return (men.reduce((a, m) => a + manRoot(m.cls, m.level, m.hp) * (m.cls.startsWith('civ_') ? 0.4 : 1), 0) * k) ** 2;
 }
 /** The band's root over depth `depth`: a beast of it. */
 function beastRoot(kind: MobKind, depth: number): number {

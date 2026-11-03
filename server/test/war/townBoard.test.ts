@@ -32,6 +32,30 @@ beforeEach(async () => {
   await DB().batch(['war_npc_towns', 'war_npc_stock', 'war_town_jobs', 'war_town_heat'].map((t) => DB().prepare(`DELETE FROM ${t}`)));
 });
 
+describe('W-194 hurt men get well at a town', () => {
+  it('standing at the town with no foe near they mend; away from it they do not; the card reads them as they stand, the band stays', async () => {
+    const r = await atTown(9690, 'warrior');
+    const ids = r.men().map((u) => u.id), whole = await order(r, { op: 'view' });
+    r.room.sim.devUnits(ids, 'hurt');
+    const hurt = () => r.men()[0].hp / r.men()[0].maxHp, low = hurt();
+    const weak = await order(r, { op: 'view' });
+    const kills = (v: typeof whole.view) => v.lines.filter((l) => l.kind === 'kill');
+    expect(kills(weak.view).map((l) => l.band)).toEqual(kills(whole.view).map((l) => l.band));
+    expect(kills(weak.view).some((l, i) => l.rating !== kills(whole.view)[i].rating)).toBe(true);
+    await r.until(() => false, 200);
+    const mended = hurt();
+    expect(mended).toBeCloseTo(low + BOARD.rest.perSec * 20, 1);
+    await r.until(() => hurt() >= 1, 6000);
+    expect(hurt()).toBe(1);
+    r.room.sim.devUnits(r.men().map((u) => u.id), 'hurt');
+    const at = npcSpot(r.room.region);
+    await r.walk(at.x + NPC.reach + 15, at.y, 3, 2000);
+    const away = hurt();
+    await r.until(() => false, 200);
+    expect(hurt()).toBe(away);
+  });
+});
+
 describe('W-187 standing at the town', () => {
   it('a line is taken only with his men at it; he reads the board from anywhere in the region', async () => {
     const r = await begin(9701, 'builder', 0, 'dodona');
