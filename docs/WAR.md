@@ -858,10 +858,12 @@ Build mode (B) places sites on own influence; the selected men build them, else 
 
 Every soldier is a persistent person (W-10, W-37); civilians are the same record with a non-combat class (W-38).
 Built on the single-player hero (`src/data/units.ts` `Hero`, `src/sim/stats.ts` `computeStats`); the live sim only
-sees the baked stat block. Numbers are first-pass targets for balance tests. **N** = fighters per player (below);
-every other cap is written in terms of N.
+sees the baked stat block. Numbers are first-pass targets for balance tests. **N** = the soldier cap of the player's
+path (below); every other cap is written in terms of N.
 
-### Army size N (W-58: N = 12 is the whole army)
+### Soldier caps (W-85: warrior 12, builder 4, trader 4)
+
+Why 12 is the warrior's number, against the 600 cap:
 
 | N | Players per region (600 cap) | With the 10% civilian quota | Attachment (a) | Formations (b) | Verdict |
 | --- | --- | --- | --- | --- | --- |
@@ -870,22 +872,22 @@ every other cap is written in terms of N.
 | 10 | 60 | 54 | very good | line 5×2, thin wedge | fallback if 50 players feels empty |
 | 8 | 75 | 67 | best | 4×2 reads as a blob; lines and flanks lose meaning | no |
 
-Recommendation: **N = 12 fighters per player**, every one of them a unit the player can command on his own (W-53,
-"Unit control" below): any man or any mix of his men takes an order, so there are no fixed detachments. (d) Civilians
-count toward the 600 cap inside a 10% quota, so 12 gives 45–50 players per region,
-inside the owner's 50–60 hope.
+Every man is a unit the player can command on his own (W-53, "Unit control" below): any man or any mix of his men takes
+an order, so there are no fixed detachments. (d) Civilians count toward the 600 cap inside a 10% quota, so an all-warrior
+region holds 45–50 players, inside the owner's 50–60 hope; builders and traders leave more room.
 
-**Decided (W-58):** a player has at most N = 12 fighters **in total**, counted across all regions. There is no reserve
-and no barracks pool; the 12 may be split across regions as he likes. Wounded and training men count; the dead, the
-retired and (W-68) the captive free their place; civilians are the household, outside the cap. A claimed soul joins only under 12
-(refused past it, W-60), the start squad is up to 12, a transfer moves at most 12. One constant: `ARMY_MAX`
-(`src/war/sim/soldiers.ts`; `SQUAD_MAX`, `MAX_SQUAD` and `TRANSFER_MAX` follow it).
+**Decided (W-85):** a player has at most N soldiers **in total**: warrior 12, builder 4, trader 4. These are hard caps,
+start numbers changed only on balance evidence. There is no reserve and no barracks pool, and all of them are in one
+region or on one road (W-87, "Paths"). Wounded men count; the dead, the retired and (W-68) the captive free their place;
+civilians are the household, outside the cap. A claimed soul joins only under the cap (refused past it, W-60). A transfer
+takes the whole group. One rule for all of it, by path (`ARMY_MAX`, `src/war/sim/soldiers.ts`, and the `SQUAD_MAX`,
+`MAX_SQUAD` and `TRANSFER_MAX` that follow it, give way to it in the rework).
 
 ### Record (server-side, one row per person)
 
 | Field | Rule | Reused from |
 | --- | --- | --- |
-| class | picked at the start, or the class his soul woke as (W-60) → elite at level 6 | `src/data/classes.ts` |
+| class | as his path starts him ([open](impl/paths-rework.md#open-design-items)), or the class his soul woke as (W-60) → elite at level 6 | `src/data/classes.ts` |
 | level, xp | 1–10, `xpToNext = 40 × level`; +2 attribute points per level | `MAX_LEVEL`, `xpToNext`, `POINTS_PER_LEVEL` |
 | attributes | STR, AGI, END, WIL (5 neutral, max 15); class spread on joining. WIL drives survival and the squad active cooldown (no morale in the war) | `src/data/perks.ts` `ATTR_*` |
 | skills | 2 slots, unlocked at levels 3 and 7, picked from the family pool (≤ 4) | perks, reshaped |
@@ -904,12 +906,16 @@ objective. Civilians: 1 per job (meal batch, bar, trade, site, patient). A wound
 
 ### Classes
 
-| Family | Classes (start squad, souls) | Elite at L6 (+ rare kit) | Skills (P passive baked, F flag, A squad active) |
+| Skill family | Classes (souls) | Elite at L6 (+ rare kit) | Skills (P passive baked, F flag, A squad active) |
 | --- | --- | --- | --- |
 | Line | hoplite, thureophoros | royal_guard, sacred_band | Shield Drill P (+6% block, +1 armour), Phalangite P (+0.15 reach, +1 dmg), Hold Fast F (+30% block while the squad holds), **Shield Wall A** |
 | Shock | celt_sword, falx | rhomphaia, gallic | Brawler P (+1.2 dmg), Shield Breaker P (−10% target block), Finisher F (+30% dmg vs men < 40% HP), **Berserk A** |
 | Missile | archer, slinger, javelineer, peltast | Cretan-set archer | Deep Quiver P (+40% ammo, +1 range), Eagle Eye P (+6% accuracy), Fire Archer F (brazier reach ×2, half pitch), **Volley A** |
 | Rider | companion, thessalian, horse_archer | chariot | Horsemanship P, Lance Charge F, Ride Down F, **Wheel and Re-charge A**; only once the war sim has mounts |
+
+These are the skill pools. A warrior's one family (W-86) is a different cut, chosen at season start; its list and what
+its men can do are [open](impl/paths-rework.md#open-design-items), as are the classes a builder's or trader's soldiers
+may be.
 
 Non-combat classes (W-38), six, each with its own loop and a tool in the weapon slot (same tiers and rarities):
 
@@ -1032,30 +1038,31 @@ player's (`notOwner` otherwise); the field is optional, so the wire stays additi
 
 | Stage | Rule |
 | --- | --- |
-| Join | W-60: the start squad (W-56), then only claimed souls ("Souls"); no recruit pools, no recruiting, no training |
+| Join | what his path starts with ([open](impl/paths-rework.md#open-design-items)), then only claimed souls ("Souls", W-60); no recruit pools, no recruiting, no training |
 | Promote | level 6 + the elite rare kit, 30 min |
 | Fall | at 0 HP wounded with `woundedShare` 0.7 (+3% per END above 5, + physician, cap 0.9), else dead; the dead drop their gear |
-| Early mercy (W-79 proposal) | in the homes and the entries (depth 0–1, `src/war/sim/depth.ts` EARLY) a soldier felled by the wild (a beast's, bandit's, chief's or warlord man's blow) is only knocked down: he lies with his pack and kit (no pile, no battlefield soul), the fight report leaves him out, and once no foe man has fought within 10 tiles of him for 15 s he gets up at 30% hp in his squad. Still down after 3 min he is wounded as before; felled again within 60 s of getting up (left among the wild that beat his squad) the fall is real. Another player's blow, and any fall at depth 2 and deeper, is a fall. Online the room keeps him listed in the field while down (no rejoin claims him twice) and reports him if he stays down for good. W-81: a man down counts toward his army for a soul's claim (he will rise), and `down` rides on the wire (unit state bit 32, NET_VERSION 17) so the squad card shows it online too. Measured: a level-1 start squad (4 hoplites, 3 archers, 3 slingers, 2 javelineers) against a depth-1 bandit lair of 8 lost 3–8 for good before; now 0, every man up within ~20 s of the last blow |
-| Heal | wounded leave with the squad; timer: field 6 h, camp 3 h, town 2 h, physician's house 1 h |
+| Early mercy (W-79 proposal) | in the homes and the entries (depth 0–1, `src/war/sim/depth.ts` EARLY) a soldier felled by the wild (a beast's, bandit's, chief's or warlord man's blow) is only knocked down: he lies with his pack and kit (no pile, no battlefield soul), the fight report leaves him out, and once no foe man has fought within 10 tiles of him for 15 s he gets up at 30% hp in his squad. Still down after 3 min he is wounded as before; felled again within 60 s of getting up (left among the wild that beat his squad) the fall is real. Another player's blow, and any fall at depth 2 and deeper, is a fall. Online the room keeps him listed in the field while down (no rejoin claims him twice) and reports him if he stays down for good. W-81: a man down counts toward his army for a soul's claim (he will rise), and `down` rides on the wire (unit state bit 32, NET_VERSION 17) so the squad card shows it online too. Measured: a level-1 squad (4 hoplites, 3 archers, 3 slingers, 2 javelineers) against a depth-1 bandit lair of 8 lost 3–8 for good before; now 0, every man up within ~20 s of the last blow |
+| Heal | wounded leave with the squad and stay in his group (W-87); timer: field 6 h, camp 3 h, town 2 h, physician's house 1 h; which timer runs once the group moves on is [open](impl/paths-rework.md#open-design-items) |
 | Gear drops | a physical loot pile anyone may carry off (W-46, "Trade" → "Loot piles") |
 | Capture | a wounded man on a tile the enemy holds when the fight ends (no friendly within 15 tiles) becomes `captive` in the captor's nearest fort (≤ 20 per fort, extra are freed). W-68: he leaves his owner's army at once (his slot frees; the roster notes "Captured by <player> at <region>"); his gear drops in a pile where he fell |
-| Prisoners | W-68 (`src/war/sim/captives.ts`, `server/src/war/captives.ts`): the captor pays 1 food/h each and sees them at the foot of his roster. After 2 h he may ask one to join: he refuses for good with 30% + 5% a level above 1 (fixed per man), else he joins the captor's army at home with his level, class and record in starter kit (only under 12: "Army full"); one transfer (`movePerson`) that a later men trade (W-69) reuses. The captor may release him at any time; after 24 h unclaimed, a raid reaching the fort, the fort's region starting over or an unpaid captor release him too. Released, his soul wakes at a shrine of that region (else the nearest region with one) with his level and class, for anyone to claim. No ransom, no execution |
+| Prisoners | W-68 (`src/war/sim/captives.ts`, `server/src/war/captives.ts`): the captor pays 1 food/h each and sees them at the foot of his roster. After 2 h he may ask one to join: he refuses for good with 30% + 5% a level above 1 (fixed per man), else he joins the captor's army at home with his level, class and record in starter kit (only under the path's cap: "Army full"), and waits there until the captor's group comes home (W-87); one transfer (`movePerson`) that a later men trade (W-69) reuses. The captor may release him at any time; after 24 h unclaimed, a raid reaching the fort, the fort's region starting over or an unpaid captor release him too. Released, his soul wakes at a shrine of that region (else the nearest region with one) with his level and class, for anyone to claim. No ransom, no execution |
 | Dismiss | W-68: a roster action on a fit or wounded soldier, confirmed in the card (Dismiss / Keep). His gear drops where he stands (a pile in his live region; at home into the strongroom); his soul rises to the sky where he stood (a soul-tinted ghost lifting in a column of light, `src/war/view/soulRise.ts`) and wakes at a shrine as for a release. Its dismisser cannot claim him for 1 h (no free reset of gear or wounds) |
 | Veterans | survivors keep XP, gear and honours; gear wears per fight (`cond`), a smith repairs it |
-| Roster | N = 12 men in total across all regions (fit, wounded, promoting; W-58; not the captive, W-68) + household; no reserve; at the cap a soul's claim is refused until a man falls, retires, is taken or is dismissed |
+| Roster | N men in total, the path's cap (fit, wounded, promoting; W-85; not the captive, W-68) + household, all in one region or on one road (W-87); no reserve; at the cap a soul's claim is refused until a man falls, retires, is taken or is dismissed |
 | Retire | returns half the gear value and leaves one honour on the alliance memorial; a level-10 soldier may retire into a civilian class at level 5 |
 
-Household: separate from the N fighters, size `min(4, 1 + fit soldiers ÷ 4)` (with N = 12: 4). Separate so the
-squad stays whole; tied to fit soldiers so nobody plays without an army (a merchant still needs a squad to escort
-caravans). A trade-minded player fields a small guard squad and a full household.
+Household: separate from the N soldiers, and in his one group with them (W-87). Civilians exist, but how they are
+acquired is [open](impl/paths-rework.md#open-design-items); so is the size, since today's `min(4, 1 + fit soldiers ÷ 4)`
+gives a 4-soldier path only 2.
 
 In the region civilians are live units on the 600 cap inside a 10% sub-quota (60, split per alliance like W-06): a
 separate cap would add bodies beyond the sim budget, and they cost the same per tick as soldiers. They are weak,
-flee, can be captured, and work only inside own influence or with a squad within 15 tiles.
+flee, can be captured, and work only inside own influence, with a squad within 15 tiles, or in a building whose terms let
+them in (W-89).
 
-Into the economy (M6), never instead of fighting: rations, bronze, iron, gear, repairs, salves and engines are stock
-or buffs that **soldiers consume**; merchants move and sell it to other players ("Trade"). No civilian claims land, wins a siege or holds
-a region.
+Into the economy (M6): rations, bronze, iron, gear, repairs, salves and engines are stock or buffs that **soldiers
+consume**; merchants move and sell it to other players ("Trade"). No civilian claims land, wins a siege or holds a
+region; builders and traders win by supplying the war (W-92).
 
 ### Food and hunger (W-60)
 
@@ -1100,8 +1107,10 @@ the old field upkeep is gone; only captives cost their captor 1 food an hour.
 
 Every warrior on Metaxy died in the world above (Lore); the newly dead wake as **souls** across the regions and wait
 to be claimed (`src/war/sim/souls.ts`). There are no recruit pools, no recruiting, no training and no training
-buildings (barracks stand only as pre-built pieces of landmarks and towns); a new player starts with the 12 he picks
-in the menu (W-56), and after that a man joins only as a claimed soul.
+buildings (barracks stand only as pre-built pieces of landmarks and towns); a new player starts with what his path
+gives ([open](impl/paths-rework.md#open-design-items)), and after that a man joins only as a claimed soul. A soul wakes
+as the class his site gives: whether a warrior may claim one outside his family (W-86), and in what form, is
+[open](impl/paths-rework.md#open-design-items).
 
 | Rule | Value |
 | --- | --- |
@@ -1110,17 +1119,17 @@ in the menu (W-56), and after that a man joins only as a claimed soul.
 | Class | by site: shrine hoplite, archer or militia; ruin militia, slinger or javelineer; lair swordsman, hoplite or archer; a battlefield the class most of its fallen were |
 | Level | shrine and ruin 1, battlefield 2, lair 3, + half the region's depth (rounded down), at most 6: the rarer, better souls wait in dangerous places |
 | Claim | the claimSoul order walks a squad to him; a man of it within 2.5 tiles for 3 s claims him and he joins that squad, his class and level, as a fresh person |
-| Cap | only while the player has fewer than ARMY_MAX = 12 fighters across all regions; else the claim is refused ("army full") and the soul waits on |
+| Cap | only while the player has fewer soldiers than his path's cap (W-85: warrior 12, builder 4, trader 4); else the claim is refused ("army full") and the soul waits on |
 | Contest | two sides at him stall the claim (contested); the wild at him with no claimer takes him (lost); a foe who stands there first claims him |
 | Fade | unclaimed he fades after 10 min (the view fades him over the last minute) |
 | Named | W-68: a released captive or a dismissed man wakes as himself (name, level, class, record; starter kit) at a shrine, waits 6 h (he is a veteran: longer than a stranger's soul) and does not count toward the 4 souls of a region; claimed, the same person moves to the claimer; faded or taken by the wild, he is gone. Server: `war_persons.state = 'soul'` with `held_at` the region (a room not running wakes him when it starts; migration 0050) |
 
 Online the region room gates on the player's whole army (D1 `armyCount`, refreshed on join and after each claim) and
 tells him `soul` claimed or refused; the DO writes the new man (`claimSoul`: an insert that checks the cap itself, so
-two regions claiming at once cannot pass 12; a refused insert takes the man off the field). A soul draws as a pale,
+two claims at once cannot pass it; a refused insert takes the man off the field). A soul draws as a pale,
 glowing ghost of his class sheet (tinted, see-through, an additive glow; no new art) and shows on the minimap and the
 full map; with men selected near one, a prompt names him (class, level, site, fade timer) and its Claim button sends
-them, or reads "Army full 12/12"; right click or E on the soul gives the same claim order (greyed in the radial while
+them, or reads "Army full" with his count and cap (12/12, 4/4); right click or E on the soul gives the same claim order (greyed in the radial while
 the army is full).
 
 ### Tunnel of Shades (W-66)
@@ -1131,10 +1140,11 @@ server: `server/src/war/raise.ts`, D1 `war_tunnel.next_at` (0048); view: `src/wa
 
 | Rule | Value |
 | --- | --- |
-| Floor | W-68: while he has fewer than 6 men who can fight (fit, every region; the wounded do not count here, captives are not his), one rises at home every 10 min, up to 6 and never past 12 in all (the wounded still fill the army); past 6 men come only from souls |
-| The man | level 1 in starter kit, the class of one of his latest fallen (of the start classes, else militia), plus his divine favour bonus (raiseBonus) |
+| Floor | W-68: while he has fewer than 6 men who can fight, or fewer than his path's cap if that is smaller (so 4 for a builder or trader; the wounded do not count here, captives are not his), one rises at home every 10 min, up to that floor and never past the path's cap in all (the wounded still fill the army); past the floor men come only from souls |
+| Waits at home | W-87: a man raised while the group is away waits at home until it comes home; he never crosses to it alone. What a waiting man can do, and be done to, is [open](impl/paths-rework.md#open-design-items) |
+| The man | level 1 in starter kit, the class of one of his latest fallen his path allows (the classes a family or path allows are [open](impl/paths-rework.md#open-design-items)), plus his divine favour bonus (raiseBonus, itself open: "Divine favour") |
 | Clock | starts on the first read below the floor; settled lazily on `GET /api/war/tunnel` { alive, floor, nextAt, pending }, the roster read and a region join (no live room needed); a compare-and-set on next_at and a capped insert keep racing reads to one man each |
-| No tunnel | before his first squad (a player who never had a man) |
+| No tunnel | before his first man (a player who never had one) |
 
 His last man who can fight fallen (the rest dead or wounded; captives are not his; `wiped` in the rules), the HUD
 shows "Your army is destroyed" (the shades of the fallen walk back through the tunnel, the time until his first man is
@@ -1144,19 +1154,21 @@ reset. GET /api/war/tunnel carries `fit`, `wounded`, `woundedAt` for it.
 In the home town a line of shades stands before the mouth, one for each man to come, its far end fading into the
 dark; at each rise the front shade walks in, flashes and stands there as the man, and the line steps up. The countdown
 ("Next shade rises in 7:42, 3/6") shows over the tunnel and as a pill at the top of the HUD. Offline the same rule runs
-on a local clock (his men on the map count; the raised man joins the map at the mouth), with a dev x60 button.
+on a local clock (his men on the map count; the raised man stands at the mouth), with a dev x60 button.
 
 Online with no man he is never on a blank page: the card shows in a region, over the world map
 (`src/war/view/hud/wipeCard.ts`) and on the menu after a reload, with a live countdown. A join naming nobody
 (`[['none']]`) watches the region: welcomed with no squad, never queued, and the room streams to him. At home the camera
-opens on the tunnel; a man risen (by any read) plays the line's rise and then marches in (the join reloads his men at
-home). The pong carries `idle` (no armies here, or the loop rests): the network readout then says "region idle", not
+opens on the tunnel; a man risen (by any read) with his group at home plays the line's rise and then marches in (the
+join reloads his men at home). The pong carries `idle` (no armies here, or the loop rests): the network readout then says "region idle", not
 "server stalled".
 
 ### Divine favour (W-66)
 
-The player is a demigod who leads mortals. His divine favour is per account and never resets with a season: it is
-the reason to keep an account. Rules and amounts: `src/war/net/favour.ts`; D1 `war_favour` and `war_favour_log`
+The player is a demigod who leads mortals. W-83, W-84: this track becomes the demigod's level on his path. It resets
+each season, levels come from doing that path's work, and each path has its own perks in place of the one bonus below.
+The perk lists are [open](impl/paths-rework.md#open-design-items), and so is which work pays which path: the curve,
+amounts and bonus below are today's numbers, to be re-cut per path. Rules and amounts: `src/war/net/favour.ts`; D1 `war_favour` and `war_favour_log`
 (0047); earning hooks: `server/src/war/favour.ts`; panel: Divine favour on the menu bar (Shift+F, its level as a
 badge; the title screen shows it beside the name), a short banner on a level gained.
 
@@ -1186,7 +1198,7 @@ badge; the title screen shows it beside the name), a short banner on a level gai
 
 | Surface | Content |
 | --- | --- |
-| Roster panel | "n / 12 men" in the head; squads in the field, men in other regions, household; under each man what he is doing and where (Marching, Building, Gathering, Fighting, Holding, Wounded, In <region>); one state mark per man (HP bar, flag, bleeding heart, lock, skull), level disc, gold star for a waiting level-up; drag to swap |
+| Roster panel | "n / cap men" in the head; squads in the field, men waiting at home, household; under each man what he is doing (Marching, Building, Gathering, Fighting, Holding, Wounded, Waiting at home); one state mark per man (HP bar, flag, bleeding heart, lock, skull), level disc, gold star for a waiting level-up; drag to swap |
 | Soldier card | paper doll (empty slots show a faint outline), class and elite, level disc and XP bar, 4 attributes with pips, battle numbers with icons, 2 skill medallions, honours, stash, kills and battles |
 | Level-up | toast on the squad card; a gold banner on the card opens the tree; at levels 3 and 7 a choice of 2 skills with a stat preview |
 | Skill tree | no legend: taken lit gold, open a breathing bronze ring with a cost badge, locked dark iron with a lock and the level it opens at |
