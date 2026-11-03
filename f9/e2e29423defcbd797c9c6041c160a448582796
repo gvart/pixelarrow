@@ -1,0 +1,34 @@
+server/test/war/npcMarket.test.ts
+  s_a7d5d20f628c80::t_4c244d505281f8 12,108-109,113,122
+tests/war/npcMarket.test.ts
+  s_a7d5d20f628c80::t_eb8f3d5a97a959 117
+  s_a7d5d20f628c80::t_205f831efc68a7 8,11,69-71,115,134-236
+src/war/net/npcMarket.ts
+  s_a7d5d20f628c80::t_29aa5a75339f20 83-85,88-89
+  s_a7d5d20f628c80::t_487262a52d6223 82,86-87,90-93,109,123-124,126
+src/war/view/trade/market.ts
+  s_a7d5d20f628c80::t_0581f30427d277 185,201
+src/war/view/hud/market.ts
+  s_a7d5d20f628c80::t_0581f30427d277 338
+server/src/war/npcMarket.ts
+  s_a7d5d20f628c80::t_487262a52d6223 73,87
+src/data/warNpcTowns.ts
+  s_a7d5d20f628c80::t_29aa5a75339f20 32-35
+  s_a7d5d20f628c80::t_33c1ebd56ffcf8 27,29,31,36
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "f9e2e29423defcbd797c9c6041c160a448582796",
+  "prompts": {},
+  "sessions": {
+    "s_a7d5d20f628c80": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1afee479-b44b-46d2-a159-a540e44e7fb8",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
