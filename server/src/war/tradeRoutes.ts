@@ -3,6 +3,7 @@
  * town's holder (the alliance that holds the region, for rent and tax) comes from the world.
  *
  *   GET  /:town/board                         the price board: best ask / bid, depth, every goods offer by id, last fills
+ *   GET  /:town/npc                           W-140: the NPC town: its purse, what it pays and asks; deals go over the region socket (`npc`)
  *   GET  /:town/mine                          the player's stall and warehouse there (goods, level, rent) and offers
  *   POST /:town/rent     { kind }             rent a stall or warehouse (first day's rent from the home strongroom)
  *   POST /:town/upgrade                       the stall's next level (paid from the stall)
@@ -13,7 +14,7 @@
  *   POST /:town/deals    { broker, with, give, get }   an escrowed hand-off at a Broker's stall
  *   POST /deals/:id/drop                      drop my half from my sites there (both in: swapped)
  *   GET  /:town/contracts                     open and taken contracts posted at or bound for the town
- *   POST /:town/contracts { kind, toTown, reward, res?, n?, value?, loads?, deadline, region?, site?, hours?, men? }
+ *   POST /:town/contracts { kind, toTown, reward, res?, n?, value?, loads?, deadline, region?, site?, hours?, men?, target? }
  *                                             post (reward escrowed); W-61 build (region, site, man-hours) and guard
  *                                             (region, hours, men) need only the stall
  *   POST /contracts/:id/take                  take one (a carry escrows half its value); loads and deliveries go
@@ -30,6 +31,7 @@ import { badRequest } from '../errors';
 import { db, requirePlayable } from '../middleware';
 import { GOODS } from '../../../src/war/net/protocol';
 import { board, cancelOffer, fill, listOffer, mySites, rentSite, upgradeStall } from './market';
+import { npcView } from './npcMarket';
 import { worldStub } from './world/routes';
 import { fillHook, recordBoard } from './tradeScore';
 import { allianceOf } from './world/members';
@@ -74,6 +76,8 @@ trade.get('/:town/board', requirePlayable, async (c) => {
   if (await presentIn(d, pid, t)) await recordBoard(d, pid, b, Date.now()); // his men see it: the world map keeps it
   return c.json(b);
 });
+
+trade.get('/:town/npc', requirePlayable, async (c) => c.json(await npcView(db(c.env), town(c.req.param('town')), Date.now())));
 
 trade.get('/:town/mine', requirePlayable, async (c) => c.json(await mySites(db(c.env), c.get('session').pid, town(c.req.param('town')))));
 
@@ -124,10 +128,12 @@ trade.post('/:town/contracts', requirePlayable, async (c) => {
   const b = await readJson(
     c,
     z.object({
-      kind: z.enum(['carry', 'supply', 'escort', 'build', 'guard']), toTown: z.string().regex(/^[a-z0-9_-]{1,40}$/), reward: z.number().int().min(1).max(100_000), res: good.optional(),
+      kind: z.enum(['carry', 'supply', 'escort', 'build', 'guard', 'hunt']), toTown: z.string().regex(/^[a-z0-9_-]{1,40}$/), reward: z.number().int().min(1).max(100_000), res: good.optional(),
       n: z.number().positive().max(100_000).optional(), value: z.number().int().min(1).max(1_000_000).optional(), loads: z.number().positive().max(100).optional(), deadline: z.number().int().positive(),
       // W-61 build and guard
       region: z.string().regex(/^[a-z0-9_-]{1,40}$/).optional(), site: z.number().int().min(0).max(1_000_000).optional(), hours: z.number().positive().max(48).optional(), men: z.number().int().min(1).max(12).optional(),
+      // W-146 hunt
+      target: z.string().max(60).optional(),
     }),
     MAX_BODY,
   );

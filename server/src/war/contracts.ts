@@ -22,6 +22,9 @@
  *      guard:  the taker holds the poster's town in `region` (its town-level ground) with at least `men` men for `n`
  *              hours: the room checks every LABOUR_EVERY ticks (guardCheck); each whole hour held pays reward / hours;
  *              out of bounds (or dead) past GUARD.grace seconds: broken, the rest back to the poster.
+ *  - W-146 hunt (no stall, no node: any man of a player standing at the town; CONTRACT.open of them): the reward comes from
+ *    his home strongroom, the taker is a warrior of his alliance; paid into the taker's strongroom when his men bring down
+ *    `target` in the region (huntDeeds, on the room's deeds of the wild). Past the deadline: back to the strongroom.
  *  - Letter (Banker, stall L3 in town A): the banker escrows coin at town B and offers a letter at A for his fee; the
  *    buyer pays amount + fee into the banker's stall at A and the letter is named to him: only he redeems it, once,
  *    at B, into his warehouse there. At most LETTER.max coin.
@@ -30,6 +33,9 @@ import { heldNodes } from '../../../src/data/professions';
 import { ApiError } from '../errors';
 import { batch, guard, lotsOf, planTake, putLotsStmts, putStmt, strongroom, totalsOf, type GoodLot } from './holders';
 import { intoOf, presentIn, site, stallId, townOf } from './market';
+import { isNpcTown } from '../../../src/war/net/npcMarket';
+import { pathOf } from './start';
+import type { WildDeed } from '../../../src/war/net/mastery';
 import { json } from './persons';
 import { allianceOf } from './world/members';
 import { contractPoints, peacePoints, statStmt } from './peace';
@@ -150,16 +156,36 @@ export async function dropHalf(db: D1Database, pid: number, id: number, now: num
 
 // ---------------------------------------------------------------- contracts
 
-export type ContractKind = 'carry' | 'supply' | 'escort' | 'build' | 'guard';
-export interface ContractRow { id: number; kind: ContractKind; town: string; to_town: string; poster: number; taker: number | null; reward: number; res: string | null; n: number; delivered: number; value: number; deposit: number; region: string | null; site: number | null; men: number; paid: number; away: number; state: string; deadline: number }
+export type ContractKind = 'carry' | 'supply' | 'escort' | 'build' | 'guard' | 'hunt';
+export interface ContractRow { id: number; kind: ContractKind; town: string; to_town: string; poster: number; taker: number | null; reward: number; res: string | null; n: number; delivered: number; value: number; deposit: number; region: string | null; site: number | null; men: number; paid: number; away: number; target: string | null; state: string; deadline: number }
 export interface ContractIn {
   kind: ContractKind; toTown: string; reward: number; res?: string; n?: number; value?: number; loads?: number; deadline: number;
   /** W-61 build and guard: the region; build: the site (building id) and man-hours; guard: hours and men. */
   region?: string; site?: number; hours?: number; men?: number;
+  /** W-146 hunt: what falls, 'lair:<id>' or 'chief:<id>'. */
+  target?: string;
 }
 const work = (k: string) => k === 'build' || k === 'guard';
 
+/** W-146: a hunt: at any NPC town his men stand in, the reward out of his home strongroom. */
+async function postHunt(db: D1Database, pid: number, town: string, c: ContractIn, now: number): Promise<number> {
+  if (!isNpcTown(town)) throw new ApiError(404, 'no_town', `${town} is no town`);
+  if (!(await presentIn(db, pid, town))) throw new ApiError(409, 'not_present', `Your men must be in ${town}`);
+  if (!c.target || !/^(lair|chief):[A-Za-z0-9_-]{1,40}$/.test(c.target)) throw new ApiError(400, 'bad_request', 'A hunt names a lair or a chief');
+  if (c.deadline <= now) throw new ApiError(400, 'bad_request', 'The deadline has passed');
+  const open = (await db.prepare("SELECT COUNT(*) AS n FROM war_contracts WHERE poster = ?1 AND state IN ('open', 'taken')").bind(pid).first<{ n: number }>())?.n ?? 0;
+  if (open >= CONTRACT.open) throw new ApiError(409, 'contracts_full', `At most ${CONTRACT.open} open contracts`);
+  const id = (await db
+    .prepare("INSERT INTO war_contracts (kind, town, to_town, poster, reward, n, region, target, state, deadline, created_at) VALUES ('hunt', ?1, ?1, ?2, ?3, 1, ?1, ?4, 'cancelled', ?5, ?6) RETURNING id")
+    .bind(town, pid, c.reward, c.target, c.deadline, now)
+    .first<{ id: number }>())!.id;
+  const from = strongroom(pid), reward = planTake(db, from, await lotsOf(db, from), { coin: c.reward }, 'Your strongroom');
+  await batch(db, [...reward.stmts, ...putLotsStmts(db, `ct:${id}`, reward.taken), db.prepare("UPDATE war_contracts SET state = 'open' WHERE id = ?1").bind(id)]);
+  return id;
+}
+
 export async function postContract(db: D1Database, pid: number, town: string, c: ContractIn, holder: number, now: number): Promise<number> {
+  if (c.kind === 'hunt') return postHunt(db, pid, town, c, now);
   mustTown(town);
   if (!work(c.kind)) mustTown(c.toTown);
   const s = await site(db, pid, town, 'stall', holder, now);
@@ -203,7 +229,7 @@ export async function contract(db: D1Database, id: number): Promise<ContractRow>
 export async function settleContract(db: D1Database, id: number, now: number): Promise<ContractRow> {
   const c = await contract(db, id);
   if ((c.state !== 'open' && c.state !== 'taken') || now < c.deadline) return c;
-  const back = intoOf(c.town, c.poster);
+  const back = c.kind === 'hunt' ? strongroom(c.poster) : intoOf(c.town, c.poster);
   await batch(db, [
     db.prepare("UPDATE war_contracts SET state = 'expired' WHERE id = ?1 AND state IN ('open', 'taken')").bind(id),
     guard(db, "(SELECT state FROM war_contracts WHERE id = ?1) = 'expired'", id),
@@ -219,10 +245,11 @@ export async function takeContract(db: D1Database, pid: number, id: number, now:
   const c = await settleContract(db, id, now);
   if (c.state !== 'open') throw new ApiError(409, 'closed', `The contract is ${c.state}`);
   if (c.poster === pid) throw new ApiError(409, 'own_contract', 'Your own contract');
-  if (work(c.kind)) {
+  if (work(c.kind) || c.kind === 'hunt') {
     const [a, b] = await Promise.all([allianceOf(db, pid), allianceOf(db, c.poster)]);
     if (a === null || a !== b) throw new ApiError(409, 'not_ally', 'Only a man of the same alliance works or guards his town');
   }
+  if (c.kind === 'hunt' && (await pathOf(db, pid)).path !== 'warrior') throw new ApiError(409, 'not_warrior', 'A hunt is for a warrior');
   const dep = c.kind === 'carry' ? await fromSites(db, pid, c.town, { coin: c.deposit }) : { stmts: [], taken: [] };
   await batch(db, [
     db.prepare("UPDATE war_contracts SET state = 'taken', taker = ?2 WHERE id = ?1 AND state = 'open'").bind(id, pid),
@@ -248,7 +275,7 @@ export async function sealedFor(db: D1Database, pid: number, id: number, town: s
  */
 export async function deliver(db: D1Database, pid: number, id: number, town: string, lots: readonly GoodLot[], now: number): Promise<{ stmts: D1PreparedStatement[]; done: boolean; refused?: string }> {
   const c = await settleContract(db, id, now);
-  if (c.state !== 'taken' || c.taker !== pid || c.kind === 'escort' || work(c.kind)) return { stmts: [], done: false, refused: 'not a contract you hold' };
+  if (c.state !== 'taken' || c.taker !== pid || c.kind === 'escort' || c.kind === 'hunt' || work(c.kind)) return { stmts: [], done: false, refused: 'not a contract you hold' };
   if (town !== c.to_town) return { stmts: [], done: false, refused: `it is delivered in ${c.to_town}` };
   const n = lots.filter((l) => l.res === c.res).reduce((a, l) => a + l.amount, 0);
   if (n <= EPS || lots.some((l) => l.res !== c.res)) return { stmts: [], done: false, refused: `only ${c.res}` };
@@ -386,6 +413,27 @@ export async function guardCheck(env: Env, id: number, held: boolean, secs: numb
     ...(done ? [db.prepare("UPDATE war_contracts SET state = 'done' WHERE id = ?1").bind(id), ...(await filled(env, c, now))] : []),
   ]);
   return done ? 'done' : 'taken';
+}
+
+/**
+ * W-146: the deeds of `pid`'s men in `region` this tick: each taken hunt of his whose target fell among them is done, its
+ * reward in his strongroom. Someone else's kill pays nobody: the hunt stands until the lair is back, or the deadline.
+ */
+export async function huntDeeds(env: Env, pid: number, region: string, deeds: readonly Pick<WildDeed, 'kind' | 'key'>[], now: number): Promise<number> {
+  const db = env.DB!;
+  const rows = (await db.prepare("SELECT id FROM war_contracts WHERE kind = 'hunt' AND state = 'taken' AND taker = ?1 AND region = ?2 ORDER BY id").bind(pid, region).all<{ id: number }>()).results;
+  let coin = 0;
+  for (const { id } of rows) {
+    const c = await settleContract(db, id, now);
+    if (c.state !== 'taken' || !deeds.some((d) => `${d.kind}:${d.key}` === c.target)) continue;
+    await batch(db, [
+      db.prepare("UPDATE war_contracts SET state = 'done', delivered = 1 WHERE id = ?1 AND state = 'taken'").bind(id),
+      guard(db, "(SELECT state FROM war_contracts WHERE id = ?1) = 'done'", id),
+      ...(await payShare(db, c, c.reward)), ...(await filled(env, c, now)),
+    ]);
+    coin += c.reward;
+  }
+  return coin;
 }
 
 // ---------------------------------------------------------------- letters of credit (Banker)
