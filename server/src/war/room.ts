@@ -77,7 +77,7 @@ import { RoomStories, type StoryDone } from './stories';
 import { RoomEncounters, type EncounterDone } from './encounters';
 import type { EncSave } from '../../../src/war/sim/encounters';
 import type { StorySave } from '../../../src/war/sim/stories';
-import { LABOUR_EVERY, WORK_R, workSite, type WorkId } from '../../../src/war/net/works';
+import { atTownWork, LABOUR_EVERY, WORK_R, workSite, type WorkId } from '../../../src/war/net/works';
 import { GatherWatch } from './taskWatch';
 import type { TaskMetric } from '../../../src/war/net/tasks';
 import { ALLIANCES as ALLIANCE_LIST } from '../../../src/war/world/alliances';
@@ -1407,6 +1407,7 @@ export class WarRoom {
     this.gather.step(this.snap.units, (sq) => this.owners[sq]);
     this.gather.built(this.snap.buildings ?? []);
     const tick = this.snap.tick, wire: typeof this.snap.units = [];
+    const jobs = this.townJobs.map((j) => ({ owner: `p:${j.pid}`, x: j.x, y: j.y }));
     let blow = false;
     for (const u of this.snap.units) {
       if (u.state === 'attack') blow = true;
@@ -1420,7 +1421,7 @@ export class WarRoom {
         if (tick - d < CORPSE_TICKS) wire.push(u);
         continue;
       }
-      wire.push(u);
+      wire.push(jobs.length ? atTownWork(u, this.owners[u.squad], jobs) : u);
       const t = this.teams[u.squad];
       if (t !== undefined && t < this.live.length) this.live[t]++;
     }
