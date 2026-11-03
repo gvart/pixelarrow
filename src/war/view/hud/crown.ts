@@ -131,15 +131,13 @@ const noAlliance = (online: boolean) => `<div class="cr-throne rf-well empty"><d
 
 function courtHtml(v: CrownView): string {
   const a = v.alliance!, m = v.monarch, isKing = v.me.monarch;
-  const termF = m && m.since ? Math.min(1, Math.max(0, (v.now - m.since) / Math.max(1, m.ends - m.since))) : 0;
   const throne = m
     ? `<div class="cr-throne rf-well${v.regent ? ' regent' : ''}">
         <div class="cr-medal">${CROWN_SVG(38)}${avatar(m.name, a, 58, 'big')}</div>
         <div class="cr-tt"><div class="cr-tier">${v.regent ? 'Regent of' : 'Monarch of'} ${esc(allianceName(a))}</div>
           <div class="cr-king">${esc(m.name)}${isKing ? ' <span class="cr-you">you</span>' : ''}</div>
           <div class="cr-stats"><span class="rf-ichip gold" data-tip="${attr('<b class="k">Realm power</b><br><span class="rf-dim tip-w">his settlements\' levels, his vassals\' levels and one per region held</span>')}">${glyph('ui:power', 16)}${fmt(m.power)}</span>
-          ${v.regent ? `<span class="rf-ichip" data-tip="${attr('<b class="k">Regency</b><br><span class="rf-dim tip-w">his term is over; he rules until the election closes</span>')}">${glyph('ui:hourglass', 16)}regent</span>` : `<span class="rf-dim">${until(m.ends - v.now)} of his term left</span>`}</div>
-          <div class="rf-bar cr-term"><i class="${v.regent ? 'construction' : 'ok'}" style="width:${(v.regent ? 100 : (1 - termF) * 100).toFixed(1)}%"></i></div></div></div>`
+          ${v.regent ? `<span class="rf-ichip" data-tip="${attr('<b class="k">Regency</b><br><span class="rf-dim tip-w">he rules until the election closes</span>')}">${glyph('ui:hourglass', 16)}regent</span>` : `<span class="rf-dim">rules until deposed</span>`}</div></div></div>`
     : `<div class="cr-throne rf-well empty"><div class="cr-medal">${CROWN_SVG(38)}<span class="cr-av big vacant" style="width:58px;height:58px">?</span></div>
         <div class="cr-tt"><div class="cr-tier">The throne of ${esc(allianceName(a))}</div><div class="cr-king">The crown is empty</div>
         <div class="rf-dim cr-why">${v.election ? `The realm votes: closes in ${until(v.election.closes - v.now)}` : 'An election opens once members hold settlements: found one'}</div></div></div>`;
@@ -188,7 +186,7 @@ function electionHtml(v: CrownView): string {
           <button class="rf-tbtn${mine ? '' : ' pri'}" data-act="vote" data-p="${c.pid}"${mine ? why('you voted for him') : v.me.weight <= 0 ? why(NOT_LORD) : ''}>${mine ? `${glyph('ui:check', 12)}Your vote` : 'Vote'}</button></div>`;
       }).join('')}</div>`;
   } else if (v.monarch) {
-    top = `<div class="cr-banner">${glyph('ui:hourglass', 20)}<div><div class="cr-bt">${esc(v.monarch.name)} reigns</div><div class="rf-dim">the next election opens when the term ends, in ${until(v.monarch.ends - v.now)}</div></div></div>`;
+    top = `<div class="cr-banner">${glyph('ui:hourglass', 20)}<div><div class="cr-bt">${esc(v.monarch.name)} reigns</div><div class="rf-dim">no election until he falls: deposed, or unseen for ${FEUDAL.inactiveMs / 3_600_000} hours</div></div></div>`;
   } else top = `<div class="cr-banner">${glyph('ui:podium', 20)}<div><div class="cr-bt">No election yet</div><div class="rf-dim">the top ${CROWN.candidates} by realm power stand once someone holds a settlement</div></div></div>`;
   let conf = '';
   if (v.monarch && !e) {
@@ -196,7 +194,7 @@ function electionHtml(v: CrownView): string {
       const t = p.yes + p.no, fy = t ? p.yes / t : 0;
       conf = `<div class="cr-nc rf-well open"><div class="cr-nct">${glyph('ui:skull', 18)}Vote of no confidence <span class="rf-dim">closes in ${until(p.closes - v.now)}</span></div>
         <div class="cr-yn"><span class="cr-y">Depose ${fmt(p.yes)}</span><div class="cr-ynbar"><i style="width:${(fy * 100).toFixed(1)}%"></i></div><span class="cr-n">${fmt(p.no)} Keep</span></div>
-        <div class="cr-line"><span class="rf-dim">Over half of all lords' votes, cast or not, removes the monarch</span><button class="rf-tbtn${p.mine === 1 ? '' : ' pri'} cr-go" data-act="conf" data-y="1" data-sure="conf:1"${p.mine === 1 ? why('you voted to depose') : v.me.weight <= 0 ? why(NOT_LORD) : ''}>Depose</button><button class="rf-tbtn" data-act="conf" data-y="0"${p.mine === 0 ? why('you voted to keep') : v.me.weight <= 0 ? why(NOT_LORD) : ''}>Keep</button></div></div>`;
+        <div class="cr-line"><span class="rf-dim">Over half of the active lords' votes, cast or not, removes the monarch</span><button class="rf-tbtn${p.mine === 1 ? '' : ' pri'} cr-go" data-act="conf" data-y="1" data-sure="conf:1"${p.mine === 1 ? why('you voted to depose') : v.me.weight <= 0 ? why(NOT_LORD) : ''}>Depose</button><button class="rf-tbtn" data-act="conf" data-y="0"${p.mine === 0 ? why('you voted to keep') : v.me.weight <= 0 ? why(NOT_LORD) : ''}>Keep</button></div></div>`;
     } else {
       const signs = p?.signs ?? 0, need = p?.need ?? 1, cool = v.petitionCooldown > v.now;
       conf = `<div class="cr-nc rf-well"><div class="cr-nct">${glyph('ui:pen', 18)}Petition of no confidence ${p ? `<span class="rf-dim">lapses in ${until(p.closes - v.now)}</span>` : ''}</div>
@@ -342,7 +340,7 @@ const CSS = `
 .cr-tier{font:700 11px/1 Cinzel,serif;letter-spacing:.14em;text-transform:uppercase;color:var(--rf-gold);margin-bottom:3px}
 .cr-king{font:700 18px/1.1 Cinzel,serif;color:var(--rf-title);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cr-stats{display:flex;align-items:center;gap:6px;margin:5px 0 5px;font-size:11px}.cr-stats .rf-ichip{height:20px}
-.cr-term{width:100%}.cr-why{margin-top:4px;font-size:11px}
+.cr-why{margin-top:4px;font-size:11px}
 .cr-seats{display:grid;grid-template-columns:1fr 1fr;gap:5px}
 .cr-seat{padding:5px 6px}.cr-seat.me{border-color:#6a5326}.cr-seat.vacant{opacity:.85;border-style:dashed}
 .cr-seat-top{display:flex;align-items:center;gap:5px}
