@@ -1,7 +1,7 @@
 /**
  * W-61 peaceful play scenarios (docs/WAR.md "Peaceful play"): one per mechanic, on the flat open stretch of the
  * south-west (FLAT, the wall-defense ring's ground). The town level, the walls and the build labour play out in the sim;
- * works, contracts, the peace score and titles are the server's, so their checklists say what to look at online
+ * works, contracts and titles are the server's, so their checklists say what to look at online
  * (`?net=`) and what the offline panels show.
  */
 import { SQUAD_MAX } from '../sim/soldiers';
@@ -119,30 +119,15 @@ export const PEACE_SCENARIOS: Scenario[] = [
     },
   },
   {
-    id: 'peace-score',
-    name: 'Peace score: what builders and traders add',
-    group: 'economy',
-    goal: 'A levelled village of yours stands. Its level scores your alliance an hour; trade volume, filled contracts and raised works score too. Check the world map\'s season panel.',
-    check: [
-      'World (Shift+W): the season panel lists Peace score per alliance: volume · contracts · works',
-      'Offline (mock world): sample numbers; online they grow with fills, filled contracts and works',
-      'Town levels score an hour: Hamlet 0.25, Village 0.5, Town 1, City 1.5, at most 3 an hour an alliance',
-      'docs/WAR.md "Season score and victory": the weights and daily caps',
-    ],
-    squads: [you('militia', at(RC, 0, 0)), you('militia', at(RC, 4, 0))],
-    camera: { x: RC[0], y: RC[1], zoom: 1 },
-    economy: { claims: [{ team: 0, x: RC[0], y: RC[1], r: 26 }], stock: STOCK, sites: village(0, 1), prebuild: 6000 },
-  },
-  {
     id: 'peace-titles',
     name: 'Titles of the season',
     group: 'economy',
-    goal: 'A squad of yours. The season\'s titles (Merchant Prince, Master Builder, Warden, Ares-born) show under the roster\'s tabs, in the Works panel and on the world map.',
+    goal: 'A squad of yours. The season\'s titles, first place on each path\'s ladder (Ares-born, Master Builder, Merchant Prince), show under the roster\'s tabs, in the Works panel and on the world map.',
     check: [
       'R: the roster shows a strip of the titles and their holders (yours in gold) online',
-      'Works panel: Titles this season with the value each leads by, and your own line (coin sold, contracts, man-hours, hours held)',
-      'World map: the season panel lists the titles with the holder\'s alliance and home',
-      'Offline: the world map shows the mock\'s titles; the roster strip stays empty',
+      'Works panel: Titles this season with the level points each holds, and your own line (coin sold, contracts, man-hours, hours held)',
+      'World map: the standings panel shows the alliance race and your path\'s ladder; the map shows each title after its holder\'s home',
+      'Offline: the world map shows the mock\'s ladders; the roster strip stays empty',
     ],
     squads: [you('hoplite', at(RC, 0, 0), SQUAD_MAX)],
     camera: { x: RC[0], y: RC[1], zoom: 1 },

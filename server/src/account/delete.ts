@@ -13,7 +13,8 @@
  *              throttle keys; a banned player's identities go to
  *              ban_tombstones as hashes
  *   leave      market listings, regions and garrisons, clan (leadership passes
- *              on, an empty clan is disbanded), duel queue, open sockets
+ *              on, an empty clan is disbanded), duel queue, open sockets; his
+ *              name on the war's roll of honour
  *   purge      every `delete` table of DELETION_MAP
  *   tombstone  the players row loses every personal field; the freed name is
  *              held 30 days through display_name_history
@@ -30,6 +31,8 @@ import { log, logError } from '../telemetry/log';
 import type { IdentityKind } from '../auth/identity';
 import { BAN_TOMBSTONE_MS, banIdentityHash } from './banTombstone';
 import { purgeTables } from './deletionMap';
+import { renamedOnLadders, type Ladders } from '../../../src/war/net/ladders';
+import { worldStub } from '../war/world/routes';
 
 type DeletionReason = 'self' | 'conflict' | 'admin';
 type DeletionResult = 'done' | 'resumable';
@@ -180,6 +183,10 @@ async function leave(x: Ctx): Promise<D1PreparedStatement[]> {
     stmts.push(db.prepare(`DELETE FROM clans WHERE id = ?1 AND ${empty}`).bind(m.clan_id));
   }
   stmts.push(db.prepare('DELETE FROM clan_invites WHERE created_by = ?1').bind(pid));
+  // W-168: the roll of honour holds names in its JSON, in D1 and in the world's state. A failed call resumes on the cron.
+  const rolls = (await db.prepare('SELECT season, ladders FROM war_season_results WHERE ladders LIKE ?1').bind(`%"pid":${pid},%`).all<{ season: number; ladders: string }>()).results;
+  for (const r of rolls) stmts.push(db.prepare('UPDATE war_season_results SET ladders = ?2 WHERE season = ?1').bind(r.season, JSON.stringify(renamedOnLadders(JSON.parse(r.ladders) as Ladders, pid, DELETED_NAME))));
+  await worldStub(x.env).renameOnRoll(pid, DELETED_NAME);
   return stmts;
 }
 

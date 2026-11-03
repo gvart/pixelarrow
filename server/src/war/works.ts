@@ -26,7 +26,7 @@ import { batch, lotsOf, planTake, strongroom } from './holders';
 import { allianceOf } from './world/members';
 import { warRegion } from './regions';
 import { json } from './persons';
-import { scorePeace, statStmt } from './peace';
+import { statStmt } from './peace';
 import { tallyStmt } from './tasks';
 import { FAVOUR_EARN, favourStmts } from './favour';
 import { worldStub } from './world/routes';
@@ -104,7 +104,6 @@ async function finish(env: Env, a: number, id: WorkId, now: number, season: numb
     .bind(season, a, id, now, r.stage)
     .run();
   if (!u.meta.changes) return false;
-  await scorePeace(env, a, 'works', st.score, now);
   if (st.bonus.travel) {
     try {
       await worldStub(env).setTravel(a as AllianceId, (await perksOf(db, a, season)).travel ?? 1);

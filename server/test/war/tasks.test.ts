@@ -56,7 +56,7 @@ describe('the draw (E7)', () => {
 });
 
 describe('tasks (E7)', () => {
-  it('drawn on first read; progress from the tallies of their period; a claim pays and scores once', async () => {
+  it('drawn on first read; progress from the tallies of their period; a claim pays once', async () => {
     const p = await player(8801, 2);
     const v = await tasksOf(DB(), p, MON);
     // alone in his alliance: the solo draw (W-73)
@@ -77,10 +77,6 @@ describe('tasks (E7)', () => {
     const r = await claimTask(env, p, 'daily', 0, MON);
     expect(r.reward).toEqual(taskDef(t.id)!.reward);
     expect(await good(p, 'coin')).toBe(coin + (t.reward.coin ?? 0));
-    expect(r.pts).toBe(t.pts);
-    const kind = t.score === 'peace' ? 'tasks' : 'feats';
-    const pts = await DB().prepare('SELECT points FROM war_peace_score WHERE alliance = 2 AND day = ?1 AND kind = ?2').bind(dayOf(MON), kind).first<{ points: number }>();
-    expect(pts!.points).toBe(t.pts);
     expect(await code(claimTask(env, p, 'daily', 0, MON))).toBe('claimed');
     expect((await tasksOf(DB(), p, MON)).tasks[0].claimed).toBe(true);
     // the next day: new tasks, nothing claimed, nothing carried over
@@ -89,17 +85,6 @@ describe('tasks (E7)', () => {
     // the weekly tasks are the same all week and count every day of it
     const wk = next.tasks.find((x) => x.kind === 'weekly')!;
     expect(wk.id).toBe(v.tasks.find((x) => x.kind === 'weekly')!.id);
-  });
-
-  it('the score stays under the alliance\'s daily cap; the reward is paid still', async () => {
-    const p = await player(8811, 3);
-    const v = await tasksOf(DB(), p, MON), t = v.tasks[0];
-    const kind = t.score === 'peace' ? 'tasks' : 'feats', cap = t.score === 'peace' ? TASKS.peaceCap : TASKS.warCap;
-    await DB().prepare('INSERT INTO war_peace_score (season, alliance, day, kind, points) VALUES (?1, 3, ?2, ?3, ?4)').bind(S, dayOf(MON), kind, cap - 1).run();
-    await tally(p, t, t.need);
-    const coin = await good(p, 'coin'), r = await claimTask(env, p, 'daily', 0, MON);
-    expect(r.pts).toBe(1);
-    expect(await good(p, 'coin')).toBe(coin + (t.reward.coin ?? 0));
   });
 
   it('one free reroll a day: a fresh task whose progress starts now; claimed tasks stay', async () => {
@@ -165,7 +150,7 @@ describe('tasks (E7)', () => {
 });
 
 describe('the wonder (E7 alliance projects)', () => {
-  it('raised in stages: each needs its goods and labour, opens the next, perks the alliance and scores', async () => {
+  it('raised in stages: each needs its goods and labour, opens the next and perks the alliance', async () => {
     const season = 9201, a = await player(8851, 2, season), b = await player(8852, 2, season), now = Date.now();
     const [s1, s2, s3] = WONDER.stages;
     let v = (await worksOf(DB(), 2, season)).find((w) => w.id === 'wonder')!;
@@ -204,7 +189,5 @@ describe('the wonder (E7 alliance projects)', () => {
     expect(await openWorks(DB(), 2, season)).not.toContain('wonder');
     expect(await code(giveWork(env, a, 'wonder', { stone: 1 }, now, season))).toBe('done');
     expect(await perksOf(DB(), 2, season)).toEqual({ travel: s1.bonus.travel, sight: s2.bonus.sight, repairCost: s3.bonus.repairCost, tasks: s3.bonus.tasks });
-    const pts = await DB().prepare("SELECT SUM(points) AS p FROM war_peace_score WHERE alliance = 2 AND kind = 'works'").first<{ p: number }>();
-    expect(pts!.p).toBeGreaterThanOrEqual(s1.score + s2.score + s3.score);
   });
 });

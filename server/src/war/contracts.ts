@@ -39,12 +39,9 @@ import { pathOf } from './start';
 import type { WildDeed } from '../../../src/war/net/mastery';
 import { json } from './persons';
 import { allianceOf } from './world/members';
-import { contractPoints, peacePoints, statStmt } from './peace';
+import { statStmt } from './peace';
 import { tallyStmt } from './tasks';
 import type { Env } from '../env';
-import { worldStub } from './world/routes';
-import { logError } from '../telemetry/log';
-import type { AllianceId } from '../../../src/war/world/types';
 
 const HOUR = 3_600_000;
 export const DEAL = { ms: 48 * HOUR };
@@ -348,15 +345,8 @@ async function payShare(db: D1Database, c: ContractRow, k: number): Promise<D1Pr
   return [...p.stmts, ...putLotsStmts(db, strongroom(c.taker), p.taken), db.prepare('UPDATE war_contracts SET paid = paid + ?2 WHERE id = ?1').bind(c.id, n)];
 }
 
-/** A work contract filled: the taker's stats and his alliance's peace score (capped a day; the world adds it). */
-async function filled(env: Env, c: ContractRow, now: number): Promise<D1PreparedStatement[]> {
-  const db = env.DB!, a = await allianceOf(db, c.taker!);
-  const out = [statStmt(db, c.taker!, 'contracts', 1), tallyStmt(db, c.taker!, 'contract', 1, now)];
-  if (a === null) return out;
-  const p = await peacePoints(db, a, 'contracts', contractPoints(c.reward), now);
-  if (p.pts > 0) worldStub(env).addPeace(a as AllianceId, 'contracts', p.pts).catch((e) => logError('war_peace_failed', e));
-  return [...out, ...p.stmts];
-}
+/** A work contract filled: the taker's stats. */
+const filled = (db: D1Database, c: ContractRow, now: number): D1PreparedStatement[] => [statStmt(db, c.taker!, 'contracts', 1), tallyStmt(db, c.taker!, 'contract', 1, now)];
 
 /** Taken build and guard contracts in a region (the room watches them). */
 export async function workContracts(db: D1Database, region: string, now: number): Promise<ContractRow[]> {
@@ -391,7 +381,7 @@ export async function labourDone(env: Env, pid: number, region: string, site: nu
       db.prepare("UPDATE war_contracts SET delivered = ?2 WHERE id = ?1 AND state = 'taken'").bind(id, total),
       guard(db, "(SELECT state FROM war_contracts WHERE id = ?1) = 'taken'", id),
       ...pay, statStmt(db, pid, 'labour', add), tallyStmt(db, pid, 'labour', add, now),
-      ...(done ? [db.prepare("UPDATE war_contracts SET state = 'done' WHERE id = ?1").bind(id), ...(await filled(env, c, now))] : []),
+      ...(done ? [db.prepare("UPDATE war_contracts SET state = 'done' WHERE id = ?1").bind(id), ...filled(db, c, now)] : []),
     ]);
   }
   return coin;
@@ -425,7 +415,7 @@ export async function guardCheck(env: Env, id: number, held: boolean, secs: numb
     db.prepare("UPDATE war_contracts SET delivered = ?2, away = 0 WHERE id = ?1 AND state = 'taken'").bind(id, total),
     guard(db, "(SELECT state FROM war_contracts WHERE id = ?1) = 'taken'", id),
     ...(await payShare(db, c, owed)), statStmt(db, c.taker!, 'guard', total - c.delivered), tallyStmt(db, c.taker!, 'guard', total - c.delivered, now),
-    ...(done ? [db.prepare("UPDATE war_contracts SET state = 'done' WHERE id = ?1").bind(id), ...(await filled(env, c, now))] : []),
+    ...(done ? [db.prepare("UPDATE war_contracts SET state = 'done' WHERE id = ?1").bind(id), ...filled(db, c, now)] : []),
   ]);
   return done ? 'done' : 'taken';
 }
@@ -444,7 +434,7 @@ export async function huntDeeds(env: Env, pid: number, region: string, deeds: re
     await batch(db, [
       db.prepare("UPDATE war_contracts SET state = 'done', delivered = 1 WHERE id = ?1 AND state = 'taken'").bind(id),
       guard(db, "(SELECT state FROM war_contracts WHERE id = ?1) = 'done'", id),
-      ...(await payShare(db, c, c.reward)), ...(await filled(env, c, now)),
+      ...(await payShare(db, c, c.reward)), ...filled(db, c, now),
     ]);
     coin += c.reward;
   }

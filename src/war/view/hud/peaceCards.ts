@@ -166,7 +166,7 @@ export function worksHtml(list: WorkView[], online: boolean, form: GiveForm, hom
     const track = stages.map((s, k) => {
       const v = s.done ? 1 : k === n ? p : 0, st = WONDER.stages[k];
       const perks = stagePerk(st).map((x) => `<span class="rf-ichip ${s.done ? 'good' : 'dim'}">${x.icon}${x.n}</span>`).join('');
-      return `<div class="wd-st${s.done ? ' done' : k === n ? ' cur' : ''}" data-tip="${attr(`<b class="k">${k + 1}. ${esc(s.name)}</b> · ${s.done ? 'stands' : k === n ? `${pct(p)} raised` : 'not begun'}<br>${Object.entries(s.need).map(([r, q]) => `${q} ${r}`).join(', ')}, ${s.needLabour} man-hours<br><span class="rf-dim tip-w">${esc(s.text)} · +${st.score} score</span>`)}">
+      return `<div class="wd-st${s.done ? ' done' : k === n ? ' cur' : ''}" data-tip="${attr(`<b class="k">${k + 1}. ${esc(s.name)}</b> · ${s.done ? 'stands' : k === n ? `${pct(p)} raised` : 'not begun'}<br>${Object.entries(s.need).map(([r, q]) => `${q} ${r}`).join(', ')}, ${s.needLabour} man-hours<br><span class="rf-dim tip-w">${esc(s.text)}</span>`)}">
         <div class="wd-sn"><span class="wd-k">${s.done ? glyph('ui:check', 12) : k + 1}</span>${esc(s.name)}</div>
         <div class="rf-bar"><i class="${s.done ? 'ok' : 'construction'}" style="width:${(v * 100).toFixed(1)}%"></i></div><div class="wd-pk">${perks}</div></div>`;
     }).join('');
@@ -188,16 +188,12 @@ export function worksHtml(list: WorkView[], online: boolean, form: GiveForm, hom
 
 // ------------------------------------------------------------------ the titles
 
-/** What the player's own stats say for each title (Ares-born: not in the peace stats). */
-const MINE: Record<string, keyof PeaceStats> = { merchantPrince: 'sold', masterBuilder: 'labourHours', warden: 'guardHours' };
-
-/** The season standings: each title's emblem, holder and lead, and the player's own run at it. */
+/** The season's titles (W-166: first place on each path's ladder): emblem, holder and level points; the player's season stats. */
 export function titlesHtml(t: TitleRow[], mine: PeaceStats | null, me: number | null): string {
   const row = (id: string) => {
-    const d = TITLES[id], x = t.find((y) => y.id === id), mineV = mine && MINE[id] ? mine[MINE[id]] : null, held = !!x && x.pid === me;
-    const you = mineV !== null && x && !held ? `<div class="ti-you">${bar('construction', mineV / Math.max(1e-9, x.value), 150)}<span class="rf-dim">you ${fmt(mineV)}</span></div>` : '';
+    const d = TITLES[id], x = t.find((y) => y.id === id), held = !!x && x.pid === me;
     return `<div class="ti-row${held ? ' me' : ''}" data-tip="${attr(x ? titleTip(x) : `<b class="k">${d.name}</b> · unclaimed<br><span class="rf-dim tip-w">${d.how}</span>`)}">${medal(id, 34, held)}
-      <div style="flex:1;min-width:0"><div class="ti-name">${d.name}</div><div class="ti-who">${x ? (held ? '<b style="color:var(--rf-gold)">You</b>' : esc(x.player)) : '<span class="rf-dim">unclaimed</span>'}</div>${you}</div>
+      <div style="flex:1;min-width:0"><div class="ti-name">${d.name}</div><div class="ti-who">${x ? (held ? '<b style="color:var(--rf-gold)">You</b>' : esc(x.player)) : '<span class="rf-dim">unclaimed</span>'}</div></div>
       <div class="ti-v"><b class="rf-num">${x ? fmt(x.value) : '–'}</b><span class="rf-dim">${d.metric}</span></div></div>`;
   };
   const s = mine;

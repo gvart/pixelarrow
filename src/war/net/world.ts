@@ -18,6 +18,7 @@
  * `from` to `to`); on arrival they enter `to` at its entry zone facing `from`, or wait (`queued`) while their alliance's
  * quota there is full. They hold where they arrive; the player takes them over by joining `to`'s room (a rejoin).
  */
+import type { Ladders } from './ladders';
 import { z } from 'zod';
 import type { AllianceId } from '../world/types';
 import type { WorldEvent } from '../world/events';
@@ -101,8 +102,6 @@ export interface RegionState {
   prestige?: number[];
   /** M7f: its town is ruined (a frontier town scores 1 an hour instead of 3). */
   ruined?: boolean;
-  /** W-61: the best town level per alliance here (score an hour: src/war/world/season.ts PEACE.town). */
-  town?: number[];
   /** W-76 proposal: the rival warlords of its domain as its room last reported them (none: no room has, or no domain here). */
   lords?: LordWorld[];
 }
@@ -160,23 +159,16 @@ export interface SeasonSnap {
   hegemony: { alliance: AllianceId; since: number; endsAt: number } | null;
   /** Set once the season is over: results frozen. */
   ended: SeasonResult | null;
-  /** M6h: trade score per alliance so far (included in `scores`). */
-  trade?: number[];
-  /** W-61: peace score per kind (volume, contracts, works) and alliance so far (included in `scores`). */
-  peace?: Record<string, number[]>;
-  /** W-62: world event score per alliance so far (included in `scores`). */
+  /** W-163: world event points per alliance so far: a record, not in `scores`. */
   event?: number[];
 }
 
-/** W-62: a title holder at a season's end (server/src/war/peace.ts Title). */
-export interface BoardTitle { id: string; name: string; pid: number; player: string; alliance: number }
-
-/** W-62: a finished season's scoreboard: its result, the event score, the title holders and how many earned a banner. */
+/** W-168: a finished season's roll of honour: its result, the event points, each path's top places and how many earned a banner. */
 export interface SeasonBoard extends SeasonResult {
   season: number;
   startAt: number;
   event: number[];
-  titles: BoardTitle[];
+  ladders: Ladders;
   /** Players of the winning alliance who earned its banner. */
   banners: number;
 }

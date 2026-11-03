@@ -34,9 +34,7 @@ import { board, cancelOffer, fill, listOffer, mySites, rentSite, upgradeStall } 
 import { npcView } from './npcMarket';
 import { worldStub } from './world/routes';
 import { fillHook, recordBoard } from './tradeScore';
-import { allianceOf } from './world/members';
 import { presentIn } from './market';
-import type { AllianceId } from '../../../src/war/world/types';
 import { buyLetter, contractsIn, dropHalf, offerLetter, postContract, postDeal, redeemLetter, takeContract } from './contracts';
 import { contractRefusal, noteSeen, seenOf } from './abuse';
 import type { Context } from 'hono';
@@ -173,16 +171,10 @@ trade.post('/offers/:id/fill', requirePlayable, async (c) => {
   await seen(c);
   const row = await d.prepare('SELECT town FROM war_offers WHERE id = ?1').bind(id).first<{ town: string }>();
   const holder = row ? await holderOf(c.env, row.town) : -1;
-  const peace = { alliance: null as number | null, volume: 0 };
-  const f = await fill(d, pid, id, b.n, b.key, holder, Date.now(), fillHook(c.env, peace));
-  if (peace.alliance !== null && peace.volume > 0) await worldStub(c.env).addPeace(peace.alliance as AllianceId, 'volume', peace.volume); // W-61
+  const f = await fill(d, pid, id, b.n, b.key, holder, Date.now(), fillHook(c.env));
   if (row) {
     const bd = await board(d, row.town);
     for (const p of [f.seller, f.buyer]) await recordBoard(d, p, bd, Date.now());
-  }
-  if (f.score > 0) {
-    const a = await allianceOf(d, f.seller);
-    if (a !== null) await worldStub(c.env).addTrade(a as AllianceId, f.score);
   }
   return c.json(f);
 });

@@ -15,6 +15,8 @@ import { SIM_VERSION } from '../../sim/version';
 import { devAuth, warAuth } from '../net/session';
 import { DEFAULT_CAP, splitQuota } from '../net/protocol';
 import type { Crest, LandmarkWorld, LordWorld, RegionState, SeasonBoard, SeasonSnap, TransitSnap, WorldSnapshot } from '../net/world';
+import type { LadderRow, Ladders, LaddersView } from '../net/ladders';
+import type { StartFamily } from '../world/start';
 import { ALLIANCES, WAR_SEASON } from '../world/alliances';
 import { domainOf, WARLORDS } from '../../data/warWarlords';
 import { edge, worldRegion, WORLD_IDS } from '../world/graph';
@@ -36,13 +38,14 @@ export interface WorldView {
   /** Live soldier quota per alliance in a region. */
   quota: number[];
   status: string;
-  /** M6l: carts and porters on the road, the price boards your men last saw, today's trade score per alliance (live: from
-   * WorldSnapshot.convoys / boards / score.trade, ./liveTrade; offline: the mock's). */
+  /** M6l: carts and porters on the road, the price boards your men last saw (live: from WorldSnapshot.convoys / boards,
+   * ./liveTrade; offline: the mock's). */
   convoys?: ConvoySnap[];
   boards?: Record<string, BoardSeen>;
-  trade?: number[];
-  /** W-61: the season's titles (GET /api/war/titles; the mock's offline), shown on the season panel and the map. */
+  /** W-61, W-166: the season's titles (GET /api/war/titles; the mock's offline), shown on the map. */
   titles?: WorldTitle[];
+  /** W-165: the path ladders and your place (GET /api/war/ladders; the mock's offline), on the standings panel. */
+  ladders?: LaddersView;
 }
 /** W-61: a title holder (server/src/war/peace.ts Title). */
 export interface WorldTitle { id: string; name: string; player: string; alliance: number; home: string | null; value: number }
@@ -122,7 +125,7 @@ export class NetSource implements WorldSource {
   constructor(private q = new URLSearchParams(location.search)) {}
 
   private view(): void {
-    if (this.snap) this.emit({ snap: this.snap, squads: this.squads, waiting: this.waiting, scores: this.snap.score.scores, endsAt: this.snap.at + this.snap.score.left, quota: QUOTA, status: this.status, ...liveTrade(this.snap), titles: this.titles });
+    if (this.snap) this.emit({ snap: this.snap, squads: this.squads, waiting: this.waiting, scores: this.snap.score.scores, endsAt: this.snap.at + this.snap.score.left, quota: QUOTA, status: this.status, ...liveTrade(this.snap), titles: this.titles, ...(this.ladders ? { ladders: this.ladders } : {}) });
   }
 
   private async api<T>(method: 'GET' | 'POST', path: string, body?: unknown): Promise<T> {
@@ -158,15 +161,17 @@ export class NetSource implements WorldSource {
   }
 
   private titles: WorldTitle[] = [];
+  private ladders: LaddersView | null = null;
   private titlesAt = 0;
   private async loadRoster(): Promise<void> {
     const r = await this.api<{ persons: RosterPerson[]; caps?: { home?: string | null } }>('GET', '/api/war/roster'), home = r.caps?.home ?? null;
     this.squads = fieldSquads(r.persons, home);
     this.waiting = waitingHome(r.persons, home);
-    // W-61: the titles, once a minute
+    // W-61, W-165: the titles and ladders, once a minute
     if (Date.now() - this.titlesAt > 60_000) {
       this.titlesAt = Date.now();
       this.titles = (await this.api<{ titles: WorldTitle[] }>('GET', '/api/war/titles').catch(() => ({ titles: [] as WorldTitle[] }))).titles ?? [];
+      this.ladders = await this.api<LaddersView>('GET', '/api/war/ladders').catch(() => this.ladders);
     }
   }
 
@@ -216,7 +221,7 @@ const cargoText = (goods: Record<string, number>, items: number) =>
  * transit, drawn as such), already filtered by the server's fog and Safe Roads (`seen` set); the boards as rows by good;
  * the season's trade score.
  */
-export function liveTrade(snap: WorldSnapshot): Pick<WorldView, 'convoys' | 'boards' | 'trade'> {
+export function liveTrade(snap: WorldSnapshot): Pick<WorldView, 'convoys' | 'boards'> {
   const convoys: ConvoySnap[] = (snap.convoys ?? []).filter((c) => c.cart || c.loads > 0).map((c) => ({
     id: c.id, from: c.from, to: c.to, departAt: c.departAt, arriveAt: c.arriveAt, alliance: c.alliance, kind: c.cart ?? 'porters',
     loads: c.loads, cargo: cargoText(c.goods, c.items), seen: true, ...(c.mine ? { mine: true } : {}),
@@ -226,11 +231,11 @@ export function liveTrade(snap: WorldSnapshot): Pick<WorldView, 'convoys' | 'boa
     const rows = Object.entries(b.goods).map(([good, g]) => ({ good, ask: g.ask, bid: g.bid, depth: g.askDepth + g.bidDepth })).sort((a, z) => z.depth - a.depth);
     boards[town] = { at: b.at, rows, fills: b.fills.length };
   }
-  return { convoys, boards, ...(snap.score.trade ? { trade: snap.score.trade } : {}) };
+  return { convoys, boards };
 }
 
 /** A made-up world mid-season: owners and fights round the player, who has the design's start (alliance Dodona). */
-export function mockWorld(now: number): { snap: WorldSnapshot; squads: FieldSquad[]; scores: number[]; endsAt: number; convoys: ConvoySnap[]; boards: Record<string, BoardSeen>; trade: number[] } {
+export function mockWorld(now: number): { snap: WorldSnapshot; squads: FieldSquad[]; scores: number[]; endsAt: number; convoys: ConvoySnap[]; boards: Record<string, BoardSeen> } {
   const owners: Record<string, AllianceId> = {
     krios: 0, moors: 0, saddle: 0, stymphalia: 0, siren: 3, 'dodona-s': 0,
     kleisoura: 1, kimmeria: 1, ammos: 1,
@@ -282,7 +287,6 @@ export function mockWorld(now: number): { snap: WorldSnapshot; squads: FieldSqua
   const score: SeasonSnap = {
     id: WAR_SEASON.id, startAt: now + left - WAR_SEASON.lengthMs, endAt: now + left, left, scores, rates: allianceRates(regions),
     omphalos: owner(OMPHALOS), towns: Object.fromEntries(FRONTIER_TOWNS.map((t) => [t, owner(t)])), hegemony: null, ended: null,
-    peace: { volume: [22, 9, 31, 40], contracts: [14, 6, 3, 11], works: [30, 0, 0, 30] }, // W-61
   };
   // M6l: convoys on the road (yours, a seen foe cart, a Safe Roads foe wagon to a town you stand in, one out of sight)
   const leg = (from: string, to: string, f: number, mul: number) => { const ms = travelMs(from, to) * mul; return { departAt: now - ms * f, arriveAt: now + ms * (1 - f) }; };
@@ -307,20 +311,31 @@ export function mockWorld(now: number): { snap: WorldSnapshot; squads: FieldSqua
   };
   const last: SeasonBoard = {
     season: WAR_SEASON.id, startAt: now - left - 2 * WAR_SEASON.lengthMs, at: now + left - WAR_SEASON.lengthMs, reason: 'time', winner: 0, scores: [1832, 1610, 1745, 1290], event: [140, 95, 160, 70],
-    titles: [
-      { id: 'merchantPrince', name: 'Merchant Prince', pid: 9, player: 'Kallias', alliance: 3 },
-      { id: 'masterBuilder', name: 'Master Builder', pid: 1, player: 'Iktinos', alliance: 0 },
-      { id: 'warden', name: 'Warden', pid: 11, player: 'Phylax', alliance: 1 },
-      { id: 'warlord', name: 'Ares-born', pid: 12, player: 'Brasidas', alliance: 2 },
-    ],
+    ladders: MOCK_ROLL,
     banners: 43,
   };
   const crests: Crest[] = [{ season: WAR_SEASON.id, kind: 'banner', alliance: 0 }, { season: WAR_SEASON.id, kind: 'crest', alliance: 0, title: 'masterBuilder' }];
   // W-64: three crowned alliances, a pact and a truce
   const crown = { monarchs: [{ alliance: 0 as const, pid: 1, name: 'You' }, { alliance: 1 as const, pid: 21, name: 'Kallias' }, { alliance: 2 as const, pid: 22, name: 'Myrto' }], pacts: [{ a: 0 as const, b: 2 as const, kind: 'pact' as const }, { a: 1 as const, b: 3 as const, kind: 'truce' as const }] };
-  return { snap: { season: score.id, score, at: now, you: { id: 1, alliance: 0 }, alliances, regions, transit, events, last, crests, crown }, squads, scores, endsAt: now + left, convoys, boards, trade: [34, 18, 60, 9] };
+  return { snap: { season: score.id, score, at: now, you: { id: 1, alliance: 0 }, alliances, regions, transit, events, last, crests, crown }, squads, scores, endsAt: now + left, convoys, boards };
 }
 
+const row = (place: number, pid: number, player: string, alliance: number, points: number, level: number, family?: StartFamily): LadderRow => ({ place, pid, player, alliance, points, level, ...(family ? { family } : {}) });
+/** W-168: the mock's last season, each path's top places. */
+const MOCK_ROLL: Ladders = {
+  warrior: [row(1, 12, 'Brasidas', 2, 9140, 11, 'line'), row(2, 11, 'Phylax', 1, 8720, 10, 'shock'), row(3, 18, 'Myrto', 2, 7655, 10, 'missile')],
+  builder: [row(1, 1, 'Iktinos', 0, 6120, 9), row(2, 13, 'Kallikrates', 3, 5980, 9), row(3, 19, 'Rhoikos', 1, 4410, 8)],
+  trader: [row(1, 9, 'Kallias', 3, 7230, 10), row(2, 14, 'Sostratos', 2, 6640, 9), row(3, 20, 'Lampon', 0, 5015, 8)],
+};
+/** W-165: the mock's ladders this season; the player is a Phalanx warrior. */
+const MOCK_LADDERS: LaddersView = {
+  ladders: {
+    warrior: [row(1, 12, 'Brasidas', 2, 4210, 7, 'line'), row(2, 11, 'Phylax', 1, 3980, 7, 'shock'), row(3, 18, 'Myrto', 2, 3120, 6, 'missile'), row(4, 22, 'Leonidas', 3, 2760, 6, 'line'), row(5, 1, 'You', 0, 2405, 5, 'line'), row(6, 23, 'Orgetorix', 1, 1990, 5, 'shock'), row(7, 24, 'Iphikrates', 0, 1540, 4, 'missile')],
+    builder: [row(1, 2, 'Iktinos', 0, 2840, 6), row(2, 13, 'Kallikrates', 3, 2510, 5), row(3, 19, 'Rhoikos', 1, 1960, 5), row(4, 25, 'Mandrokles', 2, 1210, 4)],
+    trader: [row(1, 9, 'Kallias', 3, 3650, 7), row(2, 14, 'Sostratos', 2, 3120, 6), row(3, 20, 'Lampon', 0, 2230, 5)],
+  },
+  you: { path: 'warrior', place: 5, points: 2405, level: 5 },
+};
 /** W-61: the mock's titles. */
 /** W-63 offline: a few settlements with their ties (the player is pid 1: he rules Thermi and its vassal Pella). */
 /** W-73: the mock player's mastered regions (stars on the map). */
@@ -338,7 +353,6 @@ export const MOCK_SETTLEMENTS: WorldSettlement[] = [
 const MOCK_TITLES: WorldTitle[] = [
   { id: 'merchantPrince', name: 'Merchant Prince', player: 'Kallias', alliance: 3, home: 'elaia', value: 4210 },
   { id: 'masterBuilder', name: 'Master Builder', player: 'Iktinos', alliance: 0, home: 'dodona', value: 61.5 },
-  { id: 'warden', name: 'Warden', player: 'Phylax', alliance: 1, home: 'skythia', value: 38 },
   { id: 'warlord', name: 'Ares-born', player: 'Brasidas', alliance: 2, home: 'kyrene', value: 214 },
 ];
 
@@ -354,7 +368,7 @@ export class MockSource implements WorldSource {
     const now = Date.now();
     // convoys that arrived set off again the other way (the mock keeps the roads busy)
     for (const c of this.w.convoys) if (c.arriveAt <= now) { const ms = c.arriveAt - c.departAt; [c.from, c.to] = [c.to, c.from]; c.departAt = now; c.arriveAt = now + ms; }
-    this.emit({ snap: this.w.snap, squads: this.w.squads, scores: this.w.scores, endsAt: this.w.endsAt, quota: QUOTA, status: 'offline (mock world)', convoys: this.w.convoys, boards: this.w.boards, trade: this.w.trade, titles: MOCK_TITLES });
+    this.emit({ snap: this.w.snap, squads: this.w.squads, scores: this.w.scores, endsAt: this.w.endsAt, quota: QUOTA, status: 'offline (mock world)', convoys: this.w.convoys, boards: this.w.boards, titles: MOCK_TITLES, ladders: MOCK_LADDERS });
   }
 
   async start(onChange: (v: WorldView) => void): Promise<void> {

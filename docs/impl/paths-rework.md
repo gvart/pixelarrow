@@ -38,7 +38,7 @@ Decided while building item 2: **W-95 small start, grow to cap**, **W-96 full se
 mastery included (owner confirmed). Item 3, by the desk, overrulable: **W-97**, **W-98**, **W-99**, **W-100**. Item 4, by the
 desk, overrulable: **W-101** who may join, **W-102** Tunnel under the cap, **W-103** workers, **W-104** carts, **W-105** a seized
 cart, **W-106** no path. Item 5, by the desk, overrulable: **W-110** perk tables, **W-111** what pays a level, **W-112** families,
-**W-113** souls, **W-114** mastery and warlords.
+**W-113** souls, **W-114** mastery and warlords. Item 9's winning half, by the desk, overrulable: **W-160..W-169**.
 
 Superseded or changed: W-44 (NPC towns, W-93), W-53 (its "cap of 12 stays", W-85), W-56, W-58, W-60 (souls claimable under
 the path's cap), W-66 and W-68 (raised men wait at home; the Tunnel's "up to 6" fits the cap, W-102; W-66's permanent
@@ -71,7 +71,7 @@ Found while bringing `docs/WAR.md` in line (item 1). Each is a rule the decision
   only his own, the rest stay for someone else. The Tunnel's fallback: W-102.
 - [x] Souls wake by site, so families do not grow alike. W-113. 12 mixed skirmishers losing to chiefs and bandit lairs: W-112.
 - [x] How levels are paid per path. W-111, W-114; the old bonus on raised men went, W-110.
-- [x] What counts as "working" under W-88 beyond workplaces. W-120..W-123, W-135. Whether empty land scores is item 9.
+- [x] What counts as "working" under W-88 beyond workplaces. W-120..W-123, W-135. Empty land scores: W-164.
 - [x] Goods that move with nobody carrying them, and where the owner's share sits. W-124, W-126, tribute W-153.
 - [x] Walls and locks. W-130, W-131, W-132.
 - [x] Warlord raids after W-91. W-133.
@@ -81,9 +81,7 @@ Found while bringing `docs/WAR.md` in line (item 1). Each is a rule the decision
 - [ ] What builders and traders do in the guide, tasks and region mastery, which all assume a fighting army (item 9; item 7 gave
   them their own story chains, W-147).
 - [x] Hierarchy against older decisions. The crown holder is the king (W-151); vassals stay inside one alliance (W-150).
-- [ ] No hegemony by day 28. Today the top score wins, and it counts trade, contracts, works and town level as well as
-  land: does that fallback stay under "land decides"? Do W-61's per-alliance score caps stay? What does each path's
-  ladder rank, and do W-61's titles become it (item 9)?
+- [x] No hegemony by day 28, W-61's caps, what each ladder ranks, W-61's titles. W-160..W-169.
 
 ## Work items
 
@@ -107,9 +105,10 @@ Each item bumps `SIM_VERSION` (`src/sim/version.ts`) and `NET_VERSION` (`src/war
   verify: a seeded solo run on each path. depends on: 5, 6.
 - [x] **8. Feudal hierarchy.** Kings, vassals, titles, tribute, succession on top of W-63.
   verify: scenario tests. depends on: 6; owner answer on the open item.
-- [ ] **9. Winning and HUD.** Path ladders, remove multi-region UI (`armyPanel.ts`, `roster/state.ts`, `world-view/map.ts`,
+- [ ] **9. Winning and HUD.** Remove multi-region UI (`armyPanel.ts`, `roster/state.ts`, `world-view/map.ts`,
   `titleMenu`), guide per path.
   verify: `balance:war`, `hud-reviewer` shots. depends on: 7, 8.
+  - [x] Winning half: land-decided win, three path ladders, standings panel, roll of honour (W-160..W-169).
 
 Items 3 and 4 can run in parallel only if their file sets stay apart; both touch persons and units, so check first.
 

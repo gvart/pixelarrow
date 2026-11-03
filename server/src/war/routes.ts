@@ -78,7 +78,8 @@ import { WORLD_REGIONS } from '../../../src/war/world/regions';
 import { give, worksOf } from './works';
 import { claimTask, rerollOne, tasksOf } from './tasks';
 import { getFavour } from './favour';
-import { statsOf, titles } from './peace';
+import { statsOf } from './peace';
+import { laddersView, titles } from './ladders';
 import { masteredOf } from './mastery';
 import { allianceOf } from './world/members';
 import { stagesOf } from '../../../src/war/net/works';
@@ -201,6 +202,9 @@ war.get('/titles', requirePlayable, async (c) => {
   const d = db(c.env);
   return c.json({ titles: await titles(d), mine: await statsOf(d, c.get('session').pid) });
 });
+
+/** W-165: the three ladders and his place on his own. */
+war.get('/ladders', requirePlayable, async (c) => c.json(await laddersView(db(c.env), c.get('session').pid)));
 
 /** W-73: the regions this player mastered this season (the world map's stars). */
 war.get('/mastery', requirePlayable, async (c) => c.json({ mastered: await masteredOf(db(c.env), c.get('session').pid) }));
