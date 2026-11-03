@@ -79,6 +79,7 @@ export function createSecrets(region: RegionData, host: SecretHost) {
   const tell = (n: number, owner: string, team: number, notes: StoryNote[]) => {
     const story = stories[n], spot = story.giver.at;
     for (const x of notes) {
+      if (x.kind === 'count') continue;
       const step = x.kind === 'step' ? story.steps.find((s) => s.id === x.step.split('#')[0]) : undefined;
       const goods = x.kind !== 'start' ? x.reward?.goods : undefined;
       host.note({

@@ -13,7 +13,9 @@
 import type { Item, Rarity } from '../../data/items';
 import { makeItem } from '../../game/heroes';
 import { hashString, Rng } from '../../sim/rng';
-import type { GoodKind, MobKind, RegionData, Snapshot, WarEvent } from '../types';
+import type { BuildingType, GoodKind, MobKind, RegionData, Snapshot, WarEvent } from '../types';
+import { npcSpot } from '../net/npcMarket';
+import type { PathId } from '../world/start';
 import { buildGrid } from './grid';
 
 /** A tile point as authored (snapped to open ground by storySpots). */
@@ -39,6 +41,10 @@ export type StoryTrigger =
   | { kind: 'clear'; at: Pt; mob: MobKind; count: number; lead?: true; name?: string; /** world-fill: led by this chief (src/data/warBosses.ts; count: his escort's). */ chief?: string }
   /** A captive (a soul at the spot) his squad claims (or would, with a full army: freed, he goes his way). */
   | { kind: 'rescue'; at: Pt; cls: string; level: number; name: string }
+  /** W-147 a finished building of this type of his own. */
+  | { kind: 'built'; type: BuildingType }
+  /** W-147 deals with this region's NPC town: `coin` of them sold or bought (`abroad`: only goods from another land), or a hire or cart. */
+  | { kind: 'trade'; op: 'sell' | 'buy' | 'hire' | 'cart'; coin?: number; abroad?: true }
   /** A choice on the story card: each option pays and leads on (no `next`: the chain ends). */
   | { kind: 'choice'; options: readonly StoryOption[] };
 
@@ -74,6 +80,8 @@ export interface Story {
   end: string;
   /** Paid when the chain ends (either branch). */
   reward?: StoryReward;
+  /** W-147: a chain for this path only, told at a home; none: every path's. */
+  path?: PathId;
   /** world-fill: a hidden quest (no giver, no "!"): it begins when men walk onto `giver.at` (src/war/sim/secrets.ts). */
   hidden?: true;
 }
@@ -95,7 +103,9 @@ const RESPAWN = 300;
 export type StoryNote =
   | { kind: 'start' }
   | { kind: 'step'; step: string; reward?: StoryReward; option?: string }
-  | { kind: 'end'; reward?: StoryReward };
+  | { kind: 'end'; reward?: StoryReward }
+  /** W-147: a trade step counted on (`n` so far): kept in the save, pays nothing yet. */
+  | { kind: 'count'; n: number };
 
 /** What a run spawns and pays through (the server room, the offline page, tests). `at`: his men's middle (or the step's spot). */
 export interface StoryHost {
@@ -134,7 +144,7 @@ export function storySpots(r: RegionData, s: Story): StorySpots {
   const steps: StorySpots['steps'] = {}, giver = snapOpen(r, s.giver.at);
   for (const st of s.steps) {
     const t = st.trigger;
-    steps[st.id] = t.kind === 'talk' ? [giver] : t.kind === 'track' ? t.marks.map((p) => snapOpen(r, p)) : t.kind === 'choice' ? [] : [snapOpen(r, t.at)];
+    steps[st.id] = t.kind === 'talk' ? [giver] : t.kind === 'track' ? t.marks.map((p) => snapOpen(r, p)) : t.kind === 'choice' || t.kind === 'built' ? [] : t.kind === 'trade' ? [snapOpen(r, [npcSpot(r).x, npcSpot(r).y])] : [snapOpen(r, t.at)];
   }
   return { giver, steps };
 }
@@ -274,9 +284,21 @@ export class StoryRun {
         const ls = (s.lairs ?? []).filter((l) => Math.hypot(l.x - ps[0].x, l.y - ps[0].y) < 0.5);
         done = this.seen && ls.length > 0 && ls.every((l) => l.state === 'cleared') && near(ps[0], STORY_R.near);
       } else if (t.kind === 'rescue') done = rescued(s, evs, this.souls, this.me);
+      else if (t.kind === 'built') done = (s.buildings ?? []).some((b) => b.type === t.type && b.state === 'done' && b.team === this.me.team && !b.pre && (!this.me.owner || b.owner === this.me.owner));
       if (!done) break;
       this.finish(s, st, notes);
     }
+    return notes;
+  }
+
+  /** W-147 a deal of his with the region's town (coin it moved, the part of it for goods from another land): the open trade step counts it. */
+  trade(s: Snapshot, op: 'sell' | 'buy' | 'hire' | 'cart', coin: number, abroad: number): StoryNote[] {
+    const st = this.step, t = st?.trigger, notes: StoryNote[] = [];
+    if (!st || t?.kind !== 'trade' || t.op !== op) return notes;
+    const need = t.coin ?? 1;
+    this.save.n += t.coin === undefined ? 1 : t.abroad ? abroad : coin;
+    if (this.save.n < need) notes.push({ kind: 'count', n: this.save.n });
+    else this.finish(s, st, notes);
     return notes;
   }
 

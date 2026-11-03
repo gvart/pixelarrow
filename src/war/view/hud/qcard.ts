@@ -169,5 +169,5 @@ function hide(): void {
 }
 
 /** A story or encounter step's verb icon, by its trigger (../../sim/stories.ts, ../../sim/encounters.ts). */
-export const TRIGGER_ICON: Record<string, string> = { talk: 'act-assign', reach: 'act-move', track: 'act-move', clear: 'act-attack', rescue: 'mk-claim', choice: 'trade-contract', guide: 'act-escort' };
+export const TRIGGER_ICON: Record<string, string> = { talk: 'act-assign', reach: 'act-move', track: 'act-move', clear: 'act-attack', rescue: 'mk-claim', choice: 'trade-contract', built: 'act-assign', trade: 'trade-contract', guide: 'act-escort' };
 export const triggerIcon = (kind: string) => icon(TRIGGER_ICON[kind] ?? 'mk-claim');

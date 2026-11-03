@@ -13,10 +13,11 @@
  * (server/src/war/stories.ts); the page shows its `story` messages and sends a choice up.
  */
 import { itemDef } from '../../../data/items';
-import { storyOf } from '../../../data/warStories';
+import { pathStoryById, storyOf } from '../../../data/warStories';
 import { NEUTRAL_TEAM } from '../../sim/economy';
 import { storyPath, StoryRun, storySpots, saveOk, stepOf, type Story, type StoryNote, type StoryReward, type StorySave, type StoryStep } from '../../sim/stories';
 import type { ServerMsg } from '../../net/protocol';
+import type { PathId } from '../../world/start';
 import type { WarEvent } from '../../types';
 import type { SandboxScene } from '../SandboxScene';
 import { SPRITE_ZOOM } from '../units';
@@ -51,9 +52,24 @@ function rewardParts(r: StoryReward | undefined): { goods: Record<string, number
 }
 
 export function mountStory(s: SandboxScene): void {
-  const story = storyOf(s.sim.region.id);
   const q = new URLSearchParams(location.search), online = s.sim.net;
-  if (!story || (!online && !q.has('world') && !q.has('story'))) return;
+  const story = storyOf(s.sim.region.id, (q.get('path') as PathId | null) ?? null);
+  if (story) {
+    if (online || q.has('world') || q.has('story')) mountChain(s, story, online);
+    return;
+  }
+  if (!online) return;
+  // W-147: a home's chain is his path's: the server names it with his save
+  const wait = (m: ServerMsg) => {
+    const chain = m.t === 'story' ? pathStoryById(m.save.story) : null;
+    if (!chain) return;
+    s.sim.serverTaps.delete(wait);
+    mountChain(s, chain, online, m);
+  };
+  s.sim.serverTaps.add(wait);
+}
+
+function mountChain(s: SandboxScene, story: Story, online: boolean, first?: ServerMsg): void {
   const st = document.createElement('style');
   st.textContent = CSS;
   document.head.appendChild(st);
@@ -77,7 +93,7 @@ export function mountStory(s: SandboxScene): void {
           const o = done.trigger.options.find((x) => x.id === n.option)!;
           questBanner({ kind: 'done', head: 'Your choice', title: o.label, giver: giverLine, text: o.text, reward: r.goods, ...(r.more || Object.keys(r.goods).length ? { pay: [r.more, Object.keys(r.goods).length ? `Paid into ${payTo}` : ''].filter(Boolean).join(' · ') } : {}) });
         } else questBanner({ kind: 'done', head: 'Story step done', title: done.goal, giver: giverLine, ...(next ? { text: `Next: ${next.goal}.` } : {}), reward: r.goods, ...(r.more || Object.keys(r.goods).length ? { pay: [r.more, Object.keys(r.goods).length ? `Paid into ${payTo}` : ''].filter(Boolean).join(' · ') } : {}) });
-      } else {
+      } else if (n.kind === 'end') {
         const r = rewardParts(n.reward);
         questBanner({ kind: 'done', head: 'Story complete', title: story.title, giver: giverLine, text: story.end, reward: r.goods, pay: [r.more, `Paid into ${payTo}`].filter(Boolean).join(' · ') });
       }
@@ -85,11 +101,13 @@ export function mountStory(s: SandboxScene): void {
   };
 
   if (online) {
-    s.sim.serverTaps.add((m: ServerMsg) => {
+    const heard = (m: ServerMsg) => {
       if (m.t !== 'story' || !saveOk(story, m.save)) return;
       save = m.save;
       if (m.notes) tell(m.notes, m.save);
-    });
+    };
+    s.sim.serverTaps.add(heard);
+    if (first) heard(first);
   } else {
     run = new StoryRun(region, story, load(key, story), { team }, {
       addLair: (d) => s.sim.addLair(d.kind, d.x, d.y, d.count, d.lead),
@@ -111,7 +129,7 @@ export function mountStory(s: SandboxScene): void {
     const t = step.trigger, ps = spots.steps[step.id] ?? [], cur = s.sim.cur;
     if (t.kind === 'talk') return spots.giver;
     if (t.kind === 'track') return ps[Math.min(sv.n, ps.length - 1)] ?? null;
-    if (t.kind === 'choice') return null;
+    if (t.kind === 'choice' || t.kind === 'built') return null;
     const p = ps[0];
     if (t.kind === 'clear') {
       // the camp's men while they live (they wander; a named lead first: the marker names him), else its spot
@@ -128,7 +146,7 @@ export function mountStory(s: SandboxScene): void {
       const sv = save, step = stepOf(story, sv);
       if (!sv || !step) return null;
       const path = storyPath(story, sv), i = Math.max(0, path.indexOf(step)), t = step.trigger, r = rewardParts(step.reward);
-      const marks = t.kind === 'track' ? ` (${sv.n}/${t.marks.length})` : '';
+      const marks = t.kind === 'track' ? ` (${sv.n}/${t.marks.length})` : t.kind === 'trade' && t.coin ? ` (${Math.floor(sv.n)}/${t.coin})` : '';
       return {
         kind: `Story · ${region.name}`, title: story.title, giver: `Given by ${giverLine}`, icon: triggerIcon(t.kind),
         goal: `${step.goal}${marks}`, progress: `${i + 1}/${path.length}`, frac: i / path.length,
