@@ -6,6 +6,7 @@
  * people): else the button says so and the claim is refused with a clear note; a claim that goes through, or one the sim or the server refuses,
  * shows as a note too (the roster's toasts).
  */
+import { FAMILY_OF } from '../../sim/skills';
 import { mayHold, soldierCap, type JoinRefusal } from '../../world/start';
 import { SOUL } from '../../sim/souls';
 import type { ServerMsg } from '../../net/protocol';
@@ -62,11 +63,11 @@ export const soulAt = (s: SandboxScene, x: number, y: number, r = 1.5): SoulSnap
 const capOf = (s: SandboxScene) => soldierCap(sandboxRoster(s).way.path);
 /** Why his men may not claim this soul now (W-101: not of his people; the army is full), else undefined. */
 export const claimWhy = (s: SandboxScene, so: SoulSnap): string | undefined =>
-  !mayHold(sandboxRoster(s).way, so.cls) ? 'not of your people' : armyMen(s) >= capOf(s) ? `army full ${capOf(s)}/${capOf(s)}` : undefined;
+  !mayHold(sandboxRoster(s).way, so.cls) ? (FAMILY_OF[so.cls as keyof typeof FAMILY_OF] === sandboxRoster(s).way.family ? 'a higher level first' : 'not of your people') : armyMen(s) >= capOf(s) ? `army full ${capOf(s)}/${capOf(s)}` : undefined;
 
 /** The note for a refused claim (W-101). */
 const refusal = (why: JoinRefusal, have: number, cap: number) =>
-  why === 'family' ? 'Claim refused: he is not of your people. Leave him for another player' : why === 'household' ? 'Claim refused: your household is full' : `Claim refused: your army is full (${have} / ${cap} men). A soul joins only when a man falls or retires`;
+  why === 'locked' ? 'Claim refused: he will follow you at a higher level' : why === 'family' ? 'Claim refused: he is not of your people. Leave him for another player' : why === 'household' ? 'Claim refused: your household is full' : `Claim refused: your army is full (${have} / ${cap} men). A soul joins only when a man falls or retires`;
 
 /** Send `squad` to claim soul `so` (the prompt's button, right click and E), with the roster's note; refused when the army is full. */
 export function claimSoul(s: SandboxScene, squad: number, so: SoulSnap): void {

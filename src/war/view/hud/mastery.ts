@@ -8,7 +8,7 @@
  */
 import type { SandboxScene } from '../SandboxScene';
 import type { ServerMsg } from '../../net/protocol';
-import { MASTERY, masteryNeed, masteryView, wildDeeds, type MasteryView, type WildKind } from '../../net/mastery';
+import { masteryNeed, masteryView, wildDeeds, type MasteryView, type WildKind } from '../../net/mastery';
 import type { Note } from './roster/state';
 import { glyph } from './glyph';
 import { chip } from './qcard';
@@ -78,7 +78,7 @@ export function mountMastery(s: SandboxScene, note: (n: Note) => void): void {
     const won = nv.done && !v.done;
     v = nv;
     render();
-    if (won) note({ kind: 'info', text: `${name} mastered`, icon: glyph('ui:banner', 30), chips: chip.any(glyph('ui:star', 16), `+${MASTERY.favour} favour`, 'gold', 'Divine favour') + chip.any(glyph('ui:banner', 16), `Banner of ${name}`, 'gold', 'A deed on your men standing here') });
+    if (won) note({ kind: 'info', text: `${name} mastered`, icon: glyph('ui:banner', 30), chips: chip.any(glyph('ui:banner', 16), `Banner of ${name}`, 'gold', 'A deed on your men standing here') });
   };
   // online: the server's word; offline: the local sim's deeds, this visit
   s.sim.serverTaps.add((m: ServerMsg) => {
