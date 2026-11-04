@@ -121,6 +121,7 @@ function stepTo(g: Grid, a: number, ax: number, ay: number, k: number): number {
     const c1 = ay * g.w + nx, c2 = ny * g.w + ax;
     if (g.span[a] && g.span[b] && ((g.span[c1] && canEnter(g, a, c1)) || (g.span[c2] && canEnter(g, a, c2)))) return b; // along a diagonal bridge
     if (g.deck[a] !== g.deck[b] || !canEnter(g, a, c1) || !canEnter(g, a, c2)) return -1; // on or off a deck or stair: straight only
+    if (!canEnter(g, c1, b) || !canEnter(g, c2, b)) return -1; // W-207: a cliff ends at the corner he'd pass: no body gets by it
   }
   return b;
 }
@@ -388,7 +389,7 @@ export function lineCost(g: Grid, x0: number, y0: number, x1: number, y1: number
       if ((x1 - x0) * (y1 - y0) !== 0) {
         // a step to a diagonal neighbour squeezes between two tiles: both must be open (A* cuts no corner either)
         const px = prev % g.w, py = (prev / g.w) | 0, tx = t % g.w, ty = (t / g.w) | 0;
-        if (px !== tx && py !== ty && !(g.span[prev] && g.span[t]) && (!canEnter(g, prev, py * g.w + tx) || !canEnter(g, prev, ty * g.w + px))) return Infinity;
+        if (px !== tx && py !== ty && !(g.span[prev] && g.span[t]) && (!canEnter(g, prev, py * g.w + tx) || !canEnter(g, prev, ty * g.w + px) || !canEnter(g, py * g.w + tx, t) || !canEnter(g, ty * g.w + px, t))) return Infinity;
       }
     }
     cost += (g.height[t] > g.height[prev] ? g.cost[t] * UPHILL : g.cost[t]) * ds;

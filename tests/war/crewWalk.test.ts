@@ -3,12 +3,15 @@
  *
  *  - a man behind his cart on his own way, inside the loose hold on a waypoint but on the tile a cliff closes the next one
  *    from, turned back and forth for good (dodona, 344,231);
- *  - a crew point over a cliff from the cart sent both pullers the long way round, and the cart waited for them (elaia-n).
+ *  - a crew point over a cliff from the cart sent both pullers the long way round, and the cart waited for them (elaia-n);
+ *  - W-207 a way stepping diagonally past the very end of a cliff: no body fits by, so he slid along the cliff, searched again
+ *    and got the same way, for good (dodona, 344,231 again).
  */
 import { describe, expect, it } from 'vitest';
 import { npcSpot } from '../../src/war/net/npcMarket';
 import { parseRegion } from '../../src/war/region/schema';
 import { createSim } from '../../src/war/sim';
+import { buildGrid, canEnter, findPath, walkClear } from '../../src/war/sim/grid';
 import type { RegionData } from '../../src/war/types';
 
 const jsons = import.meta.glob<unknown>('../../src/war/regions/*.json', { eager: true, import: 'default' });
@@ -36,6 +39,16 @@ describe('a crew and its cart', () => {
     const r = pull('dodona', 244, 1, 300, 322, 5000);
     expect(r.t).toBeLessThan(5000);
     expect(r.behind).toBeLessThan(12);
+  });
+
+  it('W-207 no way passes the end of a cliff on a diagonal: the man goes round by the open tile (dodona, 344,231)', () => {
+    const g = buildGrid(region('dodona')), id = (x: number, y: number) => y * g.w + x;
+    expect(canEnter(g, id(343, 231), id(344, 231)), 'the cliff').toBe(false);
+    expect(canEnter(g, id(343, 230), id(344, 231)), 'its end').toBe(true);
+    expect(findPath(g, id(343, 230), id(344, 231))).toEqual([id(343, 230), id(344, 230), id(344, 231)]);
+    expect(walkClear(g, 343.5, 230.5, 344.5, 231.5)).toBe(false);
+    // the start that came closest to losing him there
+    expect(pull('dodona', 258, 3, 312, 339, 5000).behind).toBeLessThan(3);
   });
 
   it('a crew point over a cliff from the cart is no place to walk to (elaia-n, the east road)', () => {

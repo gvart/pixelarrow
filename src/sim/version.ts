@@ -39,5 +39,6 @@
  *    cliff from its cart (clients on 14 reload).
  * 16: town-boards (W-194): the sim's tend call, hurt men getting well at a town on the room's word (clients on 15 reload).
  * 17: paths-pacing (W-197): road encounters, robbers with a toll or a fight (clients on 16 reload).
+ * 18: cliff-ends (W-207): no way steps diagonally past the end of a cliff (clients on 17 reload).
  */
-export const SIM_VERSION = 17;
+export const SIM_VERSION = 18;

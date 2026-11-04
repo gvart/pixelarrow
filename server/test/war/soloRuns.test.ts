@@ -101,8 +101,7 @@ describe('W-93 a solo run on each path', () => {
     }
     const f = await getFavour(env, run.pid);
     console.log(`TRADER ${run.mins().toFixed(0)} min, L${f.level}, xp ${Math.floor(f.xp)}, ${trips} trips, ${sold} coin sold, ${carts} carts, ${hired} hired, stuck ${run.stuckEver.length}\n${run.log.join('\n')}`);
-    // a known defect, not of this run's making: one of a cart's two crew stays behind on the north road into dodona, and rejoins at the next border
-    expect(run.stuckEver.filter((s) => !s.startsWith('dodona hoplite at 344,231'))).toEqual([]);
+    expect(run.stuckEver).toEqual([]);
     expect(f.level).toBeGreaterThanOrEqual(goalLevel);
     expect(carts).toBeLessThanOrEqual(cartCap('trader'));
     expect(carts).toBeGreaterThanOrEqual(goalCarts);
