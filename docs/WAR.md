@@ -571,6 +571,7 @@ tiles away.
 | Travellers Beset | the region's beasts on pilgrims: kill them | coin, food |
 | Eagles of Zeus | an omen: reach the nearest lair still held | coin |
 | A Shepherd's Rumour | reach the region story's giver (needs a story) | coin |
+| Robbers on the Road (W-197) | laden men coming in over a border: pay the toll or fight; no answer in 3 minutes, they come on | the fight: coin |
 | Toll of the Road (depth 2+) | break the toll (bandits, fight) / go round | coin, a pilos |
 | A Hero's Barrow | reach it; pour a libation / take the helm (40%: grave-robbers) / leave | a soul (militia L2) / a helm |
 | A Strayed Flock | reach the boy, then the last goat | food |
@@ -1691,15 +1692,18 @@ whose men stand at it. Data: `src/data/warNpcTowns.ts`; the rules, shared: `src/
 | Where goods and coin are (W-143) | out of the packs and carts at the town. Coin he earns lands in those packs; at home in his strongroom, and at home he also pays from it. What does not fit is set down at his feet |
 | Level (W-148) | a sale pays the trader's level (W-111) only for goods from another land: a town's own goods sold back to it, or what he gathered at home and sold at home, pay coin and no level. Carrying over a border pays as before |
 | Tribute (W-153) | a sale to a town is sale income: his liege's part stays at the town under his name, as at a stall, until someone's men fetch it |
+| Swings (W-196) | every 3 hours, per town on its own clock, seeded (`NPC.swing`): at 60% one of its goods runs short (price × 1.7), at 60% another gluts (× 0.6), for the whole window. Word of a town a road away shows on the market panel: what a trader reroutes for |
 | Hired workers (W-144) | forager 120, cook 150, engineer, merchant, physician or smith 200. One of his own people from then on, under W-103's cap, falling in with the workers he has (their squad, their work; no squad of his own against the 3-squad limit); the coin goes into the purse |
 | Carts (W-145) | a trader starts with one handcart, given at his first join. A town sells a handcart for 180 and a wagon for 600 under W-104's cap (the coin into the purse). Builders still build them. A cart coming in over a border or bought is set down on the nearest ground carts can roll on, never in the trees |
 
-Solo runs (seeded, real sim and D1 rules, nobody else in the world; game time). Trader from dodona: first sale 8 min, L2 and
-a second cart 60, L3 162, L4 265 min over 18 hops, 7783 coin sold, no man stuck. Between two towns the coin an hour fades over
+Solo runs (seeded, real sim and D1 rules, nobody else in the world; game time). Trader from dodona, with W-196's swings: first sale 8 min, L2 and
+a second cart 60, L3 133, L4 198 min over 15 hops, 8805 coin sold (265 min before the swings). Between two towns the coin an hour fades over
 hours (kyrene and kyrene-e: 905, 219, 95, 50, 43), and per road walked the best cartload two or three hops off clears more
-than the best next door. Builder from dodona: smith 40 min, L2 42, L3 about 150, L4 244 min, all 6 workers by about 150, 11
+than the best next door. Builder from dodona, on clean markets: smith 44 min, L2 52, L4 329 min (244 before the swings, on the markets the trader's run left), all 6 workers, 11
 kinds of building round one storehouse. His forge sells about 8000 coin of bronze for about 5500 of metal, against 234 of cut wood; from L3 on his
 level is mostly labour at the wonder, between rounds at the forge. Numbers measured without the wonder's stages ending.
+
+Carts on the market alone (W-198, `npm run balance:war -- --paths`, 35 trips in 8 hours): one town's price falls under what one sale adds, so a shuttle on one road sells about 3 loads a trip however many carts he has. Going each trip where the price is, carts pay: 1, 2, 4 carts clear 622, 1022, 1278 coin an hour, on 5.9, 11.1, 18.8 loads a trip.
 
 Men keep to their carts and their ground (W-182): a man on a crew point takes a waypoint as done only where the next can be
 walked to from there; a crew point stands only on ground walkable from its cart; an arrival spread into a pocket the cliffs
@@ -1718,7 +1722,7 @@ Numbers are start numbers (`NPC`, `NPC_HIRE`, `NPC_CARTS`). Tests: `tests/war/np
 | Price board | an object in each court: per good best ask, best bid, depth, last 10 fills; the world hover card shows the last board your men saw (fog) |
 | Stall level | L1 4 offers; L2 8 + caravan goods; L3 12 + letters of credit; Trader and Factor add standing orders |
 
-### Town boards (W-184..W-194)
+### Town boards (W-184..W-199)
 
 Low player activity never stops anyone playing. Every NPC town keeps a board (the Board tab of its panel) that is never
 empty and needs no other player. Numbers: `src/data/warTownBoard.ts`; listing and pay: `src/war/net/townBoard.ts`; server:
@@ -1739,18 +1743,22 @@ empty and needs no other player. Numbers: `src/data/warTownBoard.ts`; listing an
 | Errands (W-190) | a town's giver has a short repeatable job of the player's own kind once that town's chain is over or if it has none, in the compact card and the region's mood |
 | Rest (W-194) | hurt men standing at a town with no foe within 20 tiles get back 0.5% of their health a second (half a physician). Online only |
 | Season (W-191) | a new season clears accepted jobs and heat |
+| Paid once (W-195) | a band raised for a Kill contract earns no lair favour on top of the contract: the contract is the pay. Lairs of the land still pay as they always did |
 
 Seeded solo runs, 8 game hours, no other player (`server/test/war/townBoardRuns.test.ts`, playing the boards only):
 
-| Path | L2 | L3 | L4 | L5 | L6 | Contracts | Longest same work at one town |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| Warrior | 8 | 44 | 107 | 234 | | 52 | 8 min |
-| Builder (before: 42, 150, 244) | 27 | 85 | 158 | 323 | 449 | 43 | 42 min |
-| Trader (before: 60, 162, 265) | 55 | 159 | 306 | 542 | | 9 | 8 min |
+| Path | L2 | L3 | L4 | L5 | L6 | Contracts | Longest of one kind of work (W-199) | Road |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Warrior (before W-195: 8, 44, 107) | 16 | 83 | 167 | 337 | | 82 | 19 min | 29% |
+| Builder (unchanged) | 27 | 85 | 158 | 323 | 449 | 43 | 42 min | 29% |
+| Trader (before W-196: 55, 159, 306) | 66 | 141 | 258 | 378 | | 11 | 55 min | in the hauls |
 
-Never fewer than 69 lines within 2 hops, 18 of his own kind he could take; never idle. A builder's L3 to L4 is 73 minutes
-(was 94) of varied town work and road (W-183's question). A trader on boards alone runs slower than his own margin loop
-past L3; the boards are there for when the loop dries up.
+Never fewer than 69 lines within 2 hops, of which some of his own kind he could take; never idle. The kind of work counts
+across borders (W-199): a road crossed under a load is still the load. A warrior's mix is Kills 152 min, rest at a town 160,
+road 139. A builder's L3 to L4 is 73 minutes. A trader's day is hauls 317 min, his own money on word of a price 140, small
+jobs at a town 52: he breaks a haul of 25 minutes or more with a repair at the town between, if its board has one. A trader
+on these runs has two carts; the rolled W-65 encounters are off in them, the robbers of W-197 on, and he paid them every time.
+Each run starts on clean town markets; before W-199 each inherited the last run's.
 
 ### Hand-offs, contracts, letters
 
