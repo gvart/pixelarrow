@@ -34,6 +34,8 @@ async function meet(r: Run, id: string, step: string, off = 8) {
   return { x, y };
 }
 
+/** The run itself: its messages do not reach `r.encounter` while nobody is connected. */
+const openNow = (r: Run) => (r.room.encounters as unknown as { runs: Map<number, { run: { save: { open: unknown } } }> }).runs.get(r.pid)!.run.save.open;
 const guards = (r: Run) => r.men().filter((u) => !u.cls.startsWith('civ_'));
 const inCart = (r: Run) => r.room.sim.cargo({ cart: r.room.cartsOf(r.pid)[0] })!.slots[0].hold.lots.filter((l) => l.r === 'iron').reduce((a, l) => a + l.n, 0);
 const band = (r: Run, at: { x: number; y: number }) => r.room.sim.snapshot().lairs?.find((l) => Math.hypot(l.x - at.x, l.y - at.y) < 1);
@@ -62,18 +64,33 @@ describe('W-197 robbers as play: a trader and his two guards', () => {
     }, 120_000);
   }
 
-  it('he refuses at depth 2, three robbers: both guards fall for good; the cart and his hands are left, what they carried in a pile', async () => {
-    const r = await laden(9931, ['dodona-e', 'kleisoura']);
+  it('W-219 he refuses at depth 2, three robbers: both guards fall for good; they take what three men carry and go, the rest and his hands are left', async () => {
+    const r = await laden(9931, ['dodona-e', 'kleisoura']), HEAVY = 200;
+    r.room.sim.cargo({ cart: r.room.cartsOf(r.pid)[0] })!.slots[0].hold.lots.push({ r: 'iron', n: HEAVY, o: 'dodona' }); // more than three can carry
     const at = await meet(r, ROBBERS.id, 'demand');
     r.room.encounterChoose(r.pid, 'fight');
     await r.tick();
     await fight(r, at);
-    await r.until(() => false, 600);
-    expect(band(r, at)?.state).not.toBe('cleared');
+    await r.until(() => !openNow(r), 600);
+    expect(openNow(r), 'over').toBeNull();
     expect(guards(r).length).toBe(0);
     expect(r.men().filter((u) => u.cls.startsWith('civ_')).length, 'robbers want the load, not the hands').toBe(2);
-    expect(inCart(r)).toBe(IRON);
-    expect((r.room.sim.snapshot().piles ?? []).reduce((a, p) => a + p.loads, 0)).toBeGreaterThan(0);
+    expect(band(r, at)?.alive ?? 0, 'they are gone with it').toBe(0);
+    const left = r.room.sim.cargo({ cart: r.room.cartsOf(r.pid)[0] })!.slots[0].hold.lots.reduce((a, l) => a + l.n, 0);
+    expect(left, 'something was taken').toBeLessThan(IRON + HEAVY);
+    expect(left, 'only what they can carry').toBeGreaterThan(0);
+  }, 120_000);
+
+  it('W-219 he was not there: they stopped him, nobody answered, they won: told once when he is back', async () => {
+    const r = await laden(9933, ['dodona-e', 'kleisoura']);
+    await meet(r, ROBBERS.id, 'demand');
+    const enc = r.room.encounters as unknown as { tick(s: unknown, e: unknown, online: unknown): unknown; start(pid: number, team: number, save: null): { save: { away?: string[] } } };
+    const tick = enc.tick.bind(enc);
+    enc.tick = (a, b) => tick(a, b, () => false);
+    await r.until(() => !openNow(r), 4000);
+    const first = enc.start(r.pid, 0, null), again = enc.start(r.pid, 0, null);
+    expect(first.save.away?.join(' ')).toMatch(/nobody answered/);
+    expect(again.save.away).toBeUndefined();
   }, 120_000);
 
   it('or he pays at depth 2: the same band is never raised, his guards whole, a share of the load gone', async () => {
@@ -106,8 +123,10 @@ describe('W-208 a rolled fight is his choice', () => {
     r.room.encounterChoose(r.pid, 'fight');
     await r.tick();
     await fight(r, at);
-    expect(band(r, at)?.state).not.toBe('cleared');
-    expect(guards(r).filter((u) => !u.down && !u.wounded).length).toBe(0);
+    await r.until(() => !openNow(r), 300);
+    expect(openNow(r)).toBeNull();
+    const left = r.room.sim.cargo({ cart: r.room.cartsOf(r.pid)[0] })!.slots[0].hold.lots.reduce((a, l) => a + l.n, 0);
+    expect(left, 'W-219: they took what they could carry').toBeLessThan(COIN + IRON);
   }, 120_000);
 
   it('a camp seen across the land stays there: nobody comes for a man who keeps his distance', async () => {
@@ -117,5 +136,20 @@ describe('W-208 a rolled fight is his choice', () => {
     await r.until(() => false, 300);
     expect(band(r, at)?.state).toBe('home');
     expect(guards(r).map((u) => u.hp)).toEqual(hp);
+  }, 120_000);
+});
+
+describe('W-217 a cart over a border', () => {
+  it('there and back: one cart each time, nothing left where it was', async () => {
+    const r = await begin(9941, 'trader', 0, 'dodona');
+    r.room.giveCart(r.pid, 'handcart');
+    r.crewCarts();
+    await r.tick();
+    const before = r.room.cartsOf(r.pid).length;
+    await r.cross('dodona-n');
+    await r.tick();
+    const seen = () => (r.room.sim.snapshot().sieges ?? []).filter((c) => c.owner === `p:${r.pid}`);
+    expect(seen().length).toBe(before);
+    expect(new Set(seen().map((c) => c.state)).has('destroyed')).toBe(false);
   }, 120_000);
 });

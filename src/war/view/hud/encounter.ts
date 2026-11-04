@@ -16,7 +16,7 @@ import { itemDef } from '../../../data/items';
 import { ENCOUNTERS } from '../../../data/warEncounters';
 import { storyOf } from '../../../data/warStories';
 import { NEUTRAL_TEAM } from '../../sim/economy';
-import { ENC, encSaveOk, encStepOf, EncounterRun, type EncNote, type EncSave, type EncStep } from '../../sim/encounters';
+import { awayLine, ENC, encSaveOk, encStepOf, EncounterRun, type EncNote, type EncSave, type EncStep } from '../../sim/encounters';
 import type { StoryReward } from '../../sim/stories';
 import type { ServerMsg } from '../../net/protocol';
 import type { WarEvent } from '../../types';
@@ -86,6 +86,11 @@ export function mountEncounters(s: SandboxScene): void {
       } else if (n.kind === 'end') {
         questBanner({ kind: 'done', head: 'Encounter over', title: d.title, text: d.end });
         release();
+      } else if (n.kind === 'unanswered') {
+        questBanner({ kind: 'start', head: 'No answer', title: d.title, text: 'They come on.' });
+      } else if (n.kind === 'robbed') {
+        questBanner({ kind: 'start', head: 'Robbed', title: d.title, text: awayLine(n, ENCOUNTERS) ?? 'They took what they could carry.' });
+        release();
       } else {
         questBanner({ kind: 'done', head: 'The moment passes', title: d.title, text: 'You left it behind on the road.' });
         release();
@@ -115,7 +120,7 @@ export function mountEncounters(s: SandboxScene): void {
         at: t.kind === 'choice' ? { x: o.x, y: o.y } : { x: o.tx, y: o.ty }, label: st.label,
         story: i === 0 ? [d.lore, st.text] : [st.text],
         ...(st.unanswered ? { answerIn: clock(ENC.lapse - ((s.sim.cur?.tick ?? o.since) - o.since)) } : {}),
-        ...(t.kind === 'choice' ? { choices: t.options.map((x) => { const p = rewardParts(x.reward); return { id: x.id, label: x.toll ? `${x.label}: ${Math.round(x.toll * 100)}%` : x.label, text: [x.text, p.more, Object.entries(p.goods).map(([k, n]) => `+${n} ${k}`).join(', '), x.risk ? 'A risk' : ''].filter(Boolean).join(' · ') }; }) } : {}),
+        ...(t.kind === 'choice' ? { choices: t.options.map((x) => { const p = rewardParts(x.reward); return { id: x.id, label: x.toll && online ? `${x.label}: ${Math.round(x.toll * 100)}%` : x.label, text: [x.text, p.more, Object.entries(p.goods).map(([k, n]) => `+${n} ${k}`).join(', '), x.risk ? 'A risk' : ''].filter(Boolean).join(' · ') }; }) } : {}),
       };
     },
     act: (id) => {
@@ -132,6 +137,8 @@ export function mountEncounters(s: SandboxScene): void {
     s.sim.serverTaps.add((m: ServerMsg) => {
       if (m.t !== 'encounter' || !encSaveOk(m.save, ENCOUNTERS)) return;
       save = m.save;
+      // W-219: what happened on the road while he was gone, once
+      if (m.save.away?.length) questBanner({ kind: 'start', head: 'While you were away', title: 'On the road', text: m.save.away.join(' ') });
       if (m.notes) tell(m.notes);
       else if (save.open && trackedNow()?.key !== trackKey) {
         prev = trackedNow();

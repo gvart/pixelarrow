@@ -60,6 +60,24 @@ export function tollOf(slots: readonly Slot[], share: number): void {
   for (const s of slots) for (const l of s.hold.lots) l.n *= 1 - share;
 }
 
+/**
+ * W-219: robbers carry off `n` loads from the slots, sealed or not, what weighs least for its worth first: coin, then what
+ * there is most of. A man's own rations stay. What they took, by good.
+ */
+export function robOf(slots: readonly Slot[], n: number): Record<string, number> {
+  const out: Record<string, number> = {};
+  let left = n;
+  const lots = slots.flatMap((s) => s.hold.lots).filter((l) => l.r !== 'ration' && l.n > EPS).sort((a, b) => Number(b.r === 'coin') - Number(a.r === 'coin') || b.n - a.n);
+  for (const l of lots) {
+    if (left <= EPS) break;
+    const k = Math.min(l.n, left * perLoad(l.r));
+    l.n -= k;
+    left -= k / perLoad(l.r);
+    out[l.r] = (out[l.r] ?? 0) + k;
+  }
+  return out;
+}
+
 /** Free loads in the slots. */
 export const room = (slots: readonly Slot[]) => slots.reduce((a, s) => a + Math.max(0, s.cap - loads(s.hold)), 0);
 
