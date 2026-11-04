@@ -55,6 +55,11 @@ export function fill(slots: readonly Slot[], b: Bundle): Bundle {
   return rest;
 }
 
+/** W-197: this share of every good in the slots is gone, sealed or not: robbers read no seals. */
+export function tollOf(slots: readonly Slot[], share: number): void {
+  for (const s of slots) for (const l of s.hold.lots) l.n *= 1 - share;
+}
+
 /** Free loads in the slots. */
 export const room = (slots: readonly Slot[]) => slots.reduce((a, s) => a + Math.max(0, s.cap - loads(s.hold)), 0);
 

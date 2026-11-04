@@ -118,6 +118,10 @@ describe('earning', () => {
     expect(lairsCleared(snap('home', 1), seen)).toEqual([]);
     expect(lairsCleared(snap('cleared', 2), seen)).toEqual([me.playerId]);
     expect(lairsCleared(snap('cleared', 3), seen)).toEqual([]);
+    // W-195: a band a contract asked for: the contract is the pay
+    const asked = new Map<number, string>();
+    lairsCleared(snap('home', 1), asked, () => true);
+    expect(lairsCleared(snap('cleared', 2), asked, () => true)).toEqual([]);
     // land: me 2 claims and the region (most claims), far 1 claim
     const L = FAVOUR_EARN.land;
     expect(landFavour(snap('home', 1))).toEqual([[me.playerId, 2 * L.claim + L.region], [far.playerId, L.claim]]);

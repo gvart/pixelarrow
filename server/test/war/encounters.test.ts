@@ -7,7 +7,9 @@ import { describe, expect, it } from 'vitest';
 import { NET_VERSION, parseClientMsg, type JoinMsg, type ServerMsg } from '../../../src/war/net/protocol';
 import { WarRoom } from '../../src/war/room';
 import { warRegion } from '../../src/war/regions';
-import { encounterStorageKey } from '../../src/war/encounters';
+import { encounterStorageKey, ladenLoads } from '../../src/war/encounters';
+import { ROBBERS } from '../../../src/data/warEncounters';
+import { perLoad } from '../../../src/war/sim/holders';
 
 const region = warRegion('dodona-e')!;
 const join = (pid: number, team: number, count: number): JoinMsg => ({ t: 'join', v: NET_VERSION, region: 'dodona-e', playerId: pid, team, army: [{ cls: 'hoplite', count }] });
@@ -46,4 +48,91 @@ describe('W-65 encounters in the region room', () => {
     expect(encMsgs(r, 1)[0].notes?.map((n) => n.kind)).toEqual(['step', 'end']);
     expect((w.snapshot().piles ?? []).some((p) => p.items === 1)).toBe(true);
   });
+});
+
+describe('W-197 robbers on the road', () => {
+  const room = () => {
+    const w = new WarRoom({ region, seed: 4, cap: 600 });
+    w.join(1, join(1, 0, 4));
+    w.tick();
+    return w;
+  };
+  /** The first crossing's key on which they wait. */
+  const keyWaited = (w: WarRoom) => {
+    for (let i = 0; i < 200; i++) {
+      w.encounters.road(1, ROBBERS.minLoads, `k${i}`);
+      if (w.encounters.waitingFor(1)) return i;
+    }
+    throw new Error('never');
+  };
+
+  it('only goods count: food and rations are no load to rob, coin and cart loads are', () => {
+    const food = perLoad('food') * 9, wood = perLoad('wood') * 2, coin = perLoad('coin');
+    expect(ladenLoads(undefined)).toBe(0);
+    expect(ladenLoads({ packs: { a: { lots: [{ r: 'food', n: food }, { r: 'ration', n: 3 }] } } })).toBe(0);
+    expect(ladenLoads({ packs: { a: { lots: [{ r: 'coin', n: coin }] } }, carts: [{ lots: [{ r: 'wood', n: wood }, { r: 'food', n: food }] }] })).toBeCloseTo(3, 6);
+  });
+
+  it('a light train is left alone; a laden one meets them on about the chance, seeded by the crossing', () => {
+    const w = room();
+    for (let i = 0; i < 100; i++) w.encounters.road(1, ROBBERS.minLoads - 0.01, `k${i}`);
+    expect(w.encounters.waitingFor(1)).toBe(false);
+    let met = 0;
+    for (let i = 0; i < 400; i++) {
+      w.encounters.road(i + 2, ROBBERS.minLoads, `k${i}`);
+      if (w.encounters.waitingFor(i + 2)) met++;
+    }
+    expect(met / 400).toBeGreaterThan(ROBBERS.chance - 0.1);
+    expect(met / 400).toBeLessThan(ROBBERS.chance + 0.1);
+  });
+
+  const met = (w: WarRoom) => {
+    keyWaited(w);
+    w.tick();
+    expect(w.encounters.waitingFor(1), 'patient until his run starts').toBe(true);
+    w.startEncounters(1, null);
+    const told = encMsgs(w.tick(), 1)[0];
+    expect(told?.notes?.[0]).toMatchObject({ kind: 'start', enc: ROBBERS.id });
+    expect(w.encounters.waitingFor(1)).toBe(false);
+    return told!.save.open!;
+  };
+  const beat = (w: WarRoom, o: { tx: number; ty: number }) => {
+    const band = () => (w.snapshot().lairs ?? []).find((l) => Math.hypot(l.x - o.tx, l.y - o.ty) < 0.5);
+    for (let t = 0; t < 40 && !band(); t++) w.tick();
+    expect(band()!.kind).toBe('bandit');
+    w.order(1, { kind: 'attack', squad: w.squadsOf(1)[0], target: band()!.squad });
+    let paid: Record<string, number> = {};
+    for (let t = 0; t < 1800 && !paid.coin; t++) {
+      const m = w.tick().met.at(-1);
+      if (m?.goods.coin) paid = m.goods;
+    }
+    expect(band()?.state).toBe('cleared');
+    expect(paid.coin).toBeGreaterThan(0);
+  };
+
+  it('they name their price as he comes in: he stands and fights, a real band; beaten, it is paid and over', () => {
+    const w = room(), o = met(w);
+    w.encounterChoose(1, 'fight');
+    w.tick();
+    beat(w, o);
+  }, 60_000);
+
+  it('or he pays: that share of all he carries is gone, seals or not, and no blow is struck', () => {
+    const w = room(), q = w.squadsOf(1)[0];
+    w.giveCargo(1, { squad: q }, { lots: [{ r: 'iron', n: 20, o: 'kleisoura' }, { r: 'wood', n: 10, o: 'kleisoura', s: 7 }], items: [] });
+    const lairs = (w.snapshot().lairs ?? []).length, o = met(w);
+    expect(o.step).toBe('demand');
+    w.encounterChoose(1, 'pay');
+    w.tick();
+    const left = (r: string) => w.sim.cargo({ squad: q })!.slots.reduce((a, s) => a + s.hold.lots.filter((l) => l.r === r).reduce((b, l) => b + l.n, 0), 0);
+    expect(left('iron')).toBeCloseTo(20 * (1 - ROBBERS.toll), 6);
+    expect(left('wood')).toBeCloseTo(10 * (1 - ROBBERS.toll), 6);
+    expect((w.snapshot().lairs ?? []).length).toBe(lairs);
+  }, 60_000);
+
+  it('no answer in time is a fight', () => {
+    const w = room(), o = met(w);
+    for (let t = 0; t < 1900 && (w.snapshot().lairs ?? []).every((l) => Math.hypot(l.x - o.tx, l.y - o.ty) >= 0.5); t++) w.tick();
+    expect((w.snapshot().lairs ?? []).some((l) => Math.hypot(l.x - o.tx, l.y - o.ty) < 0.5 && l.kind === 'bandit')).toBe(true);
+  }, 60_000);
 });

@@ -153,13 +153,13 @@ function standing(s: Snapshot): Map<number, { team: number; men: { x: number; y:
 }
 
 /** Lairs that turned cleared since the last snapshot, and the players with men near each. Pure but for `seen`. */
-export function lairsCleared(s: Snapshot, seen: Map<number, string>): number[] {
+export function lairsCleared(s: Snapshot, seen: Map<number, string>, paidElse?: (lair: number) => boolean): number[] {
   const paid: number[] = [];
   let men: ReturnType<typeof standing> | null = null;
   for (const l of s.lairs ?? []) {
     const was = seen.get(l.id);
     seen.set(l.id, l.state);
-    if (was === undefined || was === 'cleared' || l.state !== 'cleared') continue;
+    if (was === undefined || was === 'cleared' || l.state !== 'cleared' || paidElse?.(l.id)) continue;
     men ??= standing(s);
     for (const [pid, e] of men) if (e.men.some((m) => (m.x - l.x) ** 2 + (m.y - l.y) ** 2 <= LAIR_NEAR ** 2)) paid.push(pid);
   }
@@ -187,12 +187,12 @@ const LAIRS = new WeakMap<object, Map<number, string>>();
 export const LAND_TICKS = LAND_MS / TICK_MS;
 
 /** After each room tick (regionDO outputs): lairs cleared and, every LAND_TICKS, land held, written through `write`. */
-export function favourTick(env: DbEnv, room: { snapshot(): Snapshot; readonly currentTick: number }, write: (what: string, run: () => Promise<unknown>) => void): void {
+export function favourTick(env: DbEnv, room: { snapshot(): Snapshot; readonly currentTick: number; townBandIs?(lair: number): boolean }, write: (what: string, run: () => Promise<unknown>) => void): void {
   if (!env.DB) return;
   const s = room.snapshot();
   let seen = LAIRS.get(room);
   if (!seen) LAIRS.set(room, (seen = new Map()));
-  for (const pid of lairsCleared(s, seen)) write(`favour lair ${pid}`, () => addFavour(env, pid, FAVOUR_EARN.lair, 'lair'));
+  for (const pid of lairsCleared(s, seen, (l) => !!room.townBandIs?.(l))) write(`favour lair ${pid}`, () => addFavour(env, pid, FAVOUR_EARN.lair, 'lair'));
   if (room.currentTick % LAND_TICKS !== 7) return;
   for (const [pid, n] of landFavour(s)) write(`favour land ${pid}`, () => addFavour(env, pid, n, 'land'));
 }
