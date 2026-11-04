@@ -79,9 +79,12 @@ export function guideHand(id: string, region: Exits, path: PathId | null): { giv
   return n && { giver: n.giver, at: n.exit, region: n.name, road: n.region };
 }
 
-/** W-170 a trader's road out: the exit towards the neighbour nearest his home town (every land has a town, W-140). */
-export function guideAbroad(home: string, region: Exits): { region: string; name: string; exit: { x: number; y: number } } | null {
-  const town = homeAnchor(region);
+/**
+ * W-170 a trader's road out: the exit towards the neighbour nearest his men (`from`; else his home town). Every land has a
+ * town (W-140). A road starts from the furthest thing he owns, so the nearest is the quick one.
+ */
+export function guideAbroad(home: string, region: Exits, from?: { x: number; y: number }): { region: string; name: string; exit: { x: number; y: number } } | null {
+  const town = from ?? homeAnchor(region);
   let best: { region: string; name: string; exit: { x: number; y: number } } | null = null, bd = Infinity;
   for (const id of worldRegion(home)?.adj ?? []) {
     const exit = guideExit(home, id, region);

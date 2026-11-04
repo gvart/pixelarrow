@@ -46,7 +46,7 @@ import type { BoardView } from './townBoard';
 import type { BridgePlan, BuildingType, GoodKind, Order, PlaceResult, SquadId, TownLevelSnap, WallPlan } from '../types';
 
 /** Bumped on any wire change (messages or the binary frame layout). */
-export const NET_VERSION = 26;
+export const NET_VERSION = 27;
 /** Positions go out in 1/QUANT tile steps. */
 export const QUANT = 8;
 /** Ticks between keyframes (a full frame of what the client sees; deltas in between). */
@@ -117,7 +117,7 @@ export const orderSchema = z.discriminatedUnion('kind', [
   // micro: one man of the squad falls back, swaps to its rear rank or rejoins (never with `units`: he stays in it)
   z.object({ kind: z.literal('man'), squad: id, unit: id, act: z.enum(['fallBack', 'rear', 'rejoin']) }),
   // work and building
-  z.object({ kind: z.literal('gather'), squad: id, ...U, node: id }),
+  z.object({ kind: z.literal('gather'), squad: id, ...U, node: id, cart: id.optional() }),
   z.object({ kind: z.literal('build'), squad: id, ...U, site: id }),
   z.object({ kind: z.literal('civWork'), squad: id, ...U, building: id }),
   z.object({ kind: z.literal('placeBuilding'), squad: id.optional(), ...U, type: z.enum(BUILDING_TYPES), x: num, y: num, rot }),

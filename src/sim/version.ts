@@ -42,4 +42,4 @@
  * 18: cliff-ends, road-choices (W-207, W-208): no way steps diagonally past the end of a cliff; an ambush asks before it
  *    comes, a fight that opens an encounter is seen from beyond a foe's aggro (clients on 17 reload).
  */
-export const SIM_VERSION = 18;
+export const SIM_VERSION = 19;

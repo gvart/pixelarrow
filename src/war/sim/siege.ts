@@ -78,6 +78,10 @@ interface Engine {
   tower: boolean;
   /** M6b carts: the owning player, cargo, halted (a foe near) until this tick, capture progress (ticks) by team capT / owner capO. */
   owner: string; hold: Hold | null; halt: number; cap: number; capT: number; capO: string;
+  /** W-216 why it is not rolling; ticks its crew has lagged. */
+  stop: SiegeSnap['stopped'] | null; lag: number;
+  /** W-217 it left the field for a world transit: nothing stands there any more. */
+  stowed: boolean;
 }
 
 interface Boulder { at: number; x: number; y: number; target: number; hit: boolean; dmg: number }
@@ -107,6 +111,8 @@ export interface SiegeHooks {
   cartCost?(x: number, y: number, dx: number, dy: number): number;
   /** M6b: a living foe of `team` (not fauna) within r of (x,y). */
   foeNear?(team: number, x: number, y: number, r: number): boolean;
+  /** W-218: a man of this crew struck or was struck lately. */
+  crewHit?(crew: number): boolean;
   /** M6b: who would take cart e now: the team and owner of a foe unit beside it with none of e's team within guard; null none. */
   taker?(e: Readonly<Engine>): [number, string] | null;
   /** M6b: cart e changed hands; e wrecked or burnt (its cargo to a pile). */
@@ -166,6 +172,7 @@ export function createSiege(works: Works, rng: Rng, hooks: SiegeHooks) {
     e.goal = [x, y];
     e.path = [];
     e.pi = 0;
+    e.stop = null;
   };
 
   /** Roll along the path at the crew's pace; true once at the goal. */
@@ -180,15 +187,26 @@ export function createSiege(works: Works, rng: Rng, hooks: SiegeHooks) {
     }
     // M6b: a handcart with one puller goes at half pace; a halted cart waits
     const lone = e.type === 'handcart' && n === 1;
-    if (n < need(e) && !lone) return false;
+    if (n < need(e) && !lone) {
+      if (cart(e) && ++e.lag > CART.crewLag) e.stop = 'crew';
+      return false;
+    }
+    e.lag = 0;
+    if (cart(e) && e.halt > tickNow) e.stop = 'foe';
     if (e.state === 'deployed' || (cart(e) && e.halt > tickNow)) return false;
+    if (cart(e)) e.stop = null;
     let budget = e.def.speed * DT * (lone ? 0.5 : 1) * (cart(e) ? 1 + (hooks.cartFx?.(e.owner).cartSpeed ?? 0) : 1);
     while (budget > 0 && e.pi < e.path.length / 2) {
       const tx = e.path[e.pi * 2], ty = e.path[e.pi * 2 + 1];
       const dx = tx - e.x, dy = ty - e.y, d = Math.hypot(dx, dy);
       if (d > 1e-6) e.facing = Math.atan2(dy, dx);
       const k = cart(e) && hooks.cartCost ? hooks.cartCost(e.x, e.y, dx / (d || 1), dy / (d || 1)) : 0;
-      if (cart(e) && k <= 0) break; // the ground ahead is closed to carts
+      if (cart(e) && k <= 0) { // the ground ahead is closed to carts: it stops here and says so (W-216)
+        e.goal = null;
+        e.stop = 'ground';
+        settle(e);
+        return true;
+      }
       const step = budget / (cart(e) ? k : Math.max(0.5, hooks.cost(e.x + (dx / (d || 1)) * 0.5, e.y + (dy / (d || 1)) * 0.5)));
       if (step >= d) {
         e.x = tx;
@@ -203,6 +221,7 @@ export function createSiege(works: Works, rng: Rng, hooks: SiegeHooks) {
     }
     e.state = 'move';
     if (e.pi >= e.path.length / 2) {
+      if (cart(e) && Math.hypot(e.goal[0] - e.x, e.goal[1] - e.y) > CART.short) e.stop = 'ground'; // W-216
       e.goal = null; // as near as it gets
       return true;
     }
@@ -343,7 +362,7 @@ export function createSiege(works: Works, rng: Rng, hooks: SiegeHooks) {
       engines.push({
         id: engines.length, type, def, team, x, y, facing: 0, hp: def.hp * 0.1, maxHp: def.hp, state: 'building', labour: 0, crew: -1,
         mode: 'none', goal: null, path: [], pi: 0, target: -1, wall: null, ladder: -1, cd: 0, swingAt: -1, prog: 0, burn: 0, kindle: 0, tower,
-        owner: '', hold: null, halt: 0, cap: 0, capT: -1, capO: '',
+        owner: '', hold: null, halt: 0, cap: 0, capT: -1, capO: '', stop: null, lag: 0, stowed: false,
       });
       if (type === 'mantlet') mantlets++;
       return engines.length - 1;
@@ -354,7 +373,7 @@ export function createSiege(works: Works, rng: Rng, hooks: SiegeHooks) {
       engines.push({
         id: engines.length, type, def, team, x, y, facing: 0, hp, maxHp: hp, state: 'idle', labour: def.labour, crew: -1,
         mode: 'none', goal: null, path: [], pi: 0, target: -1, wall: null, ladder: -1, cd: 0, swingAt: -1, prog: 0, burn: 0, kindle: 0, tower: false,
-        owner, hold: newHold(), halt: 0, cap: 0, capT: -1, capO: '',
+        owner, hold: newHold(), halt: 0, cap: 0, capT: -1, capO: '', stop: null, lag: 0, stowed: false,
       });
       return engines.length - 1;
     },
@@ -379,6 +398,7 @@ export function createSiege(works: Works, rng: Rng, hooks: SiegeHooks) {
       const hold = e.hold ?? newHold();
       e.hold = newHold();
       e.state = 'destroyed';
+      e.stowed = true; // W-217: no wreck stands where it was: it went with him
       e.hp = 0;
       e.mode = 'none';
       e.crew = -1;
@@ -413,6 +433,7 @@ export function createSiege(works: Works, rng: Rng, hooks: SiegeHooks) {
       e.crew = -1;
       e.mode = 'none';
       e.goal = null;
+      e.stop = null;
       settle(e);
     },
     /** Orders for the engine (from its crew). */
@@ -427,6 +448,7 @@ export function createSiege(works: Works, rng: Rng, hooks: SiegeHooks) {
       if (!built(e)) return;
       e.mode = 'none';
       e.goal = null;
+      e.stop = null;
       settle(e);
     },
     attack(id: number, building: number): boolean {
@@ -454,6 +476,7 @@ export function createSiege(works: Works, rng: Rng, hooks: SiegeHooks) {
     /** True while the engine has work (crew should stay with it, not fight). */
     busy: (id: number) => {
       const e = engines[id];
+      if (built(e) && cart(e) && e.halt > tickNow) return false; // W-218: a halted cart's crew fights
       return built(e) && (e.mode !== 'none' || (e.type === 'oxybeles' && e.crew >= 0)); // an oxybeles' crew serves it
     },
     kindle(id: number, dt: number): boolean {
@@ -515,7 +538,7 @@ export function createSiege(works: Works, rng: Rng, hooks: SiegeHooks) {
         if (!alive(e)) continue;
         if (cart(e) && tick % 5 === 0) {
           // M6b: halt while a foe is near; taken by a foe beside it with none of its team near
-          if (hooks.foeNear?.(e.team, e.x, e.y, CART.halt)) e.halt = tick + CART.resume;
+          if (hooks.foeNear?.(e.team, e.x, e.y, CART.halt) || (e.crew >= 0 && hooks.crewHit?.(e.crew))) e.halt = tick + CART.resume; // W-218: bitten, they stop and fight
           const by = hooks.taker?.(e);
           if (by && by[0] === e.capT && by[1] === e.capO) e.cap += 5;
           else (e.cap = by ? 5 : 0), (e.capT = by ? by[0] : -1), (e.capO = by ? by[1] : '');
@@ -584,7 +607,7 @@ export function createSiege(works: Works, rng: Rng, hooks: SiegeHooks) {
     },
     shots: () => shots,
     snaps: (tick: number): SiegeSnap[] =>
-      engines.map((e) => ({
+      engines.filter((e) => !e.stowed).map((e) => ({
         id: e.id, type: e.type, team: e.team, x: e.x, y: e.y, facing: e.facing, hp: e.hp, maxHp: e.maxHp, state: e.state,
         progress: e.state === 'building' ? e.labour / e.def.labour : e.state === 'raising' || e.state === 'deploying' || e.state === 'packing' ? e.prog : e.state === 'deployed' ? 1 : 0,
         crew: e.crew, crewNeed: need(e), crewHere:
@@ -593,6 +616,7 @@ export function createSiege(works: Works, rng: Rng, hooks: SiegeHooks) {
         ...(e.target >= 0 && (e.mode === 'attack' || e.state === 'raised') ? { target: e.target } : {}),
         ...(e.burn > 0 ? { burning: e.burn } : {}),
         ...(e.ladder >= 0 ? { ladder: e.ladder } : {}),
+        ...(e.stop ? { stopped: e.stop } : {}),
         ...(e.hold ? { owner: e.owner, cargo: totals(e.hold), items: e.hold.items.length, ...(e.hold.items.length ? { list: itemList(e.hold) } : {}), loads: loads(e.hold), cap: cartCap(e), ...(e.halt > tick ? { halted: true as const } : {}), ...(e.cap > 0 ? { capture: Math.min(1, e.cap / CART.capture) } : {}) } : {}),
       })),
   };

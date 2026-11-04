@@ -102,7 +102,7 @@ type SquadOrder =
   // team, holding where they stand; its id is the next squad id (snapshot squads.length before the tick), or that of an
   // emptied squad of the same owner the sim reuses. At least one unit stays.
   // merge: every unit of `squad` joins `into` (same owner and team) and takes up its order; `squad` is left empty.
-  | { kind: 'gather'; squad: SquadId; node: number }
+  | { kind: 'gather'; squad: SquadId; node: number; /** W-215: the men throw what they cut on this cart of theirs, not at a store. */ cart?: number }
   | { kind: 'build'; squad: SquadId; site: number }
   // placeBuilding of an access piece (W-28): woodStairs (1x2) / stoneStairs (1x3) must run straight into the inside face of
   // the team's walkway wall (rampart, stoneWall) with open ground below their foot, else reason 'attach'; a ladder (1x1) goes
@@ -263,6 +263,8 @@ export interface SiegeSnap {
   /** Fire intensity 0..1 while it burns. */
   burning?: number;
   ladder?: number;
+  /** W-216 why a cart is not rolling where it was sent: closed ground (forest, marsh, a cliff), a foe near, its crew not beside it. */
+  stopped?: 'ground' | 'foe' | 'crew';
   /** M6b carts: the owning player, cargo (goods, item count, loads of most), halted by a foe near, capture progress 0..1. */
   owner?: string; cargo?: Partial<Record<ResourceKind, number>>; items?: number; loads?: number; cap?: number; halted?: true; capture?: number;
   /** M6k: the cart's first items (uid, def, rarity, quality; at most 8). */
@@ -292,6 +294,8 @@ export interface UnitSnap { id: UnitId; squad: SquadId; x: number; y: number; fa
 // carries (set while it has a load, any state: play the carry clip while it walks). swing: ticks since the unit's last blow or shot (0 = it landed / was loosed this tick), set while
 // 'attack' once it has struck; ready: steps before the one that strikes or shoots next (0 = the next step), if it stays in reach. Play the attack clip once per swing.
 export interface SquadSnap { id: SquadId; owner: string; team: number; units: UnitId[]; order: Order['kind'];
+  /** W-215: gathering, the cart its men throw the load on. */
+  cartDrop?: number;
   /** M5c: the squad active, when a man of it holds one. */
   active?: ActiveSnap;
   /**
