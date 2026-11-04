@@ -10,7 +10,8 @@ import { ENCOUNTERS, ROBBERS } from '../../../src/data/warEncounters';
 import { hashString, Rng } from '../../../src/sim/rng';
 import { perLoad } from '../../../src/war/sim/holders';
 import { storyOf } from '../../../src/data/warStories';
-import { awayLine, EncounterRun, type EncHost, type EncNote, type EncSave } from '../../../src/war/sim/encounters';
+import { awayLine, EncounterRun, goodsWords, pidOfUnit, type EncHost, type EncNote, type EncSave } from '../../../src/war/sim/encounters';
+import { foesWord } from '../../../src/war/sim/mobs';
 import type { RegionData, Snapshot, WarBuildSim, WarEvent } from '../../../src/war/types';
 import { PORTER } from '../../../src/war/sim/trade';
 import { robOf, tollOf, type Slot } from './cargo';
@@ -107,6 +108,16 @@ export class RoomEncounters {
       if (!r) continue; // his run starts as he rejoins here: the robbers are patient
       this.waiting.delete(pid);
       if (!r.run.save.open) this.moved.push({ pid, notes: r.run.fire(snap, ENCOUNTERS[ROBBERS.id]) });
+    }
+    // W-221: his men fell while he was gone, by whose hand, and what lies there: told once when he is back
+    for (const e of evs) {
+      if (e.kind !== 'fall') continue;
+      const pid = pidOfUnit(snap, e.unit), r = pid === null || online(pid) ? undefined : this.runs.get(pid);
+      if (!r) continue;
+      const by = snap.units.find((u) => u.id === e.by)?.cls;
+      const line = `Your men fell to ${by ? foesWord(by, 2).replace(/^\d+ /, '') : 'a foe'}.${e.dropped ? ` ${goodsWords(e.dropped.goods)} lies where they fell.` : ''}`;
+      if (!r.run.save.away?.includes(line)) r.run.save.away = [...(r.run.save.away ?? []), line].slice(-AWAY_MAX);
+      r.run.due = true;
     }
     for (const [pid, r] of this.runs) {
       const notes = r.run.tick(snap, evs);

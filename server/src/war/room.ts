@@ -75,7 +75,7 @@ import { RoomGuide, type GuideDone } from './guide';
 import type { GuideSave } from '../../../src/war/net/guide';
 import { RoomStories, type StoryDone } from './stories';
 import { ladenLoads, RoomEncounters, type EncounterDone } from './encounters';
-import type { EncSave } from '../../../src/war/sim/encounters';
+import { pidOfUnit, type EncSave } from '../../../src/war/sim/encounters';
 import type { StorySave } from '../../../src/war/sim/stories';
 import { atTownWork, LABOUR_EVERY, WORK_R, workSite, type WorkId } from '../../../src/war/net/works';
 import { GatherWatch } from './taskWatch';
@@ -1486,6 +1486,12 @@ export class WarRoom {
     // W-65: random encounters (the DO stores and pays them), told to the player
     const en = this.encounters.tick(this.snap, evs, (id) => !!this.players.get(id)?.online);
     for (const [pid, m] of en.msgs) if (this.players.get(pid)?.online) tell(pid, m);
+    // W-221: a man of his fell and what he carried lies on the ground: he is told, not left to find it out
+    for (const e of evs) {
+      if (e.kind !== 'fall' || !e.dropped) continue;
+      const pid = pidOfUnit(this.snap, e.unit);
+      if (pid !== null && this.players.get(pid)?.online) tell(pid, { t: 'dropped', ...e.dropped });
+    }
     // W-67: mob FX events (a beast's burst, a lair's cry, a pack scattering) to the players whose camera rect holds them
     const mobFx = evs.filter(isMobFx);
     if (mobFx.length) for (const p of this.players.values()) {
@@ -1567,7 +1573,7 @@ export class WarRoom {
       // W-65: the neutral state (lairs, claim points) the binary frames leave out; on join and when it changed
       if (this.snap.lairs || this.snap.claims || this.snap.roam) {
         if (!this.wildSent.has(feed) || this.snap.tick % WILD_EVERY === 0) {
-          wild ??= { t: 'wild', lairs: this.snap.lairs ?? [], claims: this.snap.claims ?? [], ...(this.snap.roam ? { roam: this.snap.roam } : {}) };
+          wild ??= { t: 'wild', lairs: this.snap.lairs ?? [], claims: this.snap.claims ?? [], ...(this.snap.roam ? { roam: this.snap.roam } : {}), ...(this.snap.piles?.length ? { piles: this.snap.piles } : {}) };
           wildKey ??= JSON.stringify(wild);
           if (this.wildSent.get(feed) !== wildKey) (this.wildSent.set(feed, wildKey), push(p.pid, wild));
         }

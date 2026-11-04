@@ -32,6 +32,7 @@
 import Phaser from 'phaser';
 import type { BridgeAxis, BuildingSnap, BuildingType, InfluenceMap, NodeSnap } from '../../types';
 import { BUILDINGS } from '../../sim/economy';
+import { clearOfHud } from '../hud/layout';
 import { HH, HW, LH, type IsoMap } from '../iso';
 import type { DrawUnit } from '../simClient';
 import { BODY, TEAM_COLOR } from '../units';
@@ -1106,6 +1107,7 @@ export class BuildingLayer {
       }
       const at = labelAt && this.pt(labelAt.x, labelAt.y, this.iso.zAt(labelAt.x, labelAt.y));
       this.label.setText(text).setScale(1 / zoom).setPosition(at ? at.x : cx / n, at ? at.y - 230 : top - 6 / zoom).setVisible(!!text);
+      if (text) this.labelClearOfHud(zoom);
     } else this.label.setVisible(false);
     for (let i = ni; i < this.ghostImgs.length; i++) this.ghostImgs[i].setVisible(false);
   }
@@ -1126,6 +1128,13 @@ export class BuildingLayer {
 
   /** Where a resource node's sprite meets the ground, from its anchor (sprite px; ./objects.ts baseOf); unset: the anchor. */
   nodeBase: ((n: NodeSnap) => { dx: number; dy: number } | undefined) | null = null;
+
+  /** The label is drawn on the map, under the HUD's panels: a long reason would run under the card beside it, so it moves clear. */
+  private labelClearOfHud(zoom: number): void {
+    const v = this.scene.cameras.main.worldView, l = this.label, hw = l.width / 2, hh = l.height / 2;
+    const sx = (l.x - v.x) * zoom, sy = (l.y - v.y) * zoom - hh, c = clearOfHud(sx, sy, hw, hh);
+    l.setPosition(l.x + (c.x - sx) / zoom, l.y + (c.y - sy) / zoom);
+  }
 
   /** Ring and amount label on a hovered resource node, round the base of its sprite (drawn as ./objects.ts places it); null hides them. */
   node(n: NodeSnap | null, zoom: number): void {

@@ -72,7 +72,7 @@ style.textContent = CSS + CARD_CSS + LEGEND_CSS + `
 .wv-tabs .rf-tab{font-size:13px;height:24px}
 .wv-sq{display:grid;grid-template-columns:1fr auto;align-items:center;gap:2px 6px;padding:4px 6px;margin-top:4px;background:var(--rf-sunk);border:1px solid var(--rf-rule)}
 .wv-sq.on{border-color:var(--rf-title);background:var(--rf-sel)}
-.wv-sq .cls{grid-column:1/-1;display:flex;gap:6px;color:var(--rf-muted)}
+.wv-sq .cls{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:2px 6px;color:var(--rf-muted)}
 .wv-sq .cls span{display:inline-flex;align-items:center;gap:2px}
 .st-row{display:grid;grid-template-columns:12px 1fr 34px 28px 40px;gap:0 5px;align-items:center;padding:3px 4px}
 .st-row.me{background:var(--rf-sel);box-shadow:inset 3px 0 0 var(--rf-title)}

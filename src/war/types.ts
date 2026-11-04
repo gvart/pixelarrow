@@ -841,7 +841,7 @@ export interface PersonResult {
 /** loot: items picked up from piles per team since the last report (M6c; the server mints them until M6e places them). */
 export interface FightReport { tick: number; persons: PersonResult[]; loot: Record<number, Item[]> }
 export type WarEvent =
-  | { t: number; kind: 'fall'; unit: UnitId; by: UnitId; wounded: boolean; /** W-79 early mercy: only knocked down (he may rise). */ down?: true }
+  | { t: number; kind: 'fall'; unit: UnitId; by: UnitId; wounded: boolean; /** W-79 early mercy: only knocked down (he may rise). */ down?: true; /** W-221: the goods that fell with him, into a pile here. */ dropped?: { goods: Record<string, number>; x: number; y: number } }
   /** W-79 early mercy: a man knocked down by the wild got up (src/war/sim/depth.ts EARLY). */
   | { t: number; kind: 'rise'; unit: UnitId }
   | { t: number; kind: 'objective'; squad: SquadId; what: 'claim' | 'building' }

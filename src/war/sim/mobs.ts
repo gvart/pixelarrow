@@ -102,6 +102,13 @@ export const isMobFx = (e: WarEvent): e is MobFxEvent => e.kind === 'mobDash' ||
 /** Unit class of a mob kind: the renderer's sheet id (src/assets/sheets/mob_<kind>/), and back (null: not a mob). */
 export const mobClass = (k: MobKind): string => `mob_${k}`;
 export const mobKindOf = (cls: string): MobKind | null => (cls.startsWith('mob_') && cls.slice(4) in MOBS ? (cls.slice(4) as MobKind) : null);
+const MOB_PLURAL: Partial<Record<MobKind, string>> = { wolf: 'wolves', harpy: 'harpies', cyclops: 'cyclopes', ibex: 'ibexes' };
+/** W-221: who struck, in a line to the player: "6 wolves", "an ibex", "3 armed men" (anything not of the wild). */
+export const foesWord = (cls: string, n: number): string => {
+  const k = mobKindOf(cls);
+  if (!k) return n === 1 ? 'an armed man' : `${n} armed men`;
+  return n === 1 ? `${k === 'ibex' ? 'an' : 'a'} ${k}` : `${n} ${MOB_PLURAL[k] ?? `${k}s`}`;
+};
 
 const AI_EVERY = 3; // ticks between a lair's decisions (staggered by lair id)
 const WANDER = 4; // tiles round the lair the pack mills about

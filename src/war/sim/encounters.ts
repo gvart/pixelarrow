@@ -145,13 +145,22 @@ export type EncNote =
   /** W-219: they beat his men and carried this off. */
   | { kind: 'robbed'; enc: string; goods: Record<string, number> };
 
+/** "52 coin, 20 iron". */
+export const goodsWords = (goods: Readonly<Record<string, number>>): string => Object.entries(goods).map(([r, k]) => `${Math.round(k)} ${r}`).join(', ');
+
+/** W-221 the player whose man this unit is (null: nobody's). */
+export function pidOfUnit(s: Pick<Snapshot, 'units' | 'squads'>, unit: number): number | null {
+  const u = s.units.find((x) => x.id === unit), owner = u && s.squads.find((q) => q.id === u.squad)?.owner;
+  return owner?.startsWith('p:') ? Number(owner.slice(2)) : null;
+}
+
 /** W-219 one line for a player who was not there (null: nothing he needs told). */
 export function awayLine(n: EncNote, defs: Readonly<Record<string, EncounterDef>>): string | null {
   const title = defs[n.enc]?.title ?? 'On the road';
   if (n.kind === 'start') return `${title}: they stopped your men.`;
   if (n.kind === 'unanswered') return `${title}: nobody answered, so they came on.`;
   if (n.kind === 'robbed') {
-    const what = Object.entries(n.goods).map(([r, k]) => `${Math.round(k)} ${r}`).join(', ');
+    const what = goodsWords(n.goods);
     return `${title}: they beat your guards and carried off ${what || 'nothing they could find'}.`;
   }
   if (n.kind === 'lapse') return `${title}: it passed with nobody there.`;
