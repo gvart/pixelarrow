@@ -253,6 +253,20 @@ curl -s https://play.pixelarrow.app/api/admin/players/42/adjust -H "authorizatio
   -d '{"requestId":"comp-2026-10-07-42","currency":"drachmae","delta":100,"reason":"outage compensation"}'
 ```
 
+## War sim bench tails
+
+`npm run bench:war`, budget 8 ms a step at 600 units (a step is 100 ms of game time). Baseline of 2026-11-04, the lowest
+of 4 runs per tick, on a machine in use. A single run's `max` swings by 10-100 ms from machine noise and GC: compare the
+same tick over several runs, and treat a spike as real only if it comes back at the same tick.
+
+| Scenario | Repeatable worst ticks (ms) | Cause |
+| --- | --- | --- |
+| march, fog | 18-24 on ticks 1-25 | 50 cross-map orders at once: `PATH_BUDGET` lets 4 long A* searches (4-5 ms each) run a tick |
+| build | 16 on t890, 15 on t948; about 10 on t196, t209 | 6 long worker searches a tick (`WORK_PATHS`); store networks relabelled when influence changes |
+| every scenario | 10-25 on t0 (march 46+, with its searches) | first vision of all viewers and cold code, once |
+| craft | 20 on t4200-t4202 | 20 squads ordered at once, over a flat map |
+| drakon | 14 on t2264 | 300 men crowded on one boss (`separate`) |
+
 ## Sim train releases (SIM_VERSION)
 
 The server accepts only the client's `SIM_VERSION` (`server/src/simVersion.ts`);
