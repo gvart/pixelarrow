@@ -9,14 +9,15 @@ import { api, devLogin } from '../helpers';
 import { good } from './goods';
 import { storyOf } from '../../../src/data/warStories';
 import { NET_VERSION } from '../../../src/war/net/protocol';
-import { costOf, npcGoods, npcSpot, payFor, type NpcView } from '../../../src/war/net/npcMarket';
+import { costOf, npcGoods, npcSpot, offerRule, payFor, type NpcView } from '../../../src/war/net/npcMarket';
+import type { EncSave } from '../../../src/war/sim/encounters';
 import { perLoad } from '../../../src/war/sim/holders';
 import type { GoodKind, WarPerson } from '../../../src/war/types';
 import { WAR_SEASON } from '../../../src/war/world/alliances';
 import { edge } from '../../../src/war/world/graph';
 import type { PathId, StartFamily } from '../../../src/war/world/start';
 import { room as freeLoads } from '../../src/war/cargo';
-import { addFavour, builtFavour, favourTick, getFavour, storyFavour } from '../../src/war/favour';
+import { addFavour, builtFavour, encounterFavour, favourTick, getFavour, storyFavour } from '../../src/war/favour';
 import { boardDeeds, boardLabour } from '../../src/war/townBoard';
 import { batch, ensureHolder, goodsOf, putStmt, strongroom } from '../../src/war/holders';
 import { npcDeal } from '../../src/war/npcMarket';
@@ -34,6 +35,9 @@ const FOE_R = WAR_SEASON.foeRadius;
 /** Print each note as it happens (a long run's progress while tuning). */
 const WATCH = false;
 
+/** W-197: his encounters with the walking rolls (W-65) off, as in every run so far: only what the road sets off comes for him. */
+export const ROAD_ONLY: EncSave = { v: 1, n: 0, travel: 0, next: Number.MAX_SAFE_INTEGER, open: null };
+
 /** A squad and its cart stand this far around the point they were sent to. */
 const FORMATION = 5;
 
@@ -49,6 +53,10 @@ export class Run {
   /** Every man ever counted in `stuck`: the runs expect none (the sim's crew fix: tests/war/crewWalk.test.ts). */
   stuckEver: string[] = [];
   pending: Promise<unknown> = Promise.resolve();
+  /** W-197: he meets what the road sends him, the way the DO starts his run on every join. */
+  meets = false;
+  /** His encounter as last told to him. */
+  encounter: EncSave | null = null;
   constructor(readonly pid: number, readonly token: string, readonly path: PathId, readonly home: string) {}
 
   roomOf(id: string): WarRoom {
@@ -73,6 +81,13 @@ export class Run {
       if (g.notes) await addFavour(env, this.pid, storyFavour(g.notes), 'story', this.now);
       const pay = Object.entries(g.goods).filter(([, n]) => n > 0);
       if (pay.length) await batch(DB(), [ensureHolder(DB(), strongroom(this.pid), 'strongroom', { pid: this.pid }, this.now), ...pay.map(([k, n]) => putStmt(DB(), strongroom(this.pid), k, n, 'story'))]);
+    }
+    for (const g of r.met) {
+      if (g.pid !== this.pid) continue;
+      this.encounter = g.save;
+      if (g.notes) await addFavour(env, this.pid, encounterFavour(g.notes), 'encounter', this.now);
+      const pay = Object.entries(g.goods).filter(([, n]) => n > 0);
+      if (pay.length) await batch(DB(), [ensureHolder(DB(), strongroom(this.pid), 'strongroom', { pid: this.pid }, this.now), ...pay.map(([k, n]) => putStmt(DB(), strongroom(this.pid), k, n, 'encounter'))]);
     }
     const pz = r.peace;
     if (pz) for (const [pid, n] of builtFavour(this.room, [...pz.labour.map((l) => [l.pid, l.secs] as const), ...pz.works.flatMap((w) => Object.entries(w.by).map(([p, secs]) => [Number(p), secs] as const)), ...(pz.townJobs ?? []).map((j) => [j.pid, j.secs * BOARD.labourFavour] as const)])) await addFavour(env, pid, n, 'built', this.now);
@@ -108,7 +123,7 @@ export class Run {
     let tk = 0;
     while (tk < max && this.far(x, y) > r + FORMATION) {
       const was = new Map(this.men().map((u) => [u.id, [u.x, u.y]]));
-      tk += await this.until(() => this.far(x, y) <= r + FORMATION, 600);
+      tk += await this.until(() => this.far(x, y) <= r + FORMATION, Math.min(600, max));
       for (const u of this.men()) {
         const p = was.get(u.id);
         if (p && Math.hypot(u.x - p[0], u.y - p[1]) < 0.5 && Math.hypot(u.x - x, u.y - y) > r + FORMATION) {
@@ -181,6 +196,8 @@ export class Run {
     // he is online: he takes them over at once, as the client's rejoin does
     this.room.join(this.pid, { t: 'join', v: NET_VERSION, region: to, playerId: this.pid, team: 0, squads: [] }, []);
     this.room.setPath(this.pid, await pathOf(DB(), this.pid));
+    this.encounter = null;
+    if (this.meets) this.room.startEncounters(this.pid, ROAD_ONLY);
     await this.tick();
     this.crewCarts();
     await this.tick();
@@ -228,10 +245,9 @@ export function cargoFor(v: NpcView, w: NpcView, coin: number, loads: number): {
   const out: { res: string; n: number; net: number; pay: number }[] = [];
   for (;;) {
     let best: { res: string; n: number; net: number; cost: number; pay: number } | null = null;
-    for (const g of npcGoods(v.town)) {
-      const h = npcGoods(w.town).find((x) => x.res === g.res);
-      const sv = v.goods.find((x) => x.res === g.res), sw = w.goods.find((x) => x.res === g.res);
-      if (!h || !sv || !sw || out.some((o) => o.res === g.res)) continue;
+    for (const { res } of npcGoods(v.town)) {
+      const sv = v.goods.find((x) => x.res === res), sw = w.goods.find((x) => x.res === res), g = sv && offerRule(v.town, sv), h = sw && offerRule(w.town, sw);
+      if (!g || !h || !sv || !sw || out.some((o) => o.res === res)) continue;
       for (let n = 10; n <= Math.floor(loads * perLoad(g.res)) && n <= sv.stock; n += 10) {
         const cost = costOf(g, sv.stock, n), spent = out.reduce((a, o) => a + o.pay, 0), pay = Math.min(payFor(h, sw.stock, n, w.purse - spent), w.purse - spent), net = pay - cost;
         if (cost > coin) break;
