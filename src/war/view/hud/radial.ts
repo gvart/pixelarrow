@@ -26,7 +26,7 @@ const CSS = `
 #rfRadial .w svg{position:absolute;inset:0;overflow:visible}
 #rfRadial .w path{fill:rgba(23,16,13,.94);stroke:#5f4b2a;stroke-width:1.5;transition:fill .08s,stroke .08s}
 #rfRadial .w .in{position:absolute;display:flex;flex-direction:column;align-items:center;gap:2px;transform:translate(-50%,-50%);
-  font:700 11px/1 Inter,sans-serif;color:#ece6d8;white-space:nowrap;text-shadow:0 1px 0 #050506}
+  font:700 13px/1 Inter,sans-serif;color:#ece6d8;white-space:nowrap;text-shadow:0 1px 0 #050506}
 #rfRadial .w.sel path{fill:#4a2414;stroke:#cfa25a;stroke-width:2}
 #rfRadial .w.sel .in{color:#efcf86}
 #rfRadial .w.off path{fill:rgba(37,24,18,.9);stroke:#4a3a32}
@@ -37,7 +37,7 @@ const CSS = `
   background:#050506;box-shadow:0 0 0 2px #b8592a,0 0 0 3px #050506}
 #rfRadial .cap{position:absolute;left:${BOX - RI + 7}px;top:${BOX - RI + 7}px;width:${2 * RI - 14}px;height:${2 * RI - 14}px;display:flex;flex-direction:column;
   align-items:center;justify-content:center;text-align:center;overflow:hidden}
-#rfRadial .cap .n{font:700 11px/11px Cinzel,serif;color:#efcf86;letter-spacing:.02em;overflow-wrap:anywhere}
+#rfRadial .cap .n{font:700 13px/11px Cinzel,serif;color:#efcf86;letter-spacing:.02em;overflow-wrap:anywhere}
 #rfRadial .cap .d{font:600 9.5px/11px Inter,sans-serif;color:#a8a194;margin-top:2px}
 #rfRadial .cap .d.why{color:#f08a70}
 @media (prefers-reduced-motion:reduce){#rfRadial .pie,#rfRadial .w{transition:none}}

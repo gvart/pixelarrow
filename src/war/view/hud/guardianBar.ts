@@ -62,23 +62,23 @@ const CSS = `
 #rfGuard .gb i{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(#d0503c,#8a2418)}
 #rfGuard .gb s{position:absolute;top:-4px;bottom:-4px;width:3px;margin-left:-1px;background:var(--rf-gold);text-decoration:none;box-shadow:0 0 0 1px #000}
 #rfGuard .gb s.off{background:var(--rf-disabled)}
-#rfGuard .gn{font-size:11px}
+#rfGuard .gn{font-size:13px}
 #rfGuard .w{padding:4px 10px;color:var(--rf-bad);font-weight:700}
 #rfGuard.many{gap:3px;width:330px}
 #rfGuard.many .g{padding:3px 8px 4px}
-#rfGuard.many .gt .rf-name{font-size:12px}
-#rfGuard.many .gt .rf-dim{font-size:10.5px}
+#rfGuard.many .gt .rf-name{font-size:13px}
+#rfGuard.many .gt .rf-dim{font-size:13px}
 #rfGuard.many .gb{height:7px;margin-top:3px}
 #rfGuard.many .gb s{top:-3px;bottom:-3px}
 #rfGuard.many .gn{font-size:10px}
-#rfLand{padding:8px 10px 10px;width:270px;font-size:11px;line-height:1.35;pointer-events:auto}
+#rfLand{padding:8px 10px 10px;width:270px;font-size:13px;line-height:1.35;pointer-events:auto}
 #rfLand .rf-head{display:flex;align-items:center;gap:6px;cursor:pointer}
 #rfLand.shut{padding:5px 10px 6px}
-#rfLand .lm-chev{color:var(--rf-gold);font-size:11px}
-#rfLand h4{margin:6px 0 1px;font:var(--rf-title-font);font-size:11px;color:var(--rf-accent)}
+#rfLand .lm-chev{color:var(--rf-gold);font-size:13px}
+#rfLand h4{margin:6px 0 1px;font:var(--rf-title-font);font-size:13px;color:var(--rf-accent)}
 #rfLand p{margin:0}
 #rfLand .lr{display:flex;align-items:center;gap:8px;margin-top:7px}
-#rfLand .lr .why{color:var(--rf-bad);font-size:11px}
+#rfLand .lr .why{color:var(--rf-bad);font-size:13px}
 `;
 
 /** Mount the guardian bar and the landmark panel; they update at 5 Hz from the drawn snapshot. */

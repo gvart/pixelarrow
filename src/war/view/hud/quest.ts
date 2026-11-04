@@ -38,19 +38,19 @@ const CSS = `
 @keyframes gdBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
 #rfQBanner{left:50%;top:44px;transform:translateX(-50%);z-index:${Z.banner};pointer-events:none;width:340px;padding:7px 12px 9px;text-align:center;transition:opacity .45s,transform .45s}
 #rfQBanner.out{opacity:0;transform:translateX(-50%) translateY(-6px)}
-#rfQBanner .qb-k{font:700 10.5px/1 Inter,sans-serif;letter-spacing:.14em;text-transform:uppercase;color:var(--rf-gold)}
+#rfQBanner .qb-k{font:700 13px/1 Inter,sans-serif;letter-spacing:.14em;text-transform:uppercase;color:var(--rf-gold)}
 #rfQBanner .qb-t{margin-top:4px;font:700 17px/1.15 Cinzel,serif;color:var(--rf-title)}
 #rfQBanner .qb-x{margin-top:5px;font:500 13px/1.4 Inter,sans-serif;color:var(--rf-ink)}
 #rfQBanner .qb-r{display:flex;justify-content:center;flex-wrap:wrap;gap:4px;margin-top:6px}
-#rfQBanner .qb-p{margin-top:5px;font:600 12.5px/1.3 Inter,sans-serif;color:var(--rf-ink)}
+#rfQBanner .qb-p{margin-top:5px;font:600 13px/1.3 Inter,sans-serif;color:var(--rf-ink)}
 #rfQBanner.done .qb-k{color:var(--rf-good)}
 #rfQuest{right:4px;top:40px;width:250px;pointer-events:auto;padding:5px 8px 7px}
 #rfQuest .qt-h{display:flex;align-items:center;gap:6px;padding-bottom:4px;margin-bottom:5px;border-bottom:1px solid var(--rf-rule)}
-#rfQuest .qt-k{font:700 10.5px/1 Inter,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--rf-gold)}
-#rfQuest .qt-x{margin-left:auto;width:18px;height:18px;min-width:18px;padding:0;font-size:12px}
+#rfQuest .qt-k{font:600 13px/1.2 Inter,sans-serif;color:var(--rf-gold)}
+#rfQuest .qt-x{margin-left:auto;width:18px;height:18px;min-width:18px;padding:0;font-size:13px}
 #rfQuest .qt-ch{display:flex;flex-direction:column;gap:4px;margin-top:6px}
 #rfQuest .qt-ch button{display:block;width:100%;height:auto;text-align:left;padding:4px 7px;font:700 13px/16px Inter,sans-serif;white-space:normal}
-#rfQuest .qt-ch button i{display:block;font:500 12px/15px Inter,sans-serif;color:var(--rf-ink);font-style:normal;opacity:.85}
+#rfQuest .qt-ch button i{display:block;font:500 13px/15px Inter,sans-serif;color:var(--rf-ink);font-style:normal;opacity:.85}
 `;
 let styled = false;
 const style = () => {
@@ -197,6 +197,8 @@ export interface TrackView {
   icon?: string;
   /** W-65 a story's open choice: a button each (Tracked.act gets its id). */
   choices?: { id: string; label: string; text: string }[];
+  /** A time to answer in, as a chip ("2:41"). */
+  answerIn?: string;
 }
 export interface Tracked { key: string; view: (me: P) => TrackView | null; /** A choice button pressed (W-65). */ act?: (id: string) => void }
 
@@ -252,7 +254,7 @@ export function mountQuestTracker(s: SandboxScene, mk: Mk): void {
     const done = v.frac >= 1;
     const html = `<div class="qt-h">${icon('mk-claim')}<span class="qt-k">${esc(v.kind)}</span><button class="rf-tbtn x qt-x" title="Stop tracking">×</button></div>${qcard({
       key: `trk:${tracked!.key}`, icon: v.icon ?? icon('mk-claim'), goal: v.goal, ...(v.frac >= 0 ? { bar: v.frac } : {}),
-      chips: chip.prog(v.progress, done) + chip.reward(v.reward) + chip.dist(far),
+      chips: chip.prog(v.progress, done) + (v.answerIn ? chip.time(v.answerIn, 'bad', 'They come on when it runs out') : '') + chip.reward(v.reward) + chip.dist(far),
       more: details({ title: v.title, story: v.story, lines: [['Where', v.where], ['Pay', v.pay]], from: v.giver }),
       ...(v.choices?.length ? { extra: `<div class="qt-ch">${v.choices.map((c) => `<button class="rf-tbtn" data-act="${esc(c.id)}">${esc(c.label)}<i>${esc(c.text)}</i></button>`).join('')}</div>` } : {}),
     })}`;

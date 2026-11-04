@@ -16,7 +16,7 @@ import { itemDef } from '../../../data/items';
 import { ENCOUNTERS } from '../../../data/warEncounters';
 import { storyOf } from '../../../data/warStories';
 import { NEUTRAL_TEAM } from '../../sim/economy';
-import { encSaveOk, encStepOf, EncounterRun, type EncNote, type EncSave, type EncStep } from '../../sim/encounters';
+import { ENC, encSaveOk, encStepOf, EncounterRun, type EncNote, type EncSave, type EncStep } from '../../sim/encounters';
 import type { StoryReward } from '../../sim/stories';
 import type { ServerMsg } from '../../net/protocol';
 import type { WarEvent } from '../../types';
@@ -40,6 +40,8 @@ function rewardParts(r: StoryReward | undefined): { goods: Record<string, number
   const more = [r?.item ? `${itemDef(r.item.def).name} (${r.item.rarity})` : '', r?.soul ? `${r.soul.name} joins: claim his soul` : ''].filter(Boolean).join(' · ');
   return { goods: { ...(r?.goods as Record<string, number> | undefined) }, more };
 }
+/** Ticks (10 a second) as m:ss. */
+const clock = (ticks: number) => { const n = Math.max(0, Math.ceil(ticks / 10)); return `${Math.floor(n / 60)}:${String(n % 60).padStart(2, '0')}`; };
 const WHERE: Record<string, string> = { here: 'Close by, where the marker points.', town: 'The nearest town.', lair: 'Where the eagles circle: a den still held.', giver: 'The village well.' };
 
 export function mountEncounters(s: SandboxScene): void {
@@ -112,7 +114,8 @@ export function mountEncounters(s: SandboxScene): void {
         pay: t.kind === 'choice' ? 'Each choice pays its own way' : [r.more, Object.keys(r.goods).length ? `Paid when done, into ${payTo}` : r.more ? '' : 'The road goes on'].filter(Boolean).join(' · '),
         at: t.kind === 'choice' ? { x: o.x, y: o.y } : { x: o.tx, y: o.ty }, label: st.label,
         story: i === 0 ? [d.lore, st.text] : [st.text],
-        ...(t.kind === 'choice' ? { choices: t.options.map((x) => { const p = rewardParts(x.reward); return { id: x.id, label: x.label, text: [x.text, p.more, Object.entries(p.goods).map(([k, n]) => `+${n} ${k}`).join(', '), x.risk ? 'A risk' : ''].filter(Boolean).join(' · ') }; }) } : {}),
+        ...(st.unanswered ? { answerIn: clock(ENC.lapse - ((s.sim.cur?.tick ?? o.since) - o.since)) } : {}),
+        ...(t.kind === 'choice' ? { choices: t.options.map((x) => { const p = rewardParts(x.reward); return { id: x.id, label: x.toll ? `${x.label}: ${Math.round(x.toll * 100)}%` : x.label, text: [x.text, p.more, Object.entries(p.goods).map(([k, n]) => `+${n} ${k}`).join(', '), x.risk ? 'A risk' : ''].filter(Boolean).join(' · ') }; }) } : {}),
       };
     },
     act: (id) => {

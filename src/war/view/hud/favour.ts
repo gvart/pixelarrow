@@ -59,16 +59,16 @@ const CSS = `
 .fv-mid{flex:1;min-width:0}
 .fv-title{font:700 15px/1.2 Cinzel,serif;color:var(--rf-title)}
 .fv-prog{margin:5px 0 3px}.fv-prog .rf-bar{width:100%}
-.fv-x{font-size:11px}
-.fv-none{font-size:11.5px;margin:3px 2px}
-.fv-p{display:flex;align-items:baseline;gap:6px;font-size:11.5px;line-height:1.3;padding:2px 2px;color:var(--rf-muted)}
+.fv-x{font-size:13px}
+.fv-none{font-size:13px;margin:3px 2px}
+.fv-p{display:flex;align-items:baseline;gap:6px;font-size:13px;line-height:1.3;padding:2px 2px;color:var(--rf-muted)}
 .fv-p b{font-weight:700}
 .fv-p.open{color:var(--rf-ink)}.fv-p.open b,.fv-p.open .fv-ln{color:var(--rf-gold)}
 .fv-p.next{color:var(--rf-ink);background:rgba(224,184,103,.1)}
-.fv-ln{width:16px;flex:none;text-align:right;font:700 12px/1 Cinzel,serif;color:var(--rf-muted)}
+.fv-ln{width:16px;flex:none;text-align:right;font:700 13px/1 Cinzel,serif;color:var(--rf-muted)}
 .fv-pt{flex:1;min-width:0}
-.fv-r{display:flex;gap:6px;font-size:11.5px;line-height:1.35;padding:1px 2px}.fv-r span:first-child{flex:1}.fv-r b{width:40px;text-align:right;color:var(--rf-gold)}
-.fv-how{font-size:11px;line-height:1.4;padding:0 2px}
+.fv-r{display:flex;gap:6px;font-size:13px;line-height:1.35;padding:1px 2px}.fv-r span:first-child{flex:1}.fv-r b{width:40px;text-align:right;color:var(--rf-gold)}
+.fv-how{font-size:13px;line-height:1.4;padding:0 2px}
 #rfFavourBtn{position:relative}
 `;
 

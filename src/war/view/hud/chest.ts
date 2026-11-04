@@ -162,10 +162,10 @@ const CSS = `
 #rfChest{width:${W}px;padding:5px 8px 8px}
 #rfChest .ch-grid{display:grid;grid-template-columns:repeat(${COLS},38px);gap:2px;padding:2px}
 #rfChest .ch-empty{padding:8px 4px;font-style:italic}
-#rfChest .ch-cap{display:flex;align-items:center;gap:6px;margin:5px 2px 0;font-size:11.5px}
+#rfChest .ch-cap{display:flex;align-items:center;gap:6px;margin:5px 2px 0;font-size:13px}
 #rfChest .ch-cap>span:first-child{color:var(--rf-muted);width:44px}
 #rfChest .ch-tools{display:flex;align-items:center;gap:4px;margin:6px 0 2px}
-#rfChest .ch-tools .rf-tbtn{height:21px;padding:0 7px;font-size:11.5px}
+#rfChest .ch-tools .rf-tbtn{height:21px;padding:0 7px;font-size:13px}
 #rfChest .ch-tabs{display:flex;align-items:flex-end;height:24px;border-bottom:1px solid var(--rf-line)}
 #rfChest .ch-body{max-height:420px;padding-right:2px}
 #rfChest .ch-away{margin:10px 2px;padding:8px;line-height:1.4}

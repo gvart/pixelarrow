@@ -87,6 +87,17 @@ describe('raid warning toast lifecycle', () => {
     expect(box.children).toHaveLength(2);
   });
 
+  it('the same words stand once: two squads out of food make one toast', () => {
+    const box = new El(), tell = toaster(box as unknown as HTMLElement, () => {});
+    tell({ kind: 'info', text: 'Packs empty: refill at a store' });
+    vi.advanceTimersByTime(1_000);
+    tell({ kind: 'info', text: 'Packs empty: refill at a store' });
+    tell({ kind: 'info', text: 'Men hungry: go to a store' });
+    expect(box.children).toHaveLength(2);
+    vi.advanceTimersByTime(4_000); // the first one's timers do not end the one that replaced it
+    expect(box.children).toHaveLength(2);
+  });
+
   it('left alone it stays for its countdown, then goes', () => {
     const box = new El(), tell = toaster(box as unknown as HTMLElement, () => {});
     tell(warning());

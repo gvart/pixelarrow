@@ -98,8 +98,8 @@ const CSS = `
 .tk-card .qc-cta{display:flex;gap:4px;align-items:center}
 .tk-trk.on{color:var(--rf-gold);border-color:#6a5326}
 .tk-re{width:26px;padding:0;font-size:14px}
-.tk-claimed{display:inline-flex;align-items:center;gap:3px;font:600 12px/1 Inter,sans-serif;color:var(--rf-good)}
-.tk-note{display:flex;align-items:center;justify-content:space-between;margin-top:4px;font-size:12px}
+.tk-claimed{display:inline-flex;align-items:center;gap:3px;font:600 13px/1 Inter,sans-serif;color:var(--rf-good)}
+.tk-note{display:flex;align-items:center;justify-content:space-between;margin-top:4px;font-size:13px}
 #rfTasksBtn{position:relative}
 `;
 

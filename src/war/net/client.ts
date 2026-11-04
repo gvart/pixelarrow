@@ -222,7 +222,10 @@ export function createNet(url: string, region: string, devId: number | undefined
     api: async (method, path, body) => {
       const r = await fetch(`/api/war/${path}`, { method, headers: await authed, ...(body !== undefined ? { body: JSON.stringify(body) } : {}) });
       const j = (await r.json().catch(() => ({}))) as Record<string, unknown>;
-      return r.ok ? j : { error: (j.error as string | undefined) ?? `HTTP ${r.status}`, ...j };
+      if (r.ok) return j;
+      // the server answers { error: { code, message } }: the HUD shows `error` as words
+      const e = j.error as string | { message?: string } | undefined;
+      return { ...j, error: (typeof e === 'string' ? e : e?.message) ?? `HTTP ${r.status}` };
     },
     stop: () => {
       stopped = true;

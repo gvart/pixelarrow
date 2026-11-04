@@ -53,7 +53,7 @@ export const TOKENS = `:root{
   --hud-edge:#030304;--hud-rule:#2b2c2f;--hud-good:#8ccf5e;--hud-bad:#ec6a50;--hud-warn:#e8b54a;--hud-link:#8fc4e8;
   --hud-hp-a:#86d66c;--hud-hp-b:#3f9a32;--hud-hp-c:#25621d;--hud-build-a:#f0cf7c;--hud-build-b:#b8892f;--hud-burn-a:#ffb257;--hud-burn-b:#c6461f;
   --hud-ok-a:#e8c776;--hud-ok-b:#a57a2a;
-  --hud-display:700 14px/1.1 Cinzel,serif;--hud-body:600 13px/1.3 Inter,system-ui,sans-serif;--hud-small:600 12px/1.2 Inter,system-ui,sans-serif;
+  --hud-display:700 14px/1.1 Cinzel,serif;--hud-body:600 13px/1.3 Inter,system-ui,sans-serif;--hud-small:600 13px/1.2 Inter,system-ui,sans-serif;
   --hud-key-font:700 10px/1 Inter,system-ui,sans-serif;
   --hud-bevel:inset 0 1px 0 rgba(255,236,190,.07),inset 0 -1px 0 rgba(0,0,0,.5);
   --hud-frame:inset 0 1px 0 rgba(226,189,104,.55),inset 0 0 0 1px var(--hud-bronze),inset 0 0 0 2px rgba(0,0,0,.55),inset 0 2px 0 1px rgba(255,236,190,.05),0 0 0 1px var(--hud-edge),0 8px 22px rgba(0,0,0,.5);
@@ -166,7 +166,7 @@ export const THEME_CSS = `
 #rfTop>*{pointer-events:auto}
 #rfTop .tb-l,#rfTop .tb-r{display:flex;align-items:center;gap:3px;flex:1;min-width:0}
 #rfTop .tb-r{justify-content:flex-end;gap:6px}
-#rfTop .tb-res{display:flex;align-items:center;gap:3px;height:22px;padding:0 7px 0 3px;border-radius:2px;background:rgba(0,0,0,.35);box-shadow:inset 0 0 0 1px rgba(95,75,42,.55);font:700 12px/1 Inter,system-ui,sans-serif;color:var(--hud-ink);transition:box-shadow var(--hud-fast)}
+#rfTop .tb-res{display:flex;align-items:center;gap:3px;height:22px;padding:0 7px 0 3px;border-radius:2px;background:rgba(0,0,0,.35);box-shadow:inset 0 0 0 1px rgba(95,75,42,.55);font:700 13px/1 Inter,system-ui,sans-serif;color:var(--hud-ink);transition:box-shadow var(--hud-fast)}
 #rfTop .tb-res:hover{box-shadow:inset 0 0 0 1px var(--hud-gold)}
 #rfTop .tb-res .ic{width:18px;height:18px}
 #rfTop .tb-res.none b{color:var(--hud-disabled)}
@@ -258,15 +258,15 @@ export const THEME_CSS = `
 #rfCard .hud-man-kit>span:last-child:not(.hud-chip){min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 /* the orders: text buttons, the hotkey on the top-right corner as on the ability slots */
 #rfCard .hud-man-acts{display:flex;gap:4px;margin-top:3px}
-#rfCard .hud-man-acts .rf-tbtn{position:relative;flex:1 1 auto;height:22px;padding:0 5px;font-size:11px;white-space:nowrap}
+#rfCard .hud-man-acts .rf-tbtn{position:relative;flex:1 1 auto;height:22px;padding:0 5px;font-size:13px;white-space:nowrap}
 #rfCard .hud-man-acts .hud-kbd{position:absolute;right:-3px;top:-6px;min-width:0;margin:0;padding:1px 2px 0;font:var(--hud-key-font);background:rgba(4,5,6,.9);box-shadow:0 0 0 1px rgba(95,75,42,.8);pointer-events:none}
 #rfCard .hud-man-acts .rf-tbtn.off{color:var(--hud-disabled);background:linear-gradient(180deg,#1c1e22,#141518);box-shadow:inset 0 0 0 1px #2c2b28,0 0 0 1px var(--hud-edge);cursor:default}
 #rfCard .hud-man-acts .rf-tbtn.off .hud-kbd{opacity:.5}
 #rfCard #cOrders{gap:3px}
 #rfCard #cOrders>div{gap:3px!important}
 #rfCard #cSlots{gap:3px;flex-wrap:wrap;max-width:132px;align-content:center}
-#rfCard #bAccess{grid-template-columns:auto auto;gap:3px 6px;align-items:center;align-content:center;margin-right:6px;font-size:12px;white-space:nowrap}
-#rfCard #bAccess .rf-tbtn{height:21px;min-width:96px;padding:0 6px;font-size:12px}
+#rfCard #bAccess{grid-template-columns:auto auto;gap:3px 6px;align-items:center;align-content:center;margin-right:6px;font-size:13px;white-space:nowrap}
+#rfCard #bAccess .rf-tbtn{height:21px;min-width:96px;padding:0 6px;font-size:13px}
 
 /* ---- the minimap: a square well in a bronze frame ---- */
 #minimap{border-radius:3px;background:var(--hud-stone);box-shadow:var(--hud-frame)}

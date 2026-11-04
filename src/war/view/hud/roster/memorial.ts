@@ -41,12 +41,12 @@ const CSS = `
 .mm-list{display:flex;flex-direction:column;gap:5px;max-height:340px;overflow-y:auto}
 .mm-grave{border:1px solid var(--rf-line);background:var(--rf-raised);padding:5px 6px}
 .mm-top{display:flex;align-items:center;gap:5px;font:600 13px/1.2 Inter,sans-serif}
-.mm-top .rf-dim{margin-left:auto;font-weight:400;font-size:11px}
+.mm-top .rf-dim{margin-left:auto;font-weight:400;font-size:13px}
 .mm-rec{display:flex;gap:10px;align-items:center;margin-top:3px;font:12px/1.2 Inter,sans-serif}
 .mm-rec span{display:inline-flex;align-items:center;gap:3px}
-.mm-rec .rf-dim{margin-left:auto;font-size:11px}
+.mm-rec .rf-dim{margin-left:auto;font-size:13px}
 .mm-deeds{display:flex;flex-wrap:wrap;gap:3px;margin-top:4px}
-.mm-trophy{display:flex;align-items:center;gap:6px;padding:3px 0;font:600 12px/1.2 Inter,sans-serif;color:var(--rf-gold)}
+.mm-trophy{display:flex;align-items:center;gap:6px;padding:3px 0;font:600 13px/1.2 Inter,sans-serif;color:var(--rf-gold)}
 .mm-trophy .rf-dim{margin-left:auto;font-weight:400}
 `;
 

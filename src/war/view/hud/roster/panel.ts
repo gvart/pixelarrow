@@ -107,7 +107,7 @@ export function captivesHtml(R: SandboxRoster, now = Date.now()): string {
     return `<div class="rr-row rr-cap-row" data-capid="${esc(c.id)}">
       <div style="width:24px;height:24px;flex:none"><img src="war/ui/icons/24/${UNIT_ICON[c.cls] ?? 'unit-militia'}.png" srcset="war/ui/icons/24/${UNIT_ICON[c.cls] ?? 'unit-militia'}@2x.png 2x" width="24" height="24" alt=""></div>
       <div style="flex:1;min-width:0">
-        <div style="display:flex;align-items:center;gap:3px"><span class="rr-nm">${esc(c.name)}</span><span class="rf-dim" style="font-size:11px">${esc(SandboxRoster.className(c.cls))}</span></div>
+        <div style="display:flex;align-items:center;gap:3px"><span class="rr-nm">${esc(c.name)}</span><span class="rf-dim" style="font-size:13px">${esc(SandboxRoster.className(c.cls))}</span></div>
         <div class="rr-doing">${esc(c.ownerName)}'s · ${esc(c.heldAt ? (WORLD_NAMES.get(c.heldAt) ?? c.heldAt) : 'held')}${left ? ` · ${left}` : ''}</div>
         <div style="display:flex;gap:3px;margin-top:3px">${ask}${free}</div>
       </div>

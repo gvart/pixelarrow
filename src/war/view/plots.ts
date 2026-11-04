@@ -71,7 +71,7 @@ export class PlotLayer {
     this.pick = { s, who, rect: null, why: null, done };
     this.veil.style.display = '';
     this.bar.style.display = 'flex';
-    this.s.focus(s.x, s.y, 1);
+    this.s.focus(s.x, s.y, 1 / 2); // the whole ring in view
     this.renderBar();
   }
 

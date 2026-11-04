@@ -16,10 +16,14 @@ export type Toaster = ((n: Note) => void) & { drop: (key: string) => void };
 
 export function toaster(box: HTMLElement, open: (pid: string) => void, place: () => void = () => {}): Toaster {
   const keyed = new Map<string, () => void>();
+  const said = new Map<string, HTMLElement>();
   const drop = (key: string) => keyed.get(key)?.();
   const tell = (n: Note) => {
     if (n.key) drop(n.key);
+    // the same words twice say nothing new (two squads run out of food): the newer one takes the older's place
+    said.get(n.text)?.remove();
     const t = document.createElement('div');
+    said.set(n.text, t);
     t.className = 'rf-label rr-toast';
     t.style.pointerEvents = 'auto';
     t.style.cursor = n.pid ? 'pointer' : 'default';
@@ -43,6 +47,7 @@ export function toaster(box: HTMLElement, open: (pid: string) => void, place: ()
       gone = setTimeout(() => {
         clearInterval(tick);
         t.remove();
+        if (said.get(n.text) === t) said.delete(n.text);
         if (n.key && keyed.get(n.key) === stop) keyed.delete(n.key);
       }, after + 450);
     };

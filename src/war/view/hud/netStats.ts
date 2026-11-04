@@ -34,7 +34,7 @@ export function setNetStatsOn(on: boolean): void {
 
 const CSS = `#rfNet{position:fixed;right:4px;top:36px;z-index:${Z.docked};pointer-events:none;padding:4px 7px;min-width:96px;
   background:color-mix(in srgb,var(--rf-sunk,#050506) 82%,transparent);border:1px solid var(--rf-rule,#2b2c2f);border-radius:3px;
-  font:600 10.5px/1.45 Inter,system-ui,sans-serif;color:var(--rf-muted,#a8a194);font-variant-numeric:tabular-nums;white-space:nowrap}
+  font:600 13px/1.45 Inter,system-ui,sans-serif;color:var(--rf-muted,#a8a194);font-variant-numeric:tabular-nums;white-space:nowrap}
 #rfNet b{color:var(--rf-ink,#ece6d8);font-weight:700}#rfNet .good{color:var(--rf-good,#9fd47a)}#rfNet .warn{color:var(--rf-gold,#e0b867)}
 #rfNet .bad{color:var(--rf-bad,#f08a70)}#rfNet .stall{color:var(--rf-bad,#f08a70);font-weight:700}`;
 

@@ -62,7 +62,7 @@ ${layer} .mk .pin{position:absolute;left:-15px;top:-44px;filter:drop-shadow(0 2p
 ${layer} .mk .ring{position:absolute;left:-22px;top:-9px;width:44px;height:18px;border-radius:50%;border:2px solid var(--mk-c);box-shadow:0 0 6px var(--mk-c);animation:mkPulse 1.4s ease-out infinite}
 ${layer} .mk .ring.b{animation-delay:.7s}
 ${layer} .mk .dot{position:absolute;left:-3px;top:-2px;width:6px;height:4px;border-radius:50%;background:var(--mk-c);box-shadow:0 0 0 1px #050506}
-${layer} .mk .nm{position:absolute;left:0;top:-62px;transform:translateX(-50%);padding:2px 6px;white-space:nowrap;font:700 11px/1.2 Inter,sans-serif;color:#fff6e2;background:rgba(10,11,13,.86);border:1px solid var(--rf-rule);border-left:2px solid var(--mk-c)}
+${layer} .mk .nm{position:absolute;left:0;top:-62px;transform:translateX(-50%);padding:2px 6px;white-space:nowrap;font:700 13px/1.2 Inter,sans-serif;color:#fff6e2;background:rgba(10,11,13,.86);border:1px solid var(--rf-rule);border-left:2px solid var(--mk-c)}
 ${layer} .mk .nm i{font-style:normal;color:var(--mk-c);margin-right:4px}
 ${edges} .edge{position:absolute;width:0;height:0;pointer-events:auto;cursor:pointer}
 ${edges} .edge .ar{position:absolute;left:-17px;top:-17px;width:34px;height:34px;border-radius:50%;background:rgba(10,11,13,.9);border:2px solid var(--mk-c);box-shadow:0 0 8px var(--mk-c);display:flex;align-items:center;justify-content:center;animation:mkBeat 1s ease-in-out infinite}
@@ -76,7 +76,7 @@ ${edges} .edge .nm{position:absolute;left:0;top:20px;transform:translateX(-50%);
 const CSS = `
 #rfChat{position:fixed;z-index:4;width:340px;pointer-events:none;color:var(--rf-ink);font:var(--rf-body)}
 #rfChat:not(.open){width:auto;max-width:340px}
-#rfChat .ch-tab{pointer-events:auto;display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px 0 6px;margin-top:3px;cursor:pointer;background:rgba(10,11,13,.82);border:1px solid var(--rf-rule);box-shadow:inset 0 1px 0 rgba(239,207,134,.08);font:700 11px/1 Cinzel,serif;color:var(--rf-title);letter-spacing:.05em}
+#rfChat .ch-tab{pointer-events:auto;display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px 0 6px;margin-top:3px;cursor:pointer;background:rgba(10,11,13,.82);border:1px solid var(--rf-rule);box-shadow:inset 0 1px 0 rgba(239,207,134,.08);font:700 13px/1 Cinzel,serif;color:var(--rf-title);letter-spacing:.05em}
 #rfChat .ch-tab:hover{border-color:var(--rf-line);background:rgba(44,28,21,.92)}
 #rfChat .ch-tab .k{font:600 10px/1 Inter,sans-serif;color:var(--rf-muted);letter-spacing:0;padding:2px 4px;border:1px solid var(--rf-rule);background:var(--rf-sunk)}
 #rfChat .ch-dot{width:7px;height:7px;border-radius:50%;background:var(--rf-good);box-shadow:0 0 4px var(--rf-good)}
@@ -86,7 +86,7 @@ const CSS = `
 #rfChat .ch-head{display:none;align-items:center;gap:6px;padding:0 0 5px;margin-bottom:4px;border-bottom:1px solid var(--rf-line);box-shadow:0 1px 0 var(--rf-sunk)}
 #rfChat.open .ch-head{display:flex}
 #rfChat .ch-head .rf-name{font-size:13px}
-#rfChat .ch-chan{height:20px;padding:0 7px;display:inline-flex;align-items:center;gap:4px;font:700 11.5px/1 Cinzel,serif;letter-spacing:.05em;color:var(--rf-muted);background:none;border:1px solid transparent;cursor:pointer}
+#rfChat .ch-chan{height:20px;padding:0 7px;display:inline-flex;align-items:center;gap:4px;font:700 13px/1 Cinzel,serif;letter-spacing:.05em;color:var(--rf-muted);background:none;border:1px solid transparent;cursor:pointer}
 #rfChat .ch-chan:hover{color:var(--rf-title)}
 #rfChat .ch-chan.on{color:var(--rf-title);background:var(--rf-sel);border-color:var(--rf-line)}
 #rfChat .ch-chan .u,#rfChat .ch-tab .u{min-width:16px;height:15px;padding:0 4px;font:700 10px/15px Inter,sans-serif;text-align:center;color:#1a0e08;background:var(--rf-accent);letter-spacing:0}
@@ -94,10 +94,10 @@ const CSS = `
 #rfChat .ch-tag{color:var(--rf-gold);font-weight:700;cursor:help}
 #rfChat .ch-tag:hover{text-decoration:underline;text-underline-offset:2px}
 #rfChat.world [data-mk],#rfChat.world .ch-mk-sep{display:none}
-#rfChat .ch-head .sub{font:600 10.5px/1 Inter,sans-serif;color:var(--rf-muted)}
+#rfChat .ch-head .sub{font:600 13px/1 Inter,sans-serif;color:var(--rf-muted)}
 #rfChat .ch-log{display:flex;flex-direction:column;gap:1px;max-height:132px;overflow:hidden}
 #rfChat.open .ch-log{height:var(--ch-log-h,164px);max-height:none;overflow-y:auto;padding:3px 2px 3px 3px;background:var(--rf-sunk);border:1px solid var(--rf-rule);box-shadow:inset 0 1px 3px rgba(0,0,0,.6)}
-#rfChat .ch-l{position:relative;padding:2px 5px;font:600 12px/1.35 Inter,sans-serif;color:var(--rf-ink);word-wrap:break-word;overflow-wrap:anywhere;transition:opacity .6s}
+#rfChat .ch-l{position:relative;padding:2px 5px;font:600 13px/1.35 Inter,sans-serif;color:var(--rf-ink);word-wrap:break-word;overflow-wrap:anywhere;transition:opacity .6s}
 #rfChat:not(.open) .ch-l{background:linear-gradient(90deg,rgba(10,11,13,.78) 60%,rgba(10,11,13,0));text-shadow:0 1px 0 #050506,0 0 3px #050506}
 #rfChat:not(.open) .ch-l.old{display:none}
 #rfChat.open .ch-l:hover{background:var(--rf-hover)}
@@ -107,7 +107,7 @@ const CSS = `
 #rfChat .ch-l .n.me{color:var(--rf-gold)}
 #rfChat .ch-l .ph{color:var(--rf-gold)}
 #rfChat .ch-l .ph::before{content:'\\201C'}#rfChat .ch-l .ph::after{content:'\\201D'}
-#rfChat .ch-l.sys{color:var(--rf-muted);font-size:12px}
+#rfChat .ch-l.sys{color:var(--rf-muted);font-size:13px}
 #rfChat .ch-l.sys.bad{color:var(--rf-bad)}
 #rfChat .ch-l.mk{cursor:pointer}
 #rfChat .ch-l.mk .mi{display:inline-block;vertical-align:-3px;margin-right:3px}
@@ -126,9 +126,9 @@ const CSS = `
 #rfChat .ch-ib svg{display:block}
 #rfChat .ch-sep{width:1px;height:17px;background:var(--rf-rule);margin:0 2px}
 #rfChat .ch-field{position:relative;flex:1;min-width:0;display:flex}
-#rfChat .ch-mirror{position:absolute;inset:0;padding:0 7px;overflow:hidden;white-space:pre;pointer-events:none;font:600 12px/23px Inter,sans-serif;color:var(--rf-ink);background:var(--rf-sunk)}
+#rfChat .ch-mirror{position:absolute;inset:0;padding:0 7px;overflow:hidden;white-space:pre;pointer-events:none;font:600 13px/23px Inter,sans-serif;color:var(--rf-ink);background:var(--rf-sunk)}
 #rfChat .ch-mirror .chip{color:var(--hud-gold-hi);background:rgba(155,122,60,.28);border-radius:2px;box-shadow:0 0 0 1px var(--hud-gold-lo)}
-#rfChat input.ch-in{position:relative;flex:1;min-width:0;width:auto;height:23px;padding:0 6px;font:600 12px/1 Inter,sans-serif;color:transparent;caret-color:var(--rf-ink);background:transparent;border:1px solid var(--rf-line);outline:none;user-select:text}
+#rfChat input.ch-in{position:relative;flex:1;min-width:0;width:auto;height:23px;padding:0 6px;font:600 13px/1 Inter,sans-serif;color:transparent;caret-color:var(--rf-ink);background:transparent;border:1px solid var(--rf-line);outline:none;user-select:text}
 #rfChat input.ch-in::selection{color:transparent;background:rgba(143,196,232,.35)}
 #rfChat input.ch-in:focus{border-color:var(--rf-accent);box-shadow:0 0 0 1px rgba(207,162,90,.25)}
 #rfChat input.ch-in::placeholder{color:var(--rf-disabled)}
@@ -136,7 +136,7 @@ const CSS = `
 #rfChat .ch-pop{display:none;pointer-events:auto;margin-bottom:4px;padding:6px;grid-template-columns:1fr 1fr;gap:2px}
 #rfChat .ch-pop.on{display:grid}
 #rfChat .ch-pop .rf-sec{grid-column:1/-1;margin:0 0 3px}
-#rfChat .ch-pop button{height:22px;padding:0 7px;text-align:left;font:600 11.5px/1 Inter,sans-serif;color:var(--rf-ink);background:var(--rf-sunk);border:1px solid var(--rf-rule);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#rfChat .ch-pop button{height:22px;padding:0 7px;text-align:left;font:600 13px/1 Inter,sans-serif;color:var(--rf-ink);background:var(--rf-sunk);border:1px solid var(--rf-rule);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #rfChat .ch-pop button:hover{border-color:var(--rf-accent);color:#fff6e2;background:var(--rf-hover)}
 #rfChat .ch-mutes{display:none;pointer-events:auto;margin-bottom:4px;padding:6px 8px}
 #rfChat .ch-mutes.on{display:block}
@@ -144,8 +144,8 @@ const CSS = `
 #rfChat .ch-mutes .r button{margin-left:auto}
 ${markCss('#rfMarks', '#rfMarkEdges')}
 #rfMarkPick{position:fixed;left:0;top:0;width:100%;height:100%;z-index:3;cursor:crosshair}
-#rfMarkHint{position:fixed;z-index:9;pointer-events:none;padding:3px 7px;white-space:nowrap;font:600 11.5px/1.3 Inter,sans-serif;color:var(--rf-ink);background:rgba(10,11,13,.9);border:1px solid var(--rf-rule);border-left:3px solid var(--mk-c)}
-#rfMarkHint b{color:var(--mk-c)}#rfMarkHint .k{color:var(--rf-muted);font-size:10.5px}
+#rfMarkHint{position:fixed;z-index:9;pointer-events:none;padding:3px 7px;white-space:nowrap;font:600 13px/1.3 Inter,sans-serif;color:var(--rf-ink);background:rgba(10,11,13,.9);border:1px solid var(--rf-rule);border-left:3px solid var(--mk-c)}
+#rfMarkHint b{color:var(--mk-c)}#rfMarkHint .k{color:var(--rf-muted);font-size:13px}
 `;
 
 /** The kinds' glyphs (16 px grid): a banner, crossed swords, a shield, a cry. */
@@ -207,7 +207,7 @@ export function mountChat(v: ChatView): ChatHandle {
   root.id = 'rfChat';
   root.className = 'rf';
   root.innerHTML = `<div class="ch-mutes rf-card"></div><div class="ch-pop rf-card"><div class="rf-sec">Quick phrases</div>${PHRASES.map((p, i) => `<button data-ph="${i}" title="${esc(p)}">${esc(p)}</button>`).join('')}</div>
-    <div class="ch-box"><div class="ch-head"><span class="ch-dot"></span><button class="ch-chan" data-ch="ally">Alliance<span class="u"></span></button><button class="ch-chan" data-ch="world">World<span class="u"></span></button><span class="sub"></span><span style="margin-left:auto;display:flex;gap:3px"><button class="rf-tbtn" data-a="mutes" style="height:19px;padding:0 6px;font-size:10.5px;display:none"></button><button class="rf-tbtn x" data-a="close" title="Close (Esc)" style="height:19px;width:19px">×</button></span></div>
+    <div class="ch-box"><div class="ch-head"><span class="ch-dot"></span><button class="ch-chan" data-ch="ally">Alliance<span class="u"></span></button><button class="ch-chan" data-ch="world">World<span class="u"></span></button><span class="sub"></span><span style="margin-left:auto;display:flex;gap:3px"><button class="rf-tbtn" data-a="mutes" style="height:19px;padding:0 6px;font-size:13px;display:none"></button><button class="rf-tbtn x" data-a="close" title="Close (Esc)" style="height:19px;width:19px">×</button></span></div>
     <div class="ch-log"></div>
     <div class="ch-bar" style="position:relative"><button class="ch-ib" data-a="phrases" title="Quick phrases">${ICON_QUOTE}</button><span class="ch-sep ch-mk-sep"></span>${MARK_KINDS.map((k) => `<button class="ch-ib" data-mk="${k}" title="${MARK_INFO[k].name}: then click the map">${markIcon(k, 13, MARK_INFO[k].color)}</button>`).join('')}<span class="ch-sep"></span><span class="ch-field"><span class="ch-mirror" aria-hidden="true"></span><input class="ch-in" maxlength="${CHAT_MAX}" spellcheck="false" autocomplete="off"></span><span class="ch-cnt"></span><button class="ch-ib" data-a="send" title="Send (Enter)">${ICON_SEND}</button></div></div>
     <div class="ch-tab" data-a="open"><span class="ch-dot"></span><span class="nm"></span><span class="u" style="display:none"></span><span class="w"></span><span class="k"></span></div>`;
@@ -411,7 +411,7 @@ export function mountChat(v: ChatView): ChatHandle {
     if (row) { const l = (log as HTMLElement & { _rows?: Line[] })._rows?.[Number(row.dataset.i)]; if (l?.mark) v.focus(l.mark); }
   });
   const renderMutes = () => {
-    mutesEl.innerHTML = `<div class="rf-sec">Muted players</div>${[...muted].map((pid) => `<div class="r"><span>${esc(names.get(pid) ?? `Player ${pid}`)}</span><button class="rf-tbtn" data-unmute="${pid}" style="height:19px;font-size:10.5px">Unmute</button></div>`).join('') || '<div class="rf-dim">Nobody.</div>'}`;
+    mutesEl.innerHTML = `<div class="rf-sec">Muted players</div>${[...muted].map((pid) => `<div class="r"><span>${esc(names.get(pid) ?? `Player ${pid}`)}</span><button class="rf-tbtn" data-unmute="${pid}" style="height:19px;font-size:13px">Unmute</button></div>`).join('') || '<div class="rf-dim">Nobody.</div>'}`;
   };
 
   // ---------- marks ----------

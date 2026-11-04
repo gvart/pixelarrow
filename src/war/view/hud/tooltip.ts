@@ -131,19 +131,19 @@ export const TIP_CSS = `
 .cx-ic{width:32px;height:32px;flex:none;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 40%,#2c1c14,#0f1114);border:1px solid #7a5a28;box-shadow:inset 0 0 0 1px #050506}
 .cx-ic.sm{width:26px;height:26px}
 .cx-name{font:700 13.5px/1.1 Cinzel,serif;color:var(--rf-title);letter-spacing:.02em}
-.cx-kind{font:700 9.5px/1.2 Inter,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--rf-muted);margin-top:2px}
-.cx-flav{font:italic 500 12px/1.35 Georgia,'Times New Roman',serif;color:#d2bc9e;margin:6px 0 2px}
+.cx-kind{font:700 13px/1.2 Inter,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--rf-muted);margin-top:2px}
+.cx-flav{font:italic 500 13px/1.35 Georgia,'Times New Roman',serif;color:#d2bc9e;margin:6px 0 2px}
 .cx-rule{height:1px;margin:5px 0 4px;background:linear-gradient(90deg,var(--rf-line),rgba(122,52,24,.15))}
 .cx-fx{display:flex;align-items:center;gap:5px;margin:2px 0}
 .cx-fx>span{flex:1;min-width:0}
 .cx-v{font-weight:700;color:var(--rf-ink)}.cx-v.pos{color:var(--rf-good)}.cx-v.neg{color:var(--rf-bad)}
 .cx-body{margin-top:5px}
-.cx-body i{font:italic 500 12px/1.35 Georgia,serif;color:#d2bc9e}
-.cx-state{display:flex;align-items:center;gap:5px;margin-top:6px;padding-top:5px;border-top:1px solid var(--rf-rule);font-size:11.5px}
+.cx-body i{font:italic 500 13px/1.35 Georgia,serif;color:#d2bc9e}
+.cx-state{display:flex;align-items:center;gap:5px;margin-top:6px;padding-top:5px;border-top:1px solid var(--rf-rule);font-size:13px}
 .cx-state.good{color:var(--rf-good)}.cx-state.bad{color:var(--rf-bad)}.cx-state.gold{color:var(--rf-gold)}.cx-state.dim{color:var(--rf-muted)}
-.cx-tab{display:grid;grid-template-columns:auto 1fr;gap:2px 8px;font-size:11.5px}
+.cx-tab{display:grid;grid-template-columns:auto 1fr;gap:2px 8px;font-size:13px}
 .cx-tab>:nth-child(odd){color:var(--rf-muted)}
-.cx-tag{font:700 9.5px/1 Inter,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--rf-accent);margin-right:4px}
+.cx-tag{font:700 13px/1 Inter,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--rf-accent);margin-right:4px}
 .tt{color:#9cc9e4;border-bottom:1px dotted rgba(156,201,228,.55)}
 .rf-tip.held .tt{cursor:help}
 .rf-tip.held .tt:hover{color:#c6e2f2;border-bottom-style:solid}
