@@ -283,7 +283,7 @@ export function createMobs(region: RegionData, host: MobHost) {
     }
     const dHome = Math.hypot(s.cx - l.x, s.cy - l.y);
     const [hp, max] = packHp(s);
-    const hurt = hp < l.hpSeen - 1e-6;
+    const hurt = l.hpSeen !== Infinity && hp < l.hpSeen - 1e-6; // W-208: a first look (a fresh or a healed pack) has nothing to compare with
     l.hpSeen = hp;
     if (l.state === 'raid') {
       // M7c: a host's raid party at a cart: home once it is gone or the raid has run its time

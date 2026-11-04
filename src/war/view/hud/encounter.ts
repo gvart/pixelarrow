@@ -144,6 +144,7 @@ export function mountEncounters(s: SandboxScene): void {
         if (item) s.sim.dropPile(at.x, at.y, [item]);
         if (r.soul) s.sim.spawnSoul(at.x + 1, at.y, r.soul.cls, r.soul.level, 'lair');
       },
+      toll: (share) => { const n = s.sim.snapshot(); for (const c of [...n.squads.filter((q) => q.team === team).map((q) => ({ squad: q.id })), ...(n.sieges ?? []).filter((e) => e.team === team).map((e) => ({ cart: e.id }))]) for (const k of s.sim.cargo(c)?.slots ?? []) for (const l of k.hold.lots) l.n *= 1 - share; }, // W-208
     }, story);
     save = run.save;
     const prevEv = s.sim.onEvents;

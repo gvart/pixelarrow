@@ -11,7 +11,7 @@ import { parseRegion } from '../../src/war/region/schema';
 import { createSim } from '../../src/war/sim';
 import { ENC, encBiomes, encFits, encHunters, EncounterRun, encTowns, type EncHost, type EncNote, type EncSave } from '../../src/war/sim/encounters';
 import { depthOf } from '../../src/war/sim/depth';
-import { MOB_TEAM } from '../../src/war/sim/mobs';
+import { MOB_KINDS, MOB_TEAM, MOBS } from '../../src/war/sim/mobs';
 import { snapOpen, type StoryReward } from '../../src/war/sim/stories';
 import type { RegionData, Snapshot, WarBuildSim } from '../../src/war/types';
 
@@ -169,17 +169,35 @@ function field(seed: number) {
 }
 
 describe('W-65 encounters played on the sim', () => {
-  it('ambush: bandits spring from cover beside the squad; beaten off, they pay', () => {
+  it('ambush: bandits spring from cover beside the squad; he stands: beaten off, they pay', () => {
     const f = field(3);
     f.notes.push(...f.run.fire(f.sim.snapshot(), ENCOUNTERS.ambush));
     const o = f.run.save.open!;
     expect(Math.hypot(o.x - f.start.x, o.y - f.start.y)).toBeLessThan(12);
+    expect(f.sim.snapshot().lairs?.some((l) => Math.hypot(l.x - o.x, l.y - o.y) < 0.5), 'no blade yet: they ask first').toBeFalsy();
+    f.notes.push(...f.run.choose(f.sim.snapshot(), 'fight')!);
     f.stepFor(30, () => (f.sim.snapshot().lairs ?? []).some((l) => Math.hypot(l.x - o.x, l.y - o.y) < 0.5 && l.state !== 'cleared'));
     f.go(o.x, o.y, true);
     f.stepFor(3000, () => f.run.save.open === null);
-    expect(f.notes.map((n) => n.kind)).toEqual(['start', 'step', 'end']);
+    expect(f.notes.map((n) => n.kind)).toEqual(['start', 'step', 'step', 'end']);
     expect(f.paid).toEqual([{ goods: { coin: 8, food: 10 } }]);
   }, 60_000);
+
+  it('W-208 ambush: he throws down a share: no blow, no band', () => {
+    const f = field(3);
+    f.run.fire(f.sim.snapshot(), ENCOUNTERS.ambush);
+    const o = f.run.save.open!;
+    expect(f.run.choose(f.sim.snapshot(), 'drop')!.map((n) => n.kind)).toEqual(['step', 'end']);
+    f.stepFor(40, () => f.run.save.open === null);
+    expect(f.sim.snapshot().lairs?.some((l) => Math.hypot(l.x - o.x, l.y - o.y) < 0.5)).toBeFalsy();
+  }, 60_000);
+
+  it('W-208 no rolled kind opens on a fight inside a foe\'s aggro: he has a word, or the road to walk on', () => {
+    const aggro = Math.max(...MOB_KINDS.filter((k) => !MOBS[k].passive).map((k) => MOBS[k].aggro));
+    for (const d of Object.values(ENCOUNTERS)) {
+      if (d.steps[0].trigger.kind === 'clear') expect(d.near?.[0] ?? ENC.far[0], d.id).toBeGreaterThan(aggro);
+    }
+  });
 
   it('deserter: reach him, bind his wound: his soul waits beside your men', () => {
     const f = field(4);
