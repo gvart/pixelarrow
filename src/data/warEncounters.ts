@@ -10,7 +10,28 @@
  */
 import type { EncounterDef } from '../war/sim/encounters';
 
+/**
+ * W-197 robbers watch the roads for a laden train. Each border crossed with at least `minLoads` of goods (a man's own food is not
+ * worth a robber's while; coin is) has this chance of them waiting just inside it. They name their price before they draw: pay
+ * `toll` of all he carries, or fight them. No answer in time is a fight. `count`: their blades (the runner adds by depth).
+ */
+export const ROBBERS = { id: 'robbers', minLoads: 2, chance: 0.35, toll: 0.15, count: 2 } as const;
+
 const LIST: EncounterDef[] = [
+  {
+    id: ROBBERS.id, title: 'Robbers on the Road', weight: 1, road: true, near: [7, 10],
+    lore: 'Somebody counted your carts at the last town. They have been waiting where the road bends, and they know what you carry.',
+    end: 'The ones who can still run have run. Your load rolls on, and their purse with it.',
+    steps: [
+      {
+        id: 'demand', goal: 'Pay the robbers or fight', label: 'Robbers', text: 'They stand across the road and name their price: a share of the load.', unanswered: 'fight', trigger: { kind: 'choice', options: [
+          { id: 'pay', label: 'Hand over a share', text: 'They count it, grin and let you by.', toll: ROBBERS.toll },
+          { id: 'fight', label: 'Stand by the load', text: 'Guards to the carts.', next: 'fight' },
+        ] },
+      },
+      { id: 'fight', goal: 'Beat off the robbers', label: 'Robbers', text: 'They are after the carts. Stand by the load.', trigger: { kind: 'clear', mob: 'bandit', count: ROBBERS.count }, reward: { goods: { coin: 20 } } },
+    ],
+  },
   {
     id: 'ambush', title: 'Ambush!', weight: 3, near: [6, 8],
     lore: 'The reeds part and bronze glints. Men who walked too near the rim spring from cover, mist in their eyes, hungry for your packs.',

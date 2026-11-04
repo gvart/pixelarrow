@@ -379,3 +379,15 @@ describe('W-67 track and rescue played on the sim', () => {
     expect(f.run.save.open?.step).toBe('free');
   }, 60_000);
 });
+
+describe('W-197 what only the road sets off', () => {
+  it('is never drawn by the walking roll', () => {
+    const road = Object.values(ENCOUNTERS).filter((d) => d.road).map((d) => d.id);
+    expect(road.length).toBeGreaterThan(0);
+    for (let k = 0; k < 400; k++) {
+      const run = new EncounterRun(R, ENCOUNTERS, { v: 1, n: k, travel: 0, next: 1, open: null }, { team: 0, owner: 'p:1' }, none);
+      const notes = run.tick(snap(0, 100, 100));
+      for (const n of notes) if (n.kind === 'start') expect(road).not.toContain(n.enc);
+    }
+  });
+});

@@ -16,7 +16,7 @@ import { BOARD } from '../data/warTownBoard';
 import { NPC, NPC_CARTS } from '../data/warNpcTowns';
 import { perkFx } from '../data/warPerks';
 import { FAVOUR_EARN, FAVOUR_XP, favourLevel, HOUR_CAP } from '../war/net/favour';
-import { costOf, npcGoods, npcSpot, payFor, purseAfter, stockAfter, type NpcGoodRule } from '../war/net/npcMarket';
+import { costOf, npcGoods, npcSpot, npcSwings, offerRule, payFor, purseAfter, stockAfter, type NpcGoodRule } from '../war/net/npcMarket';
 import { armyStrength, bandStrength, heatAfter, quotePay, ratingOf } from '../war/net/townBoard';
 import { createSim } from '../war/sim';
 import { warStats } from '../war/sim/classes';
@@ -328,6 +328,65 @@ export function traderRun(grown: boolean): PathRow {
   };
 }
 
+/**
+ * W-198 what a cart is worth: this many handcarts from the start, none bought, 8 h, going each time to whichever town a road away
+ * pays best for what he can buy, by W-196's shortages and gluts. On one road a market takes about 3 loads a trip whatever he
+ * brings (`traderRun`'s flat rows): more carts pay only for a trader who goes where the price is.
+ */
+export function traderRoads(carts: number): PathRow {
+  const towns = new Map<string, ReturnType<typeof market>>(), of = (t: string) => towns.get(t) ?? (towns.set(t, market(t)), towns.get(t)!);
+  const T0 = Date.UTC(2031, 0, 6, 8), road = 14 * 60_000, room = carts * CART_LOADS.handcart;
+  let here = of(HOME), now = 0, coin = 300, sold = 0, trips = 0, loads = 0;
+  const rule = (m: ReturnType<typeof market>, res: string) => offerRule(m.town, { res: res as NpcGoodRule['res'], swing: npcSwings(m.town, T0 + now).find((w) => w.res === res)?.kind })!;
+  while (now < ROAD_HOURS * HOUR) {
+    let best: { to: ReturnType<typeof market>; plan: { res: string; n: number; cost: number }[]; net: number } | null = null;
+    here.go(now);
+    for (const id of [...worldRegion(here.town)!.adj].sort()) {
+      const to = of(id), plan: { res: string; n: number; cost: number }[] = [];
+      to.go(now);
+      let left = room, spent = 0, net = 0;
+      for (;;) {
+        let top: { res: string; n: number; cost: number; net: number } | null = null;
+        for (const [res, s] of here.goods) {
+          const o = to.goods.get(res);
+          if (!o || plan.some((p) => p.res === res)) continue;
+          for (let n = CARRY; n <= left * CARRY && n <= s.stock; n += CARRY) {
+            const cost = costOf(rule(here, res), s.stock, n), gain = payFor(rule(to, res), o.stock, n, to.purse) - cost;
+            if (cost > coin - spent) break;
+            if (gain > (top?.net ?? 0)) top = { res, n, cost, net: gain };
+          }
+        }
+        if (!top) break;
+        plan.push(top);
+        spent += top.cost;
+        net += top.net;
+        left -= top.n / CARRY;
+      }
+      if (net > (best?.net ?? 0)) best = { to, plan, net };
+    }
+    const to = best?.to ?? of([...worldRegion(here.town)!.adj].sort()[trips % worldRegion(here.town)!.adj.length]);
+    for (const p of best?.plan ?? []) {
+      coin -= p.cost;
+      here.goods.get(p.res)!.stock -= p.n;
+      here.pay(-p.cost);
+    }
+    now += road;
+    to.go(now);
+    for (const p of best?.plan ?? []) {
+      const o = to.goods.get(p.res)!, pay = payFor(rule(to, p.res), o.stock, p.n, to.purse);
+      coin += pay;
+      sold += pay;
+      o.stock += p.n;
+      to.pay(pay);
+      loads += p.n / CARRY;
+    }
+    trips++;
+    here = to;
+  }
+  const h = now / HOUR;
+  return { path: 'trader', setup: `${carts} cart${carts > 1 ? 's' : ''}, going where it pays`, level: 1, pts: ((sold * FAVOUR_EARN.sold) + loads * FAVOUR_EARN.carried) / h, coin: (coin - 300) / h, line: `${trips} trips, ${(loads / trips).toFixed(1)} loads a trip of ${room}; market alone, coin/h is profit` };
+}
+
 /** Every path, at the start and grown. */
 export function pathRows(): PathRow[] {
   return [
@@ -339,6 +398,7 @@ export function pathRows(): PathRow[] {
     builderBoard(true),
     traderRun(false),
     traderRun(true),
+    ...[1, 2, 4].map(traderRoads),
   ];
 }
 

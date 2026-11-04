@@ -6,13 +6,22 @@
  * pays with his save into its storage (`encounter:<season>:<pid>`). A quiet save (the cooldown's progress) goes too.
  */
 import type { ServerMsg } from '../../../src/war/net/protocol';
-import { ENCOUNTERS } from '../../../src/data/warEncounters';
+import { ENCOUNTERS, ROBBERS } from '../../../src/data/warEncounters';
+import { hashString, Rng } from '../../../src/sim/rng';
+import { perLoad } from '../../../src/war/sim/holders';
 import { storyOf } from '../../../src/data/warStories';
 import { EncounterRun, type EncHost, type EncNote, type EncSave } from '../../../src/war/sim/encounters';
 import type { RegionData, Snapshot, WarBuildSim, WarEvent } from '../../../src/war/types';
+import { tollOf, type Slot } from './cargo';
 
 /** DO storage key of a player's encounter save in this region (per season). */
 export const encounterStorageKey = (season: number | string, pid: number) => `encounter:${season}:${pid}`;
+
+/** W-197: the loads of goods that crossed the border with him: what a robber would come for. A man's own food is not. */
+export function ladenLoads(cargo: { packs: Readonly<Record<string, { lots: readonly { r: string; n: number }[] }>>; carts?: readonly { lots: readonly { r: string; n: number }[] }[] } | undefined): number {
+  const lots = [...Object.values(cargo?.packs ?? {}), ...(cargo?.carts ?? [])].flatMap((h) => h.lots);
+  return lots.filter((l) => l.r !== 'food' && l.r !== 'ration').reduce((a, l) => a + l.n / perLoad(l.r as never), 0);
+}
 
 /** A run moved: the DO stores `save` and pays `goods` into his home strongroom. */
 export interface EncounterDone { pid: number; save: EncSave; goods: Record<string, number>; notes?: EncNote[] }
@@ -20,6 +29,8 @@ export interface EncounterDone { pid: number; save: EncSave; goods: Record<strin
 export class RoomEncounters {
   private runs = new Map<number, { run: EncounterRun; goods: Record<string, number> }>();
   private moved: { pid: number; notes: EncNote[] }[] = [];
+  /** W-197: robbers waiting for him: they spring once his run is going and his men have come in. */
+  private waiting = new Set<number>();
 
   constructor(private readonly region: RegionData, private readonly sim: WarBuildSim, private readonly seed = 1) {}
 
@@ -40,10 +51,21 @@ export class RoomEncounters {
         if (item) this.sim.dropPile(at.x, at.y, [], [item]);
         if (r.soul) this.sim.spawnSoul(at.x + 1, at.y, r.soul.cls, r.soul.level, 'lair');
       },
+      toll: (share) => {
+        const snap = this.sim.snapshot(), me = `p:${pid}`, slots: Slot[] = [];
+        for (const q of snap.squads) if (q.owner === me) slots.push(...(this.sim.cargo({ squad: q.id })?.slots ?? []));
+        for (const c of snap.sieges ?? []) if (c.owner === me) slots.push(...(this.sim.cargo({ cart: c.id })?.slots ?? []));
+        tollOf(slots, share);
+      },
     };
     const run = new EncounterRun(this.region, ENCOUNTERS, save, { team, owner: `p:${pid}`, seed: this.seed }, host, storyOf(this.region.id));
     this.runs.set(pid, { run, goods });
     return RoomEncounters.msg(run.save);
+  }
+
+  /** W-197: he came over the border with `loads` of goods; `key` seeds the roll (the crossing). Do robbers wait for him? */
+  road(pid: number, loads: number, key: string): void {
+    if (loads >= ROBBERS.minLoads && new Rng(hashString(`robbers:${this.seed}:${pid}:${key}`) || 1).chance(ROBBERS.chance)) this.waiting.add(pid);
   }
 
   /** He chose at the open encounter's choice (an unknown option or none open: nothing). */
@@ -55,6 +77,12 @@ export class RoomEncounters {
   /** After a step: the runs that moved or owe a quiet save (the DO stores and pays them) and the messages to tell. */
   tick(snap: Snapshot, evs: readonly WarEvent[]): { done: EncounterDone[]; msgs: [number, ServerMsg][] } {
     const done: EncounterDone[] = [], msgs: [number, ServerMsg][] = [];
+    for (const pid of this.waiting) {
+      const r = this.runs.get(pid);
+      if (!r) continue; // his run starts as he rejoins here: the robbers are patient
+      this.waiting.delete(pid);
+      if (!r.run.save.open) this.moved.push({ pid, notes: r.run.fire(snap, ENCOUNTERS[ROBBERS.id]) });
+    }
     for (const [pid, r] of this.runs) {
       const notes = r.run.tick(snap, evs);
       if (notes.length) this.moved.push({ pid, notes });
@@ -71,6 +99,11 @@ export class RoomEncounters {
     }
     this.moved = [];
     return { done, msgs };
+  }
+
+  /** Is anyone waiting for him (tests)? */
+  waitingFor(pid: number): boolean {
+    return this.waiting.has(pid);
   }
 
   /** Players with a run (tests). */

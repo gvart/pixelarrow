@@ -38,5 +38,6 @@
  * 15: crew-walk (W-182): a fixed squad takes a waypoint only where the next one can be walked to, no crew point over a
  *    cliff from its cart (clients on 14 reload).
  * 16: town-boards (W-194): the sim's tend call, hurt men getting well at a town on the room's word (clients on 15 reload).
+ * 17: paths-pacing (W-197): road encounters, robbers with a toll or a fight (clients on 16 reload).
  */
-export const SIM_VERSION = 16;
+export const SIM_VERSION = 17;

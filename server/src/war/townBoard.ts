@@ -190,6 +190,7 @@ export async function boardWatch(env: Pick<Env, 'DB'>, room: WarRoom): Promise<v
   const rows = (await db.prepare("SELECT * FROM war_town_jobs WHERE town = ?1 AND state = 'taken' AND kind IN ('kill', 'build') ORDER BY id").bind(town).all<JobRow>()).results;
   room.setTownJobs(rows.filter((r) => r.kind === 'build').map((r) => ({ id: r.id, pid: r.player_id, x: r.x!, y: r.y! })));
   for (const r of rows) {
+    room.noteTownBand(r.kind === 'kill' ? r.target : null);
     if (r.kind !== 'kill' || !r.band || room.townBandStands(r.target)) continue;
     const b = room.townBand(JSON.parse(r.band) as Band, `${r.player_id}:${r.entry}:${r.id}`);
     await db.prepare("UPDATE war_town_jobs SET target = ?2, x = ?3, y = ?4 WHERE id = ?1 AND state = 'taken'").bind(r.id, b.lair, b.x, b.y).run();

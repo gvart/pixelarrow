@@ -9,7 +9,7 @@ import { api, devLogin } from '../helpers';
 import { good, setGood } from './goods';
 import { NPC, NPC_CARTS, NPC_HIRE } from '../../../src/data/warNpcTowns';
 import { NET_VERSION } from '../../../src/war/net/protocol';
-import { midPrice, npcDay, npcGood, npcSpot, NPC_MINT } from '../../../src/war/net/npcMarket';
+import { midPrice, npcDay, npcGood, npcSpot, npcSwings, NPC_MINT, offerRule, payFor } from '../../../src/war/net/npcMarket';
 import { cartCap, workerCap, type PathId } from '../../../src/war/world/start';
 import { getFavour } from '../../src/war/favour';
 import { goodsOf } from '../../src/war/holders';
@@ -59,6 +59,47 @@ const give = (room: WarRoom, pid: number, squad: number, res: string, n: number,
 
 beforeEach(async () => {
   await DB().batch([DB().prepare('DELETE FROM war_npc_towns'), DB().prepare('DELETE FROM war_npc_stock')]);
+});
+
+describe('W-196 a town short of a good, or with a glut of it', () => {
+  /** The first time from NOW this town has a trouble of this kind. */
+  const when = (kind: 'short' | 'glut') => {
+    for (let h = 0; h < 200; h++) {
+      const now = NOW + h * 3_600_000, s = npcSwings(HOME, now).find((x) => x.kind === kind);
+      if (s) return { now, res: s.res };
+    }
+    throw new Error(`no ${kind}`);
+  };
+
+  it('a short good sells dear and the town says so; the coin still comes out of its purse', async () => {
+    const t = await player(9690, 'trader'), { now, res } = when('short'), g = npcGood(HOME, res)!;
+    walkToTown(t.room, t.pid, t.squad);
+    await setGood(t.pid, 'coin', 0);
+    const v = await npcView(DB(), HOME, now), row = v.goods.find((x) => x.res === res)!;
+    expect(row.swing).toBe('short');
+    expect(offerRule(HOME, row)!.base).toBeCloseTo(g.base * NPC.swing.short, 6);
+    give(t.room, t.pid, t.squad, res, 10);
+    const d = (await npcDeal(env, t.room, t.pid, { op: 'sell', res, n: 10 }, now)).done;
+    expect(d.coin).toBeGreaterThan(payFor(g, g.par, 10, v.purse));
+    expect((await npcView(DB(), HOME, now)).purse).toBe(Math.floor(v.purse - d.coin));
+  });
+
+  it('a glut buys cheap, and it is over when its time is', async () => {
+    const t = await player(9691, 'trader'), { now, res } = when('glut'), g = npcGood(HOME, res)!;
+    walkToTown(t.room, t.pid, t.squad);
+    await setGood(t.pid, 'coin', 500);
+    const v = await npcView(DB(), HOME, now), row = v.goods.find((x) => x.res === res)!;
+    expect(row.swing).toBe('glut');
+    expect(row.ask).toBeLessThan(midPrice(g, g.par));
+    const until = npcSwings(HOME, now).find((s) => s.res === res)!.until;
+    expect(npcSwings(HOME, until).find((s) => s.res === res && s.until === until)).toBeUndefined();
+  });
+
+  it('with word from the towns a road away', async () => {
+    const v = await npcView(DB(), HOME, when('short').now);
+    for (const w of v.news ?? []) expect(w.town).not.toBe(HOME);
+    expect(Array.isArray(v.news)).toBe(true);
+  });
 });
 
 describe('a deal needs someone standing at the town', () => {

@@ -74,7 +74,7 @@ import { HUNGER } from '../../../src/war/sim/food';
 import { RoomGuide, type GuideDone } from './guide';
 import type { GuideSave } from '../../../src/war/net/guide';
 import { RoomStories, type StoryDone } from './stories';
-import { RoomEncounters, type EncounterDone } from './encounters';
+import { ladenLoads, RoomEncounters, type EncounterDone } from './encounters';
 import type { EncSave } from '../../../src/war/sim/encounters';
 import type { StorySave } from '../../../src/war/sim/stories';
 import { atTownWork, LABOUR_EVERY, WORK_R, workSite, type WorkId } from '../../../src/war/net/works';
@@ -684,6 +684,7 @@ export class WarRoom {
       const c = this.sim.spawnCart(team, ownerOf(pid), cart.type, x, y, i === 0 ? squad : undefined);
       fill(this.sim.cargo({ cart: c })!.slots.map((s) => ({ ...s, cap: Infinity })), cart as Bundle);
     });
+    this.encounters.road(pid, ladenLoads(cargo), `${this.region.id}:${side}:${this.currentTick}`); // W-197
     this.snap = this.sim.snapshot(); // a muster or a haul's next leg may come before a tick
     const online = this.players.get(pid)!.online;
     if (!online) {
@@ -1270,6 +1271,7 @@ export class WarRoom {
     this.guards = list.slice();
   }
 
+  private townBands = new Set<number>();
   /** W-185: the taken Build contracts of this town (the DO polls D1; a take adds at once). */
   setTownJobs(list: readonly { id: number; pid: number; x: number; y: number }[]): void {
     this.townJobs = list.slice();
@@ -1297,8 +1299,17 @@ export class WarRoom {
 
   /** W-185: a Kill's band: set down where it fights alone, on ground walkable from the town (the lair stays if he drops it). */
   townBand(b: Band, seed: string): { lair: number; x: number; y: number } {
-    const at = this.bandSpot(seed);
-    return { lair: this.sim.addLair({ kind: b.kind, x: at.x, y: at.y, count: b.count, ...(b.lead ? { lead: true as const } : {}), ...(b.chief ? { chief: b.chief } : {}) }), ...at };
+    const at = this.bandSpot(seed), lair = this.sim.addLair({ kind: b.kind, x: at.x, y: at.y, count: b.count, ...(b.lead ? { lead: true as const } : {}), ...(b.chief ? { chief: b.chief } : {}) });
+    this.townBands.add(lair);
+    return { lair, ...at };
+  }
+  /** W-195: a band a contract asked for: the contract is its pay, so its fall earns no lair's favour on top. */
+  townBandIs(lair: number): boolean {
+    return this.townBands.has(lair);
+  }
+  /** W-195: a taken Kill's band after a restart (the DO's poll). */
+  noteTownBand(lair: number | null): void {
+    if (lair !== null) this.townBands.add(lair);
   }
   /** W-185: is that band still on its feet? */
   townBandStands(lair: number | null): boolean {

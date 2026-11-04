@@ -45,6 +45,8 @@ export interface EncOption {
   risk?: { chance: number; text: string; next: string };
   /** The step after (default: the encounter ends). */
   next?: string;
+  /** W-197: he hands over this share of everything his men and carts carry. */
+  toll?: number;
 }
 
 export interface EncStep {
@@ -59,6 +61,8 @@ export interface EncStep {
   reward?: StoryReward;
   /** The step after (default: the next in the list; 'end': it ends). */
   next?: string;
+  /** W-197: no answer in time: on to this step instead of the moment passing. */
+  unanswered?: string;
 }
 
 export interface EncounterDef {
@@ -79,6 +83,8 @@ export interface EncounterDef {
   biomes?: readonly string[];
   /** Only in regions with a lair of one of these kinds (a lion where lions den). */
   beasts?: readonly MobKind[];
+  /** W-197: it never comes by the roll: the road sets it off on a laden train (server/src/war/encounters.ts `road`). */
+  road?: true;
   /** It springs this near his squad (tiles; default ENC.far). */
   near?: readonly [number, number];
   /** Who waits at the spot, painted by the page only (no sim unit): a sheet and how many; `shade`: a ghost (the W-60 soul look). */
@@ -135,6 +141,8 @@ export interface EncHost {
   addLair(d: { kind: MobKind; x: number; y: number; count: number }): void;
   spawnSoul(x: number, y: number, cls: string, level: number): void;
   give(reward: StoryReward, at: { x: number; y: number }, item: Item | null): void;
+  /** W-197: this share of all he carries is gone. */
+  toll?(share: number): void;
 }
 
 export interface EncMe {
@@ -245,7 +253,7 @@ export class EncounterRun {
 
   /** The kinds that can happen here now. */
   private choices(s: Snapshot): EncounterDef[] {
-    return Object.values(this.defs).filter((d) => this.fits.has(d.id) && (d.id !== this.save.last || Object.keys(this.defs).length < 2)
+    return Object.values(this.defs).filter((d) => this.fits.has(d.id) && !d.road && (d.id !== this.save.last || Object.keys(this.defs).length < 2)
       && (d.needs !== 'story' || !!this.giver) && (d.needs !== 'lair' || (s.lairs ?? []).some((l) => l.state !== 'cleared')) && (d.needs !== 'town' || this.towns.length > 0));
   }
 
@@ -298,9 +306,11 @@ export class EncounterRun {
     const p = snapOpen(this.region, [Math.max(2, Math.min(w - 3, x)), Math.max(2, Math.min(h - 3, y))]);
     this.save.open = { id: def.id, step: def.steps[0].id, x: p.x, y: p.y, tx: p.x, ty: p.y, since: s.tick };
     this.save.last = def.id;
-    this.save.travel = 0;
     this.save.n++;
-    this.save.next = coolOf(rngOf(this.key('cool', this.save.n)));
+    if (!def.road) { // W-197: robbers on the road are no part of the walking roll's clock
+      this.save.travel = 0;
+      this.save.next = coolOf(rngOf(this.key('cool', this.save.n)));
+    }
     this.open(s, def.steps[0]);
     notes.push({ kind: 'start', enc: def.id });
     return notes;
@@ -388,6 +398,10 @@ export class EncounterRun {
       }
       // the moment passes: too long, or his men gone far (a guide is followed: only the clock)
       const far = !men.length || (!o.with && !men.some((u) => Math.hypot(u.x - o.tx, u.y - o.ty) < ENC.leave && Math.hypot(u.x - o.x, u.y - o.y) < ENC.leave));
+      if (st.unanswered && !far && s.tick - o.since > ENC.lapse) {
+        this.advance(s, def, st, st.unanswered, notes);
+        return notes;
+      }
       if (s.tick - o.since > ENC.lapse * (t.kind === 'guide' ? 3 : 1) || far) {
         this.save.open = null;
         notes.push({ kind: 'lapse', enc: def.id });
@@ -418,6 +432,7 @@ export class EncounterRun {
       this.advance(s, def, st, opt.risk.next, notes);
       return notes;
     }
+    if (opt.toll) this.host.toll?.(opt.toll);
     this.pay(s, `${st.id}:${opt.id}`, opt.reward);
     notes.push({ kind: 'step', enc: def.id, step: st.id, option: opt.id, ...(opt.reward ? { reward: opt.reward } : {}) });
     this.advance(s, def, st, opt.next ?? 'end', notes);

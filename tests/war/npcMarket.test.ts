@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { NPC, NPC_BASE, NPC_ROLE_GOODS, type NpcGood } from '../../src/data/warNpcTowns';
-import { buyable, costOf, midPrice, NPC_MINT, npcGood, npcGoods, npcOffer, npcSpot, payFor, purseAfter, sellable, stockAfter, type NpcGoodRule } from '../../src/war/net/npcMarket';
+import { buyable, costOf, midPrice, NPC_MINT, npcGood, npcGoods, npcNews, npcOffer, npcRuleNow, npcSpot, npcSwings, offerRule, payFor, purseAfter, sellable, stockAfter, type NpcGoodRule } from '../../src/war/net/npcMarket';
 import { parseRegion } from '../../src/war/region/schema';
 import { buildGrid, findPath, tileAt } from '../../src/war/sim/grid';
 import { edge, hops } from '../../src/war/world/graph';
@@ -231,6 +231,57 @@ describe('W-181 a route fades, a longer one pays better', () => {
     };
     for (const r of WORLD_REGIONS.filter((x) => x.role === 'home')) {
       expect(Math.max(best(r.id, 2), best(r.id, 3)), r.id).toBeGreaterThan(best(r.id, 1));
+    }
+  });
+});
+
+describe('W-196 towns have their own troubles', () => {
+  const HOUR = 3_600_000, T0 = Date.UTC(2031, 0, 6, 8), ms = NPC.swing.hours * HOUR, IDS = WORLD_REGIONS.map((r) => r.id);
+  const hoursOf = (n: number) => Array.from({ length: n }, (_, i) => T0 + i * HOUR);
+
+  it('the same town at the same time reads the same; each lasts its stretch and ends', () => {
+    for (const t of IDS) expect(npcSwings(t, T0)).toEqual(npcSwings(t, T0));
+    for (const t of IDS) for (const s of npcSwings(t, T0)) {
+      expect(s.until).toBeGreaterThan(T0);
+      expect(s.until - T0).toBeLessThanOrEqual(ms);
+      expect(npcSwings(t, s.until - 1)).toEqual(npcSwings(t, T0));
+      expect(npcGood(t, s.res)).not.toBeNull();
+    }
+  });
+
+  it('a short good costs and pays more, a glut less; a good in neither moves not at all', () => {
+    let short = 0, glut = 0;
+    for (const t of IDS) for (const now of hoursOf(72)) {
+      const swings = npcSwings(t, now);
+      for (const g of npcGoods(t)) {
+        const s = swings.find((x) => x.res === g.res), base = npcRuleNow(t, g.res, now)!.base;
+        expect(base).toBeCloseTo(g.base * (s?.kind === 'short' ? NPC.swing.short : s?.kind === 'glut' ? NPC.swing.glut : 1), 6);
+        if (s?.kind === 'short') short++;
+        if (s?.kind === 'glut') glut++;
+      }
+      expect(new Set(swings.map((x) => x.res)).size).toBe(swings.length); // never short of and glutted with the same good
+    }
+    expect(short).toBeGreaterThan(0);
+    expect(glut).toBeGreaterThan(0);
+  });
+
+  it('towns keep their own clocks: their troubles do not all turn over at once', () => {
+    expect(new Set(IDS.flatMap((t) => npcSwings(t, T0).map((s) => s.until))).size).toBeGreaterThan(3);
+  });
+
+  it('word from a road away is there nearly always, wherever he stands', () => {
+    for (const t of IDS) {
+      const heard = hoursOf(48).filter((now) => npcNews(t, now).length > 0).length;
+      expect(heard, t).toBeGreaterThanOrEqual(24);
+      for (const s of npcNews(t, T0)) expect(hops(t, s.town)).toBe(1);
+    }
+  });
+
+  it('what the card shows is priced by the rule the deal uses', () => {
+    for (const t of IDS) for (const s of npcSwings(t, T0)) {
+      const rule = npcRuleNow(t, s.res, T0)!, shown = npcOffer(npcGood(t, s.res)!, rule.par, Infinity, s.kind);
+      expect(offerRule(t, shown)!.base).toBeCloseTo(rule.base, 6);
+      expect(shown.ask).toBeCloseTo(midPrice(rule, rule.par) * (1 + NPC.price.edge), 1);
     }
   });
 });
