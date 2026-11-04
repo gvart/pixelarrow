@@ -1,0 +1,20 @@
+scripts/war/play.mjs
+  s_a7d5d20f628c80::t_5fbfebe184ca4b 10-12
+  s_a7d5d20f628c80::t_69fe55b2e4a6e2 83,92
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "9527b4c5db2004c25afc32af59b36d232b03e0ed",
+  "prompts": {},
+  "sessions": {
+    "s_a7d5d20f628c80": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1afee479-b44b-46d2-a159-a540e44e7fb8",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
