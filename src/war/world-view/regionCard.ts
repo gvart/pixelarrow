@@ -54,7 +54,7 @@ const GOOD_NAME: Record<string, string> = { food: 'Food', wood: 'Wood', stone: '
 const GOOD_ICON = new Set(['food', 'wood', 'stone', 'iron', 'copper', 'tin', 'silver', 'marble', 'salt', 'oil', 'pitch', 'herbs', 'hides', 'olives', 'flax', 'charcoal', 'bronze', 'leather', 'linen', 'coin']);
 const AMOUNT = ['', 'some', 'plenty', 'rich'];
 /** Danger by depth 0..4 (src/war/sim/depth.ts): the word and what it means. */
-export const DANGER = ['Safe', 'Low', 'Moderate', 'High', 'Deadly'] as const;
+export const DANGER = ['Weak beasts', 'Low', 'Moderate', 'High', 'Deadly'] as const;
 const DANGER_TIP = 'How far from the living halls. Deeper: tougher beasts and lairs, slower claims, richer resource nodes.';
 
 const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');

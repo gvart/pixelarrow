@@ -33,8 +33,8 @@ describe('world map region card', () => {
   });
 
   it('shows danger on a scale with a word', () => {
-    expect(DANGER).toEqual(['Safe', 'Low', 'Moderate', 'High', 'Deadly']);
-    expect(text(regionCardHtml('dodona', ctx({ region: region('dodona', 0) })))).toContain('Safe');
+    expect(DANGER).toEqual(['Weak beasts', 'Low', 'Moderate', 'High', 'Deadly']);
+    expect(text(regionCardHtml('dodona', ctx({ region: region('dodona', 0) })))).toContain('Weak beasts');
   });
 
   it('hides troops in the fog and says why', () => {

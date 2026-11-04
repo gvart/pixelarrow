@@ -97,19 +97,19 @@ export const GUIDE_LORE: Record<GuideStepId, StepLore> = {
     goal: 'Load goods on your handcart',
     key: 'rmb',
     story: 'A cart with nothing on it is a slow way to walk. Cut wood or buy what the town has too much of. It is worth more over the border.',
-    where: 'Gather into a store and right-click the store to load, or buy at the town with your men beside the cart.',
+    where: 'Select the men on the cart and right-click a tree: they cut wood onto the cart and take it up again when it is full. Or buy at a town with the cart beside you.',
   },
   carry: {
     goal: 'Carry your goods to {abroad}',
     key: 'rmb',
-    story: 'Goods are worth most where they are scarce. Everyone you own goes with you, and the road is safe until you arrive.',
-    where: 'Open the world map, click your men, then {abroad}. Walk to its town on arrival.',
+    story: 'Goods are worth most where they are scarce. Everyone you own goes with you, and nothing touches you on the road itself. Robbers and beasts wait where it ends.',
+    where: 'Press Shift+W, then World screen. Click your men, then {abroad}, and March. The road starts where they stand. On arrival drive to its town along the road.',
   },
   sell: {
     goal: 'Sell your goods at the town',
     key: 'K',
     story: 'A far town pays more, and less with every load you sell it. Watch where the price stops being worth the road.',
-    where: 'With your men at the town, press K and sell what you carried in. The town pays only from its purse.',
+    where: 'With your men and cart at the town, press K, pick what you carried and Sell. The coin goes into your men\'s packs. The town pays only from its purse.',
   },
   hire: {
     goal: 'Hire a hand or a cart',

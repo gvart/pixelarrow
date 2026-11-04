@@ -17,7 +17,7 @@
  * reach, at most one height level apart and no cliff between (see `reachable`); a foe across a cliff is
  * gone round by the squad path. A unit shows 'attack' only while it strikes in reach or shoots in range.
  *
- * Economy and building (M2a, ./works.ts): a squad on a gather or build order does not fight; its units work one by one
+ * Economy and building (M2a, ./works.ts): a squad on a gather or build order fights only once struck (W-218); its units work one by one
  * (harvest, carry, fetch, labour) and take WORK_DEFENCE more damage without blocking. Path searches and gates go by
  * the mover's team (grid.team).
  *

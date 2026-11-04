@@ -25,6 +25,7 @@
  *   ground                                            move
  */
 import { BUILDINGS } from '../sim/economy';
+import { CART } from '../sim/trade';
 import { FORT } from '../sim/works';
 import type { BuildingSnap, SquadId, SquadSnap } from '../types';
 import { isSite } from './build/buildMode';
@@ -213,11 +214,29 @@ export class Interact {
     const so = soulAt(s, t.x, t.y);
     if (so) return [act(`claim soul (${SandboxRoster.className(so.cls).toLowerCase()} L${so.level})`, 'act-assign', so, 0x9fd4ff, () => claimSoul(s, own[0], so), claimWhy(s, so)), move];
 
+    /** A tree or the like under the pointer. W-215: with his cart in reach (crewed or not) the wood goes onto it; else to the nearest store. */
+    const gatherOption = (): Option | null => {
+      const n = s.build.hover;
+      if (!n || n.guarded || n.amount < 1) return null;
+      const cartOf = (q: SquadId) => {
+        const owner = s.sim.squads.get(q)?.owner;
+        return (s.sim.cur?.sieges ?? []).find((e) => e.owner !== undefined && e.owner === owner && (e.type === 'handcart' || e.type === 'wagon') && Math.hypot(e.x - n.x, e.y - n.y) <= CART.gatherR)?.id;
+      };
+      const onCart = own.some((q) => cartOf(q) !== undefined);
+      // every man selected, his hands too; the card's own line says what they do then
+      const all = [...new Set([...own, ...s.sel.men().map((d) => d.u.squad as SquadId)])].filter((q) => s.sim.squads.get(q)?.team === myTeam());
+      const o = act(onCart ? `cut ${n.res} onto the cart` : `gather ${n.res}`, 'act-gather', n, 0xffe070, () => { for (const squad of all) { const cart = cartOf(squad); s.sim.order({ kind: 'gather', squad, node: n.id, ...(cart !== undefined ? { cart } : {}) }); } });
+      return { ...o, run: () => { o.run(); sc.status = ''; } };
+    };
+
     // M6k trade (./trade/tradeControls.ts): own carts, loot piles, chests
     const th = s.trade.at(t);
     if (th && th.kind !== 'store' && !(th.kind === 'cart' && th.team !== myTeam()) && !(th.kind === 'chest' && th.team !== myTeam())) {
       const o = s.trade.options(th, own, move);
       if (th.kind === 'cart') {
+        // a cart stands by a tree more often than not: the tree the pointer is on comes first, or he lets go of the cart by mistake
+        const cut = gatherOption();
+        if (cut) o.unshift(cut);
         const e = sc.engineAt(t, false);
         if (e?.burning) o.unshift(act(`extinguish ${th.name}`, 'act-extinguish', e, 0x60b0ff, () => order((squad) => ({ kind: 'extinguish', squad, siege: e.id }))));
       }
@@ -292,7 +311,8 @@ export class Interact {
     if (cp && cp.state === 'locked') return [{ ...move, label: 'move (claim locked: clear the lairs)' }];
     const n = s.build.hover;
     if (n?.guarded) return [{ ...move, label: `move (${n.res} guarded by a lair)` }];
-    if (n && n.amount >= 1) return [act(`gather ${n.res}`, 'act-gather', n, 0xffe070, () => order((squad) => ({ kind: 'gather', squad, node: n.id }))), move];
+    const cut = gatherOption();
+    if (cut) return [cut, move];
     return [move];
   }
 }

@@ -195,7 +195,7 @@ export function mountMarket(s: SandboxScene, mk: Mk): MarketHud {
   let msg = '', bad = false, toTop = false;
   const form = { pick: 'tin', dSide: 'buy' as 'buy' | 'sell', dn: 10, side: 'sell' as 'sell' | 'buy', res: 'tin', n: 10, price: 10, standing: false, stowRes: 'iron', stowN: 10, stowSite: 'stall' as 'stall' | 'warehouse', take: 5,
     cKind: 'carry' as ContractKind, cTo: 'stymphalia', cReward: 50, cRes: 'iron', cN: 20, cValue: 300, cLoads: 4, cHours: 24, lTo: 'stymphalia', lAmount: 200, lFee: 10, lId: 0,
-    cRegion: s.region.id, cSite: -1, cWork: 4, cMen: 6, cHold: 6, cTarget: '', nPick: 'wood', nN: 10, nHire: 'civ_forager', nCart: 'handcart' };
+    cRegion: s.region.id, cSite: -1, cWork: 4, cMen: 6, cHold: 6, cTarget: '', nPick: '', nN: 10, nHire: 'civ_forager', nCart: 'handcart' };
 
   // ---------- the windows ----------
   const win = mk('rfMarket', `top:4px;left:4px;width:${W}px;display:none;pointer-events:auto;padding:4px 8px 8px`);
@@ -343,10 +343,11 @@ export function mountMarket(s: SandboxScene, mk: Mk): MarketHud {
     }
     return out;
   };
+  let nPicked = ''; // what the deal row shows: his pick, else the first good he carries here
   const townTab = () => {
     if (!npc) return '<div class="rf-dim mk-none">Reading the town\'s prices…</div>';
-    const men = atTown(), have = carriedHere(), pick = npc.goods.find((g) => g.res === form.nPick) ?? npc.goods[0], rule = offerRule(T, pick)!;
-    form.nPick = pick.res;
+    const men = atTown(), have = carriedHere(), pick = npc.goods.find((g) => g.res === form.nPick) ?? npc.goods.find((g) => (have[g.res] ?? 0) > 0.05) ?? npc.goods.find((g) => g.res === nPicked) ?? npc.goods[0], rule = offerRule(T, pick)!;
+    nPicked = pick.res;
     const n = Math.max(1, Math.floor(form.nN) || 1), cost = costOf(rule, pick.stock, Math.min(n, pick.stock)), pay = Math.min(payFor(rule, pick.stock, n, npc.purse), npc.purse);
     // W-196: what has swung comes first, so the short list never hides it
     const rows = [...npc.goods].sort((a, b) => Number(!a.swing) - Number(!b.swing)).map((g) => `<div class="nt-g rf-row${g.res === pick.res ? ' on' : ''}" data-act="nPick" data-r="${g.res}" data-tip="${esc(`${goodCard(g.res)}<br><span class="rf-dim tip-w">${g.swing === 'short' ? 'The town has run short: it pays more for now. ' : g.swing === 'glut' ? 'The town has a glut: it sells cheap for now. ' : ''}The town holds ${fmt(g.stock)}: selling here lowers the price, buying raises it.</span>`)}">${gi(g.res)}<span class="nm">${goodName(g.res)}${g.swing ? ` <span class="nt-sw ${g.swing}">${g.swing}</span>` : ''}</span><span class="rf-num have${(have[g.res] ?? 0) > 0.05 ? '' : ' z'}">${fmt(have[g.res] ?? 0)}</span><span class="rf-num ask">${fmt(g.ask)}</span><span class="rf-num pay">${fmt(g.pay)}</span></div>`).join('');
@@ -355,7 +356,7 @@ export function mountMarket(s: SandboxScene, mk: Mk): MarketHud {
     const word = npc.news?.[0], more = (npc.news?.length ?? 0) - 1, news = word ? `<div class="nt-word" data-tip="${esc(`<b class="k">Word from the road</b><br>${npc.news!.map(said).join('<br>')}`)}">${glyph('ui:map', 16)}<span class="t">${said(word)}</span>${more > 0 ? `<span class="rf-dim">+${more}</span>` : ''}</div>` : '';
     const hire = `<select data-f="nHire" title="one of your own people from now on, up to your path's cap">${Object.entries(NPC_HIRE).map(([cls, c]) => `<option value="${cls}"${cls === form.nHire ? ' selected' : ''}>${HIRE_NAME[cls] ?? cls} · ${c} coin</option>`).join('')}</select>`;
     const carts = `<select data-f="nCart" title="rolls up beside your men, up to your path's cap">${(Object.keys(NPC_CARTS) as (keyof typeof NPC_CARTS)[]).map((c) => `<option value="${c}"${c === form.nCart ? ' selected' : ''}>${c === 'wagon' ? 'Wagon' : 'Handcart'} · ${NPC_CARTS[c]} coin</option>`).join('')}</select>`;
-    return `<div class="nt-top"><span data-tip="${esc('All the coin the town has to pay with: what buyers paid it and a small daily mint. An empty town buys nothing.')}">Purse <b class="rf-num">${npc.purse}</b> ${icon('res-coin')}</span><span class="rf-dim">your men here <b class="rf-num" style="color:var(--rf-ink)">${men}</b></span></div>
+    return `<div class="nt-top"><span data-tip="${esc('All the coin the town has to pay with: what buyers paid it and a small daily mint. An empty town buys nothing. It is the town\'s, not yours.')}">Town's purse <b class="rf-num">${npc.purse}</b> ${icon('res-coin')}</span><span class="rf-dim">your men here <b class="rf-num" style="color:var(--rf-ink)">${men}</b></span></div>
       <div class="nt-h"><i></i><i></i><span title="in your carts here">carts</span><span title="what you pay a unit">buy</span><span title="what you get a unit">sell</span></div>
       <div class="nt-list rf-scroll">${rows}</div>
       ${news}
@@ -498,7 +499,7 @@ export function mountMarket(s: SandboxScene, mk: Mk): MarketHud {
     const men = atTown(), v = jobBoard, full = v.jobs.length >= BOARD.hold, can = men > 0 && !full;
     const heldCards = v.jobs.map((j) => `<div class="bd-c">${heldCard(j, men)}</div>`).join('');
     const hint = !men ? 'Bring your men to the town to take a job' : full ? `You hold ${BOARD.hold}: finish or drop one` : '';
-    return `<div class="nt-top"><span data-tip="${esc('All the coin the town has to pay with: a poor town pays less.')}">Purse <b class="rf-num">${v.purse}</b> ${icon('res-coin')}</span><span class="rf-dim">your jobs <b class="rf-num" style="color:var(--rf-ink)">${v.jobs.length}</b> / ${BOARD.hold}</span></div>
+    return `<div class="nt-top"><span data-tip="${esc('All the coin the town has to pay with: a poor town pays less.')}">Town's purse <b class="rf-num">${v.purse}</b> ${icon('res-coin')}</span><span class="rf-dim">your jobs <b class="rf-num" style="color:var(--rf-ink)">${v.jobs.length}</b> / ${BOARD.hold}</span></div>
       <div class="bd-list">
         ${heldCards ? `<div class="bd-h">Your jobs</div>${heldCards}<div class="bd-h">On the board</div>` : ''}
         ${v.lines.filter((l) => !l.held).map((l) => `<div class="bd-c">${lineCard(l, can)}</div>`).join('')}
@@ -509,7 +510,7 @@ export function mountMarket(s: SandboxScene, mk: Mk): MarketHud {
   const render = () => {
     if (win.style.display === 'none') return;
     const scroll = win.scrollTop;
-    win.innerHTML = `<div class="rf-head rf-ph">${icon('node-merchant-trader', 32)}<div style="flex:1;min-width:0"><div class="rf-name">Market of ${worldName(T)}</div><div class="sub">${isTown || hasNpc ? '' : 'no market here · '}${M.live ? '' : 'offline · '}<span style="color:var(--rf-gold)">${Math.floor(s.sim.cur?.stock?.[myTeam()]?.coin ?? 0)}</span> coin at home</div></div>${btn('handoff', 'Trade in person', true, '', 'trade with a player standing here: each puts in his half, both confirm')}<button class="rf-tbtn x" data-act="close" title="close (K)">×</button></div>
+    win.innerHTML = `<div class="rf-head rf-ph">${icon('node-merchant-trader', 32)}<div style="flex:1;min-width:0"><div class="rf-name">Market of ${worldName(T)}</div><div class="sub">${isTown || hasNpc ? '' : 'no market here · '}${M.live ? '' : 'offline · '}<span style="color:var(--rf-gold)">${Math.floor(s.sim.cur?.stock?.[myTeam()]?.coin ?? 0)}</span> coin in your strongroom at home</div></div>${btn('handoff', 'Trade in person', true, '', 'trade with a player standing here: each puts in his half, both confirm')}<button class="rf-tbtn x" data-act="close" title="close (K)">×</button></div>
       <div class="mk-tabs">${TABS.map((t) => `<button class="rf-tab${t === tab ? ' on' : ''}" data-tab="${t}">${TAB_NAME[t]}</button>`).join('')}</div>
       <div class="mk-msg rf-dim${bad ? ' bad' : ''}">${msg}</div>${BODY[tab]()}`;
     win.scrollTop = toTop ? 0 : scroll; // what the server just said stays in sight
@@ -559,8 +560,8 @@ export function mountMarket(s: SandboxScene, mk: Mk): MarketHud {
     // the town (W-143): the numbers stand as read; the server's are the deal's
     if (a === 'nPick') { form.nPick = t.dataset.r!; render(); return; }
     if (a === 'nStep') { form.nN = Math.max(1, form.nN + Number(t.dataset.d)); render(); return; }
-    if (a === 'nBuy') { void run(M.npc({ op: 'buy', res: form.nPick as never, n: form.nN }), (r) => `bought ${fmt(r.n ?? 0)} ${form.nPick} for ${r.coin} coin`); return; }
-    if (a === 'nSell') { void run(M.npc({ op: 'sell', res: form.nPick as never, n: form.nN }), (r) => `sold ${fmt(r.n ?? 0)} ${form.nPick} for ${r.coin} coin${r.tribute ? `, ${fmt(r.tribute)} of it set aside here for your liege` : ''}`); return; }
+    if (a === 'nBuy') { void run(M.npc({ op: 'buy', res: nPicked as never, n: form.nN }), (r) => `bought ${fmt(r.n ?? 0)} ${nPicked} for ${r.coin} coin`); return; }
+    if (a === 'nSell') { void run(M.npc({ op: 'sell', res: nPicked as never, n: form.nN }), (r) => `sold ${fmt(r.n ?? 0)} ${nPicked} for ${r.coin} coin${M.live ? ", in your men's packs" : ''}${r.tribute ? `, ${fmt(r.tribute)} of it set aside here for your liege` : ''}`); return; }
     if (a === 'nHire') { void run(M.npc({ op: 'hire', cls: form.nHire as never }), (r) => `hired for ${r.coin} coin: he stands with your men`); return; }
     if (a === 'nCart') { void run(M.npc({ op: 'cart', cart: form.nCart as never }), (r) => `bought for ${r.coin} coin: it rolls up beside your men`); return; }
     // the town's board (W-184): what the server says stands

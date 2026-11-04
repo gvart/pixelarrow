@@ -5,6 +5,10 @@
  */
 import type { BuildingSnap, NodeSnap, Snapshot, SquadSnap, UnitSnap } from '../../types';
 
+import { metres } from './explain';
+
+/** W-215: a store further than this (tiles) is worth saying. */
+const FAR_STORE = 40;
 /** A building type in words: stoneWall -> stone wall. */
 const words = (t: string) => t.replace(/[A-Z]/g, (c) => ' ' + c.toLowerCase());
 /** How far (tiles) from a site's edge a builder still counts as at it; a march goal names a building this near it. */
@@ -50,6 +54,13 @@ export function activityText(who: SquadSnap | UnitSnap, snap: Snapshot, o: { nod
   if (order === 'gather') {
     let res = men.find((u) => u.carry)?.carry, best = Infinity;
     if (!res) for (const n of o.nodes ?? []) if (d(n.x, n.y) < best) (best = d(n.x, n.y)), (res = n.res);
+    // W-215: where it goes, so a long walk to a store is no surprise
+    const cart = sq?.cartDrop !== undefined ? snap.sieges?.find((e) => e.id === sq.cartDrop) : null;
+    if (cart) return `Cutting ${res ?? 'goods'} onto the cart · ${Math.floor(cart.loads ?? 0)}/${cart.cap ?? 0} loads`;
+    let far = Infinity;
+    for (const b of snap.buildings ?? []) if (b.team === sq?.team && b.goods !== undefined && b.type !== 'chest' && b.state !== 'destroyed') far = Math.min(far, d(b.x, b.y));
+    if (far === Infinity) return `Gathering ${res ?? 'goods'} · no store here to carry it to`;
+    if (far > FAR_STORE) return `Gathering ${res ?? 'goods'} · carried to a store ${metres(far)} away`;
     return `Gathering ${res ?? 'goods'}`;
   }
   if (order === 'civWork') return 'At work';
