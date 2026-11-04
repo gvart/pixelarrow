@@ -21,7 +21,7 @@
  */
 import { NPC, NPC_CARTS, NPC_HIRE } from '../../../data/warNpcTowns';
 import { warChief } from '../../../data/warWild';
-import { costOf, npcGood, npcSpot, payFor, type NpcView } from '../../net/npcMarket';
+import { costOf, npcGood, npcSpot, offerRule, payFor, type NpcView } from '../../net/npcMarket';
 import { CONTRACT_HOW } from '../../net/questLore';
 import { GOODS } from '../../net/protocol';
 import { MARKET_TOWNS } from '../../world-view/geo';
@@ -343,16 +343,18 @@ export function mountMarket(s: SandboxScene, mk: Mk): MarketHud {
   };
   const townTab = () => {
     if (!npc) return '<div class="rf-dim mk-none">Reading the town\'s prices…</div>';
-    const men = atTown(), have = carriedHere(), pick = npc.goods.find((g) => g.res === form.nPick) ?? npc.goods[0], rule = npcGood(T, pick.res)!;
+    const men = atTown(), have = carriedHere(), pick = npc.goods.find((g) => g.res === form.nPick) ?? npc.goods[0], rule = offerRule(T, pick)!;
     form.nPick = pick.res;
     const n = Math.max(1, Math.floor(form.nN) || 1), cost = costOf(rule, pick.stock, Math.min(n, pick.stock)), pay = Math.min(payFor(rule, pick.stock, n, npc.purse), npc.purse);
-    const rows = npc.goods.map((g) => `<div class="nt-g rf-row${g.res === pick.res ? ' on' : ''}" data-act="nPick" data-r="${g.res}" data-tip="${esc(`${goodCard(g.res)}<br><span class="rf-dim tip-w">The town holds ${fmt(g.stock)}: selling here lowers the price, buying raises it.</span>`)}">${gi(g.res)}<span class="nm">${goodName(g.res)}</span><span class="rf-num have${(have[g.res] ?? 0) > 0.05 ? '' : ' z'}">${fmt(have[g.res] ?? 0)}</span><span class="rf-num ask">${fmt(g.ask)}</span><span class="rf-num pay">${fmt(g.pay)}</span></div>`).join('');
+    const rows = npc.goods.map((g) => `<div class="nt-g rf-row${g.res === pick.res ? ' on' : ''}" data-act="nPick" data-r="${g.res}" data-tip="${esc(`${goodCard(g.res)}<br><span class="rf-dim tip-w">The town holds ${fmt(g.stock)}: selling here lowers the price, buying raises it.</span>`)}">${gi(g.res)}<span class="nm">${goodName(g.res)}${g.swing ? ` <i class="rf-dim">${g.swing}</i>` : ''}</span><span class="rf-num have${(have[g.res] ?? 0) > 0.05 ? '' : ' z'}">${fmt(have[g.res] ?? 0)}</span><span class="rf-num ask">${fmt(g.ask)}</span><span class="rf-num pay">${fmt(g.pay)}</span></div>`).join('');
     const away = men ? '' : 'walk your men to the town: only those standing there can deal';
+    const word = npc.news?.[0], news = word ? `<div class="rf-hint" data-tip="${esc(npc.news!.map((w) => `${worldRegion(w.town)?.name ?? w.town}: ${w.kind === 'short' ? 'short of' : 'a glut of'} ${goodName(w.res)}`).join('<br>'))}">Word from the road: ${worldRegion(word.town)?.name ?? word.town} has ${word.kind === 'short' ? 'run short of' : 'a glut of'} ${goodName(word.res)}</div>` : '';
     const hire = `<select data-f="nHire" title="one of your own people from now on, up to your path's cap">${Object.entries(NPC_HIRE).map(([cls, c]) => `<option value="${cls}"${cls === form.nHire ? ' selected' : ''}>${HIRE_NAME[cls] ?? cls} · ${c} coin</option>`).join('')}</select>`;
     const carts = `<select data-f="nCart" title="rolls up beside your men, up to your path's cap">${(Object.keys(NPC_CARTS) as (keyof typeof NPC_CARTS)[]).map((c) => `<option value="${c}"${c === form.nCart ? ' selected' : ''}>${c === 'wagon' ? 'Wagon' : 'Handcart'} · ${NPC_CARTS[c]} coin</option>`).join('')}</select>`;
     return `<div class="nt-top"><span data-tip="${esc('All the coin the town has to pay with: what buyers paid it and a small daily mint. An empty town buys nothing.')}">Purse <b class="rf-num">${npc.purse}</b> ${icon('res-coin')}</span><span class="rf-dim">your men here <b class="rf-num" style="color:var(--rf-ink)">${men}</b></span></div>
       <div class="nt-h"><i></i><i></i><span title="in your carts here">carts</span><span title="what you pay a unit">buy</span><span title="what you get a unit">sell</span></div>
       <div class="nt-list rf-scroll">${rows}</div>
+      ${news}
       <div class="nt-deal rf-well">
         <div class="mk-dh">${gi(pick.res)}<b>${goodName(pick.res)}</b><span style="flex:1"></span><span class="rf-step">${btn('nStep', '−', n > 1, 'data-d="-10"', '', 'rf-tbtn')}<input type="number" data-f="nN" min="1" value="${n}">${btn('nStep', '+', true, 'data-d="10"', '', 'rf-tbtn')}</span></div>
         <div class="mk-go">${btn('nBuy', `Buy · ${cost} ${icon('res-coin')}`, !away, '', '', 'rf-tbtn big')}${btn('nSell', `Sell · ${pay} ${icon('res-coin')}`, !away, '', '', 'rf-tbtn pri big')}</div>
