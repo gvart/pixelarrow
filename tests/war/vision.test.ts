@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { createSim } from '../../src/war/sim';
 import { createBots } from '../../src/war/sim/bots';
-import { FOG_EXPLORED, FOG_UNEXPLORED, FOG_VISIBLE, VISION } from '../../src/war/sim/vision';
+import { buildGrid } from '../../src/war/sim/grid';
+import { createVision, FOG_EXPLORED, FOG_UNEXPLORED, FOG_VISIBLE, VISION } from '../../src/war/sim/vision';
 import type { RegionData, WarBuildSim } from '../../src/war/types';
 
 /** Flat grass 80 x 40 at height 1; `shape` edits it. */
@@ -76,6 +77,32 @@ describe('vision (W-39 fog)', () => {
     expect(at(70.5, 20.5)).toBe(FOG_VISIBLE);
     expect(sim.visibleTo(0, 14.5, 20.5)).toBe(false);
     expect(sim.lastSeen(0).map((b) => b.type)).toEqual(['brazier']); // a ghost now
+  });
+
+  it('the height poll sees a wall rise and fall after polls that found nothing, also after a load', () => {
+    const grid = buildGrid(region());
+    const man = { x: 10.5, y: 20.5, alive: true, cls: 'militia', squad: { team: 0 } };
+    const src = { units: () => [man], buildings: () => [] };
+    const v = createVision(grid, src);
+    const wall = (h: number) => { for (let y = 0; y < grid.h; y++) for (const x of [13, 14]) grid.height[y * grid.w + x] = h; };
+    let t = 0;
+    const polls = (n: number) => { for (let k = 0; k < n * VISION.heightEvery; k++) v.tick(t++); };
+    polls(3);
+    expect(v.visibleTo(0, 18.5, 20.5)).toBe(true);
+    wall(6);
+    polls(2);
+    expect(v.visibleTo(0, 18.5, 20.5)).toBe(false);
+    wall(1);
+    polls(2);
+    expect(v.visibleTo(0, 18.5, 20.5)).toBe(true);
+    // a load brings older cells back: the next poll recounts them from the grid as it stands
+    const saved = v.saveRoot();
+    saved.cellH = saved.cellH.slice();
+    for (let cy = 0; cy < Math.ceil(grid.h / VISION.cell); cy++) for (const cx of [6, 7]) saved.cellH[cy * Math.ceil(grid.w / VISION.cell) + cx] = 6;
+    v.loadRoot(saved);
+    man.x = 20.5; // across the wall that no longer stands, looking back at where he stood: a sight worked out from the cells
+    polls(2);
+    expect(v.visibleTo(0, 10.5, 20.5)).toBe(true);
   });
 
   it('is deterministic', () => {

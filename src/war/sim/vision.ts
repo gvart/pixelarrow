@@ -101,9 +101,18 @@ export function createVision(grid: Grid, src: { units(): Iterable<Viewer>; build
   const teams = new Map<number, Team>();
   let lastMs = 0;
   let heightsAt = -Infinity;
+  const lastH = new Uint8Array(grid.height.length); // the height grid at the last poll: a full recount of the map costs 3 ms on 512 x 512
+  let polled = false;
 
   /** Recompute the cell heights; true when any changed. */
   const heights = (): boolean => {
+    if (polled) {
+      let i = 0;
+      while (i < lastH.length && lastH[i] === grid.height[i]) i++;
+      if (i === lastH.length) return false; // nothing rose or fell since the last poll (the ground never changes)
+    }
+    polled = true;
+    lastH.set(grid.height);
     let changed = false;
     for (let cy = 0; cy < ch; cy++)
       for (let cx = 0; cx < cw; cx++) {
@@ -277,6 +286,7 @@ export function createVision(grid: Grid, src: { units(): Iterable<Viewer>; build
       cellH.set(o.cellH);
       cellF.set(o.cellF);
       heightsAt = o.heightsAt;
+      polled = false;
       teams.clear();
       for (const [t, v] of o.teams) {
         const keys = new Map<number, Entry>();
