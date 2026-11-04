@@ -561,9 +561,24 @@ has fallen, the path's cap). It takes the tracked card while open and gives it b
 painted from the existing sheets (no sim unit). An open step lapses after 3 minutes (a guide 9) or with all his men 70
 tiles away.
 
+A fight is his to choose (W-208). An ambush names itself first and raises no blade until he answers: close ranks, or throw
+down the robbers' share of all he carries and walk on; with nothing to throw, he walks on free (offline, where the room keeps no packs, always free). No answer in 3 minutes is
+a fight. A kind that opens on any other fight (Travellers Beset, the Slavers' Camp) springs 22-28 tiles off, past what a pack
+smells (aggro at most 14, plus its 4 tiles of milling), so he may leave it be. A pack looks for a foe at its aggro on its first look,
+fresh or healed; only a hurt one looks further.
+
+A road fight as play (`server/test/war/roadFights.test.ts`, a trader's start of 2 guards and a laden cart):
+
+| Fight | Outcome |
+| --- | --- |
+| 2 robbers, depth 1, he refuses | won in 3 runs of 3 in 28-49 s, knocked down at worst (W-79), load whole, their 20 coin |
+| 3 robbers, depth 2, he refuses | lost in 22 s, both guards dead for good, packs in a pile; hands and cart untouched, the band stays |
+| 3 ambushers, depth 1, he stands | lost in 25 s; before W-208 he had no choice |
+| Toll or share paid | no band raised, guards unhurt, 15% of the load gone |
+
 | Kind | Steps | Pays |
 | --- | --- | --- |
-| Ambush! | rim-touched men spring from cover: beat them off | coin, food |
+| Ambush! | rim-touched men spring from cover: close ranks and beat them off / throw down a share (15%) | coin, food / nothing |
 | A Wounded Deserter | reach him; bind his wound / take his gear / leave | a soul (hoplite L2) / a dory and coin / nothing |
 | The Wayside Herm | reach it; take the offerings (35%: robbers, fight) / offer / pass | coin / herbs |
 | A Buried Cache | reach it; dig (30%: the region's beasts, fight) / leave | iron, coin |
@@ -1697,17 +1712,21 @@ whose men stand at it. Data: `src/data/warNpcTowns.ts`; the rules, shared: `src/
 | Carts (W-145) | a trader starts with one handcart, given at his first join. A town sells a handcart for 180 and a wagon for 600 under W-104's cap (the coin into the purse). Builders still build them. A cart coming in over a border or bought is set down on the nearest ground carts can roll on, never in the trees |
 
 Solo runs (seeded, real sim and D1 rules, nobody else in the world; game time). Trader from dodona, with W-196's swings: first sale 8 min, L2 and
-a second cart 60, L3 133, L4 198 min over 15 hops, 8805 coin sold (265 min before the swings). Between two towns the coin an hour fades over
+a second cart 60, L3 133, L4 194 min over 15 hops, 8939 coin sold (323 min with swings off). Between two towns the coin an hour fades over
 hours (kyrene and kyrene-e: 905, 219, 95, 50, 43), and per road walked the best cartload two or three hops off clears more
-than the best next door. Builder from dodona, on clean markets: smith 44 min, L2 52, L4 329 min (244 before the swings, on the markets the trader's run left), all 6 workers, 11
-kinds of building round one storehouse. His forge sells about 8000 coin of bronze for about 5500 of metal, against 234 of cut wood; from L3 on his
+than the best next door. Builder from dodona, on clean markets: smith 42 min, L2 49, L4 290 min, all 6 workers, 11 kinds of building round one storehouse. With swings off
+L4 is 253, on clean markets or on those the trader's run left (250), so the swings are the cost, not the clean start (W-209). The seeded start falls
+in dodona's worst stretch, wood in glut and iron short for 2.5 hours; started at other hours he takes 242, 289, 253 and 253. His forge sells about
+9600 coin of bronze, against 292 of cut wood; from L3 on his
 level is mostly labour at the wonder, between rounds at the forge. Numbers measured without the wonder's stages ending.
 
 Carts on the market alone (W-198, `npm run balance:war -- --paths`, 35 trips in 8 hours): one town's price falls under what one sale adds, so a shuttle on one road sells about 3 loads a trip however many carts he has. Going each trip where the price is, carts pay: 1, 2, 4 carts clear 622, 1022, 1278 coin an hour, on 5.9, 11.1, 18.8 loads a trip.
 
 Men keep to their carts and their ground (W-182): a man on a crew point takes a waypoint as done only where the next can be
 walked to from there; a crew point stands only on ground walkable from its cart; an arrival spread into a pocket the cliffs
-cut off is set down at the entry's middle (`tests/war/crewWalk.test.ts`, `server/test/war/arrivals.test.ts`).
+cut off is set down at the entry's middle (`tests/war/crewWalk.test.ts`, `server/test/war/arrivals.test.ts`). A way never steps
+diagonally past the end of a cliff (W-207): no body fits by, so a man slid along the cliff and searched again for good. Men's
+ways and straight walks both go round by the open tile.
 
 Numbers are start numbers (`NPC`, `NPC_HIRE`, `NPC_CARTS`). Tests: `tests/war/npcMarket.test.ts` (rules), `server/test/war/npcMarket.test.ts`
 (bound on coin: all paid out plus the purse = start + minted), `server/test/war/soloRuns.test.ts` (the solo game).
@@ -1749,15 +1768,16 @@ Seeded solo runs, 8 game hours, no other player (`server/test/war/townBoardRuns.
 
 | Path | L2 | L3 | L4 | L5 | L6 | Contracts | Longest of one kind of work (W-199) | Road |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Warrior (before W-195: 8, 44, 107) | 16 | 83 | 167 | 337 | | 82 | 19 min | 29% |
+| Warrior (before W-195: 8, 44, 107) | 12 | 75 | 169 | 327 | | 90 | 19 min | 39% |
 | Builder (unchanged) | 27 | 85 | 158 | 323 | 449 | 43 | 42 min | 29% |
-| Trader (before W-196: 55, 159, 306) | 66 | 141 | 258 | 378 | | 11 | 55 min | in the hauls |
+| Trader (before W-196: 55, 159, 306) | 66 | 141 | 258 | 375 | | 10 | 54 min | in the hauls |
 
 Never fewer than 69 lines within 2 hops, of which some of his own kind he could take; never idle. The kind of work counts
-across borders (W-199): a road crossed under a load is still the load. A warrior's mix is Kills 152 min, rest at a town 160,
-road 139. A builder's L3 to L4 is 73 minutes. A trader's day is hauls 317 min, his own money on word of a price 140, small
-jobs at a town 52: he breaks a haul of 25 minutes or more with a repair at the town between, if its board has one. A trader
+across borders (W-199): a road crossed under a load is still the load. A warrior's mix is Kills 147 min, rest at a town 136,
+road 185 (146 before W-208's change to a pack's first look; why it moved so far is not traced). A builder's L3 to L4 is 73 minutes. A trader's day is hauls 298 min, his own money on word of a price 145, small
+jobs at a town 42: he breaks a haul of 25 minutes or more with a repair at the town between, if its board has one. A trader
 on these runs has two carts; the rolled W-65 encounters are off in them, the robbers of W-197 on, and he paid them every time.
+His breaks are the bot's (W-210): left out, the longest kind is 102 minutes, since a repair earns 2 level against 120-400 for a haul.
 Each run starts on clean town markets; before W-199 each inherited the last run's.
 
 ### Hand-offs, contracts, letters
