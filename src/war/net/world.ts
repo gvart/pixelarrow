@@ -206,7 +206,7 @@ export interface CrownMap {
   pacts: { a: AllianceId; b: AllianceId; kind: PactKind }[];
 }
 /** W-64 crown news: an election opened or closed (no winner), a monarch crowned, a pact or truce broken by an attack. */
-export type CrownNewsKind = 'electionOpen' | 'electionClosed' | 'monarch' | 'pactBroken';
+export type CrownNewsKind = 'electionOpen' | 'electionClosed' | 'monarch' | 'pactBroken' | 'noFounding';
 
 export type WorldServerMsg =
   | ({ t: 'world' } & WorldSnapshot)

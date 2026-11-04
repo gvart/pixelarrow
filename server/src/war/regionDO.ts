@@ -1353,7 +1353,8 @@ export class WarRegionDO extends DurableObject<Env> {
       try {
         await found(d, { region, centre: f.centre, x: f.x, y: f.y, lord: f.lord }, (c) => foundRefusal(room.snapshot(), home, c), Date.now());
       } catch (e) {
-        if (!(e instanceof ApiError)) throw e; // too close, a bad spot: it stays a plain camp
+        if (!(e instanceof ApiError)) throw e; // too close, a bad spot: it stays a plain camp, and its builder hears why
+        if (this.env.WAR_WORLD) await this.world().notify([f.lord], { t: 'crownNews', kind: 'noFounding', text: `Your camp stands, but it founds no settlement. ${e.message}.`, region }).catch((err) => logError('war_found_note', err));
       }
     }
     await this.loadSettlements(room);

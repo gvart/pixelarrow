@@ -225,7 +225,7 @@ export function mountMarket(s: SandboxScene, mk: Mk): MarketHud {
     const [a, b, c, d] = await Promise.all([M.mine(T), M.board(T), M.contracts(T), hasNpc ? M.npcTown(T) : null]);
     if (d && !failed(d)) npc = d;
     if (hasNpc) { const v = await M.townBoard({ op: 'view' }); if (!failed(v)) jobBoard = v.view; }
-    if (!failed(a)) mine = a; else say(a.error, true);
+    if (!failed(a)) mine = a; else if (isTown) say(a.error, true); // a place with no market has no stall to read: not an error to him
     if (!failed(b)) board = b;
     if (!failed(c)) contracts = c.contracts;
     render();
@@ -330,14 +330,15 @@ export function mountMarket(s: SandboxScene, mk: Mk): MarketHud {
   /** His men standing at the town: they are who deals (W-87, W-88). */
   const atTown = () => {
     const at = npcSpot(s.region);
-    return (s.sim.cur?.units ?? []).filter((u) => u.state !== 'dead' && s.sim.squads.get(u.squad)?.team === myTeam() && Math.hypot(u.x - at.x, u.y - at.y) <= NPC.reach).length;
+    const his = (q?: { team: number; owner?: string }) => q?.team === myTeam() && (!M.live || q.owner === `p:${s.sim.playerId}`); // an ally's men are not his
+    return (s.sim.cur?.units ?? []).filter((u) => u.state !== 'dead' && his(s.sim.squads.get(u.squad)) && Math.hypot(u.x - at.x, u.y - at.y) <= NPC.reach).length;
   };
   /** What his carts near the town hold; a man's pack is told only by the deal (offline: the team's goods). */
   const carriedHere = (): Record<string, number> => {
     if (!M.live) return stockAtHand(s);
     const at = npcSpot(s.region), out: Record<string, number> = {};
     for (const c of s.sim.cur?.sieges ?? []) {
-      if (!c.cargo || c.team !== myTeam() || Math.hypot(c.x - at.x, c.y - at.y) > NPC.reach) continue;
+      if (!c.cargo || c.team !== myTeam() || c.owner !== `p:${s.sim.playerId}` || Math.hypot(c.x - at.x, c.y - at.y) > NPC.reach) continue;
       for (const [r, n] of Object.entries(c.cargo)) out[r] = (out[r] ?? 0) + (n ?? 0);
     }
     return out;

@@ -283,7 +283,7 @@ export function attackToast(a: { name: string; region: string; mine: boolean; br
 
 /** W-64: a crown news notice: an election opened or closed, a new monarch, a pact or truce broken. */
 export function crownToast(n: { kind: CrownNewsKind; text: string }): string {
-  const head = n.kind === 'electionOpen' ? 'An election is open' : n.kind === 'electionClosed' ? 'The election closed' : n.kind === 'monarch' ? 'A new monarch' : 'A pact is broken';
+  const head = n.kind === 'electionOpen' ? 'An election is open' : n.kind === 'electionClosed' ? 'The election closed' : n.kind === 'monarch' ? 'A new monarch' : n.kind === 'noFounding' ? 'No settlement here' : 'A pact is broken';
   return `${glyph(n.kind === 'pactBroken' ? 'ui:swords' : 'ui:laurel', 24)}<div class="sx-b"><div class="sx-t">${head}</div><div class="rf-dim">${esc(n.text)}</div></div><button class="rf-tbtn x" data-sx="x">×</button>`;
 }
 
@@ -308,7 +308,7 @@ export const peaceToast = (detail: string | undefined) => `${glyph('ui:laurel', 
 export const groundToast = (detail: string | undefined) => `${glyph('ui:lock', 22)}<div class="sx-b"><div class="sx-t">You can't build here</div><div class="rf-dim">${esc(detail || 'This is a settlement\'s ground: ask its lord for a plot')}</div></div><button class="rf-tbtn x" data-sx="x">×</button>`;
 
 /** The founding hint beside the build bar: the first camp outside home makes him its lord. */
-export const FOUND_HINT = `${glyph('ui:laurel', 18)}<span><b>Found a settlement.</b> Raise this camp outside your home and you become its lord: others ask you for plots, and you may take vassals.</span>`;
+export const FOUND_HINT = `${glyph('ui:laurel', 18)}<span><b>Found a settlement.</b> Raise this camp outside your home, well clear of claim points, towns and other settlements, and you become its lord.</span>`;
 
 export const SETTLE_CSS = `
 #rfTownCard .st-title{font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
