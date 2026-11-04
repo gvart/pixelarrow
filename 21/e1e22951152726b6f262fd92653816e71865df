@@ -1,0 +1,38 @@
+server/src/war/encounters.ts
+  s_a7d5d20f628c80::t_bf1fc71c13f4dd 59
+  s_a7d5d20f628c80::t_7e4ccf3722e54d 9-11,20-25,32-33,66-70,80-85,104-106
+  s_a7d5d20f628c80::t_160e36aae17c0f 15,54-58
+  s_a7d5d20f628c80::t_22b5fa7c0304ab 107-108
+server/test/war/favour.test.ts
+  s_a7d5d20f628c80::t_c6ded79b85d207 121-124
+server/test/war/encounters.test.ts
+  s_a7d5d20f628c80::t_c6ded79b85d207 10-12,52-82,84-88,90-93,95-96,101-103,106-108,110,137
+  s_a7d5d20f628c80::t_160e36aae17c0f 89,94,97-100,104-105,109,111-136
+  s_a7d5d20f628c80::t_dcc900e479105f 83
+  s_a7d5d20f628c80::t_527493781b3d05 138
+server/src/war/townBoard.ts
+  s_a7d5d20f628c80::t_f9e56c3c56d68b 193
+server/src/war/favour.ts
+  s_a7d5d20f628c80::t_f9e56c3c56d68b 156,162,190,195
+server/src/war/room.ts
+  s_a7d5d20f628c80::t_f9e56c3c56d68b 1274,1302-1312
+  s_a7d5d20f628c80::t_7e4ccf3722e54d 77,687
+server/src/war/cargo.ts
+  s_a7d5d20f628c80::t_160e36aae17c0f 58-62
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "21e1e22951152726b6f262fd92653816e71865df",
+  "prompts": {},
+  "sessions": {
+    "s_a7d5d20f628c80": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1afee479-b44b-46d2-a159-a540e44e7fb8",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
