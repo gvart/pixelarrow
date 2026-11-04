@@ -34,6 +34,12 @@ export const NPC = {
    * of its price a town pays at an empty purse, rising to the whole of it at `start`.
    */
   purse: { start: 4000, mintSilver: 5, cap: 4000, thin: 0.25 },
+  /**
+   * W-196 what happens to a town between deals: over each stretch of `hours` (each town keeps its own clock) it may run short of
+   * one good (a lost caravan, a burnt granary) or sit on a glut of one, each with this chance. Its price is x `short` or x `glut`
+   * while that lasts, buying and selling alike.
+   */
+  swing: { hours: 3, chance: 0.6, short: 1.7, glut: 0.6 },
 } as const;
 
 /** W-144 what a hired worker costs (W-103 is the cap); paid into the town's purse. */

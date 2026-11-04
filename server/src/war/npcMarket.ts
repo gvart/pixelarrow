@@ -5,7 +5,7 @@
  * again. The goods and coin themselves are his men's: the region room takes them out of packs and carts (./regionDO.ts npc).
  */
 import { NPC, NPC_CARTS, NPC_HIRE } from '../../../src/data/warNpcTowns';
-import { buyable, costOf, npcDay, npcGood, npcGoods, npcOffer, payFor, purseAfter, sellable, stockAfter, type NpcView } from '../../../src/war/net/npcMarket';
+import { buyable, costOf, npcDay, npcGoods, npcRuleNow, npcShown, payFor, purseAfter, sellable, stockAfter, type NpcView } from '../../../src/war/net/npcMarket';
 import type { NpcMsg, ServerMsg } from '../../../src/war/net/protocol';
 import { perLoad } from '../../../src/war/sim/holders';
 import { makePerson } from '../../../src/war/sim/roster';
@@ -71,20 +71,20 @@ export async function npcView(db: D1Database, town: string, now: number): Promis
   const goods = npcGoods(town);
   if (!goods.length) throw new ApiError(404, 'no_town', `${town} is no town`);
   const [p, st] = await Promise.all([purseOf(db, town, now), stocksOf(db, town, now)]);
-  return { town, purse: Math.floor(p.purse), goods: goods.map((g) => npcOffer(g, st.get(g.res)!.stock, p.purse)) };
+  return npcShown(town, Math.floor(p.purse), (res) => st.get(res)!.stock, p.purse, now);
 }
 
 export interface NpcDeal { n: number; coin: number; stmts: D1PreparedStatement[] }
 
-const ruleOf = (town: string, res: string) => {
-  const g = npcGood(town, res);
+const ruleOf = (town: string, res: string, now: number) => {
+  const g = npcRuleNow(town, res, now);
   if (!g) throw new ApiError(409, 'not_traded', `This town does not deal in ${res}`);
   return g;
 };
 
 /** The town buys up to `want` of `res` as far as its purse pays: how many, for how much, and its books' statements. */
 export async function planSell(db: D1Database, town: string, res: string, want: number, now: number): Promise<NpcDeal> {
-  const g = ruleOf(town, res), [p, st] = await Promise.all([purseOf(db, town, now), stocksOf(db, town, now)]), s = st.get(res)!;
+  const g = ruleOf(town, res, now), [p, st] = await Promise.all([purseOf(db, town, now), stocksOf(db, town, now)]), s = st.get(res)!;
   const n = sellable(g, s.stock, want, p.purse), coin = payFor(g, s.stock, n, p.purse);
   if (!(n > 0) || !(coin > 0)) throw new ApiError(409, 'purse_empty', 'The town has no coin left to pay you');
   return { n, coin, stmts: [...purseStmts(db, town, p, p.purse - coin), ...stockStmts(db, town, res, s.read, s.stock + n, now)] };
@@ -92,7 +92,7 @@ export async function planSell(db: D1Database, town: string, res: string, want: 
 
 /** The town sells up to `want` of `res` as far as its stock and `have` coin go. */
 export async function planBuy(db: D1Database, town: string, res: string, want: number, have: number, now: number): Promise<NpcDeal> {
-  const g = ruleOf(town, res), [p, st] = await Promise.all([purseOf(db, town, now), stocksOf(db, town, now)]), s = st.get(res)!;
+  const g = ruleOf(town, res, now), [p, st] = await Promise.all([purseOf(db, town, now), stocksOf(db, town, now)]), s = st.get(res)!;
   const n = buyable(g, s.stock, want, have), coin = costOf(g, s.stock, n);
   if (!(n > 0)) throw new ApiError(409, s.stock < 0.01 ? 'sold_out' : 'no_coin', s.stock < 0.01 ? 'The town has none left' : 'You carry too little coin');
   return { n, coin, stmts: [...purseStmts(db, town, p, p.purse + coin), ...stockStmts(db, town, res, s.read, s.stock - n, now)] };

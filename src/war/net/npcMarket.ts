@@ -7,9 +7,12 @@
  *    drifts back to par. A land's own good is cheap; far from any land that yields it a good is dear, so carrying pays.
  *  - Coin is physical: a town pays only out of its purse, which holds what buyers paid it and a small daily mint of
  *    silver under the cap (silver 1 = coin 20, docs/WAR.md "Coin"). Nothing else makes coin: an empty town buys no more.
+ *  - W-196 towns have their own troubles: seeded by town and time, one runs short of a good or sits on a glut of it for
+ *    hours (`npcSwings`), so a road that pays today may not tomorrow. Word of it reaches the towns a road away (`npcNews`).
  */
 import { NPC, NPC_BASE, NPC_ROLE_GOODS, type NpcGood } from '../../data/warNpcTowns';
-import { hops } from '../world/graph';
+import { hashString, Rng } from '../../sim/rng';
+import { hops, worldRegion } from '../world/graph';
 import { WORLD_REGIONS } from '../world/regions';
 import type { RegionData } from '../types';
 
@@ -57,6 +60,36 @@ export function npcGoods(town: string): readonly NpcGoodRule[] {
 }
 
 export const npcGood = (town: string, res: string): NpcGoodRule | null => npcGoods(town).find((g) => g.res === res) ?? null;
+
+export type SwingKind = 'short' | 'glut';
+/** W-196: a town's trouble with a good, and when it ends. */
+export interface NpcSwing { town: string; res: NpcGood; kind: SwingKind; until: number }
+
+/** W-196: what is amiss at this town now: a good it is short of, one it has too much of, either, both or neither. Pure: town and clock. */
+export function npcSwings(town: string, now: number): NpcSwing[] {
+  const goods = npcGoods(town);
+  if (goods.length < 2) return [];
+  const ms = NPC.swing.hours * 3_600_000, shift = hashString(town) % ms, win = Math.floor((now + shift) / ms), until = (win + 1) * ms - shift;
+  const r = new Rng(hashString(`swing:${town}:${win}`) || 1), a = r.int(0, goods.length - 1), b = (a + r.int(1, goods.length - 1)) % goods.length, out: NpcSwing[] = [];
+  if (r.chance(NPC.swing.chance)) out.push({ town, res: goods[a].res, kind: 'short', until });
+  if (r.chance(NPC.swing.chance)) out.push({ town, res: goods[b].res, kind: 'glut', until });
+  return out;
+}
+/** W-196: the rule of a good as it stands at a price of `k` x its usual. */
+const atSwing = (g: NpcGoodRule, k: number): NpcGoodRule => (k === 1 ? g : { ...g, base: g.base * k });
+const swingK = (kind: SwingKind | undefined) => (kind === 'short' ? NPC.swing.short : kind === 'glut' ? NPC.swing.glut : 1);
+/** W-196: a town's rule for a good right now. */
+export function npcRuleNow(town: string, res: string, now: number): NpcGoodRule | null {
+  const g = npcGood(town, res);
+  return g && atSwing(g, swingK(npcSwings(town, now).find((s) => s.res === res)?.kind));
+}
+/** W-196: the rule a shown offer was priced by (a client's clock is not the town's). */
+export const offerRule = (town: string, o: Pick<NpcOffer, 'res' | 'swing'>): NpcGoodRule | null => {
+  const g = npcGood(town, o.res);
+  return g && atSwing(g, swingK(o.swing));
+};
+/** W-196: the word a town has from the towns a road away: their troubles, nearest to ending first. */
+export const npcNews = (town: string, now: number): NpcSwing[] => [...(worldRegion(town)?.adj ?? [])].flatMap((t) => npcSwings(t, now)).sort((a, b) => a.until - b.until || a.town.localeCompare(b.town));
 
 /** Is this region a town the NPC market knows? */
 export const isNpcTown = (town: string): boolean => !!regionOf(town);
@@ -117,15 +150,24 @@ export const npcDay = (now: number) => Math.floor(now / DAY);
 export const purseAfter = (coin: number, days: number): number => (days <= 0 || coin >= NPC.purse.cap ? coin : Math.min(NPC.purse.cap, coin + days * NPC_MINT));
 
 /** What a town shows: its purse, and per good what it pays and asks for a unit now, and how much it holds. */
-export interface NpcOffer { res: NpcGood; pay: number; ask: number; stock: number; par: number }
-export interface NpcView { town: string; purse: number; goods: NpcOffer[] }
+export interface NpcOffer { res: NpcGood; pay: number; ask: number; stock: number; par: number; /** W-196: the town is short of it, or has a glut. */ swing?: SwingKind }
+/** `news`: W-196: word from the towns a road away. */
+export interface NpcView { town: string; purse: number; goods: NpcOffer[]; news?: NpcSwing[] }
 
 /** A good's line on the board at this stock and purse: one unit's pay and ask. */
-export const npcOffer = (g: NpcGoodRule, stock: number, purse = Infinity): NpcOffer => ({
-  res: g.res, stock, par: g.par,
-  pay: Math.round(thinPurse(midPrice(g, stock) * (1 - NPC.price.edge), purse) * 100) / 100,
-  ask: Math.round(midPrice(g, stock) * (1 + NPC.price.edge) * 100) / 100,
-});
+export const npcOffer = (g: NpcGoodRule, stock: number, purse = Infinity, swing?: SwingKind): NpcOffer => {
+  const at = atSwing(g, swingK(swing));
+  return {
+    res: g.res, stock, par: g.par, ...(swing ? { swing } : {}),
+    pay: Math.round(thinPurse(midPrice(at, stock) * (1 - NPC.price.edge), purse) * 100) / 100,
+    ask: Math.round(midPrice(at, stock) * (1 + NPC.price.edge) * 100) / 100,
+  };
+};
+/** W-196: everything a town shows now, from its books and the clock. */
+export function npcShown(town: string, purse: number, stock: (res: string) => number, realPurse: number, now: number): NpcView {
+  const swings = npcSwings(town, now);
+  return { town, purse, goods: npcGoods(town).map((g) => npcOffer(g, stock(g.res), realPurse, swings.find((s) => s.res === g.res)?.kind)), news: npcNews(town, now) };
+}
 
 /** Where his men deal with a region's town: its market court, else the middle of its stalls, else its well, board, storehouse or cottages. */
 export function npcSpot(r: RegionData): { x: number; y: number } {
