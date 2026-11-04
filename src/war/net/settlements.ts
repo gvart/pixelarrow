@@ -4,9 +4,10 @@
  * a level's name and map icon. The region room's own view of a settlement is SettlementNet (./protocol.ts).
  */
 import { TOWN_LEVELS } from '../sim/townLevel';
+import type { Snapshot } from '../types';
 
 /** Mirrors the server's SETTLE (server/src/war/settlements.ts): offers live 48 h, 6 men to offer terms. */
-export const SETTLE_UI = { offerMs: 48 * 3_600_000, presence: 6, truceMs: 7 * 24 * 3_600_000, bondMax: 5000 } as const;
+export const SETTLE_UI = { offerMs: 48 * 3_600_000, presence: 6, truceMs: 7 * 24 * 3_600_000, bondMax: 5000, r: 24 } as const;
 
 export type SettleRole = 'lord' | 'citizen' | 'garrison';
 export type OfferKind = 'settle' | 'join' | 'garrison' | 'truce';
@@ -56,6 +57,20 @@ export const spanOf = (a: { x: number; y: number }, b: { x: number; y: number })
   x0: Math.min(Math.floor(a.x), Math.floor(b.x)), y0: Math.min(Math.floor(a.y), Math.floor(b.y)),
   x1: Math.max(Math.floor(a.x), Math.floor(b.x)), y1: Math.max(Math.floor(a.y), Math.floor(b.y)),
 });
+
+/** Why a settlement may not be founded round (x,y) (null: it may): homes, claim points, landmarks, towns. The server asks this too. */
+export function foundRefusal(snap: Pick<Snapshot, 'claims' | 'buildings'>, home: boolean, c: Circle): string | null {
+  if (home) return 'Not in a home region';
+  if ((snap.claims ?? []).some((p) => dist(p.x, p.y, c) <= c.r)) return 'Too near a claim point';
+  for (const b of snap.buildings ?? []) if (b.pre && dist(b.x, b.y, c) <= c.r) return b.landmark ? 'Too near a landmark' : 'Too near a town';
+  return null;
+}
+
+/** The same before a camp is placed, with what he can see of the other settlements. */
+export function campWarning(snap: Pick<Snapshot, 'claims' | 'buildings'>, c: Circle, others: readonly Circle[]): string | null {
+  const why = foundRefusal(snap, false, c) ?? (others.some((o) => dist(c.x, c.y, o) < c.r + o.r) ? 'Too near another settlement' : null);
+  return why && `<b>A camp here founds nothing.</b> ${why}: it needs ${c.r * 2} m clear. It would only be a camp.`;
+}
 
 /** A settlement's level by name (W-61 town level; below 1 a camp). */
 export const levelName = (lv: number) => TOWN_LEVELS[Math.max(1, Math.min(TOWN_LEVELS.length - 1, Math.round(lv)))].name;

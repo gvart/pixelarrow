@@ -1,9 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import { ACCESS, TERMS } from '../../src/war/sim/economy';
 import type { Access, BuildingSnap } from '../../src/war/types';
-import { accessHtml, accessStep, ACCESS_WORDS, FEE_STEPS, ownsTerms, SHARE_STEPS } from '../../src/war/view/build/access';
+import { accessHtml, accessStep, accessTap, ACCESS_WORDS, FEE_STEPS, ownsTerms, SHARE_STEPS } from '../../src/war/view/build/access';
 
 const forge = (over: Partial<BuildingSnap> = {}) => ({ id: 'b1', type: 'forge', owner: 'p:me', state: 'done', access: 'alliance', share: 0, fee: 0, ...over }) as BuildingSnap;
+
+describe('W-220 anyone asks first', () => {
+  it('a tap towards anyone sends nothing until he says yes; every other step goes at once', () => {
+    const before = ACCESS[ACCESS.indexOf('anyone') - 1];
+    expect(accessTap(forge({ access: before }), 'access', 'p:me', false)).toEqual({ ask: true });
+    expect(accessTap(forge({ access: before }), 'access', 'p:me', true)).toMatchObject({ order: { access: 'anyone' } });
+    for (const a of ACCESS.filter((x) => x !== before)) expect(accessTap(forge({ access: a }), 'access', 'p:me', false)).toHaveProperty('order');
+    expect(accessTap(forge({ access: before }), 'fee', 'p:me', false)).toHaveProperty('order');
+    expect(accessHtml(forge({ access: before }), true)).toContain('Open to anyone');
+  });
+});
 
 describe('the building card access control (W-89)', () => {
   it('one tap moves each setting to its next step and wraps round', () => {

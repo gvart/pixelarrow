@@ -82,7 +82,9 @@ export function mountClaimCard(s: SandboxScene, mk: Mk): void {
     const p = s.input.activePointer;
     // one hover card at a time: a cart's or pile's (./holder.ts) under the cursor too speaks first (E acts on it)
     const held = document.getElementById('rfHoldTip')?.style.display !== 'none' && !!document.getElementById('rfHoldTip');
-    const c = s.input.isOver && !s.interact.open && !s.build.tool && !held ? claimAt(s, p) : null;
+    // Phaser's isOver stays true over a DOM panel: only with the map itself under the pointer
+    const box = s.game.canvas.getBoundingClientRect(), onMap = document.elementFromPoint(box.left + p.x, box.top + p.y) === s.game.canvas;
+    const c = s.input.isOver && onMap && !s.interact.open && !s.build.tool && !held ? claimAt(s, p) : null;
     if (!c) { if (card.style.display !== 'none') card.style.display = 'none'; shown = ''; return; }
     const body = claimCardHtml(s, c);
     if (body !== shown) { shown = body; card.innerHTML = body; }
