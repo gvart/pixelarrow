@@ -114,7 +114,7 @@ export function mountSouls(s: SandboxScene, mk: Mk, tipOn: (el: HTMLElement, htm
     const owner = s.sim.cur?.squads.find((q) => q.id === p.squad)?.owner, tick = s.sim.cur?.tick ?? 0;
     const refused = claimWhy(s, so), barred = !!so.bar && so.bar.owner === owner && tick < so.bar.at, full = !!refused || barred;
     const state = so.contested ? '<span style="color:var(--rf-bad)">contested</span>' : mine ? `<span style="color:var(--rf-gold)">claiming ${Math.round((so.claim ?? 0) * 100)}%</span>` : `<span class="rf-dim">${metres(p.d)} · fades ${mmss(so.left)}</span>`;
-    const html = `<div style="display:flex;align-items:center;gap:7px">${ghostIcon(so.cls, 24)}<div style="min-width:0"><div class="rf-name" style="font-size:13px">Soul · ${so.name ? `${esc(so.name)}, ` : ''}${esc(SandboxRoster.className(so.cls))} <span class="rf-lv">L${so.level}</span></div><div style="font-size:12px">${state}</div></div>
+    const html = `<div style="display:flex;align-items:center;gap:7px">${ghostIcon(so.cls, 24)}<div style="min-width:0"><div class="rf-name" style="font-size:13px">Soul · ${so.name ? `${esc(so.name)}, ` : ''}${esc(SandboxRoster.className(so.cls))} <span class="rf-lv">L${so.level}</span></div><div style="font-size:13px">${state}</div></div>
       <button class="rf-tbtn${full ? '' : ' pri'}" data-act="claim" ${full ? 'data-full="1"' : ''} style="margin-left:6px">${barred ? `Yours in ${mmss(so.bar!.at - tick)}` : refused ? esc(refused[0].toUpperCase() + refused.slice(1)) : 'Claim'}</button></div>`;
     if (html !== last) el.innerHTML = last = html;
   };

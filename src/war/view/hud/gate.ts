@@ -42,11 +42,11 @@ body.gt-clean .rf:not(#rfGate),body.gt-clean .gd-mk{visibility:hidden}
 .gt-place{display:flex;align-items:center;justify-content:center;gap:12px;margin:6px 0 4px}
 .gt-n{font:700 44px/1 Cinzel,serif;color:var(--rf-title);text-shadow:0 2px 0 #050506}
 .gt-n small{font-size:20px;color:var(--rf-accent);margin-right:1px}
-.gt-of{font:600 12px/1.35 Inter,sans-serif;color:var(--rf-muted)}
+.gt-of{font:600 13px/1.35 Inter,sans-serif;color:var(--rf-muted)}
 .gt-of b{color:var(--rf-ink)}
 .gt-wait{display:flex;align-items:center;justify-content:center;gap:6px;margin:6px 0 10px;font:700 13px/1 Inter,sans-serif;color:var(--rf-gold)}
-.gt-p{margin:0 2px 12px;font:600 12px/1.45 Inter,sans-serif;color:var(--rf-ink)}
-.gt-p.dim{color:var(--rf-muted);font-size:11.5px}
+.gt-p{margin:0 2px 12px;font:600 13px/1.45 Inter,sans-serif;color:var(--rf-ink)}
+.gt-p.dim{color:var(--rf-muted);font-size:13px}
 .gt-ring{display:flex;justify-content:center;margin:8px 0 10px}
 .gt-ring .rf-ring b{font-size:20px}
 .gt-card .mn-big{justify-content:center}

@@ -93,8 +93,8 @@ const CSS = `
 #rfGuide{left:4px;top:4px;width:262px;pointer-events:auto;padding:5px 8px 7px}
 #rfGuide .gd-h{display:flex;align-items:center;gap:6px;padding-bottom:4px;margin-bottom:4px;border-bottom:1px solid var(--rf-rule);cursor:pointer}
 #rfGuide .gd-h .rf-name{font-size:13px}
-#rfGuide .gd-n{margin-left:auto;font:700 12px/1 Inter,sans-serif;color:var(--rf-gold)}
-#rfGuide .gd-x,#rfGuide .gd-fold{width:18px;height:18px;min-width:18px;padding:0;font-size:12px}
+#rfGuide .gd-n{margin-left:auto;font:700 13px/1 Inter,sans-serif;color:var(--rf-gold)}
+#rfGuide .gd-x,#rfGuide .gd-fold{width:18px;height:18px;min-width:18px;padding:0;font-size:13px}
 #rfGuide .gd-cur{margin:0 -4px;padding:5px 4px;background:var(--rf-sunk);box-shadow:inset 2px 0 0 var(--rf-gold)}
 #rfGuide .gd-next{display:flex;align-items:center;gap:6px;margin-top:5px;font:600 13px/1.3 Inter,sans-serif;color:var(--rf-muted)}
 #rfGuide .gd-next .ic{width:18px;height:18px;opacity:.8}

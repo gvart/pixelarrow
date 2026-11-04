@@ -80,7 +80,7 @@ export function townCard(t: TownLevelSnap | null): string {
 export function townBadge(t: TownLevelSnap): string {
   const reqs = townReqs(t), next = t.level < TOWN_MAX ? TOWN_LEVELS[t.level + 1].name : null;
   const tip = `<b class="k">${esc(t.name)}</b> · level ${t.level} of ${TOWN_MAX}${next ? `<br>${reqs.filter((r) => r.ok).length} of ${reqs.length} needs met for ${next}` : ''}<br><span class="rf-dim tip-w">click: the town card</span>`;
-  return `<span class="tw-badge" data-tip="${attr(tip)}">${ring(townProgress(t), 26, `<b style="font-size:12px">${t.level}</b>`)}<b class="rf-name" style="font-size:14px">${esc(t.name)}</b></span>`;
+  return `<span class="tw-badge" data-tip="${attr(tip)}">${ring(townProgress(t), 26, `<b style="font-size:13px">${t.level}</b>`)}<b class="rf-name" style="font-size:14px">${esc(t.name)}</b></span>`;
 }
 
 // ------------------------------------------------------------------ the works

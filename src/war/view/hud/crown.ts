@@ -3,14 +3,14 @@
  * like the Works and Tasks windows. The corner button "Crown" (a gold pip when a vote waits for you or an order is new)
  * opens a window of five tabs, after Crusader Kings III's council screen:
  *
- *   Court      the throne (the monarch's medallion in his alliance's colour, his realm power, the term's bar; Regent
+ *   Court      the throne (the monarch's medallion in his alliance's colour, his realm power, his heir; Regent
  *              while an election runs after it), the four council seats (office, holder, duty; the monarch appoints and
  *              dismisses there), the treasury (coin and goods, the tax and what it brought; deposit; the Treasurer's
  *              tax, works and contract tools) and the chronicle.
- *   Oaths      W-150..W-155: whom you serve, who serves you, what is set aside and where, the ballot while one is open,
- *              the king's heir, and the roll of broken oaths.
+ *   Oaths      W-150..W-155: whom you serve, who serves you, what is owed and where, the king's heir; the call to guard
+ *              and the roll of broken oaths fold away (W-211).
  *   Election   the candidates as portraits with their power and a vote bar (your vote marked; your weight), or the
- *              term's countdown and the no-confidence petition (signatures, then yes and no), and the members by power.
+ *              reign and the no-confidence petition (signatures, then yes and no), and the members by power.
  *   Orders     "Orders of the crown": each order's bounty, progress and time, deliver to a quest; the Marshal's and the
  *              Quartermaster's form to post one.
  *   Envoys     pacts and truces with the other alliances (offers to answer), and the Envoy's offer form.
@@ -111,7 +111,7 @@ function logText(l: CrownLog): string {
     case 'pact_cancelled': return `The ${d.kind} offer to ${esc(allianceName(Number(d.other)))} is withdrawn`;
     case 'pact_ended': return `The ${d.kind} with ${esc(allianceName(Number(d.other)))} ends`;
     case 'pact_broken': return `<span class="cr-bad">${who} breaks the ${d.kind} with ${esc(allianceName(Number(d.other)))}</span>`;
-    case 'season': return 'A new season: every term ends';
+    case 'season': return 'A new season: the crown is laid down';
     case 'oath_sworn': return `${who} swears to <b>${esc(String(d.lord ?? ''))}</b>`;
     case 'oath_broken': return `<span class="cr-bad">${who} breaks his oath to <b>${esc(String(d.lord ?? ''))}</b></span>`;
     case 'oath_rate': return `${who} asks ${d.pct}% of those sworn to him`;
@@ -137,7 +137,7 @@ function courtHtml(v: CrownView): string {
         <div class="cr-tt"><div class="cr-tier">${v.regent ? 'Regent of' : 'Monarch of'} ${esc(allianceName(a))}</div>
           <div class="cr-king">${esc(m.name)}${isKing ? ' <span class="cr-you">you</span>' : ''}</div>
           <div class="cr-stats"><span class="rf-ichip gold" data-tip="${attr('<b class="k">Realm power</b><br><span class="rf-dim tip-w">his settlements\' levels, his vassals\' levels and one per region held</span>')}">${glyph('ui:power', 16)}${fmt(m.power)}</span>
-          ${v.regent ? `<span class="rf-ichip" data-tip="${attr('<b class="k">Regency</b><br><span class="rf-dim tip-w">he rules until the election closes</span>')}">${glyph('ui:hourglass', 16)}regent</span>` : `<span class="rf-dim">rules until deposed</span>`}</div></div></div>`
+          ${v.regent ? `<span class="rf-ichip" data-tip="${attr('<b class="k">Regency</b><br><span class="rf-dim tip-w">he rules until the election closes</span>')}">${glyph('ui:hourglass', 16)}regent</span>` : `<span class="rf-dim">rules until deposed${v.feudal.heir ? ` · heir ${esc(v.feudal.heir.name)}` : ''}</span>`}</div></div></div>`
     : `<div class="cr-throne rf-well empty"><div class="cr-medal">${CROWN_SVG(38)}<span class="cr-av big vacant" style="width:58px;height:58px">?</span></div>
         <div class="cr-tt"><div class="cr-tier">The throne of ${esc(allianceName(a))}</div><div class="cr-king">The crown is empty</div>
         <div class="rf-dim cr-why">${v.election ? `The realm votes: closes in ${until(v.election.closes - v.now)}` : 'An election opens once members hold settlements: found one'}</div></div></div>`;
@@ -211,10 +211,10 @@ function electionHtml(v: CrownView): string {
 /** What is set aside and where: one line per place; `act`: the button on it when his men may carry it here. */
 const owedRows = (owed: readonly OwedPlace[], here: string, act: (o: OwedPlace) => string) => owed.map((o) => {
   const goods = Object.entries(o.goods).filter(([, n]) => n > 0.05).map(([r, n]) => `<span class="rf-ichip">${gi(r)}${fmt(n)}</span>`).join('');
-  return `<div class="cr-owe"><span class="cr-rkn">${esc(o.what === 'stall' ? 'stall' : o.what.replace(/[A-Z]/g, (c) => ' ' + c.toLowerCase()))} <span class="rf-dim">in ${esc(regionName(o.region))}</span></span>${goods}${o.what === 'stall' && o.region === here ? act(o) : ''}</div>`;
+  return `<div class="cr-owe"><span class="cr-rkn"><span class="rf-dim">Owed:</span> ${esc(o.what === 'stall' ? 'stall' : o.what.replace(/[A-Z]/g, (c) => ' ' + c.toLowerCase()))} <span class="rf-dim">in ${esc(regionName(o.region))}</span></span>${goods}${o.what === 'stall' && o.region === here ? act(o) : ''}</div>`;
 }).join('');
 
-function oathsHtml(v: CrownView, here: string, f: { region: string; men: number; hours: number }): string {
+function oathsHtml(v: CrownView, here: string, f: { region: string; men: number; hours: number; open: boolean; roll: boolean }): string {
   const fd = v.feudal, a = v.alliance, name = (p: { name: string }, av = 20) => `${avatar(p.name, a, av)}<span class="cr-rkn"><b>${esc(p.name)}</b>`;
   // ---------- whom you serve
   let serve: string;
@@ -232,18 +232,20 @@ function oathsHtml(v: CrownView, here: string, f: { region: string; men: number;
   // ---------- who serves you
   const asks = fd.asks.map((q) => `<div class="cr-rk">${name(q)} <span class="rf-dim">would swear to you</span></span><button class="rf-tbtn pri" data-act="oathAnswer" data-p="${q.pid}" data-y="1">Accept</button><button class="rf-tbtn" data-act="oathAnswer" data-p="${q.pid}" data-y="0">Refuse</button></div>`).join('');
   const vassals = fd.vassals.map((x) => `<div class="cr-rk">${name(x)} <span class="rf-dim">${RANK_NAME[x.rank]}</span></span></div>${owedRows(x.owed, here, () => `<button class="rf-tbtn pri" data-act="tribute" data-of="${x.pid}" data-tip="${attr('<b class="k">Fetch it</b><br><span class="rf-dim tip-w">your men in the market court carry it off</span>')}">Fetch</button>`)}`).join('');
-  const rate = fd.rate !== null || fd.rank === 'king' ? `<span class="cr-rate" data-tip="${attr(`<b class="k">Your share</b><br><span class="rf-dim tip-w">what they set aside for you from what they earn, at most ${FEUDAL.rateMax}%</span>`)}">your share <input data-in="rate" value="${fd.rate ?? FEUDAL.rateDefault}" inputmode="numeric">% <button class="rf-tbtn" data-act="rate">Set</button></span>` : '';
-  const call = fd.vassals.length ? `<div class="cr-line"><span class="rf-dim">Call to guard</span><select data-sel="callRegion">${WORLD_REGIONS.map((r) => `<option value="${r.id}"${r.id === f.region ? ' selected' : ''}>${esc(r.name)}</option>`).join('')}</select><input data-in="callMen" value="${f.men}" inputmode="numeric" style="width:30px"><span class="rf-dim">men</span><input data-in="callHours" value="${f.hours}" inputmode="numeric" style="width:30px"><span class="rf-dim">h</span><button class="rf-tbtn cr-go" data-act="call" data-tip="${attr('<b class="k">Call to guard</b><br><span class="rf-dim tip-w">unpaid, and nobody has to come</span>')}">Call</button></div>` : '';
-  const calls = fd.calls.map((c) => `<div class="cr-rk">${glyph('ui:shield', 16)}<span class="cr-rkn"><b>${esc(c.by)}</b> <span class="rf-dim">asks ${c.men} men at ${esc(regionName(c.region))} for ${c.hours} h, unpaid</span></span><button class="rf-tbtn" data-act="answerCall" data-id="${c.id}"${c.taken ? why('taken') : ''}>${c.taken ? 'Taken' : 'Go'}</button></div>`).join('');
-  // ---------- the ballot, while one is open
-  const e = v.election, ballot = e ? `<div class="rf-sec">Vote for the crown <span class="rf-dim">${v.me.weight > 0 ? `your vote counts ${fmt(v.me.weight)}` : NOT_LORD}</span></div>${e.candidates.map((c) => `<div class="cr-rk${e.mine === c.pid ? ' me' : ''}">${name(c, 20)}</span><span class="rf-dim">${fmt(c.votes)}</span><button class="rf-tbtn${e.mine === c.pid ? '' : ' pri'}" data-act="vote" data-p="${c.pid}"${e.mine === c.pid ? why('you voted for him') : v.me.weight <= 0 ? why(NOT_LORD) : ''}>${e.mine === c.pid ? 'Your vote' : 'Vote'}</button></div>`).join('')}` : '';
+  const rate = fd.rate !== null || fd.rank === 'king' ? `<span class="cr-rate" data-tip="${attr(`<b class="k">Your share</b><br><span class="rf-dim tip-w">what they set aside for you from what they earn, at most ${FEUDAL.rateMax}%</span>`)}"><span class="rf-dim">Your share</span><input data-in="rate" value="${fd.rate ?? FEUDAL.rateDefault}" inputmode="numeric">%<button class="rf-tbtn" data-act="rate">Set</button></span>` : '';
+  const callBtn = fd.vassals.length ? `<button class="rf-tbtn cr-go${f.open ? ' on' : ''}" data-act="callFold">Call to guard</button>` : '';
+  const call = fd.vassals.length && f.open ? `<div class="cr-line"><select data-sel="callRegion">${WORLD_REGIONS.map((r) => `<option value="${r.id}"${r.id === f.region ? ' selected' : ''}>${esc(r.name)}</option>`).join('')}</select><input data-in="callMen" value="${f.men}" inputmode="numeric" style="width:30px"><span class="rf-dim">men</span><input data-in="callHours" value="${f.hours}" inputmode="numeric" style="width:30px"><span class="rf-dim">h</span><button class="rf-tbtn pri cr-go" data-act="call" data-tip="${attr('<b class="k">Call to guard</b><br><span class="rf-dim tip-w">unpaid, and nobody has to come</span>')}">Call</button></div>` : '';
+  const calls = fd.calls.map((c) => `<div class="cr-rk">${glyph('ui:shield', 16)}<span class="cr-rkn"><b>${esc(c.by)}</b> <span class="rf-dim">calls ${c.men} men to ${esc(regionName(c.region))}, ${c.hours} h</span></span><button class="rf-tbtn" data-act="answerCall" data-id="${c.id}"${c.taken ? why('taken') : ` data-tip="${attr('<b class="k">Go and guard</b><br><span class="rf-dim tip-w">unpaid, and you need not come</span>')}"`}>${c.taken ? 'Taken' : 'Go'}</button></div>`).join('');
   // ---------- the king's heir
   const heirs = v.members.filter((m) => m.pid !== v.me.pid);
-  const king = v.me.monarch ? `<div class="rf-sec">Your heir <span class="rf-dim">rules at once if you give up the crown</span></div><div class="cr-line"><select data-sel="heir"><option value="">no heir</option>${heirs.map((m) => `<option value="${m.pid}"${m.pid === fd.heir?.pid ? ' selected' : ''}>${esc(m.name)}</option>`).join('')}</select><button class="rf-tbtn" data-act="heir">Name</button><button class="rf-tbtn cr-go" data-act="abdicate" data-sure="abdicate">Give up the crown</button></div>` : fd.heir ? `<div class="cr-line rf-dim">The heir: <b>${esc(fd.heir.name)}</b></div>` : '';
+  const king = v.me.monarch ? `<div class="rf-sec">Your heir <span class="rf-dim">rules at once if you give up the crown</span></div><div class="cr-line"><select data-sel="heir"><option value="">no heir</option>${heirs.map((m) => `<option value="${m.pid}"${m.pid === fd.heir?.pid ? ' selected' : ''}>${esc(m.name)}</option>`).join('')}</select><button class="rf-tbtn" data-act="heir">Name</button><button class="rf-tbtn cr-go" data-act="abdicate" data-sure="abdicate">Give up the crown</button></div>` : '';
   const roll = fd.roll.slice(0, 5).map((r) => `<div class="cr-log"><span><b>${esc(r.name)}</b> broke his oath to <b>${esc(r.lord)}</b></span><span class="rf-dim">${ago(v.now - r.at)}</span></div>`).join('');
-  return `<div class="cr-oaths">${ballot}<div class="rf-sec">You serve</div>${serve}${mineOwed ? `<div class="rf-sec">Set aside for him <span class="rf-dim">until it is fetched</span></div>${mineOwed}` : ''}${calls}
-    <div class="rf-sec cr-secrow">They serve you <span class="rf-dim">${fd.vassals.length || 'nobody yet'}</span>${rate}</div>${asks}${vassals}${call}${king}
-    ${roll ? `<div class="cr-chron cr-roll">${roll}</div>` : ''}</div>`;
+  const rollFold = fd.roll.length ? `<button class="rf-tbtn cr-fold${f.roll ? ' on' : ''}" data-act="rollFold">Broken oaths ${fd.roll.length}</button>${f.roll ? `<div class="cr-chron cr-roll">${roll}</div>` : ''}` : '';
+  // whom you serve; who serves you, only for one who can be served
+  const under = fd.vassals.length > 0 || fd.asks.length > 0 || fd.rate !== null || fd.rank === 'king';
+  return `<div class="cr-oaths"><div class="rf-sec">You serve</div>${serve}${mineOwed}${calls}
+    ${under ? `<div class="rf-sec">They serve you <span class="rf-dim">${fd.vassals.length || 'nobody yet'}</span></div>${asks}${vassals}${rate || callBtn ? `<div class="cr-line cr-lord">${rate}${callBtn}</div>` : ''}${call}` : ''}${king}
+    ${rollFold}</div>`;
 }
 
 /** An order's key for tracking. */
@@ -337,68 +339,68 @@ const CSS = `
 .cr-medal{position:relative;width:70px;height:78px;flex:none;display:flex;align-items:flex-end;justify-content:center}
 .cr-medal .cr-crest{position:absolute;top:0;left:50%;transform:translateX(-50%);z-index:1;filter:drop-shadow(0 1px 1px #000)}
 .cr-tt{flex:1;min-width:0}
-.cr-tier{font:700 11px/1 Cinzel,serif;letter-spacing:.14em;text-transform:uppercase;color:var(--rf-gold);margin-bottom:3px}
+.cr-tier{font:700 13px/1 Cinzel,serif;letter-spacing:.14em;text-transform:uppercase;color:var(--rf-gold);margin-bottom:3px}
 .cr-king{font:700 18px/1.1 Cinzel,serif;color:var(--rf-title);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.cr-stats{display:flex;align-items:center;gap:6px;margin:5px 0 5px;font-size:11px}.cr-stats .rf-ichip{height:20px}
-.cr-why{margin-top:4px;font-size:11px}
+.cr-stats{display:flex;align-items:center;gap:6px;margin:5px 0 5px;font-size:13px}.cr-stats .rf-ichip{height:20px}
+.cr-why{margin-top:4px;font-size:13px}
 .cr-seats{display:grid;grid-template-columns:1fr 1fr;gap:5px}
 .cr-seat{padding:5px 6px}.cr-seat.me{border-color:#6a5326}.cr-seat.vacant{opacity:.85;border-style:dashed}
 .cr-seat-top{display:flex;align-items:center;gap:5px}
 .cr-oi{width:26px;height:26px;flex:none;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 60%,#2b2f37,#0d0f12);border:1px solid var(--rf-line)}
-.cr-on{font:700 12px/1 Cinzel,serif;letter-spacing:.05em;color:var(--rf-title)}
+.cr-on{font:700 13px/1 Cinzel,serif;letter-spacing:.05em;color:var(--rf-title)}
 .cr-holder{display:flex;align-items:center;gap:6px;margin-top:5px;min-height:24px}
 .cr-hn{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cr-appoint{display:flex;gap:2px;margin-top:5px}.cr-appoint select{flex:1;min-width:0}.cr-appoint .rf-tbtn{width:24px;padding:0}
 .cr-treasury{padding:6px 7px}
 .cr-coin{display:flex;align-items:center;gap:6px}.cr-coin b{font:700 20px/1 Cinzel,serif;color:var(--rf-gold)}
 .cr-goods{display:flex;flex-wrap:wrap;gap:3px;margin:5px 0}.cr-goods .rf-ichip{height:20px}
-.cr-line{display:flex;align-items:center;gap:4px;margin-top:5px;font-size:11px}.cr-line select{max-width:150px}
+.cr-line{display:flex;align-items:center;gap:4px;margin-top:5px;font-size:13px}.cr-line select{max-width:150px}
 .cr-lab{min-width:46px}.cr-go{margin-left:auto}
 .cr-dep{padding-top:5px;border-top:1px solid var(--rf-rule)}
 .cr-tools{margin-top:6px;padding-top:5px;border-top:1px dashed #6a5326}
-.cr-tl{display:flex;align-items:center;gap:4px;font:700 11px/1 Cinzel,serif;letter-spacing:.12em;text-transform:uppercase;color:var(--rf-gold)}
+.cr-tl{display:flex;align-items:center;gap:4px;font:700 13px/1 Cinzel,serif;letter-spacing:.12em;text-transform:uppercase;color:var(--rf-gold)}
 .cr-chron{border:1px solid var(--rf-rule);background:var(--rf-sunk);padding:2px 6px}
-.cr-log{display:flex;gap:6px;justify-content:space-between;padding:3px 0;border-bottom:1px solid #1a1c20;font-size:11px}.cr-log:last-child{border:0}.cr-log b{color:var(--rf-title)}.cr-log .rf-dim{white-space:nowrap}
+.cr-log{display:flex;gap:6px;justify-content:space-between;padding:3px 0;border-bottom:1px solid #1a1c20;font-size:13px}.cr-log:last-child{border:0}.cr-log b{color:var(--rf-title)}.cr-log .rf-dim{white-space:nowrap}
 .cr-bad{color:var(--rf-bad)}.cr-bad b{color:var(--rf-bad)!important}
 .cr-banner{display:flex;align-items:center;gap:8px;padding:6px 8px;margin-bottom:6px;border:1px solid #6a5326;background:linear-gradient(90deg,#2a1b10,var(--rf-sunk))}
-.cr-bt{font:700 14px/1.1 Cinzel,serif;color:var(--rf-title)}.cr-banner .rf-dim{font-size:11px;margin-top:2px}
+.cr-bt{font:700 14px/1.1 Cinzel,serif;color:var(--rf-title)}.cr-banner .rf-dim{font-size:13px;margin-top:2px}
 .cr-cands{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
 .cr-cand{position:relative;display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 5px 6px;text-align:center}
 .cr-cand.first{border-color:#6a5326;background:linear-gradient(180deg,#2a1b10,var(--rf-sunk))}
 .cr-cand.voted{border-color:var(--rf-good);box-shadow:inset 0 0 0 1px #2c3d1e}
-.cr-rank{position:absolute;top:3px;left:5px;font:700 11px/1 Cinzel,serif;color:var(--rf-gold)}
-.cr-cn{font:700 12px/1.1 Cinzel,serif;color:var(--rf-title);max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
-.cr-cp{display:inline-flex;align-items:center;gap:3px;font:700 12px/1 Inter,sans-serif;color:var(--rf-gold)}
-.cr-vb{width:100%;margin-top:2px}.cr-vn{font-size:11px}.cr-vn b{color:var(--rf-ink)}
+.cr-rank{position:absolute;top:3px;left:5px;font:700 13px/1 Cinzel,serif;color:var(--rf-gold)}
+.cr-cn{font:700 13px/1.1 Cinzel,serif;color:var(--rf-title);max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+.cr-cp{display:inline-flex;align-items:center;gap:3px;font:700 13px/1 Inter,sans-serif;color:var(--rf-gold)}
+.cr-vb{width:100%;margin-top:2px}.cr-vn{font-size:13px}.cr-vn b{color:var(--rf-ink)}
 .cr-cand .rf-tbtn{width:100%;margin-top:3px}
 .cr-nc{padding:6px 7px;margin-top:6px}.cr-nc.open{border-color:#5a2c22;background:linear-gradient(180deg,#24120e,var(--rf-sunk))}
-.cr-nct{display:flex;align-items:center;gap:5px;font:700 13px/1 Cinzel,serif;color:var(--rf-title)}.cr-nct .rf-dim{margin-left:auto;font:600 11px/1 Inter,sans-serif}
-.cr-yn{display:flex;align-items:center;gap:6px;margin-top:7px;font:700 11px/1 Inter,sans-serif}.cr-y{color:var(--rf-bad)}.cr-n{color:var(--rf-good)}
+.cr-nct{display:flex;align-items:center;gap:5px;font:700 13px/1 Cinzel,serif;color:var(--rf-title)}.cr-nct .rf-dim{margin-left:auto;font:600 13px/1 Inter,sans-serif}
+.cr-yn{display:flex;align-items:center;gap:6px;margin-top:7px;font:700 13px/1 Inter,sans-serif}.cr-y{color:var(--rf-bad)}.cr-n{color:var(--rf-good)}
 .cr-ynbar{flex:1;height:8px;background:#1d2a14;border:1px solid var(--rf-rule)}.cr-ynbar i{display:block;height:100%;background:linear-gradient(180deg,#f08a70,#9a3a22)}
 .cr-pb{flex:1}.cr-sig{font:700 13px/1 Cinzel,serif;color:var(--rf-gold);min-width:34px;text-align:right}
-.cr-rk{display:flex;align-items:center;gap:6px;padding:3px 4px;border-bottom:1px solid #1a1c20;font-size:11.5px}.cr-rk.me{background:var(--rf-sel)}
-.cr-rn{width:14px;text-align:right;color:var(--rf-muted);font:700 11px/1 Cinzel,serif}.cr-rkn{flex:1;min-width:0;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.cr-rk b{min-width:24px;text-align:right;color:var(--rf-gold)}
+.cr-rk{display:flex;align-items:center;gap:6px;padding:3px 4px;border-bottom:1px solid #1a1c20;font-size:13px}.cr-rk.me{background:var(--rf-sel)}
+.cr-rn{width:14px;text-align:right;color:var(--rf-muted);font:700 13px/1 Cinzel,serif}.cr-rkn{flex:1;min-width:0;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.cr-rk b{min-width:24px;text-align:right;color:var(--rf-gold)}
 .cr-order{padding:6px 7px;margin-bottom:4px}.cr-order.closed{opacity:.6}
 .cr-order.war{border-left:3px solid #b42c22}.cr-order.def{border-left:3px solid #2e6c9c}.cr-order.rally{border-left:3px solid var(--rf-gold)}.cr-order.sup{border-left:3px solid #6a8a3a}
 .cr-bounty{height:20px}
-.cr-prog{display:flex;align-items:center;gap:6px;margin:5px 0 0;font-size:12px}.cr-prog .rf-bar{flex:1}
-.cr-pn{display:inline-flex;align-items:center;gap:2px;white-space:nowrap;font:700 12px/1 Inter,sans-serif;color:var(--rf-gold)}
+.cr-prog{display:flex;align-items:center;gap:6px;margin:5px 0 0;font-size:13px}.cr-prog .rf-bar{flex:1}
+.cr-pn{display:inline-flex;align-items:center;gap:2px;white-space:nowrap;font:700 13px/1 Inter,sans-serif;color:var(--rf-gold)}
 .cr-trk.on{color:var(--rf-gold);border-color:#6a5326}
 .cr-oact{margin-left:auto;display:flex;gap:3px;align-items:center}.cr-oact .rf-tbtn,.cr-pact .rf-tbtn{height:22px}
-.cr-st{font:600 11px/1 Inter,sans-serif;text-transform:capitalize;color:var(--rf-muted)}.cr-st.done,.cr-st.active{color:var(--rf-good)}.cr-st.broken,.cr-st.refused{color:var(--rf-bad)}.cr-st.offered{color:var(--rf-gold)}
+.cr-st{font:600 13px/1 Inter,sans-serif;text-transform:capitalize;color:var(--rf-muted)}.cr-st.done,.cr-st.active{color:var(--rf-good)}.cr-st.broken,.cr-st.refused{color:var(--rf-bad)}.cr-st.offered{color:var(--rf-gold)}
 .cr-post{padding:6px 7px}.cr-kinds{display:flex;gap:3px}.cr-kinds .rf-tbtn{flex:1;gap:3px}
-.cr-none{padding:8px 6px;font-size:11.5px;text-align:center;border:1px dashed var(--rf-rule)}
+.cr-none{padding:8px 6px;font-size:13px;text-align:center;border:1px dashed var(--rf-rule)}
 .cr-pact{display:flex;align-items:center;gap:7px;padding:5px 6px;margin-bottom:4px}.cr-pact.broken{border-color:#5a2c22}.cr-pact.active{border-color:#3f5a2c}
 .cr-flags{display:inline-flex;align-items:center;gap:3px}.cr-flags i{width:12px;height:16px;background:var(--c);clip-path:polygon(0 0,100% 0,100% 100%,50% 78%,0 100%);box-shadow:inset 0 0 0 1px rgba(0,0,0,.4)}
-.cr-pb2{flex:1;min-width:0}.cr-pt{font:700 12.5px/1.1 Cinzel,serif;color:var(--rf-title)}.cr-pb2 .rf-dim{font-size:11px;margin-top:2px}
-.cr-pk{grid-template-columns:1fr 1fr;flex:1}.cr-note{font-size:11px;margin-top:5px;line-height:1.3}
-.cr-msg{min-height:15px;margin-top:4px;font-size:11.5px;color:var(--rf-good)}.cr-msg::first-letter{text-transform:uppercase}.cr-msg.bad{color:var(--rf-bad)}.cr-msg.ask{color:var(--rf-gold)}
+.cr-pb2{flex:1;min-width:0}.cr-pt{font:700 13px/1.1 Cinzel,serif;color:var(--rf-title)}.cr-pb2 .rf-dim{font-size:13px;margin-top:2px}
+.cr-pk{grid-template-columns:1fr 1fr;flex:1}.cr-note{font-size:13px;margin-top:5px;line-height:1.3}
+.cr-msg{min-height:15px;margin-top:4px;font-size:13px;color:var(--rf-good)}.cr-msg::first-letter{text-transform:uppercase}.cr-msg.bad{color:var(--rf-bad)}.cr-msg.ask{color:var(--rf-gold)}
 #rfCrown.busy [data-act]:not([data-act=tab]):not([data-act=close]){pointer-events:none;opacity:.55}
 #rfCrown .rf-tbtn.sure{width:auto!important;padding:0 7px!important;color:var(--rf-bad);box-shadow:0 0 0 1px var(--rf-bad)}
-.cr-owe{display:flex;align-items:center;gap:4px;padding:0 4px 0 28px;font-size:11px}.cr-owe .rf-ichip{height:20px}.cr-owe .rf-tbtn{margin-left:auto;height:22px}
+.cr-owe{display:flex;align-items:center;gap:4px;padding:0 4px 0 28px;font-size:13px}.cr-owe .rf-ichip{height:20px}.cr-owe .rf-tbtn{margin-left:auto;height:22px}
 .cr-rk .rf-tbtn{height:20px}.cr-rkline{margin-top:0}
 #rfCrown .cr-oaths .rf-sec{margin:5px 0 2px}#rfCrown .cr-oaths .cr-rk{padding:1px 4px}#rfCrown .cr-oaths .cr-line{margin-top:2px}#rfCrown .cr-oaths .cr-log{padding:1px 0}
-.cr-secrow{align-items:center}.cr-rate{display:inline-flex;align-items:center;gap:3px;font:600 11px/1 Inter,sans-serif;letter-spacing:0;text-transform:none;color:var(--rf-muted);order:3;flex:none}.cr-rate input{width:30px;height:18px}.cr-rate .rf-tbtn{height:18px}.cr-roll{margin-top:5px}
+.cr-rate{display:inline-flex;align-items:center;gap:4px}.cr-rate input{width:34px}.cr-lord{margin-top:6px!important}.cr-fold{margin-top:8px}.cr-roll{margin-top:4px}
 #rfCrown{scrollbar-width:auto!important;scrollbar-color:var(--rf-gold) #050506!important}
 #rfCrownBtn{position:relative}
 `;
@@ -433,7 +435,7 @@ export function mountCrown(s: SandboxScene, mk: Mk): void {
   let fetching = false;
   const form: OrderForm = { kind: 'attack', region: WORLD_REGIONS[0].id, target: '', res: 'stone', n: 100, bounty: 200, hours: 24 };
   const pact = { to: 0, kind: 'pact' as 'pact' | 'truce' };
-  const callForm = { region: s.region?.id ?? WORLD_REGIONS[0].id, men: 4, hours: 4 };
+  const callForm = { region: s.region?.id ?? WORLD_REGIONS[0].id, men: 4, hours: 4, open: false, roll: false };
   const btn = menuBtn('rfCrownBtn', 'menu-crown', 'The Crown', 'the crown and council of your alliance', 'panel.crown', 4);
   const render = () => {
     setBadge(btn, +waiting(v));
@@ -554,6 +556,8 @@ export function mountCrown(s: SandboxScene, mk: Mk): void {
     if (a === 'oath') return call('oath', { lord: Number(sel('oathLord')) }, () => 'asked: he answers within two days');
     if (a === 'oathAnswer') return call('oath/answer', { vassal: Number(t.dataset.p), yes: t.dataset.y === '1' }, (r) => (r.state === 'sworn' ? 'he is sworn to you' : r.state === 'withdrawn' ? 'withdrawn' : 'refused'));
     if (a === 'breakOath') return call('oath/break', {}, () => 'your oath is broken');
+    if (a === 'callFold') return ((callForm.open = !callForm.open), render());
+    if (a === 'rollFold') return ((callForm.roll = !callForm.roll), render());
     if (a === 'rate') return call('rate', { pct: Math.round(num('rate')) }, (r) => `your share is ${r.pct}%`);
     if (a === 'heir') return call('heir', { pid: Number(sel('heir')) || null }, () => (sel('heir') ? 'your heir is named' : 'no heir'));
     if (a === 'abdicate') return call('abdicate', {}, (r) => (r.monarch ? 'your heir rules' : 'the realm votes'));

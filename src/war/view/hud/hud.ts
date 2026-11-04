@@ -215,7 +215,7 @@ export function hud(s: SandboxScene): void {
       <div id="cBars" style="margin-top:4px;display:flex;flex-direction:column;gap:2px"></div>
       <div class="hud-chips" id="cChips"></div>
       <div class="hud-pips" id="cPips"></div>
-      <div class="rf-dim" id="cInfo" style="margin-top:4px;font-size:11.5px;line-height:14px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden"></div>
+      <div class="rf-dim" id="cInfo" style="margin-top:4px;font-size:13px;line-height:14px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden"></div>
       <div id="cStat" class="bk-stat" style="display:none"></div>
     </div>
     <div class="hud-mancard" id="cManCard" data-slot="man-card"></div>
@@ -313,7 +313,7 @@ export function hud(s: SandboxScene): void {
   const meOwner = () => (s.sim.playerId ? `p:${s.sim.playerId}` : 'you');
   const razeBox = document.createElement('div');
   razeBox.id = 'bRazeConfirm';
-  razeBox.style.cssText = 'display:flex;align-items:center;gap:4px;font-size:12px;white-space:nowrap;padding:0 2px';
+  razeBox.style.cssText = 'display:flex;align-items:center;gap:4px;font-size:13px;white-space:nowrap;padding:0 2px';
   const confirmRaze = (yes: boolean) => { if (yes) m.demolish(); razeArmed = -1; refresh(); };
   razeBox.addEventListener('click', (e) => { const a = (e.target as HTMLElement).closest<HTMLElement>('[data-raze]')?.dataset.raze; if (a) confirmRaze(a === 'yes'); });
   /** A building key's hint for a tooltip title (the current binding, rebindable on Settings > Controls). */
@@ -452,7 +452,7 @@ export function hud(s: SandboxScene): void {
   const renderTools = () => {
     toolBtns.length = 0;
     bTools.replaceChildren(...TABS[tab].map((d, i) => {
-      const b = btn('bt-' + tab + i, d.icon, () => buildCard(d.tool?.kind === 'siege' ? 'siege' : 'building', d.tool?.kind === 'siege' ? d.tool.type : d.type ?? '', d.name, icon(d.icon, 32), `<div style="display:flex;align-items:center;flex-wrap:wrap">${needChips(d.cost, localGoods(s))}</div>${shortText(d.cost, localGoods(s)) ? `<div class="rf-hint">${shortText(d.cost, localGoods(s))}</div>` : ''}<div class="rf-dim" style="margin-top:3px;font-size:11px">${d.craft ? `${d.labour} s an engineer` : `${term('labour')} ${labourText(d.labour, d.type ? BUILDINGS[d.type].workers : undefined)}`}${d.note ? ' · ' + d.note : ''}</div>`, nodeWhy(d)), '', () => { if (d.craft) return craftCart(d.craft); if (!nodeWhy(d)) m.setTool(JSON.stringify(m.tool) === JSON.stringify(d.tool) ? null : d.tool); });
+      const b = btn('bt-' + tab + i, d.icon, () => buildCard(d.tool?.kind === 'siege' ? 'siege' : 'building', d.tool?.kind === 'siege' ? d.tool.type : d.type ?? '', d.name, icon(d.icon, 32), `<div style="display:flex;align-items:center;flex-wrap:wrap">${needChips(d.cost, localGoods(s))}</div>${shortText(d.cost, localGoods(s)) ? `<div class="rf-hint">${shortText(d.cost, localGoods(s))}</div>` : ''}<div class="rf-dim" style="margin-top:3px;font-size:13px">${d.craft ? `${d.labour} s an engineer` : `${term('labour')} ${labourText(d.labour, d.type ? BUILDINGS[d.type].workers : undefined)}`}${d.note ? ' · ' + d.note : ''}</div>`, nodeWhy(d)), '', () => { if (d.craft) return craftCart(d.craft); if (!nodeWhy(d)) m.setTool(JSON.stringify(m.tool) === JSON.stringify(d.tool) ? null : d.tool); });
       b.dataset.tool = String(i);
       toolBtns.push([b, d]);
       return b;

@@ -192,7 +192,7 @@ export function mountCraft(s: SandboxScene, mk: Mk, roster: RosterHooks): void {
 }
 
 const SHELL = `<div class="rf-card" style="padding:4px 6px 6px">
-  <div class="rf-head"><div style="display:flex;flex-direction:column;gap:2px;min-width:0"><span class="rf-name" style="font-size:16px" data-h="name"></span><span class="rf-dim" style="font-size:11px" data-h="sub"></span></div><span style="flex:1"></span><span data-h="pts" style="display:flex;gap:4px;margin-right:4px"></span>
+  <div class="rf-head"><div style="display:flex;flex-direction:column;gap:2px;min-width:0"><span class="rf-name" style="font-size:16px" data-h="name"></span><span class="rf-dim" style="font-size:13px" data-h="sub"></span></div><span style="flex:1"></span><span data-h="pts" style="display:flex;gap:4px;margin-right:4px"></span>
     <button class="rf-tbtn x" data-act="closeTree" data-tip="close">✕</button></div>
   <div data-h="graph"></div>
   <div class="pt-foot" data-h="foot"></div>
@@ -200,7 +200,7 @@ const SHELL = `<div class="rf-card" style="padding:4px 6px 6px">
 const PANEL_CSS = `
 .pt-foot{display:flex;align-items:center;gap:4px;margin-top:6px;min-height:23px}
 .pt-foot:empty{display:none}
-.tg-chip{display:inline-flex;align-items:center;gap:3px;height:20px;padding:0 6px 0 2px;border:1px solid #34363b;color:var(--rf-muted);font:700 11.5px/1 Inter,sans-serif;white-space:nowrap}
+.tg-chip{display:inline-flex;align-items:center;gap:3px;height:20px;padding:0 6px 0 2px;border:1px solid #34363b;color:var(--rf-muted);font:700 13px/1 Inter,sans-serif;white-space:nowrap}
 .tg-chip.on{border-color:#c9a24a;color:var(--rf-gold);background:rgba(224,184,103,.1);box-shadow:0 0 6px rgba(224,184,103,.3)}
 .tg-chip .gl{margin-right:1px}
 `;

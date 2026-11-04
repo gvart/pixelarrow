@@ -74,32 +74,32 @@ const KIND: Record<ContractKind, { icon: string; name: string; risk: number; ris
 };
 
 const CSS = `
-#rfMarket select,#rfHandoff select{font:600 12px/1 Inter,sans-serif;height:23px;background:var(--rf-sunk);color:var(--rf-ink);border:1px solid var(--rf-line);padding:0 2px}
+#rfMarket select,#rfHandoff select{font:600 13px/1 Inter,sans-serif;height:23px;background:var(--rf-sunk);color:var(--rf-ink);border:1px solid var(--rf-line);padding:0 2px}
 #rfMarket input[type=number],#rfHandoff input[type=number]{width:52px}
 #rfMarket .mk-row,#rfHandoff .mk-row{display:flex;align-items:center;gap:4px;padding:2px 2px;min-height:24px}
 #rfMarket .mk-form,#rfHandoff .mk-form{display:flex;flex-wrap:wrap;align-items:center;gap:4px;padding:4px;margin:4px 0;background:var(--rf-sunk);border:1px solid var(--rf-rule)}
-#rfMarket .mk-b,#rfHandoff .mk-b{height:20px;padding:0 6px;font-size:11px}
-#rfMarket .mk-pill{font:700 10.5px/14px Inter,sans-serif;padding:0 4px;border:1px solid var(--rf-line);background:var(--rf-sunk);white-space:nowrap}
+#rfMarket .mk-b,#rfHandoff .mk-b{height:20px;padding:0 6px;font-size:13px}
+#rfMarket .mk-pill{font:700 13px/14px Inter,sans-serif;padding:0 4px;border:1px solid var(--rf-line);background:var(--rf-sunk);white-space:nowrap}
 #rfMarket .mk-sell{color:var(--rf-good)} #rfMarket .mk-buy{color:var(--rf-gold)}
-#rfMarket .mk-msg,#rfHandoff .mk-msg{margin-top:4px;min-height:15px}
+#rfMarket .mk-msg,#rfHandoff .mk-msg{margin-top:4px}#rfMarket .mk-msg:empty{display:none}
 #rfMarket .mk-msg.bad,#rfHandoff .mk-msg.bad{color:var(--rf-bad)}
 #rfMarket .mk-tabs .rf-tab{padding:0 7px;margin-right:1px}
 #rfMarket .mk-tabs{display:flex;align-items:flex-end;height:24px;margin:4px 0 0;border-bottom:1px solid var(--rf-rule)}
 #rfMarket table{width:100%;border-collapse:collapse}
 #rfMarket td,#rfMarket th{padding:2px 3px;text-align:right;white-space:nowrap}
-#rfMarket th{font:700 11px/1.2 Cinzel,serif;color:var(--rf-accent);border-bottom:1px solid var(--rf-rule)}
+#rfMarket th{font:700 13px/1.2 Cinzel,serif;color:var(--rf-accent);border-bottom:1px solid var(--rf-rule)}
 #rfMarket td:first-child,#rfMarket th:first-child{text-align:left}
 #rfHandoff .mk-half{flex:1;min-width:0;padding:4px;background:var(--rf-sunk);border:1px solid var(--rf-rule)}
 #rfHandoff .mk-half.ok{border-color:var(--rf-good)}
 #rfMarket .mk-cols{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px}
-#rfMarket .mk-colh{display:grid;grid-template-columns:1fr 40px 40px;gap:4px;align-items:end;padding:0 6px 3px;border-bottom:1px solid var(--rf-line);font:700 9.5px/1 Inter,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--rf-muted)}
+#rfMarket .mk-colh{display:grid;grid-template-columns:1fr 40px 40px;gap:4px;align-items:end;padding:0 6px 3px;border-bottom:1px solid var(--rf-line);font:600 13px/1 Inter,sans-serif;color:var(--rf-muted)}
 #rfMarket .mk-colh span{text-align:right}
-#rfMarket .mk-colh span:first-child{font:700 12px/1 Cinzel,serif;letter-spacing:.04em;text-transform:none;color:var(--rf-accent);text-align:left}
+#rfMarket .mk-colh span:first-child{font:700 13px/1 Cinzel,serif;letter-spacing:.04em;text-transform:none;color:var(--rf-accent);text-align:left}
 #rfMarket .mk-list{height:146px;background:var(--rf-sunk);border:1px solid var(--rf-rule);border-top:0}
 #rfMarket .mk-g{display:grid;grid-template-columns:24px 1fr 40px 40px;gap:4px;align-items:center;height:28px;padding:0 6px 0 3px;border-bottom:1px solid #1a1c20}
-#rfMarket .mk-g .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11.5px}
+#rfMarket .mk-g .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px}
 #rfMarket .mk-mark{font-size:9px;margin-left:2px;vertical-align:1px}#rfMarket .mk-mark.good{color:var(--rf-good)}#rfMarket .mk-mark.gold{color:var(--rf-gold)}
-#rfMarket .mk-g .v,#rfMarket .mk-g .p{text-align:right;font-size:12px}
+#rfMarket .mk-g .v,#rfMarket .mk-g .p{text-align:right;font-size:13px}
 #rfMarket .mk-g .v.z{color:var(--rf-disabled)}#rfMarket .mk-g .v.z2{color:var(--rf-muted)}
 #rfMarket .mk-g .p.buy{color:var(--rf-gold)}#rfMarket .mk-g .p.sell{color:var(--rf-good)}
 #rfMarket .mk-none{padding:10px 8px;white-space:normal;line-height:1.4}
@@ -113,36 +113,36 @@ const CSS = `
 #rfMarket .mk-x{display:inline-flex;align-items:center;gap:3px;margin-left:auto;font-size:13px}
 #rfMarket .mk-x .ic{width:16px;height:16px}
 #rfMarket .mk-tot{font-size:16px;color:var(--rf-gold)}
-#rfMarket .mk-cap{display:flex;align-items:center;gap:6px;margin-top:6px;font-size:11px}
+#rfMarket .mk-cap{display:flex;align-items:center;gap:6px;margin-top:6px;font-size:13px}
 #rfMarket .mk-cap>span:first-child{color:var(--rf-muted)}
 #rfMarket .mk-go{display:flex;gap:6px;margin-top:7px}#rfMarket .mk-go .big{flex:1}
-#rfMarket .mk-why{margin-top:4px;font-size:11px;text-align:center}
-#rfMarket .mk-rent{display:flex;align-items:center;gap:6px;margin-top:6px;padding:5px 6px;font-size:11.5px;white-space:normal}
+#rfMarket .mk-why{margin-top:4px;font-size:13px;text-align:center}
+#rfMarket .mk-rent{display:flex;align-items:center;gap:6px;margin-top:6px;padding:5px 6px;font-size:13px;white-space:normal}
 #rfMarket .mk-rent span{flex:1}
 #rfMarket .ct-bar{display:flex;align-items:center;gap:6px;margin:6px 0}
 #rfMarket .ct-bar .rf-seg button{width:32px}
 #rfMarket .ct-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
-#rfMarket .ct-card{position:relative;padding:6px 7px 5px;color:#2a1a10;background:linear-gradient(172deg,#ecdab3,#dcc296 55%,#ccad7a);border:1px solid #6b4a26;box-shadow:inset 0 0 0 1px rgba(255,244,220,.45),inset 0 0 16px rgba(110,70,30,.4),0 2px 0 #050506;font:600 11.5px/1.25 Inter,sans-serif}
+#rfMarket .ct-card{position:relative;padding:6px 7px 5px;color:#2a1a10;background:linear-gradient(172deg,#ecdab3,#dcc296 55%,#ccad7a);border:1px solid #6b4a26;box-shadow:inset 0 0 0 1px rgba(255,244,220,.45),inset 0 0 16px rgba(110,70,30,.4),0 2px 0 #050506;font:600 13px/1.25 Inter,sans-serif}
 #rfMarket .ct-card .rf-dim,#rfMarket .ct-sub{color:#6b4e30}
 #rfMarket .ct-h{display:flex;align-items:center;gap:6px}
 #rfMarket .ct-seal{flex:none;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 40% 35%,#b2412a,#6e1a10);box-shadow:0 0 0 2px #8a2a18,0 1px 2px rgba(0,0,0,.5)}
 #rfMarket .ct-t{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
 #rfMarket .ct-t b{font:700 13.5px/1 Cinzel,serif;color:#4a1e0c}
-#rfMarket .ct-route{display:flex;align-items:center;gap:3px;margin-top:4px;font-size:11px;color:#5a3e22;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#rfMarket .ct-route{display:flex;align-items:center;gap:3px;margin-top:4px;font-size:13px;color:#5a3e22;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #rfMarket .ct-pay{display:flex;align-items:center;gap:1px}#rfMarket .ct-pay b{font:700 17px/1 Cinzel,serif;color:#4a1e0c}
 #rfMarket .ct-how{margin:0 0 4px;font:700 13px/1.3 Inter,sans-serif;color:#4a1e0c}
 #rfMarket .ct-what{display:flex;align-items:center;gap:3px;margin:5px 0 4px;padding:3px 0;border-top:1px solid rgba(107,74,38,.45);border-bottom:1px solid rgba(107,74,38,.45);min-height:30px;flex-wrap:wrap}
-#rfMarket .ct-sub{margin-left:auto;font-size:10.5px}
-#rfMarket .ct-meta{display:flex;align-items:center;gap:7px;min-height:22px;font-size:10.5px;color:#5a3e22}
+#rfMarket .ct-sub{margin-left:auto;font-size:13px}
+#rfMarket .ct-meta{display:flex;align-items:center;gap:7px;min-height:22px;font-size:13px;color:#5a3e22}
 #rfMarket .ct-meta>span{display:inline-flex;align-items:center;gap:2px;white-space:nowrap}
 #rfMarket .ct-risk .off{opacity:.25}
 #rfMarket .ct-card .rf-pill{background:rgba(42,26,16,.85)}
 #rfMarket .ct-none{display:flex;align-items:center;gap:8px;padding:10px;white-space:normal}
-#rfMarket .ct-step{display:flex;align-items:center;gap:6px;margin:8px 0 4px;font:700 11px/1 Cinzel,serif;letter-spacing:.06em;text-transform:uppercase;color:var(--rf-accent)}
+#rfMarket .ct-step{display:flex;align-items:center;gap:6px;margin:8px 0 4px;font:700 13px/1 Cinzel,serif;letter-spacing:.06em;text-transform:uppercase;color:var(--rf-accent)}
 #rfMarket .ct-step i{font-style:normal;width:16px;height:16px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font:700 10px/1 Inter,sans-serif;color:var(--rf-panel);background:var(--rf-accent)}
 #rfMarket .ct-step::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,var(--rf-line),transparent)}
 #rfMarket .ct-types{display:grid;grid-template-columns:repeat(6,1fr);gap:4px}
-#rfMarket .ct-type{display:flex;flex-direction:column;align-items:center;gap:2px;height:46px;padding:3px 0;background:var(--rf-sunk);border:1px solid var(--rf-rule);color:var(--rf-muted);font:600 11px/1 Inter,sans-serif}
+#rfMarket .ct-type{display:flex;flex-direction:column;align-items:center;gap:2px;height:46px;padding:3px 0;background:var(--rf-sunk);border:1px solid var(--rf-rule);color:var(--rf-muted);font:600 13px/1 Inter,sans-serif}
 #rfMarket .ct-type:hover{border-color:var(--rf-accent);color:var(--rf-ink)}
 #rfMarket .ct-type.on{background:var(--rf-sel);border-color:var(--rf-title);color:var(--rf-title);box-shadow:inset 0 0 0 1px var(--rf-title)}
 #rfMarket .ct-row{display:flex;align-items:center;flex-wrap:wrap;gap:4px}
@@ -152,28 +152,30 @@ const CSS = `
 #rfMarket .ct-prev{display:grid;grid-template-columns:minmax(0,1fr) 128px;gap:6px;align-items:stretch}
 #rfMarket .ct-esc{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:6px}
 #rfMarket .ct-esc b{font:700 20px/1 Cinzel,serif;color:var(--rf-gold)}
-#rfMarket .ct-esc span{font:700 10px/1 Inter,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--rf-muted)}
-#rfMarket .nt-top{display:flex;align-items:center;gap:10px;margin:5px 0 3px;font-size:11.5px;white-space:nowrap}
+#rfMarket .ct-esc span{font:600 13px/1.1 Inter,sans-serif;text-align:center;color:var(--rf-muted)}
+#rfMarket .nt-top{display:flex;align-items:center;gap:10px;margin:5px 0 3px;font-size:13px;white-space:nowrap}
 #rfMarket .nt-top>span{display:inline-flex;align-items:center;gap:3px}
 #rfMarket .nt-top .ic{width:16px;height:16px}
 #rfMarket .nt-top b{color:var(--rf-gold)}
 #rfMarket .nt-h,#rfMarket .nt-g{display:grid;grid-template-columns:24px minmax(0,1fr) 44px 44px 44px;gap:4px;align-items:center}
-#rfMarket .nt-h{padding:0 6px 3px 3px;border-bottom:1px solid var(--rf-line);font:700 9.5px/1 Inter,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--rf-muted)}
+#rfMarket .nt-h{padding:0 6px 3px 3px;border-bottom:1px solid var(--rf-line);font:600 13px/1 Inter,sans-serif;color:var(--rf-muted)}
 #rfMarket .nt-h span{text-align:right}
 #rfMarket .nt-list{height:140px;background:var(--rf-sunk);border:1px solid var(--rf-rule);border-top:0}
-@media (max-height:800px){#rfMarket .nt-list{height:112px}}
+@media (max-height:800px){#rfMarket .nt-list{height:100px}#rfMarket .nt-g{height:25px}#rfMarket .nt-word{margin-top:2px}}
 #rfMarket .nt-g{height:28px;padding:0 6px 0 3px;border-bottom:1px solid #1a1c20;cursor:pointer}
-#rfMarket .nt-g .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11.5px}
-#rfMarket .nt-g .rf-num{text-align:right;font-size:12px}
+#rfMarket .nt-g .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px}
+#rfMarket .nt-g .rf-num{text-align:right;font-size:13px}
 #rfMarket .nt-g .have.z{color:var(--rf-disabled)}
 #rfMarket .nt-g .ask{color:var(--rf-gold)}#rfMarket .nt-g .pay{color:var(--rf-good)}
+#rfMarket .nt-sw{padding:0 4px;border-radius:2px;background:rgba(0,0,0,.42);box-shadow:inset 0 0 0 1px var(--hud-bronze);color:var(--hud-ink)}#rfMarket .nt-sw.short{color:var(--hud-gold-hi);box-shadow:inset 0 0 0 1px var(--hud-gold-lo)}
+#rfMarket .nt-word{display:flex;align-items:center;gap:5px;margin-top:4px;min-height:18px}#rfMarket .nt-word .t{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #rfMarket .nt-deal{margin-top:5px;padding:5px 7px}
 #rfMarket .nt-deal .mk-go{margin-top:5px}
 #rfMarket .nt-more{display:flex;align-items:center;gap:4px;margin-top:5px}
 #rfMarket .nt-more select{flex:1;min-width:0}
 #rfMarket .bd-list{max-height:min(560px,calc(100vh - 170px));overflow-y:auto;margin-top:3px;padding-right:3px}
 #rfMarket .bd-c{padding:5px 2px 6px;border-bottom:1px solid #1a1c20}
-#rfMarket .bd-h{margin:6px 0 1px;font:700 10.5px/1.25 Inter,system-ui,sans-serif;letter-spacing:.1em;text-transform:uppercase;color:var(--hud-gold)}
+#rfMarket .bd-h{margin:6px 0 1px;font:700 13px/1.25 Cinzel,serif;letter-spacing:.06em;color:var(--hud-gold)}
 `;
 
 export interface MarketHud { open(tab?: Tab): void; refresh(): void }
@@ -346,9 +348,11 @@ export function mountMarket(s: SandboxScene, mk: Mk): MarketHud {
     const men = atTown(), have = carriedHere(), pick = npc.goods.find((g) => g.res === form.nPick) ?? npc.goods[0], rule = offerRule(T, pick)!;
     form.nPick = pick.res;
     const n = Math.max(1, Math.floor(form.nN) || 1), cost = costOf(rule, pick.stock, Math.min(n, pick.stock)), pay = Math.min(payFor(rule, pick.stock, n, npc.purse), npc.purse);
-    const rows = npc.goods.map((g) => `<div class="nt-g rf-row${g.res === pick.res ? ' on' : ''}" data-act="nPick" data-r="${g.res}" data-tip="${esc(`${goodCard(g.res)}<br><span class="rf-dim tip-w">The town holds ${fmt(g.stock)}: selling here lowers the price, buying raises it.</span>`)}">${gi(g.res)}<span class="nm">${goodName(g.res)}${g.swing ? ` <i class="rf-dim">${g.swing}</i>` : ''}</span><span class="rf-num have${(have[g.res] ?? 0) > 0.05 ? '' : ' z'}">${fmt(have[g.res] ?? 0)}</span><span class="rf-num ask">${fmt(g.ask)}</span><span class="rf-num pay">${fmt(g.pay)}</span></div>`).join('');
+    // W-196: what has swung comes first, so the short list never hides it
+    const rows = [...npc.goods].sort((a, b) => Number(!a.swing) - Number(!b.swing)).map((g) => `<div class="nt-g rf-row${g.res === pick.res ? ' on' : ''}" data-act="nPick" data-r="${g.res}" data-tip="${esc(`${goodCard(g.res)}<br><span class="rf-dim tip-w">${g.swing === 'short' ? 'The town has run short: it pays more for now. ' : g.swing === 'glut' ? 'The town has a glut: it sells cheap for now. ' : ''}The town holds ${fmt(g.stock)}: selling here lowers the price, buying raises it.</span>`)}">${gi(g.res)}<span class="nm">${goodName(g.res)}${g.swing ? ` <span class="nt-sw ${g.swing}">${g.swing}</span>` : ''}</span><span class="rf-num have${(have[g.res] ?? 0) > 0.05 ? '' : ' z'}">${fmt(have[g.res] ?? 0)}</span><span class="rf-num ask">${fmt(g.ask)}</span><span class="rf-num pay">${fmt(g.pay)}</span></div>`).join('');
     const away = men ? '' : 'walk your men to the town: only those standing there can deal';
-    const word = npc.news?.[0], news = word ? `<div class="rf-hint" data-tip="${esc(npc.news!.map((w) => `${worldRegion(w.town)?.name ?? w.town}: ${w.kind === 'short' ? 'short of' : 'a glut of'} ${goodName(w.res)}`).join('<br>'))}">Word from the road: ${worldRegion(word.town)?.name ?? word.town} has ${word.kind === 'short' ? 'run short of' : 'a glut of'} ${goodName(word.res)}</div>` : '';
+    const said = (w: NonNullable<NpcView['news']>[number]) => `${goodName(w.res)}: ${w.kind === 'short' ? 'sells high' : 'cheap'} in ${worldName(w.town)}`;
+    const word = npc.news?.[0], more = (npc.news?.length ?? 0) - 1, news = word ? `<div class="nt-word" data-tip="${esc(`<b class="k">Word from the road</b><br>${npc.news!.map(said).join('<br>')}`)}">${glyph('ui:map', 16)}<span class="t">${said(word)}</span>${more > 0 ? `<span class="rf-dim">+${more}</span>` : ''}</div>` : '';
     const hire = `<select data-f="nHire" title="one of your own people from now on, up to your path's cap">${Object.entries(NPC_HIRE).map(([cls, c]) => `<option value="${cls}"${cls === form.nHire ? ' selected' : ''}>${HIRE_NAME[cls] ?? cls} · ${c} coin</option>`).join('')}</select>`;
     const carts = `<select data-f="nCart" title="rolls up beside your men, up to your path's cap">${(Object.keys(NPC_CARTS) as (keyof typeof NPC_CARTS)[]).map((c) => `<option value="${c}"${c === form.nCart ? ' selected' : ''}>${c === 'wagon' ? 'Wagon' : 'Handcart'} · ${NPC_CARTS[c]} coin</option>`).join('')}</select>`;
     return `<div class="nt-top"><span data-tip="${esc('All the coin the town has to pay with: what buyers paid it and a small daily mint. An empty town buys nothing.')}">Purse <b class="rf-num">${npc.purse}</b> ${icon('res-coin')}</span><span class="rf-dim">your men here <b class="rf-num" style="color:var(--rf-ink)">${men}</b></span></div>
@@ -401,7 +405,7 @@ export function mountMarket(s: SandboxScene, mk: Mk): MarketHud {
       return jobCard({ kind: c.kind, reward: c.reward, route: route(c.kind, c.kind === 'build' || c.kind === 'guard' || c.kind === 'hunt' ? c.region ?? c.town : c.town, c.to_town), what: what(c), time: c.state === 'open' ? inH(c.deadline - now) : '—', employer: c.poster === me ? 'you' : `#${c.poster}`, action });
     }).join('');
     const count = (k: ContractKind | 'all') => contracts.filter((c) => k === 'all' || c.kind === k).length;
-    const filters = (['all', ...KINDS] as const).map((k) => `<button class="${k === cFilter ? 'on' : ''}" data-act="cfilter" data-v="${k}" data-tip="${esc(k === 'all' ? 'every contract' : `<b class="k">${KIND[k].name}</b> · ${count(k)}`)}">${k === 'all' ? '<b style="font:700 11px/1 Inter,sans-serif">All</b>' : icon(KIND[k].icon)}${count(k) ? `<span class="key">${count(k)}</span>` : ''}</button>`).join('');
+    const filters = (['all', ...KINDS] as const).map((k) => `<button class="${k === cFilter ? 'on' : ''}" data-act="cfilter" data-v="${k}" data-tip="${esc(k === 'all' ? 'every contract' : `<b class="k">${KIND[k].name}</b> · ${count(k)}`)}">${k === 'all' ? '<b style="font:700 13px/1 Inter,sans-serif">All</b>' : icon(KIND[k].icon)}${count(k) ? `<span class="key">${count(k)}</span>` : ''}</button>`).join('');
     return `<div class="ct-bar"><span class="rf-seg">${filters}</span><span style="flex:1"></span>${btn('postView', '+ Post a contract', true, '', '', 'rf-tbtn pri')}</div>
       ${cards ? `<div class="ct-grid">${cards}</div>` : `<div class="ct-none rf-well">${icon('trade-contract', 32)}<div><b>No ${cFilter === 'all' ? '' : KIND[cFilter].name.toLowerCase() + ' '}contracts at ${town(T)}</b><div class="rf-dim">post one: the reward is held until the job is done</div></div></div>`}`;
   };
@@ -505,10 +509,10 @@ export function mountMarket(s: SandboxScene, mk: Mk): MarketHud {
   const render = () => {
     if (win.style.display === 'none') return;
     const scroll = win.scrollTop;
-    win.innerHTML = `<div class="rf-head rf-ph">${icon('node-merchant-trader', 32)}<div style="flex:1;min-width:0"><div class="rf-name">Market of ${town(T)}</div><div class="sub">${tab === 'Town' ? 'the town trades' : tab === 'Board' ? 'work the town pays for' : isTown ? 'players\' offers only' : 'no market here'}${M.live ? '' : ' · offline'} · <span style="color:var(--rf-gold)">${Math.floor(s.sim.cur?.stock?.[myTeam()]?.coin ?? 0)}</span> coin at home</div></div>${btn('handoff', 'Trade in person', true, '', 'trade with a player standing here: each puts in his half, both confirm')}<button class="rf-tbtn x" data-act="close" title="close (K)">×</button></div>
+    win.innerHTML = `<div class="rf-head rf-ph">${icon('node-merchant-trader', 32)}<div style="flex:1;min-width:0"><div class="rf-name">Market of ${town(T)}</div><div class="sub">${isTown || hasNpc ? '' : 'no market here · '}${M.live ? '' : 'offline · '}<span style="color:var(--rf-gold)">${Math.floor(s.sim.cur?.stock?.[myTeam()]?.coin ?? 0)}</span> coin at home</div></div>${btn('handoff', 'Trade in person', true, '', 'trade with a player standing here: each puts in his half, both confirm')}<button class="rf-tbtn x" data-act="close" title="close (K)">×</button></div>
       <div class="mk-tabs">${TABS.map((t) => `<button class="rf-tab${t === tab ? ' on' : ''}" data-tab="${t}">${TAB_NAME[t]}</button>`).join('')}</div>
       ${BODY[tab]()}<div class="mk-msg rf-dim${bad ? ' bad' : ''}">${msg}</div>`;
-    win.scrollTop = scroll;
+    win.scrollTop = msg ? win.scrollHeight : scroll; // what the server just said stays in sight
     win.style.overflowX = 'hidden';
     unTip();
   };
