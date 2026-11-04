@@ -46,7 +46,7 @@ import type { BoardView } from './townBoard';
 import type { BridgePlan, BuildingType, GoodKind, Order, PlaceResult, SquadId, TownLevelSnap, WallPlan } from '../types';
 
 /** Bumped on any wire change (messages or the binary frame layout). */
-export const NET_VERSION = 27;
+export const NET_VERSION = 28;
 /** Positions go out in 1/QUANT tile steps. */
 export const QUANT = 8;
 /** Ticks between keyframes (a full frame of what the client sees; deltas in between). */
@@ -280,7 +280,9 @@ export type ServerMsg =
    * W-65: the region's neutral state (Snapshot.lairs and claims: authored places, their state and squad ids), on join
    * and when it changed (checked every WILD_EVERY ticks). The live view drew no lair, claim banner or map mark without it.
    */
-  | { t: 'wild'; lairs: import('../types').LairSnap[]; claims: import('../types').ClaimSnap[]; roam?: import('../types').RoamSnap[] }
+  | { t: 'wild'; lairs: import('../types').LairSnap[]; claims: import('../types').ClaimSnap[]; roam?: import('../types').RoamSnap[]; /** W-221: what lies on the ground, so a fallen man's goods can be seen and fetched. */ piles?: import('../types').PileSnap[] }
+  /** W-221: a man of his fell and these goods lie where he did. */
+  | { t: 'dropped'; goods: Record<string, number>; x: number; y: number }
   /** W-67: this tick's mob FX events (a beast's burst, a lair's cry, a pack scattering) inside his camera rect (src/war/view/mobFx.ts). */
   | { t: 'mobFx'; ev: import('../types').MobFxEvent[] }
   /**

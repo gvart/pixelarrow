@@ -136,7 +136,7 @@ const held = (slots: readonly Slot[], res: string) => slots.reduce((a, s) => a +
  */
 async function takeCoin(db: D1Database, slots: Slot[], coin: number, home: boolean, pid: number): Promise<{ stmts: D1PreparedStatement[]; taken: Bundle | null }> {
   const pack = Math.min(coin, held(slots, 'coin')), rest = coin - pack;
-  if (rest > 1e-6 && !home) throw new ApiError(409, 'no_coin', `It costs ${coin} coin: your men carry ${Math.floor(pack)}`);
+  if (rest > 1e-6 && !home) throw new ApiError(409, 'no_coin', `It costs ${coin} coin: your men at the town carry ${Math.floor(pack)}`);
   const id = strongroom(pid), stmts = rest > 1e-6 ? planTake(db, id, await lotsOf(db, id), { coin: rest }, 'Your strongroom').stmts : [];
   return { stmts, taken: pack > 0 ? takeOut(slots, { coin: pack }) : null };
 }

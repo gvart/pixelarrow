@@ -2279,7 +2279,11 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     t.squad.alive--;
     reslotQueue.add(t.squad);
     if (by) by.kills++;
-    note({ t: tick, kind: 'fall', unit: t.id, by: by?.id ?? -1, wounded: t.wounded });
+    // W-221: what he carried, for the line that tells his owner (a man's own rations are no loss to tell)
+    const dropped: Record<string, number> = {};
+    for (const l of t.pack?.lots ?? []) if (l.r !== 'ration' && l.n > 1e-9) dropped[l.r] = (dropped[l.r] ?? 0) + l.n;
+    if (t.carry && t.load > 0 && t.wfor < 0) dropped[t.carry] = (dropped[t.carry] ?? 0) + t.load;
+    note({ t: tick, kind: 'fall', unit: t.id, by: by?.id ?? -1, wounded: t.wounded, ...(Object.keys(dropped).length ? { dropped: { goods: dropped, x: t.x, y: t.y } } : {}) });
     if (t.squad.team !== MOB_TEAM && t.squad.team !== NEUTRAL_TEAM && !t.civ) souls.fell(t.x, t.y, t.cls); // W-65: nor where roaming folk fall // W-60: where many fall, souls wake
     // M6c (docs/WAR.md "Loot piles"): what he carried goes to a pile; the killed leave their worn kit too, worn by PILE.wear
     const lots: Lot[] = t.pack ? t.pack.lots.filter((l) => l.n > 1e-9) : [];

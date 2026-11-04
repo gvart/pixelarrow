@@ -149,7 +149,7 @@ onmessage = (e: MessageEvent<ToWorker>) => {
     // the economy view (nodes, influence) rides on the next snapshot post, as the local sim's does
     const nodes = new Map<number, NodeSnap>();
     let nodesNew = false, infl: InfluenceMap | undefined, fog: FogGrid | undefined, stock: Snapshot['stock'], town: Snapshot['townLevels'];
-    let wild: Pick<Snapshot, 'lairs' | 'claims' | 'roam'> | undefined; // W-65: the lairs and claim points, kept on every snapshot
+    let wild: Pick<Snapshot, 'lairs' | 'claims' | 'roam' | 'piles'> | undefined; // W-65: the lairs and claim points, kept on every snapshot
     let warlords: Snapshot['warlords']; // W-72 proposal
     net = createNet(url, m.region.id, m.dev, (snap, stats) => {
       postMessage({ snap: stock || town || wild || warlords ? { ...snap, ...(stock ? { stock } : {}), ...(town ? { townLevels: town } : {}), ...wild, ...(warlords ? { warlords } : {}) } : snap, stats, nodes: nodesNew ? [...nodes.values()] : undefined, influence: infl, fog });
@@ -165,7 +165,7 @@ onmessage = (e: MessageEvent<ToWorker>) => {
       else if (server.t === 'fog') fog = decodeFog(server.team, server.w, server.h, server.cell, server.runs, server.v); // W-39: the shroud (the snapshot comes filtered)
       else if (server.t === 'stock') stock = { [server.team]: server.goods }; // W-60: the store his men stand next to only ({} away from every store)
       else if (server.t === 'town') town = server.town ? [server.town] : []; // W-61: his team's town level
-      else if (server.t === 'wild') wild = { lairs: server.lairs, claims: server.claims, ...(server.roam ? { roam: server.roam } : {}) };
+      else if (server.t === 'wild') wild = { lairs: server.lairs, claims: server.claims, ...(server.roam ? { roam: server.roam } : {}), ...(server.piles ? { piles: server.piles } : {}) };
       else if (server.t === 'warlords') {
         if (server.list) warlords = server.list; // W-72 proposal: the region's warlords, kept on every snapshot
         if (server.ev?.length) postMessage({ server });

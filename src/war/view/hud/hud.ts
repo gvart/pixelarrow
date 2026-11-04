@@ -99,6 +99,8 @@ import type { ActionId } from '../../input/actions';
 import { myTeam } from '../side';
 import { activityText, waitText } from './activity';
 import { CART_STOP, cartNotes } from './cartWatch';
+import { droppedLine, harmMemo, harmNotes } from './harmWatch';
+import { NEUTRAL_TEAM } from '../../sim/economy';
 import { mountUnstack } from './quest';
 import { mountTopBar } from './topBar';
 import { tipHtml } from './theme';
@@ -532,6 +534,23 @@ export function hud(s: SandboxScene): void {
     const cur = s.sim.cur;
     if (cur) for (const text of cartNotes(cur, meOwner(), cartMemo)) sandboxRoster(s).onNote?.({ kind: 'info', text });
   });
+  // W-221: his men struck, and goods fallen with a man, are told (./harmWatch.ts)
+  const harm = harmMemo();
+  const friend = (team: number) => team === myTeam() || team === NEUTRAL_TEAM;
+  s.events.on('postupdate', () => {
+    const cur = s.sim.cur;
+    if (cur) for (const text of harmNotes(cur, meOwner(), harm, friend)) sandboxRoster(s).onNote?.({ kind: 'capture', text });
+  });
+  const toldDropped = (goods: Record<string, number>) => sandboxRoster(s).onNote?.({ kind: 'capture', text: droppedLine(goods) });
+  if (s.sim.net) s.sim.serverTaps.add((m) => { if (m.t === 'dropped') toldDropped(m.goods); });
+  else {
+    const prevEv = s.sim.onEvents;
+    s.sim.onEvents = (ev) => {
+      prevEv?.(ev);
+      const cur = s.sim.cur, mine = new Set(cur?.squads.filter((q) => q.owner === meOwner()).map((q) => q.id));
+      for (const e of ev) if (e.kind === 'fall' && e.dropped && mine.has(cur?.units.find((u) => u.id === e.unit)?.squad ?? -1)) toldDropped(e.dropped.goods);
+    };
+  }
   mountGate(s); // the online cap's line and the idle kick (./gate.ts)
   mountReplay(s, mk); // W-62 E5: the replay recorder, "Watch the battle", replay mode and clips (../replay)
   const groups = mountGroups(s, mk, tipOn); // W-53: the control group bar over the card, numbers on the map
