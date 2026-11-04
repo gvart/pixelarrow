@@ -1,0 +1,43 @@
+src/war/view/hud/claimCard.ts
+  s_a7d5d20f628c80::t_63ae67c45d3b41 85-87
+src/war/view/hud/settlements.ts
+  s_a7d5d20f628c80::t_63ae67c45d3b41 338-341
+  s_a7d5d20f628c80::t_282819665e2ba7 20,23
+server/src/war/roomSettlements.ts
+  s_a7d5d20f628c80::t_63ae67c45d3b41 94
+src/war/net/settlements.ts
+  s_a7d5d20f628c80::t_63ae67c45d3b41 7,10,61-73
+  s_a7d5d20f628c80::t_7ee8bcaa832770 74
+src/war/view/hud/quest.ts
+  s_a7d5d20f628c80::t_63ae67c45d3b41 125-153
+tests/war/accessControl.test.ts
+  s_a7d5d20f628c80::t_24f336189c92dc 8
+  s_a7d5d20f628c80::t_63ae67c45d3b41 4
+  s_a7d5d20f628c80::t_282819665e2ba7 9-17
+  s_a7d5d20f628c80::t_83a25b420cd869 18
+src/war/view/build/access.ts
+  s_a7d5d20f628c80::t_24f336189c92dc 3,29
+  s_a7d5d20f628c80::t_63ae67c45d3b41 30-34,38-39
+src/war/view/hud/hud.ts
+  s_a7d5d20f628c80::t_24f336189c92dc 308
+  s_a7d5d20f628c80::t_63ae67c45d3b41 64,101-102,313-318,528-534,623,670
+tests/war/hudLayout.test.ts
+  s_a7d5d20f628c80::t_282819665e2ba7 6,166-179
+  s_a7d5d20f628c80::t_7a5904ef1c16f1 180
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "2e7357b12031d58d128fec807b9e4412525d0984",
+  "prompts": {},
+  "sessions": {
+    "s_a7d5d20f628c80": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1afee479-b44b-46d2-a159-a540e44e7fb8",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
