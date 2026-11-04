@@ -160,6 +160,7 @@ const CSS = `
 #rfMarket .nt-h{padding:0 6px 3px 3px;border-bottom:1px solid var(--rf-line);font:600 13px/1 Inter,sans-serif;color:var(--rf-muted)}
 #rfMarket .nt-h span{text-align:right}
 #rfMarket .nt-list{height:140px;background:var(--rf-sunk);border:1px solid var(--rf-rule);border-top:0}
+#rfMarket .mk-msg:not(:empty)~.nt-list{height:100px}
 @media (max-height:800px){#rfMarket .nt-list{height:100px}#rfMarket .nt-list .nt-g{height:25px}#rfMarket .nt-word{margin-top:2px}#rfMarket .mk-msg:not(:empty)~.nt-list{height:62px}}
 #rfMarket .nt-g{height:28px;padding:0 6px 0 3px;border-bottom:1px solid #1a1c20;cursor:pointer}
 #rfMarket .nt-g .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px}
