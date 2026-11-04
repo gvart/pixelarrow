@@ -218,24 +218,29 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
 
   // --- M6a store networks: a team's done stores joined by its influence (4-connected tiles of its bit) ---
   const nets = new Map<number, { v: number; lab: Int32Array }>(); // cache by influence version (not saved: rebuilt)
+  const netStack = new Int32Array(w * h); // a tile is pushed once at most
   const labels = (team: number): Int32Array => {
     let c = nets.get(team);
     if (c && c.v === infl.version) return c.lab;
     const lab = c?.lab ?? new Int32Array(w * h);
     lab.fill(-1);
-    const bit = 1 << team, stack: number[] = [];
+    const bit = 1 << team, mask = infl.mask, size = w * h;
     let n = 0;
-    for (let s = 0; s < w * h; s++) {
-      if (lab[s] >= 0 || !(infl.mask[s] & bit)) continue;
+    // a net's number comes from its first tile in scan order, so the order of this flood cannot change the result
+    const reach = (o: number, sp: number) => {
+      if (mask[o] & bit && lab[o] < 0) (lab[o] = n), (netStack[sp++] = o);
+      return sp;
+    };
+    for (let s = 0; s < size; s++) {
+      if (lab[s] >= 0 || !(mask[s] & bit)) continue;
       lab[s] = n;
-      stack.push(s);
-      while (stack.length) {
-        const t = stack.pop()!, x = t % w;
-        for (const o of [x > 0 ? t - 1 : -1, x < w - 1 ? t + 1 : -1, t - w, t + w]) {
-          if (o < 0 || o >= w * h || lab[o] >= 0 || !(infl.mask[o] & bit)) continue;
-          lab[o] = n;
-          stack.push(o);
-        }
+      netStack[0] = s;
+      for (let sp = 1; sp > 0; ) {
+        const t = netStack[--sp], x = t % w;
+        if (x > 0) sp = reach(t - 1, sp);
+        if (x < w - 1) sp = reach(t + 1, sp);
+        if (t >= w) sp = reach(t - w, sp);
+        if (t < size - w) sp = reach(t + w, sp);
       }
       n++;
     }
