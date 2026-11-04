@@ -84,7 +84,7 @@ const CSS = `
 #rfMarket .mk-msg,#rfHandoff .mk-msg{margin-top:4px}#rfMarket .mk-msg:empty{display:none}
 #rfMarket .mk-msg.bad,#rfHandoff .mk-msg.bad{color:var(--rf-bad)}
 #rfMarket .mk-tabs .rf-tab{padding:0 7px;margin-right:1px}
-#rfMarket .mk-tabs{display:flex;align-items:flex-end;height:24px;margin:4px 0 0;border-bottom:1px solid var(--rf-rule)}
+#rfMarket .mk-tabs{position:sticky;top:-4px;z-index:2;display:flex;align-items:flex-end;height:24px;margin:4px 0 0;border-bottom:1px solid var(--rf-rule);background:var(--hud-panel)}
 #rfMarket table{width:100%;border-collapse:collapse}
 #rfMarket td,#rfMarket th{padding:2px 3px;text-align:right;white-space:nowrap}
 #rfMarket th{font:700 13px/1.2 Cinzel,serif;color:var(--rf-accent);border-bottom:1px solid var(--rf-rule)}
@@ -161,7 +161,7 @@ const CSS = `
 #rfMarket .nt-h{padding:0 6px 3px 3px;border-bottom:1px solid var(--rf-line);font:600 13px/1 Inter,sans-serif;color:var(--rf-muted)}
 #rfMarket .nt-h span{text-align:right}
 #rfMarket .nt-list{height:140px;background:var(--rf-sunk);border:1px solid var(--rf-rule);border-top:0}
-@media (max-height:800px){#rfMarket .nt-list{height:100px}#rfMarket .nt-g{height:25px}#rfMarket .nt-word{margin-top:2px}}
+@media (max-height:800px){#rfMarket .nt-list{height:100px}#rfMarket .nt-list .nt-g{height:25px}#rfMarket .nt-word{margin-top:2px}}
 #rfMarket .nt-g{height:28px;padding:0 6px 0 3px;border-bottom:1px solid #1a1c20;cursor:pointer}
 #rfMarket .nt-g .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px}
 #rfMarket .nt-g .rf-num{text-align:right;font-size:13px}
@@ -173,7 +173,7 @@ const CSS = `
 #rfMarket .nt-deal .mk-go{margin-top:5px}
 #rfMarket .nt-more{display:flex;align-items:center;gap:4px;margin-top:5px}
 #rfMarket .nt-more select{flex:1;min-width:0}
-#rfMarket .bd-list{max-height:min(560px,calc(100vh - 170px));overflow-y:auto;margin-top:3px;padding-right:3px}
+#rfMarket .bd-list{margin-top:3px}
 #rfMarket .bd-c{padding:5px 2px 6px;border-bottom:1px solid #1a1c20}
 #rfMarket .bd-h{margin:6px 0 1px;font:700 13px/1.25 Cinzel,serif;letter-spacing:.06em;color:var(--hud-gold)}
 `;
@@ -193,7 +193,7 @@ export function mountMarket(s: SandboxScene, mk: Mk): MarketHud {
   // ---------- state ----------
   let tab: Tab = TABS[0], npc: NpcView | null = null, jobBoard: BoardView | null = null;
   let mine: Mine = { sites: [], offers: [] }, board: Board | null = null, contracts: Contract[] = [];
-  let msg = '', bad = false;
+  let msg = '', bad = false, toTop = false;
   const form = { pick: 'tin', dSide: 'buy' as 'buy' | 'sell', dn: 10, side: 'sell' as 'sell' | 'buy', res: 'tin', n: 10, price: 10, standing: false, stowRes: 'iron', stowN: 10, stowSite: 'stall' as 'stall' | 'warehouse', take: 5,
     cKind: 'carry' as ContractKind, cTo: 'stymphalia', cReward: 50, cRes: 'iron', cN: 20, cValue: 300, cLoads: 4, cHours: 24, lTo: 'stymphalia', lAmount: 200, lFee: 10, lId: 0,
     cRegion: s.region.id, cSite: -1, cWork: 4, cMen: 6, cHold: 6, cTarget: '', nPick: 'wood', nN: 10, nHire: 'civ_forager', nCart: 'handcart' };
@@ -214,7 +214,7 @@ export function mountMarket(s: SandboxScene, mk: Mk): MarketHud {
   const mBtn = menuBtn('rfMarketBtn', 'node-merchant-trader', 'Market', 'buy and sell here: your stall, offers, prices, contracts and letters', 'panel.market', 1);
   mBtn.onclick = () => toggle();
 
-  const say = (t: string, isBad = false) => { msg = t; bad = isBad; };
+  const say = (t: string, isBad = false) => { msg = t; bad = isBad; if (t) toTop = true; };
   const run = async <T>(p: Promise<Res<T>>, okText: (v: T) => string): Promise<boolean> => {
     const r = await p;
     if (failed(r)) { say(r.error, true); render(); return false; }
@@ -499,7 +499,7 @@ export function mountMarket(s: SandboxScene, mk: Mk): MarketHud {
     const heldCards = v.jobs.map((j) => `<div class="bd-c">${heldCard(j, men)}</div>`).join('');
     const hint = !men ? 'Bring your men to the town to take a job' : full ? `You hold ${BOARD.hold}: finish or drop one` : '';
     return `<div class="nt-top"><span data-tip="${esc('All the coin the town has to pay with: a poor town pays less.')}">Purse <b class="rf-num">${v.purse}</b> ${icon('res-coin')}</span><span class="rf-dim">your jobs <b class="rf-num" style="color:var(--rf-ink)">${v.jobs.length}</b> / ${BOARD.hold}</span></div>
-      <div class="bd-list rf-scroll">
+      <div class="bd-list">
         ${heldCards ? `<div class="bd-h">Your jobs</div>${heldCards}<div class="bd-h">On the board</div>` : ''}
         ${v.lines.filter((l) => !l.held).map((l) => `<div class="bd-c">${lineCard(l, can)}</div>`).join('')}
       </div>${hint ? `<div class="rf-hint mk-why">${hint}</div>` : ''}`;
@@ -511,8 +511,9 @@ export function mountMarket(s: SandboxScene, mk: Mk): MarketHud {
     const scroll = win.scrollTop;
     win.innerHTML = `<div class="rf-head rf-ph">${icon('node-merchant-trader', 32)}<div style="flex:1;min-width:0"><div class="rf-name">Market of ${town(T)}</div><div class="sub">${isTown || hasNpc ? '' : 'no market here · '}${M.live ? '' : 'offline · '}<span style="color:var(--rf-gold)">${Math.floor(s.sim.cur?.stock?.[myTeam()]?.coin ?? 0)}</span> coin at home</div></div>${btn('handoff', 'Trade in person', true, '', 'trade with a player standing here: each puts in his half, both confirm')}<button class="rf-tbtn x" data-act="close" title="close (K)">×</button></div>
       <div class="mk-tabs">${TABS.map((t) => `<button class="rf-tab${t === tab ? ' on' : ''}" data-tab="${t}">${TAB_NAME[t]}</button>`).join('')}</div>
-      ${BODY[tab]()}<div class="mk-msg rf-dim${bad ? ' bad' : ''}">${msg}</div>`;
-    win.scrollTop = msg ? win.scrollHeight : scroll; // what the server just said stays in sight
+      <div class="mk-msg rf-dim${bad ? ' bad' : ''}">${msg}</div>${BODY[tab]()}`;
+    win.scrollTop = toTop ? 0 : scroll; // what the server just said stays in sight
+    toTop = false;
     win.style.overflowX = 'hidden';
     unTip();
   };

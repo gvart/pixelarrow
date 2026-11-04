@@ -29,7 +29,7 @@ const HOLDER_ICON: Record<string, string> = { handcart: 'trade-cart', wagon: 'tr
 const iconOf = (h: Holder) => HOLDER_ICON[h.kind === 'cart' ? h.name : h.kind];
 const fmt = (n: number) => (n >= 10 ? String(Math.floor(n)) : n >= 1 ? n.toFixed(1).replace(/\.0$/, '') : n > 0.05 ? n.toFixed(1) : '0');
 const mmss = (ticks: number) => { const s = Math.max(0, Math.round(ticks / 10)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
-const whose = (h: Holder) => (h.kind === 'pile' ? 'anyone\'s: first hands win' : h.kind === 'store' ? (h.team === myTeam() ? 'your network' : 'enemy store') : h.owner === 'you' ? 'yours' : h.team === myTeam() ? `${h.owner}'s` : 'enemy');
+const whose = (h: Holder, me: string) => (h.kind === 'pile' ? 'anyone\'s: first hands win' : h.kind === 'store' ? (h.team === myTeam() ? 'your network' : 'enemy store') : h.team !== myTeam() ? 'enemy' : h.owner === 'you' || h.owner === me ? 'yours' : 'an ally\'s');
 const goodsOf = (h: Holder) => (Object.entries(h.goods) as [ResourceKind, number][]).filter(([, n]) => n > 0.05).sort((a, b) => b[1] - a[1]);
 
 /** Items alike (def, quality, rarity) as one row with a count; the first's uid stands for them (salvage). */
@@ -126,7 +126,7 @@ export function mountTrade(s: SandboxScene, mk: Mk, btn: (id: string, ic: string
     const to = take && T.hasAny(h) && near.length ? `<div class="rf-cap" style="margin-top:6px">Move to <span class="rf-dim">(load here, unload there)</span></div><div style="display:flex;flex-wrap:wrap;gap:2px">${near.map((x) => `<button class="rf-tbtn" data-act="to" data-to="${holderKey(x.ref)}" style="height:22px;font-size:13px">${icon(iconOf(x))}${x.name}${x.cap !== undefined && x.loads !== undefined ? ` ${fmt(x.loads)}/${x.cap}` : ''}</button>`).join('')}</div>` : '';
     const acts = sel ? `<div style="display:flex;gap:3px;margin-top:6px;flex-wrap:wrap">${b('load', 'Load all', take && T.hasAny(h))}${b('unload', 'Unload all', put && laden)}${h.kind === 'cart' && h.team === myTeam() ? b('escort', 'Escort', true) : ''}</div>` : `<div class="rf-dim" style="margin-top:6px">select a squad to load or unload</div>`;
     const status = T.status ? `<div class="rf-dim" style="margin-top:4px">${T.status}</div>` : '';
-    return `<div class="rf-head">${icon(iconOf(h), 32)}<div style="flex:1;min-width:0"><div class="rf-name">${h.name[0].toUpperCase() + h.name.slice(1)}</div><div class="rf-dim">${whose(h)}</div></div><button class="rf-tbtn x" data-act="close" title="close">×</button></div>
+    return `<div class="rf-head">${icon(iconOf(h), 32)}<div style="flex:1;min-width:0"><div class="rf-name">${h.name[0].toUpperCase() + h.name.slice(1)}</div><div class="rf-dim">${whose(h, `p:${s.sim.playerId}`)}</div></div><button class="rf-tbtn x" data-act="close" title="close">×</button></div>
       <div style="margin:5px 0 3px">${fill}${h.cap !== undefined && h.loads !== undefined ? `<div class="rf-dim" style="margin-top:2px">${fmt(h.loads)} / ${h.cap} loads${h.left !== undefined ? ` · gone in ${mmss(h.left)}` : ''}</div>` : ''}</div>
       ${rows ? `<div class="rf-cap">Goods</div>${rows}` : ''}${items || more ? `<div class="rf-cap" style="margin-top:4px">Items</div>${items}${more}` : ''}${!rows && !items ? '<div class="rf-dim">empty</div>' : ''}${acts}${to}${status}`;
   };
@@ -150,7 +150,7 @@ export function mountTrade(s: SandboxScene, mk: Mk, btn: (id: string, ic: string
     const h = s.input.isOver && !s.interact.open && !s.build.tool ? T.at(s.tileAt(p)) : null;
     const inPanel = h && panel.style.display !== 'none' && current() && holderKey(current()!.ref) === holderKey(h.ref);
     if (!h || inPanel || (h.kind === 'store' && !T.hasAny(h))) { if (hover.style.display !== 'none') hover.style.display = 'none'; shown = ''; return; }
-    const body = `<div style="display:flex;align-items:center;gap:5px;margin-bottom:2px">${icon(iconOf(h))}<b style="color:var(--rf-title)">${h.name[0].toUpperCase() + h.name.slice(1)}</b><span class="rf-dim">${whose(h)}</span></div>${holderSummary(h)}`;
+    const body = `<div style="display:flex;align-items:center;gap:5px;margin-bottom:2px">${icon(iconOf(h))}<b style="color:var(--rf-title)">${h.name[0].toUpperCase() + h.name.slice(1)}</b><span class="rf-dim">${whose(h, `p:${s.sim.playerId}`)}</span></div>${holderSummary(h)}`;
     if (body !== shown) { shown = body; hover.innerHTML = body; }
     // beside the cursor, kept on screen and off the command card at the bottom (above the cursor when it would cover it)
     hover.style.display = '';
