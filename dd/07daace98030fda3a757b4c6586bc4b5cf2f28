@@ -1,0 +1,45 @@
+tests/war/harmWatch.test.ts
+  s_a7d5d20f628c80::t_d565fed8bcb41b 1-37
+server/test/war/harmTold.test.ts
+  s_a7d5d20f628c80::t_1fba0b4e5bcbeb 1-40
+src/war/view/hud/harmWatch.ts
+  s_a7d5d20f628c80::t_c77b5e5a49a32c 19-20,39
+  s_a7d5d20f628c80::t_07bf6fa140d79e 1-18,21-38,40-48
+src/war/sim/mobs.ts
+  s_a7d5d20f628c80::t_766350e6d814a6 105-111
+src/war/view/hud/hud.ts
+  s_a7d5d20f628c80::t_f20379ce424f0a 102,537-538,540-553
+  s_a7d5d20f628c80::t_c77b5e5a49a32c 103,539
+server/src/war/room.ts
+  s_a7d5d20f628c80::t_f20379ce424f0a 78,1489-1494,1576
+src/war/sim/index.ts
+  s_a7d5d20f628c80::t_3f1afd447ccb2a 2282-2286
+server/src/war/encounters.ts
+  s_a7d5d20f628c80::t_8d83624466c11a 13-14,112-121
+server/src/war/npcMarket.ts
+  s_a7d5d20f628c80::t_da352b95e45e15 139
+src/war/net/protocol.ts
+  s_a7d5d20f628c80::t_ab8b68aeae85ff 49,283-285
+src/war/sim/encounters.ts
+  s_a7d5d20f628c80::t_c082b88acc1563 148-156,163
+src/war/types.ts
+  s_a7d5d20f628c80::t_a317289ad758f5 844
+src/war/view/worker.ts
+  s_a7d5d20f628c80::t_e53bc2e4f07c76 152,168
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "dd07daace98030fda3a757b4c6586bc4b5cf2f28",
+  "prompts": {},
+  "sessions": {
+    "s_a7d5d20f628c80": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1afee479-b44b-46d2-a159-a540e44e7fb8",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
