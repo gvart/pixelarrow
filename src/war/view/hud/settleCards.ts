@@ -374,9 +374,9 @@ export const SETTLE_CSS = `
 @keyframes sxIn{from{transform:translateX(12px);opacity:0}to{transform:none;opacity:1}}
 #rfFoundHint{display:none;align-items:center;gap:7px;width:380px;white-space:normal;padding:5px 9px;font-size:13px;line-height:1.35;border-left:3px solid var(--rf-gold);pointer-events:none}
 #rfFoundHint b{color:var(--rf-gold)}
-#rfPlotBar{top:52px;left:50%;transform:translateX(-50%);display:none;align-items:center;gap:8px;padding:5px 8px;pointer-events:auto;z-index:8}
-#rfPlotBar .pb-t{font-size:13px;white-space:nowrap}#rfPlotBar .pb-t b{color:var(--rf-title)}
-#rfPlotBar .pb-s{min-width:150px;font-size:13px;white-space:nowrap}
+#rfPlotBar{top:52px;left:50%;transform:translateX(-50%);display:none;flex-wrap:wrap;width:390px;align-items:center;gap:4px 8px;padding:5px 8px;pointer-events:auto;z-index:8}
+#rfPlotBar .rf-sep{display:none}#rfPlotBar .pb-t{flex:1 0 100%;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#rfPlotBar .pb-t b{color:var(--rf-title)}
+#rfPlotBar .pb-s{flex:1;min-width:0;font-size:13px}
 #rfPlotBar .pb-k{margin-left:4px;font:600 13px/1 Inter,sans-serif;color:var(--rf-muted)}
 #rfPlotTip{display:none;pointer-events:none;z-index:7}
 `;

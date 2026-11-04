@@ -182,7 +182,7 @@ function electionHtml(v: CrownView): string {
           <div class="cr-cn">${esc(c.name)}${c.pid === v.me.pid ? ' <span class="cr-you">you</span>' : ''}</div>
           <div class="cr-cp" data-tip="${attr('<b class="k">Realm power</b><br><span class="rf-dim tip-w">settlement levels, vassals and regions held</span>')}">${glyph('ui:power', 14)}${fmt(c.power)}</div>
           <div class="rf-bar cr-vb"><i class="ok" style="width:${(f * 100).toFixed(1)}%"></i></div>
-          <div class="cr-vn"><b>${fmt(c.votes)}</b> <span class="rf-dim">votes · ${Math.round(f * 100)}%</span></div>
+          <div class="cr-vn"><b>${fmt(c.votes)}</b> <span class="rf-dim">${c.votes === 1 ? 'vote' : 'votes'} · ${Math.round(f * 100)}%</span></div>
           <button class="rf-tbtn${mine ? '' : ' pri'}" data-act="vote" data-p="${c.pid}"${mine ? why('you voted for him') : v.me.weight <= 0 ? why(NOT_LORD) : ''}>${mine ? `${glyph('ui:check', 12)}Your vote` : 'Vote'}</button></div>`;
       }).join('')}</div>`;
   } else if (v.monarch) {
@@ -329,7 +329,7 @@ function envoysHtml(v: CrownView, form: { to: number; kind: 'pact' | 'truce' }):
 
 const CSS = `
 #rfCrown{--rf-crown:#e0b867}
-#rfCrown .rf-tabs{display:flex;align-items:flex-end;height:24px;margin:0 0 6px;border-bottom:1px solid var(--rf-rule)}
+#rfCrown .rf-tabs{position:sticky;top:-4px;z-index:2;background:var(--hud-panel);display:flex;align-items:flex-end;height:24px;margin:0 0 6px;border-bottom:1px solid var(--rf-rule)}
 .cr-av{display:inline-flex;flex:none;align-items:center;justify-content:center;border-radius:50%;font-family:Cinzel,serif;font-weight:700;color:var(--rf-ink);background:radial-gradient(circle at 50% 35%,#4a2e1c,#0d0f12);box-shadow:inset 0 0 0 2px var(--c),0 0 0 1px #050506}
 .cr-av.big{box-shadow:inset 0 0 0 3px var(--c),0 0 0 1px #050506,0 0 10px rgba(0,0,0,.6)}
 .cr-av.vacant{--c:#2b2c2f;color:var(--rf-disabled);background:var(--rf-sunk)}
@@ -394,7 +394,7 @@ const CSS = `
 .cr-flags{display:inline-flex;align-items:center;gap:3px}.cr-flags i{width:12px;height:16px;background:var(--c);clip-path:polygon(0 0,100% 0,100% 100%,50% 78%,0 100%);box-shadow:inset 0 0 0 1px rgba(0,0,0,.4)}
 .cr-pb2{flex:1;min-width:0}.cr-pt{font:700 13px/1.1 Cinzel,serif;color:var(--rf-title)}.cr-pb2 .rf-dim{font-size:13px;margin-top:2px}
 .cr-pk{grid-template-columns:1fr 1fr;flex:1}.cr-note{font-size:13px;margin-top:5px;line-height:1.3}
-.cr-msg{min-height:15px;margin-top:4px;font-size:13px;color:var(--rf-good)}.cr-msg::first-letter{text-transform:uppercase}.cr-msg.bad{color:var(--rf-bad)}.cr-msg.ask{color:var(--rf-gold)}
+.cr-msg{position:sticky;bottom:0;z-index:2;margin-top:4px;padding:2px 0;font-size:13px;color:var(--rf-good);background:var(--hud-panel)}.cr-msg:empty{display:none}.cr-msg::first-letter{text-transform:uppercase}.cr-msg.bad{color:var(--rf-bad)}.cr-msg.ask{color:var(--rf-gold)}
 #rfCrown.busy [data-act]:not([data-act=tab]):not([data-act=close]){pointer-events:none;opacity:.55}
 #rfCrown .rf-tbtn.sure{width:auto!important;padding:0 7px!important;color:var(--rf-bad);box-shadow:0 0 0 1px var(--rf-bad)}
 .cr-owe{display:flex;align-items:center;gap:4px;padding:0 4px 0 28px;font-size:13px}.cr-owe .rf-ichip{height:20px}.cr-owe .rf-tbtn{margin-left:auto;height:22px}
@@ -535,7 +535,7 @@ export function mountCrown(s: SandboxScene, mk: Mk): void {
     // a destructive button asks first: the first click arms it, a second within 5 s acts
     if (sure && armed !== sure) return (arm(sure, SURE[a] ?? 'Click Confirm to go ahead.'), render());
     if (armed) arm(null);
-    if (a === 'tab') return ((tab = t.dataset.t as Tab), (msg = ''), render());
+    if (a === 'tab') return ((tab = t.dataset.t as Tab), (msg = ''), render(), void load());
     if (a === 'trackOrder') {
       if (isTracked(orderKey({ id }))) track(null);
       else track(tracker(id));

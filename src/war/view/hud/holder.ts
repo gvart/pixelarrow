@@ -29,7 +29,7 @@ const HOLDER_ICON: Record<string, string> = { handcart: 'trade-cart', wagon: 'tr
 const iconOf = (h: Holder) => HOLDER_ICON[h.kind === 'cart' ? h.name : h.kind];
 const fmt = (n: number) => (n >= 10 ? String(Math.floor(n)) : n >= 1 ? n.toFixed(1).replace(/\.0$/, '') : n > 0.05 ? n.toFixed(1) : '0');
 const mmss = (ticks: number) => { const s = Math.max(0, Math.round(ticks / 10)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
-const whose = (h: Holder, me: string) => (h.kind === 'pile' ? 'anyone\'s: first hands win' : h.kind === 'store' ? (h.team === myTeam() ? 'your network' : 'enemy store') : h.team !== myTeam() ? 'enemy' : h.owner === 'you' || h.owner === me ? 'yours' : 'an ally\'s');
+const whose = (h: Holder, me: string) => (h.kind === 'pile' ? 'anyone\'s: first hands win' : h.kind === 'store' ? (h.team === myTeam() ? 'your store' : 'enemy store') : h.team !== myTeam() ? 'enemy' : h.owner === 'you' || h.owner === me ? 'yours' : 'an ally\'s');
 const goodsOf = (h: Holder) => (Object.entries(h.goods) as [ResourceKind, number][]).filter(([, n]) => n > 0.05).sort((a, b) => b[1] - a[1]);
 
 /** Items alike (def, quality, rarity) as one row with a count; the first's uid stands for them (salvage). */

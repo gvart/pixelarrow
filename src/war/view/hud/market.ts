@@ -53,7 +53,6 @@ const ICONED = new Set(['food', 'wood', 'stone', 'marble', 'copper', 'tin', 'iro
 const gi = (r: string | null) => (r && ICONED.has(r) ? icon('res-' + r) : '');
 const fmt = (n: number) => (Math.abs(n) >= 100 ? String(Math.round(n)) : String(Math.round(n * 10) / 10));
 const worldName = (t: string) => worldRegion(t)?.name ?? t;
-const town = (t: string) => t.replace(/(^|-)([a-z])/g, (_, d, c) => (d ? ' ' : '') + c.toUpperCase());
 const inH = (ms: number) => { const h = ms / 3_600_000; return h <= 0 ? 'expired' : h < 1 ? `${Math.round(h * 60)} min` : `${Math.round(h)} h`; };
 const goodsLine = (g: Goods) => Object.entries(g).filter(([, n]) => n > 0.05).map(([r, n]) => `<span style="display:inline-flex;align-items:center;gap:2px;margin-right:6px">${gi(r)}<span class="rf-num">${fmt(n)}</span>${gi(r) ? '' : ` ${r}`}</span>`).join('') || '<span class="rf-dim">empty</span>';
 const opts = (list: readonly string[], cur: string) => list.map((x) => `<option value="${x}"${x === cur ? ' selected' : ''}>${x}</option>`).join('');
@@ -392,7 +391,7 @@ export function mountMarket(s: SandboxScene, mk: Mk): MarketHud {
     : c.kind === 'guard' ? `${icon('unit-hoplite')}<b>${c.men ?? 0}</b> men · <b>${fmt(c.delivered / 3600)}/${fmt(c.n)}</b> h held${c.paid ? `<span class="ct-sub">${fmt(c.paid)} paid</span>` : ''}`
     : c.kind === 'hunt' ? `${icon('act-attack')}<b>${esc(targetName(c.target ?? ''))}</b>`
     : `${icon('trade-cart')}the poster's cart<span class="ct-sub">75% to arrive</span>`;
-  const route = (kind: ContractKind, from: string, to: string) => `${glyph('ui:map', 12)}${kind === 'build' || kind === 'guard' || kind === 'hunt' ? town(from) : `${town(from)} → ${town(to)}`}`;
+  const route = (kind: ContractKind, from: string, to: string) => `${glyph('ui:map', 12)}${kind === 'build' || kind === 'guard' || kind === 'hunt' ? worldName(from) : `${worldName(from)} → ${worldName(to)}`}`;
   const contractsTab = () => (posting ? postView() : boardView());
   const boardView = () => {
     const now = Date.now(), me = M.me;
@@ -407,7 +406,7 @@ export function mountMarket(s: SandboxScene, mk: Mk): MarketHud {
     const count = (k: ContractKind | 'all') => contracts.filter((c) => k === 'all' || c.kind === k).length;
     const filters = (['all', ...KINDS] as const).map((k) => `<button class="${k === cFilter ? 'on' : ''}" data-act="cfilter" data-v="${k}" data-tip="${esc(k === 'all' ? 'every contract' : `<b class="k">${KIND[k].name}</b> · ${count(k)}`)}">${k === 'all' ? '<b style="font:700 13px/1 Inter,sans-serif">All</b>' : icon(KIND[k].icon)}${count(k) ? `<span class="key">${count(k)}</span>` : ''}</button>`).join('');
     return `<div class="ct-bar"><span class="rf-seg">${filters}</span><span style="flex:1"></span>${btn('postView', '+ Post a contract', true, '', '', 'rf-tbtn pri')}</div>
-      ${cards ? `<div class="ct-grid">${cards}</div>` : `<div class="ct-none rf-well">${icon('trade-contract', 32)}<div><b>No ${cFilter === 'all' ? '' : KIND[cFilter].name.toLowerCase() + ' '}contracts at ${town(T)}</b><div class="rf-dim">post one: the reward is held until the job is done</div></div></div>`}`;
+      ${cards ? `<div class="ct-grid">${cards}</div>` : `<div class="ct-none rf-well">${icon('trade-contract', 32)}<div><b>No ${cFilter === 'all' ? '' : KIND[cFilter].name.toLowerCase() + ' '}contracts at ${worldName(T)}</b><div class="rf-dim">post one: the reward is held until the job is done</div></div></div>`}`;
   };
   const postView = () => {
     const k = form.cKind;
@@ -442,7 +441,7 @@ export function mountMarket(s: SandboxScene, mk: Mk): MarketHud {
 
   const lettersTab = () => {
     const ls = M.letters();
-    const rows = ls.map((l) => `<div class="mk-row rf-row">${icon('trade-contract')}<span style="flex:1">#${l.id} ${town(l.town)} → ${town(l.toTown)} <span class="rf-dim">${l.mine === 'banker' ? 'yours (Banker)' : l.state}</span></span><span class="rf-num">${l.amount}</span>${icon('res-coin')}${l.state === 'offered' && l.mine !== 'banker' ? btn('buyL', `Buy +${l.fee}`, true, `data-id="${l.id}"`, `pay ${l.amount} + ${l.fee} fee here; named to you, redeemed at ${town(l.toTown)}`) : ''}${l.state === 'sold' && l.mine === 'buyer' ? btn('redeemL', 'Redeem', l.toTown === T, `data-id="${l.id}"`, l.toTown === T ? 'once, here' : `redeem at ${town(l.toTown)}`) : ''}${l.state === 'redeemed' ? '<span class="rf-dim">redeemed</span>' : ''}</div>`).join('');
+    const rows = ls.map((l) => `<div class="mk-row rf-row">${icon('trade-contract')}<span style="flex:1">#${l.id} ${worldName(l.town)} → ${worldName(l.toTown)} <span class="rf-dim">${l.mine === 'banker' ? 'yours (Banker)' : l.state}</span></span><span class="rf-num">${l.amount}</span>${icon('res-coin')}${l.state === 'offered' && l.mine !== 'banker' ? btn('buyL', `Buy +${l.fee}`, true, `data-id="${l.id}"`, `pay ${l.amount} + ${l.fee} fee here; named to you, redeemed at ${worldName(l.toTown)}`) : ''}${l.state === 'sold' && l.mine === 'buyer' ? btn('redeemL', 'Redeem', l.toTown === T, `data-id="${l.id}"`, l.toTown === T ? 'once, here' : `redeem at ${worldName(l.toTown)}`) : ''}${l.state === 'redeemed' ? '<span class="rf-dim">redeemed</span>' : ''}</div>`).join('');
     return `<div class="rf-dim" style="margin:4px 0">Coin moves without a cart: a Banker escrows it at the far town; the buyer pays here and redeems it there, once.</div>
       ${rows || '<div class="rf-dim" style="padding:2px">no letters yet</div>'}
       <div class="rf-cap" style="margin-top:8px">Offer a letter <span class="rf-dim">Banker · stall L3</span></div>
@@ -509,7 +508,7 @@ export function mountMarket(s: SandboxScene, mk: Mk): MarketHud {
   const render = () => {
     if (win.style.display === 'none') return;
     const scroll = win.scrollTop;
-    win.innerHTML = `<div class="rf-head rf-ph">${icon('node-merchant-trader', 32)}<div style="flex:1;min-width:0"><div class="rf-name">Market of ${town(T)}</div><div class="sub">${isTown || hasNpc ? '' : 'no market here · '}${M.live ? '' : 'offline · '}<span style="color:var(--rf-gold)">${Math.floor(s.sim.cur?.stock?.[myTeam()]?.coin ?? 0)}</span> coin at home</div></div>${btn('handoff', 'Trade in person', true, '', 'trade with a player standing here: each puts in his half, both confirm')}<button class="rf-tbtn x" data-act="close" title="close (K)">×</button></div>
+    win.innerHTML = `<div class="rf-head rf-ph">${icon('node-merchant-trader', 32)}<div style="flex:1;min-width:0"><div class="rf-name">Market of ${worldName(T)}</div><div class="sub">${isTown || hasNpc ? '' : 'no market here · '}${M.live ? '' : 'offline · '}<span style="color:var(--rf-gold)">${Math.floor(s.sim.cur?.stock?.[myTeam()]?.coin ?? 0)}</span> coin at home</div></div>${btn('handoff', 'Trade in person', true, '', 'trade with a player standing here: each puts in his half, both confirm')}<button class="rf-tbtn x" data-act="close" title="close (K)">×</button></div>
       <div class="mk-tabs">${TABS.map((t) => `<button class="rf-tab${t === tab ? ' on' : ''}" data-tab="${t}">${TAB_NAME[t]}</button>`).join('')}</div>
       <div class="mk-msg rf-dim${bad ? ' bad' : ''}">${msg}</div>${BODY[tab]()}`;
     win.scrollTop = toTop ? 0 : scroll; // what the server just said stays in sight
