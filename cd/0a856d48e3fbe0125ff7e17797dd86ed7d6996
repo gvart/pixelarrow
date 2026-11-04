@@ -1,0 +1,21 @@
+src/war/view/hud/holder.ts
+  s_a7d5d20f628c80::t_baab5c18f2f85c 32,129,153
+src/war/view/hud/market.ts
+  s_a7d5d20f628c80::t_0d90e3c3ae0399 87,164,176,196,217,502,514-516
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "cd0a856d48e3fbe0125ff7e17797dd86ed7d6996",
+  "prompts": {},
+  "sessions": {
+    "s_a7d5d20f628c80": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1afee479-b44b-46d2-a159-a540e44e7fb8",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
