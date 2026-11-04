@@ -4,7 +4,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { unstack } from '../../src/war/view/hud/quest';
-import { clearOnRay, GAP, sideClosers, solve, TOP, type Box, type Frame, type Placed, type Rect, type Stacks } from '../../src/war/view/hud/layout';
+import { clearOfHud, clearOnRay, GAP, sideClosers, solve, TOP, type Box, type Frame, type Placed, type Rect, type Stacks } from '../../src/war/view/hud/layout';
 
 /** The audit's windows in art px (CSS px / the auto UI scale). */
 const FRAMES: Record<string, Frame> = {
@@ -155,6 +155,12 @@ describe('HUD zones', () => {
 
   it('an edge pointer with nothing in its way stays on the edge', () => {
     expect(clearOnRay(640, 385, 1180, 200, 80, 18, area, HUD_1280)).toEqual({ x: 1180, y: 200 });
+  });
+
+  it('a long build reason on the map moves clear of the card it would run under', () => {
+    const story: Rect = { l: 1000, t: 60, r: 1275, b: 160 }, at = clearOfHud(900, 110, 220, 10, area, [story]);
+    expect(at.x + 220 <= story.l || at.y + 10 <= story.t || at.y - 10 >= story.b).toBe(true);
+    expect(clearOfHud(400, 400, 220, 10, area, [story])).toEqual({ x: 400, y: 400 });
   });
 
   it('the workplace window keeps its queue in sight on the smallest window: it fits above the minimap with no scroll', () => {
