@@ -1,0 +1,49 @@
+src/war/view/hud/activity.ts
+  s_a7d5d20f628c80::t_63ae67c45d3b41 8-11,57-63
+src/war/menu/homeLore.ts
+  s_a7d5d20f628c80::t_c3ed72d2d3543c 18,44,70,96
+src/war/sim/index.ts
+  s_a7d5d20f628c80::t_4ecbcd917988b4 20
+src/war/view/hud/market.ts
+  s_a7d5d20f628c80::t_282819665e2ba7 564
+  s_a7d5d20f628c80::t_8af4f84f030ec8 502
+  s_a7d5d20f628c80::t_63ae67c45d3b41 198,346,350,359,513,563
+  s_a7d5d20f628c80::t_40b00590c0c1f9 349
+src/war/net/questLore.ts
+  s_a7d5d20f628c80::t_b0682172bb9507 106
+  s_a7d5d20f628c80::t_c3ed72d2d3543c 105
+  s_a7d5d20f628c80::t_63ae67c45d3b41 100,112
+tests/war/worldRegionCard.test.ts
+  s_a7d5d20f628c80::t_63ae67c45d3b41 37
+  s_a7d5d20f628c80::t_c3ed72d2d3543c 36
+src/war/net/codec.ts
+  s_a7d5d20f628c80::t_24b05ab93563a7 13,134,215,339-340
+src/war/view/interact.ts
+  s_a7d5d20f628c80::t_24b05ab93563a7 226-229
+  s_a7d5d20f628c80::t_63ae67c45d3b41 28
+  s_a7d5d20f628c80::t_1efb1af4b669f9 217-225,230-231,237-239,314-315
+src/war/world-view/regionCard.ts
+  s_a7d5d20f628c80::t_63ae67c45d3b41 57
+src/war/view/hud/guide.ts
+  s_a7d5d20f628c80::t_63ae67c45d3b41 123,206-207,241-244
+src/war/view/hud/cartWatch.ts
+  s_a7d5d20f628c80::t_f035e09d394f78 1-25
+src/war/net/client.ts
+  s_a7d5d20f628c80::t_1c40f660cad6dc 167-168
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "982b070bff28c880074f5ea48c0c7bd6827aec7e",
+  "prompts": {},
+  "sessions": {
+    "s_a7d5d20f628c80": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1afee479-b44b-46d2-a159-a540e44e7fb8",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
