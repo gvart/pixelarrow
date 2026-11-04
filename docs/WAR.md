@@ -567,13 +567,17 @@ a fight. A kind that opens on any other fight (Travellers Beset, the Slavers' Ca
 smells (aggro at most 14, plus its 4 tiles of milling), so he may leave it be. A pack looks for a foe at its aggro on its first look,
 fresh or healed; only a hurt one looks further.
 
+Robbers who win take the load (W-219), the kinds that fight over goods (robbers, ambush, toll). With none of his fighters on his feet the band takes what its living men can carry, one load a man as a porter: coin first, then the biggest lot, never rations, from his carts and packs within 30 tiles. Then it leaves. His hands are left; men knocked down get up after (W-79). Offline, where the room keeps no packs, nothing is taken.
+
+Nobody at the keyboard (W-219): the fight runs as for anyone (W-97), and what happened goes into his save, at most 6 lines, told once as a "While you were away" banner at his next join. In the sandbox a share thrown down costs nothing, so the button names no share.
+
 A road fight as play (`server/test/war/roadFights.test.ts`, a trader's start of 2 guards and a laden cart):
 
 | Fight | Outcome |
 | --- | --- |
 | 2 robbers, depth 1, he refuses | won in 3 runs of 3 in 28-49 s, knocked down at worst (W-79), load whole, their 20 coin |
-| 3 robbers, depth 2, he refuses | lost in 22 s, both guards dead for good, packs in a pile; hands and cart untouched, the band stays |
-| 3 ambushers, depth 1, he stands | lost in 25 s; before W-208 he had no choice |
+| 3 robbers, depth 2, he refuses | lost in 22 s, both guards dead for good; they carry off 3 men's loads and go (W-219); his hands and the rest of the cart left |
+| 3 ambushers, depth 1, he stands | lost in 25 s, then the same; before W-208 he had no choice |
 | Toll or share paid | no band raised, guards unhurt, 15% of the load gone |
 
 | Kind | Steps | Pays |
@@ -961,7 +965,7 @@ saved in D1 (0057):
   The fight points only at the guide's own camp of two, which every family wins with no man lost (W-171).
 - **Builder**: gather, build a house of his own, set who may use it, start a workplace with a man in it, hand-off to the
   builder chain.
-- **Trader**: load the handcart, carry the goods to the next land's town, sell, hire or buy, hand-off to the trader chain.
+- **Trader**: load the handcart (cut wood onto it where he stands, W-215), carry the goods to the next land's town (the guide names the road nearest his men), sell, hire or buy, hand-off to the trader chain.
   His run goes on in the next land.
 
 W-73 adds the hand-off
@@ -1105,6 +1109,10 @@ order (W-12); a forager is only faster.
 Cost at 600 units: bake ≈ 20 µs each, 12 ms once per region join (spread over ticks); ≈ 200 B per unit; per tick no
 new loops, ≤ 2 branches per hit (flag, squad multiplier), < 0.1 ms on today's step. No per-unit ability timers,
 auras or morale.
+
+### Soldiers at work (W-218)
+
+Soldiers cutting wood, building or crewing a cart are soldiers. Struck, the squad turns on the nearest foe; quiet for 3 s (`CIV.calm`), it goes back to the work it was on. An order of his own ends the going back. Civilians flee as ever.
 
 ### Movement (W-55)
 
@@ -1666,7 +1674,10 @@ the building's own hold, and so does tribute until it is fetched (W-153).
 | Ground | road ×1.3; shallow ford ×0.5; slope up ×0.6; sand ×0.5; forest and marsh only on a road; no stairs, walkways or ladders; bridges ≥ 2 wide |
 | Per player | W-104: by path, trader 4, warrior 1, builder 1 (`PATHS`; merchants are the logistics path, and Emporos adds none). The cap stops building, not taking: a seized cart is his even past it (W-105). All in his one group (W-87); a convoy = his carts and the squads escorting them |
 | `escort` order (new `Order` kind) | the squad keeps a column round the cart, engages enemies within 12 tiles of it, returns past 20 |
-| Under attack | the cart halts while an enemy is within 8 tiles, resumes 10 s after; it never fights |
+| Under attack | the cart halts while an enemy is within 8 tiles, or at once when a crewman is struck, resumes 10 s after; it never fights. A halted crew fights (W-218) |
+| Why it stopped (W-216) | `stopped` on the cart: `ground` (it ended more than 2 tiles short of where it was sent), `foe`, `crew` (its men more than 5 s from it). A toast says it once until it rolls again; the squad card says it while it lasts |
+| Cutting onto a cart (W-215) | a gather order naming his own cart within 30 tiles of the node: men drop at the cart, not a store. Full, they take the cart up. A right-click on a tree does it for any cart of his in reach, even with the cart under the pointer. Without a cart the good goes to the nearest store, and the card says how far |
+| Over a border (W-217) | a cart gone over a border is out of the region: nothing stays behind, not even a wreck |
 | Between regions | carts and loaded porters ride the world transfer with the whole group (W-87), cargo on the transit row; wagon ×1.5 travel time, porters ×1.2; a `haul` order chains transfers along the world path for that group, only while he is online (W-97), and no cart ever drives on its own (no automated drovers) |
 | World map | in transit seen like squads (by alliances with men in or next to either end); Safe Roads: only by alliances with men at the destination |
 | Fire | wood: torches and fire arrows ignite it like a wood building |

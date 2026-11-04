@@ -17,7 +17,7 @@
  * reach, at most one height level apart and no cliff between (see `reachable`); a foe across a cliff is
  * gone round by the squad path. A unit shows 'attack' only while it strikes in reach or shoots in range.
  *
- * Economy and building (M2a, ./works.ts): a squad on a gather or build order does not fight; its units work one by one
+ * Economy and building (M2a, ./works.ts): a squad on a gather or build order fights only once struck (W-218); its units work one by one
  * (harvest, carry, fetch, labour) and take WORK_DEFENCE more damage without blocking. Path searches and gates go by
  * the mover's team (grid.team).
  *
@@ -328,6 +328,10 @@ interface Squad {
   flee: boolean;
   calm: number;
   resume: Order | null;
+  /** W-215: gathering, the cart its men throw the load on (-1: the nearest store). */
+  cartDrop: number;
+  /** W-218: ticks a soldier squad that dropped its tools has had no foe near. */
+  atEase: number;
   work: number;
   fedUntil: number;
   // M5h: the fed record (one per squad, the last dish eaten): damage taken x fedInn, melee / missile damage +, accuracy +,
@@ -480,6 +484,10 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
         labourLog.set(k, (labourLog.get(k) ?? 0) + secs);
       },
       repairK: (b) => ({ speed: townLv.perkAt(b.team, b.x, b.y).repair, cost: bonuses.get(b.team)?.repairCost ?? 1 }),
+      cartDrop: (w) => {
+        const s = w as Squad, e = s.order === 'gather' && s.cartDrop >= 0 ? siege.get(s.cartDrop) : undefined;
+        return e?.hold && e.state !== 'destroyed' && e.owner === s.owner ? { x: e.x, y: e.y, hold: e.hold, room: siege.cartCap(s.cartDrop) - loads(e.hold) } : null;
+      },
     },
   );
 
@@ -589,6 +597,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       const k = grid.cartMul[b] > 0 ? grid.cartMul[b] : CART_FORD;
       return a >= 0 && grid.height[b] > grid.height[a] ? k * CART_UPHILL : k;
     },
+    crewHit: (crew) => !!squads[crew]?.units.some((u) => u.alive && u.tag > tick),
     foeNear(team, x, y, r) {
       if (team === NEUTRAL_TEAM) return false; // W-65: a caravan's wagon halts on its own (./roam.ts)
       for (const u of units) if (u.alive && u.squad.team !== team && u.squad.team !== MOB_TEAM && !u.civ && !u.squad.meek && (u.x - x) ** 2 + (u.y - y) ** 2 <= r * r) return true;
@@ -1061,7 +1070,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     const bandages = Math.floor((s.bandages * picked.length) / Math.max(1, s.alive));
     const ns: Squad = Object.assign(old ?? ({} as Squad), {
       ...s, id: old ? old.id : squads.length, units: old ? old.units : [], alive: 0, ax, ay, cx: ax, cy: ay, side: 0, ramp: RAMP_FROM, path: [], pi: 0, order: 'hold', target: -1, goal: null,
-      near: [], sites: [], node: -1, fixed: null, col: null, siege: -1, task: null, claimPt: -1, spare: false, flee: false, calm: 0, resume: null, work: -1,
+      near: [], sites: [], node: -1, fixed: null, col: null, siege: -1, task: null, claimPt: -1, spare: false, flee: false, calm: 0, resume: null, cartDrop: -1, atEase: 0, work: -1,
       bandages, xfer: null, escort: -1, salv: null, soul: -1,
     } satisfies Squad);
     s.bandages -= bandages;
@@ -1514,6 +1523,12 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       s.sites = sites;
       s.fixed = null;
       s.node = o.kind === 'gather' ? o.node : -1;
+      s.cartDrop = -1;
+      if (o.kind === 'gather' && o.cart !== undefined && siege.isCart(o.cart) && siege.alive(o.cart)) {
+        // W-215: his own cart, near enough to throw on; else the nearest store as ever
+        const e = siege.get(o.cart)!, n = works.resourceNodes()[o.node];
+        if (e.owner === s.owner && Math.hypot(e.x - n.x, e.y - n.y) <= CART.gatherR) s.cartDrop = o.cart;
+      }
       s.path = [];
       s.goal = null;
       for (const u of s.units) if (u.alive) works.setJob(u, s.order);
@@ -3148,7 +3163,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
   /** The order a fleeing civilian squad takes up again once it is calm. */
   const resumeOf = (s: Squad): Order | null =>
     s.order === 'civWork' ? { kind: 'civWork', squad: s.id, building: s.work }
-    : s.order === 'gather' ? { kind: 'gather', squad: s.id, node: s.node }
+    : s.order === 'gather' ? { kind: 'gather', squad: s.id, node: s.node, ...(s.cartDrop >= 0 ? { cart: s.cartDrop } : {}) }
     : s.order === 'build' && s.sites.length ? { kind: 'build', squad: s.id, site: s.sites[0] }
     : null;
   /** Run from the foe at (fx, fy): to the nearest own camp, fort, outpost or storehouse it is not at, else straight away. */
@@ -3201,6 +3216,37 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
         s.flee = false;
         s.resume = null;
         if (r) apply(r);
+      }
+    }
+  };
+  /**
+   * W-218, every SCAN ticks: soldiers at plain work who are struck drop their tools and fight the nearest foe; with no foe
+   * near for CIV.calm ticks they take the work up again. W-215: a cart filled by its crew: they take it up.
+   */
+  const workScan = () => {
+    for (const s of squads) {
+      if (s.alive === 0 || s.team === MOB_TEAM) continue;
+      if (s.order === 'gather' && s.cartDrop >= 0) {
+        const e = siege.get(s.cartDrop);
+        if (!e || e.state === 'destroyed' || e.owner !== s.owner) s.cartDrop = -1;
+        else if (siege.cartCap(s.cartDrop) - loads(e.hold!) <= 1e-6) apply({ kind: 'crew', squad: s.id, siege: s.cartDrop });
+      }
+      if (s.civ) continue;
+      if (s.order === 'gather' || s.order === 'build') {
+        if (!s.near.length || !s.units.some((u) => u.alive && u.tag > tick)) continue;
+        let foe = s.near[0];
+        for (const o of s.near) if (dist2(s, o) < dist2(s, foe)) foe = o;
+        const r = resumeOf(s);
+        apply({ kind: 'attack', squad: s.id, target: foe.id });
+        s.resume = r;
+        s.atEase = 0;
+      } else if (s.resume && s.order === 'hold') {
+        if (s.near.length) s.atEase = 0;
+        else if ((s.atEase += SCAN) >= CIV.calm) {
+          const r = s.resume;
+          s.resume = null;
+          apply(r);
+        }
       }
     }
   };
@@ -3447,6 +3493,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     flushSectors(grid); // sites that closed or opened tiles last tick
     if (tick % SCAN === 0) scanNear();
     if (civs.length && tick % SCAN === 0) civScan();
+    if (tick % SCAN === 0) workScan();
     if (tick % STAFF.every === 0) works.staffScan(units, MOB_TEAM); // W-88: who stands at what
     if (civs.length && tick % CIV.every === 0) civTick();
     if (tick % HUNGER.every === 0) hungerTick();
@@ -3856,7 +3903,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
         ax, ay, cx: ax, cy: ay, facing: 0, speed: st.speed, ranged: st.range > 0, side: 0, ramp: RAMP_FROM, path: [], pi: 0, order: 'hold', target: -1,
         repathAt: 0, goal: null, near: [], sites: [], node: -1, fixed: null, col: null, siege: -1, task: null, fire: false, claimPt: -1, spare: false,
         act: null, actWil: 5, actReady: 0, actUntil: -1, out: 1, inn: 1, amx: ax, amy: ay,
-        civ: ps ? ps.every((p) => isCivClass(p.hero.cls)) : isCivClass(cls), flee: false, calm: 0, resume: null, work: -1, fedUntil: -1,
+        civ: ps ? ps.every((p) => isCivClass(p.hero.cls)) : isCivClass(cls), flee: false, calm: 0, resume: null, cartDrop: -1, atEase: 0, work: -1, fedUntil: -1,
         fedInn: 1, fedMelee: 0, fedMissile: 0, fedAcc: 0, fedHeal: 1, dish: null, bandages: 0, theriacUntil: -1,
         xfer: null, escort: -1, laden: false, salv: null, soul: -1, meek: team === NEUTRAL_TEAM, angry: 0,
       };
@@ -3919,6 +3966,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
           if (s.act) snap.active = { skill: s.act, ready: Math.max(0, s.actReady - tick), on: Math.max(0, s.actUntil - tick) };
           if (s.civ) snap.civ = true;
           if (s.flee) snap.flee = true;
+          if (s.order === 'gather' && s.cartDrop >= 0) snap.cartDrop = s.cartDrop;
           if (s.fedUntil > tick) {
             snap.fed = true;
             if (s.dish) snap.dish = s.dish;

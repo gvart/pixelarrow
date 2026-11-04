@@ -10,9 +10,10 @@ import { ENCOUNTERS, ROBBERS } from '../../../src/data/warEncounters';
 import { hashString, Rng } from '../../../src/sim/rng';
 import { perLoad } from '../../../src/war/sim/holders';
 import { storyOf } from '../../../src/data/warStories';
-import { EncounterRun, type EncHost, type EncNote, type EncSave } from '../../../src/war/sim/encounters';
+import { awayLine, EncounterRun, type EncHost, type EncNote, type EncSave } from '../../../src/war/sim/encounters';
 import type { RegionData, Snapshot, WarBuildSim, WarEvent } from '../../../src/war/types';
-import { tollOf, type Slot } from './cargo';
+import { PORTER } from '../../../src/war/sim/trade';
+import { robOf, tollOf, type Slot } from './cargo';
 
 /** DO storage key of a player's encounter save in this region (per season). */
 export const encounterStorageKey = (season: number | string, pid: number) => `encounter:${season}:${pid}`;
@@ -22,6 +23,11 @@ export function ladenLoads(cargo: { packs: Readonly<Record<string, { lots: reado
   const lots = [...Object.values(cargo?.packs ?? {}), ...(cargo?.carts ?? [])].flatMap((h) => h.lots);
   return lots.filter((l) => l.r !== 'food' && l.r !== 'ration').reduce((a, l) => a + l.n / perLoad(l.r as never), 0);
 }
+
+/** W-219: robbers reach a load this far from where they beat his men. */
+const ROB_REACH = 30;
+/** W-219: at most this many lines kept for his return. */
+const AWAY_MAX = 6;
 
 /** A run moved: the DO stores `save` and pays `goods` into his home strongroom. */
 export interface EncounterDone { pid: number; save: EncSave; goods: Record<string, number>; notes?: EncNote[] }
@@ -41,7 +47,7 @@ export class RoomEncounters {
   /** A player of `team` is in, his save from the DO: his run starts (or goes on, when he was here already). */
   start(pid: number, team: number, save: EncSave | null): ServerMsg {
     const had = this.runs.get(pid);
-    if (had) return RoomEncounters.msg(had.run.save);
+    if (had) return this.welcomeBack(had.run);
     const goods: Record<string, number> = {};
     const host: EncHost = {
       addLair: (d) => void this.sim.addLair(d),
@@ -57,10 +63,29 @@ export class RoomEncounters {
         for (const c of snap.sieges ?? []) if (c.owner === me) slots.push(...(this.sim.cargo({ cart: c.id })?.slots ?? []));
         tollOf(slots, share);
       },
+      // W-219 as a raid (W-91): what they can carry, nothing more, from the load in their reach
+      rob: (band) => {
+        const snap = this.sim.snapshot(), me = `p:${pid}`, slots: Slot[] = [];
+        for (const c of snap.sieges ?? []) if (c.owner === me && c.state !== 'destroyed' && Math.hypot(c.x - band.x, c.y - band.y) <= ROB_REACH) slots.push(...(this.sim.cargo({ cart: c.id })?.slots ?? []));
+        for (const q of snap.squads) if (q.owner === me) slots.push(...(this.sim.cargo({ squad: q.id })?.slots ?? []).filter((x) => Math.hypot(x.x - band.x, x.y - band.y) <= ROB_REACH));
+        const took = robOf(slots, band.alive * PORTER.loads);
+        this.sim.dropSquad(band.squad);
+        return took;
+      },
     };
     const run = new EncounterRun(this.region, ENCOUNTERS, save, { team, owner: `p:${pid}`, seed: this.seed }, host, storyOf(this.region.id));
     this.runs.set(pid, { run, goods });
-    return RoomEncounters.msg(run.save);
+    return this.welcomeBack(run);
+  }
+
+  /** The message for a player coming in; W-219: what happened while he was gone goes with it, once. */
+  private welcomeBack(run: EncounterRun): ServerMsg {
+    const msg = RoomEncounters.msg({ ...run.save });
+    if (run.save.away) {
+      delete run.save.away;
+      run.due = true;
+    }
+    return msg;
   }
 
   /** W-197: he came over the border with `loads` of goods; `key` seeds the roll (the crossing). Do robbers wait for him? */
@@ -75,7 +100,7 @@ export class RoomEncounters {
   }
 
   /** After a step: the runs that moved or owe a quiet save (the DO stores and pays them) and the messages to tell. */
-  tick(snap: Snapshot, evs: readonly WarEvent[]): { done: EncounterDone[]; msgs: [number, ServerMsg][] } {
+  tick(snap: Snapshot, evs: readonly WarEvent[], online: (pid: number) => boolean = () => true): { done: EncounterDone[]; msgs: [number, ServerMsg][] } {
     const done: EncounterDone[] = [], msgs: [number, ServerMsg][] = [];
     for (const pid of this.waiting) {
       const r = this.runs.get(pid);
@@ -92,6 +117,10 @@ export class RoomEncounters {
     for (const m of this.moved) {
       const r = this.runs.get(m.pid);
       if (!r) continue;
+      if (!online(m.pid)) {
+        const lines = m.notes.flatMap((n) => awayLine(n, ENCOUNTERS) ?? []);
+        if (lines.length) r.run.save.away = [...(r.run.save.away ?? []), ...lines].slice(-AWAY_MAX);
+      }
       const save: EncSave = { ...r.run.save, open: r.run.save.open ? { ...r.run.save.open } : null };
       done.push({ pid: m.pid, save, goods: { ...r.goods }, notes: m.notes });
       for (const k of Object.keys(r.goods)) delete r.goods[k];

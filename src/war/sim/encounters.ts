@@ -63,6 +63,8 @@ export interface EncStep {
   next?: string;
   /** W-197: no answer in time: on to this step instead of the moment passing. */
   unanswered?: string;
+  /** W-219 a fight over his load: with none of his fighters on his feet they carry off what they can and go. */
+  takes?: true;
 }
 
 export interface EncounterDef {
@@ -127,7 +129,9 @@ export interface EncOpen {
 }
 
 /** n: encounters met; travel: ticks of travel since the last; next: travel ticks the next one waits for. */
-export interface EncSave { v: 1; n: number; travel: number; next: number; last?: string; open: EncOpen | null }
+export interface EncSave { v: 1; n: number; travel: number; next: number; last?: string; open: EncOpen | null;
+  /** W-219 what happened to his men on the road while he was gone, told once when he is back. */
+  away?: string[] }
 
 export type EncNote =
   | { kind: 'start'; enc: string }
@@ -135,7 +139,25 @@ export type EncNote =
   | { kind: 'step'; enc: string; step: string; option?: string; risk?: true; reward?: StoryReward }
   | { kind: 'end'; enc: string }
   /** Left behind: the moment passed. */
-  | { kind: 'lapse'; enc: string };
+  | { kind: 'lapse'; enc: string }
+  /** W-208: nobody answered: they come on. */
+  | { kind: 'unanswered'; enc: string }
+  /** W-219: they beat his men and carried this off. */
+  | { kind: 'robbed'; enc: string; goods: Record<string, number> };
+
+/** W-219 one line for a player who was not there (null: nothing he needs told). */
+export function awayLine(n: EncNote, defs: Readonly<Record<string, EncounterDef>>): string | null {
+  const title = defs[n.enc]?.title ?? 'On the road';
+  if (n.kind === 'start') return `${title}: they stopped your men.`;
+  if (n.kind === 'unanswered') return `${title}: nobody answered, so they came on.`;
+  if (n.kind === 'robbed') {
+    const what = Object.entries(n.goods).map(([r, k]) => `${Math.round(k)} ${r}`).join(', ');
+    return `${title}: they beat your guards and carried off ${what || 'nothing they could find'}.`;
+  }
+  if (n.kind === 'lapse') return `${title}: it passed with nobody there.`;
+  if (n.kind === 'step' && !n.option && !n.step.includes('#')) return `${title}: your men beat them off.`;
+  return null;
+}
 
 export interface EncHost {
   addLair(d: { kind: MobKind; x: number; y: number; count: number }): void;
@@ -143,6 +165,8 @@ export interface EncHost {
   give(reward: StoryReward, at: { x: number; y: number }, item: Item | null): void;
   /** W-197: this share of all he carries is gone. */
   toll?(share: number): void;
+  /** W-219: the band at the spot, n strong, takes what n men carry from his carts and packs and leaves: what it took. */
+  rob?(band: { squad: number; x: number; y: number; alive: number }): Record<string, number>;
 }
 
 export interface EncMe {
@@ -365,6 +389,16 @@ export class EncounterRun {
       const at = (p: { x: number; y: number }, r: number) => men.some((u) => Math.hypot(u.x - p.x, u.y - p.y) < r);
       const t = st.trigger;
       let done = false;
+      // W-219: robbers who win do what robbers do. Nobody has to stand there: they have the field and walk to the load.
+      if (st.takes && t.kind === 'clear' && this.seen && this.host.rob && !men.some((u) => !u.down && !u.wounded)) {
+        const band = (s.lairs ?? []).find((l) => Math.hypot(l.x - o.tx, l.y - o.ty) < 0.5 && l.state !== 'cleared' && l.alive > 0);
+        if (band) {
+          const goods = this.host.rob({ squad: band.squad, x: band.x, y: band.y, alive: band.alive });
+          this.save.open = null;
+          notes.push({ kind: 'robbed', enc: def.id, goods });
+          return notes;
+        }
+      }
       if (t.kind === 'reach') done = at({ x: o.tx, y: o.ty }, t.r ?? (t.at === 'town' ? ENC.town : t.at === 'lair' ? ENC.lair : t.at === 'giver' ? ENC.giver : ENC.reach));
       else if (t.kind === 'clear') {
         const ls = (s.lairs ?? []).filter((l) => Math.hypot(l.x - o.tx, l.y - o.ty) < 0.5);
@@ -399,6 +433,7 @@ export class EncounterRun {
       // the moment passes: too long, or his men gone far (a guide is followed: only the clock)
       const far = !men.length || (!o.with && !men.some((u) => Math.hypot(u.x - o.tx, u.y - o.ty) < ENC.leave && Math.hypot(u.x - o.x, u.y - o.y) < ENC.leave));
       if (st.unanswered && !far && s.tick - o.since > ENC.lapse) {
+        notes.push({ kind: 'unanswered', enc: def.id });
         this.advance(s, def, st, st.unanswered, notes);
         return notes;
       }

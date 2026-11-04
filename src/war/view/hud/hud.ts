@@ -61,7 +61,7 @@ import { mountTrade } from './holder';
 import { mountMarket } from './market';
 import { mountGuardians } from './guardianBar';
 import { mountBossBanner } from './bossBanner';
-import { accessHtml, accessStep, ownsTerms } from '../build/access';
+import { accessHtml, accessTap, ownsTerms } from '../build/access';
 import { billText, buildingTip, levelOf, mountBuildingCard, nameOfBuilding, purposeOf, rebuildBill, rebuildWhy, repairBill, repairWhy, statusOf } from './buildingCard';
 import { needChips, shortText } from './goods';
 import { localGoods, mountChest, storeNear } from './chest';
@@ -98,6 +98,8 @@ import { keys } from '../../input/keys';
 import type { ActionId } from '../../input/actions';
 import { myTeam } from '../side';
 import { activityText, waitText } from './activity';
+import { CART_STOP, cartNotes } from './cartWatch';
+import { mountUnstack } from './quest';
 import { mountTopBar } from './topBar';
 import { tipHtml } from './theme';
 import { portrait, portraitIcon } from './roster/portrait';
@@ -303,12 +305,17 @@ export function hud(s: SandboxScene): void {
   let razeArmed = -1;
   const bDemolish = btn('bdemolish', 'act-cancel', '', '', () => { const b = m.selectedBuilding(); if (b && !m.demolishWhy(b)) razeArmed = b.id; });
   // W-89: who may use it and what he keeps: his own building's card only (../build/access.ts)
+  let accessAsk = -1; // W-220: the building whose card asks "open to anyone?"
   const accessBox = document.createElement('div');
   accessBox.id = 'bAccess';
   $('cSlots').before(accessBox); // its own column: the action slots' column is too narrow for it
   accessBox.addEventListener('click', (e) => {
-    const t = (e.target as HTMLElement).closest<HTMLElement>('[data-acc]')?.dataset.acc as 'access' | 'share' | 'fee' | undefined, b = m.selectedBuilding();
-    if (t && b) s.sim.order(accessStep(b, t, meOwner()));
+    const t = (e.target as HTMLElement).closest<HTMLElement>('[data-acc]')?.dataset.acc as 'access' | 'share' | 'fee' | 'keep' | undefined, b = m.selectedBuilding();
+    if (!t || !b) return;
+    if (t === 'keep') return void (accessAsk = -1);
+    const r = accessTap(b, t, meOwner(), accessAsk === b.id);
+    accessAsk = 'ask' in r ? b.id : -1;
+    if ('order' in r) s.sim.order(r.order);
   });
   const meOwner = () => (s.sim.playerId ? `p:${s.sim.playerId}` : 'you');
   const razeBox = document.createElement('div');
@@ -518,6 +525,13 @@ export function hud(s: SandboxScene): void {
   mountEncounters(s); // W-65: random encounters on the road: banners, the card for a while, who waits there (./encounter.ts)
   mountRegionChat(s); // W-62 E6: the alliance chat above the minimap, map marks (./chat.ts)
   mountLayout(); // the zones: where every docked panel and window sits, none over another (./layout.ts)
+  mountUnstack(s); // no two edge markers on one spot (./quest.ts)
+  // W-216: a cart that stopped says why (./cartWatch.ts)
+  const cartMemo = new Map<number, string>();
+  s.events.on('postupdate', () => {
+    const cur = s.sim.cur;
+    if (cur) for (const text of cartNotes(cur, meOwner(), cartMemo)) sandboxRoster(s).onNote?.({ kind: 'info', text });
+  });
   mountGate(s); // the online cap's line and the idle kick (./gate.ts)
   mountReplay(s, mk); // W-62 E5: the replay recorder, "Watch the battle", replay mode and clips (../replay)
   const groups = mountGroups(s, mk, tipOn); // W-53: the control group bar over the card, numbers on the map
@@ -606,7 +620,7 @@ export function hud(s: SandboxScene): void {
           setCard(false, [razeBox], SEL_BLD);
         } else {
           const terms = ownsTerms(b, meOwner());
-          if (terms) { const html = accessHtml(b); if (accessBox.dataset.h !== html) { accessBox.dataset.h = html; accessBox.innerHTML = html; } }
+          if (terms) { const html = accessHtml(b, accessAsk === b.id); if (accessBox.dataset.h !== html) { accessBox.dataset.h = html; accessBox.innerHTML = html; } }
           setCard(false, [...(up ? [bUp] : []), ...(hurt ? [bRepair] : []), ...(ruin ? [bRebuild] : []), ...(iron ? [bIron] : []), ...(wet ? [bWet] : []), ...(raze ? [bDemolish] : [])], SEL_BLD, orders, terms);
         }
         if (raze) {
@@ -653,7 +667,7 @@ export function hud(s: SandboxScene): void {
       const fed = sat >= 0 ? ` · <span class="hud-fed ${sat >= 60 ? 'good' : sat >= 30 ? 'warn' : 'bad'}" title="how fed they are (food: the squad chest)">fed ${Math.round(sat)}%</span> ${mealsMark(meals, menIn)}` : '';
       const chips = q.blessed ? '<span class="hud-chip gold">Blessed</span>' : '';
       setHead(UNIT_ICON[cls] ?? 'unit-militia', byCls.size > 1 ? 'Mixed' : CLASS_NAME[cls] ?? civName(cls) ?? nice(cls), `<b>${men.length}</b> ${men.length === 1 ? 'man' : 'men'}${byCls.size > 1 ? `, ${byCls.size} classes` : ''}${fed}`, hudBar('hp', hp / max, `${Math.ceil(hp)} / ${Math.ceil(max)}`),
-        civ ? civInfo(s, own[0]) : e ? `crews ${SIEGE_NAME[e.type]} · ${e.state}${e.burning ? ' · burning' : ''}` : `${s.sim.cur ? activityText(q, s.sim.cur, { nodes: s.sim.nodes, goal: s.lastCommand }) : q.order}${q.fed ? ' · fed' : ''}${sc.status ? ' · ' + sc.status : ''}`, undefined, chips);
+        civ ? civInfo(s, own[0]) : e ? `crews ${SIEGE_NAME[e.type]} · ${e.stopped ? CART_STOP[e.stopped].line : e.state}${e.burning ? ' · burning' : ''}` : `${s.sim.cur ? activityText(q, s.sim.cur, { nodes: s.sim.nodes, goal: s.lastCommand }) : q.order}${q.fed ? ' · fed' : ''}${sc.status ? ' · ' + sc.status : ''}`, undefined, chips);
       setPortrait(byCls.size ? cls : null, hi ? `Level ${lo === hi ? lo : `${lo}–${hi}`}` : '');
       // the icons: every living man of the squads any selected man is in (a man picked alone keeps his squad's row)
       const ownSet = new Set([...own, ...men.map((d) => d.u.squad)]);

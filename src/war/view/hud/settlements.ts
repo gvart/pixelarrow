@@ -17,9 +17,10 @@
  * Online it reads the region's `settlements` message and /api/war/settlements; offline (dev) `window.__settle` fills
  * it with made-up settlements and answers its own requests (screenshots, layout checks).
  */
+import { glyph } from './glyph';
 import type { ServerMsg, SettlementNet } from '../../net/protocol';
 import { worldTaps } from '../../net/chatLink';
-import { SETTLE_UI, type Inbox, type OfferRow, type Plot, type SettleDetail, type WorldSettlement } from '../../net/settlements';
+import { SETTLE_UI, type Inbox, type OfferRow, type Plot, type SettleDetail, type WorldSettlement, campWarning } from '../../net/settlements';
 import { left } from '../../net/settlements';
 import { worldRegion } from '../../world/graph';
 import type { TownLevelSnap } from '../../types';
@@ -334,6 +335,10 @@ export function mountSettlements(s: SandboxScene, mk: Mk): void {
     const show = !!b?.active && t?.kind === 'building' && t.type === 'camp' && worldRegion(s.region.id)?.role !== 'home' && !realm().length && !list.some((x) => x.role === 'lord');
     hint.style.display = show ? 'flex' : 'none';
     if (!show || !bar) return;
+    // W-220 before it stands: this spot founds nothing, and why
+    const cur = s.sim.cur, warn = cur && campWarning(cur, { x: Math.round(s.pointerTile.x), y: Math.round(s.pointerTile.y), r: SETTLE_UI.r }, world.filter((w) => w.region === s.region.id));
+    const say = warn ? `${glyph('ui:lock', 18)}<span>${warn}</span>` : FOUND_HINT;
+    if (hint.dataset.say !== say) { hint.dataset.say = say; hint.innerHTML = say; }
     const r = bar.getBoundingClientRect(), z = Number(hint.style.zoom) || 1;
     hint.style.left = `${(r.left + r.width / 2) / z}px`;
     hint.style.transform = 'translateX(-50%)';

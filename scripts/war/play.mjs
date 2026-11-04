@@ -7,9 +7,9 @@
 //   npm run play:war -- --fast       world travel x0.05 (WAR_TRAVEL_SCALE): transits take seconds (the scripted smoke)
 //   PLAY_API_PORT / PLAY_WEB_PORT    other ports than 8787 / 5173
 //
-// Seeding (idempotent): the dev player (dev id 1, alliance Dodona) gets the design's start: his recruit pool and
-// START.food; he recruits a full squad of militia at home for food (no coin, no goods). A fresh state also starts a
-// fresh season (POST /api/war/world/dev/season/reset). Ctrl-C stops both servers.
+// Seeding (idempotent): the dev player (dev id 1, alliance Dodona) gets a dev army at home (POST /api/war/dev/seed;
+// recruiting went with W-60). A fresh state also starts a fresh season (POST /api/war/world/dev/season/reset). Ctrl-C
+// stops both servers.
 import { spawn, spawnSync } from 'node:child_process';
 import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
@@ -80,7 +80,7 @@ async function login(id, name) {
   return { pid: s.player.id, token: s.token, api };
 }
 
-/** Alliance, then a full squad of militia recruited at home if fewer than a squad are fit at home. */
+/** Alliance, then a dev army at home if he has no men at all. */
 async function player(id, name, alliance) {
   const p = await login(id, name);
   const snap = await p.api('GET', '/api/war/world');
@@ -89,9 +89,7 @@ async function player(id, name, alliance) {
   const home = (r) => r.persons.filter((x) => x.state === 'active' && !x.region);
   const want = 12 - home(ros).length;
   if (want > 0 && ros.persons.filter((x) => x.state !== 'dead').length === 0) {
-    await p.api('POST', '/api/war/recruit', { town: 'home', count: want });
-    ros = await p.api('GET', '/api/war/roster');
-    await p.api('POST', '/api/war/squad', { ids: home(ros).slice(0, 12).map((x) => x.id) });
+    await p.api('POST', '/api/war/dev/seed', {});
     ros = await p.api('GET', '/api/war/roster');
   }
   return { ...p, roster: ros, alliance: (await p.api('GET', '/api/war/world')).you.alliance };

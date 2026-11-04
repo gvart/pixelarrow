@@ -15,7 +15,7 @@ export const HOME_LORE: Record<string, HomeLore> = {
   // ---- Dodona (NW, iron)
   dodona: {
     lore: 'The first dead of the north woke under the oracle oak, and its leaves still whisper the muster. Pine ridges ring a cold lake; the forges smoke with Dodona\'s iron. A warrior who falls anywhere in Metaxy wakes here again.',
-    play: 'Safe ground with no beasts, and rich timber and iron. The Tin Road and the Lake Road both start here, two marches from the front.',
+    play: 'Home ground with only weak beasts at its edges, and rich timber and iron. The Tin Road and the Lake Road both start here, two marches from the front.',
     difficulty: 1,
   },
   'dodona-n': {
@@ -41,7 +41,7 @@ export const HOME_LORE: Record<string, HomeLore> = {
   // ---- Skythia (NE, horses)
   skythia: {
     lore: 'Riders who died in the saddle woke on the steppe beside their horses. The burial mounds are their own graves, kept now as lookouts over the grass. A warrior who falls anywhere in Metaxy wakes here again.',
-    play: 'Safe ground with no beasts, rich grain, the best horses in the world, and long sight lines. The Tin Road and the Desert Road both start here.',
+    play: 'Home ground with only weak beasts at its edges, rich grain, the best horses in the world, and long sight lines. The Tin Road and the Desert Road both start here.',
     difficulty: 1,
   },
   'skythia-n': {
@@ -67,7 +67,7 @@ export const HOME_LORE: Record<string, HomeLore> = {
   // ---- Kyrene (SE, copper)
   kyrene: {
     lore: 'A caravan lost to thirst woke at an oasis that was waiting for it, under red cliffs full of the copper they dug in life. The springs never fail. A warrior who falls anywhere in Metaxy wakes here again.',
-    play: 'Safe ground with no beasts, and the world\'s richest copper and stone. The River Road and the Desert Road both start here.',
+    play: 'Home ground with only weak beasts at its edges, and the world\'s richest copper and stone. The River Road and the Desert Road both start here.',
     difficulty: 1,
   },
   'kyrene-n': {
@@ -93,7 +93,7 @@ export const HOME_LORE: Record<string, HomeLore> = {
   // ---- Elaia (SW, marble)
   elaia: {
     lore: 'Sailors the sea took washed into the bay. They cut the terraces and the headland citadel so that water would never take them twice. A warrior who falls anywhere in Metaxy wakes here again.',
-    play: 'Safe ground with no beasts, rich in grain, olives and marble, with a harbour quay. The Lake Road and the River Road both start here.',
+    play: 'Home ground with only weak beasts at its edges, rich in grain, olives and marble, with a harbour quay. The Lake Road and the River Road both start here.',
     difficulty: 1,
   },
   'elaia-n': {

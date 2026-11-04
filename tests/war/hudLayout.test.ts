@@ -3,6 +3,7 @@
  * screens) at the four audited windows, no two placed panels meet and none leaves the window.
  */
 import { describe, expect, it } from 'vitest';
+import { unstack } from '../../src/war/view/hud/quest';
 import { clearOnRay, GAP, sideClosers, solve, TOP, type Box, type Frame, type Placed, type Rect, type Stacks } from '../../src/war/view/hud/layout';
 
 /** The audit's windows in art px (CSS px / the auto UI scale). */
@@ -160,5 +161,20 @@ describe('HUD zones', () => {
     const wp = b('cfWp', 570, 361), out = solve(FRAMES['1280x720'], { bl: [{ ...mini, h: 210 }], bc: [card], lwin: [wp] });
     expect(out.cfWp.h).toBe(wp.h);
     expect(meet(out.cfWp, out.minimap)).toBe(false);
+  });
+});
+
+describe('edge markers never stack', () => {
+  const box = (x: number, y: number) => ({ x, y, hw: 60, hh: 12 });
+  const overlap = (a: ReturnType<typeof box>, b: ReturnType<typeof box>, da: number, db: number) => Math.abs(a.x - b.x) < a.hw + b.hw && Math.abs(a.y + da - b.y - db) < a.hh + b.hh;
+  it('three on one spot spread; apart ones stay', () => {
+    const bs = [box(100, 100), box(100, 100), box(110, 104), box(900, 100)], d = unstack(bs);
+    expect(d[0]).toBe(0);
+    expect(d[3]).toBe(0);
+    for (let i = 0; i < bs.length; i++) for (let j = i + 1; j < bs.length; j++) expect(overlap(bs[i], bs[j], d[i], d[j])).toBe(false);
+  });
+  it('at the bottom edge they go up', () => {
+    const bs = [box(100, 700), box(100, 700)], d = unstack(bs, 720);
+    expect(d[1]).toBeLessThan(0);
   });
 });

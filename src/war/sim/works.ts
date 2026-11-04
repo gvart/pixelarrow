@@ -34,6 +34,7 @@
 import type { Access, BridgeAxis, BridgeOrder, BridgePlan, BuildingSnap, BuildingType, BuildState, GoodKind, InfluenceMap, NodeSnap, PlaceReason, PlaceResult, RegionData, ResourceKind, WallOrder, WallPlan } from '../types';
 import { BRAZIER, BRIDGE, BUILDINGS, CHEST, FIELD, HOUSE, KILN, LOCK, lockOf, needsPerson, PINES, CANCEL_REFUND, DEMOLISH, CARRY, CLAIM_RADIUS, lineTiles, NEUTRAL_TEAM, rectTiles, STAFF, TERMS, REPAIR, RESOURCE_NODES, rotated, RUIN, SEGMENT, WALL_KIT, type BuildingDef, type Spot } from './economy';
 import { DECK, LADDER, lineClear, STAIR, tileAt, type Grid } from './grid';
+import { CART } from './trade';
 import { amount, empty, isTithe, itemList, newHold, put, take, takeFrom, titheIn, titheSeal, totals, type Cost, type Hold } from './holders';
 import { depthRule } from './depth';
 
@@ -66,6 +67,8 @@ export const FIRE = {
 export const FORT = { iron: 1.5, ironCost: { iron: 10, charcoal: 10 }, wet: 0.5, wetTicks: 6000, wetCost: 1 };
 
 export interface WorkSquad { team: number; owner: string; sites: number[]; node: number }
+/** W-215: a cart a gatherer's load goes on: where it stands, its hold, its free loads. */
+export interface CartDrop { x: number; y: number; hold: Hold; room: number }
 /** The part of a sim unit the works drive. */
 export interface Worker {
   id: number; x: number; y: number; facing: number; alive: boolean;
@@ -158,6 +161,8 @@ export interface WorksHooks {
   laboured?(u: Worker, b: Piece, secs: number): void;
   /** W-61: repairs of b go this much faster (a levelled town) and cost this share (an alliance work). */
   repairK?(b: Piece): { speed: number; cost: number };
+  /** W-215: the cart this squad's men throw their load on (null: a store). */
+  cartDrop?(s: WorkSquad): CartDrop | null;
 }
 
 /** M7a: what stands for `team` in the gate grid: its own (team + 1), or open to all (0) for the neutral team. */
@@ -1449,21 +1454,29 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
 
   /** Drop the load at the nearest store; 'here' once dropped, null with no store. */
   const deliver = (u: Worker): Act => {
-    const s = nearestStore(u);
-    if (!s) return null;
-    if (!at(s.tiles, u)) return walkTo(u, ...spot(s.tiles, u, s.x, s.y));
-    const st = s.hold!, o = region.id;
+    const c = hooks.cartDrop?.(u.squad) ?? null, s = c ? null : nearestStore(u);
+    if (!c && !s) return null;
+    if (c) {
+      if (Math.hypot(c.x - u.x, c.y - u.y) > CART.reach) return walkTo(u, c.x, c.y);
+    } else if (!at(s!.tiles, u)) return walkTo(u, ...spot(s!.tiles, u, s!.x, s!.y));
+    const st = c ? c.hold : s!.hold!, o = region.id;
+    // W-215: on a cart, as far as it has room; what will not go on stays in his arms until the squad takes the cart up
+    const off = c ? Math.min(u.load, Math.max(0, c.room) * CARRY) : u.load;
     const n = nodes[u.wnode], farm = n?.building !== undefined ? buildings[n.building] : null;
     if (u.carry) {
       // W-89: the owner of the farm or press keeps his share, in the building's own hold
-      const got = u.load * (u.gmul?.[u.carry] ?? 1), cut = farm && farm.owner && farm.share > 0 && farm.owner !== u.squad.owner ? got * farm.share : 0;
+      const got = off * (u.gmul?.[u.carry] ?? 1), cut = farm && farm.owner && farm.share > 0 && farm.owner !== u.squad.owner ? got * farm.share : 0;
       if (cut > 0) payTill(farm!, u.carry, cut, o);
       put(st, u.carry, got - cut, o);
     }
     // M5h: Herb Finder (forest and marsh nodes), Weaver (farms)
-    if (u.herbs && n?.obj !== undefined && FORAGE_TERRAIN.has(region.terrain[tileAt(grid, n.x, n.y)])) put(st, 'herbs', u.load * FORAGE_SHARE.herbs, o);
-    if (u.flax && n?.building !== undefined && buildings[n.building]?.type === 'farm') put(st, 'flax', u.load * FORAGE_SHARE.flax, o);
-    if (u.carry === 'wood' && n?.obj !== undefined && PINES.has(region.objects![n.obj].id)) put(st, 'pitch', u.load * KILN.fromPine, o);
+    if (u.herbs && n?.obj !== undefined && FORAGE_TERRAIN.has(region.terrain[tileAt(grid, n.x, n.y)])) put(st, 'herbs', off * FORAGE_SHARE.herbs, o);
+    if (u.flax && n?.building !== undefined && buildings[n.building]?.type === 'farm') put(st, 'flax', off * FORAGE_SHARE.flax, o);
+    if (u.carry === 'wood' && n?.obj !== undefined && PINES.has(region.objects![n.obj].id)) put(st, 'pitch', off * KILN.fromPine, o);
+    if (off < u.load - 1e-6) {
+      u.load -= off;
+      return 'here';
+    }
     u.carry = null;
     u.load = 0;
     return 'here';

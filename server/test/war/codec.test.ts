@@ -158,6 +158,10 @@ describe('war delta codec', () => {
     expect(dec.apply(enc.encode(at(110, [{ ...sq, meals: 3 }]), false)).squads[0].meals).toBe(3);
     expect(dec.apply(enc.encode(at(120, [{ ...sq, meals: 900 }]), false)).squads[0].meals).toBe(254);
     expect(dec.apply(enc.encode(at(130, [{ ...sq, meals: undefined }]), false)).squads[0].meals).toBeUndefined();
+    // W-215 the cart a crew cuts onto, cart 0 too; gone when the order goes
+    expect(dec.apply(enc.encode(at(140, [{ ...sq, cartDrop: 0 }]), false)).squads[0].cartDrop).toBe(0);
+    expect(dec.apply(enc.encode(at(150, [{ ...sq, cartDrop: 7 }]), false)).squads[0].cartDrop).toBe(7);
+    expect(dec.apply(enc.encode(at(160, [sq]), false)).squads[0].cartDrop).toBeUndefined();
   });
 
   it('W-67: round-trips guardians in a fight (slow part on change, position and hp per tick) and the Warden\'s mark', () => {

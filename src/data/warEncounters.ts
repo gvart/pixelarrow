@@ -35,7 +35,7 @@ const LIST: EncounterDef[] = [
           { id: 'fight', label: 'Stand by the load', text: 'Guards to the carts.', next: 'fight' },
         ] },
       },
-      { id: 'fight', goal: 'Beat off the robbers', label: 'Robbers', text: 'They are after the carts. Stand by the load.', trigger: { kind: 'clear', mob: 'bandit', count: ROBBERS.count }, reward: { goods: { coin: 20 } } },
+      { id: 'fight', goal: 'Beat off the robbers', label: 'Robbers', text: 'They are after the carts. Stand by the load.', trigger: { kind: 'clear', mob: 'bandit', count: ROBBERS.count }, reward: { goods: { coin: 20 } }, takes: true },
     ],
   },
   {
@@ -49,7 +49,7 @@ const LIST: EncounterDef[] = [
           { id: 'drop', label: 'Throw down a share', text: 'They fall on what you dropped, and you are gone.', toll: ROBBERS.toll },
         ] },
       },
-      { id: 'fight', goal: 'Beat off the ambush', label: 'Ambush', text: 'They are on you. Close ranks.', trigger: { kind: 'clear', mob: 'bandit', count: 3 }, reward: { goods: { coin: 8, food: 10 } } },
+      { id: 'fight', goal: 'Beat off the ambush', label: 'Ambush', text: 'They are on you. Close ranks.', trigger: { kind: 'clear', mob: 'bandit', count: 3 }, reward: { goods: { coin: 8, food: 10 } }, takes: true },
     ],
   },
   {
@@ -146,7 +146,7 @@ const LIST: EncounterDef[] = [
           { id: 'round', label: 'Go round', text: 'A longer road, a whole skin.' },
         ] },
       },
-      { id: 'fight', goal: 'Break the toll-takers', label: 'Toll', text: 'Overturn their cart on them.', trigger: { kind: 'clear', mob: 'bandit', count: 4 }, reward: { goods: { coin: 14 }, item: { def: 'pilos', rarity: 'uncommon' } } },
+      { id: 'fight', goal: 'Break the toll-takers', label: 'Toll', text: 'Overturn their cart on them.', trigger: { kind: 'clear', mob: 'bandit', count: 4 }, reward: { goods: { coin: 14 }, item: { def: 'pilos', rarity: 'uncommon' } }, takes: true },
     ],
   },
   {

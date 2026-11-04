@@ -1,6 +1,6 @@
 /**
  * W-89 the small access control on a building's command card: its owner picks who may use it and what he keeps. One tap
- * moves each to its next setting. Everyone else sees nothing here; the card's status line says when it is closed to him.
+ * moves each to its next setting; W-220: "anyone" lets foes in, so the pill asks first. Everyone else sees nothing here; the card's status line says when it is closed to him.
  */
 import { ACCESS, BUILDINGS, TERMS } from '../../sim/economy';
 import type { Access, BuildingSnap, Order } from '../../types';
@@ -26,10 +26,17 @@ export function accessStep(b: BuildingSnap, term: Term, owner: string): Extract<
   return { ...o, fee: next(FEE_STEPS, b.fee ?? 0) };
 }
 
+/** W-220: a tap on `term`: the order to send, or `ask` when it would open the building to anyone and he has not said yes. */
+export function accessTap(b: BuildingSnap, term: Term, owner: string, sure: boolean): { order: Extract<Order, { kind: 'setAccess' }> } | { ask: true } {
+  const order = accessStep(b, term, owner);
+  return order.access === 'anyone' && !sure ? { ask: true } : { order };
+}
+
 /** May he set it? His own building that has terms. */
 export const ownsTerms = (b: BuildingSnap, owner: string) => b.owner === owner && b.access !== undefined && b.state !== 'foundation' && b.state !== 'scaffold' && b.state !== 'destroyed';
 
-export function accessHtml(b: BuildingSnap): string {
+export function accessHtml(b: BuildingSnap, asking = false): string {
+  if (asking) return `<span class="rf-dim">Foes too?</span><button class="rf-tbtn" data-acc="access" data-tip="${ACCESS_TIP.anyone}">Open to anyone</button><button class="rf-tbtn" data-acc="keep">Keep it closed</button>`;
   const a = b.access ?? 'alliance', closed = a === 'private'; // nobody else there: no terms to ask
   const pill = (term: Term, label: string, tip: string) => `<button class="rf-tbtn" data-acc="${term}" data-tip="${tip}">${label}</button>`;
   return `<span class="rf-dim">Open to</span>${pill('access', ACCESS_WORDS[a], ACCESS_TIP[a])}`

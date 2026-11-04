@@ -1484,7 +1484,7 @@ export class WarRoom {
     const st = this.stories.tick(this.snap, evs);
     for (const [pid, m] of st.msgs) if (this.players.get(pid)?.online) tell(pid, m);
     // W-65: random encounters (the DO stores and pays them), told to the player
-    const en = this.encounters.tick(this.snap, evs);
+    const en = this.encounters.tick(this.snap, evs, (id) => !!this.players.get(id)?.online);
     for (const [pid, m] of en.msgs) if (this.players.get(pid)?.online) tell(pid, m);
     // W-67: mob FX events (a beast's burst, a lair's cry, a pack scattering) to the players whose camera rect holds them
     const mobFx = evs.filter(isMobFx);

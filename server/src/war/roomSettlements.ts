@@ -91,13 +91,7 @@ export function buildRefusal(list: readonly RoomSettlement[], pid: number, tiles
   return null;
 }
 
-/** Why a settlement may not be founded round (x,y) here (null: it may): homes, claim points, landmarks, towns. */
-export function foundRefusal(snap: Snapshot, home: boolean, c: { x: number; y: number; r: number }): string | null {
-  if (home) return 'Not in a home region';
-  if ((snap.claims ?? []).some((p) => inCircle(c, p.x, p.y))) return 'Too near a claim point';
-  for (const b of snap.buildings ?? []) if (b.pre && inCircle(c, b.x, b.y)) return b.landmark ? 'Too near a landmark' : 'Too near a town';
-  return null;
-}
+export { foundRefusal } from '../../../src/war/net/settlements';
 
 /** Pieces that persist: built (not pre-built), standing, no wall, bridge, stairs, brazier or chest. */
 const plain = (b: BuildingSnap) => {

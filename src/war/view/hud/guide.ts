@@ -120,7 +120,7 @@ export function mountGuide(s: SandboxScene, mk: Mk): void {
   /** The chain, its words and its places, for his path, here. */
   const prepare = () => {
     const p = path(), here = s.region, abroad = p === 'trader' && here.id !== homeId();
-    const hand = abroad ? null : guideHand(here.id, here, p), out = abroad ? null : p === 'trader' ? guideAbroad(here.id, here) : null;
+    const hand = abroad ? null : guideHand(here.id, here, p), out = abroad ? null : p === 'trader' ? guideAbroad(here.id, here, ownCentre(s.sim.cur, team) ?? undefined) : null;
     handAt = abroad ? guideExit(here.id, homeId(), here) : hand?.at ?? null;
     road = out?.exit ?? null;
     steps = handAt ? guideSteps(p) : guideSteps(p).filter((x) => x.id !== 'next');
@@ -203,7 +203,8 @@ export function mountGuide(s: SandboxScene, mk: Mk): void {
       case 'access': return near((cur?.buildings ?? []).filter((b) => mine(b) && b.state === 'done')) ?? g.spots.home;
       case 'work': return near((cur?.buildings ?? []).filter((b) => mine(b) && b.state !== 'done')) ?? g.spots.home;
       // no goods yet: where to cut them; his men carrying: the store they load from
-      case 'load': return (cur?.units ?? []).some((u) => u.carry && (u.load ?? 0) > 0) ? near(stores()) ?? near(nodes()) : near(nodes());
+      // W-215: a crew cutting onto its cart stays at the tree; men carrying by hand go to the store
+      case 'load': return !(cur?.squads ?? []).some((q) => q.team === team && q.cartDrop !== undefined) && (cur?.units ?? []).some((u) => u.carry && (u.load ?? 0) > 0) ? near(stores()) ?? near(nodes()) : near(nodes());
       case 'carry': case 'sell': case 'hire': return abroad ? npcSpot(s.region) : road;
       case 'next': return handAt;
     }
@@ -237,7 +238,10 @@ export function mountGuide(s: SandboxScene, mk: Mk): void {
       save = loadGuide(key) ?? { v: 1, done: [] };
     }
     if (!save || !R.known) return; // online: no word from the server yet (or no guide for him here)
-    if (!watch) prepare();
+    if (!watch) {
+      if (path() === 'trader' && !ownCentre(cur, team)) return; // his road out is the one nearest his men: wait for them
+      prepare();
+    }
     const list = steps, open = list.filter((st) => !save!.done.includes(st.id));
     if (g.offline) for (const id of doneNow(watch!, cur)) if (id !== 'hire' || save.done.includes('sell')) finish(id, true);
     const on = !save!.hidden && (open.length > 0 || shown);

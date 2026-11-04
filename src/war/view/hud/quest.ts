@@ -122,6 +122,35 @@ export function placeMarker(s: SandboxScene, m: HTMLElement, p: P | null, label:
   ar.style.transform = `rotate(${a}rad) translateX(${r}px)`;
 }
 
+/** A marker's box, centred on (x,y). */
+export interface MarkBox { x: number; y: number; hw: number; hh: number }
+/** How far down (or up, past `maxY`) to shift each box so none overlaps another; the earlier in the list stays put first. */
+export function unstack(boxes: readonly MarkBox[], maxY = Infinity, gap = 4): number[] {
+  const out = boxes.map(() => 0), done: number[] = [];
+  const hits = (i: number, dy: number) => done.find((j) => Math.abs(boxes[i].x - boxes[j].x) < boxes[i].hw + boxes[j].hw + gap && Math.abs(boxes[i].y + dy - boxes[j].y - out[j]) < boxes[i].hh + boxes[j].hh + gap);
+  boxes.forEach((b, i) => {
+    for (const dir of [1, -1]) {
+      let dy = 0;
+      for (let hit = hits(i, dy); hit !== undefined; hit = hits(i, dy)) dy = boxes[hit].y + out[hit] - b.y + dir * (boxes[hit].hh + b.hh + gap);
+      if (dir < 0 || b.y + dy + b.hh <= maxY) { out[i] = dy; break; }
+    }
+    done.push(i);
+  });
+  return out;
+}
+
+/** Every frame: no two markers on the screen's edge on one spot (each is placed alone, by its own panel). */
+export function mountUnstack(s: SandboxScene): void {
+  s.events.on('postupdate', () => {
+    const edge = [...document.querySelectorAll<HTMLElement>('.gd-mk')].filter((m) => m.style.display !== 'none');
+    const boxes = edge.map((m) => {
+      const lb = m.querySelector<HTMLElement>('.lb')!;
+      return { x: parseFloat(m.style.left), y: parseFloat(m.style.top), hw: lb.offsetWidth / 2 + (m.classList.contains('edge') ? 16 : 0), hh: 12 };
+    });
+    unstack(boxes, innerHeight - 8).forEach((dy, i) => { const v = dy ? `${dy}px` : ''; if (edge[i].style.marginTop !== v) edge[i].style.marginTop = v; });
+  });
+}
+
 // ---------------------------------------------------------------- banner
 
 export interface Banner {
