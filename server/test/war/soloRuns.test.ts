@@ -11,7 +11,7 @@
 import { env } from 'cloudflare:test';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { NPC, NPC_CARTS, NPC_HIRE } from '../../../src/data/warNpcTowns';
-import { costOf, npcGood, npcSpot } from '../../../src/war/net/npcMarket';
+import { costOf, npcGood, npcRuleNow, npcSpot, npcSwings } from '../../../src/war/net/npcMarket';
 import { WONDER, workSite } from '../../../src/war/net/works';
 import { CRAFT } from '../../../src/war/sim/crafting';
 import { BUILDINGS } from '../../../src/war/sim/economy';
@@ -101,8 +101,7 @@ describe('W-93 a solo run on each path', () => {
     }
     const f = await getFavour(env, run.pid);
     console.log(`TRADER ${run.mins().toFixed(0)} min, L${f.level}, xp ${Math.floor(f.xp)}, ${trips} trips, ${sold} coin sold, ${carts} carts, ${hired} hired, stuck ${run.stuckEver.length}\n${run.log.join('\n')}`);
-    // a known defect, not of this run's making: one of a cart's two crew stays behind on the north road into dodona, and rejoins at the next border
-    expect(run.stuckEver.filter((s) => !s.startsWith('dodona hoplite at 344,231'))).toEqual([]);
+    expect(run.stuckEver).toEqual([]);
     expect(f.level).toBeGreaterThanOrEqual(goalLevel);
     expect(carts).toBeLessThanOrEqual(cartCap('trader'));
     expect(carts).toBeGreaterThanOrEqual(goalCarts);
@@ -144,6 +143,8 @@ describe('W-93 a solo run on each path', () => {
       await run.until(() => run.men().filter((u) => gang().includes(u.squad)).every((u) => Math.hypot(u.x - town.x, u.y - town.y) < NPC.reach - 1), 3000);
     };
     const storeNear = () => (snap().buildings ?? []).filter((b) => b.team === 0 && b.state === 'done' && BUILDINGS[b.type as BuildingType].store).sort((a, b) => Math.hypot(a.x - town.x, a.y - town.y) - Math.hypot(b.x - town.x, b.y - town.y))[0];
+    /** W-209: what the town's market panel tells him: the good's price right now, and whether it is off this while. */
+    const swing = (res: string) => npcSwings(run.room.region.id, run.now).find((w) => w.res === res)?.kind;
     /** All he and his can carry of a good from the stores, sold at the town. */
     const sellStored = async (res: string, keep = 0) => {
       let got = 0;
@@ -232,12 +233,12 @@ describe('W-93 a solo run on each path', () => {
       }
       run.room.sim.order({ kind: 'civWork', squad: smithSquad, building: forge.id });
       // what his purse can start: a few lots, more as the sales come in. One order is one copper and one tin
-      const here = run.room.region.id, copper = npcGood(here, 'copper'), tin = npcGood(here, 'tin');
+      const here = run.room.region.id, copper = npcRuleNow(here, 'copper', run.now), tin = npcRuleNow(here, 'tin', run.now);
       if (!copper || !tin) return;
       const lot = costOf(copper, copper.par, 1) + costOf(tin, tin.par, 1);
       const lots = Math.min(CRAFT.queue * 4, Math.floor(((await run.coin()) * 0.8) / lot));
       const have = Math.floor(Math.min(stored(run, 'copper'), stored(run, 'tin')));
-      if (have < CRAFT.queue && lots >= 1) {
+      if (have < CRAFT.queue && lots >= 1 && swing('copper') !== 'short' && swing('tin') !== 'short') { // W-209: no metal at a shortage's price
         await buyIn('copper', lots);
         await buyIn('tin', lots);
       }
@@ -280,7 +281,7 @@ describe('W-93 a solo run on each path', () => {
       // the next piece of the town, when he can pay what he cannot cut himself and still fill the forge
       const next = plan[0], coin = await run.coin(), rules = next ? Object.entries(BUILDINGS[next].cost) : [];
       const dear = rules.reduce((a, [res, n]) => {
-        const rule = npcGood(run.room.region.id, res), need = (n ?? 0) - stored(run, res);
+        const rule = npcRuleNow(run.room.region.id, res, run.now), need = (n ?? 0) - stored(run, res);
         return a + (rule && need > 0 ? costOf(rule, rule.par, need) : 0);
       }, 0);
       if (next && (!forged() || coin >= dear * 2 + 150)) {
@@ -302,7 +303,7 @@ describe('W-93 a solo run on each path', () => {
       }
       await forgeRound();
       await run.until(() => false, 15 * 10 * CRAFT.queue); // a queue of smelts, 15 s each
-      earned.bronze += await sellStored('bronze');
+      if (swing('bronze') !== 'glut') earned.bronze += await sellStored('bronze'); // W-209: nobody sells into a glut; it keeps
       await chooseStep(run, 'own'); // his chain's last choice, when it is open
       if (round % 5 === 4) await run.note(`so far: bronze ${earned.bronze}, raw ${earned.raw}, smelts ${earned.smelts}, gifts ${earned.gifts}`);
     }

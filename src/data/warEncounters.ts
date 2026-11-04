@@ -17,6 +17,12 @@ import type { EncounterDef } from '../war/sim/encounters';
  */
 export const ROBBERS = { id: 'robbers', minLoads: 2, chance: 0.35, toll: 0.15, count: 2 } as const;
 
+/**
+ * W-208 a fight that opens a kind is seen from further off than a foe wandering from it can smell him (aggro at most 14 tiles, wander 6), so going to it is his choice:
+ * he may walk on and let the moment pass. Only the ambush is on him at once, and it asks before it comes (`spring`).
+ */
+export const SEEN_FAR = [22, 28] as const;
+
 const LIST: EncounterDef[] = [
   {
     id: ROBBERS.id, title: 'Robbers on the Road', weight: 1, road: true, near: [7, 10],
@@ -37,6 +43,12 @@ const LIST: EncounterDef[] = [
     lore: 'The reeds part and bronze glints. Men who walked too near the rim spring from cover, mist in their eyes, hungry for your packs.',
     end: 'They fell without a word. Whatever looked out of their eyes has gone back to the mist.',
     steps: [
+      {
+        id: 'spring', goal: 'Stand or throw down the packs', label: 'Ambush', text: 'They are hungry for what you carry. A man who throws it down may yet walk on.', unanswered: 'fight', trigger: { kind: 'choice', options: [
+          { id: 'fight', label: 'Close ranks', text: 'Shields up.', next: 'fight' },
+          { id: 'drop', label: 'Throw down a share', text: 'They fall on what you dropped, and you are gone.', toll: ROBBERS.toll },
+        ] },
+      },
       { id: 'fight', goal: 'Beat off the ambush', label: 'Ambush', text: 'They are on you. Close ranks.', trigger: { kind: 'clear', mob: 'bandit', count: 3 }, reward: { goods: { coin: 8, food: 10 } } },
     ],
   },
@@ -98,7 +110,7 @@ const LIST: EncounterDef[] = [
     ],
   },
   {
-    id: 'beset', title: 'Travellers Beset', weight: 2,
+    id: 'beset', title: 'Travellers Beset', weight: 2, near: SEEN_FAR,
     figure: { cls: 'civ_forager', count: 3, name: 'Pilgrims' },
     lore: 'Screams on the road: pilgrims back to back with their staves, a pack of beasts circling. Save them and they pay what they can.',
     end: 'They kiss your men\'s hands and go on to the god, a little poorer.',
@@ -189,7 +201,7 @@ const LIST: EncounterDef[] = [
     ],
   },
   {
-    id: 'slavers', title: 'The Slavers\' Camp', weight: 2,
+    id: 'slavers', title: 'The Slavers\' Camp', weight: 2, near: SEEN_FAR,
     lore: 'Smoke, a whip-crack, a chain of men led off the road. Slavers sell the dead twice here: once to the mines, once to the gods below.',
     end: 'The chains lie empty in the ash.',
     steps: [
