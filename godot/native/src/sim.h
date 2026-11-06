@@ -1,8 +1,8 @@
 // The live region war sim (src/war/sim/index.ts createSim and step), ported line for line in the same order of
 // operations. So far: the step order, squads and units, the orders, paths, formations, the whole movement path
-// (anchors, slots, steering, separation, lanes) and combat (targets, blows, shots, missiles, falls: sim_combat.cpp).
-// Subsystems still in TS (works, siege, trade, mobs, bosses, civilians...) are stubbed as their empty-map behaviour, each
-// marked `// stub until <module> port`.
+// (anchors, slots, steering, separation, lanes), combat (targets, blows, shots, missiles, falls: sim_combat.cpp) and the
+// works (works.h: sites, walls, bridges, nodes, stores, hunger at the stores, town levels). Subsystems still in TS (siege,
+// mobs, bosses, roam, civilians...) are stubbed as their empty-map behaviour, each marked `// stub until <module> port`.
 #pragma once
 
 #include <algorithm>
@@ -11,6 +11,7 @@
 #include <deque>
 #include <limits>
 #include <map>
+#include <memory>
 #include <optional>
 #include <string>
 #include <vector>
@@ -19,28 +20,34 @@
 #include <godot_cpp/classes/ref_counted.hpp>
 #include <godot_cpp/variant/array.hpp>
 #include <godot_cpp/variant/dictionary.hpp>
+#include <godot_cpp/variant/packed_byte_array.hpp>
 
 #include "bots.h"
 #include "classes.h"
 #include "formation.h"
 #include "grid.h"
+#include "holders.h"
 #include "rng.h"
+#include "town_level.h"
+#include "trade.h"
 #include "vision.h"
+#include "works.h"
 
 namespace sim {
 
 struct Squad;
 
-struct Unit {
-	int id = 0;
+// A man of the sim: a works Worker (id, x, y, facing, alive, his job, load and work goal) and the rest of index.ts Unit.
+// `squad` shadows Worker::squad (the same squad, as the works see it); both are set together.
+struct Unit : Worker {
 	Squad *squad = nullptr;
 	int slot = 0;
-	double x = 0, y = 0, facing = 0, hp = 0, maxHp = 0;
+	double hp = 0, maxHp = 0;
 	std::string cls;
 	WarStats st;
 	bool moving = false;
 	int wp = 0;
-	bool alive = true, wounded = false, fighting = false, striking = false;
+	bool wounded = false, fighting = false, striking = false;
 	int swingAt = -1;
 	double cd = 0, ammo = 0;
 	Unit *tgt = nullptr;
@@ -55,10 +62,6 @@ struct Unit {
 	double ox = 0, oy = 0, want = 0;
 	bool toSlot = false;
 	const char *doing = nullptr;
-	// works.ts Worker: his job ("" none) and at work this tick; wgx/wgy his work goal
-	std::string job;
-	bool working = false;
-	double wgx = -1, wgy = -1;
 	// civilians.ts: his job ("" a soldier), at work at his building
 	std::string civ;
 	bool civAt = false;
@@ -85,6 +88,7 @@ struct Unit {
 	// W-79 early mercy: knocked down at this tick, quiet ticks since, the tick he last got up (nullopt: TS undefined)
 	std::optional<int> downAt, upAt;
 	std::optional<double> downQ;
+	std::optional<Hold> pack; // M6/W-60: what he carries (TS null: nullopt)
 };
 
 // A missile in flight (index.ts Missile; classes.h has the Missile kinds): at a man t (nullptr: at a building b or engine e, or a fire arrow that missed).
@@ -96,10 +100,12 @@ struct Flight {
 	int b = -1, e = -1, fb = -1; // -1: TS undefined
 };
 
-struct Squad {
+struct Order;
+
+// A squad: a works WorkSquad (team, owner, the sites of its build order, the node of its gather order) and the rest of
+// index.ts Squad.
+struct Squad : WorkSquad {
 	int id = 0;
-	std::string owner;
-	int team = 0;
 	std::vector<Unit *> units;
 	int alive = 0;
 	Shape shape = Shape::Line;
@@ -115,8 +121,6 @@ struct Squad {
 	int repathAt = 0;
 	std::optional<std::pair<double, double>> goal;
 	std::vector<Squad *> near;
-	std::vector<int> sites;
-	int node = -1;
 	std::optional<std::vector<double>> fixed, col;
 	int siege = -1;
 	bool task = false; // a task order (stub until siege port: never set)
@@ -127,7 +131,7 @@ struct Squad {
 	double amx = 0, amy = 0;
 	bool civ = false, flee = false;
 	int calm = 0;
-	bool resume = false; // the order a squad resumes (stub: workScan and civScan never set one yet)
+	std::shared_ptr<Order> resume; // the order it takes up again (TS null: none)
 	int cartDrop = -1, atEase = 0, work = -1;
 	double fedUntil = -1;
 	double fedInn = 1, fedMelee = 0, fedMissile = 0, fedAcc = 0, fedHeal = 1;
@@ -146,6 +150,7 @@ struct Squad {
 	std::vector<double> c_pts;
 };
 
+// An index.ts Order: the fields of the kinds ported (TS undefined: -1, nullopt or empty).
 struct Order {
 	std::string kind;
 	int squad = -1;
@@ -154,14 +159,14 @@ struct Order {
 	int target = -1;
 	std::string shape;
 	bool units = false; // a W-53 `units` order (regroup: not ported yet)
-};
-
-// works.ts bridgeAt: a finished bridge piece's line (stub until works port: none).
-struct Bridge {
-	double dir[2];
-	int id0;
-	double rows[2];
-	int width;
+	std::optional<int> team;
+	std::string type; // placeBuilding
+	int rot = 0;
+	WallOrder wall; // placeWall (material, points, towers, gates, inside)
+	BridgeOrder bridge; // placeBridge (material, points, width)
+	int site = -1, node = -1, building = -1;
+	std::optional<int> cart;
+	bool on = false; // fireArrows
 };
 
 struct Lanes {
@@ -170,8 +175,25 @@ struct Lanes {
 	int w;
 };
 
+struct Sim;
+
+// The works' view of the sim (the TS createWorks callbacks and hooks).
+struct SimWorksHost : WorksHost {
+	Sim *s = nullptr;
+	std::vector<double> path(int team, double x0, double y0, double x1, double y1) override;
+	void evict(const std::vector<int> &tiles) override;
+	bool chance(double p) override;
+	void fall(const std::vector<int> &tiles) override;
+	void spill(double x, double y, const Hold &hold, bool burnt) override;
+	bool immune(const Building &b) override;
+	void laboured(Worker &u, const Building &b, double secs) override;
+	RepairK repairK(const Building &b) override;
+	std::optional<CartDrop> cartDrop(WorkSquad &s) override;
+};
+
 struct Sim {
 	Grid *grid = nullptr;
+	WorksRegion region;
 	Mulberry rng{ 1 };
 	std::vector<Squad *> squads;
 	std::vector<Unit *> units;
@@ -188,8 +210,15 @@ struct Sim {
 	std::vector<Flight> missiles;
 	bool early = false; // W-79: stub until the region port (the sim has no region id for depthOf yet): no early mercy
 	int downs = 0;
+	SimWorksHost worksHost;
+	std::unique_ptr<Works> works;
+	std::unique_ptr<Piles> piles;
+	std::vector<TownPiece> townPieces; // works.all as townLevel reads it, rebuilt on each read
+	std::unique_ptr<TownLevels> townLv;
+	std::vector<std::pair<std::string, double>> labourLog; // W-61: secs by `${owner}|${site}`, a JS Map: insertion order
 
-	Sim(Grid &g, uint32_t seed);
+	// region: what the works read of the region (works_region_of)
+	Sim(Grid &g, WorksRegion region, uint32_t seed);
 	~Sim();
 	int spawn_squad(const std::string &owner, int team, const std::string &cls, int count, double x, double y);
 	void order(const Order &o) { queue.push_back(o); }
@@ -258,11 +287,28 @@ struct Sim {
 	void separate();
 	void speedOf(Squad &s);
 	void hungerTick();
+	bool biteFrom(Unit &u, Hold *h);
+	void refill(Unit &u, Hold &pack, const std::vector<Hold *> &from);
 	void workScan();
+	std::shared_ptr<Order> resumeOf(Squad &s) const;
+	void tradeTick();
+	void stakes();
+	void evict(const std::vector<int> &tiles);
+	void dropJobs(Squad &s); // `if (s.order === 'gather' || s.order === 'build') for (const u of s.units) works.setJob(u, null)`
+	bool fireShot(Unit &u);
+	double fireReach(Unit &u) const;
+	// the WarBuildSim calls the scenarios make
+	void claim(int team, double x, double y, std::optional<double> r) { works->claim(team, x, y, r); }
+	void addStock(int team, const std::string &res, double n) { works->add_stock(team, res, n); }
+	void finishBridges(int team) { works->finish_bridges(team); }
+	void setSatiety(const std::vector<int> &ids, double sat);
+	// src/war/scenarios/run.ts feedSim: food or rations into squad `squad`'s packs (spread over its men), or (-1) the
+	// first standing store of `team`
+	void feed(int team, int squad, const std::string &res, double n);
 
+	const BridgeLine *bridgeAt(int t) const { return works->bridge_at(t); }
+	double platCap(int p) const { return works->plat_cap(p); }
 	// stubs of other modules' answers on an empty map
-	const Bridge *bridgeAt(int) const { return nullptr; } // stub until works port
-	int platCap(int) const { return 0; } // stub until works port
 	bool inSafe(double, double) const { return false; } // stub until trade port
 	bool calmPair(Squad &s, Squad &o) const;
 	double hAt(double x, double y) const { return grid->height[grid->tile_at(x, y)]; }
@@ -277,7 +323,7 @@ struct Sim {
 
 namespace godot {
 
-// GDScript face of sim::Sim: Sim.create(region.grid(), seed); spawn_squad, order, step, digest. Its bots (bots.ts
+// GDScript face of sim::Sim: Sim.create(region.grid(), region.meta, region.cells, seed); spawn_squad, order, step, digest. Its bots (bots.ts
 // createBots(sim)): set_bot, and bots_tick after each step, as src/war/scenarios/run.ts stepSim.
 class Sim : public RefCounted {
 	GDCLASS(Sim, RefCounted)
@@ -288,16 +334,25 @@ public:
 	sim::Bots *bots = nullptr;
 	~Sim();
 
-	static Ref<Sim> create(const Ref<Grid> &grid, int64_t seed);
+	// grid: region.grid(); meta and cells: Region.meta and Region.cells (what the works read of the region)
+	static Ref<Sim> create(const Ref<Grid> &grid, const Dictionary &meta, const PackedByteArray &cells, int64_t seed);
 	int spawn_squad(const String &owner, int team, const String &cls, int count, double x, double y);
 	void order(const Dictionary &o);
 	void step();
+	// The WarBuildSim calls a scenario's setup makes: claim (r null: CLAIM_RADIUS), addStock, finishBridges, setSatiety.
+	void claim(int team, double x, double y, const Variant &r);
+	void add_stock(int team, const String &res, double n);
+	void finish_bridges(int team);
+	void set_satiety(const Array &ids, double sat);
+	// A scenario's food (the trace's 'feed' op): squad null puts it in the team's first standing store.
+	void feed(int team, const Variant &squad, const String &res, double n);
 	// A bot behaviour (bots.ts Behaviour) on squad `squad`; false: a behaviour not ported yet.
 	bool set_bot(int squad, const Dictionary &b);
 	void bots_tick() { bots->tick(); }
 	int get_tick() const { return s->tick; }
-	// What src/dev/godotTraces.ts digests of a snapshot, unrounded: tick, units [id, squad, x, y, hp, state, facing], squads [id, team, owner].
-	Dictionary digest() const;
+	// What src/dev/godotTraces.ts digests of a snapshot, unrounded: tick, units [id, squad, x, y, hp, state, facing],
+	// squads [id, team, owner], buildings [id, type, team, state, progress], stock {team: {res: n}}.
+	Dictionary digest();
 
 protected:
 	static void _bind_methods();

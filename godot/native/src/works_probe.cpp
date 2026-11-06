@@ -248,7 +248,7 @@ static godot::Dictionary snapDict(const BuildingSnap &s) {
 	return d;
 }
 
-static WallOrder wallOrder(const godot::Dictionary &d) {
+WallOrder wall_order_of(const godot::Dictionary &d) {
 	WallOrder o;
 	o.material = S(d["material"]);
 	o.points = vnums(d["points"]);
@@ -257,7 +257,7 @@ static WallOrder wallOrder(const godot::Dictionary &d) {
 	if (d.has("inside")) o.inside = vnums(d["inside"]);
 	return o;
 }
-static BridgeOrder bridgeOrder(const godot::Dictionary &d) {
+BridgeOrder bridge_order_of(const godot::Dictionary &d) {
 	BridgeOrder o;
 	o.material = S(d["material"]);
 	o.points = vnums(d["points"]);
@@ -265,24 +265,10 @@ static BridgeOrder bridgeOrder(const godot::Dictionary &d) {
 	return o;
 }
 
-} // namespace sim
-
-namespace godot {
-
-using sim::G;
-using sim::I;
-using sim::S;
-
-WorksProbe::WorksProbe() = default;
-WorksProbe::~WorksProbe() = default;
-
-Ref<WorksProbe> WorksProbe::create(const Ref<Grid> &grid, const Dictionary &meta, const PackedByteArray &cells, const Dictionary &scenario) {
-	Ref<WorksProbe> p;
-	p.instantiate();
-	p->grid = grid;
-	sim::Grid &g = grid->g;
-	auto *r = new sim::WorksRegion();
-	p->region.reset(r);
+// What the works read of a region (Region.meta and Region.cells; n: its tile count).
+void works_region_of(const godot::Dictionary &meta, const godot::PackedByteArray &cells, int n, WorksRegion &out) {
+	using namespace godot;
+	WorksRegion *r = &out;
 	r->id = S(meta["id"]);
 	r->has_depth = meta.has("depth") && !sim::nil(meta["depth"]);
 	if (r->has_depth) r->depth = meta["depth"];
@@ -296,7 +282,6 @@ Ref<WorksProbe> WorksProbe::create(const Ref<Grid> &grid, const Dictionary &meta
 	};
 	rects(meta.get("noBuild", Variant()), r->noBuild);
 	rects(meta.get("safe", Variant()), r->safe);
-	const int n = g.w * g.h;
 	r->water.resize(n);
 	r->terrain.resize(n);
 	for (int i = 0; i < n; i++) {
@@ -333,6 +318,27 @@ Ref<WorksProbe> WorksProbe::create(const Ref<Grid> &grid, const Dictionary &meta
 		if (c.has("r") && !sim::nil(c["r"])) k.r = double(c["r"]);
 		r->claimPoints.push_back(k);
 	}
+}
+
+} // namespace sim
+
+namespace godot {
+
+using sim::G;
+using sim::I;
+using sim::S;
+
+WorksProbe::WorksProbe() = default;
+WorksProbe::~WorksProbe() = default;
+
+Ref<WorksProbe> WorksProbe::create(const Ref<Grid> &grid, const Dictionary &meta, const PackedByteArray &cells, const Dictionary &scenario) {
+	Ref<WorksProbe> p;
+	p.instantiate();
+	p->grid = grid;
+	sim::Grid &g = grid->g;
+	auto *r = new sim::WorksRegion();
+	p->region.reset(r);
+	sim::works_region_of(meta, cells, g.w * g.h, *r);
 
 	p->world = std::make_unique<sim::ProbeWorld>();
 	sim::ProbeWorld &w = *p->world;
@@ -412,17 +418,17 @@ Variant WorksProbe::call_api(const Array &c) {
 		return Variant();
 	}
 	if (name == "place") return W.place(k(0), S(a(1)), n(2), n(3), k(4), S(a(5)));
-	if (name == "placeWall") return ints(W.place_wall(k(0), wallOrder(a(1))));
-	if (name == "placeBridge") return ints(W.place_bridge(k(0), bridgeOrder(a(1))));
+	if (name == "placeWall") return ints(W.place_wall(k(0), wall_order_of(a(1))));
+	if (name == "placeBridge") return ints(W.place_bridge(k(0), bridge_order_of(a(1))));
 	if (name == "checkPlacement") return placeSer(W.check_placement(k(0), S(a(1)), n(2), n(3), k(4)));
 	if (name == "checkWall") {
-		const WallPlan r = W.check_wall(k(0), wallOrder(a(1)));
+		const WallPlan r = W.check_wall(k(0), wall_order_of(a(1)));
 		Array ps;
 		for (const WallPiece &q : r.pieces) ps.push_back(Array::make(G(q.type), ints(q.tiles), q.ok, q.reason.empty() ? Variant() : Variant(G(q.reason))));
 		return Array::make(r.ok, r.reason.empty() ? Variant() : Variant(G(r.reason)), ps);
 	}
 	if (name == "checkBridge") {
-		const BridgePlan r = W.check_bridge(k(0), bridgeOrder(a(1)));
+		const BridgePlan r = W.check_bridge(k(0), bridge_order_of(a(1)));
 		Array ps;
 		for (const BridgePiece &q : r.pieces) ps.push_back(Array::make(G(q.type), G(q.part), ints(q.tiles), nums(q.rows), q.ok));
 		Array out = Array::make(r.ok, r.reason.empty() ? Variant() : Variant(G(r.reason)), G(r.axis), Array::make(r.dir[0], r.dir[1]), r.width, r.span);

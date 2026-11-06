@@ -16,8 +16,15 @@
 namespace sim {
 class Works;
 struct WorksRegion;
+struct WallOrder;
+struct BridgeOrder;
 struct ReplayWorksHost;
 struct ProbeWorld;
+// What the works read of a region (Region.meta and Region.cells; n: its tile count); the probe and the Sim share it.
+void works_region_of(const godot::Dictionary &meta, const godot::PackedByteArray &cells, int n, WorksRegion &out);
+// A placeWall / placeBridge order's fields from its dictionary.
+WallOrder wall_order_of(const godot::Dictionary &d);
+BridgeOrder bridge_order_of(const godot::Dictionary &d);
 } // namespace sim
 
 namespace godot {
