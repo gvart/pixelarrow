@@ -123,7 +123,7 @@ export const WARLORD = {
 } as const;
 
 /** Goods his men leave by kind. */
-const SPOILS: Partial<Record<MobKind, string>> = { bandit: 'iron', harpy: 'linen', lion: 'hides' };
+export const SPOILS: Partial<Record<MobKind, string>> = { bandit: 'iron', harpy: 'linen', lion: 'hides' };
 
 export const warlord = (id: string): WarlordDef | undefined => WARLORDS.find((w) => w.id === id);
 
