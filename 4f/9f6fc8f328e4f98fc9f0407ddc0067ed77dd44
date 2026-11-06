@@ -1,0 +1,100 @@
+godot/native/src/crafting.h
+  s_1a6e9ade9f303e::t_14f3516215ea5d 102-107
+  s_1a6e9ade9f303e::t_07fab3386ae008 1-101,108-149
+godot/tests/sim/test_trade.gd
+  s_1a6e9ade9f303e::t_c1c00fd4996537 1-25
+godot/native/src/professions.h
+  s_1a6e9ade9f303e::t_5206acc1b5753a 1-24
+godot/tests/sim/test_crafting.gd
+  s_1a6e9ade9f303e::t_b521457f056dbf 1-31
+src/dev/vectors/crafting.ts
+  s_1a6e9ade9f303e::t_453d8084d86d3b 112
+  s_1a6e9ade9f303e::t_99d57fa4bea395 1-22,27-29,32-70,72,74-81,83-103,105-111,113-120,122-150
+  s_1a6e9ade9f303e::t_06e18ad44dd016 23-26,30-31,121
+  s_1a6e9ade9f303e::t_d74985cd1dd94b 71,73,82,104
+godot/native/src/item.h
+  s_1a6e9ade9f303e::t_6aeee539bd1639 1-24
+src/dev/godotData.ts
+  s_1a6e9ade9f303e::t_4aaabe5fa41af2 18-21,59-61,66-73
+godot/tests/sim/test_trade.gd.uid
+  s_1a6e9ade9f303e::t_1e5d5892b4693a 1
+godot/native/src/holders.h
+  s_1a6e9ade9f303e::t_89b4e52654d3d3 1-95
+godot/tests/sim/goods_deep.gd
+  s_1a6e9ade9f303e::t_368180080c9608 1-52
+godot/tests/sim/goods_deep.gd.uid
+  s_1a6e9ade9f303e::t_1e5d5892b4693a 1
+godot/tests/sim/test_economy.gd
+  s_1a6e9ade9f303e::t_1090f37d3662ad 1-41
+src/dev/vectors/economy.ts
+  s_1a6e9ade9f303e::t_e59f4df210b46c 1-34
+godot/native/src/register_types.cpp
+  s_1a6e9ade9f303e::t_32b5c8925fa9b7 24
+  s_1a6e9ade9f303e::t_323a89ea648bff 7
+src/dev/vectors/holders.ts
+  s_1a6e9ade9f303e::t_6a69d2b9170270 69
+  s_1a6e9ade9f303e::t_b185bc63ba0e95 78
+  s_1a6e9ade9f303e::t_522372f5dc8f46 1-58,62-68,70-77,79-83
+  s_1a6e9ade9f303e::t_88c27946742de1 59-61
+godot/native/src/crafting.cpp
+  s_1a6e9ade9f303e::t_e92caf9b22ae90 169
+  s_1a6e9ade9f303e::t_f1e0b4070b40c1 1-168,170-339
+godot/native/src/trade.h
+  s_1a6e9ade9f303e::t_33debcc9759672 1-72
+godot/native/src/recipes.h
+  s_1a6e9ade9f303e::t_cfbcb0b22692d5 7
+  s_1a6e9ade9f303e::t_9f6315ff761bae 1-3,5-6,8-96
+  s_1a6e9ade9f303e::t_528139f14bad52 4
+godot/tests/sim/test_holders.gd
+  s_1a6e9ade9f303e::t_77e76fa85aed8e 1-24
+godot/native/src/economy.h
+  s_1a6e9ade9f303e::t_60b210042c69b1 1-101,103,105-109
+  s_1a6e9ade9f303e::t_6e6d43c262b5a5 102,104
+godot/native/src/sim_data.h
+  s_1a6e9ade9f303e::t_a4bf357c6700ee 9-14,20-26
+godot/native/src/recipes.cpp
+  s_1a6e9ade9f303e::t_0c12d3e8ca1c1b 161-162
+  s_1a6e9ade9f303e::t_f0700fc3ef3b73 1-160,163-191
+godot/tests/sim/test_crafting.gd.uid
+  s_1a6e9ade9f303e::t_1e5d5892b4693a 1
+godot/tests/sim/test_economy.gd.uid
+  s_1a6e9ade9f303e::t_1e5d5892b4693a 1
+godot/tests/sim/test_holders.gd.uid
+  s_1a6e9ade9f303e::t_1e5d5892b4693a 1
+godot/native/src/goods_probe.cpp
+  s_1a6e9ade9f303e::t_9057bcc9c3b55c 1-636
+godot/native/src/economy.cpp
+  s_1a6e9ade9f303e::t_e92caf9b22ae90 177
+  s_1a6e9ade9f303e::t_a2b7f86661f451 1-176,178-197
+godot/native/src/goods_probe.h
+  s_1a6e9ade9f303e::t_b4d9d60d68665d 1-26
+src/dev/vectors/trade.ts
+  s_1a6e9ade9f303e::t_b185bc63ba0e95 16,43,58
+  s_1a6e9ade9f303e::t_b25af4b66e3472 1-15,17-42,44-57,59-62
+godot/native/src/trade.cpp
+  s_1a6e9ade9f303e::t_e92caf9b22ae90 36
+  s_1a6e9ade9f303e::t_d8a3ba8385ea07 1-35,37-71
+godot/native/src/holders.cpp
+  s_1a6e9ade9f303e::t_e92caf9b22ae90 130
+  s_1a6e9ade9f303e::t_63a7f623f170bc 1-129,131-169
+godot/native/src/sim_data.cpp
+  s_1a6e9ade9f303e::t_a4bf357c6700ee 49-56
+godot/native/src/professions.cpp
+  s_1a6e9ade9f303e::t_71249fd740c0c9 1-29
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4f9f6fc8f328e4f98fc9f0407ddc0067ed77dd44",
+  "prompts": {},
+  "sessions": {
+    "s_1a6e9ade9f303e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2c9e00ce-6ba5-4b5a-8be5-a4a273976934",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
