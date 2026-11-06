@@ -34,8 +34,18 @@ const WORKS = new Set([
 ]);
 const WORKS_CAP = 1500;
 
+/**
+ * Civilians, siege engines and trade: flight, civilian work and crafting queues, carts and their loads, escorts, safe
+ * zones, engines built, crewed and fought over. Prebuilt as WORKS (the camps and workshops stand before the run).
+ */
+const CIV_SIEGE_TRADE = new Set([
+  'combat-wounded', 'limit-army', 'civ-flee', 'civ-household', 'crafting', 'eco-farm', 'village', 'build-each', 'peace-works', 'trailer-elaia',
+  'trailer-elaia-raid', 'siege-ram-gate', 'siege-thrower', 'market', 'loot', 'eco-trade', 'eco-handcart', 'clip-caravan', 'siege', 'siege-defend',
+  'siege-ladders', 'caravan',
+]);
+
 export const vectors = () => ({
-  runs: SCENARIOS.filter((s) => s.id.startsWith('move-') || s.id.startsWith('mob-') || FIGHTS.has(s.id) || WORKS.has(s.id)).map((s) =>
-    play(s, 600, 25, exact, WORKS.has(s.id) ? WORKS_CAP : undefined),
+  runs: SCENARIOS.filter((s) => s.id.startsWith('move-') || s.id.startsWith('mob-') || FIGHTS.has(s.id) || WORKS.has(s.id) || CIV_SIEGE_TRADE.has(s.id)).map((s) =>
+    play(s, 600, 25, exact, WORKS.has(s.id) || CIV_SIEGE_TRADE.has(s.id) ? WORKS_CAP : undefined),
   ),
 });

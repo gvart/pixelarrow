@@ -1,8 +1,10 @@
 // The live region war sim (src/war/sim/index.ts createSim and step), ported line for line in the same order of
 // operations. So far: the step order, squads and units, the orders, paths, formations, the whole movement path
-// (anchors, slots, steering, separation, lanes), combat (targets, blows, shots, missiles, falls: sim_combat.cpp) and the
-// works (works.h: sites, walls, bridges, nodes, stores, hunger at the stores, town levels). Subsystems still in TS (siege,
-// mobs, bosses, roam, civilians...) are stubbed as their empty-map behaviour, each marked `// stub until <module> port`.
+// (anchors, slots, steering, separation, lanes), combat (targets, blows, shots, missiles, falls: sim_combat.cpp), the
+// works (works.h: sites, walls, bridges, nodes, stores, hunger at the stores, town levels), the siege engines, carts and
+// tasks (siege.h, sim_siege.cpp), the trade orders and safe zones (sim_trade.cpp), and the civilians and their crafting
+// queues (civilians.h, crafting.h, sim_civ.cpp). Subsystems not wired yet (mobs, bosses, roam, souls...) are stubbed as
+// their empty-map behaviour, each marked `// stub until <module> port`.
 #pragma once
 
 #include <algorithm>
@@ -13,7 +15,9 @@
 #include <map>
 #include <memory>
 #include <optional>
+#include <set>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 #include <godot_cpp/classes/ref.hpp>
@@ -23,11 +27,14 @@
 #include <godot_cpp/variant/packed_byte_array.hpp>
 
 #include "bots.h"
+#include "civilians.h"
 #include "classes.h"
+#include "crafting.h"
 #include "formation.h"
 #include "grid.h"
 #include "holders.h"
 #include "rng.h"
+#include "siege.h"
 #include "town_level.h"
 #include "trade.h"
 #include "vision.h"
@@ -62,10 +69,15 @@ struct Unit : Worker {
 	double ox = 0, oy = 0, want = 0;
 	bool toSlot = false;
 	const char *doing = nullptr;
-	// civilians.ts: his job ("" a soldier), at work at his building
+	// M5f civilians (civilians.h): his job ("" a soldier), seconds of work towards his next batch, at work at his
+	// building since the last civilian tick; repaired: a smith mended his gear (reported by endFight)
 	std::string civ;
+	double civT = 0;
 	bool civAt = false;
+	bool repaired = false;
+	// M6: combat tag (no safe-zone entry) until this tick; ticks inside a safe zone
 	double tag = 0;
+	double safeT = 0;
 	bool pin = false;
 	int aloft = 0;
 	bool immune = false;
@@ -102,6 +114,33 @@ struct Flight {
 
 struct Order;
 
+// A task order (M2c, index.ts Task): the target building b or engine e (-1 none).
+struct Task {
+	std::string kind; // 'ignite' | 'extinguish' | 'pushLadder' | 'attackBuilding' | 'buildSiege'
+	int b = -1, e = -1;
+};
+
+// src/war/types.ts HolderRef: one of a building, a cart or a pile.
+struct HolderRef {
+	std::optional<int> building, cart, pile;
+};
+
+// M6 load / unload under way (index.ts Xfer): the holder, which way, the good and how many goods are still wanted.
+struct Xfer {
+	HolderRef ref;
+	std::string dir; // 'load' | 'unload'
+	std::optional<std::string> res;
+	double n = 0;
+	bool send = false;
+};
+
+// M6c: a pile item a smith breaks up (index.ts Squad.salv).
+struct Salv {
+	int pile = 0;
+	std::string uid;
+	double t = 0;
+};
+
 // A squad: a works WorkSquad (team, owner, the sites of its build order, the node of its gather order) and the rest of
 // index.ts Squad.
 struct Squad : WorkSquad {
@@ -123,7 +162,7 @@ struct Squad : WorkSquad {
 	std::vector<Squad *> near;
 	std::optional<std::vector<double>> fixed, col;
 	int siege = -1;
-	bool task = false; // a task order (stub until siege port: never set)
+	std::optional<Task> task; // a task order (TS null: nullopt)
 	bool fire = false;
 	int claimPt = -1;
 	bool spare = false;
@@ -135,11 +174,14 @@ struct Squad : WorkSquad {
 	int cartDrop = -1, atEase = 0, work = -1;
 	double fedUntil = -1;
 	double fedInn = 1, fedMelee = 0, fedMissile = 0, fedAcc = 0, fedHeal = 1;
+	std::string dish; // M5h: the last dish eaten ("" null)
 	double theriacUntil = -1;
 	std::string act; // M5c squad active ("" none: class spawns hold none)
 	int bandages = 0;
+	std::optional<Xfer> xfer; // M6: a load / unload under way (TS null: nullopt)
 	int escort = -1;
 	bool laden = false;
+	std::optional<Salv> salv;
 	int soul = -1;
 	bool meek = false;
 	int angry = 0;
@@ -167,6 +209,22 @@ struct Order {
 	int site = -1, node = -1, building = -1;
 	std::optional<int> cart;
 	bool on = false; // fireArrows
+	std::optional<int> siege; // crew, attackBuilding / ignite at an engine
+	int ladder = -1; // pushLadder
+	bool pack = false; // deploy
+	std::array<int, 2> wallTile{ 0, 0 }; // raiseLadder
+	HolderRef from, to; // load, unload
+	std::optional<std::string> res; // load, unload
+	std::optional<double> n; // load
+	bool send = false; // load
+	int pile = -1; // salvagePile
+	std::string uid; // salvagePile
+	// crafting (CraftOrder): the recipe, the order to cancel, an item's owner and the item; by: who queues a craft
+	std::string recipe;
+	int craftOrder = 0;
+	std::string owner;
+	std::optional<std::string> by;
+	Item item;
 };
 
 struct Lanes {
@@ -176,6 +234,41 @@ struct Lanes {
 };
 
 struct Sim;
+
+// A holder as the trade orders see it (index.ts HolderAt).
+struct HolderAt {
+	Hold *hold = nullptr;
+	double x = 0, y = 0;
+	std::string kind; // 'store' | 'chest' | 'cart' | 'pile'
+	int team = 0;
+	std::string owner;
+	double cap = 0;
+	int id = 0;
+};
+
+// The siege's view of the sim (the TS createSiege hooks, sim_siege.cpp).
+struct SimSiegeHost : SiegeHost {
+	Sim *s = nullptr;
+	std::vector<double> path(int team, double x0, double y0, double x1, double y1) override;
+	int crewNear(int crew, double x, double y, double r) override;
+	void splash(double x, double y, double r, double dmg, double ap) override;
+	bool open(double x, double y) override;
+	bool walkable(double x0, double y0, double x1, double y1) override;
+	double cost(double x, double y) override;
+	bool hasNode(int team, const std::string &node) override;
+	std::optional<std::array<double, 2>> foe(int team, double x, double y, double r) override;
+	void pierce(int team, double x0, double y0, double x1, double y1, double w, double dmg, double ap, double n) override;
+	bool stoneTower(int team, double x, double y) override;
+	std::optional<std::vector<double>> cartPath(int team, double x0, double y0, double x1, double y1) override;
+	std::optional<double> cartCost(double x, double y, double dx, double dy) override;
+	bool crewHit(int crew) override;
+	bool foeNear(int team, double x, double y, double r) override;
+	std::optional<std::pair<int, std::string>> taker(const SiegeEngine &e) override;
+	void captured(const SiegeEngine &e, const std::string &by) override;
+	void wreck(const SiegeEngine &e, bool burnt) override;
+	bool crewNode(int crew, const std::string &node) override;
+	// cartFx: stub until the paths port (NO_PATH: no perks), the SiegeHost default
+};
 
 // The works' view of the sim (the TS createWorks callbacks and hooks).
 struct SimWorksHost : WorksHost {
@@ -202,7 +295,7 @@ struct Sim {
 	std::deque<Unit *> unitPathQueue;
 	std::vector<Squad *> reslotQueue; // a JS Set: insertion order
 	int tick = 0;
-	bool anySafe = false; // stub until trade port: no safe zones (region.safe) on the move maps
+	bool anySafe = false; // M6d: the region has safe rects
 	std::vector<int32_t> head, next;
 	std::map<int, int> platLoad; // order never shows
 	Vision vision;
@@ -216,6 +309,16 @@ struct Sim {
 	std::vector<TownPiece> townPieces; // works.all as townLevel reads it, rebuilt on each read
 	std::unique_ptr<TownLevels> townLv;
 	std::vector<std::pair<std::string, double>> labourLog; // W-61: secs by `${owner}|${site}`, a JS Map: insertion order
+	SimSiegeHost siegeHost;
+	std::unique_ptr<Siege> siege;
+	std::unique_ptr<Crafting> crafting;
+	std::vector<Unit *> civs; // M5f: the civilians (all ever spawned, in id order)
+	std::set<int> dresser; // M5h: teams with a Battle Dresser physician on the field (a JS Set, only looked up)
+	std::vector<uint8_t> safeMask; // M6d: safe-zone tiles (1 inside a region `safe` rect)
+	std::optional<std::vector<uint8_t>> rollable; // W-145: the ground carts roll on, worked out at the first cart
+	int nodesAt = -1;
+	std::map<int, std::unordered_set<std::string>> teamNodes; // M5h3: engineer nodes by team (only looked up)
+	std::map<int, std::vector<Item>> loot; // M6c: items picked up per team since the last report (only looked up)
 
 	// region: what the works read of the region (works_region_of)
 	Sim(Grid &g, WorksRegion region, uint32_t seed);
@@ -269,6 +372,10 @@ struct Sim {
 	void hurt(Unit &t, double dmg, Unit *by = nullptr);
 	bool reachable(Unit &u, Unit &t) const;
 	bool atFord(double, double) const { return false; } // stub until bosses port: nothing is aloft
+	bool safeBuilding(int id) const;
+	void hides(Unit &t);
+	void objective(Squad &s, const char *what);
+	void hitBuilding(Squad &s, int b, double dmg);
 	Unit *pickTarget(Unit &u, bool attacking, Squad *foe);
 	double blockOf(Unit &u, Unit &t) const;
 	double dmgMult(Unit &u, Unit &t, bool missile = false) const;
@@ -276,7 +383,7 @@ struct Sim {
 	void shoot(Unit &u, Unit &t, double d, double dh, double range);
 	void land();
 	void burst(Unit &u, Unit &t, double gap);
-	bool physicianNear(Unit &) const { return false; } // stub until civilians port: no physicians
+	bool physicianNear(Unit &t) const { return physician_near(civs, t); }
 	void setRates(Unit &u);
 	bool ghost(Unit &a, Unit &b);
 	bool meet(Unit &a, Unit &b);
@@ -297,6 +404,51 @@ struct Sim {
 	void dropJobs(Squad &s); // `if (s.order === 'gather' || s.order === 'build') for (const u of s.units) works.setJob(u, null)`
 	bool fireShot(Unit &u);
 	double fireReach(Unit &u) const;
+	// W-35: why the squad's fire arrows are out ("noBrazier" | "noPitch"; "" none), as the snapshot's fireArrows.reason gives it
+	// (no fireArrows, "", for a squad whose first man shoots no arrows)
+	std::string fireBlock(Squad &s);
+	void shootAt(Unit &u, double tx, double ty, double d, double dh, double range, const Task &k);
+	double cover(Unit &t, Unit &by) const;
+	// siege (sim_siege.cpp), in index.ts order
+	const std::unordered_set<std::string> &engineerNodes(int team);
+	bool placeable(const std::string &type, std::optional<int> team);
+	void uncrew(Squad &s);
+	bool taskLive(const Task &k);
+	int ladderTop(int id) const;
+	void taskPoints(Squad &s);
+	Unit *taskAct(Unit &u);
+	void siegeSquads();
+	int spawnCart(int team, const std::string &owner, const std::string &type, double x, double y, std::optional<int> crew = std::nullopt);
+	// trade (sim_trade.cpp), in index.ts order
+	bool inSafe(double x, double y) const;
+	std::optional<HolderAt> holderAt(const HolderRef &ref);
+	bool byHolder(const HolderAt &h, double x, double y, double r) const;
+	bool mayTake(Squad &s, const HolderAt &h);
+	bool mayOpen(Squad &s, const HolderAt &h);
+	bool mayPut(Squad &s, const HolderAt &h);
+	bool owedHere(Squad &s, const HolderAt &h);
+	bool bringsTithe(Squad &s, const HolderAt &h);
+	std::optional<Draw> drawOf(Squad &s, const HolderAt &h, const Xfer &x);
+	std::optional<Draw> putOf(Squad &s, const HolderAt &h);
+	std::vector<Hold *> takeHolds(Squad &s, const HolderAt &h);
+	int crewCart(Squad &s);
+	void tradeOrder(Squad &s, const Order &o);
+	bool lockedTo(Squad &s, const HolderAt &h, std::optional<int> id);
+	void salvTick(Squad &s);
+	void escortTick(Squad &s);
+	void safeTick();
+	void walkSquadOut(Squad &s);
+	bool safeEntry(Unit &u);
+	// civilians (sim_civ.cpp), in index.ts order
+	double civRoom(int team);
+	bool safeAt(int team, double x, double y);
+	void flee(Squad &s, double fx, double fy);
+	void civScan();
+	bool civJobDone(Unit &u, int team, double bx, double by);
+	Crafter crafter(Unit &u) const;
+	void eat(Squad &s, const std::string &d, bool longer);
+	void civTick();
+	Placed placed(const Building &b) const;
 	// the WarBuildSim calls the scenarios make
 	void claim(int team, double x, double y, std::optional<double> r) { works->claim(team, x, y, r); }
 	void addStock(int team, const std::string &res, double n) { works->add_stock(team, res, n); }
@@ -308,8 +460,6 @@ struct Sim {
 
 	const BridgeLine *bridgeAt(int t) const { return works->bridge_at(t); }
 	double platCap(int p) const { return works->plat_cap(p); }
-	// stubs of other modules' answers on an empty map
-	bool inSafe(double, double) const { return false; } // stub until trade port
 	bool calmPair(Squad &s, Squad &o) const;
 	double hAt(double x, double y) const { return grid->height[grid->tile_at(x, y)]; }
 	int groundAt(double x, double y) const { return grid->ground[grid->tile_at(x, y)]; }
@@ -338,6 +488,8 @@ public:
 	static Ref<Sim> create(const Ref<Grid> &grid, const Dictionary &meta, const PackedByteArray &cells, int64_t seed);
 	int spawn_squad(const String &owner, int team, const String &cls, int count, double x, double y);
 	void order(const Dictionary &o);
+	// A scenario's cart (the trace's 'spawnCart' op: run.ts spawnCart), empty and idle; its id.
+	int spawn_cart(int team, const String &owner, const String &type, double x, double y);
 	void step();
 	// The WarBuildSim calls a scenario's setup makes: claim (r null: CLAIM_RADIUS), addStock, finishBridges, setSatiety.
 	void claim(int team, double x, double y, const Variant &r);

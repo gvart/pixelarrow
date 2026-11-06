@@ -68,9 +68,6 @@ struct Data {
 	RoamTables roam; // roam.h
 	BossSimTables boss_sim; // bosses.h
 	SiegeTables siege; // SIEGE, RAM, THROWER... (src/war/sim/siege)
-	struct {
-		double calm = 0;
-	} simCiv; // civilians.ts CIV, so far what the Sim's workScan reads (the civilians port owns the rest)
 	EncTables encounters; // encounters.h (ENC, ENCOUNTERS)
 	PrebuiltTables prebuilt; // prebuilt.h
 	RosterTables roster; // roster.h

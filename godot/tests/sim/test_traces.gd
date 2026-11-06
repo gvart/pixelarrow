@@ -1,25 +1,16 @@
 ## Whole scenarios against the TS sim: the C++ Sim replays each scenario's setup op for op (its bots too) and steps it.
 ## - The P1 golden traces (npm run traces:godot, src/dev/godotTraces.ts): its digest must match at every checkpoint. The
 ##   trace rounds to 4 decimals (toFixed), so a number matches within half a unit of the 4th.
-## - The sim vectors (src/dev/vectors/sim.ts): the move, fight, economy and building scenarios over 600 ticks, positions,
-##   hp, facing, the buildings' progress and the stock bit for bit.
+## - The sim vectors (src/dev/vectors/sim.ts): the move, fight, economy, building, civilian, siege and trade scenarios over
+##   600 ticks, positions, hp, facing, the buildings' progress and the stock bit for bit.
 ## SKIP lists the scenarios not replayed yet, with the module each waits for.
 extends TestCase
 
 const DIR := "res://tests/golden"
 const TOL := 0.00005 + 1e-9
 const Wild := preload("res://tests/sim/wild.gd")
-const CIV := "civilian squads: civilians not ported yet (civScan, civTick, civWork, the quota)"
-const CARTS := "spawnCart: carts are siege engines: siege not ported yet"
 const LAIRS := "spawnMobs: mobs (lairs) not wired into Sim yet, bosses.spawn with them: bosses not ported yet"
 const SKIP := {
-	"combat-wounded": CIV, "limit-army": CIV, "civ-flee": CIV, "civ-household": CIV, "crafting": CIV, "eco-farm": CIV, "village": CIV,
-	"build-each": CIV, "peace-works": CIV, "trailer-elaia": CIV,
-	"trailer-elaia-raid": "civilian squads and attackBuilding: civilians and siege not ported yet",
-	"siege": "the siege bots and engines: siege not ported yet", "siege-defend": "the siege bots and engines: siege not ported yet",
-	"siege-ladders": "the siege bots and engines: siege not ported yet",
-	"siege-ram-gate": "buildSiege: siege not ported yet", "siege-thrower": "buildSiege: siege not ported yet",
-	"market": CARTS, "loot": CARTS, "eco-trade": CARTS, "eco-handcart": CARTS, "caravan": CARTS, "clip-caravan": CARTS,
 	"limit-soul": "spawnSoul: souls not wired into Sim yet",
 	"neutral-clear": LAIRS, "eco-hunt": LAIRS, "trailer-hunt": LAIRS,
 	"boss-brontes": LAIRS, "boss-drakon-late": LAIRS, "boss-erymanthian-boar": LAIRS, "boss-griffin": LAIRS, "boss-grove-queen": LAIRS,
@@ -75,6 +66,10 @@ func _load() -> void:
 	for n in ["professions", "recipes", "items", "affixes", "classes"]:
 		t[n] = GameData.table("src/data/" + n)
 	t["derived_crafting"] = GameData.table("derived/crafting")
+	t["siege"] = GameData.table("src/war/sim/siege")
+	# the civilian classes, tools and affix steps (civilians.h)
+	for n in ["src/data/classes", "src/data/items", "src/data/affixes"]:
+		t[n] = GameData.table(n)
 	SimData.load(t)
 
 
@@ -82,13 +77,21 @@ func _load() -> void:
 func _replay(t: Dictionary, tol: float) -> int:
 	var id: String = t["id"]
 	var region := Region.load_id(t["region"])
-	var sim := Sim.create(region.grid(), region.meta, region.cells, int(t["seed"]))
+	# the scenario's zones merged into the region (as godotTraces.ts regionOf does)
+	var meta: Dictionary = region.meta.duplicate()
+	var zones: Dictionary = t.get("zones", {})
+	for k in ["safe", "yard", "ambush"]:
+		if zones.has(k):
+			meta[k] = (meta.get(k, []) if meta.get(k) != null else []) + zones[k]
+	var sim := Sim.create(region.grid(), meta, region.cells, int(t["seed"]))
 	for op in t["setup"]:
 		match op[0]:
 			"spawnSquad":
 				sim.spawn_squad(op[1], int(op[2]), op[3], int(op[4]), float(op[5]), float(op[6]))
 			"order":
 				sim.order(op[1])
+			"spawnCart":
+				sim.spawn_cart(int(op[1]), op[2], op[3], float(op[4]), float(op[5]))
 			"claim":
 				sim.claim(int(op[1]), float(op[2]), float(op[3]), op[4] if op.size() > 4 else null)
 			"addStock":
