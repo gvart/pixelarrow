@@ -19,7 +19,9 @@ rmSync(OUT, { recursive: true, force: true });
 const write = (rel, data) => { mkdirSync(dirname(`${OUT}/${rel}`), { recursive: true }); writeFileSync(`${OUT}/${rel}`, data); };
 
 const manifest = { terrain: m.TERRAIN, tables: {}, regions: {} };
-for (const t of m.tables()) {
+const tables = m.tables();
+manifest.floats = m.tableFloats(tables);
+for (const t of tables) {
   write(`tables/${t.name}.json`, t.json + '\n');
   manifest.tables[t.name] = { exports: t.exports, dropped: t.dropped };
 }

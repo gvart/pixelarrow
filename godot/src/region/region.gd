@@ -16,7 +16,7 @@ var cells: PackedByteArray
 static func load_id(region_id: String) -> Region:
 	var dir := GameData.DIR.path_join("regions")
 	var r := Region.new()
-	r.meta = JSON.parse_string(FileAccess.get_file_as_string(dir.path_join(region_id + ".json")))
+	r.meta = GameData.read_exact(dir.path_join(region_id + ".json"))
 	r.cells = FileAccess.get_file_as_bytes(dir.path_join(region_id + ".cells"))
 	r.id = r.meta["id"]
 	r.w = int(r.meta["w"])

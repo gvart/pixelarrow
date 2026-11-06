@@ -37,3 +37,30 @@ func test_regions_load_and_decode() -> void:
 		check(r.height_at(i) == int(s[1]), "%s height at %d" % [id, i])
 		check(Region.TERRAIN[r.terrain_at(i)] == s[2], "%s terrain at %d" % [id, i])
 		check(r.water_at(i) == int(s[3]), "%s water at %d" % [id, i])
+
+
+func test_table_floats_are_exact() -> void:
+	var known := {}
+	for h in GameData.manifest()["floats"]:
+		known[h] = true
+	check(known.size() > 0, "no floats in the manifest")
+	var seen := [0]
+	for name in GameData.manifest()["tables"]:
+		_floats(GameData.table(name), name, known, seen)
+	check(seen[0] > 0, "read no floats")
+
+
+func _floats(v: Variant, where: String, known: Dictionary, seen: Array) -> void:
+	if v is Dictionary:
+		for k in v:
+			_floats(v[k], where, known, seen)
+	elif v is Array:
+		for x in v:
+			_floats(x, where, known, seen)
+	elif v is float and v != floorf(v):
+		seen[0] += 1
+		var b := PackedByteArray()
+		b.resize(8)
+		b.encode_double(0, v)
+		b.reverse()
+		check(known.has(b.hex_encode()), "%s: %s is not a TS float" % [where, String.num(v, 17)])
