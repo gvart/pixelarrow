@@ -7,7 +7,10 @@
 
 #include "classes.h"
 #include "item.h"
+#include "landmarks.h"
+#include "souls.h"
 #include "stories.h"
+#include "town_level.h"
 
 namespace sim {
 
@@ -15,6 +18,9 @@ struct Data {
 	ClassTable classes;
 	ItemTable items; // makeItem (item.h)
 	StoryTables stories; // hiddenStories (stories.h)
+	SoulTables souls; // souls.h
+	TownTables town; // town_level.h
+	LandmarkTables landmarks; // landmarks.h
 };
 const Data &data();
 

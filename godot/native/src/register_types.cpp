@@ -5,10 +5,14 @@
 #include <godot_cpp/godot.hpp>
 
 #include "grid.h"
+#include "landmarks.h"
 #include "probe.h"
 #include "rng.h"
+#include "secrets.h"
 #include "sim_data.h"
+#include "souls.h"
 #include "stories.h"
+#include "town_level.h"
 #include "tunnel.h"
 #include "vision.h"
 
@@ -24,6 +28,10 @@ static void initialize_pixelsim(ModuleInitializationLevel level) {
 	GDREGISTER_CLASS(SimData);
 	GDREGISTER_CLASS(Tunnel);
 	GDREGISTER_CLASS(StoryRun);
+	GDREGISTER_CLASS(Souls);
+	GDREGISTER_CLASS(Secrets);
+	GDREGISTER_CLASS(Landmarks);
+	GDREGISTER_CLASS(TownLevels);
 }
 
 static void uninitialize_pixelsim(ModuleInitializationLevel level) {}

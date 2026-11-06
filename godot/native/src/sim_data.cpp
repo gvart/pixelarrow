@@ -48,6 +48,9 @@ void SimData::load(const Dictionary &tables) {
 	ERR_FAIL_COND_MSG(!d.classes.by_id.count("militia"), "war_stats has no militia");
 	sim::load_items(tables, d.items);
 	sim::load_story_tables(tables, d.stories);
+	sim::load_soul_tables(tables, d.souls);
+	sim::load_town_tables(tables, d.town);
+	sim::load_landmark_tables(tables, d.landmarks);
 	sim::DATA = std::move(d);
 	sim::LOADED = true;
 }
