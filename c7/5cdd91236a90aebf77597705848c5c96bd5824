@@ -1,0 +1,55 @@
+godot/native/third_party/v8/src/base/ieee754.h
+  s_1a6e9ade9f303e::t_5f894a070f1790 1-114
+godot/native/src/rng.h
+  s_1a6e9ade9f303e::t_5f894a070f1790 60-65
+godot/native/src/rng.cpp
+  s_1a6e9ade9f303e::t_5f894a070f1790 74-79,84-89
+godot/native/third_party/v8/LICENSE.v8
+  s_1a6e9ade9f303e::t_5f894a070f1790 1-26
+godot/native/src/js_math.h
+  s_1a6e9ade9f303e::t_a0c180c70cd86a 40,46-57
+  s_1a6e9ade9f303e::t_5f894a070f1790 1-2,8-9,41-45
+  s_1a6e9ade9f303e::t_b49c4d9fd41b9f 58
+godot/native/third_party/v8/README.md
+  s_1a6e9ade9f303e::t_5f894a070f1790 1-7
+  s_1a6e9ade9f303e::t_e0b6bd51b94bed 8
+godot/native/third_party/v8/src/base/ieee754.cc
+  s_1a6e9ade9f303e::t_5f894a070f1790 1-3036
+godot/native/third_party/v8/src/base/macros.h
+  s_1a6e9ade9f303e::t_5f894a070f1790 1-21
+godot/native/third_party/v8/src/base/overflowing-math.h
+  s_1a6e9ade9f303e::t_4dc75424dfd9d5 1-2,4,7-16
+  s_1a6e9ade9f303e::t_5f894a070f1790 3,5-6,17-20
+godot/tests/sim/test_js_math.gd
+  s_1a6e9ade9f303e::t_5f894a070f1790 27-47
+godot/native/third_party/v8/src/base/base-export.h
+  s_1a6e9ade9f303e::t_5f894a070f1790 1-3
+godot/native/third_party/v8/LICENSE.fdlibm
+  s_1a6e9ade9f303e::t_5f894a070f1790 1-6
+src/dev/godotVectors.ts
+  s_1a6e9ade9f303e::t_5f894a070f1790 42-54
+godot/native/CMakeLists.txt
+  s_1a6e9ade9f303e::t_5f894a070f1790 17-19
+  s_1a6e9ade9f303e::t_a0c180c70cd86a 44-49
+  s_1a6e9ade9f303e::t_26b1f5aa2ae4bd 43
+godot/native/third_party/v8/src/base/build_config.h
+  s_1a6e9ade9f303e::t_5f894a070f1790 1-7
+docs/impl/godot-port.md
+  s_1a6e9ade9f303e::t_183d2cd872225c 40-52,55
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c75cdd91236a90aebf77597705848c5c96bd5824",
+  "prompts": {},
+  "sessions": {
+    "s_1a6e9ade9f303e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2c9e00ce-6ba5-4b5a-8be5-a4a273976934",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
