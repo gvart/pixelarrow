@@ -11,6 +11,8 @@ import {
   STAIR, stepCost, tileAt, walkClear, type Grid,
 } from '../war/sim/grid';
 import type { RegionData } from '../war/types';
+import { afterArmour, blockChance, heightRange, hitChance, meleeHeight, missileHeight } from '../war/sim/combat';
+import { formationOffsets, type Shape } from '../war/sim/formation';
 
 type Sha = (bytes: Uint8Array) => string;
 const regionFiles = import.meta.glob('../war/regions/*.json', { eager: true, import: 'default' });
@@ -166,4 +168,23 @@ function grid(sha: Sha) {
   return { regions: ['test-ridge', 'dodona'].map((id) => gridOn(load(id), sha)), synthetic: gridModes(sha) };
 }
 
-export const vectors = (sha: Sha): Record<string, unknown> => ({ rng: rng(), jsmath: jsMath(), grid: grid(sha) });
+/** The pure combat and formation rules (src/war/sim/combat.ts, formation.ts) on a spread of inputs. */
+function rules() {
+  const r = new Rng(31);
+  const dhs = [-20, -3, -2.5, -2, -1, -0.5, 0, 0.5, 1, 2, 3, 4, 4.5, 5, 8, 9, 15, 30];
+  const blocks = Array.from({ length: 400 }, (_, i) => {
+    const a = [r.range(0, 0.9), r.range(-7, 7), r.range(-30, 30), r.range(-30, 30), r.chance(0.5), r.chance(0.5)] as const;
+    const v = i < 4 ? [0.5, 0, 0, 0, false, false] as const : a; // dx = dy = 0: the `|| 1` fallback
+    return [...v, blockChance(v[0], v[1], v[2], v[3], v[4], v[5])];
+  });
+  const hits = Array.from({ length: 200 }, () => {
+    const a = [r.range(0, 1.2), r.range(0, 40), r.range(1, 30), r.chance(0.4)] as const;
+    return [...a, hitChance(a[0], a[1], a[2], a[3])];
+  });
+  const armour = Array.from({ length: 200 }, () => { const a = [r.range(0, 80), r.range(0, 30), r.range(0, 1)]; return [...a, afterArmour(a[0], a[1], a[2])]; });
+  const forms: unknown[] = [];
+  for (const shape of ['line', 'column', 'wedge', 'loose'] as Shape[]) for (let n = 1; n <= 20; n++) forms.push([shape, n, n * 7 + 1, formationOffsets(shape, n, new Rng(n * 7 + 1))]);
+  return { heights: dhs.map((d) => [d, meleeHeight(d), missileHeight(d), heightRange(d)]), blocks, hits, armour, forms };
+}
+
+export const vectors = (sha: Sha): Record<string, unknown> => ({ rng: rng(), jsmath: jsMath(), grid: grid(sha), rules: rules() });
