@@ -1,6 +1,7 @@
-// An item instance as the sim makes one (src/game/heroes.ts makeItem, src/data/items.ts Item): its uid, def, rarity,
-// condition and the paint rolled on the sim's Rng (a shield's emblem, field and ink; a crested helmet's crest). Only
-// makeItem is here: the item rules (stats, affixes, powers) stay in GDScript (docs/impl/godot-port.md G-10).
+// An item instance (src/data/items.ts Item), as the sim carries it in holds, packs, piles and crafted events, and as
+// makeItem (src/game/heroes.ts) makes one: uid, def, rarity, condition and the paint rolled on the sim's Rng (a shield's
+// emblem, field and ink; a crested helmet's crest). Optional TS fields are std::optional (absent and present differ in
+// the events the sim emits). The item rules (stats, affixes, powers) are not here (docs/impl/godot-port.md G-10).
 #pragma once
 
 #include <optional>
@@ -23,6 +24,10 @@ struct Item {
 	std::string uid, def, rarity;
 	double cond = 100;
 	std::optional<ItemPaint> paint;
+	std::optional<std::string> aff, pow;
+	std::optional<int> q; // 0 crude, 1 fine, 2 masterwork
+	std::optional<double> mc;
+	std::optional<std::string> mk, tr;
 };
 
 // What makeItem reads of an ItemDef, and the paint tables (derived/item_paint).

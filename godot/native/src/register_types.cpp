@@ -4,6 +4,7 @@
 #include <godot_cpp/core/defs.hpp>
 #include <godot_cpp/godot.hpp>
 
+#include "goods_probe.h"
 #include "grid.h"
 #include "probe.h"
 #include "rng.h"
@@ -29,6 +30,7 @@ static void initialize_pixelsim(ModuleInitializationLevel level) {
 	GDREGISTER_CLASS(Sim);
 	GDREGISTER_CLASS(WildProbe);
 	GDREGISTER_CLASS(MobsProbe);
+	GDREGISTER_CLASS(GoodsProbe);
 }
 
 static void uninitialize_pixelsim(ModuleInitializationLevel level) {}
