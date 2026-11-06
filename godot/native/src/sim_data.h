@@ -28,6 +28,7 @@
 #include "recipes.h"
 #include "trade.h"
 #include "town_level.h"
+#include "works.h"
 
 namespace sim {
 
@@ -57,6 +58,7 @@ struct Data {
 	SoulTables souls; // souls.h
 	TownTables town; // town_level.h
 	LandmarkTables landmarks; // landmarks.h
+	WorksTables works; // FIRE, FORT (src/war/sim/works)
 };
 const Data &data();
 
