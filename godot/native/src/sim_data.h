@@ -28,6 +28,7 @@
 #include "professions.h"
 #include "recipes.h"
 #include "roam.h"
+#include "siege.h"
 #include "trade.h"
 #include "town_level.h"
 #include "works.h"
@@ -63,6 +64,7 @@ struct Data {
 	WorksTables works; // FIRE, FORT (src/war/sim/works)
 	RoamTables roam; // roam.h
 	BossSimTables boss_sim; // bosses.h
+	SiegeTables siege; // SIEGE, RAM, THROWER... (src/war/sim/siege)
 };
 const Data &data();
 

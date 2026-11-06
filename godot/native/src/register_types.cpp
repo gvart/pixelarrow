@@ -13,6 +13,7 @@
 #include "roam_probe.h"
 #include "sim.h"
 #include "secrets.h"
+#include "siege_probe.h"
 #include "sim_data.h"
 #include "souls.h"
 #include "stories.h"
@@ -46,6 +47,7 @@ static void initialize_pixelsim(ModuleInitializationLevel level) {
 	GDREGISTER_CLASS(TownLevels);
 	GDREGISTER_CLASS(WorksProbe);
 	GDREGISTER_CLASS(BossProbe);
+	GDREGISTER_CLASS(SiegeProbe);
 }
 
 static void uninitialize_pixelsim(ModuleInitializationLevel level) {}

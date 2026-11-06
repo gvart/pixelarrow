@@ -66,6 +66,7 @@ void SimData::load(const Dictionary &tables) {
 	sim::load_roam_tables(tables, d.roam);
 	sim::load_boss_sim_tables(tables, d.boss_sim);
 	sim::load_boss_loot(tables, d.bosses);
+	if (tables.has("siege")) sim::load_siege(tables["siege"], d.siege);
 	sim::DATA = std::move(d);
 	sim::LOADED = true;
 }
