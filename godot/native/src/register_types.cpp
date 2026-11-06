@@ -14,6 +14,7 @@
 #include "tunnel.h"
 #include "vision.h"
 #include "wild_probe.h"
+#include "works_probe.h"
 
 using namespace godot;
 
@@ -31,6 +32,7 @@ static void initialize_pixelsim(ModuleInitializationLevel level) {
 	GDREGISTER_CLASS(WildProbe);
 	GDREGISTER_CLASS(MobsProbe);
 	GDREGISTER_CLASS(GoodsProbe);
+	GDREGISTER_CLASS(WorksProbe);
 }
 
 static void uninitialize_pixelsim(ModuleInitializationLevel level) {}

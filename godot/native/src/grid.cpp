@@ -579,6 +579,12 @@ PackedByteArray Grid::bytes_of(const String &name) const {
 	if (name == "adjCost") return raw(g.adj_cost);
 	if (name == "cx") return raw(g.cx);
 	if (name == "cy") return raw(g.cy);
+	if (name == "gate") return raw(g.gate);
+	if (name == "deck") return raw(g.deck);
+	if (name == "span") return raw(g.span);
+	if (name == "trench") return raw(g.trench);
+	if (name == "narrow") return raw(g.narrow);
+	if (name == "plat") return raw(g.plat);
 	ERR_FAIL_V_MSG(PackedByteArray(), "no grid array " + name);
 }
 

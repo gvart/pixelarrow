@@ -24,6 +24,7 @@
 #include "professions.h"
 #include "recipes.h"
 #include "trade.h"
+#include "works.h"
 
 namespace sim {
 
@@ -49,6 +50,7 @@ struct Data {
 	ProfTables professions;
 	RecipeTables recipes;
 	CraftTables craft;
+	WorksTables works; // FIRE, FORT (src/war/sim/works)
 };
 const Data &data();
 

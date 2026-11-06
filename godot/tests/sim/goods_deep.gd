@@ -8,7 +8,7 @@ static func diff(got: Variant, want: Variant, path := "") -> String:
 	var gn := got is int or got is float
 	var wn := want is int or want is float
 	if gn or wn:
-		if gn and wn and float(got) == float(want):
+		if gn and wn and (float(got) == float(want) or (is_nan(float(got)) and is_nan(float(want)))):
 			return ""
 		return "%s: %s, TS %s" % [path, var_to_str(got), var_to_str(want)]
 	if got is Array and want is Array:
