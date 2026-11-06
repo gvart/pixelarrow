@@ -28,3 +28,4 @@ test-results
 # Godot port: golden traces are generated (npm run traces:godot), Godot caches are local
 /godot/tests/golden/
 /godot/.godot/
+/build/

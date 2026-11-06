@@ -1,0 +1,8 @@
+[gd_scene format=3]
+
+[node name="Main" type="Node2D"]
+
+[node name="Title" type="Label" parent="."]
+offset_left = 40.0
+offset_top = 40.0
+text = "pixelarrow"

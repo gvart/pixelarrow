@@ -1,0 +1,36 @@
+name: Godot
+
+# The Godot port (docs/impl/godot-port.md): golden traces from the TS sim, then the headless Godot tests against them.
+
+on:
+  push:
+    branches: [main]
+    paths: ['godot/**', 'src/war/**', 'src/data/**', 'src/sim/**', 'src/dev/godotTraces.ts', 'scripts/godot/**', '.github/workflows/godot.yml']
+  pull_request:
+    paths: ['godot/**', 'src/war/**', 'src/data/**', 'src/sim/**', 'src/dev/godotTraces.ts', 'scripts/godot/**', '.github/workflows/godot.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  GODOT_VERSION: 4.7.2
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run traces:godot
+      - name: Install Godot
+        run: |
+          curl -fsSL -o godot.zip "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q godot.zip
+          sudo mv "Godot_v${GODOT_VERSION}-stable_linux.x86_64" /usr/local/bin/godot
+      - run: godot --headless --path godot --import
+      - run: godot --headless --path godot -s res://tests/run.gd
