@@ -8,6 +8,7 @@
 #include "goods_probe.h"
 #include "grid.h"
 #include "landmarks.h"
+#include "prebuilt.h"
 #include "probe.h"
 #include "rng.h"
 #include "roam_probe.h"
@@ -46,6 +47,7 @@ static void initialize_pixelsim(ModuleInitializationLevel level) {
 	GDREGISTER_CLASS(TownLevels);
 	GDREGISTER_CLASS(WorksProbe);
 	GDREGISTER_CLASS(EncounterRun);
+	GDREGISTER_CLASS(Towns);
 }
 
 static void uninitialize_pixelsim(ModuleInitializationLevel level) {}
