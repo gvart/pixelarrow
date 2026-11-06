@@ -198,6 +198,43 @@ static void load_world(CaptiveTables &t, const Dictionary &m) {
 	}
 }
 
+static void load_civilians(CivilianTables &t, const Dictionary &c) {
+	t.REGION_CAP = c["REGION_CAP"];
+	const Dictionary v = c["CIV"], k = c["COOK"], s = c["SMITH"], f = c["FORAGE"], h = c["HUNT"], w = c["WORK"], clip = c["CLIP"];
+	t.CIV = { v["quota"], v["fleeR"], v["calmR"], v["calm"], v["fleeSpeed"], v["away"], v["every"], v["at"], v["dmg"], v["armor"], v["hp"] };
+	t.CIV_QUOTA = c["CIV_QUOTA"];
+	t.COOK = { k["batch"], k["food"], k["salt"], k["rations"], k["saltBonus"], k["feedR"], k["fedTicks"], k["inn"], k["heal"] };
+	t.SMITH = { s["batch"], s["copper"], s["tin"], s["bronze"], s["repairR"], s["repair"] };
+	t.ENGINEER.build = sub(c, "ENGINEER")["build"];
+	t.FORAGER.gather = sub(c, "FORAGER")["gather"];
+	t.FORAGE = { f["woodsman"], f["prospector"], f["pitchman"], f["masterBuilder"] };
+	t.HUNT = { h["r"], h["hides"] };
+	t.CIV_XP = c["CIV_XP"];
+	t.WORK = { w["perLevel"], w["perTier"], w["perRarity"] };
+	const Array ks = clip.keys();
+	for (int64_t i = 0; i < ks.size(); i++) t.CLIP[str(ks[i])] = str(clip[ks[i]]);
+	const Array at = c["AT_BUILDING"];
+	t.AT_BUILDING.clear();
+	for (int64_t i = 0; i < at.size(); i++) t.AT_BUILDING.push_back(str(at[i]));
+}
+
+static void load_civ_classes(CivilianTables &t, const Dictionary &m) {
+	const Dictionary cc = m["CIV_CLASSES"], tools = m["CIV_TOOLS"];
+	Array ks = cc.keys();
+	for (int64_t i = 0; i < ks.size(); i++) {
+		const Dictionary d = cc[ks[i]], a = d["attrs"];
+		CivClassDef def;
+		def.name = str(d["name"]);
+		const Array ak = a.keys();
+		for (int64_t j = 0; j < ak.size(); j++) def.attrs.push_back({ str(ak[j]), a[ak[j]] });
+		const Array tl = d["tools"];
+		for (int64_t j = 0; j < tl.size(); j++) def.tools.push_back(str(tl[j]));
+		t.CIV_CLASSES[str(ks[i])] = def;
+	}
+	ks = tools.keys();
+	for (int64_t i = 0; i < ks.size(); i++) t.CIV_TOOLS[str(ks[i])] = int(sub(tools, String(ks[i]).utf8().get_data())["tier"]);
+}
+
 void load_tables(Data &d, const Dictionary &tables) {
 	const auto has = [&](const char *k) { return tables.has(k); };
 	const auto at = [&](const char *k) -> Dictionary { return tables[k]; };
@@ -220,6 +257,18 @@ void load_tables(Data &d, const Dictionary &tables) {
 		d.civilians.PHYSICIAN = { p["r"], p["surgeonR"], p["heal"], p["near"] };
 		d.civilians.REMEDY = { r["bandage"], r["feedR"], r["theriac"] };
 		d.civilians.VENOM = { v["ticks"], v["share"] };
+		load_civilians(d.civilians, c);
+	}
+	if (has("src/data/classes")) load_civ_classes(d.civilians, at("src/data/classes"));
+	if (has("src/data/items")) {
+		const Array r = at("src/data/items")["RARITIES"];
+		d.civilians.RARITIES.clear();
+		for (int64_t i = 0; i < r.size(); i++) d.civilians.RARITIES.push_back(str(r[i]));
+	}
+	if (has("src/data/affixes")) {
+		const Dictionary a = at("src/data/affixes")["AFFIXES"];
+		d.civilians.DEFT = sub(a, "deft")["step"];
+		d.civilians.BOUNTIFUL = sub(a, "bountiful")["step"];
 	}
 	if (has("src/war/sim/mobs")) load_mobs(d.mobs, at("src/war/sim/mobs"));
 	if (has("src/data/warWild")) load_wild(d.wild, at("src/data/warWild"));
