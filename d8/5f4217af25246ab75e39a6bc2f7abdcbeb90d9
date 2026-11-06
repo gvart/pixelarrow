@@ -1,0 +1,21 @@
+.github/workflows/godot.yml
+  s_1a6e9ade9f303e::t_71802daffefb85 25-26,29
+docs/impl/godot-port.md
+  s_1a6e9ade9f303e::t_e977579eeeade9 55
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d85f4217af25246ab75e39a6bc2f7abdcbeb90d9",
+  "prompts": {},
+  "sessions": {
+    "s_1a6e9ade9f303e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2c9e00ce-6ba5-4b5a-8be5-a4a273976934",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
