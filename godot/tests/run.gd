@@ -1,10 +1,21 @@
 ## Headless test runner: every res://tests/**/test_*.gd, every method named test_*.
 ## Usage: godot --headless --path godot -s res://tests/run.gd
-## A test fails by calling fail(msg) on its TestCase; the process exits 1 on any failure.
+## A test fails by calling fail(msg) on its TestCase, or by raising any engine or script error while it runs (a
+## runtime error aborts the method without a fail() call); the process exits 1 on any failure.
 extends SceneTree
 
 
+## Counts every error the engine logs, so a test that dies mid-way can't pass.
+class Errors extends Logger:
+	var seen := PackedStringArray()
+
+	func _log_error(function: String, file: String, line: int, code: String, rationale: String, _editor_notify: bool, _error_type: int, _script_backtraces: Array[ScriptBacktrace]) -> void:
+		seen.append("%s (%s:%d %s)" % [rationale if rationale != "" else code, file.get_file(), line, function])
+
+
 func _init() -> void:
+	var errors := Errors.new()
+	OS.add_logger(errors)
 	var failed := 0
 	var passed := 0
 	for path in _find("res://tests"):
@@ -18,7 +29,10 @@ func _init() -> void:
 			if not name.begins_with("test_"):
 				continue
 			var t: TestCase = script.new()
+			errors.seen.clear()
 			t.call(name)
+			for e in errors.seen:
+				t.failures.append("error: " + e)
 			if t.failures.is_empty():
 				passed += 1
 			else:
