@@ -614,7 +614,7 @@ void Warlords::think(Lord &l) {
 			host.order(o);
 		} else if (r && (r->phase == "march" || r->phase == "hit") && (tick_ >= r->until || !standing(r->building, r->siege, r->team))) {
 			r->phase = "home";
-			std::shared_ptr<Hold> home = h;
+			std::shared_ptr<Hold> home = h && h->state == "held" ? h : nullptr;
 			if (!home)
 				for (const auto &x : l.holds)
 					if (x->state == "held") {
@@ -633,6 +633,13 @@ void Warlords::think(Lord &l) {
 				host.bot_clear(pt->squad);
 			} else h->extra.push_back(pt->squad), host.bot_set(pt->squad, hold_at(h->x, h->y, W.holdR));
 			l.parties.erase(std::remove(l.parties.begin(), l.parties.end(), pt), l.parties.end());
+		} else if ((!r || r->phase == "home") && !(h && h->state == "held")) {
+			// the holding they head for was freed under them: home to another he holds, if any
+			for (const auto &x : l.holds)
+				if (x->state == "held") {
+					pt->to = x->place, host.bot_set(pt->squad, attack_move(x->x, x->y));
+					break;
+				}
 		}
 	}
 

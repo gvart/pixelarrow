@@ -363,7 +363,7 @@ export function createWarlords(region: RegionData, sim: WarBuildSim, bots: Bots,
         sim.order({ kind: 'attackBuilding', squad: pt.squad, building: r.building! });
       } else if (r && (r.phase === 'march' || r.phase === 'hit') && (tick >= r.until || !standing(r))) {
         r.phase = 'home';
-        const home = h ?? l.holds.find((x) => x.state === 'held');
+        const home = h?.state === 'held' ? h : l.holds.find((x) => x.state === 'held');
         if (home) (pt.to = home.place), bots.set(pt.squad, { kind: 'attackMove', x: home.x, y: home.y });
         else bots.set(pt.squad, { kind: 'hold', x: c[0], y: c[1], radius: WARLORD.holdR });
       } else if ((!r || r.phase === 'home') && h && h.state === 'held' && (c[0] - h.x) ** 2 + (c[1] - h.y) ** 2 <= WARLORD.arrive ** 2) {
@@ -372,6 +372,10 @@ export function createWarlords(region: RegionData, sim: WarBuildSim, bots: Bots,
         if (g > 0 && g + n <= 12) sim.order({ kind: 'merge', squad: pt.squad, into: h.squad }), bots.clear(pt.squad);
         else h.extra.push(pt.squad), bots.set(pt.squad, { kind: 'hold', x: h.x, y: h.y, radius: WARLORD.holdR });
         l.parties = l.parties.filter((x) => x !== pt);
+      } else if ((!r || r.phase === 'home') && h?.state !== 'held') {
+        // the holding they head for was freed under them: home to another he holds, if any
+        const home = l.holds.find((x) => x.state === 'held');
+        if (home) (pt.to = home.place), bots.set(pt.squad, { kind: 'attackMove', x: home.x, y: home.y });
       }
     }
 

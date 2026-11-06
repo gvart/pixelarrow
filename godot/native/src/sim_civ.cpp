@@ -24,7 +24,7 @@ double sq(double v) { return v * v; }
 
 const CivilianTables &C() { return data().civilians; }
 
-// M5f: seconds of work per batch, by job at a building (TS BATCH; NaN: undefined)
+// M5f: seconds of work per batch, by job at a building (TS BATCH; NaN: no entry)
 double batchOf(const std::string &job) {
 	return job == "cook" ? C().COOK.batch : job == "smith" ? C().SMITH.batch : job == "physician" ? 1 : std::numeric_limits<double>::quiet_NaN();
 }
@@ -263,7 +263,7 @@ void Sim::civTick() {
 		}
 		u.civT += sec * w;
 		const double batch = batchOf(u.civ);
-		if (u.civT < batch) continue;
+		if (std::isnan(batch) || u.civT < batch) continue; // a merchant at his stall makes no batches
 		if (civJobDone(u, s.team, b.x, b.y)) u.civT -= batch, u.obj += c.CIV_XP;
 		else u.civT = batch;
 	}

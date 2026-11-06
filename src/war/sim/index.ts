@@ -3355,8 +3355,8 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
         continue;
       }
       u.civT += sec * w;
-      const batch = BATCH[u.civ!]!;
-      if (u.civT < batch) continue;
+      const batch = BATCH[u.civ!];
+      if (batch === undefined || u.civT < batch) continue; // a merchant at his stall makes no batches
       if (civJobDone(u, s.team, b)) (u.civT -= batch), (u.obj += CIV_XP);
       else u.civT = batch;
     }
