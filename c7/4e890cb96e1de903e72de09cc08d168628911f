@@ -1,0 +1,41 @@
+godot/tests/sim/test_roam.gd.uid
+  s_1a6e9ade9f303e::t_33da62c0451414 1
+godot/native/src/roam.h
+  s_1a6e9ade9f303e::t_56862b81a44e96 1-252
+godot/tests/sim/test_roam.gd
+  s_1a6e9ade9f303e::t_e927e1f7e95724 1-40
+src/dev/vectors/roam.ts
+  s_1a6e9ade9f303e::t_22b9f994200fb7 256,280,284
+  s_1a6e9ade9f303e::t_4017d38c173c5f 1-255,257-279,281,283,285-290,292-300
+  s_1a6e9ade9f303e::t_be98f91b0a8afc 282,291
+godot/native/src/sim_data.cpp
+  s_1a6e9ade9f303e::t_0d4dc7a3072de7 65
+godot/native/src/roam.cpp
+  s_1a6e9ade9f303e::t_6afd01c376be50 1-63,65-454,456-496,498-727,729-818
+  s_1a6e9ade9f303e::t_2a6a367495f2ec 455
+  s_1a6e9ade9f303e::t_a7430447c5e413 64,497,728
+godot/native/src/roam_probe.cpp
+  s_1a6e9ade9f303e::t_83f1fea279b21f 1-413
+godot/native/src/register_types.cpp
+  s_1a6e9ade9f303e::t_1f4b02792634dd 12,38-39
+godot/native/src/sim_data.h
+  s_1a6e9ade9f303e::t_0d4dc7a3072de7 29,61
+godot/native/src/roam_probe.h
+  s_1a6e9ade9f303e::t_36a4218af01d23 1-67
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c74e890cb96e1de903e72de09cc08d168628911f",
+  "prompts": {},
+  "sessions": {
+    "s_1a6e9ade9f303e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2c9e00ce-6ba5-4b5a-8be5-a4a273976934",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
