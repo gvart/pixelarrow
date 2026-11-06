@@ -1,0 +1,49 @@
+src/dev/vectors/bosses.ts
+  s_1a6e9ade9f303e::t_6087a0d8dee82a 1-398
+godot/tests/sim/test_bosses.gd
+  s_1a6e9ade9f303e::t_6087a0d8dee82a 1-64
+src/data/affixes.ts
+  s_1a6e9ade9f303e::t_6087a0d8dee82a 77
+godot/native/src/boss_probe.h
+  s_1a6e9ade9f303e::t_6087a0d8dee82a 1-48
+godot/native/src/bosses.h
+  s_1a6e9ade9f303e::t_6087a0d8dee82a 1-296
+godot/native/src/war_bosses.cpp
+  s_1a6e9ade9f303e::t_6087a0d8dee82a 3-9,14-60,77-179
+  s_1a6e9ade9f303e::t_fd5d141d9e6138 180
+godot/native/src/load_tables.cpp
+  s_1a6e9ade9f303e::t_6087a0d8dee82a 189-205
+godot/native/src/boss_probe.cpp
+  s_1a6e9ade9f303e::t_6087a0d8dee82a 1-505
+src/dev/godotData.ts
+  s_1a6e9ade9f303e::t_6087a0d8dee82a 21,63-64,73,78
+godot/native/src/war_bosses.h
+  s_1a6e9ade9f303e::t_6087a0d8dee82a 1-4,9-11,14-17,23-36,41-49,51-52,58-73
+  s_1a6e9ade9f303e::t_cc6939143c5357 74
+godot/native/src/sim_data.cpp
+  s_1a6e9ade9f303e::t_6087a0d8dee82a 67-68
+godot/native/src/register_types.cpp
+  s_1a6e9ade9f303e::t_6087a0d8dee82a 7,48
+godot/tests/sim/test_bosses.gd.uid
+  s_1a6e9ade9f303e::t_6087a0d8dee82a 1
+godot/native/src/sim_data.h
+  s_1a6e9ade9f303e::t_6087a0d8dee82a 8,65
+godot/native/src/bosses.cpp
+  s_1a6e9ade9f303e::t_6087a0d8dee82a 1-1274
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1a063ff050ef57f607afb0aa2a2399ad3a671652",
+  "prompts": {},
+  "sessions": {
+    "s_1a6e9ade9f303e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2c9e00ce-6ba5-4b5a-8be5-a4a273976934",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
