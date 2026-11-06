@@ -1,5 +1,6 @@
 // Shim for V8's src/base/macros.h: what src/base/ieee754.cc uses.
 #pragma once
+#include <cstdint>
 #include <cstring>
 #include <type_traits>
 #define V8_INLINE inline

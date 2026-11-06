@@ -44,5 +44,12 @@ jobs:
           curl -fsSL -o godot.zip "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
           unzip -q godot.zip
           sudo mv "Godot_v${GODOT_VERSION}-stable_linux.x86_64" /usr/local/bin/godot
-      - run: godot --headless --path godot --import
+      # Godot 4.7.2 on Linux aborts when the editor quits with any godot-cpp extension loaded (a minimal one-class
+      # extension too, reproduced in Docker). The import is done by then: tolerate the exit code, check the class cache
+      # landed, and make sure the extension list is there.
+      - name: Import the project
+        run: |
+          godot --headless --path godot --import || true
+          test -f godot/.godot/global_script_class_cache.cfg
+          echo "res://pixelsim.gdextension" > godot/.godot/extension_list.cfg
       - run: godot --headless --path godot -s res://tests/run.gd

@@ -9,6 +9,10 @@ func _init() -> void:
 	var passed := 0
 	for path in _find("res://tests"):
 		var script: GDScript = load(path)
+		if script == null or not script.can_instantiate():
+			failed += 1
+			printerr("FAIL %s: the script does not load (parse error above)" % path.get_file())
+			continue
 		for m in script.get_script_method_list():
 			var name: String = m["name"]
 			if not name.begins_with("test_"):
