@@ -95,6 +95,7 @@ public:
 	void set_cost(int i, double v) { g.cost[i] = float(v); }
 	double cost_at(int i) const { return g.cost[i]; }
 	void set_height(int i, int v) { g.height[i] = uint8_t(v); }
+	int height_at(int i) const { return g.height[i]; }
 	void set_deck(int i, int v) { g.deck[i] = uint8_t(v); }
 	void set_span(int i, int v) { g.span[i] = uint8_t(v); }
 	void set_narrow(int i, int v) { g.narrow[i] = uint8_t(v); }

@@ -629,6 +629,7 @@ void Grid::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_cost", "i", "v"), &Grid::set_cost);
 	ClassDB::bind_method(D_METHOD("cost_at", "i"), &Grid::cost_at);
 	ClassDB::bind_method(D_METHOD("set_height", "i", "v"), &Grid::set_height);
+	ClassDB::bind_method(D_METHOD("height_at", "i"), &Grid::height_at);
 	ClassDB::bind_method(D_METHOD("set_deck", "i", "v"), &Grid::set_deck);
 	ClassDB::bind_method(D_METHOD("set_span", "i", "v"), &Grid::set_span);
 	ClassDB::bind_method(D_METHOD("set_narrow", "i", "v"), &Grid::set_narrow);

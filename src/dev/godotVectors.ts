@@ -13,6 +13,8 @@ import {
 import type { RegionData } from '../war/types';
 import { afterArmour, blockChance, heightRange, hitChance, meleeHeight, missileHeight } from '../war/sim/combat';
 import { formationOffsets, type Shape } from '../war/sim/formation';
+import { createVision, sightOf, type Viewer } from '../war/sim/vision';
+import type { BuildingSnap } from '../war/types';
 
 type Sha = (bytes: Uint8Array) => string;
 const regionFiles = import.meta.glob('../war/regions/*.json', { eager: true, import: 'default' });
@@ -187,4 +189,53 @@ function rules() {
   return { heights: dhs.map((d) => [d, meleeHeight(d), missileHeight(d), heightRange(d)]), blocks, hits, armour, forms };
 }
 
-export const vectors = (sha: Sha): Record<string, unknown> => ({ rng: rng(), jsmath: jsMath(), grid: grid(sha), rules: rules() });
+/**
+ * Fog of war (src/war/sim/vision.ts) on two regions: men of four teams (and mobs) wander, die and come back, buildings
+ * rise, burn and fall, a wall goes up mid-run (the height poll), one team has W-61 extra sight. Every update records the
+ * inputs (units as x, y, alive, team, sightOf) and, per team, its version, fog states and last-seen buildings.
+ */
+function visionOn(id: string, sha: Sha) {
+  const region = parseRegion(regionFiles[`../war/regions/${id}.json`]), g = buildGrid(region), r = new Rng(hashString(id) + 5);
+  const classes = ['militia', 'archer', 'scout', 'slinger', 'spearman'];
+  const units: Viewer[] = Array.from({ length: 48 }, (_, i) => ({
+    x: r.range(0, g.w), y: r.range(0, g.h), alive: true, cls: r.pick(classes), squad: { team: i % 9 === 8 ? 7 : i % 4 },
+  }));
+  const types = ['woodTower', 'outpost', 'barracks', 'brazier', 'palisade', 'ladder', 'fort', 'farm'] as const;
+  const blds: BuildingSnap[] = types.map((type, i) => {
+    const x = r.int(0, g.w - 3), y = r.int(0, g.h - 3);
+    return { id: 100 + i, type, team: i % 3, x: x + 1, y: y + 1, tiles: [x, y, x + 1, y, x, y + 1, x + 1, y + 1], state: 'done', staffed: i !== 2, lit: true } as unknown as BuildingSnap;
+  });
+  const vision = createVision(g, { units: () => units, buildings: () => blds, sightAdd: (t) => (t === 1 ? 3 : 0) });
+  const steps = [], wall: number[] = [];
+  for (let t = 0; t <= 240; t++) {
+    for (const u of units) {
+      u.x = Math.min(g.w - 0.01, Math.max(0, u.x + r.range(-0.6, 0.6)));
+      u.y = Math.min(g.h - 0.01, Math.max(0, u.y + r.range(-0.6, 0.6)));
+      if (r.chance(0.004)) u.alive = !u.alive;
+    }
+    if (t === 60) (blds[1] as { burning?: number }).burning = 0.5;
+    if (t === 120) blds[1].state = 'destroyed';
+    if (t === 140) blds.splice(4, 1); // the palisade is pulled down
+    if (t === 90) { // a 6x6 wall rises: the next height poll recomputes everything
+      const x0 = (units[0].x | 0) - 3, y0 = (units[0].y | 0) - 3;
+      wall.push(x0, y0);
+      for (let y = Math.max(0, y0); y < Math.min(g.h, y0 + 6); y++) for (let x = Math.max(0, x0); x < Math.min(g.w, x0 + 6); x++) g.height[y * g.w + x] += 3;
+    }
+    if (t === 170) blds.push({ ...blds[0], id: 200, team: 3, x: units[5].x, y: units[5].y, tiles: [] });
+    vision.tick(t);
+    if (t % 4) continue;
+    const teams = [0, 1, 2, 3].map((tm) => {
+      const f = vision.teamGrid(tm);
+      return [tm, f.version, sha(f.state), vision.lastSeen(tm).map((b) => b.id), units.slice(0, 6).map((u) => vision.visibleTo(tm, u.x, u.y))];
+    });
+    steps.push({
+      t, units: units.flatMap((u) => [u.x, u.y, u.alive ? 1 : 0, u.squad.team, sightOf(u.cls)]),
+      buildings: blds.map((b) => ({ ...b })), teams,
+    });
+  }
+  return { region: id, wall, steps };
+}
+
+const vision = (sha: Sha) => ({ regions: ['test-ridge', 'dodona'].map((id) => visionOn(id, sha)) });
+
+export const vectors = (sha: Sha): Record<string, unknown> => ({ rng: rng(), jsmath: jsMath(), grid: grid(sha), rules: rules(), vision: vision(sha) });
