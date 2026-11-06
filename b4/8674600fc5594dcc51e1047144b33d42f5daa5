@@ -1,0 +1,59 @@
+godot/native/src/sim_civ.cpp
+  s_1a6e9ade9f303e::t_61b7f4e6e5df60 1-311
+godot/native/src/sim_siege.cpp
+  s_1a6e9ade9f303e::t_45278732914478 1-388
+godot/native/src/works.h
+  s_1a6e9ade9f303e::t_3cfd50630935fe 118
+godot/native/src/sim_trade.cpp
+  s_1a6e9ade9f303e::t_d789051aae6912 1-406,408-440
+  s_1a6e9ade9f303e::t_3cfd50630935fe 407
+godot/native/src/sim.h
+  s_1a6e9ade9f303e::t_b4d025cef6a7ce 30,32,37
+  s_1a6e9ade9f303e::t_b6c64169c8ccf1 117-143
+  s_1a6e9ade9f303e::t_88e8aef76e9de2 298
+  s_1a6e9ade9f303e::t_7b281ced03eb78 410-451
+  s_1a6e9ade9f303e::t_83e3c63dac4ecf 407-409
+  s_1a6e9ade9f303e::t_d96b8ca912e6f0 165
+  s_1a6e9ade9f303e::t_af0eeb48a20cf3 375-378
+  s_1a6e9ade9f303e::t_93371849321ee6 386
+  s_1a6e9ade9f303e::t_d7fb4fe5d97ea5 177,181,184
+  s_1a6e9ade9f303e::t_6997f97a056b00 3-7,18,20
+  s_1a6e9ade9f303e::t_7f4cb96506b853 72-73,75,77-78,80
+  s_1a6e9ade9f303e::t_2719485f96c8cc 238-272
+  s_1a6e9ade9f303e::t_38b808706b2dc5 212-227
+  s_1a6e9ade9f303e::t_56d4fcaab72be2 312-321
+  s_1a6e9ade9f303e::t_8c91311d4d5149 491-492
+godot/native/src/sim_combat.cpp
+  s_1a6e9ade9f303e::t_83e3c63dac4ecf 200-211
+  s_1a6e9ade9f303e::t_7b1b7416dfd7df 24-26,35-39,41-48,118-119,121,236-258,268-279,282,305
+godot/native/src/sim.cpp
+  s_1a6e9ade9f303e::t_e87dbe64fb7c13 1458
+  s_1a6e9ade9f303e::t_f1de67b2bca44a 124-129,133-168,238-244,296-305
+  s_1a6e9ade9f303e::t_83e3c63dac4ecf 1865-1867,1982-1993
+  s_1a6e9ade9f303e::t_c8797a8a23595d 1903-1913,1934-1952,1956,1994,2052
+  s_1a6e9ade9f303e::t_a1413a2d610654 216-222,1072,1252,1423-1434,1497,1499-1504,1519,1546,1548,1575,1584,1595,1620,1673,1716-1717,1809-1810,1845
+  s_1a6e9ade9f303e::t_150098f363e787 508-527,531,567-570,577-611,614,616-617,632-679,710-733,754-759
+  s_1a6e9ade9f303e::t_eb2a72f4a6234e 1957
+godot/native/src/siege.h
+  s_1a6e9ade9f303e::t_b659b527bf49cb 173-174
+godot/native/src/vision.h
+  s_1a6e9ade9f303e::t_83e3c63dac4ecf 46-48
+godot/native/src/works_probe.cpp
+  s_1a6e9ade9f303e::t_3cfd50630935fe 285
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b48674600fc5594dcc51e1047144b33d42f5daa5",
+  "prompts": {},
+  "sessions": {
+    "s_1a6e9ade9f303e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2c9e00ce-6ba5-4b5a-8be5-a4a273976934",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
