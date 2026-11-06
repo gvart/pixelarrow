@@ -7,7 +7,7 @@ import { parseRegion } from '../war/region/schema';
 import { SCENARIOS, type Scenario } from '../war/scenarios';
 import { applyScenario, headlessHost, stepSim } from '../war/scenarios/run';
 import { createSim } from '../war/sim';
-import { createBots } from '../war/sim/bots';
+import { createBots, type Bots } from '../war/sim/bots';
 import type { RegionData, Snapshot, WarBuildSim } from '../war/types';
 
 const files = import.meta.glob('../war/regions/*.json', { eager: true, import: 'default' });
@@ -32,7 +32,7 @@ const digest = (s: Snapshot) => ({
 
 export const CAP = 40, TICKS = 50, EVERY = 10;
 
-/** A setup call on the sim: [method, ...args] (trailing undefined args dropped). */
+/** A setup call on the sim: [method, ...args] (trailing undefined args dropped); ['bot', squad, behaviour] a bot set on a squad. */
 export type SetupOp = [string, ...unknown[]];
 export interface Trace { id: string; region: string; seed: number; cap: number; setup: SetupOp[]; frames: ReturnType<typeof digest>[] }
 
@@ -41,11 +41,16 @@ const SETUP_CALLS = ['spawnSquad', 'order', 'step', 'claim', 'addStock', 'finish
 
 /**
  * Records the outermost SETUP_CALLS made on `sim` into `ops` (a call the sim makes on itself, such as a mob spawn's
- * spawnSquad, is not recorded), so the Godot sim can replay the setup op for op. Returns the undo.
+ * spawnSquad, is not recorded), and each bot set on a squad, so the Godot sim can replay the setup op for op. Returns the undo.
  */
-function record(sim: WarBuildSim, ops: SetupOp[]): () => void {
+function record(sim: WarBuildSim, bots: Bots, ops: SetupOp[]): () => void {
   const api = sim as unknown as Record<string, (...a: unknown[]) => unknown>;
   const saved = SETUP_CALLS.map((n) => api[n]);
+  const set = bots.set;
+  bots.set = (squad, b) => {
+    ops.push(['bot', squad, structuredClone(b)]);
+    set(squad, b);
+  };
   let depth = 0;
   SETUP_CALLS.forEach((n, i) => {
     api[n] = (...a: unknown[]) => {
@@ -61,13 +66,16 @@ function record(sim: WarBuildSim, ops: SetupOp[]): () => void {
       }
     };
   });
-  return () => SETUP_CALLS.forEach((n, i) => (api[n] = saved[i]));
+  return () => {
+    SETUP_CALLS.forEach((n, i) => (api[n] = saved[i]));
+    bots.set = set;
+  };
 }
 
 /** Scenario sc applied (its setup recorded) and played `ticks` ticks, digested by `dig` at the start and every `every` ticks. */
 export function play<D>(sc: Scenario, ticks: number, every: number, dig: (s: Snapshot) => D) {
   const seed = sc.seed ?? 1, sim = createSim(regionOf(sc), seed), bots = createBots(sim), setup: SetupOp[] = [];
-  const undo = record(sim, setup);
+  const undo = record(sim, bots, setup);
   applyScenario(headlessHost(sim, bots, CAP), sc);
   undo();
   const frames = [dig(sim.snapshot())];
