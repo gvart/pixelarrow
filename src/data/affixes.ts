@@ -74,7 +74,7 @@ export const AFFIXES: Record<AffixId, AffixDef> = {
 export const WAR_IGNORED: ReadonlySet<AffixId> = new Set<AffixId>(['morale', 'stamina', 'steady', 'moraleShock', 'goldBonus', 'chargeBonus']);
 
 /** Number of random stats by rarity, and the steps each one rolls. */
-const AFFIX_COUNT = [0, 1, 2, 3, 4];
+export const AFFIX_COUNT = [0, 1, 2, 3, 4];
 export const AFFIX_STEPS: [number, number][] = [[0, 0], [1, 2], [1, 2], [1, 2], [1, 2]];
 
 export function affixSlot(def: ItemDef): AffixSlot {

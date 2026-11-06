@@ -186,7 +186,23 @@ static void load_wild(WildTables &t, const Dictionary &m) {
 static void load_bosses(BossTables &t, const Dictionary &m) {
 	for (const Variant &v : Array(m["WAR_BOSSES"])) {
 		const Dictionary d = v;
-		t.WAR_BOSSES.push_back({ str(d["id"]), str(d["name"]), d.has("deed") ? std::optional<std::string>(str(d["deed"])) : std::nullopt });
+		WarBoss b{ str(d["id"]), str(d["name"]), d.has("deed") ? std::optional<std::string>(str(d["deed"])) : std::nullopt };
+		b.tier = int(d["tier"]);
+		for (const Variant &s : Array(d["signature"])) b.signature.push_back(str(s));
+		for (const Variant &p : Array(d["phases"])) b.phases.push_back(p);
+		if (d.has("rare")) b.rare = WarBoss::Rare{ str(sub(d, "rare")["good"]), sub(d, "rare")["n"] };
+		t.WAR_BOSSES.push_back(b);
+	}
+	const Dictionary tiers = m["BOSS_TIERS"];
+	for (const Variant &k : Array(tiers.keys())) {
+		const Dictionary d = tiers[k];
+		BossTier o;
+		o.picks = int(d["picks"]);
+		for (const Variant &e : Array(d["rarity"])) o.rarity.push_back({ str(Array(e)[0]), Array(e)[1] });
+		o.minTier = d["minTier"];
+		o.trophy = d["trophy"];
+		o.signature = d["signature"];
+		t.BOSS_TIERS[String(k).to_int()] = o;
 	}
 }
 

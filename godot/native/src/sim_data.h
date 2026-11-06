@@ -5,6 +5,7 @@
 #include <godot_cpp/classes/ref_counted.hpp>
 #include <godot_cpp/variant/dictionary.hpp>
 
+#include "bosses.h"
 #include "captives.h"
 #include "civilians.h"
 #include "classes.h"
@@ -57,6 +58,7 @@ struct Data {
 	SoulTables souls; // souls.h
 	TownTables town; // town_level.h
 	LandmarkTables landmarks; // landmarks.h
+	BossSimTables boss_sim; // bosses.h
 };
 const Data &data();
 
