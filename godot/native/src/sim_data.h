@@ -34,6 +34,7 @@
 #include "siege.h"
 #include "trade.h"
 #include "town_level.h"
+#include "warlords.h"
 #include "works.h"
 
 namespace sim {
@@ -67,6 +68,7 @@ struct Data {
 	WorksTables works; // FIRE, FORT (src/war/sim/works)
 	RoamTables roam; // roam.h
 	BossSimTables boss_sim; // bosses.h
+	WarlordTables warlords; // warlords.h
 	SiegeTables siege; // SIEGE, RAM, THROWER... (src/war/sim/siege)
 	EncTables encounters; // encounters.h (ENC, ENCOUNTERS)
 	PrebuiltTables prebuilt; // prebuilt.h
