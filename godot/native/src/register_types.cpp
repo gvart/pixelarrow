@@ -9,6 +9,7 @@
 #include "landmarks.h"
 #include "probe.h"
 #include "rng.h"
+#include "roam_probe.h"
 #include "sim.h"
 #include "secrets.h"
 #include "sim_data.h"
@@ -35,6 +36,8 @@ static void initialize_pixelsim(ModuleInitializationLevel level) {
 	GDREGISTER_CLASS(Sim);
 	GDREGISTER_CLASS(WildProbe);
 	GDREGISTER_CLASS(MobsProbe);
+	GDREGISTER_CLASS(RoamProbe);
+	GDREGISTER_CLASS(CivProbe);
 	GDREGISTER_CLASS(GoodsProbe);
 	GDREGISTER_CLASS(Souls);
 	GDREGISTER_CLASS(Secrets);
