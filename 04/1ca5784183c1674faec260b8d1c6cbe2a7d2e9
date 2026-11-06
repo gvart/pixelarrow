@@ -1,0 +1,53 @@
+godot/native/src/sim.h
+  s_1a6e9ade9f303e::t_5d28c00a912656 90-91,188
+  s_1a6e9ade9f303e::t_2c0f95f4dd2958 8,269-273
+  s_1a6e9ade9f303e::t_a13168510cc2f2 2-5,74-87,92-96,133-135,189-190,234-251
+  s_1a6e9ade9f303e::t_4853dd76ebfa98 23,280-281,288,295-297
+  s_1a6e9ade9f303e::t_57cd83e7fd2802 88-89
+src/dev/godotTraces.ts
+  s_1a6e9ade9f303e::t_1412e130a553b5 10,35,46,49-53,69-72,78
+  s_1a6e9ade9f303e::t_2d25a3586fb570 44
+godot/native/src/sim.cpp
+  s_1a6e9ade9f303e::t_9994f0d1932672 1156-1157,1351-1353
+  s_1a6e9ade9f303e::t_4853dd76ebfa98 1296-1299,1308,1331-1344,1382-1383
+  s_1a6e9ade9f303e::t_08a26af786963f 1116-1118
+  s_1a6e9ade9f303e::t_2c0f95f4dd2958 998-999,1030,1280-1282
+  s_1a6e9ade9f303e::t_609a12607e776b 1345
+godot/native/src/bots.h
+  s_1a6e9ade9f303e::t_c6f9d9a3d5d2c2 1-61
+godot/tests/sim/test_traces.gd
+  s_1a6e9ade9f303e::t_8848625cdee49f 16-19
+  s_1a6e9ade9f303e::t_d4f9bbda455e20 1,4-6,11-15,20,23-24,27,34-36,45,48-49,61-67,79,81-85,94
+godot/native/src/sim_data.h
+  s_1a6e9ade9f303e::t_665f22bb4ba4b3 9,37
+src/dev/vectors/sim.ts
+  s_1a6e9ade9f303e::t_66f759ed366758 2-5,17-25
+godot/native/src/sim_combat.cpp
+  s_1a6e9ade9f303e::t_5d28c00a912656 182,194-195
+  s_1a6e9ade9f303e::t_c6959781a94a75 1-20,22-181,183-193,196-272
+  s_1a6e9ade9f303e::t_d26a916855a726 21
+godot/native/src/civilians.h
+  s_1a6e9ade9f303e::t_3c0e632cb2b891 1-23
+godot/native/src/load_tables.cpp
+  s_1a6e9ade9f303e::t_665f22bb4ba4b3 217-223
+godot/native/src/bots.cpp
+  s_1a6e9ade9f303e::t_25cfd15bc960d0 1-180
+godot/native/src/civilians.cpp
+  s_1a6e9ade9f303e::t_b0a6bc09d312b8 1-14
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "041ca5784183c1674faec260b8d1c6cbe2a7d2e9",
+  "prompts": {},
+  "sessions": {
+    "s_1a6e9ade9f303e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2c9e00ce-6ba5-4b5a-8be5-a4a273976934",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
