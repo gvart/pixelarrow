@@ -8,6 +8,8 @@
 #include "probe.h"
 #include "rng.h"
 #include "sim_data.h"
+#include "stories.h"
+#include "tunnel.h"
 #include "vision.h"
 
 using namespace godot;
@@ -20,6 +22,8 @@ static void initialize_pixelsim(ModuleInitializationLevel level) {
 	GDREGISTER_CLASS(SimProbe);
 	GDREGISTER_CLASS(Vision);
 	GDREGISTER_CLASS(SimData);
+	GDREGISTER_CLASS(Tunnel);
+	GDREGISTER_CLASS(StoryRun);
 }
 
 static void uninitialize_pixelsim(ModuleInitializationLevel level) {}

@@ -46,6 +46,8 @@ void SimData::load(const Dictionary &tables) {
 	const Array ids = ws.keys();
 	for (int64_t i = 0; i < ids.size(); i++) d.classes.by_id[String(ids[i]).utf8().get_data()] = sim::stats_of(ws[ids[i]]);
 	ERR_FAIL_COND_MSG(!d.classes.by_id.count("militia"), "war_stats has no militia");
+	sim::load_items(tables, d.items);
+	sim::load_story_tables(tables, d.stories);
 	sim::DATA = std::move(d);
 	sim::LOADED = true;
 }

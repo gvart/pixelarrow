@@ -1484,6 +1484,9 @@ const RUIN = {
   south: { title: 'The Drowned Post', hook: 'A watch-tower with its foot in the water; a fire-pit inside.', backstory: 'The Wardens watched the water from this tower. When they left, the water came in. Robbers sleep in it now, with a strongbox.', story: 'Wet boot prints up the stair, and voices in the tower room.', end: 'The strongbox holds a season\'s tolls. The water is still rising.' },
 };
 
+/** The hidden quests' words by template id (the Godot port reads them as a table; HIDDEN's `make` is code). */
+export const HIDDEN_TEXT = { corpse: CORPSE, cache: CACHE, shrine: SHRINE, ruin: RUIN };
+
 export const HIDDEN: readonly HiddenTemplate[] = [
   {
     id: 'corpse', find: 'A dead man with a note',

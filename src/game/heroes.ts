@@ -22,13 +22,13 @@ function newId(ids: IdSource, prefix: string): string {
 const EMBLEMS = ['lambda', 'owl', 'horse', 'trident', 'sunwheel', 'lion', 'eye', 'scorpion', 'boar', 'crescent', 'club', 'star'] as const;
 type Emblem = (typeof EMBLEMS)[number];
 
-const CULTURE_EMBLEMS: Record<Culture, Emblem[]> = {
+export const CULTURE_EMBLEMS: Record<Culture, Emblem[]> = {
   greek: ['lambda', 'owl', 'trident', 'club', 'star', 'scorpion', 'lion'],
   phoenician: ['crescent', 'eye', 'horse', 'sunwheel', 'lion', 'trident'],
   celtic: ['boar', 'sunwheel', 'horse', 'eye', 'crescent'],
 };
 
-const FIELD_INK: [string, string[]][] = [
+export const FIELD_INK: [string, string[]][] = [
   ['bronze', ['ink', 'red']],
   ['cream', ['ink', 'red']],
   ['red', ['ink', 'cream']],
@@ -46,7 +46,7 @@ function crestPaint(rng: Rng): ItemPaint {
 }
 
 /** Helmet arts that carry a painted crest (src/art/paperdoll.ts). */
-const CRESTED_ART = ['corinthian', 'chalcidian', 'montefortino'];
+export const CRESTED_ART = ['corinthian', 'chalcidian', 'montefortino'];
 
 /**
  * Charms a bot hero of a culture may wear (item ids, src/data/items.ts):

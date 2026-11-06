@@ -6,11 +6,15 @@
 #include <godot_cpp/variant/dictionary.hpp>
 
 #include "classes.h"
+#include "item.h"
+#include "stories.h"
 
 namespace sim {
 
 struct Data {
 	ClassTable classes;
+	ItemTable items; // makeItem (item.h)
+	StoryTables stories; // hiddenStories (stories.h)
 };
 const Data &data();
 
