@@ -68,6 +68,9 @@ void SimData::load(const Dictionary &tables) {
 	sim::load_boss_loot(tables, d.bosses);
 	if (tables.has("siege")) sim::load_siege(tables["siege"], d.siege);
 	if (tables.has("src/war/sim/civilians")) d.simCiv.calm = Dictionary(Dictionary(tables["src/war/sim/civilians"])["CIV"])["calm"];
+	sim::load_encounter_tables(tables, d.encounters);
+	sim::load_prebuilt_tables(tables, d.prebuilt);
+	sim::load_roster_tables(tables, d.roster);
 	sim::DATA = std::move(d);
 	sim::LOADED = true;
 }

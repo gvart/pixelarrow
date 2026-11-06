@@ -23,6 +23,9 @@
 #include "war_bosses.h"
 #include "war_wild.h"
 #include "crafting.h"
+#include "encounters.h"
+#include "prebuilt.h"
+#include "roster.h"
 #include "economy.h"
 #include "holders.h"
 #include "professions.h"
@@ -68,6 +71,9 @@ struct Data {
 	struct {
 		double calm = 0;
 	} simCiv; // civilians.ts CIV, so far what the Sim's workScan reads (the civilians port owns the rest)
+	EncTables encounters; // encounters.h (ENC, ENCOUNTERS)
+	PrebuiltTables prebuilt; // prebuilt.h
+	RosterTables roster; // roster.h
 };
 const Data &data();
 

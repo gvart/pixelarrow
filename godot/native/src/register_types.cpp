@@ -5,12 +5,15 @@
 #include <godot_cpp/godot.hpp>
 
 #include "boss_probe.h"
+#include "encounters.h"
 #include "goods_probe.h"
 #include "grid.h"
 #include "landmarks.h"
+#include "prebuilt.h"
 #include "probe.h"
 #include "rng.h"
 #include "roam_probe.h"
+#include "roster.h"
 #include "sim.h"
 #include "secrets.h"
 #include "siege_probe.h"
@@ -48,6 +51,9 @@ static void initialize_pixelsim(ModuleInitializationLevel level) {
 	GDREGISTER_CLASS(WorksProbe);
 	GDREGISTER_CLASS(BossProbe);
 	GDREGISTER_CLASS(SiegeProbe);
+	GDREGISTER_CLASS(EncounterRun);
+	GDREGISTER_CLASS(Towns);
+	GDREGISTER_CLASS(Roster);
 }
 
 static void uninitialize_pixelsim(ModuleInitializationLevel level) {}
