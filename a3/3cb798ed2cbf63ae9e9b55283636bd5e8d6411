@@ -1,0 +1,48 @@
+scripts/godot/traces.mjs
+  s_1a6e9ade9f303e::t_1d08d05d0c35c5 6,26
+godot/src/sim/grid.gd
+  s_1a6e9ade9f303e::t_fa49dec250f20b 1-658,660-680
+  s_1a6e9ade9f303e::t_afed9ff137dc84 659
+godot/src/sim/js_math.gd.uid
+  s_1a6e9ade9f303e::t_0b50f1cfc06de4 1
+godot/tests/sim/test_grid.gd
+  s_1a6e9ade9f303e::t_afed9ff137dc84 1-169
+godot/tests/sim/test_js_math.gd
+  s_1a6e9ade9f303e::t_7ed4798cf0adc2 1-26
+godot/src/sim/js_math.gd
+  s_1a6e9ade9f303e::t_5b5352c9ff3850 1-37,39
+  s_1a6e9ade9f303e::t_3c7a2949cd56b0 38
+src/dev/godotVectors.ts
+  s_1a6e9ade9f303e::t_26510218bd08d5 4-5,8-16,36-128,131-157
+  s_1a6e9ade9f303e::t_1d08d05d0c35c5 129-130
+src/dev/godotJson.ts
+  s_1a6e9ade9f303e::t_3c7a2949cd56b0 5,18
+godot/tests/sim/test_grid.gd.uid
+  s_1a6e9ade9f303e::t_afed9ff137dc84 1
+godot/tests/sim/test_js_math.gd.uid
+  s_1a6e9ade9f303e::t_0b50f1cfc06de4 1
+src/dev/godotData.ts
+  s_1a6e9ade9f303e::t_1d08d05d0c35c5 3,15
+godot/src/sim/grid.gd.uid
+  s_1a6e9ade9f303e::t_afed9ff137dc84 1
+scripts/godot/data.mjs
+  s_1a6e9ade9f303e::t_1d08d05d0c35c5 2
+docs/impl/godot-port.md
+  s_1a6e9ade9f303e::t_52519c9c779c24 28
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a33cb798ed2cbf63ae9e9b55283636bd5e8d6411",
+  "prompts": {},
+  "sessions": {
+    "s_1a6e9ade9f303e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2c9e00ce-6ba5-4b5a-8be5-a4a273976934",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
