@@ -1621,7 +1621,7 @@ Act Works::walkTo(Worker &u, double x, double y) {
 	}
 	if (!u.wpath.empty()) {
 		while (u.wpi < int(u.wpath.size()) / 2 - 1 && js::hypot(u.wpath[u.wpi * 2] - u.x, u.wpath[u.wpi * 2 + 1] - u.y) < 0.4) u.wpi++;
-		return Act::at(at_or_nan(u.wpath, size_t(u.wpi * 2)), at_or_nan(u.wpath, size_t(u.wpi * 2 + 1))); // past the end (a one-point path, wpi 1): undefined, as TS
+		return Act::at(u.wpath[u.wpi * 2], u.wpath[u.wpi * 2 + 1]);
 	}
 	return Act::at(x, y);
 }
@@ -2705,7 +2705,7 @@ void Works::tick() {
 		u->wreq = false;
 		if (!u->alive || u->job.empty()) continue;
 		u->wpath = host.path(u->squad->team, u->x, u->y, u->wgx, u->wgy);
-		u->wpi = 1;
+		u->wpi = u->wpath.size() > 2 ? 1 : 0; // a one-point path has no step 1
 		detour(*u);
 	}
 	fireTick();

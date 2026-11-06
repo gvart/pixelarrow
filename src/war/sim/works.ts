@@ -2378,7 +2378,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
         u.wreq = false;
         if (!u.alive || !u.job) continue;
         u.wpath = path(u.squad.team, u.x, u.y, u.wgx, u.wgy);
-        u.wpi = 1;
+        u.wpi = u.wpath.length > 2 ? 1 : 0; // a one-point path has no step 1
         detour(u);
       }
       fireTick();
