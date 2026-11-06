@@ -1,5 +1,7 @@
 #include "sim_data.h"
 
+#include "load_tables.h"
+
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/core/error_macros.hpp>
 
@@ -46,6 +48,7 @@ void SimData::load(const Dictionary &tables) {
 	const Array ids = ws.keys();
 	for (int64_t i = 0; i < ids.size(); i++) d.classes.by_id[String(ids[i]).utf8().get_data()] = sim::stats_of(ws[ids[i]]);
 	ERR_FAIL_COND_MSG(!d.classes.by_id.count("militia"), "war_stats has no militia");
+	sim::load_tables(d, tables);
 	sim::DATA = std::move(d);
 	sim::LOADED = true;
 }

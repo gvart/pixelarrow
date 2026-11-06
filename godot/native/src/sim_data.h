@@ -5,12 +5,33 @@
 #include <godot_cpp/classes/ref_counted.hpp>
 #include <godot_cpp/variant/dictionary.hpp>
 
+#include "captives.h"
 #include "classes.h"
+#include "deeds.h"
+#include "depth.h"
+#include "food.h"
+#include "honours.h"
+#include "mobs.h"
+#include "skills.h"
+#include "soldiers.h"
+#include "war_bosses.h"
+#include "war_wild.h"
 
 namespace sim {
 
 struct Data {
 	ClassTable classes;
+	// depth, soldiers, skills, honours, deeds, food, captives, mobs and their data deps (load_tables.cpp)
+	DepthTables depth;
+	SoldierTables soldiers;
+	SkillTables skills;
+	HonourTables honours;
+	DeedTables deeds;
+	FoodTables food;
+	CaptiveTables captives;
+	MobTables mobs;
+	WildTables wild;
+	BossTables bosses;
 };
 const Data &data();
 

@@ -9,6 +9,7 @@
 #include "rng.h"
 #include "sim_data.h"
 #include "vision.h"
+#include "wild_probe.h"
 
 using namespace godot;
 
@@ -20,6 +21,8 @@ static void initialize_pixelsim(ModuleInitializationLevel level) {
 	GDREGISTER_CLASS(SimProbe);
 	GDREGISTER_CLASS(Vision);
 	GDREGISTER_CLASS(SimData);
+	GDREGISTER_CLASS(WildProbe);
+	GDREGISTER_CLASS(MobsProbe);
 }
 
 static void uninitialize_pixelsim(ModuleInitializationLevel level) {}
