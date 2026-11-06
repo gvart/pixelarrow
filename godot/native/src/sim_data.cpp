@@ -46,6 +46,14 @@ void SimData::load(const Dictionary &tables) {
 	const Array ids = ws.keys();
 	for (int64_t i = 0; i < ids.size(); i++) d.classes.by_id[String(ids[i]).utf8().get_data()] = sim::stats_of(ws[ids[i]]);
 	ERR_FAIL_COND_MSG(!d.classes.by_id.count("militia"), "war_stats has no militia");
+	// tables: "economy", "holders", "trade", "crafting" (src/war/sim/<name>), "professions", "recipes", "items", "affixes",
+	// "classes" (src/data/<name>), "derived_crafting" (derived/crafting)
+	if (tables.has("economy")) sim::load_economy(tables["economy"], d.economy);
+	if (tables.has("holders")) sim::load_holders(tables["holders"], d.holders);
+	if (tables.has("trade")) sim::load_trade(tables["trade"], d.trade);
+	if (tables.has("professions")) sim::load_professions(tables["professions"], d.professions);
+	if (tables.has("recipes")) sim::load_recipes(tables, d.recipes);
+	if (tables.has("crafting")) sim::load_crafting(tables["crafting"], d.craft);
 	sim::DATA = std::move(d);
 	sim::LOADED = true;
 }

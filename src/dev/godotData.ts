@@ -15,6 +15,10 @@ import { CIV_CLASSES, CLASSES } from '../data/classes';
 import { MOBS, mobClass } from '../war/sim/mobs';
 import type { MobKind } from '../war/types';
 import { warStats } from '../war/sim/classes';
+import { CIV_TOOLS } from '../data/classes';
+import { ITEMS } from '../data/items';
+import { powerPool, warAffixPool, WAR_POWER_IGNORED } from '../data/affixes';
+import { materialGoods, materialOf } from '../data/recipes';
 
 const modules = import.meta.glob(['../data/*.ts', '../war/sim/*.ts', '../war/world/*.ts', '../war/region/*.ts', '!**/*.d.ts'], { eager: true }) as Record<string, Record<string, unknown>>;
 const regionFiles = import.meta.glob('../war/regions/*.json', { eager: true, import: 'default' });
@@ -52,12 +56,21 @@ export function tables(): Table[] {
 /**
  * Tables the TS computes from code once (`derived/<name>`): WAR_STATS, warStats(cls) of every soldier, civilian and mob
  * class, so the C++ sim reads a fresh class's numbers instead of porting computeStats (docs/impl/godot-port.md G-10;
- * an unknown class is militia).
+ * an unknown class is militia). CRAFTABLE: what craftRoll and repairCost (src/data/recipes.ts, src/war/sim/crafting.ts)
+ * read of every item and tool: its tier, its war stat pool and powers, and (items) the first good of one unit of its
+ * material, so the C++ ports neither the affix rules nor materialOf.
  */
 function derived(): Table[] {
   const ids = [...Object.keys(CLASSES), ...Object.keys(CIV_CLASSES), ...(Object.keys(MOBS) as MobKind[]).map(mobClass)];
   const WAR_STATS = Object.fromEntries(ids.map((id) => [id, warStats(id)]));
-  return [{ name: 'derived/war_stats', json: exactJson({ WAR_STATS }), exports: { WAR_STATS: 'object' }, dropped: [] }];
+  const CRAFTABLE = Object.fromEntries([
+    ...Object.values(ITEMS).map((d) => [d.id, { tier: d.tier, pool: warAffixPool(d), powers: powerPool(d).filter((p) => !WAR_POWER_IGNORED.has(p)), main: Object.keys(materialGoods(materialOf(d), 1))[0] }]),
+    ...Object.values(CIV_TOOLS).map((t) => [t.id, { tier: t.tier, pool: warAffixPool('tool'), powers: [], tool: true }]),
+  ]);
+  return [
+    { name: 'derived/war_stats', json: exactJson({ WAR_STATS }), exports: { WAR_STATS: 'object' }, dropped: [] },
+    { name: 'derived/crafting', json: exactJson({ CRAFTABLE }), exports: { CRAFTABLE: 'object' }, dropped: [] },
+  ];
 }
 
 /** `sample`: the middle tile decoded by the TS side, [index, height, terrain, water], so the Godot side checks its unpacking. */

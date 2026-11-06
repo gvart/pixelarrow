@@ -6,11 +6,24 @@
 #include <godot_cpp/variant/dictionary.hpp>
 
 #include "classes.h"
+#include "crafting.h"
+#include "economy.h"
+#include "holders.h"
+#include "professions.h"
+#include "recipes.h"
+#include "trade.h"
 
 namespace sim {
 
 struct Data {
 	ClassTable classes;
+	// economy, holders, trade, crafting (loaded when SimData.load gets their tables)
+	EconomyTables economy;
+	HolderTables holders;
+	TradeTables trade;
+	ProfTables professions;
+	RecipeTables recipes;
+	CraftTables craft;
 };
 const Data &data();
 
