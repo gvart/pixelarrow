@@ -7,6 +7,7 @@
 #include "grid.h"
 #include "probe.h"
 #include "rng.h"
+#include "sim.h"
 #include "sim_data.h"
 #include "stories.h"
 #include "tunnel.h"
@@ -24,6 +25,7 @@ static void initialize_pixelsim(ModuleInitializationLevel level) {
 	GDREGISTER_CLASS(SimData);
 	GDREGISTER_CLASS(Tunnel);
 	GDREGISTER_CLASS(StoryRun);
+	GDREGISTER_CLASS(Sim);
 }
 
 static void uninitialize_pixelsim(ModuleInitializationLevel level) {}
