@@ -6,11 +6,15 @@
 
 #include "goods_probe.h"
 #include "grid.h"
+#include "landmarks.h"
 #include "probe.h"
 #include "rng.h"
 #include "sim.h"
+#include "secrets.h"
 #include "sim_data.h"
+#include "souls.h"
 #include "stories.h"
+#include "town_level.h"
 #include "tunnel.h"
 #include "vision.h"
 #include "wild_probe.h"
@@ -31,6 +35,10 @@ static void initialize_pixelsim(ModuleInitializationLevel level) {
 	GDREGISTER_CLASS(WildProbe);
 	GDREGISTER_CLASS(MobsProbe);
 	GDREGISTER_CLASS(GoodsProbe);
+	GDREGISTER_CLASS(Souls);
+	GDREGISTER_CLASS(Secrets);
+	GDREGISTER_CLASS(Landmarks);
+	GDREGISTER_CLASS(TownLevels);
 }
 
 static void uninitialize_pixelsim(ModuleInitializationLevel level) {}

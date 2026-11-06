@@ -59,6 +59,9 @@ void SimData::load(const Dictionary &tables) {
 	if (tables.has("professions")) sim::load_professions(tables["professions"], d.professions);
 	if (tables.has("recipes")) sim::load_recipes(tables, d.recipes);
 	if (tables.has("crafting")) sim::load_crafting(tables["crafting"], d.craft);
+	sim::load_soul_tables(tables, d.souls);
+	sim::load_town_tables(tables, d.town);
+	sim::load_landmark_tables(tables, d.landmarks);
 	sim::DATA = std::move(d);
 	sim::LOADED = true;
 }

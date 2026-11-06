@@ -8,6 +8,8 @@
 #include "captives.h"
 #include "classes.h"
 #include "item.h"
+#include "landmarks.h"
+#include "souls.h"
 #include "stories.h"
 #include "deeds.h"
 #include "depth.h"
@@ -24,6 +26,7 @@
 #include "professions.h"
 #include "recipes.h"
 #include "trade.h"
+#include "town_level.h"
 
 namespace sim {
 
@@ -49,6 +52,9 @@ struct Data {
 	ProfTables professions;
 	RecipeTables recipes;
 	CraftTables craft;
+	SoulTables souls; // souls.h
+	TownTables town; // town_level.h
+	LandmarkTables landmarks; // landmarks.h
 };
 const Data &data();
 
