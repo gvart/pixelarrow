@@ -11,7 +11,7 @@ const SKIP := {}
 
 
 func test_move_traces_match() -> void:
-	SimData.load({"war_stats": GameData.table("derived/war_stats")["WAR_STATS"]})
+	SimData.load({"war_stats": GameData.table("derived/war_stats")["WAR_STATS"], "src/war/sim/food": GameData.table("src/war/sim/food")})
 	var n := 0
 	for f in DirAccess.get_files_at(DIR):
 		if not (f.begins_with("move-") and f.ends_with(".json")):
@@ -33,7 +33,7 @@ func test_move_traces_match() -> void:
 
 
 func test_move_runs_exact() -> void:
-	SimData.load({"war_stats": GameData.table("derived/war_stats")["WAR_STATS"]})
+	SimData.load({"war_stats": GameData.table("derived/war_stats")["WAR_STATS"], "src/war/sim/food": GameData.table("src/war/sim/food")})
 	var runs: Array = GameData.read_exact(DIR.path_join("vectors/sim.json"))["runs"]
 	check(runs.size() > 0, "no runs in vectors/sim.json")
 	for t in runs:

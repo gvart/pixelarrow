@@ -74,17 +74,6 @@ constexpr int BACK_DIST = 7, BACK_EVERY = 5; // TS BACK
 constexpr double UPHILL = 1.5; // grid.ts UPHILL
 constexpr int SQUAD_MAX = 12; // soldiers.ts SQUAD_MAX (ARMY_MAX)
 
-// food.ts HUNGER, hungerStage, pace: stub until food port
-struct HungerRules {
-	double max = 100, decay = 100.0 / 1800, eatAt = 60, hungry = 40, starving = 15;
-	int every = 10;
-	double drain = 0.002, floor = 0.25;
-	double pace[3] = { 1, 0.9, 0.75 };
-};
-const HungerRules HUNGER{};
-int hungerStage(double sat) { return sat < HUNGER.starving ? 2 : sat < HUNGER.hungry ? 1 : 0; }
-double pace(double sat) { return HUNGER.pace[hungerStage(sat)]; }
-
 // Math.sign
 double sign(double v) { return v > 0 ? 1 : v < 0 ? -1 : v; }
 // (a - b) ** 2 as V8 runs it (x * x)
@@ -968,16 +957,16 @@ void Sim::speedOf(Squad &s) {
 }
 
 void Sim::hungerTick() {
-	const double sec = HUNGER.every * DT;
+	const double sec = data().food.HUNGER.every * DT;
 	for (Unit *up : units) {
 		Unit &u = *up;
 		if (!u.alive || u.squad->team == MOB_TEAM || u.squad->team == NEUTRAL_TEAM) continue;
-		const int was = hungerStage(u.sat);
+		const int was = hunger_stage(u.sat);
 		// stub until townLevel port: perkAt(...).hunger is 1 with no towns
-		u.sat = std::max(0.0, u.sat - HUNGER.decay * sec * 1);
+		u.sat = std::max(0.0, u.sat - data().food.HUNGER.decay * sec * 1);
 		// stub until works and holders ports: no store near and no packs (storeNear null, refill and biteFrom do nothing)
-		const int now = hungerStage(u.sat);
-		if (now == 2 && u.hp > u.maxHp * HUNGER.floor) u.hp = std::max(u.maxHp * HUNGER.floor, u.hp - u.maxHp * HUNGER.drain * sec);
+		const int now = hunger_stage(u.sat);
+		if (now == 2 && u.hp > u.maxHp * data().food.HUNGER.floor) u.hp = std::max(u.maxHp * data().food.HUNGER.floor, u.hp - u.maxHp * data().food.HUNGER.drain * sec);
 		if (now != was) speedOf(*u.squad);
 	}
 }
@@ -1027,7 +1016,7 @@ int Sim::spawn_squad(const std::string &owner, int team, const std::string &cls,
 		u->wx = px, u->wy = py;
 		u->best = INF;
 		u->ox = px, u->oy = py;
-		u->sat = HUNGER.max;
+		u->sat = data().food.HUNGER.max;
 		u->bx = px, u->by = py;
 		// stub until civilians port: setRates and the civilian job (soldiers only so far)
 		units.push_back(u);
@@ -1059,7 +1048,7 @@ void Sim::step() {
 	// stub until civilians port: civScan (no civilians)
 	if (tick % SCAN == 0) workScan();
 	// stub until works port: staffScan; until civilians port: civTick
-	if (tick % HUNGER.every == 0) hungerTick();
+	if (tick % int(data().food.HUNGER.every) == 0) hungerTick();
 	// stub until depth port: riseTick (nobody down)
 	// stub until souls, mobs, roam, secrets, bosses, prebuilt (towns), townLevel and landmarks ports: their ticks, which
 	// do nothing on a map where none of their things were spawned
