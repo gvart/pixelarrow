@@ -26,6 +26,7 @@
 #include "holders.h"
 #include "professions.h"
 #include "recipes.h"
+#include "roam.h"
 #include "trade.h"
 #include "town_level.h"
 
@@ -57,6 +58,7 @@ struct Data {
 	SoulTables souls; // souls.h
 	TownTables town; // town_level.h
 	LandmarkTables landmarks; // landmarks.h
+	RoamTables roam; // roam.h
 };
 const Data &data();
 
