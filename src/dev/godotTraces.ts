@@ -8,7 +8,7 @@ import { SCENARIOS, type Scenario } from '../war/scenarios';
 import { applyScenario, headlessHost, stepSim } from '../war/scenarios/run';
 import { createSim } from '../war/sim';
 import { createBots } from '../war/sim/bots';
-import type { RegionData, Snapshot } from '../war/types';
+import type { RegionData, Snapshot, WarBuildSim } from '../war/types';
 
 const files = import.meta.glob('../war/regions/*.json', { eager: true, import: 'default' });
 const parsed = new Map<string, RegionData>();
@@ -32,18 +32,53 @@ const digest = (s: Snapshot) => ({
 
 export const CAP = 40, TICKS = 50, EVERY = 10;
 
-export interface Trace { id: string; region: string; seed: number; cap: number; frames: ReturnType<typeof digest>[] }
+/** A setup call on the sim: [method, ...args] (trailing undefined args dropped). */
+export type SetupOp = [string, ...unknown[]];
+export interface Trace { id: string; region: string; seed: number; cap: number; setup: SetupOp[]; frames: ReturnType<typeof digest>[] }
 
-export function trace(sc: Scenario): Trace {
-  const seed = sc.seed ?? 1, sim = createSim(regionOf(sc), seed), bots = createBots(sim);
-  applyScenario(headlessHost(sim, bots, CAP), sc);
-  const frames = [digest(sim.snapshot())];
-  for (let t = 1; t <= TICKS; t++) {
-    stepSim(sim, bots);
-    if (t % EVERY === 0) frames.push(digest(sim.snapshot()));
-  }
-  return { id: sc.id, region: sc.region ?? 'test-ridge', seed, cap: CAP, frames };
+/** The sim calls that change its state while a scenario is applied (snapshot reads are left out). */
+const SETUP_CALLS = ['spawnSquad', 'order', 'step', 'claim', 'addStock', 'finishBridges', 'spawnCart', 'spawnMobs', 'spawnRoam', 'spawnSoul', 'setSatiety', 'hurtBoss'] as const;
+
+/**
+ * Records the outermost SETUP_CALLS made on `sim` into `ops` (a call the sim makes on itself, such as a mob spawn's
+ * spawnSquad, is not recorded), so the Godot sim can replay the setup op for op. Returns the undo.
+ */
+function record(sim: WarBuildSim, ops: SetupOp[]): () => void {
+  const api = sim as unknown as Record<string, (...a: unknown[]) => unknown>;
+  const saved = SETUP_CALLS.map((n) => api[n]);
+  let depth = 0;
+  SETUP_CALLS.forEach((n, i) => {
+    api[n] = (...a: unknown[]) => {
+      if (!depth) {
+        while (a.length && a[a.length - 1] === undefined) a.pop();
+        ops.push([n, ...a.map((v) => (v && typeof v === 'object' ? structuredClone(v) : v))]);
+      }
+      depth++;
+      try {
+        return saved[i](...a);
+      } finally {
+        depth--;
+      }
+    };
+  });
+  return () => SETUP_CALLS.forEach((n, i) => (api[n] = saved[i]));
 }
+
+/** Scenario sc applied (its setup recorded) and played `ticks` ticks, digested by `dig` at the start and every `every` ticks. */
+export function play<D>(sc: Scenario, ticks: number, every: number, dig: (s: Snapshot) => D) {
+  const seed = sc.seed ?? 1, sim = createSim(regionOf(sc), seed), bots = createBots(sim), setup: SetupOp[] = [];
+  const undo = record(sim, setup);
+  applyScenario(headlessHost(sim, bots, CAP), sc);
+  undo();
+  const frames = [dig(sim.snapshot())];
+  for (let t = 1; t <= ticks; t++) {
+    stepSim(sim, bots);
+    if (t % every === 0) frames.push(dig(sim.snapshot()));
+  }
+  return { id: sc.id, region: sc.region ?? 'test-ridge', seed, cap: CAP, setup, frames };
+}
+
+export const trace = (sc: Scenario): Trace => play(sc, TICKS, EVERY, digest);
 
 export const scenarioIds = (): string[] => SCENARIOS.map((s) => s.id);
 export const traceById = (id: string): Trace => trace(SCENARIOS.find((s) => s.id === id)!);
