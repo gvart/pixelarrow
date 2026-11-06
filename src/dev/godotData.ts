@@ -1,6 +1,6 @@
 /**
  * Data for the Godot port (docs/impl/godot-port.md P3), so no table is ever copied by hand:
- *  - tables: every JSON-safe value each module of src/data, src/war/sim and src/war/world exports, with exact floats
+ *  - tables: every JSON-safe value each module of src/data, src/war/sim, src/war/world and src/war/region exports, with exact floats
  *    (./godotJson.ts; functions are code to port and are listed in the manifest as `dropped`);
  *  - regions: each parsed region (../war/region/schema.ts parseRegion) as JSON without its three layers, plus the layers
  *    as one little-endian u16 per tile, `height | terrain << 4 | water << 7` (../war/region/compact.ts, terrain index into
@@ -12,7 +12,7 @@ import { parseRegion } from '../war/region/schema';
 import { TERRAIN } from '../war/region/compact';
 import type { RegionData } from '../war/types';
 
-const modules = import.meta.glob(['../data/*.ts', '../war/sim/*.ts', '../war/world/*.ts', '!**/*.d.ts'], { eager: true }) as Record<string, Record<string, unknown>>;
+const modules = import.meta.glob(['../data/*.ts', '../war/sim/*.ts', '../war/world/*.ts', '../war/region/*.ts', '!**/*.d.ts'], { eager: true }) as Record<string, Record<string, unknown>>;
 const regionFiles = import.meta.glob('../war/regions/*.json', { eager: true, import: 'default' });
 
 /** `src/war/sim/economy` for '../war/sim/economy.ts'. */

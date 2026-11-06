@@ -1,5 +1,5 @@
 // Data for the Godot port (docs/impl/godot-port.md P3) into godot/data/ (generated, not committed):
-//   tables/<src path>.json   the JSON-safe exports of src/data, src/war/sim and src/war/world modules
+//   tables/<src path>.json   the JSON-safe exports of src/data, src/war/sim, src/war/world and src/war/region modules
 //   regions/<id>.json        a parsed region without its layers; regions/<id>.cells: one u16 per tile
 //   manifest.json            what was written (export kinds, dropped functions, region sizes and sha256), the Godot tests' check
 // Usage: npm run data:godot      Loads src/dev/godotData.ts through Vite's module runner.
