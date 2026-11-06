@@ -252,7 +252,6 @@ struct StoryTables {
 		double x = 0, y = 0;
 	};
 	std::vector<World> world; // WORLD_REGIONS order (find)
-	std::unordered_map<std::string, double> region_depth; // lookup only
 	struct Template {
 		std::string id, find;
 	};

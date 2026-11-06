@@ -14,8 +14,9 @@ namespace sim {
 static std::string utf8(const godot::String &s) { return s.utf8().get_data(); }
 
 void load_items(const godot::Dictionary &tables, ItemTable &out) {
-	if (tables.has("items")) {
-		const godot::Dictionary items = tables["items"];
+	// ITEMS: "src/data/items" (the whole module, as the sim's tables give it), else "items" (ITEMS itself)
+	if (tables.has("src/data/items") || tables.has("items")) {
+		const godot::Dictionary items = tables.has("src/data/items") ? godot::Dictionary(godot::Dictionary(tables["src/data/items"])["ITEMS"]) : godot::Dictionary(tables["items"]);
 		const godot::Array ids = items.keys();
 		for (int64_t i = 0; i < ids.size(); i++) {
 			const godot::Dictionary d = items[ids[i]];

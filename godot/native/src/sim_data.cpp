@@ -71,6 +71,15 @@ void SimData::load(const Dictionary &tables) {
 	sim::load_encounter_tables(tables, d.encounters);
 	sim::load_prebuilt_tables(tables, d.prebuilt);
 	sim::load_roster_tables(tables, d.roster);
+	if (tables.has("src/data/names")) {
+		const Dictionary names = Dictionary(tables["src/data/names"])["NAMES"];
+		const Array cs = names.keys();
+		for (int64_t i = 0; i < cs.size(); i++) {
+			const Array l = names[cs[i]];
+			std::vector<std::string> &v = d.names[String(cs[i]).utf8().get_data()];
+			for (int64_t k = 0; k < l.size(); k++) v.push_back(String(l[k]).utf8().get_data());
+		}
+	}
 	sim::DATA = std::move(d);
 	sim::LOADED = true;
 }

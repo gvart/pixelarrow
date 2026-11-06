@@ -16,7 +16,7 @@ func _init() -> void:
 		"item_paint": GameData.table("derived/item_paint"),
 		"war_chiefs": GameData.table("src/data/warWild")["WAR_CHIEFS"],
 		"world_regions": GameData.table("src/war/world/regions")["WORLD_REGIONS"],
-		"region_depth": GameData.table("src/war/sim/depth")["REGION_DEPTH"],
+		"src/war/sim/depth": GameData.table("src/war/sim/depth"),
 		"hidden": st["HIDDEN"],
 		"hidden_text": st["HIDDEN_TEXT"],
 	})

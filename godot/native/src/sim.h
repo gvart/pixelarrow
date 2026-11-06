@@ -3,14 +3,16 @@
 // (anchors, slots, steering, separation, lanes), combat (targets, blows, shots, missiles, falls: sim_combat.cpp), the
 // works (works.h: sites, walls, bridges, nodes, stores, hunger at the stores, town levels), the siege engines, carts and
 // tasks (siege.h, sim_siege.cpp), the trade orders and safe zones (sim_trade.cpp), and the civilians and their crafting
-// queues (civilians.h, crafting.h, sim_civ.cpp). Subsystems not wired yet (mobs, bosses, roam, souls...) are stubbed as
-// their empty-map behaviour, each marked `// stub until <module> port`.
+// queues (civilians.h, crafting.h, sim_civ.cpp), the wild (mobs, bosses, roam, souls, secrets, the prebuilt towns and the
+// landmarks: sim_wild.cpp) and the W-53 regroup (sim_regroup.cpp). What is not ported yet (the paths, warStatsOf...) is
+// stubbed as its default, each marked `// stub until <module> port`.
 #pragma once
 
 #include <algorithm>
 #include <array>
 #include <cstdint>
 #include <deque>
+#include <functional>
 #include <limits>
 #include <map>
 #include <memory>
@@ -30,14 +32,23 @@
 #include "civilians.h"
 #include "classes.h"
 #include "crafting.h"
+#include "depth.h"
 #include "formation.h"
 #include "grid.h"
 #include "holders.h"
+#include "landmarks.h"
+#include "mobs.h"
+#include "prebuilt.h"
 #include "rng.h"
+#include "roam.h"
+#include "roster.h"
+#include "secrets.h"
 #include "siege.h"
+#include "souls.h"
 #include "town_level.h"
 #include "trade.h"
 #include "vision.h"
+#include "warlords.h"
 #include "works.h"
 
 namespace sim {
@@ -101,6 +112,8 @@ struct Unit : Worker {
 	std::optional<int> downAt, upAt;
 	std::optional<double> downQ;
 	std::optional<Hold> pack; // M6/W-60: what he carries (TS null: nullopt)
+	std::optional<WarPerson> person; // M5b: the soldier record he was spawned from (TS null: a class spawn)
+	std::optional<std::vector<std::string>> bossHit; // E3: the guardians he struck since the last endFight
 };
 
 // A missile in flight (index.ts Missile; classes.h has the Missile kinds): at a man t (nullptr: at a building b or engine e, or a fire arrow that missed).
@@ -200,7 +213,7 @@ struct Order {
 	double x = 0, y = 0;
 	int target = -1;
 	std::string shape;
-	bool units = false; // a W-53 `units` order (regroup: not ported yet)
+	std::optional<std::vector<int>> units; // a W-53 `units` order: the men gathered for it
 	std::optional<int> team;
 	std::string type; // placeBuilding
 	int rot = 0;
@@ -225,6 +238,19 @@ struct Order {
 	std::string owner;
 	std::optional<std::string> by;
 	Item item;
+	// detach (count, unitIds), merge (into), claimSoul (soul), claimRegion (point), man (unit, act)
+	std::optional<double> count;
+	std::optional<std::vector<int>> unitIds;
+	int into = -1, soul = -1, point = -1, unit = -1;
+	std::string act;
+	// setAccess (owner above: '' undefined), fortify (fort), rebanner (centre), setLiege (owner, to, pct)
+	std::optional<std::string> access;
+	std::optional<double> share, fee;
+	std::string fort;
+	int centre = -1;
+	std::optional<std::string> to_owner; // setLiege `to` (TS null: nullopt)
+	double pct = 0;
+	bool has_owner = false; // setAccess: TS owner given
 };
 
 struct Lanes {
@@ -234,6 +260,12 @@ struct Lanes {
 };
 
 struct Sim;
+struct BossRegion;
+class Bosses;
+struct SimMobHost;
+struct SimBossHost;
+struct SimRoamHost;
+struct SimPreHost;
 
 // A holder as the trade orders see it (index.ts HolderAt).
 struct HolderAt {
@@ -279,6 +311,7 @@ struct SimWorksHost : WorksHost {
 	void fall(const std::vector<int> &tiles) override;
 	void spill(double x, double y, const Hold &hold, bool burnt) override;
 	bool immune(const Building &b) override;
+	double douse(const Building &b) override;
 	void laboured(Worker &u, const Building &b, double secs) override;
 	RepairK repairK(const Building &b) override;
 	std::optional<CartDrop> cartDrop(WorkSquad &s) override;
@@ -301,7 +334,7 @@ struct Sim {
 	Vision vision;
 	double outX = 0, outY = 0;
 	std::vector<Flight> missiles;
-	bool early = false; // W-79: stub until the region port (the sim has no region id for depthOf yet): no early mercy
+	bool early = false; // W-79: depthOf(region) <= EARLY.depth (set in wireWild)
 	int downs = 0;
 	SimWorksHost worksHost;
 	std::unique_ptr<Works> works;
@@ -319,12 +352,67 @@ struct Sim {
 	int nodesAt = -1;
 	std::map<int, std::unordered_set<std::string>> teamNodes; // M5h3: engineer nodes by team (only looked up)
 	std::map<int, std::vector<Item>> loot; // M6c: items picked up per team since the last report (only looked up)
+	// the region's wild (mobs.h), guardians (bosses.h), roaming life (roam.h), souls (souls.h), hidden quests
+	// (secrets.h), pre-built towns (prebuilt.h) and landmark (landmarks.h), wired in sim_wild.cpp
+	uint32_t seed = 1;
+	MobRegion mobRegion;
+	std::unique_ptr<SimMobHost> mobHost;
+	std::unique_ptr<Mobs> mobs;
+	StoryRegion storyRegion;
+	std::vector<SecretSquad> secretSquads; // host.squads as secrets reads them, rebuilt on each read
+	std::unique_ptr<Secrets> secrets;
+	std::unique_ptr<BossRegion> bossRegion;
+	std::unique_ptr<SimBossHost> bossHost;
+	std::unique_ptr<Bosses> bosses;
+	RoamRegion roamRegion;
+	std::unique_ptr<SimRoamHost> roamHost;
+	std::unique_ptr<Roam> roam;
+	std::unique_ptr<WorksPre> worksPre;
+	std::unique_ptr<SimPreHost> preHost;
+	std::unique_ptr<Towns> towns;
+	std::vector<LmPiece> lmPieces; // works.prebuilt() as landmarks reads it, refreshed in place on each read
+	std::vector<LmUnit> lmUnits;
+	LmSquad lmSquad;
+	std::unique_ptr<Landmarks> landmarks;
+	std::vector<SoulMan> soulMen;
+	std::unique_ptr<Souls> souls;
+	// W-60: the gate the server may set (empty: his fighters on this field)
+	std::function<SoulGate(const std::string &owner, const std::string &cls)> soulGate;
+	// M5b: a person's baked stats (TS withPerks(warStatsOf(p), fxOf(owner))); stub until the classes port (warStatsOf,
+	// computeStats): unset, a person fights with his class's fresh numbers
+	std::function<WarStats(const WarPerson &p, const std::string &owner)> bake;
+	std::vector<std::string> slain; // E3: guardians slain since the last endFight
 
-	// region: what the works read of the region (works_region_of)
-	Sim(Grid &g, WorksRegion region, uint32_t seed);
+	// region: what the works read of the region (works_region_of); meta: the region's JSON (Region.meta)
+	Sim(Grid &g, WorksRegion region, const godot::Dictionary &meta, uint32_t seed);
 	~Sim();
-	int spawn_squad(const std::string &owner, int team, const std::string &cls, int count, double x, double y);
+	// persons: M5b one man per person (TS undefined: nullptr)
+	int spawn_squad(const std::string &owner, int team, const std::string &cls, int count, double x, double y, const std::vector<WarPerson> *persons = nullptr);
 	void order(const Order &o) { queue.push_back(o); }
+	// the wild (sim_wild.cpp): spawnMobs, spawnRoam, spawnSoul, hurtBoss, spawnWild, addLair, the wiring of the modules
+	void wireWild(const godot::Dictionary &meta); // createMobs .. createTowns
+	void wireLandmarks(); // createLandmarks (after works.prebuild)
+	void wireSouls(const godot::Dictionary &meta); // createSouls
+	void spawnMobs();
+	void spawnRoam();
+	int spawnSoul(double x, double y, const std::string &cls, double level = 1, const std::string &site = "shrine");
+	void hurtBoss(const std::string &id, double dmg, const std::string &owner = "dev", std::optional<int> part = std::nullopt);
+	int spawnWild(const std::string &owner, const std::string &kind, double count, double x, double y, const SpawnScale &k);
+	void knock(Unit &t, double fx, double fy, double tiles);
+	void mobClaim(int team, double x, double y, double r, std::optional<int> from);
+	bool guarded() const; // landmarks: a guardian of the region not slain nor away
+	void wildTick(); // souls, mobs, roam, secrets, bosses, towns (townLv and landmarks stay in step)
+	// the W-53 regroup and the W-63 turns (sim.cpp), in index.ts order
+	Squad *detach(Squad &s, const std::vector<Unit *> &picked);
+	void join(Squad &s, Squad &t, const std::vector<Unit *> &picked);
+	std::vector<Squad *> regroup(Squad &lead, const std::vector<int> &ids);
+	void moveMen(Squad &s, Squad &t, const std::vector<Unit *> &picked); // TS move
+	bool turnSquad(int id, int team);
+	void standDown(const std::vector<int> &ids, int team);
+	std::vector<int> rebanner(int centre, int team);
+	void capture(int from, int team, double x, double y, double r);
+	void manOrder(Squad &s, int id, const std::string &act);
+	void setLiege(const std::string &owner, const std::optional<std::string> &to, double pct);
 	void step();
 
 	// helpers, in index.ts order
@@ -371,7 +459,12 @@ struct Sim {
 	void riseTick();
 	void hurt(Unit &t, double dmg, Unit *by = nullptr);
 	bool reachable(Unit &u, Unit &t) const;
-	bool atFord(double, double) const { return false; } // stub until bosses port: nothing is aloft
+	bool atFord(double x, double y) const;
+	// u.person?.hero.perks (none: a class spawn)
+	static const std::vector<std::string> &perksOf(const Unit &u) {
+		static const std::vector<std::string> NONE;
+		return u.person ? u.person->hero.perks : NONE;
+	}
 	bool safeBuilding(int id) const;
 	void hides(Unit &t);
 	void objective(Squad &s, const char *what);
@@ -488,6 +581,11 @@ public:
 	static Ref<Sim> create(const Ref<Grid> &grid, const Dictionary &meta, const PackedByteArray &cells, int64_t seed);
 	int spawn_squad(const String &owner, int team, const String &cls, int count, double x, double y);
 	void order(const Dictionary &o);
+	// The scenario's wild (the trace's 'spawnMobs', 'spawnRoam', 'spawnSoul' and 'hurtBoss' ops).
+	void spawn_mobs() { s->spawnMobs(); }
+	void spawn_roam() { s->spawnRoam(); }
+	int spawn_soul(double x, double y, const String &cls, double level, const String &site);
+	void hurt_boss(const String &id, double dmg, const String &owner, const Variant &part);
 	// A scenario's cart (the trace's 'spawnCart' op: run.ts spawnCart), empty and idle; its id.
 	int spawn_cart(int team, const String &owner, const String &type, double x, double y);
 	void step();

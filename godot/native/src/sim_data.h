@@ -73,6 +73,7 @@ struct Data {
 	EncTables encounters; // encounters.h (ENC, ENCOUNTERS)
 	PrebuiltTables prebuilt; // prebuilt.h
 	RosterTables roster; // roster.h
+	std::map<std::string, std::vector<std::string>> names; // NAMES by culture (src/data/names, freeName), lookup only
 };
 const Data &data();
 

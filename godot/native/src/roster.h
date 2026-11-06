@@ -143,6 +143,7 @@ WarPerson grant_xp(const WarPerson &p, double xp);
 Hero hero_from(const godot::Dictionary &d);
 godot::Dictionary hero_to(const Hero &h);
 WarPerson war_person_from(const godot::Dictionary &d);
+Item item_from(const godot::Dictionary &d);
 godot::Dictionary war_person_to(const WarPerson &p);
 
 } // namespace sim

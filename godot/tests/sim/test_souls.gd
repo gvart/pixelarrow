@@ -13,7 +13,7 @@ func _init() -> void:
 	SimData.load({
 		"war_stats": GameData.table("derived/war_stats")["WAR_STATS"],
 		"souls": GameData.table("src/war/sim/souls"),
-		"region_depth": GameData.table("src/war/sim/depth")["REGION_DEPTH"],
+		"src/war/sim/depth": GameData.table("src/war/sim/depth"),
 	})
 
 

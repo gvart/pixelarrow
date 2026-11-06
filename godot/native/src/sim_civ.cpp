@@ -55,8 +55,7 @@ double Sim::civRoom(int team) {
 	int n = siege->carts(std::nullopt, team); // M6b: carts are in the civilian quota
 	for (Unit *u : civs)
 		if (u->alive && u->squad->team == team) n++;
-	// stub until prebuilt port: towns.population(team).cap (no towns: 0)
-	return civ_room(false, double(teams.size()), n, 0);
+	return civ_room(false, double(teams.size()), n, towns->population(team).cap); // M7a: a town's houses feed more
 }
 
 bool Sim::safeAt(int team, double x, double y) {
@@ -166,24 +165,47 @@ bool Sim::civJobDone(Unit &u, int team, double bx, double by) {
 			works->add_at(team, bx, by, "bronze", C().SMITH.bronze);
 			return true;
 		}
-		// no ore: mend the most worn item of a man of his team near the forge (stub until roster port: no persons, so
-		// no man wears kit to mend)
-		return false;
+		// no ore: mend the most worn item of a man of his team near the forge
+		const auto wornOf = [](const WarPerson &p) {
+			CivEquip eq;
+			for (const auto &[slot, it] : p.hero.equip) eq.push_back({ slot, it });
+			return wornest(eq);
+		};
+		Unit *best = nullptr;
+		double bc = 100;
+		for (Unit *o : units) {
+			if (!o->alive || !o->person || o->squad->team != team || sq(o->x - u.x) + sq(o->y - u.y) > C().SMITH.repairR * C().SMITH.repairR) continue;
+			const auto w = wornOf(*o->person);
+			if (w && w->second.cond < bc) bc = w->second.cond, best = o;
+		}
+		if (!best) return false;
+		const auto w = *wornOf(*best->person);
+		for (auto &[slot, it] : best->person->hero.equip)
+			if (slot == w.first) it.cond = std::min(100.0, w.second.cond + C().SMITH.repair);
+		best->repaired = true;
+		return true;
 	}
 	return false;
 }
 
 Crafter Sim::crafter(Unit &u) const {
-	// stub until roster port: persons (a class spawn: level 1, no perks, no tool, no name)
+	const Hero *h = u.person ? &u.person->hero : nullptr;
+	const Item *tool = nullptr;
+	if (h)
+		for (const auto &[slot, it] : h->equip)
+			if (slot == "weapon") tool = &it;
 	Crafter c;
 	c.id = u.id;
 	if (!u.civ.empty()) c.prof = u.civ;
-	c.level = 1;
+	c.level = h ? int(h->level) : 1;
+	if (h) c.perks = h->perks;
+	if (tool) c.tool = *tool;
 	c.work = u.st.work < 0 ? 1 : u.st.work;
-	c.bountiful = tool_mods(nullptr).bountiful;
+	c.bountiful = tool_mods(tool).bountiful;
 	c.owner = u.squad->owner;
 	c.team = u.squad->team;
-	c.name = "civilian";
+	c.name = h ? h->name : "civilian";
+	if (u.person) c.pid = u.person->id;
 	return c;
 }
 
@@ -210,8 +232,7 @@ void Sim::civTick() {
 		Unit &u = *up;
 		u.civAt = false;
 		Squad &s = *u.squad;
-		// stub until roster port: persons (no perks, so heldNodes of none)
-		if (u.alive && u.civ == "physician" && held_nodes("physician", {}).count("battleDresser")) dresser.insert(s.team);
+		if (u.alive && u.civ == "physician" && held_nodes("physician", perksOf(u)).count("battleDresser")) dresser.insert(s.team);
 		if (!u.alive || s.flee || s.order != "civWork") continue;
 		const Building *b = works->piece(s.work);
 		if (!b || b->cancelled || !works->may_use(*b, s.owner, s.team) || b->state == "destroyed" || works->dist2(s.work, u.x, u.y) > c.CIV.at * c.CIV.at) continue;
@@ -253,8 +274,7 @@ void Sim::civTick() {
 			// the hurt of his team near him heal (fed men faster); every PATIENT_HP healed is a job
 			for (Unit *o : units) {
 				if (!o->alive || o->hp >= o->maxHp || o->squad->team != s.team || works->dist2(s.work, o->x, o->y) > c.PHYSICIAN.r * c.PHYSICIAN.r || (anySafe && inSafe(o->x, o->y))) continue; // M6d: no healing in a safe zone
-				// stub until prebuilt port: no blessed squads (BLESS.heal)
-				const double add = std::min(o->maxHp - o->hp, o->maxHp * c.PHYSICIAN.heal * sec * w * (o->squad->fedUntil > tick ? o->squad->fedHeal : 1) * 1);
+				const double add = std::min(o->maxHp - o->hp, o->maxHp * c.PHYSICIAN.heal * sec * w * (o->squad->fedUntil > tick ? o->squad->fedHeal : 1) * (towns->blessed(o->squad->id) ? data().prebuilt.BLESS.heal : 1));
 				o->hp += add;
 				u.civT += add;
 			}
@@ -294,7 +314,7 @@ void Sim::civTick() {
 		}
 		if (!cook || s.fedUntil > tick) continue;
 		// squads near a cook at work eat a dish (or a ration) a man, if the team has it for all
-		const bool longer = held_nodes("cook", {}).count("headCook") > 0; // stub until roster port: no perks
+		const bool longer = held_nodes("cook", perksOf(*cook)).count("headCook") > 0;
 		const char *dish = nullptr;
 		for (const char *d : DISH_PREF)
 			if (crafting->use(s.team, d, s.alive)) {

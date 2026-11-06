@@ -9,16 +9,7 @@ extends TestCase
 const DIR := "res://tests/golden"
 const TOL := 0.00005 + 1e-9
 const Wild := preload("res://tests/sim/wild.gd")
-const LAIRS := "spawnMobs: mobs (lairs) not wired into Sim yet, bosses.spawn with them: bosses not ported yet"
-const SKIP := {
-	"limit-soul": "spawnSoul: souls not wired into Sim yet",
-	"neutral-clear": LAIRS, "eco-hunt": LAIRS, "trailer-hunt": LAIRS,
-	"boss-brontes": LAIRS, "boss-drakon-late": LAIRS, "boss-erymanthian-boar": LAIRS, "boss-griffin": LAIRS, "boss-grove-queen": LAIRS,
-	"boss-maenad-queen": LAIRS, "boss-minotaur": LAIRS, "boss-moor-bear": LAIRS, "boss-river-god": LAIRS, "boss-savanna-lion": LAIRS,
-	"landmark-citadel": LAIRS, "landmark-deadcity": LAIRS, "landmark-forge": LAIRS, "landmark-hold": LAIRS, "landmark-temple": LAIRS,
-	"landmark-watchtower": LAIRS,
-	"world-fill": "spawnMobs and spawnRoam: mobs not wired into Sim yet, roam not ported yet",
-}
+const SKIP := {}
 
 
 func test_traces_match() -> void:
@@ -67,6 +58,19 @@ func _load() -> void:
 		t[n] = GameData.table("src/data/" + n)
 	t["derived_crafting"] = GameData.table("derived/crafting")
 	t["siege"] = GameData.table("src/war/sim/siege")
+	# the wild: souls, landmarks, roam, bosses (and their loot), the prebuilt towns, the roster and names, the stories
+	for n in ["src/war/sim/bosses", "src/war/sim/roam", "src/war/sim/prebuilt", "src/war/sim/roster", "src/data/names"]:
+		t[n] = GameData.table(n)
+	t["souls"] = GameData.table("src/war/sim/souls")
+	t["landmarks"] = GameData.table("src/war/sim/landmarks")
+	t["war_landmarks"] = GameData.table("src/data/warLandmarks")
+	t["item_paint"] = GameData.table("derived/item_paint")
+	t["derived_boss_loot"] = GameData.table("derived/boss_loot")
+	var st := GameData.table("src/data/warStories")
+	t["war_chiefs"] = GameData.table("src/data/warWild")["WAR_CHIEFS"]
+	t["world_regions"] = GameData.table("src/war/world/regions")["WORLD_REGIONS"]
+	t["hidden"] = st["HIDDEN"]
+	t["hidden_text"] = st["HIDDEN_TEXT"]
 	# the civilian classes, tools and affix steps (civilians.h)
 	for n in ["src/data/classes", "src/data/items", "src/data/affixes"]:
 		t[n] = GameData.table(n)
@@ -100,6 +104,14 @@ func _replay(t: Dictionary, tol: float) -> int:
 				sim.finish_bridges(int(op[1]))
 			"setSatiety":
 				sim.set_satiety(op[1], float(op[2]))
+			"spawnMobs":
+				sim.spawn_mobs()
+			"spawnRoam":
+				sim.spawn_roam()
+			"spawnSoul":
+				sim.spawn_soul(float(op[1]), float(op[2]), op[3], float(op[4]) if op.size() > 4 else 1.0, op[5] if op.size() > 5 else "shrine")
+			"hurtBoss":
+				sim.hurt_boss(op[1], float(op[2]), op[3] if op.size() > 3 else "dev", op[4] if op.size() > 4 else null)
 			"feed":
 				sim.feed(int(op[1]), op[2], op[3], float(op[4]))
 			"step":

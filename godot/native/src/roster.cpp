@@ -457,7 +457,7 @@ WarPerson grant_xp(const WarPerson &p, double xp) {
 
 static std::optional<std::string> ostr(const Dictionary &d, const char *k) { return has(d, k) ? std::optional<std::string>(utf8(d[k])) : std::nullopt; }
 
-static Item item_from(const Dictionary &d) {
+Item item_from(const Dictionary &d) {
 	Item it;
 	it.uid = utf8(d["uid"]);
 	it.def = utf8(d["def"]);

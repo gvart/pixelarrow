@@ -169,9 +169,8 @@ void SimSiegeHost::wreck(const SiegeEngine &e, bool burnt) { s->piles->drop(e.x,
 
 bool SimSiegeHost::crewNode(int crew, const std::string &node) {
 	if (crew < 0 || size_t(crew) >= s->squads.size()) return false;
-	// stub until roster port: persons (no perks, so heldNodes of none)
 	for (Unit *u : s->squads[crew]->units)
-		if (u->alive && u->civ == "merchant" && held_nodes("merchant", {}).count(node)) return true;
+		if (u->alive && u->civ == "merchant" && held_nodes("merchant", Sim::perksOf(*u)).count(node)) return true;
 	return false;
 }
 
@@ -184,7 +183,7 @@ const std::unordered_set<std::string> &Sim::engineerNodes(int team) {
 		for (Unit *u : units) {
 			if (!u->alive || u->civ != "engineer") continue;
 			std::unordered_set<std::string> &set = teamNodes[u->squad->team];
-			for (const std::string &n : held_nodes("engineer", {})) set.insert(n); // stub until roster port: no persons' perks
+			for (const std::string &n : held_nodes("engineer", perksOf(*u))) set.insert(n);
 		}
 	}
 	const auto it = teamNodes.find(team);
@@ -208,8 +207,7 @@ void Sim::hides(Unit &t) {
 	std::set<int> got; // only looked up
 	for (Unit *c : civs) {
 		const int team = c->squad->team;
-		// stub until roster port: persons (no perks, so heldNodes of none)
-		if (!c->alive || c->civ != "forager" || got.count(team) || !held_nodes("forager", {}).count("hunter") || sq(c->x - t.x) + sq(c->y - t.y) > HUNT.r * HUNT.r) continue;
+		if (!c->alive || c->civ != "forager" || got.count(team) || !held_nodes("forager", perksOf(*c)).count("hunter") || sq(c->x - t.x) + sq(c->y - t.y) > HUNT.r * HUNT.r) continue;
 		got.insert(team);
 		works->add_at(team, c->x, c->y, "hides", HUNT.hides);
 	}

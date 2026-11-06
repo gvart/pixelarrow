@@ -23,6 +23,8 @@ constexpr double SIEGE_NEAR = 12;
 constexpr double STAND_OFF = 22;
 constexpr double DEFEND_R = 24;
 constexpr double ARCHER_R = 16;
+constexpr double ACTIVE_MELEE = 4; // M5c: fire the squad active with a foe squad's centre this near
+constexpr double ACTIVE_MISSILE = 14; // ... a volley this near
 constexpr double BRAZIER_BACK = 1.5;
 constexpr double BRAZIER_EVERY = 30;
 constexpr int MEMORY = 100;
@@ -118,6 +120,8 @@ void Bots::tick() {
 Bots::Snap Bots::snapshot() const {
 	Snap s;
 	s.tick = sim->tick;
+	for (const Squad *q : sim->squads)
+		s.acts.push_back(q->act.empty() ? std::nullopt : std::optional<Act>(Act{ q->act, std::max(0.0, q->actReady - sim->tick), std::max(0.0, q->actUntil - sim->tick) }));
 	s.units.reserve(sim->units.size());
 	for (const Unit *u : sim->units) {
 		Man m;
@@ -182,6 +186,7 @@ Bots::View Bots::viewOf(const Snap &snap, const std::vector<Centre> &cs, int tea
 	std::set<int> seen; // looked up by key only
 	View v;
 	v.snap.tick = snap.tick;
+	v.snap.acts = snap.acts;
 	for (const Man &u : snap.units) {
 		if (cs[u.squad].team == team) {
 			v.snap.units.push_back(u);
@@ -793,8 +798,15 @@ void Bots::think() {
 			}
 			if (bot.phase != "via") attackMove(id, bot, me, cs, b.x, b.y);
 		} else if (b.kind == "hold") holdAt(id, bot, me, cs, b.x, b.y, b.has_radius ? b.radius : HOLD_RADIUS);
-		// stub until skills and roster ports: useActive (class spawns hold no squad active)
+		useActive(id, bot, me, cs, snap);
 	}
+}
+
+// M5c: a fighting bot fires its squad active once a foe is close (missiles: in bow range).
+void Bots::useActive(int id, const Bot &bot, const Centre &me, const std::vector<Centre> &cs, const Snap &snap) {
+	const std::optional<Act> *a = size_t(id) < snap.acts.size() ? &snap.acts[id] : nullptr;
+	if (!a || !*a || (*a)->ready > 0 || (*a)->on > 0 || (bot.phase != "fight" && bot.phase != "suppress" && bot.phase != "walls" && bot.phase != "in")) return;
+	if (nearestEnemy(cs, me.team, me.x, me.y, (*a)->skill == "volley" ? ACTIVE_MISSILE : ACTIVE_MELEE) >= 0) sim->order(orderOf("active", id));
 }
 
 } // namespace sim

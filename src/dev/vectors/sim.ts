@@ -44,8 +44,12 @@ const CIV_SIEGE_TRADE = new Set([
   'siege-ladders', 'caravan',
 ]);
 
+/** The wild: lairs and their mobs, guardians and their landmarks, roaming folk, souls (the P1 traces' cap). */
+const WILD = new Set(['limit-soul', 'neutral-clear', 'eco-hunt', 'trailer-hunt', 'world-fill']);
+const wild = (id: string) => WILD.has(id) || id.startsWith('boss-') || id.startsWith('landmark-');
+
 export const vectors = () => ({
-  runs: SCENARIOS.filter((s) => s.id.startsWith('move-') || s.id.startsWith('mob-') || FIGHTS.has(s.id) || WORKS.has(s.id) || CIV_SIEGE_TRADE.has(s.id)).map((s) =>
+  runs: SCENARIOS.filter((s) => s.id.startsWith('move-') || s.id.startsWith('mob-') || FIGHTS.has(s.id) || WORKS.has(s.id) || CIV_SIEGE_TRADE.has(s.id) || wild(s.id)).map((s) =>
     play(s, 600, 25, exact, WORKS.has(s.id) || CIV_SIEGE_TRADE.has(s.id) ? WORKS_CAP : undefined),
   ),
 });

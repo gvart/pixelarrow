@@ -75,9 +75,15 @@ struct Bots {
 		double x = 0, y = 0;
 		bool burning = false;
 	};
+	// What they read of a SquadSnap's active (M5c): its skill, ticks till ready, ticks of buff left.
+	struct Act {
+		std::string skill;
+		double ready = 0, on = 0;
+	};
 	// A snapshot as one team's bots see it.
 	struct Snap {
 		int tick = 0;
+		std::vector<std::optional<Act>> acts; // by squad id (nullopt: no active)
 		std::vector<Man> units;
 		std::vector<Bld> buildings;
 		std::vector<Eng> sieges;
@@ -106,6 +112,7 @@ private:
 	void send(Bot &bot, const std::string &key, int squad, const std::string &kind, double x, double y, int target);
 	void send(Bot &bot, const std::string &key, const Order &o);
 	int nearestEnemy(const std::vector<Centre> &cs, int team, double x, double y, double r) const;
+	void useActive(int id, const Bot &bot, const Centre &me, const std::vector<Centre> &cs, const Snap &snap);
 	void attackMove(int id, Bot &bot, const Centre &me, const std::vector<Centre> &cs, double x, double y);
 	const Eng *engineFor(int id, Bot &bot, const Centre &me, const Snap &snap, const std::string &type);
 	const Eng *designFor(int id, Bot &bot, const Centre &me, const Snap &snap, const std::string &base, const std::string &want);

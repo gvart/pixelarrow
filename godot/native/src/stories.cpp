@@ -6,6 +6,7 @@
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/core/error_macros.hpp>
 
+#include "depth.h"
 #include "js_math.h"
 #include "rng.h"
 #include "sim_data.h"
@@ -367,11 +368,6 @@ void load_story_tables(const Dictionary &tables, StoryTables &out) {
 			out.world.push_back({ utf8(w["id"]), utf8(w["biome"]), pos["x"], pos["y"] });
 		}
 	}
-	if (tables.has("region_depth")) {
-		const Dictionary d = tables["region_depth"];
-		const Array ks = d.keys();
-		for (int64_t i = 0; i < ks.size(); i++) out.region_depth[utf8(ks[i])] = d[ks[i]];
-	}
 	if (tables.has("hidden")) {
 		const Array a = tables["hidden"];
 		for (int64_t i = 0; i < a.size(); i++) {
@@ -407,14 +403,11 @@ std::string land_of(const std::string &id) {
 }
 
 double depth_of(const Dictionary &meta) {
-	double d = 1;
-	if (has(meta, "depth")) d = meta["depth"];
-	else {
-		const auto &rd = data().stories.region_depth;
-		const auto it = rd.find(utf8(meta["id"]));
-		if (it != rd.end()) d = it->second;
-	}
-	return std::max(0.0, std::min(4.0, d));
+	DepthRegion r;
+	r.id = utf8(meta["id"]);
+	r.has_depth = has(meta, "depth");
+	if (r.has_depth) r.depth = meta["depth"];
+	return depth_of(r);
 }
 
 struct HiddenCtx {

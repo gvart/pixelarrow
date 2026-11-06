@@ -8,6 +8,7 @@
 #include "js_math.h"
 #include "sim.h"
 #include "sim_data.h"
+#include "sim_wild.h"
 
 namespace sim {
 
@@ -32,9 +33,9 @@ int flag(const char *name) { return int(data().skills.F.at(name)); }
 } // namespace
 
 void Sim::setRates(Unit &u) {
-	// gather and build speed by job and work rate (forager, engineer), the M5h node effects (stub until roster port: no
-	// persons, so no perks), the demigod's quick hands (stub until the paths port: NO_PATH, no work perk)
-	const CivRates r = civ_rates(u.civ, u.st.work < 0 ? std::nullopt : std::optional<double>(u.st.work), {}, 0);
+	// gather and build speed by job and work rate (forager, engineer), the M5h node effects, the demigod's quick hands
+	// (stub until the paths port: NO_PATH, no work perk)
+	const CivRates r = civ_rates(u.civ, u.st.work < 0 ? std::nullopt : std::optional<double>(u.st.work), perksOf(u), 0);
 	u.wrate = r.wrate;
 	u.brate = r.brate;
 	u.gmul.reset();
@@ -95,7 +96,14 @@ void Sim::hurt(Unit &t, double dmg, Unit *by) {
 	if (by) {
 		by->dealt += std::min(d, t.hp);
 		by->engaged = t.engaged = true;
-		// stub until bosses port: the killers' list and a slayer's deed (no guardians: boss -1)
+		if (t.boss >= 0) bosses->hit(t.boss, by->squad->owner, std::min(d, t.hp)); // M7d: the killers' list
+		// E3: a slayer's deed
+		const std::string *bid = t.boss >= 0 && by->person && size_t(t.boss) < bossRegion->guardians.size() ? &bossRegion->guardians[t.boss].boss : nullptr;
+		if (bid && !bid->empty() && !(by->bossHit && std::find(by->bossHit->begin(), by->bossHit->end(), *bid) != by->bossHit->end())) {
+			if (!by->bossHit) by->bossHit.emplace();
+			by->bossHit->push_back(*bid);
+		}
+		if (by->boss >= 0) bosses->struck(by->boss);
 	}
 	t.hp -= d;
 	if (t.hp > 0) return;
@@ -115,24 +123,40 @@ void Sim::hurt(Unit &t, double dmg, Unit *by) {
 		by->kills++;
 		return;
 	}
-	// M5h: a Battle Dresser's bandage counts double; stub until prebuilt port: no blessed squads
+	// M5d: by his END (docs/WAR.md "Lifecycle"); M5f: a physician near; M5h: a bandage of his squad (a Battle Dresser's
+	// counts double), venom
 	const int bandage = t.squad->bandages > 0 ? (t.squad->bandages--, dresser.count(t.squad->team) ? 2 : 1) : 0;
-	t.wounded = rng.next() < fall_share(t.st.ws + 0, physicianNear(t), bandage, t.venomUntil > tick);
+	t.wounded = rng.next() < fall_share(t.st.ws + (towns->blessed(t.squad->id) ? data().prebuilt.BLESS.share : 0), physicianNear(t), bandage, t.venomUntil > tick);
 	if (t.squad->team == MOB_TEAM && t.beast) hides(t);
 	t.squad->alive--;
 	addReslot(*t.squad);
 	if (by) by->kills++;
-	// the view's 'fall' note and W-221's dropped goods: no event log yet; stub until souls port: souls.fell
-	// M6c: what he carried goes to a pile (stub until roster port: no persons, so no worn kit)
+	// the view's 'fall' note and W-221's dropped goods: no event log yet
+	if (t.squad->team != MOB_TEAM && t.squad->team != NEUTRAL_TEAM && t.civ.empty()) souls->fell(t.x, t.y, t.cls); // W-65: nor where roaming folk fall // W-60: where many fall, souls wake
+	// M6c (docs/WAR.md "Loot piles"): what he carried goes to a pile; the killed leave their worn kit too, worn by PILE.wear
 	std::vector<Lot> lots;
 	if (t.pack)
 		for (const Lot &l : t.pack->lots)
 			if (l.n > 1e-9) lots.push_back(l);
 	if (!t.carry.empty() && t.load > 0 && t.wfor < 0) lots.push_back(Lot{ t.carry, t.load, region.id, std::nullopt });
 	std::vector<Item> items = t.pack ? t.pack->items : std::vector<Item>{};
+	// E3: his worn kit falls apart from his pack, his owner's alone for CLAIM_TICKS (then anyone's)
+	std::vector<Item> kit;
+	if (!t.wounded && t.person) {
+		for (const auto &[slot, it] : t.person->hero.equip) {
+			Item w = it;
+			w.cond = std::max(0.0, it.cond - data().trade.PILE.wear);
+			kit.push_back(w);
+		}
+		t.person->hero.equip.clear();
+	}
 	if (!t.carry.empty() && t.wfor < 0) t.carry.clear(), t.load = 0;
 	t.pack.reset();
 	piles->drop(t.x, t.y, lots, items, tick);
+	if (!kit.empty()) {
+		const PileClaim claim{ t.squad->owner, t.person->hero.name, double(tick) + data().trade.CLAIM_TICKS };
+		piles->drop(t.x, t.y, {}, kit, tick, 0, &claim);
+	}
 }
 
 bool Sim::reachable(Unit &u, Unit &t) const { return std::abs(double(hAt(u.x, u.y)) - double(hAt(t.x, t.y))) <= 1 && grid->line_clear(u.x, u.y, t.x, t.y); }
