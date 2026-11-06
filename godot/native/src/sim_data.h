@@ -22,6 +22,7 @@
 #include "war_bosses.h"
 #include "war_wild.h"
 #include "crafting.h"
+#include "encounters.h"
 #include "economy.h"
 #include "holders.h"
 #include "professions.h"
@@ -61,6 +62,7 @@ struct Data {
 	LandmarkTables landmarks; // landmarks.h
 	WorksTables works; // FIRE, FORT (src/war/sim/works)
 	RoamTables roam; // roam.h
+	EncTables encounters; // encounters.h (ENC, ENCOUNTERS)
 };
 const Data &data();
 

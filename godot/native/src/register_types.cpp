@@ -4,6 +4,7 @@
 #include <godot_cpp/core/defs.hpp>
 #include <godot_cpp/godot.hpp>
 
+#include "encounters.h"
 #include "goods_probe.h"
 #include "grid.h"
 #include "landmarks.h"
@@ -44,6 +45,7 @@ static void initialize_pixelsim(ModuleInitializationLevel level) {
 	GDREGISTER_CLASS(Landmarks);
 	GDREGISTER_CLASS(TownLevels);
 	GDREGISTER_CLASS(WorksProbe);
+	GDREGISTER_CLASS(EncounterRun);
 }
 
 static void uninitialize_pixelsim(ModuleInitializationLevel level) {}

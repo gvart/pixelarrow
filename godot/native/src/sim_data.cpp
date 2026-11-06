@@ -64,6 +64,7 @@ void SimData::load(const Dictionary &tables) {
 	sim::load_landmark_tables(tables, d.landmarks);
 	if (tables.has("works")) sim::load_works(tables["works"], d.works);
 	sim::load_roam_tables(tables, d.roam);
+	sim::load_encounter_tables(tables, d.encounters);
 	sim::DATA = std::move(d);
 	sim::LOADED = true;
 }
