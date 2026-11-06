@@ -1,0 +1,132 @@
+godot/native/src/wild_probe.h
+  s_1a6e9ade9f303e::t_684ab47655ffb3 1-75
+godot/tests/sim/test_honours.gd.uid
+  s_1a6e9ade9f303e::t_684ab47655ffb3 1
+godot/native/src/honours.h
+  s_1a6e9ade9f303e::t_684ab47655ffb3 1-38
+godot/native/src/deeds.h
+  s_1a6e9ade9f303e::t_684ab47655ffb3 1-32
+godot/native/src/skills.cpp
+  s_1a6e9ade9f303e::t_684ab47655ffb3 1-30
+godot/tests/sim/test_mobs.gd
+  s_1a6e9ade9f303e::t_684ab47655ffb3 1-39
+godot/tests/sim/test_vision.gd.uid
+  s_1a6e9ade9f303e::t_b50d469b1bc604 1
+godot/tests/sim/wild.gd
+  s_1a6e9ade9f303e::t_684ab47655ffb3 1-51
+src/dev/vectors/depth.ts
+  s_1a6e9ade9f303e::t_684ab47655ffb3 1-12
+godot/native/src/honours.cpp
+  s_1a6e9ade9f303e::t_684ab47655ffb3 1-51
+godot/tests/sim/test_soldiers.gd
+  s_1a6e9ade9f303e::t_684ab47655ffb3 1-20
+src/dev/vectors/deeds.ts
+  s_1a6e9ade9f303e::t_684ab47655ffb3 1-21
+godot/native/src/captives.h
+  s_1a6e9ade9f303e::t_684ab47655ffb3 1-36
+godot/native/src/register_types.cpp
+  s_1a6e9ade9f303e::t_684ab47655ffb3 15,30-31
+godot/tests/sim/test_skills.gd
+  s_1a6e9ade9f303e::t_684ab47655ffb3 1-19
+godot/native/src/sim_data.cpp
+  s_1a6e9ade9f303e::t_684ab47655ffb3 3-4,53
+godot/native/src/soldiers.h
+  s_1a6e9ade9f303e::t_684ab47655ffb3 1-29
+godot/native/src/depth.cpp
+  s_1a6e9ade9f303e::t_684ab47655ffb3 1-22
+godot/native/src/skills.h
+  s_1a6e9ade9f303e::t_684ab47655ffb3 1-43
+src/dev/vectors/captives.ts
+  s_1a6e9ade9f303e::t_684ab47655ffb3 1-15
+godot/native/src/war_wild.h
+  s_1a6e9ade9f303e::t_684ab47655ffb3 1-30
+godot/tests/sim/test_food.gd.uid
+  s_1a6e9ade9f303e::t_684ab47655ffb3 1
+godot/native/src/depth.h
+  s_1a6e9ade9f303e::t_684ab47655ffb3 1-52
+godot/native/src/war_bosses.h
+  s_1a6e9ade9f303e::t_684ab47655ffb3 1-24
+godot/native/src/mobs.cpp
+  s_1a6e9ade9f303e::t_684ab47655ffb3 1-587
+godot/tests/sim/test_depth.gd
+  s_1a6e9ade9f303e::t_684ab47655ffb3 1-28
+src/dev/vectors/soldiers.ts
+  s_1a6e9ade9f303e::t_684ab47655ffb3 1-19
+godot/tests/sim/test_depth.gd.uid
+  s_1a6e9ade9f303e::t_684ab47655ffb3 1
+godot/native/src/wild_probe.cpp
+  s_1a6e9ade9f303e::t_684ab47655ffb3 1-497
+godot/native/src/food.h
+  s_1a6e9ade9f303e::t_684ab47655ffb3 1-26
+src/dev/vectors/mobs.ts
+  s_1a6e9ade9f303e::t_684ab47655ffb3 1-234
+godot/native/src/soldiers.cpp
+  s_1a6e9ade9f303e::t_684ab47655ffb3 1-29
+godot/tests/sim/test_honours.gd
+  s_1a6e9ade9f303e::t_684ab47655ffb3 1-15
+godot/native/src/war_wild.cpp
+  s_1a6e9ade9f303e::t_684ab47655ffb3 1-27
+godot/tests/sim/test_skills.gd.uid
+  s_1a6e9ade9f303e::t_684ab47655ffb3 1
+godot/native/src/food.cpp
+  s_1a6e9ade9f303e::t_684ab47655ffb3 1-14
+godot/tests/sim/wild.gd.uid
+  s_1a6e9ade9f303e::t_684ab47655ffb3 1
+godot/tests/sim/test_deeds.gd
+  s_1a6e9ade9f303e::t_684ab47655ffb3 1-30
+godot/native/src/captives.cpp
+  s_1a6e9ade9f303e::t_684ab47655ffb3 1-77
+godot/tests/sim/test_food.gd
+  s_1a6e9ade9f303e::t_684ab47655ffb3 1-12
+src/dev/vectors/food.ts
+  s_1a6e9ade9f303e::t_684ab47655ffb3 1-9
+godot/native/src/load_tables.h
+  s_1a6e9ade9f303e::t_684ab47655ffb3 1-13
+godot/tests/sim/test_soldiers.gd.uid
+  s_1a6e9ade9f303e::t_684ab47655ffb3 1
+godot/tests/sim/test_captives.gd.uid
+  s_1a6e9ade9f303e::t_684ab47655ffb3 1
+src/dev/vectors/skills.ts
+  s_1a6e9ade9f303e::t_684ab47655ffb3 1-17
+godot/native/src/sim.cpp
+  s_1a6e9ade9f303e::t_261fdc83d561ed 964,968,1051
+  s_1a6e9ade9f303e::t_e434b83af2c13a 960,966,969,1019
+godot/native/src/mobs.h
+  s_1a6e9ade9f303e::t_684ab47655ffb3 1-282
+godot/tests/sim/test_mobs.gd.uid
+  s_1a6e9ade9f303e::t_684ab47655ffb3 1
+godot/tests/sim/test_captives.gd
+  s_1a6e9ade9f303e::t_684ab47655ffb3 1-23
+godot/native/src/war_bosses.cpp
+  s_1a6e9ade9f303e::t_684ab47655ffb3 1-23
+godot/native/src/units.h
+  s_1a6e9ade9f303e::t_684ab47655ffb3 1-8
+godot/native/src/sim_data.h
+  s_1a6e9ade9f303e::t_684ab47655ffb3 8,12-20,28-38
+godot/native/src/deeds.cpp
+  s_1a6e9ade9f303e::t_684ab47655ffb3 1-25
+godot/tests/sim/test_traces.gd
+  s_1a6e9ade9f303e::t_e434b83af2c13a 14,36
+src/dev/vectors/honours.ts
+  s_1a6e9ade9f303e::t_684ab47655ffb3 1-21
+godot/native/src/load_tables.cpp
+  s_1a6e9ade9f303e::t_684ab47655ffb3 1-222
+godot/tests/sim/test_deeds.gd.uid
+  s_1a6e9ade9f303e::t_684ab47655ffb3 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "3fdc66da5baddef15324f13f6d808a6b970a5680",
+  "prompts": {},
+  "sessions": {
+    "s_1a6e9ade9f303e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2c9e00ce-6ba5-4b5a-8be5-a4a273976934",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
