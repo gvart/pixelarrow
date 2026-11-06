@@ -282,6 +282,7 @@ void works_region_of(const godot::Dictionary &meta, const godot::PackedByteArray
 	};
 	rects(meta.get("noBuild", Variant()), r->noBuild);
 	rects(meta.get("safe", Variant()), r->safe);
+	rects(meta.get("yard", Variant()), r->yard);
 	r->water.resize(n);
 	r->terrain.resize(n);
 	for (int i = 0; i < n; i++) {

@@ -21,6 +21,9 @@ constexpr double CHARGE = 10;
 constexpr double REACH_PAD = 0.3;
 constexpr double FIRE_RELOAD = 1.5;
 constexpr double FIRE_DECK = 0.08;
+constexpr double ARROW_BUILDING = 0.05;
+constexpr double FIRE_ARROW = 0.2;
+constexpr double RAM_ROOF = 2;
 
 double sq(double v) { return v * v; }
 
@@ -29,12 +32,20 @@ int flag(const char *name) { return int(data().skills.F.at(name)); }
 } // namespace
 
 void Sim::setRates(Unit &u) {
-	// stub until civilians port: a forager's and an engineer's rates, the held nodes (no civilians yet: a soldier's
-	// rates are undefined); until the paths port: the demigod's quick hands (NO_PATH: no work perk)
-	u.wrate.reset();
-	u.brate.reset();
+	// gather and build speed by job and work rate (forager, engineer), the M5h node effects (stub until roster port: no
+	// persons, so no perks), the demigod's quick hands (stub until the paths port: NO_PATH, no work perk)
+	const CivRates r = civ_rates(u.civ, u.st.work < 0 ? std::nullopt : std::optional<double>(u.st.work), {}, 0);
+	u.wrate = r.wrate;
+	u.brate = r.brate;
 	u.gmul.reset();
-	u.fieldR = data().civilians.PHYSICIAN.r;
+	if (r.gmul) {
+		Cost m;
+		for (const auto &[k, v] : *r.gmul) m.set(k, v);
+		u.gmul = m;
+	}
+	if (r.herbs) u.herbs = *r.herbs;
+	if (r.flax) u.flax = *r.flax;
+	u.fieldR = r.fieldR;
 	const std::string mk = mob_kind_of(u.cls);
 	u.venom = !mk.empty() ? data().mobs.MOBS.at(mk).venom : false;
 	if (!mk.empty() && data().mobs.MOBS.at(mk).dash) u.mob = mk;
@@ -104,10 +115,10 @@ void Sim::hurt(Unit &t, double dmg, Unit *by) {
 		by->kills++;
 		return;
 	}
-	// stub until civilians port: a Battle Dresser's double bandage (no dressers); until prebuilt port: no blessed squads
-	const int bandage = t.squad->bandages > 0 ? (t.squad->bandages--, 1) : 0;
+	// M5h: a Battle Dresser's bandage counts double; stub until prebuilt port: no blessed squads
+	const int bandage = t.squad->bandages > 0 ? (t.squad->bandages--, dresser.count(t.squad->team) ? 2 : 1) : 0;
 	t.wounded = rng.next() < fall_share(t.st.ws + 0, physicianNear(t), bandage, t.venomUntil > tick);
-	// stub until civilians port: a hunter's hides (no foragers)
+	if (t.squad->team == MOB_TEAM && t.beast) hides(t);
 	t.squad->alive--;
 	addReslot(*t.squad);
 	if (by) by->kills++;
@@ -186,6 +197,18 @@ bool Sim::fireShot(Unit &u) {
 	return works->take_at(u.squad->team, u.x, u.y, c);
 }
 
+std::string Sim::fireBlock(Squad &s) {
+	if (s.units.empty() || !(s.units[0]->st.range > 0 && s.units[0]->st.missile == ARROW)) return "";
+	bool near = false;
+	double pitch = data().economy.BRAZIER.pitch;
+	for (Unit *u : s.units) {
+		if (!u->alive) continue;
+		if (u->st.flags & flag("fireArcher")) pitch = data().economy.BRAZIER.pitch * data().skills.FLAG_FX.firePitch;
+		if (!near && works->lit_near(s.team, u->x, u->y, hAt(u->x, u->y), fireReach(*u))) near = true;
+	}
+	return !near ? "noBrazier" : works->pitch(s.team, s.cx, s.cy) < pitch - 1e-9 ? "noPitch" : "";
+}
+
 double Sim::fireReach(Unit &u) const { return u.st.flags & flag("fireArcher") ? data().economy.BRAZIER.radius * data().skills.FLAG_FX.fireReach : data().economy.BRAZIER.radius; }
 
 void Sim::shoot(Unit &u, Unit &t, double d, double dh, double range) {
@@ -210,6 +233,29 @@ void Sim::shoot(Unit &u, Unit &t, double d, double dh, double range) {
 	missiles.push_back(m);
 }
 
+void Sim::shootAt(Unit &u, double tx, double ty, double d, double dh, double range, const Task &k) {
+	const bool fire = fireShot(u);
+	u.ammo--;
+	u.cd = js::round(u.st.shotTicks * (fire ? FIRE_RELOAD : 1));
+	u.swingAt = tick;
+	const int at = tick + int(std::max(1.0, js::round(d / u.st.shotSpeed / DT)));
+	// the view's shot (ShotSnap): not kept, nothing in the sim reads it
+	if (u.ammo == 0) addReslot(*u.squad);
+	if (!(rng.next() < hit_chance(u.st.accuracy, d, range, false))) return;
+	Flight m;
+	m.at = at;
+	m.by = &u;
+	m.t = nullptr;
+	m.raw = u.st.rangedDmg * COMBAT.missileDmg * missile_height(dh) * (fire ? -1 : 1);
+	m.ap = u.st.ap;
+	if (k.b >= 0) m.b = k.b;
+	else m.e = k.e;
+	missiles.push_back(m);
+}
+
+// Share of a missile from `by` that man t dodges: crew under their ram's roof (covered ram: more), men behind a mantlet.
+double Sim::cover(Unit &t, Unit &by) const { return std::max(t.squad->siege >= 0 ? siege->roof(t.squad->siege, t.x, t.y, RAM_ROOF) : 0.0, siege->cover(t.squad->team, t.x, t.y, by.x, by.y)); }
+
 void Sim::land() {
 	if (missiles.empty()) return;
 	std::vector<Flight> keep;
@@ -219,10 +265,21 @@ void Sim::land() {
 			continue;
 		}
 		if (m.fb >= 0) works->fire_hit(m.fb, FIRE_DECK);
-		// stub until siege port: shots at a building or engine (shootAt: a siege task's)
+		if (m.b >= 0 || m.e >= 0) {
+			// at a building or engine: raw < 0 marks a fire arrow
+			const double dmg = std::abs(m.raw) * ARROW_BUILDING;
+			if (m.b >= 0) {
+				hitBuilding(*m.by->squad, m.b, dmg);
+				if (m.raw < 0) works->fire_hit(m.b, FIRE_ARROW);
+			} else {
+				siege->damage(m.e, dmg);
+				if (m.raw < 0 && rng.next() < FIRE_ARROW * siege->fire_k(m.e)) siege->kindle(m.e, 99);
+			}
+			continue;
+		}
 		Unit *t = m.t;
 		if (!t || !t->alive) continue;
-		const double cv = 0; // stub until siege port: cover (no rams, no mantlets)
+		const double cv = cover(*t, *m.by);
 		if (cv > 0 && rng.next() < cv) continue;
 		if (!working(*t) && rng.next() < block_chance(blockOf(*m.by, *t), t->facing, m.by->x - t->x, m.by->y - t->y, true, groundAt(t->x, t->y) == BOG)) continue;
 		hurt(*t, after_armour(m.raw * dmgMult(*m.by, *t, true), t->st.armor, m.ap), m.by);
@@ -245,8 +302,7 @@ Sim::Act Sim::fight(Unit &u, double &px, double &py) {
 	u.fighting = false;
 	u.striking = false;
 	if (u.cd > 0) u.cd--;
-	// stub until siege port: siege.busy (no engines yet)
-	if (!u.civ.empty() || (s.order == "move" && (s.goal || s.pi < double(s.path.size()) / 2)) || (anySafe && inSafe(u.x, u.y))) {
+	if (!u.civ.empty() || (s.order == "move" && (s.goal || s.pi < double(s.path.size()) / 2)) || (s.siege >= 0 && siege->busy(s.siege)) || (anySafe && inSafe(u.x, u.y))) {
 		u.tgt = nullptr;
 		return ToSlot;
 	}

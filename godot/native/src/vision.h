@@ -43,6 +43,9 @@ struct VisionBuilding {
 	std::vector<double> tiles;
 	std::string type, state;
 	bool rubble = false, lit = false, staffed = false;
+	// kept for the bots (bots.ts reads them off the last-seen snaps); vision itself does not read them
+	std::optional<double> walk;
+	std::optional<int> attach, siege;
 };
 
 int building_sight(const VisionBuilding &b);

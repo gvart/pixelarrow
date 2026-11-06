@@ -170,6 +170,8 @@ public:
 	double cart_cap(int id) { return id >= 0 && id < int(engines.size()) ? cartCap(engines[id]) : 0; }
 	bool labour(int id, double dt);
 	const SiegeEngine *get(int id) const { return id >= 0 && id < int(engines.size()) ? &engines[id] : nullptr; }
+	// get, as the TS callers hold it: the engine itself (the sim moves goods in and out of a cart's hold)
+	SiegeEngine *get(int id) { return id >= 0 && id < int(engines.size()) ? &engines[id] : nullptr; }
 	// M6h (server): cart id leaves the field for a world transit (no wreck, no pile); its type and cargo.
 	std::optional<std::pair<std::string, Hold>> stow(int id);
 	// W-153: the holds of `owner`'s carts.

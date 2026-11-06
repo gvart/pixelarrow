@@ -121,12 +121,51 @@ Sim::Sim(Grid &g, WorksRegion r, uint32_t seed) : grid(&g), region(std::move(r))
 		for (const WorksRect &q : region.safe) safe->push_back(Rect{ double(q.x), double(q.y), double(q.w), double(q.h) });
 	}
 	piles = std::make_unique<Piles>(safe);
-	// stub until the safe zones (safeTick, safeEntry, the gate in tryMove): anySafe stays false, no region of the
-	// scenarios played here has safe rects
+	// M6d: safe-zone tiles (1 inside a region `safe` rect)
+	safeMask.assign(size_t(grid->w) * grid->h, 0);
+	for (const WorksRect &q : region.safe)
+		for (int y = std::max(0, q.y); y < std::min(grid->h, q.y + q.h); y++)
+			for (int x = std::max(0, q.x); x < std::min(grid->w, q.x + q.w); x++) safeMask[size_t(y) * grid->w + x] = 1;
+	anySafe = !region.safe.empty();
 	head.assign(size_t(grid->w) * grid->h, 0);
 	worksHost.s = this;
 	works = std::make_unique<Works>(*grid, region, worksHost);
-	// stub until siege, crafting (no civilians work a queue yet), mobs, secrets, bosses, roam ports: their create* calls
+	siegeHost.s = this;
+	siege = std::make_unique<Siege>(*works, rng, siegeHost);
+	// M5h: crafting queues of the workplaces (crafting.h), run on the civilian loop
+	CraftDeps deps;
+	deps.seed = seed;
+	deps.takeAt = [this](int team, double x, double y, const Cost &c) { return works->take_at(team, x, y, c); };
+	deps.addAt = [this](int team, double x, double y, const std::string &r, double n) { works->add_at(team, x, y, r, n); };
+	deps.emit = [](const CraftedEvent &) {}; // the event log: not ported
+	// W-89: a crafter of the building's alliance pays from its network there, then his men's packs; a stranger only from packs
+	deps.pay = [this](const Placed &b, const Crafter &c, const Goods &cost) {
+		std::vector<Hold *> packs;
+		for (Unit *u : units)
+			if (u->alive && u->squad->owner == c.owner && u->pack && sq(u->x - b.x) + sq(u->y - b.y) <= sq(data().civilians.CIV.at + 4)) packs.push_back(&*u->pack);
+		if (c.team != b.team) return take_from(packs, cost);
+		std::vector<Hold *> from = works->sources_at(b.team, b.x, b.y);
+		from.insert(from.end(), packs.begin(), packs.end());
+		return take_from(from, cost);
+	};
+	deps.till = [this](const Placed &b, const std::string &res, double n) { works->pay_till(b.id, res, n, region.id); };
+	deps.out = [this](const Placed &b, const Payer &payer, const std::string &res, double n) {
+		const PileClaim claim{ payer.owner, "Your work", double(tick) + data().trade.CLAIM_TICKS };
+		piles->drop(b.x, b.y + 1, { Lot{ res, n, region.id } }, {}, tick, 0, &claim);
+	};
+	// M6b: a cart rolls out in front of the workshop for the crafter's player, within his cap and the civilian quota
+	deps.cart = [this](const Placed &b, const std::string &owner, const std::string &type, bool check) {
+		// stub until the paths port: cartCap(pathOf(owner).path) is NO_PATH's, the most carts any path has (start.ts PATHS)
+		constexpr int NO_PATH_CARTS = 4;
+		if (!is_cart_type(type) || siege->carts(owner, std::nullopt) >= NO_PATH_CARTS || civRoom(b.team) <= 0) return false;
+		if (check) return true;
+		const std::vector<double> p = works->ring_points(b.id, 1, b.x, b.y + 10);
+		const std::pair<double, double> at = p.size() ? std::make_pair(p[0], p[1]) : openPoint(b.x, b.y + 3);
+		siege->cart(b.team, owner, type, at.first, at.second);
+		return true;
+	};
+	crafting = std::make_unique<Crafting>(std::move(deps));
+	// stub until mobs, secrets, bosses, roam ports: their create* calls
 	// stub until prebuilt port: createTowns (towns.douse: 1, no wells)
 	townLv = std::make_unique<TownLevels>(*grid, [this]() -> const std::vector<TownPiece> & {
 		// works.all as townLevel reads it
@@ -174,8 +213,13 @@ void SimWorksHost::fall(const std::vector<int> &tiles) {
 }
 // M6c: a store or chest that falls leaves its contents in a pile
 void SimWorksHost::spill(double x, double y, const Hold &h, bool burnt) { s->piles->drop(x, y, h.lots, h.items, s->tick, burnt ? data().trade.PILE.spoil : 0); }
-// M7a: razed (the event log: not ported); immune: a safe court's pieces (stub until the safe zones: none)
-bool SimWorksHost::immune(const Building &) { return false; }
+// M7a: razed (the event log: not ported); immune: a safe court's pieces take no harm (a court's corner towers stand half outside it)
+bool SimWorksHost::immune(const Building &b) {
+	if (!s->anySafe) return false;
+	for (int t : b.ti)
+		if (s->safeMask[t] == 1) return true;
+	return false;
+}
 void SimWorksHost::laboured(Worker &w, const Building &b, double secs) {
 	// W-61: labour by owner (build contracts, alliance works)
 	const Unit &u = static_cast<const Unit &>(w);
@@ -191,8 +235,13 @@ void SimWorksHost::laboured(Worker &w, const Building &b, double secs) {
 }
 // a levelled town mends faster; stub until the alliance works' bonuses (setBonus): repairCost 1
 RepairK SimWorksHost::repairK(const Building &b) { return { s->townLv->perk_at(b.team, b.x, b.y).repair, 1 }; }
-// W-215: stub until siege port (no carts to throw a load on)
-std::optional<CartDrop> SimWorksHost::cartDrop(WorkSquad &) { return std::nullopt; }
+// W-215: the cart a gather squad throws its loads on
+std::optional<CartDrop> SimWorksHost::cartDrop(WorkSquad &w) {
+	Squad &q = static_cast<Squad &>(w);
+	SiegeEngine *e = q.order == "gather" && q.cartDrop >= 0 ? s->siege->get(q.cartDrop) : nullptr;
+	if (!e || !e->hold || e->state == "destroyed" || e->owner != q.owner) return std::nullopt;
+	return CartDrop{ e->x, e->y, &*e->hold, s->siege->cart_cap(q.cartDrop) - loads(*e->hold) };
+}
 
 void Sim::evict(const std::vector<int> &tiles) {
 	// a site closed its footprint: units standing on it step to the nearest open tile
@@ -244,7 +293,16 @@ std::pair<double, double> Sim::openPoint(double x, double y) const {
 std::pair<double, double> Sim::slotPos(Squad &s, int slot) {
 	if (s.fixed && size_t(slot) * 2 < s.fixed->size()) return { (*s.fixed)[slot * 2], (*s.fixed)[slot * 2 + 1] };
 	if (s.col && size_t(slot) * 2 < s.col->size()) return { (*s.col)[slot * 2], (*s.col)[slot * 2 + 1] };
-	// stub until siege port: an escort's ring round its cart (no carts, no escort orders yet)
+	// M6b escort at its cart (no foe taken on): a ring ESCORT.ring out round it, so the cart stays in sight
+	if (s.order == "escort" && s.target < 0) {
+		const SiegeEngine *e = siege->get(s.escort);
+		const double ring = data().trade.ESCORT.ring;
+		if (e && sq(s.ax - e->x) + sq(s.ay - e->y) <= sq(ring + 4)) {
+			// a second squad on the same cart: its own ring 1.5 further out, turned half a slot, so the two never stack
+			const double r = ring + (s.id % 2) * 1.5, a = e->facing + ((slot + 0.5 + (s.id % 2) * 0.5) / std::max(1.0, double(s.offsets.size()) / 2)) * PI * 2;
+			return { e->x + js::cos(a) * r, e->y + js::sin(a) * r };
+		}
+	}
 	return formSlot(s, slot);
 }
 
@@ -447,14 +505,30 @@ void Sim::apply(const Order &o) {
 		works->cancel(o.site);
 		return;
 	}
-	if (o.kind == "craft" || o.kind == "cancelCraft" || o.kind == "repair" || o.kind == "salvage" || o.kind == "setAccess" || o.kind == "fortify" || o.kind == "restoreLandmark") {
-		// stub until the crafting orders (items), landmarks (bosses.memo) and the engineers (persons: no Fortifier) are wired
+	if (o.kind == "craft" || o.kind == "cancelCraft" || o.kind == "repair" || o.kind == "salvage") {
+		const Building *b = works->piece(o.building);
+		// W-89: whoever its access lets in queues there; an order with no name acts for the building's own alliance
+		const std::optional<std::string> by = o.kind == "craft" ? o.by : std::nullopt;
+		const int team = o.team.value_or(-1);
+		if (b && !b->cancelled && (b->state == "done" || b->state == "damaged") && (by ? works->may_use(*b, *by, team) : b->team == team)) {
+			CraftOrder c;
+			c.kind = o.kind;
+			c.team = team;
+			c.building = o.building;
+			c.recipe = o.recipe;
+			c.order = o.craftOrder;
+			c.owner = o.owner;
+			c.item = o.item;
+			crafting->order(c, placed(*b));
+		}
+		return;
+	}
+	if (o.kind == "setAccess" || o.kind == "fortify" || o.kind == "restoreLandmark") {
+		// stub until landmarks (bosses.memo) and the access orders are wired; fortify: no Fortifier without persons
 		ERR_PRINT(godot::String("sim: order not ported yet: ") + o.kind.c_str());
 		return;
 	}
-	// M5h3: PLACE_NODE types need an engineer of the team holding the node (stub until civilians and persons ports: no
-	// engineers, so none of them is placeable)
-	if (o.kind == "placeBuilding" && (o.type == "stakes" || o.type == "ditch" || o.type == "towerBridge")) return;
+	if (o.kind == "placeBuilding" && !placeable(o.type, !o.has_squad ? o.team : o.squad >= 0 && size_t(o.squad) < squads.size() ? std::optional<int>(squads[o.squad]->team) : std::nullopt)) return;
 	if (o.kind == "rebuild") {
 		const std::optional<int> team = !o.has_squad ? o.team : o.squad >= 0 && size_t(o.squad) < squads.size() ? std::optional<int>(squads[o.squad]->team) : std::nullopt;
 		if (!team || !works->rebuild(o.building, *team, MOB_TEAM)) return;
@@ -490,23 +564,57 @@ void Sim::apply(const Order &o) {
 		ERR_PRINT("sim: order not ported yet: man");
 		return;
 	}
-	// stub until civilians port: a civilian squad's order filter (no civilians yet)
+	// M5f: civilians take work orders only
+	static const char *const CIV_ORDERS[] = { "move", "hold", "stop", "formation", "gather", "build", "civWork", "detach", "merge", "stopWork", "placeBuilding", "placeWall", "placeBridge", "upgrade", "buildSiege", "load", "unload", "salvagePile", "crew", "uncrew" };
+	if (s.civ && std::none_of(std::begin(CIV_ORDERS), std::end(CIV_ORDERS), [&](const char *k) { return o.kind == k; })) return;
+	// M5f: an order ends a civilian squad's flight (the flee controller sets it again after its own move)
 	s.flee = false;
 	s.resume.reset();
 	if (o.kind == "fireArrows") {
 		s.fire = o.on;
 		return;
 	}
-	if (o.kind == "active" || o.kind == "load" || o.kind == "unload" || o.kind == "escort" || o.kind == "salvagePile") {
-		ERR_PRINT(godot::String("sim: order not ported yet: ") + o.kind.c_str());
+	if (o.kind == "active") {
+		// stub until skills port: the squad's active (class spawns hold none, so it never fires)
 		return;
 	}
-	// stub until roam port: attacking roaming folk provokes them (no meek squads yet); until the safe zones: none
-	if (o.kind != "formation" && o.kind != "detach") s.escort = -1;
-	// stub until siege port: crews driving their engines (s.siege is never set yet)
-	if (o.kind == "deploy" || o.kind == "raiseLadder") return;
+	// M6d: no attack, fire or capture on what stands in a safe zone
+	if (o.kind == "attack" && o.target >= 0 && size_t(o.target) < squads.size() && inSafe(squads[o.target]->cx, squads[o.target]->cy)) return;
+	// stub until roam port: attacking roaming folk (or their wagon) provokes them (no meek squads yet)
+	if (o.kind == "attackBuilding" || o.kind == "ignite") {
+		const SiegeEngine *e = o.siege ? siege->get(*o.siege) : nullptr;
+		if (o.building >= 0 ? safeBuilding(o.building) : o.siege && e && inSafe(e->x, e->y)) return;
+	}
+	if (o.kind == "load" || o.kind == "unload" || o.kind == "escort" || o.kind == "salvagePile") return tradeOrder(s, o);
+	if (o.kind != "formation" && o.kind != "detach") s.xfer.reset(), s.escort = -1, s.salv.reset();
+	if (s.siege >= 0) {
+		const SiegeEngine *e = siege->get(s.siege);
+		if (!e || e->crew != s.id) s.siege = -1, s.fixed.reset(); // its ladder or tower went up: the crew is free
+	}
+	if (s.siege >= 0 && (o.kind == "move" || o.kind == "hold" || o.kind == "stop" || o.kind == "attackMove" || o.kind == "attackBuilding" || o.kind == "deploy" || o.kind == "raiseLadder")) {
+		// the crew drives its engine (an attack-move rolls it like a move, stop holds it)
+		const int id = s.siege;
+		if (o.kind == "move" || o.kind == "attackMove") {
+			siege->move(id, o.x, o.y);
+			s.order = "move";
+			return;
+		}
+		if (o.kind == "hold" || o.kind == "stop") {
+			siege->hold(id);
+			s.order = "hold";
+			return;
+		}
+		if (o.kind == "deploy") siege->deploy(id, o.pack);
+		else if (o.kind == "raiseLadder") {
+			if (!siege->raise(id, o.wallTile[0], o.wallTile[1])) return;
+		} else if (o.building < 0 || !siege->attack(id, o.building)) return;
+		s.order = o.kind;
+		return;
+	}
+	if (o.kind == "deploy" || o.kind == "raiseLadder") return; // no engine
 	if (o.kind != "formation" && o.kind != "detach") {
-		s.task = false;
+		if (s.siege >= 0) uncrew(s);
+		s.task.reset();
 		s.claimPt = -1;
 		s.soul = -1;
 	}
@@ -521,9 +629,54 @@ void Sim::apply(const Order &o) {
 		apply(b);
 		return;
 	}
-	if (o.kind == "claimSoul" || o.kind == "claimRegion" || o.kind == "uncrew" || o.kind == "crew" || o.kind == "buildSiege" || o.kind == "ignite" || o.kind == "extinguish" || o.kind == "pushLadder" || o.kind == "attackBuilding" ||
-			o.kind == "detach" || o.kind == "merge" || o.kind == "civWork") {
-		// stub until souls, mobs, siege and civilians ports, and the W-53 regroup
+	if (o.kind == "claimSoul" || o.kind == "claimRegion") {
+		// stub until souls and mobs ports
+		ERR_PRINT(godot::String("sim: order not ported yet: ") + o.kind.c_str());
+		return;
+	}
+	if (o.kind == "uncrew") {
+		if (s.order == "crew" || s.order == "move" || s.order == "attackBuilding" || s.order == "deploy" || s.order == "raiseLadder") s.order = "hold";
+		return;
+	}
+	if (o.kind == "crew") {
+		const int id = o.siege.value_or(-1);
+		if ((s.civ && !siege->is_cart(id)) || (siege->is_cart(id) && siege->get(id)->owner != s.owner) || !siege->crew(id, s.id, s.team)) return; // M6b: civilians pull only carts, a player only his own
+		dropJobs(s);
+		s.siege = id;
+		s.order = "crew";
+		s.path.clear();
+		s.goal.reset();
+		return;
+	}
+	if (o.kind == "buildSiege" || o.kind == "ignite" || o.kind == "extinguish" || o.kind == "pushLadder" || o.kind == "attackBuilding") {
+		Task k;
+		k.kind = o.kind;
+		if (o.kind == "buildSiege") {
+			const int id = siege->build(s.team, o.type, o.x, o.y);
+			if (id < 0) return;
+			k.e = id;
+		} else if (o.kind == "pushLadder") {
+			const Building *l = works->piece(o.ladder);
+			if (!l || l->type != "ladder" || l->team == s.team) return; // M5h3: a siege tower's bridge is not pushed off
+			k.b = o.ladder;
+		} else {
+			k.b = o.building;
+			k.e = o.building < 0 ? o.siege.value_or(-1) : -1;
+			std::optional<int> tt;
+			if (k.b >= 0) {
+				if (const Building *b = works->piece(k.b)) tt = b->team;
+			} else if (const SiegeEngine *e = siege->get(k.e)) tt = e->team;
+			if (!tt || (o.kind != "extinguish" && *tt == s.team)) return;
+		}
+		if (!taskLive(k)) return;
+		dropJobs(s);
+		s.task = k;
+		s.order = o.kind;
+		taskPoints(s);
+		return;
+	}
+	if (o.kind == "detach" || o.kind == "merge") {
+		// stub until the W-53 regroup
 		ERR_PRINT(godot::String("sim: order not ported yet: ") + o.kind.c_str());
 		return;
 	}
@@ -554,6 +707,30 @@ void Sim::apply(const Order &o) {
 		reslot(s);
 		return;
 	}
+	if (o.kind == "civWork") {
+		// M5f: the men stand round the building (its ring) and work there by class; at a workplace the first of them at
+		// its stations inside
+		const Building *b = works->piece(o.building);
+		if (!s.civ || !b || b->cancelled || !works->may_use(*b, s.owner, s.team) || !(b->def->store || b->def->workplace) || (b->state != "done" && b->state != "damaged")) return;
+		dropJobs(s);
+		s.order = "civWork";
+		s.work = o.building;
+		s.sites.clear();
+		s.node = -1;
+		s.path.clear();
+		s.goal.reset();
+		std::vector<double> pts;
+		if (b->team == s.team) { // a stranger works at its door: its floor opens for its alliance
+			const std::vector<Spot> spots = works->work_spots(o.building);
+			for (size_t i = 0; i < spots.size() && i < size_t(std::max(1, s.alive)); i++) pts.push_back(spots[i][0]), pts.push_back(spots[i][1]);
+		}
+		const std::vector<double> ring = works->ring_points(o.building, std::max(1, s.alive) - int(pts.size() / 2), s.cx, s.cy);
+		pts.insert(pts.end(), ring.begin(), ring.end());
+		if (pts.size()) s.fixed = pts;
+		else s.fixed.reset();
+		if (pts.size()) requestPath(s, pts[0], pts[1]);
+		return;
+	}
 	if (o.kind == "placeBuilding" && building(o.type).brazier) {
 		works->place(s.team, o.type, o.x, o.y, o.rot); // W-35: set down done and lit; the squad carries on
 		return;
@@ -574,7 +751,12 @@ void Sim::apply(const Order &o) {
 		s.fixed.reset();
 		s.node = o.kind == "gather" ? o.node : -1;
 		s.cartDrop = -1;
-		// stub until siege port: W-215 a gather order's own cart (no carts yet)
+		if (o.kind == "gather" && o.cart && siege->is_cart(*o.cart) && siege->alive(*o.cart)) {
+			// W-215: his own cart, near enough to throw on; else the nearest store as ever
+			const SiegeEngine *e = siege->get(*o.cart);
+			const NodeSnap n = works->resource_nodes()[o.node];
+			if (e->owner == s.owner && js::hypot(e->x - n.x, e->y - n.y) <= data().trade.CART.gatherR) s.cartDrop = *o.cart;
+		}
 		s.path.clear();
 		s.goal.reset();
 		for (Unit *u : s.units)
@@ -887,8 +1069,7 @@ void Sim::stepSquad(Squad &s) {
 		n++;
 	}
 	lag = n ? lag / n : 0;
-	// stub until civilians port: CIV.fleeSpeed (no flight)
-	double budget = SPEED * s.speed * 1 * (s.laden ? data().trade.PORTER.slow : 1) * DT * std::min(1.0, std::max(0.25, 1.25 - lag / 6));
+	double budget = SPEED * s.speed * flee_pace(s.flee) * (s.laden ? data().trade.PORTER.slow : 1) * DT * std::min(1.0, std::max(0.25, 1.25 - lag / 6));
 	if (eases(s)) {
 		budget *= s.ramp * pc;
 		s.ramp = std::min(1.0, s.ramp + RAMP_UP);
@@ -1068,7 +1249,7 @@ void Sim::tryMove(Unit &u, double dx, double dy) {
 		if (t == from) return true;
 		const int w = grid->w, fx = from % w, fy = from / w, tx = t % w, ty = t / w;
 		if (fx != tx && fy != ty && !(grid->span[from] && grid->span[t]) && !grid->can_enter(from, fy * w + tx) && !grid->can_enter(from, ty * w + fx)) return false;
-		// stub until trade port: the safe zone's gate (anySafe is false)
+		if (anySafe && safeMask[t] && !safeMask[from] && !safeEntry(u)) return false; // M6d: the gate refuses him
 		const int p = grid->plat[t];
 		if (p < 0 || p == pf) return true;
 		const auto it = platLoad.find(p);
@@ -1239,7 +1420,18 @@ void Sim::workScan() {
 	for (Squad *sp : squads) {
 		Squad &s = *sp;
 		if (s.alive == 0 || s.team == MOB_TEAM) continue;
-		// stub until siege port: a gather squad's cart drop (no carts: cartDrop stays -1)
+		if (s.order == "gather" && s.cartDrop >= 0) {
+			const SiegeEngine *e = siege->get(s.cartDrop);
+			if (!e || e->state == "destroyed" || e->owner != s.owner) s.cartDrop = -1;
+			else if (siege->cart_cap(s.cartDrop) - loads(*e->hold) <= 1e-6) {
+				Order c;
+				c.kind = "crew";
+				c.squad = s.id;
+				c.has_squad = true;
+				c.siege = s.cartDrop;
+				apply(c);
+			}
+		}
 		if (s.civ) continue;
 		if (s.order == "gather" || s.order == "build") {
 			bool struck = false;
@@ -1263,27 +1455,12 @@ void Sim::workScan() {
 			s.atEase = 0;
 		} else if (s.resume && s.order == "hold") {
 			if (!s.near.empty()) s.atEase = 0;
-			else if ((s.atEase += SCAN) >= data().simCiv.calm) {
+			else if ((s.atEase += SCAN) >= data().civilians.CIV.calm) {
 				const std::shared_ptr<Order> r = s.resume;
 				s.resume.reset();
 				apply(*r);
 			}
 		}
-	}
-}
-
-void Sim::tradeTick() {
-	const double kit = data().food.HUNGER.kit;
-	for (Squad *s : squads) {
-		if (s->alive == 0) continue;
-		bool laden = false; // W-79: his own few rations weigh nothing
-		for (Unit *u : s->units)
-			if (u->alive && u->pack && loads(*u->pack) - std::min(amount(*u->pack, "ration"), kit) / per_load(std::string("ration")) > 1e-9) {
-				laden = true;
-				break;
-			}
-		s->laden = laden;
-		// stub until the trade orders (load, unload, salvagePile) and siege port (carts): no salvage, no load moving
 	}
 }
 
@@ -1317,8 +1494,14 @@ void Sim::setSatiety(const std::vector<int> &ids, double sat) {
 }
 
 int Sim::spawn_squad(const std::string &owner, int team, const std::string &cls, int count, double x, double y) {
-	// stub until roster port: persons (one baked man each); until civilians port: the civilian quota
+	// stub until roster port: persons (one baked man each)
 	count = std::min(count, SQUAD_MAX);
+	// M5f: civilians only within the team's share of the civilian quota (-1: no room, no squad)
+	if (!civ_job(cls).empty()) {
+		const double room = civRoom(team);
+		count = int(std::min(double(count), std::max(0.0, room)));
+		if (count == 0) return -1;
+	}
 	const auto [ax, ay] = openPoint(x, y);
 	const WarStats &st = data().classes.of(cls);
 	Squad *s = new Squad();
@@ -1333,6 +1516,7 @@ int Sim::spawn_squad(const std::string &owner, int team, const std::string &cls,
 	s->ranged = st.range > 0;
 	s->ramp = RAMP_FROM;
 	s->amx = ax, s->amy = ay;
+	s->civ = !civ_job(cls).empty();
 	s->meek = team == NEUTRAL_TEAM;
 	grid->team = team;
 	squads.push_back(s);
@@ -1359,8 +1543,9 @@ int Sim::spawn_squad(const std::string &owner, int team, const std::string &cls,
 		u->ox = px, u->oy = py;
 		u->sat = data().food.HUNGER.max;
 		u->bx = px, u->by = py;
-		// stub until civilians port: the civilian job (soldiers only so far)
+		u->civ = civ_job(cls);
 		setRates(*u);
+		if (!u->civ.empty()) civs.push_back(u);
 		units.push_back(u);
 		s->units.push_back(u);
 	}
@@ -1387,7 +1572,7 @@ void Sim::step() {
 	}
 	grid->flush_sectors();
 	if (tick % SCAN == 0) scanNear();
-	// stub until civilians port: civScan (no civilians)
+	if (!civs.empty() && tick % SCAN == 0) civScan();
 	if (tick % SCAN == 0) workScan();
 	if (tick % int(data().economy.STAFF.every) == 0) {
 		// W-88: who stands at what
@@ -1396,7 +1581,7 @@ void Sim::step() {
 		for (const Unit *u : units) men.push_back({ u->alive, u->x, u->y, u->squad->team });
 		works->staff_scan(men, MOB_TEAM);
 	}
-	// stub until civilians port: civTick
+	if (!civs.empty() && tick % int(data().civilians.CIV.every) == 0) civTick();
 	if (tick % int(data().food.HUNGER.every) == 0) hungerTick();
 	if (downs > 0 && tick % int(data().food.HUNGER.every) == 0) riseTick();
 	// stub until souls, mobs, roam, secrets, bosses and prebuilt (towns) ports: their ticks, which do nothing on a map
@@ -1407,7 +1592,7 @@ void Sim::step() {
 		if (s->alive == 0) continue;
 		if (s->order == "attack") grid->team = s->team, updateAttack(*s);
 		else if (s->order == "attackMove") grid->team = s->team, updateAttackMove(*s);
-		// stub until trade port: escortTick
+		else if (s->order == "escort") grid->team = s->team, escortTick(*s);
 	}
 	for (double budget = PATH_BUDGET; budget > 0 && !pathQueue.empty();) {
 		Squad *s = pathQueue.front();
@@ -1432,7 +1617,7 @@ void Sim::step() {
 	}
 	for (Squad *s : squads) stepSquad(*s);
 	for (Unit *u : units) u->doing = nullptr;
-	// stub until siege port: siegeSquads (no crews, no tasks)
+	siegeSquads();
 
 	countPlatforms();
 	std::fill(head.begin(), head.end(), -1);
@@ -1484,8 +1669,8 @@ void Sim::step() {
 			if (w.kind == sim::Act::HERE) self = true;
 			else if (w.kind == sim::Act::POINT) point = true, apx = w.x, apy = w.y;
 		} else if (u.squad->task) {
-			// stub until siege port: taskAct (no tasks yet)
 			u.working = false;
+			self = taskAct(u) != nullptr; // the man himself (stands at the task) or TS null (to his slot)
 		} else {
 			u.working = false;
 			const Act a = fight(u, apx, apy);
@@ -1528,8 +1713,8 @@ void Sim::step() {
 		} else u.settled = false;
 		if (d > ARRIVE || (d > 1e-4 && actNull && eases(*u.squad) && !atEnd(*u.squad))) {
 			const double cost = moveCost(u.x, u.y, dx / d, dy / d);
-			// stub until civilians and bosses ports: flight and a guardian's stagger are 1
-			const double full = (SPEED * u.st.speed * pace(u.sat) * 1 * (u.squad->laden ? data().trade.PORTER.slow : 1) * (!u.mob.empty() && u.dash > tick ? data().mobs.MOBS.at(u.mob).dash->speed : 1) * 1 * CATCH_UP * DT) / cost;
+			// stub until bosses port: a guardian's stagger is 1
+			const double full = (SPEED * u.st.speed * pace(u.sat) * flee_pace(u.squad->flee) * (u.squad->laden ? data().trade.PORTER.slow : 1) * (!u.mob.empty() && u.dash > tick ? data().mobs.MOBS.at(u.mob).dash->speed : 1) * 1 * CATCH_UP * DT) / cost;
 			double stp = std::min(d, full);
 			if (actNull && eases(*u.squad)) {
 				Squad &s = *u.squad;
@@ -1621,7 +1806,8 @@ void Sim::step() {
 	for (int k = 0; k < 3; k++) separate();
 	tradeTick();
 	if (tick % SCAN == 0) piles->tick(tick);
-	// stub until the safe zones: safeTick (anySafe false); until captives port: raidScan
+	if (anySafe && tick % SCAN == 0) safeTick();
+	// stub until captives port: raidScan
 	keepToLanes();
 	for (Unit *up : units) {
 		Unit &u = *up;
@@ -1656,7 +1842,7 @@ void Sim::step() {
 	}
 	if (tick % STAKES_EVERY == 0) stakes();
 	land();
-	// stub until siege port: siege.tick
+	siege->tick(tick);
 	for (Squad *s : reslotQueue) reslot(*s);
 	reslotQueue.clear();
 	std::vector<VisionUnit> vu;
@@ -1676,6 +1862,9 @@ void Sim::step() {
 		v.rubble = b.rubble;
 		v.lit = b.lit.value_or(false);
 		v.staffed = b.staffed;
+		v.walk = b.walk;
+		v.attach = b.attach;
+		v.siege = b.siege;
 		vb.push_back(std::move(v));
 	}
 	vision.tick(tick, vu, vb, {}); // stub until the alliance works' bonuses (setBonus): no sight added
@@ -1711,6 +1900,17 @@ int Sim::spawn_squad(const String &owner, int team, const String &cls, int count
 
 static std::string u8(const Variant &v) { return String(v).utf8().get_data(); }
 
+// src/war/types.ts HolderRef from its dictionary ({building} | {cart} | {pile})
+static sim::HolderRef holder_ref_of(const Variant &v) {
+	sim::HolderRef r;
+	if (v.get_type() != Variant::DICTIONARY) return r;
+	const Dictionary d = v;
+	if (d.has("building")) r.building = int(d["building"]);
+	if (d.has("cart")) r.cart = int(d["cart"]);
+	if (d.has("pile")) r.pile = int(d["pile"]);
+	return r;
+}
+
 void Sim::order(const Dictionary &d) {
 	sim::Order o;
 	o.kind = u8(d.get("kind", ""));
@@ -1731,8 +1931,29 @@ void Sim::order(const Dictionary &d) {
 	o.building = int(d.get("building", -1));
 	if (d.has("cart")) o.cart = int(d["cart"]);
 	o.on = d.get("on", false);
+	if (d.has("siege")) o.siege = int(d["siege"]);
+	o.ladder = int(d.get("ladder", -1));
+	o.pack = d.get("pack", false);
+	if (d.has("wallTile")) {
+		const Array w = d["wallTile"];
+		o.wallTile = { int(w[0]), int(w[1]) };
+	}
+	o.from = holder_ref_of(d.get("from", Variant()));
+	o.to = holder_ref_of(d.get("to", Variant()));
+	if (d.has("res")) o.res = u8(d["res"]);
+	if (d.has("n")) o.n = double(d["n"]);
+	o.send = d.get("send", false);
+	o.pile = int(d.get("pile", -1));
+	o.uid = u8(d.get("uid", ""));
+	o.recipe = u8(d.get("recipe", ""));
+	o.craftOrder = int(d.get("order", 0));
+	o.owner = u8(d.get("owner", ""));
+	if (d.has("by")) o.by = u8(d["by"]);
+	// the item of a repair or salvage order: stub until roster port (no persons, so no man holds an item to order)
 	s->order(o);
 }
+
+int Sim::spawn_cart(int team, const String &owner, const String &type, double x, double y) { return s->spawnCart(team, owner.utf8().get_data(), type.utf8().get_data(), x, y); }
 
 void Sim::step() { s->step(); }
 
@@ -1757,6 +1978,19 @@ bool Sim::set_bot(int squad, const Dictionary &d) {
 		const Array v = d["via"];
 		b.via[0] = v[0];
 		b.via[1] = v[1];
+	}
+	b.engine = u8(d.get("engine", ""));
+	b.w = d.get("w", 0.0);
+	b.h = d.get("h", 0.0);
+	if (d.has("weak")) b.weak = double(d["weak"]);
+	if (d.has("reach")) b.reach = double(d["reach"]);
+	b.cart = int(d.get("cart", -1));
+	if (d.has("path")) {
+		const Array p = d["path"];
+		for (int64_t i = 0; i < p.size(); i++) {
+			const Array q = p[i];
+			b.path.push_back({ double(q[0]), double(q[1]) });
+		}
 	}
 	return bots->set(squad, b);
 }
@@ -1815,6 +2049,7 @@ void Sim::_bind_methods() {
 	ClassDB::bind_static_method("Sim", D_METHOD("create", "grid", "meta", "cells", "seed"), &Sim::create);
 	ClassDB::bind_method(D_METHOD("spawn_squad", "owner", "team", "cls", "count", "x", "y"), &Sim::spawn_squad);
 	ClassDB::bind_method(D_METHOD("order", "order"), &Sim::order);
+	ClassDB::bind_method(D_METHOD("spawn_cart", "team", "owner", "type", "x", "y"), &Sim::spawn_cart);
 	ClassDB::bind_method(D_METHOD("step"), &Sim::step);
 	ClassDB::bind_method(D_METHOD("claim", "team", "x", "y", "r"), &Sim::claim);
 	ClassDB::bind_method(D_METHOD("add_stock", "team", "res", "n"), &Sim::add_stock);

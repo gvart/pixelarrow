@@ -115,6 +115,7 @@ struct WorksRegion {
 	double depth = 0;
 	std::vector<WorksRect> noBuild;
 	std::vector<WorksRect> safe;
+	std::vector<WorksRect> yard; // M6d: where fighters walk out of a safe zone to (read by the sim only)
 	std::vector<uint8_t> water; // per tile 0..2
 	std::vector<uint8_t> terrain; // per tile: index into TERRAIN (src/war/region/compact.ts; godot/src/region/region.gd)
 	std::vector<WorksObject> objects;
