@@ -1,0 +1,47 @@
+godot/native/src/sim.h
+  s_1a6e9ade9f303e::t_c09e2f5a719e4f 3-7,18,20,30,32,37,72-73,75,77-78,80,117-143,165,177,181,184,212-227,238-272,298,312-321,375-378,386,407-451,491-492
+godot/native/src/siege.h
+  s_1a6e9ade9f303e::t_c09e2f5a719e4f 173-174
+godot/native/src/works_probe.cpp
+  s_1a6e9ade9f303e::t_c09e2f5a719e4f 285
+godot/native/src/sim_combat.cpp
+  s_1a6e9ade9f303e::t_c09e2f5a719e4f 24-26,35-39,41-48,118-119,121,200-211,236-258,268-279,282,305
+godot/native/src/bots.h
+  s_1a6e9ade9f303e::t_c09e2f5a719e4f 1-5,8-9,11,18,21,24,26-30,38-44,54-88,103-105,107,110-120,122-126
+godot/native/src/sim_siege.cpp
+  s_1a6e9ade9f303e::t_c09e2f5a719e4f 1-388
+src/dev/vectors/sim.ts
+  s_1a6e9ade9f303e::t_c09e2f5a719e4f 37-46,48-49
+godot/native/src/vision.h
+  s_1a6e9ade9f303e::t_c09e2f5a719e4f 46-48
+godot/native/src/sim_trade.cpp
+  s_1a6e9ade9f303e::t_c09e2f5a719e4f 1-440
+godot/native/src/sim_civ.cpp
+  s_1a6e9ade9f303e::t_c09e2f5a719e4f 1-311
+src/dev/godotTraces.ts
+  s_1a6e9ade9f303e::t_c09e2f5a719e4f 40,98-99
+godot/native/src/works.h
+  s_1a6e9ade9f303e::t_c09e2f5a719e4f 118
+godot/native/src/bots.cpp
+  s_1a6e9ade9f303e::t_c09e2f5a719e4f 4,10,16,22-27,29-30,41-95,99,101-104,118-164,167-171,179-180,183-192,194,197,200,204-226,228-230,233,236-240,244,265,284-630,646-764,766-768,774-776,779-788
+godot/tests/sim/test_traces.gd
+  s_1a6e9ade9f303e::t_c09e2f5a719e4f 4-5,69-72,80-86,93-94
+godot/native/src/sim.cpp
+  s_1a6e9ade9f303e::t_c09e2f5a719e4f 124-129,133-168,216-222,238-244,296-305,508-527,531,567-570,577-611,614,616-617,632-679,710-733,754-759,1072,1252,1423-1434,1458,1497,1499-1504,1519,1546,1548,1575,1584,1595,1620,1673,1716-1717,1809-1810,1845,1865-1867,1903-1913,1934-1952,1956-1957,1982-1994,2052
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4c2ce774ca2d535e611f03d92ab754d3e8696731",
+  "prompts": {},
+  "sessions": {
+    "s_1a6e9ade9f303e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2c9e00ce-6ba5-4b5a-8be5-a4a273976934",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
