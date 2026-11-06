@@ -175,6 +175,7 @@ export function spendLevel(p: WarPerson, attrs: Partial<Record<AttrId, number>>,
   let spent = 0;
   for (const k of ATTR_IDS) {
     const n = attrs[k] ?? 0;
+    if (n < 0) return 'no_points'; // points are spent, never taken back
     if (a[k] + n > ATTR_MAX) return 'attr_max';
     a[k] += n;
     spent += n;

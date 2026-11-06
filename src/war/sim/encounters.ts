@@ -195,7 +195,7 @@ export function newEncSave(region: string, owner: string, seed = 1): EncSave {
 }
 export const encSaveOk = (s: unknown, defs: Readonly<Record<string, EncounterDef>>): s is EncSave =>
   !!s && typeof s === 'object' && (s as EncSave).v === 1 && typeof (s as EncSave).n === 'number' && typeof (s as EncSave).travel === 'number'
-  && typeof (s as EncSave).next === 'number' && ((s as EncSave).open === null || (!!defs[(s as EncSave).open!.id] && defs[(s as EncSave).open!.id].steps.some((x) => x.id === (s as EncSave).open!.step)));
+  && typeof (s as EncSave).next === 'number' && ((s as EncSave).open === null || (!!(s as EncSave).open && typeof (s as EncSave).open === 'object' && !!defs[(s as EncSave).open!.id] && defs[(s as EncSave).open!.id].steps.some((x) => x.id === (s as EncSave).open!.step)));
 
 /** The open step of a save (null: none). */
 export const encStepOf = (defs: Readonly<Record<string, EncounterDef>>, s: EncSave | null): EncStep | null =>

@@ -387,6 +387,7 @@ std::variant<WarPerson, std::string> spend_level(const WarPerson &p, const std::
 		double n = 0;
 		for (const auto &[ak, v] : attrs)
 			if (ak == k) n = v;
+		if (n < 0) return std::string("no_points"); // points are spent, never taken back
 		if (a.attr(k) + n > R().ATTR_MAX) return std::string("attr_max");
 		a.set_attr(k, a.attr(k) + n);
 		spent += n;
