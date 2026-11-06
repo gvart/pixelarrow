@@ -12,7 +12,8 @@ import { parseRegion } from '../war/region/schema';
 import { TERRAIN } from '../war/region/compact';
 import type { RegionData } from '../war/types';
 import { CIV_CLASSES, CLASSES } from '../data/classes';
-import { MOBS, mobClass, type MobKind } from '../war/sim/mobs';
+import { MOBS, mobClass } from '../war/sim/mobs';
+import type { MobKind } from '../war/types';
 import { warStats } from '../war/sim/classes';
 
 const modules = import.meta.glob(['../data/*.ts', '../war/sim/*.ts', '../war/world/*.ts', '../war/region/*.ts', '!**/*.d.ts'], { eager: true }) as Record<string, Record<string, unknown>>;

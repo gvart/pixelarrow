@@ -38,6 +38,23 @@ mobile stores: the player leads one alliance, bots and warlords run the other th
 - [ ] **P13 vertical slice release candidate**: Elaia and its neighbours playable start to finish, owner playtest. depends on: P12
 - [ ] **P14 grow to 37 regions**, then delete the Phaser client and the web-only code. depends on: P13
 
+## Porting rules (C++ sim)
+
+- One TS module becomes one `godot/native/src/<module>.h/.cpp` (namespace `sim`), ported line for line in the same order of operations. Types live in the module that defines them in TS. Shared `src/war/types.ts` shapes go in `types.h`.
+- Floats:
+  - Doubles everywhere.
+  - `Float32Array` becomes `std::vector<float>`, always read into a double before any arithmetic.
+  - `Uint8Array`, `Uint16Array` and `Int32Array` become the matching fixed-width ints, so they wrap as JS wraps.
+  - `Math.round`, `sin`, `cos`, `tan`, `atan2`, `log2`, `hypot` and `**` go through `js::` (`js_math.h`). `Math.sqrt`, `floor`, `ceil`, `abs`, `min` and `max` map to `std::`. `x | 0` means truncate to int32.
+- Iteration order: JS `Map` and `Set` iterate in insertion order. Mirror that order wherever it can show: rng draws, list output, ties, first-found. Where it can't show, a `std::map` is fine, and a comment says so. Never iterate a `std::unordered_*` where order can show.
+- Rng draws must match one for one: same calls, same order, same arguments (`sim::Mulberry`, `rng.h`).
+- Tables come from `godot/data/tables` through `SimData.load` (`sim_data.h`), never hand-copied. A value that is computed in TS and is pure data can be exported as `derived/<name>` (`src/dev/godotData.ts`).
+- Tests:
+  - Each module writes TS vectors in `src/dev/vectors/<module>.ts` (`export const vectors = (sha) => ...`, written to `godot/tests/golden/vectors/<module>.json` by `npm run traces:godot`).
+  - Then a `godot/tests/sim/test_<module>.gd` checks the C++ against them bit for bit, through a thin Godot class or `SimProbe`.
+  - Break the C++ on purpose once to see the test fail.
+- Build: `nice cmake --build build/native -j 2`. Test: `cd godot && nice godot --headless --path . -s res://tests/run.gd`. CI runs the same on Linux.
+
 ## Scale-up after parity (Total War research, 2026-11-06)
 
 Owner asked how Total War runs huge fights so we can do the same. Findings worth copying, to build once the port matches TS (G-08), each as its own W-xx decision with a seeded scenario:

@@ -18,7 +18,7 @@ import type { BuildingSnap } from '../war/types';
 import { CIV_CLASSES, CLASSES } from '../data/classes';
 import { MOBS } from '../war/sim/mobs';
 
-type Sha = (bytes: Uint8Array) => string;
+export type Sha = (bytes: Uint8Array) => string;
 const regionFiles = import.meta.glob('../war/regions/*.json', { eager: true, import: 'default' });
 
 const SEEDS = [0, 1, 7, 42, 0x9e3779b9, 0xffffffff, 123456789];
@@ -243,4 +243,10 @@ const vision = (sha: Sha) => ({
   sights: [...Object.keys(CLASSES), ...Object.keys(CIV_CLASSES), ...Object.keys(MOBS).map((k) => `mob_${k}`), 'scout', 'nobody'].map((c) => [c, sightOf(c)]),
 });
 
-export const vectors = (sha: Sha): Record<string, unknown> => ({ rng: rng(), jsmath: jsMath(), grid: grid(sha), rules: rules(), vision: vision(sha) });
+/** One more module per file in ./vectors/<module>.ts (`export const vectors = (sha) => ...`), written to <module>.json. */
+const more = import.meta.glob('./vectors/*.ts', { eager: true }) as Record<string, { vectors: (sha: Sha) => unknown }>;
+
+export const vectors = (sha: Sha): Record<string, unknown> => ({
+  rng: rng(), jsmath: jsMath(), grid: grid(sha), rules: rules(), vision: vision(sha),
+  ...Object.fromEntries(Object.entries(more).map(([path, m]) => [path.replace(/^\.\/vectors\/|\.ts$/g, ''), m.vectors(sha)])),
+});
