@@ -1,6 +1,6 @@
 name: Godot
 
-# The Godot port (docs/impl/godot-port.md): golden traces from the TS sim, then the headless Godot tests against them.
+# The Godot port (docs/impl/godot-port.md): golden traces and the data export from the TS source, then the headless Godot tests against them.
 
 on:
   push:
@@ -27,6 +27,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run traces:godot
+      - run: npm run data:godot
       - name: Install Godot
         run: |
           curl -fsSL -o godot.zip "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"

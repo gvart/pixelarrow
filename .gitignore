@@ -29,3 +29,4 @@ test-results
 /godot/tests/golden/
 /godot/.godot/
 /build/
+/godot/data/
