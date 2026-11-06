@@ -24,6 +24,7 @@
 #include "crafting.h"
 #include "encounters.h"
 #include "prebuilt.h"
+#include "roster.h"
 #include "economy.h"
 #include "holders.h"
 #include "professions.h"
@@ -65,6 +66,7 @@ struct Data {
 	RoamTables roam; // roam.h
 	EncTables encounters; // encounters.h (ENC, ENCOUNTERS)
 	PrebuiltTables prebuilt; // prebuilt.h
+	RosterTables roster; // roster.h
 };
 const Data &data();
 

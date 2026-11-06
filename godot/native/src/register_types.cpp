@@ -12,6 +12,7 @@
 #include "probe.h"
 #include "rng.h"
 #include "roam_probe.h"
+#include "roster.h"
 #include "sim.h"
 #include "secrets.h"
 #include "sim_data.h"
@@ -48,6 +49,7 @@ static void initialize_pixelsim(ModuleInitializationLevel level) {
 	GDREGISTER_CLASS(WorksProbe);
 	GDREGISTER_CLASS(EncounterRun);
 	GDREGISTER_CLASS(Towns);
+	GDREGISTER_CLASS(Roster);
 }
 
 static void uninitialize_pixelsim(ModuleInitializationLevel level) {}
