@@ -30,3 +30,5 @@ test-results
 /godot/.godot/
 /build/
 /godot/data/
+/godot/bin/
+/build-native.log

@@ -1,6 +1,14 @@
 ## Grid builds, searches and re-cuts exactly as the TS grid (godot/tests/golden/vectors/grid.json, src/dev/godotVectors.ts).
 extends TestCase
 
+# src/war/sim/grid.ts
+const DECK := 1
+const STAIR := 2
+const LADDER := 3
+const SQRT2 := 1.4142135623730951
+const DX := [1, -1, 0, 0, 1, 1, -1, -1]
+const DY := [0, 0, 1, -1, 1, -1, 1, -1]
+
 var _v: Dictionary
 
 
@@ -18,11 +26,9 @@ static func sha(b: PackedByteArray) -> String:
 
 
 func _digest(g: Grid, want: Dictionary, tag: String) -> void:
-	var got := {
-		"cost": sha(g.cost.to_byte_array()), "height": sha(g.height), "ground": sha(g.ground), "cartMul": sha(g.cart_mul.to_byte_array()),
-		"n": g.s_n, "node": sha(g.s_node.to_byte_array()), "start": sha(g.s_start.to_byte_array()), "adj": sha(g.s_adj.to_byte_array()),
-		"adjCost": sha(g.s_adj_cost.to_byte_array()), "cx": sha(g.s_cx.to_byte_array()), "cy": sha(g.s_cy.to_byte_array()),
-	}
+	var got := {"n": g.sectors()}
+	for k in ["cost", "height", "ground", "cartMul", "node", "start", "adj", "adjCost", "cx", "cy"]:
+		got[k] = sha(g.bytes_of(k))
 	for k in want:
 		var w = int(want[k]) if k == "n" else want[k]
 		check(got[k] == w, "%s %s differs%s" % [tag, k, (" (%d vs %d)" % [got[k], w]) if k == "n" else ""])
@@ -47,7 +53,7 @@ func _pulled(g: Grid, tiles: PackedInt32Array) -> Array:
 	for k in tiles.size():
 		if k:
 			var diag: bool = tiles[k] % g.w != tiles[k - 1] % g.w and tiles[k] / g.w != tiles[k - 1] / g.w
-			acc += g.step_cost(tiles[k - 1], tiles[k]) * (Grid.SQRT2 if diag else 1.0)
+			acc += g.step_cost(tiles[k - 1], tiles[k]) * (SQRT2 if diag else 1.0)
 		pts.append((tiles[k] % g.w) + 0.5)
 		pts.append((tiles[k] / g.w) + 0.5)
 		c.append(acc)
@@ -58,7 +64,7 @@ func _pulled(g: Grid, tiles: PackedInt32Array) -> Array:
 func test_regions() -> void:
 	for v in _vectors()["regions"]:
 		var id: String = v["region"]
-		var g := Grid.build(Region.load_id(id))
+		var g := Region.load_id(id).grid()
 		_digest(g, v["built"], id + " built")
 		for p in v["paths"]:
 			var tag := "%s path %d->%d" % [id, int(p["a"]), int(p["b"])]
@@ -81,9 +87,8 @@ func test_regions() -> void:
 		for xy in v["closed"]:
 			for y in range(int(xy[1]), mini(g.h, int(xy[1]) + 6)):
 				for x in range(int(xy[0]), mini(g.w, int(xy[0]) + 6)):
-					g.cost[y * g.w + x] = 0.0
-					g.dirty.append(x)
-					g.dirty.append(y)
+					g.set_cost(y * g.w + x, 0.0)
+					g.mark_dirty(x, y)
 		g.flush_sectors()
 		_digest(g, v["after"], id + " after closing")
 		for p in v["again"]:
@@ -92,31 +97,30 @@ func test_regions() -> void:
 
 func test_synthetic_modes() -> void:
 	var v: Dictionary = _vectors()["synthetic"]
-	var g := Grid.build(_synthetic())
+	var g := _synthetic().grid()
 	var w := g.w
 	for y in range(2, 6):
-		g.deck[y * w + 10] = Grid.DECK
-		g.deck[y * w + 11] = Grid.DECK
-		g.height[y * w + 10] = 2
-		g.height[y * w + 11] = 2
-	g.deck[6 * w + 10] = Grid.STAIR
-	g.height[6 * w + 10] = 1
-	g.deck[1 * w + 10] = Grid.LADDER
+		g.set_deck(y * w + 10, DECK)
+		g.set_deck(y * w + 11, DECK)
+		g.set_height(y * w + 10, 2)
+		g.set_height(y * w + 11, 2)
+	g.set_deck(6 * w + 10, STAIR)
+	g.set_height(6 * w + 10, 1)
+	g.set_deck(1 * w + 10, LADDER)
 	for x in range(7, 10):
-		g.cost[10 * w + x] = 1
-		g.span[10 * w + x] = 1
-		g.narrow[10 * w + x] = 1 if x == 8 else 0
-	g.span[11 * w + 9] = 1
-	g.span[9 * w + 7] = 1
-	g.cost[11 * w + 9] = 1
-	g.cost[9 * w + 7] = 1
-	g.gate[3 * w + 6] = 1
-	g.gate[3 * w + 17] = 2
-	g.trench[12 * w + 2] = 1
-	g.trench[12 * w + 3] = 1
+		g.set_cost(10 * w + x, 1)
+		g.set_span(10 * w + x, 1)
+		g.set_narrow(10 * w + x, 1 if x == 8 else 0)
+	g.set_span(11 * w + 9, 1)
+	g.set_span(9 * w + 7, 1)
+	g.set_cost(11 * w + 9, 1)
+	g.set_cost(9 * w + 7, 1)
+	g.set_gate(3 * w + 6, 1)
+	g.set_gate(3 * w + 17, 2)
+	g.set_trench(12 * w + 2, 1)
+	g.set_trench(12 * w + 3, 1)
 	for i in w * g.h:
-		g.dirty.append(i % w)
-		g.dirty.append(i / w)
+		g.mark_dirty(i % w, i / w)
 	g.flush_sectors()
 	for m in v["modes"]:
 		g.team = int(m["team"])
@@ -127,8 +131,8 @@ func test_synthetic_modes() -> void:
 		for i in w * g.h:
 			var bits := 0
 			for k in 8:
-				var x: int = (i % w) + Grid.DX[k]
-				var y: int = (i / w) + Grid.DY[k]
+				var x: int = (i % w) + DX[k]
+				var y: int = (i / w) + DY[k]
 				if x >= 0 and y >= 0 and x < w and y < g.h and g.can_enter(i, y * w + x):
 					bits |= 1 << k
 			if bits != int(m["enter"][i]):

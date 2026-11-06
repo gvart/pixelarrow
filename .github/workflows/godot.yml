@@ -1,6 +1,7 @@
 name: Godot
 
-# The Godot port (docs/impl/godot-port.md): golden traces and the data export from the TS source, then the headless Godot tests against them.
+# The Godot port (docs/impl/godot-port.md): golden traces and the data export from the TS source, the C++ sim extension,
+# then the headless Godot tests against them.
 
 on:
   push:
@@ -28,6 +29,16 @@ jobs:
       - run: npm ci
       - run: npm run traces:godot
       - run: npm run data:godot
+      - name: Cache the native build (godot-cpp takes minutes)
+        uses: actions/cache@v4
+        with:
+          path: build/native
+          key: native-${{ runner.os }}-${{ hashFiles('godot/native/CMakeLists.txt') }}-${{ hashFiles('godot/native/src/**') }}
+          restore-keys: native-${{ runner.os }}-${{ hashFiles('godot/native/CMakeLists.txt') }}-
+      - name: Build the sim extension
+        run: |
+          cmake -S godot/native -B build/native -DCMAKE_BUILD_TYPE=Release -DGODOTCPP_TARGET=template_debug
+          cmake --build build/native -j 4
       - name: Install Godot
         run: |
           curl -fsSL -o godot.zip "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"

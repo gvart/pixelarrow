@@ -1,0 +1,16 @@
+; The war sim as a C++ GDExtension (godot/native, docs/impl/godot-port.md G-02). Build: see godot/native/CMakeLists.txt.
+[configuration]
+
+entry_symbol = "pixelsim_init"
+compatibility_minimum = "4.5"
+
+[libraries]
+
+macos.debug = "res://bin/libpixelsim.macos.template_debug.arm64.dylib"
+macos.release = "res://bin/libpixelsim.macos.template_release.arm64.dylib"
+linux.debug.x86_64 = "res://bin/libpixelsim.linux.template_debug.x86_64.so"
+linux.release.x86_64 = "res://bin/libpixelsim.linux.template_release.x86_64.so"
+windows.debug.x86_64 = "res://bin/libpixelsim.windows.template_debug.x86_64.dll"
+windows.release.x86_64 = "res://bin/libpixelsim.windows.template_release.x86_64.dll"
+android.debug.arm64 = "res://bin/libpixelsim.android.template_debug.arm64.so"
+android.release.arm64 = "res://bin/libpixelsim.android.template_release.arm64.so"

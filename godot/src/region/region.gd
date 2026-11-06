@@ -35,3 +35,8 @@ func terrain_at(i: int) -> int:
 
 func water_at(i: int) -> int:
 	return cells.decode_u16(i * 2) >> 7
+
+
+## The movement grid of this region (the C++ sim's Grid, godot/native/src/grid.h).
+func grid() -> Grid:
+	return Grid.build(cells, w, h, meta, GameData.table("src/war/region/objects")["OBJECT_BLOCKS"])

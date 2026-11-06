@@ -8,7 +8,7 @@ func _vectors() -> Dictionary:
 
 func test_sequences_match_ts() -> void:
 	for v in _vectors()["seeds"]:
-		var r := Rng.new(int(v["seed"]))
+		var r := Rng.create(int(v["seed"]))
 		var tag := "seed %d" % int(v["seed"])
 		for i in v["next"].size():
 			var got := r.next()
