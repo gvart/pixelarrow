@@ -24,3 +24,7 @@ test-results
 # I1+: raw PixelLab downloads (zips, rotations, frames) stay on disk, never in git (V5-086, as V5-049)
 /docs/v5/pixellab/**/raw/
 
+
+# Godot port: golden traces are generated (npm run traces:godot), Godot caches are local
+/godot/tests/golden/
+/godot/.godot/
