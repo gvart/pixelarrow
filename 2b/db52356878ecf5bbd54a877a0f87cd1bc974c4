@@ -1,0 +1,39 @@
+godot/native/src/sim_data.cpp
+  s_1a6e9ade9f303e::t_8e59c1977998b7 68
+src/dev/vectors/prebuilt.ts
+  s_1a6e9ade9f303e::t_8e9fa738d2e12e 1-36,42-61,63-65,67-84,86-90,92-108,110-125
+  s_1a6e9ade9f303e::t_6fe85af6a4311a 109
+  s_1a6e9ade9f303e::t_6909fe6cf0106b 37-41
+  s_1a6e9ade9f303e::t_744ff1921568e1 62,66,85,91
+godot/native/src/prebuilt.cpp
+  s_1a6e9ade9f303e::t_140add8a8a7d30 94
+  s_1a6e9ade9f303e::t_1f1bbc19889f31 1-93,95-129,131-166,168-373
+  s_1a6e9ade9f303e::t_bba24778b3c88c 130
+  s_1a6e9ade9f303e::t_6909fe6cf0106b 167
+godot/native/src/register_types.cpp
+  s_1a6e9ade9f303e::t_8e59c1977998b7 11,50
+godot/native/src/sim_data.h
+  s_1a6e9ade9f303e::t_8e59c1977998b7 26,67
+godot/tests/sim/test_prebuilt.gd.uid
+  s_1a6e9ade9f303e::t_7ec5c579cf16b1 1
+godot/native/src/prebuilt.h
+  s_1a6e9ade9f303e::t_016b10c2bb7947 1-143
+godot/tests/sim/test_prebuilt.gd
+  s_1a6e9ade9f303e::t_0bee9331919e77 1-39
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "2bdb52356878ecf5bbd54a877a0f87cd1bc974c4",
+  "prompts": {},
+  "sessions": {
+    "s_1a6e9ade9f303e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2c9e00ce-6ba5-4b5a-8be5-a4a273976934",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
