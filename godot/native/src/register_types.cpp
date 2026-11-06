@@ -7,6 +7,7 @@
 #include "grid.h"
 #include "probe.h"
 #include "rng.h"
+#include "sim_data.h"
 #include "vision.h"
 
 using namespace godot;
@@ -18,6 +19,7 @@ static void initialize_pixelsim(ModuleInitializationLevel level) {
 	GDREGISTER_CLASS(Grid);
 	GDREGISTER_CLASS(SimProbe);
 	GDREGISTER_CLASS(Vision);
+	GDREGISTER_CLASS(SimData);
 }
 
 static void uninitialize_pixelsim(ModuleInitializationLevel level) {}

@@ -11,6 +11,9 @@ import { exactJson } from './godotJson';
 import { parseRegion } from '../war/region/schema';
 import { TERRAIN } from '../war/region/compact';
 import type { RegionData } from '../war/types';
+import { CIV_CLASSES, CLASSES } from '../data/classes';
+import { MOBS, mobClass, type MobKind } from '../war/sim/mobs';
+import { warStats } from '../war/sim/classes';
 
 const modules = import.meta.glob(['../data/*.ts', '../war/sim/*.ts', '../war/world/*.ts', '../war/region/*.ts', '!**/*.d.ts'], { eager: true }) as Record<string, Record<string, unknown>>;
 const regionFiles = import.meta.glob('../war/regions/*.json', { eager: true, import: 'default' });
@@ -42,7 +45,18 @@ export function tables(): Table[] {
     }
     const json = exactJson(out, (key) => dropped.push(key));
     return { name, json, exports, dropped };
-  }).filter((t) => Object.keys(t.exports).length > 0);
+  }).filter((t) => Object.keys(t.exports).length > 0).concat(derived());
+}
+
+/**
+ * Tables the TS computes from code once (`derived/<name>`): WAR_STATS, warStats(cls) of every soldier, civilian and mob
+ * class, so the C++ sim reads a fresh class's numbers instead of porting computeStats (docs/impl/godot-port.md G-10;
+ * an unknown class is militia).
+ */
+function derived(): Table[] {
+  const ids = [...Object.keys(CLASSES), ...Object.keys(CIV_CLASSES), ...(Object.keys(MOBS) as MobKind[]).map(mobClass)];
+  const WAR_STATS = Object.fromEntries(ids.map((id) => [id, warStats(id)]));
+  return [{ name: 'derived/war_stats', json: exactJson({ WAR_STATS }), exports: { WAR_STATS: 'object' }, dropped: [] }];
 }
 
 /** `sample`: the middle tile decoded by the TS side, [index, height, terrain, water], so the Godot side checks its unpacking. */

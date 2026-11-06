@@ -15,6 +15,8 @@ import { afterArmour, blockChance, heightRange, hitChance, meleeHeight, missileH
 import { formationOffsets, type Shape } from '../war/sim/formation';
 import { createVision, sightOf, type Viewer } from '../war/sim/vision';
 import type { BuildingSnap } from '../war/types';
+import { CIV_CLASSES, CLASSES } from '../data/classes';
+import { MOBS } from '../war/sim/mobs';
 
 type Sha = (bytes: Uint8Array) => string;
 const regionFiles = import.meta.glob('../war/regions/*.json', { eager: true, import: 'default' });
@@ -236,6 +238,9 @@ function visionOn(id: string, sha: Sha) {
   return { region: id, wall, steps };
 }
 
-const vision = (sha: Sha) => ({ regions: ['test-ridge', 'dodona'].map((id) => visionOn(id, sha)) });
+const vision = (sha: Sha) => ({
+  regions: ['test-ridge', 'dodona'].map((id) => visionOn(id, sha)),
+  sights: [...Object.keys(CLASSES), ...Object.keys(CIV_CLASSES), ...Object.keys(MOBS).map((k) => `mob_${k}`), 'scout', 'nobody'].map((c) => [c, sightOf(c)]),
+});
 
 export const vectors = (sha: Sha): Record<string, unknown> => ({ rng: rng(), jsmath: jsMath(), grid: grid(sha), rules: rules(), vision: vision(sha) });

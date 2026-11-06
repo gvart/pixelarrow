@@ -19,6 +19,7 @@ mobile stores: the player leads one alliance, bots and warlords run the other th
 - G-07 The TS sim is the spec. The GDScript sim is checked against golden traces of the TS sim (seeded scenarios).
 - G-08 No new mechanics during the port. Rule changes wait until parity, or land in TS first with a new trace.
 - G-09 Platform rule (from v6): Steam, mobile and saves sit behind neutral interfaces, with one adapter folder per platform.
+- G-10 Stat baking stays out of C++. A fresh class's numbers (`warStats(cls)`) are pure data, so the TS exports them as `derived/war_stats` and the C++ sim reads them through `SimData.load`. A person's bake (`warStatsOf`: hero, gear, skills, honours, clamp) runs in GDScript, which needs `computeStats` for the hero sheets anyway. The sim asks for it through a callback at spawn and level-up, the only two call sites. Why: about 2.5k lines of item, affix and stat rules stay out of the hot path, and they are ported once, not twice.
 
 ## Work items
 

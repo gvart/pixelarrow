@@ -45,3 +45,9 @@ static func _sha(b: PackedByteArray) -> String:
 	ctx.start(HashingContext.HASH_SHA256)
 	ctx.update(b)
 	return ctx.finish().hex_encode()
+
+
+func test_sight_matches_ts() -> void:
+	SimData.load({"war_stats": GameData.table("derived/war_stats")["WAR_STATS"]})
+	for c in GameData.read_exact("res://tests/golden/vectors/vision.json")["sights"]:
+		check(SimData.sight_of(c[0]) == int(c[1]), "sightOf(%s) = %d, TS %d" % [c[0], SimData.sight_of(c[0]), int(c[1])])
