@@ -22,9 +22,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # Node 25 (V8 14.1), as on the dev machine: the traces' math depends on V8's version (Node 22 still uses fdlibm pow,
+      # 25 std::pow; docs/impl/godot-port.md "Cross-platform math").
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 25
           cache: npm
       - run: npm ci
       - run: npm run traces:godot
