@@ -20,6 +20,7 @@ constexpr double LEASH = 4;
 constexpr double CHARGE = 10;
 constexpr double REACH_PAD = 0.3;
 constexpr double FIRE_RELOAD = 1.5;
+constexpr double FIRE_DECK = 0.08;
 
 double sq(double v) { return v * v; }
 
@@ -28,8 +29,11 @@ int flag(const char *name) { return int(data().skills.F.at(name)); }
 } // namespace
 
 void Sim::setRates(Unit &u) {
-	// stub until works and civilians ports: wrate, brate, gmul, herbs and flax (gather and build rates; no civilians
-	// yet), the held nodes (none) and the demigod's quick hands (no paths: NO_PATH)
+	// stub until civilians port: a forager's and an engineer's rates, the held nodes (no civilians yet: a soldier's
+	// rates are undefined); until the paths port: the demigod's quick hands (NO_PATH: no work perk)
+	u.wrate.reset();
+	u.brate.reset();
+	u.gmul.reset();
 	u.fieldR = data().civilians.PHYSICIAN.r;
 	const std::string mk = mob_kind_of(u.cls);
 	u.venom = !mk.empty() ? data().mobs.MOBS.at(mk).venom : false;
@@ -74,9 +78,8 @@ void Sim::riseTick() {
 void Sim::hurt(Unit &t, double dmg, Unit *by) {
 	if (anySafe && inSafe(t.x, t.y) && dmg != INF) return;
 	if (t.immune) return;
-	// stub until trade port: the combat tag (by.tag = t.tag = tick + SAFE.tag; no safe zones yet)
-	const double workDefence = 1; // stub until economy port: WORK_DEFENCE (no gather or build orders yet)
-	const double d = dmg * (working(t) ? workDefence : 1) * (t.squad->fedUntil > tick ? t.squad->fedInn : 1) * (by && dmg != INF ? blow(by->sat) : 1);
+	if (by) by->tag = t.tag = tick + data().trade.SAFE.tag; // M6d: combat tag
+	const double d = dmg * (working(t) ? data().economy.WORK_DEFENCE : 1) * (t.squad->fedUntil > tick ? t.squad->fedInn : 1) * (by && dmg != INF ? blow(by->sat) : 1);
 	if (by && by->venom && t.squad->theriacUntil <= tick) t.venomUntil = tick + data().civilians.VENOM.ticks;
 	if (by) {
 		by->dealt += std::min(d, t.hp);
@@ -87,7 +90,7 @@ void Sim::hurt(Unit &t, double dmg, Unit *by) {
 	if (t.hp > 0) return;
 	t.hp = 0;
 	t.alive = false;
-	// stub until works port: works.release (nobody holds a job)
+	works->release(t);
 	t.fighting = false;
 	t.moving = false;
 	t.tgt = nullptr;
@@ -108,8 +111,17 @@ void Sim::hurt(Unit &t, double dmg, Unit *by) {
 	t.squad->alive--;
 	addReslot(*t.squad);
 	if (by) by->kills++;
-	// stub until souls port: souls.fell; until trade port: his pack and kit to a pile (class spawns carry none); the
-	// view's 'fall' note: no event log yet
+	// the view's 'fall' note and W-221's dropped goods: no event log yet; stub until souls port: souls.fell
+	// M6c: what he carried goes to a pile (stub until roster port: no persons, so no worn kit)
+	std::vector<Lot> lots;
+	if (t.pack)
+		for (const Lot &l : t.pack->lots)
+			if (l.n > 1e-9) lots.push_back(l);
+	if (!t.carry.empty() && t.load > 0 && t.wfor < 0) lots.push_back(Lot{ t.carry, t.load, region.id, std::nullopt });
+	std::vector<Item> items = t.pack ? t.pack->items : std::vector<Item>{};
+	if (!t.carry.empty() && t.wfor < 0) t.carry.clear(), t.load = 0;
+	t.pack.reset();
+	piles->drop(t.x, t.y, lots, items, tick);
 }
 
 bool Sim::reachable(Unit &u, Unit &t) const { return std::abs(double(hAt(u.x, u.y)) - double(hAt(t.x, t.y))) <= 1 && grid->line_clear(u.x, u.y, t.x, t.y); }
@@ -167,15 +179,24 @@ void Sim::strike(Unit &u, Unit &t, double dh) {
 	}
 }
 
+bool Sim::fireShot(Unit &u) {
+	if (!u.squad->fire || u.st.missile != ARROW || !works->lit_near(u.squad->team, u.x, u.y, hAt(u.x, u.y), fireReach(u))) return false;
+	Cost c;
+	c.set("pitch", u.st.flags & flag("fireArcher") ? data().economy.BRAZIER.pitch * data().skills.FLAG_FX.firePitch : data().economy.BRAZIER.pitch);
+	return works->take_at(u.squad->team, u.x, u.y, c);
+}
+
+double Sim::fireReach(Unit &u) const { return u.st.flags & flag("fireArcher") ? data().economy.BRAZIER.radius * data().skills.FLAG_FX.fireReach : data().economy.BRAZIER.radius; }
+
 void Sim::shoot(Unit &u, Unit &t, double d, double dh, double range) {
-	const bool fire = false; // stub until works port: fireShot (no lit braziers; fireArrows not ported)
+	const bool fire = fireShot(u);
 	u.ammo--;
 	u.cd = js::round(u.st.shotTicks * (fire ? FIRE_RELOAD : 1));
 	u.swingAt = tick;
 	const int at = tick + int(std::max(1.0, js::round(d / u.st.shotSpeed / DT)));
 	// the view's shot (ShotSnap): not kept, nothing in the sim reads it
 	if (u.ammo == 0) addReslot(*u.squad);
-	const int fb = -1; // stub until works port: works.onBuilding (fire arrows only)
+	const int fb = fire ? works->on_building(grid->tile_at(t.x, t.y)) : -1;
 	const bool hit = rng.next() < hit_chance(u.st.accuracy + (u.squad->fedUntil > tick ? u.squad->fedAcc : 0), d, range, groundAt(t.x, t.y) == FOREST);
 	if (!hit && fb < 0) return;
 	const bool bog = groundAt(u.x, u.y) == BOG;
@@ -197,7 +218,8 @@ void Sim::land() {
 			keep.push_back(m);
 			continue;
 		}
-		// stub until works and siege ports: fire on a deck, shots at a building or engine (shootAt, fire arrows: none yet)
+		if (m.fb >= 0) works->fire_hit(m.fb, FIRE_DECK);
+		// stub until siege port: shots at a building or engine (shootAt: a siege task's)
 		Unit *t = m.t;
 		if (!t || !t->alive) continue;
 		const double cv = 0; // stub until siege port: cover (no rams, no mantlets)

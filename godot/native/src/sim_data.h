@@ -59,6 +59,9 @@ struct Data {
 	TownTables town; // town_level.h
 	LandmarkTables landmarks; // landmarks.h
 	WorksTables works; // FIRE, FORT (src/war/sim/works)
+	struct {
+		double calm = 0;
+	} simCiv; // civilians.ts CIV, so far what the Sim's workScan reads (the civilians port owns the rest)
 };
 const Data &data();
 

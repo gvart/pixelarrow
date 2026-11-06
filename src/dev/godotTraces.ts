@@ -32,7 +32,10 @@ const digest = (s: Snapshot) => ({
 
 export const CAP = 40, TICKS = 50, EVERY = 10;
 
-/** A setup call on the sim: [method, ...args] (trailing undefined args dropped); ['bot', squad, behaviour] a bot set on a squad. */
+/**
+ * A setup call on the sim: [method, ...args] (trailing undefined args dropped); ['bot', squad, behaviour] a bot set on a
+ * squad; ['feed', team, squad | null, res, n] the scenario's food put in packs or a store (../war/scenarios/run.ts feedSim).
+ */
 export type SetupOp = [string, ...unknown[]];
 export interface Trace { id: string; region: string; seed: number; cap: number; setup: SetupOp[]; frames: ReturnType<typeof digest>[] }
 
@@ -72,18 +75,27 @@ function record(sim: WarBuildSim, bots: Bots, ops: SetupOp[]): () => void {
   };
 }
 
-/** Scenario sc applied (its setup recorded) and played `ticks` ticks, digested by `dig` at the start and every `every` ticks. */
-export function play<D>(sc: Scenario, ticks: number, every: number, dig: (s: Snapshot) => D) {
+/**
+ * Scenario sc applied (its setup recorded; at most `cap` ticks a prebuild or skip) and played `ticks` ticks, digested by
+ * `dig` at the start and every `every` ticks.
+ */
+export function play<D>(sc: Scenario, ticks: number, every: number, dig: (s: Snapshot) => D, cap = CAP) {
   const seed = sc.seed ?? 1, sim = createSim(regionOf(sc), seed), bots = createBots(sim), setup: SetupOp[] = [];
   const undo = record(sim, bots, setup);
-  applyScenario(headlessHost(sim, bots, CAP), sc);
+  // W-60 food goes into packs and stores straight through sim.cargo (feedSim): recorded as one ['feed', team, squad, res, n]
+  const host = headlessHost(sim, bots, cap), feed = host.feed;
+  host.feed = (team, squad, res, n) => {
+    setup.push(['feed', team, squad, res, n]);
+    feed(team, squad, res, n);
+  };
+  applyScenario(host, sc);
   undo();
   const frames = [dig(sim.snapshot())];
   for (let t = 1; t <= ticks; t++) {
     stepSim(sim, bots);
     if (t % every === 0) frames.push(dig(sim.snapshot()));
   }
-  return { id: sc.id, region: sc.region ?? 'test-ridge', seed, cap: CAP, setup, frames };
+  return { id: sc.id, region: sc.region ?? 'test-ridge', seed, cap, setup, frames };
 }
 
 export const trace = (sc: Scenario): Trace => play(sc, TICKS, EVERY, digest);

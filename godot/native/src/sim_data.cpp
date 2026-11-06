@@ -63,6 +63,7 @@ void SimData::load(const Dictionary &tables) {
 	sim::load_town_tables(tables, d.town);
 	sim::load_landmark_tables(tables, d.landmarks);
 	if (tables.has("works")) sim::load_works(tables["works"], d.works);
+	if (tables.has("src/war/sim/civilians")) d.simCiv.calm = Dictionary(Dictionary(tables["src/war/sim/civilians"])["CIV"])["calm"];
 	sim::DATA = std::move(d);
 	sim::LOADED = true;
 }

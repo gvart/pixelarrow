@@ -1,22 +1,32 @@
 ## Whole scenarios against the TS sim: the C++ Sim replays each scenario's setup op for op (its bots too) and steps it.
 ## - The P1 golden traces (npm run traces:godot, src/dev/godotTraces.ts): its digest must match at every checkpoint. The
 ##   trace rounds to 4 decimals (toFixed), so a number matches within half a unit of the 4th.
-## - The sim vectors (src/dev/vectors/sim.ts): the move and fight scenarios over 600 ticks, positions, hp and facing bit
-##   for bit.
-## A trace with buildings or stock waits for the economy port; SKIP lists the other scenarios not replayed yet, with why.
+## - The sim vectors (src/dev/vectors/sim.ts): the move, fight, economy and building scenarios over 600 ticks, positions,
+##   hp, facing, the buildings' progress and the stock bit for bit.
+## SKIP lists the scenarios not replayed yet, with the module each waits for.
 extends TestCase
 
 const DIR := "res://tests/golden"
 const TOL := 0.00005 + 1e-9
 const Wild := preload("res://tests/sim/wild.gd")
+const CIV := "civilian squads: civilians not ported yet (civScan, civTick, civWork, the quota)"
+const CARTS := "spawnCart: carts are siege engines: siege not ported yet"
+const LAIRS := "spawnMobs: mobs (lairs) not wired into Sim yet, bosses.spawn with them: bosses not ported yet"
 const SKIP := {
-	"combat-wounded": "a physician squad: civilians not ported yet",
-	"limit-army": "a cook squad: civilians not ported yet",
-	"limit-soul": "spawnSoul: souls not ported yet",
-	"neutral-clear": "spawnMobs: the lairs need works (resource nodes, claims, influence) behind a MobHost: economy port",
-	"eco-hunt": "spawnMobs: the lairs need works (resource nodes, claims, influence) behind a MobHost: economy port",
-	"trailer-hunt": "spawnMobs: the lairs need works (resource nodes, claims, influence) behind a MobHost: economy port",
-	"world-fill": "spawnMobs and spawnRoam: lairs need works behind a MobHost (economy port), roam not ported",
+	"combat-wounded": CIV, "limit-army": CIV, "civ-flee": CIV, "civ-household": CIV, "crafting": CIV, "eco-farm": CIV, "village": CIV,
+	"build-each": CIV, "peace-works": CIV, "trailer-elaia": CIV,
+	"trailer-elaia-raid": "civilian squads and attackBuilding: civilians and siege not ported yet",
+	"siege": "the siege bots and engines: siege not ported yet", "siege-defend": "the siege bots and engines: siege not ported yet",
+	"siege-ladders": "the siege bots and engines: siege not ported yet",
+	"siege-ram-gate": "buildSiege: siege not ported yet", "siege-thrower": "buildSiege: siege not ported yet",
+	"market": CARTS, "loot": CARTS, "eco-trade": CARTS, "eco-handcart": CARTS, "caravan": CARTS, "clip-caravan": CARTS,
+	"limit-soul": "spawnSoul: souls not wired into Sim yet",
+	"neutral-clear": LAIRS, "eco-hunt": LAIRS, "trailer-hunt": LAIRS,
+	"boss-brontes": LAIRS, "boss-drakon-late": LAIRS, "boss-erymanthian-boar": LAIRS, "boss-griffin": LAIRS, "boss-grove-queen": LAIRS,
+	"boss-maenad-queen": LAIRS, "boss-minotaur": LAIRS, "boss-moor-bear": LAIRS, "boss-river-god": LAIRS, "boss-savanna-lion": LAIRS,
+	"landmark-citadel": LAIRS, "landmark-deadcity": LAIRS, "landmark-forge": LAIRS, "landmark-hold": LAIRS, "landmark-temple": LAIRS,
+	"landmark-watchtower": LAIRS,
+	"world-fill": "spawnMobs and spawnRoam: mobs not wired into Sim yet, roam not ported yet",
 }
 
 
@@ -31,9 +41,6 @@ func test_traces_match() -> void:
 			print("skip %s: %s" % [id, SKIP[id]])
 			continue
 		var t: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(DIR.path_join(f)))
-		if t["frames"].any(func(fr): return fr["buildings"].size() > 0 or fr["stock"].size() > 0):
-			print("skip %s: buildings or stock (economy port)" % id)
-			continue
 		if not t.has("setup"):
 			fail("%s: the trace has no setup (regenerate with npm run traces:godot)" % id)
 			return
@@ -62,19 +69,36 @@ func _load() -> void:
 	var t := {"war_stats": GameData.table("derived/war_stats")["WAR_STATS"], "src/war/sim/civilians": GameData.table("src/war/sim/civilians")}
 	for n in Wild.TABLES:
 		t[n] = GameData.table(n)
+	for n in ["economy", "holders", "trade", "crafting", "works"]:
+		t[n] = GameData.table("src/war/sim/" + n)
+	t["town_level"] = GameData.table("src/war/sim/townLevel")
+	for n in ["professions", "recipes", "items", "affixes", "classes"]:
+		t[n] = GameData.table("src/data/" + n)
+	t["derived_crafting"] = GameData.table("derived/crafting")
 	SimData.load(t)
 
 
 ## Replays trace t; returns the checkpoints matched, -1 on the first mismatch (reported). tol 0: bit for bit.
 func _replay(t: Dictionary, tol: float) -> int:
 	var id: String = t["id"]
-	var sim := Sim.create(Region.load_id(t["region"]).grid(), int(t["seed"]))
+	var region := Region.load_id(t["region"])
+	var sim := Sim.create(region.grid(), region.meta, region.cells, int(t["seed"]))
 	for op in t["setup"]:
 		match op[0]:
 			"spawnSquad":
 				sim.spawn_squad(op[1], int(op[2]), op[3], int(op[4]), float(op[5]), float(op[6]))
 			"order":
 				sim.order(op[1])
+			"claim":
+				sim.claim(int(op[1]), float(op[2]), float(op[3]), op[4] if op.size() > 4 else null)
+			"addStock":
+				sim.add_stock(int(op[1]), op[2], float(op[3]))
+			"finishBridges":
+				sim.finish_bridges(int(op[1]))
+			"setSatiety":
+				sim.set_satiety(op[1], float(op[2]))
+			"feed":
+				sim.feed(int(op[1]), op[2], op[3], float(op[4]))
 			"step":
 				# every setup step is a stepSim (src/war/scenarios/run.ts): the sim, then its bots
 				sim.step()
@@ -99,10 +123,9 @@ func _replay(t: Dictionary, tol: float) -> int:
 	return frames.size()
 
 
-## What differs between the C++ digest and the TS one ("" none); numbers at 2.. (x, y, hp, then facing if given).
+## What differs between the C++ digest and the TS one ("" none); numbers at 2.. (x, y, hp, then facing if given), a
+## building's progress, the stock.
 static func _differs(got: Dictionary, want: Dictionary, tol: float) -> String:
-	if want.get("buildings", []).size() > 0 or want.get("stock", {}).size() > 0:
-		return "the trace has buildings or stock (not ported yet)"
 	var gs: Array = got["squads"]
 	var ws: Array = want["squads"]
 	if gs.size() != ws.size():
@@ -122,7 +145,32 @@ static func _differs(got: Dictionary, want: Dictionary, tol: float) -> String:
 			same = same and (float(g[c]) == float(w[c]) if tol == 0.0 else absf(float(g[c]) - float(w[c])) <= tol)
 		if not same:
 			return "unit %s, TS %s" % [_show(g), _show(w)]
+	var gb: Array = got["buildings"]
+	var wb: Array = want.get("buildings", [])
+	if gb.size() != wb.size():
+		return "%d buildings, TS %d" % [gb.size(), wb.size()]
+	for i in wb.size():
+		var g: Array = gb[i]
+		var w: Array = wb[i]
+		if int(g[0]) != int(w[0]) or g[1] != w[1] or int(g[2]) != int(w[2]) or g[3] != w[3] or not _near(float(g[4]), float(w[4]), tol):
+			return "building %s, TS %s" % [_show(g), _show(w)]
+	var gst: Dictionary = got["stock"]
+	var wst: Dictionary = want.get("stock", {})
+	if gst.size() != wst.size():
+		return "stock %s, TS %s" % [str(gst), str(wst)]
+	for team in wst:
+		var a: Dictionary = gst.get(str(team), {})
+		var b: Dictionary = wst[team]
+		if not gst.has(str(team)) or a.size() != b.size():
+			return "stock of %s: %s, TS %s" % [team, str(a), str(b)]
+		for r in b:
+			if not a.has(r) or not _near(float(a[r]), float(b[r]), tol):
+				return "stock of %s: %s, TS %s" % [team, str(a), str(b)]
 	return ""
+
+
+static func _near(a: float, b: float, tol: float) -> bool:
+	return a == b if tol == 0.0 else absf(a - b) <= tol
 
 
 static func _show(a: Array) -> String:
