@@ -4,7 +4,7 @@ name: Godot
 
 on:
   push:
-    branches: [main]
+    branches: [main, 'feat/godot-*']
     paths: ['godot/**', 'src/war/**', 'src/data/**', 'src/sim/**', 'src/dev/godotTraces.ts', 'scripts/godot/**', '.github/workflows/godot.yml']
   pull_request:
     paths: ['godot/**', 'src/war/**', 'src/data/**', 'src/sim/**', 'src/dev/godotTraces.ts', 'scripts/godot/**', '.github/workflows/godot.yml']
