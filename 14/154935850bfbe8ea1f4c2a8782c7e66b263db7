@@ -1,0 +1,37 @@
+godot/tests/sim/test_rules.gd
+  s_1a6e9ade9f303e::t_8646dc58456092 1-55
+godot/native/src/probe.h
+  s_1a6e9ade9f303e::t_8646dc58456092 1-28
+src/dev/godotVectors.ts
+  s_1a6e9ade9f303e::t_8646dc58456092 14-15,171-190
+godot/native/src/combat.h
+  s_1a6e9ade9f303e::t_e04cc053ef53f9 1-58
+godot/native/src/register_types.cpp
+  s_1a6e9ade9f303e::t_8646dc58456092 8,18
+godot/native/src/formation.h
+  s_1a6e9ade9f303e::t_e04cc053ef53f9 1-20,22-30,32-48
+  s_1a6e9ade9f303e::t_8646dc58456092 21,31
+godot/native/src/probe.cpp
+  s_1a6e9ade9f303e::t_74364d2083bc99 44
+  s_1a6e9ade9f303e::t_8646dc58456092 1-43,45-61
+godot/tests/sim/test_rules.gd.uid
+  s_1a6e9ade9f303e::t_8646dc58456092 1
+docs/impl/godot-port.md
+  s_1a6e9ade9f303e::t_31903f43d4f7ec 28
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "14154935850bfbe8ea1f4c2a8782c7e66b263db7",
+  "prompts": {},
+  "sessions": {
+    "s_1a6e9ade9f303e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2c9e00ce-6ba5-4b5a-8be5-a4a273976934",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
