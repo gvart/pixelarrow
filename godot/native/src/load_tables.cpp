@@ -214,6 +214,13 @@ void load_tables(Data &d, const Dictionary &tables) {
 		d.captives.CAPTIVE = { c["askMs"], c["holdMs"], c["refuse"], c["refusePerLevel"], c["soulMs"], c["barMs"] };
 	}
 	if (has("src/war/world/regions")) load_world(d.captives, at("src/war/world/regions"));
+	if (has("src/war/sim/civilians")) {
+		const Dictionary c = at("src/war/sim/civilians");
+		const Dictionary p = c["PHYSICIAN"], r = c["REMEDY"], v = c["VENOM"];
+		d.civilians.PHYSICIAN = { p["r"], p["surgeonR"], p["heal"], p["near"] };
+		d.civilians.REMEDY = { r["bandage"], r["feedR"], r["theriac"] };
+		d.civilians.VENOM = { v["ticks"], v["share"] };
+	}
 	if (has("src/war/sim/mobs")) load_mobs(d.mobs, at("src/war/sim/mobs"));
 	if (has("src/data/warWild")) load_wild(d.wild, at("src/data/warWild"));
 	if (has("src/data/warBosses")) load_bosses(d.bosses, at("src/data/warBosses"));

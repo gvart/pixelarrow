@@ -852,29 +852,6 @@ void Sim::tryMove(Unit &u, double dx, double dy) {
 	}
 }
 
-// Fighting for one unit this tick: true with (px, py) the point to close on, false for its slot (TS null). The blows
-// themselves (pickTarget, strike, shoot) are not ported yet: a squad with foes near stops here.
-bool Sim::fight(Unit &u, double &px, double &py) {
-	Squad &s = *u.squad;
-	u.fighting = false;
-	u.striking = false;
-	if (u.cd > 0) u.cd--;
-	// stub until siege port: siege.busy (no engines yet)
-	if (!u.civ.empty() || (s.order == "move" && (s.goal || !atEnd(s))) || (anySafe && inSafe(u.x, u.y))) {
-		u.tgt = nullptr;
-		return false;
-	}
-	if (s.near.empty()) {
-		u.tgt = nullptr;
-		return false;
-	}
-	ERR_PRINT_ONCE("sim: combat (pickTarget, strike, shoot) is not ported yet");
-	u.tgt = nullptr;
-	(void)px;
-	(void)py;
-	return false;
-}
-
 bool Sim::ghost(Unit &a, Unit &b) {
 	return (a.squad->team == b.squad->team && (!a.job.empty() || !b.job.empty() || grid->deck[grid->tile_at(a.x, a.y)] > DECK || grid->deck[grid->tile_at(b.x, b.y)] > DECK)) ||
 			(a.squad == b.squad && (a.back || b.back)) || meet(a, b);
@@ -1018,7 +995,8 @@ int Sim::spawn_squad(const std::string &owner, int team, const std::string &cls,
 		u->ox = px, u->oy = py;
 		u->sat = data().food.HUNGER.max;
 		u->bx = px, u->by = py;
-		// stub until civilians port: setRates and the civilian job (soldiers only so far)
+		// stub until civilians port: the civilian job (soldiers only so far)
+		setRates(*u);
 		units.push_back(u);
 		s->units.push_back(u);
 	}
@@ -1049,7 +1027,7 @@ void Sim::step() {
 	if (tick % SCAN == 0) workScan();
 	// stub until works port: staffScan; until civilians port: civTick
 	if (tick % int(data().food.HUNGER.every) == 0) hungerTick();
-	// stub until depth port: riseTick (nobody down)
+	if (downs > 0 && tick % int(data().food.HUNGER.every) == 0) riseTick();
 	// stub until souls, mobs, roam, secrets, bosses, prebuilt (towns), townLevel and landmarks ports: their ticks, which
 	// do nothing on a map where none of their things were spawned
 	for (Squad *s : squads) {
@@ -1135,7 +1113,9 @@ void Sim::step() {
 			u.working = false;
 		} else {
 			u.working = false;
-			point = fight(u, apx, apy);
+			const Act a = fight(u, apx, apy);
+			self = a == Self;
+			point = a == Point;
 		}
 		const bool actNull = !self && !point;
 		double dx = 0;
@@ -1173,8 +1153,8 @@ void Sim::step() {
 		} else u.settled = false;
 		if (d > ARRIVE || (d > 1e-4 && actNull && eases(*u.squad) && !atEnd(*u.squad))) {
 			const double cost = moveCost(u.x, u.y, dx / d, dy / d);
-			// stub until civilians, trade, mobs and bosses ports: flight, laden, a beast's burst and a guardian's stagger are all 1
-			const double full = (SPEED * u.st.speed * pace(u.sat) * 1 * 1 * 1 * 1 * CATCH_UP * DT) / cost;
+			// stub until civilians, trade and bosses ports: flight, laden and a guardian's stagger are all 1
+			const double full = (SPEED * u.st.speed * pace(u.sat) * 1 * 1 * (!u.mob.empty() && u.dash > tick ? data().mobs.MOBS.at(u.mob).dash->speed : 1) * 1 * CATCH_UP * DT) / cost;
 			double stp = std::min(d, full);
 			if (actNull && eases(*u.squad)) {
 				Squad &s = *u.squad;
@@ -1297,7 +1277,9 @@ void Sim::step() {
 			u.wy = u.y;
 		}
 	}
-	// stub until works port: stakes; combat not ported yet: land (no missiles); until siege port: siege.tick
+	// stub until works port: stakes
+	land();
+	// stub until siege port: siege.tick
 	for (Squad *s : reslotQueue) reslot(*s);
 	reslotQueue.clear();
 	std::vector<VisionUnit> vu;
@@ -1311,7 +1293,10 @@ void Sim::step() {
 
 namespace godot {
 
-Sim::~Sim() { delete s; }
+Sim::~Sim() {
+	delete bots;
+	delete s;
+}
 
 Ref<Sim> Sim::create(const Ref<Grid> &grid, int64_t seed) {
 	Ref<Sim> r;
@@ -1320,6 +1305,7 @@ Ref<Sim> Sim::create(const Ref<Grid> &grid, int64_t seed) {
 	r.instantiate();
 	r->grid = grid;
 	r->s = new sim::Sim(grid->g, uint32_t(seed));
+	r->bots = new sim::Bots(r->s);
 	return r;
 }
 
@@ -1342,13 +1328,29 @@ void Sim::order(const Dictionary &d) {
 
 void Sim::step() { s->step(); }
 
+bool Sim::set_bot(int squad, const Dictionary &d) {
+	sim::Behaviour b;
+	b.kind = String(d.get("kind", "")).utf8().get_data();
+	b.x = d.get("x", 0.0);
+	b.y = d.get("y", 0.0);
+	b.has_radius = d.has("radius");
+	b.radius = d.get("radius", 0.0);
+	if (d.has("via")) {
+		const Array v = d["via"];
+		b.via[0] = v[0];
+		b.via[1] = v[1];
+	}
+	return bots->set(squad, b);
+}
+
 Dictionary Sim::digest() const {
 	Dictionary out;
 	out["tick"] = s->tick;
 	Array us;
 	for (const sim::Unit *u : s->units) {
-		// state as the snapshot gives it (attack needs combat, not ported yet)
-		const char *state = !u->alive ? "dead" : u->working ? (u->job.empty() ? "build" : u->job.c_str()) : u->moving ? "move" : "idle";
+		// state as the snapshot gives it: in reach of a foe still standing, or the blow just dealt felled it
+		const bool atk = u->alive && u->striking && ((u->tgt && u->tgt->alive) || u->swingAt == s->tick - 1 || u->squad->task);
+		const char *state = !u->alive ? "dead" : atk ? "attack" : u->working ? (u->job.empty() ? "build" : u->job.c_str()) : u->moving ? "move" : "idle";
 		Array a;
 		a.push_back(u->id);
 		a.push_back(u->squad->id);
@@ -1377,6 +1379,8 @@ void Sim::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("spawn_squad", "owner", "team", "cls", "count", "x", "y"), &Sim::spawn_squad);
 	ClassDB::bind_method(D_METHOD("order", "order"), &Sim::order);
 	ClassDB::bind_method(D_METHOD("step"), &Sim::step);
+	ClassDB::bind_method(D_METHOD("set_bot", "squad", "behaviour"), &Sim::set_bot);
+	ClassDB::bind_method(D_METHOD("bots_tick"), &Sim::bots_tick);
 	ClassDB::bind_method(D_METHOD("get_tick"), &Sim::get_tick);
 	ClassDB::bind_method(D_METHOD("digest"), &Sim::digest);
 }

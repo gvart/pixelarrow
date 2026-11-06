@@ -6,6 +6,7 @@
 #include <godot_cpp/variant/dictionary.hpp>
 
 #include "captives.h"
+#include "civilians.h"
 #include "classes.h"
 #include "item.h"
 #include "landmarks.h"
@@ -42,6 +43,7 @@ struct Data {
 	DeedTables deeds;
 	FoodTables food;
 	CaptiveTables captives;
+	CivilianTables civilians;
 	MobTables mobs;
 	WildTables wild;
 	BossTables bosses;

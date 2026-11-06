@@ -1,26 +1,39 @@
-## Whole scenarios against the TS sim: the C++ Sim replays each move-* scenario's setup op for op and steps it.
+## Whole scenarios against the TS sim: the C++ Sim replays each scenario's setup op for op (its bots too) and steps it.
 ## - The P1 golden traces (npm run traces:godot, src/dev/godotTraces.ts): its digest must match at every checkpoint. The
 ##   trace rounds to 4 decimals (toFixed), so a number matches within half a unit of the 4th.
-## - The sim vectors (src/dev/vectors/sim.ts): the same scenarios over 600 ticks, positions, hp and facing bit for bit.
+## - The sim vectors (src/dev/vectors/sim.ts): the move and fight scenarios over 600 ticks, positions, hp and facing bit
+##   for bit.
+## A trace with buildings or stock waits for the economy port; SKIP lists the other scenarios not replayed yet, with why.
 extends TestCase
 
 const DIR := "res://tests/golden"
 const TOL := 0.00005 + 1e-9
-## Scenarios not replayed yet, with why (none so far).
-const SKIP := {}
+const Wild := preload("res://tests/sim/wild.gd")
+const SKIP := {
+	"combat-wounded": "a physician squad: civilians not ported yet",
+	"limit-army": "a cook squad: civilians not ported yet",
+	"limit-soul": "spawnSoul: souls not ported yet",
+	"neutral-clear": "spawnMobs: the lairs need works (resource nodes, claims, influence) behind a MobHost: economy port",
+	"eco-hunt": "spawnMobs: the lairs need works (resource nodes, claims, influence) behind a MobHost: economy port",
+	"trailer-hunt": "spawnMobs: the lairs need works (resource nodes, claims, influence) behind a MobHost: economy port",
+	"world-fill": "spawnMobs and spawnRoam: lairs need works behind a MobHost (economy port), roam not ported",
+}
 
 
-func test_move_traces_match() -> void:
-	SimData.load({"war_stats": GameData.table("derived/war_stats")["WAR_STATS"], "src/war/sim/food": GameData.table("src/war/sim/food")})
+func test_traces_match() -> void:
+	_load()
 	var n := 0
 	for f in DirAccess.get_files_at(DIR):
-		if not (f.begins_with("move-") and f.ends_with(".json")):
+		if not f.ends_with(".json"):
 			continue
 		var id := f.get_basename()
 		if SKIP.has(id):
 			print("skip %s: %s" % [id, SKIP[id]])
 			continue
 		var t: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(DIR.path_join(f)))
+		if t["frames"].any(func(fr): return fr["buildings"].size() > 0 or fr["stock"].size() > 0):
+			print("skip %s: buildings or stock (economy port)" % id)
+			continue
 		if not t.has("setup"):
 			fail("%s: the trace has no setup (regenerate with npm run traces:godot)" % id)
 			return
@@ -29,11 +42,11 @@ func test_move_traces_match() -> void:
 			return
 		n += frames
 		print("%s: %d checkpoints match" % [id, frames])
-	check(n > 0, "no move-* traces in " + DIR)
+	check(n > 0, "no traces in " + DIR)
 
 
-func test_move_runs_exact() -> void:
-	SimData.load({"war_stats": GameData.table("derived/war_stats")["WAR_STATS"], "src/war/sim/food": GameData.table("src/war/sim/food")})
+func test_runs_exact() -> void:
+	_load()
 	var runs: Array = GameData.read_exact(DIR.path_join("vectors/sim.json"))["runs"]
 	check(runs.size() > 0, "no runs in vectors/sim.json")
 	for t in runs:
@@ -43,6 +56,13 @@ func test_move_runs_exact() -> void:
 		if frames < 0:
 			return
 		print("%s: %d exact checkpoints over %d ticks" % [t["id"], frames, int(t["frames"][-1]["tick"])])
+
+
+func _load() -> void:
+	var t := {"war_stats": GameData.table("derived/war_stats")["WAR_STATS"], "src/war/sim/civilians": GameData.table("src/war/sim/civilians")}
+	for n in Wild.TABLES:
+		t[n] = GameData.table(n)
+	SimData.load(t)
 
 
 ## Replays trace t; returns the checkpoints matched, -1 on the first mismatch (reported). tol 0: bit for bit.
@@ -56,7 +76,13 @@ func _replay(t: Dictionary, tol: float) -> int:
 			"order":
 				sim.order(op[1])
 			"step":
+				# every setup step is a stepSim (src/war/scenarios/run.ts): the sim, then its bots
 				sim.step()
+				sim.bots_tick()
+			"bot":
+				if not sim.set_bot(int(op[1]), op[2]):
+					fail("%s: bot %s is not ported yet" % [id, op[2]["kind"]])
+					return -1
 			_:
 				fail("%s: setup op %s is not replayed yet" % [id, op[0]])
 				return -1
@@ -65,6 +91,7 @@ func _replay(t: Dictionary, tol: float) -> int:
 		var want: Dictionary = frames[k]
 		while sim.get_tick() < int(want["tick"]):
 			sim.step()
+			sim.bots_tick()
 		var why := _differs(sim.digest(), want, tol)
 		if why != "":
 			fail("%s tick %d: %s" % [id, int(want["tick"]), why])
