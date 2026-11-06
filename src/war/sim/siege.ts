@@ -164,7 +164,10 @@ export function createSiege(works: Works, rng: Rng, hooks: SiegeHooks) {
       hooks.wreck?.(e, burnt); // M6c: its cargo to a pile
       e.hold = newHold();
     }
-    if (e.type === 'siegeTower' && e.ladder >= 0) works.damage(e.ladder, Infinity); // its bridge goes with it
+    if (e.type === 'siegeTower' && e.ladder >= 0) {
+      works.damage(e.ladder, Infinity); // its bridge goes with it
+      e.ladder = -1;
+    }
   };
 
   const goTo = (e: Engine, x: number, y: number) => {
@@ -234,13 +237,14 @@ export function createSiege(works: Works, rng: Rng, hooks: SiegeHooks) {
 
   const ram = (e: Engine, n: number, tick: number) => {
     if (e.cd > 0) e.cd--;
-    if (works.dist2(e.target, e.x, e.y) > RAM.reach * RAM.reach) {
+    const reach = RAM.reach + ARRIVE; // a diagonal ring point is ~1.41 off the tile, and roll stops within ARRIVE of it
+    if (works.dist2(e.target, e.x, e.y) > reach * reach) {
       if (!e.goal) {
         const [px, py] = works.ringPoints(e.target, 1, e.x, e.y);
         if (px === undefined) return void (e.mode = 'none');
         goTo(e, px, py);
       }
-      if (roll(e, n) && works.dist2(e.target, e.x, e.y) > RAM.reach * RAM.reach) e.mode = 'none'; // cannot get there
+      if (roll(e, n) && works.dist2(e.target, e.x, e.y) > reach * reach) e.mode = 'none'; // cannot get there
       return;
     }
     const [tx, ty] = works.nearestTile(e.target, e.x, e.y);

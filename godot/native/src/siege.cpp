@@ -91,7 +91,10 @@ void Siege::damage_(SiegeEngine &e, double dmg) {
 		hooks.wreck(e, burnt); // M6c: its cargo to a pile
 		e.hold = new_hold();
 	}
-	if (e.type == "siegeTower" && e.ladder >= 0) works.damage(e.ladder, INFINITY); // its bridge goes with it
+	if (e.type == "siegeTower" && e.ladder >= 0) {
+		works.damage(e.ladder, INFINITY); // its bridge goes with it
+		e.ladder = -1;
+	}
 }
 
 void Siege::goTo(SiegeEngine &e, double x, double y) {
@@ -165,13 +168,14 @@ void Siege::settle(SiegeEngine &e) {
 void Siege::ram(SiegeEngine &e, int n, int tick) {
 	const auto &RAM = T().RAM;
 	if (e.cd > 0) e.cd--;
-	if (works.dist2(e.target, e.x, e.y) > RAM.reach * RAM.reach) {
+	const double reach = RAM.reach + ARRIVE; // a diagonal ring point is ~1.41 off the tile, and roll stops within ARRIVE of it
+	if (works.dist2(e.target, e.x, e.y) > reach * reach) {
 		if (!e.goal) {
 			const std::vector<double> p = works.ring_points(e.target, 1, e.x, e.y);
 			if (p.empty()) return void(e.mode = "none");
 			goTo(e, p[0], p[1]);
 		}
-		if (roll(e, n) && works.dist2(e.target, e.x, e.y) > RAM.reach * RAM.reach) e.mode = "none"; // cannot get there
+		if (roll(e, n) && works.dist2(e.target, e.x, e.y) > reach * reach) e.mode = "none"; // cannot get there
 		return;
 	}
 	const auto [tx, ty] = works.nearest_tile(e.target, e.x, e.y);
