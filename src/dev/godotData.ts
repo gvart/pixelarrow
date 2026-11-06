@@ -18,7 +18,7 @@ import { warStats } from '../war/sim/classes';
 import { CRESTED_ART, CULTURE_EMBLEMS, FIELD_INK } from '../game/heroes';
 import { CIV_TOOLS } from '../data/classes';
 import { ITEMS } from '../data/items';
-import { powerPool, warAffixPool, WAR_POWER_IGNORED } from '../data/affixes';
+import { affixPool, powerPool, warAffixPool, WAR_POWER_IGNORED } from '../data/affixes';
 import { materialGoods, materialOf } from '../data/recipes';
 
 const modules = import.meta.glob(['../data/*.ts', '../war/sim/*.ts', '../war/world/*.ts', '../war/region/*.ts', '!**/*.d.ts'], { eager: true }) as Record<string, Record<string, unknown>>;
@@ -60,7 +60,8 @@ export function tables(): Table[] {
  * an unknown class is militia); and the paint tables of makeItem (src/game/heroes.ts, outside the exported folders).
  * CRAFTABLE: what craftRoll and repairCost (src/data/recipes.ts, src/war/sim/crafting.ts)
  * read of every item and tool: its tier, its war stat pool and powers, and (items) the first good of one unit of its
- * material, so the C++ ports neither the affix rules nor materialOf.
+ * material, so the C++ ports neither the affix rules nor materialOf. AFFIX_POOL: affixPool of every item, the stats
+ * asTrophy (src/data/warBosses.ts) rolls from an item's uid.
  */
 function derived(): Table[] {
   const ids = [...Object.keys(CLASSES), ...Object.keys(CIV_CLASSES), ...(Object.keys(MOBS) as MobKind[]).map(mobClass)];
@@ -69,10 +70,12 @@ function derived(): Table[] {
     ...Object.values(ITEMS).map((d) => [d.id, { tier: d.tier, pool: warAffixPool(d), powers: powerPool(d).filter((p) => !WAR_POWER_IGNORED.has(p)), main: Object.keys(materialGoods(materialOf(d), 1))[0] }]),
     ...Object.values(CIV_TOOLS).map((t) => [t.id, { tier: t.tier, pool: warAffixPool('tool'), powers: [], tool: true }]),
   ]);
+  const AFFIX_POOL = Object.fromEntries(Object.values(ITEMS).map((d) => [d.id, affixPool(d)]));
   return [
     { name: 'derived/war_stats', json: exactJson({ WAR_STATS }), exports: { WAR_STATS: 'object' }, dropped: [] },
     { name: 'derived/item_paint', json: exactJson({ FIELD_INK, CULTURE_EMBLEMS, CRESTED_ART }), exports: { FIELD_INK: 'Array', CULTURE_EMBLEMS: 'object', CRESTED_ART: 'Array' }, dropped: [] },
     { name: 'derived/crafting', json: exactJson({ CRAFTABLE }), exports: { CRAFTABLE: 'object' }, dropped: [] },
+    { name: 'derived/boss_loot', json: exactJson({ AFFIX_POOL }), exports: { AFFIX_POOL: 'object' }, dropped: [] },
   ];
 }
 
