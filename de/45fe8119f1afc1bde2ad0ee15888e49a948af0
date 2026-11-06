@@ -1,0 +1,50 @@
+godot/native/src/grid.h
+  s_1a6e9ade9f303e::t_f59d280cb2d4e8 1-124
+godot/native/src/grid.cpp
+  s_1a6e9ade9f303e::t_f6de1663e9573a 5
+  s_1a6e9ade9f303e::t_12941a273e59c7 1-4,6-653
+godot/tests/sim/test_rng.gd
+  s_1a6e9ade9f303e::t_8853caa29f7b00 11
+godot/pixelsim.gdextension.uid
+  s_1a6e9ade9f303e::t_8853caa29f7b00 1
+.gitignore
+  s_1a6e9ade9f303e::t_8853caa29f7b00 33-34
+godot/native/src/rng.cpp
+  s_1a6e9ade9f303e::t_61fcaf5e4fb10d 1-80
+godot/src/region/region.gd
+  s_1a6e9ade9f303e::t_8853caa29f7b00 38-42
+godot/native/src/rng.h
+  s_1a6e9ade9f303e::t_3f70d7deda4bdc 1-3,5-65
+  s_1a6e9ade9f303e::t_3a6e7971616082 4
+godot/native/src/js_math.h
+  s_1a6e9ade9f303e::t_1c77f11a4a9912 1-38
+godot/native/src/register_types.cpp
+  s_1a6e9ade9f303e::t_f6de1663e9573a 1-27
+docs/impl/godot-port.md
+  s_1a6e9ade9f303e::t_260ad06b69eb74 14
+  s_1a6e9ade9f303e::t_9beed215e2875b 28,44
+godot/native/CMakeLists.txt
+  s_1a6e9ade9f303e::t_546ddabd004560 1-40
+godot/pixelsim.gdextension
+  s_1a6e9ade9f303e::t_8853caa29f7b00 1-16
+godot/tests/sim/test_grid.gd
+  s_1a6e9ade9f303e::t_8853caa29f7b00 4-11,29-31,56,67,90-91,100,103-109,111-121,123,134-135
+.github/workflows/godot.yml
+  s_1a6e9ade9f303e::t_1441895ad54f96 3-4,32-41
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "de45fe8119f1afc1bde2ad0ee15888e49a948af0",
+  "prompts": {},
+  "sessions": {
+    "s_1a6e9ade9f303e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2c9e00ce-6ba5-4b5a-8be5-a4a273976934",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
