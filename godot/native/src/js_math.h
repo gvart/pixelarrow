@@ -1,9 +1,11 @@
-// JS Math functions whose results differ from the C++ ones, ported bit for bit (tests/sim/test_js_math.gd checks them
-// against V8). The sim calls these, never std::hypot or std::round.
+// JS Math functions whose results can differ from the C++ ones, ported bit for bit (tests/sim/test_js_math.gd checks them
+// against V8). The sim calls these, never std::hypot, std::round, std::sin, std::pow...
 #pragma once
 
 #include <cmath>
 #include <limits>
+
+#include "src/base/ieee754.h"
 
 namespace js {
 
@@ -33,6 +35,25 @@ inline double round(double x) {
 	if (r - 0.5 > x) r -= 1;
 	if (r == 0 && std::signbit(x)) return -0.0;
 	return r;
+}
+
+// Math.sin, cos, tan, atan2 and log2: V8's fdlibm ports (third_party/v8), never the platform libm.
+inline double sin(double x) { return v8::base::ieee754::sin(x); }
+inline double cos(double x) { return v8::base::ieee754::cos(x); }
+inline double tan(double x) { return v8::base::ieee754::tan(x); }
+inline double atan2(double y, double x) { return v8::base::ieee754::atan2(y, x); }
+inline double log2(double x) { return v8::base::ieee754::log2(x); }
+
+// Math.pow and `**` as V8 runs them under its default --use-std-math-pow (src/numbers/ieee754.cc math::pow): x*x for
+// y == 2, sqrt(x + 0) for y == 0.5, else the platform std::pow (so it matches Node on the same platform, and differs
+// between platforms: docs/impl/godot-port.md "Cross-platform math").
+inline double pow(double x, double y) {
+	if (std::isnan(y)) return std::numeric_limits<double>::quiet_NaN();
+	if (std::isinf(y) && (x == 1 || x == -1)) return std::numeric_limits<double>::quiet_NaN();
+	if (std::isnan(x)) x = std::numeric_limits<double>::quiet_NaN();
+	if (y == 2) return x * x;
+	if (y == 0.5) return std::isinf(x) ? std::numeric_limits<double>::infinity() : std::sqrt(x + 0);
+	return std::pow(x, y);
 }
 
 } // namespace js

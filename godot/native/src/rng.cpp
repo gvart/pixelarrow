@@ -71,10 +71,22 @@ void Rng::_bind_methods() {
 
 double JsMath::hypot(double a, double b) { return js::hypot(a, b); }
 double JsMath::round_js(double x) { return js::round(x); }
+double JsMath::sin(double x) { return js::sin(x); }
+double JsMath::cos(double x) { return js::cos(x); }
+double JsMath::tan(double x) { return js::tan(x); }
+double JsMath::atan2(double y, double x) { return js::atan2(y, x); }
+double JsMath::log2(double x) { return js::log2(x); }
+double JsMath::pow(double x, double y) { return js::pow(x, y); }
 
 void JsMath::_bind_methods() {
 	ClassDB::bind_static_method("JsMath", D_METHOD("hypot", "a", "b"), &JsMath::hypot);
 	ClassDB::bind_static_method("JsMath", D_METHOD("round_js", "x"), &JsMath::round_js);
+	ClassDB::bind_static_method("JsMath", D_METHOD("sin", "x"), &JsMath::sin);
+	ClassDB::bind_static_method("JsMath", D_METHOD("cos", "x"), &JsMath::cos);
+	ClassDB::bind_static_method("JsMath", D_METHOD("tan", "x"), &JsMath::tan);
+	ClassDB::bind_static_method("JsMath", D_METHOD("atan2", "y", "x"), &JsMath::atan2);
+	ClassDB::bind_static_method("JsMath", D_METHOD("log2", "x"), &JsMath::log2);
+	ClassDB::bind_static_method("JsMath", D_METHOD("pow", "x", "y"), &JsMath::pow);
 }
 
 } // namespace godot

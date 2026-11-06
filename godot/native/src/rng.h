@@ -57,6 +57,12 @@ class JsMath : public RefCounted {
 public:
 	static double hypot(double a, double b);
 	static double round_js(double x);
+	static double sin(double x);
+	static double cos(double x);
+	static double tan(double x);
+	static double atan2(double y, double x);
+	static double log2(double x);
+	static double pow(double x, double y);
 
 protected:
 	static void _bind_methods();

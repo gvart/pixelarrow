@@ -37,9 +37,22 @@ mobile stores: the player leads one alliance, bots and warlords run the other th
 - [ ] **P13 vertical slice release candidate**: Elaia and its neighbours playable start to finish, owner playtest. depends on: P12
 - [ ] **P14 grow to 37 regions**, then delete the Phaser client and the web-only code. depends on: P13
 
+## Scale-up after parity (Total War research, 2026-11-06)
+
+Owner asked how Total War runs huge fights so we can do the same. Findings worth copying, to build once the port matches TS (G-08), each as its own W-xx decision with a seeded scenario:
+- Squad-level movement: one path query per squad to its anchor (sector corridor + A*, as now), each man steering to a formation slot plus separation. Flow fields only where many squads share one goal (a horde on a town, a rout to the map edge), one field per goal, tiled per sector (Supreme Commander 2 / Planetary Annihilation).
+- A uniform spatial hash (2-4 tiles a cell, rebuilt each tick, iterated in cell then id order) for separation, targets and melee contact.
+- Attack slots: at most 2-3 attackers per man; the rest hold behind the front rank. Hits stay seeded rolls; animation shows the roll (Total War melee: hit chance 35% + attack - defence, clamped 8-90%).
+- Morale as a squad variable with a ladder (steady, shaken, wavering, routing; broken can rally, shattered cannot), pushed by casualties, flanks, nearby routs.
+- Path queue time-sliced by a fixed node-expansion budget per tick (never wall-clock), repeat orders to the same spot dropped (Age of Empires).
+- Ranged: per-shot rolls in the sim, arc flight only in the view; line-of-sight checks capped per tick.
+- C++ data in struct-of-arrays; threads only for passes with a fixed merge order.
+- View: MultiMeshInstance2D per class per area with a frame-picking shader (direction, clip, frame, tint in instance data), Godot's tick interpolation; atlas pages at most 4096, compressed textures, fewer far-zoom frames, maybe 5 directions plus mirroring.
+- Targets to benchmark (estimates): 3,000-5,000 men per region on desktop, 1,000-2,000 on a mid phone; texture memory, not sim time, is the likely phone limit.
+
 ## Open risks
 
-- **Float drift.** JS and GDScript are both 64-bit, but `sin`/`cos`/`atan2`/`pow` (54 uses in `src/war/sim`) can differ in the last bits, and chaotic fights amplify that. Traces are compared with a tolerance over short windows; if that's not enough, replace those calls in both sims with shared table or polynomial versions.
+- **Cross-platform math.** Parity holds because the C++ sim runs V8's own math: `godot/native/third_party/v8` (fdlibm sin/cos/tan/atan2/log2, built with clang's default FMA contraction as Node is, measured on arm64) and V8's `pow` path (x*x, sqrt, else std::pow). So the TS reference itself is not the same on every platform (Node on arm64 fuses some fdlibm multiply-adds, x86-64 cannot; std::pow is each OS's libm). Fine for singleplayer and parity on one machine; before lockstep multiplayer (G-04), pick one fixed variant for every build (contraction off, a correctly rounded pow such as CORE-MATH) and regenerate traces with it.
 - **Integer semantics.** `Math.imul`, `>>>` and `| 0` need explicit 32-bit masking in GDScript (64-bit ints).
 - **Native builds per platform**: the extension needs a build for each export target (macOS, Windows, Linux, Android arm64, iOS); CI builds Linux only so far. Export builds (P12) add the rest.
 - **Size.** About 90k lines of TS. The sim (15.7k) and the room (11.6k) port one module at a time, and P1 traces keep each step checkable.

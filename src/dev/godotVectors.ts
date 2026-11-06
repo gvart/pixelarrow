@@ -39,7 +39,19 @@ function jsMath() {
   for (let i = 0; i < 400; i++) xs.push(r.range(-1, 1) * 10 ** r.int(-8, 8));
   const pairs: [number, number][] = [];
   for (let i = 0; i < xs.length; i++) pairs.push([xs[i], xs[(i * 7 + 3) % xs.length]]);
-  return { hypot: pairs.map(([a, b]) => [a, b, Math.hypot(a, b)]), round: xs.map((x) => [x, Math.round(x)]) };
+  // angles as the sim makes them (facings, atan2 of offsets), big ones for the argument reduction, and the edge cases
+  const ang: number[] = [0, -0, Math.PI, -Math.PI, Math.PI / 2, 1e-9, 1e6, 1e22, -3e15];
+  for (let i = 0; i < 1500; i++) ang.push(r.range(-8, 8));
+  for (let i = 0; i < 200; i++) ang.push(r.range(-1, 1) * 10 ** r.int(0, 12));
+  const ys = pairs.map(([a, b]) => [b * 3 - a, a]);
+  const bases = Array.from({ length: 600 }, () => r.range(0, 50)), exps = [2, 0.5, 1.5, 3, -1, 0.75, 1 / 3, 10];
+  return {
+    hypot: pairs.map(([a, b]) => [a, b, Math.hypot(a, b)]), round: xs.map((x) => [x, Math.round(x)]),
+    sin: ang.map((x) => [x, Math.sin(x)]), cos: ang.map((x) => [x, Math.cos(x)]), tan: ang.map((x) => [x, Math.tan(x)]),
+    atan2: [...pairs, ...ys, [0, 0], [-0, -0], [0, -0], [1, 0], [-1, -0]].map(([y, x]) => [y, x, Math.atan2(y, x)]),
+    log2: bases.map((x) => [x, Math.log2(x)]),
+    pow: bases.flatMap((x, i) => [[x, exps[i % exps.length], x ** exps[i % exps.length]], [x - 25, 2, (x - 25) ** 2]]),
+  };
 }
 
 const bytes = (a: ArrayBufferView) => new Uint8Array(a.buffer, a.byteOffset, a.byteLength);
