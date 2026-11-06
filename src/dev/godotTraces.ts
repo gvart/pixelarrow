@@ -37,7 +37,7 @@ export const CAP = 40, TICKS = 50, EVERY = 10;
  * squad; ['feed', team, squad | null, res, n] the scenario's food put in packs or a store (../war/scenarios/run.ts feedSim).
  */
 export type SetupOp = [string, ...unknown[]];
-export interface Trace { id: string; region: string; seed: number; cap: number; setup: SetupOp[]; frames: ReturnType<typeof digest>[] }
+export interface Trace { id: string; region: string; seed: number; cap: number; zones?: Scenario['zones']; setup: SetupOp[]; frames: ReturnType<typeof digest>[] }
 
 /** The sim calls that change its state while a scenario is applied (snapshot reads are left out). */
 const SETUP_CALLS = ['spawnSquad', 'order', 'step', 'claim', 'addStock', 'finishBridges', 'spawnCart', 'spawnMobs', 'spawnRoam', 'spawnSoul', 'setSatiety', 'hurtBoss'] as const;
@@ -95,7 +95,8 @@ export function play<D>(sc: Scenario, ticks: number, every: number, dig: (s: Sna
     stepSim(sim, bots);
     if (t % every === 0) frames.push(dig(sim.snapshot()));
   }
-  return { id: sc.id, region: sc.region ?? 'test-ridge', seed, cap, setup, frames };
+  // zones: merged into the region's meta by the replay, as regionOf merges them
+  return { id: sc.id, region: sc.region ?? 'test-ridge', seed, cap, ...(sc.zones ? { zones: sc.zones } : {}), setup, frames };
 }
 
 export const trace = (sc: Scenario): Trace => play(sc, TICKS, EVERY, digest);
