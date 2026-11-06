@@ -1,0 +1,57 @@
+godot/native/src/sim_data.h
+  s_1a6e9ade9f303e::t_a0acfdc06da720 62-64
+godot/native/src/sim_data.cpp
+  s_1a6e9ade9f303e::t_cd7bb7c9876863 66
+godot/native/src/works_probe.h
+  s_1a6e9ade9f303e::t_c41b9166876537 19-20,23-27
+godot/native/src/sim_combat.cpp
+  s_1a6e9ade9f303e::t_ceceaf4632a7e0 23,32-36,81-82,93,114-124,182-190,192,199,221-222
+godot/tests/sim/test_traces.gd
+  s_1a6e9ade9f303e::t_7f16e210d70b7c 100-101
+  s_1a6e9ade9f303e::t_048ad443d9771a 4-6,72-77,84-85,92-99,126-127,148-168,172-173
+  s_1a6e9ade9f303e::t_8522902d75439b 12-14,16-29
+  s_1a6e9ade9f303e::t_ffa95c2121ffb6 174-175
+godot/native/src/works_probe.cpp
+  s_1a6e9ade9f303e::t_5c7715c97d3c3a 251,260,268-271,321-341,421-422,425,431
+src/dev/godotTraces.ts
+  s_1a6e9ade9f303e::t_bd3de78bbca6b4 35-38
+  s_1a6e9ade9f303e::t_8d8cdd4da35e8b 85,87-91
+  s_1a6e9ade9f303e::t_1becedf25e1963 78-82,86,98
+godot/native/src/sim.h
+  s_1a6e9ade9f303e::t_77f7e57e2cd167 305-307
+  s_1a6e9ade9f303e::t_8eed40186b9bf9 23,337-338,342-346,353-355
+  s_1a6e9ade9f303e::t_46a0d4d0826f75 3-5,14,29,31-32,34,40-42,45,50,91,103-107,134,153,162-169,178-193,196,213-218,220-221,290-291,293,295-304,309-310
+  s_1a6e9ade9f303e::t_c506832905b8c6 326
+  s_1a6e9ade9f303e::t_f0890a7e2432d6 294
+  s_1a6e9ade9f303e::t_031573c407c4d2 347-348
+src/dev/vectors/sim.ts
+  s_1a6e9ade9f303e::t_2e620859837c08 26-29,35,38-40
+  s_1a6e9ade9f303e::t_239e80d7b9aae0 2-5,16-17,30-34,36
+godot/native/src/sim.cpp
+  s_1a6e9ade9f303e::t_9a883f8d5355c4 6,78-80,116-125,127-156,160-164,166-229
+  s_1a6e9ade9f303e::t_3a14154156aac7 247,890-891,1349,1392-1399,1402-1405,1421,1483-1485,1531-1532,1622-1624,1657,1665-1681
+  s_1a6e9ade9f303e::t_a79122444d263f 431-435,437-442,446-486,489-493,495-500,504,513-551,557-583,588,612-613
+  s_1a6e9ade9f303e::t_d7d194d668d6c6 1290-1309
+  s_1a6e9ade9f303e::t_979d67f2418296 1275-1289
+  s_1a6e9ade9f303e::t_09a158a380e6b0 1175-1202,1204-1205,1209-1217,1219,1224-1237,1239-1274,1310-1316
+  s_1a6e9ade9f303e::t_c9acae40857804 1742,1823
+  s_1a6e9ade9f303e::t_e18444b3f49bf1 165,707,710
+  s_1a6e9ade9f303e::t_8eed40186b9bf9 15,230,1694,1698,1701-1703,1712-1713,1716,1722,1724-1733,1739-1741,1743-1748,1751,1764,1792-1810,1815,1819-1822
+  s_1a6e9ade9f303e::t_a0178bbcb3b2f9 231
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "be7913336e45902bc9c34c4ebac960f1a392e5e6",
+  "prompts": {},
+  "sessions": {
+    "s_1a6e9ade9f303e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2c9e00ce-6ba5-4b5a-8be5-a4a273976934",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
