@@ -513,10 +513,11 @@ export class WarRoom {
     if (m.playerId !== sessionPid) return refuse('player', 'playerId is not the signed-in player');
     if (m.team >= this.per.length) return refuse('team');
     // W-63: the banner by ground: tied to a settlement here, his men fly its lord's alliance; else his own (m.team)
-    this.own.set(sessionPid, m.team);
+    const own = m.team;
     m = { ...m, team: this.bannerTeam(sessionPid) ?? m.team };
     const p = this.players.get(sessionPid);
     if (p && p.team !== m.team) return refuse('team', `already in alliance ${p.team}`);
+    this.own.set(sessionPid, own); // only once past the alliance check: a refused ask must not turn his men
     if (!m.squads === !m.army) return refuse('army', 'send squads (person ids) or, in dev, an army');
     if (m.army && !this.allowArmy) return refuse('army', 'class armies are dev only: join with person ids');
     for (const g of m.army ?? []) if (!isClassId(g.cls)) return refuse('army', `unknown class ${g.cls}`);
@@ -664,10 +665,11 @@ export class WarRoom {
    */
   arrive(pid: number, team: number, persons: WarPerson[], side: Side, lost: Record<string, number> = {}, cargo?: TransitCargo): { squad: SquadId; msg: ServerMsg | null } | { error: 'full' | 'team' | 'squads' } {
     // W-63: the banner by ground
-    if (team < this.per.length) this.own.set(pid, team);
+    const own = team;
     team = this.bannerTeam(pid) ?? team;
     const p = this.players.get(pid);
     if (team >= this.per.length || (p && p.team !== team)) return { error: 'team' };
+    if (own < this.per.length) this.own.set(pid, own); // only once past the alliance check
     const parts = this.parts(persons);
     if (this.squadsOf(pid).length + parts.length > MAX_SQUADS) return { error: 'squads' };
     if (this.queue.some((w) => w.join.team === team) || this.live[team] + persons.length > this.per[team]) return { error: 'full' };
