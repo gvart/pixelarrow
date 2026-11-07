@@ -28,6 +28,8 @@ var card: CommandCard
 var army: ArmyPanel
 var build_bar: BuildBar
 var dock: Dock
+## Back to the world map (the game's; none: no button).
+var on_world := Callable()
 ## The last layout: id -> {rect, off} (art px), for the tests and the shots' check.
 var placed := {}
 var _box: BoxDraw
@@ -86,6 +88,8 @@ func rebuild() -> void:
 	var phone := mode != "desktop"
 	top_bar = TopBar.new()
 	top_bar.build(String(region.meta.get("name", region.id)), phone)
+	if on_world.is_valid():
+		top_bar.add_world(on_world, phone)
 	add_child(top_bar)
 	notices = Notices.new()
 	notices.build(input, 360.0 if mode == "desktop" else 320.0 if mode == "phone" else 250.0)

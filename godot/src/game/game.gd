@@ -4,6 +4,9 @@
 ##   --region <id>     region (default elaia); --team <n> his alliance (default the region's)
 ##   --state <s>       a set-up state to look at: busy (his squad selected, a fight on, a notice up), army (nothing
 ##                     selected), build (the build bar open, the tool on a spot); default none: just the game
+##   --world           start on the world map (WorldScreen, P11); entering a region opens it here, Shift+W (or the
+##                     top bar's map button) goes back. States on the map: world (his squad selected, its neighbours
+##                     lit, its card docked), world-order (the march order open), world-road (his men on the road)
 ##   --shot <png>      play the state in, wait for the ground, save the screen and quit; --wait <frames> before it
 ## Window size: Godot's own --resolution WxH.
 class_name Game
@@ -18,6 +21,8 @@ var feed: ViewFeed
 var input: RegionInput
 var hud: Hud
 var layer: CanvasLayer
+var world: WorldScreen
+var world_feed: WorldFeed
 var _args := {}
 var _focused := false
 
@@ -25,9 +30,60 @@ var _focused := false
 func _ready() -> void:
 	_args = RegionView._parse(OS.get_cmdline_user_args())
 	get_window().content_scale_mode = Window.CONTENT_SCALE_MODE_DISABLED
-	var id: String = _args.get("region", "elaia")
-	region = Region.load_id(id)
 	SimTables.load()
+	var state := String(_args.get("state", ""))
+	if _args.has("world") or state.begins_with("world"):
+		open_world()
+		if _args.has("state") or _args.has("shot"):
+			_play_world.call_deferred(state if state != "" else "world")
+		return
+	open_region(String(_args.get("region", "elaia")))
+	if _args.has("state") or _args.has("shot"):
+		_play_state.call_deferred(String(_args.get("state", "busy")))
+
+
+func _density() -> float:
+	return maxf(1.0, DisplayServer.screen_get_scale())
+
+
+## The world map (its feed lives on while a region is open: the world runs on).
+func open_world() -> void:
+	_close_region()
+	if world_feed == null:
+		world_feed = WorldFeed.make(WorldFixture.load_file())
+	world = WorldScreen.new()
+	add_child(world)
+	world.setup(world_feed, _density())
+	world.entered.connect(func(id: String) -> void: open_region.call_deferred(id))
+
+
+func _close_world() -> void:
+	if world:
+		world.queue_free()
+		remove_child(world)
+		world = null
+
+
+func _close_region() -> void:
+	for n in [view, input, layer]:
+		if n:
+			n.queue_free()
+			remove_child(n)
+	view = null
+	input = null
+	layer = null
+	hud = null
+	client = null
+	room = null
+	sim = null
+	_focused = false
+
+
+## One region with his army joined, its view, input and HUD.
+func open_region(id: String) -> void:
+	_close_world()
+	_close_region()
+	region = Region.load_id(id)
 	var team := int(_args.get("team", _home_team(id)))
 	sim = Sim.create(region.grid(), region.meta, region.cells, int(_args.get("seed", "7")))
 	room = LocalRoom.create(sim, {"cap": 600, "allowArmy": true, "allowDev": true, "wild": true})
@@ -38,7 +94,7 @@ func _ready() -> void:
 	view.controls = false
 	add_child(view)
 	feed = ViewFeed.make(client, view)
-	var density := maxf(1.0, DisplayServer.screen_get_scale())
+	var density := _density()
 	input = RegionInput.new()
 	add_child(input)
 	input.setup(view, client, density)
@@ -46,12 +102,17 @@ func _ready() -> void:
 	layer.layer = 10
 	add_child(layer)
 	hud = Hud.new()
+	hud.on_world = func() -> void: open_world.call_deferred()
 	layer.add_child(hud)
 	hud.setup(client, input, view, region, density)
 	client.frame.connect(_on_frame)
 	client.join_army(1, team, [["hoplite", 12], ["archer", 12]])
-	if _args.has("state") or _args.has("shot"):
-		_play_state.call_deferred(String(_args.get("state", "busy")))
+
+
+## Shift+W in a region: back to the world map.
+func _unhandled_key_input(e: InputEvent) -> void:
+	if view and e is InputEventKey and e.pressed and not e.echo and WarActions.resolve(e, WarActions.REGION) == "go.world":
+		open_world.call_deferred()
 
 
 static func _home_team(id: String) -> int:
@@ -146,3 +207,31 @@ func _shot(path: String, frames: int) -> void:
 	var lay := HudLayout.overlaps({}, hud.rects())
 	print("shot %s %s mode %s scale %.2f; panels %s; overlaps %s" % [path, img.get_size(), hud.mode, hud.ui_scale, hud.rects().keys(), lay])
 	get_tree().quit()
+
+
+## A set-up state on the world map (see the header), then the shot.
+func _play_world(state: String) -> void:
+	await get_tree().process_frame
+	world.fit()
+	var home := String(world_feed.view["squads"][0]["region"]) if not world_feed.view["squads"].is_empty() else "elaia"
+	match state:
+		"world":
+			world.select(home)
+		"world-order":
+			world.select(home)
+			world.open_order(String(WorldGeo.region(home)["adj"][0]))
+		"world-road":
+			world.select(home)
+			world.open_order(String(WorldGeo.region(home)["adj"][0]))
+			world.send_order()
+			world_feed.tick(40.0)
+	world.hud.refresh()
+	if _args.has("shot"):
+		for k in int(_args.get("wait", "10")):
+			await get_tree().process_frame
+		await RenderingServer.frame_post_draw
+		var img := get_viewport().get_texture().get_image()
+		img.save_png(_args["shot"])
+		var h := world.hud
+		print("shot %s %s mode %s scale %.2f; panels %s; overlaps %s" % [_args["shot"], img.get_size(), h.mode, h.ui_scale, h.rects().keys(), HudLayout.overlaps({}, h.rects())])
+		get_tree().quit()
