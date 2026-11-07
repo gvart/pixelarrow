@@ -6,7 +6,7 @@ config_version=5
 [application]
 
 config/name="pixelarrow"
-run/main_scene="res://main.tscn"
+run/main_scene="res://src/game/game.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 
 [display]
@@ -15,6 +15,10 @@ window/size/viewport_width=1280
 window/size/viewport_height=720
 window/stretch/mode="canvas_items"
 window/handheld/orientation=6
+
+[input_devices]
+
+pointing/emulate_mouse_from_touch=false
 
 [rendering]
 

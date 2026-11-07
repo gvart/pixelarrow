@@ -24,6 +24,12 @@ var fog: Fog
 var cam: Camera2D
 var sim: Sim
 var scenario: Scenario
+## The game's client (P10): set before the view enters the tree, the view draws from what the room sends (ViewFeed)
+## and runs no scenario; the bench and the shots keep the direct Sim path. `region_id` overrides --region; with
+## `controls` off the game's input (RegionInput) moves the camera instead of the keys and drags here.
+var client: WarClient
+var region_id := ""
+var controls := true
 var _acc := 0.0
 var _args := {}
 ## Bench: us spent in the ground, objects and units updates, and frames counted.
@@ -32,7 +38,7 @@ var _parts := [0, 0, 0, 0]
 
 func _ready() -> void:
 	_args = _parse(OS.get_cmdline_user_args())
-	var id: String = _args.get("region", "elaia")
+	var id: String = region_id if region_id != "" else _args.get("region", "elaia")
 	region = Region.load_id(id)
 	d = ViewData.load_id(id)
 	iso = Iso.of(d)
@@ -65,7 +71,7 @@ func _ready() -> void:
 	focus(float(at[0]), float(at[1]), float(_args.get("zoom", "1")))
 	# the region's sim even with no scenario: its pre-built pieces are works buildings
 	var spawn: String = _args.get("spawn", "none")
-	if true:
+	if client == null:
 		scenario = Scenario.make(spawn, region, Vector2(float(at[0]), float(at[1])))
 		sim = scenario.sim
 		units.classes = scenario.classes
@@ -78,9 +84,9 @@ func _ready() -> void:
 			if k >= int(_args["ticks"]) - 2:
 				_snap()
 		_snap()
-	if _args.has("shot"):
+	if client == null and _args.has("shot"):
 		_shot.call_deferred(_args["shot"], int(_args.get("wait", "30")))
-	elif _args.has("bench"):
+	elif client == null and _args.has("bench"):
 		_bench.call_deferred(float(_args["bench"]))
 
 
@@ -97,8 +103,12 @@ func view_rect() -> Rect2:
 
 
 func _process(dt: float) -> void:
-	_camera_keys(dt)
-	if sim:
+	if controls:
+		_camera_keys(dt)
+	if client:
+		client.pump(dt)
+		units.alpha = client.alpha()
+	elif sim:
 		_acc += dt
 		var steps := 0
 		while _acc >= 1.0 / SIM_HZ and steps < 3:
@@ -147,6 +157,8 @@ func _camera_keys(dt: float) -> void:
 
 
 func _unhandled_input(e: InputEvent) -> void:
+	if not controls:
+		return
 	if e is InputEventMouseButton and e.pressed and (e.button_index == MOUSE_BUTTON_WHEEL_UP or e.button_index == MOUSE_BUTTON_WHEEL_DOWN):
 		var ladder := [0.5, 1.0, 2.0, 3.0]
 		var k := ladder.find(cam.zoom.x)
