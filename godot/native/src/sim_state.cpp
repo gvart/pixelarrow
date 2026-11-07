@@ -314,7 +314,10 @@ Val Sim::saveRoot(Graph &g) {
 	}
 	Obj *ll = g.make('m');
 	for (const auto &[k, v] : labourLog) ll->put(k, v);
-	root->set("bonuses", bon).set("labourLog", ll).set("slain", g.strs(slain));
+	Obj *fa = g.make('s'), *ra = g.make('m');
+	for (int id : fallen) fa->push(id);
+	for (const auto &[id, t] : raidAt) ra->put(id, t);
+	root->set("bonuses", bon).set("labourLog", ll).set("slain", g.strs(slain)).set("fallen", fa).set("raidAt", ra);
 	return root;
 }
 
@@ -506,7 +509,7 @@ void load_grid(Grid &gr, const Obj &o) {
 bool Sim::load(const std::string &text, std::string &why) {
 	state::Decoded d;
 	if (!state::decode(text, d)) return why = "not a sim save", false;
-	if (d.v != 1 || d.region != region.id) return why = "a save v" + std::to_string(d.v) + " of " + d.region + " does not fit v1 of " + region.id, false;
+	if (d.v != state::STATE_VERSION || d.region != region.id) return why = "a save v" + std::to_string(d.v) + " of " + d.region + " does not fit v" + std::to_string(state::STATE_VERSION) + " of " + region.id, false;
 	if (tick != 0 || !units.empty()) return why = "only into a fresh sim", false;
 	if (d.root.k != Val::Ref) return why = "no root", false;
 	const Obj &r = *d.root.o;
@@ -745,6 +748,12 @@ bool Sim::load(const std::string &text, std::string &why) {
 	const Obj &ll = *r.get("labourLog").o;
 	for (size_t i = 0; i + 1 < ll.vals.size(); i += 2) labourLog.emplace_back(ll.vals[i].s, ll.vals[i + 1].n);
 	slain = load_strs(r.get("slain"));
+	// W-79: not saved, the men down are
+	downs = int(std::count_if(units.begin(), units.end(), [](const Unit *u) { return u->downAt.has_value(); }));
+	fallen.clear(), raidAt.clear();
+	for (const Val &v : r.get("fallen").o->vals) fallen.push_back(v.i());
+	const Obj &ra = *r.get("raidAt").o;
+	for (size_t i = 0; i + 1 < ra.vals.size(); i += 2) raidAt.emplace_back(ra.vals[i].i(), ra.vals[i + 1].i());
 	return true;
 }
 

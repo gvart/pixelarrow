@@ -117,7 +117,12 @@ export function play<D>(sc: Scenario, ticks: number, every: number, dig: (s: Sna
     feed(team, squad, res, n);
   };
   applyScenario(h, sc);
-  for (const op of host.post ?? []) for (const o of typeof op === 'function' ? op(sim) : [op]) hostOp(sim, setup, o);
+  // a host step is a stepSim, the sim then its bots, as the replay steps every setup 'step'
+  for (const op of host.post ?? [])
+    for (const o of typeof op === 'function' ? op(sim) : [op]) {
+      if (o[0] === 'step') stepSim(sim, bots);
+      else hostOp(sim, setup, o);
+    }
   undo();
   const frames = [dig(sim.snapshot(), sim)];
   for (let t = 1; t <= ticks; t++) {

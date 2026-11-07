@@ -312,7 +312,7 @@ std::string encode(const Val &root, Obj *base, const std::string &region, uint32
 		}
 	}
 	objs += ']';
-	out += "{\"v\":1,\"region\":";
+	out += "{\"v\":" + std::to_string(STATE_VERSION) + ",\"region\":";
 	json_string(out, region);
 	out += ",\"seed\":";
 	out += js::number_to_string(seed);

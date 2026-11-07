@@ -168,8 +168,8 @@ void Sim::raidScan() {
 		if (!b) break;
 		if (!(b->type == "fort" || b->type == "camp") || b->cancelled) continue;
 		if (b->state == "destroyed") {
-			if (!fallen.count(id)) {
-				fallen.insert(id);
+			if (std::find(fallen.begin(), fallen.end(), id) == fallen.end()) {
+				fallen.push_back(id);
 				godot::Dictionary e = ev(tick, "raid");
 				e["building"] = id;
 				e["team"] = b->team;
@@ -178,7 +178,7 @@ void Sim::raidScan() {
 			}
 			continue;
 		}
-		const auto at = raidAt.find(id);
+		const auto at = std::find_if(raidAt.begin(), raidAt.end(), [&](const auto &e) { return e.first == id; });
 		if (!holds(b) || (at != raidAt.end() && tick - at->second < COOLDOWN)) continue;
 		std::optional<int> by;
 		bool own = false;
@@ -193,7 +193,8 @@ void Sim::raidScan() {
 			if (!by) by = tm;
 		}
 		if (!by || own) continue;
-		raidAt[id] = tick;
+		if (at != raidAt.end()) at->second = tick;
+		else raidAt.emplace_back(id, tick);
 		godot::Dictionary e = ev(tick, "raid");
 		e["building"] = id;
 		e["team"] = b->team;

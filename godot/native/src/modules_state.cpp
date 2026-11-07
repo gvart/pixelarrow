@@ -329,7 +329,7 @@ void Roam::load(const Obj &o) {
 	on = o.get("on").b, tick_ = o.get("tick").n;
 }
 
-// ---- crafting (the queues hold their recipes as TS copies of the RECIPES rows: not ported, no vector has one) ----
+// ---- crafting (an order's recipe is a RECIPES row, saved by name) ----
 
 Val Crafting::save(Graph &g) const {
 	Obj *o = g.object(), *qs = g.make('m'), *ss = g.make('m');
@@ -337,9 +337,14 @@ Val Crafting::save(Graph &g) const {
 		Obj *a = g.array();
 		for (const QOrder &x : q) {
 			Obj *e = g.object();
-			e->set("id", x.id).set("kind", x.kind).set("recipe", x.recipe ? Val(x.recipe->id) : Val::null()); // TS: the recipe row
-			if (x.item) e->set("item", save_item(g, *x.item)).set("owner", Val::opt(x.owner));
+			e->set("id", x.id).set("kind", x.kind).set("recipe", Val::ext("RECIPES." + x.recipe->id));
+			if (x.item) e->set("item", save_item(g, *x.item)).set("owner", x.owner ? Val(*x.owner) : Val());
 			e->set("by", x.by).set("left", x.left).set("total", x.total).set("taken", x.taken ? save_cost(g, *x.taken) : Val::null());
+			if (x.payer) {
+				Obj *p = g.object();
+				p->set("team", x.payer->team).set("owner", x.payer->owner);
+				e->set("payer", p);
+			}
 			a->push(e);
 		}
 		qs->put(id, a);
@@ -350,6 +355,23 @@ Val Crafting::save(Graph &g) const {
 }
 
 void Crafting::load(const Obj &o) {
+	static const std::string RECIPES = "RECIPES.";
+	queues.clear();
+	const Obj &qs = *o.get("queues").o;
+	for (size_t i = 0; i + 1 < qs.vals.size(); i += 2) {
+		std::vector<QOrder> q;
+		for (const Val &v : qs.vals[i + 1].o->vals) {
+			const Obj &x = *v.o;
+			QOrder r{ x.get("id").i(), x.get("kind").s, &data().recipes.RECIPES.at(x.get("recipe").s.substr(RECIPES.size())), std::nullopt, std::nullopt,
+				x.get("by").i(), x.get("left").n, x.get("total").n, std::nullopt, std::nullopt };
+			if (x.get("item").k == Val::Ref) r.item = load_item(x.get("item"));
+			if (x.get("owner").k == Val::Str) r.owner = x.get("owner").s;
+			if (x.get("taken").k == Val::Ref) r.taken = load_cost(x.get("taken"));
+			if (x.get("payer").k == Val::Ref) r.payer = Payer{ x.get("payer").o->get("team").i(), x.get("payer").o->get("owner").s };
+			q.push_back(std::move(r));
+		}
+		queues.emplace_back(qs.vals[i].i(), std::move(q));
+	}
 	supplies.clear();
 	const Obj &ss = *o.get("supplies").o;
 	for (size_t i = 0; i + 1 < ss.vals.size(); i += 2) supplies.emplace_back(ss.vals[i].i(), load_cost(ss.vals[i + 1]));

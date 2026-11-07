@@ -421,9 +421,10 @@ struct Sim {
 	// W-68 named souls: the whole person of each soul souls holds as a SoulPerson (by person id, only looked up)
 	std::map<std::string, WarPerson> namedSouls;
 	bool spawnNamedSoul(const WarPerson &person, double life, const std::optional<std::pair<std::string, double>> &bar);
-	// M5e raids: holding buildings reported fallen (a JS Set, only looked up); tick of the last raid reported per building
-	std::set<int> fallen;
-	std::map<int, int> raidAt; // only looked up
+	// M5e raids: holding buildings reported fallen (a JS Set); tick of the last raid reported per building (a JS Map), both
+	// in insertion order (saved)
+	std::vector<int> fallen;
+	std::vector<std::pair<int, int>> raidAt;
 	bool holds(const Building *b) const;
 	void raidScan();
 

@@ -17,6 +17,9 @@
 
 namespace sim::state {
 
+// src/war/sim/state.ts STATE_VERSION: the save format (a save of another version does not load)
+constexpr int STATE_VERSION = 2;
+
 struct Obj;
 
 // One JS value: undefined, null, a boolean, a number, a string, a reference to an object of the graph, or a constant
