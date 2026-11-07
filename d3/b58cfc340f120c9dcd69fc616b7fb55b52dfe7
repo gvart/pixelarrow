@@ -1,0 +1,78 @@
+godot/src/world_view/world_screen.gd.uid
+  s_1a6e9ade9f303e::t_ab9ca3668adf8e 1
+godot/src/world_view/world_card.gd.uid
+  s_1a6e9ade9f303e::t_ab9ca3668adf8e 1
+godot/src/world_view/world_fixture.gd
+  s_1a6e9ade9f303e::t_6a184cdc05edae 1-74
+godot/src/world_view/world_map.gdshader.uid
+  s_1a6e9ade9f303e::t_ab9ca3668adf8e 1
+godot/src/world_view/world_feed.gd
+  s_1a6e9ade9f303e::t_bbda2326acc60f 1-102
+godot/src/world_view/world_hud.gd.uid
+  s_1a6e9ade9f303e::t_ab9ca3668adf8e 1
+godot/src/world_view/world_geo.gd.uid
+  s_1a6e9ade9f303e::t_ab9ca3668adf8e 1
+godot/src/world_view/world_card.gd
+  s_1a6e9ade9f303e::t_082f937afee4b6 70
+  s_1a6e9ade9f303e::t_915b535da525aa 1-69,71-102,105,107-125,127-132,134-135,137,139-182,184-232,236-238,240-288,290-310
+  s_1a6e9ade9f303e::t_e60f42be3b336d 103-104,106
+  s_1a6e9ade9f303e::t_2a0d18a4655d36 233-235,239
+  s_1a6e9ade9f303e::t_3ee1090e9ecec7 126,133,136,138,183,289
+godot/src/game/game.gd
+  s_1a6e9ade9f303e::t_54b8f916ea4eb5 7-9,24-25,34-86,97,105,110-115,210-237
+godot/src/world_view/world_screen.gd
+  s_1a6e9ade9f303e::t_b1e78c539b70d3 49-50
+  s_1a6e9ade9f303e::t_2a527c5d7bb0e5 1-48,51-209
+godot/tests/world_view/test_world_view.gd.uid
+  s_1a6e9ade9f303e::t_ab9ca3668adf8e 1
+godot/src/world_view/world_fixture.gd.uid
+  s_1a6e9ade9f303e::t_ab9ca3668adf8e 1
+godot/src/hud/hud.gd
+  s_1a6e9ade9f303e::t_e2d45361e4e444 31-32,91-92
+godot/src/world_view/world_map.gd
+  s_1a6e9ade9f303e::t_535ca8ae246d94 430,468,684
+  s_1a6e9ade9f303e::t_8ff3b0be93ee85 312,458-467,469-479,515-521,525-527,537-539,727-730,734,782
+  s_1a6e9ade9f303e::t_23f4fe466ce573 209,212-216,386-387,390-394,667,672,780
+  s_1a6e9ade9f303e::t_cb1f281cd9ad94 731-733
+  s_1a6e9ade9f303e::t_0694d7354a09e9 1-123,127-208,210-211,217-311,313-355,359,362-366,369-385,388-389,395-429,431-439,443-457,480-488,491-497,499-514,522-524,528-536,540-666,668-671,673-683,685-726,735-779,781,783-858
+  s_1a6e9ade9f303e::t_4f6f6a46afc7d7 124-126
+  s_1a6e9ade9f303e::t_f765979ae0154b 356-358,360-361,367-368,440-442,489-490,498
+godot/src/hud/top_bar.gd
+  s_1a6e9ade9f303e::t_f1e24cce8b5bd0 72
+  s_1a6e9ade9f303e::t_e2d45361e4e444 4,19,70-71,73-75,86-88
+godot/src/world_view/world_geo.gd
+  s_1a6e9ade9f303e::t_c3f079ef2cc46c 1-368
+godot/src/world_view/world_feed.gd.uid
+  s_1a6e9ade9f303e::t_ab9ca3668adf8e 1
+godot/src/world_view/world_map.gd.uid
+  s_1a6e9ade9f303e::t_ab9ca3668adf8e 1
+godot/tests/world_view/test_world_view.gd
+  s_1a6e9ade9f303e::t_035d96292e9c4f 74
+  s_1a6e9ade9f303e::t_b518ae6ceb59b9 124-135
+  s_1a6e9ade9f303e::t_42d50f85a11370 1-73,75-123,136-155,157-160,164-172,174-201
+  s_1a6e9ade9f303e::t_e60f42be3b336d 156,161-163,173
+godot/src/world_view/world_map.gdshader
+  s_1a6e9ade9f303e::t_ec8462452227d7 1-48
+godot/src/world_view/world_hud.gd
+  s_1a6e9ade9f303e::t_f8cb5a59a169f0 286,313-328
+  s_1a6e9ade9f303e::t_2a0d18a4655d36 251
+  s_1a6e9ade9f303e::t_406b7b4b35f026 259-265,267-271
+  s_1a6e9ade9f303e::t_e60f42be3b336d 340-341,344-345
+  s_1a6e9ade9f303e::t_5f54bc7c48ad00 1-250,252-258,266,272-285,287-312,329-339,342-343,346-443
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d3b58cfc340f120c9dcd69fc616b7fb55b52dfe7",
+  "prompts": {},
+  "sessions": {
+    "s_1a6e9ade9f303e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2c9e00ce-6ba5-4b5a-8be5-a4a273976934",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
