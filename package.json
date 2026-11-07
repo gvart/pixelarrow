@@ -16,7 +16,8 @@
     "clips:war": "node scripts/landing/record-war-clips.mjs && bash scripts/landing/encode-war-clips.sh",
     "trailer:war": "node scripts/landing/record-war-clips.mjs --shots scripts/landing/trailer-shots.mjs --sizes 1920x1080 --out shots/trailer/raw && node scripts/landing/trailer-music.mjs && node scripts/landing/trailer.mjs",
     "traces:godot": "node scripts/godot/traces.mjs",
-    "data:godot": "node scripts/godot/data.mjs"
+    "data:godot": "node scripts/godot/data.mjs",
+    "view:godot": "node scripts/godot/view.mjs"
   },
   "dependencies": {
     "@fontsource/cinzel": "^5.3.0",
