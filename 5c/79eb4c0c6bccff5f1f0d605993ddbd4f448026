@@ -1,0 +1,21 @@
+godot/export_presets.cfg
+  s_1a6e9ade9f303e::t_01be350b27812a 7,21,35,49
+docs/impl/godot-port.md
+  s_1a6e9ade9f303e::t_caa79575e81e3c 36
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5c79eb4c0c6bccff5f1f0d605993ddbd4f448026",
+  "prompts": {},
+  "sessions": {
+    "s_1a6e9ade9f303e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2c9e00ce-6ba5-4b5a-8be5-a4a273976934",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
