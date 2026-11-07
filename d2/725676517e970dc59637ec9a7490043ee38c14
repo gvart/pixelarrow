@@ -1,0 +1,29 @@
+src/dev/vectors/room.ts
+  s_1a6e9ade9f303e::t_443f786af7b57a 1-11,13-17,22-24,27-35,37-42,44-47,53-57,59-84,90-104,106-112,124-139,141-147,150,153,155-156,159-163,168-182,184-191
+  s_1a6e9ade9f303e::t_7f37051d327ba1 12
+  s_1a6e9ade9f303e::t_6f9e2d734fa503 18-20,25-26,58,192-194,196-198
+  s_1a6e9ade9f303e::t_3dff81112bc63f 21,195
+  s_1a6e9ade9f303e::t_5a6ded0222e7e4 36,85-89,105,157-158,164-167,183
+  s_1a6e9ade9f303e::t_d2b01a81483c7e 43,113-123
+  s_1a6e9ade9f303e::t_b777b816aa89ad 48-52,148,152
+  s_1a6e9ade9f303e::t_37479eccb64ff1 140,151,154
+  s_1a6e9ade9f303e::t_186b1fe58208ce 149
+.github/workflows/godot.yml
+  s_1a6e9ade9f303e::t_fe54c96012c07b 9,11,31-33,35-36
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d2725676517e970dc59637ec9a7490043ee38c14",
+  "prompts": {},
+  "sessions": {
+    "s_1a6e9ade9f303e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2c9e00ce-6ba5-4b5a-8be5-a4a273976934",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
