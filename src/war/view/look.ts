@@ -54,16 +54,16 @@ export const TRIM_STEPS: readonly (readonly [number, number, number])[] = [[0, 1
 export const GROUP_ID: Readonly<Record<string, number>> = { cloak: 0, crest: 1, trim: 2, skin: 3, emblem: 4, hair: 5, beard: 5 };
 
 type Folk = 'greek' | 'phoenician' | 'celtic' | 'thracian';
-const THRACIAN = new Set(['peltast', 'rhomphaia', 'falx']);
+export const THRACIAN = new Set(['peltast', 'rhomphaia', 'falx']);
 /** Skin tone weights per folk (SKIN_TONES order). */
-const SKIN_W: Record<Folk, readonly number[]> = {
+export const SKIN_W: Record<Folk, readonly number[]> = {
   greek: [0.04, 0.18, 0.32, 0.26, 0.14, 0.06],
   phoenician: [0, 0.08, 0.26, 0.32, 0.22, 0.12],
   celtic: [0.38, 0.34, 0.14, 0.1, 0.04, 0],
   thracian: [0.22, 0.34, 0.24, 0.14, 0.06, 0],
 };
 /** Hair colour weights per folk (HAIR_COLOURS order). */
-const HAIR_W: Record<Folk, readonly number[]> = {
+export const HAIR_W: Record<Folk, readonly number[]> = {
   greek: [0.45, 0.35, 0.14, 0.03, 0.03],
   phoenician: [0.7, 0.25, 0.05, 0, 0],
   celtic: [0.1, 0.25, 0.25, 0.2, 0.2],

@@ -2,12 +2,16 @@
 //   <region>/meta.json, <region>/cells.bin (gzip), <region>/atlas<k>.png   src/dev/godotView.ts exportRegion
 //   objects/<def id>.png, objects.json                                     the objects' art (trees relit)
 //   stones/<stone>.png                                                     the rock wall textures
+//   objects/<def id>-idle.png                                              the animals' idle strips, copied
 //   sheets/<class>/<class>.png, manifest.json                              the unit sheets (src/assets/sheets), copied
-// The art code needs canvases, so it runs in headless Chromium against a Vite server this script starts.
+//   look.json, look.bin (gzip RGBA)                                        the per-man look palette (src/dev/godotLook.ts)
+//   buildings.json, buildings/<file>                                       the building and town art (src/dev/godotBuild.ts)
+// The ground and object art code needs canvases, so it runs in headless Chromium against a Vite server this script
+// starts; the looks and the building art are pure and run under node.
 // Usage: npm run view:godot [region ...]   (default: the Elaia slice)
-import { createServer } from 'vite';
+import { createServer, runnerImport } from 'vite';
 import { chromium } from 'playwright';
-import { cpSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
 import { fileURLToPath } from 'node:url';
 
@@ -42,7 +46,17 @@ try {
   const stones = await page.evaluate(async () => (await import('/src/dev/godotView.ts')).exportStones());
   for (const [s, p] of Object.entries(stones)) write(`stones/${s}.png`, dataUrl(p));
   write('anims.json', JSON.stringify(await page.evaluate(async () => (await import('/src/dev/godotView.ts')).animFallback())) + '\n');
+  for (const d of o.defs) if (d.idle) cpSync(`${ROOT}public/war/biomes/${d.id.split('/')[0]}/${d.idle.file}`, `${OUT}/objects/${d.id}-idle.png`);
   cpSync(`${ROOT}src/assets/sheets`, `${OUT}/sheets`, { recursive: true });
+  const opts = { root: ROOT, configFile: false, logLevel: 'error', server: { hmr: false } };
+  const sheets = `${ROOT}src/assets/sheets`, manifests = {};
+  for (const c of readdirSync(sheets)) if (existsSync(`${sheets}/${c}/manifest.json`)) manifests[c] = JSON.parse(readFileSync(`${sheets}/${c}/manifest.json`, 'utf8'));
+  const look = (await runnerImport('/src/dev/godotLook.ts', opts)).module.lookData(manifests);
+  write('look.json', JSON.stringify(look.json) + '\n');
+  write('look.bin', gzipSync(Buffer.from(look.rgba.buffer, look.rgba.byteOffset, look.rgba.byteLength), { level: 6 }));
+  const bld = (await runnerImport('/src/dev/godotBuild.ts', opts)).module.buildingArt((p) => readFileSync(`${ROOT}${p}`, 'utf8'));
+  write('buildings.json', JSON.stringify(bld.json) + '\n');
+  for (const [from, to] of bld.files) { mkdirSync(`${OUT}/buildings/${to}`.replace(/\/[^/]*$/, ''), { recursive: true }); cpSync(`${ROOT}${from}`, `${OUT}/buildings/${to}`); }
   // plain files read at run time (Image.load_from_file), not Godot resources
   write('.gdignore', '');
   console.log(`${ids.length} regions, ${o.defs.length} object defs in godot/view (${((Date.now() - t0) / 1000).toFixed(1)} s)`);

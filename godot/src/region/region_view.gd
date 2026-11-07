@@ -2,8 +2,9 @@
 ## (Objects, Units), the fog of war (Fog) from a live C++ Sim, and an RTS camera. Command line (after `--`):
 ##   --region <id>          region (default elaia)
 ##   --at <x>,<y>           tile point the camera centres on; --zoom <z> (default 1)
-##   --spawn <name>         a seeded scenario on the live sim (RegionView.SCENARIOS)
+##   --spawn <name>         a seeded scenario on the live sim (Scenario; default none: the region's pre-built pieces)
 ##   --ticks <n>            play the scenario n ticks before the first frame
+##   --bars                 every man's health bar (as Alt held)
 ##   --shot <png>           render, wait for the ground, save the viewport and quit; --wait <frames> before it
 ##   --bench <seconds>      log frame times for that long, then quit
 class_name RegionView
@@ -17,6 +18,8 @@ var iso: Iso
 var ground: Ground
 var objects: Objects
 var units: Units
+var buildings: Buildings
+var glints: Glints
 var fog: Fog
 var cam: Camera2D
 var sim: Sim
@@ -44,6 +47,13 @@ func _ready() -> void:
 	units = Units.new()
 	objects.add_child(units)
 	units.setup(iso, objects)
+	buildings = Buildings.new()
+	add_child(buildings)
+	buildings.setup(iso, objects)
+	glints = Glints.new()
+	glints.z_index = 500  # over the ground chunks (z by chunk), under the objects
+	add_child(glints)
+	glints.setup(d, iso)
 	fog = Fog.new()
 	fog.z_index = 2000
 	add_child(fog)
@@ -53,12 +63,14 @@ func _ready() -> void:
 	cam.make_current()
 	var at: PackedStringArray = String(_args.get("at", "%f,%f" % [region.w / 2.0, region.h / 2.0])).split(",")
 	focus(float(at[0]), float(at[1]), float(_args.get("zoom", "1")))
-	var spawn: String = _args.get("spawn", "")
-	if spawn != "":
+	# the region's sim even with no scenario: its pre-built pieces are works buildings
+	var spawn: String = _args.get("spawn", "none")
+	if true:
 		scenario = Scenario.make(spawn, region, Vector2(float(at[0]), float(at[1])))
 		sim = scenario.sim
 		units.classes = scenario.classes
 		units.teams = scenario.teams
+		units.mine = scenario.fog_team
 		fog.team = scenario.fog_team
 		# --ticks n: the scenario played n ticks ahead (shots of a fight under way)
 		for k in int(_args.get("ticks", "0")):
@@ -95,6 +107,7 @@ func _process(dt: float) -> void:
 			_snap()
 			steps += 1
 		units.alpha = clampf(_acc * SIM_HZ, 0.0, 1.0)
+	units.alt = Input.is_key_pressed(KEY_ALT) or _args.has("bars")
 	var view := view_rect()
 	var t0 := Time.get_ticks_usec()
 	ground.update_view(view)
@@ -102,6 +115,7 @@ func _process(dt: float) -> void:
 	objects.update_view(view, cam.zoom.x)
 	var t2 := Time.get_ticks_usec()
 	units.draw_units(view, cam.zoom.x, Time.get_ticks_msec())
+	glints.draw_glints(view, cam.zoom.x, Time.get_ticks_msec())
 	var t3 := Time.get_ticks_usec()
 	fog.update_fog(dt)
 	_parts[0] += t1 - t0
@@ -112,7 +126,9 @@ func _process(dt: float) -> void:
 
 func _snap() -> void:
 	var snap := sim.digest()
-	units.push(snap, int(snap["tick"]))
+	var vs := sim.view_state()
+	units.push(snap, int(snap["tick"]), vs["units"])
+	buildings.push(vs["buildings"])
 	if fog.team >= 0:
 		fog.set_state(sim.fog_state(fog.team), sim.fog_size())
 

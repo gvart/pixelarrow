@@ -199,6 +199,26 @@ func _img(src: Vector3, sx: float, sy: float, w: float, h: float, o: Vector2, ex
 	_i.append_array([b, b + 1, b + 2, b, b + 2, b + 3])
 
 
+## _img clipped to polygon `clip` (screen px): each clipped point's UV by the inverse of the affine map.
+func _img_clip(src: Vector3, sx: float, sy: float, w: float, h: float, o: Vector2, ex: Vector2, ey: Vector2, clip: PackedVector2Array) -> void:
+	var quad := PackedVector2Array([o, o + ex * w, o + ex * w + ey * h, o + ey * h])
+	var inv := Transform2D(ex, ey, o).affine_inverse()
+	for q in Geometry2D.intersect_polygons(clip, quad):
+		if q.size() < 3:
+			continue
+		var tri := Geometry2D.triangulate_polygon(q)
+		if tri.is_empty():
+			continue
+		var b := _v.size()
+		for pt in q:
+			var l := inv * pt
+			_v.append(pt)
+			_uv.append(Vector2((src.x + sx + clampf(l.x, 0.0, w)) / page + 4.0 * src.z, (src.y + sy + clampf(l.y, 0.0, h)) / page))
+			_c.append(Color.WHITE)
+		for t in tri:
+			_i.append(b + t)
+
+
 ## Slot s's 32 x 32 frame (or its rows sy0..sy0+h) at (x, y), unscaled.
 func _frame(s: int, x: float, y: float, sy0 := 0.0, h := 32.0) -> void:
 	_img(slot_px(s), 0.0, sy0, 32.0, h, Vector2(x, y + sy0), Vector2.RIGHT, Vector2.DOWN)
@@ -367,7 +387,7 @@ func _cliff(x: int, y: int, i: int, tx: float, ty: float, drop: float, zmin: flo
 
 ## A ramp cell's frame warped through its corner levels: the half above the W-E diagonal by the affine map through N, W
 ## and E, the half below (and `nr` copies of it SIDE px apart under it) by the one through W, E and S (art.ts warp).
-func _warp(s: int, tx: float, ty: float, z: float, k: int, nr: int) -> void:
+func _warp(s: int, tx: float, ty: float, z: float, k: int, nr: int, clip := PackedVector2Array()) -> void:
 	var c := d.fc
 	var dN := (z - c[k]) * LH
 	var dE := (z - c[k + 1]) * LH
@@ -380,6 +400,12 @@ func _warp(s: int, tx: float, ty: float, z: float, k: int, nr: int) -> void:
 	var A2 := dW - FH * C2
 	var src := slot_px(s)
 	var ex := Vector2(1, B)
+	if not clip.is_empty():
+		if C1 > -1.0:
+			_img_clip(src, 0, 0, 32, FH + 1, Vector2(tx, ty + A1), ex, Vector2(0, 1 + C1), clip)
+		if C2 > -1.0:
+			_img_clip(src, 0, FH, 32, 32 - FH, Vector2(tx, ty + A2) + Vector2(0, (1 + C2) * FH), ex, Vector2(0, 1 + C2), clip)
+		return
 	if C2 > -1.0:
 		for r in range(nr, 0, -1):
 			_img(src, 0, FH, 32, 32 - FH, Vector2(tx, ty + A2 + SIDE * r) + Vector2(0, (1 + C2) * FH), ex, Vector2(0, 1 + C2))
@@ -596,7 +622,7 @@ func _faces(f: Faces) -> void:
 
 
 ## The ground's lip over a row's rock walls: each wall cell's frame redrawn LIP - 1 px lower, in a ragged band under its
-## top edges, so its grass or scrub hangs over the stone (art.ts lips; a ramping rim's lip is not warped here).
+## top edges, so its grass or scrub hangs over the stone (art.ts lips; a ramping rim's frame warped through its corners).
 func _lips(lips: Array) -> void:
 	for l in lips:
 		var i: int = l[0]
@@ -610,8 +636,12 @@ func _lips(lips: Array) -> void:
 		var B := Vector2(tx + FW, ty + 2 * FH)
 		var L := Vector2(tx, ty + FH)
 		var at := Vector2(tx, ty + LIP - 1.0)
-		_frame_clip(d.slot[i], at, Faces.band(Faces.top(0, R.x, R.y + o.x, B.x, B.y + o.y, ct), hash3(x, y, 61)))
-		_frame_clip(d.slot[i], at, Faces.band(Faces.top(1, B.x, B.y + o.y, L.x, L.y + o.z, ct), hash3(x, y, 62)))
+		var bands := [Faces.band(Faces.top(0, R.x, R.y + o.x, B.x, B.y + o.y, ct), hash3(x, y, 61)), Faces.band(Faces.top(1, B.x, B.y + o.y, L.x, L.y + o.z, ct), hash3(x, y, 62))]
+		for band in bands:
+			if d.ramp[i]:
+				_warp(d.slot[i], at.x, at.y, l[3], 4 * i, 0, band)
+			else:
+				_frame_clip(d.slot[i], at, band)
 
 
 # ---- a row's light, tints, water light and surf (art.ts shadeRow)
@@ -764,10 +794,66 @@ func _shade_row(v: int, x0: int, x1: int, y0: int, y1: int) -> void:
 	for b in blobs:
 		_img(Vector3(0, 0, 0), foam_rect.position.x, foam_rect.position.y, foam_rect.size.x, foam_rect.size.y, b - foam_rect.size / 2.0, Vector2.RIGHT, Vector2.DOWN, Color(1, 1, 1, 0.55))
 	for spec in [[8.0, Color(190 / 255.0, 220 / 255.0, 216 / 255.0, 0.14)], [3.5, Color(214 / 255.0, 234 / 255.0, 230 / 255.0, 0.18)], [1.5, Color(230 / 255.0, 242 / 255.0, 236 / 255.0, 0.3)]]:
-		for l in foam_lines:
-			_stroke(l, spec[0], spec[1])
-	for l in waves:
-		_stroke(l, 1.5, Color(220 / 255.0, 236 / 255.0, 236 / 255.0, 0.2))
+		_stroke_soft(foam_lines, spec[0], spec[1])
+	_stroke_soft(waves, 1.5, Color(220 / 255.0, 236 / 255.0, 236 / 255.0, 0.2))
+
+
+## The row's lines stroked once `w` px wide with round caps, as a canvas strokes one path (overlaps do not add up), and
+## antialiased: the union of the strokes half a px wider in half the alpha, the union half a px narrower over it in the
+## alpha that makes the two together `col` (the edge px at about half cover).
+func _stroke_soft(lines: Array, w: float, col: Color) -> void:
+	if lines.is_empty():
+		return
+	var a := col.a / 2.0
+	_fill_all(stroke_union(lines, w / 2.0 + 0.5), Color(col, a))
+	if w > 1.0:
+		_fill_all(stroke_union(lines, w / 2.0 - 0.5), Color(col, a / (1.0 - a)))
+
+
+func _fill_all(polys: Array, col: Color) -> void:
+	for q in polys:
+		_fill(q, col)
+
+
+## The outlines of the union of the lines (2-point polylines) stroked `r` px either side with round caps; holes dropped.
+static func stroke_union(lines: Array, r: float) -> Array:
+	var out: Array = []
+	var boxes: Array = []
+	for l in lines:
+		for p in Geometry2D.offset_polyline(l, r, Geometry2D.JOIN_ROUND, Geometry2D.END_ROUND):
+			if Geometry2D.is_polygon_clockwise(p):
+				continue
+			var acc: PackedVector2Array = p
+			var box := _bounds(acc)
+			var keep: Array = []
+			var kept_boxes: Array = []
+			for k in out.size():
+				if not box.intersects(boxes[k], true):
+					keep.append(out[k])
+					kept_boxes.append(boxes[k])
+					continue
+				var outer: Array = []
+				for m in Geometry2D.merge_polygons(acc, out[k]):
+					if not Geometry2D.is_polygon_clockwise(m):
+						outer.append(m)
+				if outer.size() == 1:
+					acc = outer[0]
+					box = _bounds(acc)
+				else:
+					keep.append(out[k])
+					kept_boxes.append(boxes[k])
+			keep.append(acc)
+			kept_boxes.append(box)
+			out = keep
+			boxes = kept_boxes
+	return out
+
+
+static func _bounds(p: PackedVector2Array) -> Rect2:
+	var r := Rect2(p[0], Vector2.ZERO)
+	for q in p:
+		r = r.expand(q)
+	return r
 
 
 ## Cell (cx, cy)'s shore edges (grid corners and side 1..4), [] off the map.

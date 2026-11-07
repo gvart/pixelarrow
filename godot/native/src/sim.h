@@ -669,6 +669,10 @@ public:
 	// explored, 2 seen) and the vision grid (cells across, down, tiles per cell)
 	PackedByteArray fog_state(int team);
 	Vector3i fog_size();
+	// read-only, for the region view (godot/src/region/units.gd, buildings.gd): units [id, maxHp, cls, person id ("" a
+	// class spawn), level (0 none)]; buildings [id, type, team, x, y, w, h, rot, state, progress, hp, maxHp, ruin, wet,
+	// fouled, delivered, tiles (PackedInt32Array x, y pairs)]
+	Dictionary view_state();
 	// The loot piles as the host-run digest reads them: [id, x, y, goods, first items [uid, def, rarity], item count].
 	Array piles();
 	// The scenario's wild (the trace's 'spawnMobs', 'spawnRoam', 'spawnSoul' and 'hurtBoss' ops).

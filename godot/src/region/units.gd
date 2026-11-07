@@ -1,7 +1,10 @@
 ## Soldiers on the iso map at real scale (src/war/view/units.ts): the PixelLab sheets (godot/view/sheets, rows are
 ## facings) drawn 1:1, a unit in the row of the screen quadrant nearest its heading and the frame Anim picks, between the
-## last two 10 Hz snapshots. Depth sorted with the map objects (this node y-sorts into Objects'), team-dyed red cloth,
-## a shadow and a team ring under each man. Units behind higher ground are not drawn (iso.hidden).
+## last two 10 Hz snapshots. Depth sorted with the map objects (this node y-sorts into Objects'), each man in his own
+## look (Look: skin, cloak, crest, trim, hair, tier, in his team's colours; a sheet without colour groups: team-dyed red
+## cloth), a shadow and a team ring under each man. Units behind higher ground are not drawn (iso.hidden).
+## Blows (HitWatch): the struck man flashes white (an additive copy of his frame) and is nudged off his striker. Health
+## bars (micro.ts): thin pixel bars over the hurt (own green, foes red, neutral folk yellow), every man's with Alt held.
 ## LOD (lod_of): close up every man is a sprite with ring and shadow and the hidden test; with many on screen the rings
 ## go and the hidden test runs on a quarter of the men a frame; far out (zoom under SPRITE_ZOOM) men are dots.
 class_name Units
@@ -25,7 +28,19 @@ const DYE := [
 ]
 const RED_W := "smoothstep(0.3, 0.55, (c.r - max(c.g, c.b)) / max(c.r, 0.001)) * (1.0 - smoothstep(0.1, 0.25, (c.g - c.b) / max(c.r, 0.001)))"
 
+## micro.ts / microRules.ts BAR: size (screen px at zoom 1), px over the feet (a soldier is 2 BODY tall), colours.
+const BAR_W := 16.0
+const BAR_H := 2.0
+const BAR_ABOVE := BODY * 2.0 + 6.0
+const BAR_GREEN := Color8(0x52, 0xc4, 0x47)
+const BAR_RED := Color8(0xd8, 0x40, 0x2f)
+const BAR_YELLOW := Color8(0xe8, 0xc3, 0x3a)
+const BAR_BACK := Color(0x12 / 255.0, 0x0c / 255.0, 0x0a / 255.0, 0.9)
+const BAR_LOST := Color8(0x3b, 0x2a, 0x22)
+const FLASH_FILL := Color8(0xff, 0xf0, 0xd8)
+
 enum Lod { FULL, CROWD, DOTS }
+enum Bar { NONE, OWN, FOE, ALLY }
 
 var iso: Iso
 var objects: Objects
@@ -49,6 +64,25 @@ var _hidden := {}
 var _frame := 0
 var _materials: Array = []
 var _under: UnderLayer
+var _bars: BarLayer
+var _flash_mat: ShaderMaterial
+var _flashes: Array[Sprite2D] = []
+var hits := HitWatch.new()
+## The player's team (own bars), the neutral folk's team; Alt held: every bar.
+var mine := -1
+var neutral := -1
+var alt := false
+## Per unit (Sim.view_state): max hp, class, person id, level; his look's modulate, and what it was made from.
+var _info := {}
+var _codes := {}
+
+
+## microRules.ts barOf: the bar a man gets (Bar.NONE: none): his tone by side, shown while hurt, or with Alt held.
+static func bar_of(dead: bool, hp: float, max_hp: float, team: int, mine_: int, neutral_: int, alt_: bool) -> Bar:
+	if dead or not (max_hp > 0.0):
+		return Bar.NONE
+	var tone := Bar.OWN if team == mine_ else (Bar.ALLY if team == neutral_ else Bar.FOE)
+	return tone if alt_ or hp < max_hp - 1e-6 else Bar.NONE
 
 
 ## The level of detail for `n` men on screen at camera zoom `zoom`.
@@ -95,17 +129,44 @@ func setup(iso_: Iso, objects_: Objects) -> void:
 	_under.units = self
 	objects.get_parent().add_child.call_deferred(_under)
 	_under.z_index = objects.z_index - 1
+	_bars = BarLayer.new()
+	_bars.z_index = objects.z_index + 500
+	objects.get_parent().add_child.call_deferred(_bars)
+	var fs := Shader.new()
+	fs.code = "shader_type canvas_item;\nrender_mode blend_add;\nuniform vec4 fill : source_color;\nvarying float a;\nvoid vertex() {\n\ta = COLOR.a;\n}\nvoid fragment() {\n\tCOLOR = vec4(fill.rgb, texture(TEXTURE, UV).a * a);\n}\n"
+	_flash_mat = ShaderMaterial.new()
+	_flash_mat.shader = fs
+	_flash_mat.set_shader_parameter("fill", FLASH_FILL)
+	neutral = int(GameData.table("src/war/sim/economy")["NEUTRAL_TEAM"])
 
 
-## A new snapshot (Sim.digest) at tick `tick`.
-func push(snap: Dictionary, _tick: int) -> void:
+## A new snapshot (Sim.digest) at tick `tick`, with the units' Sim.view_state rows ([id, max hp, class, person id, level]).
+func push(snap: Dictionary, tick: int, info: Array = []) -> void:
 	_prev = _cur
 	_cur = {}
 	for a in snap["units"]:
 		_cur[int(a[0])] = a
 	for q in snap["squads"]:
 		_squad_of[int(q[0])] = q
+	for r in info:
+		_info[int(r[0])] = r
 	count = _cur.size()
+	hits.diff(_cur, teams, tick, Time.get_ticks_msec())
+
+
+## A man's look modulate (Look.look_color), made once and again when his class or team changes; null: no look (his
+## sheet has no colour groups).
+func _code(id: int, cls: String, team: int) -> Variant:
+	if not Look.has_class(cls):
+		return null
+	var c: Array = _codes.get(id, [])
+	if c.is_empty() or c[0] != cls or c[1] != team:
+		var r: Array = _info.get(id, [])
+		var pid: String = r[3] if not r.is_empty() else ""
+		var level: float = r[4] if not r.is_empty() else 0.0
+		c = [cls, team, Look.look_color(cls, team, Look.look_of(pid if pid != "" else "unit:%d" % id, cls, level))]
+		_codes[id] = c
+	return c[2]
 
 
 ## A class's sheet: {tex, fw, fh, rows: [[row, ox, oy] per quadrant], clips: {name: [n, fps, hold]}, frames: {name:
@@ -170,8 +231,10 @@ func draw_units(view: Rect2, zoom: float, now: float) -> void:
 	anim.forget(alive)
 	lod = lod_of(zoom, vis.size())
 	var n := 0
+	var nf := 0
 	var pts := []
 	var under := []
+	var bars := []
 	for e in vis:
 		var id: int = e[0]
 		var a: Array = e[1]
@@ -184,6 +247,7 @@ func draw_units(view: Rect2, zoom: float, now: float) -> void:
 		var sh = sheet(cls)
 		if sh == null:
 			sh = sheet("militia")
+			cls = "militia"
 		if lod == Lod.DOTS:
 			under.append([f, team, 2])
 			continue
@@ -213,20 +277,59 @@ func draw_units(view: Rect2, zoom: float, now: float) -> void:
 		n += 1
 		# with the objects by x + y (units.ts and objects.ts both add 0.25 over the key); the fallen just under them
 		var depth := (p.x + p.y) * Objects.DEPTH_PX - (0.5 if state == "dead" else 0.0)
+		var po: Array = hits.pose(id, now) if state != "dead" else []
+		var nx: float = po[1] if not po.is_empty() else 0.0
+		var ny: float = po[2] if not po.is_empty() else 0.0
 		sp.texture = sh["tex"]
 		sp.region_rect = rect
 		sp.scale = Vector2(sh["scale"], sh["scale"])
-		sp.position = Vector2(roundf(f.x), depth)
-		sp.offset = Vector2(-q[1], (roundf(f.y) - depth) / sh["scale"] - q[2])
-		sp.material = _materials[team & 3]
+		sp.position = Vector2(roundf(f.x + nx), depth)
+		sp.offset = Vector2(-q[1], (roundf(f.y + ny) - depth) / sh["scale"] - q[2])
+		var code = _code(id, cls, team)
+		if code != null:
+			sp.material = Look.material()
+			sp.self_modulate = code
+		else:
+			sp.material = _materials[team & 3]
+			sp.self_modulate = Color.WHITE
 		sp.visible = true
+		if not po.is_empty() and po[0]:
+			# the blow's flash: the same frame added over him in white (hits.ts flashAlpha)
+			var fl: Sprite2D
+			if nf < _flashes.size():
+				fl = _flashes[nf]
+			else:
+				fl = Sprite2D.new()
+				fl.centered = false
+				fl.region_enabled = true
+				fl.material = _flash_mat
+				_flashes.append(fl)
+				add_child(fl)
+			nf += 1
+			fl.texture = sp.texture
+			fl.region_rect = rect
+			fl.scale = sp.scale
+			fl.position = sp.position + Vector2(0, 0.01)
+			fl.offset = sp.offset - Vector2(0, 0.01 / sh["scale"])
+			fl.self_modulate = Color(1, 1, 1, HitWatch.flash_alpha(sh["scale"]))
+			fl.visible = true
 		if state != "dead":
+			var r: Array = _info.get(id, [])
+			var tone := bar_of(false, a[4], r[1] if not r.is_empty() else 0.0, team, mine, neutral, alt)
+			if tone != Bar.NONE:
+				bars.append([f.x, f.y - BAR_ABOVE * sh["scale"], clampf(a[4] / r[1], 0.0, 1.0), tone])
 			pts.append([f.x, f.y - BODY, p.x + p.y])
 			pts.append([f.x, f.y - BODY / 3.0, p.x + p.y])
 			under.append([f, team, 0 if lod == Lod.FULL else 1])
 	for k in range(n, _pool.size()):
 		_pool[k].visible = false
+	for k in range(nf, _flashes.size()):
+		_flashes[k].visible = false
 	drawn = n
+	_bars.rows = bars
+	_bars.view = view
+	_bars.zoom = zoom
+	_bars.queue_redraw()
 	objects.fade(pts)
 	_under.items = under
 	_under.zoom = zoom
@@ -305,3 +408,35 @@ class UnderLayer extends Node2D:
 			draw_texture_rect(_shadow, Rect2(f - ss / 2.0, ss), false)
 			if it[2] == 0:
 				draw_texture_rect(_ring, Rect2(f - rs / 2.0, rs), false, Color(c, 0.7))
+
+
+## Health bars over the men (micro.ts bars): one canvas item over the units, snapped to screen pixels, a dark frame,
+## the lost share, then the fill by tone; a little bigger zoomed in.
+class BarLayer extends Node2D:
+	var rows: Array = []
+	var view := Rect2()
+	var zoom := 1.0
+
+	func _draw() -> void:
+		if rows.is_empty():
+			return
+		var px := 1.0 / zoom
+		var wp := roundf(Units.BAR_W * maxf(1.0, sqrt(zoom)))
+		var hp := maxf(Units.BAR_H, roundf(Units.BAR_H * sqrt(zoom)))
+		var w := wp * px
+		var h := hp * px
+		var at := []
+		for r in rows:
+			var x: float = view.position.x + roundf((r[0] - view.position.x) * zoom) * px - roundf(wp / 2.0) * px
+			var y: float = view.position.y + roundf((r[1] - view.position.y) * zoom) * px
+			at.append(Vector2(x, y))
+		for p in at:
+			draw_rect(Rect2(p - Vector2(px, px), Vector2(w + 2.0 * px, h + 2.0 * px)), Units.BAR_BACK)
+		for p in at:
+			draw_rect(Rect2(p, Vector2(w, h)), Units.BAR_LOST)
+		for i in rows.size():
+			var r: Array = rows[i]
+			if r[2] <= 0.0:
+				continue
+			var c: Color = Units.BAR_GREEN if r[3] == Units.Bar.OWN else (Units.BAR_RED if r[3] == Units.Bar.FOE else Units.BAR_YELLOW)
+			draw_rect(Rect2(at[i], Vector2(maxf(1.0, roundf(wp * r[2])) * px, h)), c)

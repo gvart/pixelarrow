@@ -38,7 +38,7 @@ export interface KitMeta {
 }
 
 /** Art ids per sim type (gates pick their axis: -x when the line runs along x). */
-const ART_ID: Partial<Record<BuildingType, string>> = {
+export const ART_ID: Partial<Record<BuildingType, string>> = {
   camp: 'camp', storehouse: 'storehouse', outpost: 'outpost', fort: 'fort', barracks: 'barracks', farm: 'farm', olivePress: 'olive-press',
   woodTower: 'wood-tower', stoneTower: 'stone-tower', woodGate: 'wood-gate', stoneGate: 'stone-gate',
   pitchKiln: 'pitch-kiln', // W-35: its ART-B art and working fx (smoke, the stoking flame)
@@ -55,7 +55,7 @@ const ART_ID: Partial<Record<BuildingType, string>> = {
  * (public/war/biomes/<lib>/objects.json, done only; several looks are picked by position). Stalls, warehouses,
  * workplaces, farms, presses, stone towers, gates and walls use their ART-B art or kits above.
  */
-const PRE_ART: Partial<Record<BuildingType, string[]>> = {
+export const PRE_ART: Partial<Record<BuildingType, string[]>> = {
   house: ['elaia/town-house-a', 'elaia/town-house-b'], cottage: ['elaia/town-cottage'], temple: ['elaia/town-temple'], stoa: ['elaia/town-stoa'],
   statue: ['elaia/town-statue'], well: ['elaia/town-well'], jetty: ['elaia/town-jetty'], board: ['elaia/town-board'], cache: ['elaia/town-goods'],
   tent: ['kyrene/nomad-tent'], shrine: ['elaia/shrine'], privateHouse: ['elaia/town-cottage'], // W-90: the town cottage's art

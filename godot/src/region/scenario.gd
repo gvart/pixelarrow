@@ -3,6 +3,9 @@
 ##          scripts/war/bench.mjs's brawl does on test-ridge; the view's 600-unit bench
 ##   fight  two squads a side meeting at the spot (shots)
 ##   march  four squads walking past the spot (shots)
+##   build  team 3 claims the spot; three militia squads lay out and build a camp, a storehouse and barracks, and a
+##          camp and a palisade line wait for builders (shots of sites by stage)
+##   none   the region as it starts: its pre-built pieces, no men (the view with no --spawn)
 class_name Scenario
 extends RefCounted
 
@@ -45,6 +48,20 @@ static func make(name: String, region: Region, at: Vector2) -> Scenario:
 				var a := s._spawn("you%d" % k, 3, CLASSES[k], at.x - 14, at.y - 9 + 6 * k)
 				s.sim.order({"kind": "move", "squad": a, "x": at.x + 16, "y": at.y - 9 + 6 * k})
 			s.fog_team = 3
+		"build":
+			s.sim.claim(3, at.x, at.y, 26)
+			for r in ["wood", "stone", "food"]:
+				s.sim.add_stock(3, r, 2000)
+			# each squad lays out its own site and builds it (an order with a squad); one more site left to wait
+			var plan := [["camp", -7, -7], ["storehouse", 6, -6], ["barracks", 6, 5]]
+			for k in plan.size():
+				var q := s._spawn("you%d" % k, 3, "militia", at.x - 4 + 4 * k, at.y)
+				s.sim.order({"kind": "placeBuilding", "squad": q, "type": plan[k][0], "x": at.x + plan[k][1], "y": at.y + plan[k][2]})
+			s.sim.order({"kind": "placeBuilding", "team": 3, "type": "camp", "x": at.x - 8, "y": at.y + 6})
+			s.sim.order({"kind": "placeWall", "team": 3, "material": "wood", "points": [floorf(at.x) - 3, floorf(at.y) + 11, floorf(at.x) + 3, floorf(at.y) + 11]})
+			s.fog_team = 3
+		"none":
+			pass
 		_:
 			push_error("unknown scenario " + name)
 	return s
