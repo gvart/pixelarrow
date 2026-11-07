@@ -572,7 +572,7 @@ Room::Saved Room::saveState(const std::string &simText) const {
 	full["sim"] = SIM_AT;
 	full["bots"] = BOTS_AT;
 	for (const char *k : { "run", "mends", "stormed", "settle", "paths" }) {
-		const Variant v = std::string(k) == "run" ? Variant(G(run)) : std::string(k) == "mends" ? Variant(Array()) : std::string(k) == "stormed" ? Variant(stormedA) : std::string(k) == "settle" ? Variant(settle) : Variant(pathsA);
+		const Variant v = std::string(k) == "run" ? Variant(G(run)) : std::string(k) == "mends" ? Variant(mendsSaved()) : std::string(k) == "stormed" ? Variant(stormedA) : std::string(k) == "settle" ? Variant(settle) : Variant(pathsA);
 		h[k] = v;
 		full[k] = v;
 	}
@@ -632,6 +632,7 @@ bool Room::restore(const Dictionary &st, const std::string &simText, const std::
 		queue.push_back(std::move(w));
 	}
 	if (st.has("run")) run = S(st["run"]);
+	loadMends(st.get("mends", Array()));
 	stormed.clear();
 	const Array sa = st.get("stormed", Array());
 	for (int64_t i = 0; i < sa.size(); i++) stormed.insert(int(sa[i]));

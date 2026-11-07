@@ -11,9 +11,11 @@
 // in the room, else fade), armyCount, offField, deployed and the strongroom's goods; and each player's guide, story and
 // encounter saves (D1 and DO storage, as the DO writes and reads them). Left out, as world or economy rules
 // (P11): upkeep and its debts, the group's road and home checks, the memorial, the boards' tallies and favour.
+// Wave B's holders and trade books are trade() (room_trade_store.h).
 #pragma once
 
 #include <functional>
+#include <memory>
 #include <optional>
 #include <set>
 #include <string>
@@ -28,6 +30,9 @@
 #include "start.h"
 
 namespace sim {
+
+class TradeStore; // room_trade_store.h: the holders' and trade's books (wave B)
+class MemoryTradeStore;
 
 // A named soul to wake (captives.ts NamedSoul): bar, the player barred from him for `ms` (pid, ms).
 struct StoredSoul {
@@ -73,6 +78,8 @@ public:
 	// W-62, W-65: his guide, story or encounter save (kind "guide" | "story" | "encounter"; nil: none), and a new one
 	virtual godot::Variant saveOf(const std::string &kind, int pid) = 0;
 	virtual void keep(const std::string &kind, int pid, const godot::Variant &save) = 0;
+	// the holders' and trade's books (room_trade_store.h)
+	virtual TradeStore &trade() = 0;
 };
 
 class MemoryStore : public RoomStore {
@@ -105,6 +112,9 @@ public:
 	std::string loadRoom(const std::string &region) override;
 	godot::Variant saveOf(const std::string &kind, int pid) override;
 	void keep(const std::string &kind, int pid, const godot::Variant &save) override;
+	TradeStore &trade() override;
+	MemoryStore();
+	~MemoryStore() override;
 
 	// seeding: a new man of his, active (at home: region none); his goods; his path
 	void add(int pid, const WarPerson &p, const std::optional<std::string> &region = std::nullopt);
@@ -120,6 +130,8 @@ public:
 	bool read(const godot::String &file);
 
 private:
+	friend class MemoryTradeStore;
+	std::unique_ptr<MemoryTradeStore> books; // room_trade_store.cpp
 	std::vector<Rec> recs;
 	std::vector<std::string> fights;
 	std::vector<std::pair<int, Cost>> goods; // a Map: insertion order

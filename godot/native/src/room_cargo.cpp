@@ -79,6 +79,79 @@ std::vector<std::pair<std::string, double>> cargo_rob(const std::vector<CargoSlo
 	return out;
 }
 
+double bundle_loads(const Bundle &b) {
+	double a = 0;
+	for (const Lot &l : b.lots) a = a + l.n / per_load(l.r);
+	return a + double(b.items.size()) / data().holders.ITEMS_PER_LOAD;
+}
+
+Cost bundle_goods(const Bundle &b) {
+	Cost out;
+	for (const Lot &l : b.lots) out.set(l.r, out.get(l.r) + l.n);
+	return out;
+}
+
+std::pair<Cost, std::vector<Item>> cargo_contents(const std::vector<CargoSlot> &slots) {
+	Cost goods;
+	std::vector<Item> items;
+	for (const CargoSlot &s : slots) {
+		for (const Lot &l : s.hold->lots)
+			if (l.n > EPS) goods.set(l.r, goods.get(l.r) + l.n);
+		items.insert(items.end(), s.hold->items.begin(), s.hold->items.end());
+	}
+	return { goods, items };
+}
+
+double cargo_room(const std::vector<CargoSlot> &slots) {
+	double a = 0;
+	for (const CargoSlot &s : slots) a = a + std::max(0.0, s.cap - loads(*s.hold));
+	return a;
+}
+
+std::optional<Bundle> cargo_take_out(const std::vector<CargoSlot> &slots, const Cost &goods, const std::vector<std::string> &uids, std::optional<double> seal) {
+	for (const auto &[r, n] : goods.kv) {
+		double have = 0;
+		for (const CargoSlot &s : slots)
+			for (const Lot &l : s.hold->lots)
+				if (l.r == r && l.s == seal) have += l.n;
+		if (have < n - EPS) return std::nullopt;
+	}
+	std::vector<std::string> all;
+	for (const CargoSlot &s : slots)
+		for (const Item &it : s.hold->items) all.push_back(it.uid);
+	for (const std::string &u : uids)
+		if (std::find(all.begin(), all.end(), u) == all.end()) return std::nullopt;
+	Bundle out;
+	for (const auto &[r, n] : goods.kv) {
+		double left = n;
+		for (const CargoSlot &s : slots)
+			for (Lot &l : s.hold->lots) {
+				if (l.r != r || l.s != seal || left <= EPS) continue;
+				const double k = std::min(l.n, left);
+				l.n -= k;
+				left -= k;
+				out.lots.push_back({ l.r, k, l.o, seal });
+			}
+	}
+	for (const CargoSlot &s : slots) {
+		std::vector<Item> keep;
+		for (const Item &it : s.hold->items) (std::find(uids.begin(), uids.end(), it.uid) != uids.end() ? out.items : keep).push_back(it);
+		s.hold->items = keep;
+	}
+	for (const CargoSlot &s : slots) s.hold->lots.erase(std::remove_if(s.hold->lots.begin(), s.hold->lots.end(), [](const Lot &l) { return !(l.n > EPS); }), s.hold->lots.end());
+	return out;
+}
+
+Bundle cargo_take_sealed(const std::vector<CargoSlot> &slots, double seal) {
+	Bundle out;
+	for (const CargoSlot &s : slots) {
+		for (const Lot &l : s.hold->lots)
+			if (l.s == seal && l.n > EPS) out.lots.push_back(l);
+		s.hold->lots.erase(std::remove_if(s.hold->lots.begin(), s.hold->lots.end(), [&](const Lot &l) { return l.s == seal; }), s.hold->lots.end());
+	}
+	return out;
+}
+
 godot::Dictionary lot_to(const Lot &l) {
 	godot::Dictionary d;
 	d["r"] = G(l.r);

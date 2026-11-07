@@ -167,6 +167,9 @@ std::string base36(uint32_t v) {
 
 } // namespace
 
+// names.ts freeName for the room (a hired man's name: local_trade.cpp)
+std::string free_name_for(const std::string &culture, int start, const std::set<std::string> &taken) { return free_name(culture, start, taken); }
+
 // --- the mob controller's host ---
 
 void SimMobHost::flush() {

@@ -41,6 +41,8 @@
 #include "season_clock.h"
 #include "works.h"
 #include "net_guide.h"
+#include "npc_market.h"
+#include "town_board.h"
 
 namespace sim {
 
@@ -90,6 +92,8 @@ struct Data {
 	StartTables start; // start.h: PATHS, FAMILIES
 	RoomTables room; // room.h: the town rest
 	GuideTables guide; // net_guide.h: the guide, the stories by region, robbers, world events (room_life.cpp)
+	MarketTables market; // npc_market.h: the NPC towns and the world they read (the room's trade, wave B)
+	BoardTables board; // town_board.h: the town boards
 	std::map<std::string, std::vector<std::string>> names; // NAMES by culture (src/data/names, freeName), lookup only
 };
 const Data &data();

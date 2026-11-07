@@ -3,6 +3,7 @@
 // robbers take (tollOf, robOf; W-197), and a bundle as its JSON.
 #pragma once
 
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -28,6 +29,15 @@ Bundle cargo_take_all(const std::vector<CargoSlot> &slots);
 void cargo_toll(const std::vector<CargoSlot> &slots, double share);
 // robOf: up to n loads taken, coin first, then the biggest lots (no rations); what was taken, by good in taking order.
 std::vector<std::pair<std::string, double>> cargo_rob(const std::vector<CargoSlot> &slots, double n);
+
+// Wave B (the holders and trade): bundleLoads, bundleGoods, contents (by good, sealed lots too, and the items), the free
+// loads (room), takeOut (all or nothing; sealed lots only under their own seal: nullopt none), takeSealed.
+double bundle_loads(const Bundle &b);
+Cost bundle_goods(const Bundle &b);
+std::pair<Cost, std::vector<Item>> cargo_contents(const std::vector<CargoSlot> &slots);
+double cargo_room(const std::vector<CargoSlot> &slots);
+std::optional<Bundle> cargo_take_out(const std::vector<CargoSlot> &slots, const Cost &goods, const std::vector<std::string> &uids = {}, std::optional<double> seal = std::nullopt);
+Bundle cargo_take_sealed(const std::vector<CargoSlot> &slots, double seal);
 
 // {r, n, o, s?} and {lots, items} as the TS objects (items whole: roster.h item_full_to)
 godot::Dictionary lot_to(const Lot &l);

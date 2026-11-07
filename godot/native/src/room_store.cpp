@@ -9,6 +9,7 @@
 #include <godot_cpp/variant/array.hpp>
 
 #include "js_json.h"
+#include "room_trade_store.h"
 #include "sim_data.h"
 
 namespace sim {
@@ -464,6 +465,8 @@ godot::Dictionary MemoryStore::dump() const {
 		sv[G(kind)] = a;
 	}
 	out["saves"] = sv;
+	const godot::Dictionary t = books->dump(); // wave B: the holders' and trade's books
+	for (const godot::Variant &k : t.keys()) out[k] = t[k];
 	return out;
 }
 
@@ -491,6 +494,7 @@ void MemoryStore::load(const godot::Dictionary &d) {
 		const godot::Array a = sv[kinds[i]];
 		for (int64_t k = 0; k < a.size(); k++) keep(S(kinds[i]), int(godot::Array(a[k])[0]), godot::Array(a[k])[1]);
 	}
+	books->load(d);
 }
 
 bool MemoryStore::write(const godot::String &file) const {

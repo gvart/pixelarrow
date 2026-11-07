@@ -76,12 +76,14 @@ void LocalRoom::muster(int p) {
 }
 
 void LocalRoom::close(int p) {
+	open.erase(p);
 	room->leave(p);
 	flush();
 }
 
 void LocalRoom::conn(int p) {
 	if (std::find(conns.begin(), conns.end(), p) == conns.end()) conns.push_back(p);
+	open.insert(p);
 }
 
 void LocalRoom::tell(int p, const Variant &m) { out.push_back(Array::make(p, m)); }
@@ -157,6 +159,7 @@ void LocalRoom::send_as(int p, const Dictionary &raw) {
 			persons = std::get<0>(got);
 		}
 		const Dictionary res = r.join(p, m, persons ? &*persons : nullptr);
+		if (S(res["t"]) != "refused") store->trade().setAlliance(p, int(m["team"])); // wave B: his alliance (online: his membership)
 		tell(p, res);
 		if (S(res["t"]) == "welcome") {
 			if (!worldEv.is_empty()) tell(p, world_msg()); // W-62
@@ -208,6 +211,11 @@ void LocalRoom::send_as(int p, const Dictionary &raw) {
 		if (g.get_type() != Variant::NIL) store->keep("guide", p, g);
 	} else if (t == "story") r.storyChoose(p, S(m["option"])); // W-65
 	else if (t == "encounter") r.encounterChoose(p, S(m["option"])); // W-65
+	else if (t == "mend") trade_mend(p, m); // wave B: holders and trade (local_trade.cpp)
+	else if (t == "stow") trade_stow(p, m);
+	else if (t == "npc") trade_npc(p, m);
+	else if (t == "board") trade_board(p, m);
+	else if (t == "handoff") trade_handoff(p, m);
 }
 
 void LocalRoom::tick() {
@@ -237,6 +245,7 @@ void LocalRoom::tick() {
 		store->take(p, goods);
 		r.setLarder(p, store->goodsOf(p));
 	}
+	trade_books(res); // wave B: crafted items written back, mends freed
 	for (int p : conns) {
 		for (const auto &[ap, m] : res.admitted)
 			if (ap == p) {
@@ -256,6 +265,7 @@ void LocalRoom::tick() {
 	const std::pair<const char *, const Array *> kept[] = { { "guide", &res.guided }, { "story", &res.storied }, { "encounter", &res.met } };
 	for (const auto &[kind, a] : kept)
 		for (int64_t i = 0; i < a->size(); i++) store->keep(kind, int(Dictionary((*a)[i])["pid"]), Dictionary((*a)[i])["save"]);
+	trade_deeds(res); // W-185
 	// what the tick handed the DO, each non-empty one, in room.ts tick's order
 	Array fs, ss, rs, fd, ld;
 	for (const auto &f : res.fights) {
@@ -274,6 +284,8 @@ void LocalRoom::tick() {
 	}
 	for (int b : res.raided) rs.push_back(b);
 	for (const std::string &id : res.faded) fd.push_back(String::utf8(id.c_str()));
+	Array fr;
+	for (const std::string &u : res.freed) fr.push_back(String::utf8(u.c_str()));
 	for (const auto &[p, goods] : res.larder) {
 		Dictionary d;
 		d["pid"] = p;
@@ -282,7 +294,8 @@ void LocalRoom::tick() {
 	}
 	books = Dictionary();
 	const std::pair<const char *, const Array *> named[] = { { "fights", &fs }, { "raided", &rs }, { "souls", &ss }, { "faded", &fd }, { "guided", &res.guided }, { "storied", &res.storied },
-		{ "met", &res.met }, { "wild", &res.wild }, { "larder", &ld }, { "gathered", &res.gathered }, { "warlord", &res.warlord } };
+		{ "met", &res.met }, { "wild", &res.wild }, { "larder", &ld }, { "gathered", &res.gathered }, { "warlord", &res.warlord }, { "crafted", &res.crafted }, { "bosses", &res.bosses },
+		{ "freed", &fr } };
 	for (const auto &[k, a] : named)
 		if (a->size()) books[k] = *a;
 }
@@ -461,9 +474,9 @@ Variant LocalRoom::call_op(const String &op_, const Array &a) {
 		res["sha"] = String::utf8(st.text.c_str()).sha256_text();
 		res["len"] = int64_t(st.text.size());
 		res["head"] = st.head;
-		res["sim"] = String::utf8(st.sim.c_str()).sha256_text();
-		res["bots"] = String::utf8(st.bots.c_str()).sha256_text();
+		res["sim"] = String::utf8(st.sim.c_str()).sha256_text();		res["bots"] = String::utf8(st.bots.c_str()).sha256_text();
 		store->saveRoom(region, saved);
+		trade_saved(); // M6e: the stash screen's snapshot
 		return res;
 	}
 	if (op == "restore") {
@@ -506,9 +519,11 @@ Variant LocalRoom::call_op(const String &op_, const Array &a) {
 		}
 		room = std::move(next);
 		sim = fresh;
+		trade_restored();
 		flush();
 		return Variant();
 	}
+	if (Variant res; trade_op(op, a, res)) return res; // wave B seeds and helpers (local_trade.cpp)
 	ERR_PRINT(String::utf8(("LocalRoom.call_op: unknown op " + op).c_str()));
 	return Variant();
 }

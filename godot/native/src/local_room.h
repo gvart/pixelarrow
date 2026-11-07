@@ -22,11 +22,15 @@
 //    spawnSoul, save, restore), with the store round it as TsLocal.call.
 //  - set_world_events: the world's RPC (worldEvents): the events running here now onto the room, a guardian woken once
 //    per boss wake, every client told.
+//  - wave B (local_trade.cpp, src/dev/roomTrade.ts TradeDo): mend / stow / npc / board / handoff over the store's trade
+//    books; per tick the crafted items written back, mends freed and board Kills readied; a save keeps the region's
+//    holds, a restore its mends; the ops stash, rent, snap, hurtBoss.
 // The store's clock is the room's: tick * 100 ms (regionDO.ts TICK_MS).
 #pragma once
 
 #include <functional>
 #include <memory>
+#include <set>
 #include <vector>
 
 #include <godot_cpp/classes/ref.hpp>
@@ -36,6 +40,8 @@
 
 #include "room.h"
 #include "room_store.h"
+#include "room_trade_store.h"
+#include "town_board.h"
 #include "sim.h"
 
 namespace godot {
@@ -65,6 +71,23 @@ class LocalRoom : public RefCounted {
 	void flush();
 	void muster(int p);
 	static sim::RoomOpts room_opts(const Ref<Sim> &s, const Dictionary &o);
+	// wave B (local_trade.cpp): src/dev/roomTrade.ts TradeDo round the room; open: the players with a socket now
+	std::set<int> open;
+	void trade_mend(int p, const Dictionary &m);
+	void trade_stow(int p, const Dictionary &m);
+	void trade_npc(int p, const Dictionary &m);
+	void trade_board(int p, const Dictionary &m);
+	void trade_handoff(int p, const Dictionary &m);
+	std::function<void()> take_coin(const std::vector<sim::CargoSlot> &slots, double coin, bool home, int p, sim::Why &why);
+	void npc_give(const std::vector<sim::CargoSlot> &slots, const sim::Bundle &b);
+	bool chain_over(int p);
+	Dictionary board_view(int p, const std::vector<sim::BoardMan> &men, bool chainOver, sim::Why &why);
+	void board_ready(int p);
+	void trade_books(const sim::Room::TickOut &res);
+	void trade_deeds(const sim::Room::TickOut &res);
+	bool trade_op(const std::string &op, const Array &a, Variant &res);
+	void trade_saved();
+	void trade_restored();
 
 public:
 	// sim: a fresh Sim (Sim.create; its seed is the room's); opts: room.ts RoomOptions (cap, quotas, keyframeEvery,

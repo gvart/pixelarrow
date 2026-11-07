@@ -5,6 +5,8 @@
 // whenever control returns to the sim.
 #pragma once
 
+#include <set>
+#include <string>
 #include <vector>
 
 #include "bosses.h"
@@ -14,6 +16,9 @@
 #include "sim.h"
 
 namespace sim {
+
+// src/data/names.ts freeName (sim_wild.cpp)
+std::string free_name_for(const std::string &culture, int start, const std::set<std::string> &taken);
 
 struct SimMobHost : MobHost {
 	Sim *s = nullptr;

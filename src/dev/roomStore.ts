@@ -20,6 +20,7 @@ import { CAPTIVE } from '../war/sim/captives';
 import { isCivClass } from '../data/classes';
 import { mayHold, NO_PATH, soldierCap, workerCap, type PlayerPath } from '../war/world/start';
 import type { FightReport, WarPerson } from '../war/types';
+import { TradeBooks } from './roomTrade';
 
 /** server/src/war/persons.ts HEAL.field and HOLD_MAX. */
 const HEAL_FIELD = 6 * 3_600_000, HOLD_MAX = 20;
@@ -43,6 +44,8 @@ export class RoomStore {
   goods = new Map<number, Record<string, number>>();
   paths = new Map<number, PlayerPath>();
   saves = { guide: new Map<number, unknown>(), story: new Map<number, unknown>(), encounter: new Map<number, unknown>() };
+  /** Wave B: holders and trade (./roomTrade.ts). */
+  readonly trade = new TradeBooks(this);
 
   private rec(id: string) {
     return this.recs.find((r) => r.id === id);
@@ -178,6 +181,6 @@ export class RoomStore {
     this.saves[kind].set(pid, save);
   }
   dump() {
-    return { persons: this.recs, fights: this.fights, goods: [...this.goods] };
+    return { persons: this.recs, fights: this.fights, goods: [...this.goods], ...this.trade.dump() };
   }
 }
