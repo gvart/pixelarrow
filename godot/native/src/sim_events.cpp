@@ -4,6 +4,7 @@
 #include <godot_cpp/variant/array.hpp>
 
 #include "js_math.h"
+#include "roster.h"
 #include "sim.h"
 
 namespace sim {
@@ -36,7 +37,7 @@ godot::Dictionary ev_of(const CraftedEvent &e) {
 	if (e.pid) d["pid"] = gstr(*e.pid);
 	d["recipe"] = gstr(e.recipe);
 	d["what"] = gstr(e.what);
-	d["item"] = item_to_dict(e.item);
+	d["item"] = item_full_to(e.item); // its quality, maker and marks too (the room deposits it)
 	return d;
 }
 

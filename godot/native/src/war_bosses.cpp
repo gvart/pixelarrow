@@ -139,7 +139,7 @@ Item as_trophy(const Item &item, const std::string &boss) {
 	}
 	Item out = item;
 	if (b) out.tr = b->name;
-	if (!aff.empty()) out.aff = aff;
+	if (!aff.empty()) out.affLast = !item.aff, out.aff = aff;
 	return out;
 }
 

@@ -473,16 +473,19 @@ Item item_from(const Dictionary &d) {
 	if (has(d, "mc")) it.mc = double(d["mc"]);
 	it.mk = ostr(d, "mk");
 	it.tr = ostr(d, "tr");
+	const Array ks = d.keys();
+	it.affLast = it.aff && ks.size() && utf8(ks[ks.size() - 1]) == "aff";
 	return it;
 }
 Dictionary item_full_to(const Item &it) {
 	Dictionary d = item_to_dict(it);
-	if (it.aff) d["aff"] = gs(*it.aff);
+	if (it.aff && !it.affLast) d["aff"] = gs(*it.aff);
 	if (it.pow) d["pow"] = gs(*it.pow);
 	if (it.q) d["q"] = *it.q;
 	if (it.mc) d["mc"] = *it.mc;
 	if (it.mk) d["mk"] = gs(*it.mk);
 	if (it.tr) d["tr"] = gs(*it.tr);
+	if (it.aff && it.affLast) d["aff"] = gs(*it.aff);
 	return d;
 }
 
