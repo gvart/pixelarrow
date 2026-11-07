@@ -2075,6 +2075,33 @@ Array Sim::events() {
 	return out;
 }
 
+Array Sim::piles() {
+	Array out;
+	for (const sim::Pile &p : s->piles->piles) {
+		Array e;
+		e.push_back(p.id);
+		e.push_back(p.x);
+		e.push_back(p.y);
+		sim::Cost c;
+		sim::totals(p.hold, c);
+		Dictionary g;
+		for (const auto &kv : c.kv) g[String::utf8(kv.first.c_str())] = kv.second;
+		e.push_back(g);
+		Array items;
+		for (const sim::HoldItem &it : sim::item_list(p.hold)) {
+			Array i;
+			i.push_back(String::utf8(it.uid.c_str()));
+			i.push_back(String::utf8(it.def.c_str()));
+			i.push_back(String::utf8(it.rarity.c_str()));
+			items.push_back(i);
+		}
+		e.push_back(items);
+		e.push_back(int64_t(p.hold.items.size()));
+		out.push_back(e);
+	}
+	return out;
+}
+
 int64_t Sim::fog_sum(int team) {
 	int64_t n = 0;
 	for (uint8_t v : s->vision.team(team).state) n += v;
@@ -2265,6 +2292,7 @@ void Sim::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("spawn_named_soul", "person", "life", "bar"), &Sim::spawn_named_soul, DEFVAL(Variant()));
 	ClassDB::bind_method(D_METHOD("events"), &Sim::events);
 	ClassDB::bind_method(D_METHOD("fog_sum", "team"), &Sim::fog_sum);
+	ClassDB::bind_method(D_METHOD("piles"), &Sim::piles);
 	ClassDB::bind_method(D_METHOD("order", "order"), &Sim::order);
 	ClassDB::bind_method(D_METHOD("spawn_mobs"), &Sim::spawn_mobs);
 	ClassDB::bind_method(D_METHOD("spawn_roam"), &Sim::spawn_roam);

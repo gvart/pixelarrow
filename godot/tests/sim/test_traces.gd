@@ -145,6 +145,8 @@ func _replay(t: Dictionary, tol: float) -> int:
 			for team in want["fog"]:
 				if why == "" and sim.fog_sum(int(team)) != int(want["fog"][team]):
 					why = "fog of %s: %d, TS %d" % [team, sim.fog_sum(int(team)), int(want["fog"][team])]
+		if why == "" and want.has("piles"):
+			why = Wild.diff(sim.piles(), want["piles"], "piles")
 		if why != "":
 			fail("%s tick %d: %s" % [id, int(want["tick"]), why])
 			return -1

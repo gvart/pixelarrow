@@ -96,8 +96,11 @@ export function hostOp(sim: WarBuildSim, setup: SetupOp[], op: SetupOp): void {
   } else (sim as unknown as Record<string, (...x: unknown[]) => unknown>)[n](...a);
 }
 
-/** Host calls around a scenario: `pre` before it is applied, `post` after (both recorded in its setup). */
-export interface HostOps { pre?: SetupOp[]; post?: SetupOp[] }
+/**
+ * Host calls around a scenario: `pre` before it is applied, `post` after (both recorded in its setup); a post entry may be
+ * a function of the sim as it stands then (a squad or soul id read off it), giving the ops to make.
+ */
+export interface HostOps { pre?: SetupOp[]; post?: (SetupOp | ((sim: WarBuildSim) => SetupOp[]))[] }
 
 /**
  * Scenario sc applied (its setup recorded; at most `cap` ticks a prebuild or skip) and played `ticks` ticks, digested by
@@ -114,7 +117,7 @@ export function play<D>(sc: Scenario, ticks: number, every: number, dig: (s: Sna
     feed(team, squad, res, n);
   };
   applyScenario(h, sc);
-  for (const op of host.post ?? []) hostOp(sim, setup, op);
+  for (const op of host.post ?? []) for (const o of typeof op === 'function' ? op(sim) : [op]) hostOp(sim, setup, o);
   undo();
   const frames = [dig(sim.snapshot(), sim)];
   for (let t = 1; t <= ticks; t++) {

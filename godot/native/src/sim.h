@@ -614,6 +614,8 @@ public:
 	Array events();
 	// The sum of team's fog cells (its teamGrid state), as the host-run digest reads it.
 	int64_t fog_sum(int team);
+	// The loot piles as the host-run digest reads them: [id, x, y, goods, first items [uid, def, rarity], item count].
+	Array piles();
 	// The scenario's wild (the trace's 'spawnMobs', 'spawnRoam', 'spawnSoul' and 'hurtBoss' ops).
 	void spawn_mobs() { s->spawnMobs(); }
 	void spawn_roam() { s->spawnRoam(); }

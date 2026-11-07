@@ -8,7 +8,7 @@ const TABLES := [
 	"src/data/warBosses",
 	# the paths (each owner's limits) and what a person's war stats are made of (stats.h)
 	"src/war/world/start", "src/data/items", "src/data/affixes", "src/data/classes", "src/data/gearRules", "src/data/sets",
-	"src/data/traits", "src/war/sim/classes", "src/data/warPerks",
+	"src/data/traits", "src/war/sim/classes", "src/data/warPerks", "src/war/sim/civilians",
 ]
 
 

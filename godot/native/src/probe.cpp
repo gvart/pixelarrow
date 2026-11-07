@@ -4,6 +4,9 @@
 
 #include "combat.h"
 #include "formation.h"
+#include "roster.h"
+#include "stats.h"
+#include "war_wild.h"
 
 namespace godot {
 
@@ -47,7 +50,71 @@ Array SimProbe::formation_offsets(const String &shape, int n, int64_t seed) {
 	return out;
 }
 
+static String gs(const std::string &s) { return String::utf8(s.c_str()); }
+
+// WarStats as TS has it: knock, work and breach only when set
+Dictionary SimProbe::war_stats(const Dictionary &person, const String &path, double level) {
+	const sim::WarStats s = sim::with_perks(sim::war_stats_of(sim::war_person_from(person)), sim::perk_fx(path.utf8().get_data(), level));
+	Dictionary d;
+	d["maxHp"] = s.maxHp;
+	d["dmg"] = s.dmg;
+	d["reach"] = s.reach;
+	d["atkTicks"] = s.atkTicks;
+	d["rangedDmg"] = s.rangedDmg;
+	d["range"] = s.range;
+	d["ammo"] = s.ammo;
+	d["shotTicks"] = s.shotTicks;
+	d["shotSpeed"] = s.shotSpeed;
+	d["missile"] = s.missile == sim::STONE ? "stone" : s.missile == sim::JAVELIN ? "javelin" : "arrow";
+	d["accuracy"] = s.accuracy;
+	d["armor"] = s.armor;
+	d["block"] = s.block;
+	d["ap"] = s.ap;
+	d["speed"] = s.speed;
+	if (s.knock != 0) d["knock"] = s.knock;
+	d["bp"] = s.bp;
+	d["ws"] = s.ws;
+	d["flags"] = s.flags;
+	if (s.work != -1) d["work"] = s.work;
+	if (s.breach != -1) d["breach"] = s.breach;
+	return d;
+}
+
+Dictionary SimProbe::perk_fx(const String &path, double level) {
+	const sim::PerkFx f = sim::perk_fx(path.utf8().get_data(), level);
+	Dictionary d;
+	const std::pair<const char *, double> all[] = { { "hp", f.hp }, { "dmg", f.dmg }, { "armor", f.armor }, { "wounded", f.wounded }, { "work", f.work },
+		{ "siteCost", f.siteCost }, { "siteHp", f.siteHp }, { "cartLoads", f.cartLoads }, { "cartSpeed", f.cartSpeed }, { "cartHp", f.cartHp } };
+	for (const auto &[k, v] : all)
+		if (v != 0) d[k] = v;
+	return d;
+}
+
+Dictionary SimProbe::chief_loot(const String &id, double depth, const String &seed) {
+	const sim::ChiefDrop c = sim::chief_loot(id.utf8().get_data(), depth, seed.utf8().get_data());
+	Dictionary d;
+	Array goods;
+	for (const auto &g : c.goods) {
+		Array e;
+		e.push_back(gs(g.first));
+		e.push_back(g.second);
+		goods.push_back(e);
+	}
+	d["goods"] = goods;
+	if (c.item) {
+		Array it;
+		it.push_back(gs(c.item->first));
+		it.push_back(gs(c.item->second));
+		d["item"] = it;
+	} else
+		d["item"] = Variant();
+	return d;
+}
+
 void SimProbe::_bind_methods() {
+	ClassDB::bind_static_method("SimProbe", D_METHOD("war_stats", "person", "path", "level"), &SimProbe::war_stats);
+	ClassDB::bind_static_method("SimProbe", D_METHOD("perk_fx", "path", "level"), &SimProbe::perk_fx);
+	ClassDB::bind_static_method("SimProbe", D_METHOD("chief_loot", "id", "depth", "seed"), &SimProbe::chief_loot);
 	ClassDB::bind_static_method("SimProbe", D_METHOD("combat_constants"), &SimProbe::combat_constants);
 	ClassDB::bind_static_method("SimProbe", D_METHOD("melee_height", "dh"), &SimProbe::melee_height);
 	ClassDB::bind_static_method("SimProbe", D_METHOD("missile_height", "dh"), &SimProbe::missile_height);
