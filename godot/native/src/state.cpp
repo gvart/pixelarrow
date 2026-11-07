@@ -179,7 +179,7 @@ static void pair_typed(Obj *cur, Obj *base, std::unordered_map<Obj *, Obj *> &ou
 	}
 }
 
-std::string encode(const Val &root, Obj *base, const std::string &region, uint32_t seed) {
+std::string encode(const Val &root, Obj *base, const std::string &region, uint32_t seed, bool head) {
 	std::unordered_map<Obj *, int> ids;
 	std::vector<Obj *> todo;
 	std::vector<const std::vector<std::string> *> shapes;
@@ -312,11 +312,13 @@ std::string encode(const Val &root, Obj *base, const std::string &region, uint32
 		}
 	}
 	objs += ']';
-	out += "{\"v\":" + std::to_string(STATE_VERSION) + ",\"region\":";
-	json_string(out, region);
-	out += ",\"seed\":";
-	out += js::number_to_string(seed);
-	out += ",\"shapes\":[";
+	if (head) {
+		out += "{\"v\":" + std::to_string(STATE_VERSION) + ",\"region\":";
+		json_string(out, region);
+		out += ",\"seed\":";
+		out += js::number_to_string(seed);
+		out += ",\"shapes\":[";
+	} else out += "{\"shapes\":[";
 	for (size_t i = 0; i < shapes.size(); i++) {
 		if (i) out += ',';
 		out += '[';
@@ -485,16 +487,18 @@ double tagNum(const std::string &v) {
 
 } // namespace
 
-bool decode(const std::string &text, Decoded &out) {
+bool decode(const std::string &text, Decoded &out, bool head) {
 	J doc;
 	Parser ps{ text.data(), text.data() + text.size() };
 	ps.value(doc);
 	if (ps.failed || doc.t != J::Obj) return false;
 	const J *v = doc.get("v"), *region = doc.get("region"), *seed = doc.get("seed"), *shapes = doc.get("shapes"), *objs = doc.get("objs"), *root = doc.get("root");
-	if (!v || !region || !seed || !shapes || !objs || !root || objs->t != J::Arr || shapes->t != J::Arr) return false;
-	out.v = int(v->n);
-	out.region = region->s;
-	out.seed = seed->n;
+	if ((head && (!v || !region || !seed)) || !shapes || !objs || !root || objs->t != J::Arr || shapes->t != J::Arr) return false;
+	if (head) {
+		out.v = int(v->n);
+		out.region = region->s;
+		out.seed = seed->n;
+	}
 	std::vector<Obj *> made;
 	made.reserve(objs->a.size());
 	for (auto &e : objs->a) {

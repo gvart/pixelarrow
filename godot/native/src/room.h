@@ -1,15 +1,16 @@
 // The region room (server/src/war/room.ts WarRoom) on the C++ sim, behind the messages of src/war/net/protocol.ts
-// (docs/impl/godot-port.md P8, G-04), ported line for line. The core so far: joins (the dev `army` join; persons joins
-// once the roster's persons come in), the alliance quota and its line, leave and the hold AI, orders and their checks,
+// (docs/impl/godot-port.md P8, G-04), ported line for line. The core so far: joins (the dev `army` join and persons
+// joins, released persons), the alliance quota and its line, leave and the hold AI, orders and their checks,
 // placement checks, the dev helpers, the camera rect, the tick (sim, bots, the snapshot, corpses, fights, the line),
 // one binary frame per online player (codec.h, interest), and the JSON messages of the tick: the economy view
 // (influence, fog, stock, town, allies, wild, nodes), souls, dropped goods, mob FX, hidden quest events, slain chiefs
-// and guardian events. The rest of room.ts (guide, stories, encounters, settlements, warlords, holders and stows,
-// hand-offs, transfers, musters, crafting deposits, the larder, peace, saves) is listed in the P8 entry by wave.
+// and guardian events. Wave A (room_persons.cpp): fight reports and honours, level-ups, soul claims, captives, the
+// larder, transfers (depart, arrive, muster, hired) and saveState / restore. The rest of room.ts (guide, stories,
+// encounters, settlements, warlords, holders and stows, hand-offs, crafting deposits, peace) is listed in the P8 entry.
 //
 // What the Durable Object does round it (sockets, D1, storage) is not here: LocalRoom (local_room.h) is the local
-// transport, and the room's outputs that the DO books in D1 (fights, crafted items, souls claimed...) wait for a
-// storage interface (G-09).
+// transport, and the room's outputs that the DO books in D1 (fights, souls claimed, larder draws...) go to the room
+// store (room_store.h, G-09).
 #pragma once
 
 #include <array>
@@ -76,10 +77,47 @@ public:
 		int pid;
 		godot::Variant msg; // a Dictionary (a JSON message) or a PackedByteArray (a binary frame)
 	};
+	// the persons' wave (room_persons.cpp): a finished fight's report (its id the DO books it under), a soul claimed
+	// (the DO writes the new man), a transfer out, a muster or hire
+	struct Fight {
+		std::string id;
+		FightReport report;
+	};
+	struct SoulClaim {
+		int pid = 0, squad = 0, unit = 0;
+		godot::Dictionary person;
+	};
+	struct Departed {
+		std::string error, detail; // "": gone
+		std::vector<std::string> ids;
+		double off = 0;
+		std::vector<std::pair<std::string, double>> lost;
+		std::optional<Fight> fight;
+		std::optional<godot::Dictionary> cargo; // TransitCargo
+	};
+	struct Arrived {
+		std::string error; // "": in ('full' | 'team' | 'squads')
+		int squad = -1;
+		godot::Dictionary msg; // empty: null
+	};
+	struct Mustered {
+		bool ok = false; // false: null (no room now)
+		godot::Dictionary msg; // empty: null
+	};
 	struct TickOut {
 		std::vector<std::pair<int, godot::Dictionary>> admitted;
 		std::map<int, std::vector<godot::Dictionary>> msgs;
 		std::map<int, godot::PackedByteArray> frames;
+		std::vector<Fight> fights;
+		std::vector<SoulClaim> souls;
+		std::vector<int> raided;
+		std::vector<std::string> faded;
+		std::vector<std::pair<int, Cost>> larder;
+	};
+	// saveState: the RoomState JSON text, its head (all but sim and bots) and the sim's and bots' texts in it
+	struct Saved {
+		std::string text, sim, bots;
+		godot::Dictionary head;
 	};
 
 	Room(Sim &sim, Bots &bots, const godot::Dictionary &meta, const RoomOpts &o);
@@ -90,7 +128,8 @@ public:
 	std::vector<int> squadsOf(int pid) const;
 	godot::Dictionary quota() const;
 	// the room.ts calls the local transport makes (regionDO.ts webSocketMessage)
-	godot::Dictionary join(int sessionPid, const godot::Dictionary &m);
+	// persons: the join's squads loaded from storage, one list per m.squads entry; needed unless it is a rejoin
+	godot::Dictionary join(int sessionPid, const godot::Dictionary &m, const std::vector<std::vector<WarPerson>> *persons = nullptr);
 	void leave(int pid);
 	std::string order(int pid, const godot::Dictionary &o); // "" taken, else the OrderError
 	godot::Dictionary check(int pid, const godot::Dictionary &c);
@@ -100,6 +139,27 @@ public:
 	godot::Array settlementsFor(int pid) const { return godot::Array(); } // W-63: none until the settlements wave
 	const godot::Dictionary &snapshot() const { return snap; }
 	std::string refusal;
+	std::string run; // M5h4: the region run (crafted event keys; saved)
+	std::string epoch = "e"; // RoomOptions.epoch: fight ids `${region}:${epoch}:${tick}` (online: the DO's start)
+
+	// the persons (room_persons.cpp): the DO's calls round a join, the transfers, musters and hires, the larder, the
+	// paths and levels, a level-up spend, and the save and restore
+	bool spawnsNew(int pid) const;
+	std::set<std::string> personsHere() const;
+	std::vector<std::string> takeReleased() { return std::exchange(released, {}); }
+	Departed depart(int pid, const std::string &side, double foeRadius);
+	Arrived arrive(int pid, int team, const std::vector<WarPerson> &persons, const std::string &side, const std::vector<std::pair<std::string, double>> &lost, const godot::Dictionary &cargo);
+	Mustered muster(int pid, const std::vector<WarPerson> &persons);
+	Mustered hired(int pid, const std::vector<WarPerson> &persons);
+	std::vector<int> playerIds() const;
+	void setLarder(int pid, const Cost &goods);
+	void setPath(int pid, const PlayerPath &way);
+	void setLevel(int pid, double level);
+	void setArmy(int pid, int n) { armies[pid] = n; }
+	std::string levelUp(const std::string &id, const std::vector<std::pair<std::string, double>> &attrs, const std::optional<std::string> &skill); // 'ok' | 'absent' | a refusal
+	Saved saveState(const std::string &simText) const; // simText: Sim.save (the host has the fresh sim it diffs against)
+	// into a fresh room (wild and roam off) on a fresh sim: the state saved, the persons storage still has deployed here
+	bool restore(const godot::Dictionary &head, const std::string &simText, const std::string &botsText, const std::set<std::string> &persons, std::string &why);
 
 private:
 	struct Player {
@@ -114,10 +174,12 @@ private:
 	struct Group {
 		std::string cls;
 		int count = 0;
+		std::optional<std::vector<WarPerson>> persons;
 	};
 	struct Waiting {
 		int pid = 0, team = 0;
 		std::vector<Group> groups;
+		godot::Dictionary join; // the JoinMsg (saved)
 	};
 
 	Sim &sim;
@@ -140,7 +202,30 @@ private:
 	std::map<int, std::pair<int, std::shared_ptr<std::vector<int>>>> inflRuns, fogRuns;
 	std::map<int, std::string> townSent;
 	std::map<int, int> armies;
-	std::map<int, PlayerPath> paths;
+	JsMap<int, PlayerPath> paths;
+	// the persons' wave: person ids let go (dropped joins), teams that took a fort in the fight (honours), the players'
+	// own alliances (W-63), W-80 the larders and what was drawn from them (JS Maps: insertion order)
+	std::vector<std::string> released;
+	JsSet<int> stormed;
+	JsMap<int, int> own;
+	JsMap<int, std::pair<double, double>> larders, drawn; // food, ration
+	bool isHome = false;
+	// W-63: camps and forts placed, until their site shows (settleTick), and who placed each (saved)
+	struct PendingCamp {
+		int pid = 0, team = 0;
+		std::string type;
+		double x = 0, y = 0;
+		int tick = 0;
+	};
+	std::vector<PendingCamp> pendingCamps;
+	JsMap<int, int> campBy;
+	void campsTick();
+	std::vector<Group> parts(const std::vector<WarPerson> &persons) const;
+	double draw(const std::string &owner, double want);
+	std::vector<std::pair<int, Cost>> drainDrawn();
+	void honour(FightReport &report);
+	void recount();
+	void personsTick(TickOut &out, const std::vector<godot::Dictionary> &evs);
 
 	godot::Dictionary admit(int pid, int team, const std::vector<Group> &groups);
 	void dequeue(int pid);
@@ -150,7 +235,7 @@ private:
 	std::vector<std::pair<int, godot::Dictionary>> drainQueue();
 	std::map<int, std::vector<godot::Dictionary>> economy();
 	std::vector<int> alliesOf(int pid) const;
-	void endFight();
+	FightReport endFight();
 	void townRest(double secs);
 	const std::string *ownerAt(int id) const;
 };

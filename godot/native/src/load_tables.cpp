@@ -218,7 +218,7 @@ static void load_world(CaptiveTables &t, const Dictionary &m) {
 	for (const Variant &v : Array(m["WORLD_REGIONS"])) {
 		const Dictionary d = v;
 		const Dictionary pos = d["pos"];
-		t.WORLD_REGIONS.push_back({ str(d["id"]), pos["x"], pos["y"] });
+		t.WORLD_REGIONS.push_back({ str(d["id"]), pos["x"], pos["y"], str(d.get("name", "")) });
 	}
 }
 
@@ -302,6 +302,8 @@ void load_tables(Data &d, const Dictionary &tables) {
 	if (has("src/data/warWild")) load_wild(d.wild, at("src/data/warWild"));
 	if (has("src/data/warBosses")) load_bosses(d.bosses, at("src/data/warBosses"));
 	if (has("src/data/warNpcTowns")) d.room.npcReach = Dictionary(at("src/data/warNpcTowns")["NPC"])["reach"];
+	if (has("src/war/world/season"))
+		for (const Variant &v : Array(at("src/war/world/season")["CHOKEPOINTS"])) d.room.CHOKEPOINTS.insert(str(v));
 	if (has("src/data/warTownBoard")) {
 		const Dictionary r = Dictionary(at("src/data/warTownBoard")["BOARD"])["rest"];
 		d.room.restPerSec = r["perSec"];

@@ -149,9 +149,13 @@ WarStats load_stats(const Obj *o) {
 	return s;
 }
 
-// a person: one object per person id (the unit, the soul he waited as and the claim event share it)
-Val Sim::savePerson(Graph &g, const WarPerson &p) {
-	const std::string key = "person:" + p.id;
+// a person: one object per man who carries him (his claim event shares it; a soul shares his living man's), so a man
+// of the same id spawned again (a transfer back, a rejoin) has his own, as TS has a fresh object for him
+Val Sim::savePerson(Graph &g, const WarPerson &p, const Unit *by) {
+	if (!by)
+		for (const Unit *u : units)
+			if (u->alive && u->person && u->person->id == p.id) by = u;
+	const std::string key = by ? "person:u" + std::to_string(by->id) : "person:" + p.id;
 	if (Obj *o = g.named(key)) return o;
 	const Val v = state_of(g, war_person_to(p));
 	g.name(key, v.o);
@@ -234,7 +238,7 @@ Val Sim::saveRoot(Graph &g) {
 		o->set("want", u->want).set("toSlot", u->toSlot).set("job", Val::strOrNull(u->job)).set("carry", Val::strOrNull(u->carry)).set("load", u->load);
 		o->set("wnode", u->wnode).set("wsite", u->wsite).set("wslot", u->wslot).set("wfor", u->wfor).set("working", u->working);
 		o->set("wgx", u->wgx).set("wgy", u->wgy).set("wpath", g.nums(u->wpath)).set("wpi", u->wpi).set("wreq", u->wreq);
-		o->set("doing", u->doing ? Val(u->doing) : Val::null()).set("person", u->person ? savePerson(g, *u->person) : Val::null());
+		o->set("doing", u->doing ? Val(u->doing) : Val::null()).set("person", u->person ? savePerson(g, *u->person, u) : Val::null());
 		o->set("dealt", u->dealt).set("kills", u->kills).set("obj", u->obj).set("engaged", u->engaged).set("reported", u->reported);
 		o->set("civ", Val::strOrNull(u->civ)).set("civT", u->civT).set("civAt", u->civAt).set("repaired", u->repaired).set("venomUntil", u->venomUntil);
 		o->set("venom", u->venom).set("beast", u->beast).set("fieldR", u->fieldR).set("pack", u->pack ? save_hold(g, *u->pack) : Val::null());
@@ -292,7 +296,7 @@ Val Sim::saveRoot(Graph &g) {
 			const int unit = int(e["unit"]);
 			Obj *o = state_of(g, e).o;
 			for (size_t i = 0; i < o->keys.size(); i++)
-				if (o->keys[i] == "person" && unit >= 0 && unit < int(units.size()) && units[unit]->person) o->vals[i] = savePerson(g, *units[unit]->person);
+				if (o->keys[i] == "person" && unit >= 0 && unit < int(units.size()) && units[unit]->person) o->vals[i] = savePerson(g, *units[unit]->person, units[unit]);
 			return o;
 		}
 		return state_of(g, e);

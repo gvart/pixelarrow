@@ -12,6 +12,8 @@
 #include <string>
 #include <vector>
 
+#include "js_map.h"
+
 namespace sim {
 
 struct Sim;
@@ -98,12 +100,16 @@ struct Bots {
 	int ticks = 0;
 	std::vector<int> order; // the Map's insertion order
 	std::map<int, Bot> bots;
-	std::map<int, std::map<int, Seen>> memo; // team -> foe squad -> last seen (looked up by key only)
+	JsMap<int, JsMap<int, Seen>> memo; // team -> foe squad -> last seen (JS Maps: insertion order, saved)
 
 	explicit Bots(Sim *s, int ev = 5) : sim(s), every(ev) {}
 	bool set(int squad, const Behaviour &b);
 	void clear(int squad);
 	void tick();
+	// M5e eviction resume (bots.ts exportState / importState): encodeGraph({ bots, ticks, memo }) as its JSON text, and
+	// back into these fresh bots (false: a malformed text)
+	std::string exportState() const;
+	bool importState(const std::string &text);
 
 private:
 	std::vector<Centre> centres(const Snap &snap) const;

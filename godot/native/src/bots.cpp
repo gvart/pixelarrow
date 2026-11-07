@@ -182,7 +182,7 @@ std::vector<Bots::Centre> Bots::centres(const Snap &snap) const {
 
 Bots::View Bots::viewOf(const Snap &snap, const std::vector<Centre> &cs, int team) {
 	if (team == MOB_TEAM) return { cs, snap }; // W-72: the wild has no fog (a warlord's men see the field)
-	std::map<int, Seen> &mem = memo[team];
+	JsMap<int, Seen> &mem = memo[team];
 	std::set<int> seen; // looked up by key only
 	View v;
 	v.snap.tick = snap.tick;
