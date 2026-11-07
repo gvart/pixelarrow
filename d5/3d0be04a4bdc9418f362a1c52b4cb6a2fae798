@@ -1,0 +1,26 @@
+godot/tests/region/test_view_picks.gd
+  s_1a6e9ade9f303e::t_63300f73283147 16,82,84,90-91
+  s_1a6e9ade9f303e::t_254b132dcf9d7b 1-15,17-81,85-89,92-96
+  s_1a6e9ade9f303e::t_d30b2facb2c5dc 83
+godot/tests/region/test_iso.gd
+  s_1a6e9ade9f303e::t_1b6a8a7a6a6fb8 10,21,23,29-32,47,65,82,96-97
+  s_1a6e9ade9f303e::t_d30b2facb2c5dc 50-53
+  s_1a6e9ade9f303e::t_83a3caeef3ea2f 75,79-81
+  s_1a6e9ade9f303e::t_187bc894fe02d2 1-9,11-20,22,24-28,33-46,48-49,54-64,66-74,76-78,83-95,98-124
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d53d0be04a4bdc9418f362a1c52b4cb6a2fae798",
+  "prompts": {},
+  "sessions": {
+    "s_1a6e9ade9f303e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2c9e00ce-6ba5-4b5a-8be5-a4a273976934",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
