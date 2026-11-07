@@ -1,0 +1,38 @@
+godot/native/src/modules_state.cpp
+  s_1a6e9ade9f303e::t_97c3389eeca105 373
+  s_1a6e9ade9f303e::t_1713b10861fb68 332,340-341,343-347,358-372,374
+godot/native/src/sim.h
+  s_1a6e9ade9f303e::t_d22dd8258e6a39 424-427
+src/dev/godotTraces.ts
+  s_1a6e9ade9f303e::t_b97ebb16953919 121-125
+  s_1a6e9ade9f303e::t_1b36d18482b8f1 120
+godot/native/src/sim_state.cpp
+  s_1a6e9ade9f303e::t_66803fff0a49f7 752
+  s_1a6e9ade9f303e::t_071fc7dbdd8f35 754
+  s_1a6e9ade9f303e::t_31ca3b7053b25a 512
+  s_1a6e9ade9f303e::t_d22dd8258e6a39 317-320,751,753,755-756
+godot/native/src/state.cpp
+  s_1a6e9ade9f303e::t_31ca3b7053b25a 315
+godot/native/src/state.h
+  s_1a6e9ade9f303e::t_f883c17d3530c4 20-22
+src/dev/vectors/state.ts
+  s_1a6e9ade9f303e::t_0cd914e9a38fe2 4,13,18,22-48,57-58,60,76
+godot/native/src/sim_events.cpp
+  s_1a6e9ade9f303e::t_d22dd8258e6a39 171-172,181,196-197
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c916d835139aed9bca084d147fad27d0d204c051",
+  "prompts": {},
+  "sessions": {
+    "s_1a6e9ade9f303e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2c9e00ce-6ba5-4b5a-8be5-a4a273976934",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
