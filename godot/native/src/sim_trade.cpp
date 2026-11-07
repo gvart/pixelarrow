@@ -8,6 +8,7 @@
 
 #include "js_math.h"
 #include "sim.h"
+#include "sim_events.h"
 #include "sim_data.h"
 
 namespace sim {
@@ -205,8 +206,20 @@ bool Sim::lockedTo(Squad &s, const HolderAt &h, std::optional<int> id) {
 		if (u->alive && byHolder(h, u->x, u->y, std::max(TR().PILE.reach + 0.5, TR().CART.reach))) men++;
 	if (!men) return true;
 	const auto r = works->break_lock(b->id, men, TR().PORTER.every * DT);
-	// the 'lockAttacked' and 'lockBroken' notes: no event log yet
+	const auto lock = [&](const char *kind) {
+		godot::Dictionary e = ev(tick, kind);
+		e["building"] = b->id;
+		e["type"] = gstr(b->type);
+		e["x"] = b->x;
+		e["y"] = b->y;
+		e["team"] = b->team;
+		e["owner"] = gstr(b->owner);
+		e["by"] = s.team;
+		note(e);
+	};
+	if (r.second) lock("lockAttacked");
 	if (r.first > 0) return true;
+	lock("lockBroken");
 	return false;
 }
 
@@ -290,7 +303,11 @@ void Sim::tradeTick() {
 				if (pile && pack.items.size() > was) {
 					std::vector<Item> &got = loot[s.team];
 					for (size_t k = was; k < pack.items.size(); k++) got.push_back(pack.items[k]);
-					// the 'pickup' note: no event log yet
+					godot::Dictionary e = ev(tick, "pickup");
+					e["drop"] = h.id;
+					e["team"] = s.team;
+					e["items"] = double(pack.items.size() - was);
+					note(e);
 				}
 				x.n -= m * per_load(x.res);
 				moved += m;

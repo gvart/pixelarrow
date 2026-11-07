@@ -11,6 +11,7 @@
 #include "js_math.h"
 #include "sim.h"
 #include "sim_data.h"
+#include "sim_events.h"
 #include "sim_wild.h"
 
 namespace sim {
@@ -19,8 +20,6 @@ namespace {
 
 constexpr double INF = std::numeric_limits<double>::infinity();
 constexpr int SQUAD_MAX = 12; // soldiers.ts SQUAD_MAX
-// stub until the paths port: NO_PATH's limits, the most any path has (start.ts PATHS: cap 12, workers 6)
-constexpr int NO_PATH_CAP = 12, NO_PATH_WORKERS = 6;
 
 double sq(double v) { return v * v; }
 double dist2(const Squad &a, double bx, double by) { return sq(a.cx - bx) + sq(a.cy - by); }
@@ -272,9 +271,42 @@ std::vector<MobCart> SimMobHost::carts() {
 	return out;
 }
 
-// world-fill: a chief's loot falls where he did (src/data/warBosses.ts chiefLoot); stub until the chief loot port (CHIEF_KINDS'
-// loot is not in the C++ tables): no pile, and the event log is not ported
-void SimMobHost::chief_down(int, const WarChief &, double, double, int) {}
+// M7c: a bandit host's captain fell (its claim point may open)
+void SimMobHost::captain_down(int lair, int by) {
+	godot::Dictionary e = ev(s->tick, "captainSlain");
+	e["lair"] = lair;
+	e["by"] = by;
+	s->note(e);
+}
+
+// world-fill: a chief's loot falls where he did (src/data/warBosses.ts chiefLoot; the same kill, the same pile)
+void SimMobHost::chief_down(int lair, const WarChief &chief, double x, double y, int by) {
+	const std::string kill = s->region.id + ":" + std::to_string(s->seed) + ":" + std::to_string(lair) + ":" + std::to_string(s->tick);
+	const ChiefDrop drop = chief_loot(chief.id, depth_of(s->mobRegion.depth), kill);
+	std::vector<Lot> lots;
+	for (const auto &[r, n] : drop.goods)
+		if (n > 0) lots.push_back({ r, n, s->region.id, std::nullopt });
+	std::vector<Item> items;
+	if (drop.item) {
+		const uint32_t h = hash_string(godot::String::utf8((kill + ":chief").c_str()));
+		Mulberry rng(h ? h : 1);
+		IdSource ids;
+		Item it = make_item(rng, ids, drop.item->first, drop.item->second);
+		it.uid = "chief:" + kill;
+		items.push_back(it);
+	}
+	s->piles->drop(x, y, lots, items, s->tick);
+	godot::Dictionary e = ev(s->tick, "chiefSlain");
+	e["lair"] = lair;
+	e["chief"] = gstr(chief.id);
+	e["name"] = gstr(chief.name);
+	e["by"] = by;
+	e["x"] = x;
+	e["y"] = y;
+	s->note(e);
+}
+
+void SimMobHost::note(const MobNote &e) { s->note(ev_of(s->tick, e)); }
 
 // A wild squad of `owner` (lairs: MOB_OWNER; W-72 warlords: theirs) on MOB_TEAM, scaled as a lair's.
 int Sim::spawnWild(const std::string &owner, const std::string &kind, double count, double x, double y, const SpawnScale &k) {
@@ -396,10 +428,7 @@ void SimBossHost::reset_landmark() {
 	s->landmarks->reset();
 }
 
-// the event log is not ported; a slain guardian is kept for the slayers' deeds at the next report (TS note)
-void SimBossHost::note(const BossNote &e) {
-	if (e.kind == "bossSlain") s->slain.push_back(e.boss);
-}
+void SimBossHost::note(const BossNote &e) { s->note(ev_of(e)); }
 
 double SimBossHost::range(double lo, double hi) { return lo + (hi - lo) * s->rng.next(); }
 
@@ -516,6 +545,8 @@ void SimRoamHost::pay(const std::string &owner, int team, double x, double y, do
 	s->piles->drop(p.first, p.second, { Lot{ "coin", coin, s->region.id, std::nullopt } }, {}, s->tick, 0, &claim);
 }
 
+void SimRoamHost::note(const RoamNote &e) { s->note(ev_of(s->tick, e)); }
+
 std::optional<std::pair<double, double>> SimRoamHost::fight_near(double x, double y, double r) {
 	for (const Unit *u : s->units)
 		if (u->alive && u->fighting && sq(u->x - x) + sq(u->y - y) <= r * r) return std::make_pair(u->x, u->y);
@@ -601,7 +632,7 @@ void Sim::wireWild(const godot::Dictionary &meta) {
 		const PileClaim claim{ owner, name, double(tick) + data().trade.CLAIM_TICKS };
 		piles->drop(x, y, lots, items, tick, 0, &claim);
 	};
-	sh.note = [](const SecretEvent &) {}; // the event log: not ported
+	sh.note = [this](const SecretEvent &e) { note(ev_of(e)); };
 	secrets = std::make_unique<Secrets>(meta, storyRegion, std::move(sh));
 
 	// M7d: the region's guardians (bosses.h)
@@ -688,7 +719,7 @@ static void wire_landmarks(Sim &s) {
 	};
 	h.guarded = [&s]() { return s.guarded(); };
 	h.real = [](int team) { return team >= 0 && team != NEUTRAL_TEAM && team != MOB_TEAM; };
-	h.note = [](const LmEvent &) {}; // the event log: not ported
+	h.note = [&s](const LmEvent &e) { s.note(ev_of(e)); };
 	s.landmarks = std::make_unique<Landmarks>(s.region.id, std::move(w), std::move(h));
 }
 
@@ -709,16 +740,11 @@ static void wire_souls(Sim &s, const godot::Dictionary &meta) {
 				if (!u->civ.empty()) workers++;
 				else soldiers++;
 			} // W-81: a man down will rise
-		// manRefusal(NO_PATH, cls, ...): stub until the paths port (NO_PATH may hold any class: household or full)
-		const bool civ = !civ_job(cls).empty();
-		std::optional<std::string> why;
-		if (civ) {
-			if (workers >= NO_PATH_WORKERS) why = "household";
-		} else if (soldiers >= NO_PATH_CAP) why = "full";
+		const std::string why = man_refusal(s.pathFor(owner), cls, soldiers, workers);
 		SoulGate g;
-		g.ok = !why;
-		g.have = civ ? workers : soldiers;
-		g.why = why;
+		g.ok = why.empty();
+		g.have = !civ_job(cls).empty() ? workers : soldiers;
+		if (!why.empty()) g.why = why;
 		return g;
 	};
 	h.join = [&s](const Soul &so, int squad) -> std::optional<SoulJoin> {
@@ -732,8 +758,10 @@ static void wire_souls(Sim &s, const godot::Dictionary &meta) {
 		PersonOpts o;
 		o.level = so.level;
 		WarPerson person = make_person(id, cls, o);
-		// W-68: a named soul joins as himself: stub until the named souls are wired (spawnNamedSoul): every soul is fresh
-		person.hero.name = free_name(data().roster.CLASSES.at(cls).culture, so.id, taken);
+		// W-68: a named soul joins as himself (his record kept)
+		const auto named = so.person ? s.namedSouls.find(so.person->id) : s.namedSouls.end();
+		if (named != s.namedSouls.end()) person = named->second;
+		else person.hero.name = free_name(data().roster.CLASSES.at(cls).culture, so.id, taken);
 		const std::vector<WarPerson> ps{ person };
 		const int sq = s.spawn_squad(into->owner, into->team, cls, 1, so.x, so.y, &ps);
 		if (sq < 0) return std::nullopt;
@@ -753,7 +781,7 @@ static void wire_souls(Sim &s, const godot::Dictionary &meta) {
 		for (Squad *q : s.squads)
 			if (q->owner == owner && q->soul == id) q->soul = -1;
 	};
-	h.emit = [](const SoulEvent &) {}; // the event log: not ported
+	h.emit = [&s](const SoulEvent &e) { s.note(ev_of(e)); };
 	s.souls = std::make_unique<Souls>(soul_region(meta), s.seed, std::move(h));
 }
 
@@ -804,6 +832,17 @@ void Sim::spawnRoam() {
 }
 
 int Sim::spawnSoul(double x, double y, const std::string &cls, double level, const std::string &site) { return souls->spawn(x, y, cls, level, site, tick); }
+
+// W-68: a released captive or a dismissed man wakes at a shrine as himself (souls keeps what it reads of him; the sim his
+// whole record, for the join). A soul of his already waiting keeps the record it has.
+bool Sim::spawnNamedSoul(const WarPerson &person, double life, const std::optional<std::pair<std::string, double>> &bar) {
+	bool waiting = false;
+	for (const Soul &so : souls->save_root().list)
+		if (so.person && so.person->id == person.id) waiting = true;
+	const bool ok = souls->spawn_named({ person.id, person.hero.name, person.hero.cls, person.hero.level }, tick, life, bar);
+	if (ok && !waiting) namedSouls[person.id] = person;
+	return ok;
+}
 
 void Sim::hurtBoss(const std::string &id, double dmg, const std::string &owner, std::optional<int> part) { bosses->hurt_boss(id, dmg, owner, part); }
 

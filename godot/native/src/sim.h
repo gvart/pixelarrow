@@ -4,8 +4,8 @@
 // works (works.h: sites, walls, bridges, nodes, stores, hunger at the stores, town levels), the siege engines, carts and
 // tasks (siege.h, sim_siege.cpp), the trade orders and safe zones (sim_trade.cpp), and the civilians and their crafting
 // queues (civilians.h, crafting.h, sim_civ.cpp), the wild (mobs, bosses, roam, souls, secrets, the prebuilt towns and the
-// landmarks: sim_wild.cpp) and the W-53 regroup (sim_regroup.cpp). What is not ported yet (the paths, warStatsOf...) is
-// stubbed as its default, each marked `// stub until <module> port`.
+// landmarks: sim_wild.cpp), the W-53 regroup (sim_regroup.cpp), the players' paths and perks (start.h), a person's bake
+// (stats.h) and the event log (sim_events.cpp). Saves (state.ts) and the larder (the room's, P8) are not here.
 #pragma once
 
 #include <algorithm>
@@ -45,6 +45,8 @@
 #include "secrets.h"
 #include "siege.h"
 #include "souls.h"
+#include "start.h"
+#include "stats.h"
 #include "town_level.h"
 #include "trade.h"
 #include "vision.h"
@@ -299,7 +301,7 @@ struct SimSiegeHost : SiegeHost {
 	void captured(const SiegeEngine &e, const std::string &by) override;
 	void wreck(const SiegeEngine &e, bool burnt) override;
 	bool crewNode(int crew, const std::string &node) override;
-	// cartFx: stub until the paths port (NO_PATH: no perks), the SiegeHost default
+	SiegeCartFx cartFx(const std::string &owner) override;
 };
 
 // The works' view of the sim (the TS createWorks callbacks and hooks).
@@ -310,6 +312,7 @@ struct SimWorksHost : WorksHost {
 	bool chance(double p) override;
 	void fall(const std::vector<int> &tiles) override;
 	void spill(double x, double y, const Hold &hold, bool burnt) override;
+	void razed(const Building &b, int by) override;
 	bool immune(const Building &b) override;
 	double douse(const Building &b) override;
 	void laboured(Worker &u, const Building &b, double secs) override;
@@ -378,10 +381,30 @@ struct Sim {
 	std::unique_ptr<Souls> souls;
 	// W-60: the gate the server may set (empty: his fighters on this field)
 	std::function<SoulGate(const std::string &owner, const std::string &cls)> soulGate;
-	// M5b: a person's baked stats (TS withPerks(warStatsOf(p), fxOf(owner))); stub until the classes port (warStatsOf,
-	// computeStats): unset, a person fights with his class's fresh numbers
-	std::function<WarStats(const WarPerson &p, const std::string &owner)> bake;
 	std::vector<std::string> slain; // E3: guardians slain since the last endFight
+	// W-85, W-101..W-104: each owner's path (setPaths; unset: NO_PATH for everyone; not saved, as TS)
+	std::function<PlayerPath(const std::string &owner)> pathOf;
+	PlayerPath pathFor(const std::string &owner) const { return pathOf ? pathOf(owner) : NO_PATH; }
+	PerkFx fxOf(const std::string &owner) const; // W-84: the perks of an owner at his demigod level
+	void perkSites(const std::string &owner, const std::vector<int> &ids); // W-84: sites he placed or upgraded take his perks
+	// W-61: the alliance works' bonuses by team (setBonus; a JS Map only looked up: the vision reads it by team)
+	struct TeamBonus {
+		std::optional<double> repairCost, sight;
+	};
+	std::map<int, TeamBonus> bonuses;
+	void setBonus(int team, const TeamBonus &b);
+	// the event log (index.ts `log`): each WarEvent as its JSON object; at most LOG_MAX until events() drains it
+	std::vector<godot::Dictionary> evlog;
+	void note(const godot::Dictionary &e);
+	std::vector<godot::Dictionary> events() { return std::exchange(evlog, {}); }
+	// W-68 named souls: the whole person of each soul souls holds as a SoulPerson (by person id, only looked up)
+	std::map<std::string, WarPerson> namedSouls;
+	bool spawnNamedSoul(const WarPerson &person, double life, const std::optional<std::pair<std::string, double>> &bar);
+	// M5e raids: holding buildings reported fallen (a JS Set, only looked up); tick of the last raid reported per building
+	std::set<int> fallen;
+	std::map<int, int> raidAt; // only looked up
+	bool holds(const Building *b) const;
+	void raidScan();
 
 	// region: what the works read of the region (works_region_of); meta: the region's JSON (Region.meta)
 	Sim(Grid &g, WorksRegion region, const godot::Dictionary &meta, uint32_t seed);
@@ -579,8 +602,18 @@ public:
 
 	// grid: region.grid(); meta and cells: Region.meta and Region.cells (what the works read of the region)
 	static Ref<Sim> create(const Ref<Grid> &grid, const Dictionary &meta, const PackedByteArray &cells, int64_t seed);
-	int spawn_squad(const String &owner, int team, const String &cls, int count, double x, double y);
+	// persons: M5b, one man per person (src/war/types.ts WarPerson dictionaries; null: a class spawn)
+	int spawn_squad(const String &owner, int team, const String &cls, int count, double x, double y, const Variant &persons);
 	void order(const Dictionary &o);
+	// The host calls (the trace's 'setPaths', 'setBonus', 'spawnNamedSoul' ops): each owner's PlayerPath (null: NO_PATH
+	// for all), a team's TeamBonus, a named soul (bar: {owner, ticks} or null).
+	void set_paths(const Variant &paths);
+	void set_bonus(int team, const Dictionary &b);
+	bool spawn_named_soul(const Dictionary &person, double life, const Variant &bar);
+	// The event log since the last call (WarEvent dictionaries), drained as events() drains it.
+	Array events();
+	// The sum of team's fog cells (its teamGrid state), as the host-run digest reads it.
+	int64_t fog_sum(int team);
 	// The scenario's wild (the trace's 'spawnMobs', 'spawnRoam', 'spawnSoul' and 'hurtBoss' ops).
 	void spawn_mobs() { s->spawnMobs(); }
 	void spawn_roam() { s->spawnRoam(); }

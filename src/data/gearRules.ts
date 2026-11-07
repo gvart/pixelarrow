@@ -16,11 +16,11 @@ type WeaponFamily =
 type ShieldType = 'big' | 'long' | 'light';
 type ArmorWeight = 'light' | 'medium' | 'heavy';
 
-const WEIGHT_RANK: Record<ArmorWeight, number> = { light: 0, medium: 1, heavy: 2 };
+export const WEIGHT_RANK: Record<ArmorWeight, number> = { light: 0, medium: 1, heavy: 2 };
 
 /** Armour that weighs other than its art's usual weight. */
-const WEIGHT_OVERRIDE: Record<string, ArmorWeight> = { plated_linothorax: 'heavy', horn_scale: 'medium', immortal_scale: 'medium' };
-const ART_WEIGHT: Record<string, ArmorWeight> = { leather: 'light', linothorax: 'medium', scale: 'heavy', mail: 'heavy', cuirass: 'heavy' };
+export const WEIGHT_OVERRIDE: Record<string, ArmorWeight> = { plated_linothorax: 'heavy', horn_scale: 'medium', immortal_scale: 'medium' };
+export const ART_WEIGHT: Record<string, ArmorWeight> = { leather: 'light', linothorax: 'medium', scale: 'heavy', mail: 'heavy', cuirass: 'heavy' };
 
 export function weaponFamily(def: ItemDef): WeaponFamily | null {
   if (def.slot !== 'weapon') return null;
@@ -104,11 +104,11 @@ interface Requirement {
   n: number;
 }
 
-const TIER_BASE = [5, 7, 9];
-const RARITY_ADD = [0, 0, 1, 2, 3];
-const SET_NEED: Partial<Record<Rarity, number>> = { rare: 9, epic: 11, legendary: 13 };
+export const TIER_BASE = [5, 7, 9];
+export const RARITY_ADD = [0, 0, 1, 2, 3];
+export const SET_NEED: Partial<Record<Rarity, number>> = { rare: 9, epic: 11, legendary: 13 };
 /** Helmets that ask nothing at tier 1 (caps and hoods). */
-const OPEN_HELMET_ART = ['cap', 'hood'];
+export const OPEN_HELMET_ART = ['cap', 'hood'];
 
 /** Main and second attribute an item asks for (second needs 3 less), or none. */
 function reqAttrs(def: ItemDef): [AttrId | null, AttrId | null] {

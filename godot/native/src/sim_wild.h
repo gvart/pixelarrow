@@ -31,12 +31,12 @@ struct SimMobHost : MobHost {
 	bool influenced(double x, double y) override;
 	double range(double lo, double hi) override;
 	void held(bool on) override;
-	void captain_down(int lair, int by) override {} // the event log: not ported
+	void captain_down(int lair, int by) override;
 	std::vector<MobTower> towers() override;
 	bool has_carts() const override { return true; }
 	std::vector<MobCart> carts() override;
 	void chief_down(int lair, const WarChief &chief, double x, double y, int by) override;
-	void note(const MobNote &e) override {} // W-67 mob FX: the event log, not ported
+	void note(const MobNote &e) override; // W-67 mob FX
 };
 
 struct SimBossHost : BossHost {
@@ -78,7 +78,7 @@ struct SimRoamHost : RoamHost {
 	std::optional<RoamCart> cart_at(int id) override;
 	void pay(const std::string &owner, int team, double x, double y, double coin) override;
 	std::optional<std::pair<double, double>> fight_near(double x, double y, double r) override;
-	void note(const RoamNote &e) override {} // the event log: not ported
+	void note(const RoamNote &e) override;
 };
 
 struct SimPreHost : PreHost {

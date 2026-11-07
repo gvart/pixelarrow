@@ -8,7 +8,8 @@ import { SCENARIOS, type Scenario } from '../war/scenarios';
 import { applyScenario, headlessHost, stepSim } from '../war/scenarios/run';
 import { createSim } from '../war/sim';
 import { createBots, type Bots } from '../war/sim/bots';
-import type { RegionData, Snapshot, WarBuildSim } from '../war/types';
+import type { RegionData, Snapshot, TeamBonus, WarBuildSim, WarPerson } from '../war/types';
+import { NO_PATH, type PlayerPath } from '../war/world/start';
 
 const files = import.meta.glob('../war/regions/*.json', { eager: true, import: 'default' });
 const parsed = new Map<string, RegionData>();
@@ -76,24 +77,49 @@ function record(sim: WarBuildSim, bots: Bots, ops: SetupOp[]): () => void {
 }
 
 /**
+ * A host call the scenarios never make, played on the sim and recorded as its setup op: ['setPaths', {owner: PlayerPath}]
+ * (any other owner: NO_PATH), ['setBonus', team, bonus], ['spawnNamedSoul', person, life, bar?]; any other op is a
+ * recorded sim call made as is (spawnSquad with persons, order...).
+ */
+export function hostOp(sim: WarBuildSim, setup: SetupOp[], op: SetupOp): void {
+  const [n, ...a] = op;
+  if (n === 'setPaths') {
+    const paths = a[0] as Record<string, PlayerPath>;
+    setup.push(['setPaths', structuredClone(paths)]);
+    sim.setPaths((owner) => paths[owner] ?? NO_PATH);
+  } else if (n === 'setBonus') {
+    setup.push(['setBonus', a[0], structuredClone(a[1])]);
+    sim.setBonus(a[0] as number, a[1] as TeamBonus);
+  } else if (n === 'spawnNamedSoul') {
+    setup.push(['spawnNamedSoul', ...a.filter((v) => v !== undefined).map((v) => (v && typeof v === 'object' ? structuredClone(v) : v))]);
+    sim.spawnNamedSoul(a[0] as WarPerson, a[1] as number, a[2] as { owner: string; ticks: number } | undefined);
+  } else (sim as unknown as Record<string, (...x: unknown[]) => unknown>)[n](...a);
+}
+
+/** Host calls around a scenario: `pre` before it is applied, `post` after (both recorded in its setup). */
+export interface HostOps { pre?: SetupOp[]; post?: SetupOp[] }
+
+/**
  * Scenario sc applied (its setup recorded; at most `cap` ticks a prebuild or skip) and played `ticks` ticks, digested by
  * `dig` at the start and every `every` ticks.
  */
-export function play<D>(sc: Scenario, ticks: number, every: number, dig: (s: Snapshot) => D, cap = CAP) {
+export function play<D>(sc: Scenario, ticks: number, every: number, dig: (s: Snapshot, sim: WarBuildSim) => D, cap = CAP, host: HostOps = {}) {
   const seed = sc.seed ?? 1, sim = createSim(regionOf(sc), seed), bots = createBots(sim), setup: SetupOp[] = [];
   const undo = record(sim, bots, setup);
+  for (const op of host.pre ?? []) hostOp(sim, setup, op);
   // W-60 food goes into packs and stores straight through sim.cargo (feedSim): recorded as one ['feed', team, squad, res, n]
-  const host = headlessHost(sim, bots, cap), feed = host.feed;
-  host.feed = (team, squad, res, n) => {
+  const h = headlessHost(sim, bots, cap), feed = h.feed;
+  h.feed = (team, squad, res, n) => {
     setup.push(['feed', team, squad, res, n]);
     feed(team, squad, res, n);
   };
-  applyScenario(host, sc);
+  applyScenario(h, sc);
+  for (const op of host.post ?? []) hostOp(sim, setup, op);
   undo();
-  const frames = [dig(sim.snapshot())];
+  const frames = [dig(sim.snapshot(), sim)];
   for (let t = 1; t <= ticks; t++) {
     stepSim(sim, bots);
-    if (t % every === 0) frames.push(dig(sim.snapshot()));
+    if (t % every === 0) frames.push(dig(sim.snapshot(), sim));
   }
   // zones: merged into the region's meta by the replay, as regionOf merges them
   return { id: sc.id, region: sc.region ?? 'test-ridge', seed, cap, ...(sc.zones ? { zones: sc.zones } : {}), setup, frames };

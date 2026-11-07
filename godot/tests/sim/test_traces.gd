@@ -91,7 +91,7 @@ func _replay(t: Dictionary, tol: float) -> int:
 	for op in t["setup"]:
 		match op[0]:
 			"spawnSquad":
-				sim.spawn_squad(op[1], int(op[2]), op[3], int(op[4]), float(op[5]), float(op[6]))
+				sim.spawn_squad(op[1], int(op[2]), op[3], int(op[4]), float(op[5]), float(op[6]), op[7] if op.size() > 7 else null)
 			"order":
 				sim.order(op[1])
 			"spawnCart":
@@ -114,6 +114,12 @@ func _replay(t: Dictionary, tol: float) -> int:
 				sim.hurt_boss(op[1], float(op[2]), op[3] if op.size() > 3 else "dev", op[4] if op.size() > 4 else null)
 			"feed":
 				sim.feed(int(op[1]), op[2], op[3], float(op[4]))
+			"setPaths":
+				sim.set_paths(op[1])
+			"setBonus":
+				sim.set_bonus(int(op[1]), op[2])
+			"spawnNamedSoul":
+				sim.spawn_named_soul(op[1], float(op[2]), op[3] if op.size() > 3 else null)
 			"step":
 				# every setup step is a stepSim (src/war/scenarios/run.ts): the sim, then its bots
 				sim.step()
@@ -132,6 +138,13 @@ func _replay(t: Dictionary, tol: float) -> int:
 			sim.step()
 			sim.bots_tick()
 		var why := _differs(sim.digest(), want, tol)
+		# the event log since the last checkpoint, and the teams' fog (the host runs')
+		if why == "" and want.has("events"):
+			why = Wild.diff(sim.events(), want["events"], "events")
+		if why == "" and want.has("fog"):
+			for team in want["fog"]:
+				if why == "" and sim.fog_sum(int(team)) != int(want["fog"][team]):
+					why = "fog of %s: %d, TS %d" % [team, sim.fog_sum(int(team)), int(want["fog"][team])]
 		if why != "":
 			fail("%s tick %d: %s" % [id, int(want["tick"]), why])
 			return -1

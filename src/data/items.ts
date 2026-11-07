@@ -556,9 +556,9 @@ export const VALUE_MULT: Record<Rarity, number> = { common: 1, uncommon: 1.12, r
 export const RARITY_LABEL: Record<Rarity, string> = { common: 'Common', uncommon: 'Uncommon', rare: 'Rare', epic: 'Epic', legendary: 'Legendary' };
 
 /** Stats that improve with rarity and degrade with condition. */
-const SCALED: (keyof StatMods)[] = ['hp', 'dmg', 'rangedDmg', 'block', 'armor', 'morale', 'chargeBonus', 'blockPierce', 'xpBonus'];
+export const SCALED: (keyof StatMods)[] = ['hp', 'dmg', 'rangedDmg', 'block', 'armor', 'morale', 'chargeBonus', 'blockPierce', 'xpBonus'];
 /** Stats a requirement penalty shrinks: the scaled ones and every random stat; reach, timings, range and negatives stay. */
-const PENALISED: (keyof StatMods)[] = [...SCALED, 'accuracy', 'stamina', 'speed', 'armorPierce', 'moraleShock', 'ammo', 'atkSpeed', 'steady', 'koChance', 'goldBonus', 'durable'];
+export const PENALISED: (keyof StatMods)[] = [...SCALED, 'accuracy', 'stamina', 'speed', 'armorPierce', 'moraleShock', 'ammo', 'atkSpeed', 'steady', 'koChance', 'goldBonus', 'durable'];
 
 /**
  * Effective modifiers for an item instance: base stats scaled by rarity and

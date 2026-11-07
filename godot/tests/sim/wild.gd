@@ -6,6 +6,9 @@ const TABLES := [
 	"src/war/sim/depth", "src/war/sim/soldiers", "src/data/units", "src/data/perks", "src/war/sim/skills", "src/war/sim/honours",
 	"src/war/sim/deeds", "src/war/sim/food", "src/war/sim/captives", "src/war/world/regions", "src/war/sim/mobs", "src/data/warWild",
 	"src/data/warBosses",
+	# the paths (each owner's limits) and what a person's war stats are made of (stats.h)
+	"src/war/world/start", "src/data/items", "src/data/affixes", "src/data/classes", "src/data/gearRules", "src/data/sets",
+	"src/data/traits", "src/war/sim/classes", "src/data/warPerks",
 ]
 
 

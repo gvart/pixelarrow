@@ -7,6 +7,7 @@
 #include "combat.h"
 #include "js_math.h"
 #include "sim.h"
+#include "sim_events.h"
 #include "sim_data.h"
 #include "sim_wild.h"
 
@@ -34,8 +35,7 @@ int flag(const char *name) { return int(data().skills.F.at(name)); }
 
 void Sim::setRates(Unit &u) {
 	// gather and build speed by job and work rate (forager, engineer), the M5h node effects, the demigod's quick hands
-	// (stub until the paths port: NO_PATH, no work perk)
-	const CivRates r = civ_rates(u.civ, u.st.work < 0 ? std::nullopt : std::optional<double>(u.st.work), perksOf(u), 0);
+	const CivRates r = civ_rates(u.civ, u.st.work < 0 ? std::nullopt : std::optional<double>(u.st.work), perksOf(u), fxOf(u.squad->owner).work);
 	u.wrate = r.wrate;
 	u.brate = r.brate;
 	u.gmul.reset();
@@ -83,7 +83,9 @@ void Sim::riseTick() {
 		u.hp = std::max(1.0, u.maxHp * E.hp);
 		u.squad->alive++;
 		addReslot(*u.squad);
-		// the view's 'rise' note: no event log yet
+		godot::Dictionary e = ev(tick, "rise");
+		e["unit"] = u.id;
+		note(e);
 	}
 }
 
@@ -121,6 +123,12 @@ void Sim::hurt(Unit &t, double dmg, Unit *by) {
 		t.squad->alive--;
 		addReslot(*t.squad);
 		by->kills++;
+		godot::Dictionary e = ev(tick, "fall");
+		e["unit"] = t.id;
+		e["by"] = by->id;
+		e["wounded"] = true;
+		e["down"] = true;
+		note(e);
 		return;
 	}
 	// M5d: by his END (docs/WAR.md "Lifecycle"); M5f: a physician near; M5h: a bandage of his squad (a Battle Dresser's
@@ -131,7 +139,35 @@ void Sim::hurt(Unit &t, double dmg, Unit *by) {
 	t.squad->alive--;
 	addReslot(*t.squad);
 	if (by) by->kills++;
-	// the view's 'fall' note and W-221's dropped goods: no event log yet
+	// W-221: what he carried, for the line that tells his owner (a man's own rations are no loss to tell)
+	std::vector<std::pair<std::string, double>> dropped; // a JS object: insertion order
+	const auto drop = [&](const std::string &r, double n) {
+		for (auto &e : dropped)
+			if (e.first == r) {
+				e.second = e.second + n;
+				return;
+			}
+		dropped.push_back({ r, 0 + n });
+	};
+	if (t.pack)
+		for (const Lot &l : t.pack->lots)
+			if (l.r != "ration" && l.n > 1e-9) drop(l.r, l.n);
+	if (!t.carry.empty() && t.load > 0 && t.wfor < 0) drop(t.carry, t.load);
+	{
+		godot::Dictionary e = ev(tick, "fall");
+		e["unit"] = t.id;
+		e["by"] = by ? by->id : -1;
+		e["wounded"] = t.wounded;
+		if (!dropped.empty()) {
+			godot::Dictionary g, at;
+			for (const auto &[r, n] : dropped) g[gstr(r)] = n;
+			at["goods"] = g;
+			at["x"] = t.x;
+			at["y"] = t.y;
+			e["dropped"] = at;
+		}
+		note(e);
+	}
 	if (t.squad->team != MOB_TEAM && t.squad->team != NEUTRAL_TEAM && t.civ.empty()) souls->fell(t.x, t.y, t.cls); // W-65: nor where roaming folk fall // W-60: where many fall, souls wake
 	// M6c (docs/WAR.md "Loot piles"): what he carried goes to a pile; the killed leave their worn kit too, worn by PILE.wear
 	std::vector<Lot> lots;
@@ -318,7 +354,14 @@ void Sim::burst(Unit &u, Unit &t, double gap) {
 	u.dashAt = tick + b.cd;
 	u.dashTgt = t.id;
 	u.dashHit = true;
-	// the view's 'mobDash' note: no event log yet
+	godot::Dictionary e = ev(tick, "mobDash");
+	e["unit"] = u.id;
+	e["mob"] = gstr(u.mob);
+	e["x"] = u.x;
+	e["y"] = u.y;
+	e["tx"] = t.x;
+	e["ty"] = t.y;
+	note(e);
 }
 
 Sim::Act Sim::fight(Unit &u, double &px, double &py) {

@@ -1,4 +1,5 @@
 #include "sim.h"
+#include "sim_events.h"
 
 #include <algorithm>
 #include <cmath>
@@ -55,6 +56,7 @@ constexpr int REPATH_TICKS = 20;
 constexpr double PATH_BUDGET = 900;
 constexpr size_t UNIT_PATHS_PER_TICK = 2;
 constexpr int SCAN = 5;
+constexpr int HOLD_EVERY = 10; // M5e: HOLD.every, the raid scan (the rest of HOLD: sim_events.cpp raidScan)
 constexpr double NEAR = 26;
 constexpr double MELEE_STOP = 1.5;
 constexpr double HOLD_OFF = 2.5;
@@ -139,7 +141,7 @@ Sim::Sim(Grid &g, WorksRegion r, const godot::Dictionary &meta, uint32_t seed_) 
 	deps.seed = seed;
 	deps.takeAt = [this](int team, double x, double y, const Cost &c) { return works->take_at(team, x, y, c); };
 	deps.addAt = [this](int team, double x, double y, const std::string &r, double n) { works->add_at(team, x, y, r, n); };
-	deps.emit = [](const CraftedEvent &) {}; // the event log: not ported
+	deps.emit = [this](const CraftedEvent &e) { note(ev_of(e)); };
 	// W-89: a crafter of the building's alliance pays from its network there, then his men's packs; a stranger only from packs
 	deps.pay = [this](const Placed &b, const Crafter &c, const Goods &cost) {
 		std::vector<Hold *> packs;
@@ -157,9 +159,7 @@ Sim::Sim(Grid &g, WorksRegion r, const godot::Dictionary &meta, uint32_t seed_) 
 	};
 	// M6b: a cart rolls out in front of the workshop for the crafter's player, within his cap and the civilian quota
 	deps.cart = [this](const Placed &b, const std::string &owner, const std::string &type, bool check) {
-		// stub until the paths port: cartCap(pathOf(owner).path) is NO_PATH's, the most carts any path has (start.ts PATHS)
-		constexpr int NO_PATH_CARTS = 4;
-		if (!is_cart_type(type) || siege->carts(owner, std::nullopt) >= NO_PATH_CARTS || civRoom(b.team) <= 0) return false;
+		if (!is_cart_type(type) || siege->carts(owner, std::nullopt) >= cart_cap(pathFor(owner).path) || civRoom(b.team) <= 0) return false;
 		if (check) return true;
 		const std::vector<double> p = works->ring_points(b.id, 1, b.x, b.y + 10);
 		const std::pair<double, double> at = p.size() ? std::make_pair(p[0], p[1]) : openPoint(b.x, b.y + 3);
@@ -218,7 +218,17 @@ void SimWorksHost::fall(const std::vector<int> &tiles) {
 }
 // M6c: a store or chest that falls leaves its contents in a pile
 void SimWorksHost::spill(double x, double y, const Hold &h, bool burnt) { s->piles->drop(x, y, h.lots, h.items, s->tick, burnt ? data().trade.PILE.spoil : 0); }
-// M7a: razed (the event log: not ported); immune: a safe court's pieces take no harm (a court's corner towers stand half outside it)
+// M7a: a pre-built piece razed (a temple or shrine: sacrilege); immune: a safe court's pieces take no harm (a court's corner
+// towers stand half outside it)
+void SimWorksHost::razed(const Building &b, int by) {
+	godot::Dictionary e = ev(s->tick, "razed");
+	e["building"] = b.id;
+	e["type"] = gstr(b.type);
+	e["owner"] = b.team;
+	e["by"] = by;
+	if (b.type == "temple" || b.type == "shrine") e["sacrilege"] = true;
+	s->note(e);
+}
 bool SimWorksHost::immune(const Building &b) {
 	if (!s->anySafe) return false;
 	for (int t : b.ti)
@@ -239,8 +249,11 @@ void SimWorksHost::laboured(Worker &w, const Building &b, double secs) {
 		}
 	s->labourLog.emplace_back(k, secs);
 }
-// a levelled town mends faster; stub until the alliance works' bonuses (setBonus): repairCost 1
-RepairK SimWorksHost::repairK(const Building &b) { return { s->townLv->perk_at(b.team, b.x, b.y).repair, 1 }; }
+// a levelled town mends faster, an alliance temple cheaper (setBonus)
+RepairK SimWorksHost::repairK(const Building &b) {
+	const auto it = s->bonuses.find(b.team);
+	return { s->townLv->perk_at(b.team, b.x, b.y).repair, it != s->bonuses.end() && it->second.repairCost ? *it->second.repairCost : 1 };
+}
 // W-215: the cart a gather squad throws its loads on
 std::optional<CartDrop> SimWorksHost::cartDrop(WorkSquad &w) {
 	Squad &q = static_cast<Squad &>(w);
@@ -777,7 +790,7 @@ void Sim::apply(const Order &o) {
 	if (o.kind == "upgrade") {
 		dropJobs(s);
 		const bool up = works->upgrade(o.building, s.team);
-		// stub until the paths port: perkSites (NO_PATH: no site perks)
+		if (up) perkSites(s.owner, { o.building });
 		if (!up && !works->site_ok(o.building, s.team)) return;
 		s.order = "build";
 		s.fixed.reset();
@@ -831,7 +844,7 @@ void Sim::apply(const Order &o) {
 		else if (o.kind == "placeBridge") sites = works->place_bridge(s.team, o.bridge);
 		else if (o.kind == "build" && works->site_ok(o.site, s.team)) sites.push_back(o.site);
 		if (o.kind != "gather" && sites.empty()) return; // invalid placement: the squad carries on
-		// stub until the paths port: perkSites (NO_PATH: no site perks)
+		if (o.kind != "gather" && o.kind != "build") perkSites(s.owner, sites);
 		if (o.kind == "gather" && !works->node_ok(o.node, s.team, s.owner)) return; // M7e: rare nodes for the region's holder only; W-89: a farm its owner lets him use
 		s.order = o.kind == "gather" ? "gather" : "build";
 		s.sites = sites;
@@ -1576,6 +1589,29 @@ void Sim::setSatiety(const std::vector<int> &ids, double sat) {
 	}
 }
 
+PerkFx Sim::fxOf(const std::string &owner) const {
+	const PlayerPath w = pathFor(owner);
+	return perk_fx(w.path, w.level.value_or(1));
+}
+
+void Sim::perkSites(const std::string &owner, const std::vector<int> &ids) {
+	const PerkFx fx = fxOf(owner);
+	if (fx.siteCost || fx.siteHp)
+		for (int id : ids) works->perk_site(id, fx.siteCost, fx.siteHp);
+}
+
+// W-84: what the cart owner's perks add
+SiegeCartFx SimSiegeHost::cartFx(const std::string &owner) {
+	const PerkFx fx = s->fxOf(owner);
+	return { fx.cartLoads, fx.cartSpeed, fx.cartHp };
+}
+
+// setBonus: a bonus with no field clears the team's
+void Sim::setBonus(int team, const TeamBonus &b) {
+	if (b.repairCost || b.sight) bonuses[team] = b;
+	else bonuses.erase(team);
+}
+
 int Sim::spawn_squad(const std::string &owner, int team, const std::string &cls, int count, double x, double y, const std::vector<WarPerson> *persons) {
 	// M5b: one man per person, each with his own baked stats
 	std::optional<std::vector<WarPerson>> ps;
@@ -1595,10 +1631,9 @@ int Sim::spawn_squad(const std::string &owner, int team, const std::string &cls,
 		if (count == 0) return -1;
 	}
 	const auto [ax, ay] = openPoint(x, y);
-	// withPerks(warStatsOf(p), fxOf(owner)): the host's bake, else (stub until the classes port) his class's fresh numbers
 	std::vector<WarStats> sts;
 	if (ps)
-		for (const WarPerson &p : *ps) sts.push_back(bake ? bake(p, owner) : data().classes.of(p.hero.cls.value_or(cls)));
+		for (const WarPerson &p : *ps) sts.push_back(with_perks(war_stats_of(p), fxOf(owner)));
 	const WarStats st = !sts.empty() ? sts[0] : data().classes.of(cls);
 	Squad *s = new Squad();
 	s->id = int(squads.size());
@@ -1905,7 +1940,7 @@ void Sim::step() {
 	tradeTick();
 	if (tick % SCAN == 0) piles->tick(tick);
 	if (anySafe && tick % SCAN == 0) safeTick();
-	// stub until captives port: raidScan
+	if (tick % HOLD_EVERY == 0) raidScan();
 	keepToLanes();
 	for (Unit *up : units) {
 		Unit &u = *up;
@@ -1965,7 +2000,10 @@ void Sim::step() {
 		v.siege = b.siege;
 		vb.push_back(std::move(v));
 	}
-	vision.tick(tick, vu, vb, {}); // stub until the alliance works' bonuses (setBonus): no sight added
+	std::map<int, int> sightAdd; // sightAdd(team): bonuses.get(team)?.sight ?? 0 (whole tiles, as the vision's keys hold them)
+	for (const auto &[team, b] : bonuses)
+		if (b.sight) sightAdd[team] = int(*b.sight);
+	vision.tick(tick, vu, vb, sightAdd);
 	tick++;
 }
 
@@ -1992,8 +2030,55 @@ Ref<Sim> Sim::create(const Ref<Grid> &grid, const Dictionary &meta, const Packed
 	return r;
 }
 
-int Sim::spawn_squad(const String &owner, int team, const String &cls, int count, double x, double y) {
-	return s->spawn_squad(owner.utf8().get_data(), team, cls.utf8().get_data(), count, x, y);
+int Sim::spawn_squad(const String &owner, int team, const String &cls, int count, double x, double y, const Variant &persons) {
+	if (persons.get_type() != Variant::ARRAY) return s->spawn_squad(owner.utf8().get_data(), team, cls.utf8().get_data(), count, x, y);
+	std::vector<sim::WarPerson> ps;
+	const Array a = persons;
+	for (int64_t i = 0; i < a.size(); i++) ps.push_back(sim::war_person_from(a[i]));
+	return s->spawn_squad(owner.utf8().get_data(), team, cls.utf8().get_data(), count, x, y, &ps);
+}
+
+void Sim::set_paths(const Variant &paths) {
+	if (paths.get_type() != Variant::DICTIONARY) {
+		s->pathOf = nullptr;
+		return;
+	}
+	std::map<std::string, sim::PlayerPath> by; // lookup only
+	const Dictionary d = paths;
+	const Array ks = d.keys();
+	for (int64_t i = 0; i < ks.size(); i++) by[String(ks[i]).utf8().get_data()] = sim::player_path_from(d[ks[i]]);
+	s->pathOf = [by](const std::string &owner) {
+		const auto it = by.find(owner);
+		return it != by.end() ? it->second : sim::NO_PATH;
+	};
+}
+
+void Sim::set_bonus(int team, const Dictionary &b) {
+	sim::Sim::TeamBonus t;
+	if (b.has("repairCost")) t.repairCost = double(b["repairCost"]);
+	if (b.has("sight")) t.sight = double(b["sight"]);
+	s->setBonus(team, t);
+}
+
+bool Sim::spawn_named_soul(const Dictionary &person, double life, const Variant &bar) {
+	std::optional<std::pair<std::string, double>> b;
+	if (bar.get_type() == Variant::DICTIONARY) {
+		const Dictionary d = bar;
+		b = std::make_pair(std::string(String(d["owner"]).utf8().get_data()), double(d["ticks"]));
+	}
+	return s->spawnNamedSoul(sim::war_person_from(person), life, b);
+}
+
+Array Sim::events() {
+	Array out;
+	for (const Dictionary &e : s->events()) out.push_back(e);
+	return out;
+}
+
+int64_t Sim::fog_sum(int team) {
+	int64_t n = 0;
+	for (uint8_t v : s->vision.team(team).state) n += v;
+	return n;
 }
 
 static std::string u8(const Variant &v) { return String(v).utf8().get_data(); }
@@ -2174,7 +2259,12 @@ Dictionary Sim::digest() {
 
 void Sim::_bind_methods() {
 	ClassDB::bind_static_method("Sim", D_METHOD("create", "grid", "meta", "cells", "seed"), &Sim::create);
-	ClassDB::bind_method(D_METHOD("spawn_squad", "owner", "team", "cls", "count", "x", "y"), &Sim::spawn_squad);
+	ClassDB::bind_method(D_METHOD("spawn_squad", "owner", "team", "cls", "count", "x", "y", "persons"), &Sim::spawn_squad, DEFVAL(Variant()));
+	ClassDB::bind_method(D_METHOD("set_paths", "paths"), &Sim::set_paths);
+	ClassDB::bind_method(D_METHOD("set_bonus", "team", "bonus"), &Sim::set_bonus);
+	ClassDB::bind_method(D_METHOD("spawn_named_soul", "person", "life", "bar"), &Sim::spawn_named_soul, DEFVAL(Variant()));
+	ClassDB::bind_method(D_METHOD("events"), &Sim::events);
+	ClassDB::bind_method(D_METHOD("fog_sum", "team"), &Sim::fog_sum);
 	ClassDB::bind_method(D_METHOD("order", "order"), &Sim::order);
 	ClassDB::bind_method(D_METHOD("spawn_mobs"), &Sim::spawn_mobs);
 	ClassDB::bind_method(D_METHOD("spawn_roam"), &Sim::spawn_roam);

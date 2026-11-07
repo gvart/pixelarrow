@@ -141,7 +141,7 @@ export function withPerks(s: WarStats, fx: PerkFx): WarStats {
 }
 
 /** Item powers that work as war flags. */
-const POWER_FLAGS: Partial<Record<string, number>> = { executioner: F.finisher };
+export const POWER_FLAGS: Partial<Record<string, number>> = { executioner: F.finisher };
 
 /**
  * Bake a person (M5b): computeStats of his hero, P skills and honours on top, clamped against warStats(class) (HP, damage,

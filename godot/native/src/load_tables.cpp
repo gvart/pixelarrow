@@ -175,7 +175,15 @@ static void load_wild(WildTables &t, const Dictionary &m) {
 	const Dictionary ks = m["CHIEF_KINDS"];
 	for (const Variant &k : Array(ks.keys())) {
 		const Dictionary d = ks[k];
-		t.CHIEF_KINDS[str(k)] = { d["scale"], d["tint"], d["hp"], d["dmg"], d["armor"], d["escort"] };
+		ChiefKind &c = t.CHIEF_KINDS[str(k)] = { d["scale"], d["tint"], d["hp"], d["dmg"], d["armor"], d["escort"] };
+		const Dictionary l = d["loot"];
+		c.loot.coin = l["coin"];
+		c.loot.per = l["per"];
+		const Dictionary g = l["goods"];
+		for (const Variant &r : Array(g.keys())) c.loot.goods.push_back({ str(r), g[r] });
+		const Dictionary it = l["item"];
+		c.loot.itemChance = it["chance"];
+		for (const Variant &e : Array(it["rarity"])) c.loot.itemRarity.push_back({ str(Array(e)[0]), Array(e)[1] });
 	}
 	for (const Variant &v : Array(m["WAR_CHIEFS"])) {
 		const Dictionary d = v;

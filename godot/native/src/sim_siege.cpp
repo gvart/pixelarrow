@@ -9,6 +9,7 @@
 #include "js_math.h"
 #include "professions.h"
 #include "sim.h"
+#include "sim_events.h"
 #include "sim_data.h"
 
 namespace sim {
@@ -153,7 +154,11 @@ std::optional<std::pair<int, std::string>> SimSiegeHost::taker(const SiegeEngine
 }
 
 void SimSiegeHost::captured(const SiegeEngine &e, const std::string &by) {
-	// the 'cartCaptured' note: no event log yet
+	godot::Dictionary ev_ = ev(s->tick, "cartCaptured");
+	ev_["cart"] = e.id;
+	ev_["team"] = e.team;
+	ev_["owner"] = gstr(by);
+	s->note(ev_);
 	// CART.captureXp to the taking squad (the nearest of its owner)
 	Squad *best = nullptr;
 	for (Squad *q : s->squads)
@@ -213,10 +218,13 @@ void Sim::hides(Unit &t) {
 	}
 }
 
-void Sim::objective(Squad &s, const char *) {
+void Sim::objective(Squad &s, const char *what) {
 	for (Unit *u : s.units)
 		if (u->alive) u->obj += data().soldiers.XP.objective;
-	// the 'objective' note: no event log yet
+	godot::Dictionary e = ev(tick, "objective");
+	e["squad"] = s.id;
+	e["what"] = what;
+	note(e);
 }
 
 void Sim::hitBuilding(Squad &s, int b, double dmg) {

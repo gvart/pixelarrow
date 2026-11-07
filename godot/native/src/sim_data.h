@@ -12,6 +12,8 @@
 #include "item.h"
 #include "landmarks.h"
 #include "souls.h"
+#include "start.h"
+#include "stats.h"
 #include "stories.h"
 #include "deeds.h"
 #include "depth.h"
@@ -73,6 +75,8 @@ struct Data {
 	EncTables encounters; // encounters.h (ENC, ENCOUNTERS)
 	PrebuiltTables prebuilt; // prebuilt.h
 	RosterTables roster; // roster.h
+	StatTables stats; // stats.h: the item rules and the war bake (warStatsOf)
+	StartTables start; // start.h: PATHS, FAMILIES
 	std::map<std::string, std::vector<std::string>> names; // NAMES by culture (src/data/names, freeName), lookup only
 };
 const Data &data();
