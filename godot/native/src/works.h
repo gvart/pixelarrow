@@ -340,6 +340,8 @@ public:
 	state::Obj *tilesObj(state::Graph &g, int id, int ver, const std::vector<int> &tiles) const;
 	state::Obj *bridgeDir(state::Graph &g, int id) const;
 	state::Obj *bridgeRows(state::Graph &g, int id) const;
+	// load: the version of a building's tiles array as it came (the current one: its own tilesVer)
+	int verOf(int id, const state::Obj *o) const;
 	struct Node {
 		int id = 0;
 		std::string res;
@@ -494,6 +496,10 @@ private:
 	bool owning = false, needPaint = false;
 	std::vector<Building *> prebuilt_;
 	std::vector<Building *> burning;
+	// load: each building's tiles array in the save, and the versions given the older arrays (verOf)
+	std::vector<const state::Obj *> curTiles_;
+	mutable std::map<const state::Obj *, int> vers_; // lookup only
+	mutable std::map<int, int> oldVers_; // lookup only
 
 	bool isCut(const Worker &u, int id) const;
 	void cut(const Worker &u, int id);

@@ -79,7 +79,7 @@ const men = (prefix: string, cls: string, n: number, level: number) =>
  * The host calls no scenario makes (godotTraces.ts hostOp): each owner's path (limits, perks on men, sites and work), a
  * team bonus (sight, repairs), persons of record spawned and fighting, a named soul claimed, a chief hunted down.
  */
-const HOST: { id: string; of: string; ticks: number; cap?: number; host: HostOps }[] = [
+export const HOST: { id: string; of: string; ticks: number; cap?: number; host: HostOps }[] = [
   // the builder's men work faster, his sites cost less and stand stronger; his worker cap; repairs and sight of team 0
   { id: 'host-builder', of: 'build-each', ticks: 600, cap: WORKS_CAP, host: {
     pre: [['setPaths', { you: { path: 'builder', family: null, level: 12 } }], ['setBonus', 0, { repairCost: 0.5, sight: 3 }]],

@@ -219,4 +219,189 @@ Val Works::save(Graph &g, const std::function<Val(const Worker *)> &worker) cons
 	return root;
 }
 
+// ---- load ----
+
+namespace {
+
+Cost cost_of(const Val &v) { return load_cost(v); }
+std::vector<int> ints(const Val &v) { return load_nums<int>(v); }
+
+} // namespace
+
+// A tiles array of building id as a version: its current one (the building's own), or an older one some snapshot or its
+// farm node still holds (distinct arrays, distinct versions, so a save shares them again as they came).
+int Works::verOf(int id, const Obj *o) const {
+	if (id >= 0 && id < int(curTiles_.size()) && curTiles_[id] == o) return buildings[id].tilesVer;
+	auto it = vers_.find(o);
+	if (it != vers_.end()) return it->second;
+	return vers_[o] = 1000000 + oldVers_[id]++;
+}
+
+void Works::load(const Obj &o, const std::function<Worker *(const Val &)> &worker) {
+	lieges.clear();
+	const Obj &lg = *o.get("lieges").o;
+	for (size_t i = 0; i + 1 < lg.vals.size(); i += 2) lieges[lg.vals[i].s] = Liege{ lg.vals[i + 1].o->get("to").s, lg.vals[i + 1].o->get("pct").n };
+	// buildings first (their tiles are the versions the nodes and snapshots refer to)
+	buildings.clear();
+	curTiles_.clear(), vers_.clear(), oldVers_.clear();
+	std::map<const Obj *, Building *> bOf; // lookup only
+	std::map<const Obj *, int64_t> insides; // lookup only
+	for (const Val &v : o.get("buildings").o->vals) {
+		const Obj &x = *v.o;
+		Building b;
+		b.id = x.get("id").i(), b.type = x.get("type").s, b.def = &building(b.type), b.team = x.get("team").i(), b.rot = x.get("rot").i();
+		b.x = x.get("x").n, b.y = x.get("y").n, b.w = x.get("w").n, b.h = x.get("h").n, b.tiles = ints(x.get("tiles")), b.tilesVer = 0;
+		b.ti = ints(x.get("ti")), b.state = x.get("state").s, b.labour = x.get("labour").n, b.need = x.get("need").n;
+		b.cost = cost_of(x.get("cost")), b.delivered = cost_of(x.get("delivered")), b.incoming = cost_of(x.get("incoming"));
+		b.costSum = x.get("costSum").n, b.hp = x.get("hp").n, b.maxHp = x.get("maxHp").n, b.saved = load_nums<double>(x.get("saved"));
+		b.users = x.get("users").i(), b.node = x.get("node").i(), b.slots = ints(x.get("slots")), b.slotUser = ints(x.get("slotUser"));
+		b.cancelled = x.get("cancelled").b, b.base = load_nums<double>(x.get("base"));
+		const Obj *in = x.get("inside").o;
+		b.inside = { in->vals[0].n, in->vals[1].n };
+		auto ik = insides.find(in);
+		b.insideKey = ik != insides.end() ? ik->second : (insides[in] = b.id + 1);
+		b.decked = x.get("decked").b, b.attach = x.get("attach").i(), b.door = x.get("door").i();
+		if (x.get("prev").k == Val::Ref) {
+			const Obj &p = *x.get("prev").o;
+			b.prev = Building::Prev{ p.get("type").s, &building(p.get("type").s), p.get("maxHp").n, p.get("hp").n, p.get("need").n, cost_of(p.get("cost")),
+				p.get("costSum").n, cost_of(p.get("delivered")), p.get("n").i() };
+		}
+		b.burn = x.get("burn").n, b.kindle = x.get("kindle").n, b.rubble = x.get("rubble").b, b.siege = x.get("siege").i(), b.push = x.get("push").n;
+		if (x.get("bridge").k == Val::Ref) {
+			const Obj &l = *x.get("bridge").o;
+			BridgeLine bl;
+			bl.ids = ints(l.get("ids")), bl.i = l.get("i").i(), bl.axis = l.get("axis").s;
+			bl.dir = { l.get("dir").o->vals[0].i(), l.get("dir").o->vals[1].i() };
+			bl.width = l.get("width").i(), bl.part = l.get("part").s, bl.deck = l.get("deck").n, bl.rows = load_nums<double>(l.get("rows"));
+			b.bridge = std::move(bl);
+		}
+		b.fuel = x.get("fuel").n, b.iron = x.get("iron").b, b.wet = x.get("wet").n, b.hold = load_opt_hold(x.get("hold")), b.owner = x.get("owner").s;
+		if (x.get("pre").k == Val::Ref) {
+			const Obj &p = *x.get("pre").o;
+			b.pre = Pre{ p.get("i").i(), p.get("zone").i(), p.get("landmark").b, p.get("ruin").b, p.get("gone").b, load_nums<double>(p.get("ground")),
+				p.get("fouled").n, p.get("foulT").n };
+		}
+		b.lastBy = x.get("lastBy").i(), b.mend = x.get("mend").b, b.credit = x.get("credit").n, b.raze = x.get("raze").n, b.staff = x.get("staff").b;
+		b.access = x.get("access").s, b.share = x.get("share").n, b.fee = x.get("fee").n, b.lock = x.get("lock").n, b.lockTold = x.get("lockTold").n;
+		curTiles_.push_back(x.get("tiles").o);
+		buildings.push_back(std::move(b));
+		bOf[&x] = &buildings.back();
+	}
+	nodes.clear();
+	std::map<const Obj *, Node *> nOf; // lookup only
+	for (const Val &v : o.get("nodes").o->vals) {
+		const Obj &x = *v.o;
+		Node n;
+		n.id = x.get("id").i(), n.res = x.get("res").s, n.x = x.get("x").n, n.y = x.get("y").n, n.amount = x.get("amount").n, n.max = x.get("max").n;
+		n.regrow = x.get("regrow").n, n.rate = x.get("rate").n, n.slots = x.get("slots").n, n.users = x.get("users").i(), n.tiles = ints(x.get("tiles"));
+		if (x.has("obj")) n.obj = x.get("obj").i();
+		n.rare = x.get("rare").b;
+		if (x.has("building")) n.building = x.get("building").i(), n.tilesVer = verOf(*n.building, x.get("tiles").o);
+		if (x.has("kiln")) n.kiln = x.get("kiln").i();
+		if (x.has("locked")) n.locked = x.get("locked").b, n.hasLocked = true;
+		nodes.push_back(std::move(n));
+		nOf[&x] = &nodes.back();
+	}
+	o.get("nodeAt").o->fill(nodeAt);
+	regrowing.clear();
+	for (const Val &v : o.get("regrowing").o->vals) regrowing.push_back(nOf.at(v.o));
+	auto refs = [&](const char *key) {
+		std::vector<Building *> out;
+		for (const Val &v : o.get(key).o->vals) out.push_back(bOf.at(v.o));
+		return out;
+	};
+	braziers = refs("braziers");
+	o.get("occ").o->fill(occ);
+	o.get("noBuild").o->fill(noBuild);
+	reserve.clear();
+	const Obj &rs = *o.get("reserve").o;
+	for (size_t i = 0; i + 1 < rs.vals.size(); i += 2) reserve[rs.vals[i].i()] = load_hold(rs.vals[i + 1]);
+	storeList = refs("storeList");
+	claims.clear();
+	for (const Val &v : o.get("claims").o->vals) claims.push_back({ v.o->get("team").i(), v.o->get("x").n, v.o->get("y").n, v.o->get("r").n });
+	const Obj &io = *o.get("infl").o;
+	infl.w = io.get("w").i(), infl.h = io.get("h").i(), infl.version = io.get("version").i();
+	io.get("mask").o->fill(infl.mask);
+	pathQueue.clear();
+	for (const Val &v : o.get("pathQueue").o->vals) pathQueue.push_back(worker(v));
+	waits.clear();
+	const Obj &ws = *o.get("waits").o;
+	for (size_t i = 0; i + 1 < ws.vals.size(); i += 2) {
+		const Obj &p = *ws.vals[i + 1].o;
+		waits[ws.vals[i].i()] = { p.vals[0].n, p.vals[1].n, p.vals[2].n };
+	}
+	active.clear();
+	for (const Val &v : o.get("active").o->vals) active.push_back(worker(v));
+	cutOff.clear();
+	const Obj &co = *o.get("cutOff").o;
+	for (size_t i = 0; i + 1 < co.vals.size(); i += 2) {
+		JsSet<int> &s = cutOff[co.vals[i].i()];
+		for (const Val &x : co.vals[i + 1].o->vals) s.insert(x.i());
+	}
+	waitAt.clear();
+	for (const Val &x : o.get("waitAt").o->vals) waitAt.insert(x.i());
+	burning = refs("burning");
+	tick_ = o.get("tick").i(), fields = o.get("fields").i();
+	prebuilt_ = refs("prebuilt");
+	fallback_ = o.get("fallback").i();
+	// the caches start afresh (the TS works' too: they are not saved)
+	nets.clear(), netCache.clear(), storeVer = 0;
+}
+
+BuildingSnap Works::loadSnap(const Obj &o) const {
+	BuildingSnap s;
+	s.id = o.get("id").i(), s.type = o.get("type").s, s.team = o.get("team").i(), s.x = o.get("x").n, s.y = o.get("y").n, s.w = o.get("w").n;
+	s.h = o.get("h").n, s.rot = o.get("rot").i(), s.tiles = ints(o.get("tiles")), s.tilesVer = verOf(s.id, o.get("tiles").o), s.state = o.get("state").s;
+	s.progress = o.get("progress").n, s.delivered = o.get("delivered").n, s.hp = o.get("hp").n, s.maxHp = o.get("maxHp").n;
+	s.workers = o.get("workers").i(), s.maxWorkers = o.get("maxWorkers").i();
+	if (o.has("tier")) s.tier = o.get("tier").n;
+	if (o.has("walk")) s.walk = o.get("walk").n;
+	if (o.has("depth")) s.depth = o.get("depth").n;
+	if (o.has("attach")) s.attach = o.get("attach").i();
+	if (o.has("steps")) s.steps = load_nums<double>(o.get("steps"));
+	if (o.has("door")) s.door = std::array<int, 2>{ o.get("door").o->vals[0].i(), o.get("door").o->vals[1].i() };
+	if (o.has("cap")) s.cap = o.get("cap").n;
+	if (o.has("upgradeFrom")) s.upgradeFrom = o.get("upgradeFrom").s;
+	if (o.has("burning")) s.burning = o.get("burning").n;
+	if (o.has("lit")) s.lit = o.get("lit").b;
+	if (o.has("fuel")) s.fuel = o.get("fuel").n;
+	s.rubble = o.get("rubble").b;
+	if (o.has("siege")) s.siege = o.get("siege").i();
+	s.iron = o.get("iron").b, s.wet = o.get("wet").b;
+	if (o.has("push")) s.push = o.get("push").n;
+	if (o.has("bridge")) {
+		const Obj &l = *o.get("bridge").o;
+		BridgeLine bl;
+		bl.axis = l.get("axis").s, bl.dir = { l.get("dir").o->vals[0].i(), l.get("dir").o->vals[1].i() }, bl.width = l.get("width").i();
+		bl.part = l.get("part").s, bl.deck = l.get("deck").n, bl.rows = load_nums<double>(l.get("rows"));
+		s.bridge = std::move(bl);
+	}
+	if (o.has("goods")) s.goods = cost_of(o.get("goods"));
+	if (o.has("items")) {
+		s.items = o.get("items").i();
+		std::vector<HoldItem> list;
+		for (const Val &v : o.get("list").o->vals) {
+			HoldItem it{ v.o->get("uid").s, v.o->get("def").s, v.o->get("rarity").s };
+			if (v.o->has("q")) it.q = v.o->get("q").i();
+			list.push_back(std::move(it));
+		}
+		s.list = std::move(list);
+	}
+	if (o.has("tithe")) s.tithe = cost_of(o.get("tithe")), s.titheTo = o.get("titheTo").s;
+	if (o.has("owner")) s.owner = o.get("owner").s;
+	s.staffed = o.get("staffed").b;
+	if (o.has("access")) s.access = o.get("access").s;
+	if (o.has("share")) s.share = o.get("share").n;
+	if (o.has("fee")) s.fee = o.get("fee").n;
+	if (o.has("lock")) s.lock = o.get("lock").n, s.lockMax = o.get("lockMax").n;
+	s.pre = o.get("pre").b, s.landmark = o.get("landmark").b;
+	if (o.has("art")) s.art = o.get("art").s;
+	s.ruin = o.get("ruin").b, s.fouled = o.get("fouled").b, s.mend = o.get("mend").b;
+	if (o.has("razing")) s.razing = o.get("razing").n;
+	if (o.has("stalled")) s.stalled = o.get("stalled").s;
+	if (o.has("waiting")) s.waiting = cost_of(o.get("waiting"));
+	if (o.has("stalls")) s.stalls = o.get("stalls").i();
+	return s;
+}
+
 } // namespace sim

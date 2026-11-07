@@ -2116,7 +2116,7 @@ static sim::HolderRef holder_ref_of(const Variant &v) {
 	return r;
 }
 
-void Sim::order(const Dictionary &d) {
+sim::Order order_from(const Dictionary &d) {
 	sim::Order o;
 	o.src = d.duplicate(true);
 	o.kind = u8(d.get("kind", ""));
@@ -2179,8 +2179,10 @@ void Sim::order(const Dictionary &d) {
 	o.owner = u8(d.get("owner", ""));
 	if (d.has("by")) o.by = u8(d["by"]);
 	if (d.has("item") && d["item"].get_type() == Variant::DICTIONARY) o.item = sim::item_from(d["item"]); // repair, salvage
-	s->order(o);
+	return o;
 }
+
+void Sim::order(const Dictionary &d) { s->order(order_from(d)); }
 
 int Sim::spawn_soul(double x, double y, const String &cls, double level, const String &site) { return s->spawnSoul(x, y, cls.utf8().get_data(), level, site.utf8().get_data()); }
 

@@ -627,6 +627,9 @@ namespace godot {
 
 // GDScript face of sim::Sim: Sim.create(region.grid(), region.meta, region.cells, seed); spawn_squad, order, step, digest. Its bots (bots.ts
 // createBots(sim)): set_bot, and bots_tick after each step, as src/war/scenarios/run.ts stepSim.
+// An order from its JSON object (src/war/types.ts Order), the object kept as its src.
+sim::Order order_from(const Dictionary &d);
+
 class Sim : public RefCounted {
 	GDCLASS(Sim, RefCounted)
 

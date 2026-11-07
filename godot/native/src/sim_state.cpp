@@ -467,9 +467,285 @@ std::string Sim::save(Sim *fresh) {
 	return state::encode(root, b.k == Val::Ref ? b.o : nullptr, region.id, seed);
 }
 
+// ---- importState: a save decoded into this fresh sim, module by module (each module's loadRoot, and what the TS decode
+// refills in place) ----
+
+namespace {
+
+const char *doing_of(const Val &v) {
+	static const char *names[] = { "crew", "extinguish", "ignite", "push" };
+	if (v.k != Val::Str) return nullptr;
+	for (const char *n : names)
+		if (v.s == n) return n;
+	return nullptr;
+}
+
+void load_grid(Grid &gr, const Obj &o) {
+	gr.w = o.get("w").i(), gr.h = o.get("h").i();
+	o.get("cost").o->fill(gr.cost), o.get("height").o->fill(gr.height), o.get("ground").o->fill(gr.ground), o.get("gate").o->fill(gr.gate);
+	o.get("deck").o->fill(gr.deck), o.get("span").o->fill(gr.span), o.get("plat").o->fill(gr.plat), o.get("trench").o->fill(gr.trench);
+	gr.engine = o.get("engine").b, gr.cart = o.get("cart").b;
+	o.get("cartMul").o->fill(gr.cart_mul), o.get("narrow").o->fill(gr.narrow);
+	gr.team = o.get("team").i(), gr.dirty = load_nums<int>(o.get("dirty"));
+	const Obj &s = *o.get("sectors").o;
+	s.get("node").o->fill(gr.node), gr.n = s.get("n").i(), s.get("bx").o->fill(gr.bx), s.get("by").o->fill(gr.by);
+	s.get("cx").o->fill(gr.cx), s.get("cy").o->fill(gr.cy), s.get("start").o->fill(gr.start), s.get("adj").o->fill(gr.adj);
+	s.get("adjCost").o->fill(gr.adj_cost), gr.bw = s.get("bw").i(), gr.bh = s.get("bh").i();
+	gr.block_nodes.clear();
+	for (const Val &v : s.get("blockNodes").o->vals) {
+		gr.block_nodes.emplace_back();
+		v.o->fill(gr.block_nodes.back());
+	}
+	gr.links.clear();
+	for (const Val &v : s.get("links").o->vals) gr.links.push_back(load_nums<int32_t>(v));
+	gr.mean_cost = load_nums<double>(s.get("meanCost"));
+}
+
+} // namespace
+
 bool Sim::load(const std::string &text, std::string &why) {
-	why = "not ported yet";
-	return false;
+	state::Decoded d;
+	if (!state::decode(text, d)) return why = "not a sim save", false;
+	if (d.v != 1 || d.region != region.id) return why = "a save v" + std::to_string(d.v) + " of " + d.region + " does not fit v1 of " + region.id, false;
+	if (tick != 0 || !units.empty()) return why = "only into a fresh sim", false;
+	if (d.root.k != Val::Ref) return why = "no root", false;
+	const Obj &r = *d.root.o;
+	load_grid(*grid, *r.get("grid").o);
+	rng.state = uint32_t(r.get("rng").o->get("state").n);
+	// shells: the squads and men every other part refers to
+	std::map<const Obj *, Squad *> sOf; // lookup only
+	std::map<const Obj *, Unit *> uOf; // lookup only
+	for (const Val &v : r.get("squads").o->vals) squads.push_back(sOf[v.o] = new Squad());
+	for (const Val &v : r.get("units").o->vals) units.push_back(uOf[v.o] = new Unit());
+	auto squadOf = [&](const Val &v) -> Squad * { return v.k == Val::Ref ? sOf.at(v.o) : nullptr; };
+	auto unitOf = [&](const Val &v) -> Unit * { return v.k == Val::Ref ? uOf.at(v.o) : nullptr; };
+	auto orderOf = [&](const Val &v) { return godot::order_from(variant_of(v)); };
+	for (const auto &[obj, s] : sOf) {
+		const Obj &x = *obj;
+		s->id = x.get("id").i(), s->owner = x.get("owner").s, s->team = x.get("team").i();
+		for (const Val &u : x.get("units").o->vals) s->units.push_back(unitOf(u));
+		s->alive = x.get("alive").i(), s->shape = shape_of(x.get("shape").s), s->offsets = load_nums<double>(x.get("offsets"));
+		s->ax = x.get("ax").n, s->ay = x.get("ay").n, s->cx = x.get("cx").n, s->cy = x.get("cy").n, s->facing = x.get("facing").n, s->speed = x.get("speed").n;
+		s->ranged = x.get("ranged").b, s->side = x.get("side").n, s->ramp = x.get("ramp").n, s->path = load_nums<double>(x.get("path")), s->pi = x.get("pi").i();
+		s->order = x.get("order").s, s->target = x.get("target").i(), s->repathAt = x.get("repathAt").i();
+		if (x.get("goal").k == Val::Ref) s->goal = std::make_pair(x.get("goal").o->vals[0].n, x.get("goal").o->vals[1].n);
+		for (const Val &n : x.get("near").o->vals) s->near.push_back(squadOf(n));
+		s->sites = load_nums<int>(x.get("sites")), s->node = x.get("node").i();
+		if (x.get("fixed").k == Val::Ref) s->fixed = load_nums<double>(x.get("fixed"));
+		if (x.get("col").k == Val::Ref) s->col = load_nums<double>(x.get("col"));
+		s->siege = x.get("siege").i();
+		if (x.get("task").k == Val::Ref) s->task = Task{ x.get("task").o->get("kind").s, x.get("task").o->get("b").i(), x.get("task").o->get("e").i() };
+		s->fire = x.get("fire").b, s->claimPt = x.get("claimPt").i(), s->spare = x.get("spare").b, s->act = x.get("act").strOr();
+		s->actWil = x.get("actWil").n, s->actReady = x.get("actReady").n, s->actUntil = x.get("actUntil").n, s->out = x.get("out").n, s->inn = x.get("inn").n;
+		s->amx = x.get("amx").n, s->amy = x.get("amy").n, s->civ = x.get("civ").b, s->flee = x.get("flee").b, s->calm = x.get("calm").i();
+		if (x.get("resume").k == Val::Ref) {
+			s->resume = std::make_shared<Order>(orderOf(x.get("resume")));
+			s->resume->src = godot::Dictionary(); // as resumeOf writes it (saveOrder writes it back so)
+		}
+		s->cartDrop = x.get("cartDrop").i(), s->atEase = x.get("atEase").i(), s->work = x.get("work").i(), s->fedUntil = x.get("fedUntil").n;
+		s->fedInn = x.get("fedInn").n, s->fedMelee = x.get("fedMelee").n, s->fedMissile = x.get("fedMissile").n, s->fedAcc = x.get("fedAcc").n;
+		s->fedHeal = x.get("fedHeal").n, s->dish = x.get("dish").strOr(), s->bandages = x.get("bandages").i(), s->theriacUntil = x.get("theriacUntil").n;
+		if (x.get("xfer").k == Val::Ref) {
+			const Obj &xo = *x.get("xfer").o, &ref = *xo.get("ref").o;
+			Xfer xf;
+			if (ref.has("building")) xf.ref.building = ref.get("building").i();
+			if (ref.has("cart")) xf.ref.cart = ref.get("cart").i();
+			if (ref.has("pile")) xf.ref.pile = ref.get("pile").i();
+			xf.dir = xo.get("dir").s;
+			if (xo.has("res")) xf.res = xo.get("res").s;
+			xf.n = xo.get("n").n, xf.send = xo.get("send").b;
+			s->xfer = std::move(xf);
+		}
+		s->escort = x.get("escort").i(), s->laden = x.get("laden").b;
+		if (x.get("salv").k == Val::Ref) s->salv = Salv{ x.get("salv").o->get("pile").i(), x.get("salv").o->get("uid").s, x.get("salv").o->get("t").n };
+		s->soul = x.get("soul").i(), s->meek = x.get("meek").b, s->angry = x.get("angry").i();
+	}
+	std::map<const Obj *, int64_t> stKeys; // lookup only: the men sharing a stats object share its key
+	int64_t stNext = 0;
+	for (const auto &[obj, u] : uOf) {
+		const Obj &x = *obj;
+		u->id = x.get("id").i(), u->squad = squadOf(x.get("squad")), u->Worker::squad = u->squad, u->slot = x.get("slot").i();
+		u->x = x.get("x").n, u->y = x.get("y").n, u->facing = x.get("facing").n, u->hp = x.get("hp").n, u->maxHp = x.get("maxHp").n;
+		u->cls = x.get("cls").s;
+		const Obj *st = x.get("st").o;
+		u->st = load_stats(st);
+		auto sk = stKeys.find(st);
+		u->stKey = sk != stKeys.end() ? sk->second : (stKeys[st] = -(1LL << 40) - stNext++);
+		u->moving = x.get("moving").b, u->wp = x.get("wp").i(), u->alive = x.get("alive").b, u->wounded = x.get("wounded").b;
+		u->fighting = x.get("fighting").b, u->striking = x.get("striking").b, u->swingAt = x.get("swingAt").i(), u->cd = x.get("cd").n;
+		u->ammo = x.get("ammo").n, u->tgt = unitOf(x.get("tgt")), u->vx = x.get("vx").n, u->vy = x.get("vy").n, u->spd = x.get("spd").n;
+		u->stuck = x.get("stuck").i(), u->wx = x.get("wx").n, u->wy = x.get("wy").n, u->own = load_nums<double>(x.get("own")), u->oi = x.get("oi").i();
+		u->ownReq = x.get("ownReq").b, u->crossing = x.get("crossing").b, u->settled = x.get("settled").b, u->settleD = x.get("settleD").n;
+		u->best = x.get("best").n, u->stall = x.get("stall").i(), u->ox = x.get("ox").n, u->oy = x.get("oy").n, u->want = x.get("want").n;
+		u->toSlot = x.get("toSlot").b, u->job = x.get("job").strOr(), u->carry = x.get("carry").strOr(), u->load = x.get("load").n;
+		u->wnode = x.get("wnode").i(), u->wsite = x.get("wsite").i(), u->wslot = x.get("wslot").i(), u->wfor = x.get("wfor").i();
+		u->working = x.get("working").b, u->wgx = x.get("wgx").n, u->wgy = x.get("wgy").n, u->wpath = load_nums<double>(x.get("wpath"));
+		u->wpi = x.get("wpi").i(), u->wreq = x.get("wreq").b, u->doing = doing_of(x.get("doing"));
+		if (x.get("person").k == Val::Ref) u->person = war_person_from(variant_of(x.get("person")));
+		u->dealt = x.get("dealt").n, u->kills = x.get("kills").n, u->obj = x.get("obj").n, u->engaged = x.get("engaged").b, u->reported = x.get("reported").b;
+		u->civ = x.get("civ").strOr(), u->civT = x.get("civT").n, u->civAt = x.get("civAt").b, u->repaired = x.get("repaired").b;
+		u->venomUntil = x.get("venomUntil").n, u->venom = x.get("venom").b, u->beast = x.get("beast").b, u->fieldR = x.get("fieldR").n;
+		u->pack = load_opt_hold(x.get("pack"));
+		u->tag = x.get("tag").n, u->safeT = x.get("safeT").n, u->pin = x.get("pin").b, u->aloft = x.get("aloft").i(), u->immune = x.get("immune").b;
+		u->boss = x.get("boss").i(), u->sat = x.get("sat").n, u->back = x.get("back").b, u->bx = x.get("bx").n, u->by = x.get("by").n;
+		if (x.get("wrate").k == Val::Num) u->wrate = x.get("wrate").n;
+		if (x.get("brate").k == Val::Num) u->brate = x.get("brate").n;
+		if (x.get("gmul").k == Val::Ref) u->gmul = load_cost(x.get("gmul"));
+		// the keys TS added after the spawn, in their order
+		static const std::pair<const char *, Unit::Key> later[] = { { "mob", Unit::K_MOB }, { "herbs", Unit::K_HERBS }, { "flax", Unit::K_FLAX },
+			{ "dash", Unit::K_DASH }, { "dashAt", Unit::K_DASHAT }, { "dashTgt", Unit::K_DASHTGT }, { "dashHit", Unit::K_DASHHIT },
+			{ "slowUntil", Unit::K_SLOWUNTIL }, { "downAt", Unit::K_DOWNAT }, { "downQ", Unit::K_DOWNQ }, { "upAt", Unit::K_UPAT }, { "bossHit", Unit::K_BOSSHIT } };
+		for (const std::string &k : x.keys)
+			for (const auto &[name, key] : later)
+				if (k == name) u->keys.push_back(key);
+		u->mob = x.get("mob").strOr(), u->herbs = x.get("herbs").b, u->flax = x.get("flax").b, u->dash = x.get("dash").n, u->dashAt = x.get("dashAt").n;
+		u->dashTgt = x.has("dashTgt") ? x.get("dashTgt").i() : -1, u->dashHit = x.get("dashHit").b, u->slowUntil = x.get("slowUntil").n;
+		if (x.get("downAt").k == Val::Num) u->downAt = x.get("downAt").i();
+		if (x.get("downQ").k == Val::Num) u->downQ = x.get("downQ").n;
+		if (x.get("upAt").k == Val::Num) u->upAt = x.get("upAt").i();
+		if (x.get("bossHit").k == Val::Ref) u->bossHit = load_strs(x.get("bossHit"));
+	}
+	queue.clear();
+	for (const Val &v : r.get("queue").o->vals) queue.push_back(orderOf(v));
+	pathQueue.clear(), unitPathQueue.clear();
+	for (const Val &v : r.get("pathQueue").o->vals) pathQueue.push_back(squadOf(v));
+	for (const Val &v : r.get("unitPathQueue").o->vals) unitPathQueue.push_back(unitOf(v));
+	missiles.clear();
+	for (const Val &v : r.get("missiles").o->vals) {
+		const Obj &x = *v.o;
+		Flight m;
+		m.at = x.get("at").i(), m.by = unitOf(x.get("by")), m.t = unitOf(x.get("t")), m.raw = x.get("raw").n, m.ap = x.get("ap").n;
+		if (x.has("b")) m.aimed = true, m.b = x.get("b").i();
+		if (x.has("e")) m.aimed = true, m.e = x.get("e").i();
+		if (x.has("fb")) m.fb = x.get("fb").i();
+		missiles.push_back(m);
+	}
+	shots.clear();
+	for (const Val &v : r.get("shots").o->vals) {
+		const Obj &x = *v.o;
+		shots.push_back({ x.get("x0").n, x.get("y0").n, x.get("x1").n, x.get("y1").n, x.get("t0").n, x.get("t1").n, x.get("z0").n, x.get("z1").n,
+				x.get("by").i(), missile_of(x.get("kind").s), x.get("fire").b });
+	}
+	reslotQueue.clear();
+	for (const Val &v : r.get("reslotQueue").o->vals) reslotQueue.push_back(squadOf(v));
+	tick = r.get("tick").i();
+	loot.clear();
+	const Obj &lo = *r.get("loot").o;
+	for (size_t i = 0; i < lo.keys.size(); i++) {
+		std::vector<Item> &items = loot[std::stoi(lo.keys[i])];
+		for (const Val &it : lo.vals[i].o->vals) items.push_back(load_item(it));
+	}
+	evlog.clear();
+	for (const Val &v : r.get("log").o->vals) {
+		godot::Dictionary e = variant_of(v);
+		if (e.get("kind", "") == godot::String("soulClaimed") && e.get("person", godot::Variant()).get_type() == godot::Variant::DICTIONARY) {
+			// the C++ log keeps the claimer's id, name, class and level (sim_events.cpp ev_of)
+			const godot::Dictionary full = e["person"], hero = full.get("hero", godot::Dictionary());
+			godot::Dictionary p;
+			p["id"] = full.get("id", "");
+			p["name"] = hero.get("name", "");
+			if (hero.get("cls", godot::Variant()).get_type() == godot::Variant::STRING) p["cls"] = hero["cls"];
+			p["level"] = hero.get("level", 0);
+			e["person"] = p;
+		}
+		evlog.push_back(e);
+	}
+	civs.clear();
+	for (const Val &v : r.get("civs").o->vals) civs.push_back(unitOf(v));
+	dresser.clear();
+	for (const Val &v : r.get("dresser").o->vals) dresser.insert(v.i());
+	// the modules
+	if (r.get("souls").k == Val::Ref) {
+		const Obj &so = *r.get("souls").o;
+		SoulsRoot sr;
+		for (const Val &v : so.get("list").o->vals) {
+			const Obj &x = *v.o;
+			Soul s;
+			s.id = x.get("id").i(), s.x = x.get("x").n, s.y = x.get("y").n, s.cls = x.get("cls").s, s.level = x.get("level").n, s.site = x.get("site").s;
+			s.until = x.get("until").n, s.prog = x.get("prog").n, s.team = x.get("team").i(), s.contested = x.get("contested").b, s.at = x.get("at").i();
+			if (x.get("person").k == Val::Ref) {
+				const WarPerson p = war_person_from(variant_of(x.get("person")));
+				namedSouls[p.id] = p;
+				s.person = SoulPerson{ p.id, p.hero.name, p.hero.cls, double(p.hero.level) };
+			}
+			if (x.has("bar")) s.bar = x.get("bar").s;
+			if (x.get("barUntil").k == Val::Num) s.barUntil = x.get("barUntil").n;
+			sr.list.push_back(std::move(s));
+		}
+		sr.next = so.get("next").i();
+		for (const Val &v : so.get("fields").o->vals) sr.fields.push_back({ v.o->get("kind").s, v.o->get("x").n, v.o->get("y").n });
+		const Obj &cells = *so.get("cells").o;
+		for (size_t i = 0; i + 1 < cells.vals.size(); i += 2) {
+			const Obj &c = *cells.vals[i + 1].o, &by = *c.get("by").o;
+			SoulCell cell;
+			cell.n = c.get("n").n, cell.x = c.get("x").n, cell.y = c.get("y").n, cell.site = c.get("site").i();
+			for (size_t j = 0; j < by.keys.size(); j++) cell.by.emplace_back(by.keys[j], by.vals[j].n);
+			sr.cells.emplace_back(cells.vals[i].n, std::move(cell));
+		}
+		sr.rng.state = uint32_t(so.get("rng").o->get("state").n);
+		souls->load_root(sr);
+	}
+	crafting->load(*r.get("crafting").o);
+	works->load(*r.get("works").o, [&](const Val &v) -> Worker * { return unitOf(v); });
+	siege->load(*r.get("siege").o);
+	mobs->load(*r.get("mobs").o);
+	vision.load(*r.get("vision").o, [&](const Obj &o) { return works->loadSnap(o); });
+	const Obj &po = *r.get("piles").o;
+	piles->piles.clear();
+	for (const Val &v : po.get("piles").o->vals) {
+		const Obj &x = *v.o;
+		Pile p{ x.get("id").i(), x.get("x").n, x.get("y").n, load_hold(x.get("hold")), x.get("until").n, x.get("salv").n, x.get("by").i(), std::nullopt };
+		if (x.get("claim").k == Val::Ref) p.claim = PileClaim{ x.get("claim").o->get("owner").s, x.get("claim").o->get("name").s, x.get("claim").o->get("until").n };
+		piles->piles.push_back(std::move(p));
+	}
+	piles->load_root(po.get("nextId").i());
+	towns->load(*r.get("towns").o);
+	bosses->load(*r.get("bosses").o);
+	if (r.get("landmarks").k == Val::Ref) {
+		const Obj &l = *r.get("landmarks").o;
+		landmarks->load_root({ l.get("captured").b, l.get("restored").b, l.get("holder").i(), l.get("men").i(), l.get("foes").i(), l.get("state").s });
+	}
+	if (r.get("roam").k == Val::Ref) roam->load(*r.get("roam").o);
+	if (r.get("secrets").k == Val::Ref) {
+		const Obj &so = *r.get("secrets").o, &saves = *so.get("saves").o;
+		SecretsRoot sr;
+		for (size_t i = 0; i < saves.keys.size(); i++) {
+			const Obj &e = *saves.vals[i].o, &s = *e.get("save").o, &picks = *s.get("picks").o;
+			SecretSave ss;
+			ss.save.v = s.get("v").i(), ss.save.story = s.get("story").s, ss.save.n = s.get("n").n, ss.save.done = s.get("done").b;
+			if (s.get("at").k == Val::Str) ss.save.at = s.get("at").s;
+			for (size_t j = 0; j < picks.keys.size(); j++) ss.save.picks[picks.keys[j]] = picks.vals[j].s;
+			ss.team = e.get("team").i();
+			sr.saves.emplace_back(saves.keys[i], std::move(ss));
+		}
+		sr.tick = so.get("tick").n;
+		secrets->load_root(sr);
+	}
+	// the town levels, bonuses and labour log: refilled in place by the TS decode (no loadRoot)
+	std::vector<TownLevel> levels;
+	const Obj &tl = *r.get("townLv").o->get("levels").o;
+	for (size_t i = 0; i + 1 < tl.vals.size(); i += 2) {
+		const Obj &x = *tl.vals[i + 1].o;
+		TownLevel t;
+		t.team = x.get("team").i(), t.level = x.get("level").i(), t.x = x.get("x").n, t.y = x.get("y").n, t.centre = x.get("centre").i();
+		t.variety = x.get("variety").n, t.stone = x.get("stone").n, t.closed = x.get("closed").b, t.stoneWalls = x.get("stoneWalls").b;
+		levels.push_back(t);
+	}
+	townLv->load_root(std::move(levels));
+	bonuses.clear();
+	const Obj &bo = *r.get("bonuses").o;
+	for (size_t i = 0; i + 1 < bo.vals.size(); i += 2) {
+		const Obj &x = *bo.vals[i + 1].o;
+		TeamBonus &b = bonuses[bo.vals[i].i()];
+		b.keys = x.keys;
+		if (x.get("repairCost").k == Val::Num) b.repairCost = x.get("repairCost").n;
+		if (x.get("sight").k == Val::Num) b.sight = x.get("sight").n;
+	}
+	labourLog.clear();
+	const Obj &ll = *r.get("labourLog").o;
+	for (size_t i = 0; i + 1 < ll.vals.size(); i += 2) labourLog.emplace_back(ll.vals[i].s, ll.vals[i + 1].n);
+	slain = load_strs(r.get("slain"));
+	return true;
 }
 
 } // namespace sim
