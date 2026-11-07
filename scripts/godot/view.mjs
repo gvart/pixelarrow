@@ -7,6 +7,8 @@
 //   look.json, look.bin (gzip RGBA)                                        the per-man look palette (src/dev/godotLook.ts)
 //   buildings.json, buildings/<file>                                       the building and town art (src/dev/godotBuild.ts)
 //   ui/icons/<24|32>/<id>.png, ui/fonts/<name>.woff2                        the HUD's kit icons (public/war/ui) and fonts, copied
+//   world/<art>, world/fixture.json                                         the world map's art (public/war/world), copied, and
+//                                                                           its input until LocalWorld (src/dev/godotWorld.ts)
 // The ground and object art code needs canvases, so it runs in headless Chromium against a Vite server this script
 // starts; the looks and the building art are pure and run under node.
 // Usage: npm run view:godot [region ...]   (default: the Elaia slice)
@@ -62,6 +64,9 @@ try {
   cpSync(`${ROOT}public/war/ui/icons`, `${OUT}/ui/icons`, { recursive: true });
   for (const [pkg, file] of [['cinzel', 'cinzel-latin-700-normal'], ['inter', 'inter-latin-600-normal'], ['inter', 'inter-latin-700-normal']])
     cpSync(`${ROOT}node_modules/@fontsource/${pkg}/files/${file}.woff2`, `${OUT}/ui/fonts/${file}.woff2`);
+  // the world map (godot/src/world_view): the painted map and its region data, and the fixture world it shows
+  cpSync(`${ROOT}public/war/world`, `${OUT}/world`, { recursive: true, filter: (p) => !p.includes('/world/src') });
+  write('world/fixture.json', JSON.stringify((await runnerImport('/src/dev/godotWorld.ts', opts)).module.worldFixture()) + '\n');
   // plain files read at run time (Image.load_from_file), not Godot resources
   write('.gdignore', '');
   console.log(`${ids.length} regions, ${o.defs.length} object defs in godot/view (${((Date.now() - t0) / 1000).toFixed(1)} s)`);
