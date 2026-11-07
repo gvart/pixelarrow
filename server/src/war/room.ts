@@ -491,7 +491,8 @@ export class WarRoom {
   /** Persons on the field (alive) or waiting in the line. */
   personsHere(): Set<string> {
     const out = new Set<string>();
-    for (const u of this.snap.units) if (u.pid && (u.state !== 'dead' || u.down)) out.add(u.pid); // W-79: a man down is still here
+    // the sim's own snapshot: men spawned since the last tick (a join this tick) are here too
+    for (const u of this.sim.snapshot().units) if (u.pid && (u.state !== 'dead' || u.down)) out.add(u.pid); // W-79: a man down is still here
     for (const w of this.queue) for (const g of w.groups) for (const p of g.persons ?? []) out.add(p.id);
     return out;
   }
