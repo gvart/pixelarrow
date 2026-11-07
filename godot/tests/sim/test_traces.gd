@@ -74,6 +74,9 @@ static func _load() -> void:
 	# the rival warlords (warlords.h; tests/sim/test_warlords.gd runs them on the sim)
 	for n in ["src/war/sim/depth", "src/data/warWarlords", "src/war/sim/warlords", "src/war/world/regions", "src/war/world/alliances"]:
 		t[n] = GameData.table(n)
+	# the alliance AI and the season clock (alliance_ai.h, season_clock.h; tests/sim/test_ai.gd)
+	for n in ["src/war/sim/allianceAi", "src/war/sim/aiSeason", "src/war/world/season"]:
+		t[n] = GameData.table(n)
 	# the civilian classes, tools and affix steps (civilians.h)
 	for n in ["src/data/classes", "src/data/items", "src/data/affixes"]:
 		t[n] = GameData.table(n)

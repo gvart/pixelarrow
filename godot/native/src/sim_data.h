@@ -37,6 +37,8 @@
 #include "trade.h"
 #include "town_level.h"
 #include "warlords.h"
+#include "alliance_ai.h"
+#include "season_clock.h"
 #include "works.h"
 
 namespace sim {
@@ -71,6 +73,8 @@ struct Data {
 	RoamTables roam; // roam.h
 	BossSimTables boss_sim; // bosses.h
 	WarlordTables warlords; // warlords.h
+	AllyAiTables ally; // alliance_ai.h
+	SeasonTables season; // season_clock.h
 	SiegeTables siege; // SIEGE, RAM, THROWER... (src/war/sim/siege)
 	EncTables encounters; // encounters.h (ENC, ENCOUNTERS)
 	PrebuiltTables prebuilt; // prebuilt.h
