@@ -4,7 +4,7 @@
 // (src/war/world/regions) and ALLIANCES' count (src/war/world/alliances) come through SimData, REGION_DEPTH and
 // BASE_ITEMS from the depth and item tables. The TS reads the sim's snapshot and gives spawns and orders through the
 // public API; here the snapshot is WarlordsSnap (what it reads of one) and the calls go through WarlordsHost.
-// exportState/importState wait for the state port (the Lord fields are public for it).
+// exportState/importState: the director's state as its TS object (a room's save, RoomState.warlords).
 #pragma once
 
 #include <memory>
@@ -239,7 +239,7 @@ public:
 		std::optional<int> building, siege;
 		double until = 0;
 		int team = 0;
-		bool loot = false;
+		bool loot = false, hasLoot = false; // hasLoot: the TS key is set (a raid at goods behind a door)
 	};
 	struct Party {
 		int squad = -1;
@@ -290,6 +290,9 @@ public:
 	WarlordMemory memory() const;
 	void recall(const WarlordMemory &m);
 	void fell(const std::string &id, double at);
+	// exportState / importState (M5e eviction resume): { age, players, lords: [...], rng } as the TS object
+	godot::Dictionary exportState() const;
+	void importState(const godot::Dictionary &s);
 
 	std::vector<Lord> lords;
 

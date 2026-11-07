@@ -3,8 +3,13 @@
 ## quota's line, orders and their refusals, placement checks, the dev helpers, a fight; the guide, stories, encounters,
 ## warlords, world events, the region's memory and its recall) replayed into LocalRoom give the same server messages in
 ## the same order: JSON messages as JSON.stringify writes them (keys in order, numbers as TS has them) and binary frames
-## byte for byte; each tick's books (what the DO stores) and each look (memory, summary, the warlords' memory) the same.
-## The wire constants LocalRoom keeps are the TS ones, and parseClientMsg refuses and strips as the zod schema does.
+## byte for byte; each tick's books (what the DO books: fights, soul claims, raids, faded souls, larder draws, guide
+## steps, story and encounter runs, the wild's deeds, tasks' tallies, warlords' notes) and each look (memory, summary,
+## the warlords' memory) the same. With persons (the runs 'persons' and 'veterans'), the store round the room
+## (room_store.h MemoryStore, src/dev/roomStore.ts) as well: the results of the DO's and the world's calls (transfers,
+## musters, hires, level-ups, paths), the store itself as it changes, and the room's saves byte for byte, restored and
+## played on. The wire constants LocalRoom keeps are the TS ones, and parseClientMsg refuses and strips as the zod
+## schema does.
 extends TestCase
 
 const W := preload("res://tests/sim/wild.gd")
@@ -28,12 +33,14 @@ func test_room_matches_ts() -> void:
 		var room := LocalRoom.create(sim, run["opts"])
 		var frames := 0
 		var msgs := 0
+		var calls := 0
 		var steps: Array = run["steps"]
 		for n in steps.size():
 			var step: Dictionary = steps[n]
 			var why := ""
 			if step.get("tick", false):
 				room.tick()
+				# the tick's books the DO writes
 				why = _json(room.books(), step.get("books", {}), "books")
 			elif step.has("close"):
 				room.close(int(step["close"]))
@@ -60,12 +67,31 @@ func test_room_matches_ts() -> void:
 				room.recall(step["recall"], float(step["elapsed"]))
 			elif step.has("recallLords"):
 				room.recall_warlords(step["recallLords"])
+			elif step.has("op"):
+				var res: Variant = room.call_op(step["op"], step["args"])
+				if step["op"] == "save":
+					# the save byte for byte: its head (the room's books) first, then the sim's and bots' texts, then the whole
+					for k in ["head", "sim", "bots", "len", "sha"]:
+						why = W.diff(res[k], step["res"][k], "save.%s" % k)
+						if why != "":
+							break
+				else:
+					why = W.diff(res, step["res"], "%s res" % step["op"])
+				calls += 1
 			else:
 				room.send_as(int(step["pid"]), step["msg"])
 			if why == "":
 				why = _same(room.take(), step["out"])
+			if why == "" and step.has("store"):
+				# the store as the TS one (its own keys: persons, fights, goods)
+				var dump: Dictionary = room.store_dump()
+				var want: Dictionary = step["store"]
+				for k in want:
+					why = W.diff(dump[k], want[k], "store.%s" % k)
+					if why != "":
+						break
 			if why != "":
-				fail("%s step %d (tick %d, %s): %s" % [id, n, room.current_tick(), "tick" if step.get("tick", false) else str(step.get("msg", step)).left(120), why])
+				fail("%s step %d (tick %d, %s): %s" % [id, n, room.current_tick(), "tick" if step.get("tick", false) else str(step.get("msg", step.get("op", step))).left(120), why])
 				return
 			for o in step["out"]:
 				if o[1].has("frame"):
@@ -76,7 +102,7 @@ func test_room_matches_ts() -> void:
 		for u in room.snapshot()["units"]:
 			if u["state"] == "dead":
 				fallen += 1
-		print("%s: %d steps to tick %d (%d men fell), %d messages and %d frames the same" % [id, steps.size(), room.current_tick(), fallen, msgs, frames])
+		print("%s: %d steps to tick %d (%d men fell), %d messages, %d frames and %d calls the same" % [id, steps.size(), room.current_tick(), fallen, msgs, frames, calls])
 
 
 ## parseClientMsg (room_parse.h, the zod schema) gives what TS gives for every raw message: the parsed message (unknown

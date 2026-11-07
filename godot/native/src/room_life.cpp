@@ -4,8 +4,7 @@
 // ./taskWatch.ts GatherWatch and src/war/net/mastery.ts wildDeeds. The pure guide rules are net_guide.h; the story and
 // encounter runners stories.h and encounters.h; the warlords warlords.h (on the sim as host.h drives them).
 //
-// The bits of server/src/war/cargo.ts these need (tollOf, robOf) and index.ts cargo() for packs and carts are local
-// here (cargo_*): the holders' wave ports cargo.ts whole, and these then go to it.
+// Cargo (cargo.ts tollOf, robOf; index.ts cargo for packs and carts) is room_cargo.h's and Sim::cargo.
 #include "room.h"
 
 #include <algorithm>
@@ -15,6 +14,7 @@
 #include <godot_cpp/variant/string.hpp>
 
 #include "encounters.h"
+#include "room_cargo.h"
 #include "host.h"
 #include "js_json.h"
 #include "js_math.h"
@@ -57,50 +57,18 @@ static void add_to(std::vector<std::pair<std::string, double>> &g, const std::st
 	g.push_back({ k, n });
 }
 
-// ---------------------------------------------------------------- cargo (index.ts cargo, cargo.ts tollOf, robOf)
-
-struct CargoSlot {
-	Hold *hold;
-	double cap, x, y;
-};
+// index.ts cargo() of a squad's packs or a cart (room_cargo.h has cargo.ts tollOf and robOf)
 static std::vector<CargoSlot> cargo_squad(Sim &s, int squad) {
-	std::vector<CargoSlot> out;
-	for (Unit *u : s.units) {
-		if (!u->alive || u->squad->id != squad) continue;
-		if (!u->pack) u->pack = new_hold();
-		out.push_back({ &*u->pack, data().trade.PORTER.loads, u->x, u->y });
-	}
-	return out;
+	CargoRef r;
+	r.squad = squad;
+	const auto at = s.cargo(r);
+	return at ? at->slots : std::vector<CargoSlot>{};
 }
 static std::vector<CargoSlot> cargo_cart(Sim &s, int id) {
-	SiegeEngine *e = s.siege->get(id);
-	if (!e || !e->hold || e->state == "destroyed") return {};
-	return { { &*e->hold, s.siege->cart_cap(id), e->x, e->y } };
-}
-static void toll_of(const std::vector<CargoSlot> &slots, double share) {
-	for (const CargoSlot &s : slots)
-		for (Lot &l : s.hold->lots) l.n *= 1 - share;
-}
-static std::vector<std::pair<std::string, double>> rob_of(const std::vector<CargoSlot> &slots, double n) {
-	constexpr double EPS = 1e-6;
-	std::vector<std::pair<std::string, double>> out;
-	double left = n;
-	std::vector<Lot *> lots;
-	for (const CargoSlot &s : slots)
-		for (Lot &l : s.hold->lots)
-			if (l.r != "ration" && l.n > EPS) lots.push_back(&l);
-	std::stable_sort(lots.begin(), lots.end(), [](const Lot *a, const Lot *b) {
-		const int c = int(b->r == "coin") - int(a->r == "coin");
-		return c ? c < 0 : b->n - a->n < 0;
-	});
-	for (Lot *l : lots) {
-		if (left <= EPS) break;
-		const double k = std::min(l->n, left * per_load(l->r));
-		l->n -= k;
-		left -= k / per_load(l->r);
-		add_to(out, l->r, k);
-	}
-	return out;
+	CargoRef r;
+	r.cart = id;
+	const auto at = s.cargo(r);
+	return at ? at->slots : std::vector<CargoSlot>{};
 }
 
 // ---------------------------------------------------------------- the life's state
@@ -444,7 +412,7 @@ Variant Room::startEncounters(int pid, const Variant &saveIn) {
 		for (int64_t i = 0; i < es.size(); i++)
 			if (Dictionary(es[i]).has("owner") && u8(Dictionary(es[i])["owner"]) == me)
 				for (const CargoSlot &x : cargo_cart(sim, int(Dictionary(es[i])["id"]))) slots.push_back(x);
-		toll_of(slots, share);
+		cargo_toll(slots, share);
 	};
 	// W-219 as a raid (W-91): what they can carry, nothing more, from the load in their reach
 	host.rob = [this, me](const EncBand &band) {
@@ -460,7 +428,7 @@ Variant Room::startEncounters(int pid, const Variant &saveIn) {
 			if (u8(Dictionary(qs[i]).get("owner", "")) == me)
 				for (const CargoSlot &x : cargo_squad(sim, int(Dictionary(qs[i])["id"])))
 					if (js::hypot(x.x - band.x, x.y - band.y) <= ROB_REACH) slots.push_back(x);
-		const Tally took = rob_of(slots, band.alive * data().trade.PORTER.loads);
+		const Tally took = cargo_rob(slots, band.alive * data().trade.PORTER.loads);
 		sim.dropSquad(band.squad);
 		return took;
 	};
@@ -536,6 +504,12 @@ Variant Room::warlordMemory() const {
 	for (const auto &[k, r] : m.freed) freed[gs(k)] = record_dict(r);
 	d["freed"] = freed;
 	return d;
+}
+
+Variant Room::warlordsState() const { return life && life->lords ? Variant(life->lords->exportState()) : Variant(); }
+
+void Room::loadWarlords(const Dictionary &st) {
+	if (life && life->lords) life->lords->importState(st);
 }
 
 void Room::recallWarlords(const Dictionary &d) {

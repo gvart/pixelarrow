@@ -1461,7 +1461,7 @@ bool Sim::biteFrom(Unit &u, Hold *h) {
 	return false;
 }
 
-void Sim::refill(Unit &, Hold &pack, const std::vector<Hold *> &from) {
+void Sim::refill(Unit &u, Hold &pack, const std::vector<Hold *> &from) {
 	const HungerRules &H = data().food.HUNGER;
 	double want = H.kit - std::floor(amount(pack, "ration"));
 	for (Hold *h : from) {
@@ -1474,7 +1474,8 @@ void Sim::refill(Unit &, Hold &pack, const std::vector<Hold *> &from) {
 		const double n = std::min(want, std::floor(amount(*h, "food") / H.packFood));
 		if (n > 0) take(*h, "food", n * H.packFood), put_lots(pack, { Lot{ "ration", n, region.id, std::nullopt } }), want -= n;
 	}
-	// W-80: stub until the room port: no larder offline
+	const double n = want > 0 && larder ? std::min(want, std::floor(larder(u.squad->owner, u.squad->team, want))) : 0;
+	if (n > 0) put_lots(pack, { Lot{ "ration", n, region.id, std::nullopt } });
 }
 
 void Sim::hungerTick() {
