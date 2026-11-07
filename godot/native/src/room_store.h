@@ -125,6 +125,11 @@ public:
 	void setGoods(int pid, const Cost &goods);
 	void setPath(int pid, const PlayerPath &way);
 	const Rec *rec(const std::string &id) const;
+	// P11 (src/dev/vectors/room.ts TsLocal.worldDepart, worldArrive): his fit and wounded men the store has in `region`
+	// (regionDO.ts riders), a region set on the records `where` picks, persons.ts settle (his timers)
+	std::vector<std::string> riders(int pid, const std::string &region) const;
+	void setRegion(const std::function<bool(const Rec &)> &where, const std::string &region);
+	void settlePid(int pid, double now, const WakeSoul &wake) { settle(pid, now, wake); }
 
 	// the store as JSON ({persons, fights, goods} as src/dev/roomStore.ts dumps it, plus paths, rooms and saves), back, and
 	// on disk

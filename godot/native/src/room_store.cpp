@@ -186,6 +186,18 @@ const MemoryStore::Rec *MemoryStore::rec(const std::string &id) const {
 	return nullptr;
 }
 
+std::vector<std::string> MemoryStore::riders(int pid, const std::string &region) const {
+	std::vector<std::string> out;
+	for (const Rec &r : recs)
+		if (r.pid == pid && (r.state == "active" || r.state == "wounded") && r.region && *r.region == region) out.push_back(r.id);
+	return out;
+}
+
+void MemoryStore::setRegion(const std::function<bool(const Rec &)> &where, const std::string &region) {
+	for (Rec &r : recs)
+		if (where(r)) r.region = region;
+}
+
 void MemoryStore::add(int pid, const WarPerson &p, const std::optional<std::string> &region) {
 	Rec r;
 	r.id = p.id, r.pid = pid, r.state = "active", r.region = region, r.person = p;

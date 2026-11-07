@@ -181,6 +181,9 @@ public:
 
 	// seeds (what REST, the crown and the season sweep leave in D1), as src/dev/vectors/room.ts calls them
 	void ally(int pid, int alliance, const std::string &name);
+	// P11 (src/dev/localWorld.ts): his alliance alone (the world's seed), and every player's (the Map, in order)
+	void setAlliance(int pid, int alliance);
+	const std::vector<std::pair<int, int>> &allianceList() const { return alliances; }
 	int addSettlement(const godot::Dictionary &s); // {region, centre, x, y, r, name, lord, level?, persist?}
 	void addMember(int settlement, int pid, const std::string &role, const std::optional<Plot> &plot, double now);
 	void swear(int vassal, int lord, std::optional<double> pct);

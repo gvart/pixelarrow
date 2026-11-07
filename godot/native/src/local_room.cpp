@@ -12,6 +12,7 @@
 
 #include "grid.h"
 #include "js_json.h"
+#include "room_cargo.h"
 #include "room_parse.h"
 #include "sim_data.h"
 
@@ -214,6 +215,7 @@ void LocalRoom::send_as(int p, const Dictionary &raw) {
 void LocalRoom::tick() {
 	sim::Room &r = *room;
 	const sim::Room::TickOut res = r.tick();
+	sacrilege = res.sacrilege;
 	const std::string region = S(sim->meta["id"]);
 	const sim::WakeSoul wk = [this](const sim::StoredSoul &s) { return wake(s); };
 	// the tick's books into the store, as regionDO.ts writes them to D1
@@ -529,6 +531,77 @@ Variant LocalRoom::call_op(const String &op_, const Array &a) {
 	return Variant();
 }
 
+Dictionary LocalRoom::world_depart(int p, const std::string &side, const std::string &to, double foeRadius) {
+	sim::Room &r = *room;
+	const std::string region = S(sim->meta["id"]);
+	r.guideDeparted(p, to); // W-73: the guide's hand-off, closed on the way out
+	const sim::Room::Departed d = r.depart(p, side, foeRadius);
+	Dictionary res;
+	if (!d.error.empty()) {
+		res["error"] = String::utf8(d.error.c_str());
+		res["detail"] = String::utf8(d.detail.c_str());
+		return res;
+	}
+	if (d.fight) store->applyFight(d.fight->id, region, d.fight->report, now());
+	std::vector<std::string> ids = d.ids;
+	for (const std::string &id : store->riders(p, region))
+		if (std::find(ids.begin(), ids.end(), id) == ids.end()) ids.push_back(id);
+	store->setRegion([&](const sim::MemoryStore::Rec &x) { return x.pid == p && std::find(ids.begin(), ids.end(), x.id) != ids.end(); }, ">" + to);
+	Dictionary lost;
+	for (const auto &[id, n] : d.lost) lost[String::utf8(id.c_str())] = n;
+	res["ids"] = str_array(ids);
+	res["off"] = d.off;
+	res["lost"] = lost;
+	if (d.cargo) res["cargo"] = *d.cargo;
+	return res;
+}
+
+// server/src/war/world/world.ts cargoLoads: the packs', then the carts'
+static double cargo_loads(const Dictionary &c) {
+	double packs = 0, carts = 0;
+	const Dictionary ps = c.get("packs", Dictionary());
+	const Array ks = ps.keys();
+	for (int64_t i = 0; i < ks.size(); i++) packs = packs + sim::bundle_loads(sim::bundle_from(ps[ks[i]]));
+	const Array cs = c.get("carts", Array());
+	for (int64_t i = 0; i < cs.size(); i++) carts = carts + sim::bundle_loads(sim::bundle_from(cs[i]));
+	return packs + carts;
+}
+
+Dictionary LocalRoom::world_arrive(int p, int team, const std::vector<std::string> &ids, const std::string &side, const Dictionary &l, const Dictionary &cargo) {
+	sim::Room &r = *room;
+	const std::string region = S(sim->meta["id"]), road = ">" + region;
+	const sim::WakeSoul wk = [this](const sim::StoredSoul &s) { return wake(s); };
+	store->settlePid(p, now(), wk);
+	r.setPath(p, store->path(p)); // W-85, W-101: his limits, here too
+	const std::vector<sim::WarPerson> got = store->deployed(road, ids);
+	std::vector<sim::WarPerson> persons;
+	for (const std::string &id : ids)
+		for (const sim::WarPerson &x : got)
+			if (x.id == id) persons.push_back(x);
+	const auto mark = [&] { store->setRegion([&](const sim::MemoryStore::Rec &x) { return x.region && *x.region == road && std::find(ids.begin(), ids.end(), x.id) != ids.end(); }, region); };
+	Dictionary res;
+	if (persons.empty()) {
+		mark();
+		res["error"] = "gone";
+		return res;
+	}
+	std::vector<std::pair<std::string, double>> lost;
+	const Array ks = l.keys();
+	for (int64_t i = 0; i < ks.size(); i++) lost.emplace_back(S(ks[i]), double(l[ks[i]]));
+	const sim::Room::Arrived a = r.arrive(p, team, persons, side, lost, cargo);
+	if (!a.error.empty()) {
+		res["error"] = String::utf8(a.error.c_str());
+		return res;
+	}
+	if (!cargo.is_empty()) store->politics().addFavour(p, cargo_loads(cargo) * FAVOUR_CARRIED, "carried", now()); // W-111
+	mark();
+	if (!a.msg.is_empty()) tell(p, a.msg);
+	res["ok"] = true;
+	return res;
+}
+
+bool LocalRoom::has_warlords() const { return room->warlordMemory().get_type() != Variant::NIL; }
+
 Array LocalRoom::take() {
 	const Array a = out;
 	out = Array();
@@ -593,6 +666,7 @@ void LocalRoom::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("present"), &LocalRoom::present);
 	ClassDB::bind_method(D_METHOD("boss_loot"), &LocalRoom::boss_loot);
 	ClassDB::bind_method(D_METHOD("road", "pid", "loads", "key"), &LocalRoom::road);
+	ClassDB::bind_method(D_METHOD("get_sim"), &LocalRoom::get_sim);
 	ClassDB::bind_static_method("LocalRoom", D_METHOD("parse", "raw"), &LocalRoom::parse);
 	ClassDB::bind_static_method("LocalRoom", D_METHOD("constants"), &LocalRoom::constants);
 	ClassDB::bind_static_method("LocalRoom", D_METHOD("js_json", "v"), &LocalRoom::js_json);

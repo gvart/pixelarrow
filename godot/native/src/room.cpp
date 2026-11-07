@@ -863,6 +863,8 @@ Room::TickOut Room::tick() {
 	TickOut out;
 	lifeLords(out); // W-72 proposal: the warlords think on this snapshot (their spawns show from the next)
 	const std::vector<Dictionary> evs = sim.events();
+	for (const Dictionary &e : evs)
+		if (S(e["kind"]) == "razed" && bool(e.get("sacrilege", false)) && int(e["by"]) >= 0 && int(e["by"]) < Net::ALLIANCES) out.sacrilege.push_back(int(e["by"]));
 	tradeTick(out, evs); // crafted items into chests (deposit), a slain guardian's loot pile, mends freed (room_trade.cpp)
 	personsTick(out, evs); // M5e raids, W-68 faded souls, the forts stormed
 	live.assign(per.size(), 0);

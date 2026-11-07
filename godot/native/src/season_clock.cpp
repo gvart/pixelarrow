@@ -25,7 +25,7 @@ void load_season_tables(const godot::Dictionary &tables, SeasonTables &out) {
 		out.FRONTIER_TOWNS = strs(s["FRONTIER_TOWNS"]);
 		out.GATES = strs(s["GATES"]);
 		out.SCORE = { sc["omphalos"], sc["town"], sc["gate"], sc["neutral"], sc["ruinedTown"] };
-		out.LIVING = { lv["landmark"], lv["landmarkCap"], lv["prestigeCap"] };
+		out.LIVING = { lv["landmark"], lv["landmarkCap"], lv["prestigeCap"], lv["sacrilege"] };
 		out.HEGEMONY = { hg["towns"], hg["ms"] };
 		out.HOUR_MS = s["HOUR_MS"];
 	}
@@ -54,7 +54,7 @@ double score_rate(const ClockRegion &r) {
 			if (r.live[i] > 0 && int(i) != r.owner) return 0;
 		return T().SCORE.omphalos;
 	}
-	if (has(T().FRONTIER_TOWNS, r.id)) return T().SCORE.town; // a ruined town: the room layer's (P8)
+	if (has(T().FRONTIER_TOWNS, r.id)) return r.ruined ? T().SCORE.ruinedTown : T().SCORE.town;
 	if (has(T().GATES, r.id)) return T().SCORE.gate;
 	const auto *w = worldRegion(r.id);
 	return w && w->role == "neutral" ? T().SCORE.neutral : 0;
@@ -63,8 +63,13 @@ double score_rate(const ClockRegion &r) {
 std::vector<double> alliance_rates(const std::vector<ClockRegion> &regions) {
 	const size_t n = size_t(T().ALLIANCES);
 	std::vector<double> out(n, 0), lm(n, 0), pr(n, 0);
-	for (const ClockRegion &r : regions)
+	for (const ClockRegion &r : regions) {
 		if (r.owner >= 0 && size_t(r.owner) < n) out[r.owner] += score_rate(r);
+		const int h = r.hasLandmark ? r.holder : -1;
+		if (r.hasLandmark && r.garrisoned && h >= 0 && size_t(h) < n) lm[h] += T().LIVING.landmark;
+		for (size_t i = 0; i < r.prestige.size(); i++)
+			if (i < n) pr[i] += r.prestige[i];
+	}
 	for (size_t i = 0; i < n; i++) out[i] = out[i] + std::min(T().LIVING.landmarkCap, lm[i]) + std::min(T().LIVING.prestigeCap, pr[i]);
 	return out;
 }

@@ -10,6 +10,7 @@
 #include "grid.h"
 #include "landmarks.h"
 #include "local_room.h"
+#include "local_world.h"
 #include "prebuilt.h"
 #include "probe.h"
 #include "rng.h"
@@ -43,6 +44,7 @@ static void initialize_pixelsim(ModuleInitializationLevel level) {
 	GDREGISTER_CLASS(StoryRun);
 	GDREGISTER_CLASS(Sim);
 	GDREGISTER_CLASS(LocalRoom);
+	GDREGISTER_CLASS(LocalWorld);
 	GDREGISTER_CLASS(WildProbe);
 	GDREGISTER_CLASS(MobsProbe);
 	GDREGISTER_CLASS(RoamProbe);
