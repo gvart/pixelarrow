@@ -23,6 +23,6 @@ if (!ids.length) {
   const { module: v } = await runnerImport('/src/dev/godotVectors.ts', opts);
   const { module: j } = await runnerImport('/src/dev/godotJson.ts', opts);
   mkdirSync(`${OUT}/vectors`, { recursive: true });
-  for (const [name, data] of Object.entries(v.vectors((b) => createHash('sha256').update(b).digest('hex')))) writeFileSync(`${OUT}/vectors/${name}.json`, j.exactJson(data) + '\n');
+  for (const [name, data] of Object.entries(v.vectors((b) => createHash('sha256').update(b).digest('hex')))) writeFileSync(`${OUT}/vectors/${name}.json`, j.exactJson(await data) + '\n'); // a module's vectors may be async (world)
 }
 console.log(`\n${ids.length || m.scenarioIds().length} traces in godot/tests/golden (${((Date.now() - t0) / 1000).toFixed(1)} s)`);
