@@ -1,0 +1,22 @@
+server/test/war/stories.test.ts
+  s_1a6e9ade9f303e::t_9138aca6883e6b 71-82
+server/src/war/stories.ts
+  s_1a6e9ade9f303e::t_5fd7a7d84999c5 45
+  s_1a6e9ade9f303e::t_efc5f938d560fc 34-35
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a44050e8f6304c02bc825e4d1927c043d9e112e5",
+  "prompts": {},
+  "sessions": {
+    "s_1a6e9ade9f303e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2c9e00ce-6ba5-4b5a-8be5-a4a273976934",
+        "model": "unknown"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
