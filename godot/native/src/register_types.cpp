@@ -24,6 +24,7 @@
 #include "tunnel.h"
 #include "vision.h"
 #include "warlords_probe.h"
+#include "host.h"
 #include "wild_probe.h"
 #include "works_probe.h"
 
@@ -56,6 +57,7 @@ static void initialize_pixelsim(ModuleInitializationLevel level) {
 	GDREGISTER_CLASS(Towns);
 	GDREGISTER_CLASS(Roster);
 	GDREGISTER_CLASS(WarlordsProbe);
+	GDREGISTER_CLASS(WarHost);
 }
 
 static void uninitialize_pixelsim(ModuleInitializationLevel level) {}

@@ -5,6 +5,7 @@
 extends TestCase
 
 const W := preload("res://tests/sim/wild.gd")
+const Traces := preload("res://tests/sim/test_traces.gd")
 
 
 static func load_data() -> void:
@@ -60,3 +61,46 @@ func test_warlords_match_ts() -> void:
 				fail(d)
 				return
 			last = t
+
+
+## The warlords wired to the real sim (godot/tests/golden/vectors/warlordsHost.json, src/dev/vectors/warlordsHost.ts): the
+## scenario's setup replayed, the warlords started as the sandbox starts them, then each WarHost step (the sim, its
+## bots, the warlords) matches the TS bit for bit every 25 ticks: men, buildings, stock, the event log, the warlords'
+## notes since the last frame, their snaps and men.
+func test_warlords_on_the_sim_match_ts() -> void:
+	Traces._load()
+	var runs: Array = W.vectors("warlordsHost")["runs"]
+	check(runs.size() > 0, "no runs in vectors/warlordsHost.json")
+	for t in runs:
+		var id: String = t["id"]
+		# ['warlords', age, players, raid]: they read nothing of the sim when started, so they start after the rest
+		var start: Array = []
+		var setup: Array = []
+		for op in t["setup"]:
+			if op[0] == "warlords":
+				start = op
+			else:
+				setup.append(op)
+		var run: Dictionary = t.duplicate()
+		run["setup"] = setup
+		var sim := Traces.make(run, self)
+		if sim == null:
+			return
+		var host := WarHost.create(sim)
+		check(not start.is_empty() and host.start_warlords(float(start[1]), float(start[2]), start[3]), "%s: warlords started" % id)
+		var frames: Array = t["frames"]
+		for want in frames:
+			while sim.get_tick() < int(want["tick"]):
+				host.step()
+			var where := "%s tick %d" % [id, int(want["tick"])]
+			var why := Traces._differs(sim.digest(), want, 0.0)
+			if why == "":
+				why = W.diff(sim.events(), want["events"], "events")
+			if why == "":
+				why = W.diff(host.warlord_notes(), want["lords"]["notes"], "notes")
+			if why == "":
+				why = W.diff({"snaps": host.warlord_snaps(), "men": host.warlord_men()}, {"snaps": want["lords"]["snaps"], "men": want["lords"]["men"]}, "snaps")
+			if why != "":
+				fail("%s: %s" % [where, why])
+				return
+		print("%s: %d exact checkpoints with the warlords" % [id, frames.size()])
