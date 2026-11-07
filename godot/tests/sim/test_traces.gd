@@ -80,6 +80,9 @@ static func _load() -> void:
 	# the civilian classes, tools and affix steps (civilians.h)
 	for n in ["src/data/classes", "src/data/items", "src/data/affixes"]:
 		t[n] = GameData.table(n)
+	# the room's town rest (room.h; tests/sim/test_room.gd)
+	for n in ["src/data/warNpcTowns", "src/data/warTownBoard"]:
+		t[n] = GameData.table(n)
 	SimData.load(t)
 
 

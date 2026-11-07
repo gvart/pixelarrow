@@ -7,6 +7,7 @@
 #pragma once
 
 #include <map>
+#include <set>
 #include <optional>
 #include <string>
 #include <utility>
@@ -64,6 +65,7 @@ struct CivilianTables {
 	std::vector<std::string> AT_BUILDING;
 	// data deps
 	std::map<std::string, CivClassDef> CIV_CLASSES; // lookup only
+	std::set<std::string> CLASS_IDS; // src/data/classes CLASSES (isClassId), lookup only
 	std::map<std::string, int> CIV_TOOLS; // tool id -> tier, lookup only
 	std::vector<std::string> RARITIES;
 	double DEFT = 0, BOUNTIFUL = 0; // AFFIXES.deft.step, AFFIXES.bountiful.step

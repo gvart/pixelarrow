@@ -243,6 +243,10 @@ static void load_civilians(CivilianTables &t, const Dictionary &c) {
 }
 
 static void load_civ_classes(CivilianTables &t, const Dictionary &m) {
+	if (m.has("CLASSES")) {
+		const Array ids = Dictionary(m["CLASSES"]).keys();
+		for (int64_t i = 0; i < ids.size(); i++) t.CLASS_IDS.insert(str(ids[i]));
+	}
 	const Dictionary cc = m["CIV_CLASSES"], tools = m["CIV_TOOLS"];
 	Array ks = cc.keys();
 	for (int64_t i = 0; i < ks.size(); i++) {
@@ -297,6 +301,12 @@ void load_tables(Data &d, const Dictionary &tables) {
 	if (has("src/war/sim/mobs")) load_mobs(d.mobs, at("src/war/sim/mobs"));
 	if (has("src/data/warWild")) load_wild(d.wild, at("src/data/warWild"));
 	if (has("src/data/warBosses")) load_bosses(d.bosses, at("src/data/warBosses"));
+	if (has("src/data/warNpcTowns")) d.room.npcReach = Dictionary(at("src/data/warNpcTowns")["NPC"])["reach"];
+	if (has("src/data/warTownBoard")) {
+		const Dictionary r = Dictionary(at("src/data/warTownBoard")["BOARD"])["rest"];
+		d.room.restPerSec = r["perSec"];
+		d.room.restFoeR = r["foeR"];
+	}
 }
 
 } // namespace sim

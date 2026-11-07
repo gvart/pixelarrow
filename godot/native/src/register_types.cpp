@@ -9,6 +9,7 @@
 #include "goods_probe.h"
 #include "grid.h"
 #include "landmarks.h"
+#include "local_room.h"
 #include "prebuilt.h"
 #include "probe.h"
 #include "rng.h"
@@ -41,6 +42,7 @@ static void initialize_pixelsim(ModuleInitializationLevel level) {
 	GDREGISTER_CLASS(Tunnel);
 	GDREGISTER_CLASS(StoryRun);
 	GDREGISTER_CLASS(Sim);
+	GDREGISTER_CLASS(LocalRoom);
 	GDREGISTER_CLASS(WildProbe);
 	GDREGISTER_CLASS(MobsProbe);
 	GDREGISTER_CLASS(RoamProbe);
