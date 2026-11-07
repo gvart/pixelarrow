@@ -1,0 +1,102 @@
+godot/native/src/local_room.cpp
+  s_1a6e9ade9f303e::t_3dc397a0cd7bd7 510-512
+  s_1a6e9ade9f303e::t_fa2f1820289bcf 319-429,461-465
+  s_1a6e9ade9f303e::t_8b398ff60320e5 82
+  s_1a6e9ade9f303e::t_c336f6d1af2cd8 195-213,215-251
+  s_1a6e9ade9f303e::t_df7a45121424a5 71-81,83-100
+  s_1a6e9ade9f303e::t_a23287a896509a 126-149,152-162
+  s_1a6e9ade9f303e::t_87de0030211b35 430-460
+  s_1a6e9ade9f303e::t_cc9073cb495c6b 5-6,9,13
+  s_1a6e9ade9f303e::t_2d917bdd76fccf 271-318
+  s_1a6e9ade9f303e::t_290d259edbb6b6 214
+  s_1a6e9ade9f303e::t_48ef07dd3e74da 48-56
+  s_1a6e9ade9f303e::t_2a14ce1f4b49c6 466
+godot/native/src/sim.cpp
+  s_1a6e9ade9f303e::t_958986647b179c 1464
+  s_1a6e9ade9f303e::t_140e9276ff31f7 1477-1478
+godot/native/src/captives.h
+  s_1a6e9ade9f303e::t_929a4a37529cac 18
+godot/native/src/room.h
+  s_1a6e9ade9f303e::t_a8f4b6045e3d99 160
+  s_1a6e9ade9f303e::t_dd52a0fc34459b 213-222
+  s_1a6e9ade9f303e::t_1c7efd733be25b 80-106,111-120
+  s_1a6e9ade9f303e::t_5fc023366f6c59 2-3,7-9,12-13
+  s_1a6e9ade9f303e::t_778b431202c077 205-212,223-228
+  s_1a6e9ade9f303e::t_2e6d3b6b23a0e7 177,182
+  s_1a6e9ade9f303e::t_2778797ef6ae7f 143
+  s_1a6e9ade9f303e::t_bd06cbc0869147 142,145-159,161-162
+  s_1a6e9ade9f303e::t_3348053feba7b0 131-132
+  s_1a6e9ade9f303e::t_3b750a93c2b416 238
+  s_1a6e9ade9f303e::t_4edfad6daa1855 144
+godot/native/src/state.h
+  s_1a6e9ade9f303e::t_8fdfb6865fe5da 179-181,192
+godot/native/src/room.cpp
+  s_1a6e9ade9f303e::t_eb263834ea9a5d 696
+  s_1a6e9ade9f303e::t_d80493e5dec07f 852-854
+  s_1a6e9ade9f303e::t_ff7438cc8451ba 1041-1044
+  s_1a6e9ade9f303e::t_f54cb6004499d9 328-330
+  s_1a6e9ade9f303e::t_c9d321debefdb7 399
+  s_1a6e9ade9f303e::t_d69f5050d63db3 413
+  s_1a6e9ade9f303e::t_82d104ebf49fc5 444
+  s_1a6e9ade9f303e::t_fce2a4d75b9c1b 531-534
+  s_1a6e9ade9f303e::t_297313e29a41d9 460-465
+  s_1a6e9ade9f303e::t_7eda028c51a9d1 921-925
+  s_1a6e9ade9f303e::t_d6c6dbf08057dd 772-775
+  s_1a6e9ade9f303e::t_780d6ff3646de0 427-437
+  s_1a6e9ade9f303e::t_3b80c9e591ed71 886-887
+  s_1a6e9ade9f303e::t_49fa7abf33d9e4 1040
+  s_1a6e9ade9f303e::t_b3f5222db084e7 1038
+godot/native/src/local_room.h
+  s_1a6e9ade9f303e::t_3dad237cccefee 65,67-73
+  s_1a6e9ade9f303e::t_a06f2ad139941f 5-6,11-16,18-20,32,42-43,46-47,52-56
+godot/native/src/sim.h
+  s_1a6e9ade9f303e::t_4f7e4766db9554 649-663
+  s_1a6e9ade9f303e::t_a156b70d839b71 471
+  s_1a6e9ade9f303e::t_4977d1002c47a7 335-369
+godot/native/src/load_tables.cpp
+  s_1a6e9ade9f303e::t_ed810e808a9e65 221
+  s_1a6e9ade9f303e::t_b7d51a6a67574f 305-306
+godot/native/src/sim_state.cpp
+  s_1a6e9ade9f303e::t_c2c3a78868451b 241,299
+  s_1a6e9ade9f303e::t_6cdf1dba8ff133 152-158
+godot/native/src/bots.h
+  s_1a6e9ade9f303e::t_c6d7e8910de901 15-16,103,109-112
+godot/native/src/sim_persons.cpp
+  s_1a6e9ade9f303e::t_06b8ea89838080 107
+  s_1a6e9ade9f303e::t_8a0038d484d764 1-106,108-280
+godot/native/src/room_persons.cpp
+  s_1a6e9ade9f303e::t_bf39b37375e63e 461-479
+  s_1a6e9ade9f303e::t_1d92d8bcdd45c0 1-456,458-460,480-522,664-665
+  s_1a6e9ade9f303e::t_2bf9f869398058 554-557
+  s_1a6e9ade9f303e::t_102f0385d4eb6d 523-553,558-638,642,644-663
+  s_1a6e9ade9f303e::t_332f35dddcecf2 639-641,643
+  s_1a6e9ade9f303e::t_acbd071fb638a3 457
+godot/native/src/room_cargo.h
+  s_1a6e9ade9f303e::t_fcf62bbf04507a 1-31
+godot/native/src/bots_state.cpp
+  s_1a6e9ade9f303e::t_031541623c1d50 1-138
+godot/native/src/sim_data.h
+  s_1a6e9ade9f303e::t_8c25709286267d 49
+godot/native/src/room_cargo.cpp
+  s_1a6e9ade9f303e::t_2d5a29bf8ac594 1-85
+godot/native/src/state.cpp
+  s_1a6e9ade9f303e::t_8fdfb6865fe5da 182,315-321,490,496-501
+godot/native/src/bots.cpp
+  s_1a6e9ade9f303e::t_c6d7e8910de901 185
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4cf03edc1ffd99b69e6983a29c62a28e4f05cd9f",
+  "prompts": {},
+  "sessions": {
+    "s_1a6e9ade9f303e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2c9e00ce-6ba5-4b5a-8be5-a4a273976934",
+        "model": "unknown"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
