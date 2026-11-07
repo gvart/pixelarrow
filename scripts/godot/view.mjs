@@ -6,6 +6,7 @@
 //   sheets/<class>/<class>.png, manifest.json                              the unit sheets (src/assets/sheets), copied
 //   look.json, look.bin (gzip RGBA)                                        the per-man look palette (src/dev/godotLook.ts)
 //   buildings.json, buildings/<file>                                       the building and town art (src/dev/godotBuild.ts)
+//   ui/icons/<24|32>/<id>.png, ui/fonts/<name>.woff2                        the HUD's kit icons (public/war/ui) and fonts, copied
 // The ground and object art code needs canvases, so it runs in headless Chromium against a Vite server this script
 // starts; the looks and the building art are pure and run under node.
 // Usage: npm run view:godot [region ...]   (default: the Elaia slice)
@@ -57,6 +58,10 @@ try {
   const bld = (await runnerImport('/src/dev/godotBuild.ts', opts)).module.buildingArt((p) => readFileSync(`${ROOT}${p}`, 'utf8'));
   write('buildings.json', JSON.stringify(bld.json) + '\n');
   for (const [from, to] of bld.files) { mkdirSync(`${OUT}/buildings/${to}`.replace(/\/[^/]*$/, ''), { recursive: true }); cpSync(`${ROOT}${from}`, `${OUT}/buildings/${to}`); }
+  // the HUD (godot/src/hud): the kit's icons and the two faces of the DOM HUD (Cinzel titles, Inter body)
+  cpSync(`${ROOT}public/war/ui/icons`, `${OUT}/ui/icons`, { recursive: true });
+  for (const [pkg, file] of [['cinzel', 'cinzel-latin-700-normal'], ['inter', 'inter-latin-600-normal'], ['inter', 'inter-latin-700-normal']])
+    cpSync(`${ROOT}node_modules/@fontsource/${pkg}/files/${file}.woff2`, `${OUT}/ui/fonts/${file}.woff2`);
   // plain files read at run time (Image.load_from_file), not Godot resources
   write('.gdignore', '');
   console.log(`${ids.length} regions, ${o.defs.length} object defs in godot/view (${((Date.now() - t0) / 1000).toFixed(1)} s)`);
