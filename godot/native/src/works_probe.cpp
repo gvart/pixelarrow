@@ -168,7 +168,7 @@ struct ReplayWorksHost : WorksHost {
 	}
 };
 
-static godot::Dictionary snapDict(const BuildingSnap &s) {
+godot::Dictionary snapDict(const BuildingSnap &s) {
 	godot::Dictionary d;
 	d["id"] = s.id;
 	d["type"] = G(s.type);

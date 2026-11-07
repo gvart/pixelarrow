@@ -222,7 +222,7 @@ static WallOrder wallOrderOf(const godot::Dictionary &d) {
 	return o;
 }
 
-static godot::Dictionary siegeSnapDict(const SiegeSnap &s) {
+godot::Dictionary siegeSnapDict(const SiegeSnap &s) {
 	godot::Dictionary d;
 	d["id"] = s.id;
 	d["type"] = G(s.type);

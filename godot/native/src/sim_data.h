@@ -43,6 +43,11 @@
 
 namespace sim {
 
+// What the room (room.h) reads of src/data/warNpcTowns (NPC.reach) and src/data/warTownBoard (BOARD.rest): W-194 town rest.
+struct RoomTables {
+	double npcReach = 0, restPerSec = 0, restFoeR = 0;
+};
+
 struct Data {
 	ClassTable classes;
 	ItemTable items; // makeItem (item.h)
@@ -81,6 +86,7 @@ struct Data {
 	RosterTables roster; // roster.h
 	StatTables stats; // stats.h: the item rules and the war bake (warStatsOf)
 	StartTables start; // start.h: PATHS, FAMILIES
+	RoomTables room; // room.h: the town rest
 	std::map<std::string, std::vector<std::string>> names; // NAMES by culture (src/data/names, freeName), lookup only
 };
 const Data &data();
