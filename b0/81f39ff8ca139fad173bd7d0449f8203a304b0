@@ -1,0 +1,100 @@
+godot/native/src/roster.cpp
+  s_1a6e9ade9f303e::t_24469c2d09b983 478,540
+godot/native/src/state.cpp
+  s_1a6e9ade9f303e::t_10f9d30593e885 1-487,489-491,493,495-500,502-505,507-514,516,520,526,528,531,533-535,537-540,542-546,548,550,555-557,559-560,562-564,566-567,572-573,575-577,579-581
+  s_1a6e9ade9f303e::t_aa5bd45c2f822b 488,492,494,501,506,515,517-519,521-525,527,529-530,532,536,541,547,549,551-554,558,561,565,568-571,574,578
+godot/native/src/classes.h
+  s_1a6e9ade9f303e::t_f5cfa61218733e 27,30-36
+  s_1a6e9ade9f303e::t_f1e0c1ce36ffea 37
+godot/native/src/modules_state.cpp
+  s_1a6e9ade9f303e::t_0b8cf0c305e3d2 340,386-387
+  s_1a6e9ade9f303e::t_514cd3e602b772 1-339,341-385,388-431
+godot/native/src/sim_data.cpp
+  s_1a6e9ade9f303e::t_f5cfa61218733e 33,42-46
+  s_1a6e9ade9f303e::t_94b65dd51dfc99 47-48
+godot/tests/sim/test_traces.gd
+  s_1a6e9ade9f303e::t_f77e51c7ab8243 50,80-82,130-131,133-143
+godot/native/src/js_map.h
+  s_1a6e9ade9f303e::t_20bbe0ff79c768 1-115
+godot/native/src/works.cpp
+  s_1a6e9ade9f303e::t_6a377324cdc2aa 487,497,548,738,843,1380,2398,2434,2500,2762
+godot/native/src/sim.h
+  s_1a6e9ade9f303e::t_bab97864e35c34 39,50,121-128,133,223,352-359,372,413,415,430-444,450,637-641,644-647
+  s_1a6e9ade9f303e::t_2b9c89e43e3a9e 648
+godot/native/src/bosses.cpp
+  s_1a6e9ade9f303e::t_f5cfa61218733e 110,382,448,457,472,481,508,652,987,1132-1133
+  s_1a6e9ade9f303e::t_24469c2d09b983 288,354,1056,1081
+godot/native/src/roster.h
+  s_1a6e9ade9f303e::t_24469c2d09b983 147-148
+godot/native/src/works_state.cpp
+  s_1a6e9ade9f303e::t_8f24030522507a 1-222
+godot/native/src/sim_state.cpp
+  s_1a6e9ade9f303e::t_5e6c50fa6ca249 470-474
+  s_1a6e9ade9f303e::t_9c0d9b98364144 163-166
+  s_1a6e9ade9f303e::t_e96c6ae9a10ee7 1-154,156,158-162,167-303,307-469,475
+  s_e17b87e0a1b3ca::t_a238133dab1fad 155,157,304-306
+godot/native/src/roam.h
+  s_1a6e9ade9f303e::t_24469c2d09b983 18,22,161-163,182-183
+godot/native/src/roam.cpp
+  s_1a6e9ade9f303e::t_24469c2d09b983 323,353,597-599
+godot/native/src/state_util.h
+  s_1a6e9ade9f303e::t_4d66500515b99c 1-50
+godot/native/src/sim.cpp
+  s_1a6e9ade9f303e::t_0b8cf0c305e3d2 1988-1989
+  s_1a6e9ade9f303e::t_bab97864e35c34 2015-2018,2121,2195-2209,2314-2315
+  s_1a6e9ade9f303e::t_f5cfa61218733e 1672,1982
+  s_1a6e9ade9f303e::t_62e88ca28906e6 2053-2054
+godot/native/src/vision.h
+  s_1a6e9ade9f303e::t_0b8cf0c305e3d2 8-9,17-19,54-55,60-79,178,185,192-195
+godot/native/src/js_math.h
+  s_1a6e9ade9f303e::t_8fd25ecd6c0bbb 5,7,9,62-94
+  s_1a6e9ade9f303e::t_5f66f4c3a0260f 95-96
+godot/native/src/works.h
+  s_1a6e9ade9f303e::t_6a377324cdc2aa 25,29,154,166,282,333-342,349,351,413,467
+  s_1a6e9ade9f303e::t_3223fb61235c2a 472,474-475
+godot/native/src/state.h
+  s_1a6e9ade9f303e::t_0b8cf0c305e3d2 123,138-144
+  s_1a6e9ade9f303e::t_1fdeca79bbc452 9,14,105-108
+  s_1a6e9ade9f303e::t_aa5bd45c2f822b 179-180,188
+  s_1a6e9ade9f303e::t_510e5d109f2cd2 1-8,10-13,15-104,109-122,124-137,145-178,181-187,189-193
+godot/native/src/bosses.h
+  s_1a6e9ade9f303e::t_24469c2d09b983 17-18,180-182,231-232
+godot/native/src/sim_wild.cpp
+  s_1a6e9ade9f303e::t_f5cfa61218733e 326,357,375-378,498
+godot/native/src/vision.cpp
+  s_1a6e9ade9f303e::t_0ac5775853b3f6 28,31,84,100,103,112-115,117
+godot/native/src/crafting.h
+  s_1a6e9ade9f303e::t_65e0611936ca6e 15,111-113
+godot/native/src/mobs.h
+  s_1a6e9ade9f303e::t_6891a760868d79 14,205-207
+godot/native/src/prebuilt.h
+  s_1a6e9ade9f303e::t_873fc45e7c12ce 22,91-93
+godot/native/src/siege.h
+  s_1a6e9ade9f303e::t_a93e08c0e1c2bd 19,162-164
+godot/native/src/sim_combat.cpp
+  s_1a6e9ade9f303e::t_0d1f391455c4e2 47-48,52,80,106,123-124,283,305,314,361
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b081f39ff8ca139fad173bd7d0449f8203a304b0",
+  "prompts": {},
+  "sessions": {
+    "s_1a6e9ade9f303e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2c9e00ce-6ba5-4b5a-8be5-a4a273976934",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    },
+    "s_e17b87e0a1b3ca": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5236c549-8c9b-4389-b211-7f6e079017f7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
