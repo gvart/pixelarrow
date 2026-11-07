@@ -6,9 +6,9 @@ name: Godot
 on:
   push:
     branches: [main, 'feat/godot-*']
-    paths: ['godot/**', 'src/war/**', 'src/data/**', 'src/sim/**', 'src/dev/godotTraces.ts', 'scripts/godot/**', '.github/workflows/godot.yml']
+    paths: ['godot/**', 'src/war/**', 'src/data/**', 'src/sim/**', 'src/dev/godotTraces.ts', 'src/dev/vectors/**', 'server/src/war/**', 'scripts/godot/**', '.github/workflows/godot.yml']
   pull_request:
-    paths: ['godot/**', 'src/war/**', 'src/data/**', 'src/sim/**', 'src/dev/godotTraces.ts', 'scripts/godot/**', '.github/workflows/godot.yml']
+    paths: ['godot/**', 'src/war/**', 'src/data/**', 'src/sim/**', 'src/dev/godotTraces.ts', 'src/dev/vectors/**', 'server/src/war/**', 'scripts/godot/**', '.github/workflows/godot.yml']
   workflow_dispatch:
 
 permissions:
@@ -28,7 +28,12 @@ jobs:
         with:
           node-version: 25
           cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            server/package-lock.json
       - run: npm ci
+      # the room vectors (src/dev/vectors/room.ts) run the server's WarRoom, which imports the server's packages
+      - run: npm ci --prefix server
       - run: npm run traces:godot
       - run: npm run data:godot
       - name: Cache the native build (godot-cpp takes minutes)
