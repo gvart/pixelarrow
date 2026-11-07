@@ -203,9 +203,14 @@ void MemoryStore::setPath(int pid, const PlayerPath &way) {
 	paths.emplace_back(pid, way);
 }
 
+// start.ts pathOf: his level is war_favour's (a seeded path's level stands for it until he earns favour)
 PlayerPath MemoryStore::path(int pid) {
 	for (const auto &e : paths)
-		if (e.first == pid) return e.second;
+		if (e.first == pid) {
+			PlayerPath p = e.second;
+			if (const std::optional<double> l = settle_.favourLevelOf(pid)) p.level = l;
+			return p;
+		}
 	return NO_PATH;
 }
 
@@ -464,6 +469,7 @@ godot::Dictionary MemoryStore::dump() const {
 		sv[G(kind)] = a;
 	}
 	out["saves"] = sv;
+	settle_.dump(out); // wave C (settle.h)
 	return out;
 }
 
@@ -491,6 +497,7 @@ void MemoryStore::load(const godot::Dictionary &d) {
 		const godot::Array a = sv[kinds[i]];
 		for (int64_t k = 0; k < a.size(); k++) keep(S(kinds[i]), int(godot::Array(a[k])[0]), godot::Array(a[k])[1]);
 	}
+	settle_.load(d); // wave C (settle.h)
 }
 
 bool MemoryStore::write(const godot::String &file) const {

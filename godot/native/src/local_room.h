@@ -26,7 +26,10 @@
 #pragma once
 
 #include <functional>
+#include <map>
 #include <memory>
+#include <set>
+#include <string>
 #include <vector>
 
 #include <godot_cpp/classes/ref.hpp>
@@ -58,13 +61,31 @@ class LocalRoom : public RefCounted {
 	void conn(int p);
 	void tell(int p, const Variant &m);
 	void welcomed(int p, const std::function<void()> &between = nullptr);
-	Dictionary settlements(int p) const;
 	Dictionary world_msg() const;
 	double now() const { return room->currentTick() * 100.0; }
 	bool wake(const sim::StoredSoul &s);
 	void flush();
 	void muster(int p);
 	static sim::RoomOpts room_opts(const Ref<Sim> &s, const Dictionary &o);
+
+	// wave C (local_settle.cpp), regionDO.ts round the settlements and politics. The DO's own memory (an eviction starts
+	// it over): sockets open, each player's settlements view as last sent, the pieces and tithes as last reported, the
+	// lairs as favourTick last saw them, the labour favour owed (favour.ts BUILT)
+	std::set<int> live;
+	std::map<int, std::string> settleSent, persistSent;
+	std::string heldKey;
+	std::map<int, std::string> lairsSeen;
+	std::map<int, double> builtOwed;
+	void loadSettlements();
+	void sendSettlements(int p, bool fresh = false);
+	void restoreSettlements();
+	void reportSettlements(bool all);
+	void reportTithes();
+	void pollPeace();
+	void politics(const sim::Room::TickOut &res);
+	void settleReset();
+	bool settleOp(const std::string &op, const Array &a, Variant &res); // false: not a wave C op
+	static void settleConstants(Dictionary &c);
 
 public:
 	// sim: a fresh Sim (Sim.create; its seed is the room's); opts: room.ts RoomOptions (cap, quotas, keyframeEvery,

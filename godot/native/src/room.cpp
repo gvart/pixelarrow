@@ -409,12 +409,16 @@ godot::Dictionary Room::join(int sessionPid, const Dictionary &m, const std::vec
 	if (int(m["v"]) != Net::NET_VERSION) return refuse("version", "server speaks v" + std::to_string(Net::NET_VERSION));
 	if (S(m["region"]) != regionId) return refuse("region", "this room is " + regionId);
 	if (int(m["playerId"]) != sessionPid) return refuse("player", "playerId is not the signed-in player");
-	const int team = m["team"];
-	if (team >= int(per.size())) return refuse("team");
-	// W-63: the banner by ground (a settlement's lord's alliance) waits for the settlements' wave: his own (m.team)
-	own[sessionPid] = team;
+	const int ownTeam = m["team"];
+	if (ownTeam >= int(per.size())) return refuse("team");
+	// W-63: the banner by ground: tied to a settlement here, his men fly its lord's alliance; else his own (m.team)
+	const std::optional<int> banner = bannerTeam(sessionPid);
+	const int team = banner ? *banner : ownTeam;
+	Dictionary mj = m.duplicate(false); // the join as the line keeps it: under his banner
+	mj["team"] = team;
 	const auto p = players.find(sessionPid);
 	if (p != players.end() && p->second.team != team) return refuse("team", "already in alliance " + std::to_string(p->second.team));
+	own[sessionPid] = ownTeam; // only once past the alliance check: a refused ask must not turn his men
 	if (m.has("squads") == m.has("army")) return refuse("army", "send squads (person ids) or, in dev, an army");
 	if (m.has("army") && !allowArmy) return refuse("army", "class armies are dev only: join with person ids");
 	const Array army = m.get("army", Array());
@@ -443,7 +447,7 @@ godot::Dictionary Room::join(int sessionPid, const Dictionary &m, const std::vec
 	if (need > per[team]) return refuse("quota", "army of " + std::to_string(need) + " is bigger than the alliance quota " + std::to_string(per[team]));
 	dequeue(sessionPid);
 	if (!groups.empty() && (std::any_of(queue.begin(), queue.end(), [&](const Waiting &w) { return w.team == team; }) || live[team] + need > per[team])) { // W-66: a watcher (no squad) never waits
-		queue.push_back({ sessionPid, team, groups, m });
+		queue.push_back({ sessionPid, team, groups, mj });
 		int pos = 0;
 		for (const Waiting &w : queue)
 			if (w.team == team) pos++;
@@ -692,9 +696,15 @@ std::string Room::order(int pid, const Dictionary &o) {
 		if (c.is_empty() || int(c["team"]) != p.team) return "badTarget";
 	} else if (kind == "salvagePile") {
 		if (!pile(o["pile"])) return "badTarget";
+	} else if (kind == "claimRegion") { // W-64: a pact or truce with the point's holder forbids taking it (room_settle.cpp)
+		const Array cl = snap.get("claims", Array());
+		const int at = o["point"], holder = at >= 0 && at < cl.size() ? int(Dictionary(cl[at])["team"]) : -1;
+		const std::string pact = holder >= 0 && holder != p.team ? pactWith(p.team, holder) : "";
+		const char *name = SettleTables::allianceName(holder);
+		if (!pact.empty()) return refusal = "A " + pact + " with " + (name ? name : "its holder") + " is in force: its claim points may not be taken", "atPeace";
 	}
-	// claimRegion under a pact or truce (W-64), building on a settlement's ground (W-63, groundRefusal) and the camps a
-	// settlement is founded from: the settlements' wave (no pacts and no settlements here yet: nothing refused)
+	// W-63: building on a settlement's ground: its lord off others' plots, a citizen on his own plot (room_settle.cpp)
+	if (const auto why = groundRefusal(pid, p.team, o)) return refusal = *why, "notYourGround";
 	if (kind == "placeBuilding" && (S(o["type"]) == "camp" || S(o["type"]) == "fort")) pendingCamps.push_back({ pid, p.team, S(o["type"]), o["x"], o["y"], currentTick() });
 	Dictionary sent = o.duplicate(true);
 	if (kind == "setAccess") sent["owner"] = G(me);
@@ -765,8 +775,8 @@ std::vector<int> Room::alliesOf(int pid) const {
 	for (const auto &[id, o] : owners) {
 		const int m = pid_of(o), n = m >= 0 ? m : pid;
 		const auto t = teams.find(id);
-		// a pact or truce with the alliance (W-64): the settlements' wave
-		if (n != pid && !out.count(n) && t != teams.end() && t->second == pit->second.team) out.insert(n);
+		// under his banner, or an alliance at peace with it (W-64: a pact or truce in force)
+		if (n != pid && !out.count(n) && t != teams.end() && (t->second == pit->second.team || !pactWith(pit->second.team, t->second).empty())) out.insert(n);
 	}
 	return { out.begin(), out.end() };
 }
@@ -866,6 +876,7 @@ Room::TickOut Room::tick() {
 	const int tk = snap["tick"];
 	Array wire;
 	bool blow = false;
+	const bool jobs = townWorking();
 	for (int64_t i = 0; i < us.size(); i++) {
 		const Dictionary u = us[i];
 		const int id = u["id"];
@@ -880,7 +891,7 @@ Room::TickOut Room::tick() {
 			if (tk - diedAt[id] < Net::CORPSE_TICKS) wire.push_back(u);
 			continue;
 		}
-		wire.push_back(u); // W-61 town jobs (atTownWork): the peace wave
+		wire.push_back(jobs ? atTownWork(u) : u); // W-205 town jobs (room_settle.cpp)
 		const auto t = teams.find(int(u["squad"]));
 		if (t != teams.end() && t->second < int(live.size())) live[t->second]++;
 	}
@@ -1039,15 +1050,14 @@ Room::TickOut Room::tick() {
 		}
 	}
 	lifeLordMessages(out); // W-72 proposal: warlord notes; a raid's warning and the raid itself to the target team only
-	// W-63 settlements (camps to found, attacks, messages owed): their wave
-	campsTick(); // W-63 settleTick: who placed each camp (saved); the rest is the settlements' wave
+	// W-63: camps to found, attacks on settlements; messages owed since the last tick (a banner changed)
+	campsTick(); // settleTick: who placed each camp (saved), then the rest (room_settle.cpp)
+	out.settle = settleTick();
+	flushLater(out);
 	lastTick = tk;
 	lifeBooks(out, evs); // what the DO books: guide, stories, encounters, the wild's deeds, the tasks' tallies
 	out.larder = drainDrawn();
-	if (tk % Net::LABOUR_EVERY == 0) {
-		townRest(Net::LABOUR_EVERY / 10.0); // peace(): the labour, guards and works it counts go to D1 (the peace wave)
-		sim.labourLog.clear(); // takeLabour
-	}
+	out.peace = peace(); // W-61: townRest, labour, guards, works, town jobs (room_settle.cpp)
 	return out;
 }
 

@@ -24,6 +24,7 @@
 
 #include "holders.h"
 #include "roster.h"
+#include "settle.h"
 #include "sim.h"
 #include "start.h"
 
@@ -73,6 +74,8 @@ public:
 	// W-62, W-65: his guide, story or encounter save (kind "guide" | "story" | "encounter"; nil: none), and a new one
 	virtual godot::Variant saveOf(const std::string &kind, int pid) = 0;
 	virtual void keep(const std::string &kind, int pid, const godot::Variant &save) = 0;
+	// wave C: the settlements and politics the DO books (settle.h)
+	virtual SettleStore &politics() = 0;
 };
 
 class MemoryStore : public RoomStore {
@@ -105,6 +108,7 @@ public:
 	std::string loadRoom(const std::string &region) override;
 	godot::Variant saveOf(const std::string &kind, int pid) override;
 	void keep(const std::string &kind, int pid, const godot::Variant &save) override;
+	MemorySettle &politics() override { return settle_; }
 
 	// seeding: a new man of his, active (at home: region none); his goods; his path
 	void add(int pid, const WarPerson &p, const std::optional<std::string> &region = std::nullopt);
@@ -126,6 +130,11 @@ private:
 	std::vector<std::pair<int, PlayerPath>> paths;
 	std::vector<std::pair<std::string, std::string>> rooms;
 	std::vector<std::pair<std::string, std::vector<std::pair<int, godot::Variant>>>> saves; // by kind, then pid (insertion order)
+	MemorySettle settle_{ [this](int pid) -> std::optional<PlayerPath> { // wave C: favour reads his stored path
+		for (const auto &e : paths)
+			if (e.first == pid) return e.second;
+		return std::nullopt;
+	} };
 
 	Rec *find(const std::string &id);
 	int count(int pid, bool civ, bool activeOnly = false) const;

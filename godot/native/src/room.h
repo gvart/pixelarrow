@@ -29,6 +29,7 @@
 
 #include "codec.h"
 #include "js_map.h"
+#include "settle.h"
 #include "sim.h"
 
 namespace sim {
@@ -73,6 +74,7 @@ struct RoomOpts {
 };
 
 struct RoomLife; // wave D (room_life.cpp): the guide, stories, encounters, warlords, world events, the wild's deeds and tasks
+struct RoomPolitics; // wave C (room_settle.cpp): settlements, oaths, pacts, works, town jobs
 
 class Room {
 public:
@@ -120,6 +122,7 @@ public:
 		std::vector<int> raided;
 		std::vector<std::string> faded;
 		std::vector<std::pair<int, Cost>> larder;
+		godot::Dictionary peace, settle; // wave C: room.ts Peace and SettleOut as their TS objects (empty: null)
 	};
 	// saveState: the RoomState JSON text, its head (all but sim and bots) and the sim's and bots' texts in it
 	struct Saved {
@@ -144,7 +147,7 @@ public:
 	std::string dev(int pid, const godot::Dictionary &m);
 	void view(int pid, const NetRect &r);
 	TickOut tick();
-	godot::Array settlementsFor(int pid) const { return godot::Array(); } // W-63: none until the settlements wave
+	godot::Array settlementsFor(int pid) const; // W-63 (room_settle.cpp)
 	const godot::Dictionary &snapshot() const { return snap; }
 	std::string refusal;
 	std::string run; // M5h4: the region run (crafted event keys; saved)
@@ -200,6 +203,26 @@ public:
 	godot::Dictionary memory();
 	void recall(const godot::Dictionary &m, double elapsed);
 	godot::Dictionary summary();
+
+	// ---- wave C, settlements and politics (room_settle.cpp), as room.ts names them: what the DO polls in (the region's
+	// settlements, the oaths and pacts in force, the guard contracts watched, the home's open works, town jobs) and reads
+	// back (the settlements' reports, the tribute held, presence, store goods); restorePieces lays a settlement down
+	// again on a fresh field (its centre's new id)
+	void setSettlements(const std::vector<RoomSettle> &list);
+	void setOaths(const std::vector<Oath> &list);
+	void setPacts(const std::vector<PactIn> &list);
+	godot::Array settlementReports() const;
+	godot::Array titheReports() const;
+	std::optional<int> restorePieces(int team, double x, double y, double r, const godot::Array &pieces);
+	bool presence(int pid, int id) const;
+	godot::Dictionary storeGoods(int id);
+	void setGuards(const std::vector<GuardWatch> &list);
+	void setWorks(int team, const std::vector<std::string> &ids);
+	void watchTownJob(int id, int pid, double x, double y);
+	void unwatchTownJob(int id);
+	std::vector<int> pathPlayers() const;
+	// W-195 a band a town contract asked for (the contracts' board is not here yet: none)
+	bool townBandIs(int) const { return false; }
 
 private:
 	struct Player {
@@ -288,6 +311,21 @@ private:
 	void lifeLordMessages(TickOut &out);
 	void lifeBooks(TickOut &out, const std::vector<godot::Dictionary> &evs);
 	void lifeFeed(Player &p, std::map<int, std::vector<godot::Dictionary>> &out, godot::Dictionary &lords, std::string &lordKey);
+	// wave C hooks (room_settle.cpp): the settlements, pacts, oaths, town jobs and works the room holds (made on first use)
+	mutable std::shared_ptr<RoomPolitics> pol_;
+	RoomPolitics &P() const;
+	std::optional<int> bannerTeam(int pid) const;
+	std::string pactWith(int a, int b) const; // "pact" | "truce" | "" none
+	void tellLater(int pid, const godot::Dictionary &m);
+	void roomOrder(const godot::Dictionary &o);
+	std::optional<std::string> groundRefusal(int pid, int team, const godot::Dictionary &o);
+	godot::Dictionary settleTick(); // after campsTick, every SETTLE_EVERY: camps to found, attacks, claims being taken
+	void flushLater(TickOut &out);
+	godot::Dictionary peace(); // every LABOUR_EVERY: townRest, then the labour, guards, works and town jobs
+	bool townWorking() const;
+	godot::Dictionary atTownWork(const godot::Dictionary &u) const;
+	void settleSave(godot::Dictionary &settle) const;
+	void settleLoad(const godot::Dictionary &settle);
 };
 
 } // namespace sim

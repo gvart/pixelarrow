@@ -78,10 +78,12 @@ void LocalRoom::muster(int p) {
 void LocalRoom::close(int p) {
 	room->leave(p);
 	flush();
+	live.erase(p);
 }
 
 void LocalRoom::conn(int p) {
 	if (std::find(conns.begin(), conns.end(), p) == conns.end()) conns.push_back(p);
+	live.insert(p);
 }
 
 void LocalRoom::tell(int p, const Variant &m) { out.push_back(Array::make(p, m)); }
@@ -105,13 +107,6 @@ void LocalRoom::welcomed(int p, const std::function<void()> &between) {
 	if (en.get_type() != Variant::NIL) tell(p, en);
 }
 
-Dictionary LocalRoom::settlements(int p) const {
-	Dictionary s;
-	s["t"] = "settlements";
-	s["list"] = room->settlementsFor(p);
-	return s;
-}
-
 Dictionary LocalRoom::world_msg() const {
 	Dictionary w;
 	w["t"] = "worldEvents";
@@ -133,6 +128,7 @@ void LocalRoom::send_as(int p, const Dictionary &raw) {
 	const Dictionary m = *parsed;
 	const std::string t = S(m["t"]);
 	if (t == "join") {
+		loadSettlements(); // W-63: the settlements as they stand now: the room flies his banner by ground
 		const std::string region = S(sim->meta["id"]);
 		std::optional<std::vector<std::vector<sim::WarPerson>>> persons;
 		std::vector<std::vector<std::string>> squads;
@@ -160,7 +156,7 @@ void LocalRoom::send_as(int p, const Dictionary &raw) {
 		tell(p, res);
 		if (S(res["t"]) == "welcome") {
 			if (!worldEv.is_empty()) tell(p, world_msg()); // W-62
-			tell(p, settlements(p)); // W-63
+			sendSettlements(p, true); // W-63
 		}
 		if (S(res["t"]) == "refused" && persons) {
 			std::vector<std::string> all;
@@ -217,7 +213,7 @@ void LocalRoom::tick() {
 	const sim::WakeSoul wk = [this](const sim::StoredSoul &s) { return wake(s); };
 	// the tick's books into the store, as regionDO.ts writes them to D1
 	for (const auto &f : res.fights) {
-		store->applyFight(f.id, region, f.report, now());
+		if (store->applyFight(f.id, region, f.report, now())) store->politics().bookFight(region, sim::fight_kills(f.report), now()); // W-64: the crown's war goals' shares
 		std::vector<int> held; // the owners of men taken captive (in order of first)
 		for (const auto &x : f.report.persons)
 			if (x.state == "captive") {
@@ -243,7 +239,7 @@ void LocalRoom::tick() {
 				tell(p, m);
 				if (S(m["t"]) == "welcome") {
 					welcomed(p); // W-62, W-65: in from the line
-					tell(p, settlements(p)); // W-63
+					sendSettlements(p, true); // W-63
 				}
 			}
 		const auto ms = res.msgs.find(p);
@@ -252,6 +248,7 @@ void LocalRoom::tick() {
 		const auto f = res.frames.find(p);
 		if (f != res.frames.end()) tell(p, f->second);
 	}
+	politics(res); // wave C: the settlements' and the peace's books, the polls (local_settle.cpp)
 	// the guide, story and encounter saves of the tick into the store (regionDO.ts outputs)
 	const std::pair<const char *, const Array *> kept[] = { { "guide", &res.guided }, { "story", &res.storied }, { "encounter", &res.met } };
 	for (const auto &[kind, a] : kept)
@@ -285,6 +282,8 @@ void LocalRoom::tick() {
 		{ "met", &res.met }, { "wild", &res.wild }, { "larder", &ld }, { "gathered", &res.gathered }, { "warlord", &res.warlord } };
 	for (const auto &[k, a] : named)
 		if (a->size()) books[k] = *a;
+	if (!res.peace.is_empty()) books["peace"] = res.peace; // wave C
+	if (!res.settle.is_empty()) books["settle"] = res.settle;
 }
 
 void LocalRoom::set_world_events(const Array &events, const Variant &next, double now) {
@@ -507,8 +506,13 @@ Variant LocalRoom::call_op(const String &op_, const Array &a) {
 		room = std::move(next);
 		sim = fresh;
 		flush();
+		// an eviction: the DO's memory starts over; ensure() polls the settlements into the restored room
+		settleReset();
+		loadSettlements();
 		return Variant();
 	}
+	Variant res;
+	if (settleOp(op, a, res)) return res; // wave C: store seeds and the DO's calls round the settlements
 	ERR_PRINT(String::utf8(("LocalRoom.call_op: unknown op " + op).c_str()));
 	return Variant();
 }
@@ -544,6 +548,7 @@ Dictionary LocalRoom::constants() {
 	Array g;
 	for (const std::string &x : N::goods()) g.push_back(String::utf8(x.c_str()));
 	c["GOODS"] = g;
+	settleConstants(c); // wave C
 	return c;
 }
 

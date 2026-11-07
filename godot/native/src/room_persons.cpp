@@ -203,10 +203,12 @@ Room::Departed Room::depart(int pid, const std::string &side, double foeRadius) 
 // M4 transfer in: `persons` of the player (alliance `team`) arrive over the entry on `side` (room.ts arrive).
 Room::Arrived Room::arrive(int pid, int team, const std::vector<WarPerson> &persons, const std::string &side, const std::vector<std::pair<std::string, double>> &lost, const Dictionary &cargo) {
 	Arrived res;
-	// W-63: the banner by ground (the settlements' wave): his own
-	if (team < int(per.size())) own[pid] = team;
+	// W-63: the banner by ground
+	const int ownTeam = team;
+	if (const std::optional<int> b = bannerTeam(pid)) team = *b;
 	const auto p = players.find(pid);
 	if (team >= int(per.size()) || (p != players.end() && p->second.team != team)) return res.error = "team", res;
+	if (ownTeam < int(per.size())) own[pid] = ownTeam; // only once past the alliance check
 	const std::vector<Group> ps = parts(persons);
 	if (int(squadsOf(pid).size() + ps.size()) > Net::MAX_SQUADS) return res.error = "squads", res;
 	if (std::any_of(queue.begin(), queue.end(), [&](const Waiting &w) { return w.team == team; }) || live[team] + int(persons.size()) > per[team]) return res.error = "full", res;
@@ -554,7 +556,7 @@ Room::Saved Room::saveState(const std::string &simText) const {
 	Array campA;
 	for (const auto &[b, p] : campBy) campA.push_back(Array::make(b, p));
 	settle["campBy"] = campA;
-	settle["tried"] = Array(); // W-63 camps tried as settlements: the settlements' wave
+	settleSave(settle); // W-63 camps tried as settlements (room_settle.cpp)
 	Dictionary &h = out.head;
 	h["v"] = 2;
 	h["region"] = G(regionId);
@@ -644,6 +646,7 @@ bool Room::restore(const Dictionary &st, const std::string &simText, const std::
 	const Array oa = settle.get("own", Array()), ca = settle.get("campBy", Array());
 	for (int64_t i = 0; i < oa.size(); i++) own[int(Array(oa[i])[0])] = int(Array(oa[i])[1]);
 	for (int64_t i = 0; i < ca.size(); i++) campBy[int(Array(ca[i])[0])] = int(Array(ca[i])[1]);
+	settleLoad(settle);
 	for (const Waiting &w : std::vector<Waiting>(queue)) dequeue(w.pid); // nobody is connected to wait: their persons go home (takeReleased)
 	std::vector<std::string> gone;
 	const Array pids = st.get("pids", Array());
