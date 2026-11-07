@@ -1,0 +1,81 @@
+godot/native/src/local_room.cpp
+  s_1a6e9ade9f303e::t_96d758791e99c6 131
+  s_1a6e9ade9f303e::t_7595cdf95b5e4d 251
+  s_1a6e9ade9f303e::t_52363bff14b2c7 285-286
+  s_1a6e9ade9f303e::t_aedec581e5cc61 509-511,514-515
+  s_1a6e9ade9f303e::t_619e6221fad9f0 159,216,242
+  s_1a6e9ade9f303e::t_cdfcd34f6af060 81,86
+  s_1a6e9ade9f303e::t_5f30f040043c83 551
+godot/native/src/room_store.cpp
+  s_1a6e9ade9f303e::t_d82bcbab7fd21d 206,209-213
+  s_1a6e9ade9f303e::t_f25c697db7b4f4 472
+  s_1a6e9ade9f303e::t_c55518e5b308c7 500
+godot/native/src/room_store_settle.cpp
+  s_1a6e9ade9f303e::t_e9020d0dfba7a2 24,26-27
+  s_1a6e9ade9f303e::t_5ed7e1023da249 1-23,25,28-57,59-83,96-165,173-174,178-185,193-689,691-714
+  s_1a6e9ade9f303e::t_2dd24fbcc2157e 166-172,175-177
+  s_1a6e9ade9f303e::t_2df634179b3d57 58,690
+  s_1a6e9ade9f303e::t_7325c7bcc95921 186-192
+  s_1a6e9ade9f303e::t_30f9bff2bc0d42 84-95
+godot/native/src/room_persons.cpp
+  s_1a6e9ade9f303e::t_b885bdc58cd777 206-208,211
+  s_1a6e9ade9f303e::t_a68a0904670bc2 559,649
+godot/native/src/room_store.h
+  s_1a6e9ade9f303e::t_f9ce762c8ff761 111
+  s_1a6e9ade9f303e::t_58820e3b0c1c39 77-78
+  s_1a6e9ade9f303e::t_db8f405e4c8eab 27
+  s_1a6e9ade9f303e::t_0060290b32cdb3 133-137
+godot/native/src/local_room.h
+  s_1a6e9ade9f303e::t_0aef3990139fd9 71-88
+  s_1a6e9ade9f303e::t_050101cbf51708 29,31-32
+  s_d1e012a9ee3b60::t_71b63bbf1f2169 89
+godot/native/src/room.cpp
+  s_1a6e9ade9f303e::t_1224fc4728bc86 699-704,706-707
+  s_1a6e9ade9f303e::t_8ebbc6a3735b61 894
+  s_1a6e9ade9f303e::t_a9647c94a530cb 412-416,421
+  s_1a6e9ade9f303e::t_546ca5df94346f 879
+  s_1a6e9ade9f303e::t_400dc85e841941 1053-1056,1060
+  s_1a6e9ade9f303e::t_6599ff5c11ec36 417-418,450
+  s_1a6e9ade9f303e::t_fc94d43b0d3275 778-779
+godot/native/src/room.h
+  s_1a6e9ade9f303e::t_b43ee0eda0c188 314-328
+  s_1a6e9ade9f303e::t_58c70e48975c95 32
+  s_1a6e9ade9f303e::t_7f47106bb7e4dc 77
+  s_1a6e9ade9f303e::t_cd0d661e048e12 150
+  s_1a6e9ade9f303e::t_634b528ba7f87a 207-226
+  s_1a6e9ade9f303e::t_2c2b6389f5d765 125
+godot/native/src/room_settle.cpp
+  s_1a6e9ade9f303e::t_a5c4eafbc4f19e 1-510,512-541,543-550,552-708
+  s_1a6e9ade9f303e::t_a41acc6a0c78fe 511,542,551
+godot/native/src/local_settle.cpp
+  s_1a6e9ade9f303e::t_0849630f86e564 1-340
+godot/native/src/settle.h
+  s_1a6e9ade9f303e::t_8a2c27742c332e 119-120,156
+  s_1a6e9ade9f303e::t_a967507d9fd44f 98-100
+  s_1a6e9ade9f303e::t_5ce7e0c5253feb 1-91,96-97,101-118,121-155,157-271
+  s_1a6e9ade9f303e::t_06d55045eab364 92-95
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "47685a5adcf8e881abfada65088fa56058103f5f",
+  "prompts": {},
+  "sessions": {
+    "s_1a6e9ade9f303e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2c9e00ce-6ba5-4b5a-8be5-a4a273976934",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    },
+    "s_d1e012a9ee3b60": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "36ae4c88-23a6-454b-b7d2-a996c31fbe20",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
