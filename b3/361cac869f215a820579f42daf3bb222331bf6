@@ -1,0 +1,68 @@
+src/dev/godotLook.ts
+  s_1a6e9ade9f303e::t_b75f783e67ef20 1-29
+godot/native/src/sim.cpp
+  s_1a6e9ade9f303e::t_b75f783e67ef20 2118-2158,2363
+godot/src/region/scenario.gd
+  s_1a6e9ade9f303e::t_b75f783e67ef20 6-8,51-64
+godot/src/region/hits.gd.uid
+  s_1a6e9ade9f303e::t_b75f783e67ef20 1
+godot/src/region/look.gd
+  s_1a6e9ade9f303e::t_b75f783e67ef20 1-167
+godot/src/region/ground_mesh.gd
+  s_1a6e9ade9f303e::t_b75f783e67ef20 202-221,390,403-408,625,639-644,797-856
+godot/src/region/glints.gd.uid
+  s_1a6e9ade9f303e::t_b75f783e67ef20 1
+godot/src/region/objects.gd
+  s_1a6e9ade9f303e::t_b75f783e67ef20 4-5,17,19,29-41,59-64,82,88,96,130,132-137,141-150
+.github/workflows/godot.yml
+  s_1a6e9ade9f303e::t_b75f783e67ef20 3-4,9,11,39-56
+  s_1a6e9ade9f303e::t_1569f1ebf3cb18 57
+godot/src/region/units.gd
+  s_1a6e9ade9f303e::t_b75f783e67ef20 3-7,31-41,43,67-85,132-140,143-144,151-152,154-169,234,237,250,280-282,286-294,296-315,317-320,326-327,329-332,411-442
+godot/src/region/region_view.gd
+  s_1a6e9ade9f303e::t_b75f783e67ef20 5,7,21-22,50-56,66-68,73,110,118,129-131
+godot/tests/region/test_view_extras.gd
+  s_1a6e9ade9f303e::t_b75f783e67ef20 1-168
+scripts/godot/view.mjs
+  s_1a6e9ade9f303e::t_b75f783e67ef20 5,7-10,12,14,49,51-59
+godot/src/region/buildings.gd
+  s_1a6e9ade9f303e::t_b75f783e67ef20 1-377
+src/war/view/build/buildArt.ts
+  s_1a6e9ade9f303e::t_b75f783e67ef20 41,58
+godot/tests/region/test_iso.gd.uid
+  s_1a6e9ade9f303e::t_01be350b27812a 1
+godot/src/region/look.gd.uid
+  s_1a6e9ade9f303e::t_b75f783e67ef20 1
+godot/tests/region/test_view_extras.gd.uid
+  s_1a6e9ade9f303e::t_b75f783e67ef20 1
+src/dev/godotBuild.ts
+  s_1a6e9ade9f303e::t_b75f783e67ef20 1-40
+godot/src/region/hits.gd
+  s_1a6e9ade9f303e::t_b75f783e67ef20 1-100
+godot/src/region/glints.gd
+  s_1a6e9ade9f303e::t_b75f783e67ef20 1-109
+godot/native/src/sim.h
+  s_1a6e9ade9f303e::t_b75f783e67ef20 672-675
+godot/src/region/buildings.gd.uid
+  s_1a6e9ade9f303e::t_b75f783e67ef20 1
+godot/tests/region/test_view_picks.gd.uid
+  s_1a6e9ade9f303e::t_01be350b27812a 1
+src/war/view/look.ts
+  s_1a6e9ade9f303e::t_b75f783e67ef20 57,59,66
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b3361cac869f215a820579f42daf3bb222331bf6",
+  "prompts": {},
+  "sessions": {
+    "s_1a6e9ade9f303e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2c9e00ce-6ba5-4b5a-8be5-a4a273976934",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
