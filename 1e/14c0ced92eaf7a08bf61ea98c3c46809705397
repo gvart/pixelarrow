@@ -1,0 +1,19 @@
+docs/impl/godot-port.md
+  s_d1e012a9ee3b60::t_7a94e2001aa188 31,33
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1e14c0ced92eaf7a08bf61ea98c3c46809705397",
+  "prompts": {},
+  "sessions": {
+    "s_d1e012a9ee3b60": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "36ae4c88-23a6-454b-b7d2-a996c31fbe20",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
