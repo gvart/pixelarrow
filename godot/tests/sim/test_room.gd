@@ -2,7 +2,11 @@
 ## (godot/tests/golden/vectors/room.json, src/dev/vectors/room.ts): the same scripted client messages (joins, the
 ## quota's line, orders and their refusals, placement checks, the dev helpers, a fight) replayed into LocalRoom give the
 ## same server messages in the same order: JSON messages as JSON.stringify writes them (keys in order, numbers as TS
-## has them) and binary frames byte for byte. And the wire constants LocalRoom keeps are the TS ones.
+## has them) and binary frames byte for byte. With persons (the run 'persons'), the store round the room (room_store.h
+## MemoryStore, src/dev/roomStore.ts) as well: the tick's books it is handed (fights, soul claims, raids, faded souls,
+## larder draws), the results of the DO's and the world's calls (transfers, musters, hires, level-ups, paths), the store
+## itself as it changes, and the room's saves byte for byte, restored and played on. And the wire constants LocalRoom
+## keeps are the TS ones.
 extends TestCase
 
 const W := preload("res://tests/sim/wild.gd")
@@ -26,18 +30,42 @@ func test_room_matches_ts() -> void:
 		var room := LocalRoom.create(sim, run["opts"])
 		var frames := 0
 		var msgs := 0
+		var calls := 0
 		var steps: Array = run["steps"]
 		for n in steps.size():
 			var step: Dictionary = steps[n]
+			var why := ""
 			if step.get("tick", false):
 				room.tick()
+				# the tick's books the DO writes (fights, soul claims, raids, faded souls, larder draws)
+				why = W.diff(room.tick_books(), step.get("room", {}), "books")
 			elif step.has("close"):
 				room.close(int(step["close"]))
+			elif step.has("op"):
+				var res: Variant = room.call_op(step["op"], step["args"])
+				if step["op"] == "save":
+					# the save byte for byte: its head (the room's books) first, then the sim's and bots' texts, then the whole
+					for k in ["head", "sim", "bots", "len", "sha"]:
+						why = W.diff(res[k], step["res"][k], "save.%s" % k)
+						if why != "":
+							break
+				else:
+					why = W.diff(res, step["res"], "%s res" % step["op"])
+				calls += 1
 			else:
 				room.send_as(int(step["pid"]), step["msg"])
-			var why := _same(room.take(), step["out"])
+			if why == "":
+				why = _same(room.take(), step["out"])
+			if why == "" and step.has("store"):
+				# the store as the TS one (its own keys: persons, fights, goods)
+				var dump: Dictionary = room.store_dump()
+				var want: Dictionary = step["store"]
+				for k in want:
+					why = W.diff(dump[k], want[k], "store.%s" % k)
+					if why != "":
+						break
 			if why != "":
-				fail("%s step %d (tick %d, %s): %s" % [id, n, room.current_tick(), "tick" if step.get("tick", false) else str(step.get("msg", step)).left(120), why])
+				fail("%s step %d (tick %d, %s): %s" % [id, n, room.current_tick(), "tick" if step.get("tick", false) else str(step.get("msg", step.get("op", step))).left(120), why])
 				return
 			for o in step["out"]:
 				if o[1].has("frame"):
@@ -48,7 +76,7 @@ func test_room_matches_ts() -> void:
 		for u in room.snapshot()["units"]:
 			if u["state"] == "dead":
 				fallen += 1
-		print("%s: %d steps to tick %d (%d men fell), %d messages and %d frames the same" % [id, steps.size(), room.current_tick(), fallen, msgs, frames])
+		print("%s: %d steps to tick %d (%d men fell), %d messages, %d frames and %d calls the same" % [id, steps.size(), room.current_tick(), fallen, msgs, frames, calls])
 
 
 ## "" when the room's messages are the TS ones; else the first difference.
