@@ -59,7 +59,7 @@ export interface CraftDeps {
 }
 
 /** The recipe an item is made by (items and tools; null: a drop-only item). */
-export const itemRecipe = (def: string): Recipe | null => (CIV_TOOLS[def] ? toolRecipe(def) : recipeFor(itemDef(def)));
+export const itemRecipe = (def: string): Recipe | null => (CIV_TOOLS[def] ? (RECIPES[`tool:${def}`] ?? toolRecipe(def)) : recipeFor(itemDef(def))); // the RECIPES rows (saves name them)
 
 /** Why `c` may not make `r` (null: he may): his class, node and needs. Repairs and salvage need only the class (the root). */
 export function crafterRefusal(c: Pick<Crafter, 'prof' | 'perks'>, r: Recipe): 'class' | 'node' | null {
@@ -107,7 +107,7 @@ export function createCrafting(deps: CraftDeps) {
     const paid = c.team === b.team && !Object.keys(cut).length ? deps.takeAt(b.team, b.x, b.y, cost) : !!deps.pay?.(b, c, cost);
     if (!paid) return false;
     for (const [k, v] of Object.entries(cut) as [ResourceKind, number][]) deps.till?.(b, k, v);
-    x.taken = inputs;
+    x.taken = { ...inputs }; // a copy: not the recipe's own inputs (a constant the save names)
     x.payer = { team: c.team, owner: c.owner };
     return true;
   };

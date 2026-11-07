@@ -8,8 +8,11 @@ import ridgeJson from '../../src/war/regions/test-ridge.json';
 import { parseRegion } from '../../src/war/region/schema';
 import { createSim } from '../../src/war/sim';
 import { makePerson } from '../../src/war/sim/roster';
-import { hashString } from '../../src/war/sim/state';
-import type { RegionData, WarBuildSim } from '../../src/war/types';
+import { hashString, type SimState } from '../../src/war/sim/state';
+import { EARLY } from '../../src/war/sim/depth';
+import { BUILDINGS } from '../../src/war/sim/economy';
+import type { RegionData, WarBuildSim, WarEvent } from '../../src/war/types';
+import { flat } from './flatRegion';
 
 function siegeRegion(): RegionData {
   const n = 40;
@@ -187,5 +190,100 @@ describe('sim exportState / importState', () => {
     });
     const s = a.snapshot();
     expect((s.piles ?? []).length + (s.sieges ?? []).length).toBeGreaterThan(0);
+  });
+});
+
+/** A save taken now, loaded into a fresh sim; then both play `more` ticks with snapshots and events compared every 50. */
+function playsOn(a: WarBuildSim, region: RegionData, seed: number, more: number) {
+  a.events();
+  const saved = JSON.parse(JSON.stringify(a.exportState()));
+  const b = createSim(region, seed);
+  b.importState(saved);
+  const evA: unknown[] = [], evB: unknown[] = [];
+  for (let t = 0; t < more; t += 50) {
+    run(a, 50);
+    run(b, 50);
+    evA.push(...a.events());
+    evB.push(...b.events());
+    expect(snap(b)).toBe(snap(a));
+  }
+  expect(JSON.stringify(evB)).toBe(JSON.stringify(evA));
+  expect(hash(b)).toBe(hash(a));
+  return { saved, events: evA as WarEvent[] };
+}
+
+describe('sim saves: state that used to be lost', () => {
+  it('W-79: a man down at save time still gets up after a load', () => {
+    const r = flat(64);
+    r.depth = 0;
+    const a = createSim(r, 3);
+    const me = a.spawnSquad('p:1', 0, 'archer', 1, 32, 32);
+    a.step();
+    a.addLair({ kind: 'wolf', x: 32, y: 26, count: 6 });
+    let down = false;
+    for (let t = 0; t < 1200 && !down; t++) {
+      a.step();
+      down = a.events().some((e) => e.kind === 'fall' && e.down);
+    }
+    expect(down).toBe(true);
+    expect(a.snapshot().units.find((u) => u.squad === me)?.down).toBe(true);
+    const { events } = playsOn(a, r, 3, EARLY.giveUp);
+    expect(events.some((e) => e.kind === 'rise')).toBe(true);
+  });
+
+  it('M5e: a fallen camp is not reported again and a raided one keeps its cooldown after a load', () => {
+    const r = flat(96);
+    const a = createSim(r, 3);
+    const builders = ([[30, 50], [30, 10]] as const).map(([x, y]) => {
+      a.claim(1, x, y, 20);
+      for (const [res, v] of Object.entries(BUILDINGS.camp.cost)) a.addStock(1, res as never, v);
+      const s = a.spawnSquad('builders', 1, 'militia', 12, x, y + 6);
+      a.order({ kind: 'placeBuilding', squad: s, type: 'camp', x, y });
+      return s;
+    });
+    for (let t = 0; t < 8000 && a.snapshot().buildings!.filter((b) => b.state === 'done').length < 2; t++) a.step();
+    for (const s of builders) a.order({ kind: 'move', squad: s, x: 90, y: 80 + s });
+    run(a, 400);
+    a.damageBuilding(1, 1e9);
+    const raider = a.spawnSquad('r', 0, 'militia', 4, 30, 85);
+    a.order({ kind: 'move', squad: raider, x: 30, y: 55 });
+    const raids: WarEvent[] = [];
+    for (let t = 0; t < 400; t++) {
+      a.step();
+      raids.push(...a.events().filter((e) => e.kind === 'raid'));
+    }
+    expect(raids).toEqual([expect.objectContaining({ building: 1, fell: true }), expect.objectContaining({ building: 0, fell: false })]);
+    const { events } = playsOn(a, r, 3, 300);
+    expect(events.filter((e) => e.kind === 'raid')).toEqual([]);
+  });
+
+  it('M5h: queued crafts, repairs and salvage save their recipes by name and resume exactly', () => {
+    const n = 64;
+    const region: RegionData = { id: 'c', name: 'c', w: n, h: n, height: Array(n * n).fill(1), terrain: Array(n * n).fill('grass'), water: Array(n * n).fill(0), entries: [], noBuild: [] };
+    const a = createSim(region, 4);
+    a.claim(0, 30, 30, 30);
+    for (const [res, v] of Object.entries({ wood: 400, stone: 200, linen: 20, bronze: 20, copper: 20, tin: 20, hides: 5 })) a.addStock(0, res as never, v);
+    const m = a.spawnSquad('a', 0, 'militia', 12, 26, 36);
+    a.order({ kind: 'placeBuilding', squad: m, type: 'camp', x: 22, y: 30 });
+    const m2 = a.spawnSquad('a', 0, 'militia', 12, 36, 36);
+    a.order({ kind: 'placeBuilding', squad: m2, type: 'forge', x: 34, y: 30 });
+    const m3 = a.spawnSquad('a', 0, 'militia', 12, 44, 36);
+    a.order({ kind: 'placeBuilding', squad: m3, type: 'workshop', x: 44, y: 30 });
+    for (let i = 0; i < 8000 && a.snapshot().buildings!.filter((b) => b.state === 'done').length < 3; i++) a.step();
+    const sq = a.spawnSquad('a', 0, 'civ_smith', 1, 34, 34, [makePerson('s1', 'civ_smith', { level: 3 })]);
+    a.order({ kind: 'civWork', squad: sq, building: 1 });
+    run(a, 100);
+    a.order({ kind: 'craft', team: 0, building: 1, recipe: 'item:xiphos' });
+    a.order({ kind: 'repair', team: 0, building: 1, owner: 'a', item: { uid: 'w1', def: 'xiphos', rarity: 'common', cond: 30 } });
+    a.order({ kind: 'salvage', team: 0, building: 2, owner: 'a', item: { uid: 'w2', def: 'stone_hammer', rarity: 'common', cond: 80 } });
+    run(a, 60);
+    expect(a.snapshot().buildings![1].queue!.length).toBe(2);
+    expect(a.snapshot().buildings![2].queue!.length).toBe(1);
+    const { saved } = playsOn(a, region, 4, 1500);
+    const text = JSON.stringify(saved);
+    expect(text).toContain('"k":"RECIPES.item:xiphos"');
+    expect(text).toContain('"k":"RECIPES.tool:stone_hammer"');
+    // no recipe row copied into the save
+    expect((saved as SimState).shapes.filter((s) => s.includes('prof') && s.includes('secs'))).toEqual([]);
   });
 });

@@ -17,7 +17,7 @@
  */
 import { Rng } from '../../sim/rng';
 
-export const STATE_VERSION = 1;
+export const STATE_VERSION = 2;
 
 /** The encoded graph: JSON-safe. */
 export interface SimState { v: number; region: string; seed: number; shapes: string[][]; objs: unknown[]; root: unknown }

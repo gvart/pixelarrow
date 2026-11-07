@@ -63,7 +63,7 @@ import { ACTIVE, ACTIVES, activeCooldown, F, FLAG_FX } from './skills';
 import { AT_BUILDING, CIV, CIV_QUOTA, CIV_XP, civJob, CLIP, COOK, ENGINEER, FORAGER, PHYSICIAN, SMITH, wornest, type CivJob } from './civilians';
 import { isCivClass } from '../../data/classes';
 import { heldNodes } from '../../data/professions';
-import { toolMods, type Product } from '../../data/recipes';
+import { RECIPES, toolMods, type Product } from '../../data/recipes';
 import { createCrafting, fedOf, type Crafter } from './crafting';
 import { fallShare, FORAGE, HUNT, REMEDY, VENOM } from './civilians';
 import { mobKindOf, MOBS } from './mobs';
@@ -90,7 +90,7 @@ import { createTownLevels } from './townLevel';
 const exts = new WeakMap<RegionData, Map<object, string>>();
 const constsOf = (region: RegionData) => {
   let m = exts.get(region);
-  if (!m) exts.set(region, (m = externals({ region, BUILDINGS, SIEGE, MOBS })));
+  if (!m) exts.set(region, (m = externals({ region, BUILDINGS, SIEGE, MOBS, RECIPES })));
   return m;
 };
 const fresh = new WeakMap<RegionData, unknown>();
@@ -3789,7 +3789,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     grid, rng, squads, units, queue, pathQueue, unitPathQueue, missiles, shots, reslotQueue, tick, loot, log, civs, dresser, souls: souls.saveRoot(),
     crafting: crafting.saveRoot(), works: works.saveRoot(), siege: siege.saveRoot(), mobs: mobs.saveRoot(), vision: vision.saveRoot(), piles: piles.saveRoot(),
     towns: towns.saveRoot(), bosses: bosses.saveRoot(), landmarks: landmarks.saveRoot(), roam: roam.saveRoot(), secrets: secrets.saveRoot(),
-    townLv: townLv.saveRoot(), bonuses, labourLog, slain,
+    townLv: townLv.saveRoot(), bonuses, labourLog, slain, fallen, raidAt,
   });
 
   const api: WarBuildSim = {
@@ -3808,6 +3808,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       if (r.grid !== grid || r.squads !== squads || r.units !== units || r.rng !== rng) throw new Error('importState: live state not bound');
       ({ missiles, shots, tick, loot, log } = r);
       slain = r.slain ?? [];
+      downs = units.filter((u) => u.downAt !== undefined).length; // W-79: not saved, the men down are
       piles.loadRoot(r.piles);
       works.loadRoot(r.works);
       siege.loadRoot(r.siege);
