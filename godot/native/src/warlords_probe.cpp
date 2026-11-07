@@ -120,7 +120,7 @@ struct WarlordsReplayHost : WarlordsHost {
 	}
 };
 
-static godot::Dictionary snap_dict(const WarlordSnapOut &o) {
+godot::Dictionary warlord_snap_dict(const WarlordSnapOut &o) {
 	godot::Dictionary d;
 	d["id"] = ps(o.id), d["name"] = ps(o.name), d["title"] = ps(o.title), d["band"] = ps(o.band), d["kind"] = ps(o.kind);
 	d["tint"] = o.tint, d["scale"] = o.scale, d["seat"] = o.seat;
@@ -142,6 +142,45 @@ static godot::Dictionary snap_dict(const WarlordSnapOut &o) {
 	return d;
 }
 
+WarlordsRegion warlords_region(const godot::Dictionary &meta, double w, double h) {
+	WarlordsRegion r;
+	r.depth.id = p8(meta["id"]);
+	r.depth.has_depth = meta.has("depth") && meta["depth"].get_type() != godot::Variant::NIL;
+	if (r.depth.has_depth) r.depth.depth = meta["depth"];
+	r.w = w, r.h = h;
+	const godot::Array es = meta.get("entries", godot::Array());
+	for (int64_t i = 0; i < es.size(); i++) {
+		const godot::Dictionary e = es[i];
+		r.entries.push_back({ p8(e["side"]), e["x"], e["y"], e["w"], e["h"] });
+	}
+	const godot::Array lairs = meta.get("lairs", godot::Array());
+	for (int64_t i = 0; i < lairs.size(); i++) {
+		const godot::Dictionary d = lairs[i];
+		LairEntry e;
+		e.kind = p8(d["kind"]);
+		e.x = d["x"];
+		e.y = d["y"];
+		e.captain = d.get("captain", false);
+		r.lairs.push_back(e);
+	}
+	const godot::Array cps = meta.get("claimPoints", godot::Array());
+	for (int64_t i = 0; i < cps.size(); i++) {
+		const godot::Dictionary d = cps[i];
+		r.claimPoints.push_back({ d["x"], d["y"] });
+	}
+	return r;
+}
+
+godot::Dictionary warlord_note_dict(const WarlordNote &n) {
+	godot::Dictionary d;
+	d["t"] = n.t, d["kind"] = "warlord", d["what"] = ps(n.what), d["warlord"] = ps(n.warlord), d["name"] = ps(n.name), d["text"] = ps(n.text);
+	d["x"] = n.x, d["y"] = n.y;
+	if (n.place) d["place"] = ps(*n.place);
+	if (n.team) d["team"] = *n.team;
+	if (n.in) d["in"] = *n.in;
+	return d;
+}
+
 } // namespace sim
 
 namespace godot {
@@ -155,32 +194,7 @@ WarlordsProbe::~WarlordsProbe() = default;
 Ref<WarlordsProbe> WarlordsProbe::create(const Dictionary &meta, double w, double h, double seed, int cap, const Array &inf, const Array &off) {
 	Ref<WarlordsProbe> p;
 	p.instantiate();
-	p->region = std::make_unique<sim::WarlordsRegion>();
-	sim::WarlordsRegion &r = *p->region;
-	r.depth.id = p8(meta["id"]);
-	r.depth.has_depth = meta.has("depth") && meta["depth"].get_type() != Variant::NIL;
-	if (r.depth.has_depth) r.depth.depth = meta["depth"];
-	r.w = w, r.h = h;
-	const Array es = meta.get("entries", Array());
-	for (int64_t i = 0; i < es.size(); i++) {
-		const Dictionary e = es[i];
-		r.entries.push_back({ p8(e["side"]), e["x"], e["y"], e["w"], e["h"] });
-	}
-	const Array lairs = meta.get("lairs", Array());
-	for (int64_t i = 0; i < lairs.size(); i++) {
-		const Dictionary d = lairs[i];
-		sim::LairEntry e;
-		e.kind = p8(d["kind"]);
-		e.x = d["x"];
-		e.y = d["y"];
-		e.captain = d.get("captain", false);
-		r.lairs.push_back(e);
-	}
-	const Array cps = meta.get("claimPoints", Array());
-	for (int64_t i = 0; i < cps.size(); i++) {
-		const Dictionary d = cps[i];
-		r.claimPoints.push_back({ d["x"], d["y"] });
-	}
+	p->region = std::make_unique<sim::WarlordsRegion>(sim::warlords_region(meta, w, h));
 	p->host = std::make_unique<sim::WarlordsReplayHost>();
 	auto &H = *p->host;
 	H.w = w, H.h = h, H.cap = cap;
@@ -192,7 +206,7 @@ Ref<WarlordsProbe> WarlordsProbe::create(const Dictionary &meta, double w, doubl
 		const Array a = off[i];
 		H.off.push_back({ a[0], a[1] });
 	}
-	p->lords = std::make_unique<sim::Warlords>(r, seed, H);
+	p->lords = std::make_unique<sim::Warlords>(*p->region, seed, H);
 	return p;
 }
 
@@ -320,7 +334,7 @@ Array WarlordsProbe::take_events() {
 
 Array WarlordsProbe::snaps() const {
 	Array out;
-	for (const auto &o : lords->snaps()) out.push_back(sim::snap_dict(o));
+	for (const auto &o : lords->snaps()) out.push_back(sim::warlord_snap_dict(o));
 	return out;
 }
 

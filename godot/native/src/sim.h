@@ -472,6 +472,7 @@ struct Sim {
 	void capture(int from, int team, double x, double y, double r);
 	void manOrder(Squad &s, int id, const std::string &act);
 	void setLiege(const std::string &owner, const std::optional<std::string> &to, double pct);
+	void dropSquad(int id); // W-72 proposal (host.cpp): a fallen warlord's band leaves the field, unreported
 	void step();
 
 	// helpers, in index.ts order

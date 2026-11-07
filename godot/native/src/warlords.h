@@ -110,6 +110,9 @@ struct WarlordsRegion {
 	std::vector<LairEntry> lairs; // kind, x, y, captain
 };
 
+// The region as the director reads it from its JSON (Region.meta) and size.
+WarlordsRegion warlords_region(const godot::Dictionary &meta, double w, double h);
+
 // What the director reads of a Snapshot (src/war/types.ts).
 struct WarlordsSnap {
 	double tick = 0;
@@ -199,6 +202,10 @@ struct WarlordSnapOut {
 	} raid;
 	bool raiding = false;
 };
+
+// A WarlordSnap and a WarlordNote (WarEvent kind 'warlord') as their TS objects.
+godot::Dictionary warlord_snap_dict(const WarlordSnapOut &o);
+godot::Dictionary warlord_note_dict(const WarlordNote &n);
 
 // A JS Record<string, number>: insertion order, a set keeps a key where it is.
 using Record = std::vector<std::pair<std::string, double>>;

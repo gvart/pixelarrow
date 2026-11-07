@@ -71,6 +71,9 @@ static func _load() -> void:
 	t["world_regions"] = GameData.table("src/war/world/regions")["WORLD_REGIONS"]
 	t["hidden"] = st["HIDDEN"]
 	t["hidden_text"] = st["HIDDEN_TEXT"]
+	# the rival warlords (warlords.h; tests/sim/test_warlords.gd runs them on the sim)
+	for n in ["src/war/sim/depth", "src/data/warWarlords", "src/war/sim/warlords", "src/war/world/regions", "src/war/world/alliances"]:
+		t[n] = GameData.table(n)
 	# the civilian classes, tools and affix steps (civilians.h)
 	for n in ["src/data/classes", "src/data/items", "src/data/affixes"]:
 		t[n] = GameData.table(n)

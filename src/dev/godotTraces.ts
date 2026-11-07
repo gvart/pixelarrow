@@ -10,6 +10,7 @@ import { createSim } from '../war/sim';
 import { createBots, type Bots } from '../war/sim/bots';
 import type { RegionData, Snapshot, TeamBonus, WarBuildSim, WarPerson } from '../war/types';
 import { NO_PATH, type PlayerPath } from '../war/world/start';
+import { createWarlords, type WarlordNote, type Warlords } from '../war/sim/warlords';
 
 const files = import.meta.glob('../war/regions/*.json', { eager: true, import: 'default' });
 const parsed = new Map<string, RegionData>();
@@ -104,9 +105,11 @@ export interface HostOps { pre?: SetupOp[]; post?: (SetupOp | ((sim: WarBuildSim
 
 /**
  * Scenario sc applied (its setup recorded; at most `cap` ticks a prebuild or skip) and played `ticks` ticks, digested by
- * `dig` at the start and every `every` ticks.
+ * `dig` at the start and every `every` ticks. `lords`: the scenario's warlords run as the sandbox runs them
+ * (../war/view/worker.ts: created with seed 1 on 'warlords', recorded as ['warlords', age, players, raid | null]; each
+ * tick after the sim and its bots on that tick's snapshot), each frame with their notes since the last and their snaps.
  */
-export function play<D>(sc: Scenario, ticks: number, every: number, dig: (s: Snapshot, sim: WarBuildSim) => D, cap = CAP, host: HostOps = {}) {
+export function play<D>(sc: Scenario, ticks: number, every: number, dig: (s: Snapshot, sim: WarBuildSim) => D, cap = CAP, host: HostOps = {}, lords = false) {
   const seed = sc.seed ?? 1, sim = createSim(regionOf(sc), seed), bots = createBots(sim), setup: SetupOp[] = [];
   const undo = record(sim, bots, setup);
   for (const op of host.pre ?? []) hostOp(sim, setup, op);
@@ -116,13 +119,24 @@ export function play<D>(sc: Scenario, ticks: number, every: number, dig: (s: Sna
     setup.push(['feed', team, squad, res, n]);
     feed(team, squad, res, n);
   };
+  let L: Warlords | null = null;
+  const notes: WarlordNote[] = [];
+  if (lords) h.startWarlords = (age, players, raid) => {
+    setup.push(['warlords', age, players, raid ?? null]);
+    L = createWarlords(sim.region, sim, bots, 1);
+    L?.setAge(age);
+    L?.setPlayers(players);
+    if (raid !== undefined) L?.raidNow(raid * 10);
+  };
   applyScenario(h, sc);
   for (const op of host.post ?? []) for (const o of typeof op === 'function' ? op(sim) : [op]) hostOp(sim, setup, o);
   undo();
-  const frames = [dig(sim.snapshot(), sim)];
+  const frame = (s: Snapshot) => (lords ? { ...dig(s, sim), lords: { notes: notes.splice(0), snaps: L ? (L as Warlords).snaps() : [], men: L ? (L as Warlords).men() : 0 } } : dig(s, sim));
+  const frames = [frame(sim.snapshot())];
   for (let t = 1; t <= ticks; t++) {
     stepSim(sim, bots);
-    if (t % every === 0) frames.push(dig(sim.snapshot(), sim));
+    if (L) notes.push(...(L as Warlords).tick(sim.snapshot()));
+    if (t % every === 0) frames.push(frame(sim.snapshot()));
   }
   // zones: merged into the region's meta by the replay, as regionOf merges them
   return { id: sc.id, region: sc.region ?? 'test-ridge', seed, cap, ...(sc.zones ? { zones: sc.zones } : {}), setup, frames };
