@@ -8,12 +8,13 @@
 // MemorySettle keeps the SQL rules over plain records, in insertion order: the alliance rolls and names, found (a
 // settlement round a finished camp: too close to another, the map's refusal), the region's settlements as
 // loadRegionSettlements reads them (members by since and pid, the lord's alliance, the lords of its overlords), report,
-// logAttack (who hears), the centres re-keyed on a fresh field, oaths sworn and their rates (syncTies), the tribute
+// logAttack (who hears), the centres re-keyed on a fresh field, oaths sworn and their rates (syncTies; liegeOf and
+// tributeCut for wave B's sales and tribute), the tribute
 // held in buildings, pacts and truces (pactAttack breaks them), the crown's war goals' shares (bookFight), the alliance
 // works (addLabour within each stage's need, openWorks, bonusesOf), favour (within its path and hour cap, the log
 // trimmed, levelsOf), the guard contracts watched and the world's notes to players (notify). Left out, as REST or world
 // rules (P11): settlement offers and truce bonds, swearing and the crown's votes, offices, treasury and payouts, the
-// contracts' pay and the town boards.
+// contracts' pay (wave B's town boards are RoomStore::trade()).
 #pragma once
 
 #include <functional>
@@ -130,6 +131,9 @@ public:
 	// the region's settlements' persisted pieces (JSON text), by id
 	virtual std::vector<std::pair<int, std::string>> persisted(const std::string &region) = 0;
 	virtual std::vector<Oath> sworn() = 0;
+	// oaths.ts liegeOf (nobody: nullopt) and tributeCut (his liege's part of coin he earned from a sale)
+	virtual std::optional<int> liegeOf(int pid) = 0;
+	virtual double tributeCut(int seller, double coin) = 0;
 	// oaths.ts reportHeld: the region's tribute rows (room.ts titheReports) replace its last
 	virtual void reportHeld(const std::string &region, const godot::Array &rows) = 0;
 	virtual std::vector<PactRec> pactsOf() = 0;
@@ -161,6 +165,8 @@ public:
 	void rekey(const std::string &region, const std::vector<std::pair<int, int>> &moved) override;
 	std::vector<std::pair<int, std::string>> persisted(const std::string &region) override;
 	std::vector<Oath> sworn() override;
+	std::optional<int> liegeOf(int pid) override;
+	double tributeCut(int seller, double coin) override;
 	void reportHeld(const std::string &region, const godot::Array &rows) override;
 	std::vector<PactRec> pactsOf() override;
 	PactBreak pactAttack(int by, int victim, double now) override;

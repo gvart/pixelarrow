@@ -16,12 +16,13 @@
  * Wave C, what the DO books round the room's settlements and politics (server/src/war/settlements.ts, oaths.ts, crown.ts,
  * works.ts, favour.ts): the alliance rolls and names (war_alliance_members, players), the settlements and their members
  * (found, report, the region's list as loadRegionSettlements reads it, an attack logged and who hears it, the centres
- * re-keyed on a fresh field), the oaths sworn and their rates (syncTies on a founding), the tribute held in buildings
+ * re-keyed on a fresh field), the oaths sworn and their rates (syncTies on a founding; liegeOf and tributeCut for wave B's
+ * sales and tribute), the tribute held in buildings
  * (reportHeld), the pacts and truces (pactsOf, pactAttack), the crown's war goals' shares (bookFight), the alliance works
  * (addLabour, openWorks, bonusesOf), favour (addFavour within its path and hour cap, levelsOf), the guard contracts the
  * room watches, and the world's notes to players (notify). Left out, as REST or world rules (P11): settlement offers and
  * truce bonds, swearing and the crown's votes, offices, treasury and orders' payouts, the contracts' pay (labour, guard
- * checks) and the town boards.
+ * checks). Wave B's holders and trade books (the town boards with them) are `trade` (./roomTrade.ts).
  */
 import { freshHero } from '../war/sim/classes';
 import { addDeeds, SCARS_MAX } from '../war/sim/deeds';
@@ -35,6 +36,7 @@ import { foldBonus, stagesOf, WONDER, WORKS, type WorkId } from '../war/net/work
 import { FAVOUR_MAX, FAVOUR_XP, HOUR_CAP, PAYS, type FavourReason } from '../war/net/favour';
 import { FEUDAL } from '../data/warFeudal';
 import type { Circle, Plot } from '../war/net/settlements';
+import { TradeBooks } from './roomTrade';
 
 /** server/src/war/persons.ts HEAL.field and HOLD_MAX. */
 const HEAL_FIELD = 6 * 3_600_000, HOLD_MAX = 20;
@@ -106,6 +108,8 @@ export class RoomStore {
   guards: { region: string; watch: GuardWatch }[] = [];
   news: { pids: number[]; msg: unknown }[] = [];
   private nextSettle = 1;
+  /** Wave B: holders and trade (./roomTrade.ts). */
+  readonly trade = new TradeBooks(this);
 
   private rec(id: string) {
     return this.recs.find((r) => r.id === id);
@@ -351,6 +355,15 @@ export class RoomStore {
     const seat = lord === null ? null : (this.settles.filter((s) => s.lord === lord).sort((a, b) => a.id - b.id)[0]?.id ?? null);
     for (const s of this.settles) if (s.lord === pid) (s.overlord = seat), (s.tribute = seat === null || lord === null ? 0 : (this.rates.get(lord) ?? FEUDAL.rateDefault));
   }
+  /** liegeOf: whom he is sworn to (null: nobody). */
+  liegeOf(pid: number): number | null {
+    return this.oaths.find((o) => o.vassal === pid)?.lord ?? null;
+  }
+  /** tributeCut: his liege's part of `coin` he earned from a sale (0: nobody's man, or a lord at 0%). */
+  tributeCut(seller: number, coin: number): number {
+    const lord = coin > 0 ? this.liegeOf(seller) : null;
+    return lord === null ? 0 : Math.floor(((coin * (this.rates.get(lord) ?? FEUDAL.rateDefault)) / 100) * 100 + 1e-6) / 100;
+  }
   /** sworn: every oath in force with its rate, by vassal. */
   sworn(): { vassal: number; lord: number; pct: number }[] {
     return [...this.oaths].sort((a, b) => a.vassal - b.vassal).map((o) => ({ vassal: o.vassal, lord: o.lord, pct: this.rates.get(o.lord) ?? FEUDAL.rateDefault }));
@@ -521,6 +534,7 @@ export class RoomStore {
       persons: this.recs, fights: this.fights, goods: [...this.goods],
       settlements: this.settles, members: this.members, settleLog: this.settleLog, oaths: this.sworn(), held: this.held, pacts: this.pacts, shares: this.shares,
       works: this.works, gifts: this.gifts, stats: this.stats, favour: this.favour, favourLog: this.favourLog, news: this.news,
+      ...this.trade.dump(),
     };
   }
 }

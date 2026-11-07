@@ -318,7 +318,7 @@ bool LocalRoom::settleOp(const std::string &op, const Array &a, Variant &res) {
 	if (op == "giveWork") return s.giveWork(a[0], S(a[1]), sim::cost_from(a[2])), true;
 	if (op == "townJob") {
 		const Dictionary j = a[0];
-		return room->watchTownJob(j["id"], j["pid"], j["x"], j["y"]), true;
+		return room->watchTownJob({ j["id"], j["pid"], j["x"], j["y"] }), true;
 	}
 	if (op == "endTownJob") return room->unwatchTownJob(a[0]), true;
 	if (op == "fresh") return restoreSettlements(), loadSettlements(), true; // ensure() on a fresh room

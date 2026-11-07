@@ -28,6 +28,7 @@ struct Item {
 	std::optional<int> q; // 0 crude, 1 fine, 2 masterwork
 	std::optional<double> mc;
 	std::optional<std::string> mk, tr;
+	bool affLast = false; // its aff the object's last key (asTrophy's spread on an item with none): saved in that order
 };
 
 // What makeItem reads of an ItemDef, and the paint tables (derived/item_paint).

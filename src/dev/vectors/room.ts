@@ -23,6 +23,9 @@
  *  - world(events, next, now): the world's RPC (worldEvents): applyEvents (the events running here now onto the room, a
  *    guardian woken once per boss wake), every client told.
  *  - call(op, args): what the DO and the world call on the room (transfers, musters, hires, level-ups, paths, saves).
+ *  - wave B (../roomTrade.ts TradeDo): mend / stow / npc / board / handoff as the DO handles them over the store's trade
+ *    books; per tick the crafted items written back, the mends freed and the board's Kills readied by the wild's deeds;
+ *    a save keeps the region's holds, a restore its mends; seeds and looks: stash, rent, snap, hurtBoss.
  * WarRoom is loaded through import.meta.glob so the root typecheck does not follow it into the server's D1 types.
  */
 import { parseRegion } from '../../war/region/schema';
@@ -33,6 +36,7 @@ import { LABOUR_EVERY, stagesOf, WONDER, WORK_R, WORKS, workSite } from '../../w
 import type { BuildingType, FightReport, RegionData, Snapshot, WarBuildSim, WarPerson } from '../../war/types';
 import type { PlayerPath } from '../../war/world/start';
 import { makePerson } from '../../war/sim/roster';
+import { npcSpot } from '../../war/net/npcMarket';
 import type { WorldEvent } from '../../war/world/events';
 import { RoomStore, SETTLE, FAVOUR_LOG, type GuardWatch, type HeldRow, type RoomSettle, type Soul } from '../roomStore';
 import { foundRefusal } from '../../war/net/settlements';
@@ -41,6 +45,7 @@ import { FEUDAL } from '../../data/warFeudal';
 import type { WorkId } from '../../war/net/works';
 import { ALLIANCES as ALLIANCE_LIST } from '../../war/world/alliances';
 import { BOARD } from '../../data/warTownBoard';
+import { TradeDo, type TradeRoom } from '../roomTrade';
 
 type Sha = (b: string) => string;
 const files = import.meta.glob('../../war/regions/*.json', { eager: true, import: 'default' });
@@ -60,8 +65,8 @@ const fav = books['../../../server/src/war/favour.ts'] as {
 const fightTally = (books['../../../server/src/war/persons.ts'] as { fightTally(r: FightReport): Map<number, { kills: number }> }).fightTally;
 const SERVER_SETTLE = (books['../../../server/src/war/settlements.ts'] as { SETTLE: Record<string, number> }).SETTLE;
 
-/** What the harness calls of WarRoom (server/src/war/room.ts). */
-interface Room {
+/** What the harness calls of WarRoom (server/src/war/room.ts); TradeRoom: wave B's (../roomTrade.ts). */
+interface Room extends Omit<TradeRoom, 'sim'> {
   region: RegionData;
   currentTick: number;
   refusal: string;
@@ -94,7 +99,10 @@ interface Room {
     fights: { id: string; report: FightReport }[]; souls: { pid: number; person: WarPerson; squad: number; unit: number }[]; raided: number[]; faded: string[];
     larder: { pid: number; goods: Record<string, number> }[];
     peace: PeaceOut | null; settle: SettleOut | null;
+    crafted: { kind: 'crafted'; owner: string; order: number; what: string; item: { uid: string } }[]; bosses: unknown[]; freed: string[];
   } & LifeBooks;
+  holdRows(): { ref: string; kind: string; pid: number; team: number; goods: Record<string, number>; items: never[] }[];
+  mendUids(): string[];
   startGuide(pid: number, save: unknown): ServerMsg | null;
   startStory(pid: number, save: unknown): ServerMsg | null;
   startEncounters(pid: number, save: unknown): ServerMsg | null;
@@ -172,6 +180,7 @@ class TsLocal {
   private persisted = new Map<number, string>();
   private heldKey = '';
   private lairsSeen = new Map<number, string>();
+  private readonly trade = new TradeDo(() => this.room as unknown as TradeRoom, this.store, this.store.trade, (pid) => this.live.has(pid), () => this.now, (s) => this.wake(s));
   constructor(o: Record<string, unknown>) {
     this.o = { epoch: 'e', ...o };
     this.room = new room.WarRoom(this.o);
@@ -332,6 +341,11 @@ class TsLocal {
       if (g) this.store.keep('guide', pid, g);
     } else if (m.t === 'story') r.storyChoose(pid, m.option); // W-65
     else if (m.t === 'encounter') r.encounterChoose(pid, m.option); // W-65
+    else if (m.t === 'mend') this.trade.mend(pid, m, tell); // wave B: holders and trade
+    else if (m.t === 'stow') this.trade.stow(pid, m, tell);
+    else if (m.t === 'npc') this.trade.npc(pid, m, out);
+    else if (m.t === 'board') this.trade.board(pid, m, tell);
+    else if (m.t === 'handoff') this.trade.handoff(pid, m, out);
     return out;
   }
   /** regionDO.ts guideStart, storyStart, encounterStart, each from its save in the store (`between`: the DO's setLarder). */
@@ -387,6 +401,8 @@ class TsLocal {
       s.take(pid, goods);
       r.setLarder(pid, s.goodsOf(pid));
     }
+    s.trade.applyCrafts(region, r.run, res.crafted as never); // wave B: crafted items written back, mends freed
+    s.trade.returnMends(region, res.freed);
     for (const pid of this.conns) {
       const w = res.admitted.get(pid);
       if (w) out.push([pid, w]);
@@ -400,9 +416,14 @@ class TsLocal {
     for (const g of res.guided) s.keep('guide', g.pid, g.save);
     for (const g of res.storied) s.keep('story', g.pid, g.save);
     for (const g of res.met) s.keep('encounter', g.pid, g.save);
+    // W-185: his Kills done by the wild's deeds: ready, and told
+    const by = new Map<number, { kind: string; key: string }[]>();
+    for (const x of res.wild as { pid: number; kind: string; key: string }[]) (by.get(x.pid) ?? by.set(x.pid, []).get(x.pid)!).push(x);
+    for (const [pid, xs] of by) if (s.trade.boardDeeds(pid, region, xs)) this.trade.boardReady(pid, out);
     const all: Record<string, unknown[]> = {
       fights: res.fights, raided: res.raided, souls: res.souls.map((c) => ({ pid: c.pid, person: c.person.id, squad: c.squad, unit: c.unit })), faded: res.faded,
       guided: res.guided, storied: res.storied, met: res.met, wild: res.wild, larder: res.larder, gathered: res.gathered, warlord: res.warlord,
+      crafted: res.crafted, bosses: res.bosses, freed: res.freed,
     };
     const books: Record<string, unknown> = Object.fromEntries(Object.entries(all).filter(([, v]) => v.length));
     if (res.peace) books.peace = res.peace; // wave C
@@ -451,11 +472,13 @@ class TsLocal {
     if (op === 'save') {
       const st = r.saveState(), { sim, bots, ...head } = st;
       this.saved = JSON.stringify(st);
+      s.trade.saveHolds(region, r.holdRows()); // M6e: the stash screen's snapshot
       return { res: { sha: sha(this.saved), len: this.saved.length, head, sim: sha(JSON.stringify(sim)), bots: sha(JSON.stringify(bots)) }, out };
     }
     if (op === 'restore') {
       const st = JSON.parse(this.saved) as { pids: string[] };
       this.room = room.WarRoom.restore(this.o, st, s.deployed(region, st.pids));
+      s.trade.keepMends(region, this.room.mendUids());
       this.flush();
       // an eviction: the DO's memory starts over; ensure() polls the settlements into the restored room
       this.settleSent.clear();
@@ -487,6 +510,14 @@ class TsLocal {
     if (op === 'report') return this.reportSettlements('all'), this.reportTithes(), { res: { reports: r.settlementReports(), tithes: r.titheReports() }, out };
     if (op === 'presence') return { res: r.presence(a[0] as number, a[1] as number), out };
     if (op === 'storeGoods') return { res: r.storeGoods(a[0] as number), out };
+    // wave B seeds and helpers: items into his stash, a rented site, a guardian hurt
+    if (op === 'stash') {
+      for (const it of a[1] as { uid: string }[]) s.trade.placeItem(a[0] as number, `sr:${a[0]}`, it as never);
+      return { res: null, out };
+    }
+    if (op === 'rent') return { res: s.trade.rentSite(a[0] as number, a[1] as string, a[2] as 'stall', this.now), out };
+    if (op === 'snap') return { res: (r.snapshot() as unknown as Record<string, unknown>)[a[0] as string] ?? null, out }; // a look at the snapshot (its piles, its buildings)
+    if (op === 'hurtBoss') return { res: (r.sim as unknown as { hurtBoss(id: string, dmg: number, owner: string): void }).hurtBoss(a[0] as string, a[1] as number, a[2] as string) ?? null, out };
     throw new Error(`unknown op ${op}`);
   }
 }
@@ -908,6 +939,191 @@ function realm(): Step[] {
   ];
 }
 
+// ---------------------------------------------------------------- wave B: holders and trade
+
+const kit = (uid: string, def: string, cond: number) => ({ uid, def, rarity: 'common', cond });
+const piece = (r: Room, type: string, team = 0) => (r.snapshot().buildings ?? []).find((b) => b.type === type && b.team === team);
+const devAt = (team: number, cls: string, count: number, at: { x: number; y: number }, dx = 0, dy = 0) => ({ t: 'dev', op: 'spawn', team, cls, count, x: Math.round(at.x) + dx, y: Math.round(at.y) + dy });
+const skip = (pid: number, n: number): Step[] => Array.from({ length: n }, () => ({ pid, msg: () => ({ t: 'dev', op: 'skip', ticks: 600 }) }));
+
+/**
+ * test-ridge (no world region: every player's strongroom stands here): a camp, a forge and a chest raised, smiths at the
+ * forge; a craft (the item into his chest, M6e), mends of his stash items (a repair, a salvage, one the forge cannot
+ * take: freed and home again, refusals); stows between his packs and his strongroom (goods and items, out, in, short,
+ * refused sites); hand-offs (a swap with an ally, a window too far apart, cancelled, refusals); a save (the region's
+ * holds), a restore (mends kept) and on.
+ */
+function craft(): Step[] {
+  const R = 'test-ridge', H = { x: 342, y: 338 }, F = { x: 336.5, y: 334.5 };
+  const mine = (r: Room, i: number) => squad(r, 1, i);
+  return [
+    { op: 'seed', args: () => [1, [...men('h', 'hoplite', 4), ...men('k', 'civ_smith', 2)], { coin: 40, wood: 30, bronze: 4 }, null] },
+    { op: 'ally', args: () => [1, 0, 'Ann'] },
+    { op: 'ally', args: () => [2, 0, 'Bo'] },
+    { op: 'ally', args: () => [3, 1, 'Cy'] },
+    { op: 'stash', args: () => [1, [kit('s1', 'xiphos', 30), kit('s2', 'xiphos', 80), kit('s3', 'longsword', 50), kit('s4', 'xiphos', 60)]] },
+    { pid: 1, msg: () => squads(R, 1, 0, [['h1', 'h2', 'h3', 'h4'], ['k1', 'k2']]) },
+    { pid: 2, msg: () => army(R, 2, 0, [['hoplite', 4]]) },
+    { pid: 3, msg: () => army(R, 3, 1, [['hoplite', 4]]) },
+    { ticks: 2 },
+    { pid: 1, msg: () => ({ t: 'dev', op: 'claim', x: H.x, y: H.y, r: 24 }) },
+    ...(['wood', 'stone', 'bronze', 'iron', 'charcoal'] as const).map((res): Step => ({ pid: 1, msg: () => ({ t: 'dev', op: 'stock', res, n: 300 }) })),
+    { pid: 1, msg: () => devAt(0, 'militia', 12, H, -4, 4) },
+    { pid: 1, msg: () => ({ t: 'view', x0: H.x - 30, y0: H.y - 30, x1: H.x + 30, y1: H.y + 30 }) },
+    { pid: 2, msg: () => ({ t: 'view', x0: H.x - 30, y0: H.y - 30, x1: H.x + 30, y1: H.y + 30 }) },
+    { ticks: 2 },
+    { pid: 1, msg: (r) => ({ t: 'order', o: { kind: 'placeBuilding', type: 'camp', ...spotFor(r, 0, 'camp', H.x, H.y) } }) },
+    { pid: 1, msg: (r) => ({ t: 'order', o: { kind: 'placeBuilding', type: 'forge', ...spotFor(r, 0, 'forge', F.x, F.y) } }) },
+    { pid: 1, msg: (r) => ({ t: 'order', o: { kind: 'placeBuilding', squad: mine(r, 2), type: 'chest', ...spotFor(r, 0, 'chest', H.x + 6, H.y + 2) } }) },
+    { ticks: 2 },
+    { pid: 1, msg: (r) => ({ t: 'order', o: { kind: 'move', squad: mine(r, 1), x: F.x + 3, y: F.y + 4 } }) },
+    { pid: 1, msg: (r) => ({ t: 'order', o: { kind: 'build', squad: mine(r, 2), site: piece(r, 'camp')?.id ?? 0 } }) },
+    ...skip(1, 2),
+    { pid: 1, msg: (r) => ({ t: 'order', o: { kind: 'build', squad: mine(r, 2), site: piece(r, 'chest')?.id ?? 0 } }) },
+    ...skip(1, 1),
+    { pid: 1, msg: (r) => ({ t: 'order', o: { kind: 'build', squad: mine(r, 2), site: piece(r, 'forge')?.id ?? 0 } }) },
+    ...skip(1, 3),
+    { ticks: 5 },
+    { op: 'snap', args: () => ['buildings'] },
+    { pid: 1, msg: (r) => ({ t: 'order', o: { kind: 'civWork', squad: mine(r, 1), building: piece(r, 'forge')?.id ?? 0 } }) },
+    { pid: 1, msg: (r) => ({ t: 'order', o: { kind: 'craft', building: piece(r, 'forge')?.id ?? 0, recipe: 'item:club' } }) },
+    { pid: 1, msg: (r) => ({ t: 'mend', kind: 'repair', building: piece(r, 'forge')?.id ?? 0, uid: 's1' }) },
+    { pid: 1, msg: (r) => ({ t: 'mend', kind: 'salvage', building: piece(r, 'forge')?.id ?? 0, uid: 's2' }) },
+    { pid: 1, msg: (r) => ({ t: 'mend', kind: 'repair', building: piece(r, 'camp')?.id ?? 0, uid: 's3' }) }, // no workplace for it: freed
+    { pid: 1, msg: () => ({ t: 'mend', kind: 'repair', building: 9999, uid: 's4' }) }, // no building of his: back home
+    { pid: 1, msg: (r) => ({ t: 'mend', kind: 'repair', building: piece(r, 'forge')?.id ?? 0, uid: 's1' }) }, // at the forge already
+    { pid: 3, msg: (r) => ({ t: 'mend', kind: 'repair', building: piece(r, 'forge')?.id ?? 0, uid: 's4' }) }, // not his
+    { ticks: 3 },
+    ...skip(1, 3),
+    { ticks: 20 },
+    { op: 'snap', args: () => ['buildings'] },
+    // stows between his militia's packs and his strongroom
+    { pid: 1, msg: (r) => ({ t: 'stow', dir: 'out', site: 'strongroom', squad: mine(r, 2), goods: { wood: 10, coin: 20 }, uids: ['s4'] }) },
+    { pid: 1, msg: (r) => ({ t: 'stow', dir: 'in', site: 'strongroom', squad: mine(r, 2), goods: { wood: 4 }, uids: ['s4'] }) },
+    { pid: 1, msg: (r) => ({ t: 'stow', dir: 'out', site: 'strongroom', squad: mine(r, 2), goods: { wood: 999 } }) }, // short
+    { pid: 1, msg: (r) => ({ t: 'stow', dir: 'out', site: 'strongroom', squad: mine(r, 2), uids: ['zz'] }) }, // no such item
+    { pid: 1, msg: (r) => ({ t: 'stow', dir: 'in', site: 'strongroom', squad: mine(r, 2), goods: { iron: 3 } }) }, // they carry none
+    { pid: 1, msg: (r) => ({ t: 'stow', dir: 'in', site: 'stall', squad: mine(r, 2), goods: { wood: 1 } }) }, // no market here
+    { pid: 1, msg: (r) => ({ t: 'stow', dir: 'in', site: 'contract', contract: 4, squad: mine(r, 2), goods: { wood: 1 } }) },
+    { pid: 1, msg: (r) => ({ t: 'stow', dir: 'out', site: 'tribute', squad: mine(r, 2) }) },
+    { pid: 1, msg: (r) => ({ t: 'stow', dir: 'in', site: 'tribute', squad: mine(r, 2) }) },
+    { pid: 1, msg: (r) => ({ t: 'stow', dir: 'in', site: 'strongroom', squad: squad(r, 2), goods: { wood: 1 } }) }, // not his
+    // hand-offs: an ally's men beside his militia
+    { pid: 2, msg: (r) => devAt(0, 'hoplite', 3, centre(r, mine(r, 2)), 1, 1) },
+    { ticks: 30 },
+    { pid: 1, msg: () => ({ t: 'handoff', op: 'confirm', with: 2 }) }, // no window
+    { pid: 1, msg: (r) => ({ t: 'handoff', op: 'offer', with: 1, squad: mine(r, 0), goods: {} }) }, // himself
+    { pid: 1, msg: (r) => ({ t: 'handoff', op: 'offer', with: 2, squad: mine(r, 2), goods: { wood: 2, coin: 5 }, uids: [] }) },
+    { pid: 2, msg: (r) => ({ t: 'handoff', op: 'offer', with: 1, squad: squad(r, 2, 1), goods: {} }) }, // gives nothing
+    { pid: 2, msg: () => ({ t: 'handoff', op: 'confirm', with: 1 }) },
+    { pid: 1, msg: () => ({ t: 'handoff', op: 'confirm', with: 2 }) },
+    { pid: 1, msg: (r) => ({ t: 'handoff', op: 'offer', with: 3, squad: mine(r, 0), goods: { coin: 1 } }) },
+    { pid: 3, msg: (r) => ({ t: 'handoff', op: 'offer', with: 1, squad: squad(r, 3), goods: {} }) }, // too far apart
+    { pid: 3, msg: (r) => ({ t: 'handoff', op: 'offer', with: 1, squad: squad(r, 1), goods: {} }) }, // not his carrier
+    { pid: 1, msg: () => ({ t: 'handoff', op: 'cancel', with: 3 }) },
+    { pid: 1, msg: () => ({ t: 'handoff', op: 'cancel', with: 3 }) }, // gone
+    { ticks: 10 },
+    { op: 'save', args: () => [] },
+    { op: 'restore', args: () => [] },
+    { ticks: 10 },
+    { pid: 1, msg: () => squads(R, 1, 0, [['h1']]) },
+    { ticks: 10 },
+    { op: 'save', args: () => [] },
+  ];
+}
+
+/**
+ * Elaia (alliance 3's home): its NPC town and its board. His men (alliance 3, at home: his strongroom is here) sell,
+ * buy, hire and get a cart, coin to and from his strongroom; a rival's (alliance 1, abroad) deal from their packs. The
+ * board read, lines taken (a Kill's band set down, a Trade's load sealed into his packs, a Build watched), dropped,
+ * delivered at the wrong town, refused; a Kill done by the wild's deeds (told), handed in for coin; deals refused.
+ * Board lines of the first window are `<kind><i>.0`; the rival's jobs are numbered as taken (1 the load, 2 the work, 3 the
+ * Kill).
+ */
+function market(): Step[] {
+  const R = 'elaia';
+  const at = (r: Room) => npcSpot(r.region);
+  const band = (r: Room) => (r.snapshot().lairs ?? []).at(-1)?.squad ?? 0;
+  return [
+    { op: 'seed', args: () => [1, [], { coin: 1100, wood: 60, food: 20 }, null] },
+    { op: 'setPath', args: () => [1, { path: 'trader', family: 'line', level: 2 }] },
+    { op: 'ally', args: () => [1, 3, 'Ann'] },
+    { op: 'ally', args: () => [2, 1, 'Bo'] },
+    { op: 'ally', args: () => [3, 2, 'Cy'] },
+    { pid: 1, msg: () => army(R, 1, 3, [['hoplite', 4]]) },
+    { pid: 2, msg: () => army(R, 2, 1, [['hoplite', 4]]) },
+    { pid: 3, msg: () => army(R, 3, 2, [['hoplite', 4]]) },
+    { pid: 1, msg: (r) => devAt(3, 'hoplite', 10, at(r), 0, 2) },
+    { pid: 2, msg: (r) => devAt(1, 'hoplite', 12, at(r), 2, -2) },
+    { ticks: 3 },
+    { pid: 1, msg: () => ({ t: 'view', x0: 0, y0: 0, x1: 511, y1: 511 }) },
+    { pid: 2, msg: () => ({ t: 'view', x0: 0, y0: 0, x1: 511, y1: 511 }) },
+    { pid: 1, msg: () => ({ t: 'npc', op: 'sell', res: 'wood' }) }, // they carry none
+    { pid: 3, msg: () => ({ t: 'npc', op: 'sell', res: 'wood' }) }, // nobody at the town
+    { pid: 1, msg: (r) => ({ t: 'stow', dir: 'out', site: 'strongroom', squad: squad(r, 1, 1), goods: { wood: 40, coin: 100 } }) },
+    { pid: 1, msg: (r) => ({ t: 'stow', dir: 'out', site: 'warehouse', squad: squad(r, 1, 1), goods: { wood: 5 } }) }, // at home the warehouse is the strongroom
+    { pid: 1, msg: (r) => ({ t: 'stow', dir: 'in', site: 'stall', squad: squad(r, 1, 1), goods: { wood: 5 } }) }, // no stall yet
+    { op: 'rent', args: () => [1, R, 'stall'] },
+    { pid: 1, msg: (r) => ({ t: 'stow', dir: 'in', site: 'stall', squad: squad(r, 1, 1), goods: { wood: 5, coin: 10 } }) },
+    { pid: 1, msg: (r) => ({ t: 'stow', dir: 'out', site: 'stall', squad: squad(r, 1, 1), goods: { wood: 2 } }) },
+    { pid: 1, msg: () => ({ t: 'npc', op: 'sell', res: 'wood', n: 20 }) },
+    { pid: 1, msg: () => ({ t: 'npc', op: 'sell', res: 'marble', n: 2 }) }, // carry none
+    { pid: 1, msg: () => ({ t: 'npc', op: 'buy', res: 'salt', n: 10 }) },
+    { pid: 1, msg: () => ({ t: 'npc', op: 'buy', res: 'flax', n: 3 }) }, // not dealt here
+    { pid: 1, msg: () => ({ t: 'npc', op: 'buy', res: 'iron', n: 40 }) },
+    { pid: 1, msg: () => ({ t: 'npc', op: 'hire', cls: 'civ_forager' }) },
+    { pid: 1, msg: () => ({ t: 'npc', op: 'hire', cls: 'civ_porter' }) }, // nobody hires out as that
+    { pid: 1, msg: () => ({ t: 'npc', op: 'cart', cart: 'handcart' }) },
+    { ticks: 5 },
+    { pid: 2, msg: () => ({ t: 'npc', op: 'buy', res: 'food', n: 5 }) }, // no coin with him
+    { pid: 2, msg: (r) => ({ t: 'stow', dir: 'out', site: 'strongroom', squad: squad(r, 2, 1), goods: { coin: 1 } }) }, // not at home
+    // the board
+    { pid: 2, msg: () => ({ t: 'board', op: 'view' }) },
+    { pid: 3, msg: () => ({ t: 'board', op: 'take', entry: 'k0.0' }) }, // nobody at the town
+    { pid: 2, msg: () => ({ t: 'board', op: 'take', entry: 't0.0' }) },
+    { pid: 2, msg: () => ({ t: 'board', op: 'take', entry: 't0.0' }) }, // held
+    { pid: 2, msg: () => ({ t: 'board', op: 'take', entry: 'zz' }) }, // gone
+    { pid: 2, msg: () => ({ t: 'board', op: 'deliver', job: 1 }) }, // the wrong town
+    { pid: 2, msg: () => ({ t: 'board', op: 'handin', job: 1 }) }, // not done
+    { pid: 2, msg: () => ({ t: 'board', op: 'drop', job: 1 }) },
+    { pid: 2, msg: () => ({ t: 'board', op: 'take', entry: 'b0.0' }) },
+    { pid: 2, msg: () => ({ t: 'board', op: 'drop', job: 2 }) },
+    { pid: 2, msg: () => ({ t: 'board', op: 'drop', job: 999 }) }, // not his
+    { pid: 2, msg: () => ({ t: 'board', op: 'take', entry: 'k0.0' }) },
+    { ticks: 3 },
+    { pid: 2, msg: (r) => ({ t: 'order', o: { kind: 'attack', squad: squad(r, 2, 1), target: band(r) } }) },
+    { pid: 2, msg: (r) => ({ t: 'order', o: { kind: 'attack', squad: squad(r, 2), target: band(r) } }) },
+    { ticks: 200 },
+    ...skip(2, 2),
+    { ticks: 60 },
+    { pid: 2, msg: (r) => ({ t: 'order', o: { kind: 'move', squad: squad(r, 2, 1), x: at(r).x + 2, y: at(r).y } }) },
+    ...skip(2, 1),
+    { ticks: 5 },
+    { pid: 2, msg: () => ({ t: 'board', op: 'handin', job: 3 }) },
+    { pid: 2, msg: () => ({ t: 'npc', op: 'buy', res: 'food', n: 5 }) }, // his pay in his packs
+    { pid: 2, msg: () => ({ t: 'npc', op: 'cart', cart: 'wagon' }) },
+    { pid: 1, msg: () => ({ t: 'board', op: 'view' }) },
+    { pid: 1, msg: (r) => ({ t: 'stow', dir: 'out', site: 'strongroom', cart: r.cartsOf(1)[0] ?? 0, goods: { wood: 3 } }) }, // into his cart (a hold row)
+    { ticks: 5 },
+    { op: 'save', args: () => [] },
+  ];
+}
+
+/** The Saddle in a boss wake (W-62): Brontes slain by his men, his loot pile WAKE.loot times over (M6e bossItems). */
+function wake(): Step[] {
+  const R = 'saddle';
+  return [
+    { pid: 1, msg: () => army(R, 1, 0, [['hoplite', 12]]) },
+    { world: { events: [ev(2, 'bossWake', R, -1000, 600_000)], next: null, now: T0 } },
+    { ticks: 5 },
+    { pid: 1, msg: () => ({ t: 'view', x0: 0, y0: 0, x1: 511, y1: 511 }) },
+    { op: 'hurtBoss', args: () => ['brontes', 1e9, 'p:1'] },
+    { ticks: 5 },
+    { op: 'snap', args: () => ['piles'] },
+    { op: 'save', args: () => [] },
+  ];
+}
+
 /**
  * Elaia, the home of alliance 3 (W-61): its open works (a work's goods given), a builder's men at the temple's site
  * (labour, his favour in lumps), a guard contract watched, a town job (his men drawn at work, its labour), the job
@@ -939,7 +1155,7 @@ function peace(): Step[] {
   ];
 }
 
-const RUNS:{ id: string; region: string; seed: number; opts: Record<string, unknown>; steps: () => Step[] }[] = [
+const RUNS: { id: string; region: string; seed: number; opts: Record<string, unknown>; steps: () => Step[] }[] = [
   { id: 'ridge', region: 'test-ridge', seed: 1, opts: { cap: 96, wild: true }, steps: ridge },
   { id: 'persons', region: 'test-ridge', seed: 3, opts: { cap: 96, home: 0, fightQuiet: 40 }, steps: persons },
   { id: 'veterans', region: 'test-ridge', seed: 5, opts: { cap: 96, fightQuiet: 40 }, steps: veterans },
@@ -949,6 +1165,9 @@ const RUNS:{ id: string; region: string; seed: number; opts: Record<string, unkn
   { id: 'settle', region: 'test-ridge', seed: 11, opts: { cap: 96, fightQuiet: 40 }, steps: settle },
   { id: 'realm', region: 'test-ridge', seed: 13, opts: { cap: 96 }, steps: realm },
   { id: 'peace', region: 'elaia', seed: 3, opts: { cap: 400, home: 3 }, steps: peace },
+  { id: 'craft', region: 'test-ridge', seed: 11, opts: { cap: 96, home: 0 }, steps: craft },
+  { id: 'market', region: 'elaia', seed: 13, opts: { cap: 400 }, steps: market },
+  { id: 'wake', region: 'saddle', seed: 15, opts: { cap: 400, wild: true }, steps: wake },
 ];
 
 function run(r: (typeof RUNS)[number], sha: Sha) {

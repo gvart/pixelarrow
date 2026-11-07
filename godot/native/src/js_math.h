@@ -40,12 +40,13 @@ inline double round(double x) {
 	return r;
 }
 
-// Math.sin, cos, tan, atan2 and log2: V8's fdlibm ports (third_party/v8), never the platform libm.
+// Math.sin, cos, tan, atan2, log2 and exp: V8's fdlibm ports (third_party/v8), never the platform libm.
 inline double sin(double x) { return v8::base::ieee754::sin(x); }
 inline double cos(double x) { return v8::base::ieee754::cos(x); }
 inline double tan(double x) { return v8::base::ieee754::tan(x); }
 inline double atan2(double y, double x) { return v8::base::ieee754::atan2(y, x); }
 inline double log2(double x) { return v8::base::ieee754::log2(x); }
+inline double exp(double x) { return v8::base::ieee754::exp(x); }
 
 // Math.pow and `**` as V8 runs them under its default --use-std-math-pow (src/numbers/ieee754.cc math::pow): x*x for
 // y == 2, sqrt(x + 0) for y == 0.5, else the platform std::pow (so it matches Node on the same platform, and differs

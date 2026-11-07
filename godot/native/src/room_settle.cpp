@@ -196,11 +196,6 @@ struct RoomPolitics {
 	std::vector<Oath> oaths;
 	std::vector<PactIn> pacts;
 	std::vector<GuardWatch> guards;
-	struct TownJob {
-		int id = 0, pid = 0;
-		double x = 0, y = 0;
-	};
-	std::vector<TownJob> townJobs;
 	struct WorkSite {
 		std::string work;
 		int team = 0;
@@ -585,13 +580,6 @@ godot::Dictionary Room::settleTick() {
 
 void Room::setGuards(const std::vector<GuardWatch> &list) { P().guards = list; }
 
-void Room::watchTownJob(int id, int pid, double x, double y) { P().townJobs.push_back({ id, pid, x, y }); }
-
-void Room::unwatchTownJob(int id) {
-	auto &js = P().townJobs;
-	js.erase(std::remove_if(js.begin(), js.end(), [&](const RoomPolitics::TownJob &j) { return j.id == id; }), js.end());
-}
-
 std::vector<int> Room::pathPlayers() const {
 	std::vector<int> out;
 	for (const auto &[pid, w] : paths) out.push_back(pid);
@@ -657,7 +645,7 @@ godot::Dictionary Room::peace() {
 		r["team"] = w.team, r["work"] = G(w.work), r["by"] = b;
 		works.push_back(r);
 	}
-	for (const auto &j : pp.townJobs) {
+	for (const TownJob &j : townJobs()) { // wave B's watch list (room_trade.cpp)
 		int n = 0;
 		for (const Dictionary &u : men)
 			if (pidAt(u) == j.pid && d2(u, j.x, j.y) <= T::WORK_R * T::WORK_R) n++;
@@ -673,13 +661,13 @@ godot::Dictionary Room::peace() {
 	return out;
 }
 
-bool Room::townWorking() const { return pol_ && !pol_->townJobs.empty(); }
+bool Room::townWorking() const { return !townJobs().empty(); }
 
 // works.ts atTownWork: a man standing free by a town job his owner holds is drawn at work, turned to it
 godot::Dictionary Room::atTownWork(const Dictionary &u) const {
 	if (S(u["state"]) != "idle" || truthy(u, "work") || truthy(u, "task")) return u;
 	const auto o = owners.find(int(u["squad"]));
-	for (const auto &j : P().townJobs) {
+	for (const TownJob &j : townJobs()) {
 		const double x = u["x"], y = u["y"];
 		if (o != owners.end() && o->second == owner_of(j.pid) && (x - j.x) * (x - j.x) + (y - j.y) * (y - j.y) <= T::WORK_R * T::WORK_R) {
 			Dictionary v = u.duplicate(false);

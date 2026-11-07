@@ -339,6 +339,19 @@ void MemorySettle::syncTies(int pid) {
 		if (s.lord == pid) s.overlord = seat, s.tribute = !seat || !lord ? 0 : rate ? *rate : T::RATE_DEFAULT;
 }
 
+std::optional<int> MemorySettle::liegeOf(int pid) {
+	for (const auto &[v, l] : oaths)
+		if (v == pid) return l;
+	return std::nullopt;
+}
+
+double MemorySettle::tributeCut(int seller, double coin) {
+	const std::optional<int> lord = coin > 0 ? liegeOf(seller) : std::nullopt;
+	if (!lord) return 0;
+	const double *rate = in(rates, *lord);
+	return std::floor(((coin * (rate ? *rate : T::RATE_DEFAULT)) / 100) * 100 + 1e-6) / 100; // cents
+}
+
 std::vector<Oath> MemorySettle::sworn() {
 	std::vector<std::pair<int, int>> os = oaths;
 	std::stable_sort(os.begin(), os.end(), [](const auto &a, const auto &b) { return a.first < b.first; });

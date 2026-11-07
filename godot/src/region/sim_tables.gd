@@ -45,4 +45,6 @@ static func load() -> void:
 		t[n] = GameData.table(n)
 	for n in ["src/data/classes", "src/data/items", "src/data/affixes"]:
 		t[n] = GameData.table(n)
+	for n in ["src/data/warNpcTowns", "src/data/warTownBoard"]: # the room's NPC towns and boards (npc_market.h, town_board.h)
+		t[n] = GameData.table(n)
 	SimData.load(t)

@@ -28,6 +28,7 @@
 #include <godot_cpp/variant/variant.hpp>
 
 #include "codec.h"
+#include "room_cargo.h"
 #include "js_map.h"
 #include "settle.h"
 #include "sim.h"
@@ -75,6 +76,9 @@ struct RoomOpts {
 
 struct RoomLife; // wave D (room_life.cpp): the guide, stories, encounters, warlords, world events, the wild's deeds and tasks
 struct RoomPolitics; // wave C (room_settle.cpp): settlements, oaths, pacts, works, town jobs
+struct RoomTrade; // wave B (room_trade.cpp): mends, hand-off windows, town jobs and bands
+struct HoldRow;
+struct BoardMan;
 
 class Room {
 public:
@@ -123,6 +127,9 @@ public:
 		std::vector<std::string> faded;
 		std::vector<std::pair<int, Cost>> larder;
 		godot::Dictionary peace, settle; // wave C: room.ts Peace and SettleOut as their TS objects (empty: null)
+		// wave B: the crafted events (a craft's item with its `c:` uid), the guardians slain, mend items freed
+		godot::Array crafted, bosses;
+		std::vector<std::string> freed;
 	};
 	// saveState: the RoomState JSON text, its head (all but sim and bots) and the sim's and bots' texts in it
 	struct Saved {
@@ -205,9 +212,9 @@ public:
 	godot::Dictionary summary();
 
 	// ---- wave C, settlements and politics (room_settle.cpp), as room.ts names them: what the DO polls in (the region's
-	// settlements, the oaths and pacts in force, the guard contracts watched, the home's open works, town jobs) and reads
-	// back (the settlements' reports, the tribute held, presence, store goods); restorePieces lays a settlement down
-	// again on a fresh field (its centre's new id)
+	// settlements, the oaths and pacts in force, the guard contracts watched, the home's open works; town jobs are wave
+	// B's) and reads back (the settlements' reports, the tribute held, presence, store goods); restorePieces lays a
+	// settlement down again on a fresh field (its centre's new id)
 	void setSettlements(const std::vector<RoomSettle> &list);
 	void setOaths(const std::vector<Oath> &list);
 	void setPacts(const std::vector<PactIn> &list);
@@ -218,11 +225,55 @@ public:
 	godot::Dictionary storeGoods(int id);
 	void setGuards(const std::vector<GuardWatch> &list);
 	void setWorks(int team, const std::vector<std::string> &ids);
-	void watchTownJob(int id, int pid, double x, double y);
-	void unwatchTownJob(int id);
 	std::vector<int> pathPlayers() const;
-	// W-195 a band a town contract asked for (the contracts' board is not here yet: none)
-	bool townBandIs(int) const { return false; }
+
+	// ---- wave B, the holders and trade (room_trade.cpp), as room.ts names them. A carrier: his squad's packs or his cart.
+	struct Carrier {
+		std::optional<int> squad, cart;
+	};
+	struct HandoffHalf {
+		Carrier from;
+		Cost goods;
+		std::vector<std::string> uids;
+	};
+	struct HandoffWindow {
+		int a = 0, b = 0;
+		std::map<int, HandoffHalf> halves; // a JS object of pids: ascending
+		std::vector<int> ok;
+		int until = 0;
+	};
+	struct HandoffGot {
+		std::string error, detail; // error "": the window
+		HandoffWindow window;
+		bool ready = false;
+	};
+	struct TownBand {
+		int lair = 0;
+		double x = 0, y = 0;
+	};
+	struct TownJob {
+		int id = 0, pid = 0;
+		double x = 0, y = 0;
+	};
+	std::string mend(int pid, const std::string &kind, int building, const Item &item); // "" sent, else the OrderError
+	std::vector<HoldRow> holdRows();
+	std::optional<CargoAt> carrier(int pid, const Carrier &from);
+	bool inCourt(int pid, const Carrier &from);
+	std::optional<Bundle> takeCargo(int pid, const Carrier &from, const Cost &goods, const std::vector<std::string> &uids = {}, std::optional<double> seal = std::nullopt);
+	Bundle giveCargo(int pid, const Carrier &to, const Bundle &b);
+	std::vector<CargoSlot> npcSlots(int pid);
+	std::vector<int> cartsOf(int pid);
+	std::optional<int> giveCart(int pid, const std::string &type);
+	HandoffGot handoff(int pid, int other, const std::string &op, const std::optional<HandoffHalf> &half);
+	std::string swapHandoff(int a, int b); // "" swapped, else why not
+	std::vector<std::string> mendUids() const;
+	TownBand townBand(const godot::Dictionary &band, const std::string &seed);
+	bool townBandIs(int lair) const;
+	void setTownJobs(const std::vector<TownJob> &list);
+	void watchTownJob(const TownJob &j);
+	void unwatchTownJob(int id);
+	const std::vector<TownJob> &townJobs() const; // W-185: the peace wave counts their labour (atTownWork)
+	std::vector<BoardMan> armyOf(int pid);
 
 private:
 	struct Player {
@@ -326,6 +377,16 @@ private:
 	godot::Dictionary atTownWork(const godot::Dictionary &u) const;
 	void settleSave(godot::Dictionary &settle) const;
 	void settleLoad(const godot::Dictionary &settle);
+	// wave B hooks (room_trade.cpp): the tick's deposits, guardians' piles and freed mends; the mends saved and back
+	mutable std::shared_ptr<RoomTrade> trade_;
+	RoomTrade &tr() const;
+	void deposit(godot::Dictionary &e);
+	std::vector<std::string> unmend(const std::set<std::string> &done);
+	bool near(int a, const Carrier &ca, int b, const Carrier &cb);
+	std::pair<double, double> bandSpot(const std::string &seed);
+	void tradeTick(TickOut &out, const std::vector<godot::Dictionary> &evs);
+	godot::Array mendsSaved() const;
+	void loadMends(const godot::Array &a);
 };
 
 } // namespace sim
