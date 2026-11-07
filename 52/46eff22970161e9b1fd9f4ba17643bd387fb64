@@ -1,0 +1,73 @@
+godot/native/src/js_json.h
+  s_1a6e9ade9f303e::t_47bb0ff27a9fdd 1-16
+godot/native/src/civilians.h
+  s_1a6e9ade9f303e::t_9eabaed0ad36d3 10,68
+godot/tests/sim/test_room.gd
+  s_1a6e9ade9f303e::t_a0e66f3ccca4cb 1-33,36-39,41-46,52-90
+  s_1a6e9ade9f303e::t_7f37051d327ba1 34-35,40
+  s_1a6e9ade9f303e::t_7c55d92df2133c 47-51
+godot/native/src/local_room.h
+  s_1a6e9ade9f303e::t_7f37051d327ba1 12,48-49
+  s_1a6e9ade9f303e::t_6e40a787676eda 1-11,13-47,50-64
+godot/native/src/local_room.cpp
+  s_1a6e9ade9f303e::t_713573cf1cd1ca 1-180,182-190
+  s_1a6e9ade9f303e::t_7f37051d327ba1 181
+godot/native/src/codec.h
+  s_1a6e9ade9f303e::t_f99bdf23ddb79f 14
+  s_1a6e9ade9f303e::t_834b1004deea86 1-13,15-47
+godot/tests/sim/test_room.gd.uid
+  s_1a6e9ade9f303e::t_26bd3a1cbad6fc 1
+godot/native/src/sim_data.h
+  s_1a6e9ade9f303e::t_77328d9eec843d 46-50,89
+godot/native/src/codec.cpp
+  s_1a6e9ade9f303e::t_d8a62d81b6dada 99-100,102
+  s_1a6e9ade9f303e::t_79003d99629206 1-98,101,103-358
+godot/native/src/room.cpp
+  s_1a6e9ade9f303e::t_f7fa3805bcac4f 497-498,500,939
+  s_1a6e9ade9f303e::t_04b866f0985f24 891
+  s_1a6e9ade9f303e::t_419df73842cc97 270,276,1054,1142,1197
+  s_1a6e9ade9f303e::t_bfbcd63bbe8e5f 119,122,149,173,182,486,510,738
+  s_1a6e9ade9f303e::t_35e0d453814675 405
+  s_1a6e9ade9f303e::t_aa333a867c7b09 996-997,1012
+  s_1a6e9ade9f303e::t_8d74605c3bf2b0 1-116,118,120-121,123-148,150-172,174-181,183-269,271-275,277-404,406-485,487-496,499,501-509,511-737,739-890,892-938,940-995,998-1011,1013-1053,1055-1141,1143-1196,1198-1219
+  s_1a6e9ade9f303e::t_6e4aaa97f6be67 117
+godot/native/src/js_json.cpp
+  s_1a6e9ade9f303e::t_3c5c4aac7a603d 1-68
+godot/native/src/snapshot.h
+  s_1a6e9ade9f303e::t_f2f323e30f5014 1-18
+godot/native/src/snapshot.cpp
+  s_1a6e9ade9f303e::t_946cfcf30a6f45 1-479
+godot/native/src/siege_probe.cpp
+  s_1a6e9ade9f303e::t_b23bd3f4ce75e2 225
+godot/native/src/load_tables.cpp
+  s_1a6e9ade9f303e::t_9eabaed0ad36d3 246-249
+  s_1a6e9ade9f303e::t_77328d9eec843d 304-309
+godot/native/src/works_probe.cpp
+  s_1a6e9ade9f303e::t_b23bd3f4ce75e2 171
+godot/native/src/room.h
+  s_1a6e9ade9f303e::t_f7fa3805bcac4f 15,38-39,154-155
+  s_1a6e9ade9f303e::t_f99bdf23ddb79f 26
+  s_1a6e9ade9f303e::t_bea97965d85ee6 1-14,16-25,27-37,40-42,45-52,54-97,99-107,109-146,148-153,156-158
+  s_1a6e9ade9f303e::t_bfad48e4ce8448 53
+  s_1a6e9ade9f303e::t_bfbcd63bbe8e5f 43-44,98,108,147
+godot/tests/sim/test_traces.gd
+  s_1a6e9ade9f303e::t_c315af3ec49b5b 83-85
+godot/native/src/register_types.cpp
+  s_1a6e9ade9f303e::t_4c6d31feb7096e 12,45
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5246eff22970161e9b1fd9f4ba17643bd387fb64",
+  "prompts": {},
+  "sessions": {
+    "s_1a6e9ade9f303e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2c9e00ce-6ba5-4b5a-8be5-a4a273976934",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
