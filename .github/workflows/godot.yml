@@ -1,14 +1,14 @@
 name: Godot
 
-# The Godot port (docs/impl/godot-port.md): golden traces and the data export from the TS source, the C++ sim extension,
-# then the headless Godot tests against them.
+# The Godot port (docs/impl/godot-port.md): golden traces, the data and view exports from the TS source, the C++ sim
+# extension, then the headless Godot tests against them.
 
 on:
   push:
     branches: [main, 'feat/godot-*']
-    paths: ['godot/**', 'src/war/**', 'src/data/**', 'src/sim/**', 'src/dev/godotTraces.ts', 'scripts/godot/**', '.github/workflows/godot.yml']
+    paths: ['godot/**', 'src/war/**', 'src/data/**', 'src/sim/**', 'src/art/**', 'src/assets/sheets/**', 'public/war/**', 'src/dev/godot*.ts', 'scripts/godot/**', '.github/workflows/godot.yml']
   pull_request:
-    paths: ['godot/**', 'src/war/**', 'src/data/**', 'src/sim/**', 'src/dev/godotTraces.ts', 'scripts/godot/**', '.github/workflows/godot.yml']
+    paths: ['godot/**', 'src/war/**', 'src/data/**', 'src/sim/**', 'src/art/**', 'src/assets/sheets/**', 'public/war/**', 'src/dev/godot*.ts', 'scripts/godot/**', '.github/workflows/godot.yml']
   workflow_dispatch:
 
 permissions:
@@ -31,6 +31,25 @@ jobs:
       - run: npm ci
       - run: npm run traces:godot
       - run: npm run data:godot
+      # the region view's data (npm run view:godot): the ground and object art code needs canvases, so it bakes in
+      # headless Chromium; with it the Elaia sample tests (godot/tests/region) run instead of skipping
+      - id: pw
+        run: echo "version=$(node -p "require('./node_modules/playwright/package.json').version")" >> "$GITHUB_OUTPUT"
+      - id: pw-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-shell-${{ runner.os }}-${{ steps.pw.outputs.version }}
+      - name: Chromium system libraries
+        continue-on-error: true
+        run: |
+          printf '%s\n' 'DPkg::Lock::Timeout "120";' 'Acquire::Retries "3";' \
+            | sudo tee /etc/apt/apt.conf.d/99ci-browser-setup > /dev/null
+          bash .github/actions/browser-setup/bounded-retry.sh 480 300 npx playwright install-deps chromium
+      - name: Install Chromium
+        if: steps.pw-cache.outputs.cache-hit != 'true'
+        run: bash .github/actions/browser-setup/bounded-retry.sh 240 120 npx playwright install --only-shell chromium
+      - run: npm run view:godot
       - name: Cache the native build (godot-cpp takes minutes)
         uses: actions/cache@v4
         with:
