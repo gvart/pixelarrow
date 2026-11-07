@@ -8,33 +8,12 @@
 #include <godot_cpp/variant/string.hpp>
 
 #include "js_json.h"
+#include "room_parse.h"
 #include "sim_data.h"
 
 namespace godot {
 
 static std::string S(const Variant &v) { return String(v).utf8().get_data(); }
-static bool num(const Dictionary &d, const char *k) { return d.has(k) && (d[k].get_type() == Variant::INT || d[k].get_type() == Variant::FLOAT); }
-
-// parseClientMsg, its shape only: the message types and the fields the room reads (the zod schema's bounds: its own wave)
-static bool parse(const Dictionary &m) {
-	if (m.get("t", Variant()).get_type() != Variant::STRING) return false;
-	const std::string t = S(m["t"]);
-	if (t == "join") return num(m, "v") && m.get("region", Variant()).get_type() == Variant::STRING && num(m, "playerId") && num(m, "team") && int(m["team"]) >= 0 && int(m["team"]) < sim::Net::ALLIANCES;
-	if (t == "order") return m.get("o", Variant()).get_type() == Variant::DICTIONARY && Dictionary(m["o"]).get("kind", Variant()).get_type() == Variant::STRING;
-	if (t == "view") return num(m, "x0") && num(m, "y0") && num(m, "x1") && num(m, "y1");
-	if (t == "ping") return num(m, "c");
-	if (t == "check") {
-		const std::string k = S(m.get("kind", ""));
-		return num(m, "id") && (k == "building" || k == "wall" || k == "bridge");
-	}
-	if (t == "dev") {
-		const std::string op = S(m.get("op", ""));
-		return op == "stock" || op == "claim" || op == "spawn" || op == "skip";
-	}
-	// known, handled by the waves to come (the P8 entry): mend, stow, handoff, npc, board, guide, story, encounter
-	static const std::set<std::string> LATER = { "mend", "stow", "handoff", "npc", "board", "guide", "story", "encounter" };
-	return LATER.count(t) > 0;
-}
 
 Ref<LocalRoom> LocalRoom::create(const Ref<Sim> &s, const Dictionary &o) {
 	Ref<LocalRoom> r;
@@ -57,6 +36,7 @@ Ref<LocalRoom> LocalRoom::create(const Ref<Sim> &s, const Dictionary &o) {
 	if (o.has("home")) opts.home = int(o["home"]);
 	r->pid = int(o.get("pid", 1));
 	r->room = std::make_unique<sim::Room>(*s->s, *s->bots, s->meta, opts);
+	r->room->startLife(s->cells, s->built, bool(o.get("warlords", false)));
 	return r;
 }
 
@@ -66,26 +46,58 @@ void LocalRoom::conn(int p) {
 
 void LocalRoom::tell(int p, const Variant &m) { out.push_back(Array::make(p, m)); }
 
-void LocalRoom::send_as(int p, const Dictionary &m) {
+// regionDO.ts guideStart, storyStart, encounterStart (masteryStart: D1's, none here), each from the local store
+void LocalRoom::welcomed(int p) {
+	sim::Room &r = *room;
+	const Variant had = guides.get(p, Variant());
+	const Variant g = r.startGuide(p, had);
+	// W-79: a new player's rations are packed: his save is kept at once, so they are packed only once
+	if (had.get_type() == Variant::NIL) {
+		const Variant fresh = r.guideSaveOf(p);
+		if (fresh.get_type() != Variant::NIL) guides[p] = fresh;
+	}
+	if (g.get_type() != Variant::NIL) tell(p, g);
+	const Variant st = r.startStory(p, stories.get(p, Variant()));
+	if (st.get_type() != Variant::NIL) tell(p, st);
+	const Variant en = r.startEncounters(p, encounters.get(p, Variant()));
+	if (en.get_type() != Variant::NIL) tell(p, en);
+}
+
+Dictionary LocalRoom::settlements(int p) const {
+	Dictionary s;
+	s["t"] = "settlements";
+	s["list"] = room->settlementsFor(p);
+	return s;
+}
+
+Dictionary LocalRoom::world_msg() const {
+	Dictionary w;
+	w["t"] = "worldEvents";
+	w["events"] = worldEv["events"];
+	w["next"] = worldEv["next"];
+	return w;
+}
+
+void LocalRoom::send_as(int p, const Dictionary &raw) {
 	conn(p);
 	sim::Room &r = *room;
-	if (!parse(m)) {
+	const std::optional<Dictionary> parsed = sim::parse_client_msg(raw);
+	if (!parsed) {
 		Dictionary e;
 		e["t"] = "error";
 		e["code"] = "parse";
 		return tell(p, e);
 	}
+	const Dictionary m = *parsed;
 	const std::string t = S(m["t"]);
-	const auto settlements = [&] {
-		Dictionary s;
-		s["t"] = "settlements";
-		s["list"] = r.settlementsFor(p);
-		return s;
-	};
 	if (t == "join") {
 		const Dictionary res = r.join(p, m);
 		tell(p, res);
-		if (S(res["t"]) == "welcome") tell(p, settlements());
+		if (S(res["t"]) == "welcome") {
+			if (!worldEv.is_empty()) tell(p, world_msg()); // W-62
+			tell(p, settlements(p)); // W-63
+			welcomed(p);
+		}
 	} else if (t == "order") {
 		const Dictionary o = m["o"];
 		const std::string err = r.order(p, o);
@@ -114,7 +126,11 @@ void LocalRoom::send_as(int p, const Dictionary &m) {
 			e["detail"] = String::utf8(("dev " + S(m["op"]) + (err == "forbidden" ? ": needs DEV_AUTH=1" : "")).c_str());
 			tell(p, e);
 		}
-	}
+	} else if (t == "guide") {
+		const Variant g = r.guideHide(p);
+		if (g.get_type() != Variant::NIL) guides[p] = g;
+	} else if (t == "story") r.storyChoose(p, S(m["option"])); // W-65
+	else if (t == "encounter") r.encounterChoose(p, S(m["option"])); // W-65
 }
 
 void LocalRoom::tick() {
@@ -124,10 +140,8 @@ void LocalRoom::tick() {
 			if (ap == p) {
 				tell(p, m);
 				if (S(m["t"]) == "welcome") {
-					Dictionary s;
-					s["t"] = "settlements";
-					s["list"] = room->settlementsFor(p);
-					tell(p, s);
+					welcomed(p); // W-62, W-65: in from the line
+					tell(p, settlements(p)); // W-63
 				}
 			}
 		const auto ms = res.msgs.find(p);
@@ -136,6 +150,37 @@ void LocalRoom::tick() {
 		const auto f = res.frames.find(p);
 		if (f != res.frames.end()) tell(p, f->second);
 	}
+	// what the DO books (regionDO.ts outputs): the saves into the local store, the rest to the caller
+	for (int64_t i = 0; i < res.guided.size(); i++) guides[Dictionary(res.guided[i])["pid"]] = Dictionary(res.guided[i])["save"];
+	for (int64_t i = 0; i < res.storied.size(); i++) stories[Dictionary(res.storied[i])["pid"]] = Dictionary(res.storied[i])["save"];
+	for (int64_t i = 0; i < res.met.size(); i++) encounters[Dictionary(res.met[i])["pid"]] = Dictionary(res.met[i])["save"];
+	books = Dictionary();
+	const std::pair<const char *, const Array *> named[] = { { "guided", &res.guided }, { "storied", &res.storied }, { "met", &res.met }, { "wild", &res.wild }, { "gathered", &res.gathered }, { "warlord", &res.warlord } };
+	for (const auto &[k, a] : named)
+		if (a->size()) books[k] = *a;
+}
+
+void LocalRoom::set_world_events(const Array &events, const Variant &next, double now) {
+	worldEv = Dictionary();
+	worldEv["events"] = events;
+	worldEv["next"] = next;
+	// applyEvents: the events running in this region now onto the room; a guardian wakes once per event
+	const std::string region = S(sim->meta["id"]);
+	Array mine;
+	Variant wake;
+	for (int64_t i = 0; i < events.size(); i++) {
+		const Dictionary e = events[i];
+		if (S(e["region"]) == region && double(e["startAt"]) <= now && now < double(e["endAt"])) {
+			mine.push_back(e);
+			if (wake.get_type() == Variant::NIL && S(e["kind"]) == "bossWake") wake = e["startAt"];
+		}
+	}
+	room->setWorldEvents(mine);
+	if (wake.get_type() != Variant::NIL && woke != wake) {
+		room->wakeGuardians();
+		woke = wake;
+	}
+	for (int p : conns) tell(p, world_msg());
 }
 
 Array LocalRoom::take() {
@@ -145,6 +190,14 @@ Array LocalRoom::take() {
 }
 
 Dictionary LocalRoom::snapshot() const { return room->snapshot(); }
+
+Dictionary LocalRoom::saves() const {
+	Dictionary d;
+	d["guide"] = guides;
+	d["story"] = stories;
+	d["encounter"] = encounters;
+	return d;
+}
 
 Dictionary LocalRoom::constants() {
 	using N = sim::Net;
@@ -172,6 +225,11 @@ Dictionary LocalRoom::constants() {
 	return c;
 }
 
+Variant LocalRoom::parse(const Variant &raw) {
+	const std::optional<Dictionary> m = sim::parse_client_msg(raw);
+	return m ? Variant(*m) : Variant();
+}
+
 String LocalRoom::js_json(const Variant &v) { return String::utf8(sim::js_stringify(v).c_str()); }
 
 void LocalRoom::_bind_methods() {
@@ -183,6 +241,19 @@ void LocalRoom::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("take"), &LocalRoom::take);
 	ClassDB::bind_method(D_METHOD("snapshot"), &LocalRoom::snapshot);
 	ClassDB::bind_method(D_METHOD("current_tick"), &LocalRoom::current_tick);
+	ClassDB::bind_method(D_METHOD("books"), &LocalRoom::get_books);
+	ClassDB::bind_method(D_METHOD("saves"), &LocalRoom::saves);
+	ClassDB::bind_method(D_METHOD("set_world_events", "events", "next", "now"), &LocalRoom::set_world_events);
+	ClassDB::bind_method(D_METHOD("set_warlord_age", "days"), &LocalRoom::set_warlord_age);
+	ClassDB::bind_method(D_METHOD("warlord_memory"), &LocalRoom::warlord_memory);
+	ClassDB::bind_method(D_METHOD("recall_warlords", "memory"), &LocalRoom::recall_warlords);
+	ClassDB::bind_method(D_METHOD("memory"), &LocalRoom::memory);
+	ClassDB::bind_method(D_METHOD("recall", "memory", "elapsed"), &LocalRoom::recall);
+	ClassDB::bind_method(D_METHOD("summary"), &LocalRoom::summary);
+	ClassDB::bind_method(D_METHOD("present"), &LocalRoom::present);
+	ClassDB::bind_method(D_METHOD("boss_loot"), &LocalRoom::boss_loot);
+	ClassDB::bind_method(D_METHOD("road", "pid", "loads", "key"), &LocalRoom::road);
+	ClassDB::bind_static_method("LocalRoom", D_METHOD("parse", "raw"), &LocalRoom::parse);
 	ClassDB::bind_static_method("LocalRoom", D_METHOD("constants"), &LocalRoom::constants);
 	ClassDB::bind_static_method("LocalRoom", D_METHOD("js_json", "v"), &LocalRoom::js_json);
 }

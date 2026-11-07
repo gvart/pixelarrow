@@ -31,7 +31,8 @@ export class RoomStories {
   start(pid: number, team: number, save: StorySave | null, path: PathId | null = null): ServerMsg | null {
     const story = storyOf(this.region.id, path); // W-147: a home's chain is his path's
     if (!story) return null;
-    const goods: Record<string, number> = {};
+    const had = this.runs.get(pid);
+    const goods: Record<string, number> = had?.goods ?? {}; // a rejoin's run pays into the goods its host already holds
     const host: StoryHost = {
       addLair: (d) => void this.sim.addLair(d),
       spawnSoul: (x, y, cls, level) => void this.sim.spawnSoul(x, y, cls, level, 'lair'),
@@ -41,7 +42,7 @@ export class RoomStories {
         if (r.soul) this.sim.spawnSoul(at.x + 1, at.y, r.soul.cls, r.soul.level, 'lair');
       },
     };
-    const run = this.runs.get(pid)?.run ?? new StoryRun(this.region, story, save, { team, owner: `p:${pid}` }, host);
+    const run = had?.run ?? new StoryRun(this.region, story, save, { team, owner: `p:${pid}` }, host);
     if (!run.save.done) this.runs.set(pid, { run, goods });
     return RoomStories.msg(run.save);
   }

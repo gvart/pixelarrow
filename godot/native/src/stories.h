@@ -273,6 +273,10 @@ godot::Dictionary reward_to_dict(const StoryReward &r);
 StoryReward reward_from(const godot::Dictionary &d);
 std::optional<StorySave> save_from(const Story &s, const godot::Variant &v); // saveOk, then the save as read
 godot::Dictionary save_to_dict(const StorySave &s);
+// the room's runs (room_life.cpp): its snapshot, events and the notes as the GDScript face reads and writes them
+StorySnap story_snap(const godot::Dictionary &snap);
+std::vector<StoryEvent> story_events(const godot::Array &evs);
+godot::Array story_notes(const std::vector<StoryNote> &ns);
 
 } // namespace sim
 

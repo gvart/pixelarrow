@@ -1048,3 +1048,10 @@ void StoryRun::_bind_methods() {
 }
 
 } // namespace godot
+
+// The room's story runs (room_life.cpp) read the room's snapshot and events as the GDScript face does.
+namespace sim {
+StorySnap story_snap(const godot::Dictionary &snap) { return godot::snap_from(snap); }
+std::vector<StoryEvent> story_events(const godot::Array &evs) { return godot::events_from(evs); }
+godot::Array story_notes(const std::vector<StoryNote> &ns) { return godot::notes_to(ns); }
+} // namespace sim

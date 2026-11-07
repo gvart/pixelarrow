@@ -83,6 +83,7 @@ void SimData::load(const Dictionary &tables) {
 	sim::load_roster_tables(tables, d.roster);
 	sim::load_stat_tables(tables, d.stats);
 	sim::load_start_tables(tables, d.start);
+	sim::load_guide_tables(tables, d.guide);
 	if (tables.has("src/data/names")) {
 		const Dictionary names = Dictionary(tables["src/data/names"])["NAMES"];
 		const Array cs = names.keys();

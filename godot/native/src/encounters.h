@@ -255,6 +255,11 @@ private:
 EncRegion encounter_region(const godot::Dictionary &meta, const Grid &grid);
 std::optional<EncSave> enc_save_from(const std::vector<EncounterDef> &defs, const godot::Variant &v); // encSaveOk, then the save as read
 godot::Dictionary enc_save_to_dict(const EncSave &s);
+// the room's runs (room_life.cpp), as the GDScript face reads and writes them
+EncSnap enc_snap(const godot::Dictionary &snap);
+std::vector<StoryEvent> enc_events(const godot::Array &evs);
+godot::Array enc_notes(const std::vector<EncNote> &ns);
+godot::Dictionary enc_goods(const EncGoods &g);
 
 } // namespace sim
 

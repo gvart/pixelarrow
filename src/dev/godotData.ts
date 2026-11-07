@@ -21,7 +21,8 @@ import { ITEMS } from '../data/items';
 import { affixPool, powerPool, warAffixPool, WAR_POWER_IGNORED } from '../data/affixes';
 import { materialGoods, materialOf } from '../data/recipes';
 
-const modules = import.meta.glob(['../data/*.ts', '../war/sim/*.ts', '../war/world/*.ts', '../war/region/*.ts', '!**/*.d.ts'], { eager: true }) as Record<string, Record<string, unknown>>;
+// and the room's pure rules of src/war/net it reads (P8: the guide's chains and spots, mastery's reach)
+const modules = import.meta.glob(['../data/*.ts', '../war/sim/*.ts', '../war/world/*.ts', '../war/region/*.ts', '../war/net/guide.ts', '../war/net/mastery.ts', '!**/*.d.ts'], { eager: true }) as Record<string, Record<string, unknown>>;
 const regionFiles = import.meta.glob('../war/regions/*.json', { eager: true, import: 'default' });
 
 /** `src/war/sim/economy` for '../war/sim/economy.ts'. */

@@ -299,6 +299,8 @@ Room::Room(Sim &s, Bots &b, const Dictionary &m, const RoomOpts &o) : sim(s), bo
 	allowArmy = o.allowArmy;
 	allowDev = o.allowDev.value_or(allowArmy);
 	fightQuiet = o.fightQuiet;
+	seed = o.seed;
+	home = o.home;
 	// W-60, W-101: a soul joins only if the player's path lets him: of his people, and under his cap on his whole army
 	// (D1); without a count from the DO (dev armies, tests) his fighters on this field
 	sim.pathOf = [this](const std::string &owner) {
@@ -840,6 +842,8 @@ Room::TickOut Room::tick() {
 	sim.step();
 	bots.tick();
 	snap = sim::snapshot(sim);
+	TickOut out;
+	lifeLords(out); // W-72 proposal: the warlords think on this snapshot (their spawns show from the next)
 	const std::vector<Dictionary> evs = sim.events();
 	// crafted items into chests (deposit), a slain guardian's loot pile, raids, faded souls, mends: the holders' and
 	// persons' waves (the P8 entry)
@@ -850,6 +854,7 @@ Room::TickOut Room::tick() {
 		owners[int(s["id"])] = S(s["owner"]);
 		teams[int(s["id"])] = int(s["team"]);
 	}
+	lifeGather(); // W-62 E7, W-172: what the tasks count from the field
 	const int tk = snap["tick"];
 	Array wire;
 	bool blow = false;
@@ -876,7 +881,6 @@ Room::TickOut Room::tick() {
 		inFight = false;
 		endFight(); // the report (persons, loot) goes to D1: storage (G-09)
 	}
-	TickOut out;
 	out.admitted = drainQueue();
 	const bool seen = online() > 0;
 	if (seen) {
@@ -929,7 +933,7 @@ Room::TickOut Room::tick() {
 			tell(pid, m);
 		}
 	}
-	// W-62 guide, W-65 stories and encounters: their own wave (the P8 entry)
+	lifeMessages(out, evs); // W-62 guide, W-65 stories and encounters
 	// W-221: a man of his fell and what he carried lies on the ground: he is told, not left to find it out
 	for (const Dictionary &e : evs) {
 		if (S(e["kind"]) != "fall" || !e.has("dropped") || e["dropped"].get_type() != Variant::DICTIONARY) continue;
@@ -1021,8 +1025,10 @@ Room::TickOut Room::tick() {
 			}
 		}
 	}
-	// W-72 warlords' notes, W-63 settlements (camps to found, attacks, messages owed): their waves
+	lifeLordMessages(out); // W-72 proposal: warlord notes; a raid's warning and the raid itself to the target team only
+	// W-63 settlements (camps to found, attacks, messages owed): their wave
 	lastTick = tk;
+	lifeBooks(out, evs); // what the DO books: guide, stories, encounters, the wild's deeds, the tasks' tallies
 	if (tk % Net::LABOUR_EVERY == 0) townRest(Net::LABOUR_EVERY / 10.0); // peace(): the labour, guards and works it counts go to D1
 	return out;
 }
@@ -1035,8 +1041,8 @@ std::map<int, std::vector<Dictionary>> Room::economy() {
 	if (on.empty()) return out;
 	const InfluenceMap &infl = sim.works->influence();
 	std::optional<std::vector<NodeSnap>> nodes;
-	Dictionary wild;
-	std::string wildKey;
+	Dictionary wild, lords;
+	std::string wildKey, lordKey;
 	const int tk = snap["tick"];
 	const auto push = [&](int pid, const Dictionary &m) { out[pid].push_back(m); };
 	for (Player *pp : on) {
@@ -1178,7 +1184,7 @@ std::map<int, std::vector<Dictionary>> Room::economy() {
 				push(p.pid, m);
 			}
 		}
-		// W-72 proposal: the region's warlords: their wave
+		lifeFeed(p, out, lords, lordKey); // W-72 proposal: the region's warlords; on join and when it changed
 		if (tk % Net::NODES_EVERY && feed.synced) continue;
 		// feed.nodes: a node sent (or updated) only while his team sees it; on a (re)join every node on explored ground
 		if (!nodes) nodes = sim.works->resource_nodes();
