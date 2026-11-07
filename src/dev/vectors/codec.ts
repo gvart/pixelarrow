@@ -18,7 +18,7 @@ const b64 = (b: Uint8Array) => {
 const STATES: UnitSnap['state'][] = ['idle', 'move', 'attack', 'dead', 'gather', 'build'];
 const CLS = ['hoplite', 'archer', 'militia', 'celt_sword', 'boar'];
 const CARRY = ['food', 'wood', 'stone', 'iron'] as const;
-const ORDERS = ['idle', 'move', 'attack', 'hold', 'attackMove'] as const;
+const ORDERS = ['stop', 'move', 'attack', 'hold', 'attackMove'] as const;
 
 /** A made-up world stepped `ticks` times, a frame each tick (a keyframe every `keyEvery`). */
 function stream(seed: number, ticks: number, keyEvery: number) {
@@ -31,7 +31,7 @@ function stream(seed: number, ticks: number, keyEvery: number) {
     units.set(u.id, u);
   };
   for (let q = 1; q <= 4; q++) for (let k = 0; k < 6; k++) add(q);
-  const squads: SquadSnap[] = [1, 2, 3, 4].map((id) => ({ id, team: id % 3, owner: id === 4 ? 'mobs' : `p${id}`, order: 'idle', units: [] }));
+  const squads: SquadSnap[] = [1, 2, 3, 4].map((id) => ({ id, team: id % 3, owner: id === 4 ? 'mobs' : `p${id}`, order: 'stop', units: [] }));
   const buildings = [{ id: 1, type: 'camp', team: 0, x: 10, y: 12, state: 'building', progress: 0 }, { id: 2, type: 'storehouse', team: 1, x: 40.5, y: 30.5, state: 'done', progress: 1 }];
   const sieges = [{ id: 7, type: 'ram', team: 0, x: 22, y: 23, facing: 0.5, hp: 300, maxHp: 300, state: 'idle', progress: 1, crew: -1, crewNeed: 4, crewHere: 0 }];
   const souls = [{ id: 3, x: 50, y: 51, cls: 'hoplite', level: 2, left: 300 }];
