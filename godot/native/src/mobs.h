@@ -11,6 +11,7 @@
 #include <string>
 #include <vector>
 
+#include "state.h"
 #include "depth.h"
 #include "war_wild.h"
 
@@ -201,6 +202,9 @@ struct AddLair {
 
 class Mobs {
 public:
+	// saves (state.ts): the TS saveRoot as a graph, and the loadRoot of one (into a fresh sim)
+	state::Val save(state::Graph &g) const;
+	void load(const state::Obj &o);
 	enum State { HOME, CHASE, RETURN, FLEE, RAID };
 
 	struct Lair {

@@ -22,9 +22,11 @@
 
 #include <godot_cpp/variant/dictionary.hpp>
 
+#include "state.h"
 #include "economy.h"
 #include "grid.h"
 #include "holders.h"
+#include "js_map.h"
 
 namespace sim {
 
@@ -149,6 +151,7 @@ struct Building {
 	int team = 0, rot = 0;
 	double x = 0, y = 0, w = 0, h = 0;
 	std::vector<int> tiles; // flat tile x,y
+	int tilesVer = 0; // saves: bumped whenever TS gives b.tiles a new array (snapshots and farm nodes share the old one)
 	std::vector<int> ti; // tile indices
 	std::string state; // BuildState
 	double labour = 0, need = 0;
@@ -160,6 +163,7 @@ struct Building {
 	bool cancelled = false;
 	std::vector<double> base;
 	std::array<double, 2> inside{ 0, 0 };
+	int64_t insideKey = 0; // saves: the pieces of one wall share its inside array (0: its own)
 	bool decked = false;
 	int attach = -1, door = -1;
 	struct Prev {
@@ -275,6 +279,7 @@ struct BuildingSnap {
 	double x = 0, y = 0, w = 0, h = 0;
 	int rot = 0;
 	std::vector<int> tiles;
+	int tilesVer = 0; // saves: TS tiles is the building's array of this version
 	std::string state;
 	double progress = 0, delivered = 0, hp = 0, maxHp = 0;
 	int workers = 0, maxWorkers = 0;
@@ -325,14 +330,25 @@ struct StaffMan {
 
 class Works {
 public:
+	// saves (state.ts): the TS saveRoot as a graph, and the loadRoot of one (into a fresh sim)
+	// worker: the Obj of a man (the sim's units); load: worker by id
+	state::Val save(state::Graph &g, const std::function<state::Val(const Worker *)> &worker) const;
+	void load(const state::Obj &o, const std::function<Worker *(const state::Val &)> &worker);
+	// a building snapshot (vision's last-seen buildings) with the building's own tiles array when it is the same version
+	state::Val saveSnap(state::Graph &g, const BuildingSnap &s) const;
+	BuildingSnap loadSnap(const state::Obj &o) const;
+	state::Obj *tilesObj(state::Graph &g, int id, int ver, const std::vector<int> &tiles) const;
+	state::Obj *bridgeDir(state::Graph &g, int id) const;
+	state::Obj *bridgeRows(state::Graph &g, int id) const;
 	struct Node {
 		int id = 0;
 		std::string res;
 		double x = 0, y = 0, amount = 0, max = 0, regrow = 0, rate = 0, slots = 0;
 		int users = 0;
 		std::vector<int> tiles;
+		int tilesVer = -1; // saves: a building's node shares the building's tiles array of this version
 		std::optional<int> obj, building;
-		bool locked = false;
+		bool locked = false, hasLocked = false; // hasLocked (saves): TS n.locked was ever set
 		std::optional<int> kiln;
 		bool rare = false;
 	};
@@ -394,7 +410,7 @@ public:
 	bool set_access(int id, const std::string &owner, const std::optional<std::string> &access, std::optional<double> share, std::optional<double> fee);
 	Hold &till_of(int id) { return till_of(buildings[id]); }
 	void pay_till(int id, const std::string &res, double n, const std::string &o) { pay_till(buildings[id], res, n, o); }
-	std::map<std::string, Liege> lieges; // lookup only
+	JsMap<std::string, Liege> lieges; // a JS Map: insertion order (saved)
 	std::vector<Hold *> owned_holds(const std::string &owner);
 	void staff_scan(const std::vector<StaffMan> &men, int mob);
 	std::pair<double, bool> break_lock(int id, double men, double secs);
@@ -448,15 +464,15 @@ private:
 	std::vector<Building *> braziers;
 	std::vector<int32_t> occ;
 	std::vector<uint8_t> noBuild;
-	std::map<int, Hold> reserve; // order shows only in saveRoot (stockSnap's keys are JS integer keys: ascending)
+	JsMap<int, Hold> reserve; // a JS Map: insertion order (saved; stockSnap's keys are JS integer keys: ascending)
 	std::vector<Building *> storeList;
 	std::vector<Claim> claims;
 	InfluenceMap infl;
 	std::vector<Worker *> pathQueue;
-	std::map<int, std::array<double, 3>> waits; // lookup only
+	JsMap<int, std::array<double, 3>> waits; // JS Maps and Sets: insertion order (saved)
 	std::vector<Worker *> active; // a JS Set: insertion order
-	std::map<int, std::set<int>> cutOff; // lookup only
-	std::set<int> waitAt; // lookup only
+	JsMap<int, JsSet<int>> cutOff;
+	JsSet<int> waitAt;
 	int tick_ = 0;
 	int fields = 0;
 	double yieldK = 1;

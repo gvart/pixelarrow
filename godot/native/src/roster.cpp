@@ -475,7 +475,7 @@ Item item_from(const Dictionary &d) {
 	it.tr = ostr(d, "tr");
 	return it;
 }
-static Dictionary item_to(const Item &it) {
+Dictionary item_full_to(const Item &it) {
 	Dictionary d = item_to_dict(it);
 	if (it.aff) d["aff"] = gs(*it.aff);
 	if (it.pow) d["pow"] = gs(*it.pow);
@@ -537,7 +537,7 @@ Dictionary hero_to(const Hero &h) {
 	lk["tunic"] = gs(h.look.tunic);
 	d["look"] = lk;
 	Dictionary eq;
-	for (const auto &[slot, it] : h.equip) eq[gs(slot)] = item_to(it);
+	for (const auto &[slot, it] : h.equip) eq[gs(slot)] = item_full_to(it);
 	d["equip"] = eq;
 	d["kills"] = h.kills;
 	d["battles"] = h.battles;

@@ -320,7 +320,7 @@ void Roam::arrive(Group &g) {
 	if (c && c->alive && c->team == data().economy.NEUTRAL_TEAM) {
 		const auto &R = RT().ROAM;
 		const double need = std::max(R.escortMin, R.escortShare * g.road);
-		for (const auto &[owner, e] : g.escort) {
+		for (const auto &[owner, e] : std::map<std::string, std::pair<double, int>>(g.escort.begin(), g.escort.end())) {
 			const auto [n, team] = e;
 			if (n < need) continue;
 			const RoamSquad *gs = sq(g.guard), *ms = sq(g.squad);
@@ -350,6 +350,7 @@ void Roam::fall(Group &g) {
 			RoamDef d;
 			d.kind = "traveller";
 			Group t = blank(d, g.route);
+			t.routeOf = g.routeOf >= 0 ? g.routeOf : g.id;
 			t.squad = id;
 			t.leg = g.leg;
 			t.dir = g.dir;
@@ -593,9 +594,9 @@ void Roam::caravan(Group &g, int sid) {
 		const RoamSquad &p = *sq(pid);
 		if (!near_(p, c->x, c->y, R.escortR) || (angry >> p.team) & 1) continue;
 		auto it = g.escort.find(p.owner);
-		if (it == g.escort.end()) it = g.escort.emplace(p.owner, std::make_pair(0.0, p.team)).first;
-		it->second.first++;
-		it->second.second = p.team;
+		std::pair<double, int> &e = it == g.escort.end() ? (g.escort[p.owner] = std::make_pair(0.0, p.team)) : it->second;
+		e.first++;
+		e.second = p.team;
 	}
 	// the wagon done with its leg (there, or as near as carts get): on to the next; the driver held (or he ran): drive on;
 	// stuck (the ground ahead closed to carts) a while: on to the next waypoint by a fresh path

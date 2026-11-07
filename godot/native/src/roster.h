@@ -144,6 +144,8 @@ Hero hero_from(const godot::Dictionary &d);
 godot::Dictionary hero_to(const Hero &h);
 WarPerson war_person_from(const godot::Dictionary &d);
 Item item_from(const godot::Dictionary &d);
+// an item with its crafted fields (aff, pow, q, mc, mk, tr) as the TS item carries them
+godot::Dictionary item_full_to(const Item &it);
 godot::Dictionary war_person_to(const WarPerson &p);
 
 } // namespace sim

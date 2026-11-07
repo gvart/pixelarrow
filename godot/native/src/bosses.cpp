@@ -107,7 +107,7 @@ void StPatch::apply(WarStats &s) const {
 	if (range) s.range = *range;
 	if (ammo) s.ammo = *ammo;
 	if (rangedDmg) s.rangedDmg = *rangedDmg;
-	if (knock) s.knock = *knock;
+	if (knock) s.knock = *knock, s.hasKnock = true;
 }
 
 static Order move_order(int squad, double x, double y) {
@@ -285,7 +285,7 @@ void Bosses::engage(Squad *s, double hx, double hy, double aggro, double leash, 
 	const double d = js::hypot(s->cx - hx, s->cy - hy);
 	if (r && d > 3 && tick_ - r->hitAt > MV().stall) {
 		// out there and no blow struck either way for a while: home
-		r->hitAt = tick_;
+		r->hitAt = tick_, r->hasHitAt = true;
 		host.order(move_order(s->id, hx, hy));
 		return;
 	}
@@ -351,7 +351,7 @@ void Bosses::spawn_run(Run &r, double guardN) {
 	r.dmg.clear();
 	r.last = "";
 	r.fx.reset();
-	r.hitAt = tick_;
+	r.hitAt = tick_, r.hasHitAt = true;
 	r.next = tick_ + 30;
 	r.next2 = tick_ + 45;
 	r.perch = 0;
@@ -379,6 +379,7 @@ void Bosses::spawn_run(Run &r, double guardN) {
 				StPatch gp;
 				gp.maxHp = g.guard->hp, gp.dmg = g.guard->dmg, gp.armor = g.guard->armor, gp.reach = 1.4, gp.atkTicks = 12, gp.speed = g.speed;
 				gp.apply(u.st);
+				u.stKey = st_fresh();
 				u.maxHp = u.hp = g.guard->hp;
 			}
 	}
@@ -444,6 +445,7 @@ void Bosses::enter(Run &r, int p) {
 				StPatch k;
 				k.knock = 2;
 				k.apply(u.st);
+				u.stKey = st_fresh();
 			}
 			break;
 		case GYGES:
@@ -452,6 +454,7 @@ void Bosses::enter(Run &r, int p) {
 				StPatch k;
 				k.knock = 2;
 				k.apply(u.st);
+				u.stKey = st_fresh();
 				r.state = "fight";
 			}
 			break;
@@ -466,6 +469,7 @@ void Bosses::enter(Run &r, int p) {
 				StPatch k;
 				k.dmg = g.dmg * MV().enrage.dmg;
 				k.apply(u.st);
+				u.stKey = st_fresh();
 				call(r, "mob_maenad", "", MV().calls.packs, MV().calls.n, e.x, e.y, 1, 1);
 			}
 			break;
@@ -474,6 +478,7 @@ void Bosses::enter(Run &r, int p) {
 				StPatch k;
 				k.dmg = g.dmg * MV().enrage.dmg, k.atkTicks = int(std::max(1.0, js::round(g.atk * 10 * MV().enrage.atk)));
 				k.apply(u.st);
+				u.stKey = st_fresh();
 				call(r, "mob_boar", "boar", MV().calls.packs, MV().sounder, e.x, e.y, 1, 1);
 			}
 			break;
@@ -500,6 +505,7 @@ void Bosses::enter(Run &r, int p) {
 				StPatch k;
 				k.knock = 3;
 				k.apply(u.st);
+				u.stKey = st_fresh();
 				r.state = "fight";
 				r.surge = tick_ + MV().surge.delay;
 			}
@@ -643,6 +649,7 @@ void Bosses::think(Run &r) {
 				StPatch k2;
 				k2.dmg = g.dmg * M.enrage.dmg, k2.atkTicks = int(std::max(1.0, js::round(g.atk * 10 * M.enrage.atk))), k2.knock = 1;
 				k2.apply(u.st);
+				u.stKey = st_fresh();
 				const auto [px, py] = e.pit ? *e.pit : std::pair<double, double>{ e.x, e.y };
 				call(r, "mob_drake", "drake", M.crash.packs, M.crash.pack, px, py, M.crash.packHp, M.crash.packDmg);
 			} else if (f.then == "charge") {
@@ -977,6 +984,7 @@ void Bosses::scale_for(Run &r) {
 		m->maxHp *= f;
 		m->hp *= f;
 		m->st.maxHp = m->maxHp;
+		m->stKey = st_fresh();
 	}
 	r.scale = k;
 }
@@ -1045,7 +1053,7 @@ void Bosses::hit(int i, const std::string &owner, double d) {
 	if (r.state == "slain" || r.state == "away") return;
 	r.dmg[owner] = (r.dmg.count(owner) ? r.dmg[owner] : 0) + d;
 	r.last = owner;
-	r.hitAt = tick_;
+	r.hitAt = tick_, r.hasHitAt = true;
 }
 
 // Wake the region's guardians (once): each holds the region's claim points shut while it lives.
@@ -1070,7 +1078,7 @@ void Bosses::spawn() {
 
 // A blow by a man of guardian run `i` landed on a foe.
 void Bosses::struck(int i) {
-	if (i >= 0 && i < int(runs.size())) runs[i].hitAt = tick_;
+	if (i >= 0 && i < int(runs.size())) runs[i].hitAt = tick_, runs[i].hasHitAt = true;
 }
 
 static bool gone_state(const std::string &s) { return s == "slain" || s == "away"; }
@@ -1121,6 +1129,8 @@ void Bosses::wake(double k) {
 			m->maxHp *= k;
 			m->hp *= k;
 			m->st.maxHp = m->maxHp;
+			m->stKey = st_fresh();
+		m->stKey = st_fresh();
 		}
 		r.scale *= k;
 	}

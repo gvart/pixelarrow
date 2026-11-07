@@ -16,6 +16,7 @@
 
 #include <godot_cpp/variant/dictionary.hpp>
 
+#include "state.h"
 #include "holders.h"
 #include "rng.h"
 
@@ -158,6 +159,9 @@ struct SiegeHost {
 
 class Siege {
 public:
+	// saves (state.ts): the TS saveRoot as a graph, and the loadRoot of one (into a fresh sim)
+	state::Val save(state::Graph &g) const;
+	void load(const state::Obj &o);
 	Siege(Works &works, Mulberry &rng, SiegeHost &hooks);
 
 	// A new engine of `team` at (x,y), its cost paid; its id, or -1 (no stock, no ground).

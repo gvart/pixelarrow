@@ -36,6 +36,7 @@
 #include "formation.h"
 #include "grid.h"
 #include "holders.h"
+#include "js_map.h"
 #include "landmarks.h"
 #include "mobs.h"
 #include "prebuilt.h"
@@ -46,6 +47,7 @@
 #include "siege.h"
 #include "souls.h"
 #include "start.h"
+#include "state.h"
 #include "stats.h"
 #include "town_level.h"
 #include "trade.h"
@@ -116,10 +118,19 @@ struct Unit : Worker {
 	std::optional<Hold> pack; // M6/W-60: what he carries (TS null: nullopt)
 	std::optional<WarPerson> person; // M5b: the soldier record he was spawned from (TS null: a class spawn)
 	std::optional<std::vector<std::string>> bossHit; // E3: the guardians he struck since the last endFight
+	// saves (state.ts): the keys TS adds to a man after his spawn, in the order they came; and which stats object he
+	// shares (TS u.st: one object per class spawn's squad from the warStats cache, a fresh one per person or re-bake)
+	enum Key : uint8_t { K_MOB, K_HERBS, K_FLAX, K_DASH, K_DASHAT, K_DASHTGT, K_DASHHIT, K_SLOWUNTIL, K_DOWNAT, K_DOWNQ, K_UPAT, K_BOSSHIT };
+	std::vector<uint8_t> keys;
+	void key(Key k) {
+		if (std::find(keys.begin(), keys.end(), k) == keys.end()) keys.push_back(k);
+	}
+	int64_t stKey = 0;
 };
 
 // A missile in flight (index.ts Missile; classes.h has the Missile kinds): at a man t (nullptr: at a building b or engine e, or a fire arrow that missed).
 struct Flight {
+	bool aimed = false; // saves: shot at a building or engine (TS b or e), not at a man (fb)
 	int at = 0;
 	Unit *by = nullptr;
 	Unit *t = nullptr;
@@ -209,6 +220,7 @@ struct Squad : WorkSquad {
 
 // An index.ts Order: the fields of the kinds ported (TS undefined: -1, nullopt or empty).
 struct Order {
+	godot::Dictionary src; // saves: the order as its JSON object, in its key order (the host's, or as a bot writes it)
 	std::string kind;
 	int squad = -1;
 	bool has_squad = false;
@@ -337,6 +349,14 @@ struct Sim {
 	Vision vision;
 	double outX = 0, outY = 0;
 	std::vector<Flight> missiles;
+	// the view's shots (index.ts ShotSnap): nothing in the sim reads them, but they are saved; dropped once landed
+	struct Shot {
+		double x0, y0, x1, y1, t0, t1, z0, z1;
+		int by;
+		Missile kind;
+		bool fire;
+	};
+	std::vector<Shot> shots;
 	bool early = false; // W-79: depthOf(region) <= EARLY.depth (set in wireWild)
 	int downs = 0;
 	SimWorksHost worksHost;
@@ -349,7 +369,7 @@ struct Sim {
 	std::unique_ptr<Siege> siege;
 	std::unique_ptr<Crafting> crafting;
 	std::vector<Unit *> civs; // M5f: the civilians (all ever spawned, in id order)
-	std::set<int> dresser; // M5h: teams with a Battle Dresser physician on the field (a JS Set, only looked up)
+	JsSet<int> dresser; // M5h: teams with a Battle Dresser physician on the field (a JS Set: insertion order, saved)
 	std::vector<uint8_t> safeMask; // M6d: safe-zone tiles (1 inside a region `safe` rect)
 	std::optional<std::vector<uint8_t>> rollable; // W-145: the ground carts roll on, worked out at the first cart
 	int nodesAt = -1;
@@ -390,8 +410,9 @@ struct Sim {
 	// W-61: the alliance works' bonuses by team (setBonus; a JS Map only looked up: the vision reads it by team)
 	struct TeamBonus {
 		std::optional<double> repairCost, sight;
+		std::vector<std::string> keys; // the host's object's keys, in its order (saved as given)
 	};
-	std::map<int, TeamBonus> bonuses;
+	JsMap<int, TeamBonus> bonuses;
 	void setBonus(int team, const TeamBonus &b);
 	// the event log (index.ts `log`): each WarEvent as its JSON object; at most LOG_MAX until events() drains it
 	std::vector<godot::Dictionary> evlog;
@@ -406,12 +427,27 @@ struct Sim {
 	bool holds(const Building *b) const;
 	void raidScan();
 
+	// saves (sim_state.cpp): index.ts saveRoot as a state.ts graph, the encoded save (base: a fresh sim's root, the
+	// typed-array diffs' baseline) and importState into this fresh sim (false and why: a save of another region or sim)
+	state::Val saveRoot(state::Graph &g);
+	std::string save(Sim *fresh);
+	bool load(const std::string &text, std::string &why);
+	state::Val savePerson(state::Graph &g, const WarPerson &p);
+	state::Val saveOrder(state::Graph &g, const Order &o);
+	state::Val saveGrid(state::Graph &g, const Grid &gr);
+	state::Val saveSouls(state::Graph &g);
+	state::Val savePiles(state::Graph &g);
+	state::Val saveLandmarks(state::Graph &g);
+	state::Val saveSecrets(state::Graph &g);
+	state::Val saveTownLv(state::Graph &g);
+	state::Val saveSnap(state::Graph &g, const BuildingSnap &b);
+
 	// region: what the works read of the region (works_region_of); meta: the region's JSON (Region.meta)
 	Sim(Grid &g, WorksRegion region, const godot::Dictionary &meta, uint32_t seed);
 	~Sim();
 	// persons: M5b one man per person (TS undefined: nullptr)
 	int spawn_squad(const std::string &owner, int team, const std::string &cls, int count, double x, double y, const std::vector<WarPerson> *persons = nullptr);
-	void order(const Order &o) { queue.push_back(o); }
+	void order(const Order &o); // queued; a bot's order gets its JSON object (src) as the TS bot writes it
 	// the wild (sim_wild.cpp): spawnMobs, spawnRoam, spawnSoul, hurtBoss, spawnWild, addLair, the wiring of the modules
 	void wireWild(const godot::Dictionary &meta); // createMobs .. createTowns
 	void wireLandmarks(); // createLandmarks (after works.prebuild)
@@ -598,7 +634,17 @@ public:
 	Ref<Grid> grid;
 	sim::Sim *s = nullptr;
 	sim::Bots *bots = nullptr;
+	// what createSim(region, seed) starts from: the grid as built (before the sim's prebuild), the region and the seed
+	sim::Grid built;
+	Dictionary meta;
+	PackedByteArray cells;
+	int64_t seed = 0;
 	~Sim();
+
+	// exportState: the sim's state as state.ts JSON text (a fresh sim of the same region and seed is the diffs' baseline).
+	// importState: a save of this region into this fresh sim (false: it does not fit; the error says why).
+	String save();
+	bool load(const String &text);
 
 	// grid: region.grid(); meta and cells: Region.meta and Region.cells (what the works read of the region)
 	static Ref<Sim> create(const Ref<Grid> &grid, const Dictionary &meta, const PackedByteArray &cells, int64_t seed);

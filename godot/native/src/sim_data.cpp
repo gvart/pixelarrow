@@ -30,12 +30,20 @@ static WarStats stats_of(const godot::Dictionary &d) {
 	s.ap = d["ap"];
 	s.speed = d["speed"];
 	s.knock = d.get("knock", 0.0);
+	s.hasKnock = d.has("knock");
 	s.bp = d["bp"];
 	s.ws = d["ws"];
 	s.flags = int(d["flags"]);
 	s.work = d.get("work", -1.0);
 	s.breach = d.get("breach", -1.0);
 	return s;
+}
+
+int64_t st_class(const std::string &cls) {
+	static std::map<std::string, int64_t> keys; // lookup only
+	auto it = keys.find(cls);
+	if (it == keys.end()) it = keys.emplace(cls, -int64_t(keys.size()) - 1).first;
+	return it->second;
 }
 
 } // namespace sim

@@ -5,6 +5,8 @@
 
 #include <cmath>
 #include <cstdint>
+#include <functional>
+#include <memory>
 #include <limits>
 #include <map>
 #include <string>
@@ -12,6 +14,9 @@
 #include <vector>
 
 #include "grid.h"
+#include "js_map.h"
+#include "state.h"
+#include "works.h"
 
 #include <godot_cpp/variant/packed_float64_array.hpp>
 #include "js_math.h"
@@ -46,9 +51,31 @@ struct VisionBuilding {
 	// kept for the bots (bots.ts reads them off the last-seen snaps); vision itself does not read them
 	std::optional<double> walk;
 	std::optional<int> attach, siege;
+	// saves: the whole snapshot (TS v.seen holds the BuildingSnap itself; the teams that saw it at one poll share it)
+	std::shared_ptr<const BuildingSnap> snap;
 };
 
 int building_sight(const VisionBuilding &b);
+
+// what the vision reads of a building snapshot (snap left unset)
+inline VisionBuilding vision_building(const BuildingSnap &b) {
+	VisionBuilding v;
+	v.id = b.id;
+	v.team = b.team;
+	v.x = b.x;
+	v.y = b.y;
+	v.burning = b.burning.value_or(0);
+	v.tiles.assign(b.tiles.begin(), b.tiles.end());
+	v.type = b.type;
+	v.state = b.state;
+	v.rubble = b.rubble;
+	v.lit = b.lit.value_or(false);
+	v.staffed = b.staffed;
+	v.walk = b.walk;
+	v.attach = b.attach;
+	v.siege = b.siege;
+	return v;
+}
 
 struct VisionCells {
 	int cw = 0, ch = 0, n = 0;
@@ -148,20 +175,24 @@ struct Vision {
 		std::vector<uint16_t> count;
 		std::vector<uint8_t> state;
 		int version = 0;
-		std::map<int, Entry> keys; // order never shows: counts and fog come out the same either way
+		JsMap<int, Entry> keys; // a JS Map: its order shows in the save
 		std::vector<int> seen_order; // last-seen buildings in Map insertion order (lastSeen lists them so)
 		std::unordered_map<int, VisionBuilding> seen;
 	};
 
 	const Grid *grid = nullptr;
 	VisionCells cells;
-	std::map<int, Team> teams;
+	JsMap<int, Team> teams;
 	double heights_at = -std::numeric_limits<double>::infinity();
 	std::vector<uint8_t> last_h;
 	bool polled = false;
 
 	void init(const Grid &g);
 	Team &team(int t);
+	// saves (state.ts): the TS saveRoot as a graph (the last-seen buildings' tiles shared with the works' buildings), and
+	// the loadRoot of one
+	state::Val save(state::Graph &g, const std::function<state::Val(const BuildingSnap &)> &snap) const;
+	void load(const state::Obj &o, const std::function<BuildingSnap(const state::Obj &)> &snap);
 	// sight_add: W-61 extra tiles per team (absent: 0)
 	void tick(int t, const std::vector<VisionUnit> &units, const std::vector<VisionBuilding> &blds, const std::map<int, int> &sight_add);
 	int cell_at(double x, double y) const;

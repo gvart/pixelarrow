@@ -24,7 +24,16 @@ struct WarStats {
 	double bp = 0, ws = 0;
 	int flags = 0;
 	double work = -1, breach = -1; // -1: undefined
+	bool hasKnock = false; // saves: the TS object has a knock key (it may hold 0)
 };
+
+// saves: which TS stats object a man's u.st is. warStats(cls) is cached per class string (one object for every class
+// spawn of it); every other stats object (a person's bake, a spread copy) is new.
+inline int64_t st_fresh() {
+	static int64_t n = 0;
+	return ++n;
+}
+int64_t st_class(const std::string &cls);
 
 struct ClassTable {
 	std::unordered_map<std::string, WarStats> by_id;

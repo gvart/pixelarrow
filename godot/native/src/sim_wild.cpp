@@ -323,6 +323,7 @@ int Sim::spawnWild(const std::string &owner, const std::string &kind, double cou
 			u.st.dmg = u.st.dmg * dmg;
 			u.st.rangedDmg = u.st.rangedDmg * dmg;
 			u.st.armor = u.st.armor + armor;
+			u.stKey = st_fresh();
 			u.maxHp = u.hp = u.st.maxHp;
 		}
 	}
@@ -353,6 +354,7 @@ int SimBossHost::spawn(const std::string &cls, int count, double x, double y, co
 	for (Unit *u : s->squads[id]->units) {
 		u->cls = cls;
 		st.apply(u->st);
+		u->stKey = st_fresh();
 		u->maxHp = u->hp = u->st.maxHp;
 		u->boss = boss;
 		u->beast = false;
@@ -370,7 +372,10 @@ void SimBossHost::hurt(Unit &t, double dmg, bool venom) {
 
 void SimBossHost::knock(Unit &u, double fx, double fy, double tiles) { s->knock(u, fx, fy, tiles); }
 
-void SimBossHost::slow(Unit &u, double ticks) { u.slowUntil = std::max(u.slowUntil, s->tick + ticks); }
+void SimBossHost::slow(Unit &u, double ticks) {
+	u.slowUntil = std::max(u.slowUntil, s->tick + ticks);
+	u.key(Unit::K_SLOWUNTIL);
+}
 
 void SimBossHost::place(Unit &t, double x, double y) {
 	t.x = t.ox = x;
@@ -490,6 +495,7 @@ int SimRoamHost::spawn(int team, const std::string &owner, const std::string &cl
 			u->st.maxHp = u->st.maxHp * k.hp;
 			u->st.dmg = u->st.dmg * k.dmg;
 			u->st.rangedDmg = u->st.rangedDmg * k.dmg;
+			u->stKey = st_fresh();
 			u->maxHp = u->hp = u->st.maxHp;
 		}
 	return id;

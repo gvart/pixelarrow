@@ -44,12 +44,12 @@ void Sim::setRates(Unit &u) {
 		for (const auto &[k, v] : *r.gmul) m.set(k, v);
 		u.gmul = m;
 	}
-	if (r.herbs) u.herbs = *r.herbs;
-	if (r.flax) u.flax = *r.flax;
+	if (r.herbs) u.herbs = *r.herbs, u.key(Unit::K_HERBS);
+	if (r.flax) u.flax = *r.flax, u.key(Unit::K_FLAX);
 	u.fieldR = r.fieldR;
 	const std::string mk = mob_kind_of(u.cls);
 	u.venom = !mk.empty() ? data().mobs.MOBS.at(mk).venom : false;
-	if (!mk.empty() && data().mobs.MOBS.at(mk).dash) u.mob = mk;
+	if (!mk.empty() && data().mobs.MOBS.at(mk).dash) u.mob = mk, u.key(Unit::K_MOB);
 	else u.mob.clear();
 	u.beast = !mk.empty() && mk != "bandit";
 }
@@ -77,6 +77,7 @@ void Sim::riseTick() {
 		u.downAt.reset();
 		u.downQ.reset();
 		u.upAt = tick;
+		u.key(Unit::K_UPAT);
 		downs--;
 		u.alive = true;
 		u.wounded = false;
@@ -102,7 +103,7 @@ void Sim::hurt(Unit &t, double dmg, Unit *by) {
 		// E3: a slayer's deed
 		const std::string *bid = t.boss >= 0 && by->person && size_t(t.boss) < bossRegion->guardians.size() ? &bossRegion->guardians[t.boss].boss : nullptr;
 		if (bid && !bid->empty() && !(by->bossHit && std::find(by->bossHit->begin(), by->bossHit->end(), *bid) != by->bossHit->end())) {
-			if (!by->bossHit) by->bossHit.emplace();
+			if (!by->bossHit) by->bossHit.emplace(), by->key(Unit::K_BOSSHIT);
 			by->bossHit->push_back(*bid);
 		}
 		if (by->boss >= 0) bosses->struck(by->boss);
@@ -119,6 +120,8 @@ void Sim::hurt(Unit &t, double dmg, Unit *by) {
 		t.wounded = true;
 		t.downAt = tick;
 		t.downQ = 0;
+		t.key(Unit::K_DOWNAT);
+		t.key(Unit::K_DOWNQ);
 		downs++;
 		t.squad->alive--;
 		addReslot(*t.squad);
@@ -277,7 +280,7 @@ void Sim::shoot(Unit &u, Unit &t, double d, double dh, double range) {
 	u.cd = js::round(u.st.shotTicks * (fire ? FIRE_RELOAD : 1));
 	u.swingAt = tick;
 	const int at = tick + int(std::max(1.0, js::round(d / u.st.shotSpeed / DT)));
-	// the view's shot (ShotSnap): not kept, nothing in the sim reads it
+	shots.push_back({ u.x, u.y, t.x, t.y, double(tick), double(at), hAt(u.x, u.y), hAt(t.x, t.y), u.id, u.st.missile, fire });
 	if (u.ammo == 0) addReslot(*u.squad);
 	const int fb = fire ? works->on_building(grid->tile_at(t.x, t.y)) : -1;
 	const bool hit = rng.next() < hit_chance(u.st.accuracy + (u.squad->fedUntil > tick ? u.squad->fedAcc : 0), d, range, groundAt(t.x, t.y) == FOREST);
@@ -299,7 +302,7 @@ void Sim::shootAt(Unit &u, double tx, double ty, double d, double dh, double ran
 	u.cd = js::round(u.st.shotTicks * (fire ? FIRE_RELOAD : 1));
 	u.swingAt = tick;
 	const int at = tick + int(std::max(1.0, js::round(d / u.st.shotSpeed / DT)));
-	// the view's shot (ShotSnap): not kept, nothing in the sim reads it
+	shots.push_back({ u.x, u.y, tx, ty, double(tick), double(at), hAt(u.x, u.y), hAt(tx, ty), u.id, u.st.missile, fire });
 	if (u.ammo == 0) addReslot(*u.squad);
 	if (!(rng.next() < hit_chance(u.st.accuracy, d, range, false))) return;
 	Flight m;
@@ -308,6 +311,7 @@ void Sim::shootAt(Unit &u, double tx, double ty, double d, double dh, double ran
 	m.t = nullptr;
 	m.raw = u.st.rangedDmg * COMBAT.missileDmg * missile_height(dh) * (fire ? -1 : 1);
 	m.ap = u.st.ap;
+	m.aimed = true;
 	if (k.b >= 0) m.b = k.b;
 	else m.e = k.e;
 	missiles.push_back(m);
@@ -354,6 +358,7 @@ void Sim::burst(Unit &u, Unit &t, double gap) {
 	u.dashAt = tick + b.cd;
 	u.dashTgt = t.id;
 	u.dashHit = true;
+	for (Unit::Key k : { Unit::K_DASH, Unit::K_DASHAT, Unit::K_DASHTGT, Unit::K_DASHHIT }) u.key(k);
 	godot::Dictionary e = ev(tick, "mobDash");
 	e["unit"] = u.id;
 	e["mob"] = gstr(u.mob);

@@ -47,7 +47,7 @@ func test_runs_exact() -> void:
 		print("%s: %d exact checkpoints over %d ticks" % [t["id"], frames, int(t["frames"][-1]["tick"])])
 
 
-func _load() -> void:
+static func _load() -> void:
 	var t := {"war_stats": GameData.table("derived/war_stats")["WAR_STATS"], "src/war/sim/civilians": GameData.table("src/war/sim/civilians")}
 	for n in Wild.TABLES:
 		t[n] = GameData.table(n)
@@ -77,8 +77,9 @@ func _load() -> void:
 	SimData.load(t)
 
 
-## Replays trace t; returns the checkpoints matched, -1 on the first mismatch (reported). tol 0: bit for bit.
-func _replay(t: Dictionary, tol: float) -> int:
+## Trace t's sim with its setup replayed op for op (its bots set); null after a fail() for an op not replayed yet
+## (on `tc`, the test reporting it).
+static func make(t: Dictionary, tc: TestCase) -> Sim:
 	var id: String = t["id"]
 	var region := Region.load_id(t["region"])
 	# the scenario's zones merged into the region (as godotTraces.ts regionOf does)
@@ -126,11 +127,20 @@ func _replay(t: Dictionary, tol: float) -> int:
 				sim.bots_tick()
 			"bot":
 				if not sim.set_bot(int(op[1]), op[2]):
-					fail("%s: bot %s is not ported yet" % [id, op[2]["kind"]])
-					return -1
+					tc.fail("%s: bot %s is not ported yet" % [id, op[2]["kind"]])
+					return null
 			_:
-				fail("%s: setup op %s is not replayed yet" % [id, op[0]])
-				return -1
+				tc.fail("%s: setup op %s is not replayed yet" % [id, op[0]])
+				return null
+	return sim
+
+
+## Replays trace t; returns the checkpoints matched, -1 on the first mismatch (reported). tol 0: bit for bit.
+func _replay(t: Dictionary, tol: float) -> int:
+	var id: String = t["id"]
+	var sim := make(t, self)
+	if sim == null:
+		return -1
 	var frames: Array = t["frames"]
 	for k in frames.size():
 		var want: Dictionary = frames[k]

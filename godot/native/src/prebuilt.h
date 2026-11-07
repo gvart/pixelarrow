@@ -19,6 +19,7 @@
 #include <godot_cpp/variant/array.hpp>
 #include <godot_cpp/variant/dictionary.hpp>
 
+#include "state.h"
 #include "works.h"
 
 namespace sim {
@@ -87,6 +88,9 @@ struct TownSnap {
 
 class Towns {
 public:
+	// saves (state.ts): the TS saveRoot as a graph, and the loadRoot of one (into a fresh sim)
+	state::Val save(state::Graph &g) const;
+	void load(const state::Obj &o);
 	Towns(PreWorks &works, PreHost &host) : works(works), host(host) {}
 
 	// saveRoot: stand and blessed as Map entries in insertion order, and the tick

@@ -25,10 +25,10 @@ void Vision::init(const Grid &g) {
 Vision::Team &Vision::team(int t) {
 	auto it = teams.find(t);
 	if (it == teams.end()) {
-		Team v;
+		Team &v = teams[t];
 		v.count.assign(cells.n, 0);
 		v.state.assign(cells.n, FOG_UNEXPLORED);
-		it = teams.emplace(t, std::move(v)).first;
+		return v;
 	}
 	return it->second;
 }
@@ -81,7 +81,7 @@ void Vision::update(int t, const std::vector<VisionUnit> &units, const std::vect
 		const auto it = sight_add.find(tm);
 		return it == sight_add.end() ? 0 : it->second;
 	};
-	std::map<int, std::map<int, int>> want; // team order and key order never show
+	JsMap<int, JsMap<int, int>> want; // a JS Map: the teams' and their keys' order shows in the save
 	auto hold = [&](int tm, int key) { want[tm][key]++; };
 	for (const VisionUnit &u : units) {
 		if (!u.alive || u.team == MOB_TEAM || u.team == NEUTRAL_TEAM) continue; // W-65: roaming folk need no sight
@@ -97,10 +97,10 @@ void Vision::update(int t, const std::vector<VisionUnit> &units, const std::vect
 		if (r > 0) hold(b.team, cell_at(b.x, b.y) * 128 + std::min(FLAT - 1, r + more));
 	}
 	for (auto &[tm, m] : want) team(tm);
-	static const std::map<int, int> none;
+	static const JsMap<int, int> none;
 	for (auto &[tm, v] : teams) {
 		const auto wi = want.find(tm);
-		const std::map<int, int> &m = wi == want.end() ? none : wi->second;
+		const JsMap<int, int> &m = wi == want.end() ? none : wi->second;
 		bool changed = false;
 		for (auto it = v.keys.begin(); it != v.keys.end();)
 			if (!m.count(it->first)) {
@@ -109,11 +109,12 @@ void Vision::update(int t, const std::vector<VisionUnit> &units, const std::vect
 			} else ++it;
 		for (const auto &[key, k] : m) {
 			auto it = v.keys.find(key);
-			if (it == v.keys.end()) {
-				it = v.keys.emplace(key, Entry{ cells.compute(key / 128, key % 128), 0 }).first;
-				changed = add(v, it->second.cells) || changed;
+			Entry *e = it == v.keys.end() ? nullptr : &it->second;
+			if (!e) {
+				e = &(v.keys[key] = Entry{ cells.compute(key / 128, key % 128), 0 });
+				changed = add(v, e->cells) || changed;
 			}
-			it->second.n = k;
+			e->n = k;
 		}
 		// last-seen foreign buildings: refreshed while seen, forgotten once their ground is seen empty
 		std::set<int> here;

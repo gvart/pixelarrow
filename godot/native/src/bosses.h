@@ -14,6 +14,8 @@
 
 #include <godot_cpp/variant/dictionary.hpp>
 
+#include "state.h"
+#include "js_map.h"
 #include "depth.h"
 #include "holders.h"
 #include "item.h"
@@ -175,6 +177,9 @@ struct BossMemo {
 
 class Bosses {
 public:
+	// saves (state.ts): the TS saveRoot as a graph, and the loadRoot of one (into a fresh sim)
+	state::Val save(state::Graph &g) const;
+	void load(const state::Obj &o);
 	Bosses(const BossRegion &region, BossHost &host);
 
 	void spawn();
@@ -223,7 +228,8 @@ private:
 		double fleeAt = -1, respawnAt = 0;
 		double guardN = -1;
 		double hitAt = 0;
-		std::map<std::string, double> dmg; // only sorted by value, then key: insertion order never shows
+		JsMap<std::string, double> dmg; // a JS object of owners: insertion order (saved)
+		bool hasHitAt = false; // saves: TS hitAt was ever set (the literal has none)
 		std::string last;
 		std::optional<RunFx> fx;
 	};

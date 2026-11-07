@@ -484,6 +484,7 @@ void Works::cutOut(Building &b, const std::vector<int> &drop) {
 		b.cancelled = true;
 		b.ti = ti;
 		b.tiles = tiles;
+		b.tilesVer++;
 		b.base = base;
 		b.saved = saved;
 		return;
@@ -493,6 +494,7 @@ void Works::cutOut(Building &b, const std::vector<int> &drop) {
 		for (auto &e : c->kv) e.second = e.second * k;
 	b.ti = ti;
 	b.tiles = tiles;
+	b.tilesVer++;
 	b.base = base;
 	b.saved = saved;
 	b.need = b.need * k;
@@ -543,6 +545,7 @@ int Works::addBrazier(int team, const std::vector<int> &tiles) {
 	b.w = 1;
 	b.h = 1;
 	b.tiles = tiles;
+	b.tilesVer++;
 	b.ti = { t };
 	b.state = "done";
 	b.labour = 1;
@@ -732,6 +735,7 @@ int Works::add(int team, const std::string &type, const std::vector<int> &tiles,
 	b.w = x1 - x0;
 	b.h = y1 - y0;
 	b.tiles = tiles;
+	b.tilesVer++;
 	b.state = "foundation";
 	b.labour = 0;
 	b.need = def.labour * k;
@@ -836,6 +840,7 @@ std::vector<int> Works::place_wall(int team, const WallOrder &o) {
 		if (p.ok) ids.push_back(add(team, p.type, p.tiles, 0, inside));
 	for (int id : ids) {
 		Building &b = buildings[id]; // slots again, now that every piece is marked out
+		b.insideKey = ids[0] + 1; // saves: TS hands all the pieces the one inside array
 		b.slots = workSlots(b);
 		b.slotUser.assign(b.slots.size(), -1);
 	}
@@ -1372,6 +1377,7 @@ void Works::finish(Building &b) {
 		n.rate = y.rate;
 		n.slots = 2 * (b.w + b.h);
 		n.tiles = b.tiles;
+		n.tilesVer = b.tilesVer;
 		n.building = b.id;
 		if (b.type == "pitchKiln") {
 			// W-35: pines standing near feed it faster
@@ -2389,7 +2395,7 @@ bool Works::node_ok(int id, int team, const std::string &owner) const { return i
 
 void Works::lock_nodes(const std::vector<int> &ids, bool on) {
 	for (int id : ids)
-		if (id >= 0 && id < int(nodes.size())) nodes[id].locked = on;
+		if (id >= 0 && id < int(nodes.size())) nodes[id].locked = on, nodes[id].hasLocked = true;
 }
 
 bool Works::site_ok(int id, int team) const { return id >= 0 && id < int(buildings.size()) && buildings[id].team == team && unfinished(buildings[id]); }
@@ -2425,6 +2431,7 @@ bool Works::cancel(int id) {
 		b.base.resize(p.n);
 		b.saved.resize(std::min(b.saved.size(), size_t(p.n)));
 		b.tiles.resize(std::min(b.tiles.size(), size_t(p.n) * 2));
+		b.tilesVer++;
 		bbox(b);
 		const double hp = std::min(p.maxHp, b.hp);
 		b.type = p.type;
@@ -2490,6 +2497,7 @@ bool Works::upgrade(int id, int team) {
 		occ[t] = b.id;
 	}
 	b.tiles.insert(b.tiles.end(), grow.begin(), grow.end());
+	b.tilesVer++;
 	bbox(b);
 	const double k = b.def->perTile ? double(b.ti.size()) : 1;
 	b.type = up.to;
@@ -2751,6 +2759,7 @@ std::vector<BuildingSnap> Works::building_snaps() {
 		for (int k = 0; k < int(b.slots.size()); k++)
 			if (slotOk(b, k)) maxWorkers++;
 		s.id = b.id;
+		s.tilesVer = b.tilesVer;
 		s.type = b.type;
 		s.team = b.team;
 		s.x = b.x;

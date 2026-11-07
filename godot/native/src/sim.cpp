@@ -1669,6 +1669,7 @@ int Sim::spawn_squad(const std::string &owner, int team, const std::string &cls,
 		u->hp = u->maxHp = ust.maxHp;
 		u->cls = ucls;
 		u->st = ust;
+		u->stKey = ps ? st_fresh() : st_class(cls);
 		u->ammo = ust.ammo;
 		u->spd = RAMP_FROM;
 		u->wx = px, u->wy = py;
@@ -1978,26 +1979,14 @@ void Sim::step() {
 	siege->tick(tick);
 	for (Squad *s : reslotQueue) reslot(*s);
 	reslotQueue.clear();
+	if (!shots.empty()) shots.erase(std::remove_if(shots.begin(), shots.end(), [&](const Shot &sh) { return !(sh.t1 > tick); }), shots.end());
 	std::vector<VisionUnit> vu;
 	vu.reserve(units.size());
 	for (Unit *u : units) vu.push_back({ u->x, u->y, u->alive, u->squad->team, data().classes.sight_of(u->cls) });
 	std::vector<VisionBuilding> vb;
 	for (const BuildingSnap &b : works->building_snaps()) {
-		VisionBuilding v;
-		v.id = b.id;
-		v.team = b.team;
-		v.x = b.x;
-		v.y = b.y;
-		v.burning = b.burning.value_or(0);
-		v.tiles.assign(b.tiles.begin(), b.tiles.end());
-		v.type = b.type;
-		v.state = b.state;
-		v.rubble = b.rubble;
-		v.lit = b.lit.value_or(false);
-		v.staffed = b.staffed;
-		v.walk = b.walk;
-		v.attach = b.attach;
-		v.siege = b.siege;
+		VisionBuilding v = vision_building(b);
+		v.snap = std::make_shared<BuildingSnap>(b);
 		vb.push_back(std::move(v));
 	}
 	std::map<int, int> sightAdd; // sightAdd(team): bonuses.get(team)?.sight ?? 0 (whole tiles, as the vision's keys hold them)
@@ -2023,6 +2012,10 @@ Ref<Sim> Sim::create(const Ref<Grid> &grid, const Dictionary &meta, const Packed
 	ERR_FAIL_COND_V_MSG(cells.size() != int64_t(grid->g.w) * grid->g.h * 2, r, "Sim.create: cells do not fit the grid");
 	r.instantiate();
 	r->grid = grid;
+	r->built = grid->g;
+	r->meta = meta;
+	r->cells = cells;
+	r->seed = seed;
 	sim::WorksRegion region;
 	sim::works_region_of(meta, cells, grid->g.w * grid->g.h, region);
 	r->s = new sim::Sim(grid->g, std::move(region), meta, uint32_t(seed));
@@ -2057,6 +2050,8 @@ void Sim::set_bonus(int team, const Dictionary &b) {
 	sim::Sim::TeamBonus t;
 	if (b.has("repairCost")) t.repairCost = double(b["repairCost"]);
 	if (b.has("sight")) t.sight = double(b["sight"]);
+	const Array ks = b.keys();
+	for (int64_t i = 0; i < ks.size(); i++) t.keys.push_back(String(ks[i]).utf8().get_data());
 	s->setBonus(team, t);
 }
 
@@ -2123,6 +2118,7 @@ static sim::HolderRef holder_ref_of(const Variant &v) {
 
 void Sim::order(const Dictionary &d) {
 	sim::Order o;
+	o.src = d.duplicate(true);
 	o.kind = u8(d.get("kind", ""));
 	o.has_squad = d.has("squad");
 	o.squad = o.has_squad ? int(d["squad"]) : -1;
@@ -2195,6 +2191,21 @@ void Sim::hurt_boss(const String &id, double dmg, const String &owner, const Var
 int Sim::spawn_cart(int team, const String &owner, const String &type, double x, double y) { return s->spawnCart(team, owner.utf8().get_data(), type.utf8().get_data(), x, y); }
 
 void Sim::step() { s->step(); }
+
+String Sim::save() {
+	sim::Grid g = built;
+	sim::WorksRegion region;
+	sim::works_region_of(meta, cells, g.w * g.h, region);
+	sim::Sim fresh(g, std::move(region), meta, uint32_t(seed));
+	return String::utf8(s->save(&fresh).c_str());
+}
+
+bool Sim::load(const String &text) {
+	std::string why;
+	const bool ok = s->load(text.utf8().get_data(), why);
+	if (!ok) ERR_PRINT(String::utf8(("Sim.load: " + why).c_str()));
+	return ok;
+}
 
 void Sim::claim(int team, double x, double y, const Variant &r) { s->claim(team, x, y, r.get_type() == Variant::NIL ? std::nullopt : std::optional<double>(double(r))); }
 void Sim::add_stock(int team, const String &res, double n) { s->addStock(team, res.utf8().get_data(), n); }
@@ -2300,6 +2311,8 @@ void Sim::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("hurt_boss", "id", "dmg", "owner", "part"), &Sim::hurt_boss, DEFVAL("dev"), DEFVAL(Variant()));
 	ClassDB::bind_method(D_METHOD("spawn_cart", "team", "owner", "type", "x", "y"), &Sim::spawn_cart);
 	ClassDB::bind_method(D_METHOD("step"), &Sim::step);
+	ClassDB::bind_method(D_METHOD("save"), &Sim::save);
+	ClassDB::bind_method(D_METHOD("load", "text"), &Sim::load);
 	ClassDB::bind_method(D_METHOD("claim", "team", "x", "y", "r"), &Sim::claim);
 	ClassDB::bind_method(D_METHOD("add_stock", "team", "res", "n"), &Sim::add_stock);
 	ClassDB::bind_method(D_METHOD("finish_bridges", "team"), &Sim::finish_bridges);

@@ -15,9 +15,11 @@
 
 #include <godot_cpp/variant/dictionary.hpp>
 
+#include "state.h"
 #include "depth.h"
 #include "mobs.h"
 #include "rng.h"
+#include "js_map.h"
 
 namespace sim {
 
@@ -156,6 +158,9 @@ struct RoamSnapOut {
 
 class Roam {
 public:
+	// saves (state.ts): the TS saveRoot as a graph, and the loadRoot of one (into a fresh sim)
+	state::Val save(state::Graph &g) const;
+	void load(const state::Obj &o);
 	struct Group {
 		int id = 0;
 		std::string kind;
@@ -174,7 +179,8 @@ public:
 		bool asleep = false;
 		double hpSeen = std::numeric_limits<double>::infinity();
 		// Escort checks by owner (with his team): Object.keys(...).sort() order is the map's.
-		std::map<std::string, std::pair<double, int>> escort;
+		JsMap<std::string, std::pair<double, int>> escort; // a JS object of owners: insertion order (saved)
+		int routeOf = -1; // saves: the group whose route array this one shares (TS fall hands the caravan's to its travellers)
 		double road = 0;
 		bool dead = false;
 		double respawnAt = 0;

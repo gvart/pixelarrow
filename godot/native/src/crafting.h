@@ -12,6 +12,7 @@
 
 #include <godot_cpp/variant/dictionary.hpp>
 
+#include "state.h"
 #include "economy.h"
 #include "holders.h"
 #include "item.h"
@@ -107,6 +108,9 @@ Fed fed_of(const std::string &dish, bool headCook = false);
 
 class Crafting {
 public:
+	// saves (state.ts): the TS saveRoot as a graph, and the loadRoot of one (into a fresh sim)
+	state::Val save(state::Graph &g) const;
+	void load(const state::Obj &o);
 	struct QOrder {
 		int id;
 		std::string kind; // craft | repair | salvage
