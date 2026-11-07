@@ -1,0 +1,40 @@
+godot/tests/sim/test_room.gd
+  s_1a6e9ade9f303e::t_ddca1d35eb1c74 5-9
+  s_1a6e9ade9f303e::t_6238d9e91a516d 79
+  s_1a6e9ade9f303e::t_99c047a7515254 33,37,40-41,44-45,54,57-66,68
+  s_1a6e9ade9f303e::t_725ea0ce1dd9ba 46-53
+src/dev/vectors/room.ts
+  s_1a6e9ade9f303e::t_fb067105723be9 375,419-424
+  s_1a6e9ade9f303e::t_fc9b6128eac822 425
+  s_1a6e9ade9f303e::t_4e74a6e39f04e9 444
+  s_1a6e9ade9f303e::t_82b9fedf1d6faf 370
+  s_1a6e9ade9f303e::t_e5f234c892f75b 352-354,356,358,361
+  s_1a6e9ade9f303e::t_c2c152555d4288 390-398,400-406,408-412,416-418
+  s_1a6e9ade9f303e::t_113c4a9fb6548c 337-338
+  s_1a6e9ade9f303e::t_5d662bcfb370d2 413-415
+  s_1a6e9ade9f303e::t_fd9c4f35f5ff3f 24,253
+  s_1a6e9ade9f303e::t_47307147910352 399,407
+  s_1a6e9ade9f303e::t_f17584a02af475 193-194
+  s_1a6e9ade9f303e::t_97d4724c3d3d9b 432
+  s_1a6e9ade9f303e::t_12595945fb2ac6 360,362
+  s_1a6e9ade9f303e::t_5d8dda6f49b3f3 312,317-320,326,328-330,334,336,340-342,347,351,355,357,364-369,371,379
+  s_1a6e9ade9f303e::t_5075fc59042e28 229
+  s_1a6e9ade9f303e::t_94365315001c24 4-8,25-27,29,31-34,42,53-70,79-80,82-87,89-90,92-93,95-100,102-103,107-118,123,126-132,135-141,157,160-176,185-192,195-228,230-238,242-243,246,313-316,321-325,327,331-333,335,339,343-346,348-350,359,363,372-374,376-378,380-386,431,435,439-443,445,447-452,454,466
+  s_1a6e9ade9f303e::t_8c6db382152d9e 387-389,426-428
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "09bbce521b703ee1ab1d6f1583ed0109474e087c",
+  "prompts": {},
+  "sessions": {
+    "s_1a6e9ade9f303e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2c9e00ce-6ba5-4b5a-8be5-a4a273976934",
+        "model": "unknown"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
