@@ -1,0 +1,147 @@
+godot/src/input/region_input.gd.uid
+  s_1a6e9ade9f303e::t_8b155d2d23a527 1
+godot/src/client/delta_decoder.gd.uid
+  s_1a6e9ade9f303e::t_673ecd67e98292 1
+godot/src/client/view_feed.gd
+  s_1a6e9ade9f303e::t_47d5314e165300 1-63
+godot/src/hud/notices.gd
+  s_1a6e9ade9f303e::t_9c07636f2e9132 1-80
+godot/src/hud/dock.gd
+  s_1a6e9ade9f303e::t_7165244d4b4ba1 10,18-19
+  s_1a6e9ade9f303e::t_f519cdbc6166d1 1-9,11-17,20-29
+godot/src/game/game.tscn
+  s_1a6e9ade9f303e::t_2edfc95232231f 1-6
+godot/src/hud/dock.gd.uid
+  s_1a6e9ade9f303e::t_8b155d2d23a527 1
+godot/src/input/touch_gestures.gd.uid
+  s_1a6e9ade9f303e::t_8b155d2d23a527 1
+godot/src/input/war_actions.gd.uid
+  s_1a6e9ade9f303e::t_8b155d2d23a527 1
+godot/tests/hud/test_hud_layout.gd
+  s_1a6e9ade9f303e::t_f918c39f709e02 1-100
+godot/src/client/delta_decoder.gd
+  s_1a6e9ade9f303e::t_b8eb3203915f8d 1-354
+godot/tests/input/test_input.gd.uid
+  s_1a6e9ade9f303e::t_519fe9ded4445c 1
+godot/src/hud/command_card.gd.uid
+  s_1a6e9ade9f303e::t_8b155d2d23a527 1
+godot/src/input/selection.gd.uid
+  s_1a6e9ade9f303e::t_8b155d2d23a527 1
+godot/src/hud/army_panel.gd.uid
+  s_1a6e9ade9f303e::t_8b155d2d23a527 1
+src/dev/vectors/input.ts
+  s_1a6e9ade9f303e::t_1228b974a066bd 1-45
+godot/tests/client/test_client.gd
+  s_1a6e9ade9f303e::t_383c91d01fe6b4 1-106
+godot/src/game/game.gd.uid
+  s_1a6e9ade9f303e::t_8b155d2d23a527 1
+godot/src/hud/hud_layout.gd.uid
+  s_1a6e9ade9f303e::t_8b155d2d23a527 1
+godot/src/hud/hud_theme.gd.uid
+  s_1a6e9ade9f303e::t_8b155d2d23a527 1
+godot/tests/hud/test_hud_layout.gd.uid
+  s_1a6e9ade9f303e::t_519fe9ded4445c 1
+godot/tests/client/test_delta_decoder.gd
+  s_1a6e9ade9f303e::t_7776af141b1511 1-50
+godot/src/hud/hud_words.gd
+  s_1a6e9ade9f303e::t_7bd4f67c2c3c66 1-59
+scripts/godot/view.mjs
+  s_1a6e9ade9f303e::t_2331b0bf564167 9,61-64
+godot/tests/input/test_input.gd
+  s_1a6e9ade9f303e::t_f8f8afb4aa9174 1-59,61-62,64-123
+  s_1a6e9ade9f303e::t_6f5bcc76c9bc72 60,63
+godot/src/input/touch_gestures.gd
+  s_1a6e9ade9f303e::t_b7a16419a281d6 1-89
+src/dev/vectors/codec.ts
+  s_1a6e9ade9f303e::t_8a7d726ed88ab3 1-97
+godot/project.godot
+  s_1a6e9ade9f303e::t_694417da08f478 9,19-21
+  s_1a6e9ade9f303e::t_01600111c9319c 22
+godot/src/hud/hud.gd.uid
+  s_1a6e9ade9f303e::t_8b155d2d23a527 1
+godot/src/hud/hud_words.gd.uid
+  s_1a6e9ade9f303e::t_8b155d2d23a527 1
+godot/tests/client/test_client.gd.uid
+  s_1a6e9ade9f303e::t_9e913a114dd219 1
+godot/src/hud/build_bar.gd.uid
+  s_1a6e9ade9f303e::t_8b155d2d23a527 1
+godot/src/region/region_view.gd
+  s_1a6e9ade9f303e::t_2b6d716be41a9b 27-32,41,74,106-111,160-161
+  s_1a6e9ade9f303e::t_862d1236b19039 87,89
+godot/src/input/region_input.gd
+  s_1a6e9ade9f303e::t_077e105d491914 1-46,51-86,88-89,97-99,101-102,105,108-110,113-303,306-385,387-401,403-611
+  s_1a6e9ade9f303e::t_694417da08f478 47-48,402
+  s_1a6e9ade9f303e::t_7165244d4b4ba1 87,90-96,304-305
+  s_1a6e9ade9f303e::t_ac430d9b3987b2 107,112
+  s_1a6e9ade9f303e::t_64e8fbd92deae6 49-50,386
+  s_1a6e9ade9f303e::t_3cd3d7522faa1c 100,103-104,106,111
+godot/src/hud/top_bar.gd.uid
+  s_1a6e9ade9f303e::t_8b155d2d23a527 1
+godot/src/client/war_client.gd.uid
+  s_1a6e9ade9f303e::t_8b155d2d23a527 1
+godot/src/hud/minimap.gd
+  s_1a6e9ade9f303e::t_e34f839eabc9d9 1-119,121-128
+  s_1a6e9ade9f303e::t_cce47d2bcefb76 120
+godot/src/hud/top_bar.gd
+  s_1a6e9ade9f303e::t_440f3b27a67f45 1-29,32-98
+  s_1a6e9ade9f303e::t_23386fbb724bbc 30-31
+godot/src/client/view_feed.gd.uid
+  s_1a6e9ade9f303e::t_8b155d2d23a527 1
+godot/src/hud/army_panel.gd
+  s_1a6e9ade9f303e::t_50111ced3ee2b2 1-121
+godot/src/hud/minimap.gd.uid
+  s_1a6e9ade9f303e::t_8b155d2d23a527 1
+godot/src/hud/hud_layout.gd
+  s_1a6e9ade9f303e::t_0886a2cfb34712 40,75-76,98
+  s_1a6e9ade9f303e::t_e91d95cf8860df 1-39,41-74,77-97,99-149
+godot/src/hud/command_card.gd
+  s_1a6e9ade9f303e::t_e218f59a1bec94 1-90,93,95-102,104-107,110-112,114-115,117-199,206-247
+  s_1a6e9ade9f303e::t_5db0e660eb55dd 91-92,94,103,108-109,113,116
+  s_1a6e9ade9f303e::t_7dcdd33616c6c0 200-205
+godot/src/hud/build_bar.gd
+  s_1a6e9ade9f303e::t_58bbdcacc847d1 1-56
+godot/src/hud/hud.gd
+  s_1a6e9ade9f303e::t_1cf71735250a21 1-96,98-105,107-256
+  s_1a6e9ade9f303e::t_cce47d2bcefb76 97
+  s_1a6e9ade9f303e::t_7165244d4b4ba1 106
+godot/tests/run.gd
+  s_1a6e9ade9f303e::t_6ad5c7d9f46cb9 16-27
+  s_1a6e9ade9f303e::t_71242f0a509ea8 2,32,34-35
+godot/src/input/selection.gd
+  s_1a6e9ade9f303e::t_de77c7758decd8 1-168
+godot/src/game/game.gd
+  s_1a6e9ade9f303e::t_694417da08f478 114
+  s_1a6e9ade9f303e::t_6b5eb0b26616d2 1-16,18-39,41-88,90-106,108-113,117-120,133-148
+  s_1a6e9ade9f303e::t_64e8fbd92deae6 89
+  s_1a6e9ade9f303e::t_7ad5a6466ba56f 17,40
+  s_1a6e9ade9f303e::t_5db0e660eb55dd 107,121-132
+  s_1a6e9ade9f303e::t_097171805383cc 115-116
+godot/src/input/war_actions.gd
+  s_1a6e9ade9f303e::t_c03792826ecbc3 1-176
+godot/src/hud/notices.gd.uid
+  s_1a6e9ade9f303e::t_8b155d2d23a527 1
+godot/src/client/war_client.gd
+  s_1a6e9ade9f303e::t_52ad8b1f9b242d 1-178,181,189,191-196,200-205,210-211
+  s_1a6e9ade9f303e::t_f5f6a0d446dfcf 179-180,182-188,190,197-199,206-209,212-214
+godot/tests/client/test_delta_decoder.gd.uid
+  s_1a6e9ade9f303e::t_673ecd67e98292 1
+godot/src/hud/hud_theme.gd
+  s_1a6e9ade9f303e::t_0d7dfd02e6de17 1-179
+  s_1a6e9ade9f303e::t_22335ad7a62ab7 180-241
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "fb974230a0bf2c42587a7a29257e567d72eb4963",
+  "prompts": {},
+  "sessions": {
+    "s_1a6e9ade9f303e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2c9e00ce-6ba5-4b5a-8be5-a4a273976934",
+        "model": "unknown"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
