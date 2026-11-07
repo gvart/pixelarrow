@@ -1,0 +1,24 @@
+godot/native/src/room_store.cpp
+  s_1a6e9ade9f303e::t_f876741001f7b8 1-26,32-482
+  s_1a6e9ade9f303e::t_74b23e1e5afe95 27-31
+src/dev/roomStore.ts
+  s_1a6e9ade9f303e::t_ca0434c493b5ca 1-174
+godot/native/src/room_store.h
+  s_1a6e9ade9f303e::t_400a810db46fcc 1-137
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7b3546630875ea6dd5e93ae041d80ea2af1758e7",
+  "prompts": {},
+  "sessions": {
+    "s_1a6e9ade9f303e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2c9e00ce-6ba5-4b5a-8be5-a4a273976934",
+        "model": "unknown"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
