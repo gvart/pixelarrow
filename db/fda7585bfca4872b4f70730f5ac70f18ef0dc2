@@ -1,0 +1,41 @@
+src/dev/vectors/state.ts
+  s_1a6e9ade9f303e::t_d5ea1a3b674227 30
+  s_1a6e9ade9f303e::t_3d7a9104ef8c09 1-24,29,31-32,37-52,54-56
+  s_1a6e9ade9f303e::t_c8fcce293a2cd5 25-28
+  s_1a6e9ade9f303e::t_a30561b84370cb 33-36,53
+godot/tests/sim/test_state.gd
+  s_1a6e9ade9f303e::t_33c905c3871ddc 1-66,72-73
+  s_1a6e9ade9f303e::t_f0892f1bbf92a4 67-71
+godot/tests/sim/test_state.gd.uid
+  s_1a6e9ade9f303e::t_6d17e64332c2db 1
+godot/native/src/sim_state.cpp
+  s_1a6e9ade9f303e::t_73a18f0f7d758e 591-592
+  s_1a6e9ade9f303e::t_d08ca3a8d1d5fe 470-505,507-513,515-590,593-748
+  s_1a6e9ade9f303e::t_8ebb5f61093a77 514
+src/dev/vectors/sim.ts
+  s_1a6e9ade9f303e::t_c54d2390fa4419 82
+godot/native/src/works_state.cpp
+  s_1a6e9ade9f303e::t_c909d0404931d2 222-406
+godot/native/src/sim.cpp
+  s_1a6e9ade9f303e::t_5e03f7f0c43257 2119,2182,2185-2186
+godot/native/src/sim.h
+  s_1a6e9ade9f303e::t_4c9ced1e8b7aae 630-632
+godot/native/src/works.h
+  s_1a6e9ade9f303e::t_63dd3e02341df4 343-344,499-502
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "dbfda7585bfca4872b4f70730f5ac70f18ef0dc2",
+  "prompts": {},
+  "sessions": {
+    "s_1a6e9ade9f303e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2c9e00ce-6ba5-4b5a-8be5-a4a273976934",
+        "model": "unknown"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
