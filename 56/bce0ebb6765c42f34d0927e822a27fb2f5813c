@@ -1,0 +1,72 @@
+docs/impl/godot-port.md
+  s_1a6e9ade9f303e::t_b9d3fd346d4c32 47
+godot/native/src/register_types.cpp
+  s_1a6e9ade9f303e::t_da858dbe2ab010 47
+  s_1a6e9ade9f303e::t_407e4b443f2456 13
+godot/native/src/world.h
+  s_1a6e9ade9f303e::t_f3707851aece93 1-51,53-130
+  s_1a6e9ade9f303e::t_de27d9de996a1b 52
+godot/native/src/room_store.cpp
+  s_1a6e9ade9f303e::t_902f50f7d3984b 189-200
+godot/tests/sim/test_world.gd
+  s_1a6e9ade9f303e::t_6ae6ec3a4735e0 1-134
+godot/native/src/local_room.cpp
+  s_1a6e9ade9f303e::t_d72abd4958467a 15,603
+  s_1a6e9ade9f303e::t_0f7609a78a20f2 218,534-602,604,669
+godot/native/src/local_room.h
+  s_1a6e9ade9f303e::t_0f7609a78a20f2 56,137-144,146-150
+  s_1a6e9ade9f303e::t_e772f53fa88c7b 145
+godot/native/src/local_world.cpp
+  s_1a6e9ade9f303e::t_69c341230dfa15 1-153,155-209,211-221,224-261,263-286,288,290-312,314-341,355,357-374
+  s_1a6e9ade9f303e::t_e772f53fa88c7b 342-354,356
+  s_1a6e9ade9f303e::t_da858dbe2ab010 222-223,262,287,289,313
+  s_1a6e9ade9f303e::t_16017d77c0ccd7 154,210
+godot/native/src/sim_data.cpp
+  s_1a6e9ade9f303e::t_8cd792383fa0dd 80
+godot/native/src/room.cpp
+  s_1a6e9ade9f303e::t_fe6eb30e06c871 866-867
+godot/native/src/world.cpp
+  s_1a6e9ade9f303e::t_8cd792383fa0dd 10
+  s_1a6e9ade9f303e::t_88b3e7cb3f45fb 79,90,202,432,556
+  s_1a6e9ade9f303e::t_de632f6ba92dc8 1-9,11-71,73-78,80-89,91-201,203-291,293-431,433-555,557-864
+  s_1a6e9ade9f303e::t_2d19a17baaa581 292
+  s_1a6e9ade9f303e::t_de27d9de996a1b 72
+godot/native/src/season_clock.cpp
+  s_1a6e9ade9f303e::t_0eb9dd05824391 57,66,68-72
+  s_1a6e9ade9f303e::t_8cd792383fa0dd 28
+godot/native/src/room_store.h
+  s_1a6e9ade9f303e::t_d72abd4958467a 128-132
+godot/native/src/local_world.h
+  s_1a6e9ade9f303e::t_e772f53fa88c7b 84-85
+  s_1a6e9ade9f303e::t_32c486f6482625 40,69-76,78
+  s_1a6e9ade9f303e::t_05f5a5d8807c54 1-39,41-68,77,79-83,86-108
+godot/native/src/room_store_settle.cpp
+  s_1a6e9ade9f303e::t_da858dbe2ab010 574-575
+godot/native/src/season_clock.h
+  s_1a6e9ade9f303e::t_8cd792383fa0dd 21
+  s_1a6e9ade9f303e::t_0eb9dd05824391 37-38,43-45
+godot/native/src/sim_data.h
+  s_1a6e9ade9f303e::t_8cd792383fa0dd 42,88
+godot/native/src/room.h
+  s_1a6e9ade9f303e::t_fe6eb30e06c871 133
+godot/tests/sim/test_world.gd.uid
+  s_1a6e9ade9f303e::t_57e8d8577c1d03 1
+godot/native/src/settle.h
+  s_1a6e9ade9f303e::t_da858dbe2ab010 184-186
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "56bce0ebb6765c42f34d0927e822a27fb2f5813c",
+  "prompts": {},
+  "sessions": {
+    "s_1a6e9ade9f303e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2c9e00ce-6ba5-4b5a-8be5-a4a273976934",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
