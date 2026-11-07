@@ -68,6 +68,18 @@ describe('W-65 story in the region room', () => {
     expect(w.tick().storied).toEqual([]);
   });
 
+  it('a rejoin keeps the goods its run owes (its host pays into them)', () => {
+    const w = room();
+    w.join(1, join(1, 0, 6));
+    w.tick();
+    w.startStory(1, null);
+    w.startStory(1, null); // a reconnect: the same run goes on
+    type Entry = { run: { host: { give(r: unknown, at: unknown, item: unknown): void } }; goods: Record<string, number> };
+    const e = (w as unknown as { stories: { runs: Map<number, Entry> } }).stories.runs.get(1)!;
+    e.run.host.give({ goods: { coin: 5 } }, { x: 1, y: 1 }, null);
+    expect(e.goods).toEqual({ coin: 5 });
+  });
+
   it('a region without a story has none', () => {
     const w = new WarRoom({ region: warRegion('dodona')!, seed: 1, cap: 600, home: 0 });
     w.join(1, { ...join(1, 0, 4), region: 'dodona' });
