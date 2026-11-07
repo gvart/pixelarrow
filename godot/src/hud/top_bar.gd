@@ -1,6 +1,7 @@
 ## The top bar (src/war/view/hud/topBar.ts): one slim glass strip with a gold trim.
 ##   left    the goods at hand (W-60: the store his men stand by, never a total; "–" when none is near) and his men
 ##   centre  a plaque: the region's name and the time played here
+##   right   back to the world map (when the game has one)
 ## Online the plaque adds the season's day (P11); the menu buttons on the right come with their windows.
 class_name TopBar
 extends Control
@@ -15,6 +16,7 @@ var _name: Label
 var _clock: Label
 var _plaque: PanelContainer
 var _row: HBoxContainer
+var _world: Button
 var phone := false
 
 
@@ -65,6 +67,12 @@ func _chip(icon_id: String, text: String, tip: String) -> Label:
 	return l
 
 
+## A button at the right: back to the world map.
+func add_world(cb: Callable, phone_: bool) -> void:
+	_world = HudTheme.slot("act-move", "World map", "Back to the world map" + ("" if phone_ else "  [Shift+W]"), "", 24, cb)
+	add_child(_world)
+
+
 ## The plaque's rect (art px), which hangs below the bar.
 func plaque_rect() -> Rect2:
 	return Rect2(_plaque.position, _plaque.get_combined_minimum_size())
@@ -75,6 +83,9 @@ func lay(w: float) -> void:
 	var pm := _plaque.get_combined_minimum_size()
 	_plaque.size = pm
 	_plaque.position = Vector2(roundf((w - pm.x) / 2.0), 0)
+	if _world:
+		_world.size = _world.get_combined_minimum_size()
+		_world.position = Vector2(w - _world.size.x - 4, 3)
 	# the goods give way before they would meet the plaque
 	var room := _plaque.position.x - 10
 	var x := 0.0
