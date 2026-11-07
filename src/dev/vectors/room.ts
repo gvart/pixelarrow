@@ -29,20 +29,36 @@ import { parseRegion } from '../../war/region/schema';
 import { ALLIANCES, CAMERA_MARGIN, DEFAULT_CAP, GOODS, KEYFRAME_EVERY, MAX_SQUAD, MAX_SQUADS, NET_VERSION, parseClientMsg, QUANT, VISION, WILD_EVERY, type ServerMsg } from '../../war/net/protocol';
 import { NODES_EVERY, STORE_NEAR } from '../../war/net/economy';
 import { BOSS_NEAR } from '../../war/net/interest';
-import { LABOUR_EVERY } from '../../war/net/works';
+import { LABOUR_EVERY, stagesOf, WONDER, WORK_R, WORKS, workSite } from '../../war/net/works';
 import type { BuildingType, FightReport, RegionData, Snapshot, WarBuildSim, WarPerson } from '../../war/types';
 import type { PlayerPath } from '../../war/world/start';
 import { makePerson } from '../../war/sim/roster';
 import type { WorldEvent } from '../../war/world/events';
-import { RoomStore, type Soul } from '../roomStore';
+import { RoomStore, SETTLE, FAVOUR_LOG, type GuardWatch, type HeldRow, type RoomSettle, type Soul } from '../roomStore';
+import { foundRefusal } from '../../war/net/settlements';
+import { FAVOUR_EARN, FAVOUR_XP, HOUR_CAP, PAYS } from '../../war/net/favour';
+import { FEUDAL } from '../../data/warFeudal';
+import type { WorkId } from '../../war/net/works';
+import { ALLIANCES as ALLIANCE_LIST } from '../../war/world/alliances';
+import { BOARD } from '../../data/warTownBoard';
 
 type Sha = (b: string) => string;
 const files = import.meta.glob('../../war/regions/*.json', { eager: true, import: 'default' });
 const server = import.meta.glob('../../../server/src/war/room.ts', { eager: true }) as Record<string, {
   WarRoom: (new (o: Record<string, unknown>) => Room) & { restore(o: Record<string, unknown>, st: unknown, persons: ReadonlyMap<string, WarPerson>): Room };
-  CORPSE_TICKS: number; FIGHT_QUIET: number; HOME_CLAIM_R: number;
+  CORPSE_TICKS: number; FIGHT_QUIET: number; HOME_CLAIM_R: number; SETTLE_EVERY: number; ATTACK_COOLDOWN: number;
 }>;
 const room = Object.values(server)[0];
+/** Wave C: the DO's pure helpers round the books (favour.ts, persons.ts fightTally) and the server's SETTLE (checked against the store's). */
+const books = import.meta.glob(['../../../server/src/war/favour.ts', '../../../server/src/war/persons.ts', '../../../server/src/war/settlements.ts'], { eager: true }) as Record<string, Record<string, unknown>>;
+const fav = books['../../../server/src/war/favour.ts'] as {
+  builtFavour(room: object, secs: readonly (readonly [number, number])[]): [number, number][];
+  lairsCleared(s: Snapshot, seen: Map<number, string>, paidElse?: (lair: number) => boolean): number[];
+  landFavour(s: Snapshot): [number, number][];
+  LAND_TICKS: number; LAIR_NEAR: number; FAVOUR_LOG: number;
+};
+const fightTally = (books['../../../server/src/war/persons.ts'] as { fightTally(r: FightReport): Map<number, { kills: number }> }).fightTally;
+const SERVER_SETTLE = (books['../../../server/src/war/settlements.ts'] as { SETTLE: Record<string, number> }).SETTLE;
 
 /** What the harness calls of WarRoom (server/src/war/room.ts). */
 interface Room {
@@ -77,6 +93,7 @@ interface Room {
     frames: Map<number, Uint8Array>; msgs: Map<number, ServerMsg[]>; admitted: Map<number, ServerMsg>;
     fights: { id: string; report: FightReport }[]; souls: { pid: number; person: WarPerson; squad: number; unit: number }[]; raided: number[]; faded: string[];
     larder: { pid: number; goods: Record<string, number> }[];
+    peace: PeaceOut | null; settle: SettleOut | null;
   } & LifeBooks;
   startGuide(pid: number, save: unknown): ServerMsg | null;
   startStory(pid: number, save: unknown): ServerMsg | null;
@@ -94,7 +111,26 @@ interface Room {
   recall(m: unknown, elapsed: number): void;
   summary(): unknown;
   present(): number;
+  // wave C: settlements and politics (room.ts W-63, W-64, W-150, W-61)
+  setSettlements(list: RoomSettle[]): void;
+  setOaths(list: { vassal: number; lord: number; pct: number }[]): void;
+  setPacts(list: { a: number; b: number; kind: 'pact' | 'truce' }[]): void;
+  settlementReports(): { id: number; level: number; tended: boolean; persist: { pieces?: Piece[] } }[];
+  titheReports(): HeldRow[];
+  restorePieces(team: number, s: { x: number; y: number; r: number }, pieces: Piece[]): number | null;
+  presence(pid: number, id: number): boolean;
+  storeGoods(id: number): Record<string, number>;
+  setGuards(list: GuardWatch[]): void;
+  setWorks(team: number, ids: string[]): void;
+  watchTownJob(j: { id: number; pid: number; x: number; y: number }): void;
+  unwatchTownJob(id: number): void;
+  pathPlayers(): number[];
+  townBandIs(lair: number): boolean;
+  setLevel(pid: number, level: number): void;
 }
+type Piece = { type: BuildingType; x: number; y: number; rot: 0 | 1; hp: number; goods?: Record<string, number> };
+interface SettleOut { found: { centre: number; x: number; y: number; lord: number }[]; attacks: { by: number; victim: number }[]; taking: { point: number; holder: number; by: number }[] }
+interface PeaceOut { labour: { pid: number; site: number; secs: number }[]; guards: unknown[]; works: { team: number; work: WorkId; by: Record<number, number> }[]; townJobs?: { id: number; pid: number; secs: number }[] }
 
 /** What the DO books of a tick's region life (room.ts tick): the guide, story and encounter runs moved (their saves), the rest. */
 interface LifeBooks {
@@ -129,6 +165,13 @@ class TsLocal {
   private readonly o: Record<string, unknown>;
   private worldEv: { events: WorldEvent[]; next: WorldEvent | null } | null = null;
   private woke: number | null = null;
+  // wave C, the DO's own (in memory: a restore, an eviction, starts them over): sockets open, each player's settlements
+  // view as last sent, persisted pieces and tithes as last reported, the lairs as favourTick last saw them
+  private live = new Set<number>();
+  private settleSent = new Map<number, string>();
+  private persisted = new Map<number, string>();
+  private heldKey = '';
+  private lairsSeen = new Map<number, string>();
   constructor(o: Record<string, unknown>) {
     this.o = { epoch: 'e', ...o };
     this.room = new room.WarRoom(this.o);
@@ -141,6 +184,100 @@ class TsLocal {
   private wake = (s: Soul) => this.room.sim.spawnNamedSoul(s.person, Math.ceil(s.lifeMs / TICK_MS), s.bar ? { owner: `p:${s.bar.pid}`, ticks: Math.ceil(s.bar.ms / TICK_MS) } : undefined);
   private conn(pid: number) {
     if (!this.conns.includes(pid)) this.conns.push(pid);
+    this.live.add(pid);
+  }
+  // ---------------------------------------------------------------- wave C: regionDO.ts round the settlements and politics
+
+  /** loadSettlements: the region's settlements, the oaths and the pacts in force into the room; open sockets whose view changed hear it. */
+  private loadSettlements(out: Out[]) {
+    const r = this.room, s = this.store;
+    r.setSettlements(s.regionSettlements(r.region.id));
+    r.setOaths(s.sworn());
+    r.setPacts(s.pactsOf().filter((p) => p.endsAt === null || p.endsAt > this.now).map((p) => ({ a: p.a, b: p.b, kind: p.kind })));
+    for (const pid of this.conns) if (this.live.has(pid) && this.settleSent.has(pid)) this.sendSettlements(pid, out);
+  }
+  /** sendSettlements: his view when it changed (`fresh`: anyway, a welcome). */
+  private sendSettlements(pid: number, out: Out[], fresh = false) {
+    const list = this.room.settlementsFor(pid), k = JSON.stringify(list);
+    if (!fresh && this.settleSent.get(pid) === k) return;
+    this.settleSent.set(pid, k);
+    if (this.live.has(pid)) out.push([pid, { t: 'settlements', list }]);
+  }
+  /** restoreSettlements: a fresh field: each settlement's persisting pieces down again under its lord's alliance; the centres re-keyed. */
+  private restoreSettlements() {
+    const r = this.room, s = this.store, region = r.region.id, rows = s.persisted(region);
+    if (!rows.length) return;
+    const list = s.regionSettlements(region), moved: [number, number][] = [];
+    for (const row of rows) {
+      const st = list.find((x) => x.id === row.id), pieces = (JSON.parse(row.persist) as { pieces?: Piece[] }).pieces ?? [];
+      if (!st || st.team === null || !pieces.length) continue;
+      const centre = r.restorePieces(st.team, st, pieces);
+      if (centre !== null) moved.push([st.id, centre]);
+    }
+    s.rekey(region, moved);
+  }
+  /** reportSettlements: level, tending and persisting pieces (`all`: the pieces even when unchanged). */
+  private reportSettlements(mode: 'tick' | 'all') {
+    for (const x of this.room.settlementReports()) {
+      const p = JSON.stringify(x.persist), fresh = mode !== 'tick' || this.persisted.get(x.id) !== p;
+      this.store.report(x.id, { ...(x.level > 0 ? { level: x.level } : {}), tended: x.tended, ...(fresh ? { persist: x.persist } : {}) }, this.now);
+      this.persisted.set(x.id, p);
+    }
+  }
+  /** reportTithes: what is set aside in the region's buildings, when it changed. */
+  private reportTithes() {
+    const rows = this.room.titheReports(), key = JSON.stringify(rows);
+    if (key === this.heldKey) return;
+    this.store.reportHeld(this.room.region.id, rows);
+    this.heldKey = key;
+  }
+  /** pollPeace: the guard contracts watched here, the home alliance's open works, every alliance's work bonuses, the levels. */
+  private pollPeace() {
+    const r = this.room, s = this.store, region = r.region.id;
+    r.setGuards(s.guardsIn(region));
+    const home = ALLIANCE_LIST.find((a) => a.home === region);
+    if (home) r.setWorks(home.id, s.openWorks(home.id));
+    const b = s.bonusesOf();
+    for (const a of ALLIANCE_LIST) r.sim.setBonus(a.id, b.get(a.id) ?? {});
+    const players = r.pathPlayers();
+    if (players.length) for (const [pid, level] of s.levelsOf(players)) r.setLevel(pid, level);
+  }
+  /** The wave C books of a tick (regionDO.ts outputs): favour, the peace's labour, the settlements' foundings, attacks and claims, the polls. */
+  private politics(res: { peace: PeaceOut | null; settle: SettleOut | null }, out: Out[]) {
+    const r = this.room, s = this.store, region = r.region.id, now = this.now, tick = r.currentTick;
+    // favourTick (W-66): lairs cleared, land held
+    const snap = r.snapshot();
+    for (const pid of fav.lairsCleared(snap, this.lairsSeen, (l) => r.townBandIs(l))) s.addFavour(pid, FAVOUR_EARN.lair, 'lair', now);
+    if (tick % fav.LAND_TICKS === 7) for (const [pid, n] of fav.landFavour(snap)) s.addFavour(pid, n, 'land', now);
+    const pz = res.peace;
+    if (pz) {
+      for (const w of pz.works) s.addLabour(w.team, w.work, w.by, now);
+      for (const [pid, n] of fav.builtFavour(r, [...pz.labour.map((l) => [l.pid, l.secs] as const), ...pz.works.flatMap((w) => Object.entries(w.by).map(([p, secs]) => [Number(p), secs] as const)), ...(pz.townJobs ?? []).map((j) => [j.pid, j.secs * BOARD.labourFavour] as const)])) s.addFavour(pid, n, 'built', now);
+    }
+    if (tick % 300 === 1) this.pollPeace(); // PEACE_POLL
+    const st = res.settle;
+    if (st?.found.length) {
+      const home = ALLIANCE_LIST.some((a) => a.home === region);
+      for (const f of st.found) {
+        const got = s.found({ region, centre: f.centre, x: f.x, y: f.y, lord: f.lord }, (c) => foundRefusal(r.snapshot(), home, c), now);
+        if (typeof got === 'string') s.notify([f.lord], { t: 'crownNews', kind: 'noFounding', text: `Your camp stands, but it founds no settlement. ${got}.`, region });
+      }
+      this.loadSettlements(out);
+    }
+    for (const a of st?.attacks ?? []) {
+      const l = s.logAttack(a.by, a.victim, now), name = s.regionSettlements(region).find((x) => x.id === a.victim)?.name ?? '';
+      if (l.tell.length) s.notify(l.tell, { t: 'settlementAttacked', settlement: a.victim, name, region, by: a.by, broken: l.broken });
+      const p = s.pactAttack(a.by, a.victim, now);
+      if (p.tell.length) s.notify(p.tell, { t: 'crownNews', kind: 'pactBroken', text: p.text, region });
+    }
+    for (const c of st?.taking ?? []) {
+      const pids = [...s.alliances].filter(([, a]) => a === c.holder).map(([pid]) => pid);
+      if (pids.length) s.notify(pids, { t: 'claimAttacked', region, name: r.region.name, point: c.point, by: c.by });
+    }
+    if (tick % 100 === 3) { // SETTLE_POLL
+      this.loadSettlements(out);
+      if (tick % 600 === 3) (this.reportSettlements('tick'), this.reportTithes()); // SETTLE_REPORT
+    }
   }
   private flush() {
     this.store.release(this.room.region.id, this.room.takeReleased());
@@ -161,6 +298,7 @@ class TsLocal {
     const r = this.room, region = r.region.id;
     if (!m) return tell({ t: 'error', code: 'parse' }), out;
     if (m.t === 'join') {
+      this.loadSettlements(out); // W-63: the settlements as they stand now: the room flies his banner by ground
       let persons: WarPerson[][] | undefined;
       if (m.squads && m.region === region && r.spawnsNew(pid)) {
         const got = this.store.claimForJoin(pid, region, m.squads, r.personsHere(), this.now, this.wake);
@@ -170,7 +308,7 @@ class TsLocal {
       const res = r.join(pid, m, persons);
       tell(res.msg);
       if (res.msg.t === 'welcome' && this.worldEv) tell({ t: 'worldEvents', ...this.worldEv }); // W-62
-      if (res.msg.t === 'welcome') tell({ t: 'settlements', list: r.settlementsFor(pid) }); // W-63
+      if (res.msg.t === 'welcome') this.sendSettlements(pid, out, true); // W-63
       if (res.msg.t === 'refused' && persons) this.store.release(region, m.squads!.flat());
       // the DO's D1 reads (path, army, larder, muster) for a persons join; a dev class army has no men in the store, so
       // the room counts his field (as a DO with no D1)
@@ -225,6 +363,7 @@ class TsLocal {
   close(pid: number): Out[] {
     this.room.leave(pid);
     this.flush();
+    this.live.delete(pid);
     return [];
   }
   /**
@@ -235,7 +374,7 @@ class TsLocal {
   tick(): { out: Out[]; books?: unknown } {
     const r = this.room, res = r.tick(), out: Out[] = [], region = r.region.id, s = this.store;
     for (const f of res.fights) {
-      s.applyFight(f.id, region, f.report, this.now);
+      if (s.applyFight(f.id, region, f.report, this.now)) s.bookFight(region, fightTally(f.report), this.now); // W-64: the crown's war goals' shares
       for (const pid of new Set(f.report.persons.filter((x) => x.state === 'captive').map((x) => Number(x.owner.slice(2))))) r.setArmy(pid, s.armyCount(pid));
     }
     for (const id of res.faded) s.fade(id);
@@ -252,11 +391,12 @@ class TsLocal {
       const w = res.admitted.get(pid);
       if (w) out.push([pid, w]);
       if (w?.t === 'welcome') this.welcomed(pid, (m) => out.push([pid, m])); // W-62, W-65: in from the line
-      if (w?.t === 'welcome') out.push([pid, { t: 'settlements', list: this.room.settlementsFor(pid) }]); // W-63
+      if (w?.t === 'welcome') this.sendSettlements(pid, out, true); // W-63
       for (const m of res.msgs.get(pid) ?? []) out.push([pid, m]);
       const f = res.frames.get(pid);
       if (f) out.push([pid, { frame: b64(f) }]);
     }
+    this.politics(res, out); // wave C: the settlements' and the peace's books, the polls
     for (const g of res.guided) s.keep('guide', g.pid, g.save);
     for (const g of res.storied) s.keep('story', g.pid, g.save);
     for (const g of res.met) s.keep('encounter', g.pid, g.save);
@@ -264,7 +404,9 @@ class TsLocal {
       fights: res.fights, raided: res.raided, souls: res.souls.map((c) => ({ pid: c.pid, person: c.person.id, squad: c.squad, unit: c.unit })), faded: res.faded,
       guided: res.guided, storied: res.storied, met: res.met, wild: res.wild, larder: res.larder, gathered: res.gathered, warlord: res.warlord,
     };
-    const books = Object.fromEntries(Object.entries(all).filter(([, v]) => v.length));
+    const books: Record<string, unknown> = Object.fromEntries(Object.entries(all).filter(([, v]) => v.length));
+    if (res.peace) books.peace = res.peace; // wave C
+    if (res.settle) books.settle = res.settle;
     return { out, ...(Object.keys(books).length ? { books } : {}) };
   }
   /** A call the DO (or the world) makes on the room, or a store seed; its result. */
@@ -315,8 +457,36 @@ class TsLocal {
       const st = JSON.parse(this.saved) as { pids: string[] };
       this.room = room.WarRoom.restore(this.o, st, s.deployed(region, st.pids));
       this.flush();
+      // an eviction: the DO's memory starts over; ensure() polls the settlements into the restored room
+      this.settleSent.clear();
+      this.persisted.clear();
+      this.heldKey = '';
+      this.lairsSeen = new Map();
+      this.loadSettlements(out);
       return { res: null, out };
     }
+    // wave C: store seeds (what REST, the crown and the season sweep leave in D1) and the DO's calls round the settlements
+    if (op === 'ally') {
+      const [pid, team, name] = a as [number, number, string];
+      s.alliances.set(pid, team);
+      s.names.set(pid, name);
+      return { res: null, out };
+    }
+    if (op === 'settlement') return { res: s.addSettlement({ region, tendedAt: 0, level: 0, overlord: null, tribute: 0, persist: '{}', ...(a[0] as object) } as Parameters<RoomStore['addSettlement']>[0]), out };
+    if (op === 'member') return s.addMember(...(a as [number, number, 'citizen', null]), this.now), { res: null, out };
+    if (op === 'oath') return s.swear(...(a as [number, number, number | null])), { res: null, out };
+    if (op === 'pact') return { res: s.addPact(...(a as [number, number, 'pact', number | null])), out };
+    if (op === 'order') return { res: s.addOrder(...(a as [number, 'attack', string, number])), out };
+    if (op === 'guard') return s.addGuard(region, a[0] as GuardWatch), { res: null, out };
+    if (op === 'giveWork') return s.giveWork(...(a as [number, WorkId, Record<string, number>])), { res: null, out };
+    if (op === 'townJob') return r.watchTownJob(a[0] as { id: number; pid: number; x: number; y: number }), { res: null, out };
+    if (op === 'endTownJob') return r.unwatchTownJob(a[0] as number), { res: null, out };
+    if (op === 'fresh') return this.restoreSettlements(), this.loadSettlements(out), { res: null, out }; // ensure() on a fresh room
+    if (op === 'poll') return this.loadSettlements(out), { res: null, out };
+    if (op === 'peacePoll') return this.pollPeace(), { res: null, out };
+    if (op === 'report') return this.reportSettlements('all'), this.reportTithes(), { res: { reports: r.settlementReports(), tithes: r.titheReports() }, out };
+    if (op === 'presence') return { res: r.presence(a[0] as number, a[1] as number), out };
+    if (op === 'storeGoods') return { res: r.storeGoods(a[0] as number), out };
     throw new Error(`unknown op ${op}`);
   }
 }
@@ -639,13 +809,146 @@ function moors(): Step[] {
   ];
 }
 
-const RUNS: { id: string; region: string; seed: number; opts: Record<string, unknown>; steps: () => Step[] }[] = [
+/** Wave C: the open site of `team` nearest (x,y) (a camp just placed). */
+const siteNear = (r: Room, team: number, x: number, y: number) =>
+  (r.snapshot().buildings ?? []).filter((b) => b.team === team && b.state !== 'done').sort((a, b) => Math.hypot(a.x - x, a.y - y) - Math.hypot(b.x - x, b.y - y))[0]?.id ?? 0;
+
+/**
+ * test-ridge, settlements and politics (W-63, W-64, W-150): Bo's settlement Bohold seeded with a citizen of another
+ * alliance (his men fly its banner), a pact between the alliances (allies), a refused ask for another alliance (his own
+ * stays), building on Bohold's ground refused (an outsider, a citizen off his plot, the lord on a citizen's plot, a wall),
+ * two camps built: one too close to Bohold (no settlement: the lord hears why), one founding a settlement; Bo's men
+ * strike it (the attack logged and told, the pact broken), the fight booked to a war goal; presence, store goods and the
+ * reports; an oath sworn (the liege set), a citizen taken in (his men turn to its banner, his welcome told later); a save
+ * and a restore that plays on.
+ */
+function settle(): Step[] {
+  const R = 'test-ridge', A = { x: 190, y: 68 }, B = { x: 150, y: 52 }, h = men('ah', 'hoplite', 12, 2), a = men('aa', 'archer', 8);
+  return [
+    { op: 'seed', args: () => [1, [...h, ...a], null, null] },
+    { op: 'ally', args: () => [1, 0, 'Ann'] },
+    { op: 'ally', args: () => [2, 1, 'Bo'] },
+    { op: 'ally', args: () => [3, 1, 'Cy'] },
+    { op: 'ally', args: () => [4, 0, 'Di'] },
+    { op: 'settlement', args: () => [{ centre: 9999, x: 200, y: 112, r: 24, name: 'Bohold', lord: 2 }] },
+    { op: 'member', args: () => [1, 4, 'citizen', { x0: 196, y0: 108, x1: 202, y1: 114 }] },
+    { op: 'pact', args: () => [0, 1, 'pact', null] },
+    { op: 'order', args: () => [0, 'attack', R, 1e12] },
+    { pid: 1, msg: () => squads(R, 1, 0, [h.map((p) => p.id), a.map((p) => p.id)]) },
+    { pid: 4, msg: () => army(R, 4, 0, [['hoplite', 4]]) }, // a citizen of Bohold: Bo's banner
+    { pid: 2, msg: () => army(R, 2, 1, [['hoplite', 6]]) },
+    { pid: 3, msg: () => army(R, 3, 1, [['peltast', 4]]) },
+    { pid: 1, msg: () => army(R, 1, 1, [['hoplite', 4]]) }, // already in alliance 0: refused, his own stays
+    { ticks: 3 },
+    { op: 'poll', args: () => [] },
+    { pid: 1, msg: () => ({ t: 'view', x0: 100, y0: 0, x1: 260, y1: 160 }) },
+    { pid: 1, msg: () => ({ t: 'order', o: { kind: 'placeBuilding', type: 'storehouse', x: 200.5, y: 118.5 } }) }, // Bo's ground
+    { pid: 4, msg: () => ({ t: 'order', o: { kind: 'placeBuilding', type: 'storehouse', x: 190.5, y: 112.5 } }) }, // off his plot
+    { pid: 2, msg: () => ({ t: 'order', o: { kind: 'placeBuilding', type: 'storehouse', x: 199.5, y: 111.5 } }) }, // a citizen's plot
+    { pid: 1, msg: () => ({ t: 'order', o: { kind: 'placeWall', material: 'wood', points: [180, 96, 200, 96] } }) },
+    { pid: 1, msg: () => ({ t: 'dev', op: 'stock', res: 'wood', n: 900 }) },
+    { pid: 1, msg: () => ({ t: 'dev', op: 'stock', res: 'stone', n: 400 }) },
+    { pid: 1, msg: () => ({ t: 'dev', op: 'claim', ...A, r: 20 }) },
+    { pid: 1, msg: () => ({ t: 'dev', op: 'claim', ...B, r: 20 }) },
+    { ticks: 1 },
+    { pid: 1, msg: (r) => ({ t: 'order', o: { kind: 'placeBuilding', type: 'camp', ...spotFor(r, 0, 'camp', A.x, A.y) } }) },
+    { pid: 1, msg: (r) => ({ t: 'order', o: { kind: 'placeBuilding', type: 'camp', ...spotFor(r, 0, 'camp', B.x, B.y) } }) },
+    { ticks: 2 },
+    { pid: 1, msg: (r) => ({ t: 'order', o: { kind: 'build', squad: squad(r, 1), site: siteNear(r, 0, A.x, A.y) } }) },
+    { pid: 1, msg: (r) => ({ t: 'order', o: { kind: 'build', squad: squad(r, 1, 1), site: siteNear(r, 0, B.x, B.y) } }) },
+    { pid: 1, msg: () => ({ t: 'dev', op: 'skip', ticks: 600 }) },
+    { pid: 1, msg: () => ({ t: 'dev', op: 'skip', ticks: 400 }) },
+    { ticks: 30 }, // both camps stand: one founds nothing (too close to Bohold), one a settlement
+    { pid: 1, msg: (r) => ({ t: 'order', o: { kind: 'move', squad: squad(r, 1), x: B.x + 2, y: B.y + 4 } }) },
+    { pid: 1, msg: (r) => ({ t: 'order', o: { kind: 'move', squad: squad(r, 1, 1), x: B.x - 3, y: B.y + 2 } }) },
+    { pid: 1, msg: () => ({ t: 'dev', op: 'skip', ticks: 600 }) },
+    { ticks: 4 },
+    { op: 'presence', args: () => [1, 2] },
+    { op: 'presence', args: () => [2, 2] },
+    { op: 'storeGoods', args: () => [2] },
+    { op: 'report', args: () => [] },
+    // Bo's men at the new settlement: they strike it, the pact breaks
+    { pid: 2, msg: (r) => { const c = centre(r, squad(r, 1)); return { t: 'dev', op: 'spawn', team: 1, cls: 'hoplite', count: 8, x: Math.round(c.x) + 6, y: Math.round(c.y) + 2 }; } },
+    { ticks: 60 },
+    { pid: 2, msg: () => ({ t: 'dev', op: 'skip', ticks: 30 }) },
+    { ticks: 140 },
+    { pid: 2, msg: () => ({ t: 'dev', op: 'skip', ticks: 100 }) },
+    { ticks: 60 }, // the fight over: written back, booked to the war goal
+    { op: 'oath', args: () => [4, 1, 10] },
+    { op: 'member', args: () => [2, 3, 'citizen', null] }, // Cy into Ann's settlement: his men turn to her banner
+    { op: 'poll', args: () => [] },
+    { ticks: 2 },
+    { op: 'peacePoll', args: () => [] },
+    { op: 'save', args: () => [] },
+    { op: 'restore', args: () => [] },
+    { ticks: 20 },
+    { pid: 1, msg: () => squads(R, 1, 0, [['ah1']]) }, // a rejoin
+    { ticks: 110 },
+  ];
+}
+
+/** test-ridge, a fresh field (regionDO.ts ensure): a settlement's persisting pieces laid down again, the centre re-keyed; its lord joins and the report reads them back. */
+function realm(): Step[] {
+  const R = 'test-ridge';
+  const pieces = [
+    { type: 'camp', x: 145.5, y: 57.5, rot: 0, hp: 0.8, goods: { wood: 20, food: 4.5 } },
+    { type: 'storehouse', x: 153.5, y: 58.5, rot: 0, hp: 0.02, goods: { stone: 5 } },
+    { type: 'storehouse', x: 145.5, y: 57.5, rot: 0, hp: 1 }, // its tiles taken now: dropped
+  ];
+  return [
+    { op: 'ally', args: () => [1, 0, 'Ann'] },
+    { op: 'settlement', args: () => [{ centre: 77, x: 150, y: 52, r: 24, name: 'Annis', lord: 1, level: 2, persist: JSON.stringify({ pieces }) }] },
+    { op: 'settlement', args: () => [{ centre: 78, x: 400, y: 400, r: 24, name: 'Empty', lord: 5, persist: '{}' }] },
+    { op: 'fresh', args: () => [] },
+    { pid: 1, msg: () => army(R, 1, 0, [['hoplite', 8]]) },
+    { ticks: 3 },
+    { op: 'storeGoods', args: () => [1] },
+    { op: 'report', args: () => [] },
+    { ticks: 5 },
+  ];
+}
+
+/**
+ * Elaia, the home of alliance 3 (W-61): its open works (a work's goods given), a builder's men at the temple's site
+ * (labour, his favour in lumps), a guard contract watched, a town job (his men drawn at work, its labour), the job
+ * ended; the polls (works, bonuses, levels).
+ */
+function peace(): Step[] {
+  const R = 'elaia';
+  const temple = (r: Room) => workSite('temple', r.region, 'SW');
+  return [
+    { op: 'ally', args: () => [1, 3, 'Eu'] },
+    { op: 'ally', args: () => [2, 3, 'Fa'] },
+    { op: 'setPath', args: () => [1, { path: 'builder', family: null, level: 2 }] },
+    { op: 'giveWork', args: () => [3, 'temple', { stone: 600, marble: 120, coin: 300 }] },
+    { op: 'guard', args: () => [{ id: 7, team: 3, taker: 2, men: 4 }] },
+    { op: 'peacePoll', args: () => [] },
+    { pid: 1, msg: () => army(R, 1, 3, [['hoplite', 12], ['archer', 6]]) },
+    { pid: 2, msg: () => army(R, 2, 3, [['hoplite', 8]]) },
+    { ticks: 2 },
+    { pid: 1, msg: (r) => ({ t: 'order', o: { kind: 'move', squad: squad(r, 1), ...temple(r) } }) },
+    { pid: 2, msg: (r) => { const t = (r.snapshot().townLevels ?? [])[0]; return { t: 'order', o: { kind: 'move', squad: squad(r, 2), x: t?.x ?? 256, y: t?.y ?? 320 } }; } },
+    { pid: 1, msg: () => ({ t: 'dev', op: 'skip', ticks: 600 }) },
+    { pid: 1, msg: () => ({ t: 'dev', op: 'skip', ticks: 600 }) },
+    { pid: 1, msg: () => ({ t: 'dev', op: 'skip', ticks: 400 }) },
+    { pid: 1, msg: (r) => { const c = centre(r, squad(r, 1, 1)); return { t: 'view', x0: c.x - 30, y0: c.y - 20, x1: c.x + 30, y1: c.y + 20 }; } },
+    { op: 'townJob', args: (r) => { const c = centre(r, squad(r, 1, 1));  return [{ id: 5, pid: 1, x: Math.round(c.x), y: Math.round(c.y) }]; } },
+    { ticks: 320 },
+    { op: 'endTownJob', args: () => [5] },
+    { ticks: 110 },
+  ];
+}
+
+const RUNS:{ id: string; region: string; seed: number; opts: Record<string, unknown>; steps: () => Step[] }[] = [
   { id: 'ridge', region: 'test-ridge', seed: 1, opts: { cap: 96, wild: true }, steps: ridge },
   { id: 'persons', region: 'test-ridge', seed: 3, opts: { cap: 96, home: 0, fightQuiet: 40 }, steps: persons },
   { id: 'veterans', region: 'test-ridge', seed: 5, opts: { cap: 96, fightQuiet: 40 }, steps: veterans },
   { id: 'home', region: 'elaia', seed: 3, opts: { cap: 400, wild: true, home: 0 }, steps: home },
   { id: 'north', region: 'elaia-n', seed: 5, opts: { cap: 400, wild: true, warlords: true }, steps: north },
   { id: 'moors', region: 'moors', seed: 9, opts: { cap: 400, wild: true }, steps: moors },
+  { id: 'settle', region: 'test-ridge', seed: 11, opts: { cap: 96, fightQuiet: 40 }, steps: settle },
+  { id: 'realm', region: 'test-ridge', seed: 13, opts: { cap: 96 }, steps: realm },
+  { id: 'peace', region: 'elaia', seed: 3, opts: { cap: 400, home: 3 }, steps: peace },
 ];
 
 function run(r: (typeof RUNS)[number], sha: Sha) {
@@ -696,7 +999,22 @@ function run(r: (typeof RUNS)[number], sha: Sha) {
 const consts = () => ({
   NET_VERSION, QUANT, KEYFRAME_EVERY, WILD_EVERY, VISION, CAMERA_MARGIN, MAX_SQUAD, MAX_SQUADS, DEFAULT_CAP, ALLIANCES, NODES_EVERY, STORE_NEAR, BOSS_NEAR,
   LABOUR_EVERY, CORPSE_TICKS: room.CORPSE_TICKS, FIGHT_QUIET: room.FIGHT_QUIET, HOME_CLAIM_R: room.HOME_CLAIM_R, GOODS: [...GOODS],
+  ...settleConsts(),
 });
+/**
+ * Wave C: the settlements' and the peace's constants and the small tables of works.ts, favour.ts the C++ keeps (no data
+ * tables): the store's SETTLE and FAVOUR_LOG are the server's.
+ */
+const settleConsts = () => {
+  if (JSON.stringify(SETTLE) !== JSON.stringify({ r: SERVER_SETTLE.r, presence: SERVER_SETTLE.presence, nameMax: SERVER_SETTLE.nameMax }) || FAVOUR_LOG !== fav.FAVOUR_LOG) throw new Error('roomStore.ts SETTLE or FAVOUR_LOG is not the server\'s');
+  return {
+    SETTLE_EVERY: room.SETTLE_EVERY, ATTACK_COOLDOWN: room.ATTACK_COOLDOWN, SETTLE: { ...SETTLE }, WORK_R, LAIR_NEAR: fav.LAIR_NEAR, LAND_TICKS: fav.LAND_TICKS, FAVOUR_LOG,
+    WORKS: [...WORKS.map((w) => w.id), WONDER.id].map((id) => ({ id, stages: stagesOf(id)!.map((s) => ({ goods: s.goods, labour: s.labour, bonus: s.bonus })) })),
+    FAVOUR_XP: [...FAVOUR_XP], FAVOUR_EARN: { lair: FAVOUR_EARN.lair, built: FAVOUR_EARN.built.labour, land: FAVOUR_EARN.land },
+    PAYS: { ...PAYS }, HOUR_CAP: { ...HOUR_CAP }, LABOUR_FAVOUR: BOARD.labourFavour, RATE_DEFAULT: FEUDAL.rateDefault,
+    ALLIANCE_LIST: ALLIANCE_LIST.map((a) => ({ name: a.name, home: a.home, quadrant: a.quadrant })),
+  };
+};
 
 /**
  * parseClientMsg (src/war/net/protocol.ts, the zod schema) on raw messages: the parsed message as it comes out (unknown
