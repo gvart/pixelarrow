@@ -1,0 +1,48 @@
+godot/native/src/season_clock.cpp
+  s_1a6e9ade9f303e::t_e08529bfd3e284 133
+  s_1a6e9ade9f303e::t_879488de2a33cf 37
+  s_1a6e9ade9f303e::t_77d98a7560ad69 57
+  s_1a6e9ade9f303e::t_82d58e038b9fd8 1-36,38-56,58-132,134-143
+godot/native/src/alliance_ai.h
+  s_1a6e9ade9f303e::t_4676e094535587 1-119
+godot/native/src/alliance_ai.cpp
+  s_1a6e9ade9f303e::t_367a48074a1c1a 1-222,224-380
+  s_1a6e9ade9f303e::t_23c3b35cba198a 223
+godot/native/src/season_clock.h
+  s_1a6e9ade9f303e::t_cb098a59973b91 1-77
+godot/tests/sim/test_ai.gd
+  s_1a6e9ade9f303e::t_fea65a35e4379a 1-49,52-54,57-62
+  s_1a6e9ade9f303e::t_07546bac870717 50-51,55-56
+godot/native/src/host.h
+  s_1a6e9ade9f303e::t_0d9aa0c55c5d62 52,72-74
+  s_1a6e9ade9f303e::t_e96b60850b0b49 18-19,39-46,53
+  s_1a6e9ade9f303e::t_b114391c23f47f 47-51,80-91
+  s_1a6e9ade9f303e::t_156b29b2c5d18e 54
+godot/native/src/host.cpp
+  s_1a6e9ade9f303e::t_9559ac24fee5b9 2
+  s_1a6e9ade9f303e::t_0d9aa0c55c5d62 12,110,112-123,164-190,193-279,299,301-304
+  s_1a6e9ade9f303e::t_e96b60850b0b49 4-5,74-109
+  s_1a6e9ade9f303e::t_5f1b303cabe2c9 3,111
+godot/tests/sim/test_traces.gd
+  s_1a6e9ade9f303e::t_3e382389265726 77-79
+godot/native/src/sim_data.cpp
+  s_1a6e9ade9f303e::t_e57c9239c87471 78-79
+godot/native/src/sim_data.h
+  s_1a6e9ade9f303e::t_e57c9239c87471 40-41,76-77
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c6ec3383d7cfd4d9549662fbf2e4ca6ce13fd3cf",
+  "prompts": {},
+  "sessions": {
+    "s_1a6e9ade9f303e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2c9e00ce-6ba5-4b5a-8be5-a4a273976934",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
