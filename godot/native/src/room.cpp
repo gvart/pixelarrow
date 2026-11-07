@@ -327,7 +327,9 @@ Room::Room(Sim &s, Bots &b, const Dictionary &m, const RoomOpts &o) : sim(s), bo
 		if (!why.empty()) g.why = why;
 		return g;
 	};
-	// W-80 (the larder at the alliance's home) waits for the persons' wave: see the P8 entry
+	// W-80: at the alliance's home, a man by a store of his tops his pack up from his own strongroom (storage, via larders)
+	isHome = o.home.has_value();
+	if (o.home) sim.larder = [this, home = *o.home](const std::string &owner, int team, double want) { return team == home ? draw(owner, want) : 0.0; };
 	if (o.wild) sim.spawnMobs();
 	if (o.roam) sim.spawnRoam();
 	if (o.home) {
@@ -396,7 +398,7 @@ std::vector<int> Room::squadsOf(int pid) const {
 	return out;
 }
 
-godot::Dictionary Room::join(int sessionPid, const Dictionary &m) {
+godot::Dictionary Room::join(int sessionPid, const Dictionary &m, const std::vector<std::vector<WarPerson>> *persons) {
 	const auto refuse = [](const char *reason, const std::optional<std::string> &detail = std::nullopt) {
 		Dictionary d;
 		d["t"] = "refused";
@@ -410,6 +412,7 @@ godot::Dictionary Room::join(int sessionPid, const Dictionary &m) {
 	const int team = m["team"];
 	if (team >= int(per.size())) return refuse("team");
 	// W-63: the banner by ground (a settlement's lord's alliance) waits for the settlements' wave: his own (m.team)
+	own[sessionPid] = team;
 	const auto p = players.find(sessionPid);
 	if (p != players.end() && p->second.team != team) return refuse("team", "already in alliance " + std::to_string(p->second.team));
 	if (m.has("squads") == m.has("army")) return refuse("army", "send squads (person ids) or, in dev, an army");
@@ -422,20 +425,25 @@ godot::Dictionary Room::join(int sessionPid, const Dictionary &m) {
 	const std::vector<int> have = squadsOf(sessionPid);
 	// a rejoin: the squads still stand here (offline hold); they go back under the player's control
 	if (p != players.end() && !p->second.online && !have.empty()) return admit(sessionPid, team, {});
-	// M5e persons joins: the DO loads them from D1 (storage, G-09); none are passed in yet, as a join without them
-	if (m.has("squads")) return refuse("army", "soldiers not loaded");
 	std::vector<Group> groups;
-	for (int64_t i = 0; i < army.size(); i++) {
-		const Dictionary g = army[i];
-		groups.push_back({ S(g["cls"]), int(g["count"]) });
-	}
+	if (m.has("squads")) {
+		const Array ids = m["squads"];
+		bool ok = persons && int64_t(persons->size()) == ids.size();
+		for (int64_t i = 0; ok && i < ids.size(); i++) ok = int64_t((*persons)[i].size()) == Array(ids[i]).size() && !(*persons)[i].empty();
+		if (!ok) return refuse("army", "soldiers not loaded");
+		for (const auto &g : *persons) groups.push_back({ g[0].hero.cls.value_or("militia"), int(g.size()), g });
+	} else
+		for (int64_t i = 0; i < army.size(); i++) {
+			const Dictionary g = army[i];
+			groups.push_back({ S(g["cls"]), int(g["count"]) });
+		}
 	if (int(have.size() + groups.size()) > Net::MAX_SQUADS) return refuse("squads", "at most " + std::to_string(Net::MAX_SQUADS) + " squads per player");
 	int need = 0;
 	for (const Group &g : groups) need += g.count;
 	if (need > per[team]) return refuse("quota", "army of " + std::to_string(need) + " is bigger than the alliance quota " + std::to_string(per[team]));
 	dequeue(sessionPid);
 	if (!groups.empty() && (std::any_of(queue.begin(), queue.end(), [&](const Waiting &w) { return w.team == team; }) || live[team] + need > per[team])) { // W-66: a watcher (no squad) never waits
-		queue.push_back({ sessionPid, team, groups });
+		queue.push_back({ sessionPid, team, groups, m });
 		int pos = 0;
 		for (const Waiting &w : queue)
 			if (w.team == team) pos++;
@@ -451,7 +459,12 @@ godot::Dictionary Room::join(int sessionPid, const Dictionary &m) {
 }
 
 void Room::dequeue(int pid) {
-	// the persons of a dropped join go home (released) with the persons' wave
+	// the player's waiting join leaves the line; its persons are released
+	for (const Waiting &w : queue)
+		if (w.pid == pid)
+			for (const Group &g : w.groups)
+				if (g.persons)
+					for (const WarPerson &x : *g.persons) released.push_back(x.id);
 	queue.erase(std::remove_if(queue.begin(), queue.end(), [&](const Waiting &w) { return w.pid == pid; }), queue.end());
 }
 
@@ -517,8 +530,10 @@ int Room::spawn(const std::string &owner, int team, const Group &g, const std::o
 	const double cx = ex + ew / 2, cy = ey + eh / 2;
 	double x = std::min(ex + ew - 1, std::max(ex + 1, cx + ox)), y = std::min(ey + eh - 1, std::max(ey + 1, cy + oy));
 	if (!at && !(sim.grid->line_cost(cx, cy, x, y, 0) < INFINITY)) x = cx, y = cy; // a spot cut off from the entry's middle may be a pocket with no way out
-	const int count = std::min(g.count, data().soldiers.ARMY_MAX);
-	const int id = sim.spawn_squad(owner, team, g.cls, count, at ? at->first : x, at ? at->second : y);
+	std::optional<std::vector<WarPerson>> persons;
+	if (g.persons) persons.emplace(g.persons->begin(), g.persons->begin() + std::min(g.persons->size(), size_t(data().soldiers.ARMY_MAX)));
+	const int count = persons ? int(persons->size()) : std::min(g.count, data().soldiers.ARMY_MAX);
+	const int id = sim.spawn_squad(owner, team, g.cls, count, at ? at->first : x, at ? at->second : y, persons ? &*persons : nullptr);
 	owners[id] = owner;
 	teams[id] = team;
 	live[team] += count;
@@ -680,6 +695,7 @@ std::string Room::order(int pid, const Dictionary &o) {
 	}
 	// claimRegion under a pact or truce (W-64), building on a settlement's ground (W-63, groundRefusal) and the camps a
 	// settlement is founded from: the settlements' wave (no pacts and no settlements here yet: nothing refused)
+	if (kind == "placeBuilding" && (S(o["type"]) == "camp" || S(o["type"]) == "fort")) pendingCamps.push_back({ pid, p.team, S(o["type"]), o["x"], o["y"], currentTick() });
 	Dictionary sent = o.duplicate(true);
 	if (kind == "setAccess") sent["owner"] = G(me);
 	else if (kind == "craft") sent["team"] = p.team, sent["by"] = G(me);
@@ -755,18 +771,10 @@ std::vector<int> Room::alliesOf(int pid) const {
 	return { out.begin(), out.end() };
 }
 
-void Room::endFight() {
-	// index.ts endFight: the persons' results (resultsOf: XP, kills, deeds, captives) come with the persons' wave; a room
-	// of class armies has none to report. The rest as the sim does it: the tallies cleared, men reslotted, loot taken.
-	for (Unit *u : sim.units) {
-		u->dealt = u->kills = u->obj = 0;
-		u->engaged = u->repaired = false;
-		u->bossHit.reset();
-	}
-	sim.slain.clear();
-	for (size_t i = 0; i < sim.reslotQueue.size(); i++) sim.reslot(*sim.reslotQueue[i]);
-	sim.reslotQueue.clear();
-	sim.loot.clear();
+FightReport Room::endFight() {
+	FightReport report = sim.endFight();
+	honour(report);
+	return report;
 }
 
 std::vector<std::pair<int, Dictionary>> Room::drainQueue() {
@@ -845,8 +853,8 @@ Room::TickOut Room::tick() {
 	TickOut out;
 	lifeLords(out); // W-72 proposal: the warlords think on this snapshot (their spawns show from the next)
 	const std::vector<Dictionary> evs = sim.events();
-	// crafted items into chests (deposit), a slain guardian's loot pile, raids, faded souls, mends: the holders' and
-	// persons' waves (the P8 entry)
+	// crafted items into chests (deposit), a slain guardian's loot pile, mends: the holders' wave (the P8 entry)
+	personsTick(out, evs); // M5e raids, W-68 faded souls, the forts stormed
 	live.assign(per.size(), 0);
 	const Array sq = snap["squads"], us = snap["units"];
 	for (int64_t i = 0; i < sq.size(); i++) {
@@ -879,7 +887,8 @@ Room::TickOut Room::tick() {
 	if (blow) lastBlow = tk, inFight = true;
 	else if (inFight && tk - lastBlow >= fightQuiet) {
 		inFight = false;
-		endFight(); // the report (persons, loot) goes to D1: storage (G-09)
+		FightReport report = endFight(); // the report (persons, loot) goes to storage (G-09)
+		if (!report.persons.empty() || !report.loot.empty()) out.fights.push_back({ regionId + ":" + epoch + ":" + std::to_string(tk), std::move(report) });
 	}
 	out.admitted = drainQueue();
 	const bool seen = online() > 0;
@@ -913,9 +922,13 @@ Room::TickOut Room::tick() {
 		Dictionary m;
 		m["t"] = "soul";
 		if (k == "soulClaimed") {
+			// the event's person is his man's (TS e.person is u.person; the C++ event keeps only his name and class)
+			const int unit = e["unit"];
+			const Dictionary person = unit >= 0 && unit < int(sim.units.size()) && sim.units[unit]->person ? war_person_to(*sim.units[unit]->person) : Dictionary(e["person"]);
+			const Dictionary hero = person.get("hero", Dictionary());
+			out.souls.push_back({ pid, int(e["squad"]), unit, person });
 			if (armies.count(pid)) armies[pid]++;
 			if (!on(pid)) continue;
-			const Dictionary person = e["person"], hero = person["hero"];
 			m["state"] = "claimed";
 			m["soul"] = e["soul"];
 			m["squad"] = e["squad"];
@@ -1027,9 +1040,14 @@ Room::TickOut Room::tick() {
 	}
 	lifeLordMessages(out); // W-72 proposal: warlord notes; a raid's warning and the raid itself to the target team only
 	// W-63 settlements (camps to found, attacks, messages owed): their wave
+	campsTick(); // W-63 settleTick: who placed each camp (saved); the rest is the settlements' wave
 	lastTick = tk;
 	lifeBooks(out, evs); // what the DO books: guide, stories, encounters, the wild's deeds, the tasks' tallies
-	if (tk % Net::LABOUR_EVERY == 0) townRest(Net::LABOUR_EVERY / 10.0); // peace(): the labour, guards and works it counts go to D1
+	out.larder = drainDrawn();
+	if (tk % Net::LABOUR_EVERY == 0) {
+		townRest(Net::LABOUR_EVERY / 10.0); // peace(): the labour, guards and works it counts go to D1 (the peace wave)
+		sim.labourLog.clear(); // takeLabour
+	}
 	return out;
 }
 

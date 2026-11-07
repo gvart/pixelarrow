@@ -332,6 +332,41 @@ struct SimWorksHost : WorksHost {
 	std::optional<CartDrop> cartDrop(WorkSquad &s) override;
 };
 
+// M5d: a person's fight results (src/war/types.ts PersonResult; honour is set by the region room, not the sim).
+struct PersonResult {
+	std::string pid, owner;
+	int team = 0;
+	std::string state; // 'fit' | 'wounded' | 'captive' | 'dead'
+	std::optional<int> captor, fort;
+	double xp = 0, kills = 0, dmg = 0;
+	int levelUps = 0;
+	Hero hero;
+	std::vector<Deed> deeds; // the fresh ones (none: no key)
+	bool scar = false;
+	std::optional<Honour> honour;
+};
+// M5d: the fight report (src/war/types.ts FightReport): loot is the items picked up per team.
+struct FightReport {
+	int tick = 0;
+	std::vector<PersonResult> persons;
+	std::map<int, std::vector<Item>> loot;
+};
+// A carrier's holds as the room's cargo bridges see them (index.ts WarBuildSim.cargo).
+struct CargoSlot {
+	Hold *hold = nullptr;
+	double cap = 0, x = 0, y = 0;
+};
+struct CargoAt {
+	std::vector<CargoSlot> slots;
+	int team = 0;
+	std::string owner;
+};
+// One of: a team's home strongroom (reserve), a building, a cart, the men of these persons, a squad's men.
+struct CargoRef {
+	std::optional<int> reserve, building, cart, squad;
+	std::optional<std::vector<std::string>> persons;
+};
+
 struct Sim {
 	Grid *grid = nullptr;
 	WorksRegion region;
@@ -433,7 +468,7 @@ struct Sim {
 	state::Val saveRoot(state::Graph &g);
 	std::string save(Sim *fresh);
 	bool load(const std::string &text, std::string &why);
-	state::Val savePerson(state::Graph &g, const WarPerson &p);
+	state::Val savePerson(state::Graph &g, const WarPerson &p, const Unit *by = nullptr);
 	state::Val saveOrder(state::Graph &g, const Order &o);
 	state::Val saveGrid(state::Graph &g, const Grid &gr);
 	state::Val saveSouls(state::Graph &g);
@@ -611,6 +646,21 @@ struct Sim {
 	// src/war/scenarios/run.ts feedSim: food or rations into squad `squad`'s packs (spread over its men), or (-1) the
 	// first standing store of `team`
 	void feed(int team, int squad, const std::string &res, double n);
+	// the persons in the region room (sim_persons.cpp, index.ts order): W-80 the server's larder (the player's home
+	// strongroom: rations for a man of `owner` up to `want`; unset offline), the re-bake, the captives' hold, the fight
+	// results, the room's person calls and the cargo bridges
+	std::function<double(const std::string &owner, int team, double want)> larder;
+	void rebake(Unit &u);
+	std::optional<int> holdOf(int team, double x, double y);
+	std::vector<PersonResult> resultsOf(const std::vector<Unit *> &of);
+	FightReport endFight();
+	void dropPersons(const std::vector<std::string> &ids);
+	std::vector<PersonResult> reportPersons(const std::vector<std::string> &ids);
+	void hurtPersons(const std::vector<std::pair<std::string, double>> &lost);
+	void refreshPerks(const std::string &owner);
+	const WarPerson *person(const std::string &id) const;
+	bool setPerson(const WarPerson &p);
+	std::optional<CargoAt> cargo(const CargoRef &ref);
 
 	const BridgeLine *bridgeAt(int t) const { return works->bridge_at(t); }
 	double platCap(int p) const { return works->plat_cap(p); }

@@ -594,7 +594,7 @@ void Warlords::think(Lord &l) {
 						break;
 					}
 			if (goods && goods->has_goods && std::any_of(goods->goods.begin(), goods->goods.end(), [](const auto &g) { return g.second >= 1; })) {
-				r->loot = true;
+				r->loot = r->hasLoot = true;
 				r->until += W.raid.stay;
 				WarlordOrder o;
 				o.kind = "load", o.squad = pt->squad, o.building = *r->building;
@@ -776,6 +776,149 @@ void Warlords::fell(const std::string &id, double at) {
 	if (!l || age - at >= T().WARLORD.back || (l->fallen && *l->fallen >= at)) return;
 	l->fallen = at;
 	l->lord = -1;
+}
+
+// ---------------------------------------------------------------- exportState / importState
+
+namespace {
+godot::String g8(const std::string &s) { return godot::String::utf8(s.c_str()); }
+godot::Array int_array(const std::vector<int> &v) {
+	godot::Array a;
+	for (int x : v) a.push_back(x);
+	return a;
+}
+godot::Dictionary record_dict(const Record &r) {
+	godot::Dictionary d;
+	for (const auto &[k, v] : r) d[g8(k)] = v;
+	return d;
+}
+godot::Variant opt_num(const std::optional<double> &v) { return v ? godot::Variant(*v) : godot::Variant(); }
+std::optional<int> opt_int(const godot::Dictionary &d, const char *k) {
+	return d.has(k) && d[k].get_type() != godot::Variant::NIL ? std::optional<int>(int(d[k])) : std::nullopt;
+}
+} // namespace
+
+godot::Dictionary Warlords::exportState() const {
+	godot::Array ls;
+	for (const Lord &l : lords) {
+		godot::Array holds, parties, gone;
+		for (const auto &h : l.holds) {
+			godot::Dictionary d;
+			d["place"] = g8(h->place), d["x"] = h->x, d["y"] = h->y, d["squad"] = h->squad, d["extra"] = int_array(h->extra), d["state"] = g8(h->state);
+			d["since"] = h->since, d["lt"] = h->lt, d["hall"] = h->hall, d["at"] = h->at;
+			holds.push_back(d);
+		}
+		for (const auto &p : l.parties) {
+			godot::Dictionary d;
+			d["squad"] = p->squad, d["to"] = g8(p->to), d["at"] = p->at;
+			if (p->raid) {
+				const Raid &r = *p->raid;
+				godot::Dictionary x;
+				x["phase"] = g8(r.phase), x["x"] = r.x, x["y"] = r.y;
+				if (r.building) x["building"] = *r.building;
+				if (r.siege) x["siege"] = *r.siege;
+				x["until"] = r.until, x["team"] = r.team;
+				if (r.hasLoot) x["loot"] = r.loot;
+				d["raid"] = x;
+			}
+			parties.push_back(d);
+		}
+		for (const auto &x : l.gone) {
+			godot::Dictionary d;
+			d["squad"] = x->squad, d["until"] = x->until;
+			gone.push_back(d);
+		}
+		godot::Variant warn;
+		if (l.warn) {
+			const Warning &w = *l.warn;
+			godot::Dictionary d;
+			d["x"] = w.x, d["y"] = w.y, d["team"] = w.team, d["from"] = g8(w.from), d["at"] = w.at;
+			if (w.building) d["building"] = *w.building;
+			if (w.siege) d["siege"] = *w.siege;
+			d["what"] = g8(w.what);
+			warn = d;
+		}
+		godot::Dictionary d;
+		d["holds"] = holds, d["parties"] = parties, d["freed"] = record_dict(l.freed), d["fallen"] = opt_num(l.fallen), d["born"] = l.born, d["lord"] = l.lord;
+		d["laid"] = l.laid, d["reinforceAt"] = l.reinforceAt, d["raidAt"] = l.raidAt, d["warn"] = warn, d["gone"] = gone;
+		ls.push_back(d);
+	}
+	godot::Dictionary out;
+	out["age"] = age, out["players"] = players, out["lords"] = ls, out["rng"] = int64_t(rng.state);
+	return out;
+}
+
+// Object.assign of each saved lord onto the fresh one (only the keys the save has)
+void Warlords::importState(const godot::Dictionary &s) {
+	age = double(s["age"]);
+	players = double(s["players"]);
+	const godot::Array ls = s.get("lords", godot::Array());
+	for (int64_t i = 0; i < ls.size() && i < int64_t(lords.size()); i++) {
+		Lord &l = lords[size_t(i)];
+		const godot::Dictionary x = ls[i];
+		if (x.has("holds")) {
+			l.holds.clear();
+			const godot::Array a = x["holds"];
+			for (int64_t k = 0; k < a.size(); k++) {
+				const godot::Dictionary d = a[k];
+				auto h = std::make_shared<Hold>();
+				h->place = w8(d["place"]), h->x = d["x"], h->y = d["y"], h->squad = int(d["squad"]), h->state = w8(d["state"]);
+				const godot::Array ex = d["extra"];
+				for (int64_t j = 0; j < ex.size(); j++) h->extra.push_back(int(ex[j]));
+				h->since = d["since"], h->lt = int(d["lt"]), h->hall = bool(d["hall"]), h->at = d["at"];
+				l.holds.push_back(h);
+			}
+		}
+		if (x.has("parties")) {
+			l.parties.clear();
+			const godot::Array a = x["parties"];
+			for (int64_t k = 0; k < a.size(); k++) {
+				const godot::Dictionary d = a[k];
+				auto p = std::make_shared<Party>();
+				p->squad = int(d["squad"]), p->to = w8(d["to"]), p->at = d["at"];
+				if (d.has("raid")) {
+					const godot::Dictionary r = d["raid"];
+					Raid y;
+					y.phase = w8(r["phase"]), y.x = r["x"], y.y = r["y"], y.building = opt_int(r, "building"), y.siege = opt_int(r, "siege");
+					y.until = r["until"], y.team = int(r["team"]);
+					if (r.has("loot")) y.loot = bool(r["loot"]), y.hasLoot = true;
+					p->raid = y;
+				}
+				l.parties.push_back(p);
+			}
+		}
+		if (x.has("freed")) {
+			const godot::Dictionary f = x["freed"];
+			const godot::Array ks = f.keys();
+			l.freed.clear();
+			for (int64_t k = 0; k < ks.size(); k++) set(l.freed, w8(ks[k]), double(f[ks[k]]));
+		}
+		if (x.has("fallen")) l.fallen = x["fallen"].get_type() == godot::Variant::NIL ? std::nullopt : std::optional<double>(double(x["fallen"]));
+		if (x.has("born")) l.born = x["born"];
+		if (x.has("lord")) l.lord = int(x["lord"]);
+		if (x.has("laid")) l.laid = bool(x["laid"]);
+		if (x.has("reinforceAt")) l.reinforceAt = x["reinforceAt"];
+		if (x.has("raidAt")) l.raidAt = x["raidAt"];
+		if (x.has("warn")) {
+			l.warn.reset();
+			if (x["warn"].get_type() == godot::Variant::DICTIONARY) {
+				const godot::Dictionary d = x["warn"];
+				Warning w;
+				w.x = d["x"], w.y = d["y"], w.team = int(d["team"]), w.from = w8(d["from"]), w.at = d["at"];
+				w.building = opt_int(d, "building"), w.siege = opt_int(d, "siege"), w.what = w8(d["what"]);
+				l.warn = w;
+			}
+		}
+		if (x.has("gone")) {
+			l.gone.clear();
+			const godot::Array a = x["gone"];
+			for (int64_t k = 0; k < a.size(); k++) {
+				const godot::Dictionary d = a[k];
+				l.gone.push_back(std::make_shared<Gone>(Gone{ int(d["squad"]), double(d["until"]) }));
+			}
+		}
+	}
+	rng.state = uint32_t(int64_t(s["rng"]));
 }
 
 } // namespace sim

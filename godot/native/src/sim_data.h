@@ -47,6 +47,7 @@ namespace sim {
 // What the room (room.h) reads of src/data/warNpcTowns (NPC.reach) and src/data/warTownBoard (BOARD.rest): W-194 town rest.
 struct RoomTables {
 	double npcReach = 0, restPerSec = 0, restFoeR = 0;
+	std::set<std::string> CHOKEPOINTS; // src/war/world/season (the honours; membership only)
 };
 
 struct Data {

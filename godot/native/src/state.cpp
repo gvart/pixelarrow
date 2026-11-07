@@ -6,6 +6,11 @@
 #include <map>
 #include <unordered_set>
 
+#include <godot_cpp/variant/array.hpp>
+#include <godot_cpp/variant/dictionary.hpp>
+#include <godot_cpp/variant/string.hpp>
+
+#include "js_json.h"
 #include "js_math.h"
 
 namespace sim::state {
@@ -179,7 +184,7 @@ static void pair_typed(Obj *cur, Obj *base, std::unordered_map<Obj *, Obj *> &ou
 	}
 }
 
-std::string encode(const Val &root, Obj *base, const std::string &region, uint32_t seed) {
+std::string encode(const Val &root, Obj *base, const std::string &region, uint32_t seed, bool head) {
 	std::unordered_map<Obj *, int> ids;
 	std::vector<Obj *> todo;
 	std::vector<const std::vector<std::string> *> shapes;
@@ -312,11 +317,13 @@ std::string encode(const Val &root, Obj *base, const std::string &region, uint32
 		}
 	}
 	objs += ']';
-	out += "{\"v\":" + std::to_string(STATE_VERSION) + ",\"region\":";
-	json_string(out, region);
-	out += ",\"seed\":";
-	out += js::number_to_string(seed);
-	out += ",\"shapes\":[";
+	if (head) {
+		out += "{\"v\":" + std::to_string(STATE_VERSION) + ",\"region\":";
+		json_string(out, region);
+		out += ",\"seed\":";
+		out += js::number_to_string(seed);
+		out += ",\"shapes\":[";
+	} else out += "{\"shapes\":[";
 	for (size_t i = 0; i < shapes.size(); i++) {
 		if (i) out += ',';
 		out += '[';
@@ -485,16 +492,46 @@ double tagNum(const std::string &v) {
 
 } // namespace
 
-bool decode(const std::string &text, Decoded &out) {
+static godot::Variant to_variant(const J &j) {
+	switch (j.t) {
+		case J::Null: return godot::Variant();
+		case J::Bool: return j.b;
+		case J::Num: return std::floor(j.n) == j.n && std::fabs(j.n) <= 9007199254740992.0 && !(j.n == 0 && std::signbit(j.n)) ? godot::Variant(int64_t(j.n)) : godot::Variant(j.n);
+		case J::Str: return godot::String::utf8(j.s.c_str());
+		case J::Arr: {
+			godot::Array a;
+			for (const J &x : j.a) a.push_back(to_variant(x));
+			return a;
+		}
+		case J::Obj: {
+			godot::Dictionary d;
+			for (const auto &[k, x] : j.o) d[godot::String::utf8(k.c_str())] = to_variant(x);
+			return d;
+		}
+	}
+	return godot::Variant();
+}
+
+static godot::Variant parse_json(const std::string &text, bool &ok) {
+	J doc;
+	Parser ps{ text.data(), text.data() + text.size() };
+	ps.value(doc);
+	ok = !ps.failed;
+	return ok ? to_variant(doc) : godot::Variant();
+}
+
+bool decode(const std::string &text, Decoded &out, bool head) {
 	J doc;
 	Parser ps{ text.data(), text.data() + text.size() };
 	ps.value(doc);
 	if (ps.failed || doc.t != J::Obj) return false;
 	const J *v = doc.get("v"), *region = doc.get("region"), *seed = doc.get("seed"), *shapes = doc.get("shapes"), *objs = doc.get("objs"), *root = doc.get("root");
-	if (!v || !region || !seed || !shapes || !objs || !root || objs->t != J::Arr || shapes->t != J::Arr) return false;
-	out.v = int(v->n);
-	out.region = region->s;
-	out.seed = seed->n;
+	if ((head && (!v || !region || !seed)) || !shapes || !objs || !root || objs->t != J::Arr || shapes->t != J::Arr) return false;
+	if (head) {
+		out.v = int(v->n);
+		out.region = region->s;
+		out.seed = seed->n;
+	}
 	std::vector<Obj *> made;
 	made.reserve(objs->a.size());
 	for (auto &e : objs->a) {
@@ -579,3 +616,7 @@ bool decode(const std::string &text, Decoded &out) {
 }
 
 } // namespace sim::state
+
+namespace sim {
+godot::Variant js_parse(const std::string &text, bool &ok) { return state::parse_json(text, ok); }
+} // namespace sim

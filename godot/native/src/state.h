@@ -176,8 +176,9 @@ public:
 };
 
 // state.ts encodeGraph + JSON.stringify of exportState's { v, region, seed, shapes, objs, root }. base: the same root of a
-// fresh sim (its typed arrays are the diff baseline), or nullptr.
-std::string encode(const Val &root, Obj *base, const std::string &region, uint32_t seed);
+// fresh sim (its typed arrays are the diff baseline), or nullptr. head false: encodeGraph's own { shapes, objs, root }
+// (the bots' exportState).
+std::string encode(const Val &root, Obj *base, const std::string &region, uint32_t seed, bool head = true);
 
 // A save parsed: v, region, seed and the graph (refs resolved; typed arrays left as their form and diff). False: a
 // malformed text.
@@ -188,7 +189,7 @@ struct Decoded {
 	Graph g;
 	Val root;
 };
-bool decode(const std::string &text, Decoded &out);
+bool decode(const std::string &text, Decoded &out, bool head = true);
 
 // JSON.stringify of a string (quotes and escapes) and of a number (V8's Number::toString; finite).
 void json_string(std::string &out, const std::string &s);

@@ -15,6 +15,7 @@ struct CaptiveRules {
 struct WorldRegion {
 	std::string id;
 	double x = 0, y = 0; // pos
+	std::string name; // the honours' region name (room.h)
 };
 
 struct CaptiveTables {

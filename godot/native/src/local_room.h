@@ -2,24 +2,30 @@
 // stands where server/src/war/regionDO.ts stands round WarRoom online: a client message in (send: the local player;
 // send_as: any player, the AI's or a test's), the room's tick, and the server messages out in a queue (take), as the
 // sockets would carry them: per client in the order each first spoke, a Dictionary for a JSON message and a
-// PackedByteArray for a binary frame. What the DO adds round the room (sockets, auth, abuse, chat, D1 and DO storage,
-// the world DO, the gate) is not here; what the room hands the DO to store waits for a storage interface (G-09).
+// PackedByteArray for a binary frame. What the DO adds round the room (sockets, auth, abuse, chat, the world DO, the
+// gate) is not here; what it keeps in D1 and DO storage is the room store's (room_store.h, G-09: a MemoryStore here).
 //
 // The local transport, as src/dev/vectors/room.ts TsLocal (which the Godot test replays):
 //  - send: the message parsed as parseClientMsg parses it (room_parse.h: the zod schema, its stripped output), then join /
-//    order / view / ping / check / dev / guide / story / encounter as webSocketMessage handles them. A welcome is
-//    followed by the world events (once any were set), the settlements list, then his guide, story and encounters
-//    (guideStart, storyStart, encounterStart; mastery is D1's). pong carries no `ms` (wall clock); idle is alive() == 0.
-//  - close: the player's socket went away (room.leave).
-//  - tick: one room tick, then per client: his admitted message (a welcome from the line, with its settlements), his
-//    tick messages, his binary frame. A welcome from the line: his guide, story, encounters, then the settlements.
-//  - the local store (a stub in place of D1 and DO storage, G-09): each player's guide, story and encounter saves, as
-//    the DO writes them (a fresh guide save at once, a hidden guide, the tick's guided / storied / met); the tick's books
-//    (what the DO would book) are kept for the caller (books).
+//    order / view / ping / check / dev / guide / story / encounter as webSocketMessage handles them. A persons join
+//    claims its men from the store first (refused: released). A welcome is followed by the world events (once any were
+//    set), the settlements list, then in the DO's order his path and army from the store, his guide, his larder, his
+//    story and encounters (guideStart, storyStart, encounterStart, each from its save in the store; mastery is D1's)
+//    and the muster of his men lying here (W-98); a dev class army (no men in the store) gets only his guide, story
+//    and encounters. pong carries no `ms` (wall clock); idle is alive() == 0.
+//  - close: the player's socket went away (room.leave); dropped joins are released.
+//  - tick: one room tick, its books into the store (fights, faded souls, raids, soul claims, larder draws, as the DO
+//    writes them to D1), then per client: his admitted message (a welcome from the line: his guide, story, encounters,
+//    then the settlements), his tick messages, his binary frame; then the tick's guide, story and encounter saves into
+//    the store. What the tick handed the DO is kept for the caller (books).
+//  - call_op: what the DO and the world call on the room (seed, depart, arrive, muster, hired, levelUp, setPath,
+//    spawnSoul, save, restore), with the store round it as TsLocal.call.
 //  - set_world_events: the world's RPC (worldEvents): the events running here now onto the room, a guardian woken once
 //    per boss wake, every client told.
+// The store's clock is the room's: tick * 100 ms (regionDO.ts TICK_MS).
 #pragma once
 
+#include <functional>
 #include <memory>
 #include <vector>
 
@@ -29,6 +35,7 @@
 #include <godot_cpp/variant/dictionary.hpp>
 
 #include "room.h"
+#include "room_store.h"
 #include "sim.h"
 
 namespace godot {
@@ -38,18 +45,26 @@ class LocalRoom : public RefCounted {
 
 	Ref<Sim> sim;
 	std::unique_ptr<sim::Room> room;
+	std::unique_ptr<sim::MemoryStore> store = std::make_unique<sim::MemoryStore>();
+	Dictionary opts;
 	std::vector<int> conns;
 	Array out;
+	Dictionary books;
+	std::string saved;
 	int pid = 1;
-	Dictionary guides, stories, encounters; // the local store: saves by pid
-	Dictionary books, worldEv;
+	Dictionary worldEv;
 	Variant woke;
 
 	void conn(int p);
 	void tell(int p, const Variant &m);
-	void welcomed(int p);
+	void welcomed(int p, const std::function<void()> &between = nullptr);
 	Dictionary settlements(int p) const;
 	Dictionary world_msg() const;
+	double now() const { return room->currentTick() * 100.0; }
+	bool wake(const sim::StoredSoul &s);
+	void flush();
+	void muster(int p);
+	static sim::RoomOpts room_opts(const Ref<Sim> &s, const Dictionary &o);
 
 public:
 	// sim: a fresh Sim (Sim.create; its seed is the room's); opts: room.ts RoomOptions (cap, quotas, keyframeEvery,
@@ -58,15 +73,20 @@ public:
 	void send(const Dictionary &msg) { send_as(pid, msg); }
 	void send_as(int pid, const Dictionary &msg);
 	// his socket went away (regionDO.ts webSocketClose): his squads hold where they stand (W-07)
-	void close(int pid) { room->leave(pid); }
+	void close(int pid);
 	void tick();
+	// a call the DO or the world makes on the room, or a store seed (op and args as src/dev/vectors/room.ts); its
+	// result as TS has it. Its messages (a welcome) go to take().
+	Variant call_op(const String &op, const Array &args);
+	// the store as JSON (room_store.h MemoryStore::dump)
+	Dictionary store_dump() const { return store->dump(); }
 	// the server messages since the last take: [pid, Dictionary | PackedByteArray] each
 	Array take();
 	Dictionary snapshot() const;
 	int current_tick() const { return room->currentTick(); }
-	// the last tick's books, each non-empty one: guided, storied, met, wild, gathered, warlord (room.ts tick)
+	// what the last tick handed the DO, each non-empty one (room.ts tick): fights, raided, souls, faded, guided, storied,
+	// met, wild, larder, gathered, warlord
 	Dictionary get_books() const { return books; }
-	Dictionary saves() const; // the local store: {guide, story, encounter} by pid
 	void set_world_events(const Array &events, const Variant &next, double now);
 	void set_warlord_age(double days) { room->setWarlordAge(days); }
 	Variant warlord_memory() const { return room->warlordMemory(); }
