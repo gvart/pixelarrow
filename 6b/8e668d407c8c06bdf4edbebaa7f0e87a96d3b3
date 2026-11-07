@@ -1,0 +1,82 @@
+godot/src/region/objects.gd
+  s_1a6e9ade9f303e::t_278a5e6fa75577 1-146
+godot/src/region/iso.gd
+  s_1a6e9ade9f303e::t_0f613ddf926a5c 1-149
+godot/src/region/objects.gd.uid
+  s_1a6e9ade9f303e::t_2212b6cc3fcea3 1
+godot/src/region/fog.gdshader.uid
+  s_1a6e9ade9f303e::t_2212b6cc3fcea3 1
+godot/src/region/ground.gd
+  s_1a6e9ade9f303e::t_09cff482f488e0 1-113
+godot/src/region/ground_mesh.gd.uid
+  s_1a6e9ade9f303e::t_2212b6cc3fcea3 1
+godot/src/region/fog.gdshader
+  s_1a6e9ade9f303e::t_9647fad558a2b0 1-35
+godot/src/region/ground.gdshader.uid
+  s_1a6e9ade9f303e::t_2212b6cc3fcea3 1
+godot/src/region/ground.gdshader
+  s_1a6e9ade9f303e::t_6777a115f40b9b 1-36
+godot/src/region/scenario.gd.uid
+  s_1a6e9ade9f303e::t_2212b6cc3fcea3 1
+godot/src/region/region_view.gd.uid
+  s_1a6e9ade9f303e::t_2212b6cc3fcea3 1
+godot/src/region/region_view.gd
+  s_1a6e9ade9f303e::t_e06e4720057379 6,63-67
+  s_1a6e9ade9f303e::t_a1f4f8aaa4b598 1-5,7-25,28-62,68-98,100,102,104,106,111-165,167-179,181-196
+  s_1a6e9ade9f303e::t_49288a1e6ae81a 26-27,99,101,103,105,107-110,166,180
+godot/src/region/fog.gd
+  s_1a6e9ade9f303e::t_5aa8adf987ab86 73
+  s_1a6e9ade9f303e::t_1115e315570403 1-72,74-146
+godot/src/region/sim_tables.gd.uid
+  s_1a6e9ade9f303e::t_2212b6cc3fcea3 1
+godot/src/region/scenario.gd
+  s_1a6e9ade9f303e::t_539480a8107135 1-66
+godot/src/region/region_view.tscn
+  s_1a6e9ade9f303e::t_a966e45154111a 1-6
+godot/src/region/units.gd.uid
+  s_1a6e9ade9f303e::t_2212b6cc3fcea3 1
+godot/src/region/anim.gd.uid
+  s_1a6e9ade9f303e::t_2212b6cc3fcea3 1
+godot/src/region/ground.gd.uid
+  s_1a6e9ade9f303e::t_2212b6cc3fcea3 1
+godot/src/region/anim.gd
+  s_1a6e9ade9f303e::t_89e3ec8ad13b17 1-161
+godot/src/region/fog.gd.uid
+  s_1a6e9ade9f303e::t_2212b6cc3fcea3 1
+godot/src/region/sim_tables.gd
+  s_1a6e9ade9f303e::t_d19e29d66f0f9d 1-48
+godot/src/region/units.gd
+  s_1a6e9ade9f303e::t_6a96641110265d 221,233
+  s_1a6e9ade9f303e::t_52ad85a7f4e73d 260-262,264,268-270,272-291,294-298,305,307
+  s_1a6e9ade9f303e::t_eed9214042f8cf 1-88,90-189,199-213,216-220,222-232,234-259,263,265-267,271,292-293,299-304,306
+  s_1a6e9ade9f303e::t_07520b2fa4e310 190-198
+  s_1a6e9ade9f303e::t_8fda2ec97d1726 89
+  s_1a6e9ade9f303e::t_d45ac2e87ff066 214-215
+godot/src/region/iso.gd.uid
+  s_1a6e9ade9f303e::t_2212b6cc3fcea3 1
+godot/src/region/view_data.gd.uid
+  s_1a6e9ade9f303e::t_2212b6cc3fcea3 1
+godot/src/region/ground_mesh.gd
+  s_1a6e9ade9f303e::t_38006c20a7d8aa 232-238
+  s_1a6e9ade9f303e::t_6ba5f02b22a121 805-806
+  s_1a6e9ade9f303e::t_f0b4eab6342e4e 1-231,239-804,807-823
+godot/src/region/view_data.gd
+  s_1a6e9ade9f303e::t_de4b3d69db4d95 29,68,79-83
+  s_1a6e9ade9f303e::t_387ce9ece49cc3 1-28,30-67,69-78,84-90
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6b8e668d407c8c06bdf4edbebaa7f0e87a96d3b3",
+  "prompts": {},
+  "sessions": {
+    "s_1a6e9ade9f303e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2c9e00ce-6ba5-4b5a-8be5-a4a273976934",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
