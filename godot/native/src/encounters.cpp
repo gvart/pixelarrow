@@ -784,7 +784,6 @@ Dictionary enc_save_to_dict(const EncSave &s) {
 	d["n"] = s.n;
 	d["travel"] = s.travel;
 	d["next"] = s.next;
-	if (s.last) d["last"] = gs(*s.last);
 	if (s.open) {
 		const EncOpen &o = *s.open;
 		Dictionary od;
@@ -799,6 +798,7 @@ Dictionary enc_save_to_dict(const EncSave &s) {
 		if (o.n) od["n"] = *o.n;
 		d["open"] = od;
 	} else d["open"] = Variant();
+	if (s.last) d["last"] = gs(*s.last); // set as the first one opens: after `open` (newEncSave has none)
 	if (s.away) {
 		Array a;
 		for (const std::string &x : *s.away) a.push_back(gs(x));
@@ -1129,3 +1129,11 @@ void EncounterRun::_bind_methods() {
 }
 
 } // namespace godot
+
+// The room's encounter runs (room_life.cpp) read the room's snapshot and events as the GDScript face does.
+namespace sim {
+EncSnap enc_snap(const godot::Dictionary &snap) { return godot::snap_from(snap); }
+std::vector<StoryEvent> enc_events(const godot::Array &evs) { return godot::events_from(evs); }
+godot::Array enc_notes(const std::vector<EncNote> &ns) { return godot::notes_to(ns); }
+godot::Dictionary enc_goods(const EncGoods &g) { return godot::goods_to(g); }
+} // namespace sim

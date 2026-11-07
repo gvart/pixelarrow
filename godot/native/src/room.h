@@ -4,8 +4,9 @@
 // placement checks, the dev helpers, the camera rect, the tick (sim, bots, the snapshot, corpses, fights, the line),
 // one binary frame per online player (codec.h, interest), and the JSON messages of the tick: the economy view
 // (influence, fog, stock, town, allies, wild, nodes), souls, dropped goods, mob FX, hidden quest events, slain chiefs
-// and guardian events. The rest of room.ts (guide, stories, encounters, settlements, warlords, holders and stows,
-// hand-offs, transfers, musters, crafting deposits, the larder, peace, saves) is listed in the P8 entry by wave.
+// and guardian events. Wave D, the region's life (guide, stories, encounters, warlords, world events, memory, summary,
+// the wild's deeds and tasks), is room_life.cpp. The rest of room.ts (settlements, holders and stows, hand-offs,
+// transfers, musters, crafting deposits, the larder, peace, saves) is listed in the P8 entry by wave.
 //
 // What the Durable Object does round it (sockets, D1, storage) is not here: LocalRoom (local_room.h) is the local
 // transport, and the room's outputs that the DO books in D1 (fights, crafted items, souls claimed...) wait for a
@@ -70,6 +71,8 @@ struct RoomOpts {
 	std::optional<int> home;
 };
 
+struct RoomLife; // wave D (room_life.cpp): the guide, stories, encounters, warlords, world events, the wild's deeds and tasks
+
 class Room {
 public:
 	struct Out {
@@ -80,9 +83,14 @@ public:
 		std::vector<std::pair<int, godot::Dictionary>> admitted;
 		std::map<int, std::vector<godot::Dictionary>> msgs;
 		std::map<int, godot::PackedByteArray> frames;
+		// what the DO books (room.ts tick): guide steps done, story and encounter runs moved (GuideDone, StoryDone,
+		// EncounterDone as their TS objects), the wild's deeds (WildDeed), the tasks' tallies ([pid, metric, n], each
+		// LABOUR_EVERY) and the warlords' notes
+		godot::Array guided, storied, met, wild, gathered, warlord;
 	};
 
 	Room(Sim &sim, Bots &bots, const godot::Dictionary &meta, const RoomOpts &o);
+	~Room();
 
 	int currentTick() const { return int(snap["tick"]); }
 	int alive() const;
@@ -100,6 +108,35 @@ public:
 	godot::Array settlementsFor(int pid) const { return godot::Array(); } // W-63: none until the settlements wave
 	const godot::Dictionary &snapshot() const { return snap; }
 	std::string refusal;
+
+	// ---- wave D, the region's life (room_life.cpp), as room.ts names them
+	// what the TS constructor makes of the region beyond the sim (cells and the fresh grid: the guide's spots, the
+	// encounters' and stories' ground); `warlords`: RoomOptions.warlords
+	void startLife(const godot::PackedByteArray &cells, const Grid &fresh, bool warlords);
+	// a welcomed player's guide, story, encounters (his saves; home: his home region, "" the alliance's): the message
+	// to send him (nil: none here)
+	godot::Variant startGuide(int pid, const godot::Variant &save, const std::string &home = "");
+	godot::Variant startStory(int pid, const godot::Variant &save);
+	godot::Variant startEncounters(int pid, const godot::Variant &save);
+	void storyChoose(int pid, const std::string &option);
+	void encounterChoose(int pid, const std::string &option);
+	godot::Variant guideHide(int pid); // room.guide.hide: his save (nil: no run)
+	godot::Variant guideSaveOf(int pid) const; // room.guide.saveOf
+	void guideMark(int pid, const std::string &step); // a step done outside the sim (a deal with a town)
+	void guideDeparted(int pid, const std::string &to);
+	void encountersRoad(int pid, double loads, const std::string &key); // W-197: robbers wait for him?
+	void storyTrade(int pid, const std::string &op, double coin, double abroad);
+	void setWorldEvents(const godot::Array &evs);
+	double bossLoot() const; // W-62: a slain guardian's rare goods times this (WAKE.loot during a boss wake)
+	void wakeGuardians();
+	void setWarlordAge(double days);
+	godot::Variant warlordMemory() const;
+	void recallWarlords(const godot::Dictionary &m);
+	void warlordFell(const std::string &id, double at);
+	int present() const;
+	godot::Dictionary memory();
+	void recall(const godot::Dictionary &m, double elapsed);
+	godot::Dictionary summary();
 
 private:
 	struct Player {
@@ -153,6 +190,16 @@ private:
 	void endFight();
 	void townRest(double secs);
 	const std::string *ownerAt(int id) const;
+	// wave D hooks in tick() and economy() (room_life.cpp)
+	std::shared_ptr<RoomLife> life; // shared: deleted where RoomLife is whole
+	uint32_t seed = 1; // RoomOptions.seed and .home, as the life reads them
+	std::optional<int> home;
+	void lifeLords(TickOut &out);
+	void lifeGather();
+	void lifeMessages(TickOut &out, const std::vector<godot::Dictionary> &evs);
+	void lifeLordMessages(TickOut &out);
+	void lifeBooks(TickOut &out, const std::vector<godot::Dictionary> &evs);
+	void lifeFeed(Player &p, std::map<int, std::vector<godot::Dictionary>> &out, godot::Dictionary &lords, std::string &lordKey);
 };
 
 } // namespace sim

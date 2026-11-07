@@ -40,6 +40,7 @@
 #include "alliance_ai.h"
 #include "season_clock.h"
 #include "works.h"
+#include "net_guide.h"
 
 namespace sim {
 
@@ -87,6 +88,7 @@ struct Data {
 	StatTables stats; // stats.h: the item rules and the war bake (warStatsOf)
 	StartTables start; // start.h: PATHS, FAMILIES
 	RoomTables room; // room.h: the town rest
+	GuideTables guide; // net_guide.h: the guide, the stories by region, robbers, world events (room_life.cpp)
 	std::map<std::string, std::vector<std::string>> names; // NAMES by culture (src/data/names, freeName), lookup only
 };
 const Data &data();

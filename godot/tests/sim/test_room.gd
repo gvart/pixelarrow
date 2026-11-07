@@ -1,8 +1,10 @@
 ## The region room on the C++ sim (LocalRoom, room.h) matches the TS room (server/src/war/room.ts) message for message
 ## (godot/tests/golden/vectors/room.json, src/dev/vectors/room.ts): the same scripted client messages (joins, the
-## quota's line, orders and their refusals, placement checks, the dev helpers, a fight) replayed into LocalRoom give the
-## same server messages in the same order: JSON messages as JSON.stringify writes them (keys in order, numbers as TS
-## has them) and binary frames byte for byte. And the wire constants LocalRoom keeps are the TS ones.
+## quota's line, orders and their refusals, placement checks, the dev helpers, a fight; the guide, stories, encounters,
+## warlords, world events, the region's memory and its recall) replayed into LocalRoom give the same server messages in
+## the same order: JSON messages as JSON.stringify writes them (keys in order, numbers as TS has them) and binary frames
+## byte for byte; each tick's books (what the DO stores) and each look (memory, summary, the warlords' memory) the same.
+## The wire constants LocalRoom keeps are the TS ones, and parseClientMsg refuses and strips as the zod schema does.
 extends TestCase
 
 const W := preload("res://tests/sim/wild.gd")
@@ -29,13 +31,39 @@ func test_room_matches_ts() -> void:
 		var steps: Array = run["steps"]
 		for n in steps.size():
 			var step: Dictionary = steps[n]
+			var why := ""
 			if step.get("tick", false):
 				room.tick()
+				why = _json(room.books(), step.get("books", {}), "books")
 			elif step.has("close"):
 				room.close(int(step["close"]))
+			elif step.has("world"):
+				var w: Dictionary = step["world"]
+				room.set_world_events(w["events"], w["next"], float(w["now"]))
+			elif step.has("age"):
+				room.set_warlord_age(float(step["age"]))
+			elif step.has("road"):
+				var r: Dictionary = step["road"]
+				room.road(int(r["pid"]), float(r["loads"]), r["key"])
+			elif step.has("look"):
+				var look: String = step["look"]
+				var got: Variant = room.memory() if look == "memory" else room.summary() if look == "summary" else room.warlord_memory()
+				why = _json(got, step["got"], look)
+				if why == "" and room.present() != int(step["present"]):
+					why = "present %d, TS %d" % [room.present(), int(step["present"])]
+				var snap := room.snapshot()
+				if why == "":
+					why = _json(snap.get("bosses", []), step["bosses"], "bosses")
+				if why == "" and snap.get("souls", []).size() != int(step["souls"]):
+					why = "souls %d, TS %d" % [snap.get("souls", []).size(), int(step["souls"])]
+			elif step.has("recall"):
+				room.recall(step["recall"], float(step["elapsed"]))
+			elif step.has("recallLords"):
+				room.recall_warlords(step["recallLords"])
 			else:
 				room.send_as(int(step["pid"]), step["msg"])
-			var why := _same(room.take(), step["out"])
+			if why == "":
+				why = _same(room.take(), step["out"])
 			if why != "":
 				fail("%s step %d (tick %d, %s): %s" % [id, n, room.current_tick(), "tick" if step.get("tick", false) else str(step.get("msg", step)).left(120), why])
 				return
@@ -49,6 +77,32 @@ func test_room_matches_ts() -> void:
 			if u["state"] == "dead":
 				fallen += 1
 		print("%s: %d steps to tick %d (%d men fell), %d messages and %d frames the same" % [id, steps.size(), room.current_tick(), fallen, msgs, frames])
+
+
+## parseClientMsg (room_parse.h, the zod schema) gives what TS gives for every raw message: the parsed message (unknown
+## keys stripped, keys in schema order) or null.
+func test_parse_matches_ts() -> void:
+	Traces._load()
+	var cases: Array = W.vectors("room")["parse"]
+	check(cases.size() > 0, "no parse cases in vectors/room.json")
+	var bad := 0
+	for c in cases:
+		var why := _json(LocalRoom.parse(c["raw"]), c["got"], "parse")
+		if why != "":
+			bad += 1
+			if bad <= 8:
+				fail("%s: %s" % [LocalRoom.js_json(c["raw"]).left(160), why])
+	print("parse: %d cases, %d as TS" % [cases.size(), cases.size() - bad])
+
+
+## "" when got is want as JSON.stringify writes them (keys in order); else the first difference.
+static func _json(got: Variant, want: Variant, what: String) -> String:
+	var gj := LocalRoom.js_json(got)
+	var wj := LocalRoom.js_json(want)
+	if gj == wj:
+		return ""
+	var d := W.diff(got, want, what) if got is Dictionary and want is Dictionary else ""
+	return d if d != "" else "%s: %s, TS %s" % [what, gj.left(300), wj.left(300)]
 
 
 ## "" when the room's messages are the TS ones; else the first difference.

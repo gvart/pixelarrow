@@ -83,6 +83,9 @@ static func _load() -> void:
 	# the room's town rest (room.h; tests/sim/test_room.gd)
 	for n in ["src/data/warNpcTowns", "src/data/warTownBoard"]:
 		t[n] = GameData.table(n)
+	# the room's life: the guide, its stories and encounters, the world events, the wild's deeds (net_guide.h)
+	for n in ["src/war/net/guide", "src/war/net/mastery", "src/war/region/compact", "src/data/warStories", "src/war/world/events", "src/data/warEncounters", "src/war/sim/encounters"]:
+		t[n] = GameData.table(n)
 	SimData.load(t)
 
 
