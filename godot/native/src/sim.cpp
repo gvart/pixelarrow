@@ -2115,6 +2115,47 @@ Vector3i Sim::fog_size() {
 	return Vector3i(s->vision.cells.cw, s->vision.cells.ch, sim::VISION.cell);
 }
 
+Dictionary Sim::view_state() {
+	Dictionary out;
+	Array us;
+	for (const sim::Unit *u : s->units) {
+		Array a;
+		a.push_back(u->id);
+		a.push_back(u->maxHp);
+		a.push_back(String(u->cls.c_str()));
+		a.push_back(String(u->person ? u->person->id.c_str() : ""));
+		a.push_back(u->person ? u->person->hero.level : 0.0);
+		us.push_back(a);
+	}
+	out["units"] = us;
+	Array bs;
+	for (const sim::BuildingSnap &b : s->works->building_snaps()) {
+		Array a;
+		a.push_back(b.id);
+		a.push_back(String(b.type.c_str()));
+		a.push_back(b.team);
+		a.push_back(b.x);
+		a.push_back(b.y);
+		a.push_back(b.w);
+		a.push_back(b.h);
+		a.push_back(b.rot);
+		a.push_back(String(b.state.c_str()));
+		a.push_back(b.progress);
+		a.push_back(b.hp);
+		a.push_back(b.maxHp);
+		a.push_back(b.ruin);
+		a.push_back(b.wet);
+		a.push_back(b.fouled);
+		a.push_back(b.delivered);
+		PackedInt32Array t;
+		for (int v : b.tiles) t.push_back(v);
+		a.push_back(t);
+		bs.push_back(a);
+	}
+	out["buildings"] = bs;
+	return out;
+}
+
 static std::string u8(const Variant &v) { return String(v).utf8().get_data(); }
 
 // src/war/types.ts HolderRef from its dictionary ({building} | {cart} | {pile})
@@ -2319,6 +2360,7 @@ void Sim::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("fog_sum", "team"), &Sim::fog_sum);
 	ClassDB::bind_method(D_METHOD("fog_state", "team"), &Sim::fog_state);
 	ClassDB::bind_method(D_METHOD("fog_size"), &Sim::fog_size);
+	ClassDB::bind_method(D_METHOD("view_state"), &Sim::view_state);
 	ClassDB::bind_method(D_METHOD("piles"), &Sim::piles);
 	ClassDB::bind_method(D_METHOD("order", "order"), &Sim::order);
 	ClassDB::bind_method(D_METHOD("spawn_mobs"), &Sim::spawn_mobs);
