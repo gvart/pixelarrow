@@ -1,0 +1,122 @@
+godot/native/src/sim_data.h
+  s_1a6e9ade9f303e::t_4fe6cf9df8da81 44-45,95-96
+godot/native/src/room_store.h
+  s_1a6e9ade9f303e::t_52af72cb868f4f 14
+  s_1a6e9ade9f303e::t_f02c67fb235dfc 18,34-36,81-82,115-117,133-134
+godot/native/src/sim_wild.h
+  s_1a6e9ade9f303e::t_8e5d40371eb7e0 8-9,20-21
+  s_1a6e9ade9f303e::t_e10574b2d7d872 22
+godot/native/src/room.h
+  s_1a6e9ade9f303e::t_5a788e7e04037b 347,352
+  s_1a6e9ade9f303e::t_61b617986846d8 31,77-79,127-129,211-258,346,348-351,353-355
+godot/native/src/room.cpp
+  s_1a6e9ade9f303e::t_0ce75f1d3ce6f7 856
+godot/native/src/room_trade.cpp
+  s_1a6e9ade9f303e::t_79f17714b4e76a 172
+  s_1a6e9ade9f303e::t_fc6c883386d749 494
+  s_1a6e9ade9f303e::t_2a559638cc1e38 1-19,21-110,112-171,173-442,444-448,450-493,495-533
+  s_1a6e9ade9f303e::t_9cb9f39243d91e 111
+  s_1a6e9ade9f303e::t_3627b2a288e468 20
+  s_1a6e9ade9f303e::t_7f561b26157a61 443,449
+godot/native/src/sim_wild.cpp
+  s_1a6e9ade9f303e::t_8e5d40371eb7e0 170-172
+docs/impl/godot-port.md
+  s_1a6e9ade9f303e::t_f9fc49dc39b541 40
+godot/native/src/room_trade_store.cpp
+  s_1a6e9ade9f303e::t_f02c67fb235dfc 569
+  s_1a6e9ade9f303e::t_a192e3f0c878a6 69-72
+  s_1a6e9ade9f303e::t_e53b69947f420d 1-68,73-568,570-628
+godot/native/src/local_room.h
+  s_1a6e9ade9f303e::t_492d22d078cbc5 33
+  s_1a6e9ade9f303e::t_bcdb615e8acbe9 43-44
+  s_1a6e9ade9f303e::t_70c9f643460e5c 25-27
+  s_1a6e9ade9f303e::t_61ad1adba5c800 74-90
+godot/native/src/town_board.h
+  s_1a6e9ade9f303e::t_4c9542ad226181 1-89
+src/dev/vectors/room.ts
+  s_1a6e9ade9f303e::t_756822eff21906 712
+  s_1a6e9ade9f303e::t_1920b837b6c979 696,698,710,713,715,721,734-742,745,748-750
+  s_1a6e9ade9f303e::t_c9f0bd742d3529 39
+  s_1a6e9ade9f303e::t_72846c89140e61 354,852
+  s_1a6e9ade9f303e::t_6c7010364edfdd 844,850,866
+  s_1a6e9ade9f303e::t_a8275fb7cb59d2 716-718
+  s_1a6e9ade9f303e::t_4ef4808d7408b3 836
+  s_1a6e9ade9f303e::t_045583fe73938e 722
+  s_1a6e9ade9f303e::t_594064f14fba80 26-28
+  s_1a6e9ade9f303e::t_543721e8815185 865
+  s_1a6e9ade9f303e::t_8e5bcf2ae2b16d 678-695,697,699-709,711,714,719,723-731,733,743-744,746-747,751-761,763-780,782-835,837-841,843,845-849,851,853-855
+  s_1a6e9ade9f303e::t_477f548848b534 842
+  s_1a6e9ade9f303e::t_49a8f217cea6ca 720,732
+  s_1a6e9ade9f303e::t_954f29e62596a1 42,52-53,85,87-88,140-142,155,183,210-214,244,270-271,284-287,291,338,344,348-353,355
+  s_1a6e9ade9f303e::t_f78c26eb454d40 864
+  s_1a6e9ade9f303e::t_bb5030a5a6c833 781
+  s_1a6e9ade9f303e::t_e661bdf17d9c7e 762
+  s_1a6e9ade9f303e::t_f4f00d3a4552c5 856
+godot/native/src/room_store.cpp
+  s_1a6e9ade9f303e::t_a192e3f0c878a6 12,468-469,497
+godot/native/src/room_cargo.h
+  s_1a6e9ade9f303e::t_e09db9e93ac523 6,33-40
+  s_1a6e9ade9f303e::t_3e8e0abc78b6d5 41
+godot/native/src/sim_data.cpp
+  s_1a6e9ade9f303e::t_4fe6cf9df8da81 87-88
+godot/native/src/npc_market.h
+  s_1a6e9ade9f303e::t_d1308c865b8c60 1-84
+godot/native/src/local_trade.cpp
+  s_1a6e9ade9f303e::t_3ac7f5236a6212 277
+  s_1a6e9ade9f303e::t_f094cf5baa645c 1-18,20,23-276,278-367,369-577,579-582,584-585,587-621
+  s_1a6e9ade9f303e::t_18fbdbd9fcd826 19
+  s_1a6e9ade9f303e::t_06b1b5ff6508cc 368
+  s_1a6e9ade9f303e::t_921ae42ead5b0d 21-22
+  s_1a6e9ade9f303e::t_3d36fb92c7f4db 578,583,586
+src/dev/roomStore.ts
+  s_1a6e9ade9f303e::t_bc1dec557a230c 23,47-48,184
+godot/native/src/npc_market.cpp
+  s_1a6e9ade9f303e::t_59dbfc6b9e8710 1-318
+godot/native/src/town_board.cpp
+  s_1a6e9ade9f303e::t_be1b70cfbc2191 1-377
+godot/native/src/js_math.h
+  s_1a6e9ade9f303e::t_0ce75f1d3ce6f7 43
+  s_1a6e9ade9f303e::t_4fe6cf9df8da81 49
+godot/native/src/room_cargo.cpp
+  s_1a6e9ade9f303e::t_e09db9e93ac523 82-154
+godot/native/src/room_persons.cpp
+  s_1a6e9ade9f303e::t_0ce75f1d3ce6f7 575,635
+godot/native/src/local_room.cpp
+  s_1a6e9ade9f303e::t_8ddcd655084fa8 287-288
+  s_1a6e9ade9f303e::t_449c81cdf1f21c 79
+  s_1a6e9ade9f303e::t_1e98bdaf161a36 268
+  s_1a6e9ade9f303e::t_4f78eb42fb6286 214-218
+  s_1a6e9ade9f303e::t_4efe4515cffcd1 162
+  s_1a6e9ade9f303e::t_f46debc970ea16 522,526
+  s_1a6e9ade9f303e::t_15838606494cc9 297-298
+  s_1a6e9ade9f303e::t_ce0d219764f59b 248
+  s_1a6e9ade9f303e::t_a96616ed965c1b 86
+  s_1a6e9ade9f303e::t_e1443c3cd350fc 479
+  s_1a6e9ade9f303e::t_754f0d42d4c9d6 477
+godot/native/src/room_trade_store.h
+  s_1a6e9ade9f303e::t_c0d7037db9345f 1-16,18-213
+  s_1a6e9ade9f303e::t_f02c67fb235dfc 17
+src/dev/roomTrade.ts
+  s_1a6e9ade9f303e::t_51f7d069c761d1 37
+  s_1a6e9ade9f303e::t_1324c03254cd0c 32
+  s_1a6e9ade9f303e::t_5cf725a36463fe 510
+  s_1a6e9ade9f303e::t_8ea9f88a62d5d9 1-31,33-36,38-509,511-704
+godot/src/region/sim_tables.gd
+  s_1a6e9ade9f303e::t_f741297d843302 48-49
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "29830a20d021269663676ef0e745d52056af6b14",
+  "prompts": {},
+  "sessions": {
+    "s_1a6e9ade9f303e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2c9e00ce-6ba5-4b5a-8be5-a4a273976934",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
