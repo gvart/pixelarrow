@@ -1,0 +1,44 @@
+src/dev/vectors/warlordsHost.ts
+  s_1a6e9ade9f303e::t_b5d7158d9f1a81 21-24
+  s_1a6e9ade9f303e::t_7d645d37d569d5 1-20,25-32
+godot/native/src/warlords.h
+  s_1a6e9ade9f303e::t_05b869ca3b00d1 113-115,206-208
+  s_1a6e9ade9f303e::t_37a03834729e51 209
+godot/tests/sim/test_traces.gd
+  s_1a6e9ade9f303e::t_8a96e89b7add21 74-76
+godot/tests/sim/test_warlords.gd
+  s_1a6e9ade9f303e::t_a52dfc8edb7699 8
+  s_1a6e9ade9f303e::t_c98b244d560e2e 64-106
+godot/native/src/sim.h
+  s_1a6e9ade9f303e::t_05b869ca3b00d1 475
+godot/native/src/register_types.cpp
+  s_1a6e9ade9f303e::t_05b869ca3b00d1 27,60
+godot/native/src/warlords_probe.cpp
+  s_1a6e9ade9f303e::t_3b239397f27e84 148,151,153,156,158,166,168
+  s_1a6e9ade9f303e::t_745f625c003d46 209
+  s_1a6e9ade9f303e::t_05b869ca3b00d1 123,145-146,159,171-197,337
+godot/native/src/host.h
+  s_1a6e9ade9f303e::t_550ef0363bb482 1-15,17-69
+  s_1a6e9ade9f303e::t_c400428b3a6cae 16
+src/dev/godotTraces.ts
+  s_1a6e9ade9f303e::t_21789b42730f67 13,108-110,112,122-130,134-135,138-139
+godot/native/src/host.cpp
+  s_1a6e9ade9f303e::t_246a27c7c7d3f9 1-43,45-144
+  s_1a6e9ade9f303e::t_bcdc1f7a6cd29e 44
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "852273c5e0e7db4381f8662da924734d3c0983d4",
+  "prompts": {},
+  "sessions": {
+    "s_1a6e9ade9f303e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2c9e00ce-6ba5-4b5a-8be5-a4a273976934",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
