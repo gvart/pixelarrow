@@ -3,7 +3,8 @@
  * (src/data/warBosses.ts chiefLoot), for the C++ stats.h and war_wild.h (godot/tests/sim/test_classes.gd). The persons are
  * makePerson's of every class (and an unknown one) at levels, kit tiers and rarities, then worked over: odd gear from any
  * class (shortfalls, gear blockers, sets), stored and rolled affixes and powers, legacy and junk rarities, quality and
- * condition, traits, skills and honours; each under no path and every path at a level.
+ * condition, traits, skills and honours; each under no path and every path at a level. And the paths' caps and
+ * manRefusal (src/war/world/start.ts) over paths, families, levels, classes and what a player has.
  */
 import { Rng } from '../../sim/rng';
 import { CIV_CLASSES, CLASSES } from '../../data/classes';
@@ -15,6 +16,7 @@ import { chiefLoot } from '../../data/warBosses';
 import { perkFx, type PerkPath } from '../../data/warPerks';
 import type { HonourStat, WarPerson, WarSkillId } from '../../war/types';
 import { makePerson } from '../../war/sim/roster';
+import { cartCap, FAMILY_IDS, manRefusal, mayHold, PATH_IDS, soldierCap, workerCap, type PlayerPath } from '../../war/world/start';
 import { SKILLS } from '../../war/sim/skills';
 import { warStatsOf, withPerks } from '../../war/sim/classes';
 
@@ -63,5 +65,11 @@ export const vectors = () => {
     const l = chiefLoot(c.id, depth, seed);
     loot.push([c.id, depth, seed, Object.entries(l.goods), l.item ? [l.item.def, l.item.rarity] : null]);
   }
-  return { persons, perks, loot, kinds: Object.keys(CHIEF_KINDS) };
+  // the paths' limits and who may join whom (start.ts)
+  const caps = [null, ...PATH_IDS].map((p) => [p ?? '', soldierCap(p), workerCap(p), cartCap(p)]);
+  const refusals: unknown[] = [];
+  const ps: PlayerPath[] = [{ path: null, family: null }, ...PATH_IDS.flatMap((path) => [null, ...FAMILY_IDS].flatMap((family) => [undefined, 1, 4, 6, 9].map((level) => ({ path, family, ...(level ? { level } : {}) }))))];
+  for (const p of ps) for (const cls of classes) for (const [soldiers, workers] of [[0, 0], [3, 2], [4, 6], [12, 3], [11, 5]])
+    refusals.push([p, cls, soldiers, workers, manRefusal(p, cls, { soldiers, workers }) ?? '', mayHold(p, cls)]);
+  return { persons, perks, loot, kinds: Object.keys(CHIEF_KINDS), caps, refusals };
 };

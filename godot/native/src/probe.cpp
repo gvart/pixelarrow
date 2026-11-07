@@ -5,6 +5,7 @@
 #include "combat.h"
 #include "formation.h"
 #include "roster.h"
+#include "start.h"
 #include "stats.h"
 #include "war_wild.h"
 
@@ -111,7 +112,27 @@ Dictionary SimProbe::chief_loot(const String &id, double depth, const String &se
 	return d;
 }
 
+Array SimProbe::path_caps(const String &path) {
+	const std::string p = path.utf8().get_data();
+	Array a;
+	a.push_back(sim::soldier_cap(p));
+	a.push_back(sim::worker_cap(p));
+	a.push_back(sim::cart_cap(p));
+	return a;
+}
+
+Array SimProbe::man_refusal(const Dictionary &path, const String &cls, double soldiers, double workers) {
+	const sim::PlayerPath p = sim::player_path_from(path);
+	const std::string c = cls.utf8().get_data();
+	Array a;
+	a.push_back(gs(sim::man_refusal(p, c, soldiers, workers)));
+	a.push_back(sim::may_hold(p, c));
+	return a;
+}
+
 void SimProbe::_bind_methods() {
+	ClassDB::bind_static_method("SimProbe", D_METHOD("path_caps", "path"), &SimProbe::path_caps);
+	ClassDB::bind_static_method("SimProbe", D_METHOD("man_refusal", "path", "cls", "soldiers", "workers"), &SimProbe::man_refusal);
 	ClassDB::bind_static_method("SimProbe", D_METHOD("war_stats", "person", "path", "level"), &SimProbe::war_stats);
 	ClassDB::bind_static_method("SimProbe", D_METHOD("perk_fx", "path", "level"), &SimProbe::perk_fx);
 	ClassDB::bind_static_method("SimProbe", D_METHOD("chief_loot", "id", "depth", "seed"), &SimProbe::chief_loot);

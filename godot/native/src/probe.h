@@ -26,6 +26,9 @@ public:
 	static Dictionary perk_fx(const String &path, double level);
 	// war_wild.h chiefLoot: {goods: [[good, n]...], item: [def, rarity] or null}
 	static Dictionary chief_loot(const String &id, double depth, const String &seed);
+	// start.h: a path's caps ("": none) and manRefusal(path, cls, {soldiers, workers}) ("" null) with mayHold
+	static Array path_caps(const String &path);
+	static Array man_refusal(const Dictionary &path, const String &cls, double soldiers, double workers);
 
 protected:
 	static void _bind_methods();

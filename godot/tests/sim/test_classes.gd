@@ -20,6 +20,21 @@ func test_war_stats_match_ts() -> void:
 	check(i > 100, "only %d persons" % i)
 
 
+func test_paths_match_ts() -> void:
+	W.load_data()
+	var v: Dictionary = W.vectors("classes")
+	for c in v["caps"]:
+		var d := W.diff(SimProbe.path_caps(c[0]), c.slice(1), "caps of '%s'" % c[0])
+		if d != "":
+			fail(d)
+			return
+	for r in v["refusals"]:
+		var d := W.diff(SimProbe.man_refusal(r[0], r[1], float(r[2]), float(r[3])), r.slice(4), "manRefusal(%s, %s, %d, %d)" % [str(r[0]), r[1], int(r[2]), int(r[3])])
+		if d != "":
+			fail(d)
+			return
+
+
 func test_perk_fx_match_ts() -> void:
 	W.load_data()
 	for p in W.vectors("classes")["perks"]:
