@@ -111,9 +111,13 @@ const HOST: { id: string; of: string; ticks: number; cap?: number; host: HostOps
   { id: 'host-carts', of: 'eco-handcart', ticks: 600, cap: WORKS_CAP, host: {
     pre: [['setPaths', { you: { path: 'trader', family: null, level: 12 } }]],
   } },
-  // repairs at a quarter of the cost on both sides of a siege
-  { id: 'host-repair', of: 'siege-defend', ticks: 600, cap: WORKS_CAP, host: {
-    pre: [['setBonus', 0, { repairCost: 0.25 }], ['setBonus', 1, { repairCost: 0.25, sight: 1 }]],
+  // the town folk of Bacchae mend a worn cottage (building 2) at a quarter of the cost (no scenario repairs)
+  { id: 'host-repair', of: 'boss-maenad-queen', ticks: 600, cap: WORKS_CAP, host: {
+    pre: [['setBonus', 7, { repairCost: 0.25, sight: 1 }]],
+    post: [(sim) => {
+      const b = sim.snapshot().buildings!.find((x) => x.id === 2)!;
+      return [['addStock', 7, 'wood', 3000], ['addStock', 7, 'stone', 3000], ['spawnSquad', 'town', 7, 'militia', 6, b.x + 3, b.y + 3]];
+    }, (sim) => [['order', { kind: 'repairBuilding', squad: Math.max(...sim.snapshot().squads.filter((q) => q.owner === 'town').map((q) => q.id)), building: 2 }]]],
   } },
   // a warrior of level 11 (health, blows, armour, the wounded) with men of record against the chief of the Grey Moors
   { id: 'host-chief', of: 'world-fill', ticks: 600, host: {
