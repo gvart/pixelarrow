@@ -1050,6 +1050,7 @@ function market(): Step[] {
     { op: 'ally', args: () => [1, 3, 'Ann'] },
     { op: 'ally', args: () => [2, 1, 'Bo'] },
     { op: 'ally', args: () => [3, 2, 'Cy'] },
+    { op: 'oath', args: () => [1, 9, 10] }, // sworn to a lord away: his sales pay tribute (W-153)
     { pid: 1, msg: () => army(R, 1, 3, [['hoplite', 4]]) },
     { pid: 2, msg: () => army(R, 2, 1, [['hoplite', 4]]) },
     { pid: 3, msg: () => army(R, 3, 2, [['hoplite', 4]]) },
@@ -1067,6 +1068,8 @@ function market(): Step[] {
     { pid: 1, msg: (r) => ({ t: 'stow', dir: 'in', site: 'stall', squad: squad(r, 1, 1), goods: { wood: 5, coin: 10 } }) },
     { pid: 1, msg: (r) => ({ t: 'stow', dir: 'out', site: 'stall', squad: squad(r, 1, 1), goods: { wood: 2 } }) },
     { pid: 1, msg: () => ({ t: 'npc', op: 'sell', res: 'wood', n: 20 }) },
+    { pid: 1, msg: (r) => ({ t: 'stow', dir: 'out', site: 'tribute', squad: squad(r, 1, 1) }) }, // the tribute set aside, sealed for his liege
+    { pid: 2, msg: (r) => ({ t: 'stow', dir: 'out', site: 'tribute', of: 1, squad: squad(r, 2, 1) }) }, // not his liege
     { pid: 1, msg: () => ({ t: 'npc', op: 'sell', res: 'marble', n: 2 }) }, // carry none
     { pid: 1, msg: () => ({ t: 'npc', op: 'buy', res: 'salt', n: 10 }) },
     { pid: 1, msg: () => ({ t: 'npc', op: 'buy', res: 'flax', n: 3 }) }, // not dealt here
@@ -1165,7 +1168,7 @@ const RUNS: { id: string; region: string; seed: number; opts: Record<string, unk
   { id: 'settle', region: 'test-ridge', seed: 11, opts: { cap: 96, fightQuiet: 40 }, steps: settle },
   { id: 'realm', region: 'test-ridge', seed: 13, opts: { cap: 96 }, steps: realm },
   { id: 'peace', region: 'elaia', seed: 3, opts: { cap: 400, home: 3 }, steps: peace },
-  { id: 'craft', region: 'test-ridge', seed: 11, opts: { cap: 96, home: 0 }, steps: craft },
+  { id: 'craft', region: 'test-ridge', seed: 11, opts: { cap: 96 }, steps: craft },
   { id: 'market', region: 'elaia', seed: 13, opts: { cap: 400 }, steps: market },
   { id: 'wake', region: 'saddle', seed: 15, opts: { cap: 400, wild: true }, steps: wake },
 ];
