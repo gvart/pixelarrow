@@ -1,0 +1,107 @@
+godot/native/src/item.h
+  s_1a6e9ade9f303e::t_1f3446229bcd74 31
+godot/native/src/js_math.h
+  s_1a6e9ade9f303e::t_1f3446229bcd74 43,49
+godot/native/src/sim_data.cpp
+  s_1a6e9ade9f303e::t_1f3446229bcd74 87-88
+godot/native/src/local_settle.cpp
+  s_1a6e9ade9f303e::t_49024cd7d19a81 321
+godot/native/src/roster.cpp
+  s_1a6e9ade9f303e::t_1f3446229bcd74 476-477,482,488
+godot/native/src/npc_market.h
+  s_1a6e9ade9f303e::t_1f3446229bcd74 1-84
+godot/native/src/room_store_settle.cpp
+  s_1a6e9ade9f303e::t_a98123be4217d9 350
+  s_1a6e9ade9f303e::t_ae37c3edf006f6 342-349,351-354
+godot/native/src/room_persons.cpp
+  s_1a6e9ade9f303e::t_1f3446229bcd74 577,637
+godot/native/src/room_cargo.h
+  s_1a6e9ade9f303e::t_1f3446229bcd74 6,33-40
+  s_1a6e9ade9f303e::t_2882c70ae6d969 41
+godot/native/src/local_room.h
+  s_1a6e9ade9f303e::t_1f3446229bcd74 25-27,45-46,76-90
+  s_1a6e9ade9f303e::t_3750afe02d8d3e 75
+godot/native/src/room_store.h
+  s_1a6e9ade9f303e::t_1f3446229bcd74 14,18,35-37,84-85,119-121,137-138
+godot/native/src/room_trade_store.cpp
+  s_1a6e9ade9f303e::t_16cae805a0365d 448
+  s_1a6e9ade9f303e::t_ae37c3edf006f6 377,380,555
+  s_1a6e9ade9f303e::t_1f3446229bcd74 1-376,378-379,381-447,449-554,556-613
+godot/native/src/room_trade_store.h
+  s_1a6e9ade9f303e::t_ae37c3edf006f6 8,12,104,154
+  s_1a6e9ade9f303e::t_1f3446229bcd74 1-7,9-11,13-103,105-153,155-204
+godot/native/src/sim_data.h
+  s_1a6e9ade9f303e::t_1f3446229bcd74 44-45,95-96
+src/dev/roomStore.ts
+  s_1a6e9ade9f303e::t_7e2b171729e179 19-20,25
+  s_1a6e9ade9f303e::t_1f3446229bcd74 39,111-112
+  s_1a6e9ade9f303e::t_89ede6e7f4b4e6 358-366,537
+src/dev/roomTrade.ts
+  s_1a6e9ade9f303e::t_e9ebaaec8af904 13-14,19-20,301,352,423,472,529
+  s_1a6e9ade9f303e::t_1f3446229bcd74 1-12,15-18,21-296,298-300,302-351,353-422,424-471,473-528,530-693
+  s_1a6e9ade9f303e::t_0be86cc4b0c0a2 297
+godot/native/src/room_trade.cpp
+  s_1a6e9ade9f303e::t_1f3446229bcd74 1-533
+godot/native/src/sim_wild.cpp
+  s_1a6e9ade9f303e::t_1f3446229bcd74 170-172
+godot/native/src/room_cargo.cpp
+  s_1a6e9ade9f303e::t_1f3446229bcd74 82-154
+godot/native/src/npc_market.cpp
+  s_1a6e9ade9f303e::t_1f3446229bcd74 1-318
+godot/native/src/sim_events.cpp
+  s_1a6e9ade9f303e::t_1f3446229bcd74 7,40
+godot/native/src/town_board.h
+  s_1a6e9ade9f303e::t_1f3446229bcd74 1-89
+godot/native/src/room.h
+  s_1a6e9ade9f303e::t_6004227412ebc1 229
+  s_1a6e9ade9f303e::t_1f3446229bcd74 31,79-81,130-132,230-276,380-389
+  s_1a6e9ade9f303e::t_d2b832699bb2ca 215-217
+godot/native/src/local_trade.cpp
+  s_1a6e9ade9f303e::t_3750afe02d8d3e 288,502,523
+  s_1a6e9ade9f303e::t_ae37c3edf006f6 117,138,232
+  s_1a6e9ade9f303e::t_1f3446229bcd74 1-116,118-137,139-231,233-287,289-501,503-522,524-621
+godot/native/src/town_board.cpp
+  s_1a6e9ade9f303e::t_1f3446229bcd74 1-377
+godot/native/src/local_room.cpp
+  s_1a6e9ade9f303e::t_1f3446229bcd74 207-211,241,262,281-282,291-292,473,475,518
+  s_1a6e9ade9f303e::t_3750afe02d8d3e 527
+godot/native/src/room.cpp
+  s_1a6e9ade9f303e::t_1f3446229bcd74 866
+godot/native/src/settle.h
+  s_1a6e9ade9f303e::t_ae37c3edf006f6 11-12,17,134-136,168-169
+src/dev/vectors/room.ts
+  s_1a6e9ade9f303e::t_925909bb5e8f58 1168
+  s_1a6e9ade9f303e::t_165e540749801a 183,1124-1126
+  s_1a6e9ade9f303e::t_6cf99316613948 961-963,1050-1052,1158
+  s_1a6e9ade9f303e::t_1f3446229bcd74 26-28,39,48,68-69,102,104-105,344-348,404-405,419-422,426,475,481,513-520,942-960,964-1049,1053-1123,1169-1170
+godot/native/src/war_bosses.cpp
+  s_1a6e9ade9f303e::t_1f3446229bcd74 142
+docs/impl/godot-port.md
+  s_1a6e9ade9f303e::t_f1db0ae23b82fb 40
+  s_1a6e9ade9f303e::t_46674f509f22b1 41
+godot/native/src/room_store.cpp
+  s_1a6e9ade9f303e::t_1f3446229bcd74 12,474-475,504
+godot/src/region/sim_tables.gd
+  s_1a6e9ade9f303e::t_1f3446229bcd74 48-49
+godot/native/src/room_settle.cpp
+  s_1a6e9ade9f303e::t_3e36b18f951d32 648,664,670
+godot/native/src/sim_wild.h
+  s_1a6e9ade9f303e::t_1f3446229bcd74 8-9,20-21
+  s_1a6e9ade9f303e::t_fdcaa40d7ff106 22
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c4c36abe5a0b04b9bf2c6c9b643eecd485254190",
+  "prompts": {},
+  "sessions": {
+    "s_1a6e9ade9f303e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2c9e00ce-6ba5-4b5a-8be5-a4a273976934",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
