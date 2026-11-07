@@ -2103,6 +2103,18 @@ int64_t Sim::fog_sum(int team) {
 	return n;
 }
 
+PackedByteArray Sim::fog_state(int team) {
+	const std::vector<uint8_t> &st = s->vision.team(team).state;
+	PackedByteArray out;
+	out.resize(st.size());
+	if (!st.empty()) memcpy(out.ptrw(), st.data(), st.size());
+	return out;
+}
+
+Vector3i Sim::fog_size() {
+	return Vector3i(s->vision.cells.cw, s->vision.cells.ch, sim::VISION.cell);
+}
+
 static std::string u8(const Variant &v) { return String(v).utf8().get_data(); }
 
 // src/war/types.ts HolderRef from its dictionary ({building} | {cart} | {pile})
@@ -2305,6 +2317,8 @@ void Sim::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("spawn_named_soul", "person", "life", "bar"), &Sim::spawn_named_soul, DEFVAL(Variant()));
 	ClassDB::bind_method(D_METHOD("events"), &Sim::events);
 	ClassDB::bind_method(D_METHOD("fog_sum", "team"), &Sim::fog_sum);
+	ClassDB::bind_method(D_METHOD("fog_state", "team"), &Sim::fog_state);
+	ClassDB::bind_method(D_METHOD("fog_size"), &Sim::fog_size);
 	ClassDB::bind_method(D_METHOD("piles"), &Sim::piles);
 	ClassDB::bind_method(D_METHOD("order", "order"), &Sim::order);
 	ClassDB::bind_method(D_METHOD("spawn_mobs"), &Sim::spawn_mobs);
