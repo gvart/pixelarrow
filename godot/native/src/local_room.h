@@ -53,7 +53,7 @@ class LocalRoom : public RefCounted {
 
 	Ref<Sim> sim;
 	std::unique_ptr<sim::Room> room;
-	std::unique_ptr<sim::MemoryStore> store = std::make_unique<sim::MemoryStore>();
+	std::shared_ptr<sim::MemoryStore> store = std::make_shared<sim::MemoryStore>(); // P11: a world's rooms share one (D1)
 	Dictionary opts;
 	std::vector<int> conns;
 	Array out;
@@ -134,6 +134,20 @@ public:
 	Variant warlord_memory() const { return room->warlordMemory(); }
 	void recall_warlords(const Dictionary &m) { room->recallWarlords(m); }
 	Dictionary memory() { return room->memory(); }
+	// P11, the world's side of the room (local_world.h; TS src/dev/vectors/room.ts TsLocal):
+	//  - share_store: the world's one store (D1) in place of this room's own (before anyone joins);
+	//  - sacrilege: the alliances that razed a temple or shrine on the last tick (room.ts tick);
+	//  - world_depart / world_arrive: regionDO.ts depart and arrive as the world calls them (TsLocal.worldDepart,
+	//    worldArrive): the riders marked on the road (`>to`) and the fight so far into the store; on the way in his path,
+	//    the store's men on the road here, favour for a convoy's goods, them marked here and his welcome out (take).
+	void share_store(const std::shared_ptr<sim::MemoryStore> &s) { store = s; }
+	std::vector<int> sacrilege;
+	static constexpr double FAVOUR_CARRIED = 2; // src/war/net/favour.ts FAVOUR_EARN.carried (W-111; test_world.gd checks it)
+	Dictionary world_depart(int pid, const std::string &side, const std::string &to, double foeRadius);
+	Dictionary world_arrive(int pid, int team, const std::vector<std::string> &ids, const std::string &side, const Dictionary &lost, const Dictionary &cargo);
+	void warlord_fell(const std::string &id, double at) { room->warlordFell(id, at); }
+	bool has_warlords() const;
+	Ref<Sim> get_sim() const { return sim; }
 	void recall(const Dictionary &m, double elapsed) { room->recall(m, elapsed); }
 	Dictionary summary() { return room->summary(); }
 	int present() const { return room->present(); }

@@ -46,6 +46,9 @@ import type { WorkId } from '../../war/net/works';
 import { ALLIANCES as ALLIANCE_LIST } from '../../war/world/alliances';
 import { BOARD } from '../../data/warTownBoard';
 import { TradeDo, type TradeRoom } from '../roomTrade';
+import type { Bots } from '../../war/sim/bots';
+import type { TransitCargo } from '../../war/net/world';
+import { cargoLoads } from '../../../server/src/war/world/world';
 
 type Sha = (b: string) => string;
 const files = import.meta.glob('../../war/regions/*.json', { eager: true, import: 'default' });
@@ -66,7 +69,7 @@ const fightTally = (books['../../../server/src/war/persons.ts'] as { fightTally(
 const SERVER_SETTLE = (books['../../../server/src/war/settlements.ts'] as { SETTLE: Record<string, number> }).SETTLE;
 
 /** What the harness calls of WarRoom (server/src/war/room.ts); TradeRoom: wave B's (../roomTrade.ts). */
-interface Room extends Omit<TradeRoom, 'sim'> {
+export interface Room extends Omit<TradeRoom, 'sim'> {
   region: RegionData;
   currentTick: number;
   refusal: string;
@@ -99,7 +102,7 @@ interface Room extends Omit<TradeRoom, 'sim'> {
     fights: { id: string; report: FightReport }[]; souls: { pid: number; person: WarPerson; squad: number; unit: number }[]; raided: number[]; faded: string[];
     larder: { pid: number; goods: Record<string, number> }[];
     peace: PeaceOut | null; settle: SettleOut | null;
-    crafted: { kind: 'crafted'; owner: string; order: number; what: string; item: { uid: string } }[]; bosses: unknown[]; freed: string[];
+    crafted: { kind: 'crafted'; owner: string; order: number; what: string; item: { uid: string } }[]; bosses: unknown[]; freed: string[]; sacrilege: number[];
   } & LifeBooks;
   holdRows(): { ref: string; kind: string; pid: number; team: number; goods: Record<string, number>; items: never[] }[];
   mendUids(): string[];
@@ -108,11 +111,14 @@ interface Room extends Omit<TradeRoom, 'sim'> {
   startEncounters(pid: number, save: unknown): ServerMsg | null;
   storyChoose(pid: number, option: string): void;
   encounterChoose(pid: number, option: string): void;
-  guide: { hide(pid: number): unknown; saveOf(pid: number): unknown };
+  guide: { hide(pid: number): unknown; saveOf(pid: number): unknown; departed(pid: number, to: string): void };
   encounters: { road(pid: number, loads: number, key: string): void };
   setWorldEvents(evs: WorldEvent[]): void;
   wakeGuardians(): void;
   setWarlordAge(days: number): void;
+  warlordFell(id: string, at: number): void;
+  warlords: unknown;
+  bots: Bots;
   warlordMemory(): unknown;
   recallWarlords(m: unknown): void;
   memory(): unknown;
@@ -150,8 +156,8 @@ interface LifeBooks {
   warlord: unknown[];
 }
 
-type Out = [number, unknown];
-const b64 = (b: Uint8Array) => {
+export type Out = [number, unknown];
+export const b64 = (b: Uint8Array) => {
   let s = '';
   for (const x of b) s += String.fromCharCode(x);
   return btoa(s);
@@ -165,9 +171,9 @@ const TICK_MS = 100;
  * off the field (W-98); each tick's fights, faded souls, raids, soul claims and larder draws go to the store as the DO
  * writes them to D1; dropped joins are released on a close and a restore.
  */
-class TsLocal {
+export class TsLocal {
   room: Room;
-  readonly store = new RoomStore();
+  readonly store: RoomStore;
   private conns: number[] = [];
   private saved = '';
   private readonly o: Record<string, unknown>;
@@ -180,8 +186,13 @@ class TsLocal {
   private persisted = new Map<number, string>();
   private heldKey = '';
   private lairsSeen = new Map<number, string>();
-  private readonly trade = new TradeDo(() => this.room as unknown as TradeRoom, this.store, this.store.trade, (pid) => this.live.has(pid), () => this.now, (s) => this.wake(s));
-  constructor(o: Record<string, unknown>) {
+  private readonly trade: TradeDo;
+  /** P11: the sacrilege of the last tick (temples razed, by alliance), for the world (./localWorld.ts). */
+  sacrilege: number[] = [];
+  /** `store`: P11's world shares one between its rooms (D1). */
+  constructor(o: Record<string, unknown>, store = new RoomStore()) {
+    this.store = store;
+    this.trade = new TradeDo(() => this.room as unknown as TradeRoom, this.store, this.store.trade, (pid) => this.live.has(pid), () => this.now, (s) => this.wake(s));
     this.o = { epoch: 'e', ...o };
     this.room = new room.WarRoom(this.o);
     this.room.run = 'r';
@@ -373,6 +384,43 @@ class TsLocal {
     }
     return this.conns.map((pid) => [pid, { t: 'worldEvents', events, next }]);
   }
+  /**
+   * P11, regionDO.ts depart (RPC from the world, W-87): his whole group leaves for `to` over the entry on `side`; its fight
+   * so far into the store, and every man of it (riders: his fit and wounded men the store has here) marked on the road
+   * (`>to`). No home here (persons.ts homeRegion is D1's): nobody waits at home.
+   */
+  worldDepart(pid: number, side: string, to: string, foeRadius: number): Record<string, unknown> {
+    const r = this.room, s = this.store, region = r.region.id;
+    r.guide.departed(pid, to); // W-73: the guide's hand-off, closed on the way out
+    const d = r.depart(pid, side, foeRadius);
+    if ('error' in d) return d;
+    if (d.fight) s.applyFight(d.fight.id, region, d.fight.report, this.now);
+    const riders = s.recs.filter((x) => x.pid === pid && (x.state === 'active' || x.state === 'wounded') && x.region === region).map((x) => x.id);
+    const ids = [...new Set([...d.ids!, ...riders])];
+    for (const x of s.recs) if (x.pid === pid && ids.includes(x.id)) x.region = `>${to}`;
+    return { ids, off: d.off, lost: d.lost, ...(d.cargo ? { cargo: d.cargo } : {}) };
+  }
+  /**
+   * P11, regionDO.ts arrive (RPC from the world): his group `ids` on the road here comes in over `side`, if the room takes
+   * it; the store marks them here, a convoy's goods earn him favour (W-111). His welcome (online) goes out.
+   */
+  worldArrive(pid: number, team: number, ids: string[], side: string, lost: Record<string, number> = {}, cargo?: TransitCargo): { res: Record<string, unknown>; out: Out[] } {
+    const r = this.room, s = this.store, region = r.region.id, road = `>${region}`, out: Out[] = [];
+    s.settle(pid, this.now, this.wake);
+    r.setPath(pid, s.path(pid)); // W-85, W-101: his limits, here too
+    const got = s.deployed(road, ids);
+    const persons = ids.flatMap((id) => got.get(id) ?? []);
+    const mark = () => {
+      for (const x of s.recs) if (x.region === road && ids.includes(x.id)) x.region = region;
+    };
+    if (!persons.length) return mark(), { res: { error: 'gone' }, out };
+    const a = r.arrive(pid, team, persons, side, lost, cargo);
+    if ('error' in a) return { res: a, out };
+    if (cargo) s.addFavour(pid, cargoLoads(cargo) * FAVOUR_EARN.carried, 'carried', this.now); // W-111
+    mark();
+    if (a.msg) out.push([pid, a.msg]);
+    return { res: { ok: true }, out };
+  }
   /** The socket went away (regionDO.ts webSocketClose): his squads hold where they stand. */
   close(pid: number): Out[] {
     this.room.leave(pid);
@@ -387,6 +435,7 @@ class TsLocal {
    */
   tick(): { out: Out[]; books?: unknown } {
     const r = this.room, res = r.tick(), out: Out[] = [], region = r.region.id, s = this.store;
+    this.sacrilege = res.sacrilege;
     for (const f of res.fights) {
       if (s.applyFight(f.id, region, f.report, this.now)) s.bookFight(region, fightTally(f.report), this.now); // W-64: the crown's war goals' shares
       for (const pid of new Set(f.report.persons.filter((x) => x.state === 'captive').map((x) => Number(x.owner.slice(2))))) r.setArmy(pid, s.armyCount(pid));

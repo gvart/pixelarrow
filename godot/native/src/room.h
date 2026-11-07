@@ -130,6 +130,7 @@ public:
 		// wave B: the crafted events (a craft's item with its `c:` uid), the guardians slain, mend items freed
 		godot::Array crafted, bosses;
 		std::vector<std::string> freed;
+		std::vector<int> sacrilege; // M7f: temples and shrines razed, by the razer's alliance (room.ts tick)
 	};
 	// saveState: the RoomState JSON text, its head (all but sim and bots) and the sim's and bots' texts in it
 	struct Saved {

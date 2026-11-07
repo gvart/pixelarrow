@@ -18,7 +18,7 @@ struct SeasonTables {
 		double omphalos = 10, town = 3, gate = 2, neutral = 1, ruinedTown = 1;
 	} SCORE;
 	struct {
-		double landmark = 2, landmarkCap = 6, prestigeCap = 2;
+		double landmark = 2, landmarkCap = 6, prestigeCap = 2, sacrilege = 10;
 	} LIVING;
 	struct {
 		double towns = 3, ms = 86400000;
@@ -34,11 +34,15 @@ struct SeasonTables {
 // tables["src/war/world/season"], ["src/war/world/regions"], ["src/war/world/alliances"] (absent: left as is)
 void load_season_tables(const godot::Dictionary &tables, SeasonTables &out);
 
-// ScoredRegion, with the claims a report gave (landmarks, prestige and ruin are the room layer's: none here).
+// ScoredRegion, with the claims a report gave. Its landmark (holder, garrisoned), favour and prestige per alliance and a
+// ruined town come with the world's reports (world.h, P11); the headless season's clock has none.
 struct ClockRegion {
 	std::string id;
 	int owner = -1;
 	std::vector<double> claims, live;
+	bool hasLandmark = false, garrisoned = false, ruined = false;
+	int holder = -1;
+	std::vector<double> prestige;
 };
 double score_rate(const ClockRegion &r);
 std::vector<double> alliance_rates(const std::vector<ClockRegion> &regions);

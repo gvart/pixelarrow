@@ -571,6 +571,8 @@ std::vector<std::pair<int, double>> MemorySettle::levelsOf(const std::vector<int
 
 // ---------------------------------------------------------------- the rest
 
+void MemorySettle::setAlliance(int pid, int alliance) { put(alliances, pid, alliance); }
+
 void MemorySettle::ally(int pid, int alliance, const std::string &name) {
 	put(alliances, pid, alliance);
 	put(names, pid, name);

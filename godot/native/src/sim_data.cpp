@@ -77,6 +77,7 @@ void SimData::load(const Dictionary &tables) {
 	sim::load_warlord_tables(tables, d.warlords);
 	sim::load_ally_tables(tables, d.ally);
 	sim::load_season_tables(tables, d.season);
+	sim::load_world_tables(tables, d.world);
 	if (tables.has("siege")) sim::load_siege(tables["siege"], d.siege);
 	sim::load_encounter_tables(tables, d.encounters);
 	sim::load_prebuilt_tables(tables, d.prebuilt);

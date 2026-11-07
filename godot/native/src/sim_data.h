@@ -39,6 +39,7 @@
 #include "warlords.h"
 #include "alliance_ai.h"
 #include "season_clock.h"
+#include "world.h"
 #include "works.h"
 #include "net_guide.h"
 #include "npc_market.h"
@@ -84,6 +85,7 @@ struct Data {
 	WarlordTables warlords; // warlords.h
 	AllyAiTables ally; // alliance_ai.h
 	SeasonTables season; // season_clock.h
+	WorldTables world; // world.h: the world graph, WAR_SEASON, the world events (P11)
 	SiegeTables siege; // SIEGE, RAM, THROWER... (src/war/sim/siege)
 	EncTables encounters; // encounters.h (ENC, ENCOUNTERS)
 	PrebuiltTables prebuilt; // prebuilt.h
