@@ -1,0 +1,105 @@
+godot/native/src/local_room.cpp
+  s_1a6e9ade9f303e::t_d7118f8a927548 11,39,49-81,84-85,91,96-100,129-133,143-144,153-183,194-201,228-232,244-254,256
+  s_1a6e9ade9f303e::t_dcdf2b80788d26 255
+godot/native/src/room.cpp
+  s_1a6e9ade9f303e::t_2cddbc66d731d4 1028-1029,1031
+  s_1a6e9ade9f303e::t_e165c1aa64dfb2 1044-1045
+  s_1a6e9ade9f303e::t_c44e223494c39a 857
+  s_1a6e9ade9f303e::t_2bb4bbc908c505 936
+  s_1a6e9ade9f303e::t_770dda1c3d3499 302-303
+  s_1a6e9ade9f303e::t_3132f60bf8babe 845-846
+  s_1a6e9ade9f303e::t_fc89cadbb12bbe 1187
+godot/native/src/sim_data.h
+  s_1a6e9ade9f303e::t_beba101bcecb61 43,91
+godot/native/src/stories.h
+  s_1a6e9ade9f303e::t_f724ed330d45d9 276-279
+godot/native/src/net_guide.h
+  s_1a6e9ade9f303e::t_b089b0330831f9 1-109
+src/dev/godotData.ts
+  s_1a6e9ade9f303e::t_32a438faed5fcb 24-25
+godot/native/src/stories.cpp
+  s_1a6e9ade9f303e::t_d367c904d6aade 1051-1057
+godot/native/src/encounters.h
+  s_1a6e9ade9f303e::t_f724ed330d45d9 258-262
+godot/tests/sim/test_room.gd
+  s_1a6e9ade9f303e::t_1484cd599d1783 34,37,40-53,59-62,65-66
+  s_1a6e9ade9f303e::t_72fe914cfc4810 3-7
+  s_1a6e9ade9f303e::t_a3e98e49298074 54-58
+  s_1a6e9ade9f303e::t_524748530e4dfc 82-105
+  s_1a6e9ade9f303e::t_91c7f8e021ca3b 106-107
+godot/tests/sim/test_traces.gd
+  s_1a6e9ade9f303e::t_193db045691fdb 86-88
+godot/native/src/room_parse.h
+  s_1a6e9ade9f303e::t_8a85d199f4a386 15
+  s_1a6e9ade9f303e::t_7e0467762a49fe 1-14,16-21
+godot/native/src/net_guide.cpp
+  s_1a6e9ade9f303e::t_ab9477152b2ad1 1-382
+godot/native/src/local_room.h
+  s_1a6e9ade9f303e::t_d7118f8a927548 9-12,15-20,44-46,50-52,67-78,81-82
+  s_1a6e9ade9f303e::t_dcdf2b80788d26 79-80
+godot/native/src/room.h
+  s_1a6e9ade9f303e::t_877ae807bc2b76 7-9
+  s_1a6e9ade9f303e::t_770dda1c3d3499 194-196
+  s_1a6e9ade9f303e::t_4dbe943c85bee9 74-75
+  s_1a6e9ade9f303e::t_a75ddfb59e3540 193,197-202
+  s_1a6e9ade9f303e::t_65568ab88059ac 93
+  s_1a6e9ade9f303e::t_7d908e6b443a52 86-89
+  s_1a6e9ade9f303e::t_5b36ccc6567b66 112-140
+src/dev/vectors/room.ts
+  s_1a6e9ade9f303e::t_d7da15c2ad7d67 180-194
+  s_1a6e9ade9f303e::t_f3f39d8d1d9d99 28
+  s_1a6e9ade9f303e::t_f0ca619383449e 422-465
+  s_1a6e9ade9f303e::t_c24f5a65aff052 90-94
+  s_1a6e9ade9f303e::t_97e4f6bd6a301f 110-112
+  s_1a6e9ade9f303e::t_668242b68762e8 398-406
+  s_1a6e9ade9f303e::t_6bae4b0307c32e 272,305,327,350
+  s_1a6e9ade9f303e::t_9c22b7336e1c97 383,385-387,389,394-397
+  s_1a6e9ade9f303e::t_842f83cd471521 274
+  s_1a6e9ade9f303e::t_53d0bc238694f3 262,267-269,271,273,275-277,281,284-300,303-304,306-307,310-311,315-316,318,324-326,329-349,351-369,372-374
+  s_1a6e9ade9f303e::t_1a2ba474588d22 301-302,308-309,321
+  s_1a6e9ade9f303e::t_eb048e2e9aef72 163-164
+  s_1a6e9ade9f303e::t_7467e19f9aafc1 122-126,129-152
+  s_1a6e9ade9f303e::t_91710022ff9182 313
+  s_1a6e9ade9f303e::t_99dfe2cdb79c49 312,314,317,322-323
+  s_1a6e9ade9f303e::t_bdf439e2a2f582 50-66,69-78
+  s_1a6e9ade9f303e::t_d80e66e7b09e39 263-266
+  s_1a6e9ade9f303e::t_ba1aacd2ad785c 270,278-280,282-283
+  s_1a6e9ade9f303e::t_17f027b3c31b88 10-12,14-19
+  s_1a6e9ade9f303e::t_b45440f0bcfb12 319-320,381-382,388,390-393,407,410
+  s_1a6e9ade9f303e::t_34344bae0b49ab 169-175
+  s_1a6e9ade9f303e::t_d21b2f95457014 79,328
+godot/native/src/encounters.cpp
+  s_1a6e9ade9f303e::t_baf979964573bf 801
+  s_1a6e9ade9f303e::t_002995414f8cdd 1132-1139
+godot/native/src/room_parse.cpp
+  s_1a6e9ade9f303e::t_be3b231f54aeef 1-350
+godot/native/src/sim_data.cpp
+  s_1a6e9ade9f303e::t_beba101bcecb61 86
+godot/native/src/room_life.cpp
+  s_1a6e9ade9f303e::t_9bcad651369fde 17
+  s_1a6e9ade9f303e::t_8491ef2f38ebc8 108,119,123,337,427,463
+  s_1a6e9ade9f303e::t_055b36e718f2cd 891
+  s_1a6e9ade9f303e::t_2d49adb6883cbf 333
+  s_1a6e9ade9f303e::t_770dda1c3d3499 170
+  s_1a6e9ade9f303e::t_d160b30749a909 1-16,18-22,24-107,109-118,120-122,124-169,171-214,216-238,240-241,244-246,249-251,253-257,261-332,334-336,338-426,428-462,464-508,510-890,892-997
+  s_1a6e9ade9f303e::t_064af476a36295 23
+  s_1a6e9ade9f303e::t_b3ed1efcc1f8cb 242-243,247-248,252,258-260
+  s_1a6e9ade9f303e::t_1b2823b7a3c2bd 215,239
+  s_1a6e9ade9f303e::t_6dd7a25ac3d57f 509
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e4af9bb254b7a03904b5dbf039c6897750ba6fcb",
+  "prompts": {},
+  "sessions": {
+    "s_1a6e9ade9f303e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2c9e00ce-6ba5-4b5a-8be5-a4a273976934",
+        "model": "unknown"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
