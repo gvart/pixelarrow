@@ -1,0 +1,53 @@
+src/dev/vectors/room.ts
+  s_1a6e9ade9f303e::t_3698a0b8bd4d6b 460-469,472,475-489
+  s_1a6e9ade9f303e::t_bf79fef2b53973 114-127,129,131-133
+  s_1a6e9ade9f303e::t_a2bc6e934f6cd1 949-951
+  s_1a6e9ade9f303e::t_e003b829926893 877
+  s_1a6e9ade9f303e::t_0304984fb6a385 470-471
+  s_1a6e9ade9f303e::t_d5a811a4196b8f 932-933
+  s_1a6e9ade9f303e::t_6a5ad9010c544f 394,399
+  s_1a6e9ade9f303e::t_0fa76766d669de 1002,1004-1014,1016-1017
+  s_1a6e9ade9f303e::t_638940a299131b 895
+  s_1a6e9ade9f303e::t_6a08288b08fb46 96
+  s_1a6e9ade9f303e::t_91020f23ad9c30 301
+  s_1a6e9ade9f303e::t_358fba0c4f3721 43,128,246,250,255,377
+  s_1a6e9ade9f303e::t_8857432ce46eb3 366
+  s_1a6e9ade9f303e::t_1d8c886a9773bb 894,896
+  s_1a6e9ade9f303e::t_cbb12ad8aace1e 168-174
+  s_1a6e9ade9f303e::t_229f826f38bd12 52-61
+  s_1a6e9ade9f303e::t_18ca87174383bd 859-860,931
+  s_1a6e9ade9f303e::t_cf78834d3cc6c3 407-409
+  s_1a6e9ade9f303e::t_a7b85c0e7ba0e9 862-864
+  s_1a6e9ade9f303e::t_badca7dabbc336 37-38,41-42
+  s_1a6e9ade9f303e::t_719adce40ad992 311
+  s_1a6e9ade9f303e::t_f6f7709311b73a 912,918,929,937
+  s_1a6e9ade9f303e::t_fa320b71cf4291 866
+  s_1a6e9ade9f303e::t_14929c8ab0fd31 32,39-40,49
+  s_1a6e9ade9f303e::t_d5fe84043969a0 812-825,827,829-836,838-858,861,865,867-874,878-884,886-893,897-911,913-917,919-928,930,934,936,938-942
+  s_1a6e9ade9f303e::t_be5adfb429e1a5 935
+  s_1a6e9ade9f303e::t_53dea8fb581225 826,828,837,875-876,885
+  s_1a6e9ade9f303e::t_e23a765d307fdb 1015
+  s_1a6e9ade9f303e::t_a481834f94d831 187-245,247-249,251-254,256-280
+src/dev/roomStore.ts
+  s_1a6e9ade9f303e::t_aee57f1c13d59e 89-108
+  s_1a6e9ade9f303e::t_35f4eb5b3a1e2a 14-24,31,33-37,42-69
+  s_1a6e9ade9f303e::t_672309ce3c618b 502
+  s_1a6e9ade9f303e::t_daea6091fe7256 245-501,503-518,520-524
+  s_1a6e9ade9f303e::t_41748d1a51121a 117,119-120
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "8098579619a6d92ba90dfce3deae5da1312d8304",
+  "prompts": {},
+  "sessions": {
+    "s_1a6e9ade9f303e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2c9e00ce-6ba5-4b5a-8be5-a4a273976934",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
