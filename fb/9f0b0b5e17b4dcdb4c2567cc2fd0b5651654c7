@@ -1,0 +1,34 @@
+tests/war/allianceAi.test.ts
+  s_1a6e9ade9f303e::t_867a3f2cb094d1 1-56,58-103,105-128
+  s_1a6e9ade9f303e::t_52c24a20db5587 57,104
+src/war/world/seasonClock.ts
+  s_1a6e9ade9f303e::t_4cc3a62fe4b6e3 76-77
+  s_1a6e9ade9f303e::t_01f154fadf66e6 1-75,78-80
+src/war/sim/aiSeason.ts
+  s_1a6e9ade9f303e::t_bbeb1afd73bcd0 1-11,13-15,17-24,27-54,56-78
+  s_1a6e9ade9f303e::t_8baaa4d0dc3939 12,16
+  s_1a6e9ade9f303e::t_d2cfdf157742ca 25-26,55
+src/war/sim/allianceAi.ts
+  s_1a6e9ade9f303e::t_48ce33bf176a9c 86-87,91,103-104,106-107,121,200-201,272
+  s_1a6e9ade9f303e::t_52c24a20db5587 10,29,46-47,137
+  s_1a6e9ade9f303e::t_c57575321c69a8 1-9,11-16,21-28,30-38,41-45,48-55,57-85,88-90,92-102,105,108-120,122-136,138-157,160-161,164-182,189-199,202-271,273-285
+  s_1a6e9ade9f303e::t_89d36e91b200e9 40
+  s_1a6e9ade9f303e::t_9c632a7b50dfdf 18-20,39,56,183-188
+  s_1a6e9ade9f303e::t_0c948a9b1f1d1f 17,158-159,162-163
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "fb9f0b0b5e17b4dcdb4c2567cc2fd0b5651654c7",
+  "prompts": {},
+  "sessions": {
+    "s_1a6e9ade9f303e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2c9e00ce-6ba5-4b5a-8be5-a4a273976934",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
