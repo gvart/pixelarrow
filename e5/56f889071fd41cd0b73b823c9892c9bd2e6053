@@ -1,0 +1,41 @@
+godot/src/world_view/world_fixture.gd
+  s_1a6e9ade9f303e::t_14f96ccbec02a2 1
+godot/src/game/world_source.gd
+  s_1a6e9ade9f303e::t_ace1595153e36c 1-94,97-99,101-278
+  s_1a6e9ade9f303e::t_72d4cf0b830ab3 95-96,100
+godot/tests/game/test_world_source.gd.uid
+  s_1a6e9ade9f303e::t_3fde9979837cd0 1
+godot/src/region/sim_tables.gd
+  s_1a6e9ade9f303e::t_0883f5bfcca114 50-52
+src/dev/vectors/worldView.ts
+  s_1a6e9ade9f303e::t_af6dc47f3a505c 10,12,16-35,65-66
+godot/src/game/game.gd
+  s_1a6e9ade9f303e::t_4022e7c37d1362 117-118
+  s_1a6e9ade9f303e::t_18f00f7a1c737b 1-6,28,52-66,71,94-95,110,114,120-122,141
+  s_1a6e9ade9f303e::t_72d4cf0b830ab3 75-83,115-116
+godot/src/game/world_source.gd.uid
+  s_1a6e9ade9f303e::t_3fde9979837cd0 1
+docs/impl/godot-port.md
+  s_1a6e9ade9f303e::t_8c223a2ed709b7 49
+godot/src/world_view/world_feed.gd
+  s_1a6e9ade9f303e::t_14f96ccbec02a2 13-14
+godot/tests/game/test_world_source.gd
+  s_1a6e9ade9f303e::t_620d3d27d25a50 56,63,71-74
+  s_1a6e9ade9f303e::t_838b481f4b0a3c 1-55,57-62,64-70,75-84
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e556f889071fd41cd0b73b823c9892c9bd2e6053",
+  "prompts": {},
+  "sessions": {
+    "s_1a6e9ade9f303e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2c9e00ce-6ba5-4b5a-8be5-a4a273976934",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
