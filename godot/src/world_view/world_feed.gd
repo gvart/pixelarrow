@@ -10,8 +10,8 @@
 ##             alliance); status; convoys?, boards?, titles?, ladders?
 ##
 ## A source is any object with `view() -> Dictionary` (that WorldView, now) and `transfer(from, to) -> Dictionary`
-## ({ok: [TransitSnap]} or {error: text}), and optionally `tick(dt)`. Today WorldFixture (the TS mock world); the C++
-## LocalWorld drops in as `feed.source = <LocalWorld>`.
+## ({ok: [TransitSnap]} or {error: text}), and optionally `tick(dt)`: the game's WorldSource (the C++ LocalWorld), or
+## WorldFixture (the TS mock world) in the tests.
 class_name WorldFeed
 extends RefCounted
 

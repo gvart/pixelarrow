@@ -7,11 +7,31 @@ import { inSight, scoreRate, seasonStandings } from '../../war/world-view/geo';
 import { lordInfo, lordMarks, pennantScale, roughMen } from '../../war/world-view/lords';
 import { clock, WorldMap, type WorldArt } from '../../war/world-view/map';
 import { regionAction, regionKind, regionTags } from '../../war/world-view/regionCard';
-import { travelMs } from '../../war/world-view/source';
+import { fieldSquads, liveTrade, travelMs, waitingHome } from '../../war/world-view/source';
 import { domainOf, WARLORDS } from '../../data/warWarlords';
-import type { TransitSnap } from '../../war/net/world';
+import type { TransitSnap, WorldSnapshot } from '../../war/net/world';
 import art from '../../../public/war/world/regions.json';
 import { FIXTURE_NOW, worldFixture } from '../godotWorld';
+
+/** Rosters for fieldSquads and waitingHome (the live source's squads, godot/src/game/world_source.gd). */
+const p = (id: string, cls: string, region: string | null, state = 'active') => ({ id, cls, state, region });
+const ROSTERS = [
+  [p('a', 'hoplite', 'elaia'), p('b', 'archer', 'elaia'), p('c', 'hoplite', 'elaia')],
+  [p('a', 'hoplite', 'elaia'), p('b', 'archer', 'elaia-e'), p('c', 'hoplite', 'elaia-e'), p('d', 'archer', null)],
+  [p('a', 'hoplite', '>achelous'), p('b', 'archer', 'elaia'), p('c', 'hoplite', null)],
+  [p('a', 'hoplite', 'elaia', 'dead'), p('b', 'archer', 'elaia-e', 'captive'), p('c', 'hoplite', 'nowhere'), p('d', 'hoplite', null, 'wounded')],
+  [p('a', 'hoplite', 'achelous'), p('b', 'archer', 'elaia-e'), p('c', 'hoplite', 'achelous')],
+  [],
+];
+/** A world message's convoys and boards for liveTrade. */
+const TRADE = {
+  convoys: [
+    { id: 1, from: 'elaia', to: 'elaia-e', men: 4, departAt: 0, arriveAt: 9000, state: 'moving', alliance: 3, cart: 'wagon', loads: 6, goods: { iron: 2, oil: 5, food: 0, tin: 1, wood: 3 }, items: 2, mine: true },
+    { id: 2, from: 'achelous', to: 'elaia-e', men: 6, departAt: 0, arriveAt: 9000, state: 'moving', alliance: 1, loads: 0, goods: {}, items: 0, mine: false },
+    { id: 3, from: 'bacchae', to: 'elaia-n', men: 2, departAt: 10, arriveAt: 900, state: 'queued', alliance: 0, loads: 3, goods: {}, items: 1, mine: false },
+  ],
+  boards: { achelous: { at: 500, goods: { iron: { ask: 6, bid: 4, askDepth: 10, bidDepth: 5 }, oil: { ask: null, bid: 2, askDepth: 0, bidDepth: 40 } }, fills: [{ res: 'iron', n: 2, price: 6, at: 400 }] } },
+} as unknown as WorldSnapshot;
 
 export const vectors = () => {
   const v = worldFixture(), regions = v.snap.regions, by = new Map(regions.map((r) => [r.id, r])), now = FIXTURE_NOW;
@@ -42,5 +62,7 @@ export const vectors = () => {
     fit: fits,
     words: WORLD_IDS.map((id) => [id, regionKind(id), regionTags(id, by.get(id)).map((t) => [t.text, t.cls, t.tip])]),
     actions: (['enter', 'march', 'haul', 'squad'] as const).map((m) => [m, regionAction(m)]),
+    rosters: ROSTERS.flatMap((r) => [null, 'elaia'].map((home) => [r, home, fieldSquads(r, home), waitingHome(r, home)])),
+    trade: [TRADE, JSON.parse(JSON.stringify(liveTrade(TRADE))) as unknown],
   };
 };
