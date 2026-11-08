@@ -47,4 +47,7 @@ static func load() -> void:
 		t[n] = GameData.table(n)
 	for n in ["src/data/warNpcTowns", "src/data/warTownBoard"]: # the room's NPC towns and boards (npc_market.h, town_board.h)
 		t[n] = GameData.table(n)
+	# the room's life and the world: the guide, stories, encounters, the world events (net_guide.h, world.h)
+	for n in ["src/war/net/guide", "src/war/net/mastery", "src/war/region/compact", "src/data/warStories", "src/war/world/events", "src/data/warEncounters", "src/war/sim/encounters"]:
+		t[n] = GameData.table(n)
 	SimData.load(t)

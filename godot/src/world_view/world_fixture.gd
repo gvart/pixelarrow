@@ -1,4 +1,4 @@
-## The world source until the C++ LocalWorld lands (docs/impl/godot-port.md P11): the TS mock world
+## The tests' world source (the game plays WorldSource, docs/impl/godot-port.md P11): the TS mock world
 ## (src/war/world-view/source.ts mockWorld, exported by npm run view:godot to view/world/fixture.json through
 ## src/dev/godotWorld.ts), run as MockSource runs it: its clock moves on, a transfer takes his group on the road for the
 ## border's travel time, an arrival goes in while his alliance's quota there has room, else waits (queued).

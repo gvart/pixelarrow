@@ -1,7 +1,9 @@
-## The offline game on one region (docs/impl/godot-port.md P10, G-03): a local room (LocalRoom on a C++ Sim) and the
-## client that talks to it only by protocol messages (WarClient), the region view drawn from what the room sends
-## (ViewFeed), the input (RegionInput) and the HUD (Hud). Command line (after `--`):
-##   --region <id>     region (default elaia); --team <n> his alliance (default the region's)
+## The offline game (docs/impl/godot-port.md P10, P11, G-03): one world for the whole session (WorldSource: a C++
+## LocalWorld over the slice's rooms), the world map on it, and the open region: its room in that world, the client
+## that talks to it only by protocol messages (WarClient), the region view drawn from what the room sends (ViewFeed),
+## the input (RegionInput) and the HUD (Hud). Command line (after `--`):
+##   --region <id>     his home and the region opened (default elaia); --team <n> his alliance (default the region's);
+##                     --seed <n> the rooms' seeds
 ##   --state <s>       a set-up state to look at: busy (his squad selected, a fight on, a notice up), army (nothing
 ##                     selected), build (the build bar open, the tool on a spot); default none: just the game
 ##   --world           start on the world map (WorldScreen, P11); entering a region opens it here, Shift+W (or the
@@ -23,6 +25,7 @@ var hud: Hud
 var layer: CanvasLayer
 var world: WorldScreen
 var world_feed: WorldFeed
+var source: WorldSource
 var _args := {}
 var _focused := false
 
@@ -46,15 +49,38 @@ func _density() -> float:
 	return maxf(1.0, DisplayServer.screen_get_scale())
 
 
+## The session's world, made on first need round his home.
+func _source() -> WorldSource:
+	if source == null:
+		var home := String(_args.get("region", "elaia"))
+		source = WorldSource.slice(home, int(_args.get("team", _home_team(home))), {"seed": int(_args.get("seed", "7"))})
+		source.rolled.connect(_on_rolled)
+	return source
+
+
+## A new season: every room is new, so an open region opens again on its new room.
+func _on_rolled() -> void:
+	if view:
+		open_region.call_deferred(region.id)
+
+
 ## The world map (its feed lives on while a region is open: the world runs on).
 func open_world() -> void:
 	_close_region()
 	if world_feed == null:
-		world_feed = WorldFeed.make(WorldFixture.load_file())
+		world_feed = WorldFeed.make(_source())
 	world = WorldScreen.new()
 	add_child(world)
 	world.setup(world_feed, _density())
-	world.entered.connect(func(id: String) -> void: open_region.call_deferred(id))
+	world.entered.connect(_enter)
+
+
+## The map's enter: into the region when his men stand there (a region is seen through them).
+func _enter(id: String) -> void:
+	if _source().world.room(id) == null or _source().join_msg(id)["squads"].is_empty():
+		world.hud.say("None of your men stand in %s. March them there first." % WorldGeo.region_name(id), 4.0)
+		return
+	open_region.call_deferred(id)
 
 
 func _close_world() -> void:
@@ -65,6 +91,8 @@ func _close_world() -> void:
 
 
 func _close_region() -> void:
+	if client and source:
+		source.unlink(client.region_id)
 	for n in [view, input, layer]:
 		if n:
 			n.queue_free()
@@ -79,15 +107,19 @@ func _close_region() -> void:
 	_focused = false
 
 
-## One region with his army joined, its view, input and HUD.
+## One region of the world, his men there taken over (none: he watches), its view, input and HUD.
 func open_region(id: String) -> void:
 	_close_world()
 	_close_region()
+	var src := _source()
+	if src.world.room(id) == null or src.join_msg(id)["squads"].is_empty():
+		push_warning("none of his men in %s" % id)
+		open_world()
+		return
 	region = Region.load_id(id)
-	var team := int(_args.get("team", _home_team(id)))
-	sim = Sim.create(region.grid(), region.meta, region.cells, int(_args.get("seed", "7")))
-	room = LocalRoom.create(sim, {"cap": 600, "allowArmy": true, "allowDev": true, "wild": true})
-	client = WarClient.make(room, id, LocalRoom.constants())
+	room = src.world.room(id)
+	sim = room.get_sim()
+	client = WarClient.make(src.link(id), id, LocalRoom.constants())
 	view = RegionView.new()
 	view.client = client
 	view.region_id = id
@@ -106,7 +138,7 @@ func open_region(id: String) -> void:
 	layer.add_child(hud)
 	hud.setup(client, input, view, region, density)
 	client.frame.connect(_on_frame)
-	client.join_army(1, team, [["hoplite", 12], ["archer", 12]])
+	client.send(src.join_msg(id))
 
 
 ## Shift+W in a region: back to the world map.
